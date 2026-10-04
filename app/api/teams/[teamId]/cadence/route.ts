@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    const { memberId } = await requireTeamAccessById(teamId, identity.clerkId)
+    const { memberId } = await requireTeamAccessById(teamId, identity)
 
     const body = await req.json()
     const parsed = cadenceSchema.safeParse(body)

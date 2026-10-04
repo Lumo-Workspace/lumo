@@ -5,6 +5,10 @@ import {
 } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
+import {
+  AUDITED_WORKSPACE_SETTINGS,
+  type AuditedWorkspaceSetting,
+} from '@/lib/audit/workspace-settings'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +66,18 @@ export const workspaceRepository = {
   },
 
   /** LUM-933 — the stored retention settings a change is computed from. */
+  /** LUM-907: the audited setting columns, read before a settings change. */
+  async findAuditedSettings(
+    workspaceId: string
+  ): Promise<Record<AuditedWorkspaceSetting, unknown> | null> {
+    const select = Object.fromEntries(
+      Object.values(AUDITED_WORKSPACE_SETTINGS)
+        .flat()
+        .map(f => [f, true])
+    ) as Record<AuditedWorkspaceSetting, true>
+    return prisma.workspace.findUnique({ where: { id: workspaceId }, select })
+  },
+
   async findRetentionSettings(workspaceId: string): Promise<{
     hookEventRetentionMode: HookEventRetentionMode
     hookEventRetentionDays: number | null

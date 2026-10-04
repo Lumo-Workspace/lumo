@@ -27,9 +27,9 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
 
     await requireTeamMemberOrOwner(
-      sprint.team.workspaceId,
-      sprint.teamId,
-      identity.clerkId
+      identity,
+      { workspaceId: sprint.team.workspaceId, teamId: sprint.teamId },
+      'Sprint not found'
     )
 
     const tasks = await taskRepository.findBySprint(sprintId)
@@ -71,9 +71,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
 
     const { memberId } = await requireTeamMemberOrOwner(
-      sprint.team.workspaceId,
-      sprint.teamId,
-      identity.clerkId
+      identity,
+      { workspaceId: sprint.team.workspaceId, teamId: sprint.teamId },
+      'Sprint not found'
     )
 
     const body = await req.json()

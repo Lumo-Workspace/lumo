@@ -5,6 +5,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { sessionRawRecordService } from '@/lib/services/session-raw-record.service'
 import { deleteSessionRawRecordSchema } from '@/lib/validation/schemas'
 import { logger } from '@/lib/logger'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 type Params = { params: Promise<{ sessionId: string }> }
 
@@ -82,7 +83,12 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const result = await sessionRawRecordService.deleteRawRecord(
       sessionId,
       viewer,
-      { after: parsed.data.after ?? null }
+      {
+        after: parsed.data.after ?? null,
+        audit: memberAuditContext(request.headers, {
+          memberId: viewer.workspaceMemberId,
+        }),
+      }
     )
     return NextResponse.json(result)
   } catch (error) {

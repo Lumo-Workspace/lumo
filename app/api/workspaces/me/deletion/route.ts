@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { deleteWorkspaceNowSchema } from '@/lib/validation/schemas'
 import { workspaceDeletionService } from '@/lib/services'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 function errorResponse(error: unknown) {
   if (error instanceof Error && 'status' in error) {
@@ -18,7 +19,7 @@ function errorResponse(error: unknown) {
  * DELETE /api/workspaces/me/deletion — Cancel a pending workspace deletion
  * (LUM-918). Any OWNER may cancel; every OWNER is emailed.
  */
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
@@ -30,7 +31,11 @@ export async function DELETE() {
     await workspaceDeletionService.cancelDeletion(
       ws.workspace,
       ws.member.role,
-      userId
+      userId,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
     )
     return NextResponse.json({ pendingDeletion: null })
   } catch (error) {

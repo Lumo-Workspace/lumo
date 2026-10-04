@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { serviceErrorResponse, zodError } from '@/lib/api/helpers'
 import { createTaskTemplateSchema } from '@/lib/validation/task-template'
 import { taskTemplateService } from '@/lib/services/task-template.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/task-templates — system + workspace task templates (LUM-970).
@@ -43,7 +44,12 @@ export async function POST(request: NextRequest) {
     const template = await taskTemplateService.createTemplate(
       identity.workspaceId,
       role,
-      parsed.data
+      parsed.data,
+      memberAuditContext(
+        request.headers,
+        { clerkId: identity.clerkId, memberId: identity.memberId },
+        identity.source
+      )
     )
     return NextResponse.json({ template }, { status: 201 })
   } catch (error) {

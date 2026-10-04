@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    await requireTeamAccessById(teamId, identity.clerkId)
+    await requireTeamAccessById(teamId, identity)
 
     // Parse optional sprintId filter:
     //   ?sprintId=<id>   → tasks in that sprint

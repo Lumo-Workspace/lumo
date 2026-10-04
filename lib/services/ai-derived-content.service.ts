@@ -4,6 +4,10 @@ import {
   type AiDerivedSwitchRef,
 } from '@/lib/repositories/ai-derived-content.repository'
 import { logger } from '@/lib/logger'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 /** Rows one repository batch touches. */
 export const AI_DERIVED_PURGE_BATCH_SIZE = 500
@@ -81,7 +85,8 @@ export const aiDerivedContentService = {
   async purge(
     workspace: { id: string; name: string },
     role: string,
-    confirmName: string
+    confirmName: string,
+    audit?: AuditContext
   ): Promise<AiDerivedPurgeResult> {
     requireOwner(role)
     if (confirmName !== workspace.name) {
@@ -145,10 +150,12 @@ export const aiDerivedContentService = {
     ]
 
     let batches = 0
-    for (const step of steps) {
+    let done = true
+    passes: for (const step of steps) {
       for (;;) {
         if (batches >= AI_DERIVED_PURGE_MAX_BATCHES) {
-          return { deleted, done: false }
+          done = false
+          break passes
         }
         batches++
         const n = await step.run()
@@ -156,7 +163,17 @@ export const aiDerivedContentService = {
         if (n < AI_DERIVED_PURGE_BATCH_SIZE) break
       }
     }
-    logger.info('[ai-derived] purge pass finished', { workspaceId, deleted })
-    return { deleted, done: true }
+    if (done) {
+      logger.info('[ai-derived] purge pass finished', { workspaceId, deleted })
+    }
+    // LUM-907: one event per purge call (a long purge takes several calls).
+    await recordAuditEvent({
+      workspaceId,
+      action: 'ai_derived_content.purged',
+      target: { type: 'workspace', id: workspaceId },
+      metadata: { deleted, done },
+      context: audit,
+    })
+    return { deleted, done }
   },
 }

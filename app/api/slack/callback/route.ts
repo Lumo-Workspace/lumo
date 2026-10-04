@@ -4,6 +4,7 @@ import { encrypt } from '@/lib/crypto'
 import { decodeOauthState } from '@/lib/integrations/oauth-state'
 import { logger } from '@/lib/logger'
 import { slackService } from '@/lib/services/slack.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/slack/callback?code={code}&state={state}
@@ -65,14 +66,17 @@ export async function GET(request: NextRequest) {
 
     const encryptedToken = encrypt(tokenData.access_token)
 
-    await slackService.upsertIntegration({
-      workspaceId,
-      installedBy: memberId,
-      accessToken: encryptedToken,
-      slackTeamId: tokenData.team.id,
-      slackTeamName: tokenData.team.name,
-      slackUserId: tokenData.authed_user.id,
-    })
+    await slackService.upsertIntegration(
+      {
+        workspaceId,
+        installedBy: memberId,
+        accessToken: encryptedToken,
+        slackTeamId: tokenData.team.id,
+        slackTeamName: tokenData.team.name,
+        slackUserId: tokenData.authed_user.id,
+      },
+      memberAuditContext(request.headers, { memberId })
+    )
 
     return NextResponse.redirect(`${settingsUrl}?slack_connected=1`)
   } catch (error) {

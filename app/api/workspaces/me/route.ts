@@ -4,6 +4,7 @@ import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateWorkspaceSchema } from '@/lib/validation/schemas'
 import { workspaceService, workspaceDeletionService } from '@/lib/services'
 import { platformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/workspaces/me — Get the current user's workspace.
@@ -58,7 +59,11 @@ export async function PATCH(request: NextRequest) {
       ws.workspaceId,
       ws.member.role,
       ws.workspace.slug,
-      parsed.data
+      parsed.data,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
     )
 
     return NextResponse.json({ workspace: updated })
@@ -82,7 +87,7 @@ export async function PATCH(request: NextRequest) {
  * any of them can cancel for 48 hours; the cron then runs the full LUM-861
  * purge (rows, blobs, deletion receipt).
  */
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
@@ -94,7 +99,12 @@ export async function DELETE() {
     const pendingDeletion = await workspaceDeletionService.scheduleDeletion(
       ws.workspace,
       ws.member.role,
-      userId
+      userId,
+      new Date(),
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
     )
 
     return NextResponse.json({ pendingDeletion }, { status: 202 })

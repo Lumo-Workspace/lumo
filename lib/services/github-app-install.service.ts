@@ -1,4 +1,8 @@
 import { logger } from '@/lib/logger'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 import { githubService } from '@/lib/services/github.service'
 import { TOKEN_FAILING_ALERT_MS } from '@/lib/services/github-access-recheck.config'
 import {
@@ -32,6 +36,8 @@ interface InstallInput {
   userCode: string
   /** The redirect_uri the code was issued for — GitHub re-checks it. */
   redirectUri: string
+  /** LUM-907: who installed, from where. */
+  audit?: AuditContext
 }
 
 /** `installation` / `installation_repositories` webhook payload, narrowed. */
@@ -48,6 +54,8 @@ interface ReverifyInput {
   memberRole: string
   userCode: string
   redirectUri: string
+  /** LUM-907: who re-verified, from where. */
+  audit?: AuditContext
 }
 
 function fullNames(repos: { full_name?: string }[] | undefined): string[] {
@@ -423,6 +431,7 @@ export const githubAppInstallService = {
     installationId,
     userCode,
     redirectUri,
+    audit,
   }: InstallInput) {
     const {
       login,
@@ -471,6 +480,18 @@ export const githubAppInstallService = {
         })
     )
 
+    await recordAuditEvent({
+      workspaceId,
+      action: 'github_app.installed',
+      target: { type: 'integration', id: 'github' },
+      metadata: {
+        installationId,
+        accountLogin: account.accountLogin,
+        repositoryCount: repositories.length,
+        reinstall: previous !== null,
+      },
+      context: audit,
+    })
     await backfillPullRequests(workspaceId, repositories)
 
     return row
@@ -500,6 +521,7 @@ export const githubAppInstallService = {
     memberRole,
     userCode,
     redirectUri,
+    audit,
   }: ReverifyInput) {
     const row = await requireReverifiableInstallation(workspaceId, memberRole)
 
@@ -532,6 +554,18 @@ export const githubAppInstallService = {
           { login: verifier.login, githubId: verifier.githubId }
         )
     )
+    await recordAuditEvent({
+      workspaceId,
+      action: 'github_app.reverified',
+      target: { type: 'integration', id: 'github' },
+      metadata: {
+        installationId: row.installationId,
+        confirmed: confirmed.length,
+        added: added.length,
+        removed: removed.length,
+      },
+      context: audit,
+    })
     await backfillPullRequests(workspaceId, added)
 
     return { confirmed: confirmed.length, added, removed }
@@ -658,7 +692,11 @@ export const githubAppInstallService = {
    * throws fails the request with the row (and the App) still in place, so
    * the owner can retry instead of leaving code no workspace points at.
    */
-  async uninstall(workspaceId: string, memberRole: string) {
+  async uninstall(
+    workspaceId: string,
+    memberRole: string,
+    audit?: AuditContext
+  ) {
     if (memberRole !== 'OWNER') {
       throw Object.assign(
         new Error('Only workspace owners can uninstall the GitHub App'),
@@ -690,6 +728,13 @@ export const githubAppInstallService = {
       }
     }
     await githubAppInstallationRepository.deleteForWorkspace(workspaceId)
+    await recordAuditEvent({
+      workspaceId,
+      action: 'github_app.uninstalled',
+      target: { type: 'integration', id: 'github' },
+      metadata: { installationId: row.installationId, shared },
+      context: audit,
+    })
     await scrubAfterNarrowing(workspaceId, 'uninstalled from Lumo')
     return { removed: true } as const
   },

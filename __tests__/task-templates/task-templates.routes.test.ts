@@ -118,11 +118,30 @@ describe('write routes', () => {
 
       expect(await createEditDelete()).toEqual([201, 200, 200])
       expect(svc.memberRole).toHaveBeenCalledWith('m_owner')
-      expect(svc.createTemplate).toHaveBeenCalledWith('ws_1', 'OWNER', body)
-      expect(svc.updateTemplate).toHaveBeenCalledWith('ws_1', 'OWNER', 'tt_1', {
-        name: 'B2',
+      // LUM-907: the audit context names the member and how they signed in.
+      const audit = expect.objectContaining({
+        actor: expect.objectContaining({ memberId: 'm_owner' }),
+        source: source === 'bearer' ? 'CLI' : 'WEB',
       })
-      expect(svc.deleteTemplate).toHaveBeenCalledWith('ws_1', 'OWNER', 'tt_1')
+      expect(svc.createTemplate).toHaveBeenCalledWith(
+        'ws_1',
+        'OWNER',
+        body,
+        audit
+      )
+      expect(svc.updateTemplate).toHaveBeenCalledWith(
+        'ws_1',
+        'OWNER',
+        'tt_1',
+        { name: 'B2' },
+        audit
+      )
+      expect(svc.deleteTemplate).toHaveBeenCalledWith(
+        'ws_1',
+        'OWNER',
+        'tt_1',
+        audit
+      )
     }
   )
 
@@ -139,8 +158,18 @@ describe('write routes', () => {
       svc.deleteTemplate.mockRejectedValue(forbidden())
 
       expect(await createEditDelete()).toEqual([403, 403, 403])
-      expect(svc.createTemplate).toHaveBeenCalledWith('ws_1', 'MEMBER', body)
-      expect(svc.deleteTemplate).toHaveBeenCalledWith('ws_1', 'MEMBER', 'tt_1')
+      expect(svc.createTemplate).toHaveBeenCalledWith(
+        'ws_1',
+        'MEMBER',
+        body,
+        expect.anything()
+      )
+      expect(svc.deleteTemplate).toHaveBeenCalledWith(
+        'ws_1',
+        'MEMBER',
+        'tt_1',
+        expect.anything()
+      )
     }
   )
 

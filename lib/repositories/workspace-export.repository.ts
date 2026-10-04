@@ -31,6 +31,7 @@ export const EXPORT_KINDS = [
   'task-templates',
   'tags',
   'memories',
+  'audit-events',
 ] as const
 
 export type ExportKind = (typeof EXPORT_KINDS)[number]
@@ -327,6 +328,26 @@ async function pageRows(
           createdByMemberId: true,
           supersededAt: true,
           ...ts,
+        },
+        ...page,
+      })
+    case 'audit-events':
+      // LUM-907: the workspace audit log (already credential-redacted).
+      return prisma.auditEvent.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          actorType: true,
+          actorId: true,
+          actorMemberId: true,
+          action: true,
+          targetType: true,
+          targetId: true,
+          source: true,
+          ip: true,
+          userAgent: true,
+          metadata: true,
+          createdAt: true,
         },
         ...page,
       })

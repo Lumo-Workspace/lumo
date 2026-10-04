@@ -1,7 +1,9 @@
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { auth, getUserWorkspace, getVerifiedEmails } from '@/lib/auth'
 import { inviteService } from '@/lib/services/invite.service'
 import { OnboardingClient } from './OnboardingClient'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export default async function OnboardingPage() {
   const { userId } = await auth()
@@ -13,7 +15,8 @@ export default async function OnboardingPage() {
   if (!(await getUserWorkspace(userId))) {
     const slug = await inviteService.joinPendingInvitesForEmails(
       userId,
-      await getVerifiedEmails()
+      await getVerifiedEmails(),
+      memberAuditContext(await headers(), { clerkId: userId })
     )
     if (slug) redirect(`/workspace/${slug}`)
   }

@@ -21,12 +21,17 @@ const findTeamMember = prisma.teamMember.findUnique as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
+const caller = (clerkId: string, workspaceId = 'ws-1') => ({
+  clerkId,
+  workspaceId,
+})
+
 describe('requireTeamAccessById', () => {
   it('throws 404 when the team does not exist', async () => {
     findWorkspaceId.mockResolvedValue(null)
 
     await expect(
-      requireTeamAccessById('missing', 'clerk_1')
+      requireTeamAccessById('missing', caller('clerk_1'))
     ).rejects.toMatchObject({ message: 'Team not found', status: 404 })
   })
 
@@ -34,7 +39,7 @@ describe('requireTeamAccessById', () => {
     findWorkspaceId.mockResolvedValue({ id: 'team-1', workspaceId: 'ws-1' })
     findWsMember.mockResolvedValue({ id: 'mem-1', role: 'OWNER' })
 
-    const result = await requireTeamAccessById('team-1', 'clerk_owner')
+    const result = await requireTeamAccessById('team-1', caller('clerk_owner'))
 
     expect(result).toEqual({
       memberId: 'mem-1',
@@ -49,7 +54,7 @@ describe('requireTeamAccessById', () => {
     findWsMember.mockResolvedValue({ id: 'mem-1', role: 'MEMBER' })
     findTeamMember.mockResolvedValue({ id: 'tm-1' })
 
-    const result = await requireTeamAccessById('team-1', 'clerk_member')
+    const result = await requireTeamAccessById('team-1', caller('clerk_member'))
 
     expect(result).toEqual({
       memberId: 'mem-1',
@@ -64,7 +69,7 @@ describe('requireTeamAccessById', () => {
     findTeamMember.mockResolvedValue(null)
 
     await expect(
-      requireTeamAccessById('team-1', 'clerk_outsider')
+      requireTeamAccessById('team-1', caller('clerk_outsider'))
     ).rejects.toMatchObject({ status: 403 })
   })
 
@@ -73,7 +78,19 @@ describe('requireTeamAccessById', () => {
     findWsMember.mockResolvedValue(null)
 
     await expect(
-      requireTeamAccessById('team-1', 'clerk_stranger')
+      requireTeamAccessById('team-1', caller('clerk_stranger'))
     ).rejects.toMatchObject({ status: 403 })
+  })
+
+  // LUM-985: a team in another workspace than the credential is "not found",
+  // even when the same human is that workspace's OWNER.
+  it('throws 404 Team not found when the team is outside the credential workspace', async () => {
+    findWorkspaceId.mockResolvedValue({ id: 'team-b', workspaceId: 'ws-bravo' })
+    findWsMember.mockResolvedValue({ id: 'mem-b', role: 'OWNER' })
+
+    await expect(
+      requireTeamAccessById('team-b', caller('clerk_dual', 'ws-alpha'))
+    ).rejects.toMatchObject({ message: 'Team not found', status: 404 })
+    expect(findWsMember).not.toHaveBeenCalled()
   })
 })

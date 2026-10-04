@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { inviteService } from '@/lib/services/invite.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
@@ -13,7 +14,11 @@ export async function POST(
 
     const { token } = await params
 
-    const result = await inviteService.acceptInvite(token, userId)
+    const result = await inviteService.acceptInvite(
+      token,
+      userId,
+      memberAuditContext(request.headers, { clerkId: userId })
+    )
 
     return NextResponse.json(
       { workspaceSlug: result.workspaceSlug },

@@ -39,7 +39,11 @@ jest.mock('@/lib/repositories/member.repository', () => ({
   },
 }))
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  // LUM-907: the accepted member's id goes into the audit event.
+  mockAcceptInTransaction.mockResolvedValue({ id: 'member-new' })
+})
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 

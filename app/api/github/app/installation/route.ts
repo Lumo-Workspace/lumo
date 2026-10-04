@@ -3,6 +3,7 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/github/app/installation?workspaceUrl={slug}
@@ -61,7 +62,14 @@ export async function DELETE(request: NextRequest) {
     const memberResult = await requireWorkspaceMember(ws.workspaceId, userId)
     if (memberResult instanceof NextResponse) return memberResult
 
-    await githubAppInstallService.uninstall(ws.workspaceId, memberResult.role)
+    await githubAppInstallService.uninstall(
+      ws.workspaceId,
+      memberResult.role,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: memberResult.id,
+      })
+    )
     return NextResponse.json({ ok: true })
   } catch (error) {
     if ((error as { status?: number }).status === 403) {

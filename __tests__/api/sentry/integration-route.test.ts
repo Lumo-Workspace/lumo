@@ -110,7 +110,11 @@ describe('DELETE /api/sentry/integration', () => {
     expect(res.status).toBe(200)
     expect(sentryService.disconnectIntegration).toHaveBeenCalledWith(
       'ws1',
-      'OWNER'
+      'OWNER',
+      expect.objectContaining({
+        actor: expect.objectContaining({ clerkId: 'user1', memberId: 'mem1' }),
+        source: 'WEB',
+      })
     )
   })
 })

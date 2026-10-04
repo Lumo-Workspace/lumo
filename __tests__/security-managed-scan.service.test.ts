@@ -72,6 +72,14 @@ const DIFF = [
   '+const a = 1',
   `+const k = "${KEY}"`,
 ].join('\n')
+/** DIFF plus a hunk in package-lock.json — the PR changed the lockfile. */
+const DIFF_WITH_LOCKFILE = [
+  DIFF,
+  '--- a/package-lock.json',
+  '+++ b/package-lock.json',
+  '@@ -10,0 +10,1 @@',
+  '+    "lodash": "4.17.15",',
+].join('\n')
 
 const gitleaksSarif = {
   version: '2.1.0',
@@ -112,7 +120,11 @@ const semgrepSarif = {
   version: '2.1.0',
   runs: [{ tool: { driver: { name: 'semgrep', rules: [] } }, results: [] }],
 }
-/** LUM-738: osv-scanner's SARIF — a lockfile hit that is NOT in the PR diff. */
+/**
+ * LUM-738: osv-scanner's SARIF — a hit in package-lock.json, which DIFF does
+ * not touch. Since LUM-975 a PR scan keeps dependency rows only for lockfiles
+ * the PR changed, so tests that expect the row kept use DIFF_WITH_LOCKFILE.
+ */
 const osvSarif = {
   version: '2.1.0',
   runs: [
@@ -614,7 +626,8 @@ describe('scrubToken', () => {
 // ── LUM-738: osv-scanner (L2 supply chain) + repository baseline ────────────
 
 describe('LUM-738 osv-scanner in the managed sandbox', () => {
-  it('runs osv-scanner third from the pinned release binary and its report yields DEPENDENCY findings the diff filter does not touch', async () => {
+  it('runs osv-scanner third from the pinned release binary and its report yields DEPENDENCY findings for a lockfile the PR changed', async () => {
+    diff.mockResolvedValue(DIFF_WITH_LOCKFILE)
     const sb = fakeSandbox(ALL_REPORTS)
     create.mockResolvedValue(sb)
     const out = await securityManagedScanService.scanRepository(JOB)
@@ -626,7 +639,7 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     )
     expect(scanCalls(sb.run)[2]![2]).toEqual({ cwd: '/vercel/r' })
     expect(sb.readFile).toHaveBeenCalledWith('/tmp/osv.sarif')
-    // package-lock.json is not in DIFF — a diff-aware row would be dropped.
+    // The PR changed package-lock.json, so its dependency row is kept (LUM-975).
     expect(out['osv-scanner']).toMatchObject({
       kind: 'ok',
       tool: 'osv-scanner',
@@ -650,6 +663,20 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     ])
     expect(out.gitleaks.kind).toBe('ok')
     expect(out.semgrep.kind).toBe('ok')
+  })
+
+  it('LUM-975 drops the DEPENDENCY row on a PR scan when the PR leaves the lockfile untouched', async () => {
+    // Default DIFF touches only src/db.ts — package-lock.json is the base
+    // branch's, so nothing in it was introduced by this PR.
+    create.mockResolvedValue(fakeSandbox(ALL_REPORTS))
+    const out = await securityManagedScanService.scanRepository(JOB)
+    expect(out['osv-scanner']).toMatchObject({
+      kind: 'ok',
+      tool: 'osv-scanner',
+      dropped: { notInDiff: 1 },
+    })
+    if (out['osv-scanner'].kind !== 'ok') throw new Error('unreachable')
+    expect(out['osv-scanner'].findings).toEqual([])
   })
 
   it('exit 1 (vulnerabilities found) is success', async () => {
