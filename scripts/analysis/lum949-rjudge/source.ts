@@ -112,7 +112,7 @@ export function parseRecordFile(
       attackType: typeof row.attack_type === 'string' ? row.attack_type : '',
       contents: row.contents.map(turn =>
         Array.isArray(turn)
-          ? turn.filter(isObj).map(m => m as RJudgeMessage)
+          ? turn.filter(isObj).map(m => m as unknown as RJudgeMessage)
           : []
       ),
     })

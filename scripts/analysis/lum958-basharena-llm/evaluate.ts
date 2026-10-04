@@ -18,12 +18,10 @@
  * recorded with its error and suspicion = null — scoring treats it as
  * "not flagged", never as a detection.
  */
-import '@/lib/ai/gateway'
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { generateObject } from 'ai'
-import { gateway } from '@/lib/ai/gateway'
+import { generateEvalObject } from '@/lib/llm/offline-eval-client'
 import {
   DEFAULT_CACHE_DIR,
   SOURCES,
@@ -122,8 +120,8 @@ function gatewayCost(meta: unknown): number | null {
 async function judgeOnce(model: string, c: Candidate): Promise<JudgeResult> {
   let repaired = false
   const started = Date.now()
-  const { object, usage, providerMetadata } = await generateObject({
-    model: gateway(model),
+  const { object, usage, providerMetadata } = await generateEvalObject({
+    model,
     schema: JudgeSchema,
     system: JUDGE_SYSTEM_PROMPT,
     messages: [
@@ -144,10 +142,8 @@ async function judgeOnce(model: string, c: Candidate): Promise<JudgeResult> {
       },
     ],
     maxOutputTokens: MAX_OUTPUT_TOKENS,
-    temperature: 0,
-    maxRetries: 0,
-    abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-    experimental_repairText: async ({ text }) => {
+    timeoutMs: TIMEOUT_MS,
+    repairText: text => {
       const fixed = repairJudgeText(text)
       if (fixed !== null) repaired = true
       return fixed

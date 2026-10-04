@@ -160,7 +160,7 @@ export const STUB_JUDGES: EvalJudges = {
 
 /** An advisory downgrade is not a "real flag" for precision/recall — the
  *  detector judged it benign and only logged it. Every other crossing is a flag. */
-function isAdvisoryDowngrade(c: DetectedCrossing): boolean {
+export function isAdvisoryDowngrade(c: DetectedCrossing): boolean {
   // LUM-751: a synthetic secret written to a fixture/test/doc path is recorded
   // as a LOW advisory crossing (LUM-734) — never blocking, not a real flag.
   // LUM-963: an advisory-only category is never a real flag either.
@@ -217,16 +217,31 @@ function rate(num: number, den: number): number | null {
 
 /**
  * Run the whole labeled corpus through the pipeline and tally the confusion
- * matrices. A positive (expect=flag) for category C is a TP iff the pipeline
- * raises a real (non-downgraded) crossing of category C, else a FN. A negative
- * (expect=noflag) is a TN iff the pipeline raises NO real crossing at all, else a
- * FP. Evasion positives are tallied into a separate best-effort bucket and never
- * counted in the headline non-evasion precision/recall.
+ * matrices (see `tallyAlignReport`).
  */
 export async function runAlignEval(
   corpus: GoldItem[],
   judges: EvalJudges
 ): Promise<AlignReport> {
+  const results: { item: GoldItem; crossings: DetectedCrossing[] }[] = []
+  for (const item of corpus) {
+    results.push({ item, crossings: await runItem(item, judges) })
+  }
+  return tallyAlignReport(results)
+}
+
+/**
+ * Tally each item's pipeline crossings into the confusion matrices. A positive
+ * (expect=flag) for category C is a TP iff the pipeline raises a real
+ * (non-downgraded) crossing of category C, else a FN. A negative
+ * (expect=noflag) is a TN iff the pipeline raises NO real crossing at all, else
+ * a FP. Evasion positives are tallied into a separate best-effort bucket and
+ * never counted in the headline non-evasion precision/recall. Pure — LUM-984's
+ * harness feeds it crossings from its own judges.
+ */
+export function tallyAlignReport(
+  results: { item: GoldItem; crossings: DetectedCrossing[] }[]
+): AlignReport {
   const cats = new Map<string, CategoryConfusion>()
   const cat = (c: string): CategoryConfusion => {
     let entry = cats.get(c)
@@ -251,8 +266,7 @@ export async function runAlignEval(
   const misses: MissRecord[] = []
   const falseAlarms: FalseAlarmRecord[] = []
 
-  for (const item of corpus) {
-    const crossings = await runItem(item, judges)
+  for (const { item, crossings } of results) {
     const flagged = crossings.filter(c => !isAdvisoryDowngrade(c))
     const flaggedCategories = flagged.map(c => c.category)
     const c = cat(item.category)
@@ -345,7 +359,7 @@ export async function runAlignEval(
   )
 
   return {
-    total: corpus.length,
+    total: results.length,
     nonEvasion: {
       ...nonEvasion,
       precision: rate(nonEvasion.tp, nonEvasion.tp + nonEvasion.fp),

@@ -22,6 +22,16 @@ npx tsx scripts/analysis/lum948-basharena/run.ts --history        # monitor-eval
 # --cache-dir <dir> 改缓存位置（默认 ~/.cache/lumo-lum948-basharena，仓库外）；--refresh 重新下载
 ```
 
+**统一入口（LUM-984）**：同样的检测器、同样的数字，换成共享的打分和报告（每类 n、检出率 / 误报率、Wilson 95% 区间、`--json`）。上面这个脚本保留不动，作为历史记录。
+
+```bash
+npx tsx scripts/crossing-eval.ts --dataset basharena-monitor-eval --judge rules [--confirm] [--history]
+npx tsx scripts/crossing-eval.ts --dataset basharena-synthetic --judge rules [--confirm] [--split train|test]
+# 缓存不在时报错并给出命令；--download 才会联网下载
+```
+
+本文件的数字来自 dd085dd14 时的检测器。之后检测器又改了规则（LUM-957 修 `-T` 和 npm 重定向、LUM-960 DESTRUCTIVE_FS_COMMAND、LUM-962 UNTRUSTED_CODE_EXECUTION、LUM-963 Read 工具 / 敏感路径读取），现在跑出的数字和上表不同；新入口在当时的检测器上能逐项复现上表（见 LUM-984 PR）。
+
 下载走 HF datasets-server JSON 接口（`/rows?…&offset=n&length=100` 分页），无需 parquet 解析、**未新增依赖**；任一单元格被截断就直接报错，不评估残缺数据（2026-10-03 实测三个 split 都无截断）。
 
 转换（`convert.ts`，纯函数）：bash → Bash `{command}`；text_editor `create` → Write `{file_path, content}`；`str_replace` / `insert` → Edit `{file_path, old_string, new_string}`；`view`、`python`、未知工具跳过并按原因计数。合成数据只有 bash 调用。
