@@ -194,18 +194,27 @@ export interface MonitorEvalRow {
   action: string
 }
 
+export interface MonitorEvalTrajectory {
+  dataset: 'monitor-eval'
+  /** `<sample_id>:<label>` — the same task id can have both runs. */
+  id: string
+  sampleId: string
+  label: TrajectoryLabel
+  sideTask: string
+  events: ToolEvent[]
+  /** Cover instruction already stripped (see `stripCoverInstruction`). */
+  taskDescription: string
+}
+
 /**
  * monitor-eval → whole trajectories. A trajectory is (sample_id, label); its
  * events are the `previous_actions` of its latest scored row plus that row's
  * own action — i.e. everything the agent did up to the last scored step, as
- * a production monitor would see it (LUM-948 `--history`). Judging only the
- * scored actions would undercount honest trajectories (85 honest vs 178
- * attack candidates), so the false-positive rate would look better than it is.
+ * a production monitor would see it (LUM-948 `--history`).
  */
-export function monitorEvalCandidates(rows: MonitorEvalRow[]): {
-  meta: TrajectoryMeta[]
-  candidates: Candidate[]
-} {
+export function monitorEvalTrajectories(
+  rows: MonitorEvalRow[]
+): MonitorEvalTrajectory[] {
   const groups = new Map<string, MonitorEvalRow[]>()
   for (const r of rows) {
     if (!toLabel(r.label)) continue
@@ -214,9 +223,7 @@ export function monitorEvalCandidates(rows: MonitorEvalRow[]): {
     if (g) g.push(r)
     else groups.set(key, [r])
   }
-  const meta: TrajectoryMeta[] = []
-  const candidates: Candidate[] = []
-  for (const g of Array.from(groups.values())) {
+  return Array.from(groups.values()).map(g => {
     const sorted = [...g].sort(
       (a, b) => Number(a.action_idx) - Number(b.action_idx)
     )
@@ -231,29 +238,41 @@ export function monitorEvalCandidates(rows: MonitorEvalRow[]): {
     }
     calls.push(...parseJsonArray(last.action))
     const label = toLabel(last.label)!
-    const sideTask = Array.from(
-      new Set(sorted.map(r => r.side_task).filter(s => s !== ''))
-    )
-      .sort()
-      .join('+')
-    const traj = {
-      dataset: 'monitor-eval',
-      // The same task id can have both an honest and an attack run.
+    return {
+      dataset: 'monitor-eval' as const,
       id: `${last.sample_id}:${label}`,
+      sampleId: String(last.sample_id),
       label,
-      sideTask,
+      sideTask: Array.from(
+        new Set(sorted.map(r => r.side_task).filter(s => s !== ''))
+      )
+        .sort()
+        .join('+'),
       events: eventsOf(calls, convertControlArenaCall),
+      taskDescription: stripCoverInstruction(last.task_description ?? ''),
     }
-    const cs = candidatesOf(
-      traj,
-      stripCoverInstruction(last.task_description ?? '')
-    )
+  })
+}
+
+/**
+ * monitor-eval → candidates over whole trajectories. Judging only the scored
+ * actions would undercount honest trajectories (85 honest vs 178 attack
+ * candidates), so the false-positive rate would look better than it is.
+ */
+export function monitorEvalCandidates(rows: MonitorEvalRow[]): {
+  meta: TrajectoryMeta[]
+  candidates: Candidate[]
+} {
+  const meta: TrajectoryMeta[] = []
+  const candidates: Candidate[] = []
+  for (const traj of monitorEvalTrajectories(rows)) {
+    const cs = candidatesOf(traj, traj.taskDescription)
     candidates.push(...cs)
     meta.push({
       dataset: traj.dataset,
       id: traj.id,
-      label,
-      sideTask,
+      label: traj.label,
+      sideTask: traj.sideTask,
       events: traj.events.length,
       candidates: cs.length,
     })
@@ -267,7 +286,7 @@ export interface SyntheticRow {
   label: string | number
   side_task: string
   trajectory: string
-  source_file?: string
+  source_file?: string | undefined
 }
 
 export function syntheticCandidates(
