@@ -21,7 +21,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `setup`, `auth login/logout`, `whoami`, `update`                                       | [references/onboarding.md](references/onboarding.md)           |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)       |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                 |
-| `task create/update/list/search/statuses/show/comment`, `next`                         | [references/tasks.md](references/tasks.md)                     |
+| `task create/update/list/search/statuses/show/comment/decide/template list`, `next`    | [references/tasks.md](references/tasks.md)                     |
 | `member list` — workspace directory (the refs `--assignee` accepts)                    | [references/members.md](references/members.md)                 |
 | `tag list/create` — workspace tags                                                     | [references/tags.md](references/tags.md)                       |
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                             | [references/task-deps.md](references/task-deps.md)             |
@@ -69,6 +69,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Tasks — see [tasks.md](references/tasks.md)
 
 - `lumo task create <title> [flags]` — create a task. **Mid-task** (your session is bound to an in-flight task) it requires `--rework-of <id>` (redirects you to fix the existing task — creates nothing) or `--new-scope` (genuinely new, out-of-scope work). On a review bounce, fix in place instead of spinning off a new task — see [task-status.md](references/task-status.md).
+- `lumo task create <title> --template <key>` pre-fills the description from a template (`lumo task template list`; built-in `agent-brief`). `lumo task decide <id> "<text>"` appends a dated ruling to the description's `## Decisions` section — use it for scope/approach rulings instead of a comment.
 - `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags/due; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
 - `lumo task list [flags]` — list tasks assigned to you
 - `lumo task search [query] [flags]` — search the whole workspace (any assignee; `--assignee none`, `--tag`, `--status`, `--priority`, `--sprint`, `--due-before/--due-after`); query terms are ANDed and ranked; typo tolerance (`pg_trgm`, then letter swaps) only kicks in when nothing matches exactly, off with `--exact`

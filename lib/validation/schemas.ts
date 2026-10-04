@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { securityPolicySchema } from '@/lib/security-scan/policy'
+import { taskTemplateKeySchema } from '@/lib/validation/task-template'
 
 /**
  * Max length for rich-text body fields (HTML serialized client-side).
@@ -246,6 +247,9 @@ export const cliCreateTaskSchema = z.object({
   // LUM-821: the CLI sends the local-midnight instant of `--due YYYY-MM-DD`
   // (same storage convention as the web DueDatePicker).
   dueDate: z.string().datetime().optional(),
+  // LUM-970: pre-fill the description from a task template (system or
+  // workspace). Mutually exclusive with `description` — checked in the service.
+  templateKey: taskTemplateKeySchema.optional(),
   parentRef: removedParentRef,
   ...tagIdsShape,
 })

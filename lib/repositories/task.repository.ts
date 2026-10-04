@@ -538,6 +538,14 @@ export const taskRepository = {
   },
 
   /** Find a task by ID with update-related relations (project + team). */
+  /** LUM-970: just the stored (HTML) description, for `task decide`. */
+  async findDescription(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: { description: true },
+    })
+  },
+
   async findForUpdate(id: string) {
     return prisma.task.findUnique({
       where: { id },

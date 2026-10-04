@@ -4,6 +4,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskService } from '@/lib/services/task.service'
+import { taskTemplateService } from '@/lib/services/task-template.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
 import { slugify } from '@/lib/utils/slugify'
@@ -163,6 +164,7 @@ async function createFromCli(args: {
     reworkOfRef?: string | undefined
     newScope?: boolean | undefined
     dueDate?: string | undefined
+    templateKey?: string | undefined
   }
 }): Promise<{
   id: string
@@ -230,6 +232,20 @@ async function createFromCli(args: {
     }
   }
 
+  // LUM-970: --template pre-fills the description with the template's
+  // Markdown (normalized to HTML by createTask like any CLI description).
+  let description = input.description ?? null
+  if (input.templateKey !== undefined) {
+    if (description !== null && description.trim() !== '') {
+      throw httpError(400, 'Pass either --description or --template, not both')
+    }
+    description = await taskTemplateService.resolveContent(
+      workspaceId,
+      input.templateKey,
+      { memberId: args.memberId ?? null }
+    )
+  }
+
   const projectId = await resolveProjectId(workspaceId, input.projectRef)
   const assigneeActorId = await resolveAssigneeActorId({
     workspaceId,
@@ -262,7 +278,7 @@ async function createFromCli(args: {
     projectId,
     {
       title: input.title,
-      description: input.description ?? null,
+      description,
       status: 'TODO',
       priority: input.priority,
       assigneeActorId,

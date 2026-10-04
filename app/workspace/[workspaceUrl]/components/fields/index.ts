@@ -6,6 +6,7 @@ export { AiPrioritySelect } from './AiPrioritySelect'
 export { ProjectSelect } from './ProjectSelect'
 export { SprintSelect } from './SprintSelect'
 export { DueDatePicker } from './DueDatePicker'
+export { TaskTemplateSelect } from './TaskTemplateSelect'
 export {
   FIELD_TRIGGER_CLS,
   FieldValueSkeleton,

@@ -53,6 +53,7 @@ export type {
 } from './document.service'
 export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'
+export { taskTemplateService } from './task-template.service'
 export { workspaceService } from './workspace.service'
 export { aiDerivedContentService } from './ai-derived-content.service'
 export { sessionRecordNoticeService } from './session-record-notice.service'

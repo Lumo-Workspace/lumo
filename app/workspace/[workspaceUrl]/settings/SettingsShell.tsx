@@ -17,6 +17,7 @@ import {
   CalendarClock,
   Terminal,
   Trash2,
+  FileText,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -56,6 +57,12 @@ export function SettingsShell({
       icon: Tag,
     },
     {
+      // LUM-970: everyone reads; only OWNERs edit (enforced by the API).
+      label: intl.formatMessage({ id: 'taskTemplate.settings.title' }),
+      href: `/workspace/${workspaceUrl}/settings/task-templates`,
+      icon: FileText,
+    },
+    {
       label: intl.formatMessage({ id: 'settings.nav.sprints' }),
       href: `/workspace/${workspaceUrl}/settings/sprints`,
       icon: CalendarClock,
@@ -83,6 +90,12 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.tags' }),
       href: `/workspace/${workspaceUrl}/settings/tags`,
       icon: Tag,
+    },
+    {
+      // LUM-970: everyone reads; only OWNERs edit (enforced by the API).
+      label: intl.formatMessage({ id: 'taskTemplate.settings.title' }),
+      href: `/workspace/${workspaceUrl}/settings/task-templates`,
+      icon: FileText,
     },
     {
       // LUM-918: every member has a trash (tasks + their own documents).
