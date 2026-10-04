@@ -1,6 +1,109 @@
 {
-  "cliVersion": "1.92.0",
+  "cliVersion": "1.93.0",
   "commands": {
+    "audit": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Workspace audit log (workspace owners only)"
+    },
+    "audit list": {
+      "arguments": [],
+      "flags": {
+        "--action": {
+          "long": "--action",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "An action key (member.role_changed) or an area (invite)"
+        },
+        "--actor": {
+          "long": "--actor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "me, system, an email, a member name, a member id or a Clerk user id"
+        },
+        "--csv": {
+          "long": "--csv",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Write the filtered log as CSV to stdout (capped)"
+        },
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the page as JSON"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Events per page (1-200, default 50)"
+        },
+        "--since": {
+          "long": "--since",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "From: 7d, 2026-10-01 or an ISO date-time"
+        },
+        "--target": {
+          "long": "--target",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Target id"
+        },
+        "--target-type": {
+          "long": "--target-type",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "workspace",
+            "member",
+            "invite",
+            "data_export",
+            "session",
+            "task_template",
+            "integration"
+          ],
+          "enumCaseInsensitive": true,
+          "description": "workspace | member | invite | data_export | session | task_template | integration (case-insensitive)"
+        },
+        "--until": {
+          "long": "--until",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "To (inclusive): 2026-10-04 or an ISO date-time"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List the workspace audit log, newest first: who did what, when, from where (OWNER only)."
+    },
     "auth": {
       "arguments": [],
       "flags": {},

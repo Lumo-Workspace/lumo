@@ -105,6 +105,9 @@ export const API = {
     aiDerivedContent: '/api/workspaces/me/ai-derived-content',
     exportDownload: (id: string) =>
       `/api/workspaces/me/exports/${encodeURIComponent(id)}/download`,
+    // LUM-907: the workspace audit log (OWNER only) and its CSV export.
+    auditEvents: '/api/workspaces/me/audit-events',
+    auditEventsExport: '/api/workspaces/me/audit-events/export',
   },
   invites: {
     list: '/api/invites',

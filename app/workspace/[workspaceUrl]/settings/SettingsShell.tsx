@@ -17,6 +17,7 @@ import {
   CalendarClock,
   Terminal,
   Trash2,
+  ScrollText,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -65,6 +66,12 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.trash' }),
       href: `/workspace/${workspaceUrl}/settings/trash`,
       icon: Trash2,
+    },
+    {
+      // LUM-907: OWNER only — members never see this item.
+      label: intl.formatMessage({ id: 'settings.auditLog' }),
+      href: `/workspace/${workspaceUrl}/settings/audit-log`,
+      icon: ScrollText,
     },
   ]
 

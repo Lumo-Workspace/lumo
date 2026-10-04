@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useIntl } from 'react-intl'
 
+import { AUDIT_RETENTION_DAYS } from '@/lib/audit/actions'
 import type { PublicLocale } from '@/lib/i18n/public-locale'
 import type { RetentionFigures } from '@/lib/legal/retention-figures'
 import {
@@ -55,6 +56,8 @@ const SECTIONS: { id: string; paragraphs: string[] }[] = [
       'backlog',
     ],
   },
+  // LUM-907: what the workspace audit log records, how long, who sees it.
+  { id: 'audit', paragraphs: ['recorded', 'retention', 'access'] },
   { id: 'notYet', paragraphs: ['body'] },
 ]
 
@@ -124,6 +127,12 @@ export function SecurityPage({ locale, retentionFigures }: SecurityPageProps) {
     orList: items => intl.formatList(items, { type: 'disjunction' }),
     number: value => intl.formatNumber(value),
   })
+  // Each section's ICU values; the audit retention comes from the constant
+  // the daily prune uses (LUM-907).
+  const sectionValues: Record<string, Record<string, string | number>> = {
+    retention,
+    audit: { days: AUDIT_RETENTION_DAYS },
+  }
   const updated = intl.formatDate(`${SECURITY_PAGE_UPDATED}T00:00:00Z`, {
     dateStyle: 'long',
     timeZone: 'UTC',
@@ -153,10 +162,7 @@ export function SecurityPage({ locale, retentionFigures }: SecurityPageProps) {
           >
             {section.paragraphs.map(p => (
               <p key={p}>
-                {t(
-                  `security.${section.id}.${p}`,
-                  section.id === 'retention' ? retention : undefined
-                )}
+                {t(`security.${section.id}.${p}`, sectionValues[section.id])}
               </p>
             ))}
           </Section>

@@ -8,6 +8,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { RETENTION_FIGURES } from '@/lib/legal/retention-figures'
+import { AUDIT_RETENTION_DAYS } from '@/lib/audit/actions'
 
 const ROOT = process.cwd()
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -220,6 +221,34 @@ describe('legal retention claims LUM-915', () => {
     )
     expect(row(read(DPA), 'Workspace content')).toMatch(
       /test cases and their run records/
+    )
+  })
+
+  it('legal sources disclose the workspace audit log LUM-907', () => {
+    // PR1 records actor, IP, user agent and (invites) the invitee email;
+    // the daily prune keeps AUDIT_RETENTION_DAYS; rows cascade with the
+    // workspace; the GDPR export carries them.
+    const policy = read(POLICY)
+    const collected = row(policy, 'Workspace audit log | A record')
+    expect(collected).toContain('IP address and user agent')
+    expect(collected).toContain("the invitee's email address")
+    const kept = row(policy, 'Workspace audit log | Each event')
+    expect(kept).toContain(`${AUDIT_RETENTION_DAYS} days after it is recorded`)
+    expect(kept).toContain('deleted with the workspace')
+    expect(kept).toContain('included in the workspace export')
+    expect(section(policy, 'Who we share data with')).toContain(
+      'Workspace owners can also see the workspace audit log'
+    )
+
+    const dpa = read(DPA)
+    expect(row(dpa, 'Retention')).toContain(
+      `workspace audit log events are deleted ${AUDIT_RETENTION_DAYS} days after they are recorded`
+    )
+    expect(row(dpa, 'Workspace audit log')).toContain(
+      'IP address and user agent'
+    )
+    expect(row(dpa, 'Logging and accountability')).toContain(
+      `kept for ${AUDIT_RETENTION_DAYS} days`
     )
   })
 })
