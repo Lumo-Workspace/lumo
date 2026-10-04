@@ -290,7 +290,7 @@ function ManualAddForm({
           </option>
         ))}
       </select>
-      {error && <p className='text-xs text-destructive'>{error}</p>}
+      {error && <p className='text-xs text-danger-text'>{error}</p>}
       <div className='flex justify-end gap-2'>
         <button
           type='button'
@@ -379,7 +379,7 @@ function EditForm({
           </option>
         ))}
       </select>
-      {error && <p className='text-xs text-destructive'>{error}</p>}
+      {error && <p className='text-xs text-danger-text'>{error}</p>}
       <div className='flex justify-end gap-2'>
         <button
           type='button'

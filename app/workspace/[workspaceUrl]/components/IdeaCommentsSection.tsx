@@ -40,7 +40,7 @@ export function IdeaCommentsSection({ ideaId }: { ideaId: string }) {
           {intl.formatMessage({ id: 'common.loading' })}
         </p>
       ) : error ? (
-        <p className='text-xs text-destructive'>{error}</p>
+        <p className='text-xs text-danger-text'>{error}</p>
       ) : comments.length === 0 ? (
         <p className='text-xs text-muted-foreground'>
           {intl.formatMessage({ id: 'ideas.comments.empty' })}

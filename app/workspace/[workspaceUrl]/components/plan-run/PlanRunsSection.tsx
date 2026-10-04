@@ -54,7 +54,7 @@ export function PlanRunsSection({
 
   if (error) {
     return (
-      <p className='text-sm text-destructive' data-testid='plan-runs-section'>
+      <p className='text-sm text-danger-text' data-testid='plan-runs-section'>
         {intl.formatMessage({ id: 'planRuns.loadError' })}
       </p>
     )

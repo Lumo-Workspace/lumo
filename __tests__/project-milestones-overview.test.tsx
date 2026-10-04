@@ -125,7 +125,9 @@ describe('ProjectMilestonesOverview', () => {
     expect(markers).toHaveLength(2)
     // The flag, same glyph the Milestones tab uses — the tab and the rows it
     // leads to should not be labelled with two different symbols.
-    markers.forEach(m => expect(m).toHaveClass('lucide-flag', 'text-warning'))
+    markers.forEach(m =>
+      expect(m).toHaveClass('lucide-flag', 'text-warning-text')
+    )
 
     // Status is no longer a visible axis: active vs archived is the whole
     // model, and archived rows never reach this list.

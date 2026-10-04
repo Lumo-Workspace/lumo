@@ -589,6 +589,14 @@ a.mention {
      the bright accent, which already clears it. */
   --warning-text: oklch(0.555 0.163 48.998); /* amber-700, ~5:1 on #fff */
   --danger-text: oklch(0.577 0.245 27.325); /* red-600, ~4.8:1 on #fff */
+  /* LUM-969: the same -text step for success / info / in-review. Each light
+     value clears 4.5:1 on white AND on its own -subtle fill (alpha-composited
+     over white), since chips print -text on -subtle: green-700 4.9 / 4.5,
+     blue-600 5.3 / 4.7, deeper in-review magenta (same hue) 5.6 / 4.8.
+     Destructive text uses --danger-text (same red family; see design docs). */
+  --success-text: oklch(0.527 0.154 150.069); /* green-700 #008236 */
+  --info-text: oklch(0.546 0.245 262.881); /* blue-600 #155dfc */
+  --status-in-review-text: oklch(0.55 0.25 312.148); /* #a125d7 */
 
   /* Semantic priority colors (LUM-263; brand palette pinned by design in
      LUM-702). Single source for PriorityBadge / PriorityDot / PrioritySelect.
@@ -705,6 +713,9 @@ a.mention {
   /* LUM-934: feedback text reuses the bright dark accent (AA on #0a0a0a). */
   --warning-text: var(--warning);
   --danger-text: var(--danger);
+  --success-text: var(--success);
+  --info-text: var(--info);
+  --status-in-review-text: var(--status-in-review);
 
   /* Priority — no .dark overrides since LUM-702: the four priority colours are
      a fixed brand palette and render identically in both modes. All four are
@@ -816,6 +827,9 @@ a.mention {
   --color-danger-border: var(--danger-border);
   --color-warning-text: var(--warning-text);
   --color-danger-text: var(--danger-text);
+  --color-success-text: var(--success-text);
+  --color-info-text: var(--info-text);
+  --color-status-in-review-text: var(--status-in-review-text);
 
   /* Semantic priority utilities: generates .text-priority-urgent / etc. */
   --color-priority-urgent: var(--priority-urgent);
@@ -1312,7 +1326,7 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--destructive);
   border-radius: 0.5rem;
-  color: var(--destructive);
+  color: var(--danger-text);
   font-size: 0.8rem;
 }
 .mermaid-done,

@@ -54,7 +54,7 @@ export function ProgressView({
           {intl.formatMessage({ id: 'progress.title' })}
         </p>
         {running && (
-          <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full bg-info-subtle px-2.5 py-0.5 text-caption font-medium text-info'>
+          <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full bg-info-subtle px-2.5 py-0.5 text-caption font-medium text-info-text'>
             <span className='size-1.5 rounded-full bg-info' aria-hidden />
             {intl.formatMessage({ id: 'progress.agentRunning' })}
           </span>

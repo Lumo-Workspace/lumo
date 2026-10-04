@@ -110,7 +110,7 @@ export function TestCasesTab({
 
   return (
     <div className='flex flex-col gap-3 px-3 py-3'>
-      {error ? <p className='text-body text-destructive'>{error}</p> : null}
+      {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 
       {testCases.length === 0 && mode.kind !== 'create' ? (
         <div className='py-6'>

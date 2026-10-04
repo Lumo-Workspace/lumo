@@ -253,7 +253,7 @@ function TaskRowActions({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            className='text-destructive focus:text-destructive'
+            className='text-danger-text focus:text-danger-text'
             onClick={() => setDeleteOpen(true)}
           >
             {intl?.formatMessage({

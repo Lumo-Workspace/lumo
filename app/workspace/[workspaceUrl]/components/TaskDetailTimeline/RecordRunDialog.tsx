@@ -333,7 +333,7 @@ export function RecordRunDialog({
         </span>
       </label>
 
-      {error ? <p className='text-body text-destructive'>{error}</p> : null}
+      {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 
       <div className='flex gap-2'>
         <button

@@ -274,7 +274,7 @@ export function MembersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align='end'>
                         <DropdownMenuItem
-                          className='cursor-pointer text-destructive focus:text-destructive'
+                          className='cursor-pointer text-danger-text focus:text-danger-text'
                           onClick={() => setLeaveOpen(true)}
                         >
                           {intl.formatMessage({ id: 'members.leaveWorkspace' })}
@@ -386,7 +386,7 @@ export function MembersPage() {
                           {intl.formatMessage({ id: 'members.resendInvite' })}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className='cursor-pointer text-destructive focus:text-destructive'
+                          className='cursor-pointer text-danger-text focus:text-danger-text'
                           onClick={() => setRevokeToken(inv.token)}
                         >
                           {intl.formatMessage({ id: 'members.revokeInvite' })}

@@ -47,9 +47,7 @@ function VolumeText({
         +{TOKEN_FMT.format(additions)}
       </span>
       <span className='font-normal text-muted-foreground'>/</span>
-      <span className='text-[var(--danger)]'>
-        −{TOKEN_FMT.format(deletions)}
-      </span>
+      <span className='text-danger-text'>−{TOKEN_FMT.format(deletions)}</span>
     </span>
   )
 }
@@ -208,7 +206,7 @@ function TokenBudgetLine({ budget }: { budget: ApiMilestone['budget'] }) {
       {budget.exceeded && budget.overBy !== null && (
         <p
           data-testid='token-budget-over'
-          className='mt-1 text-caption font-semibold text-[var(--danger)]'
+          className='mt-1 text-caption font-semibold text-danger-text'
         >
           {intl.formatMessage(
             { id: 'milestone.costTrend.budgetOver' },

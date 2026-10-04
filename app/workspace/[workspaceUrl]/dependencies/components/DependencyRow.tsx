@@ -59,7 +59,7 @@ export function DependencyRow({
                   onRemove?.()
                   setConfirming(false)
                 }}
-                className='text-xs font-medium text-destructive hover:underline'
+                className='text-xs font-medium text-danger-text hover:underline'
               >
                 {intl.formatMessage({ id: 'common.remove' })}
               </button>
@@ -100,7 +100,7 @@ export function DependencyRow({
             onClick={() => onConfirm?.(false)}
             className={cn(
               'text-xs px-2 py-0.5 rounded-md border border-border hover:bg-accent',
-              'text-success'
+              'text-success-text'
             )}
           >
             <Check className='h-3 w-3 inline mr-1' />

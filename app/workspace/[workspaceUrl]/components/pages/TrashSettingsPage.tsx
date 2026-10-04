@@ -144,7 +144,7 @@ export function TrashSettingsPage() {
                 <Button
                   size='sm'
                   variant='ghost'
-                  className='text-destructive hover:text-destructive'
+                  className='text-danger-text hover:text-danger-text'
                   disabled={busyId === item.id}
                   onClick={() => setPurging(item)}
                 >

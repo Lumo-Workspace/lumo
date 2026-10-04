@@ -41,7 +41,10 @@ export function GitHubAccessNotices({
     <div className='space-y-2'>
       {tokenFailingSince && (
         <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
-          <AlertTriangle size={14} className='mt-0.5 shrink-0 text-warning' />
+          <AlertTriangle
+            size={14}
+            className='mt-0.5 shrink-0 text-warning-text'
+          />
           <p className='text-xs text-foreground'>
             {intl.formatMessage(
               { id: 'github.tokenFailing' },
@@ -56,7 +59,10 @@ export function GitHubAccessNotices({
       )}
       {removed > 0 && (
         <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
-          <AlertTriangle size={14} className='mt-0.5 shrink-0 text-warning' />
+          <AlertTriangle
+            size={14}
+            className='mt-0.5 shrink-0 text-warning-text'
+          />
           <p className='text-xs text-foreground'>
             {intl.formatMessage(
               {

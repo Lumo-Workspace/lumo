@@ -108,7 +108,7 @@ export function LinkIdeaPrPopover({
             </p>
             <Link
               href={integrationsHref}
-              className='inline-block text-xs font-medium text-info hover:underline'
+              className='inline-block text-xs font-medium text-info-text hover:underline'
             >
               {intl.formatMessage({
                 id: 'task.contextLink.github.connectCta',
@@ -206,7 +206,7 @@ export function LinkIdeaPrPopover({
             </div>
 
             {error && (
-              <p role='alert' className='px-3 py-2 text-xs text-destructive'>
+              <p role='alert' className='px-3 py-2 text-xs text-danger-text'>
                 {error}
               </p>
             )}

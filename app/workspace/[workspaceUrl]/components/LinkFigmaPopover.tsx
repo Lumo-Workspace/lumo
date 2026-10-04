@@ -117,7 +117,7 @@ export function LinkFigmaPopover({
             </p>
             <Link
               href={integrationsHref}
-              className='inline-block text-xs font-medium text-info hover:underline'
+              className='inline-block text-xs font-medium text-info-text hover:underline'
             >
               {intl.formatMessage({
                 id: 'task.contextLink.figma.connectCta',

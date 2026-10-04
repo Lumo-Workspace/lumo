@@ -13,11 +13,16 @@ import { TaskViewConfigPanel } from './task-view-config-panel'
 import { TaskViewKanban } from './task-view-kanban'
 import { groupTasks } from './task-view-group'
 
-export function TaskViewBlock({ node, editor, updateAttributes }: NodeViewProps) {
+export function TaskViewBlock({
+  node,
+  editor,
+  updateAttributes,
+}: NodeViewProps) {
   const intl = useIntl()
   const params = useParams<{ workspaceUrl: string }>()
   const workspaceUrl = params?.workspaceUrl ?? ''
-  const config = (node.attrs.config ?? parseTaskViewConfig(null)) as TaskViewConfig
+  const config = (node.attrs.config ??
+    parseTaskViewConfig(null)) as TaskViewConfig
   const { tasks, truncated, loading, error, refetch } = useWorkspaceTasks(
     config.filters
   )
@@ -35,14 +40,24 @@ export function TaskViewBlock({ node, editor, updateAttributes }: NodeViewProps)
     config.groupBy,
     projectNames,
     milestoneNames,
-    intl.formatMessage({ id: 'editor.taskView.ungrouped', defaultMessage: 'No group' })
+    intl.formatMessage({
+      id: 'editor.taskView.ungrouped',
+      defaultMessage: 'No group',
+    })
   )
 
   return (
-    <NodeViewWrapper className='task-view-block' data-task-view='' contentEditable={false}>
+    <NodeViewWrapper
+      className='task-view-block'
+      data-task-view=''
+      contentEditable={false}
+    >
       <div className='task-view-block-header flex items-center justify-between text-muted-foreground'>
         <span>
-          {intl.formatMessage({ id: 'editor.taskView.heading', defaultMessage: 'Task View' })}
+          {intl.formatMessage({
+            id: 'editor.taskView.heading',
+            defaultMessage: 'Task View',
+          })}
         </span>
         <div className='flex items-center gap-1'>
           <Button
@@ -70,22 +85,34 @@ export function TaskViewBlock({ node, editor, updateAttributes }: NodeViewProps)
       </div>
       {loading ? (
         <p className='text-muted-foreground'>
-          {intl.formatMessage({ id: 'editor.taskView.loading', defaultMessage: 'Loading tasks…' })}
+          {intl.formatMessage({
+            id: 'editor.taskView.loading',
+            defaultMessage: 'Loading tasks…',
+          })}
         </p>
       ) : error ? (
-        <p className='text-destructive'>
-          {intl.formatMessage({ id: 'editor.taskView.error', defaultMessage: 'Could not load tasks.' })}
+        <p className='text-danger-text'>
+          {intl.formatMessage({
+            id: 'editor.taskView.error',
+            defaultMessage: 'Could not load tasks.',
+          })}
         </p>
       ) : tasks.length === 0 ? (
         <p className='text-muted-foreground'>
-          {intl.formatMessage({ id: 'editor.taskView.empty', defaultMessage: 'No tasks match these filters.' })}
+          {intl.formatMessage({
+            id: 'editor.taskView.empty',
+            defaultMessage: 'No tasks match these filters.',
+          })}
         </p>
       ) : (
         <div className='task-view-block-body space-y-2'>
           {truncated ? (
             <p className='task-view-truncated text-xs text-muted-foreground'>
               {intl.formatMessage(
-                { id: 'editor.taskView.truncated', defaultMessage: 'Showing the first {count} tasks.' },
+                {
+                  id: 'editor.taskView.truncated',
+                  defaultMessage: 'Showing the first {count} tasks.',
+                },
                 { count: tasks.length }
               )}
             </p>

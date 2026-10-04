@@ -134,8 +134,8 @@ export function TaskDependencyField({
                       className={cn(
                         'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-mono rounded-sm px-1',
                         satisfied
-                          ? 'text-success hover:bg-success/10'
-                          : 'text-destructive hover:bg-destructive/10'
+                          ? 'text-success-text hover:bg-success/10'
+                          : 'text-danger-text hover:bg-destructive/10'
                       )}
                     >
                       {satisfied && <Check className='h-3 w-3' />}

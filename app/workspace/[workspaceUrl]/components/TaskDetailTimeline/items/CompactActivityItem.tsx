@@ -354,7 +354,7 @@ function formatActivityText(
       const detail = typeof p.detail === 'string' ? p.detail : ''
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
-          <ShieldAlert className='h-3.5 w-3.5 text-warning' />
+          <ShieldAlert className='h-3.5 w-3.5 text-warning-text' />
           <span>
             {intl.formatMessage(
               {
@@ -379,7 +379,7 @@ function formatActivityText(
       const reason = typeof p.reason === 'string' ? p.reason : ''
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
-          <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+          <CheckCircle2 className='h-3.5 w-3.5 text-success-text' />
           <span>
             {intl.formatMessage(
               {
@@ -396,7 +396,7 @@ function formatActivityText(
     case 'BOUNDARY_CROSSING_ACKNOWLEDGED': {
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
-          <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+          <CheckCircle2 className='h-3.5 w-3.5 text-success-text' />
           <span>
             {intl.formatMessage({
               id: 'activity.boundaryAcknowledged',
@@ -432,9 +432,9 @@ function formatActivityText(
         return (
           <span className='inline-flex items-center gap-1 align-middle'>
             {isReopen ? (
-              <ShieldAlert className='h-3.5 w-3.5 text-warning' />
+              <ShieldAlert className='h-3.5 w-3.5 text-warning-text' />
             ) : (
-              <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+              <CheckCircle2 className='h-3.5 w-3.5 text-success-text' />
             )}
             <span>
               {isReopen
@@ -464,7 +464,7 @@ function formatActivityText(
       const isConfirmed = to === 'CONFIRMED'
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
-          <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+          <CheckCircle2 className='h-3.5 w-3.5 text-success-text' />
           <span>
             {isConfirmed
               ? intl.formatMessage({
@@ -483,7 +483,7 @@ function formatActivityText(
     case 'BOUNDARY_CROSSING_REMEDIATION_SPAWNED': {
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
-          <ShieldAlert className='h-3.5 w-3.5 text-warning' />
+          <ShieldAlert className='h-3.5 w-3.5 text-warning-text' />
           <span>
             {intl.formatMessage({
               id: 'activity.boundaryRemediationSpawned',

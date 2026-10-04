@@ -163,7 +163,7 @@ function SecurityScanPanel({
       {data.blocking.count > 0 && (
         <p
           data-testid='security-blocking-banner'
-          className='mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-caption text-destructive'
+          className='mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-caption text-danger-text'
         >
           {intl.formatMessage(
             { id: 'securityScan.banner.blocking' },
@@ -354,7 +354,7 @@ function ConfirmAllSuggested({
           { count }
         )}
       </button>
-      {error && <span className='text-caption text-destructive'>{error}</span>}
+      {error && <span className='text-caption text-danger-text'>{error}</span>}
     </div>
   )
 }
@@ -589,7 +589,7 @@ function FindingRow({
   const muted = finding.persisting || finding.queueExit != null
   const severityTone =
     finding.severity === 'HIGH' && !muted
-      ? 'text-destructive'
+      ? 'text-danger-text'
       : 'text-muted-foreground'
 
   return (
@@ -826,7 +826,7 @@ function FindingRow({
       {error && (
         <p
           data-testid='finding-disposition-error'
-          className='mt-0.5 text-caption text-destructive'
+          className='mt-0.5 text-caption text-danger-text'
         >
           {error}
         </p>

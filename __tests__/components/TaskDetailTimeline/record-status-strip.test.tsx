@@ -107,7 +107,7 @@ describe('RecordStatusStrip', () => {
     render(<RecordStatusStrip gaps={gaps({ crossingsTotal: 2 })} />)
     const none = screen.getByTestId('gap-none')
     expect(none).toHaveTextContent('Nothing left — the task can be marked Done')
-    expect(none.className).toContain('text-success')
+    expect(none).toHaveClass('text-success-text')
     expect(screen.queryByTestId('gap-crossings')).toBeNull()
   })
 
@@ -140,7 +140,7 @@ describe('RecordStatusStrip', () => {
     )
     const chip = screen.getByTestId('gap-crossings')
     expect(chip).toHaveTextContent('3 advisory crossings to disposition')
-    expect(chip.className).toContain('text-status-in-review')
+    expect(chip).toHaveClass('text-status-in-review-text')
     expect(chip.className).not.toContain('text-danger')
     expect(chip).toHaveAttribute('href', '#record-crossings')
   })
@@ -168,7 +168,7 @@ describe('RecordStatusStrip', () => {
     )
     const accepted = screen.getByTestId('gap-accepted')
     expect(accepted).toHaveTextContent('Accepted — this task is Done')
-    expect(accepted.className).toContain('text-success')
+    expect(accepted).toHaveClass('text-success-text')
     expect(screen.queryByTestId('gap-none')).toBeNull()
   })
 
