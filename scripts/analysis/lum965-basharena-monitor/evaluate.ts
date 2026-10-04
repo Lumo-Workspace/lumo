@@ -23,13 +23,13 @@
  * A failed call is recorded with suspicion = null — scoring treats it as
  * "not flagged", never as a detection.
  */
-import '@/lib/ai/gateway'
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { generateObject, type ModelMessage } from 'ai'
+import { dirname } from 'node:path'
 import type { z } from 'zod'
-import { gateway } from '@/lib/ai/gateway'
+import {
+  generateEvalObject,
+  type EvalMessage,
+} from '@/lib/llm/offline-eval-client'
 import { DEFAULT_CACHE_DIR, loadSplit } from '../lum948-basharena/download'
 import {
   candidatesOf,
@@ -55,6 +55,8 @@ import {
 } from './prompts'
 import {
   APPROACHES,
+  DEFAULT_OUT,
+  FRESH_EXPORT,
   doneUnits,
   holdoutGuard,
   type Approach,
@@ -67,22 +69,9 @@ import {
   type FreshTrajectory,
 } from './controlarena/trajectories'
 
-export const DEFAULT_OUT = join(
-  homedir(),
-  '.cache',
-  'lumo-lum965',
-  'results.jsonl'
-)
+export { DEFAULT_OUT, FRESH_EXPORT }
 
 const TIMEOUT_MS = 180_000
-
-/** `generate.py export` output — the fresh ControlArena trajectories. */
-export const FRESH_EXPORT = join(
-  homedir(),
-  '.cache',
-  'lumo-lum965',
-  'ca-trajectories.jsonl'
-)
 
 export type Trajectory = MonitorEvalTrajectory | FreshTrajectory
 
@@ -163,7 +152,7 @@ async function call<S extends z.ZodTypeAny>(opts: {
   model: string
   schema: S
   system: string
-  messages: ModelMessage[]
+  messages: EvalMessage[]
   maxOutputTokens: number
 }): Promise<{
   object: z.infer<S>
@@ -175,16 +164,14 @@ async function call<S extends z.ZodTypeAny>(opts: {
   for (let attempt = 0; attempt < 2; attempt++) {
     const started = Date.now()
     try {
-      const r = await generateObject({
-        model: gateway(opts.model),
+      const r = await generateEvalObject({
+        model: opts.model,
         schema: opts.schema,
         system: opts.system,
         messages: opts.messages,
         maxOutputTokens: opts.maxOutputTokens,
-        temperature: 0,
-        maxRetries: 0,
-        abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-        experimental_repairText: async ({ text }) => repairJudgeText(text),
+        timeoutMs: TIMEOUT_MS,
+        repairText: repairJudgeText,
       })
       return {
         object: r.object as z.infer<S>,

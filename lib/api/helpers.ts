@@ -3,6 +3,7 @@ import { getUserWorkspace, requireWorkspaceMember } from '@/lib/auth'
 import { prisma } from '@/lib/db/prisma'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { slugify } from '@/lib/utils/slugify'
+import type { Identity } from '@/lib/auth/identity'
 
 // ── Workspace guards ────────────────────────────────────────────────────────
 
@@ -56,6 +57,41 @@ export async function loadProjectAndMember(projectId: string, userId: string) {
     return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   }
   const member = await requireWorkspaceMember(project.workspaceId, userId)
+  if (member instanceof NextResponse) return member
+  const { workspace, ...projectBase } = project
+  return { project: projectBase, member, workspaceSlug: workspace.slug }
+}
+
+/**
+ * Who is calling: the human (`clerkId`) AND the workspace their credential is
+ * scoped to (`workspaceId` — the Bearer key's workspace, or the Clerk
+ * session's active workspace). Pass the route's `Identity` straight through.
+ */
+export type ProjectAccessCaller = Pick<Identity, 'clerkId' | 'workspaceId'>
+
+/**
+ * `loadProjectAndMember` for routes that hold a full `Identity` (from
+ * `requireIdentity`): additionally denies with the same 404 as a missing
+ * project when the project lives in a workspace other than the caller's
+ * credential workspace — even if the same human is a member there (LUM-986).
+ * Same 404 body, so a mismatch doesn't confirm the id exists elsewhere. The
+ * scope check runs before any membership lookup.
+ */
+export async function loadProjectForIdentity(
+  projectId: string,
+  caller: ProjectAccessCaller
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { workspace: { select: { slug: true } } },
+  })
+  if (!project || project.workspaceId !== caller.workspaceId) {
+    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  }
+  const member = await requireWorkspaceMember(
+    caller.workspaceId,
+    caller.clerkId
+  )
   if (member instanceof NextResponse) return member
   const { workspace, ...projectBase } = project
   return { project: projectBase, member, workspaceSlug: workspace.slug }

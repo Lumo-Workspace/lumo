@@ -2661,6 +2661,7 @@
   "usage.preDedupe.notice": "2026 年 10 月 3 日之前记录的 token 数据约高估 2 倍（旧版 CLI 会把同一条消息重复计数）；之后的数据是准确的。",
   "taskTemplate.agentBrief.name": "Agent 任务简报",
   "taskTemplate.agentBrief.description": "背景、目标、非目标、停止条件、完成标准、决策",
+  "waitlist.error.rateLimited": "来自你所在网络的尝试次数过多，请稍等一分钟后重试。",
   "security.audit.heading": "审计日志",
   "security.audit.recorded": "Lumo 会把每个工作区中的敏感操作记录到审计日志中：成员角色变更与退出、邀请、工作区／安全／数据保留设置的变更、工作区导出与删除请求、AI 派生内容与会话记录的删除、任务模板的变更，以及集成的连接与断开。每条事件记录操作人（或由 Lumo 系统自身执行）、时间、来源（网页、CLI 或 API、Webhook、系统）、IP 地址与 User-Agent，以及受影响的对象；邀请事件还会记录被邀请人的邮箱地址。事件只包含标识符和设置值，从不包含任务、文档或代码的内容，检测到的凭证会在存储前脱敏。",
   "security.audit.retention": "审计事件在记录 {days} 天后自动删除；工作区被删除时，其审计事件随之一并删除。审计事件包含在工作区导出中。",

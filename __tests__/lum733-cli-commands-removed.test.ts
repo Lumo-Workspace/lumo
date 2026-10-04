@@ -53,7 +53,10 @@ describe('LUM-733 CLI surface reduction', () => {
     expect(index).toMatch(/\.command\('show <task>'\)/)
     expect(index).not.toMatch(/\.command\('rate'\)/)
     expect(index).not.toMatch(/\.command\('verify \[task\]'\)/)
-    expect(index).not.toMatch(/\.command\('audit'\)/)
+    // `criteria audit` is gone; the top-level `audit` group (LUM-907) is a
+    // different command, so check the removed handler, not the bare name.
+    expect(index).not.toMatch(/commands\/criteria-audit'/)
+    expect(index).not.toMatch(/criteriaAudit/)
     for (const f of [
       'cli/src/commands/verdict.ts',
       'cli/src/commands/fidelity.ts',

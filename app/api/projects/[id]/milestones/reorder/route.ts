@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
-import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
+import { loadProjectForIdentity, zodError } from '@/lib/api/helpers'
 import { reorderMilestonesSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 
@@ -21,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { id } = await params
 
-    const result = await loadProjectAndMember(id, identity.clerkId)
+    const result = await loadProjectForIdentity(id, identity)
     if (result instanceof NextResponse) return result
     const { member } = result
 

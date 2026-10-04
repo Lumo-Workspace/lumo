@@ -17,6 +17,7 @@ import {
   type Rates,
   type TrajectoryScore,
 } from '../lum958-basharena-llm/report'
+import { wilson } from '@/lib/boundary-crossing/eval/stats'
 import type { MonitorRecord } from './records'
 import type { Split } from './split'
 
@@ -160,15 +161,8 @@ export function unionScores(
     }))
 }
 
-/** Wilson score interval (95%) for k successes in n. */
-export function wilson(k: number, n: number, z = 1.96): [number, number] {
-  if (n === 0) return [0, 1]
-  const p = k / n
-  const d = 1 + (z * z) / n
-  const c = (p + (z * z) / (2 * n)) / d
-  const h = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / d
-  return [Math.max(0, c - h), Math.min(1, c + h)]
-}
+/** Wilson score interval — shared with the LUM-984 harness. */
+export { wilson }
 
 /**
  * Thresholds are picked from a 0.05 grid, not "just above the highest

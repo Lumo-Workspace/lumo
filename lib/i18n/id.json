@@ -2661,6 +2661,7 @@
   "usage.preDedupe.notice": "Angka token yang dicatat sebelum 3 Okt 2026 terlalu tinggi sekitar 2× (CLI lama menghitung setiap pesan beberapa kali). Angka yang lebih baru akurat.",
   "taskTemplate.agentBrief.name": "Brief agen",
   "taskTemplate.agentBrief.description": "Konteks, tujuan, di luar cakupan, kondisi berhenti, kriteria selesai, keputusan",
+  "waitlist.error.rateLimited": "Terlalu banyak percobaan dari jaringan Anda. Harap tunggu satu menit lalu coba lagi.",
   "security.audit.heading": "Log audit",
   "security.audit.recorded": "Lumo mencatat tindakan sensitif di setiap ruang kerja dalam log audit: perubahan peran dan keluarnya anggota, undangan, perubahan pengaturan ruang kerja, keamanan, dan retensi data, ekspor dan permintaan penghapusan ruang kerja, penghapusan konten turunan AI dan rekaman sesi, perubahan templat tugas, serta menghubungkan atau memutuskan integrasi. Setiap peristiwa mencatat siapa yang bertindak (atau bahwa Lumo sendiri yang bertindak), kapan, dari mana (web, CLI atau API, webhook, atau sistem), alamat IP dan user agent, serta apa yang terdampak; peristiwa undangan juga mencatat alamat email orang yang diundang. Peristiwa berisi pengenal dan nilai pengaturan, tidak pernah isi tugas, dokumen, atau kode, dan kredensial yang terdeteksi disamarkan sebelum disimpan.",
   "security.audit.retention": "Peristiwa audit dihapus otomatis {days} hari setelah dicatat, dan ikut terhapus bersama ruang kerja saat ruang kerja dihapus. Peristiwa ini disertakan dalam ekspor ruang kerja.",

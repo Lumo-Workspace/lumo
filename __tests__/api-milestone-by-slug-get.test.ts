@@ -5,7 +5,7 @@ jest.mock('@/lib/auth', () => ({
   requireIdentity: jest.fn(),
 }))
 jest.mock('@/lib/api/helpers', () => ({
-  loadProjectAndMember: jest.fn(),
+  loadProjectForIdentity: jest.fn(),
 }))
 jest.mock('@/lib/services/milestone.service', () => ({
   milestoneService: {
@@ -33,14 +33,14 @@ jest.mock('@/lib/services/milestone-rollup.service', () => ({
 
 import { GET } from '@/app/api/projects/[id]/milestones/by-slug/[slug]/route'
 import { requireIdentity } from '@/lib/auth'
-import { loadProjectAndMember } from '@/lib/api/helpers'
+import { loadProjectForIdentity } from '@/lib/api/helpers'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 
 const mockIdentity = requireIdentity as jest.Mock
-const mockLoad = loadProjectAndMember as jest.Mock
+const mockLoad = loadProjectForIdentity as jest.Mock
 const mockBySlug = milestoneService.getMilestoneBySlug as jest.Mock
 const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
 const mockOutcome = milestoneService.getOutcomeForMilestone as jest.Mock

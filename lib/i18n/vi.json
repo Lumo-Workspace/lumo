@@ -2661,6 +2661,7 @@
   "usage.preDedupe.notice": "Số liệu token được ghi trước ngày 3 thg 10, 2026 bị tính cao hơn khoảng 2 lần (CLI cũ đếm mỗi tin nhắn nhiều lần). Số liệu mới hơn là chính xác.",
   "taskTemplate.agentBrief.name": "Brief cho agent",
   "taskTemplate.agentBrief.description": "Bối cảnh, mục tiêu, ngoài phạm vi, điều kiện dừng, tiêu chí hoàn thành, quyết định",
+  "waitlist.error.rateLimited": "Có quá nhiều lần thử từ mạng của bạn. Vui lòng đợi một phút rồi thử lại.",
   "security.audit.heading": "Nhật ký kiểm tra",
   "security.audit.recorded": "Lumo ghi lại các hành động nhạy cảm trong mỗi không gian làm việc vào nhật ký kiểm tra: thay đổi vai trò và việc rời đi của thành viên, lời mời, thay đổi cài đặt không gian làm việc, bảo mật và lưu giữ dữ liệu, yêu cầu xuất và xóa không gian làm việc, việc xóa nội dung do AI tạo ra và bản ghi phiên, thay đổi mẫu tác vụ, cũng như kết nối hoặc ngắt kết nối tích hợp. Mỗi sự kiện ghi lại ai đã thực hiện (hoặc do chính Lumo thực hiện), khi nào, từ đâu (web, CLI hoặc API, webhook hoặc hệ thống), địa chỉ IP và user agent, cùng đối tượng bị ảnh hưởng; sự kiện lời mời còn ghi lại địa chỉ email của người được mời. Sự kiện chỉ chứa mã định danh và giá trị cài đặt, không bao giờ chứa nội dung tác vụ, tài liệu hay mã, và thông tin xác thực được phát hiện sẽ bị che trước khi lưu.",
   "security.audit.retention": "Sự kiện kiểm tra được tự động xóa {days} ngày sau khi được ghi lại, và bị xóa cùng không gian làm việc khi không gian làm việc bị xóa. Chúng được bao gồm trong bản xuất không gian làm việc.",

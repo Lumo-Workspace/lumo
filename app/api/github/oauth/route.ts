@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { encrypt } from '@/lib/crypto'
+import { encodeOauthState } from '@/lib/integrations/oauth-state'
 
 /**
  * GET /api/github/oauth?workspaceUrl={slug}
@@ -38,14 +38,13 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Encrypt state to carry context through the OAuth flow and prevent CSRF
-  const state = encrypt(
-    JSON.stringify({
-      memberId: ws.member.id,
-      workspaceId: ws.workspaceId,
-      workspaceUrl,
-    })
-  )
+  // Encrypted, short-lived state; the callback also re-checks the signed-in
+  // member against it (LUM-982).
+  const state = encodeOauthState({
+    memberId: ws.member.id,
+    workspaceId: ws.workspaceId,
+    workspaceUrl,
+  })
 
   const params = new URLSearchParams({
     client_id: clientId,

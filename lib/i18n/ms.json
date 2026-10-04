@@ -2661,6 +2661,7 @@
   "usage.preDedupe.notice": "Angka token yang direkodkan sebelum 3 Okt 2026 dilebihkan kira-kira 2× (CLI lama mengira setiap mesej beberapa kali). Angka yang lebih baharu adalah tepat.",
   "taskTemplate.agentBrief.name": "Ringkasan ejen",
   "taskTemplate.agentBrief.description": "Konteks, matlamat, di luar skop, syarat berhenti, kriteria siap, keputusan",
+  "waitlist.error.rateLimited": "Terlalu banyak cubaan daripada rangkaian anda. Sila tunggu seminit dan cuba lagi.",
   "security.audit.heading": "Log audit",
   "security.audit.recorded": "Lumo merekodkan tindakan sensitif dalam setiap ruang kerja dalam log audit: perubahan peranan dan pemergian ahli, jemputan, perubahan tetapan ruang kerja, keselamatan dan penyimpanan data, eksport dan permintaan pemadaman ruang kerja, pemadaman kandungan terbitan AI dan rekod sesi, perubahan templat tugasan, serta penyambungan atau pemutusan integrasi. Setiap peristiwa merekodkan siapa yang bertindak (atau bahawa Lumo sendiri bertindak), bila, dari mana (web, CLI atau API, webhook atau sistem), alamat IP dan ejen pengguna, serta apa yang terjejas; peristiwa jemputan juga merekodkan alamat e-mel orang yang dijemput. Peristiwa mengandungi pengecam dan nilai tetapan, tidak sekali-kali kandungan tugasan, dokumen atau kod, dan kelayakan yang dikesan disunting sebelum disimpan.",
   "security.audit.retention": "Peristiwa audit dipadam secara automatik {days} hari selepas direkodkan, dan bersama ruang kerja apabila ruang kerja itu dipadam. Peristiwa ini disertakan dalam eksport ruang kerja.",

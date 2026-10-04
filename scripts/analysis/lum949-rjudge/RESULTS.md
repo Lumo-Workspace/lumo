@@ -33,6 +33,20 @@ npx tsx scripts/analysis/lum949-rjudge/run.ts --json         # machine-readable 
 npx jest scripts/analysis/lum949-rjudge                      # unit tests (fixtures only, no network)
 ```
 
+**Unified entry point (LUM-984).** Same pipeline and numbers, with the shared
+scoring and report (n per class, detection / false-positive rate, Wilson 95%
+interval, `--json`). The script above stays as the historical record.
+
+```bash
+npx tsx scripts/crossing-eval.ts --dataset rjudge --judge rules --confirm   # the pipeline used below
+npx tsx scripts/crossing-eval.ts --dataset rjudge --download --judge rules --confirm   # first run: fetch into ~/.cache
+```
+
+The numbers below come from the detector as of this task. Later rules
+(LUM-960 DESTRUCTIVE_FS_COMMAND, LUM-962 UNTRUSTED_CODE_EXECUTION, LUM-963
+sensitive reads) change today's output. On the detector of that time, the new entry point
+reproduces every headline number below (see the LUM-984 PR).
+
 Pipeline: `detectCrossings` → `confirmActionCandidates` (with the LUM-468
 deterministic stub judge) → `detectSensitivePathEdit` (built-in path set). This
 is `detectAndRecord` without persistence and without project policy, since

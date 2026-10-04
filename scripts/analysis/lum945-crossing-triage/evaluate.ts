@@ -14,8 +14,7 @@
  * never counts as LEGIT.
  */
 import { readFile, writeFile } from 'node:fs/promises'
-import { generateObject } from 'ai'
-import { gateway } from '@/lib/ai/gateway'
+import { generateEvalObject } from '@/lib/llm/offline-eval-client'
 import type { CorpusItem } from './corpus'
 import {
   TRIAGE_SYSTEM_PROMPT,
@@ -49,16 +48,14 @@ async function judgeOnce(
 ): Promise<JudgeResult> {
   let repaired = false
   const started = Date.now()
-  const { object, usage } = await generateObject({
-    model: gateway(model),
+  const { object, usage } = await generateEvalObject({
+    model,
     schema: TriageSchema,
     system: TRIAGE_SYSTEM_PROMPT,
     prompt: buildTriagePrompt(item),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
-    temperature: 0,
-    maxRetries: 0,
-    abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-    experimental_repairText: async ({ text }) => {
+    timeoutMs: TIMEOUT_MS,
+    repairText: text => {
       const fixed = repairTriageText(text)
       if (fixed !== null) repaired = true
       return fixed

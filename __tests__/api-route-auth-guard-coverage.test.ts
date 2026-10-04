@@ -65,16 +65,6 @@ const AUTH_DELEGATES = new Set([
 // Routes whose authentication is bespoke but verified by reading the code.
 // `call` must still be present, so the entry fails if the mechanism goes.
 const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
-  'app/api/github/callback/route.ts': {
-    call: 'lib/crypto#decrypt',
-    reason:
-      'OAuth callback: identity comes from the AES-256-GCM `state` minted by the authenticated /api/github/oauth route; tampered state fails decrypt',
-  },
-  'app/api/slack/callback/route.ts': {
-    call: 'lib/crypto#decrypt',
-    reason:
-      'OAuth callback: identity comes from the AES-256-GCM `state` minted by the authenticated /api/slack/oauth route; tampered state fails decrypt',
-  },
   'app/api/webhooks/sentry/route.ts': {
     call: 'lib/services/sentry.service#sentryService.handleWebhook',
     reason:
@@ -90,8 +80,6 @@ const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
 const ALLOW_LISTED: Record<string, string> = {
   'app/api/waitlist/route.ts':
     'Intentionally public: marketing-site waitlist signup, writes only a WaitlistEntry',
-  'app/api/summaries/generate/route.ts':
-    'Vercel Cron: compares Authorization to `Bearer ${CRON_SECRET}` inline; not migrated to requireCronAuth (that one fails closed on an unset secret, so not behavior-equivalent)',
 }
 
 type RouteScan = {
