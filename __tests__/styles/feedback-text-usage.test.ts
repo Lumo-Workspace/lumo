@@ -203,27 +203,68 @@ describe('LUM-967 / LUM-969 bare feedback text utilities', () => {
   })
 })
 
-// LUM-968: the same light-mode gap applies to SVG marks and dots painted with
-// a bare success / warning accent (~2.2:1, below non-text 3:1). Chart strokes,
-// fills and the arbitrary var() background use the -text step instead. The
-// pattern is assembled from parts so this file never spells a utility.
-describe('LUM-968 bare success / warning chart marks', () => {
+// LUM-968: the same light-mode gap applies to graphics. A bare success /
+// warning accent (~2.1–2.3:1) on a dot, bar, strip, stroke or fill misses the
+// non-text 3:1, and so do the light Tailwind greens / ambers that mapping
+// tables (HEALTH_DOT, category dots) used to carry. Graphics use the -text
+// step or a semantic token instead. Faint hover tints (opacity <= 15) are a
+// surface, not a graphic, and stay allowed. Patterns are assembled from parts
+// so this file never spells a utility.
+describe('LUM-968 bare success / warning graphics', () => {
   const fams = '(?:success|warning)'
-  const markRe = new RegExp(
-    `(?<![\\w-])(?:stroke|fill)-${fams}(?![\\w-])|bg-\\[var\\(--${fams}\\)\\]`
+  const accentRe = new RegExp(
+    `(?<![\\w-])(?:bg|fill|stroke)-${fams}(?:/(?:[2-9][0-9]|100))?(?![\\w/-])|bg-\\[var\\(--${fams}\\)\\]`,
+    'g'
   )
+  const rawRe = new RegExp(
+    `(?<![\\w-])(?:bg|fill|stroke)-(?:emerald|green|amber|yellow|lime|teal|sky|orange)-[345]00(?![\\w/-])`,
+    'g'
+  )
+  // The agent-run timeline gives each event type its own hue; these three are
+  // categorical (not feedback) and wait on a palette decision.
+  const RAW_ALLOWANCE: Record<string, { max: number; why: string }> = {
+    [`${W}/AgentRunTimeline/categorize.ts`]: {
+      max: 3,
+      why: 'categorical event hues: subagent (sky), worktree (emerald), file_changed (teal)',
+    },
+  }
 
-  it('no stroke / fill / var() background uses a bare success or warning accent', () => {
-    const hits = SOURCES.filter(({ text }) => markRe.test(text)).map(
-      ({ file }) => file
-    )
-    expect(hits).toEqual([])
+  const hitsOf = (re: RegExp) => {
+    const out: Record<string, number> = {}
+    for (const { file, text } of SOURCES) {
+      const n = text.match(re)?.length ?? 0
+      if (n > 0) out[file] = n
+    }
+    return out
+  }
+
+  it('no dot / bar / stroke / fill uses a bare success or warning accent', () => {
+    expect(hitsOf(accentRe)).toEqual({})
   })
 
-  it('the pattern matches the bare marks and skips the -text step', () => {
-    const bare = ['stroke', 'fill'].map(p => `${p}-success`)
-    for (const c of bare) expect(c.match(markRe)).toHaveLength(1)
-    expect(['bg-[var(--', 'warning)]'].join('').match(markRe)).toHaveLength(1)
-    expect(['stroke', 'success', 'text'].join('-').match(markRe)).toBeNull()
+  it('light Tailwind greens / ambers stay off graphics (audited categorical hues only)', () => {
+    const over = Object.entries(hitsOf(rawRe))
+      .filter(([file, n]) => n > (RAW_ALLOWANCE[file]?.max ?? 0))
+      .map(([file, n]) => `${file}: ${n}`)
+    expect(over).toEqual([])
+  })
+
+  it('every raw-hue allowance still points at a live use', () => {
+    const hits = hitsOf(rawRe)
+    expect(Object.keys(RAW_ALLOWANCE).filter(f => !(f in hits))).toEqual([])
+  })
+
+  it('the patterns match the bare marks and skip the -text step and tints', () => {
+    const m = (re: RegExp, c: string) => c.match(re)?.length ?? 0
+    for (const p of ['bg', 'fill', 'stroke'])
+      expect(m(accentRe, `${p}-success`)).toBe(1)
+    expect(m(accentRe, ['bg', 'success/35'].join('-'))).toBe(1)
+    expect(m(accentRe, ['bg-[var(--', 'warning)]'].join(''))).toBe(1)
+    expect(m(accentRe, ['bg', 'success', 'text'].join('-'))).toBe(0)
+    expect(m(accentRe, ['bg', 'success/10'].join('-'))).toBe(0)
+    expect(m(accentRe, ['bg', 'warning', 'subtle'].join('-'))).toBe(0)
+    expect(m(rawRe, ['bg', 'emerald', '500'].join('-'))).toBe(1)
+    expect(m(rawRe, ['bg', 'amber', '50'].join('-'))).toBe(0)
+    expect(m(rawRe, ['bg', 'amber', '500/10'].join('-'))).toBe(0)
   })
 })

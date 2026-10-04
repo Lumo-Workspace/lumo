@@ -78,7 +78,7 @@ function TimelineRow({
 
   const dot = {
     completed: 'bg-muted-foreground/40',
-    active: 'bg-success',
+    active: 'bg-success-text',
     planned: 'border border-dashed border-muted-foreground/50',
   }[bucket]
 
@@ -121,11 +121,16 @@ function TimelineRow({
           )}
           style={{ left: `${left}%`, width: `${width}%` }}
         >
+          {/* Active progress is a bottom strip, not a fill behind the label:
+              the strip clears 3:1 on the subtle bar while the label keeps
+              AA on the bar itself (a darker full-height fill can't do both). */}
           {enabled && (
             <div
               className={cn(
-                'absolute inset-y-0 left-0',
-                bucket === 'active' ? 'bg-success/35' : 'bg-muted-foreground/15'
+                'absolute left-0',
+                bucket === 'active'
+                  ? 'bottom-0 h-[3px] bg-success-text'
+                  : 'inset-y-0 bg-muted-foreground/15'
               )}
               style={{ width: `${pct}%` }}
               aria-hidden
@@ -226,7 +231,7 @@ export function SprintTimeline({
             label={intl.formatMessage({ id: 'sprints.state.completed' })}
           />
           <LegendDot
-            className='bg-success'
+            className='bg-success-text'
             label={intl.formatMessage({ id: 'sprints.status.active' })}
           />
           <LegendDot

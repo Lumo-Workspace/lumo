@@ -108,10 +108,20 @@ Utilities: `text-{warning,danger,success,info,status-in-review}-text`.
   / `text-status-in-review` accent (all ≥3:1, WCAG non-text). The light
   `success` and `warning` accents miss even 3:1, so their icons use
   `text-success-text` / `text-warning-text` too.
-- **Chart marks / dots** follow the icon rule (WCAG 1.4.11, 3:1 on the surface
-  they sit on): success / warning strokes, fills and dots use
-  `stroke-success-text`, `fill-success-text`, `bg-warning-text` (LUM-968:
-  sprint burndown sparkline, milestone hero dot).
+- **Graphics** (dots, bars, strips, strokes, fills) follow the icon rule —
+  WCAG 1.4.11, 3:1 on the surface they actually sit on, both modes (LUM-968).
+  Success / warning graphics use `bg-` / `stroke-` / `fill-success-text` and
+  `-warning-text`; danger / info may keep the bare accent (≥3:1 on card, muted
+  and their own `-subtle`). Status maps use semantic tokens, never Tailwind
+  greens / ambers (`HEALTH_DOT`: success-text / warning-text / danger).
+- **Progress with a label on top**: a darker full-height fill can't give both
+  3:1 against the track and 4.5:1 for the label sitting on it, so the label
+  stays on the `-subtle` bar and progress is a bottom strip
+  (`SprintTimeline`); a secondary series (elapsed time) is a tick that
+  extends past the track (`CurrentSprintCard`).
+- **Dots on a selected `bg-primary` pill** get `ring-1 ring-primary-foreground`
+  — no feedback hue clears 3:1 on both the near-black (light) and white
+  (dark) primary.
 
 `__tests__/styles/feedback-text-usage.test.ts` pins every audited bare-accent
 icon site per family (success / warning: none) so new text uses can't creep

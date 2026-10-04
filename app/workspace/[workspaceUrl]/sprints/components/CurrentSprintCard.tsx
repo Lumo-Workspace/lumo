@@ -138,7 +138,7 @@ export function CurrentSprintCard({
               </h2>
             </Link>
             <span className='inline-flex h-[22px] items-center gap-1.5 rounded-md border border-success-border bg-success-subtle px-2 text-[11.5px] font-semibold text-success-text'>
-              <span className='size-1.5 rounded-full bg-success' />
+              <span className='size-1.5 rounded-full bg-success-text' />
               {intl.formatMessage({ id: 'sprints.status.active' })}
             </span>
             {finishedEarly && (
@@ -180,22 +180,25 @@ export function CurrentSprintCard({
             baseLabel='baseline.history'
           />
         </div>
-        {/* Layered bar: track → time-elapsed underlay → completion fill. */}
-        <div
-          className='relative mb-5 h-2 w-full overflow-hidden rounded-full bg-muted'
-          role='progressbar'
-          aria-valuenow={pct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
+        {/* Completion fill on the track; elapsed time is a tick that pokes
+            past the track so it reads against the card, not the fill. */}
+        <div className='relative mb-5'>
           <div
-            className='absolute inset-y-0 left-0 bg-success/25'
-            style={{ width: `${timePct}%` }}
-            aria-hidden
-          />
+            className='relative h-2 w-full overflow-hidden rounded-full bg-muted'
+            role='progressbar'
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className='absolute inset-y-0 left-0 bg-success-text'
+              style={{ width: `${pct}%` }}
+              aria-hidden
+            />
+          </div>
           <div
-            className='absolute inset-y-0 left-0 bg-success'
-            style={{ width: `${pct}%` }}
+            className='absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-sm bg-muted-foreground'
+            style={{ left: `${timePct}%` }}
             aria-hidden
           />
         </div>

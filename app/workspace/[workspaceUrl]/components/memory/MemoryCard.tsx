@@ -70,10 +70,10 @@ interface CategoryStyle {
 }
 
 const CATEGORY_STYLES: Record<MemoryCategory, CategoryStyle> = {
-  TRAP: { dot: 'bg-red-500', labelId: 'memory.category.trap' },
-  DECISION: { dot: 'bg-blue-500', labelId: 'memory.category.decision' },
-  CONVENTION: { dot: 'bg-amber-500', labelId: 'memory.category.convention' },
-  PROCEDURAL: { dot: 'bg-emerald-500', labelId: 'memory.category.procedural' },
+  TRAP: { dot: 'bg-danger', labelId: 'memory.category.trap' },
+  DECISION: { dot: 'bg-info', labelId: 'memory.category.decision' },
+  CONVENTION: { dot: 'bg-warning-text', labelId: 'memory.category.convention' },
+  PROCEDURAL: { dot: 'bg-success-text', labelId: 'memory.category.procedural' },
 }
 
 export function MemoryCard({

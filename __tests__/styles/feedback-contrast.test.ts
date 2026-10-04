@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { CATEGORY_STYLE } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/categorize'
+import { MEMORY_CATEGORY_SPECS } from '@/app/workspace/[workspaceUrl]/components/memory/forms/fieldSpecs'
+import {
+  DELIVERY_DOT,
+  HEALTH_DOT,
+} from '@/app/workspace/[workspaceUrl]/components/milestones/milestoneDisplay'
+
 // LUM-286: globals.css documents the WCAG contrast of every feedback / status /
 // priority colour in a trailing comment (`3.3:1 on #fff`, `AA-verified`, …) but
 // nothing *computed* those numbers — a comment can lie, and an oklch tweak can
@@ -438,6 +445,158 @@ describe('feedback chart marks meet non-text 3:1 on their surface', () => {
     expect(
       contrastRatio(resolve(m.family, 'light'), resolve(m.surface, 'light'))
     ).toBeLessThan(GRAPHICS)
+  })
+})
+
+// ── Feedback dots, bars and strips on their real surfaces (LUM-968) ───────
+// WCAG 1.4.11: each feedback graphic vs the surface it sits on, both modes.
+// A surface is a token (card / background / muted / primary) or a family's
+// -subtle fill composited over --card (chips, pills, the sprint bar).
+type Surface = string | { subtle: string }
+
+function surfaceSrgb(surface: Surface, mode: Mode): [number, number, number] {
+  if (typeof surface === 'string') return oklchToSrgb(resolve(surface, mode))
+  const [accent, alpha] = subtleMix(surface.subtle)
+  const fg = oklchToSrgb(resolve(accent, mode))
+  const bg = oklchToSrgb(resolve('card', mode))
+  return fg.map((c, i) => alpha * c + (1 - alpha) * bg[i]!) as [
+    number,
+    number,
+    number,
+  ]
+}
+
+function markRatio(token: string, surface: Surface, mode: Mode): number {
+  return srgbContrast(
+    oklchToSrgb(resolve(token, mode)),
+    surfaceSrgb(surface, mode)
+  )
+}
+
+const GRAPHIC_SITES: Array<{ where: string; token: string; on: Surface[] }> = [
+  {
+    where: 'SprintTimeline active dot / legend',
+    token: 'success-text',
+    on: ['card', 'background'],
+  },
+  {
+    where: 'SprintTimeline progress strip',
+    token: 'success-text',
+    on: [{ subtle: 'success' }],
+  },
+  { where: 'SprintsBoard 100% bar', token: 'success-text', on: ['muted'] },
+  {
+    where: 'CurrentSprintCard completion fill',
+    token: 'success-text',
+    on: ['muted'],
+  },
+  {
+    where: 'CurrentSprintCard Active chip dot',
+    token: 'success-text',
+    on: [{ subtle: 'success' }],
+  },
+  {
+    where: 'CurrentSprintCard elapsed-time tick',
+    token: 'muted-foreground',
+    on: ['card', 'muted'],
+  },
+  {
+    where: 'ProjectHealthRow warning dot',
+    token: 'warning-text',
+    on: [{ subtle: 'warning' }],
+  },
+  {
+    where: 'ProjectHealthRow danger dot',
+    token: 'danger',
+    on: [{ subtle: 'danger' }],
+  },
+  { where: 'RangeBand warning dot', token: 'warning-text', on: ['muted'] },
+  { where: 'RangeBand info dot', token: 'info', on: ['muted'] },
+  { where: 'MilestoneRow complete bar', token: 'success-text', on: ['muted'] },
+  { where: 'MilestoneRow active bar', token: 'info', on: ['muted'] },
+  {
+    where: 'IntegrationCard connected dot',
+    token: 'success-text',
+    on: ['card'],
+  },
+  {
+    where: 'ProgressView agent-running dot',
+    token: 'info',
+    on: [{ subtle: 'info' }],
+  },
+  { where: 'MemoryCard category dots', token: 'success-text', on: ['card'] },
+  { where: 'MemoryCard category dots', token: 'warning-text', on: ['card'] },
+  { where: 'MemoryCard category dots', token: 'danger', on: ['card'] },
+  { where: 'MemoryCard category dots', token: 'info', on: ['card'] },
+]
+
+describe('LUM-968 feedback graphics meet non-text 3:1 on their surface', () => {
+  it.each(GRAPHIC_SITES)('$where: --$token (light + dark)', site => {
+    for (const mode of ['light', 'dark'] as const)
+      for (const surface of site.on)
+        expect(markRatio(site.token, surface, mode)).toBeGreaterThanOrEqual(
+          GRAPHICS
+        )
+  })
+
+  it('the bare light success / warning accents miss 3:1 on those surfaces', () => {
+    expect(markRatio('success', 'muted', 'light')).toBeLessThan(GRAPHICS)
+    expect(markRatio('success', { subtle: 'success' }, 'light')).toBeLessThan(
+      GRAPHICS
+    )
+    expect(markRatio('warning', 'muted', 'light')).toBeLessThan(GRAPHICS)
+    expect(markRatio('warning', { subtle: 'warning' }, 'light')).toBeLessThan(
+      GRAPHICS
+    )
+  })
+
+  it('SprintTimeline label keeps AA on the bar; the old 35% fill broke it', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      expect(
+        markRatio('success-text', { subtle: 'success' }, mode)
+      ).toBeGreaterThanOrEqual(TEXT_AA)
+      // label over success/35 on top of the subtle bar (the removed fill)
+      const bar = surfaceSrgb({ subtle: 'success' }, mode)
+      const fill = oklchToSrgb(resolve('success', mode)).map(
+        (c, i) => 0.35 * c + 0.65 * bar[i]!
+      ) as [number, number, number]
+      expect(
+        srgbContrast(oklchToSrgb(resolve('success-text', mode)), fill)
+      ).toBeLessThan(TEXT_AA)
+    }
+  })
+
+  it('memory pills: dots clear 3:1 on the unselected pill; the selected pill rings them', () => {
+    for (const spec of Object.values(MEMORY_CATEGORY_SPECS)) {
+      const token = spec.dot.replace(/^bg-/, '')
+      for (const mode of ['light', 'dark'] as const)
+        expect(markRatio(token, 'muted', mode)).toBeGreaterThanOrEqual(GRAPHICS)
+    }
+    for (const mode of ['light', 'dark'] as const)
+      expect(
+        markRatio('primary-foreground', 'primary', mode)
+      ).toBeGreaterThanOrEqual(GRAPHICS)
+  })
+
+  it('milestone health / delivery dots are semantic tokens at 3:1', () => {
+    for (const cls of [
+      ...Object.values(HEALTH_DOT),
+      ...Object.values(DELIVERY_DOT),
+    ]) {
+      expect(cls).toMatch(/^bg-(success|warning|danger|info)(-text)?$/)
+      const token = cls.replace(/^bg-/, '')
+      for (const mode of ['light', 'dark'] as const)
+        for (const surface of ['card', 'background'])
+          expect(markRatio(token, surface, mode)).toBeGreaterThanOrEqual(
+            GRAPHICS
+          )
+    }
+  })
+
+  it('agent-run failure / permission dots use the semantic tokens', () => {
+    expect(CATEGORY_STYLE.tool_failure.dot).toBe('bg-danger')
+    expect(CATEGORY_STYLE.turn_failure.dot).toBe('bg-danger')
+    expect(CATEGORY_STYLE.permission_pause.dot).toBe('bg-warning-text')
   })
 })
 

@@ -129,11 +129,11 @@ export const CATEGORY_STYLE: Record<EventCategory, CategoryStyle> = {
     pill: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40',
   },
   tool_failure: {
-    dot: 'bg-red-500',
+    dot: 'bg-danger',
     pill: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40',
   },
   permission_pause: {
-    dot: 'bg-amber-500',
+    dot: 'bg-warning-text',
     pill: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40',
   },
   permission_denied: {
@@ -149,7 +149,7 @@ export const CATEGORY_STYLE: Record<EventCategory, CategoryStyle> = {
     pill: 'text-muted-foreground bg-muted',
   },
   turn_failure: {
-    dot: 'bg-red-500',
+    dot: 'bg-danger',
     pill: 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40',
   },
   session_boundary: {
