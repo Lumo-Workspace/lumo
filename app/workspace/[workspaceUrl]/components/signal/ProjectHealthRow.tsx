@@ -38,7 +38,7 @@ const TONE_PILL: Record<AnomalyCard['tone'], string> = {
 
 const TONE_DOT: Record<AnomalyCard['tone'], string> = {
   danger: 'bg-danger',
-  warning: 'bg-warning',
+  warning: 'bg-warning-text',
 }
 
 interface ProjectHealthRowProps {

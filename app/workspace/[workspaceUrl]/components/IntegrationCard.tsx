@@ -57,7 +57,7 @@ export function ConnectedDot({ label }: { label: string }) {
       <TooltipTrigger asChild>
         <span className='flex items-center'>
           <span
-            className='size-2 rounded-full bg-emerald-500'
+            className='size-2 rounded-full bg-success-text'
             aria-hidden='true'
           />
           <span className='sr-only'>{label}</span>

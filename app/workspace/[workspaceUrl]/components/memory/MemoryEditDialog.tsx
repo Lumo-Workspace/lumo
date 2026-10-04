@@ -224,11 +224,15 @@ function CategoryPill({
     ? 'bg-primary font-semibold text-primary-foreground'
     : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
   const shared = `flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[13px] ${skin}`
+  // On the selected (primary) pill a ring keeps the dot >= 3:1 in both modes.
+  const dotClass = selected
+    ? 'size-[7px] rounded-full ring-1 ring-primary-foreground'
+    : 'size-[7px] rounded-full'
 
   if (locked) {
     return (
       <span className={shared}>
-        <span aria-hidden className={`size-[7px] rounded-full ${spec.dot}`} />
+        <span aria-hidden className={`${dotClass} ${spec.dot}`} />
         {label}
       </span>
     )
@@ -241,7 +245,7 @@ function CategoryPill({
       onClick={() => onSelect(category)}
       className={`${shared} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
     >
-      <span aria-hidden className={`size-[7px] rounded-full ${spec.dot}`} />
+      <span aria-hidden className={`${dotClass} ${spec.dot}`} />
       {label}
     </button>
   )
