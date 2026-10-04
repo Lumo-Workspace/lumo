@@ -13,6 +13,9 @@ jest.mock('@/lib/repositories', () => ({
     updateRepositories: jest.fn(),
     recordVerification: jest.fn(),
     deleteForWorkspace: jest.fn().mockResolvedValue({ count: 1 }),
+    findRecheckState: jest.fn(),
+    renameRepository: jest.fn(),
+    findAllForInstallationNarrowing: jest.fn().mockResolvedValue([]),
   },
   // LUM-855: uninstall scrubs the workspace's scan code (real-DB coverage in
   // __tests__/lib/services/github-app-uninstall-scrub.test.ts).
@@ -49,6 +52,13 @@ jest.mock('@/lib/integrations/github', () => ({
 
 jest.mock('@/lib/services/github.service', () => ({
   githubService: { backfillPullRequests: jest.fn() },
+}))
+// LUM-879: every scrub also strips mirrored PR comments (real-DB coverage in
+// __tests__/services/github-repository-lifecycle.real-postgres.test.ts).
+jest.mock('@/lib/services/pr-comment-code-scrub.service', () => ({
+  scrubMirroredCommentCode: jest
+    .fn()
+    .mockResolvedValue({ comments: 0, jobs: 0 }),
 }))
 
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
@@ -1267,5 +1277,98 @@ describe('LUM-902 — scrub before anything is dropped', () => {
     ).rejects.toThrow('1 workspace(s) failed')
     expect(repo.updateRepositories).toHaveBeenCalledTimes(1)
     expect(repo.updateRepositories).toHaveBeenCalledWith('w2', [])
+  })
+})
+
+describe('LUM-879 repository rename and removal', () => {
+  const STAMP = new Date('2026-10-01T00:00:00Z')
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    // Earlier blocks leave failing implementations behind.
+    ;(prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock).mockReset()
+    ;(
+      prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock
+    ).mockResolvedValue({ scans: 0, findings: 0 })
+    repo.updateRepositories.mockReset()
+    repo.findAllByInstallationId.mockResolvedValue([
+      { workspaceId: 'w1', installationId: 77, repositories: ['Acme/Web'] },
+    ])
+  })
+
+  it('renameRepository rewrites the list in the stored spelling with the canonical new name', async () => {
+    repo.findRecheckState.mockResolvedValue({
+      repositories: ['Acme/Web', 'acme/api'],
+      updatedAt: STAMP,
+    })
+    repo.renameRepository.mockResolvedValue({ pullRequests: 2, skipped: 0 })
+    await githubAppInstallService.renameRepository(
+      77,
+      'acme/web',
+      'Acme/Web-App'
+    )
+    expect(repo.renameRepository).toHaveBeenCalledWith('w1', {
+      expectedUpdatedAt: STAMP,
+      repositories: ['Acme/Web-App', 'acme/api'],
+      from: 'Acme/Web',
+      to: 'Acme/Web-App',
+    })
+  })
+
+  it('renameRepository leaves a workspace that never confirmed the old name alone', async () => {
+    repo.findRecheckState.mockResolvedValue({
+      repositories: ['acme/api'],
+      updatedAt: STAMP,
+    })
+    await githubAppInstallService.renameRepository(77, 'acme/web', 'acme/www')
+    expect(repo.renameRepository).not.toHaveBeenCalled()
+  })
+
+  it('renameRepository retries a lost write race once, then fails the event', async () => {
+    repo.findRecheckState.mockResolvedValue({
+      repositories: ['Acme/Web'],
+      updatedAt: STAMP,
+    })
+    repo.renameRepository.mockResolvedValue(null)
+    await expect(
+      githubAppInstallService.renameRepository(77, 'acme/web', 'acme/www')
+    ).rejects.toThrow('1 workspace(s) failed')
+    expect(repo.renameRepository).toHaveBeenCalledTimes(2)
+  })
+
+  it('removeRepository without an installation narrows every workspace that confirmed it', async () => {
+    repo.findAllForInstallationNarrowing.mockResolvedValue([
+      { workspaceId: 'w1', installationId: 77, repositories: ['Acme/Lib'] },
+      { workspaceId: 'w2', installationId: 78, repositories: ['other/x'] },
+      {
+        workspaceId: 'w3',
+        installationId: 77,
+        repositories: ['acme/lib', 'a/b'],
+      },
+    ])
+    await githubAppInstallService.removeRepository(
+      ['acme/lib'],
+      'repository transferred to another owner on GitHub'
+    )
+    expect(repo.findAllByInstallationId).not.toHaveBeenCalled()
+    expect(repo.updateRepositories).toHaveBeenCalledTimes(2)
+    expect(repo.updateRepositories).toHaveBeenCalledWith('w1', [])
+    expect(repo.updateRepositories).toHaveBeenCalledWith('w3', ['a/b'])
+    // Scrubbed under both spellings, before and after the write.
+    expect(prSecurityScanRepository.scrubCodeForWorkspace).toHaveBeenCalledWith(
+      'w1',
+      ['Acme/Lib', 'acme/lib']
+    )
+  })
+
+  it('removeRepository with an installation only looks at its workspaces', async () => {
+    await githubAppInstallService.removeRepository(
+      ['acme/web'],
+      'repository deleted on GitHub',
+      77
+    )
+    expect(repo.findAllByInstallationId).toHaveBeenCalledWith(77)
+    expect(repo.findAllForInstallationNarrowing).not.toHaveBeenCalled()
+    expect(repo.updateRepositories).toHaveBeenCalledWith('w1', [])
   })
 })

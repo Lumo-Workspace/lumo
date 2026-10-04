@@ -1,3 +1,5 @@
+import { isCommandSummarized } from '@/lib/hook-payload/redact'
+
 /**
  * LUM-932: identify which session in a parent+children family issued a `lumo`
  * CLI call. Claude Code runs the PreToolUse hook synchronously before the Bash
@@ -61,21 +63,36 @@ function indexOfWholeToken(
   return -1
 }
 
-/** Every argv token is a whole word of `command`, in order, after a `lumo` word. */
-function containsInOrder(command: string, argv: string[]): boolean {
+/**
+ * Every argv token is a whole word of `command`, in order, after a `lumo` word.
+ * A `summarized` command (a used-up workspace stores heredoc bodies dropped and
+ * the text capped — LUM-873) cannot show every token, so a token it does not
+ * contain is skipped; the tokens it does contain must still be in order, and
+ * at least one must be there.
+ */
+function containsInOrder(
+  command: string,
+  argv: string[],
+  summarized = false
+): boolean {
   for (const m of command.matchAll(RUNS_LUMO)) {
     let pos = m.index! + m[0].length
     let ok = true
+    let matched = 0
+    let wanted = 0
     for (const token of argv) {
       if (!token) continue
+      wanted++
       const at = indexOfWholeToken(command, token, pos)
       if (at < 0) {
+        if (summarized) continue
         ok = false
         break
       }
+      matched++
       pos = at + token.length
     }
-    if (ok) return true
+    if (ok && (!summarized || wanted === 0 || matched > 0)) return true
   }
   return false
 }
@@ -98,7 +115,8 @@ export function matchPendingLumoCommand(
     if (typeof id !== 'string' || finished.has(id)) continue
     const command = field(e.payload, 'tool_input', 'command')
     if (typeof command !== 'string') continue
-    if (containsInOrder(command, argv)) sessions.add(e.sessionId)
+    if (containsInOrder(command, argv, isCommandSummarized(e.payload)))
+      sessions.add(e.sessionId)
   }
   const list = [...sessions].sort()
   if (list.length === 0) return { kind: 'none' }

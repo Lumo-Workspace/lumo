@@ -21,6 +21,8 @@ import {
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
+import { canonicalConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
+import { scrubMirroredCommentCode } from '@/lib/services/pr-comment-code-scrub.service'
 
 interface InstallInput {
   workspaceId: string
@@ -77,9 +79,12 @@ export async function scrubWorkspaceCode(
     workspaceId,
     repos
   )
+  // LUM-879 — and the code in comments mirrored from those repositories'
+  // PRs, with the sync jobs still holding GitHub's raw payload.
+  const mirrored = await scrubMirroredCommentCode(workspaceId, reason, repos)
   const scope = repos ? ` (${repos.length} repo(s))` : ''
   logger.info(
-    `[github/app] workspace ${workspaceId} ${reason}${scope}: scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
+    `[github/app] workspace ${workspaceId} ${reason}${scope}: scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s), ${mirrored.comments} mirrored comment(s); retired ${mirrored.jobs} sync job(s)`
   )
   return counts
 }
@@ -321,7 +326,8 @@ async function requireReverifiableInstallation(
 async function narrowRemovedRepositories(
   row: { workspaceId: string; repositories: string[] },
   removed: Set<string>,
-  removedNames: string[]
+  removedNames: string[],
+  reason = 'repository removed from the installation'
 ) {
   if (removedNames.length === 0) return
   const kept = without(row.repositories, removed)
@@ -329,9 +335,54 @@ async function narrowRemovedRepositories(
   await narrowWithScrub(
     row.workspaceId,
     [...new Set([...gone, ...removedNames])],
-    'repository removed from the installation',
+    reason,
     () =>
       githubAppInstallationRepository.updateRepositories(row.workspaceId, kept)
+  )
+}
+
+/** A concurrent write to the row: re-read and retry once. */
+const RENAME_ATTEMPTS = 2
+
+/**
+ * LUM-879 — one workspace's half of a rename. The list is rewritten from the
+ * row as read: `from` (in the list's own spelling) becomes `to`, GitHub's
+ * canonical new name (LUM-889), and a second spelling of `to` is dropped.
+ */
+async function renameForWorkspace(
+  workspaceId: string,
+  from: string,
+  to: string
+) {
+  for (let attempt = 0; attempt < RENAME_ATTEMPTS; attempt++) {
+    const state =
+      await githubAppInstallationRepository.findRecheckState(workspaceId)
+    if (!state) return
+    const stored = canonicalConfirmedRepository(state.repositories, from)
+    if (stored === null) return
+    const target = to.toLowerCase()
+    const repositories = state.repositories.flatMap(name => {
+      if (name === stored) return [to]
+      return name.toLowerCase() === target ? [] : [name]
+    })
+    const result = await githubAppInstallationRepository.renameRepository(
+      workspaceId,
+      {
+        expectedUpdatedAt: state.updatedAt,
+        repositories,
+        from: stored,
+        to,
+      }
+    )
+    if (result) {
+      logger.info(
+        `[github/app] workspace ${workspaceId}: ${stored} renamed to ${to}; moved ${result.pullRequests} PR(s)${result.skipped > 0 ? `, ${result.skipped} row(s) kept under the old name (already present under the new one)` : ''}`
+      )
+      return
+    }
+  }
+  throw new Error(
+    `workspace ${workspaceId}: the confirmed list kept changing during the rename`
   )
 }
 
@@ -772,5 +823,76 @@ export const githubAppInstallService = {
       }
     }
     throwIfAnyFailed(installationId, failed)
+  },
+
+  /**
+   * LUM-879 — `repository` `renamed`: the confirmed list, the PR rows and
+   * every other stored `owner/name` of each workspace that confirmed `from`
+   * move to `to` together (`renameRepository`), so the token mint, event
+   * routing, SARIF ingest and the scans' post-write check all keep working
+   * under the new name. A workspace that did not confirm `from` is left
+   * alone; a lost write race is re-read and retried once. When the event is
+   * lost, the daily recheck finds `from` gone from the installation and
+   * drops it with its code (LUM-927) — fail closed, re-verify restores it.
+   */
+  async renameRepository(installationId: number, from: string, to: string) {
+    const rows =
+      await githubAppInstallationRepository.findAllByInstallationId(
+        installationId
+      )
+    let failed = 0
+    for (const row of rows) {
+      try {
+        await renameForWorkspace(row.workspaceId, from, to)
+      } catch (error) {
+        failed++
+        logger.error(
+          `[github/app] installation ${installationId}: renaming ${from} → ${to} failed for workspace ${row.workspaceId}: ${String(error)}`
+        )
+      }
+    }
+    throwIfAnyFailed(installationId, failed)
+  },
+
+  /**
+   * LUM-879 — a repository left GitHub's reach without the installation
+   * event that would say so: `deleted`, or `transferred` to another owner
+   * (whose installation, if any, is another one). Every workspace that
+   * confirmed one of `names` narrows like an `installation_repositories`
+   * removal — scrub (scans, mirrored comments, sync payloads), write, scrub
+   * again. `installationId` limits it to that installation's workspaces;
+   * omitted, every workspace is looked at (a transfer event may come from
+   * either side).
+   */
+  async removeRepository(
+    names: string[],
+    reason: string,
+    installationId?: number
+  ) {
+    const rows =
+      installationId !== undefined
+        ? await githubAppInstallationRepository.findAllByInstallationId(
+            installationId
+          )
+        : await githubAppInstallationRepository.findAllForInstallationNarrowing()
+    const removed = lowerSet(names)
+    let failed = 0
+    for (const row of rows) {
+      if (!row.repositories.some(name => removed.has(name.toLowerCase())))
+        continue
+      try {
+        await narrowRemovedRepositories(row, removed, names, reason)
+      } catch (error) {
+        failed++
+        logger.error(
+          `[github/app] ${reason}: narrowing workspace ${row.workspaceId} failed; list kept: ${String(error)}`
+        )
+      }
+    }
+    if (failed > 0) {
+      throw new Error(
+        `${reason}: ${failed} workspace(s) failed; see the log above`
+      )
+    }
   },
 }

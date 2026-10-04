@@ -8,6 +8,7 @@ import {
 import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import { stripCodeFromText } from '@/lib/ai-derived/strip-code'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
+import { isCommandSummarized } from '@/lib/hook-payload/redact'
 import type { HookEventType } from '@prisma/client'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
@@ -87,7 +88,9 @@ export const hookEventRepository = {
    * LUM-772: the Bash command each of these events carried
    * (`payload.tool_input.command`), keyed by event id. Events without a
    * readable command are absent from the map. Used by the crossing backfill
-   * to re-judge on the FULL command rather than the clipped `detail`.
+   * to re-judge on the FULL command rather than the clipped `detail`. A
+   * command stored as a summary (used-up workspace, LUM-873) is not the full
+   * command either, so it is absent too.
    */
   async findCommandsByIds(ids: string[]): Promise<Map<string, string>> {
     const out = new Map<string, string>()
@@ -101,7 +104,8 @@ export const hookEventRepository = {
         tool_input?: { command?: unknown }
       } | null
       const command = payload?.tool_input?.command
-      if (typeof command === 'string') out.set(row.id, command)
+      if (typeof command === 'string' && !isCommandSummarized(payload))
+        out.set(row.id, command)
     }
     return out
   },

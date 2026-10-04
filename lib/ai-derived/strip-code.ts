@@ -83,12 +83,20 @@ export interface StripCodeResult {
   text: string
   /** Code runs (fenced blocks, code-line runs, long inline spans) removed. */
   removed: number
+  /** The removed code itself, one removed line or span per line ('' when
+   *  nothing was removed) — for callers that record its size (LUM-873). */
+  removedText: string
 }
 
-function stripInlineSpans(line: string, counter: { n: number }): string {
+function stripInlineSpans(
+  line: string,
+  counter: { n: number },
+  removedParts: string[]
+): string {
   return line.replace(/`([^`\n]+)`/g, (whole, inner: string) => {
     if (inner.length <= MAX_INLINE_CODE_CHARS) return whole
     counter.n++
+    removedParts.push(whole)
     return CODE_OMITTED_MARKER
   })
 }
@@ -117,10 +125,11 @@ function splitMidLineFences(lines: string[]): string[] {
  * the input string unchanged (same value) when nothing looked like code.
  */
 export function stripCodeFromText(text: string): StripCodeResult {
-  if (text.length === 0) return { text, removed: 0 }
+  if (text.length === 0) return { text, removed: 0, removedText: '' }
   const lines = splitMidLineFences(text.split('\n'))
   const out: string[] = []
   const counter = { n: 0 }
+  const removedParts: string[] = []
   // True while the last emitted non-blank line is a marker, so a run of code
   // lines (blank lines inside it included) collapses into one marker.
   let inRun = false
@@ -143,6 +152,7 @@ export function stripCodeFromText(text: string): StripCodeResult {
       const closer = fence[1]!
       let j = i + 1
       while (j < lines.length && !lines[j]!.trim().startsWith(closer)) j++
+      removedParts.push(...lines.slice(i, j + 1))
       i = j // skip through the closing fence (or the end of the text)
       emitMarker()
       continue
@@ -152,18 +162,23 @@ export function stripCodeFromText(text: string): StripCodeResult {
       continue
     }
     if (isCodeLikeLine(line)) {
+      removedParts.push(line)
       emitMarker()
       continue
     }
     out.push(...pendingBlanks)
     pendingBlanks = []
     inRun = false
-    out.push(stripInlineSpans(line, counter))
+    out.push(stripInlineSpans(line, counter, removedParts))
   }
   out.push(...pendingBlanks)
 
-  if (counter.n === 0) return { text, removed: 0 }
-  return { text: out.join('\n'), removed: counter.n }
+  if (counter.n === 0) return { text, removed: 0, removedText: '' }
+  return {
+    text: out.join('\n'),
+    removed: counter.n,
+    removedText: removedParts.join('\n'),
+  }
 }
 
 function isPlainJson(value: unknown): boolean {

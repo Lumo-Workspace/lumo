@@ -266,3 +266,46 @@ describe('subagent lumo commands resolve to the child session without changing p
     expect(src).not.toMatch(/updatedInput|permissionDecision/)
   })
 })
+
+describe('LUM-873 summarized commands in used-up workspaces', () => {
+  const summarized = (sessionId: string, id: string, command: string) => ({
+    ...pre(sessionId, id, command),
+    payload: {
+      tool_use_id: id,
+      tool_input: { command },
+      _lumo_redacted: {
+        'tool_input.command': { bytes: 999, lines: 9, sha256: 'x' },
+      },
+    },
+  })
+
+  it('matches a summarized command whose heredoc tokens are gone', () => {
+    const r = matchPendingLumoCommand(
+      [
+        summarized(
+          A,
+          't1',
+          'lumo task comment add LUM-12 --body "$(cat <<\'EOF\'\n…\nEOF\n)"'
+        ),
+        pre(B, 't2', 'lumo task status LUM-13'),
+      ],
+      ['task', 'comment', 'add', 'LUM-12', '--body', 'line one\nline two']
+    )
+    expect(r).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('a full command still needs every token and a summary needs one', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'lumo task comment add LUM-12 --body x')],
+        ['task', 'comment', 'add', 'LUM-12', '--body', 'line one\nline two']
+      )
+    ).toEqual({ kind: 'none' })
+    expect(
+      matchPendingLumoCommand(
+        [summarized(A, 't1', 'lumo doctor')],
+        ['verify', 'LUM-99']
+      )
+    ).toEqual({ kind: 'none' })
+  })
+})

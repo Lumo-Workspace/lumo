@@ -33,6 +33,8 @@ jest.mock('@/lib/services/github-app-install.service', () => ({
     applyInstallationEvent: jest.fn(),
     applyInstallationRepositoriesEvent: jest.fn(),
     resolveWorkspacesForRepository: jest.fn().mockResolvedValue([]),
+    renameRepository: jest.fn(),
+    removeRepository: jest.fn(),
   },
   scrubWorkspaceCode: jest.fn(),
 }))
@@ -52,11 +54,14 @@ import { POST as webhookPOST } from '@/app/api/webhooks/github/route'
 import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'
 import { githubService } from '@/lib/services/github.service'
 import { verifyGitHubSignature } from '@/lib/integrations/github'
+import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 
 const sweep = githubAccessRecheckService.sweep as jest.Mock
 const recheckRepository =
   githubAccessRecheckService.recheckRepository as jest.Mock
 const verify = verifyGitHubSignature as jest.Mock
+const renameRepository = githubAppInstallService.renameRepository as jest.Mock
+const removeRepository = githubAppInstallService.removeRepository as jest.Mock
 
 function cronRequest(auth?: string, query = '') {
   return new NextRequest(
@@ -140,7 +145,7 @@ describe('access recheck triggers', () => {
     expect(recheckRepository).toHaveBeenCalledWith(42, 'acme/web')
   })
 
-  it('rechecks both the new and the old name of a transferred repository', async () => {
+  it('LUM-879 removes the old name of a transferred repository and rechecks the new one', async () => {
     await webhookPOST(
       webhook('repository', {
         action: 'transferred',
@@ -149,8 +154,46 @@ describe('access recheck triggers', () => {
         changes: { owner: { from: { organization: { login: 'acme' } } } },
       })
     )
+    // Asking GitHub about the old name would follow its redirect and keep it.
+    expect(removeRepository).toHaveBeenCalledWith(
+      ['acme/web'],
+      expect.stringContaining('transferred')
+    )
     expect(recheckRepository).toHaveBeenCalledWith(42, 'elsewhere/web')
-    expect(recheckRepository).toHaveBeenCalledWith(42, 'acme/web')
+    expect(recheckRepository).not.toHaveBeenCalledWith(42, 'acme/web')
+  })
+
+  it('LUM-879 renames a confirmed repository from the App webhook', async () => {
+    await webhookPOST(
+      webhook('repository', {
+        action: 'renamed',
+        installation: { id: 42 },
+        repository: { full_name: 'Acme/Web-App', name: 'Web-App' },
+        changes: { repository: { name: { from: 'web' } } },
+      })
+    )
+    expect(renameRepository).toHaveBeenCalledWith(
+      42,
+      'Acme/web',
+      'Acme/Web-App'
+    )
+    expect(removeRepository).not.toHaveBeenCalled()
+  })
+
+  it('LUM-879 removes a deleted repository within its installation', async () => {
+    await webhookPOST(
+      webhook('repository', {
+        action: 'deleted',
+        installation: { id: 42 },
+        repository: { full_name: 'acme/web', name: 'web' },
+      })
+    )
+    expect(removeRepository).toHaveBeenCalledWith(
+      ['acme/web'],
+      expect.stringContaining('deleted'),
+      42
+    )
+    expect(recheckRepository).not.toHaveBeenCalled()
   })
 
   it('ignores other repository actions', async () => {

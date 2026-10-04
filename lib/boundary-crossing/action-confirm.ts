@@ -96,7 +96,7 @@ export const ACTION_DESCRIPTIONS: Record<string, string> = {
   HOOK_BYPASS:
     'bypass local git hooks (git commit / git push with --no-verify, git commit with the -n short flag, git -c core.hooksPath=<path> before commit/push, or a HUSKY=0 prefix)',
   TEST_FILE_DELETED:
-    'delete a test file or test directory (rm / git rm of *.test.*, *.spec.*, or __tests__/)',
+    'delete a test file or test directory (rm / git rm of *.test.<code ext>, *.spec.<code ext>, *_test.go, test_*.py / *_test.py, *_spec.rb, or a __tests__/ tests/ test/ spec/ directory)',
 }
 
 // --- deterministic de-prose (Stage 1 helper) ---------------------------------

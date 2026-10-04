@@ -351,3 +351,25 @@ describe('findToolAttributionEvents', () => {
     )
   })
 })
+
+describe('hookEventRepository.findCommandsByIds LUM-873', () => {
+  it('omits a command stored as a used-up summary', async () => {
+    mockFindMany.mockResolvedValue([
+      { id: 'he_full', payload: { tool_input: { command: 'git push' } } },
+      {
+        id: 'he_summary',
+        payload: {
+          tool_input: { command: "cat > a.ts <<'EOF'\n…\nEOF" },
+          _lumo_redacted: {
+            'tool_input.command': { bytes: 40, lines: 4, sha256: 'x' },
+          },
+        },
+      },
+    ])
+    const out = await hookEventRepository.findCommandsByIds([
+      'he_full',
+      'he_summary',
+    ])
+    expect([...out.entries()]).toEqual([['he_full', 'git push']])
+  })
+})

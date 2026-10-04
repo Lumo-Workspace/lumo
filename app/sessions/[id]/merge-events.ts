@@ -202,6 +202,11 @@ function userPromptItem(ev: RawEvent): TimelineItem {
   if (cleaned) {
     details.push({ labelKey: 'prompt', variant: 'text', text: cleaned })
   }
+  // LUM-873: a used-up workspace keeps the prose of a prompt, not its code.
+  pushBlock(
+    details,
+    redactedBlock('prompt', readRedactedStats(ev.payload, 'prompt'))
+  )
   if (rawPrompt && stripped !== rawPrompt) {
     details.push({
       labelKey: 'rawWithContext',
@@ -233,6 +238,14 @@ function stopItem(ev: RawEvent): TimelineItem {
   const details: DetailBlock[] = last
     ? [{ labelKey: 'lastMessage', variant: 'text', text: last }]
     : []
+  // LUM-873: the code removed from the message in a used-up workspace.
+  pushBlock(
+    details,
+    redactedBlock(
+      'lastMessage',
+      readRedactedStats(ev.payload, 'last_assistant_message')
+    )
+  )
   return {
     key: ev.id,
     kind: 'stop',
@@ -388,6 +401,12 @@ function formatBash(
 
   const details: DetailBlock[] = []
   details.push({ labelKey: 'command', variant: 'code', text: command })
+  // LUM-873: a used-up workspace stores only a summary of the command
+  // (heredoc bodies dropped, capped) — show the full command's size.
+  pushBlock(
+    details,
+    redactedBlock('command', redaction.stats('tool_input.command'))
+  )
   if (stdout.trim()) details.push(clipBlock('stdout', 'code', stdout, 40))
   if (stderr.trim()) details.push(clipBlock('stderr', 'error', stderr, 40))
   pushBlock(
