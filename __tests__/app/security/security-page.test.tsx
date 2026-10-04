@@ -330,6 +330,7 @@ describe('/security page (LUM-856)', () => {
       `content cleared ${or(HOOK_EVENT_RETENTION_DAYS)} days after each event`,
       `(up to ${new Intl.NumberFormat('en').format(FAILURE_ERROR_CAP)} characters)`,
       `commands (heredoc bodies removed, up to ${new Intl.NumberFormat('en').format(COMMAND_SUMMARY_CAP)} characters)`,
+      'prompts and agent messages with any code removed',
       `discarded ${USED_UP_GRACE_DAYS} days after it is used up`,
       `after ${USED_UP_IDLE_DAYS} days with no agent activity`,
       `up to ${USED_UP_AUDIT_WAIT_CAP_DAYS} days after completion`,

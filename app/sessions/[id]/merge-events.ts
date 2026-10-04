@@ -202,6 +202,11 @@ function userPromptItem(ev: RawEvent): TimelineItem {
   if (cleaned) {
     details.push({ labelKey: 'prompt', variant: 'text', text: cleaned })
   }
+  // LUM-873: a used-up workspace keeps the prose of a prompt, not its code.
+  pushBlock(
+    details,
+    redactedBlock('prompt', readRedactedStats(ev.payload, 'prompt'))
+  )
   if (rawPrompt && stripped !== rawPrompt) {
     details.push({
       labelKey: 'rawWithContext',
@@ -233,6 +238,14 @@ function stopItem(ev: RawEvent): TimelineItem {
   const details: DetailBlock[] = last
     ? [{ labelKey: 'lastMessage', variant: 'text', text: last }]
     : []
+  // LUM-873: the code removed from the message in a used-up workspace.
+  pushBlock(
+    details,
+    redactedBlock(
+      'lastMessage',
+      readRedactedStats(ev.payload, 'last_assistant_message')
+    )
+  )
   return {
     key: ev.id,
     kind: 'stop',

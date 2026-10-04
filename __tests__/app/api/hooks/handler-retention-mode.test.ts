@@ -173,3 +173,29 @@ describe('LUM-873 Bash command by session record mode', () => {
     expect(retained._lumo_redacted).toBeUndefined()
   })
 })
+
+describe('LUM-873 conversation code by session record mode', () => {
+  const prompt = [
+    'Fix the charge bug.',
+    '```ts',
+    'export function charge(amount: number) {',
+    `  return '${TOKEN}'`,
+    '}',
+    '```',
+  ].join('\n')
+  const promptEvent = () => ({ session_id: 'sess_1', prompt })
+
+  it('retain mode keeps prompt code, used-up mode keeps only the prose', async () => {
+    mockMode.mockResolvedValue('RETAIN')
+    const retained = await stored(promptEvent())
+    expect(retained.prompt).toContain('export function charge(amount: number)')
+    expect(retained.prompt).not.toContain(TOKEN)
+    expect(retained._lumo_redacted).toBeUndefined()
+
+    mockMode.mockResolvedValue('USED_UP')
+    const usedUp = await stored(promptEvent())
+    expect(usedUp.prompt).toBe('Fix the charge bug.\n[code omitted]')
+    expect(usedUp._lumo_redacted.prompt.lines).toBe(5)
+    expect(JSON.stringify(usedUp)).not.toContain(TOKEN)
+  })
+})

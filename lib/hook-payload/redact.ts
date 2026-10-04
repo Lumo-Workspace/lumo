@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import type { HookEventType } from '@prisma/client'
 import { isTestFilePath } from '../../shared/src/test-file-path'
+import { stripCodeFromText } from '@/lib/ai-derived/strip-code'
 
 /**
  * Customer-code redaction for stored hook events in USED_UP workspaces
@@ -23,9 +24,11 @@ import { isTestFilePath } from '../../shared/src/test-file-path'
  * diff, and the reviewer reads it back from the stored event.
  *
  * Conversation text — the top-level `prompt` / `last_assistant_message`, a
- * Task / Agent / WebFetch `tool_input.prompt` and TodoWrite item text — is not
- * repository content and is kept: turn, session and run summaries are built
- * from it ({@link CONVERSATION_INPUT_PATHS}).
+ * Task / Agent / WebFetch `tool_input.prompt` and TodoWrite item text — keeps
+ * its prose but loses any code in it (fenced blocks, code lines, long inline
+ * spans, via `stripCodeFromText`); the removed code's stats are recorded under
+ * the field's own path. Turn, session and run summaries and Layer 1 memory are
+ * built from that prose (user ruling on LUM-873, option C).
  */
 
 export const REDACTED_FIELD = '_lumo_redacted'
@@ -96,13 +99,17 @@ const PATH_LIST_KEYS = new Set(['filenames', 'files', 'paths'])
 
 /**
  * Conversation text inside tool_input (dot path relative to tool_input): the
- * Task / Agent / WebFetch prompt and TodoWrite item text. Kept — the summaries
- * read them; whether a used-up workspace should drop them too is open (LUM-873).
+ * Task / Agent / WebFetch prompt and TodoWrite item text. Prose kept, code
+ * stripped ({@link stripConversationCode}).
  */
 const CONVERSATION_INPUT_PATHS: readonly RegExp[] = [
   /^prompt$/,
   /^todos\.\d+\.(?:content|activeForm)$/,
 ]
+
+/** Top-level conversation fields of a hook payload (UserPromptSubmit /
+ *  UserPromptExpansion `prompt`, Stop / SubagentStop `last_assistant_message`). */
+const CONVERSATION_TOP_KEYS = ['prompt', 'last_assistant_message'] as const
 
 /** Error-bearing keys kept (capped) on failure events. */
 const FAILURE_ERROR_KEYS = new Set(['error', 'stderr', 'message'])
@@ -198,6 +205,22 @@ export function summarizeCommand(command: string): string {
     : summary
 }
 
+/**
+ * Conversation text with its code removed: the prose stays (each removed code
+ * run becomes one `[code omitted]` marker) and the removed code's stats are
+ * recorded at `path`. Unchanged, with no stats, when it carried no code.
+ */
+function stripConversationCode(
+  text: string,
+  path: string,
+  out: Record<string, RedactedEntry>
+): string {
+  const result = stripCodeFromText(text)
+  if (result.removed === 0) return text
+  out[path] = statsOf(result.removedText)
+  return result.text
+}
+
 /** True when the stored payload's `tool_input.command` is a summary (LUM-873)
  *  rather than the command the agent ran. */
 export function isCommandSummarized(payload: unknown): boolean {
@@ -233,7 +256,8 @@ function allowlist(
         if (summary !== value) opts.out[path] = statsOf(value)
         return summary
       }
-      if (CONVERSATION_INPUT_PATHS.some(re => re.test(rel))) return value
+      if (CONVERSATION_INPUT_PATHS.some(re => re.test(rel)))
+        return stripConversationCode(value, path, opts.out)
     }
     if (key !== null && METADATA_KEYS.has(key)) return value
     if (key === null && parentKey !== null && PATH_LIST_KEYS.has(parentKey))
@@ -332,6 +356,11 @@ export function stripCodeFromHookPayload(
 
   const next = stripToolCall(payload, '', out, failure)
   delete next[REDACTED_FIELD]
+  for (const key of CONVERSATION_TOP_KEYS) {
+    const value = payload[key]
+    if (typeof value === 'string')
+      next[key] = stripConversationCode(value, key, out)
+  }
 
   if (Array.isArray(payload.tool_calls)) {
     next.tool_calls = payload.tool_calls.map((call, i) => {
@@ -355,8 +384,10 @@ export function stripCodeFromHookPayload(
 /**
  * Stats for a field the stored payload no longer carries (`path` is the dot
  * path it had, e.g. `tool_input.content`), or null when it was not redacted.
- * `tool_input.command` is the one field that is still there: its stats
- * describe the full command and the stored string is its summary.
+ * Two kinds of field are still there: `tool_input.command`, whose stats
+ * describe the full command while the stored string is its summary, and
+ * conversation text (`prompt`, `last_assistant_message`, `tool_input.prompt`,
+ * todo text), whose stats describe only the code removed from the prose.
  */
 export function readRedactedStats(
   payload: unknown,
