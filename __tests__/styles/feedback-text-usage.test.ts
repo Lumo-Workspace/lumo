@@ -202,3 +202,28 @@ describe('LUM-967 / LUM-969 bare feedback text utilities', () => {
     ).toHaveLength(1)
   })
 })
+
+// LUM-968: the same light-mode gap applies to SVG marks and dots painted with
+// a bare success / warning accent (~2.2:1, below non-text 3:1). Chart strokes,
+// fills and the arbitrary var() background use the -text step instead. The
+// pattern is assembled from parts so this file never spells a utility.
+describe('LUM-968 bare success / warning chart marks', () => {
+  const fams = '(?:success|warning)'
+  const markRe = new RegExp(
+    `(?<![\\w-])(?:stroke|fill)-${fams}(?![\\w-])|bg-\\[var\\(--${fams}\\)\\]`
+  )
+
+  it('no stroke / fill / var() background uses a bare success or warning accent', () => {
+    const hits = SOURCES.filter(({ text }) => markRe.test(text)).map(
+      ({ file }) => file
+    )
+    expect(hits).toEqual([])
+  })
+
+  it('the pattern matches the bare marks and skips the -text step', () => {
+    const bare = ['stroke', 'fill'].map(p => `${p}-success`)
+    for (const c of bare) expect(c.match(markRe)).toHaveLength(1)
+    expect(['bg-[var(--', 'warning)]'].join('').match(markRe)).toHaveLength(1)
+    expect(['stroke', 'success', 'text'].join('-').match(markRe)).toBeNull()
+  })
+})

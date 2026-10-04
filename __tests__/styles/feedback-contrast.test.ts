@@ -193,16 +193,18 @@ describe('feedback -text meets AA text contrast on --background', () => {
     }
   )
 
-  it.each(FEEDBACK_TEXT)(
+  // in-review is the exception (LUM-968): see the dark in-review block below.
+  it.each(['warning', 'danger', 'success', 'info'] as const)(
     '--%s-text reuses the bright accent in dark mode',
     family => {
       expect(resolve(`${family}-text`, 'dark')).toBe(resolve(family, 'dark'))
     }
   )
 
-  it('light values are the Tailwind amber-700 / red-600 steps they replaced', () => {
+  it('light values are the Tailwind amber-700 / red-700 steps', () => {
     expect(oklchToHex(resolve('warning-text', 'light'))).toBe('#bb4d00')
-    expect(oklchToHex(resolve('danger-text', 'light'))).toBe('#e7000b')
+    // LUM-968: red-600 (e7000b) measured ~4.2:1 on danger-subtle; red-700.
+    expect(oklchToHex(resolve('danger-text', 'light'))).toBe('#c10007')
   })
 
   it('LUM-969 light values: green-700, blue-600, deeper in-review magenta', () => {
@@ -274,26 +276,74 @@ function textOnSubtle(family: string, mode: Mode): number {
   )
 }
 
-// danger is LUM-968's (red-600 measures ~4.2:1 on danger-subtle today).
-const ON_SUBTLE = ['warning', 'success', 'info', 'status-in-review'] as const
-
+// LUM-968: every family, both modes — danger (red-700) and dark in-review
+// (lighter same-hue magenta) were the last two gaps.
 describe('feedback -text meets AA on its own -subtle fill', () => {
-  it.each(ON_SUBTLE)('-text on its -subtle fill: %s (light)', family => {
+  it.each(FEEDBACK_TEXT)('-text on its -subtle fill: %s (light)', family => {
     expect(textOnSubtle(family, 'light')).toBeGreaterThanOrEqual(TEXT_AA)
   })
 
-  it.each(['warning', 'success', 'info'] as const)(
-    '-text on its -subtle fill: %s (dark)',
-    family => {
-      expect(textOnSubtle(family, 'dark')).toBeGreaterThanOrEqual(TEXT_AA)
-    }
-  )
+  it.each(FEEDBACK_TEXT)('-text on its -subtle fill: %s (dark)', family => {
+    expect(textOnSubtle(family, 'dark')).toBeGreaterThanOrEqual(TEXT_AA)
+  })
 
-  it('dark in-review text reuses the accent and measures ~4.4:1 on its subtle', () => {
-    // Known gap, kept visible: dark --status-in-review-text points at the
-    // shared brand magenta (4.7:1 on the page) and lands just under 4.5 on
-    // its own 10% fill. Changing it means a dark-only lighter magenta.
-    expect(textOnSubtle('status-in-review', 'dark')).toBeCloseTo(4.42, 1)
+  it('every -text token clears AA on the page AND its subtle, both modes', () => {
+    const misses: string[] = []
+    for (const family of FEEDBACK_TEXT) {
+      for (const mode of ['light', 'dark'] as const) {
+        const page = contrastRatio(
+          resolve(`${family}-text`, mode),
+          resolve('background', mode)
+        )
+        const subtle = textOnSubtle(family, mode)
+        if (page < TEXT_AA || subtle < TEXT_AA)
+          misses.push(
+            `${family} ${mode}: ${page.toFixed(2)} / ${subtle.toFixed(2)}`
+          )
+      }
+    }
+    expect(misses).toEqual([])
+  })
+
+  it('LUM-968 pins the measured danger / in-review ratios', () => {
+    const page = (family: string, mode: Mode) =>
+      contrastRatio(
+        resolve(`${family}-text`, mode),
+        resolve('background', mode)
+      )
+    expect(page('danger', 'light')).toBeCloseTo(6.42, 1)
+    expect(textOnSubtle('danger', 'light')).toBeCloseTo(5.64, 1)
+    expect(page('status-in-review', 'dark')).toBeCloseTo(5.63, 1)
+    expect(textOnSubtle('status-in-review', 'dark')).toBeCloseTo(5.27, 1)
+  })
+
+  it('the old red-600 danger text missed AA on danger-subtle', () => {
+    // Regression anchor: red-600 measured ~4.2:1 on the 10% fill.
+    const red600 = 'oklch(0.577 0.245 27.325)'
+    expect(
+      srgbContrast(oklchToSrgb(red600), overBackground('danger', 0.1, 'light'))
+    ).toBeLessThan(TEXT_AA)
+  })
+
+  it('dark in-review text is a lighter step of the brand magenta hue', () => {
+    // The bright accent alone lands at ~4.4:1 on its own 10% fill.
+    expect(
+      srgbContrast(
+        oklchToSrgb(resolve('status-in-review', 'dark')),
+        overBackground('status-in-review', 0.1, 'dark')
+      )
+    ).toBeLessThan(TEXT_AA)
+    const [textL, , textH] = parseOklch(
+      resolve('status-in-review-text', 'dark')
+    )
+    const [accentL, , accentH] = parseOklch(resolve('status-in-review', 'dark'))
+    expect(textH).toBe(accentH)
+    expect(textL).toBeGreaterThan(accentL)
+    expect(oklchToHex(resolve('status-in-review-text', 'dark'))).toBe('#c452fd')
+    // light keeps the deeper LUM-969 magenta
+    expect(oklchToHex(resolve('status-in-review-text', 'light'))).toBe(
+      '#a125d7'
+    )
   })
 
   it('compositing pins the light accent-on-subtle failure it fixes', () => {
@@ -361,6 +411,34 @@ describe('accents kept on icons meet non-text 3:1', () => {
       }
     }
   )
+})
+
+// ── Chart marks and status dots (non-text 3:1, LUM-968) ─────────────────────
+// CurrentSprintCard's burndown sparkline (line + end dot) sits on --card, and
+// MilestoneHero's "health unavailable" dot sits on --background. The light
+// success / warning accents miss 3:1 there, so both use the -text step.
+describe('feedback chart marks meet non-text 3:1 on their surface', () => {
+  const MARKS = [
+    { family: 'success', surface: 'card', where: 'burndown sparkline' },
+    { family: 'warning', surface: 'background', where: 'milestone hero dot' },
+  ] as const
+
+  it.each(MARKS)('$where: --$family-text on --$surface (light + dark)', m => {
+    for (const mode of ['light', 'dark'] as const) {
+      expect(
+        contrastRatio(
+          resolve(`${m.family}-text`, mode),
+          resolve(m.surface, mode)
+        )
+      ).toBeGreaterThanOrEqual(GRAPHICS)
+    }
+  })
+
+  it.each(MARKS)('$where: the bare --$family accent misses 3:1 on light', m => {
+    expect(
+      contrastRatio(resolve(m.family, 'light'), resolve(m.surface, 'light'))
+    ).toBeLessThan(GRAPHICS)
+  })
 })
 
 // ── destructive text uses --danger-text (LUM-969) ────────────────────────────

@@ -62,11 +62,11 @@ function BurndownSpark({ sprintId }: { sprintId: string }) {
       <polyline
         points={coords.join(' ')}
         fill='none'
-        className='stroke-success'
+        className='stroke-success-text'
         strokeWidth='2'
         vectorEffect='non-scaling-stroke'
       />
-      <circle cx={last[0]} cy={last[1]} r='2.6' className='fill-success' />
+      <circle cx={last[0]} cy={last[1]} r='2.6' className='fill-success-text' />
     </svg>
   )
 }
