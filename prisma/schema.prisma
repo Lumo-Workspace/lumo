@@ -264,6 +264,12 @@ enum BoundaryCrossingCategory {
   // agent). Irreversible: `memoryRepository.delete` is a hard delete, so
   // unlike an archive there is nothing to restore.
   USED_TRAP_MEMORY_DELETED
+  // LUM-962: code from an unvetted source was run — an install from a VCS / URL
+  // spec (`pip install git+https://…`), a download piped into an interpreter
+  // (`curl … | sh`, `bash <(curl …)`), or a downloaded file made executable /
+  // run in the same command. HIGH + irreversible + never rule-suppressible.
+  // (A NAMED registry install, any ecosystem, stays NEW_NPM_DEPENDENCY.)
+  UNTRUSTED_CODE_EXECUTION
 }
 
 enum BoundaryCrossingDisposition {

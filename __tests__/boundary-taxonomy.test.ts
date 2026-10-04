@@ -75,6 +75,9 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     // LUM-793: `memoryRepository.delete` is a HARD delete (not the reversible
     // ACTIVE→ARCHIVED retire), so the memory row and its content are gone.
     'USED_TRAP_MEMORY_DELETED',
+    // LUM-962: code from an unvetted source already ran — whatever it did to
+    // the world outside the repo is not undone by any git operation.
+    'UNTRUSTED_CODE_EXECUTION',
   ]
   // Target-dependent categories are classified per-origin, not as a whole —
   // covered by their own describe block below.
@@ -141,5 +144,18 @@ describe('HARDCODED_SECRET ↔ security-scan registry (LUM-734)', () => {
     // The taxonomy ceiling for the category is unchanged: HIGH, irreversible.
     expect(severityFor('HARDCODED_SECRET')).toBe('HIGH')
     expect(isReversible('HARDCODED_SECRET')).toBe(false)
+  })
+})
+
+describe('LUM-962 UNTRUSTED_CODE_EXECUTION taxonomy', () => {
+  it('is HIGH severity (forces the DONE gate in every workspace)', () => {
+    expect(severityFor('UNTRUSTED_CODE_EXECUTION')).toBe('HIGH')
+  })
+  it('is irreversible', () => {
+    expect(isReversible('UNTRUSTED_CODE_EXECUTION')).toBe(false)
+  })
+  it('a named registry install stays the LOW, reversible dependency class', () => {
+    expect(severityFor('NEW_NPM_DEPENDENCY')).toBe('LOW')
+    expect(isReversible('NEW_NPM_DEPENDENCY')).toBe(true)
   })
 })

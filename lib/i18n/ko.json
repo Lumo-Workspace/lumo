@@ -1174,6 +1174,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "민감한 경로를 편집함",
   "boundary.category.HOOK_BYPASS": "git 훅을 우회함",
   "boundary.category.TEST_FILE_DELETED": "테스트 파일을 삭제함",
+  "boundary.category.UNTRUSTED_CODE_EXECUTION": "검증되지 않은 출처의 코드 실행",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "유용성이 입증된 트랩 메모리를 삭제함",
   "boundary.advisoryBadge": "권고",
   "boundary.severity.high": "높음",

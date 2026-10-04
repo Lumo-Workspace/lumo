@@ -1174,6 +1174,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "編輯了敏感路徑",
   "boundary.category.HOOK_BYPASS": "繞過了 git 鉤子",
   "boundary.category.TEST_FILE_DELETED": "刪除了測試檔案",
+  "boundary.category.UNTRUSTED_CODE_EXECUTION": "執行了未經審查來源的程式碼",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "刪除了已被證實有用的陷阱記憶",
   "boundary.advisoryBadge": "提示",
   "boundary.severity.high": "高",
