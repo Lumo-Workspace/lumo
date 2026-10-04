@@ -100,6 +100,9 @@ import * as sprintTasksRoute from '@/app/api/sprints/[sprintId]/tasks/route'
 import * as sprintTaskRoute from '@/app/api/sprints/[sprintId]/tasks/[taskId]/route'
 import * as sprintTeamPerfRoute from '@/app/api/sprints/[sprintId]/team-performance/route'
 import * as sprintByNumberRoute from '@/app/api/sprints/by-number/route'
+import * as projectMilestonesRoute from '@/app/api/projects/[id]/milestones/route'
+import * as projectMilestonesReorderRoute from '@/app/api/projects/[id]/milestones/reorder/route'
+import * as projectMilestoneBySlugRoute from '@/app/api/projects/[id]/milestones/by-slug/[slug]/route'
 import { getUserWorkspace } from '@/lib/auth'
 
 jest.setTimeout(240_000)
@@ -1566,5 +1569,161 @@ describe('LUM-985 credential scope: a dual-member caller scoped to ALPHA cannot 
     )
     expect(res.status === 403 || res.status === 404).toBe(true)
     expect(res.text).not.toContain(BRAVO_MARK)
+  })
+})
+
+// ── LUM-986: credential workspace scope on project milestone routes ─────────
+// Same dual member, same ALPHA-scoped credentials as LUM-985, on the routes
+// that authorize through the project's workspace. The project lives in BRAVO
+// (where the human IS a member), so only the credential's workspace scope may
+// deny it — with the exact body a missing project gets, so a mismatch can't
+// confirm the id exists elsewhere.
+
+const PROJECT_NOT_FOUND = { error: 'Project not found' }
+
+/** Every BRAVO milestone row (create/reorder would touch these). */
+async function snapshotMilestoneProtected() {
+  const db = harness.prisma!
+  const [base, bravoMilestones] = await Promise.all([
+    snapshotDualProtected(),
+    db.milestone.findMany({
+      where: { projectId: B().projectId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        sortOrder: true,
+        archivedAt: true,
+      },
+      orderBy: { id: 'asc' },
+    }),
+  ])
+  return { ...base, bravoMilestones }
+}
+
+const projectParams = () => ({ id: B().projectId })
+
+/** Reads first, then writes, so a RED run's writes can't skew later cases. */
+const MILESTONE_ROUTES: Array<[string, DualRun]> = [
+  [
+    'GET /api/projects/[id]/milestones',
+    as => call(projectMilestonesRoute.GET, 'GET', '/x', projectParams(), as),
+  ],
+  [
+    'GET /api/projects/[id]/milestones/by-slug/[slug]',
+    as =>
+      call(
+        projectMilestoneBySlugRoute.GET,
+        'GET',
+        '/x',
+        { id: B().projectId, slug: 'bravo-milestone' },
+        as
+      ),
+  ],
+  [
+    'PATCH /api/projects/[id]/milestones/reorder',
+    as =>
+      call(
+        projectMilestonesReorderRoute.PATCH,
+        'PATCH',
+        '/x',
+        projectParams(),
+        as,
+        { orderedIds: [B().milestoneId] }
+      ),
+  ],
+  [
+    'POST /api/projects/[id]/milestones',
+    as =>
+      call(projectMilestonesRoute.POST, 'POST', '/x', projectParams(), as, {
+        name: 'pwned by dual member',
+      }),
+  ],
+]
+
+const MILESTONE_CASES = MILESTONE_ROUTES.flatMap(([route, run]) =>
+  BOTH.map(
+    source =>
+      [
+        `dual member × ${source} (ALPHA-scoped) — ${route}`,
+        source,
+        run,
+      ] as const
+  )
+)
+
+describe('LUM-986 credential scope: a dual-member caller scoped to ALPHA cannot reach BRAVO project milestone routes', () => {
+  it('control: the dual member’s BRAVO-bound key reaches BRAVO’s milestones (membership is real)', async () => {
+    const as = { caller: 'dualBravo' as const, source: 'bearer' as const }
+    for (const res of [
+      await call(projectMilestonesRoute.GET, 'GET', '/x', projectParams(), as),
+      await call(
+        projectMilestoneBySlugRoute.GET,
+        'GET',
+        '/x',
+        { id: B().projectId, slug: 'bravo-milestone' },
+        as
+      ),
+    ]) {
+      expect(res.status).toBe(200)
+      expect(res.text).toContain(`${BRAVO_MARK} milestone`)
+    }
+  })
+
+  it.each(BOTH)(
+    'control: the ALPHA-scoped dual member (%s) still reaches ALPHA’s own milestone routes',
+    async source => {
+      const as = { caller: 'dualAlpha' as const, source }
+      const list = await call(
+        projectMilestonesRoute.GET,
+        'GET',
+        '/x',
+        { id: A().projectId },
+        as
+      )
+      expect(list.status).toBe(200)
+      expect(list.text).toContain('alpha-own milestone')
+      const bySlug = await call(
+        projectMilestoneBySlugRoute.GET,
+        'GET',
+        '/x',
+        { id: A().projectId, slug: 'alpha-milestone' },
+        as
+      )
+      expect(bySlug.status).toBe(200)
+      expect(bySlug.text).toContain('alpha-own milestone')
+      const reorder = await call(
+        projectMilestonesReorderRoute.PATCH,
+        'PATCH',
+        '/x',
+        { id: A().projectId },
+        as,
+        { orderedIds: [A().milestoneId] }
+      )
+      expect(reorder.status).toBe(200)
+    }
+  )
+
+  it('precondition: a missing project answers the body the mismatch must match', async () => {
+    const res = await call(
+      projectMilestonesRoute.GET,
+      'GET',
+      '/x',
+      { id: 'cmissingprojectidor0000000' },
+      { caller: 'dualAlpha', source: 'bearer' }
+    )
+    expect(res.status).toBe(404)
+    expect(JSON.parse(res.text)).toEqual(PROJECT_NOT_FOUND)
+  })
+
+  it.each(MILESTONE_CASES)('%s → 404', async (name, source, run) => {
+    const before = await snapshotMilestoneProtected()
+    const res = await run({ caller: 'dualAlpha', source })
+    // The received value names the real status on failure.
+    expect(`${name} → ${res.status}`).toBe(`${name} → 404`)
+    expect(res.text).not.toContain(BRAVO_MARK)
+    expect(JSON.parse(res.text)).toEqual(PROJECT_NOT_FOUND)
+    expect(await snapshotMilestoneProtected()).toEqual(before)
   })
 })

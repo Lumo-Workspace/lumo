@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
-import { loadProjectAndMember } from '@/lib/api/helpers'
+import { loadProjectForIdentity } from '@/lib/api/helpers'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { id, slug } = await params
 
-    const result = await loadProjectAndMember(id, identity.clerkId)
+    const result = await loadProjectForIdentity(id, identity)
     if (result instanceof NextResponse) return result
     const { project, member } = result
 
