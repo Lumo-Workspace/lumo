@@ -2660,5 +2660,6 @@
   "usage.preDedupe.marker": "ca. 2× überhöht",
   "usage.preDedupe.notice": "Vor dem 3. Okt. 2026 erfasste Token-Werte sind um etwa das Zweifache überhöht (eine ältere CLI hat jede Nachricht mehrfach gezählt). Neuere Werte sind korrekt.",
   "taskTemplate.agentBrief.name": "Agent-Briefing",
-  "taskTemplate.agentBrief.description": "Kontext, Ziel, Nicht-Ziele, Abbruchbedingungen, Abschlusskriterien, Entscheidungen"
+  "taskTemplate.agentBrief.description": "Kontext, Ziel, Nicht-Ziele, Abbruchbedingungen, Abschlusskriterien, Entscheidungen",
+  "waitlist.error.rateLimited": "Zu viele Versuche aus deinem Netzwerk. Bitte warte eine Minute und versuche es erneut."
 }

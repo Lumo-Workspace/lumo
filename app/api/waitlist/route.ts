@@ -1,29 +1,52 @@
 import { NextResponse } from 'next/server'
 
+import { zodError } from '@/lib/api/helpers'
+import { getClientIp } from '@/lib/api/client-ip'
 import { miscRepository } from '@/lib/repositories/misc.repository'
+import {
+  WAITLIST_SIGNUP_RATE_LIMIT,
+  checkWaitlistSignupRateLimit,
+} from '@/lib/services/waitlist-rate-limit'
+import { waitlistSignupSchema } from '@/lib/validation/waitlist'
 
+/**
+ * POST /api/waitlist — intentionally public (marketing-site signup), so it
+ * carries its own abuse controls (LUM-983): a per-client-IP rate limit,
+ * checked before the body is read so invalid payloads count too, and a
+ * bounded Zod schema.
+ */
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { email, name, company, teamSize } = body
-
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
+    try {
+      await checkWaitlistSignupRateLimit(getClientIp(request.headers))
+    } catch (err) {
+      if (err instanceof Error && 'status' in err && err.status === 429) {
+        return NextResponse.json(
+          { error: err.message },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': String(WAITLIST_SIGNUP_RATE_LIMIT.windowMs / 1000),
+            },
+          }
+        )
+      }
+      throw err
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email address' },
-        { status: 400 }
-      )
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
+
+    const parsed = waitlistSignupSchema.safeParse(body ?? {})
+    if (!parsed.success) return zodError(parsed)
+    const { email, name, company, teamSize } = parsed.data
 
     // Check if already on waitlist
-    const existing = await miscRepository.findWaitlistEntryByEmail(
-      email.toLowerCase().trim()
-    )
+    const existing = await miscRepository.findWaitlistEntryByEmail(email)
 
     if (existing) {
       return NextResponse.json(
@@ -32,12 +55,7 @@ export async function POST(request: Request) {
       )
     }
 
-    await miscRepository.createWaitlistEntry({
-      email: email.toLowerCase().trim(),
-      name: name?.trim() || null,
-      company: company?.trim() || null,
-      teamSize: teamSize || null,
-    })
+    await miscRepository.createWaitlistEntry({ email, name, company, teamSize })
 
     return NextResponse.json(
       { message: 'You have been added to the waitlist!' },

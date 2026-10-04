@@ -30,11 +30,15 @@ export default function WaitlistPage() {
       setMessage(msg)
     } catch (err) {
       setStatus('error')
-      setMessage(
-        err instanceof ApiClientError
-          ? err.message
-          : intl.formatMessage({ id: 'waitlist.error.network' })
-      )
+      if (err instanceof ApiClientError && err.status === 429) {
+        setMessage(intl.formatMessage({ id: 'waitlist.error.rateLimited' }))
+      } else {
+        setMessage(
+          err instanceof ApiClientError
+            ? err.message
+            : intl.formatMessage({ id: 'waitlist.error.network' })
+        )
+      }
     }
   }
 

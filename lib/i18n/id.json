@@ -2660,5 +2660,6 @@
   "usage.preDedupe.marker": "terlalu tinggi ≈2×",
   "usage.preDedupe.notice": "Angka token yang dicatat sebelum 3 Okt 2026 terlalu tinggi sekitar 2× (CLI lama menghitung setiap pesan beberapa kali). Angka yang lebih baru akurat.",
   "taskTemplate.agentBrief.name": "Brief agen",
-  "taskTemplate.agentBrief.description": "Konteks, tujuan, di luar cakupan, kondisi berhenti, kriteria selesai, keputusan"
+  "taskTemplate.agentBrief.description": "Konteks, tujuan, di luar cakupan, kondisi berhenti, kriteria selesai, keputusan",
+  "waitlist.error.rateLimited": "Terlalu banyak percobaan dari jaringan Anda. Harap tunggu satu menit lalu coba lagi."
 }

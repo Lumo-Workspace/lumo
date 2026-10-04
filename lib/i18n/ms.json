@@ -2660,5 +2660,6 @@
   "usage.preDedupe.marker": "dilebihkan ≈2×",
   "usage.preDedupe.notice": "Angka token yang direkodkan sebelum 3 Okt 2026 dilebihkan kira-kira 2× (CLI lama mengira setiap mesej beberapa kali). Angka yang lebih baharu adalah tepat.",
   "taskTemplate.agentBrief.name": "Ringkasan ejen",
-  "taskTemplate.agentBrief.description": "Konteks, matlamat, di luar skop, syarat berhenti, kriteria siap, keputusan"
+  "taskTemplate.agentBrief.description": "Konteks, matlamat, di luar skop, syarat berhenti, kriteria siap, keputusan",
+  "waitlist.error.rateLimited": "Terlalu banyak cubaan daripada rangkaian anda. Sila tunggu seminit dan cuba lagi."
 }
