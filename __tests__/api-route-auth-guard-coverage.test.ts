@@ -90,8 +90,6 @@ const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
 const ALLOW_LISTED: Record<string, string> = {
   'app/api/waitlist/route.ts':
     'Intentionally public: marketing-site waitlist signup, writes only a WaitlistEntry',
-  'app/api/summaries/generate/route.ts':
-    'Vercel Cron: compares Authorization to `Bearer ${CRON_SECRET}` inline; not migrated to requireCronAuth (that one fails closed on an unset secret, so not behavior-equivalent)',
 }
 
 type RouteScan = {
