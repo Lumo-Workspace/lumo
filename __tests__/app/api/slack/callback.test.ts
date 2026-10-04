@@ -140,6 +140,9 @@ describe('GET /api/slack/callback', () => {
         installedBy: 'm1',
         slackTeamId: 'T1',
         slackUserId: 'U1',
+      }),
+      expect.objectContaining({
+        actor: expect.objectContaining({ memberId: 'm1' }),
       })
     )
   })
