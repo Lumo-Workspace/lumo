@@ -2660,5 +2660,6 @@
   "usage.preDedupe.marker": "약 2배 과대 집계",
   "usage.preDedupe.notice": "2026년 10월 3일 이전에 기록된 토큰 수치는 약 2배 과대 집계되었습니다(이전 CLI가 같은 메시지를 여러 번 집계했습니다). 이후 수치는 정확합니다.",
   "taskTemplate.agentBrief.name": "에이전트 브리프",
-  "taskTemplate.agentBrief.description": "배경, 목표, 범위 외, 중단 조건, 완료 기준, 결정 사항"
+  "taskTemplate.agentBrief.description": "배경, 목표, 범위 외, 중단 조건, 완료 기준, 결정 사항",
+  "waitlist.error.rateLimited": "네트워크에서 시도 횟수가 너무 많습니다. 1분 후에 다시 시도해 주세요."
 }

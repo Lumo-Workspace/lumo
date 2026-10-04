@@ -2253,6 +2253,7 @@
   "waitlist.button.submit": "Join Waitlist",
   "waitlist.button.submitting": "Submitting…",
   "waitlist.error.network": "Network error. Please try again.",
+  "waitlist.error.rateLimited": "Too many attempts from your network. Please wait a minute and try again.",
   "waitlist.field.company": "Company",
   "waitlist.field.email": "Work email",
   "waitlist.field.name": "Name",

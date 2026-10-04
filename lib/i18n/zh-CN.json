@@ -2660,5 +2660,6 @@
   "usage.preDedupe.marker": "约高估 2 倍",
   "usage.preDedupe.notice": "2026 年 10 月 3 日之前记录的 token 数据约高估 2 倍（旧版 CLI 会把同一条消息重复计数）；之后的数据是准确的。",
   "taskTemplate.agentBrief.name": "Agent 任务简报",
-  "taskTemplate.agentBrief.description": "背景、目标、非目标、停止条件、完成标准、决策"
+  "taskTemplate.agentBrief.description": "背景、目标、非目标、停止条件、完成标准、决策",
+  "waitlist.error.rateLimited": "来自你所在网络的尝试次数过多，请稍等一分钟后重试。"
 }

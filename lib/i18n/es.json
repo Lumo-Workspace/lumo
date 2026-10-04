@@ -2660,5 +2660,6 @@
   "usage.preDedupe.marker": "sobrestimado ≈2×",
   "usage.preDedupe.notice": "Las cifras de tokens registradas antes del 3 de oct. de 2026 están sobrestimadas unas 2 veces (una CLI antigua contaba cada mensaje varias veces). Las cifras más recientes son precisas.",
   "taskTemplate.agentBrief.name": "Brief para agente",
-  "taskTemplate.agentBrief.description": "Contexto, objetivo, fuera de alcance, condiciones de parada, criterios de cierre, decisiones"
+  "taskTemplate.agentBrief.description": "Contexto, objetivo, fuera de alcance, condiciones de parada, criterios de cierre, decisiones",
+  "waitlist.error.rateLimited": "Demasiados intentos desde tu red. Espera un minuto y vuelve a intentarlo."
 }
