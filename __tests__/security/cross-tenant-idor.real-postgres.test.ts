@@ -90,6 +90,17 @@ import * as apiKeysRoute from '@/app/api/users/api-keys/route'
 import * as apiKeyRoute from '@/app/api/users/api-keys/[id]/route'
 import * as teamTasksRoute from '@/app/api/teams/[teamId]/tasks/route'
 import * as teamSprintsRoute from '@/app/api/teams/[teamId]/sprints/route'
+import * as teamCadenceRoute from '@/app/api/teams/[teamId]/cadence/route'
+import * as sprintBurnupRoute from '@/app/api/sprints/[sprintId]/burnup/route'
+import * as sprintCloseRoute from '@/app/api/sprints/[sprintId]/close/route'
+import * as sprintStartRoute from '@/app/api/sprints/[sprintId]/start/route'
+import * as sprintSummaryRoute from '@/app/api/sprints/[sprintId]/summary/route'
+import * as sprintSummaryRetryRoute from '@/app/api/sprints/[sprintId]/summary/retry/route'
+import * as sprintTasksRoute from '@/app/api/sprints/[sprintId]/tasks/route'
+import * as sprintTaskRoute from '@/app/api/sprints/[sprintId]/tasks/[taskId]/route'
+import * as sprintTeamPerfRoute from '@/app/api/sprints/[sprintId]/team-performance/route'
+import * as sprintByNumberRoute from '@/app/api/sprints/by-number/route'
+import { getUserWorkspace } from '@/lib/auth'
 
 jest.setTimeout(240_000)
 
@@ -100,16 +111,24 @@ const BRAVO_MARK = 'bravo-private'
 /** ALPHA's second team, which the plain ALPHA member is NOT a TeamMember of. */
 const RESTRICTED_MARK = 'alpha-restricted-team'
 
+/** LUM-985: one human who is a member of BOTH workspaces. */
+const DUAL_CLERK = 'user_idor_dual_member'
 const CLERK = {
   alphaOwner: 'user_idor_alpha_owner',
   alphaMember: 'user_idor_alpha_member',
   bravoOwner: 'user_idor_bravo_owner',
+  dualAlpha: DUAL_CLERK,
+  dualBravo: DUAL_CLERK,
 }
 /** Readable, non-secret-shaped fixture tokens (only their sha256 is stored). */
 const TOKEN = {
   alphaOwner: 'idor-fixture-bearer-alpha-owner',
   alphaMember: 'idor-fixture-bearer-alpha-member',
   bravoOwner: 'idor-fixture-bearer-bravo-owner',
+  /** The dual member's key bound to ALPHA (the credential under test). */
+  dualAlpha: 'idor-fixture-bearer-dual-alpha',
+  /** The dual member's key bound to BRAVO (non-vacuity control). */
+  dualBravo: 'idor-fixture-bearer-dual-bravo',
 }
 
 interface WorkspaceFixture {
@@ -131,12 +150,26 @@ interface WorkspaceFixture {
   apiKeyId: string
 }
 
+type DualProbes = Record<
+  'clerk' | 'bearer',
+  /** A BRAVO task in BRAVO's sprint; a DRAFT BRAVO sprint to delete. */
+  { sprintTaskId: string; deleteSprintId: string }
+>
+
 const fx: {
   alpha: WorkspaceFixture | null
   bravo: WorkspaceFixture | null
   restricted: { teamId: string; sprintId: string; taskId: string } | null
   alphaMemberTeamId: string | null
-} = { alpha: null, bravo: null, restricted: null, alphaMemberTeamId: null }
+  /** LUM-985: per-source BRAVO probes for the destructive dual-member cases. */
+  dualProbes: DualProbes | null
+} = {
+  alpha: null,
+  bravo: null,
+  restricted: null,
+  alphaMemberTeamId: null,
+  dualProbes: null,
+}
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
 
@@ -370,6 +403,76 @@ async function seedAlphaTeamLayer(alpha: WorkspaceFixture) {
 }
 
 /**
+ * LUM-985: a human who is a MEMBER of both workspaces and a TeamMember of each
+ * workspace's default team — so in BRAVO they are legitimately allowed, and the
+ * only thing that may deny an ALPHA-bound credential is its workspace scope.
+ * ALPHA's membership row is created first so the Clerk path (which resolves the
+ * user's workspace via `getUserWorkspace`) lands on ALPHA; a test asserts it.
+ */
+async function seedDualMember(
+  alpha: WorkspaceFixture,
+  bravo: WorkspaceFixture
+) {
+  const db = harness.prisma!
+  for (const [ws, token] of [
+    [alpha, TOKEN.dualAlpha],
+    [bravo, TOKEN.dualBravo],
+  ] as const) {
+    const member = await db.workspaceMember.create({
+      data: {
+        workspaceId: ws.workspaceId,
+        clerkId: DUAL_CLERK,
+        role: 'MEMBER',
+      },
+    })
+    await db.actor.create({
+      data: { workspaceId: ws.workspaceId, type: 'HUMAN', memberId: member.id },
+    })
+    await db.teamMember.create({
+      data: { teamId: ws.teamId, memberId: member.id },
+    })
+    await db.apiKey.create({
+      data: {
+        workspaceMemberId: member.id,
+        label: 'dual member key',
+        keyHash: sha256(token),
+        keyPrefix: token.slice(0, 16),
+      },
+    })
+  }
+  // Per-source probes for the destructive cases, so that on an unfixed run
+  // the Clerk case removing them can't make the Bearer case pass vacuously.
+  const probes = {} as DualProbes
+  let taskNumber = 3
+  let sprintNumber = 2
+  for (const source of ['clerk', 'bearer'] as const) {
+    const sprintTask = await db.task.create({
+      data: {
+        projectId: bravo.projectId,
+        teamId: bravo.teamId,
+        number: taskNumber++,
+        title: `${BRAVO_MARK} sprint task (${source})`,
+        sprintId: bravo.sprintId,
+      },
+    })
+    const deleteSprint = await db.sprint.create({
+      data: {
+        teamId: bravo.teamId,
+        number: sprintNumber++,
+        name: `${BRAVO_MARK} delete-probe sprint (${source})`,
+        startDate: new Date(`2032-0${sprintNumber}-01T00:00:00.000Z`),
+        endDate: new Date(`2032-0${sprintNumber}-10T00:00:00.000Z`),
+      },
+    })
+    probes[source] = {
+      sprintTaskId: sprintTask.id,
+      deleteSprintId: deleteSprint.id,
+    }
+  }
+  return probes
+}
+
+/**
  * Everything of BRAVO's (and of ALPHA's restricted team) a write could touch.
  * Compared before/after every denied write: a denial that still mutated is a
  * failure even if the status code says 403/404.
@@ -462,6 +565,7 @@ beforeAll(async () => {
   )
   fx.restricted = await seedAlphaTeamLayer(fx.alpha)
   fx.alphaMemberTeamId = fx.alpha.teamId
+  fx.dualProbes = await seedDualMember(fx.alpha, fx.bravo)
 })
 
 afterAll(async () => {
@@ -471,7 +575,12 @@ afterAll(async () => {
 // ── Request plumbing ────────────────────────────────────────────────────────
 
 type AuthSource = 'clerk' | 'bearer'
-type Caller = 'alphaOwner' | 'alphaMember' | 'bravoOwner'
+type Caller =
+  | 'alphaOwner'
+  | 'alphaMember'
+  | 'bravoOwner'
+  | 'dualAlpha'
+  | 'dualBravo'
 type Handler = (
   request: NextRequest,
   context: { params: Promise<Record<string, string>> }
@@ -1243,6 +1352,219 @@ describe('LUM-978 fixture controls: the owning caller is allowed', () => {
     )
     expect(res.status).toBe(200)
     expect(res.text).toContain('alpha-own task one')
+    expect(res.text).not.toContain(BRAVO_MARK)
+  })
+})
+
+// ── LUM-985: credential workspace scope on team-scoped routes ───────────────
+// A human who belongs to BOTH workspaces (and to BRAVO's team) calls with a
+// credential scoped to ALPHA — an ALPHA-bound Bearer key, or a Clerk session
+// whose active workspace is ALPHA. Team membership in BRAVO must not widen the
+// credential: every team-scoped route answers 404 (no existence oracle), leaks
+// none of BRAVO's data and mutates nothing.
+
+/** BRAVO's team row + task→sprint bindings, on top of `snapshotProtected`. */
+async function snapshotDualProtected() {
+  const db = harness.prisma!
+  const [base, bravoTeam, bravoTaskSprints] = await Promise.all([
+    snapshotProtected(),
+    db.team.findUnique({ where: { id: B().teamId } }),
+    db.task.findMany({
+      where: { teamId: B().teamId },
+      select: { id: true, sprintId: true },
+      orderBy: { id: 'asc' },
+    }),
+  ])
+  return { ...base, bravoTeam, bravoTaskSprints }
+}
+
+type DualRun = (as: {
+  caller: Caller
+  source: AuthSource
+}) => Promise<{ status: number; text: string }>
+
+const sprintParams = () => ({ sprintId: B().sprintId })
+const teamParams = () => ({ teamId: B().teamId })
+
+/**
+ * Ordered so a RED (unfixed) run's writes can't turn later reads into a
+ * vacuous 404: reads first, the sprint DELETE last.
+ */
+const DUAL_ROUTES: Array<[string, DualRun]> = [
+  [
+    'GET /api/sprints/[sprintId]',
+    as => call(sprintRoute.GET, 'GET', '/x', sprintParams(), as),
+  ],
+  [
+    'GET /api/teams/[teamId]/tasks',
+    as => call(teamTasksRoute.GET, 'GET', '/x', teamParams(), as),
+  ],
+  [
+    'GET /api/teams/[teamId]/sprints',
+    as => call(teamSprintsRoute.GET, 'GET', '/x', teamParams(), as),
+  ],
+  [
+    'GET /api/sprints/[sprintId]/burnup',
+    as => call(sprintBurnupRoute.GET, 'GET', '/x', sprintParams(), as),
+  ],
+  [
+    'GET /api/sprints/[sprintId]/team-performance',
+    as => call(sprintTeamPerfRoute.GET, 'GET', '/x', sprintParams(), as),
+  ],
+  [
+    'GET /api/sprints/[sprintId]/tasks',
+    as => call(sprintTasksRoute.GET, 'GET', '/x', sprintParams(), as),
+  ],
+  [
+    'GET /api/sprints/[sprintId]/summary',
+    as => call(sprintSummaryRoute.GET, 'GET', '/x', sprintParams(), as),
+  ],
+  [
+    'PATCH /api/sprints/[sprintId]',
+    as =>
+      call(sprintRoute.PATCH, 'PATCH', '/x', sprintParams(), as, {
+        name: 'pwned by dual member',
+      }),
+  ],
+  [
+    'POST /api/sprints/[sprintId]/tasks',
+    as =>
+      call(sprintTasksRoute.POST, 'POST', '/x', sprintParams(), as, {
+        taskId: B().taskId,
+      }),
+  ],
+  [
+    'DELETE /api/sprints/[sprintId]/tasks/[taskId]',
+    as =>
+      call(
+        sprintTaskRoute.DELETE,
+        'DELETE',
+        '/x',
+        {
+          sprintId: B().sprintId,
+          taskId: fx.dualProbes![as.source].sprintTaskId,
+        },
+        as
+      ),
+  ],
+  [
+    'POST /api/sprints/[sprintId]/summary/retry',
+    as => call(sprintSummaryRetryRoute.POST, 'POST', '/x', sprintParams(), as),
+  ],
+  [
+    'POST /api/sprints/[sprintId]/start',
+    as => call(sprintStartRoute.POST, 'POST', '/x', sprintParams(), as),
+  ],
+  [
+    'POST /api/sprints/[sprintId]/close',
+    as =>
+      call(sprintCloseRoute.POST, 'POST', '/x', sprintParams(), as, {
+        decisions: {},
+      }),
+  ],
+  [
+    'PATCH /api/teams/[teamId]/cadence',
+    as =>
+      call(teamCadenceRoute.PATCH, 'PATCH', '/x', teamParams(), as, {
+        enabled: true,
+        durationDays: 7,
+      }),
+  ],
+  [
+    'POST /api/teams/[teamId]/sprints',
+    as =>
+      call(teamSprintsRoute.POST, 'POST', '/x', teamParams(), as, {
+        name: 'pwned by dual member',
+        startDate: '2031-01-06T00:00:00.000Z',
+        endDate: '2031-01-20T00:00:00.000Z',
+      }),
+  ],
+  [
+    'DELETE /api/sprints/[sprintId]',
+    as =>
+      call(
+        sprintRoute.DELETE,
+        'DELETE',
+        '/x',
+        { sprintId: fx.dualProbes![as.source].deleteSprintId },
+        as
+      ),
+  ],
+]
+
+// Route-major order: each route runs for both sources before the next route.
+const DUAL_CASES = DUAL_ROUTES.flatMap(([route, run]) =>
+  BOTH.map(
+    source =>
+      [
+        `dual member × ${source} (ALPHA-scoped) — ${route}`,
+        source,
+        run,
+      ] as const
+  )
+)
+
+describe('LUM-985 credential scope: a dual-member caller scoped to ALPHA cannot reach BRAVO team-scoped routes', () => {
+  it('precondition: the dual member’s Clerk session resolves to ALPHA', async () => {
+    const ws = await getUserWorkspace(DUAL_CLERK)
+    expect(ws?.workspaceId).toBe(A().workspaceId)
+  })
+
+  it('control: the dual member’s BRAVO-bound key reaches BRAVO (membership is real)', async () => {
+    const as = { caller: 'dualBravo' as const, source: 'bearer' as const }
+    for (const res of [
+      await call(sprintRoute.GET, 'GET', '/x', sprintParams(), as),
+      await call(teamTasksRoute.GET, 'GET', '/x', teamParams(), as),
+      await call(teamSprintsRoute.GET, 'GET', '/x', teamParams(), as),
+    ]) {
+      expect(res.status).toBe(200)
+      expect(res.text).toContain(BRAVO_MARK)
+    }
+  })
+
+  it.each(BOTH)(
+    'control: the ALPHA-scoped dual member (%s) still reaches ALPHA’s own team routes',
+    async source => {
+      const as = { caller: 'dualAlpha' as const, source }
+      const sprint = await call(
+        sprintRoute.GET,
+        'GET',
+        '/x',
+        { sprintId: A().sprintId },
+        as
+      )
+      expect(sprint.status).toBe(200)
+      expect(sprint.text).toContain('alpha-own sprint')
+      const tasks = await call(
+        teamTasksRoute.GET,
+        'GET',
+        '/x',
+        { teamId: A().teamId },
+        as
+      )
+      expect(tasks.status).toBe(200)
+      expect(tasks.text).toContain('alpha-own task one')
+    }
+  )
+
+  it.each(DUAL_CASES)('%s → 404', async (name, source, run) => {
+    const before = await snapshotDualProtected()
+    const res = await run({ caller: 'dualAlpha', source })
+    // The received value names the real status on failure.
+    expect(`${name} → ${res.status}`).toBe(`${name} → 404`)
+    expect(res.text).not.toContain(BRAVO_MARK)
+    expect(await snapshotDualProtected()).toEqual(before)
+  })
+
+  it('by-number with BRAVO’s slug is denied for the ALPHA-bound key', async () => {
+    const res = await call(
+      sprintByNumberRoute.GET,
+      'GET',
+      '/api/sprints/by-number?workspaceUrl=idor-bravo&number=1',
+      {},
+      { caller: 'dualAlpha', source: 'bearer' }
+    )
+    expect(res.status === 403 || res.status === 404).toBe(true)
     expect(res.text).not.toContain(BRAVO_MARK)
   })
 })

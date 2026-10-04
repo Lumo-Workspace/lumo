@@ -139,6 +139,12 @@ describe('GET /api/sprints/by-number', () => {
     })
     // tasks are fetched for the resolved sprint id, in parallel with counts
     expect(mockFindBySprint).toHaveBeenCalledWith('s-1')
+    // LUM-985: the guard gets the caller's credential scope, not just clerkId
+    expect(mockRequireTeam).toHaveBeenCalledWith(
+      identity,
+      { workspaceId: 'ws-1', teamId: 'team-1' },
+      'Sprint not found'
+    )
   })
 
   it('propagates a thrown error status (e.g. forbidden team access)', async () => {
