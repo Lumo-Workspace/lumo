@@ -12,6 +12,7 @@ import {
   scrubWorkspaceCode,
   scrubAfterNarrowing,
   removeInstallation,
+  githubAppInstallService,
 } from '@/lib/services/github-app-install.service'
 import { TOKEN_FAILING_ALERT_MS } from '@/lib/services/github-access-recheck.config'
 
@@ -671,29 +672,62 @@ export const githubAccessRecheckService = {
   },
 
   /**
-   * `repository` event from the App webhook. `privatized` can take read
-   * access away from anyone who only had it because the repository was
-   * public; `transferred` moves it to another owner, so the name on the
-   * confirmed list is the old one.
+   * `repository` event from the App webhook.
+   *
+   * - `privatized` can take read access away from anyone who only had it
+   *   because the repository was public: recheck it (LUM-882).
+   * - `renamed` (LUM-879): the confirmed list and every stored `owner/name`
+   *   follow the new name — otherwise the token mint is refused under the
+   *   old name and the new name's events are dropped as unconfirmed.
+   * - `transferred` (LUM-879): the repository has left its owner's
+   *   installation. The old name is removed like an `installation_repositories`
+   *   removal (GitHub does not always send one) — asking about it instead
+   *   would follow GitHub's redirect to the new owner and keep it. The new
+   *   name is rechecked for whoever confirmed it (LUM-882).
+   * - `deleted` (LUM-879): removed the same way.
    */
   async applyRepositoryEvent(payload: RepositoryEventPayload) {
     const installationId = payload.installation?.id
     const repo = payload.repository
     if (!installationId || !repo?.full_name) return
 
-    if (payload.action === 'privatized') {
-      await this.recheckRepository(installationId, repo.full_name)
-      return
-    }
-    if (payload.action === 'transferred') {
-      const from =
-        payload.changes?.owner?.from?.organization?.login ??
-        payload.changes?.owner?.from?.user?.login
-      const names = [repo.full_name]
-      if (from && repo.name) names.push(`${from}/${repo.name}`)
-      for (const name of names) {
-        await this.recheckRepository(installationId, name)
+    switch (payload.action) {
+      case 'privatized':
+        await this.recheckRepository(installationId, repo.full_name)
+        return
+      case 'renamed': {
+        const fromName = payload.changes?.repository?.name?.from
+        const owner = repo.full_name.slice(0, repo.full_name.indexOf('/'))
+        if (!fromName || !owner) return
+        await githubAppInstallService.renameRepository(
+          installationId,
+          `${owner}/${fromName}`,
+          repo.full_name
+        )
+        return
       }
+      case 'transferred': {
+        const from =
+          payload.changes?.owner?.from?.organization?.login ??
+          payload.changes?.owner?.from?.user?.login
+        if (from && repo.name) {
+          await githubAppInstallService.removeRepository(
+            [`${from}/${repo.name}`],
+            'repository transferred to another owner on GitHub'
+          )
+        }
+        await this.recheckRepository(installationId, repo.full_name)
+        return
+      }
+      case 'deleted':
+        await githubAppInstallService.removeRepository(
+          [repo.full_name],
+          'repository deleted on GitHub',
+          installationId
+        )
+        return
+      default:
+        return
     }
   },
 }
@@ -704,6 +738,8 @@ export interface RepositoryEventPayload {
   installation?: { id?: number }
   repository?: { full_name?: string; name?: string }
   changes?: {
+    /** `renamed`: the short name before the rename. */
+    repository?: { name?: { from?: string } }
     owner?: {
       from?: {
         organization?: { login?: string }

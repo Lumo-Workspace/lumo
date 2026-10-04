@@ -103,6 +103,29 @@ export const prCommentMirrorRepository = {
     return prisma.prCommentMirror.findUnique({ where: { id } })
   },
 
+  /**
+   * LUM-879 — every comment mirrored on the workspace's PRs, with its body,
+   * for the code scrub when repositories leave the workspace. `repos` are
+   * stored `PullRequest.repo` spellings; omitted, every PR of the workspace.
+   * Soft-deleted comments and tombstoned mirrors are included: their body is
+   * still stored.
+   */
+  async findMirroredCommentBodies(workspaceId: string, repos?: string[]) {
+    return prisma.prCommentMirror.findMany({
+      where: {
+        pullRequest: {
+          workspaceId,
+          ...(repos ? { repo: { in: repos } } : {}),
+        },
+      },
+      select: {
+        commentId: true,
+        pullRequestId: true,
+        comment: { select: { body: true, updatedAt: true } },
+      },
+    })
+  },
+
   async findByCommentId(commentId: string) {
     return prisma.prCommentMirror.findUnique({ where: { commentId } })
   },

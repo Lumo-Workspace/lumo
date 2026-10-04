@@ -181,6 +181,24 @@ export const pullRequestRepository = {
     })
   },
 
+  /** LUM-879 — the workspace and repository a PR row belongs to. */
+  async findRepoScope(id: string) {
+    return prisma.pullRequest.findUnique({
+      where: { id },
+      select: { workspaceId: true, repo: true },
+    })
+  },
+
+  /** LUM-879 — ids of the workspace's PRs in these stored repo spellings. */
+  async findIdsByRepos(workspaceId: string, repos: string[]) {
+    if (repos.length === 0) return []
+    const rows = await prisma.pullRequest.findMany({
+      where: { workspaceId, repo: { in: repos } },
+      select: { id: true },
+    })
+    return rows.map(row => row.id)
+  },
+
   /** Find a PR by ID with task info. */
   async findById(id: string) {
     return prisma.pullRequest.findUnique({
