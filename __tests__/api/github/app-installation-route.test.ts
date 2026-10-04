@@ -29,6 +29,13 @@ jest.mock('@/lib/repositories', () => ({
       .mockResolvedValue({ scans: 0, findings: 0 }),
   },
 }))
+// LUM-879: every workspace code scrub also strips code from PR-mirrored
+// comments; this route test does not exercise that step.
+jest.mock('@/lib/services/pr-comment-code-scrub.service', () => ({
+  scrubMirroredCommentCode: jest
+    .fn()
+    .mockResolvedValue({ comments: 0, jobs: 0 }),
+}))
 jest.mock('@/lib/integrations/github', () => ({
   fetchAppInstallation: jest.fn(),
   fetchInstallationRepositories: jest.fn(),
