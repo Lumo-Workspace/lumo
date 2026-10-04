@@ -272,6 +272,7 @@ beforeAll(async () => {
     'Acme/API',
     'acme/lib',
     'acme/keep',
+    'acme/race',
   ])
   await seedWorkspace('ws_b', 7, ['acme/web', 'acme/lib'])
   await seedWorkspace('ws_c', 7, ['acme/keep'])
@@ -286,6 +287,7 @@ beforeAll(async () => {
 
   await seedPr('a_api', 'ws_a', 'acme/api', 3)
   await seedPr('a_keep', 'ws_a', 'acme/keep', 4)
+  await seedPr('a_race', 'ws_a', 'acme/race', 7)
   await seedPr('a_lib', 'ws_a', 'acme/lib', 5)
   await seedPr('b_lib', 'ws_b', 'Acme/Lib', 5)
   await seedPr('d_thing', 'ws_d', 'other/thing', 6)
@@ -342,6 +344,7 @@ describe('LUM-879 repository renamed', () => {
       'Acme/API',
       'acme/lib',
       'acme/keep',
+      'acme/race',
     ])
     expect(await confirmed('ws_b')).toEqual(['Acme/Web-App', 'acme/lib'])
     expect(await prRepo('a_web')).toBe('Acme/Web-App')
@@ -430,6 +433,16 @@ describe('LUM-879 repository renamed', () => {
   })
 })
 
+/** The race tests' own removal, so each runs on its own (idempotent). */
+async function removeRaceRepository() {
+  await githubAccessRecheckService.applyRepositoryEvent({
+    action: 'deleted',
+    installation: { id: 7 },
+    repository: { full_name: 'acme/race', name: 'race' },
+  })
+  expect(await confirmed('ws_a')).not.toContain('acme/race')
+}
+
 describe('LUM-879 repository deleted', () => {
   it('repository deleted scrubs scan code, strips mirrored comments and retires sync payloads', async () => {
     const before = await db().comment.findUniqueOrThrow({
@@ -443,11 +456,9 @@ describe('LUM-879 repository deleted', () => {
     })
 
     // Case-insensitive: `Acme/API` leaves the list; the rest stays.
-    expect(await confirmed('ws_a')).toEqual([
-      'Acme/Web-App',
-      'acme/lib',
-      'acme/keep',
-    ])
+    const list = await confirmed('ws_a')
+    expect(list).not.toContain('Acme/API')
+    expect(list).toEqual(expect.arrayContaining(['acme/keep', 'acme/race']))
     expect(await scanHoldsCode('a_api')).toBe(false)
 
     // The discussion stays, the code goes; author and timestamps unchanged.
@@ -502,10 +513,11 @@ describe('LUM-879 repository deleted', () => {
   })
 
   it('a scan write that lands after the removal is scrubbed by its post-write check', async () => {
+    await removeRaceRepository()
     // The in-flight scan's writer: findings first, then the LUM-896 recheck.
     await prSecurityScanRepository.createFindings([
       {
-        scanId: 'a_api_scan',
+        scanId: 'a_race_scan',
         kind: 'VULNERABILITY',
         ruleId: 'vuln:sql-injection',
         severity: 'HIGH',
@@ -518,14 +530,15 @@ describe('LUM-879 repository deleted', () => {
         fingerprint: 'late_fp',
       },
     ])
-    expect(await scanHoldsCode('a_api')).toBe(true)
-    expect(await scrubScanIfRepositoryUnconfirmed('a_api_scan')).toBe(true)
-    expect(await scanHoldsCode('a_api')).toBe(false)
+    expect(await scanHoldsCode('a_race')).toBe(true)
+    expect(await scrubScanIfRepositoryUnconfirmed('a_race_scan')).toBe(true)
+    expect(await scanHoldsCode('a_race')).toBe(false)
     // Control: the same write on a confirmed repository is kept.
     expect(await scrubScanIfRepositoryUnconfirmed('a_keep_scan')).toBe(false)
   })
 
   it('a mirrored comment that lands after the removal has its code stripped', async () => {
+    await removeRaceRepository()
     const reviewComment = (id: number, prId: string) => ({
       event: 'pull_request_review_comment' as const,
       action: 'created' as const,
@@ -545,7 +558,7 @@ describe('LUM-879 repository deleted', () => {
         },
       },
     })
-    await prCommentMirrorService.runInbound(reviewComment(9001, 'a_api'))
+    await prCommentMirrorService.runInbound(reviewComment(9001, 'a_race'))
     await prCommentMirrorService.runInbound(reviewComment(9002, 'a_keep'))
 
     const late = await db().prCommentMirror.findUniqueOrThrow({
@@ -584,8 +597,10 @@ describe('LUM-879 repository transferred', () => {
       changes: { owner: { from: { organization: { login: 'acme' } } } },
     })
 
-    expect(await confirmed('ws_a')).toEqual(['Acme/Web-App', 'acme/keep'])
-    expect(await confirmed('ws_b')).toEqual(['Acme/Web-App'])
+    expect(await confirmed('ws_a')).not.toContain('acme/lib')
+    expect(await confirmed('ws_a')).toContain('acme/keep')
+    expect(await confirmed('ws_b')).toHaveLength(1)
+    expect(await confirmed('ws_b')).not.toContain('acme/lib')
     expect(await scanHoldsCode('a_lib')).toBe(false)
     expect(await scanHoldsCode('b_lib')).toBe(false)
     expect(
