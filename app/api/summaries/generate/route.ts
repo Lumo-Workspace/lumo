@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronAuth } from '@/lib/api/cron-auth'
 import { summaryService } from '@/lib/services/summary.service'
 
 /**
@@ -8,10 +9,9 @@ import { summaryService } from '@/lib/services/summary.service'
  * their configured frequency.
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Fails closed when CRON_SECRET is unset (LUM-981).
+  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
 
   try {
     const results = await summaryService.generateCronSummaries()
