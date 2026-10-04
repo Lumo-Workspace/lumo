@@ -98,6 +98,27 @@ A worktree is removed only when nothing can be lost:
 
 Never `--force`, and **branches are never deleted** by the cleanup — use `worktree rm --delete-branch` for that.
 
+### A process still writing into the worktree (DONE, `prune`, `rm`)
+
+A dev server left running in the worktree regenerates files (e.g.
+`app/.well-known/workflow/v1/**`) while git deletes it; git then stops with
+`Directory not empty` but has already unregistered the worktree. Once git has
+unregistered it — i.e. git already judged it safe to delete — the CLI finishes
+the delete itself (a few retries), and prints `✓ Removed worktree <path>` as
+usual. If something keeps recreating files, it prints instead:
+
+```
+Warning: worktree <path> is unregistered from git, but its directory could not be fully deleted — something kept writing into it.
+  Left behind: app/ (1 file), node_modules/ (10000+ files)
+  Still running inside it: pid 123 (node) — stop it (e.g. the dev server) first
+  Clean up with: rm -rf '<path>'
+```
+
+Relay it; the user stops the process and runs the `Clean up with` line (the
+`Still running` line appears only when `lsof` finds one). `worktree rm` exits 1
+in this case. When git **refuses** (the worktree is still registered), nothing
+is deleted — that is the uncommitted-changes path above, unchanged.
+
 ## `lumo worktree rm <LUM-N>`
 
 Removes the worktree for a task. Gated by the confirmation protocol
