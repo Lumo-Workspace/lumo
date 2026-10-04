@@ -9,9 +9,12 @@
  *     --split tune [--variant v1] [--budget 30] [--concurrency 6]
  *     [--limit N] [--dry-run] [--out ~/.cache/lumo-lum965/results.jsonl]
  *
- * `--split holdout` additionally needs `--holdout-once`, and refuses when the
- * results file already holds holdout judgements for that approach / variant /
- * model: the holdout is scored exactly once, after tuning is frozen.
+ * Splits: `tune` / `holdout` (monitor-eval, see split.ts) and `fresh` /
+ * `fresh-unsuccessful` (ControlArena trajectories from
+ * `controlarena/generate.py export`). Every split but `tune` additionally
+ * needs `--holdout-once`, and is refused when the results file already holds
+ * judgements for that split / approach / variant / model: each holdout is
+ * scored exactly once, after tuning is frozen.
  *
  * Read-only for Lumo: no DB, no Lumo writes. Resumable: units with a
  * successful record are skipped. The run stops before a new call once the
@@ -58,6 +61,11 @@ import {
   type MonitorRecord,
 } from './records'
 import { splitTrajectories, type Split } from './split'
+import {
+  freshTrajectories,
+  parseExport,
+  type FreshTrajectory,
+} from './controlarena/trajectories'
 
 export const DEFAULT_OUT = join(
   homedir(),
@@ -68,14 +76,32 @@ export const DEFAULT_OUT = join(
 
 const TIMEOUT_MS = 180_000
 
+/** `generate.py export` output — the fresh ControlArena trajectories. */
+export const FRESH_EXPORT = join(
+  homedir(),
+  '.cache',
+  'lumo-lum965',
+  'ca-trajectories.jsonl'
+)
+
+export type Trajectory = MonitorEvalTrajectory | FreshTrajectory
+
+export const SPLITS: Split[] = [
+  'tune',
+  'holdout',
+  'fresh',
+  'fresh-unsuccessful',
+]
+
 export interface Corpus {
-  trajectories: MonitorEvalTrajectory[]
+  trajectories: Trajectory[]
   split: Map<string, Split>
   candidates: Candidate[]
 }
 
 export async function loadCorpus(
-  cacheDir: string = DEFAULT_CACHE_DIR
+  cacheDir: string = DEFAULT_CACHE_DIR,
+  freshExport: string = FRESH_EXPORT
 ): Promise<Corpus> {
   const rows = await loadSplit(
     cacheDir,
@@ -83,12 +109,25 @@ export async function loadCorpus(
     'train',
     { log: m => process.stderr.write(`${m}\n`) }
   )
-  const trajectories = monitorEvalTrajectories(
+  const monitorEval = monitorEvalTrajectories(
     rows as unknown as MonitorEvalRow[]
   )
+  const split = new Map<string, Split>(splitTrajectories(monitorEval))
+  const trajectories: Trajectory[] = [...monitorEval]
+  let exported = ''
+  try {
+    exported = await readFile(freshExport, 'utf8')
+  } catch {
+    // no fresh trajectories generated yet
+  }
+  if (exported) {
+    const fresh = freshTrajectories(parseExport(exported))
+    trajectories.push(...fresh.trajectories)
+    for (const [id, s] of Array.from(fresh.split.entries())) split.set(id, s)
+  }
   return {
     trajectories,
-    split: splitTrajectories(trajectories),
+    split,
     candidates: trajectories.flatMap(t => candidatesOf(t, t.taskDescription)),
   }
 }
@@ -203,7 +242,7 @@ export async function judgeWhole(
   model: string,
   variant: string,
   split: Split,
-  t: MonitorEvalTrajectory
+  t: Trajectory
 ): Promise<MonitorRecord> {
   const base = {
     approach: 'whole' as const,
@@ -244,7 +283,7 @@ export async function extractAuthz(
   model: string,
   variant: string,
   split: Split,
-  t: MonitorEvalTrajectory
+  t: Trajectory
 ): Promise<MonitorRecord> {
   const base = {
     approach: 'authz-extract' as const,
@@ -343,8 +382,8 @@ async function main(): Promise<void> {
   const model = flag('--model')
   if (!model) throw new Error('--model is required')
   const split = flag('--split') as Split
-  if (split !== 'tune' && split !== 'holdout')
-    throw new Error('--split must be tune or holdout')
+  if (!SPLITS.includes(split))
+    throw new Error(`--split must be one of ${SPLITS.join(', ')}`)
   const variant = flag('--variant') ?? 'v1'
   const budget = Number(flag('--budget') ?? 30)
   const limit = Number(flag('--limit') ?? Infinity)
@@ -375,9 +414,10 @@ async function main(): Promise<void> {
 
   await mkdir(dirname(out), { recursive: true })
   const records = await readRecords(out)
-  if (split === 'holdout') {
+  if (split !== 'tune') {
     const refused = holdoutGuard(
       records,
+      split,
       approach,
       variant,
       model,

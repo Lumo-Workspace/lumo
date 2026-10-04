@@ -47,27 +47,30 @@ export function doneUnits(
 }
 
 /**
- * The holdout is scored once: refuse a holdout run unless explicitly asked
- * for, and refuse it when holdout judgements already exist for the same
- * approach / variant / model (a crashed run resumes with `--resume-holdout`).
+ * Every non-tune split (the monitor-eval holdout, the fresh ControlArena
+ * set) is scored once: refuse such a run unless explicitly asked for, and
+ * refuse it when that split already has judgements for the same approach /
+ * variant / model (a crashed run resumes with `--resume-holdout`).
  */
 export function holdoutGuard(
   records: MonitorRecord[],
+  split: Split,
   approach: Approach,
   variant: string,
   model: string,
   argv: string[]
 ): string | null {
+  if (split === 'tune') return null
   if (!argv.includes('--holdout-once'))
     return 'holdout runs need --holdout-once (score the holdout once, after tuning is frozen)'
   const already = records.some(
     r =>
-      r.split === 'holdout' &&
+      r.split === split &&
       r.approach === approach &&
       r.variant === variant &&
       r.model === model
   )
   if (already && !argv.includes('--resume-holdout'))
-    return `holdout already scored for ${approach}/${variant}/${model} — pass --resume-holdout only to finish an interrupted run`
+    return `${split} already scored for ${approach}/${variant}/${model} — pass --resume-holdout only to finish an interrupted run`
   return null
 }

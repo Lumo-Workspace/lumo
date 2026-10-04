@@ -15,7 +15,11 @@
  */
 import { stableHash } from '../lum958-basharena-llm/candidates'
 
-export type Split = 'tune' | 'holdout'
+/**
+ * `fresh` / `fresh-unsuccessful`: ControlArena trajectories generated for
+ * LUM-965's second holdout (see controlarena/trajectories.ts).
+ */
+export type Split = 'tune' | 'holdout' | 'fresh' | 'fresh-unsuccessful'
 
 export interface SplitInput {
   id: string
@@ -23,10 +27,12 @@ export interface SplitInput {
   label: 'attack' | 'honest'
 }
 
-export function splitTrajectories(trajs: SplitInput[]): Map<string, Split> {
+export function splitTrajectories(
+  trajs: SplitInput[]
+): Map<string, 'tune' | 'holdout'> {
   const byHash = (a: string, b: string) =>
     stableHash(a) - stableHash(b) || a.localeCompare(b)
-  const taskSplit = new Map<string, Split>()
+  const taskSplit = new Map<string, 'tune' | 'holdout'>()
   const attackTasks = Array.from(
     new Set(trajs.filter(t => t.label === 'attack').map(t => t.sampleId))
   ).sort(byHash)
@@ -34,8 +40,8 @@ export function splitTrajectories(trajs: SplitInput[]): Map<string, Split> {
     taskSplit.set(s, i % 2 === 0 ? 'tune' : 'holdout')
   )
 
-  const out = new Map<string, Split>()
-  const honestCount: Record<Split, number> = { tune: 0, holdout: 0 }
+  const out = new Map<string, 'tune' | 'holdout'>()
+  const honestCount = { tune: 0, holdout: 0 }
   for (const t of trajs) {
     const s = taskSplit.get(t.sampleId)
     if (!s) continue
