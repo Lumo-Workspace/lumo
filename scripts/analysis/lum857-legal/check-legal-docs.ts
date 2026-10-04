@@ -190,6 +190,15 @@ export function checkStaleRegionClaims(doc: string): string[] {
   )
 }
 
+/**
+ * LUM-871 — Vercel's ZDR doc: a provider can exclude specific models or
+ * features from its ZDR policy and the gateway does not fail those requests.
+ * Every legal source that promises ZDR must say so, and must not drop the
+ * prompt-cache caveat that applies to Lumo's own requests.
+ */
+export const ZDR_EXCLUSION_CAVEAT =
+  /exclude specific models or features from it[\s\S]*?(does not fail|without the gateway failing)[\s\S]*?cache parts of a prompt/
+
 export const PRIVACY_REQUIREMENTS: Requirement[] = [
   ['account data category', /Account data/],
   ['workspace content category', /Workspace content/],
@@ -206,6 +215,11 @@ export const PRIVACY_REQUIREMENTS: Requirement[] = [
   ['SCC basis for transfers', /Standard Contractual Clauses/],
   ['no-training statement', /do not use .* to train/],
   ['OpenAI safety retention caveat', /safety retention/],
+  [
+    'boundary-crossing triage ZDR exception',
+    /Boundary-crossing triage is the one exception/,
+  ],
+  ['provider ZDR exclusion caveat', ZDR_EXCLUSION_CAVEAT],
   ['AI global routing', /routed globally/],
   ['AI region caveat', /cannot currently commit to a location/],
   ['subprocessor page reference', /subprocessor page/],
@@ -239,6 +253,24 @@ export const DPA_REQUIREMENTS: Requirement[] = [
   ['no-training commitment', /train artificial intelligence models/],
   ['AI global routing', /routed globally/],
   ['AI no location commitment', /does not commit to a processing location/],
+  ['boundary-crossing triage ZDR exception', /Boundary-crossing triage sends/],
+  ['provider ZDR exclusion caveat', ZDR_EXCLUSION_CAVEAT],
+]
+
+/**
+ * Facts the subprocessor list must state beyond its tables (LUM-945 triage
+ * exception, LUM-871 provider-side ZDR exclusions).
+ */
+export const SUBPROCESSOR_REQUIREMENTS: Requirement[] = [
+  [
+    'boundary-crossing triage ZDR exception',
+    /Boundary-crossing triage is the one exception/,
+  ],
+  ['provider ZDR exclusion caveat', ZDR_EXCLUSION_CAVEAT],
+  [
+    'Vercel ZDR documentation link',
+    /https:\/\/vercel\.com\/docs\/ai-gateway\/security-and-compliance\/zdr/,
+  ],
 ]
 
 export function checkRequirements(doc: string, reqs: Requirement[]): string[] {
@@ -294,6 +326,7 @@ function run(mode: string): string[] {
       const doc = read(LEGAL_DOCS.subprocessors)
       return [
         ...checkSubprocessors(doc, read(MANIFEST)),
+        ...checkRequirements(doc, SUBPROCESSOR_REQUIREMENTS),
         ...checkStaleRegionClaims(doc),
       ]
     }

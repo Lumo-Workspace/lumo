@@ -221,6 +221,14 @@ describe('FAQ privacy claims LUM-853', () => {
     expect(readRoot('lib/ai/zdr-fetch.ts')).toMatch(
       /ZDR_GATEWAY_OPTIONS = \{ zeroDataRetention: true \}/
     )
+    // LUM-871: boundary-crossing triage (LUM-945, TypeSafe Jev) is the one
+    // request sent outside the ZDR layer, so "every AI request ... zero data
+    // retention" must name it.
+    expect(readRoot('lib/ai/evaluation.ts')).not.toMatch(/zdr-fetch/)
+    expect(answer).toMatch(
+      /zero data retention enforced on the request itself for all but boundary-crossing triage/
+    )
+    expect(answer).toMatch(/does not offer zero data retention/)
     // Team wording rule for processing location.
     expect(answer).toMatch(/routed globally/)
     expect(answer).toMatch(/don’t promise a processing region/)

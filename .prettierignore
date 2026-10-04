@@ -17,3 +17,6 @@ docs/live-docs/
 
 # LUM-846: real zizmor / trivy SARIF output, kept byte-for-byte.
 __tests__/fixtures/lum846/
+
+# LUM-871: raw `lum854-zdr/probe.ts --json` output, kept byte-for-byte as evidence.
+scripts/analysis/lum854-zdr/probe-output.json
