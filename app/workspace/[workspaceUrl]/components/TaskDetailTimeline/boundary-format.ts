@@ -56,6 +56,11 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.infra',
         defaultMessage: 'terminated or restarted infrastructure',
       })
+    case 'DESTRUCTIVE_FS_COMMAND':
+      return intl.formatMessage({
+        id: 'boundary.category.DESTRUCTIVE_FS_COMMAND',
+        defaultMessage: 'destroyed local data outside the repository',
+      })
     case 'SESSION_BINDING_MISSING':
       return intl.formatMessage({
         id: 'boundary.category.sessionBindingMissing',

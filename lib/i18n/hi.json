@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "सीमा उल्लंघन के लिए समाधान कार्य बनाया",
   "activity.boundaryRedispositioned": "सीमा उल्लंघन की स्थिति {from} से {to} में बदली",
   "activity.boundaryReopened": "सीमा उल्लंघन को फिर से खोला (पहले {from} था) — पूर्ण फिर से ब्लॉक हुआ",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "रिपॉज़िटरी के बाहर का स्थानीय डेटा नष्ट किया गया",
   "boundary.category.push": "संरक्षित ब्रांच में पुश",
   "boundary.category.migrationDelete": "माइग्रेशन फ़ाइल हटाई गई",
   "boundary.category.secret": "हार्डकोड किया गया सीक्रेट",

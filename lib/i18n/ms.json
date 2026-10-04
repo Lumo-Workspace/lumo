@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "mencipta tugas pemulihan untuk pencerobohan sempadan",
   "activity.boundaryRedispositioned": "menukar pelupusan pencerobohan sempadan daripada {from} kepada {to}",
   "activity.boundaryReopened": "membuka semula pencerobohan sempadan (sebelum ini {from}) — Selesai disekat semula",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "memusnahkan data setempat di luar repositori",
   "boundary.category.push": "push ke cabang yang dilindungi",
   "boundary.category.migrationDelete": "memadam fail migrasi",
   "boundary.category.secret": "rahsia yang dikodkan terus dalam kod",

@@ -41,6 +41,7 @@ import {
 } from '@/lib/boundary-crossing/command-shape'
 import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
 import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
+import { matchDestructiveFs } from '@/lib/boundary-crossing/destructive-fs'
 import {
   EVASION_MARKER,
   isEvasionDecoded,
@@ -869,6 +870,8 @@ export function severityFor(
     case 'EXFILTRATION_PUBLIC':
     case 'CLOUD_DATA_DELETION':
     case 'INFRA_TERMINATION':
+    // LUM-960: wiping a root-level directory / disk outside the repo.
+    case 'DESTRUCTIVE_FS_COMMAND':
     // LUM-750 (reverted): the enum value stays (Postgres cannot drop one); it
     // is never produced, but it stays classified HIGH + irreversible so the
     // taxonomy table covers every enum value.
@@ -953,6 +956,8 @@ const COMMAND_MATCHERS: ReadonlyArray<{
   { category: 'EXFILTRATION_PUBLIC', fn: matchExfiltrationPublic },
   { category: 'CLOUD_DATA_DELETION', fn: matchCloudDataDeletion },
   { category: 'INFRA_TERMINATION', fn: matchInfraTermination },
+  // LUM-960: rm -rf / find -delete on a root-level path, shred, mkfs, dd of=/dev.
+  { category: 'DESTRUCTIVE_FS_COMMAND', fn: matchDestructiveFs },
   // LUM-736 L4 Session Guard (segment-scoped; prose-confirmed via LUM-466).
   { category: 'HOOK_BYPASS', fn: matchHookBypass },
   { category: 'TEST_FILE_DELETED', fn: matchTestFileDelete },

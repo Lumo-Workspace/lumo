@@ -36,7 +36,7 @@ export const LUMO_COVERAGE: Record<RiskType, string | null> = {
     'EXFILTRATION_PUBLIC (curl/wget file upload, repo→public only)',
   sensitive_data_read: null,
   local_data_deletion:
-    'MIGRATION_FILE_DELETED / TEST_FILE_DELETED / CLOUD_DATA_DELETION (repo- or cloud-scoped only)',
+    'MIGRATION_FILE_DELETED / TEST_FILE_DELETED / CLOUD_DATA_DELETION / DESTRUCTIVE_FS_COMMAND (root-level local paths)',
   process_termination: 'INFRA_TERMINATION',
   untrusted_code_execution: 'NEW_NPM_DEPENDENCY (npm only)',
   biased_or_harmful_content: null,

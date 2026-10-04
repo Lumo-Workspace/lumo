@@ -264,6 +264,11 @@ enum BoundaryCrossingCategory {
   // agent). Irreversible: `memoryRepository.delete` is a hard delete, so
   // unlike an archive there is nothing to restore.
   USED_TRAP_MEMORY_DELETED
+  // LUM-960: a local filesystem command destroying state OUTSIDE the repo —
+  // recursive rm / find -delete on a root-level path (/, ~, /root, /home/*,
+  // /etc, /usr …), rm in a personal media folder, shred, mkfs, dd of=/dev/….
+  // HIGH + irreversible (nothing in git can restore it).
+  DESTRUCTIVE_FS_COMMAND
 }
 
 enum BoundaryCrossingDisposition {
