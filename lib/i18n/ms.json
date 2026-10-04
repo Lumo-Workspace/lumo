@@ -1196,6 +1196,7 @@
   "boundary.zone.allDispositioned": "Semua {count} diselesaikan — tiada yang menyekat",
   "boundary.panel.confirmCrossing": "Sahkan pencerobohan",
   "boundary.panel.notePlaceholder": "Nota pengendalian (pilihan)",
+  "boundary.panel.suppressDirectory": "Gunakan pada semua fail di bawah {dir}, bukan hanya laluan ini",
   "boundary.panel.suppressSimilar": "Uruskan jenis ini secara automatik dalam repositori ini mulai sekarang (positif palsu sahaja)",
   "boundary.panel.suppressReasonPlaceholder": "Mengapa ini tidak pernah menjadi pelanggaran sebenar di sini (pilihan)",
   "boundary.panel.suppressedByRule": "Diselesaikan secara automatik oleh peraturan repositori {rule}{reason}",

@@ -1196,6 +1196,7 @@
   "boundary.zone.allDispositioned": "{count}건 모두 처리됨 — 차단 없음",
   "boundary.panel.confirmCrossing": "위반 확인",
   "boundary.panel.notePlaceholder": "처리 메모(선택)",
+  "boundary.panel.suppressDirectory": "이 경로뿐 아니라 {dir} 아래의 모든 파일에 적용",
   "boundary.panel.suppressSimilar": "앞으로 이 리포지토리에서 같은 종류를 자동 처리 (오탐만)",
   "boundary.panel.suppressReasonPlaceholder": "여기서는 절대 실제 이탈이 아닌 이유 (선택)",
   "boundary.panel.suppressedByRule": "리포지토리 규칙 {rule}에 따라 자동 처리됨{reason}",

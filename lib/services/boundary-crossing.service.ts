@@ -4,7 +4,9 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
 import {
-  exactSuppressionPattern,
+  suppressionDirectory,
+  suppressionPatternFor,
+  type SuppressionScope,
   isSuppressibleCategory,
   RETROACTIVE_SUPPRESSION_CAP,
 } from '@/lib/boundary-crossing/suppression'
@@ -73,6 +75,9 @@ export interface DispositionAttribution {
 export interface DispositionOptions {
   suppressSimilarInProject?: boolean
   suppressionReason?: string | null
+  /** LUM-963: `directory` widens the rule to every file under the crossing's
+   *  directory (SENSITIVE_PATH_READ only); default `exact`. */
+  suppressionScope?: SuppressionScope
 }
 
 export interface DispositionOutcome {
@@ -290,6 +295,9 @@ export interface BoundaryCrossingView {
   /** LUM-751: the category may be rule-suppressed AND the crossing carries a
    *  coalescing target — the panel offers the per-repository opt-in only then. */
   suppressible: boolean
+  /** LUM-963: the directory a `directory`-scoped rule would cover, or null
+   *  when that scope is not offered (category, or a too-broad directory). */
+  suppressionDirectory: string | null
   /** LUM-912: the raw text (detail, target, explanations) was replaced by a
    *  code-free description some days after the disposition. The panel says
    *  the original was not retained and offers no Explain. */
@@ -963,6 +971,10 @@ export const boundaryCrossingService = {
           isSuppressibleCategory(c.category) &&
           c.target != null &&
           !c.rawPurgedAt,
+        suppressionDirectory:
+          isSuppressibleCategory(c.category) && !c.rawPurgedAt
+            ? suppressionDirectory(c.category, c.target)
+            : null,
         // LUM-912: the raw text was replaced by a code-free description.
         rawPurged: c.rawPurgedAt != null,
         suppressionRule: c.suppressionRule
@@ -1064,6 +1076,22 @@ export const boundaryCrossingService = {
           { status: 422 }
         )
       }
+      // LUM-963: the scope decides how wide the rule reaches; a scope this
+      // crossing cannot carry (not a path category, or a too-broad directory)
+      // is refused before anything is written.
+      const targetPattern = suppressionPatternFor(
+        crossing.category,
+        crossing.target,
+        options.suppressionScope ?? 'exact'
+      )
+      if (targetPattern == null) {
+        throw Object.assign(
+          new Error(
+            'A directory-wide rule cannot be built from this crossing (path categories only, and never over /, ~ or a top-level directory)'
+          ),
+          { status: 422 }
+        )
+      }
       const task = await taskRepository.findWithProject(taskId)
       if (!task) {
         throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -1077,7 +1105,7 @@ export const boundaryCrossingService = {
           {
             projectId: task.projectId,
             category: crossing.category,
-            targetPattern: exactSuppressionPattern(crossing.target),
+            targetPattern,
             reason: options.suppressionReason ?? null,
             createdById: attribution.actorMemberId,
             sourceCrossingId: crossingId,
@@ -1363,7 +1391,10 @@ export const boundaryCrossingService = {
    */
   async previewSuppressionScope(
     taskId: string,
-    crossingId: string
+    crossingId: string,
+    // LUM-963: preview the rule the human is about to pick, not always the
+    // exact one — a directory rule's blast radius is the point of the preview.
+    scope: SuppressionScope = 'exact'
   ): Promise<SuppressionScopePreview> {
     const crossing = await boundaryCrossingRepository.findById(crossingId)
     if (!crossing || crossing.taskId !== taskId) {
@@ -1386,6 +1417,12 @@ export const boundaryCrossingService = {
     ) {
       return { ...base, suppressible: false }
     }
+    const targetPattern = suppressionPatternFor(
+      crossing.category,
+      crossing.target,
+      scope
+    )
+    if (targetPattern == null) return { ...base, suppressible: false }
     const task = await taskRepository.findWithProject(taskId)
     if (!task) throw Object.assign(new Error('Task not found'), { status: 404 })
 
@@ -1393,7 +1430,7 @@ export const boundaryCrossingService = {
       await boundaryCrossingRepository.countRetroactiveSuppressionCandidates({
         projectId: task.projectId,
         category: crossing.category,
-        targetPattern: exactSuppressionPattern(crossing.target),
+        targetPattern,
         excludeCrossingId: crossingId,
       })
     return {

@@ -1196,6 +1196,7 @@
   "boundary.zone.allDispositioned": "सभी {count} निपटाए गए — कोई अवरोधक नहीं",
   "boundary.panel.confirmCrossing": "उल्लंघन की पुष्टि करें",
   "boundary.panel.notePlaceholder": "निपटान टिप्पणी (वैकल्पिक)",
+  "boundary.panel.suppressDirectory": "केवल इस पथ पर नहीं, {dir} के अंतर्गत सभी फ़ाइलों पर लागू करें",
   "boundary.panel.suppressSimilar": "अब से इस रिपॉज़िटरी में इस प्रकार को स्वतः संभालें (केवल फ़ॉल्स पॉज़िटिव)",
   "boundary.panel.suppressReasonPlaceholder": "यह यहाँ कभी वास्तविक उल्लंघन क्यों नहीं है (वैकल्पिक)",
   "boundary.panel.suppressedByRule": "रिपॉज़िटरी नियम {rule} द्वारा स्वतः निपटाया गया{reason}",

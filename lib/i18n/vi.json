@@ -1196,6 +1196,7 @@
   "boundary.zone.allDispositioned": "Đã xử lý cả {count} — không có gì chặn",
   "boundary.panel.confirmCrossing": "Xác nhận vi phạm",
   "boundary.panel.notePlaceholder": "Ghi chú xử lý (tùy chọn)",
+  "boundary.panel.suppressDirectory": "Áp dụng cho mọi tệp trong {dir}, không chỉ đường dẫn này",
   "boundary.panel.suppressSimilar": "Từ nay tự động xử lý loại này trong kho này (chỉ báo động giả)",
   "boundary.panel.suppressReasonPlaceholder": "Vì sao đây không bao giờ là vi phạm thật ở đây (tùy chọn)",
   "boundary.panel.suppressedByRule": "Tự động xử lý theo quy tắc kho {rule}{reason}",

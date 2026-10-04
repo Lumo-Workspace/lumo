@@ -265,6 +265,7 @@
   "boundary.panel.suppressPreview": "This will also dispose {count, plural, one {# existing alert} other {# existing alerts}} of the same kind in this repository.",
   "boundary.panel.suppressPreviewCapped": "More than {cap} match — only the {cap} most recent are handled.",
   "boundary.panel.suppressReasonPlaceholder": "Why this is never a real crossing here (optional)",
+  "boundary.panel.suppressDirectory": "Apply to every file under {dir}, not just this path",
   "boundary.panel.suppressSimilar": "Auto-handle this kind in this repository from now on (false positive only)",
   "boundary.panel.suppressedByRule": "Auto-dispositioned by repository rule {rule}{reason}",
   "boundary.panel.testTamperingHint": "Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive.",

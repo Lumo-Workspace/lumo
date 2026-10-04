@@ -1196,6 +1196,7 @@
   "boundary.zone.allDispositioned": "Alle {count} eingeordnet — nichts blockiert",
   "boundary.panel.confirmCrossing": "Überschreitung bestätigen",
   "boundary.panel.notePlaceholder": "Einordnungsnotiz (optional)",
+  "boundary.panel.suppressDirectory": "Auf alle Dateien unter {dir} anwenden, nicht nur auf diesen Pfad",
   "boundary.panel.suppressSimilar": "Diese Art in diesem Repository ab jetzt automatisch erledigen (nur Fehlalarme)",
   "boundary.panel.suppressReasonPlaceholder": "Warum dies hier nie ein echter Grenzübertritt ist (optional)",
   "boundary.panel.suppressedByRule": "Automatisch erledigt durch Repository-Regel {rule}{reason}",

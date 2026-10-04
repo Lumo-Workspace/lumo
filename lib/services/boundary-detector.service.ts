@@ -44,7 +44,12 @@ import {
   matchUntrustedCodeExecution,
 } from '@/lib/boundary-crossing/untrusted-code'
 import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
-import { detectSensitiveReads } from '@/lib/boundary-crossing/sensitive-read'
+import {
+  detectProjectSensitiveReads,
+  detectSensitiveReads,
+  type ProjectReadRule,
+  type SensitiveReadMatch,
+} from '@/lib/boundary-crossing/sensitive-read'
 import {
   EVASION_MARKER,
   isEvasionDecoded,
@@ -1163,18 +1168,69 @@ export function detectCrossings(
     filePath: input.filePath,
     command: cmd,
   })) {
-    out.push({
-      category: 'SENSITIVE_PATH_READ',
-      detail: clip(
-        `read sensitive path ${r.path} (${r.label}) via ${r.via} — advisory`
-      ),
-      severity: severityFor('SENSITIVE_PATH_READ'),
-      target: r.path,
-      advisory: true,
-    })
+    out.push(sensitiveReadCrossing(r))
   }
 
   return out
+}
+
+/** One sensitive read → its crossing. Always LOW + advisory, whether the
+ *  built-in list or a project rule made the path sensitive (LUM-963). */
+function sensitiveReadCrossing(r: SensitiveReadMatch): DetectedCrossing {
+  return {
+    category: 'SENSITIVE_PATH_READ',
+    detail: clip(
+      `read sensitive path ${r.path} (${r.label}) via ${r.via} — advisory`
+    ),
+    severity: severityFor('SENSITIVE_PATH_READ'),
+    target: r.path,
+    advisory: true,
+    ...(r.ruleId != null ? { policyRuleRef: r.ruleId } : {}),
+    ...(r.ruleText != null ? { policyRuleText: r.ruleText } : {}),
+  }
+}
+
+/**
+ * LUM-963 multi-tenant extension: the project's own sensitive-read paths —
+ * deterministic `path-glob` rules the policy compiler mapped to
+ * SENSITIVE_PATH_READ from the customer's CLAUDE.md / AGENTS.md. Unlike
+ * SENSITIVE_PATH_EDIT's override, these ADD to the built-in credential stores.
+ * Pure.
+ */
+export function sensitiveReadRulesFromRules(
+  rules: PolicyRule[]
+): ProjectReadRule[] {
+  return rules
+    .filter(
+      r =>
+        r.tier === 'deterministic' &&
+        r.mappedCategory === 'SENSITIVE_PATH_READ' &&
+        r.predicate?.type === 'path-glob' &&
+        r.predicate.value.trim().length > 0
+    )
+    .map(r => ({
+      glob: (r.predicate as { value: string }).value.trim(),
+      ruleId: r.id,
+      ruleText: r.text,
+    }))
+}
+
+/**
+ * The reads a project rule adds for one event (built-in reads come from
+ * `detectCrossings`). Pure + exported for tests.
+ */
+export function detectProjectSensitiveReadCrossings(
+  input: Pick<BoundaryDetectionInput, 'toolName' | 'filePath' | 'payload'>,
+  rules: PolicyRule[]
+): DetectedCrossing[] {
+  return detectProjectSensitiveReads(
+    {
+      toolName: input.toolName,
+      filePath: input.filePath,
+      command: readCommand(input.payload),
+    },
+    sensitiveReadRulesFromRules(rules)
+  ).map(sensitiveReadCrossing)
 }
 
 // --- LUM-466: action-category prose-vs-real confirmation ----------------------
@@ -1513,6 +1569,17 @@ export const boundaryDetectorService = {
         sensitivePathGlobs: sensitivePathGlobsFromRules(projectRules),
       })
       if (sensitive) confirmed.push(sensitive)
+      // LUM-963: the project's own sensitive-read paths (advisory, additive).
+      confirmed.push(
+        ...detectProjectSensitiveReadCrossings(
+          {
+            toolName: input.toolName,
+            filePath: input.filePath,
+            payload: input.payload,
+          },
+          projectRules
+        )
+      )
 
       // LUM-751: the project's active, human-authored suppression rules.
       // Best-effort — no rules means nothing is suppressed (the safe side).

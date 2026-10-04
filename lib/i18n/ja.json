@@ -1196,6 +1196,7 @@
   "boundary.zone.allDispositioned": "全 {count} 件処置済み — ブロックなし",
   "boundary.panel.confirmCrossing": "違反を確認",
   "boundary.panel.notePlaceholder": "処理メモ（任意）",
+  "boundary.panel.suppressDirectory": "このパスだけでなく {dir} 配下のすべてのファイルに適用する",
   "boundary.panel.suppressSimilar": "今後このリポジトリで同種のものを自動処理する（誤検知のみ）",
   "boundary.panel.suppressReasonPlaceholder": "ここでは決して本当の越境ではない理由（任意）",
   "boundary.panel.suppressedByRule": "リポジトリルール {rule} により自動処理{reason}",

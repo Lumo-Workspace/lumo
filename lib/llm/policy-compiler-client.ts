@@ -45,6 +45,7 @@ For each concrete rule, output:
 - tier: "deterministic" = a literal predicate or a built-in maps it exactly; "semantic" = needs judgement
 - when deterministic: set mappedCategory to an EXACT built-in category name if one fits, else set a predicate of shape path-glob|cmd-substr|diff-regex
 - when semantic: set tier="semantic" with an assertion string
+- a rule forbidding READING specific files or directories (credentials, secrets, config holding tokens): kind="action", tier="deterministic", mappedCategory="SENSITIVE_PATH_READ" AND a path-glob predicate with that path (keep a leading "~/" for the home directory; "**" for any depth); one rule per path
 - blocking: true ONLY when mappedCategory is set AND it matches a known built-in category
 - severity: HIGH for security/data-loss rules, MEDIUM for process rules, LOW for style rules
 - polarity: "forbid" when the rule prohibits an action or pattern ("never", "do not", "only CI may"); "require" when it obliges one ("must", "always", "before opening a PR: X passes", a checklist item)

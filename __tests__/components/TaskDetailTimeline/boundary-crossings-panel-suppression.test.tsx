@@ -305,3 +305,80 @@ describe('LUM-759 — the blast radius is shown before the ruling is committed',
     )
   })
 })
+
+describe('LUM-963 — directory-wide rule for a sensitive read', () => {
+  const readCrossing = {
+    ...BASE,
+    id: 'bc-d',
+    category: 'SENSITIVE_PATH_READ',
+    detail:
+      'read sensitive path /etc/sudoers.d/50-x (/etc/sudoers) via cat — advisory',
+    severity: 'LOW',
+    suppressible: true,
+    suppressionDirectory: '/etc/sudoers.d',
+  }
+
+  it('offers the directory option only after opting in, refetches the preview for it and sends the scope', async () => {
+    mockPreview.mockResolvedValue({
+      suppressible: true,
+      count: 12,
+      capped: false,
+      cap: 500,
+    })
+    setCrossings([readCrossing])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-963' enabled />)
+    expect(screen.queryByTestId('boundary-suppress-directory-bc-d')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('boundary-suppress-similar-bc-d'))
+    const dir = screen.getByTestId('boundary-suppress-directory-bc-d')
+    expect(dir.closest('label')).toHaveTextContent(
+      'Apply to every file under /etc/sudoers.d, not just this path'
+    )
+    await waitFor(() =>
+      expect(mockPreview).toHaveBeenCalledWith('LUM-963', 'bc-d')
+    )
+
+    fireEvent.click(dir)
+    await waitFor(() =>
+      expect(mockPreview).toHaveBeenCalledWith('LUM-963', 'bc-d', 'directory')
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('boundary-suppress-preview-bc-d')
+      ).toHaveTextContent('12 existing alerts')
+    )
+
+    fireEvent.click(screen.getByTestId('boundary-false-positive-bc-d'))
+    await waitFor(() =>
+      expect(mockDisposition).toHaveBeenCalledWith(
+        'LUM-963',
+        'bc-d',
+        'FALSE_POSITIVE',
+        undefined,
+        { suppressSimilarInProject: true, suppressionScope: 'directory' }
+      )
+    )
+  })
+
+  it('no directory option when the server offers none (other categories, too-broad directories)', () => {
+    for (const c of [
+      { ...readCrossing, id: 'bc-e', suppressionDirectory: null },
+      {
+        ...BASE,
+        id: 'bc-f',
+        category: 'PROJECT_RULE_VIOLATION',
+        suppressible: true,
+      },
+    ]) {
+      setCrossings([c])
+      const { unmount } = render(
+        <BoundaryCrossingsPanel taskIdentifier='LUM-963' enabled />
+      )
+      fireEvent.click(screen.getByTestId(`boundary-suppress-similar-${c.id}`))
+      expect(
+        screen.queryByTestId(`boundary-suppress-directory-${c.id}`)
+      ).toBeNull()
+      unmount()
+    }
+  })
+})

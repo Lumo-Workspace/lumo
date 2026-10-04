@@ -20,8 +20,16 @@ export const dispositionBoundaryCrossingSchema = z
     // classes with 422 before anything is written.
     suppressSimilarInProject: z.boolean().optional(),
     suppressionReason: z.string().trim().min(1).max(500).optional(),
+    // LUM-963: how wide the rule reaches — `directory` only for path
+    // categories (SENSITIVE_PATH_READ); the service refuses it otherwise.
+    suppressionScope: z.enum(['exact', 'directory']).optional(),
   })
   .strict()
+
+/** LUM-963: `?scope=` of the suppression-preview GET; absent = exact. */
+export const suppressionPreviewScopeSchema = z
+  .enum(['exact', 'directory'])
+  .default('exact')
 
 export type DispositionBoundaryCrossingInput = z.infer<
   typeof dispositionBoundaryCrossingSchema

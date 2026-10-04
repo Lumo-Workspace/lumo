@@ -31,6 +31,7 @@ import {
   verbOf,
 } from './command-shape'
 import { stripHeredocBodies } from './action-confirm'
+import { matchPathGlob } from '@/lib/services/policy/predicate-eval'
 
 export interface SensitiveReadMatch {
   /** The path as read, normalized (`$HOME`, `/Users/<u>`, `/home/<u>`,
@@ -40,6 +41,32 @@ export interface SensitiveReadMatch {
   label: string
   /** `Read` for the Read tool, else the Bash verb (`cat`, `python3` …). */
   via: string
+  /** Set when a PROJECT rule (not the built-in list) made this path
+   *  sensitive — the compiled PolicyRule's id and verbatim text. */
+  ruleId?: string
+  ruleText?: string
+}
+
+/**
+ * A project's own sensitive-read path (multi-tenant extension): a
+ * deterministic `path-glob` PolicyRule the compiler mapped to
+ * SENSITIVE_PATH_READ from the customer's CLAUDE.md / AGENTS.md. Project
+ * globs ADD to the built-in credential stores — they never replace them, so a
+ * project that lists `/opt/configs/*.json` keeps `~/.ssh` covered.
+ */
+export interface ProjectReadRule {
+  glob: string
+  ruleId: string
+  ruleText: string
+}
+
+/** A `~/…` / relative glob also matches the absolute spellings of the path. */
+export function matchesReadGlob(glob: string, rawPath: string): boolean {
+  const normalized = normalizeReadPath(rawPath)
+  const g = normalizeReadPath(glob)
+  const paths = [normalized, rawPath.replace(/\\/g, '/')]
+  if (matchPathGlob(g, paths)) return true
+  return /^(?:\/|~|\*\*)/.test(g) ? false : matchPathGlob(`**/${g}`, paths)
 }
 
 // Spelled in parts: `npm run lint:tokens` reads the bare word as a color
@@ -337,11 +364,13 @@ function codeLiterals(code: string): string[] {
   return out
 }
 
-function scanSegment(
-  seg: string,
-  depth: number,
-  out: SensitiveReadMatch[]
-): void {
+/** A path one segment reads, before deciding whether it is sensitive. */
+interface ReadCandidate {
+  raw: string
+  via: string
+}
+
+function scanSegment(seg: string, depth: number, out: ReadCandidate[]): void {
   const inner = depth < 3 ? unwrapShellWrapper(seg) : null
   if (inner != null) {
     scanCommandInto(inner, depth + 1, out)
@@ -375,17 +404,13 @@ function scanSegment(
     const lt = args.indexOf('<')
     if (lt >= 0 && args[lt + 1] !== undefined) candidates = [args[lt + 1]!]
   }
-  for (const c of candidates) {
-    const path = normalizeReadPath(operandPath(c))
-    const label = sensitiveReadLabel(path)
-    if (label) out.push({ path, label, via: verb })
-  }
+  for (const c of candidates) out.push({ raw: operandPath(c), via: verb })
 }
 
 function scanCommandInto(
   cmd: string,
   depth: number,
-  out: SensitiveReadMatch[]
+  out: ReadCandidate[]
 ): void {
   for (const raw of splitSegmentsQuoteAware(cmd)) {
     // A heredoc body is authored text (or a script fed to an interpreter we do
@@ -395,11 +420,52 @@ function scanCommandInto(
   }
 }
 
-/** Every sensitive path a Bash command reads, deduplicated by path. */
-export function sensitiveReadsInCommand(cmd: string): SensitiveReadMatch[] {
-  const out: SensitiveReadMatch[] = []
+/** Every path a Bash command's reading segments read (raw, unclassified). */
+function readCandidatesInCommand(cmd: string): ReadCandidate[] {
+  const out: ReadCandidate[] = []
   scanCommandInto(cmd.replace(/\\\r?\n/g, ' '), 0, out)
+  return out
+}
+
+/** Built-in list first; a project rule only for a path it does not cover. */
+function classify(
+  c: ReadCandidate,
+  projectRules: readonly ProjectReadRule[]
+): SensitiveReadMatch | null {
+  const path = normalizeReadPath(c.raw)
+  if (path.length === 0) return null
+  const label = sensitiveReadLabel(path)
+  if (label) return { path, label, via: c.via }
+  const rule = projectRules.find(r => matchesReadGlob(r.glob, c.raw))
+  return rule
+    ? {
+        path,
+        label: `project rule ${rule.glob}`,
+        via: c.via,
+        ruleId: rule.ruleId,
+        ruleText: rule.ruleText,
+      }
+    : null
+}
+
+function classifyAll(
+  cs: ReadCandidate[],
+  projectRules: readonly ProjectReadRule[]
+): SensitiveReadMatch[] {
+  const out: SensitiveReadMatch[] = []
+  for (const c of cs) {
+    const m = classify(c, projectRules)
+    if (m) out.push(m)
+  }
   return dedupe(out)
+}
+
+/** Every sensitive path a Bash command reads, deduplicated by path. */
+export function sensitiveReadsInCommand(
+  cmd: string,
+  projectRules: readonly ProjectReadRule[] = []
+): SensitiveReadMatch[] {
+  return classifyAll(readCandidatesInCommand(cmd), projectRules)
 }
 
 function dedupe(ms: SensitiveReadMatch[]): SensitiveReadMatch[] {
@@ -414,22 +480,40 @@ export const MAX_SENSITIVE_READS_PER_EVENT = 5
  * The sensitive reads one hook event performs: the Read tool's file, or the
  * Bash command's read operands. Every other tool returns [].
  */
-export function detectSensitiveReads(input: {
-  toolName: string | null
-  filePath: string | null
-  command: string | null
-}): SensitiveReadMatch[] {
+export function detectSensitiveReads(
+  input: {
+    toolName: string | null
+    filePath: string | null
+    command: string | null
+  },
+  projectRules: readonly ProjectReadRule[] = []
+): SensitiveReadMatch[] {
+  let candidates: ReadCandidate[] = []
   if (input.toolName === 'Read') {
-    if (!input.filePath) return []
-    const path = normalizeReadPath(input.filePath)
-    const label = sensitiveReadLabel(path)
-    return label ? [{ path, label, via: 'Read' }] : []
+    if (input.filePath) candidates = [{ raw: input.filePath, via: 'Read' }]
+  } else if (input.command) {
+    candidates = readCandidatesInCommand(input.command)
   }
-  if (input.command) {
-    return sensitiveReadsInCommand(input.command).slice(
-      0,
-      MAX_SENSITIVE_READS_PER_EVENT
-    )
-  }
-  return []
+  return classifyAll(candidates, projectRules).slice(
+    0,
+    MAX_SENSITIVE_READS_PER_EVENT
+  )
+}
+
+/**
+ * Only the reads a PROJECT rule adds on top of the built-in list. The
+ * built-in matches are emitted by the pure `detectCrossings` (no policy
+ * there); the detector service, which loads the compiled policy, appends
+ * these. Empty when the project has no SENSITIVE_PATH_READ globs.
+ */
+export function detectProjectSensitiveReads(
+  input: {
+    toolName: string | null
+    filePath: string | null
+    command: string | null
+  },
+  projectRules: readonly ProjectReadRule[]
+): SensitiveReadMatch[] {
+  if (projectRules.length === 0) return []
+  return detectSensitiveReads(input, projectRules).filter(m => m.ruleId != null)
 }

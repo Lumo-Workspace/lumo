@@ -1197,6 +1197,7 @@
   "boundary.zone.allDispositioned": "已全部处置（{count} 条）— 无阻塞项",
   "boundary.panel.confirmCrossing": "确认越界",
   "boundary.panel.notePlaceholder": "处置备注（可选）",
+  "boundary.panel.suppressDirectory": "应用到 {dir} 下的所有文件，而不只是这个路径",
   "boundary.panel.suppressSimilar": "本仓库同类越界以后自动处置（仅限误报）",
   "boundary.panel.suppressReasonPlaceholder": "为什么这在本仓库永远不是真实越界（可选）",
   "boundary.panel.suppressedByRule": "按仓库规则 {rule} 自动处置{reason}",

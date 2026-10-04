@@ -1196,6 +1196,7 @@
   "boundary.zone.allDispositioned": "Все {count} обработаны — ничто не блокирует",
   "boundary.panel.confirmCrossing": "Подтвердить нарушение",
   "boundary.panel.notePlaceholder": "Примечание к решению (необязательно)",
+  "boundary.panel.suppressDirectory": "Применить ко всем файлам в {dir}, а не только к этому пути",
   "boundary.panel.suppressSimilar": "Впредь обрабатывать этот тип в этом репозитории автоматически (только ложные срабатывания)",
   "boundary.panel.suppressReasonPlaceholder": "Почему здесь это никогда не является реальным нарушением (необязательно)",
   "boundary.panel.suppressedByRule": "Автоматически закрыто по правилу репозитория {rule}{reason}",
