@@ -156,9 +156,55 @@ export function findingKindLabel(kind: FindingKind | undefined): string | null {
   return kind === 'CORRECTNESS' ? 'bug' : null
 }
 
-/** The line every retracted comment carries — also how a second sync knows it is done. */
+/** The line every retracted comment shows the reader. */
 export const VERIFIER_RETRACTION_NOTE =
   "Rejected by Lumo's verifier after reading the code"
+
+/**
+ * LUM-988 — how a sync recognises a retracted comment: a marker of its own,
+ * never a substring of the whole body (a finding title may quote the note).
+ * Comments retracted before the marker existed carry the note at the start
+ * of a line, and are recognised by that alone.
+ */
+export const VERIFIER_RETRACTION_MARKER =
+  '<!-- lumo-security:verifier-rejected -->'
+const LEGACY_RETRACTION_LINE = new RegExp(
+  `^${VERIFIER_RETRACTION_NOTE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+  'm'
+)
+
+export function isRetractedComment(body: string): boolean {
+  return (
+    body.includes(VERIFIER_RETRACTION_MARKER) ||
+    LEGACY_RETRACTION_LINE.test(body)
+  )
+}
+
+/**
+ * LUM-988 — a retracted comment whose finding is open again but no longer
+ * qualifies for an inline comment (now LOW, suggested false positive, no
+ * line): one neutral line instead of the full comment the write-back would
+ * not post today — and never left saying "rejected".
+ */
+export function buildReopenedNote(
+  f: Pick<ReviewFindingRow, 'title' | 'fingerprint' | 'kind' | 'severity'>
+): string {
+  const kindLabel = findingKindLabel(f.kind)
+  return [
+    `**Lumo · LLM review${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ${neutralizeSummaryText(f.title, 200)}`,
+    'Open in Lumo — counted in the summary, no longer commented on the diff.',
+    fingerprintMarker(f.fingerprint),
+  ].join('\n\n')
+}
+
+/** Would the write-back give this row an inline comment today (ignoring holds)? */
+function inlineEligible(
+  f: Pick<ReviewFindingRow, 'line' | 'severity' | 'suggestedDisposition'>
+): boolean {
+  return (
+    f.line !== null && f.severity !== 'LOW' && f.suggestedDisposition == null
+  )
+}
 
 /**
  * LUM-988 — the body an already-posted inline comment is edited to when the
@@ -178,7 +224,7 @@ export function buildRetractedComment(
     reason
       ? `${VERIFIER_RETRACTION_NOTE}: ${reason}`
       : `${VERIFIER_RETRACTION_NOTE}.`,
-    fingerprintMarker(f.fingerprint),
+    `${VERIFIER_RETRACTION_MARKER}\n${fingerprintMarker(f.fingerprint)}`,
   ].join('\n\n')
 }
 
@@ -225,15 +271,20 @@ async function reconcileVerifierComments(input: {
   for (const f of input.rejected) {
     const marker = fingerprintMarker(f.fingerprint)
     for (const c of ours)
-      if (c.body.includes(marker) && !c.body.includes(VERIFIER_RETRACTION_NOTE))
+      if (c.body.includes(marker) && !isRetractedComment(c.body))
         edits.push({ id: c.id, body: buildRetractedComment(f) })
   }
   for (const f of input.open) {
     if (f.provenance !== 'LLM_JUDGE') continue
     const marker = fingerprintMarker(f.fingerprint)
     for (const c of ours)
-      if (c.body.includes(marker) && c.body.includes(VERIFIER_RETRACTION_NOTE))
-        edits.push({ id: c.id, body: buildInlineComment(f, input.policy) })
+      if (c.body.includes(marker) && isRetractedComment(c.body))
+        edits.push({
+          id: c.id,
+          body: inlineEligible(f)
+            ? buildInlineComment(f, input.policy)
+            : buildReopenedNote(f),
+        })
   }
   for (const e of edits) {
     try {
