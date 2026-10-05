@@ -75,6 +75,14 @@ jest.mock('@vercel/functions', () => ({
   },
 }))
 
+// LUM-987: `headers()` (next/headers) reads the in-flight request through
+// Next's request scope, which a directly-invoked handler doesn't have. Serve
+// the headers of the request `call()` is dispatching — what Next itself does.
+const inflight: { headers: Headers } = { headers: new Headers() }
+jest.mock('next/headers', () => ({
+  headers: jest.fn(async () => inflight.headers),
+}))
+
 import * as taskRoute from '@/app/api/tasks/[id]/route'
 import * as taskByIdentifierRoute from '@/app/api/tasks/by-identifier/[identifier]/route'
 import * as projectRoute from '@/app/api/projects/[id]/route'
@@ -103,6 +111,11 @@ import * as sprintByNumberRoute from '@/app/api/sprints/by-number/route'
 import * as projectMilestonesRoute from '@/app/api/projects/[id]/milestones/route'
 import * as projectMilestonesReorderRoute from '@/app/api/projects/[id]/milestones/reorder/route'
 import * as projectMilestoneBySlugRoute from '@/app/api/projects/[id]/milestones/by-slug/[slug]/route'
+import * as taskWebLinksRoute from '@/app/api/tasks/[id]/web-links/route'
+import * as taskProgressRoute from '@/app/api/tasks/[id]/progress/route'
+import * as sessionRawRecordRoute from '@/app/api/sessions/[sessionId]/raw-record/route'
+import * as projectTasksRoute from '@/app/api/projects/[id]/tasks/route'
+import * as draftsRoute from '@/app/api/drafts/route'
 import { getUserWorkspace } from '@/lib/auth'
 
 jest.setTimeout(240_000)
@@ -594,18 +607,21 @@ async function call(
   method: string,
   path: string,
   params: Record<string, string>,
-  as: { caller: Caller; source: AuthSource },
+  as: { caller: Caller; source: AuthSource; activeSlug?: string },
   body?: unknown
 ): Promise<{ status: number; text: string }> {
   clerkSession.userId = as.source === 'clerk' ? CLERK[as.caller] : null
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (as.source === 'bearer')
     headers.authorization = `Bearer ${TOKEN[as.caller]}`
+  // LUM-987: the slug the browser's apiFetch sends from /workspace/<slug>/….
+  if (as.activeSlug) headers['x-lumo-workspace'] = as.activeSlug
   const request = new NextRequest(`http://localhost${path}`, {
     method,
     headers,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
+  inflight.headers = request.headers
   const res = await (handler as Handler)(request, {
     params: Promise.resolve(params),
   })
@@ -1725,5 +1741,347 @@ describe('LUM-986 credential scope: a dual-member caller scoped to ALPHA cannot 
     expect(res.text).not.toContain(BRAVO_MARK)
     expect(JSON.parse(res.text)).toEqual(PROJECT_NOT_FOUND)
     expect(await snapshotMilestoneProtected()).toEqual(before)
+  })
+})
+
+// ── LUM-987: a Clerk session's active workspace is the URL slug ─────────────
+// The browser's apiFetch sends the `/workspace/<slug>/…` slug as
+// `X-Lumo-Workspace`. The dual member (a real member of BOTH workspaces) with
+// active slug ALPHA must be denied BRAVO's resources on the resource-by-id
+// routes that authorize through the resource's workspace — with 404, nothing
+// of BRAVO in the body, BRAVO's rows unchanged. With active slug BRAVO the
+// same human reaches BRAVO. No slug → a pinned, deterministic default.
+
+const SLUG = { alpha: 'idor-alpha', bravo: 'idor-bravo' } as const
+
+const p987: { projectId: string; taskId: string; sessionId: string } = {
+  projectId: '',
+  taskId: '',
+  sessionId: '',
+}
+
+async function seedActiveWorkspaceProbes() {
+  const db = harness.prisma!
+  const dualBravo = await db.workspaceMember.findUniqueOrThrow({
+    where: {
+      workspaceId_clerkId: {
+        workspaceId: B().workspaceId,
+        clerkId: DUAL_CLERK,
+      },
+    },
+  })
+  // Created by the dual member, so on an unfixed run nothing but the active
+  // workspace could stop the DELETE.
+  const project = await db.project.create({
+    data: {
+      workspaceId: B().workspaceId,
+      teamId: B().teamId,
+      createdByMemberId: dualBravo.id,
+      name: `${BRAVO_MARK} lum987 probe project`,
+    },
+  })
+  const task = await db.task.create({
+    data: {
+      projectId: B().projectId,
+      teamId: B().teamId,
+      number: 987,
+      title: `${BRAVO_MARK} lum987 probe task`,
+    },
+  })
+  const session = await db.session.create({
+    data: {
+      id: 'idor-lum987-bravo-session',
+      workspaceId: B().workspaceId,
+      workspaceMemberId: dualBravo.id,
+      cwd: `/tmp/${BRAVO_MARK}`,
+      lastActivityAt: new Date('2030-01-07T00:00:00.000Z'),
+    },
+  })
+  p987.projectId = project.id
+  p987.taskId = task.id
+  p987.sessionId = session.id
+}
+
+async function snapshot987() {
+  const db = harness.prisma!
+  const [base, project, task, session, bravoProjectTasks] = await Promise.all([
+    snapshotDualProtected(),
+    db.project.findUnique({ where: { id: p987.projectId } }),
+    db.task.findUnique({ where: { id: p987.taskId } }),
+    db.session.findUnique({ where: { id: p987.sessionId } }),
+    db.task.findMany({
+      where: { projectId: B().projectId },
+      select: { id: true, title: true, deletedAt: true },
+      orderBy: { id: 'asc' },
+    }),
+  ])
+  return { ...base, project, task, session, bravoProjectTasks }
+}
+
+type Run987 = (as: {
+  caller: Caller
+  source: AuthSource
+  activeSlug?: string
+}) => Promise<{ status: number; text: string }>
+
+/** Resource-by-id routes reading a resource of workspace `w`. */
+const read987 = (w: () => WorkspaceFixture): Array<[string, Run987]> => [
+  [
+    'GET /api/tasks/[id]',
+    as => call(taskRoute.GET, 'GET', '/x', { id: w().taskId }, as),
+  ],
+  [
+    'GET /api/tasks/[id]/web-links',
+    as => call(taskWebLinksRoute.GET, 'GET', '/x', { id: w().taskId }, as),
+  ],
+  [
+    'GET /api/tasks/[id]/progress',
+    as => call(taskProgressRoute.GET, 'GET', '/x', { id: w().taskId }, as),
+  ],
+  [
+    'GET /api/projects/[id]',
+    as => call(projectRoute.GET, 'GET', '/x', { id: w().projectId }, as),
+  ],
+  [
+    'GET /api/projects/[id]/tasks',
+    as =>
+      call(
+        projectTasksRoute.GET,
+        'GET',
+        `/api/projects/${w().projectId}/tasks`,
+        { id: w().projectId },
+        as
+      ),
+  ],
+]
+
+/** Reads first, then writes; the destructive cases hit dedicated probes. */
+const DENIED_987: Array<[string, Run987]> = [
+  ...read987(B),
+  [
+    'GET /api/sessions/[sessionId]/raw-record',
+    as =>
+      call(
+        sessionRawRecordRoute.GET,
+        'GET',
+        '/x',
+        { sessionId: p987.sessionId },
+        as
+      ),
+  ],
+  [
+    'PATCH /api/tasks/[id]',
+    as =>
+      call(taskRoute.PATCH, 'PATCH', '/x', { id: p987.taskId }, as, {
+        title: 'pwned by the alpha-active session',
+      }),
+  ],
+  [
+    'POST /api/projects/[id]/tasks',
+    as =>
+      call(projectTasksRoute.POST, 'POST', '/x', { id: B().projectId }, as, {
+        title: 'pwned by the alpha-active session',
+      }),
+  ],
+  [
+    'DELETE /api/tasks/[id]',
+    as => call(taskRoute.DELETE, 'DELETE', '/x', { id: p987.taskId }, as),
+  ],
+  [
+    'DELETE /api/projects/[id]',
+    as => call(projectRoute.DELETE, 'DELETE', '/x', { id: p987.projectId }, as),
+  ],
+]
+
+describe('LUM-987 Clerk active workspace: the dual member’s session is scoped to the URL slug', () => {
+  beforeAll(async () => {
+    await seedActiveWorkspaceProbes()
+  })
+
+  it('determinism: with no slug the session resolves to the oldest membership, not the first row stored', async () => {
+    const db = harness.prisma!
+    // A fresh human whose BRAVO row is stored FIRST but joined LATER, so an
+    // unordered findFirst (heap / index order) returns BRAVO while the pinned
+    // order (joinedAt, then id) returns ALPHA.
+    const clerkId = 'user_idor_lum987_order_probe'
+    await db.workspaceMember.create({
+      data: {
+        workspaceId: B().workspaceId,
+        clerkId,
+        joinedAt: new Date('2030-02-01T00:00:00.000Z'),
+      },
+    })
+    await db.workspaceMember.create({
+      data: {
+        workspaceId: A().workspaceId,
+        clerkId,
+        joinedAt: new Date('2030-01-01T00:00:00.000Z'),
+      },
+    })
+    for (let i = 0; i < 3; i++) {
+      const ws = await getUserWorkspace(clerkId)
+      expect(ws?.workspaceId).toBe(A().workspaceId)
+    }
+    // The fixture dual member (ALPHA joined first) lands on ALPHA too.
+    expect((await getUserWorkspace(DUAL_CLERK))?.workspaceId).toBe(
+      A().workspaceId
+    )
+  })
+
+  it.each(DENIED_987)(
+    'dual member × clerk, active slug ALPHA — %s on BRAVO → 404',
+    async (name, run) => {
+      const before = await snapshot987()
+      const res = await run({
+        caller: 'dualAlpha',
+        source: 'clerk',
+        activeSlug: SLUG.alpha,
+      })
+      expect(`${name} → ${res.status}`).toBe(`${name} → 404`)
+      expect(res.text).not.toContain(BRAVO_MARK)
+      expect(await snapshot987()).toEqual(before)
+    }
+  )
+
+  it.each(read987(B))(
+    'control: active slug BRAVO — %s reaches BRAVO',
+    async (name, run) => {
+      const res = await run({
+        caller: 'dualBravo',
+        source: 'clerk',
+        activeSlug: SLUG.bravo,
+      })
+      expect(`${name} → ${res.status}`).toBe(`${name} → 200`)
+    }
+  )
+
+  it.each(read987(A))(
+    'control: active slug ALPHA — %s reaches ALPHA',
+    async (name, run) => {
+      const res = await run({
+        caller: 'dualAlpha',
+        source: 'clerk',
+        activeSlug: SLUG.alpha,
+      })
+      expect(`${name} → ${res.status}`).toBe(`${name} → 200`)
+    }
+  )
+
+  it('control: active slug BRAVO — the session raw-record reaches BRAVO’s session', async () => {
+    const res = await call(
+      sessionRawRecordRoute.GET,
+      'GET',
+      '/x',
+      { sessionId: p987.sessionId },
+      { caller: 'dualBravo', source: 'clerk', activeSlug: SLUG.bravo }
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('control: active slug BRAVO — the task detail carries BRAVO’s data', async () => {
+    const res = await call(
+      taskRoute.GET,
+      'GET',
+      '/x',
+      { id: B().taskId },
+      { caller: 'dualBravo', source: 'clerk', activeSlug: SLUG.bravo }
+    )
+    expect(res.status).toBe(200)
+    expect(res.text).toContain(`${BRAVO_MARK} task one`)
+  })
+
+  it.each([SLUG.alpha, SLUG.bravo])(
+    'requireWorkspaceByUrl: the dual member is not 403’d on their own workspace %s',
+    async slug => {
+      const res = await call(
+        draftsRoute.GET,
+        'GET',
+        `/api/drafts?workspaceUrl=${slug}`,
+        {},
+        { caller: 'dualAlpha', source: 'clerk', activeSlug: slug }
+      )
+      expect(`${slug} → ${res.status}`).toBe(`${slug} → 200`)
+    }
+  )
+
+  it('requireIdentity: active slug BRAVO resolves the Clerk identity to BRAVO; ALPHA keeps BRAVO out', async () => {
+    const bravo = await call(sprintRoute.GET, 'GET', '/x', sprintParams(), {
+      caller: 'dualBravo',
+      source: 'clerk',
+      activeSlug: SLUG.bravo,
+    })
+    expect(bravo.status).toBe(200)
+    expect(bravo.text).toContain(`${BRAVO_MARK} sprint`)
+    const alpha = await call(sprintRoute.GET, 'GET', '/x', sprintParams(), {
+      caller: 'dualAlpha',
+      source: 'clerk',
+      activeSlug: SLUG.alpha,
+    })
+    expect(alpha.status).toBe(404)
+    expect(alpha.text).not.toContain(BRAVO_MARK)
+  })
+
+  it('a slug the dual member does not belong to is refused (no silent fallback)', async () => {
+    const identityRoute = await call(
+      sprintRoute.GET,
+      'GET',
+      '/x',
+      { sprintId: A().sprintId },
+      { caller: 'dualAlpha', source: 'clerk', activeSlug: 'idor-nowhere' }
+    )
+    expect(identityRoute.status).toBe(403)
+    const resourceRoute = await call(
+      taskRoute.GET,
+      'GET',
+      '/x',
+      { id: A().taskId },
+      { caller: 'dualAlpha', source: 'clerk', activeSlug: 'idor-nowhere' }
+    )
+    expect(resourceRoute.status).toBe(404)
+  })
+
+  it('Bearer: the slug header cannot move an ALPHA-bound key to BRAVO', async () => {
+    const res = await call(sprintRoute.GET, 'GET', '/x', sprintParams(), {
+      caller: 'dualAlpha',
+      source: 'bearer',
+      activeSlug: SLUG.bravo,
+    })
+    expect(res.status).toBe(404)
+    expect(res.text).not.toContain(BRAVO_MARK)
+    const own = await call(
+      sprintRoute.GET,
+      'GET',
+      '/x',
+      { sprintId: A().sprintId },
+      { caller: 'dualAlpha', source: 'bearer', activeSlug: SLUG.bravo }
+    )
+    expect(own.status).toBe(200)
+  })
+
+  it('single-workspace user: a slug header changes nothing (own workspace 200, BRAVO still 403)', async () => {
+    const own = await call(
+      taskRoute.GET,
+      'GET',
+      '/x',
+      { id: A().taskId },
+      { caller: 'alphaOwner', source: 'clerk', activeSlug: SLUG.bravo }
+    )
+    expect(own.status).toBe(200)
+    const identity = await call(
+      sprintRoute.GET,
+      'GET',
+      '/x',
+      { sprintId: A().sprintId },
+      { caller: 'alphaOwner', source: 'clerk', activeSlug: SLUG.bravo }
+    )
+    expect(identity.status).toBe(200)
+    const other = await call(
+      taskRoute.GET,
+      'GET',
+      '/x',
+      { id: B().taskId },
+      { caller: 'alphaOwner', source: 'clerk', activeSlug: SLUG.alpha }
+    )
+    expect(other.status).toBe(403)
   })
 })

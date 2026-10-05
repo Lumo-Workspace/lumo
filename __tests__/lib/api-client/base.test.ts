@@ -162,3 +162,50 @@ describe('apiFetchQuiet', () => {
     await expect(apiFetchQuiet('/api/ok')).resolves.toBeUndefined()
   })
 })
+
+describe('apiFetch — LUM-987 active workspace header', () => {
+  afterEach(() => {
+    window.history.pushState({}, '', '/')
+    document
+      .querySelectorAll('meta[name="lumo-workspace"]')
+      .forEach(m => m.remove())
+  })
+
+  it('sends the /workspace/<slug> URL slug as X-Lumo-Workspace', async () => {
+    window.history.pushState({}, '', '/workspace/acme/my-tasks/LUM-1')
+    mockFetch.mockResolvedValue(mockResponse({}))
+    await apiFetch('/api/tasks/t1')
+    expect(mockFetch.mock.calls[0][1].headers).toEqual({
+      'X-Lumo-Workspace': 'acme',
+    })
+  })
+
+  it('falls back to a lumo-workspace <meta> on a workspace-less page', async () => {
+    window.history.pushState({}, '', '/sessions/s1')
+    const meta = document.createElement('meta')
+    meta.name = 'lumo-workspace'
+    meta.content = 'bravo'
+    document.head.appendChild(meta)
+    mockFetch.mockResolvedValue(mockResponse({}))
+    await apiFetch('/api/sessions/s1/raw-record')
+    expect(mockFetch.mock.calls[0][1].headers).toEqual({
+      'X-Lumo-Workspace': 'bravo',
+    })
+  })
+
+  it('sends no header when the page has no workspace', async () => {
+    window.history.pushState({}, '', '/onboarding')
+    mockFetch.mockResolvedValue(mockResponse({}))
+    await apiFetch('/api/workspaces')
+    expect(mockFetch.mock.calls[0][1].headers).toEqual({})
+  })
+
+  it('an explicit caller header wins over the URL slug', async () => {
+    window.history.pushState({}, '', '/workspace/acme')
+    mockFetch.mockResolvedValue(mockResponse({}))
+    await apiFetch('/api/x', { headers: { 'X-Lumo-Workspace': 'other' } })
+    expect(mockFetch.mock.calls[0][1].headers).toEqual({
+      'X-Lumo-Workspace': 'other',
+    })
+  })
+})

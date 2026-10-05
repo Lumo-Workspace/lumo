@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getUserWorkspace, requireWorkspaceMember } from '@/lib/auth'
+import {
+  getUserWorkspace,
+  requireWorkspaceMember,
+  requireWorkspaceMembership,
+} from '@/lib/auth'
 import { prisma } from '@/lib/db/prisma'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { slugify } from '@/lib/utils/slugify'
@@ -8,7 +12,10 @@ import type { Identity } from '@/lib/auth/identity'
 // ── Workspace guards ────────────────────────────────────────────────────────
 
 /**
- * Validate workspaceUrl query param and verify the caller owns it.
+ * Validate workspaceUrl query param and verify the caller is a member of it.
+ * Resolves the membership by (clerkId, slug) — LUM-987: a multi-workspace
+ * user is no longer 403'd on their second workspace because an arbitrary
+ * "current" workspace was compared with the URL.
  * Returns the workspace result or a NextResponse error.
  */
 export async function requireWorkspaceByUrl(
@@ -22,7 +29,7 @@ export async function requireWorkspaceByUrl(
     )
   }
 
-  const ws = await getUserWorkspace(userId)
+  const ws = await getUserWorkspace(userId, workspaceUrl)
   if (!ws || ws.workspace.slug !== workspaceUrl) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -31,7 +38,8 @@ export async function requireWorkspaceByUrl(
 }
 
 /**
- * Get current user's workspace or return 404.
+ * Get current user's ACTIVE workspace (the request's `X-Lumo-Workspace`
+ * slug, else the oldest membership — see `getUserWorkspace`) or return 404.
  */
 export async function requireUserWorkspace(userId: string) {
   const ws = await getUserWorkspace(userId)
@@ -44,8 +52,9 @@ export async function requireUserWorkspace(userId: string) {
 // ── Resource loaders ────────────────────────────────────────────────────────
 
 /**
- * Load a project by ID and verify the caller is a workspace member.
- * Also returns the workspace slug so routes that publish Pusher events
+ * Load a project by ID and verify the caller (a Clerk session) is a member of
+ * its workspace and that it is the session's active workspace — 404 when not
+ * (LUM-987, via `requireWorkspaceMember`). Also returns the workspace slug so routes that publish Pusher events
  * (create/update/delete/reorder) don't need a second roundtrip.
  */
 export async function loadProjectAndMember(projectId: string, userId: string) {
@@ -88,7 +97,9 @@ export async function loadProjectForIdentity(
   if (!project || project.workspaceId !== caller.workspaceId) {
     return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   }
-  const member = await requireWorkspaceMember(
+  // Membership only: `caller.workspaceId` already IS the credential's scope
+  // (a Bearer key's workspace, or the Clerk session's active one).
+  const member = await requireWorkspaceMembership(
     caller.workspaceId,
     caller.clerkId
   )
@@ -98,7 +109,8 @@ export async function loadProjectForIdentity(
 }
 
 /**
- * Verify a task exists and the caller is a workspace member.
+ * Verify a task exists and the caller (a Clerk session) is a member of its
+ * workspace, which must be the session's active one (LUM-987 → 404).
  * Accepts a pre-fetched task (with at least `project.workspaceId`).
  * Returns the original task (preserving its full type) + member, or a NextResponse.
  */

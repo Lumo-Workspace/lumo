@@ -16,7 +16,11 @@ jest.mock('@clerk/nextjs/server', () => ({
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     workspaceMember: {
-      findFirst: (...args: unknown[]) => mockGetUserWorkspace(...args),
+      // LUM-987: getUserWorkspace resolves from the ordered membership list.
+      findMany: async (...args: unknown[]) => {
+        const membership = await mockGetUserWorkspace(...args)
+        return membership ? [membership] : []
+      },
     },
   },
 }))

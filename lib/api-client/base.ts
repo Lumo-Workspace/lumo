@@ -1,3 +1,10 @@
+import {
+  ACTIVE_WORKSPACE_HEADER,
+  ACTIVE_WORKSPACE_META,
+  normalizeActiveSlug,
+  workspaceSlugFromPathname,
+} from '@/lib/workspace/active-workspace'
+
 /** Error thrown by API client on non-ok responses */
 export class ApiClientError extends Error {
   constructor(
@@ -20,7 +27,24 @@ interface ApiFetchOptions {
 }
 
 /**
+ * LUM-987: the workspace the current page is in — the `/workspace/<slug>/…`
+ * URL slug, else a `<meta name="lumo-workspace">` a workspace-less page
+ * (e.g. `/sessions/[id]`) declares. Null outside the browser.
+ */
+export function currentActiveWorkspaceSlug(): string | null {
+  if (typeof window === 'undefined') return null
+  const fromPath = workspaceSlugFromPathname(window.location.pathname)
+  if (fromPath) return fromPath
+  const meta = document.querySelector<HTMLMetaElement>(
+    `meta[name="${ACTIVE_WORKSPACE_META}"]`
+  )
+  return normalizeActiveSlug(meta?.content)
+}
+
+/**
  * Typed fetch wrapper for API calls.
+ * - Sends the page's active workspace slug as `X-Lumo-Workspace` (LUM-987),
+ *   unless the caller set that header itself
  * - Auto-sets Content-Type: application/json when body is a plain value
  * - For FormData bodies: skips Content-Type so the browser writes the
  *   multipart boundary, and passes the FormData through unchanged
@@ -34,10 +58,12 @@ export async function apiFetch<T>(
   const { method = 'GET', body, headers, signal } = options ?? {}
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
 
+  const activeSlug = currentActiveWorkspaceSlug()
   const reqHeaders: Record<string, string> = {
     ...(body !== undefined && !isFormData
       ? { 'Content-Type': 'application/json' }
       : {}),
+    ...(activeSlug ? { [ACTIVE_WORKSPACE_HEADER]: activeSlug } : {}),
     ...headers,
   }
 

@@ -1,18 +1,16 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
+import { getUserWorkspace } from '@/lib/auth'
 
 export default async function WorkspaceIndexPage() {
   const { userId } = await auth()
 
   if (!userId) redirect('/signin')
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { clerkId: userId },
-    include: { workspace: true },
-  })
+  // No slug here: the user's default (oldest) workspace, deterministic (LUM-987).
+  const ws = await getUserWorkspace(userId, null)
 
-  if (!membership) redirect('/onboarding')
+  if (!ws) redirect('/onboarding')
 
-  redirect(`/workspace/${membership.workspace.slug}`)
+  redirect(`/workspace/${ws.workspace.slug}`)
 }

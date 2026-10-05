@@ -16,7 +16,8 @@ export default async function SettingsLayout({
   const { userId } = await auth()
   let isOwner = false
   if (userId) {
-    const ws = await getUserWorkspace(userId)
+    // The page's own workspace, not the user's default (LUM-987).
+    const ws = await getUserWorkspace(userId, workspaceUrl)
     isOwner = ws?.member.role === 'OWNER'
   }
 
