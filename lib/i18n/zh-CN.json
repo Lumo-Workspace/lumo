@@ -2548,6 +2548,8 @@
   "sessions.detail.toolCalls": "工具调用",
   "sessions.detail.errors": "错误",
   "sessions.detail.durationMin": "{n} 分钟",
+  "sessions.detail.otherMember": "这是 {name} 的会话。你能看到它是因为你是此工作区的所有者；其他成员无法查看。",
+  "sessions.detail.otherMemberUnknown": "这是另一位成员的会话。你能看到它是因为你是此工作区的所有者；其他成员无法查看。",
   "sessions.attribution.title": "任务归属",
   "sessions.attribution.unattributed": "未归属：这个会话自己的轮次里没有找到任何任务信号。",
   "sessions.attribution.subagents": "Subagents",

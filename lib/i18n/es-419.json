@@ -2548,6 +2548,8 @@
   "sessions.detail.toolCalls": "Llamadas a herramientas",
   "sessions.detail.errors": "Errores",
   "sessions.detail.durationMin": "{n} min",
+  "sessions.detail.otherMember": "Esta es la sesión de {name}. Puedes verla porque eres propietario de este espacio de trabajo; los demás miembros no pueden.",
+  "sessions.detail.otherMemberUnknown": "Esta es la sesión de otro miembro. Puedes verla porque eres propietario de este espacio de trabajo; los demás miembros no pueden.",
   "sessions.attribution.title": "Atribución de tareas",
   "sessions.attribution.unattributed": "Sin atribuir: no se encontró ninguna señal de tarea en los turnos propios de esta sesión.",
   "sessions.attribution.subagents": "Subagents",

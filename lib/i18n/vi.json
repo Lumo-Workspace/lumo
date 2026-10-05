@@ -2548,6 +2548,8 @@
   "sessions.detail.toolCalls": "Lệnh gọi công cụ",
   "sessions.detail.errors": "Lỗi",
   "sessions.detail.durationMin": "{n} phút",
+  "sessions.detail.otherMember": "Đây là phiên của {name}. Bạn xem được vì bạn là chủ sở hữu không gian làm việc này; các thành viên khác không xem được.",
+  "sessions.detail.otherMemberUnknown": "Đây là phiên của một thành viên khác. Bạn xem được vì bạn là chủ sở hữu không gian làm việc này; các thành viên khác không xem được.",
   "sessions.attribution.title": "Gán nhiệm vụ",
   "sessions.attribution.unattributed": "Chưa gán: không tìm thấy tín hiệu nhiệm vụ nào trong các lượt của chính phiên này.",
   "sessions.attribution.subagents": "Subagents",

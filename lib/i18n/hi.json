@@ -2548,6 +2548,8 @@
   "sessions.detail.toolCalls": "टूल कॉल",
   "sessions.detail.errors": "त्रुटियाँ",
   "sessions.detail.durationMin": "{n} मिनट",
+  "sessions.detail.otherMember": "यह {name} का सत्र है। आप इसे इसलिए देख सकते हैं क्योंकि आप इस वर्कस्पेस के मालिक हैं; अन्य सदस्य इसे नहीं देख सकते।",
+  "sessions.detail.otherMemberUnknown": "यह किसी अन्य सदस्य का सत्र है। आप इसे इसलिए देख सकते हैं क्योंकि आप इस वर्कस्पेस के मालिक हैं; अन्य सदस्य इसे नहीं देख सकते।",
   "sessions.attribution.title": "कार्य एट्रिब्यूशन",
   "sessions.attribution.unattributed": "अनारोपित: इस सत्र के अपने टर्न में कोई कार्य संकेत नहीं मिला।",
   "sessions.attribution.subagents": "Subagents",

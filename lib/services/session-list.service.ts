@@ -58,7 +58,7 @@ export const sessionListService = {
   },
 
   /**
-   * Not ownership-scoped: callers must verify the session belongs to the caller (findDetailForClerkUser / findForMemberWithBinding) before calling.
+   * Not ownership-scoped: callers must check access first (sessionDetailService.getForViewer / findForMemberWithBinding).
    */
   async getAttribution(sessionId: string): Promise<SessionAttributionView> {
     const [rows, children, binding] = await Promise.all([
