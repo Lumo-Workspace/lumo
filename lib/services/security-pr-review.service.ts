@@ -29,6 +29,7 @@ import {
 } from '@/lib/integrations/github/pr-comment-client'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import type {
+  FindingKind,
   FindingProvenance,
   FindingSeverity,
   ReviewFindingRow,
@@ -137,6 +138,15 @@ export function provenanceLabel(f: {
   return externalTool(f.ruleId) ?? 'external tool'
 }
 
+/**
+ * LUM-988 — what kind of problem the comment is about, when the heading would
+ * otherwise read as a security finding. Only the AI review's correctness
+ * findings carry one; every other row is security by construction.
+ */
+export function findingKindLabel(kind: FindingKind | undefined): string | null {
+  return kind === 'CORRECTNESS' ? 'bug' : null
+}
+
 export type InlineFinding = Pick<
   ReviewFindingRow,
   | 'provenance'
@@ -148,15 +158,18 @@ export type InlineFinding = Pick<
   | 'fingerprint'
   | 'disposition'
   | 'suggestedDisposition'
->
+> &
+  // Optional so a caller built before LUM-988 still compiles; absent = security.
+  Partial<Pick<ReviewFindingRow, 'kind'>>
 
 /** P8: `evidence` is not a parameter here, so it cannot leak by accident. */
 export function buildInlineComment(
   f: InlineFinding,
   policy: SecurityPolicy = DEFAULT_SECURITY_POLICY
 ): string {
+  const kindLabel = findingKindLabel(f.kind)
   const blocks: string[] = [
-    `**Lumo · ${provenanceLabel(f)} · ${f.severity}** — ${f.title}`,
+    `**Lumo · ${provenanceLabel(f)}${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ${f.title}`,
   ]
   const detail = f.detail.trim()
   if (detail.length > 0) blocks.push(detail)

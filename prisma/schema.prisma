@@ -1729,6 +1729,9 @@ enum PrSecurityFindingKind {
   VULNERABILITY
   // LUM-738: a vulnerable dependency reported by osv-scanner (no line-level diff).
   DEPENDENCY
+  // LUM-988: a non-security finding from the AI review (logic bug, error
+  // handling, doc mismatch, weak test…). Always LLM_JUDGE, so never blocking.
+  CORRECTNESS
 }
 
 enum PrSecurityFindingSeverity {

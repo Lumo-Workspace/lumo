@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "Geheimnis",
   "securityScan.kind.VULNERABILITY": "Schwachstelle",
   "securityScan.kind.DEPENDENCY": "Abhängigkeit",
+  "securityScan.kind.CORRECTNESS": "Fehler",
   "securityScan.reachability.EXTERNAL": "Von einem Einstiegspunkt erreichbar",
   "securityScan.reachability.INTERNAL": "Nur interner Pfad",
   "securityScan.reachability.UNKNOWN": "Erreichbarkeit unbekannt",

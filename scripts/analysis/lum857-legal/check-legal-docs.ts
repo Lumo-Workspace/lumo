@@ -41,6 +41,7 @@ const MANIFEST = 'docs/privacy/llm-data-flow.md'
  */
 export const GATEWAY_HOST_NAMES: Record<string, string> = {
   openai: 'OpenAI',
+  anthropic: 'Anthropic',
   azure: 'Azure',
   alibaba: 'Alibaba Cloud',
   baseten: 'Baseten',

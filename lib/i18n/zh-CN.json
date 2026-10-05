@@ -2248,6 +2248,7 @@
   "securityScan.kind.SECRET": "密钥",
   "securityScan.kind.VULNERABILITY": "漏洞",
   "securityScan.kind.DEPENDENCY": "依赖",
+  "securityScan.kind.CORRECTNESS": "缺陷",
   "securityScan.reachability.EXTERNAL": "可从入口点到达",
   "securityScan.reachability.INTERNAL": "仅内部路径",
   "securityScan.reachability.UNKNOWN": "可达性未知",

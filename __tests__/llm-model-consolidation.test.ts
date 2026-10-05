@@ -106,14 +106,17 @@ test('content and policy-compiler tiers repointed to zai/glm-5.2', () => {
   expect(CONTENT_MODEL).toBe('zai/glm-5.2')
   expect(POLICY_COMPILER_MODEL).toBe('zai/glm-5.2')
 
-  // No provider-prefixed Anthropic id may remain in the registry; the ids the
-  // registry exports are the single source of truth for every call site.
+  // The only provider-prefixed Anthropic id in the registry is the PR scan's
+  // AI code review (LUM-988, user-approved); the ids the registry exports are
+  // the single source of truth for every call site.
   const registry = readFileSync(join(LIB_DIR, 'ai/models.ts'), 'utf8')
-  const exportedIds = [
-    ...registry.matchAll(/export const \w+_MODEL = '([^']+)'/g),
-  ].flatMap(m => (m[1] ? [m[1]] : []))
-  expect(exportedIds.length).toBeGreaterThan(0)
-  expect(exportedIds.filter(id => id.startsWith('anthropic/'))).toEqual([])
+  const exported = [
+    ...registry.matchAll(/export const (\w+_MODEL) = '([^']+)'/g),
+  ].flatMap(m => (m[1] && m[2] ? [[m[1], m[2]] as const] : []))
+  expect(exported.length).toBeGreaterThan(0)
+  expect(exported.filter(([, id]) => id.startsWith('anthropic/'))).toEqual([
+    ['CODE_REVIEW_MODEL', 'anthropic/claude-sonnet-5.5'],
+  ])
 })
 
 test('lib runtime has no inline gateway claude model literals', () => {

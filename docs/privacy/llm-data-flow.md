@@ -2,6 +2,7 @@
 
 > LUM-854 · ZDR 实测于 2026-09-26(`npx tsx scripts/analysis/lum854-zdr/probe.ts`),数据地域实测于 2026-09-27。
 > LUM-871 · 探针于 2026-10-04 重跑,原始输出已提交:[`scripts/analysis/lum854-zdr/probe-output.json`](../../scripts/analysis/lum854-zdr/probe-output.json)(见「原始探针输出」一节);Vercel ZDR 排除限制核对于 2026-10-03(见注意事项第 10 条)。
+> LUM-988 · 新增 `CODE_REVIEW_MODEL`(`anthropic/claude-sonnet-5.5`,PR 扫描的 AI 代码评审),由 `zdr-fetch.ts` 在线路层钉死只走 Anthropic 官方 API;探针于 2026-10-04 23:11Z 重跑并覆盖原始输出。
 > 本文是对外隐私说明的**事实依据**,不是对外文案本身;对外发布前需法务审阅。
 
 ## 一句话结论
@@ -12,12 +13,12 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 ## 怎么保证的(以及怎么防漂移)
 
-| 层         | 位置                                   | 作用                                                                                                                                                                                                                           |
-| ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 线路层强制 | `lib/ai/zdr-fetch.ts`                  | 改写每个发往 Gateway 的 POST 请求体,强制 `providerOptions.gateway.zeroDataRetention = true`;调用点传 `false` 也会被覆盖;读不懂的请求体直接抛错(fail closed)                                                                    |
-| 唯一入口   | `lib/ai/gateway.ts`                    | 运行时唯一可用的 Gateway provider,挂载上面的 fetch                                                                                                                                                                             |
-| 防绕过     | `__tests__/lib/ai/zdr-gateway.test.ts` | `lib/` `app/` `shared/` 下任何文件直接 import `@ai-sdk/gateway` 或任何模型厂商 SDK(`@ai-sdk/openai`、`@anthropic-ai/sdk`、`openai` 等)即测试失败;另有端到端断言(真实 provider + 假 fetch)证明 chat 与 embedding 请求体都带 ZDR |
-| 真实探针   | `scripts/analysis/lum854-zdr/probe.ts` | 用生产同款 provider 对 `lib/ai/models.ts` 每个模型 + embedding 各发一次请求,任何一个没有经过 ZDR 过滤就非零退出                                                                                                                |
+| 层         | 位置                                   | 作用                                                                                                                                                                                                                                                                                                                                                          |
+| ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 线路层强制 | `lib/ai/zdr-fetch.ts`                  | 改写每个发往 Gateway 的 POST 请求体,强制 `providerOptions.gateway.zeroDataRetention = true`;调用点传 `false` 也会被覆盖;读不懂的请求体直接抛错(fail closed)。LUM-988:请求头 `ai-language-model-id` 命中 `lib/ai/models.ts` 的 `MODEL_PROVIDER_PINS` 时,同时强制 `providerOptions.gateway.only` 为该模型的托管方清单(目前只有 `CODE_REVIEW_MODEL` → anthropic) |
+| 唯一入口   | `lib/ai/gateway.ts`                    | 运行时唯一可用的 Gateway provider,挂载上面的 fetch                                                                                                                                                                                                                                                                                                            |
+| 防绕过     | `__tests__/lib/ai/zdr-gateway.test.ts` | `lib/` `app/` `shared/` 下任何文件直接 import `@ai-sdk/gateway` 或任何模型厂商 SDK(`@ai-sdk/openai`、`@anthropic-ai/sdk`、`openai` 等)即测试失败;另有端到端断言(真实 provider + 假 fetch)证明 chat 与 embedding 请求体都带 ZDR                                                                                                                                |
+| 真实探针   | `scripts/analysis/lum854-zdr/probe.ts` | 用生产同款 provider 对 `lib/ai/models.ts` 每个模型 + embedding 各发一次请求,任何一个没有经过 ZDR 过滤就非零退出                                                                                                                                                                                                                                               |
 
 新增模型或换模型:改 `lib/ai/models.ts` 后重跑探针;探针失败说明该模型在 Gateway 上没有 ZDR 供应商,不能用于客户数据。
 
@@ -25,22 +26,24 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 「本次落点」是探针请求实际落到的供应商(`routing.finalProvider`);Gateway 会在 ZDR 候选集内按可用性/负载切换,故列出完整候选集(取自 `routing.planningReasoning` 的「ZDR execution order」)。「被排除」= Gateway 以 `zdr_not_supported` / `zdr_ineligible_model` 跳过的供应商——客户数据**不会**到达它们。三列都以 2026-10-04 的原始探针输出为准。embedding 响应同样回显路由:`alibaba/qwen3-embedding-0.6b` 在 Gateway 上只有 deepinfra 一家系统凭证供应商,且它支持 ZDR(`ZDR requested: all 1 attempts support ZDR`)。
 
-| 模型常量                                  | 模型                           | 本次落点     | ZDR 候选集(带 → 的为本次执行顺序)                                                       | 被排除(非 ZDR)                                                       |
-| ----------------------------------------- | ------------------------------ | ------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `REASONING_MODEL`                         | `openai/gpt-5.5`               | openai       | openai → azure                                                                          | bedrock(`zdr_ineligible_model`:该模型在 bedrock 上不在 ZDR 范围)     |
-| `GENERATION_MODEL`                        | `deepseek/deepseek-v4-pro`     | alibaba      | alibaba → baseten → azure → deepinfra                                                   | **deepseek(官方)**、novita                                           |
-| `MEMORY_JUDGE_MODEL`                      | `deepseek/deepseek-v4-pro`     | alibaba      | 同上                                                                                    | 同上                                                                 |
-| `FAST_MODEL` / `TRANSLATION_MODEL`        | `deepseek/deepseek-v4-flash`   | alibaba      | alibaba、baseten、digitalocean、azure、deepinfra、wafer                                 | gmicloud、novita                                                     |
-| `HUNT_MODEL`                              | `alibaba/qwen3-coder-plus`     | alibaba      | alibaba                                                                                 | —                                                                    |
-| `CONTENT_MODEL` / `POLICY_COMPILER_MODEL` | `zai/glm-5.2`                  | baseten      | baseten、alibaba、runware、digitalocean、togetherai、nebius、deepinfra、parasail、wafer | **zai(智谱官方)**、novita、streamlake、gmicloud、inceptron、friendli |
-| `CROSSING_TRIAGE_MODEL`                   | `typesafe-ai/jev`              | digitalocean | **无 ZDR**:Gateway 上唯一供应商,`zdr: none`,不训练(LUM-945 例外)                        | —                                                                    |
-| `EMBEDDING_MODEL`                         | `alibaba/qwen3-embedding-0.6b` | deepinfra    | deepinfra                                                                               | —                                                                    |
+| 模型常量                                  | 模型                           | 本次落点     | ZDR 候选集(带 → 的为本次执行顺序)                                                       | 被排除(非 ZDR)                                                                                                          |
+| ----------------------------------------- | ------------------------------ | ------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `CODE_REVIEW_MODEL`                       | `anthropic/claude-sonnet-5.5`  | anthropic    | anthropic                                                                               | bedrock、vertexAnthropic、claudeaws(均支持 ZDR,但被线路层 `only: ['anthropic']` 排除:不在子处理方名单,LUM-988 用户裁定) |
+| `REASONING_MODEL`                         | `openai/gpt-5.5`               | openai       | openai → azure                                                                          | bedrock(`zdr_ineligible_model`:该模型在 bedrock 上不在 ZDR 范围)                                                        |
+| `GENERATION_MODEL`                        | `deepseek/deepseek-v4-pro`     | alibaba      | alibaba → baseten → azure → deepinfra                                                   | **deepseek(官方)**、novita                                                                                              |
+| `MEMORY_JUDGE_MODEL`                      | `deepseek/deepseek-v4-pro`     | alibaba      | 同上                                                                                    | 同上                                                                                                                    |
+| `FAST_MODEL` / `TRANSLATION_MODEL`        | `deepseek/deepseek-v4-flash`   | alibaba      | alibaba、baseten、digitalocean、azure、deepinfra、wafer                                 | gmicloud、novita                                                                                                        |
+| `HUNT_MODEL`                              | `alibaba/qwen3-coder-plus`     | alibaba      | alibaba                                                                                 | —                                                                                                                       |
+| `CONTENT_MODEL` / `POLICY_COMPILER_MODEL` | `zai/glm-5.2`                  | alibaba      | baseten、alibaba、runware、digitalocean、togetherai、nebius、deepinfra、parasail、wafer | **zai(智谱官方)**、novita、streamlake、gmicloud、inceptron、friendli                                                    |
+| `CROSSING_TRIAGE_MODEL`                   | `typesafe-ai/jev`              | digitalocean | **无 ZDR**:Gateway 上唯一供应商,`zdr: none`,不训练(LUM-945 例外)                        | —                                                                                                                       |
+| `EMBEDDING_MODEL`                         | `alibaba/qwen3-embedding-0.6b` | deepinfra    | deepinfra                                                                               | —                                                                                                                       |
 
 各供应商在 Gateway 下的条款(来源:Vercel [ZDR 文档](https://vercel.com/docs/ai-gateway/security-and-compliance/zdr) 的供应商表,2026-09-22 版):
 
 | 供应商                                                           | 不训练 | ZDR | 条款说明                                  |
 | ---------------------------------------------------------------- | ------ | --- | ----------------------------------------- |
 | OpenAI                                                           | ✓      | ✓   | ZDR with safety retention(见下方注意事项) |
+| Anthropic                                                        | ✓      | ✓   | ZDR policy(见注意事项第 11 条)            |
 | Alibaba Cloud                                                    | ✓      | ✓   | Custom policy(与 Vercel 的单独协议)       |
 | Baseten                                                          | ✓      | ✓   | Security                                  |
 | Azure                                                            | ✓      | ✓   | Data privacy                              |
@@ -52,8 +55,8 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 ## 原始探针输出(LUM-871)
 
 - 文件:[`scripts/analysis/lum854-zdr/probe-output.json`](../../scripts/analysis/lum854-zdr/probe-output.json),即 `npx tsx scripts/analysis/lum854-zdr/probe.ts --json` 的 stdout 原样落盘(`.prettierignore` 保持逐字节)。
-- 时间:`probedAt` = 2026-10-04T02:40:42Z。
-- 环境:本机 dev,Gateway 凭据取自主 checkout 的 `.env.local`(`AI_GATEWAY_API_KEY`,非生产凭据);请求经生产同款 provider(`lib/ai/gateway.ts` + `zdr-fetch.ts`),调用点不传任何 providerOptions。ZDR 由代码在请求层强制,与凭据环境无关;但「本次落点」与候选集取决于运行那一刻 Gateway 的可用性,生产请求的落点可能不同(只保证在 ZDR 候选集内)。
+- 时间:`probedAt` = 2026-10-04T23:11:43Z(LUM-988 重跑;上一版 2026-10-04T02:40:42Z 时 GLM 落在 baseten,本次落在 alibaba,均在候选集内)。
+- 环境:本机 dev,Gateway 凭据取自主 checkout 的 `.env.local`(`AI_GATEWAY_API_KEY`,非生产凭据);请求经生产同款 provider(`lib/ai/gateway.ts` + `zdr-fetch.ts`),调用点不传任何 providerOptions(`CODE_REVIEW_MODEL` 的 `only` 来自线路层,不是探针专用参数,`planningReasoning` 原文为 `Provider set restricted to: anthropic`)。ZDR 由代码在请求层强制,与凭据环境无关;但「本次落点」与候选集取决于运行那一刻 Gateway 的可用性,生产请求的落点可能不同(只保证在 ZDR 候选集内)。
 - 每行字段:`finalProvider`(落点)、`skippedAsNonZdr` / `skippedAttempts`(被排除的供应商与原因)、`planningReasoning`(Gateway 原文,含 ZDR 前后的候选顺序)。`CROSSING_TRIAGE_MODEL`(Jev)不在其中:它不经 ZDR 层,探针按设计跳过。
 - 输出不含凭据:提交前已 grep `key|token|secret|bearer|authorization` 等,零命中;`__tests__/lib/legal/zdr-exclusion-claims.test.ts` 持续校验此点,并校验上表「本次落点」与该文件一致。
 
@@ -63,7 +66,7 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 | 链路                                                                        | 代码位置                                                                                                                                                   | 模型常量                    | 送出的数据                                                                   |
 | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------- |
-| L2 安全 judge                                                               | `lib/llm/security-judge-client.ts`                                                                                                                         | REASONING                   | 客户 PR diff / 代码片段                                                      |
+| L2 AI 代码评审(LUM-988 前为安全 judge)                                      | `lib/llm/security-judge-client.ts`                                                                                                                         | CODE_REVIEW                 | 客户 PR diff + 改动文件在 PR head 的完整内容(≤ 10 万字符,先脱敏)             |
 | L3 hunt(搜索 / 规划 / 压缩)                                                 | `lib/llm/security-hunt-{,plan-,compress-}client.ts`                                                                                                        | HUNT / FAST                 | 客户仓库代码、diff、沙箱命令输出                                             |
 | 安全 falsifier / 处置 falsifier                                             | `lib/llm/security-{,disposition-}falsifier-client.ts`                                                                                                      | REASONING                   | 客户代码、finding                                                            |
 | 代码规则 judge                                                              | `lib/llm/code-rule-judge-client.ts`                                                                                                                        | REASONING                   | 客户 diff + 项目规则                                                         |
@@ -85,13 +88,14 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 **能否固定到某个区域**(Gateway 目前只提供 `us` / `eu`;设了区域就不会回退,做不到直接 400):
 
-| 模型                                  | 现在(global,ZDR)       | ZDR + 固定 US                        | EU  |
-| ------------------------------------- | ---------------------- | ------------------------------------ | --- |
-| `openai/gpt-5.5`                      | openai,不固定          | ✅ openai,响应确认 `geoRegion: us`   | ✗   |
-| `deepseek/deepseek-v4-pro` / `-flash` | alibaba,不固定         | ✅ baseten,响应确认 `geoRegion: us`  | ✗   |
-| `zai/glm-5.2`                         | runware/baseten,不固定 | ✅ baseten,响应确认 `geoRegion: us`  | ✗   |
-| `alibaba/qwen3-coder-plus`(HUNT)      | alibaba,不固定         | ❌ 唯一供应商 alibaba 不支持区域固定 | ✗   |
-| `alibaba/qwen3-embedding-0.6b`        | deepinfra,不固定       | ❌ 无供应商支持区域固定              | ✗   |
+| 模型                                       | 现在(global,ZDR)       | ZDR + 固定 US                        | EU     |
+| ------------------------------------------ | ---------------------- | ------------------------------------ | ------ |
+| `anthropic/claude-sonnet-5.5`(CODE_REVIEW) | anthropic,不固定       | 未实测(LUM-988 未做地域探针)         | 未实测 |
+| `openai/gpt-5.5`                           | openai,不固定          | ✅ openai,响应确认 `geoRegion: us`   | ✗      |
+| `deepseek/deepseek-v4-pro` / `-flash`      | alibaba,不固定         | ✅ baseten,响应确认 `geoRegion: us`  | ✗      |
+| `zai/glm-5.2`                              | runware/baseten,不固定 | ✅ baseten,响应确认 `geoRegion: us`  | ✗      |
+| `alibaba/qwen3-coder-plus`(HUNT)           | alibaba,不固定         | ❌ 唯一供应商 alibaba 不支持区域固定 | ✗      |
+| `alibaba/qwen3-embedding-0.6b`             | deepinfra,不固定       | ❌ 无供应商支持区域固定              | ✗      |
 
 HUNT 与 embedding 要固定地域只能换模型:
 
@@ -134,3 +138,9 @@ HUNT 与 embedding 要固定地域只能换模型:
 
     - **结论**:按公开文档,Lumo 用到的模型与功能都不在已列明的排除项里;**唯一确定适用的是供应商侧 prompt caching**(OpenAI:加密 KV 最长 24 小时;Runware:内存暂存),与第 5 条一致。Alibaba / DigitalOcean / Wafer 无公开条款、Azure 等的协商状态不公开,这部分只能依赖 Vercel 的 ZDR 协议。对外文案据此写:「ZDR 是供应商自己的政策,供应商可把特定模型或功能排除在外,此时 Gateway 不会让请求失败;Lumo 只发文本、不用供应商列明的排除功能;供应商侧 prompt 缓存可能短暂保留加密派生数据(OpenAI 最长 24 小时)」,不得写「任何请求都绝不会被留存」。
     - 换模型或开始使用新功能(图片/文件输入、托管工具、有状态 API、batch)时,必须重新核对本条。
+
+11. **Anthropic 的 ZDR 范围与例外**(LUM-988,核对于 2026-10-04,来源:Anthropic [API and data retention](https://platform.claude.com/docs/en/manage-claude/api-and-data-retention) 与 Vercel ZDR 供应商表)。`CODE_REVIEW_MODEL` 只走 Anthropic 官方 API(线路层 `only`),所以 Bedrock / Vertex 的条款不适用。
+    - ZDR 覆盖 Messages API 上的合格功能;**不覆盖**的有 Batch(留存 29 天)、Files API、代码执行等有状态功能,以及 Fable / Mythos 系列模型(强制 30 天留存)。Lumo 只发同步 Messages 请求 + structured output,不用这些功能,也不用这些模型。
+    - **structured output**:提示词与输出不存;**JSON schema 本身会被缓存最长 24 小时**——我们的 schema 是代码里的静态定义,不含客户数据。
+    - **prompt caching**:提示词与输出不存;KV 缓存与哈希只在缓存 TTL 内保存在内存中,过期即删。
+    - **被标记内容**:即便在 ZDR 下,Anthropic 对其自动信任与安全系统标记的请求、或法律要求的情形,可留存输入输出**最长 2 年**。对外文案须写明这一例外。

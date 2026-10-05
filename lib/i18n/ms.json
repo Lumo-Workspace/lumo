@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "Rahsia",
   "securityScan.kind.VULNERABILITY": "Kelemahan",
   "securityScan.kind.DEPENDENCY": "Kebergantungan",
+  "securityScan.kind.CORRECTNESS": "Pepijat",
   "securityScan.reachability.EXTERNAL": "Boleh dicapai dari titik masuk",
   "securityScan.reachability.INTERNAL": "Laluan dalaman sahaja",
   "securityScan.reachability.UNKNOWN": "Kebolehcapaian tidak diketahui",

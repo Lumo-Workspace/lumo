@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "シークレット",
   "securityScan.kind.VULNERABILITY": "脆弱性",
   "securityScan.kind.DEPENDENCY": "依存関係",
+  "securityScan.kind.CORRECTNESS": "バグ",
   "securityScan.reachability.EXTERNAL": "エントリポイントから到達可能",
   "securityScan.reachability.INTERNAL": "内部パスのみ",
   "securityScan.reachability.UNKNOWN": "到達可能性は不明",
