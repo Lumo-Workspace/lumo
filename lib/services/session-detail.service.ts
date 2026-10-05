@@ -7,6 +7,7 @@ import {
 } from '@/lib/services/session-list.service'
 import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
 import { logger } from '@/lib/logger'
+import { canDeleteSessionRawRecord } from '@/lib/services/session-raw-record.service'
 
 /** A session's place in its workspace — all the access rule looks at. */
 export interface SessionAccessScope {
@@ -23,15 +24,21 @@ export interface SessionDetailViewerMembership {
 
 /**
  * LUM-946: who may open /sessions/[id] — the session's own member, or an
- * OWNER of the session's own workspace (the LUM-944 raw-record rule). A
- * membership in any other workspace never counts.
+ * OWNER of the session's own workspace. Deliberately the same rule as the
+ * LUM-944 raw-record delete on that page (one predicate, so the page and its
+ * delete control can't drift apart). A membership in any other workspace
+ * never counts.
  */
 export function canViewSessionDetail(
   session: SessionAccessScope,
   viewer: SessionDetailViewerMembership | null
 ): boolean {
-  if (!viewer || viewer.workspaceId !== session.workspaceId) return false
-  return session.workspaceMemberId === viewer.id || viewer.role === 'OWNER'
+  if (!viewer) return false
+  return canDeleteSessionRawRecord(session, {
+    workspaceMemberId: viewer.id,
+    workspaceId: viewer.workspaceId,
+    role: viewer.role,
+  })
 }
 
 export interface SessionDetailForViewer {
