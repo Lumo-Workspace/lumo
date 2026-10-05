@@ -26,7 +26,15 @@ export async function GET(request: NextRequest) {
 
   const authResult = await requireAuth()
   if (authResult instanceof NextResponse) return authResult
-  const ws = await getUserWorkspace(authResult.userId)
+  // Resolve the workspace the flow was started from: the slug inside the
+  // verified state, never one from the query string (LUM-989). An
+  // undecodable state falls back to the default workspace only to pick
+  // the settings page its error lands on.
+  const decoded = decodeOauthState(state)
+  const ws = await getUserWorkspace(
+    authResult.userId,
+    decoded.ok ? decoded.payload.workspaceUrl : undefined
+  )
   if (!ws) {
     return NextResponse.redirect(`${appUrl}/?github_error=identity_mismatch`)
   }
@@ -34,7 +42,6 @@ export async function GET(request: NextRequest) {
   const settingsUrl = `${appUrl}/workspace/${ws.workspace.slug}/settings/integrations`
   const errorRedirect = `${settingsUrl}?github_error=1`
 
-  const decoded = decodeOauthState(state)
   if (!decoded.ok) {
     const reason = decoded.reason === 'expired' ? 'expired' : 'invalid_state'
     return NextResponse.redirect(`${settingsUrl}?github_error=${reason}`)
