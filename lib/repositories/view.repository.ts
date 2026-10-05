@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ export const viewRepository = {
   /** Find a member by workspace + clerkId (used for authorization). */
   async findMemberByWorkspaceAndClerkId(workspaceId: string, clerkId: string) {
     return prisma.workspaceMember.findFirst({
-      where: { workspaceId, clerkId },
+      where: { workspaceId, clerkId, ...ACTIVE_MEMBER },
     })
   },
 }

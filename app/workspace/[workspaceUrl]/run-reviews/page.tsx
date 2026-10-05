@@ -14,7 +14,10 @@ export default async function RunReviewsPage({
   if (!userId) redirect('/signin')
 
   const workspace = await prisma.workspace.findFirst({
-    where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
+    where: {
+      slug: workspaceUrl,
+      members: { some: { clerkId: userId, deactivatedAt: null } },
+    },
     select: { id: true },
   })
 

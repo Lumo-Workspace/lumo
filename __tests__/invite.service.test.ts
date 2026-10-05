@@ -34,7 +34,7 @@ const mockFindByWorkspaceAndClerkId = jest.fn()
 
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: {
-    findByWorkspaceAndClerkId: (...args: any[]) =>
+    findMembershipStatus: (...args: any[]) =>
       mockFindByWorkspaceAndClerkId(...args),
   },
 }))
@@ -192,7 +192,10 @@ describe('inviteService', () => {
         expiresAt: new Date('2099-01-01'),
         workspace: { slug: 'test', teams: [] },
       })
-      mockFindByWorkspaceAndClerkId.mockResolvedValue({ id: 'member-1' })
+      mockFindByWorkspaceAndClerkId.mockResolvedValue({
+        id: 'member-1',
+        deactivatedAt: null,
+      })
 
       const result = await inviteService.acceptInvite('tok-1', 'clerk-1', [])
 
@@ -291,7 +294,7 @@ describe('inviteService', () => {
         ['bob@acme.com'],
         expect.any(Date)
       )
-      expect(mockAcceptInTransaction).toHaveBeenCalledWith(inv, 'clerk-1')
+      expect(mockAcceptInTransaction).toHaveBeenCalledWith(inv, 'clerk-1', null)
     })
 
     it('accepts every matching invite and lands on the newest one', async () => {
@@ -314,7 +317,10 @@ describe('inviteService', () => {
       mockFindPendingByEmails.mockResolvedValue([
         invite('inv-1', 'ws-1', 'acme'),
       ])
-      mockFindByWorkspaceAndClerkId.mockResolvedValue({ id: 'member-1' })
+      mockFindByWorkspaceAndClerkId.mockResolvedValue({
+        id: 'member-1',
+        deactivatedAt: null,
+      })
 
       const slug = await inviteService.joinPendingInvitesForEmails('clerk-1', [
         'bob@acme.com',

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 import type { TaskPriority } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -86,6 +87,7 @@ export const miscRepository = {
           select: {
             id: true,
             clerkId: true,
+            deactivatedAt: true,
             workspace: {
               select: { id: true, slug: true, name: true },
             },
@@ -167,10 +169,13 @@ export const miscRepository = {
 
   // ── HookEvent helper ───────────────────────────────────────────────────
 
-  /** Resolve workspaceMember.id from clerkId + workspaceId (hook ingestion). */
+  /** Resolve an ACTIVE workspaceMember.id from clerkId + workspaceId (hook ingestion, bearer identity). */
   async findMemberIdForHook(clerkId: string, workspaceId: string) {
     const row = await prisma.workspaceMember.findUnique({
-      where: { workspaceId_clerkId: { workspaceId, clerkId } },
+      where: {
+        workspaceId_clerkId: { workspaceId, clerkId },
+        ...ACTIVE_MEMBER,
+      },
       select: { id: true },
     })
     return row?.id ?? null

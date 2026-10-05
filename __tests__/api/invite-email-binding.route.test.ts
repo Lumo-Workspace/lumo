@@ -27,7 +27,7 @@ jest.mock('@/lib/repositories/invite.repository', () => ({
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: {
-    findByWorkspaceAndClerkId: (...a: unknown[]) =>
+    findMembershipStatus: (...a: unknown[]) =>
       mockFindByWorkspaceAndClerkId(...a),
   },
 }))

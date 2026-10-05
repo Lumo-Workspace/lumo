@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 import { teamRepository } from '@/lib/repositories/team.repository'
 import type { Identity } from './identity'
 
@@ -44,6 +45,7 @@ export async function requireTeamMemberOrOwner(
         workspaceId: caller.workspaceId,
         clerkId: caller.clerkId,
       },
+      ...ACTIVE_MEMBER,
     },
     select: { id: true, role: true },
   })

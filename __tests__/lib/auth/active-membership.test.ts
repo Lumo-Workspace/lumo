@@ -54,7 +54,7 @@ describe('resolveActiveMembership', () => {
     await resolveActiveMembership('u1', null)
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { clerkId: 'u1' },
+        where: { clerkId: 'u1', deactivatedAt: null },
         orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
       })
     )

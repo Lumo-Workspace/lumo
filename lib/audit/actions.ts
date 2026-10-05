@@ -14,6 +14,12 @@ export const AUDIT_ACTIONS = [
   // Members and invites
   'member.role_changed',
   'member.left',
+  // LUM-906: an OWNER removed a member; the identity provider deprovisioned
+  // one (Clerk user deleted / banned); a deprovisioned last OWNER kept the
+  // row but lost their API keys.
+  'member.removed',
+  'member.deprovisioned',
+  'member.api_keys_revoked',
   'invite.created',
   'invite.revoked',
   'invite.resent',

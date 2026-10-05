@@ -642,11 +642,18 @@ model TeamMember {
 }
 
 model WorkspaceMember {
-  id          String        @id @default(cuid())
-  workspaceId String
-  clerkId     String
-  role        WorkspaceRole @default(MEMBER)
-  joinedAt    DateTime      @default(now())
+  id                 String        @id @default(cuid())
+  workspaceId        String
+  clerkId            String
+  role               WorkspaceRole @default(MEMBER)
+  joinedAt           DateTime      @default(now())
+  /// LUM-906: set when the member is removed by an OWNER, leaves, or is
+  /// deprovisioned by the identity provider (Clerk user deleted / banned).
+  /// The row is kept so authorship and session history survive; every
+  /// membership lookup ignores deactivated rows. Cleared on re-invite.
+  deactivatedAt      DateTime?
+  /// REMOVED | LEFT | CLERK_USER_DELETED | CLERK_USER_BANNED (lib/members/deactivation.ts)
+  deactivationReason String?
 
   workspace                Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   teams                    TeamMember[]

@@ -28,7 +28,7 @@ jest.mock('@/lib/repositories/invite.repository', () => ({
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: {
-    findByWorkspaceAndClerkId: (...a: unknown[]) =>
+    findMembershipStatus: (...a: unknown[]) =>
       mockFindByWorkspaceAndClerkId(...a),
   },
 }))
@@ -118,7 +118,10 @@ describe('LUM-906 invite email binding', () => {
 
   it('invite binding lets an existing member land on the workspace whatever their email', async () => {
     mockFindByTokenWithWorkspace.mockResolvedValue(pendingInvite())
-    mockFindByWorkspaceAndClerkId.mockResolvedValue({ id: 'member-1' })
+    mockFindByWorkspaceAndClerkId.mockResolvedValue({
+      id: 'member-1',
+      deactivatedAt: null,
+    })
 
     const result = await inviteService.acceptInvite(
       'tok-1',

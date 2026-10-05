@@ -20,7 +20,10 @@ export default async function WorkspaceLayout({
   if (!userId) redirect('/signin')
 
   const workspace = await prisma.workspace.findFirst({
-    where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
+    where: {
+      slug: workspaceUrl,
+      members: { some: { clerkId: userId, deactivatedAt: null } },
+    },
   })
 
   if (!workspace) redirect('/workspace')

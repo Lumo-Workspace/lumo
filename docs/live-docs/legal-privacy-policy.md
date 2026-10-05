@@ -69,6 +69,8 @@ When an AI feature runs, the relevant text (which may include code) is sent to a
 | Technical data and logs | [Log retention period] |
 | Backups | Deleted data can persist in encrypted database backups for up to [backup retention period] before it is overwritten. |
 
+When a workspace owner removes you from a workspace, you leave it, or your account is deleted or blocked by your sign-in provider, your membership in the workspace is deactivated at once and your personal API keys stop working; the tasks, comments, documents and agent session records you created stay with the workspace, attributed to you. If you are invited again later, the same membership is restored.
+
 When a workspace owner deletes a workspace, the deletion is scheduled 48 hours ahead and every workspace owner is emailed; any owner can cancel it during that window. When the 48 hours pass, we permanently delete the workspace's database records and stored files and keep a deletion receipt recording what was deleted and when (not the deleted content). An owner who needs the data erased immediately, for example to meet an erasure request, can run the scheduled deletion at once from workspace settings. If you uninstall the GitHub App, or remove a repository from it, but keep the workspace, we immediately clear the code stored with the affected security scans (quoted code, call chains, AI-written finding text, pull-request summaries and the scan's audit records), whatever the retention setting; each finding's rule, file, line, severity and dispositions are kept. Other data already collected from GitHub, such as pull-request records, stays with the workspace; contact us if you want it deleted.
 
 ## Who we share data with

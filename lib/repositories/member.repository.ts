@@ -1,13 +1,17 @@
 import { prisma } from '@/lib/db/prisma'
 import type { WorkspaceRole } from '@prisma/client'
+import {
+  ACTIVE_MEMBER,
+  type MemberDeactivationReason,
+} from '@/lib/members/deactivation'
 
 // ── Member Repository ──────────────────────────────────────────────────────
 
 export const memberRepository = {
-  /** Find all members of a workspace, ordered by join date, with actor IDs. */
+  /** Find all active members of a workspace, ordered by join date, with actor IDs. */
   async findByWorkspace(workspaceId: string) {
     return prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: { workspaceId, ...ACTIVE_MEMBER },
       orderBy: { joinedAt: 'asc' },
       include: {
         actor: { select: { id: true } },
@@ -15,27 +19,43 @@ export const memberRepository = {
     })
   },
 
-  /** Find a member by composite unique key (workspace + clerkId). */
+  /** Find an active member by composite unique key (workspace + clerkId). */
   async findByWorkspaceAndClerkId(workspaceId: string, clerkId: string) {
     return prisma.workspaceMember.findUnique({
       where: {
         workspaceId_clerkId: { workspaceId, clerkId },
+        ...ACTIVE_MEMBER,
       },
+    })
+  },
+
+  /**
+   * The (workspace, clerkId) row whether active or deactivated — only for
+   * the invite paths, which reactivate a deactivated row instead of
+   * creating a second one.
+   */
+  async findMembershipStatus(workspaceId: string, clerkId: string) {
+    return prisma.workspaceMember.findUnique({
+      where: { workspaceId_clerkId: { workspaceId, clerkId } },
+      select: { id: true, deactivatedAt: true },
     })
   },
 
   /** The caller's membership id and role in one workspace, or null. */
   async findRoleInWorkspace(workspaceId: string, clerkId: string) {
     return prisma.workspaceMember.findUnique({
-      where: { workspaceId_clerkId: { workspaceId, clerkId } },
+      where: {
+        workspaceId_clerkId: { workspaceId, clerkId },
+        ...ACTIVE_MEMBER,
+      },
       select: { id: true, workspaceId: true, role: true },
     })
   },
 
-  /** Find a member by ID with workspace scoping fields. */
+  /** Find an active member by ID with workspace scoping fields. */
   async findById(memberId: string) {
     return prisma.workspaceMember.findUnique({
-      where: { id: memberId },
+      where: { id: memberId, ...ACTIVE_MEMBER },
       select: { id: true, workspaceId: true, role: true },
     })
   },
@@ -58,17 +78,17 @@ export const memberRepository = {
     })
   },
 
-  /** Count owners in a workspace. */
+  /** Count active owners in a workspace. */
   async countOwners(workspaceId: string) {
     return prisma.workspaceMember.count({
-      where: { workspaceId, role: 'OWNER' },
+      where: { workspaceId, role: 'OWNER', ...ACTIVE_MEMBER },
     })
   },
 
-  /** Find all workspace memberships for a given Clerk user across all workspaces. */
+  /** Find all active workspace memberships for a given Clerk user across all workspaces. */
   async findByClerkId(clerkId: string) {
     return prisma.workspaceMember.findMany({
-      where: { clerkId },
+      where: { clerkId, ...ACTIVE_MEMBER },
       select: {
         id: true,
         workspaceId: true,
@@ -78,10 +98,10 @@ export const memberRepository = {
     })
   },
 
-  /** Find the first member for a clerk user (any workspace). */
+  /** Find the first active member for a clerk user (any workspace). */
   async findFirstByClerkId(clerkId: string) {
     return prisma.workspaceMember.findFirst({
-      where: { clerkId },
+      where: { clerkId, ...ACTIVE_MEMBER },
     })
   },
 
@@ -108,11 +128,44 @@ export const memberRepository = {
     return { id: actor.member.id, workspaceId: actor.workspaceId }
   },
 
-  /** Delete a member by ID. */
-  async delete(memberId: string) {
-    return prisma.workspaceMember.delete({
-      where: { id: memberId },
+  /**
+   * LUM-906: deactivate a member instead of deleting the row. One
+   * transaction: revoke every live API key first, drop their team
+   * memberships, then mark the row — only if it is still active, so a second
+   * call (a redelivered webhook, a double click) changes nothing and reports
+   * `deactivated: false`.
+   */
+  async deactivate(
+    memberId: string,
+    reason: MemberDeactivationReason,
+    now: Date = new Date()
+  ): Promise<{ deactivated: boolean; apiKeysRevoked: number }> {
+    return prisma.$transaction(async tx => {
+      const marked = await tx.workspaceMember.updateMany({
+        where: { id: memberId, ...ACTIVE_MEMBER },
+        data: { deactivatedAt: now, deactivationReason: reason },
+      })
+      if (marked.count === 0) return { deactivated: false, apiKeysRevoked: 0 }
+      const keys = await tx.apiKey.updateMany({
+        where: { workspaceMemberId: memberId, revokedAt: null },
+        data: { revokedAt: now },
+      })
+      await tx.teamMember.deleteMany({ where: { memberId } })
+      return { deactivated: true, apiKeysRevoked: keys.count }
     })
+  },
+
+  /**
+   * LUM-906: revoke a member's live API keys without deactivating them (the
+   * last-OWNER case of identity-provider deprovisioning). Returns how many
+   * keys were revoked; 0 on a repeat call.
+   */
+  async revokeActiveApiKeys(memberId: string, now: Date = new Date()) {
+    const { count } = await prisma.apiKey.updateMany({
+      where: { workspaceMemberId: memberId, revokedAt: null },
+      data: { revokedAt: now },
+    })
+    return count
   },
 
   /** Find agent actors for a workspace. */
@@ -133,10 +186,10 @@ export const memberRepository = {
     })
   },
 
-  /** Find workspace members by clerkIds within a workspace. */
+  /** Find active workspace members by clerkIds within a workspace. */
   async findByWorkspaceAndClerkIds(workspaceId: string, clerkIds: string[]) {
     return prisma.workspaceMember.findMany({
-      where: { workspaceId, clerkId: { in: clerkIds } },
+      where: { workspaceId, clerkId: { in: clerkIds }, ...ACTIVE_MEMBER },
       select: { clerkId: true, actor: { select: { id: true } } },
     })
   },
@@ -253,7 +306,11 @@ export const memberRepository = {
     if (orderedClerkIds.length === 0) return []
 
     const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId, clerkId: { in: orderedClerkIds } },
+      where: {
+        workspaceId,
+        clerkId: { in: orderedClerkIds },
+        ...ACTIVE_MEMBER,
+      },
       select: { clerkId: true, actor: { select: { id: true } } },
     })
 
@@ -287,7 +344,7 @@ export const memberRepository = {
     }[]
   > {
     const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: { workspaceId, ...ACTIVE_MEMBER },
       select: {
         id: true,
         clerkId: true,

@@ -143,35 +143,68 @@ export const inviteRepository = {
     })
   },
 
-  /** Accept invite in a transaction: create member + actor + team membership + mark accepted. */
+  /**
+   * Accept invite in a transaction: create member + actor + team membership +
+   * mark accepted. LUM-906: when `deactivatedMemberId` is given, the caller's
+   * earlier (deactivated) row is reactivated instead — same id, so their
+   * authorship and history reattach — as a MEMBER, with its actor and
+   * default-team membership ensured.
+   */
   async acceptInTransaction(
     invite: {
       id: string
       workspaceId: string
       workspace: { slug: string; teams: Array<{ id: string }> }
     },
-    clerkId: string
+    clerkId: string,
+    deactivatedMemberId: string | null = null
   ) {
     const defaultTeam = invite.workspace.teams[0]
 
     return prisma.$transaction(async tx => {
-      const member = await tx.workspaceMember.create({
-        data: {
-          workspaceId: invite.workspaceId,
-          clerkId,
-          role: 'MEMBER',
-        },
-      })
+      const member = deactivatedMemberId
+        ? await tx.workspaceMember.update({
+            where: { id: deactivatedMemberId },
+            data: {
+              role: 'MEMBER',
+              deactivatedAt: null,
+              deactivationReason: null,
+            },
+          })
+        : await tx.workspaceMember.create({
+            data: {
+              workspaceId: invite.workspaceId,
+              clerkId,
+              role: 'MEMBER',
+            },
+          })
 
-      await tx.actor.create({
-        data: {
-          workspaceId: invite.workspaceId,
-          type: 'HUMAN',
-          memberId: member.id,
-        },
-      })
+      const actor = deactivatedMemberId
+        ? await tx.actor.findUnique({
+            where: { memberId: member.id },
+            select: { id: true },
+          })
+        : null
+      if (!actor) {
+        await tx.actor.create({
+          data: {
+            workspaceId: invite.workspaceId,
+            type: 'HUMAN',
+            memberId: member.id,
+          },
+        })
+      }
 
-      if (defaultTeam) {
+      if (defaultTeam && deactivatedMemberId) {
+        // Deactivation dropped their team rows; upsert in case one survived.
+        await tx.teamMember.upsert({
+          where: {
+            teamId_memberId: { teamId: defaultTeam.id, memberId: member.id },
+          },
+          update: {},
+          create: { teamId: defaultTeam.id, memberId: member.id },
+        })
+      } else if (defaultTeam) {
         await tx.teamMember.create({
           data: { teamId: defaultTeam.id, memberId: member.id },
         })
