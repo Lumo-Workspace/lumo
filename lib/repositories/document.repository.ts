@@ -66,7 +66,22 @@ export interface DocumentTreeFilter {
 
 // ── Shared includes ─────────────────────────────────────────────────────────
 
-const DOCUMENT_LIST_INCLUDE = {
+/**
+ * A document's live children IN ITS OWN WORKSPACE (LUM-993). The parent row is
+ * always read scoped to `workspaceId`, so its children must be too: a child row
+ * from another workspace (left by a pre-fix create/move) must never be listed
+ * or counted. Same query — the filter rides on the relation read.
+ */
+const liveChildrenIn = (workspaceId: string) => ({
+  deletedAt: null,
+  workspaceId,
+})
+
+const childCountIn = (workspaceId: string) => ({
+  select: { children: { where: liveChildrenIn(workspaceId) } },
+})
+
+const documentListInclude = (workspaceId: string) => ({
   project: { select: { id: true, name: true } },
   createdBy: { select: { id: true, clerkId: true } },
   shares: {
@@ -82,15 +97,15 @@ const DOCUMENT_LIST_INCLUDE = {
     orderBy: { lastEditedAt: 'desc' as const },
     take: 5,
   },
-  _count: { select: { children: { where: { deletedAt: null } } } },
-} as const
+  _count: childCountIn(workspaceId),
+})
 
-const DOCUMENT_DETAIL_INCLUDE = {
+const documentDetailInclude = (workspaceId: string) => ({
   project: { select: { id: true, name: true } },
   createdBy: { select: { id: true, clerkId: true } },
   // LUM-918: relation reads bypass the soft-delete extension — filter here.
   children: {
-    where: { deletedAt: null },
+    where: liveChildrenIn(workspaceId),
     orderBy: { sortOrder: 'asc' as const },
     select: {
       id: true,
@@ -100,7 +115,7 @@ const DOCUMENT_DETAIL_INCLUDE = {
       parentId: true,
       sortOrder: true,
       updatedAt: true,
-      _count: { select: { children: { where: { deletedAt: null } } } },
+      _count: childCountIn(workspaceId),
     },
   },
   shares: {
@@ -120,8 +135,8 @@ const DOCUMENT_DETAIL_INCLUDE = {
       },
     },
   },
-  _count: { select: { children: { where: { deletedAt: null } } } },
-} as const
+  _count: childCountIn(workspaceId),
+})
 
 // ── Repository ──────────────────────────────────────────────────────────────
 
@@ -170,7 +185,7 @@ export const documentRepository = {
 
     return prisma.document.findMany({
       where,
-      include: DOCUMENT_LIST_INCLUDE,
+      include: documentListInclude(workspaceId),
       orderBy: [{ updatedAt: 'desc' }],
     })
   },
@@ -200,7 +215,7 @@ export const documentRepository = {
           },
         ],
       },
-      include: DOCUMENT_DETAIL_INCLUDE,
+      include: documentDetailInclude(workspaceId),
     })
   },
 
@@ -279,7 +294,7 @@ export const documentRepository = {
         include: {
           project: { select: { id: true, name: true } },
           createdBy: { select: { id: true, clerkId: true } },
-          _count: { select: { children: { where: { deletedAt: null } } } },
+          _count: childCountIn(data.workspaceId),
         },
       })
     })
@@ -516,14 +531,14 @@ export const documentRepository = {
         emoji: true,
         parentId: true,
         children: {
-          where: { deletedAt: null },
+          where: liveChildrenIn(workspaceId),
           orderBy: { sortOrder: 'asc' },
           select: {
             id: true,
             slug: true,
             title: true,
             emoji: true,
-            _count: { select: { children: { where: { deletedAt: null } } } },
+            _count: childCountIn(workspaceId),
           },
         },
       },
@@ -550,7 +565,7 @@ export const documentRepository = {
         emoji: true,
         parentId: true,
         sortOrder: true,
-        _count: { select: { children: { where: { deletedAt: null } } } },
+        _count: childCountIn(filter.workspaceId),
       },
     })
   },
