@@ -50,6 +50,12 @@ jest.mock('@/lib/integrations/github', () => ({
   GithubAppUserAuthNotConfiguredError: class extends Error {},
 }))
 
+const mockAudit = jest.fn().mockResolvedValue(true)
+jest.mock('@/lib/services/audit.service', () => ({
+  ...jest.requireActual('@/lib/services/audit.service'),
+  recordAuditEvent: (...a: unknown[]) => mockAudit(...a),
+}))
+
 jest.mock('@/lib/services/github.service', () => ({
   githubService: { backfillPullRequests: jest.fn() },
 }))
@@ -61,7 +67,11 @@ jest.mock('@/lib/services/pr-comment-code-scrub.service', () => ({
     .mockResolvedValue({ comments: 0, jobs: 0 }),
 }))
 
-import { githubAppInstallService } from '@/lib/services/github-app-install.service'
+import {
+  githubAppInstallService,
+  removeInstallation,
+} from '@/lib/services/github-app-install.service'
+import { SYSTEM_AUDIT_CONTEXT } from '@/lib/services/audit.service'
 import { githubService } from '@/lib/services/github.service'
 import {
   githubAppInstallationRepository,
@@ -634,6 +644,72 @@ describe('githubAppInstallService', () => {
 
       expect(repo.deleteForWorkspace).toHaveBeenCalledWith('w1', 555)
       expect(repo.upsert).not.toHaveBeenCalled()
+    })
+
+    it('webhook audit: deleted and suspend record a WEBHOOK SYSTEM event per unbound workspace', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w1', installationId: 555, repositories: [] },
+        { workspaceId: 'w2', installationId: 555, repositories: [] },
+      ])
+      mockAudit.mockClear()
+      await githubAppInstallService.applyInstallationEvent({
+        action: 'deleted',
+        installation: { id: 555 },
+      })
+      await githubAppInstallService.applyInstallationEvent({
+        action: 'suspend',
+        installation: { id: 555 },
+      })
+      expect(
+        mockAudit.mock.calls.map(c => [c[0].workspaceId, c[0].action])
+      ).toEqual([
+        ['w1', 'github_app.uninstalled'],
+        ['w2', 'github_app.uninstalled'],
+        ['w1', 'github_app.suspended'],
+        ['w2', 'github_app.suspended'],
+      ])
+      expect(mockAudit.mock.calls[0]![0]).toEqual({
+        workspaceId: 'w1',
+        action: 'github_app.uninstalled',
+        target: { type: 'integration', id: 'github' },
+        metadata: { installationId: 555, reason: 'uninstalled on GitHub' },
+        context: { actor: { type: 'SYSTEM' }, source: 'WEBHOOK' },
+      })
+    })
+
+    it('webhook audit: a workspace whose unbind fails is not recorded as uninstalled', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w1', installationId: 555, repositories: [] },
+      ])
+      ;(
+        prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock
+      ).mockRejectedValueOnce(new Error('db down'))
+      mockAudit.mockClear()
+      await expect(
+        githubAppInstallService.applyInstallationEvent({
+          action: 'deleted',
+          installation: { id: 555 },
+        })
+      ).rejects.toThrow('1 workspace(s) failed')
+      expect(mockAudit).not.toHaveBeenCalled()
+    })
+
+    it('webhook audit: the access recheck path records a SYSTEM-source event', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w9', installationId: 556, repositories: [] },
+      ])
+      mockAudit.mockClear()
+      await removeInstallation(556, 'suspended on GitHub (automatic recheck)', {
+        kind: 'suspend',
+        context: SYSTEM_AUDIT_CONTEXT,
+      })
+      expect(mockAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: 'w9',
+          action: 'github_app.suspended',
+          context: { actor: { type: 'SYSTEM' }, source: 'SYSTEM' },
+        })
+      )
     })
 
     it('ignores a payload with no installation id', async () => {

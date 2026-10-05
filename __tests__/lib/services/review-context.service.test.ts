@@ -55,9 +55,13 @@ describe('LUM-988 reviewContextService.load', () => {
     })
   })
 
-  it('mints nothing when there is no path or no budget', async () => {
+  it('mints nothing when there is no eligible path or no budget', async () => {
     await reviewContextService.load({ ...base, paths: [] })
     await reviewContextService.load({ ...base, paths: ['a.ts'], maxChars: 0 })
+    await reviewContextService.load({
+      ...base,
+      paths: ['package-lock.json', 'logo.png'],
+    })
     expect(withToken).not.toHaveBeenCalled()
   })
 

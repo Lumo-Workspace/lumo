@@ -139,6 +139,10 @@ describe('POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition (CLI,
         actorClerkId: 'clerk-1',
         channel: 'CLI',
         handshake: HANDSHAKE,
+        audit: {
+          workspaceId: 'w-1',
+          context: expect.objectContaining({ source: 'CLI' }),
+        },
       }
     )
     // The LUM-751 suppression options are never forwarded from this route.

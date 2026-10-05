@@ -101,6 +101,10 @@ describe('POST /api/tasks/[id]/boundary-crossings/disposition', () => {
       {
         actorMemberId: 'member-1',
         actorClerkId: 'clerk-1',
+        audit: {
+          workspaceId: 'w-1',
+          context: expect.objectContaining({ source: 'WEB' }),
+        },
       }
     )
   })

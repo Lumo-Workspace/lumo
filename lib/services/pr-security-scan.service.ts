@@ -10,6 +10,10 @@
  * free-text field the LLM judge authors goes through redactKnownSecrets.
  */
 import { logger } from '@/lib/logger'
+import {
+  recordAuditEvent,
+  type WorkspaceAudit,
+} from '@/lib/services/audit.service'
 import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import {
@@ -1165,7 +1169,8 @@ export const prSecurityScanService = {
     findingId: string,
     disposition: FindingDisposition,
     note: string | null,
-    actorMemberId: string
+    actorMemberId: string,
+    audit?: WorkspaceAudit
   ): Promise<SecurityFindingView> {
     const finding =
       await prSecurityScanRepository.findFindingWithScope(findingId)
@@ -1189,6 +1194,20 @@ export const prSecurityScanService = {
         ),
       }
     )
+    // LUM-907: ids and enum values only — the note stays on the finding.
+    if (audit) {
+      await recordAuditEvent({
+        workspaceId: audit.workspaceId,
+        action: 'security_finding.dispositioned',
+        target: { type: 'security_finding', id: findingId },
+        metadata: {
+          taskId,
+          from: finding.disposition ?? null,
+          to: disposition,
+        },
+        context: audit.context,
+      })
+    }
     return toFindingView(
       updated,
       await loadSecurityPolicy(finding.scan.pullRequest.workspaceId)
@@ -1203,7 +1222,8 @@ export const prSecurityScanService = {
    */
   async dispositionSuggested(
     taskId: string,
-    actorMemberId: string
+    actorMemberId: string,
+    audit?: WorkspaceAudit
   ): Promise<{ confirmed: number }> {
     // The latest scan per PR — the rows the panel shows and counts.
     const prs = await pullRequestRepository.findManyForSecurityByTaskId(taskId)
@@ -1219,6 +1239,15 @@ export const prSecurityScanService = {
         dispositionedAt: new Date(),
       }
     )
+    if (audit && confirmed > 0) {
+      await recordAuditEvent({
+        workspaceId: audit.workspaceId,
+        action: 'security_finding.suggestions_confirmed',
+        target: { type: 'task', id: taskId },
+        metadata: { confirmed, disposition: 'FALSE_POSITIVE' },
+        context: audit.context,
+      })
+    }
     return { confirmed }
   },
 }

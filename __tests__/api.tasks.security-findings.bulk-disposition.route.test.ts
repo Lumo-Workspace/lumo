@@ -64,7 +64,10 @@ describe('LUM-740 bulk disposition', () => {
       const res = await POST(req(BODY), params)
       expect(res.status).toBe(200)
       await expect(res.json()).resolves.toEqual({ confirmed: 3 })
-      expect(bulk).toHaveBeenCalledWith('t-1', 'member-1')
+      expect(bulk).toHaveBeenCalledWith('t-1', 'member-1', {
+        workspaceId: 'w-1',
+        context: expect.objectContaining({ source: 'WEB' }),
+      })
     })
 
     it('is strict about the body: only FALSE_POSITIVE over SUGGESTED is a bulk operation', async () => {

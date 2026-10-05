@@ -122,7 +122,8 @@ export interface CommandLike {
 /**
  * Parse an enum value set out of an option description following the CLI's
  * `a | b | c` help-text convention. Guarded against prose pipes: every
- * candidate must be a bare identifier token and the set must stay small.
+ * candidate must be a bare identifier token and the set must stay small
+ * (at most 16 — the audit log's --target-type list, LUM-907).
  *
  * A pipe list preceded by `e.g.` is an open example list, not a closed enum
  * (LUM-420: `--source … e.g. Superpowers | "Spec Kit" | BMad …` is opaque
@@ -137,7 +138,7 @@ export function parseEnumFromDescription(description: string): string[] | null {
   if (!m) return null
   if (/\be\.g\./.test(description.slice(0, m.index))) return null
   const values = m[0].split('|').map(v => v.trim())
-  if (values.length < 2 || values.length > 10) return null
+  if (values.length < 2 || values.length > 16) return null
   if (new Set(values).size !== values.length) return null
   return values
 }

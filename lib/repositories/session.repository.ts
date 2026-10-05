@@ -1153,10 +1153,17 @@ export const sessionRepository = {
     )
   },
 
-  async findDetailForClerkUser(id: string, clerkId: string) {
-    return prisma.session.findFirst({
-      where: { id, member: { clerkId } },
+  /**
+   * The /sessions/[id] detail row, unscoped: who may see it is decided by
+   * sessionDetailService (LUM-946), which must run before anything is shown.
+   */
+  async findDetailById(id: string) {
+    return prisma.session.findUnique({
+      where: { id },
       select: {
+        workspaceId: true,
+        workspaceMemberId: true,
+        member: { select: { clerkId: true } },
         id: true,
         cwd: true,
         startedAt: true,

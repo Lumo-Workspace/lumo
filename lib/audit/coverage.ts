@@ -24,8 +24,15 @@
  * Category-scoped points that are not OWNER-gated (invites, member-personal
  * connections) cannot be found mechanically; they are listed here by hand.
  *
- * PR1 ships with a declared PENDING list (the PR3 points); PR3 empties it and
- * the guard then requires it to stay empty.
+ * PR1 shipped with a declared PENDING list (the PR3 points); PR3 emptied it
+ * and the guard requires it to stay empty. Callers: every app file calling an
+ * instrumented method — `fooService.bar(` or, for a module-level function,
+ * `bar(` imported from its module — passes a request audit context.
+ *
+ * Deliberately not audited (not sensitive, or not a member action): Slack
+ * project channel create / delete; per-member document shares (exempt
+ * below); the trash's 30-day purge cron (routine retention); reading the
+ * audit log page by page.
  */
 import type { AuditAction } from '@/lib/audit/actions'
 
@@ -93,6 +100,70 @@ export const AUDIT_INSTRUMENTED: Readonly<
   'lib/services/sentry.service.ts#disconnectIntegration': [
     'sentry.disconnected',
   ],
+  // ── LUM-907 PR3 ──
+  'lib/services/sentry.service.ts#createMapping': ['sentry.mapping_created'],
+  'lib/services/sentry.service.ts#deleteMapping': ['sentry.mapping_deleted'],
+  // GitHub App gone or suspended on GitHub — webhook (WEBHOOK) or the daily
+  // access recheck (SYSTEM); both reach the workspace through this function.
+  'lib/services/github-app-install.service.ts#removeInstallation': [
+    'github_app.uninstalled',
+    'github_app.suspended',
+  ],
+  // Member-personal connections
+  'lib/services/api-key.service.ts#create': ['api_key.created'],
+  'lib/services/api-key.service.ts#revoke': ['api_key.revoked'],
+  'lib/services/figma-integration.service.ts#completeOauthFlow': [
+    'figma.connected',
+  ],
+  'lib/services/figma-integration.service.ts#disconnectIntegration': [
+    'figma.disconnected',
+  ],
+  'lib/services/google-drive-integration.service.ts#completeOauthFlow': [
+    'google_drive.connected',
+  ],
+  'lib/services/google-drive-integration.service.ts#disconnectIntegration': [
+    'google_drive.disconnected',
+  ],
+  'lib/services/github.service.ts#upsertIntegration': [
+    'github_oauth.connected',
+  ],
+  'lib/services/github.service.ts#deleteIntegration': [
+    'github_oauth.disconnected',
+  ],
+  // Workspace branding (the OWNER check moved here from the route)
+  'lib/services/workspace-logo.service.ts#updateLogo': [
+    'workspace.logo_updated',
+  ],
+  // Documents: visibility and the public link (document-owner gated)
+  'lib/services/document.service.ts#updateDocument': [
+    'document.visibility_changed',
+    'document.public_link_enabled',
+    'document.public_link_disabled',
+  ],
+  // Trash: the immediate erasure path
+  'lib/services/trash.service.ts#deletePermanently': [
+    'trash.deleted_permanently',
+  ],
+  // Human rulings
+  'lib/services/boundary-crossing.service.ts#disposition': [
+    'boundary_crossing.dispositioned',
+  ],
+  'lib/services/boundary-crossing.service.ts#revokeSuppressionRule': [
+    'boundary_crossing.suppression_rule_revoked',
+  ],
+  'lib/services/pr-security-scan.service.ts#disposition': [
+    'security_finding.dispositioned',
+  ],
+  'lib/services/pr-security-scan.service.ts#dispositionSuggested': [
+    'security_finding.suggestions_confirmed',
+  ],
+  'lib/services/test-case-defect-disposition.service.ts#rule': [
+    'test_case_defect.dispositioned',
+  ],
+  // Reading the audit log out of Lumo (the CSV export; listing is exempt)
+  'lib/services/audit-query.service.ts#exportAuditEventsCsv': [
+    'audit_log.exported',
+  ],
 }
 
 /**
@@ -110,41 +181,12 @@ export const AUDIT_INDIRECT_ACTIONS: Readonly<
 }
 
 /**
- * In scope but not yet instrumented — LUM-907 PR3. The guard accepts these
- * in PR1; PR3 must empty this list.
+ * In scope but not yet instrumented. PR1 shipped the PR3 points here; PR3
+ * instrumented every one of them, and the guard now requires this list to
+ * stay EMPTY: a new sensitive unit is instrumented or exempt with a reason,
+ * never parked.
  */
-export const AUDIT_PENDING: Readonly<Record<AuditUnit, string>> = {
-  'app/api/users/api-keys/route.ts#POST':
-    'API key create (member-personal; routes call miscRepository directly — needs an api-key service first)',
-  'app/api/users/api-keys/[id]/route.ts#DELETE':
-    'API key revoke (member-personal; same as above)',
-  'lib/services/figma-integration.service.ts#completeOauthFlow':
-    'Figma connect (member-personal)',
-  'lib/services/figma-integration.service.ts#disconnectIntegration':
-    'Figma disconnect (member-personal)',
-  'lib/services/google-drive-integration.service.ts#completeOauthFlow':
-    'Google Drive connect (member-personal)',
-  'lib/services/google-drive-integration.service.ts#disconnectIntegration':
-    'Google Drive disconnect (member-personal)',
-  'lib/services/github.service.ts#upsertIntegration':
-    'GitHub OAuth connect (member-personal GitHubIntegration)',
-  'lib/services/github.service.ts#deleteIntegration':
-    'GitHub OAuth disconnect (member-personal GitHubIntegration)',
-  'lib/services/document.service.ts#updateDocument':
-    'document visibility / public link change (document-owner gated)',
-  'lib/services/sentry.service.ts#createMapping': 'Sentry project mapping add',
-  'lib/services/sentry.service.ts#deleteMapping':
-    'Sentry project mapping remove',
-  'lib/services/github-app-install.service.ts#applyInstallationEvent':
-    'GitHub App removed / suspended on GitHub (webhook, SYSTEM actor)',
-  'lib/services/trash.service.ts#deletePermanently': 'trash permanent delete',
-  'lib/services/boundary-crossing.service.ts#disposition':
-    'boundary-crossing ruling',
-  'lib/services/test-case-defect-disposition.service.ts#rule':
-    'test-case defect disposition',
-  'app/api/workspaces/me/logo/route.ts#POST':
-    'workspace logo change (OWNER check lives in the route)',
-}
+export const AUDIT_PENDING: Readonly<Record<AuditUnit, string>> = {}
 
 const GATE_HELPER = 'owner-gate helper; the methods that call it are classified'
 const READ_ONLY = 'read-only'
@@ -172,7 +214,15 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   // LUM-907 PR2: reading the audit log itself (list + CSV export).
   'lib/services/audit-query.service.ts#assertOwner': GATE_HELPER,
   'lib/services/audit-query.service.ts#listAuditEvents': READ_ONLY,
-  'lib/services/audit-query.service.ts#exportAuditEventsCsv': READ_ONLY,
+  // LUM-907 PR3 ruling: per-member document shares are routine
+  // collaboration (who on the team may read or edit one page), not a change
+  // of who OUTSIDE can read it; visibility and the public link are audited.
+  'app/api/documents/[id]/shares/route.ts#POST':
+    'per-member document share (routine collaboration; visibility and public link changes are audited in updateDocument)',
+  'app/api/documents/[id]/shares/[shareId]/route.ts#PATCH':
+    'per-member document share role change (routine collaboration)',
+  'app/api/documents/[id]/shares/[shareId]/route.ts#DELETE':
+    'per-member document share removal (routine collaboration)',
 }
 
 /** Matches an OWNER check or a call to one of the owner-gate helpers. */
@@ -235,4 +285,58 @@ export function ownerGatedUnits(file: string, source: string): AuditUnit[] {
 /** The body of one unit, or null when the file has no such unit. */
 export function unitBody(source: string, name: string): string | null {
   return parseUnits(source).find(u => u.name === name)?.body ?? null
+}
+
+function escapeRe(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * How an app file calls one instrumented unit, as regexes: `fooService.bar(`
+ * for a service-object method (`lib/services/foo.service.ts#bar`), and for a
+ * module-level `export function bar` also `bar(` in a file importing the
+ * module plus any `fooService.alias(` the service object maps to it
+ * (`alias: bar,`). `moduleSource` is the unit's own file.
+ */
+export function instrumentedCallPatterns(
+  unit: AuditUnit,
+  moduleSource: string
+): { direct: RegExp; importFrom: string | null; bare: RegExp | null } {
+  const i = unit.lastIndexOf('#')
+  const file = unit.slice(0, i)
+  const name = unit.slice(i + 1)
+  const base = file
+    .slice(file.lastIndexOf('/') + 1)
+    .replace(/\.service\.ts$/, '')
+  const service = `${base.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}Service`
+  const moduleLevel = new RegExp(
+    `^export\\s+(?:async\\s+)?function\\s+${escapeRe(name)}\\s*[<(]`,
+    'm'
+  ).test(moduleSource)
+  const methods = [name]
+  if (moduleLevel) {
+    const aliasRe = new RegExp(`^\\s+(\\w+):\\s*${escapeRe(name)},?\\s*$`, 'gm')
+    for (const m of moduleSource.matchAll(aliasRe)) methods.push(m[1]!)
+  }
+  return {
+    direct: new RegExp(
+      methods.map(m => `\\b${service}\\.${escapeRe(m)}\\(`).join('|')
+    ),
+    importFrom: moduleLevel ? `@/${file.replace(/\.ts$/, '')}` : null,
+    bare: moduleLevel ? new RegExp(`(?<![.\\w])${escapeRe(name)}\\(`) : null,
+  }
+}
+
+/** True when `source` (an app file) calls the unit described by `p`. */
+export function callsInstrumentedUnit(
+  source: string,
+  p: ReturnType<typeof instrumentedCallPatterns>
+): boolean {
+  if (p.direct.test(source)) return true
+  return Boolean(
+    p.importFrom &&
+    p.bare &&
+    source.includes(`'${p.importFrom}'`) &&
+    p.bare.test(source)
+  )
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 import { cliDispositionBoundaryCrossingSchema } from '@/lib/validation/boundary-crossing'
 import { zodError } from '@/lib/api/helpers'
 
@@ -81,6 +82,14 @@ export async function POST(request: NextRequest, { params }: Params) {
         actorClerkId: identity.clerkId,
         channel: 'CLI',
         handshake,
+        audit: {
+          workspaceId: identity.workspaceId,
+          context: memberAuditContext(
+            request.headers,
+            { clerkId: identity.clerkId, memberId: identity.memberId },
+            identity.source
+          ),
+        },
       }
     )
     return NextResponse.json({ ...outcome, channel: 'CLI' })

@@ -5,7 +5,8 @@
  * Isolation: every read is scoped to the caller's own workspace id, which
  * the route takes from the authenticated identity — never from the query.
  * Only OWNERs may read; the role is looked up from the caller's member row
- * so a CLI bearer (whose identity has no role) gets the same gate.
+ * so a CLI bearer (whose identity has no role) gets the same gate. A CSV
+ * export writes an `audit_log.exported` event (PR3); a page read does not.
  */
 import type { AuditActorType } from '@prisma/client'
 import { logger } from '@/lib/logger'
@@ -27,6 +28,10 @@ import {
   type AuditEventView,
 } from '@/lib/audit/query'
 import { auditEventsToCsv } from '@/lib/audit/csv'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 import type { AuditEventQuery } from '@/lib/validation/audit'
 
 function httpError(status: number, message: string): Error {
@@ -186,7 +191,8 @@ export async function listAuditEvents(
 export async function exportAuditEventsCsv(
   viewer: AuditViewer,
   query: AuditEventQuery,
-  now: Date = new Date()
+  now: Date = new Date(),
+  audit?: AuditContext
 ): Promise<{ csv: string; rowCount: number; truncated: boolean }> {
   await assertOwner(viewer.memberId)
   const filters = await toFilters(viewer, query, now)
@@ -213,11 +219,28 @@ export async function exportAuditEventsCsv(
     const last = rows[rows.length - 1]!
     cursor = { createdAt: last.createdAt, id: last.id }
   }
-  return {
-    csv: auditEventsToCsv(await toViews(rows)),
-    rowCount: rows.length,
-    truncated,
-  }
+  const csv = auditEventsToCsv(await toViews(rows))
+  // LUM-907 PR3: taking the log out of Lumo is itself audited (listing it is
+  // not). The filters as given — never the exported rows.
+  await recordAuditEvent({
+    workspaceId: viewer.workspaceId,
+    action: 'audit_log.exported',
+    target: { type: 'audit_log', id: null },
+    metadata: {
+      rowCount: rows.length,
+      truncated,
+      filters: {
+        action: query.action,
+        actor: query.actor,
+        since: query.since,
+        until: query.until,
+        targetType: query.targetType,
+        targetId: query.targetId,
+      },
+    },
+    context: audit,
+  })
+  return { csv, rowCount: rows.length, truncated }
 }
 
 export const auditQueryService = {

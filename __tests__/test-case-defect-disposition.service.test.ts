@@ -35,6 +35,10 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
     isGateEnabledForWorkspace: jest.fn(() => Promise.resolve(true)),
   },
 }))
+const mockAudit = jest.fn()
+jest.mock('@/lib/services/audit.service', () => ({
+  recordAuditEvent: (...a: unknown[]) => mockAudit(...a),
+}))
 jest.mock('@/lib/services/pr-security-scan-gate', () => ({
   listOpenBlockingFindings: jest.fn(() => Promise.resolve([])),
 }))
@@ -237,5 +241,58 @@ describe('LUM-812 — provenance, not identity', () => {
       })
     ).rejects.toMatchObject({ status: 400 })
     expect(createDisposition).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-907 test-case defect rulings are audited', () => {
+  const audit = {
+    workspaceId: 'w-1',
+    context: {
+      actor: { type: 'MEMBER' as const, memberId: 'm-1' },
+      source: 'WEB' as const,
+    },
+  }
+
+  it('test case defect audit: a web ruling records run, case number and ruling, not the note or title', async () => {
+    findRun.mockResolvedValue(runRow())
+    await testCaseDefectDispositionService.rule({
+      taskId: 't-1',
+      runId: 'run-9',
+      ruling: 'KNOWN_DEFECT',
+      note: 'secret-note',
+      caller: CALLER,
+      channel: 'WEB',
+      audit,
+    })
+    expect(mockAudit).toHaveBeenCalledWith({
+      workspaceId: 'w-1',
+      action: 'test_case_defect.dispositioned',
+      target: { type: 'test_case_run', id: 'run-9' },
+      metadata: {
+        taskId: 't-1',
+        caseNumber: 9,
+        disposition: 'KNOWN_DEFECT',
+        channel: 'WEB',
+      },
+      context: audit.context,
+    })
+    const recorded = JSON.stringify(mockAudit.mock.calls)
+    expect(recorded).not.toContain('secret-note')
+    expect(recorded).not.toContain('Footer keeps')
+  })
+
+  it('test case defect audit: a refused ruling (already dispositioned) records nothing', async () => {
+    findRun.mockResolvedValue(runRow({ disposition: { id: 'd-1' } }))
+    await expect(
+      testCaseDefectDispositionService.rule({
+        taskId: 't-1',
+        runId: 'run-9',
+        ruling: 'KNOWN_DEFECT',
+        caller: CALLER,
+        channel: 'WEB',
+        audit,
+      })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(mockAudit).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,10 @@
 import { trashRepository } from '@/lib/repositories/trash.repository'
 import { privateFileService } from '@/lib/services/private-file.service'
 import { logger } from '@/lib/logger'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 /** LUM-918: how long a deleted task / document stays restorable. */
 export const TRASH_RETENTION_DAYS = 30
@@ -178,10 +182,23 @@ export const trashService = {
     kind: TrashKind,
     id: string,
     workspaceId: string,
-    memberId: string
+    memberId: string,
+    audit?: AuditContext
   ) {
     const root = await requireRoot(kind, id, workspaceId, memberId)
-    return purge(kind, root.id)
+    const deleted = await purge(kind, root.id)
+    // LUM-907: the immediate erasure is audited (ids and counts only); the
+    // 30-day cron purge is routine retention and is not.
+    if (deleted > 0) {
+      await recordAuditEvent({
+        workspaceId,
+        action: 'trash.deleted_permanently',
+        target: { type: kind, id: root.id },
+        metadata: { kind, rowsDeleted: deleted },
+        context: audit,
+      })
+    }
+    return deleted
   },
 
   /**

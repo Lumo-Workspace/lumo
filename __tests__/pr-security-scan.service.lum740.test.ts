@@ -23,6 +23,10 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+const mockAudit = jest.fn()
+jest.mock('@/lib/services/audit.service', () => ({
+  recordAuditEvent: (...a: unknown[]) => mockAudit(...a),
+}))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findFindingWithScope: jest.fn(),
@@ -232,6 +236,84 @@ describe('LUM-740 bulk disposition — service', () => {
       dispositionNote: 'Confirmed LLM suggestion (bulk)',
     })
     expect(data.dispositionedAt.getTime()).toBeGreaterThanOrEqual(before)
+  })
+})
+
+describe('LUM-907 security finding dispositions are audited', () => {
+  const audit = {
+    workspaceId: 'w1',
+    context: {
+      actor: { type: 'MEMBER' as const, memberId: 'm1' },
+      source: 'WEB' as const,
+    },
+  }
+  beforeEach(() => {
+    jest.clearAllMocks()
+    update.mockImplementation(async (_id: string, data: object) => ({
+      ...row({}),
+      ...data,
+    }))
+  })
+
+  it('security finding audit: a single ruling records the transition, not the note', async () => {
+    findFinding.mockResolvedValue(row({}))
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'ACCEPTED_RISK',
+      'secret-note',
+      'm1',
+      audit
+    )
+    expect(mockAudit).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      action: 'security_finding.dispositioned',
+      target: { type: 'security_finding', id: 'f1' },
+      metadata: { taskId: 't1', from: null, to: 'ACCEPTED_RISK' },
+      context: audit.context,
+    })
+    expect(JSON.stringify(mockAudit.mock.calls)).not.toContain('secret-note')
+  })
+
+  it('security finding audit: a finding off the task records nothing', async () => {
+    findFinding.mockResolvedValue(
+      row({
+        scan: {
+          pullRequestId: 'pr1',
+          pullRequest: { taskId: 'other', workspaceId: 'w1' },
+        },
+      })
+    )
+    await expect(
+      prSecurityScanService.disposition(
+        't1',
+        'f1',
+        'FALSE_POSITIVE',
+        null,
+        'm1',
+        audit
+      )
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mockAudit).not.toHaveBeenCalled()
+  })
+
+  it('security finding audit: bulk confirm records one event with the count, none when nothing was confirmed', async () => {
+    prsOf.mockResolvedValue([{ id: 'pr1' }])
+    latestScans.mockResolvedValue([
+      { id: 's1', pullRequestId: 'pr1', startedAt: new Date(1), findings: [] },
+    ])
+    confirmAll.mockResolvedValueOnce(0)
+    await prSecurityScanService.dispositionSuggested('t1', 'm1', audit)
+    expect(mockAudit).not.toHaveBeenCalled()
+    confirmAll.mockResolvedValueOnce(4)
+    await prSecurityScanService.dispositionSuggested('t1', 'm1', audit)
+    expect(mockAudit).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      action: 'security_finding.suggestions_confirmed',
+      target: { type: 'task', id: 't1' },
+      metadata: { confirmed: 4, disposition: 'FALSE_POSITIVE' },
+      context: audit.context,
+    })
   })
 })
 

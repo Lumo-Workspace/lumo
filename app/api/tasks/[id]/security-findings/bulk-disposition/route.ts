@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 import { bulkDispositionSecurityFindingsSchema } from '@/lib/validation/security-scan'
 import { zodError } from '@/lib/api/helpers'
 
@@ -42,7 +43,15 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const result = await prSecurityScanService.dispositionSuggested(
       task.id,
-      identity.memberId
+      identity.memberId,
+      {
+        workspaceId: identity.workspaceId,
+        context: memberAuditContext(
+          request.headers,
+          { clerkId: identity.clerkId, memberId: identity.memberId },
+          identity.source
+        ),
+      }
     )
     return NextResponse.json(result)
   } catch (error) {

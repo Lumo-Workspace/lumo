@@ -44,6 +44,16 @@ export const SESSION_MESSAGES = {
     id: 'sessions.detail.durationMin',
     defaultMessage: '{n} min',
   },
+  'detail.otherMember': {
+    id: 'sessions.detail.otherMember',
+    defaultMessage:
+      "This is {name}'s session. You can see it because you are an owner of this workspace; other members can't.",
+  },
+  'detail.otherMemberUnknown': {
+    id: 'sessions.detail.otherMemberUnknown',
+    defaultMessage:
+      "This is another member's session. You can see it because you are an owner of this workspace; other members can't.",
+  },
   'attribution.title': {
     id: 'sessions.attribution.title',
     defaultMessage: 'Task attribution',

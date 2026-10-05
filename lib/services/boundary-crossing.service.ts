@@ -22,6 +22,10 @@ import { toModelCosts } from '@/lib/services/model-cost'
 import type { ModelUsage } from '@/lib/services/model-cost'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { hasRedactedContent } from '@/lib/hook-payload/redact'
+import {
+  recordAuditEvent,
+  type WorkspaceAudit,
+} from '@/lib/services/audit.service'
 import type {
   BoundaryCrossingDisposition,
   BoundaryCrossingSeverity,
@@ -69,6 +73,8 @@ export interface DispositionAttribution {
   /** LUM-769 handshake timestamps (CLI path only): when the envelope was
    *  shown and when reading was acknowledged — recorded on the audit row. */
   handshake?: { readAt: string; readAcknowledgedAt: string }
+  /** LUM-907: the workspace audit log entry for this ruling / revoke. */
+  audit?: WorkspaceAudit
 }
 
 /** LUM-751: optional repository-rule opt-in riding a FALSE_POSITIVE ruling. */
@@ -1123,9 +1129,34 @@ export const boundaryCrossingService = {
 
     const from = crossing.disposition
 
+    // LUM-907: the workspace audit log gets one row per ruling that changed
+    // something — the transition, and the repository rule it created, if any.
+    // Ids, category and enum values only; the crossing detail and the note
+    // stay on the task timeline.
+    const recordRuling = async (changed: boolean) => {
+      if (!attribution.audit || (!changed && !suppressionRuleId)) return
+      await recordAuditEvent({
+        workspaceId: attribution.audit.workspaceId,
+        action: 'boundary_crossing.dispositioned',
+        target: { type: 'boundary_crossing', id: crossingId },
+        metadata: {
+          taskId,
+          category: crossing.category,
+          from,
+          to: target,
+          channel: attribution.channel ?? 'WEB',
+          ...(suppressionRuleId
+            ? { suppressionRuleId, retroactivelySuppressed }
+            : {}),
+        },
+        context: attribution.audit.context,
+      })
+    }
+
     // No-op when the disposition isn't actually changing — keeps the original
     // reviewer/timestamp and emits no redundant audit row (idempotent).
     if (from === target) {
+      await recordRuling(false)
       return {
         crossingId,
         disposition: target,
@@ -1182,6 +1213,8 @@ export const boundaryCrossingService = {
           : {}),
       },
     })
+
+    await recordRuling(true)
 
     // Additive: the rule id rides along only when one was created, so existing
     // callers and their assertions see the pre-751 shape otherwise.
@@ -1379,6 +1412,19 @@ export const boundaryCrossingService = {
         actor?.id ?? null,
         now
       )
+    if (attribution.audit) {
+      await recordAuditEvent({
+        workspaceId: attribution.audit.workspaceId,
+        action: 'boundary_crossing.suppression_rule_revoked',
+        target: { type: 'suppression_rule', id: ruleId },
+        metadata: {
+          taskId,
+          projectId: rule.projectId,
+          reopenedCount,
+        },
+        context: attribution.audit.context,
+      })
+    }
     return { ruleId, revokedAt: now.toISOString(), reopenedCount }
   },
 

@@ -89,6 +89,12 @@ describe('grammar.json drift', () => {
     expect(
       parseEnumFromDescription('New status: todo | done (case-insensitive)')
     ).toEqual(['todo', 'done'])
+    // LUM-907: up to 16 values is a closed set (the audit --target-type
+    // list); beyond that it is treated as prose.
+    const many = (n: number) =>
+      Array.from({ length: n }, (_, i) => `v${i}`).join(' | ')
+    expect(parseEnumFromDescription(many(16))).toHaveLength(16)
+    expect(parseEnumFromDescription(many(17))).toBe(null)
   })
 
   it('every closed enum carries the case-insensitive help marker (LUM-420)', () => {
@@ -152,7 +158,7 @@ describe('grammar.json drift', () => {
         expect(long.startsWith('--')).toBe(true)
         if (flag.enum) {
           expect(flag.enum.length).toBeGreaterThanOrEqual(2)
-          expect(flag.enum.length).toBeLessThanOrEqual(10)
+          expect(flag.enum.length).toBeLessThanOrEqual(16)
           expect(new Set(flag.enum).size).toBe(flag.enum.length)
           for (const v of flag.enum) {
             expect(v).toMatch(/^[A-Za-z][A-Za-z0-9_-]*$/)

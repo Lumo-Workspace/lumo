@@ -3,6 +3,8 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { sentryService } from '@/lib/services/sentry.service'
 import { createMappingSchema } from '@/lib/validation/sentry.schema'
+import { memberAuditContext } from '@/lib/api/audit-context'
+import { logger } from '@/lib/logger'
 
 function errorStatus(err: unknown): number {
   return (err as { status?: number }).status ?? 500
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (status === 404) {
       return NextResponse.json({ error: 'Not connected' }, { status: 404 })
     }
-    console.error('[sentry/mappings] GET error:', error)
+    logger.error('[sentry/mappings] GET error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -61,7 +63,11 @@ export async function POST(request: NextRequest) {
     const result = await sentryService.createMapping(
       ws.workspaceId,
       memberResult.role,
-      parsed.data
+      parsed.data,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: memberResult.id,
+      })
     )
     return NextResponse.json(result)
   } catch (error) {
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
     if ([400, 403, 404, 409].includes(status)) {
       return NextResponse.json({ error: (error as Error).message }, { status })
     }
-    console.error('[sentry/mappings] POST error:', error)
+    logger.error('[sentry/mappings] POST error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

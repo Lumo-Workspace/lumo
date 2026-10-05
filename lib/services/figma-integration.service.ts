@@ -1,4 +1,8 @@
 import { encrypt, decrypt } from '@/lib/crypto'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 import { figmaIntegrationRepository } from '@/lib/repositories/figma-integration.repository'
 import {
   exchangeCode,
@@ -55,11 +59,14 @@ async function fetchFigmaUser(accessToken: string): Promise<FigmaUserInfo> {
   return (await res.json()) as FigmaUserInfo
 }
 
-export async function completeOauthFlow(input: {
-  workspaceId: string
-  memberId: string
-  code: string
-}): Promise<void> {
+export async function completeOauthFlow(
+  input: {
+    workspaceId: string
+    memberId: string
+    code: string
+  },
+  audit?: AuditContext
+): Promise<void> {
   const tokens = await exchangeCode(input.code)
   const user = await fetchFigmaUser(tokens.access_token)
   await figmaIntegrationRepository.upsert({
@@ -73,13 +80,30 @@ export async function completeOauthFlow(input: {
     figmaEmail: user.email,
     scopes: [...FIGMA_OAUTH_SCOPES],
   })
+  // The external account's handle / email are not copied into the audit log.
+  await recordAuditEvent({
+    workspaceId: input.workspaceId,
+    action: 'figma.connected',
+    target: { type: 'integration', id: 'figma' },
+    metadata: { scopes: [...FIGMA_OAUTH_SCOPES] },
+    context: audit,
+  })
 }
 
 export async function disconnectIntegration(
   workspaceId: string,
-  memberId: string
+  memberId: string,
+  audit?: AuditContext
 ): Promise<void> {
   await figmaIntegrationRepository.delete(workspaceId, memberId)
+  // Every disconnect request is recorded — the delete is idempotent, so the
+  // row may already have been gone (LUM-907 PR3 ruling).
+  await recordAuditEvent({
+    workspaceId,
+    action: 'figma.disconnected',
+    target: { type: 'integration', id: 'figma' },
+    context: audit,
+  })
 }
 
 export async function getDecryptedTokens(

@@ -176,10 +176,15 @@ describe('session list read models on a real Postgres', () => {
     expect(await sessionRepository.findRootBinding('missing')).toBeNull()
   })
 
-  it('findDetailForClerkUser is scoped to the owner', async () => {
-    expect(
-      await sessionRepository.findDetailForClerkUser(R, 'c1')
-    ).toMatchObject({ id: R, parentSessionId: null })
-    expect(await sessionRepository.findDetailForClerkUser(R, 'c2')).toBeNull()
+  it('findDetailById returns the row with its access scope, unscoped', async () => {
+    expect(await sessionRepository.findDetailById(OTHER)).toMatchObject({
+      id: OTHER,
+      workspaceId: 'ws',
+      workspaceMemberId: 'm2',
+      member: { clerkId: 'c2' },
+      parentSessionId: null,
+      workspace: { slug: 'ws' },
+    })
+    expect(await sessionRepository.findDetailById('missing')).toBeNull()
   })
 })

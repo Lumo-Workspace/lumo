@@ -19,6 +19,7 @@ import {
   withRepoReadToken,
 } from '@/lib/integrations/github/contents'
 import {
+  isSkippedContextPath,
   loadReviewContext,
   type LoadedReviewContext,
 } from '@/lib/security-scan/review-context'
@@ -39,13 +40,16 @@ export const reviewContextService = {
     /** Char cap for the packed context (the caller's remaining budget). */
     maxChars?: number
   }): Promise<LoadedReviewContext> {
-    if (opts.paths.length === 0 || opts.maxChars === 0) return noContext(null)
+    // Nothing to read (no path, only lockfiles / binaries, no budget): no
+    // token is minted at all.
+    const paths = opts.paths.filter(p => !isSkippedContextPath(p))
+    if (paths.length === 0 || opts.maxChars === 0) return noContext(null)
     try {
       return await withRepoReadToken(
         { workspaceId: opts.workspaceId, fullName: opts.repo },
         token =>
           loadReviewContext({
-            paths: opts.paths,
+            paths,
             ...(opts.maxChars !== undefined ? { maxChars: opts.maxChars } : {}),
             readFile: path =>
               readRepoFileWithToken({

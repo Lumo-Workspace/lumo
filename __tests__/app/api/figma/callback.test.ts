@@ -94,10 +94,12 @@ describe('GET /api/figma/callback', () => {
     expect(res.headers.get('location')).toContain(
       '/workspace/lumo/settings/integrations?connected=1'
     )
-    expect(svc.completeOauthFlow).toHaveBeenCalledWith({
-      workspaceId: 'w1',
-      memberId: 'm1',
-      code: 'c',
-    })
+    expect(svc.completeOauthFlow).toHaveBeenCalledWith(
+      { workspaceId: 'w1', memberId: 'm1', code: 'c' },
+      expect.objectContaining({
+        actor: { type: 'MEMBER', clerkId: 'clerk_1', memberId: 'm1' },
+        source: 'WEB',
+      })
+    )
   })
 })

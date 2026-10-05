@@ -3,13 +3,16 @@
  *
  * LUM-907 coverage guard: sensitive mutations must write an audit event.
  * The inventory rule (audit every sensitive mutation by category, whoever
- * performs it) and the three buckets — instrumented, pending (LUM-907 PR3),
- * exempt — are documented in lib/audit/coverage.ts. This suite fails when:
+ * performs it) and the buckets — instrumented, exempt, and a pending list
+ * that must stay empty since PR3 — are documented in lib/audit/coverage.ts.
+ * This suite fails when:
  *  - an instrumented unit stops calling recordAuditEvent with its actions;
  *  - a new OWNER-gated function / service method / route handler appears in
  *    lib/services or app/api without being classified;
  *  - an action in AUDIT_ACTIONS is written nowhere;
- *  - a registry entry names a file or unit that does not exist.
+ *  - a registry entry names a file or unit that does not exist;
+ *  - anything is parked in the pending list;
+ *  - an app caller of an audited method passes no request audit context.
  */
 import { readFileSync } from 'fs'
 import { execSync } from 'child_process'
@@ -19,6 +22,8 @@ import {
   AUDIT_INDIRECT_ACTIONS,
   AUDIT_INSTRUMENTED,
   AUDIT_PENDING,
+  callsInstrumentedUnit,
+  instrumentedCallPatterns,
   ownerGatedUnits,
   parseUnits,
   unitBody,
@@ -107,23 +112,31 @@ describe('LUM-907 audit coverage guard', () => {
   })
 
   it('LUM-907 audit coverage: every app caller of an instrumented method passes a request audit context', () => {
-    // lib/services/foo-bar.service.ts#baz → `fooBarService.baz(`
-    const calls = Object.keys(AUDIT_INSTRUMENTED).map(u => {
-      const [file, name] = split(u)
-      const service = path
-        .basename(file, '.service.ts')
-        .replace(/-(\w)/g, (_, c: string) => c.toUpperCase())
-      return `${service}Service\\.${name}\\(`
-    })
-    const callRe = new RegExp(calls.join('|'))
+    // `fooBarService.baz(`, or a module-level `baz(` imported from its module
+    // (Figma / Google Drive), or a service-object alias of it.
+    const patterns = Object.keys(AUDIT_INSTRUMENTED).map(u =>
+      instrumentedCallPatterns(u as AuditUnit, read(split(u)[0]))
+    )
     const callers = execSync("git ls-files 'app/**/*.ts' 'app/**/*.tsx'", {
       cwd: ROOT,
     })
       .toString()
       .trim()
       .split('\n')
-      .filter(f => callRe.test(read(f)))
-    expect(callers.length).toBeGreaterThan(15)
+      .filter(f => {
+        const src = read(f)
+        return patterns.some(p => callsInstrumentedUnit(src, p))
+      })
+    expect(callers.length).toBeGreaterThan(35)
+    // The PR3 routes, including the direct-import ones, are found.
+    for (const route of [
+      'app/api/figma/callback/route.ts',
+      'app/api/google-drive/route.ts',
+      'app/api/workspaces/me/audit-events/export/route.ts',
+      'app/api/users/api-keys/route.ts',
+    ]) {
+      expect([route, callers.includes(route)]).toEqual([route, true])
+    }
     for (const file of callers) {
       expect([file, read(file).includes('memberAuditContext(')]).toEqual([
         file,
@@ -132,9 +145,39 @@ describe('LUM-907 audit coverage guard', () => {
     }
   })
 
-  it('LUM-907 audit coverage: PR1 declares its pending list (PR3 empties it)', () => {
-    // PR3 flips this to `toEqual({})` and keeps it there.
-    expect(Object.keys(AUDIT_PENDING).length).toBeGreaterThan(0)
+  it('LUM-907 audit coverage: the pending list is empty (PR3 enforcement)', () => {
+    expect(AUDIT_PENDING).toEqual({})
+  })
+
+  it('LUM-907 audit coverage: a caller of a directly imported audited function is detected', () => {
+    const moduleSrc = [
+      'export async function completeOauthFlow(input: { a: string }) {',
+      "  await recordAuditEvent({ action: 'figma.connected' })",
+      '}',
+      'export const figmaIntegrationService = {',
+      '  connect: completeOauthFlow,',
+      '}',
+    ].join('\n')
+    const p = instrumentedCallPatterns(
+      'lib/services/figma-integration.service.ts#completeOauthFlow',
+      moduleSrc
+    )
+    const route = [
+      "import { completeOauthFlow } from '@/lib/services/figma-integration.service'",
+      'await completeOauthFlow({ a: 1 })',
+    ].join('\n')
+    expect(callsInstrumentedUnit(route, p)).toBe(true)
+    // Not imported from that module: some other completeOauthFlow.
+    expect(
+      callsInstrumentedUnit(
+        "import { completeOauthFlow } from '@/lib/services/other'\ncompleteOauthFlow()",
+        p
+      )
+    ).toBe(false)
+    // Through the service-object alias.
+    expect(
+      callsInstrumentedUnit('await figmaIntegrationService.connect(x)', p)
+    ).toBe(true)
   })
 
   it('LUM-907 audit coverage: a new OWNER-gated method without an audit fails the guard', () => {
@@ -148,8 +191,16 @@ describe('LUM-907 audit coverage guard', () => {
     ].join('\n')
     const gated = ownerGatedUnits('lib/services/foo.service.ts', src)
     expect(gated).toEqual(['lib/services/foo.service.ts#rotateSecret'])
-    const classified = new Set(Object.keys(AUDIT_INSTRUMENTED))
-    expect(gated.filter(u => !classified.has(u))).toHaveLength(1)
+    // The same classification the real scan uses: with pending empty, an
+    // unregistered OWNER-gated mutation is unclassified and fails the guard.
+    const classified = new Set<string>([
+      ...Object.keys(AUDIT_INSTRUMENTED),
+      ...Object.keys(AUDIT_PENDING),
+      ...Object.keys(AUDIT_EXEMPT),
+    ])
+    expect(gated.filter(u => !classified.has(u))).toEqual([
+      'lib/services/foo.service.ts#rotateSecret',
+    ])
   })
 })
 

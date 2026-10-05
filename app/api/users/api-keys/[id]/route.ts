@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
-import { miscRepository } from '@/lib/repositories/misc.repository'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { serviceErrorResponse } from '@/lib/api/helpers'
+import { memberAuditContext } from '@/lib/api/audit-context'
+import { apiKeyService } from '@/lib/services/api-key.service'
 
 /**
  * DELETE /api/users/api-keys/:id
  * Revokes (soft-deletes) an API key. Only the owner can revoke their own keys.
  */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -21,25 +23,16 @@ export async function DELETE(
     }
 
     const { id } = await params
-
-    const existing = await miscRepository.findApiKeyById(id)
-
-    if (!existing || existing.workspaceMemberId !== ws.member.id) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-
-    if (existing.revokedAt !== null) {
-      return NextResponse.json({ error: 'Already revoked' }, { status: 409 })
-    }
-
-    await miscRepository.revokeApiKey(id)
-
+    await apiKeyService.revoke(
+      { workspaceId: ws.workspaceId, memberId: ws.member.id },
+      id,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
+    )
     return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error('DELETE /api/users/api-keys error:', error)
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    )
+    return serviceErrorResponse(error, 'DELETE /api/users/api-keys')
   }
 }

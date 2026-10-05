@@ -24,6 +24,14 @@ export const memberRepository = {
     })
   },
 
+  /** The caller's membership id and role in one workspace, or null. */
+  async findRoleInWorkspace(workspaceId: string, clerkId: string) {
+    return prisma.workspaceMember.findUnique({
+      where: { workspaceId_clerkId: { workspaceId, clerkId } },
+      select: { id: true, workspaceId: true, role: true },
+    })
+  },
+
   /** Find a member by ID with workspace scoping fields. */
   async findById(memberId: string) {
     return prisma.workspaceMember.findUnique({

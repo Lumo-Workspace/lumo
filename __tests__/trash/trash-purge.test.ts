@@ -206,6 +206,42 @@ describe('trash purge (30-day retention)', () => {
     ).rejects.toMatchObject({ status: 404 })
     expect(await taskExists('live')).toBe(true)
   })
+
+  it('trash audit: delete permanently writes one audit event per item; the cron purge and a refusal write none', async () => {
+    const db = harness.prisma!
+    const audited = () =>
+      db.auditEvent.count({
+        where: { workspaceId: WS, action: 'trash.deleted_permanently' },
+      })
+    const before = await audited()
+    await task('au_task')
+    await trashService.trashTask('au_task', 'clerk_purge', NOW)
+    await task('au_live')
+    await expect(
+      trashService.deletePermanently('task', 'au_live', WS, MEMBER)
+    ).rejects.toMatchObject({ status: 404 })
+    await trashService.purgeExpired(NOW)
+    expect(await audited()).toBe(before)
+
+    await trashService.deletePermanently('task', 'au_task', WS, MEMBER, {
+      actor: { type: 'MEMBER', clerkId: 'clerk_purge', memberId: MEMBER },
+      source: 'WEB',
+    })
+    expect(await audited()).toBe(before + 1)
+    const rows = await db.auditEvent.findMany({
+      where: { workspaceId: WS, targetId: 'au_task' },
+    })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      actorType: 'MEMBER',
+      actorId: 'clerk_purge',
+      actorMemberId: MEMBER,
+      targetType: 'task',
+      targetId: 'au_task',
+      source: 'WEB',
+      metadata: { kind: 'task', rowsDeleted: 1 },
+    })
+  })
 })
 
 describe('evidence blobs (LUM-916) follow the hard delete, not the trash', () => {
