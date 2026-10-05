@@ -17,6 +17,7 @@ jest.mock('@/lib/integrations/github/pr-comment-client', () => {
       createIssueComment: jest.fn(),
       updateIssueComment: jest.fn(),
       createReview: jest.fn(),
+      updateReviewLineComment: jest.fn(),
       listIssueComments: jest.fn(),
       listReviewComments: jest.fn(),
     },
@@ -51,6 +52,8 @@ jest.mock('@/lib/logger', () => ({
 
 import {
   securityPrReviewService,
+  buildRetractedComment,
+  VERIFIER_RETRACTION_NOTE,
   buildSummary,
 } from '@/lib/services/security-pr-review.service'
 import {
@@ -89,6 +92,7 @@ function finding(over: Partial<ReviewFindingRow> = {}): ReviewFindingRow {
     persisting: false,
     suggestedDisposition: null,
     verifierVerdict: null,
+    verifierReason: null,
     ...over,
   }
 }
@@ -446,12 +450,113 @@ describe('LUM-988 agentic verifier on the PR', () => {
   it('posts them unverified once the hold window has passed', async () => {
     findById.mockResolvedValue(
       scanRow({
-        verifierStartedAt: new Date(Date.now() - 7 * 60_000),
+        verifierStartedAt: new Date(Date.now() - 9 * 60_000),
         verifiedAt: null,
         findings: [judgeRow('late')],
       })
     )
     await securityPrReviewService.sync('s1')
     expect(inlinePaths()).toEqual(['src/late.ts'])
+  })
+})
+
+describe('LUM-988 late rejections and what the hold covers', () => {
+  const updateReview = prCommentClient.updateReviewLineComment as jest.Mock
+  const judgeRow = (id: string, over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      id,
+      provenance: 'LLM_JUDGE',
+      kind: 'CORRECTNESS',
+      ruleId: 'review:logic_error',
+      severity: 'MEDIUM',
+      filePath: `src/${id}.ts`,
+      fingerprint: `fp-${id}`,
+      ...over,
+    })
+  const lumoComment = (id: number, fp: string, body = 'original') => ({
+    id,
+    node_id: `n${id}`,
+    html_url: '',
+    updated_at: '',
+    body: `${body}\n\n<!-- lumo-security:fp:${fp} -->`,
+    user: { id: 1, type: 'Bot' },
+  })
+  beforeEach(() => updateReview.mockResolvedValue({ id: 1 }))
+
+  it('a verdict that landed after the hold edits the comment already on the PR', async () => {
+    listReview.mockResolvedValue([lumoComment(77, 'fp-late')])
+    findById.mockResolvedValue(
+      scanRow({
+        verifierStartedAt: new Date(Date.now() - 20 * 60_000),
+        verifiedAt: new Date(),
+        findings: [
+          judgeRow('late', {
+            verifierVerdict: 'REJECTED',
+            verifierReason: 'guarded at src/late.ts:4',
+          }),
+        ],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).toHaveBeenCalledTimes(1)
+    const call = updateReview.mock.calls[0]![0]
+    expect(call.externalId).toBe('77')
+    expect(call.body).toContain(VERIFIER_RETRACTION_NOTE)
+    expect(call.body).toContain('guarded at src/late.ts:4')
+    expect(call.body).toContain('<!-- lumo-security:fp:fp-late -->')
+  })
+
+  it('leaves an already-retracted comment, a human comment and a confirmed row alone', async () => {
+    listReview.mockResolvedValue([
+      lumoComment(1, 'fp-done', VERIFIER_RETRACTION_NOTE),
+      { ...lumoComment(2, 'fp-human'), user: { id: 9, type: 'User' } },
+      lumoComment(3, 'fp-ok'),
+    ])
+    findById.mockResolvedValue(
+      scanRow({
+        verifiedAt: new Date(),
+        verifierStartedAt: new Date(),
+        findings: [
+          judgeRow('done', { verifierVerdict: 'REJECTED' }),
+          judgeRow('human', { verifierVerdict: 'REJECTED' }),
+          judgeRow('ok', { verifierVerdict: 'CONFIRMED' }),
+        ],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).not.toHaveBeenCalled()
+  })
+
+  it('while the verifier runs, only the rows it may reject wait; HIGH and security rows post', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        verifierStartedAt: new Date(),
+        verifiedAt: null,
+        findings: [
+          judgeRow('bug'),
+          judgeRow('highbug', { severity: 'HIGH' }),
+          judgeRow('vuln', { kind: 'VULNERABILITY', ruleId: 'vuln:xss' }),
+        ],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(inlinePaths().sort()).toEqual(['src/highbug.ts', 'src/vuln.ts'])
+  })
+
+  it('buildRetractedComment strikes the title and keeps the marker', () => {
+    const body = buildRetractedComment({
+      title: 'Inverted guard',
+      fingerprint: 'fp9',
+      kind: 'CORRECTNESS',
+      severity: 'MEDIUM',
+      verifierReason: 'src/a.ts:3 checks it',
+    })
+    expect(body).toBe(
+      [
+        '**Lumo · LLM review · bug · MEDIUM** — ~~Inverted guard~~',
+        `${VERIFIER_RETRACTION_NOTE}: src/a.ts:3 checks it`,
+        '<!-- lumo-security:fp:fp9 -->',
+      ].join('\n\n')
+    )
   })
 })

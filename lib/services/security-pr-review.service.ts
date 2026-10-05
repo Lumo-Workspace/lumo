@@ -47,6 +47,7 @@ import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/lib/services/security-suggest.config'
 import {
   isVerifierRejected,
+  verifierAppliesTo,
   verifierHolding,
 } from '@/lib/security-scan/verifier'
 import {
@@ -72,7 +73,10 @@ import {
 import { resolvePublicUrl } from '@/lib/utils/public-url'
 import { huntBatchProgress } from '@/lib/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/lib/security-scan/size-caps'
-import { parsePrSummary } from '@/lib/security-scan/pr-summary'
+import {
+  neutralizeSummaryText,
+  parsePrSummary,
+} from '@/lib/security-scan/pr-summary'
 import { sanitizeField } from '@/shared/src/sanitize'
 import { scrubScanIfZeroRetention } from '@/lib/services/scan-evidence-retention.service'
 import { loadSecurityLayers } from '@/lib/services/security-workspace-switches.service'
@@ -150,6 +154,66 @@ export function provenanceLabel(f: {
  */
 export function findingKindLabel(kind: FindingKind | undefined): string | null {
   return kind === 'CORRECTNESS' ? 'bug' : null
+}
+
+/** The line every retracted comment carries — also how a second sync knows it is done. */
+export const VERIFIER_RETRACTION_NOTE =
+  "Rejected by Lumo's verifier after reading the code"
+
+/**
+ * LUM-988 — the body an already-posted inline comment is edited to when the
+ * verifier rejects its finding after the hold window: struck title, the
+ * verifier's reason (model text, neutralised like the PR summary), and the
+ * same fingerprint marker so dedup still recognises it.
+ */
+export function buildRetractedComment(
+  f: Pick<ReviewFindingRow, 'title' | 'fingerprint' | 'kind' | 'severity'> & {
+    verifierReason?: string | null
+  }
+): string {
+  const kindLabel = findingKindLabel(f.kind)
+  const reason = neutralizeSummaryText(f.verifierReason ?? '', 400)
+  return [
+    `**Lumo · LLM review${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ~~${neutralizeSummaryText(f.title, 200)}~~`,
+    reason
+      ? `${VERIFIER_RETRACTION_NOTE}: ${reason}`
+      : `${VERIFIER_RETRACTION_NOTE}.`,
+    fingerprintMarker(f.fingerprint),
+  ].join('\n\n')
+}
+
+/**
+ * Edits Lumo's own inline comment of each rejected row that is still on the
+ * PR in its original form. Best effort, per comment: a failed edit is logged
+ * and retried by the next sync (the note is the idempotency check).
+ */
+async function retractRejectedComments(input: {
+  rejected: ReviewFindingRow[]
+  comments: Array<{ id: number; body: string; user: { type?: string } | null }>
+  repo: { owner: string; name: string }
+  token: string
+}): Promise<void> {
+  for (const f of input.rejected) {
+    const marker = fingerprintMarker(f.fingerprint)
+    for (const c of input.comments) {
+      if (!c.body.includes(marker) || c.body.includes(VERIFIER_RETRACTION_NOTE))
+        continue
+      // Only Lumo's own comment — never a human's reply quoting the marker.
+      if (c.user?.type !== 'Bot') continue
+      try {
+        await prCommentClient.updateReviewLineComment({
+          repo: input.repo,
+          externalId: String(c.id),
+          body: buildRetractedComment(f),
+          token: input.token,
+        })
+      } catch (error) {
+        logger.warn(
+          `[security-pr-review] retract failed comment=${c.id}: ${error instanceof Error ? error.message : error}`
+        )
+      }
+    }
+  }
 }
 
 export type InlineFinding = Pick<
@@ -756,15 +820,21 @@ export const securityPrReviewService = {
           }
         : undefined
 
-      const existing = parseFingerprintMarkers(
-        (
-          await prCommentClient.listReviewComments({
-            repo,
-            prNumber: pr.number,
-            token,
-          })
-        ).map(c => c.body)
-      )
+      const reviewComments = await prCommentClient.listReviewComments({
+        repo,
+        prNumber: pr.number,
+        token,
+      })
+      const existing = parseFingerprintMarkers(reviewComments.map(c => c.body))
+      // LUM-988: a verdict that landed after the hold window finds its
+      // comment already on the PR — edit it to say so, rather than leave a
+      // comment the summary calls "shown in Lumo only".
+      await retractRejectedComments({
+        rejected: undecided.filter(isVerifierRejected),
+        comments: reviewComments,
+        repo,
+        token,
+      })
       // LUM-740: LOW rows and LLM-suggested false positives stay off the
       // diff — the summary carries one line for each group instead.
       const lowRows = open.filter(f => f.severity === 'LOW')
@@ -798,7 +868,8 @@ export const securityPrReviewService = {
           f.severity !== 'LOW' &&
           f.suggestedDisposition == null &&
           !(holdExternal && f.provenance === 'EXTERNAL_TOOL') &&
-          !(holdJudge && f.provenance === 'LLM_JUDGE')
+          // Only rows the verifier may reject wait for it.
+          !(holdJudge && f.provenance === 'LLM_JUDGE' && verifierAppliesTo(f))
       )
       const selected = candidates
         .filter(f => !existing.has(f.fingerprint))

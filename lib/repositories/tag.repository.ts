@@ -23,6 +23,19 @@ export const tagRepository = {
     return prisma.tag.findUnique({ where: { id } })
   },
 
+  /**
+   * Which of `ids` are tags in `workspaceId` — for validating caller-supplied
+   * tag ids before attaching them (LUM-994). Another workspace's id reads as
+   * missing.
+   */
+  async findIdsInWorkspace(ids: string[], workspaceId: string) {
+    if (ids.length === 0) return []
+    return prisma.tag.findMany({
+      where: { id: { in: ids }, workspaceId },
+      select: { id: true },
+    })
+  },
+
   /** Find a tag by workspace + name (case-sensitive). */
   async findByName(workspaceId: string, name: string) {
     return prisma.tag.findUnique({

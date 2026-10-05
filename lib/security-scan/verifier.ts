@@ -24,12 +24,17 @@ export function isVerifierRejected(f: {
 }
 
 /**
- * How long the PR write-back holds LLM_JUDGE inline comments for a verifier
- * that has started but not finished. The verifier's own deadline is shorter
- * (VERIFIER_TIMEOUT_MS + the VM attach); past this window a sync posts the
- * findings unverified, so a hung run can delay comments but never lose them.
+ * How long the PR write-back holds the inline comments of the findings the
+ * verifier may reject, for a verifier that has started but not finished.
+ * Sized to the run's real worst case, not its median: waiting for the managed
+ * scan's VM to appear (30 s) and to finish (90 s), the checkout wait (20 s),
+ * booting its own VM when that fails (~60 s), the agent's call
+ * (VERIFIER_TIMEOUT_MS, 180 s) and 60 s of margin for workflow queueing ≈ 8
+ * minutes. A run that is lost altogether is released by the stale-hold sweep
+ * (`reviewVerifierOpsService.sweepStaleHolds`); a verdict that lands after
+ * the window edits the comment it can no longer hold back.
  */
-export const VERIFIER_HOLD_MS = 6 * 60_000
+export const VERIFIER_HOLD_MS = 8 * 60_000
 
 /** The verifier's model call (all findings of one scan, one agent). */
 export const VERIFIER_TIMEOUT_MS = 180_000

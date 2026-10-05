@@ -105,6 +105,7 @@ function finding(over: Partial<ReviewFindingRow> = {}): ReviewFindingRow {
     persisting: false,
     suggestedDisposition: null,
     verifierVerdict: null,
+    verifierReason: null,
     ...over,
   }
 }
