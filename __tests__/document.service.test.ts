@@ -1188,6 +1188,17 @@ describe('updateDocument — referenced ids must be in the caller’s workspace 
     expectNothingWritten()
   })
 
+  it('an empty-string projectId is checked like any other id → 404', async () => {
+    mockFindProjectIdInWorkspace.mockResolvedValue(null)
+    await expect(
+      documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+        projectId: '',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mockFindProjectIdInWorkspace).toHaveBeenCalledWith('', 'ws-1')
+    expectNothingWritten()
+  })
+
   it('a projectId in the workspace is written; null clears without a lookup', async () => {
     mockFindProjectIdInWorkspace.mockResolvedValue({ id: 'proj-1' })
     await documentService.updateDocument('doc-994', 'm-1', 'ws-1', {

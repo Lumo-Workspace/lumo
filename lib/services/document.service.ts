@@ -867,7 +867,8 @@ export const documentService = {
     >,
     workspaceId: string
   ) {
-    if (data.projectId) {
+    // null clears, undefined leaves untouched; any string (even '') is checked.
+    if (typeof data.projectId === 'string') {
       const project = await projectRepository.findIdInWorkspace(
         data.projectId,
         workspaceId
