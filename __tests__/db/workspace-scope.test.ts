@@ -63,7 +63,7 @@ describe('findScopeViolation — reads, updates, deletes', () => {
     ).toBeNull()
   })
 
-  it('accepts equals / non-empty in / AND / workspaceId_* compound keys', () => {
+  it('accepts equals / non-empty in / AND / compound keys that include workspaceId', () => {
     const ok = [
       { workspaceId: { equals: 'w' } },
       { workspaceId: { in: ['w1', 'w2'] } },
@@ -71,6 +71,7 @@ describe('findScopeViolation — reads, updates, deletes', () => {
       { AND: { workspaceId: 'w' } },
       { workspaceId_number: { workspaceId: 'w', number: 3 } },
       { workspaceId_clerkId: { workspaceId: 'w', clerkId: 'c' } },
+      { teamId_workspaceId: { teamId: 't', workspaceId: 'w' } },
     ]
     for (const where of ok) {
       expect(findScopeViolation('Document', 'findFirst', { where })).toBeNull()
@@ -92,6 +93,8 @@ describe('findScopeViolation — reads, updates, deletes', () => {
       // A relation filter is not this model's own column.
       { workspace: { slug: 'acme' } },
       { workspaceId_number: { workspaceId: undefined, number: 3 } },
+      // A key that merely mentions the word is not a compound unique key.
+      { notworkspaceId_x: { workspaceId: 'w' } },
     ]
     for (const where of bad) {
       expect(
@@ -129,9 +132,7 @@ describe('findScopeViolation — creates and upserts', () => {
         data: [{ workspaceId: 'w' }, { workspaceId: 'w' }],
       })
     ).toBeNull()
-    expect(
-      findScopeViolation('View', 'createMany', { data: [] })
-    ).not.toBeNull()
+    expect(findScopeViolation('View', 'createMany', { data: [] })).toBeNull()
   })
 
   it('upsert needs both a scoped where and a scoped create', () => {

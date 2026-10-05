@@ -13,7 +13,7 @@ import { logger } from '@/lib/logger'
  *
  * "Pins a workspace" means, at the top level of the query (or under `AND`):
  * `workspaceId: '<id>'`, `{ equals: '<id>' }`, `{ in: [<ids>] }` (non-empty),
- * or a `workspaceId_*` compound unique key. `workspaceId: undefined` does NOT
+ * or a compound unique key that includes `workspaceId`. `workspaceId: undefined` does NOT
  * count — Prisma drops undefined filters, so it would match every tenant.
  * Creates must carry `workspaceId` (or `workspace: { connect: { id } }`).
  * A by-id lookup stays one query: `findUnique({ where: { id, workspaceId } })`
@@ -138,8 +138,9 @@ function whereIsScoped(where: unknown): boolean {
   if (!isObj(where)) return false
   if (pinsWorkspace(where.workspaceId)) return true
   for (const [key, value] of Object.entries(where)) {
+    // A compound unique key (`workspaceId_number`, `teamId_workspaceId`, …).
     if (
-      key.startsWith('workspaceId_') &&
+      key.split('_').includes('workspaceId') &&
       isObj(value) &&
       isId(value.workspaceId)
     )
@@ -179,7 +180,8 @@ export function findScopeViolation(
   }
   if (CREATE_MANY_OPERATIONS.has(operation)) {
     const rows = Array.isArray(a.data) ? a.data : [a.data]
-    return rows.length > 0 && rows.every(dataIsScoped)
+    // An empty batch writes nothing, so there is nothing to scope.
+    return rows.every(dataIsScoped)
       ? null
       : `${label}: a row in \`data\` has no workspaceId`
   }

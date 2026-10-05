@@ -121,7 +121,7 @@ describe('scopedPrisma against a real database', () => {
     expect(rows).toEqual([{ id: `p_${A}` }])
   })
 
-  it('a scoped findUnique by id is one query that reads a foreign id as missing', async () => {
+  it('a scoped findUnique by id (extra non-unique filter) reads a foreign id as missing', async () => {
     await expect(
       scopedPrisma.project.findUnique({
         where: { id: `p_${B}`, workspaceId: A },
