@@ -2354,6 +2354,23 @@ describe('LUM-990 document move: the target parent must be editable in the calle
     }
   )
 
+  it('malformed JSON body → 400, not a 500', async () => {
+    clerkSession.userId = CLERK.alphaOwner
+    const request = new NextRequest(
+      `http://localhost/api/documents/${ids.alphaParent}/move`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: '{not json',
+      }
+    )
+    inflight.headers = request.headers
+    const res = await documentMoveRoute.PATCH(request, {
+      params: Promise.resolve({ id: ids.alphaParent }),
+    })
+    expect(res.status).toBe(400)
+  })
+
   it.each(BOTH)(
     'cycle detection kept × %s: moving a doc under its own child → 400',
     async source => {

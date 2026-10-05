@@ -12,7 +12,8 @@ export async function PATCH(
   if (identity instanceof NextResponse) return identity
 
   const { id } = await params
-  const body = await request.json()
+  // A malformed JSON body is a 400 (via zod), not an unhandled 500.
+  const body: unknown = await request.json().catch(() => null)
   const parsed = moveDocumentSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
 
