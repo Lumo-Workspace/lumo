@@ -50,7 +50,14 @@ const MEMBER_A = {
 }
 const MEMBER_B = { ...MEMBER_A, member: { id: 'm_b', role: 'OWNER' } }
 
-const A_STATE = { workspaceId: 'w1', workspaceUrl: 'acme', memberId: 'm_a' }
+/** What a member OAuth flow (GitHub connect / Slack) mints: no purpose. */
+const MEMBER_OAUTH_STATE = {
+  workspaceId: 'w1',
+  workspaceUrl: 'acme',
+  memberId: 'm_a',
+}
+/** The GitHub App legs bind their state to that flow (LUM-991). */
+const A_STATE = { ...MEMBER_OAUTH_STATE, purpose: 'github-app' as const }
 
 function signedInAs(ws: typeof MEMBER_A) {
   ;(getUserWorkspace as jest.Mock).mockResolvedValue(ws)
@@ -118,8 +125,13 @@ describe('start legs mint an expiring state', () => {
       req('/api/github/app/install', { workspaceUrl: 'acme' })
     )
     const st = stateOf(res)
-    expect(decodeOauthState(st, NOW)).toEqual({ ok: true, payload: A_STATE })
-    expect(decodeOauthState(st, NOW + OAUTH_STATE_TTL_MS + 1)).toEqual({
+    expect(decodeOauthState(st, NOW, 'github-app')).toEqual({
+      ok: true,
+      payload: A_STATE,
+    })
+    expect(
+      decodeOauthState(st, NOW + OAUTH_STATE_TTL_MS + 1, 'github-app')
+    ).toEqual({
       ok: false,
       reason: 'expired',
     })
@@ -130,22 +142,26 @@ describe('start legs mint an expiring state', () => {
       req('/api/github/app/reverify', { workspaceUrl: 'acme' })
     )
     const st = stateOf(res)
-    expect(decodeOauthState(st, NOW)).toEqual({
+    expect(decodeOauthState(st, NOW, 'github-app')).toEqual({
       ok: true,
       payload: REVERIFY_VERIFY,
     })
-    expect(decodeOauthState(st, NOW + OAUTH_STATE_TTL_MS + 1).ok).toBe(false)
+    expect(
+      decodeOauthState(st, NOW + OAUTH_STATE_TTL_MS + 1, 'github-app').ok
+    ).toBe(false)
   })
 
   it('setup: the verify state it hands to GitHub expires too', async () => {
     const res = await setup(encodeOauthState(A_STATE, NOW))
     expect(res.status).toBe(307)
     const st = stateOf(res)
-    expect(decodeOauthState(st, NOW)).toEqual({
+    expect(decodeOauthState(st, NOW, 'github-app')).toEqual({
       ok: true,
       payload: INSTALL_VERIFY,
     })
-    expect(decodeOauthState(st, NOW + OAUTH_STATE_TTL_MS + 1).ok).toBe(false)
+    expect(
+      decodeOauthState(st, NOW + OAUTH_STATE_TTL_MS + 1, 'github-app').ok
+    ).toBe(false)
   })
 })
 
@@ -251,5 +267,41 @@ describe('end to end: install → setup → callback', () => {
     const res = await setup(stateOf(started))
     expect(res.status).toBe(400)
     expect(userAuthorizeUrl).not.toHaveBeenCalled()
+  })
+})
+
+describe('flow purpose: only a github-app state completes the App legs', () => {
+  it('a fresh, same-member GitHub OAuth-connect state (no purpose) → rejected at setup', async () => {
+    const res = await setup(encodeOauthState(MEMBER_OAUTH_STATE, NOW))
+    expect(res.status).toBe(400)
+    expect(userAuthorizeUrl).not.toHaveBeenCalled()
+  })
+
+  it('a fresh, same-member GitHub OAuth-connect state (no purpose) → rejected at callback', async () => {
+    const res = await callback(encodeOauthState(MEMBER_OAUTH_STATE, NOW))
+    expect(res.status).toBe(400)
+    expect(install).not.toHaveBeenCalled()
+    expect(reverify).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['install', { installationId: 42 }],
+    ['reverify', { installationId: 42, mode: 'reverify' as const }],
+  ])(
+    'a %s-shaped state without the github-app purpose → rejected at callback',
+    async (_mode, extra) => {
+      const res = await callback(
+        encodeOauthState({ ...MEMBER_OAUTH_STATE, ...extra }, NOW)
+      )
+      expect(res.status).toBe(400)
+      expect(install).not.toHaveBeenCalled()
+      expect(reverify).not.toHaveBeenCalled()
+    }
+  )
+
+  it('the github-app state still succeeds at setup and callback', async () => {
+    expect((await setup(encodeOauthState(A_STATE, NOW))).status).toBe(307)
+    const done = await callback(encodeOauthState(INSTALL_VERIFY, NOW))
+    expect(done.headers.get('location')).toContain('github_app=installed')
   })
 })

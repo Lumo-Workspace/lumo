@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl
   const rawState = searchParams.get('state')
-  const decoded = rawState ? decodeOauthState(rawState) : null
+  // Only a state minted for the App legs — never a member OAuth state (LUM-991).
+  const decoded = rawState
+    ? decodeOauthState(rawState, Date.now(), 'github-app')
+    : null
   const state = decoded?.ok ? decoded.payload : null
   // The callback leg always names an installation (install and reverify).
   const installationId = state?.installationId

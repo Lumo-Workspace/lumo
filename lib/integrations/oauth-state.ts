@@ -15,6 +15,14 @@ export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 /** Tolerated clock skew between instances for an iat slightly in the future. */
 const MAX_FUTURE_SKEW_MS = 60 * 1000
 
+/**
+ * Which flow a state belongs to. Member OAuth states carry none; the GitHub
+ * App install / reverify legs carry 'github-app' (LUM-991). A decoder only
+ * accepts a state minted for the purpose it expects, so a state from one flow
+ * cannot be replayed into another.
+ */
+export type OauthStatePurpose = 'github-app'
+
 export interface OauthStatePayload {
   workspaceId: string
   memberId: string
@@ -23,6 +31,8 @@ export interface OauthStatePayload {
   installationId?: number
   /** GitHub App reverify leg only (LUM-881). */
   mode?: 'reverify'
+  /** Absent for the member OAuth flows. */
+  purpose?: OauthStatePurpose
 }
 
 export type DecodedOauthState =
@@ -37,13 +47,15 @@ export function encodeOauthState(
 }
 
 /**
- * `invalid` — not ours (fails decrypt) or malformed.
+ * `invalid` — not ours (fails decrypt), malformed, or minted for a different
+ * flow than `expectedPurpose` (absent = a member OAuth flow).
  * `expired` — ours but older than the TTL, or minted before states carried an
  * `iat`; the user just clicks Connect again.
  */
 export function decodeOauthState(
   state: string,
-  now: number = Date.now()
+  now: number = Date.now(),
+  expectedPurpose?: OauthStatePurpose
 ): DecodedOauthState {
   let parsed: Record<string, unknown>
   try {
@@ -60,11 +72,12 @@ export function decodeOauthState(
   ) {
     return { ok: false, reason: 'invalid' }
   }
-  const { installationId, mode } = parsed
+  const { installationId, mode, purpose } = parsed
   if (
     (installationId !== undefined &&
       !(Number.isInteger(installationId) && (installationId as number) > 0)) ||
-    (mode !== undefined && mode !== 'reverify')
+    (mode !== undefined && mode !== 'reverify') ||
+    purpose !== expectedPurpose
   ) {
     return { ok: false, reason: 'invalid' }
   }
@@ -84,6 +97,7 @@ export function decodeOauthState(
         ? { installationId: installationId as number }
         : {}),
       ...(mode !== undefined ? { mode: 'reverify' as const } : {}),
+      ...(expectedPurpose !== undefined ? { purpose: expectedPurpose } : {}),
     },
   }
 }

@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       memberId: ws.member.id,
       installationId,
       mode: 'reverify',
+      purpose: 'github-app',
     })
     return NextResponse.redirect(
       githubAppInstallService.userAuthorizeUrl(

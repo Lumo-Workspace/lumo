@@ -96,4 +96,41 @@ describe('oauth-state', () => {
       reason: 'invalid',
     })
   })
+
+  // LUM-991: a state is only accepted by the flow it was minted for.
+  describe('flow purpose', () => {
+    const appState = { ...payload, purpose: 'github-app' as const }
+
+    it('round-trips a github-app state when that purpose is expected', () => {
+      const state = encodeOauthState(appState, NOW)
+      expect(decodeOauthState(state, NOW, 'github-app')).toEqual({
+        ok: true,
+        payload: appState,
+      })
+    })
+
+    it('rejects a github-app state where a member OAuth state is expected', () => {
+      const state = encodeOauthState(appState, NOW)
+      expect(decodeOauthState(state, NOW)).toEqual({
+        ok: false,
+        reason: 'invalid',
+      })
+    })
+
+    it('rejects a member OAuth state where a github-app state is expected', () => {
+      const state = encodeOauthState(payload, NOW)
+      expect(decodeOauthState(state, NOW, 'github-app')).toEqual({
+        ok: false,
+        reason: 'invalid',
+      })
+    })
+
+    it('rejects an unknown purpose either way', () => {
+      const bad = encrypt(
+        JSON.stringify({ ...payload, purpose: 'figma', iat: NOW })
+      )
+      expect(decodeOauthState(bad, NOW).ok).toBe(false)
+      expect(decodeOauthState(bad, NOW, 'github-app').ok).toBe(false)
+    })
+  })
 })

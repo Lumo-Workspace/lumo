@@ -11,7 +11,7 @@ import { logger } from '@/lib/logger'
  * land on. GitHub hands that state back to /api/github/app/setup, which still
  * re-checks the caller's membership — the state carries context, not authority.
  * The state expires after OAUTH_STATE_TTL_MS and only the member who started
- * the flow can complete it (LUM-991).
+ * the flow can complete it, and only the App legs accept it (LUM-991).
  *
  * Separate from /api/github/oauth on purpose: OAuth authorizes a person (repo
  * listing, PR links, repo webhooks), the App installation authorizes a machine
@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
     memberId: ws.member.id,
     workspaceId: ws.workspaceId,
     workspaceUrl,
+    purpose: 'github-app',
   })
 
   return NextResponse.redirect(
