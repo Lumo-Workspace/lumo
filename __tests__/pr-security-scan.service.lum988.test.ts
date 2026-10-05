@@ -207,25 +207,24 @@ describe('LUM-988 AI review — findings', () => {
 
     await runScan()
 
-    const rows = repo.persistResult.mock.calls[0]![1] as Array<
-      Record<string, unknown>
-    >
+    const rows = repo.persistResult.mock.calls[0]![1]
     expect(rows.map(r => [r.kind, r.ruleId, r.provenance])).toEqual([
       ['CORRECTNESS', 'review:logic_error', 'LLM_JUDGE'],
       ['VULNERABILITY', 'vuln:xss', 'LLM_JUDGE'],
     ])
   })
 
-  it('never lets a CORRECTNESS finding block DONE, even at HIGH severity', () => {
+  it('never lets a stored CORRECTNESS row block DONE, even at HIGH severity', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+
+    await runScan()
+
+    const row = repo.persistResult.mock.calls[0]![1][0]!
+    expect([row.kind, row.severity]).toEqual(['CORRECTNESS', 'HIGH'])
     expect(
       isBlockingUnderPolicy(
-        {
-          provenance: 'LLM_JUDGE',
-          severity: 'HIGH',
-          kind: 'CORRECTNESS',
-          ruleId: 'review:logic_error',
-          disposition: null,
-        },
+        { ...row, disposition: row.disposition ?? null },
         DEFAULT_SECURITY_POLICY
       )
     ).toBe(false)
