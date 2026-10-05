@@ -108,6 +108,7 @@ describe('createCommentWithSideEffects (top-level)', () => {
     )
     expect(docRepo.update).toHaveBeenCalledWith(
       'd1',
+      'w1',
       expect.objectContaining({
         content: '<p>Hello <span data-comment-id="c1">brave</span> world</p>',
       })
@@ -335,6 +336,7 @@ describe('deleteCommentWithSideEffects', () => {
     })
     expect(docRepo.update).toHaveBeenCalledWith(
       'd1',
+      'w1',
       expect.objectContaining({ content: '<p>Hello brave world</p>' })
     )
     expect(repo.softDelete).toHaveBeenCalledWith('c1')
@@ -644,8 +646,12 @@ describe('slug-as-documentId (LUM-237)', () => {
       },
       waitUntil: noop,
     })
-    expect(docRepo.update).toHaveBeenCalledWith('d1', expect.anything())
-    expect(docRepo.update).not.toHaveBeenCalledWith('spec-3', expect.anything())
+    expect(docRepo.update).toHaveBeenCalledWith('d1', 'w1', expect.anything())
+    expect(docRepo.update).not.toHaveBeenCalledWith(
+      'spec-3',
+      expect.anything(),
+      expect.anything()
+    )
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({ documentId: 'd1' })
     )

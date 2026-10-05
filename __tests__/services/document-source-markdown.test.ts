@@ -130,7 +130,7 @@ describe('documentService sourceMarkdown (LUM-408)', () => {
     })
 
     expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledTimes(1)
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect(updateData.sourceMarkdown).toBe(MARKDOWN_SOURCE)
     expect(updateData.content).toBe(markdownToHtml(MARKDOWN_SOURCE))
   })
@@ -140,7 +140,7 @@ describe('documentService sourceMarkdown (LUM-408)', () => {
       content: '<p>edited in the web editor</p>',
     })
 
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect(updateData.sourceMarkdown).toBeNull()
     expect(updateData.content).toBe('<p>edited in the web editor</p>')
   })
@@ -150,7 +150,7 @@ describe('documentService sourceMarkdown (LUM-408)', () => {
       title: 'Renamed',
     })
 
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect('sourceMarkdown' in updateData).toBe(false)
   })
 })

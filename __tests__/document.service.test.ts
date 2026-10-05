@@ -282,6 +282,7 @@ describe('documentService', () => {
 
       expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledWith(
         'doc-1',
+        'ws-1',
         expect.objectContaining({ title: 'Fresh Name', slug: 'fresh-name-12' }),
         undefined,
         undefined,
@@ -795,7 +796,7 @@ describe('documentService — contentMarkdown', () => {
       shares: [],
     })
     mockUpdateWithChildrenAndMentions.mockImplementation(
-      (_id: string, updateData: any) => {
+      (_id: string, _workspaceId: string, updateData: any) => {
         return Promise.resolve({
           id: 'doc1',
           content: updateData.content ?? null,

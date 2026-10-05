@@ -154,7 +154,10 @@ export async function updateTask(
   // Validate assignee
   let newAssigneeType: 'HUMAN' | 'AGENT' | null = null
   if (assigneeActorId !== undefined && assigneeActorId !== null) {
-    const actor = await taskRepository.findActorById(assigneeActorId)
+    const actor = await taskRepository.findActorById(
+      assigneeActorId,
+      task.project.workspaceId
+    )
     if (!actor || actor.workspaceId !== task.project.workspaceId) {
       throw Object.assign(new Error('Assignee is not part of this workspace'), {
         status: 400,

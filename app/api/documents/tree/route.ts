@@ -54,7 +54,10 @@ export async function GET(request: NextRequest) {
     const visited = new Set<string>()
     while (currentId && !visited.has(currentId)) {
       visited.add(currentId)
-      const doc = await documentRepository.findParentId(currentId)
+      const doc = await documentRepository.findParentId(
+        currentId,
+        ws.workspaceId
+      )
       if (!doc) break
       expandedPath.add(doc.id)
       currentId = doc.parentId

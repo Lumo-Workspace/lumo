@@ -207,7 +207,12 @@ export async function extractTasksFromDoc(
       })),
       tx
     )
-    return documentRepository.updateContent(doc.id, updatedHtml, tx)
+    return documentRepository.updateContent(
+      doc.id,
+      doc.workspaceId,
+      updatedHtml,
+      tx
+    )
   })
 
   return {

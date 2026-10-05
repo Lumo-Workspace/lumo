@@ -122,7 +122,7 @@ describe('section patch (mode: replace)', () => {
     })
 
     expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledTimes(1)
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     const next = updateData.sourceMarkdown as string
 
     const prefix = SRC.slice(0, SRC.indexOf('## A queue'))
@@ -143,7 +143,7 @@ describe('section patch (mode: replace)', () => {
       allowShrink: true,
     })
 
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect(updateData.content).toBe(
       markdownToHtml(updateData.sourceMarkdown as string)
     )
@@ -228,7 +228,7 @@ describe('section append (mode: append)', () => {
       contentMarkdown: '| y    | open  |',
     })
 
-    const next = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const next = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
       .sourceMarkdown as string
     const insertAt = SRC.indexOf('## B notes')
     expect(next.startsWith(SRC.slice(0, insertAt))).toBe(true)
@@ -242,7 +242,7 @@ describe('section append (mode: append)', () => {
       contentMarkdown: '## C new\n\nfresh',
     })
 
-    const next = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const next = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
       .sourceMarkdown as string
     expect(next.startsWith(SRC)).toBe(true)
     expect(next).toContain('## C new')
@@ -255,7 +255,7 @@ describe('section append (mode: append)', () => {
       contentMarkdown: 'tail line',
     })
 
-    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![4]
+    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![5]
     expect(options).toEqual({ expectedContentRevision: 4 })
   })
 
@@ -266,7 +266,7 @@ describe('section append (mode: append)', () => {
       contentMarkdown: 'tail line',
       ifRevision: 4,
     })
-    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![4]
+    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![5]
     expect(options).toEqual({ expectedContentRevision: 4 })
   })
 

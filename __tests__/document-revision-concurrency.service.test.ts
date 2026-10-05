@@ -129,6 +129,7 @@ describe('repository: conditional write + revision bump', () => {
   it('a content-changing update increments contentRevision', async () => {
     await realDocumentRepository.updateWithChildrenAndMentions(
       'doc-1',
+      'ws-1',
       { content: '<p>new</p>', sourceMarkdown: '# new' },
       undefined,
       undefined
@@ -143,6 +144,7 @@ describe('repository: conditional write + revision bump', () => {
   it('an HTML-direct (web editor) content update bumps exactly the same way', async () => {
     await realDocumentRepository.updateWithChildrenAndMentions(
       'doc-1',
+      'ws-1',
       { content: '<p>from web editor</p>', sourceMarkdown: null },
       undefined,
       undefined
@@ -155,6 +157,7 @@ describe('repository: conditional write + revision bump', () => {
   it('a title-only update does NOT bump the body revision', async () => {
     await realDocumentRepository.updateWithChildrenAndMentions(
       'doc-1',
+      'ws-1',
       { title: 'renamed', slug: 'renamed-7' },
       undefined,
       undefined
@@ -167,6 +170,7 @@ describe('repository: conditional write + revision bump', () => {
 
     await realDocumentRepository.updateWithChildrenAndMentions(
       'doc-1',
+      'ws-1',
       { content: '<p>x</p>' },
       undefined,
       undefined,
@@ -177,6 +181,7 @@ describe('repository: conditional write + revision bump', () => {
     expect(mockTxUpdateMany).toHaveBeenCalledTimes(1)
     expect(mockTxUpdateMany.mock.calls[0]![0].where).toEqual({
       id: 'doc-1',
+      workspaceId: 'ws-1',
       contentRevision: 4,
     })
     // The conditional path still bumps the revision in the same write.
@@ -191,6 +196,7 @@ describe('repository: conditional write + revision bump', () => {
     await expect(
       realDocumentRepository.updateWithChildrenAndMentions(
         'doc-1',
+        'ws-1',
         { content: '<p>stale</p>' },
         undefined,
         undefined,
@@ -228,7 +234,7 @@ describe('service: stale ifRevision → 409, nothing persisted', () => {
       ifRevision: 6,
     })
 
-    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![4]
+    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![5]
     expect(options).toEqual({ expectedContentRevision: 6 })
   })
 
@@ -255,7 +261,7 @@ describe('service: stale ifRevision → 409, nothing persisted', () => {
     await documentService.updateDocument('doc-1', 'm-1', 'ws-1', {
       contentMarkdown: '# no precondition',
     })
-    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![4]
+    const options = mockUpdateWithChildrenAndMentions.mock.calls[0]![5]
     expect(options).toBeUndefined()
   })
 })

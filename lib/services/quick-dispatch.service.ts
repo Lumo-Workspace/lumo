@@ -147,6 +147,7 @@ export const quickDispatchService = {
           }
 
           const task = await taskRepository.createWithSequence({
+            workspaceId,
             projectId: action.projectId,
             teamId: project.teamId,
             title: action.title,

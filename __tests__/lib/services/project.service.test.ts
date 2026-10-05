@@ -223,14 +223,19 @@ describe('getProject', () => {
     // Cross-workspace access attempt: caller's member belongs to ws-B but
     // the project lives in ws-A. Must return 404 (not 403) to avoid
     // leaking the existence of the foreign project.
-    mockFindById.mockResolvedValue({
+    // The repository is scoped (LUM-979): it only returns the row when
+    // asked for the project's own workspace.
+    const foreign = {
       id: 'p1',
       name: 'Foreign',
       isIdea: false,
       createdByMemberId: 'someone-in-ws-a',
       workspaceId: 'ws-A',
       _count: { tasks: 5, views: 1 },
-    })
+    }
+    mockFindById.mockImplementation(async (_id: string, ws: string) =>
+      ws === foreign.workspaceId ? foreign : null
+    )
     mockMemberFindById.mockResolvedValue({
       id: 'member-1',
       workspaceId: 'ws-B',
@@ -240,6 +245,7 @@ describe('getProject', () => {
     await expect(
       projectService.getProject('p1', 'member-1')
     ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
+    expect(mockFindById).toHaveBeenCalledWith('p1', 'ws-B')
   })
 
   it('throws 404 when the calling member id does not exist', async () => {
@@ -442,12 +448,17 @@ describe('updateProject', () => {
   })
 
   it('throws 404 when caller is in a different workspace than the project', async () => {
-    mockFindById.mockResolvedValue({
+    // The repository is scoped (LUM-979): it only returns the row when
+    // asked for the project's own workspace.
+    const foreign = {
       id: 'p1',
       isIdea: false,
       createdByMemberId: 'someone',
       workspaceId: 'ws-A',
-    })
+    }
+    mockFindById.mockImplementation(async (_id: string, ws: string) =>
+      ws === foreign.workspaceId ? foreign : null
+    )
     mockMemberFindById.mockResolvedValue({
       id: 'member-1',
       workspaceId: 'ws-B',
@@ -533,7 +544,7 @@ describe('updateProject', () => {
     )
 
     // Repository stores the resolved memberId
-    expect(mockUpdate).toHaveBeenCalledWith('p1', {
+    expect(mockUpdate).toHaveBeenCalledWith('p1', 'ws-1', {
       ownerId: 'owner-member-1',
     })
     // Response surfaces the actor id back to the UI
@@ -566,7 +577,7 @@ describe('updateProject', () => {
       }
     )
 
-    expect(mockUpdate).toHaveBeenCalledWith('p1', { ownerId: null })
+    expect(mockUpdate).toHaveBeenCalledWith('p1', 'ws-1', { ownerId: null })
     expect(mockMemberFindByActorId).not.toHaveBeenCalled()
     expect(result.ownerId).toBeNull()
   })
@@ -593,7 +604,7 @@ describe('updateProject', () => {
       }
     )
 
-    expect(mockUpdate).toHaveBeenCalledWith('p1', { name: 'Updated' })
+    expect(mockUpdate).toHaveBeenCalledWith('p1', 'ws-1', { name: 'Updated' })
     expect(result).toEqual({
       id: 'p1',
       name: 'Updated',
@@ -680,12 +691,17 @@ describe('deleteProject', () => {
   })
 
   it('throws 404 when caller is in a different workspace than the project', async () => {
-    mockFindById.mockResolvedValue({
+    // The repository is scoped (LUM-979): it only returns the row when
+    // asked for the project's own workspace.
+    const foreign = {
       id: 'p1',
       isIdea: false,
       createdByMemberId: 'someone',
       workspaceId: 'ws-A',
-    })
+    }
+    mockFindById.mockImplementation(async (_id: string, ws: string) =>
+      ws === foreign.workspaceId ? foreign : null
+    )
     mockMemberFindById.mockResolvedValue({
       id: 'member-1',
       workspaceId: 'ws-B',
@@ -712,7 +728,7 @@ describe('deleteProject', () => {
 
     await projectService.deleteProject('p1', 'acme', 'member-1')
 
-    expect(mockDelete).toHaveBeenCalledWith('p1')
+    expect(mockDelete).toHaveBeenCalledWith('p1', 'ws-1')
     expect(pushWorkspaceEvent).toHaveBeenCalledWith('acme', {
       type: 'project-deleted',
       projectId: 'p1',
@@ -733,7 +749,7 @@ describe('deleteProject', () => {
 
     await projectService.deleteProject('idea-1', 'acme', 'member-1')
 
-    expect(mockDelete).toHaveBeenCalledWith('idea-1')
+    expect(mockDelete).toHaveBeenCalledWith('idea-1', 'ws-1')
     expect(pushWorkspaceEvent).not.toHaveBeenCalled()
   })
 })

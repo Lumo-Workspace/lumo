@@ -55,7 +55,7 @@ export const LAYER2_TASK_MEMORY_LIMIT = 200
 export async function getLayer2Input(
   projectId: string
 ): Promise<Layer2Input | null> {
-  const project = await projectRepository.findById(projectId)
+  const project = await projectRepository.findByIdForSystemJob(projectId)
   if (!project) return null
 
   const taskMemories =

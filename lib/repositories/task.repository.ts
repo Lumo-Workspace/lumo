@@ -1,4 +1,6 @@
-import { prisma } from '@/lib/db/prisma'
+// LUM-979: Task itself is scoped through its project (not checked in v1);
+// the directly-scoped models read here (Actor, Team) are.
+import { scopedPrisma as prisma } from '@/lib/db/workspace-scope'
 import { Prisma as PrismaSql } from '@prisma/client'
 import type {
   Prisma,
@@ -1003,24 +1005,29 @@ export const taskRepository = {
     })
   },
 
-  /** Find an actor by ID (for assignee validation). */
-  async findActorById(actorId: string) {
+  /**
+   * Find an actor by ID within `workspaceId` (assignee validation): another
+   * workspace's actor reads as missing.
+   */
+  async findActorById(actorId: string, workspaceId: string) {
     return prisma.actor.findUnique({
-      where: { id: actorId },
+      where: { id: actorId, workspaceId },
       select: { type: true, workspaceId: true },
     })
   },
 
-  /** Find an actor by ID with member clerkId (for notification). */
-  async findActorWithMember(actorId: string) {
+  /** Find an actor by ID with member clerkId (for notification), within `workspaceId`. */
+  async findActorWithMember(actorId: string, workspaceId: string) {
     return prisma.actor.findUnique({
-      where: { id: actorId },
+      where: { id: actorId, workspaceId },
       select: { type: true, member: { select: { clerkId: true } } },
     })
   },
 
   /** Create a task in a transaction (with team seq increment). Returns the created task with team + assignee. */
   async createWithSequence(data: {
+    /** The project's workspace — scopes the team-sequence bump (LUM-979). */
+    workspaceId: string
     projectId: string
     teamId: string
     title: string
@@ -1036,7 +1043,7 @@ export const taskRepository = {
   }) {
     const taskId = await prisma.$transaction(async tx => {
       const { taskSeq } = await tx.team.update({
-        where: { id: data.teamId },
+        where: { id: data.teamId, workspaceId: data.workspaceId },
         data: { taskSeq: { increment: 1 } },
         select: { taskSeq: true },
       })

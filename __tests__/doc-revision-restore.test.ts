@@ -134,7 +134,7 @@ jest.mock('@/lib/repositories/document.repository', () => ({
     findWithPermission: jest.fn(async () => mockDocRef.current),
     findById: jest.fn(async () => mockDocRef.current),
     updateWithChildrenAndMentions: jest.fn(
-      async (_docId: string, updateData: any) => {
+      async (_docId: string, _workspaceId: string, updateData: any) => {
         mockUpdateCalls.push(updateData)
         Object.assign(mockDocRef.current, updateData)
         mockDocRef.current.contentRevision += 1
