@@ -284,6 +284,16 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
   })
 
   it('member re-invite reactivates the same row with its history', async () => {
+    // Self-contained (m_dev may already be deactivated by the leave case):
+    // make it active with a live key, then deactivate it.
+    await db().workspaceMember.update({
+      where: { id: 'm_dev' },
+      data: { deactivatedAt: null, deactivationReason: null },
+    })
+    await seedKey('m_dev')
+    expect(await memberRepository.deactivate('m_dev', 'LEFT')).toMatchObject({
+      deactivated: true,
+    })
     const invite = await db().workspaceInvite.create({
       data: {
         workspaceId: WS,
