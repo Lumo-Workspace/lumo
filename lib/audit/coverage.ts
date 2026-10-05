@@ -384,19 +384,43 @@ export function callsInstrumentedUnit(
 }
 
 /**
+ * When `i` starts a comment (`//`, `/* … *\/`) or a string / template
+ * literal, the index of its last character; otherwise null. Comments are
+ * checked first, so an apostrophe inside one never opens a "string".
+ */
+function skipNonCode(source: string, i: number): number | null {
+  const c = source[i]
+  if (c === '/' && source[i + 1] === '/') {
+    const end = source.indexOf('\n', i)
+    return end === -1 ? source.length - 1 : end - 1
+  }
+  if (c === '/' && source[i + 1] === '*') {
+    const end = source.indexOf('*/', i + 2)
+    return end === -1 ? source.length - 1 : end + 1
+  }
+  if (c === "'" || c === '"' || c === '`') {
+    let j = i + 1
+    for (; j < source.length && source[j] !== c; j++) {
+      if (source[j] === '\\') j++
+    }
+    return j
+  }
+  return null
+}
+
+/**
  * The argument text `(…)` of a call whose opening parenthesis is at `open`,
- * balanced over (), [] and {} and skipping string / template literals.
+ * balanced over (), [] and {}, skipping comments and string literals.
  */
 export function callArguments(source: string, open: number): string {
   let depth = 0
   for (let i = open; i < source.length; i++) {
-    const c = source[i]!
-    if (c === "'" || c === '"' || c === '`') {
-      for (i++; i < source.length && source[i] !== c; i++) {
-        if (source[i] === '\\') i++
-      }
+    const skip = skipNonCode(source, i)
+    if (skip !== null) {
+      i = skip
       continue
     }
+    const c = source[i]!
     if (c === '(' || c === '[' || c === '{') depth++
     else if (c === ')' || c === ']' || c === '}') {
       depth--
@@ -406,18 +430,43 @@ export function callArguments(source: string, open: number): string {
   return source.slice(open)
 }
 
-/** Every call site of the unit `p` in `source`, as its argument text. */
+/** `text` with its comments removed (strings kept as they are). */
+export function stripComments(text: string): string {
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const skip = skipNonCode(text, i)
+    if (skip === null) {
+      out += text[i]
+      continue
+    }
+    if (text[i] === '/') out += ' '
+    else out += text.slice(i, skip + 1)
+    i = skip
+  }
+  return out
+}
+
+/** One call of an audited unit: its argument text and where the call is. */
+export interface AuditedCall {
+  args: string
+  index: number
+}
+
+/** Every call site of the unit `p` in `source` (arguments without comments). */
 export function auditedCallArguments(
   source: string,
   p: ReturnType<typeof instrumentedCallPatterns>,
   callerFile: string
-): string[] {
+): AuditedCall[] {
   const res = [p.direct]
   if (p.bare && importsModule(source, callerFile, p)) res.push(p.bare)
-  const out: string[] = []
+  const out: AuditedCall[] = []
   for (const re of res) {
     for (const m of source.matchAll(new RegExp(re.source, 'g'))) {
-      out.push(callArguments(source, m.index! + m[0].length - 1))
+      out.push({
+        args: stripComments(callArguments(source, m.index! + m[0].length - 1)),
+        index: m.index!,
+      })
     }
   }
   return out
@@ -434,13 +483,12 @@ const AUDIT_CONTEXT_RE =
 function statementText(source: string, start: number): string {
   let depth = 0
   for (let i = start; i < source.length; i++) {
-    const c = source[i]!
-    if (c === "'" || c === '"' || c === '`') {
-      for (i++; i < source.length && source[i] !== c; i++) {
-        if (source[i] === '\\') i++
-      }
+    const skip = skipNonCode(source, i)
+    if (skip !== null) {
+      i = skip
       continue
     }
+    const c = source[i]!
     if (c === '(' || c === '[' || c === '{') depth++
     else if (c === ')' || c === ']' || c === '}') depth--
     else if (depth <= 0 && (c === ';' || c === '\n')) {
@@ -451,20 +499,53 @@ function statementText(source: string, start: number): string {
 }
 
 /**
- * True when a call's argument text hands the audited method an audit
- * context: inline (`memberAuditContext(…)` or an explicit SYSTEM / WEBHOOK
- * context), or through a local binding initialised with one
- * (`const audit = memberAuditContext(…)` … `install({ …, audit })`).
- * Mentioning memberAuditContext elsewhere in the file is not enough.
+ * The part of `source` a binding used at `index` can come from: from the
+ * header of the unit (function / handler / method) enclosing `index` up to
+ * `index` itself — never another function, never after the call.
  */
-export function passesAuditContext(source: string, args: string): boolean {
-  if (AUDIT_CONTEXT_RE.test(args)) return true
+function enclosingScopeBefore(source: string, index: number): string {
+  let unitStart = 0
+  let offset = 0
+  for (const line of source.split('\n')) {
+    if (offset > index) break
+    const m = line.match(UNIT_HEADER_RE)
+    const name = m?.[1] ?? m?.[2] ?? m?.[3] ?? m?.[4]
+    if (name && !KEYWORDS.has(name)) unitStart = offset
+    offset += line.length + 1
+  }
+  return source.slice(unitStart, index)
+}
+
+/**
+ * True when `name` appears in `args` as a value (`audit`, `{ audit }`,
+ * `x: audit`, `c ? audit : y`), not only as an object key (`{ audit: … }`).
+ */
+function usedAsValue(args: string, name: string): boolean {
+  const re = new RegExp(`(?<![.\\w$])${escapeRe(name)}(?![\\w$])`, 'g')
+  for (const m of args.matchAll(re)) {
+    const before = args.slice(0, m.index!).trimEnd().slice(-1)
+    const after = args.slice(m.index! + name.length).trimStart()[0]
+    const isKey = (before === '{' || before === ',') && after === ':'
+    if (!isKey) return true
+  }
+  return false
+}
+
+/**
+ * True when a call hands the audited method an audit context: inline
+ * (`memberAuditContext(…)` or an explicit SYSTEM / WEBHOOK context), or
+ * through a local binding initialised with one (`const audit =
+ * memberAuditContext(…)` … `install({ …, audit })`) declared in the same
+ * function, before the call. Mentioning memberAuditContext elsewhere in the
+ * file — or binding the same name in another function — is not enough.
+ */
+export function passesAuditContext(source: string, call: AuditedCall): boolean {
+  if (AUDIT_CONTEXT_RE.test(call.args)) return true
+  const scope = enclosingScopeBefore(source, call.index)
   const bindingRe = /\b(?:const|let|var)\s+(\w+)(?:\s*:[^=\n]+)?\s*=\s*/g
-  for (const m of source.matchAll(bindingRe)) {
-    // Used as a value in the call (`audit,` / `x: audit`), not as a key.
-    const used = new RegExp(`(?<![.\\w])${escapeRe(m[1]!)}(?![\\w])(?!\\s*:)`)
-    if (!used.test(args)) continue
-    const init = statementText(source, m.index! + m[0].length)
+  for (const m of scope.matchAll(bindingRe)) {
+    if (!usedAsValue(call.args, m[1]!)) continue
+    const init = stripComments(statementText(scope, m.index! + m[0].length))
     if (AUDIT_CONTEXT_RE.test(init)) return true
   }
   return false

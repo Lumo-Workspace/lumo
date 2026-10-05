@@ -133,8 +133,8 @@ describe('LUM-907 audit coverage guard', () => {
     for (const file of files) {
       const src = read(file)
       for (const { unit, p } of patterns) {
-        for (const args of auditedCallArguments(src, p, file)) {
-          sites.push({ file, unit, ok: passesAuditContext(src, args) })
+        for (const call of auditedCallArguments(src, p, file)) {
+          sites.push({ file, unit, ok: passesAuditContext(src, call) })
         }
       }
     }
@@ -169,7 +169,7 @@ describe('LUM-907 audit coverage guard', () => {
     // The old file-level check would have passed this file.
     expect(route.includes('memberAuditContext(')).toBe(true)
     const calls = auditedCallArguments(route, p, 'app/api/x/route.ts')
-    expect(calls).toEqual(['(ws.workspaceId, role)'])
+    expect(calls.map(c => c.args)).toEqual(['(ws.workspaceId, role)'])
     expect(passesAuditContext(route, calls[0]!)).toBe(false)
     // Passing it inline, or through the binding, is accepted.
     for (const call of [
@@ -181,16 +181,109 @@ describe('LUM-907 audit coverage guard', () => {
         'sentryService.disconnectIntegration(ws.workspaceId, role)',
         call
       )
-      const [args] = auditedCallArguments(src, p, 'app/api/x/route.ts')
-      expect([call, passesAuditContext(src, args!)]).toEqual([call, true])
+      const [site] = auditedCallArguments(src, p, 'app/api/x/route.ts')
+      expect([call, passesAuditContext(src, site!)]).toEqual([call, true])
     }
     // A key named like the binding is not the binding.
     const keyOnly = route.replace(
       'sentryService.disconnectIntegration(ws.workspaceId, role)',
       'sentryService.disconnectIntegration({ ctx: null })'
     )
-    const [keyArgs] = auditedCallArguments(keyOnly, p, 'app/api/x/route.ts')
-    expect(passesAuditContext(keyOnly, keyArgs!)).toBe(false)
+    const [keySite] = auditedCallArguments(keyOnly, p, 'app/api/x/route.ts')
+    expect(passesAuditContext(keyOnly, keySite!)).toBe(false)
+  })
+
+  it('LUM-907 audit coverage: a same-named binding in another function, or after the call, does not count', () => {
+    const p = instrumentedCallPatterns(
+      'lib/services/sentry.service.ts#disconnectIntegration',
+      read('lib/services/sentry.service.ts')
+    )
+    const file = 'app/api/x/route.ts'
+    const otherFunction = [
+      "import { memberAuditContext } from '@/lib/api/audit-context'",
+      "import { sentryService } from '@/lib/services/sentry.service'",
+      'export async function POST(request: Request) {',
+      '  const ctx = memberAuditContext(request.headers, { clerkId: u })',
+      '  await other(ctx)',
+      '}',
+      'export async function DELETE(request: Request) {',
+      '  const ctx = null',
+      '  await sentryService.disconnectIntegration(ws.workspaceId, role, ctx)',
+      '}',
+    ].join('\n')
+    const [a] = auditedCallArguments(otherFunction, p, file)
+    expect(passesAuditContext(otherFunction, a!)).toBe(false)
+    // Declared after the call in the same function: not what the call got.
+    const afterCall = [
+      'export async function DELETE(request: Request) {',
+      '  await sentryService.disconnectIntegration(ws.workspaceId, role, ctx)',
+      '  const ctx = memberAuditContext(request.headers, {})',
+      '}',
+    ].join('\n')
+    const [b] = auditedCallArguments(afterCall, p, file)
+    expect(passesAuditContext(afterCall, b!)).toBe(false)
+    // The same binding inside the calling function, before the call, passes.
+    const sameFunction = otherFunction.replace(
+      '  const ctx = null',
+      '  const ctx = memberAuditContext(request.headers, {})'
+    )
+    const [c] = auditedCallArguments(sameFunction, p, file)
+    expect(passesAuditContext(sameFunction, c!)).toBe(true)
+  })
+
+  it('LUM-907 audit coverage: comments in the arguments are skipped, apostrophes included', () => {
+    const p = instrumentedCallPatterns(
+      'lib/services/sentry.service.ts#disconnectIntegration',
+      read('lib/services/sentry.service.ts')
+    )
+    const src = [
+      'export async function DELETE(request: Request) {',
+      '  await sentryService.disconnectIntegration(',
+      "    ws.workspaceId, // don't pass the slug (it's not an id)",
+      "    /* the caller's role ) */ role,",
+      '    memberAuditContext(request.headers, {})',
+      '  )',
+      '  await after()',
+      '}',
+    ].join('\n')
+    const [site] = auditedCallArguments(src, p, 'app/api/x/route.ts')
+    // The whole call is captured — the apostrophes and the ")" inside the
+    // comments neither open a string nor close the call early.
+    expect(
+      site!.args.endsWith('memberAuditContext(request.headers, {})\n  )')
+    ).toBe(true)
+    expect(site!.args).not.toContain('after()')
+    expect(passesAuditContext(src, site!)).toBe(true)
+    // Without the context, a comment naming it does not make it pass.
+    const omitted = src.replace(
+      '    memberAuditContext(request.headers, {})',
+      '    // memberAuditContext(request.headers) is not passed here'
+    )
+    const [bad] = auditedCallArguments(omitted, p, 'app/api/x/route.ts')
+    expect(bad!.args).not.toContain('not passed here')
+    expect(passesAuditContext(omitted, bad!)).toBe(false)
+  })
+
+  it('LUM-907 audit coverage: a binding passed through a ternary counts as passed', () => {
+    const p = instrumentedCallPatterns(
+      'lib/services/sentry.service.ts#disconnectIntegration',
+      read('lib/services/sentry.service.ts')
+    )
+    const src = [
+      'export async function DELETE(request: Request) {',
+      '  const audit = memberAuditContext(request.headers, {})',
+      '  await sentryService.disconnectIntegration(ws.workspaceId, role, isOwner ? audit : fallback)',
+      '}',
+    ].join('\n')
+    const [site] = auditedCallArguments(src, p, 'app/api/x/route.ts')
+    expect(passesAuditContext(src, site!)).toBe(true)
+    // An object key of the same name is still not the binding.
+    const keyOnly = src.replace(
+      'isOwner ? audit : fallback',
+      '{ audit: fallback }'
+    )
+    const [key] = auditedCallArguments(keyOnly, p, 'app/api/x/route.ts')
+    expect(passesAuditContext(keyOnly, key!)).toBe(false)
   })
 
   it('LUM-907 audit coverage: the pending list is empty (PR3 enforcement)', () => {

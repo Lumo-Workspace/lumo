@@ -19,16 +19,17 @@ let mockRows: Array<{
   dispositionNote?: string | null
 }> = []
 
-// LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
-// so the real gate short-circuits before touching the scan repository.
-// LUM-812: the DONE gate now consults the test-case plane fail-closed (a proven,
-// undispositioned defect blocks). Default it to "no test cases" so this suite
-// keeps isolating what it was written for.
 // LUM-907: rulings always write an audit row now; keep it off the database.
 jest.mock('@/lib/services/audit.service', () => ({
   ...jest.requireActual('@/lib/services/audit.service'),
   recordAuditEvent: jest.fn(async () => true),
 }))
+
+// LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
+// so the real gate short-circuits before touching the scan repository.
+// LUM-812: the DONE gate now consults the test-case plane fail-closed (a proven,
+// undispositioned defect blocks). Default it to "no test cases" so this suite
+// keeps isolating what it was written for.
 jest.mock('@/lib/repositories/test-case.repository', () => ({
   testCaseRepository: {
     listForTask: jest.fn(() => Promise.resolve([])),

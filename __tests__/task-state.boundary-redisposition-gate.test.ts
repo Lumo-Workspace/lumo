@@ -14,13 +14,14 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 
-// LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
-// so the real gate short-circuits before touching the scan repository.
 // LUM-907: rulings always write an audit row now; keep it off the database.
 jest.mock('@/lib/services/audit.service', () => ({
   ...jest.requireActual('@/lib/services/audit.service'),
   recordAuditEvent: jest.fn(async () => true),
 }))
+
+// LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
+// so the real gate short-circuits before touching the scan repository.
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     findManyForSecurityByTaskId: jest.fn().mockResolvedValue([]),
