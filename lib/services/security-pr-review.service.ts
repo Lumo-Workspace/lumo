@@ -161,23 +161,17 @@ export const VERIFIER_RETRACTION_NOTE =
   "Rejected by Lumo's verifier after reading the code"
 
 /**
- * LUM-988 — how a sync recognises a retracted comment: a marker of its own,
- * never a substring of the whole body (a finding title may quote the note).
- * Comments retracted before the marker existed carry the note at the start
- * of a line, and are recognised by that alone.
+ * LUM-988 — how a sync recognises a retracted comment: ONLY this marker, an
+ * HTML comment Lumo writes and a reader never sees — never the visible note,
+ * which a finding's title or the model-written detail can repeat word for
+ * word (on its own line, too). A comment retracted before the marker existed
+ * (PRs 1277–1279) reads as not retracted: if its row is still rejected, the
+ * next sync re-retracts it and adds the marker.
  */
 export const VERIFIER_RETRACTION_MARKER =
   '<!-- lumo-security:verifier-rejected -->'
-const LEGACY_RETRACTION_LINE = new RegExp(
-  `^${VERIFIER_RETRACTION_NOTE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-  'm'
-)
-
 export function isRetractedComment(body: string): boolean {
-  return (
-    body.includes(VERIFIER_RETRACTION_MARKER) ||
-    LEGACY_RETRACTION_LINE.test(body)
-  )
+  return body.includes(VERIFIER_RETRACTION_MARKER)
 }
 
 /**
