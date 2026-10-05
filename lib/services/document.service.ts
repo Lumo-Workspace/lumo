@@ -166,7 +166,7 @@ function renderContentToMarkdown(
 }
 
 /** Walk the parent chain with loop prevention. Returns ancestors from root → immediate parent. */
-async function findAncestors(parentId: string | null) {
+async function findAncestors(parentId: string | null, workspaceId: string) {
   const ancestors: {
     id: string
     slug: string
@@ -186,8 +186,10 @@ async function findAncestors(parentId: string | null) {
 
   while (currentParentId && !visitedIds.has(currentParentId)) {
     visitedIds.add(currentParentId)
-    const parent =
-      await documentRepository.findNodeWithChildren(currentParentId)
+    const parent = await documentRepository.findNodeWithChildren(
+      currentParentId,
+      workspaceId
+    )
     if (!parent) break
     ancestors.unshift({
       id: parent.id,
@@ -212,11 +214,17 @@ async function findAncestors(parentId: string | null) {
  * we skip the write entirely. Exported so the load-time staleness refresh
  * (Task 9) can reuse the exact same scheduling path.
  */
-export function scheduleDocumentSummary(docId: string, bodyText: string): void {
+export function scheduleDocumentSummary(
+  docId: string,
+  workspaceId: string,
+  bodyText: string
+): void {
   waitUntil(
     contentSummaryService
       .summarize(bodyText, 'document')
-      .then(s => (s ? documentRepository.updateSummary(docId, s) : undefined))
+      .then(s =>
+        s ? documentRepository.updateSummary(docId, workspaceId, s) : undefined
+      )
       .catch(() => {})
   )
 }
@@ -356,7 +364,7 @@ export const documentService = {
     const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
 
     // Walk ancestor chain
-    const ancestors = await findAncestors(doc.parentId)
+    const ancestors = await findAncestors(doc.parentId, workspaceId)
 
     // Use the resolved cuid for downstream lookups — the `id` param may be a
     // slug since `findWithPermission` accepts either form.
@@ -453,11 +461,11 @@ export const documentService = {
     })
 
     if (content) {
-      await this.syncDocumentMentions(document.id, content)
+      await this.syncDocumentMentions(document.id, workspaceId, content)
       // Body is immutable for this create — summarize once in the background
       // and cache it. Convert the stored HTML to markdown for the LLM.
       const bodyText = renderContentToMarkdown(content)
-      if (bodyText) scheduleDocumentSummary(document.id, bodyText)
+      if (bodyText) scheduleDocumentSummary(document.id, workspaceId, bodyText)
       // Seed the first version (LUM-227) — the protected baseline.
       waitUntil(
         documentRevisionService
@@ -675,6 +683,7 @@ export const documentService = {
     try {
       updated = await documentRepository.updateWithChildrenAndMentions(
         docId,
+        workspaceId,
         updateData,
         data.childOrder,
         mentionTaskIds,
@@ -732,7 +741,7 @@ export const documentService = {
       // the new HTML body to markdown for the LLM (handles legacy Tiptap JSON
       // too). A null/empty body short-circuits inside the schedule helper.
       const bodyText = renderContentToMarkdown(data.content)
-      if (bodyText) scheduleDocumentSummary(docId, bodyText)
+      if (bodyText) scheduleDocumentSummary(docId, workspaceId, bodyText)
       // Capture a version snapshot in the background (LUM-227). Never blocks
       // the response; snapshotOnSave no-ops when content is unchanged.
       waitUntil(
@@ -1039,7 +1048,9 @@ export const documentService = {
 
     // Backfill ONLY the source column: the body (content) and its revision are
     // left exactly as they were — this restores the edit base without re-rendering.
-    const updated = await documentRepository.update(doc.id, { sourceMarkdown })
+    const updated = await documentRepository.update(doc.id, workspaceId, {
+      sourceMarkdown,
+    })
 
     return {
       id: updated.id,
@@ -1110,10 +1121,15 @@ export const documentService = {
   },
 
   /** Sync document mentions based on content. Delegates to repository. */
-  async syncDocumentMentions(documentId: string, content: unknown) {
+  async syncDocumentMentions(
+    documentId: string,
+    workspaceId: string,
+    content: unknown
+  ) {
     const taskIds = this.extractTaskMentionIds(content)
     await documentRepository.updateWithChildrenAndMentions(
       documentId,
+      workspaceId,
       {},
       undefined,
       taskIds

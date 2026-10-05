@@ -194,7 +194,7 @@ describe('documentService.updateDocument — content storage shape', () => {
 
     expect(updateWithChildrenAndMentions).toHaveBeenCalled()
     const call = updateWithChildrenAndMentions.mock.calls[0]!
-    const data = call[1] as { content?: string }
+    const data = call[2] as { content?: string }
     expect(data.content).toBeDefined()
     expect(data.content).toMatch(/<h2>Sub<\/h2>/)
     expect(data.content!.startsWith('{')).toBe(false)

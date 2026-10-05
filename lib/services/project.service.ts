@@ -23,23 +23,28 @@ export interface UpdateProjectInput {
 // ── Internal helpers ────────────────────────────────────────────────────────
 
 /**
- * Defense-in-depth workspace scoping for any service method that resolves a
- * project by id alone. Routes that already validate workspace membership
- * upfront (via `loadProjectAndMember` / `requireWorkspaceMember`) get this
- * check as a redundant pass; bearer-token / MCP / agent flows that hand a
- * raw projectId to the service rely on it as their primary defense.
+ * Resolve a project by id inside the caller's own workspace. The member row
+ * fixes the workspace, then the project is read scoped to it (LUM-979), so a
+ * foreign id reads as missing — same two queries as a load-then-compare.
+ * Routes that already validate membership upfront get this as a redundant
+ * pass; bearer-token / MCP / agent flows that hand a raw projectId to the
+ * service rely on it as their primary defense.
  *
- * Throws 404 (not 403) on mismatch so the existence of foreign projects
- * doesn't leak through the error code.
+ * Throws 404 (not 403) so the existence of foreign projects doesn't leak
+ * through the error code.
  */
-async function ensureMemberInProjectWorkspace(
-  memberId: string,
-  projectWorkspaceId: string
-): Promise<void> {
+async function findProjectInMemberWorkspace(
+  projectId: string,
+  memberId: string
+) {
   const member = await memberRepository.findById(memberId)
-  if (!member || member.workspaceId !== projectWorkspaceId) {
+  const project = member
+    ? await projectRepository.findById(projectId, member.workspaceId)
+    : null
+  if (!project) {
     throw Object.assign(new Error('Project not found'), { status: 404 })
   }
+  return project
 }
 
 // ── Project Service ─────────────────────────────────────────────────────────
@@ -109,14 +114,9 @@ export const projectService = {
    * a different workspace, or if the project is an idea draft not owned by
    * the caller. The workspace check is the primary defense for bearer-token
    * and MCP callers that don't validate workspace membership at the route
-   * layer — see `ensureMemberInProjectWorkspace`. */
+   * layer — see `findProjectInMemberWorkspace`. */
   async getProject(projectId: string, memberId: string) {
-    const project = await projectRepository.findById(projectId)
-    if (!project) {
-      throw Object.assign(new Error('Project not found'), { status: 404 })
-    }
-
-    await ensureMemberInProjectWorkspace(memberId, project.workspaceId)
+    const project = await findProjectInMemberWorkspace(projectId, memberId)
 
     if (project.isIdea && project.createdByMemberId !== memberId) {
       throw Object.assign(new Error('Project not found'), { status: 404 })
@@ -184,12 +184,7 @@ export const projectService = {
     memberId: string,
     input: UpdateProjectInput
   ) {
-    const project = await projectRepository.findById(projectId)
-    if (!project) {
-      throw Object.assign(new Error('Project not found'), { status: 404 })
-    }
-
-    await ensureMemberInProjectWorkspace(memberId, project.workspaceId)
+    const project = await findProjectInMemberWorkspace(projectId, memberId)
 
     if (project.isIdea && project.createdByMemberId !== memberId) {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
@@ -216,7 +211,11 @@ export const projectService = {
     }
 
     const oldDescription = project.description
-    const updated = await projectRepository.update(projectId, data)
+    const updated = await projectRepository.update(
+      projectId,
+      project.workspaceId,
+      data
+    )
 
     // Broadcast so other members / tabs can pick up the change. Idea drafts
     // are private to the creator, so don't broadcast those.
@@ -278,12 +277,7 @@ export const projectService = {
     workspaceSlug: string,
     memberId: string
   ) {
-    const project = await projectRepository.findById(projectId)
-    if (!project) {
-      throw Object.assign(new Error('Project not found'), { status: 404 })
-    }
-
-    await ensureMemberInProjectWorkspace(memberId, project.workspaceId)
+    const project = await findProjectInMemberWorkspace(projectId, memberId)
 
     if (project.isIdea && project.createdByMemberId !== memberId) {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
@@ -292,7 +286,7 @@ export const projectService = {
     // Tasks cascade with the project; their evidence blobs do not (LUM-916).
     const evidenceTaskIds =
       await privateFileRepository.findTaskIdsWithTestCasesInProject(projectId)
-    await projectRepository.delete(projectId)
+    await projectRepository.delete(projectId, project.workspaceId)
     await privateFileService.deleteTaskEvidence(evidenceTaskIds)
 
     // Idea drafts are private to the creator — only the creator's own tab

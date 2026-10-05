@@ -136,7 +136,7 @@ describe('doc append without a stored markdown source (LUM-444)', () => {
 
     // It committed (did not 400 like patch/section edits do without a source).
     expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledTimes(1)
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
 
     // New content lands at the end of the existing HTML body.
     expect(updateData.content.startsWith(HTML_BODY)).toBe(true)
@@ -159,7 +159,7 @@ describe('doc append without a stored markdown source (LUM-444)', () => {
       mode: 'append',
       contentMarkdown: block,
     })
-    const noSrc = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const noSrc = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect(noSrc.content.startsWith(HTML_BODY)).toBe(true)
     // The appended tail is exactly the rendered block (plus separator) — the
     // original bytes are untouched, nothing in between was rewritten.
@@ -183,7 +183,7 @@ describe('doc append without a stored markdown source (LUM-444)', () => {
       mode: 'append',
       contentMarkdown: '## C new\n\nfresh tail',
     })
-    const withSrc = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const withSrc = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect(withSrc.sourceMarkdown).not.toBeNull()
     expect((withSrc.sourceMarkdown as string).startsWith(SRC)).toBe(true)
     expect(withSrc.sourceMarkdown).toContain('## C new')

@@ -42,13 +42,17 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      const parent = await documentRepository.findParentId(current)
+      const parent = await documentRepository.findParentId(
+        current,
+        identity.workspaceId
+      )
       current = parent?.parentId ?? null
     }
   }
 
   const updated = await documentRepository.move(
     docId,
+    identity.workspaceId,
     parsed.data.parentId,
     parsed.data.sortOrder
   )

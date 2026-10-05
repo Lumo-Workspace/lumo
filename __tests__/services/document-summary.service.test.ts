@@ -31,21 +31,21 @@ describe('scheduleDocumentSummary', () => {
     ;(contentSummaryService.summarize as jest.Mock).mockResolvedValue('sum')
     repo.updateSummary.mockResolvedValue({})
 
-    scheduleDocumentSummary('doc1', 'the document body')
+    scheduleDocumentSummary('doc1', 'ws1', 'the document body')
     await new Promise(r => setImmediate(r))
 
     expect(contentSummaryService.summarize).toHaveBeenCalledWith(
       'the document body',
       'document'
     )
-    expect(repo.updateSummary).toHaveBeenCalledWith('doc1', 'sum')
+    expect(repo.updateSummary).toHaveBeenCalledWith('doc1', 'ws1', 'sum')
   })
 
   it('skips caching when the summary is empty', async () => {
     ;(contentSummaryService.summarize as jest.Mock).mockResolvedValue('')
     repo.updateSummary.mockResolvedValue({})
 
-    scheduleDocumentSummary('doc1', 'x')
+    scheduleDocumentSummary('doc1', 'ws1', 'x')
     await new Promise(r => setImmediate(r))
 
     expect(repo.updateSummary).not.toHaveBeenCalled()
@@ -56,7 +56,7 @@ describe('scheduleDocumentSummary', () => {
       new Error('LLM down')
     )
 
-    expect(() => scheduleDocumentSummary('doc1', 'x')).not.toThrow()
+    expect(() => scheduleDocumentSummary('doc1', 'ws1', 'x')).not.toThrow()
     await new Promise(r => setImmediate(r))
 
     expect(repo.updateSummary).not.toHaveBeenCalled()

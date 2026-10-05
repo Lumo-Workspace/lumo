@@ -4,7 +4,7 @@ import {
   DocMentionSource,
   type Prisma,
 } from '@prisma/client'
-import { prisma } from '@/lib/db/prisma'
+import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -206,7 +206,9 @@ export const documentRepository = {
 
   /** Find a publicly shared document by its public token. */
   async findByPublicToken(token: string) {
-    return prisma.document.findUnique({
+    return unscoped(
+      'public share link: the token is the capability, there is no caller workspace'
+    ).document.findUnique({
       where: { publicToken: token },
       select: {
         title: true,
@@ -304,9 +306,9 @@ export const documentRepository = {
   },
 
   /** Update document fields. */
-  async update(id: string, data: DocumentUpdateData) {
+  async update(id: string, workspaceId: string, data: DocumentUpdateData) {
     return prisma.document.update({
-      where: { id },
+      where: { id, workspaceId },
       data: data as Parameters<typeof prisma.document.update>[0]['data'],
     })
   },
@@ -318,12 +320,13 @@ export const documentRepository = {
    */
   async updateContent(
     id: string,
+    workspaceId: string,
     content: string,
     tx?: Prisma.TransactionClient
   ) {
     const client = tx ?? prisma
     return client.document.update({
-      where: { id },
+      where: { id, workspaceId },
       data: { content },
     })
   },
@@ -345,9 +348,9 @@ export const documentRepository = {
   },
 
   /** Cache the LLM-generated body summary (LUM-122). */
-  async updateSummary(id: string, summary: string) {
+  async updateSummary(id: string, workspaceId: string, summary: string) {
     return prisma.document.update({
-      where: { id },
+      where: { id, workspaceId },
       data: { summary, summaryGeneratedAt: new Date() },
     })
   },
@@ -399,6 +402,7 @@ export const documentRepository = {
    */
   async updateWithChildrenAndMentions(
     id: string,
+    workspaceId: string,
     updateData: DocumentUpdateData,
     childOrder: string[] | undefined,
     mentionTaskIds: string[] | undefined,
@@ -414,10 +418,16 @@ export const documentRepository = {
 
       let updatedDoc
       if (Object.keys(updateData).length === 0) {
-        updatedDoc = await tx.document.findUniqueOrThrow({ where: { id } })
+        updatedDoc = await tx.document.findUniqueOrThrow({
+          where: { id, workspaceId },
+        })
       } else if (options?.expectedContentRevision !== undefined) {
         const res = await tx.document.updateMany({
-          where: { id, contentRevision: options.expectedContentRevision },
+          where: {
+            id,
+            workspaceId,
+            contentRevision: options.expectedContentRevision,
+          },
           data,
         })
         if (res.count === 0) {
@@ -428,16 +438,21 @@ export const documentRepository = {
             { code: 'REVISION_CONFLICT' }
           )
         }
-        updatedDoc = await tx.document.findUniqueOrThrow({ where: { id } })
+        updatedDoc = await tx.document.findUniqueOrThrow({
+          where: { id, workspaceId },
+        })
       } else {
-        updatedDoc = await tx.document.update({ where: { id }, data })
+        updatedDoc = await tx.document.update({
+          where: { id, workspaceId },
+          data,
+        })
       }
 
       // Reorder children if childOrder is provided
       if (childOrder) {
         for (let i = 0; i < childOrder.length; i++) {
           await tx.document.update({
-            where: { id: childOrder[i]! },
+            where: { id: childOrder[i]!, workspaceId },
             data: { sortOrder: i },
           })
         }
@@ -491,9 +506,9 @@ export const documentRepository = {
   },
 
   /** Find a single document node with its children (used by ancestor chain walker). */
-  async findNodeWithChildren(id: string) {
+  async findNodeWithChildren(id: string, workspaceId: string) {
     return prisma.document.findUnique({
-      where: { id },
+      where: { id, workspaceId },
       select: {
         id: true,
         slug: true,
@@ -516,9 +531,9 @@ export const documentRepository = {
   },
 
   /** Find a document node by ID (for tree traversal, parentId only). */
-  async findParentId(id: string) {
+  async findParentId(id: string, workspaceId: string) {
     return prisma.document.findUnique({
-      where: { id },
+      where: { id, workspaceId },
       select: { id: true, parentId: true },
     })
   },
@@ -605,6 +620,7 @@ export const documentRepository = {
   /** Create or update a document share in a transaction (auto-sets visibility to SHARED if PRIVATE). */
   async upsertShareTransaction(
     documentId: string,
+    workspaceId: string,
     memberId: string,
     role: DocShareRole,
     currentVisibility: string
@@ -612,7 +628,7 @@ export const documentRepository = {
     return prisma.$transaction(async tx => {
       if (currentVisibility === 'PRIVATE') {
         await tx.document.update({
-          where: { id: documentId },
+          where: { id: documentId, workspaceId },
           data: { visibility: 'SHARED' },
         })
       }
@@ -646,9 +662,14 @@ export const documentRepository = {
   },
 
   /** Move a document (update parentId and sortOrder). */
-  async move(id: string, parentId: string | null, sortOrder: number) {
+  async move(
+    id: string,
+    workspaceId: string,
+    parentId: string | null,
+    sortOrder: number
+  ) {
     return prisma.document.update({
-      where: { id },
+      where: { id, workspaceId },
       data: { parentId, sortOrder },
     })
   },

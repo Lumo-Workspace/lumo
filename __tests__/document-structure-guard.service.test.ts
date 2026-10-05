@@ -165,7 +165,7 @@ describe('structure guard — full-document markdown updates', () => {
     })
 
     expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledTimes(1)
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect(updateData.sourceMarkdown).toBe(lostSection)
   })
 
@@ -226,7 +226,7 @@ describe('structure guard — section scope', () => {
     })
 
     expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledTimes(1)
-    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]
+    const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![2]
     expect(updateData.sourceMarkdown).toContain('emptied')
     expect(updateData.sourceMarkdown).toContain('## B notes')
   })

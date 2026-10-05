@@ -75,7 +75,9 @@ export const googleDocsImportService = {
       return updated
     } catch (e) {
       const msg = (e as Error).message.slice(0, 240)
-      await documentRepository.update(docId, { googleDocSyncError: msg })
+      await documentRepository.update(docId, workspaceId, {
+        googleDocSyncError: msg,
+      })
       throw e
     }
   },

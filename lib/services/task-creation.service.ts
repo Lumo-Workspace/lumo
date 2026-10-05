@@ -77,7 +77,10 @@ export async function createTask(
   // Validate assigneeActorId belongs to the same workspace
   let assigneeIsAgent = false
   if (assigneeActorId) {
-    const actor = await taskRepository.findActorById(assigneeActorId)
+    const actor = await taskRepository.findActorById(
+      assigneeActorId,
+      project.workspaceId
+    )
     if (!actor || actor.workspaceId !== project.workspaceId) {
       throw Object.assign(new Error('Assignee is not part of this workspace'), {
         status: 400,
@@ -87,6 +90,7 @@ export async function createTask(
   }
 
   const task = await taskRepository.createWithSequence({
+    workspaceId: project.workspaceId,
     projectId,
     teamId: project.teamId,
     title,
@@ -160,6 +164,7 @@ export async function createFromAutomation(
   const order = (maxOrderTask?.order ?? 0) + 1
 
   const task = await taskRepository.createWithSequence({
+    workspaceId: project.workspaceId,
     projectId,
     teamId: project.teamId,
     title: input.title,

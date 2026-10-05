@@ -96,7 +96,7 @@ describe('rebuildDocumentSource (LUM-446)', () => {
 
     // Exactly one write, carrying only the source column (no content/revision).
     expect(mockUpdate).toHaveBeenCalledTimes(1)
-    const [, writeData] = mockUpdate.mock.calls[0]
+    const [, , writeData] = mockUpdate.mock.calls[0]
     expect(Object.keys(writeData)).toEqual(['sourceMarkdown'])
     expect(typeof writeData.sourceMarkdown).toBe('string')
 

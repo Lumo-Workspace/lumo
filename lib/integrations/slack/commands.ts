@@ -290,6 +290,7 @@ export async function handleCommand(
       // (or re-issues) numbers once any task has been hard-deleted (LUM-920).
       // createWithSequence also applies the task storage redaction.
       const task = await taskRepository.createWithSequence({
+        workspaceId,
         projectId: project.id,
         teamId: team.id,
         title: title!,

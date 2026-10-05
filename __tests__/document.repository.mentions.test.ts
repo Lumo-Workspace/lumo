@@ -62,20 +62,25 @@ describe('documentRepository.updateContent', () => {
   it('updates only the content field on the given transaction client', async () => {
     const tx = fakeTx()
 
-    await documentRepository.updateContent('d-1', '<p>hi</p>', tx as any)
+    await documentRepository.updateContent(
+      'd-1',
+      'ws-1',
+      '<p>hi</p>',
+      tx as any
+    )
 
     expect(tx.document.update).toHaveBeenCalledWith({
-      where: { id: 'd-1' },
+      where: { id: 'd-1', workspaceId: 'ws-1' },
       data: { content: '<p>hi</p>' },
     })
     expect(mockPrismaDocUpdate).not.toHaveBeenCalled()
   })
 
   it('falls back to the prisma client when no transaction is given', async () => {
-    await documentRepository.updateContent('d-1', '<p>hi</p>')
+    await documentRepository.updateContent('d-1', 'ws-1', '<p>hi</p>')
 
     expect(mockPrismaDocUpdate).toHaveBeenCalledWith({
-      where: { id: 'd-1' },
+      where: { id: 'd-1', workspaceId: 'ws-1' },
       data: { content: '<p>hi</p>' },
     })
   })

@@ -203,7 +203,11 @@ export const foldService = {
       if (!claimed) return { folded: 0, pruned: 0, skipped: 'locked' }
 
       try {
-        await projectRepository.stampFoldAttempt(projectId, now)
+        await projectRepository.stampFoldAttempt(
+          projectId,
+          state.workspaceId,
+          now
+        )
 
         // 1. Fold related cards (info-preserving) toward the cap. Bound the
         // compute to ~K biggest clusters (each fold of N sources cuts N-1).

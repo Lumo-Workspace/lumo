@@ -366,12 +366,16 @@ function isDocumentSummaryStale(doc: ContextDocument): boolean {
  * `waitUntil` and swallows errors). We convert the stored HTML body to
  * markdown for the LLM, matching how the document service feeds create/update.
  */
-function scheduleStaleDocumentSummaries(docs: ContextDocument[]): void {
+function scheduleStaleDocumentSummaries(
+  docs: ContextDocument[],
+  workspaceId: string
+): void {
   for (const doc of docs) {
     if (!isDocumentSummaryStale(doc)) continue
     if (!doc.content) continue
     const bodyText = htmlToMarkdown(doc.content)
-    if (bodyText.trim().length > 0) scheduleDocumentSummary(doc.id, bodyText)
+    if (bodyText.trim().length > 0)
+      scheduleDocumentSummary(doc.id, workspaceId, bodyText)
   }
 }
 
@@ -1232,7 +1236,7 @@ export const taskContextService = {
       docs.map(d => ({ id: d.id, title: d.title, summary: d.summary }))
     )
     // Serve the cached summaries now; refresh stale ones in the background.
-    scheduleStaleDocumentSummaries(docs)
+    scheduleStaleDocumentSummaries(docs, workspaceId)
 
     // Comments: short threads inline verbatim, longer ones fall back to the
     // cached commentsSummary (computed at write time, Task 6). The renderer
