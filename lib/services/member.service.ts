@@ -115,10 +115,11 @@ export const memberService = {
       }
     }
 
-    const { apiKeysRevoked } = await memberRepository.deactivate(
+    const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
       memberId,
       'LEFT'
     )
+    if (!deactivated) return // already gone (double submit): nothing to audit
     await recordAuditEvent({
       workspaceId,
       action: 'member.left',

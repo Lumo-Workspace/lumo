@@ -188,6 +188,20 @@ describe('memberService', () => {
       expect(mockDeactivate).toHaveBeenCalledWith('m-1', 'LEFT')
     })
 
+    it('does not audit a leave that deactivated nothing (double submit)', async () => {
+      mockDeactivate.mockResolvedValue({
+        deactivated: false,
+        apiKeysRevoked: 0,
+      })
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+      await memberService.leaveWorkspace('m-1', 'MEMBER', 'ws-1')
+
+      // recordAuditEvent warns when called without a context; no call, no warning.
+      expect(warn).not.toHaveBeenCalled()
+      warn.mockRestore()
+    })
+
     it('throws 400 when last OWNER tries to leave', async () => {
       mockCountOwners.mockResolvedValue(1)
 

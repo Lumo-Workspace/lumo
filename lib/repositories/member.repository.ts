@@ -130,10 +130,11 @@ export const memberRepository = {
 
   /**
    * LUM-906: deactivate a member instead of deleting the row. One
-   * transaction: revoke every live API key first, drop their team
-   * memberships, then mark the row — only if it is still active, so a second
-   * call (a redelivered webhook, a double click) changes nothing and reports
-   * `deactivated: false`.
+   * transaction, so the three writes land together or not at all: mark the
+   * row (only if it is still active — a second call, e.g. a redelivered
+   * webhook or a double click, changes nothing and reports
+   * `deactivated: false`), revoke every live API key, drop their team
+   * memberships.
    */
   async deactivate(
     memberId: string,

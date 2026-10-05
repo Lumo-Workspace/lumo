@@ -18,7 +18,8 @@ export function useRemoveMember() {
     setRemovingId(memberId)
     try {
       await workspacesClient.removeMember(memberId)
-      await invalidateMembers()
+      // The removal succeeded; a failed refetch must not read as a failed removal.
+      void invalidateMembers().catch(() => {})
     } finally {
       setRemovingId(null)
     }

@@ -17,7 +17,10 @@ import { workspacesClient } from '@/lib/api-client'
 
 const mockRemove = workspacesClient.removeMember as jest.Mock
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockInvalidate.mockResolvedValue(undefined)
+})
 
 describe('useRemoveMember', () => {
   it('remove member hook calls the API and refreshes the members cache', async () => {
@@ -31,6 +34,16 @@ describe('useRemoveMember', () => {
     expect(mockRemove).toHaveBeenCalledWith('m-2')
     expect(mockInvalidate).toHaveBeenCalledTimes(1)
     expect(result.current.removingId).toBeNull()
+  })
+
+  it('remove member hook does not report a failed cache refresh as a failed removal', async () => {
+    mockRemove.mockResolvedValue(undefined)
+    mockInvalidate.mockRejectedValue(new Error('network'))
+    const { result } = renderHook(() => useRemoveMember())
+
+    await act(async () => {
+      await expect(result.current.remove('m-2')).resolves.toBeUndefined()
+    })
   })
 
   it('remove member hook rethrows and does not refresh on failure', async () => {
