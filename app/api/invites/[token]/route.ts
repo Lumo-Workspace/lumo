@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { inviteService } from '@/lib/services/invite.service'
 import { memberAuditContext } from '@/lib/api/audit-context'
+import { logger } from '@/lib/logger'
 
+/**
+ * GET /api/invites/[token] — public invite details for whoever holds the
+ * link. The invited address is returned masked (`maskedEmail`), never in full.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -18,7 +23,9 @@ export async function GET(
     if (status) {
       return NextResponse.json({ error: (error as Error).message }, { status })
     }
-    console.error('GET /api/invites/[token] error:', error)
+    logger.error('GET /api/invites/[token] error', {
+      error: (error as Error)?.message ?? String(error),
+    })
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -57,7 +64,9 @@ export async function DELETE(
     if (status) {
       return NextResponse.json({ error: (error as Error).message }, { status })
     }
-    console.error('DELETE /api/invites/[token] error:', error)
+    logger.error('DELETE /api/invites/[token] error', {
+      error: (error as Error)?.message ?? String(error),
+    })
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

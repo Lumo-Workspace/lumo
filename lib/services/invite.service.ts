@@ -4,6 +4,7 @@ import {
   recordAuditEvent,
   type AuditContext,
 } from '@/lib/services/audit.service'
+import { INVITE_EMAIL_MISMATCH, maskEmail } from '@/lib/utils/invite'
 
 // ── Invite Service ─────────────────────────────────────────────────────────
 
@@ -58,7 +59,12 @@ export const inviteService = {
     return inviteRepository.findPendingByWorkspace(workspaceId)
   },
 
-  /** Get invite details by token (public, no auth required). */
+  /**
+   * Get invite details by token (public, no auth required). Anyone holding
+   * the link can call this, so the invited address is only ever returned
+   * masked (`a***@acme.com`) — enough for the invitee to recognise which
+   * account to sign in with, not enough to harvest it.
+   */
   async getInviteByToken(token: string) {
     const invite = await inviteRepository.findByToken(token)
     if (!invite) {
@@ -71,9 +77,11 @@ export const inviteService = {
       workspaceName: invite.workspace.name,
       workspaceSlug: invite.workspace.slug,
       inviterName: invite.inviterName,
-      email: invite.email,
+      maskedEmail: maskEmail(invite.email),
       status:
-        isExpired && invite.status === 'PENDING' ? 'EXPIRED' : invite.status,
+        isExpired && invite.status === 'PENDING'
+          ? ('EXPIRED' as const)
+          : invite.status,
     }
   },
 
@@ -102,8 +110,22 @@ export const inviteService = {
     })
   },
 
-  /** Accept an invite: create member, add to default team, mark accepted. */
-  async acceptInvite(token: string, clerkId: string, audit?: AuditContext) {
+  /**
+   * Accept an invite: create member, add to default team, mark accepted.
+   *
+   * The invite is bound to the address it was sent to: one of the caller's
+   * IdP-verified emails (`verifiedEmails`, from `getVerifiedEmails`) must
+   * equal `invite.email`, case-insensitively — holding the link alone is not
+   * enough. A mismatch is a 403 with code INVITE_EMAIL_MISMATCH and the
+   * masked invited address, so the page can say which account to use. A
+   * caller who is already a member still lands on the workspace.
+   */
+  async acceptInvite(
+    token: string,
+    clerkId: string,
+    verifiedEmails: readonly string[],
+    audit?: AuditContext
+  ) {
     const invite = await inviteRepository.findByTokenWithWorkspace(token)
     if (!invite) {
       throw Object.assign(new Error('Invite not found'), { status: 404 })
@@ -127,6 +149,18 @@ export const inviteService = {
     )
     if (existingMember) {
       return { workspaceSlug: invite.workspace.slug, alreadyMember: true }
+    }
+
+    const invited = invite.email.toLowerCase()
+    if (!verifiedEmails.some(e => e.toLowerCase() === invited)) {
+      throw Object.assign(
+        new Error('This invitation was sent to a different email address'),
+        {
+          status: 403,
+          code: INVITE_EMAIL_MISMATCH,
+          maskedEmail: maskEmail(invite.email),
+        }
+      )
     }
 
     const member = await inviteRepository.acceptInTransaction(invite, clerkId)

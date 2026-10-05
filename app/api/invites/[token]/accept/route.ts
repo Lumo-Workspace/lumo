@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { getVerifiedEmails, requireAuth } from '@/lib/auth'
 import { inviteService } from '@/lib/services/invite.service'
 import { memberAuditContext } from '@/lib/api/audit-context'
+import { logger } from '@/lib/logger'
 
+/**
+ * POST /api/invites/[token]/accept
+ *
+ * Joins the signed-in user to the invite's workspace — only when one of
+ * their IdP-verified emails is the invited address (403
+ * INVITE_EMAIL_MISMATCH with the masked address otherwise).
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -17,6 +25,7 @@ export async function POST(
     const result = await inviteService.acceptInvite(
       token,
       userId,
+      await getVerifiedEmails(),
       memberAuditContext(request.headers, { clerkId: userId })
     )
 
@@ -25,11 +34,24 @@ export async function POST(
       { status: 200 }
     )
   } catch (error) {
-    const status = (error as { status?: number }).status
-    if (status) {
-      return NextResponse.json({ error: (error as Error).message }, { status })
+    const { status, code, maskedEmail } = error as {
+      status?: number
+      code?: string
+      maskedEmail?: string
     }
-    console.error('POST /api/invites/[token]/accept error:', error)
+    if (status) {
+      return NextResponse.json(
+        {
+          error: (error as Error).message,
+          ...(code ? { code } : {}),
+          ...(maskedEmail ? { maskedEmail } : {}),
+        },
+        { status }
+      )
+    }
+    logger.error('POST /api/invites/[token]/accept error', {
+      error: (error as Error)?.message ?? String(error),
+    })
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
