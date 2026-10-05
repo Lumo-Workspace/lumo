@@ -196,9 +196,15 @@ describe('scopeMode / enforceWorkspaceScope', () => {
     NODE_ENV: env.NODE_ENV,
     LUMO_WORKSPACE_SCOPE: env.LUMO_WORKSPACE_SCOPE,
   }
+  // Assigning `undefined` to process.env stores the string "undefined", so
+  // restore by deleting keys that were unset.
+  const restore = (key: keyof typeof saved) => {
+    if (saved[key] === undefined) delete env[key]
+    else env[key] = saved[key]
+  }
   afterEach(() => {
-    env.NODE_ENV = saved.NODE_ENV
-    env.LUMO_WORKSPACE_SCOPE = saved.LUMO_WORKSPACE_SCOPE
+    restore('NODE_ENV')
+    restore('LUMO_WORKSPACE_SCOPE')
     jest.restoreAllMocks()
   })
 
