@@ -26,6 +26,7 @@ export {
   maskQuotedValues,
   secretFingerprint,
   vulnerabilityFingerprint,
+  judgeFindingFingerprint,
   sarifFingerprint,
   dependencyFingerprint,
   shannonEntropy,

@@ -4,6 +4,8 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
 import {
   externalFailureReason,
+  findingCountPhrase,
+  isCodeReviewFinding,
   secretDowngradeNote,
 } from '../../../shared/src/security-scan'
 import {
@@ -321,14 +323,29 @@ function formatSecurityAction(a: SecurityAction): string {
 export const SECURITY_HINT =
   'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
 
-/** Render the `[SECURITY]` next-action lines (LUM-737). */
+/**
+ * Render the `[SECURITY]` next-action lines (LUM-737). LUM-988: an AI-review
+ * correctness finding (`review:<kind>`) is tagged `[BUG]` — it rides the same
+ * scan and the same disposition flow, but it is not a security finding.
+ */
 export function pushSecurityActions(
   lines: string[],
   securityActions: SecurityAction[]
 ): void {
   for (const a of securityActions) {
-    lines.push(`  • [SECURITY] ${formatSecurityAction(a)}`)
+    const tag = isCodeReviewFinding(a.ruleId) ? 'BUG' : 'SECURITY'
+    lines.push(`  • [${tag}] ${formatSecurityAction(a)}`)
   }
+}
+
+/** `Next actions (2 security findings):`, or split when bugs are present (LUM-988). */
+export function securityActionsHeading(
+  securityActions: SecurityAction[]
+): string {
+  const ruleIds = securityActions.map(a => a.ruleId)
+  if (!ruleIds.some(isCodeReviewFinding))
+    return `Next actions (${ruleIds.length} security finding${ruleIds.length === 1 ? '' : 's'}):`
+  return `Next actions (${findingCountPhrase(ruleIds)}):`
 }
 
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
@@ -433,9 +450,7 @@ export function formatTaskStatus(
 
   lines.push('')
   if (securityActions.length > 0) {
-    lines.push(
-      `Next actions (${securityActions.length} security finding${securityActions.length === 1 ? '' : 's'}):`
-    )
+    lines.push(securityActionsHeading(securityActions))
     pushSecurityActions(lines, securityActions)
     lines.push(SECURITY_HINT)
   } else if (

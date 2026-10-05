@@ -30,12 +30,9 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
 import { cleanPrSummary, type PrSummary } from '@/lib/security-scan/pr-summary'
-import {
-  fetchPrDiff,
-  fetchPrHeadSha,
-  readRepoFile,
-} from '@/lib/integrations/github/contents'
-import { loadReviewContext } from '@/lib/security-scan/review-context'
+import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
+import { reviewContextBudget } from '@/lib/security-scan/review-context'
+import { reviewContextService } from './review-context.service'
 import { isBugKind } from '@/lib/security-scan/review-kinds'
 import {
   addedLinesWithNumbers,
@@ -44,7 +41,7 @@ import {
   judgeDiffTier,
   redactKnownSecrets,
   redactForInjection,
-  vulnerabilityFingerprint,
+  judgeFindingFingerprint,
   INCOMPLETE_STAGE_STATES,
   stagesOf,
   evaluateHuntTrigger,
@@ -827,18 +824,17 @@ export const prSecurityScanService = {
           )
         }
         // LUM-988 — the PR-head content of the files the review covers, as
-        // context. Read through `readRepoFile`, so an unconfirmed repository
-        // is refused (LUM-883); any failure is logged and the review runs on
-        // the diff alone. Never throws.
-        const context = await loadReviewContext({
+        // context: one contents:read token for the scan (refused for an
+        // unconfirmed repository, LUM-883), revoked after. The context shares
+        // the prompt budget with the diff (`reviewContextBudget`), so a
+        // top-tier diff gets little or none. Any failure is logged and the
+        // review runs on the diff alone. Never throws.
+        const context = await reviewContextService.load({
+          workspaceId: pr.workspaceId,
+          repo: pr.repo,
+          headSha,
           paths: capped.covered,
-          readFile: path =>
-            readRepoFile({
-              workspaceId: pr.workspaceId,
-              fullName: pr.repo,
-              path,
-              ref: headSha,
-            }),
+          maxChars: reviewContextBudget(capped.text.length),
         })
         if (context.error) {
           logger.warn(
@@ -882,10 +878,11 @@ export const prSecurityScanService = {
             // redacting one field left the raw secret in the other three.
             // `redactKnownSecrets` runs every pattern over the text and ends
             // with `maskQuotedValues`, so it is the whole two-layer pass on
-            // its own. The fingerprint is taken over the REDACTED path/title
+            // its own. The fingerprint is taken over the REDACTED path/evidence
             // so it stays reproducible from the persisted row.
             const filePath = redactKnownSecrets(j.filePath)
             const title = redactKnownSecrets(j.title)
+            const evidence = redactKnownSecrets(j.evidence)
             judgeRows.push({
               scanId,
               kind: isCredential
@@ -900,8 +897,14 @@ export const prSecurityScanService = {
               line: j.line,
               title,
               detail: redactKnownSecrets(j.detail),
-              evidence: redactKnownSecrets(j.evidence),
-              fingerprint: vulnerabilityFingerprint(ruleId, filePath, title),
+              evidence,
+              // LUM-988: keyed on the quoted line, not the re-worded title.
+              fingerprint: judgeFindingFingerprint(
+                ruleId,
+                filePath,
+                evidence,
+                title
+              ),
               externalRef: null,
               disposition: null,
             })

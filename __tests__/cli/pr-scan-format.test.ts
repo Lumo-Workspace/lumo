@@ -672,3 +672,31 @@ describe('formatPrScan judge budget', () => {
     expect(out).not.toMatch(/near cap|source file/i)
   })
 })
+
+describe('LUM-988 code-review findings in lumo pr scan', () => {
+  it('leads an AI-review correctness finding with [BUG], security rows unchanged', () => {
+    const bug = finding({
+      id: 'f2',
+      kind: 'CORRECTNESS',
+      ruleId: 'review:logic_error',
+      provenance: 'LLM_JUDGE',
+      severity: 'MEDIUM',
+      title: 'Inverted guard',
+      blocking: false,
+    })
+    const out = formatPrScan(
+      payload({
+        scans: [
+          scan({
+            findings: [finding(), bug],
+            counts: { ...scan().counts, findings: 2, open: 2, blocking: 1 },
+          }),
+        ],
+      })
+    )
+    expect(out).toMatch(
+      /\[BUG\] \[MEDIUM\] LLM_JUDGE review:logic_error — src\/cfg\.ts:12 — Inverted guard/
+    )
+    expect(out).toMatch(/^ {4}\[HIGH\] DETERMINISTIC secret:aws-access-key-id/m)
+  })
+})

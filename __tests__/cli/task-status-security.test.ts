@@ -322,3 +322,38 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
     )
   })
 })
+
+describe('LUM-988 code-review findings in lumo task status', () => {
+  it('tags review:<kind> rows [BUG] and splits the heading count', () => {
+    const out = formatTaskStatus(
+      payload({
+        nextActions: [
+          SECURITY_ACTION,
+          {
+            ...SECURITY_ACTION,
+            findingId: 'f2',
+            provenance: 'LLM_JUDGE' as const,
+            severity: 'MEDIUM' as const,
+            blocking: false,
+            ruleId: 'review:logic_error',
+            statement: 'review:logic_error at lib/q.ts:3 — Inverted guard',
+            filePath: 'lib/q.ts',
+            line: 3,
+          },
+        ],
+      })
+    )
+    expect(out).toContain('Next actions (1 security finding · 1 bug):')
+    expect(out).toContain(
+      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id'
+    )
+    expect(out).toContain(
+      '  • [BUG] [MEDIUM] LLM_JUDGE review:logic_error — lib/q.ts:3 — Inverted guard'
+    )
+  })
+
+  it('keeps the old heading when there is no bug', () => {
+    const out = formatTaskStatus(payload({ nextActions: [SECURITY_ACTION] }))
+    expect(out).toContain('Next actions (1 security finding):')
+  })
+})

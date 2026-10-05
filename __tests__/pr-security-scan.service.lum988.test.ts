@@ -18,11 +18,14 @@ jest.mock('@/lib/services/security-workspace-switches.service', () => ({
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
+  revokeInstallationToken: jest.fn().mockResolvedValue(true),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
   readRepoFile: jest.fn(),
+  readRepoFileWithToken: jest.fn(),
+  withRepoReadToken: jest.fn(),
 }))
 jest.mock('@/lib/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
@@ -99,6 +102,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import * as gh from '@/lib/integrations/github/contents'
+import * as auth from '@/lib/integrations/github/auth'
 import * as judge from '@/lib/llm/security-judge-client'
 import {
   DEFAULT_SECURITY_POLICY,
@@ -111,6 +115,9 @@ const repo = prSecurityScanRepository as jest.Mocked<
 const fetchPrDiff = gh.fetchPrDiff as jest.Mock
 const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
 const readRepoFile = gh.readRepoFile as jest.Mock
+const readRepoFileWithToken = gh.readRepoFileWithToken as jest.Mock
+const getRepoToken = auth.getRepoToken as jest.Mock
+const revokeInstallationToken = auth.revokeInstallationToken as jest.Mock
 
 const PR = {
   id: 'pr1',
@@ -155,6 +162,25 @@ beforeEach(() => {
   ;(pullRequestRepository.findById as jest.Mock).mockResolvedValue(PR)
   fetchPrHeadSha.mockResolvedValue('sha-1')
   readRepoFile.mockResolvedValue(null)
+  readRepoFileWithToken.mockResolvedValue(null)
+  getRepoToken.mockResolvedValue('tok')
+  revokeInstallationToken.mockResolvedValue(true)
+  // The real helper's contract, over the mocked auth: mint once, run, revoke.
+  ;(gh.withRepoReadToken as jest.Mock).mockImplementation(
+    async (
+      o: { workspaceId: string; fullName: string },
+      fn: (t: string) => Promise<unknown>
+    ) => {
+      const t = await getRepoToken(o.workspaceId, o.fullName, {
+        contents: 'read',
+      })
+      try {
+        return await fn(t)
+      } finally {
+        await revokeInstallationToken(t)
+      }
+    }
+  )
   repo.findByPrAndSha.mockResolvedValue(null)
   repo.create.mockResolvedValue({ id: 's1' } as never)
   repo.findDispositionedByPullRequest.mockResolvedValue([])
@@ -176,6 +202,13 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.LUMO_MANAGED_SCAN
 })
+
+async function runScan2(): Promise<void> {
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+}
 
 async function runScan(): Promise<Record<string, unknown>> {
   await prSecurityScanService.run({
@@ -231,56 +264,88 @@ describe('LUM-988 AI review — findings', () => {
   })
 })
 
-describe('LUM-988 AI review — changed-file context', () => {
-  it('reads the covered files at the head sha and passes them redacted', async () => {
+describe('LUM-988 AI review — fingerprints survive re-wording', () => {
+  it('gives the same problem the same fingerprint when only the title changes', async () => {
     fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
-    readRepoFile.mockResolvedValue(
+    ;(judge.judgeSecurity as jest.Mock)
+      .mockResolvedValueOnce({ findings: [BUG] })
+      .mockResolvedValueOnce({
+        findings: [{ ...BUG, title: 'Guard is inverted', detail: 'Reworded.' }],
+      })
+
+    await runScan()
+    fetchPrHeadSha.mockResolvedValue('sha-2')
+    await runScan2()
+
+    const first = repo.persistResult.mock.calls[0]![1][0]!
+    const second = repo.persistResult.mock.calls[1]![1][0]!
+    expect(second.title).not.toBe(first.title)
+    expect(second.fingerprint).toBe(first.fingerprint)
+  })
+})
+
+describe('LUM-988 AI review — changed-file context', () => {
+  it('mints one token, reads the covered files at the head sha with it, revokes it, and passes the context redacted', async () => {
+    fetchPrDiff.mockResolvedValue(
+      diffOf([section('lib/search.ts', 1_000), section('lib/other.ts', 500)])
+    )
+    readRepoFileWithToken.mockResolvedValue(
       'const k = "ghp_' + 'A'.repeat(36) + '"\nexport const search = 1\n'
     )
 
     await runScan()
 
-    expect(readRepoFile).toHaveBeenCalledWith({
-      workspaceId: 'w1',
+    const contextMints = getRepoToken.mock.calls.filter(
+      c => (c[2] as Record<string, string>).contents === 'read'
+    )
+    expect(contextMints.length).toBeGreaterThanOrEqual(1)
+    expect(readRepoFileWithToken).toHaveBeenCalledWith({
+      token: 'tok',
       fullName: 'o/r',
       path: 'lib/search.ts',
       ref: 'sha-1',
     })
+    expect(readRepoFileWithToken).toHaveBeenCalledTimes(2)
+    expect(revokeInstallationToken).toHaveBeenCalledWith('tok')
     const input = (judge.judgeSecurity as jest.Mock).mock.calls[0]![0]
     expect(input.context).toContain('=== lib/search.ts ===')
     expect(input.context).toContain('export const search = 1')
     expect(input.context).not.toContain('ghp_' + 'A'.repeat(36))
   })
 
-  it('reviews the diff alone when the repository is not confirmed', async () => {
-    fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
-    readRepoFile.mockRejectedValue(
+  it('reviews the diff alone when the repository is not confirmed (no token)', async () => {
+    // Ruby, so the graph rules mint nothing: the only mint is the context's.
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    getRepoToken.mockRejectedValue(
       Object.assign(new Error('repo_not_confirmed'), { status: 403 })
     )
 
     const meta = await runScan()
 
-    expect(judge.judgeSecurity).toHaveBeenCalledTimes(1)
+    expect(readRepoFileWithToken).not.toHaveBeenCalled()
     expect((judge.judgeSecurity as jest.Mock).mock.calls[0]![0].context).toBe(
       ''
     )
     expect(meta.judgeStatus).toBe('RAN')
   })
 
-  it('reviews the diff alone when a file read fails', async () => {
+  it('reviews the diff alone when a file read fails, and still revokes the token', async () => {
     fetchPrDiff.mockResolvedValue(
       diffOf([section('lib/a.ts', 500), section('lib/b.ts', 500)])
     )
-    readRepoFile.mockImplementation(async ({ path }: { path: string }) => {
-      if (path === 'lib/b.ts') throw new Error('GitHub API error 502')
-      return 'export const a = 1\n'
-    })
+    readRepoFileWithToken.mockImplementation(
+      async ({ path }: { path: string }) => {
+        if (path === 'lib/b.ts') throw new Error('GitHub API error 502')
+        return 'export const a = 1\n'
+      }
+    )
 
     const meta = await runScan()
 
     expect((judge.judgeSecurity as jest.Mock).mock.calls[0]![0].context).toBe(
       ''
     )
+    expect(revokeInstallationToken).toHaveBeenCalledWith('tok')
     expect(meta.judgeStatus).toBe('RAN')
   })
 
@@ -295,5 +360,6 @@ describe('LUM-988 AI review — changed-file context', () => {
     expect(judge.judgeSecurity).not.toHaveBeenCalled()
     expect(meta.judgeStatus).toBe('SKIPPED')
     expect(readRepoFile).not.toHaveBeenCalled()
+    expect(readRepoFileWithToken).not.toHaveBeenCalled()
   })
 })

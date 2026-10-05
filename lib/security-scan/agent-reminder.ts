@@ -11,7 +11,11 @@
  * own framing sentences stay outside it — same split as
  * `renderLayer2ReviewSection`.
  */
-import { secretDowngradeNote } from '@/shared/src/security-scan'
+import {
+  findingCountPhrase,
+  isCodeReviewFinding,
+  secretDowngradeNote,
+} from '@/shared/src/security-scan'
 import type { SecretDowngradeReason } from '@/lib/security-scan/types'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { redactForInjection } from '@/lib/security-scan/scan-secrets'
@@ -95,7 +99,7 @@ export function findingStatement(f: ReminderFinding): string {
 export function formatFindingLine(f: ReminderFinding): string {
   const tag = f.blocking ? 'blocks DONE' : 'advisory'
   return sanitizeField(
-    `[${f.severity}] ${f.provenance} ${f.ruleId} — ${location(f)} — ${f.title} (PR #${f.prNumber} · ${tag}${secretDowngradeNote(f.secretDowngrade)})`
+    `${isCodeReviewFinding(f.ruleId) ? '[BUG] ' : ''}[${f.severity}] ${f.provenance} ${f.ruleId} — ${location(f)} — ${f.title} (PR #${f.prNumber} · ${tag}${secretDowngradeNote(f.secretDowngrade)})`
   )
 }
 
@@ -151,7 +155,11 @@ export function renderSessionStartSecuritySection(input: {
   if (findings.length > 0) {
     const blocking = findings.filter(f => f.blocking).length
     lines.push(
-      `## ⚠ Undispositioned security findings (${findings.length} · ${blocking} block DONE)`
+      // LUM-988: AI-review bugs are counted apart, never as security; with
+      // none, the header is the one agents already know.
+      findings.some(f => isCodeReviewFinding(f.ruleId))
+        ? `## ⚠ Undispositioned scan findings (${findingCountPhrase(findings.map(f => f.ruleId))} · ${blocking} block DONE)`
+        : `## ⚠ Undispositioned security findings (${findings.length} · ${blocking} block DONE)`
     )
     lines.push('')
     lines.push(dispositionNote(identifier))
@@ -193,7 +201,10 @@ export function renderPreToolUseSecurityReminder(input: {
       blocking > 0
         ? ` — ${blocking} block${blocking === 1 ? 's' : ''} DONE`
         : ''
-    const header = `⚠ Lumo security scan found ${n} undispositioned finding${n === 1 ? '' : 's'} on PR #${s.prNumber} (head ${head})${blockNote}:`
+    const split = s.findings.some(f => isCodeReviewFinding(f.ruleId))
+      ? ` (${findingCountPhrase(s.findings.map(f => f.ruleId))})`
+      : ''
+    const header = `⚠ Lumo security scan found ${n} undispositioned finding${n === 1 ? '' : 's'}${split} on PR #${s.prNumber} (head ${head})${blockNote}:`
     const findingLines = cappedLines(s.findings, input.identifier)
       .map(l => `  ${l}`)
       .join('\n')

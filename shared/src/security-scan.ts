@@ -496,3 +496,30 @@ export function isOwnedUnfinished(
     partialCauses: s.partialCauses ?? [],
   })
 }
+
+/**
+ * LUM-988 — the AI review's non-security findings (kind CORRECTNESS) carry
+ * `review:<kind>` rule ids; every security row is `secret:` / `vuln:` /
+ * `ext:` / `graph:` …. Surfaces that count or tag findings use this so a
+ * logic bug is never presented as a security finding. Keyed on the rule id
+ * because every payload (and every older server's) already carries it.
+ */
+export const CODE_REVIEW_RULE_PREFIX = 'review:'
+
+export function isCodeReviewFinding(ruleId: string): boolean {
+  return ruleId.startsWith(CODE_REVIEW_RULE_PREFIX)
+}
+
+/**
+ * `3 security findings`, `2 bugs`, or `1 security finding · 2 bugs` — the
+ * count phrase for a set of findings, split by `isCodeReviewFinding`.
+ */
+export function findingCountPhrase(ruleIds: readonly string[]): string {
+  const bugs = ruleIds.filter(isCodeReviewFinding).length
+  const security = ruleIds.length - bugs
+  const parts: string[] = []
+  if (security > 0 || bugs === 0)
+    parts.push(`${security} security finding${security === 1 ? '' : 's'}`)
+  if (bugs > 0) parts.push(`${bugs} bug${bugs === 1 ? '' : 's'}`)
+  return parts.join(' · ')
+}

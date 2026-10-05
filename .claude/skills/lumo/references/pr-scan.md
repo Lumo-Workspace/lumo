@@ -50,6 +50,7 @@ Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · 
     [LOW] DETERMINISTIC secret:generic-api-key — src/cfg.ts:12 — … — placeholder value, downgraded (FALSE_POSITIVE · human · "doc example")
     [MEDIUM] EXTERNAL_TOOL ext:codeql:js/sql-injection — src/cfg.ts — … (ACCEPTED_RISK · inherited from an earlier scan of this PR)
     [LOW] LLM_JUDGE vuln:xss — src/cfg.ts:12 — … (merged unreviewed · AI suggests FALSE_POSITIVE)
+    [BUG] [MEDIUM] LLM_JUDGE review:logic_error — src/auth.ts:40 — Inverted permission check (advisory)
 ```
 
 - **Header** — repo, PR state, and `task LUM-N` or `no linked task`.
@@ -63,7 +64,7 @@ Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · 
   The dropped share is measured in **characters of the diff**, not in files — one dropped lockfile and one dropped route handler are not the same loss. No threshold is flagged (there is no `near cap` marker): the percentage is the signal. The count of changed **source files** is deliberately absent — LUM-811 stopped selecting the tier by it, and printing it here would imply a relationship that no longer exists.
 
 - **Coverage line** — `Exploit paths done/total` plus one `t<n> <category> <seconds> <stop>` cell per planned hunt task (LUM-762). Absent when the scan stored no usable audit.
-- **Findings** — every row of the scan, dispositioned ones included, one tag each in parentheses:
+- **Findings** — every row of the scan, dispositioned ones included, one tag each in parentheses. A row leading with `[BUG]` is a non-security finding from the AI code review (rule id `review:<kind>`, LUM-988): same scan and disposition flow, never blocking:
   - `blocks DONE` / `advisory` — open (undispositioned, not on main, still in the queue); the split follows the workspace policy.
   - `<DISPOSITION> · human` / `· inherited from an earlier scan of this PR` / `· AI-suggested, human-confirmed` — ruled rows, with the human's note when one was left. A disposition is never an AI verdict on its own: an unconfirmed suggestion shows as `AI suggests <DISPOSITION>` on an open row.
   - `already on main` — the fingerprint is on the default-branch baseline (LUM-738); not introduced by this PR.

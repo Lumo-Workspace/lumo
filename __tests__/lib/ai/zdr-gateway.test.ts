@@ -13,7 +13,11 @@
 import fs from 'fs'
 import path from 'path'
 import ts from 'typescript'
-import { createZdrFetch, withZeroDataRetention } from '@/lib/ai/zdr-fetch'
+import {
+  createZdrFetch,
+  modelIdOf,
+  withZeroDataRetention,
+} from '@/lib/ai/zdr-fetch'
 import { CODE_REVIEW_MODEL, MODEL_PROVIDER_PINS } from '@/lib/ai/models'
 import {
   auditRuntimeModule,
@@ -50,6 +54,7 @@ describe('ZDR fetch wrapper', () => {
     // A call site that tried to opt out and set its own routing order.
     await zdrFetch('https://ai-gateway.vercel.sh/v3/ai/language-model', {
       method: 'POST',
+      headers: { 'ai-language-model-id': 'deepseek/deepseek-v4-pro' },
       body: JSON.stringify({
         prompt: 'diff',
         providerOptions: {
@@ -123,6 +128,42 @@ describe('LUM-988 provider pin', () => {
       order: ['bedrock'],
     })
     expect(MODEL_PROVIDER_PINS[CODE_REVIEW_MODEL]).toEqual(['anthropic'])
+  })
+
+  it('fails closed: a POST that names no model is refused, never sent unpinned', async () => {
+    const { calls, inner } = captureFetch()
+    const zdrFetch = createZdrFetch(inner)
+    await expect(
+      zdrFetch('https://ai-gateway.vercel.sh/v3/ai/language-model', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: 'customer diff' }),
+      })
+    ).rejects.toThrow(/names no model/)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('reads the model from ai-model-id and from a Request object too', async () => {
+    const { calls, inner } = captureFetch()
+    const zdrFetch = createZdrFetch(inner)
+    await zdrFetch('https://ai-gateway.vercel.sh/v3/ai/embedding-model', {
+      method: 'POST',
+      headers: { 'ai-model-id': CODE_REVIEW_MODEL },
+      body: '{}',
+    })
+    const req = new Request(
+      'https://ai-gateway.vercel.sh/v3/ai/language-model',
+      {
+        method: 'POST',
+        headers: { 'ai-language-model-id': CODE_REVIEW_MODEL },
+      }
+    )
+    await zdrFetch(req, { method: 'POST', body: '{}' })
+    for (const c of calls)
+      expect(
+        (JSON.parse(c.init!.body as string) as Body).providerOptions?.gateway
+          ?.only
+      ).toEqual(['anthropic'])
+    expect(modelIdOf('https://x', { headers: {} })).toBeNull()
   })
 })
 

@@ -1,6 +1,7 @@
 // Mock auth module to avoid @octokit/auth-app ESM issue in Jest
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('test-token'),
+  revokeInstallationToken: jest.fn().mockResolvedValue(true),
 }))
 
 import { addedLinesFromDiff } from '@/lib/integrations/github/contents'
@@ -108,5 +109,113 @@ describe('fetchPrStats', () => {
     await expect(
       fetchPrStats({ workspaceId: 'ws', fullName: 'a/b', prNumber: 7 })
     ).rejects.toThrow('missing change-volume fields')
+  })
+})
+
+// ── readRepoFileWithToken / encodeRepoPath (LUM-988) ─────────────────────────
+
+import {
+  encodeRepoPath,
+  readRepoFileWithToken,
+  withRepoReadToken,
+} from '@/lib/integrations/github/contents'
+import * as ghAuth from '@/lib/integrations/github/auth'
+
+describe('LUM-988 readRepoFileWithToken', () => {
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
+  })
+
+  it('encodes each path segment, keeps the slashes', () => {
+    expect(encodeRepoPath('docs/faq#1.md')).toBe('docs/faq%231.md')
+    expect(encodeRepoPath('src/a?b.ts')).toBe('src/a%3Fb.ts')
+    expect(encodeRepoPath('a b/c%d.ts')).toBe('a%20b/c%25d.ts')
+  })
+
+  it('reads with the given token at the ref, the path encoded; 404 is null', async () => {
+    const urls: string[] = []
+    const auths: string[] = []
+    global.fetch = jest.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        urls.push(String(input))
+        auths.push(
+          (init?.headers as Record<string, string> | undefined)
+            ?.Authorization ?? ''
+        )
+        return String(input).includes('missing')
+          ? { status: 404, ok: false, text: async () => '' }
+          : { status: 200, ok: true, text: async () => 'body' }
+      }
+    ) as unknown as typeof fetch
+
+    await expect(
+      readRepoFileWithToken({
+        token: 'tok-1',
+        fullName: 'o/r',
+        path: 'docs/faq#1.md',
+        ref: 'abc',
+      })
+    ).resolves.toBe('body')
+    await expect(
+      readRepoFileWithToken({
+        token: 'tok-1',
+        fullName: 'o/r',
+        path: 'missing.ts',
+      })
+    ).resolves.toBeNull()
+    expect(urls[0]).toBe(
+      'https://api.github.com/repos/o/r/contents/docs/faq%231.md?ref=abc'
+    )
+    expect(auths).toEqual(['Bearer tok-1', 'Bearer tok-1'])
+  })
+
+  it('throws with the status on any other failure', async () => {
+    global.fetch = jest.fn(async () => ({
+      status: 429,
+      ok: false,
+      text: async () => '',
+    })) as unknown as typeof fetch
+    await expect(
+      readRepoFileWithToken({ token: 't', fullName: 'o/r', path: 'a.ts' })
+    ).rejects.toMatchObject({ status: 429 })
+  })
+})
+
+describe('LUM-988 withRepoReadToken', () => {
+  const getRepoToken = ghAuth.getRepoToken as jest.Mock
+  const revoke = ghAuth.revokeInstallationToken as jest.Mock
+  beforeEach(() => {
+    getRepoToken.mockClear()
+    revoke.mockClear()
+  })
+
+  it('mints one contents:read token, runs fn with it, then revokes it', async () => {
+    const out = await withRepoReadToken(
+      { workspaceId: 'w1', fullName: 'o/r' },
+      async t => `used ${t}`
+    )
+    expect(out).toBe('used test-token')
+    expect(getRepoToken).toHaveBeenCalledTimes(1)
+    expect(getRepoToken).toHaveBeenCalledWith('w1', 'o/r', { contents: 'read' })
+    expect(revoke).toHaveBeenCalledWith('test-token')
+  })
+
+  it('revokes even when fn throws, and rethrows', async () => {
+    await expect(
+      withRepoReadToken({ workspaceId: 'w1', fullName: 'o/r' }, async () => {
+        throw new Error('boom')
+      })
+    ).rejects.toThrow('boom')
+    expect(revoke).toHaveBeenCalledWith('test-token')
+  })
+
+  it('propagates a refused mint without calling fn', async () => {
+    getRepoToken.mockRejectedValueOnce(new Error('repo_not_confirmed'))
+    const fn = jest.fn()
+    await expect(
+      withRepoReadToken({ workspaceId: 'w1', fullName: 'o/r' }, fn)
+    ).rejects.toThrow('repo_not_confirmed')
+    expect(fn).not.toHaveBeenCalled()
   })
 })

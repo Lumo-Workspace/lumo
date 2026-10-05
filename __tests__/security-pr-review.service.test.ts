@@ -1039,3 +1039,31 @@ describe('LUM-988 PR review comment — correctness findings', () => {
       expect(findingKindLabel(k)).toBeNull()
   })
 })
+
+describe('LUM-988 PR summary headline — bugs are not security findings', () => {
+  const base = {
+    headSha: 'abcdef1234567890',
+    stages: { secrets: 'RAN', judge: 'RAN' } as const,
+    partial: false,
+    externalCounts: {},
+    error: null,
+    taskUrl: null,
+  }
+  it('says how many open findings are AI-review bugs', () => {
+    expect(
+      buildSummary({ ...base, open: 4, openBugs: 3, blocking: 1 })
+    ).toContain(
+      '**4 open findings** (3 are bugs from the AI code review, not security · 1 blocking DONE)'
+    )
+    expect(
+      buildSummary({ ...base, open: 1, openBugs: 1, blocking: 0 })
+    ).toContain(
+      '**1 open finding** (1 is a bug from the AI code review, not security)'
+    )
+  })
+  it('is unchanged without bugs', () => {
+    expect(
+      buildSummary({ ...base, open: 2, openBugs: 0, blocking: 0 })
+    ).toContain('**2 open findings**\n')
+  })
+})

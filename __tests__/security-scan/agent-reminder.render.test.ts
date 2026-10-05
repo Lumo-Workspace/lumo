@@ -249,3 +249,35 @@ describe('renderPreToolUseSecurityReminder', () => {
     expect(humanOnlyIdx).toBeGreaterThan(close)
   })
 })
+
+describe('LUM-988 code-review findings in the agent reminders', () => {
+  const bug = f({
+    id: 'b1',
+    ruleId: 'review:logic_error',
+    provenance: 'LLM_JUDGE',
+    severity: 'MEDIUM',
+    title: 'Inverted guard',
+    blocking: false,
+  })
+
+  it('tags the line [BUG] and splits the counts in both headers', () => {
+    expect(formatFindingLine(bug)).toMatch(
+      /^\[BUG\] \[MEDIUM\] LLM_JUDGE review:logic_error/
+    )
+    const pre = renderPreToolUseSecurityReminder({
+      scans: [{ prNumber: 12, headSha: 'abcdef0123', findings: [f(), bug] }],
+      identifier: 'LUM-9',
+    })!
+    expect(pre).toContain(
+      '⚠ Lumo security scan found 2 undispositioned findings (1 security finding · 1 bug) on PR #12 (head abcdef0) — 1 blocks DONE:'
+    )
+    const start = renderSessionStartSecuritySection({
+      findings: [f(), bug],
+      unconfirmedPrs: [],
+      identifier: 'LUM-9',
+    })
+    expect(start).toContain(
+      '## ⚠ Undispositioned scan findings (1 security finding · 1 bug · 1 block DONE)'
+    )
+  })
+})

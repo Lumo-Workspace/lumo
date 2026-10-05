@@ -16,10 +16,13 @@
  * model-metadata GETs) carry no customer data and pass through untouched.
  *
  * LUM-988 — the same wire also pins a model to the hosts on Lumo's published
- * subprocessor list: when the request's `ai-language-model-id` header names a
- * model in `MODEL_PROVIDER_PINS`, `providerOptions.gateway.only` is forced to
- * that list, so a call site cannot route customer code to a host that was
- * never announced (DPA §7.2 promises 30 days' notice for a new one).
+ * subprocessor list: when the request's model-id header (`ai-language-model-id`
+ * for chat, `ai-model-id` for every other model kind) names a model in
+ * `MODEL_PROVIDER_PINS`, `providerOptions.gateway.only` is forced to that
+ * list, so a call site cannot route customer code to a host that was never
+ * announced. Fail closed here too: every inference POST the gateway SDK sends
+ * names its model in one of those headers, so a POST that names none is
+ * refused — otherwise a pinned model would leave with ZDR but no `only`.
  *
  * Kept free of runtime dependencies so it is unit-testable without pulling
  * `@ai-sdk/gateway` (and its jest-hostile TransformStream) into scope.
@@ -29,8 +32,8 @@ import { MODEL_PROVIDER_PINS } from './models'
 
 type FetchFn = typeof fetch
 
-/** The gateway's header naming the chat model of a language-model request. */
-const LANGUAGE_MODEL_ID_HEADER = 'ai-language-model-id'
+/** The gateway's headers naming the model: chat, then every other kind. */
+const MODEL_ID_HEADERS = ['ai-language-model-id', 'ai-model-id'] as const
 
 export const ZDR_GATEWAY_OPTIONS = { zeroDataRetention: true } as const
 
@@ -79,16 +82,23 @@ export function withZeroDataRetention(
   })
 }
 
-function languageModelIdOf(
+/** The model the request names, from `init.headers` or the `Request` itself. */
+export function modelIdOf(
   input: Parameters<FetchFn>[0],
   init?: RequestInit
 ): string | null {
-  const fromInit = init?.headers
-    ? new Headers(init.headers).get(LANGUAGE_MODEL_ID_HEADER)
-    : null
-  if (fromInit) return fromInit
-  if (typeof Request !== 'undefined' && input instanceof Request)
-    return input.headers.get(LANGUAGE_MODEL_ID_HEADER)
+  const sources = [
+    init?.headers ? new Headers(init.headers) : null,
+    typeof Request !== 'undefined' && input instanceof Request
+      ? input.headers
+      : null,
+  ]
+  for (const headers of sources) {
+    for (const name of MODEL_ID_HEADERS) {
+      const id = headers?.get(name)
+      if (id) return id
+    }
+  }
   return null
 }
 
@@ -108,9 +118,15 @@ export function createZdrFetch(inner: FetchFn): FetchFn {
         'ZDR guard: refusing to send an AI Gateway POST without a JSON string body'
       )
     }
+    const modelId = modelIdOf(input, init)
+    if (!modelId) {
+      throw new Error(
+        'ZDR guard: refusing to send an AI Gateway POST that names no model (ai-language-model-id / ai-model-id)'
+      )
+    }
     return inner(input, {
       ...init,
-      body: withZeroDataRetention(init.body, languageModelIdOf(input, init)),
+      body: withZeroDataRetention(init.body, modelId),
     })
   }
 }
