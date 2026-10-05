@@ -199,7 +199,7 @@ describe('taskService — SPRINT_CHANGED activity (updateTask)', () => {
   it('writes SPRINT_CHANGED with reason=manual when sprintId changes', async () => {
     mockTaskFindForUpdate.mockResolvedValueOnce(BASE_TASK_FOR_UPDATE) // sprintId: 's1'
 
-    await taskService.updateTask('task1', { sprintId: 's2' }, 'actor1')
+    await taskService.updateTask('task1', 'ws1', { sprintId: 's2' }, 'actor1')
 
     expect(mockActivityCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -219,7 +219,12 @@ describe('taskService — SPRINT_CHANGED activity (updateTask)', () => {
     mockTaskFindForUpdate.mockResolvedValueOnce(BASE_TASK_FOR_UPDATE) // sprintId: 's1'
 
     // Update title only — no sprintId in input
-    await taskService.updateTask('task1', { title: 'New title' }, 'actor1')
+    await taskService.updateTask(
+      'task1',
+      'ws1',
+      { title: 'New title' },
+      'actor1'
+    )
 
     const sprintActivityCalls = mockActivityCreate.mock.calls.filter(
       call => call[0]?.type === 'SPRINT_CHANGED'
@@ -233,7 +238,7 @@ describe('taskService — SPRINT_CHANGED activity (updateTask)', () => {
       sprintId: null,
     })
 
-    await taskService.updateTask('task1', { title: 'Hello' }, null)
+    await taskService.updateTask('task1', 'ws1', { title: 'Hello' }, null)
 
     const sprintActivityCalls = mockActivityCreate.mock.calls.filter(
       call => call[0]?.type === 'SPRINT_CHANGED'
@@ -244,7 +249,7 @@ describe('taskService — SPRINT_CHANGED activity (updateTask)', () => {
   it('writes SPRINT_CHANGED when clearing sprint (null)', async () => {
     mockTaskFindForUpdate.mockResolvedValueOnce(BASE_TASK_FOR_UPDATE) // sprintId: 's1'
 
-    await taskService.updateTask('task1', { sprintId: null }, 'actor1')
+    await taskService.updateTask('task1', 'ws1', { sprintId: null }, 'actor1')
 
     expect(mockActivityCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -260,7 +265,7 @@ describe('taskService — SPRINT_CHANGED activity (updateTask)', () => {
   it('actorId=null is accepted (system-triggered change)', async () => {
     mockTaskFindForUpdate.mockResolvedValueOnce(BASE_TASK_FOR_UPDATE)
 
-    await taskService.updateTask('task1', { sprintId: 's2' }, null)
+    await taskService.updateTask('task1', 'ws1', { sprintId: 's2' }, null)
 
     expect(mockActivityCreate).toHaveBeenCalledWith(
       expect.objectContaining({

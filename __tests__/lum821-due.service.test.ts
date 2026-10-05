@@ -54,18 +54,18 @@ beforeEach(() => {
 
 describe('dueDate change detection', () => {
   it('re-saving the same instant is NOT a change (no phantom DUE_DATE_CHANGED)', async () => {
-    const r = await updateTask('task-1', {
+    const r = await updateTask('task-1', 'ws-1', {
       dueDate: '2026-09-29T16:00:00.000Z',
     })
     expect(r.changedFields).not.toContain('dueDate')
   })
 
   it('a different day, or clearing, is a change', async () => {
-    const moved = await updateTask('task-1', {
+    const moved = await updateTask('task-1', 'ws-1', {
       dueDate: '2026-10-05T16:00:00.000Z',
     })
     expect(moved.changedFields).toContain('dueDate')
-    const cleared = await updateTask('task-1', { dueDate: null })
+    const cleared = await updateTask('task-1', 'ws-1', { dueDate: null })
     expect(cleared.changedFields).toContain('dueDate')
   })
 })

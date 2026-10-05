@@ -177,6 +177,7 @@ describe('countTasksByStatus', () => {
     expect(groupBy).toHaveBeenCalledWith({
       by: ['projectId', 'status'],
       where: {
+        workspaceId: 'ws-1',
         project: {
           workspaceId: 'ws-1',
           OR: [

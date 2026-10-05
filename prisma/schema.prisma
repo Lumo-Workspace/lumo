@@ -338,6 +338,7 @@ model Workspace {
   members                 WorkspaceMember[]
   teams                   Team[]
   projects                Project[]
+  tasks                   Task[]
   views                   View[]
   invites                 WorkspaceInvite[]
   githubIntegrations      GitHubIntegration[]
@@ -1156,6 +1157,12 @@ model ProjectRepository {
 model Task {
   id                String       @id @default(cuid())
   projectId         String
+  // LUM-992: denormalized from project.workspaceId so the data-layer tenant
+  // check (lib/db/workspace-scope.ts) and a future RLS policy cover Task
+  // directly. Always equal to the project's workspace: a DB trigger
+  // (tasks_workspace_id_guard, migration 20261016090000_task_workspace_id)
+  // fills it from the project when an insert omits it and rejects a mismatch.
+  workspaceId       String
   teamId            String
   number            Int
   assigneeActorId   String?
@@ -1220,6 +1227,7 @@ model Task {
   sizeHint     SizeHint?
 
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   team       Team        @relation(fields: [teamId], references: [id])
   sprint     Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   milestone  Milestone?  @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
@@ -1264,6 +1272,7 @@ model Task {
   @@unique([teamId, number])
   @@index([projectId])
   @@index([projectId, status])
+  @@index([workspaceId, status])
   @@index([teamId])
   @@index([teamId, status])
   // LUM-821: trigram index for fuzzy `task search` (ILIKE substring and the

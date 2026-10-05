@@ -75,6 +75,7 @@ beforeAll(async () => {
       number: 1,
       title: 'Trashed task',
       projectId: 'proj_blobmig',
+      workspaceId: WS,
       teamId: 'team_blobmig',
       description: `<p><img src="${TASK_IMG}"></p>`,
       deletedAt: trashedAt,

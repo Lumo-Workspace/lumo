@@ -126,6 +126,9 @@ export const planMaterializeRepository = {
                 const task = await tx.task.create({
                   data: {
                     projectId: plan.projectId,
+                    // LUM-992: the project's workspace (DB trigger rejects
+                    // a project from another workspace).
+                    workspaceId: plan.workspaceId,
                     teamId: plan.teamId,
                     number: baseNumber + i,
                     ...redactStoredFields(

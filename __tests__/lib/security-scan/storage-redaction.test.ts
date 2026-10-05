@@ -176,11 +176,11 @@ describe('LUM-898 write paths store credentials redacted', () => {
       payload: { excerpt: DIRTY },
     } as never)
 
-    await taskRepository.update('t', {
+    await taskRepository.update('t', 'w', {
       title: DIRTY,
       description: DIRTY,
     } as never)
-    await taskRepository.updateSpec('t', DIRTY)
+    await taskRepository.updateSpec('t', 'w', DIRTY)
     await taskRepository.setClaimSnapshot('t', {
       text: DIRTY,
       source: 'AGENT',

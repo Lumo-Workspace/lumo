@@ -170,7 +170,9 @@ describe('LUM-450 — re-disposition gate re-evaluation', () => {
 
     // The HIGH crossing is CONFIRMED → no open crossing → DONE flows even under
     // opt-out.
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalled()
 
     // A human reverts the disposition back to OPEN via the human-only path.
@@ -187,7 +189,9 @@ describe('LUM-450 — re-disposition gate re-evaluation', () => {
     // Now it's open again. DONE re-blocks (gate re-evaluates on current state),
     // and because it's HIGH severity the opt-out does NOT let it through.
     update.mockClear()
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
     expect(update).not.toHaveBeenCalled()
@@ -200,6 +204,8 @@ describe('LUM-450 — re-disposition gate re-evaluation', () => {
       null,
       ATTRIB
     )
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
   })
 })

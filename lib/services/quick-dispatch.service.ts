@@ -70,7 +70,7 @@ export const quickDispatchService = {
       .map(a => (a as { taskId: string }).taskId)
     const taskChecks =
       updateIds.length > 0
-        ? await taskRepository.findManyForUpdate(updateIds)
+        ? await taskRepository.findManyForUpdate(updateIds, workspaceId)
         : new Map()
 
     for (let i = 0; i < actions.length; i++) {

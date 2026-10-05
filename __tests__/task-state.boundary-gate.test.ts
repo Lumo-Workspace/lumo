@@ -96,7 +96,9 @@ beforeEach(() => {
 describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => {
   it('unacknowledged boundary-crossing blocks DONE with 409', async () => {
     findOpen.mockResolvedValue(openCrossing())
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
     expect(update).not.toHaveBeenCalled()
@@ -107,15 +109,20 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
   it('acknowledging a boundary-crossing clears the DONE block', async () => {
     // While unacknowledged → blocked.
     findOpen.mockResolvedValue(openCrossing())
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
 
     // After a human acknowledges it, there are no open crossings → DONE flows.
     findOpen.mockResolvedValue([])
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
+      'w-1',
       expect.objectContaining({ status: 'DONE' })
     )
   })
@@ -139,15 +146,20 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
     // DEFAULT ON: with the toggle at its default (true) an open crossing blocks.
     findOpen.mockResolvedValue(openCrossing())
     gateEnabled.mockResolvedValue(true)
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
 
     // OPT OUT: turn the toggle off → the same open crossing no longer blocks DONE.
     gateEnabled.mockResolvedValue(false)
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
+      'w-1',
       expect.objectContaining({ status: 'DONE' })
     )
   })
@@ -165,14 +177,18 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
     // Opted OUT — yet a HIGH crossing still blocks (the opt-out is a noise
     // escape hatch, not a licence to ship the most dangerous actions unreviewed).
     gateEnabled.mockResolvedValue(false)
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
 
     // Still clearable by a human — once dispositioned there are no open
     // crossings, and DONE flows (it's "a human must look", not a hard wall).
     findOpen.mockResolvedValue([])
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
   })
 
   it('a MEDIUM/LOW open crossing still honours the opt-out (LUM-442)', async () => {
@@ -186,19 +202,25 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
       },
     ])
     gateEnabled.mockResolvedValue(false)
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
   })
 
   it('short-circuits free when there are no open crossings (never reads the toggle)', async () => {
     findOpen.mockResolvedValue([])
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(gateEnabled).not.toHaveBeenCalled()
   })
 
   it('a human override (overrideDoneGate) sails past an open crossing', async () => {
     findOpen.mockResolvedValue(openCrossing())
     await expect(
-      updateTask('t-1', { status: 'DONE' }, null, { overrideDoneGate: true })
+      updateTask('t-1', 'w-1', { status: 'DONE' }, null, {
+        overrideDoneGate: true,
+      })
     ).resolves.toBeDefined()
     expect(findOpen).not.toHaveBeenCalled()
   })
@@ -212,7 +234,7 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
       teamId: 'team-1',
     })
     await expect(
-      updateTask('t-1', { status: 'IN_PROGRESS' })
+      updateTask('t-1', 'w-1', { status: 'IN_PROGRESS' })
     ).resolves.toBeDefined()
     expect(findOpen).not.toHaveBeenCalled()
   })
@@ -252,7 +274,7 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
       },
     ])
 
-    const err = await updateTask('t-1', { status: 'DONE' }).catch(e => e)
+    const err = await updateTask('t-1', 'w-1', { status: 'DONE' }).catch(e => e)
     expect(err.status).toBe(409)
     const msg = err.message as string
 
@@ -294,7 +316,7 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
       },
     ])
 
-    const err = await updateTask('t-1', { status: 'DONE' }).catch(e => e)
+    const err = await updateTask('t-1', 'w-1', { status: 'DONE' }).catch(e => e)
     expect(err.status).toBe(409)
     const msg = err.message as string
     // Both distinct categories are named, each with its own count, total = 3.
@@ -319,11 +341,11 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
       ])
       gateEnabled.mockResolvedValue(true)
 
-      await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject(
-        {
-          status: 409,
-        }
-      )
+      await expect(
+        updateTask('t-1', 'w-1', { status: 'DONE' })
+      ).rejects.toMatchObject({
+        status: 409,
+      })
       expect(update).not.toHaveBeenCalled()
     })
 
@@ -340,17 +362,20 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
         },
       ])
       gateEnabled.mockResolvedValue(true)
-      await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject(
-        {
-          status: 409,
-        }
-      )
+      await expect(
+        updateTask('t-1', 'w-1', { status: 'DONE' })
+      ).rejects.toMatchObject({
+        status: 409,
+      })
 
       // After a human disposes the crossing → no open crossings → DONE flows.
       findOpen.mockResolvedValue([])
-      await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+      await expect(
+        updateTask('t-1', 'w-1', { status: 'DONE' })
+      ).resolves.toBeDefined()
       expect(update).toHaveBeenCalledWith(
         't-1',
+        'w-1',
         expect.objectContaining({ status: 'DONE' })
       )
     })
@@ -368,7 +393,9 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
       ])
       // Gate disabled → MEDIUM crossing no longer blocks DONE.
       gateEnabled.mockResolvedValue(false)
-      await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+      await expect(
+        updateTask('t-1', 'w-1', { status: 'DONE' })
+      ).resolves.toBeDefined()
     })
   })
 })

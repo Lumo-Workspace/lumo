@@ -116,6 +116,7 @@ async function seedTask(ws: string, number: number, deleted = false) {
       number,
       title: `${ws} task ${number}`,
       projectId: `proj-${ws}`,
+      workspaceId: ws,
       teamId: `team-${ws}`,
       ...(deleted ? { deletedAt: new Date() } : {}),
     },

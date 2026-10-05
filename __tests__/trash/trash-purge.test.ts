@@ -81,6 +81,7 @@ async function task(id: string) {
       number: ++nextNumber,
       title: id,
       projectId: 'proj_purge',
+      workspaceId: WS,
       teamId: 'team_purge',
     },
   })

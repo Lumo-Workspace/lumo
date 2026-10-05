@@ -70,6 +70,7 @@ async function seed() {
         number,
         title,
         projectId: 'proj_trash',
+        workspaceId: WS,
         teamId: 'team_trash',
         assigneeActorId: ACTOR,
       },

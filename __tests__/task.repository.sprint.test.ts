@@ -17,18 +17,18 @@ beforeEach(() => jest.clearAllMocks())
 describe('taskRepository.updateSprint', () => {
   it('updates single task.sprintId', async () => {
     mockUpdate.mockResolvedValueOnce({ id: 't1', sprintId: 's1' })
-    await taskRepository.updateSprint('t1', 's1')
+    await taskRepository.updateSprint('t1', 'w1', 's1')
     expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 't1' },
+      where: { id: 't1', workspaceId: 'w1' },
       data: { sprintId: 's1' },
     })
   })
 
   it('accepts null to clear sprint', async () => {
     mockUpdate.mockResolvedValueOnce({ id: 't1', sprintId: null })
-    await taskRepository.updateSprint('t1', null)
+    await taskRepository.updateSprint('t1', 'w1', null)
     expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 't1' },
+      where: { id: 't1', workspaceId: 'w1' },
       data: { sprintId: null },
     })
   })

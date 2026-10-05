@@ -171,7 +171,9 @@ describe('TEST_TAMPERING — LUM-435 disposition model (LUM-441 criterion 3)', (
     expect(mockServiceDisposition).not.toHaveBeenCalled()
 
     // OPEN crossing blocks DONE with 409.
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
     expect(update).not.toHaveBeenCalled()
@@ -184,9 +186,12 @@ describe('TEST_TAMPERING — LUM-435 disposition model (LUM-441 criterion 3)', (
       'member-1',
       new Date()
     )
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
+      'w-1',
       expect.objectContaining({ status: 'DONE' })
     )
 
@@ -200,7 +205,9 @@ describe('TEST_TAMPERING — LUM-435 disposition model (LUM-441 criterion 3)', (
       },
     ]
     update.mockClear()
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
     await boundaryCrossingRepository.disposition(
@@ -210,9 +217,12 @@ describe('TEST_TAMPERING — LUM-435 disposition model (LUM-441 criterion 3)', (
       'member-1',
       new Date()
     )
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
+      'w-1',
       expect.objectContaining({ status: 'DONE' })
     )
   })

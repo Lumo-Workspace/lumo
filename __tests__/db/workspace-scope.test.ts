@@ -166,9 +166,23 @@ describe('findScopeViolation — creates and upserts', () => {
 
   it('models without a direct workspaceId column are not checked', () => {
     expect(
-      findScopeViolation('Task', 'findUnique', { where: { id: 't' } })
+      findScopeViolation('Comment', 'findUnique', { where: { id: 'c' } })
     ).toBeNull()
     expect(findScopeViolation('Workspace', 'findMany', {})).toBeNull()
+  })
+
+  it('checks Task directly since LUM-992 denormalized Task.workspaceId', () => {
+    expect(
+      findScopeViolation('Task', 'findUnique', { where: { id: 't' } })
+    ).toMatch(/Task\.findUnique/)
+    expect(
+      findScopeViolation('Task', 'findUnique', {
+        where: { id: 't', workspaceId: 'w' },
+      })
+    ).toBeNull()
+    expect(
+      findScopeViolation('Task', 'create', { data: { projectId: 'p' } })
+    ).toMatch(/no workspaceId/)
   })
 })
 
@@ -299,10 +313,15 @@ describe('withWorkspaceScope — extension callback', () => {
     await expect(
       hook()({ model: 'Document', operation: 'findMany', args, query })
     ).resolves.toBe(args)
-    const taskArgs = { where: { id: 't' } }
+    const commentArgs = { where: { id: 'c' } }
     await expect(
-      hook()({ model: 'Task', operation: 'findUnique', args: taskArgs, query })
-    ).resolves.toBe(taskArgs)
+      hook()({
+        model: 'Comment',
+        operation: 'findUnique',
+        args: commentArgs,
+        query,
+      })
+    ).resolves.toBe(commentArgs)
   })
 })
 

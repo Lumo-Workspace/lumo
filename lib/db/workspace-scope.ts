@@ -24,9 +24,10 @@ import { logger } from '@/lib/logger'
  * crons, webhooks, export/deletion, backfills) use `unscoped('<reason>')` —
  * explicit, greppable, logged.
  *
- * Not checked: models scoped only through a relation (Task → Project), nested
- * relation reads/writes, raw SQL, and a `tx` handed in from a transaction
- * opened on the plain client.
+ * Not checked: models scoped only through a relation (e.g. Comment → Task),
+ * nested relation reads/writes, raw SQL, and a `tx` handed in from a
+ * transaction opened on the plain client. (Task itself is checked since
+ * LUM-992 denormalized `Task.workspaceId`.)
  *
  * On a violation: throw in dev/test; in production log and let the query run
  * (a throw on a missed legitimate system path would be an outage). Override
@@ -73,6 +74,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'Session',
   'SlackIntegration',
   'Tag',
+  'Task',
   'TaskArtifact',
   'TaskAttributionSegment',
   'TaskDependency',

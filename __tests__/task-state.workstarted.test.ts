@@ -66,17 +66,18 @@ describe('workStartedAt set-once (LUM-437)', () => {
     })
 
     const before = new Date()
-    const result = await updateTask('t-1', { status: 'IN_PROGRESS' })
+    const result = await updateTask('t-1', 'w-1', { status: 'IN_PROGRESS' })
     const after = new Date()
 
     // update() must have been called with a non-null workStartedAt
     expect(update).toHaveBeenCalledWith(
       't-1',
+      'w-1',
       expect.objectContaining({ workStartedAt: expect.any(Date) })
     )
 
     // The returned task carries a workStartedAt in range
-    const stamped = (update.mock.calls[0][1] as Record<string, unknown>)
+    const stamped = (update.mock.calls[0][2] as Record<string, unknown>)
       .workStartedAt as Date
     expect(stamped.getTime()).toBeGreaterThanOrEqual(before.getTime())
     expect(stamped.getTime()).toBeLessThanOrEqual(after.getTime())
@@ -95,9 +96,9 @@ describe('workStartedAt set-once (LUM-437)', () => {
       workStartedAt: T0,
     })
 
-    await updateTask('t-1', { status: 'IN_PROGRESS' })
+    await updateTask('t-1', 'w-1', { status: 'IN_PROGRESS' })
 
-    const callData = update.mock.calls[0][1] as Record<string, unknown>
+    const callData = update.mock.calls[0][2] as Record<string, unknown>
     // The hook guard (task.workStartedAt == null) must prevent writing a new stamp.
     expect(callData).not.toHaveProperty('workStartedAt')
   })

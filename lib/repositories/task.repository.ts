@@ -1,6 +1,10 @@
-// LUM-979: Task itself is scoped through its project (not checked in v1);
-// the directly-scoped models read here (Actor, Team) are.
-import { scopedPrisma as prisma } from '@/lib/db/workspace-scope'
+// LUM-979 + LUM-992: every Task query here runs through the workspace-scope
+// check (Task carries a denormalized `workspaceId` since LUM-992). A method
+// either pins the caller's workspace or names its cross-tenant reason with
+// `unscoped(...)`: tenant resolution (load by bare id to find the workspace
+// BEFORE the membership check), a system job, or a "LUM-992 follow-up" read
+// that is still scoped only by a parent id the caller already authorized.
+import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
 import { Prisma as PrismaSql } from '@prisma/client'
 import type {
   Prisma,
@@ -14,6 +18,23 @@ import {
 } from '@/lib/security-scan/storage-redaction'
 
 export const WORKSPACE_TASK_QUERY_LIMIT = 500
+
+/** Load a task by bare id to learn its workspace before the access check. */
+const TENANT_RESOLUTION =
+  'tenant resolution: task loaded by id to find its workspace before the membership check'
+
+/** A background/system path that starts from a bare task id. */
+function systemJob(what: string) {
+  return unscoped(`system job: ${what}`)
+}
+
+/**
+ * Still scoped only through a parent (project / sprint / milestone / team /
+ * actor) the caller authorized; threading `workspaceId` is LUM-992 follow-up.
+ */
+function followUp(what: string) {
+  return unscoped(`LUM-992 follow-up: ${what}`)
+}
 
 export interface WorkspaceTaskFilters {
   projectIds?: string[] | undefined
@@ -426,7 +447,7 @@ const TASK_ASSIGNED_INCLUDE = {
 export const taskRepository = {
   /** Find a task by ID with full detail relations. */
   async findById(id: string) {
-    return prisma.task.findUnique({
+    return unscoped(TENANT_RESOLUTION).task.findUnique({
       where: { id },
       include: TASK_DETAIL_INCLUDE,
     })
@@ -439,7 +460,9 @@ export const taskRepository = {
    * freshness axes without reloading each task (judgeTask reloads full inputs).
    */
   async listFaithfulnessCandidates() {
-    const rows = await prisma.task.findMany({
+    const rows = await systemJob(
+      'claim-faithfulness sweep scans every workspace'
+    ).task.findMany({
       where: { status: { in: ['DONE', 'IN_REVIEW'] } },
       select: {
         id: true,
@@ -466,7 +489,9 @@ export const taskRepository = {
    * session-start path. Returns null when the task doesn't exist.
    */
   async getStatus(id: string): Promise<TaskStatus | null> {
-    const row = await prisma.task.findUnique({
+    const row = await followUp(
+      'lineage birth-time status read by task id'
+    ).task.findUnique({
       where: { id },
       select: { status: true },
     })
@@ -478,7 +503,9 @@ export const taskRepository = {
    * Returns null when the task doesn't exist.
    */
   async getTitleAndStatus(taskId: string) {
-    return prisma.task.findUnique({
+    return systemJob(
+      'run-summary / memory curation / fragment-usage audit start from a task id'
+    ).task.findUnique({
       where: { id: taskId },
       select: {
         title: true,
@@ -508,7 +535,7 @@ export const taskRepository = {
       at: Date
     }
   ) {
-    return prisma.task.update({
+    return systemJob('claim-snapshot synthesis worker').task.update({
       where: { id: taskId },
       data: {
         ...redactStoredFields(
@@ -529,7 +556,9 @@ export const taskRepository = {
    * the live latest-session claim). Returns null only when the task is gone.
    */
   async loadClaimSnapshot(taskId: string) {
-    return prisma.task.findUnique({
+    return followUp(
+      'claim snapshot read (snapshot worker + task status read model)'
+    ).task.findUnique({
       where: { id: taskId },
       select: {
         claimSnapshot: true,
@@ -539,18 +568,21 @@ export const taskRepository = {
     })
   },
 
-  /** Find a task by ID with update-related relations (project + team). */
   /** LUM-970: just the stored (HTML) description, for `task decide`. */
-  async findDescription(id: string) {
+  async findDescription(id: string, workspaceId: string) {
     return prisma.task.findUnique({
-      where: { id },
+      where: { id, workspaceId },
       select: { description: true },
     })
   },
 
-  async findForUpdate(id: string) {
+  /**
+   * Find a task by ID with update-related relations (project + team), within
+   * `workspaceId`: another workspace's task reads as missing (LUM-992).
+   */
+  async findForUpdate(id: string, workspaceId: string) {
     return prisma.task.findUnique({
-      where: { id },
+      where: { id, workspaceId },
       include: TASK_UPDATE_INCLUDE,
     })
   },
@@ -561,10 +593,10 @@ export const taskRepository = {
    * `ids` is empty. Used by quick-dispatch to pre-fetch all tasks in a batch
    * with one query instead of fetching per-action.
    */
-  async findManyForUpdate(ids: string[]) {
+  async findManyForUpdate(ids: string[], workspaceId: string) {
     if (ids.length === 0) return new Map<string, never>()
     const rows = await prisma.task.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, workspaceId },
       include: TASK_UPDATE_INCLUDE,
     })
     return new Map(rows.map(row => [row.id, row]))
@@ -572,7 +604,10 @@ export const taskRepository = {
 
   /** Find a task by ID with only the project relation (for auth checks). */
   async findWithProject(id: string) {
-    return prisma.task.findUnique({ where: { id }, include: { project: true } })
+    return unscoped(TENANT_RESOLUTION).task.findUnique({
+      where: { id },
+      include: { project: true },
+    })
   },
 
   /**
@@ -586,6 +621,7 @@ export const taskRepository = {
   ) {
     return prisma.task.findFirst({
       where: {
+        workspaceId,
         number,
         team: { identifier: teamIdentifier, workspaceId },
       },
@@ -598,16 +634,22 @@ export const taskRepository = {
    * that already resolved the task use this instead of a full detail fetch.
    */
   async findHeaderById(id: string) {
-    return prisma.task.findUnique({
+    return followUp(
+      'header by task id (status read model, security reminder, remediation link)'
+    ).task.findUnique({
       where: { id },
       select: TASK_IDENTIFIER_SELECT,
     })
   },
 
-  /** Update a task's fields. */
-  async update(id: string, data: TaskUpdateData) {
+  /**
+   * Update a task's fields within `workspaceId` (another workspace's id is
+   * P2025). A `projectId` in `data` must be a project of the same workspace —
+   * the service validates it and the DB trigger rejects a mismatch.
+   */
+  async update(id: string, workspaceId: string, data: TaskUpdateData) {
     return prisma.task.update({
-      where: { id },
+      where: { id, workspaceId },
       data: redactStoredFields(
         data,
         STORAGE_REDACTED_FIELDS.task
@@ -619,27 +661,30 @@ export const taskRepository = {
     })
   },
 
-  /** Delete a task by ID. */
-  async delete(id: string) {
-    await prisma.task.delete({ where: { id } })
+  /** Delete a task by ID within `workspaceId`. */
+  async delete(id: string, workspaceId: string) {
+    await prisma.task.delete({ where: { id, workspaceId } })
   },
 
-  /** Find task status by ID (lightweight query for state machine). */
-  async findStatus(id: string) {
-    return prisma.task.findUnique({ where: { id }, select: { status: true } })
-  },
-
-  /** Find a task with agent-related fields and workspace check. Used by cancel, resume, status, confirm-spec, and respond routes. */
-  async findForAgent(id: string) {
+  /** Find task status by ID (lightweight query for state machine), within `workspaceId`. */
+  async findStatus(id: string, workspaceId: string) {
     return prisma.task.findUnique({
-      where: { id },
+      where: { id, workspaceId },
+      select: { status: true },
+    })
+  },
+
+  /** Find a task with agent-related fields, within `workspaceId`. Used by cancel, resume, status, confirm-spec, and respond routes. */
+  async findForAgent(id: string, workspaceId: string) {
+    return prisma.task.findUnique({
+      where: { id, workspaceId },
       select: TASK_AGENT_SELECT,
     })
   },
 
-  /** Find only the projectId for a task. Used by mcp-clarify. */
+  /** Find only the projectId for a task (security-hunt task context). */
   async findProjectId(id: string) {
-    return prisma.task.findUnique({
+    return systemJob('security hunt reads the task project').task.findUnique({
       where: { id },
       select: { projectId: true },
     })
@@ -651,24 +696,24 @@ export const taskRepository = {
    * project + workspace IDs needed to write Memory rows.
    */
   async findForMemoryContext(id: string) {
-    return prisma.task.findUnique({
+    return systemJob('Layer 1 memory extraction').task.findUnique({
       where: { id },
       select: TASK_MEMORY_CONTEXT_SELECT,
     })
   },
 
-  /** Clear agentError on a task. */
-  async clearAgentError(id: string) {
+  /** Clear agentError on a task within `workspaceId`. */
+  async clearAgentError(id: string, workspaceId: string) {
     return prisma.task.update({
-      where: { id },
+      where: { id, workspaceId },
       data: { agentError: null },
     })
   },
 
-  /** Save a confirmed spec and clear agentError. */
-  async updateSpec(id: string, spec: string) {
+  /** Save a confirmed spec and clear agentError, within `workspaceId`. */
+  async updateSpec(id: string, workspaceId: string, spec: string) {
     return prisma.task.update({
-      where: { id },
+      where: { id, workspaceId },
       data: {
         ...redactStoredFields({ spec }, STORAGE_REDACTED_FIELDS.task),
         agentError: null,
@@ -676,15 +721,16 @@ export const taskRepository = {
     })
   },
 
-  /** Update a single task's sprintId. */
+  /** Update a single task's sprintId, within `workspaceId`. */
   async updateSprint(
     taskId: string,
+    workspaceId: string,
     sprintId: string | null,
     tx?: Prisma.TransactionClient
   ) {
     const client = tx ?? prisma
     return client.task.update({
-      where: { id: taskId },
+      where: { id: taskId, workspaceId },
       data: { sprintId },
     })
   },
@@ -695,7 +741,7 @@ export const taskRepository = {
     sprintId: string | null,
     tx?: Prisma.TransactionClient
   ) {
-    const client = tx ?? prisma
+    const client = tx ?? followUp('sprint spillover by task ids')
     return client.task.updateMany({
       where: { id: { in: taskIds } },
       data: { sprintId },
@@ -707,7 +753,7 @@ export const taskRepository = {
     actorId: string,
     opts: { sprintIds?: string[] } = {}
   ) {
-    return prisma.task.findMany({
+    return followUp('tasks assigned to an actor').task.findMany({
       where: {
         assigneeActorId: actorId,
         ...(opts.sprintIds?.length ? { sprintId: { in: opts.sprintIds } } : {}),
@@ -719,7 +765,7 @@ export const taskRepository = {
 
   /** Lightweight summary of tasks assigned to an actor — for Quick Dispatch AI context. */
   async findAssignedTasksSummary(actorId: string) {
-    return prisma.task.findMany({
+    return followUp('tasks assigned to an actor').task.findMany({
       where: { assigneeActorId: actorId },
       select: {
         id: true,
@@ -735,7 +781,7 @@ export const taskRepository = {
 
   /** Find tasks for duplicate checking (recent 200 tasks in a project). */
   async findForDuplicateCheck(projectId: string) {
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized project').task.findMany({
       where: { projectId },
       select: TASK_DUPLICATE_CHECK_SELECT,
       orderBy: { updatedAt: 'desc' },
@@ -745,7 +791,7 @@ export const taskRepository = {
 
   /** Find recent tasks in a project (for AI context). */
   async findRecentByProject(projectId: string, take: number) {
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized project').task.findMany({
       where: { projectId },
       select: { title: true, description: true },
       orderBy: { createdAt: 'desc' },
@@ -755,7 +801,7 @@ export const taskRepository = {
 
   /** Find historical tasks with priority info (for AI priority suggestion). */
   async findHistoricalByProject(projectId: string, take: number) {
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized project').task.findMany({
       where: { projectId },
       select: { id: true, number: true, title: true, priority: true },
       orderBy: { createdAt: 'desc' },
@@ -765,7 +811,9 @@ export const taskRepository = {
 
   /** LUM-923: true only when the task exists and sits in the trash. */
   async isTrashed(id: string): Promise<boolean> {
-    const n = await prisma.task.count({
+    const n = await systemJob(
+      'boundary detector checks the trash by task id'
+    ).task.count({
       where: { id, deletedAt: { not: null } },
     })
     return n > 0
@@ -773,7 +821,7 @@ export const taskRepository = {
 
   /** Find a task by ID with only project workspaceId (for auth checks). */
   async findWithProjectWorkspaceId(id: string) {
-    return prisma.task.findUnique({
+    return unscoped(TENANT_RESOLUTION).task.findUnique({
       where: { id },
       include: TASK_AUTH_INCLUDE,
     })
@@ -781,7 +829,7 @@ export const taskRepository = {
 
   /** Find a task with comment-creation fields (id, projectId, number, title, team, project workspace). */
   async findForComment(id: string) {
-    return prisma.task.findUnique({
+    return unscoped(TENANT_RESOLUTION).task.findUnique({
       where: { id },
       select: TASK_COMMENT_SELECT,
     })
@@ -803,7 +851,7 @@ export const taskRepository = {
     if (milestoneId !== undefined) {
       where.milestoneId = milestoneId === null ? null : milestoneId
     }
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized project').task.findMany({
       where,
       include: TASK_LIST_INCLUDE,
       orderBy: { order: 'asc' },
@@ -818,9 +866,7 @@ export const taskRepository = {
     workspaceId: string,
     filters: WorkspaceTaskFilters = {}
   ) {
-    const where: Prisma.TaskWhereInput = {
-      project: { workspaceId },
-    }
+    const where: Prisma.TaskWhereInput = { workspaceId }
     if (filters.projectIds?.length) {
       where.projectId = { in: filters.projectIds }
     }
@@ -950,7 +996,7 @@ export const taskRepository = {
     if (opts.assigneeActorId) {
       where.assigneeActorId = opts.assigneeActorId
     }
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized milestone').task.findMany({
       where,
       include: TASK_ASSIGNED_INCLUDE,
       orderBy: { order: 'asc' },
@@ -964,7 +1010,7 @@ export const taskRepository = {
    * serve MyTask-shaped callers (TaskWorkspace view on the sprint page).
    */
   async findBySprint(sprintId: string) {
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized sprint').task.findMany({
       where: { sprintId },
       include: {
         ...TASK_LIST_INCLUDE,
@@ -989,7 +1035,7 @@ export const taskRepository = {
     if (sprintId !== undefined) {
       where.sprintId = sprintId === null ? null : sprintId
     }
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized team').task.findMany({
       where,
       include: TASK_LIST_INCLUDE,
       orderBy: { order: 'asc' },
@@ -998,7 +1044,7 @@ export const taskRepository = {
 
   /** Find the max order among a project's tasks. */
   async findMaxOrder(projectId: string) {
-    return prisma.task.findFirst({
+    return followUp('tasks of an authorized project').task.findFirst({
       where: { projectId },
       orderBy: { order: 'desc' },
       select: { order: true },
@@ -1051,6 +1097,9 @@ export const taskRepository = {
       const task = await tx.task.create({
         data: {
           projectId: data.projectId,
+          // LUM-992: the project's workspace. The DB trigger rejects a
+          // project from another workspace.
+          workspaceId: data.workspaceId,
           teamId: data.teamId,
           number: taskSeq,
           ...redactStoredFields(
@@ -1073,7 +1122,7 @@ export const taskRepository = {
 
     // Re-fetch with includes outside transaction for proper type inference
     const task = await prisma.task.findUniqueOrThrow({
-      where: { id: taskId },
+      where: { id: taskId, workspaceId: data.workspaceId },
       include: {
         team: { select: { identifier: true } },
         assignee: {
@@ -1100,7 +1149,7 @@ export const taskRepository = {
    */
   async findByIdForMention(id: string, workspaceId: string) {
     return prisma.task.findFirst({
-      where: { id, team: { workspaceId } },
+      where: { id, workspaceId },
       select: {
         id: true,
         number: true,
@@ -1117,7 +1166,7 @@ export const taskRepository = {
    * and membership without loading unrelated fields.
    */
   async findMinimalById(taskId: string, tx?: Prisma.TransactionClient) {
-    const client = tx ?? prisma
+    const client = tx ?? followUp('sprint add/remove by task id')
     return client.task.findUnique({
       where: { id: taskId },
       select: TASK_MINIMAL_SELECT,
@@ -1142,7 +1191,7 @@ export const taskRepository = {
    * spillover decisions before delegating to the transactional close.
    */
   async listUnfinishedIdsBySprint(sprintId: string): Promise<{ id: string }[]> {
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized sprint').task.findMany({
       where: { sprintId, status: { not: 'DONE' } },
       select: { id: true },
     })
@@ -1153,7 +1202,7 @@ export const taskRepository = {
    * Used by sprintSummaryRepository.computeStatsData().
    */
   async listBySprintForStats(sprintId: string, tx?: Prisma.TransactionClient) {
-    const client = tx ?? prisma
+    const client = tx ?? followUp('tasks of an authorized sprint')
     return client.task.findMany({
       where: { sprintId },
       select: {
@@ -1174,7 +1223,7 @@ export const taskRepository = {
     milestoneId: string,
     tx?: Prisma.TransactionClient
   ) {
-    const client = tx ?? prisma
+    const client = tx ?? followUp('tasks of an authorized milestone')
     return client.task.findMany({
       where: { milestoneId },
       select: {
@@ -1195,7 +1244,7 @@ export const taskRepository = {
    * completedAt column) for newest-first ordering.
    */
   async listByMilestoneForChangelog(milestoneId: string) {
-    return prisma.task.findMany({
+    return followUp('tasks of an authorized milestone').task.findMany({
       where: { milestoneId },
       select: {
         id: true,
@@ -1222,7 +1271,7 @@ export const taskRepository = {
     milestoneIds: string[]
   ): Promise<Array<{ milestoneId: string; count: number }>> {
     if (milestoneIds.length === 0) return []
-    const rows = await prisma.task.groupBy({
+    const rows = await followUp('tasks of authorized milestones').task.groupBy({
       by: ['milestoneId'],
       where: { milestoneId: { in: milestoneIds }, status: 'DONE' },
       _count: { _all: true },
@@ -1240,7 +1289,7 @@ export const taskRepository = {
    * have no standalone entity, so the cached summary lives on Task.
    */
   async updateCommentsSummary(taskId: string, summary: string) {
-    return prisma.task.update({
+    return systemJob('background comment-summary cache write').task.update({
       where: { id: taskId },
       data: {
         ...redactStoredFields(
@@ -1263,7 +1312,7 @@ export const taskRepository = {
   ) {
     return prisma.task.findMany({
       where: {
-        project: { workspaceId },
+        workspaceId,
         OR: identifiers.map(p => ({
           number: p.number,
           team: { identifier: p.prefix },
