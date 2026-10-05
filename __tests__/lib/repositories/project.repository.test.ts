@@ -114,11 +114,11 @@ describe('findById', () => {
     }
     mockFindUnique.mockResolvedValue(mockProject)
 
-    const result = await projectRepository.findById('p1')
+    const result = await projectRepository.findById('p1', 'ws1')
 
     expect(result).toEqual(mockProject)
     expect(mockFindUnique).toHaveBeenCalledWith({
-      where: { id: 'p1' },
+      where: { id: 'p1', workspaceId: 'ws1' },
       include: {
         _count: {
           select: { tasks: { where: { deletedAt: null } }, views: true },
@@ -130,7 +130,7 @@ describe('findById', () => {
   it('returns null when project not found', async () => {
     mockFindUnique.mockResolvedValue(null)
 
-    const result = await projectRepository.findById('nonexistent')
+    const result = await projectRepository.findById('nonexistent', 'ws1')
 
     expect(result).toBeNull()
   })

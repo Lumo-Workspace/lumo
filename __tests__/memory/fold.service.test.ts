@@ -113,7 +113,7 @@ describe('foldService.triggerForProject is throttled by active-count floor and c
   it('stamps and computes (bounded) when over the high-water mark and past cooldown', async () => {
     overHighWater()
     await foldService.triggerForProject('proj-1')
-    expect(mStamp).toHaveBeenCalledWith('proj-1', expect.any(Date))
+    expect(mStamp).toHaveBeenCalledWith('proj-1', 'ws-1', expect.any(Date))
     // bounded compute: a per-run cluster cap is passed
     expect(mCompute).toHaveBeenCalledWith(
       'proj-1',

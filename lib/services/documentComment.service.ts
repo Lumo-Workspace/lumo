@@ -179,7 +179,9 @@ export const documentCommentService = {
           { status: 400 }
         )
       }
-      await documentRepository.update(docId, { content: input.content })
+      await documentRepository.update(docId, workspaceId, {
+        content: input.content,
+      })
     }
 
     // LUM-921: member/agent-authored HTML — store only the allowlisted subset.
@@ -287,7 +289,7 @@ export const documentCommentService = {
     if (!existing.parentId && doc.content) {
       const stripped = removeCommentSpan(doc.content, args.commentId)
       if (stripped !== doc.content) {
-        await documentRepository.update(existing.documentId, {
+        await documentRepository.update(existing.documentId, args.workspaceId, {
           content: stripped,
         })
       }

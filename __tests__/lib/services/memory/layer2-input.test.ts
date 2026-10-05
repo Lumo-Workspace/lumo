@@ -14,7 +14,7 @@ jest.mock('@/lib/services/memory/constitution', () => ({
 const mockFindById = jest.fn()
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
-    findById: (...a: unknown[]) => mockFindById(...(a as [])),
+    findByIdForSystemJob: (...a: unknown[]) => mockFindById(...(a as [])),
   },
 }))
 const mockRecentTaskMemories = jest.fn()

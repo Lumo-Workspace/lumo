@@ -39,7 +39,9 @@ export async function getMilestoneDistillInput(
   const milestone = await milestoneRepository.findById(milestoneId)
   if (!milestone) return null
 
-  const project = await projectRepository.findById(milestone.projectId)
+  const project = await projectRepository.findByIdForSystemJob(
+    milestone.projectId
+  )
   if (!project) return null
 
   const summary =

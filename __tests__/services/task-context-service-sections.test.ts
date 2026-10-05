@@ -388,14 +388,17 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
     // Stale + never-summarized are refreshed; the fresh one is not.
     expect(scheduleDocumentSummary).toHaveBeenCalledWith(
       'doc_stale',
+      'ws_1',
       expect.any(String)
     )
     expect(scheduleDocumentSummary).toHaveBeenCalledWith(
       'doc_never',
+      'ws_1',
       expect.any(String)
     )
     expect(scheduleDocumentSummary).not.toHaveBeenCalledWith(
       'doc_fresh',
+      expect.anything(),
       expect.anything()
     )
   })

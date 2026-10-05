@@ -84,7 +84,7 @@ describe('slack create command (LUM-920)', () => {
 
     expect(mockTx.team.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'team_1' },
+        where: { id: 'team_1', workspaceId: 'ws_1' },
         data: { taskSeq: { increment: 1 } },
       })
     )

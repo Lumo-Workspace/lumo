@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma'
+import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
 import type { Prisma } from '@prisma/client'
 import type { SecurityBaseline } from '@/lib/security-scan/types'
 
@@ -17,6 +17,17 @@ function projectVisibilityWhere(workspaceId: string, memberId: string) {
     OR: [{ isIdea: false }, { isIdea: true, createdByMemberId: memberId }],
   }
 }
+
+const PROJECT_COUNTS_INCLUDE = {
+  _count: {
+    select: { tasks: { where: { deletedAt: null } }, views: true },
+  },
+} as const
+
+// LUM-979: tenant-resolution lookups — the caller has only a project id and
+// authorizes against the returned row's workspaceId (404 on mismatch).
+const TENANT_RESOLUTION =
+  'tenant resolution: caller authorizes on the returned workspaceId'
 
 export const projectRepository = {
   /** Find all projects in workspace, filtered by member visibility (public + own ideas). */
@@ -72,15 +83,28 @@ export const projectRepository = {
     return map
   },
 
-  /** Find project by ID with task/view counts. */
-  async findById(id: string) {
+  /**
+   * Find project by ID with task/view counts, within `workspaceId` (LUM-979):
+   * another workspace's id reads as missing.
+   */
+  async findById(id: string, workspaceId: string) {
     return prisma.project.findUnique({
+      where: { id, workspaceId },
+      include: PROJECT_COUNTS_INCLUDE,
+    })
+  },
+
+  /**
+   * `findById` for background jobs that start from a bare project id (Layer-2
+   * memory consolidation, milestone-close distillation) — no caller workspace
+   * to scope to.
+   */
+  async findByIdForSystemJob(id: string) {
+    return unscoped(
+      'system job: memory consolidation/distillation starts from a bare project id'
+    ).project.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: { tasks: { where: { deletedAt: null } }, views: true },
-        },
-      },
+      include: PROJECT_COUNTS_INCLUDE,
     })
   },
 
@@ -126,9 +150,9 @@ export const projectRepository = {
    * owner's clerkId + actor.id so the service can flatten
    * to the same shape as listProjects/getProject.
    */
-  async update(id: string, data: ProjectUpdateData) {
+  async update(id: string, workspaceId: string, data: ProjectUpdateData) {
     return prisma.project.update({
-      where: { id },
+      where: { id, workspaceId },
       data,
       include: {
         owner: {
@@ -143,13 +167,13 @@ export const projectRepository = {
   },
 
   /** Delete project (cascades). */
-  async delete(id: string) {
-    await prisma.project.delete({ where: { id } })
+  async delete(id: string, workspaceId: string) {
+    await prisma.project.delete({ where: { id, workspaceId } })
   },
 
   /** Find project by ID (simple, no includes). */
   async findByIdSimple(id: string) {
-    return prisma.project.findUnique({ where: { id } })
+    return unscoped(TENANT_RESOLUTION).project.findUnique({ where: { id } })
   },
 
   /**
@@ -157,7 +181,7 @@ export const projectRepository = {
    * workspace-membership check on a project-scoped resource.
    */
   async findWorkspaceId(id: string) {
-    return prisma.project.findUnique({
+    return unscoped(TENANT_RESOLUTION).project.findUnique({
       where: { id },
       select: { workspaceId: true },
     })
@@ -165,23 +189,31 @@ export const projectRepository = {
 
   /** LUM-553 — workspace + fold-cooldown state for the autonomous fold pass. */
   async findFoldState(id: string) {
-    return prisma.project.findUnique({
+    return unscoped(
+      'system job: autonomous memory fold starts from a bare project id'
+    ).project.findUnique({
       where: { id },
       select: { workspaceId: true, lastMemoryFoldAttemptAt: true },
     })
   },
 
   /** LUM-553 — stamp the fold attempt time (cooldown anchor). */
-  async stampFoldAttempt(id: string, at: Date) {
+  async stampFoldAttempt(id: string, workspaceId: string, at: Date) {
     await prisma.project.update({
-      where: { id },
+      where: { id, workspaceId },
       data: { lastMemoryFoldAttemptAt: at },
     })
   },
 
-  /** Find project by ID with default owner and workspace slug. */
+  /**
+   * Find project by ID with default owner and workspace slug. Task creation
+   * (route, CLI, crossing remediation, Sentry webhook) has already resolved
+   * and authorized the project id by the time it gets here.
+   */
   async findByIdWithDefaults(id: string) {
-    return prisma.project.findUnique({
+    return unscoped(
+      'task creation: project id already resolved and authorized by the caller'
+    ).project.findUnique({
       where: { id },
       include: {
         owner: { select: { id: true } },

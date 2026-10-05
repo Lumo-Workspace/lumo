@@ -427,6 +427,7 @@ describe('documentRepository — sync preserves EXPLICIT', () => {
 
     await documentRepository.updateWithChildrenAndMentions(
       'doc1',
+      'ws1',
       {},
       undefined,
       ['t3']

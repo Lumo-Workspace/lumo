@@ -29,7 +29,7 @@ jest.mock('@/lib/services/memory/ground-candidates', () => ({
   ),
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: { findById: jest.fn() },
+  projectRepository: { findByIdForSystemJob: jest.fn() },
 }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
@@ -113,7 +113,7 @@ describe('layer2 consolidation — concurrent task completions', () => {
       releaseBarrier = resolve
     })
 
-    mockProjectRepo.findById.mockResolvedValue({
+    mockProjectRepo.findByIdForSystemJob.mockResolvedValue({
       id: 'proj_1',
       name: 'Test Project',
       workspaceId: 'ws_1',

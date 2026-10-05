@@ -89,7 +89,7 @@ export function dispatchCreateTaskSideEffects(opts: {
   // ── Fire-and-forget: notify assignee if task was created with one ─────────
   if (assigneeActorId) {
     taskRepository
-      .findActorWithMember(assigneeActorId)
+      .findActorWithMember(assigneeActorId, workspaceId)
       .then(actor => {
         if (!actor || actor.type !== 'HUMAN' || !actor.member) return
         if (actor.member.clerkId === actorClerkId) return

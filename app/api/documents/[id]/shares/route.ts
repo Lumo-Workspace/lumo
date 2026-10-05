@@ -55,6 +55,7 @@ export async function POST(
 
   const share = await documentRepository.upsertShareTransaction(
     doc.id,
+    identity.workspaceId,
     parsed.data.memberId,
     parsed.data.role,
     doc.visibility
