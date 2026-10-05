@@ -105,9 +105,15 @@ describe('LUM-906 invite email binding', () => {
     mockFindByTokenWithWorkspace.mockResolvedValue(
       pendingInvite('Alice@Acme.com')
     )
-    await expect(
-      inviteService.acceptInvite('tok-1', 'clerk-alice', ['ALICE@acme.COM'])
-    ).resolves.toMatchObject({ alreadyMember: false })
+    const result = await inviteService.acceptInvite(
+      'tok-1',
+      'clerk-alice',
+      ['ALICE@acme.COM'],
+      AUDIT
+    )
+
+    expect(result).toEqual({ workspaceSlug: 'acme', alreadyMember: false })
+    expect(mockAcceptInTransaction).toHaveBeenCalledTimes(1)
   })
 
   it('invite binding lets an existing member land on the workspace whatever their email', async () => {
