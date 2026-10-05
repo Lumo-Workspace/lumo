@@ -96,7 +96,10 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import {
+  distinctFingerprint,
+  prSecurityScanService,
+} from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
@@ -361,5 +364,36 @@ describe('LUM-988 AI review — changed-file context', () => {
     expect(meta.judgeStatus).toBe('SKIPPED')
     expect(readRepoFile).not.toHaveBeenCalled()
     expect(readRepoFileWithToken).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-988 distinctFingerprint', () => {
+  it('keeps the first key stable and gives each repeat in a scan its own key', () => {
+    const seen = new Map<string, number>()
+    const a = distinctFingerprint('abcdef0123456789', seen)
+    const b = distinctFingerprint('abcdef0123456789', seen)
+    const c = distinctFingerprint('abcdef0123456789', seen)
+    const other = distinctFingerprint('0000000000000000', seen)
+    expect(a).toBe('abcdef0123456789')
+    expect(new Set([a, b, c]).size).toBe(3)
+    expect(b).toMatch(/^[0-9a-f]{16}$/)
+    expect(other).toBe('0000000000000000')
+    // Deterministic: the same repeat gets the same key on the next push.
+    const again = new Map<string, number>()
+    distinctFingerprint('abcdef0123456789', again)
+    expect(distinctFingerprint('abcdef0123456789', again)).toBe(b)
+  })
+
+  it('stores two problems of one rule on one quoted line under different fingerprints', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [BUG, { ...BUG, title: 'Off-by-one on the same line' }],
+    })
+
+    await runScan()
+
+    const rows = repo.persistResult.mock.calls[0]![1]
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.fingerprint).not.toBe(rows[1]!.fingerprint)
   })
 })

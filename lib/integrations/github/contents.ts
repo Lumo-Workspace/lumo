@@ -77,7 +77,9 @@ export async function withRepoReadToken<T>(
   try {
     return await fn(token)
   } finally {
-    await revokeInstallationToken(token)
+    // Never throws by contract; guarded so a future change cannot turn
+    // cleanup into a lost result. The token expires on its own anyway.
+    await revokeInstallationToken(token).catch(() => false)
   }
 }
 

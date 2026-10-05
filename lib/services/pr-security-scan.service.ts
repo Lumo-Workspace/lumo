@@ -9,6 +9,7 @@
  * Secrets never reach a row: scanSecrets redacts before returning, and every
  * free-text field the LLM judge authors goes through redactKnownSecrets.
  */
+import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
 import {
   recordAuditEvent,
@@ -487,6 +488,21 @@ async function hasOpenL4Crossing(taskId: string | null): Promise<boolean> {
 
 // ── Service ──────────────────────────────────────────────────────────────────
 
+/**
+ * LUM-988 — `fp` the first time it is seen in `seen`, then a key derived
+ * from `fp` + its ordinal (`judgeFindingFingerprint` collides for two
+ * problems of one rule on one quoted line). Same 16-hex shape as every key.
+ */
+export function distinctFingerprint(
+  fp: string,
+  seen: Map<string, number>
+): string {
+  const n = (seen.get(fp) ?? 0) + 1
+  seen.set(fp, n)
+  if (n === 1) return fp
+  return createHash('sha256').update(`${fp}#${n}`).digest('hex').slice(0, 16)
+}
+
 export const prSecurityScanService = {
   async run(input: {
     pullRequestId: string
@@ -864,6 +880,11 @@ export const prSecurityScanService = {
           // Model text headed for a public PR: redacted and neutralised here,
           // and again on read (`parsePrSummary`).
           prSummary = cleanPrSummary(rawSummary)
+          // LUM-988: the evidence-line key can repeat inside one scan — two
+          // different problems of the same rule quoting the same line. The
+          // first keeps the stable key; each repeat gets an ordinal on it, so
+          // a human's disposition on one never silences the other.
+          const seenFingerprints = new Map<string, number>()
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
             // LUM-988: a correctness finding is CORRECTNESS / `review:<kind>`,
@@ -903,11 +924,9 @@ export const prSecurityScanService = {
               detail: redactKnownSecrets(j.detail),
               evidence,
               // LUM-988: keyed on the quoted line, not the re-worded title.
-              fingerprint: judgeFindingFingerprint(
-                ruleId,
-                filePath,
-                evidence,
-                title
+              fingerprint: distinctFingerprint(
+                judgeFindingFingerprint(ruleId, filePath, evidence, title),
+                seenFingerprints
               ),
               externalRef: null,
               disposition: null,

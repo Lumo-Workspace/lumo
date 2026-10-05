@@ -55,6 +55,7 @@ import {
   formatHuntProgress,
   formatJudgeOverCap,
   formatTurnedOffNote,
+  isCodeReviewFinding,
   isOwnedUnfinished,
   scanCoverageState,
   turnedOffLayers,
@@ -794,7 +795,8 @@ export const securityPrReviewService = {
         partialCauses: scan.partialCauses ?? [],
         externalCounts,
         open: open.length,
-        openBugs: open.filter(f => f.kind === 'CORRECTNESS').length,
+        // Same predicate as every other surface (CORRECTNESS ⇔ review:).
+        openBugs: open.filter(f => isCodeReviewFinding(f.ruleId)).length,
         blocking,
         ...(dependencies ? { dependencies } : {}),
         low,
