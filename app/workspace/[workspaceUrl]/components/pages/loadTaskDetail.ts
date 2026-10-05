@@ -23,7 +23,10 @@ import { prisma } from '@/lib/db/prisma'
 export const loadTaskDetail = cache(
   async (workspaceUrl: string, identifier: string, userId: string) => {
     const workspace = await prisma.workspace.findFirst({
-      where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
+      where: {
+        slug: workspaceUrl,
+        members: { some: { clerkId: userId, deactivatedAt: null } },
+      },
       include: { slackIntegration: { select: { id: true } } },
     })
     if (!workspace) redirect('/onboarding')

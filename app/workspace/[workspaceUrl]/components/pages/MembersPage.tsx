@@ -9,6 +9,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useMembers } from '../../hooks/useMembers'
 import { useInvites } from '../../hooks/useInvites'
 import { useLeaveWorkspace } from '../../hooks/useLeaveWorkspace'
+import { useRemoveMember } from '../../hooks/useRemoveMember'
 import { workspacesClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import {
@@ -93,6 +94,13 @@ export function MembersPage() {
   const [leaveOpen, setLeaveOpen] = useState(false)
   const { leave, leaving } = useLeaveWorkspace()
 
+  // Remove another member (OWNER only, LUM-906)
+  const [removeTarget, setRemoveTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+  const { remove, removingId } = useRemoveMember()
+
   // Members come from the shared useMembers cache (fetched once on workspace
   // mount, staleTime 5min); mutations below invalidate it. Only invites need
   // an explicit fetch here.
@@ -145,6 +153,24 @@ export function MembersPage() {
           : intl.formatMessage({ id: 'members.leaveFailed' })
       )
       setLeaveOpen(false)
+    }
+  }
+
+  // ─── Remove member ──────────────────────────────────────────────────────────
+  const handleRemove = async () => {
+    if (!removeTarget) return
+    const { id, name } = removeTarget
+    try {
+      await remove(id)
+      toast.success(intl.formatMessage({ id: 'members.removed' }, { name }))
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'members.removeFailed' })
+      )
+    } finally {
+      setRemoveTarget(null)
     }
   }
 
@@ -278,6 +304,32 @@ export function MembersPage() {
                           onClick={() => setLeaveOpen(true)}
                         >
                           {intl.formatMessage({ id: 'members.leaveWorkspace' })}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : isOwner && m.id !== currentMember?.id ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          aria-label={intl.formatMessage({
+                            id: 'members.memberActions',
+                          })}
+                          className='h-6 w-6 text-muted-foreground hover:text-foreground shrink-0'
+                          disabled={removingId === m.id}
+                        >
+                          <MoreHorizontal size={13} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end'>
+                        <DropdownMenuItem
+                          className='cursor-pointer text-danger-text focus:text-danger-text'
+                          onClick={() =>
+                            setRemoveTarget({ id: m.id, name: m.name })
+                          }
+                        >
+                          {intl.formatMessage({ id: 'members.removeMember' })}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -513,6 +565,48 @@ export function MembersPage() {
               {leaving
                 ? intl.formatMessage({ id: 'common.leaving' })
                 : intl.formatMessage({ id: 'members.leaveWorkspace' })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── Remove member confirm (LUM-906) ─────────────────────────────────── */}
+      <AlertDialog
+        open={!!removeTarget}
+        onOpenChange={open => {
+          if (!open && !removingId) setRemoveTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {intl.formatMessage(
+                { id: 'members.removeTitle' },
+                { name: removeTarget?.name ?? '' }
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {intl.formatMessage(
+                { id: 'members.removeDesc' },
+                { name: removeTarget?.name ?? '' }
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!removingId}>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={e => {
+                e.preventDefault()
+                void handleRemove()
+              }}
+              disabled={!!removingId}
+            >
+              {removingId
+                ? intl.formatMessage({ id: 'members.removing' })
+                : intl.formatMessage({ id: 'members.removeMember' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

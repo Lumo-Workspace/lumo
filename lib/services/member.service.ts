@@ -3,8 +3,10 @@ import { DEFAULT_AGENT_AVATAR_COLOR } from '@/lib/constants/avatar'
 import type { WorkspaceRole } from '@prisma/client'
 import {
   recordAuditEvent,
+  SYSTEM_AUDIT_CONTEXT,
   type AuditContext,
 } from '@/lib/services/audit.service'
+import { removeMemberIntegrationsSafely } from '@/lib/services/member-integrations.service'
 
 // ── Member Service ─────────────────────────────────────────────────────────
 
@@ -91,7 +93,12 @@ export const memberService = {
     return updated
   },
 
-  /** Remove the current user from the workspace. Blocked if last OWNER. */
+  /**
+   * Remove the current user from the workspace. Blocked if last OWNER.
+   * LUM-906: deactivates the row (keys revoked first, authorship and
+   * session history kept) instead of deleting it — a delete failed with a
+   * 500 for anyone who had created a project or document.
+   */
   async leaveWorkspace(
     memberId: string,
     memberRole: string,
@@ -110,13 +117,80 @@ export const memberService = {
       }
     }
 
-    await memberRepository.delete(memberId)
+    const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
+      memberId,
+      'LEFT'
+    )
+    if (!deactivated) return // already gone (double submit): nothing to audit
     await recordAuditEvent({
       workspaceId,
       action: 'member.left',
       target: { type: 'member', id: memberId },
-      metadata: { role: memberRole },
+      metadata: { role: memberRole, apiKeysRevoked },
       context: audit,
     })
+    // Then their personal integration credentials in this workspace. Never
+    // blocks the leave (keys are already revoked); a failure is logged.
+    await removeMemberIntegrationsSafely(
+      workspaceId,
+      memberId,
+      audit ?? SYSTEM_AUDIT_CONTEXT
+    )
+  },
+
+  /**
+   * LUM-906: an OWNER removes another member. OWNER only (403); not
+   * yourself (400 — use leave); never the workspace's last OWNER (400); a
+   * member of another workspace, or one already removed, is 404. The row is
+   * deactivated (API keys revoked first, team memberships dropped,
+   * authorship and sessions kept); `member.removed` records the removed
+   * member's role and how many keys were revoked.
+   */
+  async removeMember(
+    memberId: string,
+    caller: { memberId: string; role: string; workspaceId: string },
+    audit: AuditContext
+  ) {
+    if (caller.role !== 'OWNER') {
+      throw Object.assign(new Error('Forbidden'), { status: 403 })
+    }
+    if (memberId === caller.memberId) {
+      throw Object.assign(
+        new Error('You cannot remove yourself — leave the workspace instead'),
+        { status: 400 }
+      )
+    }
+
+    const target = await memberRepository.findById(memberId)
+    if (!target || target.workspaceId !== caller.workspaceId) {
+      throw Object.assign(new Error('Member not found'), { status: 404 })
+    }
+    if (target.role === 'OWNER') {
+      const ownerCount = await memberRepository.countOwners(caller.workspaceId)
+      if (ownerCount <= 1) {
+        throw Object.assign(new Error('Cannot remove the last admin'), {
+          status: 400,
+        })
+      }
+    }
+
+    const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
+      memberId,
+      'REMOVED'
+    )
+    if (!deactivated) {
+      throw Object.assign(new Error('Member not found'), { status: 404 })
+    }
+    await recordAuditEvent({
+      workspaceId: caller.workspaceId,
+      action: 'member.removed',
+      target: { type: 'member', id: memberId },
+      metadata: { role: target.role, apiKeysRevoked },
+      context: audit,
+    })
+    // Then their personal integration credentials in this workspace. Never
+    // blocks the removal (keys are already revoked); a failure is logged.
+    await removeMemberIntegrationsSafely(caller.workspaceId, memberId, audit)
+    return { apiKeysRevoked }
   },
 }

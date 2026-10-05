@@ -52,6 +52,8 @@ const AUTH_GUARDS = new Set([
   'lib/auth/sarif-ingest-auth#authenticateSarifIngest',
   'lib/integrations/github#verifyGitHubSignature',
   'lib/integrations/github/verify#verifyGitHubSignature',
+  // LUM-906: Clerk webhook — Svix signature via Clerk's verifyWebhook.
+  'lib/auth/clerk-webhook#verifyClerkWebhook',
   'lib/services/auth.service#authService.verifyApiKey',
   // app/api/mcp: passed to `withMcpAuth(..., { required: true })`.
   '@clerk/mcp-tools/server#verifyClerkToken',

@@ -40,7 +40,8 @@ export const authService = {
    *
    * Pure DB lookup — no Clerk call, no profile enrichment. Returns the
    * minimal identity needed to authorize a request (clerkId + workspace
-   * + apiKey), or `null` if the key is unknown or revoked. On success,
+   * + apiKey), or `null` if the key is unknown or revoked, or its member
+   * has been deactivated. On success,
    * touches `lastUsedAt` in the background.
    *
    * For display purposes (email/name), call `fetchUserProfile(user.id)`
@@ -50,6 +51,9 @@ export const authService = {
     const keyHash = createHash('sha256').update(token).digest('hex')
     const apiKey = await miscRepository.findApiKeyByHashForVerify(keyHash)
     if (!apiKey || apiKey.revokedAt !== null) return null
+    // LUM-906: deactivation revokes the member's keys; refusing keys of a
+    // deactivated member here too is the second line of defence.
+    if (apiKey.member.deactivatedAt) return null
 
     void miscRepository.touchApiKeyLastUsed(keyHash).catch(() => {})
 

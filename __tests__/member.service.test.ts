@@ -6,7 +6,7 @@ const mockFindByWorkspace = jest.fn()
 const mockFindById = jest.fn()
 const mockUpdateRole = jest.fn()
 const mockCountOwners = jest.fn()
-const mockDelete = jest.fn()
+const mockDeactivate = jest.fn()
 const mockFindCodingAgentProfile = jest.fn()
 const mockCreateCodingAgent = jest.fn()
 const mockFindAgentActors = jest.fn()
@@ -17,7 +17,7 @@ jest.mock('@/lib/repositories/member.repository', () => ({
     findById: (...args: any[]) => mockFindById(...args),
     updateRole: (...args: any[]) => mockUpdateRole(...args),
     countOwners: (...args: any[]) => mockCountOwners(...args),
-    delete: (...args: any[]) => mockDelete(...args),
+    deactivate: (...args: any[]) => mockDeactivate(...args),
     findCodingAgentProfile: (...args: any[]) =>
       mockFindCodingAgentProfile(...args),
     createCodingAgent: (...args: any[]) => mockCreateCodingAgent(...args),
@@ -25,7 +25,14 @@ jest.mock('@/lib/repositories/member.repository', () => ({
   },
 }))
 
-beforeEach(() => jest.clearAllMocks())
+jest.mock('@/lib/services/member-integrations.service', () => ({
+  removeMemberIntegrationsSafely: jest.fn().mockResolvedValue(true),
+}))
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockDeactivate.mockResolvedValue({ deactivated: true, apiKeysRevoked: 0 })
+})
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -171,10 +178,10 @@ describe('memberService', () => {
   })
 
   describe('leaveWorkspace', () => {
-    it('deletes member when not last OWNER', async () => {
+    it('deactivates (not deletes) the member when not last OWNER', async () => {
       await memberService.leaveWorkspace('m-1', 'MEMBER', 'ws-1')
 
-      expect(mockDelete).toHaveBeenCalledWith('m-1')
+      expect(mockDeactivate).toHaveBeenCalledWith('m-1', 'LEFT')
     })
 
     it('allows OWNER to leave when there are other owners', async () => {
@@ -182,7 +189,21 @@ describe('memberService', () => {
 
       await memberService.leaveWorkspace('m-1', 'OWNER', 'ws-1')
 
-      expect(mockDelete).toHaveBeenCalledWith('m-1')
+      expect(mockDeactivate).toHaveBeenCalledWith('m-1', 'LEFT')
+    })
+
+    it('does not audit a leave that deactivated nothing (double submit)', async () => {
+      mockDeactivate.mockResolvedValue({
+        deactivated: false,
+        apiKeysRevoked: 0,
+      })
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+      await memberService.leaveWorkspace('m-1', 'MEMBER', 'ws-1')
+
+      // recordAuditEvent warns when called without a context; no call, no warning.
+      expect(warn).not.toHaveBeenCalled()
+      warn.mockRestore()
     })
 
     it('throws 400 when last OWNER tries to leave', async () => {

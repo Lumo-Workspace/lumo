@@ -1,5 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
+import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 import { pushUserEvent } from '@/lib/integrations/pusher'
 import type { NotificationType } from '@prisma/client'
 
@@ -18,7 +19,11 @@ export async function notifyWorkspaceOwners(params: {
   const { workspaceId, taskId, type, triggerActorId, requiresAction } = params
 
   const ownerActors = await prisma.actor.findMany({
-    where: { workspaceId, type: 'HUMAN', member: { role: 'OWNER' } },
+    where: {
+      workspaceId,
+      type: 'HUMAN',
+      member: { role: 'OWNER', ...ACTIVE_MEMBER },
+    },
     select: { id: true, member: { select: { clerkId: true } } },
   })
   const recipients = ownerActors.filter(a => a.id !== triggerActorId)

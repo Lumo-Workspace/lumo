@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { slugify } from '@/lib/utils/slugify'
 import { CommandResult } from './types'
@@ -21,7 +22,7 @@ async function resolveSlackUser(
   const email: string = data.user.profile.email
 
   const members = await prisma.workspaceMember.findMany({
-    where: { workspaceId },
+    where: { workspaceId, ...ACTIVE_MEMBER },
     select: { id: true, clerkId: true },
   })
 

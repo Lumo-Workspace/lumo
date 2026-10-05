@@ -3,11 +3,13 @@ import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
 import { memberService } from '@/lib/services/member.service'
 import { memberAuditContext } from '@/lib/api/audit-context'
+import { logger } from '@/lib/logger'
 
 /**
  * DELETE /api/workspaces/members/me
- * Removes the current user from their workspace (leave workspace).
- * Blocked if they are the last OWNER.
+ * Removes the current user from their workspace (leave workspace): the
+ * membership is deactivated (LUM-906), not deleted. Blocked if they are the
+ * last OWNER.
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -34,7 +36,9 @@ export async function DELETE(request: NextRequest) {
     if (status) {
       return NextResponse.json({ error: (error as Error).message }, { status })
     }
-    console.error('DELETE /api/workspaces/members/me error:', error)
+    logger.error('DELETE /api/workspaces/members/me error', {
+      error: (error as Error)?.message ?? String(error),
+    })
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

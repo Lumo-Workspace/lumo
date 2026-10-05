@@ -47,6 +47,12 @@ export const AUDIT_INSTRUMENTED: Readonly<
   // Members and invites
   'lib/services/member.service.ts#updateMemberRole': ['member.role_changed'],
   'lib/services/member.service.ts#leaveWorkspace': ['member.left'],
+  'lib/services/member.service.ts#removeMember': ['member.removed'],
+  // Clerk webhook (WEBHOOK actor): user deleted / banned
+  'lib/services/member-deprovision.service.ts#deprovisionClerkUser': [
+    'member.deprovisioned',
+    'member.api_keys_revoked',
+  ],
   'lib/services/invite.service.ts#createInvites': ['invite.created'],
   'lib/services/invite.service.ts#revokeInvite': ['invite.revoked'],
   'lib/services/invite.service.ts#resendInvite': ['invite.resent'],

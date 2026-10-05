@@ -7,6 +7,7 @@ const mockMemberFindUnique = jest.fn()
 const mockMemberUpdate = jest.fn()
 const mockMemberCount = jest.fn()
 const mockMemberDelete = jest.fn()
+const mockTransaction = jest.fn()
 const mockActorFindMany = jest.fn()
 const mockAgentFindFirst = jest.fn()
 const mockAgentCreate = jest.fn()
@@ -14,6 +15,7 @@ const mockActorCreate = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
+    $transaction: (...args: any[]) => mockTransaction(...args),
     workspaceMember: {
       findMany: (...args: any[]) => mockMemberFindMany(...args),
       findUnique: (...args: any[]) => mockMemberFindUnique(...args),
@@ -60,7 +62,7 @@ describe('memberRepository', () => {
       expect(result).toHaveLength(1)
       expect(mockMemberFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { workspaceId: 'ws-1' },
+          where: { workspaceId: 'ws-1', deactivatedAt: null },
           orderBy: { joinedAt: 'asc' },
           include: { actor: { select: { id: true } } },
         })
@@ -81,6 +83,7 @@ describe('memberRepository', () => {
       expect(mockMemberFindUnique).toHaveBeenCalledWith({
         where: {
           workspaceId_clerkId: { workspaceId: 'ws-1', clerkId: 'clerk-1' },
+          deactivatedAt: null,
         },
       })
     })
@@ -145,20 +148,54 @@ describe('memberRepository', () => {
 
       expect(result).toBe(2)
       expect(mockMemberCount).toHaveBeenCalledWith({
-        where: { workspaceId: 'ws-1', role: 'OWNER' },
+        where: { workspaceId: 'ws-1', role: 'OWNER', deactivatedAt: null },
       })
     })
   })
 
-  describe('delete', () => {
-    it('deletes member by ID', async () => {
-      mockMemberDelete.mockResolvedValue({ id: 'm-1' })
+  describe('deactivate (LUM-906)', () => {
+    it('marks the row, revokes live keys and drops team memberships in one transaction', async () => {
+      const tx = {
+        workspaceMember: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        apiKey: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+        teamMember: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      }
+      mockTransaction.mockImplementation(async (fn: any) => fn(tx))
+      const now = new Date('2026-10-05T00:00:00Z')
 
-      await memberRepository.delete('m-1')
+      const result = await memberRepository.deactivate('m-1', 'REMOVED', now)
 
-      expect(mockMemberDelete).toHaveBeenCalledWith({
-        where: { id: 'm-1' },
+      expect(result).toEqual({ deactivated: true, apiKeysRevoked: 2 })
+      expect(tx.workspaceMember.updateMany).toHaveBeenCalledWith({
+        where: { id: 'm-1', deactivatedAt: null },
+        data: { deactivatedAt: now, deactivationReason: 'REMOVED' },
       })
+      expect(tx.apiKey.updateMany).toHaveBeenCalledWith({
+        where: { workspaceMemberId: 'm-1', revokedAt: null },
+        data: { revokedAt: now },
+      })
+      expect(tx.teamMember.deleteMany).toHaveBeenCalledWith({
+        where: { memberId: 'm-1' },
+      })
+    })
+
+    it('is a no-op for an already deactivated member', async () => {
+      const tx = {
+        workspaceMember: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        apiKey: { updateMany: jest.fn() },
+        teamMember: { deleteMany: jest.fn() },
+      }
+      mockTransaction.mockImplementation(async (fn: any) => fn(tx))
+
+      const result = await memberRepository.deactivate('m-1', 'LEFT')
+
+      expect(result).toEqual({ deactivated: false, apiKeysRevoked: 0 })
+      expect(tx.apiKey.updateMany).not.toHaveBeenCalled()
+      expect(tx.teamMember.deleteMany).not.toHaveBeenCalled()
     })
   })
 
@@ -216,7 +253,7 @@ describe('memberRepository', () => {
       mockMemberFindMany.mockResolvedValue(fixture)
       const result = await memberRepository.findByClerkId('user_abc')
       expect(mockMemberFindMany).toHaveBeenCalledWith({
-        where: { clerkId: 'user_abc' },
+        where: { clerkId: 'user_abc', deactivatedAt: null },
         select: {
           id: true,
           workspaceId: true,
@@ -251,7 +288,11 @@ describe('memberRepository', () => {
         expect.objectContaining({ emailAddress: ['ada@example.com'] })
       )
       expect(mockMemberFindMany).toHaveBeenCalledWith({
-        where: { workspaceId: 'ws-1', clerkId: { in: ['clerk-1'] } },
+        where: {
+          workspaceId: 'ws-1',
+          clerkId: { in: ['clerk-1'] },
+          deactivatedAt: null,
+        },
         select: { clerkId: true, actor: { select: { id: true } } },
       })
     })

@@ -75,6 +75,7 @@ describe('requireTeamMemberOrOwner', () => {
       expect.objectContaining({
         where: {
           workspaceId_clerkId: { workspaceId: 'ws-1', clerkId: 'clerk-1' },
+          deactivatedAt: null,
         },
       })
     )

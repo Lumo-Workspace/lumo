@@ -20,6 +20,7 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 import {
   ACTIVE_WORKSPACE_HEADER,
   normalizeActiveSlug,
@@ -78,7 +79,7 @@ export async function resolveActiveMembership(
   slug: string | null
 ) {
   const memberships = await prisma.workspaceMember.findMany({
-    where: { clerkId },
+    where: { clerkId, ...ACTIVE_MEMBER },
     include: { workspace: true },
     orderBy: MEMBERSHIP_ORDER,
   })
@@ -105,6 +106,7 @@ export async function requireWorkspaceMembership(
   const member = await prisma.workspaceMember.findUnique({
     where: {
       workspaceId_clerkId: { workspaceId, clerkId },
+      ...ACTIVE_MEMBER,
     },
   })
   if (!member) {

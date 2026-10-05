@@ -142,14 +142,16 @@ export const inviteService = {
       })
     }
 
-    // Idempotent: already a member → return workspace slug
-    const existingMember = await memberRepository.findByWorkspaceAndClerkId(
+    // Idempotent: already an active member → return workspace slug. A
+    // deactivated row (LUM-906) is reactivated below, after the email check.
+    const existing = await memberRepository.findMembershipStatus(
       invite.workspaceId,
       clerkId
     )
-    if (existingMember) {
+    if (existing && existing.deactivatedAt === null) {
       return { workspaceSlug: invite.workspace.slug, alreadyMember: true }
     }
+    const deactivatedMemberId = existing?.id ?? null
 
     const invited = invite.email.toLowerCase()
     if (!verifiedEmails.some(e => e.toLowerCase() === invited)) {
@@ -163,12 +165,20 @@ export const inviteService = {
       )
     }
 
-    const member = await inviteRepository.acceptInTransaction(invite, clerkId)
+    const member = await inviteRepository.acceptInTransaction(
+      invite,
+      clerkId,
+      deactivatedMemberId
+    )
     await recordAuditEvent({
       workspaceId: invite.workspaceId,
       action: 'invite.accepted',
       target: { type: 'invite', id: invite.id },
-      metadata: { memberId: member.id, via: 'link' },
+      metadata: {
+        memberId: member.id,
+        via: 'link',
+        reactivated: deactivatedMemberId !== null,
+      },
       context: {
         ...(audit ?? { source: 'WEB' }),
         actor: { type: 'MEMBER', clerkId, memberId: member.id },
@@ -200,24 +210,31 @@ export const inviteService = {
 
     let landingSlug: string | null = null
     for (const invite of invites) {
-      const existingMember = await memberRepository.findByWorkspaceAndClerkId(
+      const existing = await memberRepository.findMembershipStatus(
         invite.workspaceId,
         clerkId
       )
-      if (existingMember) {
+      if (existing && existing.deactivatedAt === null) {
         await inviteRepository.updateStatus(invite.id, 'ACCEPTED', {
           acceptedAt: new Date(),
         })
       } else {
+        // LUM-906: a deactivated row is reactivated, not duplicated.
+        const deactivatedMemberId = existing?.id ?? null
         const member = await inviteRepository.acceptInTransaction(
           invite,
-          clerkId
+          clerkId,
+          deactivatedMemberId
         )
         await recordAuditEvent({
           workspaceId: invite.workspaceId,
           action: 'invite.accepted',
           target: { type: 'invite', id: invite.id },
-          metadata: { memberId: member.id, via: 'verified_email' },
+          metadata: {
+            memberId: member.id,
+            via: 'verified_email',
+            reactivated: deactivatedMemberId !== null,
+          },
           context: {
             ...(audit ?? { source: 'WEB' }),
             actor: { type: 'MEMBER', clerkId, memberId: member.id },
