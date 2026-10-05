@@ -26,7 +26,7 @@ jest.mock('@/lib/repositories/member.repository', () => ({
 }))
 
 jest.mock('@/lib/services/member-integrations.service', () => ({
-  removeMemberIntegrations: jest.fn().mockResolvedValue([]),
+  removeMemberIntegrationsSafely: jest.fn().mockResolvedValue(true),
 }))
 
 beforeEach(() => {

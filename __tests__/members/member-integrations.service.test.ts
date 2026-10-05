@@ -47,7 +47,10 @@ jest.mock('@/lib/crypto', () => ({
   decrypt: (stored: string) => `plain:${stored}`,
 }))
 
-import { removeMemberIntegrations } from '@/lib/services/member-integrations.service'
+import {
+  removeMemberIntegrations,
+  removeMemberIntegrationsSafely,
+} from '@/lib/services/member-integrations.service'
 
 const WEBHOOK_CTX = {
   actor: { type: 'SYSTEM' as const },
@@ -109,5 +112,39 @@ describe('LUM-906 member integration cleanup', () => {
     expect(mockDeleteGithub).not.toHaveBeenCalled()
     expect(mockDisconnectFigma).not.toHaveBeenCalled()
     expect(mockDisconnectDrive).not.toHaveBeenCalled()
+  })
+
+  it('member integrations: a malformed repo name is skipped, not sent to GitHub', async () => {
+    mockFindGithub.mockResolvedValue({
+      id: 'gh-1',
+      accessToken: 'enc',
+      webhooks: [
+        { repo: 'no-slash', githubHookId: 1 },
+        { repo: 'acme/ok', githubHookId: 2 },
+      ],
+    })
+    await removeMemberIntegrations('ws-1', 'm-1', WEBHOOK_CTX)
+    expect(mockDeleteRepoWebhook).toHaveBeenCalledTimes(1)
+    expect(mockDeleteRepoWebhook).toHaveBeenCalledWith(
+      'plain:enc',
+      'acme',
+      'ok',
+      2
+    )
+  })
+
+  it('member integrations: the safe variant reports a failure instead of throwing', async () => {
+    mockFindFigma.mockRejectedValue(new Error('db down'))
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(
+      removeMemberIntegrationsSafely('ws-1', 'm-1', WEBHOOK_CTX)
+    ).resolves.toBe(false)
+    expect(error).toHaveBeenCalled()
+    error.mockRestore()
+    mockFindFigma.mockResolvedValue(null)
+    await expect(
+      removeMemberIntegrationsSafely('ws-1', 'm-1', WEBHOOK_CTX)
+    ).resolves.toBe(true)
   })
 })

@@ -6,7 +6,7 @@ import {
   SYSTEM_AUDIT_CONTEXT,
   type AuditContext,
 } from '@/lib/services/audit.service'
-import { removeMemberIntegrations } from '@/lib/services/member-integrations.service'
+import { removeMemberIntegrationsSafely } from '@/lib/services/member-integrations.service'
 
 // ── Member Service ─────────────────────────────────────────────────────────
 
@@ -117,12 +117,6 @@ export const memberService = {
       }
     }
 
-    // Personal integration credentials first (idempotent), then the row.
-    await removeMemberIntegrations(
-      workspaceId,
-      memberId,
-      audit ?? SYSTEM_AUDIT_CONTEXT
-    )
     const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
       memberId,
       'LEFT'
@@ -135,6 +129,13 @@ export const memberService = {
       metadata: { role: memberRole, apiKeysRevoked },
       context: audit,
     })
+    // Then their personal integration credentials in this workspace. Never
+    // blocks the leave (keys are already revoked); a failure is logged.
+    await removeMemberIntegrationsSafely(
+      workspaceId,
+      memberId,
+      audit ?? SYSTEM_AUDIT_CONTEXT
+    )
   },
 
   /**
@@ -173,8 +174,6 @@ export const memberService = {
       }
     }
 
-    // Personal integration credentials first (idempotent), then the row.
-    await removeMemberIntegrations(caller.workspaceId, memberId, audit)
     const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
       memberId,
       'REMOVED'
@@ -189,6 +188,9 @@ export const memberService = {
       metadata: { role: target.role, apiKeysRevoked },
       context: audit,
     })
+    // Then their personal integration credentials in this workspace. Never
+    // blocks the removal (keys are already revoked); a failure is logged.
+    await removeMemberIntegrationsSafely(caller.workspaceId, memberId, audit)
     return { apiKeysRevoked }
   },
 }

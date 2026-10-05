@@ -11,9 +11,10 @@
  * Last OWNER: a workspace is never left without an OWNER — the row stays,
  * but the person's API keys are revoked, audited and a warning logged.
  *
- * Idempotent by construction: a redelivered event finds no active
- * membership (or no live key) and changes nothing. Re-enabling a banned user
- * restores nothing; only a new invite does.
+ * Idempotent by construction: a redelivered event finds the memberships
+ * already deactivated (or no live key) and changes nothing; if a personal
+ * integration cleanup failed, the delivery fails and the retry finishes it.
+ * Re-enabling a banned user restores nothing; only a new invite does.
  */
 import { logger } from '@/lib/logger'
 import type { MemberDeactivationReason } from '@/lib/members/deactivation'
@@ -22,7 +23,7 @@ import {
   recordAuditEvent,
   type AuditContext,
 } from '@/lib/services/audit.service'
-import { removeMemberIntegrations } from '@/lib/services/member-integrations.service'
+import { removeMemberIntegrationsSafely } from '@/lib/services/member-integrations.service'
 
 export interface ClerkDeprovisionTrigger {
   clerkUserId: string
@@ -85,9 +86,11 @@ export const memberDeprovisionService = {
     trigger: ClerkDeprovisionTrigger,
     audit: AuditContext
   ): Promise<DeprovisionOutcome[]> {
-    const memberships = await memberRepository.findByClerkId(
-      trigger.clerkUserId
-    )
+    const memberships =
+      await memberRepository.findAllByClerkIdIncludingDeactivated(
+        trigger.clerkUserId
+      )
+    let cleanupFailed = false
     const outcomes: DeprovisionOutcome[] = []
     const base = {
       reason: trigger.reason,
@@ -96,6 +99,18 @@ export const memberDeprovisionService = {
     }
 
     for (const m of memberships) {
+      if (m.deactivatedAt !== null) {
+        // Already deactivated (a redelivery, or earlier remove/leave): only
+        // make sure no personal credentials are left. A no-op when clean.
+        if (!(await removeMemberIntegrationsSafely(m.workspaceId, m.id, audit)))
+          cleanupFailed = true
+        outcomes.push({
+          workspaceId: m.workspaceId,
+          memberId: m.id,
+          outcome: 'already_deactivated',
+        })
+        continue
+      }
       if (m.role === 'OWNER') {
         const owners = await memberRepository.countOwners(m.workspaceId)
         if (owners <= 1) {
@@ -135,10 +150,9 @@ export const memberDeprovisionService = {
         }
       }
 
-      // Personal integration credentials first: removeMemberIntegrations only
-      // acts on what still exists, so a retry after a partial failure
-      // finishes the job and a redelivery does nothing.
-      await removeMemberIntegrations(m.workspaceId, m.id, audit)
+      // Security first: deactivate (API keys revoked) before touching the
+      // integrations, so a failing integration cleanup can never leave the
+      // person with access.
       const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
         m.id,
         trigger.reason
@@ -158,12 +172,22 @@ export const memberDeprovisionService = {
         metadata: { ...base, role: m.role, apiKeysRevoked },
         context: audit,
       })
+      if (!(await removeMemberIntegrationsSafely(m.workspaceId, m.id, audit)))
+        cleanupFailed = true
       outcomes.push({
         workspaceId: m.workspaceId,
         memberId: m.id,
         outcome: 'deactivated',
         apiKeysRevoked,
       })
+    }
+    if (cleanupFailed) {
+      // Fail the delivery so Clerk retries; the retry only finishes the
+      // integration cleanup (deactivation is already done and idempotent).
+      throw Object.assign(
+        new Error('Personal integration cleanup failed; will retry'),
+        { status: 500 }
+      )
     }
     return outcomes
   },

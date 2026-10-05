@@ -44,6 +44,12 @@ async function deleteGithubRepoWebhooks(integration: {
   }
   for (const hook of integration.webhooks) {
     const slash = hook.repo.indexOf('/')
+    if (slash <= 0 || slash === hook.repo.length - 1) {
+      logger.warn('[member-integrations] skipping malformed repo name', {
+        repo: hook.repo,
+      })
+      continue
+    }
     try {
       await deleteRepoWebhook(
         token,
@@ -97,6 +103,30 @@ export async function removeMemberIntegrations(
   return removed
 }
 
+/**
+ * removeMemberIntegrations that never throws: a failure is logged (with the
+ * ids, for a manual follow-up) and reported as `false`, so it can never stop
+ * a deactivation or its API key revocation.
+ */
+export async function removeMemberIntegrationsSafely(
+  workspaceId: string,
+  memberId: string,
+  audit: AuditContext
+): Promise<boolean> {
+  try {
+    await removeMemberIntegrations(workspaceId, memberId, audit)
+    return true
+  } catch (error) {
+    logger.error('[member-integrations] cleanup failed', {
+      workspaceId,
+      memberId,
+      error: (error as Error)?.message ?? String(error),
+    })
+    return false
+  }
+}
+
 export const memberIntegrationsService = {
   removeAll: removeMemberIntegrations,
+  removeAllSafely: removeMemberIntegrationsSafely,
 }

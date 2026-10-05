@@ -98,6 +98,18 @@ export const memberRepository = {
     })
   },
 
+  /**
+   * Every membership of a Clerk user, deactivated ones included — only for
+   * identity-provider deprovisioning, which finishes cleaning up
+   * already-deactivated rows on a retry.
+   */
+  async findAllByClerkIdIncludingDeactivated(clerkId: string) {
+    return prisma.workspaceMember.findMany({
+      where: { clerkId },
+      select: { id: true, workspaceId: true, role: true, deactivatedAt: true },
+    })
+  },
+
   /** Find the first active member for a clerk user (any workspace). */
   async findFirstByClerkId(clerkId: string) {
     return prisma.workspaceMember.findFirst({

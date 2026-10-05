@@ -360,13 +360,20 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
       trigger,
       WEBHOOK_AUDIT_CONTEXT
     )
-    expect(again).toEqual([
-      expect.objectContaining({
-        memberId: 'm_solo',
-        outcome: 'last_owner_kept',
-        apiKeysRevoked: 0,
-      }),
-    ])
+    expect(again).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          memberId: 'm_solo',
+          outcome: 'last_owner_kept',
+          apiKeysRevoked: 0,
+        }),
+        expect.objectContaining({
+          memberId: 'm_gone',
+          outcome: 'already_deactivated',
+        }),
+      ])
+    )
+    expect(again.some(o => o.outcome === 'deactivated')).toBe(false)
     expect((await auditActions(WS, 'm_gone')).length).toBe(1)
     expect((await auditActions(SOLO_WS, 'm_solo')).length).toBe(1)
     expect((await disconnectAudits(WS)).length).toBe(auditsBefore + 3)

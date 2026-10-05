@@ -20,7 +20,8 @@ jest.mock('@/lib/repositories/member.repository', () => ({
 }))
 const mockRemoveIntegrations = jest.fn()
 jest.mock('@/lib/services/member-integrations.service', () => ({
-  removeMemberIntegrations: (...a: unknown[]) => mockRemoveIntegrations(...a),
+  removeMemberIntegrationsSafely: (...a: unknown[]) =>
+    mockRemoveIntegrations(...a),
 }))
 jest.mock('@/lib/services/audit.service', () => ({
   recordAuditEvent: (...a: unknown[]) => mockRecordAuditEvent(...a),
@@ -100,10 +101,10 @@ describe('LUM-906 member removal guards', () => {
     expect(result).toEqual({ apiKeysRevoked: 3 })
     expect(mockDeactivate).toHaveBeenCalledWith('m-2', 'REMOVED')
     // Personal integrations of this member in this workspace, same actor,
-    // removed before the row is deactivated.
+    // removed after the row is deactivated (keys revoked first).
     expect(mockRemoveIntegrations).toHaveBeenCalledWith('ws-1', 'm-2', AUDIT)
-    expect(mockRemoveIntegrations.mock.invocationCallOrder[0]).toBeLessThan(
-      mockDeactivate.mock.invocationCallOrder[0]!
+    expect(mockDeactivate.mock.invocationCallOrder[0]).toBeLessThan(
+      mockRemoveIntegrations.mock.invocationCallOrder[0]!
     )
     expect(mockRecordAuditEvent).toHaveBeenCalledWith({
       workspaceId: 'ws-1',
