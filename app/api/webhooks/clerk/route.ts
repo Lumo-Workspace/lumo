@@ -14,7 +14,8 @@ import {
  * deletion or `banned: true` deprovisions (every active membership is
  * deactivated, API keys revoked, audited with the svix-id). Anything else is
  * acknowledged and ignored. A missing / invalid signature is 401; a missing
- * signing secret is 500. Processing errors return 500 so Clerk retries —
+ * signing secret is a generic 500 ("Webhook unavailable"; the cause is only
+ * logged). Processing errors return 500 so Clerk retries —
  * safe, because deprovisioning is idempotent.
  */
 export async function POST(request: NextRequest) {
@@ -24,11 +25,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const status = (error as { status?: number }).status ?? 401
     if (status >= 500) {
-      logger.error('[clerk/webhook] not configured', {
+      // Never tell an unauthenticated caller which configuration is missing.
+      logger.error('[clerk/webhook] unavailable', {
         error: (error as Error).message,
       })
+      return NextResponse.json(
+        { error: 'Webhook unavailable' },
+        { status: 500 }
+      )
     }
-    return NextResponse.json({ error: (error as Error).message }, { status })
+    return NextResponse.json({ error: 'Invalid webhook signature' }, { status })
   }
 
   const trigger = deprovisionTriggerFromClerkEvent(event, event.webhookId)

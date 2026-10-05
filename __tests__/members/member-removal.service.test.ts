@@ -18,6 +18,10 @@ jest.mock('@/lib/repositories/member.repository', () => ({
     deactivate: (...a: unknown[]) => mockDeactivate(...a),
   },
 }))
+const mockRemoveIntegrations = jest.fn()
+jest.mock('@/lib/services/member-integrations.service', () => ({
+  removeMemberIntegrations: (...a: unknown[]) => mockRemoveIntegrations(...a),
+}))
 jest.mock('@/lib/services/audit.service', () => ({
   recordAuditEvent: (...a: unknown[]) => mockRecordAuditEvent(...a),
 }))
@@ -28,6 +32,7 @@ const OWNER = { memberId: 'm-owner', role: 'OWNER', workspaceId: 'ws-1' }
 beforeEach(() => {
   jest.clearAllMocks()
   mockDeactivate.mockResolvedValue({ deactivated: true, apiKeysRevoked: 3 })
+  mockRemoveIntegrations.mockResolvedValue([])
 })
 
 describe('LUM-906 member removal guards', () => {
@@ -79,6 +84,7 @@ describe('LUM-906 member removal guards', () => {
       memberService.removeMember('m-2', OWNER, AUDIT)
     ).rejects.toMatchObject({ status: 400 })
     expect(mockDeactivate).not.toHaveBeenCalled()
+    expect(mockRemoveIntegrations).not.toHaveBeenCalled()
   })
 
   it('member removal of another OWNER works when owners remain and is audited with the key count', async () => {
@@ -93,6 +99,12 @@ describe('LUM-906 member removal guards', () => {
 
     expect(result).toEqual({ apiKeysRevoked: 3 })
     expect(mockDeactivate).toHaveBeenCalledWith('m-2', 'REMOVED')
+    // Personal integrations of this member in this workspace, same actor,
+    // removed before the row is deactivated.
+    expect(mockRemoveIntegrations).toHaveBeenCalledWith('ws-1', 'm-2', AUDIT)
+    expect(mockRemoveIntegrations.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeactivate.mock.invocationCallOrder[0]!
+    )
     expect(mockRecordAuditEvent).toHaveBeenCalledWith({
       workspaceId: 'ws-1',
       action: 'member.removed',

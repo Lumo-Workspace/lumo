@@ -145,6 +145,10 @@ describe('LUM-906 Clerk webhook route', () => {
     delete process.env.CLERK_WEBHOOK_SIGNING_SECRET
     const res = await POST(webhookRequest(deleted))
     expect(res.status).toBe(500)
+    // Generic: an unauthenticated caller never learns which config is missing.
+    const text = await res.text()
+    expect(JSON.parse(text)).toEqual({ error: 'Webhook unavailable' })
+    expect(text).not.toMatch(/secret|signing|configur|CLERK/i)
     expect(mockDeprovision).not.toHaveBeenCalled()
   })
 

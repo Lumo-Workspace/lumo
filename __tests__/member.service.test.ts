@@ -25,6 +25,10 @@ jest.mock('@/lib/repositories/member.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/services/member-integrations.service', () => ({
+  removeMemberIntegrations: jest.fn().mockResolvedValue([]),
+}))
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockDeactivate.mockResolvedValue({ deactivated: true, apiKeysRevoked: 0 })

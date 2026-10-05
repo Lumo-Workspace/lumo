@@ -3,8 +3,10 @@ import { DEFAULT_AGENT_AVATAR_COLOR } from '@/lib/constants/avatar'
 import type { WorkspaceRole } from '@prisma/client'
 import {
   recordAuditEvent,
+  SYSTEM_AUDIT_CONTEXT,
   type AuditContext,
 } from '@/lib/services/audit.service'
+import { removeMemberIntegrations } from '@/lib/services/member-integrations.service'
 
 // ── Member Service ─────────────────────────────────────────────────────────
 
@@ -115,6 +117,12 @@ export const memberService = {
       }
     }
 
+    // Personal integration credentials first (idempotent), then the row.
+    await removeMemberIntegrations(
+      workspaceId,
+      memberId,
+      audit ?? SYSTEM_AUDIT_CONTEXT
+    )
     const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
       memberId,
       'LEFT'
@@ -165,6 +173,8 @@ export const memberService = {
       }
     }
 
+    // Personal integration credentials first (idempotent), then the row.
+    await removeMemberIntegrations(caller.workspaceId, memberId, audit)
     const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
       memberId,
       'REMOVED'

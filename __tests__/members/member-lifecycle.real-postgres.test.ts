@@ -41,6 +41,12 @@ jest.setTimeout(180_000)
 
 const WS = 'ws_lifecycle'
 const SOLO_WS = 'ws_solo_owner'
+const OTHER_WS = 'ws_other'
+const INTEGRATION_TABLES = [
+  'github_integrations',
+  'figma_integrations',
+  'google_drive_integrations',
+] as const
 const AUDIT: AuditContext = {
   actor: { type: 'MEMBER', clerkId: 'clerk_owner', memberId: 'm_owner' },
   source: 'WEB',
@@ -76,6 +82,46 @@ async function seedKey(memberId: string): Promise<string> {
   return key
 }
 
+/** Personal GitHub OAuth, Figma and Drive connections for a member. */
+async function seedIntegrations(workspaceId: string, memberId: string) {
+  for (const table of INTEGRATION_TABLES) {
+    await harness.insert(table, {
+      id: `${table}_${memberId}`,
+      workspaceId,
+      memberId,
+    })
+  }
+}
+
+async function integrationCount(workspaceId: string, memberId: string) {
+  let n = 0
+  for (const table of INTEGRATION_TABLES) {
+    const rows = await harness.query<{ c: number }>(
+      `select count(*)::int as c from "${table}" where "workspaceId" = $1 and "memberId" = $2`,
+      [workspaceId, memberId]
+    )
+    n += rows[0]!.c
+  }
+  return n
+}
+
+async function disconnectAudits(workspaceId: string) {
+  return db().auditEvent.findMany({
+    where: {
+      workspaceId,
+      action: {
+        in: [
+          'github_oauth.disconnected',
+          'figma.disconnected',
+          'google_drive.disconnected',
+        ],
+      },
+    },
+    select: { action: true, actorType: true, source: true },
+    orderBy: { action: 'asc' },
+  })
+}
+
 async function auditActions(workspaceId: string, memberId: string) {
   const rows = await db().auditEvent.findMany({
     where: { workspaceId, targetId: memberId },
@@ -91,6 +137,9 @@ beforeAll(async () => {
   await db().workspace.create({
     data: { id: SOLO_WS, name: SOLO_WS, slug: SOLO_WS },
   })
+  await db().workspace.create({
+    data: { id: OTHER_WS, name: OTHER_WS, slug: OTHER_WS },
+  })
   await db().team.create({
     data: {
       id: 'team_lc',
@@ -105,6 +154,11 @@ beforeAll(async () => {
   await seedMember('m_qa', 'clerk_qa', 'MEMBER')
   await seedMember('m_gone', 'clerk_gone', 'MEMBER')
   await seedMember('m_solo', 'clerk_gone', 'OWNER', SOLO_WS)
+  // The same people in another workspace, with their own integrations there.
+  await seedMember('m_qa_other', 'clerk_qa', 'MEMBER', OTHER_WS)
+  await seedMember('m_gone_other', 'clerk_gone', 'OWNER', OTHER_WS)
+  await seedMember('m_other_owner', 'clerk_other_owner', 'OWNER', OTHER_WS)
+  await seedIntegrations(OTHER_WS, 'm_qa_other')
   // m_dev authored rows behind RESTRICT foreign keys, plus a session.
   await db().project.create({
     data: {
@@ -181,6 +235,8 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
 
   it('member removal by an OWNER deactivates the member, revokes keys and audits member.removed', async () => {
     const key = await seedKey('m_qa')
+    await seedIntegrations(WS, 'm_qa')
+    expect(await integrationCount(WS, 'm_qa')).toBe(3)
 
     const result = await memberService.removeMember(
       'm_qa',
@@ -190,6 +246,24 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
 
     expect(result).toEqual({ apiKeysRevoked: 1 })
     expect(await authService.verifyApiKey(key)).toBeNull()
+    // Personal integrations in THIS workspace are gone, audited with the
+    // OWNER's (MEMBER) actor; the same person's in another workspace stay.
+    expect(await integrationCount(WS, 'm_qa')).toBe(0)
+    expect(await integrationCount(OTHER_WS, 'm_qa_other')).toBe(3)
+    expect(await disconnectAudits(WS)).toEqual([
+      { action: 'figma.disconnected', actorType: 'MEMBER', source: 'WEB' },
+      {
+        action: 'github_oauth.disconnected',
+        actorType: 'MEMBER',
+        source: 'WEB',
+      },
+      {
+        action: 'google_drive.disconnected',
+        actorType: 'MEMBER',
+        source: 'WEB',
+      },
+    ])
+    expect(await disconnectAudits(OTHER_WS)).toEqual([])
     const audit = await auditActions(WS, 'm_qa')
     expect(audit.map(a => a.action)).toEqual(['member.removed'])
     expect(audit[0]).toMatchObject({
@@ -224,6 +298,8 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
   it('member deprovisioning deactivates every workspace except where the user is the last OWNER', async () => {
     const memberKey = await seedKey('m_gone')
     const soloKey = await seedKey('m_solo')
+    await seedIntegrations(WS, 'm_gone')
+    const auditsBefore = (await disconnectAudits(WS)).length
     const trigger = {
       clerkUserId: 'clerk_gone',
       reason: 'CLERK_USER_BANNED' as const,
@@ -266,6 +342,18 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
     expect((await auditActions(SOLO_WS, 'm_solo')).map(a => a.action)).toEqual([
       'member.api_keys_revoked',
     ])
+    // Integrations removed with the WEBHOOK actor.
+    expect(await integrationCount(WS, 'm_gone')).toBe(0)
+    expect(
+      (await disconnectAudits(WS))
+        .filter(a => a.source === 'WEBHOOK')
+        .map(a => a.action)
+    ).toEqual([
+      'figma.disconnected',
+      'github_oauth.disconnected',
+      'google_drive.disconnected',
+    ])
+    expect((await disconnectAudits(WS)).length).toBe(auditsBefore + 3)
 
     // Redelivery of the same event changes nothing and audits nothing.
     const again = await memberDeprovisionService.deprovisionClerkUser(
@@ -281,6 +369,7 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
     ])
     expect((await auditActions(WS, 'm_gone')).length).toBe(1)
     expect((await auditActions(SOLO_WS, 'm_solo')).length).toBe(1)
+    expect((await disconnectAudits(WS)).length).toBe(auditsBefore + 3)
   })
 
   it('member re-invite reactivates the same row with its history', async () => {

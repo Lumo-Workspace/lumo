@@ -22,6 +22,7 @@ import {
   recordAuditEvent,
   type AuditContext,
 } from '@/lib/services/audit.service'
+import { removeMemberIntegrations } from '@/lib/services/member-integrations.service'
 
 export interface ClerkDeprovisionTrigger {
   clerkUserId: string
@@ -134,6 +135,10 @@ export const memberDeprovisionService = {
         }
       }
 
+      // Personal integration credentials first: removeMemberIntegrations only
+      // acts on what still exists, so a retry after a partial failure
+      // finishes the job and a redelivery does nothing.
+      await removeMemberIntegrations(m.workspaceId, m.id, audit)
       const { deactivated, apiKeysRevoked } = await memberRepository.deactivate(
         m.id,
         trigger.reason
