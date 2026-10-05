@@ -183,35 +183,70 @@ export function buildRetractedComment(
 }
 
 /**
- * Edits Lumo's own inline comment of each rejected row that is still on the
- * PR in its original form. Best effort, per comment: a failed edit is logged
- * and retried by the next sync (the note is the idempotency check).
+ * LUM-988 — is this comment Lumo's own? GitHub types every App's bot user as
+ * `Bot`, so the type alone also matches another App quoting Lumo's marker.
+ * Lumo's App posts as `<GITHUB_APP_SLUG>[bot]`; without the slug configured
+ * (dev, tests) the type is all there is to go on.
  */
-async function retractRejectedComments(input: {
+export function isLumoBotComment(c: {
+  user: { type?: string; login?: string } | null
+}): boolean {
+  if (c.user?.type !== 'Bot') return false
+  const slug = process.env.GITHUB_APP_SLUG
+  return slug ? c.user.login === `${slug}[bot]` : true
+}
+
+/**
+ * Keeps Lumo's inline comments in step with the verifier's LATEST verdict,
+ * both ways — verdicts are model output and can flip between pushes while
+ * the evidence-keyed fingerprint stays the same:
+ *   · a rejected row whose comment is still in its original form → edited to
+ *     the retraction (struck title + reason);
+ *   · an open row whose comment carries the retraction from an earlier
+ *     push's rejection → restored to the normal inline comment, so the PR
+ *     never says "rejected" about a finding Lumo counts as open.
+ * Only Lumo's own comments (`isLumoBotComment`). Best effort, per comment: a
+ * failed edit is logged and retried by the next sync.
+ */
+async function reconcileVerifierComments(input: {
   rejected: ReviewFindingRow[]
-  comments: Array<{ id: number; body: string; user: { type?: string } | null }>
+  open: ReviewFindingRow[]
+  comments: Array<{
+    id: number
+    body: string
+    user: { type?: string; login?: string } | null
+  }>
+  policy: SecurityPolicy
   repo: { owner: string; name: string }
   token: string
 }): Promise<void> {
+  const edits: Array<{ id: number; body: string }> = []
+  const ours = input.comments.filter(isLumoBotComment)
   for (const f of input.rejected) {
     const marker = fingerprintMarker(f.fingerprint)
-    for (const c of input.comments) {
-      if (!c.body.includes(marker) || c.body.includes(VERIFIER_RETRACTION_NOTE))
-        continue
-      // Only Lumo's own comment — never a human's reply quoting the marker.
-      if (c.user?.type !== 'Bot') continue
-      try {
-        await prCommentClient.updateReviewLineComment({
-          repo: input.repo,
-          externalId: String(c.id),
-          body: buildRetractedComment(f),
-          token: input.token,
-        })
-      } catch (error) {
-        logger.warn(
-          `[security-pr-review] retract failed comment=${c.id}: ${error instanceof Error ? error.message : error}`
-        )
-      }
+    for (const c of ours)
+      if (c.body.includes(marker) && !c.body.includes(VERIFIER_RETRACTION_NOTE))
+        edits.push({ id: c.id, body: buildRetractedComment(f) })
+  }
+  for (const f of input.open) {
+    if (f.provenance !== 'LLM_JUDGE') continue
+    const marker = fingerprintMarker(f.fingerprint)
+    for (const c of ours)
+      if (c.body.includes(marker) && c.body.includes(VERIFIER_RETRACTION_NOTE))
+        edits.push({ id: c.id, body: buildInlineComment(f, input.policy) })
+  }
+  for (const e of edits) {
+    try {
+      await prCommentClient.updateReviewLineComment({
+        repo: input.repo,
+        externalId: String(e.id),
+        body: e.body,
+        token: input.token,
+      })
+    } catch (error) {
+      logger.warn(
+        `[security-pr-review] verifier comment edit failed comment=${e.id}: ${error instanceof Error ? error.message : error}`
+      )
     }
   }
 }
@@ -675,7 +710,7 @@ async function upsertSummary(input: {
     token,
   })
   const mine = issueComments.find(
-    c => c.body.includes(SUMMARY_MARKER) && c.user?.type === 'Bot'
+    c => c.body.includes(SUMMARY_MARKER) && isLumoBotComment(c)
   )
   if (mine) {
     await prCommentClient.updateIssueComment({
@@ -829,9 +864,11 @@ export const securityPrReviewService = {
       // LUM-988: a verdict that landed after the hold window finds its
       // comment already on the PR — edit it to say so, rather than leave a
       // comment the summary calls "shown in Lumo only".
-      await retractRejectedComments({
+      await reconcileVerifierComments({
         rejected: undecided.filter(isVerifierRejected),
+        open,
         comments: reviewComments,
+        policy,
         repo,
         token,
       })

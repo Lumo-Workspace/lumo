@@ -53,6 +53,8 @@ jest.mock('@/lib/logger', () => ({
 import {
   securityPrReviewService,
   buildRetractedComment,
+  buildInlineComment,
+  isLumoBotComment,
   VERIFIER_RETRACTION_NOTE,
   buildSummary,
 } from '@/lib/services/security-pr-review.service'
@@ -558,5 +560,132 @@ describe('LUM-988 late rejections and what the hold covers', () => {
         '<!-- lumo-security:fp:fp9 -->',
       ].join('\n\n')
     )
+  })
+})
+
+describe('LUM-988 verifier comments follow the latest verdict', () => {
+  const updateReview = prCommentClient.updateReviewLineComment as jest.Mock
+  const judgeRow = (id: string, over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      id,
+      provenance: 'LLM_JUDGE',
+      kind: 'CORRECTNESS',
+      ruleId: 'review:logic_error',
+      severity: 'MEDIUM',
+      filePath: `src/${id}.ts`,
+      fingerprint: `fp-${id}`,
+      ...over,
+    })
+  const comment = (
+    id: number,
+    fp: string,
+    body: string,
+    user: { id: number; type?: string; login?: string } | null
+  ) => ({
+    id,
+    node_id: `n${id}`,
+    html_url: '',
+    updated_at: '',
+    body: `${body}\n\n<!-- lumo-security:fp:${fp} -->`,
+    user,
+  })
+  const OLD_SLUG = process.env.GITHUB_APP_SLUG
+  beforeEach(() => updateReview.mockResolvedValue({ id: 1 }))
+  afterEach(() => {
+    if (OLD_SLUG === undefined) delete process.env.GITHUB_APP_SLUG
+    else process.env.GITHUB_APP_SLUG = OLD_SLUG
+  })
+
+  it('reject on one push, confirm on the next: the retracted comment is restored', async () => {
+    // Push 2 had rejected it; push 3's verifier confirms it again.
+    listReview.mockResolvedValue([
+      comment(
+        55,
+        'fp-flip',
+        `~~Inverted guard~~ ${VERIFIER_RETRACTION_NOTE}: x`,
+        { id: 1, type: 'Bot' }
+      ),
+    ])
+    const row = judgeRow('flip', {
+      verifierVerdict: 'CONFIRMED',
+      title: 'Inverted guard',
+    })
+    findById.mockResolvedValue(
+      scanRow({
+        verifierStartedAt: new Date(),
+        verifiedAt: new Date(),
+        findings: [row],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).toHaveBeenCalledTimes(1)
+    const call = updateReview.mock.calls[0]![0]
+    expect(call.externalId).toBe('55')
+    expect(call.body).toBe(buildInlineComment(row))
+    expect(call.body).not.toContain(VERIFIER_RETRACTION_NOTE)
+  })
+
+  it('an open row whose comment was never retracted is left alone', async () => {
+    listReview.mockResolvedValue([
+      comment(56, 'fp-ok', 'original', { id: 1, type: 'Bot' }),
+    ])
+    findById.mockResolvedValue(
+      scanRow({
+        verifiedAt: new Date(),
+        verifierStartedAt: new Date(),
+        findings: [judgeRow('ok', { verifierVerdict: 'CONFIRMED' })],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).not.toHaveBeenCalled()
+  })
+
+  it('with the App slug set, another App quoting the marker is never edited', async () => {
+    process.env.GITHUB_APP_SLUG = 'lumo-agent'
+    listReview.mockResolvedValue([
+      comment(1, 'fp-r', 'original', {
+        id: 2,
+        type: 'Bot',
+        login: 'other-app[bot]',
+      }),
+      comment(2, 'fp-r', 'original', {
+        id: 3,
+        type: 'Bot',
+        login: 'lumo-agent[bot]',
+      }),
+    ])
+    findById.mockResolvedValue(
+      scanRow({
+        verifiedAt: new Date(),
+        verifierStartedAt: new Date(),
+        findings: [
+          judgeRow('r', {
+            verifierVerdict: 'REJECTED',
+            verifierReason: 'x.ts:1',
+          }),
+        ],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).toHaveBeenCalledTimes(1)
+    expect(updateReview.mock.calls[0]![0].externalId).toBe('2')
+  })
+
+  it('isLumoBotComment: login match when the slug is set, type alone otherwise', () => {
+    process.env.GITHUB_APP_SLUG = 'lumo-agent'
+    expect(
+      isLumoBotComment({ user: { type: 'Bot', login: 'lumo-agent[bot]' } })
+    ).toBe(true)
+    expect(
+      isLumoBotComment({ user: { type: 'Bot', login: 'renovate[bot]' } })
+    ).toBe(false)
+    expect(
+      isLumoBotComment({ user: { type: 'User', login: 'lumo-agent[bot]' } })
+    ).toBe(false)
+    expect(isLumoBotComment({ user: null })).toBe(false)
+    delete process.env.GITHUB_APP_SLUG
+    expect(
+      isLumoBotComment({ user: { type: 'Bot', login: 'renovate[bot]' } })
+    ).toBe(true)
   })
 })

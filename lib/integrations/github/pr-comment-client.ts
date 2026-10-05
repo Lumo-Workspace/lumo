@@ -351,5 +351,5 @@ export interface ListedComment {
    * comments apart from a human quoting one of its markers. GitHub returns
    * `null` here for comments whose account has since been deleted, so every
    * read of it must be optional. */
-  user: { id: number; type?: string } | null
+  user: { id: number; type?: string; login?: string } | null
 }

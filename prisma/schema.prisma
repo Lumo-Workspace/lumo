@@ -1891,6 +1891,9 @@ model PrSecurityScan {
   @@index([taskId])
   @@index([workspaceId, startedAt])
   @@index([startedAt])
+  // LUM-988: the stale verifier-hold sweep (`findStaleVerifierHolds`) runs
+  // every 15 min on verifiedAt IS NULL AND verifierStartedAt < cutoff.
+  @@index([verifiedAt, verifierStartedAt])
   @@map("pr_security_scans")
 }
 
