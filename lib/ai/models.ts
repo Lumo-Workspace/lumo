@@ -28,6 +28,43 @@
 export const REASONING_MODEL = 'openai/gpt-5.5'
 
 /**
+ * CODE_REVIEW tier — the PR scan's AI review layer (`judgeSecurity` in
+ * `lib/llm/security-judge-client.ts`): one structured call that reviews the
+ * diff plus the PR-head content of the changed files for security defects,
+ * correctness bugs, code contradicting its own docs and tests that cannot
+ * catch their bug (LUM-988). Split off REASONING_MODEL so the review can move
+ * without touching the eight verifier clients that share that constant.
+ *
+ * GPT-5.5 → Claude Sonnet 5.5 on the LUM-975 replay of the Martian Code
+ * Review Bench offline set (50 PRs, Core profile): sonnet + changed-file
+ * context F1 52.5 / F2 64.2 under the Opus 4.5 judge and F1 52.8 / F2 64.3
+ * under a GPT-5.2 cross-judge, vs F1 2.4 for the security-only prompt on
+ * gpt-5.5. The user approved moving to Sonnet or Opus 5.5 and the cost
+ * increase (LUM-975); Sonnet was picked over Opus because Opus led only under
+ * the same-family judge and costs twice as much (LUM-988 Decisions, recorded
+ * by the LUM-975 session). The replay harness is
+ * `scripts/analysis/lum988-code-review-replay/`. Gateway format;
+ * catalog-probed 2026-10-04 (`anthropic/claude-sonnet-5.5` resolves — keep
+ * the version dot, do NOT dash-normalise).
+ */
+export const CODE_REVIEW_MODEL = 'anthropic/claude-sonnet-5.5'
+
+/**
+ * LUM-988 — models whose gateway routing is pinned to the listed hosts.
+ * `lib/ai/zdr-fetch.ts` forces `providerOptions.gateway.only` to this list on
+ * every request for the model, at the wire, like ZDR. The gateway's default
+ * ZDR failover for an Anthropic model also reaches bedrock, vertexAnthropic
+ * and claudeaws, none of which is on the published subprocessor list; the
+ * user chose to pin to Anthropic only rather than announce four new hosts.
+ * Adding a host here is a subprocessor change: update `lib/legal/subprocessors.ts`,
+ * the ZDR manifest and the legal doc, and give the notice first.
+ */
+export const MODEL_PROVIDER_PINS: Readonly<Record<string, readonly string[]>> =
+  {
+    [CODE_REVIEW_MODEL]: ['anthropic'],
+  }
+
+/**
  * 桶2 GENERATION tier — lower-stakes structured generation where the quality
  * floor is the lowest: run/sprint/milestone summaries, summaries/report,
  * description & quick-dispatch & duplicate-check services, task

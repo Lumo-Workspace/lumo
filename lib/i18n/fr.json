@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "Secret",
   "securityScan.kind.VULNERABILITY": "Vulnérabilité",
   "securityScan.kind.DEPENDENCY": "Dépendance",
+  "securityScan.kind.CORRECTNESS": "Bogue",
   "securityScan.reachability.EXTERNAL": "Atteignable depuis un point d'entrée",
   "securityScan.reachability.INTERNAL": "Chemin interne uniquement",
   "securityScan.reachability.UNKNOWN": "Atteignabilité inconnue",

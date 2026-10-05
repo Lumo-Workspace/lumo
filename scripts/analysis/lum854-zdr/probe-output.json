@@ -1,12 +1,22 @@
 {
-  "probedAt": "2026-10-04T02:40:42.080Z",
+  "probedAt": "2026-10-04T23:11:43.947Z",
   "rows": [
+    {
+      "constant": "CODE_REVIEW_MODEL",
+      "model": "anthropic/claude-sonnet-5.5",
+      "kind": "chat",
+      "ok": true,
+      "finalProvider": "anthropic",
+      "zdrApplied": true,
+      "skippedAsNonZdr": [],
+      "planningReasoning": "Provider set restricted to: anthropic. System credentials planned for: anthropic. ZDR requested: all 1 attempts support ZDR. Execution order: anthropic(system)"
+    },
     {
       "constant": "CONTENT_MODEL",
       "model": "zai/glm-5.2",
       "kind": "chat",
       "ok": true,
-      "finalProvider": "baseten",
+      "finalProvider": "alibaba",
       "zdrApplied": true,
       "skippedAsNonZdr": [
         "novita",
@@ -16,7 +26,7 @@
         "inceptron",
         "friendli"
       ],
-      "planningReasoning": "Weighted tie pick: baseten won tier 0 over alibaba, runware. System credentials planned for: baseten, runware, alibaba, digitalocean, novita, zai, togetherai, nebius, streamlake, gmicloud, deepinfra, parasail, wafer, inceptron, friendli. ZDR requested: 15 attempts → 9 ZDR attempts. Pre-ZDR order: baseten(system) → runware(system) → alibaba(system) → digitalocean(system) → novita(system) → zai(system) → togetherai(system) → nebius(system) → streamlake(system) → gmicloud(system) → deepinfra(system) → parasail(system) → wafer(system) → inceptron(system) → friendli(system). ZDR execution order: baseten(system) → alibaba(system) → runware(system) → digitalocean(system) → togetherai(system) → nebius(system) → deepinfra(system) → parasail(system) → wafer(system)",
+      "planningReasoning": "Weighted tie pick: alibaba won tier 0 over baseten, runware. System credentials planned for: baseten, alibaba, runware, digitalocean, novita, zai, togetherai, nebius, streamlake, gmicloud, deepinfra, parasail, wafer, inceptron, friendli. ZDR requested: 15 attempts → 9 ZDR attempts. Pre-ZDR order: baseten(system) → alibaba(system) → runware(system) → digitalocean(system) → novita(system) → zai(system) → togetherai(system) → nebius(system) → streamlake(system) → gmicloud(system) → deepinfra(system) → parasail(system) → wafer(system) → inceptron(system) → friendli(system). ZDR execution order: alibaba(system) → runware(system) → baseten(system) → digitalocean(system) → togetherai(system) → nebius(system) → deepinfra(system) → parasail(system) → wafer(system)",
       "skippedAttempts": [
         {
           "provider": "novita",
@@ -55,7 +65,7 @@
         "gmicloud",
         "novita"
       ],
-      "planningReasoning": "Weighted tie pick: alibaba won tier 0 over baseten. System credentials planned for: baseten, alibaba, digitalocean, gmicloud, novita, azure, deepinfra, wafer. ZDR requested: 8 attempts → 6 ZDR attempts. Pre-ZDR order: baseten(system) → alibaba(system) → digitalocean(system) → gmicloud(system) → novita(system) → azure(system) → deepinfra(system) → wafer(system). ZDR execution order: alibaba(system) → baseten(system) → digitalocean(system) → azure(system) → deepinfra(system) → wafer(system)",
+      "planningReasoning": "Weighted tie pick: alibaba won tier 0 over baseten. System credentials planned for: alibaba, baseten, digitalocean, gmicloud, novita, azure, deepinfra, wafer. ZDR requested: 8 attempts → 6 ZDR attempts. Pre-ZDR order: alibaba(system) → baseten(system) → digitalocean(system) → gmicloud(system) → novita(system) → azure(system) → deepinfra(system) → wafer(system). ZDR execution order: alibaba(system) → baseten(system) → digitalocean(system) → azure(system) → deepinfra(system) → wafer(system)",
       "skippedAttempts": [
         {
           "provider": "gmicloud",
@@ -128,7 +138,7 @@
       "model": "zai/glm-5.2",
       "kind": "chat",
       "ok": true,
-      "finalProvider": "baseten",
+      "finalProvider": "alibaba",
       "zdrApplied": true,
       "skippedAsNonZdr": [
         "novita",
@@ -138,7 +148,7 @@
         "inceptron",
         "friendli"
       ],
-      "planningReasoning": "Weighted tie pick: baseten won tier 0 over alibaba, runware. System credentials planned for: baseten, alibaba, runware, digitalocean, novita, zai, togetherai, nebius, streamlake, gmicloud, deepinfra, parasail, wafer, inceptron, friendli. ZDR requested: 15 attempts → 9 ZDR attempts. Pre-ZDR order: baseten(system) → alibaba(system) → runware(system) → digitalocean(system) → novita(system) → zai(system) → togetherai(system) → nebius(system) → streamlake(system) → gmicloud(system) → deepinfra(system) → parasail(system) → wafer(system) → inceptron(system) → friendli(system). ZDR execution order: baseten(system) → alibaba(system) → runware(system) → digitalocean(system) → togetherai(system) → nebius(system) → deepinfra(system) → parasail(system) → wafer(system)",
+      "planningReasoning": "Weighted tie pick: alibaba won tier 0 over baseten, runware. System credentials planned for: runware, alibaba, baseten, digitalocean, novita, zai, togetherai, nebius, streamlake, gmicloud, deepinfra, parasail, wafer, inceptron, friendli. ZDR requested: 15 attempts → 9 ZDR attempts. Pre-ZDR order: runware(system) → alibaba(system) → baseten(system) → digitalocean(system) → novita(system) → zai(system) → togetherai(system) → nebius(system) → streamlake(system) → gmicloud(system) → deepinfra(system) → parasail(system) → wafer(system) → inceptron(system) → friendli(system). ZDR execution order: alibaba(system) → runware(system) → baseten(system) → digitalocean(system) → togetherai(system) → nebius(system) → deepinfra(system) → parasail(system) → wafer(system)",
       "skippedAttempts": [
         {
           "provider": "novita",

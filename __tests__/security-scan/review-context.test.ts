@@ -1,0 +1,157 @@
+/** @jest-environment node */
+import {
+  REVIEW_CONTEXT_MAX_FILE_CHARS,
+  REVIEW_CONTEXT_MAX_READS,
+  isSkippedContextPath,
+  isTestPath,
+  loadReviewContext,
+  packReviewContext,
+} from '@/lib/security-scan/review-context'
+
+const file = (path: string, chars: number, fill = 'x') => ({
+  path,
+  body: fill.repeat(chars),
+})
+
+describe('LUM-988 review context — packing rules', () => {
+  it('skips lockfiles, binaries and generated files by path', () => {
+    for (const p of [
+      'package-lock.json',
+      'web/yarn.lock',
+      'pnpm-lock.yaml',
+      'Gemfile.lock',
+      'go.sum',
+      'Cargo.lock',
+      'dist/app.min.js',
+      'dist/app.js.map',
+      'logo.png',
+      'fonts/a.woff2',
+      '__snapshots__/x.test.ts.snap',
+    ])
+      expect([p, isSkippedContextPath(p)]).toEqual([p, true])
+    for (const p of ['src/app.ts', 'lib/lock.ts', 'app/models/topic_embed.rb'])
+      expect([p, isSkippedContextPath(p)]).toEqual([p, false])
+  })
+
+  it('recognises test files across languages', () => {
+    for (const p of [
+      '__tests__/a.ts',
+      'src/a.test.ts',
+      'spec/models/user_spec.rb',
+      'pkg/a_test.go',
+      'tests/test_api.py',
+      'src/test/java/FooTest.java',
+    ])
+      expect([p, isTestPath(p)]).toEqual([p, true])
+    expect(isTestPath('src/contest.ts')).toBe(false)
+  })
+
+  it('packs source before tests, then smallest first', () => {
+    const packed = packReviewContext([
+      file('src/big.ts', 300),
+      file('src/a.test.ts', 10),
+      file('src/small.ts', 100),
+    ])
+    expect(packed.included).toEqual([
+      'src/small.ts',
+      'src/big.ts',
+      'src/a.test.ts',
+    ])
+    expect(packed.text.indexOf('=== src/small.ts ===')).toBe(0)
+  })
+
+  it('obeys the char cap with skip-and-continue', () => {
+    const packed = packReviewContext(
+      [file('a.ts', 400), file('b.ts', 700), file('c.test.ts', 300)],
+      1_000
+    )
+    // a (≈410) fits, b (≈710) does not, the test file behind it still does.
+    expect(packed.included).toEqual(['a.ts', 'c.test.ts'])
+    expect(packed.text.length).toBeLessThanOrEqual(1_000)
+  })
+
+  it('drops skipped paths, files over the size limit, binaries and empty files', () => {
+    const packed = packReviewContext([
+      file('yarn.lock', 10),
+      file('huge.ts', REVIEW_CONTEXT_MAX_FILE_CHARS + 1),
+      { path: 'blob.dat', body: 'ab\u0000cd' },
+      { path: 'empty.ts', body: '  \n' },
+      file('ok.ts', 10),
+    ])
+    expect(packed.included).toEqual(['ok.ts'])
+  })
+
+  it('returns empty text when nothing is eligible', () => {
+    expect(packReviewContext([file('yarn.lock', 10)])).toEqual({
+      text: '',
+      included: [],
+    })
+  })
+})
+
+describe('LUM-988 review context — loading', () => {
+  it('reads the changed files and packs them; a missing file is skipped', async () => {
+    const readFile = jest.fn(async (path: string) =>
+      path === 'gone.ts' ? null : `body of ${path}`
+    )
+    const out = await loadReviewContext({
+      paths: ['src/a.ts', 'gone.ts', 'package-lock.json', 'src/a.ts'],
+      readFile,
+    })
+    expect(out.error).toBeNull()
+    expect(out.included).toEqual(['src/a.ts'])
+    expect(out.text).toContain('body of src/a.ts')
+    // Lockfiles are never fetched; duplicates are read once.
+    expect(readFile.mock.calls.map(c => c[0]).sort()).toEqual([
+      'gone.ts',
+      'src/a.ts',
+    ])
+  })
+
+  it('degrades to no context when a read throws (unconfirmed repository)', async () => {
+    const readFile = jest.fn(async (path: string) => {
+      if (path === 'src/b.ts')
+        throw Object.assign(new Error('repo_not_confirmed'), { status: 403 })
+      return 'ok'
+    })
+    const out = await loadReviewContext({
+      paths: ['src/a.ts', 'src/b.ts'],
+      readFile,
+    })
+    expect(out).toEqual({
+      text: '',
+      included: [],
+      error: 'repo_not_confirmed',
+    })
+  })
+
+  it('degrades to no context when reads run past the timeout', async () => {
+    const out = await loadReviewContext({
+      paths: ['src/a.ts'],
+      readFile: () => new Promise<string>(() => undefined),
+      timeoutMs: 5,
+    })
+    expect(out.text).toBe('')
+    expect(out.error).toMatch(/timed out/)
+  })
+
+  it('reads at most REVIEW_CONTEXT_MAX_READS files, source first', async () => {
+    const tests = Array.from({ length: 10 }, (_, i) => `t/${i}.test.ts`)
+    const src = Array.from(
+      { length: REVIEW_CONTEXT_MAX_READS },
+      (_, i) => `src/${i}.ts`
+    )
+    const readFile = jest.fn(async () => 'x')
+    await loadReviewContext({ paths: [...tests, ...src], readFile })
+    const read = readFile.mock.calls.map(c => (c as unknown as [string])[0])
+    expect(read).toHaveLength(REVIEW_CONTEXT_MAX_READS)
+    expect(read.every(p => p.startsWith('src/'))).toBe(true)
+  })
+
+  it('makes no reads when no path is eligible', async () => {
+    const readFile = jest.fn(async () => 'x')
+    const out = await loadReviewContext({ paths: ['yarn.lock'], readFile })
+    expect(readFile).not.toHaveBeenCalled()
+    expect(out).toEqual({ text: '', included: [], error: null })
+  })
+})

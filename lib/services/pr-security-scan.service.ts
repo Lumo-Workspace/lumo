@@ -34,7 +34,13 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
 import { cleanPrSummary, type PrSummary } from '@/lib/security-scan/pr-summary'
-import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
+import {
+  fetchPrDiff,
+  fetchPrHeadSha,
+  readRepoFile,
+} from '@/lib/integrations/github/contents'
+import { loadReviewContext } from '@/lib/security-scan/review-context'
+import { isBugKind } from '@/lib/security-scan/review-kinds'
 import {
   addedLinesWithNumbers,
   scanSecrets,
@@ -824,6 +830,25 @@ export const prSecurityScanService = {
             `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} diffChars=${diff.length} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
           )
         }
+        // LUM-988 — the PR-head content of the files the review covers, as
+        // context. Read through `readRepoFile`, so an unconfirmed repository
+        // is refused (LUM-883); any failure is logged and the review runs on
+        // the diff alone. Never throws.
+        const context = await loadReviewContext({
+          paths: capped.covered,
+          readFile: path =>
+            readRepoFile({
+              workspaceId: pr.workspaceId,
+              fullName: pr.repo,
+              path,
+              ref: headSha,
+            }),
+        })
+        if (context.error) {
+          logger.warn(
+            `[pr-security-scan] review context unavailable pr=${pr.id} sha=${headSha}: ${context.error} — reviewing the diff only`
+          )
+        }
         try {
           // Dynamic import keeps @ai-sdk/gateway out of the static graph.
           const { judgeSecurity } =
@@ -836,6 +861,8 @@ export const prSecurityScanService = {
           const { findings, prSummary: rawSummary } = await judgeSecurity({
             diff: redactForInjection(capped.text).text,
             timeoutMs: tier.timeoutMs,
+            // Customer files entering a prompt: same mask as the diff.
+            context: redactForInjection(context.text).text,
           })
           judgeStatus = 'RAN'
           // Model text headed for a public PR: redacted and neutralised here,
@@ -843,9 +870,15 @@ export const prSecurityScanService = {
           prSummary = cleanPrSummary(rawSummary)
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
+            // LUM-988: a correctness finding is CORRECTNESS / `review:<kind>`,
+            // never VULNERABILITY — the panel and the PR comment label it as
+            // a bug, not a security defect. Still LLM_JUDGE, so advisory.
+            const isBug = isBugKind(j.kind)
             const ruleId = isCredential
               ? 'secret:llm-hardcoded-credential'
-              : `vuln:${j.kind}`
+              : isBug
+                ? `review:${j.kind}`
+                : `vuln:${j.kind}`
             // EVERY free-text field the judge authored is redacted, not just
             // `evidence` (LUM-732 review C1). The model echoes the offending
             // line wherever it likes — a title quoting the key, a detail
@@ -859,7 +892,11 @@ export const prSecurityScanService = {
             const title = redactKnownSecrets(j.title)
             judgeRows.push({
               scanId,
-              kind: isCredential ? 'SECRET' : 'VULNERABILITY',
+              kind: isCredential
+                ? 'SECRET'
+                : isBug
+                  ? 'CORRECTNESS'
+                  : 'VULNERABILITY',
               ruleId,
               severity: j.severity,
               provenance: 'LLM_JUDGE',

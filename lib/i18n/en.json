@@ -1566,6 +1566,7 @@
   "securityScan.huntOverCap": "This PR touches {files} source files; exploit-path checks run on up to {cap}, so they did not run. To get them, narrow the review scope or split the PR.",
   "securityScan.huntProgress": "{covered}/{total} source files",
   "securityScan.judgeOverCap": "This PR's diff is {size, number} characters; AI review runs on up to {cap, number}, so it did not run. To get it, narrow the review scope or split the PR.",
+  "securityScan.kind.CORRECTNESS": "Bug",
   "securityScan.kind.DEPENDENCY": "Dependency",
   "securityScan.kind.SECRET": "Secret",
   "securityScan.kind.VULNERABILITY": "Vulnerability",

@@ -291,7 +291,11 @@ describe('LUM-785 stage A graph rule', () => {
       pullRequestId: 'pr1',
       trigger: 'PR_EVENT',
     })
-    expect(readRepoFile).not.toHaveBeenCalled()
+    // LUM-988: the only read is the AI review's context read of the changed
+    // file itself — the graph rules read nothing.
+    expect(readRepoFile.mock.calls).toEqual([
+      [expect.objectContaining({ path: 'README.md' })],
+    ])
     expect(repo.persistResult.mock.calls[0]![2].partialCauses).toEqual([])
   })
 })

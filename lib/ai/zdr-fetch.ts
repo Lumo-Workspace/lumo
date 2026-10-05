@@ -15,11 +15,22 @@
  * instead of being sent unconstrained. Non-POST requests (the gateway's
  * model-metadata GETs) carry no customer data and pass through untouched.
  *
+ * LUM-988 — the same wire also pins a model to the hosts on Lumo's published
+ * subprocessor list: when the request's `ai-language-model-id` header names a
+ * model in `MODEL_PROVIDER_PINS`, `providerOptions.gateway.only` is forced to
+ * that list, so a call site cannot route customer code to a host that was
+ * never announced (DPA §7.2 promises 30 days' notice for a new one).
+ *
  * Kept free of runtime dependencies so it is unit-testable without pulling
  * `@ai-sdk/gateway` (and its jest-hostile TransformStream) into scope.
  */
 
+import { MODEL_PROVIDER_PINS } from './models'
+
 type FetchFn = typeof fetch
+
+/** The gateway's header naming the chat model of a language-model request. */
+const LANGUAGE_MODEL_ID_HEADER = 'ai-language-model-id'
 
 export const ZDR_GATEWAY_OPTIONS = { zeroDataRetention: true } as const
 
@@ -27,8 +38,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-/** Return `body` (a JSON object string) with gateway ZDR forced on. */
-export function withZeroDataRetention(body: string): string {
+/**
+ * Return `body` (a JSON object string) with gateway ZDR forced on, and — when
+ * `modelId` is pinned in `MODEL_PROVIDER_PINS` — `only` forced to its hosts.
+ */
+export function withZeroDataRetention(
+  body: string,
+  modelId?: string | null
+): string {
   let parsed: unknown
   try {
     parsed = JSON.parse(body)
@@ -48,13 +65,31 @@ export function withZeroDataRetention(body: string): string {
   const gatewayOptions = isPlainObject(providerOptions.gateway)
     ? providerOptions.gateway
     : {}
+  const pin = modelId ? MODEL_PROVIDER_PINS[modelId] : undefined
   return JSON.stringify({
     ...parsed,
     providerOptions: {
       ...providerOptions,
-      gateway: { ...gatewayOptions, ...ZDR_GATEWAY_OPTIONS },
+      gateway: {
+        ...gatewayOptions,
+        ...ZDR_GATEWAY_OPTIONS,
+        ...(pin ? { only: [...pin] } : {}),
+      },
     },
   })
+}
+
+function languageModelIdOf(
+  input: Parameters<FetchFn>[0],
+  init?: RequestInit
+): string | null {
+  const fromInit = init?.headers
+    ? new Headers(init.headers).get(LANGUAGE_MODEL_ID_HEADER)
+    : null
+  if (fromInit) return fromInit
+  if (typeof Request !== 'undefined' && input instanceof Request)
+    return input.headers.get(LANGUAGE_MODEL_ID_HEADER)
+  return null
 }
 
 function methodOf(input: Parameters<FetchFn>[0], init?: RequestInit): string {
@@ -73,6 +108,9 @@ export function createZdrFetch(inner: FetchFn): FetchFn {
         'ZDR guard: refusing to send an AI Gateway POST without a JSON string body'
       )
     }
-    return inner(input, { ...init, body: withZeroDataRetention(init.body) })
+    return inner(input, {
+      ...init,
+      body: withZeroDataRetention(init.body, languageModelIdOf(input, init)),
+    })
   }
 }

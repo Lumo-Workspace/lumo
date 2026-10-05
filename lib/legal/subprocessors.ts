@@ -140,6 +140,14 @@ export const AI_HOST_SUBPROCESSORS: readonly AiHostSubprocessor[] = [
     location: 'globalRouting',
   },
   {
+    // LUM-988: the AI review (CODE_REVIEW_MODEL) is pinned to Anthropic's own
+    // API by MODEL_PROVIDER_PINS; bedrock / vertexAnthropic / claudeaws are
+    // never reached.
+    gatewaySlug: 'anthropic',
+    entity: 'Anthropic, PBC',
+    location: 'globalRouting',
+  },
+  {
     gatewaySlug: 'azure',
     entity: 'Microsoft Corporation (Azure)',
     location: 'globalRouting',

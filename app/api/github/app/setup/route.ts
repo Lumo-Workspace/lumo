@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const ws = await getUserWorkspace(userId)
+  // The slug comes from the signed state, never the query string (LUM-989).
+  const ws = await getUserWorkspace(userId, state.workspaceUrl)
   if (!ws || ws.workspaceId !== state.workspaceId) {
     return NextResponse.json(
       {

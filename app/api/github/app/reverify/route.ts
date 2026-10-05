@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
   const { userId } = authResult
 
   const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
-  const ws = await getUserWorkspace(userId)
+  // A full-page redirect carries no X-Lumo-Workspace header (LUM-989).
+  const ws = await getUserWorkspace(userId, workspaceUrl)
   if (!ws || !workspaceUrl || ws.workspace.slug !== workspaceUrl) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
