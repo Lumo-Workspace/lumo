@@ -47,6 +47,15 @@ const runRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+
 const rule = (receipt: string, caller = CALLER) =>
   testCaseDefectDispositionService.rule({
     taskId: 't-1',
@@ -55,6 +64,7 @@ const rule = (receipt: string, caller = CALLER) =>
     caller,
     channel: 'CLI',
     receipt,
+    audit: TEST_AUDIT,
   })
 
 beforeEach(() => {

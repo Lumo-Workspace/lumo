@@ -129,7 +129,19 @@ const suppressed = (id: string, over: Partial<Row> = {}): Row => ({
   ...over,
 })
 
-const ATTRIBUTION = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+const ATTRIBUTION = {
+  actorMemberId: 'member-1',
+  actorClerkId: 'clerk-1',
+  audit: TEST_AUDIT,
+}
 
 beforeEach(() => {
   jest.clearAllMocks()

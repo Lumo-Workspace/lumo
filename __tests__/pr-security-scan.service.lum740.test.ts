@@ -122,6 +122,15 @@ const row = (over: object) => ({
   ...over,
 })
 
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+
 describe('LUM-740 bulk disposition — service', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -138,7 +147,8 @@ describe('LUM-740 bulk disposition — service', () => {
       'f1',
       'FALSE_POSITIVE',
       null,
-      'm1'
+      'm1',
+      TEST_AUDIT
     )
     expect(update).toHaveBeenCalledWith(
       'f1',
@@ -156,7 +166,8 @@ describe('LUM-740 bulk disposition — service', () => {
       'f1',
       'ACCEPTED_RISK',
       'real',
-      'm1'
+      'm1',
+      TEST_AUDIT
     )
     expect(update).toHaveBeenCalledWith(
       'f1',
@@ -176,7 +187,8 @@ describe('LUM-740 bulk disposition — service', () => {
       'f1',
       'FALSE_POSITIVE',
       null,
-      'm1'
+      'm1',
+      TEST_AUDIT
     )
     expect(update).toHaveBeenCalledWith(
       'f1',
@@ -191,7 +203,8 @@ describe('LUM-740 bulk disposition — service', () => {
       'f1',
       'FALSE_POSITIVE',
       null,
-      'm1'
+      'm1',
+      TEST_AUDIT
     )
     expect(view).toMatchObject({
       suggestedDisposition: 'FALSE_POSITIVE',
@@ -226,7 +239,7 @@ describe('LUM-740 bulk disposition — service', () => {
     confirmAll.mockResolvedValue(3)
     const before = Date.now()
     await expect(
-      prSecurityScanService.dispositionSuggested('t1', 'm1')
+      prSecurityScanService.dispositionSuggested('t1', 'm1', TEST_AUDIT)
     ).resolves.toEqual({ confirmed: 3 })
     expect(confirmAll).toHaveBeenCalledTimes(1)
     const [scanIds, data] = confirmAll.mock.calls[0]
@@ -273,6 +286,49 @@ describe('LUM-907 security finding dispositions are audited', () => {
       context: audit.context,
     })
     expect(JSON.stringify(mockAudit.mock.calls)).not.toContain('secret-note')
+  })
+
+  it('security finding audit: re-ruling the same disposition records nothing', async () => {
+    findFinding.mockResolvedValue(row({ disposition: 'ACCEPTED_RISK' }))
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'ACCEPTED_RISK',
+      'edited note',
+      'm1',
+      audit
+    )
+    // The finding row is still saved (note / reviewer), only the audit is skipped.
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(mockAudit).not.toHaveBeenCalled()
+    // A real change from that value is recorded with its transition.
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'FALSE_POSITIVE',
+      null,
+      'm1',
+      audit
+    )
+    expect(mockAudit).toHaveBeenCalledTimes(1)
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { taskId: 't1', from: 'ACCEPTED_RISK', to: 'FALSE_POSITIVE' },
+      })
+    )
+  })
+
+  it('security finding audit: a bulk confirm that changes nothing records nothing', async () => {
+    prsOf.mockResolvedValue([{ id: 'pr1' }])
+    latestScans.mockResolvedValue([
+      { id: 's1', pullRequestId: 'pr1', startedAt: new Date(1), findings: [] },
+    ])
+    // Every suggestion already ruled: the repository confirms 0 rows.
+    confirmAll.mockResolvedValueOnce(0)
+    await expect(
+      prSecurityScanService.dispositionSuggested('t1', 'm1', audit)
+    ).resolves.toEqual({ confirmed: 0 })
+    expect(mockAudit).not.toHaveBeenCalled()
   })
 
   it('security finding audit: a finding off the task records nothing', async () => {

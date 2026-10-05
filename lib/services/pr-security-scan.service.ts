@@ -1189,7 +1189,7 @@ export const prSecurityScanService = {
     disposition: FindingDisposition,
     note: string | null,
     actorMemberId: string,
-    audit?: WorkspaceAudit
+    audit: WorkspaceAudit
   ): Promise<SecurityFindingView> {
     const finding =
       await prSecurityScanRepository.findFindingWithScope(findingId)
@@ -1214,16 +1214,15 @@ export const prSecurityScanService = {
       }
     )
     // LUM-907: ids and enum values only — the note stays on the finding.
-    if (audit) {
+    // Like crossings, a ruling that leaves the disposition unchanged (a
+    // re-save of the same value, e.g. to edit the note) is not audited.
+    const from = finding.disposition ?? null
+    if (from !== disposition) {
       await recordAuditEvent({
         workspaceId: audit.workspaceId,
         action: 'security_finding.dispositioned',
         target: { type: 'security_finding', id: findingId },
-        metadata: {
-          taskId,
-          from: finding.disposition ?? null,
-          to: disposition,
-        },
+        metadata: { taskId, from, to: disposition },
         context: audit.context,
       })
     }
@@ -1242,7 +1241,7 @@ export const prSecurityScanService = {
   async dispositionSuggested(
     taskId: string,
     actorMemberId: string,
-    audit?: WorkspaceAudit
+    audit: WorkspaceAudit
   ): Promise<{ confirmed: number }> {
     // The latest scan per PR — the rows the panel shows and counts.
     const prs = await pullRequestRepository.findManyForSecurityByTaskId(taskId)
@@ -1258,7 +1257,9 @@ export const prSecurityScanService = {
         dispositionedAt: new Date(),
       }
     )
-    if (audit && confirmed > 0) {
+    // Only undispositioned suggestions are written, so `confirmed` counts
+    // real changes: nothing confirmed = nothing changed = no audit row.
+    if (confirmed > 0) {
       await recordAuditEvent({
         workspaceId: audit.workspaceId,
         action: 'security_finding.suggestions_confirmed',

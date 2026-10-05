@@ -55,6 +55,15 @@ beforeEach(() => {
   mockFindById.mockResolvedValue(OPEN_CROSSING)
 })
 
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+
 describe('disposition channel (LUM-769)', () => {
   it('a CLI attribution stamps channel CLI and the handshake timestamps on the audit payload', async () => {
     const startedAt = Date.now()
@@ -67,6 +76,7 @@ describe('disposition channel (LUM-769)', () => {
         actorMemberId: 'm-1',
         actorClerkId: 'c-1',
         channel: 'CLI',
+        audit: TEST_AUDIT,
         handshake: {
           readAt: '2026-09-14T10:00:00.000Z',
           readAcknowledgedAt: '2026-09-14T10:01:00.000Z',
@@ -100,7 +110,7 @@ describe('disposition channel (LUM-769)', () => {
       'cx-1',
       'CONFIRMED',
       null,
-      { actorMemberId: 'm-1', actorClerkId: 'c-1' }
+      { actorMemberId: 'm-1', actorClerkId: 'c-1', audit: TEST_AUDIT }
     )
     const payload = mockCreate.mock.calls[0][0].payload as Record<
       string,

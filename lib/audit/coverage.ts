@@ -25,9 +25,11 @@
  * connections) cannot be found mechanically; they are listed here by hand.
  *
  * PR1 shipped with a declared PENDING list (the PR3 points); PR3 emptied it
- * and the guard requires it to stay empty. Callers: every app file calling an
- * instrumented method — `fooService.bar(` or, for a module-level function,
- * `bar(` imported from its module — passes a request audit context.
+ * and the guard requires it to stay empty. Callers: every call of an
+ * instrumented method from app/ — `fooService.bar(` or, for a module-level
+ * function, `bar(` imported from its module (alias or relative path, either
+ * quote style) — passes an audit context IN THAT CALL's arguments, inline or
+ * through a local binding initialised with one (see passesAuditContext).
  *
  * Deliberately not audited (not sensitive, or not a member action): Slack
  * project channel create / delete; per-member document shares (exempt
@@ -296,12 +298,14 @@ function escapeRe(text: string): string {
  * for a service-object method (`lib/services/foo.service.ts#bar`), and for a
  * module-level `export function bar` also `bar(` in a file importing the
  * module plus any `fooService.alias(` the service object maps to it
- * (`alias: bar,`). `moduleSource` is the unit's own file.
+ * (`alias: bar,`). `moduleSource` is the unit's own file. `modulePath` is the
+ * module's repo-relative path without `.ts`, matched against the caller's
+ * resolved import specifiers.
  */
 export function instrumentedCallPatterns(
   unit: AuditUnit,
   moduleSource: string
-): { direct: RegExp; importFrom: string | null; bare: RegExp | null } {
+): { direct: RegExp; modulePath: string | null; bare: RegExp | null } {
   const i = unit.lastIndexOf('#')
   const file = unit.slice(0, i)
   const name = unit.slice(i + 1)
@@ -322,21 +326,146 @@ export function instrumentedCallPatterns(
     direct: new RegExp(
       methods.map(m => `\\b${service}\\.${escapeRe(m)}\\(`).join('|')
     ),
-    importFrom: moduleLevel ? `@/${file.replace(/\.ts$/, '')}` : null,
+    modulePath: moduleLevel ? file.replace(/\.ts$/, '') : null,
     bare: moduleLevel ? new RegExp(`(?<![.\\w])${escapeRe(name)}\\(`) : null,
   }
 }
 
-/** True when `source` (an app file) calls the unit described by `p`. */
-export function callsInstrumentedUnit(
+/** Normalize a posix path: drop `.` segments and fold `..` ones. */
+function normalizePosix(p: string): string {
+  const out: string[] = []
+  for (const seg of p.split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') out.pop()
+    else out.push(seg)
+  }
+  return out.join('/')
+}
+
+/**
+ * The repo-relative module paths (no extension) `source` imports: `@/x`
+ * aliases and `./` / `../` paths relative to `callerFile`, in single or
+ * double quotes, from static `from '…'` and dynamic `import('…')`.
+ */
+export function importedModules(source: string, callerFile: string): string[] {
+  const dir = callerFile.includes('/')
+    ? callerFile.slice(0, callerFile.lastIndexOf('/'))
+    : ''
+  const specRe = /(?:\bfrom\s*|\bimport\s*\(\s*)(['"])([^'"]+)\1/g
+  const out: string[] = []
+  for (const m of source.matchAll(specRe)) {
+    const spec = m[2]!
+    let resolved: string | null = null
+    if (spec.startsWith('@/')) resolved = spec.slice(2)
+    else if (spec.startsWith('./') || spec.startsWith('../'))
+      resolved = normalizePosix(`${dir}/${spec}`)
+    if (resolved) out.push(resolved.replace(/\.(?:ts|tsx|js)$/, ''))
+  }
+  return out
+}
+
+function importsModule(
   source: string,
+  callerFile: string,
   p: ReturnType<typeof instrumentedCallPatterns>
 ): boolean {
-  if (p.direct.test(source)) return true
   return Boolean(
-    p.importFrom &&
-    p.bare &&
-    source.includes(`'${p.importFrom}'`) &&
-    p.bare.test(source)
+    p.modulePath && importedModules(source, callerFile).includes(p.modulePath)
   )
+}
+
+/** True when `source` (an app file at `callerFile`) calls the unit `p`. */
+export function callsInstrumentedUnit(
+  source: string,
+  p: ReturnType<typeof instrumentedCallPatterns>,
+  callerFile: string
+): boolean {
+  return auditedCallArguments(source, p, callerFile).length > 0
+}
+
+/**
+ * The argument text `(…)` of a call whose opening parenthesis is at `open`,
+ * balanced over (), [] and {} and skipping string / template literals.
+ */
+export function callArguments(source: string, open: number): string {
+  let depth = 0
+  for (let i = open; i < source.length; i++) {
+    const c = source[i]!
+    if (c === "'" || c === '"' || c === '`') {
+      for (i++; i < source.length && source[i] !== c; i++) {
+        if (source[i] === '\\') i++
+      }
+      continue
+    }
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') {
+      depth--
+      if (depth === 0) return source.slice(open, i + 1)
+    }
+  }
+  return source.slice(open)
+}
+
+/** Every call site of the unit `p` in `source`, as its argument text. */
+export function auditedCallArguments(
+  source: string,
+  p: ReturnType<typeof instrumentedCallPatterns>,
+  callerFile: string
+): string[] {
+  const res = [p.direct]
+  if (p.bare && importsModule(source, callerFile, p)) res.push(p.bare)
+  const out: string[] = []
+  for (const re of res) {
+    for (const m of source.matchAll(new RegExp(re.source, 'g'))) {
+      out.push(callArguments(source, m.index! + m[0].length - 1))
+    }
+  }
+  return out
+}
+
+/** A request audit context, or an explicit system / webhook one. */
+const AUDIT_CONTEXT_RE =
+  /\bmemberAuditContext\(|\b(?:SYSTEM|WEBHOOK)_AUDIT_CONTEXT\b/
+
+/**
+ * The text of a statement starting at `start`, up to the first `;` or line
+ * break outside any bracket (so a multi-line call or object is whole).
+ */
+function statementText(source: string, start: number): string {
+  let depth = 0
+  for (let i = start; i < source.length; i++) {
+    const c = source[i]!
+    if (c === "'" || c === '"' || c === '`') {
+      for (i++; i < source.length && source[i] !== c; i++) {
+        if (source[i] === '\\') i++
+      }
+      continue
+    }
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') depth--
+    else if (depth <= 0 && (c === ';' || c === '\n')) {
+      return source.slice(start, i)
+    }
+  }
+  return source.slice(start)
+}
+
+/**
+ * True when a call's argument text hands the audited method an audit
+ * context: inline (`memberAuditContext(…)` or an explicit SYSTEM / WEBHOOK
+ * context), or through a local binding initialised with one
+ * (`const audit = memberAuditContext(…)` … `install({ …, audit })`).
+ * Mentioning memberAuditContext elsewhere in the file is not enough.
+ */
+export function passesAuditContext(source: string, args: string): boolean {
+  if (AUDIT_CONTEXT_RE.test(args)) return true
+  const bindingRe = /\b(?:const|let|var)\s+(\w+)(?:\s*:[^=\n]+)?\s*=\s*/g
+  for (const m of source.matchAll(bindingRe)) {
+    // Used as a value in the call (`audit,` / `x: audit`), not as a key.
+    const used = new RegExp(`(?<![.\\w])${escapeRe(m[1]!)}(?![\\w])(?!\\s*:)`)
+    if (!used.test(args)) continue
+    const init = statementText(source, m.index! + m[0].length)
+    if (AUDIT_CONTEXT_RE.test(init)) return true
+  }
+  return false
 }

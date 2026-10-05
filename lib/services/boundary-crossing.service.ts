@@ -73,8 +73,10 @@ export interface DispositionAttribution {
   /** LUM-769 handshake timestamps (CLI path only): when the envelope was
    *  shown and when reading was acknowledged — recorded on the audit row. */
   handshake?: { readAt: string; readAcknowledgedAt: string }
-  /** LUM-907: the workspace audit log entry for this ruling / revoke. */
-  audit?: WorkspaceAudit
+  /** LUM-907: the workspace audit log entry for this ruling / revoke.
+   *  Required: a ruling is always audited, so a caller that forgets the
+   *  context fails to compile instead of silently skipping the audit row. */
+  audit: WorkspaceAudit
 }
 
 /** LUM-751: optional repository-rule opt-in riding a FALSE_POSITIVE ruling. */
@@ -1134,7 +1136,7 @@ export const boundaryCrossingService = {
     // Ids, category and enum values only; the crossing detail and the note
     // stay on the task timeline.
     const recordRuling = async (changed: boolean) => {
-      if (!attribution.audit || (!changed && !suppressionRuleId)) return
+      if (!changed && !suppressionRuleId) return
       await recordAuditEvent({
         workspaceId: attribution.audit.workspaceId,
         action: 'boundary_crossing.dispositioned',
@@ -1412,19 +1414,17 @@ export const boundaryCrossingService = {
         actor?.id ?? null,
         now
       )
-    if (attribution.audit) {
-      await recordAuditEvent({
-        workspaceId: attribution.audit.workspaceId,
-        action: 'boundary_crossing.suppression_rule_revoked',
-        target: { type: 'suppression_rule', id: ruleId },
-        metadata: {
-          taskId,
-          projectId: rule.projectId,
-          reopenedCount,
-        },
-        context: attribution.audit.context,
-      })
-    }
+    await recordAuditEvent({
+      workspaceId: attribution.audit.workspaceId,
+      action: 'boundary_crossing.suppression_rule_revoked',
+      target: { type: 'suppression_rule', id: ruleId },
+      metadata: {
+        taskId,
+        projectId: rule.projectId,
+        reopenedCount,
+      },
+      context: attribution.audit.context,
+    })
     return { ruleId, revokedAt: now.toISOString(), reopenedCount }
   },
 
@@ -1764,7 +1764,7 @@ export const boundaryCrossingService = {
   async spawnRemediation(
     taskId: string,
     crossingId: string,
-    attribution: DispositionAttribution & { workspaceId: string }
+    attribution: Omit<DispositionAttribution, 'audit'> & { workspaceId: string }
   ): Promise<SpawnRemediationOutcome> {
     const crossing = await boundaryCrossingRepository.findById(crossingId)
     if (!crossing || crossing.taskId !== taskId) {

@@ -24,6 +24,11 @@ let mockRows: Array<{
 // LUM-812: the DONE gate now consults the test-case plane fail-closed (a proven,
 // undispositioned defect blocks). Default it to "no test cases" so this suite
 // keeps isolating what it was written for.
+// LUM-907: rulings always write an audit row now; keep it off the database.
+jest.mock('@/lib/services/audit.service', () => ({
+  ...jest.requireActual('@/lib/services/audit.service'),
+  recordAuditEvent: jest.fn(async () => true),
+}))
 jest.mock('@/lib/repositories/test-case.repository', () => ({
   testCaseRepository: {
     listForTask: jest.fn(() => Promise.resolve([])),
@@ -95,7 +100,19 @@ const TASK = {
   sprintId: null,
   assigneeActorId: null,
 }
-const ATTRIB = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+const ATTRIB = {
+  actorMemberId: 'member-1',
+  actorClerkId: 'clerk-1',
+  audit: TEST_AUDIT,
+}
 
 beforeEach(() => {
   jest.clearAllMocks()
