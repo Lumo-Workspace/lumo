@@ -169,6 +169,10 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   'lib/services/workspace-deletion.service.ts#deleteNow':
     'runs the purge at once: the audit rows go with the workspace and the WorkspaceDeletionReceipt is the lasting record (deletion_scheduled precedes it)',
   'app/api/teams/route.ts#GET': READ_ONLY,
+  // LUM-907 PR2: reading the audit log itself (list + CSV export).
+  'lib/services/audit-query.service.ts#assertOwner': GATE_HELPER,
+  'lib/services/audit-query.service.ts#listAuditEvents': READ_ONLY,
+  'lib/services/audit-query.service.ts#exportAuditEventsCsv': READ_ONLY,
 }
 
 /** Matches an OWNER check or a call to one of the owner-gate helpers. */

@@ -33,7 +33,7 @@ import {
   pruneExpiredAuditEvents,
   recordAuditEvent,
 } from '@/lib/services/audit.service'
-import { memberAuditContext } from '@/lib/api/audit-context'
+import { clientIpHeader, memberAuditContext } from '@/lib/api/audit-context'
 import { diffWorkspaceSettings } from '@/lib/audit/workspace-settings'
 import { AUDIT_ACTIONS, isAuditAction } from '@/lib/audit/actions'
 import { GET as cronGET } from '@/app/api/cron/prune-audit-events/route'
@@ -278,12 +278,39 @@ describe('memberAuditContext', () => {
     )
   })
 
-  it('prefers x-forwarded-for over x-real-ip', () => {
+  // LUM-907 PR2 decision: x-real-ip is set by Vercel's edge; the first
+  // x-forwarded-for hop can be supplied by the client itself.
+  it('audit IP extraction: prefers x-real-ip over a spoofable first x-forwarded-for hop', () => {
     const h = new Headers({
-      'x-forwarded-for': '203.0.113.1',
+      'x-forwarded-for': '6.6.6.6, 203.0.113.1',
       'x-real-ip': '198.51.100.1',
     })
-    expect(memberAuditContext(h, {}).ip).toBe('203.0.113.1')
+    expect(clientIpHeader(h)).toBe('198.51.100.1')
+    expect(memberAuditContext(h, {}).ip).toBe('198.51.100.1')
+  })
+
+  it('audit IP extraction: falls back to x-forwarded-for when x-real-ip is missing or invalid', () => {
+    expect(
+      clientIpHeader(
+        new Headers({ 'x-forwarded-for': '203.0.113.1, 10.0.0.1' })
+      )
+    ).toBe('203.0.113.1, 10.0.0.1')
+    expect(
+      clientIpHeader(
+        new Headers({
+          'x-real-ip': 'garbage',
+          'x-forwarded-for': '203.0.113.2',
+        })
+      )
+    ).toBe('203.0.113.2')
+    expect(clientIpHeader(new Headers({ 'x-real-ip': 'garbage' }))).toBe(
+      'garbage'
+    )
+    expect(clientIpHeader(new Headers())).toBeNull()
+    // The stored value is still validated downstream.
+    expect(
+      normalizeAuditIp(clientIpHeader(new Headers({ 'x-real-ip': 'garbage' })))
+    ).toBeNull()
   })
 })
 

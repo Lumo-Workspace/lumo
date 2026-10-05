@@ -1,5 +1,6 @@
 import type { AuditActorType, AuditSource, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import type { AuditCursor, AuditEventFilters } from '@/lib/audit/query'
 
 /**
  * LUM-907: the workspace audit log table. Writes arrive already normalised
@@ -21,7 +22,85 @@ export interface AuditEventCreateData {
   metadata: Prisma.InputJsonValue | undefined
 }
 
+const AUDIT_EVENT_SELECT = {
+  id: true,
+  createdAt: true,
+  action: true,
+  actorType: true,
+  actorId: true,
+  actorMemberId: true,
+  source: true,
+  targetType: true,
+  targetId: true,
+  ip: true,
+  userAgent: true,
+  metadata: true,
+} satisfies Prisma.AuditEventSelect
+
+export type AuditEventRow = Prisma.AuditEventGetPayload<{
+  select: typeof AUDIT_EVENT_SELECT
+}>
+
+/** The WHERE for one workspace's events — `workspaceId` is never optional. */
+function auditWhere(
+  workspaceId: string,
+  f: AuditEventFilters,
+  cursor: AuditCursor | null
+): Prisma.AuditEventWhereInput {
+  const and: Prisma.AuditEventWhereInput[] = [{ workspaceId }]
+  if (f.action) {
+    and.push(
+      f.action.includes('.')
+        ? { action: f.action }
+        : { action: { startsWith: `${f.action}.` } }
+    )
+  }
+  if (f.actorType) and.push({ actorType: f.actorType })
+  if (f.actorId) and.push({ actorId: f.actorId })
+  if (f.since) and.push({ createdAt: { gte: f.since } })
+  if (f.before) and.push({ createdAt: { lt: f.before } })
+  if (f.targetType) and.push({ targetType: f.targetType })
+  if (f.targetId) and.push({ targetId: f.targetId })
+  if (cursor) {
+    and.push({
+      OR: [
+        { createdAt: { lt: cursor.createdAt } },
+        { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+      ],
+    })
+  }
+  return { AND: and }
+}
+
 export const auditEventRepository = {
+  /**
+   * LUM-907 PR2: one workspace's events, newest first, keyset-paginated on
+   * (createdAt, id) — strictly older than `cursor` when one is given.
+   */
+  async listPage(
+    workspaceId: string,
+    filters: AuditEventFilters,
+    cursor: AuditCursor | null,
+    take: number
+  ): Promise<AuditEventRow[]> {
+    return prisma.auditEvent.findMany({
+      where: auditWhere(workspaceId, filters, cursor),
+      select: AUDIT_EVENT_SELECT,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take,
+    })
+  },
+
+  /** The workspace's current members (id + Clerk id), for actor filters. */
+  async findWorkspaceMembers(
+    workspaceId: string
+  ): Promise<Array<{ id: string; clerkId: string }>> {
+    return prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      select: { id: true, clerkId: true },
+    })
+  },
+
   async create(data: AuditEventCreateData): Promise<{ id: string }> {
     const { metadata, ...rest } = data
     return prisma.auditEvent.create({

@@ -16,6 +16,9 @@ export const queryKeys = {
   workspacePendingDeletion: () => ['workspace', 'pending-deletion'] as const,
   // LUM-918: the caller's trash (deleted tasks / own documents).
   trash: () => ['trash'] as const,
+  // LUM-907: the workspace audit log, per filter set.
+  auditEvents: (filters: Record<string, string>) =>
+    ['audit-events', filters] as const,
   teams: () => ['teams'] as const,
   members: () => ['members'] as const,
   invites: () => ['invites'] as const,

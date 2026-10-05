@@ -24,6 +24,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                     |
 | `member list` — workspace directory (the refs `--assignee` accepts)                    | [references/members.md](references/members.md)                 |
 | `tag list/create` — workspace tags                                                     | [references/tags.md](references/tags.md)                       |
+| `audit list` — workspace audit log (OWNER only)                                        | [references/audit.md](references/audit.md)                     |
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                             | [references/task-deps.md](references/task-deps.md)             |
 | `idea*` — capture pool, lifecycle, evidence, comments                                  | [references/ideas.md](references/ideas.md)                     |
 | `plan`, `plan status` — the idea→plan converter run                                    | [references/plan-runs.md](references/plan-runs.md)             |
@@ -85,6 +86,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo member list [--json]` — members (name, email, role) + agent actors
 - `lumo tag list` / `lumo tag create <name> [--color <hex>]` — workspace tags with usage counts
+
+### Audit log — see [audit.md](references/audit.md)
+
+- `lumo audit list [--action] [--actor] [--since] [--until] [--json | --csv]` — sensitive workspace actions, newest first (OWNER only)
 
 ### Ideas (team-level capture pool) — see [ideas.md](references/ideas.md)
 

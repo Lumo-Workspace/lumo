@@ -48,6 +48,7 @@ import {
   SCAN_EVIDENCE_RETENTION_DAYS,
 } from '@/lib/security-scan/evidence-retention'
 import { EXPORT_TTL_DAYS } from '@/lib/workspace/export-ttl'
+import { AUDIT_RETENTION_DAYS } from '@/lib/audit/actions'
 import { PUBLIC_ROUTES } from '@/proxy'
 import { generateMetadata } from '@/app/security/page'
 import { aiDerivedContentRepository } from '@/lib/repositories/ai-derived-content.repository'
@@ -150,6 +151,7 @@ const SECTION_HEADINGS = [
   'security.auth.heading',
   'security.code.heading',
   'security.retention.heading',
+  'security.audit.heading',
   'security.subprocessors.heading',
   'security.report.heading',
 ]
@@ -505,6 +507,46 @@ describe('/security page (LUM-856)', () => {
       const openai = page.indexOf(messages['security.code.openai']!)
       if (openai < 0 || page.indexOf(value) < openai)
         problems.push(`${locale}: not after the OpenAI caveat`)
+    }
+    expect(problems).toEqual([])
+  })
+
+  it('security audit log section discloses what is recorded, retention and access LUM-907', () => {
+    // PR2 of LUM-907: actor, IP, user agent and the invitee email are
+    // recorded; kept AUDIT_RETENTION_DAYS; deleted with the workspace;
+    // in the export; owners only.
+    const en = MESSAGES.en!
+    expect(en['security.audit.recorded']).toMatch(/IP address and user agent/)
+    expect(en['security.audit.recorded']).toMatch(/invitee's email address/)
+    expect(en['security.audit.retention']).toMatch(
+      /deleted with the workspace|with the workspace when it is deleted/
+    )
+    expect(en['security.audit.retention']).toMatch(
+      /included in the workspace export/
+    )
+    expect(en['security.audit.access']).toMatch(/Only workspace owners/)
+
+    const problems: string[] = []
+    for (const locale of PUBLIC_LOCALES) {
+      const messages = MESSAGES[locale]!
+      const page = text(render(locale))
+      for (const p of ['recorded', 'access'] as const) {
+        const value = messages[`security.audit.${p}`] ?? ''
+        if (!value || !page.includes(value))
+          problems.push(`${locale}: audit ${p} not rendered`)
+      }
+      const retention = (messages['security.audit.retention'] ?? '').replace(
+        '{days}',
+        String(AUDIT_RETENTION_DAYS)
+      )
+      if (!retention.includes(String(AUDIT_RETENTION_DAYS)))
+        problems.push(`${locale}: retention days missing`)
+      if (!page.includes(retention))
+        problems.push(
+          `${locale}: audit retention not rendered with the constant`
+        )
+      if (!messages['security.audit.recorded']?.includes('IP'))
+        problems.push(`${locale}: IP not disclosed`)
     }
     expect(problems).toEqual([])
   })

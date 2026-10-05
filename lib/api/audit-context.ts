@@ -1,5 +1,21 @@
 import type { AuditSource } from '@prisma/client'
-import type { AuditContext } from '@/lib/services/audit.service'
+import {
+  normalizeAuditIp,
+  type AuditContext,
+} from '@/lib/services/audit.service'
+
+/**
+ * The client IP header to record. `x-real-ip` is set by Vercel's edge to the
+ * address that connected to it and cannot be supplied by the client; the
+ * first `x-forwarded-for` hop CAN be (a client may send its own header,
+ * which proxies append to). So x-real-ip wins whenever it holds a valid
+ * address, and the forwarded chain is only the fallback (LUM-907 PR2).
+ */
+export function clientIpHeader(headers: Pick<Headers, 'get'>): string | null {
+  const realIp = headers.get('x-real-ip')
+  if (normalizeAuditIp(realIp)) return realIp
+  return headers.get('x-forwarded-for') ?? realIp
+}
 
 /**
  * LUM-907: build the audit context (who + from where) for a member-initiated
@@ -22,7 +38,7 @@ export function memberAuditContext(
       memberId: member.memberId ?? null,
     },
     source,
-    ip: headers.get('x-forwarded-for') ?? headers.get('x-real-ip'),
+    ip: clientIpHeader(headers),
     userAgent: headers.get('user-agent'),
   }
 }

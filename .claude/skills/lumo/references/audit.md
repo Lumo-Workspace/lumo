@@ -1,0 +1,36 @@
+# Audit log
+
+### `lumo audit list` — the workspace audit log (LUM-907, OWNER only)
+
+Sensitive actions in the workspace, newest first: member role changes and departures, invitations, workspace / security / retention settings, data export and deletion requests, AI-derived content and session-record deletion, task templates, integration connect / disconnect. Each row is `time (UTC)  action  actor  target  source  ip`. Only workspace **owners** can read it — anyone else gets `Error: Only workspace owners can view the audit log` (HTTP 403, exit 1). Events are kept 365 days.
+
+```bash
+lumo audit list
+lumo audit list --since 7d --action invite
+lumo audit list --actor alice@example.com --since 2026-10-01 --until 2026-10-04
+lumo audit list --action member.role_changed --target-type member --target <memberId>
+lumo audit list --limit 200 --json
+lumo audit list --since 30d --csv > audit.csv
+```
+
+```
+2026-10-04 15:54Z  member.role_changed  Alice Chen <alice@example.com>  member cm1abc  WEB  203.0.113.9
+2026-10-04 15:50Z  invite.created       Alice Chen <alice@example.com>  invite cm1def  CLI  203.0.113.9
+
+More events: lumo audit list --cursor eyJ…
+```
+
+Flags:
+
+- `--action` — an exact key (`member.role_changed`, `data_export.downloaded`, …) or an area (`member`, `invite`, `workspace`, `data_export`, `task_template`, `github_app`, `slack`, `sentry`, …) matching every key under it. Unknown values are rejected (HTTP 400).
+- `--actor` — `me`, `system`, a current member's email or display name, a member id, or a Clerk user id (`user_…`, the only way to find a former member's events). An ambiguous name is rejected — use the email.
+- `--since` / `--until` — `7d` (days back from now), a date `2026-10-01` (UTC; `--until` includes that whole day) or an ISO date-time with an offset.
+- `--target-type` (`workspace | member | invite | data_export | session | task_template | integration`, case-insensitive) and `--target <id>`.
+- `--limit` (1–200, default 50) and `--cursor` (from the `More events:` hint or `nextCursor` in `--json`) page through older events.
+- `--json` prints `{ events: [{ id, createdAt, action, actorType, actorId, actorMemberId, actorName, actorEmail, source, targetType, targetId, ip, userAgent, metadata }], nextCursor }`. `source` is `WEB` (browser), `CLI` (any API-key request: CLI, MCP, scripts), `WEBHOOK` or `SYSTEM`.
+- `--csv` writes the whole filtered log (not one page; `--limit` / `--cursor` are ignored) to stdout, newest first, capped at 10,000 rows — a stderr warning says when the cap cut it off; narrow the dates for the rest. Cells starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` so spreadsheets do not run them as formulas. `--json` and `--csv` are mutually exclusive.
+
+### When to suggest `audit list`
+
+- "Who changed X / removed Y / invited Z", "when was this integration disconnected", "who exported the workspace" — and the user is a workspace owner.
+- Compliance or security reviews that ask for an access / change log — use `--csv` for a file to hand over.

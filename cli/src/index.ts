@@ -54,6 +54,7 @@ import {
 } from './commands/task-template-manage'
 import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
+import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
 import {
   initiativeProgressAdd,
@@ -1650,6 +1651,36 @@ memberCmd
   )
   .option('--json', 'Emit the directory as JSON')
   .action(wrap(options => memberList(options as { json?: boolean })))
+
+const auditCmd = program
+  .command('audit')
+  .description('Workspace audit log (workspace owners only)')
+
+auditCmd
+  .command('list')
+  .description(
+    'List the workspace audit log, newest first: who did what, when, from where (OWNER only).'
+  )
+  .option(
+    '--action <action>',
+    'An action key (member.role_changed) or an area (invite)'
+  )
+  .option(
+    '--actor <ref>',
+    'me, system, an email, a member name, a member id or a Clerk user id'
+  )
+  .option('--since <when>', 'From: 7d, 2026-10-01 or an ISO date-time')
+  .option('--until <when>', 'To (inclusive): 2026-10-04 or an ISO date-time')
+  .option(
+    '--target-type <type>',
+    'workspace | member | invite | data_export | session | task_template | integration (case-insensitive)'
+  )
+  .option('--target <id>', 'Target id')
+  .option('--limit <n>', 'Events per page (1-200, default 50)')
+  .option('--cursor <cursor>', 'Continue from a previous page')
+  .option('--json', 'Emit the page as JSON')
+  .option('--csv', 'Write the filtered log as CSV to stdout (capped)')
+  .action(wrap(options => auditList(options as AuditListOptions)))
 
 const tagCmd = program
   .command('tag')
