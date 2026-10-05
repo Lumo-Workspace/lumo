@@ -101,6 +101,15 @@ beforeEach(() => {
   createDisposition.mockImplementation(async (input: unknown) => input)
 })
 
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+
 describe('LUM-812 — the ruling is scoped to one run', () => {
   it('a defect disposition is scoped to its run so a later defect run blocks again', async () => {
     // 未裁定 → 拦
@@ -138,6 +147,7 @@ describe('LUM-812 — the ruling is scoped to one run', () => {
         ruling: 'KNOWN_DEFECT',
         caller: CALLER,
         channel: 'WEB',
+        audit: TEST_AUDIT,
       })
     ).rejects.toMatchObject({ status: 409 })
     expect(createDisposition).not.toHaveBeenCalled()
@@ -152,6 +162,7 @@ describe('LUM-812 — the ruling is scoped to one run', () => {
         ruling: 'NOT_A_DEFECT',
         caller: CALLER,
         channel: 'WEB',
+        audit: TEST_AUDIT,
       })
     ).rejects.toMatchObject({ status: 409 })
   })
@@ -169,6 +180,7 @@ describe('LUM-812 — provenance, not identity', () => {
       note: 'shipping with it',
       caller: CALLER,
       channel: 'WEB',
+      audit: TEST_AUDIT,
     })
     expect(web).toMatchObject({ channel: 'WEB', disposition: 'KNOWN_DEFECT' })
 
@@ -196,6 +208,7 @@ describe('LUM-812 — provenance, not identity', () => {
       caller: CALLER,
       channel: 'CLI',
       receipt: r2.receipt,
+      audit: TEST_AUDIT,
     })
     expect(cli).toMatchObject({ channel: 'CLI' })
   })
@@ -211,6 +224,7 @@ describe('LUM-812 — provenance, not identity', () => {
       note: '  shipping with it  ',
       caller: CALLER,
       channel: 'WEB',
+      audit: TEST_AUDIT,
     })
     expect(createDisposition).toHaveBeenCalledTimes(1)
     const [row, activity] = createDisposition.mock.calls[0]
@@ -238,6 +252,7 @@ describe('LUM-812 — provenance, not identity', () => {
         ruling: 'KNOWN_DEFECT',
         caller: CALLER,
         channel: 'CLI',
+        audit: TEST_AUDIT,
       })
     ).rejects.toMatchObject({ status: 400 })
     expect(createDisposition).not.toHaveBeenCalled()

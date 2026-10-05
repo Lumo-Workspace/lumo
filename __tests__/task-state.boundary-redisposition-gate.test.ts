@@ -14,6 +14,12 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 
+// LUM-907: rulings always write an audit row now; keep it off the database.
+jest.mock('@/lib/services/audit.service', () => ({
+  ...jest.requireActual('@/lib/services/audit.service'),
+  recordAuditEvent: jest.fn(async () => true),
+}))
+
 // LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
 // so the real gate short-circuits before touching the scan repository.
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
@@ -81,7 +87,19 @@ const TASK = {
   assigneeActorId: null,
 }
 
-const ATTRIB = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+const ATTRIB = {
+  actorMemberId: 'member-1',
+  actorClerkId: 'clerk-1',
+  audit: TEST_AUDIT,
+}
 
 // A single HIGH-severity crossing whose disposition the fake repo holds as
 // mutable state — the gate reads it live, the service mutates it.

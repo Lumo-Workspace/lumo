@@ -12,7 +12,9 @@
  *  - an action in AUDIT_ACTIONS is written nowhere;
  *  - a registry entry names a file or unit that does not exist;
  *  - anything is parked in the pending list;
- *  - an app caller of an audited method passes no request audit context.
+ *  - a call of an audited method from app/ does not hand that call an audit
+ *    context (call-level: mentioning memberAuditContext elsewhere in the
+ *    file does not count).
  */
 import { readFileSync } from 'fs'
 import { execSync } from 'child_process'
@@ -22,8 +24,11 @@ import {
   AUDIT_INDIRECT_ACTIONS,
   AUDIT_INSTRUMENTED,
   AUDIT_PENDING,
+  auditedCallArguments,
   callsInstrumentedUnit,
+  importedModules,
   instrumentedCallPatterns,
+  passesAuditContext,
   ownerGatedUnits,
   parseUnits,
   unitBody,
@@ -111,22 +116,29 @@ describe('LUM-907 audit coverage guard', () => {
     }
   })
 
-  it('LUM-907 audit coverage: every app caller of an instrumented method passes a request audit context', () => {
+  it('LUM-907 audit coverage: every app call of an instrumented method passes an audit context in that call', () => {
     // `fooBarService.baz(`, or a module-level `baz(` imported from its module
     // (Figma / Google Drive), or a service-object alias of it.
-    const patterns = Object.keys(AUDIT_INSTRUMENTED).map(u =>
-      instrumentedCallPatterns(u as AuditUnit, read(split(u)[0]))
-    )
-    const callers = execSync("git ls-files 'app/**/*.ts' 'app/**/*.tsx'", {
+    const patterns = Object.keys(AUDIT_INSTRUMENTED).map(u => ({
+      unit: u,
+      p: instrumentedCallPatterns(u as AuditUnit, read(split(u)[0])),
+    }))
+    const files = execSync("git ls-files 'app/**/*.ts' 'app/**/*.tsx'", {
       cwd: ROOT,
     })
       .toString()
       .trim()
       .split('\n')
-      .filter(f => {
-        const src = read(f)
-        return patterns.some(p => callsInstrumentedUnit(src, p))
-      })
+    const sites: Array<{ file: string; unit: string; ok: boolean }> = []
+    for (const file of files) {
+      const src = read(file)
+      for (const { unit, p } of patterns) {
+        for (const call of auditedCallArguments(src, p, file)) {
+          sites.push({ file, unit, ok: passesAuditContext(src, call) })
+        }
+      }
+    }
+    const callers = [...new Set(sites.map(s => s.file))]
     expect(callers.length).toBeGreaterThan(35)
     // The PR3 routes, including the direct-import ones, are found.
     for (const route of [
@@ -137,12 +149,141 @@ describe('LUM-907 audit coverage guard', () => {
     ]) {
       expect([route, callers.includes(route)]).toEqual([route, true])
     }
-    for (const file of callers) {
-      expect([file, read(file).includes('memberAuditContext(')]).toEqual([
-        file,
-        true,
-      ])
+    expect(sites.filter(s => !s.ok)).toEqual([])
+  })
+
+  it('LUM-907 audit coverage: a call that omits the context fails even when the file mentions memberAuditContext elsewhere', () => {
+    const p = instrumentedCallPatterns(
+      'lib/services/sentry.service.ts#disconnectIntegration',
+      read('lib/services/sentry.service.ts')
+    )
+    const route = [
+      "import { memberAuditContext } from '@/lib/api/audit-context'",
+      "import { sentryService } from '@/lib/services/sentry.service'",
+      'export async function POST(request: Request) {',
+      '  const ctx = memberAuditContext(request.headers, { clerkId: u })',
+      '  await other(ctx)',
+      '  await sentryService.disconnectIntegration(ws.workspaceId, role)',
+      '}',
+    ].join('\n')
+    // The old file-level check would have passed this file.
+    expect(route.includes('memberAuditContext(')).toBe(true)
+    const calls = auditedCallArguments(route, p, 'app/api/x/route.ts')
+    expect(calls.map(c => c.args)).toEqual(['(ws.workspaceId, role)'])
+    expect(passesAuditContext(route, calls[0]!)).toBe(false)
+    // Passing it inline, or through the binding, is accepted.
+    for (const call of [
+      'sentryService.disconnectIntegration(ws.workspaceId, role, memberAuditContext(request.headers, {}))',
+      'sentryService.disconnectIntegration(ws.workspaceId, role, ctx)',
+      'sentryService.disconnectIntegration(ws.workspaceId, role, SYSTEM_AUDIT_CONTEXT)',
+    ]) {
+      const src = route.replace(
+        'sentryService.disconnectIntegration(ws.workspaceId, role)',
+        call
+      )
+      const [site] = auditedCallArguments(src, p, 'app/api/x/route.ts')
+      expect([call, passesAuditContext(src, site!)]).toEqual([call, true])
     }
+    // A key named like the binding is not the binding.
+    const keyOnly = route.replace(
+      'sentryService.disconnectIntegration(ws.workspaceId, role)',
+      'sentryService.disconnectIntegration({ ctx: null })'
+    )
+    const [keySite] = auditedCallArguments(keyOnly, p, 'app/api/x/route.ts')
+    expect(passesAuditContext(keyOnly, keySite!)).toBe(false)
+  })
+
+  it('LUM-907 audit coverage: a same-named binding in another function, or after the call, does not count', () => {
+    const p = instrumentedCallPatterns(
+      'lib/services/sentry.service.ts#disconnectIntegration',
+      read('lib/services/sentry.service.ts')
+    )
+    const file = 'app/api/x/route.ts'
+    const otherFunction = [
+      "import { memberAuditContext } from '@/lib/api/audit-context'",
+      "import { sentryService } from '@/lib/services/sentry.service'",
+      'export async function POST(request: Request) {',
+      '  const ctx = memberAuditContext(request.headers, { clerkId: u })',
+      '  await other(ctx)',
+      '}',
+      'export async function DELETE(request: Request) {',
+      '  const ctx = null',
+      '  await sentryService.disconnectIntegration(ws.workspaceId, role, ctx)',
+      '}',
+    ].join('\n')
+    const [a] = auditedCallArguments(otherFunction, p, file)
+    expect(passesAuditContext(otherFunction, a!)).toBe(false)
+    // Declared after the call in the same function: not what the call got.
+    const afterCall = [
+      'export async function DELETE(request: Request) {',
+      '  await sentryService.disconnectIntegration(ws.workspaceId, role, ctx)',
+      '  const ctx = memberAuditContext(request.headers, {})',
+      '}',
+    ].join('\n')
+    const [b] = auditedCallArguments(afterCall, p, file)
+    expect(passesAuditContext(afterCall, b!)).toBe(false)
+    // The same binding inside the calling function, before the call, passes.
+    const sameFunction = otherFunction.replace(
+      '  const ctx = null',
+      '  const ctx = memberAuditContext(request.headers, {})'
+    )
+    const [c] = auditedCallArguments(sameFunction, p, file)
+    expect(passesAuditContext(sameFunction, c!)).toBe(true)
+  })
+
+  it('LUM-907 audit coverage: comments in the arguments are skipped, apostrophes included', () => {
+    const p = instrumentedCallPatterns(
+      'lib/services/sentry.service.ts#disconnectIntegration',
+      read('lib/services/sentry.service.ts')
+    )
+    const src = [
+      'export async function DELETE(request: Request) {',
+      '  await sentryService.disconnectIntegration(',
+      "    ws.workspaceId, // don't pass the slug (it's not an id)",
+      "    /* the caller's role ) */ role,",
+      '    memberAuditContext(request.headers, {})',
+      '  )',
+      '  await after()',
+      '}',
+    ].join('\n')
+    const [site] = auditedCallArguments(src, p, 'app/api/x/route.ts')
+    // The whole call is captured — the apostrophes and the ")" inside the
+    // comments neither open a string nor close the call early.
+    expect(
+      site!.args.endsWith('memberAuditContext(request.headers, {})\n  )')
+    ).toBe(true)
+    expect(site!.args).not.toContain('after()')
+    expect(passesAuditContext(src, site!)).toBe(true)
+    // Without the context, a comment naming it does not make it pass.
+    const omitted = src.replace(
+      '    memberAuditContext(request.headers, {})',
+      '    // memberAuditContext(request.headers) is not passed here'
+    )
+    const [bad] = auditedCallArguments(omitted, p, 'app/api/x/route.ts')
+    expect(bad!.args).not.toContain('not passed here')
+    expect(passesAuditContext(omitted, bad!)).toBe(false)
+  })
+
+  it('LUM-907 audit coverage: a binding passed through a ternary counts as passed', () => {
+    const p = instrumentedCallPatterns(
+      'lib/services/sentry.service.ts#disconnectIntegration',
+      read('lib/services/sentry.service.ts')
+    )
+    const src = [
+      'export async function DELETE(request: Request) {',
+      '  const audit = memberAuditContext(request.headers, {})',
+      '  await sentryService.disconnectIntegration(ws.workspaceId, role, isOwner ? audit : fallback)',
+      '}',
+    ].join('\n')
+    const [site] = auditedCallArguments(src, p, 'app/api/x/route.ts')
+    expect(passesAuditContext(src, site!)).toBe(true)
+    // An object key of the same name is still not the binding.
+    const keyOnly = src.replace(
+      'isOwner ? audit : fallback',
+      '{ audit: fallback }'
+    )
+    const [key] = auditedCallArguments(keyOnly, p, 'app/api/x/route.ts')
+    expect(passesAuditContext(keyOnly, key!)).toBe(false)
   })
 
   it('LUM-907 audit coverage: the pending list is empty (PR3 enforcement)', () => {
@@ -162,22 +303,49 @@ describe('LUM-907 audit coverage guard', () => {
       'lib/services/figma-integration.service.ts#completeOauthFlow',
       moduleSrc
     )
-    const route = [
-      "import { completeOauthFlow } from '@/lib/services/figma-integration.service'",
-      'await completeOauthFlow({ a: 1 })',
-    ].join('\n')
-    expect(callsInstrumentedUnit(route, p)).toBe(true)
+    const caller = 'app/api/figma/callback/route.ts'
+    for (const spec of [
+      "'@/lib/services/figma-integration.service'",
+      '"@/lib/services/figma-integration.service"',
+      "'../../../../lib/services/figma-integration.service'",
+      '"../../../../lib/services/figma-integration.service.ts"',
+    ]) {
+      const route = `import { completeOauthFlow } from ${spec}\nawait completeOauthFlow({ a: 1 })`
+      expect([spec, callsInstrumentedUnit(route, p, caller)]).toEqual([
+        spec,
+        true,
+      ])
+    }
+    // A relative path that resolves elsewhere is a different module.
+    expect(
+      callsInstrumentedUnit(
+        "import { completeOauthFlow } from '../lib/services/figma-integration.service'\ncompleteOauthFlow()",
+        p,
+        caller
+      )
+    ).toBe(false)
     // Not imported from that module: some other completeOauthFlow.
     expect(
       callsInstrumentedUnit(
         "import { completeOauthFlow } from '@/lib/services/other'\ncompleteOauthFlow()",
-        p
+        p,
+        caller
       )
     ).toBe(false)
     // Through the service-object alias.
     expect(
-      callsInstrumentedUnit('await figmaIntegrationService.connect(x)', p)
+      callsInstrumentedUnit(
+        'await figmaIntegrationService.connect(x)',
+        p,
+        caller
+      )
     ).toBe(true)
+    expect(
+      importedModules(
+        'const m = await import("./sibling")',
+        'app/api/a/route.ts'
+      )
+    ).toEqual(['app/api/a/sibling'])
   })
 
   it('LUM-907 audit coverage: a new OWNER-gated method without an audit fails the guard', () => {

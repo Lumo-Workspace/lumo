@@ -116,6 +116,15 @@ const sweepWhere = (
     ...over,
   }) as Filter
 
+/** LUM-907: the audit context is required on every ruling. */
+const TEST_AUDIT = {
+  workspaceId: 'ws-1',
+  context: {
+    actor: { type: 'MEMBER' as const, memberId: 'member-1' },
+    source: 'WEB' as const,
+  },
+}
+
 describe('LUM-759 — the sweep never reaches past its blast radius', () => {
   it('an already-dispositioned crossing — human, AUTO_LEGIT or an earlier AUTO_SUPPRESSED — is never rewritten by a later rule', () => {
     const where = sweepWhere()
@@ -202,7 +211,11 @@ describe('LUM-759 — the sweep never reaches past its blast radius', () => {
         'bc-1',
         'FALSE_POSITIVE',
         null,
-        { actorMemberId: 'member-1', actorClerkId: 'clerk-1' },
+        {
+          actorMemberId: 'member-1',
+          actorClerkId: 'clerk-1',
+          audit: TEST_AUDIT,
+        },
         { suppressSimilarInProject: true }
       )
     ).rejects.toMatchObject({ status: 422 })
