@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { encrypt } from '@/lib/crypto'
+import { encodeOauthState } from '@/lib/integrations/oauth-state'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
 
@@ -36,15 +36,15 @@ export async function GET(request: NextRequest) {
       ws.workspaceId,
       ws.member.role
     )
-    const state = encrypt(
-      JSON.stringify({
-        workspaceId: ws.workspaceId,
-        workspaceUrl: ws.workspace.slug,
-        memberId: ws.member.id,
-        installationId,
-        mode: 'reverify',
-      })
-    )
+    // Expiring and member-bound like every other integration state (LUM-991).
+    const state = encodeOauthState({
+      workspaceId: ws.workspaceId,
+      workspaceUrl: ws.workspace.slug,
+      memberId: ws.member.id,
+      installationId,
+      mode: 'reverify',
+      purpose: 'github-app',
+    })
     return NextResponse.redirect(
       githubAppInstallService.userAuthorizeUrl(
         state,

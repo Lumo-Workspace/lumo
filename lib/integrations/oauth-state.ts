@@ -1,5 +1,6 @@
 /**
- * OAuth `state` for the member-level integration flows (GitHub OAuth, Slack).
+ * OAuth `state` for the member-level integration flows (GitHub OAuth, Slack)
+ * and the GitHub App install / reverify legs (LUM-991).
  *
  * The state is AES-256-GCM encrypted (so it can't be forged or edited) and
  * carries an issued-at time so a captured state stops working after
@@ -14,10 +15,24 @@ export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 /** Tolerated clock skew between instances for an iat slightly in the future. */
 const MAX_FUTURE_SKEW_MS = 60 * 1000
 
+/**
+ * Which flow a state belongs to. Member OAuth states carry none; the GitHub
+ * App install / reverify legs carry 'github-app' (LUM-991). A decoder only
+ * accepts a state minted for the purpose it expects, so a state from one flow
+ * cannot be replayed into another.
+ */
+export type OauthStatePurpose = 'github-app'
+
 export interface OauthStatePayload {
   workspaceId: string
   memberId: string
   workspaceUrl: string
+  /** GitHub App legs only: the installation the flow verifies (LUM-991). */
+  installationId?: number
+  /** GitHub App reverify leg only (LUM-881). */
+  mode?: 'reverify'
+  /** Absent for the member OAuth flows. */
+  purpose?: OauthStatePurpose
 }
 
 export type DecodedOauthState =
@@ -32,13 +47,15 @@ export function encodeOauthState(
 }
 
 /**
- * `invalid` — not ours (fails decrypt) or malformed.
+ * `invalid` — not ours (fails decrypt), malformed, or minted for a different
+ * flow than `expectedPurpose` (absent = a member OAuth flow).
  * `expired` — ours but older than the TTL, or minted before states carried an
  * `iat`; the user just clicks Connect again.
  */
 export function decodeOauthState(
   state: string,
-  now: number = Date.now()
+  now: number = Date.now(),
+  expectedPurpose?: OauthStatePurpose
 ): DecodedOauthState {
   let parsed: Record<string, unknown>
   try {
@@ -55,6 +72,15 @@ export function decodeOauthState(
   ) {
     return { ok: false, reason: 'invalid' }
   }
+  const { installationId, mode, purpose } = parsed
+  if (
+    (installationId !== undefined &&
+      !(Number.isInteger(installationId) && (installationId as number) > 0)) ||
+    (mode !== undefined && mode !== 'reverify') ||
+    purpose !== expectedPurpose
+  ) {
+    return { ok: false, reason: 'invalid' }
+  }
   const iat = parsed.iat
   if (typeof iat !== 'number' || !Number.isFinite(iat)) {
     return { ok: false, reason: 'expired' }
@@ -67,6 +93,11 @@ export function decodeOauthState(
       workspaceId: parsed.workspaceId,
       memberId: parsed.memberId,
       workspaceUrl: parsed.workspaceUrl,
+      ...(installationId !== undefined
+        ? { installationId: installationId as number }
+        : {}),
+      ...(mode !== undefined ? { mode: 'reverify' as const } : {}),
+      ...(expectedPurpose !== undefined ? { purpose: expectedPurpose } : {}),
     },
   }
 }

@@ -1,36 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { decrypt } from '@/lib/crypto'
+import { decodeOauthState } from '@/lib/integrations/oauth-state'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
 import { memberAuditContext } from '@/lib/api/audit-context'
-
-interface VerifyState {
-  workspaceId: string
-  workspaceUrl: string
-  memberId: string
-  installationId: number
-  /** LUM-881 — set by /api/github/app/reverify; absent for a fresh install. */
-  mode?: 'reverify'
-}
-
-function parseState(raw: string | null): VerifyState | null {
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(decrypt(raw)) as Partial<VerifyState>
-    if (
-      !parsed.workspaceId ||
-      !parsed.workspaceUrl ||
-      !Number.isInteger(parsed.installationId) ||
-      (parsed.installationId as number) <= 0
-    ) {
-      return null
-    }
-    return parsed as VerifyState
-  } catch {
-    return null
-  }
-}
 
 const ERROR_CODES = new Set([
   'verify_not_configured',
@@ -56,7 +29,8 @@ const ERROR_CODES = new Set([
  * repositories this owner can read.
  *
  * Membership of the state's workspace is re-checked here: the state names the
- * workspace, the signed-in caller must belong to it.
+ * workspace, the signed-in caller must belong to it — and be the member who
+ * started the flow. The state expires after OAUTH_STATE_TTL_MS (LUM-991).
  */
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth()
@@ -64,24 +38,38 @@ export async function GET(request: NextRequest) {
   const { userId } = authResult
 
   const { searchParams } = request.nextUrl
-  const state = parseState(searchParams.get('state'))
-  if (!state) {
+  const rawState = searchParams.get('state')
+  // Only a state minted for the App legs — never a member OAuth state (LUM-991).
+  const decoded = rawState
+    ? decodeOauthState(rawState, Date.now(), 'github-app')
+    : null
+  const state = decoded?.ok ? decoded.payload : null
+  // The callback leg always names an installation (install and reverify).
+  const installationId = state?.installationId
+  if (!state || installationId === undefined) {
     return NextResponse.json(
       {
         error:
-          'This installation link is missing or invalid. Start the installation from your workspace integration settings.',
+          decoded?.ok === false && decoded.reason === 'expired'
+            ? 'This installation link has expired. Start again from your workspace integration settings.'
+            : 'This installation link is missing or invalid. Start the installation from your workspace integration settings.',
       },
       { status: 400 }
     )
   }
 
   // The slug comes from the signed state, never the query string (LUM-989).
+  // Only the member who started the flow may finish it (LUM-991).
   const ws = await getUserWorkspace(userId, state.workspaceUrl)
-  if (!ws || ws.workspaceId !== state.workspaceId) {
+  if (
+    !ws ||
+    ws.workspaceId !== state.workspaceId ||
+    ws.member.id !== state.memberId
+  ) {
     return NextResponse.json(
       {
         error:
-          'You are not a member of the workspace this installation was started from.',
+          'This installation was started by a different account or for a workspace you are not a member of. Start it again from your workspace integration settings.',
       },
       { status: 403 }
     )
@@ -120,7 +108,7 @@ export async function GET(request: NextRequest) {
       await githubAppInstallService.install({
         workspaceId: ws.workspaceId,
         memberId: ws.member.id,
-        installationId: state.installationId,
+        installationId,
         userCode: code,
         redirectUri,
         audit,
@@ -128,7 +116,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     logger.error(
-      `[github/app/callback] refused installation ${state.installationId} for workspace ${ws.workspaceId}: ${String(error)}`
+      `[github/app/callback] refused installation ${installationId} for workspace ${ws.workspaceId}: ${String(error)}`
     )
     const reason = (error as { code?: string }).code
     const errorCode =

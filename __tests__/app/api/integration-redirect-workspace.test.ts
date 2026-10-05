@@ -481,11 +481,12 @@ describe('expired state is still rejected', () => {
 // ── GitHub App install legs (setup → callback) ─────────────────────────────
 
 describe('github/app/setup', () => {
+  // LUM-991: the App legs use the same expiring state as the OAuth flows.
   const setupState = (p: {
     workspaceId: string
     workspaceUrl: string
     memberId: string
-  }) => encrypt(JSON.stringify(p))
+  }) => encodeOauthState({ ...p, purpose: 'github-app' })
 
   it('dual-member user, install started from the second workspace → verify state for that workspace', async () => {
     signIn('dual')
@@ -550,8 +551,12 @@ describe('github/app/setup', () => {
 })
 
 describe('github/app/callback', () => {
-  const verifyState = (p: Record<string, unknown>) =>
-    encrypt(JSON.stringify({ installationId: 42, ...p }))
+  const verifyState = (p: {
+    workspaceId: string
+    workspaceUrl: string
+    memberId: string
+    mode?: 'reverify'
+  }) => encodeOauthState({ installationId: 42, purpose: 'github-app', ...p })
 
   it('dual-member user, install from the second workspace → installs onto that workspace/member', async () => {
     signIn('dual')
@@ -611,4 +616,44 @@ describe('github/app/callback', () => {
     expect(res.status).toBe(400)
     expect(githubAppInstallService.install).not.toHaveBeenCalled()
   })
+})
+
+// LUM-991: an App install / reverify state is bound to the github-app flow, so
+// the member OAuth callbacks must not accept one as their own (same member,
+// same workspace, fresh — only the purpose differs).
+describe('a github-app state is refused by the member OAuth callbacks', () => {
+  const mintAppState = async (start: 'install' | 'reverify') => {
+    signIn('dual')
+    const GET = start === 'install' ? appInstall : appReverify
+    const res = await GET(
+      req(`/api/github/app/${start}`, { workspaceUrl: 'bravo' })
+    )
+    return stateParam(res.headers.get('location') ?? '')
+  }
+
+  it.each(['install', 'reverify'] as const)(
+    'github/callback refuses a %s state',
+    async start => {
+      const state = await mintAppState(start)
+      const res = await githubCallback(
+        req('/api/github/callback', { code: 'c', state })
+      )
+      expect(res.headers.get('location')).toContain(
+        'github_error=invalid_state'
+      )
+      expect(githubService.upsertIntegration).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['install', 'reverify'] as const)(
+    'slack/callback refuses a %s state',
+    async start => {
+      const state = await mintAppState(start)
+      const res = await slackCallback(
+        req('/api/slack/callback', { code: 'c', state })
+      )
+      expect(res.headers.get('location')).toContain('slack_error=invalid_state')
+      expect(slackService.upsertIntegration).not.toHaveBeenCalled()
+    }
+  )
 })

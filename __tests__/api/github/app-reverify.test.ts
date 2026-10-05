@@ -65,6 +65,9 @@ describe('GET /api/github/app/reverify', () => {
       memberId: 'm1',
       installationId: 42,
       mode: 'reverify',
+      purpose: 'github-app',
+      // LUM-991: issued-at, so the state expires.
+      iat: expect.any(Number),
     })
     expect(redirectUri).toBe(`${APP_URL}/api/github/app/callback`)
     expect(res.headers.get('location')).toBe(

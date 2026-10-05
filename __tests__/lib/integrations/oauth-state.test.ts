@@ -68,4 +68,69 @@ describe('oauth-state', () => {
       reason: 'invalid',
     })
   })
+
+  // LUM-991: the GitHub App install / reverify legs carry two extra fields.
+  it('round-trips installationId and mode for the GitHub App legs', () => {
+    const app = { ...payload, installationId: 42, mode: 'reverify' as const }
+    const state = encodeOauthState(app, NOW)
+    expect(decodeOauthState(state, NOW)).toEqual({ ok: true, payload: app })
+  })
+
+  it('does not add installationId / mode to a plain OAuth state', () => {
+    const decoded = decodeOauthState(encodeOauthState(payload, NOW), NOW)
+    expect(decoded.ok && Object.keys(decoded.payload).sort()).toEqual([
+      'memberId',
+      'workspaceId',
+      'workspaceUrl',
+    ])
+  })
+
+  it.each([
+    ['a non-integer installationId', { installationId: 'abc' }],
+    ['a non-positive installationId', { installationId: 0 }],
+    ['an unknown mode', { mode: 'uninstall' }],
+  ])('rejects %s as invalid', (_n, extra) => {
+    const bad = encrypt(JSON.stringify({ ...payload, ...extra, iat: NOW }))
+    expect(decodeOauthState(bad, NOW)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    })
+  })
+
+  // LUM-991: a state is only accepted by the flow it was minted for.
+  describe('flow purpose', () => {
+    const appState = { ...payload, purpose: 'github-app' as const }
+
+    it('round-trips a github-app state when that purpose is expected', () => {
+      const state = encodeOauthState(appState, NOW)
+      expect(decodeOauthState(state, NOW, 'github-app')).toEqual({
+        ok: true,
+        payload: appState,
+      })
+    })
+
+    it('rejects a github-app state where a member OAuth state is expected', () => {
+      const state = encodeOauthState(appState, NOW)
+      expect(decodeOauthState(state, NOW)).toEqual({
+        ok: false,
+        reason: 'invalid',
+      })
+    })
+
+    it('rejects a member OAuth state where a github-app state is expected', () => {
+      const state = encodeOauthState(payload, NOW)
+      expect(decodeOauthState(state, NOW, 'github-app')).toEqual({
+        ok: false,
+        reason: 'invalid',
+      })
+    })
+
+    it('rejects an unknown purpose either way', () => {
+      const bad = encrypt(
+        JSON.stringify({ ...payload, purpose: 'figma', iat: NOW })
+      )
+      expect(decodeOauthState(bad, NOW).ok).toBe(false)
+      expect(decodeOauthState(bad, NOW, 'github-app').ok).toBe(false)
+    })
+  })
 })

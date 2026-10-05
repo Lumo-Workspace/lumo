@@ -56,6 +56,9 @@ describe('GET /api/github/app/install', () => {
       memberId: 'm1',
       workspaceId: 'w1',
       workspaceUrl: 'acme',
+      purpose: 'github-app',
+      // LUM-991: issued-at, so the state expires.
+      iat: expect.any(Number),
     })
   })
 
