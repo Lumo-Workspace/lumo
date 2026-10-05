@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "ツール呼び出し",
   "sessions.detail.errors": "エラー",
   "sessions.detail.durationMin": "{n} 分",
+  "sessions.detail.otherMember": "これは {name} さんのセッションです。あなたはこのワークスペースのオーナーなので表示できます。他のメンバーは表示できません。",
+  "sessions.detail.otherMemberUnknown": "これは別のメンバーのセッションです。あなたはこのワークスペースのオーナーなので表示できます。他のメンバーは表示できません。",
   "sessions.attribution.title": "タスクの帰属",
   "sessions.attribution.unattributed": "未帰属：このセッション自身のターンにタスクのシグナルは見つかりませんでした。",
   "sessions.attribution.subagents": "Subagents",

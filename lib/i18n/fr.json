@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "Appels d'outils",
   "sessions.detail.errors": "Erreurs",
   "sessions.detail.durationMin": "{n} min",
+  "sessions.detail.otherMember": "Cette session appartient à {name}. Vous la voyez parce que vous êtes propriétaire de cet espace de travail ; les autres membres ne peuvent pas la voir.",
+  "sessions.detail.otherMemberUnknown": "Cette session appartient à un autre membre. Vous la voyez parce que vous êtes propriétaire de cet espace de travail ; les autres membres ne peuvent pas la voir.",
   "sessions.attribution.title": "Attribution aux tâches",
   "sessions.attribution.unattributed": "Non attribué : aucun signal de tâche n'a été trouvé dans les tours propres à cette session.",
   "sessions.attribution.subagents": "Subagents",

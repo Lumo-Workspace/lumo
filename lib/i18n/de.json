@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "Tool-Aufrufe",
   "sessions.detail.errors": "Fehler",
   "sessions.detail.durationMin": "{n} Min.",
+  "sessions.detail.otherMember": "Dies ist die Sitzung von {name}. Du siehst sie, weil du Inhaber dieses Workspaces bist; andere Mitglieder können sie nicht sehen.",
+  "sessions.detail.otherMemberUnknown": "Dies ist die Sitzung eines anderen Mitglieds. Du siehst sie, weil du Inhaber dieses Workspaces bist; andere Mitglieder können sie nicht sehen.",
   "sessions.attribution.title": "Aufgabenzuordnung",
   "sessions.attribution.unattributed": "Nicht zugeordnet: In den eigenen Runden dieser Sitzung wurde kein Aufgabensignal gefunden.",
   "sessions.attribution.subagents": "Subagents",

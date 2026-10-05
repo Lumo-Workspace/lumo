@@ -1,13 +1,13 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect, notFound } from 'next/navigation'
-import { sessionRepository } from '@/lib/repositories/session.repository'
-import { sessionListService } from '@/lib/services/session-list.service'
+import { sessionDetailService } from '@/lib/services/session-detail.service'
 import { mergeEvents, type RawEvent } from './merge-events'
 import { SessionHeader } from './SessionHeader'
 import { SessionAttribution } from './SessionAttribution'
 import { SummaryCard } from './SummaryCard'
 import { TimelineSection } from './TimelineSection'
 import { SessionRawRecordSection } from './SessionRawRecordSection'
+import { SessionOwnerNotice } from './SessionOwnerNotice'
 import { activeDurationMs } from '@/lib/agent-run/active-time'
 import { ACTIVE_WORKSPACE_META } from '@/lib/workspace/active-workspace'
 
@@ -27,19 +27,12 @@ export default async function SessionDetailPage({
 
   const { id } = await params
 
-  // Ownership check first: getAttribution is not ownership-scoped.
-  const session = await sessionRepository.findDetailForClerkUser(id, userId)
+  // LUM-946: the session's member or an OWNER of its workspace; anyone else
+  // (and a missing id) gets the same 404 so ids can't be enumerated.
+  const session = await sessionDetailService.getForViewer(id, userId)
   if (!session) notFound()
 
-  const workspaceSlug = session.workspace.slug
-  const rawEvents = await sessionRepository.listEventsForSession(id)
-
-  // A subagent's detail page shows its family's attribution. A child session
-  // always shares its parent's member, so the ownership check above covers
-  // the whole parent family.
-  const attribution = await sessionListService.getAttribution(
-    session.parentSessionId ?? session.id
-  )
+  const { workspaceSlug, rawEvents, attribution } = session
 
   const items = mergeEvents(rawEvents as RawEvent[])
 
@@ -67,6 +60,10 @@ export default async function SessionDetailPage({
         toolCallCount={toolCallCount}
         errorCount={errorCount}
       />
+
+      {!session.isOwnSession && (
+        <SessionOwnerNotice ownerName={session.ownerName} />
+      )}
 
       <SummaryCard
         sessionId={session.id}

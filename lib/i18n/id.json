@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "Panggilan alat",
   "sessions.detail.errors": "Kesalahan",
   "sessions.detail.durationMin": "{n} mnt",
+  "sessions.detail.otherMember": "Ini adalah sesi milik {name}. Anda dapat melihatnya karena Anda adalah pemilik workspace ini; anggota lain tidak dapat melihatnya.",
+  "sessions.detail.otherMemberUnknown": "Ini adalah sesi milik anggota lain. Anda dapat melihatnya karena Anda adalah pemilik workspace ini; anggota lain tidak dapat melihatnya.",
   "sessions.attribution.title": "Atribusi tugas",
   "sessions.attribution.unattributed": "Tidak teratribusi: tidak ada sinyal tugas yang ditemukan pada giliran sesi ini sendiri.",
   "sessions.attribution.subagents": "Subagents",

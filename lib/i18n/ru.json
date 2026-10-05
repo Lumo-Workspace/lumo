@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "Вызовы инструментов",
   "sessions.detail.errors": "Ошибки",
   "sessions.detail.durationMin": "{n} мин",
+  "sessions.detail.otherMember": "Это сеанс пользователя {name}. Вы видите его, потому что являетесь владельцем этого рабочего пространства; другие участники его не видят.",
+  "sessions.detail.otherMemberUnknown": "Это сеанс другого участника. Вы видите его, потому что являетесь владельцем этого рабочего пространства; другие участники его не видят.",
   "sessions.attribution.title": "Привязка к задачам",
   "sessions.attribution.unattributed": "Не привязано: в собственных ходах этой сессии не найдено сигналов задачи.",
   "sessions.attribution.subagents": "Subagents",

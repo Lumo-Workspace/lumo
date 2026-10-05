@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "Tool calls",
   "sessions.detail.errors": "Errors",
   "sessions.detail.durationMin": "{n} min",
+  "sessions.detail.otherMember": "This is {name}'s session. You can see it because you are an owner of this workspace; other members can't.",
+  "sessions.detail.otherMemberUnknown": "This is another member's session. You can see it because you are an owner of this workspace; other members can't.",
   "sessions.attribution.title": "Task attribution",
   "sessions.attribution.unattributed": "Unattributed — no task signal was found for this session's own turns.",
   "sessions.attribution.subagents": "Subagents",

@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "工具呼叫",
   "sessions.detail.errors": "錯誤",
   "sessions.detail.durationMin": "{n} 分鐘",
+  "sessions.detail.otherMember": "這是 {name} 的工作階段。你能看到它是因為你是此工作區的擁有者；其他成員無法查看。",
+  "sessions.detail.otherMemberUnknown": "這是另一位成員的工作階段。你能看到它是因為你是此工作區的擁有者；其他成員無法查看。",
   "sessions.attribution.title": "任務歸屬",
   "sessions.attribution.unattributed": "未歸屬：這個工作階段自己的輪次中沒有找到任何任務訊號。",
   "sessions.attribution.subagents": "Subagents",

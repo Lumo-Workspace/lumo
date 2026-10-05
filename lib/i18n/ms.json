@@ -2547,6 +2547,8 @@
   "sessions.detail.toolCalls": "Panggilan alat",
   "sessions.detail.errors": "Ralat",
   "sessions.detail.durationMin": "{n} min",
+  "sessions.detail.otherMember": "Ini ialah sesi milik {name}. Anda boleh melihatnya kerana anda pemilik ruang kerja ini; ahli lain tidak boleh melihatnya.",
+  "sessions.detail.otherMemberUnknown": "Ini ialah sesi milik ahli lain. Anda boleh melihatnya kerana anda pemilik ruang kerja ini; ahli lain tidak boleh melihatnya.",
   "sessions.attribution.title": "Atribusi tugas",
   "sessions.attribution.unattributed": "Tidak diatribusikan: tiada isyarat tugas ditemui dalam giliran sesi ini sendiri.",
   "sessions.attribution.subagents": "Subagent",
