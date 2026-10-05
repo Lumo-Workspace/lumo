@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const ws = await getUserWorkspace(userId)
+  // A full-page redirect carries no X-Lumo-Workspace header, so name the
+  // workspace explicitly; the slug check still refuses a single-workspace
+  // user asking for someone else's workspace (LUM-989).
+  const ws = await getUserWorkspace(userId, workspaceUrl)
   if (!ws || ws.workspace.slug !== workspaceUrl) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }

@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
 
   const authResult = await requireAuth()
   if (authResult instanceof NextResponse) return authResult
-  const ws = await getUserWorkspace(authResult.userId)
+  // The slug comes from the verified state, never the query string (LUM-989).
+  const ws = await getUserWorkspace(authResult.userId, decoded.workspaceUrl)
   if (
     !ws ||
     ws.workspaceId !== decoded.workspaceId ||
