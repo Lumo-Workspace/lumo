@@ -649,3 +649,31 @@ describe('LUM-775 queue exit — findings on merged / closed PRs', () => {
     expect(state.scans[0]?.queueExits).toEqual({ MERGED_UNREVIEWED: 1 })
   })
 })
+
+describe('LUM-988 verifier-rejected findings are never asked of the agent', () => {
+  it('drops a rejected LLM_JUDGE row from the findings and the open count', async () => {
+    prs.mockResolvedValue([pr({})])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        findings: [
+          finding({
+            id: 'rej',
+            scanId: 's1',
+            provenance: 'LLM_JUDGE',
+            verifierVerdict: 'REJECTED',
+          }),
+          finding({
+            id: 'ok',
+            scanId: 's1',
+            provenance: 'LLM_JUDGE',
+            verifierVerdict: 'CONFIRMED',
+          }),
+        ],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.findings.map(f => f.id)).toEqual(['ok'])
+    expect(state.scans[0]!.openFindings).toBe(1)
+  })
+})

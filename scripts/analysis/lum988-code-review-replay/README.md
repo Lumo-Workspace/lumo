@@ -76,3 +76,40 @@ Recall is unchanged, but there are ~20 more false positives per run. So the
 client keeps the measured wording; the system prompt defines the scope.
 Run-to-run spread for one configuration is up to ~4.5 F1 points, so judge
 a change on several runs, never on one.
+
+## Agentic verifier (precision)
+
+The single review call is tuned for recall; about 60% of what it reports is
+not in the golden set. The verifier (`lib/llm/review-verifier-client.ts`)
+gets what the review lacked, a read-only checkout of the PR head and the
+hunt's allow-listed `run_shell`, and rejects a finding only when it can cite
+the `path:line` that refutes it. Production applies its rejections only to
+non-HIGH CORRECTNESS findings (`lib/security-scan/verifier.ts`).
+
+| File                                                 | What it does                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checkout.ts`                                        | A shallow clone per repo and a detached worktree per PR head (`pull/<n>/head`). ~15 GB for the 50 PRs.                                                                                                            |
+| `verify.ts`                                          | Runs `verifyFindings` per PR over the findings a replay recorded, `run_shell` gated by `checkHuntCommand` and redacted as in production, against the local checkout.                                              |
+| `score-verify.py`                                    | Scores a filtered run WITHOUT re-judging, from the step3 judgement of the unfiltered run (`matched_candidate` / `false_positives`). Reproduced the real judge exactly on 2 of 3 runs, off by one FP on the third. |
+| `verify-v3-run{1,2,3}.json`, `score-verifier-v3.txt` | The shipped prompt's verdicts and the real-judge scores.                                                                                                                                                          |
+
+```bash
+npx tsx scripts/analysis/lum988-code-review-replay/checkout.ts --data /tmp/lum988-data --out /tmp/lum988-co
+DOTENV_CONFIG_PATH=… npx tsx -r dotenv/config scripts/analysis/lum988-code-review-replay/verify.ts \
+  --results results-sonnet55.json --run 0 --data /tmp/lum988-data --checkouts /tmp/lum988-co --out verify.json
+python3 scripts/analysis/lum988-code-review-replay/score-verify.py \
+  --bench /tmp/crb/offline --results results-sonnet55.json --run 0 --tool <judged tool> --verify verify.json
+```
+
+Result (real step3 judge on the filtered findings, 3 runs pooled):
+
+|                                     | P         | R         | F1        | F2        |
+| ----------------------------------- | --------- | --------- | --------- | --------- |
+| No verifier                         | 39.8%     | 73.8%     | 51.7%     | 63.0%     |
+| **Verifier v3, non-HIGH bugs only** | **45.9%** | **68.1%** | **54.9%** | **62.1%** |
+
+What did not work (run 1, offline scoring): v1 without the diff (it rejected
+"value changed from 30% to 50%" bugs it could not see); v2 applying every
+rejection (F2 56.9); opus-5.5 as the verifier (F1 52.0, no better than
+sonnet); consensus of two verifiers (F1 53.0). Verifier cost ~$0.12 per PR
+mean, latency median 19 s / max 75 s, 0 defaulted verdicts out of 889.

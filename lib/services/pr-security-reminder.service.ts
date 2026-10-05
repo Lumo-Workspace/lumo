@@ -11,6 +11,7 @@
  * Honesty rules inherited from LUM-732: a scan that FAILED / never ran is
  * "could not confirm", never "clean"; disposition stays human-only.
  */
+import { isVerifierRejected } from '@/lib/security-scan/verifier'
 import {
   prSecurityScanRepository,
   type FindingKind,
@@ -201,7 +202,11 @@ export const prSecurityReminderService = {
             f => f.provenance === 'EXTERNAL_TOOL' && f.kind !== 'DEPENDENCY'
           ).length,
           openFindings: scan.findings.filter(
-            f => f.disposition === null && !f.persisting && !exits.has(f.id)
+            f =>
+              f.disposition === null &&
+              !f.persisting &&
+              !exits.has(f.id) &&
+              !isVerifierRejected(f)
           ).length,
           dependencyFindings: scan.findings.filter(f => f.kind === 'DEPENDENCY')
             .length,
@@ -234,6 +239,9 @@ export const prSecurityReminderService = {
         // the panel shows it muted with the reason; the reminder, the
         // next-actions list and `openFindings` leave it out.
         if (exits.has(f.id)) continue
+        // LUM-988: the agentic verifier rejected it after reading the code —
+        // shown in the panel and `pr scan`, never asked of the agent.
+        if (isVerifierRejected(f)) continue
         findings.push({
           id: f.id,
           kind: f.kind,

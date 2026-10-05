@@ -223,6 +223,25 @@ describe('lib/ai/gateway on the wire', () => {
     expect(sent.providerOptions?.gateway?.zeroDataRetention).toBe(true)
   })
 
+  // LUM-988 — the fail-closed guard and the provider pin read the model from
+  // these two headers. Pinned against the INSTALLED @ai-sdk/gateway: an SDK
+  // bump that renames them fails here, not as every AI call refused in prod.
+  it('the installed gateway SDK names the model in the headers the guard reads', async () => {
+    const { gateway } = await import('@/lib/ai/gateway')
+    const { embedTexts } = await import('@/lib/ai/embedding')
+    await gateway('deepseek/deepseek-v4-pro').doGenerate({
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'x' }] }],
+    })
+    await embedTexts(['y'])
+    const posts = calls.filter(c => c.init?.method === 'POST')
+    expect(posts).toHaveLength(2)
+    const headers = posts.map(p => new Headers(p.init!.headers))
+    expect(headers[0]!.get('ai-language-model-id')).toBe(
+      'deepseek/deepseek-v4-pro'
+    )
+    expect(headers[1]!.get('ai-model-id')).toMatch(/\//)
+  })
+
   it('embedTexts requests zero data retention', async () => {
     const { embedTexts } = await import('@/lib/ai/embedding')
     await embedTexts(['customer memory text'])

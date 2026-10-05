@@ -50,7 +50,12 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     updateDisposition: jest.fn(),
     mergeStages: jest.fn(),
     setManagedRunId: jest.fn(),
+    markVerifierStarted: jest.fn(),
+    completeVerification: jest.fn(),
   },
+}))
+jest.mock('@/lib/services/review-verifier-start', () => ({
+  startReviewVerifier: jest.fn(),
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: {
@@ -97,7 +102,7 @@ jest.mock('@/lib/logger', () => ({
 }))
 
 import {
-  distinctFingerprint,
+  positionalFingerprints,
   prSecurityScanService,
 } from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
@@ -107,6 +112,9 @@ import { securityPrReviewService } from '@/lib/services/security-pr-review.servi
 import * as gh from '@/lib/integrations/github/contents'
 import * as auth from '@/lib/integrations/github/auth'
 import * as judge from '@/lib/llm/security-judge-client'
+import { startReviewVerifier } from '@/lib/services/review-verifier-start'
+import { projectRepository } from '@/lib/repositories/project.repository'
+import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
 import {
   DEFAULT_SECURITY_POLICY,
   isBlockingUnderPolicy,
@@ -302,12 +310,15 @@ describe('LUM-988 AI review — changed-file context', () => {
       c => (c[2] as Record<string, string>).contents === 'read'
     )
     expect(contextMints.length).toBeGreaterThanOrEqual(1)
-    expect(readRepoFileWithToken).toHaveBeenCalledWith({
-      token: 'tok',
-      fullName: 'o/r',
-      path: 'lib/search.ts',
-      ref: 'sha-1',
-    })
+    expect(readRepoFileWithToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: 'tok',
+        fullName: 'o/r',
+        path: 'lib/search.ts',
+        ref: 'sha-1',
+        signal: expect.any(AbortSignal),
+      })
+    )
     expect(readRepoFileWithToken).toHaveBeenCalledTimes(2)
     expect(revokeInstallationToken).toHaveBeenCalledWith('tok')
     const input = (judge.judgeSecurity as jest.Mock).mock.calls[0]![0]
@@ -367,21 +378,57 @@ describe('LUM-988 AI review — changed-file context', () => {
   })
 })
 
-describe('LUM-988 distinctFingerprint', () => {
-  it('keeps the first key stable and gives each repeat in a scan its own key', () => {
-    const seen = new Map<string, number>()
-    const a = distinctFingerprint('abcdef0123456789', seen)
-    const b = distinctFingerprint('abcdef0123456789', seen)
-    const c = distinctFingerprint('abcdef0123456789', seen)
-    const other = distinctFingerprint('0000000000000000', seen)
-    expect(a).toBe('abcdef0123456789')
-    expect(new Set([a, b, c]).size).toBe(3)
-    expect(b).toMatch(/^[0-9a-f]{16}$/)
-    expect(other).toBe('0000000000000000')
-    // Deterministic: the same repeat gets the same key on the next push.
-    const again = new Map<string, number>()
-    distinctFingerprint('abcdef0123456789', again)
-    expect(distinctFingerprint('abcdef0123456789', again)).toBe(b)
+describe('LUM-988 positionalFingerprints', () => {
+  const r = (fingerprint: string, line: number | null, title = 't') => ({
+    fingerprint,
+    line,
+    title,
+  })
+
+  it('leaves a unique key alone', () => {
+    expect(
+      positionalFingerprints([
+        r('aaaa000000000000', 3),
+        r('bbbb000000000000', 3),
+      ])
+    ).toEqual(['aaaa000000000000', 'bbbb000000000000'])
+  })
+
+  it('keys repeats on the reported line, so emission order does not matter', () => {
+    const first = positionalFingerprints([
+      r('dup0000000000000', 10),
+      r('dup0000000000000', 40),
+    ])
+    const flipped = positionalFingerprints([
+      r('dup0000000000000', 40),
+      r('dup0000000000000', 10),
+    ])
+    expect(new Set(first).size).toBe(2)
+    expect(flipped).toEqual([first[1], first[0]])
+    expect(first.every(k => /^[0-9a-f]{16}$/.test(k))).toBe(true)
+  })
+
+  it('never hands the key of a fixed row to the other one', () => {
+    const before = positionalFingerprints([
+      r('dup0000000000000', 10),
+      r('dup0000000000000', 40),
+    ])
+    // The line-10 problem is fixed; the line-40 one is now unique.
+    const after = positionalFingerprints([r('dup0000000000000', 40)])
+    expect(after[0]).not.toBe(before[0])
+  })
+
+  it('two problems on one line: ordered by title, stable under emission order', () => {
+    const a = positionalFingerprints([
+      r('dup0000000000000', 5, 'Alpha'),
+      r('dup0000000000000', 5, 'Beta'),
+    ])
+    const b = positionalFingerprints([
+      r('dup0000000000000', 5, 'Beta'),
+      r('dup0000000000000', 5, 'Alpha'),
+    ])
+    expect(new Set(a).size).toBe(2)
+    expect(b).toEqual([a[1], a[0]])
   })
 
   it('stores two problems of one rule on one quoted line under different fingerprints', async () => {
@@ -395,5 +442,85 @@ describe('LUM-988 distinctFingerprint', () => {
     const rows = repo.persistResult.mock.calls[0]![1]
     expect(rows).toHaveLength(2)
     expect(rows[0]!.fingerprint).not.toBe(rows[1]!.fingerprint)
+  })
+})
+
+describe('LUM-988 stage A starts the agentic verifier', () => {
+  const start = startReviewVerifier as jest.Mock
+  beforeEach(() => start.mockResolvedValue(true))
+  afterEach(() => {
+    delete process.env.LUMO_REVIEW_VERIFIER
+  })
+
+  it("marks the hold, then starts the verifier for the scan's AI-review findings", async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+
+    await runScan()
+
+    expect(repo.markVerifierStarted).toHaveBeenCalledWith('s1')
+    expect(start).toHaveBeenCalledWith({
+      scanId: 's1',
+      workspaceId: 'w1',
+      repo: 'o/r',
+      prNumber: 7,
+      headSha: 'sha-1',
+      managedScanStarted: false,
+      stopAttachedWhenDone: true,
+    })
+    const markOrder = (repo.markVerifierStarted as jest.Mock).mock
+      .invocationCallOrder[0]!
+    expect(markOrder).toBeLessThan(start.mock.invocationCallOrder[0]!)
+    expect(repo.completeVerification).not.toHaveBeenCalled()
+  })
+
+  it('releases the hold at once when the run cannot be queued', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    start.mockResolvedValue(false)
+
+    await runScan()
+
+    expect(repo.completeVerification).toHaveBeenCalledWith('s1', [])
+  })
+
+  it('starts nothing without AI-review findings, or with the kill switch', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    await runScan()
+    expect(start).not.toHaveBeenCalled()
+
+    jest.clearAllMocks()
+    process.env.LUMO_REVIEW_VERIFIER = 'off'
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(start).not.toHaveBeenCalled()
+    expect(repo.markVerifierStarted).not.toHaveBeenCalled()
+  })
+
+  it('keeps the managed scan VM alive for the verifier while the AI review is on', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    ;(startSecurityManagedScan as jest.Mock).mockResolvedValue('run-1')
+    ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
+      null
+    )
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+
+    expect(
+      (startSecurityManagedScan as jest.Mock).mock.calls[0]![0].huntWanted
+    ).toBe(true)
+    expect(start.mock.calls[0]![0]).toMatchObject({
+      managedScanStarted: true,
+      stopAttachedWhenDone: true,
+    })
   })
 })

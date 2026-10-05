@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "The code this scan quoted has been cleared under your workspace's retention setting. Rules, files, lines and dispositions are kept.",
   "securityScan.suggested.falsePositive": "Suspected false positive (LLM)",
   "securityScan.suggested.reasonLabel": "LLM reasoning:",
+  "securityScan.verifier.reasonLabel": "Verifier's reason:",
+  "securityScan.verifier.rejected": "Rejected by verifier",
   "securityScan.suggested.outcome.CONFIRMED": "suggestion confirmed",
   "securityScan.suggested.outcome.OVERRULED": "suggestion overruled",
   "securityScan.action.confirmAllSuggested": "{count, plural, one {Confirm the # suspected false positive} other {Confirm all # suspected false positives}}",

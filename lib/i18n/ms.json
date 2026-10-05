@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "Kod yang dipetik oleh imbasan ini telah dipadam mengikut tetapan pengekalan ruang kerja anda. Peraturan, fail, baris dan keputusan masih disimpan.",
   "securityScan.suggested.falsePositive": "Disyaki positif palsu (LLM)",
   "securityScan.suggested.reasonLabel": "Penaakulan LLM:",
+  "securityScan.verifier.reasonLabel": "Sebab pengesah:",
+  "securityScan.verifier.rejected": "Ditolak oleh pengesah",
   "securityScan.suggested.outcome.CONFIRMED": "cadangan disahkan",
   "securityScan.suggested.outcome.OVERRULED": "cadangan ditolak",
   "securityScan.action.confirmAllSuggested": "{count, plural, other {Sahkan semua # positif palsu yang disyaki}}",

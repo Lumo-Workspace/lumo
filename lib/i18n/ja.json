@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "ワークスペースの保持期間設定により、このスキャンが引用したコードは消去されました。ルール、ファイル、行、判定は残っています。",
   "securityScan.suggested.falsePositive": "誤検知の疑い（LLM）",
   "securityScan.suggested.reasonLabel": "LLM の根拠:",
+  "securityScan.verifier.reasonLabel": "検証エージェントの理由：",
+  "securityScan.verifier.rejected": "検証エージェントが却下",
   "securityScan.suggested.outcome.CONFIRMED": "提案を承認済み",
   "securityScan.suggested.outcome.OVERRULED": "提案を却下済み",
   "securityScan.action.confirmAllSuggested": "{count, plural, other {誤検知の疑いがある # 件をすべて承認}}",

@@ -181,6 +181,16 @@ const CLEAN_DIFF = [
   '+const x = 1',
 ].join('\n')
 
+// LUM-988: these tests pin the VM keep-alive for the HUNT; with the agentic
+// verifier on, stage A keeps it alive whenever the AI review is on (covered
+// in pr-security-scan.service.lum988-verifier.test.ts).
+beforeAll(() => {
+  process.env.LUMO_REVIEW_VERIFIER = 'off'
+})
+afterAll(() => {
+  delete process.env.LUMO_REVIEW_VERIFIER
+})
+
 beforeEach(() => {
   jest.clearAllMocks()
   process.env.LUMO_SECURITY_HUNT = 'off'

@@ -219,3 +219,25 @@ describe('LUM-988 withRepoReadToken', () => {
     expect(fn).not.toHaveBeenCalled()
   })
 })
+
+describe('LUM-988 readRepoFileWithToken abort', () => {
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
+  })
+  it('passes the abort signal to fetch', async () => {
+    const seen: Array<AbortSignal | undefined> = []
+    global.fetch = jest.fn(async (_input: unknown, init?: RequestInit) => {
+      seen.push(init?.signal ?? undefined)
+      return { status: 200, ok: true, text: async () => 'ok' }
+    }) as unknown as typeof fetch
+    const ctrl = new AbortController()
+    await readRepoFileWithToken({
+      token: 't',
+      fullName: 'o/r',
+      path: 'a.ts',
+      signal: ctrl.signal,
+    })
+    expect(seen[0]).toBe(ctrl.signal)
+  })
+})

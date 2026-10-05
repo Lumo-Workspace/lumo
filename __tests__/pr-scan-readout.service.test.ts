@@ -567,3 +567,46 @@ describe('prScanReadoutService.getForPullRequest', () => {
     expect(view.scans[0]!.hunt).toBeNull()
   })
 })
+
+describe('LUM-988 verifier verdict in the read-out', () => {
+  it('a rejected LLM_JUDGE row is not open and carries the verdict and reason', async () => {
+    findPrs.mockResolvedValue([{ ...PR, state: 'open' }])
+    listScans.mockResolvedValue([
+      scan({
+        findings: [
+          finding({
+            id: 'rej',
+            provenance: 'LLM_JUDGE',
+            kind: 'CORRECTNESS',
+            ruleId: 'review:logic_error',
+            severity: 'MEDIUM',
+            verifierVerdict: 'REJECTED',
+            verifierReason: 'guarded at src/a.ts:12',
+          }),
+          finding({
+            id: 'kept',
+            provenance: 'LLM_JUDGE',
+            verifierVerdict: null,
+            verifierReason: null,
+          }),
+        ],
+      }),
+    ])
+    const view = await prScanReadoutService.getForPullRequest('ws-1', {
+      number: 1013,
+      all: false,
+    })
+    const [rej, kept] = view.scans[0]!.findings
+    expect(rej).toMatchObject({
+      open: false,
+      blocking: false,
+      verifierVerdict: 'REJECTED',
+      verifierReason: 'guarded at src/a.ts:12',
+    })
+    expect(kept).toMatchObject({
+      open: true,
+      verifierVerdict: null,
+      verifierReason: null,
+    })
+  })
+})

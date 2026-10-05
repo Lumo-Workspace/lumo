@@ -1758,6 +1758,14 @@ enum PrSecurityReachability {
   UNKNOWN
 }
 
+// LUM-988: the AI review's agentic verifier, per LLM_JUDGE finding. REJECTED
+// rows stay stored and visible in Lumo but get no inline PR comment and are
+// not counted as open; a finding with no verdict (not verified) behaves as today.
+enum PrSecurityVerifierVerdict {
+  CONFIRMED
+  REJECTED
+}
+
 // LUM-739: the falsifier can only refute or fail to refute — never confirm.
 enum PrSecurityFalsifierVerdict {
   REJECT
@@ -1783,92 +1791,97 @@ enum PrSecuritySuggestionOutcome {
 }
 
 model PrSecurityScan {
-  id               String                 @id @default(cuid())
-  pullRequestId    String
+  id                String                 @id @default(cuid())
+  pullRequestId     String
   // The PR's task at scan time (denormalised for per-task reads); SetNull.
-  taskId           String?
-  workspaceId      String
-  headSha          String
-  status           PrSecurityScanStatus   @default(PENDING)
-  trigger          PrSecurityScanTrigger
-  judgeStatus      PrSecurityJudgeStatus?
+  taskId            String?
+  workspaceId       String
+  headSha           String
+  status            PrSecurityScanStatus   @default(PENDING)
+  trigger           PrSecurityScanTrigger
+  judgeStatus       PrSecurityJudgeStatus?
   // The diff exceeded the judge budget — the LLM pass saw only a prefix.
-  truncated        Boolean                @default(false)
+  truncated         Boolean                @default(false)
   // LUM-814: the judge's budget arithmetic — { diffChars, tierChars,
   // reviewedChars, coveredFiles, droppedFiles }. null = not recorded (a row
   // written before this column, or a scan whose judge never reached the
   // budget step). null is NOT zero: `truncated` alone cannot tell a PR that
   // spent 2% of its tier from one that spent 98%.
-  judgeBudget      Json?
+  judgeBudget       Json?
   // LUM-849: the judge's description of the PR — { intent, changes[] }, from
   // the same call that looks for vulnerabilities; already redacted and
   // neutralised (lib/security-scan/pr-summary.ts). null = the judge did not
   // run on this head (skipped, over its size cap, unavailable) or an older row.
-  prSummary        Json?
+  prSummary         Json?
   // LUM-735: per-layer outcome { secrets|external|supplyChain|judge|hunt:
   // RAN|FAILED|SKIPPED|NOT_CONFIGURED|PARTIAL }. null on rows written before
   // this column existed — the service derives a legacy view from judgeStatus.
-  stages           Json?
+  stages            Json?
   // LUM-735: some layer hit its budget/cap; the scan is honest but not whole.
   // LUM-832: kept as the monotone OR of `partialCauses` (older readers and
   // pre-LUM-832 rows); a row with `partial` and no cause is unattributed.
-  partial          Boolean                @default(false)
+  partial           Boolean                @default(false)
   // LUM-832: WHY the scan is not whole — one entry per set point, from the
   // closed list `PARTIAL_CAUSES` in shared/src/security-scan.ts (text, not a
   // PG enum, so a new cause needs no enum migration). Each cause is classed
   // as our fault or coverage still owed; neither is ever the customer's.
   // Union across writers, like `partial`.
-  partialCauses    String[]               @default([])
+  partialCauses     String[]               @default([])
   // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
-  detectorVersion  String
-  error            String?
-  startedAt        DateTime               @default(now())
-  finishedAt       DateTime?
+  detectorVersion   String
+  error             String?
+  startedAt         DateTime               @default(now())
+  finishedAt        DateTime?
   // LUM-737: when the agent was first reminded (via the next PreToolUse hook)
   // that this scan carries undispositioned findings. Set once per scan row so
   // the reminder fires exactly once; null = not yet reminded. Orthogonal to
   // disposition and the DONE gate (which key only on the findings).
-  agentNotifiedAt  DateTime?
+  agentNotifiedAt   DateTime?
   // LUM-739: tokens the L3 hunt + falsifier spent on this scan. null = not
   // metered (team rule: null ≠ 0).
-  tokenSpent       Int?
+  tokenSpent        Int?
   // LUM-739: { candidates, rejected: [{ reason, category, sink }],
   // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
-  huntAudit        Json?
+  huntAudit         Json?
   // LUM-745: the Vercel Workflow run id of the Lumo-managed scan stage A
   // started for this row; null = no managed run (BYO, disabled, or start()
   // failed). Read by supersede / the 45-min sweep (cancel + stop) and by the
   // per-workspace hourly cap (count).
-  managedRunId     String?
+  managedRunId      String?
   // LUM-740: the GitHub issue-comment id of the per-PR summary this scan
   // last wrote (or reused from an earlier scan of the same PR). The
   // write-back upserts by this id, so concurrent writers converge on ONE
   // summary; null until the first create.
-  summaryCommentId String?
+  summaryCommentId  String?
   // LUM-740: when the suggested-disposition pass finished for this scan
   // (null = not yet). The PR write-back holds EXTERNAL_TOOL inline comments
   // until then, so a concurrent hunt sync cannot post rows the pass is about
   // to mark as suggested false positives.
-  suggestedAt      DateTime?
+  suggestedAt       DateTime?
+  // LUM-988: the agentic verifier's run for this scan. Started = the PR
+  // write-back holds LLM_JUDGE inline comments (up to VERIFIER_HOLD_MS);
+  // verifiedAt = it finished (with or without verdicts), so they post.
+  verifierStartedAt DateTime?
+  verifiedAt        DateTime?
   // LUM-740: tokens the suggested-disposition pass spent (own column — the
   // hunt owns `tokenSpent` and overwrites it). null = not metered.
-  suggestionTokens Int?
+  suggestionTokens  Int?
   // LUM-822: the hunt's own run bookkeeping, so a hunt that never reports can
   // be retried once and then failed by the stale-hunt sweep. `huntJob` is the
   // HuntJob stage A started with (null = no hunt, or a row from before this
   // column — such a row is failed, never retried); `huntAttempts` counts
   // starts (0 on older rows); `huntStartedAt` is when the latest one began.
   // A hunt write carrying an attempt older than `huntAttempts` is dropped.
-  huntJob          Json?
-  huntRunId        String?
-  huntAttempts     Int                    @default(0)
-  huntStartedAt    DateTime?
+  huntJob           Json?
+  huntRunId         String?
+  huntAttempts      Int                    @default(0)
+  huntStartedAt     DateTime?
   // LUM-911: when the code fields were last scrubbed (any path: retention,
   // uninstall, unconfirmed repository). null = still holds what it wrote.
-  codeScrubbedAt   DateTime?
+  codeScrubbedAt    DateTime?
   // LUM-911: does the retention sweep look at this scan? Rows from before
   // LUM-911 are false (the backlog is a separate task); new rows are true.
-  retentionTracked Boolean                @default(true)
+  retentionTracked  Boolean                @default(true)
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1920,6 +1933,10 @@ model PrSecurityFinding {
   reachability           PrSecurityReachability?
   callChain              Json?
   falsifierVerdict       PrSecurityFalsifierVerdict?
+  // LUM-988: the agentic verifier's verdict on an LLM_JUDGE row, and its
+  // one-sentence reason (model text, redacted before storage).
+  verifierVerdict        PrSecurityVerifierVerdict?
+  verifierReason         String?
   // LUM-738: the same fingerprint is already on the default branch's security
   // baseline (ProjectRepository.securityBaseline) — this PR did not introduce
   // it. Advisory: rendered muted, excluded from open/reminder counts.

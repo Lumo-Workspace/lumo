@@ -88,6 +88,7 @@ function finding(over: Partial<ReviewFindingRow> = {}): ReviewFindingRow {
     disposition: null,
     persisting: false,
     suggestedDisposition: null,
+    verifierVerdict: null,
     ...over,
   }
 }
@@ -384,5 +385,73 @@ describe('LUM-740 PR review', () => {
         posted: true,
       })
     })
+  })
+})
+
+describe('LUM-988 agentic verifier on the PR', () => {
+  const judgeRow = (id: string, over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      id,
+      provenance: 'LLM_JUDGE',
+      kind: 'CORRECTNESS',
+      ruleId: 'review:logic_error',
+      filePath: `src/${id}.ts`,
+      fingerprint: `fp-${id}`,
+      ...over,
+    })
+
+  it('a rejected AI-review finding is not open, not commented, and counted in one summary line', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        verifiedAt: new Date(),
+        verifierStartedAt: new Date(),
+        findings: [
+          judgeRow('kept', { verifierVerdict: 'CONFIRMED' }),
+          judgeRow('gone', { verifierVerdict: 'REJECTED' }),
+          judgeRow('unverified'),
+        ],
+      })
+    )
+    const out = await securityPrReviewService.sync('s1')
+    expect(out.inline).toBe(2)
+    expect(inlinePaths().sort()).toEqual(['src/kept.ts', 'src/unverified.ts'])
+    expect(summaryBody()).toContain('**2 open findings**')
+    expect(summaryBody()).toContain(
+      '- 1 AI review finding rejected by the verifier after reading the code — shown in Lumo only'
+    )
+  })
+
+  it('holds AI-review inline comments while the verifier runs; the summary still posts', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        verifierStartedAt: new Date(),
+        verifiedAt: null,
+        findings: [
+          judgeRow('wait'),
+          finding({
+            id: 'det',
+            provenance: 'DETERMINISTIC',
+            ruleId: 'secret:x',
+            fingerprint: 'fp-det',
+          }),
+        ],
+      })
+    )
+    const out = await securityPrReviewService.sync('s1')
+    expect(inlinePaths()).toEqual(['lib/run.ts'])
+    expect(out.posted).toBe(true)
+    expect(summaryBody()).toContain('**2 open findings**')
+  })
+
+  it('posts them unverified once the hold window has passed', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        verifierStartedAt: new Date(Date.now() - 7 * 60_000),
+        verifiedAt: null,
+        findings: [judgeRow('late')],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(inlinePaths()).toEqual(['src/late.ts'])
   })
 })

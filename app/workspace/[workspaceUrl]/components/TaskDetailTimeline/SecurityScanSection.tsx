@@ -547,6 +547,10 @@ function FindingRow({
   )
   const suggestedOpen =
     finding.suggestedDisposition !== null && finding.disposition === null
+  // LUM-988: the agentic verifier read the code and rejected it — kept and
+  // shown (muted, with the reason), but not open and not on the PR.
+  const verifierRejected =
+    finding.verifierVerdict === 'REJECTED' && finding.disposition === null
 
   async function copyForAgent() {
     try {
@@ -586,7 +590,8 @@ function FindingRow({
   // muted, labelled, and its HIGH loses the red so the eye lands on new rows.
   // LUM-775: same treatment for a row that left the queue when the PR
   // merged / closed — the label says why, and a human can still decide.
-  const muted = finding.persisting || finding.queueExit != null
+  const muted =
+    finding.persisting || finding.queueExit != null || verifierRejected
   const severityTone =
     finding.severity === 'HIGH' && !muted
       ? 'text-danger-text'
@@ -680,6 +685,14 @@ function FindingRow({
             })}
           </span>
         )}
+        {verifierRejected && (
+          <span
+            data-testid='finding-verifier-rejected'
+            className='rounded-sm bg-muted px-1 text-muted-foreground'
+          >
+            {intl.formatMessage({ id: 'securityScan.verifier.rejected' })}
+          </span>
+        )}
         {finding.disposition && (
           <span
             data-testid='finding-disposition'
@@ -702,6 +715,14 @@ function FindingRow({
           className='mt-0.5 text-caption text-muted-foreground'
         >
           {`${intl.formatMessage({ id: 'securityScan.suggested.reasonLabel' })} ${finding.suggestedReason}`}
+        </p>
+      )}
+      {verifierRejected && finding.verifierReason && (
+        <p
+          data-testid='finding-verifier-reason'
+          className='mt-0.5 text-caption text-muted-foreground'
+        >
+          {`${intl.formatMessage({ id: 'securityScan.verifier.reasonLabel' })} ${finding.verifierReason}`}
         </p>
       )}
       {finding.callChain && finding.callChain.length > 0 && (

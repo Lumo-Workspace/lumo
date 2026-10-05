@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "Le code cité par cette analyse a été effacé selon le paramètre de conservation de votre espace de travail. Les règles, fichiers, lignes et décisions sont conservés.",
   "securityScan.suggested.falsePositive": "Faux positif présumé (LLM)",
   "securityScan.suggested.reasonLabel": "Raisonnement du LLM :",
+  "securityScan.verifier.reasonLabel": "Motif du vérificateur :",
+  "securityScan.verifier.rejected": "Rejeté par le vérificateur",
   "securityScan.suggested.outcome.CONFIRMED": "suggestion confirmée",
   "securityScan.suggested.outcome.OVERRULED": "suggestion rejetée",
   "securityScan.action.confirmAllSuggested": "{count, plural, one {Confirmer le # faux positif présumé} other {Confirmer les # faux positifs présumés}}",

@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "आपके वर्कस्पेस की प्रतिधारण सेटिंग के अनुसार इस स्कैन द्वारा उद्धृत कोड हटा दिया गया है। नियम, फ़ाइलें, पंक्तियाँ और निर्णय बने हुए हैं।",
   "securityScan.suggested.falsePositive": "संदिग्ध झूठी सकारात्मक (LLM)",
   "securityScan.suggested.reasonLabel": "LLM का तर्क:",
+  "securityScan.verifier.reasonLabel": "सत्यापक का कारण:",
+  "securityScan.verifier.rejected": "सत्यापक ने अस्वीकार किया",
   "securityScan.suggested.outcome.CONFIRMED": "सुझाव की पुष्टि हुई",
   "securityScan.suggested.outcome.OVERRULED": "सुझाव अस्वीकृत",
   "securityScan.action.confirmAllSuggested": "{count, plural, one {# संदिग्ध झूठी सकारात्मक की पुष्टि करें} other {सभी # संदिग्ध झूठी सकारात्मक की पुष्टि करें}}",

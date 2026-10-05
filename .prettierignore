@@ -22,3 +22,4 @@ __tests__/fixtures/lum846/
 scripts/analysis/lum854-zdr/probe-output.json
 # LUM-988 replay evidence: raw model output, kept byte-for-byte.
 scripts/analysis/lum988-code-review-replay/results-*.json
+scripts/analysis/lum988-code-review-replay/verify-*.json

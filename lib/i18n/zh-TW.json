@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "依工作區的保留期設定,本次掃描引用的程式碼已清除。規則、檔案、行號和處置仍然保留。",
   "securityScan.suggested.falsePositive": "疑似誤報（LLM）",
   "securityScan.suggested.reasonLabel": "LLM 判斷依據：",
+  "securityScan.verifier.reasonLabel": "驗證器理由：",
+  "securityScan.verifier.rejected": "已被驗證器駁回",
   "securityScan.suggested.outcome.CONFIRMED": "建議已確認",
   "securityScan.suggested.outcome.OVERRULED": "建議已否決",
   "securityScan.action.confirmAllSuggested": "{count, plural, other {確認全部 # 個疑似誤報}}",

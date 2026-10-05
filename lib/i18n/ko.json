@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "워크스페이스 보존 기간 설정에 따라 이 스캔이 인용한 코드가 삭제되었습니다. 규칙, 파일, 줄, 처리 결과는 유지됩니다.",
   "securityScan.suggested.falsePositive": "오탐 의심 (LLM)",
   "securityScan.suggested.reasonLabel": "LLM 근거:",
+  "securityScan.verifier.reasonLabel": "검증기 사유:",
+  "securityScan.verifier.rejected": "검증기가 기각함",
   "securityScan.suggested.outcome.CONFIRMED": "제안 확인됨",
   "securityScan.suggested.outcome.OVERRULED": "제안 기각됨",
   "securityScan.action.confirmAllSuggested": "{count, plural, other {오탐 의심 # 건 모두 확인}}",
