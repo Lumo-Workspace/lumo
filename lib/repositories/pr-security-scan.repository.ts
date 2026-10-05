@@ -311,6 +311,7 @@ export type ReviewFindingRow = Pick<
   | 'persisting'
   | 'suggestedDisposition'
   | 'verifierVerdict'
+  | 'verifierReason'
 >
 
 /**
@@ -1581,6 +1582,7 @@ export const prSecurityScanRepository = {
             persisting: true,
             suggestedDisposition: true,
             verifierVerdict: true,
+            verifierReason: true,
           },
         },
         pullRequest: {
@@ -1881,6 +1883,43 @@ export const prSecurityScanRepository = {
       where: { id: scanId },
       data: { verifierStartedAt: new Date() },
     })
+  },
+
+  /**
+   * Scans whose verifier started before `startedBefore` and never stamped
+   * `verifiedAt` — a run or step that was lost. Oldest first.
+   */
+  async findStaleVerifierHolds(
+    startedBefore: Date,
+    limit: number
+  ): Promise<string[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: { verifiedAt: null, verifierStartedAt: { lt: startedBefore } },
+      orderBy: { verifierStartedAt: 'asc' },
+      take: limit,
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
+  /**
+   * Release one stale hold: stamp `verifiedAt` only if it is still null, so a
+   * verifier finishing at the same moment and the sweep never both act.
+   * true = this call released it.
+   */
+  async claimStaleVerifierHold(
+    scanId: string,
+    startedBefore: Date
+  ): Promise<boolean> {
+    const res = await prisma.prSecurityScan.updateMany({
+      where: {
+        id: scanId,
+        verifiedAt: null,
+        verifierStartedAt: { lt: startedBefore },
+      },
+      data: { verifiedAt: new Date() },
+    })
+    return res.count === 1
   },
 
   /** The scan's LLM_JUDGE findings, as the verifier reads them (evidence included). */

@@ -113,3 +113,8 @@ What did not work (run 1, offline scoring): v1 without the diff (it rejected
 rejection (F2 56.9); opus-5.5 as the verifier (F1 52.0, no better than
 sonnet); consensus of two verifiers (F1 53.0). Verifier cost ~$0.12 per PR
 mean, latency median 19 s / max 75 s, 0 defaulted verdicts out of 889.
+
+Follow-up (production now sends the verifier only the rows it may reject,
+`verify.ts --only-applicable`): offline scoring over the same 3 runs gives
+pooled P 46.0 / R 68.4 / F1 55.0 / F2 62.3, against 46.0 / 68.1 / 54.9 / 62.2
+when it saw every finding — no loss, fewer steps per scan.

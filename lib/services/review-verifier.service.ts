@@ -24,11 +24,13 @@ import {
   VERIFIER_MAX_STEPS,
   VERIFIER_TIMEOUT_MS,
   applyVerifierPolicy,
+  verifierAppliesTo,
   verifierKindOf,
   type VerifierVerdict,
 } from '@/lib/security-scan/verifier'
 import {
   attachOrCreateHuntSandbox,
+  releaseManagedScanVm,
   runVerifierShell,
   stopHuntSandbox,
   type HuntSandbox,
@@ -49,6 +51,12 @@ export interface ReviewVerifierJob {
    * of leaving it to idle out its 35-minute timeout.
    */
   stopAttachedWhenDone: boolean
+  /**
+   * LUM-988 — no verification: stage A kept the managed scan's VM alive and
+   * then had nothing for it (no finding the verifier may reject, judge
+   * skipped or failed, no hunt). Only stop that VM, after its hand-off.
+   */
+  releaseOnly?: boolean
 }
 
 export interface ReviewVerifierOutcome {
@@ -80,6 +88,13 @@ export function citedDiff(
 
 export const reviewVerifierService = {
   async run(job: ReviewVerifierJob): Promise<ReviewVerifierOutcome> {
+    if (job.releaseOnly) {
+      const released = await releaseManagedScanVm({ scanId: job.scanId })
+      logger.info(
+        `[review-verifier] scan=${job.scanId} release-only: ${released}`
+      )
+      return { findings: 0, rejected: 0, error: null }
+    }
     let verdicts: Array<{
       findingId: string
       verdict: VerifierVerdict
@@ -89,8 +104,11 @@ export const reviewVerifierService = {
     let error: string | null = null
     let handle: HuntSandbox | null = null
     try {
-      const findings =
+      // LUM-988: only the rows the policy lets it reject — a HIGH or security
+      // row costs steps and could never change.
+      const findings = (
         await prSecurityScanRepository.findJudgeFindingsForVerify(job.scanId)
+      ).filter(verifierAppliesTo)
       findingsCount = findings.length
       if (findings.length > 0) {
         const diff = await fetchPrDiff({

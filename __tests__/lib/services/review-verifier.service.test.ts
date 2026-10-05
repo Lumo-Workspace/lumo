@@ -13,6 +13,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 }))
 jest.mock('@/lib/services/security-hunt-sandbox', () => ({
   attachOrCreateHuntSandbox: jest.fn(),
+  releaseManagedScanVm: jest.fn(),
   runVerifierShell: jest.fn(),
   stopHuntSandbox: jest.fn(),
 }))
@@ -117,14 +118,14 @@ describe('LUM-988 reviewVerifierService.run', () => {
       managedScanStarted: true,
     })
     const input = (verifyFindings as jest.Mock).mock.calls[0]![0]
+    // Only the rows the policy can reject are sent (the xss row is not).
     expect(input.findings.map((f: { kind: string }) => f.kind)).toEqual([
       'logic_error',
-      'xss',
     ])
     expect(input.diff).toContain('+++ b/src/a.ts')
     await input.runShell('rg x')
     expect(sandbox.runVerifierShell).toHaveBeenCalledWith(handle, 'rg x')
-    // The VULNERABILITY row's REJECTED is not applied (policy).
+    // A verdict for a row that was never sent is ignored.
     const verdicts = (repo.completeVerification as jest.Mock).mock.calls[0]![1]
     expect(verdicts).toHaveLength(1)
     expect(verdicts[0]).toMatchObject({ findingId: 'a', verdict: 'REJECTED' })
@@ -133,7 +134,7 @@ describe('LUM-988 reviewVerifierService.run', () => {
       includeAttached: true,
     })
     expect(securityPrReviewService.sync).toHaveBeenCalledWith('s1')
-    expect(out).toEqual({ findings: 2, rejected: 1, error: null })
+    expect(out).toEqual({ findings: 1, rejected: 1, error: null })
   })
 
   it('on a failed VM attach records no verdict but still releases the hold and syncs', async () => {
@@ -167,5 +168,29 @@ describe('LUM-988 reviewVerifierService.run', () => {
     expect(sandbox.stopHuntSandbox).toHaveBeenCalledWith(handle, {
       includeAttached: false,
     })
+  })
+})
+
+describe('LUM-988 release-only mode', () => {
+  it('only releases the managed VM: no findings read, no model, no hold change, no sync', async () => {
+    ;(sandbox.releaseManagedScanVm as jest.Mock).mockResolvedValue('stopped')
+    const out = await reviewVerifierService.run({ ...job, releaseOnly: true })
+    expect(sandbox.releaseManagedScanVm).toHaveBeenCalledWith({ scanId: 's1' })
+    expect(repo.findJudgeFindingsForVerify).not.toHaveBeenCalled()
+    expect(verifyFindings).not.toHaveBeenCalled()
+    expect(repo.completeVerification).not.toHaveBeenCalled()
+    expect(securityPrReviewService.sync).not.toHaveBeenCalled()
+    expect(out).toEqual({ findings: 0, rejected: 0, error: null })
+  })
+
+  it('a scan with no verifiable row boots no VM and only releases the hold', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('h', { severity: 'HIGH' }),
+      row('v', { kind: 'VULNERABILITY', ruleId: 'vuln:xss' }),
+    ])
+    await reviewVerifierService.run(job)
+    expect(sandbox.attachOrCreateHuntSandbox).not.toHaveBeenCalled()
+    expect(repo.completeVerification).toHaveBeenCalledWith('s1', [])
+    expect(securityPrReviewService.sync).toHaveBeenCalledWith('s1')
   })
 })

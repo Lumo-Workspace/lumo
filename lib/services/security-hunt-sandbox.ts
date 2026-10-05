@@ -215,6 +215,59 @@ async function sealAttached(
 }
 
 /**
+ * LUM-988 — stop the managed scan's VM that stage A kept alive for a verifier
+ * or hunt that then did not start (the AI review found nothing it may
+ * reject, was skipped or failed). Waits for the managed scan's hand-off
+ * marker first — stopping mid-scan would fail its scanners — and never boots
+ * anything: no VM found is `none`, a scan still running past the wait is
+ * `busy` (left to its own timeout, logged). Never throws.
+ */
+export async function releaseManagedScanVm(input: {
+  scanId: string
+  /** Test seams. */
+  waitMs?: number
+  appearWaitMs?: number
+  pollMs?: number
+}): Promise<'stopped' | 'none' | 'busy'> {
+  const tag = { [SANDBOX_SCAN_TAG]: input.scanId }
+  const attachOptions = { excludeTagKeys: [HUNT_SANDBOX_TAG] }
+  const pollMs = input.pollMs ?? HUNT_SANDBOX_ATTACH_POLL_MS
+  const startedAt = Date.now()
+  const deadline =
+    startedAt + (input.waitMs ?? HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS)
+  const appearDeadline = Math.min(
+    deadline,
+    startedAt + (input.appearWaitMs ?? HUNT_SANDBOX_ATTACH_WAIT_MS)
+  )
+  try {
+    let vm = await findRepoSandboxByTag(tag, attachOptions)
+    while (!vm && Date.now() < appearDeadline) {
+      await sleep(pollMs)
+      vm = await findRepoSandboxByTag(tag, attachOptions)
+    }
+    if (!vm) return 'none'
+    const done = await waitForManagedScanDone(
+      vm,
+      Math.max(0, deadline - Date.now()),
+      pollMs
+    )
+    if (!done) {
+      logger.warn(
+        `[review-verifier] managed scan VM still scanning scan=${input.scanId}; left to its own timeout`
+      )
+      return 'busy'
+    }
+    await vm.stop()
+    return 'stopped'
+  } catch (error) {
+    logger.warn(
+      `[review-verifier] managed scan VM release failed scan=${input.scanId}: ${short(error)}`
+    )
+    return 'none'
+  }
+}
+
+/**
  * LUM-869 — wait (up to HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS) for the managed
  * scan to hand its VM over, without attaching to it. Runs in a step of its
  * own before the first batch, so the batch's attach finds the marker at once

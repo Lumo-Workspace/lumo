@@ -446,6 +446,7 @@ describe('LUM-988 positionalFingerprints', () => {
 })
 
 describe('LUM-988 stage A starts the agentic verifier', () => {
+  const MEDIUM_BUG = { ...BUG, severity: 'MEDIUM' }
   const start = startReviewVerifier as jest.Mock
   beforeEach(() => start.mockResolvedValue(true))
   afterEach(() => {
@@ -454,7 +455,9 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
 
   it("marks the hold, then starts the verifier for the scan's AI-review findings", async () => {
     fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
-    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [MEDIUM_BUG],
+    })
 
     await runScan()
 
@@ -476,7 +479,9 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
 
   it('releases the hold at once when the run cannot be queued', async () => {
     fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
-    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [MEDIUM_BUG],
+    })
     start.mockResolvedValue(false)
 
     await runScan()
@@ -492,7 +497,9 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
     jest.clearAllMocks()
     process.env.LUMO_REVIEW_VERIFIER = 'off'
     fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
-    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [MEDIUM_BUG],
+    })
     await prSecurityScanService.run({
       pullRequestId: 'pr1',
       trigger: 'PR_EVENT',
@@ -508,7 +515,9 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
       null
     )
     fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
-    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [MEDIUM_BUG],
+    })
 
     await prSecurityScanService.run({
       pullRequestId: 'pr1',
@@ -522,5 +531,74 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
       managedScanStarted: true,
       stopAttachedWhenDone: true,
     })
+  })
+})
+
+describe('LUM-988 VM release and the verifier start condition', () => {
+  const start = startReviewVerifier as jest.Mock
+  const HIGH_VULN = { ...VULN, severity: 'HIGH' }
+  const MEDIUM_BUG = { ...BUG, severity: 'MEDIUM' }
+  beforeEach(() => {
+    start.mockResolvedValue(true)
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    ;(startSecurityManagedScan as jest.Mock).mockResolvedValue('run-1')
+    ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
+      null
+    )
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+  })
+  const run = () =>
+    prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+
+  it('only security or HIGH findings: no verifier, and the kept VM is released', async () => {
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [HIGH_VULN, BUG],
+    })
+    await run()
+    expect(repo.markVerifierStarted).not.toHaveBeenCalled()
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(start.mock.calls[0]![0]).toMatchObject({
+      scanId: 's1',
+      releaseOnly: true,
+      managedScanStarted: true,
+    })
+  })
+
+  it('no findings at all, or a failed judge: the kept VM is released', async () => {
+    await run()
+    expect(start.mock.calls[0]![0]).toMatchObject({ releaseOnly: true })
+
+    jest.clearAllMocks()
+    start.mockResolvedValue(true)
+    ;(startSecurityManagedScan as jest.Mock).mockResolvedValue('run-1')
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockRejectedValue(
+      new Error('gateway down')
+    )
+    await run()
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(start.mock.calls[0]![0]).toMatchObject({ releaseOnly: true })
+  })
+
+  it('a qualifying finding starts the verifier and no release is queued', async () => {
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [MEDIUM_BUG, HIGH_VULN],
+    })
+    await run()
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(start.mock.calls[0]![0].releaseOnly).toBeUndefined()
+  })
+
+  it('no managed VM kept alive: nothing to release', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'off'
+    await run()
+    expect(start).not.toHaveBeenCalled()
+  })
+
+  it('a stage A crash after the managed scan started still releases the kept VM', async () => {
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [] })
+    repo.persistResult.mockRejectedValueOnce(new Error('db down'))
+    await run()
+    expect(start.mock.calls.some(c => c[0].releaseOnly === true)).toBe(true)
   })
 })

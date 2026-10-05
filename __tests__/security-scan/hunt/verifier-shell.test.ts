@@ -14,10 +14,12 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 }))
 
 import {
+  releaseManagedScanVm,
   runVerifierShell,
   stopHuntSandbox,
   type HuntSandbox,
 } from '@/lib/services/security-hunt-sandbox'
+import { findRepoSandboxByTag } from '@/lib/integrations/vercel-sandbox'
 import {
   HUNT_SHELL_BIN,
   HUNT_SHELL_FLAG,
@@ -92,5 +94,43 @@ describe('LUM-988 stopHuntSandbox includeAttached', () => {
     const c = handleWith({ stdout: '' }, 'created')
     await stopHuntSandbox(c.handle)
     expect(c.stop).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('LUM-988 releaseManagedScanVm', () => {
+  const find = findRepoSandboxByTag as jest.Mock
+  const seams = { pollMs: 1, appearWaitMs: 5, waitMs: 20 }
+  beforeEach(() => find.mockReset())
+
+  it('stops the managed VM once its hand-off marker exists', async () => {
+    const stop = jest.fn()
+    find.mockResolvedValue({ readFile: jest.fn(async () => 'done'), stop })
+    await expect(
+      releaseManagedScanVm({ scanId: 's1', ...seams })
+    ).resolves.toBe('stopped')
+    expect(stop).toHaveBeenCalledTimes(1)
+    expect(find.mock.calls[0]![1]).toEqual({
+      excludeTagKeys: [expect.any(String)],
+    })
+  })
+
+  it('never stops a VM that is still scanning, and boots nothing when none is found', async () => {
+    const stop = jest.fn()
+    find.mockResolvedValue({ readFile: jest.fn(async () => null), stop })
+    await expect(
+      releaseManagedScanVm({ scanId: 's1', ...seams })
+    ).resolves.toBe('busy')
+    expect(stop).not.toHaveBeenCalled()
+    find.mockResolvedValue(null)
+    await expect(
+      releaseManagedScanVm({ scanId: 's1', ...seams })
+    ).resolves.toBe('none')
+  })
+
+  it('never throws', async () => {
+    find.mockRejectedValue(new Error('api down'))
+    await expect(
+      releaseManagedScanVm({ scanId: 's1', ...seams })
+    ).resolves.toBe('none')
   })
 })
