@@ -169,3 +169,32 @@ describe('LUM-988 review context — prompt budget', () => {
     expect(reviewContextBudget(200_000)).toBe(0)
   })
 })
+
+describe('LUM-988 review context — in-flight reads on timeout', () => {
+  it('aborts the reads still running when the budget runs out', async () => {
+    const signals: AbortSignal[] = []
+    const out = await loadReviewContext({
+      paths: ['src/a.ts', 'src/b.ts'],
+      readFile: (_path, signal) => {
+        signals.push(signal)
+        return new Promise<string>(() => undefined)
+      },
+      timeoutMs: 5,
+    })
+    expect(out.error).toMatch(/timed out/)
+    expect(signals.length).toBe(2)
+    expect(signals.every(s => s.aborted)).toBe(true)
+  })
+
+  it('does not abort reads that finished in time', async () => {
+    let seen: AbortSignal | null = null
+    await loadReviewContext({
+      paths: ['src/a.ts'],
+      readFile: async (_path, signal) => {
+        seen = signal
+        return 'x'
+      },
+    })
+    expect(seen!.aborted).toBe(false)
+  })
+})

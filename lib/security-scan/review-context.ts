@@ -151,7 +151,11 @@ const NO_CONTEXT = (error: string | null): LoadedReviewContext => ({
 export async function loadReviewContext(opts: {
   /** Changed, not-deleted paths the review covers. */
   paths: readonly string[]
-  readFile: (path: string) => Promise<string | null>
+  /**
+   * `signal` aborts when the budget runs out, so in-flight reads stop instead
+   * of finishing against a token the caller revokes right after.
+   */
+  readFile: (path: string, signal: AbortSignal) => Promise<string | null>
   maxChars?: number
   timeoutMs?: number
 }): Promise<LoadedReviewContext> {
@@ -163,9 +167,10 @@ export async function loadReviewContext(opts: {
 
   const files: ContextFile[] = []
   const queue = [...candidates]
+  const abort = new AbortController()
   const worker = async (): Promise<void> => {
     for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
-      const body = await opts.readFile(path)
+      const body = await opts.readFile(path, abort.signal)
       if (body !== null) files.push({ path, body })
     }
   }
@@ -189,13 +194,14 @@ export async function loadReviewContext(opts: {
       timeout,
     ])
     if (outcome === 'timeout') {
-      // Stop handing out new reads; the in-flight ones finish into a list
-      // nobody reads.
+      // Stop handing out new reads and abort the in-flight ones.
       queue.length = 0
+      abort.abort()
       return NO_CONTEXT('timed out reading changed files')
     }
   } catch (error) {
     queue.length = 0
+    abort.abort()
     return NO_CONTEXT(error instanceof Error ? error.message : String(error))
   } finally {
     clearTimeout(timer)

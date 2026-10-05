@@ -51,12 +51,13 @@ export const reviewContextService = {
           loadReviewContext({
             paths,
             ...(opts.maxChars !== undefined ? { maxChars: opts.maxChars } : {}),
-            readFile: path =>
+            readFile: (path, signal) =>
               readRepoFileWithToken({
                 token,
                 fullName: opts.repo,
                 path,
                 ref: opts.headSha,
+                signal,
               }),
           })
       )

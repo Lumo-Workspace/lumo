@@ -95,6 +95,8 @@ export async function readRepoFileWithToken(opts: {
   fullName: string
   path: string
   ref?: string
+  /** Aborts the request (an aborted read throws, and logs nothing). */
+  signal?: AbortSignal
 }): Promise<string | null> {
   const [owner, repo] = splitFullName(opts.fullName)
 
@@ -110,6 +112,7 @@ export async function readRepoFileWithToken(opts: {
       Accept: 'application/vnd.github.raw',
       Authorization: `Bearer ${opts.token}`,
     },
+    ...(opts.signal ? { signal: opts.signal } : {}),
   })
 
   if (res.status === 404) return null

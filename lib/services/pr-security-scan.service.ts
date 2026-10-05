@@ -496,18 +496,58 @@ async function hasOpenL4Crossing(taskId: string | null): Promise<boolean> {
 // ── Service ──────────────────────────────────────────────────────────────────
 
 /**
- * LUM-988 — `fp` the first time it is seen in `seen`, then a key derived
- * from `fp` + its ordinal (`judgeFindingFingerprint` collides for two
- * problems of one rule on one quoted line). Same 16-hex shape as every key.
+ * LUM-988 — `judgeFindingFingerprint` (rule + file + quoted line) repeats
+ * when one scan reports the same rule on the same text twice: two `return
+ * null` lines in one file, or two problems on one line. A shared key would
+ * let a human's ruling on one silence the other, so every member of a
+ * repeated group is keyed on its POSITION — the reported line — never on
+ * the order the model happened to list them in (that order flips between
+ * pushes, and an ordinal would then hand a FALSE_POSITIVE to a real bug).
+ * A unique key is left as it is. Members that also share the line (two
+ * problems on one line) fall back to a title-sorted ordinal — rare, and
+ * the worst case is one re-posted comment, never a wrongly inherited ruling.
+ * Same 16-hex shape as every key.
  */
-export function distinctFingerprint(
-  fp: string,
-  seen: Map<string, number>
-): string {
-  const n = (seen.get(fp) ?? 0) + 1
-  seen.set(fp, n)
-  if (n === 1) return fp
-  return createHash('sha256').update(`${fp}#${n}`).digest('hex').slice(0, 16)
+export function positionalFingerprints(
+  rows: ReadonlyArray<{
+    fingerprint: string
+    line: number | null
+    title: string
+  }>
+): string[] {
+  const hash = (s: string) =>
+    createHash('sha256').update(s).digest('hex').slice(0, 16)
+  const groupSize = new Map<string, number>()
+  for (const r of rows)
+    groupSize.set(r.fingerprint, (groupSize.get(r.fingerprint) ?? 0) + 1)
+  const positional = rows.map(r =>
+    (groupSize.get(r.fingerprint) ?? 0) > 1
+      ? hash(`${r.fingerprint}#L${r.line ?? 'none'}`)
+      : r.fingerprint
+  )
+  // Same group AND same line: order those by title, not by emission.
+  const order = rows
+    .map((r, i) => ({ key: positional[i]!, title: r.title, i }))
+    .sort((a, b) =>
+      a.key < b.key
+        ? -1
+        : a.key > b.key
+          ? 1
+          : a.title < b.title
+            ? -1
+            : a.title > b.title
+              ? 1
+              : a.i - b.i
+    )
+  const seen = new Map<string, number>()
+  const out = [...positional]
+  for (const o of order) {
+    if ((groupSize.get(rows[o.i]!.fingerprint) ?? 0) <= 1) continue
+    const n = (seen.get(o.key) ?? 0) + 1
+    seen.set(o.key, n)
+    if (n > 1) out[o.i] = hash(`${o.key}#${n}`)
+  }
+  return out
 }
 
 /**
@@ -919,11 +959,6 @@ export const prSecurityScanService = {
           // Model text headed for a public PR: redacted and neutralised here,
           // and again on read (`parsePrSummary`).
           prSummary = cleanPrSummary(rawSummary)
-          // LUM-988: the evidence-line key can repeat inside one scan — two
-          // different problems of the same rule quoting the same line. The
-          // first keeps the stable key; each repeat gets an ordinal on it, so
-          // a human's disposition on one never silences the other.
-          const seenFingerprints = new Map<string, number>()
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
             // LUM-988: a correctness finding is CORRECTNESS / `review:<kind>`,
@@ -962,15 +997,22 @@ export const prSecurityScanService = {
               title,
               detail: redactKnownSecrets(j.detail),
               evidence,
-              // LUM-988: keyed on the quoted line, not the re-worded title.
-              fingerprint: distinctFingerprint(
-                judgeFindingFingerprint(ruleId, filePath, evidence, title),
-                seenFingerprints
+              // LUM-988: keyed on the quoted line, not the re-worded title;
+              // repeats are made positional below.
+              fingerprint: judgeFindingFingerprint(
+                ruleId,
+                filePath,
+                evidence,
+                title
               ),
               externalRef: null,
               disposition: null,
             })
           }
+          // LUM-988: one key per finding, by position (see positionalFingerprints).
+          positionalFingerprints(judgeRows).forEach((fp, i) => {
+            judgeRows[i]!.fingerprint = fp
+          })
         } catch (error) {
           // FAIL-SOFT for the judge only: the deterministic result still lands,
           // and UNAVAILABLE is stamped so the panel never reads as a full pass.

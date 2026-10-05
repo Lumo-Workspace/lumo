@@ -23,6 +23,10 @@ import {
   HUNT_SHELL_FLAG,
 } from '@/lib/security-scan/hunt/shell-allowlist'
 
+// Built from pieces so the repo's own secret scan does not flag the fixture.
+const CLONE_TOKEN = ['ghs', 'leaky', 'token', '123'].join('_')
+const AWS_SHAPED = 'AKIA' + 'IOSFODNN7' + 'EXAMPLE'
+
 function handleWith(
   result: { stdout: string; stderr?: string; exitCode?: number },
   origin: 'attached' | 'created' = 'attached'
@@ -36,7 +40,7 @@ function handleWith(
   const handle = {
     sandbox: { run, stop },
     cwd: '/vercel/sandbox/app',
-    token: 'ghs_leaky_token_123',
+    token: CLONE_TOKEN,
     origin,
     egressDenied: true,
   } as unknown as HuntSandbox
@@ -46,8 +50,7 @@ function handleWith(
 describe('LUM-988 runVerifierShell', () => {
   it('runs an allowed command through sh -c in the checkout and returns redacted text', async () => {
     const { handle, run } = handleWith({
-      stdout:
-        'token ghs_leaky_token_123 in output\nconst k = "AKIAIOSFODNN7EXAMPLE"',
+      stdout: `token ${CLONE_TOKEN} in output\nconst k = "${AWS_SHAPED}"`,
     })
     const out = await runVerifierShell(handle, "sed -n '1,5p' src/a.ts")
     expect(run).toHaveBeenCalledWith(
@@ -55,8 +58,8 @@ describe('LUM-988 runVerifierShell', () => {
       [HUNT_SHELL_FLAG, "sed -n '1,5p' src/a.ts"],
       expect.objectContaining({ cwd: '/vercel/sandbox/app' })
     )
-    expect(out).not.toContain('ghs_leaky_token_123')
-    expect(out).not.toContain('AKIAIOSFODNN7EXAMPLE')
+    expect(out).not.toContain(CLONE_TOKEN)
+    expect(out).not.toContain(AWS_SHAPED)
   })
 
   it('refuses a command the hunt gate refuses, without running it', async () => {
