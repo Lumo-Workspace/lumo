@@ -47,6 +47,26 @@ const maxSteps = Number(opt('max-steps', '16'))
 const concurrency = Number(opt('concurrency', '6'))
 const model = opt('model', '')
 const limit = Number(opt('limit', '0'))
+// LUM-988 follow-up: send the agent only the rows the production policy can
+// reject (non-HIGH bugs), as production now does.
+const onlyApplicable = process.argv.includes('--only-applicable')
+const SECURITY_KINDS = new Set([
+  'sql_injection',
+  'command_injection',
+  'xss',
+  'ssrf',
+  'path_traversal',
+  'insecure_deserialization',
+  'auth_bypass',
+  'unsafe_eval',
+  'weak_crypto',
+  'hardcoded_credential',
+  'csrf',
+  'clickjacking_or_insecure_headers',
+  'origin_or_host_validation',
+  'open_redirect',
+  'authz_logic',
+])
 
 /** Per-command output cap, as the hunt's per-command truncation. */
 const OUTPUT_MAX = 6_000
@@ -84,9 +104,13 @@ async function main(): Promise<void> {
   const queue = [...prs]
   const worker = async (): Promise<void> => {
     for (let url = queue.shift(); url; url = queue.shift()) {
-      const findings = (recorded[url]!.runs[runIdx]?.findings ?? []).map(
-        (f, i) => ({ ...f, id: `f${i}` })
-      )
+      const findings = (recorded[url]!.runs[runIdx]?.findings ?? [])
+        .map((f, i) => ({ ...f, id: `f${i}` }))
+        .filter(
+          f =>
+            !onlyApplicable ||
+            (f.severity !== 'HIGH' && !SECURITY_KINDS.has(f.kind))
+        )
       const cwd = path.join(checkouts, 'co', prKey(url))
       if (findings.length === 0 || !existsSync(cwd)) {
         out[url] = {

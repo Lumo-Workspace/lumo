@@ -39,6 +39,7 @@ import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
 import { reviewContextBudget } from '@/lib/security-scan/review-context'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
+import { verifierAppliesTo } from '@/lib/security-scan/verifier'
 import type { ReviewVerifierJob } from './review-verifier.service'
 import { isBugKind } from '@/lib/security-scan/review-kinds'
 import {
@@ -554,7 +555,9 @@ export function positionalFingerprints(
  * LUM-988 — mark the hold, then start the verifier; release the hold if the
  * run could not be queued. Never throws: the scan is already settled.
  */
-async function startVerifierBestEffort(job: ReviewVerifierJob): Promise<void> {
+async function startVerifierBestEffort(
+  job: ReviewVerifierJob
+): Promise<boolean> {
   try {
     await prSecurityScanRepository.markVerifierStarted(job.scanId)
   } catch (error) {
@@ -562,17 +565,36 @@ async function startVerifierBestEffort(job: ReviewVerifierJob): Promise<void> {
     logger.warn(
       `[pr-security-scan] verifier mark failed scan=${job.scanId}: ${error instanceof Error ? error.message : error}`
     )
-    return
+    return false
   }
   // Dynamic import: the starter pulls the workflow runtime and the sandbox
   // client, which stay out of stage A's static graph (jest ESM trap).
   const { startReviewVerifier } = await import('./review-verifier-start')
-  if (await startReviewVerifier(job)) return
+  if (await startReviewVerifier(job)) return true
   try {
     await prSecurityScanRepository.completeVerification(job.scanId, [])
   } catch (error) {
     logger.warn(
       `[pr-security-scan] verifier hold release failed scan=${job.scanId}: ${error instanceof Error ? error.message : error}`
+    )
+  }
+  return false
+}
+
+/**
+ * LUM-988 — stage A kept the managed scan's VM alive (the judge had not run
+ * yet) and then started nothing that will use it: queue the verifier
+ * workflow in release-only mode, which stops the VM after its hand-off.
+ * Without this an AI review with nothing to verify idled the VM to its
+ * 35-minute timeout (the leak LUM-852 removed). Never throws.
+ */
+async function releaseKeptVmBestEffort(job: ReviewVerifierJob): Promise<void> {
+  try {
+    const { startReviewVerifier } = await import('./review-verifier-start')
+    await startReviewVerifier({ ...job, releaseOnly: true })
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] VM release could not be queued scan=${job.scanId}: ${error instanceof Error ? error.message : error}`
     )
   }
 }
@@ -646,6 +668,11 @@ export const prSecurityScanService = {
     // LUM-832: each set point below names its cause; the row derives
     // `partial` from them (see `mergePartial` in the repository).
     const partialCauses: PartialCause[] = []
+    // LUM-988: stage A kept the managed scan's VM alive for a consumer (the
+    // hunt or the verifier); if none starts — including when stage A itself
+    // fails — it owns releasing that VM (`releaseKeptVmBestEffort`).
+    let keptVm: ReviewVerifierJob | null = null
+    let vmConsumerStarted = false
 
     try {
       const diff = await fetchPrDiff({
@@ -817,6 +844,18 @@ export const prSecurityScanService = {
             // (or, if nothing could be queued, failed) with the external one.
             stages.supplyChain = runId ? 'PENDING' : 'FAILED'
             managedRunStarted = Boolean(runId)
+            if (runId && (huntWantedForVm || verifierVmWanted)) {
+              keptVm = {
+                scanId,
+                workspaceId: pr.workspaceId,
+                repo: pr.repo,
+                prNumber: pr.number,
+                headSha,
+                managedScanStarted: true,
+                stopAttachedWhenDone: true,
+                releaseOnly: true,
+              }
+            }
             if (runId) {
               // LUM-745: the id is what supersede / the sweep cancel by. A
               // failed write leaves this run to the 45-min sweep; it must
@@ -1167,6 +1206,7 @@ export const prSecurityScanService = {
         const runId = await startSecurityHunt(huntJob)
         if (runId) {
           huntRunStarted = true
+          vmConsumerStarted = true
           await recordHuntStartBestEffort(scanId, huntJob, runId)
         } else
           await prSecurityScanRepository.mergeStages(scanId, { hunt: 'FAILED' })
@@ -1175,12 +1215,14 @@ export const prSecurityScanService = {
       // BEFORE the sync below, so every write-back from here on holds the
       // LLM_JUDGE inline comments until it finishes (or VERIFIER_HOLD_MS).
       // A run that cannot be queued releases the hold at once.
+      // Only when some row is one the verifier may reject (non-HIGH bug): a
+      // scan of security / HIGH findings has nothing for it to change.
       if (
         judgeStatus === 'RAN' &&
-        judgeRows.length > 0 &&
+        judgeRows.some(r => verifierAppliesTo(r)) &&
         isReviewVerifierEnabled()
       ) {
-        await startVerifierBestEffort({
+        const started = await startVerifierBestEffort({
           scanId,
           workspaceId: pr.workspaceId,
           repo: pr.repo,
@@ -1190,7 +1232,9 @@ export const prSecurityScanService = {
             managedRunStarted && (huntWantedForVm || verifierVmWanted),
           stopAttachedWhenDone: !huntRunStarted,
         })
+        if (started) vmConsumerStarted = true
       }
+      if (keptVm && !vmConsumerStarted) await releaseKeptVmBestEffort(keptVm)
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
       // Best-effort like the dispatchers: `sync` never throws, and the
       // markers make a repeat (from a workflow) comment-free.
@@ -1232,6 +1276,8 @@ export const prSecurityScanService = {
       })
       // A FAILED stage A still has something to say on the PR (P9).
       waitUntil(securityPrReviewService.sync(scanId))
+      // LUM-988: the VM kept alive for a consumer that will now never run.
+      if (keptVm && !vmConsumerStarted) await releaseKeptVmBestEffort(keptVm)
       return { deduped: false, scanId, status: 'FAILED', findings: 0 }
     }
   },
