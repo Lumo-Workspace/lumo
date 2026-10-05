@@ -28,6 +28,7 @@ import {
   formatList,
   main,
   parseArgs,
+  runCli,
   UsageError,
 } from '../scripts/crossing-eval'
 import {
@@ -203,6 +204,39 @@ describe('main', () => {
         '/nope/r.jsonl',
       ])
     ).rejects.toThrow(/\/nope\/r\.jsonl not found/)
+  })
+})
+
+describe('runCli', () => {
+  it("returns main's exit code, and 1 with the message on an unexpected error", async () => {
+    const write = jest
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    const errWrite = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+    try {
+      expect(await runCli(['--list'])).toBe(0)
+      expect(await runCli(['--dataset', 'nope', '--judge', 'stub'])).toBe(2)
+      expect(
+        await runCli([
+          '--dataset',
+          'gold',
+          '--judge',
+          'recorded',
+          '--records',
+          '/nope/r.jsonl',
+        ])
+      ).toBe(1)
+      expect(errWrite).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /^crossing-eval: records file \/nope\/r\.jsonl not found/
+        )
+      )
+    } finally {
+      write.mockRestore()
+      errWrite.mockRestore()
+    }
   })
 })
 
