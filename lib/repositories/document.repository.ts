@@ -234,6 +234,19 @@ export const documentRepository = {
   },
 
   /**
+   * Which of `ids` are live documents in `workspaceId` — for validating a
+   * caller-supplied `childOrder` before reordering (LUM-994). Another
+   * workspace's id (or a trashed one) reads as missing.
+   */
+  async findIdsInWorkspace(ids: string[], workspaceId: string) {
+    if (ids.length === 0) return []
+    return prisma.document.findMany({
+      where: { id: { in: ids }, workspaceId },
+      select: { id: true },
+    })
+  },
+
+  /**
    * Find document for basic existence check. Accepts cuid or slug; same
    * resolution rules as `findWithPermission`.
    */

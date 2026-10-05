@@ -20,6 +20,10 @@ const mockFindByWorkspaceIdentifier = jest.fn()
 const mockFindByIdForMention = jest.fn()
 const mockFindEditable = jest.fn()
 const mockFindProjectIdInWorkspace = jest.fn()
+// LUM-994: every id is "in the workspace" unless a case says otherwise.
+const echoIds = async (ids: string[]) => ids.map(id => ({ id }))
+const mockFindDocIdsInWorkspace = jest.fn(echoIds)
+const mockFindTagIdsInWorkspace = jest.fn(echoIds)
 
 jest.mock('@/lib/repositories/document.repository', () => ({
   documentRepository: {
@@ -31,6 +35,8 @@ jest.mock('@/lib/repositories/document.repository', () => ({
     upsertEditor: (...args: any[]) => mockUpsertEditor(...args),
     findNodeWithChildren: jest.fn().mockResolvedValue(null),
     findEditable: (...args: any[]) => mockFindEditable(...args),
+    findIdsInWorkspace: (...args: any[]) =>
+      (mockFindDocIdsInWorkspace as jest.Mock)(...args),
     findMention: (...args: any[]) => mockFindMention(...args),
     addExplicitMention: (...args: any[]) => mockAddExplicitMention(...args),
     removeExplicitMention: (...args: any[]) =>
@@ -64,6 +70,8 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
     syncDocumentTags: jest.fn().mockResolvedValue(undefined),
     addDocumentTags: jest.fn().mockResolvedValue(undefined),
     removeDocumentTags: jest.fn().mockResolvedValue(undefined),
+    findIdsInWorkspace: (...args: any[]) =>
+      (mockFindTagIdsInWorkspace as jest.Mock)(...args),
   },
 }))
 
@@ -1137,5 +1145,146 @@ describe('createDocument — parent and project must be the caller’s (LUM-993)
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ parentId: null, projectId: null })
     )
+  })
+})
+
+// ── LUM-994: updateDocument validates projectId / tags / childOrder ─────────
+
+describe('updateDocument — referenced ids must be in the caller’s workspace (LUM-994)', () => {
+  const ownerDoc = { id: 'doc-994', createdById: 'm-1', shares: [] }
+
+  beforeEach(() => {
+    mockFindWithPermission.mockReset().mockResolvedValue(ownerDoc)
+    mockUpdateWithChildrenAndMentions
+      .mockReset()
+      .mockResolvedValue({ id: 'doc-994', title: 'Doc' })
+    mockFindProjectIdInWorkspace.mockReset()
+    mockFindTagIdsInWorkspace.mockReset().mockImplementation(echoIds)
+    mockFindDocIdsInWorkspace.mockReset().mockImplementation(echoIds)
+    ;(tagRepository.syncDocumentTags as jest.Mock).mockClear()
+    ;(tagRepository.addDocumentTags as jest.Mock).mockClear()
+    ;(tagRepository.removeDocumentTags as jest.Mock).mockClear()
+  })
+
+  const expectNothingWritten = () => {
+    expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.addDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.removeDocumentTags).not.toHaveBeenCalled()
+    expect(mockUpdateWithChildrenAndMentions).not.toHaveBeenCalled()
+  }
+
+  it('a projectId outside the workspace → 404, nothing written', async () => {
+    mockFindProjectIdInWorkspace.mockResolvedValue(null)
+    await expect(
+      documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+        projectId: 'foreign-project',
+        addTagIds: ['tag-own'],
+      })
+    ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
+    expect(mockFindProjectIdInWorkspace).toHaveBeenCalledWith(
+      'foreign-project',
+      'ws-1'
+    )
+    expectNothingWritten()
+  })
+
+  it('a projectId in the workspace is written; null clears without a lookup', async () => {
+    mockFindProjectIdInWorkspace.mockResolvedValue({ id: 'proj-1' })
+    await documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+      projectId: 'proj-1',
+    })
+    expect(mockUpdateWithChildrenAndMentions).toHaveBeenLastCalledWith(
+      'doc-994',
+      'ws-1',
+      expect.objectContaining({ projectId: 'proj-1' }),
+      undefined,
+      undefined,
+      undefined
+    )
+
+    mockFindProjectIdInWorkspace.mockClear()
+    await documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+      projectId: null,
+    })
+    expect(mockFindProjectIdInWorkspace).not.toHaveBeenCalled()
+    expect(mockUpdateWithChildrenAndMentions).toHaveBeenLastCalledWith(
+      'doc-994',
+      'ws-1',
+      expect.objectContaining({ projectId: null }),
+      undefined,
+      undefined,
+      undefined
+    )
+  })
+
+  it.each([
+    ['tagIds', { tagIds: ['tag-own', 'tag-foreign'] }],
+    ['addTagIds', { addTagIds: ['tag-own', 'tag-foreign'] }],
+  ])('%s with a foreign tag → 404, nothing written', async (_label, input) => {
+    mockFindTagIdsInWorkspace.mockResolvedValue([{ id: 'tag-own' }])
+    await expect(
+      documentService.updateDocument('doc-994', 'm-1', 'ws-1', input)
+    ).rejects.toMatchObject({ message: 'Tag not found', status: 404 })
+    expect(mockFindTagIdsInWorkspace).toHaveBeenCalledWith(
+      ['tag-own', 'tag-foreign'],
+      'ws-1'
+    )
+    expectNothingWritten()
+  })
+
+  it('duplicate tag ids are checked once and do not read as missing', async () => {
+    await documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+      addTagIds: ['tag-a', 'tag-a'],
+    })
+    expect(mockFindTagIdsInWorkspace).toHaveBeenCalledWith(['tag-a'], 'ws-1')
+    expect(tagRepository.addDocumentTags).toHaveBeenCalled()
+  })
+
+  it('removeTagIds is not looked up — it only deletes this document’s joins', async () => {
+    await documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+      removeTagIds: ['tag-foreign'],
+    })
+    expect(mockFindTagIdsInWorkspace).not.toHaveBeenCalled()
+    expect(tagRepository.removeDocumentTags).toHaveBeenCalledWith('doc-994', [
+      'tag-foreign',
+    ])
+  })
+
+  it('childOrder naming a foreign document → 404 before the tag joins are written', async () => {
+    mockFindDocIdsInWorkspace.mockResolvedValue([{ id: 'child-own' }])
+    await expect(
+      documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+        addTagIds: ['tag-own'],
+        childOrder: ['child-own', 'doc-foreign'],
+      })
+    ).rejects.toMatchObject({ message: 'Document not found', status: 404 })
+    expect(mockFindDocIdsInWorkspace).toHaveBeenCalledWith(
+      ['child-own', 'doc-foreign'],
+      'ws-1'
+    )
+    expectNothingWritten()
+  })
+
+  it('own childOrder is passed to the reorder write', async () => {
+    await documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+      childOrder: ['c2', 'c1'],
+    })
+    expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledWith(
+      'doc-994',
+      'ws-1',
+      {},
+      ['c2', 'c1'],
+      undefined,
+      undefined
+    )
+  })
+
+  it('no referenced ids → no lookups', async () => {
+    await documentService.updateDocument('doc-994', 'm-1', 'ws-1', {
+      title: 'Renamed',
+    })
+    expect(mockFindProjectIdInWorkspace).not.toHaveBeenCalled()
+    expect(mockFindTagIdsInWorkspace).not.toHaveBeenCalled()
+    expect(mockFindDocIdsInWorkspace).not.toHaveBeenCalled()
   })
 })
