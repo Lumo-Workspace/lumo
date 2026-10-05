@@ -1084,6 +1084,59 @@ export const documentService = {
     await trashService.trashDocument(doc.id, deletedByClerkId)
   },
 
+  /**
+   * Move a document under a new parent (or to the root).
+   *
+   * Both ends are authorized with the same rule (LUM-990): the moved document
+   * AND the target parent must be documents the member may edit in their own
+   * workspace (`findEditable` — owner, WORKSPACE visibility, or EDITOR/MANAGER
+   * share). A parent outside the workspace, one the member can't see, and one
+   * they can only view all get the same generic 404 as a missing document, so
+   * the response says nothing about another tenant's ids.
+   */
+  async moveDocument(
+    id: string,
+    memberId: string,
+    workspaceId: string,
+    data: { parentId: string | null; sortOrder: number }
+  ) {
+    const notFound = () =>
+      Object.assign(new Error('Not found or no permission'), { status: 404 })
+
+    const doc = await documentRepository.findEditable(id, memberId, workspaceId)
+    if (!doc) throw notFound()
+    // `findEditable` resolves a slug too; use the cuid downstream.
+    const docId = doc.id
+
+    let parentId: string | null = null
+    if (data.parentId) {
+      const parent = await documentRepository.findEditable(
+        data.parentId,
+        memberId,
+        workspaceId
+      )
+      if (!parent) throw notFound()
+      parentId = parent.id
+
+      // Prevent moving a document into its own subtree.
+      let current: string | null = parentId
+      const visited = new Set<string>()
+      while (current && !visited.has(current)) {
+        if (current === docId) {
+          throw Object.assign(
+            new Error('Cannot move a document into its own subtree'),
+            { status: 400 }
+          )
+        }
+        visited.add(current)
+        const node = await documentRepository.findParentId(current, workspaceId)
+        current = node?.parentId ?? null
+      }
+    }
+
+    return documentRepository.move(docId, workspaceId, parentId, data.sortOrder)
+  },
+
   /** Determine user's role for a document. */
   getUserRole(doc: DocWithShares, memberId: string): string | null {
     if (doc.createdById === memberId) return 'OWNER'

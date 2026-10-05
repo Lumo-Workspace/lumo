@@ -87,6 +87,7 @@ import * as taskRoute from '@/app/api/tasks/[id]/route'
 import * as taskByIdentifierRoute from '@/app/api/tasks/by-identifier/[identifier]/route'
 import * as projectRoute from '@/app/api/projects/[id]/route'
 import * as documentRoute from '@/app/api/documents/[id]/route'
+import * as documentMoveRoute from '@/app/api/documents/[id]/move/route'
 import * as taskCommentsRoute from '@/app/api/tasks/[id]/comments/route'
 import * as taskCommentRoute from '@/app/api/tasks/[id]/comments/[commentId]/route'
 import * as milestoneRoute from '@/app/api/milestones/[milestoneId]/route'
@@ -2084,4 +2085,314 @@ describe('LUM-987 Clerk active workspace: the dual member’s session is scoped 
     )
     expect(other.status).toBe(403)
   })
+})
+
+// ── LUM-990: document move — the target parent must be the caller's ────────
+// `PATCH /api/documents/[id]/move` authorized only the document being moved;
+// the body's `parentId` was only walked for cycle detection (which, scoped by
+// LUM-979, just stops early on a foreign id) and then written as-is. The rule
+// applied now: the target parent must be a document the caller may EDIT in
+// their own workspace (owner, WORKSPACE visibility, or EDITOR/MANAGER share —
+// `findEditable`), else the same generic 404 as a missing document.
+
+describe('LUM-990 document move: the target parent must be editable in the caller’s workspace', () => {
+  let docNumber = 900
+  const ids: {
+    alphaMemberId: string
+    alphaParent: string
+    alphaParent2: string
+    privateParent: string
+    viewerParent: string
+    editorParent: string
+  } = {
+    alphaMemberId: '',
+    alphaParent: '',
+    alphaParent2: '',
+    privateParent: '',
+    viewerParent: '',
+    editorParent: '',
+  }
+
+  async function makeDoc(
+    workspaceId: string,
+    createdById: string,
+    label: string,
+    visibility: 'PRIVATE' | 'SHARED' | 'WORKSPACE' = 'WORKSPACE',
+    parentId: string | null = null
+  ) {
+    const n = docNumber++
+    const doc = await harness.prisma!.document.create({
+      data: {
+        workspaceId,
+        createdById,
+        number: n,
+        slug: `lum990-${label}-${n}`,
+        title: `lum990 ${label}`,
+        visibility,
+        parentId,
+      },
+    })
+    return doc.id
+  }
+
+  /** BRAVO's whole document tree, plus every row pointing into it. */
+  async function bravoTree() {
+    const db = harness.prisma!
+    const own = await db.document.findMany({
+      where: { workspaceId: B().workspaceId },
+      select: { id: true, parentId: true, sortOrder: true, title: true },
+      orderBy: { id: 'asc' },
+    })
+    const pointingIn = await db.document.findMany({
+      where: { parentId: { in: own.map(d => d.id) } },
+      select: { id: true, workspaceId: true, parentId: true },
+      orderBy: { id: 'asc' },
+    })
+    return { own, pointingIn }
+  }
+
+  async function parentOf(id: string) {
+    const row = await harness.prisma!.document.findUnique({
+      where: { id },
+      select: { parentId: true, sortOrder: true },
+    })
+    return row
+  }
+
+  const move = (
+    docId: string,
+    body: { parentId: string | null; sortOrder: number },
+    as: { caller: Caller; source: AuthSource }
+  ) =>
+    call(
+      documentMoveRoute.PATCH,
+      'PATCH',
+      `/api/documents/${docId}/move`,
+      { id: docId },
+      as,
+      body
+    )
+
+  beforeAll(async () => {
+    const db = harness.prisma!
+    const member = await db.workspaceMember.findFirstOrThrow({
+      where: { workspaceId: A().workspaceId, clerkId: CLERK.alphaMember },
+      select: { id: true },
+    })
+    ids.alphaMemberId = member.id
+    const owner = A().ownerMemberId
+    ids.alphaParent = await makeDoc(A().workspaceId, owner, 'alpha-parent')
+    ids.alphaParent2 = await makeDoc(A().workspaceId, owner, 'alpha-parent-2')
+    // Same-workspace parents the plain ALPHA member can NOT edit:
+    ids.privateParent = await makeDoc(
+      A().workspaceId,
+      owner,
+      'alpha-private-parent',
+      'PRIVATE'
+    )
+    ids.viewerParent = await makeDoc(
+      A().workspaceId,
+      owner,
+      'alpha-viewer-parent',
+      'SHARED'
+    )
+    await db.documentShare.create({
+      data: {
+        documentId: ids.viewerParent,
+        memberId: member.id,
+        role: 'VIEWER',
+      },
+    })
+    // ...and one they can (EDITOR share on a SHARED doc).
+    ids.editorParent = await makeDoc(
+      A().workspaceId,
+      owner,
+      'alpha-editor-parent',
+      'SHARED'
+    )
+    await db.documentShare.create({
+      data: {
+        documentId: ids.editorParent,
+        memberId: member.id,
+        role: 'EDITOR',
+      },
+    })
+  })
+
+  it.each(BOTH)(
+    'cross-tenant × %s: ALPHA moving its own doc under BRAVO’s doc → 404, nothing written',
+    async source => {
+      const docId = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `alpha-mover-${source}`,
+        'WORKSPACE',
+        ids.alphaParent
+      )
+      const before = await parentOf(docId)
+      const treeBefore = await bravoTree()
+      const snapBefore = await snapshotProtected()
+
+      const res = await move(
+        docId,
+        { parentId: B().documentId, sortOrder: 7 },
+        { caller: 'alphaOwner', source }
+      )
+
+      expect(`${source} move → ${res.status}`).toBe(`${source} move → 404`)
+      // Generic: nothing distinguishes "foreign parent" from "missing doc".
+      expect(JSON.parse(res.text)).toEqual({
+        error: 'Not found or no permission',
+      })
+      expect(res.text).not.toContain(B().documentId)
+      expect(res.text).not.toContain(BRAVO_MARK)
+      expect(await parentOf(docId)).toEqual(before)
+      expect(await bravoTree()).toEqual(treeBefore)
+      expect(await snapshotProtected()).toEqual(snapBefore)
+    }
+  )
+
+  it.each(BOTH)(
+    'listing leak × %s: after the attempt, BRAVO’s own view of its doc lists no ALPHA child',
+    async source => {
+      const docId = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `alpha-leak-probe-${source}`
+      )
+      await move(
+        docId,
+        { parentId: B().documentId, sortOrder: 1 },
+        { caller: 'alphaOwner', source }
+      )
+      const bravoView = await call(
+        documentRoute.GET,
+        'GET',
+        '/x',
+        { id: B().documentId },
+        { caller: 'bravoOwner', source: 'bearer' }
+      )
+      expect(bravoView.status).toBe(200)
+      expect(bravoView.text).toContain(BRAVO_MARK)
+      expect(bravoView.text).not.toContain(docId)
+      expect(bravoView.text).not.toContain(`alpha-leak-probe-${source}`)
+    }
+  )
+
+  it.each(BOTH)(
+    'same workspace × %s: moving under a parent the caller can only view (or not see) → 404',
+    async source => {
+      for (const parentId of [ids.privateParent, ids.viewerParent]) {
+        const docId = await makeDoc(
+          A().workspaceId,
+          ids.alphaMemberId,
+          `member-mover-${source}`
+        )
+        const res = await move(
+          docId,
+          { parentId, sortOrder: 3 },
+          { caller: 'alphaMember', source }
+        )
+        expect(`${parentId} → ${res.status}`).toBe(`${parentId} → 404`)
+        expect(JSON.parse(res.text)).toEqual({
+          error: 'Not found or no permission',
+        })
+        expect(await parentOf(docId)).toEqual({ parentId: null, sortOrder: 0 })
+      }
+    }
+  )
+
+  it.each(BOTH)(
+    'control × %s: moving within ALPHA to an editable parent, then to root → 200',
+    async source => {
+      const docId = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `alpha-control-${source}`,
+        'WORKSPACE',
+        ids.alphaParent
+      )
+      const toParent = await move(
+        docId,
+        { parentId: ids.alphaParent2, sortOrder: 5 },
+        { caller: 'alphaOwner', source }
+      )
+      expect(toParent.status).toBe(200)
+      expect(await parentOf(docId)).toEqual({
+        parentId: ids.alphaParent2,
+        sortOrder: 5,
+      })
+
+      const toRoot = await move(
+        docId,
+        { parentId: null, sortOrder: 2 },
+        { caller: 'alphaOwner', source }
+      )
+      expect(toRoot.status).toBe(200)
+      expect(await parentOf(docId)).toEqual({ parentId: null, sortOrder: 2 })
+    }
+  )
+
+  it.each(BOTH)(
+    'control × %s: a plain member may move under a doc shared to them as EDITOR → 200',
+    async source => {
+      const docId = await makeDoc(
+        A().workspaceId,
+        ids.alphaMemberId,
+        `member-editor-${source}`
+      )
+      const res = await move(
+        docId,
+        { parentId: ids.editorParent, sortOrder: 4 },
+        { caller: 'alphaMember', source }
+      )
+      expect(res.status).toBe(200)
+      expect(await parentOf(docId)).toEqual({
+        parentId: ids.editorParent,
+        sortOrder: 4,
+      })
+    }
+  )
+
+  it('malformed JSON body → 400, not a 500', async () => {
+    clerkSession.userId = CLERK.alphaOwner
+    const request = new NextRequest(
+      `http://localhost/api/documents/${ids.alphaParent}/move`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: '{not json',
+      }
+    )
+    inflight.headers = request.headers
+    const res = await documentMoveRoute.PATCH(request, {
+      params: Promise.resolve({ id: ids.alphaParent }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it.each(BOTH)(
+    'cycle detection kept × %s: moving a doc under its own child → 400',
+    async source => {
+      const top = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `cycle-top-${source}`
+      )
+      const child = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `cycle-child-${source}`,
+        'WORKSPACE',
+        top
+      )
+      const res = await move(
+        top,
+        { parentId: child, sortOrder: 0 },
+        { caller: 'alphaOwner', source }
+      )
+      expect(res.status).toBe(400)
+      expect(await parentOf(top)).toEqual({ parentId: null, sortOrder: 0 })
+    }
+  )
 })
