@@ -94,6 +94,9 @@ describe('inviteService', () => {
 
       expect(result.workspaceName).toBe('Test')
       expect(result.status).toBe('PENDING')
+      // LUM-906: public endpoint — masked address only.
+      expect(result.maskedEmail).toBe('a***@b.com')
+      expect(result).not.toHaveProperty('email')
     })
 
     it('returns EXPIRED status for expired pending invite', async () => {
@@ -167,11 +170,14 @@ describe('inviteService', () => {
         workspaceId: 'ws-1',
         status: 'PENDING',
         expiresAt: new Date('2099-01-01'),
+        email: 'invitee@acme.com',
         workspace: { slug: 'test', teams: [{ id: 'team-1' }] },
       })
       mockFindByWorkspaceAndClerkId.mockResolvedValue(null)
 
-      const result = await inviteService.acceptInvite('tok-1', 'clerk-1')
+      const result = await inviteService.acceptInvite('tok-1', 'clerk-1', [
+        'invitee@acme.com',
+      ])
 
       expect(result.workspaceSlug).toBe('test')
       expect(result.alreadyMember).toBe(false)
@@ -188,7 +194,7 @@ describe('inviteService', () => {
       })
       mockFindByWorkspaceAndClerkId.mockResolvedValue({ id: 'member-1' })
 
-      const result = await inviteService.acceptInvite('tok-1', 'clerk-1')
+      const result = await inviteService.acceptInvite('tok-1', 'clerk-1', [])
 
       expect(result.alreadyMember).toBe(true)
       expect(mockAcceptInTransaction).not.toHaveBeenCalled()
@@ -204,7 +210,7 @@ describe('inviteService', () => {
       })
 
       await expect(
-        inviteService.acceptInvite('tok-1', 'clerk-1')
+        inviteService.acceptInvite('tok-1', 'clerk-1', [])
       ).rejects.toMatchObject({ status: 409 })
     })
 
@@ -218,7 +224,7 @@ describe('inviteService', () => {
       })
 
       await expect(
-        inviteService.acceptInvite('tok-1', 'clerk-1')
+        inviteService.acceptInvite('tok-1', 'clerk-1', [])
       ).rejects.toMatchObject({ status: 410 })
     })
   })

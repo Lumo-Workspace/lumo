@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useClerk, useUser } from '@clerk/nextjs'
 import { useIntl, FormattedMessage } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { invitesClient, ApiClientError } from '@/lib/api-client'
+import { INVITE_EMAIL_MISMATCH } from '@/lib/utils/invite'
+import { InviteEmailMismatch } from './InviteEmailMismatch'
 
 interface Props {
   token: string
   workspaceName: string
   workspaceSlug: string
   inviterName: string
+  /** The invited address, masked (`a***@acme.com`) — never the full one. */
+  maskedEmail: string
   status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED'
 }
 
@@ -21,13 +25,17 @@ export function AcceptInviteClient({
   workspaceName,
   workspaceSlug,
   inviterName,
+  maskedEmail,
   status,
 }: Props) {
   const intl = useIntl()
   const { isLoaded, isSignedIn } = useUser()
+  const { signOut } = useClerk()
   const router = useRouter()
   const [accepting, setAccepting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [emailMismatch, setEmailMismatch] = useState(false)
+  const inviteUrl = `/invite/${token}`
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || status !== 'PENDING') return
@@ -45,6 +53,14 @@ export function AcceptInviteClient({
         router.push(`/workspace/${data.workspaceSlug}`)
       } catch (err: unknown) {
         if (cancelled) return
+        if (
+          err instanceof ApiClientError &&
+          err.code === INVITE_EMAIL_MISMATCH
+        ) {
+          setEmailMismatch(true)
+          setAccepting(false)
+          return
+        }
         setError(
           err instanceof ApiClientError
             ? err.message
@@ -108,10 +124,7 @@ export function AcceptInviteClient({
     return (
       <>
         <h2 className='text-lg font-semibold'>
-          {intl.formatMessage(
-            { id: 'invite.joining' },
-            { workspaceName }
-          )}
+          {intl.formatMessage({ id: 'invite.joining' }, { workspaceName })}
         </h2>
         <div className='flex justify-center'>
           <Spinner className='size-5 text-muted-foreground' />
@@ -120,10 +133,24 @@ export function AcceptInviteClient({
     )
   }
 
+  if (emailMismatch) {
+    return (
+      <InviteEmailMismatch
+        maskedEmail={maskedEmail}
+        workspaceName={workspaceName}
+        onSwitchAccount={() =>
+          void signOut({
+            redirectUrl: `/signin?redirect_url=${encodeURIComponent(inviteUrl)}`,
+          })
+        }
+      />
+    )
+  }
+
   if (error) {
     return (
       <>
-        <h2 className='text-lg font-semibold text-red-600'>
+        <h2 className='text-lg font-semibold text-danger-text'>
           {intl.formatMessage({ id: 'invite.error.title' })}
         </h2>
         <p className='text-sm text-muted-foreground'>{error}</p>
@@ -135,7 +162,6 @@ export function AcceptInviteClient({
   }
 
   // Not signed in — show CTA
-  const inviteUrl = `/invite/${token}`
   return (
     <>
       <h2 className='text-lg font-semibold'>
@@ -150,6 +176,10 @@ export function AcceptInviteClient({
         />
       </h2>
       <p className='text-sm text-muted-foreground'>
+        {intl.formatMessage(
+          { id: 'invite.signup.forEmail' },
+          { email: maskedEmail }
+        )}{' '}
         {intl.formatMessage({ id: 'invite.signup.body' })}
       </p>
       <div className='flex flex-col gap-2'>

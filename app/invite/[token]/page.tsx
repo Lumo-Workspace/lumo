@@ -1,30 +1,27 @@
-import { prisma } from '@/lib/db/prisma'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
+import { inviteService } from '@/lib/services/invite.service'
 import { AcceptInviteClient } from './AcceptInviteClient'
 
 interface PageProps {
   params: Promise<{ token: string }>
 }
 
+async function loadInvite(token: string) {
+  try {
+    return await inviteService.getInviteByToken(token)
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null
+    throw error
+  }
+}
+
 export default async function InvitePage({ params }: PageProps) {
   const { token } = await params
 
-  const invite = await prisma.workspaceInvite.findUnique({
-    where: { token },
-    select: {
-      status: true,
-      expiresAt: true,
-      inviterName: true,
-      workspace: { select: { name: true, slug: true } },
-    },
-  })
-
+  // Public page: the service returns the invited address masked only.
+  const invite = await loadInvite(token)
   if (!invite) notFound()
-
-  const isExpired = invite.expiresAt < new Date()
-  const status =
-    isExpired && invite.status === 'PENDING' ? 'EXPIRED' : invite.status
 
   return (
     <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted py-12 px-4'>
@@ -39,10 +36,11 @@ export default async function InvitePage({ params }: PageProps) {
         />
         <AcceptInviteClient
           token={token}
-          workspaceName={invite.workspace.name}
-          workspaceSlug={invite.workspace.slug}
+          workspaceName={invite.workspaceName}
+          workspaceSlug={invite.workspaceSlug}
           inviterName={invite.inviterName}
-          status={status}
+          maskedEmail={invite.maskedEmail}
+          status={invite.status}
         />
       </div>
     </div>
