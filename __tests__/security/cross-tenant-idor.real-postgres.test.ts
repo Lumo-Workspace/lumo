@@ -2709,3 +2709,313 @@ describe('LUM-993 document create: parent and project must be the caller’s', (
     })
   })
 })
+
+// ── LUM-994: document update — project, tags and childOrder must be the caller's ──
+// `PATCH /api/documents/[id]` resolved `projectRef` inside the caller's
+// workspace, but a raw `projectId` went straight to the write: an ALPHA caller
+// could file their own document in a BRAVO project. `tagIds` / `addTagIds`
+// were written as join rows without a workspace check (a BRAVO tag on an ALPHA
+// doc), and `childOrder` only failed on a foreign id inside the reorder
+// transaction — as a 500, after the tag joins were already committed. The
+// rules now: the project, every tag to attach and every reordered id must be in
+// the caller's workspace, else a generic 404 before anything is written.
+// `removeTagIds` only ever deletes join rows of the caller's own document, so
+// a foreign id there is a provable no-op (pinned below, not rejected).
+
+describe('LUM-994 document update: project, tags and childOrder must be the caller’s', () => {
+  let docNumber = 9400
+  const ids: {
+    alphaTag: string
+    alphaTag2: string
+    bravoTag: string
+    bravoTaggedDoc: string
+  } = { alphaTag: '', alphaTag2: '', bravoTag: '', bravoTaggedDoc: '' }
+
+  async function makeDoc(
+    workspaceId: string,
+    createdById: string,
+    label: string,
+    parentId: string | null = null,
+    sortOrder = 0
+  ) {
+    const n = docNumber++
+    const doc = await harness.prisma!.document.create({
+      data: {
+        workspaceId,
+        createdById,
+        number: n,
+        slug: `lum994-${label}-${n}`,
+        title: `lum994 ${label}`,
+        visibility: 'WORKSPACE',
+        parentId,
+        sortOrder,
+      },
+    })
+    return doc.id
+  }
+
+  /** A fresh ALPHA doc filed in ALPHA's project, tagged with ALPHA's tag. */
+  async function alphaDoc(label: string) {
+    const id = await makeDoc(A().workspaceId, A().ownerMemberId, label)
+    await harness.prisma!.document.update({
+      where: { id },
+      data: { projectId: A().projectId },
+    })
+    await harness.prisma!.documentTag.create({
+      data: { documentId: id, tagId: ids.alphaTag },
+    })
+    return id
+  }
+
+  const patch = (
+    id: string,
+    body: Record<string, unknown>,
+    as: { caller: Caller; source: AuthSource }
+  ) => call(documentRoute.PATCH, 'PATCH', '/x', { id }, as, body)
+
+  /** What an update could have written on a document. */
+  async function docState(id: string) {
+    const db = harness.prisma!
+    const [doc, tags] = await Promise.all([
+      db.document.findUniqueOrThrow({
+        where: { id },
+        select: {
+          title: true,
+          projectId: true,
+          sortOrder: true,
+          contentRevision: true,
+        },
+      }),
+      db.documentTag.findMany({
+        where: { documentId: id },
+        select: { tagId: true },
+        orderBy: { tagId: 'asc' },
+      }),
+    ])
+    return { ...doc, tagIds: tags.map(t => t.tagId) }
+  }
+
+  /** Everything of BRAVO's an update could touch: its docs' order + tag joins. */
+  async function bravoState() {
+    const db = harness.prisma!
+    const [docs, joins] = await Promise.all([
+      db.document.findMany({
+        where: { workspaceId: B().workspaceId },
+        select: { id: true, sortOrder: true, projectId: true, parentId: true },
+        orderBy: { id: 'asc' },
+      }),
+      db.documentTag.findMany({
+        where: { tagId: ids.bravoTag },
+        select: { documentId: true, tagId: true },
+        orderBy: { documentId: 'asc' },
+      }),
+    ])
+    return { docs, joins }
+  }
+
+  beforeAll(async () => {
+    const db = harness.prisma!
+    ids.alphaTag = (
+      await db.tag.create({
+        data: { workspaceId: A().workspaceId, name: 'lum994-alpha' },
+      })
+    ).id
+    ids.alphaTag2 = (
+      await db.tag.create({
+        data: { workspaceId: A().workspaceId, name: 'lum994-alpha-2' },
+      })
+    ).id
+    ids.bravoTag = (
+      await db.tag.create({
+        data: { workspaceId: B().workspaceId, name: `${BRAVO_MARK} lum994` },
+      })
+    ).id
+    ids.bravoTaggedDoc = await makeDoc(
+      B().workspaceId,
+      B().ownerMemberId,
+      'bravo-tagged',
+      null,
+      7
+    )
+    await db.documentTag.create({
+      data: { documentId: ids.bravoTaggedDoc, tagId: ids.bravoTag },
+    })
+  })
+
+  async function expectDenied(
+    id: string,
+    body: Record<string, unknown>,
+    source: AuthSource
+  ) {
+    const before = await docState(id)
+    const bravoBefore = await bravoState()
+    const snapBefore = await snapshotProtected()
+
+    const res = await patch(id, body, { caller: 'alphaOwner', source })
+
+    expect(res.status).toBe(404)
+    expect(res.text).not.toContain(BRAVO_MARK)
+    expect(res.text).not.toContain(B().projectId)
+    expect(res.text).not.toContain(ids.bravoTag)
+    expect(res.text).not.toContain(B().documentId)
+    expect(await docState(id)).toEqual(before)
+    expect(await bravoState()).toEqual(bravoBefore)
+    expect(await snapshotProtected()).toEqual(snapBefore)
+  }
+
+  it.each(BOTH)(
+    'cross-tenant × %s: projectId of BRAVO’s project → 404, doc unchanged',
+    async source => {
+      const id = await alphaDoc(`project-${source}`)
+      await expectDenied(
+        id,
+        { projectId: B().projectId, title: `lum994 renamed ${source}` },
+        source
+      )
+    }
+  )
+
+  it.each(BOTH)(
+    'cross-tenant × %s: tagIds with BRAVO’s tag → 404, nothing written',
+    async source => {
+      const id = await alphaDoc(`tagids-${source}`)
+      await expectDenied(id, { tagIds: [ids.alphaTag2, ids.bravoTag] }, source)
+    }
+  )
+
+  it.each(BOTH)(
+    'cross-tenant × %s: addTagIds with BRAVO’s tag → 404, nothing written',
+    async source => {
+      const id = await alphaDoc(`addtag-${source}`)
+      await expectDenied(
+        id,
+        { addTagIds: [ids.alphaTag2, ids.bravoTag] },
+        source
+      )
+    }
+  )
+
+  it.each(BOTH)(
+    'cross-tenant × %s: childOrder naming BRAVO’s docs → 404, nothing written (no 500, no tag joins first)',
+    async source => {
+      const id = await alphaDoc(`childorder-${source}`)
+      const child = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `childorder-child-${source}`,
+        id,
+        5
+      )
+      const childBefore = await docState(child)
+      await expectDenied(
+        id,
+        {
+          addTagIds: [ids.alphaTag2],
+          childOrder: [child, B().documentId, ids.bravoTaggedDoc],
+        },
+        source
+      )
+      expect(await docState(child)).toEqual(childBefore)
+    }
+  )
+
+  it.each(BOTH)(
+    'cross-tenant × %s: removeTagIds with BRAVO’s tag is a no-op — BRAVO’s joins untouched',
+    async source => {
+      const id = await alphaDoc(`removetag-${source}`)
+      const bravoBefore = await bravoState()
+      const res = await patch(
+        id,
+        { removeTagIds: [ids.bravoTag] },
+        { caller: 'alphaOwner', source }
+      )
+      expect(res.status).toBe(200)
+      expect(res.text).not.toContain(BRAVO_MARK)
+      expect((await docState(id)).tagIds).toEqual([ids.alphaTag])
+      expect(await bravoState()).toEqual(bravoBefore)
+    }
+  )
+
+  it.each(BOTH)(
+    'control × %s: own project, null, projectRef (wins over a BRAVO projectId) → 200',
+    async source => {
+      const as = { caller: 'alphaOwner' as const, source }
+      const id = await alphaDoc(`ctl-project-${source}`)
+
+      const cleared = await patch(id, { projectId: null }, as)
+      expect(cleared.status).toBe(200)
+      expect((await docState(id)).projectId).toBeNull()
+
+      const own = await patch(id, { projectId: A().projectId }, as)
+      expect(own.status).toBe(200)
+      expect((await docState(id)).projectId).toBe(A().projectId)
+
+      const refCleared = await patch(id, { projectRef: null }, as)
+      expect(refCleared.status).toBe(200)
+      expect((await docState(id)).projectId).toBeNull()
+
+      // projectRef takes precedence: the raw projectId is never consulted.
+      const byRef = await patch(
+        id,
+        { projectRef: 'alpha-own project', projectId: B().projectId },
+        as
+      )
+      expect(byRef.status).toBe(200)
+      expect((await docState(id)).projectId).toBe(A().projectId)
+
+      // Absent projectId leaves the binding untouched.
+      const untouched = await patch(id, { title: `lum994 ctl ${source}` }, as)
+      expect(untouched.status).toBe(200)
+      expect(await docState(id)).toEqual(
+        expect.objectContaining({
+          title: `lum994 ctl ${source}`,
+          projectId: A().projectId,
+        })
+      )
+    }
+  )
+
+  it.each(BOTH)(
+    'control × %s: own tags (tagIds / addTagIds / removeTagIds) and own childOrder → 200',
+    async source => {
+      const as = { caller: 'alphaOwner' as const, source }
+      const id = await alphaDoc(`ctl-tags-${source}`)
+      const sorted = (xs: string[]) => [...xs].sort()
+
+      expect((await patch(id, { tagIds: [ids.alphaTag2] }, as)).status).toBe(
+        200
+      )
+      expect((await docState(id)).tagIds).toEqual([ids.alphaTag2])
+
+      expect((await patch(id, { addTagIds: [ids.alphaTag] }, as)).status).toBe(
+        200
+      )
+      expect((await docState(id)).tagIds).toEqual(
+        sorted([ids.alphaTag, ids.alphaTag2])
+      )
+
+      expect(
+        (await patch(id, { removeTagIds: [ids.alphaTag2] }, as)).status
+      ).toBe(200)
+      expect((await docState(id)).tagIds).toEqual([ids.alphaTag])
+
+      const c1 = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `ctl-c1-${source}`,
+        id,
+        0
+      )
+      const c2 = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        `ctl-c2-${source}`,
+        id,
+        1
+      )
+      expect((await patch(id, { childOrder: [c2, c1] }, as)).status).toBe(200)
+      expect((await docState(c2)).sortOrder).toBe(0)
+      expect((await docState(c1)).sortOrder).toBe(1)
+    }
+  )
+})

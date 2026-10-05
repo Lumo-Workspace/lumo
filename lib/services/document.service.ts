@@ -699,6 +699,11 @@ export const documentService = {
       })
     }
 
+    // Every id the update would write must be the caller's (LUM-994) —
+    // checked after the 409/422 preconditions, before anything (tag joins
+    // included) is touched.
+    await this.assertUpdateReferencesInWorkspace(data, workspaceId)
+
     // Sync or incrementally modify tag associations
     if (data.tagIds !== undefined) {
       await tagRepository.syncDocumentTags(docId, data.tagIds)
@@ -846,6 +851,53 @@ export const documentService = {
     const docTags = tagsTouched ? await tagRepository.findByDocument(docId) : []
 
     return { ...updated, docTags }
+  },
+
+  /**
+   * LUM-994: an update may only reference rows in the caller's workspace —
+   * the project it files the document in, the tags it attaches and the
+   * documents it reorders. Any foreign (or missing) id → the same generic 404,
+   * so the answer never reveals whether the id exists elsewhere.
+   * `removeTagIds` is not checked: it only deletes join rows of this document.
+   */
+  async assertUpdateReferencesInWorkspace(
+    data: Pick<
+      UpdateDocumentInput,
+      'projectId' | 'tagIds' | 'addTagIds' | 'childOrder'
+    >,
+    workspaceId: string
+  ) {
+    // null clears, undefined leaves untouched; any string (even '') is checked.
+    if (typeof data.projectId === 'string') {
+      const project = await projectRepository.findIdInWorkspace(
+        data.projectId,
+        workspaceId
+      )
+      if (!project) {
+        throw Object.assign(new Error('Project not found'), { status: 404 })
+      }
+    }
+
+    const tagIds = [
+      ...new Set([...(data.tagIds ?? []), ...(data.addTagIds ?? [])]),
+    ]
+    if (tagIds.length > 0) {
+      const found = await tagRepository.findIdsInWorkspace(tagIds, workspaceId)
+      if (found.length !== tagIds.length) {
+        throw Object.assign(new Error('Tag not found'), { status: 404 })
+      }
+    }
+
+    const childIds = [...new Set(data.childOrder ?? [])]
+    if (childIds.length > 0) {
+      const found = await documentRepository.findIdsInWorkspace(
+        childIds,
+        workspaceId
+      )
+      if (found.length !== childIds.length) {
+        throw Object.assign(new Error('Document not found'), { status: 404 })
+      }
+    }
   },
 
   /**
