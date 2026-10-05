@@ -132,6 +132,16 @@ const FAKE_AWS_KEY = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('')
 const SECRET_DIFF = diff('src/cfg.ts', `const k = "${FAKE_AWS_KEY}"`)
 
 let order: string[]
+// LUM-988: these tests pin the VM keep-alive for the HUNT; with the agentic
+// verifier on, stage A keeps it alive whenever the AI review is on (covered
+// in pr-security-scan.service.lum988-verifier.test.ts).
+beforeAll(() => {
+  process.env.LUMO_REVIEW_VERIFIER = 'off'
+})
+afterAll(() => {
+  delete process.env.LUMO_REVIEW_VERIFIER
+})
+
 beforeEach(() => {
   jest.clearAllMocks()
   delete process.env.LUMO_SECURITY_HUNT

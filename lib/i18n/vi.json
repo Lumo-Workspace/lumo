@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "Mã mà lần quét này trích dẫn đã bị xóa theo cài đặt lưu giữ của không gian làm việc. Quy tắc, tệp, dòng và quyết định vẫn được giữ.",
   "securityScan.suggested.falsePositive": "Nghi ngờ dương tính giả (LLM)",
   "securityScan.suggested.reasonLabel": "Lý do của LLM:",
+  "securityScan.verifier.reasonLabel": "Lý do của trình xác minh:",
+  "securityScan.verifier.rejected": "Bị trình xác minh bác bỏ",
   "securityScan.suggested.outcome.CONFIRMED": "đã xác nhận đề xuất",
   "securityScan.suggested.outcome.OVERRULED": "đã bác bỏ đề xuất",
   "securityScan.action.confirmAllSuggested": "{count, plural, other {Xác nhận tất cả # nghi ngờ dương tính giả}}",

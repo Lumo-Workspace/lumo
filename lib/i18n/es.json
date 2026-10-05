@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "El código citado por este análisis se ha borrado según la configuración de conservación de tu espacio de trabajo. Se conservan las reglas, archivos, líneas y decisiones.",
   "securityScan.suggested.falsePositive": "Posible falso positivo (LLM)",
   "securityScan.suggested.reasonLabel": "Razonamiento del LLM:",
+  "securityScan.verifier.reasonLabel": "Motivo del verificador:",
+  "securityScan.verifier.rejected": "Descartado por el verificador",
   "securityScan.suggested.outcome.CONFIRMED": "sugerencia confirmada",
   "securityScan.suggested.outcome.OVERRULED": "sugerencia rechazada",
   "securityScan.action.confirmAllSuggested": "{count, plural, one {Confirmar el # posible falso positivo} other {Confirmar los # posibles falsos positivos}}",

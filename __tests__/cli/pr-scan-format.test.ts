@@ -700,3 +700,30 @@ describe('LUM-988 code-review findings in lumo pr scan', () => {
     expect(out).toMatch(/^ {4}\[HIGH\] DETERMINISTIC secret:aws-access-key-id/m)
   })
 })
+
+describe('LUM-988 verifier verdict in lumo pr scan', () => {
+  it('a rejected row reads "rejected by verifier" with its reason', () => {
+    const out = formatPrScan(
+      payload({
+        scans: [
+          scan({
+            findings: [
+              finding({
+                kind: 'CORRECTNESS',
+                ruleId: 'review:logic_error',
+                provenance: 'LLM_JUDGE',
+                severity: 'MEDIUM',
+                blocking: false,
+                open: false,
+                verifierVerdict: 'REJECTED',
+                verifierReason: 'guarded at src/a.ts:12',
+              }),
+            ],
+            counts: { ...scan().counts, findings: 1 },
+          }),
+        ],
+      })
+    )
+    expect(out).toContain('(rejected by verifier — "guarded at src/a.ts:12")')
+  })
+})

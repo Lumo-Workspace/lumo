@@ -38,6 +38,8 @@ import { cleanPrSummary, type PrSummary } from '@/lib/security-scan/pr-summary'
 import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
 import { reviewContextBudget } from '@/lib/security-scan/review-context'
 import { reviewContextService } from './review-context.service'
+import { isReviewVerifierEnabled } from './review-verifier.config'
+import type { ReviewVerifierJob } from './review-verifier.service'
 import { isBugKind } from '@/lib/security-scan/review-kinds'
 import {
   addedLinesWithNumbers,
@@ -159,6 +161,9 @@ export interface SecurityFindingView {
   suggestedDisposition: FindingDisposition | null
   suggestedReason: string | null
   suggestionOutcome: SuggestionOutcome | null
+  // LUM-988: the agentic verifier's verdict on an LLM_JUDGE row, and why.
+  verifierVerdict: 'CONFIRMED' | 'REJECTED' | null
+  verifierReason: string | null
 }
 
 export interface SecurityScanView {
@@ -332,6 +337,8 @@ function toFindingView(
     suggestedDisposition: f.suggestedDisposition ?? null,
     suggestedReason: f.suggestedReason ?? null,
     suggestionOutcome: f.suggestionOutcome ?? null,
+    verifierVerdict: f.verifierVerdict ?? null,
+    verifierReason: f.verifierReason ?? null,
   }
 }
 
@@ -503,6 +510,33 @@ export function distinctFingerprint(
   return createHash('sha256').update(`${fp}#${n}`).digest('hex').slice(0, 16)
 }
 
+/**
+ * LUM-988 — mark the hold, then start the verifier; release the hold if the
+ * run could not be queued. Never throws: the scan is already settled.
+ */
+async function startVerifierBestEffort(job: ReviewVerifierJob): Promise<void> {
+  try {
+    await prSecurityScanRepository.markVerifierStarted(job.scanId)
+  } catch (error) {
+    // No hold recorded: comments post unverified, as before LUM-988.
+    logger.warn(
+      `[pr-security-scan] verifier mark failed scan=${job.scanId}: ${error instanceof Error ? error.message : error}`
+    )
+    return
+  }
+  // Dynamic import: the starter pulls the workflow runtime and the sandbox
+  // client, which stay out of stage A's static graph (jest ESM trap).
+  const { startReviewVerifier } = await import('./review-verifier-start')
+  if (await startReviewVerifier(job)) return
+  try {
+    await prSecurityScanRepository.completeVerification(job.scanId, [])
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] verifier hold release failed scan=${job.scanId}: ${error instanceof Error ? error.message : error}`
+    )
+  }
+}
+
 export const prSecurityScanService = {
   async run(input: {
     pullRequestId: string
@@ -672,6 +706,10 @@ export const prSecurityScanService = {
       const huntOverCap = touchedSourcePaths.length > HUNT_MAX_HUNTED_FILES
       const huntWantedForVm =
         layers.hunt && !huntOverCap && (triggerFirstPass?.hunt ?? false)
+      // LUM-988: the agentic verifier reads the same checkout. The judge has
+      // not run yet when the managed scan starts, so the VM is kept alive
+      // whenever the AI review is on and the verifier enabled.
+      const verifierVmWanted = layers.aiReview && isReviewVerifierEnabled()
 
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
@@ -730,8 +768,9 @@ export const prSecurityScanService = {
               },
               headSha,
               // LUM-758: keep the VM alive past this run for the hunt to
-              // attach to — one microVM, two layers.
-              huntWanted: huntWantedForVm,
+              // attach to — one microVM, two layers. LUM-988: and for the
+              // verifier.
+              huntWanted: huntWantedForVm || verifierVmWanted,
             })
             stages.external = runId ? 'PENDING' : 'FAILED'
             // LUM-738: osv-scanner rides the same run — its layer is pending
@@ -1089,6 +1128,26 @@ export const prSecurityScanService = {
           await recordHuntStartBestEffort(scanId, huntJob, runId)
         } else
           await prSecurityScanRepository.mergeStages(scanId, { hunt: 'FAILED' })
+      }
+      // LUM-988: the AI review's findings go to the agentic verifier. Marked
+      // BEFORE the sync below, so every write-back from here on holds the
+      // LLM_JUDGE inline comments until it finishes (or VERIFIER_HOLD_MS).
+      // A run that cannot be queued releases the hold at once.
+      if (
+        judgeStatus === 'RAN' &&
+        judgeRows.length > 0 &&
+        isReviewVerifierEnabled()
+      ) {
+        await startVerifierBestEffort({
+          scanId,
+          workspaceId: pr.workspaceId,
+          repo: pr.repo,
+          prNumber: pr.number,
+          headSha,
+          managedScanStarted:
+            managedRunStarted && (huntWantedForVm || verifierVmWanted),
+          stopAttachedWhenDone: !huntRunStarted,
+        })
       }
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
       // Best-effort like the dispatchers: `sync` never throws, and the

@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "Kode yang dikutip pemindaian ini telah dihapus sesuai pengaturan retensi workspace Anda. Aturan, file, baris, dan keputusan tetap disimpan.",
   "securityScan.suggested.falsePositive": "Diduga positif palsu (LLM)",
   "securityScan.suggested.reasonLabel": "Penalaran LLM:",
+  "securityScan.verifier.reasonLabel": "Alasan pemverifikasi:",
+  "securityScan.verifier.rejected": "Ditolak oleh pemverifikasi",
   "securityScan.suggested.outcome.CONFIRMED": "saran dikonfirmasi",
   "securityScan.suggested.outcome.OVERRULED": "saran ditolak",
   "securityScan.action.confirmAllSuggested": "{count, plural, other {Konfirmasi semua # dugaan positif palsu}}",

@@ -46,6 +46,10 @@ import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/lib/services/security-suggest.config'
 import {
+  isVerifierRejected,
+  verifierHolding,
+} from '@/lib/security-scan/verifier'
+import {
   SCAN_STAGE_KEYS,
   SCAN_STAGE_DESCRIPTIONS,
   SCAN_STAGE_LABELS,
@@ -229,6 +233,11 @@ export interface SummaryInput {
   low?: { count: number; allDowngradedPaths: boolean }
   /** LUM-740 — open findings the falsifier suggested as false positives (no inline comment). */
   suggested?: number
+  /**
+   * LUM-988 — AI-review findings the agentic verifier rejected after reading
+   * the code: not open, not commented, one line in the summary. Absent = 0.
+   */
+  verifierRejected?: number
   error: string | null
   taskUrl: string | null
   /** LUM-849 — the scan's raw `prSummary` Json; parsed (and neutralised) here. */
@@ -249,6 +258,14 @@ function lowLine(input: SummaryInput): string | null {
 }
 
 /** LUM-740 — the suggested-false-positive line. */
+/** LUM-988 — one line for the findings the verifier took out, so they are not silently gone. */
+function verifierRejectedLine(input: SummaryInput): string | null {
+  const n = input.verifierRejected ?? 0
+  if (n === 0) return null
+  const noun = n === 1 ? 'AI review finding' : 'AI review findings'
+  return `- ${n} ${noun} rejected by the verifier after reading the code — shown in Lumo only`
+}
+
 function suggestedLine(input: SummaryInput): string | null {
   const n = input.suggested ?? 0
   if (n === 0) return null
@@ -450,6 +467,8 @@ export function buildSummary(input: SummaryInput): string {
   if (low) notices.push(low)
   const suggested = suggestedLine(input)
   if (suggested) notices.push(suggested)
+  const rejected = verifierRejectedLine(input)
+  if (rejected) notices.push(rejected)
   if (notices.length > 0) blocks.push(notices.join('\n'))
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
@@ -707,9 +726,13 @@ export const securityPrReviewService = {
 
       // LUM-738: a persisting row (already on the default branch) is not
       // this PR's — it is neither open, nor blocking, nor commented inline.
-      const open = scan.findings.filter(
+      const undecided = scan.findings.filter(
         f => f.disposition === null && !f.persisting
       )
+      // LUM-988: a row the agentic verifier rejected is not open — it gets
+      // no inline comment and no count, only the summary's one line.
+      const open = undecided.filter(f => !isVerifierRejected(f))
+      const verifierRejected = undecided.length - open.length
       // LUM-740: the workspace policy says what blocks DONE (LLM never).
       const policy = parseSecurityPolicy(pr.workspace?.securityPolicy)
       const blocking = open.filter(f => isBlockingFinding(f, policy)).length
@@ -757,6 +780,16 @@ export const securityPrReviewService = {
       // EXTERNAL_TOOL row may still become a suggested false positive, so it
       // waits (the summary still counts it). Deterministic rows never wait.
       const holdExternal = isSuggestEnabled() && scan.suggestedAt == null
+      // LUM-988: likewise LLM_JUDGE rows while the verifier is running — the
+      // summary posts at once; their inline comments wait for its verdicts
+      // (or for VERIFIER_HOLD_MS, after which they post unverified).
+      const holdJudge = verifierHolding(
+        {
+          verifierStartedAt: scan.verifierStartedAt ?? null,
+          verifiedAt: scan.verifiedAt ?? null,
+        },
+        Date.now()
+      )
       // Only findings on a line this PR added can carry an inline comment;
       // the rest are still counted by the summary.
       const candidates = open.filter(
@@ -764,7 +797,8 @@ export const securityPrReviewService = {
           f.line !== null &&
           f.severity !== 'LOW' &&
           f.suggestedDisposition == null &&
-          !(holdExternal && f.provenance === 'EXTERNAL_TOOL')
+          !(holdExternal && f.provenance === 'EXTERNAL_TOOL') &&
+          !(holdJudge && f.provenance === 'LLM_JUDGE')
       )
       const selected = candidates
         .filter(f => !existing.has(f.fingerprint))
@@ -801,6 +835,7 @@ export const securityPrReviewService = {
         ...(dependencies ? { dependencies } : {}),
         low,
         suggested,
+        verifierRejected,
         error: scan.error,
         taskUrl: taskUrlOf(pr),
         prSummary: scan.prSummary,

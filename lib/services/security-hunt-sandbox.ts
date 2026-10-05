@@ -410,8 +410,13 @@ export async function scrubCloneCredentials(
  *
  * Never throws: a VM that is already gone is the outcome we wanted.
  */
-export async function stopHuntSandbox(handle: HuntSandbox): Promise<void> {
-  if (handle.origin !== 'created') return
+export async function stopHuntSandbox(
+  handle: HuntSandbox,
+  // LUM-988: the verifier stops an ATTACHED VM too when no hunt will use it,
+  // instead of leaving it to idle out the managed scan's 35-minute timeout.
+  opts: { includeAttached?: boolean } = {}
+): Promise<void> {
+  if (handle.origin !== 'created' && !opts.includeAttached) return
   try {
     await handle.sandbox.stop()
   } catch (error) {
@@ -561,6 +566,25 @@ export async function runHuntShell(
       ? { commandNotFound: true as const }
       : {}),
   }
+}
+
+/**
+ * LUM-988 — the agentic verifier's `run_shell`: the same gate, the same
+ * `execGated` choke point and the same `sanitizeHuntOutput` redaction +
+ * truncation as `runHuntShell`, but returned as plain text and WITHOUT the
+ * model compressor (the verifier reads short `sed -n` slices; a lossy
+ * extract would hide the line that refutes a finding). Never throws.
+ */
+export async function runVerifierShell(
+  handle: HuntSandbox,
+  command: string
+): Promise<string> {
+  const exec = await execGated(handle, command)
+  if (!exec.ok)
+    return exec.denied ? `refused: ${exec.reason}` : `error: ${exec.reason}`
+  const text = sanitizeHuntOutput(exec.raw, handle.token)
+  const body = text.trim().length > 0 ? text : '(no output)'
+  return exec.exitCode === 0 ? body : `exit ${exec.exitCode}\n${body}`
 }
 
 type GatedExec =

@@ -50,7 +50,12 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     updateDisposition: jest.fn(),
     mergeStages: jest.fn(),
     setManagedRunId: jest.fn(),
+    markVerifierStarted: jest.fn(),
+    completeVerification: jest.fn(),
   },
+}))
+jest.mock('@/lib/services/review-verifier-start', () => ({
+  startReviewVerifier: jest.fn(),
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: {
@@ -107,6 +112,9 @@ import { securityPrReviewService } from '@/lib/services/security-pr-review.servi
 import * as gh from '@/lib/integrations/github/contents'
 import * as auth from '@/lib/integrations/github/auth'
 import * as judge from '@/lib/llm/security-judge-client'
+import { startReviewVerifier } from '@/lib/services/review-verifier-start'
+import { projectRepository } from '@/lib/repositories/project.repository'
+import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
 import {
   DEFAULT_SECURITY_POLICY,
   isBlockingUnderPolicy,
@@ -395,5 +403,85 @@ describe('LUM-988 distinctFingerprint', () => {
     const rows = repo.persistResult.mock.calls[0]![1]
     expect(rows).toHaveLength(2)
     expect(rows[0]!.fingerprint).not.toBe(rows[1]!.fingerprint)
+  })
+})
+
+describe('LUM-988 stage A starts the agentic verifier', () => {
+  const start = startReviewVerifier as jest.Mock
+  beforeEach(() => start.mockResolvedValue(true))
+  afterEach(() => {
+    delete process.env.LUMO_REVIEW_VERIFIER
+  })
+
+  it("marks the hold, then starts the verifier for the scan's AI-review findings", async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+
+    await runScan()
+
+    expect(repo.markVerifierStarted).toHaveBeenCalledWith('s1')
+    expect(start).toHaveBeenCalledWith({
+      scanId: 's1',
+      workspaceId: 'w1',
+      repo: 'o/r',
+      prNumber: 7,
+      headSha: 'sha-1',
+      managedScanStarted: false,
+      stopAttachedWhenDone: true,
+    })
+    const markOrder = (repo.markVerifierStarted as jest.Mock).mock
+      .invocationCallOrder[0]!
+    expect(markOrder).toBeLessThan(start.mock.invocationCallOrder[0]!)
+    expect(repo.completeVerification).not.toHaveBeenCalled()
+  })
+
+  it('releases the hold at once when the run cannot be queued', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    start.mockResolvedValue(false)
+
+    await runScan()
+
+    expect(repo.completeVerification).toHaveBeenCalledWith('s1', [])
+  })
+
+  it('starts nothing without AI-review findings, or with the kill switch', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    await runScan()
+    expect(start).not.toHaveBeenCalled()
+
+    jest.clearAllMocks()
+    process.env.LUMO_REVIEW_VERIFIER = 'off'
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(start).not.toHaveBeenCalled()
+    expect(repo.markVerifierStarted).not.toHaveBeenCalled()
+  })
+
+  it('keeps the managed scan VM alive for the verifier while the AI review is on', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    ;(startSecurityManagedScan as jest.Mock).mockResolvedValue('run-1')
+    ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
+      null
+    )
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [BUG] })
+
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+
+    expect(
+      (startSecurityManagedScan as jest.Mock).mock.calls[0]![0].huntWanted
+    ).toBe(true)
+    expect(start.mock.calls[0]![0]).toMatchObject({
+      managedScanStarted: true,
+      stopAttachedWhenDone: true,
+    })
   })
 })

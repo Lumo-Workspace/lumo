@@ -1615,6 +1615,8 @@
   "securityScan.suggested.outcome.CONFIRMED": "suggestion confirmed",
   "securityScan.suggested.outcome.OVERRULED": "suggestion overruled",
   "securityScan.suggested.reasonLabel": "LLM reasoning:",
+  "securityScan.verifier.reasonLabel": "Verifier's reason:",
+  "securityScan.verifier.rejected": "Rejected by verifier",
   "sentry.addMapping": "Add mapping",
   "sentry.connectClientSecretLabel": "Client Secret",
   "sentry.connectFailed": "Failed to connect Sentry",

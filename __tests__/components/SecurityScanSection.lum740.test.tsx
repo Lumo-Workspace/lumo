@@ -298,3 +298,30 @@ describe('LUM-740 panel', () => {
     expect(screen.getAllByTestId('scan-fixed')).toHaveLength(1)
   })
 })
+
+describe('LUM-988 verifier-rejected finding in the panel', () => {
+  test('shows the rejected badge and the verifier reason; an unverified row shows neither', () => {
+    renderWith(
+      scan({
+        findings: [
+          finding({
+            id: 'rej',
+            provenance: 'LLM_JUDGE',
+            kind: 'CORRECTNESS',
+            severity: 'MEDIUM',
+            verifierVerdict: 'REJECTED',
+            verifierReason: 'guarded at src/a.ts:12',
+          }),
+          finding({ id: 'plain', verifierVerdict: null, verifierReason: null }),
+        ],
+      })
+    )
+    expect(screen.getByTestId('finding-verifier-rejected')).toHaveTextContent(
+      'securityScan.verifier.rejected'
+    )
+    expect(screen.getByTestId('finding-verifier-reason')).toHaveTextContent(
+      'guarded at src/a.ts:12'
+    )
+    expect(screen.getAllByTestId('finding-verifier-rejected')).toHaveLength(1)
+  })
+})

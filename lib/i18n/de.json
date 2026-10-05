@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "Der von diesem Scan zitierte Code wurde gemäß der Aufbewahrungseinstellung Ihres Workspaces gelöscht. Regeln, Dateien, Zeilen und Bewertungen bleiben erhalten.",
   "securityScan.suggested.falsePositive": "Vermutlich falsch positiv (LLM)",
   "securityScan.suggested.reasonLabel": "LLM-Begründung:",
+  "securityScan.verifier.reasonLabel": "Begründung des Prüfers:",
+  "securityScan.verifier.rejected": "Vom Prüfer verworfen",
   "securityScan.suggested.outcome.CONFIRMED": "Vorschlag bestätigt",
   "securityScan.suggested.outcome.OVERRULED": "Vorschlag verworfen",
   "securityScan.action.confirmAllSuggested": "{count, plural, one {Den # vermutlich falsch positiven Fund bestätigen} other {Alle # vermutlich falsch positiven Funde bestätigen}}",

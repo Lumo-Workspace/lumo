@@ -39,6 +39,8 @@ export type FindingReachability = 'EXTERNAL' | 'INTERNAL' | 'UNKNOWN'
 export type FalsifierVerdict = 'REJECT' | 'INCONCLUSIVE'
 // LUM-740 — what a human did with an LLM-suggested disposition.
 export type SuggestionOutcome = 'CONFIRMED' | 'OVERRULED'
+/** LUM-988 — the agentic verifier's verdict on an LLM_JUDGE row. */
+export type VerifierVerdict = 'CONFIRMED' | 'REJECTED'
 
 export interface NewScanInput {
   pullRequestId: string
@@ -198,6 +200,9 @@ export interface FindingRow {
   suggestedDisposition: FindingDisposition | null
   suggestedReason: string | null
   suggestionOutcome: SuggestionOutcome | null
+  // LUM-988 (LLM_JUDGE rows the agentic verifier checked; null = not verified).
+  verifierVerdict: VerifierVerdict | null
+  verifierReason: string | null
   /** LUM-738: already on the default-branch baseline — not introduced by this PR. */
   persisting: boolean
   /** LUM-758 follow-up (secret: rows only; null elsewhere and when not downgraded). */
@@ -305,6 +310,7 @@ export type ReviewFindingRow = Pick<
   | 'disposition'
   | 'persisting'
   | 'suggestedDisposition'
+  | 'verifierVerdict'
 >
 
 /**
@@ -333,6 +339,9 @@ export interface ScanForReview {
   summaryCommentId: string | null
   /** LUM-740: null until the suggested-disposition pass ran — external rows wait. */
   suggestedAt: Date | null
+  /** LUM-988: the verifier started / finished — LLM_JUDGE inline comments wait between. */
+  verifierStartedAt: Date | null
+  verifiedAt: Date | null
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -360,6 +369,20 @@ export interface DispositionedFingerprint {
   suggestedReason: string | null
   suggestionOutcome: SuggestionOutcome | null
 }
+
+/** LUM-988 — one LLM_JUDGE row as the agentic verifier reads it. */
+export type JudgeFindingForVerify = Pick<
+  FindingRow,
+  | 'id'
+  | 'kind'
+  | 'ruleId'
+  | 'severity'
+  | 'filePath'
+  | 'line'
+  | 'title'
+  | 'detail'
+  | 'evidence'
+>
 
 export interface FindingSummary {
   severity: string
@@ -1538,6 +1561,8 @@ export const prSecurityScanRepository = {
         error: true,
         summaryCommentId: true,
         suggestedAt: true,
+        verifierStartedAt: true,
+        verifiedAt: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -1555,6 +1580,7 @@ export const prSecurityScanRepository = {
             disposition: true,
             persisting: true,
             suggestedDisposition: true,
+            verifierVerdict: true,
           },
         },
         pullRequest: {
@@ -1680,6 +1706,8 @@ export const prSecurityScanRepository = {
             suggestedDisposition: true,
             suggestedReason: true,
             suggestionOutcome: true,
+            verifierVerdict: true,
+            verifierReason: true,
             persisting: true,
             secretDowngrade: true,
             createdAt: true,
@@ -1843,6 +1871,65 @@ export const prSecurityScanRepository = {
         data: { suggestionTokens: (row.suggestionTokens ?? 0) + n },
       })
     })
+  },
+
+  // ── LUM-988: agentic verifier ─────────────────────────────────────────────
+
+  /** The verifier was started for this scan: LLM_JUDGE inline comments now wait. */
+  async markVerifierStarted(scanId: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { verifierStartedAt: new Date() },
+    })
+  },
+
+  /** The scan's LLM_JUDGE findings, as the verifier reads them (evidence included). */
+  async findJudgeFindingsForVerify(
+    scanId: string
+  ): Promise<JudgeFindingForVerify[]> {
+    const rows = await prisma.prSecurityFinding.findMany({
+      where: { scanId, provenance: 'LLM_JUDGE' },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        kind: true,
+        ruleId: true,
+        severity: true,
+        filePath: true,
+        line: true,
+        title: true,
+        detail: true,
+        evidence: true,
+      },
+    })
+    return rows as JudgeFindingForVerify[]
+  },
+
+  /**
+   * Writes the verdicts and stamps `verifiedAt` in one transaction, so a
+   * write-back never sees the stamp without the verdicts. Called with an
+   * empty list when the verifier failed: the stamp alone releases the hold.
+   */
+  async completeVerification(
+    scanId: string,
+    verdicts: Array<{
+      findingId: string
+      verdict: VerifierVerdict
+      reason: string
+    }>
+  ): Promise<void> {
+    await prisma.$transaction([
+      ...verdicts.map(v =>
+        prisma.prSecurityFinding.updateMany({
+          where: { id: v.findingId, scanId, provenance: 'LLM_JUDGE' },
+          data: { verifierVerdict: v.verdict, verifierReason: v.reason },
+        })
+      ),
+      prisma.prSecurityScan.update({
+        where: { id: scanId },
+        data: { verifiedAt: new Date() },
+      }),
+    ])
   },
 
   /** The suggested-disposition pass finished for this scan (see `suggestedAt`). */

@@ -231,6 +231,16 @@ const runStageA = () =>
   prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
 const persisted = () => repo.persistResult.mock.calls[0]![2]
 
+// LUM-988: these tests pin the VM keep-alive for the HUNT; with the agentic
+// verifier on, stage A keeps it alive whenever the AI review is on (covered
+// in pr-security-scan.service.lum988.test.ts).
+beforeAll(() => {
+  process.env.LUMO_REVIEW_VERIFIER = 'off'
+})
+afterAll(() => {
+  delete process.env.LUMO_REVIEW_VERIFIER
+})
+
 describe('LUM-866 workspace scan switch off', () => {
   beforeEach(() => switches({ securityScanEnabled: false }))
 

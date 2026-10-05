@@ -58,6 +58,9 @@ export interface PrScanFinding {
   falsifierVerdict: string | null
   suggestedDisposition: string | null
   suggestionOutcome: string | null
+  /** LUM-988 — the agentic verifier's verdict / reason. Absent on an older server. */
+  verifierVerdict?: string | null
+  verifierReason?: string | null
   secretDowngrade: string | null
   cwe: string | null
   reachability: string | null
@@ -177,6 +180,13 @@ function findingStanding(f: PrScanFinding): string {
     return `${f.disposition} · ${source}${note}`
   }
   if (f.persisting) return 'already on main'
+  // LUM-988: not open, not commented on the PR — the reason is the evidence.
+  if (f.verifierVerdict === 'REJECTED') {
+    const reason = f.verifierReason
+      ? ` — "${sanitizeField(f.verifierReason)}"`
+      : ''
+    return `rejected by verifier${reason}`
+  }
   if (f.queueExit) {
     return QUEUE_EXIT_LABELS[f.queueExit as QueueExitReason] ?? f.queueExit
   }

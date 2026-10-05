@@ -16,6 +16,7 @@
  * never leaves the server (the repository never loads it); disposition is a
  * human-only column this read-out reports and never touches.
  */
+import { isVerifierRejected } from '@/lib/security-scan/verifier'
 import { scanSizeCaps } from '@/lib/security-scan/size-caps'
 import type {
   HuntOverCapInput,
@@ -105,6 +106,12 @@ export interface FindingReadoutView {
   queueExit: QueueExitReason | null
   falsifierVerdict: FalsifierVerdict | null
   suggestedDisposition: FindingDisposition | null
+  /**
+   * LUM-988 — the agentic verifier's verdict on an LLM_JUDGE row (null = not
+   * verified) and its one-sentence reason. A REJECTED row is never `open`.
+   */
+  verifierVerdict: 'CONFIRMED' | 'REJECTED' | null
+  verifierReason: string | null
   suggestionOutcome: SuggestionOutcome | null
   secretDowngrade: SecretDowngradeReason | null
   cwe: string | null
@@ -531,7 +538,10 @@ export const prScanReadoutService = {
             ? queueExitOf(f, pr, exitContexts, policy)
             : null
         const open =
-          f.disposition === null && !f.persisting && queueExit === null
+          f.disposition === null &&
+          !f.persisting &&
+          queueExit === null &&
+          !isVerifierRejected(f)
         return {
           id: f.id,
           kind: f.kind,
@@ -557,6 +567,9 @@ export const prScanReadoutService = {
           falsifierVerdict: f.falsifierVerdict ?? null,
           suggestedDisposition: f.suggestedDisposition ?? null,
           suggestionOutcome: f.suggestionOutcome ?? null,
+          verifierVerdict: f.verifierVerdict ?? null,
+          verifierReason:
+            cleanText(f.verifierReason, DETAIL_MAX, tally) ?? null,
           secretDowngrade: f.secretDowngrade ?? null,
           cwe: f.cwe ?? null,
           reachability: f.reachability ?? null,

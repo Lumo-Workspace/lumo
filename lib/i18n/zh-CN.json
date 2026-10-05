@@ -2258,6 +2258,8 @@
   "securityScan.codeScrubbed": "按工作区的保留期设置,本次扫描引用的代码已清除。规则、文件、行号和处置仍然保留。",
   "securityScan.suggested.falsePositive": "疑似误报（LLM）",
   "securityScan.suggested.reasonLabel": "LLM 判断依据：",
+  "securityScan.verifier.reasonLabel": "验证器理由：",
+  "securityScan.verifier.rejected": "已被验证器驳回",
   "securityScan.suggested.outcome.CONFIRMED": "建议已确认",
   "securityScan.suggested.outcome.OVERRULED": "建议已否决",
   "securityScan.action.confirmAllSuggested": "{count, plural, other {确认全部 # 个疑似误报}}",

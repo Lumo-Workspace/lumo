@@ -2256,6 +2256,8 @@
   "securityScan.codeScrubbed": "Код, процитированный этой проверкой, удалён согласно настройке хранения вашего рабочего пространства. Правила, файлы, строки и решения сохранены.",
   "securityScan.suggested.falsePositive": "Вероятно ложное срабатывание (LLM)",
   "securityScan.suggested.reasonLabel": "Обоснование LLM:",
+  "securityScan.verifier.reasonLabel": "Причина проверки:",
+  "securityScan.verifier.rejected": "Отклонено проверяющим агентом",
   "securityScan.suggested.outcome.CONFIRMED": "предложение подтверждено",
   "securityScan.suggested.outcome.OVERRULED": "предложение отклонено",
   "securityScan.action.confirmAllSuggested": "{count, plural, one {Подтвердить # вероятно ложное срабатывание} few {Подтвердить все # вероятно ложных срабатывания} many {Подтвердить все # вероятно ложных срабатываний} other {Подтвердить все # вероятно ложных срабатывания}}",
