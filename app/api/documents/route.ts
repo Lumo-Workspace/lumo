@@ -71,20 +71,29 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const document = await documentService.createDocument(
-    identity.workspaceId,
-    identity.memberId,
-    {
-      title,
-      visibility,
-      emoji: emoji ?? null,
-      parentId: docParentId ?? null,
-      projectId: resolvedProjectId,
-      ...(contentMarkdown !== undefined ? { contentMarkdown } : {}),
-      ...(tagIds !== undefined ? { tagIds } : {}),
-      ...(templateId !== undefined ? { templateId } : {}),
+  try {
+    const document = await documentService.createDocument(
+      identity.workspaceId,
+      identity.memberId,
+      {
+        title,
+        visibility,
+        emoji: emoji ?? null,
+        parentId: docParentId ?? null,
+        projectId: resolvedProjectId,
+        ...(contentMarkdown !== undefined ? { contentMarkdown } : {}),
+        ...(tagIds !== undefined ? { tagIds } : {}),
+        ...(templateId !== undefined ? { templateId } : {}),
+      }
+    )
+    return NextResponse.json({ document }, { status: 201 })
+  } catch (error) {
+    if (error instanceof Error && 'status' in error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
     }
-  )
-
-  return NextResponse.json({ document }, { status: 201 })
+    throw error
+  }
 }

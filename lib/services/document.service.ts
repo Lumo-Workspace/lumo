@@ -27,6 +27,7 @@ import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { documentTemplateService } from '@/lib/services/document-template.service'
 import { documentRevisionService } from '@/lib/services/documentRevision.service'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
@@ -406,13 +407,48 @@ export const documentService = {
     return { document: shaped, ancestors }
   },
 
-  /** Create a new document with auto sortOrder. */
+  /**
+   * Create a new document with auto sortOrder.
+   *
+   * Caller-supplied references are validated against the caller's workspace
+   * (LUM-993) before anything is written:
+   * - `parentId` must pass the same rule LUM-990 applies to a move target —
+   *   a document the member may EDIT in their own workspace (`findEditable`:
+   *   owner, WORKSPACE visibility, or EDITOR/MANAGER share). A foreign,
+   *   invisible or view-only parent all get the same generic 404 as a missing
+   *   document, so the response says nothing about another tenant's ids.
+   * - `projectId` must be a project in the caller's workspace (else 404).
+   * Every caller goes through this — the API route, Google Doc import (which
+   * passes neither id) and the service tests; there is no unchecked path.
+   */
   async createDocument(
     workspaceId: string,
     memberId: string,
     data: CreateDocumentInput
   ) {
-    const parentId = data.parentId ?? null
+    let parentId: string | null = null
+    if (data.parentId) {
+      const parent = await documentRepository.findEditable(
+        data.parentId,
+        memberId,
+        workspaceId
+      )
+      if (!parent) {
+        throw Object.assign(new Error('Not found or no permission'), {
+          status: 404,
+        })
+      }
+      parentId = parent.id
+    }
+    if (data.projectId) {
+      const project = await projectRepository.findIdInWorkspace(
+        data.projectId,
+        workspaceId
+      )
+      if (!project) {
+        throw Object.assign(new Error('Project not found'), { status: 404 })
+      }
+    }
     const maxSortOrder = await documentRepository.getMaxSortOrder(
       workspaceId,
       parentId

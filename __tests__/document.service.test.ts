@@ -18,6 +18,8 @@ const mockUpdateWithChildrenAndMentions = jest.fn()
 
 const mockFindByWorkspaceIdentifier = jest.fn()
 const mockFindByIdForMention = jest.fn()
+const mockFindEditable = jest.fn()
+const mockFindProjectIdInWorkspace = jest.fn()
 
 jest.mock('@/lib/repositories/document.repository', () => ({
   documentRepository: {
@@ -28,12 +30,20 @@ jest.mock('@/lib/repositories/document.repository', () => ({
     create: (...args: any[]) => mockCreate(...args),
     upsertEditor: (...args: any[]) => mockUpsertEditor(...args),
     findNodeWithChildren: jest.fn().mockResolvedValue(null),
+    findEditable: (...args: any[]) => mockFindEditable(...args),
     findMention: (...args: any[]) => mockFindMention(...args),
     addExplicitMention: (...args: any[]) => mockAddExplicitMention(...args),
     removeExplicitMention: (...args: any[]) =>
       mockRemoveExplicitMention(...args),
     updateWithChildrenAndMentions: (...args: any[]) =>
       mockUpdateWithChildrenAndMentions(...args),
+  },
+}))
+
+jest.mock('@/lib/repositories/project.repository', () => ({
+  projectRepository: {
+    findIdInWorkspace: (...args: any[]) =>
+      mockFindProjectIdInWorkspace(...args),
   },
 }))
 
@@ -1025,5 +1035,93 @@ describe('updateDocumentSchema — tagIds mutex', () => {
       removeTagIds: ['clid0000000000000000000002'],
     })
     expect(result.success).toBe(true)
+  })
+})
+
+// ── LUM-993: createDocument validates parentId / projectId ──────────────────
+
+describe('createDocument — parent and project must be the caller’s (LUM-993)', () => {
+  beforeEach(() => {
+    mockFindEditable.mockReset()
+    mockFindProjectIdInWorkspace.mockReset()
+    mockCreate.mockReset()
+    mockGetMaxSortOrder.mockReset().mockResolvedValue(0)
+    mockCreate.mockResolvedValue({
+      id: 'doc-new',
+      createdBy: { id: 'm-1', clerkId: 'clerk-1' },
+    })
+  })
+
+  it('a parent the member cannot edit in their workspace → 404, nothing created', async () => {
+    mockFindEditable.mockResolvedValue(null)
+    await expect(
+      documentService.createDocument('ws-1', 'm-1', {
+        title: 'Child',
+        visibility: 'WORKSPACE',
+        parentId: 'foreign-parent',
+      })
+    ).rejects.toMatchObject({
+      message: 'Not found or no permission',
+      status: 404,
+    })
+    expect(mockFindEditable).toHaveBeenCalledWith(
+      'foreign-parent',
+      'm-1',
+      'ws-1'
+    )
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('an editable parent is stored by its resolved id', async () => {
+    mockFindEditable.mockResolvedValue({ id: 'parent-cuid' })
+    await documentService.createDocument('ws-1', 'm-1', {
+      title: 'Child',
+      visibility: 'WORKSPACE',
+      parentId: 'parent-slug-7',
+    })
+    expect(mockGetMaxSortOrder).toHaveBeenCalledWith('ws-1', 'parent-cuid')
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 'parent-cuid', workspaceId: 'ws-1' })
+    )
+  })
+
+  it('a project outside the workspace → 404, nothing created', async () => {
+    mockFindProjectIdInWorkspace.mockResolvedValue(null)
+    await expect(
+      documentService.createDocument('ws-1', 'm-1', {
+        title: 'Doc',
+        visibility: 'WORKSPACE',
+        projectId: 'foreign-project',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mockFindProjectIdInWorkspace).toHaveBeenCalledWith(
+      'foreign-project',
+      'ws-1'
+    )
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('a project in the workspace is stored', async () => {
+    mockFindProjectIdInWorkspace.mockResolvedValue({ id: 'proj-1' })
+    await documentService.createDocument('ws-1', 'm-1', {
+      title: 'Doc',
+      visibility: 'WORKSPACE',
+      projectId: 'proj-1',
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 'proj-1' })
+    )
+  })
+
+  it('no parent / no project → no lookups (root create)', async () => {
+    await documentService.createDocument('ws-1', 'm-1', {
+      title: 'Root',
+      visibility: 'WORKSPACE',
+    })
+    expect(mockFindEditable).not.toHaveBeenCalled()
+    expect(mockFindProjectIdInWorkspace).not.toHaveBeenCalled()
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: null, projectId: null })
+    )
   })
 })

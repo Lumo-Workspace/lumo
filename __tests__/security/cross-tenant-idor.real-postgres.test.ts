@@ -117,6 +117,8 @@ import * as taskProgressRoute from '@/app/api/tasks/[id]/progress/route'
 import * as sessionRawRecordRoute from '@/app/api/sessions/[sessionId]/raw-record/route'
 import * as projectTasksRoute from '@/app/api/projects/[id]/tasks/route'
 import * as draftsRoute from '@/app/api/drafts/route'
+import * as documentsRoute from '@/app/api/documents/route'
+import * as documentTreeRoute from '@/app/api/documents/tree/route'
 import { getUserWorkspace } from '@/lib/auth'
 
 jest.setTimeout(240_000)
@@ -2395,4 +2397,318 @@ describe('LUM-990 document move: the target parent must be editable in the calle
       expect(await parentOf(top)).toEqual({ parentId: null, sortOrder: 0 })
     }
   )
+})
+
+// ── LUM-993: document create — parent and project must be the caller's ─────
+// `POST /api/documents` passed the body's `parentId` / `projectId` straight
+// to `documentService.createDocument`, which wrote them unchecked: an ALPHA
+// caller could hang a document under a BRAVO document (or file it in a BRAVO
+// project), and BRAVO's own child listings then surfaced it, because every
+// `children` include / `_count.children` filtered only `deletedAt`. The rules
+// now: the parent must pass the same `findEditable` check LUM-990 applies to a
+// move target, the project must be in the caller's workspace (either → generic
+// 404, nothing written), and every child listing is scoped by `workspaceId`.
+
+describe('LUM-993 document create: parent and project must be the caller’s', () => {
+  let docNumber = 9300
+  const ids: { alphaMemberId: string; privateParent: string } = {
+    alphaMemberId: '',
+    privateParent: '',
+  }
+
+  async function makeDoc(
+    workspaceId: string,
+    createdById: string,
+    label: string,
+    visibility: 'PRIVATE' | 'SHARED' | 'WORKSPACE' = 'WORKSPACE',
+    parentId: string | null = null
+  ) {
+    const n = docNumber++
+    const doc = await harness.prisma!.document.create({
+      data: {
+        workspaceId,
+        createdById,
+        number: n,
+        slug: `lum993-${label}-${n}`,
+        title: `lum993 ${label}`,
+        visibility,
+        parentId,
+      },
+    })
+    return doc.id
+  }
+
+  const create = (
+    body: Record<string, unknown>,
+    as: { caller: Caller; source: AuthSource }
+  ) => call(documentsRoute.POST, 'POST', '/api/documents', {}, as, body)
+
+  /** Every row (any workspace) with this title — i.e. what a create wrote. */
+  const rowsTitled = (title: string) =>
+    harness.prisma!.document.findMany({
+      where: { title },
+      select: { id: true, workspaceId: true, parentId: true, projectId: true },
+    })
+
+  /** Every document row pointing into BRAVO (as child or by project). */
+  async function bravoInbound() {
+    const db = harness.prisma!
+    const own = await db.document.findMany({
+      where: { workspaceId: B().workspaceId },
+      select: { id: true },
+    })
+    return db.document.findMany({
+      where: {
+        OR: [
+          { parentId: { in: own.map(d => d.id) } },
+          { projectId: B().projectId },
+        ],
+      },
+      select: { id: true, workspaceId: true, parentId: true, projectId: true },
+      orderBy: { id: 'asc' },
+    })
+  }
+
+  beforeAll(async () => {
+    // Fixture documents were seeded with hand-picked numbers; move each
+    // workspace's counter past them so API creates get a free number.
+    await harness.prisma!.workspace.updateMany({
+      where: { id: { in: [A().workspaceId, B().workspaceId] } },
+      data: { documentSeq: 20_000 },
+    })
+    const member = await harness.prisma!.workspaceMember.findFirstOrThrow({
+      where: { workspaceId: A().workspaceId, clerkId: CLERK.alphaMember },
+      select: { id: true },
+    })
+    ids.alphaMemberId = member.id
+    ids.privateParent = await makeDoc(
+      A().workspaceId,
+      A().ownerMemberId,
+      'alpha-private-parent',
+      'PRIVATE'
+    )
+  })
+
+  it.each(BOTH)(
+    'cross-tenant × %s: ALPHA creating under BRAVO’s doc → 404, nothing written',
+    async source => {
+      for (const parentId of [B().documentId]) {
+        const title = `lum993 under-bravo ${source} ${parentId}`
+        const inboundBefore = await bravoInbound()
+        const snapBefore = await snapshotProtected()
+
+        const res = await create(
+          { title, visibility: 'WORKSPACE', parentId },
+          { caller: 'alphaOwner', source }
+        )
+
+        expect(`${parentId} → ${res.status}`).toBe(`${parentId} → 404`)
+        expect(JSON.parse(res.text)).toEqual({
+          error: 'Not found or no permission',
+        })
+        expect(res.text).not.toContain(B().documentId)
+        expect(res.text).not.toContain(BRAVO_MARK)
+        expect(await rowsTitled(title)).toEqual([])
+        expect(await bravoInbound()).toEqual(inboundBefore)
+        expect(await snapshotProtected()).toEqual(snapBefore)
+      }
+    }
+  )
+
+  it.each(BOTH)(
+    'cross-tenant × %s: ALPHA creating in BRAVO’s project → 404, nothing written',
+    async source => {
+      const title = `lum993 in-bravo-project ${source}`
+      const inboundBefore = await bravoInbound()
+      const snapBefore = await snapshotProtected()
+
+      const res = await create(
+        { title, visibility: 'WORKSPACE', projectId: B().projectId },
+        { caller: 'alphaOwner', source }
+      )
+
+      expect(res.status).toBe(404)
+      expect(res.text).not.toContain(B().projectId)
+      expect(res.text).not.toContain(BRAVO_MARK)
+      expect(await rowsTitled(title)).toEqual([])
+      expect(await bravoInbound()).toEqual(inboundBefore)
+      expect(await snapshotProtected()).toEqual(snapBefore)
+    }
+  )
+
+  it.each(BOTH)(
+    'same workspace × %s: a member creating under a parent they cannot edit → 404, nothing written',
+    async source => {
+      const title = `lum993 under-private ${source}`
+      const res = await create(
+        { title, visibility: 'WORKSPACE', parentId: ids.privateParent },
+        { caller: 'alphaMember', source }
+      )
+      expect(res.status).toBe(404)
+      expect(JSON.parse(res.text)).toEqual({
+        error: 'Not found or no permission',
+      })
+      expect(await rowsTitled(title)).toEqual([])
+    }
+  )
+
+  it.each(BOTH)(
+    'control × %s: ALPHA creating at root, under its own doc, in its own project → 201',
+    async source => {
+      const root = await create(
+        { title: `lum993 ctl-root ${source}`, visibility: 'WORKSPACE' },
+        { caller: 'alphaOwner', source }
+      )
+      expect(root.status).toBe(201)
+      expect(await rowsTitled(`lum993 ctl-root ${source}`)).toEqual([
+        expect.objectContaining({
+          workspaceId: A().workspaceId,
+          parentId: null,
+          projectId: null,
+        }),
+      ])
+
+      for (const parentId of [A().documentId]) {
+        const title = `lum993 ctl-parent ${source} ${parentId}`
+        const res = await create(
+          { title, visibility: 'WORKSPACE', parentId },
+          { caller: 'alphaOwner', source }
+        )
+        expect(res.status).toBe(201)
+        expect(await rowsTitled(title)).toEqual([
+          expect.objectContaining({
+            workspaceId: A().workspaceId,
+            parentId: A().documentId,
+          }),
+        ])
+      }
+
+      const inProject = await create(
+        {
+          title: `lum993 ctl-project ${source}`,
+          visibility: 'WORKSPACE',
+          projectId: A().projectId,
+        },
+        { caller: 'alphaOwner', source }
+      )
+      expect(inProject.status).toBe(201)
+      expect(await rowsTitled(`lum993 ctl-project ${source}`)).toEqual([
+        expect.objectContaining({
+          workspaceId: A().workspaceId,
+          projectId: A().projectId,
+        }),
+      ])
+    }
+  )
+
+  describe('child listings never surface another workspace’s rows', () => {
+    const seeded: {
+      bravoParent: string
+      bravoChild: string
+      alphaIntruder: string
+    } = { bravoParent: '', bravoChild: '', alphaIntruder: '' }
+
+    beforeAll(async () => {
+      seeded.bravoParent = await makeDoc(
+        B().workspaceId,
+        B().ownerMemberId,
+        'bravo-listing-parent'
+      )
+      seeded.bravoChild = await makeDoc(
+        B().workspaceId,
+        B().ownerMemberId,
+        'bravo-listing-child',
+        'WORKSPACE',
+        seeded.bravoParent
+      )
+      // Bypass the API: an ALPHA row hung under BRAVO's doc, the shape a
+      // pre-fix create (or move) could have left behind in the database.
+      seeded.alphaIntruder = await makeDoc(
+        A().workspaceId,
+        A().ownerMemberId,
+        'alpha-intruder',
+        'WORKSPACE',
+        seeded.bravoParent
+      )
+    })
+
+    const asBravo = { caller: 'bravoOwner' as const, source: 'bearer' as const }
+
+    it('BRAVO’s document detail: children and _count exclude the ALPHA row', async () => {
+      const res = await call(
+        documentRoute.GET,
+        'GET',
+        '/x',
+        { id: seeded.bravoParent },
+        asBravo
+      )
+      expect(res.status).toBe(200)
+      const body = JSON.parse(res.text) as {
+        document: {
+          children: Array<{ id: string }>
+          _count: { children: number }
+        }
+      }
+      expect(body.document.children.map(c => c.id)).toEqual([seeded.bravoChild])
+      expect(body.document._count.children).toBe(1)
+      expect(res.text).not.toContain(seeded.alphaIntruder)
+      expect(res.text).not.toContain('alpha-intruder')
+    })
+
+    it('BRAVO’s child detail: the ancestor’s sibling list excludes the ALPHA row', async () => {
+      const res = await call(
+        documentRoute.GET,
+        'GET',
+        '/x',
+        { id: seeded.bravoChild },
+        asBravo
+      )
+      expect(res.status).toBe(200)
+      const body = JSON.parse(res.text) as {
+        ancestors: Array<{ id: string; children: Array<{ id: string }> }>
+      }
+      const parent = body.ancestors.find(a => a.id === seeded.bravoParent)
+      expect(parent?.children.map(c => c.id)).toEqual([seeded.bravoChild])
+      expect(res.text).not.toContain(seeded.alphaIntruder)
+    })
+
+    it('BRAVO’s document list: the parent’s _count excludes the ALPHA row', async () => {
+      const res = await call(
+        documentsRoute.GET,
+        'GET',
+        '/api/documents',
+        {},
+        asBravo
+      )
+      expect(res.status).toBe(200)
+      const body = JSON.parse(res.text) as {
+        documents: Array<{ id: string; _count: { children: number } }>
+      }
+      const parent = body.documents.find(d => d.id === seeded.bravoParent)
+      expect(parent?._count.children).toBe(1)
+      expect(res.text).not.toContain(seeded.alphaIntruder)
+    })
+
+    it('BRAVO’s sidebar tree: childCount excludes the ALPHA row', async () => {
+      const res = await call(
+        documentTreeRoute.GET,
+        'GET',
+        '/api/documents/tree',
+        {},
+        { caller: 'bravoOwner', source: 'clerk' }
+      )
+      expect(res.status).toBe(200)
+      const body = JSON.parse(res.text) as {
+        roots: Array<{
+          id: string
+          childCount: number
+          children?: Array<{ id: string }>
+        }>
+      }
+      const parent = body.roots.find(r => r.id === seeded.bravoParent)
+      expect(parent?.childCount).toBe(1)
+      expect(parent?.children?.map(c => c.id)).toEqual([seeded.bravoChild])
+      expect(res.text).not.toContain(seeded.alphaIntruder)
+    })
+  })
 })
