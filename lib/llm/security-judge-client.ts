@@ -27,6 +27,15 @@ import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 
+/*
+ * LUM-988: the `detail` and `findings` descriptions below still read
+ * security-only on purpose. They are the wording the LUM-975 replay measured;
+ * generalising them ("what goes wrong because of it", "Problems located in
+ * ADDED code") cost 2.5 points of precision at the same recall over 3 runs
+ * each (pooled F1 49.6 vs 51.7) — see
+ * scripts/analysis/lum988-code-review-replay/README.md. The system prompt is
+ * what defines the review's scope.
+ */
 export const SecurityJudgeSchema = z.object({
   findings: z
     .array(
@@ -43,16 +52,14 @@ export const SecurityJudgeSchema = z.object({
         detail: z
           .string()
           .describe(
-            'One or two sentences: what is wrong and what goes wrong because of it'
+            'One or two sentences: what is wrong and how it is exploited'
           ),
         evidence: z
           .string()
           .describe('ONE added line quoted verbatim (without the leading +)'),
       })
     )
-    .describe(
-      'Problems located in ADDED code only, most severe first. Empty only when nothing is wrong.'
-    ),
+    .describe('Security defects in ADDED code only. Empty if none.'),
   // LUM-849 — the PR summary comment's "what this PR does", from this same
   // call. Descriptive only: the safety verdict is the findings' job.
   prSummary: z.object({
