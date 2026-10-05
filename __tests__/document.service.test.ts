@@ -1113,6 +1113,20 @@ describe('createDocument — parent and project must be the caller’s (LUM-993)
     )
   })
 
+  it('an editable parent with a foreign project → 404, nothing created', async () => {
+    mockFindEditable.mockResolvedValue({ id: 'parent-cuid' })
+    mockFindProjectIdInWorkspace.mockResolvedValue(null)
+    await expect(
+      documentService.createDocument('ws-1', 'm-1', {
+        title: 'Child',
+        visibility: 'WORKSPACE',
+        parentId: 'parent-cuid',
+        projectId: 'foreign-project',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
   it('no parent / no project → no lookups (root create)', async () => {
     await documentService.createDocument('ws-1', 'm-1', {
       title: 'Root',

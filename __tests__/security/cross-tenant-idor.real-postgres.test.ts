@@ -2492,26 +2492,25 @@ describe('LUM-993 document create: parent and project must be the caller’s', (
   it.each(BOTH)(
     'cross-tenant × %s: ALPHA creating under BRAVO’s doc → 404, nothing written',
     async source => {
-      for (const parentId of [B().documentId]) {
-        const title = `lum993 under-bravo ${source} ${parentId}`
-        const inboundBefore = await bravoInbound()
-        const snapBefore = await snapshotProtected()
+      const parentId = B().documentId
+      const title = `lum993 under-bravo ${source}`
+      const inboundBefore = await bravoInbound()
+      const snapBefore = await snapshotProtected()
 
-        const res = await create(
-          { title, visibility: 'WORKSPACE', parentId },
-          { caller: 'alphaOwner', source }
-        )
+      const res = await create(
+        { title, visibility: 'WORKSPACE', parentId },
+        { caller: 'alphaOwner', source }
+      )
 
-        expect(`${parentId} → ${res.status}`).toBe(`${parentId} → 404`)
-        expect(JSON.parse(res.text)).toEqual({
-          error: 'Not found or no permission',
-        })
-        expect(res.text).not.toContain(B().documentId)
-        expect(res.text).not.toContain(BRAVO_MARK)
-        expect(await rowsTitled(title)).toEqual([])
-        expect(await bravoInbound()).toEqual(inboundBefore)
-        expect(await snapshotProtected()).toEqual(snapBefore)
-      }
+      expect(res.status).toBe(404)
+      expect(JSON.parse(res.text)).toEqual({
+        error: 'Not found or no permission',
+      })
+      expect(res.text).not.toContain(B().documentId)
+      expect(res.text).not.toContain(BRAVO_MARK)
+      expect(await rowsTitled(title)).toEqual([])
+      expect(await bravoInbound()).toEqual(inboundBefore)
+      expect(await snapshotProtected()).toEqual(snapBefore)
     }
   )
 
@@ -2568,20 +2567,18 @@ describe('LUM-993 document create: parent and project must be the caller’s', (
         }),
       ])
 
-      for (const parentId of [A().documentId]) {
-        const title = `lum993 ctl-parent ${source} ${parentId}`
-        const res = await create(
-          { title, visibility: 'WORKSPACE', parentId },
-          { caller: 'alphaOwner', source }
-        )
-        expect(res.status).toBe(201)
-        expect(await rowsTitled(title)).toEqual([
-          expect.objectContaining({
-            workspaceId: A().workspaceId,
-            parentId: A().documentId,
-          }),
-        ])
-      }
+      const title = `lum993 ctl-parent ${source}`
+      const res = await create(
+        { title, visibility: 'WORKSPACE', parentId: A().documentId },
+        { caller: 'alphaOwner', source }
+      )
+      expect(res.status).toBe(201)
+      expect(await rowsTitled(title)).toEqual([
+        expect.objectContaining({
+          workspaceId: A().workspaceId,
+          parentId: A().documentId,
+        }),
+      ])
 
       const inProject = await create(
         {
