@@ -3,6 +3,7 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encrypt } from '@/lib/crypto'
 import { decodeOauthState } from '@/lib/integrations/oauth-state'
 import { logger } from '@/lib/logger'
+import { memberAuditContext } from '@/lib/api/audit-context'
 import { githubService } from '@/lib/services/github.service'
 
 /**
@@ -99,14 +100,20 @@ export async function GET(request: NextRequest) {
     // Encrypt the access token before storing
     const encryptedToken = encrypt(rawToken)
 
-    await githubService.upsertIntegration({
-      workspaceId,
-      memberId,
-      accessToken: encryptedToken,
-      tokenType,
-      githubUserId,
-      githubLogin,
-    })
+    await githubService.upsertIntegration(
+      {
+        workspaceId,
+        memberId,
+        accessToken: encryptedToken,
+        tokenType,
+        githubUserId,
+        githubLogin,
+      },
+      memberAuditContext(request.headers, {
+        clerkId: authResult.userId,
+        memberId,
+      })
+    )
 
     return NextResponse.redirect(settingsUrl)
   } catch (error) {

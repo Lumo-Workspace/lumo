@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { memberAuditContext } from '@/lib/api/audit-context'
 import {
   decodeOauthState,
   completeOauthFlow,
@@ -40,11 +41,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await completeOauthFlow({
-      workspaceId: decoded.workspaceId,
-      memberId: decoded.memberId,
-      code,
-    })
+    await completeOauthFlow(
+      {
+        workspaceId: decoded.workspaceId,
+        memberId: decoded.memberId,
+        code,
+      },
+      memberAuditContext(request.headers, {
+        clerkId: authResult.userId,
+        memberId: ws.member.id,
+      })
+    )
   } catch (e) {
     const msg = (e as Error).message
     return NextResponse.redirect(

@@ -1,4 +1,5 @@
 import { encrypt, decrypt } from '@/lib/crypto'
+import { logger } from '@/lib/logger'
 import { DEFAULT_BUG_TAG_COLOR } from '@/lib/constants/colors'
 import { sentryRepository } from '@/lib/repositories/sentry.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
@@ -110,7 +111,8 @@ export const sentryService = {
   async createMapping(
     workspaceId: string,
     role: string,
-    data: { sentryProjectSlug: string; projectId: string }
+    data: { sentryProjectSlug: string; projectId: string },
+    audit?: AuditContext
   ) {
     if (role !== 'OWNER') {
       throw Object.assign(
@@ -141,14 +143,30 @@ export const sentryService = {
         status: 409,
       })
     }
-    return sentryRepository.createMapping({
+    const created = await sentryRepository.createMapping({
       integrationId: integration.id,
       sentryProjectSlug: data.sentryProjectSlug,
       projectId: data.projectId,
     })
+    await recordAuditEvent({
+      workspaceId,
+      action: 'sentry.mapping_created',
+      target: { type: 'sentry_mapping', id: created.id },
+      metadata: {
+        sentryProjectSlug: data.sentryProjectSlug,
+        projectId: data.projectId,
+      },
+      context: audit,
+    })
+    return created
   },
 
-  async deleteMapping(workspaceId: string, role: string, mappingId: string) {
+  async deleteMapping(
+    workspaceId: string,
+    role: string,
+    mappingId: string,
+    audit?: AuditContext
+  ) {
     if (role !== 'OWNER') {
       throw Object.assign(
         new Error('Only workspace owners can manage Sentry mappings'),
@@ -159,7 +177,14 @@ export const sentryService = {
     if (!mapping || mapping.integration.workspaceId !== workspaceId) {
       throw Object.assign(new Error('Not found'), { status: 404 })
     }
-    return sentryRepository.deleteMapping(mappingId)
+    const deleted = await sentryRepository.deleteMapping(mappingId)
+    await recordAuditEvent({
+      workspaceId,
+      action: 'sentry.mapping_deleted',
+      target: { type: 'sentry_mapping', id: mappingId },
+      context: audit,
+    })
+    return deleted
   },
 
   async _ensureBugTag(workspaceId: string): Promise<string> {
@@ -246,7 +271,7 @@ export const sentryService = {
     try {
       fields = extractIssueFields(payload)
     } catch (err) {
-      console.error('[sentry/webhook] payload parse error:', err)
+      logger.error('[sentry/webhook] payload parse error:', err)
       return { skipped: 'missing_issue_id' }
     }
 

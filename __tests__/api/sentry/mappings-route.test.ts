@@ -108,7 +108,11 @@ describe('DELETE /api/sentry/mappings/[id]', () => {
     expect(sentryService.deleteMapping).toHaveBeenCalledWith(
       'ws1',
       'OWNER',
-      'm1'
+      'm1',
+      expect.objectContaining({
+        actor: { type: 'MEMBER', clerkId: 'user1', memberId: 'mem1' },
+        source: 'WEB',
+      })
     )
   })
 })

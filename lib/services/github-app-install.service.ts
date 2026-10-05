@@ -1,6 +1,8 @@
 import { logger } from '@/lib/logger'
 import {
   recordAuditEvent,
+  SYSTEM_AUDIT_CONTEXT,
+  WEBHOOK_AUDIT_CONTEXT,
   type AuditContext,
 } from '@/lib/services/audit.service'
 import { githubService } from '@/lib/services/github.service'
@@ -181,7 +183,11 @@ async function unbindWithScrub(
  */
 export async function removeInstallation(
   installationId: number,
-  reason: string
+  reason: string,
+  audit: { kind: 'deleted' | 'suspend'; context: AuditContext } = {
+    kind: 'deleted',
+    context: SYSTEM_AUDIT_CONTEXT,
+  }
 ): Promise<{ removed: number; failed: number }> {
   const owners =
     await githubAppInstallationRepository.findAllByInstallationId(
@@ -193,6 +199,19 @@ export async function removeInstallation(
     try {
       await unbindWithScrub(owner.workspaceId, reason, installationId)
       removed++
+      // LUM-907: nobody in the workspace did this — GitHub told us (webhook)
+      // or the daily recheck found it (SYSTEM). Recorded per workspace, only
+      // once the unbind went through.
+      await recordAuditEvent({
+        workspaceId: owner.workspaceId,
+        action:
+          audit.kind === 'suspend'
+            ? 'github_app.suspended'
+            : 'github_app.uninstalled',
+        target: { type: 'integration', id: 'github' },
+        metadata: { installationId, reason },
+        context: audit.context,
+      })
     } catch (error) {
       failed++
       logger.error(
@@ -765,7 +784,8 @@ export const githubAppInstallService = {
           installationId,
           payload.action === 'deleted'
             ? 'uninstalled on GitHub'
-            : 'suspended on GitHub'
+            : 'suspended on GitHub',
+          { kind: payload.action, context: WEBHOOK_AUDIT_CONTEXT }
         )
         throwIfAnyFailed(installationId, failed)
         return

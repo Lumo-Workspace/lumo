@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.93.0",
+  "cliVersion": "1.94.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -86,10 +86,19 @@
             "data_export",
             "session",
             "task_template",
-            "integration"
+            "integration",
+            "api_key",
+            "document",
+            "task",
+            "boundary_crossing",
+            "suppression_rule",
+            "security_finding",
+            "test_case_run",
+            "sentry_mapping",
+            "audit_log"
           ],
           "enumCaseInsensitive": true,
-          "description": "workspace | member | invite | data_export | session | task_template | integration (case-insensitive)"
+          "description": "workspace | member | invite | data_export | session | task_template | integration | api_key | document | task | boundary_crossing | suppression_rule | security_finding | test_case_run | sentry_mapping | audit_log (case-insensitive)"
         },
         "--until": {
           "long": "--until",

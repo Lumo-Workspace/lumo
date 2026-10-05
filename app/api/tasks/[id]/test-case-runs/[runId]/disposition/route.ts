@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { testCaseDefectDispositionService } from '@/lib/services/test-case-defect-disposition.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 import { disposeDefectBodySchema } from '@/lib/validation/test-case'
 import { zodError } from '@/lib/api/helpers'
 
@@ -52,6 +53,14 @@ export async function POST(request: NextRequest, { params }: Params) {
       },
       channel: identity.source === 'bearer' ? 'CLI' : 'WEB',
       receipt: parsed.data.receipt,
+      audit: {
+        workspaceId: identity.workspaceId,
+        context: memberAuditContext(
+          request.headers,
+          { clerkId: identity.clerkId, memberId: identity.memberId },
+          identity.source
+        ),
+      },
     })
     return NextResponse.json(row, { status: 201 })
   } catch (error) {

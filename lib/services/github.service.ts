@@ -6,6 +6,10 @@ import type {
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
+import {
   parseBranchIdentifier,
   splitIdentifier,
 } from '@/lib/integrations/github/branch'
@@ -56,13 +60,32 @@ export const githubService = {
   },
 
   /** Upsert integration from OAuth callback data. */
-  async upsertIntegration(data: UpsertIntegrationData) {
-    return githubRepository.upsertIntegration(data)
+  async upsertIntegration(data: UpsertIntegrationData, audit?: AuditContext) {
+    const row = await githubRepository.upsertIntegration(data)
+    // The GitHub login is not copied into the audit log; the id is enough.
+    await recordAuditEvent({
+      workspaceId: data.workspaceId,
+      action: 'github_oauth.connected',
+      target: { type: 'integration', id: 'github_oauth' },
+      metadata: { githubUserId: data.githubUserId },
+      context: audit,
+    })
+    return row
   },
 
-  /** Delete integration by id. */
-  async deleteIntegration(id: string) {
-    return githubRepository.deleteIntegration(id)
+  /** Delete a member's integration (its webhook rows cascade). */
+  async deleteIntegration(
+    integration: { id: string; workspaceId: string },
+    audit?: AuditContext
+  ) {
+    const deleted = await githubRepository.deleteIntegration(integration.id)
+    await recordAuditEvent({
+      workspaceId: integration.workspaceId,
+      action: 'github_oauth.disconnected',
+      target: { type: 'integration', id: 'github_oauth' },
+      context: audit,
+    })
+    return deleted
   },
 
   // ── Webhooks ────────────────────────────────────────────────────────────

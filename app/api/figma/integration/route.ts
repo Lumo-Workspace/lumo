@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { memberAuditContext } from '@/lib/api/audit-context'
 import { figmaIntegrationRepository } from '@/lib/repositories/figma-integration.repository'
 import { disconnectIntegration } from '@/lib/services/figma-integration.service'
 
@@ -20,7 +21,7 @@ async function resolveWorkspaceAndMember(request: NextRequest) {
   if (!ws || ws.workspace.slug !== workspaceUrl) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
-  return { ws }
+  return { ws, userId }
 }
 
 export async function GET(request: NextRequest) {
@@ -42,6 +43,13 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const r = await resolveWorkspaceAndMember(request)
   if (r.error) return r.error
-  await disconnectIntegration(r.ws!.workspaceId, r.ws!.member.id)
+  await disconnectIntegration(
+    r.ws!.workspaceId,
+    r.ws!.member.id,
+    memberAuditContext(request.headers, {
+      clerkId: r.userId,
+      memberId: r.ws!.member.id,
+    })
+  )
   return NextResponse.json({ ok: true })
 }

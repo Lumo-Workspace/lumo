@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { resolveProjectRef, zodError } from '@/lib/api/helpers'
 import { updateDocumentSchema } from '@/lib/validation/schemas'
 import { documentService, type UpdateDocumentInput } from '@/lib/services'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function GET(
   request: NextRequest,
@@ -104,7 +105,14 @@ export async function PATCH(
       id,
       identity.memberId,
       identity.workspaceId,
-      data
+      data,
+      {
+        audit: memberAuditContext(
+          request.headers,
+          { clerkId: identity.clerkId, memberId: identity.memberId },
+          identity.source
+        ),
+      }
     )
     return NextResponse.json({ document })
   } catch (error) {

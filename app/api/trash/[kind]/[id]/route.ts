@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { trashKindSchema } from '@/lib/validation/schemas'
 import { trashService } from '@/lib/services'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 type Params = { params: Promise<{ kind: string; id: string }> }
 
@@ -25,7 +26,12 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       parsedKind.data,
       id,
       identity.workspaceId,
-      identity.memberId
+      identity.memberId,
+      memberAuditContext(
+        request.headers,
+        { clerkId: identity.clerkId, memberId: identity.memberId },
+        identity.source
+      )
     )
     return NextResponse.json({ deleted })
   } catch (error) {

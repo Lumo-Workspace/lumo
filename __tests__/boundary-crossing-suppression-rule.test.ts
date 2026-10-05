@@ -20,6 +20,11 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
+const mockAudit = jest.fn()
+jest.mock('@/lib/services/audit.service', () => ({
+  ...jest.requireActual('@/lib/services/audit.service'),
+  recordAuditEvent: (...a: unknown[]) => mockAudit(...a),
+}))
 jest.mock('@/lib/api/resolve-task-param', () => ({
   resolveTaskParam: jest.fn(),
 }))
@@ -299,5 +304,68 @@ describe('revoking a rule is human-only and soft', () => {
     const res = await DELETE(req().request, delParams('rule-9'))
     expect(res.status).toBe(404)
     expect(ruleRevoke).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-907 crossing rulings are audited', () => {
+  const ctx = expect.objectContaining({
+    actor: { type: 'MEMBER', clerkId: 'clerk-1', memberId: 'member-1' },
+    source: 'WEB',
+  })
+
+  it('crossing audit: a web ruling with a repository rule records the transition and the rule', async () => {
+    findWithProject.mockResolvedValue({ id: 't-1', projectId: 'p-1' })
+    ruleCreate.mockResolvedValue({ id: 'rule-1', suppressedCount: 2, capped: false })
+    const { request } = req({
+      crossingId: 'bc-1',
+      disposition: 'FALSE_POSITIVE',
+      dispositionNote: 'secret-note',
+      suppressSimilarInProject: true,
+    })
+    expect((await POST(request, postParams)).status).toBe(200)
+    expect(mockAudit).toHaveBeenCalledTimes(1)
+    expect(mockAudit).toHaveBeenCalledWith({
+      workspaceId: 'w-1',
+      action: 'boundary_crossing.dispositioned',
+      target: { type: 'boundary_crossing', id: 'bc-1' },
+      metadata: {
+        taskId: 't-1',
+        category: 'PROJECT_RULE_VIOLATION',
+        from: null,
+        to: 'FALSE_POSITIVE',
+        channel: 'WEB',
+        suppressionRuleId: 'rule-1',
+        retroactivelySuppressed: 2,
+      },
+      context: ctx,
+    })
+    // Neither the note nor the crossing detail goes into the audit log.
+    const recorded = JSON.stringify(mockAudit.mock.calls)
+    expect(recorded).not.toContain('secret-note')
+    expect(recorded).not.toContain('gh pr create')
+  })
+
+  it('crossing audit: re-ruling the same value without a rule records nothing', async () => {
+    findById.mockResolvedValue(crossing({ disposition: 'CONFIRMED' }))
+    const { request } = req({ crossingId: 'bc-1', disposition: 'CONFIRMED' })
+    expect((await POST(request, postParams)).status).toBe(200)
+    expect(mockAudit).not.toHaveBeenCalled()
+  })
+
+  it('crossing audit: revoking a rule records it; an idempotent re-revoke does not', async () => {
+    ruleFindById.mockResolvedValue({ id: 'rule-1', projectId: 'p-1', revokedAt: null })
+    ruleRevoke.mockResolvedValue({ reopenedCount: 3 })
+    expect((await DELETE(req().request, delParams())).status).toBe(200)
+    expect(mockAudit).toHaveBeenCalledWith({
+      workspaceId: 'w-1',
+      action: 'boundary_crossing.suppression_rule_revoked',
+      target: { type: 'suppression_rule', id: 'rule-1' },
+      metadata: { taskId: 't-1', projectId: 'p-1', reopenedCount: 3 },
+      context: ctx,
+    })
+    mockAudit.mockClear()
+    ruleFindById.mockResolvedValue({ id: 'rule-1', projectId: 'p-1', revokedAt: new Date() })
+    expect((await DELETE(req().request, delParams())).status).toBe(200)
+    expect(mockAudit).not.toHaveBeenCalled()
   })
 })

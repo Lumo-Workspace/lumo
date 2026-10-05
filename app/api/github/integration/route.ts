@@ -4,6 +4,8 @@ import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
 import { deleteRepoWebhook } from '@/lib/integrations/github'
 import { githubService } from '@/lib/services/github.service'
+import { logger } from '@/lib/logger'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/github/integration?workspaceUrl={slug}
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(status)
   } catch (error) {
-    console.error('GET /api/github/integration error:', error)
+    logger.error('GET /api/github/integration error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -65,19 +67,25 @@ export async function DELETE(request: NextRequest) {
         try {
           await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
         } catch (err) {
-          console.error(
+          logger.error(
             `[github] failed to delete webhook ${hook.repo}#${hook.githubHookId}:`,
             err
           )
         }
       }
       // Cascade delete handles GitHubWebhook records
-      await githubService.deleteIntegration(integration.id)
+      await githubService.deleteIntegration(
+        { id: integration.id, workspaceId: ws.workspaceId },
+        memberAuditContext(request.headers, {
+          clerkId: userId,
+          memberId: ws.member.id,
+        })
+      )
     }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error('DELETE /api/github/integration error:', error)
+    logger.error('DELETE /api/github/integration error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

@@ -1,4 +1,8 @@
 import { encrypt, decrypt } from '@/lib/crypto'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 import { googleDriveIntegrationRepository } from '@/lib/repositories/google-drive-integration.repository'
 import {
   exchangeCode,
@@ -58,11 +62,14 @@ async function fetchGoogleUser(accessToken: string): Promise<GoogleUserInfo> {
   return (await res.json()) as GoogleUserInfo
 }
 
-export async function completeOauthFlow(input: {
-  workspaceId: string
-  memberId: string
-  code: string
-}): Promise<void> {
+export async function completeOauthFlow(
+  input: {
+    workspaceId: string
+    memberId: string
+    code: string
+  },
+  audit?: AuditContext
+): Promise<void> {
   const tokens = await exchangeCode(input.code)
   if (!tokens.refresh_token) {
     // Without a refresh token the owner-sync model can't work later.
@@ -81,13 +88,30 @@ export async function completeOauthFlow(input: {
     googleEmail: user.email ?? null,
     scopes: [...GOOGLE_DRIVE_OAUTH_SCOPES],
   })
+  // The external account's handle / email are not copied into the audit log.
+  await recordAuditEvent({
+    workspaceId: input.workspaceId,
+    action: 'google_drive.connected',
+    target: { type: 'integration', id: 'google_drive' },
+    metadata: { scopes: [...GOOGLE_DRIVE_OAUTH_SCOPES] },
+    context: audit,
+  })
 }
 
 export async function disconnectIntegration(
   workspaceId: string,
-  memberId: string
+  memberId: string,
+  audit?: AuditContext
 ): Promise<void> {
   await googleDriveIntegrationRepository.delete(workspaceId, memberId)
+  // Every disconnect request is recorded — the delete is idempotent, so the
+  // row may already have been gone (LUM-907 PR3 ruling).
+  await recordAuditEvent({
+    workspaceId,
+    action: 'google_drive.disconnected',
+    target: { type: 'integration', id: 'google_drive' },
+    context: audit,
+  })
 }
 
 export async function getStatus(

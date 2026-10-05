@@ -117,7 +117,11 @@ describe('LUM-907 audit events routes', () => {
     expect(await res.text()).toBe('"created_at"\r\n')
     expect(mockExport).toHaveBeenCalledWith(
       { workspaceId: 'ws_mine', memberId: 'm_owner', clerkId: 'user_owner' },
-      { actor: 'me', until: '2026-10-04' }
+      { actor: 'me', until: '2026-10-04' },
+      expect.any(Date),
+      expect.objectContaining({
+        actor: { type: 'MEMBER', clerkId: 'user_owner', memberId: 'm_owner' },
+      })
     )
   })
 })

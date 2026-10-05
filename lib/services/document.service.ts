@@ -35,6 +35,10 @@ import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { waitUntil } from '@vercel/functions'
 import { DocMentionSource } from '@prisma/client'
 import { logger } from '@/lib/logger'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -518,6 +522,8 @@ export const documentService = {
        * markdown-double-write / null-on-HTML behaviour untouched.
        */
       restoreSourceMarkdown?: string | null
+      /** LUM-907: who changed visibility / the public link, and from where. */
+      audit?: AuditContext
     } = {}
   ) {
     const doc = await documentRepository.findWithPermission(
@@ -685,6 +691,38 @@ export const documentService = {
         )
       }
       throw err
+    }
+
+    // LUM-907: who can read the document is audited after the write commits —
+    // the visibility transition and the public link being turned on, off or
+    // rotated. The public token itself never goes into the audit log.
+    const before = doc as { visibility: string; publicToken: string | null }
+    if (
+      data.visibility !== undefined &&
+      data.visibility !== before.visibility
+    ) {
+      await recordAuditEvent({
+        workspaceId,
+        action: 'document.visibility_changed',
+        target: { type: 'document', id: docId },
+        metadata: { from: before.visibility, to: data.visibility },
+        context: options.audit,
+      })
+    }
+    const nextToken = data.publicToken ?? null
+    if (
+      data.publicToken !== undefined &&
+      nextToken !== (before.publicToken ?? null)
+    ) {
+      await recordAuditEvent({
+        workspaceId,
+        action: nextToken
+          ? 'document.public_link_enabled'
+          : 'document.public_link_disabled',
+        target: { type: 'document', id: docId },
+        metadata: { rotated: Boolean(nextToken && before.publicToken) },
+        context: options.audit,
+      })
     }
 
     // Track editor if content was updated

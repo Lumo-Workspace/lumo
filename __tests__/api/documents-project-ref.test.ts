@@ -150,7 +150,8 @@ describe('PATCH /api/documents/[id] — projectRef resolution', () => {
       'doc_1',
       'member_1',
       'ws_1',
-      expect.objectContaining({ projectId: 'proj_1' })
+      expect.objectContaining({ projectId: 'proj_1' }),
+      { audit: expect.objectContaining({ source: 'CLI' }) }
     )
   })
 
@@ -161,7 +162,8 @@ describe('PATCH /api/documents/[id] — projectRef resolution', () => {
       'doc_1',
       'member_1',
       'ws_1',
-      expect.objectContaining({ projectId: null })
+      expect.objectContaining({ projectId: null }),
+      { audit: expect.objectContaining({ source: 'CLI' }) }
     )
     expect(mockFindProjects).not.toHaveBeenCalled()
   })
@@ -187,7 +189,8 @@ describe('PATCH /api/documents/[id] — projectRef resolution', () => {
       'doc_1',
       'member_1',
       'ws_1',
-      expect.objectContaining({ projectId: 'cmosi2sql000004lboufz7wex' })
+      expect.objectContaining({ projectId: 'cmosi2sql000004lboufz7wex' }),
+      { audit: expect.objectContaining({ source: 'CLI' }) }
     )
     expect(mockFindProjects).not.toHaveBeenCalled()
   })

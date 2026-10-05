@@ -696,7 +696,8 @@ describe('LUM-902 — an installation GitHub no longer has', () => {
     expect(remove.mock.calls.map(c => c[0])).toEqual([42, 44])
     expect(remove).toHaveBeenCalledWith(
       42,
-      'uninstalled on GitHub (automatic recheck)'
+      'uninstalled on GitHub (automatic recheck)',
+      { kind: 'deleted', context: { actor: { type: 'SYSTEM' }, source: 'SYSTEM' } }
     )
     expect(summary.uninstalled).toBe(2)
     expect(summary.held).toEqual([])
