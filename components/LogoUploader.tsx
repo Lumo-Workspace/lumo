@@ -126,23 +126,21 @@ export function LogoUploader({
           const formData = new FormData()
           formData.append('file', blob, 'logo.jpg')
           const res = await upload(formData)
-          const data = await res.json()
-          if (!res.ok)
-            throw new Error(
-              data.error ??
-                intl.formatMessage({ id: 'logoUploader.uploadFailed' })
-            )
-          onUpload(data.logoUrl as string)
+          // The server's error text is English (or a bare "Internal Server
+          // Error") — never shown; the toast is always our localized copy.
+          if (!res.ok) {
+            toast.error(intl.formatMessage({ id: 'logoUploader.uploadFailed' }))
+            return
+          }
+          const data = (await res.json()) as { logoUrl: string }
+          onUpload(data.logoUrl)
           setDialogOpen(false)
           URL.revokeObjectURL(srcUrl)
           setSrcUrl(null)
           toast.success(intl.formatMessage({ id: 'logoUploader.success' }))
-        } catch (err) {
-          toast.error(
-            err instanceof Error
-              ? err.message
-              : intl.formatMessage({ id: 'logoUploader.uploadRetry' })
-          )
+        } catch {
+          // Network failure or an unreadable response.
+          toast.error(intl.formatMessage({ id: 'logoUploader.uploadRetry' }))
         } finally {
           setUploading(false)
         }
