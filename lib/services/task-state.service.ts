@@ -70,16 +70,21 @@ async function assertDoneGateClear(
  * Concurrent patches that re-assert the same value no longer emit no-op
  * activity entries.
  *
+ * `workspaceId` is the caller's (already authorized) workspace: the task is
+ * loaded and written only inside it, so another workspace's task id reads as
+ * missing (LUM-992).
+ *
  * Throws with `{ status, message }`: 404 missing task, 400 invalid input,
  * 409 invalid status transition.
  */
 export async function updateTask(
   taskId: string,
+  workspaceId: string,
   input: UpdateTaskInput,
   actorId?: string | null,
   opts?: UpdateTaskOptions
 ): Promise<TaskUpdateResult> {
-  const task = await taskRepository.findForUpdate(taskId)
+  const task = await taskRepository.findForUpdate(taskId, workspaceId)
   if (!task) {
     throw Object.assign(new Error('Task not found'), { status: 404 })
   }
@@ -122,10 +127,15 @@ export async function updateTask(
     }
   }
 
-  // Validate project
+  // Validate project: a task never moves to another workspace's project
+  // (LUM-992 — Task.workspaceId stays equal to its project's; the DB trigger
+  // backs this up).
   if (projectId !== undefined) {
-    const newProject = await projectRepository.findByIdSimple(projectId)
-    if (!newProject || newProject.workspaceId !== task.project.workspaceId) {
+    const newProject = await projectRepository.findIdInWorkspace(
+      projectId,
+      workspaceId
+    )
+    if (!newProject) {
       throw Object.assign(new Error('Project not found in this workspace'), {
         status: 400,
       })
@@ -228,7 +238,7 @@ export async function updateTask(
     }
   }
 
-  const updated = await taskRepository.update(taskId, data)
+  const updated = await taskRepository.update(taskId, workspaceId, data)
 
   // Only fetch tags when the request actually touched tag fields —
   // mirrors the same gate applied in updateDocument (T7 fix).
@@ -324,7 +334,13 @@ export async function updateTaskWithSideEffects(
    */
   opts?: UpdateTaskOptions
 ): Promise<TaskUpdateResult> {
-  const result = await updateTask(taskId, input, actorId, opts)
+  const result = await updateTask(
+    taskId,
+    taskCheck.project.workspaceId,
+    input,
+    actorId,
+    opts
+  )
 
   dispatchUpdateTaskSideEffects({
     taskId,
@@ -461,15 +477,16 @@ export async function updateTaskWithSideEffects(
  */
 export async function reopen(
   taskId: string,
+  workspaceId: string,
   opts: { reason: 'sentry_regression'; actorId: string | null }
 ) {
-  const task = await taskRepository.findForUpdate(taskId)
+  const task = await taskRepository.findForUpdate(taskId, workspaceId)
   if (!task) {
     throw Object.assign(new Error('Task not found'), { status: 404 })
   }
   if (task.status !== 'DONE') return
 
-  await taskRepository.update(taskId, { status: 'TODO' })
+  await taskRepository.update(taskId, workspaceId, { status: 'TODO' })
   await activityRepository.create({
     taskId,
     type: 'SENTRY_ALERT',

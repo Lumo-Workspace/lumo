@@ -143,7 +143,9 @@ describe('LUM-435 disposition clears the DONE gate', () => {
     // --- CONFIRMED with NO note ---------------------------------------------
     seedOpenCrossing()
     // Open crossing blocks DONE.
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
 
@@ -158,15 +160,20 @@ describe('LUM-435 disposition clears the DONE gate', () => {
     expect(confirmed).toEqual({ crossingId: 'bc-1', disposition: 'CONFIRMED' })
 
     // Now the gate is cleared — DONE flows through.
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
+      'w-1',
       expect.objectContaining({ status: 'DONE' })
     )
 
     // --- FALSE_POSITIVE also clears -----------------------------------------
     seedOpenCrossing()
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
     await boundaryCrossingService.disposition(
@@ -176,6 +183,8 @@ describe('LUM-435 disposition clears the DONE gate', () => {
       null,
       ATTRIB
     )
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
   })
 })

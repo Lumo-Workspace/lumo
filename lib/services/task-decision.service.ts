@@ -26,7 +26,10 @@ async function appendToTask(args: {
       status: 404,
     })
   }
-  const current = await taskRepository.findDescription(resolved.id)
+  const current = await taskRepository.findDescription(
+    resolved.id,
+    args.workspaceId
+  )
   const description = appendDecision(current?.description ?? null, args.text)
   return taskCliService.updateFromCli({
     workspaceId: args.workspaceId,

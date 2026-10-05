@@ -130,9 +130,12 @@ function defectRun(over: { disposition?: unknown } = {}) {
 
 describe('DONE gate — a clean task (LUM-942: no acceptance-criteria plane)', () => {
   it('transitions freely when no plane has a blocker', async () => {
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
+      'w-1',
       expect.objectContaining({ status: 'DONE' })
     )
   })
@@ -145,7 +148,7 @@ describe('DONE gate — a clean task (LUM-942: no acceptance-criteria plane)', (
       teamId: 'team-1',
     })
     await expect(
-      updateTask('t-1', { status: 'IN_REVIEW' })
+      updateTask('t-1', 'w-1', { status: 'IN_REVIEW' })
     ).resolves.toBeDefined()
     expect(findSecurityPrs).not.toHaveBeenCalled()
   })
@@ -197,7 +200,9 @@ describe('LUM-732 DONE gate — PR security findings (end-to-end through updateT
       },
     ])
 
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
       message: expect.stringContaining('security finding'),
     })
@@ -250,7 +255,9 @@ describe('LUM-732 DONE gate — PR security findings (end-to-end through updateT
     ])
 
     await expect(
-      updateTask('t-1', { status: 'DONE' }, null, { overrideDoneGate: true })
+      updateTask('t-1', 'w-1', { status: 'DONE' }, null, {
+        overrideDoneGate: true,
+      })
     ).resolves.toBeDefined()
     expect(update).toHaveBeenCalled()
     // Overridden → the gate short-circuits before ever consulting the scan
@@ -263,17 +270,19 @@ describe('LUM-812 DONE gate — a proven test-case defect (end-to-end through up
   it('a proven defect run blocks the DONE transition and names the case', async () => {
     defectRun()
 
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
     expect(update).not.toHaveBeenCalled()
 
     // 文案得点名是哪条用例，否则读的人还得自己去翻 run 历史。
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toThrow(
+    await expect(updateTask('t-1', 'w-1', { status: 'DONE' })).rejects.toThrow(
       /TC9 "Footer keeps the nav row"/
     )
     // 并且说清楚清闸的办法是人裁定一次，不是「先把 bug 修好」。
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toThrow(
+    await expect(updateTask('t-1', 'w-1', { status: 'DONE' })).rejects.toThrow(
       /Fixing the defect first is not required/
     )
   })
@@ -290,7 +299,9 @@ describe('LUM-812 DONE gate — a proven test-case defect (end-to-end through up
       },
     })
 
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
     expect(update).toHaveBeenCalled()
   })
 
@@ -316,6 +327,8 @@ describe('LUM-812 DONE gate — a proven test-case defect (end-to-end through up
       ])
     )
 
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
   })
 })

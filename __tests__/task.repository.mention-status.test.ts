@@ -31,7 +31,7 @@ describe('taskRepository.findManyForMentionStatus', () => {
     expect(rows).toHaveLength(1)
     expect(mockTaskFindMany).toHaveBeenCalledWith({
       where: {
-        project: { workspaceId: 'ws-1' },
+        workspaceId: 'ws-1',
         OR: [
           { number: 1, team: { identifier: 'LUM' } },
           { number: 42, team: { identifier: 'ENG' } },

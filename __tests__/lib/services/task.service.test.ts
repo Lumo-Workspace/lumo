@@ -87,7 +87,7 @@ describe('taskService.updateTask', () => {
     mockFindForUpdate.mockResolvedValue(null)
 
     await expect(
-      taskService.updateTask('nonexistent', { title: 'New' })
+      taskService.updateTask('nonexistent', 'ws-1', { title: 'New' })
     ).rejects.toMatchObject({ message: 'Task not found', status: 404 })
   })
 
@@ -101,7 +101,7 @@ describe('taskService.updateTask', () => {
     mockIsValidTransition.mockReturnValue(false)
 
     await expect(
-      taskService.updateTask('task-1', { status: 'IN_REVIEW' })
+      taskService.updateTask('task-1', 'ws-1', { status: 'IN_REVIEW' })
     ).rejects.toMatchObject({ status: 409 })
   })
 
@@ -122,7 +122,7 @@ describe('taskService.updateTask', () => {
       team: { identifier: 'LUM' },
     })
 
-    const result = await taskService.updateTask('task-1', {
+    const result = await taskService.updateTask('task-1', 'ws-1', {
       title: 'Updated',
       status: 'IN_PROGRESS',
     })

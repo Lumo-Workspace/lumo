@@ -138,6 +138,7 @@ async function seedClaimTask(
     data: {
       id,
       projectId: `${ws}_project`,
+      workspaceId: ws,
       teamId: `${ws}_team`,
       number: ++taskNumber,
       title: id,
@@ -284,6 +285,7 @@ describe('claim snapshot with AI-derived content off (LUM-917)', () => {
         data: {
           id: `${ws}_task`,
           projectId: `${ws}_project`,
+          workspaceId: ws,
           teamId: `${ws}_team`,
           number: 1,
           title: 'claim',
@@ -542,6 +544,7 @@ describe('AI-derived content delete (LUM-917)', () => {
       data: {
         id: 't_switch',
         projectId: `${OTHER}_project`,
+        workspaceId: OTHER,
         teamId: `${OTHER}_team`,
         number: 1,
         title: 't_switch',

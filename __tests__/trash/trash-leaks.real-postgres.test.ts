@@ -63,6 +63,7 @@ async function seed() {
         number,
         title: `Task ${id}`,
         projectId: 'proj_leak',
+        workspaceId: WS,
         teamId: 'team_leak',
         milestoneId: 'ms_leak',
         deletedAt,

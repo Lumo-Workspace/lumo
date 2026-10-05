@@ -65,6 +65,7 @@ async function seed() {
         number,
         title: id,
         projectId: 'proj_x',
+        workspaceId: WS,
         teamId: 'team_x',
         deletedAt,
       },

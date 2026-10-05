@@ -50,7 +50,7 @@ describe('taskService.reopen', () => {
   it('throws 404 if task not found', async () => {
     ;(taskRepository.findForUpdate as jest.Mock).mockResolvedValue(null)
     await expect(
-      taskService.reopen('missing', {
+      taskService.reopen('missing', 'ws-1', {
         reason: 'sentry_regression',
         actorId: null,
       })
@@ -68,13 +68,14 @@ describe('taskService.reopen', () => {
       status: 'TODO',
     })
 
-    await taskService.reopen('t1', {
+    await taskService.reopen('t1', 'ws-1', {
       reason: 'sentry_regression',
       actorId: null,
     })
 
     expect(taskRepository.update).toHaveBeenCalledWith(
       't1',
+      'ws-1',
       expect.objectContaining({ status: 'TODO' })
     )
     expect(activityRepository.create).toHaveBeenCalledWith(
@@ -97,7 +98,7 @@ describe('taskService.reopen', () => {
       projectId: 'p1',
     })
 
-    await taskService.reopen('t1', {
+    await taskService.reopen('t1', 'ws-1', {
       reason: 'sentry_regression',
       actorId: null,
     })

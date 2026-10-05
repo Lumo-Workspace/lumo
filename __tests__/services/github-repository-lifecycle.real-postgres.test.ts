@@ -103,6 +103,7 @@ async function seedWorkspace(
       number: 1,
       title: 'Task',
       projectId: `${ws}_project`,
+      workspaceId: ws,
       teamId: `${ws}_team`,
     },
   })

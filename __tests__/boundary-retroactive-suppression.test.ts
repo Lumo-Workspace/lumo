@@ -297,14 +297,16 @@ describe('LUM-759 — creating a rule disposes the project backlog too', () => {
 
   it('a task whose only blocking crossing was swept can transition to DONE', async () => {
     store.push(crossing('bc-1'))
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toThrow()
+    await expect(updateTask('t-1', 'w-1', { status: 'DONE' })).rejects.toThrow()
 
     await createRule()
 
     expect(
       await boundaryCrossingRepository.findUndispositionedByTask('t-1')
     ).toHaveLength(0)
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
   })
 
   it('with nothing to sweep the rule is still created and reports zero', async () => {

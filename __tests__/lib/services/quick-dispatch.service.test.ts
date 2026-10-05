@@ -89,7 +89,10 @@ describe('quickDispatchService.executeActions update actions', () => {
     )
 
     expect(findManyForUpdateMock).toHaveBeenCalledTimes(1)
-    expect(findManyForUpdateMock).toHaveBeenCalledWith(['tsk-1', 'tsk-2'])
+    expect(findManyForUpdateMock).toHaveBeenCalledWith(
+      ['tsk-1', 'tsk-2'],
+      'ws-1'
+    )
 
     expect(updateTaskWithSideEffectsMock).toHaveBeenCalledTimes(2)
     expect(updateTaskWithSideEffectsMock).toHaveBeenNthCalledWith(

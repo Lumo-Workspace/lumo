@@ -171,7 +171,10 @@ describe('task-state → lineage outcome stamping', () => {
   it('stamps REWORKED when a DONE task is reopened', async () => {
     findForUpdate.mockResolvedValue(mockTaskRow({ status: 'DONE' }))
 
-    await reopen('task_1', { reason: 'sentry_regression', actorId: 'actor_1' })
+    await reopen('task_1', 'ws_1', {
+      reason: 'sentry_regression',
+      actorId: 'actor_1',
+    })
     await flushWaitUntil()
 
     expect(stampReopened).toHaveBeenCalledWith('task_1')
@@ -180,7 +183,10 @@ describe('task-state → lineage outcome stamping', () => {
   it('does NOT stamp REWORKED when reopening a task that is not DONE', async () => {
     findForUpdate.mockResolvedValue(mockTaskRow({ status: 'IN_PROGRESS' }))
 
-    await reopen('task_1', { reason: 'sentry_regression', actorId: 'actor_1' })
+    await reopen('task_1', 'ws_1', {
+      reason: 'sentry_regression',
+      actorId: 'actor_1',
+    })
     await flushWaitUntil()
 
     expect(stampReopened).not.toHaveBeenCalled()

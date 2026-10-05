@@ -244,7 +244,9 @@ describe('LUM-751 — AUTO_SUPPRESSED by repository rule', () => {
     expect(
       await boundaryCrossingRepository.findUndispositionedByTask('t-1')
     ).toHaveLength(0)
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).resolves.toBeDefined()
 
     // The timeline marker reads as auto-suppressed, with the rule ref.
     const act = createActivity.mock.calls[0]![0] as {
@@ -300,7 +302,9 @@ describe('LUM-751 — AUTO_SUPPRESSED by repository rule', () => {
     expect(store).toHaveLength(1)
     expect(store[0]!.category).toBe('DESTRUCTIVE_DB_COMMAND')
     expect(store[0]!.disposition).toBeNull()
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+    await expect(
+      updateTask('t-1', 'w-1', { status: 'DONE' })
+    ).rejects.toMatchObject({
       status: 409,
     })
   })

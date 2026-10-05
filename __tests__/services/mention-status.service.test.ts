@@ -87,7 +87,7 @@ describe('mentionStatusService.resolve', () => {
     ])
     // Scoped to the caller's workspace.
     expect(findMany).toHaveBeenCalledTimes(1)
-    expect(findMany.mock.calls[0][0].where.project.workspaceId).toBe('w1')
+    expect(findMany.mock.calls[0][0].where.workspaceId).toBe('w1')
   })
 
   it('omits identifiers the caller cannot see (not returned by the scoped query)', async () => {

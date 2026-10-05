@@ -193,6 +193,8 @@ export function registerTaskTools(server: McpServer) {
         return tx.task.create({
           data: {
             projectId,
+            // LUM-992: denormalized from the (workspace-checked) project.
+            workspaceId: project.workspaceId,
             teamId: project.teamId,
             number: taskSeq,
             title,
