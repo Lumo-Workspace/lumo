@@ -32,6 +32,10 @@ import {
   type IssuedReceipt,
   type ReceiptSubject,
 } from '@/lib/disposition/read-receipt'
+import {
+  recordAuditEvent,
+  type WorkspaceAudit,
+} from '@/lib/services/audit.service'
 
 export type DefectRuling = 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
 export type DispositionChannel = 'WEB' | 'CLI'
@@ -188,6 +192,8 @@ export const testCaseDefectDispositionService = {
     caller: ReceiptCaller
     channel: DispositionChannel
     receipt?: string | undefined
+    /** LUM-907: the workspace audit log entry for this ruling. */
+    audit?: WorkspaceAudit | undefined
   }) {
     const { taskId, runId, ruling, caller, channel } = input
     const run = await loadRuleableRun(taskId, runId)
@@ -224,7 +230,7 @@ export const testCaseDefectDispositionService = {
     const note = input.note?.trim() || null
 
     // 行存最新状态，事件流存全历史（同 CRITERION_CHANGED 的分工）；两者同事务。
-    return testCaseRepository.createDisposition(
+    const created = await testCaseRepository.createDisposition(
       {
         runId,
         taskId,
@@ -246,5 +252,21 @@ export const testCaseDefectDispositionService = {
         },
       }
     )
+    // LUM-907：事务提交后再记审计（只记 id 与枚举值，备注与用例标题不进审计日志）。
+    if (input.audit) {
+      await recordAuditEvent({
+        workspaceId: input.audit.workspaceId,
+        action: 'test_case_defect.dispositioned',
+        target: { type: 'test_case_run', id: runId },
+        metadata: {
+          taskId,
+          caseNumber: run.testCase.number,
+          disposition: ruling,
+          channel,
+        },
+        context: input.audit.context,
+      })
+    }
+    return created
   },
 }

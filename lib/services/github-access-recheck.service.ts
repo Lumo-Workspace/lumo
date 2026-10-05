@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { SYSTEM_AUDIT_CONTEXT } from '@/lib/services/audit.service'
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import {
   createInstallationToken,
@@ -405,7 +406,11 @@ async function removeGone(
     if (tripped && !confirmed.has(installationId)) continue
     const { removed, failed } = await removeInstallation(
       installationId,
-      `${status === 'gone' ? 'uninstalled' : 'suspended'} on GitHub (automatic recheck)`
+      `${status === 'gone' ? 'uninstalled' : 'suspended'} on GitHub (automatic recheck)`,
+      {
+        kind: status === 'gone' ? 'deleted' : 'suspend',
+        context: SYSTEM_AUDIT_CONTEXT,
+      }
     )
     summary.uninstalled += removed
     summary.failed += failed

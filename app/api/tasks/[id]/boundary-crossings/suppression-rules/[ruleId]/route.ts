@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export const runtime = 'nodejs'
 
@@ -44,6 +45,14 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       {
         actorMemberId: identity.memberId,
         actorClerkId: identity.clerkId,
+        audit: {
+          workspaceId: identity.workspaceId,
+          context: memberAuditContext(
+            request.headers,
+            { clerkId: identity.clerkId, memberId: identity.memberId },
+            identity.source
+          ),
+        },
       }
     )
     return NextResponse.json(outcome)

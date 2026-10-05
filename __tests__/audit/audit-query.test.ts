@@ -8,6 +8,8 @@
 const mockRepo = {
   listPage: jest.fn(),
   findWorkspaceMembers: jest.fn(),
+  create: jest.fn(),
+  findMemberClerkId: jest.fn(),
 }
 const mockRole = jest.fn()
 const mockProfiles = jest.fn()
@@ -137,7 +139,7 @@ describe('LUM-907 audit query helpers', () => {
       false
     )
     expect(
-      auditEventQuerySchema.safeParse({ targetType: 'task' }).success
+      auditEventQuerySchema.safeParse({ targetType: 'project' }).success
     ).toBe(false)
   })
 })
@@ -328,5 +330,50 @@ describe('LUM-907 audit query service', () => {
     mockRepo.listPage.mockResolvedValue([row(1), row(2)])
     const result = await exportAuditEventsCsv(viewer, {}, NOW)
     expect(result).toMatchObject({ rowCount: 2, truncated: false })
+  })
+
+  it('audit export audited: a CSV export writes audit_log.exported with the filters; a page read writes nothing', async () => {
+    mockRepo.listPage.mockResolvedValue([row(1), row(2)])
+    mockRepo.create.mockClear()
+    await listAuditEvents(viewer, {}, NOW)
+    expect(mockRepo.create).not.toHaveBeenCalled()
+
+    await exportAuditEventsCsv(
+      viewer,
+      { action: 'member', since: '7d' },
+      NOW,
+      {
+        actor: { type: 'MEMBER', clerkId: 'user_1', memberId: 'm_1' },
+        source: 'CLI',
+        ip: '203.0.113.9',
+      }
+    )
+    expect(mockRepo.create).toHaveBeenCalledTimes(1)
+    expect(mockRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'ws_1',
+        action: 'audit_log.exported',
+        targetType: 'audit_log',
+        targetId: null,
+        actorType: 'MEMBER',
+        actorId: 'user_1',
+        source: 'CLI',
+        ip: '203.0.113.9',
+        metadata: {
+          rowCount: 2,
+          truncated: false,
+          filters: { action: 'member', since: '7d' },
+        },
+      })
+    )
+  })
+
+  it('audit export audited: a refused export (not an owner) writes nothing', async () => {
+    mockRole.mockResolvedValueOnce('MEMBER')
+    mockRepo.create.mockClear()
+    await expect(
+      exportAuditEventsCsv(viewer, {}, NOW)
+    ).rejects.toMatchObject({ status: 403 })
+    expect(mockRepo.create).not.toHaveBeenCalled()
   })
 })

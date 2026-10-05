@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 import { dispositionBoundaryCrossingSchema } from '@/lib/validation/boundary-crossing'
 import { zodError } from '@/lib/api/helpers'
 
@@ -57,6 +58,14 @@ export async function POST(request: NextRequest, { params }: Params) {
       {
         actorMemberId: identity.memberId,
         actorClerkId: identity.clerkId,
+        audit: {
+          workspaceId: identity.workspaceId,
+          context: memberAuditContext(
+            request.headers,
+            { clerkId: identity.clerkId, memberId: identity.memberId },
+            identity.source
+          ),
+        },
       },
       // LUM-751: per-repository suppression opt-in (FALSE_POSITIVE only) —
       // passed only when requested, so the plain call shape is unchanged.

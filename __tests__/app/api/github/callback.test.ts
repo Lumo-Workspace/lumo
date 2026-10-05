@@ -138,6 +138,10 @@ describe('GET /api/github/callback', () => {
         memberId: 'm1',
         githubUserId: '42',
         githubLogin: 'octo',
+      }),
+      expect.objectContaining({
+        actor: { type: 'MEMBER', clerkId: 'clerk_1', memberId: 'm1' },
+        source: 'WEB',
       })
     )
   })

@@ -99,7 +99,11 @@ describe('POST /api/tasks/[id]/security-findings/[findingId]/disposition', () =>
       'f1',
       'FALSE_POSITIVE',
       'doc key',
-      'm1'
+      'm1',
+      {
+        workspaceId: 'w1',
+        context: expect.objectContaining({ source: 'WEB' }),
+      }
     )
 
     const bad = await POST(req({ disposition: 'CONFIRMED' }), params)

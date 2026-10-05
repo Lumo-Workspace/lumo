@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { serviceErrorResponse, zodError } from '@/lib/api/helpers'
 import { auditEventQuerySchema } from '@/lib/validation/audit'
 import { auditQueryService } from '@/lib/services/audit-query.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/workspaces/me/audit-events/export — the filtered audit log as a
@@ -24,7 +25,13 @@ export async function GET(request: NextRequest) {
         memberId: identity.memberId,
         clerkId: identity.clerkId,
       },
-      parsed.data
+      parsed.data,
+      new Date(),
+      memberAuditContext(
+        request.headers,
+        { clerkId: identity.clerkId, memberId: identity.memberId },
+        identity.source
+      )
     )
     const day = new Date().toISOString().slice(0, 10)
     const slug = identity.workspaceSlug.replace(/[^a-zA-Z0-9-]/g, '')

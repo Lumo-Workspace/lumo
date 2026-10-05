@@ -1673,7 +1673,7 @@ auditCmd
   .option('--until <when>', 'To (inclusive): 2026-10-04 or an ISO date-time')
   .option(
     '--target-type <type>',
-    'workspace | member | invite | data_export | session | task_template | integration (case-insensitive)'
+    'workspace | member | invite | data_export | session | task_template | integration | api_key | document | task | boundary_crossing | suppression_rule | security_finding | test_case_run | sentry_mapping | audit_log (case-insensitive)'
   )
   .option('--target <id>', 'Target id')
   .option('--limit <n>', 'Events per page (1-200, default 50)')

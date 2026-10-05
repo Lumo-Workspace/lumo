@@ -56,6 +56,21 @@ export const SYSTEM_AUDIT_CONTEXT: AuditContext = {
   source: 'SYSTEM',
 }
 
+/** For GitHub (and other) webhook deliveries: no member acts, the source is the webhook. */
+export const WEBHOOK_AUDIT_CONTEXT: AuditContext = {
+  actor: { type: 'SYSTEM' },
+  source: 'WEBHOOK',
+}
+
+/**
+ * The audit context plus the workspace, for service methods whose own
+ * arguments do not carry the workspace id (task-scoped rulings).
+ */
+export interface WorkspaceAudit {
+  workspaceId: string
+  context: AuditContext
+}
+
 export interface RecordAuditEventInput {
   workspaceId: string
   action: AuditAction

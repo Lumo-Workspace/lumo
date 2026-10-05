@@ -123,7 +123,7 @@ Categories of personal data:
 | Integration data | Slack messages, Figma file metadata, Google Docs content and Sentry error events that Customer chooses to connect |
 | Integration credentials | Access tokens for connected integrations, stored encrypted |
 | Technical data | IP addresses, request logs, session identifiers |
-| Workspace audit log | Records of sensitive actions in Customer's workspaces (membership, invitations, settings, exports, deletion requests, integrations): the acting user, time, source, IP address and user agent, the affected object and, for invitations, the invitee's email address; no content of tasks, documents or code |
+| Workspace audit log | Records of sensitive actions in Customer's workspaces (membership, invitations, settings, exports, deletion requests, integrations and personal API keys, document visibility and public links, permanent deletion from the trash, rulings on boundary crossings, security findings and test case defects, audit log exports): the acting user, time, source, IP address and user agent, the affected object and, for invitations, the invitee's email address; no content of tasks, documents or code |
 
 Special categories of data: none intended. Customer should not submit special category data to the Service.
 
@@ -143,7 +143,7 @@ Special categories of data: none intended. Customer should not submit special ca
 | Secure development | Every change goes through a pull request with automated tests and automated security scanning |
 | Incident response | Security Incidents are handled and notified under section 9; vulnerabilities can be reported to [security@uselumo.ai] |
 | Subprocessor management | Subprocessors are bound by written data protection terms under section 7 |
-| Logging and accountability | Sensitive actions in each workspace (membership and invitations, workspace, security and retention settings, exports, deletion requests, integration connections) are recorded in a workspace audit log with the actor, time, source, IP address and user agent, with detected credentials redacted; events are kept for 365 days, deleted with the workspace, and can be viewed and exported as CSV by workspace owners |
+| Logging and accountability | Sensitive actions in each workspace (membership and invitations, workspace, security and retention settings, exports, deletion requests, integration connections and personal API keys, document visibility and public links, permanent deletion from the trash, rulings on security signals, audit log exports) are recorded in a workspace audit log with the actor, time, source, IP address and user agent, with detected credentials redacted; events are kept for 365 days, deleted with the workspace, and can be viewed and exported as CSV by workspace owners |
 
 ## Annex 3 — Subprocessors
 
