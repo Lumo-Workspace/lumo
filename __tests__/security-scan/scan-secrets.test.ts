@@ -9,6 +9,7 @@ import {
   redactLine,
   secretFingerprint,
   vulnerabilityFingerprint,
+  judgeFindingFingerprint,
   shannonEntropy,
   maskQuotedValues,
 } from '@/lib/security-scan/redact'
@@ -473,4 +474,38 @@ describe('LUM-751: fixture-shaped paths are downgraded', () => {
   it('a production path is not downgraded', () => {
     expect(isDowngradedPath('lib/services/payments.ts')).toBe(false)
   })
+})
+
+test('LUM-988 judgeFindingFingerprint: keyed on the evidence line, not the re-worded title', () => {
+  const a = judgeFindingFingerprint(
+    'review:logic_error',
+    'src/a.ts',
+    'if (user.role = "admin") {',
+    'Assignment in condition'
+  )
+  // Same line (whitespace differs), different wording of the title.
+  const b = judgeFindingFingerprint(
+    'review:logic_error',
+    'src/a.ts',
+    '  if (user.role  = "admin") {  ',
+    'Condition assigns instead of comparing'
+  )
+  expect(a).toBe(b)
+  expect(a).toMatch(/^[0-9a-f]{16}$/)
+  // Another line, rule or file is another finding.
+  expect(
+    judgeFindingFingerprint('review:logic_error', 'src/a.ts', 'return x', 't')
+  ).not.toBe(a)
+  expect(
+    judgeFindingFingerprint(
+      'vuln:xss',
+      'src/a.ts',
+      'if (user.role = "admin") {',
+      't'
+    )
+  ).not.toBe(a)
+  // No evidence: falls back to the title key, never one bucket per file.
+  expect(judgeFindingFingerprint('vuln:xss', 'f.ts', '  ', 'Title')).toBe(
+    vulnerabilityFingerprint('vuln:xss', 'f.ts', 'Title')
+  )
 })

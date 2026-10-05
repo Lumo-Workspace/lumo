@@ -8,7 +8,7 @@
  */
 
 import { logger } from '@/lib/logger'
-import { getRepoToken } from './auth'
+import { getRepoToken, revokeInstallationToken } from './auth'
 import { REPO_TOKEN_PERMISSIONS } from './token-permissions'
 
 const GH_HEADERS = {
@@ -33,6 +33,15 @@ function splitFullName(fullName: string): [string, string] {
 }
 
 /**
+ * LUM-988 — a repository path as a URL path: each segment percent-encoded.
+ * Paths come from the customer's diff, so `faq#1.md` or `a?b.ts` would
+ * otherwise turn into a fragment / query and fetch a different file.
+ */
+export function encodeRepoPath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/')
+}
+
+/**
  * Reads a file from a GitHub repository at a given ref.
  * Returns the decoded UTF-8 content, or null if the file does not exist (404).
  */
@@ -47,10 +56,50 @@ export async function readRepoFile(opts: {
     opts.fullName,
     REPO_TOKEN_PERMISSIONS.contentsRead
   )
+  return readRepoFileWithToken({ ...opts, token })
+}
+
+/**
+ * LUM-988 — run `fn` with ONE contents:read installation token for the
+ * repository, then revoke it. For a caller that reads many files of one
+ * repository with `readRepoFileWithToken`. Minting refuses an unconfirmed
+ * repository (LUM-883) and that throw propagates; revocation never throws.
+ */
+export async function withRepoReadToken<T>(
+  opts: { workspaceId: string; fullName: string },
+  fn: (token: string) => Promise<T>
+): Promise<T> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.contentsRead
+  )
+  try {
+    return await fn(token)
+  } finally {
+    // Never throws by contract; guarded so a future change cannot turn
+    // cleanup into a lost result. The token expires on its own anyway.
+    await revokeInstallationToken(token).catch(() => false)
+  }
+}
+
+/**
+ * LUM-988 — `readRepoFile` with a token the caller already holds, for a
+ * caller that reads many files of one repository: minting a token per file
+ * meant up to 60 installation-token mints per scan, none revoked. The caller
+ * mints it with `getRepoToken` (which refuses an unconfirmed repository) and
+ * revokes it when done.
+ */
+export async function readRepoFileWithToken(opts: {
+  token: string
+  fullName: string
+  path: string
+  ref?: string
+}): Promise<string | null> {
   const [owner, repo] = splitFullName(opts.fullName)
 
   const url = new URL(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${opts.path}`
+    `https://api.github.com/repos/${owner}/${repo}/contents/${encodeRepoPath(opts.path)}`
   )
   if (opts.ref) url.searchParams.set('ref', opts.ref)
 
@@ -59,7 +108,7 @@ export async function readRepoFile(opts: {
       ...GH_HEADERS,
       // Request raw content directly — GitHub returns the file bytes as text
       Accept: 'application/vnd.github.raw',
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${opts.token}`,
     },
   })
 

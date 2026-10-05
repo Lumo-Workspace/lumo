@@ -104,10 +104,20 @@ test('api key routes: a missing label is 400 and writes nothing', async () => {
 })
 
 test('api key routes: revoke is 404 for another member key, 409 when revoked, 200 and audited otherwise', async () => {
-  findById.mockResolvedValueOnce({ workspaceMemberId: 'other', revokedAt: null })
-  expect((await DELETE(req(undefined, 'DELETE'), params('k9'))).status).toBe(404)
-  findById.mockResolvedValueOnce({ workspaceMemberId: 'm1', revokedAt: new Date() })
-  expect((await DELETE(req(undefined, 'DELETE'), params('k1'))).status).toBe(409)
+  findById.mockResolvedValueOnce({
+    workspaceMemberId: 'other',
+    revokedAt: null,
+  })
+  expect((await DELETE(req(undefined, 'DELETE'), params('k9'))).status).toBe(
+    404
+  )
+  findById.mockResolvedValueOnce({
+    workspaceMemberId: 'm1',
+    revokedAt: new Date(),
+  })
+  expect((await DELETE(req(undefined, 'DELETE'), params('k1'))).status).toBe(
+    409
+  )
   expect(revoke).not.toHaveBeenCalled()
 
   findById.mockResolvedValueOnce({ workspaceMemberId: 'm1', revokedAt: null })
@@ -142,7 +152,10 @@ test('api key routes: list returns the member keys; a repository failure is a me
 
 const repo = miscRepository as jest.Mocked<typeof miscRepository>
 const owner = { workspaceId: 'w1', memberId: 'm1' }
-const ctx = { actor: { type: 'MEMBER' as const, clerkId: 'c1' }, source: 'CLI' as const }
+const ctx = {
+  actor: { type: 'MEMBER' as const, clerkId: 'c1' },
+  source: 'CLI' as const,
+}
 
 describe('api key service', () => {
   it('api key service: generateApiKey returns a lum_ key, its sha256 and a 16-char prefix', () => {
@@ -169,9 +182,17 @@ describe('api key service', () => {
       createdAt: new Date(),
       scope: null,
     })
-    const out = await apiKeyService.create(owner, { label: ' ci ', scope: undefined }, ctx)
+    const out = await apiKeyService.create(
+      owner,
+      { label: ' ci ', scope: undefined },
+      ctx
+    )
     const stored = repo.createApiKey.mock.calls[0]![0]
-    expect(stored).toMatchObject({ workspaceMemberId: 'm1', label: 'ci', scope: null })
+    expect(stored).toMatchObject({
+      workspaceMemberId: 'm1',
+      label: 'ci',
+      scope: null,
+    })
     expect(stored).not.toHaveProperty('key')
     expect(out.key).toMatch(/^lum_/)
     expect(audit).toHaveBeenCalledWith({
@@ -188,14 +209,29 @@ describe('api key service', () => {
 
   it('api key service: revoke refuses foreign and revoked keys without auditing, audits a real revoke', async () => {
     repo.findApiKeyById.mockResolvedValueOnce(null)
-    await expect(apiKeyService.revoke(owner, 'k0', ctx)).rejects.toMatchObject({ status: 404 })
-    repo.findApiKeyById.mockResolvedValueOnce({ workspaceMemberId: 'm2', revokedAt: null })
-    await expect(apiKeyService.revoke(owner, 'k2', ctx)).rejects.toMatchObject({ status: 404 })
-    repo.findApiKeyById.mockResolvedValueOnce({ workspaceMemberId: 'm1', revokedAt: new Date() })
-    await expect(apiKeyService.revoke(owner, 'k1', ctx)).rejects.toMatchObject({ status: 409 })
+    await expect(apiKeyService.revoke(owner, 'k0', ctx)).rejects.toMatchObject({
+      status: 404,
+    })
+    repo.findApiKeyById.mockResolvedValueOnce({
+      workspaceMemberId: 'm2',
+      revokedAt: null,
+    })
+    await expect(apiKeyService.revoke(owner, 'k2', ctx)).rejects.toMatchObject({
+      status: 404,
+    })
+    repo.findApiKeyById.mockResolvedValueOnce({
+      workspaceMemberId: 'm1',
+      revokedAt: new Date(),
+    })
+    await expect(apiKeyService.revoke(owner, 'k1', ctx)).rejects.toMatchObject({
+      status: 409,
+    })
     expect(audit).not.toHaveBeenCalled()
 
-    repo.findApiKeyById.mockResolvedValueOnce({ workspaceMemberId: 'm1', revokedAt: null })
+    repo.findApiKeyById.mockResolvedValueOnce({
+      workspaceMemberId: 'm1',
+      revokedAt: null,
+    })
     repo.revokeApiKey.mockResolvedValueOnce({ id: 'k1' } as never)
     await apiKeyService.revoke(owner, 'k1', ctx)
     expect(audit).toHaveBeenCalledWith({

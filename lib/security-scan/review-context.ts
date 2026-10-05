@@ -24,6 +24,23 @@
 /** Total chars of file content the review gets (the replay's number). */
 export const REVIEW_CONTEXT_MAX_CHARS = 100_000
 
+/**
+ * LUM-988 — diff + context together never exceed this many chars: the top
+ * diff tier's size, the largest prompt the timeouts were sized for. The
+ * Martian replay measured this envelope (largest prompt 177.5k chars, slowest
+ * call 42 s against 120–180 s timeouts); a top-tier diff plus a full 100k of
+ * context (~280k) was never measured, so context gives way to the diff.
+ */
+export const REVIEW_PROMPT_MAX_CHARS = 180_000
+
+/** Context chars left for a diff of `diffChars`: 0..REVIEW_CONTEXT_MAX_CHARS. */
+export function reviewContextBudget(diffChars: number): number {
+  return Math.max(
+    0,
+    Math.min(REVIEW_CONTEXT_MAX_CHARS, REVIEW_PROMPT_MAX_CHARS - diffChars)
+  )
+}
+
 /** A file bigger than this is never context — it is generated or vendored, or too big to help. */
 export const REVIEW_CONTEXT_MAX_FILE_CHARS = 200_000
 

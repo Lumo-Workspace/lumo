@@ -338,16 +338,11 @@ describe('LUM-907 audit query service', () => {
     await listAuditEvents(viewer, {}, NOW)
     expect(mockRepo.create).not.toHaveBeenCalled()
 
-    await exportAuditEventsCsv(
-      viewer,
-      { action: 'member', since: '7d' },
-      NOW,
-      {
-        actor: { type: 'MEMBER', clerkId: 'user_1', memberId: 'm_1' },
-        source: 'CLI',
-        ip: '203.0.113.9',
-      }
-    )
+    await exportAuditEventsCsv(viewer, { action: 'member', since: '7d' }, NOW, {
+      actor: { type: 'MEMBER', clerkId: 'user_1', memberId: 'm_1' },
+      source: 'CLI',
+      ip: '203.0.113.9',
+    })
     expect(mockRepo.create).toHaveBeenCalledTimes(1)
     expect(mockRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -371,9 +366,9 @@ describe('LUM-907 audit query service', () => {
   it('audit export audited: a refused export (not an owner) writes nothing', async () => {
     mockRole.mockResolvedValueOnce('MEMBER')
     mockRepo.create.mockClear()
-    await expect(
-      exportAuditEventsCsv(viewer, {}, NOW)
-    ).rejects.toMatchObject({ status: 403 })
+    await expect(exportAuditEventsCsv(viewer, {}, NOW)).rejects.toMatchObject({
+      status: 403,
+    })
     expect(mockRepo.create).not.toHaveBeenCalled()
   })
 })

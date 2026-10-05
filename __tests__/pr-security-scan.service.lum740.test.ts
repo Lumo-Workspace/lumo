@@ -242,7 +242,10 @@ describe('LUM-740 bulk disposition — service', () => {
 describe('LUM-907 security finding dispositions are audited', () => {
   const audit = {
     workspaceId: 'w1',
-    context: { actor: { type: 'MEMBER' as const, memberId: 'm1' }, source: 'WEB' as const },
+    context: {
+      actor: { type: 'MEMBER' as const, memberId: 'm1' },
+      source: 'WEB' as const,
+    },
   }
   beforeEach(() => {
     jest.clearAllMocks()
@@ -254,7 +257,14 @@ describe('LUM-907 security finding dispositions are audited', () => {
 
   it('security finding audit: a single ruling records the transition, not the note', async () => {
     findFinding.mockResolvedValue(row({}))
-    await prSecurityScanService.disposition('t1', 'f1', 'ACCEPTED_RISK', 'secret-note', 'm1', audit)
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'ACCEPTED_RISK',
+      'secret-note',
+      'm1',
+      audit
+    )
     expect(mockAudit).toHaveBeenCalledWith({
       workspaceId: 'w1',
       action: 'security_finding.dispositioned',
@@ -266,9 +276,23 @@ describe('LUM-907 security finding dispositions are audited', () => {
   })
 
   it('security finding audit: a finding off the task records nothing', async () => {
-    findFinding.mockResolvedValue(row({ scan: { pullRequestId: 'pr1', pullRequest: { taskId: 'other', workspaceId: 'w1' } } }))
+    findFinding.mockResolvedValue(
+      row({
+        scan: {
+          pullRequestId: 'pr1',
+          pullRequest: { taskId: 'other', workspaceId: 'w1' },
+        },
+      })
+    )
     await expect(
-      prSecurityScanService.disposition('t1', 'f1', 'FALSE_POSITIVE', null, 'm1', audit)
+      prSecurityScanService.disposition(
+        't1',
+        'f1',
+        'FALSE_POSITIVE',
+        null,
+        'm1',
+        audit
+      )
     ).rejects.toMatchObject({ status: 404 })
     expect(mockAudit).not.toHaveBeenCalled()
   })

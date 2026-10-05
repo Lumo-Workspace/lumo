@@ -1,5 +1,8 @@
 /** @jest-environment node */
 import {
+  REVIEW_CONTEXT_MAX_CHARS,
+  REVIEW_PROMPT_MAX_CHARS,
+  reviewContextBudget,
   REVIEW_CONTEXT_MAX_FILE_CHARS,
   REVIEW_CONTEXT_MAX_READS,
   isSkippedContextPath,
@@ -153,5 +156,16 @@ describe('LUM-988 review context — loading', () => {
     const out = await loadReviewContext({ paths: ['yarn.lock'], readFile })
     expect(readFile).not.toHaveBeenCalled()
     expect(out).toEqual({ text: '', included: [], error: null })
+  })
+})
+
+describe('LUM-988 review context — prompt budget', () => {
+  it('gives context what the diff leaves of the 180k prompt, at most 100k', () => {
+    expect(REVIEW_PROMPT_MAX_CHARS).toBe(180_000)
+    expect(reviewContextBudget(10_000)).toBe(REVIEW_CONTEXT_MAX_CHARS)
+    expect(reviewContextBudget(80_000)).toBe(100_000)
+    expect(reviewContextBudget(150_000)).toBe(30_000)
+    expect(reviewContextBudget(180_000)).toBe(0)
+    expect(reviewContextBudget(200_000)).toBe(0)
   })
 })

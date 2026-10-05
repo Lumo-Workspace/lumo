@@ -291,7 +291,10 @@ describe('documentService', () => {
   })
 
   describe('updateDocument audit (LUM-907)', () => {
-    const ctx = { actor: { type: 'MEMBER' as const, memberId: 'm-1' }, source: 'WEB' as const }
+    const ctx = {
+      actor: { type: 'MEMBER' as const, memberId: 'm-1' },
+      source: 'WEB' as const,
+    }
     const owned = (over: Record<string, unknown> = {}) => ({
       id: 'doc-1',
       createdById: 'm-1',
@@ -302,12 +305,22 @@ describe('documentService', () => {
       ...over,
     })
     beforeEach(() => {
-      mockUpdateWithChildrenAndMentions.mockResolvedValue({ id: 'doc-1', title: 'T', slug: 't-3' })
+      mockUpdateWithChildrenAndMentions.mockResolvedValue({
+        id: 'doc-1',
+        title: 'T',
+        slug: 't-3',
+      })
     })
 
     it('document audit: a visibility change records from and to', async () => {
       mockFindWithPermission.mockResolvedValue(owned())
-      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', { visibility: 'WORKSPACE' }, { audit: ctx })
+      await documentService.updateDocument(
+        'doc-1',
+        'm-1',
+        'ws-1',
+        { visibility: 'WORKSPACE' },
+        { audit: ctx }
+      )
       expect(mockRecordAudit).toHaveBeenCalledTimes(1)
       expect(mockRecordAudit).toHaveBeenCalledWith({
         workspaceId: 'ws-1',
@@ -320,28 +333,71 @@ describe('documentService', () => {
 
     it('document audit: enabling, rotating and disabling the public link never record the token', async () => {
       mockFindWithPermission.mockResolvedValue(owned())
-      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', { publicToken: 'tok-secret-1' }, { audit: ctx })
-      mockFindWithPermission.mockResolvedValue(owned({ publicToken: 'tok-secret-1' }))
-      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', { publicToken: 'tok-secret-2' }, { audit: ctx })
-      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', { publicToken: null }, { audit: ctx })
-      expect(mockRecordAudit.mock.calls.map(c => [c[0].action, c[0].metadata])).toEqual([
+      await documentService.updateDocument(
+        'doc-1',
+        'm-1',
+        'ws-1',
+        { publicToken: 'tok-secret-1' },
+        { audit: ctx }
+      )
+      mockFindWithPermission.mockResolvedValue(
+        owned({ publicToken: 'tok-secret-1' })
+      )
+      await documentService.updateDocument(
+        'doc-1',
+        'm-1',
+        'ws-1',
+        { publicToken: 'tok-secret-2' },
+        { audit: ctx }
+      )
+      await documentService.updateDocument(
+        'doc-1',
+        'm-1',
+        'ws-1',
+        { publicToken: null },
+        { audit: ctx }
+      )
+      expect(
+        mockRecordAudit.mock.calls.map(c => [c[0].action, c[0].metadata])
+      ).toEqual([
         ['document.public_link_enabled', { rotated: false }],
         ['document.public_link_enabled', { rotated: true }],
         ['document.public_link_disabled', { rotated: false }],
       ])
-      expect(JSON.stringify(mockRecordAudit.mock.calls)).not.toContain('tok-secret')
+      expect(JSON.stringify(mockRecordAudit.mock.calls)).not.toContain(
+        'tok-secret'
+      )
     })
 
     it('document audit: an unchanged visibility or a content-only edit records nothing', async () => {
-      mockFindWithPermission.mockResolvedValue(owned({ visibility: 'WORKSPACE' }))
-      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', { visibility: 'WORKSPACE', title: 'T' }, { audit: ctx })
+      mockFindWithPermission.mockResolvedValue(
+        owned({ visibility: 'WORKSPACE' })
+      )
+      await documentService.updateDocument(
+        'doc-1',
+        'm-1',
+        'ws-1',
+        { visibility: 'WORKSPACE', title: 'T' },
+        { audit: ctx }
+      )
       expect(mockRecordAudit).not.toHaveBeenCalled()
     })
 
     it('document audit: a refused change (non-owner) records nothing', async () => {
-      mockFindWithPermission.mockResolvedValue(owned({ createdById: 'other', shares: [{ memberId: 'm-1', role: 'EDITOR' }] }))
+      mockFindWithPermission.mockResolvedValue(
+        owned({
+          createdById: 'other',
+          shares: [{ memberId: 'm-1', role: 'EDITOR' }],
+        })
+      )
       await expect(
-        documentService.updateDocument('doc-1', 'm-1', 'ws-1', { visibility: 'WORKSPACE' }, { audit: ctx })
+        documentService.updateDocument(
+          'doc-1',
+          'm-1',
+          'ws-1',
+          { visibility: 'WORKSPACE' },
+          { audit: ctx }
+        )
       ).rejects.toMatchObject({ status: 403 })
       expect(mockRecordAudit).not.toHaveBeenCalled()
     })

@@ -305,7 +305,9 @@ export function instrumentedCallPatterns(
   const i = unit.lastIndexOf('#')
   const file = unit.slice(0, i)
   const name = unit.slice(i + 1)
-  const base = file.slice(file.lastIndexOf('/') + 1).replace(/\.service\.ts$/, '')
+  const base = file
+    .slice(file.lastIndexOf('/') + 1)
+    .replace(/\.service\.ts$/, '')
   const service = `${base.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}Service`
   const moduleLevel = new RegExp(
     `^export\\s+(?:async\\s+)?function\\s+${escapeRe(name)}\\s*[<(]`,
@@ -333,8 +335,8 @@ export function callsInstrumentedUnit(
   if (p.direct.test(source)) return true
   return Boolean(
     p.importFrom &&
-      p.bare &&
-      source.includes(`'${p.importFrom}'`) &&
-      p.bare.test(source)
+    p.bare &&
+    source.includes(`'${p.importFrom}'`) &&
+    p.bare.test(source)
   )
 }

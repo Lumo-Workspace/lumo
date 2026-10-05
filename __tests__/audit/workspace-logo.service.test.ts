@@ -5,7 +5,9 @@
  * workspaceLogoService, and the change is audited.
  */
 jest.mock('@/lib/services/workspace-logo-blob', () => ({
-  uploadWorkspaceLogo: jest.fn(async (path: string) => `https://blob.test/${path}`),
+  uploadWorkspaceLogo: jest.fn(
+    async (path: string) => `https://blob.test/${path}`
+  ),
   deleteWorkspaceLogo: jest.fn(async () => undefined),
 }))
 const mockPut = jest.fn(async () => ({ url: 'https://blob.test/put.png' }))
@@ -66,9 +68,14 @@ describe('workspace logo service', () => {
   })
 
   it('logo service: a missing, wrong-type or oversized file is 400', async () => {
-    await expect(workspaceLogoService.updateLogo(owner, null)).rejects.toMatchObject({ status: 400 })
     await expect(
-      workspaceLogoService.updateLogo(owner, new File(['x'], 'a.gif', { type: 'image/gif' }))
+      workspaceLogoService.updateLogo(owner, null)
+    ).rejects.toMatchObject({ status: 400 })
+    await expect(
+      workspaceLogoService.updateLogo(
+        owner,
+        new File(['x'], 'a.gif', { type: 'image/gif' })
+      )
     ).rejects.toMatchObject({ status: 400 })
     await expect(
       workspaceLogoService.updateLogo(owner, png(2 * 1024 * 1024 + 1))
@@ -77,16 +84,25 @@ describe('workspace logo service', () => {
   })
 
   it('logo service: an OWNER replaces the logo, the old blob goes, and the change is audited', async () => {
-    const ctx = { actor: { type: 'MEMBER' as const, clerkId: 'c1' }, source: 'WEB' as const }
+    const ctx = {
+      actor: { type: 'MEMBER' as const, clerkId: 'c1' },
+      source: 'WEB' as const,
+    }
     const out = await workspaceLogoService.updateLogo(
       { ...owner, currentLogoUrl: 'https://blob.test/old.png' },
       png(),
       ctx,
       NOW
     )
-    expect(deleteWorkspaceLogo).toHaveBeenCalledWith('https://blob.test/old.png')
-    expect(out.logoUrl).toBe(`https://blob.test/workspaces/w1/logo-${NOW.getTime()}.png`)
-    expect(workspaceRepository.update).toHaveBeenCalledWith('w1', { logoUrl: out.logoUrl })
+    expect(deleteWorkspaceLogo).toHaveBeenCalledWith(
+      'https://blob.test/old.png'
+    )
+    expect(out.logoUrl).toBe(
+      `https://blob.test/workspaces/w1/logo-${NOW.getTime()}.png`
+    )
+    expect(workspaceRepository.update).toHaveBeenCalledWith('w1', {
+      logoUrl: out.logoUrl,
+    })
     expect(mockAudit).toHaveBeenCalledWith({
       workspaceId: 'w1',
       action: 'workspace.logo_updated',
@@ -101,7 +117,10 @@ describe('POST /api/workspaces/me/logo', () => {
   const post = (file?: File) => {
     const form = new FormData()
     if (file) form.append('file', file)
-    return new NextRequest('http://x/api/workspaces/me/logo', { method: 'POST', body: form })
+    return new NextRequest('http://x/api/workspaces/me/logo', {
+      method: 'POST',
+      body: form,
+    })
   }
 
   it('logo route: a MEMBER gets 403 from the service', async () => {
@@ -112,7 +131,9 @@ describe('POST /api/workspaces/me/logo', () => {
     })
     const res = await POST(post(png()))
     expect(res.status).toBe(403)
-    expect(await res.json()).toEqual({ error: 'Only owners can change the logo' })
+    expect(await res.json()).toEqual({
+      error: 'Only owners can change the logo',
+    })
   })
 
   it('logo route: an OWNER upload returns the new URL and is audited with the web context', async () => {
@@ -123,7 +144,9 @@ describe('POST /api/workspaces/me/logo', () => {
     })
     const res = await POST(post(png()))
     expect(res.status).toBe(200)
-    expect((await res.json()).logoUrl).toMatch(/^https:\/\/blob\.test\/workspaces\/w1\/logo-\d+\.png$/)
+    expect((await res.json()).logoUrl).toMatch(
+      /^https:\/\/blob\.test\/workspaces\/w1\/logo-\d+\.png$/
+    )
     expect(mockAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'workspace.logo_updated',
@@ -148,15 +171,15 @@ describe('POST /api/workspaces/me/logo', () => {
 })
 
 describe('workspace logo blob wrapper', () => {
-  const real = jest.requireActual<typeof import('@/lib/services/workspace-logo-blob')>(
-    '@/lib/services/workspace-logo-blob'
-  )
+  const real = jest.requireActual<
+    typeof import('@/lib/services/workspace-logo-blob')
+  >('@/lib/services/workspace-logo-blob')
 
   it('logo blob: upload puts a public blob with the file type and returns its URL', async () => {
     const file = png()
-    await expect(real.uploadWorkspaceLogo('workspaces/w1/logo-1.png', file)).resolves.toBe(
-      'https://blob.test/put.png'
-    )
+    await expect(
+      real.uploadWorkspaceLogo('workspaces/w1/logo-1.png', file)
+    ).resolves.toBe('https://blob.test/put.png')
     expect(mockPut).toHaveBeenCalledWith('workspaces/w1/logo-1.png', file, {
       access: 'public',
       contentType: 'image/png',
@@ -165,6 +188,8 @@ describe('workspace logo blob wrapper', () => {
 
   it('logo blob: delete ignores a blob that is already gone', async () => {
     mockDel.mockRejectedValueOnce(new Error('not found'))
-    await expect(real.deleteWorkspaceLogo('https://blob.test/old.png')).resolves.toBeUndefined()
+    await expect(
+      real.deleteWorkspaceLogo('https://blob.test/old.png')
+    ).resolves.toBeUndefined()
   })
 })

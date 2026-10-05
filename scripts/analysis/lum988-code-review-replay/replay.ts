@@ -4,7 +4,7 @@
  * (`lib/services/pr-security-scan.service.ts`, "A4: LLM judge"):
  *
  *   over-cap check (JUDGE_DIFF_BUDGET_TIERS) → judgeDiffTier → packSecurityDiff
- *   → loadReviewContext over the covered paths → redactForInjection on diff
+ *   → loadReviewContext over the covered paths, capped by reviewContextBudget → redactForInjection on diff
  *   and context → judgeSecurity (CODE_REVIEW_MODEL, the production prompt and
  *   schema, the tier timeout)
  *
@@ -22,7 +22,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { judgeSecurity } from '../../../lib/llm/security-judge-client'
-import { loadReviewContext } from '../../../lib/security-scan/review-context'
+import {
+  loadReviewContext,
+  reviewContextBudget,
+} from '../../../lib/security-scan/review-context'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import {
   JUDGE_DIFF_BUDGET_TIERS,
@@ -68,6 +71,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
   })
   const context = await loadReviewContext({
     paths: capped.covered,
+    maxChars: reviewContextBudget(capped.text.length),
     readFile: async p => {
       const f = path.join(dir, 'files', p)
       return existsSync(f) ? readFileSync(f, 'utf8') : null

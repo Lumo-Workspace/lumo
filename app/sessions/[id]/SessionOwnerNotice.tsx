@@ -7,7 +7,11 @@ import { SESSION_MESSAGES as M } from '../messages'
  * LUM-946: shown when a workspace OWNER opens another member's session, so
  * the access is visible on the page rather than silent.
  */
-export function SessionOwnerNotice({ ownerName }: { ownerName: string | null }) {
+export function SessionOwnerNotice({
+  ownerName,
+}: {
+  ownerName: string | null
+}) {
   const intl = useIntl()
   return (
     <p

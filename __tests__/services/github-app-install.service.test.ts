@@ -660,7 +660,9 @@ describe('githubAppInstallService', () => {
         action: 'suspend',
         installation: { id: 555 },
       })
-      expect(mockAudit.mock.calls.map(c => [c[0].workspaceId, c[0].action])).toEqual([
+      expect(
+        mockAudit.mock.calls.map(c => [c[0].workspaceId, c[0].action])
+      ).toEqual([
         ['w1', 'github_app.uninstalled'],
         ['w2', 'github_app.uninstalled'],
         ['w1', 'github_app.suspended'],
@@ -679,9 +681,9 @@ describe('githubAppInstallService', () => {
       repo.findAllByInstallationId.mockResolvedValue([
         { workspaceId: 'w1', installationId: 555, repositories: [] },
       ])
-      ;(prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock).mockRejectedValueOnce(
-        new Error('db down')
-      )
+      ;(
+        prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock
+      ).mockRejectedValueOnce(new Error('db down'))
       mockAudit.mockClear()
       await expect(
         githubAppInstallService.applyInstallationEvent({

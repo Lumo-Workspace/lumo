@@ -243,7 +243,10 @@ describe('LUM-927 removal breaker', () => {
     expect(remove).toHaveBeenCalledWith(
       2,
       'uninstalled on GitHub (automatic recheck)',
-      { kind: 'deleted', context: { actor: { type: 'SYSTEM' }, source: 'SYSTEM' } }
+      {
+        kind: 'deleted',
+        context: { actor: { type: 'SYSTEM' }, source: 'SYSTEM' },
+      }
     )
     expect(summary).toMatchObject({ uninstalled: 1, held: [] })
     expect(opsAlerts()).toEqual([])

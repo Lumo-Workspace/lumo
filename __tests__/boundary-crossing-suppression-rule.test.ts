@@ -315,7 +315,11 @@ describe('LUM-907 crossing rulings are audited', () => {
 
   it('crossing audit: a web ruling with a repository rule records the transition and the rule', async () => {
     findWithProject.mockResolvedValue({ id: 't-1', projectId: 'p-1' })
-    ruleCreate.mockResolvedValue({ id: 'rule-1', suppressedCount: 2, capped: false })
+    ruleCreate.mockResolvedValue({
+      id: 'rule-1',
+      suppressedCount: 2,
+      capped: false,
+    })
     const { request } = req({
       crossingId: 'bc-1',
       disposition: 'FALSE_POSITIVE',
@@ -353,7 +357,11 @@ describe('LUM-907 crossing rulings are audited', () => {
   })
 
   it('crossing audit: revoking a rule records it; an idempotent re-revoke does not', async () => {
-    ruleFindById.mockResolvedValue({ id: 'rule-1', projectId: 'p-1', revokedAt: null })
+    ruleFindById.mockResolvedValue({
+      id: 'rule-1',
+      projectId: 'p-1',
+      revokedAt: null,
+    })
     ruleRevoke.mockResolvedValue({ reopenedCount: 3 })
     expect((await DELETE(req().request, delParams())).status).toBe(200)
     expect(mockAudit).toHaveBeenCalledWith({
@@ -364,7 +372,11 @@ describe('LUM-907 crossing rulings are audited', () => {
       context: ctx,
     })
     mockAudit.mockClear()
-    ruleFindById.mockResolvedValue({ id: 'rule-1', projectId: 'p-1', revokedAt: new Date() })
+    ruleFindById.mockResolvedValue({
+      id: 'rule-1',
+      projectId: 'p-1',
+      revokedAt: new Date(),
+    })
     expect((await DELETE(req().request, delParams())).status).toBe(200)
     expect(mockAudit).not.toHaveBeenCalled()
   })

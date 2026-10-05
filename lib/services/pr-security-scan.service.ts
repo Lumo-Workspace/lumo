@@ -9,6 +9,7 @@
  * Secrets never reach a row: scanSecrets redacts before returning, and every
  * free-text field the LLM judge authors goes through redactKnownSecrets.
  */
+import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
 import {
   recordAuditEvent,
@@ -34,12 +35,9 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
 import { cleanPrSummary, type PrSummary } from '@/lib/security-scan/pr-summary'
-import {
-  fetchPrDiff,
-  fetchPrHeadSha,
-  readRepoFile,
-} from '@/lib/integrations/github/contents'
-import { loadReviewContext } from '@/lib/security-scan/review-context'
+import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
+import { reviewContextBudget } from '@/lib/security-scan/review-context'
+import { reviewContextService } from './review-context.service'
 import { isBugKind } from '@/lib/security-scan/review-kinds'
 import {
   addedLinesWithNumbers,
@@ -48,7 +46,7 @@ import {
   judgeDiffTier,
   redactKnownSecrets,
   redactForInjection,
-  vulnerabilityFingerprint,
+  judgeFindingFingerprint,
   INCOMPLETE_STAGE_STATES,
   stagesOf,
   evaluateHuntTrigger,
@@ -490,6 +488,21 @@ async function hasOpenL4Crossing(taskId: string | null): Promise<boolean> {
 
 // ── Service ──────────────────────────────────────────────────────────────────
 
+/**
+ * LUM-988 — `fp` the first time it is seen in `seen`, then a key derived
+ * from `fp` + its ordinal (`judgeFindingFingerprint` collides for two
+ * problems of one rule on one quoted line). Same 16-hex shape as every key.
+ */
+export function distinctFingerprint(
+  fp: string,
+  seen: Map<string, number>
+): string {
+  const n = (seen.get(fp) ?? 0) + 1
+  seen.set(fp, n)
+  if (n === 1) return fp
+  return createHash('sha256').update(`${fp}#${n}`).digest('hex').slice(0, 16)
+}
+
 export const prSecurityScanService = {
   async run(input: {
     pullRequestId: string
@@ -831,18 +844,17 @@ export const prSecurityScanService = {
           )
         }
         // LUM-988 — the PR-head content of the files the review covers, as
-        // context. Read through `readRepoFile`, so an unconfirmed repository
-        // is refused (LUM-883); any failure is logged and the review runs on
-        // the diff alone. Never throws.
-        const context = await loadReviewContext({
+        // context: one contents:read token for the scan (refused for an
+        // unconfirmed repository, LUM-883), revoked after. The context shares
+        // the prompt budget with the diff (`reviewContextBudget`), so a
+        // top-tier diff gets little or none. Any failure is logged and the
+        // review runs on the diff alone. Never throws.
+        const context = await reviewContextService.load({
+          workspaceId: pr.workspaceId,
+          repo: pr.repo,
+          headSha,
           paths: capped.covered,
-          readFile: path =>
-            readRepoFile({
-              workspaceId: pr.workspaceId,
-              fullName: pr.repo,
-              path,
-              ref: headSha,
-            }),
+          maxChars: reviewContextBudget(capped.text.length),
         })
         if (context.error) {
           logger.warn(
@@ -868,6 +880,11 @@ export const prSecurityScanService = {
           // Model text headed for a public PR: redacted and neutralised here,
           // and again on read (`parsePrSummary`).
           prSummary = cleanPrSummary(rawSummary)
+          // LUM-988: the evidence-line key can repeat inside one scan — two
+          // different problems of the same rule quoting the same line. The
+          // first keeps the stable key; each repeat gets an ordinal on it, so
+          // a human's disposition on one never silences the other.
+          const seenFingerprints = new Map<string, number>()
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
             // LUM-988: a correctness finding is CORRECTNESS / `review:<kind>`,
@@ -886,10 +903,11 @@ export const prSecurityScanService = {
             // redacting one field left the raw secret in the other three.
             // `redactKnownSecrets` runs every pattern over the text and ends
             // with `maskQuotedValues`, so it is the whole two-layer pass on
-            // its own. The fingerprint is taken over the REDACTED path/title
+            // its own. The fingerprint is taken over the REDACTED path/evidence
             // so it stays reproducible from the persisted row.
             const filePath = redactKnownSecrets(j.filePath)
             const title = redactKnownSecrets(j.title)
+            const evidence = redactKnownSecrets(j.evidence)
             judgeRows.push({
               scanId,
               kind: isCredential
@@ -904,8 +922,12 @@ export const prSecurityScanService = {
               line: j.line,
               title,
               detail: redactKnownSecrets(j.detail),
-              evidence: redactKnownSecrets(j.evidence),
-              fingerprint: vulnerabilityFingerprint(ruleId, filePath, title),
+              evidence,
+              // LUM-988: keyed on the quoted line, not the re-worded title.
+              fingerprint: distinctFingerprint(
+                judgeFindingFingerprint(ruleId, filePath, evidence, title),
+                seenFingerprints
+              ),
               externalRef: null,
               disposition: null,
             })

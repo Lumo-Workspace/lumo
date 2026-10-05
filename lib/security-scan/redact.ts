@@ -233,6 +233,32 @@ export function vulnerabilityFingerprint(
 }
 
 /**
+ * LUM-988 — fingerprint for an AI-review (LLM_JUDGE) finding. Keyed on the
+ * added line the model quoted as evidence, not on its title: the title is
+ * free text the model re-words on every push, so a title key gave the same
+ * problem a new fingerprint each scan — its inline comment was posted again
+ * and a human's FALSE_POSITIVE was not inherited. The evidence line is
+ * customer code, so it only changes when the code does. Whitespace is
+ * normalised like `sarifFingerprint`; an empty evidence line falls back to
+ * the title key rather than collapsing every such finding in a file into one.
+ * Pass the REDACTED evidence, so the key is reproducible from the stored row.
+ */
+export function judgeFindingFingerprint(
+  ruleId: string,
+  filePath: string,
+  evidence: string,
+  title: string
+): string {
+  const line = evidence.replace(/\s+/g, ' ').trim()
+  if (line.length === 0)
+    return vulnerabilityFingerprint(ruleId, filePath, title)
+  return createHash('sha256')
+    .update(`${ruleId}:${filePath}:evidence:${line}`)
+    .digest('hex')
+    .slice(0, 16)
+}
+
+/**
  * LUM-735 — fingerprint for a SARIF-sourced finding when the tool gave no
  * `partialFingerprints.primaryLocationLineHash`. Whitespace-normalised
  * snippet so a reformat keeps the human's disposition across pushes.

@@ -79,13 +79,21 @@ beforeEach(() => {
   mockAudit.mockClear()
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
-    json: async () => ({ id: 'u1', handle: 'alice', email: 'a@x.io', sub: 'g1' }),
+    json: async () => ({
+      id: 'u1',
+      handle: 'alice',
+      email: 'a@x.io',
+      sub: 'g1',
+    }),
   }) as unknown as typeof fetch
 })
 
 describe('LUM-907 PR3 integrations audit', () => {
   it('integrations audit: Figma connect records the scopes, never the account handle or tokens', async () => {
-    await figma.completeOauthFlow({ workspaceId: 'w1', memberId: 'm1', code: 'c' }, ctx)
+    await figma.completeOauthFlow(
+      { workspaceId: 'w1', memberId: 'm1', code: 'c' },
+      ctx
+    )
     expect(mockAudit).toHaveBeenCalledWith({
       workspaceId: 'w1',
       action: 'figma.connected',
@@ -100,9 +108,14 @@ describe('LUM-907 PR3 integrations audit', () => {
   })
 
   it('integrations audit: a failed Figma token exchange records nothing', async () => {
-    ;(figmaIntegrationRepository.upsert as jest.Mock).mockRejectedValueOnce(new Error('db'))
+    ;(figmaIntegrationRepository.upsert as jest.Mock).mockRejectedValueOnce(
+      new Error('db')
+    )
     await expect(
-      figma.completeOauthFlow({ workspaceId: 'w1', memberId: 'm1', code: 'c' }, ctx)
+      figma.completeOauthFlow(
+        { workspaceId: 'w1', memberId: 'm1', code: 'c' },
+        ctx
+      )
     ).rejects.toThrow('db')
     expect(mockAudit).not.toHaveBeenCalled()
   })
@@ -119,7 +132,10 @@ describe('LUM-907 PR3 integrations audit', () => {
   })
 
   it('integrations audit: Google Drive connect records the scopes', async () => {
-    await drive.completeOauthFlow({ workspaceId: 'w1', memberId: 'm1', code: 'c' }, ctx)
+    await drive.completeOauthFlow(
+      { workspaceId: 'w1', memberId: 'm1', code: 'c' },
+      ctx
+    )
     expect(mockAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'google_drive.connected',
@@ -161,15 +177,27 @@ describe('LUM-907 PR3 integrations audit', () => {
 
   it('integrations audit: Sentry mapping create and delete are audited; refusals are not', async () => {
     await expect(
-      sentryService.createMapping('w1', 'MEMBER', { sentryProjectSlug: 's', projectId: 'p' }, ctx)
+      sentryService.createMapping(
+        'w1',
+        'MEMBER',
+        { sentryProjectSlug: 's', projectId: 'p' },
+        ctx
+      )
     ).rejects.toMatchObject({ status: 403 })
     expect(mockAudit).not.toHaveBeenCalled()
 
-    sentryRepo.findIntegrationByWorkspace.mockResolvedValue({ id: 'si1' } as never)
+    sentryRepo.findIntegrationByWorkspace.mockResolvedValue({
+      id: 'si1',
+    } as never)
     sentryRepo.findProjectInWorkspace.mockResolvedValue({ id: 'p' } as never)
     sentryRepo.findMappingByProjectSlug.mockResolvedValue(null)
     sentryRepo.createMapping.mockResolvedValue({ id: 'map1' } as never)
-    await sentryService.createMapping('w1', 'OWNER', { sentryProjectSlug: 'web', projectId: 'p' }, ctx)
+    await sentryService.createMapping(
+      'w1',
+      'OWNER',
+      { sentryProjectSlug: 'web', projectId: 'p' },
+      ctx
+    )
     sentryRepo.findMappingWithIntegration.mockResolvedValue({
       id: 'map1',
       integration: { workspaceId: 'w1' },

@@ -15,6 +15,7 @@ import {
 } from '../lib/scan-format'
 import {
   QUEUE_EXIT_LABELS,
+  isCodeReviewFinding,
   secretDowngradeNote,
   type QueueExitReason,
 } from '../../../shared/src/security-scan'
@@ -182,7 +183,11 @@ function findingStanding(f: PrScanFinding): string {
   return f.blocking ? 'blocks DONE' : 'advisory'
 }
 
-/** Same line grammar as the `[SECURITY]` next-action rows of `lumo task status`. */
+/**
+ * Same line grammar as the `[SECURITY]` next-action rows of `lumo task status`;
+ * an AI-review correctness finding (`review:<kind>`) leads with `[BUG]` there
+ * and here (LUM-988).
+ */
 function formatFinding(f: PrScanFinding): string {
   const where = f.line == null ? f.filePath : `${f.filePath}:${f.line}`
   const note = sanitizeField(secretDowngradeNote(f.secretDowngrade))
@@ -193,7 +198,8 @@ function formatFinding(f: PrScanFinding): string {
     f.disposition === null && f.suggestedDisposition
       ? ` · AI suggests ${f.suggestedDisposition}`
       : ''
-  return `[${f.severity}] ${f.provenance} ${sanitizeField(f.ruleId)} — ${sanitizeField(where)} — ${sanitizeField(f.title)}${note} (${findingStanding(f)}${falsifier}${suggestion})`
+  const bug = isCodeReviewFinding(f.ruleId) ? '[BUG] ' : ''
+  return `${bug}[${f.severity}] ${f.provenance} ${sanitizeField(f.ruleId)} — ${sanitizeField(where)} — ${sanitizeField(f.title)}${note} (${findingStanding(f)}${falsifier}${suggestion})`
 }
 
 function plural(n: number, one: string, many: string): string {

@@ -40,8 +40,7 @@ export async function seedSessionAccess(harness: PgliteHarness): Promise<void> {
     workspaceId: string,
     clerkId: string,
     role: 'OWNER' | 'MEMBER'
-  ) =>
-    harness.insert('workspace_members', { id, workspaceId, clerkId, role })
+  ) => harness.insert('workspace_members', { id, workspaceId, clerkId, role })
   await member('mA-member', 'wsA', VIEWER.member, 'MEMBER')
   await member('mA-owner', 'wsA', VIEWER.ownerA, 'OWNER')
   await member('mA-other', 'wsA', VIEWER.otherMember, 'MEMBER')

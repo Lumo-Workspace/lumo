@@ -146,9 +146,8 @@ describe('child session', () => {
 
 describe('memberRepository.findRoleInWorkspace', () => {
   it('returns the membership in that workspace only', async () => {
-    const { memberRepository } = await import(
-      '@/lib/repositories/member.repository'
-    )
+    const { memberRepository } =
+      await import('@/lib/repositories/member.repository')
     expect(
       await memberRepository.findRoleInWorkspace('wsB', VIEWER.ownerBMemberA)
     ).toEqual({ id: 'mB-owner', workspaceId: 'wsB', role: 'OWNER' })

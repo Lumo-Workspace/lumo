@@ -55,6 +55,7 @@ import {
   formatHuntProgress,
   formatJudgeOverCap,
   formatTurnedOffNote,
+  isCodeReviewFinding,
   isOwnedUnfinished,
   scanCoverageState,
   turnedOffLayers,
@@ -207,6 +208,12 @@ export interface SummaryInput {
   externalCounts: Record<string, number>
   /** Undispositioned and not persisting. */
   open: number
+  /**
+   * LUM-988 — how many of `open` are AI-review bugs (kind CORRECTNESS), so
+   * the headline does not present them as security findings. Optional:
+   * absent reads as 0.
+   */
+  openBugs?: number
   blocking: number
   /**
    * LUM-738 — DEPENDENCY rows: `open` = undispositioned and new to this
@@ -373,9 +380,16 @@ function verdictLine(
 ): string {
   if (input.open > 0) {
     const noun = input.open === 1 ? 'finding' : 'findings'
-    const blocking =
-      input.blocking > 0 ? ` (${input.blocking} blocking DONE)` : ''
-    return `**${input.open} open ${noun}**${blocking}`
+    const bugs = input.openBugs ?? 0
+    const notes = [
+      ...(bugs > 0
+        ? [
+            `${bugs} ${bugs === 1 ? 'is a bug' : 'are bugs'} from the AI code review, not security`,
+          ]
+        : []),
+      ...(input.blocking > 0 ? [`${input.blocking} blocking DONE`] : []),
+    ]
+    return `**${input.open} open ${noun}**${notes.length > 0 ? ` (${notes.join(' · ')})` : ''}`
   }
   if (coverage === 'IN_PROGRESS')
     return '**No open findings yet — the scan is still running.**'
@@ -781,6 +795,8 @@ export const securityPrReviewService = {
         partialCauses: scan.partialCauses ?? [],
         externalCounts,
         open: open.length,
+        // Same predicate as every other surface (CORRECTNESS ⇔ review:).
+        openBugs: open.filter(f => isCodeReviewFinding(f.ruleId)).length,
         blocking,
         ...(dependencies ? { dependencies } : {}),
         low,
