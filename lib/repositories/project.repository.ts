@@ -95,6 +95,18 @@ export const projectRepository = {
   },
 
   /**
+   * Is `id` a project in `workspaceId`? One indexed lookup, id only — for
+   * validating a caller-supplied `projectId` (LUM-993). Another workspace's
+   * id reads as missing.
+   */
+  async findIdInWorkspace(id: string, workspaceId: string) {
+    return prisma.project.findUnique({
+      where: { id, workspaceId },
+      select: { id: true },
+    })
+  },
+
+  /**
    * `findById` for background jobs that start from a bare project id (Layer-2
    * memory consolidation, milestone-close distillation) — no caller workspace
    * to scope to.
