@@ -55,6 +55,8 @@ import {
   buildRetractedComment,
   buildInlineComment,
   isLumoBotComment,
+  isRetractedComment,
+  buildReopenedNote,
   VERIFIER_RETRACTION_NOTE,
   buildSummary,
 } from '@/lib/services/security-pr-review.service'
@@ -557,7 +559,7 @@ describe('LUM-988 late rejections and what the hold covers', () => {
       [
         '**Lumo · LLM review · bug · MEDIUM** — ~~Inverted guard~~',
         `${VERIFIER_RETRACTION_NOTE}: src/a.ts:3 checks it`,
-        '<!-- lumo-security:fp:fp9 -->',
+        '<!-- lumo-security:verifier-rejected -->\n<!-- lumo-security:fp:fp9 -->',
       ].join('\n\n')
     )
   })
@@ -599,12 +601,16 @@ describe('LUM-988 verifier comments follow the latest verdict', () => {
   it('reject on one push, confirm on the next: the retracted comment is restored', async () => {
     // Push 2 had rejected it; push 3's verifier confirms it again.
     listReview.mockResolvedValue([
-      comment(
-        55,
-        'fp-flip',
-        `~~Inverted guard~~ ${VERIFIER_RETRACTION_NOTE}: x`,
-        { id: 1, type: 'Bot' }
-      ),
+      {
+        ...comment(55, 'fp-flip', '', { id: 1, type: 'Bot' }),
+        body: buildRetractedComment({
+          title: 'Inverted guard',
+          fingerprint: 'fp-flip',
+          kind: 'CORRECTNESS',
+          severity: 'MEDIUM',
+          verifierReason: 'x',
+        }),
+      },
     ])
     const row = judgeRow('flip', {
       verifierVerdict: 'CONFIRMED',
@@ -687,5 +693,97 @@ describe('LUM-988 verifier comments follow the latest verdict', () => {
     expect(
       isLumoBotComment({ user: { type: 'Bot', login: 'renovate[bot]' } })
     ).toBe(true)
+  })
+})
+
+describe('LUM-988 retraction detection and restore eligibility', () => {
+  const updateReview = prCommentClient.updateReviewLineComment as jest.Mock
+  const judgeRow = (id: string, over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      id,
+      provenance: 'LLM_JUDGE',
+      kind: 'CORRECTNESS',
+      ruleId: 'review:logic_error',
+      severity: 'MEDIUM',
+      filePath: `src/${id}.ts`,
+      fingerprint: `fp-${id}`,
+      ...over,
+    })
+  const bot = { id: 1, type: 'Bot' }
+  const posted = (id: number, body: string) => ({
+    id,
+    node_id: `n${id}`,
+    html_url: '',
+    updated_at: '',
+    body,
+    user: bot,
+  })
+  beforeEach(() => updateReview.mockResolvedValue({ id: 1 }))
+
+  it('isRetractedComment: the marker, or the legacy note at a line start — not a title quoting it', () => {
+    expect(
+      isRetractedComment(`x\n\n<!-- lumo-security:verifier-rejected -->`)
+    ).toBe(true)
+    expect(
+      isRetractedComment(`**t** — ~~a~~\n\n${VERIFIER_RETRACTION_NOTE}: r`)
+    ).toBe(true)
+    expect(
+      isRetractedComment(
+        `**Lumo · LLM review · MEDIUM** — Message says "${VERIFIER_RETRACTION_NOTE}" wrongly`
+      )
+    ).toBe(false)
+  })
+
+  it('a rejected row whose original comment title quotes the note is still retracted', async () => {
+    const row = judgeRow('quote', {
+      verifierVerdict: 'REJECTED',
+      title: `Error text "${VERIFIER_RETRACTION_NOTE}" is misleading`,
+    })
+    listReview.mockResolvedValue([posted(70, buildInlineComment(row))])
+    findById.mockResolvedValue(
+      scanRow({
+        verifiedAt: new Date(),
+        verifierStartedAt: new Date(),
+        findings: [row],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).toHaveBeenCalledTimes(1)
+    expect(updateReview.mock.calls[0]![0].body).toContain(
+      '<!-- lumo-security:verifier-rejected -->'
+    )
+  })
+
+  it('an open row that no longer qualifies inline gets the neutral note, not the full comment', async () => {
+    const row = judgeRow('low', {
+      verifierVerdict: 'CONFIRMED',
+      severity: 'LOW',
+      title: 'Minor thing',
+    })
+    listReview.mockResolvedValue([
+      posted(
+        71,
+        buildRetractedComment({
+          title: 'Minor thing',
+          fingerprint: 'fp-low',
+          kind: 'CORRECTNESS',
+          severity: 'MEDIUM',
+          verifierReason: 'r',
+        })
+      ),
+    ])
+    findById.mockResolvedValue(
+      scanRow({
+        verifiedAt: new Date(),
+        verifierStartedAt: new Date(),
+        findings: [row],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).toHaveBeenCalledTimes(1)
+    const body = updateReview.mock.calls[0]![0].body as string
+    expect(body).toBe(buildReopenedNote(row))
+    expect(isRetractedComment(body)).toBe(false)
+    expect(body).toContain('<!-- lumo-security:fp:fp-low -->')
   })
 })
