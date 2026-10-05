@@ -77,6 +77,7 @@ describe('loadProjectForIdentity', () => {
       expect.objectContaining({
         where: {
           workspaceId_clerkId: { workspaceId: 'ws-alpha', clerkId: 'clerk_1' },
+          deactivatedAt: null,
         },
       })
     )

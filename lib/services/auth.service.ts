@@ -53,7 +53,7 @@ export const authService = {
     if (!apiKey || apiKey.revokedAt !== null) return null
     // LUM-906: deactivation revokes the member's keys; refusing keys of a
     // deactivated member here too is the second line of defence.
-    if (apiKey.member.deactivatedAt !== null) return null
+    if (apiKey.member.deactivatedAt) return null
 
     void miscRepository.touchApiKeyLastUsed(keyHash).catch(() => {})
 
