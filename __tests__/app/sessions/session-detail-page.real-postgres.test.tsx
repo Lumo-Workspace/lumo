@@ -122,7 +122,7 @@ describe('session detail page access', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND')
   })
 
-  it('page 404s for an owner of a different workspace', async () => {
+  it('page 404s cross workspace for an owner of a different workspace', async () => {
     await expect(
       renderAs(VIEWER.ownerBMemberA, SESSION_ACCESS.root)
     ).rejects.toThrow('NEXT_NOT_FOUND')
