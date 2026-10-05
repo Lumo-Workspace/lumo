@@ -68,4 +68,32 @@ describe('oauth-state', () => {
       reason: 'invalid',
     })
   })
+
+  // LUM-991: the GitHub App install / reverify legs carry two extra fields.
+  it('round-trips installationId and mode for the GitHub App legs', () => {
+    const app = { ...payload, installationId: 42, mode: 'reverify' as const }
+    const state = encodeOauthState(app, NOW)
+    expect(decodeOauthState(state, NOW)).toEqual({ ok: true, payload: app })
+  })
+
+  it('does not add installationId / mode to a plain OAuth state', () => {
+    const decoded = decodeOauthState(encodeOauthState(payload, NOW), NOW)
+    expect(decoded.ok && Object.keys(decoded.payload).sort()).toEqual([
+      'memberId',
+      'workspaceId',
+      'workspaceUrl',
+    ])
+  })
+
+  it.each([
+    ['a non-integer installationId', { installationId: 'abc' }],
+    ['a non-positive installationId', { installationId: 0 }],
+    ['an unknown mode', { mode: 'uninstall' }],
+  ])('rejects %s as invalid', (_n, extra) => {
+    const bad = encrypt(JSON.stringify({ ...payload, ...extra, iat: NOW }))
+    expect(decodeOauthState(bad, NOW)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    })
+  })
 })

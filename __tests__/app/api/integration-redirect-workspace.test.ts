@@ -481,11 +481,12 @@ describe('expired state is still rejected', () => {
 // ── GitHub App install legs (setup → callback) ─────────────────────────────
 
 describe('github/app/setup', () => {
+  // LUM-991: the App legs use the same expiring state as the OAuth flows.
   const setupState = (p: {
     workspaceId: string
     workspaceUrl: string
     memberId: string
-  }) => encrypt(JSON.stringify(p))
+  }) => encodeOauthState(p)
 
   it('dual-member user, install started from the second workspace → verify state for that workspace', async () => {
     signIn('dual')
@@ -550,8 +551,12 @@ describe('github/app/setup', () => {
 })
 
 describe('github/app/callback', () => {
-  const verifyState = (p: Record<string, unknown>) =>
-    encrypt(JSON.stringify({ installationId: 42, ...p }))
+  const verifyState = (p: {
+    workspaceId: string
+    workspaceUrl: string
+    memberId: string
+    mode?: 'reverify'
+  }) => encodeOauthState({ installationId: 42, ...p })
 
   it('dual-member user, install from the second workspace → installs onto that workspace/member', async () => {
     signIn('dual')

@@ -41,7 +41,7 @@ const APP_URL = 'https://app.test'
 
 function state(workspaceId: string, workspaceUrl = 'acme') {
   return encodeURIComponent(
-    `enc(${JSON.stringify({ workspaceId, workspaceUrl, memberId: 'm1' })})`
+    `enc(${JSON.stringify({ workspaceId, workspaceUrl, memberId: 'm1', iat: Date.now() })})`
   )
 }
 
@@ -88,6 +88,8 @@ describe('GET /api/github/app/setup', () => {
       workspaceUrl: 'acme',
       memberId: 'm1',
       installationId: 42,
+      // LUM-991: a fresh issued-at for the authorize leg.
+      iat: expect.any(Number),
     })
   })
 

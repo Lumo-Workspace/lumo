@@ -40,13 +40,13 @@ function state(
   workspaceUrl = 'acme'
 ) {
   return encodeURIComponent(
-    `enc(${JSON.stringify({ workspaceId, workspaceUrl, memberId: 'm1', installationId })})`
+    `enc(${JSON.stringify({ workspaceId, workspaceUrl, memberId: 'm1', installationId, iat: Date.now() })})`
   )
 }
 
 function reverifyState(workspaceId = 'w1') {
   return encodeURIComponent(
-    `enc(${JSON.stringify({ workspaceId, workspaceUrl: 'acme', memberId: 'm1', installationId: 42, mode: 'reverify' })})`
+    `enc(${JSON.stringify({ workspaceId, workspaceUrl: 'acme', memberId: 'm1', installationId: 42, mode: 'reverify', iat: Date.now() })})`
   )
 }
 
