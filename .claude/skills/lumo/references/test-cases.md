@@ -30,15 +30,17 @@ lumo task testcase add LUM-42 --title "Dashboard 页脚 FDIC 披露" --setup "Th
 
 ## `lumo task testcase list <task>` — 列表
 
-每行：用例号 · 标题 · 步骤数 · **最近一次执行**（结果 + 环境 + 短 sha + 日期），从没跑过显示 `never run`。
+每行：用例号 · 标题 · 步骤数 · **最近一次执行**（结果 + 环境 + 短 sha + 日期 + 执行人），从没跑过显示 `never run`。
 
 ```bash
 lumo task testcase list LUM-42
 ```
 
 ```
-TC1	Dashboard 页脚 FDIC 披露	3 steps / 2 verify	FAIL on LOCAL @a1b2c3d (2026-09-21)
+TC1	Dashboard 页脚 FDIC 披露	3 steps / 2 verify	FAIL on LOCAL @a1b2c3d (2026-09-21) by Chao Li via session 86dce765
 ```
+
+**执行人**（LUM-1008）：`by <成员名>`；run 来自 agent session 时再附 `via session <短 id>`。CLI 跑的 run 记下的成员是 token 主人，所以「人手动」还是「agent 代跑」看有没有 `via session`（`testcase run` 在 Claude Code 里跑时自动带上当前 session；1.96.0 之前的 CLI 不带，那些 run 没有 `via session`）。`runner not recorded` = 这条 run 没记执行人（不是「没人」）；旧服务端不发这个字段时什么都不打。`show` 的每条 run 行同样带它。
 
 ## `lumo task testcase show <task/case>` — 详情 + 执行历史
 
@@ -51,7 +53,7 @@ lumo task testcase show LUM-42/TC3
 带证据的 run，每条证据**自己占一行**（文件名 + url），缩进挂在那条 run 底下——终端里能打开一份证据的唯一形式就是 url，计数打不开（LUM-805）：
 
 ```
-  2026-09-21  FAIL on LOCAL  #123 @a1b2c3d  step 2: assert: the footer shows the FDIC line  — 页脚只剩版权行
+  2026-09-21  FAIL on LOCAL  #123 @a1b2c3d  by Chao Li via session 86dce765  step 2: assert: the footer shows the FDIC line  — 页脚只剩版权行
       footer.png  https://blob.example.com/test-evidence/…/abc.png
       jest.log  https://blob.example.com/test-evidence/…/def.log
 ```

@@ -1,4 +1,5 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
+import { formatExecutor } from '../lib/test-case-executor'
 
 interface ListRow {
   number: number
@@ -11,6 +12,9 @@ interface ListRow {
     createdAt: string
     commitSha: string | null
     commitDirty: boolean | null
+    /** LUM-1008: 执行人显示名（null = 未记录）。Optional —— 旧服务端不发。 */
+    executedBy?: string | null
+    sourceSessionId?: string | null
   }>
 }
 
@@ -48,7 +52,8 @@ export async function taskTestCaseList(
     if (run) {
       const sha = run.commitSha ? ` @${run.commitSha.slice(0, 7)}` : ''
       const dirty = run.commitDirty === true ? '+dirty' : ''
-      last = `${run.result} on ${run.environment}${sha}${dirty} (${run.createdAt.slice(0, 10)})`
+      const executor = formatExecutor(run)
+      last = `${run.result} on ${run.environment}${sha}${dirty} (${run.createdAt.slice(0, 10)})${executor ? ` ${executor}` : ''}`
     }
     console.log(
       `TC${c.number}\t${c.title}\t${c.steps.length} steps / ${c.verification.length} verify\t${last}`

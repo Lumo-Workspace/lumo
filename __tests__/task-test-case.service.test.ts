@@ -13,6 +13,7 @@ import {
   type TaskPullRequestSnapshot,
 } from '@/lib/services/task-test-case.service'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import type { Prisma } from '@prisma/client'
 
 jest.mock('@/lib/repositories/test-case.repository', () => ({
@@ -435,6 +436,81 @@ describe('listForTask', () => {
     const { testCases } = await taskTestCaseService.listForTask('t-1')
 
     expect(testCases[0]!.runs).toEqual([])
+  })
+})
+
+// LUM-1008: 每条 run 带执行人的显示名——一次批量解析，null 成员得 null。
+describe('executor', () => {
+  const labelsByIds = memberRepository.labelsByIds as jest.Mock
+  const knownMembers = new Map([['m-1', 'Ada Lovelace']])
+  beforeEach(() => {
+    labelsByIds.mockImplementation(
+      async (ids: string[]) =>
+        new Map(
+          ids.flatMap(id =>
+            knownMembers.has(id) ? [[id, knownMembers.get(id)!]] : []
+          )
+        )
+    )
+  })
+  afterEach(() => {
+    labelsByIds.mockResolvedValue(new Map())
+  })
+
+  it('listForTask resolves every executor in one batch and keeps unrecorded ones null', async () => {
+    repo.listForTask.mockResolvedValue([testCase, { ...testCase, id: 'tc-2' }])
+    repo.runsPerCase.mockResolvedValue(
+      new Map([
+        [
+          'tc-1',
+          [
+            { id: 'r2', executedByMemberId: 'm-1', sourceSessionId: 'sess-1' },
+            { id: 'r1', executedByMemberId: null, sourceSessionId: null },
+          ],
+        ],
+        [
+          'tc-2',
+          [{ id: 'r3', executedByMemberId: 'm-1', sourceSessionId: null }],
+        ],
+      ]) as never
+    )
+
+    const { testCases } = await taskTestCaseService.listForTask('t-1')
+
+    // one executor lookup for the whole task (the reviewer lookup is separate)
+    const executorCalls = labelsByIds.mock.calls.filter(([ids]) =>
+      (ids as string[]).includes('m-1')
+    )
+    expect(executorCalls).toEqual([[['m-1']]])
+    expect(testCases[0]!.runs.map(r => r.executedBy)).toEqual([
+      'Ada Lovelace',
+      null,
+    ])
+    expect(testCases[1]!.runs[0]!.executedBy).toBe('Ada Lovelace')
+    // the session pointer passes through untouched
+    expect(testCases[0]!.runs[0]!.sourceSessionId).toBe('sess-1')
+  })
+
+  it('getDetail carries the executor name on each run', async () => {
+    repo.findById.mockResolvedValue(testCase)
+    repo.listRuns.mockResolvedValue([
+      { id: 'r1', executedByMemberId: 'm-1', sourceSessionId: null },
+    ] as never)
+
+    const { runs } = await taskTestCaseService.getDetail('tc-1')
+
+    expect(runs[0]!.executedBy).toBe('Ada Lovelace')
+  })
+
+  it('falls back to the member id when the member no longer resolves', async () => {
+    repo.findById.mockResolvedValue(testCase)
+    repo.listRuns.mockResolvedValue([
+      { id: 'r1', executedByMemberId: 'm-gone', sourceSessionId: null },
+    ] as never)
+
+    const { runs } = await taskTestCaseService.getDetail('tc-1')
+
+    expect(runs[0]!.executedBy).toBe('m-gone')
   })
 })
 

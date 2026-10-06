@@ -48,7 +48,34 @@ export interface TestCaseAttribution {
  */
 export type TestCaseWithRuns = TestCaseRow & {
   /** LUM-819 返工：每条 run 带上它的最新抽查复核（null = 没人抽到过）。 */
-  runs: Array<TestCaseRunRow & { review: RunReviewSummary | null }>
+  runs: Array<TestCaseRunWithExecutor & { review: RunReviewSummary | null }>
+}
+
+/**
+ * LUM-1008：run 带上执行人的显示名。null = 这条 run 没记执行人（读作「未记录」，
+ * 不是「没人」）。区分人手动 / agent 代跑看 `sourceSessionId` 是否为空——CLI
+ * 跑的 run 记下的成员是 token 主人。
+ */
+export type TestCaseRunWithExecutor = TestCaseRunRow & {
+  executedBy: string | null
+}
+
+/**
+ * 一批 run 的执行人一次批量解析（同复核人 reviewer 的解析路径），返回 run →
+ * 显示名。成员已被清理时 labelsByIds 兜底成 member id，照常显示。
+ */
+async function executorResolver(
+  runs: TestCaseRunRow[]
+): Promise<(run: TestCaseRunRow) => string | null> {
+  const labels = await memberRepository.labelsByIds([
+    ...new Set(
+      runs.flatMap(r => (r.executedByMemberId ? [r.executedByMemberId] : []))
+    ),
+  ])
+  return run =>
+    run.executedByMemberId
+      ? (labels.get(run.executedByMemberId) ?? run.executedByMemberId)
+      : null
 }
 
 function fail(message: string, status: number): never {
@@ -196,9 +223,13 @@ export const taskTestCaseService = {
     testCases: TestCaseWithRuns[]
     pullRequests: TaskPullRequestSnapshot[]
   }> {
-    const [cases, runs, pullRequests, reviews] = await Promise.all([
+    const runsPromise = testCaseRepository.runsPerCase(taskId)
+    // 执行人解析只依赖 runs，与其余读并行，不在它们之后再串一次 Clerk 往返。
+    const [cases, runs, executedBy, pullRequests, reviews] = await Promise.all([
       testCaseRepository.listForTask(taskId),
-      testCaseRepository.runsPerCase(taskId),
+      runsPromise,
+      (async () =>
+        executorResolver([...(await runsPromise).values()].flat()))(),
       testCaseRepository.listTaskPullRequests(taskId),
       testCaseReviewService.latestForTask(taskId),
     ])
@@ -207,6 +238,7 @@ export const taskTestCaseService = {
         ...c,
         runs: (runs.get(c.id) ?? []).map(r => ({
           ...r,
+          executedBy: executedBy(r),
           review: reviews.get(r.id) ?? null,
         })),
       })),
@@ -216,7 +248,7 @@ export const taskTestCaseService = {
 
   async getDetail(testCaseId: string): Promise<{
     testCase: TestCaseRow
-    runs: TestCaseRunRow[]
+    runs: TestCaseRunWithExecutor[]
     pullRequests: TaskPullRequestSnapshot[]
   }> {
     const testCase = await testCaseRepository.findById(testCaseId)
@@ -226,7 +258,12 @@ export const taskTestCaseService = {
       testCaseRepository.listTaskPullRequests(testCase.taskId),
     ])
     // 陈旧性在**读端**推导（deriveRunFreshness），不落列。
-    return { testCase, runs, pullRequests }
+    const executedBy = await executorResolver(runs)
+    return {
+      testCase,
+      runs: runs.map(r => ({ ...r, executedBy: executedBy(r) })),
+      pullRequests,
+    }
   },
 
   async create(

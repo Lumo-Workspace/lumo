@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useIntl } from 'react-intl'
 import type { TestCaseRun } from '@prisma/client'
 import type { TestCaseRunView } from '@/lib/api-client/test-cases'
@@ -81,6 +82,48 @@ function CodeCoordinate({
         <span className='text-foreground'>
           {intl.formatMessage({ id: 'testCases.freshness.dirty' })}
         </span>
+      ) : null}
+    </span>
+  )
+}
+
+/**
+ * LUM-1008: 谁跑的、从哪跑的。
+ *
+ * CLI 跑的 run 记下的成员是 token 主人，所以「人手动」还是「agent 代跑」要看
+ * 有没有来源 session——有就给一个可点的短 id，指向那次 session 的时间线（能不
+ * 能打开由 session 页自己判权限）。executedBy 为 null 读作「未记录」，不是
+ * 「没人」；缺省（这个读端没带）就什么都不画。
+ */
+function ExecutorLabel({
+  executedBy,
+  sourceSessionId,
+}: {
+  executedBy: string | null | undefined
+  sourceSessionId: string | null
+}) {
+  const intl = useIntl()
+  if (executedBy === undefined) return null
+  return (
+    <span className='flex items-center gap-1 text-muted-foreground'>
+      <span>
+        {executedBy === null
+          ? intl.formatMessage({ id: 'testCases.executor.unrecorded' })
+          : intl.formatMessage(
+              { id: 'testCases.executor.by' },
+              { name: executedBy }
+            )}
+      </span>
+      {sourceSessionId ? (
+        <Link
+          href={`/sessions/${sourceSessionId}`}
+          className='underline-offset-2 hover:text-foreground hover:underline'
+        >
+          {intl.formatMessage(
+            { id: 'testCases.executor.session' },
+            { id: sourceSessionId.slice(0, 8) }
+          )}
+        </Link>
       ) : null}
     </span>
   )
@@ -356,6 +399,10 @@ export function RunHistoryList({
             <time className='text-muted-foreground'>
               {new Date(r.createdAt).toISOString().slice(0, 10)}
             </time>
+            <ExecutorLabel
+              executedBy={r.executedBy}
+              sourceSessionId={r.sourceSessionId}
+            />
             <CodeCoordinate run={r} pullRequests={pullRequests} />
             {locator ? (
               <span className='text-muted-foreground'>

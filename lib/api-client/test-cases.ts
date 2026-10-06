@@ -40,6 +40,11 @@ export type TestCaseRunView = TestCaseRun & {
   disposition: RunDisposition | null
   /** 可选：只有任务的用例列表带；单条详情等读端没有它。 */
   review?: RunReviewView | null
+  /**
+   * LUM-1008：执行人显示名。null = 这条 run 没记执行人；缺省 = 这个读端没带
+   * （例如 recordRun 的回包）。
+   */
+  executedBy?: string | null
 }
 
 /** 列表里的一条用例，带它全部的执行记录（新到旧）。 */
@@ -97,7 +102,7 @@ export const testCasesClient = {
     caseRef: string
   ): Promise<{
     testCase: TestCase
-    runs: TestCaseRun[]
+    runs: Array<TestCaseRun & { executedBy: string | null }>
     pullRequests: TaskPullRequestSnapshot[]
   }> {
     return apiFetch(`/api/tasks/${taskId}/test-cases/${caseRef}`)

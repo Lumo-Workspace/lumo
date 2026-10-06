@@ -2,6 +2,7 @@ import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { formatEvidenceLines } from '../lib/test-case-evidence'
 import { formatDispositionLine } from '../lib/test-case-disposition'
+import { formatExecutor } from '../lib/test-case-executor'
 
 interface RunRow {
   id: string
@@ -18,6 +19,9 @@ interface RunRow {
   createdAt: string
   /** LUM-812: 人类裁定（KNOWN_DEFECT / NOT_A_DEFECT）。Optional —— 旧服务端不发。 */
   disposition?: unknown
+  /** LUM-1008: 执行人显示名（null = 未记录）。Optional —— 旧服务端不发。 */
+  executedBy?: string | null
+  sourceSessionId?: string | null
 }
 
 interface PrRow {
@@ -120,9 +124,11 @@ export async function taskTestCaseShow(
         ? `  ${run.failedPhase === 'STEPS' ? 'step' : 'verification'} ${run.failedIndex + 1}` +
           (run.failedStepText ? `: ${run.failedStepText}` : '')
         : ''
+    const executor = formatExecutor(run)
     console.log(
       `  ${run.createdAt.slice(0, 10)}  ${run.result} on ${run.environment}` +
         freshnessNote(run, pullRequests) +
+        (executor ? `  ${executor}` : '') +
         at +
         (run.note ? `  — ${run.note}` : '')
     )
