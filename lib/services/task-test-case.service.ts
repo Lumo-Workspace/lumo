@@ -223,13 +223,16 @@ export const taskTestCaseService = {
     testCases: TestCaseWithRuns[]
     pullRequests: TaskPullRequestSnapshot[]
   }> {
-    const [cases, runs, pullRequests, reviews] = await Promise.all([
+    const runsPromise = testCaseRepository.runsPerCase(taskId)
+    // 执行人解析只依赖 runs，与其余读并行，不在它们之后再串一次 Clerk 往返。
+    const [cases, runs, executedBy, pullRequests, reviews] = await Promise.all([
       testCaseRepository.listForTask(taskId),
-      testCaseRepository.runsPerCase(taskId),
+      runsPromise,
+      (async () =>
+        executorResolver([...(await runsPromise).values()].flat()))(),
       testCaseRepository.listTaskPullRequests(taskId),
       testCaseReviewService.latestForTask(taskId),
     ])
-    const executedBy = await executorResolver([...runs.values()].flat())
     return {
       testCases: cases.map(c => ({
         ...c,
