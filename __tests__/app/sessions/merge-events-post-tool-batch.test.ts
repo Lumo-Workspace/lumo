@@ -305,6 +305,17 @@ describe('PostToolBatch completing a call whose Post is missing', () => {
     ])
   })
 
+  it('adds the result once when the call repeats in the same or a later batch', () => {
+    const items = mergeEvents([
+      preEvent('USED_UP', READ, 1),
+      batchEvent('USED_UP', [READ, READ], 2),
+      { ...batchEvent('USED_UP', [READ], 3), id: 'batch_again' },
+    ])
+    expect(countToolCalls(items)).toBe(1)
+    expect(redactedBlocks(items)).toHaveLength(1)
+    expect(totalRedactedBytes(items)).toBe(Buffer.byteLength(READ.result))
+  })
+
   it('shows the recorded result text on the pending row (RETAIN)', () => {
     const items = mergeEvents([
       preEvent('RETAIN', BASH, 1),

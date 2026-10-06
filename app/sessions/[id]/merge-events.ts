@@ -185,8 +185,9 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   }
 
   // After pairing: a batch can be stored before its own Pre/Post rows.
+  const completedByBatch = new Set<string>()
   for (const batch of batches) {
-    items.push(...applyBatch(batch, itemByToolUseId))
+    items.push(...applyBatch(batch, itemByToolUseId, completedByBatch))
   }
 
   items.sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
@@ -330,27 +331,33 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
  * gains nothing (the Post carries the same input, a richer response and its
  * own redaction sizes). A pending row gains the batch's result. A call with no
  * row at all is returned as a new row — it is registered in `itemByToolUseId`,
- * so a later batch repeating it adds nothing.
+ * so a later batch repeating it adds nothing. `completedByBatch` holds the
+ * calls a batch already supplied a result for, so a repeated call (in the same
+ * batch or a later one) never adds a second result.
  */
 function applyBatch(
   batch: RawEvent,
-  itemByToolUseId: Map<string, TimelineItem>
+  itemByToolUseId: Map<string, TimelineItem>,
+  completedByBatch: Set<string>
 ): TimelineItem[] {
   const calls = getAny(batch.payload, 'tool_calls')
   if (!Array.isArray(calls)) return []
   const added: TimelineItem[] = []
   calls.forEach((call, index) => {
     const toolUseId = getString(call, 'tool_use_id')
-    if (!toolUseId) return
+    if (!toolUseId || completedByBatch.has(toolUseId)) return
     const prefix = `tool_calls.${index}`
     const existing = itemByToolUseId.get(toolUseId)
     if (existing) {
-      if (existing.kind === 'orphan')
+      if (existing.kind === 'orphan') {
         existing.details.push(...batchResultBlocks(batch, call, prefix))
+        completedByBatch.add(toolUseId)
+      }
       return
     }
     const item = batchCallItem(batch, call, toolUseId, prefix)
     itemByToolUseId.set(toolUseId, item)
+    completedByBatch.add(toolUseId)
     added.push(item)
   })
   return added
