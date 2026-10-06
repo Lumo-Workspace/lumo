@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "依工作區的保留期設定,本次掃描引用的程式碼已清除。規則、檔案、行號和處置仍然保留。",
   "securityScan.suggested.falsePositive": "疑似誤報（LLM）",
   "securityScan.suggested.reasonLabel": "LLM 判斷依據：",
-  "securityScan.verifier.reasonLabel": "驗證器理由：",
+  "securityScan.verifier.reasonLabel": "驗證器理由",
   "securityScan.verifier.rejected": "已被驗證器駁回",
   "securityScan.suggested.outcome.CONFIRMED": "建議已確認",
   "securityScan.suggested.outcome.OVERRULED": "建議已否決",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "上一張",
   "testCases.lightbox.next": "下一張",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "開啟原圖"
+  "testCases.lightbox.openOriginal": "開啟原圖",
+  "securityScan.stageInfo.trigger": "{layer} 檢查什麼",
+  "securityScan.stageInfo.secrets": "用 Lumo 內建的密鑰規則，查找本 PR 新增行裡的 API 金鑰、存取權杖、私鑰和密碼。",
+  "securityScan.stageInfo.external": "對變更做靜態分析：注入、不安全 API 等高風險程式碼模式，外洩的憑證，GitHub Actions 工作流程問題，以及基礎設施設定錯誤。",
+  "securityScan.stageInfo.supplyChain": "把 lockfile 裡的套件與 OSV 資料庫中的已知漏洞比對。",
+  "securityScan.stageInfo.judge": "模型閱讀 diff 查找 bug 和安全問題，再由驗證器對照程式碼逐條複核，站不住的發現會被駁回。",
+  "securityScan.stageInfo.hunt": "一個 agent 沿著變更的原始檔追蹤，看不可信輸入能否到達高風險程式碼。數字是範圍內已檢查的原始檔數。",
+  "securityScan.stageInfo.tools": "掃描工具：{tools}",
+  "securityScan.group.open": "需要決定",
+  "securityScan.group.verifierRejected": "已被驗證器駁回",
+  "securityScan.group.ruled": "已裁定"
 }

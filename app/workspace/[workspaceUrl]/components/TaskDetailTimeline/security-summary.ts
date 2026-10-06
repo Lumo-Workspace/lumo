@@ -146,3 +146,60 @@ export function blockingFindings(
       .map(finding => ({ prNumber: pr.number, finding }))
   )
 }
+
+/**
+ * LUM-1012 follow-up — why a finding sits where it does in a PR's list. The
+ * list is grouped by this key under one heading each, so the reason is said
+ * once instead of as a chip on every row. First match wins: a ruling beats
+ * every other reason; a verifier rejection beats the queue / main labels.
+ */
+export type FindingGroupKey =
+  | 'open'
+  | 'ruled'
+  | 'verifierRejected'
+  | 'queueExit'
+  | 'persisting'
+
+export function findingGroupKey(f: SecurityFindingView): FindingGroupKey {
+  if (f.disposition != null) return 'ruled'
+  if (f.verifierVerdict === 'REJECTED') return 'verifierRejected'
+  if (f.queueExit != null) return 'queueExit'
+  if (f.persisting) return 'persisting'
+  return 'open'
+}
+
+const GROUP_ORDER: FindingGroupKey[] = [
+  'open',
+  'queueExit',
+  'persisting',
+  'verifierRejected',
+  'ruled',
+]
+
+export interface FindingGroup {
+  key: FindingGroupKey
+  /** Set on a `queueExit` group: why the findings left the queue. Findings
+   *  with different exits get separate groups. */
+  queueExit: SecurityFindingView['queueExit']
+  findings: SecurityFindingView[]
+}
+
+/**
+ * Findings grouped by `findingGroupKey` (queue exits split per exit kind), in
+ * a fixed order — the ones someone must decide on first. Within a group the
+ * input order is kept. Empty groups are dropped.
+ */
+export function groupFindings(findings: SecurityFindingView[]): FindingGroup[] {
+  const groups = new Map<string, FindingGroup>()
+  for (const f of findings) {
+    const key = findingGroupKey(f)
+    const queueExit = key === 'queueExit' ? f.queueExit : null
+    const id = `${key}:${queueExit ?? ''}`
+    const group = groups.get(id) ?? { key, queueExit, findings: [] }
+    group.findings.push(f)
+    groups.set(id, group)
+  }
+  return [...groups.values()].sort(
+    (a, b) => GROUP_ORDER.indexOf(a.key) - GROUP_ORDER.indexOf(b.key)
+  )
+}

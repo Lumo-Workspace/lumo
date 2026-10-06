@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "Kode yang dikutip pemindaian ini telah dihapus sesuai pengaturan retensi workspace Anda. Aturan, file, baris, dan keputusan tetap disimpan.",
   "securityScan.suggested.falsePositive": "Diduga positif palsu (LLM)",
   "securityScan.suggested.reasonLabel": "Penalaran LLM:",
-  "securityScan.verifier.reasonLabel": "Alasan pemverifikasi:",
+  "securityScan.verifier.reasonLabel": "Alasan pemverifikasi",
   "securityScan.verifier.rejected": "Ditolak oleh pemverifikasi",
   "securityScan.suggested.outcome.CONFIRMED": "saran dikonfirmasi",
   "securityScan.suggested.outcome.OVERRULED": "saran ditolak",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "Sebelumnya",
   "testCases.lightbox.next": "Berikutnya",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "Buka asli"
+  "testCases.lightbox.openOriginal": "Buka asli",
+  "securityScan.stageInfo.trigger": "Yang diperiksa {layer}",
+  "securityScan.stageInfo.secrets": "Mencari kunci API, token akses, kunci privat, dan kata sandi di baris yang ditambahkan PR ini, memakai aturan rahasia bawaan Lumo.",
+  "securityScan.stageInfo.external": "Analisis statis atas perubahan: pola kode berisiko seperti injeksi atau API tidak aman, kredensial yang bocor, masalah workflow GitHub Actions, dan salah konfigurasi infrastruktur.",
+  "securityScan.stageInfo.supplyChain": "Memeriksa paket di lockfile Anda terhadap kerentanan yang diketahui di basis data OSV.",
+  "securityScan.stageInfo.judge": "Sebuah model membaca diff untuk mencari bug dan masalah keamanan, lalu pemverifikasi memeriksa ulang setiap temuan terhadap kode dan menolak yang tidak terbukti.",
+  "securityScan.stageInfo.hunt": "Sebuah agen menelusuri file sumber yang berubah untuk melihat apakah input tak tepercaya bisa mencapai kode berisiko. Angkanya adalah file sumber yang diperiksa dari yang termasuk cakupan.",
+  "securityScan.stageInfo.tools": "Pemindai: {tools}",
+  "securityScan.group.open": "Perlu keputusan",
+  "securityScan.group.verifierRejected": "Ditolak pemverifikasi",
+  "securityScan.group.ruled": "Sudah diputuskan"
 }

@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "Kod yang dipetik oleh imbasan ini telah dipadam mengikut tetapan pengekalan ruang kerja anda. Peraturan, fail, baris dan keputusan masih disimpan.",
   "securityScan.suggested.falsePositive": "Disyaki positif palsu (LLM)",
   "securityScan.suggested.reasonLabel": "Penaakulan LLM:",
-  "securityScan.verifier.reasonLabel": "Sebab pengesah:",
+  "securityScan.verifier.reasonLabel": "Sebab pengesah",
   "securityScan.verifier.rejected": "Ditolak oleh pengesah",
   "securityScan.suggested.outcome.CONFIRMED": "cadangan disahkan",
   "securityScan.suggested.outcome.OVERRULED": "cadangan ditolak",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "Sebelumnya",
   "testCases.lightbox.next": "Seterusnya",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "Buka asal"
+  "testCases.lightbox.openOriginal": "Buka asal",
+  "securityScan.stageInfo.trigger": "Perkara yang diperiksa oleh {layer}",
+  "securityScan.stageInfo.secrets": "Mencari kunci API, token akses, kunci peribadi dan kata laluan dalam baris yang ditambah oleh PR ini, menggunakan peraturan rahsia terbina dalam Lumo.",
+  "securityScan.stageInfo.external": "Analisis statik perubahan: corak kod berisiko seperti suntikan atau API tidak selamat, kelayakan yang terdedah, masalah aliran kerja GitHub Actions dan salah konfigurasi infrastruktur.",
+  "securityScan.stageInfo.supplyChain": "Menyemak pakej dalam lockfile anda terhadap kerentanan yang diketahui dalam pangkalan data OSV.",
+  "securityScan.stageInfo.judge": "Sebuah model membaca diff untuk mencari pepijat dan isu keselamatan, kemudian pengesah menyemak semula setiap dapatan terhadap kod dan menolak yang tidak berasas.",
+  "securityScan.stageInfo.hunt": "Satu ejen menjejak fail sumber yang berubah untuk melihat sama ada input tidak dipercayai boleh sampai ke kod berisiko. Kiraan ialah fail sumber yang disemak daripada yang dalam skop.",
+  "securityScan.stageInfo.tools": "Pengimbas: {tools}",
+  "securityScan.group.open": "Perlu keputusan",
+  "securityScan.group.verifierRejected": "Ditolak oleh pengesah",
+  "securityScan.group.ruled": "Sudah diputuskan"
 }

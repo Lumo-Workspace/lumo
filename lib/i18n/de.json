@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "Der von diesem Scan zitierte Code wurde gemäß der Aufbewahrungseinstellung Ihres Workspaces gelöscht. Regeln, Dateien, Zeilen und Bewertungen bleiben erhalten.",
   "securityScan.suggested.falsePositive": "Vermutlich falsch positiv (LLM)",
   "securityScan.suggested.reasonLabel": "LLM-Begründung:",
-  "securityScan.verifier.reasonLabel": "Begründung des Prüfers:",
+  "securityScan.verifier.reasonLabel": "Begründung des Prüfers",
   "securityScan.verifier.rejected": "Vom Prüfer verworfen",
   "securityScan.suggested.outcome.CONFIRMED": "Vorschlag bestätigt",
   "securityScan.suggested.outcome.OVERRULED": "Vorschlag verworfen",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "Zurück",
   "testCases.lightbox.next": "Weiter",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "Original öffnen"
+  "testCases.lightbox.openOriginal": "Original öffnen",
+  "securityScan.stageInfo.trigger": "Was {layer} prüft",
+  "securityScan.stageInfo.secrets": "Sucht mit Lumos integrierten Secret-Regeln nach API-Schlüsseln, Zugriffstokens, privaten Schlüsseln und Passwörtern in den Zeilen, die dieser PR hinzufügt.",
+  "securityScan.stageInfo.external": "Statische Analyse der Änderung: riskante Code-Muster wie Injection oder unsichere APIs, offengelegte Zugangsdaten, Probleme in GitHub-Actions-Workflows und Fehlkonfigurationen der Infrastruktur.",
+  "securityScan.stageInfo.supplyChain": "Prüft die Pakete in deinen Lockfiles gegen bekannte Schwachstellen aus der OSV-Datenbank.",
+  "securityScan.stageInfo.judge": "Ein Modell liest den Diff auf Bugs und Sicherheitsprobleme; danach prüft ein Prüfer jeden Befund am Code nach und verwirft die, die nicht standhalten.",
+  "securityScan.stageInfo.hunt": "Ein Agent verfolgt die geänderten Quelldateien und prüft, ob nicht vertrauenswürdige Eingaben riskanten Code erreichen können. Die Zahl gibt geprüfte Quelldateien von den relevanten an.",
+  "securityScan.stageInfo.tools": "Scanner: {tools}",
+  "securityScan.group.open": "Entscheidung nötig",
+  "securityScan.group.verifierRejected": "Vom Prüfer verworfen",
+  "securityScan.group.ruled": "Entschieden"
 }

@@ -1,10 +1,22 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, ChevronRight, Check, Copy, Minus } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronRight,
+  Check,
+  Copy,
+  Info,
+  Minus,
+} from 'lucide-react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
@@ -23,8 +35,11 @@ import { SCAN_STAGE_KEYS, turnedOffLayers } from '@/shared/src/security-scan'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import {
   blockingFindings,
+  groupFindings,
   isQuietFinding,
   shouldExpandRow,
+  type FindingGroup,
+  type FindingGroupKey,
 } from './security-summary'
 import { buildAgentContext } from './security-agent-context'
 
@@ -158,104 +173,87 @@ function SecurityScanPanel({
         )
       ) : (
         // LUM-1012: one checklist row per PR — the PR and its result on one
-        // line, and under it a cell per layer (✓ checked, – not needed / off,
-        // ! didn't run), aligned to the layer names above the list. Two lines
-        // keep the full title readable at the Record tab's width.
-        <div className='mt-2 overflow-x-auto'>
-          <div className='min-w-[26rem]'>
-            <div
-              aria-hidden
-              className={`${LAYER_GRID} items-end pb-1.5 text-[11px] leading-tight text-muted-foreground`}
-            >
-              <span />
-              {STAGE_ORDER.map(key => (
-                <span key={key} className='text-center'>
-                  {intl.formatMessage({ id: `securityScan.stage.${key}` })}
-                </span>
-              ))}
-            </div>
-            <ul className='divide-y divide-border/60 border-t border-border/60'>
-              {data.prs.map(({ pr, latest }) => {
-                const expanded = isExpanded(pr.id, latest)
-                return (
-                  <li
-                    key={pr.id}
-                    data-testid={`security-pr-${pr.number}`}
-                    className='py-2'
+        // line, and under it every layer with its own name (✓ checked, – not
+        // needed / off, ! didn't run) and an ⓘ that says what it checks. The
+        // names ride on each row so no header sits apart from the cells.
+        <ul className='-my-1 divide-y divide-border/60'>
+          {data.prs.map(({ pr, latest }) => {
+            const expanded = isExpanded(pr.id, latest)
+            return (
+              <li
+                key={pr.id}
+                data-testid={`security-pr-${pr.number}`}
+                className='py-2.5'
+              >
+                {/* A link inside a button is invalid HTML — the toggle and
+                    the PR link sit side by side. */}
+                <div className='flex items-center gap-2'>
+                  {/* Review F2 (a11y): the chevron is the only content,
+                      so name it after the row it opens. */}
+                  <button
+                    type='button'
+                    aria-expanded={expanded}
+                    aria-label={`#${pr.number} ${pr.title}`}
+                    data-testid={`security-pr-${pr.number}-toggle`}
+                    onClick={() => toggleRow(pr.id, latest)}
+                    className='shrink-0 text-muted-foreground hover:text-foreground'
                   >
-                    {/* A link inside a button is invalid HTML — the toggle and
-                        the PR link sit side by side. */}
-                    <div className='flex items-center gap-2'>
-                      {/* Review F2 (a11y): the chevron is the only content,
-                          so name it after the row it opens. */}
-                      <button
-                        type='button'
-                        aria-expanded={expanded}
-                        aria-label={`#${pr.number} ${pr.title}`}
-                        data-testid={`security-pr-${pr.number}-toggle`}
-                        onClick={() => toggleRow(pr.id, latest)}
-                        className='shrink-0 text-muted-foreground hover:text-foreground'
-                      >
-                        <ChevronRight
-                          className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                          aria-hidden
-                        />
-                      </button>
-                      <a
-                        href={pr.url}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        title={
-                          latest
-                            ? intl.formatMessage(
-                                { id: 'securityScan.meta' },
-                                { sha: latest.headSha.slice(0, 7) }
-                              )
-                            : undefined
-                        }
-                        className='min-w-0 flex-1 truncate text-caption text-foreground hover:underline'
-                      >
-                        <span className='font-mono text-muted-foreground'>
-                          #{pr.number}
-                        </span>{' '}
-                        {pr.title}
-                      </a>
-                      <span className='shrink-0'>
-                        {data.scanningOff && showsScanningOff(latest) ? (
-                          <ScanningOffBadge />
-                        ) : (
-                          <ScanResult scan={latest} />
-                        )}
-                      </span>
-                    </div>
-                    {latest ? (
-                      <div className={`${LAYER_GRID} mt-1 items-center`}>
-                        <span />
-                        {STAGE_ORDER.map(key => (
-                          <StageCell key={key} stageKey={key} scan={latest} />
-                        ))}
-                      </div>
-                    ) : null}
-                    {expanded && latest && (
-                      <ScanDetails
-                        taskId={taskId}
-                        prNumber={pr.number}
-                        scan={latest}
-                      />
+                    <ChevronRight
+                      className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      aria-hidden
+                    />
+                  </button>
+                  <a
+                    href={pr.url}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    title={
+                      latest
+                        ? intl.formatMessage(
+                            { id: 'securityScan.meta' },
+                            { sha: latest.headSha.slice(0, 7) }
+                          )
+                        : undefined
+                    }
+                    className='min-w-0 flex-1 truncate text-caption font-medium text-foreground hover:underline'
+                  >
+                    <span className='font-mono font-normal text-muted-foreground'>
+                      #{pr.number}
+                    </span>{' '}
+                    {pr.title}
+                  </a>
+                  <span className='shrink-0'>
+                    {data.scanningOff && showsScanningOff(latest) ? (
+                      <ScanningOffBadge />
+                    ) : (
+                      <ScanResult scan={latest} />
                     )}
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </div>
+                  </span>
+                </div>
+                {latest ? (
+                  <div className='mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-[1.375rem]'>
+                    {STAGE_ORDER.map(key => (
+                      <StageItem key={key} stageKey={key} scan={latest} />
+                    ))}
+                  </div>
+                ) : null}
+                {expanded && latest && (
+                  <div className='pl-[1.375rem]'>
+                    <ScanDetails
+                      taskId={taskId}
+                      prNumber={pr.number}
+                      scan={latest}
+                    />
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
       )}
     </div>
   )
 }
-
-/** Indent · the five layers — shared by the layer names and every PR's cells. */
-const LAYER_GRID = 'grid grid-cols-[1.25rem_repeat(5,minmax(0,5rem))] gap-x-1.5'
 
 /**
  * Every layer the scan carries, in pipeline order (LUM-740: the stage row).
@@ -266,21 +264,35 @@ const LAYER_GRID = 'grid grid-cols-[1.25rem_repeat(5,minmax(0,5rem))] gap-x-1.5'
 const STAGE_ORDER = SCAN_STAGE_KEYS
 
 /**
- * LUM-1012: one layer of one scan as a checklist cell — ✓ checked, – not
- * needed or turned off in settings, ! didn't run (failed, queued, not
- * configured, cut short, or skipped for being over its size limit). The
- * state's words ride on the label, so the icon is never the only signal.
+ * The scanners behind each layer, named in its ⓘ card. Product names, not
+ * copy — never translated. Code scan's are the managed scan's tools
+ * (`MANAGED_SCAN_TOOLS`) minus osv-scanner, which is Dependencies.
  */
-function StageCell({
+const STAGE_TOOLS: Record<(typeof STAGE_ORDER)[number], string | null> = {
+  secrets: null,
+  external: 'gitleaks · semgrep · zizmor · trivy',
+  supplyChain: 'osv-scanner',
+  judge: null,
+  hunt: null,
+}
+
+/**
+ * LUM-1012: one layer of one scan as a checklist item — ✓ checked, – not
+ * needed or turned off in settings, ! didn't run (failed, queued, not
+ * configured, cut short, or skipped for being over its size limit). Only
+ * the name is shown, so every row keeps one width; the state's words ride on
+ * the label and tooltip, and a size limit also gets its notice below.
+ */
+function StageItem({
   stageKey,
   scan,
 }: {
   stageKey: (typeof STAGE_ORDER)[number]
-  scan: SecurityScanView | null
+  scan: SecurityScanView
 }) {
   const intl = useIntl()
-  const state = scan?.stages[stageKey]
-  if (!scan || !state) return <span aria-hidden />
+  const state = scan.stages[stageKey]
+  if (!state) return null
   const overCap =
     (stageKey === 'hunt' && scan.huntOverCap != null) ||
     (stageKey === 'judge' && scan.judgeOverCap != null)
@@ -291,6 +303,10 @@ function StageCell({
       : state === 'SKIPPED' || state === 'DISABLED'
         ? 'off'
         : 'warn'
+  const name = intl.formatMessage({ id: `securityScan.stage.${stageKey}` })
+  const stateWord = intl.formatMessage({
+    id: `securityScan.stageState.${overCap ? 'SKIPPED' : state}`,
+  })
   const progress =
     stageKey === 'hunt' && scan.huntProgress
       ? intl.formatMessage(
@@ -301,12 +317,7 @@ function StageCell({
           }
         )
       : null
-  const label = [
-    `${intl.formatMessage({ id: `securityScan.stage.${stageKey}` })}: ${intl.formatMessage({ id: `securityScan.stageState.${state}` })}`,
-    progress,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const label = [`${name}: ${stateWord}`, progress].filter(Boolean).join(' · ')
   const Icon = kind === 'ok' ? Check : kind === 'off' ? Minus : AlertCircle
   const tone =
     kind === 'ok'
@@ -314,22 +325,85 @@ function StageCell({
       : kind === 'off'
         ? 'text-muted-foreground/60'
         : 'text-warning-text'
+  const textTone =
+    kind === 'warn'
+      ? 'text-warning-text'
+      : kind === 'off'
+        ? 'text-muted-foreground/80'
+        : 'text-muted-foreground'
   return (
     <span
-      role='img'
-      aria-label={label}
-      title={label}
-      data-testid={`stage-${stageKey}`}
-      data-state={overCap ? 'OVER_CAP' : state}
-      className='flex flex-col items-center'
+      className={`inline-flex items-center gap-0.5 text-caption ${textTone}`}
     >
-      <Icon className={`size-3.5 ${tone}`} aria-hidden />
-      {progress ? (
-        <span aria-hidden className='text-[10px] text-muted-foreground'>
-          {`${scan.huntProgress?.coveredFiles}/${scan.huntProgress?.totalFiles}`}
-        </span>
-      ) : null}
+      <span
+        role='img'
+        aria-label={label}
+        title={label}
+        data-testid={`stage-${stageKey}`}
+        data-state={overCap ? 'OVER_CAP' : state}
+        className='inline-flex items-center gap-1'
+      >
+        <Icon className={`size-3.5 shrink-0 ${tone}`} aria-hidden />
+        <span aria-hidden>{name}</span>
+        {/* Only a partial hunt shows its count: a full one is just ✓ (the
+            numbers stay on the label). */}
+        {scan.huntProgress &&
+        stageKey === 'hunt' &&
+        scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles ? (
+          <span aria-hidden className='text-muted-foreground'>
+            {`${scan.huntProgress.coveredFiles}/${scan.huntProgress.totalFiles}`}
+          </span>
+        ) : null}
+      </span>
+      <StageInfo stageKey={stageKey} name={name} />
     </span>
+  )
+}
+
+/** LUM-1012 follow-up: the ⓘ next to a layer — what that layer checks. */
+function StageInfo({
+  stageKey,
+  name,
+}: {
+  stageKey: (typeof STAGE_ORDER)[number]
+  name: string
+}) {
+  const intl = useIntl()
+  const tools = STAGE_TOOLS[stageKey]
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type='button'
+          data-testid={`layer-info-${stageKey}`}
+          aria-label={intl.formatMessage(
+            { id: 'securityScan.stageInfo.trigger' },
+            { layer: name }
+          )}
+          className='inline-flex size-3.5 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground'
+        >
+          <Info className='size-3' aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align='start'
+        data-testid={`layer-info-${stageKey}-content`}
+        className='w-72 space-y-1.5 p-3 text-caption'
+      >
+        <p className='text-body-strong text-foreground'>{name}</p>
+        <p className='text-foreground/80'>
+          {intl.formatMessage({ id: `securityScan.stageInfo.${stageKey}` })}
+        </p>
+        {tools ? (
+          <p className='text-muted-foreground'>
+            {intl.formatMessage(
+              { id: 'securityScan.stageInfo.tools' },
+              { tools }
+            )}
+          </p>
+        ) : null}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -348,7 +422,7 @@ function ScanResult({ scan }: { scan: SecurityScanView | null }) {
     return (
       <span
         data-testid='scan-result-quiet'
-        className='text-caption text-muted-foreground'
+        className='inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-caption text-muted-foreground'
       >
         {dismissed > 0
           ? intl.formatMessage(
@@ -513,9 +587,10 @@ function ScanDetails({
         </p>
       )}
       {scan.huntOverCap && (
-        <p
-          data-testid='scan-over-cap'
-          className='text-caption text-warning-text'
+        <OverCapNotice
+          testId='scan-over-cap'
+          size={scan.huntOverCap.sourceFiles}
+          cap={scan.huntOverCap.capFiles}
         >
           {intl.formatMessage(
             { id: 'securityScan.huntOverCap' },
@@ -524,12 +599,13 @@ function ScanDetails({
               cap: scan.huntOverCap.capFiles,
             }
           )}
-        </p>
+        </OverCapNotice>
       )}
       {scan.judgeOverCap && (
-        <p
-          data-testid='scan-judge-over-cap'
-          className='text-caption text-warning-text'
+        <OverCapNotice
+          testId='scan-judge-over-cap'
+          size={scan.judgeOverCap.diffChars}
+          cap={scan.judgeOverCap.capChars}
         >
           {intl.formatMessage(
             { id: 'securityScan.judgeOverCap' },
@@ -538,7 +614,7 @@ function ScanDetails({
               cap: scan.judgeOverCap.capChars,
             }
           )}
-        </p>
+        </OverCapNotice>
       )}
       {externalReason && (
         <p
@@ -553,17 +629,77 @@ function ScanDetails({
           {scan.error}
         </p>
       )}
-      {/* Findings someone must decide on first; the quiet ones after. */}
-      {[...scan.findings]
-        .sort((a, b) => Number(isQuietFinding(a)) - Number(isQuietFinding(b)))
-        .map(f => (
-          <FindingRow
-            key={f.id}
-            taskId={taskId}
-            prNumber={prNumber}
-            finding={f}
-          />
-        ))}
+      {/* Findings someone must decide on first; the quiet ones after, each
+          reason said once as its group's heading. */}
+      {groupFindings(scan.findings).map(group => (
+        <div
+          key={`${group.key}:${group.queueExit ?? ''}`}
+          data-testid={`finding-group-${group.key}`}
+          className='space-y-1.5 pt-1'
+        >
+          <p className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+            {`${groupHeading(intl, group)} · ${group.findings.length}`}
+          </p>
+          {group.findings.map(f => (
+            <FindingRow
+              key={f.id}
+              taskId={taskId}
+              prNumber={prNumber}
+              finding={f}
+              groupKey={group.key}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function groupHeading(
+  intl: ReturnType<typeof useIntl>,
+  group: FindingGroup
+): string {
+  if (group.key === 'queueExit' && group.queueExit)
+    return intl.formatMessage({
+      id: `securityScan.finding.queueExit.${group.queueExit}`,
+    })
+  if (group.key === 'persisting')
+    return intl.formatMessage({ id: 'securityScan.finding.persisting' })
+  return intl.formatMessage({ id: `securityScan.group.${group.key}` })
+}
+
+/**
+ * LUM-1012 follow-up: a layer skipped for being over its size cap — the
+ * message plus a bar of the change against the cap, so "how far over" reads
+ * at a glance. The bar is decoration; the message carries the numbers.
+ */
+function OverCapNotice({
+  testId,
+  size,
+  cap,
+  children,
+}: {
+  testId: string
+  size: number
+  cap: number
+  children: ReactNode
+}) {
+  const capAt = size > 0 ? Math.min(100, (cap / size) * 100) : 100
+  return (
+    <div
+      data-testid={testId}
+      className='space-y-2 rounded-md border border-warning-border bg-warning-subtle px-3 py-2'
+    >
+      <p className='text-caption text-foreground/80'>{children}</p>
+      <div
+        aria-hidden
+        className='relative h-1.5 overflow-visible rounded-full bg-warning-border'
+      >
+        <span
+          className='absolute -top-0.5 -bottom-0.5 w-0.5 rounded-full bg-foreground'
+          style={{ left: `${capAt}%` }}
+        />
+      </div>
     </div>
   )
 }
@@ -572,10 +708,13 @@ function FindingRow({
   taskId,
   prNumber,
   finding,
+  groupKey,
 }: {
   taskId: string
   prNumber: number
   finding: SecurityFindingView
+  /** The group heading this row sits under — its reason chip is not repeated. */
+  groupKey?: FindingGroupKey
 }) {
   const intl = useIntl()
   const queryClient = useQueryClient()
@@ -654,8 +793,8 @@ function FindingRow({
       data-blocking={finding.blocking}
       data-persisting={finding.persisting}
       data-queue-exit={finding.queueExit ?? undefined}
-      className={`rounded-sm border border-border px-2 py-1.5${
-        muted ? ' opacity-60' : ''
+      className={`rounded-md border border-border bg-background px-2.5 py-2${
+        muted && !open ? ' opacity-60' : ''
       }`}
     >
       <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption'>
@@ -740,7 +879,7 @@ function FindingRow({
             })}
           </span>
         )}
-        {finding.persisting && (
+        {finding.persisting && groupKey !== 'persisting' && (
           <span
             data-testid='finding-persisting'
             className='rounded-sm bg-muted px-1 text-muted-foreground'
@@ -748,7 +887,7 @@ function FindingRow({
             {intl.formatMessage({ id: 'securityScan.finding.persisting' })}
           </span>
         )}
-        {finding.queueExit && (
+        {finding.queueExit && groupKey !== 'queueExit' && (
           <span
             data-testid='finding-queue-exit'
             className='rounded-sm bg-muted px-1 text-muted-foreground'
@@ -758,7 +897,7 @@ function FindingRow({
             })}
           </span>
         )}
-        {verifierRejected && (
+        {verifierRejected && groupKey !== 'verifierRejected' && (
           <span
             data-testid='finding-verifier-rejected'
             className='rounded-sm bg-muted px-1 text-muted-foreground'
@@ -781,7 +920,7 @@ function FindingRow({
       </div>
       {open ? (
         <>
-          <p className='mt-0.5 text-caption text-muted-foreground'>
+          <p className='mt-1 text-caption text-foreground/80'>
             {finding.detail}
           </p>
           {suggestedOpen && finding.suggestedReason && (
@@ -793,12 +932,19 @@ function FindingRow({
             </p>
           )}
           {verifierRejected && finding.verifierReason && (
-            <p
+            <div
               data-testid='finding-verifier-reason'
-              className='mt-0.5 text-caption text-muted-foreground'
+              className='mt-1.5 rounded-sm bg-muted px-2 py-1.5 text-caption'
             >
-              {`${intl.formatMessage({ id: 'securityScan.verifier.reasonLabel' })} ${finding.verifierReason}`}
-            </p>
+              <span className='block text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'securityScan.verifier.reasonLabel',
+                })}
+              </span>
+              <span className='text-foreground/80'>
+                {finding.verifierReason}
+              </span>
+            </div>
           )}
           {finding.callChain && finding.callChain.length > 0 && (
             <div className='mt-0.5'>
@@ -823,7 +969,7 @@ function FindingRow({
             </div>
           )}
           {finding.evidence !== '' && (
-            <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
+            <pre className='mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 px-2 py-1.5 font-mono text-caption text-foreground/80'>
               {finding.evidence}
             </pre>
           )}
@@ -839,7 +985,7 @@ function FindingRow({
             </a>
           )}
           {!finding.disposition && (
-            <div className='mt-1 flex flex-wrap items-center gap-1.5'>
+            <div className='mt-2 flex flex-wrap items-center gap-1.5'>
               {pending === null ? (
                 <>
                   <button
@@ -853,7 +999,7 @@ function FindingRow({
                       id: 'securityScan.action.copyForAgent',
                     })}
                     onClick={copyForAgent}
-                    className='inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground'
+                    className={`${ACTION_BUTTON} inline-flex items-center gap-1`}
                   >
                     {copied ? (
                       <Check className='size-3' aria-hidden />
@@ -869,7 +1015,7 @@ function FindingRow({
                   <button
                     type='button'
                     onClick={() => setPending('FALSE_POSITIVE')}
-                    className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+                    className={ACTION_BUTTON}
                   >
                     {intl.formatMessage({
                       id: 'securityScan.action.falsePositive',
@@ -878,7 +1024,7 @@ function FindingRow({
                   <button
                     type='button'
                     onClick={() => setPending('ACCEPTED_RISK')}
-                    className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+                    className={ACTION_BUTTON}
                   >
                     {intl.formatMessage({
                       id: 'securityScan.action.acceptRisk',
@@ -934,6 +1080,9 @@ function FindingRow({
     </div>
   )
 }
+
+const ACTION_BUTTON =
+  'h-7 rounded-md border border-border bg-background px-2.5 text-caption text-foreground hover:bg-muted'
 
 /** Severity · title · file:line — the part of a finding row that is always shown. */
 function FindingHeadline({

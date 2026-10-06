@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "Le code cité par cette analyse a été effacé selon le paramètre de conservation de votre espace de travail. Les règles, fichiers, lignes et décisions sont conservés.",
   "securityScan.suggested.falsePositive": "Faux positif présumé (LLM)",
   "securityScan.suggested.reasonLabel": "Raisonnement du LLM :",
-  "securityScan.verifier.reasonLabel": "Motif du vérificateur :",
+  "securityScan.verifier.reasonLabel": "Motif du vérificateur",
   "securityScan.verifier.rejected": "Rejeté par le vérificateur",
   "securityScan.suggested.outcome.CONFIRMED": "suggestion confirmée",
   "securityScan.suggested.outcome.OVERRULED": "suggestion rejetée",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "Précédent",
   "testCases.lightbox.next": "Suivant",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "Ouvrir l'original"
+  "testCases.lightbox.openOriginal": "Ouvrir l'original",
+  "securityScan.stageInfo.trigger": "Ce que vérifie {layer}",
+  "securityScan.stageInfo.secrets": "Recherche des clés d'API, jetons d'accès, clés privées et mots de passe dans les lignes ajoutées par cette PR, avec les règles de secrets intégrées à Lumo.",
+  "securityScan.stageInfo.external": "Analyse statique du changement : motifs de code risqués comme l'injection ou des API non sûres, identifiants exposés, problèmes de workflows GitHub Actions et erreurs de configuration d'infrastructure.",
+  "securityScan.stageInfo.supplyChain": "Compare les paquets de vos lockfiles aux vulnérabilités connues de la base OSV.",
+  "securityScan.stageInfo.judge": "Un modèle lit le diff à la recherche de bugs et de problèmes de sécurité, puis un vérificateur recontrôle chaque résultat dans le code et écarte ceux qui ne tiennent pas.",
+  "securityScan.stageInfo.hunt": "Un agent suit les fichiers source modifiés pour voir si une entrée non fiable peut atteindre du code à risque. Le compteur indique les fichiers source vérifiés sur ceux concernés.",
+  "securityScan.stageInfo.tools": "Scanners : {tools}",
+  "securityScan.group.open": "Décision requise",
+  "securityScan.group.verifierRejected": "Écarté par le vérificateur",
+  "securityScan.group.ruled": "Tranché"
 }

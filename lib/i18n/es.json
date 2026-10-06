@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "El código citado por este análisis se ha borrado según la configuración de conservación de tu espacio de trabajo. Se conservan las reglas, archivos, líneas y decisiones.",
   "securityScan.suggested.falsePositive": "Posible falso positivo (LLM)",
   "securityScan.suggested.reasonLabel": "Razonamiento del LLM:",
-  "securityScan.verifier.reasonLabel": "Motivo del verificador:",
+  "securityScan.verifier.reasonLabel": "Motivo del verificador",
   "securityScan.verifier.rejected": "Descartado por el verificador",
   "securityScan.suggested.outcome.CONFIRMED": "sugerencia confirmada",
   "securityScan.suggested.outcome.OVERRULED": "sugerencia rechazada",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "Anterior",
   "testCases.lightbox.next": "Siguiente",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "Abrir original"
+  "testCases.lightbox.openOriginal": "Abrir original",
+  "securityScan.stageInfo.trigger": "Qué revisa {layer}",
+  "securityScan.stageInfo.secrets": "Busca claves de API, tokens de acceso, claves privadas y contraseñas en las líneas que añade este PR, con las reglas de secretos integradas de Lumo.",
+  "securityScan.stageInfo.external": "Análisis estático del cambio: patrones de código arriesgados como inyección o APIs inseguras, credenciales expuestas, problemas en flujos de GitHub Actions y errores de configuración de infraestructura.",
+  "securityScan.stageInfo.supplyChain": "Comprueba los paquetes de tus lockfiles frente a vulnerabilidades conocidas de la base de datos OSV.",
+  "securityScan.stageInfo.judge": "Un modelo lee el diff en busca de errores y problemas de seguridad; después un verificador vuelve a comprobar cada hallazgo en el código y descarta los que no se sostienen.",
+  "securityScan.stageInfo.hunt": "Un agente sigue los archivos de código modificados para ver si una entrada no confiable puede llegar a código arriesgado. El recuento indica los archivos revisados de los que entran en el alcance.",
+  "securityScan.stageInfo.tools": "Escáneres: {tools}",
+  "securityScan.group.open": "Requiere una decisión",
+  "securityScan.group.verifierRejected": "Descartado por el verificador",
+  "securityScan.group.ruled": "Decidido"
 }
