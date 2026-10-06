@@ -34,11 +34,11 @@ export function EvidenceLightbox({
   onClose: () => void
 }) {
   const intl = useIntl()
-  // 打开期间图片列表可能变短（证据被重新拉取）：越界就钳到最后一张。
+  // 打开期间图片列表可能变短（证据被重新拉取）：越界就钳回 [0, 最后一张]。
   const index =
     requestedIndex === null
       ? null
-      : Math.min(requestedIndex, Math.max(images.length - 1, 0))
+      : Math.max(0, Math.min(requestedIndex, images.length - 1))
   const current = index === null ? null : (images[index] ?? null)
   const hasPrev = index !== null && index > 0
   const hasNext = index !== null && index < images.length - 1
