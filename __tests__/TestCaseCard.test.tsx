@@ -203,6 +203,29 @@ describe('run history shows every run', () => {
     ).toBe(true)
   })
 
+  // 用户 2026-10-06：最新 run 是逐步报告、更早的却是一行徽章流，两种格式。
+  // 现在更早的每一条也是同一份报告（同样的表头、步骤分组、备注 + 证据）。
+  it('draws earlier runs in the same report format as the latest', () => {
+    renderCard({
+      runs: [
+        run({ id: 'r2', note: 'latest note' }),
+        run({ id: 'r1', note: 'earlier note' }),
+      ],
+    })
+    expect(screen.getAllByTestId('run-report')).toHaveLength(1)
+    fireEvent.click(screen.getByText(/earlier run/))
+    const reports = screen.getAllByTestId('run-report')
+    expect(reports).toHaveLength(2)
+    expect(reports.map(r => r.id)).toEqual(['run-r2', 'run-r1'])
+    for (const r of reports) {
+      expect(
+        r.querySelector('[data-testid="run-report-header"]')
+      ).not.toBeNull()
+      expect(r.querySelectorAll('[data-testid="step-group"]')).toHaveLength(2)
+    }
+    expect(reports[1]).toHaveTextContent('earlier note')
+  })
+
   it('opens the earlier runs by itself when a deep link targets one', () => {
     renderCard({
       linkedRunId: 'r1',
