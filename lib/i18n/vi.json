@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "Chưa tới",
   "testCases.report.state.unobserved": "Không quan sát được",
   "testCases.report.state.unrecorded": "Không có kết quả từng bước",
-  "testCases.report.phase.STEPS": "Bước",
-  "testCases.report.phase.VERIFICATION": "Kiểm tra",
   "testCases.report.expected": "Mong đợi",
   "testCases.report.actual": "Thực tế",
   "testCases.report.actualMissing": "Chưa ghi",

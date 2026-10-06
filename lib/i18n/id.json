@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "Tidak tercapai",
   "testCases.report.state.unobserved": "Tidak teramati",
   "testCases.report.state.unrecorded": "Tanpa hasil per langkah",
-  "testCases.report.phase.STEPS": "Langkah",
-  "testCases.report.phase.VERIFICATION": "Pemeriksaan",
   "testCases.report.expected": "Diharapkan",
   "testCases.report.actual": "Aktual",
   "testCases.report.actualMissing": "Tidak dicatat",

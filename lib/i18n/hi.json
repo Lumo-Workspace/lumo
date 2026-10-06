@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "नहीं पहुँचा",
   "testCases.report.state.unobserved": "देखा नहीं गया",
   "testCases.report.state.unrecorded": "चरणवार परिणाम नहीं",
-  "testCases.report.phase.STEPS": "चरण",
-  "testCases.report.phase.VERIFICATION": "जाँच",
   "testCases.report.expected": "अपेक्षित",
   "testCases.report.actual": "वास्तविक",
   "testCases.report.actualMissing": "दर्ज नहीं",

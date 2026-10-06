@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "未到達",
   "testCases.report.state.unobserved": "未觀察到",
   "testCases.report.state.unrecorded": "未逐步記錄",
-  "testCases.report.phase.STEPS": "步驟",
-  "testCases.report.phase.VERIFICATION": "複驗",
   "testCases.report.expected": "預期",
   "testCases.report.actual": "實際",
   "testCases.report.actualMissing": "未記錄",

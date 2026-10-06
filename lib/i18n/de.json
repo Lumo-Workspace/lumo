@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "Nicht erreicht",
   "testCases.report.state.unobserved": "Nicht beobachtet",
   "testCases.report.state.unrecorded": "Kein Ergebnis pro Schritt",
-  "testCases.report.phase.STEPS": "Schritt",
-  "testCases.report.phase.VERIFICATION": "Prüfung",
   "testCases.report.expected": "Erwartet",
   "testCases.report.actual": "Tatsächlich",
   "testCases.report.actualMissing": "Nicht erfasst",
