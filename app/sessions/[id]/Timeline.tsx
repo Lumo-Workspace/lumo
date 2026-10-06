@@ -116,12 +116,12 @@ function TimelineRow({ item }: { item: TimelineItem }) {
 
   const statusClass =
     item.kind === 'user-prompt'
-      ? 'text-sky-600 font-medium'
+      ? 'text-info-text font-medium'
       : item.status === 'error'
-        ? 'text-red-600'
+        ? 'text-danger-text'
         : item.status === 'pending'
-          ? 'text-amber-600'
-          : 'text-emerald-600'
+          ? 'text-warning-text'
+          : 'text-success-text'
 
   const kindLabel =
     item.kind === 'stop'
@@ -158,7 +158,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
           <span
             className={`shrink-0 rounded-sm px-1.5 text-[10px] ${
               item.status === 'error'
-                ? 'bg-red-50 text-red-700'
+                ? 'bg-danger-subtle text-danger-text'
                 : 'bg-muted text-muted-foreground'
             }`}
           >
@@ -224,7 +224,7 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
   }
   const variantClass =
     block.variant === 'error'
-      ? 'border-red-300 bg-red-50 text-red-900'
+      ? 'border-danger-border bg-danger-subtle text-danger-text'
       : block.variant === 'diff'
         ? 'border-border bg-background'
         : 'border-border bg-background'
@@ -258,11 +258,11 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
 function renderDiff(text: string) {
   return text.split('\n').map((line, i) => {
     let cls = ''
-    if (line.startsWith('@@')) cls = 'text-blue-600'
+    if (line.startsWith('@@')) cls = 'text-info-text'
     else if (line.startsWith('+') && !line.startsWith('+++'))
-      cls = 'text-emerald-700 bg-emerald-50'
+      cls = 'text-success-text bg-success-subtle'
     else if (line.startsWith('-') && !line.startsWith('---'))
-      cls = 'text-red-700 bg-red-50'
+      cls = 'text-danger-text bg-danger-subtle'
     return (
       <span key={i} className={`block ${cls}`}>
         {line || ' '}
