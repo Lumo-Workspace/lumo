@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "Сканеры: {tools}",
   "securityScan.group.open": "Нужно решение",
   "securityScan.group.verifierRejected": "Отклонено проверяющим",
-  "securityScan.group.ruled": "Решено"
+  "securityScan.group.ruled": "Решено",
+  "securityScan.stageReason.judgeOverCap": "Не запускалось: diff этого PR — {size, number} символов, а ИИ-ревью работает до {cap, number}. Сузьте охват или разбейте PR, чтобы его получить.",
+  "securityScan.stageReason.huntOverCap": "Не запускалось: этот PR затрагивает {files} исходных файлов, а проверка путей эксплуатации работает до {cap}. Сузьте охват или разбейте PR, чтобы её получить.",
+  "securityScan.stageReason.huntInProgress": "Ещё идёт: проверено {covered} из {total} исходных файлов.",
+  "securityScan.stageReason.huntSkipped": "Не требовалось: изменение не добавляет точек входа, рискованных вызовов или средств защиты, и ничего высокой серьёзности не найдено — прослеживать было нечего.",
+  "securityScan.stageReason.judgeSkipped": "Не запускалось: нет добавленных строк для ревью, или ИИ-ревью недоступно в этом развёртывании.",
+  "securityScan.stageReason.supplyChainSkipped": "Не требовалось: в репозитории нет lock-файла для проверки osv-scanner.",
+  "securityScan.stageReason.skipped": "Для этого изменения не требовалось.",
+  "securityScan.stageReason.FAILED": "Не завершено: сканер столкнулся с ошибкой. Он запустится снова при следующем push.",
+  "securityScan.stageReason.judgeFailed": "Не завершено: сервис ИИ-ревью не ответил. Он запустится снова при следующем push.",
+  "securityScan.stageReason.PARTIAL": "Проверено частично: охвачена только часть изменения.",
+  "securityScan.stageReason.judgePartial": "Проверено частично: diff больше, чем охватывает одно ревью, поэтому некоторые файлы не проверены.",
+  "securityScan.stageReason.PENDING": "Ещё идёт — загляните через несколько минут.",
+  "securityScan.stageReason.NOT_CONFIGURED": "Выключено: управляемый сканер Lumo выключен в этом развёртывании, а этот репозиторий не присылал отчётов сканера.",
+  "securityScan.stageReason.DISABLED": "Выключено: отключено в настройках безопасности этого рабочего пространства.",
+  "securityScan.stageReason.SUPERSEDED": "Не завершено: более новый push запустил новое сканирование до того, как этот уровень закончил."
 }

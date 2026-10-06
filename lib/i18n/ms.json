@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "Pengimbas: {tools}",
   "securityScan.group.open": "Perlu keputusan",
   "securityScan.group.verifierRejected": "Ditolak oleh pengesah",
-  "securityScan.group.ruled": "Sudah diputuskan"
+  "securityScan.group.ruled": "Sudah diputuskan",
+  "securityScan.stageReason.judgeOverCap": "Tidak dijalankan: diff PR ini {size, number} aksara dan semakan AI berjalan sehingga {cap, number}. Sempitkan skop atau pecahkan PR untuk mendapatkannya.",
+  "securityScan.stageReason.huntOverCap": "Tidak dijalankan: PR ini menyentuh {files} fail sumber dan semakan laluan eksploit berjalan sehingga {cap}. Sempitkan skop atau pecahkan PR untuk mendapatkannya.",
+  "securityScan.stageReason.huntInProgress": "Masih berjalan: {covered} daripada {total} fail sumber telah disemak setakat ini.",
+  "securityScan.stageReason.huntSkipped": "Tidak perlu: perubahan ini tidak menambah titik masuk, panggilan berisiko atau kawalan keselamatan, dan tiada dapatan tahap tinggi, jadi tiada laluan untuk dijejak.",
+  "securityScan.stageReason.judgeSkipped": "Tidak dijalankan: tiada baris tambahan untuk disemak, atau semakan AI tidak tersedia pada deployment ini.",
+  "securityScan.stageReason.supplyChainSkipped": "Tidak perlu: repositori tiada lockfile untuk disemak oleh osv-scanner.",
+  "securityScan.stageReason.skipped": "Tidak perlu untuk perubahan ini.",
+  "securityScan.stageReason.FAILED": "Tidak selesai: pengimbas menemui ralat. Ia berjalan semula pada push seterusnya.",
+  "securityScan.stageReason.judgeFailed": "Tidak selesai: perkhidmatan semakan AI tidak membalas. Ia berjalan semula pada push seterusnya.",
+  "securityScan.stageReason.PARTIAL": "Disemak sebahagian: hanya sebahagian perubahan diliputi.",
+  "securityScan.stageReason.judgePartial": "Disemak sebahagian: diff lebih besar daripada liputan satu semakan, jadi beberapa fail tidak disemak.",
+  "securityScan.stageReason.PENDING": "Masih berjalan — semak semula dalam beberapa minit.",
+  "securityScan.stageReason.NOT_CONFIGURED": "Mati: pengimbas terurus Lumo dimatikan pada deployment ini dan repositori ini belum menghantar laporan pengimbas.",
+  "securityScan.stageReason.DISABLED": "Mati: dimatikan dalam tetapan keselamatan ruang kerja ini.",
+  "securityScan.stageReason.SUPERSEDED": "Tidak selesai: push yang lebih baharu memulakan imbasan baharu sebelum lapisan ini selesai."
 }

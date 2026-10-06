@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "Escáneres: {tools}",
   "securityScan.group.open": "Requiere una decisión",
   "securityScan.group.verifierRejected": "Descartado por el verificador",
-  "securityScan.group.ruled": "Decidido"
+  "securityScan.group.ruled": "Decidido",
+  "securityScan.stageReason.judgeOverCap": "No se ejecutó: el diff de este PR tiene {size, number} caracteres y la revisión con IA cubre hasta {cap, number}. Acota el alcance o divide el PR para obtenerla.",
+  "securityScan.stageReason.huntOverCap": "No se ejecutó: este PR toca {files} archivos de código y la comprobación de rutas de explotación cubre hasta {cap}. Acota el alcance o divide el PR para obtenerla.",
+  "securityScan.stageReason.huntInProgress": "Aún en curso: {covered} de {total} archivos de código revisados por ahora.",
+  "securityScan.stageReason.huntSkipped": "No hacía falta: el cambio no añade puntos de entrada, llamadas arriesgadas ni controles de seguridad, y no se encontró nada de severidad alta, así que no había ruta que seguir.",
+  "securityScan.stageReason.judgeSkipped": "No se ejecutó: no había líneas añadidas que revisar, o la revisión con IA no está disponible en este despliegue.",
+  "securityScan.stageReason.supplyChainSkipped": "No hacía falta: el repositorio no tiene un lockfile que osv-scanner pueda comprobar.",
+  "securityScan.stageReason.skipped": "No hacía falta para este cambio.",
+  "securityScan.stageReason.FAILED": "No terminó: el escáner encontró un error. Se vuelve a ejecutar en el próximo push.",
+  "securityScan.stageReason.judgeFailed": "No terminó: el servicio de revisión con IA no respondió. Se vuelve a ejecutar en el próximo push.",
+  "securityScan.stageReason.PARTIAL": "Revisado en parte: solo se cubrió una parte del cambio.",
+  "securityScan.stageReason.judgePartial": "Revisado en parte: el diff era más grande de lo que cubre una revisión, así que algunos archivos no se revisaron.",
+  "securityScan.stageReason.PENDING": "Aún en curso: vuelve a mirar en unos minutos.",
+  "securityScan.stageReason.NOT_CONFIGURED": "Desactivado: el escáner gestionado de Lumo está desactivado en este despliegue y este repositorio no ha enviado ningún informe de escáner.",
+  "securityScan.stageReason.DISABLED": "Desactivado: apagado en la configuración de seguridad de este espacio de trabajo.",
+  "securityScan.stageReason.SUPERSEDED": "Sin terminar: un push más reciente inició un nuevo escaneo antes de que esta capa terminara."
 }

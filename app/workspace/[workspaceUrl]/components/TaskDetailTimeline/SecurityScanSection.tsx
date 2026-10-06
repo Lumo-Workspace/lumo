@@ -1,6 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { useIntl } from 'react-intl'
 import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,6 +24,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
@@ -38,6 +50,7 @@ import {
   groupFindings,
   isQuietFinding,
   shouldExpandRow,
+  stageReason,
   type FindingGroup,
   type FindingGroupKey,
 } from './security-summary'
@@ -291,6 +304,7 @@ function StageItem({
   scan: SecurityScanView
 }) {
   const intl = useIntl()
+  const reasonId = useId()
   const state = scan.stages[stageKey]
   if (!state) return null
   const overCap =
@@ -317,6 +331,12 @@ function StageItem({
           }
         )
       : null
+  // LUM-1012 follow-up: a layer that did not (fully) run says why on hover —
+  // and as its accessible description, so it is never hover-only.
+  const reason = stageReason(stageKey, scan)
+  const reasonText = reason
+    ? intl.formatMessage({ id: reason.id }, reason.values)
+    : null
   const label = [`${name}: ${stateWord}`, progress].filter(Boolean).join(' · ')
   const Icon = kind === 'ok' ? Check : kind === 'off' ? Minus : AlertCircle
   const tone =
@@ -335,28 +355,75 @@ function StageItem({
     <span
       className={`inline-flex items-center gap-0.5 text-caption ${textTone}`}
     >
-      <span
-        role='img'
-        aria-label={label}
-        title={label}
-        data-testid={`stage-${stageKey}`}
-        data-state={overCap ? 'OVER_CAP' : state}
-        className='inline-flex items-center gap-1'
-      >
-        <Icon className={`size-3.5 shrink-0 ${tone}`} aria-hidden />
-        <span aria-hidden>{name}</span>
-        {/* Only a partial hunt shows its count: a full one is just ✓ (the
-            numbers stay on the label). */}
-        {scan.huntProgress &&
-        stageKey === 'hunt' &&
-        scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles ? (
-          <span aria-hidden className='text-muted-foreground'>
-            {`${scan.huntProgress.coveredFiles}/${scan.huntProgress.totalFiles}`}
+      <StageReasonTooltip text={reasonText}>
+        <span
+          role='img'
+          aria-label={label}
+          aria-describedby={reasonText ? reasonId : undefined}
+          tabIndex={reasonText ? 0 : undefined}
+          data-testid={`stage-${stageKey}`}
+          data-state={overCap ? 'OVER_CAP' : state}
+          className={`inline-flex items-center gap-1 rounded-sm${
+            reasonText
+              ? ' cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+              : ''
+          }`}
+        >
+          <Icon className={`size-3.5 shrink-0 ${tone}`} aria-hidden />
+          <span
+            aria-hidden
+            className={
+              reasonText
+                ? 'underline decoration-dotted underline-offset-2'
+                : undefined
+            }
+          >
+            {name}
           </span>
-        ) : null}
-      </span>
+          {/* Only a partial hunt shows its count: a full one is just ✓ (the
+            numbers stay on the label). */}
+          {scan.huntProgress &&
+          stageKey === 'hunt' &&
+          scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles ? (
+            <span aria-hidden className='text-muted-foreground'>
+              {`${scan.huntProgress.coveredFiles}/${scan.huntProgress.totalFiles}`}
+            </span>
+          ) : null}
+        </span>
+      </StageReasonTooltip>
+      {reasonText ? (
+        <span id={reasonId} className='sr-only'>
+          {reasonText}
+        </span>
+      ) : null}
       <StageInfo stageKey={stageKey} name={name} />
     </span>
+  )
+}
+
+/**
+ * LUM-1012 follow-up: the hover on a layer that did not (fully) run — why.
+ * A layer that checked the change has nothing to explain and no tooltip.
+ */
+function StageReasonTooltip({
+  text,
+  children,
+}: {
+  text: string | null
+  children: ReactElement
+}) {
+  if (!text) return children
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent
+        side='bottom'
+        className='max-w-64 text-caption'
+        data-testid='stage-reason'
+      >
+        {text}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

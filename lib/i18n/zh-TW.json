@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "掃描工具：{tools}",
   "securityScan.group.open": "需要決定",
   "securityScan.group.verifierRejected": "已被驗證器駁回",
-  "securityScan.group.ruled": "已裁定"
+  "securityScan.group.ruled": "已裁定",
+  "securityScan.stageReason.judgeOverCap": "未執行：本 PR 的 diff 有 {size, number} 個字元，AI 審查上限為 {cap, number}。縮小範圍或拆分 PR 即可執行。",
+  "securityScan.stageReason.huntOverCap": "未執行：本 PR 涉及 {files} 個原始檔，攻擊路徑檢查上限為 {cap} 個。縮小範圍或拆分 PR 即可執行。",
+  "securityScan.stageReason.huntInProgress": "執行中：已檢查 {total} 個原始檔中的 {covered} 個。",
+  "securityScan.stageReason.huntSkipped": "無需執行：變更沒有新增入口、高風險呼叫或安全控制，也沒有高風險發現，所以沒有需要追蹤的路徑。",
+  "securityScan.stageReason.judgeSkipped": "未執行：沒有新增行需要審查，或此部署不提供 AI 審查。",
+  "securityScan.stageReason.supplyChainSkipped": "無需執行：儲存庫裡沒有可供 osv-scanner 檢查的 lockfile。",
+  "securityScan.stageReason.skipped": "這次變更無需執行。",
+  "securityScan.stageReason.FAILED": "未完成：掃描工具出錯。下次 push 時會重新執行。",
+  "securityScan.stageReason.judgeFailed": "未完成：AI 審查服務沒有回應。下次 push 時會重新執行。",
+  "securityScan.stageReason.PARTIAL": "部分檢查：只涵蓋了變更的一部分。",
+  "securityScan.stageReason.judgePartial": "部分檢查：diff 超出單次審查的範圍，部分檔案沒有審查。",
+  "securityScan.stageReason.PENDING": "仍在執行，幾分鐘後再來看。",
+  "securityScan.stageReason.NOT_CONFIGURED": "已關閉：此部署未開啟 Lumo 託管掃描，且這個儲存庫沒有推送過掃描報告。",
+  "securityScan.stageReason.DISABLED": "已關閉：在本工作區的安全設定中關閉了。",
+  "securityScan.stageReason.SUPERSEDED": "未完成：這一層跑完前，新的 push 已經開始了新一輪掃描。"
 }

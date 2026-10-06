@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "スキャナー：{tools}",
   "securityScan.group.open": "判断が必要",
   "securityScan.group.verifierRejected": "検証エージェントが却下",
-  "securityScan.group.ruled": "判断済み"
+  "securityScan.group.ruled": "判断済み",
+  "securityScan.stageReason.judgeOverCap": "未実行：この PR の diff は {size, number} 文字で、AI レビューの上限は {cap, number} 文字です。範囲を絞るか PR を分割すると実行されます。",
+  "securityScan.stageReason.huntOverCap": "未実行：この PR は {files} 個のソースファイルに触れており、悪用経路チェックの上限は {cap} 個です。範囲を絞るか PR を分割すると実行されます。",
+  "securityScan.stageReason.huntInProgress": "実行中：これまでに {total} 個中 {covered} 個のソースファイルを確認しました。",
+  "securityScan.stageReason.huntSkipped": "不要：変更に新しい入口、危険な呼び出し、セキュリティ制御の追加がなく、重大度の高い指摘もないため、たどる経路がありませんでした。",
+  "securityScan.stageReason.judgeSkipped": "未実行：レビューする追加行がないか、この環境では AI レビューを利用できません。",
+  "securityScan.stageReason.supplyChainSkipped": "不要：リポジトリに osv-scanner が確認できる lockfile がありません。",
+  "securityScan.stageReason.skipped": "この変更では不要です。",
+  "securityScan.stageReason.FAILED": "未完了：スキャナーでエラーが発生しました。次の push で再実行されます。",
+  "securityScan.stageReason.judgeFailed": "未完了：AI レビューサービスが応答しませんでした。次の push で再実行されます。",
+  "securityScan.stageReason.PARTIAL": "一部のみ確認：変更の一部だけが対象になりました。",
+  "securityScan.stageReason.judgePartial": "一部のみ確認：diff が 1 回のレビューで扱える量を超えたため、一部のファイルはレビューされていません。",
+  "securityScan.stageReason.PENDING": "実行中です。数分後にもう一度確認してください。",
+  "securityScan.stageReason.NOT_CONFIGURED": "オフ：この環境では Lumo のマネージドスキャナーがオフで、このリポジトリからスキャナーレポートも送られていません。",
+  "securityScan.stageReason.DISABLED": "オフ：このワークスペースのセキュリティ設定でオフになっています。",
+  "securityScan.stageReason.SUPERSEDED": "未完了：このレイヤーが終わる前に、新しい push で新しいスキャンが始まりました。"
 }

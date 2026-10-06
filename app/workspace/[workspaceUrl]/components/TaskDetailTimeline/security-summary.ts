@@ -5,6 +5,7 @@
  * rows default open.
  * No intl, no React — unit-testable on their own.
  */
+import type { ScanStageKeyName } from '@/shared/src/security-scan'
 import type {
   SecurityFindingView,
   SecurityScanView,
@@ -202,4 +203,71 @@ export function groupFindings(findings: SecurityFindingView[]): FindingGroup[] {
   return [...groups.values()].sort(
     (a, b) => GROUP_ORDER.indexOf(a.key) - GROUP_ORDER.indexOf(b.key)
   )
+}
+
+/**
+ * LUM-1012 follow-up — why a layer did not (fully) run, as an i18n message id
+ * plus its values, for the hover on that layer's checklist item. null for a
+ * layer that simply checked the change. Each reason mirrors where the
+ * pipeline stamps the state (`pr-security-scan.service.ts`,
+ * `security-managed-scan.ts`), so the hover says what actually happened.
+ */
+export function stageReason(
+  stageKey: ScanStageKeyName,
+  scan: Pick<
+    SecurityScanView,
+    'stages' | 'huntOverCap' | 'judgeOverCap' | 'huntProgress'
+  >
+): { id: string; values?: Record<string, number> } | null {
+  const state = scan.stages[stageKey]
+  if (!state) return null
+  const id = (suffix: string) => `securityScan.stageReason.${suffix}`
+  if (stageKey === 'judge' && scan.judgeOverCap)
+    return {
+      id: id('judgeOverCap'),
+      values: {
+        size: scan.judgeOverCap.diffChars,
+        cap: scan.judgeOverCap.capChars,
+      },
+    }
+  if (stageKey === 'hunt' && scan.huntOverCap)
+    return {
+      id: id('huntOverCap'),
+      values: {
+        files: scan.huntOverCap.sourceFiles,
+        cap: scan.huntOverCap.capFiles,
+      },
+    }
+  if (
+    stageKey === 'hunt' &&
+    scan.huntProgress &&
+    scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles
+  )
+    return {
+      id: id('huntInProgress'),
+      values: {
+        covered: scan.huntProgress.coveredFiles,
+        total: scan.huntProgress.totalFiles,
+      },
+    }
+  switch (state) {
+    case 'RAN':
+      return null
+    case 'SKIPPED':
+      return {
+        id: id(
+          stageKey === 'hunt' ||
+            stageKey === 'judge' ||
+            stageKey === 'supplyChain'
+            ? `${stageKey}Skipped`
+            : 'skipped'
+        ),
+      }
+    case 'FAILED':
+      return { id: id(stageKey === 'judge' ? 'judgeFailed' : 'FAILED') }
+    case 'PARTIAL':
+      return { id: id(stageKey === 'judge' ? 'judgePartial' : 'PARTIAL') }
+    default:
+      return { id: id(state) }
+  }
 }
