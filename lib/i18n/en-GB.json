@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "The code this scan quoted has been cleared under your workspace's retention setting. Rules, files, lines and dispositions are kept.",
   "securityScan.suggested.falsePositive": "Suspected false positive (LLM)",
   "securityScan.suggested.reasonLabel": "LLM reasoning:",
-  "securityScan.verifier.reasonLabel": "Verifier's reason:",
+  "securityScan.verifier.reasonLabel": "Verifier's reason",
   "securityScan.verifier.rejected": "Rejected by verifier",
   "securityScan.suggested.outcome.CONFIRMED": "suggestion confirmed",
   "securityScan.suggested.outcome.OVERRULED": "suggestion overruled",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "Previous",
   "testCases.lightbox.next": "Next",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "Open original"
+  "testCases.lightbox.openOriginal": "Open original",
+  "securityScan.stageInfo.trigger": "What {layer} checks",
+  "securityScan.stageInfo.secrets": "Looks for API keys, access tokens, private keys and passwords in the lines this PR adds, using Lumo's built-in secret rules.",
+  "securityScan.stageInfo.external": "Static analysis of the change: risky code patterns such as injection or unsafe APIs, leaked credentials, GitHub Actions workflow problems and infrastructure misconfiguration.",
+  "securityScan.stageInfo.supplyChain": "Checks the packages in your lockfiles against known vulnerabilities in the OSV database.",
+  "securityScan.stageInfo.judge": "A model reads the diff for bugs and security issues, then a verifier re-checks each finding against the code and dismisses the ones that don't hold up.",
+  "securityScan.stageInfo.hunt": "An agent follows the changed source files to see whether untrusted input can reach risky code. The count is source files checked out of those in scope.",
+  "securityScan.stageInfo.tools": "Scanners: {tools}",
+  "securityScan.group.open": "Needs a decision",
+  "securityScan.group.verifierRejected": "Dismissed by verifier",
+  "securityScan.group.ruled": "Decided"
 }

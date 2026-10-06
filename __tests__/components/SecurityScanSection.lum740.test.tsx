@@ -179,6 +179,34 @@ describe('LUM-740 panel', () => {
     ])
   })
 
+  test('each layer shows its name and an info button that says what it checks', async () => {
+    renderWith(
+      scan({
+        stages: {
+          secrets: 'RAN',
+          external: 'RAN',
+          supplyChain: 'RAN',
+          judge: 'RAN',
+          hunt: 'SKIPPED',
+        },
+      })
+    )
+    // The names ride on the row — no separate header to line up with.
+    const row = screen.getByTestId('security-pr-9')
+    expect(row).toHaveTextContent('External scanner')
+    expect(row).toHaveTextContent('Vulnerability hunt')
+    // Code scan: what it checks plus the scanners behind it.
+    fireEvent.click(screen.getByTestId('layer-info-external'))
+    const external = await screen.findByTestId('layer-info-external-content')
+    expect(external).toHaveTextContent('securityScan.stageInfo.external')
+    expect(external).toHaveTextContent('securityScan.stageInfo.tools')
+    // AI review has no third-party scanner to name.
+    fireEvent.click(screen.getByTestId('layer-info-judge'))
+    const judge = await screen.findByTestId('layer-info-judge-content')
+    expect(judge).toHaveTextContent('securityScan.stageInfo.judge')
+    expect(judge).not.toHaveTextContent('securityScan.stageInfo.tools')
+  })
+
   test('a hunt finding shows kind, provenance, reachability, CWE and an expandable call chain', () => {
     renderWith(
       scan({
@@ -323,9 +351,17 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
         ],
       })
     )
-    expect(screen.getByTestId('finding-verifier-rejected')).toHaveTextContent(
-      'securityScan.verifier.rejected'
-    )
+    // The rejection is said once, as its group's heading — not as a chip on
+    // the row; the unverified row sits in the open group above it.
+    expect(
+      screen.getByTestId('finding-group-verifierRejected')
+    ).toHaveTextContent('securityScan.group.verifierRejected · 1')
+    expect(screen.queryByTestId('finding-verifier-rejected')).toBeNull()
+    expect(
+      screen
+        .getAllByTestId(/^finding-group-/)
+        .map(el => el.getAttribute('data-testid'))
+    ).toEqual(['finding-group-open', 'finding-group-verifierRejected'])
     // LUM-1012: nothing to decide, so it is folded to one line; the reason
     // is one click away.
     expect(screen.queryByTestId('finding-verifier-reason')).toBeNull()
@@ -333,6 +369,5 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
     expect(screen.getByTestId('finding-verifier-reason')).toHaveTextContent(
       'guarded at src/a.ts:12'
     )
-    expect(screen.getAllByTestId('finding-verifier-rejected')).toHaveLength(1)
   })
 })

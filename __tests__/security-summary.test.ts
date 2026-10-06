@@ -9,6 +9,8 @@ import {
   shouldExpandRow,
   isOverSizeLimitOnly,
   isQuietFinding,
+  findingGroupKey,
+  groupFindings,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
 import type {
   SecurityScanView,
@@ -383,5 +385,56 @@ describe('isQuietFinding', () => {
     ]) {
       expect(isQuietFinding(finding(over as never) as never)).toBe(true)
     }
+  })
+})
+
+describe('LUM-1012 follow-up — findingGroupKey / groupFindings', () => {
+  test('a ruling wins, then a verifier rejection, then the queue / main labels', () => {
+    expect(findingGroupKey(finding())).toBe('open')
+    expect(
+      findingGroupKey(
+        finding({
+          disposition: 'FALSE_POSITIVE',
+          verifierVerdict: 'REJECTED',
+        } as Partial<SecurityScanView['findings'][number]>)
+      )
+    ).toBe('ruled')
+    expect(
+      findingGroupKey(
+        finding({
+          verifierVerdict: 'REJECTED',
+          queueExit: 'MERGED_UNREVIEWED',
+        } as Partial<SecurityScanView['findings'][number]>)
+      )
+    ).toBe('verifierRejected')
+    expect(
+      findingGroupKey(finding({ queueExit: 'PR_CLOSED', persisting: true }))
+    ).toBe('queueExit')
+    expect(findingGroupKey(finding({ persisting: true }))).toBe('persisting')
+  })
+
+  test('groups come in decide-first order, queue exits split by kind, input order kept', () => {
+    const groups = groupFindings([
+      finding({
+        id: 'rej',
+        verifierVerdict: 'REJECTED',
+      } as Partial<SecurityScanView['findings'][number]>),
+      finding({ id: 'merged', queueExit: 'MERGED_UNREVIEWED' }),
+      finding({ id: 'open-1' }),
+      finding({ id: 'closed', queueExit: 'PR_CLOSED' }),
+      finding({ id: 'open-2' }),
+    ])
+    expect(
+      groups.map(g => [g.key, g.queueExit, g.findings.map(f => f.id)])
+    ).toEqual([
+      ['open', null, ['open-1', 'open-2']],
+      ['queueExit', 'MERGED_UNREVIEWED', ['merged']],
+      ['queueExit', 'PR_CLOSED', ['closed']],
+      ['verifierRejected', null, ['rej']],
+    ])
+  })
+
+  test('no findings, no groups', () => {
+    expect(groupFindings([])).toEqual([])
   })
 })

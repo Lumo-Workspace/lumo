@@ -792,9 +792,11 @@ test('LUM-738 supplyChain surface — a persisting dependency finding is muted, 
   expect(fresh.querySelector('.text-danger-text')).not.toBeNull()
   expect(old).toHaveAttribute('data-persisting', 'true')
   expect(old.className).toContain('opacity-60')
-  expect(
-    old.querySelector('[data-testid="finding-persisting"]')
-  ).toHaveTextContent('already on the default branch')
+  // LUM-1012 follow-up: "already on main" is the group's heading, said once.
+  expect(old.querySelector('[data-testid="finding-persisting"]')).toBeNull()
+  expect(screen.getByTestId('finding-group-persisting')).toHaveTextContent(
+    'already on the default branch · 1'
+  )
   expect(old.querySelector('.text-danger-text')).toBeNull()
   // LUM-1012: the one to decide on comes first; the quiet one is folded.
   expect(

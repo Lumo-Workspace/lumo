@@ -2248,7 +2248,7 @@
   "securityScan.codeScrubbed": "Код, процитированный этой проверкой, удалён согласно настройке хранения вашего рабочего пространства. Правила, файлы, строки и решения сохранены.",
   "securityScan.suggested.falsePositive": "Вероятно ложное срабатывание (LLM)",
   "securityScan.suggested.reasonLabel": "Обоснование LLM:",
-  "securityScan.verifier.reasonLabel": "Причина проверки:",
+  "securityScan.verifier.reasonLabel": "Причина проверки",
   "securityScan.verifier.rejected": "Отклонено проверяющим агентом",
   "securityScan.suggested.outcome.CONFIRMED": "предложение подтверждено",
   "securityScan.suggested.outcome.OVERRULED": "предложение отклонено",
@@ -2744,5 +2744,15 @@
   "testCases.lightbox.prev": "Назад",
   "testCases.lightbox.next": "Далее",
   "testCases.lightbox.position": "{current} / {total}",
-  "testCases.lightbox.openOriginal": "Открыть оригинал"
+  "testCases.lightbox.openOriginal": "Открыть оригинал",
+  "securityScan.stageInfo.trigger": "Что проверяет {layer}",
+  "securityScan.stageInfo.secrets": "Ищет API-ключи, токены доступа, закрытые ключи и пароли в строках, которые добавляет этот PR, по встроенным правилам Lumo.",
+  "securityScan.stageInfo.external": "Статический анализ изменения: рискованные шаблоны кода вроде инъекций или небезопасных API, утёкшие учётные данные, проблемы в workflow GitHub Actions и ошибки конфигурации инфраструктуры.",
+  "securityScan.stageInfo.supplyChain": "Сверяет пакеты из ваших lock-файлов с известными уязвимостями из базы OSV.",
+  "securityScan.stageInfo.judge": "Модель читает diff в поисках ошибок и проблем безопасности, затем проверяющий перепроверяет каждую находку по коду и отклоняет несостоятельные.",
+  "securityScan.stageInfo.hunt": "Агент проходит по изменённым исходным файлам и проверяет, может ли недоверенный ввод достичь рискованного кода. Число — проверенные исходные файлы из тех, что в охвате.",
+  "securityScan.stageInfo.tools": "Сканеры: {tools}",
+  "securityScan.group.open": "Нужно решение",
+  "securityScan.group.verifierRejected": "Отклонено проверяющим",
+  "securityScan.group.ruled": "Решено"
 }
