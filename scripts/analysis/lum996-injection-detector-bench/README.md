@@ -141,7 +141,7 @@ A run from the cache reproduces the committed `results.json` byte for byte (sha2
 
 ## LUM-1007 — regex vs an ML classifier
 
-Would a small local classifier behind the regex catch what the regex misses, without breaking the Lumo-benign FPR bound (≤ 1.0%, LUM-998)? The first classifier measured is **`protectai/deberta-v3-base-prompt-injection-v2`** (Apache-2.0, not gated, pinned at `90c9989b1a34`). **Prompt Guard 2 is not measured yet**: its weights are gated behind Meta's Llama 4 licence and access is pending (see "TODO: Prompt Guard 2" below). Read-out: `results-classifier.json`. `results.json` is untouched; the runner recomputes the regex arm and refuses to write if it differs from `results.json` by a single sample.
+Would a small local classifier behind the regex catch what the regex misses, without breaking the Lumo-benign FPR bound (≤ 1.0%, LUM-998)? The first classifier measured is **`protectai/deberta-v3-base-prompt-injection-v2`** (Apache-2.0, not gated, pinned at `90c9989b1a34`). **Prompt Guard 2 is not measured yet**: its weights are gated behind Meta's Llama 4 licence and access is pending (see "TODO: Prompt Guard 2" below). Read-out: `results-classifier.json` (context + aggregates) and `results-classifier.rows.jsonl.gz` (per-sample detail). `results.json` is untouched; the runner recomputes the regex arm and refuses to write if it differs from `results.json` by a single sample.
 
 **Short answer: do not add ProtectAI v2 behind the regex.** Under the FPR bound it adds recall almost only on sets it was probably trained on. On the fairest public set (deepset) it adds +1.6 pp. It does not close the plain-wording gap (EN plain asks 14.7% → 14.7%). The train-chosen OR threshold already breaks the bound on held-out (1.1%). It costs ~29 ms p50 / ~333 ms p95 per sample on CPU (regex: 0.05 / 0.34 ms) and a 738 MB model.
 
@@ -155,7 +155,7 @@ Would a small local classifier behind the regex catch what the regex misses, wit
   - Both picks sit at the far end of the probability scale. Moving one grid step changes the FPR by several samples, so the bound is met with almost no slack, and on held-out the OR pick lands at **1.1%, over the bound**.
   - The fixed values 0.5 (the model's argmax default), 0.9, 0.99 and 0.999 are reported for context; all of them exceed the bound.
 - **512-token window → chunking.** Texts over 510 content tokens are cut into consecutive 510-token windows (+ `[CLS]`/`[SEP]`). A sample's score is the max over its windows: any chunk flagged → flagged, as a production wrapper would have to do it. **448 of 6,970 samples (6.4%) needed chunking.** 400 of them are Lumo benign (markdown 194/960, commit bodies 201/2,069, UI strings 5/544, up to 15 chunks), 48 are attacks (Tensor Trust 45, deepset 1, zh 2). Chunking raises FPR: at the OR pick, 6 of the 19 held-out Lumo false positives are chunked samples, and at t = 0.5 it is 58 of 252.
-- **Runtime.** ONNX export of the model (`onnx/model.onnx`, 738 MB, in `~/.cache/huggingface`, never in the repo) run by `classifier/score_onnx.py` with `onnxruntime` on CPU, batch size 1, one sample at a time. Python deps (isolated uv venv, not `package.json`): `onnxruntime==1.30.0`, `tokenizers==0.23.2`, `numpy==2.5.3`. No torch, no transformers, no npm dependency. Scoring is offline (`HF_HUB_OFFLINE=1`; the model is read from the local cache).
+- **Runtime.** ONNX export of the model (`onnx/model.onnx`, 738 MB, in `~/.cache/huggingface`, never in the repo) run by `classifier/score_onnx.py` with `onnxruntime` on CPU, batch size 1, one sample at a time. Python deps (isolated uv venv, not `package.json`): `onnxruntime==1.30.0`, `tokenizers==0.23.2`, `numpy==2.5.3`, plus floor pins on two transitive deps to clear known CVEs: `anyio>=4.14.2` (CVE-2026-63374, CVE-2026-64847) and `idna>=3.15` (CVE-2026-45409). No torch, no transformers, no npm dependency. Scoring is offline (`HF_HUB_OFFLINE=1`; the model is read from the local cache).
 - **Latency** is per-sample wall time on an Apple M3 Pro (11 logical cores), measured inside the scorer: tokenisation + every chunk's forward pass. The regex is timed around `scoreText` in Node. The OR arm is the sum of the two.
 
 ### Held-out comparison
@@ -192,7 +192,7 @@ Where the classifier's Lumo false positives come from (held-out, flagged / N):
 
 At its default threshold the model flags **56% of ordinary Lumo Chinese text**. The model card says it is English-only, and Chinese input in general reads as "injection" to it. Every ZH number for this model, including the plain slice below, has to be read against that.
 
-The full grid of arms, train-split reports, per-dataset Lumo FPR and chunk counts are in `results-classifier.json` → `models[].heldout` / `.train` / `.chunking`.
+Every arm's held-out report (per dataset, per language, Lumo FPR by dataset and language), the slice reports, threshold picks and chunk counts are in `results-classifier.json` → `aggregates`. The per-sample detail (model, dataset, ref, split, language, regex verdict, probability, chunks, both latencies; no sample text) is in `results-classifier.rows.jsonl.gz`. Its uncompressed sha256 is recorded in the JSON (`detail.sha256Uncompressed`), and jest rebuilds `aggregates` from it with `buildAggregates` (`readout.ts`), so train-split or other-threshold reports can be recomputed from it.
 
 ### The `plain-agent-addressed` slice (LUM-999/1003 gap)
 
@@ -284,7 +284,7 @@ npx tsx scripts/analysis/lum996-injection-detector-bench/run.ts --offline  # cac
 npx jest scripts/analysis/lum996-injection-detector-bench                   # helpers + rot guard + LUM-1007 adapter/arms
 ```
 
-LUM-1007 classifier comparison (writes `results-classifier.json`; `results.json` is not touched):
+LUM-1007 classifier comparison (writes `results-classifier.json` and `results-classifier.rows.jsonl.gz`; `results.json` is not touched):
 
 ```bash
 VENV=<scratchpad>/classifier-venv
@@ -304,22 +304,24 @@ npx tsx scripts/analysis/lum996-injection-detector-bench/run-classifier.ts --pyt
 
 ## Files
 
-| File                       | What it is                                                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `score.ts`                 | The production entry point: `guardUntrustedContent(sanitizeField(text))` → flagged + per-kind counts                |
-| `sources.ts`               | Public corpora: pinned revisions, fetch + cache, row parsers, dedup                                                 |
-| `benign.ts`                | Lumo-shaped benign corpus from the pinned commit (markdown chunks, commit bodies, UI strings)                       |
-| `split.ts`                 | LUM-998 deterministic train / held-out split and per-split pooled rates                                             |
-| `classify.ts`              | Wilson CI, language tag, miss taxonomy (heuristics, not the detector)                                               |
-| `evaluate.ts`              | Aggregation into the read-out; pinned-sample selection                                                              |
-| `run.ts`                   | CLI that writes `results.json` and prints the table                                                                 |
-| `results.json`             | The committed read-out, including `pinnedSample` (91 texts with their expected scores)                              |
-| `classifier.ts`            | LUM-1007 classifier adapter: model config registry (`CLASSIFIER_MODELS`), HF-cache path, Python bridge, score cache |
-| `classifier/`              | `score_onnx.py` (ONNX scorer, 512-token chunking, latency), its unittest, `requirements.txt`                        |
-| `combine.ts`               | LUM-1007 arms (regex / classifier@t / regex OR classifier@t), train-only threshold choice, read-out                 |
-| `plain-agent-addressed.ts` | LUM-1007 slice: LUM-999 payloads + hand-written EN/ZH plain agent-addressed asks                                    |
-| `run-classifier.ts`        | CLI that writes `results-classifier.json` and prints the comparison tables                                          |
-| `results-classifier.json`  | The committed LUM-1007 read-out                                                                                     |
-| `__tests__/`               | Unit tests for every helper, plus the **rot guard**                                                                 |
+| File                               | What it is                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `score.ts`                         | The production entry point: `guardUntrustedContent(sanitizeField(text))` → flagged + per-kind counts                |
+| `sources.ts`                       | Public corpora: pinned revisions, fetch + cache, row parsers, dedup                                                 |
+| `benign.ts`                        | Lumo-shaped benign corpus from the pinned commit (markdown chunks, commit bodies, UI strings)                       |
+| `split.ts`                         | LUM-998 deterministic train / held-out split and per-split pooled rates                                             |
+| `classify.ts`                      | Wilson CI, language tag, miss taxonomy (heuristics, not the detector)                                               |
+| `evaluate.ts`                      | Aggregation into the read-out; pinned-sample selection                                                              |
+| `run.ts`                           | CLI that writes `results.json` and prints the table                                                                 |
+| `results.json`                     | The committed read-out, including `pinnedSample` (91 texts with their expected scores)                              |
+| `classifier.ts`                    | LUM-1007 classifier adapter: model config registry (`CLASSIFIER_MODELS`), HF-cache path, Python bridge, score cache |
+| `classifier/`                      | `score_onnx.py` (ONNX scorer, 512-token chunking, latency), its unittest, `requirements.txt`                        |
+| `combine.ts`                       | LUM-1007 arms (regex / classifier@t / regex OR classifier@t), train-only threshold choice, read-out                 |
+| `plain-agent-addressed.ts`         | LUM-1007 slice: LUM-999 payloads + hand-written EN/ZH plain agent-addressed asks                                    |
+| `run-classifier.ts`                | CLI that writes `results-classifier.json` and prints the comparison tables                                          |
+| `results-classifier.json`          | The committed LUM-1007 read-out: context + aggregates (compact, in `.prettierignore`)                               |
+| `results-classifier.rows.jsonl.gz` | Per-sample detail the aggregates are rebuilt from (sha256 of the uncompressed stream in the JSON)                   |
+| `readout.ts`                       | LUM-1007 read-out split: detail gz codec, `buildAggregates`, compact JSON formatter                                 |
+| `__tests__/`                       | Unit tests for every helper, plus the **rot guard**                                                                 |
 
 The rot guard re-scores every `pinnedSample` text with the current detector and fails if any result differs from what was recorded. When LUM-998 changes a pattern, re-run `run.ts` and commit the new read-out together with the pattern change.

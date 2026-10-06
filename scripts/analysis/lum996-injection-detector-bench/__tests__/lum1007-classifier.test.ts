@@ -7,7 +7,7 @@
  * The slice strings are fixtures for a detector benchmark; they are expected
  * to trip Lumo's own injection advisories.
  */
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { detectLang } from '../classify'
@@ -52,6 +52,17 @@ import {
   regexMismatches,
   sliceTable,
 } from '../run-classifier'
+import {
+  buildAggregates,
+  decodeDetail,
+  DETAIL_FILE,
+  detailJsonl,
+  encodeDetail,
+  formatReadout,
+  sha256Hex,
+  type DetailRow,
+  type ReadoutContext,
+} from '../readout'
 import { sha256 } from '../sources'
 import { PAYLOADS } from '../../lum999-lumo-context-injection/fixtures'
 
@@ -552,5 +563,99 @@ describe('plain-agent-addressed slice', () => {
     expect(
       samples.every(s => s.dataset === PLAIN_SLICE_ID && s.label === 'attack')
     ).toBe(true)
+  })
+})
+
+// ─── read-out split: JSON aggregates ⇄ gzipped per-sample detail (readout.ts) ─
+
+describe('readout codec + formatter', () => {
+  const detail: DetailRow[] = [
+    { model: 'm', ...row({ ref: 'a', prob: 0.97, regexMs: 0.123456789 }) },
+    {
+      model: 'm',
+      ...row({ ref: 'b', dataset: 'lumo', label: 'benign', prob: 0.01 }),
+    },
+  ]
+
+  it('round-trips the detail rows and hashes the uncompressed stream', () => {
+    const gz = encodeDetail(detail)
+    expect(encodeDetail(detail).equals(gz)).toBe(true) // stable bytes
+    const back = decodeDetail(gz)
+    expect(back.rows).toEqual(detail)
+    expect(back.sha256).toBe(sha256Hex(detailJsonl(detail)))
+    expect(detailJsonl(detail).split('\n')).toHaveLength(3)
+  })
+
+  it('prints leaf objects and primitive arrays on one line, valid JSON', () => {
+    const v = {
+      a: { k: 1, n: 2, rate: 0.5, lo: null },
+      grid: [0.5, 0.9],
+      nested: [{ x: 1 }, { y: [1] }],
+      empty: [],
+    }
+    const text = formatReadout(v)
+    expect(JSON.parse(text)).toEqual(v)
+    expect(text).toContain('"a": {"k":1,"n":2,"rate":0.5,"lo":null}')
+    expect(text).toContain('"grid": [0.5,0.9]')
+    expect(text).toContain('"empty": []')
+    expect(text.endsWith('}\n')).toBe(true)
+  })
+
+  it('buildAggregates computes regex + per-model arms from detail rows', () => {
+    const ctx: ReadoutContext = {
+      fprBound: 0.01,
+      pools,
+      datasetOrder: ['atk', 'lumo'],
+      thresholdGrid: [0.5, 0.99],
+      models: [{ id: 'm', maxTokens: 512, reportThresholds: [0.5] }],
+      slice: { id: 'slice', langByRef: {}, verbatimRefs: [] },
+    }
+    const agg = buildAggregates(detail, ctx)
+    expect(agg.regex.heldout.arm.id).toBe('regex')
+    expect(agg.models).toHaveLength(1)
+    expect(agg.models[0]?.thresholdChoice.classifier.threshold).toBe(0.5)
+    expect(agg.models[0]?.heldout.map(r => r.arm.id)).toEqual([
+      'm@0.5',
+      'regex OR m@0.5',
+    ])
+    expect(agg.models[0]?.chunking.totalSamples).toBe(2)
+    expect(() => buildAggregates(detail, { ...ctx, models: [] })).toThrow(
+      /no models/
+    )
+  })
+})
+
+describe('committed results-classifier.json ⇄ rows.jsonl.gz', () => {
+  const dir = join(__dirname, '..')
+  const text = readFileSync(join(dir, 'results-classifier.json'), 'utf8')
+  const committed = JSON.parse(text)
+  const { rows, sha256: gzSha } = decodeDetail(
+    readFileSync(join(dir, DETAIL_FILE))
+  )
+
+  it('points at the detail file and matches its uncompressed sha256', () => {
+    expect(committed.detail.file).toBe(DETAIL_FILE)
+    expect(committed.detail.rows).toBe(rows.length)
+    expect(committed.detail.sha256Uncompressed).toBe(gzSha)
+  })
+
+  it('aggregates rebuild exactly from the gz', () => {
+    expect(buildAggregates(rows, committed.context)).toEqual(
+      committed.aggregates
+    )
+  })
+
+  it('is exactly the formatter output (no prettier drift)', () => {
+    expect(formatReadout(committed)).toBe(text)
+  })
+
+  it('slice context still matches plain-agent-addressed.ts', () => {
+    const items = plainSliceItems()
+    expect(committed.context.slice.langByRef).toEqual(
+      Object.fromEntries(items.map(i => [i.ref, i.lang]))
+    )
+    expect(committed.context.models.map((m: { id: string }) => m.id)).toEqual(
+      CLASSIFIER_MODELS.map(m => m.id)
+    )
   })
 })

@@ -8,13 +8,15 @@
  *     [--out <file>]         default: ./results-classifier.json next to this file
  *     [--rescore]            ignore cached classifier scores
  *
- * Same corpora and split as run.ts. Leaves results.json alone and refuses to
- * write if its own regex numbers differ from the committed results.json.
+ * Same corpora and split as run.ts. Writes results-classifier.json (context +
+ * aggregates) and results-classifier.rows.jsonl.gz (per-sample detail) next
+ * to `--out`. Leaves results.json alone and refuses to write if its own regex
+ * numbers differ from the committed results.json.
  */
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { cpus } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { BENIGN_COMMIT, loadBenignCorpus } from './benign'
 import { detectLang, type Rate } from './classify'
@@ -25,19 +27,17 @@ import {
   type ClassifierModel,
   type ClassifierScore,
 } from './classifier'
+import type { ArmReport, BenchRow, Pools, SliceReport } from './combine'
 import {
-  armReport,
-  armsFor,
-  chooseThreshold,
-  chunkCounts,
-  percentile,
-  type ArmReport,
-  type SliceReport,
-  type BenchRow,
-  sliceReport,
-  type Arm,
-  type Pools,
-} from './combine'
+  buildAggregates,
+  DETAIL_FILE,
+  detailJsonl,
+  encodeDetail,
+  formatReadout,
+  sha256Hex,
+  type DetailRow,
+  type ReadoutContext,
+} from './readout'
 import {
   PLAIN_SLICE_ID,
   plainSliceItems,
@@ -244,11 +244,6 @@ async function main(): Promise<void> {
     ...plainSliceSamples(),
   ]
   const sliceItems = plainSliceItems()
-  const sliceLang = new Map(sliceItems.map(i => [i.ref, i.lang]))
-  const langOf = (ref: string): string => sliceLang.get(ref) ?? 'other'
-  const verbatimRefs = sliceItems
-    .filter(i => i.origin === 'lum999')
-    .map(i => i.ref)
 
   const regexScored = samples.map(s => {
     const t0 = performance.now()
@@ -257,17 +252,35 @@ async function main(): Promise<void> {
   })
 
   const infos = [...pub.datasets, ...LUMO_BENIGN]
-  const pools: Pools = {
-    attacks: infos.filter(d => d.label === 'attack').map(d => d.id),
-    publicBenign: pub.datasets.filter(d => d.label === 'benign').map(d => d.id),
-    lumoBenign: LUMO_BENIGN.map(d => d.id),
+  const ctx: ReadoutContext = {
+    fprBound: FPR_BOUND,
+    pools: {
+      attacks: infos.filter(d => d.label === 'attack').map(d => d.id),
+      publicBenign: pub.datasets
+        .filter(d => d.label === 'benign')
+        .map(d => d.id),
+      lumoBenign: LUMO_BENIGN.map(d => d.id),
+    },
+    datasetOrder: infos.map(d => d.id),
+    thresholdGrid: [...THRESHOLD_GRID],
+    models: CLASSIFIER_MODELS.map(m => ({
+      id: m.id,
+      maxTokens: m.maxTokens,
+      reportThresholds: [...m.reportThresholds],
+    })),
+    slice: {
+      id: PLAIN_SLICE_ID,
+      langByRef: Object.fromEntries(sliceItems.map(i => [i.ref, i.lang])),
+      verbatimRefs: sliceItems
+        .filter(i => i.origin === 'lum999')
+        .map(i => i.ref),
+    },
   }
   const committed = JSON.parse(
     readFileSync(join(__dirname, 'results.json'), 'utf8')
   )
 
-  const perModel = []
-  let regexRows: BenchRow[] | null = null
+  const detail: DetailRow[] = []
   for (const model of CLASSIFIER_MODELS as ClassifierModel[]) {
     process.stderr.write(
       `scoring ${samples.length} samples with ${model.repo} …\n`
@@ -278,110 +291,18 @@ async function main(): Promise<void> {
       { python: args.python, cacheDir: args.cacheDir, rescore: args.rescore }
     )
     const rows = buildRows(regexScored, scores)
-    if (regexRows === null) {
-      const bad = regexMismatches(rows, pools, committed)
-      if (bad.length > 0)
-        throw new Error(
-          `regex arm does not match results.json:\n  ${bad.join('\n  ')}`
-        )
-      regexRows = rows
-    }
-    const choice = {
-      classifier: chooseThreshold(
-        rows,
-        'classifier',
-        model.id,
-        pools,
-        FPR_BOUND,
-        THRESHOLD_GRID
-      ),
-      or: chooseThreshold(
-        rows,
-        'or',
-        model.id,
-        pools,
-        FPR_BOUND,
-        THRESHOLD_GRID
-      ),
-    }
-    const arms = armsFor(model.id, model.reportThresholds, {
-      classifier: choice.classifier.threshold,
-      or: choice.or.threshold,
-    })
-    const chunked = rows.filter(r => r.chunks > 1)
-    perModel.push({
-      model: {
-        id: model.id,
-        repo: model.repo,
-        revision: model.revision,
-        licence: model.licence,
-        gated: model.gated,
-        runtime:
-          'onnxruntime CPUExecutionProvider, batch size 1 (classifier/score_onnx.py)',
-        maxTokens: model.maxTokens,
-      },
-      thresholdChoice: {
-        rule: `lowest grid value with TRAIN Lumo-benign FPR ≤ ${FPR_BOUND * 100}%`,
-        grid: THRESHOLD_GRID,
-        classifier: choice.classifier,
-        or: choice.or,
-      },
-      chunking: {
-        rule: `texts over ${model.maxTokens - 2} content tokens are split into consecutive ${
-          model.maxTokens - 2
-        }-token windows; any chunk flagged → flagged (max probability)`,
-        chunkedSamples: chunked.length,
-        totalSamples: rows.length,
-        byDataset: chunkCounts(
-          rows,
-          infos.map(d => d.id)
-        ),
-      },
-      classifierLatencyMs: {
-        all: {
-          p50: percentile(
-            rows.map(r => r.clfMs),
-            50
-          ),
-          p95: percentile(
-            rows.map(r => r.clfMs),
-            95
-          ),
-        },
-        unchunked: {
-          p50: percentile(
-            rows.filter(r => r.chunks === 1).map(r => r.clfMs),
-            50
-          ),
-          p95: percentile(
-            rows.filter(r => r.chunks === 1).map(r => r.clfMs),
-            95
-          ),
-        },
-        chunked: {
-          p50: percentile(
-            chunked.map(r => r.clfMs),
-            50
-          ),
-          p95: percentile(
-            chunked.map(r => r.clfMs),
-            95
-          ),
-        },
-      },
-      heldout: arms.map(a => armReport(rows, a, pools, FPR_BOUND, 'heldout')),
-      plainAgentAddressed: arms.map(a =>
-        sliceReport(rows, a, PLAIN_SLICE_ID, langOf, verbatimRefs)
-      ),
-      train: arms.map(a => armReport(rows, a, pools, FPR_BOUND, 'train')),
-    })
+    const bad = regexMismatches(rows, ctx.pools, committed)
+    if (bad.length > 0)
+      throw new Error(
+        `regex arm does not match results.json:\n  ${bad.join('\n  ')}`
+      )
+    detail.push(...rows.map(r => ({ model: model.id, ...r })))
   }
-  if (regexRows === null) throw new Error('no classifier models configured')
-  const regexArm: Arm = { id: 'regex', kind: 'regex' }
 
+  const gz = encodeDetail(detail)
   const results = {
     task: 'LUM-1007',
-    note: 'Regex numbers are recomputed and asserted equal to results.json (LUM-996/998), not copied. Latency fields are wall-clock measurements and vary between runs/machines; everything else is deterministic for a given cache.',
+    note: 'Regex numbers are recomputed and asserted equal to results.json (LUM-996/998), not copied. `aggregates` is rebuilt from the per-sample detail file by buildAggregates (readout.ts); the jest suite checks that. Latency fields are wall-clock measurements and vary between runs/machines; everything else is deterministic for a given cache.',
     fprBound: FPR_BOUND,
     benignCommit: BENIGN_COMMIT,
     machine: {
@@ -394,17 +315,26 @@ async function main(): Promise<void> {
     )
       .split('\n')
       .filter(l => l.trim() && !l.startsWith('#')),
-    regex: {
-      heldout: armReport(regexRows, regexArm, pools, FPR_BOUND, 'heldout'),
-      train: armReport(regexRows, regexArm, pools, FPR_BOUND, 'train'),
-      plainAgentAddressed: sliceReport(
-        regexRows,
-        regexArm,
-        PLAIN_SLICE_ID,
-        langOf,
-        verbatimRefs
-      ),
+    detail: {
+      file: DETAIL_FILE,
+      rows: detail.length,
+      sha256Uncompressed: sha256Hex(detailJsonl(detail)),
+      fields: Object.keys(detail[0] ?? {}),
     },
+    context: ctx,
+    models: CLASSIFIER_MODELS.map(m => ({
+      id: m.id,
+      repo: m.repo,
+      revision: m.revision,
+      licence: m.licence,
+      gated: m.gated,
+      runtime:
+        'onnxruntime CPUExecutionProvider, batch size 1 (classifier/score_onnx.py)',
+      thresholdRule: `lowest grid value with TRAIN Lumo-benign FPR ≤ ${FPR_BOUND * 100}%`,
+      chunkingRule: `texts over ${m.maxTokens - 2} content tokens are split into consecutive ${
+        m.maxTokens - 2
+      }-token windows; any chunk flagged → flagged (max probability)`,
+    })),
     plainAgentAddressedSlice: {
       id: PLAIN_SLICE_ID,
       n: sliceItems.length,
@@ -419,18 +349,23 @@ async function main(): Promise<void> {
       },
       note: 'Hand-written before any scoring; outside every pool and never used for threshold choice (pure held-out). See plain-agent-addressed.ts.',
     },
-    models: perModel,
+    aggregates: buildAggregates(detail, ctx),
   }
-  await writeFile(args.out, `${JSON.stringify(results, null, 2)}\n`)
+  const detailOut = join(dirname(args.out), DETAIL_FILE)
+  await writeFile(detailOut, gz)
+  await writeFile(args.out, formatReadout(results))
+  const agg = results.aggregates
   const table = comparisonTable(
-    [results.regex.heldout, ...perModel.flatMap(m => m.heldout)],
-    pools.attacks
+    [agg.regex.heldout, ...agg.models.flatMap(m => m.heldout)],
+    ctx.pools.attacks
   )
   const slice = sliceTable([
-    results.regex.plainAgentAddressed,
-    ...perModel.flatMap(m => m.plainAgentAddressed),
+    agg.regex.plainAgentAddressed,
+    ...agg.models.flatMap(m => m.plainAgentAddressed),
   ])
-  process.stdout.write(`${table}\n\n${slice}\n\nwrote ${args.out}\n`)
+  process.stdout.write(
+    `${table}\n\n${slice}\n\nwrote ${args.out}\nwrote ${detailOut}\n`
+  )
 }
 
 if (require.main === module) {
