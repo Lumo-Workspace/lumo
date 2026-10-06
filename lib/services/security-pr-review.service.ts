@@ -312,6 +312,23 @@ export type InlineFinding = Pick<
   // Optional so a caller built before LUM-988 still compiles; absent = security.
   Partial<Pick<ReviewFindingRow, 'kind'>>
 
+/**
+ * The rule-docs link as a markdown link target, or null to drop it. Only an
+ * http(s) URL with no HTML comment in it (cutting one out would leave a broken
+ * link); `href` percent-encodes whitespace and angle brackets, and parentheses
+ * are encoded too so the target cannot close the markdown link early.
+ */
+export function ruleDocsHref(ref: string | null): string | null {
+  if (!ref || ref !== stripHtmlComments(ref)) return null
+  try {
+    const url = new URL(ref)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    return url.href.replace(/\(/g, '%28').replace(/\)/g, '%29')
+  } catch {
+    return null
+  }
+}
+
 /** P8: `evidence` is not a parameter here, so it cannot leak by accident. */
 export function buildInlineComment(
   f: InlineFinding,
@@ -320,17 +337,15 @@ export function buildInlineComment(
   const kindLabel = findingKindLabel(f.kind)
   // Model / scanner text (title, detail, rule-docs link): no HTML comments,
   // so it can never carry one of Lumo's state markers (a fake fingerprint or
-  // retraction marker).
+  // retraction marker). The title stays on the heading line.
   const blocks: string[] = [
-    `**Lumo · ${provenanceLabel(f)}${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ${stripHtmlComments(f.title).trim()}`,
+    `**Lumo · ${provenanceLabel(f)}${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ${stripHtmlComments(f.title).replace(/\s+/g, ' ').trim()}`,
   ]
   const detail = stripHtmlComments(f.detail).trim()
   if (detail.length > 0) blocks.push(detail)
   const footer: string[] = []
-  // A link carrying an HTML comment is dropped whole: cutting the comment out
-  // would leave a broken URL.
-  if (f.externalRef && f.externalRef === stripHtmlComments(f.externalRef))
-    footer.push(`[Rule docs](${f.externalRef})`)
+  const href = ruleDocsHref(f.externalRef)
+  if (href) footer.push(`[Rule docs](${href})`)
   if (isBlockingFinding(f, policy)) footer.push('blocks DONE')
   if (footer.length > 0) blocks.push(footer.join(' · '))
   blocks.push(fingerprintMarker(f.fingerprint))
