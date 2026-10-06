@@ -146,7 +146,13 @@ describe('scopedPrisma against a real database', () => {
   })
 
   it('models scoped only through a relation are not checked (v1)', async () => {
-    await expect(scopedPrisma.task.findMany({})).resolves.toEqual([])
+    await expect(scopedPrisma.comment.findMany({})).resolves.toEqual([])
+  })
+
+  it('Task is checked directly (LUM-992)', async () => {
+    await expect(scopedPrisma.task.findMany({})).rejects.toMatchObject({
+      code: 'WORKSPACE_SCOPE_MISSING',
+    })
   })
 
   it('unscoped(reason) reaches across workspaces', async () => {

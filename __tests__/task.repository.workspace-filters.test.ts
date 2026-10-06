@@ -16,14 +16,14 @@ jest.mock('@/lib/db/prisma', () => ({
 beforeEach(() => jest.clearAllMocks())
 
 describe('taskRepository.findByWorkspaceWithFilters', () => {
-  it('scopes to the workspace via project and caps results when no filters', async () => {
+  it('scopes to the workspace (Task.workspaceId) and caps results when no filters', async () => {
     mockTaskFindMany.mockResolvedValueOnce([])
 
     await taskRepository.findByWorkspaceWithFilters('w1')
 
     expect(mockTaskFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { project: { workspaceId: 'w1' } },
+        where: { workspaceId: 'w1' },
         orderBy: { order: 'asc' },
         take: WORKSPACE_TASK_QUERY_LIMIT,
       })
@@ -45,7 +45,7 @@ describe('taskRepository.findByWorkspaceWithFilters', () => {
     expect(mockTaskFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          project: { workspaceId: 'w1' },
+          workspaceId: 'w1',
           projectId: { in: ['p1'] },
           milestoneId: { in: ['m1'] },
           status: { in: ['TODO', 'DONE'] },
@@ -66,7 +66,7 @@ describe('taskRepository.findByWorkspaceWithFilters', () => {
     })
 
     expect(mockTaskFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { project: { workspaceId: 'w1' } } })
+      expect.objectContaining({ where: { workspaceId: 'w1' } })
     )
   })
 })

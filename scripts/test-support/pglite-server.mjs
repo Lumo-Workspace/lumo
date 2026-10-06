@@ -18,10 +18,14 @@ import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const migrations = path.resolve(here, '../../prisma/migrations')
+// LUM-992: a migration test can stop the replay just before one migration
+// (directory name), seed the pre-migration shape, then apply it itself.
+const stopBefore = process.env.PGLITE_STOP_BEFORE_MIGRATION || null
 
 try {
   const db = await PGlite.create({ extensions: { vector, pg_trgm } })
   for (const dir of readdirSync(migrations).sort()) {
+    if (stopBefore && dir >= stopBefore) break
     const file = path.join(migrations, dir, 'migration.sql')
     if (existsSync(file)) await db.exec(readFileSync(file, 'utf8'))
   }

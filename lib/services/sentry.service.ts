@@ -290,7 +290,11 @@ export const sentryService = {
       fields.sentryIssueId
     )
     if (existing) {
-      await this._handleRepeatedAlert(existing.taskId, fields)
+      await this._handleRepeatedAlert(
+        existing.taskId,
+        integration.workspaceId,
+        fields
+      )
       await sentryRepository.markWebhookReceived(integration.id).catch(() => {})
       return { repeated: true, taskId: existing.taskId }
     }
@@ -318,7 +322,11 @@ export const sentryService = {
           fields.sentryIssueId
         )
         if (now) {
-          await this._handleRepeatedAlert(now.taskId, fields)
+          await this._handleRepeatedAlert(
+            now.taskId,
+            integration.workspaceId,
+            fields
+          )
           await sentryRepository
             .markWebhookReceived(integration.id)
             .catch(() => {})
@@ -354,6 +362,8 @@ export const sentryService = {
 
   async _handleRepeatedAlert(
     taskId: string,
+    /** The integration's workspace — the reopen is pinned to it (LUM-992). */
+    workspaceId: string,
     fields: ReturnType<typeof extractIssueFields>
   ): Promise<void> {
     const task = await taskRepository.findById(taskId)
@@ -373,7 +383,7 @@ export const sentryService = {
     })
 
     if (task.status === 'DONE') {
-      await taskService.reopen(taskId, {
+      await taskService.reopen(taskId, workspaceId, {
         reason: 'sentry_regression',
         actorId: null,
       })

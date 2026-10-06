@@ -138,6 +138,7 @@ async function seedWorkspace(p: string) {
   await insert('tasks', {
     id: `${p}task`,
     projectId: `${p}project`,
+    workspaceId: ws,
     teamId: `${p}team`,
   })
   await insert('test_cases', { id: `${p}testcase`, taskId: `${p}task` })

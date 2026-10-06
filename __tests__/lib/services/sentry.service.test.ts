@@ -440,7 +440,7 @@ describe('sentryService.handleWebhook', () => {
     const body = JSON.stringify(alertFixture)
     const sig = signed(body, PLAIN_SECRET)
     await sentryService.handleWebhook({ rawBody: body, signature: sig })
-    expect(taskService.reopen).toHaveBeenCalledWith('t1', {
+    expect(taskService.reopen).toHaveBeenCalledWith('t1', 'ws1', {
       reason: 'sentry_regression',
       actorId: null,
     })

@@ -84,6 +84,7 @@ async function seedWorkspace(
     data: {
       id: `task_${id}`,
       projectId: `proj_${id}`,
+      workspaceId: id,
       teamId: `team_${id}`,
       number: 1,
       title: 'retention stock',

@@ -75,6 +75,7 @@ async function seedTask(
     data: {
       id,
       projectId: `${ws}_project`,
+      workspaceId: ws,
       teamId: `${ws}_team`,
       number: ++taskSeq,
       title: id,

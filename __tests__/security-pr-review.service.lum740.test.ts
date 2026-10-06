@@ -512,7 +512,16 @@ describe('LUM-988 late rejections and what the hold covers', () => {
 
   it('leaves an already-retracted comment, a human comment and a confirmed row alone', async () => {
     listReview.mockResolvedValue([
-      lumoComment(1, 'fp-done', VERIFIER_RETRACTION_NOTE),
+      {
+        ...lumoComment(1, 'fp-done'),
+        body: buildRetractedComment({
+          title: 't',
+          fingerprint: 'fp-done',
+          kind: 'CORRECTNESS',
+          severity: 'MEDIUM',
+          verifierReason: 'r',
+        }),
+      },
       { ...lumoComment(2, 'fp-human'), user: { id: 9, type: 'User' } },
       lumoComment(3, 'fp-ok'),
     ])
@@ -720,18 +729,38 @@ describe('LUM-988 retraction detection and restore eligibility', () => {
   })
   beforeEach(() => updateReview.mockResolvedValue({ id: 1 }))
 
-  it('isRetractedComment: the marker, or the legacy note at a line start — not a title quoting it', () => {
+  it('isRetractedComment: only the marker — not the visible note, wherever model text puts it', () => {
     expect(
       isRetractedComment(`x\n\n<!-- lumo-security:verifier-rejected -->`)
     ).toBe(true)
     expect(
       isRetractedComment(`**t** — ~~a~~\n\n${VERIFIER_RETRACTION_NOTE}: r`)
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isRetractedComment(
-        `**Lumo · LLM review · MEDIUM** — Message says "${VERIFIER_RETRACTION_NOTE}" wrongly`
+        `**Lumo · LLM review · MEDIUM** — t\n\n${VERIFIER_RETRACTION_NOTE}: spoofed by the detail`
       )
     ).toBe(false)
+  })
+
+  it('a detail that repeats the note on its own line does not stop a real retraction', async () => {
+    const row = judgeRow('spoof', {
+      verifierVerdict: 'REJECTED',
+      detail: `${VERIFIER_RETRACTION_NOTE}: says so here`,
+    })
+    listReview.mockResolvedValue([posted(72, buildInlineComment(row))])
+    findById.mockResolvedValue(
+      scanRow({
+        verifiedAt: new Date(),
+        verifierStartedAt: new Date(),
+        findings: [row],
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(updateReview).toHaveBeenCalledTimes(1)
+    expect(updateReview.mock.calls[0]![0].body).toContain(
+      '<!-- lumo-security:verifier-rejected -->'
+    )
   })
 
   it('a rejected row whose original comment title quotes the note is still retracted', async () => {

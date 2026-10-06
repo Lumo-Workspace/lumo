@@ -246,6 +246,7 @@ async function seedWorkspace(
   const task = await db.task.create({
     data: {
       projectId: project.id,
+      workspaceId: project.workspaceId,
       teamId: team.id,
       number: 1,
       title: `${mark} task one`,
@@ -258,6 +259,7 @@ async function seedWorkspace(
     await db.task.create({
       data: {
         projectId: project.id,
+        workspaceId: project.workspaceId,
         teamId: team.id,
         number: 2,
         title: `${mark} task two`,
@@ -412,6 +414,7 @@ async function seedAlphaTeamLayer(alpha: WorkspaceFixture) {
   const task = await db.task.create({
     data: {
       projectId: project.id,
+      workspaceId: project.workspaceId,
       teamId: team.id,
       number: 1,
       title: `${RESTRICTED_MARK} task`,
@@ -468,6 +471,7 @@ async function seedDualMember(
     const sprintTask = await db.task.create({
       data: {
         projectId: bravo.projectId,
+        workspaceId: bravo.workspaceId,
         teamId: bravo.teamId,
         number: taskNumber++,
         title: `${BRAVO_MARK} sprint task (${source})`,
@@ -1786,6 +1790,7 @@ async function seedActiveWorkspaceProbes() {
   const task = await db.task.create({
     data: {
       projectId: B().projectId,
+      workspaceId: B().workspaceId,
       teamId: B().teamId,
       number: 987,
       title: `${BRAVO_MARK} lum987 probe task`,
@@ -3018,4 +3023,45 @@ describe('LUM-994 document update: project, tags and childOrder must be the call
       expect((await docState(c1)).sortOrder).toBe(1)
     }
   )
+})
+
+describe('LUM-992 task move: a task cannot be moved into another workspace’s project', () => {
+  async function taskState(id: string) {
+    return harness.prisma!.task.findUniqueOrThrow({
+      where: { id },
+      select: { projectId: true, workspaceId: true, title: true },
+    })
+  }
+
+  it('PATCH /api/tasks/[own task] {projectId: BRAVO project} is refused and writes nothing', async () => {
+    const before = await taskState(A().taskId)
+    const res = await call(
+      taskRoute.PATCH,
+      'PATCH',
+      `/api/tasks/${A().taskId}`,
+      { id: A().taskId },
+      { caller: 'alphaOwner', source: 'clerk' },
+      { projectId: B().projectId, title: 'moved into bravo' }
+    )
+    expect([400, 403, 404]).toContain(res.status)
+    expect(res.text).not.toContain(BRAVO_MARK)
+    expect(await taskState(A().taskId)).toEqual(before)
+    expect(before).toMatchObject({
+      projectId: A().projectId,
+      workspaceId: A().workspaceId,
+    })
+    // BRAVO's project gained no task.
+    const leaked = await harness.prisma!.task.count({
+      where: { projectId: B().projectId, title: 'moved into bravo' },
+    })
+    expect(leaked).toBe(0)
+  })
+
+  it('every seeded task carries its project’s workspace', async () => {
+    const rows = await harness.prisma!.task.findMany({
+      select: { workspaceId: true, project: { select: { workspaceId: true } } },
+    })
+    expect(rows.length).toBeGreaterThan(0)
+    for (const r of rows) expect(r.workspaceId).toBe(r.project.workspaceId)
+  })
 })

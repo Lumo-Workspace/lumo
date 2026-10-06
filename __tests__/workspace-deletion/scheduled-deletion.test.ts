@@ -321,6 +321,7 @@ async function seedTrash(id: string) {
         number,
         title: suffix,
         projectId: `${id}_proj`,
+        workspaceId: id,
         teamId: `${id}_team`,
         deletedAt,
         testCases: {

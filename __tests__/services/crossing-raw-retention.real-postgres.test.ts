@@ -151,6 +151,7 @@ beforeAll(async () => {
     data: {
       id: TASK,
       projectId: 'proj_raw',
+      workspaceId: WS,
       teamId: 'team_raw',
       number: 1,
       title: 'crossing raw retention',
@@ -304,6 +305,7 @@ describe('LUM-933 cutoff for crossing originals', () => {
       data: {
         id: T,
         projectId: 'proj_cut',
+        workspaceId: W,
         teamId: 'team_cut',
         number: 1,
         title: W,

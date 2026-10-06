@@ -79,7 +79,7 @@ beforeEach(() => {
 
 describe('updateTask — tag branching', () => {
   it('bulk replace via tagIds calls syncTaskTags and fetches tags', async () => {
-    await updateTask('task-1', { tagIds: ['tag-b'] })
+    await updateTask('task-1', 'ws-1', { tagIds: ['tag-b'] })
 
     expect(syncTaskTags).toHaveBeenCalledWith('task-1', ['tag-b'])
     expect(addTaskTags).not.toHaveBeenCalled()
@@ -88,7 +88,7 @@ describe('updateTask — tag branching', () => {
   })
 
   it('addTagIds + removeTagIds applies add then remove (order matters)', async () => {
-    await updateTask('task-1', {
+    await updateTask('task-1', 'ws-1', {
       addTagIds: ['tag-c'],
       removeTagIds: ['tag-a'],
     })
@@ -110,7 +110,7 @@ describe('updateTask — tag branching', () => {
   })
 
   it('only addTagIds → only add called, findByTask called', async () => {
-    await updateTask('task-1', { addTagIds: ['tag-c'] })
+    await updateTask('task-1', 'ws-1', { addTagIds: ['tag-c'] })
 
     expect(addTaskTags).toHaveBeenCalledWith('task-1', ['tag-c'])
     expect(removeTaskTags).not.toHaveBeenCalled()
@@ -119,7 +119,7 @@ describe('updateTask — tag branching', () => {
   })
 
   it('only removeTagIds → only remove called, findByTask called', async () => {
-    await updateTask('task-1', { removeTagIds: ['tag-a'] })
+    await updateTask('task-1', 'ws-1', { removeTagIds: ['tag-a'] })
 
     expect(removeTaskTags).toHaveBeenCalledWith('task-1', ['tag-a'])
     expect(addTaskTags).not.toHaveBeenCalled()
@@ -128,7 +128,7 @@ describe('updateTask — tag branching', () => {
   })
 
   it('no tag fields → no tag repo calls and findByTask NOT called', async () => {
-    await updateTask('task-1', { title: 'New Title' })
+    await updateTask('task-1', 'ws-1', { title: 'New Title' })
 
     expect(syncTaskTags).not.toHaveBeenCalled()
     expect(addTaskTags).not.toHaveBeenCalled()
@@ -180,27 +180,27 @@ describe('updateTaskSchema — tagIds mutex', () => {
 
 describe('updateTask — description normalization', () => {
   it('converts markdown description to HTML before update', async () => {
-    await updateTask('task-1', { description: '## H' })
-    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    await updateTask('task-1', 'ws-1', { description: '## H' })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][2]
     expect(data.description).toBe('<p>## H</p>')
   })
 
   it('clears description when set to empty string', async () => {
-    await updateTask('task-1', { description: '' })
-    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    await updateTask('task-1', 'ws-1', { description: '' })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][2]
     expect(data.description).toBeNull()
   })
 
   it('passes through HTML descriptions unchanged', async () => {
     const html = '<p>already html</p>'
-    await updateTask('task-1', { description: html })
-    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    await updateTask('task-1', 'ws-1', { description: html })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][2]
     expect(data.description).toBe(html)
   })
 
   it('does not touch description when undefined (no description in input)', async () => {
-    await updateTask('task-1', { title: 'new title' })
-    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    await updateTask('task-1', 'ws-1', { title: 'new title' })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][2]
     expect(data.description).toBeUndefined()
   })
 })
@@ -213,7 +213,7 @@ describe('updateTask — archived milestone bind guard', () => {
       archivedAt: new Date(),
     })
     await expect(
-      updateTask('task-1', { milestoneId: 'm1' })
+      updateTask('task-1', 'ws-1', { milestoneId: 'm1' })
     ).rejects.toMatchObject({ status: 409 })
   })
 })

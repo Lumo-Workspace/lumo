@@ -59,6 +59,7 @@ export const projectRepository = {
     const rows = await prisma.task.groupBy({
       by: ['projectId', 'status'],
       where: {
+        workspaceId,
         project: projectVisibilityWhere(workspaceId, memberId),
       },
       _count: { _all: true },

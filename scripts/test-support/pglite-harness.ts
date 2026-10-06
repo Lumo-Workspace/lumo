@@ -10,9 +10,11 @@
  */
 import { spawn, type ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
+import { readFileSync } from 'fs'
 import path from 'path'
 import type { PrismaClient as PrismaClientType } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { Client as PgClient } from 'pg'
 
 interface Column {
   column_name: string
@@ -33,10 +35,29 @@ export interface PgliteHarness {
     params?: unknown[]
   ): Promise<T[]>
   insert(table: string, values: Record<string, unknown>): Promise<void>
+  /** Apply one migration file (see `stopBeforeMigration`). */
+  applyMigration(name: string): Promise<void>
+}
+
+/**
+ * NOT NULL columns a BEFORE trigger fills when an insert leaves them out, so
+ * the seeding helper must not invent a value: `tasks.workspaceId` is copied
+ * from the task's project (LUM-992) and a made-up one would be rejected.
+ */
+const TRIGGER_FILLED: Record<string, string[]> = { tasks: ['workspaceId'] }
+
+export interface PgliteHarnessOptions {
+  /**
+   * Replay migrations only up to (not including) this migration directory, so
+   * a migration test can seed the pre-migration shape and then apply it with
+   * `applyMigration` (LUM-992).
+   */
+  stopBeforeMigration?: string
 }
 
 export function createPgliteHarness(
-  PrismaClient: typeof import('@prisma/client').PrismaClient
+  PrismaClient: typeof import('@prisma/client').PrismaClient,
+  options: PgliteHarnessOptions = {}
 ): PgliteHarness {
   let child: ChildProcess | null = null
 
@@ -48,7 +69,15 @@ export function createPgliteHarness(
       child = spawn(
         process.execPath,
         [path.resolve(__dirname, 'pglite-server.mjs')],
-        { stdio: ['pipe', 'pipe', 'inherit'] }
+        {
+          stdio: ['pipe', 'pipe', 'inherit'],
+          env: options.stopBeforeMigration
+            ? {
+                ...process.env,
+                PGLITE_STOP_BEFORE_MIGRATION: options.stopBeforeMigration,
+              }
+            : process.env,
+        }
       )
       let conn: string | null = null
       for await (const line of createInterface({ input: child.stdout! })) {
@@ -75,6 +104,29 @@ export function createPgliteHarness(
       child?.kill()
     },
 
+    async applyMigration(name: string) {
+      const sql = readFileSync(
+        path.resolve(
+          __dirname,
+          '../../prisma/migrations',
+          name,
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      // One multi-statement simple query, the way `prisma migrate deploy`
+      // sends a migration file.
+      const client = new PgClient({
+        connectionString: harness.connectionString!,
+      })
+      await client.connect()
+      try {
+        await client.query(sql)
+      } finally {
+        await client.end()
+      }
+    },
+
     async query<T>(sql: string, params: unknown[] = []) {
       return harness.prisma!.$queryRawUnsafe<T[]>(sql, ...params)
     },
@@ -87,9 +139,11 @@ export function createPgliteHarness(
       )
       if (cols.length === 0) throw new Error(`no table ${table}`)
       const row: Record<string, unknown> = { ...values }
+      const derived = TRIGGER_FILLED[table] ?? []
       for (const c of cols) {
         if (c.column_name in row || c.is_nullable === 'YES' || c.column_default)
           continue
+        if (derived.includes(c.column_name)) continue
         row[c.column_name] = await fillerFor(harness, c)
       }
       const keys = Object.keys(row)

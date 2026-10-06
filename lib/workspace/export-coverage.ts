@@ -14,6 +14,9 @@ export const EXPORTED_MODELS = [
   'WorkspaceMember',
   'Actor',
   'Project',
+  // LUM-992: Task carries a denormalized workspaceId; tasks were already in
+  // the archive (the `tasks` kind).
+  'Task',
   'Idea',
   'Initiative',
   'Priority',
