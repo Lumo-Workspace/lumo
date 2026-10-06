@@ -1,0 +1,30 @@
+# osv-scanner config, read by Lumo's managed PR scan (`osv-scanner scan source -r .`)
+# for the lockfile in this directory (package-lock.json). It does not apply to child
+# directories. Each entry expires on its ignoreUntil date so the advisory shows up in
+# scans again and gets re-checked. LUM-935.
+#
+# An id here also suppresses its aliases (osv-scanner docs, configuration.md), so the
+# GHSA id covers the CVE id the scanner reports.
+
+[[IgnoredVulns]]
+id = "GHSA-ch52-4w7c-c8xp" # alias CVE-2026-93748, http-cache-semantics
+ignoreUntil = 2027-01-05
+reason = """
+No patched version as of 2026-10-05 (advisory lists every version through 4.2.0 as affected). \
+The maintainer disputes the report as RFC 9111-conformant behaviour \
+(https://github.com/kornelski/http-cache-semantics/issues/56, closed; \
+https://github.com/github/advisory-database/issues/10139 open). \
+Only path: workflow -> @workflow/nest (NestJS adapter) -> peer @swc/cli -> @xhmikosr/bin-wrapper \
+-> @xhmikosr/downloader -> got -> cacheable-request -> http-cache-semantics, used to download \
+swc binaries. Lumo does not use NestJS or @swc/cli, so no Lumo runtime code reaches it."""
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm" # alias CVE-2026-93687, braces
+ignoreUntil = 2027-01-05
+reason = """
+No patched version as of 2026-10-05 (advisory lists every version through 3.0.3 as affected; \
+3.0.3 is the latest release). The maintainer disputes the report \
+(https://github.com/micromatch/braces/issues/70). \
+Dev-only: braces <- micromatch <- fast-glob <- @next/eslint-plugin-next (eslint-config-next) \
+and <- shadcn / ts-morph, all devDependencies; it expands repository glob patterns at lint/CLI \
+time, never untrusted input, and is not in the production runtime."""
