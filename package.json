@@ -22,6 +22,7 @@
     "lint:tokens:update": "tsx scripts/lint-tokens.ts --update",
     "i18n:sync": "tsx scripts/i18n-sync-locales.ts",
     "i18n:check": "tsx scripts/i18n-sync-locales.ts --check",
+    "license:audit": "tsx scripts/license-audit.ts",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf .next out dist",
     "format": "prettier --write .",
@@ -37,8 +38,6 @@
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.88",
-    "@anthropic-ai/claude-agent-sdk": "^0.2.89",
-    "@anthropic-ai/claude-code": "^2.1.89",
     "@chat-adapter/slack": "^4.23.0",
     "@clerk/mcp-tools": "^0.3.1",
     "@clerk/nextjs": "^7.5.1",
@@ -194,6 +193,8 @@
     }
   },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.89",
+    "@anthropic-ai/claude-code": "^2.1.89",
     "@electric-sql/pglite": "^0.4.1",
     "@electric-sql/pglite-socket": "^0.1.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
