@@ -82,7 +82,15 @@ export const commentRepository = {
   async listAllForTask(taskId: string) {
     return prisma.comment.findMany({
       where: { taskId, deletedAt: null },
-      select: { id: true, authorActorId: true, body: true, createdAt: true },
+      select: {
+        id: true,
+        authorActorId: true,
+        body: true,
+        createdAt: true,
+        // LUM-1003: GitHub provenance for agent-context trust tiers.
+        author: { select: { type: true, externalIdentity: true } },
+        mirror: { select: { authorAssociation: true } },
+      },
       orderBy: { createdAt: 'asc' as const },
     })
   },

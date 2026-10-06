@@ -16,6 +16,7 @@ export { renderDocumentSection, type DocumentCard } from './document'
 export {
   renderCommentsSection,
   type CommentCard,
+  type GithubCommentProvenance,
   type RenderCommentsInput,
 } from './comments'
 export { renderPRSection, prCard, prManifest, type PRCard } from './pr'

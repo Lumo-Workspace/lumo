@@ -121,8 +121,14 @@ describe('prCommentMirrorRepository', () => {
         filePath: true,
         lineStart: true,
         lineEnd: true,
+        authorAssociation: true,
         comment: {
-          select: { body: true, authorActorId: true, createdAt: true },
+          select: {
+            body: true,
+            authorActorId: true,
+            createdAt: true,
+            author: { select: { type: true } },
+          },
         },
       },
       orderBy: [

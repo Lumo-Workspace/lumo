@@ -46,17 +46,37 @@ async function callWithHeaders<T>(
   if (res.status === 204) return { body: undefined, headers: res.headers }
   const body = await res.json().catch(() => null)
   if (!res.ok) {
-    let resetAt: Date | undefined
-    if (
-      res.status === 403 &&
-      res.headers.get('X-RateLimit-Remaining') === '0'
-    ) {
-      const resetHeader = res.headers.get('X-RateLimit-Reset')
-      if (resetHeader) resetAt = new Date(Number(resetHeader) * 1000)
-    }
-    throw new GithubApiError(res.status, body, resetAt)
+    throw new GithubApiError(
+      res.status,
+      body,
+      rateLimitResetOf(res.status, res.headers)
+    )
   }
   return { body: body as T, headers: res.headers }
+}
+
+/**
+ * When a failed response is a rate limit, the moment it lifts; else undefined.
+ * Primary limit: 403/429 with `X-RateLimit-Remaining: 0` → `X-RateLimit-Reset`.
+ * LUM-1003 — secondary (abuse) limit: 403/429 with `Retry-After` seconds; a
+ * bare 429 waits a minute, GitHub's documented floor.
+ */
+export function rateLimitResetOf(
+  status: number,
+  headers: Headers,
+  now: Date = new Date()
+): Date | undefined {
+  if (status !== 403 && status !== 429) return undefined
+  if (headers.get('X-RateLimit-Remaining') === '0') {
+    const reset = Number(headers.get('X-RateLimit-Reset'))
+    if (Number.isFinite(reset) && reset > 0) return new Date(reset * 1000)
+  }
+  const retryAfter = Number(headers.get('Retry-After'))
+  if (headers.get('Retry-After') !== null && Number.isFinite(retryAfter)) {
+    return new Date(now.getTime() + Math.max(0, retryAfter) * 1000)
+  }
+  if (status === 429) return new Date(now.getTime() + 60_000)
+  return undefined
 }
 
 async function call<T>(url: string, init: RequestInit): Promise<T | undefined> {
@@ -237,7 +257,64 @@ async function listOldestFirstComments(
   return out
 }
 
+/** LUM-1003 — which GitHub listing a mirror source's comments live in. */
+export type AssociationListingKind = 'ISSUE' | 'REVIEW_LINE' | 'REVIEW'
+
+interface ListAssociationsPageInput {
+  repo: Repo
+  prNumber: number
+  kind: AssociationListingKind
+  page: number
+  token: string
+}
+
+export interface AssociationsPage {
+  items: Array<{ id: number; authorAssociation: string | null }>
+  hasNext: boolean
+  /** `X-RateLimit-Remaining` after this call; null when absent. */
+  rateLimitRemaining: number | null
+}
+
+const ASSOCIATION_LISTING_PATH: Record<AssociationListingKind, string> = {
+  ISSUE: 'issues/{n}/comments',
+  REVIEW_LINE: 'pulls/{n}/comments',
+  REVIEW: 'pulls/{n}/reviews',
+}
+
 export const prCommentClient = {
+  /**
+   * LUM-1003 — one page of a PR's comments (or reviews), reduced to
+   * `id` + `author_association`, for the mirror author-association backfill.
+   * Oldest-first, 100 per page; `hasNext` comes from the `Link` header.
+   */
+  async listAuthorAssociationsPage(
+    input: ListAssociationsPageInput
+  ): Promise<AssociationsPage> {
+    const path = ASSOCIATION_LISTING_PATH[input.kind].replace(
+      '{n}',
+      String(input.prNumber)
+    )
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/${path}?per_page=${COMMENTS_PER_PAGE}&page=${input.page}`
+    const { body, headers: h } = await callWithHeaders<
+      Array<{ id: number; author_association?: string | null }>
+    >(url, { method: 'GET', headers: headers(input.token) })
+    const remaining = h.get('X-RateLimit-Remaining')
+    return {
+      items: (body ?? []).map(c => ({
+        id: c.id,
+        authorAssociation:
+          typeof c.author_association === 'string'
+            ? c.author_association
+            : null,
+      })),
+      hasNext: /rel="next"/.test(h.get('Link') ?? ''),
+      rateLimitRemaining:
+        remaining !== null && Number.isFinite(Number(remaining))
+          ? Number(remaining)
+          : null,
+    }
+  },
+
   async createIssueComment(input: CreateIssueCommentInput) {
     const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/issues/${input.prNumber}/comments`
     return call<CommentResponse>(url, {

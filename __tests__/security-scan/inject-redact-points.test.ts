@@ -827,6 +827,7 @@ describe('⑫ LUM-998 — task description, session summaries, review todos', ()
           text: `rotate ${line}`,
           url: 'https://github.com/acme/app/pull/1#r1',
           author: 'eve',
+          reviewer: { trusted: false, role: 'no_association' },
         },
       ])
       expect(out).not.toContain(value)

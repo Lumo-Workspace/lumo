@@ -456,6 +456,7 @@ describe('renderPrReviewTodosSection', () => {
     text: 'Extract this into a helper',
     url: 'https://gh/c/1',
     author: 'octocat',
+    reviewer: { trusted: true, role: 'collaborator' },
   }
 
   it('returns empty string when there are no todos', () => {
@@ -466,7 +467,7 @@ describe('renderPrReviewTodosSection', () => {
     const out = renderPrReviewTodosSection([lineTodo])
     expect(out).toContain('## PR review todos')
     expect(out).toContain(
-      '- [ ] `lib/foo.ts:42` (@octocat) — Extract this into a helper'
+      '- [ ] `lib/foo.ts:42` (@octocat · collaborator) — Extract this into a helper'
     )
     expect(out).toContain('  ↳ https://gh/c/1')
   })
@@ -481,17 +482,20 @@ describe('renderPrReviewTodosSection', () => {
         text: 'Please address the comments',
         url: 'https://gh/c/2',
         author: null,
+        reviewer: { trusted: true, role: 'workspace_member' },
       },
     ])
     expect(out).toContain(
-      '- [ ] 🛑 Changes requested (whole PR) — Please address the comments'
+      '- [ ] 🛑 Changes requested (whole PR) (workspace member) — Please address the comments'
     )
     expect(out).not.toContain('(@')
   })
 
   it('omits the @handle when author is null', () => {
     const out = renderPrReviewTodosSection([{ ...lineTodo, author: null }])
-    expect(out).toContain('- [ ] `lib/foo.ts:42` — Extract this into a helper')
+    expect(out).toContain(
+      '- [ ] `lib/foo.ts:42` (collaborator) — Extract this into a helper'
+    )
     expect(out).not.toContain('(@')
   })
 
@@ -509,9 +513,11 @@ describe('renderPrReviewTodosSection', () => {
 
   it('drops the trailing " — " when a todo has no body text', () => {
     const out = renderPrReviewTodosSection([{ ...lineTodo, text: '' }])
-    expect(out).toContain('- [ ] `lib/foo.ts:42` (@octocat)')
+    expect(out).toContain('- [ ] `lib/foo.ts:42` (@octocat · collaborator)')
     expect(out).not.toContain('— \n')
-    expect(out.split('\n')[2]).toBe('- [ ] `lib/foo.ts:42` (@octocat)')
+    expect(out.split('\n')[4]).toBe(
+      '- [ ] `lib/foo.ts:42` (@octocat · collaborator)'
+    )
   })
 })
 

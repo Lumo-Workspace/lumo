@@ -58,6 +58,11 @@ import {
   remindAtStart,
   renderTestCaseStartNudge,
 } from '@/lib/context/render/test-case-reminder'
+import {
+  classifyReviewer,
+  githubCommentProvenance,
+} from '@/lib/context/reviewer-trust'
+import { PREVIOUS_SESSIONS_NOTE } from '@/shared/src/untrusted-fence'
 import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
 import {
   stripPrMirrorHeader,
@@ -582,7 +587,8 @@ function toProjectRenderables(
  * and every `changes_requested` review summary; plain comment / approval /
  * dismissal summaries and tombstoned rows are dropped. Reviewer handles are
  * resolved from the GITHUB_USER pseudo-actor's `externalIdentity` (no Clerk
- * call). `fragmentIds[i]` is the mirror id of `todos[i]` — the two arrays stay
+ * call); each todo carries the reviewer's verified standing (LUM-1003,
+ * `classifyReviewer`). `fragmentIds[i]` is the mirror id of `todos[i]` — the two arrays stay
  * index-aligned so `getContextForIdentifier` can surface a fragment per
  * rendered todo without re-deriving the filter. Empty arrays when the task has
  * no qualifying review comments.
@@ -639,6 +645,11 @@ async function collectReviewTodos(
       author: m.comment.authorActorId
         ? (loginByActorId.get(m.comment.authorActorId) ?? null)
         : null,
+      // LUM-1003: only a verified reviewer's ask renders as a todo.
+      reviewer: classifyReviewer({
+        authorAssociation: m.authorAssociation,
+        authorActorType: m.comment.author?.type,
+      }),
     })
     fragmentIds.push(m.id)
   }
@@ -1100,7 +1111,7 @@ export const taskContextService = {
     const headline = durationLabel
       ? `${recovery.headline} (${durationLabel} active)`
       : recovery.headline
-    const lines = ['## Progress so far', headline]
+    const lines = ['## Progress so far', PREVIOUS_SESSIONS_NOTE, headline]
     if (recovery.unresolved.length > 0) {
       const CAP = 5
       const visible = recovery.unresolved.slice(0, CAP)
@@ -1272,6 +1283,7 @@ export const taskContextService = {
         author: c.authorActorId ?? 'unknown',
         createdAt: c.createdAt,
         body: c.body,
+        github: githubCommentProvenance(c),
       })),
       identifier: resolved.identifier,
       commentsSummary: full.commentsSummary ?? null,

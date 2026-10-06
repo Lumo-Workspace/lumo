@@ -3406,6 +3406,12 @@ model PrCommentMirror {
 
   bodyHash String?
 
+  /// LUM-1003: GitHub's `author_association` for the comment's author, captured
+  /// from the webhook at mirror time (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR,
+  /// FIRST_TIME_CONTRIBUTOR, FIRST_TIMER, MANNEQUIN, NONE). Null on rows mirrored
+  /// before LUM-1003 and on outbound rows; readers treat null as unverified.
+  authorAssociation String?
+
   comment     Comment     @relation(fields: [commentId], references: [id], onDelete: Cascade)
   pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
 

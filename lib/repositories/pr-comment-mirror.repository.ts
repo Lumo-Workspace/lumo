@@ -33,6 +33,8 @@ interface DirectCreateInput extends ReserveInput {
   externalNodeId?: string | null
   externalUrl: string
   externalUpdatedAt: Date
+  /** LUM-1003: GitHub `author_association` from the webhook payload. */
+  authorAssociation?: string | null
 }
 
 export const prCommentMirrorRepository = {
@@ -95,6 +97,7 @@ export const prCommentMirrorRepository = {
         lineEnd: input.lineEnd ?? null,
         diffSide: input.diffSide ?? null,
         inReplyToExternalId: input.inReplyToExternalId ?? null,
+        authorAssociation: input.authorAssociation ?? null,
       },
     })
   },
@@ -155,13 +158,25 @@ export const prCommentMirrorRepository = {
     })
   },
 
-  async patchAfterEdit(id: string, externalUpdatedAt: Date, bodyHash: string) {
+  /**
+   * After an inbound edit. `authorAssociation` (LUM-1003) refreshes the
+   * reviewer's standing when the webhook carries it — an edit is the only
+   * moment a row mirrored before LUM-1003 can learn it; undefined keeps the
+   * stored value.
+   */
+  async patchAfterEdit(
+    id: string,
+    externalUpdatedAt: Date,
+    bodyHash: string,
+    authorAssociation?: string | null
+  ) {
     return prisma.prCommentMirror.update({
       where: { id },
       data: {
         externalUpdatedAt,
         bodyHash,
         lastSyncedAt: new Date(),
+        ...(authorAssociation ? { authorAssociation } : {}),
       },
     })
   },
@@ -199,8 +214,15 @@ export const prCommentMirrorRepository = {
         filePath: true,
         lineStart: true,
         lineEnd: true,
+        // LUM-1003: the reviewer's standing, for the trusted/unverified split.
+        authorAssociation: true,
         comment: {
-          select: { body: true, authorActorId: true, createdAt: true },
+          select: {
+            body: true,
+            authorActorId: true,
+            createdAt: true,
+            author: { select: { type: true } },
+          },
         },
       },
       orderBy: [
@@ -210,4 +232,70 @@ export const prCommentMirrorRepository = {
       ],
     })
   },
+
+  /**
+   * LUM-1003 backfill — PRs that still have live, GitHub-backed mirror rows
+   * whose `authorAssociation` was never recorded. Keyset-paged on PR id so a
+   * capped run resumes from `afterPullRequestId`.
+   */
+  async listPrsWithUnknownAuthorAssociation(input: {
+    afterPullRequestId: string | null
+    limit: number
+  }) {
+    return prisma.pullRequest.findMany({
+      where: {
+        ...(input.afterPullRequestId
+          ? { id: { gt: input.afterPullRequestId } }
+          : {}),
+        mirroredComments: { some: UNKNOWN_ASSOCIATION_WHERE },
+      },
+      select: { id: true, workspaceId: true, repo: true, number: true },
+      orderBy: { id: 'asc' },
+      take: input.limit,
+    })
+  },
+
+  /** LUM-1003 backfill — one PR's mirror rows still missing an association. */
+  async listUnknownAuthorAssociationRows(pullRequestId: string) {
+    return prisma.prCommentMirror.findMany({
+      where: { pullRequestId, ...UNKNOWN_ASSOCIATION_WHERE },
+      select: { id: true, externalSource: true, externalId: true },
+    })
+  },
+
+  /**
+   * LUM-1003 backfill — write associations in one short transaction with an
+   * explicit timeout. Guarded on `authorAssociation: null`, so a value a
+   * webhook wrote meanwhile is never overwritten and a re-run is a no-op.
+   * Returns how many rows changed.
+   */
+  async fillAuthorAssociations(
+    updates: Array<{ id: string; authorAssociation: string }>
+  ): Promise<number> {
+    if (updates.length === 0) return 0
+    return prisma.$transaction(
+      async tx => {
+        let changed = 0
+        for (const u of updates) {
+          const r = await tx.prCommentMirror.updateMany({
+            where: { id: u.id, authorAssociation: null },
+            data: { authorAssociation: u.authorAssociation },
+          })
+          changed += r.count
+        }
+        return changed
+      },
+      { timeout: 10_000, maxWait: 5_000 }
+    )
+  },
 }
+
+/**
+ * Rows the backfill can still learn an association for: not tombstoned, not
+ * an outbound placeholder still waiting for its GitHub id, and never filled.
+ */
+const UNKNOWN_ASSOCIATION_WHERE = {
+  authorAssociation: null,
+  deletedAt: null,
+  NOT: { externalId: { startsWith: 'pending-' } },
+} satisfies Prisma.PrCommentMirrorWhereInput

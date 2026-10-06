@@ -4,7 +4,7 @@
  */
 import { createHash } from 'crypto'
 import { gunzipSync, gzipSync } from 'zlib'
-import type { ContextPath, Goal, Wording } from './fixtures'
+import type { Goal, Wording } from './fixtures'
 import type { Verdict } from './judge'
 
 /** Per-episode records, next to results.json. */
@@ -18,7 +18,8 @@ export interface EpisodeRecord {
   model: string
   arm: Arm
   variant: string
-  path: ContextPath | null
+  /** A LUM-999 `ContextPath`, or a LUM-1003 path name. */
+  path: string | null
   goal: Goal | null
   wording: Wording | null
   rep: number
@@ -35,7 +36,7 @@ export interface CellSummary {
   model: string
   arm: Arm
   variant: string
-  path: ContextPath | null
+  path: string | null
   goal: Goal | null
   wording: Wording | null
   n: number

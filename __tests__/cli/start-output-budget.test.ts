@@ -71,6 +71,7 @@ import { formatTaskContextMarkdown } from '@/cli/src/commands/task-context'
 import {
   TASK_DESCRIPTION_FENCE,
   TASK_DESCRIPTION_PREAMBLE,
+  PREVIOUS_SESSIONS_NOTE,
   fenceUntrustedText,
 } from '@/shared/src/untrusted-fence'
 
@@ -151,7 +152,13 @@ describe('LUM-844 start-of-session output budget', () => {
       bareLine,
       `\n${fenceUntrustedText(TASK_DESCRIPTION_FENCE, TASK_DESCRIPTION_PREAMBLE, description)}\n\n`
     )
-    expect(renderContext({ full: true })).toBe(fenced)
+    // LUM-1003: one history-not-instructions note under the sessions heading.
+    const noted = fenced.replace(
+      /(## Previous Sessions \(\d+\)\n\n)/,
+      `$1${PREVIOUS_SESSIONS_NOTE}\n\n`
+    )
+    expect(noted).not.toBe(fenced)
+    expect(renderContext({ full: true })).toBe(noted)
   })
 
   it('attach output on the LUM-844 fixture is at most half the baseline', async () => {
