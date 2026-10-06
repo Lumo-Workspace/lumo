@@ -44,7 +44,7 @@ function DecisionToggle({
         className={`rounded-sm border px-2 py-0.5 ${
           value === 'moveToNext'
             ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-input hover:bg-muted'
+            : 'border-border hover:bg-muted'
         }`}
       >
         {intl.formatMessage({ id: 'sprints.close.moveToNext' })}
@@ -55,7 +55,7 @@ function DecisionToggle({
         className={`rounded-sm border px-2 py-0.5 ${
           value === 'backToBacklog'
             ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-input hover:bg-muted'
+            : 'border-border hover:bg-muted'
         }`}
       >
         {intl.formatMessage({ id: 'sprints.close.toBacklog' })}

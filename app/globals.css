@@ -957,17 +957,6 @@ a.mention {
   }
 }
 
-/* ── Base styles ─────────────────────────────────────────────────────────── */
-* {
-  border-color: var(--color-border);
-  outline-color: color-mix(in srgb, var(--color-ring) 50%, transparent);
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-}
-
 /* ── Scrollbar — tokenized; .dark inversion via --border / --muted-foreground ── */
 ::-webkit-scrollbar {
   width: 6px;
@@ -1201,6 +1190,9 @@ body {
   box-shadow: 0 25px 50px -12px rgba(168, 85, 247, 0.25);
 }
 
+/* Base defaults must stay inside @layer base: unlayered rules beat every
+   @layer utilities class, which silently disabled all border/outline colour
+   utilities until LUM-1006. */
 @layer base {
   * {
     @apply border-border outline-ring/50;
