@@ -42,7 +42,9 @@ beforeEach(() => {
 it('GET returns the settings for the caller workspace', async () => {
   const res = await GET(req('GET'))
   expect(res.status).toBe(200)
-  expect(securityScanSettingsService.get).toHaveBeenCalledWith('ws_1')
+  expect(securityScanSettingsService.get).toHaveBeenCalledWith(
+    expect.objectContaining({ workspaceId: 'ws_1', memberId: 'm_1' })
+  )
 })
 
 it('GET passes an auth failure through', async () => {

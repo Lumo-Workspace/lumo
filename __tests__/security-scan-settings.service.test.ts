@@ -2,18 +2,28 @@
  * @jest-environment node
  *
  * LUM-1002: the security-scan settings service — `{ all }` expands to every
- * switch, reads fill defaults + ceiling + effective layers, and writes go
- * through updateWorkspace with the caller's role from the member row.
+ * switch, reads fill defaults + ceiling + effective layers + `canEdit`, and
+ * writes go through the real `updateWorkspace` OWNER gate with the caller's
+ * role from the member row.
  */
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { findSecuritySwitches: jest.fn() },
+  workspaceRepository: { findSecuritySwitches: jest.fn(), update: jest.fn() },
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findMemberRoleById: jest.fn() },
 }))
-jest.mock('@/lib/services/workspace.service', () => ({
-  workspaceService: { updateWorkspace: jest.fn() },
-}))
+// The real service by default, so the OWNER gate under test is the shipped
+// one; the OWNER write path stubs it to stay off the audit/DB internals.
+jest.mock('@/lib/services/workspace.service', () => {
+  const actual = jest.requireActual('@/lib/services/workspace.service')
+  return {
+    workspaceService: {
+      updateWorkspace: jest.fn((...args: unknown[]) =>
+        actual.workspaceService.updateWorkspace(...args)
+      ),
+    },
+  }
+})
 
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
@@ -25,20 +35,24 @@ import {
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock
 const CALLER = { workspaceId: 'ws_1', workspaceSlug: 'acme', memberId: 'm_1' }
+const ALL_OFF = {
+  securityScanEnabled: false,
+  securityAiReviewEnabled: false,
+  securityHuntEnabled: false,
+}
 
 beforeEach(() => {
-  jest.resetAllMocks()
+  m(workspaceRepository.findSecuritySwitches).mockReset()
+  m(workspaceRepository.update).mockReset()
+  m(miscRepository.findMemberRoleById).mockReset()
+  m(workspaceService.updateWorkspace).mockClear()
   delete process.env.LUMO_MANAGED_SCAN
   delete process.env.LUMO_SECURITY_HUNT
 })
 
 describe('switchesForUpdate', () => {
   it('expands { all } to all three switches', () => {
-    expect(switchesForUpdate({ all: false })).toEqual({
-      securityScanEnabled: false,
-      securityAiReviewEnabled: false,
-      securityHuntEnabled: false,
-    })
+    expect(switchesForUpdate({ all: false })).toEqual(ALL_OFF)
     expect(switchesForUpdate({ all: true })).toEqual({
       securityScanEnabled: true,
       securityAiReviewEnabled: true,
@@ -53,21 +67,28 @@ describe('switchesForUpdate', () => {
 })
 
 describe('securityScanSettingsService.get', () => {
-  it('returns switches, platform ceiling and effective layers', async () => {
+  it('returns switches, ceiling, effective layers and canEdit for an OWNER', async () => {
     m(workspaceRepository.findSecuritySwitches).mockResolvedValue({
       securityScanEnabled: false,
       securityAiReviewEnabled: true,
       securityHuntEnabled: true,
     })
-    const s = await securityScanSettingsService.get('ws_1')
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    const s = await securityScanSettingsService.get(CALLER)
     expect(s.switches.securityScanEnabled).toBe(false)
     expect(s.effective.scan).toBe(false)
     expect(s.effective.aiReview).toBe(false)
     expect(s.platform).toHaveProperty('hunt')
+    expect(s.canEdit).toBe(true)
+  })
+  it('canEdit is false for a MEMBER', async () => {
+    m(workspaceRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    expect((await securityScanSettingsService.get(CALLER)).canEdit).toBe(false)
   })
   it('404s on a missing workspace', async () => {
     m(workspaceRepository.findSecuritySwitches).mockResolvedValue(null)
-    await expect(securityScanSettingsService.get('ws_x')).rejects.toMatchObject(
+    await expect(securityScanSettingsService.get(CALLER)).rejects.toMatchObject(
       { status: 404 }
     )
   })
@@ -75,36 +96,34 @@ describe('securityScanSettingsService.get', () => {
 
 describe('securityScanSettingsService.update', () => {
   it('writes every switch off via updateWorkspace with the member role', async () => {
+    m(workspaceService.updateWorkspace).mockResolvedValueOnce({})
     m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
-    m(workspaceRepository.findSecuritySwitches).mockResolvedValue({
-      securityScanEnabled: false,
-      securityAiReviewEnabled: false,
-      securityHuntEnabled: false,
-    })
+    m(workspaceRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
     const s = await securityScanSettingsService.update(CALLER, { all: false })
     expect(workspaceService.updateWorkspace).toHaveBeenCalledWith(
       'ws_1',
       'OWNER',
       'acme',
-      {
-        securityScanEnabled: false,
-        securityAiReviewEnabled: false,
-        securityHuntEnabled: false,
-      },
+      ALL_OFF,
       undefined
     )
     expect(s.effective.scan).toBe(false)
   })
-  it('propagates the 403 for a non-OWNER', async () => {
+  it('a MEMBER is refused by the real OWNER gate and nothing is written', async () => {
     m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
-    m(workspaceService.updateWorkspace).mockRejectedValue(
-      Object.assign(new Error('Only admins can update workspace settings'), {
-        status: 403,
-      })
-    )
     await expect(
       securityScanSettingsService.update(CALLER, { all: false })
+    ).rejects.toMatchObject({
+      status: 403,
+      message: 'Only admins can update workspace settings',
+    })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
+  })
+  it('a member row that no longer exists is refused the same way', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue(null)
+    await expect(
+      securityScanSettingsService.update(CALLER, { all: true })
     ).rejects.toMatchObject({ status: 403 })
-    expect(m(workspaceService.updateWorkspace).mock.calls[0][1]).toBe('MEMBER')
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
   })
 })

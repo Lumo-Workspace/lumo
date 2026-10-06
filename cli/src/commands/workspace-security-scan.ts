@@ -30,6 +30,8 @@ export interface SecurityScanSettingsView {
     aiReview: boolean
     hunt: boolean
   }
+  /** OWNER may change the switches; absent on a server older than this flag. */
+  canEdit?: boolean
 }
 
 export type SecurityScanUpdate =
@@ -194,6 +196,14 @@ export async function workspaceSecurityScan(
 
   let result = current.data
   if (update) {
+    // Refuse up front: a non-OWNER would otherwise be asked to confirm a
+    // change the server then rejects with 403.
+    if (current.data.canEdit === false) {
+      console.error(
+        'Error: only workspace owners can change security-scan settings (reading is open to every member).'
+      )
+      return 1
+    }
     const changes = describeTurnOffs(current.data.switches, update)
     if (changes.length > 0 && !isConfirmed(opts)) {
       return emitConfirmation({ command: 'workspace security-scan', changes })

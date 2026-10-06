@@ -25,6 +25,15 @@ export interface SecurityScanSettings {
   platform: PlatformSecurityCeiling
   /** Which layers will actually run: switches under the ceiling. */
   effective: EffectiveSecurityLayers
+  /** Whether the caller may change the switches (OWNER) — lets the CLI refuse
+   *  up front instead of asking for confirmation and then hitting a 403. */
+  canEdit: boolean
+}
+
+/** The caller a read or write is made for. */
+export interface SecurityScanSettingsCaller {
+  workspaceId: string
+  memberId: string
 }
 
 /** A partial switch change, or `all` to set every switch at once. */
@@ -51,8 +60,11 @@ export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
 }
 
 export const securityScanSettingsService = {
-  async get(workspaceId: string): Promise<SecurityScanSettings> {
-    const stored = await workspaceRepository.findSecuritySwitches(workspaceId)
+  async get(caller: SecurityScanSettingsCaller): Promise<SecurityScanSettings> {
+    const [stored, role] = await Promise.all([
+      workspaceRepository.findSecuritySwitches(caller.workspaceId),
+      miscRepository.findMemberRoleById(caller.memberId),
+    ])
     if (!stored) {
       throw Object.assign(new Error('Workspace not found'), { status: 404 })
     }
@@ -61,6 +73,7 @@ export const securityScanSettingsService = {
       switches,
       platform: platformSecurityCeiling(),
       effective: resolveSecurityLayers(switches),
+      canEdit: role === 'OWNER',
     }
   },
 
@@ -70,7 +83,7 @@ export const securityScanSettingsService = {
    * identity carries no role) meets the same gate as the browser.
    */
   async update(
-    caller: { workspaceId: string; workspaceSlug: string; memberId: string },
+    caller: SecurityScanSettingsCaller & { workspaceSlug: string },
     update: SecurityScanSettingsUpdate,
     audit?: AuditContext
   ): Promise<SecurityScanSettings> {
@@ -82,6 +95,6 @@ export const securityScanSettingsService = {
       switchesForUpdate(update),
       audit
     )
-    return this.get(caller.workspaceId)
+    return this.get(caller)
   },
 }
