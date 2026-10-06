@@ -70,11 +70,15 @@ export function SecurityScanSwitchesCard({
   const set = (key: keyof WorkspaceSecuritySwitches) => (next: boolean) =>
     setSwitches(prev => ({ ...prev, [key]: next }))
 
-  const handleSave = async () => {
+  const save = async (
+    update: Parameters<typeof workspacesClient.updateSecurityScan>[0],
+    successId: string
+  ) => {
     setSaving(true)
     try {
-      await workspacesClient.updateMe(switches)
-      toast.success(t('updated'))
+      const next = await workspacesClient.updateSecurityScan(update)
+      setSwitches(next.switches)
+      toast.success(t(successId))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('updateFailed'))
     } finally {
@@ -82,16 +86,36 @@ export function SecurityScanSwitchesCard({
     }
   }
 
+  const handleSave = () => save(switches, 'updated')
+
+  // LUM-1002: one click to turn every switch off (or back on), saved at once.
+  const allOff =
+    !switches.securityScanEnabled &&
+    !switches.securityAiReviewEnabled &&
+    !switches.securityHuntEnabled
+  const handleToggleAll = () =>
+    save({ all: allOff }, allOff ? 'allEnabled' : 'allDisabled')
+
   const scanOn = switches.securityScanEnabled
   const platformNote = t('platformOff')
 
   return (
     <div className='rounded-lg border border-border overflow-hidden mb-8'>
-      <div className='px-5 py-3 border-b border-border'>
-        <p className='text-sm font-semibold text-foreground'>{t('title')}</p>
-        <p className='text-xs text-muted-foreground mt-0.5'>
-          {t('description')}
-        </p>
+      <div className='flex items-start justify-between gap-4 px-5 py-3 border-b border-border'>
+        <div>
+          <p className='text-sm font-semibold text-foreground'>{t('title')}</p>
+          <p className='text-xs text-muted-foreground mt-0.5'>
+            {t('description')}
+          </p>
+        </div>
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={handleToggleAll}
+          disabled={saving}
+        >
+          {t(allOff ? 'enableAll' : 'disableAll')}
+        </Button>
       </div>
 
       <SwitchRow
