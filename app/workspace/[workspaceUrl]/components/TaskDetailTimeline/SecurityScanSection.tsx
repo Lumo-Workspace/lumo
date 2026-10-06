@@ -717,7 +717,13 @@ function ScanDetails({
       {groupFindings(scan.findings).map(group => (
         <div
           key={`${group.key}:${group.queueExit ?? ''}`}
-          data-testid={`finding-group-${group.key}`}
+          // Queue exits are split per exit kind, so their id carries the
+          // kind — two groups never share one.
+          data-testid={
+            group.queueExit
+              ? `finding-group-queueExit-${group.queueExit}`
+              : `finding-group-${group.key}`
+          }
           className='space-y-1.5 pt-1'
         >
           <p className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
