@@ -16,6 +16,10 @@
  * (ledger + --spent-offset + budgets reserved by in-flight episodes) would
  * pass --cap. Writes --out (default: results.json next to this file) with
  * the aggregated cells, and episodes.jsonl.gz next to it with every record.
+ *
+ * Auth (LUM-1001): the Gateway key is read here and handed only to a loopback
+ * proxy (proxy.ts) that lives for the duration of the suite. Agents get the
+ * proxy URL and a random per-run dummy token, never the key.
  */
 import {
   appendFileSync,
@@ -35,6 +39,7 @@ import {
   type Variant,
 } from './fixtures'
 import { judge } from './judge'
+import { startGatewayProxy } from './proxy'
 import { gitHead, renderArm, type ArmRender } from './render-arms'
 import {
   ARMS,
@@ -113,7 +118,7 @@ async function main(): Promise<void> {
   const timeoutMs = Number(arg('timeout-sec', '420')) * 1000
   const outPath = resolve(arg('out', join(__dirname, 'results.json')))
   const claudeBin = arg('claude', join(homedir(), '.local', 'bin', 'claude'))
-  const authToken = readEnvKey(resolve(arg('env-file')), 'AI_GATEWAY_API_KEY')
+  const gatewayKey = readEnvKey(resolve(arg('env-file')), 'AI_GATEWAY_API_KEY')
 
   const all = buildVariants()
   const wanted = arg('variants', 'all')
@@ -167,14 +172,22 @@ async function main(): Promise<void> {
   let stopped = false
   const toolPath = [
     ...new Set(
-      ['node', 'git'].map(bin => {
-        const r = spawnSync('/usr/bin/which', [bin], { encoding: 'utf8' })
-        return r.stdout.trim().replace(/\/[^/]+$/, '')
-      })
+      ['node', 'git']
+        .map(bin => {
+          const r = spawnSync('/usr/bin/which', [bin], { encoding: 'utf8' })
+          return r.stdout.trim().replace(/\/[^/]+$/, '')
+        })
+        .filter(Boolean)
     ),
     '/usr/bin',
     '/bin',
   ]
+
+  // Started before the workers are defined; closed once they finish.
+  const proxy = await startGatewayProxy({
+    upstream: GATEWAY_BASE_URL,
+    apiKey: gatewayKey,
+  })
 
   async function worker(): Promise<void> {
     for (;;) {
@@ -182,6 +195,7 @@ async function main(): Promise<void> {
       const job = queue.shift()
       if (!job) return
       if (spent + reserved + perEpisode > cap) {
+        queue.unshift(job)
         stopped = true
         out(
           `cap: $${spent.toFixed(2)} spent + $${reserved.toFixed(2)} reserved; stopping`
@@ -193,15 +207,15 @@ async function main(): Promise<void> {
       const render = renders[job.arm].get(job.v.id)
       if (!render) throw new Error(`no render for ${job.v.id}`)
       const dir = join(work, 'episodes', key.replace(/[|/]/g, '_'))
-      const sb = createSandbox(dir, render.markdown)
+      const sb = createSandbox(dir, render.markdown, join(work, 'episodes'))
       const t0 = Date.now()
       const run = await runClaude(sb, {
         claudeBin,
         model: job.model,
         maxBudgetUsd: perEpisode,
         timeoutMs,
-        baseUrl: GATEWAY_BASE_URL,
-        authToken,
+        baseUrl: proxy.baseUrl,
+        authToken: proxy.dummyToken,
         toolPath,
       })
       const cost = run.costUsd ?? perEpisode
@@ -237,7 +251,11 @@ async function main(): Promise<void> {
       )
     }
   }
-  await Promise.all(Array.from({ length: concurrency }, () => worker()))
+  try {
+    await Promise.all(Array.from({ length: concurrency }, () => worker()))
+  } finally {
+    await proxy.close()
+  }
 
   const records = loadLedger(ledgerPath)
   const cells = summarize(records)
