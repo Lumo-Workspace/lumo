@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "顯示詳細資料",
   "settings.auditLog.details.email": "電子郵件",
   "settings.auditLog.details.userAgent": "User-Agent",
-  "settings.auditLog.details.metadata": "詳細資料"
+  "settings.auditLog.details.metadata": "詳細資料",
+  "security.subprocessors.changes.heading": "即將生效與近期的變更",
+  "security.subprocessors.changes.intro": "新增次處理者，或既有次處理者的用途或資料位置變更時，我們會在生效前至少 {days} 天於本頁公布，並以電子郵件通知每個工作區的擁有者。為維持服務安全或可用而必須緊急進行的變更，會盡快公布。如對某項變更有異議，請在其生效前寄信至 {email}。",
+  "security.subprocessors.changes.pending": "即將生效（尚未生效）",
+  "security.subprocessors.changes.pendingEmpty": "目前沒有排定的變更。",
+  "security.subprocessors.changes.recent": "近期變更",
+  "security.subprocessors.changes.recentEmpty": "過去 12 個月內沒有變更。",
+  "security.subprocessors.changes.kind.added": "新增次處理者",
+  "security.subprocessors.changes.kind.replaced": "替換",
+  "security.subprocessors.changes.kind.changed": "用途或位置變更",
+  "security.subprocessors.changes.kind.removed": "已移除",
+  "security.subprocessors.changes.replaces": "替換 {name}",
+  "security.subprocessors.changes.location": "資料位置：{from} → {to}",
+  "security.subprocessors.changes.pendingDates": "{announced} 公布 · {effective} 生效",
+  "security.subprocessors.changes.recentDates": "{effective} 起生效",
+  "security.subprocessors.changes.urgent": "緊急變更，提前通知不足 {days} 天。"
 }

@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "Tampilkan detail",
   "settings.auditLog.details.email": "Email",
   "settings.auditLog.details.userAgent": "User agent",
-  "settings.auditLog.details.metadata": "Detail"
+  "settings.auditLog.details.metadata": "Detail",
+  "security.subprocessors.changes.heading": "Perubahan mendatang dan terbaru",
+  "security.subprocessors.changes.intro": "Kami mengumumkan subprosesor baru, atau perubahan tujuan atau lokasi data subprosesor yang sudah ada, di halaman ini dan melalui email kepada pemilik setiap workspace paling lambat {days} hari sebelum perubahan berlaku. Perubahan yang mendesak untuk menjaga layanan tetap aman atau tersedia diumumkan sesegera mungkin. Untuk mengajukan keberatan atas suatu perubahan, kirim email ke {email} sebelum perubahan berlaku.",
+  "security.subprocessors.changes.pending": "Mendatang (belum berlaku)",
+  "security.subprocessors.changes.pendingEmpty": "Tidak ada perubahan yang dijadwalkan.",
+  "security.subprocessors.changes.recent": "Perubahan terbaru",
+  "security.subprocessors.changes.recentEmpty": "Tidak ada perubahan dalam 12 bulan terakhir.",
+  "security.subprocessors.changes.kind.added": "Subprosesor baru",
+  "security.subprocessors.changes.kind.replaced": "Penggantian",
+  "security.subprocessors.changes.kind.changed": "Perubahan tujuan atau lokasi",
+  "security.subprocessors.changes.kind.removed": "Dihapus",
+  "security.subprocessors.changes.replaces": "menggantikan {name}",
+  "security.subprocessors.changes.location": "Lokasi data: {from} → {to}",
+  "security.subprocessors.changes.pendingDates": "Diumumkan {announced} · berlaku {effective}",
+  "security.subprocessors.changes.recentDates": "Berlaku sejak {effective}",
+  "security.subprocessors.changes.urgent": "Perubahan mendesak, diumumkan dengan pemberitahuan kurang dari {days} hari."
 }

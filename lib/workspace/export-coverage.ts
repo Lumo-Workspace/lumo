@@ -74,6 +74,9 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   MilestoneMemoryEdge: TELEMETRY,
   DroppedFragment: TELEMETRY,
   OutcomeSignal: TELEMETRY,
+  // LUM-919: the exported audit log carries the same notice as an event.
+  SubprocessorNoticeDelivery:
+    "Lumo's record of the subprocessor notices it emailed (idempotency)",
 }
 
 const MODEL_BLOCK_RE = /^model (\w+) \{([\s\S]*?)\n\}/gm

@@ -11,6 +11,12 @@
  * Changing a model or adding a runtime service therefore means updating the
  * manifest, the legal doc and this file together.
  *
+ * LUM-919: every addition, replacement, change or removal of an
+ * infrastructure or AI host entry also needs a record in
+ * `lib/legal/subprocessor-changes.ts`, announced at least 30 days before it
+ * takes effect (DPA 7.2); `__tests__/lib/legal/subprocessor-change-log.test.ts`
+ * fails otherwise. Read that file's header before editing these lists.
+ *
  * Only facts live here. Purpose / location wording is translated on the page
  * (`security.subprocessors.*` keys) and keyed by `id`.
  */
@@ -19,7 +25,7 @@
 export const SECURITY_CONTACT_EMAIL = 'hello@uselumo.ai'
 
 /** Date the /security page and this list were last reviewed (ISO). */
-export const SECURITY_PAGE_UPDATED = '2026-10-04'
+export const SECURITY_PAGE_UPDATED = '2026-10-05'
 
 /**
  * `us`: United States. `globalEdge`: served from the edge, nothing retained.

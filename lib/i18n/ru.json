@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "Показать подробности",
   "settings.auditLog.details.email": "Эл. почта",
   "settings.auditLog.details.userAgent": "User-Agent",
-  "settings.auditLog.details.metadata": "Подробности"
+  "settings.auditLog.details.metadata": "Подробности",
+  "security.subprocessors.changes.heading": "Предстоящие и недавние изменения",
+  "security.subprocessors.changes.intro": "О новом субобработчике или об изменении цели или расположения данных существующего мы сообщаем на этой странице и по электронной почте владельцам каждого рабочего пространства не менее чем за {days} дней до вступления изменения в силу. Об изменении, срочно необходимом для безопасности или доступности сервиса, мы сообщаем как можно скорее. Чтобы возразить против изменения, напишите на {email} до его вступления в силу.",
+  "security.subprocessors.changes.pending": "Предстоящие (ещё не вступили в силу)",
+  "security.subprocessors.changes.pendingEmpty": "Изменений не запланировано.",
+  "security.subprocessors.changes.recent": "Недавние изменения",
+  "security.subprocessors.changes.recentEmpty": "За последние 12 месяцев изменений не было.",
+  "security.subprocessors.changes.kind.added": "Новый субобработчик",
+  "security.subprocessors.changes.kind.replaced": "Замена",
+  "security.subprocessors.changes.kind.changed": "Изменение цели или расположения",
+  "security.subprocessors.changes.kind.removed": "Удалён",
+  "security.subprocessors.changes.replaces": "заменяет {name}",
+  "security.subprocessors.changes.location": "Расположение данных: {from} → {to}",
+  "security.subprocessors.changes.pendingDates": "Объявлено {announced} · вступает в силу {effective}",
+  "security.subprocessors.changes.recentDates": "Вступило в силу {effective}",
+  "security.subprocessors.changes.urgent": "Срочное изменение, объявлено менее чем за {days} дней."
 }

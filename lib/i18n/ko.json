@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "세부 정보 보기",
   "settings.auditLog.details.email": "이메일",
   "settings.auditLog.details.userAgent": "사용자 에이전트",
-  "settings.auditLog.details.metadata": "세부 정보"
+  "settings.auditLog.details.metadata": "세부 정보",
+  "security.subprocessors.changes.heading": "예정된 변경 및 최근 변경",
+  "security.subprocessors.changes.intro": "새 하위 처리자를 추가하거나 기존 하위 처리자의 목적 또는 데이터 위치를 변경하는 경우, 변경이 적용되기 최소 {days}일 전에 이 페이지와 모든 워크스페이스 소유자에게 보내는 이메일로 알려 드립니다. 서비스의 보안이나 가용성을 유지하기 위해 긴급히 필요한 변경은 가능한 한 빨리 알려 드립니다. 변경에 이의가 있으면 변경이 적용되기 전에 {email}로 연락해 주세요.",
+  "security.subprocessors.changes.pending": "예정(아직 적용되지 않음)",
+  "security.subprocessors.changes.pendingEmpty": "예정된 변경이 없습니다.",
+  "security.subprocessors.changes.recent": "최근 변경",
+  "security.subprocessors.changes.recentEmpty": "최근 12개월 동안 변경이 없습니다.",
+  "security.subprocessors.changes.kind.added": "새 하위 처리자",
+  "security.subprocessors.changes.kind.replaced": "교체",
+  "security.subprocessors.changes.kind.changed": "목적 또는 위치 변경",
+  "security.subprocessors.changes.kind.removed": "제거됨",
+  "security.subprocessors.changes.replaces": "{name} 대체",
+  "security.subprocessors.changes.location": "데이터 위치: {from} → {to}",
+  "security.subprocessors.changes.pendingDates": "{announced} 공지 · {effective} 적용",
+  "security.subprocessors.changes.recentDates": "{effective}부터 적용",
+  "security.subprocessors.changes.urgent": "긴급 변경으로, {days}일 미만의 사전 공지로 알려 드렸습니다."
 }

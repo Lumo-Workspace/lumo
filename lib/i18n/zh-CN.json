@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "显示详情",
   "settings.auditLog.details.email": "邮箱",
   "settings.auditLog.details.userAgent": "User-Agent",
-  "settings.auditLog.details.metadata": "详情"
+  "settings.auditLog.details.metadata": "详情",
+  "security.subprocessors.changes.heading": "即将生效与近期的变更",
+  "security.subprocessors.changes.intro": "新增子处理方，或现有子处理方的用途或数据位置发生变更时，我们会在生效前至少 {days} 天在本页公布，并通过邮件通知每个工作区的所有者。为保障服务安全或可用而必须紧急进行的变更，会尽快公布。如对某项变更有异议，请在其生效前发邮件至 {email}。",
+  "security.subprocessors.changes.pending": "即将生效（尚未生效）",
+  "security.subprocessors.changes.pendingEmpty": "暂无计划中的变更。",
+  "security.subprocessors.changes.recent": "近期变更",
+  "security.subprocessors.changes.recentEmpty": "过去 12 个月内没有变更。",
+  "security.subprocessors.changes.kind.added": "新增子处理方",
+  "security.subprocessors.changes.kind.replaced": "替换",
+  "security.subprocessors.changes.kind.changed": "用途或位置变更",
+  "security.subprocessors.changes.kind.removed": "已移除",
+  "security.subprocessors.changes.replaces": "替换 {name}",
+  "security.subprocessors.changes.location": "数据位置：{from} → {to}",
+  "security.subprocessors.changes.pendingDates": "{announced} 公布 · {effective} 生效",
+  "security.subprocessors.changes.recentDates": "{effective} 起生效",
+  "security.subprocessors.changes.urgent": "紧急变更，提前通知不足 {days} 天。"
 }

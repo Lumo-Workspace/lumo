@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "Hiện chi tiết",
   "settings.auditLog.details.email": "Email",
   "settings.auditLog.details.userAgent": "User agent",
-  "settings.auditLog.details.metadata": "Chi tiết"
+  "settings.auditLog.details.metadata": "Chi tiết",
+  "security.subprocessors.changes.heading": "Thay đổi sắp tới và gần đây",
+  "security.subprocessors.changes.intro": "Chúng tôi thông báo về bên xử lý phụ mới, hoặc thay đổi về mục đích hay vị trí dữ liệu của một bên hiện có, trên trang này và qua email gửi chủ sở hữu của mọi workspace ít nhất {days} ngày trước khi thay đổi có hiệu lực. Thay đổi cần thực hiện khẩn cấp để giữ dịch vụ an toàn hoặc sẵn sàng sẽ được thông báo sớm nhất có thể. Để phản đối một thay đổi, hãy viết thư tới {email} trước khi thay đổi có hiệu lực.",
+  "security.subprocessors.changes.pending": "Sắp tới (chưa có hiệu lực)",
+  "security.subprocessors.changes.pendingEmpty": "Không có thay đổi nào được lên lịch.",
+  "security.subprocessors.changes.recent": "Thay đổi gần đây",
+  "security.subprocessors.changes.recentEmpty": "Không có thay đổi nào trong 12 tháng qua.",
+  "security.subprocessors.changes.kind.added": "Bên xử lý phụ mới",
+  "security.subprocessors.changes.kind.replaced": "Thay thế",
+  "security.subprocessors.changes.kind.changed": "Thay đổi mục đích hoặc vị trí",
+  "security.subprocessors.changes.kind.removed": "Đã gỡ bỏ",
+  "security.subprocessors.changes.replaces": "thay thế {name}",
+  "security.subprocessors.changes.location": "Vị trí dữ liệu: {from} → {to}",
+  "security.subprocessors.changes.pendingDates": "Thông báo ngày {announced} · có hiệu lực ngày {effective}",
+  "security.subprocessors.changes.recentDates": "Có hiệu lực từ ngày {effective}",
+  "security.subprocessors.changes.urgent": "Thay đổi khẩn cấp, được thông báo trước ít hơn {days} ngày."
 }

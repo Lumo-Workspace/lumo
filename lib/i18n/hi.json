@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "विवरण दिखाएँ",
   "settings.auditLog.details.email": "ईमेल",
   "settings.auditLog.details.userAgent": "यूज़र एजेंट",
-  "settings.auditLog.details.metadata": "विवरण"
+  "settings.auditLog.details.metadata": "विवरण",
+  "security.subprocessors.changes.heading": "आगामी और हाल के बदलाव",
+  "security.subprocessors.changes.intro": "हम किसी नए उप-प्रोसेसर, या किसी मौजूदा उप-प्रोसेसर के उद्देश्य या डेटा के स्थान में बदलाव की घोषणा इस पेज पर और हर वर्कस्पेस के मालिकों को ईमेल से, बदलाव लागू होने से कम से कम {days} दिन पहले करते हैं। सेवा को सुरक्षित या उपलब्ध रखने के लिए तुरंत ज़रूरी बदलाव की घोषणा जितनी जल्दी हो सके की जाती है। किसी बदलाव पर आपत्ति करने के लिए, उसके लागू होने से पहले {email} पर लिखें।",
+  "security.subprocessors.changes.pending": "आगामी (अभी लागू नहीं)",
+  "security.subprocessors.changes.pendingEmpty": "कोई बदलाव निर्धारित नहीं है।",
+  "security.subprocessors.changes.recent": "हाल के बदलाव",
+  "security.subprocessors.changes.recentEmpty": "पिछले 12 महीनों में कोई बदलाव नहीं।",
+  "security.subprocessors.changes.kind.added": "नया उप-प्रोसेसर",
+  "security.subprocessors.changes.kind.replaced": "प्रतिस्थापन",
+  "security.subprocessors.changes.kind.changed": "उद्देश्य या स्थान में बदलाव",
+  "security.subprocessors.changes.kind.removed": "हटाया गया",
+  "security.subprocessors.changes.replaces": "{name} की जगह",
+  "security.subprocessors.changes.location": "डेटा का स्थान: {from} → {to}",
+  "security.subprocessors.changes.pendingDates": "घोषणा {announced} · लागू {effective} से",
+  "security.subprocessors.changes.recentDates": "{effective} से लागू",
+  "security.subprocessors.changes.urgent": "तत्काल बदलाव, {days} दिन से कम की पूर्व सूचना के साथ घोषित।"
 }

@@ -12,6 +12,12 @@ import {
   SECURITY_CONTACT_EMAIL,
 } from '@/lib/legal/subprocessors'
 import {
+  NOTICE_PERIOD_DAYS,
+  PRIVACY_CONTACT_EMAIL,
+  SUBPROCESSOR_BASELINE_DATE,
+  SUBPROCESSOR_CHANGES,
+} from '@/lib/legal/subprocessor-changes'
+import {
   AI_HOST_LOCATION,
   EXCLUDED_MODEL_AUTHORS,
   tableCells,
@@ -122,6 +128,39 @@ describe('subprocessor registry (LUM-856)', () => {
     expect(
       AI_HOST_SUBPROCESSORS.filter(h => h.location !== 'globalRouting')
     ).toEqual([])
+  })
+
+  it('legal doc change section matches the change log and the notice mechanism LUM-919', () => {
+    const changes = LEGAL_DOC.slice(
+      LEGAL_DOC.indexOf('## Changes to this list')
+    )
+    // The promise the send script keeps: owners of every workspace, by email,
+    // NOTICE_PERIOD_DAYS ahead, automatically; others via the privacy contact.
+    expect(changes).toMatch(/by email to the owners of every workspace/)
+    expect(changes).toContain(`at least [${NOTICE_PERIOD_DAYS}] days`)
+    expect(changes).toMatch(/notified automatically/)
+    expect(changes).toContain(`[${PRIVACY_CONTACT_EMAIL}]`)
+    expect(changes).not.toMatch(/To receive notifications/)
+
+    const history = changes.slice(changes.indexOf('### Change history'))
+    if (SUBPROCESSOR_CHANGES.length === 0) {
+      expect(history).toContain(
+        `No changes have been recorded since the change history started on ${SUBPROCESSOR_BASELINE_DATE}.`
+      )
+    } else {
+      // | Change | Announced | Takes effect | Summary |
+      expect(
+        sorted(
+          tableAfter(history, '| Change | Announced').map(r => r.join(' / '))
+        )
+      ).toEqual(
+        sorted(
+          SUBPROCESSOR_CHANGES.map(c =>
+            [c.id, c.announcedAt, c.effectiveAt, c.summary].join(' / ')
+          )
+        )
+      )
+    }
   })
 
   it('flags a model id missing from the ZDR manifest', () => {

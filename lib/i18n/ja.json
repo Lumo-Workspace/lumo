@@ -2713,5 +2713,20 @@
   "settings.auditLog.details.toggle": "詳細を表示",
   "settings.auditLog.details.email": "メール",
   "settings.auditLog.details.userAgent": "ユーザーエージェント",
-  "settings.auditLog.details.metadata": "詳細"
+  "settings.auditLog.details.metadata": "詳細",
+  "security.subprocessors.changes.heading": "予定されている変更と最近の変更",
+  "security.subprocessors.changes.intro": "新しいサブプロセッサーの追加、または既存のサブプロセッサーの目的やデータの所在地の変更は、発効日の少なくとも {days} 日前に、このページと各ワークスペースのオーナーへのメールでお知らせします。サービスの安全性や可用性を保つために緊急に必要な変更は、できるだけ早くお知らせします。変更に異議がある場合は、発効日より前に {email} までご連絡ください。",
+  "security.subprocessors.changes.pending": "予定（まだ発効していません）",
+  "security.subprocessors.changes.pendingEmpty": "予定されている変更はありません。",
+  "security.subprocessors.changes.recent": "最近の変更",
+  "security.subprocessors.changes.recentEmpty": "過去 12 か月間に変更はありません。",
+  "security.subprocessors.changes.kind.added": "新しいサブプロセッサー",
+  "security.subprocessors.changes.kind.replaced": "置き換え",
+  "security.subprocessors.changes.kind.changed": "目的または所在地の変更",
+  "security.subprocessors.changes.kind.removed": "削除",
+  "security.subprocessors.changes.replaces": "{name} を置き換え",
+  "security.subprocessors.changes.location": "データの所在地：{from} → {to}",
+  "security.subprocessors.changes.pendingDates": "{announced} にお知らせ · {effective} に発効",
+  "security.subprocessors.changes.recentDates": "{effective} に発効",
+  "security.subprocessors.changes.urgent": "緊急の変更のため、{days} 日未満の予告でお知らせしています。"
 }
