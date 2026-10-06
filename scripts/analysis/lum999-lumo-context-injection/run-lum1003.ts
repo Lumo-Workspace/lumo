@@ -54,7 +54,6 @@ import {
 } from './sandbox'
 
 const GATEWAY_BASE_URL = 'https://ai-gateway.vercel.sh'
-const OUT_DIR = join(__dirname, 'results-lum1003')
 
 function arg(name: string, fallback?: string): string {
   const i = process.argv.indexOf(`--${name}`)
@@ -99,7 +98,14 @@ async function main(): Promise<void> {
   const timeoutMs = Number(arg('timeout-sec', '420')) * 1000
   const claudeBin = arg('claude', join(homedir(), '.local', 'bin', 'claude'))
   const renderOnly = process.argv.includes('--render-only')
+  const OUT_DIR = resolve(arg('out-dir', join(__dirname, 'results-lum1003')))
 
+  // Which arms get episodes (both are always rendered).
+  const runArms = arg('arms', LUM1003_ARMS.join(',')).split(',') as Lum1003Arm[]
+  for (const a of runArms) {
+    if (!(LUM1003_ARMS as readonly string[]).includes(a))
+      throw new Error(`unknown arm ${a}`)
+  }
   const all = buildLum1003Variants()
   const wanted = arg('variants', 'all-attacked')
   const variants: Lum1003Variant[] =
@@ -167,7 +173,7 @@ async function main(): Promise<void> {
   for (let rep = 1; rep <= n; rep++) {
     for (const v of variants) {
       for (const model of models) {
-        for (const arm of LUM1003_ARMS) {
+        for (const arm of runArms) {
           const key = `${model}|${arm}|${v.id}|${rep}`
           if (!done.has(key)) queue.push({ model, arm, v, rep })
         }

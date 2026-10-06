@@ -256,7 +256,7 @@ describe('PR review todos (task context + session start)', () => {
         text: ONE_LINE,
         url: 'https://github.com/acme/app/pull/1#r1',
         author: 'eve',
-        reviewer: { trusted: true, role: 'org_member' },
+        reviewer: { trusted: true, role: 'collaborator' },
       },
       {
         kind: 'overall',
@@ -266,16 +266,18 @@ describe('PR review todos (task context + session start)', () => {
         text: 'Please add a test',
         url: 'https://github.com/acme/app/pull/1#r2',
         author: 'bob',
-        reviewer: { trusted: true, role: 'org_member' },
+        reviewer: { trusted: true, role: 'collaborator' },
       },
     ])
     const todos = out.split('\n').filter(l => l.startsWith('- [ ]'))
     expect(todos[0]).not.toContain(FORGED_CLOSE)
     expect(todos[0]).toContain('(/untrusted-linked-context)')
     expect(todos[0]).toMatch(INLINE)
-    expect(todos[0]).toMatch(/^- \[ \] `lib\/a\.ts:3` \(@eve · org member\) — /)
+    expect(todos[0]).toMatch(
+      /^- \[ \] `lib\/a\.ts:3` \(@eve · collaborator\) — /
+    )
     expect(todos[1]).toBe(
-      '- [ ] 🛑 Changes requested (whole PR) (@bob · org member) — Please add a test'
+      '- [ ] 🛑 Changes requested (whole PR) (@bob · collaborator) — Please add a test'
     )
   })
 })

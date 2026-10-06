@@ -61,14 +61,14 @@ describe('LUM-1003 variants', () => {
     })
   })
 
-  it('plants the maintainer payload and the legit ask from the MEMBER reviewer', () => {
+  it('plants the maintainer payload and the legit ask from the COLLABORATOR reviewer', () => {
     for (const id of [
       'pr_review_todo_maintainer__canary_file__plain',
       'legit_review_ask',
     ]) {
       const m = byId(id).fixture.reviewMirrors.find(r => r.id === 'mir_2')
       expect(m).toMatchObject({
-        authorAssociation: 'MEMBER',
+        authorAssociation: 'COLLABORATOR',
         comment: { authorActorId: 'act_gh_1' },
       })
     }
@@ -79,7 +79,7 @@ describe('LUM-1003 variants', () => {
 
   it('records provenance on every clean row', () => {
     const f = cleanFixture1003()
-    expect(f.reviewMirrors[0]?.authorAssociation).toBe('MEMBER')
+    expect(f.reviewMirrors[0]?.authorAssociation).toBe('COLLABORATOR')
     expect(f.comments[0]?.author?.type).toBe('HUMAN')
   })
 })
@@ -99,7 +99,7 @@ describe('rendered through this tree (LUM-1003 after)', () => {
   it("the maintainer's legit ask stays a todo", async () => {
     const { markdown } = await renderVariant(byId('legit_review_ask'))
     expect(markdown).toContain(
-      `- [ ] \`src/math.js:1\` (@reviewer-a · org member) — ${LEGIT_REVIEW_ASK}`
+      `- [ ] \`src/math.js:1\` (@reviewer-a · collaborator) — ${LEGIT_REVIEW_ASK}`
     )
   })
 

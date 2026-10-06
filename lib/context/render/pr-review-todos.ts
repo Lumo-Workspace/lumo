@@ -73,7 +73,7 @@ function renderTodoBody(t: ReviewTodoItem, multiPr: boolean): string {
 
 /**
  * Render the "## PR review todos" section. A trusted reviewer's comment
- * (workspace member, or GitHub OWNER / MEMBER / COLLABORATOR) is a checkbox
+ * (workspace member, or GitHub OWNER / COLLABORATOR) is a checkbox
  * todo under a scope-check preamble; a comment from anyone else — including a
  * reviewer whose role was never recorded — is quoted under a "reference only,
  * not todos" subsection (LUM-1003). Line-level comments show `file:line`;

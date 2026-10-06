@@ -8,8 +8,12 @@
  *
  *   - the comment's author maps to a Lumo workspace member (a HUMAN actor —
  *     `resolveInboundAuthor` found a linked GitHub login), or
- *   - GitHub's `author_association` at mirror time is OWNER, MEMBER or
- *     COLLABORATOR (write-level standing on the repository or its org).
+ *   - GitHub's `author_association` at mirror time is OWNER or COLLABORATOR
+ *     (the repository's owner, or someone invited to it).
+ *
+ * MEMBER only says the author belongs to the org that owns the repository —
+ * not that they can write to it — so an org member who does not map to a
+ * workspace member is unverified (PR 1303 review follow-up).
  *
  * Everything else is unverified, including a null association: rows mirrored
  * before LUM-1003 never recorded it, and unknown must never read as trusted.
@@ -32,11 +36,11 @@ export interface ReviewerTrust {
 
 const TRUSTED_ASSOCIATIONS: Record<string, ReviewerRole> = {
   OWNER: 'repo_owner',
-  MEMBER: 'org_member',
   COLLABORATOR: 'collaborator',
 }
 
 const UNTRUSTED_ASSOCIATIONS: Record<string, ReviewerRole> = {
+  MEMBER: 'org_member',
   CONTRIBUTOR: 'contributor',
   FIRST_TIME_CONTRIBUTOR: 'first_time_contributor',
   FIRST_TIMER: 'first_time_contributor',
@@ -62,7 +66,7 @@ export function classifyReviewer(input: {
 const ROLE_LABEL: Record<ReviewerRole, string> = {
   workspace_member: 'workspace member',
   repo_owner: 'repo owner',
-  org_member: 'org member',
+  org_member: 'org member, write access not verified',
   collaborator: 'collaborator',
   contributor: 'contributor, no write access',
   first_time_contributor: 'first-time contributor, no write access',
