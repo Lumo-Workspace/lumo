@@ -4096,6 +4096,16 @@ model TestCaseRun {
   /// **不回填**。null 读作「记录于归因机制之前」，不是「没归因」。
   failureAttribution TestCaseFailureAttribution?
 
+  /// LUM-1011：逐步结果。元素：{ phase, index, text, status, durationMs?, evidence? }。
+  /// - index 0-based；text 是判决时刻的原文快照（同 failedStepText 的理由）。
+  /// - status 只有 PASS / FAIL：**显式上报**的结论。没上报的步骤不在数组里，
+  ///   读端把它渲染成「未逐步记录 / 未到达」，**绝不推定为通过**。
+  /// - evidence 是本行 evidence 数组的下标（这一步挂的截图 / 日志）。
+  /// 选填：为空时读端退回只用 failedPhase/failedIndex 的单点定位。
+  stepResults Json @default("[]")
+  /// LUM-1011：FAIL 时实际看到的结果（对照用例的期望）。非 FAIL 必须为 null。
+  actual      String?
+
   /// LUM-808 步骤 2：本次**没能观察到**的复验条目。元素：{ index, text }。
   /// text 是判决时刻的原文快照（同 failedStepText 的理由：用例后来被改写，
   /// 这条 run 仍读得懂）。非空 → 一个上报的 PASS 被封顶为 UNPROVEN。

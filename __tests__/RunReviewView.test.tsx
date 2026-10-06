@@ -134,7 +134,7 @@ describe('RunReviewView', () => {
     expect(screen.queryByText(/acceptance criterion/)).toBeNull()
     expect(screen.getByRole('link', { name: 'Open in task' })).toHaveAttribute(
       'href',
-      '/workspace/lumo/my-tasks/LUM-42/tests#run-run-1'
+      '/workspace/lumo/my-tasks/LUM-42/record#run-run-1'
     )
     expect(screen.getByRole('link', { name: 'PR #42' })).toHaveAttribute(
       'href',

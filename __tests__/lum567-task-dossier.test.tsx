@@ -27,15 +27,12 @@ describe('taskTabs exposes a single dossier tab and drops delivery memory lineag
     expect(TAB_SLUGS.dossier).toBe('record')
     expect(tabFromSlug('record')).toBe('dossier')
     expect(tabFromSlug('dossier')).toBeNull()
-    // LUM-801 后多了一个独立的 `tests` tab；LUM-567 的断言意图是「三合一」——
-    // trio 不复存在、只剩一个 dossier——上面四行已逐条锁住，这里只需确认
-    // tab 集合没有偷偷把 trio 加回来。
+    // LUM-801 曾多出一个独立的 `tests` tab，LUM-1011 又把它并回 dossier。
     expect(Object.keys(TAB_SLUGS).sort()).toEqual([
       'activity',
       'comments',
       'context',
       'dossier',
-      'tests',
     ])
   })
 })
@@ -90,6 +87,20 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
 // react-query key the scan section uses) to tell the record tab which zone the
 // scan belongs in. Mocked here like every other data hook — this suite is about
 // composition, not fetching.
+// LUM-1011: the dossier reads test cases (Done gate row + Test cases section).
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
+  useTestCases: jest.fn(() => ({
+    testCases: [],
+    pullRequests: [],
+    loading: false,
+    error: null,
+    add: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    recordRun: jest.fn(),
+    disposeDefect: jest.fn(),
+  })),
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
   useSecurityScans: jest.fn(() => ({
     data: undefined,

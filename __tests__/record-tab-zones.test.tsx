@@ -371,3 +371,69 @@ describe('run overview', () => {
     expect(screen.queryByText(/acceptance criteria/i)).toBeNull()
   })
 })
+
+// LUM-1011: test cases moved from their own tab into the Record tab.
+describe('test cases', () => {
+  it('sit between the Run overview and Records, in that fixed order', () => {
+    setStatus(statusView())
+    renderTab({ testCasesSlot: <div data-testid='tests-body' /> })
+    const order = Array.from(
+      document.querySelectorAll('[data-testid^="record-"]')
+    )
+      .map(el => el.getAttribute('data-testid'))
+      .filter(id =>
+        ['record-overview', 'record-tests', 'record-records'].includes(id!)
+      )
+    expect(order).toEqual(['record-overview', 'record-tests', 'record-records'])
+    expect(screen.getByTestId('record-tests')).toContainElement(
+      screen.getByTestId('tests-body')
+    )
+    expect(screen.getByTestId('record-tests')).toHaveAttribute(
+      'id',
+      'dossier-tests'
+    )
+  })
+
+  it('the gate has a test-case row that never reads "passing" without cases', () => {
+    setStatus(statusView())
+    renderTab()
+    expect(screen.getByTestId('gate-tests')).toHaveTextContent('No test cases')
+    expect(screen.getByTestId('gate-tests')).toHaveAttribute(
+      'data-blocked',
+      'false'
+    )
+  })
+
+  // Before LUM-1011 a proven test defect blocked DONE server-side (LUM-812)
+  // while the Record page's gate said "the task can be marked Done".
+  it('a proven test defect blocks the gate and comes up in Needs action', () => {
+    setStatus(statusView())
+    renderTab({
+      testsBlocking: 1,
+      testsSummary: { total: 3, passing: 2 },
+      blockingTestsSlot: <div data-testid='defect-queue' />,
+    })
+    expect(screen.getByTestId('record-done-gate')).toHaveTextContent(
+      '1 item blocks Done'
+    )
+    const row = screen.getByTestId('gate-tests')
+    expect(row).toHaveAttribute('data-blocked', 'true')
+    expect(row).toHaveTextContent('1 proven defect awaiting a ruling')
+    expect(needsAction()).toContainElement(screen.getByTestId('defect-queue'))
+    expect(needsAction()).toHaveTextContent(
+      'Clear these and the task can be marked Done.'
+    )
+  })
+
+  it('with no defect the queue slot is not drawn and the row says how many pass', () => {
+    setStatus(statusView())
+    renderTab({
+      testsSummary: { total: 3, passing: 2 },
+      blockingTestsSlot: <div data-testid='defect-queue' />,
+    })
+    expect(screen.queryByTestId('defect-queue')).toBeNull()
+    expect(screen.getByTestId('gate-tests')).toHaveTextContent(
+      'No proven defects · 2 of 3 passing'
+    )
+  })
+})

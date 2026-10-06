@@ -101,7 +101,7 @@ function StepList({
  * LUM-801: 新建 / 编辑一条 test case。
  *
  * 本组件**不发请求**——提交交给 `onSubmit`（SRP：表单管收集，编排在
- * TestCasesTab）。
+ * TestCasesSection）。
  */
 export function TestCaseForm({
   initial,

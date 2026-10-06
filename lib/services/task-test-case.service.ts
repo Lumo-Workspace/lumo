@@ -29,6 +29,7 @@ import {
   deriveRunCeiling,
   type RunCeiling,
 } from '@/lib/test-cases/provability'
+import type { StoredStepResult } from '@/lib/test-cases/step-report'
 
 export { deriveRunFreshness, type RunFreshness, type TaskPullRequestSnapshot }
 export { deriveRunCeiling, type RunCeiling }
@@ -205,6 +206,126 @@ function resolveUnproven(
     out.push({ index, text: testCase.verification[index]! })
   }
   return out
+}
+
+/**
+ * LUM-1011: 校验逐步结果并快照原文。
+ *
+ * 红线（勿「顺手放宽」）：
+ * - BLOCKED 不带逐步结果——用例根本没跑起来。
+ * - 只有 FAIL 能带 FAIL 步，且至多一条；它必须与 failedPhase/failedIndex 一致。
+ *   FAIL 步在而定位缺省时，定位由它补齐（调用方只说一遍）。
+ * - 失败点之后不得有 PASS：「断在第 4 步」意味着后面没跑到。
+ * - 同一步不得报两次；下标落在该段范围内；evidence 下标落在本次证据范围内。
+ */
+function resolveStepResults(
+  testCase: TestCaseRow,
+  body: RecordRunBody,
+  locator: ReturnType<typeof resolveLocator>
+): {
+  stepResults: StoredStepResult[]
+  locator: ReturnType<typeof resolveLocator>
+} {
+  const raw = body.stepResults ?? []
+  if (raw.length === 0) return { stepResults: [], locator }
+  if (body.result === 'BLOCKED') {
+    fail(
+      'A BLOCKED run cannot carry step results — the case never ran. Use FAIL with the failing step instead.',
+      400
+    )
+  }
+
+  const evidenceCount = (body.evidence ?? []).length
+  const seen = new Set<string>()
+  const out: StoredStepResult[] = []
+  for (const r of raw) {
+    const list = r.phase === 'STEPS' ? testCase.steps : testCase.verification
+    if (r.index >= list.length) {
+      fail(
+        `stepResults index ${r.index} is out of range for ${r.phase} (length ${list.length}).`,
+        400
+      )
+    }
+    const key = `${r.phase}:${r.index}`
+    if (seen.has(key)) {
+      fail(`stepResults reports ${r.phase} ${r.index} more than once.`, 400)
+    }
+    seen.add(key)
+    for (const e of r.evidence ?? []) {
+      if (e >= evidenceCount) {
+        fail(
+          `stepResults evidence index ${e} is out of range (this run has ${evidenceCount} evidence entries).`,
+          400
+        )
+      }
+    }
+    out.push({
+      phase: r.phase,
+      index: r.index,
+      text: list[r.index]!,
+      status: r.status,
+      durationMs: r.durationMs ?? null,
+      evidence: [...new Set(r.evidence ?? [])],
+    })
+  }
+
+  const fails = out.filter(r => r.status === 'FAIL')
+  if (fails.length > 0 && body.result !== 'FAIL') {
+    fail(`A ${body.result} run cannot report a failing step.`, 400)
+  }
+  if (fails.length > 1) {
+    fail('At most one step can FAIL — a run breaks at one place.', 400)
+  }
+
+  let resolved = locator
+  const failing = fails[0]
+  if (failing) {
+    if (locator.failedPhase === null) {
+      resolved = {
+        failedPhase: failing.phase,
+        failedIndex: failing.index,
+        failedStepText: failing.text,
+      }
+    } else if (
+      locator.failedPhase !== failing.phase ||
+      locator.failedIndex !== failing.index
+    ) {
+      fail(
+        'The failing step in stepResults does not match failedPhase/failedIndex.',
+        400
+      )
+    }
+  }
+
+  if (resolved.failedPhase != null && resolved.failedIndex !== null) {
+    const stepCount = testCase.steps.length
+    const pos = (phase: string, index: number) =>
+      phase === 'STEPS' ? index : stepCount + index
+    const failPos = pos(resolved.failedPhase, resolved.failedIndex)
+    const late = out.find(
+      r => r.status === 'PASS' && pos(r.phase, r.index) > failPos
+    )
+    if (late) {
+      fail(
+        `${late.phase} ${late.index} is reported PASS after the run broke — steps after the failure were not reached.`,
+        400
+      )
+    }
+  }
+
+  return { stepResults: out, locator: resolved }
+}
+
+/** LUM-1011: 实际观察只属于 FAIL（PASS 的「实际」就是期望本身）。 */
+function resolveActual(body: RecordRunBody): string | null {
+  const actual = body.actual ?? null
+  if (actual !== null && body.result !== 'FAIL') {
+    fail(
+      `A ${body.result} run cannot carry an actual result (only FAIL can).`,
+      400
+    )
+  }
+  return actual
 }
 
 async function resolveActorId(memberId: string): Promise<string | null> {
@@ -403,7 +524,12 @@ export const taskTestCaseService = {
       )
     }
 
-    const locator = resolveLocator(testCase, body)
+    const { stepResults, locator } = resolveStepResults(
+      testCase,
+      body,
+      resolveLocator(testCase, body)
+    )
+    const actual = resolveActual(body)
     const failureAttribution = resolveAttribution(body)
     const unprovenVerification = resolveUnproven(testCase, body)
 
@@ -438,6 +564,8 @@ export const taskTestCaseService = {
           unprovenVerification:
             unprovenVerification as unknown as Prisma.InputJsonValue,
           evidence: (body.evidence ?? []) as unknown as Prisma.InputJsonValue,
+          stepResults: stepResults as unknown as Prisma.InputJsonValue,
+          actual,
           note: body.note ?? null,
           pullRequestId,
           commitSha: body.commitSha ?? null,

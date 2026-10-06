@@ -52,7 +52,7 @@ export function EnvironmentBadge({
  * （这段注释刻意不写「井号 + 三位数字」的字面例子：lint-tokens 会把它读成
  * 十六进制色值。）
  */
-function CodeCoordinate({
+export function CodeCoordinate({
   run,
   pullRequests,
 }: {
@@ -95,7 +95,7 @@ function CodeCoordinate({
  * 能打开由 session 页自己判权限）。executedBy 为 null 读作「未记录」，不是
  * 「没人」；缺省（这个读端没带）就什么都不画。
  */
-function ExecutorLabel({
+export function ExecutorLabel({
   executedBy,
   sourceSessionId,
 }: {
@@ -136,7 +136,7 @@ function ExecutorLabel({
  * 这个徽章就是让它们在屏幕上长得不一样。UNPROVEN 不是失败，措辞上要与 FAIL
  * 分开——它说的是「没能确认」。
  */
-function VerdictBadge({
+export function VerdictBadge({
   run,
   requiredEnvironment,
 }: {
@@ -194,7 +194,7 @@ function VerdictBadge({
 }
 
 /** LUM-808: 一条 FAIL 是谁的锅。非 FAIL 不渲染。 */
-function AttributionBadge({ run }: { run: TestCaseRun }) {
+export function AttributionBadge({ run }: { run: TestCaseRun }) {
   const intl = useIntl()
   if (!run.failureAttribution) return null
   return (
@@ -211,7 +211,7 @@ function AttributionBadge({ run }: { run: TestCaseRun }) {
  *
  * 裁定过的缺陷**仍然显示**——清掉的是「拦」，不是「有这回事」。
  */
-function DispositionBadge({ run }: { run: TestCaseRunView }) {
+export function DispositionBadge({ run }: { run: TestCaseRunView }) {
   const intl = useIntl()
   if (!run.disposition) return null
   return (
@@ -229,7 +229,7 @@ function DispositionBadge({ run }: { run: TestCaseRunView }) {
  *
  * 打回不是失败：它说的是「证据撑不起这个 PASS」，措辞上与 FAIL 分开。
  */
-function ReviewBadge({ run }: { run: TestCaseRunView }) {
+export function ReviewBadge({ run }: { run: TestCaseRunView }) {
   const intl = useIntl()
   if (!run.review) return null
   const values = {
@@ -255,7 +255,7 @@ function ReviewBadge({ run }: { run: TestCaseRunView }) {
 
 /**
  * LUM-819 返工：从抽查卡片深链进来时（`…/tests#run-<id>`），把那条 run 滚进
- * 视野并标出来。hash 在挂载后才读得到、且 Tests 标签是异步加载的，所以在
+ * 视野并标出来。hash 在挂载后才读得到、且用例列表是异步加载的，所以在
  * effect 里读，不在 render 里读（render 纯度）。
  */
 function useLinkedRunId(runs: TestCaseRunView[]): string | null {
@@ -276,7 +276,7 @@ function useLinkedRunId(runs: TestCaseRunView[]): string | null {
 }
 
 /** 这条 run 是不是「已证明为坏、还没人裁定」。 */
-function isUndispositionedDefect(run: TestCaseRunView): boolean {
+export function isUndispositionedDefect(run: TestCaseRunView): boolean {
   return (
     run.result === 'FAIL' &&
     run.failureAttribution === 'IMPLEMENTATION_DEFECT' &&
@@ -312,7 +312,7 @@ export function ruleableRunId(runs: TestCaseRunView[]): string | null {
  * 两个值都清闸，所以并排放、不分主次——把其中一个做成主按钮，等于暗示有个
  * 「正确答案」，而这里要的是人真的读一眼再选。
  */
-function DisposeControl({
+export function DisposeControl({
   runId,
   onDispose,
 }: {

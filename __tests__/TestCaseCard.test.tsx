@@ -6,7 +6,7 @@
  *   - 陈旧性 fail-closed：PR head 未同步时不得渲染成「新鲜」的样子。
  */
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 // react-intl is ESM-only under jest here, so the repo convention is to mock it
 // (see SprintDetailClient.layout.test.tsx). This mock resolves against the real
@@ -64,6 +64,11 @@ const run = (over: Record<string, unknown> = {}) => ({
   failedPhase: null,
   failedIndex: null,
   failedStepText: null,
+  failureAttribution: null,
+  unprovenVerification: [],
+  stepResults: [],
+  actual: null,
+  disposition: null,
   evidence: [],
   note: null,
   pullRequestId: null,
@@ -93,6 +98,8 @@ const renderCard = (props: Record<string, unknown> = {}) =>
       taskIdentifier='LUM-12'
       runs={[]}
       pullRequests={[]}
+      expanded
+      onToggle={() => {}}
       onRecordRun={() => {}}
       onEdit={() => {}}
       onRemove={() => {}}
@@ -138,8 +145,9 @@ describe('TestCaseCard', () => {
 
 describe('run history shows every run', () => {
   // LUM-801 走查时 TC1 挂在这条：区域标题是「Run history」，但早先只传了
-  // 最近一次 run 进来，刷新后先前那条就消失了。标题承诺什么就得给什么。
-  it('renders all runs, not just the latest', () => {
+  // 最近一次 run 进来，刷新后先前那条就消失了。LUM-1011 起最新一条画成逐步
+  // 报告，更早的折一层——折起来也必须一条不少地数出来、点开全在。
+  it('renders the latest as a report and every earlier run one click away', () => {
     renderCard({
       runs: [
         run({ id: 'r2', result: 'PASS', environment: 'PRODUCTION' }),
@@ -153,11 +161,21 @@ describe('run history shows every run', () => {
         }),
       ],
     })
+    expect(screen.getByTestId('run-report')).toBeInTheDocument()
     expect(screen.getByText('Pass')).toBeInTheDocument()
+    expect(screen.queryByText('Fail')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText(/earlier run/))
     expect(screen.getByText('Fail')).toBeInTheDocument()
-    expect(screen.getByText('Production')).toBeInTheDocument()
-    expect(screen.getByText('Local')).toBeInTheDocument()
+    expect(screen.getAllByText('Local').length).toBeGreaterThan(0)
     expect(screen.getByText(/failed at step 2/i)).toBeInTheDocument()
+  })
+
+  it('opens the earlier runs by itself when a deep link targets one', () => {
+    renderCard({
+      linkedRunId: 'r1',
+      runs: [run({ id: 'r2' }), run({ id: 'r1', environment: 'PRODUCTION' })],
+    })
+    expect(screen.getByText('Production')).toBeInTheDocument()
   })
 })
 
@@ -169,7 +187,8 @@ describe('environment is distinguishable by text, not only colour', () => {
         run({ id: 'r2', environment: 'PRODUCTION' }),
       ],
     })
-    expect(screen.getByText('Local')).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/earlier run/))
+    expect(screen.getAllByText('Local').length).toBeGreaterThan(0)
     expect(screen.getByText('Production')).toBeInTheDocument()
   })
 })
@@ -187,7 +206,19 @@ describe('failure locator', () => {
         }),
       ],
     })
-    expect(screen.getByText(/failed at step 2/i)).toBeInTheDocument()
+    // 折叠行与报告头各说一次「断在第 2 步」。
+    expect(screen.getAllByText(/failed at step 2/i).length).toBeGreaterThan(0)
+  })
+})
+
+describe('collapsed row', () => {
+  it('shows only the summary line until expanded', () => {
+    const onToggle = jest.fn()
+    renderCard({ expanded: false, onToggle, runs: [run()] })
+    expect(screen.queryByTestId('run-report')).not.toBeInTheDocument()
+    expect(screen.getByText(/Local · 2026-02-01/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { expanded: false }))
+    expect(onToggle).toHaveBeenCalled()
   })
 })
 

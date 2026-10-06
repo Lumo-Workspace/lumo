@@ -2,7 +2,7 @@ import type { RecordGaps } from './record-gaps'
 
 /**
  * LUM-1009 — the Record tab's Done gate: one headline plus one row per gate
- * (boundary crossings, security scan), derived from `RecordGaps`. Pure — no
+ * (boundary crossings, security scan, test cases), derived from `RecordGaps`. Pure — no
  * intl, no fetching — so `RecordDoneGate` only renders what this returns.
  */
 export type DoneGateHeadline = 'accepted' | 'blocked' | 'ready'
@@ -24,17 +24,32 @@ export interface SecurityGateRow {
   blocking: number
 }
 
+export interface TestsGateRow {
+  /** blocked: a proven defect awaits a ruling · clear: none · none: the task
+   *  has no test cases (never reported as passing). */
+  state: 'blocked' | 'clear' | 'none'
+  blocking: number
+  passing: number
+  total: number
+}
+
 export interface DoneGate {
   headline: DoneGateHeadline
-  /** Items that hold Done back: blocking crossings + blocking findings. */
+  /** Items that hold Done back: blocking crossings + blocking findings +
+   *  undispositioned proven test defects. */
   blockingTotal: number
   crossings: CrossingsGateRow
   security: SecurityGateRow
+  tests: TestsGateRow
 }
 
 export function deriveDoneGate(
   gaps: RecordGaps,
-  opts: { securityScanned: boolean }
+  opts: {
+    securityScanned: boolean
+    /** LUM-1011: test-case counts for the gate row's detail. */
+    tests?: { total: number; passing: number }
+  }
 ): DoneGate {
   const advisory = gaps.crossingsOpen - gaps.crossingsBlocking
   const crossingsState: CrossingsGateRow['state'] =
@@ -53,7 +68,12 @@ export function deriveDoneGate(
         ? 'clear'
         : 'notScanned'
 
-  const blockingTotal = gaps.crossingsBlocking + gaps.securityBlocking
+  const testsTotal = opts.tests?.total ?? 0
+  const testsState: TestsGateRow['state'] =
+    gaps.testsBlocking > 0 ? 'blocked' : testsTotal > 0 ? 'clear' : 'none'
+
+  const blockingTotal =
+    gaps.crossingsBlocking + gaps.securityBlocking + gaps.testsBlocking
 
   return {
     headline: gaps.taskDone
@@ -70,5 +90,11 @@ export function deriveDoneGate(
       total: gaps.crossingsTotal,
     },
     security: { state: securityState, blocking: gaps.securityBlocking },
+    tests: {
+      state: testsState,
+      blocking: gaps.testsBlocking,
+      passing: opts.tests?.passing ?? 0,
+      total: testsTotal,
+    },
   }
 }

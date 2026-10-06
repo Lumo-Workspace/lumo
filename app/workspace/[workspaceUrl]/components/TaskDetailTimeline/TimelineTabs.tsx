@@ -11,7 +11,6 @@ import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { ContextTab } from './ContextTab'
 import { TaskDossier } from './TaskDossier'
-import { TestCasesTab } from './TestCasesTab'
 import type { TaskDetail } from '../../types'
 
 interface PullRequestSummary {
@@ -29,7 +28,7 @@ interface TimelinePresence {
   hasMemories: boolean
   hasLineage: boolean
   hasOpenCrossings: boolean
-  /** LUM-801：服务端预判，避免 Tests tab 等客户端探针回来才出现（首帧闪）。 */
+  /** LUM-801：服务端预判。LUM-1011 起用例是 Record 的固定区段，tab 栏不再读它。 */
   hasTestCases: boolean
 }
 
@@ -195,15 +194,6 @@ export function TimelineTabs({
             defaultMessage: 'Record',
           })}
         </button>
-        <button
-          className={tabClass(activeTab === 'tests')}
-          onClick={() => selectTab('tests')}
-        >
-          {intl.formatMessage({
-            id: 'testCases.tab',
-            defaultMessage: 'Tests',
-          })}
-        </button>
       </div>
 
       {activeTab === 'activity' && (
@@ -244,13 +234,6 @@ export function TimelineTabs({
           hasLineage={hasLineage}
           hasMemories={hasMemories}
           targetSection={dossierTargetSection}
-        />
-      )}
-      {activeTab === 'tests' && (
-        <TestCasesTab
-          taskId={taskId}
-          taskIdentifier={taskIdentifier}
-          enabled={activeTab === 'tests'}
         />
       )}
     </div>

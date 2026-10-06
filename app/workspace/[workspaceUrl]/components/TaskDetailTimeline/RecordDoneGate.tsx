@@ -70,7 +70,7 @@ function GateRow({
  */
 export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
   const intl = useIntl()
-  const { crossings, security } = gate
+  const { crossings, security, tests } = gate
 
   const crossingsDetail =
     crossings.state === 'none'
@@ -106,6 +106,19 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
         ? intl.formatMessage({ id: 'record.gate.security.clear' })
         : intl.formatMessage({ id: 'record.gate.security.notScanned' })
 
+  const testsDetail =
+    tests.state === 'blocked'
+      ? intl.formatMessage(
+          { id: 'record.gate.tests.blocking' },
+          { count: tests.blocking }
+        )
+      : tests.state === 'clear'
+        ? intl.formatMessage(
+            { id: 'record.gate.tests.clear' },
+            { passing: tests.passing, total: tests.total }
+          )
+        : intl.formatMessage({ id: 'record.gate.tests.none' })
+
   if (gate.headline === 'accepted') {
     return (
       <section
@@ -120,7 +133,7 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
           {intl.formatMessage({ id: 'record.gap.accepted' })}
         </span>
         <span className='min-w-0 grow basis-48 text-body text-foreground'>
-          {[crossingsDetail, securityDetail].join(' · ')}
+          {[crossingsDetail, securityDetail, testsDetail].join(' · ')}
         </span>
       </section>
     )
@@ -164,6 +177,13 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
         label={intl.formatMessage({ id: 'securityScan.section.title' })}
         blocked={security.state === 'blocked'}
         detail={securityDetail}
+        queueAnchor={queueAnchor}
+      />
+      <GateRow
+        testId='gate-tests'
+        label={intl.formatMessage({ id: 'testCases.section.title' })}
+        blocked={tests.state === 'blocked'}
+        detail={testsDetail}
         queueAnchor={queueAnchor}
       />
     </section>

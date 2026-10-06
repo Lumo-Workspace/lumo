@@ -131,9 +131,9 @@ describe('LUM-819 rework: review in context', () => {
     expect(byId.get('run-2')!.pr).toBeNull()
     expect(byId.get('run-3')!.setup).toBeNull()
 
-    // deep link lands on that run inside the task's Tests tab
+    // deep link lands on that run inside the task's Record tab (LUM-1011)
     expect(testRunHref('lumo', 'LUM-42', 'run-1')).toBe(
-      '/workspace/lumo/my-tasks/LUM-42/tests#run-run-1'
+      '/workspace/lumo/my-tasks/LUM-42/record#run-run-1'
     )
     expect(runAnchorId('run-1')).toBe('run-run-1')
   })

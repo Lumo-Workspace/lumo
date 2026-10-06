@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.96.0",
+  "cliVersion": "1.97.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -4249,6 +4249,14 @@
         { "name": "task/case", "required": true, "variadic": false }
       ],
       "flags": {
+        "--actual": {
+          "long": "--actual",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "What actually happened at the failing step (FAIL only), shown next to the expected result"
+        },
         "--cause": {
           "long": "--cause",
           "short": null,
@@ -4328,6 +4336,22 @@
           "enum": ["pass", "fail", "blocked"],
           "enumCaseInsensitive": true,
           "description": "pass | fail | blocked (case-insensitive)"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as \"no per-step result\", never as passed"
+        },
+        "--step-evidence": {
+          "long": "--step-evidence",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit"
         },
         "--unproven": {
           "long": "--unproven",

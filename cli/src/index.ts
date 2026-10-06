@@ -1603,6 +1603,22 @@ taskTestCase
     collect,
     [] as string[]
   )
+  .option(
+    '--step <spec>',
+    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as "no per-step result", never as passed',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--step-evidence <spec>',
+    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--actual <text>',
+    'What actually happened at the failing step (FAIL only), shown next to the expected result'
+  )
   .action(
     wrap((handle: unknown, options: unknown) =>
       taskTestCaseRun(handle as string, options as Record<string, never>)

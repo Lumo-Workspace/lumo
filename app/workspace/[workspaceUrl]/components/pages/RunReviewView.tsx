@@ -197,7 +197,7 @@ function ReviewItem({
   onReview,
 }: {
   item: ReviewPoolItem
-  /** 深链到该任务 Tests 标签、定位到这条 run（父组件算好，LoD）。 */
+  /** 深链到该任务 Record 页的这条 run（LUM-1011；父组件算好，LoD）。 */
   taskHref: string
   busy: boolean
   onReview: (runId: string, accepted: boolean, note: string | null) => void
