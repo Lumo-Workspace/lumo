@@ -113,6 +113,69 @@ describe('LUM-1013 — real secrets in free text stay redacted', () => {
   })
 })
 
+describe('LUM-1013 review — key shapes split by punctuation and key vocabulary', () => {
+  const leaks: Array<[string, string, string]> = [
+    [
+      'dashed + base64 key whose runs are pure letters / pure digits',
+      "The client sends 'sk-live-abcDEF/ghiJKL+123' on boot",
+      'sk-live-abcDEF/ghiJKL+123',
+    ],
+    [
+      'grouped dashed key',
+      "It falls back to 'AbCd-1234-EfGh-5678' when unset",
+      'AbCd-1234-EfGh-5678',
+    ],
+    [
+      'dashed key wrapped in sentence punctuation inside a span',
+      "The default is '(AbCd-1234-EfGh-5678).' here",
+      'AbCd-1234-EfGh-5678',
+    ],
+    [
+      'letters-only value next to a credential "… key" compound',
+      "The signing key is 'correcthorsebattery' in the fixture",
+      'correcthorsebattery',
+    ],
+    [
+      'SSH key compound in camelCase',
+      "sshKey defaults to 'correcthorsebattery'",
+      'correcthorsebattery',
+    ],
+  ]
+
+  it.each(leaks)('%s', (_label, text, secret) => {
+    const out = redactFindingText(text)
+    expect(out).not.toContain(secret)
+    expect(out).toContain('…(len')
+  })
+
+  it.each([
+    "Uses the React key 'Verification' on each row",
+    "The class list 'grid grid-cols-[1fr_auto] gap-2 mt-0.5 LUM-1011' is fine",
+  ])('identifiers and a bare React "key" stay readable: %s', text => {
+    expect(redactFindingText(text)).toBe(text)
+  })
+})
+
+/**
+ * Outputs of the blanket pass captured from origin/main 8a444f1e9 (before
+ * LUM-1013). AI-review fingerprints are keyed on this output, so it must not
+ * move by a byte, or every human FALSE_POSITIVE stops being inherited.
+ */
+const LEGACY_BLANKET: Array<[string, string]> = [
+  [
+    "// the row's badge isn't shown; label = 'Verification'",
+    "// the row's ba…(len 11)'t shown; label = 'Veri…(len 12)'",
+  ],
+  [
+    "<div className='grid grid-cols-[1fr_auto] items-center gap-2 rounded-md border px-3 py-2 text-sm'>",
+    "<div className='grid…(len 80)'>",
+  ],
+  [
+    `const msg = "don't" + 'Passed Passed'`,
+    `const msg = "don't" + 'Pass…(len 13)'`,
+  ],
+]
+
 describe('LUM-1013 — scanSecrets evidence keeps the blanket quoted mask', () => {
   it('an undetected quoted word beside a detected key is still masked', () => {
     const f: AddedFile = {
@@ -128,18 +191,11 @@ describe('LUM-1013 — scanSecrets evidence keeps the blanket quoted mask', () =
     expect(hit?.evidence).not.toContain('correcthorsebattery')
   })
 
-  it('maskQuotedValues / redactKnownSecrets keep the blanket mask for plain quoted words', () => {
-    expect(maskQuotedValues("labelled 'Verification' only")).toContain(
-      '…(len 12)'
-    )
-    expect(redactKnownSecrets("labelled 'Verification' only")).toContain(
-      '…(len 12)'
-    )
-  })
-
-  it('a contraction no longer swallows the rest of the line in the blanket pass either', () => {
-    expect(maskQuotedValues("the row's badge is fine")).toBe(
-      "the row's badge is fine"
-    )
-  })
+  it.each(LEGACY_BLANKET)(
+    'redactKnownSecrets is byte-identical to main: %s',
+    (input, legacy) => {
+      expect(redactKnownSecrets(input)).toBe(legacy)
+      expect(maskQuotedValues(input)).toBe(legacy)
+    }
+  )
 })

@@ -302,3 +302,23 @@ describe('LUM-988 ranker after the verifier', () => {
     expect(rankFindings).not.toHaveBeenCalled()
   })
 })
+
+describe('LUM-1013 verifier reason keeps quoted prose', () => {
+  it('stores a prose reason verbatim and still redacts a credential in it', async () => {
+    const prose =
+      "Each group's aria-labelledby points at the 'Verification' heading, so the claim is wrong."
+    ;(verifyFindings as jest.Mock).mockResolvedValue({
+      results: [
+        { id: 'a', verdict: 'REJECTED', reason: prose, defaulted: false },
+      ],
+      steps: 1,
+      commands: 0,
+      inputTokens: 1,
+      outputTokens: 1,
+      error: null,
+    })
+    await reviewVerifierService.run(job)
+    const verdicts = (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    expect(verdicts[0].reason).toBe(prose)
+  })
+})

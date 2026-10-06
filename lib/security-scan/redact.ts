@@ -103,8 +103,10 @@ const TOKEN_WITH_PREFIX_RE = new RegExp(`[^\\s"'\`]{0,4}…\\(len \\d+\\)`, 'g')
  *   terminates because each recursion strictly drops quote characters.
  */
 export function maskQuotedValues(line: string): string {
-  return maskQuotedSpans(line, () => true)
+  return maskQuotedSpans(line, MASK_EVERY_SPAN, false)
 }
+
+const MASK_EVERY_SPAN = (): boolean => true
 
 /**
  * LUM-1013 — the free-text variant of `maskQuotedValues`, for prose an LLM
@@ -115,18 +117,19 @@ export function maskQuotedValues(line: string): string {
  * Record tab as `'Veri…(len 12)'`.
  *
  * Same tokenizer and the same fail-closed rules (unpaired opener, marker
- * spans); only the decision for a CLOSED span of 8+ chars differs. It is
- * still masked when ANY of these holds:
+ * spans), with two differences. A contraction apostrophe (`row's`) does not
+ * open a span (`isContractionApostrophe`) — only here: the blanket pass stays
+ * byte-identical, because AI-review fingerprints are keyed on its output.
+ * And a CLOSED span of 8+ chars is still masked only when ANY of these holds:
  * - the text uses credential vocabulary anywhere (`password`, `pw`, `secret`,
- *   `token`, `api key`, `bearer`, `auth` … see `CREDENTIAL_VOCAB_RE`) — then
- *   every quoted span is masked exactly as `maskQuotedValues` would, so
+ *   `token`, `api key`, `signing key`, `bearer`, `auth` … see
+ *   `CREDENTIAL_VOCAB_RE`) — then every quoted span is masked, so
  *   `the password is "correct horse battery staple"` stays hidden;
  * - the span holds a redaction marker (a registry hit) — it may hide a
  *   second, undetected value beside it;
  * - any whitespace-separated piece of the span is credential-shaped
- *   (`isCredentialShapedToken`): letters and digits mixed inside one run,
- *   the shape of a generated token, a hex digest or a `hunter2`-style
- *   password.
+ *   (`isCredentialShapedToken`): a generated token, a base64 / dashed key,
+ *   a hex digest or a `hunter2`-style password.
  *
  * Residual, honestly named: a quoted value with no digits in a sentence with
  * no credential words (`const motto = 'correcthorsebattery'` quoted back by
@@ -135,23 +138,26 @@ export function maskQuotedValues(line: string): string {
  */
 export function maskQuotedCredentials(text: string): string {
   if (CREDENTIAL_VOCAB_RE.test(normalizeVocab(text))) {
-    return maskQuotedValues(text)
+    return maskQuotedSpans(text, MASK_EVERY_SPAN, true)
   }
   return maskQuotedSpans(
     text,
     content =>
       REDACTION_TOKEN_TEST_RE.test(content) ||
-      content.split(/\s+/).some(isCredentialShapedToken)
+      content.split(/\s+/).some(isCredentialShapedToken),
+    true
   )
 }
 
 /**
  * Credential words, matched on `normalizeVocab` output so `apiKey`,
  * `API_KEY` and `api-key` all read as `api key`. Plain `key` is deliberately
- * absent: React reviews say "key" constantly.
+ * absent — React reviews say "key" constantly — so only the compounds that
+ * name a credential count (`signing key`, `ssh key`, `license key` …); a
+ * credential-shaped value next to a bare "key" is still masked by shape.
  */
 const CREDENTIAL_VOCAB_RE =
-  /\b(?:pass(?:words?|wd|phrases?|codes?)?|pwd|pw|secrets?|tokens?|credentials?|api ?keys?|private keys?|access keys?|bearer|authorization|auth)\b/
+  /\b(?:pass(?:words?|wd|phrases?|codes?)?|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|auth|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)\b/
 
 function normalizeVocab(text: string): string {
   return text
@@ -163,15 +169,37 @@ function normalizeVocab(text: string): string {
 /** Shortest mixed letters+digits run read as credential-shaped (`hunter2`-length passwords). */
 const MIN_MIXED_RUN = 6
 
+/** Shortest base64 / dashed key read as credential-shaped as a whole. */
+const MIN_KEY_LEN = 16
+
+/** The base64 / base64url / dashed-key alphabet, and nothing else. */
+const KEY_ALPHABET_RE = /^[A-Za-z0-9+/=_-]+$/
+
+/** Sentence punctuation that can wrap a value inside a span: `(…)`, `…,`. */
+const WRAPPING_PUNCT_RE = /^[([{<,;:!?.]+|[)\]}>,;:!?.]+$/g
+
 /**
- * A piece of a quoted span that reads as a generated value: 8+ chars holding
- * one alphanumeric run of `MIN_MIXED_RUN`+ chars that mixes letters and
- * digits (`Zx9Qw3Lp…`, `hunter2isgood`, a hex digest). Identifiers with a
- * numeric suffix split on punctuation first (`LUM-1011`, `grid-cols-2`,
- * `mt-0.5`), so their runs are pure letters or pure digits and pass.
+ * A piece of a quoted span that reads as a generated value, 8+ chars and:
+ * - one alphanumeric run of `MIN_MIXED_RUN`+ chars mixing letters and digits
+ *   (`Zx9Qw3Lp…`, `hunter2isgood`, a hex digest); or
+ * - as a WHOLE, `MIN_KEY_LEN`+ chars of the base64 / dashed-key alphabet
+ *   holding both letters and digits, so a key whose punctuation splits it
+ *   into pure runs (`sk-live-abcDEF/ghiJKL+123`, `AbCd-1234-EfGh-5678`) is
+ *   still caught.
+ * Identifiers with a numeric part (`LUM-1011`, `grid-cols-2`, `mt-0.5`,
+ * `grid-cols-[1fr_auto]`) are short or carry characters outside the key
+ * alphabet, so they pass.
  */
-function isCredentialShapedToken(token: string): boolean {
+function isCredentialShapedToken(raw: string): boolean {
+  const token = raw.replace(WRAPPING_PUNCT_RE, '')
   if (token.length < MIN_QUOTED_LEN) return false
+  if (
+    token.length >= MIN_KEY_LEN &&
+    KEY_ALPHABET_RE.test(token) &&
+    /[A-Za-z]/.test(token) &&
+    /\d/.test(token)
+  )
+    return true
   return token
     .split(/[^A-Za-z0-9]+/)
     .some(
@@ -184,16 +212,21 @@ function isCredentialShapedToken(token: string): boolean {
  * The tokenizer behind both passes; `shouldMask` decides only for a closed
  * span of `MIN_QUOTED_LEN`+ chars that is not redaction-only. Unpaired
  * openers are masked regardless of `shouldMask` (fail closed).
+ * `skipContractions` is the free-text pass's `isContractionApostrophe` rule.
  */
 function maskQuotedSpans(
   line: string,
-  shouldMask: (content: string) => boolean
+  shouldMask: (content: string) => boolean,
+  skipContractions: boolean
 ): string {
   let out = ''
   let i = 0
   while (i < line.length) {
     const ch = line[i]!
-    if (!isQuoteChar(ch) || isContractionApostrophe(line, i)) {
+    if (
+      !isQuoteChar(ch) ||
+      (skipContractions && isContractionApostrophe(line, i))
+    ) {
       out += ch
       i += 1
       continue
@@ -205,7 +238,7 @@ function maskQuotedSpans(
       const firstIdx = line.indexOf(ch)
       // Ambiguous pairing: fall back to masking the whole region.
       if (firstIdx < i) {
-        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
+        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
       }
       return `${out}${maskOpenTail(ch, line.slice(i + 1))}`
     }
