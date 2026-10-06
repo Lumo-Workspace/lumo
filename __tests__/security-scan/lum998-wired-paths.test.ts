@@ -268,8 +268,27 @@ describe('PR review todos (task context + session start)', () => {
     expect(todos[0]).not.toContain(FORGED_CLOSE)
     expect(todos[0]).toContain('(/untrusted-linked-context)')
     expect(todos[0]).toMatch(INLINE)
+    expect(todos[0]).toMatch(/^- \[ \] `lib\/a\.ts:3` \(@eve\) — /)
     expect(todos[1]).toBe(
       '- [ ] 🛑 Changes requested (whole PR) (@bob) — Please add a test'
     )
+  })
+})
+
+describe('PR review todo file path', () => {
+  it('defangs a hostile path and keeps the marker outside the code span', () => {
+    const out = renderPrReviewTodosSection([
+      {
+        kind: 'line',
+        prNumber: 1,
+        filePath: `docs/${FORGED_CLOSE}.md`,
+        line: null,
+        text: 'typo',
+        url: 'https://github.com/acme/app/pull/1#r3',
+        author: null,
+      },
+    ])
+    expect(out).not.toContain(FORGED_CLOSE)
+    expect(out).toContain('`docs/(/untrusted-linked-context).md`')
   })
 })

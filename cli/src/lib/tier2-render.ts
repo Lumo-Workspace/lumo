@@ -117,7 +117,10 @@ export function formatPrShow(pr: PrShowRecord, note?: string): string {
   if (pr.ciStatus) lines.push(`ci:       ${pr.ciStatus}`)
   if (pr.authorLogin) lines.push(`author:   ${sanitizeField(pr.authorLogin)}`)
   if (pr.headBranch || pr.baseBranch)
-    lines.push(`branch:   ${pr.headBranch ?? '?'} → ${pr.baseBranch ?? '?'}`)
+    // Branch names are chosen by whoever opened the PR: guarded like the title.
+    lines.push(
+      `branch:   ${guardInlineText(pr.headBranch ?? '?')} → ${guardInlineText(pr.baseBranch ?? '?')}`
+    )
   if (pr.url) lines.push(`url:      ${pr.url}`)
   if (note) lines.push(`\nnote: ${sanitizeField(note)}`)
   return lines.join('\n')

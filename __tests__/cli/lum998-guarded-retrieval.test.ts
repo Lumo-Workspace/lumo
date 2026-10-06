@@ -130,7 +130,7 @@ describe('LUM-998 — tier-2 retrieval commands print fenced, guarded output', (
         isDraft: false,
         ciStatus: null,
         authorLogin: 'eve',
-        headBranch: 'x',
+        headBranch: `x${FORGED_CLOSE}`,
         baseBranch: 'main',
       },
       note: 'Returned values are the synced PR record.',
@@ -140,6 +140,7 @@ describe('LUM-998 — tier-2 retrieval commands print fenced, guarded output', (
     expect(title).toContain('(/untrusted-linked-context)')
     expect(title).not.toContain(FORGED_CLOSE)
     expect(title).toMatch(INLINE)
+    expect(out).toContain('branch:   x(/untrusted-linked-context) → main')
     // The route's own note is Lumo text: printed as-is, no marker.
     expect(out).toContain('note: Returned values are the synced PR record.')
   })

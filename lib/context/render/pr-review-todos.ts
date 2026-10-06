@@ -1,4 +1,7 @@
-import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
+import {
+  guardPromptLine,
+  guardPromptLineText,
+} from '@/lib/security-scan/inject-guard'
 
 export interface ReviewTodoItem {
   /** `line` = a line-level review comment; `overall` = a changes-requested review summary. */
@@ -37,7 +40,10 @@ export function renderPrReviewTodosSection(todos: ReviewTodoItem[]): string {
     let head: string
     if (t.kind === 'line' && t.filePath) {
       const loc = t.line != null ? `${t.filePath}:${t.line}` : t.filePath
-      head = `\`${loc}\``
+      // The path comes from the PR's diff, i.e. the PR author: defanged and
+      // marked too, with the marker outside the code span.
+      const guardedLoc = guardPromptLine(loc)
+      head = `\`${guardedLoc.text}\`${guardedLoc.marker}`
     } else {
       head = '🛑 Changes requested (whole PR)'
     }
