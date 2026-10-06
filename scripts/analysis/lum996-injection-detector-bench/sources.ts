@@ -46,6 +46,8 @@ export const DATASETS_SERVER = 'https://datasets-server.huggingface.co'
 export const HF_API = 'https://huggingface.co/api/datasets'
 export const PAGE_SIZE = 100
 export const PAGE_DELAY_MS = 500
+/** A stalled connection fails the attempt (and is retried) instead of hanging. */
+export const FETCH_TIMEOUT_MS = 60_000
 
 /** Upstream revisions this read-out was produced from (verified 2026-10-05). */
 export const PINNED = {
@@ -127,7 +129,9 @@ async function fetchWithRetry(url: string): Promise<Response> {
   for (let attempt = 0; attempt < 8; attempt++) {
     let waitMs = Math.min(60_000, 2000 * 2 ** attempt)
     try {
-      const res = await fetch(url)
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      })
       if (res.ok) return res
       lastErr = new Error(`HTTP ${res.status} for ${url}`)
       if (res.status !== 429 && res.status < 500) break

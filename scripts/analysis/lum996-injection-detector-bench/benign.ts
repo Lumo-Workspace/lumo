@@ -115,8 +115,9 @@ function git(args: string[]): string {
 export function loadBenignCorpus(commit = BENIGN_COMMIT): Sample[] {
   const samples: Sample[] = []
 
-  const paths = git(['ls-tree', '-r', '--name-only', commit])
-    .split('\n')
+  // -z: NUL-delimited, so non-ASCII paths are not C-quoted and dropped.
+  const paths = git(['ls-tree', '-r', '-z', '--name-only', commit])
+    .split('\u0000')
     .filter(p => p.endsWith('.md') && !isExcludedMarkdown(p))
     .sort()
   for (const path of paths) {

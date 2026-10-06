@@ -45,9 +45,12 @@ export function parseArgs(argv: string[]): RunArgs {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--offline') args.offline = true
-    else if (a === '--cache-dir' && argv[i + 1]) args.cacheDir = argv[++i]!
-    else if (a === '--out' && argv[i + 1]) args.out = argv[++i]!
-    else throw new Error(`unknown argument: ${a}`)
+    else if (a === '--cache-dir' || a === '--out') {
+      const value = argv[++i]
+      if (!value) throw new Error(`${a} needs a value`)
+      if (a === '--cache-dir') args.cacheDir = value
+      else args.out = value
+    } else throw new Error(`unknown argument: ${a}`)
   }
   return args
 }

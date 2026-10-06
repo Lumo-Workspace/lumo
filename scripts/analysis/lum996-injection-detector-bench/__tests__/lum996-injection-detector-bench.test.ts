@@ -370,6 +370,7 @@ describe('run', () => {
       out: '/o',
     })
     expect(() => parseArgs(['--nope'])).toThrow(/unknown/)
+    expect(() => parseArgs(['--out'])).toThrow(/needs a value/)
   })
   it('renders a markdown table row per dataset', () => {
     const table = markdownTable([
