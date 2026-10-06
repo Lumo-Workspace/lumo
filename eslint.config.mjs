@@ -49,6 +49,41 @@ export default [
                 'from @/lib/db/transaction and the repositories in @/lib/repositories.',
             },
           ],
+          // Repeated from the LUM-1022 block below: flat-config rule options
+          // replace rather than merge, so services must carry both restrictions.
+          patterns: [
+            {
+              group: ['@vercel/functions', '@vercel/functions/*'],
+              message:
+                'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
+                '@vercel/functions is only allowed inside lib/runtime.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // LUM-1022: @vercel/functions is confined to lib/runtime so self-hosted
+    // Node keeps working. Use waitUntil from @/lib/runtime/wait-until.
+    files: [
+      'app/**/*.{ts,tsx}',
+      'components/**/*.{ts,tsx}',
+      'lib/**/*.{ts,tsx}',
+    ],
+    ignores: ['lib/runtime/**', 'lib/services/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@vercel/functions', '@vercel/functions/*'],
+              message:
+                'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
+                '@vercel/functions is only allowed inside lib/runtime.',
+            },
+          ],
         },
       ],
     },

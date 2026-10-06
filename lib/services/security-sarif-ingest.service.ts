@@ -17,7 +17,7 @@
  * for blobs that never got a workflow run at all (see its own comment).
  */
 import { gunzipSync } from 'node:zlib'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { logger } from '@/lib/logger'
 import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { MANAGED_FAILURE_REASON_CHARS } from '@/lib/services/security-managed-scan.config'

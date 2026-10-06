@@ -164,7 +164,7 @@ jest.mock('@/lib/repositories/task.repository', () => ({
 
 // Run waitUntil background work synchronously so the snapshot capture is
 // observable within the test; the mention/summary blocks are self-catching.
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: any) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: any) => p }))
 
 // Neutralise the body-write side effects (mention notify + summary) so they
 // never reach prisma — restore's storage behaviour is what's under test.

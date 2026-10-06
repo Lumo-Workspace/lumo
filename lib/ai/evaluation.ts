@@ -46,7 +46,7 @@ async function authToken(): Promise<string> {
   const key = process.env.AI_GATEWAY_API_KEY
   if (key) return key
   // Lazy: keeps the OIDC module off the static import graph (jest, scripts).
-  const { getVercelOidcToken } = await import('@vercel/functions/oidc')
+  const { getVercelOidcToken } = await import('@/lib/runtime/vercel-oidc')
   return getVercelOidcToken()
 }
 

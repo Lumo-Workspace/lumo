@@ -33,7 +33,7 @@ import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
 import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { DocMentionSource } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import {

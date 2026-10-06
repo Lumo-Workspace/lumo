@@ -21,7 +21,7 @@
 // LUM-916: private blobs live in the private store; its token must be set.
 process.env.BLOB_PRIVATE_READ_WRITE_TOKEN = 'priv-token'
 
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn(p => p) }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn(p => p) }))
 jest.mock('@vercel/blob/client', () => ({
   handleUpload: jest.fn(
     async ({
@@ -80,7 +80,7 @@ import { POST as uploadPOST } from '@/app/api/integrations/security/sarif/upload
 import { POST as completePOST } from '@/app/api/integrations/security/sarif/complete/route'
 import { GET as pruneGET } from '@/app/api/cron/prune-security-sarif/route'
 import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { handleUpload } from '@vercel/blob/client'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { verifyGithubActionsToken } from '@/lib/auth/github-oidc'

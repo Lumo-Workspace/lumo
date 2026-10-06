@@ -1,6 +1,6 @@
 jest.mock('@clerk/nextjs', () => ({}))
 jest.mock('@clerk/nextjs/server', () => ({ clerkClient: async () => ({}) }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 jest.mock('@/lib/services/google-drive-integration.service')

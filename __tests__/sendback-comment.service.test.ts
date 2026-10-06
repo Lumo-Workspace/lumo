@@ -5,7 +5,7 @@ import {
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { commentService } from '@/lib/services/comment.service'
 
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForComment: jest.fn() },
 }))

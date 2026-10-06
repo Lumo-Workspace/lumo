@@ -13,7 +13,7 @@ jest.mock('@/lib/services/security-workspace-switches.service', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn(p => p) }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn(p => p) }))
 jest.mock('@/lib/services/security-sarif-blob', () => ({
   fetchPrivateBlob: jest.fn(),
   deleteBlob: jest.fn(),
@@ -80,7 +80,7 @@ import {
   type PersistInput,
 } from '@/lib/services/security-sarif-ingest.service'
 import * as blob from '@/lib/services/security-sarif-blob'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'

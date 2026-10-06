@@ -98,7 +98,7 @@ jest.mock('@/lib/services/security-sarif-blob', () => ({
   deleteBlob: jest.fn(),
   listSarifBlobs: jest.fn(),
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 
 import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'

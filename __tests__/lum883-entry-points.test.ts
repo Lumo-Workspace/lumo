@@ -40,7 +40,7 @@ jest.mock('@/lib/services/github.service', () => ({
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/idea-pull-request.repository', () => ({
   ideaPullRequestRepository: {
     findByIdeaAndPr: jest.fn(),
@@ -77,7 +77,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { ideaPullRequestRepository } from '@/lib/repositories/idea-pull-request.repository'
 import { projectRepository } from '@/lib/repositories'
 import { loadProjectAndMember } from '@/lib/api/helpers'

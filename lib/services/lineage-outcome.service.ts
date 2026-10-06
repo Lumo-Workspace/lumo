@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { outcomeWellService } from '@/lib/services/outcome-well.service'
 

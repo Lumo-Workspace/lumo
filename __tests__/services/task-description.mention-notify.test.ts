@@ -11,7 +11,7 @@ const mockDispatchTaskUpdateNotifications = jest.fn<(...args: any[]) => any>()
 // Collect fire-and-forget promises so the test can await them before asserting
 // (the notify resolution runs inside an async waitUntil callback).
 const mockBackgroundPromises: Promise<unknown>[] = []
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => {
     mockBackgroundPromises.push(Promise.resolve(p))
   },

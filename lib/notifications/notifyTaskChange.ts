@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { prisma } from '@/lib/db/prisma'
 import {
   sendChannelNotification,

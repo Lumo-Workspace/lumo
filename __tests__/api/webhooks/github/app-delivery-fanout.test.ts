@@ -7,7 +7,7 @@
  * PullRequest row. The real route, install service and handlers run here; only
  * the data layer and outbound side effects are stubbed.
  */
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/integrations/github', () => ({
   verifyGitHubSignature: jest.fn(),
 }))

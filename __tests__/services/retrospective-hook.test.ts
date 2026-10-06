@@ -1,6 +1,6 @@
 /** @jest-environment node */
 const waitUntil = jest.fn((p: Promise<unknown>) => p)
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => waitUntil(p),
 }))
 jest.mock('@/lib/repositories/retrospective.repository', () => ({

@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { handleHookRequest } from '@/app/api/hooks/_handler'
 import { turnSummaryService } from '@/lib/services/turn-summary/turn-summary.service'
 import { autoBlockService } from '@/lib/services/auto-block.service'

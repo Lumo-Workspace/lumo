@@ -12,7 +12,7 @@ jest.mock('@/lib/services/next-steps.service', () => ({
   nextStepsService: { forExistingTask: jest.fn().mockResolvedValue([]) },
 }))
 // waitUntil runs its argument synchronously so the test can observe the call.
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 

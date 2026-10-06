@@ -27,7 +27,7 @@ function mockFixture(): TaskFixture {
   return mockState.f
 }
 
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/ai/embedding', () => ({
   embedTexts: jest.fn(async () => {
     throw new Error('offline')

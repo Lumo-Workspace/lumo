@@ -2,7 +2,7 @@
 const judgeTask = jest.fn(async (_id: string) => 'FAITHFUL')
 const waitUntil = jest.fn((p: Promise<unknown>) => p)
 
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => waitUntil(p),
 }))
 jest.mock('@/lib/services/claim-faithfulness.service', () => ({

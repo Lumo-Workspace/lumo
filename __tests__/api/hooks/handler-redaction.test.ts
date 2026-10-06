@@ -11,7 +11,7 @@ jest.mock('@/lib/services/auth.service', () => ({
 jest.mock('@/lib/services/hook-event.service', () => ({
   hookEventService: { recordHookEvent: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/services/auto-block.service', () => ({
   autoBlockService: { onProgressRecorded: jest.fn() },
 }))

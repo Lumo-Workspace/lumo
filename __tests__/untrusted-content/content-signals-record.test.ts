@@ -105,7 +105,7 @@ jest.mock('@/lib/integrations/og-metadata/ssrf', () => ({
 jest.mock('@/lib/services/content-summary.service', () => ({
   contentSummaryService: { summarize: jest.fn().mockResolvedValue('') },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p.catch(() => {}),
 }))
 // comment.service fan-out (mentions, mirrors, pusher, dispatcher …)

@@ -18,7 +18,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('workflow', () => ({ sleep: jest.fn() }))
 jest.mock('@/lib/services/security-sarif-blob', () => ({
   fetchPrivateBlob: jest.fn(),

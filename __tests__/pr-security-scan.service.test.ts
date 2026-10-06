@@ -92,7 +92,7 @@ jest.mock('@/lib/services/security-baseline.service', () => ({
 jest.mock('@/lib/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
@@ -111,7 +111,7 @@ import { securityManagedScanOpsService } from '@/lib/services/security-managed-s
 import { securityBaselineService } from '@/lib/services/security-baseline.service'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'

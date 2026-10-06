@@ -41,7 +41,7 @@ import { buildMilestoneUrl } from '@/lib/utils/buildMilestoneUrl'
 import { getActorClerkId } from '@/lib/actor'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { htmlToPreview } from '@/lib/utils/htmlToPreview'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 interface CreateInput {
   name: string

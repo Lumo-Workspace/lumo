@@ -9,7 +9,7 @@ import {
   SlackApiError,
 } from '@/lib/integrations/slack/context-fetcher'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { scanSlackSnapshot } from '@/lib/services/content-signals'
 

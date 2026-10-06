@@ -40,7 +40,7 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
     buildBlockerWarningSectionForTask: jest.fn().mockResolvedValue(''),
   },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 

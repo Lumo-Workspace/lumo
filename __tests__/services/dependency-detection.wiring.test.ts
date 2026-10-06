@@ -35,7 +35,7 @@ const mockDispatchTaskUpdateNotifications = jest.fn() as jest.MockedFunction<
 
 // Collect waitUntil promises so tests can flush background work before asserting
 const mockBackgroundPromises: Array<Promise<unknown>> = []
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => {
     mockBackgroundPromises.push(Promise.resolve(p))
   },
