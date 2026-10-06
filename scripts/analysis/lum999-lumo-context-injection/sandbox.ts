@@ -8,19 +8,27 @@
  *   <episode>/lumo-calls.log
  *
  * `runClaude` starts real Claude Code headless with a clean settings file, a
- * restricted tool set and a per-episode budget, and auth from the env
- * (AI Gateway's Anthropic-compatible endpoint). Nothing here touches the
- * network apart from that one API.
+ * restricted tool set and a per-episode budget. Its only endpoint is the
+ * loopback auth proxy (proxy.ts) and its only credential is that proxy's
+ * per-run dummy token — the Gateway key never enters the agent's env
+ * (LUM-1001). Nothing here touches the network apart from that one API.
+ *
+ * `createSandbox` wipes any existing episode dir first, so a leftover
+ * CANARY.txt from an interrupted attempt can never be scored (LUM-1001).
  */
 import { spawn, spawnSync } from 'child_process'
 import {
   chmodSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
+  rmSync,
   writeFileSync,
   existsSync,
 } from 'fs'
-import { join } from 'path'
+import { homedir } from 'os'
+import { basename, dirname, join, resolve } from 'path'
 import { TASK_IDENTIFIER } from './fixtures'
 import type { SandboxSnapshot } from './judge'
 
@@ -80,7 +88,57 @@ export interface Sandbox {
   callsLog: string
 }
 
-export function createSandbox(dir: string, contextMarkdown: string): Sandbox {
+/** Where run.ts puts episode dirs by default (`<work>/episodes`). */
+export const DEFAULT_EPISODES_ROOT = join(
+  homedir(),
+  '.cache',
+  'lumo-lum999',
+  'episodes'
+)
+
+/**
+ * Remove `dir` so the episode starts fresh, but only if it is a direct,
+ * non-symlinked child of `episodesRoot` (itself a dir named `episodes`).
+ * Paths are resolved through realpath before anything is deleted.
+ */
+export function resetEpisodeDir(dir: string, episodesRoot: string): void {
+  if (basename(resolve(episodesRoot)) !== 'episodes') {
+    throw new Error(`episodes root must be a dir named "episodes"`)
+  }
+  mkdirSync(episodesRoot, { recursive: true })
+  const root = realpathSync(episodesRoot)
+  // realpath the parent only: the leaf itself must not be followed.
+  const parent = resolve(dir, '..')
+  const leaf = basename(resolve(dir))
+  const parentReal = existsSync(parent) ? realpathSync(parent) : null
+  if (
+    parentReal !== root ||
+    leaf === '' ||
+    leaf === '.' ||
+    leaf === '..' ||
+    dirname(join(root, leaf)) !== root
+  ) {
+    throw new Error(`episode dir must be a direct child of the episodes root`)
+  }
+  const target = join(root, leaf)
+  let st: ReturnType<typeof lstatSync> | null = null
+  try {
+    st = lstatSync(target)
+  } catch {
+    st = null
+  }
+  if (st?.isSymbolicLink()) {
+    throw new Error(`episode dir is a symlink; refusing to follow it`)
+  }
+  if (st) rmSync(target, { recursive: true, force: true })
+}
+
+export function createSandbox(
+  dir: string,
+  contextMarkdown: string,
+  episodesRoot: string = DEFAULT_EPISODES_ROOT
+): Sandbox {
+  resetEpisodeDir(dir, episodesRoot)
   const repo = join(dir, 'repo')
   const bin = join(dir, 'bin')
   const home = join(dir, 'home')
@@ -136,14 +194,62 @@ export interface ClaudeOptions {
   model: string
   maxBudgetUsd: number
   timeoutMs: number
-  /** AI Gateway (Anthropic-compatible) credentials; never logged. */
+  /** The loopback proxy (proxy.ts): `http://127.0.0.1:<port>`. */
   baseUrl: string
+  /** The proxy's per-run dummy token — never the Gateway key. */
   authToken: string
   /** Directory holding `node` / `git` for the agent's PATH. */
   toolPath: string[]
 }
 
-export function runClaude(sb: Sandbox, o: ClaudeOptions): Promise<ClaudeRun> {
+/** True only for an http URL on the IPv4/IPv6 loopback. */
+export function isLoopbackUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return (
+      u.protocol === 'http:' &&
+      (u.hostname === '127.0.0.1' || u.hostname === '[::1]')
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * A scrubbed env: no parent CLAUDE_* session vars, no user HOME, and no
+ * credential other than the proxy's dummy token. Built from scratch, never
+ * from process.env, so nothing from the parent (e.g. AI_GATEWAY_API_KEY)
+ * can leak in.
+ */
+export function buildAgentEnv(
+  sb: Sandbox,
+  o: Pick<ClaudeOptions, 'baseUrl' | 'authToken' | 'toolPath'>
+): NodeJS.ProcessEnv {
+  if (!isLoopbackUrl(o.baseUrl)) {
+    throw new Error(
+      'runClaude: baseUrl must be the loopback auth proxy (http://127.0.0.1:<port>)'
+    )
+  }
+  return {
+    HOME: sb.home,
+    PATH: [sb.bin, ...o.toolPath].filter(Boolean).join(':'),
+    USER: 'demo',
+    LOGNAME: 'demo',
+    LANG: 'en_US.UTF-8',
+    SHELL: '/bin/bash',
+    TMPDIR: process.env.TMPDIR ?? '/tmp',
+    ANTHROPIC_BASE_URL: o.baseUrl,
+    ANTHROPIC_AUTH_TOKEN: o.authToken,
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+    DISABLE_AUTOUPDATER: '1',
+  }
+}
+
+export async function runClaude(
+  sb: Sandbox,
+  o: ClaudeOptions
+): Promise<ClaudeRun> {
+  const env = buildAgentEnv(sb, o)
   const args = [
     '-p',
     AGENT_PROMPT,
@@ -169,22 +275,7 @@ export function runClaude(sb: Sandbox, o: ClaudeOptions): Promise<ClaudeRun> {
     '--disallowedTools',
     ...DISALLOWED_TOOLS,
   ]
-  // A scrubbed env: no parent CLAUDE_* session vars, no user HOME.
-  const env: NodeJS.ProcessEnv = {
-    HOME: sb.home,
-    PATH: [sb.bin, ...o.toolPath].join(':'),
-    USER: 'demo',
-    LOGNAME: 'demo',
-    LANG: 'en_US.UTF-8',
-    SHELL: '/bin/bash',
-    TMPDIR: process.env.TMPDIR ?? '/tmp',
-    ANTHROPIC_BASE_URL: o.baseUrl,
-    ANTHROPIC_AUTH_TOKEN: o.authToken,
-    ANTHROPIC_API_KEY: '',
-    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-    DISABLE_AUTOUPDATER: '1',
-  }
-  return new Promise(resolve => {
+  return new Promise(done => {
     const child = spawn(o.claudeBin, args, {
       cwd: sb.repo,
       env,
@@ -203,7 +294,7 @@ export function runClaude(sb: Sandbox, o: ClaudeOptions): Promise<ClaudeRun> {
       clearTimeout(timer)
       writeFileSync(join(sb.dir, 'claude.stdout.json'), out)
       writeFileSync(join(sb.dir, 'claude.stderr.txt'), err)
-      resolve(parseClaudeOutput(out, code, timedOut))
+      done(parseClaudeOutput(out, code, timedOut))
     })
   })
 }
