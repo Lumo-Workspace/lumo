@@ -10,9 +10,10 @@ import path from 'path'
 const ROOT = path.resolve(__dirname, '../../..')
 const SCANNED_DIRS = ['app', 'lib', 'components', 'shared']
 const ALLOWED_PREFIX = path.join('lib', 'runtime') + path.sep
-// import/export ... from '@vercel/functions[/sub]', import('...'), require('...')
-const IMPORT_RE =
-  /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)['"]@vercel\/functions(?:\/[^'"]*)?['"]/m
+// Any quoted '@vercel/functions[/sub]' module specifier counts, wherever it
+// sits: `from`, `import()`, `require()`, a side-effect `import '...'`, or a
+// multi-line import whose `from` clause is lines away. Unquoted prose is ignored.
+const IMPORT_RE = /['"]@vercel\/functions(?:\/[^'"\s]*)?['"]/
 
 function listSourceFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return []
@@ -35,13 +36,18 @@ function findOffendingImports(files: Array<[string, string]>): string[] {
 }
 
 describe('@vercel/functions import guard (LUM-1022)', () => {
-  it('detects static, dynamic and subpath imports but ignores prose', () => {
+  it('detects static, dynamic, subpath, multi-line and side-effect imports but ignores prose', () => {
     const fixtures: Array<[string, string]> = [
       ['app/a.ts', "import { waitUntil } from '@vercel/functions'"],
       ['lib/b.ts', "const m = await import('@vercel/functions/oidc')"],
       ['lib/c.ts', 'const m = require("@vercel/functions")'],
       ['lib/d.ts', "export { waitUntil } from '@vercel/functions'"],
       ['lib/e.ts', '// we used to call @vercel/functions directly'],
+      [
+        'lib/f.ts',
+        "import {\n  waitUntil,\n  geolocation,\n} from\n  '@vercel/functions'",
+      ],
+      ['lib/g.ts', "import '@vercel/functions'"],
       [
         path.join('lib', 'runtime', 'wait-until.ts'),
         "import { waitUntil } from '@vercel/functions'",
@@ -52,6 +58,8 @@ describe('@vercel/functions import guard (LUM-1022)', () => {
       'lib/b.ts',
       'lib/c.ts',
       'lib/d.ts',
+      'lib/f.ts',
+      'lib/g.ts',
     ])
   })
 

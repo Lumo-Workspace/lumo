@@ -3,10 +3,11 @@
  */
 // LUM-1022: runtime-neutral waitUntil — Vercel delegation vs self-hosted
 // background execution, and rejection capture via the project logger.
-const vercelWaitUntil = jest.fn()
-jest.mock('@vercel/functions', () => ({
-  waitUntil: (p: Promise<unknown>) => vercelWaitUntil(p),
-}))
+//
+// The real @vercel/functions is used (not mocked): "on Vercel" is simulated by
+// installing a request context at globalThis[Symbol.for('@vercel/request-context')],
+// which is exactly what @vercel/functions@3.x reads. VERCEL stays unset in every
+// test so delegation is proven to follow the context, not the env var.
 const loggerError = jest.fn()
 jest.mock('@/lib/logger', () => ({
   logger: {
@@ -16,43 +17,43 @@ jest.mock('@/lib/logger', () => ({
     debug: jest.fn(),
   },
 }))
-
-import { isVercelRuntime, waitUntil } from '@/lib/runtime/wait-until'
-import { getVercelOidcToken } from '@/lib/runtime/vercel-oidc'
-
 jest.mock('@vercel/functions/oidc', () => ({
   getVercelOidcToken: jest.fn(async () => 'oidc-token-fixture'),
 }))
 
+import { waitUntil } from '@/lib/runtime/wait-until'
+import { getVercelOidcToken } from '@/lib/runtime/vercel-oidc'
+
+const REQUEST_CONTEXT = Symbol.for('@vercel/request-context')
+type ContextHolder = { [REQUEST_CONTEXT]?: { get: () => unknown } }
+const holder = globalThis as unknown as ContextHolder
+
 const flush = () => new Promise(resolve => setImmediate(resolve))
 
-describe('isVercelRuntime', () => {
-  it('is true only when VERCEL is set', () => {
-    expect(isVercelRuntime({ VERCEL: '1' })).toBe(true)
-    expect(isVercelRuntime({})).toBe(false)
-    expect(isVercelRuntime({ VERCEL: '' })).toBe(false)
-  })
-})
+/** Install a fake Vercel request context; returns its waitUntil spy. */
+function installVercelRequestContext(): jest.Mock {
+  const contextWaitUntil = jest.fn()
+  holder[REQUEST_CONTEXT] = { get: () => ({ waitUntil: contextWaitUntil }) }
+  return contextWaitUntil
+}
 
 describe('waitUntil', () => {
   const originalVercel = process.env.VERCEL
 
   beforeEach(() => {
-    vercelWaitUntil.mockReset()
     loggerError.mockReset()
+    delete process.env.VERCEL
+    delete holder[REQUEST_CONTEXT]
   })
 
   afterAll(() => {
+    delete holder[REQUEST_CONTEXT]
     if (originalVercel === undefined) delete process.env.VERCEL
     else process.env.VERCEL = originalVercel
   })
 
-  describe('self-hosted (no VERCEL env)', () => {
-    beforeEach(() => {
-      delete process.env.VERCEL
-    })
-
-    it('runs the task in the background without calling Vercel waitUntil', async () => {
+  describe('self-hosted (no Vercel request context)', () => {
+    it('runs the task in the background', async () => {
       const done = jest.fn()
       waitUntil(
         (async () => {
@@ -64,7 +65,6 @@ describe('waitUntil', () => {
       await flush()
       await flush()
       expect(done).toHaveBeenCalledTimes(1)
-      expect(vercelWaitUntil).not.toHaveBeenCalled()
       expect(loggerError).not.toHaveBeenCalled()
     })
 
@@ -84,6 +84,20 @@ describe('waitUntil', () => {
       } finally {
         process.off('unhandledRejection', unhandled)
       }
+    })
+
+    it("leaves the caller's own promise untouched: their .catch still receives the rejection", async () => {
+      const boom = new Error('caller-visible boom')
+      const task = Promise.reject(boom)
+      const callerCatch = jest.fn()
+      waitUntil(task)
+      await task.catch(callerCatch)
+      expect(callerCatch).toHaveBeenCalledWith(boom)
+      await flush()
+      expect(loggerError).toHaveBeenCalledWith(
+        '[waitUntil] background task failed:',
+        boom
+      )
     })
 
     it('does not produce an unhandled rejection when logger.error itself throws', async () => {
@@ -108,19 +122,17 @@ describe('waitUntil', () => {
     })
   })
 
-  describe('on Vercel (VERCEL=1)', () => {
-    beforeEach(() => {
-      process.env.VERCEL = '1'
-    })
-
-    it('hands an observed promise to Vercel waitUntil that settles after the task', async () => {
+  describe('inside a Vercel request context (VERCEL env unset)', () => {
+    it('hands an observed promise to the context waitUntil that settles after the task', async () => {
+      const contextWaitUntil = installVercelRequestContext()
       let release!: () => void
       const task = new Promise<void>(resolve => {
         release = resolve
       })
       waitUntil(task)
-      expect(vercelWaitUntil).toHaveBeenCalledTimes(1)
-      const handed = vercelWaitUntil.mock.calls[0][0] as Promise<unknown>
+      expect(contextWaitUntil).toHaveBeenCalledTimes(1)
+      const handed = contextWaitUntil.mock.calls[0][0] as Promise<unknown>
+      expect(handed).not.toBe(task)
       let settled = false
       void handed.then(() => {
         settled = true
@@ -133,9 +145,10 @@ describe('waitUntil', () => {
     })
 
     it('still logs a rejection and the promise handed to Vercel resolves', async () => {
+      const contextWaitUntil = installVercelRequestContext()
       const boom = new Error('vercel boom')
       waitUntil(Promise.reject(boom))
-      const handed = vercelWaitUntil.mock.calls[0][0] as Promise<unknown>
+      const handed = contextWaitUntil.mock.calls[0][0] as Promise<unknown>
       await expect(handed).resolves.toBeUndefined()
       expect(loggerError).toHaveBeenCalledWith(
         '[waitUntil] background task failed:',
