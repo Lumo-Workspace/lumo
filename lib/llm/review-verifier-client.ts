@@ -61,6 +61,8 @@ export interface ReviewVerifierInput {
   maxSteps: number
   timeoutMs: number
   model?: string
+  /** Offline ablations only: replaces VERIFIER_SYSTEM_PROMPT. */
+  system?: string
 }
 
 export interface ReviewVerifierOutput {
@@ -174,12 +176,13 @@ export async function verifyFindings(
     }),
   }
   const model = gateway(input.model ?? CODE_REVIEW_MODEL)
+  const system = input.system ?? VERIFIER_SYSTEM_PROMPT
   const abortSignal = AbortSignal.timeout(input.timeoutMs)
   const prompt = `Tool-call budget for all findings together: ${input.maxSteps} steps (submit_verdicts counts as one).\n\n## Findings\n\n${renderFindingsForPrompt(input.findings)}${input.diff.trim() ? `\n\n## Diff of the cited files\n\n${input.diff}` : ''}`
   try {
     const res = await generateText({
       model,
-      system: VERIFIER_SYSTEM_PROMPT,
+      system,
       prompt,
       tools,
       stopWhen: [hasToolCall('submit_verdicts'), stepCountIs(input.maxSteps)],
@@ -191,7 +194,7 @@ export async function verifyFindings(
     if (submitted.length === 0) {
       const wrap = await generateText({
         model,
-        system: VERIFIER_SYSTEM_PROMPT,
+        system,
         messages: [
           { role: 'user', content: prompt },
           ...res.response.messages,

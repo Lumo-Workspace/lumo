@@ -16,6 +16,13 @@ import argparse
 import json
 from pathlib import Path
 
+# verify.ts SECURITY_KINDS: production never lets the verifier remove these.
+SECURITY_KINDS = {
+    "sql_injection", "command_injection", "xss", "ssrf", "path_traversal",
+    "insecure_deserialization", "auth_bypass", "unsafe_eval", "weak_crypto",
+    "hardcoded_credential", "csrf", "clickjacking_or_insecure_headers",
+    "origin_or_host_validation", "open_redirect", "authz_logic",
+}
 CORE = {"bug", "security", "concurrency", "data", "api", "perf", "test_gap", "doc_defect"}
 
 
@@ -30,6 +37,8 @@ def main() -> None:
     ap.add_argument("--run", type=int, default=0)
     ap.add_argument("--tool", required=True)
     ap.add_argument("--verify", type=Path, help="verify.py output; omit to score the unfiltered run")
+    ap.add_argument("--applicable-only", action="store_true", help="apply rejections only to non-HIGH, non-security findings, as production does")
+    ap.add_argument("--drop", choices=["all", "refuted", "minor"], default="all", help="which REJECTED verdicts to apply, by reason prefix (prompt v4)")
     args = ap.parse_args()
 
     results = json.loads(args.results.read_text())
@@ -51,8 +60,20 @@ def main() -> None:
         if not ev:
             continue
         findings = r["runs"][args.run].get("findings", [])
-        verdicts = {v["id"]: v["verdict"] for v in verify.get(url, {}).get("results", [])}
-        rejected_texts = {text_of(f) for i, f in enumerate(findings) if verdicts.get(f"f{i}") == "REJECTED"}
+        verdicts = {v["id"]: v for v in verify.get(url, {}).get("results", [])}
+
+        def dropped(v):
+            if not v or v["verdict"] != "REJECTED":
+                return False
+            reason = v.get("reason", "").strip().lower()
+            return args.drop == "all" or reason.startswith(args.drop + ":")
+
+        rejected_texts = {
+            text_of(f)
+            for i, f in enumerate(findings)
+            if dropped(verdicts.get(f"f{i}"))
+            and not (args.applicable_only and (f["severity"] == "HIGH" or f["kind"] in SECURITY_KINDS))
+        }
         total += len(findings)
         kept += len(findings) - len(rejected_texts)
         for t in ev.get("true_positives", []):
