@@ -103,6 +103,8 @@ export const API = {
     exports: '/api/workspaces/me/exports',
     deletion: '/api/workspaces/me/deletion',
     aiDerivedContent: '/api/workspaces/me/ai-derived-content',
+    // LUM-1002: the PR security-scan switches (also `lumo workspace security-scan`).
+    securityScan: '/api/workspaces/me/security-scan',
     exportDownload: (id: string) =>
       `/api/workspaces/me/exports/${encodeURIComponent(id)}/download`,
     // LUM-907: the workspace audit log (OWNER only) and its CSV export.

@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.94.3",
+  "cliVersion": "1.95.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -4640,6 +4640,77 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the logged-in identity from local credentials (one line; no network call)"
+    },
+    "workspace": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Workspace settings from the terminal"
+    },
+    "workspace security-scan": {
+      "arguments": [],
+      "flags": {
+        "--ai-review": {
+          "long": "--ai-review",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "AI review (LLM security review and triage)"
+        },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user approved turning the listed switches off"
+        },
+        "--disable-all": {
+          "long": "--disable-all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Turn every switch off at once"
+        },
+        "--enable-all": {
+          "long": "--enable-all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Turn every switch on at once"
+        },
+        "--hunt": {
+          "long": "--hunt",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Exploit-path hunt in the sandbox"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { switches, platform, effective } as JSON"
+        },
+        "--scan": {
+          "long": "--scan",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Master switch: off = no layer runs, no PR comment"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs. Any member may read; changing is OWNER only, and turning anything off exits 4 with a confirmation envelope until --confirm."
     },
     "worktree": {
       "arguments": [],
