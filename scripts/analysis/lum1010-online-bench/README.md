@@ -149,3 +149,50 @@ should filter on repository size / human engagement before scaling.
 Cost: Lumo side ~6.9M input tokens over the verifier, ranker and review
 (2 runs); the ETL analysis ran 3 Opus 4.5 calls per PR. Roughly $50–70 for
 the pilot all told (estimated from token counts, not billed figures).
+
+## Why the ranker does not transfer (2026-10-06)
+
+`ablate.py` re-scores the pilot's raw runs without re-judging (it reproduces
+the real judge on the shipped variant: run 1 exactly, run 2 within 1 point);
+`ranker-diagnosis.py` puts the pilot and the LUM-988 offline runs side by side
+with the same counting (its offline rows reproduce the published LUM-988
+numbers exactly).
+
+| Ranker AUC, TP vs FP by p | online | offline |
+| ------------------------- | ------ | ------- |
+| all findings              | 0.52   | 0.76    |
+| logic_error               | 0.62   | 0.77    |
+| test_defect, doc_mismatch | 0.37   | 0.84    |
+| everything else           | 0.54   | 0.73    |
+
+The verifier transfers: it rejects 13% of true and 36% of false positives
+online, 11% / 32% offline. The ranker does not, for two reasons that add up:
+
+1. **A prior that fits the Martian labels, not developers.** The ranker
+   prompt lowers p for "test tidiness" (`lib/llm/review-ranker-client.ts`), and
+   on the offline set that is right — the golden comments almost never count a
+   missing test, so test/doc findings there are mostly false positives
+   (AUC 0.84). On fresh PRs developers do add the missing test, pin the action
+   tag, fix the stale comment: test/doc findings are fixed as often as logic
+   errors (28% vs 26%), and the ranker's order within them is inverted
+   (AUC 0.37). Test/doc is also 30% of the ranked findings online vs 12%
+   offline, so the mistake costs more.
+2. **Weaker discrimination even on logic errors** (0.77 → 0.62), part of which
+   is label noise — an unfixed real bug is a "false positive" online.
+
+Effect, pooled (online 2 runs / offline 3 runs):
+
+| Variant                                  | online F1 / F2 | offline F1 / F2 |
+| ---------------------------------------- | -------------- | --------------- |
+| raw review                               | 23.9 / 23.0    | 51.7 / 63.0     |
+| verifier                                 | 24.7 / 21.8    | 54.9 / 62.2     |
+| verifier + ranker p ≥ 18 (shipped)       | 21.1 / 17.4    | 57.2 / 61.6     |
+| verifier + ranker, ranker skips test/doc | 24.4 / 21.0    | 55.6 / 61.2     |
+
+About 1.6 of the ranker's +2.3 offline F1 came from dropping test/doc
+findings — a benchmark-specific gain. Without it the ranker adds ~+0.7
+offline and ~−0.3 online over the verifier alone: nothing measurable.
+
+Caveat: 34 PRs with fixes, mostly small repositories; the test/doc result
+rests on 85 findings. The direction is consistent across both runs and every
+subset checked (repository size, diff under the ranker's 80k cap, severity).
