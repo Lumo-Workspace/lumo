@@ -15,6 +15,7 @@ import {
   hasBlockers,
   hasCopyleftAlternative,
   licenseOf,
+  normaliseExpr,
   readInstalledPackageJson,
   renderMarkdown,
   resolveDependency,
@@ -88,6 +89,15 @@ describe('classifyLicense', () => {
     ['CC-BY-4.0', 'non-osi'],
     ['', 'missing'],
     [null, 'missing'],
+    // Anything not fully parsed is unknown (and blocks), never the parsed prefix.
+    ['MIT garbage', 'unknown'],
+    ['MIT)', 'unknown'],
+    ['(MIT OR Apache-2.0', 'unknown'],
+    ['MIT OR', 'unknown'],
+    ['AND MIT', 'unknown'],
+    ['GPL-2.0 WITH', 'unknown'],
+    ['MIT AND GPL-3.0', 'strong-copyleft'],
+    ['(MIT) AND (GPL-3.0)', 'strong-copyleft'],
   ])('%s → %s', (expr, expected) => {
     expect(classifyLicense(expr)).toBe(expected)
   })
@@ -239,6 +249,27 @@ describe('malformed / unrecognised inputs do not crash the audit', () => {
     expect(readInstalledPackageJson(dir, 'node_modules/none')).toBeNull()
   })
 
+  it('still blocks for manual review when package.json is unreadable but the LICENSE title is recognised', () => {
+    const closure = collectProdPackages({
+      packages: {
+        '': { dependencies: { bad: '1' } },
+        'node_modules/bad': { version: '1.0.0' },
+      },
+    })
+    fillMissingLicenses(
+      closure.packages,
+      path => readInstalledPackageJson(dir, path),
+      () => 'MIT License\n\nCopyright'
+    )
+    const [bad] = closure.packages
+    expect(bad).toMatchObject({ license: 'MIT', licenseSource: 'LICENSE file' })
+    expect(bad!.notes).toEqual([
+      expect.stringMatching(/^error: unreadable package.json/),
+    ])
+    expect(findings(closure.packages)).toEqual([])
+    expect(hasBlockers(closure)).toBe(true)
+  })
+
   it('records a broken package.json as an error entry and keeps going', () => {
     const lock: Lockfile = {
       packages: {
@@ -277,7 +308,7 @@ describe('malformed / unrecognised inputs do not crash the audit', () => {
       },
     ])
     const md = renderMarkdown(closure, { drift, notInstalled: 1 })
-    expect(md).toContain('Needs manual review:')
+    expect(md).toContain('Needs manual review (blocks the audit):')
     expect(md).toContain('- bad@1.0.0: error: unreadable package.json')
     expect(md).toContain(
       '- odd@1.0.0: unknown: LICENSE file title not recognised'
@@ -324,11 +355,59 @@ describe('findings / exceptions / rendering', () => {
     expect(
       exceptionReason('@img/sharp-libvips-linux-x64', 'LGPL-3.0-or-later')
     ).toMatch(/LGPL/)
-    expect(exceptionReason('dompurify', 'MPL-2.0 OR Apache-2.0')).toMatch(
-      /Apache-2.0/
-    )
     expect(exceptionReason('caniuse-lite', 'CC-BY-4.0')).toMatch(/CC-BY-4.0/)
     expect(exceptionReason('left-pad', 'GPL-3.0')).toBeNull()
+  })
+
+  it('needs no exception for a dual license with a permissive choice (dompurify)', () => {
+    const closure = collectProdPackages({
+      packages: {
+        '': { dependencies: { dompurify: '3' } },
+        'node_modules/dompurify': {
+          version: '3.4.16',
+          license: '(MPL-2.0 OR Apache-2.0)',
+        },
+      },
+    })
+    const [f] = findings(closure.packages)
+    expect(f).toMatchObject({
+      name: 'dompurify',
+      category: 'permissive',
+      accepted: null,
+    })
+    expect(hasBlockers(closure)).toBe(false)
+    expect(renderMarkdown(closure)).toContain(
+      'OK (permissive alternative chosen)'
+    )
+  })
+
+  it('never accepts an unparseable license expression, even via an exception', () => {
+    const closure = collectProdPackages({
+      packages: {
+        '': { dependencies: { x: '1' } },
+        'node_modules/x': { version: '1.0.0', license: 'MIT garbage' },
+      },
+    })
+    const anything: LicenseException[] = [
+      { name: 'x', license: 'MIT garbage', reason: 'r' },
+    ]
+    expect(findings(closure.packages, anything)[0]).toMatchObject({
+      category: 'unknown',
+      accepted: null,
+    })
+    expect(hasBlockers(closure, anything)).toBe(true)
+  })
+
+  it('normaliseExpr only strips parentheses that wrap the whole expression', () => {
+    expect(normaliseExpr(' ((lgpl-3.0-or-later)) ')).toBe('LGPL-3.0-OR-LATER')
+    expect(normaliseExpr('(MIT) AND (GPL-3.0)')).toBe('(MIT) AND (GPL-3.0)')
+    expect(normaliseExpr('((MIT) AND (GPL-3.0))')).toBe('(MIT) AND (GPL-3.0)')
+    // The old behaviour made these two compare equal.
+    expect(
+      exceptionReason('y', 'MIT) AND (GPL-3.0', undefined, [
+        { name: 'y', license: '(MIT) AND (GPL-3.0)', reason: 'r' },
+      ])
+    ).toBeNull()
   })
 
   it('stops accepting an exception once the package license changes', () => {

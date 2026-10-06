@@ -53,6 +53,8 @@ export type LicenseCategory =
   | 'strong-copyleft'
   | 'non-osi'
   | 'missing'
+  /** The expression could not be parsed completely — never guessed, always blocks. */
+  | 'unknown'
 
 export type ProdPackage = {
   name: string
@@ -112,12 +114,6 @@ export type LicenseException = {
 
 export const ACCEPTED_EXCEPTIONS: LicenseException[] = [
   {
-    name: 'dompurify',
-    license: '(MPL-2.0 OR Apache-2.0)',
-    reason:
-      'Dual-licensed MPL-2.0 OR Apache-2.0; we take Apache-2.0 (permissive).',
-  },
-  {
     name: 'caniuse-lite',
     license: 'CC-BY-4.0',
     reason:
@@ -144,10 +140,24 @@ export const ACCEPTED_EXCEPTIONS: LicenseException[] = [
 ]
 
 /** Compare license expressions ignoring outer parentheses, case and spacing. */
-function normaliseExpr(expr: string): string {
+export function normaliseExpr(expr: string): string {
   let e = expr.trim().replace(/\s+/g, ' ').toUpperCase()
-  while (e.startsWith('(') && e.endsWith(')')) e = e.slice(1, -1).trim()
+  while (e.startsWith('(') && e.endsWith(')') && wrapsWhole(e))
+    e = e.slice(1, -1).trim()
   return e
+}
+
+/** True when the `(` at index 0 is closed by the `)` at the very end. */
+function wrapsWhole(e: string): boolean {
+  let depth = 0
+  for (let i = 0; i < e.length; i++) {
+    if (e[i] === '(') depth++
+    else if (e[i] === ')') {
+      depth--
+      if (depth === 0 && i < e.length - 1) return false
+    }
+  }
+  return depth === 0
 }
 
 /**
@@ -176,6 +186,7 @@ const RANK: Record<LicenseCategory, number> = {
   'strong-copyleft': 2,
   'non-osi': 3,
   missing: 4,
+  unknown: 5,
 }
 
 function classifyId(id: string): LicenseCategory {
@@ -208,7 +219,10 @@ export function classifyLicense(
     return 'non-osi'
 
   const tokens = text.match(/\(|\)|[^\s()]+/g) ?? []
+  const isOperator = (t: string | undefined) =>
+    t !== undefined && /^(AND|OR|WITH)$/i.test(t)
   let pos = 0
+  let malformed = false
   const parseOr = (): LicenseCategory => {
     let acc = parseAnd()
     while (tokens[pos]?.toUpperCase() === 'OR') {
@@ -227,17 +241,35 @@ export function classifyLicense(
   }
   const parseAtom = (): LicenseCategory => {
     const tok = tokens[pos++]
-    if (tok === undefined) return 'missing'
+    if (tok === undefined || tok === ')' || isOperator(tok)) {
+      malformed = true
+      return 'unknown'
+    }
     if (tok === '(') {
       const inner = parseOr()
       if (tokens[pos] === ')') pos++
+      else malformed = true
       return inner
     }
     // `X WITH exception` — the exception only widens rights; classify X.
-    if (tokens[pos]?.toUpperCase() === 'WITH') pos += 2
+    if (tokens[pos]?.toUpperCase() === 'WITH') {
+      const exception = tokens[pos + 1]
+      if (
+        exception === undefined ||
+        exception === '(' ||
+        exception === ')' ||
+        isOperator(exception)
+      )
+        malformed = true
+      pos += 2
+    }
     return classifyId(tok)
   }
-  return parseOr()
+  const result = parseOr()
+  // Leftover tokens ("MIT garbage", "MIT)") mean we did not understand the
+  // whole expression: report unknown rather than the part we did parse.
+  if (malformed || pos !== tokens.length) return 'unknown'
+  return result
 }
 
 /** Normalise the lockfile/package.json license field to one string. */
@@ -484,7 +516,7 @@ export function findings(
         ...p,
         category,
         accepted:
-          category === 'permissive'
+          category === 'permissive' || category === 'unknown'
             ? null
             : exceptionReason(p.name, p.license, p.version, exceptions),
       }
@@ -557,7 +589,7 @@ export function renderMarkdown(
   }
   const noted = packages.filter(p => p.notes?.length)
   if (noted.length) {
-    lines.push('', 'Needs manual review:')
+    lines.push('', 'Needs manual review (blocks the audit):')
     for (const p of noted)
       for (const n of p.notes!) lines.push(`- ${p.name}@${p.version}: ${n}`)
   }
@@ -586,7 +618,10 @@ export function hasBlockers(
     closure.unresolved.length > 0 ||
     findings(closure.packages, exceptions).some(
       f => f.category !== 'permissive' && !f.accepted
-    )
+    ) ||
+    // An unreadable package.json or unrecognised LICENSE needs a human, even
+    // when a license was still identified some other way.
+    closure.packages.some(p => p.notes?.length)
   )
 }
 
