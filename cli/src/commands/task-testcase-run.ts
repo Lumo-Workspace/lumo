@@ -17,6 +17,11 @@ import {
   formatRunOutcome,
   type RunCeiling,
 } from '../lib/test-case-verdict'
+import {
+  parseStepSpecs,
+  parseStepEvidence,
+  isUrl,
+} from '../lib/test-case-steps'
 
 export interface TestCaseRunOptions {
   result?: string
@@ -30,6 +35,12 @@ export interface TestCaseRunOptions {
   note?: string
   evidence?: string[]
   evidenceFile?: string[]
+  /** LUM-1011: 逐步结果，如 s1-3=pass、v1=fail@0.3s（可重复）。 */
+  step?: string[]
+  /** LUM-1011: 挂到某一步下面的证据，如 s3=shot.png（可重复）。 */
+  stepEvidence?: string[]
+  /** LUM-1011: FAIL 时实际看到的结果。 */
+  actual?: string
 }
 
 const RESULTS = ['PASS', 'FAIL', 'BLOCKED']
@@ -114,6 +125,44 @@ export async function taskTestCaseRun(
     return 1
   }
 
+  // LUM-1011: 逐步结果。只有 FAIL 能带 fail 步；BLOCKED 根本没跑起来。
+  const steps = parseStepSpecs(options.step)
+  if (!steps.ok) {
+    console.error(`Error: ${steps.error}`)
+    return 1
+  }
+  const stepEvidence = parseStepEvidence(options.stepEvidence)
+  if (!stepEvidence.ok) {
+    console.error(`Error: ${stepEvidence.error}`)
+    return 1
+  }
+  if (result === 'BLOCKED' && steps.value.length > 0) {
+    console.error(
+      'Error: a BLOCKED run cannot carry --step results — the case never ran. Use --result fail with the failing step instead.'
+    )
+    return 1
+  }
+  if (result !== 'FAIL' && steps.value.some(s => s.status === 'FAIL')) {
+    console.error(`Error: a ${result} run cannot report a failing --step.`)
+    return 1
+  }
+  for (const e of stepEvidence.value) {
+    if (!steps.value.some(s => s.phase === e.phase && s.index === e.index)) {
+      const ref = `${e.phase === 'STEPS' ? 's' : 'v'}${e.index + 1}`
+      console.error(
+        `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail.`
+      )
+      return 1
+    }
+  }
+  const actual = options.actual?.trim() || null
+  if (actual !== null && result !== 'FAIL') {
+    console.error(
+      `Error: --actual is for a failing run (got --result ${result.toLowerCase()}).`
+    )
+    return 1
+  }
+
   // LUM-808 步骤 1：FAIL 必须说清是谁的锅。服务端有同样的闸门，这里挡一道
   // 只是为了不让人白跑一趟网络。
   const cause = resolveFailureCause(
@@ -164,10 +213,27 @@ export async function taskTestCaseRun(
     url => ({ type: 'link', url: url.trim() })
   )
 
-  const paths = options.evidenceFile ?? []
+  // LUM-1011: 挂到某一步的证据跟普通证据进同一个数组，逐步结果里记下标。
+  // URL 直接成 link；文件跟 --evidence-file 一起上传，上传回来后按顺序认领。
+  const stepEvidenceIdx = new Map<string, number[]>()
+  const claim = (phase: string, index: number, at: number) => {
+    const key = `${phase}:${index}`
+    stepEvidenceIdx.set(key, [...(stepEvidenceIdx.get(key) ?? []), at])
+  }
+  const stepFiles: Array<{ phase: string; index: number; path: string }> = []
+  for (const e of stepEvidence.value) {
+    if (isUrl(e.target)) {
+      claim(e.phase, e.index, evidence.length)
+      evidence.push({ type: 'link', url: e.target })
+    } else {
+      stepFiles.push({ phase: e.phase, index: e.index, path: e.target })
+    }
+  }
+
+  const paths = [...(options.evidenceFile ?? []), ...stepFiles.map(f => f.path)]
   if (paths.length > MAX_EVIDENCE_FILES) {
     console.error(
-      `Error: at most ${MAX_EVIDENCE_FILES} --evidence-file per run (got ${paths.length}).`
+      `Error: at most ${MAX_EVIDENCE_FILES} evidence files per run, --evidence-file and --step-evidence together (got ${paths.length}).`
     )
     return 1
   }
@@ -197,8 +263,21 @@ export async function taskTestCaseRun(
       'evidence upload'
     )
     if (!up.ok || !up.data) return 1
-    for (const f of up.data.files) evidence.push({ type: 'file', ...f })
+    const plainFiles = (options.evidenceFile ?? []).length
+    up.data.files.forEach((f, i) => {
+      const owner = i >= plainFiles ? stepFiles[i - plainFiles] : undefined
+      if (owner) claim(owner.phase, owner.index, evidence.length)
+      evidence.push({ type: 'file', ...f })
+    })
   }
+
+  const stepResults = steps.value.map(s => ({
+    phase: s.phase,
+    index: s.index,
+    status: s.status,
+    durationMs: s.durationMs,
+    evidence: stepEvidenceIdx.get(`${s.phase}:${s.index}`) ?? [],
+  }))
 
   // LUM-1008: 带上来源 session——run 记下的成员是 token 主人，「人手动」还是
   // 「agent 代跑」只能靠它分。不在 Claude Code 里跑时为空，照常不带。
@@ -220,6 +299,9 @@ export async function taskTestCaseRun(
         failureAttribution: cause.cause,
         unprovenVerification: unproven.indices,
         note: options.note?.trim() || null,
+        // LUM-1011: 旧服务端会静默丢掉这两个字段（非 strict schema）。
+        ...(stepResults.length > 0 ? { stepResults } : {}),
+        ...(actual !== null ? { actual } : {}),
         pullRequestNumber: prNumber,
         commitSha,
         commitDirty,
@@ -242,6 +324,11 @@ export async function taskTestCaseRun(
   )
   if (r.data.run.failedStepText) {
     console.log(`  at: ${r.data.run.failedStepText}`)
+  }
+  if (actual !== null) console.log(`  actual: ${actual}`)
+  if (stepResults.length > 0) {
+    const passed = stepResults.filter(s => s.status === 'PASS').length
+    console.log(`Steps: ${passed} passed of ${stepResults.length} reported`)
   }
   if (prNumber !== null) console.log(`PR: #${prNumber}`)
   if (commitSha) {

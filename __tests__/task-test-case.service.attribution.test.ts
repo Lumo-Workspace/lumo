@@ -71,6 +71,7 @@ beforeEach(() => {
     ...input,
     evidence: input.evidence as Prisma.JsonValue,
     unprovenVerification: input.unprovenVerification as Prisma.JsonValue,
+    stepResults: input.stepResults as Prisma.JsonValue,
     id: 'run-1',
     createdAt: new Date('2026-02-01'),
     // LUM-812: runSelect 带出这条 run 的人类裁定；新记的 run 当然还没人裁。

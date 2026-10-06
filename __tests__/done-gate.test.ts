@@ -12,6 +12,7 @@ function gaps(over: Partial<RecordGaps> = {}): RecordGaps {
     crossingsBlocking: 0,
     crossingsTotal: 0,
     securityBlocking: 0,
+    testsBlocking: 0,
     canBeDone: true,
     taskDone: false,
     ...over,
@@ -101,5 +102,33 @@ describe('deriveDoneGate', () => {
       { securityScanned: true }
     )
     expect(gate.headline).toBe('accepted')
+  })
+
+  // LUM-1011: a proven test defect already blocks DONE server-side (LUM-812);
+  // before this the Record page's Done gate never said so.
+  it('blocks on an undispositioned proven test defect, and counts it', () => {
+    const gate = deriveDoneGate(
+      gaps({ testsBlocking: 1, securityBlocking: 1, canBeDone: false }),
+      { securityScanned: true, tests: { total: 3, passing: 1 } }
+    )
+    expect(gate.headline).toBe('blocked')
+    expect(gate.blockingTotal).toBe(2)
+    expect(gate.tests).toEqual({
+      state: 'blocked',
+      blocking: 1,
+      passing: 1,
+      total: 3,
+    })
+  })
+
+  it('reads a task without test cases as "none", never as passing', () => {
+    const gate = deriveDoneGate(gaps(), { securityScanned: true })
+    expect(gate.tests.state).toBe('none')
+    expect(
+      deriveDoneGate(gaps(), {
+        securityScanned: true,
+        tests: { total: 2, passing: 2 },
+      }).tests.state
+    ).toBe('clear')
   })
 })

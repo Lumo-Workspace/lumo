@@ -49,9 +49,22 @@ describe('deriveRecordGaps', () => {
       crossingsBlocking: 0,
       crossingsTotal: 0,
       securityBlocking: 0,
+      testsBlocking: 0,
       canBeDone: true,
       taskDone: false,
     })
+  })
+
+  // LUM-1011: an undispositioned proven test defect holds Done back too.
+  it('a blocking test defect alone -> cannot be done', () => {
+    const g = deriveRecordGaps({
+      taskStatus: 'IN_REVIEW',
+      crossings: [],
+      gateEnabled: true,
+      testsBlocking: 1,
+    })
+    expect(g.testsBlocking).toBe(1)
+    expect(g.canBeDone).toBe(false)
   })
 
   // Review F3: the strip needs to know the task was accepted (to say

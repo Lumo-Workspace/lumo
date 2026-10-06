@@ -17,6 +17,30 @@ export const MAX_NOTE_LEN = 2000
 export const MAX_EVIDENCE_ENTRIES = 10
 /** 单次 run 最多上传的文件数（上传路由侧的闸门）。 */
 export const MAX_EVIDENCE_FILES = 5
+/** LUM-1011: 单步耗时上限（一天）——防呆，不是业务规则。 */
+export const MAX_STEP_DURATION_MS = 86_400_000
+
+/**
+ * LUM-1011: 一步的显式结论。只有 PASS / FAIL——「没到达」「没逐步记录」不是
+ * 上报出来的，是读端从**缺席**推出来的，所以这里不给它们值。
+ */
+export const stepResultEntrySchema = z.object({
+  phase: z.enum(['STEPS', 'VERIFICATION']),
+  /** 0-based。CLI 表面是 1-based，转换在 CLI 侧完成。 */
+  index: z.number().int().nonnegative(),
+  status: z.enum(['PASS', 'FAIL']),
+  durationMs: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_STEP_DURATION_MS)
+    .nullish(),
+  /** 本次 run 的 evidence 数组下标：这一步挂的截图 / 日志。 */
+  evidence: z
+    .array(z.number().int().nonnegative())
+    .max(MAX_EVIDENCE_ENTRIES)
+    .optional(),
+})
 
 const stepList = (min: number) =>
   z.array(z.string().trim().min(1).max(MAX_STEP_LEN)).min(min).max(MAX_STEPS)
@@ -92,6 +116,16 @@ export const recordRunBodySchema = z.object({
   note: z.string().trim().max(MAX_NOTE_LEN).nullish(),
   evidence: z.array(evidenceEntrySchema).max(MAX_EVIDENCE_ENTRIES).optional(),
   /**
+   * LUM-1011: 逐步结果，选填。跨字段规则（下标范围、只有 FAIL 能带 FAIL 步、
+   * 与 failedPhase/failedIndex 一致、失败点之后不得有 PASS）在 service。
+   */
+  stepResults: z
+    .array(stepResultEntrySchema)
+    .max(MAX_STEPS * 2)
+    .optional(),
+  /** LUM-1011: FAIL 时实际看到的结果。只有 FAIL 能带（service 校验）。 */
+  actual: z.string().trim().min(1).max(MAX_TEXT_LEN).nullish(),
+  /**
    * 代码坐标。只绑 PR 号是不够的——PR 一 push 这条 run 就过时了，所以
    * commitSha 才是陈旧性判定的锚。两者都可空：不是每次执行都发生在某个 PR
    * 的上下文里。
@@ -114,6 +148,7 @@ export type CreateTestCaseBody = z.infer<typeof createTestCaseBodySchema>
 export type UpdateTestCaseBody = z.infer<typeof updateTestCaseBodySchema>
 export type RecordRunBody = z.infer<typeof recordRunBodySchema>
 export type EvidenceEntry = z.infer<typeof evidenceEntrySchema>
+export type StepResultEntry = z.infer<typeof stepResultEntrySchema>
 
 /**
  * LUM-812: 对一条 PROVEN_DEFECT run 的裁定。

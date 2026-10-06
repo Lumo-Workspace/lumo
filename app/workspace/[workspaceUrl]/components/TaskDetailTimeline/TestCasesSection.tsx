@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTestCases } from '../../hooks/useTestCases'
 import { TestCaseCard } from './TestCaseCard'
 import { TestCaseForm } from './TestCaseForm'
 import { RecordRunDialog } from './RecordRunDialog'
+import { runAnchorId } from './taskTabs'
 import type {
   CreateTestCaseBody,
   RecordRunBody,
 } from '@/lib/validation/test-case'
 
-interface TestCasesTabProps {
+interface TestCasesSectionProps {
   taskId: string
   taskIdentifier: string
   enabled: boolean
@@ -24,17 +25,18 @@ type Mode =
   | { kind: 'run'; caseId: string }
 
 /**
- * LUM-801: Tests tab —— 任务的 test case 列表与写操作的编排点。
+ * LUM-801 → LUM-1011: 任务的 test case 列表与写操作的编排点，现在是 Record 页
+ * 的「测试用例」区段（原先是独立的 Tests 标签）。
  *
  * 子组件都是纯渲染 + 回调；请求全部经 useTestCases（它调 api-client）。
  * 这一层唯一的「业务」判断是 web 端的 commitSha 快照：人选了 PR 之后，把该 PR
  * 当下的 head 冻下来，这样 PR 后续 push 时这条 run 会被正确判为陈旧。
  */
-export function TestCasesTab({
+export function TestCasesSection({
   taskId,
   taskIdentifier,
   enabled,
-}: TestCasesTabProps) {
+}: TestCasesSectionProps) {
   const intl = useIntl()
   const {
     testCases,
@@ -45,9 +47,47 @@ export function TestCasesTab({
     update,
     remove,
     recordRun,
-    disposeDefect,
   } = useTestCases(taskId, enabled)
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  const [linkedRunId, setLinkedRunId] = useState<string | null>(null)
+
+  // 深链（`…/record#run-<id>`，旧的 `…/tests#run-<id>` 也重定向到这里）：
+  // 展开那条 run 所属的用例，再把它滚进视野。hash 挂载后才读得到、列表又是
+  // 异步来的，所以在 effect 里读，不在 render 里读（render 纯度）。
+  // 「需要处理」里的缺陷行也是这种锚点，点了只改 hash，所以还要听 hashchange。
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const sync = () => {
+      const hash = window.location.hash
+      for (const c of testCases) {
+        const run = c.runs.find(r => hash === `#${runAnchorId(r.id)}`)
+        if (!run) continue
+        setLinkedRunId(run.id)
+        setExpanded(prev => (prev.has(c.id) ? prev : new Set(prev).add(c.id)))
+        return
+      }
+    }
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [testCases])
+
+  useEffect(() => {
+    if (!linkedRunId) return
+    // 瞬时跳转，不用 smooth（LUM-819：后台页不合成帧时平滑滚动原地不动）。
+    document
+      .getElementById(runAnchorId(linkedRunId))
+      ?.scrollIntoView?.({ block: 'center' })
+  }, [linkedRunId, expanded])
+
+  const toggle = (caseId: string) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(caseId)) next.delete(caseId)
+      else next.add(caseId)
+      return next
+    })
 
   const active =
     mode.kind === 'edit' || mode.kind === 'run'
@@ -102,18 +142,18 @@ export function TestCasesTab({
 
   if (loading) {
     return (
-      <p className='px-3 py-6 text-body text-muted-foreground'>
+      <p className='py-2 text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'testCases.loading' })}
       </p>
     )
   }
 
   return (
-    <div className='flex flex-col gap-3 px-3 py-3'>
+    <div className='flex flex-col gap-2'>
       {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 
       {testCases.length === 0 && mode.kind !== 'create' ? (
-        <div className='py-6'>
+        <div className='rounded-lg border border-dashed border-border px-4 py-4'>
           <p className='text-body-strong text-foreground'>
             {intl.formatMessage({ id: 'testCases.empty.title' })}
           </p>
@@ -137,10 +177,12 @@ export function TestCasesTab({
               taskIdentifier={taskIdentifier}
               runs={c.runs}
               pullRequests={pullRequests}
+              expanded={expanded.has(c.id)}
+              onToggle={() => toggle(c.id)}
+              linkedRunId={linkedRunId}
               onRecordRun={() => setMode({ kind: 'run', caseId: c.id })}
               onEdit={() => setMode({ kind: 'edit', caseId: c.id })}
               onRemove={() => void handleRemove(c.number)}
-              onDispose={(runId, ruling) => void disposeDefect(runId, ruling)}
             />
           )}
           {mode.kind === 'run' && mode.caseId === c.id && active ? (

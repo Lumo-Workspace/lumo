@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import type { TestCase } from '@prisma/client'
 import type { RecordRunBody } from '@/lib/validation/test-case'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
+import { priorPassedResults } from '@/lib/test-cases/step-report'
 
 const RESULTS = ['PASS', 'FAIL', 'BLOCKED'] as const
 const CAUSES = [
@@ -56,6 +57,11 @@ export function RecordRunDialog({
   // LUM-808: 本次没能观察到的复验条目（0-based 下标）。
   const [unproven, setUnproven] = useState<number[]>([])
   const [note, setNote] = useState('')
+  // LUM-1011: what the person actually saw at the failing step.
+  const [actual, setActual] = useState('')
+  // LUM-1011: an explicit "every step before the failing one passed". Off by
+  // default — an unticked box leaves those steps "reached", never "passed".
+  const [priorPassed, setPriorPassed] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -146,6 +152,10 @@ export function RecordRunDialog({
       return
     }
     const [phase, index] = locator ? locator.split(':') : [null, null]
+    const failing =
+      result === 'FAIL' && phase && index != null
+        ? { phase: phase as 'STEPS' | 'VERIFICATION', index: Number(index) }
+        : null
     setBusy(true)
     try {
       await onSubmit(
@@ -162,6 +172,10 @@ export function RecordRunDialog({
           failureAttribution: result === 'FAIL' ? cause || null : null,
           // 报了 PASS 却勾了未观察项 → 服务端把它封顶成 UNPROVEN。
           unprovenVerification: unproven,
+          ...(failing && priorPassed
+            ? { stepResults: priorPassedResults(testCase, failing) }
+            : {}),
+          actual: result === 'FAIL' ? actual.trim() || null : null,
           note: note.trim() || null,
           pullRequestNumber: prNumber ? Number(prNumber) : null,
           // web 端不自己编 sha：父组件按所选 PR 快照它当下的 head。
@@ -280,6 +294,34 @@ export function RecordRunDialog({
               </option>
             ))}
           </select>
+        </label>
+      ) : null}
+
+      {result === 'FAIL' && locator ? (
+        <label className='flex items-start gap-2 text-body text-muted-foreground'>
+          <input
+            type='checkbox'
+            checked={priorPassed}
+            onChange={e => setPriorPassed(e.target.checked)}
+          />
+          <span>
+            {intl.formatMessage({ id: 'testCases.field.priorPassed' })}
+          </span>
+        </label>
+      ) : null}
+
+      {result === 'FAIL' ? (
+        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
+          {intl.formatMessage({ id: 'testCases.field.actual' })}
+          <textarea
+            className={fieldClass}
+            value={actual}
+            onChange={e => setActual(e.target.value)}
+            placeholder={intl.formatMessage({
+              id: 'testCases.field.actual.placeholder',
+            })}
+            rows={2}
+          />
         </label>
       ) : null}
 

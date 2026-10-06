@@ -20,6 +20,20 @@ jest.mock('react-intl', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
   useAgentRuns: jest.fn(),
 }))
+// LUM-1011: the dossier reads test cases (Done gate row + Test cases section).
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
+  useTestCases: jest.fn(() => ({
+    testCases: [],
+    pullRequests: [],
+    loading: false,
+    error: null,
+    add: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    recordRun: jest.fn(),
+    disposeDefect: jest.fn(),
+  })),
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
   useSecurityScans: jest.fn(() => ({
     data: undefined,

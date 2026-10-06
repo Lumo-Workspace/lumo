@@ -17,6 +17,10 @@ import {
 import { RecordRow } from './RecordRow'
 import { formatSecuritySummaryLine } from './security-summary-line'
 import { LineageTab } from './LineageTab'
+import { TestCasesSection } from './TestCasesSection'
+import { BlockingTestDefects } from './BlockingTestDefects'
+import { useTestCases } from '../../hooks/useTestCases'
+import { summarizeTestCases } from '@/lib/test-cases/case-summary'
 import { MemoryTab } from '../memory/MemoryTab'
 
 /** The Records rows TaskDossier owns: the evidence sections + security. */
@@ -93,6 +97,11 @@ export function TaskDossier({
   const showSecurityRecord =
     securityError || (securityScans?.prs.length ?? 0) > 0
 
+  // LUM-1011: test cases feed the Done gate's row and the Needs action queue.
+  // Same react-query key the section and the defect queue read (one fetch).
+  const { testCases } = useTestCases(taskId, enabled)
+  const testsSummary = summarizeTestCases(testCases)
+
   // Which Records rows are expanded. Collapsed by default; a deep link opens
   // its target. State, not derived, so a user's manual toggle sticks.
   const [expanded, setExpanded] = useState<Set<RecordRowKey>>(() =>
@@ -109,6 +118,13 @@ export function TaskDossier({
       next.add(targetSection)
       return next
     })
+    // A `#run-<id>` hash (old Tests-tab run link) is scrolled by the Test cases
+    // section itself, onto the run — don't fight it with a section scroll.
+    if (
+      typeof window !== 'undefined' &&
+      window.location.hash.startsWith('#run-')
+    )
+      return
     const el =
       typeof document !== 'undefined'
         ? document.getElementById(`dossier-${targetSection}`)
@@ -220,6 +236,25 @@ export function TaskDossier({
       securityBlocking={securityBlocking}
       securityScanned={securityScanned}
       blockingSecuritySlot={<BlockingSecurityFindings taskId={taskId} />}
+      testsBlocking={testsSummary.blocking.length}
+      testsSummary={{
+        total: testsSummary.total,
+        passing: testsSummary.passing,
+      }}
+      blockingTestsSlot={
+        <BlockingTestDefects
+          taskId={taskId}
+          taskIdentifier={taskIdentifier}
+          enabled={enabled}
+        />
+      }
+      testCasesSlot={
+        <TestCasesSection
+          taskId={taskId}
+          taskIdentifier={taskIdentifier}
+          enabled={enabled}
+        />
+      }
       securityRecordSlot={securityRecord}
       evidenceSlot={evidence}
       attribution={attributionSummary}

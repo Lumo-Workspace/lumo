@@ -46,6 +46,10 @@ export interface CreateRunInput {
   /** LUM-808: [{ index, text }]，判决时刻的原文快照。 */
   unprovenVerification: Prisma.InputJsonValue
   evidence: Prisma.InputJsonValue
+  /** LUM-1011: 逐步结果 [{ phase, index, text, status, durationMs, evidence }]。 */
+  stepResults: Prisma.InputJsonValue
+  /** LUM-1011: FAIL 时实际看到的结果。非 FAIL 为 null。 */
+  actual: string | null
   note: string | null
   /** 代码坐标（LUM-801）。null = 未记录，不是「没变过」。 */
   pullRequestId: string | null
@@ -82,6 +86,8 @@ const runSelect = {
   failureAttribution: true,
   unprovenVerification: true,
   evidence: true,
+  stepResults: true,
+  actual: true,
   note: true,
   pullRequestId: true,
   commitSha: true,

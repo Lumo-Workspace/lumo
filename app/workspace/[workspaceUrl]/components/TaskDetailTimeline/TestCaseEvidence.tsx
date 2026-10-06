@@ -66,9 +66,28 @@ function FileEvidence({ entry }: { entry: EvidenceEntry }) {
  * 的 unknown。收窄在 shared/src/test-case-evidence.ts 里做，形状对不上的整条
  * 丢掉：一条脏证据不该把整段 run 历史炸掉。
  */
-export function EvidenceStrip({ evidence }: { evidence: unknown }) {
+export function EvidenceStrip({
+  evidence,
+  only,
+  exclude,
+}: {
+  evidence: unknown
+  /** LUM-1011: 只画这几个下标（某一步挂的证据）。下标指原始数组。 */
+  only?: number[]
+  /** LUM-1011: 不画这几个下标（已经挂在某一步下面画过了）。 */
+  exclude?: number[]
+}) {
   const intl = useIntl()
-  const entries = parseEvidenceEntries(evidence)
+  // 先按**原始下标**挑，再逐条收窄：逐步结果里的 evidence 下标指向原始数组，
+  // 先收窄会让脏条目之后的下标整体错位。
+  const raw = Array.isArray(evidence) ? evidence : []
+  const picked =
+    only || exclude
+      ? raw.filter(
+          (_, i) => (!only || only.includes(i)) && !(exclude ?? []).includes(i)
+        )
+      : raw
+  const entries = parseEvidenceEntries(picked)
   if (entries.length === 0) return null
 
   return (

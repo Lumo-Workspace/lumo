@@ -18,6 +18,10 @@ export interface RecordGaps {
   /** Undispositioned security findings that block DONE, when known; 0 when
    *  the caller has no security signal to report (never fabricated). */
   securityBlocking: number
+  /** LUM-1011: test-case runs proven to be implementation defects and not yet
+   *  ruled on (latest run per case — the LUM-812 DONE gate). 0 when the caller
+   *  has no test-case signal. */
+  testsBlocking: number
   /** No blocking item remains anywhere — advisory crossings and non-blocking
    *  open crossings do not count. */
   canBeDone: boolean
@@ -31,8 +35,15 @@ export function deriveRecordGaps(input: {
   crossings: BoundaryCrossingView[]
   gateEnabled: boolean
   securityBlocking?: number
+  testsBlocking?: number
 }): RecordGaps {
-  const { taskStatus, crossings, gateEnabled, securityBlocking = 0 } = input
+  const {
+    taskStatus,
+    crossings,
+    gateEnabled,
+    securityBlocking = 0,
+    testsBlocking = 0,
+  } = input
 
   const openCrossings = crossings.filter(c => c.disposition == null)
   // Mirrors BoundaryCrossingsPanel's blockingCount (LUM-590/LUM-442): advisory
@@ -46,7 +57,9 @@ export function deriveRecordGaps(input: {
     crossingsBlocking,
     crossingsTotal: crossings.length,
     securityBlocking,
-    canBeDone: crossingsBlocking === 0 && securityBlocking === 0,
+    testsBlocking,
+    canBeDone:
+      crossingsBlocking === 0 && securityBlocking === 0 && testsBlocking === 0,
     taskDone: taskStatus === 'DONE',
   }
 }

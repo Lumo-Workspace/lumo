@@ -28,7 +28,7 @@ export const STORAGE_REDACTED_FIELDS = {
     'dispositionNote',
     'systemExplanation',
   ],
-  testCaseRun: ['note'],
+  testCaseRun: ['note', 'actual'],
   task: [
     'title',
     'description',

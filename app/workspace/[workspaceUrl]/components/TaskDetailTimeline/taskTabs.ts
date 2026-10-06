@@ -1,9 +1,10 @@
 /**
- * LUM-801 新增 `tests`：任务的 test case 与执行记录。它**不进** dossier
- * （Record tab）——dossier 是「事后记录 + 证据」面板，而 test case 是开工前/中
- * 写的执行剧本，语义是拧的。
+ * LUM-801 曾把 test case 放在独立的 `tests` 标签里，理由是「dossier 是事后记录，
+ * 用例是开工前写的剧本」。LUM-1011 用户裁定推翻：用例的执行记录（每次跑到哪步、
+ * 是否拦 DONE）正是 Record 要回答的「这个任务能不能 Done」的一部分，于是用例成了
+ * Record 的一个区段。旧的 `/tests` 地址经 LEGACY_SECTION_SLUG 落到那个区段。
  */
-export type TabValue = 'comments' | 'activity' | 'context' | 'dossier' | 'tests'
+export type TabValue = 'comments' | 'activity' | 'context' | 'dossier'
 
 /**
  * The four named, deep-linkable regions live *inside* the dossier (LUM-567).
@@ -12,7 +13,7 @@ export type TabValue = 'comments' | 'activity' | 'context' | 'dossier' | 'tests'
  * resolve to one of these instead of being their own tab, preserving the
  * LUM-458 deep-link contract (a shared URL jumps to — and expands — its region).
  */
-export type DossierSection = 'runs' | 'lineage' | 'memory'
+export type DossierSection = 'runs' | 'lineage' | 'memory' | 'tests'
 
 /**
  * URL path segment for each tab. Comments is the default tab and carries no
@@ -29,7 +30,6 @@ export const TAB_SLUGS: Record<TabValue, string> = {
   activity: 'activity',
   context: 'context',
   dossier: 'record',
-  tests: 'tests',
 }
 
 const SLUG_TO_TAB: Record<string, TabValue> = Object.fromEntries(
@@ -47,6 +47,10 @@ const LEGACY_SECTION_SLUG: Record<string, DossierSection> = {
   delivery: 'runs',
   lineage: 'lineage',
   memory: 'memory',
+  // LUM-1011: the former Tests tab — now the Record tab's Test cases section.
+  // A `#run-<id>` hash rides along (no navigation), so old run links still
+  // land on their run.
+  tests: 'tests',
 }
 
 /**
@@ -90,19 +94,25 @@ export function resolveTab(slug: string | undefined): ResolvedTab | null {
 export const BOUNDARY_CROSSINGS_ANCHOR = 'boundary-crossings'
 
 /**
- * LUM-819: DOM id of one test-case run inside the Tests tab. A spot-check card
- * links here so the reviewer lands on that exact run with the task's full
- * context around it; RunHistoryList scrolls the matching run into view.
+ * LUM-1011: DOM id of the Record tab's Test cases section. Follows the
+ * `dossier-<section>` convention so a legacy `/tests` link scrolls to it.
+ */
+export const TEST_CASES_ANCHOR = 'dossier-tests'
+
+/**
+ * LUM-819: DOM id of one test-case run. A spot-check card links here so the
+ * reviewer lands on that exact run with the task's full context around it;
+ * the Test cases section expands its case and scrolls the run into view.
  */
 export function runAnchorId(runId: string): string {
   return `run-${runId}`
 }
 
-/** Deep link into a task's Tests tab, landing on one run. */
+/** Deep link into a task's Record tab, landing on one test-case run. */
 export function testRunHref(
   workspaceUrl: string,
   taskIdentifier: string,
   runId: string
 ): string {
-  return `/workspace/${workspaceUrl}/my-tasks/${taskIdentifier}/${TAB_SLUGS.tests}#${runAnchorId(runId)}`
+  return `/workspace/${workspaceUrl}/my-tasks/${taskIdentifier}/${TAB_SLUGS.dossier}#${runAnchorId(runId)}`
 }

@@ -39,6 +39,20 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
 // LUM-732 review I3 promoted the security panel out of the audit fold, so it
 // now mounts with the dossier and would reach for a QueryClient this test has
 // no provider for. Its own behaviour is covered by SecurityScanSection.test.
+// LUM-1011: the dossier reads test cases (Done gate row + Test cases section).
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
+  useTestCases: jest.fn(() => ({
+    testCases: [],
+    pullRequests: [],
+    loading: false,
+    error: null,
+    add: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    recordRun: jest.fn(),
+    disposeDefect: jest.fn(),
+  })),
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
   useSecurityScans: jest.fn(() => ({
     data: undefined,

@@ -81,6 +81,7 @@ beforeEach(() => {
     // 需要窄一下，其余原样回抛。
     evidence: input.evidence as Prisma.JsonValue,
     unprovenVerification: input.unprovenVerification as Prisma.JsonValue,
+    stepResults: input.stepResults as Prisma.JsonValue,
     id: 'run-1',
     createdAt: new Date('2026-02-01'),
     // LUM-812: runSelect 带出这条 run 的人类裁定；新记的 run 当然还没人裁。
@@ -535,5 +536,149 @@ describe('remove', () => {
     await expect(
       taskTestCaseService.remove('nope', attribution)
     ).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+// LUM-1011: 逐步结果与实际观察。testCase 有 2 个步骤 + 1 个复验。
+describe('recordRun — step results', () => {
+  const fail = (over: Record<string, unknown> = {}) => ({
+    result: 'FAIL' as const,
+    environment: 'LOCAL' as const,
+    failureAttribution: 'UNKNOWN' as const,
+    ...over,
+  })
+  const rec = (body: Record<string, unknown>) =>
+    taskTestCaseService.recordRun(testCase, body as never, attribution)
+
+  it('snapshots each reported step and stores actual', async () => {
+    await rec(
+      fail({
+        stepResults: [
+          { phase: 'STEPS', index: 0, status: 'PASS', durationMs: 1200 },
+          { phase: 'STEPS', index: 1, status: 'FAIL' },
+        ],
+        actual: 'The footer shows no disclosure',
+      })
+    )
+    expect(repo.createRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stepResults: [
+          {
+            phase: 'STEPS',
+            index: 0,
+            text: 'scroll: to the bottom of the page',
+            status: 'PASS',
+            durationMs: 1200,
+            evidence: [],
+          },
+          expect.objectContaining({
+            index: 1,
+            status: 'FAIL',
+            durationMs: null,
+          }),
+        ],
+        actual: 'The footer shows no disclosure',
+        // The FAIL step fills in the locator when the caller gave none.
+        failedPhase: 'STEPS',
+        failedIndex: 1,
+      }),
+      expect.anything()
+    )
+  })
+
+  it('stores an empty array when no step results are reported', async () => {
+    await rec(fail())
+    expect(repo.createRun).toHaveBeenCalledWith(
+      expect.objectContaining({ stepResults: [], actual: null }),
+      expect.anything()
+    )
+  })
+
+  it.each([
+    [
+      'a BLOCKED run with step results',
+      {
+        result: 'BLOCKED',
+        failureAttribution: null,
+        stepResults: [{ phase: 'STEPS', index: 0, status: 'PASS' }],
+      },
+    ],
+    [
+      'a PASS run with a failing step',
+      {
+        result: 'PASS',
+        failureAttribution: null,
+        stepResults: [{ phase: 'STEPS', index: 0, status: 'FAIL' }],
+      },
+    ],
+    [
+      'two failing steps',
+      {
+        stepResults: [
+          { phase: 'STEPS', index: 0, status: 'FAIL' },
+          { phase: 'STEPS', index: 1, status: 'FAIL' },
+        ],
+      },
+    ],
+    [
+      'a step index out of range',
+      { stepResults: [{ phase: 'VERIFICATION', index: 1, status: 'PASS' }] },
+    ],
+    [
+      'the same step twice',
+      {
+        stepResults: [
+          { phase: 'STEPS', index: 0, status: 'PASS' },
+          { phase: 'STEPS', index: 0, status: 'PASS' },
+        ],
+      },
+    ],
+    [
+      'a failing step that disagrees with the locator',
+      {
+        failedPhase: 'STEPS',
+        failedIndex: 0,
+        stepResults: [{ phase: 'STEPS', index: 1, status: 'FAIL' }],
+      },
+    ],
+    [
+      'a PASS step after the run broke',
+      {
+        failedPhase: 'STEPS',
+        failedIndex: 1,
+        stepResults: [{ phase: 'VERIFICATION', index: 0, status: 'PASS' }],
+      },
+    ],
+    [
+      'step evidence pointing past the evidence array',
+      {
+        stepResults: [
+          { phase: 'STEPS', index: 0, status: 'PASS', evidence: [0] },
+        ],
+      },
+    ],
+    [
+      'actual on a PASS run',
+      { result: 'PASS', failureAttribution: null, actual: 'looked fine' },
+    ],
+  ])('rejects %s', async (_label, over) => {
+    await expect(rec(fail(over))).rejects.toMatchObject({ status: 400 })
+    expect(repo.createRun).not.toHaveBeenCalled()
+  })
+
+  it('accepts a PASS run that reports every step', async () => {
+    await rec({
+      result: 'PASS',
+      environment: 'LOCAL',
+      stepResults: [
+        { phase: 'STEPS', index: 0, status: 'PASS' },
+        { phase: 'STEPS', index: 1, status: 'PASS' },
+        { phase: 'VERIFICATION', index: 0, status: 'PASS' },
+      ],
+    })
+    expect(repo.createRun).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'PASS', failedPhase: null }),
+      expect.anything()
+    )
   })
 })
