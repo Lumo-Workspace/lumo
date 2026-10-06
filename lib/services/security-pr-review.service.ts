@@ -76,6 +76,7 @@ import { scanSizeCaps } from '@/lib/security-scan/size-caps'
 import {
   neutralizeSummaryText,
   parsePrSummary,
+  stripHtmlComments,
 } from '@/lib/security-scan/pr-summary'
 import { sanitizeField } from '@/shared/src/sanitize'
 import { scrubScanIfZeroRetention } from '@/lib/services/scan-evidence-retention.service'
@@ -317,10 +318,12 @@ export function buildInlineComment(
   policy: SecurityPolicy = DEFAULT_SECURITY_POLICY
 ): string {
   const kindLabel = findingKindLabel(f.kind)
+  // Model / scanner text: no HTML comments, so it can never carry one of
+  // Lumo's state markers (a fake fingerprint or retraction marker).
   const blocks: string[] = [
-    `**Lumo · ${provenanceLabel(f)}${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ${f.title}`,
+    `**Lumo · ${provenanceLabel(f)}${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ${stripHtmlComments(f.title).trim()}`,
   ]
-  const detail = f.detail.trim()
+  const detail = stripHtmlComments(f.detail).trim()
   if (detail.length > 0) blocks.push(detail)
   const footer: string[] = []
   if (f.externalRef) footer.push(`[Rule docs](${f.externalRef})`)

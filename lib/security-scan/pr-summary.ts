@@ -31,6 +31,17 @@ const MD_LINK_RE = /\[([^\]]*)\]\([^)]*\)/g
 const URL_RE = /\b(?:https?:\/\/|www\.)\S+/gi
 const HTML_COMMENT_RE = /<!--[\s\S]*?(?:-->|$)/g
 
+/**
+ * LUM-988 — drop every HTML comment from model-written text. Lumo keys its
+ * own PR-comment state on hidden `<!-- lumo-security:… -->` markers (the
+ * fingerprint, the verifier's retraction); a finding title or detail that
+ * customer code steered the model into writing must never carry one. An
+ * unterminated `<!--` is dropped to the end, as GitHub would hide it.
+ */
+export function stripHtmlComments(text: string): string {
+  return text.replace(HTML_COMMENT_RE, ' ')
+}
+
 function capChars(text: string, max: number): string {
   if (text.length <= max) return text
   return `${text.slice(0, max - 1).trimEnd()}…`
