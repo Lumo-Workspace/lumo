@@ -11,6 +11,9 @@ import Image from 'next/image'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import { Plus, X } from 'lucide-react'
 
+// Shown before the slug input; workspaces live at https://www.uselumo.ai/workspace/<slug>.
+const WORKSPACE_URL_PREFIX = 'uselumo.ai/workspace/'
+
 function WorkspaceStep({
   onCreated,
 }: {
@@ -105,9 +108,9 @@ function WorkspaceStep({
             <Label htmlFor='ws-url' className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'onboarding.workspace.urlLabel' })}
             </Label>
-            <div className='flex items-center border border-input rounded-md focus-within:ring-2 focus-within:ring-ring overflow-hidden bg-white'>
+            <div className='flex items-center border border-input rounded-md overflow-hidden bg-transparent dark:bg-input/30 shadow-elevation-1 transition-[color,box-shadow] focus-within:border-ring'>
               <span className='px-3 text-sm text-muted-foreground bg-muted border-r border-input h-9 flex items-center shrink-0 select-none'>
-                lumo.app/
+                {WORKSPACE_URL_PREFIX}
               </span>
               <input
                 id='ws-url'
@@ -119,7 +122,7 @@ function WorkspaceStep({
                 })}
                 disabled={isSubmitting}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                className='flex-1 h-9 px-3 text-sm outline-none bg-transparent'
+                className='flex-1 min-w-0 h-9 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none bg-transparent'
               />
             </div>
           </div>
