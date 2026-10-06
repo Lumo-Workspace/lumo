@@ -2,6 +2,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { basename, extname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { apiContext, apiCall } from '../lib/test-case-api'
+import { resolveSessionId } from '../lib/session-id'
 import { printStatusDigest } from '../lib/status-digest'
 import {
   splitCaseHandle,
@@ -199,11 +200,18 @@ export async function taskTestCaseRun(
     for (const f of up.data.files) evidence.push({ type: 'file', ...f })
   }
 
+  // LUM-1008: 带上来源 session——run 记下的成员是 token 主人，「人手动」还是
+  // 「agent 代跑」只能靠它分。不在 Claude Code 里跑时为空，照常不带。
+  const headers: Record<string, string> = {}
+  const sessionId = await resolveSessionId({ write: true })
+  if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
+
   const r = await apiCall<RunResponse>(
     ctx,
     `${base}/runs`,
     {
       method: 'POST',
+      headers,
       json: {
         result,
         environment: env,
