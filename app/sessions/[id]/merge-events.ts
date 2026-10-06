@@ -4,6 +4,13 @@
  * A "tool call" is the Pre+Post pair sharing a tool_use_id. STOP events and
  * orphans (Pre without Post, or Post without Pre) each get their own item.
  *
+ * A PostToolBatch event (LUM-937) is never an item of its own: Claude Code
+ * fires it once per assistant message, after every call in it resolved, with
+ * `tool_calls[] = { tool_name, tool_input, tool_use_id, tool_response }`, and
+ * each of those calls has already fired its own Pre/PostToolUse. The batch
+ * only fills gaps — a call whose Post never arrived gets the batch's result,
+ * a call with no Pre/Post at all becomes a row built from the batch entry.
+ *
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
@@ -44,6 +51,7 @@ export type HookEventType =
   | 'POST_TOOL_USE'
   | 'STOP'
   | 'USER_PROMPT_SUBMIT'
+  | 'POST_TOOL_BATCH'
 
 export interface RawEvent {
   id: string
@@ -122,13 +130,22 @@ export interface TimelineItem {
 export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   const items: TimelineItem[] = []
   const preByToolUseId = new Map<string, RawEvent>()
+  const itemByToolUseId = new Map<string, TimelineItem>()
+  const batches: RawEvent[] = []
 
   for (const ev of events) {
     // LUM-859: a pruned payload has no tool_use_id / prompt / message to read.
     // One row per cleared call — the Post carries it, so a cleared Pre is
-    // skipped rather than left dangling as "pending".
+    // skipped rather than left dangling as "pending", and so is a cleared
+    // batch, whose calls are the Pre/Post rows' own (LUM-937).
     if (isPrunedPayload(ev.payload)) {
-      if (ev.type !== 'PRE_TOOL_USE') items.push(prunedItem(ev))
+      if (ev.type !== 'PRE_TOOL_USE' && ev.type !== 'POST_TOOL_BATCH')
+        items.push(prunedItem(ev))
+      continue
+    }
+
+    if (ev.type === 'POST_TOOL_BATCH') {
+      batches.push(ev)
       continue
     }
 
@@ -155,16 +172,30 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
     // POST_TOOL_USE
     const pre = toolUseId ? preByToolUseId.get(toolUseId) : undefined
     if (pre && toolUseId) preByToolUseId.delete(toolUseId)
-    items.push(toolItem(pre ?? null, ev))
+    const item = toolItem(pre ?? null, ev)
+    items.push(item)
+    if (toolUseId) itemByToolUseId.set(toolUseId, item)
   }
 
   // Orphan Pre events (no matching Post) — render as pending.
-  for (const pre of preByToolUseId.values()) {
-    items.push(toolItem(pre, null))
+  for (const [toolUseId, pre] of preByToolUseId) {
+    const item = toolItem(pre, null)
+    items.push(item)
+    itemByToolUseId.set(toolUseId, item)
+  }
+
+  // After pairing: a batch can be stored before its own Pre/Post rows.
+  for (const batch of batches) {
+    items.push(...applyBatch(batch, itemByToolUseId))
   }
 
   items.sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
   return items
+}
+
+/** Tool calls in the timeline: finished and pending tool rows. */
+export function countToolCalls(items: TimelineItem[]): number {
+  return items.filter(i => i.kind === 'tool' || i.kind === 'orphan').length
 }
 
 // ─── Item builders ──────────────────────────────────────────────────────────
@@ -289,6 +320,120 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
     startAt: anchor.createdAt,
     endAt: post?.createdAt ?? null,
     details,
+  }
+}
+
+// ─── PostToolBatch (LUM-937) ────────────────────────────────────────────────
+
+/**
+ * Fold one PostToolBatch into the timeline. A call already shown with its Post
+ * gains nothing (the Post carries the same input, a richer response and its
+ * own redaction sizes). A pending row gains the batch's result. A call with no
+ * row at all is returned as a new row — it is registered in `itemByToolUseId`,
+ * so a later batch repeating it adds nothing.
+ */
+function applyBatch(
+  batch: RawEvent,
+  itemByToolUseId: Map<string, TimelineItem>
+): TimelineItem[] {
+  const calls = getAny(batch.payload, 'tool_calls')
+  if (!Array.isArray(calls)) return []
+  const added: TimelineItem[] = []
+  calls.forEach((call, index) => {
+    const toolUseId = getString(call, 'tool_use_id')
+    if (!toolUseId) return
+    const prefix = `tool_calls.${index}`
+    const existing = itemByToolUseId.get(toolUseId)
+    if (existing) {
+      if (existing.kind === 'orphan')
+        existing.details.push(...batchResultBlocks(batch, call, prefix))
+      return
+    }
+    const item = batchCallItem(batch, call, toolUseId, prefix)
+    itemByToolUseId.set(toolUseId, item)
+    added.push(item)
+  })
+  return added
+}
+
+/** A row for a call only the batch recorded, read from `tool_calls.N`. */
+function batchCallItem(
+  batch: RawEvent,
+  call: unknown,
+  toolUseId: string,
+  prefix: string
+): TimelineItem {
+  const toolName = getString(call, 'tool_name')
+  const input = getRecord(call, 'tool_input')
+  // The batch's tool_response is the model-facing tool_result, not the
+  // structured response the per-tool formatters read: they get the input and
+  // its sizes only, and the result is appended once below.
+  const { summary, summaryMsg, badge, status, details } = formatTool(
+    toolName,
+    input,
+    null,
+    true,
+    batchInputLookup(batch.payload, prefix)
+  )
+  return {
+    key: `tool:${toolUseId}`,
+    kind: 'tool',
+    toolName,
+    summary,
+    pruned: false,
+    deleted: false,
+    summaryMsg: summaryMsg ?? null,
+    badge,
+    status,
+    startAt: batch.createdAt,
+    endAt: batch.createdAt,
+    details: [...details, ...batchResultBlocks(batch, call, prefix)],
+  }
+}
+
+/** The batch's recorded result for one call: its text, or the size of what
+ *  was not retained under `tool_calls.N.tool_response`. */
+function batchResultBlocks(
+  batch: RawEvent,
+  call: unknown,
+  prefix: string
+): DetailBlock[] {
+  const blocks: DetailBlock[] = []
+  const response = getAny(call, 'tool_response')
+  if (typeof response === 'string') {
+    if (response.trim())
+      blocks.push(clipBlock('response', 'text', response, 40))
+  } else if (response !== undefined && response !== null) {
+    blocks.push({
+      labelKey: 'response',
+      variant: 'json',
+      text: stringifyJson(response),
+    })
+  }
+  pushBlock(
+    blocks,
+    redactedBlock(
+      'response',
+      sumRedactedStats(batch.payload, `${prefix}.tool_response`)
+    )
+  )
+  return blocks
+}
+
+/** Redaction lookup over one batch entry's tool_input. Response paths read
+ *  as unredacted — {@link batchResultBlocks} reports the response once. */
+function batchInputLookup(payload: unknown, prefix: string): RedactionLookup {
+  const isInput = (path: string) =>
+    path === 'tool_input' || path.startsWith('tool_input.')
+  return {
+    stats: path =>
+      isInput(path) ? readRedactedStats(payload, `${prefix}.${path}`) : null,
+    patch: path =>
+      isInput(path) ? readRedactedPatch(payload, `${prefix}.${path}`) : null,
+    sum: prefixPath =>
+      isInput(prefixPath)
+        ? sumRedactedStats(payload, `${prefix}.${prefixPath}`)
+        : null,
   }
 }
 

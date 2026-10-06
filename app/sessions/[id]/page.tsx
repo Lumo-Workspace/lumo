@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect, notFound } from 'next/navigation'
 import { sessionDetailService } from '@/lib/services/session-detail.service'
-import { mergeEvents, type RawEvent } from './merge-events'
+import { countToolCalls, mergeEvents, type RawEvent } from './merge-events'
 import { SessionHeader } from './SessionHeader'
 import { SessionAttribution } from './SessionAttribution'
 import { SummaryCard } from './SummaryCard'
@@ -41,9 +41,7 @@ export default async function SessionDetailPage({
   const durationMs = activeDurationMs(rawEvents)
   const durationMin = Math.round(durationMs / 60000)
 
-  const toolCallCount = items.filter(
-    i => i.kind === 'tool' || i.kind === 'orphan'
-  ).length
+  const toolCallCount = countToolCalls(items)
   const errorCount = items.filter(i => i.status === 'error').length
 
   return (
