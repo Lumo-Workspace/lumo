@@ -62,6 +62,8 @@ export type ProdPackage = {
   license: string | null
   /** Where `license` came from; LICENSE-file sniffing is the last resort. */
   licenseSource: 'lockfile' | 'package.json' | 'LICENSE file' | null
+  /** Problems hit while reading this package (bad package.json, unrecognised LICENSE). */
+  notes?: string[]
   /** True when only reachable through optionalDependencies (e.g. per-platform binaries). */
   optionalOnly: boolean
   platform: string | null
@@ -92,41 +94,79 @@ const WEAK_COPYLEFT = /^(MPL-|LGPL-|EPL-|CDDL-)/
 const STRONG_COPYLEFT = /^(GPL-|AGPL-|SSPL|EUPL-|OSL-)/
 
 /**
- * Items reviewed by hand and accepted, keyed by package name. Keep each reason
- * short and factual; the audit fails on anything non-permissive not listed here.
+ * Items reviewed by hand and accepted. Each entry pins the license expression
+ * that was reviewed (and optionally a version): if the package later ships
+ * under a different license, the exception no longer matches and the audit
+ * reports it again. `name` matches exactly; `prefix` covers sibling platform
+ * binaries. Keep each reason short and factual.
  */
-export const ACCEPTED_EXCEPTIONS: Record<string, string> = {
-  dompurify:
-    'Dual-licensed MPL-2.0 OR Apache-2.0; we take Apache-2.0 (permissive).',
-  'caniuse-lite':
-    'Browser-support DATA (CC-BY-4.0, attribution) consumed at build time by autoprefixer/browserslist; not linked code. Ubiquitous in the npm ecosystem.',
+export type LicenseException = {
+  name?: string
+  prefix?: string
+  /** The exact license expression that was reviewed. */
+  license: string
+  /** Optional: only this version was reviewed. */
+  version?: string
+  reason: string
 }
 
-/** Name-prefix exceptions (platform binaries ship as many sibling packages). */
-export const ACCEPTED_EXCEPTION_PREFIXES: Array<{
-  prefix: string
-  reason: string
-}> = [
+export const ACCEPTED_EXCEPTIONS: LicenseException[] = [
+  {
+    name: 'dompurify',
+    license: '(MPL-2.0 OR Apache-2.0)',
+    reason:
+      'Dual-licensed MPL-2.0 OR Apache-2.0; we take Apache-2.0 (permissive).',
+  },
+  {
+    name: 'caniuse-lite',
+    license: 'CC-BY-4.0',
+    reason:
+      'Browser-support DATA (CC-BY-4.0, attribution) consumed at build time by autoprefixer/browserslist; not linked code. Ubiquitous in the npm ecosystem.',
+  },
   {
     prefix: '@img/sharp-libvips-',
+    license: 'LGPL-3.0-or-later',
     reason:
       'Prebuilt libvips shared library loaded by sharp (Next.js image optimizer, optional). LGPL-3.0 permits dynamic linking; unmodified binary, source at github.com/lovell/sharp-libvips.',
   },
   {
-    prefix: '@img/sharp-wasm32',
+    name: '@img/sharp-wasm32',
+    license: 'Apache-2.0 AND LGPL-3.0-or-later AND MIT',
     reason:
-      'WASM build of sharp+libvips (Apache-2.0 AND LGPL-3.0-or-later); same reasoning as @img/sharp-libvips-*.',
+      'WASM build of sharp+libvips; same reasoning as @img/sharp-libvips-*.',
   },
   {
     prefix: '@img/sharp-win32-',
+    license: 'Apache-2.0 AND LGPL-3.0-or-later',
     reason:
-      'Windows sharp build bundling libvips (Apache-2.0 AND LGPL-3.0-or-later); same reasoning as @img/sharp-libvips-*.',
+      'Windows sharp build bundling libvips; same reasoning as @img/sharp-libvips-*.',
   },
 ]
 
-export function exceptionReason(name: string): string | null {
-  if (ACCEPTED_EXCEPTIONS[name]) return ACCEPTED_EXCEPTIONS[name]
-  const hit = ACCEPTED_EXCEPTION_PREFIXES.find(e => name.startsWith(e.prefix))
+/** Compare license expressions ignoring outer parentheses, case and spacing. */
+function normaliseExpr(expr: string): string {
+  let e = expr.trim().replace(/\s+/g, ' ').toUpperCase()
+  while (e.startsWith('(') && e.endsWith(')')) e = e.slice(1, -1).trim()
+  return e
+}
+
+/**
+ * The reviewed reason for `name@version` under `license`, or null when no
+ * exception covers that exact combination (a changed license is NOT covered).
+ */
+export function exceptionReason(
+  name: string,
+  license: string | null,
+  version?: string,
+  exceptions: LicenseException[] = ACCEPTED_EXCEPTIONS
+): string | null {
+  if (!license) return null
+  const hit = exceptions.find(
+    e =>
+      (e.name ? e.name === name : !!e.prefix && name.startsWith(e.prefix)) &&
+      normaliseExpr(e.license) === normaliseExpr(license) &&
+      (e.version === undefined || e.version === version)
+  )
   return hit ? hit.reason : null
 }
 
@@ -215,19 +255,31 @@ export function licenseOf(
   return null
 }
 
+/** How many non-empty lines at the top of a LICENSE file count as its title. */
+const LICENSE_HEADER_LINES = 3
+
 /**
- * Identify a license from the text of a LICENSE file. Used only when neither
- * the lockfile nor package.json declares one; recognises the common headers.
+ * Identify a license from the TITLE of a LICENSE file (its first few non-empty
+ * lines). Used only when neither the lockfile nor package.json declares one.
+ * Body text is never matched — boilerplate deep in a file (an embedded MIT
+ * notice for a vendored file, say) must not decide the package's license.
+ * Returns null when the title is not recognised; the caller reports that as
+ * unknown for manual review instead of guessing.
  */
 export function sniffLicenseText(text: string): string | null {
-  const head = text.slice(0, 600)
-  if (/Apache License[\s\S]*Version 2\.0/i.test(head)) return 'Apache-2.0'
+  const header = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
+    .slice(0, LICENSE_HEADER_LINES)
+  const title = header[0] ?? ''
   if (
-    /\bMIT License\b/i.test(head) ||
-    /Permission is hereby granted, free of charge/i.test(text)
+    /^Apache License\b/i.test(title) &&
+    header.some(l => /^Version 2\.0\b/i.test(l))
   )
-    return 'MIT'
-  if (/\bISC License\b/i.test(head)) return 'ISC'
+    return 'Apache-2.0'
+  if (/^(The )?MIT License\b/i.test(title)) return 'MIT'
+  if (/^ISC License\b/i.test(title)) return 'ISC'
   return null
 }
 
@@ -345,10 +397,34 @@ export function collectProdPackages(lock: Lockfile): Closure {
 
 export type Drift = { path: string; issue: string }
 
+/** An installed package.json, or a marker that it exists but could not be parsed. */
+export type InstalledPackageJson = LockEntry & { parseError?: string }
+
+/**
+ * Read `<root>/<path>/package.json`. Missing → null. Malformed JSON (or an
+ * unreadable file) → `{ parseError }` so one broken package is reported as an
+ * error entry instead of crashing the whole audit.
+ */
+export function readInstalledPackageJson(
+  root: string,
+  path: string
+): InstalledPackageJson | null {
+  const file = join(root, path, 'package.json')
+  if (!existsSync(file)) return null
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+      return { parseError: 'package.json is not a JSON object' }
+    return parsed as LockEntry
+  } catch (err) {
+    return { parseError: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /** Compare the lockfile view with what is actually installed in node_modules. */
 export function checkInstalled(
   packages: ProdPackage[],
-  readPackageJson: (path: string) => LockEntry | null
+  readPackageJson: (path: string) => InstalledPackageJson | null
 ): { drift: Drift[]; notInstalled: number } {
   const drift: Drift[] = []
   let notInstalled = 0
@@ -356,6 +432,13 @@ export function checkInstalled(
     const installed = readPackageJson(p.path)
     if (!installed) {
       notInstalled++
+      continue
+    }
+    if (installed.parseError) {
+      drift.push({
+        path: p.path,
+        issue: `error: unreadable package.json (${installed.parseError})`,
+      })
       continue
     }
     if (installed.version?.replace(/^v/, '') !== p.version.replace(/^v/, '')) {
@@ -386,7 +469,10 @@ export type Finding = ProdPackage & {
   accepted: string | null
 }
 
-export function findings(packages: ProdPackage[]): Finding[] {
+export function findings(
+  packages: ProdPackage[],
+  exceptions: LicenseException[] = ACCEPTED_EXCEPTIONS
+): Finding[] {
   const unique = new Map<string, ProdPackage>()
   for (const p of packages)
     if (!unique.has(`${p.name}@${p.version}`))
@@ -397,7 +483,10 @@ export function findings(packages: ProdPackage[]): Finding[] {
       return {
         ...p,
         category,
-        accepted: category === 'permissive' ? null : exceptionReason(p.name),
+        accepted:
+          category === 'permissive'
+            ? null
+            : exceptionReason(p.name, p.license, p.version, exceptions),
       }
     })
     .filter(
@@ -466,6 +555,12 @@ export function renderMarkdown(
     for (const p of sniffed)
       lines.push(`- ${p.name}@${p.version}: ${p.license}`)
   }
+  const noted = packages.filter(p => p.notes?.length)
+  if (noted.length) {
+    lines.push('', 'Needs manual review:')
+    for (const p of noted)
+      for (const n of p.notes!) lines.push(`- ${p.name}@${p.version}: ${n}`)
+  }
   if (unresolved.length) {
     lines.push(
       '',
@@ -483,10 +578,13 @@ export function renderMarkdown(
   return lines.join('\n') + '\n'
 }
 
-export function hasBlockers(closure: Closure): boolean {
+export function hasBlockers(
+  closure: Closure,
+  exceptions: LicenseException[] = ACCEPTED_EXCEPTIONS
+): boolean {
   return (
     closure.unresolved.length > 0 ||
-    findings(closure.packages).some(
+    findings(closure.packages, exceptions).some(
       f => f.category !== 'permissive' && !f.accepted
     )
   )
@@ -506,13 +604,18 @@ const LICENSE_FILE_NAMES = [
  */
 export function fillMissingLicenses(
   packages: ProdPackage[],
-  readPackageJson: (path: string) => LockEntry | null,
+  readPackageJson: (path: string) => InstalledPackageJson | null,
   readLicenseFile: (path: string) => string | null
 ): ProdPackage[] {
   for (const p of packages) {
     if (p.license) continue
     const fromPkg = readPackageJson(p.path)
-    const declared = fromPkg ? licenseOf(fromPkg) : null
+    if (fromPkg?.parseError) {
+      ;(p.notes ??= []).push(
+        `error: unreadable package.json (${fromPkg.parseError})`
+      )
+    }
+    const declared = fromPkg && !fromPkg.parseError ? licenseOf(fromPkg) : null
     if (declared) {
       p.license = declared
       p.licenseSource = 'package.json'
@@ -523,6 +626,10 @@ export function fillMissingLicenses(
     if (sniffed) {
       p.license = sniffed
       p.licenseSource = 'LICENSE file'
+    } else if (text) {
+      ;(p.notes ??= []).push(
+        'unknown: LICENSE file title not recognised — review manually'
+      )
     }
   }
   return packages
@@ -533,18 +640,17 @@ function run(argv: string[], root: string): number {
     readFileSync(join(root, 'package-lock.json'), 'utf8')
   ) as Lockfile
   const closure = collectProdPackages(lock)
-  // Fill licenses the lockfile omitted from the installed package.json.
-  const readPkg = (path: string): LockEntry | null => {
-    const file = join(root, path, 'package.json')
-    return existsSync(file)
-      ? (JSON.parse(readFileSync(file, 'utf8')) as LockEntry)
-      : null
-  }
+  const readPkg = (path: string) => readInstalledPackageJson(root, path)
   fillMissingLicenses(closure.packages, readPkg, path => {
     const file = LICENSE_FILE_NAMES.map(f => join(root, path, f)).find(f =>
       existsSync(f)
     )
-    return file ? readFileSync(file, 'utf8') : null
+    if (!file) return null
+    try {
+      return readFileSync(file, 'utf8')
+    } catch {
+      return null
+    }
   })
 
   if (argv.includes('--json')) {
