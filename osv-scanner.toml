@@ -40,3 +40,28 @@ so the fix needs a major-version override inside a Tailwind plugin. The other co
 untrusted selectors in a request path is exposed; build-time use on trusted sources is not. \
 @tailwindcss/typography is loaded only by Tailwind at build time (@plugin in \
 app/globals.css) on Lumo's own CSS; no Lumo runtime code imports it."""
+
+[[IgnoredVulns]]
+id = "GHSA-238p-pmpm-9mq7" # alias CVE-2026-103923, katex
+ignoreUntil = 2027-01-05
+reason = """
+Fixed only in 0.18.2; no 0.16.x fix. katex 0.16.47 comes only via mermaid (^0.16.47, still \
+the range in mermaid 12.1.0, the latest release). Taking the fix needs an override outside \
+mermaid's declared range across two breaking katex releases (0.17.0 internal API; 0.18.0 \
+prefixes katex's CSS classes, and mermaid 11.17.2 styles `.node .katex path`). The advisory \
+needs Object.prototype to be polluted already. Checked in mermaid 11.17.2 \
+(dist/chunks/mermaid.core, renderKatexUnsanitized): katex is called only for $$...$$ labels, \
+with a fresh object literal {throwOnError, displayMode, output}, and the result goes through \
+mermaid's sanitizeText. Lumo renders diagrams client-side with securityLevel 'strict' \
+(lib/editor/mermaid-render.ts) and does not import katex itself. \
+Re-check when mermaid moves to katex >= 0.18.2."""
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c" # alias CVE-2026-97058, sprintf-js
+ignoreUntil = 2027-01-05
+reason = """
+No patched version as of 2026-10-05 (every version through 1.1.3, the latest, is affected; \
+https://github.com/alexei/sprintf.js/issues/237 open). Dev-only (package-lock.json marks it "dev": true; its only parent chain is): sprintf-js 1.0.3 <- argparse 1.0.10 \
+<- js-yaml 3 <- @istanbuljs/load-nyc-config <- babel-plugin-istanbul <- @jest/transform <- jest. \
+It formats argparse's own fixed strings during test runs; no attacker-controlled format string \
+and not in the production runtime."""
