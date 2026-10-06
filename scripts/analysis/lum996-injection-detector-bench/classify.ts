@@ -45,6 +45,7 @@ const CJK = /[\u4e00-\u9fff\u3400-\u4dbf]/gu
 /** Hiragana / katakana: kanji-bearing Japanese is not Chinese. */
 const KANA = /[\u3040-\u30ff]/u
 const LATIN = /[A-Za-z\u00c0-\u024f]/gu
+const ANY_LETTER = /\p{L}/gu
 const GERMAN_CHARS = /[äöüßÄÖÜ]/u
 const DE_WORDS = new Set(
   'und der die das ich nicht ist sie du mit für auf ein eine wie was bitte vergiss alle deine dich mir zu den dem von sind wir ihr bin hast kannst jetzt nun neue aufgabe anweisungen'.split(
@@ -58,17 +59,19 @@ const EN_WORDS = new Set(
 )
 
 /**
- * `other` when the text carries kana (Japanese), `zh` when CJK characters
- * make up ≥ 30% of letters, else `de` when German
- * stop words outnumber English ones (or umlauts appear with any German stop
- * word), else `en` when the text has Latin letters, else `other`.
+ * `other` when the text carries kana (Japanese); `zh` when CJK characters
+ * make up ≥ 30% of ALL letters (any script, so Cyrillic with one CJK
+ * character is not Chinese); `other` when Latin letters are under half of
+ * the letters; else `de` when German stop words outnumber English ones (or
+ * umlauts appear with any German stop word); else `en`.
  */
 export function detectLang(text: string): Lang {
   const cjk = text.match(CJK)?.length ?? 0
   const latin = text.match(LATIN)?.length ?? 0
+  const letters = text.match(ANY_LETTER)?.length ?? 0
   if (KANA.test(text)) return 'other'
-  if (cjk > 0 && cjk / (cjk + latin) >= 0.3) return 'zh'
-  if (latin === 0) return 'other'
+  if (cjk > 0 && cjk / letters >= 0.3) return 'zh'
+  if (latin === 0 || latin / letters < 0.5) return 'other'
   const words = text.toLowerCase().match(/[a-zäöüß]+/gu) ?? []
   let de = 0
   let en = 0

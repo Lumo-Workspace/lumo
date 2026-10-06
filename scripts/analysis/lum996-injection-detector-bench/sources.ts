@@ -168,23 +168,34 @@ interface RowsPage {
   num_rows_total: number
 }
 
-async function hfRevision(opts: FetchOptions, repo: string): Promise<string> {
-  return cached(opts, `hf-revision__${repo}`, async () => {
-    const res = await fetchWithRetry(`${HF_API}/${repo}`)
-    const j = (await res.json()) as { sha?: string }
-    if (!j.sha) throw new Error(`no sha in HF API response for ${repo}`)
-    return j.sha
-  })
+/** The live HEAD revision of an HF dataset (never cached). */
+async function liveHfRevision(repo: string): Promise<string> {
+  const res = await fetchWithRetry(`${HF_API}/${repo}`)
+  const j = (await res.json()) as { sha?: string }
+  if (!j.sha) throw new Error(`no sha in HF API response for ${repo}`)
+  return j.sha
 }
 
-/** Every row of one HF split, via the datasets-server. Fails on truncation. */
+export interface HfSplitRows {
+  /** The revision the rows were read at, checked before AND after paging. */
+  revision: string
+  rows: Record<string, unknown>[]
+}
+
+/**
+ * Every row of one HF split, via the datasets-server, cached together with
+ * the revision it was read at — so a cached split always reports the revision
+ * of its own rows, and the drift check compares the data actually scored.
+ * Fails on truncation, or when the dataset moved while it was being paged.
+ */
 async function hfSplit(
   opts: FetchOptions,
   repo: string,
   split: string
-): Promise<Record<string, unknown>[]> {
-  return cached(opts, `hf__${repo}__${split}`, async () => {
-    const out: Record<string, unknown>[] = []
+): Promise<HfSplitRows> {
+  return cached(opts, `hf-split__${repo}__${split}`, async () => {
+    const before = await liveHfRevision(repo)
+    const rows: Record<string, unknown>[] = []
     let total = Infinity
     for (let offset = 0; offset < total; offset += PAGE_SIZE) {
       const res = await fetchWithRetry(rowsUrl(repo, split, offset))
@@ -193,14 +204,43 @@ async function hfSplit(
       for (const r of page.rows) {
         if (r.truncated_cells && r.truncated_cells.length > 0)
           throw new Error(`${repo}/${split}: truncated cell at ${offset}`)
-        out.push(r.row)
+        rows.push(r.row)
       }
       if (page.rows.length === 0) break
       // Be polite to the datasets-server: it rate-limits bursts (HTTP 429).
       await new Promise(r => setTimeout(r, PAGE_DELAY_MS))
     }
-    return out
+    const after = await liveHfRevision(repo)
+    if (before !== after)
+      throw new Error(
+        `${repo}/${split}: revision moved from ${before} to ${after} while paging; re-run`
+      )
+    return { revision: before, rows }
   })
+}
+
+/**
+ * The one revision a dataset's splits were read at, and a drift note when it
+ * is not the pinned one. Splits read at different revisions are an error.
+ */
+export function resolveRevision(
+  repo: string,
+  pinned: string,
+  revisions: string[]
+): { revision: string; drift: string | null } {
+  const distinct = [...new Set(revisions)]
+  if (distinct.length !== 1)
+    throw new Error(
+      `${repo}: splits were read at different revisions (${distinct.join(', ')}); clear the cache and re-run`
+    )
+  const revision = distinct[0]!
+  return {
+    revision,
+    drift:
+      revision === pinned
+        ? null
+        : `${repo}: pinned ${pinned}, cached/fetched ${revision}`,
+  }
 }
 
 async function githubText(
@@ -311,24 +351,31 @@ export async function loadPublicCorpus(
   const drift: string[] = []
   const datasets: DatasetInfo[] = []
 
-  const hfRev = async (repo: string, pinned: string): Promise<string> => {
-    const rev = await hfRevision(opts, repo)
-    if (rev !== pinned) drift.push(`${repo}: pinned ${pinned}, live ${rev}`)
-    return rev
+  /** Read every split of an HF dataset; record drift from the pinned sha. */
+  const hfDataset = async (p: {
+    repo: string
+    sha: string
+    splits: readonly string[]
+  }): Promise<{ revision: string; splits: Array<[string, HfSplitRows]> }> => {
+    const splits: Array<[string, HfSplitRows]> = []
+    for (const split of p.splits)
+      splits.push([split, await hfSplit(opts, p.repo, split)])
+    const r = resolveRevision(
+      p.repo,
+      p.sha,
+      splits.map(([, x]) => x.revision)
+    )
+    if (r.drift) drift.push(r.drift)
+    return { revision: r.revision, splits }
   }
 
   // deepset/prompt-injections — Apache-2.0, EN + DE, attacks and benign.
   {
     const p = PINNED.deepset
-    const rev = await hfRev(p.repo, p.sha)
-    for (const split of p.splits)
+    const { revision: rev, splits } = await hfDataset(p)
+    for (const [split, { rows }] of splits)
       samples.push(
-        ...parseLabelledRows(
-          await hfSplit(opts, p.repo, split),
-          split,
-          'deepset-attacks',
-          'deepset-benign'
-        )
+        ...parseLabelledRows(rows, split, 'deepset-attacks', 'deepset-benign')
       )
     const base = {
       licence: 'Apache-2.0',
@@ -355,9 +402,8 @@ export async function loadPublicCorpus(
   // Lakera Gandalf "ignore instructions" — MIT, EN, attacks only.
   {
     const p = PINNED.gandalf
-    const rev = await hfRev(p.repo, p.sha)
-    for (const split of p.splits) {
-      const rows = await hfSplit(opts, p.repo, split)
+    const { revision: rev, splits } = await hfDataset(p)
+    for (const [split, { rows }] of splits) {
       rows.forEach((row, i) => {
         if (typeof row.text !== 'string')
           throw new Error(`${p.repo} ${split}:${i}: text is not a string`)
@@ -384,10 +430,10 @@ export async function loadPublicCorpus(
   // are translations of deepset and would double-count it).
   {
     const p = PINNED.multilingual
-    const rev = await hfRev(p.repo, p.sha)
-    for (const split of p.splits) {
+    const { revision: rev, splits } = await hfDataset(p)
+    for (const [split, { rows }] of splits) {
       const parsed = parseLabelledRows(
-        await hfSplit(opts, p.repo, split),
+        rows,
         split,
         'multilingual-zh-attacks',
         'multilingual-zh-benign'

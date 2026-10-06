@@ -54,7 +54,15 @@ export function stableOrder<T extends { text: string; ref: string }>(
   return [...xs]
     .map(x => ({ x, h: sha256(x.text) }))
     .sort((a, b) =>
-      a.h < b.h ? -1 : a.h > b.h ? 1 : a.x.ref < b.x.ref ? -1 : 1
+      a.h !== b.h
+        ? a.h < b.h
+          ? -1
+          : 1
+        : a.x.ref === b.x.ref
+          ? 0
+          : a.x.ref < b.x.ref
+            ? -1
+            : 1
     )
     .map(({ x }) => x)
 }
