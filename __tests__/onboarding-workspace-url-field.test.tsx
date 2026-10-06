@@ -34,7 +34,8 @@ describe('onboarding workspace URL field', () => {
       expect.arrayContaining([
         'bg-transparent',
         'dark:bg-input/30',
-        'focus-within:border-ring',
+        'focus-within:ring-2',
+        'focus-within:ring-ring',
       ])
     )
   })

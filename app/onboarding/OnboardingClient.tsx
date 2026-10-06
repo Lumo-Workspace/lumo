@@ -108,7 +108,7 @@ function WorkspaceStep({
             <Label htmlFor='ws-url' className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'onboarding.workspace.urlLabel' })}
             </Label>
-            <div className='flex items-center border border-input rounded-md overflow-hidden bg-transparent dark:bg-input/30 shadow-elevation-1 transition-[color,box-shadow] focus-within:border-ring'>
+            <div className='flex items-center border border-input rounded-md overflow-hidden bg-transparent dark:bg-input/30 shadow-elevation-1 transition-[color,box-shadow] focus-within:ring-2 focus-within:ring-ring'>
               <span className='px-3 text-sm text-muted-foreground bg-muted border-r border-input h-9 flex items-center shrink-0 select-none'>
                 {WORKSPACE_URL_PREFIX}
               </span>
