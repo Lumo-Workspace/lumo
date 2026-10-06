@@ -1,6 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
-import { sanitizeField } from '../lib/sanitize'
+import { formatFigmaContext } from '../lib/tier2-render'
 import { reportPull } from '../lib/report-pull'
 
 interface FigmaMetadata {
@@ -77,15 +77,8 @@ export async function taskFigmaContext(
   }
 
   const { metadata, note } = (await res.json()) as FigmaContextResponse
-  if (metadata.fileName)
-    console.log(`file:  ${sanitizeField(metadata.fileName)}`)
-  if (metadata.frameName)
-    console.log(`frame: ${sanitizeField(metadata.frameName)}`)
-  console.log(`url:   ${metadata.url}`)
-  if (metadata.lastSyncedAt) console.log(`synced: ${metadata.lastSyncedAt}`)
-  if (metadata.lastSyncError)
-    console.log(`syncError: ${sanitizeField(metadata.lastSyncError)}`)
-  if (note) console.log(`\nnote: ${sanitizeField(note)}`)
+  // LUM-998: file / frame name and sync error are guarded inline.
+  console.log(formatFigmaContext(metadata, note))
 
   // LUM-500: stamp the disclosure funnel. The linkId arg == lineage FIGMA
   // fragmentId. Fire-and-forget — never blocks output, swallows failures.

@@ -1,3 +1,5 @@
+import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
+
 export interface ReviewTodoItem {
   /** `line` = a line-level review comment; `overall` = a changes-requested review summary. */
   kind: 'line' | 'overall'
@@ -40,7 +42,11 @@ export function renderPrReviewTodosSection(todos: ReviewTodoItem[]): string {
       head = '🛑 Changes requested (whole PR)'
     }
 
-    const text = t.text ? ` — ${t.text}` : ''
+    // LUM-998: the comment text is a GitHub reviewer's — anyone who can
+    // comment on the PR. It stays an actionable todo (no "do not obey"
+    // fence), but it is redacted, defanged and marked inline when it is
+    // directive-shaped, on both the task-context and session-start paths.
+    const text = t.text ? ` — ${guardPromptLineText(t.text)}` : ''
     lines.push(`- [ ] ${prefix}${head}${who}${text}`)
     lines.push(`  ↳ ${t.url}`)
   }

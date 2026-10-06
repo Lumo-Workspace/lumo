@@ -24,7 +24,10 @@
  * the import graph as well as the behaviour.
  */
 import {
+  detectInjectionSignals,
   guardUntrustedContent,
+  neutralizeWrapperEscapes,
+  renderInlineSignalMarker,
   type InjectionSignal,
 } from '@/shared/src/untrusted-content'
 import type {
@@ -116,6 +119,33 @@ export function redactPromptLine(text: string): {
 } {
   const r = redactForInjection(text)
   return { text: r.text, marker: renderInlineRedactionMarker(r) }
+}
+
+/**
+ * LUM-998 — the full single-line chain: redact, defang fence-shaped tags,
+ * then mark a directive-shaped line inline. `marker` is the redaction marker
+ * followed by the signal marker; both are `''` for a clean line, so ordinary
+ * text renders byte-identically. For lines the agent reads as items rather
+ * than inside a fenced block (a previous session's summary, a review todo).
+ */
+export function guardPromptLine(text: string): {
+  text: string
+  marker: string
+} {
+  const redacted = redactPromptLine(text)
+  const neutralized = neutralizeWrapperEscapes(redacted.text)
+  return {
+    text: neutralized,
+    marker: `${redacted.marker}${renderInlineSignalMarker(
+      detectInjectionSignals(neutralized).signals
+    )}`,
+  }
+}
+
+/** `guardPromptLine`, joined: the guarded text with its marker appended. */
+export function guardPromptLineText(text: string): string {
+  const g = guardPromptLine(text)
+  return `${g.text}${g.marker}`
 }
 
 function isSnapshotShape(

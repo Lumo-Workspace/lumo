@@ -158,8 +158,11 @@ import {
   wrapUntrustedLinked,
   wrapUntrustedLinkedGroup,
   wrapUntrustedMemory,
+  wrapUntrustedTaskDescription,
   type RenderableMemory,
 } from '@/lib/memory/render'
+import { renderPrReviewTodosSection } from '@/lib/context/render/pr-review-todos'
+import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
 import { stewardContextService } from '@/lib/services/steward-context.service'
 import {
   findingStatement,
@@ -788,4 +791,46 @@ describe('⑪ PR security scan — the LLM judge never sees the raw diff value',
     expect(persisted).toHaveLength(CORPUS.length)
     for (const f of persisted) expectNoRawValue(JSON.stringify(f))
   })
+})
+
+describe('⑫ LUM-998 — task description, session summaries, review todos', () => {
+  it('wrapUntrustedTaskDescription: the whole corpus, notice at the head', () => {
+    const out = wrapUntrustedTaskDescription(`## Context\n${ALL_LINES}`)
+    expectNoRawValue(out)
+    expectAllRedactionTokens(out)
+    expect(noticeCount(out)).toBe(CORPUS.length)
+    const lines = out.split('\n')
+    expect(lines[0]).toBe('<untrusted-task-description>')
+    expect(lines[1]).toMatch(NOTICE)
+    expect(out.trimEnd().endsWith('</untrusted-task-description>')).toBe(true)
+  })
+
+  it.each(CORPUS)(
+    '$id — a session summary line is masked with an inline marker',
+    ({ line, value }) => {
+      const out = guardPromptLineText(`Left open: ${line}`)
+      expect(out).not.toContain(value)
+      expect(out).toContain(`…(len ${value.length})`)
+      expect(MARKER.exec(out)![1]).toBe('1')
+    }
+  )
+
+  it.each(CORPUS)(
+    '$id — a PR review todo is masked with an inline marker',
+    ({ line, value }) => {
+      const out = renderPrReviewTodosSection([
+        {
+          kind: 'line',
+          prNumber: 1,
+          filePath: 'lib/a.ts',
+          line: 1,
+          text: `rotate ${line}`,
+          url: 'https://github.com/acme/app/pull/1#r1',
+          author: 'eve',
+        },
+      ])
+      expect(out).not.toContain(value)
+      expect(MARKER.exec(out)![1]).toBe('1')
+    }
+  )
 })

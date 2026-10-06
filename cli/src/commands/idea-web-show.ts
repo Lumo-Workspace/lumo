@@ -2,7 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
-import { printRedactionNotice } from '../lib/redaction-notice'
+import { formatWebBody } from '../lib/tier2-render'
 
 /**
  * `lumo idea web show <LUM-I1> <link-id>`
@@ -72,13 +72,8 @@ export async function ideaWebShow(
     body: string | null
     redactedSecrets?: number
   }
-  if (!body || body.trim().length === 0) {
-    console.log('(empty body)')
-  } else {
-    console.log(sanitizeField(body))
-  }
-
-  printRedactionNotice(redactedSecrets)
+  // LUM-998: fenced + guarded; the redaction count is the first notice.
+  console.log(formatWebBody(body, redactedSecrets))
 
   // LUM-681: mirrors LUM-500 disclosure-funnel stamping for idea fragments.
   // The linkId arg == lineage WEB_LINK fragmentId. Fire-and-forget — never

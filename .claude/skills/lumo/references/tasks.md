@@ -352,7 +352,7 @@ When to suggest: the user asks "what should I work on", "what's next", "recommen
 
 ### `lumo task show <identifier>` — print one task's detail
 
-Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), due date when set, URL, and the full description below. Lighter than `task context` because it does not load prior session summaries or memory.
+Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), due date when set, URL, and the full description below in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Lighter than `task context` because it does not load prior session summaries or memory.
 
 ```bash
 lumo task show LUM-42

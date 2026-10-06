@@ -1,8 +1,16 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { truncateUnitsToBudget } from '../../../shared/src/output-budget'
+import {
+  OUTPUT_TOKEN_BUDGET,
+  truncateUnitsToBudget,
+} from '../../../shared/src/output-budget'
 import { shortCommentId } from '../lib/comment-ref'
+import {
+  LINKED_FENCE,
+  fenceUntrustedText,
+  linkedRetrievalPreamble,
+} from '../../../shared/src/untrusted-fence'
 
 interface ResolveResponse {
   id: string
@@ -81,16 +89,40 @@ export function formatCommentThread(
 ): string {
   if (comments.length === 0) return '(no comments)'
   const blocks = comments.map(c => renderCommentBlock(c, ''))
-  if (opts.full) return blocks.join('\n\n')
+  if (opts.full) return fenceCommentThread(blocks.join(COMMENT_SEPARATOR))
   const id = opts.identifier ?? '<LUM-N>'
   const fetchCommand = opts.fetchCommand ?? 'task comments list'
-  return truncateUnitsToBudget({
+  const capped = truncateUnitsToBudget({
     units: blocks,
-    maxTokens: opts.maxTokens,
+    // The fence (tags, preamble, up to two notices) is printed on top of the
+    // kept comments, so it is paid for out of the same budget.
+    maxTokens: (opts.maxTokens ?? OUTPUT_TOKEN_BUDGET) - FENCE_RESERVE_TOKENS,
     unitNoun: 'comments',
     fetchHint: `read the whole thread with: lumo ${fetchCommand} ${id} --full`,
-    separator: '\n\n',
-  }).text
+    separator: COMMENT_SEPARATOR,
+  })
+  if (!capped.truncated) return fenceCommentThread(capped.text)
+  // The fetch-more pointer is Lumo's own line: keep it outside the fence.
+  const cut = capped.text.lastIndexOf(COMMENT_SEPARATOR)
+  return `${fenceCommentThread(capped.text.slice(0, cut))}${COMMENT_SEPARATOR}${capped.text.slice(cut + COMMENT_SEPARATOR.length)}`
+}
+
+const COMMENT_SEPARATOR = '\n\n'
+/** Upper bound on what `fenceCommentThread` adds around the body (~1 KB). */
+const FENCE_RESERVE_TOKENS = 250
+
+/**
+ * LUM-998: a comment body is any workspace member's text — the same surface
+ * `task context` already fences as linked context. The thread prints inside
+ * one `<untrusted-linked-context>` block, wrapper tags defanged and
+ * directive-shaped content flagged at the head; nothing is dropped.
+ */
+function fenceCommentThread(text: string): string {
+  return fenceUntrustedText(
+    LINKED_FENCE,
+    linkedRetrievalPreamble('The comment thread'),
+    text
+  )
 }
 
 /**
