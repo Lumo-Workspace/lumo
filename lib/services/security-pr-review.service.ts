@@ -327,8 +327,10 @@ export function buildInlineComment(
   const detail = stripHtmlComments(f.detail).trim()
   if (detail.length > 0) blocks.push(detail)
   const footer: string[] = []
-  const ref = f.externalRef ? stripHtmlComments(f.externalRef).trim() : ''
-  if (ref.length > 0) footer.push(`[Rule docs](${ref})`)
+  // A link carrying an HTML comment is dropped whole: cutting the comment out
+  // would leave a broken URL.
+  if (f.externalRef && f.externalRef === stripHtmlComments(f.externalRef))
+    footer.push(`[Rule docs](${f.externalRef})`)
   if (isBlockingFinding(f, policy)) footer.push('blocks DONE')
   if (footer.length > 0) blocks.push(footer.join(' · '))
   blocks.push(fingerprintMarker(f.fingerprint))
