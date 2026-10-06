@@ -7,7 +7,7 @@
  * Runs inside the /api/internal/pr-security-scan worker (300s), never inline.
  *
  * Secrets never reach a row: scanSecrets redacts before returning, and every
- * free-text field the LLM judge authors goes through redactKnownSecrets.
+ * free-text field the LLM judge authors goes through redactFindingText.
  */
 import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
@@ -48,6 +48,7 @@ import {
   packSecurityDiff,
   judgeDiffTier,
   redactKnownSecrets,
+  redactFindingText,
   redactForInjection,
   judgeFindingFingerprint,
   INCOMPLETE_STAGE_STATES,
@@ -1014,13 +1015,18 @@ export const prSecurityScanService = {
             // line wherever it likes — a title quoting the key, a detail
             // spelling it out, a hallucinated path with a token in it — so
             // redacting one field left the raw secret in the other three.
-            // `redactKnownSecrets` runs every pattern over the text and ends
-            // with `maskQuotedValues`, so it is the whole two-layer pass on
-            // its own. The fingerprint is taken over the REDACTED path/evidence
-            // so it stays reproducible from the persisted row.
+            // `redactFindingText` runs every pattern over the text and ends
+            // with the quoted-span pass; LUM-1013: the free-text variant, so
+            // quoted prose stays readable while credential talk and
+            // credential-shaped quoted values are still masked.
             const filePath = redactKnownSecrets(j.filePath)
-            const title = redactKnownSecrets(j.title)
-            const evidence = redactKnownSecrets(j.evidence)
+            const title = redactFindingText(j.title)
+            const evidence = redactFindingText(j.evidence)
+            // The fingerprint keeps the blanket-masked evidence it has always
+            // been keyed on (still redacted, never raw), so findings from
+            // scans before LUM-1013 keep their key and a human's
+            // FALSE_POSITIVE is still inherited.
+            const fingerprintEvidence = redactKnownSecrets(j.evidence)
             judgeRows.push({
               scanId,
               kind: isCredential
@@ -1034,14 +1040,14 @@ export const prSecurityScanService = {
               filePath,
               line: j.line,
               title,
-              detail: redactKnownSecrets(j.detail),
+              detail: redactFindingText(j.detail),
               evidence,
               // LUM-988: keyed on the quoted line, not the re-worded title;
               // repeats are made positional below.
               fingerprint: judgeFindingFingerprint(
                 ruleId,
                 filePath,
-                evidence,
+                fingerprintEvidence,
                 title
               ),
               externalRef: null,
