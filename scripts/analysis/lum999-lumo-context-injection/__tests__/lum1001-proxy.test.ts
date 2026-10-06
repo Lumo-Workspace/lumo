@@ -87,9 +87,12 @@ function call(
   body = '{"model":"claude-haiku-4-5"}'
 ): Promise<{ status: number; headers: IncomingHttpHeaders; body: string }> {
   return new Promise((resolve, reject) => {
+    // Options form so the raw path reaches the proxy un-normalized.
     const req = request(
-      `${proxy.baseUrl}${path}`,
       {
+        host: '127.0.0.1',
+        port: Number(new URL(proxy.baseUrl).port),
+        path,
         method: 'POST',
         headers: { 'content-type': 'application/json', ...headers },
       },
@@ -165,6 +168,19 @@ describe('(c) loopback gateway proxy', () => {
       authorization: `Bearer ${proxy.dummyToken}`,
     })
     expect(r.status).toBe(404)
+    expect(seen).toHaveLength(0)
+  })
+
+  it('rejects paths that normalization would move outside /v1/', async () => {
+    for (const p of [
+      '/v1/../admin',
+      '/v1/%2e%2e/admin',
+      '/v1/%2E%2E/admin',
+      '/v1/./../admin',
+    ]) {
+      const r = await call(p, { authorization: `Bearer ${proxy.dummyToken}` })
+      expect(r.status).toBe(400)
+    }
     expect(seen).toHaveLength(0)
   })
 

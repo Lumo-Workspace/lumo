@@ -183,6 +183,12 @@ async function main(): Promise<void> {
     '/bin',
   ]
 
+  // Started before the workers are defined; closed once they finish.
+  const proxy = await startGatewayProxy({
+    upstream: GATEWAY_BASE_URL,
+    apiKey: gatewayKey,
+  })
+
   async function worker(): Promise<void> {
     for (;;) {
       if (stopped) return
@@ -245,10 +251,6 @@ async function main(): Promise<void> {
       )
     }
   }
-  const proxy = await startGatewayProxy({
-    upstream: GATEWAY_BASE_URL,
-    apiKey: gatewayKey,
-  })
   try {
     await Promise.all(Array.from({ length: concurrency }, () => worker()))
   } finally {

@@ -20,7 +20,7 @@ import {
 } from 'http'
 import { request as httpsRequest } from 'https'
 import type { AddressInfo } from 'net'
-import { Transform, type TransformCallback } from 'stream'
+import { Transform, pipeline, type TransformCallback } from 'stream'
 
 export interface GatewayProxy {
   /** `http://127.0.0.1:<port>` — the only base URL the agent sees. */
@@ -173,9 +173,21 @@ export async function startGatewayProxy(
       deny(res, 401, 'invalid proxy token')
       return
     }
+    const prefix = upstream.pathname.replace(/\/$/, '')
+    const rawPath = path.split('?')[0] ?? ''
     const target = new URL(upstream.origin)
-    target.pathname = `${upstream.pathname.replace(/\/$/, '')}${path.split('?')[0]}`
+    target.pathname = `${prefix}${rawPath}`
     target.search = path.includes('?') ? path.slice(path.indexOf('?')) : ''
+    // Reject anything URL normalization would rewrite (`/v1/../x`,
+    // `/v1/%2e%2e/x`, backslashes): the key must only reach upstream /v1/*.
+    if (
+      target.pathname !== `${prefix}${rawPath}` ||
+      !target.pathname.startsWith(`${prefix}/v1/`)
+    ) {
+      req.resume()
+      deny(res, 400, 'path not allowed')
+      return
+    }
     const up = send(
       target,
       { method: req.method, headers: upstreamHeaders(req.headers, o.apiKey) },
@@ -184,14 +196,22 @@ export async function startGatewayProxy(
           upRes.statusCode ?? 502,
           downstreamHeaders(upRes.headers, o.apiKey)
         )
-        upRes.pipe(new RedactStream(o.apiKey)).pipe(res)
+        pipeline(upRes, new RedactStream(o.apiKey), res, err => {
+          if (err) res.destroy()
+        })
       }
     )
     up.on('error', () => {
       if (!res.headersSent) deny(res, 502, 'upstream request failed')
       else res.destroy()
     })
-    req.pipe(up)
+    // Client went away before the response finished: drop the upstream call.
+    res.on('close', () => {
+      if (!res.writableFinished) up.destroy()
+    })
+    pipeline(req, up, err => {
+      if (err) up.destroy()
+    })
   })
 
   await new Promise<void>((resolveListen, reject) => {
