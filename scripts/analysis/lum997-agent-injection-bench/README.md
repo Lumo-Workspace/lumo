@@ -157,6 +157,14 @@ Paths that are guarded on `task context` / session-start: Slack, web, Figma, art
 
 ## Limits
 
+- **Budget caps can leave cells partly filled.** `--budget` is checked once per user task in each process, so a run that hits its cap stops early and leaves that cell with a smaller N, and `stoppedEarly` in `results.json` records it. In this run, the 4 DeepSeek-v4-flash × slack cells hit the $0.10 per-process cap:
+  - `none`: 5 user tasks / 15 attacked episodes
+  - `lumo_guard`: 4 / 12
+  - `fence`: 3 / 9
+  - `spotlight`: 3 / 9
+  - Every other cell has 6 / 18.
+- **Failed episodes are left out of the denominators.** An exception during a user task is counted in `errors` and adds nothing to utility or ASR. A clean episode that has already been recorded stays recorded even if the attacked episodes after it fail. This run had `errors = 0` in every cell.
+
 - The sample is small (18 attacked episodes per cell), so the confidence intervals are wide. AgentDojo's tools are email, calendar, Slack and banking, not shell, git or the `lumo` CLI. What this measures is how much the fence and guard _formatting_ changes the agent's behaviour; it does not reproduce the full set of actions a coding agent can take.
 - The `fence` / `lumo_guard` arms wrap **every** tool output. Production only wraps Lumo-injected context blocks.
 - Costs are estimated from gateway list prices × the token counts returned by the gateway (`PRICES` in `run.py`, catalog read 2026-10-05). Prompt-cache discounts are not applied.

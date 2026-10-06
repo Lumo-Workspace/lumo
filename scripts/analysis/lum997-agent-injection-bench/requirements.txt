@@ -1,1 +1,6 @@
 agentdojo==0.1.35
+# Transitive (openai/anthropic -> httpx2 -> httpcore2; the bench ran on 2.13.1). Floors clear CVE-2026-84378..84382
+# (GHSA-f2fp-rgf2-35cp, -h4x7-gw46-3wm6, -pf96-p4fj-6566, -7mj9-2mp8-4m2p, -8xx6-hgc6-gc2m):
+# highest fixed version on OSV is httpx2 2.12.0; httpcore2 fixed in 2.10.0.
+httpx2>=2.12.0
+httpcore2>=2.10.0
