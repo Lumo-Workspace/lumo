@@ -71,3 +71,19 @@ describe('LUM-1003 committed results', () => {
     )
   })
 })
+
+describe('LUM-1003 label re-check (after the MEMBER follow-up)', () => {
+  const rdir = join(dir, 'label-recheck')
+  const r = JSON.parse(readFileSync(join(rdir, 'results.json'), 'utf8')) as {
+    cells: unknown[]
+    budget: { totalUsd: number; capUsd: number }
+  }
+  const recs = decodeEpisodes(readFileSync(join(rdir, 'episodes.jsonl.gz')))
+    .records as unknown as Lum1003Record[]
+
+  it('re-aggregates to the committed cells, after arm only, within the cap', () => {
+    expect(summarize1003(recs)).toEqual(r.cells)
+    expect(new Set(recs.map(x => x.arm))).toEqual(new Set(['after']))
+    expect(r.budget.totalUsd).toBeLessThanOrEqual(r.budget.capUsd)
+  })
+})
