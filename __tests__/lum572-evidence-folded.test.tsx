@@ -1,15 +1,10 @@
 /** @jest-environment jsdom */
 /**
- * LUM-572 (follow-up) — the dossier's evidence sub-sections (Agent runs /
- * Lineage causality / Injected team memory) fold INTO the single collapsible
- * "Run report" group rather than sitting as a separate top-level "Evidence &
- * causality" region. So the whole after-the-fact record (metrics + evidence)
- * lives under one bucket, collapsed by default; a legacy deep link still expands
- * the group and its targeted sub-section.
- *
- * This supersedes LUM-567's separate ④ region (lum567-task-dossier.test.tsx is
- * updated in lockstep). Renders the REAL RecordTab so the group's collapse
- * genuinely gates the evidence slot.
+ * LUM-572 → LUM-1009 — the dossier's evidence (Agent runs / Lineage causality /
+ * Injected team memory) and the security scan report are flat rows in the
+ * Record tab's Records section: one fold level, collapsed by default, no
+ * "Run report" group or "Evidence & causality" heading around them. A legacy
+ * deep link still expands its targeted row. Renders the REAL RecordTab.
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -18,7 +13,8 @@ jest.mock('react-intl', () => ({
       { id, defaultMessage }: { id: string; defaultMessage?: string },
       values?: Record<string, unknown>
     ) => {
-      let msg = defaultMessage ?? id
+      const en = require('@/lib/i18n/en.json') as Record<string, string>
+      let msg = en[id] ?? defaultMessage ?? id
       msg = msg.replace(
         /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
         (_m, key, one, other) => {
@@ -44,11 +40,11 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
 // now mounts with the dossier and would reach for a QueryClient this test has
 // no provider for. Its own behaviour is covered by SecurityScanSection.test.
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: () => ({
+  useSecurityScans: jest.fn(() => ({
     data: undefined,
     isLoading: false,
     isError: false,
-  }),
+  })),
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
   useBoundaryCrossings: jest.fn(() => ({
@@ -84,9 +80,11 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { TaskDossier } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TaskDossier'
 import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
+import { useSecurityScans } from '@/app/workspace/[workspaceUrl]/hooks/useSecurityScans'
 
 const mockAgentRuns = useAgentRuns as jest.Mock
 const mockStatus = useTaskStatus as jest.Mock
+const mockSecurity = useSecurityScans as jest.Mock
 
 const baseProps: any = {
   taskId: 'task-1',
@@ -127,47 +125,73 @@ beforeEach(() => {
   })
 })
 
-describe('evidence folded into the run report group', () => {
-  it('evidence sub-sections live inside the run report group, each collapsed', () => {
+describe('evidence and security are flat Records rows', () => {
+  it('each evidence row sits in Records, collapsed, with no wrapping group', () => {
     render(<TaskDossier {...baseProps} />)
 
-    // LUM-496: the Run report group itself now opens by default (its KPI tiles
-    // are the summary), so the three evidence sub-sections are reachable at its
-    // tail — each still collapsed, and with no separate evidence region of
-    // their own anywhere else on the surface.
-    const runReport = screen.getByRole('button', { name: /Run report/i })
-    expect(runReport).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('button', { name: /Run report/i })).toBeNull()
+    expect(screen.queryByText('Evidence & causality')).toBeNull()
+    const records = screen.getByTestId('record-records')
     for (const name of [
       /Agent runs/,
       /Lineage causality/,
       /Injected team memory/,
     ]) {
       const toggle = screen.getByRole('button', { name })
+      expect(records).toContainElement(toggle)
       expect(toggle).toHaveAttribute('aria-expanded', 'false')
     }
+    expect(screen.queryByTestId('runs-body')).toBeNull()
     expect(screen.queryByTestId('lineage-body')).toBeNull()
     expect(screen.queryByTestId('memory-body')).toBeNull()
 
-    // Collapsing the group takes the whole after-the-fact record — evidence
-    // sub-sections included — out of the DOM.
-    fireEvent.click(runReport)
-    expect(screen.queryByRole('button', { name: /Agent runs/ })).toBeNull()
-    expect(
-      screen.queryByRole('button', { name: /Lineage causality/ })
-    ).toBeNull()
-    expect(
-      screen.queryByRole('button', { name: /Injected team memory/ })
-    ).toBeNull()
+    // One click opens a row's body; the row's collapsed summary gives way.
+    const runs = screen.getByRole('button', { name: /Agent runs/ })
+    expect(runs).toHaveTextContent('1 session')
+    fireEvent.click(runs)
+    expect(screen.getByTestId('runs-body')).toBeInTheDocument()
+    expect(runs).not.toHaveTextContent('1 session')
   })
 
-  it('a legacy deep link expands the run report group and its target sub-section', () => {
+  it('a legacy deep link expands its target row', () => {
     render(<TaskDossier {...baseProps} targetSection='lineage' />)
-
-    // The group auto-opens (so the deep-linked evidence is reachable) and the
-    // targeted sub-section is expanded with its body mounted.
     expect(
       screen.getByRole('button', { name: /Lineage causality/ })
-    ).toBeInTheDocument()
+    ).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('lineage-body')).toBeInTheDocument()
+    expect(document.getElementById('dossier-lineage')).not.toBeNull()
+  })
+
+  it('a task with a scanned PR gets a collapsed Security scan row in Records, summarised', () => {
+    mockSecurity.mockReturnValue({
+      data: {
+        prs: [
+          {
+            pr: { id: 'pr1', number: 7, title: 'x', url: 'https://x/7' },
+            latest: {
+              id: 's1',
+              status: 'CLEAN',
+              complete: true,
+              findings: [],
+              stages: {},
+              headSha: 'abcdef0123',
+            },
+          },
+        ],
+        blocking: { count: 0 },
+        suggested: { count: 0 },
+        scanningOff: false,
+      },
+      isLoading: false,
+      isError: false,
+    })
+    render(<TaskDossier {...baseProps} />)
+
+    const row = screen.getByRole('button', { name: /Security scan/ })
+    expect(screen.getByTestId('record-records')).toContainElement(row)
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    // The same rollup line the scan panel prints (formatSecuritySummaryLine).
+    expect(row).toHaveTextContent('1 PR')
+    expect(screen.queryByTestId('record-needs-action')).toBeNull()
   })
 })

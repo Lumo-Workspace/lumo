@@ -110,7 +110,11 @@ describe('lum642 cost surfaces (zh-CN render)', () => {
       struggleTrail: { pullRequests: [], reopens: [] },
       trend: { cost: [], rework: { reopens: 0, extraPrCycles: 0, total: 0 } },
     }
-    const cost = render(<RunReportTiles tiles={deriveRunReportTiles(data)} />)
+    const cost = render(
+      <RunReportTiles
+        tiles={deriveRunReportTiles(data, { explicit: 0, inferred: 0 })}
+      />
+    )
     expect(cost.container.textContent).toContain('2 小时 14 分钟')
     cost.unmount()
 

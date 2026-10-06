@@ -1,10 +1,9 @@
 /** @jest-environment jsdom */
 /**
- * LUM-566: the web task-detail Record tab renders the honest-report sections
- * that LUM-559~562 put into `lumo task status` + the server read model — the
- * struggle / rework trail (561), the cost read-out (560) and the trend (562).
- * The data rides on GET /api/tasks/[id]/status; this proves the web renders it
- * same-source and fail-closed.
+ * LUM-566: the web task-detail Record tab renders the cost read-out (560) that
+ * `lumo task status` prints, from the same GET /api/tasks/[id]/status read
+ * model — same-source and fail-closed. (LUM-1009 removed the struggle trail
+ * (561) and trend (562) from the web; the CLI's `--full` still prints them.)
  */
 // The shared `formatDurationSec` (LUM-642) behind the Cost tile's active-time
 // caption uses the `duration.*` keys, which carry no defaultMessage — the mock
@@ -59,7 +58,7 @@ jest.mock(
 )
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { RecordTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 import type { TaskStatusView } from '@/app/workspace/[workspaceUrl]/types'
@@ -90,73 +89,19 @@ function set(data: TaskStatusView) {
 }
 
 function render_() {
-  const result = render(<RecordTab taskIdentifier='LUM-1' enabled={true} />)
-  // LUM-496: the struggle trail folds behind its own heading inside the Run
-  // report group — expand it so its body renders.
-  const runReport = screen.getByRole('button', { name: /Run report/i })
-  if (runReport.getAttribute('aria-expanded') === 'false') {
-    fireEvent.click(runReport)
-  }
-  fireEvent.click(
-    screen.getByRole('button', { name: /Struggle \/ rework \/ outstanding/i })
-  )
-  return result
+  return render(<RecordTab taskIdentifier='LUM-1' enabled={true} />)
 }
 
 beforeEach(() => jest.clearAllMocks())
 
-// ── LUM-561 ───────────────────────────────────────────────────────────────────
-describe('struggle section', () => {
-  it('always renders and states the basis when the trail is empty', () => {
-    set(statusView())
-    render_()
-    expect(
-      screen.getByText('Struggle / rework / outstanding')
-    ).toBeInTheDocument()
-    // Honest basis, not a silent omission nor a bare "nothing outstanding".
-    expect(screen.getByText(/None recorded/)).toBeInTheDocument()
-    expect(screen.queryByText(/nothing outstanding/i)).toBeNull()
-  })
-
-  it('lists reopens and PR iterations when present', () => {
-    set(
-      statusView({
-        struggleTrail: {
-          pullRequests: [
-            { number: 3, url: 'https://github.com/acme/repo/pull/3' },
-            { number: 5, url: 'https://github.com/acme/repo/pull/5' },
-          ],
-          reopens: [
-            {
-              from: 'IN_REVIEW',
-              to: 'IN_PROGRESS',
-              at: '2026-06-11T00:00:00Z',
-            },
-          ],
-        },
-      })
-    )
-    render_()
-    // LUM-496: the Run report also has a "PR iterations" KPI tile, so match the
-    // struggle trail's own labelled line ("PR iterations: ") specifically.
-    expect(screen.getByText(/PR iterations:/)).toBeInTheDocument()
-    expect(screen.getByText(/Reopened/)).toBeInTheDocument()
-    expect(screen.queryByText(/None recorded/)).toBeNull()
-  })
-})
-
 // ── LUM-560 ───────────────────────────────────────────────────────────────────
-// LUM-496: the cost read-out is the Run report's Cost / Rework KPI tiles — a
-// null token cost reads "not recorded", never 0.
+// LUM-496/1009: the cost read-out is the Run overview's Cost tile — a null
+// token cost reads "not recorded", never 0.
 describe('cost tiles', () => {
-  it('renders token spend, active time and accrued rework', () => {
+  it('renders token spend and active time', () => {
     set(
       statusView({
         cost: { tokenCost: 1_200_000, activeTimeSec: 134 },
-        trend: {
-          cost: [],
-          rework: { reopens: 1, extraPrCycles: 0, total: 1 },
-        },
       })
     )
     render_()
@@ -165,7 +110,6 @@ describe('cost tiles', () => {
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
       'Active time 2m 14s'
     )
-    expect(screen.getByTestId('tile-rework')).toHaveTextContent('1')
   })
 
   it('shows an explicit not-recorded value when token cost was never measured', () => {
@@ -185,28 +129,38 @@ describe('cost tiles', () => {
   })
 })
 
-// ── LUM-562 ───────────────────────────────────────────────────────────────────
-describe('trend section', () => {
-  it('says there is nothing to trend without measured cost', () => {
-    set(statusView())
-    render_()
-    expect(screen.getByText(/nothing to trend/)).toBeInTheDocument()
-  })
-
-  it('draws the per-session cost trajectory across two sessions', () => {
+// ── LUM-1009 ──────────────────────────────────────────────────────────────────
+describe('removed sections', () => {
+  it('renders no struggle trail, trend or rework tile even with data for them', () => {
     set(
       statusView({
+        struggleTrail: {
+          pullRequests: [
+            { number: 3, url: 'https://github.com/acme/repo/pull/3' },
+            { number: 5, url: 'https://github.com/acme/repo/pull/5' },
+          ],
+          reopens: [
+            {
+              from: 'IN_REVIEW',
+              to: 'IN_PROGRESS',
+              at: '2026-06-11T00:00:00Z',
+            },
+          ],
+        },
         trend: {
           cost: [
             { sessionId: 's1', total: 1000, loopCount: 1, at: '2026-06-10' },
             { sessionId: 's2', total: 3000, loopCount: 1, at: '2026-06-11' },
           ],
-          rework: { reopens: 0, extraPrCycles: 0, total: 0 },
+          rework: { reopens: 1, extraPrCycles: 1, total: 2 },
         },
       })
     )
     render_()
-    expect(screen.getByText(/Cost\/session:/)).toBeInTheDocument()
-    expect(screen.queryByText(/Pass rate/)).toBeNull()
+    expect(screen.queryByText(/Struggle/)).toBeNull()
+    expect(screen.queryByText(/Reopened/)).toBeNull()
+    expect(screen.queryByText(/Cost\/session/)).toBeNull()
+    expect(screen.queryByText('Trend')).toBeNull()
+    expect(screen.queryByTestId('tile-rework')).toBeNull()
   })
 })

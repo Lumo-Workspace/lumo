@@ -1,12 +1,12 @@
 /** @jest-environment jsdom */
 /**
- * LUM-496 — the Record tab is composed by DECISION, not by data type: a unit
- * sits in NEEDS ACTION iff acting on it changes whether the task can reach
- * Done (open boundary crossings, blocking security findings); everything else
- * is a record below. These tests pin zone membership per state, the anchors the
- * status strip links to (including the legacy #boundary-crossings deep link),
- * and the Run report's default folds. (LUM-942: acceptance criteria and
- * verification rounds are gone from this tab.)
+ * LUM-496 / LUM-1009 — the Record tab is four fixed sections: ① the Done gate,
+ * ② Needs action (iff acting on something changes whether the task can reach
+ * Done: open boundary crossings, blocking security findings), ③ the Run
+ * overview tiles, ④ Records. These tests pin section membership per state, the
+ * anchors the gate links to (including the legacy #boundary-crossings deep
+ * link), and that the full security report never leaves Records. (LUM-942:
+ * acceptance criteria and verification rounds are gone from this tab.)
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -15,7 +15,8 @@ jest.mock('react-intl', () => ({
       { id, defaultMessage }: { id: string; defaultMessage?: string },
       values?: Record<string, unknown>
     ) => {
-      let msg = defaultMessage ?? id
+      const en = require('@/lib/i18n/en.json') as Record<string, string>
+      let msg = en[id] ?? defaultMessage ?? id
       msg = msg.replace(
         /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
         (_m, key, one, other) => {
@@ -128,6 +129,74 @@ beforeEach(() => {
   setCrossings([])
 })
 
+describe('the Done gate', () => {
+  it('is always drawn, even with no crossings and no scanned PR', () => {
+    setStatus(statusView())
+    renderTab()
+    const gate = screen.getByTestId('record-done-gate')
+    expect(gate).toHaveAttribute('data-headline', 'ready')
+    expect(gate).toHaveTextContent('Nothing left — the task can be marked Done')
+    expect(screen.getByTestId('gate-crossings')).toHaveTextContent(
+      'None recorded'
+    )
+    // No PR scanned is never reported as "no blocking findings".
+    expect(screen.getByTestId('gate-security')).toHaveTextContent(
+      'Not scanned — no linked pull request yet'
+    )
+  })
+
+  // LUM-1009: the old strip only counted crossings and returned null without
+  // one — a task held back only by a security finding showed nothing.
+  it('shows a blocking security row when only a security finding blocks Done', () => {
+    setStatus(statusView())
+    renderTab({ securityBlocking: 1, securityScanned: true })
+
+    const gate = screen.getByTestId('record-done-gate')
+    expect(gate).toHaveAttribute('data-headline', 'blocked')
+    expect(gate).toHaveTextContent('1 item blocks Done')
+    const row = screen.getByTestId('gate-security')
+    expect(row).toHaveAttribute('data-blocked', 'true')
+    expect(row).toHaveTextContent('1 blocking finding not dispositioned')
+    expect(row.querySelector('a')).toHaveAttribute(
+      'href',
+      '#record-needs-action'
+    )
+    expect(screen.getByTestId('gate-crossings')).toHaveAttribute(
+      'data-blocked',
+      'false'
+    )
+  })
+
+  it('counts blocking crossings and findings together in the headline', () => {
+    setStatus(statusView())
+    setCrossings([crossing(), crossing({ id: 'bc-2' })])
+    renderTab({ securityBlocking: 1, securityScanned: true })
+    expect(screen.getByTestId('record-done-gate')).toHaveTextContent(
+      '3 items block Done'
+    )
+    expect(screen.getByTestId('gate-crossings')).toHaveTextContent(
+      '2 blocking, not dispositioned · Dispositioned 0/2'
+    )
+  })
+
+  it('collapses to one accepted line on a DONE task', () => {
+    setStatus(
+      statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+      })
+    )
+    setCrossings([crossing({ id: 'bc-done', disposition: 'CONFIRMED' })])
+    renderTab({ securityScanned: true })
+
+    const gate = screen.getByTestId('record-done-gate')
+    expect(gate).toHaveAttribute('data-headline', 'accepted')
+    expect(gate).toHaveTextContent('Accepted — this task is Done')
+    expect(gate).toHaveTextContent('Dispositioned 1/1 · No blocking findings')
+    expect(screen.queryByTestId('gate-crossings')).toBeNull()
+    expect(screen.queryByTestId('record-needs-action')).toBeNull()
+  })
+})
+
 describe('boundary crossings by state', () => {
   it('open crossings render in NEEDS ACTION at #record-crossings, keeping the legacy anchor alive', () => {
     setStatus(statusView())
@@ -144,11 +213,11 @@ describe('boundary crossings by state', () => {
       container.querySelector('#record-crossings-dispositioned')
     ).toBeNull()
 
-    // The strip chips link at the anchors that exist.
-    expect(screen.getByTestId('gap-crossings')).toHaveAttribute(
-      'href',
-      '#record-crossings'
-    )
+    // The gate's blocked row links at the section that exists.
+    expect(
+      screen.getByTestId('gate-crossings').querySelector('a')
+    ).toHaveAttribute('href', '#record-needs-action')
+    expect(needsAction()).toHaveAttribute('id', 'record-needs-action')
   })
 
   it('dispositioned crossings are a record, and carry the legacy anchor when nothing is open', () => {
@@ -161,59 +230,47 @@ describe('boundary crossings by state', () => {
     expect(panel).not.toBeNull()
     expect(records()).toContainElement(panel as HTMLElement)
     expect(container.querySelector('#boundary-crossings')).not.toBeNull()
+    // LUM-1009: in Records its header is a plain row — the chevron only, no
+    // status icon — so it lines up with the other Records rows.
+    const toggle = screen.getByTestId('boundary-summary-toggle')
+    expect(toggle.querySelectorAll('svg')).toHaveLength(1)
+    expect(toggle).toHaveClass('px-4', 'py-3', 'gap-x-2.5')
+    // Nothing to act on — the gate rows link nowhere.
+    expect(screen.getByTestId('gate-crossings').querySelector('a')).toBeNull()
   })
 })
 
 describe('security findings by state', () => {
-  it('a blocking finding puts the scan section in NEEDS ACTION, never twice', () => {
+  // LUM-1009: the full report never moves; only the blocking findings come
+  // up in Needs action.
+  it('a blocking finding comes up in NEEDS ACTION while the full report stays in Records', () => {
     setStatus(statusView())
     renderTab({
-      securitySlot: <div data-testid='security-slot' />,
+      securityRecordSlot: <div data-testid='security-record' />,
+      blockingSecuritySlot: <div data-testid='security-blocking' />,
       securityBlocking: 1,
+      securityScanned: true,
     })
 
-    const slot = screen.getByTestId('security-slot')
-    expect(needsAction()).toContainElement(slot)
-    expect(screen.getAllByTestId('security-slot')).toHaveLength(1)
+    expect(needsAction()).toContainElement(
+      screen.getByTestId('security-blocking')
+    )
+    expect(records()).toContainElement(screen.getByTestId('security-record'))
+    expect(screen.getAllByTestId('security-record')).toHaveLength(1)
   })
 
-  it('with nothing blocking the scan section is a record', () => {
+  it('with nothing blocking the report is a record and no queue is drawn', () => {
     setStatus(statusView())
     renderTab({
-      securitySlot: <div data-testid='security-slot' />,
+      securityRecordSlot: <div data-testid='security-record' />,
+      blockingSecuritySlot: <div data-testid='security-blocking' />,
       securityBlocking: 0,
+      securityScanned: true,
     })
 
     expect(screen.queryByTestId('record-needs-action')).toBeNull()
-    expect(records()).toContainElement(screen.getByTestId('security-slot'))
-  })
-})
-
-describe('a task with nothing left to do', () => {
-  it('renders no NEEDS ACTION zone and says so on the strip', () => {
-    setStatus(
-      statusView({
-        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
-      })
-    )
-    setCrossings([crossing({ id: 'bc-done', disposition: 'CONFIRMED' })])
-    renderTab()
-
-    expect(screen.queryByTestId('record-needs-action')).toBeNull()
-    // Review F3: the task is already accepted — the strip states the outcome
-    // instead of instructing a decision that was taken.
-    expect(screen.queryByTestId('gap-none')).toBeNull()
-    expect(screen.getByTestId('gap-accepted')).toHaveTextContent(
-      'Accepted — this task is Done'
-    )
-    expect(records()).toBeInTheDocument()
-  })
-
-  it('with no crossings at all the strip is not drawn', () => {
-    setStatus(statusView())
-    renderTab()
-    expect(screen.queryByTestId('gap-none')).toBeNull()
-    expect(screen.queryByTestId('record-needs-action')).toBeNull()
+    expect(screen.queryByTestId('security-blocking')).toBeNull()
+    expect(records()).toContainElement(screen.getByTestId('security-record'))
   })
 })
 
@@ -229,7 +286,7 @@ describe('the needs-action note tells the truth about what is in the zone', () =
     setCrossings([crossing()])
     renderTab()
 
-    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+    expect(needsAction()).toHaveTextContent(
       'Open items recorded after the task was accepted.'
     )
     expect(
@@ -239,17 +296,21 @@ describe('the needs-action note tells the truth about what is in the zone', () =
 
   // Review F5: advisory crossings (or any open crossing with the gate off)
   // need a disposition for the record, but Done never waited on them.
-  it('advisory-only crossings get the non-blocking note and an in-review chip', () => {
+  it('advisory-only crossings get the non-blocking note and do not block the gate', () => {
     setStatus(statusView())
     setCrossings([crossing({ advisory: true, severity: 'MEDIUM' })])
     renderTab()
 
-    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+    expect(needsAction()).toHaveTextContent(
       'These do not block Done, but each still needs a disposition.'
     )
-    const chip = screen.getByTestId('gap-crossings')
-    expect(chip).toHaveTextContent('1 advisory crossing to disposition')
-    expect(chip).toHaveClass('text-status-in-review-text')
+    const row = screen.getByTestId('gate-crossings')
+    expect(row).toHaveAttribute('data-blocked', 'false')
+    expect(row).toHaveTextContent('1 advisory')
+    expect(screen.getByTestId('record-done-gate')).toHaveAttribute(
+      'data-headline',
+      'ready'
+    )
   })
 
   it('keeps the blocking note when something actually blocks Done', () => {
@@ -257,7 +318,7 @@ describe('the needs-action note tells the truth about what is in the zone', () =
     setCrossings([crossing()])
     renderTab()
 
-    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+    expect(needsAction()).toHaveTextContent(
       'Clear these and the task can be marked Done.'
     )
   })
@@ -270,28 +331,36 @@ describe('the needs-action note tells the truth about what is in the zone', () =
     ])
     renderTab()
 
-    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+    expect(needsAction()).toHaveTextContent(
       'Clear these and the task can be marked Done.'
     )
   })
 })
 
-describe('run report defaults', () => {
-  it('shows the KPI tiles by default and keeps the struggle trail collapsed', () => {
+describe('run overview', () => {
+  // LUM-1009: Rework, Trend and the Struggle trail are gone (user ruling).
+  it('shows exactly Cost, PR iterations and Sessions, with no rework / trend / struggle', () => {
     setStatus(statusView())
-    renderTab()
+    renderTab({ attribution: { explicit: 4, inferred: 2 } })
 
-    expect(screen.getByTestId('tile-prIterations')).toBeInTheDocument()
-    expect(screen.queryByTestId('tile-passRateR1')).toBeNull()
+    const overview = screen.getByTestId('record-overview')
+    const tiles = Array.from(
+      overview.querySelectorAll('[data-testid^="tile-"]')
+    ).map(el => el.getAttribute('data-testid'))
+    expect(tiles).toEqual([
+      'tile-costTokens',
+      'tile-prIterations',
+      'tile-sessions',
+    ])
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.2M')
-    expect(screen.getByTestId('tile-rework')).toHaveTextContent('2')
+    expect(screen.getByTestId('tile-sessions')).toHaveTextContent(
+      '64 bound · 2 auto-detected'
+    )
 
-    const struggle = screen.getByRole('button', {
-      name: /Struggle \/ rework \/ outstanding/i,
-    })
-    expect(struggle).toHaveAttribute('aria-expanded', 'false')
-    // Its body (the empty-trail basis line) has not mounted yet.
-    expect(screen.queryByText(/None recorded/)).toBeNull()
+    expect(screen.queryByTestId('tile-rework')).toBeNull()
+    expect(screen.queryByText(/Struggle/)).toBeNull()
+    expect(screen.queryByText('Trend')).toBeNull()
+    expect(screen.queryByText('Run report')).toBeNull()
   })
 
   it('renders no acceptance-criteria surface at all', () => {

@@ -5,7 +5,11 @@
  * rows default open.
  * No intl, no React — unit-testable on their own.
  */
-import type { SecurityScanView } from '@/lib/services/pr-security-scan.service'
+import type {
+  SecurityFindingView,
+  SecurityScanView,
+  TaskSecurityScans,
+} from '@/lib/services/pr-security-scan.service'
 
 export interface SecurityScanSummary {
   prs: number
@@ -114,4 +118,18 @@ export function shouldExpandRow(latest: SecurityScanView | null): boolean {
   // the summary line and the badge already say it.
   if (!latest.complete && latest.coverage !== 'TURNED_OFF') return true
   return latest.stages.external === 'FAILED' && latest.error != null
+}
+
+/**
+ * LUM-1009 — the findings that block DONE across every PR's latest scan, each
+ * with its PR number: what the Record tab's Needs action section lists.
+ */
+export function blockingFindings(
+  prs: TaskSecurityScans['prs']
+): { prNumber: number; finding: SecurityFindingView }[] {
+  return prs.flatMap(({ pr, latest }) =>
+    (latest?.findings ?? [])
+      .filter(f => f.blocking)
+      .map(finding => ({ prNumber: pr.number, finding }))
+  )
 }

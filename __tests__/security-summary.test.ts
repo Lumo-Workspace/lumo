@@ -4,11 +4,15 @@
  * default expansion.
  */
 import {
+  blockingFindings,
   summarizeSecurityScans,
   shouldExpandRow,
   isOverSizeLimitOnly,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
-import type { SecurityScanView } from '@/lib/services/pr-security-scan.service'
+import type {
+  SecurityScanView,
+  TaskSecurityScans,
+} from '@/lib/services/pr-security-scan.service'
 
 function finding(over: Partial<SecurityScanView['findings'][number]> = {}) {
   return {
@@ -324,5 +328,42 @@ describe('LUM-832 over the size limit', () => {
 
   it('a size-capped scan still opens its row, so the notice is in view', () => {
     expect(shouldExpandRow(scan({ ...overCap, findings: [] }))).toBe(true)
+  })
+})
+
+// LUM-1009: the Needs action list of security findings.
+describe('blockingFindings', () => {
+  const prScan = (
+    number: number,
+    findings: { id: string; blocking: boolean }[]
+  ) =>
+    ({
+      pr: { id: `pr${number}`, number, title: 't', url: '#', state: 'open' },
+      latest: { findings },
+    }) as unknown as TaskSecurityScans['prs'][number]
+
+  it('keeps only blocking findings, tagged with their PR number, in PR order', () => {
+    expect(
+      blockingFindings([
+        prScan(7, [
+          { id: 'a', blocking: true },
+          { id: 'b', blocking: false },
+        ]),
+        prScan(9, [{ id: 'c', blocking: true }]),
+      ]).map(x => [x.prNumber, x.finding.id])
+    ).toEqual([
+      [7, 'a'],
+      [9, 'c'],
+    ])
+  })
+
+  it('is empty without scans or blocking findings', () => {
+    expect(blockingFindings([])).toEqual([])
+    expect(
+      blockingFindings([
+        { ...prScan(7, []), latest: null } as TaskSecurityScans['prs'][number],
+        prScan(8, [{ id: 'b', blocking: false }]),
+      ])
+    ).toEqual([])
   })
 })
