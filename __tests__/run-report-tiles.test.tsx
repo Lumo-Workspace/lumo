@@ -1,8 +1,7 @@
 /** @jest-environment jsdom */
 /**
- * LUM-496 Task 4 — the Run report KPI tiles. Mirrors
- * __tests__/components/TaskDetailTimeline/record-status-strip.test.tsx's
- * react-intl mock (real `{token}` substitution against `defaultMessage`, no
+ * LUM-496 Task 4 / LUM-1009 — the Run overview tiles (cost, PR iterations,
+ * sessions). A react-intl mock (real `{token}` substitution against `defaultMessage`, no
  * ICU plural needed here) so the tile copy renders exactly as it will in the
  * app, without needing a real IntlProvider (react-intl's ESM build isn't
  * loadable through jest here).
@@ -14,6 +13,8 @@ const mockDurationMessages: Record<string, string> = {
   'duration.hours': '{hours}h',
   'duration.minutes': '{minutes}m',
   'duration.seconds': '{seconds}s',
+  'record.report.sessions': 'Sessions',
+  'record.report.sessionsSplit': '{explicit} bound · {inferred} auto-detected',
 }
 
 jest.mock('react-intl', () => ({
@@ -41,18 +42,20 @@ function tiles(p: Partial<RunReportTilesData> = {}): RunReportTilesData {
     prIterations: null,
     costTokens: null,
     activeTimeSec: 0,
-    rework: 0,
+    sessions: null,
     ...p,
   }
 }
 
 describe('RunReportTiles', () => {
-  it('renders the three testids', () => {
-    render(<RunReportTiles tiles={tiles()} />)
-    expect(screen.getByTestId('tile-prIterations')).toBeInTheDocument()
-    expect(screen.queryByTestId('tile-passRateR1')).toBeNull()
-    expect(screen.getByTestId('tile-costTokens')).toBeInTheDocument()
-    expect(screen.getByTestId('tile-rework')).toBeInTheDocument()
+  it('renders the three tiles in order: cost, PR iterations, sessions', () => {
+    const { container } = render(<RunReportTiles tiles={tiles()} />)
+    expect(
+      Array.from(container.querySelectorAll('[data-testid^="tile-"]')).map(el =>
+        el.getAttribute('data-testid')
+      )
+    ).toEqual(['tile-costTokens', 'tile-prIterations', 'tile-sessions'])
+    expect(screen.queryByTestId('tile-rework')).toBeNull()
   })
 
   it('renders the mockup example values', () => {
@@ -61,7 +64,7 @@ describe('RunReportTiles', () => {
         tiles={tiles({
           prIterations: { count: 7, first: 940, last: 947 },
           costTokens: 1_400_000_000,
-          rework: 6,
+          sessions: { explicit: 4, inferred: 2 },
         })}
       />
     )
@@ -71,7 +74,10 @@ describe('RunReportTiles', () => {
     )
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.4B')
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('tokens')
-    expect(screen.getByTestId('tile-rework')).toHaveTextContent('6')
+    expect(screen.getByTestId('tile-sessions')).toHaveTextContent('6')
+    expect(screen.getByTestId('tile-sessions')).toHaveTextContent(
+      '4 bound · 2 auto-detected'
+    )
   })
 
   it("carries the active-time reading as the Cost tile's second sub-caption", () => {
@@ -97,12 +103,12 @@ describe('RunReportTiles', () => {
     )
   })
 
-  it('renders a measured zero rework as "0", not "not recorded"', () => {
-    render(<RunReportTiles tiles={tiles({ rework: 0 })} />)
-    expect(screen.getByTestId('tile-rework')).toHaveTextContent('0')
-    expect(screen.getByTestId('tile-rework')).not.toHaveTextContent(
+  it('renders "not recorded" on the Sessions tile without attributed work', () => {
+    render(<RunReportTiles tiles={tiles()} />)
+    expect(screen.getByTestId('tile-sessions')).toHaveTextContent(
       'not recorded'
     )
+    expect(screen.getByTestId('tile-sessions')).not.toHaveTextContent('bound')
   })
 
   it('renders a measured zero cost as "0", not "not recorded"', () => {
@@ -138,7 +144,7 @@ describe('RunReportTiles', () => {
       'PR iterations'
     )
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('Cost')
-    expect(screen.getByTestId('tile-rework')).toHaveTextContent('Rework')
+    expect(screen.getByTestId('tile-sessions')).toHaveTextContent('Sessions')
   })
 
   it('shows the pre-dedupe warning on a measured cost tile (LUM-932)', () => {

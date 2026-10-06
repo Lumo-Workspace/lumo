@@ -3,7 +3,7 @@
 import { useIntl } from 'react-intl'
 import { formatDurationSec } from '@/lib/datetime/duration'
 import type { RunReportTiles as RunReportTilesData } from './run-report-tiles'
-import { fmtTokens } from './HonestReportSections'
+import { fmtTokens } from './fmt-tokens'
 
 export interface RunReportTilesProps {
   tiles: RunReportTilesData
@@ -88,8 +88,8 @@ function Tile({
 }
 
 /**
- * The Record tab's Run report KPI tiles (LUM-496 Task 4): PR iterations,
- * cost, and rework, laid out as a 3-column grid (1 on narrow screens). Purely presentational over `RunReportTiles` (the derived data) —
+ * The Record tab's Run overview tiles (LUM-496 Task 4, LUM-1009): cost, PR
+ * iterations and sessions, laid out as a 3-column grid (1 on narrow screens). Purely presentational over `RunReportTiles` (the derived data) —
  * all derivation lives in `run-report-tiles.ts`. Every null field renders
  * `record.report.notMeasured`, never a `0` (LUM-566). The Cost tile also
  * carries the LUM-560 active-time reading as a sub-caption, so nothing the
@@ -130,33 +130,6 @@ export function RunReportTiles({
   return (
     <div className='grid grid-cols-1 gap-3 sm:grid-cols-3'>
       <Tile
-        testId='tile-prIterations'
-        label={intl.formatMessage({
-          id: 'record.report.prIterations',
-          defaultMessage: 'PR iterations',
-        })}
-        value={
-          tiles.prIterations ? String(tiles.prIterations.count) : notMeasured
-        }
-        measured={tiles.prIterations != null}
-        subCaptions={
-          tiles.prIterations
-            ? [
-                intl.formatMessage(
-                  {
-                    id: 'record.report.prRange',
-                    defaultMessage: '#{first}–#{last}',
-                  },
-                  {
-                    first: tiles.prIterations.first,
-                    last: tiles.prIterations.last,
-                  }
-                ),
-              ]
-            : []
-        }
-      />
-      <Tile
         testId='tile-costTokens'
         label={intl.formatMessage({
           id: 'record.report.cost',
@@ -191,13 +164,54 @@ export function RunReportTiles({
           : {})}
       />
       <Tile
-        testId='tile-rework'
+        testId='tile-prIterations'
         label={intl.formatMessage({
-          id: 'record.report.rework',
-          defaultMessage: 'Rework',
+          id: 'record.report.prIterations',
+          defaultMessage: 'PR iterations',
         })}
-        value={String(tiles.rework)}
-        measured
+        value={
+          tiles.prIterations ? String(tiles.prIterations.count) : notMeasured
+        }
+        measured={tiles.prIterations != null}
+        subCaptions={
+          tiles.prIterations
+            ? [
+                intl.formatMessage(
+                  {
+                    id: 'record.report.prRange',
+                    defaultMessage: '#{first}–#{last}',
+                  },
+                  {
+                    first: tiles.prIterations.first,
+                    last: tiles.prIterations.last,
+                  }
+                ),
+              ]
+            : []
+        }
+      />
+      <Tile
+        testId='tile-sessions'
+        label={intl.formatMessage({ id: 'record.report.sessions' })}
+        value={
+          tiles.sessions
+            ? String(tiles.sessions.explicit + tiles.sessions.inferred)
+            : notMeasured
+        }
+        measured={tiles.sessions != null}
+        subCaptions={
+          tiles.sessions
+            ? [
+                intl.formatMessage(
+                  { id: 'record.report.sessionsSplit' },
+                  {
+                    explicit: tiles.sessions.explicit,
+                    inferred: tiles.sessions.inferred,
+                  }
+                ),
+              ]
+            : []
+        }
       />
     </div>
   )

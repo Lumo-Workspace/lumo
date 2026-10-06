@@ -105,40 +105,21 @@ beforeEach(() => {
   setCrossings([])
 })
 
-describe('run report group', () => {
-  // LUM-496 supersedes the "collapses by default" reading: the Run report group
-  // opens with its KPI tiles (Cost among them) as the glanceable summary, while
-  // the narrative sub-section — the struggle trail — stays collapsed one
-  // more click down. Nothing that used to be folded away is now shouting.
-  it('run report shows its KPI tiles by default and keeps the narrative sub-sections collapsed', () => {
+describe('run overview', () => {
+  // LUM-1009: the overview tiles are always visible — no "Run report" fold —
+  // and the narrative sub-sections (struggle trail, trend) are gone.
+  it('shows the Cost tile without any fold, and no struggle trail or claim strip', () => {
     setStatus(statusView())
     renderTab()
 
-    const groupToggle = screen.getByRole('button', { name: /Run report/i })
-    expect(groupToggle).toHaveAttribute('aria-expanded', 'true')
-
-    // The tiles are the summary — cost included (LUM-496 moved it out of the
-    // Evidence & audit trail card into the Cost tile).
+    expect(screen.queryByRole('button', { name: /Run report/i })).toBeNull()
     expect(screen.getByText('Cost')).toBeInTheDocument()
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.2M')
 
     // LUM-733: the claim strip is no longer rendered anywhere on the tab.
     expect(screen.queryByText('Claim vs verification')).toBeNull()
-
-    // The struggle trail is behind its own collapsed disclosure: the heading is
-    // the toggle, its body only mounts on click.
-    const struggleToggle = screen.getByRole('button', {
-      name: /Struggle \/ rework \/ outstanding/i,
-    })
-    expect(struggleToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(/Struggle/)).toBeNull()
     expect(screen.queryByText(/None recorded/)).toBeNull()
-    fireEvent.click(struggleToggle)
-    expect(screen.getByText(/None recorded/)).toBeInTheDocument()
-
-    // Collapsing the group still folds the whole after-the-fact record away.
-    fireEvent.click(groupToggle)
-    expect(screen.queryByText('Cost')).toBeNull()
-    expect(screen.queryByText('Struggle / rework / outstanding')).toBeNull()
   })
 })
 

@@ -22,7 +22,8 @@ import type { ScanStages } from '@/lib/security-scan/types'
 import { SCAN_STAGE_KEYS, turnedOffLayers } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
-import { summarizeSecurityScans, shouldExpandRow } from './security-summary'
+import { shouldExpandRow } from './security-summary'
+import { formatSecuritySummaryLine } from './security-summary-line'
 import { buildAgentContext } from './security-agent-context'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
@@ -41,7 +42,7 @@ export function SecurityScanSection({ taskId }: { taskId: string }) {
     return (
       <p
         data-testid='security-scan-load-error'
-        className='mt-4 text-caption text-muted-foreground'
+        className='text-caption text-muted-foreground'
       >
         {intl.formatMessage({ id: 'securityScan.section.loadError' })}
       </p>
@@ -49,6 +50,51 @@ export function SecurityScanSection({ taskId }: { taskId: string }) {
   if (isLoading || !data) return null
   if (data.prs.length === 0) return null
   return <SecurityScanPanel taskId={taskId} data={data} />
+}
+
+/**
+ * LUM-1009 — the Record tab's Needs action entries for security: only the
+ * findings that block DONE, each with its disposition controls, across the
+ * task's PRs. The full report stays in Records (`SecurityScanSection`); this
+ * reads the same query, so a disposition here updates both.
+ */
+export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
+  const intl = useIntl()
+  const { data } = useSecurityScans(taskId)
+  const blocking = (data?.prs ?? []).flatMap(({ pr, latest }) =>
+    (latest?.findings ?? [])
+      .filter(f => f.blocking)
+      .map(finding => ({ prNumber: pr.number, finding }))
+  )
+  if (blocking.length === 0) return null
+  return (
+    <div
+      data-testid='security-blocking-findings'
+      className='overflow-hidden rounded-lg border border-danger-border'
+    >
+      <div className='flex flex-wrap items-center gap-2 bg-danger-subtle px-4 py-2.5'>
+        <span className='text-body-strong text-foreground'>
+          {intl.formatMessage({ id: 'securityScan.section.title' })}
+        </span>
+        <span className='text-caption text-danger-text'>
+          {intl.formatMessage(
+            { id: 'record.queue.securityBlocking' },
+            { count: blocking.length }
+          )}
+        </span>
+      </div>
+      <div className='space-y-2 border-t border-border px-4 py-3'>
+        {blocking.map(({ prNumber, finding }) => (
+          <div key={finding.id} className='space-y-1'>
+            <div className='text-caption text-muted-foreground'>
+              #{prNumber}
+            </div>
+            <FindingRow taskId={taskId} prNumber={prNumber} finding={finding} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function SecurityScanPanel({
@@ -61,75 +107,9 @@ function SecurityScanPanel({
   const intl = useIntl()
   // LUM-496 Task 3: one summary line above the per-PR rows so a reviewer reads
   // "7 PRs · 3 findings (all LOW) · 2 external scans failed" without opening
-  // anything. The severity note and the failed-scan clause are separate keys
-  // (composed here, not baked into the ICU message) so a zero failed count
-  // never leaves a dangling " · " with nothing after it.
-  const summary = summarizeSecurityScans(data.prs)
-  const severityNote = summary.allLow
-    ? ` (${intl.formatMessage({ id: 'record.security.allLow' })})`
-    : ''
-  // Review F1 (honesty): with a scan still incomplete, zero findings is not
-  // "no findings" — it is "no findings *on the scans that finished*". The
-  // composite `record.security.summary` bakes its own =0 branch, so that case
-  // is composed from the PR-count clause plus the qualified one instead.
-  const qualifyZero =
-    summary.findings === 0 &&
-    (summary.incomplete > 0 ||
-      summary.overSizeLimit > 0 ||
-      summary.turnedOff > 0 ||
-      data.scanningOff)
-  const summaryText = qualifyZero
-    ? [
-        intl.formatMessage(
-          { id: 'record.security.prs' },
-          { count: summary.prs }
-        ),
-        intl.formatMessage({ id: 'record.security.noneOnComplete' }),
-      ].join(' · ')
-    : intl.formatMessage(
-        { id: 'record.security.summary' },
-        { prs: summary.prs, findings: summary.findings, severityNote }
-      )
-  const incompleteText =
-    summary.incomplete > 0
-      ? intl.formatMessage(
-          { id: 'record.security.incomplete' },
-          { count: summary.incomplete }
-        )
-      : ''
-  // LUM-832: a layer skipped for size is not "not fully checked yet" —
-  // nothing is coming later; the change was over the limit.
-  const overSizeLimitText =
-    summary.overSizeLimit > 0
-      ? intl.formatMessage(
-          { id: 'record.security.overSizeLimit' },
-          { count: summary.overSizeLimit }
-        )
-      : ''
-  // LUM-892: turned off in settings — the customer's choice, its own clause.
-  const turnedOffText =
-    summary.turnedOff > 0
-      ? intl.formatMessage(
-          { id: 'record.security.turnedOff' },
-          { count: summary.turnedOff }
-        )
-      : ''
-  const failedText =
-    summary.externalFailed > 0
-      ? intl.formatMessage(
-          { id: 'record.security.failed' },
-          { count: summary.externalFailed }
-        )
-      : ''
-  const summaryLine = [
-    summaryText,
-    incompleteText,
-    overSizeLimitText,
-    turnedOffText,
-    failedText,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  // anything (worded in `formatSecuritySummaryLine`, shared with the Record
+  // tab's collapsed row).
+  const summaryLine = formatSecuritySummaryLine(intl, data)
 
   // Per-PR expansion (LUM-496): defaults to `shouldExpandRow` (an open finding,
   // an incomplete scan, or an external failure with an error) but a manual
@@ -147,13 +127,11 @@ function SecurityScanPanel({
     }))
 
   return (
-    <div data-testid='security-scan-panel' className='mt-4'>
-      <h4 className='text-caption uppercase tracking-wide text-muted-foreground'>
-        {intl.formatMessage({ id: 'securityScan.section.title' })}
-      </h4>
+    // LUM-1009: the Record tab's row carries the "Security scan" title.
+    <div data-testid='security-scan-panel'>
       <p
         data-testid='security-summary-line'
-        className='mt-0.5 text-caption text-muted-foreground'
+        className='text-caption text-muted-foreground'
       >
         {summaryLine}
       </p>

@@ -175,30 +175,22 @@ beforeEach(() => {
   })
 })
 
-describe('TaskDossier renders four ordered regions with evidence and causality collapsed', () => {
-  it('shows the decision surface above a collapsed evidence region', () => {
+describe('TaskDossier renders the evidence as collapsed Records rows', () => {
+  it('passes the three evidence rows down, each collapsed, with no separate evidence heading', () => {
     render(<TaskDossier {...baseProps} />)
 
-    // ①②③ decision surface present.
     const acceptance = screen.getByTestId('acceptance-surface')
     expect(acceptance).toBeInTheDocument()
 
-    // ④ region header present, with the three named sub-section toggles.
-    const evidenceHeading = screen.getByText('Evidence & causality')
+    // LUM-1009: flat Records rows — no "Evidence & causality" wrapper.
+    expect(screen.queryByText('Evidence & causality')).toBeNull()
     const runsBtn = screen.getByRole('button', { name: /Agent runs/ })
     const lineageBtn = screen.getByRole('button', { name: /Lineage causality/ })
     const memoryBtn = screen.getByRole('button', {
       name: /Injected team memory/,
     })
-
-    // Decision leads: ①②③ surface comes before the ④ region in DOM order.
-    expect(
-      acceptance.compareDocumentPosition(evidenceHeading) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-
-    // ④ collapsed by default: every sub-section toggle is closed and no body shows.
     for (const btn of [runsBtn, lineageBtn, memoryBtn]) {
+      expect(acceptance).toContainElement(btn)
       expect(btn).toHaveAttribute('aria-expanded', 'false')
     }
     expect(screen.queryByTestId('delivery-panel')).toBeNull()
