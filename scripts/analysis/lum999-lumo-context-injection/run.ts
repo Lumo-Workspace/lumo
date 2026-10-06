@@ -14,7 +14,8 @@
  * <work>/episodes.jsonl (episodes already there are skipped, so an
  * interrupted run resumes). Stops scheduling once the running total
  * (ledger + --spent-offset + budgets reserved by in-flight episodes) would
- * pass --cap. Writes --out (default: results.json next to this file).
+ * pass --cap. Writes --out (default: results.json next to this file) with
+ * the aggregated cells, and episodes.jsonl.gz next to it with every record.
  */
 import {
   appendFileSync,
@@ -24,7 +25,7 @@ import {
   writeFileSync,
 } from 'fs'
 import { homedir } from 'os'
-import { join, resolve } from 'path'
+import { dirname, join, resolve } from 'path'
 import { spawnSync } from 'child_process'
 import {
   CANARY_MARKER,
@@ -37,7 +38,12 @@ import { judge } from './judge'
 import { gitHead, renderArm, type ArmRender } from './render-arms'
 import {
   ARMS,
+  EPISODES_FILE,
+  encodeEpisodes,
   episodeKey,
+  episodesJsonl,
+  formatResultsJson,
+  sha256Hex,
   renderTable,
   summarize,
   totalCost,
@@ -257,8 +263,10 @@ async function main(): Promise<void> {
       },
       variants: all.map(v => ({
         id: v.id,
+        // First 16 hex chars of the rendered markdown's sha256 per arm —
+        // enough to show which arms render a variant byte-identically.
         sha256: Object.fromEntries(
-          ARMS.map(a => [a, renders[a].get(v.id)?.sha256 ?? null])
+          ARMS.map(a => [a, renders[a].get(v.id)?.sha256.slice(0, 16) ?? null])
         ),
         guardNoticeOrMarker: Object.fromEntries(
           ARMS.map(a => [
@@ -290,10 +298,15 @@ async function main(): Promise<void> {
       stoppedAtCap: stopped,
       unrun: queue.length,
     },
+    episodes: {
+      file: EPISODES_FILE,
+      count: records.length,
+      sha256OfUncompressedJsonl: sha256Hex(episodesJsonl(records)),
+    },
     cells,
-    episodes: records,
   }
-  writeFileSync(outPath, `${JSON.stringify(results, null, 2)}\n`)
+  writeFileSync(join(dirname(outPath), EPISODES_FILE), encodeEpisodes(records))
+  writeFileSync(outPath, formatResultsJson(results))
   out(renderTable(cells))
   out(`total $${(totalCost(records) + spentOffset).toFixed(2)} → ${outPath}`)
 }
