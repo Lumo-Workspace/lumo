@@ -31,8 +31,13 @@ describe('createRedisSlidingWindow', () => {
     const [script, opts] = client.eval.mock.calls[0]
     expect(script).toBe(REDIS_SLIDING_WINDOW_SCRIPT)
     expect(opts.keys).toEqual(['sarif:rate:gh:pr:1'])
-    expect(opts.arguments.slice(0, 3)).toEqual(['5000', '60000', '30'])
-    expect(opts.arguments[3]).toMatch(/^5000:/)
+    expect(opts.arguments.slice(0, 4)).toEqual([
+      '5000',
+      '-55000',
+      '60000',
+      '30',
+    ])
+    expect(opts.arguments[4]).toMatch(/^5000:/)
   })
 
   it('uses a unique sorted-set member per hit (same-millisecond hits all count)', async () => {
@@ -44,7 +49,7 @@ describe('createRedisSlidingWindow', () => {
     )
     await w.limit('k')
     await w.limit('k')
-    const members = client.eval.mock.calls.map(c => c[1].arguments[3])
+    const members = client.eval.mock.calls.map(c => c[1].arguments[4])
     expect(new Set(members).size).toBe(2)
   })
 

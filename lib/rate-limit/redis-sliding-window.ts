@@ -6,18 +6,23 @@ import type { SlidingWindowOptions, SlidingWindowStore } from './types'
  * Atomic sliding-window log on a sorted set: drop entries older than the
  * window, refuse when `max` live entries remain, otherwise record this hit
  * and refresh the key's TTL. Returns `{allowed (1|0), remaining}`.
+ *
+ * All numbers arrive as decimal strings computed in JS (ARGV: now, cutoff =
+ * now - window, window, max, member), so no Lua number formatting is
+ * involved in scores or TTLs.
  */
 export const REDIS_SLIDING_WINDOW_SCRIPT = `
 local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local window = tonumber(ARGV[2])
-local max = tonumber(ARGV[3])
-redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
+local now = ARGV[1]
+local cutoff = ARGV[2]
+local window = ARGV[3]
+local max = tonumber(ARGV[4])
+redis.call('ZREMRANGEBYSCORE', key, '-inf', cutoff)
 local count = redis.call('ZCARD', key)
 if count >= max then
   return {0, 0}
 end
-redis.call('ZADD', key, now, ARGV[4])
+redis.call('ZADD', key, now, ARGV[5])
 redis.call('PEXPIRE', key, window)
 return {1, max - count - 1}
 `
@@ -43,6 +48,7 @@ export function createRedisSlidingWindow(
         keys: [`${options.prefix}:${key}`],
         arguments: [
           String(ts),
+          String(ts - options.windowMs),
           String(options.windowMs),
           String(options.max),
           `${ts}:${randomUUID()}`,
