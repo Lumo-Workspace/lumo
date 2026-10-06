@@ -92,7 +92,7 @@ def main() -> None:
                     tp += bool(r["acts"])
                     found |= {(url, x) for x in r["acts"]}
         p = tp / s if s else 0
-        rc = len(found) / total_actions
+        rc = len(found) / total_actions if total_actions else 0.0
         bp = sum((u, x) in found for u, v in pointed.items() for x in v)
         print(f"  {name:34} n={s:3}  P {100 * p:5.1f}  R {100 * rc:5.1f}  F1 {100 * fb(p, rc, 1):5.1f}  "
               f"F2 {100 * fb(p, rc, 2):5.1f}  bot-pointed {bp}/{n_pointed}")

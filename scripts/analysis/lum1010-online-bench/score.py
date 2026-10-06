@@ -42,7 +42,7 @@ def main() -> None:
     a = ap.parse_args()
     j = json.load(open(a.judged))
     bots = j["bots"]
-    tags = [t for t in (a.tags.split(",") if a.tags else j) if t != "bots"]
+    tags = [t for t in (a.tags.split(",") if a.tags else j) if t not in ("bots", "params")]
     urls = sorted(bots)
     print(f"{len(urls)} PRs, {sum(bots[u]['actions'] > 0 for u in urls)} with ≥1 human action\n")
     print(f"{'all PRs':28}")
