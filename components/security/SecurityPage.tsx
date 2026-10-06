@@ -6,11 +6,13 @@ import { useIntl } from 'react-intl'
 import { AUDIT_RETENTION_DAYS } from '@/lib/audit/actions'
 import type { PublicLocale } from '@/lib/i18n/public-locale'
 import type { RetentionFigures } from '@/lib/legal/retention-figures'
+import type { SubprocessorPageView } from '@/lib/legal/subprocessor-change-log'
 import {
   SECURITY_CONTACT_EMAIL,
   SECURITY_PAGE_UPDATED,
 } from '@/lib/legal/subprocessors'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { SubprocessorChanges } from './SubprocessorChanges'
 import { SubprocessorTables } from './SubprocessorTables'
 
 const SECURITY_TXT_PATH = '/.well-known/security.txt'
@@ -115,9 +117,15 @@ function Section({
 interface SecurityPageProps {
   locale: PublicLocale
   retentionFigures: RetentionFigures
+  /** What is in use, upcoming and recently changed, at request time (LUM-919). */
+  subprocessors: SubprocessorPageView
 }
 
-export function SecurityPage({ locale, retentionFigures }: SecurityPageProps) {
+export function SecurityPage({
+  locale,
+  retentionFigures,
+  subprocessors,
+}: SecurityPageProps) {
   const intl = useIntl()
   const t = (id: string, values?: Record<string, string | number>) =>
     intl.formatMessage({ id }, values)
@@ -170,7 +178,14 @@ export function SecurityPage({ locale, retentionFigures }: SecurityPageProps) {
 
         <Section id='subprocessors' title={t('security.subprocessors.heading')}>
           <p>{t('security.subprocessors.intro')}</p>
-          <SubprocessorTables />
+          <SubprocessorTables
+            infrastructure={subprocessors.infrastructure}
+            aiHosts={subprocessors.aiHosts}
+          />
+          <SubprocessorChanges
+            pending={subprocessors.pending}
+            recent={subprocessors.recent}
+          />
         </Section>
 
         <Section id='report' title={t('security.report.heading')}>

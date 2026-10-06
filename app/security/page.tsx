@@ -6,6 +6,12 @@ import { IntlProviderWrapper } from '@/lib/i18n/IntlProviderWrapper'
 import { MESSAGES } from '@/lib/i18n/messages'
 import { resolvePublicLocale } from '@/lib/i18n/public-locale'
 import { RETENTION_FIGURES } from '@/lib/legal/retention-figures'
+import { buildSubprocessorPageView } from '@/lib/legal/subprocessor-change-log'
+import { SUBPROCESSOR_CHANGES } from '@/lib/legal/subprocessor-changes'
+import {
+  AI_HOST_SUBPROCESSORS,
+  INFRASTRUCTURE_SUBPROCESSORS,
+} from '@/lib/legal/subprocessors'
 
 interface PageProps {
   searchParams: Promise<{ lang?: string | string[] }>
@@ -36,9 +42,21 @@ export async function generateMetadata({
 /** Public trust page (LUM-856) — no sign-in; locale from ?lang= or the browser. */
 export default async function Page({ searchParams }: PageProps) {
   const locale = await localeFor(searchParams)
+  // LUM-919: which announced changes are in effect is a per-request fact (the
+  // page is dynamic — it reads the request headers above).
+  const subprocessors = buildSubprocessorPageView({
+    infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+    aiHosts: AI_HOST_SUBPROCESSORS,
+    changes: SUBPROCESSOR_CHANGES,
+    now: new Date(),
+  })
   return (
     <IntlProviderWrapper locale={locale}>
-      <SecurityPage locale={locale} retentionFigures={RETENTION_FIGURES} />
+      <SecurityPage
+        locale={locale}
+        retentionFigures={RETENTION_FIGURES}
+        subprocessors={subprocessors}
+      />
     </IntlProviderWrapper>
   )
 }

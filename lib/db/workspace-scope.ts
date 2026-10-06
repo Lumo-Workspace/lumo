@@ -73,6 +73,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'SentryIntegration',
   'Session',
   'SlackIntegration',
+  'SubprocessorNoticeDelivery',
   'Tag',
   'Task',
   'TaskArtifact',

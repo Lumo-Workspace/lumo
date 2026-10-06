@@ -172,6 +172,10 @@ export const AUDIT_INSTRUMENTED: Readonly<
   'lib/services/audit-query.service.ts#exportAuditEventsCsv': [
     'audit_log.exported',
   ],
+  // LUM-919: subprocessor change notice sent to a workspace's owners (SYSTEM)
+  'lib/services/subprocessor-notice.service.ts#sendSubprocessorNotice': [
+    'subprocessor_change.notified',
+  ],
 }
 
 /**

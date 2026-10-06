@@ -11,18 +11,27 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  AI_HOST_SUBPROCESSORS,
   CUSTOMER_INTEGRATIONS,
-  INFRASTRUCTURE_SUBPROCESSORS,
+  type AiHostSubprocessor,
   type DataLocation,
+  type InfrastructureSubprocessor,
 } from '@/lib/legal/subprocessors'
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return <h3 className='mt-8 mb-2 text-base font-semibold'>{children}</h3>
 }
 
-/** Renders the subprocessor registry (lib/legal/subprocessors.ts) as tables. */
-export function SubprocessorTables() {
+interface SubprocessorTablesProps {
+  /** In use now — a pending addition is not here (LUM-919). */
+  infrastructure: readonly InfrastructureSubprocessor[]
+  aiHosts: readonly AiHostSubprocessor[]
+}
+
+/** Renders the subprocessors in use (lib/legal/subprocessors.ts) as tables. */
+export function SubprocessorTables({
+  infrastructure,
+  aiHosts,
+}: SubprocessorTablesProps) {
   const intl = useIntl()
   const t = (id: string) => intl.formatMessage({ id })
   const location = (loc: DataLocation, region?: string) => {
@@ -45,7 +54,7 @@ export function SubprocessorTables() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {INFRASTRUCTURE_SUBPROCESSORS.map(s => (
+          {infrastructure.map(s => (
             <TableRow key={s.id}>
               <TableCell className='font-medium'>{s.product}</TableCell>
               <TableCell>{s.entity}</TableCell>
@@ -72,7 +81,7 @@ export function SubprocessorTables() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {AI_HOST_SUBPROCESSORS.map(h => (
+          {aiHosts.map(h => (
             <TableRow key={h.gatewaySlug}>
               <TableCell className='font-medium'>{h.entity}</TableCell>
               <TableCell>{location(h.location)}</TableCell>

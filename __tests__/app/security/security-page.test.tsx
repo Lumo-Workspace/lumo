@@ -25,6 +25,15 @@ import {
 } from '@/lib/legal/subprocessors'
 import { RETENTION_FIGURES } from '@/lib/legal/retention-figures'
 import {
+  buildSubprocessorPageView,
+  type SubprocessorPageView,
+} from '@/lib/legal/subprocessor-change-log'
+import {
+  NOTICE_PERIOD_DAYS,
+  PRIVACY_CONTACT_EMAIL,
+  type SubprocessorChange,
+} from '@/lib/legal/subprocessor-changes'
+import {
   HOOK_EVENT_RETENTION_DAYS,
   USED_UP_AUDIT_WAIT_CAP_DAYS,
   USED_UP_GRACE_DAYS,
@@ -159,10 +168,25 @@ const SECTION_HEADINGS = [
 /** Locales written in English — the only ones allowed to reuse en wording. */
 const ENGLISH = new Set<PublicLocale>(['en', 'en-GB', 'en-AU'])
 
-function render(locale: PublicLocale): string {
+/** The shipped registry with no change in flight. */
+const NO_CHANGES: SubprocessorPageView = buildSubprocessorPageView({
+  infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+  aiHosts: AI_HOST_SUBPROCESSORS,
+  changes: [],
+  now: new Date('2026-10-05T00:00:00Z'),
+})
+
+function render(
+  locale: PublicLocale,
+  subprocessors: SubprocessorPageView = NO_CHANGES
+): string {
   return renderToStaticMarkup(
     <IntlProviderWrapper locale={locale}>
-      <SecurityPage locale={locale} retentionFigures={RETENTION_FIGURES} />
+      <SecurityPage
+        locale={locale}
+        retentionFigures={RETENTION_FIGURES}
+        subprocessors={subprocessors}
+      />
     </IntlProviderWrapper>
   )
 }
@@ -559,6 +583,125 @@ describe('/security page (LUM-856)', () => {
       ...CUSTOMER_INTEGRATIONS.flatMap(i => [i.product, i.provider]),
     ]
     expect(names.filter(n => !page.includes(n))).toEqual([])
+  })
+
+  it('security page lists pending and recent subprocessor changes in every locale LUM-919', () => {
+    const host = {
+      gatewaySlug: 'examplehost',
+      entity: 'Example Host, Inc.',
+      location: 'globalRouting',
+    } as const
+    const calm = {
+      gatewaySlug: 'calmhost',
+      entity: 'Calm Host, Inc.',
+      location: 'globalRouting',
+    } as const
+    const neon = INFRASTRUCTURE_SUBPROCESSORS.find(s => s.id === 'neon')!
+    const changes: SubprocessorChange[] = [
+      {
+        id: '2026-09-01-neon-region',
+        kind: 'changed',
+        announcedAt: '2026-09-01',
+        effectiveAt: '2026-10-01',
+        summary: 'Neon region detail.',
+        before: { list: 'infrastructure', entry: { ...neon, region: 'old' } },
+        after: { list: 'infrastructure', entry: neon },
+      },
+      {
+        id: '2026-10-05-example-host',
+        kind: 'added',
+        announcedAt: '2026-10-05',
+        effectiveAt: '2026-10-20',
+        urgent: { reason: 'n/a' },
+        summary: 'Example Host joins.',
+        after: { list: 'aiHost', entry: host },
+      },
+      // Marked urgent but announced with the full notice: no urgent label.
+      {
+        id: '2026-10-06-calm-host',
+        kind: 'added',
+        announcedAt: '2026-10-06',
+        effectiveAt: '2026-11-05',
+        urgent: { reason: 'n/a' },
+        summary: 'Calm Host joins.',
+        after: { list: 'aiHost', entry: calm },
+      },
+    ]
+    const view = buildSubprocessorPageView({
+      infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+      aiHosts: [...AI_HOST_SUBPROCESSORS, host, calm],
+      changes,
+      now: new Date('2026-10-10T00:00:00Z'),
+    })
+    const problems: string[] = []
+    for (const locale of PUBLIC_LOCALES) {
+      const m = MESSAGES[locale]!
+      const html = render(locale, view)
+      // Each block runs from its own marker to the next one, so a string
+      // found in one block cannot satisfy an assertion about another.
+      const between = (from: string, to: string) => {
+        const start = html.indexOf(from)
+        const end = html.indexOf(to, start + 1)
+        return start < 0 || end < 0 ? '' : text(html.slice(start, end))
+      }
+      const intro = between(
+        'data-testid="subprocessor-changes"',
+        'data-testid="subprocessor-changes-pending"'
+      )
+      const pending = between(
+        'data-testid="subprocessor-changes-pending"',
+        'data-testid="subprocessor-changes-recent"'
+      )
+      const recent = between(
+        'data-testid="subprocessor-changes-recent"',
+        'id="report"'
+      )
+      const tables = between(
+        'data-testid="subprocessor-tables"',
+        'data-testid="subprocessor-changes"'
+      )
+      const P = 'security.subprocessors.changes.'
+      const need: [string, boolean][] = [
+        ['heading', text(html).includes(m[`${P}heading`]!)],
+        // The whole intro, with both values filled in.
+        [
+          'intro',
+          m[`${P}intro`]!.replace('{days}', String(NOTICE_PERIOD_DAYS))
+            .split('{email}')
+            .every(part => intro.includes(part)) &&
+            intro.includes(PRIVACY_CONTACT_EMAIL),
+        ],
+        ['summary shown', pending.includes('Example Host joins.')],
+        ['pending name', pending.includes('Example Host, Inc.')],
+        ['pending kind', pending.includes(m[`${P}kind.added`]!)],
+        [
+          'pending urgent once',
+          pending.split(
+            m[`${P}urgent`]!.replace('{days}', String(NOTICE_PERIOD_DAYS))
+          ).length === 2,
+        ],
+        ['recent kind', recent.includes(m[`${P}kind.changed`]!)],
+        ['recent name', recent.includes(neon.entity)],
+        ['pending holds only pending', !pending.includes(neon.entity)],
+        ['recent holds only recent', !recent.includes('Example Host, Inc.')],
+        // Announced but not in effect: never shown as a subprocessor in use.
+        ['not in use yet', !tables.includes('Example Host, Inc.')],
+      ]
+      for (const [what, ok] of need)
+        if (!ok) problems.push(`${locale}: ${what}`)
+    }
+    expect(problems).toEqual([])
+  })
+
+  it('security page shows the empty change lists when nothing is in flight LUM-919', () => {
+    const page = text(render('en'))
+    expect(page).toContain(
+      MESSAGES.en!['security.subprocessors.changes.pendingEmpty']
+    )
+    expect(page).toContain(
+      MESSAGES.en!['security.subprocessors.changes.recentEmpty']
+    )
+    expect(render('en')).toContain('id="subprocessor-changes"')
   })
 
   it('marks the page with the rendered locale', () => {

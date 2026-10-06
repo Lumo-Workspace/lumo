@@ -77,6 +77,9 @@ export const AUDIT_ACTIONS = [
   'test_case_defect.dispositioned',
   // Reading the audit log out of Lumo (listing it is not audited)
   'audit_log.exported',
+  // LUM-919: Lumo emailed this workspace's owners a subprocessor change
+  // notice (DPA 7.2) — SYSTEM actor, written by the operator's send script.
+  'subprocessor_change.notified',
 ] as const
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
@@ -99,6 +102,7 @@ export const AUDIT_TARGET_TYPES = [
   'test_case_run',
   'sentry_mapping',
   'audit_log',
+  'subprocessor_change',
 ] as const
 
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number]

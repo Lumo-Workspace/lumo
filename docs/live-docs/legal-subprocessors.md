@@ -1,6 +1,6 @@
 # Lumo Subprocessors
 
-Last updated: 2026-10-04 · Draft for legal review (LUM-857)
+Last updated: 2026-10-05 · Draft for legal review (LUM-857)
 
 This page lists the third parties ("subprocessors") that [Lumo legal entity] ("Lumo", "we") engages to process Customer Personal Data on behalf of our customers when providing the Lumo service. It is the list referenced by the Lumo Data Processing Agreement (DPA). We notify customers of changes as described in "Changes to this list" below.
 
@@ -18,7 +18,7 @@ These subprocessors process data for every workspace.
 | Clerk Inc. | Authentication | Sign-in, user accounts, sessions, organization membership | Name, email address, profile image, authentication metadata | United States |
 | Pusher Ltd. | Pusher Channels | Real-time updates pushed to open browser tabs | Task and activity update events | United States (us2 cluster) |
 | Upstash Inc. (via Vercel KV) | Redis key-value store | Rate limiting of API and upload endpoints | Request counters keyed by workspace or token identifier | United States |
-| Resend Inc. | Transactional email | Sends workspace invitation emails | Recipient email address, inviter name, workspace name | United States |
+| Resend Inc. | Transactional email | Sends transactional emails: workspace invitations, workspace deletion notices to workspace owners, and subprocessor change notices to workspace owners | Recipient email address, workspace name, name of the member who sent the invitation or requested the deletion | United States |
 
 ## AI model hosting subprocessors
 
@@ -64,6 +64,14 @@ The following services exchange data with Lumo only when a workspace member conn
 
 ## Changes to this list
 
-We will announce any new subprocessor, or any change in the purpose or data location of an existing one, by updating this page and notifying workspace owners by email at least [30] days before the change takes effect, except where a change is needed urgently to keep the service secure or available, in which case we will notify as soon as possible. Customers may object to a change as set out in the DPA.
+We will announce any new subprocessor, or any change in the purpose or data location of an existing one, by updating this page and the subprocessor list on our security page (https://www.uselumo.ai/security), and by email to the owners of every workspace, at least [30] days before the change takes effect, except where a change is needed urgently to keep the service secure or available, in which case we will notify as soon as possible. Workspace owners are notified automatically and do not need to sign up. Customers may object to a change as set out in the DPA.
 
-To receive notifications, or for questions about this list, contact [privacy@uselumo.ai].
+### Change history
+
+The main tables above list only subprocessors in effect on the "Last updated" date. A change that is announced but not yet in effect is listed here until it takes effect.
+
+| Change | Announced | Takes effect | Summary |
+| --- | --- | --- | --- |
+| 2026-10-05-resend-purpose | 2026-10-05 | 2026-10-05 | Resend (transactional email): purpose corrected to workspace invitations, workspace deletion notices and subprocessor change notices to workspace owners. These emails were already being sent; nothing else changes. |
+
+Workspace owners receive change notices automatically. A customer can ask [privacy@uselumo.ai] to send these notices to one additional recipient address as well, which we record manually. Anyone else who wants to hear about changes, or who has a question about this list, can contact [privacy@uselumo.ai].

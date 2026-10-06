@@ -11,6 +11,13 @@ import {
   INFRASTRUCTURE_SUBPROCESSORS,
   SECURITY_CONTACT_EMAIL,
 } from '@/lib/legal/subprocessors'
+import { buildSubprocessorPageView } from '@/lib/legal/subprocessor-change-log'
+import {
+  NOTICE_PERIOD_DAYS,
+  PRIVACY_CONTACT_EMAIL,
+  SUBPROCESSOR_BASELINE_DATE,
+  SUBPROCESSOR_CHANGES,
+} from '@/lib/legal/subprocessor-changes'
 import {
   AI_HOST_LOCATION,
   EXCLUDED_MODEL_AUTHORS,
@@ -23,6 +30,21 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
 
 const MANIFEST = read('docs/privacy/llm-data-flow.md')
 const LEGAL_DOC = read('docs/live-docs/legal-subprocessors.md')
+
+/**
+ * LUM-919: like /security, the doc's main tables list only what is in effect —
+ * as of its own "Last updated" date (no wall clock, so the test cannot turn
+ * red on a calendar day). Announced, not yet effective entries appear only in
+ * its Change history.
+ */
+const DOC_AS_OF = LEGAL_DOC.match(/^Last updated: (\d{4}-\d{2}-\d{2})/m)?.[1]
+if (!DOC_AS_OF) throw new Error('legal doc has no "Last updated: YYYY-MM-DD"')
+const DOC_IN_USE = buildSubprocessorPageView({
+  infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+  aiHosts: AI_HOST_SUBPROCESSORS,
+  changes: SUBPROCESSOR_CHANGES,
+  now: new Date(`${DOC_AS_OF}T00:00:00Z`),
+})
 
 /** Body rows of the first markdown table whose header starts with `prefix`. */
 function tableAfter(doc: string, prefix: string): string[][] {
@@ -95,12 +117,12 @@ describe('subprocessor registry (LUM-856)', () => {
       )
     ).toEqual(
       sorted(
-        INFRASTRUCTURE_SUBPROCESSORS.map(s => `${s.entity} / ${s.docService}`)
+        DOC_IN_USE.infrastructure.map(s => `${s.entity} / ${s.docService}`)
       )
     )
     expect(
       sorted(tableAfter(LEGAL_DOC, '| Subprocessor | Models').map(r => r[0]!))
-    ).toEqual(sorted(AI_HOST_SUBPROCESSORS.map(h => h.entity)))
+    ).toEqual(sorted(DOC_IN_USE.aiHosts.map(h => h.entity)))
     expect(
       sorted(
         tableAfter(LEGAL_DOC, '| Service | Provider').map(
@@ -122,6 +144,39 @@ describe('subprocessor registry (LUM-856)', () => {
     expect(
       AI_HOST_SUBPROCESSORS.filter(h => h.location !== 'globalRouting')
     ).toEqual([])
+  })
+
+  it('legal doc change section matches the change log and the notice mechanism LUM-919', () => {
+    const changes = LEGAL_DOC.slice(
+      LEGAL_DOC.indexOf('## Changes to this list')
+    )
+    // The promise the send script keeps: owners of every workspace, by email,
+    // NOTICE_PERIOD_DAYS ahead, automatically; others via the privacy contact.
+    expect(changes).toMatch(/by email to the owners of every workspace/)
+    expect(changes).toContain(`at least [${NOTICE_PERIOD_DAYS}] days`)
+    expect(changes).toMatch(/notified automatically/)
+    expect(changes).toContain(`[${PRIVACY_CONTACT_EMAIL}]`)
+    expect(changes).not.toMatch(/To receive notifications/)
+
+    const history = changes.slice(changes.indexOf('### Change history'))
+    if (SUBPROCESSOR_CHANGES.length === 0) {
+      expect(history).toContain(
+        `No changes have been recorded since the change history started on ${SUBPROCESSOR_BASELINE_DATE}.`
+      )
+    } else {
+      // | Change | Announced | Takes effect | Summary |
+      expect(
+        sorted(
+          tableAfter(history, '| Change | Announced').map(r => r.join(' / '))
+        )
+      ).toEqual(
+        sorted(
+          SUBPROCESSOR_CHANGES.map(c =>
+            [c.id, c.announcedAt, c.effectiveAt, c.summary].join(' / ')
+          )
+        )
+      )
+    }
   })
 
   it('flags a model id missing from the ZDR manifest', () => {

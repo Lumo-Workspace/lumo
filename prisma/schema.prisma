@@ -464,6 +464,7 @@ model Workspace {
   attributionSegments TaskAttributionSegment[]
   usageResyncAudits   UsageResyncAudit[]
   auditEvents         AuditEvent[]
+  subprocessorNotices SubprocessorNoticeDelivery[]
 
   @@index([deletionExecuteAt])
   @@map("workspaces")
@@ -523,6 +524,28 @@ model AuditEvent {
   @@index([workspaceId, action, createdAt])
   @@index([createdAt])
   @@map("audit_events")
+}
+
+/// LUM-919: one subprocessor change notice (DPA 7.2) emailed to one OWNER of
+/// one workspace. Written by the operator's send script after Resend accepts
+/// the message; the unique key makes a rerun skip everyone already notified.
+/// Holds no email address — the Clerk id is resolved at send time. Goes with
+/// the workspace (cascade).
+model SubprocessorNoticeDelivery {
+  id          String   @id @default(cuid())
+  /// SubprocessorChange.id from lib/legal/subprocessor-changes.ts
+  changeId    String
+  workspaceId String
+  clerkId     String
+  /// Resend message id, when Resend returned one.
+  messageId   String?
+  sentAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([changeId, workspaceId, clerkId])
+  @@index([workspaceId])
+  @@map("subprocessor_notice_deliveries")
 }
 
 /// LUM-861: proof that a workspace was deleted (DPA deletion evidence). FK-less
