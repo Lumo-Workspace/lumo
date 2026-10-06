@@ -31,3 +31,4 @@ scripts/analysis/lum996-injection-detector-bench/results.json
 # compact tables — prettier's padding pushed the PR past the AI review cap.
 scripts/analysis/lum999-lumo-context-injection/results.json
 scripts/analysis/lum999-lumo-context-injection/README.md
+scripts/analysis/lum999-lumo-context-injection/results-lum1003/results.json
