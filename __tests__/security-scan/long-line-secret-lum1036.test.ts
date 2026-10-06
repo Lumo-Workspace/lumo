@@ -77,7 +77,7 @@ describe('LUM-1036 scanSecrets: over-cap lines are scanned, not skipped', () => 
     ).toHaveLength(0)
   })
 
-  it('scanning a 1 MB line stays linear (well under a second)', () => {
+  it('scanning a 1 MB line stays linear (loose 2 s ceiling — catches a regression in kind, not a slowdown)', () => {
     const line = `${bundle(1_000_000)}k="${AWS_KEY}"`
     const start = process.hrtime.bigint()
     const r = scanSecrets([file('src/app.min.js', [line])])
