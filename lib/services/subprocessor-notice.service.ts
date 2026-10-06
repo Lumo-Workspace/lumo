@@ -1,6 +1,10 @@
 import { buildSubprocessorChangeEmail } from '@/lib/integrations/email'
 import type { SubprocessorChangeEmailResult } from '@/lib/integrations/email'
-import { noticeRefusal } from '@/lib/legal/subprocessor-change-log'
+import {
+  daysUntilEffective,
+  isUrgent,
+  noticeRefusal,
+} from '@/lib/legal/subprocessor-change-log'
 import {
   NOTICE_PERIOD_DAYS,
   PRIVACY_CONTACT_EMAIL,
@@ -117,17 +121,23 @@ export function findSubprocessorChange(
   return change
 }
 
-/** The notice email for one workspace. */
+/**
+ * The notice email for one workspace, sent at `now`. The urgent wording ("less
+ * than 30 days' notice") appears only when it is true at send time.
+ */
 export function renderSubprocessorNotice(
   change: SubprocessorChange,
-  workspaceName: string
+  workspaceName: string,
+  now: Date
 ): SubprocessorChangeEmailResult {
+  const shortNotice =
+    isUrgent(change) && daysUntilEffective(change, now) < NOTICE_PERIOD_DAYS
   return buildSubprocessorChangeEmail({
     workspaceName,
     kind: change.kind,
     summary: change.summary,
     effectiveAt: change.effectiveAt,
-    urgentReason: change.urgent?.reason,
+    urgentReason: shortNotice ? change.urgent?.reason : undefined,
     noticePeriodDays: NOTICE_PERIOD_DAYS,
     securityUrl: `${PUBLIC_SECURITY_URL}#subprocessor-changes`,
     privacyEmail: PRIVACY_CONTACT_EMAIL,
@@ -184,7 +194,8 @@ export async function planSubprocessorNotice(
     },
     preview: renderSubprocessorNotice(
       change,
-      first?.workspaceName ?? 'Example workspace'
+      first?.workspaceName ?? 'Example workspace',
+      deps.now
     ),
   }
 }
@@ -222,7 +233,7 @@ export async function sendSubprocessorNotice(
     workspacesNotified: 0,
   }
   for (const w of workspaces) {
-    const email = renderSubprocessorNotice(change, w.name)
+    const email = renderSubprocessorNotice(change, w.name, deps.now)
     let sentHere = 0
     let failedHere = 0
     for (const { clerkId } of w.owners) {

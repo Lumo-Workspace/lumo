@@ -57,6 +57,14 @@ export function isUrgent(change: SubprocessorChange): boolean {
   return Boolean(change.urgent?.reason.trim())
 }
 
+/** Days (fractional) from `now` until the change takes effect; negative after. */
+export function daysUntilEffective(
+  change: SubprocessorChange,
+  now: Date
+): number {
+  return (utcDayStart(change.effectiveAt) - now.getTime()) / DAY_MS
+}
+
 /** Not yet in effect at `now`. */
 export function isPending(change: SubprocessorChange, now: Date): boolean {
   return now.getTime() < utcDayStart(change.effectiveAt)
@@ -252,7 +260,7 @@ export function noticeRefusal(
   if (change.kind === 'removed')
     return `${change.id} is a removal; removals are recorded, not announced`
   if (isUrgent(change)) return null
-  const daysLeft = (utcDayStart(change.effectiveAt) - now.getTime()) / DAY_MS
+  const daysLeft = daysUntilEffective(change, now)
   if (daysLeft < NOTICE_PERIOD_DAYS)
     return `${change.id} takes effect ${change.effectiveAt}, ${Math.max(0, Math.floor(daysLeft))} days from now; DPA 7.2 needs ${NOTICE_PERIOD_DAYS} days of notice. Move effectiveAt, or mark the change urgent with a reason.`
   return null

@@ -333,6 +333,19 @@ describe('subprocessor change notice send (LUM-919)', () => {
     expect(sent[0]!.text).toContain(URGENT.urgent!.reason)
   })
 
+  it('an urgent change sent with the full notice is not called urgent', () => {
+    const calm = renderSubprocessorNotice(
+      { ...ADDED, urgent: { reason: 'Precaution.' } },
+      'Acme',
+      NOW
+    )
+    expect(calm.subject).toMatch(/^Subprocessor change/)
+    expect(calm.text).not.toContain('urgently')
+    const rushed = renderSubprocessorNotice(URGENT, 'Acme', NOW)
+    expect(rushed.subject).toMatch(/^Urgent subprocessor change/)
+    expect(rushed.text).toContain("less than 30 days' notice")
+  })
+
   it('an unknown change id is a 404', () => {
     expect(() => findSubprocessorChange('nope', CHANGES)).toThrow(
       expect.objectContaining({ status: 404 })
@@ -345,7 +358,8 @@ describe('subprocessor change notice email (LUM-919)', () => {
   it('states the change, date, /security link and objection route, with no tracking', () => {
     const { subject, html, text } = renderSubprocessorNotice(
       ADDED,
-      'Acme <Corp>'
+      'Acme <Corp>',
+      NOW
     )
     expect(subject).toBe(
       'Subprocessor change for Acme <Corp>, effective 5 December 2026'

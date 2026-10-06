@@ -7,6 +7,7 @@
 import {
   buildSubprocessorPageView,
   checkSubprocessorChangeLog,
+  daysUntilEffective,
   isPending,
   isUrgent,
   noticeDays,
@@ -208,6 +209,9 @@ describe('subprocessor change log guard (LUM-919)', () => {
     expect(noticeDays(addHost())).toBe(30)
     expect(isPending(addHost(), new Date('2026-11-30T23:59:59Z'))).toBe(true)
     expect(isPending(addHost(), new Date('2026-12-01T00:00:00Z'))).toBe(false)
+    expect(
+      daysUntilEffective(addHost(), new Date('2026-11-30T12:00:00Z'))
+    ).toBe(0.5)
     expect(isUrgent(addHost())).toBe(false)
     expect(isUrgent(addHost({ urgent: { reason: 'Outage' } }))).toBe(true)
   })
