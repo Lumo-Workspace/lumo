@@ -347,6 +347,56 @@ describe('pruned or deleted PostToolBatch', () => {
   })
 })
 
+describe('PostToolBatch next to cleared events', () => {
+  const PRUNED = buildPrunedPayload(at(0), 90)
+
+  it('adds no row for a pruned batch whose calls are live', () => {
+    const items = mergeEvents([
+      preEvent('RETAIN', BASH, 1),
+      postEvent('RETAIN', BASH, 2),
+      { ...batchEvent('RETAIN', [BASH, READ], 3), payload: PRUNED },
+    ])
+    expect(items.map(i => [i.kind, i.toolName, i.pruned])).toEqual([
+      ['tool', 'Bash', false],
+    ])
+    expect(countToolCalls(items)).toBe(1)
+  })
+
+  it('does not re-add a call whose own Pre/Post were cleared', () => {
+    // Retention cleared the Pre/Post but not the batch stored a second later.
+    const items = mergeEvents([
+      { ...preEvent('RETAIN', BASH, 1), payload: PRUNED },
+      { ...postEvent('RETAIN', BASH, 2), payload: PRUNED },
+      batchEvent('RETAIN', [BASH], 3),
+    ])
+    expect(items.map(i => [i.kind, i.toolName, i.pruned])).toEqual([
+      ['tool', 'Bash', true],
+    ])
+    expect(countToolCalls(items)).toBe(1)
+  })
+
+  it('still expands a later batch after a cleared earlier turn', () => {
+    const items = mergeEvents([
+      { ...preEvent('RETAIN', WRITE, 1), payload: PRUNED },
+      { ...postEvent('RETAIN', WRITE, 2), payload: PRUNED },
+      { ...batchEvent('RETAIN', [WRITE], 3), payload: PRUNED },
+      batchEvent('RETAIN', [BASH], 5),
+    ])
+    expect(items.map(i => [i.toolName, i.pruned])).toEqual([
+      ['Write', true],
+      ['Bash', false],
+    ])
+  })
+
+  it('never expands a batch entry without a tool name', () => {
+    const batch = batchEvent('RETAIN', [BASH], 1)
+    const payload = batch.payload as { tool_calls: Record<string, unknown>[] }
+    delete payload.tool_calls[0]!.tool_name
+    const items = mergeEvents([batch])
+    expect(items).toEqual([])
+  })
+})
+
 describe('countToolCalls', () => {
   it('counts tool and pending rows, not prompts or stops', () => {
     const items = mergeEvents([

@@ -132,13 +132,21 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   const preByToolUseId = new Map<string, RawEvent>()
   const itemByToolUseId = new Map<string, TimelineItem>()
   const batches: RawEvent[] = []
+  // Times of turn/batch boundaries and of cleared tool events, so a batch can
+  // tell whether one of its own calls was cleared (see batchMayExpand).
+  const boundaryTimes: number[] = []
+  const prunedToolTimes: number[] = []
 
   for (const ev of events) {
+    if (BOUNDARY_TYPES.has(ev.type)) boundaryTimes.push(ev.createdAt.getTime())
+
     // LUM-859: a pruned payload has no tool_use_id / prompt / message to read.
     // One row per cleared call — the Post carries it, so a cleared Pre is
     // skipped rather than left dangling as "pending", and so is a cleared
     // batch, whose calls are the Pre/Post rows' own (LUM-937).
     if (isPrunedPayload(ev.payload)) {
+      if (!BOUNDARY_TYPES.has(ev.type))
+        prunedToolTimes.push(ev.createdAt.getTime())
       if (ev.type !== 'PRE_TOOL_USE' && ev.type !== 'POST_TOOL_BATCH')
         items.push(prunedItem(ev))
       continue
@@ -187,7 +195,10 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   // After pairing: a batch can be stored before its own Pre/Post rows.
   const completedByBatch = new Set<string>()
   for (const batch of batches) {
-    items.push(...applyBatch(batch, itemByToolUseId, completedByBatch))
+    const mayExpand = batchMayExpand(batch, boundaryTimes, prunedToolTimes)
+    items.push(
+      ...applyBatch(batch, itemByToolUseId, completedByBatch, mayExpand)
+    )
   }
 
   items.sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
@@ -326,6 +337,34 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
 
 // ─── PostToolBatch (LUM-937) ────────────────────────────────────────────────
 
+/** Events that close a run of tool calls: a batch fires after its calls,
+ *  which all start after the previous prompt, stop or batch. */
+const BOUNDARY_TYPES: ReadonlySet<HookEventType> = new Set<HookEventType>([
+  'USER_PROMPT_SUBMIT',
+  'STOP',
+  'POST_TOOL_BATCH',
+])
+
+/**
+ * Whether a batch may turn calls it alone recorded into rows. A cleared
+ * (pruned / deleted) Pre/Post keeps no tool_use_id, so it cannot be matched:
+ * when a cleared tool event sits between the previous boundary and this batch,
+ * a call that looks batch-only may be that cleared row's call — expanding it
+ * would show the call twice, so the batch adds no rows.
+ */
+function batchMayExpand(
+  batch: RawEvent,
+  boundaryTimes: number[],
+  prunedToolTimes: number[]
+): boolean {
+  const end = batch.createdAt.getTime()
+  const start = boundaryTimes.reduce(
+    (latest, t) => (t < end && t > latest ? t : latest),
+    Number.NEGATIVE_INFINITY
+  )
+  return !prunedToolTimes.some(t => t > start && t <= end)
+}
+
 /**
  * Fold one PostToolBatch into the timeline. A call already shown with its Post
  * gains nothing (the Post carries the same input, a richer response and its
@@ -333,12 +372,15 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
  * row at all is returned as a new row — it is registered in `itemByToolUseId`,
  * so a later batch repeating it adds nothing. `completedByBatch` holds the
  * calls a batch already supplied a result for, so a repeated call (in the same
- * batch or a later one) never adds a second result.
+ * batch or a later one) never adds a second result. With `mayExpand` false
+ * (see {@link batchMayExpand}) no new row is added. A call without a
+ * tool_name never becomes a row (it would render blank).
  */
 function applyBatch(
   batch: RawEvent,
   itemByToolUseId: Map<string, TimelineItem>,
-  completedByBatch: Set<string>
+  completedByBatch: Set<string>,
+  mayExpand: boolean
 ): TimelineItem[] {
   const calls = getAny(batch.payload, 'tool_calls')
   if (!Array.isArray(calls)) return []
@@ -355,6 +397,7 @@ function applyBatch(
       }
       return
     }
+    if (!mayExpand || !getString(call, 'tool_name')) return
     const item = batchCallItem(batch, call, toolUseId, prefix)
     itemByToolUseId.set(toolUseId, item)
     completedByBatch.add(toolUseId)
