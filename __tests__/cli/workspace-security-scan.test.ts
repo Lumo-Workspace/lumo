@@ -30,6 +30,7 @@ const ALL_ON: SecurityScanSettingsView = {
   },
   platform: { managedScan: true, hunt: false },
   effective: { scan: true, managedScan: true, aiReview: true, hunt: false },
+  canEdit: true,
 }
 const ALL_OFF: SecurityScanSettingsView = {
   switches: {
@@ -39,6 +40,7 @@ const ALL_OFF: SecurityScanSettingsView = {
   },
   platform: { managedScan: true, hunt: false },
   effective: { scan: false, managedScan: false, aiReview: false, hunt: false },
+  canEdit: true,
 }
 
 let out: string
@@ -159,6 +161,34 @@ describe('workspaceSecurityScan', () => {
     serve([{ body: ALL_OFF }, { body: ALL_ON }])
     expect(await workspaceSecurityScan({ enableAll: true })).toBeUndefined()
     expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({ all: true })
+  })
+
+  it('a non-OWNER changing anything is refused before any envelope or PATCH', async () => {
+    serve([{ body: { ...ALL_ON, canEdit: false } }])
+    expect(await workspaceSecurityScan({ disableAll: true })).toBe(1)
+    expect(calls).toHaveLength(1)
+    expect(out).not.toMatch(/confirmation_required/)
+    expect(err).toMatch(/only workspace owners/)
+  })
+
+  it('a non-OWNER can still read', async () => {
+    serve([{ body: { ...ALL_ON, canEdit: false } }])
+    expect(await workspaceSecurityScan({})).toBeUndefined()
+    expect(out).toMatch(/Security scan \(master\)/)
+  })
+
+  it('an older server without canEdit falls back to the server 403', async () => {
+    const { canEdit: _drop, ...legacy } = ALL_ON
+    void _drop
+    serve([
+      { body: legacy },
+      {
+        body: { error: 'Only admins can update workspace settings' },
+        status: 403,
+      },
+    ])
+    expect(await workspaceSecurityScan({ hunt: 'on' })).toBe(1)
+    expect(calls).toHaveLength(2)
   })
 
   it('surfaces the OWNER-only 403', async () => {

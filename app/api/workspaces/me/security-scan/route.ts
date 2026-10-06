@@ -11,13 +11,14 @@ import { memberAuditContext } from '@/lib/api/audit-context'
 /**
  * GET /api/workspaces/me/security-scan — the workspace's PR security-scan
  * switches, the platform ceiling and the layers that will actually run
- * (LUM-1002). Any member may read. Browser session or CLI bearer.
+ * and whether the caller may change them (LUM-1002). Any member may read.
+ * Browser session or CLI bearer.
  */
 export async function GET(request: NextRequest) {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
   try {
-    const settings = await securityScanSettingsService.get(identity.workspaceId)
+    const settings = await securityScanSettingsService.get(identity)
     return NextResponse.json(settings, {
       headers: { 'Cache-Control': 'private, no-store' },
     })
