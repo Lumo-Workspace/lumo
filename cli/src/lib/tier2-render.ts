@@ -37,7 +37,7 @@ export function formatSlackSnapshot(
   redactedSecrets?: number
 ): string {
   const body = messages
-    .map(m => `${sanitizeField(m.userName ?? '@' + m.userId)}: ${m.text}`)
+    .map(m => `${sanitizeField(m.userName ?? '@' + m.userId)}: ${m.text ?? ''}`)
     .join('\n')
   const fenced = fenceUntrustedText(
     LINKED_FENCE,

@@ -96,7 +96,10 @@ export function formatCommentThread(
     units: blocks,
     // The fence (tags, preamble, up to two notices) is printed on top of the
     // kept comments, so it is paid for out of the same budget.
-    maxTokens: (opts.maxTokens ?? OUTPUT_TOKEN_BUDGET) - FENCE_RESERVE_TOKENS,
+    maxTokens: Math.max(
+      1,
+      (opts.maxTokens ?? OUTPUT_TOKEN_BUDGET) - FENCE_RESERVE_TOKENS
+    ),
     unitNoun: 'comments',
     fetchHint: `read the whole thread with: lumo ${fetchCommand} ${id} --full`,
     separator: COMMENT_SEPARATOR,
@@ -104,7 +107,11 @@ export function formatCommentThread(
   if (!capped.truncated) return fenceCommentThread(capped.text)
   // The fetch-more pointer is Lumo's own line: keep it outside the fence.
   const cut = capped.text.lastIndexOf(COMMENT_SEPARATOR)
-  return `${fenceCommentThread(capped.text.slice(0, cut))}${COMMENT_SEPARATOR}${capped.text.slice(cut + COMMENT_SEPARATOR.length)}`
+  if (cut < 0) return fenceCommentThread(capped.text)
+  const pointer = capped.text.slice(cut + COMMENT_SEPARATOR.length)
+  // A budget too small to keep any text leaves nothing to fence.
+  const fenced = fenceCommentThread(capped.text.slice(0, cut))
+  return fenced ? `${fenced}${COMMENT_SEPARATOR}${pointer}` : pointer
 }
 
 const COMMENT_SEPARATOR = '\n\n'
