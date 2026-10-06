@@ -53,7 +53,8 @@ def search(client: httpx.Client, query: str) -> list[dict]:
             continue
         r.raise_for_status()
         return r.json().get("items", [])
-    return []
+    # Never read a failed search as an empty day: that would silently thin the sample.
+    raise RuntimeError(f"search still rate limited after retries: {query}")
 
 
 async def main() -> None:

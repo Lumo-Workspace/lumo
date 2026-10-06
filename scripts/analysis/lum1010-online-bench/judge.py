@@ -128,12 +128,13 @@ async def main() -> None:
 
     async def one(url: str) -> None:
         row = by_url[url]
-        actions = json.loads(row["human_actions"])
-        bot_matches = json.loads(row["matching_results"])
+        actions = json.loads(row["human_actions"] or "[]")
+        bot_matches = json.loads(row["matching_results"] or "[]")
         a_ids = {a["action_id"] for a in actions}
         judged["bots"][url] = {
             "bot": meta[url]["bot"],
-            **counts(json.loads(row["bot_suggestions"]), actions, bot_matches),
+            **counts(json.loads(row["bot_suggestions"] or "[]"), actions, bot_matches),
+            "actionIds": sorted(a_ids),
             "botMatchedActions": sorted(
                 {m["human_action_id"] for m in bot_matches if m.get("matched") and m.get("human_action_id") in a_ids}
             ),

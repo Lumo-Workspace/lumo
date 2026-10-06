@@ -79,7 +79,7 @@ def online(d: Path):
         rank = json.loads((d / f"rank-run{run}.json").read_text())
         for url, jr in j[tag].items():
             runs = review[url]["runs"]
-            if "findings" not in runs[run]:
+            if run >= len(runs) or "findings" not in runs[run]:
                 continue
             matched: dict[str, set] = {}
             for m in jr["matches"]:

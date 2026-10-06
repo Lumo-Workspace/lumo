@@ -65,7 +65,9 @@ def main() -> None:
             if u not in j[t]:
                 continue
             bm = set(bots[u].get("botMatchedActions", []))
-            lm = {m["human_action_id"] for m in j[t][u]["matches"] if m.get("matched")}
+            # Only ids of this PR's actions: the judge may echo an id that does not exist.
+            valid = set(bots[u].get("actionIds", []))
+            lm = {m.get("human_action_id") for m in j[t][u]["matches"] if m.get("matched")} & valid
             hit_c += len(lm & bm)
             hit_o += len(lm - bm)
         print(f"  {t:26}bot-pointed {hit_c}/{caused} ({100 * hit_c / max(caused, 1):4.1f}%)  "
