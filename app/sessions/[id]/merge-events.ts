@@ -4,9 +4,17 @@
  * A "tool call" is the Pre+Post pair sharing a tool_use_id. STOP events and
  * orphans (Pre without Post, or Post without Pre) each get their own item.
  *
+ * A PostToolBatch event (LUM-937) is never an item of its own: Claude Code
+ * fires it once per assistant message, after every call in it resolved, with
+ * `tool_calls[] = { tool_name, tool_input, tool_use_id, tool_response }`, and
+ * each of those calls has already fired its own Pre/PostToolUse. The batch
+ * only fills gaps — a call whose Post never arrived gets the batch's result,
+ * a call with no Pre/Post at all becomes a row built from the batch entry.
+ *
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
+import type { HookEventType as SchemaHookEventType } from '@prisma/client'
 import {
   isPrunedPayload,
   isUserDeletedPayload,
@@ -39,11 +47,8 @@ export type BlockLabelKey =
   | 'todos'
   | 'input'
 
-export type HookEventType =
-  | 'PRE_TOOL_USE'
-  | 'POST_TOOL_USE'
-  | 'STOP'
-  | 'USER_PROMPT_SUBMIT'
+/** Every stored hook event type (the Prisma enum) — see {@link EVENT_ROLE}. */
+export type HookEventType = SchemaHookEventType
 
 export interface RawEvent {
   id: string
@@ -122,62 +127,135 @@ export interface TimelineItem {
 export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   const items: TimelineItem[] = []
   const preByToolUseId = new Map<string, RawEvent>()
+  const itemByToolUseId = new Map<string, TimelineItem>()
+  const batches: RawEvent[] = []
+  // Times of turn/batch boundaries and of cleared tool events, so a batch can
+  // tell whether one of its own calls was cleared (see batchMayExpand).
+  const boundaryTimes: number[] = []
+  const prunedToolTimes: number[] = []
 
   for (const ev of events) {
+    const role = EVENT_ROLE[ev.type]
+    if (role === 'skip') continue
+    if (role === 'prompt' || role === 'stop' || role === 'batch')
+      boundaryTimes.push(ev.createdAt.getTime())
+
     // LUM-859: a pruned payload has no tool_use_id / prompt / message to read.
     // One row per cleared call — the Post carries it, so a cleared Pre is
-    // skipped rather than left dangling as "pending".
+    // skipped rather than left dangling as "pending", and so is a cleared
+    // batch, whose calls are the Pre/Post rows' own (LUM-937).
     if (isPrunedPayload(ev.payload)) {
-      if (ev.type !== 'PRE_TOOL_USE') items.push(prunedItem(ev))
+      if (role === 'pre' || role === 'post')
+        prunedToolTimes.push(ev.createdAt.getTime())
+      if (role !== 'pre' && role !== 'batch') items.push(prunedItem(ev, role))
       continue
     }
 
-    if (ev.type === 'USER_PROMPT_SUBMIT') {
-      items.push(userPromptItem(ev))
-      continue
-    }
-
-    if (ev.type === 'STOP') {
-      items.push(stopItem(ev))
-      continue
-    }
-
-    const toolUseId = getString(ev.payload, 'tool_use_id')
-    if (ev.type === 'PRE_TOOL_USE') {
-      if (toolUseId) {
-        preByToolUseId.set(toolUseId, ev)
-      } else {
-        items.push(toolItem(ev, null))
+    switch (role) {
+      case 'batch':
+        batches.push(ev)
+        continue
+      case 'prompt':
+        items.push(userPromptItem(ev))
+        continue
+      case 'stop':
+        items.push(stopItem(ev))
+        continue
+      case 'pre': {
+        const toolUseId = getString(ev.payload, 'tool_use_id')
+        if (toolUseId) preByToolUseId.set(toolUseId, ev)
+        else items.push(toolItem(ev, null))
+        continue
       }
-      continue
+      case 'post': {
+        const toolUseId = getString(ev.payload, 'tool_use_id')
+        const pre = toolUseId ? preByToolUseId.get(toolUseId) : undefined
+        if (pre && toolUseId) preByToolUseId.delete(toolUseId)
+        const item = toolItem(pre ?? null, ev)
+        items.push(item)
+        if (toolUseId) itemByToolUseId.set(toolUseId, item)
+        continue
+      }
     }
-
-    // POST_TOOL_USE
-    const pre = toolUseId ? preByToolUseId.get(toolUseId) : undefined
-    if (pre && toolUseId) preByToolUseId.delete(toolUseId)
-    items.push(toolItem(pre ?? null, ev))
   }
 
   // Orphan Pre events (no matching Post) — render as pending.
-  for (const pre of preByToolUseId.values()) {
-    items.push(toolItem(pre, null))
+  for (const [toolUseId, pre] of preByToolUseId) {
+    const item = toolItem(pre, null)
+    items.push(item)
+    itemByToolUseId.set(toolUseId, item)
+  }
+
+  // After pairing: a batch can be stored before its own Pre/Post rows.
+  const completedByBatch = new Set<string>()
+  for (const batch of batches) {
+    const mayExpand = batchMayExpand(batch, boundaryTimes, prunedToolTimes)
+    items.push(
+      ...applyBatch(batch, itemByToolUseId, completedByBatch, mayExpand)
+    )
   }
 
   items.sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
   return items
 }
 
+/** Tool calls in the timeline: finished and pending tool rows. */
+export function countToolCalls(items: TimelineItem[]): number {
+  return items.filter(i => i.kind === 'tool' || i.kind === 'orphan').length
+}
+
+// ─── Event roles (LUM-937) ──────────────────────────────────────────────────
+
+/** How the timeline treats one hook event type. */
+type EventRole = 'prompt' | 'stop' | 'pre' | 'post' | 'batch' | 'skip'
+
+/**
+ * Every stored hook event type, mapped explicitly — a type added to the
+ * schema fails to compile here instead of silently falling into a branch.
+ *
+ * - POST_TOOL_USE_FAILURE fires instead of POST_TOOL_USE when the tool call
+ *   throws, with the same tool_name / tool_input / tool_use_id plus `error`
+ *   and `is_interrupt`: it is that call's Post, rendered as an error.
+ * - STOP_FAILURE fires instead of STOP when an API error ended the turn, with
+ *   `error` and `last_assistant_message`: it is that turn's Stop, as an error.
+ * - Everything else (session / subagent / permission / notification / config
+ *   / task / worktree / file / cwd / instructions / elicitation / prompt
+ *   expansion) is not a tool call and is not shown here.
+ */
+const EVENT_ROLE: Record<HookEventType, EventRole> = {
+  USER_PROMPT_SUBMIT: 'prompt',
+  STOP: 'stop',
+  STOP_FAILURE: 'stop',
+  PRE_TOOL_USE: 'pre',
+  POST_TOOL_USE: 'post',
+  POST_TOOL_USE_FAILURE: 'post',
+  POST_TOOL_BATCH: 'batch',
+  PERMISSION_REQUEST: 'skip',
+  PERMISSION_DENIED: 'skip',
+  SESSION_START: 'skip',
+  SESSION_END: 'skip',
+  SUBAGENT_START: 'skip',
+  SUBAGENT_STOP: 'skip',
+  WORKTREE_CREATE: 'skip',
+  WORKTREE_REMOVE: 'skip',
+  FILE_CHANGED: 'skip',
+  CONFIG_CHANGE: 'skip',
+  TASK_CREATED: 'skip',
+  TASK_COMPLETED: 'skip',
+  USER_PROMPT_EXPANSION: 'skip',
+  NOTIFICATION: 'skip',
+  ELICITATION: 'skip',
+  ELICITATION_RESULT: 'skip',
+  CWD_CHANGED: 'skip',
+  INSTRUCTIONS_LOADED: 'skip',
+}
+
 // ─── Item builders ──────────────────────────────────────────────────────────
 
-function prunedItem(ev: RawEvent): TimelineItem {
+function prunedItem(ev: RawEvent, role: EventRole): TimelineItem {
   return {
     key: ev.id,
-    kind:
-      ev.type === 'STOP'
-        ? 'stop'
-        : ev.type === 'USER_PROMPT_SUBMIT'
-          ? 'user-prompt'
-          : 'tool',
+    kind: role === 'stop' ? 'stop' : role === 'prompt' ? 'user-prompt' : 'tool',
     toolName: ev.toolName,
     summary: '',
     pruned: true,
@@ -246,6 +324,10 @@ function stopItem(ev: RawEvent): TimelineItem {
       readRedactedStats(ev.payload, 'last_assistant_message')
     )
   )
+  // STOP_FAILURE: the turn ended on an API error (`rate_limit`, …).
+  const failed = ev.type === 'STOP_FAILURE'
+  const error = failed ? getString(ev.payload, 'error') : null
+  if (error) details.push({ labelKey: 'status', variant: 'error', text: error })
   return {
     key: ev.id,
     kind: 'stop',
@@ -255,7 +337,7 @@ function stopItem(ev: RawEvent): TimelineItem {
     deleted: false,
     summaryMsg,
     badge: null,
-    status: 'ok',
+    status: failed ? 'error' : 'ok',
     startAt: ev.createdAt,
     endAt: ev.createdAt,
     details,
@@ -268,13 +350,23 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
   const input = getRecord(anchor.payload, 'tool_input')
   const response = post ? getRecord(post.payload, 'tool_response') : null
 
-  const { summary, summaryMsg, badge, status, details } = formatTool(
+  const formatted = formatTool(
     toolName,
     input,
     response,
     post !== null,
     redactionLookup(anchor.payload, post?.payload ?? null)
   )
+  const { summary, summaryMsg, details } = formatted
+  let { badge, status } = formatted
+  // POST_TOOL_USE_FAILURE: the call threw — its `error` is the result.
+  if (post?.type === 'POST_TOOL_USE_FAILURE') {
+    status = 'error'
+    const error = getString(post.payload, 'error')
+    if (error) details.push(clipBlock('response', 'error', error, 40))
+    if (getBoolean(post.payload, 'is_interrupt'))
+      badge = { kind: 'interrupted' }
+  }
 
   return {
     key: `tool:${getString(anchor.payload, 'tool_use_id') ?? anchor.id}`,
@@ -289,6 +381,150 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
     startAt: anchor.createdAt,
     endAt: post?.createdAt ?? null,
     details,
+  }
+}
+
+// ─── PostToolBatch (LUM-937) ────────────────────────────────────────────────
+
+/**
+ * Whether a batch may turn calls it alone recorded into rows. A cleared
+ * (pruned / deleted) Pre/Post keeps no tool_use_id, so it cannot be matched:
+ * when a cleared tool event sits between the previous boundary and this batch,
+ * a call that looks batch-only may be that cleared row's call — expanding it
+ * would show the call twice, so the batch adds no rows.
+ */
+function batchMayExpand(
+  batch: RawEvent,
+  boundaryTimes: number[],
+  prunedToolTimes: number[]
+): boolean {
+  const end = batch.createdAt.getTime()
+  const start = boundaryTimes.reduce(
+    (latest, t) => (t < end && t > latest ? t : latest),
+    Number.NEGATIVE_INFINITY
+  )
+  return !prunedToolTimes.some(t => t > start && t <= end)
+}
+
+/**
+ * Fold one PostToolBatch into the timeline. A call already shown with its Post
+ * gains nothing (the Post carries the same input, a richer response and its
+ * own redaction sizes). A pending row gains the batch's result. A call with no
+ * row at all is returned as a new row — it is registered in `itemByToolUseId`,
+ * so a later batch repeating it adds nothing. `completedByBatch` holds the
+ * calls a batch already supplied a result for, so a repeated call (in the same
+ * batch or a later one) never adds a second result. With `mayExpand` false
+ * (see {@link batchMayExpand}) no new row is added. A call without a
+ * tool_name never becomes a row (it would render blank).
+ */
+function applyBatch(
+  batch: RawEvent,
+  itemByToolUseId: Map<string, TimelineItem>,
+  completedByBatch: Set<string>,
+  mayExpand: boolean
+): TimelineItem[] {
+  const calls = getAny(batch.payload, 'tool_calls')
+  if (!Array.isArray(calls)) return []
+  const added: TimelineItem[] = []
+  calls.forEach((call, index) => {
+    const toolUseId = getString(call, 'tool_use_id')
+    if (!toolUseId || completedByBatch.has(toolUseId)) return
+    const prefix = `tool_calls.${index}`
+    const existing = itemByToolUseId.get(toolUseId)
+    if (existing) {
+      if (existing.kind === 'orphan') {
+        existing.details.push(...batchResultBlocks(batch, call, prefix))
+        completedByBatch.add(toolUseId)
+      }
+      return
+    }
+    if (!mayExpand || !getString(call, 'tool_name')) return
+    const item = batchCallItem(batch, call, toolUseId, prefix)
+    itemByToolUseId.set(toolUseId, item)
+    completedByBatch.add(toolUseId)
+    added.push(item)
+  })
+  return added
+}
+
+/** A row for a call only the batch recorded, read from `tool_calls.N`. */
+function batchCallItem(
+  batch: RawEvent,
+  call: unknown,
+  toolUseId: string,
+  prefix: string
+): TimelineItem {
+  const toolName = getString(call, 'tool_name')
+  const input = getRecord(call, 'tool_input')
+  // The batch's tool_response is the model-facing tool_result, not the
+  // structured response the per-tool formatters read: they get the input and
+  // its sizes only, and the result is appended once below.
+  const { summary, summaryMsg, badge, status, details } = formatTool(
+    toolName,
+    input,
+    null,
+    true,
+    batchInputLookup(batch.payload, prefix)
+  )
+  return {
+    key: `tool:${toolUseId}`,
+    kind: 'tool',
+    toolName,
+    summary,
+    pruned: false,
+    deleted: false,
+    summaryMsg: summaryMsg ?? null,
+    badge,
+    status,
+    startAt: batch.createdAt,
+    endAt: batch.createdAt,
+    details: [...details, ...batchResultBlocks(batch, call, prefix)],
+  }
+}
+
+/** The batch's recorded result for one call: its text, or the size of what
+ *  was not retained under `tool_calls.N.tool_response`. */
+function batchResultBlocks(
+  batch: RawEvent,
+  call: unknown,
+  prefix: string
+): DetailBlock[] {
+  const blocks: DetailBlock[] = []
+  const response = getAny(call, 'tool_response')
+  if (typeof response === 'string') {
+    if (response.trim())
+      blocks.push(clipBlock('response', 'text', response, 40))
+  } else if (response !== undefined && response !== null) {
+    blocks.push({
+      labelKey: 'response',
+      variant: 'json',
+      text: stringifyJson(response),
+    })
+  }
+  pushBlock(
+    blocks,
+    redactedBlock(
+      'response',
+      sumRedactedStats(batch.payload, `${prefix}.tool_response`)
+    )
+  )
+  return blocks
+}
+
+/** Redaction lookup over one batch entry's tool_input. Response paths read
+ *  as unredacted — {@link batchResultBlocks} reports the response once. */
+function batchInputLookup(payload: unknown, prefix: string): RedactionLookup {
+  const isInput = (path: string) =>
+    path === 'tool_input' || path.startsWith('tool_input.')
+  return {
+    stats: path =>
+      isInput(path) ? readRedactedStats(payload, `${prefix}.${path}`) : null,
+    patch: path =>
+      isInput(path) ? readRedactedPatch(payload, `${prefix}.${path}`) : null,
+    sum: prefixPath =>
+      isInput(prefixPath)
+        ? sumRedactedStats(payload, `${prefix}.${prefixPath}`)
+        : null,
   }
 }
 
