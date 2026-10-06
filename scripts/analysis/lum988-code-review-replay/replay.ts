@@ -23,9 +23,15 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { judgeSecurity } from '../../../lib/llm/security-judge-client'
 import {
+  REVIEW_PROMPT_MAX_CHARS,
   loadReviewContext,
   reviewContextBudget,
 } from '../../../lib/security-scan/review-context'
+import {
+  RELATED_MAX_CHARS,
+  loadRelatedContext,
+} from '../../../lib/security-scan/related-context'
+import { gitGrepSearch } from './git-grep-search'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import {
   JUDGE_DIFF_BUDGET_TIERS,
@@ -46,6 +52,9 @@ const outFile = opt('out')
 const runs = Number(opt('runs', '1'))
 const concurrency = Number(opt('concurrency', '8'))
 const limit = Number(opt('limit', '0'))
+// LUM-988 ablation: cross-file context searched in local PR-head checkouts
+// (checkout.ts layout: <root>/co/<prKey>).
+const relatedRoot = opt('related', '')
 
 const capChars =
   JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
@@ -57,6 +66,7 @@ export interface ReplayRun {
   contextChars: number
   contextFiles: number
   contextError: string | null
+  relatedChars?: number
 }
 type RunResult = ReplayRun | { skipped: 'JUDGE_OVER_CAP' } | { error: string }
 
@@ -79,12 +89,27 @@ async function reviewOnce(url: string): Promise<RunResult> {
   })
   const diffText = redactForInjection(capped.text).text
   const contextText = redactForInjection(context.text).text
+  let relatedText = ''
+  if (relatedRoot) {
+    const cwd = path.join(relatedRoot, 'co', prKey(url))
+    const related = await loadRelatedContext({
+      diff: capped.text,
+      changedPaths: capped.covered,
+      maxChars: Math.min(
+        RELATED_MAX_CHARS,
+        REVIEW_PROMPT_MAX_CHARS - diffText.length - contextText.length
+      ),
+      search: gitGrepSearch(cwd),
+    })
+    relatedText = redactForInjection(related.text).text
+  }
   const t0 = Date.now()
   try {
     const { findings } = await judgeSecurity({
       diff: diffText,
       timeoutMs: tier.timeoutMs,
       context: contextText,
+      ...(relatedText ? { related: relatedText } : {}),
     })
     return {
       findings,
@@ -93,6 +118,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
       contextChars: contextText.length,
       contextFiles: context.included.length,
       contextError: context.error,
+      relatedChars: relatedText.length,
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) }
@@ -114,7 +140,7 @@ async function main(): Promise<void> {
       const tag = results
         .map(x =>
           'findings' in x
-            ? `${x.findings.length}f/${x.contextFiles}ctx/${Math.round(x.ms / 1000)}s`
+            ? `${x.findings.length}f/${x.contextFiles}ctx/${x.relatedChars ?? 0}rel/${Math.round(x.ms / 1000)}s`
             : 'skipped' in x
               ? 'over-cap'
               : `ERR ${x.error.slice(0, 60)}`

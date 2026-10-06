@@ -85,16 +85,23 @@ const SCOPE_DIFF_ONLY =
 const SCOPE_WITH_CONTEXT =
   'After the diff you also get the full PR-head content of the changed files: use it and the removed and context lines to understand what the added code must do, but only report problems located in added lines.'
 
+/** LUM-988 — said only when related code from other files is attached. */
+const SCOPE_RELATED =
+  ' Last comes related code from other files of the repository: callers of the functions this pull request changes, and definitions of what the added code calls. Use it to check how the changed code is really called and what its callees really do; do not report problems located in it.'
+
 /**
  * LUM-988 — the prompt the LUM-975 replay measured (variant V6), plus the
  * LUM-849 prSummary paragraph. `scope` is the one sentence that changes when
  * the file context is missing, so the model is never told about context it
  * did not get.
  */
-export function buildReviewSystemPrompt(withContext: boolean): string {
+export function buildReviewSystemPrompt(
+  withContext: boolean,
+  withRelated = false
+): string {
   return `You are a senior code reviewer examining a unified diff.
 
-Only ADDED lines (starting with '+') are in scope; ignore removed ('-') and context lines. ${withContext ? SCOPE_WITH_CONTEXT : SCOPE_DIFF_ONLY}
+Only ADDED lines (starting with '+') are in scope; ignore removed ('-') and context lines. ${withContext ? SCOPE_WITH_CONTEXT : SCOPE_DIFF_ONLY}${withRelated ? SCOPE_RELATED : ''}
 Review thoroughly: a change of this size typically contains 3 to 6 real problems, and missing a real problem is worse than reporting a plausible one. Go file by file and report every issue you are reasonably confident is real, at any severity (LOW, MEDIUM, HIGH):
 (1) security defects — ${SECURITY_TAXONOMY}
 (2) correctness bugs — wrong conditions, off-by-one, inverted or missing checks, wrong variable or field used, null/undefined or missing-field crashes, wrong types or units, race conditions and unsafe shared state, swallowed or wrong error handling, misuse of an API or framework (wrong arguments, lifecycle, return type, deprecated or nonexistent method), data loss or corruption, inconsistent behaviour between similar code paths, and clear performance regressions (N+1 queries, unbounded work, missing pagination);
@@ -107,11 +114,19 @@ Also describe the change for a reviewer in prSummary: intent is one plain senten
 }
 
 /** LUM-988 — the user message: the diff, then the file context when there is one. */
-export function buildReviewPrompt(diff: string, context: string): string {
+export function buildReviewPrompt(
+  diff: string,
+  context: string,
+  related = ''
+): string {
   const body = diff.trim().length > 0 ? diff : '(empty diff)'
-  return context.trim().length > 0
-    ? `Unified diff:\n${body}\n\nFull PR-head content of the changed files (context only):\n${context}`
-    : `Unified diff:\n${body}`
+  const base =
+    context.trim().length > 0
+      ? `Unified diff:\n${body}\n\nFull PR-head content of the changed files (context only):\n${context}`
+      : `Unified diff:\n${body}`
+  return related.trim().length > 0
+    ? `${base}\n\nRelated code from other files at the PR head (context only):\n${related}`
+    : base
 }
 
 export interface SecurityJudgeInput {
@@ -128,6 +143,11 @@ export interface SecurityJudgeInput {
    * Empty string = diff-only review.
    */
   context: string
+  /**
+   * LUM-988 — optional cross-file context (`loadRelatedContext`), already
+   * redacted. Absent or empty = the shipped prompt, unchanged.
+   */
+  related?: string
 }
 
 /** LUM-849 — raw model text; `cleanPrSummary` makes it publishable. */
@@ -167,8 +187,11 @@ export async function judgeSecurity(input: SecurityJudgeInput): Promise<{
   const { object } = await generateObject({
     model: gateway(CODE_REVIEW_MODEL),
     schema: SecurityJudgeSchema,
-    system: buildReviewSystemPrompt(withContext),
-    prompt: buildReviewPrompt(input.diff, input.context),
+    system: buildReviewSystemPrompt(
+      withContext,
+      (input.related ?? '').trim().length > 0
+    ),
+    prompt: buildReviewPrompt(input.diff, input.context, input.related),
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
   return {

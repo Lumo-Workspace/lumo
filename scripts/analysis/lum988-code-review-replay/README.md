@@ -163,3 +163,22 @@ python3 scripts/analysis/lum988-code-review-replay/score-rank.py --bench /tmp/cr
 `verify.ts --system-file` swaps the verifier prompt for an ablation, and
 `score-verify.py --applicable-only --drop all|refuted|minor` scores one under
 the production policy (`minor` reads the v4/v5 reason prefix).
+
+## Precision, round 3 (2026-10-06) — what did not move it
+
+All on the same 50 PRs and 3 review runs; thresholds chosen on run 1 and held
+out on runs 2–3 where a threshold applies. None of these shipped.
+
+| Attempt                                                                                                                                                                                     | Result vs shipped (F1 57.2 / F2 61.6)                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pool 2–3 review runs, keep each finding's verdict, rank the pool (`union.py`, `score-union.py`)                                                                                             | Recall 68 → 73–79%, but duplicate false positives across runs; with positional dedup (same file ±8 lines) 2-run pools average the same F1, 3-run pool ~+1 at 3× review cost   |
+| Ranker: average of two samples                                                                                                                                                              | Held-out F1 unchanged, F2 +0.7                                                                                                                                                |
+| Ranker on `anthropic/claude-opus-5.5`                                                                                                                                                       | F1 58.4 / F2 61.1 pooled (~+1 F1, run 3 F2 60.5), $0.04 per PR — inside run noise                                                                                             |
+| Ranker sees the cited files at the head (`rank.ts --context-chars 60000`)                                                                                                                   | No gain for sonnet or opus, ~5× tokens                                                                                                                                        |
+| Ranker on `anthropic/claude-fable-5.1`                                                                                                                                                      | Not eligible for ZDR on the gateway — unusable for customer code                                                                                                              |
+| Review gets cross-file context: callers of what the diff defines, nearby definitions of what it calls (`lib/security-scan/related-context.ts`, `replay.ts --related`, `git-grep-search.ts`) | Real judge, raw review, 2 runs: P 38.1 / R 73.7 / F1 50.3 / F2 62.1 vs P 39.8 / R 73.8 / F1 51.7 / F2 63.0 without it — recall unchanged, so verifier and ranker were not run |
+
+Ranker-side tuning saturates around F1 57–58 here, and the cheap cross-file
+context adds nothing the changed files did not already give. Further tuning
+on these 50 PRs risks overfitting (one configuration varies by ~±1 F1 run to
+run); the next measurement should be on a fresh evaluation set.

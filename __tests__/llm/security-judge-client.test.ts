@@ -123,3 +123,25 @@ describe('LUM-988 AI review — judgeSecurity', () => {
     expect(out.findings[0]!.title).toBe('finding 0')
   })
 })
+
+describe('LUM-988 AI review — optional related code (ablation only)', () => {
+  it('absent related code leaves the shipped prompt unchanged', () => {
+    expect(buildReviewSystemPrompt(true, false)).toBe(
+      buildReviewSystemPrompt(true)
+    )
+    expect(buildReviewPrompt('diff', 'ctx', '')).toBe(
+      buildReviewPrompt('diff', 'ctx')
+    )
+  })
+
+  it('attached related code is announced in the system prompt and appended last', () => {
+    expect(buildReviewSystemPrompt(true, true)).toContain(
+      'related code from other files'
+    )
+    expect(
+      buildReviewPrompt('diff', 'ctx', '=== b.ts:1-3 (uses f) ===\ny\n')
+    ).toBe(
+      'Unified diff:\ndiff\n\nFull PR-head content of the changed files (context only):\nctx\n\nRelated code from other files at the PR head (context only):\n=== b.ts:1-3 (uses f) ===\ny\n'
+    )
+  })
+})
