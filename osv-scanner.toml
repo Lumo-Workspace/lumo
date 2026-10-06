@@ -28,3 +28,15 @@ No patched version as of 2026-10-05 (advisory lists every version through 3.0.3 
 Dev-only: braces <- micromatch <- fast-glob <- @next/eslint-plugin-next (eslint-config-next) \
 and <- shadcn / ts-morph, all devDependencies; it expands repository glob patterns at lint/CLI \
 time, never untrusted input, and is not in the production runtime."""
+
+[[IgnoredVulns]]
+id = "GHSA-rj75-hqrm-r3gf" # alias CVE-2026-104844, postcss-selector-parser
+ignoreUntil = 2027-01-05
+reason = """
+Fixed only in 7.1.6 (no 6.x fix). The affected copy is postcss-selector-parser 6.0.10, \
+exact-pinned by @tailwindcss/typography (0.5.19 here; latest 0.5.20 still pins 6.0.10), \
+so the fix needs a major-version override inside a Tailwind plugin. The other copy \
+(7.1.6, via shadcn, dev) is already fixed. The advisory itself says only parsing of \
+untrusted selectors in a request path is exposed; build-time use on trusted sources is not. \
+@tailwindcss/typography is loaded only by Tailwind at build time (@plugin in \
+app/globals.css) on Lumo's own CSS; no Lumo runtime code imports it."""
