@@ -49,9 +49,17 @@ const actualRunGit = jest.requireActual('../src/lib/worktree')
   .runGit as typeof wt.runGit
 const runGit = wt.runGit as jest.Mock
 
+// These tests drive real git plus the removal's own fixed waits (up to 3
+// rounds of rmSync retries and a 300 ms settle, then a system-wide lsof scan),
+// so a single case takes ~3-4 s on an idle machine — too close to jest's 5 s
+// default once a full parallel run loads the machine (LUM-940).
+jest.setTimeout(30_000)
+
 let restoreEnv: () => void
 let sb: Sandbox
 const realFetch = global.fetch
+/** Background processes a test started; all stopped before the sandbox is deleted. */
+let children: ChildProcess[] = []
 
 beforeAll(() => {
   restoreEnv = isolateGitEnv()
@@ -69,8 +77,11 @@ beforeEach(() => {
   runGit.mockClear()
   runGit.mockImplementation(actualRunGit)
 })
-afterEach(() => {
+afterEach(async () => {
   jest.restoreAllMocks()
+  // Even if a test timed out mid-way, no writer may still be running while the
+  // sandbox is deleted (that raced into ENOTEMPTY).
+  await Promise.all(children.splice(0).map(stop))
   sb.cleanup()
 })
 
@@ -133,14 +144,44 @@ function halfDeleteOnRemove(): void {
   })
 }
 
+/** Track a background process so afterEach stops it before cleanup. */
+function track(child: ChildProcess): ChildProcess {
+  children.push(child)
+  return child
+}
+
 /**
  * A writer that never stops (a dev server left running): a real background
- * process recreating the workflow route every few milliseconds.
+ * process recreating the workflow route in a tight loop.
+ *
+ * It is one node process that never forks. A `sh` loop calling `mkdir -p`
+ * left an in-flight `mkdir` running after the shell was killed, which
+ * recreated the directory after `stop()` returned — racing the sandbox
+ * cleanup into ENOTEMPTY or leaking the rebuilt tree in $TMPDIR (LUM-940).
+ * Resolves only once the writer has written, so the removal really races a
+ * live writer instead of one still starting up on a loaded machine.
  */
-function startWriter(dir: string): ChildProcess {
+async function startWriter(dir: string): Promise<ChildProcess> {
   const file = path.join(dir, WRITER_FILE)
-  const script = `while :; do mkdir -p ${shellQuote(path.dirname(file))} 2>/dev/null; echo r > ${shellQuote(file)} 2>/dev/null; done`
-  return spawn('/bin/sh', ['-c', script], { cwd: sb.tmp, stdio: 'ignore' })
+  const script =
+    `const fs = require('fs'); const f = ${JSON.stringify(file)};` +
+    ` const d = ${JSON.stringify(path.dirname(file))};` +
+    ` for (;;) { try { fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(f, 'r\\n') } catch {} }`
+  const child = track(
+    spawn(process.execPath, ['-e', script], { cwd: sb.tmp, stdio: 'ignore' })
+  )
+  const deadline = Date.now() + 20_000
+  for (;;) {
+    let body = ''
+    try {
+      body = fs.readFileSync(file, 'utf8')
+    } catch {
+      // not there yet, or mid-rewrite
+    }
+    if (body === 'r\n') return child
+    if (Date.now() > deadline) throw new Error('writer did not start writing')
+    await new Promise(resolve => setTimeout(resolve, 20))
+  }
 }
 
 async function stop(child: ChildProcess): Promise<void> {
@@ -240,8 +281,8 @@ describe('DONE worktree cleanup (LUM-971)', () => {
     const dir = addWorktree('LUM-3-stuck')
     addBuildOutput(dir)
     halfDeleteOnRemove()
-    const sleeper = spawn('sleep', ['30'], { cwd: dir, stdio: 'ignore' })
-    const writer = startWriter(dir)
+    const sleeper = track(spawn('sleep', ['30'], { cwd: dir, stdio: 'ignore' }))
+    const writer = await startWriter(dir)
     try {
       const r = await done()
       expect(r.out).not.toContain(`✓ Removed worktree ${dir}`)
@@ -294,7 +335,7 @@ describe('lumo worktree rm (LUM-971)', () => {
     const dir = addWorktree('LUM-3-stuck')
     addBuildOutput(dir)
     halfDeleteOnRemove()
-    const writer = startWriter(dir)
+    const writer = await startWriter(dir)
     try {
       const r = await rm()
       expect(r.result).toBe(1)
