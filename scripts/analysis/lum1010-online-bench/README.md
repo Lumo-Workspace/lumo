@@ -95,6 +95,10 @@ Traps:
   stay), otherwise `worktree add` fails without `git-lfs`.
 - Some PRs exceed the judge's 200k-token context in ETL step 1/2 and are
   dropped by the ETL with an LLM 400.
+- `judge.py` caches per `--tag` and records the inputs it was judged with
+  (review file, run, verify/rank files, threshold); re-using a tag with other
+  inputs is refused — pick a new tag. A failed judge call leaves that PR
+  unjudged; re-run the same command to fill it in.
 - Crawled data, diffs and checkouts stay in the scratch dir — never commit
   them (big JSON in a PR fails Lumo's own PR scan).
 

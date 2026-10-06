@@ -110,6 +110,13 @@ async def main() -> None:
     rank = json.loads(Path(a.rank).read_text()) if a.rank else {}
     out_path = Path(a.out)
     judged = json.loads(out_path.read_text()) if out_path.exists() else {}
+    # A tag caches judgements for one exact input; refuse to mix in another run/filter.
+    params = {"review": str(Path(a.review).resolve()), "run": a.run, "verify": a.verify and str(Path(a.verify).resolve()),
+              "rank": a.rank and str(Path(a.rank).resolve()), "threshold": a.threshold}
+    judged.setdefault("params", {})
+    if judged["params"].get(a.tag, params) != params:
+        sys.exit(f"tag {a.tag} was judged with {judged['params'][a.tag]}, not {params}: use a new --tag")
+    judged["params"][a.tag] = params
     judged.setdefault(a.tag, {})
     judged.setdefault("bots", {})
 
@@ -163,12 +170,17 @@ async def main() -> None:
         print(f"{url.split('github.com/')[1]} lumo {c['matchedSuggestions']}/{c['suggestions']} "
               f"actions {c['matchedActions']}/{c['actions']}", flush=True)
 
+    urls = [u for u in meta if u in by_url]
     try:
-        await asyncio.gather(*(one(u) for u in meta if u in by_url))
+        # One failed call must not cancel the rest; failed PRs stay unjudged and a re-run fills them in.
+        results = await asyncio.gather(*(one(u) for u in urls), return_exceptions=True)
+        failed = [(u, r) for u, r in zip(urls, results, strict=True) if isinstance(r, BaseException)]
+        for u, r in failed:
+            print(f"{u.split('github.com/')[1]} FAILED {type(r).__name__}: {str(r)[:160]}", flush=True)
     finally:
         await llm.close()
         out_path.write_text(json.dumps(judged, indent=1))
-    print(f"wrote {out_path}", flush=True)
+    print(f"wrote {out_path}" + (f" — {len(failed)} PRs failed, re-run to retry" if failed else ""), flush=True)
 
 
 if __name__ == "__main__":

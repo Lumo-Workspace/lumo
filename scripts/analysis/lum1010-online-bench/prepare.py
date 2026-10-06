@@ -55,6 +55,15 @@ def git(cwd: Path, args: list[str]) -> str:
     return subprocess.run(["git", *lfs_off, *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
 
 
+def changed_paths(diff: str) -> list[str]:
+    """Paths a unified diff adds or modifies (deleted files have `+++ /dev/null`)."""
+    paths = []
+    for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            paths.append(line[len("+++ b/"):].rstrip("\t"))
+    return paths
+
+
 def col(row: dict, name: str) -> list | dict:
     raw = row.get(name)
     if raw is None:
@@ -115,12 +124,10 @@ async def main() -> None:
                 )
             co = root / "co" / pr_key(url)
             checkout(root, repo_name, hash_x, co)
-            cmp = json.loads(gh([f"repos/{repo_name}/compare/{base}...{hash_x}"]))
             fetched = 0
-            for f in cmp.get("files", []):
-                if f.get("status") == "removed":
-                    continue
-                src, dest = co / f["filename"], d / "files" / f["filename"]
+            # From the diff, not the compare JSON: that one lists at most 300 files.
+            for filename in changed_paths((d / "diff.patch").read_text(errors="replace")):
+                src, dest = co / filename, d / "files" / filename
                 if src.is_file() and src.stat().st_size <= MAX_FILE_BYTES:
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     dest.write_bytes(src.read_bytes())
@@ -128,6 +135,9 @@ async def main() -> None:
         except subprocess.CalledProcessError as e:
             msg = (e.stderr or b"")[:160]
             print(f"{repo_name}#{num} SKIP {msg!r}", flush=True)
+            continue
+        except (OSError, ValueError, KeyError) as e:  # bad JSON, missing field, file I/O: skip this PR only
+            print(f"{repo_name}#{num} SKIP {type(e).__name__}: {str(e)[:160]}", flush=True)
             continue
         urls.append(url)
         meta[url] = {

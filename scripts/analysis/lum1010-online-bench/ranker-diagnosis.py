@@ -49,6 +49,10 @@ def auc(pos: list[float], neg: list[float]) -> float:
     return sum((p > n) + 0.5 * (p == n) for p in pos for n in neg) / (len(pos) * len(neg))
 
 
+def pct(n: float, d: float) -> float:
+    return 100 * n / d if d else float("nan")
+
+
 def fb(p: float, r: float, b: float) -> float:
     return (1 + b * b) * p * r / (b * b * p + r) if p + r else 0.0
 
@@ -65,7 +69,7 @@ def keeps(f: dict, rejected: bool, p: float | None) -> dict[str, bool]:
 
 
 def online(d: Path):
-    """Rows: (finding, run, url, matched action ids, rejected, p)."""
+    """Rows: (finding, matched (run, url, action id) set, rejected, p); plus the pooled action total."""
     j = json.loads((d / "judged.json").read_text())
     review = json.loads((d / "review.json").read_text())
     rows = []
@@ -158,12 +162,12 @@ def main() -> None:
     f_tp = [rej for f, tp, _, rej, _ in off if app(f) and tp]
     f_fp = [rej for f, tp, fp, rej, _ in off if app(f) and fp and not tp]
     print("\nVerifier rejects   TP / FP")
-    print(f"  online           {100 * sum(o_tp) / len(o_tp):4.1f}% / {100 * sum(o_fp) / len(o_fp):4.1f}%")
-    print(f"  offline          {100 * sum(f_tp) / len(f_tp):4.1f}% / {100 * sum(f_fp) / len(f_fp):4.1f}%")
+    print(f"  online           {pct(sum(o_tp), len(o_tp)):4.1f}% / {pct(sum(o_fp), len(o_fp)):4.1f}%")
+    print(f"  offline          {pct(sum(f_tp), len(f_tp)):4.1f}% / {pct(sum(f_fp), len(f_fp)):4.1f}%")
 
     print("\nShare of ranked findings that are test/doc: "
-          f"online {sum(group(f['kind']) == 'test/doc' for f, *_ in on) / len(on):.0%}, "
-          f"offline {sum(group(f['kind']) == 'test/doc' for f, *_ in off) / len(off):.0%}")
+          f"online {pct(sum(group(f['kind']) == 'test/doc' for f, *_ in on), len(on)):.0f}%, "
+          f"offline {pct(sum(group(f['kind']) == 'test/doc' for f, *_ in off), len(off)):.0f}%")
 
     print("\nVariants              online (2 runs pooled)              offline (3 runs, Core)")
     for name in keeps(on[0][0], False, None):
@@ -174,13 +178,13 @@ def main() -> None:
                 s += 1
                 tp += bool(m)
                 found |= m
-        op, orc = tp / s, len(found) / on_total
+        op, orc = (tp / s if s else 0.0), (len(found) / on_total if on_total else 0.0)
         tp2 = fp2 = 0
         for f, t, fp, rej, p in off:
             if keeps(f, rej, p)[name]:
                 tp2 += t
                 fp2 += int(fp)
-        fp_, fr = tp2 / (tp2 + fp2), tp2 / off_golden
+        fp_, fr = (tp2 / (tp2 + fp2) if tp2 + fp2 else 0.0), (tp2 / off_golden if off_golden else 0.0)
         print(f"  {name:30} P {100 * op:4.1f} R {100 * orc:4.1f} F1 {100 * fb(op, orc, 1):4.1f} "
               f"F2 {100 * fb(op, orc, 2):4.1f}  |  P {100 * fp_:4.1f} R {100 * fr:4.1f} "
               f"F1 {100 * fb(fp_, fr, 1):4.1f} F2 {100 * fb(fp_, fr, 2):4.1f}")
