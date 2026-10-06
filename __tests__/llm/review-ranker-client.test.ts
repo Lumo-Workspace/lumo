@@ -44,6 +44,15 @@ describe('LUM-988 review ranker client', () => {
     expect(text.endsWith('## Diff of the cited files\n\n+new line')).toBe(true)
   })
 
+  it('appends the cited files only when context is given', () => {
+    expect(renderRankerPrompt([finding('a')], 'd', '')).toBe(
+      renderRankerPrompt([finding('a')], 'd')
+    )
+    expect(renderRankerPrompt([finding('a')], 'd', '### f.ts\n1: x')).toMatch(
+      /## Diff of the cited files\n\nd\n\n## The cited files at the pull request's head\n\n### f\.ts\n1: x$/
+    )
+  })
+
   it('calls the review model with the schema and returns the ranking and usage', async () => {
     gen.mockResolvedValue({
       object: { ranking: [{ id: 'a', p: 80, reason: 'r' }] },

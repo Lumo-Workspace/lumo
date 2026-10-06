@@ -15,7 +15,7 @@
  * Writes { [prUrl]: { ranking: [{ id, p, reason }], inputTokens, outputTokens,
  * error } }. Ids are the replay's `f<i>`.
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { CODE_REVIEW_MODEL } from '../../../lib/ai/models'
 import { rankFindings } from '../../../lib/llm/review-ranker-client'
@@ -42,6 +42,26 @@ const outFile = opt('out')
 const concurrency = Number(opt('concurrency', '6'))
 const model = opt('model', CODE_REVIEW_MODEL)
 const limit = Number(opt('limit', '0'))
+// Ablation: also hand the ranker the cited files at the head, up to N chars.
+const contextChars = Number(opt('context-chars', '0'))
+
+/** The cited files, line-numbered, smallest first, whole files under `max`. */
+function citedFiles(dir: string, paths: string[], max: number): string {
+  const files = paths
+    .map(p => ({ p, f: path.join(dir, 'files', p) }))
+    .filter(({ f }) => existsSync(f))
+    .map(({ p, f }) => {
+      const lines = readFileSync(f, 'utf8').split('\n')
+      return `### ${p}\n${lines.map((l, i) => `${i + 1}: ${l}`).join('\n')}`
+    })
+    .sort((a, b) => a.length - b.length)
+  let out = ''
+  for (const text of files) {
+    if (out.length + text.length + 2 > max) continue
+    out += `${text}\n\n`
+  }
+  return out
+}
 
 // verify.ts SECURITY_KINDS: production never lets the verifier remove these.
 const SECURITY_KINDS = new Set([
@@ -117,6 +137,17 @@ async function main(): Promise<void> {
           verifierReason: v.get(id)?.reason ?? '',
         })),
         diff,
+        ...(contextChars > 0
+          ? {
+              context: redactForInjection(
+                citedFiles(
+                  path.join(dataDir, prKey(url)),
+                  [...new Set(kept.map(k => k.f.filePath))],
+                  contextChars
+                )
+              ).text,
+            }
+          : {}),
         timeoutMs: RANKER_TIMEOUT_MS,
         model,
       })
