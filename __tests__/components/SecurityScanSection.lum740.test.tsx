@@ -424,3 +424,26 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
     )
   })
 })
+
+describe('LUM-1012 finding groups', () => {
+  test('queue exits of different kinds get their own group, each with a distinct test id', () => {
+    renderWith(
+      scan({
+        findings: [
+          finding({ id: 'merged', queueExit: 'MERGED_UNREVIEWED' }),
+          finding({ id: 'closed', queueExit: 'PR_CLOSED' }),
+        ],
+      })
+    )
+    // Nothing to decide, so the row starts folded — open it.
+    fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+    const ids = screen
+      .getAllByTestId(/^finding-group-/)
+      .map(el => el.getAttribute('data-testid'))
+    expect(ids).toEqual([
+      'finding-group-queueExit-MERGED_UNREVIEWED',
+      'finding-group-queueExit-PR_CLOSED',
+    ])
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+})
