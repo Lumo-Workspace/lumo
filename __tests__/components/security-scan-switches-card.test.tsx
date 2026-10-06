@@ -1,6 +1,8 @@
 /** @jest-environment jsdom */
 /**
  * LUM-866 — the settings card for the PR security-scan switches.
+ * LUM-1002 — saves go to /api/workspaces/me/security-scan; disable all /
+ * enable all saves every switch at once.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
@@ -16,13 +18,13 @@ jest.mock('react-intl', () => {
 })
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
 jest.mock('@/lib/api-client', () => ({
-  workspacesClient: { updateMe: jest.fn() },
+  workspacesClient: { updateSecurityScan: jest.fn() },
 }))
 
 import { SecurityScanSwitchesCard } from '@/app/workspace/[workspaceUrl]/components/settings/SecurityScanSwitchesCard'
 import { workspacesClient } from '@/lib/api-client'
 
-const updateMe = workspacesClient.updateMe as jest.Mock
+const updateSecurityScan = workspacesClient.updateSecurityScan as jest.Mock
 
 const ALL_ON = {
   securityScanEnabled: true,
@@ -40,7 +42,16 @@ const toggle = (name: string) => screen.getByRole('switch', { name })
 
 beforeEach(() => {
   jest.clearAllMocks()
-  updateMe.mockResolvedValue({})
+  updateSecurityScan.mockImplementation(async (u: Record<string, boolean>) => ({
+    switches:
+      'all' in u
+        ? {
+            securityScanEnabled: u.all,
+            securityAiReviewEnabled: u.all,
+            securityHuntEnabled: u.all,
+          }
+        : { ...ALL_ON, ...u },
+  }))
 })
 
 describe('LUM-866 SecurityScanSwitchesCard', () => {
@@ -74,11 +85,40 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
     fireEvent.click(toggle('Exploit-path hunt'))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
-      expect(updateMe).toHaveBeenCalledWith({
+      expect(updateSecurityScan).toHaveBeenCalledWith({
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
       })
     )
+  })
+
+  it('LUM-1002 disable all saves { all: false } and then offers enable all', async () => {
+    renderCard()
+    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
+    )
+    expect(
+      await screen.findByRole('button', { name: 'Enable all' })
+    ).toBeInTheDocument()
+    expect(toggle('Security scan')).toHaveAttribute('aria-checked', 'false')
+    expect(toggle('AI review')).toHaveAttribute('aria-checked', 'false')
+    expect(toggle('Exploit-path hunt')).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('LUM-1002 enable all saves { all: true } when every switch is off', async () => {
+    renderCard({
+      securityScanEnabled: false,
+      securityAiReviewEnabled: false,
+      securityHuntEnabled: false,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Enable all' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith({ all: true })
+    )
+    expect(
+      await screen.findByRole('button', { name: 'Disable all' })
+    ).toBeInTheDocument()
   })
 })

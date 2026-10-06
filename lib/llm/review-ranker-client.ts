@@ -38,6 +38,11 @@ export interface RankerInput {
   findings: RankerFinding[]
   /** The unified-diff sections of the cited files, already redacted. */
   diff: string
+  /**
+   * Optional: the cited files at the PR head (line-numbered, redacted). Empty
+   * or absent = diff only, as measured for the shipped ranker.
+   */
+  context?: string
   timeoutMs: number
   model?: string
 }
@@ -73,7 +78,8 @@ const RankSchema = z.object({
 
 export function renderRankerPrompt(
   findings: RankerFinding[],
-  diff: string
+  diff: string,
+  context = ''
 ): string {
   const rendered = findings
     .map(
@@ -81,7 +87,7 @@ export function renderRankerPrompt(
         `### ${f.id} — ${f.severity} ${f.kind}\nFile: ${f.filePath}${f.line != null ? `:${f.line}` : ''}\nTitle: ${f.title}\nDetail: ${f.detail}\nEvidence (an added line): ${f.evidence}${f.verifierReason ? `\nVerifier: ${f.verifierReason}` : ''}`
     )
     .join('\n\n')
-  return `## Findings\n\n${rendered}\n\n## Diff of the cited files\n\n${diff}`
+  return `## Findings\n\n${rendered}\n\n## Diff of the cited files\n\n${diff}${context.trim() ? `\n\n## The cited files at the pull request's head\n\n${context}` : ''}`
 }
 
 /** Never throws: a failed call returns an empty ranking and the error. */
@@ -93,7 +99,7 @@ export async function rankFindings(input: RankerInput): Promise<RankerOutput> {
       model: gateway(input.model ?? CODE_REVIEW_MODEL),
       schema: RankSchema,
       system: RANKER_SYSTEM_PROMPT,
-      prompt: renderRankerPrompt(input.findings, input.diff),
+      prompt: renderRankerPrompt(input.findings, input.diff, input.context),
       abortSignal: AbortSignal.timeout(input.timeoutMs),
     })
     return {

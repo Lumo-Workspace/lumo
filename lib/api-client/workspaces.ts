@@ -5,6 +5,10 @@ import type {
   AiDerivedContentStatus,
   AiDerivedPurgeResult,
 } from '@/lib/services/ai-derived-content.service'
+import type {
+  SecurityScanSettings,
+  SecurityScanSettingsUpdate,
+} from '@/lib/services/security-scan-settings.service'
 
 /** LUM-918: a scheduled workspace deletion as the API returns it. */
 export interface PendingDeletionView {
@@ -24,6 +28,14 @@ export const workspacesClient = {
 
   updateMe<T>(data: unknown) {
     return apiFetch<T>(API.workspaces.me, { method: 'PATCH', body: data })
+  },
+
+  /** LUM-1002: set the PR security-scan switches (`{ all }` = every one). */
+  updateSecurityScan(data: SecurityScanSettingsUpdate) {
+    return apiFetch<SecurityScanSettings>(API.workspaces.securityScan, {
+      method: 'PATCH',
+      body: data,
+    })
   },
 
   uploadLogo(formData: FormData): Promise<Response> {

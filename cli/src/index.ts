@@ -109,6 +109,10 @@ import {
 } from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
 import { prScan, type PrScanOptions } from './commands/pr-scan'
+import {
+  workspaceSecurityScan,
+  type WorkspaceSecurityScanOptions,
+} from './commands/workspace-security-scan'
 import { taskLineage } from './commands/task-lineage'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
@@ -1681,6 +1685,31 @@ auditCmd
   .option('--json', 'Emit the page as JSON')
   .option('--csv', 'Write the filtered log as CSV to stdout (capped)')
   .action(wrap(options => auditList(options as AuditListOptions)))
+
+const workspaceCmd = program
+  .command('workspace')
+  .description('Workspace settings from the terminal')
+
+workspaceCmd
+  .command('security-scan')
+  .description(
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs. Any member may read; changing is OWNER only, and turning anything off exits 4 with a confirmation envelope until --confirm.'
+  )
+  .option(
+    '--scan <on|off>',
+    'Master switch: off = no layer runs, no PR comment'
+  )
+  .option('--ai-review <on|off>', 'AI review (LLM security review and triage)')
+  .option('--hunt <on|off>', 'Exploit-path hunt in the sandbox')
+  .option('--disable-all', 'Turn every switch off at once')
+  .option('--enable-all', 'Turn every switch on at once')
+  .option('--confirm', 'The user approved turning the listed switches off')
+  .option('--json', 'Emit { switches, platform, effective } as JSON')
+  .action(
+    wrap(options =>
+      workspaceSecurityScan(options as WorkspaceSecurityScanOptions)
+    )
+  )
 
 const tagCmd = program
   .command('tag')

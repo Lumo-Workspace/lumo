@@ -16,33 +16,34 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 
 The command catalog below is a **map**: it lists every command grouped by domain with a one-line summary. **Detailed flags, examples, output formats, and "when to suggest" guidance live in the `references/` files** — when a user request lands in a domain, **Read the matching reference file before composing the command**. Don't run a command from memory if its flags/edge-cases matter; open the reference first.
 
-| Domain                                                                                 | Read this reference                                            |
-| -------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `setup`, `auth login/logout`, `whoami`, `update`                                       | [references/onboarding.md](references/onboarding.md)           |
-| `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)       |
-| `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                 |
-| `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                     |
-| `member list` — workspace directory (the refs `--assignee` accepts)                    | [references/members.md](references/members.md)                 |
-| `tag list/create` — workspace tags                                                     | [references/tags.md](references/tags.md)                       |
-| `audit list` — workspace audit log (OWNER only)                                        | [references/audit.md](references/audit.md)                     |
-| `task deps add/list/confirm/dismiss/rm` (dependency edges)                             | [references/task-deps.md](references/task-deps.md)             |
-| `idea*` — capture pool, lifecycle, evidence, comments                                  | [references/ideas.md](references/ideas.md)                     |
-| `plan`, `plan status` — the idea→plan converter run                                    | [references/plan-runs.md](references/plan-runs.md)             |
-| `initiative create/list/update/progress` (`LUM-INIT-<n>`)                              | [references/initiatives.md](references/initiatives.md)         |
-| `task artifact*`, `task figma*`                                                        | [references/artifacts-figma.md](references/artifacts-figma.md) |
-| `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                   | [references/test-cases.md](references/test-cases.md)           |
-| `task status/wrapup`, `crossing explain/disposition` — self-check, resume, DONE gate   | [references/task-status.md](references/task-status.md)         |
-| `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5            | [references/task-context.md](references/task-context.md)       |
-| `outcome show` — post-hoc outcome well (falsifier oracle, rejection-only)              | [references/outcome.md](references/outcome.md)                 |
-| `priority [text]`, `priority list` — team priority declaration (append-only)           | [references/priority.md](references/priority.md)               |
-| `project list/create/update`, `milestone*`                                             | [references/milestones.md](references/milestones.md)           |
-| `doc create/update/list/move/bind/share/import` (CRUD)                                 | [references/docs.md](references/docs.md)                       |
-| `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs) | [references/doc-editing.md](references/doc-editing.md)         |
-| `sprint*`                                                                              | [references/sprints.md](references/sprints.md)                 |
-| `task/project memory`, `memory promote/rm`                                             | [references/memory.md](references/memory.md)                   |
-| `session attach/status`, git-suggest on start, Layer-2 review                          | [references/sessions.md](references/sessions.md)               |
-| `worktree add/rm/list/prune` (local dev tooling)                                       | [references/worktree.md](references/worktree.md)               |
-| `--confirm` / exit code 4 — the confirmation envelope every gated mutation speaks      | [references/confirmation.md](references/confirmation.md)       |
+| Domain                                                                                 | Read this reference                                                  |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `setup`, `auth login/logout`, `whoami`, `update`                                       | [references/onboarding.md](references/onboarding.md)                 |
+| `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
+| `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
+| `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
+| `member list` — workspace directory (the refs `--assignee` accepts)                    | [references/members.md](references/members.md)                       |
+| `tag list/create` — workspace tags                                                     | [references/tags.md](references/tags.md)                             |
+| `audit list` — workspace audit log (OWNER only)                                        | [references/audit.md](references/audit.md)                           |
+| `workspace security-scan` — PR security-scan switches, disable/enable all (OWNER)      | [references/workspace-settings.md](references/workspace-settings.md) |
+| `task deps add/list/confirm/dismiss/rm` (dependency edges)                             | [references/task-deps.md](references/task-deps.md)                   |
+| `idea*` — capture pool, lifecycle, evidence, comments                                  | [references/ideas.md](references/ideas.md)                           |
+| `plan`, `plan status` — the idea→plan converter run                                    | [references/plan-runs.md](references/plan-runs.md)                   |
+| `initiative create/list/update/progress` (`LUM-INIT-<n>`)                              | [references/initiatives.md](references/initiatives.md)               |
+| `task artifact*`, `task figma*`                                                        | [references/artifacts-figma.md](references/artifacts-figma.md)       |
+| `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                   | [references/test-cases.md](references/test-cases.md)                 |
+| `task status/wrapup`, `crossing explain/disposition` — self-check, resume, DONE gate   | [references/task-status.md](references/task-status.md)               |
+| `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5            | [references/task-context.md](references/task-context.md)             |
+| `outcome show` — post-hoc outcome well (falsifier oracle, rejection-only)              | [references/outcome.md](references/outcome.md)                       |
+| `priority [text]`, `priority list` — team priority declaration (append-only)           | [references/priority.md](references/priority.md)                     |
+| `project list/create/update`, `milestone*`                                             | [references/milestones.md](references/milestones.md)                 |
+| `doc create/update/list/move/bind/share/import` (CRUD)                                 | [references/docs.md](references/docs.md)                             |
+| `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs) | [references/doc-editing.md](references/doc-editing.md)               |
+| `sprint*`                                                                              | [references/sprints.md](references/sprints.md)                       |
+| `task/project memory`, `memory promote/rm`                                             | [references/memory.md](references/memory.md)                         |
+| `session attach/status`, git-suggest on start, Layer-2 review                          | [references/sessions.md](references/sessions.md)                     |
+| `worktree add/rm/list/prune` (local dev tooling)                                       | [references/worktree.md](references/worktree.md)                     |
+| `--confirm` / exit code 4 — the confirmation envelope every gated mutation speaks      | [references/confirmation.md](references/confirmation.md)             |
 
 ## Command catalog
 
@@ -90,6 +91,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Audit log — see [audit.md](references/audit.md)
 
 - `lumo audit list [--action] [--actor] [--since] [--until] [--json | --csv]` — sensitive workspace actions, newest first (OWNER only)
+
+### Workspace settings — see [workspace-settings.md](references/workspace-settings.md)
+
+- `lumo workspace security-scan` — show / set the PR security-scan switches; `--disable-all` / `--enable-all` (OWNER; turning off exits 4)
 
 ### Ideas (team-level capture pool) — see [ideas.md](references/ideas.md)
 
@@ -220,7 +225,7 @@ Don't guess these:
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
 - No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
-- No `lumo pr show` / `lumo scan` — the by-number security read-out is `lumo pr scan <number>`; `lumo task pr show` is the task-scoped PR card
+- No `lumo pr show` / `lumo scan` — the by-number security read-out is `lumo pr scan <number>` (scan _settings_ are `lumo workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` — it's `lumo task artifact update`
 - No `lumo auth status` — identity check is `lumo whoami`
 - No `--body` on `lumo task comment` — the body is a positional arg: `lumo task comment LUM-N "text"`
