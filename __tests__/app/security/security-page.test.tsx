@@ -591,6 +591,11 @@ describe('/security page (LUM-856)', () => {
       entity: 'Example Host, Inc.',
       location: 'globalRouting',
     } as const
+    const calm = {
+      gatewaySlug: 'calmhost',
+      entity: 'Calm Host, Inc.',
+      location: 'globalRouting',
+    } as const
     const neon = INFRASTRUCTURE_SUBPROCESSORS.find(s => s.id === 'neon')!
     const changes: SubprocessorChange[] = [
       {
@@ -606,15 +611,25 @@ describe('/security page (LUM-856)', () => {
         id: '2026-10-05-example-host',
         kind: 'added',
         announcedAt: '2026-10-05',
-        effectiveAt: '2026-11-04',
+        effectiveAt: '2026-10-20',
         urgent: { reason: 'n/a' },
         summary: 'Example Host joins.',
         after: { list: 'aiHost', entry: host },
       },
+      // Marked urgent but announced with the full notice: no urgent label.
+      {
+        id: '2026-10-06-calm-host',
+        kind: 'added',
+        announcedAt: '2026-10-06',
+        effectiveAt: '2026-11-05',
+        urgent: { reason: 'n/a' },
+        summary: 'Calm Host joins.',
+        after: { list: 'aiHost', entry: calm },
+      },
     ]
     const view = buildSubprocessorPageView({
       infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
-      aiHosts: [...AI_HOST_SUBPROCESSORS, host],
+      aiHosts: [...AI_HOST_SUBPROCESSORS, host, calm],
       changes,
       now: new Date('2026-10-10T00:00:00Z'),
     })
@@ -648,15 +663,22 @@ describe('/security page (LUM-856)', () => {
       const P = 'security.subprocessors.changes.'
       const need: [string, boolean][] = [
         ['heading', text(html).includes(m[`${P}heading`]!)],
-        ['intro email', intro.includes(PRIVACY_CONTACT_EMAIL)],
-        ['intro days', intro.includes(String(NOTICE_PERIOD_DAYS))],
+        // The whole intro, with both values filled in.
+        [
+          'intro',
+          m[`${P}intro`]!.replace('{days}', String(NOTICE_PERIOD_DAYS))
+            .split('{email}')
+            .every(part => intro.includes(part)) &&
+            intro.includes(PRIVACY_CONTACT_EMAIL),
+        ],
+        ['summary shown', pending.includes('Example Host joins.')],
         ['pending name', pending.includes('Example Host, Inc.')],
         ['pending kind', pending.includes(m[`${P}kind.added`]!)],
         [
-          'pending urgent',
-          pending.includes(
+          'pending urgent once',
+          pending.split(
             m[`${P}urgent`]!.replace('{days}', String(NOTICE_PERIOD_DAYS))
-          ),
+          ).length === 2,
         ],
         ['recent kind', recent.includes(m[`${P}kind.changed`]!)],
         ['recent name', recent.includes(neon.entity)],

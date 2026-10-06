@@ -2,6 +2,7 @@
 
 import { useIntl } from 'react-intl'
 
+import { noticeDays } from '@/lib/legal/subprocessor-change-log'
 import type { DataLocation } from '@/lib/legal/subprocessors'
 import {
   NOTICE_PERIOD_DAYS,
@@ -37,7 +38,7 @@ function refLocation(ref: SubprocessorRef): {
 /**
  * LUM-919: the DPA 7.2 change notices on /security — what is announced and
  * not yet in effect, and what changed recently. Wording is translated; the
- * names are proper nouns from the change log.
+ * names are proper nouns and the summary is the record's English text.
  */
 export function SubprocessorChanges({
   pending,
@@ -83,6 +84,11 @@ export function SubprocessorChanges({
         <p className='mt-1 text-sm'>
           {category(subject)} · {location(subject)}
         </p>
+        {/* The record's own wording — the only place a purpose change is
+            described. Written once, in English, like the legal doc. */}
+        <p className='mt-1 text-sm' lang='en'>
+          {c.summary}
+        </p>
         {moved ? (
           <p className='mt-1 text-sm'>
             {t(`${P}.location`, {
@@ -99,7 +105,7 @@ export function SubprocessorChanges({
               })
             : t(`${P}.recentDates`, { effective: day(c.effectiveAt) })}
         </p>
-        {c.urgent ? (
+        {c.urgent && noticeDays(c) < NOTICE_PERIOD_DAYS ? (
           <p className='mt-1 text-sm'>
             {t(`${P}.urgent`, { days: NOTICE_PERIOD_DAYS })}
           </p>

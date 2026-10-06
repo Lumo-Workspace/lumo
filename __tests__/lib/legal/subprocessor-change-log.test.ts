@@ -255,6 +255,91 @@ describe('/security subprocessor view (LUM-919)', () => {
     ])
   })
 
+  it('a pending move keeps the entry in its table position', () => {
+    const v = view([move], '2026-11-10T12:00:00Z')
+    expect(v.infrastructure.map(s => s.id)).toEqual(
+      INFRASTRUCTURE_SUBPROCESSORS.map(s => s.id)
+    )
+  })
+
+  it('unwinds two pending changes to one entry in log order, not effective order', () => {
+    const NEON_EU2 = { ...NEON, region: 'AWS eu-west-1' }
+    // Logged first, takes effect later; logged second, takes effect sooner.
+    const first: SubprocessorChange = {
+      ...move,
+      id: '2026-11-01-neon-a',
+      effectiveAt: '2027-01-15',
+    }
+    const second: SubprocessorChange = {
+      ...move,
+      id: '2026-11-02-neon-b',
+      announcedAt: '2026-11-02',
+      effectiveAt: '2026-12-20',
+      before: { list: 'infrastructure', entry: NEON_EU },
+      after: { list: 'infrastructure', entry: NEON_EU2 },
+    }
+    const v = buildSubprocessorPageView({
+      infrastructure: INFRASTRUCTURE_SUBPROCESSORS.map(s =>
+        s.id === 'neon' ? NEON_EU2 : s
+      ),
+      aiHosts: AI_HOST_SUBPROCESSORS,
+      changes: [first, second],
+      now: new Date('2026-11-10T00:00:00Z'),
+    })
+    expect(v.infrastructure.find(s => s.id === 'neon')).toEqual(NEON)
+  })
+
+  it('a pending replacement shows the replaced host in the new host place, once', () => {
+    const wafer = AI_HOST_SUBPROCESSORS.find(h => h.gatewaySlug === 'wafer')!
+    const registry = AI_HOST_SUBPROCESSORS.map(h =>
+      h === wafer ? NEW_HOST : h
+    )
+    const replace: SubprocessorChange = {
+      id: '2026-11-01-wafer-replaced',
+      kind: 'replaced',
+      announcedAt: '2026-11-01',
+      effectiveAt: '2026-12-01',
+      summary: 'Example Host replaces Wafer.',
+      before: { list: 'aiHost', entry: wafer },
+      after: { list: 'aiHost', entry: NEW_HOST },
+    }
+    const v = buildSubprocessorPageView({
+      infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+      aiHosts: registry,
+      changes: [replace],
+      now: new Date('2026-11-10T00:00:00Z'),
+    })
+    expect(v.aiHosts).toEqual(AI_HOST_SUBPROCESSORS)
+    // A registry that still lists the replaced host never shows it twice.
+    const stale = buildSubprocessorPageView({
+      infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+      aiHosts: [...AI_HOST_SUBPROCESSORS, NEW_HOST],
+      changes: [replace],
+      now: new Date('2026-11-10T00:00:00Z'),
+    })
+    expect(stale.aiHosts).toEqual(AI_HOST_SUBPROCESSORS)
+  })
+
+  it('a pending removal stays in use until it takes effect', () => {
+    const wafer = AI_HOST_SUBPROCESSORS.find(h => h.gatewaySlug === 'wafer')!
+    const v = buildSubprocessorPageView({
+      infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+      aiHosts: AI_HOST_SUBPROCESSORS.filter(h => h !== wafer),
+      changes: [
+        {
+          id: '2026-11-01-wafer-removed',
+          kind: 'removed',
+          announcedAt: '2026-11-01',
+          effectiveAt: '2026-11-15',
+          summary: 'Wafer stops hosting Lumo models.',
+          before: { list: 'aiHost', entry: wafer },
+        },
+      ],
+      now: new Date('2026-11-10T00:00:00Z'),
+    })
+    expect(v.aiHosts.map(h => h.gatewaySlug)).toContain('wafer')
+  })
+
   it('drops changes older than a year from the recent list', () => {
     expect(view([addHost()], '2027-12-02T00:00:00Z').recent).toEqual([])
   })

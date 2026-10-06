@@ -111,7 +111,9 @@ export interface ChangeLogInput {
   aiHosts: readonly AiHostSubprocessor[]
 }
 
-function registryRefs(input: ChangeLogInput): SubprocessorRef[] {
+function registryRefs(
+  input: Pick<ChangeLogInput, 'infrastructure' | 'aiHosts'>
+): SubprocessorRef[] {
   return [
     ...input.infrastructure.map(
       entry => ({ list: 'infrastructure', entry }) as const
@@ -206,22 +208,32 @@ export function buildSubprocessorPageView(input: {
     )
     .sort((a, b) => b.effectiveAt.localeCompare(a.effectiveAt))
 
-  const infrastructure = new Map(input.infrastructure.map(e => [e.id, e]))
-  const aiHosts = new Map(input.aiHosts.map(e => [e.gatewaySlug, e]))
-  // Undo pending changes newest first, so two pending changes to one entry
-  // unwind to the state in effect today.
-  for (const c of [...pending].reverse()) {
-    if (c.after?.list === 'infrastructure')
-      infrastructure.delete(c.after.entry.id)
-    if (c.after?.list === 'aiHost') aiHosts.delete(c.after.entry.gatewaySlug)
-    if (c.before?.list === 'infrastructure')
-      infrastructure.set(c.before.entry.id, c.before.entry)
-    if (c.before?.list === 'aiHost')
-      aiHosts.set(c.before.entry.gatewaySlug, c.before.entry)
+  // Undo pending changes in reverse log order (the order they were applied
+  // to the registry), so two pending changes to one entry unwind to the state
+  // in effect today. A restored entry takes the place of the one it undoes,
+  // so the tables keep their order.
+  const inUse: SubprocessorRef[] = registryRefs(input)
+  const pendingIds = new Set(pending.map(c => c.id))
+  const inLogOrder = input.changes.filter(c => pendingIds.has(c.id))
+  for (const c of [...inLogOrder].reverse()) {
+    const at = c.after
+      ? inUse.findIndex(
+          r => subprocessorSubject(r) === subprocessorSubject(c.after!)
+        )
+      : -1
+    if (at >= 0) inUse.splice(at, 1)
+    const before = c.before
+    if (
+      before &&
+      !inUse.some(r => subprocessorSubject(r) === subprocessorSubject(before))
+    )
+      inUse.splice(at >= 0 ? at : inUse.length, 0, before)
   }
   return {
-    infrastructure: [...infrastructure.values()],
-    aiHosts: [...aiHosts.values()],
+    infrastructure: inUse.flatMap(r =>
+      r.list === 'infrastructure' ? [r.entry] : []
+    ),
+    aiHosts: inUse.flatMap(r => (r.list === 'aiHost' ? [r.entry] : [])),
     pending,
     recent,
   }
