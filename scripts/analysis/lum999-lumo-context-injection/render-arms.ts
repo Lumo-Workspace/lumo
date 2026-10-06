@@ -10,7 +10,7 @@ import { spawnSync } from 'child_process'
 import { createHash } from 'crypto'
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import type { Variant } from './fixtures'
+import type { TaskFixture } from './fixtures'
 import type { RenderedVariant } from './render-harness'
 
 export interface ArmRender extends RenderedVariant {
@@ -29,9 +29,15 @@ export function gitHead(tree: string): string {
   return r.stdout.trim()
 }
 
+/** Anything with an id and a fixture renders (LUM-999 and LUM-1003 variants). */
+export interface RenderableVariant {
+  id: string
+  fixture: TaskFixture
+}
+
 export function renderArm(
   tree: string,
-  variants: Variant[],
+  variants: RenderableVariant[],
   workDir: string
 ): ArmRender[] {
   const harnessDir = join(tree, '__lum999__')

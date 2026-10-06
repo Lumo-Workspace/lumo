@@ -19,7 +19,7 @@
  * Every import is `@/…` so it binds to the tree jest's rootDir points at.
  */
 import { readFileSync, writeFileSync } from 'fs'
-import type { TaskFixture, Variant } from './fixtures'
+import type { TaskFixture } from './fixtures'
 
 const mockState: { f: TaskFixture | null } = { f: null }
 function mockFixture(): TaskFixture {
@@ -163,7 +163,10 @@ export interface RenderedVariant {
  * `lumo task context <id>` output for one fixture, produced by this tree's
  * service + CLI renderer.
  */
-export async function renderVariant(v: Variant): Promise<RenderedVariant> {
+export async function renderVariant(v: {
+  id: string
+  fixture: TaskFixture
+}): Promise<RenderedVariant> {
   mockState.f = v.fixture
   const { taskContextService } =
     await import('@/lib/services/task-context.service')
@@ -188,9 +191,10 @@ const outPath = process.env.LUM999_OUT
 if (variantsPath && outPath) {
   describe('LUM-999 arm render', () => {
     it('renders every variant through this tree', async () => {
-      const variants = JSON.parse(
-        readFileSync(variantsPath, 'utf8')
-      ) as Variant[]
+      const variants = JSON.parse(readFileSync(variantsPath, 'utf8')) as Array<{
+        id: string
+        fixture: TaskFixture
+      }>
       const out: RenderedVariant[] = []
       for (const v of variants) out.push(await renderVariant(v))
       writeFileSync(outPath, JSON.stringify(out, null, 2))

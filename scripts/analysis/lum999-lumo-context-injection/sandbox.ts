@@ -378,5 +378,8 @@ export function snapshotSandbox(
     srcAndTestCommitted: status.trim() === '',
     finalOutput,
     lumoCalls: readFileSync(sb.callsLog, 'utf8').split('\n').filter(Boolean),
+    mathSource: existsSync(join(repo, 'src', 'math.js'))
+      ? readFileSync(join(repo, 'src', 'math.js'), 'utf8')
+      : '',
   }
 }

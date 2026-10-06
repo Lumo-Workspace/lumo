@@ -6,6 +6,7 @@ import { formatDuration, relativeTime } from '../lib/format'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
 import { resolveSessionId } from '../lib/session-id'
 import {
+  PREVIOUS_SESSIONS_NOTE,
   TASK_DESCRIPTION_FENCE,
   TASK_DESCRIPTION_PREAMBLE,
   fenceUntrustedText,
@@ -254,6 +255,8 @@ export function formatTaskContextMarkdown(
     lines.push('')
   } else {
     lines.push(`## Previous Sessions (${sessions.length})`)
+    lines.push('')
+    lines.push(PREVIOUS_SESSIONS_NOTE)
     lines.push('')
 
     for (const s of sessions) {

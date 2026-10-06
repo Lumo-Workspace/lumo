@@ -82,7 +82,14 @@ export interface ReviewMirrorRow {
   lineStart: number | null
   lineEnd: number | null
   externalUrl: string
-  comment: { body: string; authorActorId: string | null }
+  /** LUM-1003: GitHub author_association; absent on LUM-999 fixtures. */
+  authorAssociation?: string | null
+  comment: {
+    body: string
+    authorActorId: string | null
+    /** LUM-1003: the author actor's type (HUMAN = workspace member). */
+    author?: { type: string } | null
+  }
 }
 
 /** Everything the mocked repositories return for one task. Dates are ISO. */
@@ -130,6 +137,9 @@ export interface TaskFixture {
     authorActorId: string
     body: string
     createdAt: string
+    /** LUM-1003: author actor + mirror provenance; absent on LUM-999 fixtures. */
+    author?: { type: string; externalIdentity: string | null } | null
+    mirror?: { authorAssociation: string | null } | null
   }>
   taskMemories: MemoryRow[]
   sessions: SessionRow[]

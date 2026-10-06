@@ -16,6 +16,7 @@ import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { waitUntil } from '@vercel/functions'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
 import { htmlToPreview } from '@/lib/utils/htmlToPreview'
+import { githubCommentProvenance } from '@/lib/context/reviewer-trust'
 
 /** Threads with at most this many comments are rendered inline (full text),
  *  so they never need an LLM summary. Beyond it, we cache a short summary. */
@@ -121,9 +122,17 @@ export const commentService = {
   async scheduleCommentsSummary(taskId: string): Promise<void> {
     const comments = await commentRepository.listAllForTask(taskId)
     if (comments.length <= COMMENTS_SUMMARY_THRESHOLD) return
+    // LUM-1003: an unverified GitHub user's comment is quoted separately in
+    // agent context; feeding it to the recap would launder its asks into
+    // neutral-sounding summary text.
+    const recapInput = comments.filter(c => {
+      const gh = githubCommentProvenance(c)
+      return !gh || gh.reviewer.trusted
+    })
+    if (recapInput.length === 0) return
     waitUntil(
       contentSummaryService
-        .summarize(buildCommentsSummaryInput(comments), 'comments')
+        .summarize(buildCommentsSummaryInput(recapInput), 'comments')
         .then(s =>
           s ? taskRepository.updateCommentsSummary(taskId, s) : undefined
         )

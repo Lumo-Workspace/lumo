@@ -99,6 +99,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { renderPrReviewTodosSection } from '@/lib/context/render'
+import { PREVIOUS_SESSIONS_NOTE } from '@/shared/src/untrusted-fence'
 import { wrapUntrustedTaskDescription } from '@/lib/memory/render'
 import {
   guardPromptLine,
@@ -237,7 +238,9 @@ describe('session start — "Progress so far" block', () => {
     expect(out).not.toContain(FORGED_CLOSE)
     expect(out).not.toContain(SECRET)
     const lines = out.split('\n')
-    expect(lines[1]).toMatch(INLINE)
+    // LUM-1003: the history-not-instructions note sits right under the heading.
+    expect(lines[1]).toBe(PREVIOUS_SESSIONS_NOTE)
+    expect(lines[2]).toMatch(INLINE)
     expect(lines.find(l => l.startsWith('- [ ]'))).toMatch(INLINE)
   })
 })
@@ -253,6 +256,7 @@ describe('PR review todos (task context + session start)', () => {
         text: ONE_LINE,
         url: 'https://github.com/acme/app/pull/1#r1',
         author: 'eve',
+        reviewer: { trusted: true, role: 'collaborator' },
       },
       {
         kind: 'overall',
@@ -262,15 +266,18 @@ describe('PR review todos (task context + session start)', () => {
         text: 'Please add a test',
         url: 'https://github.com/acme/app/pull/1#r2',
         author: 'bob',
+        reviewer: { trusted: true, role: 'collaborator' },
       },
     ])
     const todos = out.split('\n').filter(l => l.startsWith('- [ ]'))
     expect(todos[0]).not.toContain(FORGED_CLOSE)
     expect(todos[0]).toContain('(/untrusted-linked-context)')
     expect(todos[0]).toMatch(INLINE)
-    expect(todos[0]).toMatch(/^- \[ \] `lib\/a\.ts:3` \(@eve\) — /)
+    expect(todos[0]).toMatch(
+      /^- \[ \] `lib\/a\.ts:3` \(@eve · collaborator\) — /
+    )
     expect(todos[1]).toBe(
-      '- [ ] 🛑 Changes requested (whole PR) (@bob) — Please add a test'
+      '- [ ] 🛑 Changes requested (whole PR) (@bob · collaborator) — Please add a test'
     )
   })
 })
@@ -286,6 +293,7 @@ describe('PR review todo file path', () => {
         text: 'typo',
         url: 'https://github.com/acme/app/pull/1#r3',
         author: null,
+        reviewer: { trusted: false, role: 'unknown' },
       },
     ])
     expect(out).not.toContain(FORGED_CLOSE)

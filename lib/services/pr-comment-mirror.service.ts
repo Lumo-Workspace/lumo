@@ -509,6 +509,8 @@ interface InboundCommentNode {
   body: string | null
   updated_at: string
   user: { id: number; login: string; type: string; avatar_url: string }
+  /** GitHub's standing of the author on the repo (OWNER, MEMBER, NONE, …). */
+  author_association?: string
   in_reply_to_id?: number
   path?: string
   line?: number
@@ -521,6 +523,20 @@ function extractCommentNode(payload: InboundPayload): InboundCommentNode {
     return payload.raw.review as InboundCommentNode
   }
   return payload.raw.comment as InboundCommentNode
+}
+
+/**
+ * LUM-1003: the comment author's `author_association`, upper-cased, or null
+ * when the payload lacks a well-formed one. Stored raw; `classifyReviewer`
+ * decides what it means.
+ */
+export function authorAssociationOf(node: {
+  author_association?: unknown
+}): string | null {
+  const v = node.author_association
+  if (typeof v !== 'string') return null
+  const up = v.trim().toUpperCase()
+  return /^[A-Z_]{1,40}$/.test(up) ? up : null
 }
 
 function payloadSource(payload: InboundPayload): PrCommentSource {
@@ -637,6 +653,8 @@ async function runInboundCreate(
       source === 'REVIEW_LINE' && node.in_reply_to_id
         ? String(node.in_reply_to_id)
         : null,
+    // LUM-1003: who the reviewer is to the repo, for agent-context trust tiers.
+    authorAssociation: authorAssociationOf(node),
   })
 
   const { commentService } = await import('@/lib/services/comment.service')
@@ -679,7 +697,8 @@ async function applyInboundUpdate(
   await prCommentMirrorRepository.patchAfterEdit(
     existing.id,
     new Date(node.updated_at),
-    computeBodyHash(node.body ?? '')
+    computeBodyHash(node.body ?? ''),
+    authorAssociationOf(node)
   )
   // LUM-879: same recheck as a create — the edit may land after a scrub.
   await scrubCommentsIfRepositoryUnconfirmed(payload.pullRequestId)
