@@ -54,6 +54,11 @@ export function usesVercelWorkflowWorld(env: NodeJS.ProcessEnv): boolean {
  * the global `fetch`, which refuses URLs that carry credentials and so cannot
  * present a secret. `next start` / a production build always has
  * `NODE_ENV=production`, so the exemption cannot reach a deployment.
+ *
+ * Deliberately NOT exempt: the Local World under `next start`. It cannot carry
+ * the secret, so its deliveries are refused — that is the fail-closed outcome
+ * for a deployment that silently fell back to an in-memory, single-instance
+ * queue. Self-hosting must select the Postgres World (LUM-1030).
  */
 export function workflowGuardApplies(env: NodeJS.ProcessEnv): boolean {
   if (usesVercelWorkflowWorld(env)) return false
@@ -61,19 +66,17 @@ export function workflowGuardApplies(env: NodeJS.ProcessEnv): boolean {
 }
 
 /**
- * Whether a pathname addresses the workflow routes. Percent-decoded and
- * slash-collapsed first so an encoded spelling (`/.well-known/%77orkflow/…`)
- * cannot slip past a prefix check while still being routed. A pathname that
- * does not decode cleanly is treated as a workflow path (fail closed) when it
- * could be one.
+ * Whether a pathname addresses the workflow routes. Every `%XX` escape is
+ * decoded byte-wise first (never throws, unlike `decodeURIComponent`, so a
+ * malformed escape elsewhere in the path cannot switch the check off), then
+ * slashes are collapsed and case folded — an encoded spelling such as
+ * `/.well-known/%77orkflow/…` cannot slip past the prefix check while still
+ * being routed. The prefix is pure ASCII, so byte-wise decoding is exact for it.
  */
 export function isWorkflowRoutePath(pathname: string): boolean {
-  let decoded: string
-  try {
-    decoded = decodeURIComponent(pathname)
-  } catch {
-    return pathname.toLowerCase().includes('well-known')
-  }
+  const decoded = pathname.replace(/%([0-9a-fA-F]{2})/g, (_, hex: string) =>
+    String.fromCharCode(parseInt(hex, 16))
+  )
   const normalised = decoded.replace(/\/{2,}/g, '/').toLowerCase()
   return normalised.startsWith(WORKFLOW_ROUTE_PREFIX)
 }

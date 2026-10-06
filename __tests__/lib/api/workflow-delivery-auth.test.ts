@@ -75,6 +75,9 @@ describe('isWorkflowRoutePath', () => {
     expect(isWorkflowRoutePath('/.well-known/%77orkflow/v1/flow')).toBe(true)
     expect(isWorkflowRoutePath('//.well-known//workflow/v1/flow')).toBe(true)
     expect(isWorkflowRoutePath('/.well-known/workflow/%E0%A4%A')).toBe(true)
+    // A malformed escape must not disable decoding of the valid ones.
+    expect(isWorkflowRoutePath('/.well%2Dknown/workflow/%ZZ')).toBe(true)
+    expect(isWorkflowRoutePath('/.WELL-KNOWN/Workflow/v1/step')).toBe(true)
   })
   it('does not match the MCP OAuth discovery endpoints or app routes', () => {
     expect(isWorkflowRoutePath('/.well-known/oauth-authorization-server')).toBe(
