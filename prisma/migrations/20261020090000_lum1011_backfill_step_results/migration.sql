@@ -8,8 +8,11 @@
 --   * FAIL without locator, BLOCKED -> untouched (nothing to infer from).
 -- Only rows whose stepResults is still '[]' are touched, so runs that already
 -- report per-step results and re-runs of this script are no-ops.
--- A FAIL run whose failedStepText no longer matches the case's current text at
--- that index is skipped: the case was rewritten since, so positions are unsafe.
+-- Step text comes from the case's *current* steps, so any run older than the
+-- case's last edit is skipped (the steps may have been rewritten or reordered
+-- since; a PASS there would mark never-executed steps as passed). Likewise a
+-- FAIL run whose failedStepText no longer matches the case's current text at
+-- that index is skipped.
 -- Each inferred entry carries "backfilled": true (readers ignore unknown keys).
 
 WITH runs AS (
@@ -26,6 +29,7 @@ WITH runs AS (
   FROM "test_case_runs" r
   JOIN "test_cases" c ON c.id = r."testCaseId"
   WHERE r."stepResults" = '[]'::jsonb
+    AND c."updatedAt" <= r."createdAt"
     AND (
       r.result = 'PASS'
       OR (
