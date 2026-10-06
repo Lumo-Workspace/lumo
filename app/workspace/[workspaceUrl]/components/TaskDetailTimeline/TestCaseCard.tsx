@@ -97,7 +97,8 @@ function VerdictIcon({ verdict }: { verdict: CaseVerdict }) {
  * LUM-801 / LUM-1011: Record 页「测试用例」区段里的一条用例。
  *
  * 折叠时是一行：结论图标 · 句柄 · 标题 · 最新一次的环境 / 日期 / 进度。
- * 展开后是最新一次 run 的逐步报告，更早的运行再折一层。
+ * 展开后先是用例描述（前置条件 · 预期结果），再是最新一次 run 的逐步报告，
+ * 更早的运行再折一层。
  *
  * 纯渲染 + 回调：自己**不发任何请求**（SRP —— 取数在 useTestCases，编排在
  * TestCasesSection）。裁定按钮不在这里——未裁定的已证缺陷在「需要处理」里裁。
@@ -215,6 +216,13 @@ export function TestCaseCard({
             </Section>
           ) : null}
 
+          {/* 先读完用例本身（前置 + 预期），再看这次跑出了什么。 */}
+          <Section
+            title={intl.formatMessage({ id: 'testCases.section.expected' })}
+          >
+            {testCase.expected}
+          </Section>
+
           {latest ? (
             <TestCaseRunReport
               run={latest}
@@ -243,12 +251,6 @@ export function TestCaseCard({
               ) : null}
             </>
           )}
-
-          <Section
-            title={intl.formatMessage({ id: 'testCases.section.expected' })}
-          >
-            {testCase.expected}
-          </Section>
 
           {earlier.length > 0 ? (
             <div>

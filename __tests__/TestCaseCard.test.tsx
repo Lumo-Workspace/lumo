@@ -174,6 +174,23 @@ describe('run history shows every run', () => {
     expect(screen.getByText(/failed at step 2/i)).toBeInTheDocument()
   })
 
+  // 用户 2026-10-06：先读完用例本身（前置 + 预期），再看 run 的结果和步骤。
+  // 早先「预期结果」排在逐步报告之后，夹在最新 run 和更早 run 之间。
+  it('puts the case description (setup, expected) before the run report', () => {
+    renderCard({ runs: [run({ id: 'r2' }), run({ id: 'r1' })] })
+    const setup = screen.getByText('The user is on the Dashboard.')
+    const expected = screen.getByText(
+      'The FDIC membership disclosure is visible.'
+    )
+    const report = screen.getByTestId('run-report')
+    const earlier = screen.getByText(/earlier run/)
+    const follows = (a: Node, b: Node) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(follows(setup, expected)).toBe(true)
+    expect(follows(expected, report)).toBe(true)
+    expect(follows(report, earlier)).toBe(true)
+  })
+
   it('opens the earlier runs by itself when a deep link targets one', () => {
     renderCard({
       linkedRunId: 'r1',
