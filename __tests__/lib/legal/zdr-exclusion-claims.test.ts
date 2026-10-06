@@ -146,7 +146,9 @@ describe('ZDR exclusion disclosure LUM-871', () => {
       ])
     // The embedding landing is echoed by the gateway, not inferred.
     expect(MANIFEST).not.toMatch(/响应不回显路由/)
-    expect(MANIFEST).toContain(PROBE_PATH)
+    // The manifest cites the archived probe run (the file itself stays in the
+    // internal evaluation tree, LUM-1034).
+    expect(MANIFEST).toMatch(/存档于内部评测目录\(LUM-871\)/)
   })
 
   it('committed probe output carries no credential', () => {

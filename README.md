@@ -318,8 +318,8 @@ installation can be recorded (LUM-875).
    handling. The daily cron `/api/cron/prune-hook-event-payloads` drops that
    body 7 days after the job dead-lettered, keeping only the operation /
    event, task, PR, error and timestamps. Dead letters from before LUM-913
-   are not swept; `scripts/analysis/lum913-dead-letter-stock/count.ts` counts
-   them read-only.
+   are not swept; an internal read-only count script (LUM-913) counts
+   them.
 
 **No fallback.** A workspace with no installation record gets no GitHub
 token at all — every GitHub call for it fails with "install the Lumo GitHub
@@ -425,7 +425,7 @@ that may only refute, never confirm — `LUMO_SECURITY_SUGGEST=off` disables
 it); a refutation becomes a _suggested_ false positive with the model's
 reasoning, shown in the panel with a one-click "confirm all" for humans, and
 each confirm or overrule is recorded so the suggestion's precision can be
-measured (`scripts/analysis/lum740-suggestion-precision`). To keep the pull
+measured (LUM-740). To keep the pull
 request readable, LOW-severity findings (test and fixture paths, placeholder
 values) and suggested false positives get no inline comment — the summary
 comment carries one line for each group and links to Lumo — and the summary

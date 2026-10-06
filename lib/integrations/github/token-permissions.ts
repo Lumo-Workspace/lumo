@@ -7,7 +7,7 @@ import type { GitHubAppPermissionName, RepoTokenPermissions } from './auth'
  * narrows what the token may do there. Each set is the minimum GitHub's
  * "Permissions required for GitHub Apps" table lists for the endpoints its
  * callers hit, and was probed live against a real installation
- * (`scripts/analysis/lum886-token-permissions/probe.ts`).
+ * (internal LUM-886 token-permissions probe).
  *
  * Every set must stay inside `PRODUCTION_APP_PERMISSIONS`: asking for a
  * permission the installation was not granted makes GitHub refuse the mint
@@ -38,7 +38,7 @@ export const REPO_TOKEN_PERMISSIONS = {
  * that must see the whole installation: listing what it reaches, and asking
  * GitHub whether a verifier still reads a repository. Both are served under
  * `metadata: read`, the one permission every App has (probed live:
- * `scripts/analysis/lum886-token-permissions/probe.ts`).
+ * internal LUM-886 token-permissions probe).
  */
 export const INSTALLATION_TOKEN_PERMISSIONS = {
   /** `GET /installation/repositories` — the repositories an installation reaches. */

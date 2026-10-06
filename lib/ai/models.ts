@@ -42,8 +42,8 @@ export const REASONING_MODEL = 'openai/gpt-5.5'
  * gpt-5.5. The user approved moving to Sonnet or Opus 5.5 and the cost
  * increase (LUM-975); Sonnet was picked over Opus because Opus led only under
  * the same-family judge and costs twice as much (LUM-988 Decisions, recorded
- * by the LUM-975 session). The replay harness is
- * `scripts/analysis/lum988-code-review-replay/`. Gateway format;
+ * by the LUM-975 session). The replay harness is the internal LUM-988
+ * code-review replay. Gateway format;
  * catalog-probed 2026-10-04 (`anthropic/claude-sonnet-5.5` resolves — keep
  * the version dot, do NOT dash-normalise).
  */
@@ -84,7 +84,7 @@ export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
  * DeepSeek V4-Pro → Qwen3-Coder-Plus (LUM-787): on the same diff (PR 1008,
  * head 02cf887c) replayed through the shipped loop after the step-budget
  * fix, seven models were compared one run each (table in
- * `scripts/analysis/lum787-hunt-replay/README.md`). Qwen3-Coder-Plus was
+ * the internal LUM-787 hunt-replay results). Qwen3-Coder-Plus was
  * the only model that narrated every step — the only kind of memory that
  * survives transcript elision — and the only one to submit a candidate;
  * DeepSeek V4-Pro reached the same step counts but wrote no text at all

@@ -174,7 +174,7 @@ import {
 } from './lib/update-check'
 import { sanitizeField } from './lib/sanitize'
 
-// Introspection mode: tooling (scripts/analysis grammar extraction) imports
+// Introspection mode: tooling (CLI grammar extraction) imports
 // this module to walk the registered commander tree without running the CLI.
 // Skips package.json resolution (which assumes the compiled dist/ layout),
 // update checks, local-state cleanup, and parseAsync. Never set for real runs.

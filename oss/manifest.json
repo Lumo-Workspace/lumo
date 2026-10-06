@@ -322,6 +322,26 @@
     {
       "glob": "__tests__/scripts/oss-export-manifest.test.ts",
       "reason": "tests the private export tooling"
+    },
+    {
+      "glob": "__tests__/memory/fixtures/team-memory-corpus.json",
+      "reason": "real dump of the project's own team memory (183 cards, internal operational notes) — not synthetic"
+    },
+    {
+      "glob": "__tests__/memory/poison-gate.corpus.test.ts",
+      "reason": "runs the gate over the excluded real team-memory corpus"
+    },
+    {
+      "glob": "__tests__/fixtures/lum844/**",
+      "reason": "verbatim capture of a real internal task payload (description, team memories, sessions)"
+    },
+    {
+      "glob": "__tests__/cli/start-output-budget.test.ts",
+      "reason": "budgets are derived from the excluded real LUM-844 capture"
+    },
+    {
+      "glob": "__tests__/lib/services/outcome/git-referent-detector.live.test.ts",
+      "reason": "asserts against specific commits of the private repository's history (LUM-604 live referent); the snapshot starts a new history (LUM-1033 D3)"
     }
   ],
   "overlayDir": "oss/overlay",
@@ -343,6 +363,12 @@
       "type": "dropLines",
       "pattern": "^scripts/(analysis|eval)/",
       "reason": "entries for excluded output files"
+    },
+    {
+      "file": "docs/live-docs/README.md",
+      "type": "dropLines",
+      "pattern": "lum392-cli-friction-report\\.md",
+      "reason": "registry row for the excluded internal report"
     }
   ],
   "configRefFiles": [
@@ -350,8 +376,7 @@
     ".husky/pre-commit",
     ".husky/commit-msg",
     ".lintstagedrc.json",
-    "vercel.json",
-    "cli/package.json"
+    "vercel.json"
   ],
   "forbiddenMarkers": [
     {

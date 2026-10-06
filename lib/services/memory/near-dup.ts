@@ -1,6 +1,6 @@
 /**
  * LUM-541 (P5) — near-duplicate clustering, promoted from the eval harness
- * (`scripts/eval/memory/near-dup-cluster.ts`, LUM-538) into `lib/` so the
+ * (internal near-dup-cluster eval, LUM-538) into `lib/` so the
  * production batch-consolidation sweep and the offline eval metric share ONE
  * clustering implementation. The eval module re-exports `nearDupClusters` /
  * `VecItem` from here, so the LUM-538 near-dup regression test keeps measuring

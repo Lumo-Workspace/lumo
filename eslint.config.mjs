@@ -96,6 +96,9 @@ export default [
       'out/',
       'build/',
       'security/semgrep-rules/',
+      // Nested git worktrees (lumo worktree / Claude Code) are other checkouts.
+      '.worktrees/',
+      '.claude/worktrees/',
     ],
   },
 ]

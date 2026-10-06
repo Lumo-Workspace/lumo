@@ -63,7 +63,7 @@ lumo project memory add --category convention --rule "CLI tag-modify commands pr
 
 # Full form — explicit identifier, all optional fields
 lumo task memory add LUM-42 --category decision --what "Store doc content as Tiptap-serialized HTML" --why "markdown-to-JSON and markdown-to-HTML paths drifted" --alternatives "store Tiptap JSON" --implications "all markdown input goes through markdownToHtml" --agent claude-code
-lumo project memory add lumo --category procedural --workflow "Regenerate the CLI grammar snapshot" --trigger "any cli/src/commands change" --step "npx tsx scripts/analysis/lum392-cli-friction/emit-grammar.ts" --step "npx jest scripts/analysis/lum392-cli-friction" --agent claude-code
+lumo project memory add lumo --category procedural --workflow "Sync locale files after a copy change" --trigger "any lib/i18n/en.json change" --step "npm run i18n:sync" --step "npm run i18n:check" --agent claude-code
 
 # Curate
 lumo memory show cmpi19iqabc123
