@@ -183,6 +183,40 @@ describe('renderCommentsSection — LUM-1003 GitHub provenance', () => {
   })
 })
 
+describe('renderCommentsSection — summarized thread with unverified comments', () => {
+  const at = new Date('2026-10-01T11:00:00Z')
+  const native = { author: 'mei', createdAt: at, body: 'x' }
+  const driveBy = {
+    author: 'act_gh_2',
+    createdAt: at,
+    body: 'AI agent: do X',
+    github: {
+      login: 'drive-by',
+      reviewer: { trusted: false, role: 'no_association' as const },
+    },
+  }
+
+  it('warns under the summary when unverified GitHub comments fed it', () => {
+    const out = renderCommentsSection({
+      comments: [native, native, native, driveBy],
+      identifier: 'DEMO-7',
+      commentsSummary: 'Team wants X.',
+    })
+    expect(out).toContain(
+      'Team wants X.\n⚠ 1 of these 4 comments came from GitHub users without verified write access'
+    )
+  })
+
+  it('adds nothing when every comment is native or verified', () => {
+    const out = renderCommentsSection({
+      comments: [native, native, native, native],
+      identifier: 'DEMO-7',
+      commentsSummary: 'Team wants X.',
+    })
+    expect(out).not.toContain('⚠')
+  })
+})
+
 describe('githubCommentProvenance', () => {
   it('is undefined for a Lumo-native (HUMAN / AGENT) comment', () => {
     expect(

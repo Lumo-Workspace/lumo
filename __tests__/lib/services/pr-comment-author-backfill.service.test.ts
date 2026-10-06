@@ -198,6 +198,53 @@ describe('prCommentAuthorBackfillService.run', () => {
     expect(r).toMatchObject({ stoppedReason: 'rate_limit', nextCursor: 'pr_0' })
   })
 
+  it('writes a PR whose listing completed on a low-quota page, then stops after it', async () => {
+    repo.listPrsWithUnknownAuthorAssociation.mockResolvedValue([PR1, PR2])
+    repo.listUnknownAuthorAssociationRows.mockResolvedValue([
+      { id: 'm1', externalSource: 'ISSUE', externalId: '1' },
+    ] as never)
+    listPage.mockResolvedValue(page([[1, 'OWNER']], false, 20))
+    const r = await prCommentAuthorBackfillService.run({
+      dryRun: false,
+      minRateLimitRemaining: 100,
+    })
+    expect(repo.fillAuthorAssociations).toHaveBeenCalledWith([
+      { id: 'm1', authorAssociation: 'OWNER' },
+    ])
+    expect(listPage).toHaveBeenCalledTimes(1)
+    expect(r).toMatchObject({
+      stoppedReason: 'rate_limit',
+      nextCursor: 'pr_a',
+      filled: 1,
+      prsProcessed: 1,
+    })
+  })
+
+  it('stops mid-listing at the deadline without writing the partial PR', async () => {
+    repo.listPrsWithUnknownAuthorAssociation.mockResolvedValue([PR1])
+    repo.listUnknownAuthorAssociationRows.mockResolvedValue([
+      { id: 'm1', externalSource: 'REVIEW_LINE', externalId: '999' },
+    ] as never)
+    listPage.mockResolvedValue(page([[1, 'MEMBER']], true))
+    const t = [
+      new Date('2026-10-06T00:00:00Z'),
+      new Date('2026-10-06T00:10:00Z'),
+    ]
+    let i = 0
+    const r = await prCommentAuthorBackfillService.run({
+      dryRun: false,
+      deadline: new Date('2026-10-06T00:05:00Z'),
+      now: () => t[Math.min(i++, 1)]!,
+    })
+    expect(listPage).toHaveBeenCalledTimes(1)
+    expect(repo.fillAuthorAssociations).not.toHaveBeenCalled()
+    expect(r).toMatchObject({
+      stoppedReason: 'deadline',
+      nextCursor: null,
+      prsProcessed: 0,
+    })
+  })
+
   it('dry run reports counts and writes nothing', async () => {
     repo.listPrsWithUnknownAuthorAssociation.mockResolvedValue([PR1])
     repo.listUnknownAuthorAssociationRows.mockResolvedValue([

@@ -73,7 +73,12 @@ function parseRepo(repo: string): { owner: string; name: string } {
   return { owner, name }
 }
 
-/** Read one listing until every wanted id is found or the pages run out. */
+/**
+ * Read one listing until every wanted id is found or the pages run out.
+ * `complete` = the listing was read to a verdict (all ids found, or no more
+ * pages); a read cut short by low quota or the deadline is not complete, and
+ * its absences prove nothing.
+ */
 async function readListing(input: {
   repo: { owner: string; name: string }
   prNumber: number
@@ -81,9 +86,13 @@ async function readListing(input: {
   token: string
   wanted: Set<string>
   minRemaining: number
-}): Promise<{ found: Map<string, string>; lowQuota: boolean }> {
+  pastDeadline: () => boolean
+}): Promise<{
+  found: Map<string, string>
+  complete: boolean
+  stop: 'rate_limit' | 'deadline' | null
+}> {
   const found = new Map<string, string>()
-  let lowQuota = false
   for (let page = 1; page <= MAX_PAGES_PER_LISTING; page += 1) {
     const res = await prCommentClient.listAuthorAssociationsPage({
       repo: input.repo,
@@ -98,16 +107,19 @@ async function readListing(input: {
         found.set(id, item.authorAssociation.toUpperCase())
       }
     }
-    if (
+    const done = found.size === input.wanted.size || !res.hasNext
+    const lowQuota =
       res.rateLimitRemaining !== null &&
       res.rateLimitRemaining < input.minRemaining
-    ) {
-      lowQuota = true
-      break
+    if (done) {
+      return { found, complete: true, stop: lowQuota ? 'rate_limit' : null }
     }
-    if (found.size === input.wanted.size || !res.hasNext) break
+    if (lowQuota) return { found, complete: false, stop: 'rate_limit' }
+    if (input.pastDeadline())
+      return { found, complete: false, stop: 'deadline' }
   }
-  return { found, lowQuota }
+  // Page cap reached: as far as this run will ever read.
+  return { found, complete: true, stop: null }
 }
 
 function isRateLimit(err: unknown): err is GithubApiError {
@@ -169,27 +181,34 @@ export const prCommentAuthorBackfillService = {
       }
 
       const found = new Map<string, string>()
-      let lowQuota = false
+      let stop: 'rate_limit' | 'deadline' | null = null
+      let complete = true
       try {
         const token = await getRepoToken(
           pr.workspaceId,
           pr.repo,
           REPO_TOKEN_PERMISSIONS.pullRequestRead
         )
+        const pastDeadline = (): boolean =>
+          opts.deadline !== undefined && now() >= opts.deadline
         for (const [kind, wanted] of byKind) {
+          if (stop) {
+            // A kind never read is not a verdict either.
+            complete = false
+            break
+          }
           const listing = await readListing({
             repo: parseRepo(pr.repo),
             prNumber: pr.number,
             kind,
             token,
             wanted,
-            minRemaining: minRemaining,
+            minRemaining,
+            pastDeadline,
           })
           for (const [id, a] of listing.found) found.set(`${kind}:${id}`, a)
-          if (listing.lowQuota) {
-            lowQuota = true
-            break
-          }
+          if (!listing.complete) complete = false
+          stop = listing.stop
         }
       } catch (err) {
         if (isRateLimit(err)) {
@@ -211,9 +230,9 @@ export const prCommentAuthorBackfillService = {
         continue
       }
 
-      if (lowQuota) {
+      if (!complete) {
         // A partial read is not a verdict: leave this PR for the next run.
-        report.stoppedReason = 'rate_limit'
+        report.stoppedReason = stop ?? 'rate_limit'
         report.nextCursor = cursor
         return report
       }
@@ -237,6 +256,12 @@ export const prCommentAuthorBackfillService = {
       }
       report.prsProcessed += 1
       cursor = pr.id
+      if (stop) {
+        // This PR was read in full and written; the quota or time is spent.
+        report.stoppedReason = stop
+        report.nextCursor = cursor
+        return report
+      }
     }
 
     // Every PR in reach was processed. Unreachable rows stay NULL; a later
