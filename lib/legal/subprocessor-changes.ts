@@ -128,7 +128,7 @@ export const SUBPROCESSOR_BASELINE: Readonly<Record<string, string>> = {
   'aiHost:wafer': 'Wafer | globalRouting',
 }
 
-/** Oldest first (by announcedAt). Append only — a sent change is never edited. */
+/** The Resend registry entry, unchanged by the 2026-10-05 purpose correction. */
 const RESEND = {
   id: 'resend',
   entity: 'Resend Inc.',
@@ -137,6 +137,7 @@ const RESEND = {
   location: 'us',
 } as const
 
+/** Oldest first (by announcedAt). Append only — a sent change is never edited. */
 export const SUBPROCESSOR_CHANGES: readonly SubprocessorChange[] = [
   {
     // User ruling 2026-10-05 (LUM-919): the list said Resend only sends
