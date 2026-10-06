@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "このステップより前はすべて合格",
   "record.gate.tests.blocking": "{count, plural, other {裁定待ちの確定した欠陥 # 件}}",
   "record.gate.tests.clear": "確定した欠陥なし · {total} 件中 {passing} 件合格",
-  "record.gate.tests.none": "テストケースはまだありません"
+  "record.gate.tests.none": "テストケースはまだありません",
+  "testCases.caseLabel": "テストケース {n}",
+  "testCases.lightbox.preview": "{label} をプレビュー",
+  "testCases.lightbox.prev": "前へ",
+  "testCases.lightbox.next": "次へ",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "元の画像を開く"
 }

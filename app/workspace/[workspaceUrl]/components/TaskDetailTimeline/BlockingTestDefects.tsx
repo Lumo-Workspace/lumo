@@ -40,8 +40,12 @@ export function BlockingTestDefects({
           <a
             href={`#${runAnchorId(d.runId)}`}
             className='text-body-strong text-foreground hover:underline'
+            title={`${taskIdentifier}/TC${d.caseNumber}`}
           >
-            {taskIdentifier}/TC{d.caseNumber}
+            {intl.formatMessage(
+              { id: 'testCases.caseLabel' },
+              { n: d.caseNumber }
+            )}
           </a>
           <span className='min-w-0 grow text-foreground'>{d.title}</span>
           <span className='text-caption text-danger-text'>

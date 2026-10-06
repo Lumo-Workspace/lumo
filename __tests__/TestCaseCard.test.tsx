@@ -108,9 +108,13 @@ const renderCard = (props: Record<string, unknown> = {}) =>
   )
 
 describe('TestCaseCard', () => {
-  it('shows the handle and title', () => {
+  it('shows a readable case label (CLI handle on hover) and title', () => {
     renderCard()
-    expect(screen.getByText('LUM-12/TC3')).toBeInTheDocument()
+    expect(screen.getByText('Test case 3')).toHaveAttribute(
+      'title',
+      'LUM-12/TC3'
+    )
+    expect(screen.queryByText('LUM-12/TC3')).toBeNull()
     expect(
       screen.getByText('Dashboard footer FDIC disclosure')
     ).toBeInTheDocument()

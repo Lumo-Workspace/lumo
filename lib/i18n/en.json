@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "Every step before this one passed",
   "record.gate.tests.blocking": "{count, plural, one {# proven defect awaiting a ruling} other {# proven defects awaiting a ruling}}",
   "record.gate.tests.clear": "No proven defects · {passing} of {total} passing",
-  "record.gate.tests.none": "No test cases"
+  "record.gate.tests.none": "No test cases",
+  "testCases.caseLabel": "Test case {n}",
+  "testCases.lightbox.preview": "Preview {label}",
+  "testCases.lightbox.prev": "Previous",
+  "testCases.lightbox.next": "Next",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "Open original"
 }

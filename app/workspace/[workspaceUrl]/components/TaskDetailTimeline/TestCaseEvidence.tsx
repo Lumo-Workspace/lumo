@@ -1,12 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
   parseEvidenceEntries,
   isImageEvidence,
   evidenceLabel,
   type EvidenceEntry,
+  type EvidenceFile,
 } from '@/shared/src/test-case-evidence'
+import { EvidenceLightbox } from './EvidenceLightbox'
 
 /**
  * LUM-805: 一条 run 的证据条。
@@ -17,19 +20,29 @@ import {
  * 所以图片直接出缩略图（能不能信这次执行，往往一眼就看出来了），非图片出带
  * 文件名的链接。计数退到列表的 aria-label 上，读屏仍然报得出「2 项证据」。
  *
- * 点开走新标签页而不是站内灯箱：原图是 blob 上的静态文件，浏览器自带缩放、
- * 另存、旋转，比我们自己搭一层弹窗可靠；也不必把 Radix Dialog 的焦点管理
- * 拖进一个纯展示的场景。
+ * LUM-1011: 缩略图点开是站内灯箱，不再直接开新标签页 —— 一条 run 常有好几张
+ * 截图（逐步挂的 + run 级的），新标签页一次只看一张、来回切。灯箱里 ←/→ 在
+ * 这条 run 的**全部**图片间切换，原图链接仍在灯箱里。
  */
 
-function ImageEvidence({ entry }: { entry: EvidenceEntry }) {
+function ImageEvidence({
+  entry,
+  onOpen,
+}: {
+  entry: EvidenceEntry
+  onOpen: () => void
+}) {
+  const intl = useIntl()
   const label = evidenceLabel(entry)
   return (
-    <a
-      href={entry.url}
-      target='_blank'
-      rel='noopener noreferrer'
+    <button
+      type='button'
+      onClick={onOpen}
       title={label}
+      aria-label={intl.formatMessage(
+        { id: 'testCases.lightbox.preview' },
+        { label }
+      )}
       className='block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
     >
       {/* blob 上的证据图 —— 用 img 避免动 next.config 的 remotePatterns
@@ -40,9 +53,9 @@ function ImageEvidence({ entry }: { entry: EvidenceEntry }) {
         alt={label}
         loading='lazy'
         referrerPolicy='no-referrer'
-        className='h-16 w-24 rounded-sm border border-border object-cover'
+        className='h-16 w-24 cursor-zoom-in rounded-sm border border-border object-cover'
       />
-    </a>
+    </button>
   )
 }
 
@@ -78,35 +91,54 @@ export function EvidenceStrip({
   exclude?: number[]
 }) {
   const intl = useIntl()
-  // 先按**原始下标**挑，再逐条收窄：逐步结果里的 evidence 下标指向原始数组，
-  // 先收窄会让脏条目之后的下标整体错位。
+  const [openAt, setOpenAt] = useState<number | null>(null)
+  // 逐条收窄并**保留原始下标**：逐步结果里的 evidence 下标指向原始数组，
+  // 先整体收窄会让脏条目之后的下标整体错位。
   const raw = Array.isArray(evidence) ? evidence : []
-  const picked =
-    only || exclude
-      ? raw.filter(
-          (_, i) => (!only || only.includes(i)) && !(exclude ?? []).includes(i)
-        )
-      : raw
-  const entries = parseEvidenceEntries(picked)
+  const all = raw.flatMap((value, rawIndex) =>
+    parseEvidenceEntries([value]).map(entry => ({ rawIndex, entry }))
+  )
+  // 灯箱翻的是整条 run 的图片，不受 only / exclude 限制。
+  const gallery = all.filter(
+    (e): e is { rawIndex: number; entry: EvidenceFile } =>
+      isImageEvidence(e.entry)
+  )
+  const entries = all.filter(
+    ({ rawIndex }) =>
+      (!only || only.includes(rawIndex)) && !(exclude ?? []).includes(rawIndex)
+  )
   if (entries.length === 0) return null
 
   return (
-    <ul
-      aria-label={intl.formatMessage(
-        { id: 'testCases.evidence' },
-        { count: entries.length }
-      )}
-      className='flex basis-full flex-wrap items-center gap-2'
-    >
-      {entries.map((entry, i) => (
-        <li key={`${i}-${entry.url}`} className='flex items-center'>
-          {isImageEvidence(entry) ? (
-            <ImageEvidence entry={entry} />
-          ) : (
-            <FileEvidence entry={entry} />
-          )}
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul
+        aria-label={intl.formatMessage(
+          { id: 'testCases.evidence' },
+          { count: entries.length }
+        )}
+        className='flex basis-full flex-wrap items-center gap-2'
+      >
+        {entries.map(({ rawIndex, entry }) => (
+          <li key={`${rawIndex}-${entry.url}`} className='flex items-center'>
+            {isImageEvidence(entry) ? (
+              <ImageEvidence
+                entry={entry}
+                onOpen={() =>
+                  setOpenAt(gallery.findIndex(g => g.rawIndex === rawIndex))
+                }
+              />
+            ) : (
+              <FileEvidence entry={entry} />
+            )}
+          </li>
+        ))}
+      </ul>
+      <EvidenceLightbox
+        images={gallery.map(g => g.entry)}
+        index={openAt}
+        onIndexChange={setOpenAt}
+        onClose={() => setOpenAt(null)}
+      />
+    </>
   )
 }

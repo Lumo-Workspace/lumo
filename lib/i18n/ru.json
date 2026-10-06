@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "Все шаги до этого пройдены",
   "record.gate.tests.blocking": "{count, plural, one {# подтверждённый дефект ждёт решения} few {# подтверждённых дефекта ждут решения} many {# подтверждённых дефектов ждут решения} other {# подтверждённого дефекта ждут решения}}",
   "record.gate.tests.clear": "Подтверждённых дефектов нет · пройдено {passing} из {total}",
-  "record.gate.tests.none": "Тест-кейсов нет"
+  "record.gate.tests.none": "Тест-кейсов нет",
+  "testCases.caseLabel": "Тест-кейс {n}",
+  "testCases.lightbox.preview": "Предпросмотр: {label}",
+  "testCases.lightbox.prev": "Назад",
+  "testCases.lightbox.next": "Далее",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "Открыть оригинал"
 }

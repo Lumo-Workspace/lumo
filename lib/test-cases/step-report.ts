@@ -9,6 +9,11 @@
  * 失败点之前、没逐条上报的步骤读作「到达过」——执行流经过了它，但没人说它
  * 过了没有。凭位置推定成通过，等于把「没能确认」画成「通过」（同 LUM-808
  * 的 UNPROVEN 封顶）。
+ *
+ * 读端仍守这条线。逐步结果上线前的旧 run 由迁移
+ * 20261020090000_lum1011_backfill_step_results 一次性回填过（用户裁定：PASS →
+ * 全部通过，FAIL → 失败点之前通过），那些条目带 `backfilled: true`，在这里
+ * 与显式上报同等对待。
  */
 
 export type StepPhase = 'STEPS' | 'VERIFICATION'

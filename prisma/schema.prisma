@@ -4102,7 +4102,10 @@ model TestCaseRun {
   ///   读端把它渲染成「未逐步记录 / 未到达」，**绝不推定为通过**。
   /// - evidence 是本行 evidence 数组的下标（这一步挂的截图 / 日志）。
   /// 选填：为空时读端退回只用 failedPhase/failedIndex 的单点定位。
-  stepResults Json @default("[]")
+  /// 例外：逐步结果上线前的旧 run 已一次性回填（用户裁定，迁移
+  /// 20261020090000_lum1011_backfill_step_results）：PASS → 全部 PASS（未观察到的
+  /// 复验条目除外），FAIL+定位 → 失败点之前 PASS。回填条目带 backfilled: true。
+  stepResults Json    @default("[]")
   /// LUM-1011：FAIL 时实际看到的结果（对照用例的期望）。非 FAIL 必须为 null。
   actual      String?
 

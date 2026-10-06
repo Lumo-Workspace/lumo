@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "这一步之前的步骤全部通过",
   "record.gate.tests.blocking": "{count, plural, other {# 个已证缺陷待裁定}}",
   "record.gate.tests.clear": "无已证缺陷 · {total} 条中 {passing} 条通过",
-  "record.gate.tests.none": "暂无测试用例"
+  "record.gate.tests.none": "暂无测试用例",
+  "testCases.caseLabel": "测试用例 {n}",
+  "testCases.lightbox.preview": "预览 {label}",
+  "testCases.lightbox.prev": "上一张",
+  "testCases.lightbox.next": "下一张",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "打开原图"
 }
