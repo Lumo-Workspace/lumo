@@ -438,15 +438,22 @@ export function BoundaryCrossingsPanel({
           data-testid='boundary-summary-toggle'
           aria-expanded={expanded}
           onClick={() => setExpanded(e => !e)}
-          className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${
-            blockingCount > 0 ? 'bg-danger-subtle' : 'bg-muted/30'
-          }`}
+          className={
+            // LUM-1009: in Records the settled panel is one more row of the
+            // list — same header geometry as `RecordRow`, no status icon — so
+            // chevrons and titles line up down the section.
+            subset === 'dispositioned'
+              ? 'flex w-full flex-wrap items-center gap-x-2.5 gap-y-0.5 px-4 py-3 text-left transition-colors hover:bg-muted/40'
+              : `flex w-full items-center gap-2 px-4 py-2.5 text-left ${
+                  blockingCount > 0 ? 'bg-danger-subtle' : 'bg-muted/30'
+                }`
+          }
         >
           <ChevronRight
             className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
             aria-hidden
           />
-          {blockingCount > 0 ? (
+          {subset === 'dispositioned' ? null : blockingCount > 0 ? (
             <AlertTriangle
               className='size-4 shrink-0 text-danger'
               aria-hidden

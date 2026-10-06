@@ -22,7 +22,7 @@ import type { ScanStages } from '@/lib/security-scan/types'
 import { SCAN_STAGE_KEYS, turnedOffLayers } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
-import { shouldExpandRow } from './security-summary'
+import { blockingFindings, shouldExpandRow } from './security-summary'
 import { formatSecuritySummaryLine } from './security-summary-line'
 import { buildAgentContext } from './security-agent-context'
 
@@ -61,11 +61,7 @@ export function SecurityScanSection({ taskId }: { taskId: string }) {
 export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
   const intl = useIntl()
   const { data } = useSecurityScans(taskId)
-  const blocking = (data?.prs ?? []).flatMap(({ pr, latest }) =>
-    (latest?.findings ?? [])
-      .filter(f => f.blocking)
-      .map(finding => ({ prNumber: pr.number, finding }))
-  )
+  const blocking = blockingFindings(data?.prs ?? [])
   if (blocking.length === 0) return null
   return (
     <div

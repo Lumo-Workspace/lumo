@@ -230,6 +230,11 @@ describe('boundary crossings by state', () => {
     expect(panel).not.toBeNull()
     expect(records()).toContainElement(panel as HTMLElement)
     expect(container.querySelector('#boundary-crossings')).not.toBeNull()
+    // LUM-1009: in Records its header is a plain row — the chevron only, no
+    // status icon — so it lines up with the other Records rows.
+    const toggle = screen.getByTestId('boundary-summary-toggle')
+    expect(toggle.querySelectorAll('svg')).toHaveLength(1)
+    expect(toggle).toHaveClass('px-4', 'py-3', 'gap-x-2.5')
     // Nothing to act on — the gate rows link nowhere.
     expect(screen.getByTestId('gate-crossings').querySelector('a')).toBeNull()
   })
