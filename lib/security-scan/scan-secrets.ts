@@ -19,6 +19,7 @@ import {
   type SecretPattern,
 } from './secret-patterns'
 import {
+  maskQuotedCredentials,
   maskQuotedValues,
   redactLine,
   redactSecret,
@@ -363,6 +364,27 @@ export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
  * dropped, with a `…(truncated)` marker appended.
  */
 export function redactKnownSecrets(input: string): string {
+  return redactThenMaskQuotes(input, maskQuotedValues)
+}
+
+/**
+ * LUM-1013 — `redactKnownSecrets` for prose an LLM authored ABOUT the code:
+ * AI-review finding title / detail / evidence and the verifier's reason.
+ * Identical registry pass and truncation red line; the final quoted-span pass
+ * is `maskQuotedCredentials`, which keeps quoted prose, identifiers and class
+ * names readable (`labelled 'Verification'`) and still masks every quoted
+ * span in text that talks about passwords / tokens / keys, every span beside
+ * a registry hit, and every credential-shaped quoted value. Not for raw tool
+ * or command output — that stays on `redactKnownSecrets`.
+ */
+export function redactFindingText(input: string): string {
+  return redactThenMaskQuotes(input, maskQuotedCredentials)
+}
+
+function redactThenMaskQuotes(
+  input: string,
+  maskQuotes: (text: string) => string
+): string {
   const line = redactPrivateKeyBlocks(input).text
   if (line.length > MAX_SCANNED_LINE_CHARS) {
     const head = line.slice(0, MAX_SCANNED_LINE_CHARS)
@@ -374,11 +396,11 @@ export function redactKnownSecrets(input: string): string {
     // the head. Appending first would make the marker itself part of the
     // masked tail and, worse, an opener landing after the last scanned char
     // would have nothing left to mask.
-    return `${maskQuotedValues(redactedHead)}${TRUNCATION_MARKER}`
+    return `${maskQuotes(redactedHead)}${TRUNCATION_MARKER}`
   }
   const matches = collectMatches(line)
   const redacted = matches.length === 0 ? line : redactAll(line, matches)
-  return maskQuotedValues(redacted)
+  return maskQuotes(redacted)
 }
 
 /**

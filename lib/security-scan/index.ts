@@ -3,6 +3,7 @@ export { addedLinesWithNumbers } from './diff-lines'
 export {
   scanSecrets,
   redactKnownSecrets,
+  redactFindingText,
   redactForInjection,
   redactForStorage,
   redactPrivateKeyBlocks,
@@ -24,6 +25,7 @@ export {
   redactSecret,
   redactLine,
   maskQuotedValues,
+  maskQuotedCredentials,
   secretFingerprint,
   vulnerabilityFingerprint,
   judgeFindingFingerprint,

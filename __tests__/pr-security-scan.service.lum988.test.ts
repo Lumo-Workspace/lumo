@@ -602,3 +602,71 @@ describe('LUM-988 VM release and the verifier start condition', () => {
     expect(start.mock.calls.some(c => c[0].releaseOnly === true)).toBe(true)
   })
 })
+
+describe('LUM-1013 AI review — finding text keeps quoted prose', () => {
+  const PROSE = {
+    ...BUG,
+    title:
+      "The group heading would be labelled 'Verification' only via aria-label",
+    detail:
+      "The row's phase badge is rendered twice, so the list reads 'Passed Passed'.",
+    evidence: "<div className='grid grid-cols-[1fr_auto] items-center gap-2'>",
+  }
+
+  it('stores title / detail / evidence verbatim when they hold no credential', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [PROSE],
+    })
+    await runScan()
+    const row = repo.persistResult.mock.calls[0]![1][0]!
+    expect(row.title).toBe(PROSE.title)
+    expect(row.detail).toBe(PROSE.detail)
+    expect(row.evidence).toBe(PROSE.evidence)
+  })
+
+  it('still redacts a credential the model echoes into any field', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
+    const key = 'sk-live-abcDEF/ghiJKL+123'
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [
+        {
+          ...BUG,
+          title: `Hardcodes 'AKIAABCDEFGHIJKLMNOP'`,
+          detail: `The client sends '${key}' on boot.`,
+          evidence: `const pw = 'correcthorsebattery'`,
+        },
+      ],
+    })
+    await runScan()
+    const row = repo.persistResult.mock.calls[0]![1][0]!
+    expect(row.title).not.toContain('AKIAABCDEFGHIJKLMNOP')
+    expect(row.detail).not.toContain(key)
+    expect(row.evidence).not.toContain('correcthorsebattery')
+  })
+
+  // Values computed with origin/main 8a444f1e9 (before LUM-1013) for the same
+  // finding: the key a human's FALSE_POSITIVE was recorded under.
+  it.each([
+    [
+      "// the row's badge isn't shown; label = 'Verification'",
+      '65271f19f1815a80',
+    ],
+    [
+      "<div className='grid grid-cols-[1fr_auto] items-center gap-2 rounded-md border px-3 py-2 text-sm'>",
+      'fc73109e663e3743',
+    ],
+    [`const msg = "don't" + 'Passed Passed'`, '39e9238615602541'],
+  ])(
+    'keeps the pre-LUM-1013 fingerprint for evidence %s',
+    async (evidence, fp) => {
+      fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
+      ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+        findings: [{ ...BUG, evidence }],
+      })
+      await runScan()
+      const row = repo.persistResult.mock.calls[0]![1][0]!
+      expect(row.fingerprint).toBe(fp)
+    }
+  )
+})
