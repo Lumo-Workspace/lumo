@@ -208,7 +208,7 @@ export function ClusterAlignCard({
         <div
           role='radiogroup'
           aria-label={intl.formatMessage({ id: 'planGate.verdictLabel' })}
-          className='inline-flex rounded-md border border-input p-0.5'
+          className='inline-flex rounded-md border border-border p-0.5'
         >
           {ALIGN_VERDICTS.map(v => (
             <Button

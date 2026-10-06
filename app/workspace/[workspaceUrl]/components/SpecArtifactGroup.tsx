@@ -263,25 +263,25 @@ function ManualAddForm({
         value={kind}
         onChange={e => setKind(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addKind' })}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addTitle' })}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <textarea
         value={content}
         onChange={e => setContent(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addContent' })}
         rows={5}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none font-mono'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none font-mono'
       />
       <select
         value={agent}
         onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
         aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
       >
         {Object.values(TaskArtifactAgent).map(value => (
@@ -353,24 +353,24 @@ function EditForm({
         value={kind}
         onChange={e => setKind(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addKind' })}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addTitle' })}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={source}
         onChange={e => setSource(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.editSource' })}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <select
         value={agent}
         onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
         aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
       >
         {Object.values(TaskArtifactAgent).map(value => (
