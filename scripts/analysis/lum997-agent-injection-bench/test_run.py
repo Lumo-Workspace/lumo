@@ -38,9 +38,10 @@ class RunHelpers(unittest.TestCase):
         self.assertIsNone(run.rate([]))
 
     def test_read_env_key(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as f:
-            f.write('OTHER=1\nAI_GATEWAY_API_KEY="abc"\n')
-        self.assertEqual(run.read_env_key(Path(f.name)), "abc")
+        with tempfile.TemporaryDirectory() as d:
+            env = Path(d) / ".env"
+            env.write_text('OTHER=1\nAI_GATEWAY_API_KEY="abc"\n')
+            self.assertEqual(run.read_env_key(env), "abc")
 
 
 class ReportHelpers(unittest.TestCase):

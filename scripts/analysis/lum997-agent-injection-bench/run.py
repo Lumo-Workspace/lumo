@@ -197,6 +197,8 @@ class GuardBridge:
             self.proc.stdin.write(json.dumps({"mode": mode, "text": text}) + "\n")
             self.proc.stdin.flush()
             line = self.proc.stdout.readline()
+        if not line:
+            raise RuntimeError(f"guard bridge exited (code {self.proc.poll()})")
         out = json.loads(line)
         if "error" in out:
             raise RuntimeError(f"guard bridge: {out['error']}")
