@@ -23,7 +23,9 @@
  *                run with --no-guard on the new Node: 0 crashes over 20 runs
  *                in both modes means the fix is in.
  *
- * Exit code: 0 when no run crashed, 1 otherwise. Nothing is installed; it uses
+ * Exit code: 0 only when no run crashed or failed, every test process had the
+ * flag (guarded runs), and worker-mode runs really used several processes.
+ * Nothing is installed; it uses
  * the existing node_modules and fails clearly if the parser is missing.
  */
 import { spawnSync } from 'child_process'
@@ -60,6 +62,29 @@ export function allProcessesFlagged(execArgvs: string[][]): boolean {
     execArgvs.length > 0 &&
     execArgvs.every((argv) => argv.includes('--no-sparkplug'))
   )
+}
+
+export type Tally = {
+  crash: number
+  pass: number
+  fail: number
+  /** Runs where some test process lacked --no-sparkplug. */
+  unflagged: number
+  /** Worker-mode runs where jest ran everything in one process anyway. */
+  notParallel: number
+}
+
+/**
+ * Pure core: exit 0 only when no run crashed or failed — and, with the guard
+ * loaded, when the flag reached every test process; in worker mode, only when
+ * jest really used several worker processes (otherwise the run proved nothing
+ * about workers).
+ */
+export function exitCodeFor(tally: Tally, guard: boolean): number {
+  if (tally.crash > 0 || tally.fail > 0) return 1
+  if (guard && tally.unflagged > 0) return 1
+  if (tally.notParallel > 0) return 1
+  return 0
 }
 
 export type Options = { runs: number; mode: 'inband' | 'workers'; guard: boolean }
@@ -141,8 +166,7 @@ export function main(argv: string[]): number {
   const env = { ...process.env }
   delete env.NODE_OPTIONS
 
-  const counts: Record<RunOutcome, number> = { crash: 0, pass: 0, fail: 0 }
-  let unflagged = 0
+  const tally: Tally = { crash: 0, pass: 0, fail: 0, unflagged: 0, notParallel: 0 }
   for (let i = 1; i <= opts.runs; i++) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jest-sparkplug-repro-'))
     try {
@@ -160,10 +184,15 @@ export function main(argv: string[]): number {
         signal: r.signal,
         output: `${r.stdout ?? ''}${r.stderr ?? ''}`,
       })
-      counts[outcome]++
+      tally[outcome]++
       const argvs = readExecArgvs(dir)
       const flagged = allProcessesFlagged(argvs)
-      if (!flagged) unflagged++
+      if (!flagged) tally.unflagged++
+      // jest may decide to run in band by itself; a worker-mode run only
+      // counts when several processes actually ran the suites.
+      if (opts.mode === 'workers' && outcome === 'pass' && argvs.length < 2) {
+        tally.notParallel++
+      }
       process.stdout.write(
         `run ${i}/${opts.runs}: ${outcome} (exit ${r.status ?? r.signal}) — ` +
           `${argvs.length} test process record(s), --no-sparkplug in all: ${flagged}\n`
@@ -174,10 +203,14 @@ export function main(argv: string[]): number {
   }
   process.stdout.write(
     `\n${process.version} mode=${opts.mode} guard=${opts.guard}: ` +
-      `${counts.crash} crashed, ${counts.pass} passed, ${counts.fail} failed (other) ` +
-      `of ${opts.runs}; runs where a test process lacked --no-sparkplug: ${unflagged}\n`
+      `${tally.crash} crashed, ${tally.pass} passed, ${tally.fail} failed (other) ` +
+      `of ${opts.runs}; runs where a test process lacked --no-sparkplug: ${tally.unflagged}` +
+      (opts.mode === 'workers'
+        ? `; passing runs that used <2 processes: ${tally.notParallel}`
+        : '') +
+      '\n'
   )
-  return counts.crash === 0 && counts.fail === 0 ? 0 : 1
+  return exitCodeFor(tally, opts.guard)
 }
 
 // Run only when invoked as a script (not when imported by tests).

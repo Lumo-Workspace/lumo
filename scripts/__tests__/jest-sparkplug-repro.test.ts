@@ -6,6 +6,7 @@
 import {
   allProcessesFlagged,
   classifyRun,
+  exitCodeFor,
   parseArgs,
 } from '../jest-sparkplug-repro'
 
@@ -36,6 +37,19 @@ describe('jest-sparkplug-repro', () => {
     ).toBe(true)
     expect(allProcessesFlagged([['--no-sparkplug'], []])).toBe(false)
     expect(allProcessesFlagged([])).toBe(false)
+  })
+
+  it('exits non-zero unless every run was clean and actually exercised the setup', () => {
+    const clean = { crash: 0, pass: 20, fail: 0, unflagged: 0, notParallel: 0 }
+    expect(exitCodeFor(clean, true)).toBe(0)
+    expect(exitCodeFor({ ...clean, crash: 1 }, true)).toBe(1)
+    expect(exitCodeFor({ ...clean, fail: 1 }, false)).toBe(1)
+    // guarded run where the flag did not reach a test process proves nothing
+    expect(exitCodeFor({ ...clean, unflagged: 1 }, true)).toBe(1)
+    // unguarded runs never carry the flag; that alone is not a failure
+    expect(exitCodeFor({ ...clean, unflagged: 20 }, false)).toBe(0)
+    // worker mode that jest ran in one process did not test workers
+    expect(exitCodeFor({ ...clean, notParallel: 1 }, true)).toBe(1)
   })
 
   it('parses options with safe defaults and rejects bad input', () => {
