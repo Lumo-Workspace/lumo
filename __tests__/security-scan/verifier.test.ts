@@ -1,6 +1,9 @@
 /** @jest-environment node */
 import {
+  RANKER_KEEP_THRESHOLD,
+  RANKER_REASON_PREFIX,
   VERIFIER_HOLD_MS,
+  applyRankerPolicy,
   applyVerifierPolicy,
   isVerifierRejected,
   verifierAppliesTo,
@@ -114,5 +117,54 @@ describe('LUM-988 verifier rules', () => {
       'hardcoded_credential'
     )
     expect(verifierKindOf('plain')).toBe('plain')
+  })
+})
+
+describe('LUM-988 ranker policy', () => {
+  const rows = [
+    { id: 'low', kind: 'CORRECTNESS', severity: 'MEDIUM' },
+    { id: 'keep', kind: 'CORRECTNESS', severity: 'LOW' },
+    { id: 'high', kind: 'CORRECTNESS', severity: 'HIGH' },
+    { id: 'sec', kind: 'VULNERABILITY', severity: 'LOW' },
+    { id: 'gone', kind: 'CORRECTNESS', severity: 'LOW' },
+    { id: 'unranked', kind: 'CORRECTNESS', severity: 'LOW' },
+  ]
+
+  it('rejects only an applicable row ranked below the threshold, with a marked reason', () => {
+    const out = applyRankerPolicy(
+      rows,
+      [
+        { id: 'low', p: RANKER_KEEP_THRESHOLD - 1, reason: 'speculative' },
+        { id: 'keep', p: RANKER_KEEP_THRESHOLD, reason: 'real' },
+        { id: 'high', p: 0, reason: 'x' },
+        { id: 'sec', p: 0, reason: 'x' },
+        { id: 'gone', p: 0, reason: 'x' },
+        { id: 'stranger', p: 0, reason: 'x' },
+      ],
+      new Set(['gone'])
+    )
+    expect(out).toEqual([
+      {
+        findingId: 'low',
+        verdict: 'REJECTED',
+        reason: `${RANKER_REASON_PREFIX} speculative`,
+      },
+    ])
+  })
+
+  it('a row the ranking omits, or lists twice, is decided once and never lost by omission', () => {
+    const out = applyRankerPolicy(
+      rows,
+      [
+        { id: 'low', p: 90, reason: 'first' },
+        { id: 'low', p: 0, reason: 'duplicate' },
+      ],
+      new Set()
+    )
+    expect(out).toEqual([])
+  })
+
+  it('the threshold is the one measured on the replay', () => {
+    expect(RANKER_KEEP_THRESHOLD).toBe(18)
   })
 })
