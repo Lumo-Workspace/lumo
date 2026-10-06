@@ -3,7 +3,7 @@
   "detector": {
     "entry": "guardUntrustedContent(sanitizeField(text)) — flagged = signals.length > 0 || wrapperEscapes > 0",
     "sourceSha256": {
-      "shared/src/untrusted-content.ts": "0cad34d33814301e97cbd47c99bcac19187fbb001365d663e46737487ac24ac9",
+      "shared/src/untrusted-content.ts": "93bd468b36e316447f1c4f85698305fc4c87129ff0bf20fb86b2d7888b099150",
       "shared/src/sanitize.ts": "5d26cd2a1df4add9da46f4731d06760ba9f9d4f9289a126727bf31e375873228"
     }
   },

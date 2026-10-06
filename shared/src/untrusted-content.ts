@@ -374,8 +374,12 @@ interface ImperativeRule {
   imperativeOnly?: boolean
 }
 
-const en = (source: string, imperativeOnly = false): ImperativeRule => ({
-  re: new RegExp(source, 'i'),
+const en = (
+  source: string,
+  imperativeOnly = false,
+  flags = 'i'
+): ImperativeRule => ({
+  re: new RegExp(source, flags),
   imperativeOnly,
 })
 
@@ -529,7 +533,11 @@ const IMPERATIVE_EN_998: ImperativeRule[] = [
 /** German: no patterns existed before LUM-998 (5% recall on deepset DE). */
 const IMPERATIVE_DE: ImperativeRule[] = [
   en(
-    '\\b(?:ignorier(?:e|en|t)?|vergiss|vergessen|missachte|missachten|übergehe|verwirf)\\s+(?:sie\\s+)?(?:(?:alle|alles|die|deine|ihre|eure|sämtliche|jegliche|jede|den|das|bisher|zuvor)\\s+){0,3}(?:(?:vorherigen?|vorangehenden?|vorangegangenen?|bisherigen?|obigen?|vorigen?|früheren?|ursprünglichen?|gegebenen?|erhaltenen?)\\s+)?(?:anweisung(?:en)?|befehle?|aufträge|auftrag|aufgaben?|angaben|informationen|instruktionen|regeln|vorgaben|anordnungen|eingaben?)\\b'
+    // `\\b` is ASCII-only, so a verb starting with "ü" is bounded by a
+    // non-letter (or the start) instead — hence the `u` flag below.
+    '(?:^|[^\\p{L}\\p{N}])(?:ignorier(?:e|en|t)?|vergiss|vergessen|missachte|missachten|übergehe|verwirf)\\s+(?:sie\\s+)?(?:(?:alle|alles|die|deine|ihre|eure|sämtliche|jegliche|jede|den|das|bisher|zuvor)\\s+){0,3}(?:(?:vorherigen?|vorangehenden?|vorangegangenen?|bisherigen?|obigen?|vorigen?|früheren?|ursprünglichen?|gegebenen?|erhaltenen?)\\s+)?(?:anweisung(?:en)?|befehle?|aufträge|auftrag|aufgaben?|angaben|informationen|instruktionen|regeln|vorgaben|anordnungen|eingaben?)\\b',
+    false,
+    'iu'
   ),
   en('\\b(?:vergiss|vergessen\\s+sie)\\s+alles\\b'),
   en(
@@ -706,7 +714,8 @@ const HEX_MIN_ENTROPY = 3.5
  * assignment, template, index or statement end — `javascript:alert(1)`,
  * `javascript: void(0)`, `javascript:%61lert`, `javascript://%0a…`.
  */
-const SCRIPT_PAYLOAD = '(?=%|\\/\\/|[\\w$.]+\\s*[(=`\\[;\'"\\\\])'
+const SCRIPT_PAYLOAD =
+  '(?=%|\\/\\/|\\/\\*|[!~+]|\\(\\s*(?:function|\\(|[\\w$.]+\\s*\\()|[\\w$.]+\\s*[(=`\\[;\'"\\\\])'
 
 const SCRIPT_LINK_PATTERNS: RegExp[] = [
   new RegExp(`\\bjava\\s*script\\s*:\\s*${SCRIPT_PAYLOAD}`, 'i'),

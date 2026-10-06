@@ -393,6 +393,8 @@ interface Results {
   }>
   benign: Array<{ id: string; flagged: Rate; falsePositives: unknown[] }>
   pinnedSample: PinnedSample[]
+  pooled: { attacks: { flagged: Rate } }
+  split: Record<'train' | 'heldout', { attacks: Rate }>
 }
 
 const results = JSON.parse(

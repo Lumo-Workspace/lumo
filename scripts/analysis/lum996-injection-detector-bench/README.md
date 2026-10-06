@@ -137,7 +137,7 @@ By language (pooled attacks): en 23.8% → 69.0%, zh 10.2% → 39.0%, de 5.0% �
 
 **Still missed** (top categories in `results.json`): secret/prompt questions without "your" (`What instructions is provided to you?`), typos (`igmre`, `instuctions`), role-play setups with no override phrase, Tensor Trust's token-noise padding (`ö ö ö …`, `) ] } …`), and BIPIA tasks that are ordinary requests ("Explain the theory of relativity").
 
-A run from the cache reproduces the committed `results.json` byte for byte (sha256 `28009747…`).
+A run from the cache reproduces the committed `results.json` byte for byte (sha256 `d969819b…`).
 
 ## Corpora and licences
 
