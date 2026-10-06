@@ -318,15 +318,17 @@ export function buildInlineComment(
   policy: SecurityPolicy = DEFAULT_SECURITY_POLICY
 ): string {
   const kindLabel = findingKindLabel(f.kind)
-  // Model / scanner text: no HTML comments, so it can never carry one of
-  // Lumo's state markers (a fake fingerprint or retraction marker).
+  // Model / scanner text (title, detail, rule-docs link): no HTML comments,
+  // so it can never carry one of Lumo's state markers (a fake fingerprint or
+  // retraction marker).
   const blocks: string[] = [
     `**Lumo · ${provenanceLabel(f)}${kindLabel ? ` · ${kindLabel}` : ''} · ${f.severity}** — ${stripHtmlComments(f.title).trim()}`,
   ]
   const detail = stripHtmlComments(f.detail).trim()
   if (detail.length > 0) blocks.push(detail)
   const footer: string[] = []
-  if (f.externalRef) footer.push(`[Rule docs](${f.externalRef})`)
+  const ref = f.externalRef ? stripHtmlComments(f.externalRef).trim() : ''
+  if (ref.length > 0) footer.push(`[Rule docs](${ref})`)
   if (isBlockingFinding(f, policy)) footer.push('blocks DONE')
   if (footer.length > 0) blocks.push(footer.join(' · '))
   blocks.push(fingerprintMarker(f.fingerprint))
