@@ -1,0 +1,22 @@
+# GENERATED from vercel.json by `npx tsx scripts/self-host-cron.ts` — do not edit by hand.
+# __tests__/self-host-cron.test.ts fails when this file drifts from vercel.json.
+#
+# Each job calls cron-run.sh, which sends `Authorization: Bearer $CRON_SECRET`
+# to $APP_URL<path>. Disable jobs with LUMO_CRON_DISABLED=<name>,<name>
+# (the name is the second-to-last field). See docs/self-hosting/cron.md.
+
+0 * * * * /opt/lumo/cron-run.sh backfill-lineage-outcomes /api/cron/backfill-lineage-outcomes
+0 8 * * * /opt/lumo/cron-run.sh summaries-generate /api/summaries/generate
+0 0 * * * /opt/lumo/cron-run.sh roll-sprints /api/cron/roll-sprints
+0 3 * * * /opt/lumo/cron-run.sh prune-document-revisions /api/cron/prune-document-revisions
+45 3 * * * /opt/lumo/cron-run.sh prune-hook-event-payloads /api/cron/prune-hook-event-payloads
+30 3 * * * /opt/lumo/cron-run.sh prune-security-sarif /api/cron/prune-security-sarif
+*/15 * * * * /opt/lumo/cron-run.sh sweep-security-scans /api/cron/sweep-security-scans
+*/5 * * * * /opt/lumo/cron-run.sh triage-crossings /api/cron/triage-crossings
+30 * * * * /opt/lumo/cron-run.sh rejudge-crossings /api/cron/rejudge-crossings
+15 4 * * * /opt/lumo/cron-run.sh recheck-github-access /api/cron/recheck-github-access
+45 4 * * * /opt/lumo/cron-run.sh sweep-unconfirmed-scan-code /api/cron/sweep-unconfirmed-scan-code
+5 * * * * /opt/lumo/cron-run.sh sweep-expired-scan-evidence /api/cron/sweep-expired-scan-evidence
+20 * * * * /opt/lumo/cron-run.sh execute-workspace-deletions /api/cron/execute-workspace-deletions
+10 4 * * * /opt/lumo/cron-run.sh purge-trash /api/cron/purge-trash
+25 4 * * * /opt/lumo/cron-run.sh prune-audit-events /api/cron/prune-audit-events

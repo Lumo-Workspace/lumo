@@ -200,7 +200,9 @@ describe('LUM-740 panel', () => {
         },
       })
     )
-    expect(screen.getByTestId('stage-secrets')).not.toHaveAttribute('tabindex')
+    // A checked layer is a labelled image, not a control.
+    expect(screen.getByTestId('stage-secrets').tagName).toBe('SPAN')
+    expect(screen.getByTestId('stage-secrets')).toHaveAttribute('role', 'img')
     // A checked layer keeps its plain state hover.
     expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
       'title',
@@ -208,7 +210,12 @@ describe('LUM-740 panel', () => {
     )
     expect(screen.getByTestId('stage-hunt')).not.toHaveAttribute('title')
     const hunt = screen.getByTestId('stage-hunt')
-    expect(hunt).toHaveAttribute('tabindex', '0')
+    // A layer with a reason is a real button: focusable without tabIndex,
+    // and no role=img describing itself twice.
+    expect(hunt.tagName).toBe('BUTTON')
+    expect(hunt).toHaveAttribute('type', 'button')
+    expect(hunt).not.toHaveAttribute('role')
+    expect(hunt).not.toHaveAttribute('tabindex')
     // Never hover-only: the reason is the cell's accessible description.
     const describedBy = hunt.getAttribute('aria-describedby')
     expect(describedBy).toBeTruthy()
