@@ -13,7 +13,6 @@ import {
   type CaseVerdict,
 } from '@/lib/test-cases/case-summary'
 import { deriveStepReport } from '@/lib/test-cases/step-report'
-import { RunHistoryList } from './RunHistoryList'
 import { TestCaseRunReport } from './TestCaseRunReport'
 
 interface TestCaseCardProps {
@@ -98,7 +97,7 @@ function VerdictIcon({ verdict }: { verdict: CaseVerdict }) {
  *
  * 折叠时是一行：结论图标 · 句柄 · 标题 · 最新一次的环境 / 日期 / 进度。
  * 展开后先是用例描述（前置条件 · 预期结果），再是最新一次 run 的逐步报告，
- * 更早的运行再折一层。
+ * 更早的运行再折一层——折里每条也是同一份逐步报告，格式不分新旧。
  *
  * 纯渲染 + 回调：自己**不发任何请求**（SRP —— 取数在 useTestCases，编排在
  * TestCasesSection）。裁定按钮不在这里——未裁定的已证缺陷在「需要处理」里裁。
@@ -270,12 +269,21 @@ export function TestCaseCard({
                 )}
               </button>
               {showHistory ? (
-                <div className='mt-2'>
-                  <RunHistoryList
-                    runs={earlier}
-                    pullRequests={pullRequests}
-                    requiredEnvironment={testCase.requiredEnvironment}
-                  />
+                // 更早的 run 与最新一条同一种画法（同一个报告组件），只是多折一层——
+                // 两种格式并排时读者得重新学一遍哪段在哪（用户 2026-10-06）。
+                <div className='mt-2 flex flex-col gap-2'>
+                  {earlier.map(r => (
+                    <TestCaseRunReport
+                      key={r.id}
+                      run={r}
+                      steps={testCase.steps}
+                      verification={testCase.verification}
+                      expected={testCase.expected}
+                      requiredEnvironment={testCase.requiredEnvironment}
+                      pullRequests={pullRequests}
+                      highlighted={r.id === linkedRunId}
+                    />
+                  ))}
                 </div>
               ) : null}
             </div>
