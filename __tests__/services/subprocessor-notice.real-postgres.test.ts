@@ -229,6 +229,7 @@ describe('subprocessor change notice send (LUM-919)', () => {
       failed: [
         { workspaceId: 'ws_c', clerkId: 'clerk_noemail', reason: 'no email' },
       ],
+      unrecorded: [],
       workspacesNotified: 2,
     })
     expect(sent.map(m => m.to).sort()).toEqual([
@@ -287,6 +288,31 @@ describe('subprocessor change notice send (LUM-919)', () => {
     const second = await sendSubprocessorNotice(ADDED.id, deps)
     expect(second.sent).toBe(1)
     expect(sendEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it('a send whose record fails counts as sent and is reported, not as a send failure', async () => {
+    const spy = jest
+      .spyOn(subprocessorNoticeRepository, 'recordDelivery')
+      .mockRejectedValueOnce(new Error('connection reset'))
+    try {
+      const result = await sendSubprocessorNotice(ADDED.id, deps)
+      expect(result.sent).toBe(3)
+      expect(result.failed).toEqual([
+        { workspaceId: 'ws_c', clerkId: 'clerk_noemail', reason: 'no email' },
+      ])
+      expect(result.unrecorded).toEqual([
+        {
+          workspaceId: 'ws_a',
+          clerkId: 'clerk_a1',
+          reason: 'connection reset',
+        },
+      ])
+      expect(
+        await subprocessorNoticeRepository.listDelivered(ADDED.id)
+      ).toEqual(new Set(['ws_a:clerk_a2', 'ws_b:clerk_b1']))
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('refuses a change under 30 days that is not urgent, and a removal', async () => {

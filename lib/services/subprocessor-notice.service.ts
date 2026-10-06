@@ -89,8 +89,17 @@ export interface NoticeSendResult {
   sent: number
   alreadyNotified: number
   failed: NoticeFailure[]
+  /**
+   * Sent, but the delivery record failed to write: a rerun would email these
+   * owners again (Resend's idempotency key only dedupes for 24 hours).
+   */
+  unrecorded: NoticeFailure[]
   /** Workspaces that got at least one email in this run. */
   workspacesNotified: number
+}
+
+function reasonOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function httpError(message: string, status: number): Error {
@@ -209,6 +218,7 @@ export async function sendSubprocessorNotice(
     sent: 0,
     alreadyNotified: 0,
     failed: [],
+    unrecorded: [],
     workspacesNotified: 0,
   }
   for (const w of workspaces) {
@@ -226,27 +236,39 @@ export async function sendSubprocessorNotice(
         failedHere++
         continue
       }
+      let messageId: string | null
       try {
-        const { messageId } = await deps.sendEmail({
+        const sentMessage = await deps.sendEmail({
           to,
           ...email,
           idempotencyKey: `subprocessor-change/${change.id}/${w.id}/${clerkId}`,
         })
+        messageId = sentMessage.messageId
+      } catch (error) {
+        result.failed.push({
+          workspaceId: w.id,
+          clerkId,
+          reason: reasonOf(error),
+        })
+        failedHere++
+        continue
+      }
+      // Sent: count it whatever happens to the record below.
+      result.sent++
+      sentHere++
+      try {
         await subprocessorNoticeRepository.recordDelivery({
           changeId: change.id,
           workspaceId: w.id,
           clerkId,
           messageId,
         })
-        result.sent++
-        sentHere++
       } catch (error) {
-        result.failed.push({
+        result.unrecorded.push({
           workspaceId: w.id,
           clerkId,
-          reason: (error as Error)?.message ?? String(error),
+          reason: reasonOf(error),
         })
-        failedHere++
       }
     }
     if (sentHere > 0) {

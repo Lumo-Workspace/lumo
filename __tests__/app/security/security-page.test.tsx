@@ -622,29 +622,34 @@ describe('/security page (LUM-856)', () => {
     for (const locale of PUBLIC_LOCALES) {
       const m = MESSAGES[locale]!
       const html = render(locale, view)
-      const section = (id: string) => {
-        const start = html.indexOf(`data-testid="${id}"`)
-        return start < 0 ? '' : text(html.slice(start))
+      // Each block runs from its own marker to the next one, so a string
+      // found in one block cannot satisfy an assertion about another.
+      const between = (from: string, to: string) => {
+        const start = html.indexOf(from)
+        const end = html.indexOf(to, start + 1)
+        return start < 0 || end < 0 ? '' : text(html.slice(start, end))
       }
-      const pending = section('subprocessor-changes-pending')
-      const recent = section('subprocessor-changes-recent')
-      const tables = text(
-        html.slice(
-          html.indexOf('data-testid="subprocessor-tables"'),
-          html.indexOf('data-testid="subprocessor-changes"')
-        )
+      const intro = between(
+        'data-testid="subprocessor-changes"',
+        'data-testid="subprocessor-changes-pending"'
+      )
+      const pending = between(
+        'data-testid="subprocessor-changes-pending"',
+        'data-testid="subprocessor-changes-recent"'
+      )
+      const recent = between(
+        'data-testid="subprocessor-changes-recent"',
+        'id="report"'
+      )
+      const tables = between(
+        'data-testid="subprocessor-tables"',
+        'data-testid="subprocessor-changes"'
       )
       const P = 'security.subprocessors.changes.'
       const need: [string, boolean][] = [
         ['heading', text(html).includes(m[`${P}heading`]!)],
-        [
-          'intro email',
-          section('subprocessor-changes').includes(PRIVACY_CONTACT_EMAIL),
-        ],
-        [
-          'intro days',
-          section('subprocessor-changes').includes(String(NOTICE_PERIOD_DAYS)),
-        ],
+        ['intro email', intro.includes(PRIVACY_CONTACT_EMAIL)],
+        ['intro days', intro.includes(String(NOTICE_PERIOD_DAYS))],
         ['pending name', pending.includes('Example Host, Inc.')],
         ['pending kind', pending.includes(m[`${P}kind.added`]!)],
         [
@@ -655,6 +660,8 @@ describe('/security page (LUM-856)', () => {
         ],
         ['recent kind', recent.includes(m[`${P}kind.changed`]!)],
         ['recent name', recent.includes(neon.entity)],
+        ['pending holds only pending', !pending.includes(neon.entity)],
+        ['recent holds only recent', !recent.includes('Example Host, Inc.')],
         // Announced but not in effect: never shown as a subprocessor in use.
         ['not in use yet', !tables.includes('Example Host, Inc.')],
       ]

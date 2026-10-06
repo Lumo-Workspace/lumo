@@ -114,7 +114,7 @@ async function main() {
   const result = await sendSubprocessorNotice(args.changeId, deps)
   for (const line of formatSendResult(result)) out(line)
   await prisma.$disconnect()
-  if (result.failed.length > 0) process.exit(1)
+  if (result.failed.length > 0 || result.unrecorded.length > 0) process.exit(1)
 }
 
 main().catch(async error => {

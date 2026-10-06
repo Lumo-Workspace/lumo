@@ -117,12 +117,15 @@ describe('subprocessor notice script report (LUM-919)', () => {
         sent: 2,
         alreadyNotified: 3,
         failed: [{ workspaceId: 'ws_a', clerkId: 'c1', reason: 'no email' }],
+        unrecorded: [{ workspaceId: 'ws_b', clerkId: 'c2', reason: 'reset' }],
         workspacesNotified: 1,
       })
     ).toEqual([
       'Change 2026-11-01-x: sent 2 · already notified 3 · failed 1 · workspaces notified 1',
       '  FAILED ws_a c1: no email',
       'Failures are not recorded: rerun to retry them.',
+      '  SENT BUT NOT RECORDED ws_b c2: reset',
+      'These owners got the email but have no delivery record: a rerun within 24 hours is deduplicated by Resend, a later one would email them again.',
     ])
   })
 })

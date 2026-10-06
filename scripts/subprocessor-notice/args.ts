@@ -104,5 +104,13 @@ export function formatSendResult(result: NoticeSendResult): string[] {
     lines.push(`  FAILED ${f.workspaceId} ${f.clerkId}: ${f.reason}`)
   if (result.failed.length > 0)
     lines.push('Failures are not recorded: rerun to retry them.')
+  for (const u of result.unrecorded)
+    lines.push(
+      `  SENT BUT NOT RECORDED ${u.workspaceId} ${u.clerkId}: ${u.reason}`
+    )
+  if (result.unrecorded.length > 0)
+    lines.push(
+      'These owners got the email but have no delivery record: a rerun within 24 hours is deduplicated by Resend, a later one would email them again.'
+    )
   return lines
 }
