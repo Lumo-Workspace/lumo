@@ -13,7 +13,8 @@ import type {
 
 export interface SecurityScanSummary {
   prs: number
-  /** Undispositioned findings across every PR's latest scan. */
+  /** Findings someone must still decide on, across every PR's latest scan
+   *  (not ruled on, not on main, in the queue, not verifier-rejected). */
   findings: number
   /** True only when there is at least one undispositioned finding and every
    *  one of them is LOW severity — never true on zero findings (LUM-566: a
@@ -70,14 +71,26 @@ function isOpenFinding(f: SecurityScanView['findings'][number]): boolean {
   return f.disposition == null && !f.persisting && f.queueExit == null
 }
 
+/**
+ * LUM-1012 — a finding nobody has to decide on now: ruled on, already on the
+ * default branch, out of the queue (its PR merged / closed), or rejected by
+ * the agentic verifier (LUM-988). Drawn folded to one line, listed last, and
+ * never counted as "N findings" in a PR's result cell.
+ */
+export function isQuietFinding(f: SecurityFindingView): boolean {
+  return !isOpenFinding(f) || f.verifierVerdict === 'REJECTED'
+}
+
 export function summarizeSecurityScans(
   prs: Array<{ latest: SecurityScanView | null }>
 ): SecurityScanSummary {
   // LUM-738: a persisting row (already on the default branch) needs no
   // decision from this PR's reviewer — it is neither counted nor expanded for.
   // LUM-775: nor does a row that left the queue when its PR merged / closed.
+  // LUM-1012: nor does one the agentic verifier rejected (LUM-988: "not
+  // open") — it is listed, folded, never counted.
   const undispositioned = prs.flatMap(({ latest }) =>
-    latest ? latest.findings.filter(isOpenFinding) : []
+    latest ? latest.findings.filter(f => !isQuietFinding(f)) : []
   )
   return {
     prs: prs.length,
@@ -113,7 +126,7 @@ export function summarizeSecurityScans(
  */
 export function shouldExpandRow(latest: SecurityScanView | null): boolean {
   if (!latest) return false
-  if (latest.findings.some(isOpenFinding)) return true
+  if (latest.findings.some(f => !isQuietFinding(f))) return true
   // LUM-892: a layer the customer turned off is no reason to open the row —
   // the summary line and the badge already say it.
   if (!latest.complete && latest.coverage !== 'TURNED_OFF') return true

@@ -8,6 +8,7 @@ import {
   summarizeSecurityScans,
   shouldExpandRow,
   isOverSizeLimitOnly,
+  isQuietFinding,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
 import type {
   SecurityScanView,
@@ -365,5 +366,22 @@ describe('blockingFindings', () => {
         prScan(8, [{ id: 'b', blocking: false }]),
       ])
     ).toEqual([])
+  })
+})
+
+// LUM-1012: what the panel folds to one line and never counts as "N findings".
+describe('isQuietFinding', () => {
+  it('an undispositioned, in-queue, unverified finding is not quiet', () => {
+    expect(isQuietFinding(finding() as never)).toBe(false)
+  })
+  it('ruled on, on main, out of the queue, or rejected by the verifier is quiet', () => {
+    for (const over of [
+      { disposition: 'FALSE_POSITIVE' },
+      { persisting: true },
+      { queueExit: 'MERGED' },
+      { verifierVerdict: 'REJECTED' },
+    ]) {
+      expect(isQuietFinding(finding(over as never) as never)).toBe(true)
+    }
   })
 })

@@ -374,24 +374,22 @@ describe('run overview', () => {
 
 // LUM-1011: test cases moved from their own tab into the Record tab.
 describe('test cases', () => {
-  it('sit between the Run overview and Records, in that fixed order', () => {
+  // LUM-1012: Test cases is the first row of Records, not a section of its own.
+  it('is the first row inside Records, with no section of its own', () => {
     setStatus(statusView())
-    renderTab({ testCasesSlot: <div data-testid='tests-body' /> })
-    const order = Array.from(
-      document.querySelectorAll('[data-testid^="record-"]')
-    )
-      .map(el => el.getAttribute('data-testid'))
-      .filter(id =>
-        ['record-overview', 'record-tests', 'record-records'].includes(id!)
-      )
-    expect(order).toEqual(['record-overview', 'record-tests', 'record-records'])
-    expect(screen.getByTestId('record-tests')).toContainElement(
-      screen.getByTestId('tests-body')
-    )
-    expect(screen.getByTestId('record-tests')).toHaveAttribute(
-      'id',
-      'dossier-tests'
-    )
+    renderTab({
+      testCasesSlot: <div data-testid='tests-row' />,
+      securityRecordSlot: <div data-testid='security-row' />,
+    })
+    expect(screen.queryByTestId('record-tests')).toBeNull()
+    const records = screen.getByTestId('record-records')
+    expect(records).toContainElement(screen.getByTestId('tests-row'))
+    expect(
+      screen
+        .getByTestId('tests-row')
+        .compareDocumentPosition(screen.getByTestId('security-row')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   })
 
   it('the gate has a test-case row that never reads "passing" without cases', () => {

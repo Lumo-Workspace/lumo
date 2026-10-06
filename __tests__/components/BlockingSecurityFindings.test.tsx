@@ -2,8 +2,7 @@
 /**
  * LUM-1009 — the Record tab's Needs action entries for security: only the
  * findings that block DONE, across every PR, each with its disposition
- * controls. Plus the shared rollup line (`formatSecuritySummaryLine`) the
- * Records row and the scan panel both print.
+ * controls. (The Records row's verdict is tested in security-verdict.test.)
  */
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
@@ -47,9 +46,6 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
 }))
 
 import { BlockingSecurityFindings } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
-import { formatSecuritySummaryLine } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary-line'
-import type { IntlShape } from 'react-intl'
-import type { TaskSecurityScans } from '@/lib/services/pr-security-scan.service'
 
 const finding = (over: object) => ({
   id: 'f1',
@@ -151,36 +147,5 @@ describe('BlockingSecurityFindings', () => {
     })
     rerender(<BlockingSecurityFindings taskId='t1' />)
     expect(container).toBeEmptyDOMElement()
-  })
-})
-
-describe('formatSecuritySummaryLine', () => {
-  const intl = { formatMessage: mockFormat } as unknown as IntlShape
-
-  it('rolls up PRs and undispositioned findings', () => {
-    const data = {
-      prs: [prScan(7, [finding({})]), prScan(9, [])],
-      blocking: { count: 1 },
-      suggested: { count: 0 },
-      scanningOff: false,
-    } as unknown as TaskSecurityScans
-    expect(formatSecuritySummaryLine(intl, data)).toBe('2 PRs · 1 finding')
-  })
-
-  it('never says "no findings" outright while a scan is incomplete', () => {
-    const data = {
-      prs: [
-        {
-          ...prScan(7, []),
-          latest: { ...prScan(7, []).latest, complete: false },
-        },
-      ],
-      blocking: { count: 0 },
-      suggested: { count: 0 },
-      scanningOff: false,
-    } as unknown as TaskSecurityScans
-    const line = formatSecuritySummaryLine(intl, data)
-    expect(line).toContain('no findings on completed scans')
-    expect(line).toContain('not fully checked yet')
   })
 })

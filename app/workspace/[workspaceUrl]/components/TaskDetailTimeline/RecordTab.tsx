@@ -6,7 +6,7 @@ import { useTaskStatus } from '../../hooks/useTaskStatus'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
-import { BOUNDARY_CROSSINGS_ANCHOR, TEST_CASES_ANCHOR } from './taskTabs'
+import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import { deriveRecordGaps } from './record-gaps'
 import { deriveDoneGate } from './done-gate'
 import { RecordDoneGate } from './RecordDoneGate'
@@ -41,7 +41,7 @@ interface RecordTabProps {
   /** LUM-1011: the proven test defects, ruled on in Needs action
    *  (`BlockingTestDefects`). Rendered only while `testsBlocking > 0`. */
   blockingTestsSlot?: ReactNode
-  /** LUM-1011: the Test cases section body (`TestCasesSection`). */
+  /** LUM-1011/1012: the Test cases Records row — the first row of Records. */
   testCasesSlot?: ReactNode
   /** LUM-1009: the full security scan report — always in Records. */
   securityRecordSlot?: ReactNode
@@ -79,12 +79,11 @@ function SectionHeading({
 }
 
 /**
- * The Record tab body (LUM-1009/1011): five fixed sections, top to bottom —
- * ① the Done gate (can this task reach Done?), ② Needs action (only when
- * something does: open crossings, blocking security findings, proven test
- * defects), ③ the Run overview tiles, ④ Test cases, ⑤ Records (settled
- * facts, one fold level). Sections never swap places as the task's state
- * changes.
+ * The Record tab body (LUM-1009/1011/1012): four fixed sections, top to
+ * bottom — ① the Done gate (can this task reach Done?), ② Needs action (only
+ * when something does: open crossings, blocking security findings, proven test
+ * defects), ③ the Run overview tiles, ④ Records (one fold level; Test cases is
+ * its first row). Sections never swap places as the task's state changes.
  */
 export function RecordTab({
   taskIdentifier,
@@ -209,7 +208,7 @@ export function RecordTab({
           {showSecurityQueue ? blockingSecuritySlot : null}
 
           {/* LUM-1011: a proven test defect blocks DONE until a human rules
-              on it (LUM-812); the run itself stays in Test cases below. */}
+              on it (LUM-812); the run itself stays in Records below. */}
           {showTestsQueue ? blockingTestsSlot : null}
         </section>
       ) : null}
@@ -231,23 +230,7 @@ export function RecordTab({
         />
       </section>
 
-      {/* ④ Test cases — the task's repeatable scripts and how far each run
-          got (LUM-1011; formerly the Tests tab). */}
-      <section
-        id={TEST_CASES_ANCHOR}
-        data-testid='record-tests'
-        aria-labelledby='record-tests-title'
-        className='space-y-3'
-      >
-        <SectionHeading
-          id='record-tests-title'
-          title={intl.formatMessage({ id: 'testCases.section.title' })}
-          note={intl.formatMessage({ id: 'testCases.section.note' })}
-        />
-        {testCasesSlot}
-      </section>
-
-      {/* ⑤ Records — settled facts: kept, legible, one click away. */}
+      {/* ④ Records — one row per record, one click from its detail. */}
       <section
         data-testid='record-records'
         aria-labelledby='record-records-title'
@@ -256,9 +239,10 @@ export function RecordTab({
         <SectionHeading
           id='record-records-title'
           title={intl.formatMessage({ id: 'record.records.title' })}
-          note={intl.formatMessage({ id: 'record.records.note' })}
         />
         <div className='space-y-2'>
+          {testCasesSlot}
+
           {securityRecordSlot}
 
           {/* Crossings already ruled on — who decided what. Renders null when

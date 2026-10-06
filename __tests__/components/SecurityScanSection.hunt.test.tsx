@@ -1,6 +1,6 @@
 // LUM-739: the delivery panel's stage summary names the hunt layer when it
 // is not RAN / SKIPPED, with its translated label.
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/workspace/acme/tasks/LUM-1',
@@ -92,7 +92,8 @@ describe('LUM-739 hunt stage', () => {
       { secrets: 'RAN', external: 'RAN', judge: 'RAN', hunt: 'PENDING' },
       false
     )
-    expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+    expect(screen.getByTestId('stage-hunt')).toHaveAttribute(
+      'aria-label',
       'Exploit paths: scanning'
     )
   })
@@ -102,21 +103,24 @@ describe('LUM-739 hunt stage', () => {
       { secrets: 'RAN', external: 'RAN', supplyChain: 'FAILED', judge: 'RAN' },
       false
     )
-    expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+    expect(screen.getByTestId('stage-supplyChain')).toHaveAttribute(
+      'aria-label',
       'Dependencies: failed'
     )
   })
 
-  test('a RAN or SKIPPED hunt is listed on the stage row without the warning tone', () => {
-    // LUM-740: the row names every layer; only an incomplete one makes it warn.
+  test('a RAN or SKIPPED hunt gets its cell without the warning tone', () => {
+    // LUM-740/1012: every layer has a cell; only an incomplete one warns. The
+    // cells sit on the PR row itself, visible while the row is collapsed.
     renderWith(
       { secrets: 'RAN', external: 'RAN', judge: 'RAN', hunt: 'SKIPPED' },
       true
     )
-    // A complete, clean scan starts collapsed; the stage row lives inside.
-    fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
-    const row = screen.getByTestId('scan-stages')
-    expect(row).toHaveTextContent('Exploit paths: skipped')
-    expect(row).toHaveAttribute('data-incomplete', 'false')
+    const hunt = screen.getByTestId('stage-hunt')
+    expect(hunt).toHaveAttribute('aria-label', 'Exploit paths: skipped')
+    expect(hunt.querySelector('.text-warning-text')).toBeNull()
+    expect(
+      screen.getByTestId('stage-secrets').querySelector('.text-warning-text')
+    ).toBeNull()
   })
 })

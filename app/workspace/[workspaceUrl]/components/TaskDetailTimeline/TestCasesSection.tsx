@@ -11,11 +11,14 @@ import type {
   CreateTestCaseBody,
   RecordRunBody,
 } from '@/lib/validation/test-case'
+import type { WorkspaceMemberInfo } from '../../types'
 
 interface TestCasesSectionProps {
   taskId: string
   taskIdentifier: string
   enabled: boolean
+  /** 运行记录里执行人的头像 / 名片。 */
+  members?: WorkspaceMemberInfo[]
 }
 
 type Mode =
@@ -25,8 +28,8 @@ type Mode =
   | { kind: 'run'; caseId: string }
 
 /**
- * LUM-801 → LUM-1011: 任务的 test case 列表与写操作的编排点，现在是 Record 页
- * 的「测试用例」区段（原先是独立的 Tests 标签）。
+ * LUM-801 → LUM-1011 → LUM-1012: 任务的 test case 列表与写操作的编排点，现在是
+ * Record 页 Records 里的「Test cases」一行（原先是独立的 Tests 标签）。
  *
  * 子组件都是纯渲染 + 回调；请求全部经 useTestCases（它调 api-client）。
  * 这一层唯一的「业务」判断是 web 端的 commitSha 快照：人选了 PR 之后，把该 PR
@@ -36,6 +39,7 @@ export function TestCasesSection({
   taskId,
   taskIdentifier,
   enabled,
+  members = [],
 }: TestCasesSectionProps) {
   const intl = useIntl()
   const {
@@ -180,6 +184,7 @@ export function TestCasesSection({
               expanded={expanded.has(c.id)}
               onToggle={() => toggle(c.id)}
               linkedRunId={linkedRunId}
+              members={members}
               onRecordRun={() => setMode({ kind: 'run', caseId: c.id })}
               onEdit={() => setMode({ kind: 'edit', caseId: c.id })}
               onRemove={() => void handleRemove(c.number)}

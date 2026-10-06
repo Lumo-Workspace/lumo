@@ -4,7 +4,7 @@ import { anyRunOverstated } from '@/lib/agent-run/usage-dedupe-cutoff'
 import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { TaskDetail, WorkspaceMemberInfo } from '../../types'
-import type { DossierSection } from './taskTabs'
+import { TEST_CASES_ANCHOR, type DossierSection } from './taskTabs'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
 import { summarizeRunAttributions } from '@/lib/attribution/run-attribution'
@@ -15,7 +15,7 @@ import {
   SecurityScanSection,
 } from './SecurityScanSection'
 import { RecordRow } from './RecordRow'
-import { formatSecuritySummaryLine } from './security-summary-line'
+import { formatSecurityVerdict } from './security-summary-line'
 import { LineageTab } from './LineageTab'
 import { TestCasesSection } from './TestCasesSection'
 import { BlockingTestDefects } from './BlockingTestDefects'
@@ -23,8 +23,15 @@ import { useTestCases } from '../../hooks/useTestCases'
 import { summarizeTestCases } from '@/lib/test-cases/case-summary'
 import { MemoryTab } from '../memory/MemoryTab'
 
-/** The Records rows TaskDossier owns: the evidence sections + security. */
+/** The Records rows TaskDossier owns: test cases, security, the evidence
+ *  sections. `tests` is itself a DossierSection (legacy `/tests` links). */
 type RecordRowKey = DossierSection | 'security'
+
+/** A hash that lands inside the Test cases row: a run (`#run-<id>`, from the
+ *  Needs action defect rows or an old Tests-tab link) or the row itself. */
+function hashTargetsTests(hash: string): boolean {
+  return hash.startsWith('#run-') || hash === `#${TEST_CASES_ANCHOR}`
+}
 
 interface TaskDossierProps {
   taskId: string
@@ -52,8 +59,8 @@ interface TaskDossierProps {
  *
  * The whole surface is {@link RecordTab} (LUM-1009: Done gate → Needs action →
  * Run overview → Records). This component builds the Records rows it owns —
- * the security scan report and the evidence rows (agent runs, lineage,
- * injected memory) — and keeps them deep-linkable: an old Delivery / Lineage /
+ * test cases (LUM-1012), the security scan report and the evidence rows (agent
+ * runs, lineage, injected memory) — and keeps them deep-linkable: an old Delivery / Lineage /
  * Memory URL expands its target row and scrolls to it (LUM-458). Run sessions
  * are fetched once here (single source) and shared with the Sessions tile and
  * the runs row.
@@ -132,6 +139,23 @@ export function TaskDossier({
     el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }, [targetSection])
 
+  // LUM-1012: Test cases is a folded row now, so a run link must open it
+  // before the section (mounted only while open) can scroll onto the run.
+  // Read in an effect — the hash is not known during render — and on
+  // hashchange, since the Needs action defect rows only change the hash.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const open = () => {
+      if (!hashTargetsTests(window.location.hash)) return
+      setExpanded(prev =>
+        prev.has('tests') ? prev : new Set(prev).add('tests')
+      )
+    }
+    open()
+    window.addEventListener('hashchange', open)
+    return () => window.removeEventListener('hashchange', open)
+  }, [])
+
   const toggle = (section: RecordRowKey) =>
     setExpanded(prev => {
       const next = new Set(prev)
@@ -140,14 +164,60 @@ export function TaskDossier({
       return next
     })
 
+  // LUM-1012: Test cases as the first Records row — always drawn (it is
+  // where a case gets added), verdict "3/4 passing" or "none yet".
+  const testCasesRecord = (
+    <RecordRow
+      id={TEST_CASES_ANCHOR}
+      title={intl.formatMessage({ id: 'testCases.section.title' })}
+      summary={
+        testsSummary.total === 0
+          ? intl.formatMessage({ id: 'record.tests.none' })
+          : intl.formatMessage(
+              { id: 'record.tests.passing' },
+              { passing: testsSummary.passing, total: testsSummary.total }
+            )
+      }
+      expanded={expanded.has('tests')}
+      onToggle={() => toggle('tests')}
+    >
+      <TestCasesSection
+        taskId={taskId}
+        taskIdentifier={taskIdentifier}
+        enabled={enabled}
+        members={members}
+      />
+    </RecordRow>
+  )
+
+  const securityVerdict = securityScans
+    ? formatSecurityVerdict(intl, securityScans)
+    : null
+
   // LUM-1009: the full scan report as a Records row — never moves, whether or
   // not a finding blocks (blocking findings also come up in Needs action).
   const securityRecord = showSecurityRecord ? (
     <RecordRow
       id='dossier-security'
       title={intl.formatMessage({ id: 'securityScan.section.title' })}
-      {...(securityScans
-        ? { summary: formatSecuritySummaryLine(intl, securityScans) }
+      {...(securityVerdict
+        ? {
+            summary: (
+              <>
+                {securityVerdict.text}
+                {securityVerdict.caveats.map(c => (
+                  <span
+                    key={c.text}
+                    className={
+                      c.tone === 'warning' ? 'text-warning-text' : undefined
+                    }
+                  >
+                    {` · ${c.text}`}
+                  </span>
+                ))}
+              </>
+            ),
+          }
         : {})}
       expanded={expanded.has('security')}
       onToggle={() => toggle('security')}
@@ -248,13 +318,7 @@ export function TaskDossier({
           enabled={enabled}
         />
       }
-      testCasesSlot={
-        <TestCasesSection
-          taskId={taskId}
-          taskIdentifier={taskIdentifier}
-          enabled={enabled}
-        />
-      }
+      testCasesSlot={testCasesRecord}
       securityRecordSlot={securityRecord}
       evidenceSlot={evidence}
       attribution={attributionSummary}
