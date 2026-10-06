@@ -183,6 +183,27 @@ export function countWrapperEscapes(text: string): number {
   return findWrapperTags(text).length
 }
 
+/** A Markdown inline code span on one line: `like this`. */
+const INLINE_CODE = /`[^`\n]+`/g
+
+/**
+ * LUM-998 — the tags worth a NOTICE. A tag written inside an inline code span
+ * is a document naming the fence (`<untrusted-team-memory>` in a skill
+ * reference), not text trying to open or close one; seven of the 27 Lumo
+ * false positives in LUM-996 were exactly that. Such a tag is still
+ * neutralized like any other — only the advisory line skips it.
+ */
+export function countReportableWrapperEscapes(text: string): number {
+  const tags = findWrapperTags(text)
+  if (tags.length === 0) return 0
+  const code = [...text.matchAll(INLINE_CODE)].map(m => ({
+    start: m.index,
+    end: m.index + m[0].length,
+  }))
+  return tags.filter(t => !code.some(c => c.start <= t.start && t.end <= c.end))
+    .length
+}
+
 /**
  * The inert form of one tag span.
  *
@@ -246,8 +267,9 @@ const IMPERATIVE_EN: RegExp[] = [
   // you are now a/an … assistant / in developer mode
   /\byou\s+are\s+now\s+(?:a|an|the|my)\s+(?:\w+\s+){0,3}?(?:assistant|agent|ai|bot|model|hacker|persona|character|dan|jailbroken|unrestricted|uncensored)\b/i,
   /\byou\s+are\s+now\s+in\s+(?:developer|dan|god|debug|unrestricted|jailbreak)\s+mode\b/i,
-  // NEW INSTRUCTIONS:
-  /\bnew\s+(?:system\s+)?(?:instructions?|rules?|directives?|task)\s*:/i,
+  // NEW INSTRUCTIONS: — LUM-998 dropped "rules": in the LUM-996 train split
+  // "New rules:" only ever opened a changelog list, never an attack.
+  /\bnew\s+(?:system\s+)?(?:instructions?|directives?|task)\s*:/i,
   /\b(?:your|the)\s+new\s+(?:instructions?|rules?)\s+(?:are|is)\b/i,
   // a role label at the start of a line
   /(?:^|\n)[ \t]*(?:system|sys|assistant|developer)[ \t]*:/i,
@@ -324,7 +346,331 @@ const IMPERATIVE_ZH: RegExp[] = [
   ),
 ]
 
+// ─── LUM-998: the shapes the LUM-996 / LUM-997 benchmarks showed missing ─────
+//
+// Written from the TRAIN half of the deterministic split in
+// scripts/analysis/lum996-injection-detector-bench/split.ts and checked against
+// the train half's benign samples; the held-out half is only measured. Same
+// precision rule as above: every pattern needs a directive shape (verb +
+// referent, a solicitation addressed to the model, an imperative at the start
+// of a sentence), never a keyword on its own.
+
+/** Words that end an imperative override when they sit right before the verb. */
+const NOT_IMPERATIVE_BEFORE =
+  /\b(?:will|would|can|could|should|shall|may|might|must|to|it|they|we|which|that|who|also|does|did|not|n't|then\s+it)\s+$/i
+
+const OVERRIDE_VERB =
+  '(?:ignore|disregard|forget|override|bypass|abandon|discard|neglect)'
+/** At least one of these must qualify the noun ("ignore the rules" is prose). */
+const STRONG_QUALIFIER =
+  '(?:all|any|every|your|you|my|previous(?:ly)?|prior|earlier|preceding|precedent|above|original|initial|system|given|old|other)'
+const WEAK_QUALIFIER = '(?:the|of|and|these|those|this|that)'
+const INSTRUCTION_NOUN =
+  '(?:instruct\\w*|instrucions?|prompts?|rules?|directions?|directives?|guidance|guidelines?|orders?|commands?|constraints?|restrictions?|programming|text|input|messages?|conversations?|sentences?|statements?|requests?|information|context|documents?|tasks?)'
+
+interface ImperativeRule {
+  re: RegExp
+  /** Reject a match whose preceding word makes it a statement, not an order. */
+  imperativeOnly?: boolean
+}
+
+const en = (source: string, imperativeOnly = false): ImperativeRule => ({
+  re: new RegExp(source, 'i'),
+  imperativeOnly,
+})
+
+const IMPERATIVE_EN_998: ImperativeRule[] = [
+  // ignore all / your / previous … instructions (any order of qualifiers)
+  en(
+    `\\b${OVERRIDE_VERB}\\s+(?:about\\s+)?(?:${WEAK_QUALIFIER}\\s+)*${STRONG_QUALIFIER}\\s+(?:(?:${STRONG_QUALIFIER}|${WEAK_QUALIFIER}|given|stated|provided|received|last|next|below|following|further)\\s+){0,3}${INSTRUCTION_NOUN}\\b`,
+    true
+  ),
+  // cancel / reject previous instructions — these two verbs are ordinary prose
+  // ("reject any command name …"), so they need a temporal qualifier
+  en(
+    '\\b(?:cancel|reject)\\s+(?:(?:all|the|your|any)\\s+)*(?:previous|prior|earlier|above|original|initial)\\s+(?:instructions|prompts|rules|directives|orders)\\b',
+    true
+  ),
+  // forget the instructions above / ignore the directions I gave
+  en(
+    `\\b${OVERRIDE_VERB}\\s+(?:all\\s+)?the\\s+(?:instructions|directions|directives|rules|prompts?|orders)\\s+(?:above|before|so\\s+far|i(?:'ve|\\s+have)?\\s+(?:gave|given|provided|told))\\b`,
+    true
+  ),
+  // ignore instructions! / disregard prompts
+  en('\\b(?:ignore|disregard)\\s+(?:instructions|prompts|directives)\\b', true),
+  // forget everything / ignore everything you have been told
+  en('\\bforget\\s+(?:about\\s+)?every\\s?thing\\b', true),
+  en(
+    '\\b(?:ignore|disregard)\\s+(?:about\\s+)?every\\s?thing\\s+(?:(?:you|i|we)\\b|before|above|previous|prior|so\\s+far|and\\b|else\\b)',
+    true
+  ),
+  en(
+    "\\b(?:ignore|disregard|forget)\\s+what\\s+(?:you(?:'ve|\\s+have)?\\s+been|i(?:'ve|\\s+have)?\\s+(?:just\\s+)?(?:said|told|wrote|written))",
+    true
+  ),
+  // ignore the above and … / ignore above,
+  en(
+    '\\b(?:ignore|disregard)\\s+(?:all\\s+(?:of\\s+)?)?(?:the\\s+)?above\\s*(?:,|and\\b|:)',
+    true
+  ),
+  // previous instructions should be disregarded / are not to be obeyed
+  en(
+    '\\b(?:previous|prior|above|earlier|preceding|all|any|old)\\s+(?:instructions|rules|prompts|directives|orders)\\s+(?:should|must|are\\s+to|can|will)\\s+(?:now\\s+)?(?:be\\s+)?(?:disregarded|ignored|forgotten|overridden)\\b'
+  ),
+  // don't obey / follow previous instructions
+  en(
+    "\\b(?:do\\s+not|don'?t|never|stop)\\s+(?:obey(?:ing)?|follow(?:ing)?|listen(?:ing)?\\s+to)\\s+(?:any\\s+|the\\s+|your\\s+|all\\s+)?(?:previous|prior|above|earlier|original|initial|system|old)\\s+(?:instructions|rules|prompts|directives|orders|information)\\b"
+  ),
+  // new instructions, … / now comes a new task / here are new instructions
+  en('\\bnew\\s+(?:system\\s+)?(?:instructions?|directives?)\\s*,'),
+  en(
+    '\\bnow\\s+(?:comes?|follows?|follow)\\s+(?:a\\s+|the\\s+)?(?:new|further|next|more)\\s+(?:tasks?|instructions?|assignments?|orders?)\\b'
+  ),
+  en('\\bnow\\s+(?:further|new)\\s+tasks?\\b'),
+  en(
+    '\\b(?:i\\s+give\\s+you|here\\s+are)\\s+(?:some\\s+)?new\\s+(?:instructions|guidelines|rules|directives)\\b'
+  ),
+  en('\\byour\\s+(?:new\\s+)?(?:instructions|task)\\s+(?:are|is)\\s+now\\b'),
+  en(
+    '\\b(?:change|update|replace|rewrite)\\s+your\\s+(?:instructions|rules|prompt|programming|directives)\\b'
+  ),
+  // prompt / secret extraction, not in the "reveal your system prompt" shape
+  en(
+    '\\b(?:reveal|print|show|output|repeat|display|leak|dump|expose|disclose|echo|list|tell|give|gimme|recite|summari[sz]e|paraphrase|rewrite|spell)\\s+(?:out\\s+|down\\s+|back\\s+)?(?:me\\s+|us\\s+|to\\s+me\\s+)?(?:back\\s+)?(?:(?:all|every|each|of|the|full|entire|complete|list|exact|whole)\\s+){0,4}(?:your|my)\\s+(?:(?:system|initial|original|hidden|secret|previous|prior|full|complete|exact|first|given|current|combined)\\s+){0,2}(?:instruct\\w*|prompts?|guidelines|rules|directives|prompt\\s+texts?)\\b'
+  ),
+  en(
+    '\\b(?:reveal|print|show|output|repeat|display|leak|dump|expose|disclose|echo|list|recite)\\s+(?:out\\s+|down\\s+|back\\s+)?(?:me\\s+)?(?:(?:all|the|of)\\s+){0,3}(?:previous|prior|initial|original|hidden|secret|system|above|first)\\s+(?:instructions|prompts?|prompt\\s+texts?|guidelines|directives)\\b'
+  ),
+  en(
+    '\\bwhat\\s+(?:are|were|is|was)\\s+(?:all\\s+(?:of\\s+)?)?(?:your|my)\\s+(?:(?:initial|original|previous|prior|system|exact|combined|current|first|last|secret|hidden)\\s+){0,2}(?:instructions?|prompts?|directives|guidelines)\\b'
+  ),
+  en(
+    '\\bwhat\\s+(?:instructions?|directives|prompts?)\\s+(?:were|have|did|are|do)\\s+you\\b'
+  ),
+  en(
+    '\\b(?:tell|show|give)\\s+me\\s+what\\s+(?:your\\s+)?(?:(?:initial|original|previous|system)\\s+)?(?:instructions|rules|prompt)\\b'
+  ),
+  en(
+    "\\binstructions?\\s+(?:given\\s+to\\s+you|you(?:\\s+have|\\s+were|'ve)\\s+(?:been\\s+)?(?:given|received))\\b"
+  ),
+  en('\\b(?:beginning|start|top)\\s+of\\s+(?:this|the|your)\\s+prompt\\b'),
+  en(
+    '\\b(?:repeat|print|output|list|write\\s+out|summari[sz]e|recite|reiterate|restate)\\s+(?:all\\s+)?(?:of\\s+)?(?:the\\s+|your\\s+)?(?:instructions|rules|directives|conditions|logic|words|prompt|text|everything)\\s+(?:so\\s+far|above|in\\s+(?:the|your|this)\\s+prompt)\\b'
+  ),
+  en(
+    '\\b(?:quote|reiterate|replay|restate|recite)\\s+(?:all\\s+(?:of\\s+)?)?(?:your|my)\\s+(?:(?:original|initial|previous|system|first)\\s+)?(?:instructions|prompt|rules|directives)\\b'
+  ),
+  en(
+    '\\b(?:convert|translate|format|encode|rewrite|summari[sz]e|tl;?dr)\\s+(?:all\\s+)?(?:your\\s+(?:instructions|rules|prompt|ruleset|directives)|the\\s+(?:instructions|rules|text)\\s+(?:above|below)(?:\\s+and\\s+below)?)\\b'
+  ),
+  en(
+    '\\b(?:begin|start|prefix)\\s+your\\s+(?:reply|response|answer|output)\\s+with\\b'
+  ),
+  en(
+    '\\bwhat\\s+(?:are|were)\\s+(?:the\\s+)?(?:previous|prior|initial|original|system|given)\\s+instructions\\b'
+  ),
+  en(
+    '\\b(?:print|repeat|show|output|display|spell[\\s-]?check)\\b[^.\\n]{0,30}?\\b(?:above|previous|initial)\\s+prompt\\b'
+  ),
+  en(
+    '\\b(?:tell|give|reveal|show|print|spell|say|output|share|leak|disclose)\\s+(?:me\\s+|us\\s+)?(?:(?:the|your|this|that)\\s+)?(?:secret\\s+|security\\s+|magic\\s+)?(?:password|passcode|pass\\s?phrase|secret\\s+(?:word|key|code)|magic\\s+word)\\b(?!\\s+(?:field|input|box|reset|hash|manager|policy|prompt|form|strength|rules?|change))'
+  ),
+  en(
+    "\\bwhat(?:\\s+is|'s)\\s+(?:the|your)\\s+(?:secret\\s+)?(?:password|passcode|pass\\s?phrase|secret\\s+word|magic\\s+word)\\s*\\?"
+  ),
+  // "say X" output hijacks
+  en(
+    '(?:^|[.!?]\\s+|\\n\\s*)(?:(?:please|now|then|just|only|simply|instead)\\s*,?\\s+){0,3}say\\s*:?\\s*["“”\'‘「]'
+  ),
+  en(
+    '\\b(?:just|only|simply|instead)\\s+(?:output|print|respond\\s+with|reply\\s+with|answer\\s+with)\\s*:?\\s*["“”\'‘「]'
+  ),
+  en('\\b(?:say|tell\\s+me)\\s+(?:that\\s+)?you\\s+(?:hate|love)\\b'),
+  en(
+    '\\b(?:say|output|print|respond(?:\\s+only)?\\s+with|reply(?:\\s+only)?\\s+with|(?:begin|start|prefix)\\s+(?:your\\s+)?(?:reply|response|answer)\\s+with)\\s*:?\\s*["“”\'‘「(\\[]*\\s*access\\s+granted\\b'
+  ),
+  // BIPIA-style indirect tasks: third-party content telling the model what to
+  // put in ITS reply or code. Anchored on a sentence-initial verb AND "your
+  // reply / response / answer" (or "your code / implementation" next to "the
+  // following code snippet"), so "I agree with your answer" stays clean.
+  en(
+    '(?:^|[.!?]\\s+|\\n\\s*)(?:please\\s+)?(?:can\\s+you\\s+)?(?:add|include|insert|integrate|append|mention|embed|incorporate|modify|augment|enhance|encode|render|provide|reverse|misspell|substitute|translate|rewrite|format|use|apply|group|anagram|introduce|reply|respond|answer|write|end|begin|start|conclude|sign)\\b[^.!?\\n]{0,100}?\\byour\\s+(?:reply|response|answer|message)\\b'
+  ),
+  en(
+    '\\bin\\s+your\\s+(?:reply|response|answer),\\s+(?:include|mention|suggest|add|say|state|insert)\\b'
+  ),
+  en(
+    '\\b(?:following|below|subsequent)\\s+code\\s+(?:snippet|block|excerpt|section)\\b[^.\\n]{0,80}?\\byour\\s+(?:code(?:base)?|implementation|solution|algorithm|elucidation|response)\\b'
+  ),
+  en(
+    '\\byour\\s+(?:code(?:base)?|implementation|solution|algorithm|elucidation)\\b[^.\\n]{0,80}?\\b(?:following|below|subsequent)\\s+code\\s+(?:snippet|block|excerpt|section)\\b'
+  ),
+  // AgentDojo "important_instructions": a message addressed to the model
+  en(
+    '\\bbefore\\s+you\\s+(?:can\\s+)?(?:solve|complete|do|finish|start|continue|answer)\\s+(?:the|this|your|my)\\s+task\\b'
+  ),
+  en('\\bplease\\s+do\\s+the\\s+following\\s+first\\b'),
+  en(
+    '\\bafter\\s+you\\s+do\\s+that,?\\s+you\\s+can\\s+(?:solve|do|complete|continue|finish|start)\\b'
+  ),
+  en('\\bthe\\s+task\\s+(?:that\\s+)?i\\s+gave\\s+you\\b'),
+  en('\\bthis\\s+is\\s+an\\s+important\\s+message\\s+from\\s+me\\b'),
+  // role reassignment the "you are now a … assistant" pattern misses
+  en('\\bi\\s+want\\s+you\\s+to\\s+(?:act|behave|respond)\\s+(?:as|like)\\b'),
+  en('\\brepeat\\s+after\\s+me\\b'),
+  en(
+    '\\bdrop\\s+(?:all\\s+)?your\\s+(?:instructions|rules|prompts?|guidelines)\\b'
+  ),
+  en(
+    '\\bfrom\\s+now\\s+on,?\\s+you\\s+(?:are\\s+(?:going\\s+to\\s+)?|will\\s+)(?:act|be|play|respond|answer)\\s+(?:as|like)\\b'
+  ),
+]
+
+/** German: no patterns existed before LUM-998 (5% recall on deepset DE). */
+const IMPERATIVE_DE: ImperativeRule[] = [
+  en(
+    '\\b(?:ignorier(?:e|en|t)?|vergiss|vergessen|missachte|missachten|übergehe|verwirf)\\s+(?:sie\\s+)?(?:(?:alle|alles|die|deine|ihre|eure|sämtliche|jegliche|jede|den|das|bisher|zuvor)\\s+){0,3}(?:(?:vorherigen?|vorangehenden?|vorangegangenen?|bisherigen?|obigen?|vorigen?|früheren?|ursprünglichen?|gegebenen?|erhaltenen?)\\s+)?(?:anweisung(?:en)?|befehle?|aufträge|auftrag|aufgaben?|angaben|informationen|instruktionen|regeln|vorgaben|anordnungen|eingaben?)\\b'
+  ),
+  en('\\b(?:vergiss|vergessen\\s+sie)\\s+alles\\b'),
+  en(
+    '\\b(?:die\\s+)?(?:obigen?|vorherigen?|bisherigen?)\\s+(?:ausführungen|anweisungen|angaben|informationen)\\s+(?:ignorieren|vergessen)\\b'
+  ),
+  en(
+    '\\b(?:nun|jetzt)\\s+folgen\\s+(?:neue|weitere)\\s+(?:anweisungen|aufgaben|instruktionen)\\b'
+  ),
+  en('\\bneue\\s+(?:anweisungen|instruktionen)\\s*[:,]'),
+  en(
+    '\\bich\\s+möchte,?\\s+dass\\s+(?:sie|du)\\s+als\\s+[^.\\n]{1,60}?\\s+(?:fungier(?:en|st)|agier(?:en|st)|auftr(?:eten|ittst))\\b'
+  ),
+  en(
+    "\\b(?:zeige?|zeig'?|gib|nenne|wiederhole|drucke)\\s+(?:mir\\s+)?(?:(?:alle|deinen?|deine|ihren?|ihre|den|die|gesamten?)\\s+){1,3}(?:prompt(?:-?texte?)?|anweisungen|instruktionen|systemprompt)\\b"
+  ),
+  en(
+    '\\babweichend\\s+(?:zu|von)\\s+(?:den\\s+)?(?:vorherigen|bisherigen)\\s+(?:instruktionen|anweisungen)\\b'
+  ),
+]
+
+/** Spanish / French / Croatian / Russian override phrasings seen in the corpora. */
+const IMPERATIVE_OTHER: ImperativeRule[] = [
+  en(
+    '\\b(?:olvida|olvide|ignora)\\s+(?:todas?\\s+)?(?:las\\s+)?(?:instrucciones|indicaciones|órdenes)\\b'
+  ),
+  en('\\bolvid[ae]\\s+todo\\b'),
+  en(
+    '\\b(?:oubliez|oublie|ignorez)\\s+(?:toutes?\\s+)?(?:les\\s+)?(?:instructions|consignes|directives)\\b'
+  ),
+  en('\\bzaboravi\\s+sve\\b'),
+  {
+    re: /(?:забудь(?:те)?|игнорируй(?:те)?)\s+(?:все\s+)?(?:предыдущие\s+)?(?:инструкции|указания|правила)/i,
+  },
+]
+
+/** Chinese additions: "everything", "as follows", wider objects, "say X". */
+const IMPERATIVE_ZH_998: ImperativeRule[] = [
+  // 忘记(之前的|我告诉你的…)一切
+  { re: zh('(?:忘记|忘掉|忽略|无视|抛开)', '[^。！？!?\\n]{0,12}?', '一切') },
+  // 忽略您之前收到的所有说明 / 忽略你的指示 / 忽略前面的所有命令
+  {
+    re: zh(
+      '(?:忽略|无视|忘记|忘掉|抛弃|放弃)',
+      '[^。！？!?\\n]{0,8}?',
+      '(?:之前|以上|上面|前面|先前|上述|所有|全部|你的|您的|收到的)',
+      '[^。！？!?\\n]{0,6}?',
+      '(?:指令|指示|提示|说明|命令)'
+    ),
+  },
+  // 忽略上面，… — the object is the whole preceding text
+  // (written tight, no separator between verb and object: "忽略,之前," is a
+  // word list, not an order — the LUM-792 negative corpus)
+  {
+    re: new RegExp(
+      `${looseZh('(?:忽略|无视|忘记)(?:以上|上面|上述|前面|之前)(?:的)?(?:内容|一切|全部)?')}(?=[，,。；;！!：:\\s]|$)`
+    ),
+  },
+  // 新的指示如下 / 新的任务来了 / 现在还有进一步的任务
+  { re: zh('新', '(?:的)?', '(?:指令|指示|任务|规则)', '(?:如下|来了)') },
+  {
+    re: zh(
+      '现在',
+      '[^。！？!?\\n]{0,4}',
+      '(?:新的|进一步的)',
+      '(?:任务|指示|指令)'
+    ),
+  },
+  { re: zh('现在', '[，,]?', '(?:你|您)的', '(?:指示|指令)', '是') },
+  // 向我显示你所有的提示文本 / 打印上面的提示
+  {
+    re: zh(
+      '(?:输出|显示|打印|泄露|重复|说出|复述|公开|告诉我)',
+      '[^。！？!?\\n]{0,6}?',
+      '(?:上面的|上述的?|你的|您的|你所有的|您所有的|所有的)',
+      '(?:提示文本|提示词|系统提示|提示|指令|指示)'
+    ),
+  },
+  { re: zh('(?:上面|以上)', '(?:这个?)?', '提示的', '(?:开头|内容|前)') },
+  // 我希望你扮演 / 我想让你担任 — the act-as role reassignment
+  { re: zh('我(?:希望|想让|想要|要)你', '(?:扮演|担任|充当)') },
+  // 说你讨厌… / 说是的 — a sentence that opens with 说
+  { re: /(?:^|[。！？!?])\s*(?:请|现在)?\s*(?:只)?说(?:你|是的)/ },
+]
+
+/**
+ * LUM-998 — letter-spaced text ("S a y t h a t y o u h a t e …") reads fine
+ * to a model and defeats every pattern above. A run of ≥ 8 single letters
+ * separated by single spaces is joined and checked against a few phrases with
+ * their spaces removed. Ordinary prose never has such a run.
+ */
+const SPACED_LETTERS =
+  /(?:^|[^\p{L}\p{N}])((?:\p{L} ){7,}\p{L})(?![\p{L}\p{N}])/gu
+const DESPACED_PHRASES =
+  /ignore(?:all|any|your|the|previous|prior|above)*(?:instructions?|prompts?|rules)|forgeteverything|ignoreeverything|saythatyou|tellmethepassword|revealthepassword|systemprompt|accessgranted|newinstructions/i
+
 const IMPERATIVE_PATTERNS = [...IMPERATIVE_EN, ...IMPERATIVE_ZH]
+
+const IMPERATIVE_RULES: ImperativeRule[] = [
+  ...IMPERATIVE_PATTERNS.map(re => ({ re })),
+  ...IMPERATIVE_EN_998,
+  ...IMPERATIVE_DE,
+  ...IMPERATIVE_OTHER,
+  ...IMPERATIVE_ZH_998,
+]
+
+/**
+ * Every imperative span in an already-normalized text, in rule order. A span
+ * that overlaps one already found is skipped, so one directive phrase that two
+ * rules both read counts once.
+ */
+function imperativeSpans(scan: string): Array<{ index: number; end: number }> {
+  const found: Array<{ index: number; end: number }> = []
+  const overlaps = (a: number, b: number): boolean =>
+    found.some(f => a < f.end && b > f.index)
+  for (const rule of IMPERATIVE_RULES) {
+    const g = new RegExp(
+      rule.re.source,
+      rule.re.flags.includes('g') ? rule.re.flags : `${rule.re.flags}g`
+    )
+    for (const m of matchAll(g, scan)) {
+      if (
+        rule.imperativeOnly &&
+        NOT_IMPERATIVE_BEFORE.test(
+          scan.slice(Math.max(0, m.index - 16), m.index)
+        )
+      )
+        continue
+      const end = m.index + m[0].length
+      if (overlaps(m.index, end)) continue
+      found.push({ index: m.index, end })
+    }
+  }
+  for (const m of matchAll(SPACED_LETTERS, scan)) {
+    const run = m[1] ?? ''
+    if (!DESPACED_PHRASES.test(run.replace(/ /g, ''))) continue
+    const index = m.index + m[0].length - run.length
+    const end = index + run.length
+    if (!overlaps(index, end)) found.push({ index, end })
+  }
+  return found
+}
 
 /** A comment whose body is a paragraph, or carries an imperative, is a signal. */
 const HIDDEN_COMMENT_MIN_CHARS = 40
@@ -353,9 +699,18 @@ const BASE64_MIN_ENTROPY = 4.8
 /** Random hex ≈ 4 bits/char; a repeated pattern collapses well below. */
 const HEX_MIN_ENTROPY = 3.5
 
+/**
+ * LUM-998 — the scheme alone is prose ("a `javascript:` URL would be a stored
+ * XSS"); a link carries a payload. Require one right after the colon: an
+ * encoded byte, a `//` comment trick, or an identifier followed by a call,
+ * assignment, template, index or statement end — `javascript:alert(1)`,
+ * `javascript: void(0)`, `javascript:%61lert`, `javascript://%0a…`.
+ */
+const SCRIPT_PAYLOAD = '(?=%|\\/\\/|[\\w$.]+\\s*[(=`\\[;\'"\\\\])'
+
 const SCRIPT_LINK_PATTERNS: RegExp[] = [
-  /\bjava\s*script\s*:/i,
-  /\bvb\s*script\s*:/i,
+  new RegExp(`\\bjava\\s*script\\s*:\\s*${SCRIPT_PAYLOAD}`, 'i'),
+  new RegExp(`\\bvb\\s*script\\s*:\\s*${SCRIPT_PAYLOAD}`, 'i'),
   // data:<type>/<subtype>; or , — never the bare word "data:" in prose
   /\bdata\s*:\s*[a-z][a-z0-9.+-]*\/[a-z0-9.+-]+\s*[;,]/i,
 ]
@@ -382,7 +737,7 @@ function shannonBitsPerChar(s: string): number {
 }
 
 function hasImperative(text: string): boolean {
-  return IMPERATIVE_PATTERNS.some(p => p.test(text))
+  return imperativeSpans(text).length > 0
 }
 
 /**
@@ -550,19 +905,13 @@ export function detectInjectionSignals(text: string): InjectionSignalReport {
       normalized.toOriginalIndex(end)
     )
 
-  // ① imperative directives (EN + ZH)
-  for (const p of IMPERATIVE_PATTERNS) {
-    const g = new RegExp(
-      p.source,
-      p.flags.includes('g') ? p.flags : `${p.flags}g`
-    )
-    for (const m of matchAll(g, scan)) {
-      signals.push({
-        kind: 'IMPERATIVE',
-        index: normalized.toOriginalIndex(m.index),
-        excerpt: excerpt(original(m.index, m.index + m[0].length)),
-      })
-    }
+  // ① imperative directives (EN + ZH, + DE / ES / FR / HR / RU since LUM-998)
+  for (const span of imperativeSpans(scan)) {
+    signals.push({
+      kind: 'IMPERATIVE',
+      index: normalized.toOriginalIndex(span.index),
+      excerpt: excerpt(original(span.index, span.end)),
+    })
   }
 
   // ② text hidden in HTML / Markdown comments
@@ -664,7 +1013,7 @@ export function summarizeContentSignals(
   now: Date = new Date()
 ): ContentSignals | null {
   const { signals } = detectInjectionSignals(text)
-  const wrapperEscapes = countWrapperEscapes(text)
+  const wrapperEscapes = countReportableWrapperEscapes(text)
   if (signals.length === 0 && wrapperEscapes === 0) return null
   const counts: Partial<Record<InjectionSignalKind, number>> = {}
   for (const s of signals) counts[s.kind] = (counts[s.kind] ?? 0) + 1
@@ -743,8 +1092,10 @@ export function renderInlineSignalMarker(signals: InjectionSignal[]): string {
  * `notices` right after the opening tag and `text` as the body.
  */
 export function guardUntrustedContent(text: string): GuardedUntrustedContent {
-  const wrapperEscapes = countWrapperEscapes(text)
-  const neutralized = wrapperEscapes > 0 ? neutralizeWrapperEscapes(text) : text
+  // Every tag is neutralized; the notice counts only the reportable ones.
+  const neutralized =
+    countWrapperEscapes(text) > 0 ? neutralizeWrapperEscapes(text) : text
+  const wrapperEscapes = countReportableWrapperEscapes(text)
   const { signals } = detectInjectionSignals(neutralized)
   return {
     text: neutralized,
