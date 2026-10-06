@@ -86,6 +86,23 @@ describe('waitUntil', () => {
       }
     })
 
+    it('does not produce an unhandled rejection when logger.error itself throws', async () => {
+      loggerError.mockImplementation(() => {
+        throw new Error('log transport down')
+      })
+      const unhandled = jest.fn()
+      process.on('unhandledRejection', unhandled)
+      try {
+        waitUntil(Promise.reject(new Error('task failed')))
+        await flush()
+        await flush()
+        expect(loggerError).toHaveBeenCalledTimes(1)
+        expect(unhandled).not.toHaveBeenCalled()
+      } finally {
+        process.off('unhandledRejection', unhandled)
+      }
+    })
+
     it('does not throw synchronously for a rejected promise', () => {
       expect(() => waitUntil(Promise.reject(new Error('x')))).not.toThrow()
     })

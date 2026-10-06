@@ -46,7 +46,14 @@ export function waitUntil(promise: Promise<unknown>): void {
     )
   }
   const observed = Promise.resolve(promise).catch((err: unknown) => {
-    logger.error('[waitUntil] background task failed:', err)
+    // The logger itself must not be able to throw out of this handler: a throw
+    // here would reject `observed` and recreate the very unhandled rejection
+    // this wrapper exists to prevent (e.g. a broken console / log transport).
+    try {
+      logger.error('[waitUntil] background task failed:', err)
+    } catch {
+      // Swallowed on purpose — there is nowhere safer left to report it.
+    }
   })
   if (isVercelRuntime()) vercelWaitUntil(observed)
 }
