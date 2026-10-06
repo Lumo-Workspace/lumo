@@ -2,6 +2,11 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { localDayLabel } from '../lib/local-day'
+import {
+  TASK_DESCRIPTION_FENCE,
+  TASK_DESCRIPTION_PREAMBLE,
+  fenceUntrustedText,
+} from '../../../shared/src/untrusted-fence'
 
 interface ShowResponse {
   task: {
@@ -25,8 +30,9 @@ interface ShowResponse {
 }
 
 /**
- * Render task detail as a key:value block. Multi-line description is
- * indented under a `Description:` label so the structure stays scannable.
+ * Render task detail as a key:value block. The description follows in its
+ * own `<untrusted-task-description>` fence (LUM-998): member-authored text,
+ * wrapper tags defanged and directive-shaped content flagged at the head.
  */
 export function formatTaskShow(task: ShowResponse['task']): string {
   const lines: string[] = []
@@ -46,13 +52,14 @@ export function formatTaskShow(task: ShowResponse['task']): string {
   }
   if (task.dueDate) lines.push(`Due:       ${localDayLabel(task.dueDate)}`)
   lines.push(`URL:       ${task.url}`)
-  const body = task.descriptionMarkdown ?? task.description
-  if (body && body.trim().length > 0) {
+  const description = fenceUntrustedText(
+    TASK_DESCRIPTION_FENCE,
+    TASK_DESCRIPTION_PREAMBLE,
+    task.descriptionMarkdown ?? task.description ?? ''
+  )
+  if (description) {
     lines.push('')
-    lines.push('Description:')
-    for (const line of sanitizeField(body).split('\n')) {
-      lines.push(`  ${line}`)
-    }
+    lines.push(description)
   }
   return lines.join('\n')
 }

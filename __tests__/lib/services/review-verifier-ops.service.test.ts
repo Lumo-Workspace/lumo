@@ -41,7 +41,7 @@ describe('LUM-988 stale verifier hold sweep', () => {
     expect(out).toEqual({ released: 1 })
   })
 
-  it('the hold window covers the worst-case run (8 minutes)', () => {
-    expect(VERIFIER_HOLD_MS).toBe(8 * 60_000)
+  it('the hold window covers the worst-case run, ranker included (9 minutes)', () => {
+    expect(VERIFIER_HOLD_MS).toBe(9 * 60_000)
   })
 })

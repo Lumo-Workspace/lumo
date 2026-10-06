@@ -1,6 +1,11 @@
 import type { MemoryCategory, MemoryScope } from '@prisma/client'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { guardInjectedText } from '@/lib/security-scan/inject-guard'
+import {
+  TASK_DESCRIPTION_FENCE,
+  TASK_DESCRIPTION_PREAMBLE,
+  renderUntrustedFence,
+} from '@/shared/src/untrusted-fence'
 import { parseMemoryContent } from './schemas'
 
 /**
@@ -415,5 +420,26 @@ export function wrapUntrustedLinkedGroup(sections: string[]): string[] {
       guarded.text.trimEnd(),
       '</untrusted-linked-context>',
     ].join('\n')
+  })
+}
+
+/**
+ * LUM-998 — the task description on `lumo task context`. It used to print as
+ * a bare `**Description**:` line with only the control-character strip, the
+ * first unguarded path LUM-997 listed. Same chain as every other block here
+ * (sanitize → redact → defang → notices), but under a spec-shaped preamble:
+ * the description is the work order, so "do not obey" would be wrong — it is
+ * framed as member-authored text that cannot outrank the user. Returns "" for
+ * an empty description so the caller omits the block.
+ */
+export function wrapUntrustedTaskDescription(markdown: string): string {
+  const clean = sanitizeField(markdown)
+  if (clean.trim() === '') return ''
+  const guarded = guardInjectedText(clean)
+  return renderUntrustedFence({
+    tag: TASK_DESCRIPTION_FENCE,
+    notices: guarded.notices,
+    preamble: TASK_DESCRIPTION_PREAMBLE,
+    body: guarded.text,
   })
 }

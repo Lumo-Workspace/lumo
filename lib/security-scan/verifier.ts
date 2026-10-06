@@ -30,11 +30,11 @@ export function isVerifierRejected(f: {
  * scan's VM to appear (30 s) and to finish (90 s), the checkout wait (20 s),
  * booting its own VM when that fails (~60 s), the agent's call
  * (VERIFIER_TIMEOUT_MS, 180 s) and 60 s of margin for workflow queueing ≈ 8
- * minutes. A run that is lost altogether is released by the stale-hold sweep
+ * minutes, plus the ranker's call (RANKER_TIMEOUT_MS) ≈ 9. A run that is lost altogether is released by the stale-hold sweep
  * (`reviewVerifierOpsService.sweepStaleHolds`); a verdict that lands after
  * the window edits the comment it can no longer hold back.
  */
-export const VERIFIER_HOLD_MS = 8 * 60_000
+export const VERIFIER_HOLD_MS = 9 * 60_000
 
 /** The verifier's model call (all findings of one scan, one agent). */
 export const VERIFIER_TIMEOUT_MS = 180_000
@@ -89,6 +89,53 @@ export function applyVerifierPolicy<
     const f = byId.get(r.id)
     if (!f || r.defaulted || !verifierAppliesTo(f)) return []
     return [{ findingId: f.id, verdict: r.verdict, reason: r.reason }]
+  })
+}
+
+/** The ranker's single model call (LUM-988, precision step 2). */
+export const RANKER_TIMEOUT_MS = 60_000
+
+/** Diff of the cited files handed to the ranker, at most this many chars. */
+export const RANKER_DIFF_MAX_CHARS = 80_000
+
+/**
+ * A finding the policy lets the verifier reject is also dropped when the
+ * ranker puts it below this probability. Chosen on run 1 of the Martian
+ * replay and held out on runs 2 and 3 (two ranker samples): F1 +2.0 to +2.3,
+ * F2 −0.6 to −1.0, every run still above F2 60.
+ */
+export const RANKER_KEEP_THRESHOLD = 18
+
+/** Prefix of a rejection that came from the ranker, not the verifier. */
+export const RANKER_REASON_PREFIX = 'Ranked low:'
+
+/**
+ * The rejections the ranker adds: a finding the policy applies to, not
+ * already rejected, ranked below the threshold. A finding the ranking does
+ * not mention is kept — like a defaulted verdict, the ranker may only remove
+ * false positives, never lose a finding by omission.
+ */
+export function applyRankerPolicy<
+  F extends { id: string; kind: string; severity: string },
+>(
+  findings: readonly F[],
+  ranking: ReadonlyArray<{ id: string; p: number; reason: string }>,
+  alreadyRejected: ReadonlySet<string>
+): Array<{ findingId: string; verdict: 'REJECTED'; reason: string }> {
+  const byId = new Map(findings.map(f => [f.id, f]))
+  const seen = new Set<string>()
+  return ranking.flatMap(r => {
+    const f = byId.get(r.id)
+    if (!f || seen.has(r.id) || alreadyRejected.has(r.id)) return []
+    seen.add(r.id)
+    if (!verifierAppliesTo(f) || r.p >= RANKER_KEEP_THRESHOLD) return []
+    return [
+      {
+        findingId: f.id,
+        verdict: 'REJECTED' as const,
+        reason: `${RANKER_REASON_PREFIX} ${r.reason}`.trim(),
+      },
+    ]
   })
 }
 

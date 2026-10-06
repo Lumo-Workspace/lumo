@@ -71,6 +71,7 @@ jest.mock('@/lib/memory/render', () => ({
   renderLayer2ReviewSection: jest.fn(() => ''),
   wrapUntrustedLinked: jest.fn((s: string) => s),
   wrapUntrustedLinkedGroup: jest.fn((xs: string[]) => xs),
+  wrapUntrustedTaskDescription: jest.fn((s: string) => s),
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findDocumentsForContext: jest.fn().mockResolvedValue([]) },

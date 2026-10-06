@@ -65,6 +65,7 @@ jest.mock('@/lib/memory/render', () => ({
     .wrapUntrustedLinked,
   wrapUntrustedLinkedGroup: jest.requireActual('@/lib/memory/render')
     .wrapUntrustedLinkedGroup,
+  wrapUntrustedTaskDescription: jest.fn((s: string) => s),
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findDocumentsForContext: jest.fn() },

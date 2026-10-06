@@ -23,6 +23,7 @@ import {
   summarizeDataset,
   type DatasetResult,
 } from './evaluate'
+import { splitRates } from './split'
 import {
   DEFAULT_CACHE_DIR,
   loadPublicCorpus,
@@ -163,6 +164,12 @@ async function main(): Promise<void> {
       publicBenign: pool(scored, publicBenignIds, 'benign', new Set(quotable)),
       lumoBenign: pool(scored, lumoBenignIds, 'benign', new Set(quotable)),
     },
+    // LUM-998: patterns are written from the train half, judged on held-out.
+    split: splitRates(scored, {
+      attacks: attackIds,
+      publicBenign: publicBenignIds,
+      lumoBenign: lumoBenignIds,
+    }),
     pinnedSample: pinnedSample(scored, quotable),
   }
 

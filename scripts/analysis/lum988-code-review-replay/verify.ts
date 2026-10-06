@@ -10,6 +10,7 @@
  *   npx tsx -r dotenv/config scripts/analysis/lum988-code-review-replay/verify.ts \
  *     --results results-sonnet55.json --run 0 --data <prepare.ts dir> --checkouts <root> --out verify.json \
  *     [--max-steps 16] [--concurrency 6] [--model anthropic/claude-sonnet-5.5] [--limit N]
+ *     [--only-applicable] [--system-file verifier-prompt-v4.txt]
  *
  * Writes { [prUrl]: { results, steps, commands, inputTokens, outputTokens,
  * error, ms } }. `score-verify.py` scores a filtered run against the step3
@@ -47,6 +48,9 @@ const maxSteps = Number(opt('max-steps', '16'))
 const concurrency = Number(opt('concurrency', '6'))
 const model = opt('model', '')
 const limit = Number(opt('limit', '0'))
+// Ablations: a system prompt to use instead of the shipped one.
+const systemFile = opt('system-file', '')
+const system = systemFile ? readFileSync(systemFile, 'utf8').trim() : ''
 // LUM-988 follow-up: send the agent only the rows the production policy can
 // reject (non-HIGH bugs), as production now does.
 const onlyApplicable = process.argv.includes('--only-applicable')
@@ -134,6 +138,7 @@ async function main(): Promise<void> {
         maxSteps,
         timeoutMs: 240_000,
         ...(model ? { model } : {}),
+        ...(system ? { system } : {}),
       })
       out[url] = { ...res, ms: Date.now() - t0 }
       const rej = res.results.filter(r => r.verdict === 'REJECTED').length

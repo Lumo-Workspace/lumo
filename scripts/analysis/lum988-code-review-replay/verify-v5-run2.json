@@ -1,0 +1,1960 @@
+{
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/7": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The diff changes the light-theme value from lightness 70% to 30%, and dark-light-choose returns the first argument in the light theme (variables.scss:48), so the light-theme color changed.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "The diff changes the light-theme h3 color from lightness 20% to 50%, and the first argument is the light-theme result (variables.scss:48).",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The diff changes the light-theme .name color from lightness 30% to 50%, and the first argument is the light-theme result (variables.scss:48).",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The diff changes the light-theme mobile .name color from lightness 30% to 50%, and the first argument is the light-theme result (variables.scss:48).",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The diff changes the light-theme reply link color from lightness 30% to 70%, and the first argument is the light-theme result (variables.scss:48).",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 1,
+  "inputTokens": 18063,
+  "outputTokens": 643,
+  "error": null,
+  "ms": 6675
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/1": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "Downsize loop (uploads_controller.rb:63-68) runs for any is_image? name including SVG and never checks the final size; Upload.create_for (upload.rb:59-150) has no size check, so oversized images pass through.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "utilities.js:182 hardcodes 10MB for all types, so max_attachment_size_kb and max_image_size_kb no longer apply client-side, and the 413 handler uses the same fixed value.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "uploads_controller.rb:55 replaces the configured max_image_size_kb cap with a fixed 10.megabytes for all types in the API URL download.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 4,
+  "inputTokens": 28510,
+  "outputTokens": 1114,
+  "error": null,
+  "ms": 14319
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/6": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "Method is defined as include_website_name without '?', unlike every other filter in user_serializer.rb (e.g. line 117 include_email?), so the filter is never invoked.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "minor: the file has no frozen_string_literal magic comment, so `\".\" << host` builds the correct suffix on a fresh string; it is only a style/robustness concern.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The equal-label-count check only compares labels after the first, so unrelated hosts such as foo.co.uk and bar.co.uk match as siblings and different label counts are not handled.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The user_profile model does not validate that website has a scheme, so a scheme-less website gives a nil host and website_name. user.hbs:66 then hides the website entirely. The crash claim is overstated, but this behaviour is real.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The spec adds only three cases and none covers the equal-length sibling-subdomain branch, a blank website or a scheme-less website. Nothing tests the include filter, so the missing '?' goes unnoticed.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 22337,
+  "outputTokens": 1976,
+  "error": null,
+  "ms": 22885
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/3": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "BlockedEmail.where(email: email) is an exact match and neither user.rb nor the validator downcases the email before lookup, so case variants bypass the block.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "should_block? saves the record from inside a validator (email_validator.rb:14), so every valid? call increments match_count, and the += 1 read-modify-write is non-atomic.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The regexp \"@(#{domains})\" at email_validator.rb:21 has no end anchor, so example.com matches user@example.com.evil.org. Only '.' is escaped, so other regex characters in the setting stay live.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "Em.A([]) in the extend() hash is created once and shared by every instance, which is the usual Ember shared-prototype-state pitfall. I did not check how many instances are created.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: app/assets/javascripts/external_development/ember.js:13231 (EachProxy.arrayDidChange) calls propertyDidChange(this._content, '@each'), so 'rejectedEmails.@each' does fire when pushObject is called.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The JS at create_account_controller.js:274 adds the email to rejectedEmails on any error under errors.email, such as taken or format. The field then always shows the generic 'invalid' message instead of the server's reason.",
+    "defaulted": false
+   }
+  ],
+  "steps": 6,
+  "commands": 6,
+  "inputTokens": 46722,
+  "outputTokens": 2297,
+  "error": null,
+  "ms": 28191
+ },
+ "https://github.com/ai-code-review-evaluation/sentry-greptile/pull/5": {
+  "results": [],
+  "skipped": "no findings"
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/5": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "REJECTED",
+    "reason": "refuted: app/assets/javascripts/discourse/templates/components/small-action.hbs:5-9 shows the buttons are nested inside the `.small-action-desc` div, not direct children of `.small-action`, so their `float: right` still applies. The direct-child `.topic-avatar` float: left only affects a left-positioned flex item anyway.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "minor: `-ms-align-items` is a redundant, ignored declaration with no effect on results. The flex-start concern is hypothetical because the mixin is only called with `center` in this diff.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "Nothing in the repo shows the legacy -webkit-box/-moz-box fallbacks honouring `margin-left: auto`, and the `float: right` that used to right-align the panel was removed. I could not refute the claim.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 20777,
+  "outputTokens": 1175,
+  "error": null,
+  "ms": 17203
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/2": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The code at topics_controller.rb unsubscribe lowers to regular, then sets muted on a repeat visit, so a reload escalates the level.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The code sets notification_level and calls save! directly, so it skips TopicUser.change (topic_user.rb:77-114), which sets notifications_changed_at and reason and publishes via MessageBus.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: lib/topic_view.rb:405 raises NotFound for a missing topic, and the redirect and slug check at topics_controller.rb:100-103 behave as designed; the JSON path skipping the redirect is intentional and not a defect.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "refuted: app/models/topic.rb:264 builds fancy_title from ERB::Util.html_escape(title), so the triple-stash does not render raw HTML; the misspelled property name is only a naming issue.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "minor: the title pushed into the buffer is not shown to come from user input, and the diff only adds a guard to existing concatenation, so it names no concrete wrong behaviour.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "REJECTED",
+    "reason": "refuted: the only caller that sets add_unsubscribe_link is app/mailers/user_notifications.rb:294-295, and it also passes unsubscribe_url; rejection_mailer.rb:9 lists add_unsubscribe_link as a disallowed template arg.",
+    "defaulted": false
+   }
+  ],
+  "steps": 7,
+  "commands": 7,
+  "inputTokens": 62847,
+  "outputTokens": 2179,
+  "error": null,
+  "ms": 27462
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/4": {
+  "results": [
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "refuted: app/controllers/embed_controller.rb:12-18 sets @topic_view only in the topic_id branch and renders 'loading' otherwise, so best.html.erb never sees a nil view; the rest is speculation.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "poll_feed.rb:33 calls i.content.scrub with no nil guard, and RSS items without content:encoded/content would raise NoMethodError and abort the whole poll.",
+    "defaulted": false
+   },
+   {
+    "id": "f8",
+    "verdict": "REJECTED",
+    "reason": "minor: the callers (poll_feed.rb passes a fresh unescaped string, import_remote passes doc.content) never pass frozen or reused strings, and the sha1 is computed the same way on every call so comparison stays consistent.",
+    "defaulted": false
+   },
+   {
+    "id": "f9",
+    "verdict": "CONFIRMED",
+    "reason": "topic_embed.rb:57-58 treats '//host/x' as path-relative because it starts with '/', strips the slashes and yields 'prefix/host/x', a bogus URL.",
+    "defaulted": false
+   },
+   {
+    "id": "f10",
+    "verdict": "CONFIRMED",
+    "reason": "disqus.thor:148 drops the --category option and created_at, and TopicEmbed.import_remote raises on a failed fetch, which aborts the whole import loop.",
+    "defaulted": false
+   },
+   {
+    "id": "f11",
+    "verdict": "REJECTED",
+    "reason": "minor: jobs run inline when queue_jobs is off (app/jobs/base.rb:79,162), so the mocked TopicRetriever expectation does exercise the path, and controller specs don't render views, so the nil TopicView stub is harmless.",
+    "defaulted": false
+   },
+   {
+    "id": "f12",
+    "verdict": "REJECTED",
+    "reason": "minor: retrieval already runs in the RetrieveTopic job (not inline in a request) and is throttled per URL in topic_retriever.rb:24-31; polling the feed first is a deliberate design choice, not a wrong result.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 37430,
+  "outputTokens": 2138,
+  "error": null,
+  "ms": 22384
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/10": {
+  "results": [
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "Migration interpolates raw split lines into SQL with no quoting or stripping, so quotes break it and blank or \\r lines are inserted.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The migration indexes `[0]['id']` on a query result that is empty when no embed_category setting exists, with no guard, so it raises.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The column is lowercased in the query but the input host from URI#host is not downcased, so mixed-case hosts don't match.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "`where(id:).first` can return nil and destroy/save_host then call methods on it, giving a 500 instead of a 404.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "before_validation calls `self.host.sub!` with no nil guard, and save_host can assign a nil host from a missing param, so it raises; sub! also mutates in place.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "refuted: lib/topic_creator.rb:117 handles an Integer :category by looking it up by id, and a nil category falls back to the default, so the id is not dropped.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "_lookupSubType can return undefined for ids missing from the root, so the mapped array holds undefined entries, and `hydrated || []` is always truthy.",
+    "defaulted": false
+   },
+   {
+    "id": "f8",
+    "verdict": "CONFIRMED",
+    "reason": "String-pattern replace('_','-') only replaces the first underscore, so a type with several underscores would not match ADMIN_MODELS.",
+    "defaulted": false
+   },
+   {
+    "id": "f9",
+    "verdict": "CONFIRMED",
+    "reason": "The spec only asserts the class inheritance and exercises no controller action, so it cannot catch authorization or behaviour bugs.",
+    "defaulted": false
+   }
+  ],
+  "steps": 8,
+  "commands": 10,
+  "inputTokens": 69109,
+  "outputTokens": 2682,
+  "error": null,
+  "ms": 28927
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/9": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "REJECTED",
+    "reason": "refuted: config/site_settings.yml:60 gives default_locale a default of 'en' so it is not nil, and the fallback list is only evaluated lazily at lookup time, not in the initializer.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "refuted: I18n.locale= stores the locale as a symbol, and the fallback list also uses .to_sym and :en, so ensure_loaded! always gets symbols and the include? check at translate_accelerator.rb:64 matches.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "`@loaded_locales ||= []` in ensure_loaded! runs outside LOAD_MUTEX and reload! reassigns the array, so a threaded race is possible, though the effect is only a redundant reload.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The translate cache key uses only key+locale (translate_accelerator.rb ~line 71), so no-arg results that came through the site-default fallback can go stale when default_locale changes.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: load_locale appends the locale to @loaded_locales (translate_accelerator.rb:58), so each locale is loaded once. After that the per-request cost is a small array build and include? check.",
+    "defaulted": false
+   }
+  ],
+  "steps": 3,
+  "commands": 2,
+  "inputTokens": 16409,
+  "outputTokens": 2161,
+  "error": null,
+  "ms": 24958
+ },
+ "https://github.com/ai-code-review-evaluation/keycloak-greptile/pull/1": {
+  "results": [],
+  "skipped": "no findings"
+ },
+ "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/8": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "totalPages = floor(count/limit)+1 gives 2 pages for 50 users with limit 50, so showingLast is false on the real last page and next goes to an empty offset.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "refuted: Gemfile.lock:307 pins Rails 4.1.8, whose collection delete accepts integer ids (it finds records first), and the spec at spec/controllers/admin/groups_controller_spec.rb ('is able to remove a member') exercises this path.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "minor: the controller spec ignores the HTTP verb and still exercises the 422 automatic-group branch, so the wrong verb is only a cosmetic test inaccuracy.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "app/controllers/groups_controller.rb:22-26 takes limit and offset straight from params with no cap or lower bound, so a huge limit serializes the whole group and negative values can cause SQL errors.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "update and create set visible = (params[:visible] == \"true\"), so any request that omits visible makes the group invisible.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "refuted: group-members.js.es6:11 calls findMembers and group/members.hbs:6 iterates the same `members` property, and the public page does no pagination, so the shared model state works as intended.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "addMembers in admin-group.js.es6 never clears the usernames field (the TODO admits this) and ignores the returned promise.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 50961,
+  "outputTokens": 2526,
+  "error": null,
+  "ms": 25217
+ },
+ "https://github.com/ai-code-review-evaluation/sentry-greptile/pull/2": {
+  "results": [
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "RpcUserOrganizationContext.member is typed `RpcOrganizationMember | None` (organizations/services/organization/model.py:346), and the line dereferences it for every non-superuser request, even without the optimized flag, so a None member raises AttributeError.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The new paginator permits negative offsets, but the trim check `len(results) == offset + limit + extra` uses the raw offset. The slice start is also the negative offset, which doesn't match that count, and the class duplicates BasePaginator logic.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The redirect loop bound was cut from 10000 to 1000 and the comment about the limit was dropped, so deep trees can silently fail to join. Separately, zpopmin evicts the lowest-scored (earliest end-timestamp) spans, scored in buffer.py zadd, with no handling.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 4,
+  "inputTokens": 31437,
+  "outputTokens": 1574,
+  "error": null,
+  "ms": 16356
+ },
+ "https://github.com/ai-code-review-evaluation/sentry-greptile/pull/3": {
+  "results": [
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "error_upsampling.py caches eligibility for 60s, and grep shows invalidate_upsampling_cache is never called anywhere. The docstrings (fresh reads, invalidation on change) contradict the caching.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "organization_events_stats.py:~220 passes the outer `dataset` and the raw `request` to the eligibility check, not the `scoped_dataset` and `query` arguments of _get_event_stats. Split flows that call it with a different dataset or modified query therefore get the wrong decision.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "_is_error_focused_query does a plain substring test `\"event.type:error\" in query`, so `!event.type:error` and `event.type:error_foo` match.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "upsampled_count is registered in the public (non-private) function list in discover.py and uses sum(sample_weight) with no null handling, so events without sample_weight sum to 0/NULL. Users can also call it on datasets without that column.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "minor: the complaint is about redundant per-call work (the result is cached) and loosely worded comments. It names no wrong result.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "The new tests import only private helpers and never call is_errors_query_for_error_upsampled_projects. The cache-key and caching logic is therefore untested.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "REJECTED",
+    "reason": "minor: broad except/pass in a test-only factory helper is a style concern. A zero sample rate is not a meaningful value, so skipping it changes nothing.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 2,
+  "inputTokens": 21076,
+  "outputTokens": 1424,
+  "error": null,
+  "ms": 15660
+ },
+ "https://github.com/ai-code-review-evaluation/sentry-greptile/pull/1": {
+  "results": [
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: src/sentry/api/paginator.py:~886-891 trimming only runs when cursor.is_prev, and in that case start_offset equals the raw offset in both branches (`if not cursor.is_prev else offset`; `start_offset = cursor.offset`), so the comparison is consistent.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "organization_auditlogs.py uses OptimizedCursorPaginator ordered by the datetime field, and get_item_key calls math.floor on a datetime, which raises TypeError. value_from_cursor also returns the raw value rather than a datetime.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The comment says negative offsets are allowed and the queryset handles boundaries, but the code clamps non-prev offsets to 0. Prev offsets stay unclamped, and Django querysets reject negative slicing, so the comment contradicts the code.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 22569,
+  "outputTokens": 1129,
+  "error": null,
+  "ms": 25644
+ },
+ "https://github.com/calcom/cal.com/pull/14943": {
+  "results": [
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "refuted: retryCount is only incremented at scheduleSMSReminders.ts:184/195 for unscheduled reminders and rows reaching 2 are deleted next run (line 39), so a successfully scheduled reminder can have retryCount at most 1 and is never hit by gt:1; the limit value is a design choice.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The prisma update in the catch block (line ~190) has no try/catch, so a DB failure or missing row throws out of the loop, aborting remaining reminders and skipping the console.log.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "retryCount is written as reminder.retryCount + 1 from a value read earlier (line 195/184) rather than an atomic increment, so concurrent runs can lose increments.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 18938,
+  "outputTokens": 1136,
+  "error": null,
+  "ms": 14893
+ },
+ "https://github.com/calcom/cal.com/pull/10600": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "disable.ts calls req.body.backupCode.replaceAll with no string check, so a truthy non-string body value throws a TypeError and returns 500; the missing-key branch also throws.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: setup.ts also overwrites twoFactorSecret on every call with twoFactorEnabled:false, and backupCodes are only used by disable.ts when twoFactorEnabled is true; returning the codes from setup is the intended design.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: packages/ui/components/button/Button.tsx:125 defaults the Button `type` prop to \"button\", so the toggle does not submit the form.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "refuted: the toggle handler calls resetForm(false), which clears both backupCode and totpCode (DisableTwoFactorModal.tsx). TwoFactor is unmounted and remounted on toggle, which resets its internal value state, so no stale code is sent.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "resetState does not clear backupCodes or backupCodesUrl and the blob URL is never revoked on close, so the codes stay in state and the object URL leaks. The useState([]) also infers never[].",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "navigator.clipboard.writeText returns a promise that is neither awaited nor caught, and the success toast shows even when the write is rejected.",
+    "defaulted": false
+   },
+   {
+    "id": "f8",
+    "verdict": "CONFIRMED",
+    "reason": "BackupCode.tsx exports a component named TwoFactor, which contradicts its purpose and duplicates the name of the TwoFactor component.",
+    "defaulted": false
+   },
+   {
+    "id": "f9",
+    "verdict": "CONFIRMED",
+    "reason": "The first test's `expect(locator.isChecked()).toBeTruthy()` asserts on a Promise and always passes, as the added FIXME admits. The enable flow now ends at the backup-codes step, which this test never closes, so it cannot detect a failed enable.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 2,
+  "inputTokens": 25001,
+  "outputTokens": 2159,
+  "error": null,
+  "ms": 24425
+ },
+ "https://github.com/calcom/cal.com/pull/14740": {
+  "results": [
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "addGuests.handler.ts lowercases blacklist entries but compares the raw guest string (and attendee emails) case-sensitively, so mixed-case emails bypass the blacklist and duplicate check.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The 'swapped' claim is wrong, since new guests getting the scheduled email is sensible. But the handler passes the unfiltered `guests` to sendAddGuestsEmails, and matching is case-sensitive, so an existing attendee in the input can get the wrong template.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The catch block discards `err` and logs only a fixed string, so the cause of an email failure is lost.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The handler builds credentials from ctx.user via getUsersCredentials(ctx.user), which queries credentials by the caller's id. It does not use the booking organizer's credentials (booking.user.credentials is loaded but unused), so calendar updates fail when a non-organizer adds guests.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The lookup uses `booking.userId || 0` with findFirstOrThrow, so a null userId raises a raw Prisma not-found error instead of a TRPCError.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "AddGuestsDialog sets isInvalidEmail(true) but only resets it in the cancel handler, not on success or when input changes. The initial [\"\"] value also fails email validation when submitted empty.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "The message template string is always truthy, so the `|| t(\"unable_to_add_guests\")` fallback is dead, and a missing err.data.code renders as 'undefined: ...'.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 38054,
+  "outputTokens": 1901,
+  "error": null,
+  "ms": 18930
+ },
+ "https://github.com/calcom/cal.com/pull/11059": {
+  "results": [
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "Computed keys from z.string().toString() are identical meaningless strings (second overwrites first), so no expiry/wildcard handling exists; the non-passthrough z.object strips real fields like refresh_token, which is then overwritten with the literal 'refresh_token'.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "parseRefreshTokenResponse throws on failure so the success check is dead, and the previous error log with the Microsoft response context was removed and replaced by a generic error.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "zod parse, JSON.parse and symmetricDecrypt are called without try/catch in the handler, so bad input yields a 500 rather than a 400.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "refreshOAuthTokens returns the raw fetch Response with no auth header, while callers such as hubspot/CalendarService.ts:177 treat the result as a HubspotToken, so the sync path breaks them.",
+    "defaulted": false
+   },
+   {
+    "id": "f8",
+    "verdict": "CONFIRMED",
+    "reason": "The constant is the result of && on two env strings, so it is typed string|undefined rather than boolean and exposes the secret value without a !! coercion.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 1,
+  "inputTokens": 17588,
+  "outputTokens": 1371,
+  "error": null,
+  "ms": 12812
+ },
+ "https://github.com/calcom/cal.com/pull/22345": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The public getFilterConditions returns the bare `A OR B` when only eventTypeId is set. The one internal caller (getBaseConditions) wraps it in parentheses, but external callers get no such protection.",
+    "defaulted": false
+   }
+  ],
+  "steps": 3,
+  "commands": 2,
+  "inputTokens": 21275,
+  "outputTokens": 642,
+  "error": null,
+  "ms": 15955
+ },
+ "https://github.com/calcom/cal.com/pull/10967": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "CalendarService.ts deleteEvent fallback is reached only when externalCalendarId is falsy, so find(cal.externalId === externalCalendarId) can't match a real calendar; the old destinationCalendar.externalId fallback is lost.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The diff sets destinationCalendar to null when neither the event type nor the organizer has one, so evt.destinationCalendar?.push(...) does nothing and the collective team members' calendars are dropped.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "When the credential isn't found in memory or in the DB it stays undefined and updateEvent is still called. getCalendar returns null for it, then CalendarManager.ts:312 reads credential.appName and throws.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The diff removes console.error(message) from the catch block, so the message built just above is no longer used and the failure is no longer logged.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "The dynamic-user query no longer selects organization, although IsFixedAwareUser still declares organization as required. An empty dynamicUserList now throws, which the catch turns into a 500 \"Unable to load users\".",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "The diff changes !IS_TEAM_BILLING_ENABLED && {slug} to IS_TEAM_BILLING_ENABLED ? {slug} : {}, so the slug is now set exactly when billing is enabled. That inverts the condition and has nothing to do with this PR.",
+    "defaulted": false
+   }
+  ],
+  "steps": 7,
+  "commands": 6,
+  "inputTokens": 96896,
+  "outputTokens": 2457,
+  "error": null,
+  "ms": 28828
+ },
+ "https://github.com/calcom/cal.com/pull/8087": {
+  "results": [
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The forEach callback is now async and nothing awaits the deleteEvent/deleteMeeting promises, so rejections are unhandled and the mutation continues without waiting (bookings.tsx:553).",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "Each property in appStore calls import() when the module is evaluated, so every app module loads eagerly at startup. A failing import would also leave an unhandled rejected promise.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "refuted: apiDeletes is consumed by Promise.all at handleCancelBooking.ts:652, which accepts the undefined from a null calendar without error. The serial calendar creation is only a minor performance point.",
+    "defaulted": false
+   }
+  ],
+  "steps": 3,
+  "commands": 3,
+  "inputTokens": 23267,
+  "outputTokens": 978,
+  "error": null,
+  "ms": 10718
+ },
+ "https://github.com/calcom/cal.com/pull/22532": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The call passes an empty data object to updateMany (selectedCalendar.ts:400-405), and nothing in the repo shows updatedAt gets bumped. It also adds an extra write on every refresh.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: CredentialActionsDropdown.tsx:69-73 and 85 only use hasCache as a JSX `&&` guard, so a null or undefined value renders nothing. Deleting cached data is a separate action from disconnecting, which is what canDisconnect (line 68) gates, so skipping disableConnectionModification looks deliberate.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "minor: DropdownMenuItem wrapping DropdownItem is the same pattern AppList.tsx already uses (around lines 104 and 230). The finding names no concrete failure.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "`sed -i ''` at line 72 is BSD/macOS syntax and fails on GNU sed, and ENV_FILE is the relative path ../.env.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "cleanup() ends with `exit 0` (line 10) and is also called from the rate-limit and URL-extraction failure paths, so those failures exit with status 0.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "minor: the repository returns the latest cache write time, which is a reasonable 'last updated' value. The finding names no incorrect behaviour, and the migration-time point is only a side remark.",
+    "defaulted": false
+   }
+  ],
+  "steps": 5,
+  "commands": 6,
+  "inputTokens": 47768,
+  "outputTokens": 2857,
+  "error": null,
+  "ms": 31354
+ },
+ "https://github.com/getsentry/sentry/pull/77754": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "from_dict swallows ValueError/TypeError and returns None without logging, and the task then treats that as no source, so should_sync's cycle check is skipped.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: every sync_assignee_outbound implementation (mixins/issues.py:397, example/integration.py:152, jira/integration.py:936, vsts/issues.py:217, jira_server/integration.py:1038) accepts **kwargs, so the extra kwarg cannot raise TypeError.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: where_should_sync (utils/sync.py:48) is used for inbound sync (sync.py:79), where no outbound assignment source exists, and should_sync's sync_source defaults to None (mixins/issues.py:382). The cycle guard is only needed on the outbound assignee path, which passes the source.",
+    "defaulted": false
+   }
+  ],
+  "steps": 6,
+  "commands": 6,
+  "inputTokens": 43182,
+  "outputTokens": 1514,
+  "error": null,
+  "ms": 23112
+ },
+ "https://github.com/calcom/cal.com/pull/8330": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "packages/trpc/server/routers/viewer/slots.ts:115 compares two freshly created Dayjs objects with ===, which is reference equality and always false, so the zero-length override branch is dead.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The override is matched by formatting the offset-shifted override start against the slot's UTC day. The offset comes from reinterpreting a Date via dayjs.tz and negating it, which is fragile near midnight. The slot-end overrun is also not checked.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "checkIfIsAvailable only rejects when slotStartTime is after the override end. It never checks slotEndTime against the override end, so a slot overrunning the end passes this check.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "DateOverride.timeZone is optional (packages/types/schedule.d.ts:5), and packages/lib/slots.ts:212 passes it straight to .tz() after round-tripping the Date through toString(). A missing timeZone gives a wrong organizer offset, and the start offset is also used for the end.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "The new test passes +5:30 day boundaries with the +6:00 timezone. The toHaveTimeSlots matcher (getSchedule.test.ts:53-59) only checks each returned slot index-wise, with no length check, so extra or missing slots would go unnoticed.",
+    "defaulted": false
+   }
+  ],
+  "steps": 5,
+  "commands": 5,
+  "inputTokens": 45601,
+  "outputTokens": 2144,
+  "error": null,
+  "ms": 22997
+ },
+ "https://github.com/calcom/cal.com/pull/7232": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The cancel loop awaits sequentially inside one try, so one failing SendGrid request throws before Promise.all and none of the rows are deleted. Those rows are retried every run, and the query has no method filter.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: scheduleEmailReminders.ts:42-49 picks up cancelled rows once they are within an hour of sending, so rows further away are not sent before a later run cancels them. The past-date deleteMany at lines 32-40 only removes rows whose time has already passed.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The helper calls in handleNewBooking.ts (~966) are not awaited, so the surrounding try/catch cannot catch async failures. The deletions run unawaited and race with the reschedule logic.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "With immediateDelete=true, emailReminderManager.ts:213-222 cancels in SendGrid and returns without touching the DB row. The stale row stays until the cron's past-date cleanup, unlike the SMS path, which deletes the row immediately.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "refuted: the findMany that produces the reminders is scoped to booking.userId = ctx.user.id (workflows.tsx:346-352), so the ownership scope is kept. Flagging scheduled rows and deleting unscheduled ones is the helper's deliberate design (emailReminderManager.ts:203-230).",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "handleCancelBooking.ts calls the async delete helpers without awaiting them or adding them to prismaPromises. The old code awaited the DB deletes, so they can now be cut off in serverless.",
+    "defaulted": false
+   },
+   {
+    "id": "f8",
+    "verdict": "REJECTED",
+    "reason": "minor: this is style only. The async keyword on forEach is redundant and the value imports of types are harmless, so no wrong result follows.",
+    "defaulted": false
+   }
+  ],
+  "steps": 3,
+  "commands": 3,
+  "inputTokens": 34527,
+  "outputTokens": 2412,
+  "error": null,
+  "ms": 21970
+ },
+ "https://github.com/getsentry/sentry/pull/67876": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "build_integration only sets meta sender if state has it (integration.py:376), and sender is otherwise added only via webhook (webhook.py:204), so metadata[\"sender\"] at line 503 can raise KeyError.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "safe_urlopen at line 413 is outside the try block, so connection or timeout errors propagate as a 500, and the status is never checked.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: integration.py:405 interpolates state (a hex pipeline signature) and redirect_uri (built from reverse() of a fixed path via absolute_uri); neither contains characters that need encoding, and the test asserts this exact form.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "get_user_info (identity/github/provider.py:16) calls raise_for_status and is not wrapped in a try in the view, so an API failure gives a 500. The broad except Exception also swallows token-exchange errors with no logging.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "When no Integration row exists, the code at line 493 goes straight to next_step with no comparison of the authenticated GitHub user to the installer. installation_id is bound from an unvalidated GET parameter, so the identity check is skipped on this path.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "minor: this is a style complaint about a hard-coded index in a test. The index 2 matches the stub order and it is not a wrong behaviour.",
+    "defaulted": false
+   }
+  ],
+  "steps": 3,
+  "commands": 3,
+  "inputTokens": 33422,
+  "outputTokens": 1849,
+  "error": null,
+  "ms": 16423
+ },
+ "https://github.com/getsentry/sentry/pull/93824": {
+  "results": [
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "Processes come from mp_context.Process (SpawnProcess), which doesn't subclass multiprocessing.Process (context.Process), so the isinstance checks in _ensure_processes_alive and join are always False and kill/terminate never run.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: SpansBuffer only holds assigned_shards and a flag (src/sentry/spans/buffer.py:153-156) with a lazily created client; the main-thread buffers are only used for stateless record_stored_segments/get_memory_info, so no meaningful state is lost.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The docstring says one process per shard, but the code caps processes at max_processes and shares shards among them, so the comment contradicts the code.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "minor: this is tag naming inconsistency ('shard' vs 'shards'); cardinality is bounded by the configured shard groupings and no wrong behaviour is shown.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The test monkeypatches time.sleep to a no-op, and the module-level `time` is the same module, so the added time.sleep(0.1) waits for nothing; the limit test also only checks assignment and never exercises flushing.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "minor: _create_process_for_shard is unused dead code with no effect on results.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 1,
+  "inputTokens": 20312,
+  "outputTokens": 1590,
+  "error": null,
+  "ms": 12762
+ },
+ "https://github.com/getsentry/sentry/pull/80528": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The modified `config` copy is built at incident_occurrence.py:~160 but the returned dict uses `monitor_environment.monitor.config`, so the formatted schedule_type is never used.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "refuted: try_incident_threshold (incidents.py:35-50) always includes the failed check-in, whose status is a failure status, in previous_checkins, so status_counts is not empty in practice; the docstring wording difference is minor.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "create_incident_occurrence is called once per check-in in the loop at incidents.py:~95, and each call re-runs get_last_successful_checkin and the environment lookups, which give identical results for the same monitor_env.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: previous_checkins always contains the failed check-in (the threshold==1 branch builds it explicitly; the query uses date_added__lte the saved failed check-in), so previous_checkins[0] at incidents.py:59 cannot raise IndexError. The lost ordering in the id__in re-fetch has no effect, since each occurrence is independent.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 32570,
+  "outputTokens": 1996,
+  "error": null,
+  "ms": 24008
+ },
+ "https://github.com/getsentry/sentry/pull/80168": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "MetricAlertDetectorHandler is just `pass` over a StatefulDetectorHandler with abstract methods, and it is registered as detector_handler (grouptype.py:27), so Detector.detector_handler (detector.py:86) instantiating it raises TypeError.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "The TODO at grouptype.py:10 says the handler will become stateful, but the class now extends StatefulDetectorHandler, so the comment is stale.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: evaluate returns dict[DetectorGroupKey, DetectorEvaluationResult] (detector.py:123-126), so duplicate keys can't be returned. StatefulDetectorHandler builds results from the group_values dict, so duplicates can't occur there either, as the finding admits.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: workflow_engine/types.py:10-12 defines DetectorPriorityLevel LOW/MEDIUM/HIGH as PriorityLevel's own values, and the only extra member, OK=0, is handled by the if branch before PriorityLevel() is called.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The expected occurrence is built with value 6 while the evaluated values are 100 or 8, and build_mock_occurrence_and_event ignores `value`, so the tests can't catch a wrong value being passed.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "group_2 is evaluated with value 10 but its expectation is built with 6; the mock builder ignores the value, so the assertion can't detect a wrong value.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "The patch is entered manually in setUp and exited in tearDown after super().tearDown(), with no addCleanup, so a failure in setUp or in super().tearDown() leaves StatusChangeMessage.__eq__ patched.",
+    "defaulted": false
+   }
+  ],
+  "steps": 5,
+  "commands": 7,
+  "inputTokens": 81249,
+  "outputTokens": 2264,
+  "error": null,
+  "ms": 21476
+ },
+ "https://github.com/getsentry/sentry/pull/95633": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: .python-version pins 3.13.1, where queue.ShutDown and Queue.shutdown exist.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: ordering only needs in-process consistency (queue_consumer.py:176 hash within one process), and items dropped at shutdown are never completed in OffsetTracker, so their offsets aren't committed and nothing is lost.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "Queues are unbounded (queue.Queue()) so there is no backpressure as the docstring claims, and the worker's finally block calls complete_offset even when processing raised, so failed items are committed.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "refuted: setdefault on the dict is atomic under the GIL (queue_consumer.py:50-54) and every defaultdict access in the tracker happens under the per-partition lock, so no real race is shown.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "The test's docstring says errors don't block commits, but it asserts no commit for the partition; that only passes because the 1s commit loop hasn't run yet, so it is timing-dependent and contradicts its intent.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 1,
+  "inputTokens": 31061,
+  "outputTokens": 1439,
+  "error": null,
+  "ms": 13496
+ },
+ "https://github.com/grafana/grafana/pull/76186": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "REJECTED",
+    "reason": "refuted: pkg/infra/log/log.go:203-217 ConcreteLogger.FromContext only returns cl or cl.New(...), both *ConcreteLogger, so the assertion never fails, and the d.New() fallback would keep the name anyway.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "TestLogger.FromContext (fake.go) returns NewTestLogger(), so calls logged through FromContext (as logger_middleware.go:58 does) are not recorded on the original fake.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: metrics_middleware.go has no logger usage, so it does not need contextual attributes, and trace IDs come from the log provider registered in pkg/infra/tracing/tracing.go:91.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The new middleware dereferences req.PluginContext with no nil check, while sibling middlewares (e.g. cookies_middleware.go:81, clear_auth_headers_middleware.go:42) guard req == nil.",
+    "defaulted": false
+   }
+  ],
+  "steps": 8,
+  "commands": 8,
+  "inputTokens": 70457,
+  "outputTokens": 2080,
+  "error": null,
+  "ms": 23359
+ },
+ "https://github.com/grafana/grafana/pull/103633": {
+  "results": [
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "Key at cache.go:31 joins name and parent with '_' unescaped, so names/folders containing underscores (valid UIDs) can collide and a cached denial may wrongly deny another resource.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: using raw UserUID at service.go:116 only yields separate denial entries per identifier form (a cache miss, falling through to the normal check); it never produces a wrong allow/deny result.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: GetUserIdentifiers checks idCache before the DB (service.go:454-461) so the second call is cached; the checkPermission error return is a surfaced failure, not wrong state.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "minor: complaint is about exported name, receiver naming and metric labelling; counting a denial-cache hit as a cache hit is accurate, and no wrong behaviour is shown.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "minor: leftover cacheHit field and branches in the test table are dead test code; cache paths are now covered by the new TestService_CacheCheck/CacheList tests.",
+    "defaulted": false
+   }
+  ],
+  "steps": 3,
+  "commands": 2,
+  "inputTokens": 39381,
+  "outputTokens": 1814,
+  "error": null,
+  "ms": 17020
+ },
+ "https://github.com/grafana/grafana/pull/79265": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "REJECTED",
+    "reason": "refuted: pkg/services/anonymous/anonimpl/client.go:44-50 handles the returned error, returning only ErrDeviceLimitReached and logging all other errors as before, so best-effort behaviour is preserved.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "impl.go:87 sets the local cache before CreateOrUpdateDevice at line 93, so a rejected or failed write stays cached as success.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "client.go now calls TagDevice synchronously with the request ctx, so DB work blocks the auth path and request cancellation can abort the write after the cache was already set.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "database.go CreateOrUpdateDevice runs the count and the upsert as separate statements with no transaction or lock, so concurrent new devices can exceed the limit.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: database.go updateDevice always sets updated_at = device.UpdatedAt (now), so the row values change and 0 affected rows only happens when the device is missing or outside the window.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "minor: the inferred `undefined` type is assignable to the interface's number | undefined, so nothing breaks and the issue is only a typing or default nit.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "CONFIRMED",
+    "reason": "the added test only asserts rejection of a new device; it does not check that an existing device can still update at the limit or that no row was inserted.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 2,
+  "inputTokens": 17809,
+  "outputTokens": 1492,
+  "error": null,
+  "ms": 16835
+ },
+ "https://github.com/grafana/grafana/pull/80329": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "Diff changes the cleanup ticker from 10 minutes to 1 minute with no relation to the fix, so cleanup runs ten times as often.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "Routine progress messages, including full ID lists, are logged with r.log.Error on every batch, as the diff shows.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: every fetchIDs query is capped by Limit/LimitOffset(AnnotationCleanupJobBatchSize) (xorm_store.go:526, 548, 566), so len(ids) never exceeds the batch size and keying on batch size is equivalent; the finding itself concedes it works.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "values = fmt.Sprintf(\"%s, %d\", values, v) re-copies the accumulated string each iteration, which is quadratic for batches up to ~32k IDs.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "t.Cleanup is registered after createTestAnnotations and the count assertions, so a failing assertion leaves data in the shared DB; the sibling test's cleanup only deletes from annotation.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "refuted: withDbSession closes the session in a defer (pkg/services/sqlstore/session.go:119-124), and defers run when require's FailNow calls Goexit, so no session is leaked. The rest is a test style point.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 1,
+  "inputTokens": 24613,
+  "outputTokens": 1526,
+  "error": null,
+  "ms": 12999
+ },
+ "https://github.com/grafana/grafana/pull/90939": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "Nothing re-checks entryPointAssetsCache after taking the write lock at webassets.go:49. Concurrent cold-cache callers each re-read the manifest in turn.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "Line 66 sets entryPointAssetsCache = result unconditionally. A failed read (result nil) therefore overwrites a previously valid cache, which matters in Dev mode where the cache is always re-read.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: readWebAssets returns a non-nil &dtos.EntryPointAssets whenever err is nil (webassets.go:139-143), so result.SetContentDeliveryURL at line 60 is only reached with err == nil and a non-nil result. The panic cannot occur.",
+    "defaulted": false
+   }
+  ],
+  "steps": 3,
+  "commands": 2,
+  "inputTokens": 13821,
+  "outputTokens": 716,
+  "error": null,
+  "ms": 9529
+ },
+ "https://github.com/grafana/grafana/pull/107534": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "runShardSplitQuery interpolates targets at shardQuerySplitting.ts:52, then each shard sub-request goes through runSplitQuery (shardQuerySplitting.ts:163), which calls applyTemplateVariables again at querySplitting.ts:299, so ad hoc filters and expressions are processed twice.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "The assertion of 5 calls depends on the number of shard groups, and it encodes the repeated interpolation in runSplitQuery instead of checking that queries are interpolated once.",
+    "defaulted": false
+   }
+  ],
+  "steps": 5,
+  "commands": 4,
+  "inputTokens": 31951,
+  "outputTokens": 996,
+  "error": null,
+  "ms": 13633
+ },
+ "https://github.com/grafana/grafana/pull/90045": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "Mode3 Update at line 136 records a storage Update failure with recordLegacyDuration, using startStorage, so it is mislabeled.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "Mode3 Create at line 49 records a storage Create failure with recordLegacyDuration, using startStorage, so it is mislabeled.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The legacy DeleteCollection goroutine, timed with startLegacy, calls recordStorageDuration, so legacy timing and errors land in the storage metric.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The Delete success path passes `name` where every other call passes options.Kind, so the kind label gets a per-object value.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "Delete builds the context with d.Log, not the local enriched `log`, so the name, kind and method values are dropped from downstream logs.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The legacy goroutines derive their context from the request ctx, which can be cancelled once the request ends. The legacy error is only recorded as a metric and no longer logged.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "refuted: pkg/apiserver/rest/metrics.go:46-50 shows registration errors are only logged, not panicked on. The metrics are package-global collectors, and dualwriter_mode1_test.go:27 defines the package-level `p`.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "REJECTED",
+    "reason": "refuted: the test uses one shared mock `m` for both legacy and storage (`legacyStoreMock{m,l}`, `storageMock{m,s}`), so the `Create` expectation set in setupLegacyFn also serves the storage call and returns the error. The test therefore exercises the storage error path.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 66041,
+  "outputTokens": 1552,
+  "error": null,
+  "ms": 16369
+ },
+ "https://github.com/grafana/grafana/pull/94942": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "pkg/expr/reader.go:194-198 returns false on both paths, so the feature flag has no effect.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "The final `return false` in enableSqlExpressions is reached even when the flag is on, so the SQL branch in ReadQuery is unreachable.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The error text 'sqlExpressions is not implemented' is returned when the check fails and does not mention the feature toggle. It is also always returned, because the check always fails.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "pkg/expr/sql/parser.go:26 calls RunCommands, which always errors in db.go, so TablesList and therefore NewSQLCommand (sql_command.go:30) always fail.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "minor: the method DB.TablesList is unused and nothing calls it (callers use the package-level TablesList). That makes it dead code with no effect on results.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 3,
+  "inputTokens": 21225,
+  "outputTokens": 735,
+  "error": null,
+  "ms": 15009
+ },
+ "https://github.com/grafana/grafana/pull/106778": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "With rule undefined, useIsGrafanaPromRuleEditable returns loading:false so Duplicate is AlwaysSupported with Grafana create permission, and AlertRuleMenu ORs it with the ruler ability, so datasource rules get Duplicate.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "useAllAlertRuleAbilities now delegates to useAllRulerRuleAbilities, which hardcodes isFederated=false, replacing the removed isFederatedRuleGroup(rule.group) check.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "FilterView.tsx's grafana case renders GrafanaRuleListItem without key, while the other cases pass key={key}, though `key` is destructured.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "GrafanaRuleListItem builds href with createRelativeUrl only and has no createReturnTo, unlike DataSourceRuleListItem, which still uses returnTo.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The comment still says 'preload ruler rules' and the variable is cacheAndRulerPreload, but the ruler prefetch dispatch was removed, so the comment now contradicts the code.",
+    "defaulted": false
+   }
+  ],
+  "steps": 5,
+  "commands": 5,
+  "inputTokens": 73035,
+  "outputTokens": 2038,
+  "error": null,
+  "ms": 21976
+ },
+ "https://github.com/grafana/grafana/pull/97529": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "Init now runs in the constructor (server.go:258) and the per-handler Init checks were removed, so the initErr that Stop() sets (server.go:321) is no longer checked and handlers keep serving after Stop.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "refuted: the construction blocks until Init finishes (server.go:258), so no Watch client exists while the index builds. The broadcaster only pipes events from creation onward (server.go:757-770), and the search watch gap (search.go:201) predates this change.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "bleve.go TotalDocs iterates b.cache without cacheMu. It is now called from init's log line (search.go:216) while the handleEvent goroutine can write the map, which is a concurrent map access race.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The group.Go closures at search.go:181-187 write the shared err and increment totalBatchesIndexed unsynchronized. This is a data race when initWorkers > 1, and group.SetLimit(s.initWorkers) at search.go:179 allows that.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "History and Origin (server.go:925, 931) call s.search methods with no nil check, although s.search stays nil when opts.Search.Resources is nil (server.go:~250). Search checks for nil and these two don't.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "CONFIRMED",
+    "reason": "The test now skips for postgres as well as sqlite (module_server_test.go:35-38), so it no longer exercises the constructor-Init change in any configuration.",
+    "defaulted": false
+   }
+  ],
+  "steps": 4,
+  "commands": 5,
+  "inputTokens": 51771,
+  "outputTokens": 2709,
+  "error": null,
+  "ms": 25692
+ },
+ "https://github.com/keycloak/keycloak/pull/36882": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "UpgradeTest.java:105-107 returns early for a null strategy, before the FeatureSpec with ROLLING_UPDATES is set at lines 112-115, so those parameterized cases run without the feature enabled.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "refuted: the only consumer of RECREATE_UPGRADE_EXIT_CODE is IncompatibleResult.java:35, which uses the constant, and the operator main code never checks exit code 4. The change is deliberate, and the docs table is updated to match.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: the macro in kc.adoc:53 is only used with fixed doc parameters (update-compatibility.adoc:63,83) that contain no --features, so no duplicate option arises. Option order does not matter for picocli.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "minor: this is wording in a doc table. The row for exit code 4 already says the feature `rolling-updates` is disabled, which matches FEATURE_DISABLED in the code.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "minor: operator/scripts/Dockerfile-custom-image is a test-support image for the operator's upgrade tests, and enabling the feature at build time is the intended purpose of the change.",
+    "defaulted": false
+   }
+  ],
+  "steps": 6,
+  "commands": 6,
+  "inputTokens": 47778,
+  "outputTokens": 2329,
+  "error": null,
+  "ms": 26468
+ },
+ "https://github.com/keycloak/keycloak/pull/33832": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The test (ECDSAAlgorithmTest.java:42) generates one default EC key (not P-384/P-521) for all three algorithms, so ES384/ES512 are only self-consistent round trips on P-256 signatures.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "ASN1Decoder.readLength returns -1 for 0x80, and readInteger passes it to read(), where new byte[-1] throws NegativeArraySizeException; an empty INTEGER also reaches new BigInteger(byte[0]), which throws NumberFormatException.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "integerToBytes copies only the last qLength bytes when the integer is longer, and never checks that the dropped leading bytes are just sign padding, so oversized r/s are silently truncated.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "CryptoIntegration.detectProvider no longer errors on several providers. DefaultCryptoProvider, WildFlyElytronProvider and FIPS1402Provider all return order 200, so ties are resolved by ServiceLoader order with only a debug log.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "minor: the two discarded ASN1Encoder.create().write(...) calls are redundant dead code that doesn't change the result, with only a negligible cost.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 1,
+  "inputTokens": 26290,
+  "outputTokens": 1121,
+  "error": null,
+  "ms": 14202
+ },
+ "https://github.com/keycloak/keycloak/pull/37429": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The added Lithuanian totpStep1 line is Italian text, so Lithuanian users would see Italian.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "The added Lithuanian loginTotpStep1 line is Italian text, so Lithuanian users would see Italian.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "The added zh_CN totpStep1 line uses Traditional characters (手機, 安裝, 應用程式), which is wrong for the Simplified Chinese locale.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The English counterpart path is derived by regex, and a missing English file throws an unchecked RuntimeException rather than MojoExecutionException (VerifyMessageProperties.java:71-77).",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: VerifyMessageProperties.java:150-152 only calls replaceFirst when matcher.group() equals englishMatcher.group(), so removing the first identical occurrence has the same effect. Lockstep matching is the intended rule that only the source's anchors are allowed.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "refuted: the title is wrong, because PropertyResourceBundle(InputStream) at VerifyMessageProperties.java:78 reads UTF-8 first. The claimed misdecoding is only speculative, with no concrete failing case.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "minor: the complaint is only that policy and pattern fields are rebuilt per instance, a micro-optimisation with no wrong result.",
+    "defaulted": false
+   },
+   {
+    "id": "f7",
+    "verdict": "CONFIRMED",
+    "reason": "The fixture has an unterminated '</div', and the test only asserts that an 'Illegal HTML' message appears. A malformed-tag failure would pass it too, so it does not isolate the disallowed-tag check.",
+    "defaulted": false
+   },
+   {
+    "id": "f8",
+    "verdict": "REJECTED",
+    "reason": "refuted: the diff removes the extra trailing </strong>, leaving '<strong>{0}</strong> Prevteliť sa', which is balanced; the finding's claim of an unclosed tag is wrong.",
+    "defaulted": false
+   }
+  ],
+  "steps": 2,
+  "commands": 1,
+  "inputTokens": 21999,
+  "outputTokens": 2373,
+  "error": null,
+  "ms": 18625
+ },
+ "https://github.com/keycloak/keycloak/pull/40940": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The reader thread is started and never joined, so the assertion on caughtExceptions can run before its last iteration finishes and the thread can outlive the test.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "Nothing in the test checks that the reader completed any read before deletedAll is set, so the race may go unexercised.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "deletedAll.set(true) is not in a finally block, so any exception in the delete loop leaves the non-daemon reader thread spinning forever. The ArrayList is only touched from the test thread, so the thread-safety remark is wrong, but the leak is real.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: the only caller, GroupUtils.java:90, passes the result to GroupRepresentation.setSubGroupCount(Long) (GroupRepresentation.java:94), which takes a boxed Long, so a null is not unboxed and cannot cause an NPE. Returning null for a concurrently deleted group is a deliberate tolerance.",
+    "defaulted": false
+   }
+  ],
+  "steps": 5,
+  "commands": 4,
+  "inputTokens": 30031,
+  "outputTokens": 1274,
+  "error": null,
+  "ms": 17704
+ },
+ "https://github.com/keycloak/keycloak/pull/37038": {
+  "results": [
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "The diff shows the Javadoc on getGroupIdsWithViewPermission says '@return Stream of IDs' while the declared return type is Set<String>, so the comment contradicts the signature.",
+    "defaulted": false
+   }
+  ],
+  "steps": 1,
+  "commands": 0,
+  "inputTokens": 4745,
+  "outputTokens": 312,
+  "error": null,
+  "ms": 3058
+ },
+ "https://github.com/keycloak/keycloak/pull/36880": {
+  "results": [
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: server-spi-private/.../DefaultPolicyEvaluator.java:73-74 also evaluates policies by the resource's type (findByResourceType), so type-level all-clients permissions still apply to a per-client resource.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "ClientPermissionsV2.canView() (line 96) checks only VIEW and omits MANAGE, unlike canView(ClientScopeModel). requireView() callers such as RealmAdminResource:1197 therefore deny MANAGE-all. Listing still works via ClientsResource:148, so the impact is overstated.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "minor: the finding is about dead code (unused getEvaluationContext) and unused imports; resource names are client UUIDs (AdminPermissionsSchema.java:183), so no wrong behaviour is shown.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "minor: using JUnit4 Assert.fail is a style issue; the AssertionError it throws is not caught by catch(Exception), and the create(null) test still asserts FORBIDDEN.",
+    "defaulted": false
+   }
+  ],
+  "steps": 10,
+  "commands": 9,
+  "inputTokens": 184465,
+  "outputTokens": 4437,
+  "error": null,
+  "ms": 43063
+ },
+ "https://github.com/keycloak/keycloak/pull/32918": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "`original` comes from the org-aware `getById` (Infinispan...StorageProvider.java:432-446), whose `isEnabled()` is false when the org is disabled. The cached lists come from `getForLogin`, which filters on the raw stored `enabled` config (IdentityProviderStorageProvider.java:165-184). So disabling or hiding such an IDP is skipped as 'not login before and after' and the cached id set goes stale.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "The cleanup is registered as `identityProviders().get(\"alias\")::remove`, which uses the literal \"alias\" instead of \"idp-alias-\"+i or the alias of IDP 20. The created IDPs are never removed.",
+    "defaulted": false
+   }
+  ],
+  "steps": 6,
+  "commands": 6,
+  "inputTokens": 86659,
+  "outputTokens": 1715,
+  "error": null,
+  "ms": 21627
+ },
+ "https://github.com/keycloak/keycloak/pull/38446": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "The cleanup at RecoveryAuthnCodesFormAuthenticator.java:83 still calls the local-store removeStoredCredentialById. The credential can now come from user storage, and nothing in the diff persists used-code state back to it.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "REJECTED",
+    "reason": "refuted: RecoveryAuthnCodesUtils.getCredential (server-spi/.../RecoveryAuthnCodesUtils.java:56-61) falls back to getStoredCredentialsByTypeStream when the federated stream has no match. The Optional is empty only if the user has no recovery credential at all, and the old code also called get() in that case.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "CONFIRMED",
+    "reason": "CredentialHelper.createRecoveryCodesCredential serialises the raw generated codes and passes them to updateCredential. External user storage providers therefore receive the unhashed secrets, while the local path stores hashes.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "CONFIRMED",
+    "reason": "getCredentials rebuilds the model with createFromValues, which re-hashes the codes. It does not carry over the id that was generated in updateCredential, so the returned model has no stored id.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "CONFIRMED",
+    "reason": "The new isValid branch only checks membership in the stored list and never marks a code as used, so codes can be reused indefinitely in this provider.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "minor: the typo 'suthenticator' is only in a test config alias string and has no effect on behaviour.",
+    "defaulted": false
+   }
+  ],
+  "steps": 5,
+  "commands": 4,
+  "inputTokens": 85193,
+  "outputTokens": 2171,
+  "error": null,
+  "ms": 24625
+ },
+ "https://github.com/keycloak/keycloak/pull/37634": {
+  "results": [
+   {
+    "id": "f0",
+    "verdict": "CONFIRMED",
+    "reason": "AssertEvents.java:482 returns false when substring(3,5) equals the expected shortcut; the condition is inverted and the offsets are wrong (shortcut is at 4–6), so the matcher passes for wrong grants.",
+    "defaulted": false
+   },
+   {
+    "id": "f1",
+    "verdict": "CONFIRMED",
+    "reason": "AccessTokenContext.java:77 calls requireNonNull(grantType, \"Null rawTokenId…\") so rawTokenId is never null-checked.",
+    "defaulted": false
+   },
+   {
+    "id": "f2",
+    "verdict": "REJECTED",
+    "reason": "refuted: DefaultTokenContextEncoderProvider.java:78 is deliberate validation of the fixed 6-char format; getTokenContextFromTokenId has no caller in services/server-spi main, and legacy UUID ids without ':' do fall back to UNKNOWN at line 68.",
+    "defaulted": false
+   },
+   {
+    "id": "f3",
+    "verdict": "REJECTED",
+    "reason": "refuted: TokenEndpoint.java:119 reads grant_type and the grant is resolved to a registered OAuth2GrantType before the context grant type is stored (OAuth2GrantTypeBase.java:109), and every grant factory has a registered shortcut.",
+    "defaulted": false
+   },
+   {
+    "id": "f4",
+    "verdict": "REJECTED",
+    "reason": "refuted: the only Context creator, TokenEndpoint.java:149, passes formParams that were already dereferenced at TokenEndpoint.java:119, and the removed copy constructor has no callers because setContext (OAuth2GrantTypeBase.java:90-104) copies the fields itself.",
+    "defaulted": false
+   },
+   {
+    "id": "f5",
+    "verdict": "REJECTED",
+    "reason": "refuted: AbstractOIDCProtocolMapper.java:84-86 uses the same session.getContext().getClient() lookup when mappers run in the same token-creation flow, so the client is already assumed to be set and the token type stays consistent with mapper behaviour.",
+    "defaulted": false
+   },
+   {
+    "id": "f6",
+    "verdict": "REJECTED",
+    "reason": "minor: unused import (TokenExchangeGrantTypeFactory appears only at the import line, StandardTokenExchangeProvider.java:50) with no effect on behaviour.",
+    "defaulted": false
+   }
+  ],
+  "steps": 7,
+  "commands": 7,
+  "inputTokens": 125048,
+  "outputTokens": 3343,
+  "error": null,
+  "ms": 45934
+ }
+}

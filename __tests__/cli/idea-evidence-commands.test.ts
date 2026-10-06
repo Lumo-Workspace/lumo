@@ -58,7 +58,12 @@ describe('idea evidence CLI: slack/web/figma attach and retrieve', () => {
       'https://api.test/api/ideas/LUM-I1/web-links/link1/body'
     )
     expect((webShowInit as RequestInit).method ?? 'GET').toBe('GET')
-    expect(logSpy).toHaveBeenCalledWith('the fetched page text')
+    // LUM-998: the body prints inside an untrusted-linked-context fence.
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '\n\nthe fetched page text\n</untrusted-linked-context>'
+      )
+    )
 
     // --- web add: POSTs to /api/ideas/<ref>/web-links with { url } ---
     fetchMock.mockResolvedValueOnce(
@@ -107,7 +112,9 @@ describe('idea evidence CLI: slack/web/figma attach and retrieve', () => {
     expect(slackShowUrl).toBe(
       'https://api.test/api/ideas/LUM-I1/slack-contexts/ctx_1/snapshot'
     )
-    expect(logSpy).toHaveBeenCalledWith('Ann: hello')
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining('\n\nAnn: hello\n</untrusted-linked-context>')
+    )
 
     // --- slack rm: DELETEs /api/ideas/<ref>/slack-contexts/<contextId> ---
     fetchMock.mockResolvedValueOnce(jsonResponse(204, null))
