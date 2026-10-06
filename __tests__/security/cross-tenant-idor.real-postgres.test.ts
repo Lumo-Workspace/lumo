@@ -69,7 +69,7 @@ jest.mock('@octokit/auth-app', () => ({ createAppAuth: jest.fn() }))
 jest.mock('@/lib/integrations/og-metadata/fetch-chromium', () => ({
   fetchOpenGraphChromium: jest.fn(),
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: unknown) => {
     void Promise.resolve(p).catch(() => {})
   },

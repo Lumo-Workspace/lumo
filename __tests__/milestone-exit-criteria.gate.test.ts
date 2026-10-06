@@ -17,7 +17,7 @@ const mockRepoGuardedUpdate = jest.fn()
 const mockListUnresolved = jest.fn()
 const mockCountUnresolved = jest.fn()
 
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/services/project.service', () => ({
   projectService: { getProject: (...a: unknown[]) => mockProjectGet(...a) },
 }))

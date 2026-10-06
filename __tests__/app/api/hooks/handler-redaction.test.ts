@@ -16,7 +16,7 @@ jest.mock('@/lib/services/boundary-detector.service', () => ({
 jest.mock('@/lib/services/auto-block.service', () => ({
   autoBlockService: { onProgressRecorded: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: unknown) => {
     void Promise.resolve(p).catch(() => {})
   },

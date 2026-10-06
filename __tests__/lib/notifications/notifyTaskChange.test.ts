@@ -36,7 +36,7 @@ jest.mock('@/lib/db/prisma', () => ({
 
 // Capture promises passed to waitUntil so we can flush them between assertions.
 const waitUntilPromises: Array<Promise<unknown>> = []
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => {
     waitUntilPromises.push(p)
   },

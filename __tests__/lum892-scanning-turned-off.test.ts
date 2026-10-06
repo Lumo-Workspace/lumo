@@ -17,7 +17,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findLatestByPullRequestIds: jest.fn(),

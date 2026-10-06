@@ -5,7 +5,7 @@
  * POST /api/tags open to bearer.
  */
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/actor', () => ({ getHumanActorId: jest.fn() }))
 jest.mock('@/lib/repositories', () => ({
   commentRepository: { findByIdWithTask: jest.fn() },

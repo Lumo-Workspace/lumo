@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { getActorClerkId, getHumanActorId } from '@/lib/actor'
 // Import branch helpers from the sub-module, NOT the '@/lib/integrations/github'
 // barrel — the barrel re-exports auth.ts (octokit), which we don't need here and

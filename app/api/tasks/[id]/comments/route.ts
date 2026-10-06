@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'

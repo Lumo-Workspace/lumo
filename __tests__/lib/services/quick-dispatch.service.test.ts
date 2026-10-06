@@ -17,7 +17,7 @@ jest.mock('@/lib/repositories', () => ({
   },
 }))
 
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 

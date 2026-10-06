@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { notificationRepository } from '@/lib/repositories/notification.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'

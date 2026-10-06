@@ -18,7 +18,7 @@ jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: async () =>
     jest

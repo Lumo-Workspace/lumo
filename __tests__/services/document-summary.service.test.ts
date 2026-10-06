@@ -10,7 +10,7 @@ jest.mock('@/lib/repositories/document.repository', () => ({
   },
 }))
 jest.mock('@/lib/services/content-summary.service')
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 

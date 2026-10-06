@@ -3,7 +3,7 @@ import { verifyBearer } from '@/lib/auth/bearer'
 import { sessionService } from '@/lib/services/session.service'
 import { nextStepsService } from '@/lib/services/next-steps.service'
 import { sessionStartEdgesService } from '@/lib/services/session-start-edges.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }

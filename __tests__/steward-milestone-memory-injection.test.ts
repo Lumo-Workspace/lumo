@@ -52,7 +52,7 @@ jest.mock('@/lib/repositories/hook-event.repository', () => ({
     setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined),
   },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 

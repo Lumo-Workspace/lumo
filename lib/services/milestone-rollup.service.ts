@@ -6,7 +6,7 @@ import {
   type MilestoneStaleness,
 } from '@/lib/summaries/milestone-rollup'
 import { generateMilestoneRetro } from '@/lib/services/milestone.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import type { TaskStatus } from '@prisma/client'
 
 /**

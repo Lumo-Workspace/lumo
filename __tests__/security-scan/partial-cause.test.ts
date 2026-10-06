@@ -26,7 +26,7 @@ jest.mock('@/lib/logger', () => ({
     error: jest.fn(),
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     $transaction: jest.fn(),

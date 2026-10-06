@@ -22,7 +22,7 @@ jest.mock('@/lib/logger', () => ({
     error: jest.fn(),
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 const mockAudit = jest.fn()
 jest.mock('@/lib/services/audit.service', () => ({
   recordAuditEvent: (...a: unknown[]) => mockAudit(...a),

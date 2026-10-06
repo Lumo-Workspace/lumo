@@ -7,7 +7,7 @@ jest.mock('@/lib/services/ai-derived-content.service', () => ({
 jest.mock('@/app/api/hooks/_handler', () => ({
   handleHookRequest: (...a: unknown[]) => handleHookRequest(...a),
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 jest.mock('@/lib/attribution/trigger', () => ({

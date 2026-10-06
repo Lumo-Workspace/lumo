@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { requireIdentity } from '@/lib/auth'
 import { planRunService } from '@/lib/services/plan-run.service'
 import { triggerClusterStage } from '@/lib/services/plan-cluster-runner'

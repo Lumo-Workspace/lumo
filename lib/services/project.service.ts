@@ -9,7 +9,7 @@ import { getActorClerkId } from '@/lib/actor'
 import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { htmlToPreview } from '@/lib/utils/htmlToPreview'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

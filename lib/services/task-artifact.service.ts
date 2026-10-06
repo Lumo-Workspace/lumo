@@ -1,6 +1,6 @@
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import type { TaskArtifactAgent } from '@prisma/client'
 import { scanContent } from '@/lib/services/content-signals'
 

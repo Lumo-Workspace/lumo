@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { requireIdentity, type Identity } from '@/lib/auth'
 import { updateCommentSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'

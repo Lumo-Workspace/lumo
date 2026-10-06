@@ -19,7 +19,7 @@ jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
 jest.mock('@/lib/services/content-summary.service', () => ({
   contentSummaryService: { summarize: jest.fn(async () => 'recap') },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/integrations/slack', () => ({}))
 jest.mock('@/lib/integrations/pusher', () => ({}))
 jest.mock('@/lib/services/mention-notify.service', () => ({}))

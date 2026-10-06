@@ -16,7 +16,7 @@ jest.mock('@/lib/services/boundary-detector.service', () => ({
   boundaryDetectorService: { detectAndRecord: jest.fn() },
 }))
 // waitUntil: pass-through that swallows so a detached rejection can't surface.
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: unknown) => {
     void Promise.resolve(p).catch(() => {})
   },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { type Prisma } from '@prisma/client'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember } from '@/lib/api/helpers'
 import { summaryService } from '@/lib/services/summary.service'

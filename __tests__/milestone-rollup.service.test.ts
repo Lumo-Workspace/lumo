@@ -10,7 +10,7 @@
  * write, so a regression that reintroduces one shows up as an unexpected
  * argument shape here.
  */
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: {
     findById: jest.fn(),

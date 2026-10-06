@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { commentService } from '@/lib/services/comment.service'
 import { markdownToHtml } from '@/lib/utils/markdown'

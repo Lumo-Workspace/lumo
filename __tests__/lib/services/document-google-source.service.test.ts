@@ -7,7 +7,7 @@ jest.mock('@clerk/nextjs/server', () => ({
     users: { getUserList: async () => ({ data: [] }) },
   }),
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 
