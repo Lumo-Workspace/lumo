@@ -495,6 +495,39 @@ describe('LUM-1012 follow-up — stageReason', () => {
     })
   })
 
+  test('the hunt file cap carries its numbers', () => {
+    expect(
+      stageReason(
+        'hunt',
+        scan({
+          stages: { hunt: 'SKIPPED' },
+          huntOverCap: { sourceFiles: 400, capFiles: 300 },
+        } as Partial<SecurityScanView>)
+      )
+    ).toEqual({
+      id: 'securityScan.stageReason.huntOverCap',
+      values: { files: 400, cap: 300 },
+    })
+  })
+
+  test('a batched hunt that stopped part-way says why it stopped, not "still running"', () => {
+    for (const [state, id] of [
+      ['FAILED', 'FAILED'],
+      ['SUPERSEDED', 'SUPERSEDED'],
+      ['PARTIAL', 'PARTIAL'],
+    ] as const) {
+      expect(
+        stageReason(
+          'hunt',
+          scan({
+            stages: { hunt: state },
+            huntProgress: { coveredFiles: 40, totalFiles: 120 },
+          } as Partial<SecurityScanView>)
+        )?.id
+      ).toBe(`securityScan.stageReason.${id}`)
+    }
+  })
+
   test('a partial batched hunt says how far it got; a finished one says nothing', () => {
     expect(
       stageReason(

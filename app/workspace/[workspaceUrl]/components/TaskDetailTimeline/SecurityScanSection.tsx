@@ -360,6 +360,9 @@ function StageItem({
           role='img'
           aria-label={label}
           aria-describedby={reasonText ? reasonId : undefined}
+          // A checked layer has no reason tooltip; it keeps the plain
+          // native hover with its state.
+          title={reasonText ? undefined : label}
           tabIndex={reasonText ? 0 : undefined}
           data-testid={`stage-${stageKey}`}
           data-state={overCap ? 'OVER_CAP' : state}

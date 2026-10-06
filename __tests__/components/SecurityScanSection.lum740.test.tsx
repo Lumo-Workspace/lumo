@@ -201,6 +201,12 @@ describe('LUM-740 panel', () => {
       })
     )
     expect(screen.getByTestId('stage-secrets')).not.toHaveAttribute('tabindex')
+    // A checked layer keeps its plain state hover.
+    expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
+      'title',
+      'Secret patterns: ran'
+    )
+    expect(screen.getByTestId('stage-hunt')).not.toHaveAttribute('title')
     const hunt = screen.getByTestId('stage-hunt')
     expect(hunt).toHaveAttribute('tabindex', '0')
     // Never hover-only: the reason is the cell's accessible description.

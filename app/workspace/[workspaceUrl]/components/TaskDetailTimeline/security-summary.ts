@@ -238,8 +238,11 @@ export function stageReason(
         cap: scan.huntOverCap.capFiles,
       },
     }
+  // Only a hunt still running reads as "n of m so far" — a batched hunt
+  // that then failed or was superseded says that instead.
   if (
     stageKey === 'hunt' &&
+    state === 'PENDING' &&
     scan.huntProgress &&
     scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles
   )
