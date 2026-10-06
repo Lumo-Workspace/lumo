@@ -23,12 +23,16 @@ jest.mock('@/lib/services/security-pr-review.service', () => ({
 jest.mock('@/lib/llm/review-verifier-client', () => ({
   verifyFindings: jest.fn(),
 }))
+jest.mock('@/lib/llm/review-ranker-client', () => ({
+  rankFindings: jest.fn(),
+}))
 
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository as repo } from '@/lib/repositories/pr-security-scan.repository'
 import * as sandbox from '@/lib/services/security-hunt-sandbox'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import { verifyFindings } from '@/lib/llm/review-verifier-client'
+import { rankFindings } from '@/lib/llm/review-ranker-client'
 import {
   citedDiff,
   reviewVerifierService,
@@ -73,6 +77,13 @@ const handle = { origin: 'attached' }
 
 beforeEach(() => {
   jest.resetAllMocks()
+  delete process.env.LUMO_REVIEW_RANKER
+  ;(rankFindings as jest.Mock).mockResolvedValue({
+    ranking: [],
+    inputTokens: 0,
+    outputTokens: 0,
+    error: null,
+  })
   ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
     row('a'),
     row('b', { kind: 'VULNERABILITY', ruleId: 'vuln:xss' }),
@@ -192,5 +203,102 @@ describe('LUM-988 release-only mode', () => {
     expect(sandbox.attachOrCreateHuntSandbox).not.toHaveBeenCalled()
     expect(repo.completeVerification).toHaveBeenCalledWith('s1', [])
     expect(securityPrReviewService.sync).toHaveBeenCalledWith('s1')
+  })
+})
+
+describe('LUM-988 ranker after the verifier', () => {
+  const confirmA = (error: string | null = null) =>
+    (verifyFindings as jest.Mock).mockResolvedValue({
+      results: [
+        {
+          id: 'a',
+          verdict: 'CONFIRMED',
+          reason: 'confirmed at src/a.ts:3',
+          defaulted: false,
+        },
+      ],
+      steps: 2,
+      commands: 1,
+      inputTokens: 1,
+      outputTokens: 1,
+      error,
+    })
+
+  it('ranks what the verifier left (security rows as context) and its rejection replaces CONFIRMED', async () => {
+    confirmA()
+    ;(rankFindings as jest.Mock).mockResolvedValue({
+      ranking: [
+        { id: 'b', p: 0, reason: 'xss is noise' },
+        { id: 'a', p: 5, reason: 'speculative' },
+      ],
+      inputTokens: 10,
+      outputTokens: 2,
+      error: null,
+    })
+    const out = await reviewVerifierService.run(job)
+    const input = (rankFindings as jest.Mock).mock.calls[0]![0]
+    expect(input.findings.map((f: { id: string }) => f.id)).toEqual(['a', 'b'])
+    expect(input.findings[0]).toMatchObject({
+      kind: 'logic_error',
+      verifierReason: 'confirmed at src/a.ts:3',
+    })
+    expect(input.findings[1]).toMatchObject({ kind: 'xss', verifierReason: '' })
+    expect(input.diff).toContain('+++ b/src/a.ts')
+    // One verdict per row: the ranker's REJECTED, never the xss row.
+    const verdicts = (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    expect(verdicts).toEqual([
+      {
+        findingId: 'a',
+        verdict: 'REJECTED',
+        reason: 'Ranked low: speculative',
+      },
+    ])
+    expect(out.rejected).toBe(1)
+  })
+
+  it('a row ranked at or above the threshold keeps the verifier verdict', async () => {
+    confirmA()
+    ;(rankFindings as jest.Mock).mockResolvedValue({
+      ranking: [{ id: 'a', p: 18, reason: 'real' }],
+      inputTokens: 1,
+      outputTokens: 1,
+      error: null,
+    })
+    await reviewVerifierService.run(job)
+    expect(
+      (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    ).toMatchObject([{ findingId: 'a', verdict: 'CONFIRMED' }])
+  })
+
+  it('does not rank when the verifier ended with an error', async () => {
+    confirmA('timeout')
+    await reviewVerifierService.run(job)
+    expect(rankFindings).not.toHaveBeenCalled()
+  })
+
+  it('LUMO_REVIEW_RANKER=off turns only the ranker off', async () => {
+    process.env.LUMO_REVIEW_RANKER = 'off'
+    confirmA()
+    await reviewVerifierService.run(job)
+    expect(rankFindings).not.toHaveBeenCalled()
+    expect(
+      (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    ).toMatchObject([{ findingId: 'a', verdict: 'CONFIRMED' }])
+  })
+
+  it('a ranker failure keeps the verifier verdicts and still syncs', async () => {
+    confirmA()
+    ;(rankFindings as jest.Mock).mockRejectedValue(new Error('boom'))
+    const out = await reviewVerifierService.run(job)
+    expect(
+      (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    ).toMatchObject([{ findingId: 'a', verdict: 'CONFIRMED' }])
+    expect(securityPrReviewService.sync).toHaveBeenCalledWith('s1')
+    expect(out.error).toBeNull()
+  })
+
+  it('skips the call when the verifier left nothing the policy can reject', async () => {
+    await reviewVerifierService.run(job)
+    expect(rankFindings).not.toHaveBeenCalled()
   })
 })

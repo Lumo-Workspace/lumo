@@ -8,3 +8,11 @@
 export function isReviewVerifierEnabled(): boolean {
   return process.env.LUMO_REVIEW_VERIFIER !== 'off'
 }
+
+/**
+ * `LUMO_REVIEW_RANKER=off` turns off only the ranker that runs after the
+ * verifier; the verifier's own verdicts still apply.
+ */
+export function isReviewRankerEnabled(): boolean {
+  return process.env.LUMO_REVIEW_RANKER !== 'off'
+}

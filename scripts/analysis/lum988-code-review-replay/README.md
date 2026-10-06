@@ -118,3 +118,48 @@ Follow-up (production now sends the verifier only the rows it may reject,
 `verify.ts --only-applicable`): offline scoring over the same 3 runs gives
 pooled P 46.0 / R 68.4 / F1 55.0 / F2 62.3, against 46.0 / 68.1 / 54.9 / 62.2
 when it saw every finding — no loss, fewer steps per scan.
+
+## Precision, round 2 (2026-10-06)
+
+The gap to the leaders is false positives, not recall: against Augment on the
+same 50 PRs, 21 golden comments only Augment finds and 23 only Lumo finds,
+but Lumo leaves ~127 false positives per run to Augment's ~70.
+
+**Filters do not move the frontier.** Dropping every LOW, capping findings
+per PR, keeping only findings two of three runs agree on, and a verifier that
+also rejects "true but not worth a comment" (`verifier-prompt-v4.txt`: P 60.9
+/ R 52.3 / F1 56.3 / F2 53.8; the narrowed `verifier-prompt-v5.txt`: F1 55.6 /
+F2 60.9) all trade recall for precision along the same curve, F1 53–55. The
+golden set counts small real bugs (carried-over code, defensive nil checks),
+so "not worth a comment" removes ~1 true positive per 3–4 false ones.
+
+**A listwise ranker does** (`rank.ts`, `lib/llm/review-ranker-client.ts`):
+one tool-free call per PR after the verifier, seeing every finding it left
+with its reason and the cited diff, gives each a probability p. At the same
+number of findings dropped it beats the review's own order by 2–4 F1 points
+(`score-rank.py` prints both). The threshold was chosen on run 1 and held out
+on runs 2 and 3, with two ranker samples:
+
+|                                      | P     | R     | F1    | F2    |
+| ------------------------------------ | ----- | ----- | ----- | ----- |
+| Verifier v3 (shipped)                | 46.0% | 68.1% | 54.9% | 62.2% |
+| + ranker, p ≥ 18, sample 1 (offline) | 51.2% | 65.0% | 57.2% | 61.6% |
+| + ranker, p ≥ 18, sample 2 (offline) | 50.8% | 64.6% | 56.9% | 61.2% |
+
+Every run stays above F2 60 (lowest 60.6). Cost ~$0.025 per PR, ~5 s.
+
+Real step3 judge on the sample-1 output (`results-rank18.json`,
+`score-rank18.txt`): runs 57.9 / 62.4, 56.0 / 60.5, 57.7 / 62.0 (F1 / F2),
+pooled **P 51.1 / R 65.0 / F1 57.2 / F2 61.6**, security 6–7 of 11 kept —
+identical to the offline score.
+
+```bash
+DOTENV_CONFIG_PATH=… npx tsx -r dotenv/config scripts/analysis/lum988-code-review-replay/rank.ts \
+  --results results-sonnet55.json --run 0 --verify verify-v3-run1.json --data /tmp/lum988-data --out rank-run1.json
+python3 scripts/analysis/lum988-code-review-replay/score-rank.py --bench /tmp/crb/offline \
+  --results results-sonnet55.json --runs 0:<judged tool>:verify-v3-run1.json:rank-run1.json
+```
+
+`verify.ts --system-file` swaps the verifier prompt for an ablation, and
+`score-verify.py --applicable-only --drop all|refuted|minor` scores one under
+the production policy (`minor` reads the v4/v5 reason prefix).
