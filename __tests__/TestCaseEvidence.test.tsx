@@ -6,7 +6,7 @@
  * 上出现了、并且指向那个文件**。
  */
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 
 // react-intl 在这套 jest 配置下是 ESM-only，仓库约定是 mock 掉它并回退到真的
 // en.json（与 TestCaseCard.test.tsx 同一份 mock）。
@@ -37,6 +37,7 @@ jest.mock('react-intl', () => {
 import { RunHistoryList } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RunHistoryList'
 
 const SHOT_URL = 'https://blob.example.com/test-evidence/t/c/abc.png'
+const SHOT2_URL = 'https://blob.example.com/test-evidence/t/c/ghi.png'
 const LOG_URL = 'https://blob.example.com/test-evidence/t/c/def.log'
 
 const run = (evidence: unknown) =>
@@ -76,7 +77,7 @@ const logFile = {
 }
 
 describe('run evidence is visible, not just counted', () => {
-  it('renders image evidence as a clickable thumbnail linking to the file', () => {
+  it('renders image evidence as a thumbnail that opens a preview', () => {
     render(
       <RunHistoryList
         requiredEnvironment={null}
@@ -86,13 +87,14 @@ describe('run evidence is visible, not just counted', () => {
     )
 
     const thumbnail = screen.getByAltText('footer.png')
-    expect(thumbnail).toBeInTheDocument()
     expect(thumbnail).toHaveAttribute('src', SHOT_URL)
-    // 缩略图必须自己就是那个可点开的东西 —— 不是一段旁边挂着链接的装饰。
-    expect(thumbnail.closest('a')).toHaveAttribute('href', SHOT_URL)
+    // 缩略图必须自己就是那个可点开的东西 —— 不是一段旁边挂着按钮的装饰。
+    expect(thumbnail.closest('button')).toHaveAccessibleName(
+      'Preview footer.png'
+    )
   })
 
-  it('opens the original in a new tab without leaking the referrer', () => {
+  it('opens the lightbox in place, with the original one click away', () => {
     render(
       <RunHistoryList
         requiredEnvironment={null}
@@ -101,9 +103,52 @@ describe('run evidence is visible, not just counted', () => {
       />
     )
 
-    const link = screen.getByAltText('footer.png').closest('a')
-    expect(link).toHaveAttribute('target', '_blank')
-    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    fireEvent.click(screen.getByRole('button', { name: 'Preview footer.png' }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByAltText('footer.png')).toHaveAttribute(
+      'src',
+      SHOT_URL
+    )
+    const original = within(dialog).getByRole('link', {
+      name: /Open original/,
+    })
+    expect(original).toHaveAttribute('href', SHOT_URL)
+    expect(original).toHaveAttribute('target', '_blank')
+    expect(original).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    // 只有一张图时不出左右切换。
+    expect(
+      within(dialog).queryByRole('button', { name: 'Next' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('steps through every image of the run with arrows and buttons, skipping non-images', () => {
+    const second = { ...screenshot, url: SHOT2_URL, filename: 'header.png' }
+    render(
+      <RunHistoryList
+        requiredEnvironment={null}
+        runs={[run([screenshot, logFile, second])]}
+        pullRequests={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview header.png' }))
+    let dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('2 / 2')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Next' })).toBeDisabled()
+
+    fireEvent.keyDown(dialog, { key: 'ArrowLeft' })
+    dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('1 / 2')).toBeInTheDocument()
+    expect(within(dialog).getByAltText('footer.png')).toBeInTheDocument()
+    expect(
+      within(dialog).getByRole('button', { name: 'Previous' })
+    ).toBeDisabled()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Next' }))
+    expect(
+      within(screen.getByRole('dialog')).getByAltText('header.png')
+    ).toBeInTheDocument()
   })
 
   it('renders a non-image file as a named link instead of a thumbnail', () => {
@@ -158,7 +203,11 @@ describe('run evidence is visible, not just counted', () => {
     // （名字用正则：这套测试里 react-intl 是 mock 的，不做 ICU 复数展开。）
     expect(screen.queryByText(/evidence item/)).not.toBeInTheDocument()
     expect(screen.getByRole('list', { name: /evidence/ })).toBeInTheDocument()
-    expect(screen.getAllByRole('link')).toHaveLength(2)
+    // 图片是预览按钮，日志是链接 —— 两条都可点。
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(
+      screen.getByRole('button', { name: 'Preview footer.png' })
+    ).toBeInTheDocument()
   })
 
   it('keeps the run row readable when the evidence payload is junk', () => {

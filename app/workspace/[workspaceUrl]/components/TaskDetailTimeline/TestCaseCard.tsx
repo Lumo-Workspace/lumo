@@ -173,8 +173,15 @@ export function TestCaseCard({
           aria-hidden
         />
         <VerdictIcon verdict={verdict} />
-        <span className='text-body-strong text-foreground'>
-          {taskIdentifier}/TC{testCase.number}
+        {/* 人读「Test case 3」；CLI 句柄 LUM-12/TC3 留在悬停提示里，复制给 agent 时用。 */}
+        <span
+          className='text-body-strong text-foreground'
+          title={`${taskIdentifier}/TC${testCase.number}`}
+        >
+          {intl.formatMessage(
+            { id: 'testCases.caseLabel' },
+            { n: testCase.number }
+          )}
         </span>
         <span className='min-w-0 text-body text-foreground'>
           {testCase.title}

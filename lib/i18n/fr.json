@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "Toutes les étapes précédentes ont réussi",
   "record.gate.tests.blocking": "{count, plural, one {# défaut avéré en attente de décision} other {# défauts avérés en attente de décision}}",
   "record.gate.tests.clear": "Aucun défaut avéré · {passing} sur {total} réussis",
-  "record.gate.tests.none": "Aucun cas de test"
+  "record.gate.tests.none": "Aucun cas de test",
+  "testCases.caseLabel": "Cas de test {n}",
+  "testCases.lightbox.preview": "Aperçu de {label}",
+  "testCases.lightbox.prev": "Précédent",
+  "testCases.lightbox.next": "Suivant",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "Ouvrir l'original"
 }

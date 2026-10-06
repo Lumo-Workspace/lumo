@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "이 단계 이전의 모든 단계가 통과함",
   "record.gate.tests.blocking": "{count, plural, other {판정 대기 중인 입증된 결함 #건}}",
   "record.gate.tests.clear": "입증된 결함 없음 · {total}건 중 {passing}건 통과",
-  "record.gate.tests.none": "테스트 케이스가 없습니다"
+  "record.gate.tests.none": "테스트 케이스가 없습니다",
+  "testCases.caseLabel": "테스트 케이스 {n}",
+  "testCases.lightbox.preview": "{label} 미리보기",
+  "testCases.lightbox.prev": "이전",
+  "testCases.lightbox.next": "다음",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "원본 열기"
 }

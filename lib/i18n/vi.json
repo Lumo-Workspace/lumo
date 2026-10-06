@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "Mọi bước trước bước này đều đạt",
   "record.gate.tests.blocking": "{count, plural, other {# lỗi đã chứng minh đang chờ phán quyết}}",
   "record.gate.tests.clear": "Không có lỗi đã chứng minh · đạt {passing}/{total}",
-  "record.gate.tests.none": "Chưa có ca kiểm thử"
+  "record.gate.tests.none": "Chưa có ca kiểm thử",
+  "testCases.caseLabel": "Ca kiểm thử {n}",
+  "testCases.lightbox.preview": "Xem trước {label}",
+  "testCases.lightbox.prev": "Trước",
+  "testCases.lightbox.next": "Tiếp",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "Mở ảnh gốc"
 }

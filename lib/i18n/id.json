@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "Semua langkah sebelum ini lulus",
   "record.gate.tests.blocking": "{count, plural, other {# cacat terbukti menunggu keputusan}}",
   "record.gate.tests.clear": "Tidak ada cacat terbukti · {passing} dari {total} lulus",
-  "record.gate.tests.none": "Belum ada kasus uji"
+  "record.gate.tests.none": "Belum ada kasus uji",
+  "testCases.caseLabel": "Kasus uji {n}",
+  "testCases.lightbox.preview": "Pratinjau {label}",
+  "testCases.lightbox.prev": "Sebelumnya",
+  "testCases.lightbox.next": "Berikutnya",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "Buka asli"
 }

@@ -15,7 +15,14 @@ jest.mock('react-intl', () => {
   return {
     useIntl: () => ({
       locale: 'en',
-      formatMessage: ({ id }: { id: string }) => messages[id] ?? id,
+      formatMessage: (
+        { id }: { id: string },
+        values?: Record<string, string | number>
+      ) =>
+        Object.entries(values ?? {}).reduce(
+          (acc, [k, v]) => acc.split(`{${k}}`).join(String(v)),
+          messages[id] ?? id
+        ),
     }),
   }
 })
@@ -66,8 +73,12 @@ describe('BlockingTestDefects', () => {
       },
     ])
     renderIt()
-    expect(screen.getByText('LUM-9/TC2')).toHaveAttribute('href', '#run-r-2')
-    expect(screen.queryByText('LUM-9/TC1')).toBeNull()
+    expect(screen.getByText('Test case 2')).toHaveAttribute('href', '#run-r-2')
+    expect(screen.getByText('Test case 2')).toHaveAttribute(
+      'title',
+      'LUM-9/TC2'
+    )
+    expect(screen.queryByText('Test case 1')).toBeNull()
     fireEvent.click(screen.getByText('Accept and ship'))
     expect(disposeDefect).toHaveBeenCalledWith('r-2', 'KNOWN_DEFECT')
   })

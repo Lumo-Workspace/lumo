@@ -2741,5 +2741,11 @@
   "testCases.field.priorPassed": "इस चरण से पहले के सभी चरण पास हुए",
   "record.gate.tests.blocking": "{count, plural, one {# सिद्ध दोष निर्णय की प्रतीक्षा में} other {# सिद्ध दोष निर्णय की प्रतीक्षा में}}",
   "record.gate.tests.clear": "कोई सिद्ध दोष नहीं · {total} में से {passing} पास",
-  "record.gate.tests.none": "कोई टेस्ट केस नहीं"
+  "record.gate.tests.none": "कोई टेस्ट केस नहीं",
+  "testCases.caseLabel": "टेस्ट केस {n}",
+  "testCases.lightbox.preview": "{label} का पूर्वावलोकन",
+  "testCases.lightbox.prev": "पिछला",
+  "testCases.lightbox.next": "अगला",
+  "testCases.lightbox.position": "{current} / {total}",
+  "testCases.lightbox.openOriginal": "मूल खोलें"
 }

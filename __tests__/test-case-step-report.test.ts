@@ -219,3 +219,58 @@ describe('priorPassedResults', () => {
     ])
   })
 })
+
+describe('backfilled step results (20261020090000_lum1011_backfill_step_results)', () => {
+  // 迁移写入的形状原样搬过来：多一个 backfilled 键，durationMs 为 null。
+  const entry = (
+    phase: 'STEPS' | 'VERIFICATION',
+    index: number,
+    status: 'PASS' | 'FAIL'
+  ) => ({
+    phase,
+    index,
+    text: (phase === 'STEPS' ? testCase.steps : testCase.verification)[index],
+    status,
+    durationMs: null,
+    evidence: [],
+    backfilled: true,
+  })
+
+  it('a backfilled PASS run reads as every step passed', () => {
+    const r = deriveStepReport(
+      testCase,
+      run({
+        result: 'PASS',
+        stepResults: [
+          entry('STEPS', 0, 'PASS'),
+          entry('STEPS', 1, 'PASS'),
+          entry('STEPS', 2, 'PASS'),
+          entry('VERIFICATION', 0, 'PASS'),
+          entry('VERIFICATION', 1, 'PASS'),
+        ],
+      })
+    )
+    expect(r.passed).toBe(5)
+    expect(r.total).toBe(5)
+    expect(r.hasStepResults).toBe(true)
+  })
+
+  it('a backfilled FAIL run reads as passed up to the break, then not reached', () => {
+    const r = deriveStepReport(
+      testCase,
+      run({
+        failedPhase: 'STEPS',
+        failedIndex: 1,
+        failedStepText: 'click Refund',
+        stepResults: [entry('STEPS', 0, 'PASS'), entry('STEPS', 1, 'FAIL')],
+      })
+    )
+    expect(states(r)).toEqual([
+      's1:passed',
+      's2:failed',
+      's3:notReached',
+      'v1:notReached',
+      'v2:notReached',
+    ])
+  })
+})
