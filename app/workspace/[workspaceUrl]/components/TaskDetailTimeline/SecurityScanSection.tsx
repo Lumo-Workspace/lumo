@@ -351,49 +351,62 @@ function StageItem({
       : kind === 'off'
         ? 'text-muted-foreground/80'
         : 'text-muted-foreground'
+  const stageContent = (
+    <>
+      <Icon className={`size-3.5 shrink-0 ${tone}`} aria-hidden />
+      <span
+        aria-hidden
+        className={
+          reasonText
+            ? 'underline decoration-dotted underline-offset-2'
+            : undefined
+        }
+      >
+        {name}
+      </span>
+      {/* Only a partial hunt shows its count: a full one is just ✓ (the
+        numbers stay on the label). */}
+      {scan.huntProgress &&
+      stageKey === 'hunt' &&
+      scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles ? (
+        <span aria-hidden className='text-muted-foreground'>
+          {`${scan.huntProgress.coveredFiles}/${scan.huntProgress.totalFiles}`}
+        </span>
+      ) : null}
+    </>
+  )
   return (
     <span
       className={`inline-flex items-center gap-0.5 text-caption ${textTone}`}
     >
-      <StageReasonTooltip text={reasonText}>
+      {/* A layer with a reason to give is a real button (focusable, hover /
+          focus opens the reason, which is also its accessible description);
+          a checked one is a labelled image with its state as a plain hover. */}
+      {reasonText ? (
+        <StageReasonTooltip text={reasonText}>
+          <button
+            type='button'
+            aria-label={label}
+            aria-describedby={reasonId}
+            data-testid={`stage-${stageKey}`}
+            data-state={overCap ? 'OVER_CAP' : state}
+            className='inline-flex cursor-help items-center gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          >
+            {stageContent}
+          </button>
+        </StageReasonTooltip>
+      ) : (
         <span
           role='img'
           aria-label={label}
-          aria-describedby={reasonText ? reasonId : undefined}
-          // A checked layer has no reason tooltip; it keeps the plain
-          // native hover with its state.
-          title={reasonText ? undefined : label}
-          tabIndex={reasonText ? 0 : undefined}
+          title={label}
           data-testid={`stage-${stageKey}`}
           data-state={overCap ? 'OVER_CAP' : state}
-          className={`inline-flex items-center gap-1 rounded-sm${
-            reasonText
-              ? ' cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-              : ''
-          }`}
+          className='inline-flex items-center gap-1'
         >
-          <Icon className={`size-3.5 shrink-0 ${tone}`} aria-hidden />
-          <span
-            aria-hidden
-            className={
-              reasonText
-                ? 'underline decoration-dotted underline-offset-2'
-                : undefined
-            }
-          >
-            {name}
-          </span>
-          {/* Only a partial hunt shows its count: a full one is just ✓ (the
-            numbers stay on the label). */}
-          {scan.huntProgress &&
-          stageKey === 'hunt' &&
-          scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles ? (
-            <span aria-hidden className='text-muted-foreground'>
-              {`${scan.huntProgress.coveredFiles}/${scan.huntProgress.totalFiles}`}
-            </span>
-          ) : null}
+          {stageContent}
         </span>
-      </StageReasonTooltip>
+      )}
       {reasonText ? (
         <span id={reasonId} className='sr-only'>
           {reasonText}
