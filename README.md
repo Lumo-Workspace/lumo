@@ -499,7 +499,16 @@ npm start
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Lumo is **source-available** under the [Elastic License 2.0](LICENSE) (SPDX: `Elastic-2.0`). It is not an open-source license in the OSI sense. In plain terms:
+
+- **You may** use, copy, modify and self-host Lumo for free — including inside your company, for your own teams.
+- **You may not** offer Lumo to third parties as a hosted or managed service (where the service gives users access to a substantial set of Lumo's features).
+- **You may not** move, change, disable or circumvent any license-key functionality, or remove or obscure functionality protected by a license key.
+- You must keep the license and copyright notices with any copies you distribute.
+
+The [Lumo CLI](cli/) (`cli/`, published to npm as `@lumoai/cli`) is licensed under the [MIT License](cli/LICENSE), and so are the agent skill files shipped with it (source: `.claude/skills/lumo`).
+
+The full terms are in [LICENSE](LICENSE) and [cli/LICENSE](cli/LICENSE); this summary is not a substitute for them. Copyright © 2026 Lumo AI.
 
 ## 🙏 Acknowledgments
 

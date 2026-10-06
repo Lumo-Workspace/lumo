@@ -69,6 +69,7 @@ npx tsx scripts/license-audit.ts --check-node-modules  # 再和本地已安装�
 npx tsx scripts/license-audit.ts --json                # 完整清单(每个包、许可证、引入方)
 ```
 
+- **只审计依赖,不审计 Lumo 自己。** 根包和 workspace(`shared`、`cli`)只作为遍历起点,本身不进清单。Lumo 自身的许可证见根目录 [`LICENSE`](../../LICENSE)(主应用 `Elastic-2.0`,source-available)和 [`cli/LICENSE`](../../cli/LICENSE)(CLI `MIT`),LUM-1014 定;`Elastic-2.0` 不在宽松名单里,但因为根不进清单,审计不会把它报成阻断项(有单测守着)。
 - **数据源是 `package-lock.json`,不是本地 node_modules。** 从根包和每个 workspace(`shared`、`cli`)出发,按 Node 的解析规则遍历 `dependencies`、`optionalDependencies` 和非可选的 `peerDependencies`,不跟随 `devDependencies`。这样能覆盖所有 OS/CPU 的可选二进制(Linux 自托管装的 `@img/*`、`@esbuild/*` 包和 Mac 开发机不一样)。
 - 遍历出的闭包和 npm 自己写在 lockfile 里的 `dev` 标记**完全一致**(1384 = 1384),有单测守着。为什么不直接用 `npm ls --omit=dev --all --json`:在 worktree 里(node_modules 是软链接)它会把全部包报成 extraneous;在主 checkout 里它的 JSON 对 deduped 节点只给出存根、不给子树,而且只看得到本机平台装了的包。
 - 许可证读取顺序:先用 lockfile 的 `license` 字段,其次用 `node_modules/<path>/package.json`,最后识别 LICENSE 文件的标题(只看前 3 个非空行,不匹配正文里的样板句)。标题认不出来就记为 unknown、列入「Needs manual review」并算作阻断项,不去猜。某个已安装包的 package.json 格式坏了,会记成一条 error 继续跑,不会让整个审计崩掉。
