@@ -109,7 +109,7 @@ function WorkspaceStep({
               {intl.formatMessage({ id: 'onboarding.workspace.urlLabel' })}
             </Label>
             <div className='flex items-center border border-input rounded-md overflow-hidden bg-transparent dark:bg-input/30 shadow-elevation-1 transition-[color,box-shadow] focus-within:ring-2 focus-within:ring-ring'>
-              <span className='px-3 text-sm text-muted-foreground bg-muted border-r border-input h-9 flex items-center shrink-0 select-none'>
+              <span className='pl-3 text-sm text-muted-foreground h-9 flex items-center shrink-0 select-none'>
                 {WORKSPACE_URL_PREFIX}
               </span>
               <input
@@ -122,7 +122,7 @@ function WorkspaceStep({
                 })}
                 disabled={isSubmitting}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                className='flex-1 min-w-0 h-9 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none bg-transparent'
+                className='flex-1 min-w-0 h-9 pl-0 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none bg-transparent'
               />
             </div>
           </div>

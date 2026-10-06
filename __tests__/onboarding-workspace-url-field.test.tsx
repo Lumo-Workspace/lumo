@@ -46,4 +46,17 @@ describe('onboarding workspace URL field', () => {
     expect(prefix?.textContent).toBe('uselumo.ai/workspace/')
     expect(container.textContent).not.toContain('lumo.app/')
   })
+
+  it('runs the prefix straight into the slug with no divider or gap', () => {
+    const { container } = render(<OnboardingClient />)
+    const input = container.querySelector('#ws-url') as HTMLElement
+    const prefix = input.previousElementSibling as HTMLElement
+    const prefixClasses = prefix.className.split(/\s+/)
+    const inputClasses = input.className.split(/\s+/)
+    for (const c of ['px-3', 'pr-3', 'border-r', 'bg-muted']) {
+      expect(prefixClasses).not.toContain(c)
+    }
+    expect(inputClasses).toContain('pl-0')
+    expect(inputClasses).not.toContain('px-3')
+  })
 })
