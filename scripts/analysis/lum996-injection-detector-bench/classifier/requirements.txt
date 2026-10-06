@@ -1,0 +1,5 @@
+# LUM-1007 classifier arm — isolated uv venv, never part of package.json.
+# Versions the committed results-classifier.json was produced with.
+onnxruntime==1.30.0
+tokenizers==0.23.2
+numpy==2.5.3
