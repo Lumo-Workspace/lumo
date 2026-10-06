@@ -3,17 +3,12 @@ import {
   formatHuntTaskDetail,
   formatShellDetail,
 } from '../../shared/src/hunt-audit'
-import { formatShellDetail as scriptFormatShellDetail } from '../../scripts/analysis/lum739-hunt-audit/aggregate'
 
 /**
  * LUM-788 — the per-task hunt read-out lives in shared/ so `lumo pr scan
- * --full` and the lum739 audit script print from one implementation.
+ * --full` and the hunt audit tooling print from one implementation.
  */
 describe('shared/src/hunt-audit', () => {
-  it('is the single implementation the lum739 script re-exports', () => {
-    expect(scriptFormatShellDetail).toBe(formatShellDetail)
-  })
-
   it('formatHuntTaskDetail prints an idle task (no shell calls) with its stop, sites and model', () => {
     const lines = formatHuntTaskDetail(
       [

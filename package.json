@@ -33,7 +33,8 @@
     "preanalyze": "tsx scripts/fix-nodemodules-selflink.ts",
     "analyze": "next build --experimental-analyze",
     "prepare": "husky",
-    "mcp": "tsx mcp/server.ts"
+    "mcp": "tsx mcp/server.ts",
+    "oss:export": "tsx scripts/oss-export.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.88",

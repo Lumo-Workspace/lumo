@@ -10,7 +10,7 @@ import {
   registeredDocId,
   tableCells,
   zdrCandidateHosts,
-} from '../../scripts/analysis/lum857-legal/check-legal-docs'
+} from '../../scripts/legal/check-legal-docs'
 
 const MANIFEST = [
   '| 模型常量 | 模型 | 本次落点 | ZDR 候选集(按 Gateway 执行顺序) | 被排除 |',

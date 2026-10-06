@@ -747,3 +747,12 @@ describe('LUM-781 — the per-step trace read-out', () => {
     ])
   })
 })
+
+// Moved here from __tests__/shared/hunt-audit.test.ts (LUM-1034) so the public
+// suite does not import this private tree.
+describe('lum739 aggregate re-export', () => {
+  it('is the single implementation from shared/src/hunt-audit', async () => {
+    const shared = await import('../../../../shared/src/hunt-audit')
+    expect(formatShellDetail).toBe(shared.formatShellDetail)
+  })
+})

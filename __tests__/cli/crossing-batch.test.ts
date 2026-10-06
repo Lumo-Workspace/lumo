@@ -31,7 +31,6 @@ import {
   formatReceiptMap,
   parseReceiptMap,
 } from '@/cli/src/lib/crossing-handshake'
-import grammarJson from '@/scripts/analysis/lum392-cli-friction/grammar.json'
 
 function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
@@ -463,25 +462,5 @@ describe('explain --task (LUM-932)', () => {
     writeFileSync(file, JSON.stringify([{ id: 'cx-a', note: 'x' }]))
     await crossingExplain(undefined, { file, task: 'EZE-7' })
     expect(stdout.join('')).toContain('EZE-7')
-  })
-})
-
-describe('batch grammar and docs', () => {
-  it('grammar lists the batch forms (disposition <ids...>, explain --file)', () => {
-    const cmds = (
-      grammarJson as {
-        commands: Record<
-          string,
-          { flags: Record<string, unknown>; args?: unknown }
-        >
-      }
-    ).commands
-    expect(Object.keys(cmds['crossing explain']?.flags ?? {})).toContain(
-      '--file'
-    )
-    expect(Object.keys(cmds['crossing explain']?.flags ?? {})).toContain(
-      '--task'
-    )
-    expect(JSON.stringify(cmds['crossing disposition'])).toMatch(/ids/)
   })
 })
