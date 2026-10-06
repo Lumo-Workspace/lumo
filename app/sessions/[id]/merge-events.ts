@@ -14,6 +14,7 @@
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
+import type { HookEventType as SchemaHookEventType } from '@prisma/client'
 import {
   isPrunedPayload,
   isUserDeletedPayload,
@@ -46,12 +47,8 @@ export type BlockLabelKey =
   | 'todos'
   | 'input'
 
-export type HookEventType =
-  | 'PRE_TOOL_USE'
-  | 'POST_TOOL_USE'
-  | 'STOP'
-  | 'USER_PROMPT_SUBMIT'
-  | 'POST_TOOL_BATCH'
+/** Every stored hook event type (the Prisma enum) — see {@link EVENT_ROLE}. */
+export type HookEventType = SchemaHookEventType
 
 export interface RawEvent {
   id: string
@@ -138,51 +135,48 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   const prunedToolTimes: number[] = []
 
   for (const ev of events) {
-    if (BOUNDARY_TYPES.has(ev.type)) boundaryTimes.push(ev.createdAt.getTime())
+    const role = EVENT_ROLE[ev.type]
+    if (role === 'skip') continue
+    if (role === 'prompt' || role === 'stop' || role === 'batch')
+      boundaryTimes.push(ev.createdAt.getTime())
 
     // LUM-859: a pruned payload has no tool_use_id / prompt / message to read.
     // One row per cleared call — the Post carries it, so a cleared Pre is
     // skipped rather than left dangling as "pending", and so is a cleared
     // batch, whose calls are the Pre/Post rows' own (LUM-937).
     if (isPrunedPayload(ev.payload)) {
-      if (!BOUNDARY_TYPES.has(ev.type))
+      if (role === 'pre' || role === 'post')
         prunedToolTimes.push(ev.createdAt.getTime())
-      if (ev.type !== 'PRE_TOOL_USE' && ev.type !== 'POST_TOOL_BATCH')
-        items.push(prunedItem(ev))
+      if (role !== 'pre' && role !== 'batch') items.push(prunedItem(ev, role))
       continue
     }
 
-    if (ev.type === 'POST_TOOL_BATCH') {
-      batches.push(ev)
-      continue
-    }
-
-    if (ev.type === 'USER_PROMPT_SUBMIT') {
-      items.push(userPromptItem(ev))
-      continue
-    }
-
-    if (ev.type === 'STOP') {
-      items.push(stopItem(ev))
-      continue
-    }
-
-    const toolUseId = getString(ev.payload, 'tool_use_id')
-    if (ev.type === 'PRE_TOOL_USE') {
-      if (toolUseId) {
-        preByToolUseId.set(toolUseId, ev)
-      } else {
-        items.push(toolItem(ev, null))
+    switch (role) {
+      case 'batch':
+        batches.push(ev)
+        continue
+      case 'prompt':
+        items.push(userPromptItem(ev))
+        continue
+      case 'stop':
+        items.push(stopItem(ev))
+        continue
+      case 'pre': {
+        const toolUseId = getString(ev.payload, 'tool_use_id')
+        if (toolUseId) preByToolUseId.set(toolUseId, ev)
+        else items.push(toolItem(ev, null))
+        continue
       }
-      continue
+      case 'post': {
+        const toolUseId = getString(ev.payload, 'tool_use_id')
+        const pre = toolUseId ? preByToolUseId.get(toolUseId) : undefined
+        if (pre && toolUseId) preByToolUseId.delete(toolUseId)
+        const item = toolItem(pre ?? null, ev)
+        items.push(item)
+        if (toolUseId) itemByToolUseId.set(toolUseId, item)
+        continue
+      }
     }
-
-    // POST_TOOL_USE
-    const pre = toolUseId ? preByToolUseId.get(toolUseId) : undefined
-    if (pre && toolUseId) preByToolUseId.delete(toolUseId)
-    const item = toolItem(pre ?? null, ev)
-    items.push(item)
-    if (toolUseId) itemByToolUseId.set(toolUseId, item)
   }
 
   // Orphan Pre events (no matching Post) — render as pending.
@@ -210,17 +204,58 @@ export function countToolCalls(items: TimelineItem[]): number {
   return items.filter(i => i.kind === 'tool' || i.kind === 'orphan').length
 }
 
+// ─── Event roles (LUM-937) ──────────────────────────────────────────────────
+
+/** How the timeline treats one hook event type. */
+type EventRole = 'prompt' | 'stop' | 'pre' | 'post' | 'batch' | 'skip'
+
+/**
+ * Every stored hook event type, mapped explicitly — a type added to the
+ * schema fails to compile here instead of silently falling into a branch.
+ *
+ * - POST_TOOL_USE_FAILURE fires instead of POST_TOOL_USE when the tool call
+ *   throws, with the same tool_name / tool_input / tool_use_id plus `error`
+ *   and `is_interrupt`: it is that call's Post, rendered as an error.
+ * - STOP_FAILURE fires instead of STOP when an API error ended the turn, with
+ *   `error` and `last_assistant_message`: it is that turn's Stop, as an error.
+ * - Everything else (session / subagent / permission / notification / config
+ *   / task / worktree / file / cwd / instructions / elicitation / prompt
+ *   expansion) is not a tool call and is not shown here.
+ */
+const EVENT_ROLE: Record<HookEventType, EventRole> = {
+  USER_PROMPT_SUBMIT: 'prompt',
+  STOP: 'stop',
+  STOP_FAILURE: 'stop',
+  PRE_TOOL_USE: 'pre',
+  POST_TOOL_USE: 'post',
+  POST_TOOL_USE_FAILURE: 'post',
+  POST_TOOL_BATCH: 'batch',
+  PERMISSION_REQUEST: 'skip',
+  PERMISSION_DENIED: 'skip',
+  SESSION_START: 'skip',
+  SESSION_END: 'skip',
+  SUBAGENT_START: 'skip',
+  SUBAGENT_STOP: 'skip',
+  WORKTREE_CREATE: 'skip',
+  WORKTREE_REMOVE: 'skip',
+  FILE_CHANGED: 'skip',
+  CONFIG_CHANGE: 'skip',
+  TASK_CREATED: 'skip',
+  TASK_COMPLETED: 'skip',
+  USER_PROMPT_EXPANSION: 'skip',
+  NOTIFICATION: 'skip',
+  ELICITATION: 'skip',
+  ELICITATION_RESULT: 'skip',
+  CWD_CHANGED: 'skip',
+  INSTRUCTIONS_LOADED: 'skip',
+}
+
 // ─── Item builders ──────────────────────────────────────────────────────────
 
-function prunedItem(ev: RawEvent): TimelineItem {
+function prunedItem(ev: RawEvent, role: EventRole): TimelineItem {
   return {
     key: ev.id,
-    kind:
-      ev.type === 'STOP'
-        ? 'stop'
-        : ev.type === 'USER_PROMPT_SUBMIT'
-          ? 'user-prompt'
-          : 'tool',
+    kind: role === 'stop' ? 'stop' : role === 'prompt' ? 'user-prompt' : 'tool',
     toolName: ev.toolName,
     summary: '',
     pruned: true,
@@ -289,6 +324,10 @@ function stopItem(ev: RawEvent): TimelineItem {
       readRedactedStats(ev.payload, 'last_assistant_message')
     )
   )
+  // STOP_FAILURE: the turn ended on an API error (`rate_limit`, …).
+  const failed = ev.type === 'STOP_FAILURE'
+  const error = failed ? getString(ev.payload, 'error') : null
+  if (error) details.push({ labelKey: 'status', variant: 'error', text: error })
   return {
     key: ev.id,
     kind: 'stop',
@@ -298,7 +337,7 @@ function stopItem(ev: RawEvent): TimelineItem {
     deleted: false,
     summaryMsg,
     badge: null,
-    status: 'ok',
+    status: failed ? 'error' : 'ok',
     startAt: ev.createdAt,
     endAt: ev.createdAt,
     details,
@@ -311,13 +350,23 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
   const input = getRecord(anchor.payload, 'tool_input')
   const response = post ? getRecord(post.payload, 'tool_response') : null
 
-  const { summary, summaryMsg, badge, status, details } = formatTool(
+  const formatted = formatTool(
     toolName,
     input,
     response,
     post !== null,
     redactionLookup(anchor.payload, post?.payload ?? null)
   )
+  const { summary, summaryMsg, details } = formatted
+  let { badge, status } = formatted
+  // POST_TOOL_USE_FAILURE: the call threw — its `error` is the result.
+  if (post?.type === 'POST_TOOL_USE_FAILURE') {
+    status = 'error'
+    const error = getString(post.payload, 'error')
+    if (error) details.push(clipBlock('response', 'error', error, 40))
+    if (getBoolean(post.payload, 'is_interrupt'))
+      badge = { kind: 'interrupted' }
+  }
 
   return {
     key: `tool:${getString(anchor.payload, 'tool_use_id') ?? anchor.id}`,
@@ -336,14 +385,6 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
 }
 
 // ─── PostToolBatch (LUM-937) ────────────────────────────────────────────────
-
-/** Events that close a run of tool calls: a batch fires after its calls,
- *  which all start after the previous prompt, stop or batch. */
-const BOUNDARY_TYPES: ReadonlySet<HookEventType> = new Set<HookEventType>([
-  'USER_PROMPT_SUBMIT',
-  'STOP',
-  'POST_TOOL_BATCH',
-])
 
 /**
  * Whether a batch may turn calls it alone recorded into rows. A cleared

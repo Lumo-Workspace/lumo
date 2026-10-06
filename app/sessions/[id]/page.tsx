@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect, notFound } from 'next/navigation'
 import { sessionDetailService } from '@/lib/services/session-detail.service'
-import { countToolCalls, mergeEvents, type RawEvent } from './merge-events'
+import { countToolCalls, mergeEvents } from './merge-events'
 import { SessionHeader } from './SessionHeader'
 import { SessionAttribution } from './SessionAttribution'
 import { SummaryCard } from './SummaryCard'
@@ -34,7 +34,7 @@ export default async function SessionDetailPage({
 
   const { workspaceSlug, rawEvents, attribution } = session
 
-  const items = mergeEvents(rawEvents as RawEvent[])
+  const items = mergeEvents(rawEvents)
 
   // Agent active time (Σ per-turn STOP − prompt), not the session wall-clock
   // span — a resumed session's idle gap would otherwise inflate it (LUM-487).
