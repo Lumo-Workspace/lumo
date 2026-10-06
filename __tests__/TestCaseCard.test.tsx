@@ -191,6 +191,18 @@ describe('run history shows every run', () => {
     expect(follows(report, earlier)).toBe(true)
   })
 
+  it('puts the case description before the steps when the case never ran', () => {
+    renderCard()
+    const follows = (a: Node, b: Node) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(
+      follows(
+        screen.getByText('The FDIC membership disclosure is visible.'),
+        screen.getByText('scroll: to the bottom of the page')
+      )
+    ).toBe(true)
+  })
+
   it('opens the earlier runs by itself when a deep link targets one', () => {
     renderCard({
       linkedRunId: 'r1',
