@@ -148,6 +148,15 @@ function renderWith(latest: object, suggested = 0) {
   return render(<SecurityScanSection taskId='t1' />)
 }
 
+// jsdom lacks ResizeObserver, which the Radix tooltip references.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   Object.assign(navigator, { clipboard: { writeText: jest.fn() } })
@@ -177,6 +186,43 @@ describe('LUM-740 panel', () => {
       'LLM review: ran',
       'Vulnerability hunt: scanning',
     ])
+  })
+
+  test('a layer that did not run says why on hover; a checked one has no hover', async () => {
+    renderWith(
+      scan({
+        stages: {
+          secrets: 'RAN',
+          external: 'RAN',
+          supplyChain: 'SKIPPED',
+          judge: 'RAN',
+          hunt: 'SKIPPED',
+        },
+      })
+    )
+    expect(screen.getByTestId('stage-secrets')).not.toHaveAttribute('tabindex')
+    // A checked layer keeps its plain state hover.
+    expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
+      'title',
+      'Secret patterns: ran'
+    )
+    expect(screen.getByTestId('stage-hunt')).not.toHaveAttribute('title')
+    const hunt = screen.getByTestId('stage-hunt')
+    expect(hunt).toHaveAttribute('tabindex', '0')
+    // Never hover-only: the reason is the cell's accessible description.
+    const describedBy = hunt.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(document.getElementById(describedBy as string)).toHaveTextContent(
+      'securityScan.stageReason.huntSkipped'
+    )
+    expect(screen.getByTestId('stage-secrets')).not.toHaveAttribute(
+      'aria-describedby'
+    )
+    // Hover / focus opens the tooltip with the same reason.
+    fireEvent.focus(hunt)
+    expect(await screen.findByTestId('stage-reason')).toHaveTextContent(
+      'securityScan.stageReason.huntSkipped'
+    )
   })
 
   test('each layer shows its name and an info button that says what it checks', async () => {

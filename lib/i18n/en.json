@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "Scanners: {tools}",
   "securityScan.group.open": "Needs a decision",
   "securityScan.group.verifierRejected": "Dismissed by verifier",
-  "securityScan.group.ruled": "Decided"
+  "securityScan.group.ruled": "Decided",
+  "securityScan.stageReason.judgeOverCap": "Not run: this PR's diff is {size, number} characters and AI review runs on up to {cap, number}. Narrow the scope or split the PR to get it.",
+  "securityScan.stageReason.huntOverCap": "Not run: this PR touches {files} source files and exploit-path checks run on up to {cap}. Narrow the scope or split the PR to get them.",
+  "securityScan.stageReason.huntInProgress": "Still running: {covered} of {total} source files checked so far.",
+  "securityScan.stageReason.huntSkipped": "Not needed: the change adds no entry points, risky calls or security controls, and nothing high-severity was found, so there was no path to trace.",
+  "securityScan.stageReason.judgeSkipped": "Not run: there were no added lines to review, or AI review isn't available on this deployment.",
+  "securityScan.stageReason.supplyChainSkipped": "Not needed: the repository has no lockfile for osv-scanner to check.",
+  "securityScan.stageReason.skipped": "Not needed for this change.",
+  "securityScan.stageReason.FAILED": "Didn't finish: the scanner hit an error. It runs again on the next push.",
+  "securityScan.stageReason.judgeFailed": "Didn't finish: the AI review service didn't respond. It runs again on the next push.",
+  "securityScan.stageReason.PARTIAL": "Partly checked: only part of the change was covered.",
+  "securityScan.stageReason.judgePartial": "Partly checked: the diff was larger than one review covers, so some files were not reviewed.",
+  "securityScan.stageReason.PENDING": "Still running — check back in a few minutes.",
+  "securityScan.stageReason.NOT_CONFIGURED": "Off: Lumo's managed scanner is off for this deployment and this repository hasn't pushed a scanner report.",
+  "securityScan.stageReason.DISABLED": "Off: turned off in this workspace's security settings.",
+  "securityScan.stageReason.SUPERSEDED": "Not finished: a newer push started a new scan before this layer completed."
 }

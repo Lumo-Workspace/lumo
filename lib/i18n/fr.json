@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "Scanners : {tools}",
   "securityScan.group.open": "Décision requise",
   "securityScan.group.verifierRejected": "Écarté par le vérificateur",
-  "securityScan.group.ruled": "Tranché"
+  "securityScan.group.ruled": "Tranché",
+  "securityScan.stageReason.judgeOverCap": "Non exécutée : le diff de cette PR fait {size, number} caractères et la revue IA couvre jusqu'à {cap, number}. Réduisez le périmètre ou scindez la PR pour l'obtenir.",
+  "securityScan.stageReason.huntOverCap": "Non exécutée : cette PR touche {files} fichiers source et la vérification des chemins d'exploitation couvre jusqu'à {cap}. Réduisez le périmètre ou scindez la PR pour l'obtenir.",
+  "securityScan.stageReason.huntInProgress": "En cours : {covered} fichiers source sur {total} vérifiés pour l'instant.",
+  "securityScan.stageReason.huntSkipped": "Inutile : le changement n'ajoute ni point d'entrée, ni appel à risque, ni contrôle de sécurité, et rien de grave n'a été trouvé — aucun chemin à suivre.",
+  "securityScan.stageReason.judgeSkipped": "Non exécutée : aucune ligne ajoutée à relire, ou la revue IA n'est pas disponible sur ce déploiement.",
+  "securityScan.stageReason.supplyChainSkipped": "Inutile : le dépôt n'a pas de lockfile à vérifier pour osv-scanner.",
+  "securityScan.stageReason.skipped": "Inutile pour ce changement.",
+  "securityScan.stageReason.FAILED": "Inachevée : le scanner a rencontré une erreur. Elle repasse au prochain push.",
+  "securityScan.stageReason.judgeFailed": "Inachevée : le service de revue IA n'a pas répondu. Elle repasse au prochain push.",
+  "securityScan.stageReason.PARTIAL": "Vérifiée en partie : seule une partie du changement a été couverte.",
+  "securityScan.stageReason.judgePartial": "Vérifiée en partie : le diff dépassait ce que couvre une revue, certains fichiers n'ont donc pas été relus.",
+  "securityScan.stageReason.PENDING": "En cours — revenez dans quelques minutes.",
+  "securityScan.stageReason.NOT_CONFIGURED": "Désactivée : le scanner géré de Lumo est désactivé sur ce déploiement et ce dépôt n'a envoyé aucun rapport de scanner.",
+  "securityScan.stageReason.DISABLED": "Désactivée : coupée dans les paramètres de sécurité de cet espace de travail.",
+  "securityScan.stageReason.SUPERSEDED": "Inachevée : un push plus récent a lancé une nouvelle analyse avant la fin de cette couche."
 }

@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "Trình quét: {tools}",
   "securityScan.group.open": "Cần quyết định",
   "securityScan.group.verifierRejected": "Bị trình xác minh bác bỏ",
-  "securityScan.group.ruled": "Đã quyết định"
+  "securityScan.group.ruled": "Đã quyết định",
+  "securityScan.stageReason.judgeOverCap": "Không chạy: diff của PR này có {size, number} ký tự, còn đánh giá AI chỉ chạy tối đa {cap, number}. Thu hẹp phạm vi hoặc tách PR để được đánh giá.",
+  "securityScan.stageReason.huntOverCap": "Không chạy: PR này đụng đến {files} tệp mã nguồn, còn kiểm tra đường khai thác chỉ chạy tối đa {cap}. Thu hẹp phạm vi hoặc tách PR để được kiểm tra.",
+  "securityScan.stageReason.huntInProgress": "Đang chạy: đã kiểm tra {covered}/{total} tệp mã nguồn.",
+  "securityScan.stageReason.huntSkipped": "Không cần: thay đổi không thêm điểm vào, lời gọi rủi ro hay cơ chế bảo mật nào, và không có phát hiện mức cao, nên không có đường nào để lần theo.",
+  "securityScan.stageReason.judgeSkipped": "Không chạy: không có dòng thêm mới nào để đánh giá, hoặc đánh giá AI không khả dụng trên bản triển khai này.",
+  "securityScan.stageReason.supplyChainSkipped": "Không cần: kho mã không có lockfile để osv-scanner kiểm tra.",
+  "securityScan.stageReason.skipped": "Không cần cho thay đổi này.",
+  "securityScan.stageReason.FAILED": "Chưa xong: trình quét gặp lỗi. Sẽ chạy lại ở lần push tiếp theo.",
+  "securityScan.stageReason.judgeFailed": "Chưa xong: dịch vụ đánh giá AI không phản hồi. Sẽ chạy lại ở lần push tiếp theo.",
+  "securityScan.stageReason.PARTIAL": "Kiểm tra một phần: chỉ một phần thay đổi được bao quát.",
+  "securityScan.stageReason.judgePartial": "Kiểm tra một phần: diff lớn hơn phạm vi một lần đánh giá nên một số tệp chưa được xem.",
+  "securityScan.stageReason.PENDING": "Đang chạy — hãy quay lại sau vài phút.",
+  "securityScan.stageReason.NOT_CONFIGURED": "Tắt: trình quét được quản lý của Lumo đang tắt trên bản triển khai này và kho mã chưa gửi báo cáo quét nào.",
+  "securityScan.stageReason.DISABLED": "Tắt: đã tắt trong cài đặt bảo mật của không gian làm việc này.",
+  "securityScan.stageReason.SUPERSEDED": "Chưa xong: một lần push mới hơn đã bắt đầu lượt quét mới trước khi lớp này hoàn tất."
 }

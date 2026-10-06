@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "Scanner: {tools}",
   "securityScan.group.open": "Entscheidung nötig",
   "securityScan.group.verifierRejected": "Vom Prüfer verworfen",
-  "securityScan.group.ruled": "Entschieden"
+  "securityScan.group.ruled": "Entschieden",
+  "securityScan.stageReason.judgeOverCap": "Nicht gelaufen: Der Diff dieses PRs hat {size, number} Zeichen, das AI-Review läuft auf bis zu {cap, number}. Grenze den Umfang ein oder teile den PR, um es zu bekommen.",
+  "securityScan.stageReason.huntOverCap": "Nicht gelaufen: Dieser PR berührt {files} Quelldateien, die Exploit-Pfad-Prüfung läuft auf bis zu {cap}. Grenze den Umfang ein oder teile den PR, um sie zu bekommen.",
+  "securityScan.stageReason.huntInProgress": "Läuft noch: bisher {covered} von {total} Quelldateien geprüft.",
+  "securityScan.stageReason.huntSkipped": "Nicht nötig: Die Änderung fügt keine Einstiegspunkte, riskanten Aufrufe oder Sicherheitskontrollen hinzu, und es wurde nichts mit hohem Schweregrad gefunden – es gab keinen Pfad zu verfolgen.",
+  "securityScan.stageReason.judgeSkipped": "Nicht gelaufen: Es gab keine hinzugefügten Zeilen zu prüfen, oder das AI-Review ist in dieser Umgebung nicht verfügbar.",
+  "securityScan.stageReason.supplyChainSkipped": "Nicht nötig: Das Repository hat kein Lockfile, das osv-scanner prüfen könnte.",
+  "securityScan.stageReason.skipped": "Für diese Änderung nicht nötig.",
+  "securityScan.stageReason.FAILED": "Nicht abgeschlossen: Der Scanner ist auf einen Fehler gestoßen. Beim nächsten Push läuft er erneut.",
+  "securityScan.stageReason.judgeFailed": "Nicht abgeschlossen: Der AI-Review-Dienst hat nicht geantwortet. Beim nächsten Push läuft er erneut.",
+  "securityScan.stageReason.PARTIAL": "Teilweise geprüft: Nur ein Teil der Änderung wurde abgedeckt.",
+  "securityScan.stageReason.judgePartial": "Teilweise geprüft: Der Diff war größer, als ein Review abdeckt, daher wurden einige Dateien nicht geprüft.",
+  "securityScan.stageReason.PENDING": "Läuft noch – schau in ein paar Minuten wieder vorbei.",
+  "securityScan.stageReason.NOT_CONFIGURED": "Aus: Lumos verwalteter Scanner ist in dieser Umgebung aus, und dieses Repository hat keinen Scanner-Bericht gesendet.",
+  "securityScan.stageReason.DISABLED": "Aus: in den Sicherheitseinstellungen dieses Workspaces deaktiviert.",
+  "securityScan.stageReason.SUPERSEDED": "Nicht abgeschlossen: Ein neuerer Push hat einen neuen Scan gestartet, bevor diese Ebene fertig war."
 }

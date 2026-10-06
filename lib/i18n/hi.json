@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "स्कैनर: {tools}",
   "securityScan.group.open": "निर्णय चाहिए",
   "securityScan.group.verifierRejected": "सत्यापक द्वारा खारिज",
-  "securityScan.group.ruled": "निर्णय हो चुका"
+  "securityScan.group.ruled": "निर्णय हो चुका",
+  "securityScan.stageReason.judgeOverCap": "नहीं चला: इस PR का diff {size, number} अक्षरों का है और AI समीक्षा {cap, number} तक चलती है। इसे पाने के लिए दायरा घटाएँ या PR को बाँटें।",
+  "securityScan.stageReason.huntOverCap": "नहीं चला: यह PR {files} सोर्स फ़ाइलें छूता है और एक्सप्लॉइट-पाथ जाँच {cap} तक चलती है। इसे पाने के लिए दायरा घटाएँ या PR को बाँटें।",
+  "securityScan.stageReason.huntInProgress": "अभी चल रहा है: अब तक {total} में से {covered} सोर्स फ़ाइलें जाँची गईं।",
+  "securityScan.stageReason.huntSkipped": "ज़रूरत नहीं: बदलाव में कोई नया एंट्री पॉइंट, जोखिम भरा कॉल या सुरक्षा नियंत्रण नहीं जुड़ा, और कुछ भी उच्च गंभीरता का नहीं मिला, इसलिए खोजने को कोई रास्ता नहीं था।",
+  "securityScan.stageReason.judgeSkipped": "नहीं चला: समीक्षा के लिए कोई जोड़ी गई पंक्ति नहीं थी, या इस डिप्लॉयमेंट पर AI समीक्षा उपलब्ध नहीं है।",
+  "securityScan.stageReason.supplyChainSkipped": "ज़रूरत नहीं: रिपॉज़िटरी में osv-scanner के जाँचने लायक कोई lockfile नहीं है।",
+  "securityScan.stageReason.skipped": "इस बदलाव के लिए ज़रूरत नहीं।",
+  "securityScan.stageReason.FAILED": "पूरा नहीं हुआ: स्कैनर में त्रुटि आई। अगले push पर यह फिर चलेगा।",
+  "securityScan.stageReason.judgeFailed": "पूरा नहीं हुआ: AI समीक्षा सेवा ने जवाब नहीं दिया। अगले push पर यह फिर चलेगा।",
+  "securityScan.stageReason.PARTIAL": "आंशिक रूप से जाँचा गया: बदलाव का केवल एक हिस्सा कवर हुआ।",
+  "securityScan.stageReason.judgePartial": "आंशिक रूप से जाँचा गया: diff एक समीक्षा की सीमा से बड़ा था, इसलिए कुछ फ़ाइलों की समीक्षा नहीं हुई।",
+  "securityScan.stageReason.PENDING": "अभी चल रहा है — कुछ मिनट बाद फिर देखें।",
+  "securityScan.stageReason.NOT_CONFIGURED": "बंद: इस डिप्लॉयमेंट पर Lumo का प्रबंधित स्कैनर बंद है और इस रिपॉज़िटरी ने कोई स्कैनर रिपोर्ट नहीं भेजी है।",
+  "securityScan.stageReason.DISABLED": "बंद: इस वर्कस्पेस की सुरक्षा सेटिंग्स में बंद किया गया है।",
+  "securityScan.stageReason.SUPERSEDED": "पूरा नहीं हुआ: इस परत के खत्म होने से पहले एक नए push ने नया स्कैन शुरू कर दिया।"
 }

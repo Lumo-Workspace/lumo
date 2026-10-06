@@ -2754,5 +2754,20 @@
   "securityScan.stageInfo.tools": "스캐너: {tools}",
   "securityScan.group.open": "결정 필요",
   "securityScan.group.verifierRejected": "검증기가 기각함",
-  "securityScan.group.ruled": "결정됨"
+  "securityScan.group.ruled": "결정됨",
+  "securityScan.stageReason.judgeOverCap": "실행 안 됨: 이 PR의 diff는 {size, number}자이고 AI 리뷰는 최대 {cap, number}자까지 실행됩니다. 범위를 좁히거나 PR을 나누면 실행됩니다.",
+  "securityScan.stageReason.huntOverCap": "실행 안 됨: 이 PR은 소스 파일 {files}개를 건드리며 익스플로잇 경로 검사는 최대 {cap}개까지 실행됩니다. 범위를 좁히거나 PR을 나누면 실행됩니다.",
+  "securityScan.stageReason.huntInProgress": "실행 중: 지금까지 소스 파일 {total}개 중 {covered}개를 확인했습니다.",
+  "securityScan.stageReason.huntSkipped": "필요 없음: 변경에 새 진입점, 위험한 호출, 보안 제어가 추가되지 않았고 심각도 높은 발견도 없어 추적할 경로가 없었습니다.",
+  "securityScan.stageReason.judgeSkipped": "실행 안 됨: 리뷰할 추가된 줄이 없거나 이 배포에서는 AI 리뷰를 사용할 수 없습니다.",
+  "securityScan.stageReason.supplyChainSkipped": "필요 없음: 저장소에 osv-scanner가 확인할 lockfile이 없습니다.",
+  "securityScan.stageReason.skipped": "이 변경에는 필요하지 않습니다.",
+  "securityScan.stageReason.FAILED": "완료되지 않음: 스캐너에서 오류가 발생했습니다. 다음 push 때 다시 실행됩니다.",
+  "securityScan.stageReason.judgeFailed": "완료되지 않음: AI 리뷰 서비스가 응답하지 않았습니다. 다음 push 때 다시 실행됩니다.",
+  "securityScan.stageReason.PARTIAL": "일부만 확인됨: 변경의 일부만 확인했습니다.",
+  "securityScan.stageReason.judgePartial": "일부만 확인됨: diff가 한 번의 리뷰 범위보다 커서 일부 파일은 리뷰되지 않았습니다.",
+  "securityScan.stageReason.PENDING": "아직 실행 중입니다. 몇 분 뒤에 다시 확인하세요.",
+  "securityScan.stageReason.NOT_CONFIGURED": "꺼짐: 이 배포에서는 Lumo 관리형 스캐너가 꺼져 있고 이 저장소는 스캐너 보고서를 보낸 적이 없습니다.",
+  "securityScan.stageReason.DISABLED": "꺼짐: 이 워크스페이스의 보안 설정에서 꺼져 있습니다.",
+  "securityScan.stageReason.SUPERSEDED": "완료되지 않음: 이 계층이 끝나기 전에 새 push로 새 스캔이 시작되었습니다."
 }
