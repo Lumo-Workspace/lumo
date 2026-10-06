@@ -11,6 +11,7 @@ import {
   INFRASTRUCTURE_SUBPROCESSORS,
   SECURITY_CONTACT_EMAIL,
 } from '@/lib/legal/subprocessors'
+import { buildSubprocessorPageView } from '@/lib/legal/subprocessor-change-log'
 import {
   NOTICE_PERIOD_DAYS,
   PRIVACY_CONTACT_EMAIL,
@@ -29,6 +30,21 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
 
 const MANIFEST = read('docs/privacy/llm-data-flow.md')
 const LEGAL_DOC = read('docs/live-docs/legal-subprocessors.md')
+
+/**
+ * LUM-919: like /security, the doc's main tables list only what is in effect —
+ * as of its own "Last updated" date (no wall clock, so the test cannot turn
+ * red on a calendar day). Announced, not yet effective entries appear only in
+ * its Change history.
+ */
+const DOC_AS_OF = LEGAL_DOC.match(/^Last updated: (\d{4}-\d{2}-\d{2})/m)?.[1]
+if (!DOC_AS_OF) throw new Error('legal doc has no "Last updated: YYYY-MM-DD"')
+const DOC_IN_USE = buildSubprocessorPageView({
+  infrastructure: INFRASTRUCTURE_SUBPROCESSORS,
+  aiHosts: AI_HOST_SUBPROCESSORS,
+  changes: SUBPROCESSOR_CHANGES,
+  now: new Date(`${DOC_AS_OF}T00:00:00Z`),
+})
 
 /** Body rows of the first markdown table whose header starts with `prefix`. */
 function tableAfter(doc: string, prefix: string): string[][] {
@@ -101,12 +117,12 @@ describe('subprocessor registry (LUM-856)', () => {
       )
     ).toEqual(
       sorted(
-        INFRASTRUCTURE_SUBPROCESSORS.map(s => `${s.entity} / ${s.docService}`)
+        DOC_IN_USE.infrastructure.map(s => `${s.entity} / ${s.docService}`)
       )
     )
     expect(
       sorted(tableAfter(LEGAL_DOC, '| Subprocessor | Models').map(r => r[0]!))
-    ).toEqual(sorted(AI_HOST_SUBPROCESSORS.map(h => h.entity)))
+    ).toEqual(sorted(DOC_IN_USE.aiHosts.map(h => h.entity)))
     expect(
       sorted(
         tableAfter(LEGAL_DOC, '| Service | Provider').map(

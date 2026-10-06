@@ -329,7 +329,7 @@ describe('subprocessor change notice send (LUM-919)', () => {
   it('sends an urgent change under 30 days, saying why', async () => {
     const result = await sendSubprocessorNotice(URGENT.id, deps)
     expect(result.sent).toBe(3)
-    expect(sent[0]!.subject).toMatch(/^Urgent subprocessor change/)
+    expect(sent[0]!.subject).toMatch(/\(short notice\)$/)
     expect(sent[0]!.text).toContain(URGENT.urgent!.reason)
   })
 
@@ -340,9 +340,10 @@ describe('subprocessor change notice send (LUM-919)', () => {
       NOW
     )
     expect(calm.subject).toMatch(/^Subprocessor change/)
-    expect(calm.text).not.toContain('urgently')
+    expect(calm.subject).not.toMatch(/short notice/)
+    expect(calm.text).not.toContain('notice. Reason:')
     const rushed = renderSubprocessorNotice(URGENT, 'Acme', NOW)
-    expect(rushed.subject).toMatch(/^Urgent subprocessor change/)
+    expect(rushed.subject).toMatch(/\(short notice\)$/)
     expect(rushed.text).toContain("less than 30 days' notice")
   })
 

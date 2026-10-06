@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "Đăng nhập, tài khoản và phiên",
   "security.subprocessors.purpose.pusher": "Cập nhật trực tiếp trong các tab trình duyệt đang mở",
   "security.subprocessors.purpose.upstash": "Giới hạn tần suất yêu cầu",
-  "security.subprocessors.purpose.resend": "Email mời tham gia không gian làm việc",
+  "security.subprocessors.purpose.resend": "Email giao dịch: lời mời tham gia không gian làm việc, thông báo xóa và thông báo thay đổi bên xử lý phụ",
   "security.subprocessors.access.github": "Nội dung kho mã, pull request, check run và bình luận trên các kho mã đã cài đặt; danh tính GitHub của từng thành viên",
   "security.subprocessors.access.slack": "Tin nhắn và chuỗi hội thoại được liên kết với một nhiệm vụ hoặc ý tưởng; thông báo được đăng lên các kênh đã chọn",
   "security.subprocessors.access.figma": "Siêu dữ liệu và bản xem trước của các tệp Figma được liên kết",

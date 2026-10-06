@@ -6,7 +6,7 @@ export interface SubprocessorChangeEmailOptions {
   summary: string
   /** `YYYY-MM-DD`, takes effect at 00:00 UTC. */
   effectiveAt: string
-  /** Present = an urgent change sent with less than the full notice period. */
+  /** Present = sent with less than the full notice period; the reason is quoted. */
   urgentReason?: string | undefined
   noticePeriodDays: number
   securityUrl: string
@@ -53,10 +53,10 @@ export function buildSubprocessorChangeEmail(
 ): SubprocessorChangeEmailResult {
   const effective = longDate(o.effectiveAt)
   const label = KIND_LABEL[o.kind]
-  const subject = `${o.urgentReason ? 'Urgent subprocessor change' : 'Subprocessor change'} for ${o.workspaceName}, effective ${effective}`
+  const subject = `Subprocessor change for ${o.workspaceName}, effective ${effective}${o.urgentReason ? ' (short notice)' : ''}`
   const intro = `Lumo is changing the subprocessors that process data for the ${o.workspaceName} workspace.`
   const urgent = o.urgentReason
-    ? `This change is needed urgently to keep the service secure or available, so we are notifying you with less than ${o.noticePeriodDays} days' notice. Reason: ${o.urgentReason}`
+    ? `We are notifying you with less than ${o.noticePeriodDays} days' notice. Reason: ${o.urgentReason}`
     : null
   const list = `The full list of subprocessors and all upcoming changes: ${o.securityUrl}`
   const objection = `If you object to this change on reasonable data protection grounds, write to ${o.privacyEmail} before ${effective}, as set out in section 7.3 of our Data Processing Agreement.`

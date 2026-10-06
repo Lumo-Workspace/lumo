@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "サインイン、アカウント、セッション",
   "security.subprocessors.purpose.pusher": "開いているブラウザタブへのリアルタイム更新",
   "security.subprocessors.purpose.upstash": "レート制限",
-  "security.subprocessors.purpose.resend": "ワークスペースへの招待メール",
+  "security.subprocessors.purpose.resend": "トランザクションメール：ワークスペースへの招待、削除のお知らせ、サブプロセッサー変更のお知らせ",
   "security.subprocessors.access.github": "インストール済みリポジトリのリポジトリ内容、プルリクエスト、チェックラン、コメント。各メンバーの GitHub アイデンティティ",
   "security.subprocessors.access.slack": "タスクまたはアイデアにリンクされたメッセージとスレッド。選択したチャンネルに投稿される通知",
   "security.subprocessors.access.figma": "リンクされた Figma ファイルのメタデータとプレビュー",

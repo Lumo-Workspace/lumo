@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "Вход, учётные записи и сеансы",
   "security.subprocessors.purpose.pusher": "Обновления в реальном времени в открытых вкладках браузера",
   "security.subprocessors.purpose.upstash": "Ограничение частоты запросов",
-  "security.subprocessors.purpose.resend": "Письма с приглашениями в рабочее пространство",
+  "security.subprocessors.purpose.resend": "Транзакционные письма: приглашения в рабочее пространство, уведомления об удалении и об изменениях субобработчиков",
   "security.subprocessors.access.github": "Содержимое репозиториев, pull request’ы, check runs и комментарии в репозиториях, где установлено приложение; GitHub-идентичность каждого участника",
   "security.subprocessors.access.slack": "Сообщения и треды, связанные с задачей или идеей; уведомления, публикуемые в выбранных каналах",
   "security.subprocessors.access.figma": "Метаданные и превью связанных файлов Figma",

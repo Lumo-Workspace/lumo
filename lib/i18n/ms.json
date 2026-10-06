@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "Log masuk, akaun dan sesi",
   "security.subprocessors.purpose.pusher": "Kemas kini langsung dalam tab pelayar yang terbuka",
   "security.subprocessors.purpose.upstash": "Pengehadan kadar",
-  "security.subprocessors.purpose.resend": "E-mel jemputan ruang kerja",
+  "security.subprocessors.purpose.resend": "E-mel transaksi: jemputan ruang kerja, notis pemadaman dan notis perubahan subpemproses",
   "security.subprocessors.access.github": "Kandungan repositori, pull request, check run dan komen pada repositori yang dipasang; identiti GitHub setiap ahli",
   "security.subprocessors.access.slack": "Mesej dan bebenang yang dipautkan kepada tugasan atau idea; pemberitahuan yang disiarkan ke saluran yang dipilih",
   "security.subprocessors.access.figma": "Metadata dan pratonton fail Figma yang dipautkan",

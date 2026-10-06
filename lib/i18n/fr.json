@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "Connexion, comptes et sessions",
   "security.subprocessors.purpose.pusher": "Mises à jour en direct dans les onglets de navigateur ouverts",
   "security.subprocessors.purpose.upstash": "Limitation du débit",
-  "security.subprocessors.purpose.resend": "E-mails d’invitation à l’espace de travail",
+  "security.subprocessors.purpose.resend": "E-mails transactionnels : invitations à l’espace de travail, avis de suppression et avis de changement de sous-traitants ultérieurs",
   "security.subprocessors.access.github": "Contenu des dépôts, pull requests, check runs et commentaires sur les dépôts où l’app est installée ; l’identité GitHub de chaque membre",
   "security.subprocessors.access.slack": "Messages et fils de discussion liés à une tâche ou à une idée ; notifications publiées dans les canaux choisis",
   "security.subprocessors.access.figma": "Métadonnées et aperçus des fichiers Figma liés",

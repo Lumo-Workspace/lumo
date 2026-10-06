@@ -19,9 +19,11 @@
  *   1. Add the record below (announcedAt = the day it is published, at least
  *      NOTICE_PERIOD_DAYS before effectiveAt unless urgent) and change the
  *      registry and `docs/live-docs/legal-subprocessors.md` in the same PR —
- *      its tables, and its "Change history" (a table
- *      `| Change | Announced | Takes effect | Summary |` with one row per
- *      record, replacing the "No changes" line; the drift test checks it).
+ *      its "Change history" table (`| Change | Announced | Takes effect |
+ *      Summary |`, one row per record), and its main tables, which list only
+ *      what is in effect on the doc's "Last updated" date (a pending entry is
+ *      added to them after it takes effect, with a new "Last updated"). The
+ *      drift test checks both.
  *      /security shows the change as upcoming and keeps showing the previous
  *      state as in use until effectiveAt.
  *   2. After merge and deploy, upload the legal doc and run
@@ -77,7 +79,12 @@ export interface SubprocessorChange {
   announcedAt: string
   /** UTC calendar day the change takes effect (00:00 UTC). */
   effectiveAt: string
-  /** Present = needed urgently to keep the service secure or available. */
+  /**
+   * Present = announced with less than NOTICE_PERIOD_DAYS of notice: needed
+   * urgently to keep the service secure or available, or (user ruling
+   * 2026-10-05) correcting an outdated description of something already in
+   * use. The reason is shown in the email.
+   */
   urgent?: { reason: string }
   /** One English sentence for the email and the legal doc. */
   summary: string
@@ -122,4 +129,31 @@ export const SUBPROCESSOR_BASELINE: Readonly<Record<string, string>> = {
 }
 
 /** Oldest first (by announcedAt). Append only — a sent change is never edited. */
-export const SUBPROCESSOR_CHANGES: readonly SubprocessorChange[] = []
+const RESEND = {
+  id: 'resend',
+  entity: 'Resend Inc.',
+  docService: 'Transactional email',
+  product: 'Resend',
+  location: 'us',
+} as const
+
+export const SUBPROCESSOR_CHANGES: readonly SubprocessorChange[] = [
+  {
+    // User ruling 2026-10-05 (LUM-919): the list said Resend only sends
+    // invitations; it has sent workspace deletion notices since LUM-918 and
+    // now sends these change notices. Recorded as a purpose change on the
+    // day of the ruling; the entity, service and location are unchanged.
+    id: '2026-10-05-resend-purpose',
+    kind: 'changed',
+    announcedAt: '2026-10-05',
+    effectiveAt: '2026-10-05',
+    urgent: {
+      reason:
+        'Correction of an outdated description: Resend already sends these emails (workspace deletion notices since LUM-918).',
+    },
+    summary:
+      'Resend (transactional email): purpose corrected to workspace invitations, workspace deletion notices and subprocessor change notices to workspace owners. These emails were already being sent; nothing else changes.',
+    before: { list: 'infrastructure', entry: RESEND },
+    after: { list: 'infrastructure', entry: RESEND },
+  },
+]

@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "登入、帳號與工作階段",
   "security.subprocessors.purpose.pusher": "已開啟瀏覽器分頁中的即時更新",
   "security.subprocessors.purpose.upstash": "速率限制",
-  "security.subprocessors.purpose.resend": "工作區邀請電子郵件",
+  "security.subprocessors.purpose.resend": "交易型電子郵件：工作區邀請、刪除通知和次處理者變更通知",
   "security.subprocessors.access.github": "已安裝儲存庫的儲存庫內容、提取要求、檢查執行與留言；每位成員的 GitHub 身分",
   "security.subprocessors.access.slack": "連結至任務或想法的訊息與討論串；發佈至所選頻道的通知",
   "security.subprocessors.access.figma": "已連結 Figma 檔案的中繼資料與預覽",

@@ -1,6 +1,6 @@
 # Lumo Data Processing Agreement (Template)
 
-Version: 2026-10-04 · Draft for legal review (LUM-857)
+Version: 2026-10-05 · Draft for legal review (LUM-857)
 
 This Data Processing Agreement ("DPA") forms part of the agreement for the Lumo service (the "Agreement") between [Customer legal name] ("Customer") and [Lumo legal entity], [registered address] ("Lumo"). It applies where Lumo processes Customer Personal Data on Customer's behalf in providing the Service, and it sets out the terms required by Article 28(3) of Regulation (EU) 2016/679 (the "GDPR") and the equivalent UK and Swiss laws. If this DPA conflicts with the Agreement, this DPA prevails on data protection matters.
 
@@ -43,7 +43,7 @@ Lumo implements and maintains the technical and organisational measures describe
 
 7.1 **General authorisation.** Customer gives Lumo general written authorisation to engage Subprocessors. The Subprocessors engaged on the date of this DPA are listed on Lumo's subprocessor page at [link to subprocessor page] (Annex 3).
 
-7.2 **Change notice.** Lumo will notify Customer of any intended addition or replacement of a Subprocessor at least [30] days before the change takes effect, by updating the subprocessor page and by email to the workspace owner's address (or another address Customer designates). Where a change is needed urgently to keep the Service secure or available, Lumo will notify Customer as soon as reasonably practicable.
+7.2 **Change notice.** Lumo will notify Customer of any intended addition or replacement of a Subprocessor at least [30] days before the change takes effect, by updating the subprocessor page and by email to every owner of each of Customer's workspaces. Customer may ask Lumo, by writing to [privacy@uselumo.ai], to send these notices to one additional recipient address as well; Lumo records that address manually and includes it in later notices. Where a change is needed urgently to keep the Service secure or available, Lumo will notify Customer as soon as reasonably practicable.
 
 7.3 **Objection.** Customer may object to a new Subprocessor on reasonable data protection grounds by writing to [privacy@uselumo.ai] within the notice period. The parties will discuss the objection in good faith. If Lumo cannot offer a reasonable alternative, Customer may terminate the affected part of the Service without penalty and receive a pro-rata refund of prepaid fees for the terminated period.
 

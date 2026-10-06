@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "साइन-इन, खाते और सत्र",
   "security.subprocessors.purpose.pusher": "खुले ब्राउज़र टैब में लाइव अपडेट",
   "security.subprocessors.purpose.upstash": "दर सीमित करना (रेट लिमिटिंग)",
-  "security.subprocessors.purpose.resend": "कार्यक्षेत्र आमंत्रण ईमेल",
+  "security.subprocessors.purpose.resend": "लेन-देन संबंधी ईमेल: कार्यक्षेत्र आमंत्रण, हटाने की सूचनाएँ और उप-प्रोसेसर में बदलाव की सूचनाएँ",
   "security.subprocessors.access.github": "इंस्टॉल की गई रिपॉज़िटरी पर रिपॉज़िटरी सामग्री, पुल रिक्वेस्ट, चेक रन और टिप्पणियाँ; प्रत्येक सदस्य की GitHub पहचान",
   "security.subprocessors.access.slack": "किसी कार्य या विचार से जुड़े संदेश और थ्रेड; चुने गए चैनलों में पोस्ट की गई सूचनाएँ",
   "security.subprocessors.access.figma": "लिंक की गई Figma फ़ाइलों का मेटाडेटा और पूर्वावलोकन",

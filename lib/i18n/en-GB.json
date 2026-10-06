@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "Sign-in, accounts and sessions",
   "security.subprocessors.purpose.pusher": "Live updates in open browser tabs",
   "security.subprocessors.purpose.upstash": "Rate limiting",
-  "security.subprocessors.purpose.resend": "Workspace invitation emails",
+  "security.subprocessors.purpose.resend": "Transactional emails: workspace invitations, deletion notices and subprocessor change notices",
   "security.subprocessors.access.github": "Repository contents, pull requests, check runs and comments on installed repositories; each member's GitHub identity",
   "security.subprocessors.access.slack": "Messages and threads linked to a task or idea; notifications posted to chosen channels",
   "security.subprocessors.access.figma": "Metadata and previews of linked Figma files",

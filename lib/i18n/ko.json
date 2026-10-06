@@ -2497,7 +2497,7 @@
   "security.subprocessors.purpose.clerk": "로그인, 계정 및 세션",
   "security.subprocessors.purpose.pusher": "열려 있는 브라우저 탭의 실시간 업데이트",
   "security.subprocessors.purpose.upstash": "속도 제한",
-  "security.subprocessors.purpose.resend": "워크스페이스 초대 이메일",
+  "security.subprocessors.purpose.resend": "트랜잭션 이메일: 워크스페이스 초대, 삭제 알림, 하위 처리자 변경 알림",
   "security.subprocessors.access.github": "설치된 저장소의 저장소 콘텐츠, 풀 리퀘스트, 체크 실행 및 댓글; 각 멤버의 GitHub 신원",
   "security.subprocessors.access.slack": "작업 또는 아이디어에 연결된 메시지와 스레드; 선택한 채널에 게시되는 알림",
   "security.subprocessors.access.figma": "연결된 Figma 파일의 메타데이터 및 미리보기",

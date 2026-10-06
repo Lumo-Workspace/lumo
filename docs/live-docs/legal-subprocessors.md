@@ -18,7 +18,7 @@ These subprocessors process data for every workspace.
 | Clerk Inc. | Authentication | Sign-in, user accounts, sessions, organization membership | Name, email address, profile image, authentication metadata | United States |
 | Pusher Ltd. | Pusher Channels | Real-time updates pushed to open browser tabs | Task and activity update events | United States (us2 cluster) |
 | Upstash Inc. (via Vercel KV) | Redis key-value store | Rate limiting of API and upload endpoints | Request counters keyed by workspace or token identifier | United States |
-| Resend Inc. | Transactional email | Sends workspace invitation emails | Recipient email address, inviter name, workspace name | United States |
+| Resend Inc. | Transactional email | Sends transactional emails: workspace invitations, workspace deletion notices to workspace owners, and subprocessor change notices to workspace owners | Recipient email address, workspace name, name of the member who sent the invitation or requested the deletion | United States |
 
 ## AI model hosting subprocessors
 
@@ -68,6 +68,10 @@ We will announce any new subprocessor, or any change in the purpose or data loca
 
 ### Change history
 
-No changes have been recorded since the change history started on 2026-10-05.
+The main tables above list only subprocessors in effect on the "Last updated" date. A change that is announced but not yet in effect is listed here until it takes effect.
 
-Workspace owners receive change notices automatically. Anyone else who wants to hear about changes, or who has a question about this list, can contact [privacy@uselumo.ai].
+| Change | Announced | Takes effect | Summary |
+| --- | --- | --- | --- |
+| 2026-10-05-resend-purpose | 2026-10-05 | 2026-10-05 | Resend (transactional email): purpose corrected to workspace invitations, workspace deletion notices and subprocessor change notices to workspace owners. These emails were already being sent; nothing else changes. |
+
+Workspace owners receive change notices automatically. A customer can ask [privacy@uselumo.ai] to send these notices to one additional recipient address as well, which we record manually. Anyone else who wants to hear about changes, or who has a question about this list, can contact [privacy@uselumo.ai].
