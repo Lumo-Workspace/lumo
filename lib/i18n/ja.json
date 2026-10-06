@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "未到達",
   "testCases.report.state.unobserved": "未確認",
   "testCases.report.state.unrecorded": "ステップごとの結果なし",
-  "testCases.report.phase.STEPS": "ステップ",
-  "testCases.report.phase.VERIFICATION": "確認",
   "testCases.report.expected": "期待値",
   "testCases.report.actual": "実際",
   "testCases.report.actualMissing": "未記録",

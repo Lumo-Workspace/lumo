@@ -90,9 +90,6 @@ function StepRow({
         <span className='w-4 shrink-0 tabular-nums text-muted-foreground'>
           {row.index + 1}
         </span>
-        <span className='hidden w-12 shrink-0 text-caption text-muted-foreground sm:inline'>
-          {intl.formatMessage({ id: `testCases.report.phase.${row.phase}` })}
-        </span>
         <span
           className={`min-w-0 grow [overflow-wrap:anywhere] ${muted ? 'text-muted-foreground' : 'text-foreground'}`}
         >
@@ -114,7 +111,7 @@ function StepRow({
       {failed ? (
         <dl
           data-testid='step-expected-actual'
-          className='grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 px-3 pb-2.5 text-body [overflow-wrap:anywhere] sm:pl-[4.75rem]'
+          className='grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 px-3 pb-2.5 text-body [overflow-wrap:anywhere] pl-[3.875rem]'
         >
           <dt className='text-caption uppercase tracking-wide text-muted-foreground'>
             {intl.formatMessage({ id: 'testCases.report.expected' })}
@@ -130,7 +127,7 @@ function StepRow({
         </dl>
       ) : null}
       {row.evidence.length > 0 ? (
-        <div className='px-3 pb-2.5 sm:pl-[4.75rem]'>
+        <div className='px-3 pb-2.5 pl-[3.875rem]'>
           <EvidenceStrip evidence={evidence} only={row.evidence} />
         </div>
       ) : null}
@@ -140,8 +137,8 @@ function StepRow({
 
 /**
  * LUM-1011: 一条 run 的逐步报告——顶部一条结论（结果 · 断在哪 · 谁的锅 · 谁跑的
- * · 哪版代码），下面每一步一行，失败那行展开期望 / 实际，证据挂在它所属的那
- * 一步下面。
+ * · 哪版代码），下面按「步骤 / 复验」分组、每一步一行，失败那行展开期望 / 实际，
+ * 证据挂在它所属的那一步下面。
  *
  * 纯渲染：状态推导全在 `deriveStepReport`（纯函数），这里只画。只有**显式
  * 上报** PASS 的步骤画勾——没逐步记录的 run 不会因为这张表而看起来「全过了」。
@@ -168,6 +165,19 @@ export function TestCaseRunReport({
   const report = deriveStepReport({ steps, verification }, run)
   const stepEvidence = [...new Set(report.rows.flatMap(r => r.evidence))]
   const failed = run.result === 'FAIL'
+  const groups = [
+    {
+      phase: 'STEPS',
+      titleId: 'testCases.section.steps',
+      rows: report.rows.filter(r => r.phase === 'STEPS'),
+    },
+    {
+      phase: 'VERIFICATION',
+      titleId: 'testCases.section.verification',
+      rows: report.rows.filter(r => r.phase === 'VERIFICATION'),
+    },
+  ].filter(g => g.rows.length > 0)
+  const showGroupTitles = groups.length > 1
 
   const summary = report.brokeAt
     ? intl.formatMessage(
@@ -215,17 +225,32 @@ export function TestCaseRunReport({
         <CodeCoordinate run={run} pullRequests={pullRequests} />
       </div>
 
-      <ol aria-label={intl.formatMessage({ id: 'testCases.section.steps' })}>
-        {report.rows.map(row => (
-          <StepRow
-            key={`${row.phase}-${row.index}`}
-            row={row}
-            evidence={run.evidence}
-            expected={expected}
-            actual={run.actual}
-          />
-        ))}
-      </ol>
+      {groups.map(group => (
+        <section
+          key={group.phase}
+          data-testid='step-group'
+          className='border-t border-border first:border-t-0'
+        >
+          {/* 只有步骤时不画组标题；有复验段时两组各带标题、各自从 1 编号——
+              与 CLI 的 s<n> / v<n> 及「断在复验第 n 步」同一套编号。 */}
+          {showGroupTitles ? (
+            <p className='px-3 pb-1 pt-2 text-caption text-muted-foreground'>
+              {intl.formatMessage({ id: group.titleId })}
+            </p>
+          ) : null}
+          <ol aria-label={intl.formatMessage({ id: group.titleId })}>
+            {group.rows.map(row => (
+              <StepRow
+                key={`${row.phase}-${row.index}`}
+                row={row}
+                evidence={run.evidence}
+                expected={expected}
+                actual={run.actual}
+              />
+            ))}
+          </ol>
+        </section>
+      ))}
 
       {!report.hasStepResults && run.result !== 'BLOCKED' ? (
         <p className='border-t border-border px-3 py-2 text-caption text-muted-foreground'>

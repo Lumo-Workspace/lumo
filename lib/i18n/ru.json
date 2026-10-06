@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "Не достигнут",
   "testCases.report.state.unobserved": "Не наблюдался",
   "testCases.report.state.unrecorded": "Нет результата по шагу",
-  "testCases.report.phase.STEPS": "Шаг",
-  "testCases.report.phase.VERIFICATION": "Проверка",
   "testCases.report.expected": "Ожидалось",
   "testCases.report.actual": "Фактически",
   "testCases.report.actualMissing": "Не записано",

@@ -161,4 +161,41 @@ describe('TestCaseRunReport', () => {
       'Not recorded'
     )
   })
+
+  // 用户 2026-10-06：「1 Step / 2 Step / 1 Check」读起来像乱序。分成两组、
+  // 组标题各一次，组内各自从 1 编号（与 CLI 的 s<n> / v<n> 对齐）。
+  it('groups steps and verification under one title each, numbered within the group', () => {
+    renderReport(run({ failedPhase: 'VERIFICATION', failedIndex: 0 }))
+    const groups = screen.getAllByTestId('step-group')
+    expect(groups).toHaveLength(2)
+    expect(within(groups[0]!).getByRole('list')).toHaveAccessibleName('Steps')
+    expect(within(groups[1]!).getByRole('list')).toHaveAccessibleName(
+      'Verification'
+    )
+    const numbers = (g: HTMLElement) =>
+      within(g)
+        .getAllByTestId('step-row')
+        .map(r => r.querySelector('.tabular-nums')?.textContent)
+    expect(numbers(groups[0]!)).toEqual(['1', '2', '3'])
+    expect(numbers(groups[1]!)).toEqual(['1'])
+    // No per-row phase label any more.
+    expect(screen.queryByText('Step')).toBeNull()
+    expect(screen.queryByText('Check')).toBeNull()
+  })
+
+  it('draws no group title when the case has no verification', () => {
+    render(
+      <TestCaseRunReport
+        run={run({ result: 'PASS', failureAttribution: null }) as never}
+        steps={steps}
+        verification={[]}
+        expected='Refunded to Visa 4242'
+        requiredEnvironment={null}
+        pullRequests={[]}
+      />
+    )
+    expect(screen.getAllByTestId('step-group')).toHaveLength(1)
+    expect(screen.queryByText('Steps')).toBeNull()
+    expect(screen.getByRole('list')).toHaveAccessibleName('Steps')
+  })
 })

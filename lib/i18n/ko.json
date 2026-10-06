@@ -2729,8 +2729,6 @@
   "testCases.report.state.notReached": "도달하지 않음",
   "testCases.report.state.unobserved": "관찰하지 못함",
   "testCases.report.state.unrecorded": "단계별 결과 없음",
-  "testCases.report.phase.STEPS": "단계",
-  "testCases.report.phase.VERIFICATION": "확인",
   "testCases.report.expected": "예상",
   "testCases.report.actual": "실제",
   "testCases.report.actualMissing": "기록되지 않음",
