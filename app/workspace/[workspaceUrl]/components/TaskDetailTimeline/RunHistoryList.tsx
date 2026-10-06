@@ -15,6 +15,8 @@ import {
   type CeilingEnvironment,
 } from '@/lib/test-cases/provability'
 import { EvidenceStrip } from './TestCaseEvidence'
+import { MemberHoverChip } from './MemberHoverChip'
+import type { WorkspaceMemberInfo } from '../../types'
 import { runAnchorId } from './taskTabs'
 
 /**
@@ -98,22 +100,30 @@ export function CodeCoordinate({
 export function ExecutorLabel({
   executedBy,
   sourceSessionId,
+  member = null,
 }: {
   executedBy: string | null | undefined
   sourceSessionId: string | null
+  /** LUM-1012: the runner, when they are a current member — drawn with
+   *  avatar + hover card like everywhere else; otherwise the name label. */
+  member?: WorkspaceMemberInfo | null
 }) {
   const intl = useIntl()
   if (executedBy === undefined) return null
   return (
-    <span className='flex items-center gap-1 text-muted-foreground'>
-      <span>
-        {executedBy === null
-          ? intl.formatMessage({ id: 'testCases.executor.unrecorded' })
-          : intl.formatMessage(
-              { id: 'testCases.executor.by' },
-              { name: executedBy }
-            )}
-      </span>
+    <span className='flex items-center gap-1.5 text-muted-foreground'>
+      {member ? (
+        <MemberHoverChip member={member} />
+      ) : (
+        <span>
+          {executedBy === null
+            ? intl.formatMessage({ id: 'testCases.executor.unrecorded' })
+            : intl.formatMessage(
+                { id: 'testCases.executor.by' },
+                { name: executedBy }
+              )}
+        </span>
+      )}
       {sourceSessionId ? (
         <Link
           href={`/sessions/${sourceSessionId}`}

@@ -2,80 +2,72 @@ import type { IntlShape } from 'react-intl'
 import type { TaskSecurityScans } from '@/lib/services/pr-security-scan.service'
 import { summarizeSecurityScans } from './security-summary'
 
+/** One qualifying clause after the verdict. */
+export interface SecurityCaveat {
+  text: string
+  /** `warning` when a scan of ours did not finish or went over a size
+   *  limit; `muted` when the customer turned checks off (their choice). */
+  tone: 'warning' | 'muted'
+}
+
 /**
- * The security scan's one-line rollup ("7 PRs · 3 findings (all LOW) · 2 code
- * scans didn't finish"). Shared by the scan panel and the Record tab's
- * collapsed Security scan row (LUM-1009) so the two can never word it
- * differently.
+ * LUM-1012 — the Security scan Records row's verdict: one word or count
+ * ("Clean", "2 open findings"), plus a clause for each reason some scan could
+ * not back that verdict ("1 scan over the size limit").
  */
-export function formatSecuritySummaryLine(
+export interface SecurityVerdict {
+  text: string
+  caveats: SecurityCaveat[]
+}
+
+export function formatSecurityVerdict(
   intl: IntlShape,
   data: TaskSecurityScans
-): string {
+): SecurityVerdict {
   const summary = summarizeSecurityScans(data.prs)
-  const severityNote = summary.allLow
-    ? ` (${intl.formatMessage({ id: 'record.security.allLow' })})`
-    : ''
-  // Review F1 (honesty): with a scan still incomplete, zero findings is not
-  // "no findings" — it is "no findings *on the scans that finished*". The
-  // composite `record.security.summary` bakes its own =0 branch, so that case
-  // is composed from the PR-count clause plus the qualified one instead.
-  const qualifyZero =
-    summary.findings === 0 &&
-    (summary.incomplete > 0 ||
-      summary.overSizeLimit > 0 ||
-      summary.turnedOff > 0 ||
-      data.scanningOff)
-  const summaryText = qualifyZero
-    ? [
-        intl.formatMessage(
-          { id: 'record.security.prs' },
-          { count: summary.prs }
-        ),
-        intl.formatMessage({ id: 'record.security.noneOnComplete' }),
-      ].join(' · ')
-    : intl.formatMessage(
-        { id: 'record.security.summary' },
-        { prs: summary.prs, findings: summary.findings, severityNote }
-      )
-  const incompleteText =
-    summary.incomplete > 0
+  const caveats: SecurityCaveat[] = []
+  if (summary.incomplete > 0)
+    caveats.push({
+      text: intl.formatMessage(
+        { id: 'record.security.incomplete' },
+        { count: summary.incomplete }
+      ),
+      tone: 'warning',
+    })
+  // LUM-832: over the size limit is not "not fully checked yet" — nothing is
+  // coming later; the change was too large.
+  if (summary.overSizeLimit > 0)
+    caveats.push({
+      text: intl.formatMessage(
+        { id: 'record.security.overSizeLimit' },
+        { count: summary.overSizeLimit }
+      ),
+      tone: 'warning',
+    })
+  // LUM-892: turned off in settings — the customer's choice, no warning tone.
+  if (summary.turnedOff > 0)
+    caveats.push({
+      text: intl.formatMessage(
+        { id: 'record.security.turnedOff' },
+        { count: summary.turnedOff }
+      ),
+      tone: 'muted',
+    })
+  if (data.scanningOff && summary.turnedOff === 0)
+    caveats.push({
+      text: intl.formatMessage({ id: 'securityScan.status.scanningOff' }),
+      tone: 'muted',
+    })
+  // Review F1 / LUM-566 (honesty): "Clean" only when nothing qualifies it —
+  // otherwise zero findings is "no open findings", followed by the reason.
+  const text =
+    summary.findings > 0
       ? intl.formatMessage(
-          { id: 'record.security.incomplete' },
-          { count: summary.incomplete }
+          { id: 'record.security.verdict.open' },
+          { count: summary.findings }
         )
-      : ''
-  // LUM-832: a layer skipped for size is not "not fully checked yet" —
-  // nothing is coming later; the change was over the limit.
-  const overSizeLimitText =
-    summary.overSizeLimit > 0
-      ? intl.formatMessage(
-          { id: 'record.security.overSizeLimit' },
-          { count: summary.overSizeLimit }
-        )
-      : ''
-  // LUM-892: turned off in settings — the customer's choice, its own clause.
-  const turnedOffText =
-    summary.turnedOff > 0
-      ? intl.formatMessage(
-          { id: 'record.security.turnedOff' },
-          { count: summary.turnedOff }
-        )
-      : ''
-  const failedText =
-    summary.externalFailed > 0
-      ? intl.formatMessage(
-          { id: 'record.security.failed' },
-          { count: summary.externalFailed }
-        )
-      : ''
-  return [
-    summaryText,
-    incompleteText,
-    overSizeLimitText,
-    turnedOffText,
-    failedText,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+      : caveats.length === 0
+        ? intl.formatMessage({ id: 'securityScan.status.CLEAN' })
+        : intl.formatMessage({ id: 'record.security.verdict.noOpen' })
+  return { text, caveats }
 }

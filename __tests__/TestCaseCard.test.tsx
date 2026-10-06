@@ -149,9 +149,9 @@ describe('TestCaseCard', () => {
 
 describe('run history shows every run', () => {
   // LUM-801 走查时 TC1 挂在这条：区域标题是「Run history」，但早先只传了
-  // 最近一次 run 进来，刷新后先前那条就消失了。LUM-1011 起最新一条画成逐步
-  // 报告，更早的折一层——折起来也必须一条不少地数出来、点开全在。
-  it('renders the latest as a report and every earlier run one click away', () => {
+  // 最近一次 run 进来，刷新后先前那条就消失了。LUM-1012 起每条 run 都是同一份
+  // 可折叠报告，一条不少地列出来：最新一条默认展开，其余只露结论行。
+  it('lists every run, the latest open and the earlier ones folded to their verdict line', () => {
     renderCard({
       runs: [
         run({ id: 'r2', result: 'PASS', environment: 'PRODUCTION' }),
@@ -165,58 +165,79 @@ describe('run history shows every run', () => {
         }),
       ],
     })
-    expect(screen.getByTestId('run-report')).toBeInTheDocument()
-    expect(screen.getByText('Pass')).toBeInTheDocument()
-    expect(screen.queryByText('Fail')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText(/earlier run/))
-    expect(screen.getByText('Fail')).toBeInTheDocument()
-    expect(screen.getAllByText('Local').length).toBeGreaterThan(0)
-    expect(screen.getByText(/failed at step 2/i)).toBeInTheDocument()
-  })
-
-  // 用户 2026-10-06：先读完用例本身（前置 + 预期），再看 run 的结果和步骤。
-  // 早先「预期结果」排在逐步报告之后，夹在最新 run 和更早 run 之间。
-  it('puts the case description (setup, expected) before the run report', () => {
-    renderCard({ runs: [run({ id: 'r2' }), run({ id: 'r1' })] })
-    const setup = screen.getByText('The user is on the Dashboard.')
-    const expected = screen.getByText(
-      'The FDIC membership disclosure is visible.'
+    const reports = screen.getAllByTestId('run-report')
+    expect(reports.map(r => r.id)).toEqual(['run-r2', 'run-r1'])
+    const [latest, earlier] = reports as [HTMLElement, HTMLElement]
+    // The verdict line of both is always there…
+    expect(latest).toHaveTextContent('Pass')
+    expect(earlier).toHaveTextContent('Fail')
+    expect(earlier).toHaveTextContent('Local')
+    // …the step report only for the open one.
+    expect(latest.querySelectorAll('[data-testid="step-group"]')).toHaveLength(
+      2
     )
-    const report = screen.getByTestId('run-report')
-    const earlier = screen.getByText(/earlier run/)
-    const follows = (a: Node, b: Node) =>
-      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-    expect(follows(setup, expected)).toBe(true)
-    expect(follows(expected, report)).toBe(true)
-    expect(follows(report, earlier)).toBe(true)
+    expect(earlier.querySelectorAll('[data-testid="step-group"]')).toHaveLength(
+      0
+    )
+    const toggle = earlier.querySelector(
+      '[data-testid="run-report-toggle"]'
+    ) as HTMLElement
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(earlier.querySelectorAll('[data-testid="step-group"]')).toHaveLength(
+      2
+    )
+    expect(earlier).toHaveTextContent(/failed at step 2/i)
   })
 
-  it('puts the case description before the steps when the case never ran', () => {
+  // 用户 2026-10-06：先读完用例本身，再看 run 的结果和步骤。LUM-1012：用例的
+  // 步骤 / 复验 / 预期始终在前，运行记录在后。
+  it('puts the whole case (setup, steps, verification, expected) before the runs', () => {
+    renderCard({ runs: [run({ id: 'r2' }), run({ id: 'r1' })] })
+    const follows = (a: Node, b: Node) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    const setup = screen.getByText('The user is on the Dashboard.')
+    const firstStep = screen.getAllByText(
+      'scroll: to the bottom of the page'
+    )[0]!
+    const expected = screen.getAllByText(
+      'The FDIC membership disclosure is visible.'
+    )[0]!
+    const runs = screen.getByTestId('test-case-runs')
+    expect(follows(setup, firstStep)).toBe(true)
+    expect(follows(firstStep, expected)).toBe(true)
+    expect(follows(expected, runs)).toBe(true)
+    expect(runs).toHaveTextContent('Runs')
+  })
+
+  it('shows the case on its own when it never ran', () => {
     renderCard()
-    const follows = (a: Node, b: Node) =>
-      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(screen.queryByTestId('test-case-runs')).toBeNull()
     expect(
-      follows(
-        screen.getByText('The FDIC membership disclosure is visible.'),
-        screen.getByText('scroll: to the bottom of the page')
-      )
-    ).toBe(true)
+      screen.getByText('scroll: to the bottom of the page')
+    ).toBeInTheDocument()
   })
 
-  // 用户 2026-10-06：最新 run 是逐步报告、更早的却是一行徽章流，两种格式。
-  // 现在更早的每一条也是同一份报告（同样的表头、步骤分组、备注 + 证据）。
-  it('draws earlier runs in the same report format as the latest', () => {
+  it('draws every run in the same report format', () => {
     renderCard({
       runs: [
         run({ id: 'r2', note: 'latest note' }),
         run({ id: 'r1', note: 'earlier note' }),
       ],
     })
-    expect(screen.getAllByTestId('run-report')).toHaveLength(1)
-    fireEvent.click(screen.getByText(/earlier run/))
     const reports = screen.getAllByTestId('run-report')
-    expect(reports).toHaveLength(2)
-    expect(reports.map(r => r.id)).toEqual(['run-r2', 'run-r1'])
+    for (const r of reports) {
+      fireEvent.click(
+        r.querySelector('[data-testid="run-report-toggle"]') as HTMLElement
+      )
+    }
+    // The latest started open, so one click folded it — open it again.
+    fireEvent.click(
+      reports[0]!.querySelector(
+        '[data-testid="run-report-toggle"]'
+      ) as HTMLElement
+    )
     for (const r of reports) {
       expect(
         r.querySelector('[data-testid="run-report-header"]')
@@ -226,12 +247,50 @@ describe('run history shows every run', () => {
     expect(reports[1]).toHaveTextContent('earlier note')
   })
 
-  it('opens the earlier runs by itself when a deep link targets one', () => {
+  it('opens the run a deep link targets', () => {
     renderCard({
       linkedRunId: 'r1',
       runs: [run({ id: 'r2' }), run({ id: 'r1', environment: 'PRODUCTION' })],
     })
-    expect(screen.getByText('Production')).toBeInTheDocument()
+    const linked = document.getElementById('run-r1') as HTMLElement
+    expect(
+      linked.querySelector('[data-testid="run-report-toggle"]')
+    ).toHaveAttribute('aria-expanded', 'true')
+    expect(linked).toHaveTextContent('Production')
+  })
+})
+
+// LUM-1012: who ran it is shown like everywhere else — avatar + name, with a
+// hover card — when the runner is a current member; a name label otherwise.
+describe('runner', () => {
+  const member = {
+    id: 'm-1',
+    clerkId: 'c-1',
+    role: 'OWNER',
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    imageUrl: null,
+    joinedAt: '2026-01-01',
+    actorId: null,
+  }
+
+  it('draws a known runner as a member chip', () => {
+    renderCard({
+      members: [member],
+      runs: [run({ executedByMemberId: 'm-1', executedBy: 'Ada Lovelace' })],
+    })
+    const chip = screen.getByTestId('member-chip')
+    expect(chip).toHaveTextContent('Ada Lovelace')
+    expect(chip).toHaveTextContent('AL')
+  })
+
+  it('falls back to the name label when the runner is not a current member', () => {
+    renderCard({
+      members: [member],
+      runs: [run({ executedByMemberId: 'm-gone', executedBy: 'Old Hand' })],
+    })
+    expect(screen.queryByTestId('member-chip')).toBeNull()
+    expect(screen.getByText('by Old Hand')).toBeInTheDocument()
   })
 })
 
@@ -243,7 +302,6 @@ describe('environment is distinguishable by text, not only colour', () => {
         run({ id: 'r2', environment: 'PRODUCTION' }),
       ],
     })
-    fireEvent.click(screen.getByText(/earlier run/))
     expect(screen.getAllByText('Local').length).toBeGreaterThan(0)
     expect(screen.getByText('Production')).toBeInTheDocument()
   })

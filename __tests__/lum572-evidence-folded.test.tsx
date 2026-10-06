@@ -90,7 +90,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/memory/MemoryTab', () => ({
 }))
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { TaskDossier } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TaskDossier'
 import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
@@ -159,12 +159,12 @@ describe('evidence and security are flat Records rows', () => {
     expect(screen.queryByTestId('lineage-body')).toBeNull()
     expect(screen.queryByTestId('memory-body')).toBeNull()
 
-    // One click opens a row's body; the row's collapsed summary gives way.
+    // One click opens a row's body; LUM-1012: the verdict stays put.
     const runs = screen.getByRole('button', { name: /Agent runs/ })
     expect(runs).toHaveTextContent('1 session')
     fireEvent.click(runs)
     expect(screen.getByTestId('runs-body')).toBeInTheDocument()
-    expect(runs).not.toHaveTextContent('1 session')
+    expect(runs).toHaveTextContent('1 session')
   })
 
   it('a legacy deep link expands its target row', () => {
@@ -204,8 +204,56 @@ describe('evidence and security are flat Records rows', () => {
     const row = screen.getByRole('button', { name: /Security scan/ })
     expect(screen.getByTestId('record-records')).toContainElement(row)
     expect(row).toHaveAttribute('aria-expanded', 'false')
-    // The same rollup line the scan panel prints (formatSecuritySummaryLine).
-    expect(row).toHaveTextContent('1 PR')
+    // LUM-1012: the row's verdict (formatSecurityVerdict).
+    expect(row).toHaveTextContent('Clean')
     expect(screen.queryByTestId('record-needs-action')).toBeNull()
+  })
+})
+
+// LUM-1012: Test cases is no longer a section of its own — it is the first
+// Records row, folded like the rest, and opens itself for a run link.
+describe('test cases are the first Records row', () => {
+  afterEach(() => {
+    window.location.hash = ''
+  })
+
+  it('sits first in Records, collapsed, with a verdict', () => {
+    render(<TaskDossier {...baseProps} />)
+    const records = screen.getByTestId('record-records')
+    const row = screen.getByRole('button', { name: /Test cases/ })
+    expect(records).toContainElement(row)
+    expect(records.querySelector('button')).toBe(row)
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    expect(row).toHaveTextContent('None yet')
+    expect(document.getElementById('dossier-tests')).toContainElement(row)
+    expect(screen.queryByTestId('record-tests')).toBeNull()
+  })
+
+  it('opens itself when the page lands on a run link', () => {
+    window.location.hash = '#run-abc'
+    render(<TaskDossier {...baseProps} />)
+    expect(screen.getByRole('button', { name: /Test cases/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+  })
+
+  it('opens itself when a Needs action defect row changes the hash', () => {
+    render(<TaskDossier {...baseProps} />)
+    const row = screen.getByRole('button', { name: /Test cases/ })
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    act(() => {
+      window.location.hash = '#run-xyz'
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    })
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('a legacy /tests link (targetSection tests) opens it', () => {
+    render(<TaskDossier {...baseProps} targetSection='tests' />)
+    expect(screen.getByRole('button', { name: /Test cases/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
   })
 })

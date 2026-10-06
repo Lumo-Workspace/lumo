@@ -14,18 +14,21 @@ import {
 } from '@/lib/test-cases/case-summary'
 import { deriveStepReport } from '@/lib/test-cases/step-report'
 import { TestCaseRunReport } from './TestCaseRunReport'
+import type { WorkspaceMemberInfo } from '../../types'
 
 interface TestCaseCardProps {
   testCase: TestCaseWithRuns
   taskIdentifier: string
-  /** 新到旧。第一条画成逐步报告，其余折叠在「更早的运行」里。 */
+  /** 新到旧。每条都是同一份可折叠的逐步报告，最新一条默认展开。 */
   runs: TestCaseRunView[]
   /** 本任务关联的 PR 快照，用于推导每条 run 的陈旧性。 */
   pullRequests: TaskPullRequestSnapshot[]
   expanded: boolean
   onToggle: () => void
-  /** 深链落点（`#run-<id>`）。落在更早的 run 上时，历史区自动展开。 */
+  /** 深链落点（`#run-<id>`）。落在哪条 run 上，哪条就展开。 */
   linkedRunId?: string | null
+  /** 解析执行人头像 / 名片用。 */
+  members?: WorkspaceMemberInfo[]
   onRecordRun: () => void
   onEdit: () => void
   onRemove: () => void
@@ -96,8 +99,9 @@ function VerdictIcon({ verdict }: { verdict: CaseVerdict }) {
  * LUM-801 / LUM-1011: Record 页「测试用例」区段里的一条用例。
  *
  * 折叠时是一行：结论图标 · 句柄 · 标题 · 最新一次的环境 / 日期 / 进度。
- * 展开后先是用例描述（前置条件 · 预期结果），再是最新一次 run 的逐步报告，
- * 更早的运行再折一层——折里每条也是同一份逐步报告，格式不分新旧。
+ * 展开后先是用例本身（前置条件 · 步骤 · 复验 · 预期结果），再是全部运行：
+ * 每条一行结论（谁跑的带头像），点开是同一份逐步报告；最新一条默认展开
+ * （LUM-1012）。
  *
  * 纯渲染 + 回调：自己**不发任何请求**（SRP —— 取数在 useTestCases，编排在
  * TestCasesSection）。裁定按钮不在这里——未裁定的已证缺陷在「需要处理」里裁。
@@ -110,16 +114,21 @@ export function TestCaseCard({
   expanded,
   onToggle,
   linkedRunId = null,
+  members = [],
   onRecordRun,
   onEdit,
   onRemove,
 }: TestCaseCardProps) {
   const intl = useIntl()
-  const [latest, ...earlier] = runs
-  const linkedEarlier =
-    linkedRunId !== null && earlier.some(r => r.id === linkedRunId)
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const showHistory = historyOpen || linkedEarlier
+  const latest = runs[0]
+  // 每条 run 的展开状态：没被人点过的，最新一条和深链落点默认展开。
+  const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>(
+    {}
+  )
+  const isRunOpen = (runId: string) =>
+    openOverrides[runId] ?? (runId === latest?.id || runId === linkedRunId)
+  const toggleRun = (runId: string) =>
+    setOpenOverrides(prev => ({ ...prev, [runId]: !isRunOpen(runId) }))
 
   const verdict = deriveLatestVerdict(
     latest ?? null,
@@ -215,77 +224,49 @@ export function TestCaseCard({
             </Section>
           ) : null}
 
-          {/* 先读完用例本身（前置 + 预期），再看这次跑出了什么。 */}
+          <Section
+            title={intl.formatMessage({ id: 'testCases.section.steps' })}
+          >
+            <OrderedSteps items={testCase.steps} />
+          </Section>
+          {testCase.verification.length > 0 ? (
+            <Section
+              title={intl.formatMessage({
+                id: 'testCases.section.verification',
+              })}
+            >
+              <OrderedSteps items={testCase.verification} />
+            </Section>
+          ) : null}
           <Section
             title={intl.formatMessage({ id: 'testCases.section.expected' })}
           >
             {testCase.expected}
           </Section>
 
-          {latest ? (
-            <TestCaseRunReport
-              run={latest}
-              steps={testCase.steps}
-              verification={testCase.verification}
-              expected={testCase.expected}
-              requiredEnvironment={testCase.requiredEnvironment}
-              pullRequests={pullRequests}
-              highlighted={latest.id === linkedRunId}
-            />
-          ) : (
-            <>
-              <Section
-                title={intl.formatMessage({ id: 'testCases.section.steps' })}
-              >
-                <OrderedSteps items={testCase.steps} />
-              </Section>
-              {testCase.verification.length > 0 ? (
-                <Section
-                  title={intl.formatMessage({
-                    id: 'testCases.section.verification',
-                  })}
-                >
-                  <OrderedSteps items={testCase.verification} />
-                </Section>
-              ) : null}
-            </>
-          )}
-
-          {earlier.length > 0 ? (
-            <div>
-              <button
-                type='button'
-                aria-expanded={showHistory}
-                onClick={() => setHistoryOpen(o => !o)}
-                className='flex items-center gap-1.5 text-caption text-muted-foreground hover:text-foreground'
-              >
-                <ChevronRight
-                  className={`size-3 transition-transform ${showHistory ? 'rotate-90' : ''}`}
-                  aria-hidden
-                />
-                {intl.formatMessage(
-                  { id: 'testCases.report.earlierRuns' },
-                  { count: earlier.length }
-                )}
-              </button>
-              {showHistory ? (
-                // 更早的 run 与最新一条同一种画法（同一个报告组件），只是多折一层——
-                // 两种格式并排时读者得重新学一遍哪段在哪（用户 2026-10-06）。
-                <div className='mt-2 flex flex-col gap-2'>
-                  {earlier.map(r => (
-                    <TestCaseRunReport
-                      key={r.id}
-                      run={r}
-                      steps={testCase.steps}
-                      verification={testCase.verification}
-                      expected={testCase.expected}
-                      requiredEnvironment={testCase.requiredEnvironment}
-                      pullRequests={pullRequests}
-                      highlighted={r.id === linkedRunId}
-                    />
-                  ))}
-                </div>
-              ) : null}
+          {/* 先读完用例本身，再看每次跑出了什么——新的在上。 */}
+          {runs.length > 0 ? (
+            <div data-testid='test-case-runs'>
+              <p className='text-body-strong text-foreground'>
+                {intl.formatMessage({ id: 'testCases.section.runs' })}
+              </p>
+              <div className='mt-1.5 flex flex-col gap-2'>
+                {runs.map(r => (
+                  <TestCaseRunReport
+                    key={r.id}
+                    run={r}
+                    steps={testCase.steps}
+                    verification={testCase.verification}
+                    expected={testCase.expected}
+                    requiredEnvironment={testCase.requiredEnvironment}
+                    pullRequests={pullRequests}
+                    highlighted={r.id === linkedRunId}
+                    members={members}
+                    open={isRunOpen(r.id)}
+                    onToggle={() => toggleRun(r.id)}
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
 

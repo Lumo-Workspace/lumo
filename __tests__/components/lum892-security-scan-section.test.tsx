@@ -159,22 +159,22 @@ describe('LUM-892 turned-off layer in the task panel', () => {
     expect(badge).toHaveAttribute('data-state', 'turned-off')
     expect(badge).toHaveTextContent('Some checks off')
     expect(badge).not.toHaveTextContent('Clean')
-    const summary = screen.getByTestId('security-summary-line')
-    expect(summary).toHaveTextContent('no findings on completed scans')
-    expect(summary).toHaveTextContent(
-      '1 scan with checks turned off in settings'
-    )
-    expect(summary).not.toHaveTextContent('not fully checked yet')
+    // (The Records row's verdict for this case: security-verdict.test.)
   })
 
   it('LUM-892 turned-off layer: the row says the layers were turned off in settings, not unfinished on our side', () => {
     renderPanel(data(scan({ stages: TURNED_OFF_STAGES })))
     // Not expanded by default for the customer's own choice; open it.
     fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
-    const stages = screen.getByTestId('scan-stages')
-    expect(stages).toHaveTextContent('AI review: off in workspace settings')
-    expect(stages).toHaveTextContent('Exploit paths: off in workspace settings')
-    expect(stages).toHaveAttribute('data-incomplete', 'false')
+    for (const [key, label] of [
+      ['judge', 'AI review: off in workspace settings'],
+      ['hunt', 'Exploit paths: off in workspace settings'],
+    ]) {
+      const cell = screen.getByTestId(`stage-${key}`)
+      expect(cell).toHaveAttribute('aria-label', label)
+      // The customer's choice, not ours unfinished: no warning tone.
+      expect(cell.querySelector('.text-warning-text')).toBeNull()
+    }
     expect(screen.getByTestId('scan-turned-off')).toHaveTextContent(
       "Turned off in this workspace's settings: AI review, Exploit paths. Those checks did not look at this PR."
     )

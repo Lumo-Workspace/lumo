@@ -45,17 +45,12 @@ const messages: Record<string, string> = {
   'securityScan.finding.externalLink': 'View rule documentation',
   'securityScan.finding.persisting': 'already on the default branch',
   'securityScan.finding.dependency': 'Vulnerable dependency',
+  'securityScan.result.verifierDismissed': '{count} dismissed by verifier',
+  'securityScan.result.noOpen': 'No open findings',
   'securityScan.stage.supplyChain': 'Dependencies',
   'securityScan.partial':
     "Part of this scan hasn't finished on our side yet. We aren't counting it as checked, and we won't call it clean.",
   'securityScan.external.failedReason': 'External scanner failed:',
-  'record.security.summary': '{prs} PRs · {findings} findings{severityNote}',
-  'record.security.allLow': 'all LOW',
-  'record.security.failed': '{count} external scan(s) failed',
-  'record.security.prs': '{count} PRs',
-  'record.security.noneOnComplete': 'no findings on completed scans',
-  'record.security.incomplete': '{count} scan(s) incomplete',
-  'record.security.overSizeLimit': '{count} scan(s) over the size limit',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -232,7 +227,8 @@ test('shows the blocking banner, the owned unfinished notice for a judge outage,
     'true'
   )
   expect(screen.getByText('src/cfg.ts:3')).toBeInTheDocument()
-  expect(screen.getByText('Scanned abcdef1')).toBeInTheDocument()
+  // LUM-1012: the scanned head rides on the PR link's title.
+  expect(screen.getByTitle('Scanned abcdef1')).toBeInTheDocument()
 })
 
 test('a human can mark a finding false positive with a note', async () => {
@@ -339,11 +335,20 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
     'aria-expanded',
     'true'
   )
-  const stages = screen.getByTestId('scan-stages')
-  expect(stages).toHaveTextContent('External scanner: not configured')
-  expect(stages).toHaveTextContent('LLM review: failed')
-  // LUM-740: the stage row names every layer, RAN ones included.
-  expect(stages).toHaveTextContent('Secret patterns:')
+  // LUM-1012: one checklist cell per layer, its state in words on the label.
+  expect(screen.getByTestId('stage-external')).toHaveAttribute(
+    'aria-label',
+    'External scanner: not configured'
+  )
+  expect(screen.getByTestId('stage-judge')).toHaveAttribute(
+    'aria-label',
+    'LLM review: failed'
+  )
+  // LUM-740: every layer gets a cell, RAN ones included.
+  expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
+    'aria-label',
+    expect.stringContaining('Secret patterns:')
+  )
   const hint = screen.getByTestId('external-not-configured')
   expect(hint).toHaveTextContent('only Lumo')
   const links = hint.querySelectorAll('a')
@@ -411,8 +416,11 @@ test('P8: an external failure whose error lacks the prefix renders no reason at 
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.queryByTestId('external-failed-reason')).toBeNull()
   expect(screen.queryByText(/TypeError: boom/)).toBeNull()
-  // The stage line still says the layer failed — the fact, not the text.
-  expect(screen.getByTestId('scan-stages')).toBeInTheDocument()
+  // The layer's cell still says it failed — the fact, not the text.
+  expect(screen.getByTestId('stage-external')).toHaveAttribute(
+    'data-state',
+    'FAILED'
+  )
 })
 
 test('a FAILED scan whose external stage also FAILED renders the reason once, prefixed', () => {
@@ -462,7 +470,8 @@ test('a complete scan renders no stages line; partial renders the budget notice'
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
-  expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+  expect(screen.getByTestId('stage-external')).toHaveAttribute(
+    'aria-label',
     'External scanner: partial'
   )
 })
@@ -490,7 +499,8 @@ test('a PENDING external stage renders "scanning" and no external-late warning',
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   // Review F1: an unfinished scan opens by default, so "scanning" is visible
   // without a click.
-  expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+  expect(screen.getByTestId('stage-external')).toHaveAttribute(
+    'aria-label',
     'External scanner: scanning'
   )
   expect(screen.queryByTestId('external-late')).toBeNull()
@@ -561,120 +571,6 @@ test('an EXTERNAL_TOOL finding links to the GitHub alert and shows no evidence b
 })
 
 // LUM-496 Task 3 — summary line + collapsible per-PR rows.
-
-test('shows a summary line rolling up PR count, undispositioned findings and external failures', () => {
-  useSecurityScans.mockReturnValue({
-    data: {
-      prs: [
-        // #9: one undispositioned LOW finding (and a dispositioned one, which
-        // must not count) — contributes to `findings` and keeps `allLow` true.
-        {
-          pr,
-          latest: scan({
-            findings: [
-              finding({ id: 'a', severity: 'LOW' }),
-              finding({
-                id: 'b',
-                severity: 'HIGH',
-                disposition: 'ACCEPTED_RISK',
-              }),
-            ],
-          }),
-        },
-        // #10: clean, nothing to report.
-        {
-          pr: { ...pr, id: 'pr2', number: 10 },
-          latest: scan({ id: 's2', findings: [], status: 'CLEAN' }),
-        },
-        // #11: external scanner failed.
-        {
-          pr: { ...pr, id: 'pr3', number: 11 },
-          latest: scan({
-            id: 's3',
-            status: 'CLEAN',
-            findings: [],
-            stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
-            error: 'external: semgrep exit 90',
-          }),
-        },
-      ],
-      blocking: { count: 0 },
-    },
-    isLoading: false,
-    isError: false,
-  })
-  render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('security-summary-line')).toHaveTextContent(
-    '3 PRs · 1 findings (all LOW) · 1 external scan(s) failed'
-  )
-})
-
-test('the summary line has no dangling separator when no external scan failed', () => {
-  useSecurityScans.mockReturnValue({
-    data: {
-      prs: [{ pr, latest: scan({ findings: [] }) }],
-      blocking: { count: 0 },
-    },
-    isLoading: false,
-    isError: false,
-  })
-  render(<SecurityScanSection taskId='t1' />, { wrapper })
-  const line = screen.getByTestId('security-summary-line')
-  expect(line).toHaveTextContent('1 PRs · 0 findings')
-  expect(line.textContent).not.toMatch(/·\s*$/)
-  expect(line.textContent).not.toMatch(/external scan/)
-})
-
-// Review F1 (honesty): "no findings" is only true of scans that finished.
-test('the summary line counts incomplete scans and refuses to claim "no findings"', () => {
-  useSecurityScans.mockReturnValue({
-    data: {
-      prs: [
-        { pr, latest: scan({ findings: [], status: 'CLEAN' }) },
-        {
-          pr: { ...pr, id: 'pr2', number: 10 },
-          latest: scan({
-            id: 's2',
-            status: 'CLEAN',
-            findings: [],
-            complete: false,
-            stages: {
-              secrets: 'RAN',
-              external: 'NOT_CONFIGURED',
-              judge: 'RAN',
-            },
-          }),
-        },
-        // A PR with no scan at all is incomplete too — nothing has run.
-        { pr: { ...pr, id: 'pr3', number: 11 }, latest: null },
-      ],
-      blocking: { count: 0 },
-    },
-    isLoading: false,
-    isError: false,
-  })
-  render(<SecurityScanSection taskId='t1' />, { wrapper })
-  const line = screen.getByTestId('security-summary-line')
-  expect(line).toHaveTextContent(
-    '3 PRs · no findings on completed scans · 2 scan(s) incomplete'
-  )
-  expect(line.textContent).not.toMatch(/·\s*0 findings/)
-})
-
-test('a completed set of scans still reads "no findings" with no incomplete clause', () => {
-  useSecurityScans.mockReturnValue({
-    data: {
-      prs: [{ pr, latest: scan({ findings: [], status: 'CLEAN' }) }],
-      blocking: { count: 0 },
-    },
-    isLoading: false,
-    isError: false,
-  })
-  render(<SecurityScanSection taskId='t1' />, { wrapper })
-  const line = screen.getByTestId('security-summary-line')
-  expect(line).toHaveTextContent('1 PRs · 0 findings')
-  expect(line.textContent).not.toMatch(/incomplete/)
-})
 
 test('an incomplete scan expands its row by default (review F1)', () => {
   useSecurityScans.mockReturnValue({
@@ -837,7 +733,7 @@ test('every PR row keeps its data-testid and gets a toggle testid alongside it',
 
 // LUM-738 — persisting (already on the default branch) vs new dependency rows.
 
-test('LUM-738 supplyChain surface — a persisting dependency finding is muted and labelled already-on-main; a new one is not, and only the new one counts in the summary line', () => {
+test('LUM-738 supplyChain surface — a persisting dependency finding is muted, folded and labelled already-on-main; a new one is not, and comes first', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -900,9 +796,13 @@ test('LUM-738 supplyChain surface — a persisting dependency finding is muted a
     old.querySelector('[data-testid="finding-persisting"]')
   ).toHaveTextContent('already on the default branch')
   expect(old.querySelector('.text-danger-text')).toBeNull()
-  // The rollup counts the new one only.
-  expect(screen.getByTestId('security-summary-line')).toHaveTextContent(
-    '1 finding'
+  // LUM-1012: the one to decide on comes first; the quiet one is folded.
+  expect(
+    fresh.compareDocumentPosition(old) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  expect(old.querySelector('[data-testid="finding-toggle"]')).toHaveAttribute(
+    'aria-expanded',
+    'false'
   )
 })
 
@@ -926,8 +826,9 @@ test('a batched hunt shows its covered share next to its state', () => {
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('scan-stages')).toHaveTextContent(
-    'Exploit paths: scanning (40/120 source files)'
+  expect(screen.getByTestId('stage-hunt')).toHaveAttribute(
+    'aria-label',
+    'Exploit paths: scanning · 40/120 source files'
   )
   // Queued batches are "in progress" — never the owned-unfinished line.
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
@@ -966,21 +867,27 @@ test('a scan with layers over their size caps shows both notices instead of the 
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })
 
-// LUM-832: the summary line counts a scan skipped for size apart from the
-// ones not fully checked yet — "2 scans not fully checked yet" read as if the
-// checks were still coming.
-test('the summary line says scans over the size limit, not not-fully-checked', () => {
+// LUM-1012: a PR whose findings all need nobody's decision says what they are
+// in its result cell — never "N findings" in the warning tone.
+test('a PR with only verifier-rejected findings reads "dismissed by verifier", folded', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
         {
           pr,
           latest: scan({
-            partial: true,
-            findings: [],
-            stages: { secrets: 'RAN', judge: 'SKIPPED', hunt: 'SKIPPED' },
-            huntOverCap: { sourceFiles: 151, capFiles: 150 },
-            ownedUnfinished: false,
+            findings: [
+              finding({
+                id: 'a',
+                verifierVerdict: 'REJECTED',
+                blocking: false,
+              }),
+              finding({
+                id: 'b',
+                verifierVerdict: 'REJECTED',
+                blocking: false,
+              }),
+            ],
           }),
         },
       ],
@@ -990,9 +897,8 @@ test('the summary line says scans over the size limit, not not-fully-checked', (
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  const line = screen.getByTestId('security-summary-line')
-  expect(line).toHaveTextContent('1 scan(s) over the size limit')
-  expect(line).not.toHaveTextContent('incomplete')
-  // Zero findings on a capped scan is still qualified, never "no findings".
-  expect(line).toHaveTextContent('no findings on completed scans')
+  expect(screen.getByTestId('scan-result-quiet')).toHaveTextContent(
+    '2 dismissed by verifier'
+  )
+  expect(screen.queryByTestId('security-scan-badge')).toBeNull()
 })

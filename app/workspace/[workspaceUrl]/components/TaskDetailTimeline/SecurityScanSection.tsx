@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Check, Copy } from 'lucide-react'
+import { AlertCircle, ChevronRight, Check, Copy, Minus } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
@@ -18,12 +18,14 @@ import type {
   SecurityScanView,
   TaskSecurityScans,
 } from '@/lib/services/pr-security-scan.service'
-import type { ScanStages } from '@/lib/security-scan/types'
 import { SCAN_STAGE_KEYS, turnedOffLayers } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
-import { blockingFindings, shouldExpandRow } from './security-summary'
-import { formatSecuritySummaryLine } from './security-summary-line'
+import {
+  blockingFindings,
+  isQuietFinding,
+  shouldExpandRow,
+} from './security-summary'
 import { buildAgentContext } from './security-agent-context'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
@@ -101,11 +103,6 @@ function SecurityScanPanel({
   data: TaskSecurityScans
 }) {
   const intl = useIntl()
-  // LUM-496 Task 3: one summary line above the per-PR rows so a reviewer reads
-  // "7 PRs · 3 findings (all LOW) · 2 external scans failed" without opening
-  // anything (worded in `formatSecuritySummaryLine`, shared with the Record
-  // tab's collapsed row).
-  const summaryLine = formatSecuritySummaryLine(intl, data)
 
   // Per-PR expansion (LUM-496): defaults to `shouldExpandRow` (an open finding,
   // an incomplete scan, or an external failure with an error) but a manual
@@ -123,14 +120,8 @@ function SecurityScanPanel({
     }))
 
   return (
-    // LUM-1009: the Record tab's row carries the "Security scan" title.
+    // LUM-1009/1012: the Record tab's row carries the title and the verdict.
     <div data-testid='security-scan-panel'>
-      <p
-        data-testid='security-summary-line'
-        className='text-caption text-muted-foreground'
-      >
-        {summaryLine}
-      </p>
       {(data.suggested?.count ?? 0) > 0 && (
         <ConfirmAllSuggested taskId={taskId} count={data.suggested.count} />
       )}
@@ -166,71 +157,105 @@ function SecurityScanPanel({
           </p>
         )
       ) : (
-        <ul className='mt-2 space-y-2'>
-          {data.prs.map(({ pr, latest }) => {
-            const expanded = isExpanded(pr.id, latest)
-            return (
-              <li
-                key={pr.id}
-                data-testid={`security-pr-${pr.number}`}
-                className='rounded-sm border border-border px-2 py-1.5'
-              >
-                {/* A link inside a button is invalid HTML — the row is a div
-                with the toggle button and the PR link side by side. */}
-                <div className='flex items-center gap-2'>
-                  {/* Review F2 (a11y): the chevron is the only content, so
-                  without a label a screen reader announces a bare "button" —
-                  name it after the row it opens (the PR the reader sees). */}
-                  <button
-                    type='button'
-                    aria-expanded={expanded}
-                    aria-label={`#${pr.number} ${pr.title}`}
-                    data-testid={`security-pr-${pr.number}-toggle`}
-                    onClick={() => toggleRow(pr.id, latest)}
-                    className='shrink-0 text-muted-foreground hover:text-foreground'
+        // LUM-1012: one checklist row per PR — the PR and its result on one
+        // line, and under it a cell per layer (✓ checked, – not needed / off,
+        // ! didn't run), aligned to the layer names above the list. Two lines
+        // keep the full title readable at the Record tab's width.
+        <div className='mt-2 overflow-x-auto'>
+          <div className='min-w-[26rem]'>
+            <div
+              aria-hidden
+              className={`${LAYER_GRID} items-end pb-1.5 text-[11px] leading-tight text-muted-foreground`}
+            >
+              <span />
+              {STAGE_ORDER.map(key => (
+                <span key={key} className='text-center'>
+                  {intl.formatMessage({ id: `securityScan.stage.${key}` })}
+                </span>
+              ))}
+            </div>
+            <ul className='divide-y divide-border/60 border-t border-border/60'>
+              {data.prs.map(({ pr, latest }) => {
+                const expanded = isExpanded(pr.id, latest)
+                return (
+                  <li
+                    key={pr.id}
+                    data-testid={`security-pr-${pr.number}`}
+                    className='py-2'
                   >
-                    <ChevronRight
-                      className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                      aria-hidden
-                    />
-                  </button>
-                  <a
-                    href={pr.url}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='text-caption text-foreground hover:underline'
-                  >
-                    #{pr.number} {pr.title}
-                  </a>
-                  {data.scanningOff && showsScanningOff(latest) ? (
-                    <ScanningOffBadge />
-                  ) : (
-                    <SecurityScanBadge scan={latest} />
-                  )}
-                  {latest && (
-                    <span className='ml-auto font-mono text-caption text-muted-foreground'>
-                      {intl.formatMessage(
-                        { id: 'securityScan.meta' },
-                        { sha: latest.headSha.slice(0, 7) }
-                      )}
-                    </span>
-                  )}
-                </div>
-                {expanded && latest && (
-                  <ScanDetails
-                    taskId={taskId}
-                    prNumber={pr.number}
-                    scan={latest}
-                  />
-                )}
-              </li>
-            )
-          })}
-        </ul>
+                    {/* A link inside a button is invalid HTML — the toggle and
+                        the PR link sit side by side. */}
+                    <div className='flex items-center gap-2'>
+                      {/* Review F2 (a11y): the chevron is the only content,
+                          so name it after the row it opens. */}
+                      <button
+                        type='button'
+                        aria-expanded={expanded}
+                        aria-label={`#${pr.number} ${pr.title}`}
+                        data-testid={`security-pr-${pr.number}-toggle`}
+                        onClick={() => toggleRow(pr.id, latest)}
+                        className='shrink-0 text-muted-foreground hover:text-foreground'
+                      >
+                        <ChevronRight
+                          className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                          aria-hidden
+                        />
+                      </button>
+                      <a
+                        href={pr.url}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        title={
+                          latest
+                            ? intl.formatMessage(
+                                { id: 'securityScan.meta' },
+                                { sha: latest.headSha.slice(0, 7) }
+                              )
+                            : undefined
+                        }
+                        className='min-w-0 flex-1 truncate text-caption text-foreground hover:underline'
+                      >
+                        <span className='font-mono text-muted-foreground'>
+                          #{pr.number}
+                        </span>{' '}
+                        {pr.title}
+                      </a>
+                      <span className='shrink-0'>
+                        {data.scanningOff && showsScanningOff(latest) ? (
+                          <ScanningOffBadge />
+                        ) : (
+                          <ScanResult scan={latest} />
+                        )}
+                      </span>
+                    </div>
+                    {latest ? (
+                      <div className={`${LAYER_GRID} mt-1 items-center`}>
+                        <span />
+                        {STAGE_ORDER.map(key => (
+                          <StageCell key={key} stageKey={key} scan={latest} />
+                        ))}
+                      </div>
+                    ) : null}
+                    {expanded && latest && (
+                      <ScanDetails
+                        taskId={taskId}
+                        prNumber={pr.number}
+                        scan={latest}
+                      />
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </div>
       )}
     </div>
   )
 }
+
+/** Indent · the five layers — shared by the layer names and every PR's cells. */
+const LAYER_GRID = 'grid grid-cols-[1.25rem_repeat(5,minmax(0,5rem))] gap-x-1.5'
 
 /**
  * Every layer the scan carries, in pipeline order (LUM-740: the stage row).
@@ -241,51 +266,100 @@ function SecurityScanPanel({
 const STAGE_ORDER = SCAN_STAGE_KEYS
 
 /**
- * LUM-740: one line per scan naming every layer and its state — a reader
- * sees at a glance which layers ran. The line takes the warning tone only
- * while some layer is not RAN / SKIPPED.
+ * LUM-1012: one layer of one scan as a checklist cell — ✓ checked, – not
+ * needed or turned off in settings, ! didn't run (failed, queued, not
+ * configured, cut short, or skipped for being over its size limit). The
+ * state's words ride on the label, so the icon is never the only signal.
  */
-function StagesSummary({
-  stages,
-  huntProgress,
+function StageCell({
+  stageKey,
+  scan,
 }: {
-  stages: ScanStages
-  /** LUM-832 — a batched hunt's covered source files, or null. */
-  huntProgress: SecurityScanView['huntProgress']
+  stageKey: (typeof STAGE_ORDER)[number]
+  scan: SecurityScanView | null
 }) {
   const intl = useIntl()
-  const rows = STAGE_ORDER.flatMap(key => {
-    const state = stages[key]
-    return state ? [{ key, state }] : []
-  })
-  if (rows.length === 0) return null
-  // LUM-892: DISABLED (off in settings) is the customer's choice, not a
-  // warning — the notice under the row says it in words.
-  const incomplete = rows.some(
-    r => r.state !== 'RAN' && r.state !== 'SKIPPED' && r.state !== 'DISABLED'
-  )
+  const state = scan?.stages[stageKey]
+  if (!scan || !state) return <span aria-hidden />
+  const overCap =
+    (stageKey === 'hunt' && scan.huntOverCap != null) ||
+    (stageKey === 'judge' && scan.judgeOverCap != null)
+  const kind = overCap
+    ? 'warn'
+    : state === 'RAN'
+      ? 'ok'
+      : state === 'SKIPPED' || state === 'DISABLED'
+        ? 'off'
+        : 'warn'
+  const progress =
+    stageKey === 'hunt' && scan.huntProgress
+      ? intl.formatMessage(
+          { id: 'securityScan.huntProgress' },
+          {
+            covered: scan.huntProgress.coveredFiles,
+            total: scan.huntProgress.totalFiles,
+          }
+        )
+      : null
+  const label = [
+    `${intl.formatMessage({ id: `securityScan.stage.${stageKey}` })}: ${intl.formatMessage({ id: `securityScan.stageState.${state}` })}`,
+    progress,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const Icon = kind === 'ok' ? Check : kind === 'off' ? Minus : AlertCircle
+  const tone =
+    kind === 'ok'
+      ? 'text-success-text'
+      : kind === 'off'
+        ? 'text-muted-foreground/60'
+        : 'text-warning-text'
   return (
-    <p
-      data-testid='scan-stages'
-      data-incomplete={incomplete}
-      className={`text-caption ${incomplete ? 'text-warning-text' : 'text-muted-foreground'}`}
+    <span
+      role='img'
+      aria-label={label}
+      title={label}
+      data-testid={`stage-${stageKey}`}
+      data-state={overCap ? 'OVER_CAP' : state}
+      className='flex flex-col items-center'
     >
-      {rows
-        .map(r => {
-          const line = `${intl.formatMessage({ id: `securityScan.stage.${r.key}` })}: ${intl.formatMessage({ id: `securityScan.stageState.${r.state}` })}`
-          return r.key === 'hunt' && huntProgress
-            ? `${line} (${intl.formatMessage(
-                { id: 'securityScan.huntProgress' },
-                {
-                  covered: huntProgress.coveredFiles,
-                  total: huntProgress.totalFiles,
-                }
-              )})`
-            : line
-        })
-        .join(' · ')}
-    </p>
+      <Icon className={`size-3.5 ${tone}`} aria-hidden />
+      {progress ? (
+        <span aria-hidden className='text-[10px] text-muted-foreground'>
+          {`${scan.huntProgress?.coveredFiles}/${scan.huntProgress?.totalFiles}`}
+        </span>
+      ) : null}
+    </span>
   )
+}
+
+/**
+ * LUM-1012: a scan's result cell. Findings that need nobody's decision —
+ * rejected by the verifier, already ruled on, already on main, or out of the
+ * queue — never read as "N findings" in the warning tone; the cell says what
+ * they are. Everything else is the shared badge.
+ */
+function ScanResult({ scan }: { scan: SecurityScanView | null }) {
+  const intl = useIntl()
+  if (scan && scan.findings.length > 0 && scan.findings.every(isQuietFinding)) {
+    const dismissed = scan.findings.filter(
+      f => f.verifierVerdict === 'REJECTED' && f.disposition === null
+    ).length
+    return (
+      <span
+        data-testid='scan-result-quiet'
+        className='text-caption text-muted-foreground'
+      >
+        {dismissed > 0
+          ? intl.formatMessage(
+              { id: 'securityScan.result.verifierDismissed' },
+              { count: dismissed }
+            )
+          : intl.formatMessage({ id: 'securityScan.result.noOpen' })}
+      </span>
+    )
+  }
+  return <SecurityScanBadge scan={scan} />
 }
 
 /** LUM-740: one click confirms every LLM-suggested false positive on the task (human-only route). */
@@ -360,10 +434,6 @@ function ScanDetails({
   const turnedOff = turnedOffLayers(scan.stages)
   return (
     <div className='mt-1.5 space-y-1.5'>
-      <StagesSummary
-        stages={scan.stages}
-        huntProgress={scan.huntProgress ?? null}
-      />
       {scan.codeScrubbed && (
         <p
           data-testid='scan-code-scrubbed'
@@ -483,14 +553,17 @@ function ScanDetails({
           {scan.error}
         </p>
       )}
-      {scan.findings.map(f => (
-        <FindingRow
-          key={f.id}
-          taskId={taskId}
-          prNumber={prNumber}
-          finding={f}
-        />
-      ))}
+      {/* Findings someone must decide on first; the quiet ones after. */}
+      {[...scan.findings]
+        .sort((a, b) => Number(isQuietFinding(a)) - Number(isQuietFinding(b)))
+        .map(f => (
+          <FindingRow
+            key={f.id}
+            taskId={taskId}
+            prNumber={prNumber}
+            finding={f}
+          />
+        ))}
     </div>
   )
 }
@@ -566,6 +639,10 @@ function FindingRow({
   // merged / closed — the label says why, and a human can still decide.
   const muted =
     finding.persisting || finding.queueExit != null || verifierRejected
+  // LUM-1012: a quiet finding (nothing to decide) is one line until opened —
+  // its reasons and evidence are there for whoever wants to check.
+  const quiet = isQuietFinding(finding)
+  const [open, setOpen] = useState(!quiet)
   const severityTone =
     finding.severity === 'HIGH' && !muted
       ? 'text-danger-text'
@@ -582,47 +659,77 @@ function FindingRow({
       }`}
     >
       <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption'>
-        <span className={`font-medium uppercase ${severityTone}`}>
-          {intl.formatMessage({
-            id: `securityScan.severity.${finding.severity}`,
-          })}
-        </span>
-        <span className='text-foreground'>{finding.title}</span>
-        <span className='font-mono text-muted-foreground'>
-          {finding.filePath}
-          {finding.line != null ? `:${finding.line}` : ''}
-        </span>
-        {finding.kind !== 'DEPENDENCY' && (
-          <span data-testid='finding-kind' className='text-muted-foreground'>
-            {intl.formatMessage({ id: `securityScan.kind.${finding.kind}` })}
-          </span>
-        )}
-        <span className='text-muted-foreground'>
-          {intl.formatMessage({
-            id: `securityScan.provenance.${finding.provenance}`,
-          })}
-        </span>
-        {finding.reachability && (
-          <span
-            data-testid='finding-reachability'
-            className='rounded-sm bg-muted px-1 text-muted-foreground'
+        {quiet ? (
+          <button
+            type='button'
+            aria-expanded={open}
+            data-testid='finding-toggle'
+            onClick={() => setOpen(o => !o)}
+            className='flex flex-wrap items-center gap-x-2 text-left'
           >
-            {intl.formatMessage({
-              id: `securityScan.reachability.${finding.reachability}`,
-            })}
-          </span>
+            <ChevronRight
+              className={`size-3 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+              aria-hidden
+            />
+            <FindingHeadline finding={finding} tone={severityTone} />
+          </button>
+        ) : (
+          <FindingHeadline finding={finding} tone={severityTone} />
         )}
-        {finding.cwe && (
-          <span className='font-mono text-muted-foreground'>{finding.cwe}</span>
-        )}
-        {suggestedOpen && (
-          <span
-            data-testid='finding-suggested'
-            className='rounded-sm border border-warning/40 px-1 text-warning-text'
-          >
-            {intl.formatMessage({ id: 'securityScan.suggested.falsePositive' })}
-          </span>
-        )}
+        {/* Folded, a quiet finding keeps only why it is quiet (the chips
+            below); its kind and source come back when opened. */}
+        {open ? (
+          <>
+            {finding.kind !== 'DEPENDENCY' && (
+              <span
+                data-testid='finding-kind'
+                className='text-muted-foreground'
+              >
+                {intl.formatMessage({
+                  id: `securityScan.kind.${finding.kind}`,
+                })}
+              </span>
+            )}
+            <span className='text-muted-foreground'>
+              {intl.formatMessage({
+                id: `securityScan.provenance.${finding.provenance}`,
+              })}
+            </span>
+            {finding.reachability && (
+              <span
+                data-testid='finding-reachability'
+                className='rounded-sm bg-muted px-1 text-muted-foreground'
+              >
+                {intl.formatMessage({
+                  id: `securityScan.reachability.${finding.reachability}`,
+                })}
+              </span>
+            )}
+            {finding.cwe && (
+              <span className='font-mono text-muted-foreground'>
+                {finding.cwe}
+              </span>
+            )}
+            {suggestedOpen && (
+              <span
+                data-testid='finding-suggested'
+                className='rounded-sm border border-warning/40 px-1 text-warning-text'
+              >
+                {intl.formatMessage({
+                  id: 'securityScan.suggested.falsePositive',
+                })}
+              </span>
+            )}
+            {finding.kind === 'DEPENDENCY' && (
+              <span
+                data-testid='finding-dependency'
+                className='text-muted-foreground'
+              >
+                {intl.formatMessage({ id: 'securityScan.finding.dependency' })}
+              </span>
+            )}
+          </>
+        ) : null}
         {finding.suggestionOutcome && (
           <span
             data-testid='finding-suggestion-outcome'
@@ -631,14 +738,6 @@ function FindingRow({
             {intl.formatMessage({
               id: `securityScan.suggested.outcome.${finding.suggestionOutcome}`,
             })}
-          </span>
-        )}
-        {finding.kind === 'DEPENDENCY' && (
-          <span
-            data-testid='finding-dependency'
-            className='text-muted-foreground'
-          >
-            {intl.formatMessage({ id: 'securityScan.finding.dependency' })}
           </span>
         )}
         {finding.persisting && (
@@ -680,144 +779,150 @@ function FindingRow({
           </span>
         )}
       </div>
-      <p className='mt-0.5 text-caption text-muted-foreground'>
-        {finding.detail}
-      </p>
-      {suggestedOpen && finding.suggestedReason && (
-        <p
-          data-testid='finding-suggested-reason'
-          className='mt-0.5 text-caption text-muted-foreground'
-        >
-          {`${intl.formatMessage({ id: 'securityScan.suggested.reasonLabel' })} ${finding.suggestedReason}`}
-        </p>
-      )}
-      {verifierRejected && finding.verifierReason && (
-        <p
-          data-testid='finding-verifier-reason'
-          className='mt-0.5 text-caption text-muted-foreground'
-        >
-          {`${intl.formatMessage({ id: 'securityScan.verifier.reasonLabel' })} ${finding.verifierReason}`}
-        </p>
-      )}
-      {finding.callChain && finding.callChain.length > 0 && (
-        <div className='mt-0.5'>
-          <button
-            type='button'
-            aria-expanded={chainOpen}
-            onClick={() => setChainOpen(o => !o)}
-            className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
-          >
-            {intl.formatMessage({ id: 'securityScan.callChain' })}
-          </button>
-          {chainOpen && (
-            <ol
-              data-testid='finding-call-chain'
-              className='mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground'
+      {open ? (
+        <>
+          <p className='mt-0.5 text-caption text-muted-foreground'>
+            {finding.detail}
+          </p>
+          {suggestedOpen && finding.suggestedReason && (
+            <p
+              data-testid='finding-suggested-reason'
+              className='mt-0.5 text-caption text-muted-foreground'
             >
-              {finding.callChain.map((edge, i) => (
-                <li key={i}>{`${edge.from} → ${edge.to}`}</li>
-              ))}
-            </ol>
+              {`${intl.formatMessage({ id: 'securityScan.suggested.reasonLabel' })} ${finding.suggestedReason}`}
+            </p>
           )}
-        </div>
-      )}
-      {finding.evidence !== '' && (
-        <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
-          {finding.evidence}
-        </pre>
-      )}
-      {finding.externalRef && (
-        <a
-          data-testid='finding-external-link'
-          href={finding.externalRef}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='mt-0.5 inline-block text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
-        >
-          {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
-        </a>
-      )}
-      {!finding.disposition && (
-        <div className='mt-1 flex flex-wrap items-center gap-1.5'>
-          {pending === null ? (
-            <>
+          {verifierRejected && finding.verifierReason && (
+            <p
+              data-testid='finding-verifier-reason'
+              className='mt-0.5 text-caption text-muted-foreground'
+            >
+              {`${intl.formatMessage({ id: 'securityScan.verifier.reasonLabel' })} ${finding.verifierReason}`}
+            </p>
+          )}
+          {finding.callChain && finding.callChain.length > 0 && (
+            <div className='mt-0.5'>
               <button
                 type='button'
-                aria-label={intl.formatMessage({
-                  id: copied
-                    ? 'securityScan.action.copied'
-                    : 'securityScan.action.copyForAgent',
-                })}
-                title={intl.formatMessage({
-                  id: 'securityScan.action.copyForAgent',
-                })}
-                onClick={copyForAgent}
-                className='inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground'
-              >
-                {copied ? (
-                  <Check className='size-3' aria-hidden />
-                ) : (
-                  <Copy className='size-3' aria-hidden />
-                )}
-                {intl.formatMessage({
-                  id: copied
-                    ? 'securityScan.action.copied'
-                    : 'securityScan.action.copyForAgent',
-                })}
-              </button>
-              <button
-                type='button'
-                onClick={() => setPending('FALSE_POSITIVE')}
+                aria-expanded={chainOpen}
+                onClick={() => setChainOpen(o => !o)}
                 className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
               >
-                {intl.formatMessage({
-                  id: 'securityScan.action.falsePositive',
-                })}
+                {intl.formatMessage({ id: 'securityScan.callChain' })}
               </button>
-              <button
-                type='button'
-                onClick={() => setPending('ACCEPTED_RISK')}
-                className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
-              >
-                {intl.formatMessage({ id: 'securityScan.action.acceptRisk' })}
-              </button>
-            </>
-          ) : (
-            <>
-              <input
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                placeholder={intl.formatMessage({
-                  id: 'securityScan.action.notePlaceholder',
-                })}
-                aria-label={intl.formatMessage({
-                  id: 'securityScan.action.notePlaceholder',
-                })}
-                className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
-              />
-              <button
-                type='button'
-                disabled={submitting}
-                onClick={submit}
-                className='text-caption font-medium text-foreground'
-              >
-                {intl.formatMessage({ id: 'securityScan.action.confirm' })}
-              </button>
-              <button
-                type='button'
-                disabled={submitting}
-                onClick={() => {
-                  setPending(null)
-                  setNote('')
-                }}
-                className='text-caption text-muted-foreground'
-              >
-                {intl.formatMessage({ id: 'securityScan.action.cancel' })}
-              </button>
-            </>
+              {chainOpen && (
+                <ol
+                  data-testid='finding-call-chain'
+                  className='mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground'
+                >
+                  {finding.callChain.map((edge, i) => (
+                    <li key={i}>{`${edge.from} → ${edge.to}`}</li>
+                  ))}
+                </ol>
+              )}
+            </div>
           )}
-        </div>
-      )}
+          {finding.evidence !== '' && (
+            <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
+              {finding.evidence}
+            </pre>
+          )}
+          {finding.externalRef && (
+            <a
+              data-testid='finding-external-link'
+              href={finding.externalRef}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='mt-0.5 inline-block text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+            >
+              {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
+            </a>
+          )}
+          {!finding.disposition && (
+            <div className='mt-1 flex flex-wrap items-center gap-1.5'>
+              {pending === null ? (
+                <>
+                  <button
+                    type='button'
+                    aria-label={intl.formatMessage({
+                      id: copied
+                        ? 'securityScan.action.copied'
+                        : 'securityScan.action.copyForAgent',
+                    })}
+                    title={intl.formatMessage({
+                      id: 'securityScan.action.copyForAgent',
+                    })}
+                    onClick={copyForAgent}
+                    className='inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground'
+                  >
+                    {copied ? (
+                      <Check className='size-3' aria-hidden />
+                    ) : (
+                      <Copy className='size-3' aria-hidden />
+                    )}
+                    {intl.formatMessage({
+                      id: copied
+                        ? 'securityScan.action.copied'
+                        : 'securityScan.action.copyForAgent',
+                    })}
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setPending('FALSE_POSITIVE')}
+                    className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+                  >
+                    {intl.formatMessage({
+                      id: 'securityScan.action.falsePositive',
+                    })}
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setPending('ACCEPTED_RISK')}
+                    className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+                  >
+                    {intl.formatMessage({
+                      id: 'securityScan.action.acceptRisk',
+                    })}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder={intl.formatMessage({
+                      id: 'securityScan.action.notePlaceholder',
+                    })}
+                    aria-label={intl.formatMessage({
+                      id: 'securityScan.action.notePlaceholder',
+                    })}
+                    className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
+                  />
+                  <button
+                    type='button'
+                    disabled={submitting}
+                    onClick={submit}
+                    className='text-caption font-medium text-foreground'
+                  >
+                    {intl.formatMessage({ id: 'securityScan.action.confirm' })}
+                  </button>
+                  <button
+                    type='button'
+                    disabled={submitting}
+                    onClick={() => {
+                      setPending(null)
+                      setNote('')
+                    }}
+                    className='text-caption text-muted-foreground'
+                  >
+                    {intl.formatMessage({ id: 'securityScan.action.cancel' })}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </>
+      ) : null}
       {error && (
         <p
           data-testid='finding-disposition-error'
@@ -827,5 +932,30 @@ function FindingRow({
         </p>
       )}
     </div>
+  )
+}
+
+/** Severity · title · file:line — the part of a finding row that is always shown. */
+function FindingHeadline({
+  finding,
+  tone,
+}: {
+  finding: SecurityFindingView
+  tone: string
+}) {
+  const intl = useIntl()
+  return (
+    <>
+      <span className={`font-medium uppercase ${tone}`}>
+        {intl.formatMessage({
+          id: `securityScan.severity.${finding.severity}`,
+        })}
+      </span>
+      <span className='text-foreground'>{finding.title}</span>
+      <span className='font-mono text-muted-foreground'>
+        {finding.filePath}
+        {finding.line != null ? `:${finding.line}` : ''}
+      </span>
+    </>
   )
 }

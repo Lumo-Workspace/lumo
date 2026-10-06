@@ -167,9 +167,16 @@ describe('LUM-740 panel', () => {
         complete: false,
       })
     )
-    expect(screen.getByTestId('scan-stages')).toHaveTextContent(
-      'Secret patterns: ran · External scanner: ran · Dependencies: ran · LLM review: ran · Vulnerability hunt: scanning'
-    )
+    // LUM-1012: one cell per layer, in pipeline order.
+    expect(
+      screen.getAllByTestId(/^stage-/).map(el => el.getAttribute('aria-label'))
+    ).toEqual([
+      'Secret patterns: ran',
+      'External scanner: ran',
+      'Dependencies: ran',
+      'LLM review: ran',
+      'Vulnerability hunt: scanning',
+    ])
   })
 
   test('a hunt finding shows kind, provenance, reachability, CWE and an expandable call chain', () => {
@@ -319,6 +326,10 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
     expect(screen.getByTestId('finding-verifier-rejected')).toHaveTextContent(
       'securityScan.verifier.rejected'
     )
+    // LUM-1012: nothing to decide, so it is folded to one line; the reason
+    // is one click away.
+    expect(screen.queryByTestId('finding-verifier-reason')).toBeNull()
+    fireEvent.click(screen.getByTestId('finding-toggle'))
     expect(screen.getByTestId('finding-verifier-reason')).toHaveTextContent(
       'guarded at src/a.ts:12'
     )
