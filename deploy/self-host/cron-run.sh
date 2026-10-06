@@ -14,7 +14,7 @@ set -eu
 name="${1:?usage: cron-run.sh <job-name> <path>}"
 path="${2:?usage: cron-run.sh <job-name> <path>}"
 
-disabled="$(printf '%s' "${LUMO_CRON_DISABLED:-}" | tr -d ' ')"
+disabled="$(printf '%s' "${LUMO_CRON_DISABLED:-}" | tr -d ' \t\r\n')"
 case ",${disabled}," in
   *",${name},"*)
     echo "lumo-cron ${name}: skipped (in LUMO_CRON_DISABLED)"

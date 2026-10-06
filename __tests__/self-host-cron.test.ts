@@ -185,7 +185,7 @@ describe('cron-run.sh against a real HTTP server', () => {
     const r = await run(['triage-crossings', '/api/cron/triage-crossings'], {
       APP_URL: baseUrl,
       CRON_SECRET: 'test-cron-secret',
-      LUMO_CRON_DISABLED: 'rejudge-crossings, triage-crossings',
+      LUMO_CRON_DISABLED: 'rejudge-crossings,\n\ttriage-crossings ',
     })
     expect(r.code).toBe(0)
     expect(r.stdout).toContain('skipped')

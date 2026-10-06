@@ -62,7 +62,9 @@ If you do not use PR security scanning (no GitHub App connected), these jobs
 have nothing to do and can be disabled: `sweep-security-scans`,
 `prune-security-sarif`, `sweep-unconfirmed-scan-code`,
 `sweep-expired-scan-evidence`, `recheck-github-access`. Keep them if you do scan
-PRs: the last three are what delete scanned code once it is no longer needed.
+PRs: `sweep-unconfirmed-scan-code`, `sweep-expired-scan-evidence` and
+`recheck-github-access` are what delete stored scan code once it is no longer
+needed.
 
 `triage-crossings` calls a model every 5 minutes for workspaces with AI review
 on; disable it if you have no model provider configured.
