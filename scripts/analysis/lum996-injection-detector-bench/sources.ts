@@ -137,7 +137,7 @@ async function fetchWithRetry(url: string): Promise<Response> {
     } catch (err) {
       lastErr = err
     }
-    await new Promise(r => setTimeout(r, waitMs))
+    if (attempt < 7) await new Promise(r => setTimeout(r, waitMs))
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))
 }

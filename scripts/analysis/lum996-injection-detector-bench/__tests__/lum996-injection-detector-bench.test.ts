@@ -382,7 +382,12 @@ describe('run', () => {
 // ─── the committed read-out ─────────────────────────────────────────────────
 
 interface Results {
-  attacks: Array<{ id: string; flagged: Rate; byKind: Record<string, Rate> }>
+  attacks: Array<{
+    id: string
+    flagged: Rate
+    byKind: Record<string, Rate>
+    topMissedCategories: Array<{ examples: string[] }>
+  }>
   benign: Array<{ id: string; flagged: Rate; falsePositives: unknown[] }>
   pinnedSample: PinnedSample[]
 }
@@ -422,5 +427,12 @@ describe('results.json (committed read-out)', () => {
     expect(
       results.pinnedSample.some(p => p.dataset.startsWith('tensor-trust'))
     ).toBe(false)
+    // Its missed-category examples are sample ids, never text.
+    const examples = tt.flatMap(d =>
+      d.topMissedCategories.flatMap(c => c.examples)
+    )
+    expect(examples.length).toBeGreaterThan(0)
+    for (const e of examples)
+      expect(e).toMatch(/^tensor-trust-(?:hijacking|extraction) sample_id \d+$/)
   })
 })

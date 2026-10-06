@@ -9,7 +9,7 @@ How well does Lumo's injection guard spot injected instructions in public attack
 - **Entry point:** the code production runs, unchanged: `guardUntrustedContent(sanitizeField(text))` from `shared/src/untrusted-content.ts`. (`lib/security-scan/inject-guard.ts`'s `guardInjectedText` only adds secret redaction in front of it.) A sample is **flagged** when production would print a notice: `signals.length > 0 || wrapperEscapes > 0`. Results are also broken down by signal kind (`IMPERATIVE`, `HIDDEN_COMMENT`, `INVISIBLE_CHARS`, `ENCODED_BLOB`, `SCRIPT_LINK`), with `WRAPPER_ESCAPE` counted as a sixth kind.
 - **Recall** is the share of an attack set that gets flagged. **FPR** is the share of a benign set that gets flagged. Both come with 95% Wilson score intervals and are shown as `rate [lo, hi]` in %.
 - **Each sample is scored as a standalone string.** BIPIA payloads are not embedded in their host email, table or code context, and the extraction attacks are not paired with their defence prompts.
-- Within each dataset, exact duplicates (after trimming) are dropped. The N values below are after that dedup.
+- Within each public dataset, exact duplicates (after trimming) are dropped, and the N values below are after that dedup. The Lumo benign sets are not deduped: every markdown chunk, commit body and UI-string group is its own sample.
 
 ## Baseline (detector at origin/main `c068a2559`)
 
