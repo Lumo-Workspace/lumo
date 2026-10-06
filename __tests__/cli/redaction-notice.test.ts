@@ -5,7 +5,10 @@
  * one-line notice; absent (older server) or zero prints nothing, so clean
  * output is byte-identical to before.
  */
-import { printRedactionNotice } from '@/cli/src/lib/redaction-notice'
+import {
+  printRedactionNotice,
+  redactionNoticeLine,
+} from '@/cli/src/lib/redaction-notice'
 
 describe('printRedactionNotice', () => {
   let log: jest.SpyInstance
@@ -30,6 +33,16 @@ describe('printRedactionNotice', () => {
     )
     expect(log.mock.calls[1]![0]).toMatch(
       /^⚠ 3 suspected credentials were redacted before injection/
+    )
+  })
+})
+
+describe('redactionNoticeLine (LUM-998: the notice as a fence head line)', () => {
+  it('is null when clean and the same line printRedactionNotice prints otherwise', () => {
+    expect(redactionNoticeLine(undefined)).toBeNull()
+    expect(redactionNoticeLine(0)).toBeNull()
+    expect(redactionNoticeLine(2)).toMatch(
+      /^⚠ 2 suspected credentials were redacted before injection/
     )
   })
 })

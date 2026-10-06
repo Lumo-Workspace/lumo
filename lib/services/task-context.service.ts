@@ -71,6 +71,7 @@ import {
   wrapUntrustedMemory,
   wrapUntrustedLinked,
   wrapUntrustedLinkedGroup,
+  wrapUntrustedTaskDescription,
   memoryManifestLine,
   renderMemoryItem,
   type MemorySource,
@@ -89,6 +90,8 @@ import {
   type RelevanceGateResult,
 } from '@/lib/services/memory/relevance-gate'
 import { logger } from '@/lib/logger'
+import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
+import { sanitizeField } from '@/lib/utils/sanitize'
 
 export interface SessionContext {
   id: string
@@ -156,6 +159,13 @@ export interface TaskContext {
       description: string | null
     } | null
   }
+  /**
+   * LUM-998: the description (markdown form) inside its
+   * `<untrusted-task-description>` fence — redacted, defanged and flagged.
+   * What the CLI prints; "" when there is no description. Older CLIs still
+   * read `task.descriptionMarkdown`.
+   */
+  descriptionSection: string
   /**
    * Pre-rendered "## Relevant Memory" markdown block, already trimmed to a
    * token budget. Empty string when the task has no relevant memory. The CLI
@@ -234,6 +244,19 @@ function summaryHeadline(summary: unknown): string {
     if (typeof value === 'string' && value.trim().length > 0) return value
   }
   return NO_SUMMARY
+}
+
+/**
+ * LUM-998: one session-summary line on its way to an agent. Summaries are
+ * LLM-distilled from the session's own transcript, which includes every piece
+ * of untrusted content the session read — so a planted directive can survive
+ * into the next session's handoff. Collapse to one line (a newline could forge
+ * a heading), then redact, defang and mark it inline. The placeholder
+ * headlines are Lumo's own text and pass through untouched.
+ */
+function guardSummaryLine(line: string): string {
+  if (line === NO_SUMMARY || line === INFERRED_SESSION_HEADLINE) return line
+  return guardPromptLineText(sanitizeField(line).replace(/\s*\n\s*/g, ' '))
 }
 
 /** Keep only the non-empty string entries of a possibly-untyped array. */
@@ -1040,8 +1063,10 @@ export const taskContextService = {
         await hookEventRepository.findTurnBoundaryEventsForSessions([s.id])
       return {
         sessionId: s.id,
-        headline,
-        unresolved: summaryUnresolved(s.summary, s.summaryType),
+        headline: guardSummaryLine(headline),
+        unresolved: summaryUnresolved(s.summary, s.summaryType).map(
+          guardSummaryLine
+        ),
         durationMs: activeDurationMs(turnEvents),
         lastActivityAt: s.lastActivityAt.toISOString(),
       }
@@ -1347,6 +1372,10 @@ export const taskContextService = {
       prSection,
     ])
 
+    const descriptionMarkdown = full.description
+      ? htmlToMarkdown(full.description)
+      : null
+
     return {
       task: {
         id: full.id,
@@ -1354,9 +1383,7 @@ export const taskContextService = {
         title: full.title,
         status: full.status,
         description: full.description,
-        descriptionMarkdown: full.description
-          ? htmlToMarkdown(full.description)
-          : null,
+        descriptionMarkdown,
         milestone: milestone
           ? {
               id: milestone.id,
@@ -1369,6 +1396,9 @@ export const taskContextService = {
             }
           : null,
       },
+      descriptionSection: wrapUntrustedTaskDescription(
+        descriptionMarkdown ?? ''
+      ),
       memorySection,
       memoryIndexSection,
       testCaseSection,
@@ -1384,7 +1414,8 @@ export const taskContextService = {
       // (cli/src/commands/task-context.ts).
       // Deliberately NOT wrapped: prReviewTodosSection (an actionable
       // review todo list — framing it "do not obey" would contradict its
-      // purpose; same in the session-start path).
+      // purpose; same in the session-start path). LUM-998: each todo line
+      // is guarded inline instead (renderPrReviewTodosSection).
       slackContextSection: wrappedSlack,
       webLinkSection: wrappedWeb,
       figmaSection: wrappedFigma,
@@ -1404,10 +1435,10 @@ export const taskContextService = {
         // tasks' work — never surface it as this task's history.
         headline: s.inferred
           ? INFERRED_SESSION_HEADLINE
-          : summaryHeadline(s.summary),
+          : guardSummaryLine(summaryHeadline(s.summary)),
         unresolved: s.inferred
           ? []
-          : summaryUnresolved(s.summary, s.summaryType),
+          : summaryUnresolved(s.summary, s.summaryType).map(guardSummaryLine),
       })),
       lineageSection,
       fragments,

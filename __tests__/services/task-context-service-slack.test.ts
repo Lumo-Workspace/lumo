@@ -48,6 +48,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
   },
 }))
 jest.mock('@/lib/memory/render', () => ({
+  wrapUntrustedTaskDescription: jest.fn((s: string) => s),
   renderMemorySection: jest.fn(() => ''),
   applyTokenBudget: jest.fn((x: unknown[]) => x),
   wrapUntrustedMemory: jest.fn((s: string) => s),

@@ -68,6 +68,11 @@ import {
 } from '@/lib/memory/render'
 import { sessionAttach } from '@/cli/src/commands/session-attach'
 import { formatTaskContextMarkdown } from '@/cli/src/commands/task-context'
+import {
+  TASK_DESCRIPTION_FENCE,
+  TASK_DESCRIPTION_PREAMBLE,
+  fenceUntrustedText,
+} from '@/shared/src/untrusted-fence'
 
 // UTF-8 bytes (what `wc -c` reports) — the unit the baselines were recorded in.
 const chars = (s: string) => Buffer.byteLength(s, 'utf8')
@@ -137,7 +142,16 @@ describe('LUM-844 start-of-session output budget', () => {
       ''
     )
     expect(withoutCriteria).not.toBe(contextBefore)
-    expect(renderContext({ full: true })).toBe(withoutCriteria)
+    // LUM-998: the description now prints inside its own fence instead of a
+    // bare `**Description**:` line; everything else is byte-identical.
+    const description = String(fixture.task.descriptionMarkdown)
+    const bareLine = `**Description**: ${description}\n\n`
+    expect(withoutCriteria).toContain(bareLine)
+    const fenced = withoutCriteria.replace(
+      bareLine,
+      `\n${fenceUntrustedText(TASK_DESCRIPTION_FENCE, TASK_DESCRIPTION_PREAMBLE, description)}\n\n`
+    )
+    expect(renderContext({ full: true })).toBe(fenced)
   })
 
   it('attach output on the LUM-844 fixture is at most half the baseline', async () => {

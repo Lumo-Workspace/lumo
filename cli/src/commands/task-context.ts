@@ -5,6 +5,11 @@ import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { formatDuration, relativeTime } from '../lib/format'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
 import { resolveSessionId } from '../lib/session-id'
+import {
+  TASK_DESCRIPTION_FENCE,
+  TASK_DESCRIPTION_PREAMBLE,
+  fenceUntrustedText,
+} from '../../../shared/src/untrusted-fence'
 
 interface TaskContextResponse {
   task: {
@@ -23,6 +28,9 @@ interface TaskContextResponse {
       description?: string | null
     } | null
   }
+  /** LUM-998: the description, already fenced + guarded server-side
+   *  (redacted too); absent on older servers. */
+  descriptionSection?: string
   memorySection?: string
   /** LUM-844: one-line-per-memory index, printed by default; absent on older
    *  servers (the full memorySection prints instead). */
@@ -147,11 +155,23 @@ export function formatTaskContextMarkdown(
       lines.push(`**Milestone goal**: ${sanitizeField(milestoneGoal)}`)
     }
   }
-  const body = data.task.descriptionMarkdown ?? data.task.description
-  if (body && body.trim().length > 0) {
-    lines.push(`**Description**: ${sanitizeField(body)}`)
-  }
   lines.push('')
+
+  // LUM-998: the description prints inside its own fence. A current server
+  // sends it guarded (secret redaction included); an older one does not, so
+  // the CLI applies the shared half of the guard itself.
+  const description =
+    data.descriptionSection !== undefined
+      ? sanitizeField(data.descriptionSection)
+      : fenceUntrustedText(
+          TASK_DESCRIPTION_FENCE,
+          TASK_DESCRIPTION_PREAMBLE,
+          data.task.descriptionMarkdown ?? data.task.description ?? ''
+        )
+  if (description.trim().length > 0) {
+    lines.push(description.trimEnd())
+    lines.push('')
+  }
 
   // LUM-923: a pending workspace deletion comes before the work itself.
   if (

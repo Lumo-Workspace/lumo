@@ -1,18 +1,13 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
-import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
-import { printRedactionNotice } from '../lib/redaction-notice'
-
-interface SlackMessage {
-  ts?: string
-  userId: string
-  userName: string | null
-  text: string
-}
+import {
+  formatSlackSnapshot,
+  type SlackSnapshotMessage,
+} from '../lib/tier2-render'
 
 interface SlackSnapshot {
-  messages?: SlackMessage[]
+  messages?: SlackSnapshotMessage[]
 }
 
 /**
@@ -73,17 +68,8 @@ export async function ideaSlackShow(
     snapshot: SlackSnapshot | null
     redactedSecrets?: number
   }
-  const messages = snapshot?.messages ?? []
-  if (messages.length === 0) {
-    console.log('(no messages in stored snapshot)')
-  } else {
-    for (const m of messages) {
-      const author = sanitizeField(m.userName ?? '@' + m.userId)
-      console.log(`${author}: ${sanitizeField(m.text)}`)
-    }
-  }
-
-  printRedactionNotice(redactedSecrets)
+  // LUM-998: fenced + guarded; the redaction count is the first notice.
+  console.log(formatSlackSnapshot(snapshot?.messages ?? [], redactedSecrets))
 
   // LUM-681: mirrors LUM-500 disclosure-funnel stamping for idea fragments.
   // The contextId arg == lineage SLACK_CONTEXT fragmentId. Fire-and-forget —

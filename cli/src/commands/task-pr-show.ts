@@ -1,6 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
-import { sanitizeField } from '../lib/sanitize'
+import { formatPrShow } from '../lib/tier2-render'
 
 interface PullRequest {
   id: string
@@ -85,16 +85,6 @@ export async function taskPrShow(
   }
 
   const { pullRequest: pr, note } = (await res.json()) as PrResponse
-  console.log(
-    `#${pr.number}${pr.repo ? ` (${sanitizeField(pr.repo)})` : ''}  ${sanitizeField(pr.title ?? '')}`
-  )
-  console.log(
-    `state:    ${pr.state ?? 'unknown'}${pr.isDraft ? ' · draft' : ''}`
-  )
-  if (pr.ciStatus) console.log(`ci:       ${pr.ciStatus}`)
-  if (pr.authorLogin) console.log(`author:   ${sanitizeField(pr.authorLogin)}`)
-  if (pr.headBranch || pr.baseBranch)
-    console.log(`branch:   ${pr.headBranch ?? '?'} → ${pr.baseBranch ?? '?'}`)
-  if (pr.url) console.log(`url:      ${pr.url}`)
-  if (note) console.log(`\nnote: ${sanitizeField(note)}`)
+  // LUM-998: the PR title is guarded inline.
+  console.log(formatPrShow(pr, note))
 }
