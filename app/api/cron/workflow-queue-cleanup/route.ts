@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCronAuth } from '@/lib/api/cron-auth'
 import { logger } from '@/lib/logger'
+import { redactConnectionUrl } from '@/lib/runtime/workflow-world'
 import { workflowQueueMaintenanceService } from '@/lib/services/workflow-queue-maintenance.service'
 
 /**
@@ -18,10 +19,11 @@ export async function GET(req: NextRequest) {
     const result = await workflowQueueMaintenanceService.cleanup()
     return NextResponse.json(result)
   } catch (error) {
-    logger.error(
-      '[workflow-queue] cleanup failed:',
+    // A driver error may echo the connection string; never log its password.
+    const detail = redactConnectionUrl(
       error instanceof Error ? error.message : String(error)
     )
+    logger.error(`[workflow-queue] cleanup failed: ${detail}`)
     const status = (error as { status?: number }).status ?? 500
     return NextResponse.json(
       { error: 'workflow queue cleanup failed' },

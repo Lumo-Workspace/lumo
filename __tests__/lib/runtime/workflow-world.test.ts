@@ -118,6 +118,7 @@ describe('checkPostgresWorldConfig', () => {
     expect(warnings[0]).toMatch(/pooler/)
     expect(warnings[0]).toMatch(/direct/)
     expect(warnings[0]).not.toContain('hunter2')
+    expect(warnings[0]).toContain('postgresql://[redacted]@ep-x-pooler')
   })
 
   it('LUM-1030 config: a delivery URL without the secret, or no secret at all, warns (deliveries would get 401)', () => {
@@ -149,6 +150,9 @@ describe('redactConnectionUrl', () => {
     expect(redactConnectionUrl('postgres://u:p@h:5432/d')).toBe(
       'postgres://[redacted]@h:5432/d'
     )
+    expect(
+      redactConnectionUrl('connect failed for postgres://u:p@h/d (timeout)')
+    ).toBe('connect failed for postgres://[redacted]@h/d (timeout)')
   })
 })
 

@@ -56,9 +56,9 @@ export function looksLikePoolerUrl(url: string): boolean {
   return parsed.searchParams.get('pgbouncer')?.toLowerCase() === 'true'
 }
 
-/** `user:password@` removed, for log lines. */
-export function redactConnectionUrl(url: string): string {
-  return url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^@/]*@/i, '$1[redacted]@')
+/** `user:password@` of every URL in the text removed, for log lines. */
+export function redactConnectionUrl(text: string): string {
+  return text.replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^@/\s]*@/gi, '$1[redacted]@')
 }
 
 export interface PostgresWorldConfigCheck {
