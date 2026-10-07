@@ -122,6 +122,7 @@
     "@workflow/world-postgres": "4.3.9",
     "ai": "^6.0.146",
     "autoprefixer": "^10.4.27",
+    "better-auth": "1.7.7",
     "chat": "^4.23.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

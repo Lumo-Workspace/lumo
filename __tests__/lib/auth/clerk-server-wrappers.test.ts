@@ -19,6 +19,9 @@ type ClerkHandler = (
   req: NextRequest
 ) => Promise<Response | undefined | void>
 let capturedHandler: ClerkHandler | null = null
+// The function clerkMiddleware() returns; the dispatcher (LUM-1027) builds it
+// on the first request and forwards (request, event) to it.
+const mockClerkMiddlewareFn = jest.fn(async () => new Response('clerk'))
 
 jest.mock('@clerk/nextjs/server', () => ({
   auth: (...args: unknown[]) => mockAuth(...args),
@@ -28,7 +31,7 @@ jest.mock('@clerk/nextjs/server', () => ({
   createRouteMatcher: jest.fn(),
   clerkMiddleware: (handler: ClerkHandler) => {
     capturedHandler = handler
-    return 'clerk-middleware'
+    return mockClerkMiddlewareFn
   },
 }))
 // @clerk/mcp-tools subpaths are ESM-only exports jest cannot resolve, so the
@@ -43,9 +46,9 @@ jest.mock(
 jest.mock(
   '@clerk/mcp-tools/next',
   () => ({
-    authServerMetadataHandlerClerk: () => 'as-handler',
-    protectedResourceHandlerClerk: () => 'pr-handler',
-    metadataCorsOptionsRequestHandler: () => 'options-handler',
+    authServerMetadataHandlerClerk: () => async () => 'as-response',
+    protectedResourceHandlerClerk: () => async () => 'pr-response',
+    metadataCorsOptionsRequestHandler: () => async () => 'options-response',
   }),
   { virtual: true }
 )
@@ -178,7 +181,11 @@ describe('createAuthMiddleware', () => {
         return new Response(userId)
       }
     )
-    expect(createAuthMiddleware(handler)).toBe('clerk-middleware')
+    const middleware = createAuthMiddleware(handler)
+    const event = {} as Parameters<typeof middleware>[1]
+    const out = await middleware(req, event)
+    expect(await (out as Response).text()).toBe('clerk')
+    expect(mockClerkMiddlewareFn).toHaveBeenCalledWith(req, event)
 
     const clerkAuth = Object.assign(async () => ({ userId: 'user_7' }), {
       protect: mockProtect,
@@ -192,10 +199,11 @@ describe('createAuthMiddleware', () => {
   it('lets protect() control-flow throws escape (sign-in redirect)', async () => {
     const redirect = new Error('NEXT_REDIRECT')
     mockProtect.mockRejectedValueOnce(redirect)
-    createAuthMiddleware(async auth => {
+    const middleware = createAuthMiddleware(async auth => {
       await auth.protect()
       return new Response('unreachable')
     })
+    await middleware(req, {} as Parameters<typeof middleware>[1])
     const clerkAuth = Object.assign(async () => ({ userId: null }), {
       protect: mockProtect,
     })
@@ -221,9 +229,16 @@ describe('MCP OAuth', () => {
     await expect(verifyMcpAccessToken(undefined)).resolves.toBeUndefined()
   })
 
-  it('metadata handlers are the provider handlers', () => {
-    expect(oauthAuthorizationServerMetadataHandler()).toBe('as-handler')
-    expect(oauthProtectedResourceMetadataHandler()).toBe('pr-handler')
-    expect(oauthMetadataOptionsHandler()).toBe('options-handler')
+  it('metadata handlers delegate each request to the provider handlers', async () => {
+    const request = new Request('http://localhost/.well-known/x')
+    await expect(
+      oauthAuthorizationServerMetadataHandler()(request)
+    ).resolves.toBe('as-response')
+    await expect(
+      oauthProtectedResourceMetadataHandler()(request)
+    ).resolves.toBe('pr-response')
+    await expect(oauthMetadataOptionsHandler()(request)).resolves.toBe(
+      'options-response'
+    )
   })
 })

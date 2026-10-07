@@ -21,6 +21,12 @@ export const NON_WORKSPACE_MODELS: Readonly<Record<string, string>> = {
   McpConnection:
     'per-user OAuth connection; its activeWorkspace pointer is SetNull',
   WorkspaceDeletionReceipt: 'deletion evidence that must outlive the workspace',
+  // LUM-1027: the self-hosted (Better Auth) identity store — a person's
+  // account outlives any one workspace, exactly like a Clerk user.
+  AuthUser: 'self-hosted login identity (Better Auth); owned by no workspace',
+  AuthSession: 'login session of an AuthUser; owned by no workspace',
+  AuthAccount: 'credential / OAuth link of an AuthUser; owned by no workspace',
+  AuthVerification: 'email-verification token; owned by no workspace',
 }
 
 export type BlobCleanup =

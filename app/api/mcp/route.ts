@@ -2,7 +2,11 @@
 // `withMcpAuth` extracts the Bearer token, `verifyMcpAccessToken` turns the
 // verified OAuth token into MCP AuthInfo that the server middleware
 // (registerMcpTools) reads off `extra.authInfo` for every tool call.
-import { verifyMcpAccessToken } from '@/lib/auth/mcp'
+import {
+  isMcpOAuthSupported,
+  mcpOAuthUnsupportedResponse,
+  verifyMcpAccessToken,
+} from '@/lib/auth/mcp'
 import { createMcpHandler, withMcpAuth } from 'mcp-handler'
 import { registerMcpTools } from '@/lib/mcp/server'
 
@@ -55,6 +59,9 @@ function withCors(res: Response): Response {
 }
 
 async function handler(req: Request): Promise<Response> {
+  // Self-hosted on Better Auth (LUM-1027): no OAuth issuer for MCP tokens —
+  // say so plainly instead of a 401 that sends clients into a login loop.
+  if (!isMcpOAuthSupported()) return withCors(mcpOAuthUnsupportedResponse())
   return withCors(await authedHandler(req))
 }
 

@@ -80,7 +80,8 @@ module.exports = async () => {
   config.transformIgnorePatterns = [
     // htmlparser2 12 + its nested dom* / entities deps are ESM-only
     // (sanitize-html, LUM-916).
-    '/node_modules/(?!(marked|lowlight|highlight\\.js|devlop|htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities)/)',
+    // better-auth 1.7 and its runtime deps are ESM-only too (LUM-1027).
+    '/node_modules/(?!(marked|lowlight|highlight\\.js|devlop|htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities|better-auth|@better-auth|better-call|@better-fetch|jose|nanostores|@noble|kysely|rou3|uncrypto|defu)/)',
     '^.+\\.module\\.(css|sass|scss)$',
   ]
   return config

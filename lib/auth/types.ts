@@ -2,13 +2,15 @@
  * LUM-1026 — the auth interface the rest of Lumo depends on.
  *
  * These types describe only what call sites actually read, so any provider
- * can satisfy them. Clerk (lib/auth/clerk/*) is the only implementation
- * today; its SDK objects satisfy these shapes structurally, so the Clerk
- * implementation hands them through unchanged. A Better Auth implementation
- * (LUM-1027) builds the same shapes from its own user records.
+ * can satisfy them. Clerk (lib/auth/clerk/*) is the SaaS implementation;
+ * its SDK objects satisfy these shapes structurally, so the Clerk
+ * implementation hands them through unchanged. The Better Auth implementation
+ * (lib/auth/better-auth/*, LUM-1027) builds the same shapes from its own user
+ * records; AUTH_PROVIDER (lib/auth/provider.ts) picks one per deployment.
  *
  * Nothing in this file may import a provider SDK.
  */
+import type { NextRequest } from 'next/server'
 
 /** One email address of a user. */
 export interface AuthEmailAddress {
@@ -93,3 +95,9 @@ export interface MiddlewareAuth {
    */
   protect(): Promise<void>
 }
+
+/** The proxy.ts handler: sees only `MiddlewareAuth`, never a provider SDK. */
+export type AuthMiddlewareHandler = (
+  auth: MiddlewareAuth,
+  request: NextRequest
+) => Promise<Response | undefined | void>

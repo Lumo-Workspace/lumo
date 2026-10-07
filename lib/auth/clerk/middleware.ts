@@ -3,13 +3,7 @@
  * proxy.ts. The handler sees only the provider-neutral `MiddlewareAuth`.
  */
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import type { NextRequest } from 'next/server'
-import type { MiddlewareAuth } from '../types'
-
-export type AuthMiddlewareHandler = (
-  auth: MiddlewareAuth,
-  request: NextRequest
-) => Promise<Response | undefined | void>
+import type { AuthMiddlewareHandler, MiddlewareAuth } from '../types'
 
 /** `(request) => boolean` for a list of path patterns like `/api/(.*)`. */
 export { createRouteMatcher }
