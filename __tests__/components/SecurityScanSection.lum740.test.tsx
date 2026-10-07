@@ -200,7 +200,9 @@ describe('LUM-740 panel', () => {
         },
       })
     )
-    expect(screen.getByTestId('stage-secrets')).not.toHaveAttribute('tabindex')
+    // A checked layer is a labelled image, not a control.
+    expect(screen.getByTestId('stage-secrets').tagName).toBe('SPAN')
+    expect(screen.getByTestId('stage-secrets')).toHaveAttribute('role', 'img')
     // A checked layer keeps its plain state hover.
     expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
       'title',
@@ -208,7 +210,12 @@ describe('LUM-740 panel', () => {
     )
     expect(screen.getByTestId('stage-hunt')).not.toHaveAttribute('title')
     const hunt = screen.getByTestId('stage-hunt')
-    expect(hunt).toHaveAttribute('tabindex', '0')
+    // A layer with a reason is a real button: focusable without tabIndex,
+    // and no role=img describing itself twice.
+    expect(hunt.tagName).toBe('BUTTON')
+    expect(hunt).toHaveAttribute('type', 'button')
+    expect(hunt).not.toHaveAttribute('role')
+    expect(hunt).not.toHaveAttribute('tabindex')
     // Never hover-only: the reason is the cell's accessible description.
     const describedBy = hunt.getAttribute('aria-describedby')
     expect(describedBy).toBeTruthy()
@@ -415,5 +422,28 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
     expect(screen.getByTestId('finding-verifier-reason')).toHaveTextContent(
       'guarded at src/a.ts:12'
     )
+  })
+})
+
+describe('LUM-1012 finding groups', () => {
+  test('queue exits of different kinds get their own group, each with a distinct test id', () => {
+    renderWith(
+      scan({
+        findings: [
+          finding({ id: 'merged', queueExit: 'MERGED_UNREVIEWED' }),
+          finding({ id: 'closed', queueExit: 'PR_CLOSED' }),
+        ],
+      })
+    )
+    // Nothing to decide, so the row starts folded — open it.
+    fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+    const ids = screen
+      .getAllByTestId(/^finding-group-/)
+      .map(el => el.getAttribute('data-testid'))
+    expect(ids).toEqual([
+      'finding-group-queueExit-MERGED_UNREVIEWED',
+      'finding-group-queueExit-PR_CLOSED',
+    ])
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })
