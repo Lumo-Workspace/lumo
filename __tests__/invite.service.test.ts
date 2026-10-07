@@ -232,22 +232,9 @@ describe('inviteService', () => {
     })
   })
 
+  // The send / expiry / audit outcome paths are in
+  // __tests__/services/invite-resend.service.test.ts (LUM-1017).
   describe('resendInvite', () => {
-    it('returns invite data for resending', async () => {
-      mockFindByTokenForResend.mockResolvedValue({
-        id: 'inv-1',
-        workspaceId: 'ws-1',
-        status: 'PENDING',
-        email: 'a@b.com',
-        inviterName: 'Alice',
-        workspace: { name: 'Test', slug: 'test' },
-      })
-
-      const result = await inviteService.resendInvite('tok-1', 'ws-1')
-
-      expect(result.email).toBe('a@b.com')
-    })
-
     it('throws 404 when invite not in caller workspace', async () => {
       mockFindByTokenForResend.mockResolvedValue({
         id: 'inv-1',

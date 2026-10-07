@@ -4,7 +4,15 @@ import {
   recordAuditEvent,
   type AuditContext,
 } from '@/lib/services/audit.service'
-import { INVITE_EMAIL_MISMATCH, maskEmail } from '@/lib/utils/invite'
+import {
+  INVITE_EMAIL_MISMATCH,
+  inviteExpiresAt,
+  maskEmail,
+} from '@/lib/utils/invite'
+import { buildInviteEmail, sendEmail } from '@/lib/integrations/email'
+
+/** What happened to the email when an invite was resent. */
+export type InviteResendOutcome = 'sent' | 'failed' | 'skipped'
 
 // ── Invite Service ─────────────────────────────────────────────────────────
 
@@ -247,12 +255,19 @@ export const inviteService = {
     return landingSlug
   },
 
-  /** Resend an invite: reset expiry and return invite data for email sending. */
+  /**
+   * Resend an invite email. LUM-1017: the expiry is extended only when the
+   * email actually went out — a failed or skipped (no transport) send leaves
+   * the old expiry in place, so a resend click that delivered nothing never
+   * keeps an invite alive. The `invite.resent` audit event is written after
+   * the send and carries the outcome (`sent` / `failed` / `skipped`), plus
+   * the new expiry when there is one and the transport error code on failure.
+   */
   async resendInvite(
     token: string,
     callerWorkspaceId: string,
     audit?: AuditContext
-  ) {
+  ): Promise<{ outcome: InviteResendOutcome; expiresAt: Date | null }> {
     const invite = await inviteRepository.findByTokenForResend(token)
     if (!invite || invite.workspaceId !== callerWorkspaceId) {
       throw Object.assign(new Error('Invite not found'), {
@@ -267,12 +282,41 @@ export const inviteService = {
       })
     }
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    const inviterFullName = invite.inviterName
+    const inviterFirstName = inviterFullName.split(' ')[0] || inviterFullName
+    const { subject, html } = buildInviteEmail({
+      workspaceName: invite.workspace.name,
+      inviterName: inviterFullName,
+      inviterFirstName,
+      inviterEmail: invite.workspace.slug + '@uselumo.ai',
+      inviteUrl: `${appUrl}/invite/${token}`,
+    })
+
+    const result = await sendEmail(
+      { to: [invite.email], subject, html },
+      { idempotencyKey: `workspace-invite-resend/${invite.id}-${Date.now()}` }
+    )
+
+    let expiresAt: Date | null = null
+    if (result.status === 'sent') {
+      expiresAt = inviteExpiresAt()
+      await inviteRepository.resetExpiry(invite.id, expiresAt)
+    }
+
     await recordAuditEvent({
       workspaceId: callerWorkspaceId,
       action: 'invite.resent',
       target: { type: 'invite', id: invite.id },
+      metadata: {
+        outcome: result.status,
+        ...(expiresAt ? { expiresAt } : {}),
+        ...(result.status === 'failed' && result.error.code
+          ? { errorCode: result.error.code }
+          : {}),
+      },
       context: audit,
     })
-    return invite
+    return { outcome: result.status, expiresAt }
   },
 }

@@ -5,7 +5,9 @@
  * to the email instead of always answering ok, and every failure path
  * (including the catch branch) answers { ok: false, error, code }: sent → 200 ok, failed → 502
  * EMAIL_SEND_FAILED, skipped (no transport configured) → 503
- * EMAIL_NOT_CONFIGURED. The invite expiry is refreshed in every case.
+ * EMAIL_NOT_CONFIGURED. Sending and the expiry rule (extended only on sent)
+ * live in inviteService.resendInvite — see
+ * __tests__/services/invite-resend.service.test.ts.
  */
 jest.mock('@/lib/auth', () => ({ requireAuth: jest.fn() }))
 jest.mock('@/lib/api/helpers', () => ({ requireUserWorkspace: jest.fn() }))
@@ -13,15 +15,6 @@ jest.mock('@/lib/api/helpers', () => ({ requireUserWorkspace: jest.fn() }))
 const mockResendInvite = jest.fn()
 jest.mock('@/lib/services/invite.service', () => ({
   inviteService: { resendInvite: (...a: unknown[]) => mockResendInvite(...a) },
-}))
-const mockResetExpiry = jest.fn()
-jest.mock('@/lib/repositories/invite.repository', () => ({
-  inviteRepository: { resetExpiry: (...a: unknown[]) => mockResetExpiry(...a) },
-}))
-const mockSendEmail = jest.fn()
-jest.mock('@/lib/integrations/email', () => ({
-  ...jest.requireActual('@/lib/integrations/email'),
-  sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: {
@@ -51,55 +44,34 @@ beforeEach(() => {
     workspace: { slug: 'acme' },
   })
   mockResendInvite.mockResolvedValue({
-    id: 'inv-1',
-    email: 'bo@acme.test',
-    inviterName: 'Ada Lovelace',
-    workspace: { name: 'Acme' },
+    outcome: 'sent',
+    expiresAt: new Date('2026-10-13T00:00:00Z'),
   })
-  mockResetExpiry.mockResolvedValue(undefined)
 })
 
 describe('POST /api/invites/[token]/resend', () => {
-  it('sent → 200 { ok: true } and emails the invitee', async () => {
-    mockSendEmail.mockResolvedValue({ status: 'sent', id: 'r1' })
+  it('sent → 200 { ok: true }, resending via the service for the caller workspace', async () => {
     const res = await POST(req(), params)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
-    expect(mockSendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: ['bo@acme.test'] }),
-      expect.objectContaining({
-        idempotencyKey: expect.stringMatching(
-          /^workspace-invite-resend\/inv-1-/
-        ),
-      })
+    expect(mockResendInvite).toHaveBeenCalledWith(
+      'tok-1',
+      'ws-1',
+      expect.objectContaining({ source: expect.any(String) })
     )
-    expect(mockResetExpiry).toHaveBeenCalledWith('inv-1', expect.any(Date))
   })
 
   it('failed → 502 EMAIL_SEND_FAILED, never ok', async () => {
-    mockSendEmail.mockResolvedValue({
-      status: 'failed',
-      error: {
-        name: 'Error',
-        message: 'connect ECONNREFUSED',
-        code: 'ESOCKET',
-      },
-    })
+    mockResendInvite.mockResolvedValue({ outcome: 'failed', expiresAt: null })
     const res = await POST(req(), params)
     const body = await res.json()
     expect(res.status).toBe(502)
     expect(body).toMatchObject({ ok: false, code: 'EMAIL_SEND_FAILED' })
     expect(typeof body.error).toBe('string')
-    // transport details stay server-side
-    expect(JSON.stringify(body)).not.toContain('ECONNREFUSED')
-    expect(mockResetExpiry).toHaveBeenCalled()
   })
 
   it('skipped (no transport) → 503 EMAIL_NOT_CONFIGURED', async () => {
-    mockSendEmail.mockResolvedValue({
-      status: 'skipped',
-      reason: 'not_configured',
-    })
+    mockResendInvite.mockResolvedValue({ outcome: 'skipped', expiresAt: null })
     const res = await POST(req(), params)
     expect(res.status).toBe(503)
     expect(await res.json()).toMatchObject({
@@ -112,7 +84,7 @@ describe('POST /api/invites/[token]/resend', () => {
     [404, 'INVITE_NOT_FOUND', 'Invite not found'],
     [400, 'INVITE_NOT_PENDING', 'Only PENDING invites can be resent'],
   ])(
-    'catch: a service error → %i with its code %s, and no send',
+    'catch: a service error → %i with its code %s',
     async (status, code, message) => {
       mockResendInvite.mockRejectedValue(
         Object.assign(new Error(message), { status, code })
@@ -120,7 +92,6 @@ describe('POST /api/invites/[token]/resend', () => {
       const res = await POST(req(), params)
       expect(res.status).toBe(status)
       expect(await res.json()).toEqual({ ok: false, error: message, code })
-      expect(mockSendEmail).not.toHaveBeenCalled()
     }
   )
 
@@ -138,7 +109,7 @@ describe('POST /api/invites/[token]/resend', () => {
   })
 
   it('catch: an unexpected throw → 500 INTERNAL_ERROR, logged via logger', async () => {
-    mockResetExpiry.mockRejectedValue(new Error('db down'))
+    mockResendInvite.mockRejectedValue(new Error('db down'))
     const res = await POST(req(), params)
     const body = await res.json()
     expect(res.status).toBe(500)
@@ -152,13 +123,6 @@ describe('POST /api/invites/[token]/resend', () => {
       'POST /api/invites/[token]/resend error',
       expect.objectContaining({ name: 'Error', message: 'db down' })
     )
-  })
-
-  it('catch: sendEmail itself throwing → 500 INTERNAL_ERROR', async () => {
-    mockSendEmail.mockRejectedValue(new Error('unexpected'))
-    const res = await POST(req(), params)
-    expect(res.status).toBe(500)
-    expect(await res.json()).toMatchObject({ code: 'INTERNAL_ERROR' })
   })
 
   it('auth early return → 401 with code UNAUTHORIZED', async () => {
