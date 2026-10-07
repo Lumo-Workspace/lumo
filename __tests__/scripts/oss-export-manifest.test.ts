@@ -137,6 +137,8 @@ describe('import graph guard', () => {
       )
     ).toBe('scripts/analysis/g.json')
     expect(resolveSpecifier('lib/b.ts', 'react', files)).toBeNull()
+    // ESM-style `.js` specifier of a TypeScript source (cli/ uses these).
+    expect(resolveSpecifier('lib/b.ts', './a.js', files)).toBe('lib/a.ts')
   })
 
   it('flags an exported file that imports an excluded one, by import not by path prefix', () => {

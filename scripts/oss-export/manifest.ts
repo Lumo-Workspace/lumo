@@ -227,6 +227,14 @@ export function resolveSpecifier(
     const candidate = base + suffix
     if (files.has(candidate)) return candidate
   }
+  // ESM-style TypeScript imports name the emitted file: `./x.js` → `./x.ts`.
+  const js = /\.(m|c)?jsx?$/.exec(base)
+  if (js) {
+    const stem = base.slice(0, -js[0].length)
+    for (const ext of ['.ts', '.tsx', '.mts', '.cts']) {
+      if (files.has(stem + ext)) return stem + ext
+    }
+  }
   return null
 }
 
