@@ -17,7 +17,6 @@ export const EXPORTED_MODELS = [
   // LUM-992: Task carries a denormalized workspaceId; tasks were already in
   // the archive (the `tasks` kind).
   'Task',
-  'Idea',
   'Initiative',
   'Priority',
   'Document',
@@ -39,8 +38,6 @@ const MIRROR = 'a copy of third-party data whose system of record is elsewhere'
 export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   WorkspaceDeletionReceipt: 'evidence about a deleted workspace',
   WorkspaceExport: 'the export audit trail itself',
-  PlanRun:
-    'converter pipeline state; its outputs (ideas, initiatives, tasks) are exported',
   AgentProfile: 'agent runtime configuration',
   View: 'saved UI view configuration',
   Notification: 'transient per-user inbox',
@@ -60,10 +57,6 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   TaskSlackContext: MIRROR,
   TaskWebLink: MIRROR,
   TaskFigmaLink: MIRROR,
-  IdeaSlackContext: MIRROR,
-  IdeaWebLink: MIRROR,
-  IdeaFigmaLink: MIRROR,
-  IdeaPullRequest: MIRROR,
   McpAuditLog: 'operational access log',
   HookEvent: TELEMETRY,
   Session: TELEMETRY,

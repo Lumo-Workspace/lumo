@@ -4,8 +4,7 @@
  * "Configured" is a deployment fact read from env: the operator supplied the
  * credentials the integration needs. It is NOT "connected", which is per
  * tenant and scoped differently per integration (Slack and the GitHub App are
- * per workspace, GitHub OAuth / Figma / Google Drive per member — see
- * `useIntegrationConnected`). An unconfigured integration cannot be connected
+ * per workspace, GitHub OAuth / Figma / Google Drive per member). An unconfigured integration cannot be connected
  * by anyone, so the UI hides it and server paths skip it instead of failing.
  *
  * The minimal deployment is Postgres + Clerk; everything listed here is

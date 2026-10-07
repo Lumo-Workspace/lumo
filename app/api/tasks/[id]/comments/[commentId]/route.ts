@@ -16,12 +16,10 @@ async function requireCommentOwner(
   action: string
 ) {
   const comment = await commentRepository.findByIdWithTask(commentId)
-  // A comment with no task is an idea comment (LUM-680) — never editable here.
   // Another workspace's comment, or an already-deleted one, reads as absent.
   if (
     !comment ||
     comment.deletedAt ||
-    !comment.task ||
     comment.taskId !== taskId ||
     comment.task.project.workspaceId !== identity.workspaceId
   ) {

@@ -16,7 +16,7 @@ export interface SlackContextResource {
   snapshot: SlackContextSnapshot
   snapshotAt: string
   refreshError: string | null
-  /** LUM-783: write-time injection scan of the snapshot; null = clean. Optional so the idea-scoped variant still fits the shared card. */
+  /** LUM-783: write-time injection scan of the snapshot; null = clean. */
   contentSignals?: ContentSignals | null
   createdById: string
   createdAt: string

@@ -233,7 +233,6 @@ describe('archive', () => {
       'documents',
       'milestones',
       'sprints',
-      'ideas',
       'memories',
       'members',
     ]) {

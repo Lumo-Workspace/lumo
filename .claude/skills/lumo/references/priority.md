@@ -15,7 +15,7 @@ Declare the current team priority.
 
 - **With `text`** — records it directly:
   ```bash
-  lumo priority "Ship the idea-capture MVP; defer the converter to Spec 2."
+  lumo priority "Ship the billing MVP; defer SSO to next quarter."
   ```
 - **With no argument** — running `lumo priority` on its own prompts
   interactively for a 1-3 sentence statement (`Priority (1-3 sentences): _`).
@@ -34,8 +34,8 @@ lumo priority list
 ```
 
 ```
-* 2026-02-01  Now focus on the converter state machine
-  2026-01-01  Ship the idea-capture MVP
+* 2026-02-01  Now focus on onboarding conversion
+  2026-01-01  Ship the billing MVP
 ```
 
 Prints `No priorities declared yet.` when the team has none.

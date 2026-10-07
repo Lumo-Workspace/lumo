@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Lightbulb, ListChecks, Plus, Target } from 'lucide-react'
+import { ListChecks, Plus, Target } from 'lucide-react'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -39,9 +39,8 @@ const STATUS_VARIANT: Record<
 
 /**
  * Initiatives landing (LUM-673) — the caller team's initiatives, with a
- * **New Initiative** action to create one directly (no plan run required).
- * Each card links to the detail page where the lineage (which ideas became it,
- * which tasks hang off it) is shown. First-class browse; does not touch the
+ * **New Initiative** action. Each card links to the detail page where the
+ * tasks hanging off it are shown. First-class browse; does not touch the
  * core Milestone concept.
  */
 export function InitiativesLandingClient() {
@@ -200,13 +199,6 @@ export function InitiativesLandingClient() {
                         {intl.formatMessage(
                           { id: 'initiative.list.taskCount' },
                           { count: initiative.taskCount }
-                        )}
-                      </span>
-                      <span className='flex items-center gap-1'>
-                        <Lightbulb className='size-3.5' />
-                        {intl.formatMessage(
-                          { id: 'initiative.list.ideaCount' },
-                          { count: initiative.ideaCount }
                         )}
                       </span>
                     </div>

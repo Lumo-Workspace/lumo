@@ -152,12 +152,11 @@ export const referenceSources: ReferenceSource[] = [
             body: true,
             updatedAt: true,
             task: { select: { project: { select: { workspaceId: true } } } },
-            idea: { select: { workspaceId: true } },
           },
         })
       ).map(r => ({
         id: r.id,
-        workspaceId: r.task?.project.workspaceId ?? r.idea?.workspaceId ?? null,
+        workspaceId: r.task.project.workspaceId,
         text: r.body,
         updatedAt: r.updatedAt,
       })),

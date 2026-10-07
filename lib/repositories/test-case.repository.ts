@@ -130,7 +130,7 @@ export type TaskPullRequestRow = Prisma.PullRequestGetPayload<{
   select: typeof taskPrSelect
 }>
 
-/** max+1 分配的重试预算（同 Idea 编号，LUM-661）。 */
+/** max+1 分配的重试预算（LUM-661 模式）。 */
 const NUMBER_RETRIES = 5
 
 function isUniqueCollision(e: unknown): boolean {

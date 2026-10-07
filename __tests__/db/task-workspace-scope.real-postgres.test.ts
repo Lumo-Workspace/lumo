@@ -38,7 +38,6 @@ jest.mock('@octokit/auth-app', () => ({ createAppAuth: jest.fn() }))
 
 import { scopedPrisma } from '@/lib/db/workspace-scope'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { planMaterializeRepository } from '@/lib/repositories/plan-materialize.repository'
 import { updateTask } from '@/lib/services/task-state.service'
 
 jest.setTimeout(180_000)
@@ -203,44 +202,6 @@ describe('task create paths write the project workspaceId', () => {
     })
     expect(created.workspaceId).toBe(A)
     expect((await rawTask(created.id))?.workspaceId).toBe(A)
-  })
-
-  it('plan-run materialize (gate C)', async () => {
-    await harness.insert('plan_runs', {
-      id: 'run_a',
-      teamId: `t_${A}`,
-      workspaceId: A,
-      startedByMemberId: `m_${A}`,
-      stage: 'DRAFT_READY',
-    })
-    await harness.insert('plan_run_stage_records', {
-      id: 'stage_a',
-      planRunId: 'run_a',
-      kind: 'GENERATE',
-    })
-    const result = await planMaterializeRepository.materialize({
-      planRunId: 'run_a',
-      teamId: `t_${A}`,
-      workspaceId: A,
-      projectId: `p1_${A}`,
-      proseDocument: 'plan',
-      confirmedBy: `m_${A}`,
-      humanConfirmedOutput: {},
-      initiatives: [
-        {
-          goalStatement: 'goal',
-          assumptionNote: null,
-          ideaIds: [],
-          tasks: [
-            { title: 'materialized 1', description: 'why 1', sizeHint: 'S' },
-            { title: 'materialized 2', description: 'why 2', sizeHint: 'M' },
-          ],
-        },
-      ],
-    })
-    const ids = result.initiatives[0]!.taskIds
-    expect(ids).toHaveLength(2)
-    for (const id of ids) expect((await rawTask(id))?.workspaceId).toBe(A)
   })
 })
 

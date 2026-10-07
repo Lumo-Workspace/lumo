@@ -132,7 +132,7 @@ describe('grammar.json drift', () => {
     // The full parent-with-action set as registered in cli/src/index.ts. A new
     // one must be added here deliberately — and documented with a bare example
     // (doc-examples.test.ts coverage now demands one).
-    expect(invokableParents).toEqual(['idea', 'plan', 'priority'])
+    expect(invokableParents).toEqual(['priority'])
     // Routing-only parents stay non-invokable …
     expect(grammar.commands['task']!.isInvokable).toBe(false)
     expect(grammar.commands['task testcase']!.isInvokable).toBe(false)

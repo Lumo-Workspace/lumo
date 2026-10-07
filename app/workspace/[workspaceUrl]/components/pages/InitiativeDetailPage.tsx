@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Lightbulb, ListChecks, Target } from 'lucide-react'
+import { ListChecks, Target } from 'lucide-react'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { Badge } from '@/components/ui/badge'
 import type {
@@ -44,8 +44,8 @@ const TASK_STATUS_KEY: Record<ApiTaskStatus, string> = {
 
 /**
  * Initiative detail page (LUM-673). Renders a materialised initiative's goal,
- * its bet (assumption note), status, and its lineage — the consumed ideas and
- * the attached tasks with a progress read-out. The id is read from the route
+ * its bet (assumption note), status, and the attached tasks with a progress
+ * read-out. The id is read from the route
  * (`/workspace/<slug>/initiatives/<initiativeId>`).
  */
 export function InitiativeDetailPage() {
@@ -157,33 +157,6 @@ export function InitiativeDetailPage() {
                         id: TASK_STATUS_KEY[task.status],
                       })}
                     </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* Consumed ideas — lineage backward */}
-          <section>
-            <h2 className='mb-3 flex items-center gap-2 text-sm font-semibold'>
-              <Lightbulb className='size-4 text-muted-foreground' />
-              {intl.formatMessage({ id: 'initiative.detail.consumedIdeas' })}
-            </h2>
-            {initiative.ideas.length === 0 ? (
-              <p className='text-sm text-muted-foreground'>
-                {intl.formatMessage({ id: 'initiative.detail.noIdeas' })}
-              </p>
-            ) : (
-              <ul className='flex flex-col gap-1'>
-                {initiative.ideas.map(idea => (
-                  <li
-                    key={idea.id}
-                    className='flex items-start gap-3 rounded-md border px-3 py-2 text-sm'
-                  >
-                    <span className='font-mono text-xs text-muted-foreground'>
-                      {idea.identifier}
-                    </span>
-                    <span className='min-w-0 flex-1'>{idea.statement}</span>
                   </li>
                 ))}
               </ul>

@@ -240,7 +240,6 @@ describe('FAQ privacy claims LUM-853', () => {
       projects: 'projects',
       tasks: 'tasks',
       documents: 'documents',
-      ideas: 'ideas',
       'team memory': 'memories',
     }
     const exportSentence =

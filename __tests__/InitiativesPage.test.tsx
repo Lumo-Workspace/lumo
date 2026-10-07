@@ -1,9 +1,8 @@
 /** @jest-environment jsdom */
 /**
  * LUM-673: the initiatives web page lists initiatives, offers a New Initiative
- * create action (direct create, no plan run), and the detail page renders the
- * goal, assumption, status, consumed ideas and attached tasks with the id shown
- * as LUM-INIT-<n>.
+ * create action, and the detail page renders the goal, assumption, status and
+ * attached tasks with the id shown as LUM-INIT-<n>.
  */
 const messages: Record<string, string> = {
   'sidebar.initiatives': 'Initiatives',
@@ -15,7 +14,6 @@ const messages: Record<string, string> = {
   'initiative.list.empty': 'No initiatives yet',
   'initiative.list.emptyHint': 'Create one directly.',
   'initiative.list.taskCount': '{count} tasks',
-  'initiative.list.ideaCount': '{count} ideas',
   'initiative.create.goalLabel': 'Goal',
   'initiative.create.goalPlaceholder': 'What is the goal?',
   'initiative.create.assumptionLabel': 'The bet (optional)',
@@ -26,10 +24,8 @@ const messages: Record<string, string> = {
   'initiative.create.error': 'Could not create',
   'initiative.detail.bet': 'The bet',
   'initiative.detail.attachedTasks': 'Attached tasks',
-  'initiative.detail.consumedIdeas': 'Consumed ideas',
   'initiative.detail.progress': '{done}/{total} done',
   'initiative.detail.noTasks': 'No tasks',
-  'initiative.detail.noIdeas': 'No ideas',
   'initiative.detail.backToList': 'Back',
   'initiative.detail.notFound': 'Initiative not found',
   'initiative.task.todo': 'To do',
@@ -99,7 +95,6 @@ describe('Initiatives list page + New Initiative create action', () => {
           name: 'Ship the converter',
           status: 'ACTIVE',
           taskCount: 3,
-          ideaCount: 2,
         },
       ],
       isLoading: false,
@@ -113,7 +108,7 @@ describe('Initiatives list page + New Initiative create action', () => {
     expect(screen.getByText('Ship the converter')).toBeInTheDocument()
   })
 
-  it('opens the New Initiative form and creates directly (no plan run)', async () => {
+  it('opens the New Initiative form and creates directly', async () => {
     mockCreateInitiative.mockResolvedValue({})
     render(<InitiativesLandingClient />)
 
@@ -139,8 +134,8 @@ describe('Initiatives list page + New Initiative create action', () => {
   })
 })
 
-describe('Initiative detail page renders lineage', () => {
-  it('shows goal, bet, status, consumed ideas and attached tasks with LUM-INIT-<n>', () => {
+describe('Initiative detail page', () => {
+  it('shows goal, bet, status and attached tasks with LUM-INIT-<n>', () => {
     mockUseInitiativeDetail.mockReturnValue({
       initiative: {
         id: 'init-1',
@@ -150,9 +145,6 @@ describe('Initiative detail page renders lineage', () => {
         assumptionNote: 'Teams will curate the pool weekly',
         status: 'ACTIVE',
         createdAt: '1970-01-01T00:00:00.000Z',
-        ideas: [
-          { id: 'i9', identifier: 'LUM-I5', statement: 'A parked spark' },
-        ],
         tasks: [
           {
             id: 't7',
@@ -176,8 +168,6 @@ describe('Initiative detail page renders lineage', () => {
       screen.getByText('Teams will curate the pool weekly')
     ).toBeInTheDocument()
     expect(screen.getByText('Active')).toBeInTheDocument()
-    expect(screen.getByText('LUM-I5')).toBeInTheDocument()
-    expect(screen.getByText('A parked spark')).toBeInTheDocument()
     expect(screen.getByText('LUM-7')).toBeInTheDocument()
     expect(screen.getByText('Build the API')).toBeInTheDocument()
   })

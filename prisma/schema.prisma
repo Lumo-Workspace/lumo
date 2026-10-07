@@ -364,10 +364,6 @@ model Workspace {
   figmaIntegrations       FigmaIntegration[]
   googleDriveIntegrations GoogleDriveIntegration[]
   taskFigmaLinks          TaskFigmaLink[]
-  ideaSlackContexts       IdeaSlackContext[]
-  ideaWebLinks            IdeaWebLink[]
-  ideaFigmaLinks          IdeaFigmaLink[]
-  ideaPullRequests        IdeaPullRequest[]
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
   taskTemplates           TaskTemplate[]
@@ -376,9 +372,7 @@ model Workspace {
   droppedFragments        DroppedFragment[]
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
-  ideas                   Idea[]
   priorities              Priority[]
-  planRuns                PlanRun[]
   initiatives             Initiative[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
@@ -641,9 +635,7 @@ model Team {
   members     TeamMember[]
   tasks       Task[]
   sprints     Sprint[]
-  ideas       Idea[]
   priorities  Priority[]
-  planRuns    PlanRun[]
   initiatives Initiative[]
 
   @@unique([workspaceId, identifier])
@@ -679,147 +671,41 @@ model WorkspaceMember {
   /// REMOVED | LEFT | CLERK_USER_DELETED | CLERK_USER_BANNED (lib/members/deactivation.ts)
   deactivationReason String?
 
-  workspace                Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  teams                    TeamMember[]
-  createdProjects          Project[]                @relation("ProjectCreator")
-  ownsProjects             Project[]                @relation("ProjectOwner")
-  ownedViews               View[]                   @relation("ViewOwner")
-  createdViews             View[]                   @relation("ViewCreator")
-  sharedViews              ViewMember[]
-  sentInvites              WorkspaceInvite[]
-  githubIntegrations       GitHubIntegration[]
-  slackInstalled           SlackIntegration[]       @relation("SlackInstaller")
-  sentryInstalled          SentryIntegration[]      @relation("SentryInstaller")
-  gitHubAppInstalls        GitHubAppInstallation[]  @relation("GitHubAppInstaller")
-  actor                    Actor?
-  agentProfiles            AgentProfile[]
-  apiKeys                  ApiKey[]
-  hookEvents               HookEvent[]
-  sessions                 Session[]
-  preference               UserPreference?
-  createdDocuments         Document[]               @relation("DocumentCreator")
-  documentShares           DocumentShare[]          @relation("DocumentShareMember")
-  documentEdits            DocumentEditor[]
-  createdSlackContexts     TaskSlackContext[]       @relation("TaskSlackContextCreator")
-  createdWebLinks          TaskWebLink[]            @relation("TaskWebLinkCreator")
-  createdMemories          Memory[]                 @relation("MemoryCreator")
-  figmaIntegrations        FigmaIntegration[]
-  googleDriveIntegrations  GoogleDriveIntegration[]
-  taskFigmaLinks           TaskFigmaLink[]          @relation("TaskFigmaLinkCreator")
-  documentRevisions        DocumentRevision[]
-  ideaSlackContextsCreated IdeaSlackContext[]       @relation("IdeaSlackContextCreator")
-  ideaWebLinksCreated      IdeaWebLink[]            @relation("IdeaWebLinkCreator")
-  ideaFigmaLinksCreated    IdeaFigmaLink[]          @relation("IdeaFigmaLinkCreator")
-  ideaPullRequestsCreated  IdeaPullRequest[]        @relation("IdeaPullRequestCreator")
+  workspace               Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teams                   TeamMember[]
+  createdProjects         Project[]                @relation("ProjectCreator")
+  ownsProjects            Project[]                @relation("ProjectOwner")
+  ownedViews              View[]                   @relation("ViewOwner")
+  createdViews            View[]                   @relation("ViewCreator")
+  sharedViews             ViewMember[]
+  sentInvites             WorkspaceInvite[]
+  githubIntegrations      GitHubIntegration[]
+  slackInstalled          SlackIntegration[]       @relation("SlackInstaller")
+  sentryInstalled         SentryIntegration[]      @relation("SentryInstaller")
+  gitHubAppInstalls       GitHubAppInstallation[]  @relation("GitHubAppInstaller")
+  actor                   Actor?
+  agentProfiles           AgentProfile[]
+  apiKeys                 ApiKey[]
+  hookEvents              HookEvent[]
+  sessions                Session[]
+  preference              UserPreference?
+  createdDocuments        Document[]               @relation("DocumentCreator")
+  documentShares          DocumentShare[]          @relation("DocumentShareMember")
+  documentEdits           DocumentEditor[]
+  createdSlackContexts    TaskSlackContext[]       @relation("TaskSlackContextCreator")
+  createdWebLinks         TaskWebLink[]            @relation("TaskWebLinkCreator")
+  createdMemories         Memory[]                 @relation("MemoryCreator")
+  figmaIntegrations       FigmaIntegration[]
+  googleDriveIntegrations GoogleDriveIntegration[]
+  taskFigmaLinks          TaskFigmaLink[]          @relation("TaskFigmaLinkCreator")
+  documentRevisions       DocumentRevision[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
   @@map("workspace_members")
 }
 
-// ─── Idea & Priority (team-level foundation, LUM-660) ────────────────────────
-// Two team-level tables that sit ABOVE projects (no projectId): a team's raw
-// idea pool and its declared priorities. Spec1 = this schema foundation only;
-// materialisation into project-scoped Tasks and the Initiative concept are Spec2.
-
-// LUM-679 (Spec2-17): the idea lifecycle widens from 2 → 4 states.
-// CAPTURED (pooled) → DEVELOPING (in triage / pre-work) → PLANNED (consumed by
-// an initiative/plan) with DROPPED as the terminal discard reachable from any
-// non-terminal state. Materialisation still lands ideas in PLANNED. The two new
-// values were added additively (ADD VALUE); allowed transitions live in
-// lib/idea-status.ts.
-enum IdeaStatus {
-  CAPTURED
-  DEVELOPING
-  PLANNED
-  DROPPED
-}
-
-// LUM-680: the lifecycle events recorded on an Idea's activity timeline. Mirrors
-// the TaskActivity pattern (append-only, `payload` carries the specifics), but
-// scoped to the events an idea actually has today:
-//   IDEA_CAPTURED     — idea captured into the pool
-//   STATEMENT_CHANGED — the statement was edited
-//   STATUS_CHANGED    — a lifecycle transition ({from,to}); also emitted when a
-//                       plan run materialises the idea to PLANNED (carries the
-//                       planRunId + initiativeId it entered)
-//   COMMENT_ADDED     — a comment was posted ({commentId})
-// Evidence-added lives with the evidence feature (LUM-681) and is not here yet.
-enum IdeaActivityType {
-  IDEA_CAPTURED
-  STATEMENT_CHANGED
-  STATUS_CHANGED
-  COMMENT_ADDED
-}
-
-// A captured team-level idea. NO projectId — ideas live above projects until
-// materialised (Spec2). `number` is per-team (@@unique([teamId, number])).
-// `parentId` is a Phase-2 hierarchy placeholder — always null in Phase 1.
-model Idea {
-  id            String     @id @default(cuid())
-  teamId        String
-  workspaceId   String // redundant with team.workspaceId, for cheap workspace scoping
-  number        Int
-  parentId      String? // self-ref hierarchy, reserved for Phase 2 (null in P1)
-  statement     String
-  sourceContext String? // free-text origin context at capture time
-  status        IdeaStatus @default(CAPTURED)
-
-  // Attribution / provenance. Soft pointers (no FK): the source session or task
-  // may be pruned independently of the idea (cf. Task.claimSnapshotSessionId).
-  proposedByMemberId String
-  sourceSessionId    String? // session that captured the idea, if any
-  sourceTaskId       String? // task bound at capture time, nullable
-
-  // LUM-663 (Spec2-1) additive FKs: link an idea to the 转换器 run that consumed
-  // it and the Initiative it fed. Both nullable — set at materialisation time.
-  planRunId    String?
-  initiativeId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  team       Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  parent     Idea?          @relation("IdeaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children   Idea[]         @relation("IdeaHierarchy")
-  planRun    PlanRun?       @relation(fields: [planRunId], references: [id], onDelete: SetNull)
-  initiative Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
-  tasks      Task[]
-  comments   Comment[] // LUM-680: idea comments (polymorphic Comment via ideaId)
-  activities IdeaActivity[] // LUM-680: the idea's activity timeline
-
-  slackContexts IdeaSlackContext[]
-  webLinks      IdeaWebLink[]
-  figmaLinks    IdeaFigmaLink[]
-  pullRequests  IdeaPullRequest[]
-
-  @@unique([teamId, number])
-  @@index([teamId, status])
-  @@index([workspaceId])
-  @@index([parentId])
-  @@index([planRunId])
-  @@index([initiativeId])
-  @@map("ideas")
-}
-
-// LUM-680: an append-only activity entry on an Idea (mirrors TaskActivity).
-// `actorId` is nullable — system transitions (e.g. plan-run materialisation)
-// have no acting actor. `payload` carries event specifics (see IdeaActivityType).
-model IdeaActivity {
-  id        String           @id @default(cuid())
-  ideaId    String
-  actorId   String?
-  type      IdeaActivityType
-  payload   Json?
-  createdAt DateTime         @default(now())
-
-  idea  Idea   @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  actor Actor? @relation(fields: [actorId], references: [id], onDelete: SetNull)
-
-  @@index([ideaId, createdAt])
-  @@map("idea_activities")
-}
+// ─── Priority (team-level declaration, LUM-660) ─────────────────────────────
 
 // A team-level priority statement. Append-only by design: no `updatedAt`, and
 // no update/delete path in any layer — a newer declaration supersedes an older
@@ -840,31 +726,7 @@ model Priority {
   @@map("priorities")
 }
 
-// ─── Converter (PlanRun state machine + Initiative, LUM-663, Spec2-1) ─────────
-// Data foundation for the design-thinking 转换器: a per-team, recoverable
-// 3-gate state machine (cluster → align → generate) plus the team-level
-// Initiative concept (= Linear Initiative, NO projectId — sits above projects,
-// never touches the core Milestone). Everything here is team-level. Spec2-1 =
-// this schema foundation only; the state-machine service, web gates and
-// materialisation are later specs.
-
-enum PlanRunStage {
-  CLUSTERING
-  CLUSTERS_READY
-  ALIGNING
-  ALIGNMENT_READY
-  GENERATING
-  DRAFT_READY
-  MATERIALIZED
-  ABANDONED
-  FAILED
-}
-
-enum PlanStageKind {
-  CLUSTER
-  ALIGN
-  GENERATE
-}
+// ─── Initiative (team-level strategic layer, LUM-663) ──────────────────────
 
 // LUM-678: Linear-aligned lifecycle — a clean 5-state enum. (The interim
 // additive step kept the legacy DONE/DROPPED values; this follow-up removes them
@@ -877,73 +739,9 @@ enum InitiativeStatus {
   CANCELLED
 }
 
-// One 转换器 run for a team. At most one active run per team is a business rule
-// enforced in the (later) service layer — the terminal stages are MATERIALIZED /
-// ABANDONED / FAILED. `inputIdeaIds` is a frozen snapshot of the idea ids fed in
-// (soft — the ideas may change/prune independently), and `prioritySnapshot`
-// freezes the priority text at run start, so the run stays a self-contained
-// training record even if the Priority row is later superseded. `priorityId` is
-// a soft pointer (no FK), consistent with the snapshot design and Priority's
-// append-only minimalism.
-model PlanRun {
-  id                String       @id @default(cuid())
-  teamId            String
-  workspaceId       String // redundant with team.workspaceId, cheap workspace scoping
-  stage             PlanRunStage @default(CLUSTERING)
-  startedByMemberId String // soft member pointer (no FK), cf. Idea.proposedByMemberId
-  inputIdeaIds      String[] // frozen snapshot of the idea ids fed into this run
-  priorityId        String? // soft pointer to the Priority in effect at run start
-  prioritySnapshot  String?      @db.Text // frozen priority text at run start
-  proseDocument     String?      @db.Text // final human-readable plan document
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
-  team         Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace    Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  stageRecords PlanRunStageRecord[]
-  initiatives  Initiative[]
-  ideas        Idea[]
-
-  @@index([teamId, stage])
-  @@index([workspaceId])
-  @@map("plan_runs")
-}
-
-// One row per (run, gate) — @@unique([planRunId, kind]). The SOLE collection
-// point for "what the human changed" = diff(llmRawOutput, humanConfirmedOutput):
-// llmRawOutput is the model output BEFORE the gate; humanConfirmedOutput is the
-// human-confirmed version AFTER the gate (null until confirmed).
-model PlanRunStageRecord {
-  id                   String        @id @default(cuid())
-  planRunId            String
-  kind                 PlanStageKind
-  model                String // LLM model id used for this stage
-  promptTokens         Int           @default(0)
-  outputTokens         Int           @default(0)
-  llmInput             String        @db.Text
-  llmRawOutput         Json // model output, pre-gate
-  humanConfirmedOutput Json? // human-confirmed output, post-gate (null until confirmed)
-  confirmedBy          String? // soft member pointer (no FK)
-  confirmedAt          DateTime?
-  // Optimistic-concurrency token for the web gate (LUM-669, cf. doc LUM-409
-  // ifRevision): the board reads it, submits it back on confirm, and a mismatch
-  // 409s rather than clobbering a concurrent edit. Bumped on every confirm and
-  // on a stage re-run (which invalidates any already-loaded board).
-  revision             Int           @default(0)
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-
-  planRun PlanRun @relation(fields: [planRunId], references: [id], onDelete: Cascade)
-
-  @@unique([planRunId, kind])
-  @@index([planRunId])
-  @@map("plan_run_stage_records")
-}
-
 // Team-level strategic layer (= Linear Initiative). NO projectId — lives above
 // projects, never touches the core Milestone. `number` is per-team, rendered as
-// LUM-INIT-N ((teamId, number) is the visible id). `planRunId` (nullable) is the
-// run that materialised it — an initiative may also be created manually.
+// LUM-INIT-N ((teamId, number) is the visible id).
 model Initiative {
   id          String @id @default(cuid())
   teamId      String
@@ -953,7 +751,7 @@ model Initiative {
   // LUM-678 (Spec2-16): Linear-aligned scalar fields. `name` is the short title
   // (required — the single source of truth for the initiative's goal text);
   // `description` is the body. `priority` reuses TaskPriority (nullable).
-  // `ownerMemberId` is a soft member pointer (no FK, cf. PlanRun.startedByMemberId).
+  // `ownerMemberId` is a soft member pointer (no FK).
   // `startDate`/`targetDate` bracket the initiative's window.
   name          String
   description   String?          @db.Text
@@ -963,9 +761,7 @@ model Initiative {
   targetDate    DateTime?
   status        InitiativeStatus @default(ACTIVE)
 
-  // Lumo-specific, KEPT (Linear has no equivalent): the run that materialised
-  // this initiative (blood-lineage), and the epistemic bet behind it.
-  planRunId      String? // the 转换器 run that produced this initiative, if any
+  // Lumo-specific, KEPT (Linear has no equivalent): the epistemic bet behind it.
   assumptionNote String? @db.Text // 赌注旁注 — the bet's side note
 
   createdAt DateTime @default(now())
@@ -973,9 +769,7 @@ model Initiative {
 
   team       Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  planRun    PlanRun?           @relation(fields: [planRunId], references: [id], onDelete: SetNull)
   tasks      Task[]
-  ideas      Idea[]
   // LUM-678: the two-layer container — an initiative holds Milestones (each with
   // their own tasks) and directly-attached Tasks.
   milestones Milestone[]
@@ -985,7 +779,6 @@ model Initiative {
   @@unique([teamId, number])
   @@index([teamId, status])
   @@index([workspaceId])
-  @@index([planRunId])
   @@map("initiatives")
 }
 
@@ -1050,7 +843,6 @@ model Actor {
   assignedTasks            Task[]            @relation("TaskAssignee")
   comments                 Comment[]         @relation("CommentAuthor")
   activities               TaskActivity[]
-  ideaActivities           IdeaActivity[]
   receivedNotifications    Notification[]    @relation("NotificationRecipient")
   triggeredNotifications   Notification[]    @relation("NotificationTrigger")
   documentComments         DocumentComment[] @relation("DocumentCommentAuthor")
@@ -1242,11 +1034,9 @@ model Task {
   claimSnapshotSessionId String?
   claimSnapshotAt        DateTime?
 
-  // LUM-663 (Spec2-1) additive links to the 转换器 layer. All nullable, set at
-  // materialisation time: initiativeId = the Initiative this task rolls up to;
-  // ideaId = the originating Idea (best-effort); sizeHint = a coarse S/M/L sizing.
+  // LUM-663 (Spec2-1): initiativeId = the Initiative this task rolls up to;
+  // sizeHint = a coarse S/M/L sizing. Both nullable.
   initiativeId String?
-  ideaId       String?
   sizeHint     SizeHint?
 
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1256,7 +1046,6 @@ model Task {
   milestone  Milestone?  @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   assignee   Actor?      @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
   initiative Initiative? @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
-  idea       Idea?       @relation(fields: [ideaId], references: [id], onDelete: SetNull)
 
   viewTaskOrders          ViewTaskOrder[]
   comments                Comment[]
@@ -1305,7 +1094,6 @@ model Task {
   @@index([sprintId])
   @@index([milestoneId])
   @@index([initiativeId])
-  @@index([ideaId])
   @@index([deletedAt])
   @@index([trashRootId])
   @@map("tasks")
@@ -1555,16 +1343,10 @@ model ViewTaskOrder {
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 
-// A comment on a Task or (LUM-680) a team-level Idea. The owner is polymorphic
-// via two nullable FKs: exactly one of `taskId` / `ideaId` is set — enforced by
-// the app layer (`assertSingleCommentOwner`) and a DB CHECK constraint in the
-// migration. This mirrors the selective-nullable-FK pattern the Memory model
-// uses (scope + one non-null FK) rather than an opaque entityType/entityId
-// discriminator, so Prisma keeps real FK constraints and cascade deletes.
+// A comment on a Task.
 model Comment {
   id              String      @id @default(cuid())
-  taskId          String? // set for a task comment (xor ideaId)
-  ideaId          String? // LUM-680: set for an idea comment (xor taskId)
+  taskId          String
   authorActorId   String?
   body            String // HTML; @mentions encoded as data-id attributes
   parentId        String? // null = top-level; non-null = reply (max 1 level deep)
@@ -1581,8 +1363,7 @@ model Comment {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  task     Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  idea     Idea?              @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  task     Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
   author   Actor?             @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
   parent   Comment?           @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies  Comment[]          @relation("CommentReplies")
@@ -1590,7 +1371,6 @@ model Comment {
   syncJobs PrCommentSyncJob[]
 
   @@index([taskId])
-  @@index([ideaId])
   @@index([parentId])
   @@index([authorActorId])
   @@map("comments")
@@ -2199,7 +1979,6 @@ model PullRequest {
   task             Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
   integration      GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   mirroredComments PrCommentMirror[]
-  ideaCitations    IdeaPullRequest[]
   securityScans    PrSecurityScan[]
   testCaseRuns     TestCaseRun[]
 
@@ -3468,10 +3247,9 @@ model FigmaIntegration {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member         WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  figmaLinks     TaskFigmaLink[]
-  ideaFigmaLinks IdeaFigmaLink[]
+  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member     WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  figmaLinks TaskFigmaLink[]
 
   @@unique([workspaceId, memberId])
   @@index([workspaceId])
@@ -3531,131 +3309,6 @@ model TaskFigmaLink {
   @@index([taskId])
   @@index([workspaceId])
   @@map("task_figma_links")
-}
-
-model IdeaSlackContext {
-  id          String @id @default(cuid())
-  ideaId      String
-  workspaceId String
-
-  permalink        String
-  slackTeamId      String
-  slackChannelId   String
-  slackChannelName String?
-  rootTs           String
-  threadTs         String?
-  isThread         Boolean
-
-  snapshot     Json
-  snapshotAt   DateTime
-  refreshError String?
-
-  summary            String?
-  summaryGeneratedAt DateTime?
-
-  createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  idea      Idea            @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy WorkspaceMember @relation("IdeaSlackContextCreator", fields: [createdById], references: [id])
-
-  @@index([ideaId])
-  @@index([workspaceId])
-  @@map("idea_slack_contexts")
-}
-
-model IdeaWebLink {
-  id          String @id @default(cuid())
-  ideaId      String
-  workspaceId String
-
-  url         String
-  domain      String
-  title       String?
-  description String?
-  note        String?
-  imageUrl    String?
-  faviconUrl  String?
-  fetchedAt   DateTime?
-  fetchError  String?
-
-  body          String?   @db.Text
-  bodyFetchedAt DateTime?
-
-  createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  idea      Idea            @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy WorkspaceMember @relation("IdeaWebLinkCreator", fields: [createdById], references: [id])
-
-  @@index([ideaId, createdAt])
-  @@index([workspaceId])
-  @@map("idea_web_links")
-}
-
-model IdeaFigmaLink {
-  id            String  @id @default(cuid())
-  ideaId        String
-  workspaceId   String
-  createdById   String
-  integrationId String?
-
-  url                String
-  fileKey            String
-  nodeId             String
-  fileName           String
-  frameName          String?
-  thumbnailUrl       String?
-  thumbnailFetchedAt DateTime?
-  lastSyncedAt       DateTime  @default(now())
-  lastSyncError      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  idea        Idea              @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy   WorkspaceMember   @relation("IdeaFigmaLinkCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  integration FigmaIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
-
-  @@unique([ideaId, fileKey, nodeId])
-  @@index([ideaId])
-  @@index([workspaceId])
-  @@map("idea_figma_links")
-}
-
-// LUM-684: a GitHub pull request cited as evidence for an Idea.
-//
-// Deliberately a join table rather than an `ideaId` column on PullRequest. A
-// Task *owns* its PR — `PullRequest.taskId` is a single FK, one task per PR,
-// which is why linking there needs the 409/force-move flow. An idea only
-// *cites* a PR as evidence: the same PR can back several ideas, and citing it
-// must never steal it from a task. The PR's own fields stay the sync
-// pipeline's business, so this row holds no PR metadata of its own — unlike
-// the Slack/web/figma idea evidence tables, whose payload has no other home.
-model IdeaPullRequest {
-  id            String @id @default(cuid())
-  ideaId        String
-  pullRequestId String
-  workspaceId   String
-
-  createdById String
-  createdAt   DateTime @default(now())
-
-  idea        Idea            @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  pullRequest PullRequest     @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy   WorkspaceMember @relation("IdeaPullRequestCreator", fields: [createdById], references: [id], onDelete: Restrict)
-
-  @@unique([ideaId, pullRequestId])
-  @@index([ideaId, createdAt])
-  @@index([pullRequestId])
-  @@index([workspaceId])
-  @@map("idea_pull_requests")
 }
 
 // ─── Context Lineage (LUM-275) ────────────────────────────────────────────────
@@ -4042,7 +3695,7 @@ model TestCase {
   id                  String           @id @default(cuid())
   taskId              String
   /// 任务内 1-based 顺序号,兼作展示序（v1 不支持重排序）。CLI 句柄 = LUM-12/TC3。
-  /// 分配走 max+1 事务 + P2002 重试（同 Idea 编号,LUM-661）。
+  /// 分配走 max+1 事务 + P2002 重试（LUM-661 模式）。
   number              Int
   title               String
   setup               String?

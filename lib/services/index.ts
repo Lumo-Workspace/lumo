@@ -1,42 +1,11 @@
 export type * from './types'
 export { taskService } from './task.service'
 export {
-  ideaService,
-  resolveIdeaInTeam,
-  type CapturedIdea,
-} from './idea.service'
-export { resolveIdeaRef } from './idea-evidence-resolve'
-export {
-  ideaSlackContextService,
-  type LinkIdeaSlackPermalinkInput,
-} from './idea-slack-context.service'
-export {
-  ideaWebLinkService,
-  type AddIdeaWebLinkInput,
-} from './idea-web-link.service'
-export { ideaFigmaLinkService } from './idea-figma-link.service'
-export {
-  ideaCommentService,
-  type IdeaCommentNode,
-} from './idea-comment.service'
-export {
-  ideaActivityService,
-  type IdeaActivityEntry,
-} from './idea-activity.service'
-export {
   initiativeService,
   type InitiativeListItem,
   type InitiativeDetail,
-  type InitiativeIdeaRef,
   type InitiativeTaskRef,
 } from './initiative.service'
-export {
-  planMaterializeService,
-  type MaterializeResult,
-  type GateCData,
-  type GateDraft,
-  type GateProjectOption,
-} from './plan-materialize.service'
 export type {
   UpdateTaskInput,
   TaskUpdateResult,
@@ -123,13 +92,6 @@ export { preferenceService } from './preference.service'
 export { priorityService } from './priority.service'
 export type { DeclarePriorityInput } from './priority.service'
 export { memoryManagementService } from './memory-management.service'
-export { planRunService } from './plan-run.service'
-export type {
-  PlanRunRow,
-  PlanRunStageRecordRow,
-  PlanRunListRow,
-  PlanRunArchiveRow,
-} from './plan-run.service'
 export { documentCommentService } from './documentComment.service'
 export type {
   CreateDocCommentInput,

@@ -87,36 +87,35 @@ jest.mock('@/components/ui/badge', () => ({
 }))
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { AppSidebar } from '@/app/workspace/[workspaceUrl]/components/Sidebar'
+import { pathToPage } from '@/app/workspace/[workspaceUrl]/utils/pathToPage'
 
-function renderSidebar(overrides?: {
-  currentPage?: string
-  onNavigate?: jest.Mock
-}) {
-  const onNavigate = overrides?.onNavigate ?? jest.fn()
+function renderSidebar() {
   render(
     <AppSidebar
-      currentPage={(overrides?.currentPage ?? 'my-tasks') as never}
-      onNavigate={onNavigate}
+      currentPage={'my-tasks' as never}
+      onNavigate={jest.fn()}
       unreadCount={0}
       draftCount={0}
     />
   )
-  return { onNavigate }
 }
 
-describe('workspace sidebar — Ideas entry', () => {
-  it('renders an Ideas link pointing at /workspace/<slug>/ideas', () => {
+// LUM-1040: the Ideas feature was removed — no sidebar entry, no route.
+describe('workspace sidebar — Ideas removed', () => {
+  it('renders no Ideas entry and no link to /ideas', () => {
     renderSidebar()
-    const link = screen.getByText('sidebar.ideas').closest('a')
-    expect(link).not.toBeNull()
-    expect(link).toHaveAttribute('href', '/workspace/lumo/ideas')
+    expect(screen.queryByText('sidebar.ideas')).not.toBeInTheDocument()
+    const hrefs = Array.from(document.querySelectorAll('a')).map(a =>
+      a.getAttribute('href')
+    )
+    expect(hrefs).not.toContain('/workspace/lumo/ideas')
+    // The neighbouring nav is still there.
+    expect(screen.getByText('sidebar.documents')).toBeInTheDocument()
   })
 
-  it('navigates to the ideas page on click (client-side routing)', () => {
-    const { onNavigate } = renderSidebar()
-    fireEvent.click(screen.getByText('sidebar.ideas'))
-    expect(onNavigate).toHaveBeenCalledWith('ideas')
+  it('no longer resolves /ideas to a workspace page', () => {
+    expect(pathToPage('/workspace/lumo/ideas', 'lumo').page).not.toBe('ideas')
   })
 })
