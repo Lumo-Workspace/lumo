@@ -257,7 +257,7 @@ describe('inviteService', () => {
 
       await expect(
         inviteService.resendInvite('tok-1', 'ws-1')
-      ).rejects.toMatchObject({ status: 404 })
+      ).rejects.toMatchObject({ status: 404, code: 'INVITE_NOT_FOUND' })
     })
 
     it('throws 400 when invite is not PENDING', async () => {
@@ -269,7 +269,7 @@ describe('inviteService', () => {
 
       await expect(
         inviteService.resendInvite('tok-1', 'ws-1')
-      ).rejects.toMatchObject({ status: 400 })
+      ).rejects.toMatchObject({ status: 400, code: 'INVITE_NOT_PENDING' })
     })
   })
 

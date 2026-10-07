@@ -255,11 +255,15 @@ export const inviteService = {
   ) {
     const invite = await inviteRepository.findByTokenForResend(token)
     if (!invite || invite.workspaceId !== callerWorkspaceId) {
-      throw Object.assign(new Error('Invite not found'), { status: 404 })
+      throw Object.assign(new Error('Invite not found'), {
+        status: 404,
+        code: 'INVITE_NOT_FOUND',
+      })
     }
     if (invite.status !== 'PENDING') {
       throw Object.assign(new Error('Only PENDING invites can be resent'), {
         status: 400,
+        code: 'INVITE_NOT_PENDING',
       })
     }
 

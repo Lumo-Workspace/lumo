@@ -31,6 +31,31 @@ export interface EmailField {
 
 const MAX_EMAIL_FIELDS = 10
 
+/**
+ * LUM-1017: which message to show when a resend fails, keyed by the `code`
+ * every failure from the resend route carries. Unknown / generic codes
+ * (UNAUTHORIZED, INTERNAL_ERROR, …) fall back to the generic failure.
+ */
+const RESEND_ERROR_MESSAGE_IDS: Record<string, string> = {
+  EMAIL_SEND_FAILED: 'members.resendEmailFailed',
+  EMAIL_NOT_CONFIGURED: 'members.resendEmailNotConfigured',
+  INVITE_NOT_FOUND: 'members.resendInviteNotFound',
+  INVITE_NOT_PENDING: 'members.resendInviteNotPending',
+}
+
+export function resendErrorMessageId(err: unknown): string {
+  const code =
+    typeof err === 'object' && err !== null
+      ? (err as { code?: unknown }).code
+      : undefined
+  const id =
+    typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(RESEND_ERROR_MESSAGE_IDS, code)
+      ? RESEND_ERROR_MESSAGE_IDS[code]
+      : undefined
+  return id ?? 'members.resendFailed'
+}
+
 const seedEmailFields = (): EmailField[] => [{ id: 'email-0', value: '' }]
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -144,8 +169,8 @@ export function useInvites() {
       await apiFetch<void>(API.invites.resend(token), { method: 'POST' })
       toast.success(intl.formatMessage({ id: 'members.resendSuccess' }))
       await fetchInvites()
-    } catch {
-      toast.error(intl.formatMessage({ id: 'members.resendFailed' }))
+    } catch (err) {
+      toast.error(intl.formatMessage({ id: resendErrorMessageId(err) }))
     } finally {
       setResendingToken(null)
     }
