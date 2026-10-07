@@ -31,8 +31,8 @@ import type {
  * provokes a spurious UPDATE (a refine, non-destructive, but still drift). The
  * SF eval (key-gated) should be re-run to confirm op-accuracy holds at 0.74
  * before lowering further. Re-derive the sweep via
- * `npx tsx scripts/eval/memory/run.ts`; the near-dup retrieval recall regression
- * lives in `__tests__/eval/memory/near-dup-cluster.test.ts`. Model-coupled — a
+ * the internal LUM-538 memory eval, which also holds the near-dup retrieval
+ * recall regression. Model-coupled — a
  * model swap re-opens the sweep.
  */
 export const EMBEDDING_SCORE_FLOOR = 0.74

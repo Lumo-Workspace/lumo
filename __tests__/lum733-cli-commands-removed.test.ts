@@ -13,31 +13,6 @@ import path from 'path'
 const ROOT = path.resolve(__dirname, '..')
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
 
-const REMOVED = [
-  'verdict',
-  'fidelity',
-  'fidelity show',
-  'outcome record',
-  // LUM-942
-  'verify',
-  'task criteria',
-  'task criteria set',
-  'task criteria list',
-  'task criteria confirm',
-  'criteria',
-  'criteria audit',
-  'outcome rate',
-]
-const KEPT = [
-  'outcome show',
-  'crossing explain',
-  'task status',
-  'task wrapup',
-  'milestone criteria set',
-  'milestone criteria list',
-  'milestone criteria verdict',
-]
-
 describe('LUM-733 CLI surface reduction', () => {
   it('LUM-733 CLI no longer registers verdict, fidelity, or outcome record', () => {
     // 1. The registered program (source of truth).
@@ -69,13 +44,8 @@ describe('LUM-733 CLI surface reduction', () => {
       expect(fs.existsSync(path.join(ROOT, f))).toBe(false)
     }
 
-    // 2. The grammar (what the doc-examples test validates examples against).
-    const grammar = JSON.parse(
-      read('scripts/analysis/lum392-cli-friction/grammar.json')
-    ) as { commands: Record<string, unknown> }
-    const names = Object.keys(grammar.commands)
-    for (const r of REMOVED) expect(names).not.toContain(r)
-    for (const k of KEPT) expect(names).toContain(k)
+    // 2. The grammar snapshot (removed commands absent, neighbours kept) is
+    //    asserted by the CLI-grammar suite that lives next to grammar.json.
 
     // 3. The skill docs the agent reads.
     const docs = [

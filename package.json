@@ -15,8 +15,8 @@
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
-    "lint": "next lint && npm run lint:tokens",
-    "lint:fix": "next lint --fix",
+    "lint": "eslint . && npm run lint:tokens",
+    "lint:fix": "eslint . --fix",
     "lint:tokens": "tsx scripts/lint-tokens.ts",
     "lint:tokens:audit": "tsx scripts/lint-tokens.ts --full",
     "lint:tokens:update": "tsx scripts/lint-tokens.ts --update",
@@ -35,7 +35,8 @@
     "preanalyze": "tsx scripts/fix-nodemodules-selflink.ts",
     "analyze": "next build --experimental-analyze",
     "prepare": "husky",
-    "mcp": "tsx mcp/server.ts"
+    "mcp": "tsx mcp/server.ts",
+    "oss:export": "tsx scripts/oss-export.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.127",

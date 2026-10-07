@@ -23,7 +23,7 @@ import {
   EXCLUDED_MODEL_AUTHORS,
   tableCells,
   zdrCandidateHosts,
-} from '../../../scripts/analysis/lum857-legal/check-legal-docs'
+} from '../../../scripts/legal/check-legal-docs'
 
 const ROOT = path.resolve(__dirname, '../../..')
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8')

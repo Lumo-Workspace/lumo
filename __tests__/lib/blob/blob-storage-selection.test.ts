@@ -5,7 +5,9 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { logger } from '@/lib/logger'
 import {
+  ambiguousBlobBackendWarning,
   createBlobStorage,
   getBlobStorage,
   resolveBlobBackend,
@@ -44,6 +46,59 @@ describe('resolveBlobBackend', () => {
     expect(() => resolveBlobBackend({ BLOB_STORAGE: 'ftp' })).toThrow(
       /BLOB_STORAGE must be one of/
     )
+  })
+})
+
+describe('ambiguousBlobBackendWarning', () => {
+  it('names the chosen backend and the override when several are configured implicitly', () => {
+    const w = ambiguousBlobBackendWarning({
+      BLOB_READ_WRITE_TOKEN: 'v',
+      S3_BUCKET: 'b',
+    })
+    expect(w).toContain('(vercel, s3)')
+    expect(w).toContain('using "vercel"')
+    expect(w).toContain('BLOB_STORAGE=s3')
+    expect(
+      ambiguousBlobBackendWarning({ S3_BUCKET: 'b', LOCAL_BLOB_DIR: '/x' })
+    ).toContain('using "s3"')
+  })
+
+  it('silent for a single backend (SaaS: Vercel token only), nothing, or an explicit BLOB_STORAGE', () => {
+    expect(
+      ambiguousBlobBackendWarning({
+        BLOB_READ_WRITE_TOKEN: 'v',
+        BLOB_PRIVATE_READ_WRITE_TOKEN: 'p',
+      })
+    ).toBeNull()
+    expect(ambiguousBlobBackendWarning({ S3_BUCKET: 'b' })).toBeNull()
+    expect(ambiguousBlobBackendWarning({})).toBeNull()
+    expect(
+      ambiguousBlobBackendWarning({
+        BLOB_STORAGE: 's3',
+        BLOB_READ_WRITE_TOKEN: 'v',
+        S3_BUCKET: 'b',
+      })
+    ).toBeNull()
+  })
+
+  it('createBlobStorage logs the warning once per build and keeps the precedence', async () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {})
+    try {
+      const s = await createBlobStorage({
+        BLOB_READ_WRITE_TOKEN: 'v',
+        S3_BUCKET: 'b',
+      })
+      expect(s.kind).toBe('vercel')
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(String(warn.mock.calls[0]![0])).toMatch(
+        /using "vercel".*BLOB_STORAGE=s3/
+      )
+      warn.mockClear()
+      await createBlobStorage({ BLOB_READ_WRITE_TOKEN: 'v' })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
   })
 })
 

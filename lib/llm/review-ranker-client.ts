@@ -8,7 +8,7 @@
  * the verifier's reasons, and gives each a probability that an expert
  * reviewer would raise it. Comparing findings with each other is what a
  * per-finding check cannot do: on the Martian replay it beat the review's own
- * order at every cut (scripts/analysis/lum988-code-review-replay, step 2).
+ * order at every cut (internal LUM-988 code-review replay, step 2).
  *
  * One call, no tools. Mirrors review-verifier-client.ts: static imports of
  * `ai` and the gateway, so this module MUST only be reached via

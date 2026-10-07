@@ -3,7 +3,7 @@
  * ENVELOPE. Pure and dependency-free (like `plan-retry.ts`), tested without
  * mocks.
  *
- * The A/B probe on 24 real prompts (`scripts/analysis/lum776-plan-probe`)
+ * The A/B probe on 24 real prompts (internal LUM-776 plan probe)
  * showed the shipped call losing plans to two shapes that are not the model
  * being wrong about the plan, only about its wrapper:
  *

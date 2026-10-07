@@ -502,16 +502,12 @@ describe('no bypass', () => {
 
   // Scripts are developer-run, but some send real data (LUM-787's replay
   // sends real PR diffs), so every script uses lib/ai/gateway too — no
-  // allowlist (the six LUM-877 left behind were migrated).
-  const GATEWAY_SCRIPTS = [
-    'scripts/analysis/lum787-hunt-replay/replay.ts',
-    'scripts/analysis/lum776-plan-probe/probe.ts',
-    'scripts/eval/memory/fixture-gen.ts',
-    'scripts/eval/memory/injection-runner.ts',
-    'scripts/eval/memory/retrieve-fixture-gen.ts',
-    'scripts/eval/memory/retrieve-judge.ts',
-    'scripts/translate-i18n-slack-context.ts',
-  ].map(f => path.join(...f.split('/')))
+  // allowlist (the six LUM-877 left behind were migrated). The scan below
+  // walks all of scripts/, including the internal evaluation trees that the
+  // open-source snapshot leaves out (LUM-1034); this list only anchors it.
+  const GATEWAY_SCRIPTS = ['scripts/translate-i18n-slack-context.ts'].map(f =>
+    path.join(...f.split('/'))
+  )
 
   it('scripts reach the gateway only through the zdr wrapper', () => {
     const scripts = walk(path.join(process.cwd(), 'scripts')).map(f =>

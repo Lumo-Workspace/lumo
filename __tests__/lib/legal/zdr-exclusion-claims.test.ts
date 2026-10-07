@@ -21,7 +21,7 @@ import {
   ZDR_EXCLUSION_CAVEAT,
   checkRequirements,
   tableCells,
-} from '../../../scripts/analysis/lum857-legal/check-legal-docs'
+} from '../../../scripts/legal/check-legal-docs'
 
 const ROOT = path.resolve(__dirname, '../../..')
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -146,7 +146,12 @@ describe('ZDR exclusion disclosure LUM-871', () => {
       ])
     // The embedding landing is echoed by the gateway, not inferred.
     expect(MANIFEST).not.toMatch(/响应不回显路由/)
-    expect(MANIFEST).toContain(PROBE_PATH)
+    // The manifest cites the archived probe run (the file itself stays in the
+    // internal evaluation tree, LUM-1034).
+    expect(MANIFEST).toMatch(/存档于内部评测目录\(LUM-871\)/)
+    // The manifest no longer names the path (it is not public), so pin the
+    // archive itself: a moved or deleted probe run fails here instead.
+    expect(fs.existsSync(path.join(ROOT, PROBE_PATH))).toBe(true)
   })
 
   it('committed probe output carries no credential', () => {
