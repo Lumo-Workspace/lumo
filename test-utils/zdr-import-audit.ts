@@ -169,6 +169,16 @@ const isAiPackage = (s: string) => s === 'ai' || s.startsWith('ai/')
 // Any model-provider SDK talks to a model without the gateway, let alone ZDR.
 const PROVIDER_SDK =
   /^(?:@ai-sdk\/|@anthropic-ai\/|openai(?:\/|$)|@google\/(?:genai|generative-ai)|@mistralai\/|groq-sdk$|cohere-ai$|@openrouter\/|ollama(?:\/|$)|@huggingface\/inference$|replicate$|together-ai$)/
+/**
+ * The provider SDKs the wrapper itself builds on: the gateway (ZDR forced), and
+ * the LUM-1019 direct providers a self-hoster selects by env when the gateway
+ * is not configured. Every other module still reaches models only through it.
+ */
+export const WRAPPER_PROVIDER_SDKS: ReadonlySet<string> = new Set([
+  '@ai-sdk/gateway',
+  '@ai-sdk/anthropic',
+  '@ai-sdk/openai-compatible',
+])
 // `ai` re-exports the UNWRAPPED `gateway` / `createGateway` (no ZDR fetch).
 const GATEWAY_NAME = /gateway/i
 /**
@@ -205,7 +215,7 @@ export function auditRuntimeModule(file: string, source: string): string[] {
     if (ref.typeOnly) continue
     const spec = ref.specifier
     if (PROVIDER_SDK.test(spec)) {
-      if (!(file === ZDR_WRAPPER && spec === '@ai-sdk/gateway'))
+      if (!(file === ZDR_WRAPPER && WRAPPER_PROVIDER_SDKS.has(spec)))
         out.push(`provider SDK '${spec}' bypasses lib/ai/gateway`)
       continue
     }

@@ -2,6 +2,7 @@ import { GENERATION_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
+import { AiNotConfiguredError, isAiConfigured } from '@/lib/ai/routing'
 import { clerkClient } from '@clerk/nextjs/server'
 import { taskService } from '@/lib/services/task.service'
 import {
@@ -198,10 +199,15 @@ export const quickDispatchService = {
     // Step 1: Run rule parser
     const ruleResult = parseQuickDispatch(input, mentions ?? [])
 
-    // Step 2: If unparsed text remains, call AI
+    // Step 2: If unparsed text remains, call AI. LUM-1019 — without an AI
+    // backend the rule-parsed actions still go through; with none, say why.
     let aiActions: QuickAction[] = []
+    const aiOff = ruleResult.unparsed && !isAiConfigured()
+    if (aiOff && ruleResult.actions.length === 0) {
+      throw new AiNotConfiguredError()
+    }
 
-    if (ruleResult.unparsed) {
+    if (ruleResult.unparsed && !aiOff) {
       const member = await memberRepository.findByWorkspaceAndClerkId(
         workspaceId,
         userId
