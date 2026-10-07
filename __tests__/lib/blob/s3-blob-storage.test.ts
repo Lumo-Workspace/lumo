@@ -182,20 +182,68 @@ describe('S3 backend', () => {
     expect(commandsOf(send)).toEqual(['HeadObjectCommand'])
   })
 
-  it('a 400 InvalidArgument to If-None-Match also falls back; other put errors propagate', async () => {
+  it('a 400 that names the conditional header falls back and is remembered', async () => {
     const { storage, send } = setup()
     send
       .mockRejectedValueOnce(notFound())
       .mockRejectedValueOnce(
-        Object.assign(new Error('bad'), {
+        Object.assign(new Error('If-None-Match header is not supported'), {
           name: 'InvalidArgument',
           $metadata: { httpStatusCode: 400 },
         })
       )
       .mockResolvedValueOnce({})
     await storage.put('a/b', Buffer.from('x'), { access: 'private' })
-    expect(send).toHaveBeenCalledTimes(3)
+    expect(commandsOf(send)).toEqual([
+      'HeadObjectCommand',
+      'PutObjectCommand',
+      'PutObjectCommand',
+    ])
+    send.mockReset()
+    send.mockRejectedValueOnce(notFound()).mockResolvedValueOnce({})
+    await storage.put('a/c', Buffer.from('y'), { access: 'private' })
+    expect(send.mock.calls[1]![0].input).not.toHaveProperty('IfNoneMatch')
+  })
 
+  it('an unrelated 400 propagates without fallback and does not disable the conditional put', async () => {
+    const { storage, send } = setup()
+    send.mockRejectedValueOnce(notFound()).mockRejectedValueOnce(
+      Object.assign(new Error('Invalid content length'), {
+        name: 'InvalidRequest',
+        $metadata: { httpStatusCode: 400 },
+      })
+    )
+    await expect(
+      storage.put('a/b', Buffer.from('x'), { access: 'private' })
+    ).rejects.toThrow('Invalid content length')
+    expect(commandsOf(send)).toEqual(['HeadObjectCommand', 'PutObjectCommand'])
+
+    // Next put still sends If-None-Match (state unchanged).
+    send.mockReset()
+    send.mockRejectedValueOnce(notFound()).mockResolvedValueOnce({})
+    await storage.put('a/c', Buffer.from('y'), { access: 'private' })
+    expect(commandsOf(send)).toEqual(['HeadObjectCommand', 'PutObjectCommand'])
+    expect(send.mock.calls[1]![0].input).toHaveProperty('IfNoneMatch', '*')
+  })
+
+  it('409 ConditionalRequestConflict (concurrent conditional write) → blob 409', async () => {
+    const { storage, send } = setup()
+    send.mockRejectedValueOnce(notFound()).mockRejectedValueOnce(
+      Object.assign(new Error('conflict'), {
+        name: 'ConditionalRequestConflict',
+        $metadata: { httpStatusCode: 409 },
+      })
+    )
+    await expect(
+      storage.put('a/b', Buffer.from('x'), { access: 'private' })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: 'blob already exists: a/b',
+    })
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+
+  it('other put errors propagate', async () => {
     const other = setup()
     other.send.mockRejectedValueOnce(notFound()).mockRejectedValueOnce(
       Object.assign(new Error('denied'), {

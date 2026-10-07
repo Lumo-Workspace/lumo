@@ -10,10 +10,10 @@
  *
  * No-overwrite contract (`allowOverwrite` unset): many S3-compatible servers
  * (older MinIO, some gateways) silently IGNORE `If-None-Match: *` on
- * PutObject and overwrite, and others REJECT the header (501 NotImplemented /
- * 400). So the backend first checks existence with HeadObject, then still
- * sends the conditional put where the server honours it (closing the race
- * there). On a server that ignores the header a small check-then-put race
+ * PutObject and overwrite, and others REJECT the header (501 NotImplemented,
+ * or a 400 naming the conditional header). So the backend first checks
+ * existence with HeadObject, then still sends the conditional put where the
+ * server honours it (closing the race there). On a server that ignores the header a small check-then-put race
  * remains: two concurrent writers of the SAME new key can both pass the
  * HeadObject check and the last one wins. Lumo's no-overwrite writes use
  * random or content-unique pathnames, so this only matters as a safety net.
@@ -117,29 +117,33 @@ function isNotFound(error: unknown): boolean {
 }
 
 /**
- * The server does not support a conditional PutObject (`If-None-Match`):
- * 501 / NotImplemented, or a 400-class "bad request / invalid argument".
+ * The server definitely does not support a conditional PutObject
+ * (`If-None-Match`): 501 / NotImplemented, or a 400 whose message names the
+ * conditional header. Any other 400 (bad key, bad content length, …) is NOT
+ * evidence of missing support — it propagates and the learned state is kept.
  */
 function isConditionalPutUnsupported(error: unknown): boolean {
-  const e = error as { name?: string; $metadata?: { httpStatusCode?: number } }
+  const e = error as {
+    name?: string
+    message?: string
+    $metadata?: { httpStatusCode?: number }
+  }
   const status = e?.$metadata?.httpStatusCode
-  return (
-    e?.name === 'NotImplemented' ||
-    status === 501 ||
-    (status === 400 &&
-      [
-        'InvalidArgument',
-        'InvalidRequest',
-        'BadRequest',
-        'NotImplemented',
-      ].includes(e?.name ?? ''))
-  )
+  if (e?.name === 'NotImplemented' || status === 501) return true
+  return status === 400 && /if-none-match|conditional/i.test(e?.message ?? '')
 }
 
+/**
+ * The object already exists: 412 PreconditionFailed, or 409
+ * ConditionalRequestConflict (AWS: a concurrent conditional write to the
+ * same key won the race).
+ */
 function isAlreadyExists(error: unknown): boolean {
   const e = error as { name?: string; $metadata?: { httpStatusCode?: number } }
   return (
-    e?.name === 'PreconditionFailed' || e?.$metadata?.httpStatusCode === 412
+    e?.name === 'PreconditionFailed' ||
+    e?.name === 'ConditionalRequestConflict' ||
+    e?.$metadata?.httpStatusCode === 412
   )
 }
 
