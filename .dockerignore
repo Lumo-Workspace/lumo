@@ -14,24 +14,13 @@ cli/dist
 *.tsbuildinfo
 next-env.d.ts
 
-# Secrets and local state
-.env
-.env.*
-!.env.example
+# Secrets and local state: every root dotfile / dot-directory (.env*, .git,
+# .worktrees, .vercel, agent tooling). The build needs none of them.
+.*
+**/.env*
 *.pem
-.vercel
-.git
-.worktrees
-.husky/_
 
 # Not needed to build the app
-.agents
-.planning
-.specify
-.playwright-mcp
-.superpowers
-.claude
-.lumo
 __tests__
 tests
 docs
