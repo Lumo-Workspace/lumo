@@ -35,6 +35,7 @@ import {
   SMTP_TIMEOUTS,
   redactEmailSecrets,
   resetEmailTransportForTests,
+  toEmailError,
   resolveEmailFrom,
   resolveEmailTransport,
   sendEmail,
@@ -200,7 +201,42 @@ describe('smtpTransportOptions', () => {
   })
 })
 
+describe('toEmailError', () => {
+  it('keeps only name/message/code/statusCode from any error shape', () => {
+    expect(
+      toEmailError(
+        Object.assign(new Error('boom'), {
+          code: 'EAUTH',
+          extra: { pass: 'x' },
+        }),
+        {}
+      )
+    ).toEqual({ name: 'Error', message: 'boom', code: 'EAUTH' })
+    expect(
+      toEmailError(
+        { name: 'rate_limit_exceeded', message: 'slow down', statusCode: 429 },
+        {}
+      )
+    ).toEqual({
+      name: 'rate_limit_exceeded',
+      message: 'slow down',
+      code: 'rate_limit_exceeded',
+      statusCode: 429,
+    })
+    expect(toEmailError('plain string', {})).toEqual({
+      name: 'Error',
+      message: 'plain string',
+    })
+  })
+})
+
 describe('redactEmailSecrets', () => {
+  it('masks RESEND_API_KEY', () => {
+    expect(
+      redactEmailSecrets('bad key re_abc123', { RESEND_API_KEY: 're_abc123' })
+    ).toBe('bad key ***')
+  })
+
   it('masks SMTP_PASS and SMTP_URL userinfo', () => {
     const env = {
       SMTP_PASS: 's3cr3t-pw',
@@ -253,19 +289,77 @@ describe('sendEmail', () => {
     expect(mockCreateTransport).not.toHaveBeenCalled()
   })
 
-  it('resend mode: an API error comes back as failed, not thrown', async () => {
+  it('resend mode: an API error comes back as failed with its code, not thrown', async () => {
     process.env.RESEND_API_KEY = 're_test'
     mockResendSend.mockResolvedValue({
       data: null,
-      error: { name: 'validation_error', message: 'bad to' },
+      error: { name: 'validation_error', message: 'bad to', statusCode: 422 },
     })
     await expect(
       sendEmail({ to: ['x'], subject: 's', html: 'h' })
     ).resolves.toEqual({
       status: 'failed',
-      error: { name: 'validation_error', message: 'bad to' },
+      error: {
+        name: 'validation_error',
+        message: 'bad to',
+        code: 'validation_error',
+        statusCode: 422,
+      },
     })
-    expect(logger.error).toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith('[email] send failed', {
+      transport: 'resend',
+      name: 'validation_error',
+      message: 'bad to',
+      code: 'validation_error',
+      statusCode: 422,
+    })
+  })
+
+  it('resend mode: the API key is redacted from the failure result and log', async () => {
+    process.env.RESEND_API_KEY = 're_live_SUPERSECRETKEY'
+    mockResendSend.mockResolvedValue({
+      data: null,
+      error: {
+        name: 'invalid_api_key',
+        message: 'API key re_live_SUPERSECRETKEY is invalid',
+        statusCode: 403,
+      },
+    })
+    const out = await sendEmail({ to: ['x'], subject: 's', html: 'h' })
+    expect(out).toEqual({
+      status: 'failed',
+      error: {
+        name: 'invalid_api_key',
+        message: 'API key *** is invalid',
+        code: 'invalid_api_key',
+        statusCode: 403,
+      },
+    })
+    expect(
+      JSON.stringify((logger.error as jest.Mock).mock.calls)
+    ).not.toContain('SUPERSECRETKEY')
+  })
+
+  it('resend mode: a thrown SDK error goes through the same redacted shape', async () => {
+    process.env.RESEND_API_KEY = 're_live_THROWNKEY'
+    mockResendSend.mockRejectedValue(
+      Object.assign(new TypeError('fetch failed for re_live_THROWNKEY'), {
+        code: 'ECONNRESET',
+        config: { headers: { Authorization: 'Bearer re_live_THROWNKEY' } },
+      })
+    )
+    const out = await sendEmail({ to: ['x'], subject: 's', html: 'h' })
+    expect(out).toEqual({
+      status: 'failed',
+      error: {
+        name: 'TypeError',
+        message: 'fetch failed for ***',
+        code: 'ECONNRESET',
+      },
+    })
+    const logged = JSON.stringify((logger.error as jest.Mock).mock.calls)
+    expect(logged).not.toContain('THROWNKEY')
+    expect(logged).not.toContain('Authorization')
   })
 
   it('smtp mode: sends the rendered html/text with from/to/subject', async () => {

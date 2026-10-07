@@ -2,7 +2,8 @@
  * @jest-environment node
  *
  * LUM-1017 follow-up — POST /api/invites/[token]/resend reports what happened
- * to the email instead of always answering ok: sent → 200 ok, failed → 502
+ * to the email instead of always answering ok, and every failure path
+ * (including the catch branch) answers { ok: false, error, code }: sent → 200 ok, failed → 502
  * EMAIL_SEND_FAILED, skipped (no transport configured) → 503
  * EMAIL_NOT_CONFIGURED. The invite expiry is refreshed in every case.
  */
@@ -31,7 +32,8 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
 import { POST } from '@/app/api/invites/[token]/resend/route'
@@ -106,12 +108,83 @@ describe('POST /api/invites/[token]/resend', () => {
     })
   })
 
-  it('a service error keeps its status (e.g. 404) and does not send', async () => {
+  it.each([
+    [404, 'INVITE_NOT_FOUND', 'Invite not found'],
+    [400, 'INVITE_NOT_PENDING', 'Only PENDING invites can be resent'],
+  ])(
+    'catch: a service error → %i with its code %s, and no send',
+    async (status, code, message) => {
+      mockResendInvite.mockRejectedValue(
+        Object.assign(new Error(message), { status, code })
+      )
+      const res = await POST(req(), params)
+      expect(res.status).toBe(status)
+      expect(await res.json()).toEqual({ ok: false, error: message, code })
+      expect(mockSendEmail).not.toHaveBeenCalled()
+    }
+  )
+
+  it('catch: a status error without a code gets one from its status', async () => {
     mockResendInvite.mockRejectedValue(
-      Object.assign(new Error('Invite not found'), { status: 404 })
+      Object.assign(new Error('nope'), { status: 403 })
+    )
+    const res = await POST(req(), params)
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: 'nope',
+      code: 'FORBIDDEN',
+    })
+  })
+
+  it('catch: an unexpected throw → 500 INTERNAL_ERROR, logged via logger', async () => {
+    mockResetExpiry.mockRejectedValue(new Error('db down'))
+    const res = await POST(req(), params)
+    const body = await res.json()
+    expect(res.status).toBe(500)
+    expect(body).toEqual({
+      ok: false,
+      error: 'Internal Server Error',
+      code: 'INTERNAL_ERROR',
+    })
+    expect(JSON.stringify(body)).not.toContain('db down')
+    expect(logger.error).toHaveBeenCalledWith(
+      'POST /api/invites/[token]/resend error',
+      expect.objectContaining({ name: 'Error', message: 'db down' })
+    )
+  })
+
+  it('catch: sendEmail itself throwing → 500 INTERNAL_ERROR', async () => {
+    mockSendEmail.mockRejectedValue(new Error('unexpected'))
+    const res = await POST(req(), params)
+    expect(res.status).toBe(500)
+    expect(await res.json()).toMatchObject({ code: 'INTERNAL_ERROR' })
+  })
+
+  it('auth early return → 401 with code UNAUTHORIZED', async () => {
+    ;(requireAuth as jest.Mock).mockResolvedValue(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    )
+    const res = await POST(req(), params)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: 'Unauthorized',
+      code: 'UNAUTHORIZED',
+    })
+  })
+
+  it('workspace early return → 404 with code NOT_FOUND', async () => {
+    ;(requireUserWorkspace as jest.Mock).mockResolvedValue(
+      NextResponse.json({ error: 'No workspace found' }, { status: 404 })
     )
     const res = await POST(req(), params)
     expect(res.status).toBe(404)
-    expect(mockSendEmail).not.toHaveBeenCalled()
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: 'No workspace found',
+      code: 'NOT_FOUND',
+    })
+    expect(mockResendInvite).not.toHaveBeenCalled()
   })
 })

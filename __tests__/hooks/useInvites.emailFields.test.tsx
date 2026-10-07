@@ -129,7 +129,19 @@ describe('LUM-1017 resend failure messages', () => {
     expect(resendErrorMessageId({ code: 'EMAIL_NOT_CONFIGURED' })).toBe(
       'members.resendEmailNotConfigured'
     )
-    expect(resendErrorMessageId({ code: 'API_ERROR' })).toBe(
+    expect(resendErrorMessageId({ code: 'INVITE_NOT_FOUND' })).toBe(
+      'members.resendInviteNotFound'
+    )
+    expect(resendErrorMessageId({ code: 'INVITE_NOT_PENDING' })).toBe(
+      'members.resendInviteNotPending'
+    )
+    for (const generic of ['API_ERROR', 'UNAUTHORIZED', 'INTERNAL_ERROR']) {
+      expect(resendErrorMessageId({ code: generic })).toBe(
+        'members.resendFailed'
+      )
+    }
+    // prototype keys are not codes
+    expect(resendErrorMessageId({ code: 'constructor' })).toBe(
       'members.resendFailed'
     )
     expect(resendErrorMessageId(new Error('boom'))).toBe('members.resendFailed')

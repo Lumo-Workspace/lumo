@@ -573,6 +573,8 @@
   "members.resendFailed": "重新傳送邀請失敗",
   "members.resendEmailFailed": "邀請郵件傳送失敗。請檢查伺服器的郵件設定後再試一次。",
   "members.resendEmailNotConfigured": "此伺服器尚未設定郵件，邀請未送出。請改為分享邀請連結，或請管理員設定郵件。",
+  "members.resendInviteNotFound": "此邀請已不存在，請重新整理列表。",
+  "members.resendInviteNotPending": "此邀請已被接受或撤銷，無法重新傳送。",
   "members.roleUpdated": "角色已更新",
   "members.roleUpdateFailed": "更新角色失敗",
   "members.inviteTitle": "邀請團隊成員",

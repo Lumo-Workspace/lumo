@@ -573,6 +573,8 @@
   "members.resendFailed": "招待の再送信に失敗しました",
   "members.resendEmailFailed": "招待メールを送信できませんでした。サーバーのメール設定を確認して、もう一度お試しください。",
   "members.resendEmailNotConfigured": "このサーバーではメールが設定されていないため、招待は送信されませんでした。招待リンクを共有するか、管理者にメールの設定を依頼してください。",
+  "members.resendInviteNotFound": "この招待はもう存在しません。一覧を更新してください。",
+  "members.resendInviteNotPending": "この招待はすでに承諾または取り消されているため、再送信できません。",
   "members.roleUpdated": "役割を更新しました",
   "members.roleUpdateFailed": "役割の更新に失敗しました",
   "members.inviteTitle": "チームメンバーを招待",

@@ -32,18 +32,28 @@ export interface EmailField {
 const MAX_EMAIL_FIELDS = 10
 
 /**
- * LUM-1017: which message to show when a resend fails. The resend route
- * answers EMAIL_SEND_FAILED (502) / EMAIL_NOT_CONFIGURED (503) when the email
- * did not go out; anything else falls back to the generic failure.
+ * LUM-1017: which message to show when a resend fails, keyed by the `code`
+ * every failure from the resend route carries. Unknown / generic codes
+ * (UNAUTHORIZED, INTERNAL_ERROR, …) fall back to the generic failure.
  */
+const RESEND_ERROR_MESSAGE_IDS: Record<string, string> = {
+  EMAIL_SEND_FAILED: 'members.resendEmailFailed',
+  EMAIL_NOT_CONFIGURED: 'members.resendEmailNotConfigured',
+  INVITE_NOT_FOUND: 'members.resendInviteNotFound',
+  INVITE_NOT_PENDING: 'members.resendInviteNotPending',
+}
+
 export function resendErrorMessageId(err: unknown): string {
   const code =
     typeof err === 'object' && err !== null
       ? (err as { code?: unknown }).code
       : undefined
-  if (code === 'EMAIL_NOT_CONFIGURED') return 'members.resendEmailNotConfigured'
-  if (code === 'EMAIL_SEND_FAILED') return 'members.resendEmailFailed'
-  return 'members.resendFailed'
+  const id =
+    typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(RESEND_ERROR_MESSAGE_IDS, code)
+      ? RESEND_ERROR_MESSAGE_IDS[code]
+      : undefined
+  return id ?? 'members.resendFailed'
 }
 
 const seedEmailFields = (): EmailField[] => [{ id: 'email-0', value: '' }]

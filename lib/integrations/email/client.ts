@@ -145,13 +145,19 @@ export function resetEmailTransportForTests(): void {
 export interface SendEmailError {
   name: string
   message: string
-  /** Provider/transport error code when there is one (e.g. ETIMEDOUT, EAUTH). */
+  /**
+   * Provider/transport error code when there is one: nodemailer's `code`
+   * (ETIMEDOUT, EAUTH, …) or Resend's error name (validation_error, …).
+   */
   code?: string
+  /** HTTP status Resend answered with, when it reported one. */
+  statusCode?: number
 }
 
-/** Secrets that must never reach logs or results, from the SMTP env. */
-function smtpSecrets(env: Env): string[] {
+/** Secrets that must never reach logs or results, from the email env. */
+function emailSecrets(env: Env): string[] {
   const secrets: string[] = []
+  if (env.RESEND_API_KEY) secrets.push(env.RESEND_API_KEY)
   if (env.SMTP_PASS) secrets.push(env.SMTP_PASS)
   if (env.SMTP_URL) {
     try {
@@ -166,31 +172,65 @@ function smtpSecrets(env: Env): string[] {
   return secrets.filter(s => s.length > 0)
 }
 
-/** Replace any SMTP secret and URL userinfo in `text` with `***`. */
+/**
+ * Replace any email secret (RESEND_API_KEY, SMTP_PASS, SMTP_URL password)
+ * and any URL userinfo in `text` with `***`.
+ */
 export function redactEmailSecrets(
   text: string,
   env: Env = process.env
 ): string {
   let out = text.replace(/(smtps?:\/\/)[^@\s/]*@/gi, '$1***@')
-  for (const secret of smtpSecrets(env)) out = out.split(secret).join('***')
+  for (const secret of emailSecrets(env)) out = out.split(secret).join('***')
   return out
 }
 
 /**
- * Only name / message / code leave this module — never the error object
- * itself, whose nodemailer variants can carry the transport config.
+ * The one shape a send failure leaves this module in, for every transport:
+ * name / message (secrets redacted) / code / statusCode — never the error
+ * object itself, whose nodemailer variants can carry the transport config.
+ * Accepts thrown errors and Resend's `{ name, message, statusCode }` result.
  */
-function toError(e: unknown): SendEmailError {
-  const raw =
-    e instanceof Error
-      ? { name: e.name, message: e.message }
-      : { name: 'Error', message: String(e) }
-  const code = (e as { code?: unknown } | null)?.code
+export function toEmailError(
+  e: unknown,
+  env: Env = process.env
+): SendEmailError {
+  const obj =
+    typeof e === 'object' && e !== null
+      ? (e as {
+          name?: unknown
+          message?: unknown
+          code?: unknown
+          statusCode?: unknown
+        })
+      : null
+  const name = typeof obj?.name === 'string' && obj.name ? obj.name : 'Error'
+  const message =
+    typeof obj?.message === 'string' ? obj.message : obj ? '' : String(e)
+  // Resend reports its error code as `name`; thrown errors use `code`.
+  const code =
+    typeof obj?.code === 'string'
+      ? obj.code
+      : obj && !(e instanceof Error) && typeof obj.name === 'string'
+        ? obj.name
+        : undefined
+  const statusCode =
+    typeof obj?.statusCode === 'number' ? obj.statusCode : undefined
   return {
-    name: raw.name,
-    message: redactEmailSecrets(raw.message),
-    ...(typeof code === 'string' ? { code } : {}),
+    name: redactEmailSecrets(name, env),
+    message: redactEmailSecrets(message, env),
+    ...(code ? { code: redactEmailSecrets(code, env) } : {}),
+    ...(statusCode !== undefined ? { statusCode } : {}),
   }
+}
+
+function sendFailed(
+  transport: EmailTransportKind,
+  e: unknown
+): SendEmailResult {
+  const error = toEmailError(e)
+  logger.error('[email] send failed', { transport, ...error })
+  return { status: 'failed', error }
 }
 
 export async function sendEmail(
@@ -228,17 +268,7 @@ export async function sendEmail(
           ? { idempotencyKey: options.idempotencyKey }
           : undefined
       )
-      if (error) {
-        logger.error('[email] send failed', {
-          transport: kind,
-          name: error.name,
-          message: error.message,
-        })
-        return {
-          status: 'failed',
-          error: { name: error.name, message: error.message },
-        }
-      }
+      if (error) return sendFailed(kind, error)
       return { status: 'sent', id: data?.id ?? null }
     }
 
@@ -252,8 +282,6 @@ export async function sendEmail(
     })
     return { status: 'sent', id: info.messageId ?? null }
   } catch (e) {
-    const error = toError(e)
-    logger.error('[email] send failed', { transport: kind, ...error })
-    return { status: 'failed', error }
+    return sendFailed(kind, e)
   }
 }

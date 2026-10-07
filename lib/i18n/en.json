@@ -904,6 +904,8 @@
   "members.resendFailed": "Failed to resend invite",
   "members.resendEmailFailed": "The invite email couldn't be sent. Check the server's email settings and try again.",
   "members.resendEmailNotConfigured": "Email isn't set up on this server, so the invite wasn't sent. Share the invite link instead or ask an admin to configure email.",
+  "members.resendInviteNotFound": "This invite no longer exists. Refresh the list.",
+  "members.resendInviteNotPending": "This invite has already been accepted or revoked, so it can't be resent.",
   "members.resendInvite": "Resend invite",
   "members.resendSuccess": "Invite resent",
   "members.revokeDesc": "This invite link will stop working immediately. You can send a new invite later.",

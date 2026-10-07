@@ -573,6 +573,8 @@
   "members.resendFailed": "Einladung konnte nicht erneut gesendet werden",
   "members.resendEmailFailed": "Die Einladungs-E-Mail konnte nicht gesendet werden. Prüfe die E-Mail-Einstellungen des Servers und versuche es erneut.",
   "members.resendEmailNotConfigured": "Auf diesem Server ist kein E-Mail-Versand eingerichtet, daher wurde die Einladung nicht gesendet. Teile stattdessen den Einladungslink oder bitte einen Admin, E-Mail einzurichten.",
+  "members.resendInviteNotFound": "Diese Einladung existiert nicht mehr. Aktualisiere die Liste.",
+  "members.resendInviteNotPending": "Diese Einladung wurde bereits angenommen oder widerrufen und kann nicht erneut gesendet werden.",
   "members.roleUpdated": "Rolle aktualisiert",
   "members.roleUpdateFailed": "Rolle konnte nicht aktualisiert werden",
   "members.inviteTitle": "Teammitglieder einladen",

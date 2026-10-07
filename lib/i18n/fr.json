@@ -573,6 +573,8 @@
   "members.resendFailed": "Échec du renvoi de l'invitation",
   "members.resendEmailFailed": "L'e-mail d'invitation n'a pas pu être envoyé. Vérifiez les paramètres e-mail du serveur et réessayez.",
   "members.resendEmailNotConfigured": "L'e-mail n'est pas configuré sur ce serveur, l'invitation n'a donc pas été envoyée. Partagez plutôt le lien d'invitation ou demandez à un administrateur de configurer l'e-mail.",
+  "members.resendInviteNotFound": "Cette invitation n'existe plus. Actualisez la liste.",
+  "members.resendInviteNotPending": "Cette invitation a déjà été acceptée ou révoquée, elle ne peut donc pas être renvoyée.",
   "members.roleUpdated": "Rôle mis à jour",
   "members.roleUpdateFailed": "Échec de la mise à jour du rôle",
   "members.inviteTitle": "Inviter des coéquipiers",
