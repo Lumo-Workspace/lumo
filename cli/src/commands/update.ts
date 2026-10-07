@@ -77,7 +77,8 @@ const runInherited: RunCommand = (cmd, args) =>
       stdio: 'inherit',
       shell: process.platform === 'win32',
     })
-    proc.on('close', code => resolve(code ?? 0))
+    // A signal-terminated child reports code null — that is a failure.
+    proc.on('close', code => resolve(code ?? 1))
     proc.on('error', err => {
       process.stderr.write(`Failed to launch ${cmd}: ${err.message}\n`)
       resolve(1)

@@ -40,7 +40,7 @@ export async function skillSync(deps: SkillSyncDeps = {}): Promise<number> {
     return 0
   }
   for (const r of results) process.stdout.write(formatResult(r) + '\n')
-  return 0
+  return results.some(r => r.outcome === 'failed') ? 1 : 0
 }
 
 export function formatResult(r: SkillSyncResult): string {
@@ -53,5 +53,7 @@ export function formatResult(r: SkillSyncResult): string {
       return `- skipped Lumo source checkout (skill source, not an install): ${r.skillDir}`
     case 'missing':
       return `- no longer installed, forgotten: ${r.skillDir}`
+    case 'failed':
+      return `✗ could not refresh (${r.error}): ${r.skillDir}`
   }
 }

@@ -122,7 +122,7 @@ lumo skill sync
 # - skipped Lumo source checkout (skill source, not an install): /Users/me/code/lumo/.claude/skills/lumo
 ```
 
-A recorded location without `SKILL.md` is dropped from the registry. The Lumo monorepo's own `.claude/skills/lumo/` is the skill's source and is never overwritten. No installs found → prints a pointer to `lumo setup`, exit 0.
+A location that can't be read or written prints `✗ could not refresh (<reason>): <path>`, stays registered for the next run, and makes the command exit 1 — the other locations are still refreshed. A recorded location without `SKILL.md` is dropped from the registry. The Lumo monorepo's own `.claude/skills/lumo/` is the skill's source and is never overwritten. No installs found → prints a pointer to `lumo setup`, exit 0.
 
 #### When to suggest
 

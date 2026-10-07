@@ -121,7 +121,15 @@ export function installSkill(
 
   // LUM-1042: remember every install location so `lumo update` / `lumo skill
   // sync` can refresh it later — project-scope paths are otherwise unknowable.
-  recordSkillInstall(skillDir)
+  // Best-effort: an unwritable ~/.lumo must not block the install itself.
+  try {
+    recordSkillInstall(skillDir)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    process.stdout.write(
+      `⚠ could not record the skill location (${msg}); \`lumo update\` won't refresh it automatically.\n`
+    )
+  }
 
   // Non-force, install already present: only overwrite when something differs,
   // and then only with --force.

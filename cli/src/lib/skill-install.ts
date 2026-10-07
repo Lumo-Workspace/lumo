@@ -115,11 +115,13 @@ export type SkillSyncOutcome =
   | 'up-to-date' // already identical
   | 'source' // Lumo source checkout — skipped, kept registered
   | 'missing' // no SKILL.md any more — dropped from the registry
+  | 'failed' // could not be read or written — kept registered, retried next time
 
 export interface SkillSyncResult {
   skillDir: string
   outcome: SkillSyncOutcome
   files?: number
+  error?: string
 }
 
 /**
@@ -136,17 +138,27 @@ export function syncSkills(
   const found = discovered.map(d => path.resolve(d)).filter(hasSkill)
   const targets = [...new Set([...registered, ...found])]
 
-  const results: SkillSyncResult[] = targets.map(skillDir => {
-    if (!hasSkill(skillDir)) return { skillDir, outcome: 'missing' }
-    if (isLumoSourceCheckout(skillDir)) return { skillDir, outcome: 'source' }
-    if (skillMatchesBundle(srcDir, skillDir)) {
-      return { skillDir, outcome: 'up-to-date' }
+  // One unreadable / unwritable location must not stop the others.
+  const results = targets.map(skillDir => {
+    try {
+      return syncOne(srcDir, skillDir)
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err)
+      return { skillDir, outcome: 'failed', error } satisfies SkillSyncResult
     }
-    return { skillDir, outcome: 'updated', files: writeSkill(srcDir, skillDir) }
   })
 
   writeSkillInstalls(
     results.filter(r => r.outcome !== 'missing').map(r => r.skillDir)
   )
   return results
+}
+
+function syncOne(srcDir: string, skillDir: string): SkillSyncResult {
+  if (!hasSkill(skillDir)) return { skillDir, outcome: 'missing' }
+  if (isLumoSourceCheckout(skillDir)) return { skillDir, outcome: 'source' }
+  if (skillMatchesBundle(srcDir, skillDir)) {
+    return { skillDir, outcome: 'up-to-date' }
+  }
+  return { skillDir, outcome: 'updated', files: writeSkill(srcDir, skillDir) }
 }

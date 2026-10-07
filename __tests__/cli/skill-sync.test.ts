@@ -8,6 +8,7 @@ import {
   writeFileSync,
   readFileSync,
   existsSync,
+  chmodSync,
 } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -85,7 +86,43 @@ describe('installSkill (setup)', () => {
   })
 })
 
+describe('installSkill registry failure', () => {
+  it('still installs the skill when the registry cannot be written', () => {
+    writeFileSync(join(base, 'not-a-dir'), '')
+    process.env.LUMO_CONFIG_DIR = join(base, 'not-a-dir')
+    const claudeDir = join(base, 'proj', '.claude')
+    installSkill(claudeDir, false, join(base, 'bundle'))
+    expect(existsSync(join(claudeDir, 'skills', 'lumo', 'SKILL.md'))).toBe(true)
+    expect(stdoutSpy.mock.calls.join('')).toContain('could not record')
+  })
+})
+
 describe('syncSkills', () => {
+  it('a failing location does not stop the others and stays registered', async () => {
+    const bad = skillDirFor(join(base, 'bad'))
+    const good = skillDirFor(join(base, 'good'))
+    writeTree(bad, OLD)
+    writeTree(good, OLD)
+    recordSkillInstall(bad)
+    recordSkillInstall(good)
+    chmodSync(bad, 0o555)
+    try {
+      const results = syncSkills(join(base, 'bundle'))
+      expect(results.map(r => r.outcome)).toEqual(['failed', 'updated'])
+      expect(read(good, 'SKILL.md')).toBe('new skill')
+      expect(readSkillInstalls()).toEqual([bad, good])
+      expect(
+        await skillSync({
+          srcDir: join(base, 'bundle'),
+          homeDir: join(base, 'home'),
+          cwd: join(base, 'proj'),
+        })
+      ).toBe(1)
+    } finally {
+      chmodSync(bad, 0o755)
+    }
+  })
+
   it('rewrites an outdated recorded install and drops stale references', () => {
     const dir = skillDirFor(join(base, 'proj'))
     writeTree(dir, OLD)
