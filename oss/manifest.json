@@ -122,6 +122,10 @@
       "reason": "project readme (self-hosting rewrite is a separate task)"
     },
     {
+      "glob": "LICENSE",
+      "reason": "LUM-1014 ruling (2026-10-06): Elastic-2.0 license text with the Lumo AI copyright line and MIT scope note; must ship with the snapshot"
+    },
+    {
       "glob": "components.json",
       "reason": "shadcn config"
     },
