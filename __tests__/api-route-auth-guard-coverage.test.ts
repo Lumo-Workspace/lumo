@@ -68,6 +68,11 @@ const AUTH_DELEGATES = new Set([
 // Routes whose authentication is bespoke but verified by reading the code.
 // `call` must still be present, so the entry fails if the mechanism goes.
 const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
+  'app/api/auth/[...all]/route.ts': {
+    call: 'lib/auth/handler#handleAuthRequest',
+    reason:
+      'Better Auth API (LUM-1027): the sign-in/sign-up/session endpoints themselves — Better Auth checks credentials, session cookies and OAuth state per endpoint; 404 unless AUTH_PROVIDER=better-auth',
+  },
   'app/api/webhooks/sentry/route.ts': {
     call: 'lib/services/sentry.service#sentryService.handleWebhook',
     reason:

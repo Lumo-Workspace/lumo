@@ -1,7 +1,9 @@
 /**
  * Server-side auth interface (LUM-1026) — the only way app code reaches the
- * auth provider. Clerk is the implementation today (./clerk/*); nothing
- * outside lib/auth may import a provider SDK (ESLint + a jest guard).
+ * auth provider. AUTH_PROVIDER (./provider) picks the implementation: Clerk
+ * (./clerk/*, the SaaS default) or Better Auth (./better-auth/*, self-hosted,
+ * LUM-1027). Nothing outside lib/auth may import a provider SDK (ESLint + a
+ * jest guard).
  *
  * Entry points:
  *   @/lib/auth            — session + workspace membership (this barrel, server-only)
@@ -22,7 +24,7 @@
  *   if (authResult instanceof NextResponse) return authResult
  */
 
-import { getCurrentUserId, getCurrentUser } from './clerk/session'
+import { getCurrentUserId, getCurrentUser } from './session'
 
 export { getCurrentUserId, getCurrentUser }
 export type { AuthUser, AuthEmailAddress } from './types'

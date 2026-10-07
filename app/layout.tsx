@@ -5,6 +5,7 @@ import './globals.css'
 import { Suspense } from 'react'
 import { Providers } from '@/components/core/Providers'
 import { Toaster } from '@/components/ui/sonner'
+import { resolveAuthProvider } from '@/lib/auth/provider'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -34,7 +35,8 @@ export default function RootLayout({
       className={`${inter.variable} ${sourceCodePro.variable} antialiased`}
     >
       <body className='font-sans'>
-        <Providers>
+        {/* AUTH_PROVIDER picks Clerk or Better Auth (LUM-1027). */}
+        <Providers authProvider={resolveAuthProvider()}>
           <Suspense>{children}</Suspense>
           <Toaster position='top-center' />
         </Providers>

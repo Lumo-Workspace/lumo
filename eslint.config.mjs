@@ -8,10 +8,11 @@ const BLOB_SDK_PATTERN = {
     'only allowed inside lib/blob.',
 }
 
-// LUM-1026: the auth provider SDK (Clerk) is confined to lib/auth, so the
-// provider can be swapped (Better Auth, LUM-1027) without touching callers.
+// LUM-1026: the auth provider SDKs (Clerk, and Better Auth since LUM-1027)
+// are confined to lib/auth, so AUTH_PROVIDER can swap them without touching
+// callers.
 const AUTH_SDK_PATTERN = {
-  group: ['@clerk/*'],
+  group: ['@clerk/*', 'better-auth', 'better-auth/*', '@better-auth/*'],
   message:
     'Import auth from the @/lib/auth interface (LUM-1026): @/lib/auth, ' +
     '@/lib/auth/users, @/lib/auth/client, @/lib/auth/middleware, ' +
@@ -91,7 +92,7 @@ export default [
     // LUM-1022: @vercel/functions is confined to lib/runtime so self-hosted
     // Node keeps working. Use waitUntil from @/lib/runtime/wait-until.
     // LUM-1021: likewise blob SDKs are confined to lib/blob.
-    // LUM-1026: and the auth SDK (@clerk/*) to lib/auth.
+    // LUM-1026: and the auth SDKs (@clerk/*, better-auth) to lib/auth.
     files: [
       'app/**/*.{ts,tsx}',
       'components/**/*.{ts,tsx}',

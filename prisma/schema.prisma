@@ -3915,3 +3915,83 @@ enum HookEventRetentionMode {
   RETAIN
   USED_UP
 }
+
+// ─── Better Auth identity store (LUM-1027, self-hosted only) ─────────────────
+//
+// Used only when AUTH_PROVIDER=better-auth (lib/auth/better-auth/*). The SaaS
+// deployment keeps Clerk as the identity provider and never writes here.
+// AuthUser.id is an opaque string stored in the same identity columns a Clerk
+// user id goes into (WorkspaceMember.clerkId, McpConnection.clerkUserId, …), so
+// no app table references these models. Field names follow Better Auth's core
+// schema (better-auth 1.7.7); the Prisma model names are mapped in
+// lib/auth/better-auth/server.ts (user → authUser, …) so they cannot collide
+// with Lumo's own `Session` (agent sessions).
+
+model AuthUser {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  /// Lumo's AuthUser contract has first/last names; kept in sync with `name`
+  /// by the Better Auth database hooks.
+  firstName     String?
+  lastName      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions AuthSession[]
+  accounts AuthAccount[]
+
+  @@map("auth_users")
+}
+
+model AuthSession {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model AuthAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  /// Password hash for the `credential` provider (email + password).
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model AuthVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("auth_verifications")
+}

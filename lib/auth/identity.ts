@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUserId } from './clerk/session'
+import { getCurrentUserId } from './session'
 import { verifyBearer } from './bearer'
 import { resolveActiveMembership } from './index'
 import {
