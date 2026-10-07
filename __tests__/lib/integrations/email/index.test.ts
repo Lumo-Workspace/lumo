@@ -15,8 +15,8 @@ jest.mock('resend', () => ({
 import * as emailModule from '@/lib/integrations/email'
 
 describe('lib/integrations/email barrel exports', () => {
-  it('exports getResend as a function', () => {
-    expect(typeof emailModule.getResend).toBe('function')
+  it('exports sendEmail as a function', () => {
+    expect(typeof emailModule.sendEmail).toBe('function')
   })
 
   it('exports buildInviteEmail as a function', () => {
@@ -24,7 +24,7 @@ describe('lib/integrations/email barrel exports', () => {
   })
 
   it('exports all expected public names', () => {
-    const expectedExports = ['getResend', 'buildInviteEmail']
+    const expectedExports = ['sendEmail', 'buildInviteEmail']
     const actualExports = Object.keys(emailModule)
     for (const name of expectedExports) {
       expect(actualExports).toContain(name)
@@ -69,34 +69,6 @@ describe('lib/integrations/email barrel exports', () => {
     it('includes the workspace name in the html', () => {
       const result = emailModule.buildInviteEmail(options)
       expect(result.html).toContain('Acme Corp')
-    })
-  })
-
-  describe('getResend', () => {
-    it('throws if RESEND_API_KEY is not set', () => {
-      const original = process.env.RESEND_API_KEY
-      delete process.env.RESEND_API_KEY
-
-      // Reset the singleton so the env check runs fresh
-      jest.resetModules()
-
-      const { getResend: freshGetResend } = require('@/lib/integrations/email')
-      expect(() => freshGetResend()).toThrow('RESEND_API_KEY is not set')
-
-      process.env.RESEND_API_KEY = original
-    })
-
-    it('returns a Resend instance when RESEND_API_KEY is set', () => {
-      process.env.RESEND_API_KEY = 're_test_key'
-
-      jest.resetModules()
-
-      const { getResend: freshGetResend } = require('@/lib/integrations/email')
-      const client = freshGetResend()
-      expect(client).toBeDefined()
-      expect(typeof client.emails.send).toBe('function')
-
-      delete process.env.RESEND_API_KEY
     })
   })
 })
