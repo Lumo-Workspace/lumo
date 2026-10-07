@@ -95,6 +95,10 @@ export default [
       '.next/',
       'out/',
       'build/',
+      // Build output of the shared / cli workspaces.
+      'shared/dist/',
+      'cli/dist/',
+      'cli/assets/',
       'security/semgrep-rules/',
       // Nested git worktrees (lumo worktree / Claude Code) are other checkouts.
       '.worktrees/',

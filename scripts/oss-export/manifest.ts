@@ -10,7 +10,7 @@
  * Everything here is side-effect free; scripts/oss-export.ts does the git and
  * filesystem work.
  */
-import { posix } from 'node:path'
+import { isAbsolute, posix, relative, sep } from 'node:path'
 
 export interface ManifestRule {
   glob: string
@@ -51,6 +51,17 @@ export interface OssManifest {
   forbiddenMarkers?: ForbiddenMarker[]
   /** Snapshot files whose path-like tokens must exist in the snapshot. */
   configRefFiles?: string[]
+}
+
+/**
+ * True when `target` is neither `dir` itself nor anything below it. A sibling
+ * such as `<dir>/..cache` is INSIDE (its relative path merely starts with
+ * two dots), so only a real `..` segment counts as leaving the directory.
+ */
+export function isOutsideDir(dir: string, target: string): boolean {
+  const rel = relative(dir, target)
+  if (rel === '') return false
+  return rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)
 }
 
 // ---------------------------------------------------------------------------

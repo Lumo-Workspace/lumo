@@ -33,13 +33,14 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import {
   applyTransform,
   classifyFiles,
   extractPathTokens,
   findImportViolations,
+  isOutsideDir,
   scanMarkers,
   summarizePaths,
   type MarkerHit,
@@ -115,8 +116,7 @@ function main(): void {
   const repo = git(process.cwd(), ['rev-parse', '--show-toplevel']).trim()
   const outAbs = resolve(outDir)
 
-  const relToRepo = relative(repo, outAbs)
-  if (!relToRepo.startsWith('..') && !relToRepo.startsWith(sep))
+  if (!isOutsideDir(repo, outAbs))
     fail([`out-dir must be outside the repository: ${outAbs}`])
   if (existsSync(outAbs) && readdirSync(outAbs).length > 0)
     fail([`out-dir must be empty or absent: ${outAbs}`])
@@ -183,6 +183,10 @@ function main(): void {
     }
     for (const t of manifest.transforms ?? []) {
       const p = join(outAbs, t.file)
+      if (!existsSync(p))
+        fail([
+          `✗ transform target is not in the snapshot: ${t.file} (${t.type})`,
+        ])
       writeFileSync(p, applyTransform(readFileSync(p, 'utf8'), t))
     }
 

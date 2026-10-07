@@ -9,6 +9,7 @@ import {
   extractSpecifiers,
   findImportViolations,
   globToRegExp,
+  isOutsideDir,
   matchesGlob,
   resolveSpecifier,
   scanMarkers,
@@ -225,6 +226,17 @@ describe('output scans', () => {
     expect(extractPathTokens('npx tsx scripts/drift-check.ts "$1"')).toEqual([
       'scripts/drift-check.ts',
     ])
+  })
+})
+
+describe('isOutsideDir', () => {
+  it('only a real `..` segment leaves the repository', () => {
+    expect(isOutsideDir('/r/repo', '/r/snap')).toBe(true)
+    expect(isOutsideDir('/r/repo', '/tmp/x')).toBe(true)
+    expect(isOutsideDir('/r/repo', '/r/repo')).toBe(false)
+    expect(isOutsideDir('/r/repo', '/r/repo/out')).toBe(false)
+    // A directory INSIDE the repo whose name starts with two dots.
+    expect(isOutsideDir('/r/repo', '/r/repo/..cache')).toBe(false)
   })
 })
 
