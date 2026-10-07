@@ -20,25 +20,39 @@ describe('project license (LUM-1014)', () => {
     expect(text).toContain(
       'You may not provide the software to third parties as a hosted or managed'
     )
-    expect(text).toContain('see cli/LICENSE')
+    // Scope note: cli/, shared/ and the skill files are MIT, each pointing at its LICENSE.
+    const scope = text.slice(0, text.indexOf('\nElastic License 2.0\n'))
+    expect(scope).toContain('licensed under the MIT License instead')
+    expect(scope).toMatch(/- cli\/ [^]*see cli\/LICENSE/)
+    expect(scope).toMatch(/- shared\/ [^]*see shared\/LICENSE/)
+    expect(scope).toMatch(/- \.claude\/skills\/lumo [^]*see cli\/LICENSE/)
   })
 
-  it('cli/LICENSE is the MIT License for Lumo AI', () => {
-    const text = read('cli/LICENSE')
-    expect(text.startsWith('MIT License\n\nCopyright (c) 2026 Lumo AI\n')).toBe(
-      true
-    )
-    expect(text).toContain('Permission is hereby granted, free of charge')
+  it.each(['cli/LICENSE', 'shared/LICENSE'])(
+    '%s is the MIT License for Lumo AI',
+    file => {
+      const text = read(file)
+      expect(
+        text.startsWith('MIT License\n\nCopyright (c) 2026 Lumo AI\n')
+      ).toBe(true)
+      expect(text).toContain('Permission is hereby granted, free of charge')
+    }
+  )
+
+  it('cli/LICENSE and shared/LICENSE are the same MIT text', () => {
+    expect(read('shared/LICENSE')).toBe(read('cli/LICENSE'))
   })
 
   it('package.json license fields match the LICENSE files', () => {
     expect(json('package.json').license).toBe('Elastic-2.0')
     expect(json('cli/package.json').license).toBe('MIT')
+    expect(json('shared/package.json').license).toBe('MIT')
     const lock = json('package-lock.json') as {
       packages: Record<string, { license?: string }>
     }
     expect(lock.packages['']?.license).toBe('Elastic-2.0')
     expect(lock.packages['cli']?.license).toBe('MIT')
+    expect(lock.packages['shared']?.license).toBe('MIT')
   })
 
   it('the CLI npm package ships its LICENSE', () => {

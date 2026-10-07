@@ -5,10 +5,14 @@ default throughout the repository is a license under the Elastic License 2.0,
 unless a file header or a license file in a subdirectory specifies another
 license.
 
-The Lumo CLI in the cli/ directory (published to npm as @lumoai/cli) is
-licensed under the MIT License; see cli/LICENSE. The agent skill files in
-.claude/skills/lumo, which are shipped inside that package as cli/assets/skill,
-are covered by the same MIT License.
+The following are licensed under the MIT License instead; see the LICENSE file
+named for each:
+
+- cli/ - the Lumo CLI, published to npm as @lumoai/cli; see cli/LICENSE.
+- shared/ - code shared by the app and the CLI (compiled into the CLI
+  package); see shared/LICENSE.
+- .claude/skills/lumo - the agent skill files, shipped inside the CLI package
+  as cli/assets/skill; see cli/LICENSE.
 
 --------------------------------------------------------------------------------
 
