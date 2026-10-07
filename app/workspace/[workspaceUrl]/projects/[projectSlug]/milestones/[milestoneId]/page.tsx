@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUserId } from '@/lib/auth'
 import { prisma } from '@/lib/db/prisma'
 import WorkspaceApp from '../../../../WorkspaceApp'
 
@@ -13,7 +13,7 @@ export default async function MilestoneDetailRoute({
   }>
 }) {
   const { workspaceUrl } = await params
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
 
   if (!userId) redirect('/signin')
 

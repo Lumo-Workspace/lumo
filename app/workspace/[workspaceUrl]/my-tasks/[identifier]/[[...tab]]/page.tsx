@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUserId } from '@/lib/auth'
 import { loadTaskDetail } from '../../../components/pages/loadTaskDetail'
 import { buildMyTaskRedirectPath } from '../../../utils/taskPath'
 
@@ -20,7 +20,7 @@ export default async function MyTaskDetailPage({
   params: Promise<{ workspaceUrl: string; identifier: string; tab?: string[] }>
 }) {
   const { workspaceUrl, identifier, tab } = await params
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
   if (!userId) redirect('/signin')
 
   const { rawTask } = await loadTaskDetail(workspaceUrl, identifier, userId)

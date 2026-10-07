@@ -1,9 +1,8 @@
 // MCP HTTP endpoint — streamable HTTP transport handled by `mcp-handler`.
-// `withMcpAuth` extracts the Bearer token, `verifyClerkToken` translates
-// Clerk's machine auth object into MCP AuthInfo that the server middleware
+// `withMcpAuth` extracts the Bearer token, `verifyMcpAccessToken` turns the
+// verified OAuth token into MCP AuthInfo that the server middleware
 // (registerMcpTools) reads off `extra.authInfo` for every tool call.
-import { auth } from '@clerk/nextjs/server'
-import { verifyClerkToken } from '@clerk/mcp-tools/server'
+import { verifyMcpAccessToken } from '@/lib/auth/mcp'
 import { createMcpHandler, withMcpAuth } from 'mcp-handler'
 import { registerMcpTools } from '@/lib/mcp/server'
 
@@ -26,13 +25,8 @@ const mcpHandler = createMcpHandler(
 
 const authedHandler = withMcpAuth(
   mcpHandler,
-  async (_req, bearerToken) => {
-    // `auth({ acceptsToken: 'oauth_token' })` returns a MachineAuthObject
-    // that `verifyClerkToken` consumes to produce MCP AuthInfo (with
-    // userId / clientId / scopes populated from the verified token).
-    const clerkAuth = await auth({ acceptsToken: 'oauth_token' })
-    return verifyClerkToken(clerkAuth, bearerToken)
-  },
+  // AuthInfo carries userId / clientId / scopes from the verified token.
+  async (_req, bearerToken) => verifyMcpAccessToken(bearerToken),
   {
     required: true,
     resourceMetadataPath: '/.well-known/oauth-protected-resource',

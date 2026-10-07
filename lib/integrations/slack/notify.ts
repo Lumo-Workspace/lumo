@@ -102,13 +102,11 @@ async function lookupSlackUserByClerkId(
   token: string
 ): Promise<string | null> {
   try {
-    const { createClerkClient } = await import('@clerk/nextjs/server')
-    const secretKey = process.env.CLERK_SECRET_KEY
-    if (!secretKey) return null
-    const clerk = createClerkClient({
-      secretKey,
-    })
-    const user = await clerk.users.getUser(clerkId)
+    const { createUserDirectory, isUserDirectoryConfigured } =
+      await import('@/lib/auth/users')
+    if (!isUserDirectoryConfigured()) return null
+    const clerk = await createUserDirectory()
+    const user = await clerk.getUser(clerkId)
     const email = user.emailAddresses.find(
       e => e.id === user.primaryEmailAddressId
     )?.emailAddress

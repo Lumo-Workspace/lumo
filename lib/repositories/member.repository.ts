@@ -231,11 +231,9 @@ export const memberRepository = {
     if (clerkIds.length === 0) return labels
 
     try {
-      const { createClerkClient } = await import('@clerk/nextjs/server')
-      const clerk = createClerkClient({
-        secretKey: process.env.CLERK_SECRET_KEY!,
-      })
-      const { data: users } = await clerk.users.getUserList({
+      const { createUserDirectory } = await import('@/lib/auth/users')
+      const clerk = await createUserDirectory()
+      const { data: users } = await clerk.getUserList({
         userId: clerkIds,
         limit: Math.min(clerkIds.length, 500),
       })
@@ -289,12 +287,10 @@ export const memberRepository = {
   ): Promise<string[]> {
     if (emails.length === 0) return []
 
-    const { createClerkClient } = await import('@clerk/nextjs/server')
-    const clerk = createClerkClient({
-      secretKey: process.env.CLERK_SECRET_KEY!,
-    })
+    const { createUserDirectory } = await import('@/lib/auth/users')
+    const clerk = await createUserDirectory()
 
-    const { data: users } = await clerk.users.getUserList({
+    const { data: users } = await clerk.getUserList({
       emailAddress: emails,
       limit: Math.min(emails.length * 2, 100),
     })
@@ -373,15 +369,13 @@ export const memberRepository = {
 
     const clerkIds = eligible.map(m => m.clerkId)
 
-    const { createClerkClient } = await import('@clerk/nextjs/server')
-    const clerk = createClerkClient({
-      secretKey: process.env.CLERK_SECRET_KEY!,
-    })
+    const { createUserDirectory } = await import('@/lib/auth/users')
+    const clerk = await createUserDirectory()
     // Clerk's `getUserList` accepts up to 500 per page. We're filtering by
     // `userId` (exact-match list), so this `limit` is just a page-size cap,
     // not a search-scope filter. Workspaces over 500 members would need
     // pagination — out of scope for v1.
-    const { data: users } = await clerk.users.getUserList({
+    const { data: users } = await clerk.getUserList({
       userId: clerkIds,
       limit: Math.min(clerkIds.length, 500),
     })

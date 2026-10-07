@@ -150,7 +150,7 @@
 **Auth Provider:**
 
 - Clerk (Third-party)
-- Implementation: `@clerk/nextjs` middleware
+- Implementation: `@clerk/nextjs` middleware, behind the `@/lib/auth` interface (`lib/auth/clerk/`, LUM-1026)
 - Handles: User sign-up, sign-in, OAuth (Google, GitHub)
 - Claims: `clerkId` stored as FK in all user-related tables
 - Session management: Clerk JWT tokens + Next.js middleware

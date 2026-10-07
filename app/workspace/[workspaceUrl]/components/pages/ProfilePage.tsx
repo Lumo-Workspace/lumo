@@ -3,7 +3,7 @@
 
 import { useRef, useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { useUser } from '@clerk/nextjs'
+import { useUser } from '@/lib/auth/client'
 import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'

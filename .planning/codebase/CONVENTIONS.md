@@ -56,7 +56,7 @@
 **Order:**
 
 1. React and Next.js imports (e.g., `import { useState } from 'react'`, `import { NextRequest, NextResponse } from 'next/server'`)
-2. Third-party libraries (e.g., `import { clerkClient } from '@clerk/nextjs/server'`, `import { z } from 'zod'`)
+2. Third-party libraries (e.g., `import { z } from 'zod'`; SDKs with a `@/lib` wrapper — Clerk → `@/lib/auth`, `@vercel/functions` → `@/lib/runtime`, blob SDKs → `@/lib/blob` — are imported only through it)
 3. Absolute path imports from `@/` (e.g., `import { documentRepository } from '@/lib/repositories/document.repository'`)
 4. Relative imports (rarely used; prefer absolute)
 

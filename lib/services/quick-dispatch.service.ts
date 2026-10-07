@@ -3,7 +3,7 @@ import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { isAiUnavailableError } from '@/lib/ai/routing'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { taskService } from '@/lib/services/task.service'
 import {
   projectRepository,
@@ -234,8 +234,8 @@ export const quickDispatchService = {
       ])
 
       // Build member names from Clerk
-      const client = await clerkClient()
-      const clerkUsers = await client.users.getUserList({
+      const client = await getUserDirectory()
+      const clerkUsers = await client.getUserList({
         userId: memberRows.map(m => m.clerkId),
         limit: 100,
       })

@@ -153,11 +153,11 @@ jest.mock('@/lib/db/prisma', () => ({
 **External Service Mocking (Clerk, etc.):**
 
 ```typescript
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: {
-      getUserList: jest.fn().mockResolvedValue({ data: [] }),
-    },
+// Code reaches Clerk only through @/lib/auth (LUM-1026); mocking the
+// interface keeps the test independent of the auth provider.
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn().mockResolvedValue({
+    getUserList: jest.fn().mockResolvedValue({ data: [] }),
   }),
 }))
 ```

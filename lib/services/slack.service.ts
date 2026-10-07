@@ -247,11 +247,9 @@ export const slackService = {
     token: string
   ): Promise<void> {
     try {
-      const { createClerkClient } = await import('@clerk/nextjs/server')
-      const clerk = createClerkClient({
-        secretKey: process.env.CLERK_SECRET_KEY!,
-      })
-      const user = await clerk.users.getUser(clerkId)
+      const { createUserDirectory } = await import('@/lib/auth/users')
+      const clerk = await createUserDirectory()
+      const user = await clerk.getUser(clerkId)
       const email = user.emailAddresses.find(
         e => e.id === user.primaryEmailAddressId
       )?.emailAddress

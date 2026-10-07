@@ -1,12 +1,16 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { auth, getUserWorkspace, getVerifiedEmails } from '@/lib/auth'
+import {
+  getCurrentUserId,
+  getUserWorkspace,
+  getVerifiedEmails,
+} from '@/lib/auth'
 import { inviteService } from '@/lib/services/invite.service'
 import { OnboardingClient } from './OnboardingClient'
 import { memberAuditContext } from '@/lib/api/audit-context'
 
 export default async function OnboardingPage() {
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
   if (!userId) redirect('/signin')
 
   // An invitee who signs in directly (not through the invite link) joins the

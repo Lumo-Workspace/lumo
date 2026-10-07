@@ -27,10 +27,10 @@ async function resolveSlackUser(
   })
 
   // Use Clerk backend API to match email → WorkspaceMember
-  const { createClerkClient } = await import('@clerk/nextjs/server')
-  const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! })
+  const { createUserDirectory } = await import('@/lib/auth/users')
+  const clerk = await createUserDirectory()
   for (const member of members) {
-    const clerkUser = await clerk.users.getUser(member.clerkId)
+    const clerkUser = await clerk.getUser(member.clerkId)
     const primaryEmail = clerkUser.emailAddresses.find(
       e => e.id === clerkUser.primaryEmailAddressId
     )

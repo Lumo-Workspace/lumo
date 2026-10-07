@@ -8,6 +8,25 @@ const BLOB_SDK_PATTERN = {
     'only allowed inside lib/blob.',
 }
 
+// LUM-1026: the auth provider SDK (Clerk) is confined to lib/auth, so the
+// provider can be swapped (Better Auth, LUM-1027) without touching callers.
+const AUTH_SDK_PATTERN = {
+  group: ['@clerk/*'],
+  message:
+    'Import auth from the @/lib/auth interface (LUM-1026): @/lib/auth, ' +
+    '@/lib/auth/users, @/lib/auth/client, @/lib/auth/middleware, ' +
+    '@/lib/auth/mcp or @/lib/auth/oauth-metadata. Auth SDKs are only ' +
+    'allowed inside lib/auth.',
+}
+
+// The @vercel/functions restriction (LUM-1022), shared by several blocks.
+const VERCEL_FUNCTIONS_PATTERN = {
+  group: ['@vercel/functions', '@vercel/functions/*'],
+  message:
+    'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
+    '@vercel/functions is only allowed inside lib/runtime.',
+}
+
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   ...coreWebVitals,
@@ -58,15 +77,11 @@ export default [
             },
           ],
           // Repeated from the LUM-1022 block below: flat-config rule options
-          // replace rather than merge, so services must carry both restrictions.
+          // replace rather than merge, so services must carry every restriction.
           patterns: [
-            {
-              group: ['@vercel/functions', '@vercel/functions/*'],
-              message:
-                'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
-                '@vercel/functions is only allowed inside lib/runtime.',
-            },
+            VERCEL_FUNCTIONS_PATTERN,
             BLOB_SDK_PATTERN,
+            AUTH_SDK_PATTERN,
           ],
         },
       ],
@@ -76,34 +91,41 @@ export default [
     // LUM-1022: @vercel/functions is confined to lib/runtime so self-hosted
     // Node keeps working. Use waitUntil from @/lib/runtime/wait-until.
     // LUM-1021: likewise blob SDKs are confined to lib/blob.
+    // LUM-1026: and the auth SDK (@clerk/*) to lib/auth.
     files: [
       'app/**/*.{ts,tsx}',
       'components/**/*.{ts,tsx}',
+      'hooks/**/*.{ts,tsx}',
       'lib/**/*.{ts,tsx}',
+      'proxy.ts',
     ],
-    ignores: ['lib/runtime/**', 'lib/services/**', 'lib/blob/**'],
+    ignores: [
+      'lib/runtime/**',
+      'lib/services/**',
+      'lib/blob/**',
+      'lib/auth/**',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
-            {
-              group: ['@vercel/functions', '@vercel/functions/*'],
-              message:
-                'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
-                '@vercel/functions is only allowed inside lib/runtime.',
-            },
+            VERCEL_FUNCTIONS_PATTERN,
             BLOB_SDK_PATTERN,
+            AUTH_SDK_PATTERN,
           ],
         },
       ],
     },
   },
   {
-    // The two wrapper folders each keep the other's restriction.
+    // The wrapper folders each keep the others' restrictions.
     files: ['lib/runtime/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [BLOB_SDK_PATTERN] }],
+      'no-restricted-imports': [
+        'error',
+        { patterns: [BLOB_SDK_PATTERN, AUTH_SDK_PATTERN] },
+      ],
     },
   },
   {
@@ -111,16 +133,16 @@ export default [
     rules: {
       'no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            {
-              group: ['@vercel/functions', '@vercel/functions/*'],
-              message:
-                'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
-                '@vercel/functions is only allowed inside lib/runtime.',
-            },
-          ],
-        },
+        { patterns: [VERCEL_FUNCTIONS_PATTERN, AUTH_SDK_PATTERN] },
+      ],
+    },
+  },
+  {
+    files: ['lib/auth/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [VERCEL_FUNCTIONS_PATTERN, BLOB_SDK_PATTERN] },
       ],
     },
   },
