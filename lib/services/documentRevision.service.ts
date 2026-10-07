@@ -1,4 +1,4 @@
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { documentRevisionRepository } from '@/lib/repositories/documentRevision.repository'
 import { documentRepository } from '@/lib/repositories/document.repository'
 import { documentService } from '@/lib/services/document.service'
@@ -139,8 +139,8 @@ export const documentRevisionService = {
       { name: string; imageUrl: string | null }
     >()
     if (clerkIds.length > 0) {
-      const client = await clerkClient()
-      const users = await client.users.getUserList({
+      const client = await getUserDirectory()
+      const users = await client.getUserList({
         userId: clerkIds,
         limit: clerkIds.length,
       })

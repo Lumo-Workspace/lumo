@@ -34,7 +34,7 @@ export interface CommentThreadOptions {
   /** Override the token ceiling (tests). */
   maxTokens?: number | undefined
   /** The `lumo <…>` sub-command the fetch-more pointer advertises. Defaults to
-   *  the task thread; the idea thread (LUM-680) passes `idea comments list`. */
+   *  the task thread. */
   fetchCommand?: string | undefined
 }
 

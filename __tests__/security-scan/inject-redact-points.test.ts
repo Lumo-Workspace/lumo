@@ -16,7 +16,7 @@
  * the steward milestone-memory section, the security agent-reminder, the
  * three hunt prompt clients
  * (task context → plan prompt, hunt task header, compressor prompt), the
- * tier-2 Slack-snapshot and web-body routes (task + idea) and the LLM-judge
+ * tier-2 Slack-snapshot and web-body routes and the LLM-judge
  * diff input of the PR security scan.
  */
 // LUM-866: every workspace here has the default switches (all on); the
@@ -49,7 +49,6 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 // ── tier-2 route deps (same harness as __tests__/app/api/tasks/retrieval) ──
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 const mockSlackGetById = jest.fn()
-const mockIdeaSlackGetById = jest.fn()
 const mockFindByWorkspaceIdentifier = jest.fn()
 jest.mock('@/lib/repositories', () => ({
   taskRepository: {
@@ -60,22 +59,10 @@ jest.mock('@/lib/repositories', () => ({
   taskSlackContextRepository: {
     getById: (...a: unknown[]) => mockSlackGetById(...a),
   },
-  ideaSlackContextRepository: {
-    getById: (...a: unknown[]) => mockIdeaSlackGetById(...a),
-  },
 }))
 const mockFetchBody = jest.fn()
 jest.mock('@/lib/services/task-web-link.service', () => ({
   taskWebLinkService: { fetchBody: (...a: unknown[]) => mockFetchBody(...a) },
-}))
-const mockIdeaFetchBody = jest.fn()
-jest.mock('@/lib/services/idea-web-link.service', () => ({
-  ideaWebLinkService: {
-    fetchBody: (...a: unknown[]) => mockIdeaFetchBody(...a),
-  },
-}))
-jest.mock('@/lib/services/idea-evidence-resolve', () => ({
-  resolveIdeaRef: jest.fn().mockResolvedValue({ ideaId: 'idea_1' }),
 }))
 
 // ── PR security scan deps (same harness as pr-security-scan.service.test) ──
@@ -177,8 +164,6 @@ import { buildCompressPrompt } from '@/lib/llm/security-hunt-compress-client'
 import { SECRET_PATTERNS } from '@/lib/security-scan/secret-patterns'
 import { GET as taskSlackSnapshotGet } from '@/app/api/tasks/[id]/slack-contexts/[contextId]/snapshot/route'
 import { GET as taskWebBodyGet } from '@/app/api/tasks/[id]/web-links/[linkId]/body/route'
-import { GET as ideaSlackSnapshotGet } from '@/app/api/ideas/[id]/slack-contexts/[contextId]/snapshot/route'
-import { GET as ideaWebBodyGet } from '@/app/api/ideas/[id]/web-links/[linkId]/body/route'
 import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -642,7 +627,7 @@ describe('⑨ hunt — compressor prompt (buildCompressPrompt)', () => {
   })
 })
 
-describe('⑩ tier-2 retrieval routes — Slack snapshot + web body (task and idea)', () => {
+describe('⑩ tier-2 retrieval routes — Slack snapshot + web body', () => {
   const req = () => new NextRequest('http://localhost/api/x')
   const message = (text: string) => ({
     ts: '1',
@@ -673,20 +658,6 @@ describe('⑩ tier-2 retrieval routes — Slack snapshot + web body (task and id
     expect(json.snapshot.messages[0].text).toMatch(/^said /)
   })
 
-  it('idea Slack snapshot: same treatment', async () => {
-    mockIdeaSlackGetById.mockResolvedValue({
-      ideaId: 'idea_1',
-      snapshot: { messages: [message(ALL_LINES)] },
-    })
-    const res = await ideaSlackSnapshotGet(req(), {
-      params: Promise.resolve({ id: 'LUM-I1', contextId: 'c1' }),
-    })
-    expect(res.status).toBe(200)
-    const json = await res.json()
-    expectNoRawValue(JSON.stringify(json))
-    expect(json.redactedSecrets).toBe(CORPUS.length)
-  })
-
   it('task web body: masked body, count returned; clean body untouched with count 0', async () => {
     mockFetchBody.mockResolvedValue(`# Page\n${ALL_LINES}\n`)
     const res = await taskWebBodyGet(req(), {
@@ -708,17 +679,6 @@ describe('⑩ tier-2 retrieval routes — Slack snapshot + web body (task and id
       body: '# Clean page\nnothing here',
       redactedSecrets: 0,
     })
-  })
-
-  it('idea web body: same treatment', async () => {
-    mockIdeaFetchBody.mockResolvedValue(ALL_LINES)
-    const res = await ideaWebBodyGet(req(), {
-      params: Promise.resolve({ id: 'LUM-I1', linkId: 'l1' }),
-    })
-    expect(res.status).toBe(200)
-    const json = await res.json()
-    expectNoRawValue(json.body)
-    expect(json.redactedSecrets).toBe(CORPUS.length)
   })
 })
 

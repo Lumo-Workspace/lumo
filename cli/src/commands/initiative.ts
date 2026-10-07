@@ -30,7 +30,7 @@ interface InitiativeListResponse {
 /**
  * Success line for a created initiative. Echoes the human-referenceable id
  * (`<TEAM>-INIT-<n>`, e.g. `LUM-INIT-3`) — the `INIT` infix keeps it visibly
- * distinct from task (`LUM-3`) and idea (`LUM-I3`) ids.
+ * distinct from task (`LUM-3`) ids.
  */
 export function formatCreatedInitiativeLine(init: {
   identifier: string
@@ -61,8 +61,7 @@ export function formatInitiativeList(
 
 /**
  * `lumo initiative create "<goal>" [--assumption <text>]` — create a
- * team-level Initiative directly, without a converter plan run. Prints the
- * created `<TEAM>-INIT-<n>` id.
+ * team-level Initiative. Prints the created `<TEAM>-INIT-<n>` id.
  */
 export async function initiativeCreate(
   goal: string | undefined,

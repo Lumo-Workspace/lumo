@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { requireAuth } from '@/lib/auth'
 
 const MAX_SIZE = 2 * 1024 * 1024 // 2 MB
@@ -37,8 +37,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const client = await clerkClient()
-    await client.users.updateUserProfileImage(userId, { file })
+    const users = await getUserDirectory()
+    await users.updateUserProfileImage(userId, { file })
 
     return NextResponse.json({ ok: true })
   } catch (error) {

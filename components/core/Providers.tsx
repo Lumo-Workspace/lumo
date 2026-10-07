@@ -3,12 +3,12 @@
 /**
  * Client-side Providers
  *
- * - ClerkProvider for authentication
+ * - AuthProvider (Clerk) for authentication
  * - ThemeProvider for dark/light mode via next-themes
  * - QueryClientProvider for TanStack Query (data fetching, caching, mutations)
  */
 
-import { ClerkProvider } from '@clerk/nextjs'
+import { AuthProvider } from '@/lib/auth/client'
 import { ThemeProvider } from 'next-themes'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
@@ -22,7 +22,7 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   const queryClient = getQueryClient()
   return (
-    <ClerkProvider>
+    <AuthProvider>
       <ThemeProvider attribute='class' defaultTheme='system' enableSystem>
         <QueryClientProvider client={queryClient}>
           <IntlProviderWrapper locale='en'>{children}</IntlProviderWrapper>
@@ -31,6 +31,6 @@ export function Providers({ children }: ProvidersProps) {
           )}
         </QueryClientProvider>
       </ThemeProvider>
-    </ClerkProvider>
+    </AuthProvider>
   )
 }

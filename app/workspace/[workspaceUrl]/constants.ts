@@ -50,40 +50,11 @@ export const API = {
     pool: '/api/test-case-reviews',
     review: (runId: string) => `/api/test-case-reviews/${runId}`,
   },
-  ideas: {
-    list: '/api/ideas',
-    create: '/api/ideas',
-    // PATCH target for both a statement edit (LUM-683) and a status change
-    // (LUM-679); accepts a cuid id or a `<TEAM>-I<n>` identifier.
-    byId: (id: string) => `/api/ideas/${id}`,
-    // LUM-680: idea comment thread + activity timeline.
-    comments: (id: string) => `/api/ideas/${id}/comments`,
-    activity: (id: string) => `/api/ideas/${id}/activity`,
-  },
   initiatives: {
-    // Team-level initiatives (LUM-673): list + detail w/ lineage + direct create.
+    // Team-level initiatives (LUM-673): list + detail + direct create.
     list: '/api/initiatives',
     create: '/api/initiatives',
     byId: (id: string) => `/api/initiatives/${id}`,
-  },
-  planRuns: {
-    // The caller team's plan runs (active + terminal), newest first (LUM-677).
-    list: '/api/plan-runs',
-    // The latest run's clustering — groups the Ideas page pool (LUM-677).
-    latestClustering: '/api/plan-runs/latest-clustering',
-    // A run's read-only archive: stage records + materialized initiatives.
-    archive: (runId: string) => `/api/plan-runs/${runId}/archive`,
-    // Thin run read (stage) for the deep-link gate dispatcher.
-    run: (runId: string) => `/api/plan-runs/${runId}`,
-    // Gate A (闸门A · 聚类确认) render source + confirm.
-    clusterGate: (runId: string) => `/api/plan-runs/${runId}/gate/cluster`,
-    // Gate B (闸门B · 对齐确认) render source + confirm.
-    alignGate: (runId: string) => `/api/plan-runs/${runId}/gate/align`,
-    // Gate C (闸门C · 物化) render source + materialise.
-    materializeGate: (runId: string) =>
-      `/api/plan-runs/${runId}/gate/materialize`,
-    // Re-dispatch the LLM segment a stuck run is sitting in (LUM-689).
-    retry: (runId: string) => `/api/plan-runs/${runId}/retry`,
   },
   projects: {
     list: '/api/projects',

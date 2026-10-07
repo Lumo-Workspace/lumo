@@ -159,7 +159,7 @@ function isSnapshotShape(
 }
 
 /**
- * Tier-2 Slack retrieval (`lumo task slack show` / `lumo idea slack show`)
+ * Tier-2 Slack retrieval (`lumo task slack show`)
  * hands the agent every stored message body verbatim. Redact each body; the
  * count rides beside the snapshot so the CLI can print the notice.
  *
@@ -191,7 +191,7 @@ export function redactSlackSnapshotForInjection<T>(snapshot: T): {
 }
 
 /**
- * Tier-2 web retrieval (`lumo task web show` / `lumo idea web show`) prints
+ * Tier-2 web retrieval (`lumo task web show`) prints
  * the fetched page body verbatim. Same treatment as the Slack snapshot.
  */
 export function redactWebBodyForInjection(body: string | null): {

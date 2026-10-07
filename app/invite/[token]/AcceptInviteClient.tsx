@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useClerk, useUser } from '@clerk/nextjs'
+import { useSignOut, useUser } from '@/lib/auth/client'
 import { useIntl, FormattedMessage } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -30,7 +30,7 @@ export function AcceptInviteClient({
 }: Props) {
   const intl = useIntl()
   const { isLoaded, isSignedIn } = useUser()
-  const { signOut } = useClerk()
+  const signOut = useSignOut()
   const router = useRouter()
   const [accepting, setAccepting] = useState(false)
   const [error, setError] = useState<string | null>(null)

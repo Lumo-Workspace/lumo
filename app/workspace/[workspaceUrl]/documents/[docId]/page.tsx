@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUserId } from '@/lib/auth'
 import { prisma } from '@/lib/db/prisma'
 import { parseDocumentSlugNumber } from '@/lib/utils/document-slug'
 import WorkspaceApp from '../../WorkspaceApp'
@@ -21,7 +21,7 @@ export default async function DocumentDetailPage({
     notFound()
   }
 
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
 
   if (!userId) redirect('/signin')
 

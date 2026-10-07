@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUserId } from '@/lib/auth'
 import { taskTimelinePresenceService } from '@/lib/services/task-timeline-presence.service'
 import { TaskDetailPage } from '../../components/pages/TaskDetailPage'
 import {
@@ -25,7 +25,7 @@ export default async function MyTaskDetailLayout({
   params: Promise<{ workspaceUrl: string; identifier: string }>
 }) {
   const { workspaceUrl, identifier } = await params
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
   if (!userId) redirect('/signin')
 
   const { workspace, rawTask } = await loadTaskDetail(

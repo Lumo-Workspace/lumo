@@ -112,8 +112,8 @@ export function collectDocExamples(skillRoot: string): DocExampleLine[] {
 
 /**
  * Runnable command paths = every node that can actually be called: grammar
- * leaves, plus the parents that carry their own action (`lumo plan`,
- * `lumo idea`, `lumo priority` — LUM-706). Pure routing nodes (`lumo task`)
+ * leaves, plus the parents that carry their own action (`lumo priority` —
+ * LUM-706). Pure routing nodes (`lumo task`)
  * are excluded: there is no bare invocation of them to document. `hook *` is
  * the documented-internal surface (invoked by settings.json, not by agents or
  * humans) and is exempt from doc coverage.

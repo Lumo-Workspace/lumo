@@ -73,9 +73,9 @@ async function resolveAuthorDisplayName(actorId: string): Promise<string> {
     if (!member) return 'Someone'
     const clerkId = await memberRepository.findClerkIdById(member.id)
     if (!clerkId) return 'Someone'
-    const { clerkClient } = await import('@clerk/nextjs/server')
-    const client = await clerkClient()
-    const user = await client.users.getUser(clerkId)
+    const { getUserDirectory } = await import('@/lib/auth/users')
+    const client = await getUserDirectory()
+    const user = await client.getUser(clerkId)
     const fullName = [user.firstName, user.lastName]
       .filter(Boolean)
       .join(' ')
@@ -138,7 +138,6 @@ async function isLinkedInSeveralWorkspaces(pr: {
 async function runOutboundCreate(commentId: string) {
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
-  if (!comment.taskId) return // idea comment (LUM-680) — no PR to mirror to
   if (comment.type === 'AGENT') return
 
   const pr = await pullRequestRepository.findByTaskId(comment.taskId)
@@ -314,7 +313,6 @@ async function runOutboundCreate(commentId: string) {
 async function runOutboundUpdate(commentId: string) {
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
-  if (!comment.taskId) return // idea comment (LUM-680) — no PR to mirror to
   const mirror = await prCommentMirrorRepository.findByCommentId(commentId)
   if (!mirror) return // never mirrored — nothing to push
 
@@ -377,7 +375,6 @@ async function runOutboundDelete(commentId: string) {
 
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
-  if (!comment.taskId) return // idea comment (LUM-680) — no PR to mirror to
 
   const pr = await pullRequestRepository.findByTaskId(comment.taskId)
   if (!pr) return

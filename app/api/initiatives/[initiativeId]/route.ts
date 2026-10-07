@@ -11,7 +11,7 @@ interface Params {
 /**
  * GET /api/initiatives/[initiativeId]
  *
- * One initiative with its lineage — the consumed Ideas and the attached Tasks.
+ * One initiative with its attached Tasks.
  * Scoped to the caller's team: an id belonging to another team returns 404
  * (same as a genuinely missing row), so the boundary can't be probed.
  */

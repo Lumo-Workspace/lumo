@@ -2,9 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import type { Prisma } from '@prisma/client'
 
 /**
- * Repository for team-level Initiatives (LUM-673). Initiatives are either
- * materialised by the Spec-2 converter (LUM-671) or created directly here; this
- * repo reads them back for the browse page and allocates the team-scoped
+ * Repository for team-level Initiatives (LUM-673). This repo reads them back for the browse page and allocates the team-scoped
  * `number` for a direct create. All queries are `teamId`-scoped so a caller can
  * never see another team's initiatives.
  */
@@ -34,7 +32,7 @@ export type InitiativeCreatedRow = Prisma.InitiativeGetPayload<{
   select: typeof INITIATIVE_CREATED_SELECT
 }>
 
-/** List-card projection — the scalar summary plus lineage counts (ISP). */
+/** List-card projection — the scalar summary plus the attached-task count (ISP). */
 const INITIATIVE_LIST_SELECT = {
   id: true,
   number: true,
@@ -42,7 +40,7 @@ const INITIATIVE_LIST_SELECT = {
   status: true,
   createdAt: true,
   _count: {
-    select: { tasks: { where: { deletedAt: null } }, ideas: true },
+    select: { tasks: { where: { deletedAt: null } } },
   },
 } satisfies Prisma.InitiativeSelect
 
@@ -51,9 +49,8 @@ export type InitiativeListRow = Prisma.InitiativeGetPayload<{
 }>
 
 /**
- * Detail projection — the full initiative plus its lineage: the consumed Ideas
- * (`idea.initiativeId` backref) and the attached Tasks (`task.initiativeId`
- * backref). `teamId` is selected so the service can enforce the team boundary.
+ * Detail projection — the full initiative plus its attached Tasks
+ * (`task.initiativeId` backref). `teamId` is selected so the service can enforce the team boundary.
  */
 const INITIATIVE_DETAIL_SELECT = {
   id: true,
@@ -63,10 +60,6 @@ const INITIATIVE_DETAIL_SELECT = {
   assumptionNote: true,
   status: true,
   createdAt: true,
-  ideas: {
-    select: { id: true, number: true, statement: true },
-    orderBy: { number: 'asc' },
-  },
   tasks: {
     where: { deletedAt: null }, // LUM-918
     select: { id: true, number: true, title: true, status: true },
@@ -235,8 +228,8 @@ export const initiativeRepository = {
   },
 
   /**
-   * Create a team-level Initiative directly (no plan run): `planRunId` is null
-   * and `status` starts ACTIVE. Like Idea, there is no per-team counter column,
+   * Create a team-level Initiative: `status` starts ACTIVE. There is no
+   * per-team counter column,
    * so the next `number` is derived from the current max inside a transaction;
    * the `@@unique([teamId, number])` constraint guards a concurrent racer and a
    * resulting P2002 retries with a freshly-read max (bounded).
@@ -260,7 +253,6 @@ export const initiativeRepository = {
               teamId: data.teamId,
               workspaceId: data.workspaceId,
               number,
-              planRunId: null,
               // LUM-678: `name` is the initiative's goal text. A directly-created
               // initiative starts ACTIVE.
               name: data.name,

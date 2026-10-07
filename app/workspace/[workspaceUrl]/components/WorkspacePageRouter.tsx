@@ -22,7 +22,6 @@ import { MyTasksPage } from './pages/MyTasksPage'
 import { InboxPage } from './pages/InboxPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { DocumentEditorPage } from './pages/DocumentEditorPage'
-import { IdeaPoolPage } from './pages/IdeaPoolPage'
 import { RunReviewPage } from './pages/RunReviewPage'
 import { DraftsPage } from './DraftsPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -409,9 +408,6 @@ export function WorkspacePageRouter(props: Props) {
 
     case 'milestone-detail':
       return <MilestoneDetailPage onOpenTask={handleOpenTask} />
-
-    case 'ideas':
-      return <IdeaPoolPage workspaceUrl={workspaceUrl} />
 
     case 'run-reviews':
       return <RunReviewPage workspaceUrl={workspaceUrl} />

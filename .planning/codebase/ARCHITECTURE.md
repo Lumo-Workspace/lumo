@@ -192,9 +192,9 @@
 
 **Authentication:**
 
-- Clerk SDK (`@clerk/nextjs`)
-- Server-side: `lib/auth/index.ts` exports `requireAuth()`, `requireWorkspaceMember()`, `getUserWorkspace()`
-- Client-side: `ClerkProvider` wraps app in `components/core/Providers.tsx`
+- Clerk SDK (`@clerk/nextjs`), confined to `lib/auth/` (LUM-1026: ESLint + jest guard); everything else goes through the `@/lib/auth` interface so the provider can be swapped (Better Auth, LUM-1027)
+- Server-side: `lib/auth/index.ts` exports `getCurrentUserId()`, `getCurrentUser()`, `requireAuth()`, `requireWorkspaceMember()`, `getUserWorkspace()`; `@/lib/auth/users` (user directory), `@/lib/auth/middleware` (proxy.ts), `@/lib/auth/mcp` + `@/lib/auth/oauth-metadata` (MCP OAuth); Clerk implementations live in `lib/auth/clerk/`
+- Client-side: `AuthProvider` (from `@/lib/auth/client`) wraps app in `components/core/Providers.tsx`; hooks `useUser` / `useSignOut` and `SignIn` come from the same module
 - Pattern: Check auth early in API routes; workspace membership verified per-request
 
 **Authorization:**

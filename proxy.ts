@@ -1,4 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { createAuthMiddleware, createRouteMatcher } from '@/lib/auth/middleware'
 import { NextResponse } from 'next/server'
 import { requireWorkflowDeliveryAuth } from '@/lib/api/workflow-delivery-auth'
 
@@ -21,14 +21,14 @@ const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES)
 // route never exists there and this exception is inert.
 const isDesignSystemRoute = createRouteMatcher(['/design-system(.*)'])
 
-export default clerkMiddleware(async (auth, request) => {
+export default createAuthMiddleware(async (auth, request) => {
   // Self-hosted workflow deliveries must present WORKFLOW_SECRET (LUM-1031).
   // Checked before anything else so a public /.well-known/ route cannot
   // reach a workflow step without it.
   const workflowDenied = requireWorkflowDeliveryAuth(request)
   if (workflowDenied) return workflowDenied
 
-  const { userId } = await auth()
+  const userId = await auth.userId()
   const { pathname } = request.nextUrl
 
   if (process.env.NODE_ENV !== 'production' && isDesignSystemRoute(request)) {

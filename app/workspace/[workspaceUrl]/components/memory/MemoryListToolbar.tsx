@@ -131,8 +131,6 @@ export function MemoryListToolbar({
               onClick={() => onCategoryChange(chip.key)}
               aria-pressed={active}
               data-testid={`memory-category-chip-${chip.key}`}
-              // Same chip as the Ideas pool's status filter — one filter
-              // language across the workspace.
               className={cn(
                 'rounded-full border px-3 py-0.5 text-caption transition-colors duration-fast ease-standard',
                 active

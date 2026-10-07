@@ -11,10 +11,9 @@ import {
   FileEdit,
   Search,
   CalendarClock,
-  Lightbulb,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useClerk } from '@clerk/nextjs'
+import { useSignOut } from '@/lib/auth/client'
 import { useIntl } from 'react-intl'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useParams } from 'next/navigation'
@@ -76,7 +75,7 @@ export function AppSidebar({
   onNewProject,
 }: AppSidebarProps) {
   const { user } = useCurrentUser()
-  const { signOut } = useClerk()
+  const signOut = useSignOut()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const { isMobile } = useSidebar()
   const intl = useIntl()
@@ -328,24 +327,6 @@ export function AppSidebar({
                     <span>
                       {intl.formatMessage({ id: 'sidebar.documents' })}
                     </span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={currentPage === 'ideas'}
-                  tooltip={intl.formatMessage({ id: 'sidebar.ideas' })}
-                >
-                  <Link
-                    href={`/workspace/${workspaceUrl}/ideas`}
-                    onClick={e => {
-                      e.preventDefault()
-                      onNavigate('ideas')
-                    }}
-                  >
-                    <Lightbulb />
-                    <span>{intl.formatMessage({ id: 'sidebar.ideas' })}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

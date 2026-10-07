@@ -89,17 +89,6 @@ jest.mock('@/lib/services/github.service', () => ({
     isRepoConfirmedElsewhere: jest.fn().mockResolvedValue(false),
   },
 }))
-jest.mock('@/lib/repositories/idea-pull-request.repository', () => ({
-  ideaPullRequestRepository: {
-    findByIdeaAndPr: jest.fn().mockResolvedValue(null),
-    create: jest.fn().mockResolvedValue({ id: 'ipr_1' }),
-  },
-}))
-jest.mock('@/lib/services/idea-evidence-resolve', () => ({
-  resolveIdeaRef: jest
-    .fn()
-    .mockResolvedValue({ ideaId: 'idea_1', workspaceId: 'ws_1', teamId: 't' }),
-}))
 jest.mock('@/lib/services/lineage-outcome.service', () => ({
   stampLineageInBackground: jest.fn(),
 }))
@@ -122,7 +111,6 @@ import {
 } from '@/lib/integrations/github/confirmed-repositories'
 import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
 import { linkPullRequest } from '@/lib/services/task-pr-link.service'
-import { ideaPullRequestService } from '@/lib/services/idea-pull-request.service'
 import { projectRepositoryService } from '@/lib/services/project-repository.service'
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
 import { taskService } from '@/lib/services/task.service'
@@ -334,17 +322,6 @@ describe('LUM-889 PR link case', () => {
     )
   })
 
-  it('LUM-889 PR link case: a differently cased URL reuses the existing row on the idea path', async () => {
-    await ideaPullRequestService.link({
-      workspaceId: 'ws_1',
-      ideaRef: 'LUM-I1',
-      url: 'https://github.com/ACME/App/pull/1',
-      createdById: 'm1',
-    })
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(githubRepository.upsertPullRequest).not.toHaveBeenCalled()
-  })
-
   it("LUM-889 PR link case: a new PR is stored under GitHub's canonical full_name", async () => {
     ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
       null
@@ -367,15 +344,9 @@ describe('LUM-889 PR link case', () => {
     await linkPullRequest('task_1', {
       url: 'https://github.com/ACME/App/pull/1',
     })
-    await ideaPullRequestService.link({
-      workspaceId: 'ws_1',
-      ideaRef: 'LUM-I1',
-      url: 'https://github.com/ACME/APP/pull/1',
-      createdById: 'm1',
-    })
 
     const upserts = (githubRepository.upsertPullRequest as jest.Mock).mock.calls
-    expect(upserts).toHaveLength(2)
+    expect(upserts).toHaveLength(1)
     for (const [data] of upserts) expect(data.repo).toBe('Acme/App')
   })
 })

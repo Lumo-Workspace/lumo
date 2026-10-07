@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useClerk } from '@clerk/nextjs'
+import { useSignOut } from '@/lib/auth/client'
 import { workspacesClient } from '@/lib/api-client'
 import { clearCache } from '../cache'
 
 /**
  * Leave the current workspace (LUM-830). A user belongs to a single
- * workspace, so leaving it ends their session here: we sign out of Clerk and
+ * workspace, so leaving it ends their session here: we sign out and
  * land on the public homepage. Signing out first matters — the proxy bounces
  * signed-in visitors of `/` back to `/workspace`.
  *
@@ -15,7 +15,7 @@ import { clearCache } from '../cache'
  * surface.
  */
 export function useLeaveWorkspace() {
-  const { signOut } = useClerk()
+  const signOut = useSignOut()
   const [leaving, setLeaving] = useState(false)
 
   const leave = async () => {
