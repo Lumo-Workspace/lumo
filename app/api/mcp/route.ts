@@ -15,7 +15,11 @@ const mcpHandler = createMcpHandler(
     serverInfo: { name: 'lumo', version: '1.0.0' },
   },
   {
-    basePath: '/api/mcp',
+    // mcp-handler serves streamable HTTP at `${basePath}/mcp`, so the parent
+    // segment `/api` makes it answer at `/api/mcp` — the only path Next routes
+    // to this file and the URL we publish. `/api/mcp` here would only match
+    // `/api/mcp/mcp`, which never reaches this route (LUM-1039).
+    basePath: '/api',
     maxDuration: 60,
   }
 )

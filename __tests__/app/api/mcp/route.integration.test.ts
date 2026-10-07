@@ -8,9 +8,9 @@
  * the Clerk-owned verification surface and the DB repositories. The full
  * server.ts + tools pipeline runs for real.
  *
- * URL note: the route handler is configured with basePath='/api/mcp', which
- * makes mcp-handler derive streamableHttpEndpoint='/api/mcp/mcp'. All POST
- * requests must target that path.
+ * URL note: the route handler is configured with basePath='/api', which
+ * makes mcp-handler derive streamableHttpEndpoint='/api/mcp' — the path Next
+ * routes to app/api/mcp/route.ts (LUM-1039).
  */
 
 // ── Repositories ─────────────────────────────────────────────────────────────
@@ -85,12 +85,12 @@ const mockMemberRepo = memberRepository as jest.Mocked<typeof memberRepository>
 
 /**
  * Build a POST Request that mcp-handler will route to the streamable HTTP
- * transport (pathname must be /api/mcp/mcp).
+ * transport (pathname must be /api/mcp).
  */
 function mcpPost(body: unknown): Request {
   // The MCP Streamable HTTP transport (RFC) requires the client to send
   // Accept: application/json, text/event-stream on POST requests.
-  return new Request('http://localhost/api/mcp/mcp', {
+  return new Request('http://localhost/api/mcp', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
