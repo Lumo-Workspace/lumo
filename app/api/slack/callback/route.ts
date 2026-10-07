@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encrypt } from '@/lib/crypto'
 import { decodeOauthState } from '@/lib/integrations/oauth-state'
@@ -15,6 +16,9 @@ import { memberAuditContext } from '@/lib/api/audit-context'
  * workspace (LUM-982). The state also expires (see lib/integrations/oauth-state).
  */
 export async function GET(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('slack')
+  if (notConfigured) return notConfigured
   const code = request.nextUrl.searchParams.get('code')
   const stateParam = request.nextUrl.searchParams.get('state')
   const error = request.nextUrl.searchParams.get('error')

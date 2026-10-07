@@ -4,7 +4,7 @@
  * LUM-918 — the owner email for a scheduled / cancelled workspace deletion.
  */
 jest.mock('@/lib/integrations/email/client', () => ({
-  getResend: jest.fn(),
+  sendEmail: jest.fn(),
 }))
 jest.mock('@/lib/utils/clerk-helpers', () => ({
   lookupClerkProfiles: jest.fn(),
@@ -14,7 +14,7 @@ jest.mock('@/lib/logger', () => ({
 }))
 
 import { buildWorkspaceDeletionEmail } from '@/lib/integrations/email'
-import { getResend } from '@/lib/integrations/email/client'
+import { sendEmail } from '@/lib/integrations/email/client'
 import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
 import { sendDeletionNotice } from '@/lib/services/workspace-deletion-notice'
 
@@ -51,11 +51,13 @@ describe('buildWorkspaceDeletionEmail', () => {
 
 describe('sendDeletionNotice', () => {
   it('emails every owner that has an address and counts the rest as failed', async () => {
-    const send = jest
-      .fn()
-      .mockResolvedValueOnce({ error: null })
-      .mockResolvedValueOnce({ error: { message: 'bounced' } })
-    ;(getResend as jest.Mock).mockReturnValue({ emails: { send } })
+    const send = sendEmail as jest.Mock
+    send
+      .mockResolvedValueOnce({ status: 'sent', id: 'm1' })
+      .mockResolvedValueOnce({
+        status: 'failed',
+        error: { name: 'Error', message: 'bounced' },
+      })
     ;(lookupClerkProfiles as jest.Mock).mockResolvedValue(
       new Map([
         ['o1', { name: 'Ada', email: 'ada@example.test' }],

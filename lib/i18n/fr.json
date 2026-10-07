@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "En cours — revenez dans quelques minutes.",
   "securityScan.stageReason.NOT_CONFIGURED": "Désactivée : le scanner géré de Lumo est désactivé sur ce déploiement et ce dépôt n'a envoyé aucun rapport de scanner.",
   "securityScan.stageReason.DISABLED": "Désactivée : coupée dans les paramètres de sécurité de cet espace de travail.",
-  "securityScan.stageReason.SUPERSEDED": "Inachevée : un push plus récent a lancé une nouvelle analyse avant la fin de cette couche."
+  "securityScan.stageReason.SUPERSEDED": "Inachevée : un push plus récent a lancé une nouvelle analyse avant la fin de cette couche.",
+  "integrations.notAvailable": "Indisponible sur ce déploiement : {names}. Ils apparaîtront ici une fois leurs identifiants configurés.",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Les scanners propres à Lumo et le vérificateur de revue nécessitent Vercel Sandbox, qui n'est pas configuré sur ce déploiement. Les rapports SARIF envoyés par votre CI restent affichés.",
+  "workspaceSettings.securityScan.sandboxUnavailable": "Indisponible sur ce déploiement : Vercel Sandbox n'est pas configuré."
 }

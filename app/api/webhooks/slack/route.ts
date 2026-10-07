@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
 import { handleCommand, CommandResult } from '@/lib/integrations/slack'
@@ -26,6 +27,9 @@ function verifySlackSignature(
 }
 
 export async function POST(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('slack')
+  if (notConfigured) return notConfigured
   try {
     // 1. Read raw body before any parsing
     const rawBody = await request.text()

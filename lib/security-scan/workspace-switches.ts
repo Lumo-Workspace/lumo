@@ -12,6 +12,7 @@
  */
 import { isManagedScanEnabled } from '@/lib/services/security-managed-scan.config'
 import { isHuntEnabled } from '@/lib/services/security-hunt.config'
+import { isIntegrationConfigured } from '@/lib/integrations/configured'
 
 /** The three stored workspace switches (all default on). */
 export interface WorkspaceSecuritySwitches {
@@ -54,6 +55,13 @@ export interface EffectiveSecurityLayers {
 export interface PlatformSecurityCeiling {
   managedScan: boolean
   hunt: boolean
+  /**
+   * LUM-1025 — Vercel Sandbox is configured on this deployment. When false the
+   * managed scan, baseline, hunt and verifier are all off, and the settings
+   * page says why ("not available on this deployment") instead of blaming a
+   * platform-wide switch.
+   */
+  sandbox: boolean
 }
 
 type Env = Record<string, string | undefined>
@@ -61,7 +69,11 @@ type Env = Record<string, string | undefined>
 export function platformSecurityCeiling(
   env: Env = process.env
 ): PlatformSecurityCeiling {
-  return { managedScan: isManagedScanEnabled(env), hunt: isHuntEnabled(env) }
+  return {
+    managedScan: isManagedScanEnabled(env),
+    hunt: isHuntEnabled(env),
+    sandbox: isIntegrationConfigured('vercelSandbox', env),
+  }
 }
 
 /**

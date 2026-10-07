@@ -481,6 +481,7 @@ export function WorkspaceSettingsPage() {
               securityHuntEnabled: workspace.securityHuntEnabled ?? true,
             }}
             huntAvailable={securityPlatform.hunt}
+            sandboxAvailable={securityPlatform.sandbox}
           />
         )}
 

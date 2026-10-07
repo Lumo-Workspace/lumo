@@ -3,7 +3,7 @@
  * to the owners of every workspace, as DPA 7.2 promises. Run by an operator
  * from their own terminal; nothing runs it on merge or deploy.
  *
- * Usage (DATABASE_URL, CLERK_SECRET_KEY and — for --confirm — RESEND_API_KEY
+ * Usage (DATABASE_URL, CLERK_SECRET_KEY and — for --confirm — RESEND_API_KEY or SMTP_*
  * come from the env file you pass; nothing is loaded implicitly):
  *
  *   # 1. dry run: the change, owners per workspace, the email; sends nothing
@@ -21,7 +21,7 @@
  * marked urgent, and a removal is never sent.
  */
 import { prisma } from '@/lib/db/prisma'
-import { getResend } from '@/lib/integrations/email'
+import { sendEmail } from '@/lib/integrations/email'
 import { PRIVACY_CONTACT_EMAIL } from '@/lib/legal/subprocessor-changes'
 import { assertApplyHost } from '@/lib/services/secret-stock-reredact.service'
 import {
@@ -75,9 +75,8 @@ async function main() {
       return new Map(ids.map(id => [id, profiles.get(id)?.email ?? null]))
     },
     sendEmail: async message => {
-      const { data, error } = await getResend().emails.send(
+      const result = await sendEmail(
         {
-          from: 'Lumo <noreply@uselumo.ai>',
           replyTo: PRIVACY_CONTACT_EMAIL,
           to: [message.to],
           subject: message.subject,
@@ -86,8 +85,15 @@ async function main() {
         },
         { idempotencyKey: message.idempotencyKey }
       )
-      if (error) throw new Error(`${error.name}: ${error.message}`)
-      return { messageId: data?.id ?? null }
+      if (result.status === 'failed') {
+        throw new Error(`${result.error.name}: ${result.error.message}`)
+      }
+      if (result.status === 'skipped') {
+        throw new Error(
+          'No email transport configured (RESEND_API_KEY or SMTP_URL/SMTP_HOST)'
+        )
+      }
+      return { messageId: result.id }
     },
   }
 

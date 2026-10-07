@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encodeOauthState } from '@/lib/integrations/oauth-state'
 
@@ -13,6 +14,9 @@ import { encodeOauthState } from '@/lib/integrations/oauth-state'
  * installation, so no repository scope is requested here.
  */
 export async function GET(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('githubAccount')
+  if (notConfigured) return notConfigured
   const authResult = await requireAuth()
   if (authResult instanceof NextResponse) return authResult
   const { userId } = authResult
@@ -33,13 +37,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const clientId = process.env.GITHUB_CLIENT_ID
-  if (!clientId) {
-    return NextResponse.json(
-      { error: 'GitHub OAuth not configured' },
-      { status: 500 }
-    )
-  }
+  // Present: requireIntegrationConfigured('githubAccount') checked it above.
+  const clientId = process.env.GITHUB_CLIENT_ID ?? ''
 
   // Encrypted, short-lived state; the callback also re-checks the signed-in
   // member against it (LUM-982).

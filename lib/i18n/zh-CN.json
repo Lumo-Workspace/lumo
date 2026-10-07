@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "仍在运行，几分钟后再来看。",
   "securityScan.stageReason.NOT_CONFIGURED": "已关闭：此部署未开启 Lumo 托管扫描，且这个仓库没有推送过扫描报告。",
   "securityScan.stageReason.DISABLED": "已关闭：在本工作区的安全设置中关闭了。",
-  "securityScan.stageReason.SUPERSEDED": "未完成：这一层跑完前，新的 push 已经开始了新一轮扫描。"
+  "securityScan.stageReason.SUPERSEDED": "未完成：这一层跑完前，新的 push 已经开始了新一轮扫描。",
+  "integrations.notAvailable": "此部署中不可用：{names}。配置好对应凭据后会显示在这里。",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo 自带的扫描器和审查验证器需要 Vercel Sandbox，但此部署未配置。你的 CI 上传的 SARIF 仍会照常显示。",
+  "workspaceSettings.securityScan.sandboxUnavailable": "此部署中不可用：未配置 Vercel Sandbox。"
 }

@@ -1,5 +1,9 @@
 import { getRun, start } from 'workflow/api'
 import { logger } from '@/lib/logger'
+import {
+  isIntegrationConfigured,
+  SANDBOX_NOT_CONFIGURED,
+} from '@/lib/integrations/configured'
 import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
@@ -7,6 +11,12 @@ import type { HuntJob } from './security-hunt.config'
 
 /** Never throws: stage A stamps `hunt=FAILED` on a null. Logs no sha. */
 export async function startSecurityHunt(job: HuntJob): Promise<string | null> {
+  if (!isIntegrationConfigured('vercelSandbox')) {
+    logger.info(
+      `[security-hunt] skipped scan=${job.scanId} ${job.repo}#${job.prNumber}: ${SANDBOX_NOT_CONFIGURED}`
+    )
+    return null
+  }
   try {
     const run = await start(securityHuntWorkflow, [job])
     logger.info(

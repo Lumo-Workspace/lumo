@@ -259,9 +259,16 @@ beforeEach(() => {
 
 describe('isManagedScanEnabled', () => {
   it('is on by default and off only for the exact value "off"', () => {
-    expect(isManagedScanEnabled({})).toBe(true)
-    expect(isManagedScanEnabled({ LUMO_MANAGED_SCAN: 'off' })).toBe(false)
-    expect(isManagedScanEnabled({ LUMO_MANAGED_SCAN: 'false' })).toBe(true)
+    const sandbox = { VERCEL: '1' } // LUM-1025: Sandbox configured
+    expect(isManagedScanEnabled(sandbox)).toBe(true)
+    expect(isManagedScanEnabled({ ...sandbox, LUMO_MANAGED_SCAN: 'off' })).toBe(
+      false
+    )
+    expect(
+      isManagedScanEnabled({ ...sandbox, LUMO_MANAGED_SCAN: 'false' })
+    ).toBe(true)
+    // LUM-1025: without Sandbox credentials it is off whatever the flag says
+    expect(isManagedScanEnabled({})).toBe(false)
   })
 })
 
