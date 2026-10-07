@@ -23,9 +23,25 @@ describe('project license (LUM-1014)', () => {
     // Scope note: cli/, shared/ and the skill files are MIT, each pointing at its LICENSE.
     const scope = text.slice(0, text.indexOf('\nElastic License 2.0\n'))
     expect(scope).toContain('licensed under the MIT License instead')
-    expect(scope).toMatch(/- cli\/ [^]*see cli\/LICENSE/)
-    expect(scope).toMatch(/- shared\/ [^]*see shared\/LICENSE/)
-    expect(scope).toMatch(/- \.claude\/skills\/lumo [^]*see cli\/LICENSE/)
+    // One bullet per directory; each bullet must name exactly its own LICENSE.
+    const bullets = new Map(
+      scope
+        .split('\n- ')
+        .slice(1)
+        .map(b => [b.split(' ')[0], b] as const)
+    )
+    expect([...bullets.keys()]).toEqual([
+      'cli/',
+      'shared/',
+      '.claude/skills/lumo',
+    ])
+    const pointers = (b: string | undefined) =>
+      (b ?? '').match(/see [\w./]+\/LICENSE/g)
+    expect(pointers(bullets.get('cli/'))).toEqual(['see cli/LICENSE'])
+    expect(pointers(bullets.get('shared/'))).toEqual(['see shared/LICENSE'])
+    expect(pointers(bullets.get('.claude/skills/lumo'))).toEqual([
+      'see cli/LICENSE',
+    ])
   })
 
   it.each(['cli/LICENSE', 'shared/LICENSE'])(
