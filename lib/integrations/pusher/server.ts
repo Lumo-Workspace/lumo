@@ -7,31 +7,74 @@ import type {
   UserEvent,
   WorkspaceEvent,
 } from './types'
+import { logger } from '@/lib/logger'
+import {
+  readServerPusherEnv,
+  resolveServerPusherConfig,
+  type PusherServerConfig,
+} from './config'
 
-let _pusher: Pusher | null = null
+// `undefined` = not resolved yet; `null` = realtime not configured (no-op).
+let _pusher: Pusher | null | undefined
 
-function getPusher(): Pusher {
-  if (!_pusher) {
-    _pusher = new Pusher({
-      appId: process.env.PUSHER_APP_ID!,
-      key: process.env.PUSHER_KEY!,
-      secret: process.env.PUSHER_SECRET!,
-      cluster: process.env.PUSHER_CLUSTER!,
-      useTLS: true,
-    })
+function toPusherOptions(config: PusherServerConfig): Pusher.Options {
+  const { appId, key, secret, useTLS } = config
+  if (config.mode === 'custom') {
+    return {
+      appId,
+      key,
+      secret,
+      host: config.host,
+      ...(config.port ? { port: config.port } : {}),
+      useTLS,
+    }
   }
+  return { appId, key, secret, cluster: config.cluster, useTLS }
+}
+
+function getPusher(): Pusher | null {
+  if (_pusher !== undefined) return _pusher
+  const config = resolveServerPusherConfig(readServerPusherEnv())
+  if (!config) {
+    // Logged once per process: self-hosted installs without a Pusher-protocol
+    // server are a supported setup, not an error.
+    logger.info(
+      '[pusher] Realtime not configured (PUSHER_APP_ID/KEY/SECRET + CLUSTER or HOST); events will not be pushed.'
+    )
+    _pusher = null
+    return _pusher
+  }
+  _pusher = new Pusher(toPusherOptions(config))
   return _pusher
+}
+
+/** True when server-side triggers will actually reach a Pusher-protocol server. */
+export function isServerRealtimeConfigured(): boolean {
+  return getPusher() !== null
+}
+
+async function trigger(
+  channel: string,
+  eventName: string,
+  data: unknown,
+  label: string
+): Promise<void> {
+  try {
+    // Inside the try: a bad config that makes the constructor throw must not
+    // break the caller either.
+    const pusher = getPusher()
+    if (!pusher) return
+    await pusher.trigger(channel, eventName, data)
+  } catch (err) {
+    logger.error(`[pusher] Failed to push ${label} event:`, err)
+  }
 }
 
 export async function pushAgentEvent(
   taskId: string,
   event: AgentEvent
 ): Promise<void> {
-  try {
-    await getPusher().trigger(`task-${taskId}`, 'agent-update', event)
-  } catch (err) {
-    console.error('[pusher] Failed to push agent event:', err)
-  }
+  await trigger(`task-${taskId}`, 'agent-update', event, 'agent')
 }
 
 /** Fire-and-forget version — use for non-critical progress/thinking events. */
@@ -43,75 +86,50 @@ export async function pushTaskEvent(
   taskId: string,
   event: TaskEvent
 ): Promise<void> {
-  try {
-    await getPusher().trigger(`task-${taskId}`, 'task-update', event)
-  } catch (err) {
-    console.error('[pusher] Failed to push task event:', err)
-  }
+  await trigger(`task-${taskId}`, 'task-update', event, 'task')
 }
 
 export async function pushProjectEvent(
   projectId: string,
   event: ProjectEvent
 ): Promise<void> {
-  try {
-    await getPusher().trigger(`project-${projectId}`, 'project-update', event)
-  } catch (err) {
-    console.error('[pusher] Failed to push project event:', err)
-  }
+  await trigger(`project-${projectId}`, 'project-update', event, 'project')
 }
 
 export async function pushUserEvent(
   clerkId: string,
   event: UserEvent
 ): Promise<void> {
-  try {
-    await getPusher().trigger(`user-${clerkId}`, 'user-update', event)
-  } catch (err) {
-    console.error('[pusher] Failed to push user event:', err)
-  }
+  await trigger(`user-${clerkId}`, 'user-update', event, 'user')
 }
 
 export async function pushActivityEvent(
   taskId: string,
   entry: Record<string, unknown>
 ): Promise<void> {
-  try {
-    await getPusher().trigger(`task-${taskId}`, 'activity-created', {
-      type: 'activity:created',
-      entry,
-    })
-  } catch (err) {
-    console.error('[pusher] Failed to push activity event:', err)
-  }
+  await trigger(
+    `task-${taskId}`,
+    'activity-created',
+    { type: 'activity:created', entry },
+    'activity'
+  )
 }
 
 export async function pushWorkspaceEvent(
   workspaceSlug: string,
   event: WorkspaceEvent
 ): Promise<void> {
-  try {
-    await getPusher().trigger(
-      `workspace-${workspaceSlug}`,
-      'workspace-update',
-      event
-    )
-  } catch (err) {
-    console.error('[pusher] Failed to push workspace event:', err)
-  }
+  await trigger(
+    `workspace-${workspaceSlug}`,
+    'workspace-update',
+    event,
+    'workspace'
+  )
 }
 
 export async function pushDocumentEvent(
   documentId: string,
   event: DocumentEvent
 ): Promise<void> {
-  try {
-    await getPusher().trigger(
-      `document-${documentId}`,
-      'document-update',
-      event
-    )
-  } catch (err) {
-    console.error('[pusher] Failed to push document event:', err)
-  }
+  await trigger(`document-${documentId}`, 'document-update', event, 'document')
 }

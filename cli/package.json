@@ -1,6 +1,6 @@
 {
   "name": "@lumoai/cli",
-  "version": "1.97.0",
+  "version": "1.97.1",
   "description": "Lumo CLI — manage tasks and sessions from the terminal",
   "license": "MIT",
   "author": "cli@uselumo.ai",
@@ -28,7 +28,8 @@
   },
   "files": [
     "dist",
-    "assets"
+    "assets",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"

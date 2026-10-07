@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getAuthorizeUrl } from '@/lib/integrations/figma/oauth'
 import { encodeOauthState } from '@/lib/services/figma-integration.service'
 
 export async function GET(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('figma')
+  if (notConfigured) return notConfigured
   const authResult = await requireAuth()
   if (authResult instanceof NextResponse) return authResult
   const { userId } = authResult

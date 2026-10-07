@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { getUserWorkspace } from '@/lib/auth'
+import { configuredRegistryIntegrations } from '@/lib/integrations/configured'
 import { IntegrationsPage } from '../../components/pages/IntegrationsPage'
 
 export default async function IntegrationsSettingsPage({
@@ -15,5 +16,12 @@ export default async function IntegrationsSettingsPage({
     const ws = await getUserWorkspace(userId, workspaceUrl)
     isOwner = ws?.member.role === 'OWNER'
   }
-  return <IntegrationsPage isOwner={isOwner} />
+  // LUM-1025: which integrations this deployment has credentials for — read
+  // here, on the server, so no env reaches the client bundle.
+  return (
+    <IntegrationsPage
+      isOwner={isOwner}
+      configured={configuredRegistryIntegrations()}
+    />
+  )
 }

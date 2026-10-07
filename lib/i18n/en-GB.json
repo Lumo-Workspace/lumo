@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "Still running — check back in a few minutes.",
   "securityScan.stageReason.NOT_CONFIGURED": "Off: Lumo's managed scanner is off for this deployment and this repository hasn't pushed a scanner report.",
   "securityScan.stageReason.DISABLED": "Off: turned off in this workspace's security settings.",
-  "securityScan.stageReason.SUPERSEDED": "Not finished: a newer push started a new scan before this layer completed."
+  "securityScan.stageReason.SUPERSEDED": "Not finished: a newer push started a new scan before this layer completed.",
+  "integrations.notAvailable": "Not available on this deployment: {names}. They appear here once their credentials are configured.",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo's own scanners and the review verifier need Vercel Sandbox, which is not configured on this deployment. SARIF uploaded by your CI is still shown.",
+  "workspaceSettings.securityScan.sandboxUnavailable": "Not available on this deployment: Vercel Sandbox is not configured."
 }

@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "Masih berjalan — cek lagi beberapa menit lagi.",
   "securityScan.stageReason.NOT_CONFIGURED": "Nonaktif: pemindai terkelola Lumo nonaktif di deployment ini dan repositori ini belum mengirim laporan pemindai.",
   "securityScan.stageReason.DISABLED": "Nonaktif: dimatikan di pengaturan keamanan workspace ini.",
-  "securityScan.stageReason.SUPERSEDED": "Tidak selesai: push yang lebih baru memulai pemindaian baru sebelum lapisan ini selesai."
+  "securityScan.stageReason.SUPERSEDED": "Tidak selesai: push yang lebih baru memulai pemindaian baru sebelum lapisan ini selesai.",
+  "integrations.notAvailable": "Tidak tersedia di deployment ini: {names}. Akan muncul di sini setelah kredensialnya dikonfigurasi.",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Pemindai milik Lumo dan verifikator review memerlukan Vercel Sandbox, yang belum dikonfigurasi di deployment ini. SARIF yang diunggah CI Anda tetap ditampilkan.",
+  "workspaceSettings.securityScan.sandboxUnavailable": "Tidak tersedia di deployment ini: Vercel Sandbox belum dikonfigurasi."
 }

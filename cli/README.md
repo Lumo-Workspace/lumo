@@ -117,4 +117,4 @@ Inside a Claude Code session, the agent skill auto-discovers the CLI and uses it
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Lumo AI. The agent skill files bundled in `assets/skill` are covered by the same license.

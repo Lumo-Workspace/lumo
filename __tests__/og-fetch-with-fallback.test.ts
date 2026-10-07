@@ -65,3 +65,18 @@ describe('fetchWithFallback', () => {
     expect(result).toEqual({ ok: false, error: 'http 404' })
   })
 })
+
+describe('LUM-1025 fetchWithFallback without Chromium', () => {
+  const saved = { ...process.env }
+  afterEach(() => {
+    process.env = { ...saved }
+  })
+
+  it('keeps the plain fetch result instead of launching a browser', async () => {
+    process.env.LUMO_OG_CHROMIUM = 'off'
+    ogMock.mockResolvedValue({ ok: false, error: 'http 403' })
+    const result = await fetchWithFallback('https://example.com/')
+    expect(chromiumMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ ok: false, error: 'http 403' })
+  })
+})

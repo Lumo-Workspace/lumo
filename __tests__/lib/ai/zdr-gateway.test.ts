@@ -328,6 +328,16 @@ describe('zdr import audit', () => {
         ZDR_WRAPPER
       )
     ).toEqual([])
+    // LUM-1019 — the wrapper also builds the self-hosting direct providers;
+    // everywhere else they remain a bypass.
+    for (const sdk of ['@ai-sdk/anthropic', '@ai-sdk/openai-compatible']) {
+      const src = `import * as p from '${sdk}'`
+      expect(run(src, ZDR_WRAPPER)).toEqual([])
+      expect(run(load + src)).not.toEqual([])
+    }
+    expect(
+      run("import Anthropic from '@anthropic-ai/sdk'", ZDR_WRAPPER)
+    ).not.toEqual([])
   })
 
   it('zdr audit requires a side-effect gateway load at every ai call site', () => {

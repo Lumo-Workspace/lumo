@@ -30,22 +30,24 @@ import {
 const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
 
 /**
- * Lines longer than this are treated specially by both scanners below, but
- * in different, deliberately asymmetric ways:
+ * Lines longer than this are never handed to the registry in one piece — a
+ * minified bundle line can be hundreds of kilobytes. What each entry point
+ * does with an over-cap line:
  *
- * - `scanSecrets` SKIPS an over-cap line entirely (never scanned, never
- *   reported). That's safe to do outright: a minified bundle line can be
- *   tens of thousands of characters, running every pattern's `exec` loop
- *   over it repeatedly is wasted work, and skipping only means a *finding*
- *   is missed — nothing here is asked to guarantee it redacts everything,
- *   only that what it reports is accurate.
- * - `redactKnownSecrets` is a second-layer *sanitizer* over text that is
- *   about to be persisted (LLM-produced evidence). It must never return
- *   unscanned raw text — doing the same "skip" would fail OPEN, letting an
- *   over-cap line's secret straight through. It instead scans and redacts
- *   only the first `MAX_SCANNED_LINE_CHARS` characters and DROPS the
- *   remainder, appending `…(truncated)` — never passing unscanned text back
- *   to the caller.
+ * - `scanSecrets` and `redactForStorage` scan it in overlapping
+ *   `MAX_SCANNED_LINE_CHARS` windows (`collectMatchesWindowed`): every
+ *   character is scanned, cost stays linear in the line length. LUM-1036:
+ *   `scanSecrets` used to SKIP an over-cap line outright, which — once the
+ *   rule is public — meant a key padded into a >5000-char line (or appended
+ *   to a minified bundle) was never reported, by the PR scan or by the
+ *   session HARDCODED_SECRET crossing. A finding on an over-cap line carries
+ *   a bounded evidence excerpt around the reported value
+ *   (`EVIDENCE_EXCERPT_CONTEXT_CHARS` each side), cut from the fully
+ *   redacted line.
+ * - `redactKnownSecrets` / `redactForInjection` are sanitizers over text
+ *   that is about to be persisted or injected. They scan and redact the
+ *   first `MAX_SCANNED_LINE_CHARS` characters and DROP the remainder behind
+ *   `…(truncated)` — never passing unscanned text back to the caller.
  */
 export const MAX_SCANNED_LINE_CHARS = 5000
 
@@ -275,12 +277,39 @@ export function privateKeySpans(text: string): Span[] {
   return mergeSpans(spans)
 }
 
+/**
+ * LUM-1036 — evidence for a finding on an over-cap line: a window of the
+ * already-redacted line around the reported value's redaction token, so a
+ * secret in a 200 KB minified line does not persist 200 KB of bundle as
+ * evidence. The cut is taken from fully-redacted text, so it can only drop
+ * characters, never expose one. An in-cap line comes back whole.
+ */
+const EVIDENCE_EXCERPT_CONTEXT_CHARS = 200
+
+function evidenceExcerpt(
+  redacted: string,
+  originalLength: number,
+  reportedValue: string
+): string {
+  if (originalLength <= MAX_SCANNED_LINE_CHARS) return redacted
+  const token = redactSecret(reportedValue)
+  let at = redacted.indexOf(token)
+  if (at === -1) at = redacted.indexOf(REDACTION_MARKER)
+  if (at === -1) at = 0
+  const from = Math.max(0, at - EVIDENCE_EXCERPT_CONTEXT_CHARS)
+  const to = Math.min(
+    redacted.length,
+    at + token.length + EVIDENCE_EXCERPT_CONTEXT_CHARS
+  )
+  return `${from > 0 ? '…' : ''}${redacted.slice(from, to)}${to < redacted.length ? '…' : ''}`
+}
+
 export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
   const out: RawSecretFinding[] = []
   for (const file of files) {
     const pathDowngraded = isDowngradedPath(file.path)
     for (const line of file.lines) {
-      const matches = collectMatches(line.text)
+      const matches = collectMatchesWindowed(line.text)
       if (matches.length === 0) continue
 
       // Reporting rule: highest severity wins; ties go to whichever match
@@ -334,7 +363,11 @@ export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
         // `maskQuotedValues` runs as a final belt-and-braces pass so an
         // undetected co-located quoted credential (one no pattern above
         // matched) still never survives into persisted evidence.
-        evidence: maskQuotedValues(redactAll(line.text, matches)),
+        evidence: evidenceExcerpt(
+          maskQuotedValues(redactAll(line.text, matches)),
+          line.text.length,
+          best.value
+        ),
         fingerprint: secretFingerprint(
           ruleId,
           best.pattern.fingerprintValue?.(best.value) ?? best.value
@@ -504,7 +537,7 @@ export function redactForInjection(
 }
 
 /**
- * Window overlap for over-cap lines in `redactForStorage`: a secret up to this
+ * Window overlap for over-cap lines in `scanSecrets` / `redactForStorage`: a secret up to this
  * many characters that straddles one window's end lies whole inside the next.
  * Registry secrets are single-line tokens far shorter than this (PEM blocks
  * span many short lines and are redacted whole by `redactPrivateKeyBlocks`

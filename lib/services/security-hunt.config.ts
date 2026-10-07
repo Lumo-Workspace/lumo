@@ -6,6 +6,7 @@
  * for `isHuntEnabled`. Anything that needs GitHub, the AI SDK, zod or the
  * repositories goes in `security-hunt.service.ts`.
  */
+import { isIntegrationConfigured } from '@/lib/integrations/configured'
 import type { Subgraph } from '@/lib/security-scan/graph/types'
 import type {
   RejectedCandidate,
@@ -1378,9 +1379,16 @@ export type HuntResult =
       tokenSpent: number
     }
 
-/** Kill switch: the hunt is on unless LUMO_SECURITY_HUNT is exactly "off". */
+/**
+ * Kill switch: the hunt is on unless LUMO_SECURITY_HUNT is exactly "off" — or
+ * (LUM-1025) Vercel Sandbox is not configured: the hunt reads a sandbox
+ * checkout of the PR head.
+ */
 export function isHuntEnabled(
   env: Record<string, string | undefined> = process.env
 ): boolean {
-  return env.LUMO_SECURITY_HUNT !== 'off'
+  return (
+    env.LUMO_SECURITY_HUNT !== 'off' &&
+    isIntegrationConfigured('vercelSandbox', env)
+  )
 }

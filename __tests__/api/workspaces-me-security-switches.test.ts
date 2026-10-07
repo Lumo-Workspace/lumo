@@ -86,14 +86,22 @@ describe('LUM-866 workspace switches settings API', () => {
       securityAiReviewEnabled: true,
       securityHuntEnabled: true,
     })
-    expect(body.securityPlatform).toEqual({ managedScan: true, hunt: true })
+    expect(body.securityPlatform).toEqual({
+      managedScan: true,
+      hunt: true,
+      sandbox: true,
+    })
   })
 
   it('GET reports a layer the platform env turned off', async () => {
     asRole('OWNER')
     process.env.LUMO_SECURITY_HUNT = 'off'
     const body = await (await GET()).json()
-    expect(body.securityPlatform).toEqual({ managedScan: true, hunt: false })
+    expect(body.securityPlatform).toEqual({
+      managedScan: true,
+      hunt: false,
+      sandbox: true,
+    })
   })
 
   it('an OWNER PATCH persists the three switches', async () => {

@@ -3,7 +3,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { sendInvitesSchema } from '@/lib/validation/schemas'
-import { getResend, buildInviteEmail } from '@/lib/integrations/email'
+import { sendEmail, buildInviteEmail } from '@/lib/integrations/email'
 import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
@@ -49,8 +49,6 @@ export async function POST(request: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
     const expiresAt = inviteExpiresAt()
-    const resend = getResend()
-
     const inviteResults = await inviteService.createInvites(
       workspaceId,
       emails,
@@ -75,17 +73,15 @@ export async function POST(request: NextRequest) {
         inviteUrl,
       })
 
-      const { error } = await resend.emails.send(
-        {
-          from: 'Lumo <noreply@uselumo.ai>',
-          to: [email],
-          subject,
-          html,
-        },
+      const result = await sendEmail(
+        { to: [email], subject, html },
         { idempotencyKey: `workspace-invite/${invite.id}` }
       )
 
-      results.push({ email, status: error ? 'failed' : 'sent' })
+      results.push({
+        email,
+        status: result.status === 'sent' ? 'sent' : 'failed',
+      })
     }
 
     const sent = results.filter(r => r.status === 'sent').length

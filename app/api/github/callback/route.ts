@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encrypt } from '@/lib/crypto'
 import { decodeOauthState } from '@/lib/integrations/oauth-state'
@@ -16,6 +17,9 @@ import { githubService } from '@/lib/services/github.service'
  * (LUM-982). The state also expires (see lib/integrations/oauth-state).
  */
 export async function GET(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('githubAccount')
+  if (notConfigured) return notConfigured
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
   const state = searchParams.get('state')
