@@ -1,5 +1,4 @@
-import { Ratelimit } from '@upstash/ratelimit'
-import { kv } from '@vercel/kv'
+import { createSlidingWindow } from '@/lib/rate-limit'
 
 export const BOOTSTRAP_TOOLS = new Set([
   'list_my_workspaces',
@@ -7,11 +6,16 @@ export const BOOTSTRAP_TOOLS = new Set([
   'get_active_workspace',
 ])
 
-const ratelimit = new Ratelimit({
-  redis: kv,
-  limiter: Ratelimit.slidingWindow(60, '60 s'),
+/**
+ * 60 MCP tool calls per user per rolling minute. Backend is pluggable
+ * (LUM-1020): Vercel KV / Upstash, `REDIS_URL`, or a per-instance in-memory
+ * window when neither is configured. Unlike the endpoint limiters, a backend
+ * error here propagates (the tool call fails), as before.
+ */
+const ratelimit = createSlidingWindow({
   prefix: 'mcp:rate',
-  analytics: false,
+  max: 60,
+  windowMs: 60_000,
 })
 
 export async function checkRateLimit(input: {
@@ -28,4 +32,9 @@ export async function checkRateLimit(input: {
     })
   }
   return { success: true, remaining: result.remaining }
+}
+
+/** Test-only: reset module-level limiter state between test cases. */
+export function __resetMcpRateLimitForTests(): void {
+  ratelimit.reset()
 }

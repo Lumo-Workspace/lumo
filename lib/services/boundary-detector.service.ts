@@ -1185,7 +1185,11 @@ function sensitiveReadCrossing(r: SensitiveReadMatch): DetectedCrossing {
   return {
     category: 'SENSITIVE_PATH_READ',
     detail: clip(
-      `read sensitive path ${r.path} (${r.label}) via ${r.via} — advisory`
+      `read sensitive path ${r.path} (${r.label}) via ${r.via} — advisory${
+        r.alsoRead?.length
+          ? ` — +${r.alsoRead.length} more in this command: ${r.alsoRead.join(', ')}`
+          : ''
+      }`
     ),
     severity: severityFor('SENSITIVE_PATH_READ'),
     target: r.path,

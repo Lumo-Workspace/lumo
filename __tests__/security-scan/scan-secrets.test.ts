@@ -270,11 +270,14 @@ test('redactKnownSecrets redacts an unquoted AWS key using the pattern registry'
   expect(masked).toContain('AKIA…(len 20)')
 })
 
-test('skips lines longer than MAX_SCANNED_LINE_CHARS entirely', () => {
-  const longLine =
-    'x'.repeat(MAX_SCANNED_LINE_CHARS + 1) + ' AKIAABCDEFGHIJKLMNOP'
+test('scans lines longer than MAX_SCANNED_LINE_CHARS instead of skipping them (LUM-1036)', () => {
+  // Assembled at runtime so this changed line is not itself a secret hit.
+  const key = ['AK', 'IA', 'ABCDEFGHIJKLMNOP'].join('')
+  const longLine = 'x'.repeat(MAX_SCANNED_LINE_CHARS + 1) + ' ' + key
   const f = file('src/bundle.min.js', [longLine])
-  expect(scanSecrets([f])).toHaveLength(0)
+  const r = scanSecrets([f])
+  expect(r.map(x => x.ruleId)).toEqual(['secret:aws-access-key-id'])
+  expect(r[0]?.evidence).not.toContain(key)
 })
 
 test('redactKnownSecrets never fails open on an over-cap line: it truncates instead of passing raw text through', () => {
