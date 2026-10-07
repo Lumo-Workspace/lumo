@@ -194,6 +194,26 @@ describe('SignIn (Better Auth)', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it('a network failure re-enables the form with the generic error', async () => {
+    mockSignInEmail.mockRejectedValue(new TypeError('Failed to fetch'))
+    await renderForm()
+    fireEvent.change(screen.getByLabelText('auth.field.email'), {
+      target: { value: 'ada@x.io' },
+    })
+    fireEvent.change(screen.getByLabelText('auth.field.password'), {
+      target: { value: 'whatever-123' },
+    })
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'auth.signIn.submit' })
+      )
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('auth.error.generic')
+    expect(
+      screen.getByRole('button', { name: 'auth.signIn.submit' })
+    ).toBeEnabled()
+  })
+
   it('switches to sign-up and creates the account with a name', async () => {
     mockSignUpEmail.mockResolvedValue({ data: {}, error: null })
     await renderForm()

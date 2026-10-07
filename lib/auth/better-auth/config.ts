@@ -25,16 +25,9 @@ export const BETTER_AUTH_BASE_PATH = '/api/auth'
 export const SOCIAL_PROVIDERS = ['github', 'google'] as const
 export type SocialProviderId = (typeof SOCIAL_PROVIDERS)[number]
 
-const SOCIAL_ENV: Record<SocialProviderId, { id: string; secret: string }> = {
-  github: {
-    id: 'AUTH_GITHUB_CLIENT_ID',
-    secret: 'AUTH_GITHUB_CLIENT_SECRET',
-  },
-  google: {
-    id: 'AUTH_GOOGLE_CLIENT_ID',
-    secret: 'AUTH_GOOGLE_CLIENT_SECRET',
-  },
-}
+/** `github` + `ID` → the env var name `AUTH_GITHUB_CLIENT_ID`. */
+const socialEnvName = (p: SocialProviderId, part: 'ID' | 'SECRET') =>
+  `AUTH_${p.toUpperCase()}_CLIENT_${part}`
 
 export interface SocialProviderCredentials {
   clientId: string
@@ -70,8 +63,8 @@ export function resolveSocialProviders(
 ): Partial<Record<SocialProviderId, SocialProviderCredentials>> {
   const out: Partial<Record<SocialProviderId, SocialProviderCredentials>> = {}
   for (const provider of SOCIAL_PROVIDERS) {
-    const clientId = env[SOCIAL_ENV[provider].id]
-    const clientSecret = env[SOCIAL_ENV[provider].secret]
+    const clientId = env[socialEnvName(provider, 'ID')]
+    const clientSecret = env[socialEnvName(provider, 'SECRET')]
     if (clientId && clientSecret) out[provider] = { clientId, clientSecret }
   }
   return out

@@ -69,15 +69,21 @@ export function SignIn() {
     setSubmitting(true)
     setErrorId(null)
     const authClient = getAuthClient()
-    const { error } = isSignUp
-      ? await authClient.signUp.email({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-        })
-      : await authClient.signIn.email({ email: email.trim(), password })
-    if (error) {
-      setErrorId(errorMessageId(error.code))
+    let code: string | null = null
+    try {
+      const { error } = isSignUp
+        ? await authClient.signUp.email({
+            name: name.trim(),
+            email: email.trim(),
+            password,
+          })
+        : await authClient.signIn.email({ email: email.trim(), password })
+      code = error ? (error.code ?? '') : null
+    } catch {
+      code = '' // network failure → generic message
+    }
+    if (code !== null) {
+      setErrorId(errorMessageId(code))
       setSubmitting(false)
       return
     }
@@ -87,11 +93,15 @@ export function SignIn() {
 
   const handleSocial = async (provider: SocialProviderId) => {
     setErrorId(null)
-    const { error } = await getAuthClient().signIn.social({
-      provider,
-      callbackURL: target,
-    })
-    if (error) setErrorId(errorMessageId(error.code))
+    try {
+      const { error } = await getAuthClient().signIn.social({
+        provider,
+        callbackURL: target,
+      })
+      if (error) setErrorId(errorMessageId(error.code))
+    } catch {
+      setErrorId(errorMessageId(null))
+    }
   }
 
   const t = (id: string, values?: Record<string, string>) =>
