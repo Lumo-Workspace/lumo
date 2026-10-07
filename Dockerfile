@@ -14,7 +14,7 @@
 # @workflow/core runtime/world.js) and graphile-worker resolves its plugins at
 # runtime, so file tracing cannot see them; and the same image also runs
 # `prisma migrate deploy`. The runtime stage therefore ships the production
-# dependency tree (`npm ci --omit=dev`) next to the built `.next`.
+# dependency tree (`npm ci`, then `npm prune --omit=dev`) next to the built `.next`.
 
 ARG NODE_IMAGE=node:24-bookworm-slim
 
