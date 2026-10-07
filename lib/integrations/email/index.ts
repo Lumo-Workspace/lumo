@@ -9,6 +9,8 @@ export type {
 // Client
 export {
   sendEmail,
+  isEmailDelivered,
+  EMAIL_CLAIM_STALE_MS,
   resolveEmailTransport,
   resolveEmailFrom,
   DEFAULT_EMAIL_FROM,

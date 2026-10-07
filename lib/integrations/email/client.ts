@@ -1,18 +1,25 @@
-import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
 import type { Transporter, TransportOptions } from 'nodemailer'
 import { logger } from '@/lib/logger'
+import { emailDeliveryRepository } from '@/lib/repositories/email-delivery.repository'
 
 /**
- * LUM-1017: the single email transport for the app, pluggable by env.
+ * LUM-1017 / LUM-1041: the single email transport for the app. Every email
+ * goes over SMTP via nodemailer; the env only picks the server.
  *
- *   RESEND_API_KEY set           → Resend (hosted SaaS default)
- *   else SMTP_URL or SMTP_HOST   → SMTP via nodemailer (self-hosting)
- *   else                         → unconfigured: log + no-op, never throws
+ *   SMTP_URL or SMTP_HOST set   → that SMTP server (self-hosting, explicit)
+ *   else RESEND_API_KEY set     → Resend's SMTP relay (hosted SaaS default:
+ *                                 smtp.resend.com:465, user `resend`,
+ *                                 password = the key — no env change needed)
+ *   else                        → unconfigured: log + no-op, never throws
+ *
+ * Idempotency is the app's job (SMTP has none): a send with an
+ * `idempotencyKey` claims an `email_deliveries` row first and is skipped as
+ * a duplicate when the key was already sent or is in flight.
  *
  * Callers use `sendEmail`; they never import a provider SDK.
  */
-export type EmailTransportKind = 'resend' | 'smtp' | 'none'
+export type EmailTransportKind = 'smtp' | 'resend_relay' | 'none'
 
 export interface EmailMessage {
   to: string[]
@@ -25,7 +32,11 @@ export interface EmailMessage {
 }
 
 export interface SendEmailOptions {
-  /** Honoured by Resend; SMTP has no equivalent and ignores it. */
+  /**
+   * At most one send per key, ever (app-level, `email_deliveries`): a key
+   * already SENT — or being sent right now — is skipped as `duplicate`; a
+   * FAILED key may be retried. Omit it for sends that may repeat.
+   */
   idempotencyKey?: string
 }
 
@@ -33,6 +44,44 @@ export type SendEmailResult =
   | { status: 'sent'; id: string | null }
   | { status: 'failed'; error: SendEmailError }
   | { status: 'skipped'; reason: 'not_configured' }
+  | {
+      status: 'skipped'
+      reason: 'duplicate'
+      /** `sent`: done earlier; `sending`: another request is sending it now. */
+      prior: 'sent' | 'sending'
+      /** Message id of the earlier send, when known. */
+      id: string | null
+    }
+
+/**
+ * True when the email is known to have gone out: sent now, or a duplicate of
+ * a key already SENT. A duplicate of a key still SENDING elsewhere is NOT
+ * delivered — that send may yet fail or have crashed — so callers count it
+ * as not delivered and a later retry settles it.
+ */
+export function isEmailDelivered(result: SendEmailResult): boolean {
+  return (
+    result.status === 'sent' ||
+    (result.status === 'skipped' &&
+      result.reason === 'duplicate' &&
+      result.prior === 'sent')
+  )
+}
+
+/**
+ * A SENDING claim older than this is treated as a crashed send and may be
+ * reclaimed. Far above the worst bounded SMTP send (SMTP_TIMEOUTS, ~50 s).
+ */
+export const EMAIL_CLAIM_STALE_MS = 10 * 60_000
+
+/** Resend's SMTP relay — https://resend.com/docs/send-with-smtp */
+export const RESEND_SMTP_RELAY = {
+  host: 'smtp.resend.com',
+  /** 465 = implicit TLS (SMTPS); Resend also offers 587/2587/25 STARTTLS. */
+  port: 465,
+  secure: true,
+  user: 'resend',
+} as const
 
 export const DEFAULT_EMAIL_FROM = 'Lumo <noreply@uselumo.ai>'
 
@@ -41,8 +90,8 @@ type Env = Record<string, string | undefined>
 export function resolveEmailTransport(
   env: Env = process.env
 ): EmailTransportKind {
-  if (env.RESEND_API_KEY) return 'resend'
   if (env.SMTP_URL || env.SMTP_HOST) return 'smtp'
+  if (env.RESEND_API_KEY) return 'resend_relay'
   return 'none'
 }
 
@@ -99,11 +148,21 @@ function smtpAuth(env: Env): { user: string; pass: string } | undefined {
  * SMTP_URL (e.g. smtps://user:pass@smtp.example.com:465) wins; otherwise
  * SMTP_HOST + SMTP_PORT (1-65535, default 587) + SMTP_SECURE (true/1/yes,
  * case-insensitive; default: port 465) and SMTP_USER + SMTP_PASS (auth only
- * when both are set). Both shapes carry SMTP_TIMEOUTS.
+ * when both are set); otherwise, with RESEND_API_KEY, Resend's SMTP relay.
+ * Every shape carries SMTP_TIMEOUTS.
  */
 export function smtpTransportOptions(env: Env = process.env): TransportOptions {
   if (env.SMTP_URL) {
     return { url: env.SMTP_URL, ...SMTP_TIMEOUTS } as TransportOptions
+  }
+  if (!env.SMTP_HOST && env.RESEND_API_KEY) {
+    return {
+      host: RESEND_SMTP_RELAY.host,
+      port: RESEND_SMTP_RELAY.port,
+      secure: RESEND_SMTP_RELAY.secure,
+      auth: { user: RESEND_SMTP_RELAY.user, pass: env.RESEND_API_KEY },
+      ...SMTP_TIMEOUTS,
+    } as TransportOptions
   }
   const port = parseSmtpPort(env.SMTP_PORT)
   const auth = smtpAuth(env)
@@ -116,19 +175,8 @@ export function smtpTransportOptions(env: Env = process.env): TransportOptions {
   } as TransportOptions
 }
 
-let _resend: Resend | null = null
 let _smtp: Transporter | null = null
 let _warnedUnconfigured = false
-
-function getResend(): Resend {
-  if (!_resend) {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error('RESEND_API_KEY is not set')
-    }
-    _resend = new Resend(process.env.RESEND_API_KEY)
-  }
-  return _resend
-}
 
 function getSmtp(): Transporter {
   if (!_smtp) _smtp = nodemailer.createTransport(smtpTransportOptions())
@@ -137,7 +185,6 @@ function getSmtp(): Transporter {
 
 /** Test seam: drop cached transports so env changes take effect. */
 export function resetEmailTransportForTests(): void {
-  _resend = null
   _smtp = null
   _warnedUnconfigured = false
 }
@@ -146,11 +193,12 @@ export interface SendEmailError {
   name: string
   message: string
   /**
-   * Provider/transport error code when there is one: nodemailer's `code`
-   * (ETIMEDOUT, EAUTH, …) or Resend's error name (validation_error, …).
+   * Transport error code when there is one: nodemailer's `code` (EAUTH,
+   * ECONNECTION, ETIMEDOUT, ESOCKET, EENVELOPE, EMESSAGE, …), or
+   * EIDEMPOTENCY when the idempotency ledger could not be reached.
    */
   code?: string
-  /** HTTP status Resend answered with, when it reported one. */
+  /** SMTP reply code the server answered with (e.g. 535), when there was one. */
   statusCode?: number
 }
 
@@ -186,20 +234,18 @@ export function redactEmailSecrets(
 }
 
 /**
- * The one shape a send failure leaves this module in, for every transport:
- * name / message (secrets redacted) / code / statusCode — never the error
- * object itself, whose nodemailer variants can carry the transport config.
- * Accepts thrown errors and Resend's `{ name, message, statusCode }` result.
+ * The one shape a send failure leaves this module in: name / message
+ * (secrets redacted) / code / statusCode — never the error object itself,
+ * whose nodemailer variants can carry the transport config.
  *
- * `code`: the error's own string `code` when it has one; otherwise its `name`
- * for a Resend-shaped value — a plain `{ name, … }` result, or anything
- * (including an `Error` instance) that failed on the Resend transport, since
- * Resend puts its error code (`rate_limit_exceeded`, …) in `name`.
+ * `code`: the error's own string `code` (nodemailer: EAUTH, ETIMEDOUT, …);
+ * for a plain non-Error `{ name, … }` value, its `name`.
+ * `statusCode`: nodemailer's SMTP `responseCode` (535, 550, …), or a numeric
+ * `statusCode` the value carries.
  */
 export function toEmailError(
   e: unknown,
-  env: Env = process.env,
-  transport?: EmailTransportKind
+  env: Env = process.env
 ): SendEmailError {
   const obj =
     typeof e === 'object' && e !== null
@@ -208,14 +254,13 @@ export function toEmailError(
           message?: unknown
           code?: unknown
           statusCode?: unknown
+          responseCode?: unknown
         })
       : null
   const name = typeof obj?.name === 'string' && obj.name ? obj.name : 'Error'
   const message =
     typeof obj?.message === 'string' ? obj.message : obj ? '' : String(e)
-  // Resend reports its error code as `name` — in its `{ error }` result and
-  // on errors its SDK throws; other thrown errors use `code`.
-  const nameIsCode = transport === 'resend' || !(e instanceof Error)
+  const nameIsCode = !(e instanceof Error)
   const code =
     typeof obj?.code === 'string' && obj.code
       ? obj.code
@@ -223,7 +268,11 @@ export function toEmailError(
         ? obj.name
         : undefined
   const statusCode =
-    typeof obj?.statusCode === 'number' ? obj.statusCode : undefined
+    typeof obj?.responseCode === 'number'
+      ? obj.responseCode
+      : typeof obj?.statusCode === 'number'
+        ? obj.statusCode
+        : undefined
   return {
     name: redactEmailSecrets(name, env),
     message: redactEmailSecrets(message, env),
@@ -235,10 +284,36 @@ export function toEmailError(
 function sendFailed(
   transport: EmailTransportKind,
   e: unknown
-): SendEmailResult {
-  const error = toEmailError(e, process.env, transport)
+): { status: 'failed'; error: SendEmailError } {
+  const error = toEmailError(e, process.env)
   logger.error('[email] send failed', { transport, ...error })
   return { status: 'failed', error }
+}
+
+/** One SMTP send; never throws. */
+async function deliver(
+  kind: Exclude<EmailTransportKind, 'none'>,
+  message: EmailMessage,
+  idempotencyKey: string | undefined
+): Promise<SendEmailResult> {
+  try {
+    const info = await getSmtp().sendMail({
+      from: message.from ?? resolveEmailFrom(),
+      to: message.to,
+      subject: message.subject,
+      html: message.html,
+      ...(message.text ? { text: message.text } : {}),
+      ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+      // Resend dedupes on this header too (24 h): covers a crash between
+      // the send and recording it SENT. Other servers never see it.
+      ...(kind === 'resend_relay' && idempotencyKey
+        ? { headers: { 'Resend-Idempotency-Key': idempotencyKey } }
+        : {}),
+    })
+    return { status: 'sent', id: info.messageId ?? null }
+  } catch (e) {
+    return sendFailed(kind, e)
+  }
 }
 
 export async function sendEmail(
@@ -246,13 +321,12 @@ export async function sendEmail(
   options: SendEmailOptions = {}
 ): Promise<SendEmailResult> {
   const kind = resolveEmailTransport()
-  const from = message.from ?? resolveEmailFrom()
 
   if (kind === 'none') {
     if (!_warnedUnconfigured) {
       _warnedUnconfigured = true
       logger.warn(
-        '[email] no transport configured (set RESEND_API_KEY or SMTP_URL/SMTP_HOST); emails are skipped'
+        '[email] no transport configured (set SMTP_URL/SMTP_HOST or RESEND_API_KEY); emails are skipped'
       )
     }
     logger.info('[email] skipped (not configured)', {
@@ -261,35 +335,118 @@ export async function sendEmail(
     return { status: 'skipped', reason: 'not_configured' }
   }
 
-  try {
-    if (kind === 'resend') {
-      const { data, error } = await getResend().emails.send(
-        {
-          from,
-          to: message.to,
-          subject: message.subject,
-          html: message.html,
-          ...(message.text ? { text: message.text } : {}),
-          ...(message.replyTo ? { replyTo: message.replyTo } : {}),
-        },
-        options.idempotencyKey
-          ? { idempotencyKey: options.idempotencyKey }
-          : undefined
-      )
-      if (error) return sendFailed(kind, error)
-      return { status: 'sent', id: data?.id ?? null }
-    }
+  const key = options.idempotencyKey
+  if (!key) return deliver(kind, message, undefined)
 
-    const info = await getSmtp().sendMail({
-      from,
-      to: message.to,
-      subject: message.subject,
-      html: message.html,
-      ...(message.text ? { text: message.text } : {}),
-      ...(message.replyTo ? { replyTo: message.replyTo } : {}),
-    })
-    return { status: 'sent', id: info.messageId ?? null }
+  let claim
+  try {
+    claim = await emailDeliveryRepository.claim(
+      key,
+      new Date(Date.now() - EMAIL_CLAIM_STALE_MS)
+    )
   } catch (e) {
-    return sendFailed(kind, e)
+    // Fail closed: without the ledger a send could repeat (compliance
+    // notices must not), so report a failure the caller may retry.
+    logger.error('[email] idempotency claim failed; not sending', {
+      transport: kind,
+      name: e instanceof Error ? e.name : 'Error',
+      message: e instanceof Error ? redactEmailSecrets(e.message) : '',
+    })
+    return {
+      status: 'failed',
+      error: {
+        name: 'EmailIdempotencyError',
+        message: 'idempotency ledger unavailable',
+        code: 'EIDEMPOTENCY',
+      },
+    }
+  }
+
+  if (!claim.claimed) {
+    const prior = claim.status === 'SENT' ? 'sent' : 'sending'
+    logger.info('[email] skipped (duplicate idempotency key)', {
+      prior,
+      subject: message.subject,
+    })
+    return {
+      status: 'skipped',
+      reason: 'duplicate',
+      prior,
+      id: claim.messageId,
+    }
+  }
+
+  const result = await deliver(kind, message, key)
+  if (result.status === 'sent' || result.status === 'failed') {
+    await recordOutcome(key, claim.attempt, result)
+  }
+  return result
+}
+
+/**
+ * Backoff between attempts to write a send outcome to the ledger: up to
+ * EMAIL_RECORD_RETRY_DELAYS_MS.length + 1 tries in total.
+ */
+export const EMAIL_RECORD_RETRY_DELAYS_MS = [100, 400] as const
+
+/**
+ * Write the send outcome (SENT or FAILED) for this attempt: a
+ * compare-and-swap on the attempt's own claim, retrying a thrown write with
+ * bounded backoff. Never throws and never changes the result: a message that
+ * went out is reported `sent` even when it could not be recorded.
+ *
+ * Remaining edges, both by design:
+ * - SENT never lands: the row stays SENDING; once older than
+ *   EMAIL_CLAIM_STALE_MS a later send with the same key may reclaim it and
+ *   send again. Over the Resend relay the Resend-Idempotency-Key header
+ *   (24 h) still dedupes that resend; elsewhere it is a possible duplicate.
+ * - FAILED never lands: the row stays SENDING, so retries of that key are
+ *   skipped as duplicates (in flight) for up to EMAIL_CLAIM_STALE_MS.
+ * A process that crashes after claiming leaves the same SENDING row; the
+ * stale window is what reclaims it. Both write failures are logged at error
+ * level with the key.
+ */
+async function recordOutcome(
+  key: string,
+  attempt: number,
+  result:
+    | { status: 'sent'; id: string | null }
+    | { status: 'failed'; error: SendEmailError }
+): Promise<void> {
+  for (let i = 0; ; i++) {
+    try {
+      const applied =
+        result.status === 'sent'
+          ? await emailDeliveryRepository.markSent(key, attempt, result.id)
+          : await emailDeliveryRepository.markFailed(
+              key,
+              attempt,
+              result.error.code ?? null
+            )
+      if (!applied) {
+        logger.warn(
+          '[email] outcome not recorded: this attempt was superseded by a newer claim',
+          { outcome: result.status, attempt, idempotencyKey: key }
+        )
+      }
+      return
+    } catch (e) {
+      const delay = EMAIL_RECORD_RETRY_DELAYS_MS[i]
+      if (delay === undefined) {
+        logger.error(
+          result.status === 'sent'
+            ? `[email] email was sent but its delivery record was not saved, key=${key}`
+            : `[email] send failed and the failure was not recorded, key=${key}; for ${EMAIL_CLAIM_STALE_MS / 60_000} min this key is treated as still sending`,
+          {
+            outcome: result.status,
+            attempt,
+            tries: i + 1,
+            name: e instanceof Error ? e.name : 'Error',
+          }
+        )
+        return
+      }
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
   }
 }

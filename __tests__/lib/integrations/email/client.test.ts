@@ -1,15 +1,11 @@
 /**
  * @jest-environment node
  *
- * LUM-1017 — pluggable email transport: Resend, SMTP (nodemailer), or
- * unconfigured (log + no-op, never throws).
+ * LUM-1017 / LUM-1041 — the email transport: SMTP (nodemailer) to an
+ * explicit server or Resend's SMTP relay, or unconfigured (log + no-op, never
+ * throws). Relay specifics: resend-relay.test.ts; idempotency against a real
+ * database: idempotency.real-postgres.test.ts.
  */
-const mockResendSend = jest.fn()
-jest.mock('resend', () => ({
-  Resend: jest
-    .fn()
-    .mockImplementation(() => ({ emails: { send: mockResendSend } })),
-}))
 
 // nodemailer.createTransport is routed through this mock; by default it
 // returns nodemailer's real JSON transport, whose sendMail builds the full
@@ -33,6 +29,7 @@ jest.mock('@/lib/logger', () => ({
 import {
   DEFAULT_EMAIL_FROM,
   SMTP_TIMEOUTS,
+  isEmailDelivered,
   redactEmailSecrets,
   resetEmailTransportForTests,
   toEmailError,
@@ -76,10 +73,13 @@ afterEach(() => {
 })
 
 describe('resolveEmailTransport', () => {
-  it('picks resend when RESEND_API_KEY is set, even if SMTP is too', () => {
+  it('picks the Resend relay for RESEND_API_KEY alone; explicit SMTP wins', () => {
+    expect(resolveEmailTransport({ RESEND_API_KEY: 're_x' })).toBe(
+      'resend_relay'
+    )
     expect(
       resolveEmailTransport({ RESEND_API_KEY: 're_x', SMTP_HOST: 'mail' })
-    ).toBe('resend')
+    ).toBe('smtp')
   })
   it('picks smtp from SMTP_URL or SMTP_HOST', () => {
     expect(resolveEmailTransport({ SMTP_URL: 'smtp://mail:25' })).toBe('smtp')
@@ -87,6 +87,37 @@ describe('resolveEmailTransport', () => {
   })
   it('is none when nothing is configured', () => {
     expect(resolveEmailTransport({})).toBe('none')
+  })
+})
+
+describe('isEmailDelivered', () => {
+  it('sent, or a duplicate of a SENT key, is delivered; in-flight duplicate / failed / not configured is not', () => {
+    expect(isEmailDelivered({ status: 'sent', id: null })).toBe(true)
+    expect(
+      isEmailDelivered({
+        status: 'skipped',
+        reason: 'duplicate',
+        prior: 'sent',
+        id: 'm1',
+      })
+    ).toBe(true)
+    expect(
+      isEmailDelivered({
+        status: 'skipped',
+        reason: 'duplicate',
+        prior: 'sending',
+        id: null,
+      })
+    ).toBe(false)
+    expect(
+      isEmailDelivered({ status: 'skipped', reason: 'not_configured' })
+    ).toBe(false)
+    expect(
+      isEmailDelivered({
+        status: 'failed',
+        error: { name: 'Error', message: 'x' },
+      })
+    ).toBe(false)
   })
 })
 
@@ -267,124 +298,28 @@ describe('sendEmail', () => {
     inviteUrl: 'https://lumo.example.test/invite/tok123',
   })
 
-  it('resend mode: sends via Resend with the idempotency key', async () => {
-    process.env.RESEND_API_KEY = 're_test'
-    mockResendSend.mockResolvedValue({ data: { id: 'r1' }, error: null })
-
-    const out = await sendEmail(
-      { to: ['bo@acme.test'], subject: invite.subject, html: invite.html },
-      { idempotencyKey: 'k1' }
-    )
-
-    expect(out).toEqual({ status: 'sent', id: 'r1' })
-    expect(mockResendSend).toHaveBeenCalledWith(
-      {
-        from: DEFAULT_EMAIL_FROM,
-        to: ['bo@acme.test'],
-        subject: invite.subject,
-        html: invite.html,
-      },
-      { idempotencyKey: 'k1' }
-    )
-    expect(mockCreateTransport).not.toHaveBeenCalled()
-  })
-
-  it('resend mode: an API error comes back as failed with its code, not thrown', async () => {
-    process.env.RESEND_API_KEY = 're_test'
-    mockResendSend.mockResolvedValue({
-      data: null,
-      error: { name: 'validation_error', message: 'bad to', statusCode: 422 },
+  it('smtp mode: an SMTP reply code (responseCode) is kept as statusCode', async () => {
+    process.env.SMTP_HOST = 'mail.internal'
+    mockCreateTransport.mockReturnValue({
+      sendMail: () =>
+        Promise.reject(
+          Object.assign(new Error('550 mailbox unavailable'), {
+            code: 'EENVELOPE',
+            responseCode: 550,
+          })
+        ),
     })
     await expect(
-      sendEmail({ to: ['x'], subject: 's', html: 'h' })
+      sendEmail({ to: ['x@y.test'], subject: 's', html: 'h' })
     ).resolves.toEqual({
       status: 'failed',
       error: {
-        name: 'validation_error',
-        message: 'bad to',
-        code: 'validation_error',
-        statusCode: 422,
+        name: 'Error',
+        message: '550 mailbox unavailable',
+        code: 'EENVELOPE',
+        statusCode: 550,
       },
     })
-    expect(logger.error).toHaveBeenCalledWith('[email] send failed', {
-      transport: 'resend',
-      name: 'validation_error',
-      message: 'bad to',
-      code: 'validation_error',
-      statusCode: 422,
-    })
-  })
-
-  it('resend mode: the API key is redacted from the failure result and log', async () => {
-    process.env.RESEND_API_KEY = 're_live_SUPERSECRETKEY'
-    mockResendSend.mockResolvedValue({
-      data: null,
-      error: {
-        name: 'invalid_api_key',
-        message: 'API key re_live_SUPERSECRETKEY is invalid',
-        statusCode: 403,
-      },
-    })
-    const out = await sendEmail({ to: ['x'], subject: 's', html: 'h' })
-    expect(out).toEqual({
-      status: 'failed',
-      error: {
-        name: 'invalid_api_key',
-        message: 'API key *** is invalid',
-        code: 'invalid_api_key',
-        statusCode: 403,
-      },
-    })
-    expect(
-      JSON.stringify((logger.error as jest.Mock).mock.calls)
-    ).not.toContain('SUPERSECRETKEY')
-  })
-
-  it('resend mode: a thrown SDK error goes through the same redacted shape', async () => {
-    process.env.RESEND_API_KEY = 're_live_THROWNKEY'
-    mockResendSend.mockRejectedValue(
-      Object.assign(new TypeError('fetch failed for re_live_THROWNKEY'), {
-        code: 'ECONNRESET',
-        config: { headers: { Authorization: 'Bearer re_live_THROWNKEY' } },
-      })
-    )
-    const out = await sendEmail({ to: ['x'], subject: 's', html: 'h' })
-    expect(out).toEqual({
-      status: 'failed',
-      error: {
-        name: 'TypeError',
-        message: 'fetch failed for ***',
-        code: 'ECONNRESET',
-      },
-    })
-    const logged = JSON.stringify((logger.error as jest.Mock).mock.calls)
-    expect(logged).not.toContain('THROWNKEY')
-    expect(logged).not.toContain('Authorization')
-  })
-
-  it('resend mode: a thrown Resend Error carries its name as code and its statusCode, redacted', async () => {
-    process.env.RESEND_API_KEY = 're_live_ERRKEY'
-    mockResendSend.mockRejectedValue(
-      Object.assign(new Error('rate limited for re_live_ERRKEY'), {
-        name: 'rate_limit_exceeded',
-        statusCode: 429,
-        headers: { Authorization: 'Bearer re_live_ERRKEY' },
-      })
-    )
-    const out = await sendEmail({ to: ['x'], subject: 's', html: 'h' })
-    expect(out).toEqual({
-      status: 'failed',
-      error: {
-        name: 'rate_limit_exceeded',
-        message: 'rate limited for ***',
-        code: 'rate_limit_exceeded',
-        statusCode: 429,
-      },
-    })
-    const logged = JSON.stringify((logger.error as jest.Mock).mock.calls)
-    expect(logged).toContain('"code":"rate_limit_exceeded"')
-    expect(logged).not.toContain('ERRKEY')
-    expect(logged).not.toContain('Authorization')
   })
 
   it('smtp mode: a thrown Error without a code does not get its name as code', async () => {
@@ -420,7 +355,6 @@ describe('sendEmail', () => {
       secure: false,
       ...SMTP_TIMEOUTS,
     })
-    expect(mockResendSend).not.toHaveBeenCalled()
   })
 
   it('smtp mode: the built MIME message carries the exact fields', async () => {
@@ -506,7 +440,6 @@ describe('sendEmail', () => {
     ).resolves.toEqual({ status: 'skipped', reason: 'not_configured' })
     await sendEmail({ to: ['x@y.test'], subject: 's2', html: 'h' })
     expect(logger.warn).toHaveBeenCalledTimes(1)
-    expect(mockResendSend).not.toHaveBeenCalled()
     expect(mockCreateTransport).not.toHaveBeenCalled()
   })
 })

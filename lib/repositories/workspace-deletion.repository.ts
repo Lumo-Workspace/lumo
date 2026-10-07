@@ -27,6 +27,8 @@ export const NON_WORKSPACE_MODELS: Readonly<Record<string, string>> = {
   AuthSession: 'login session of an AuthUser; owned by no workspace',
   AuthAccount: 'credential / OAuth link of an AuthUser; owned by no workspace',
   AuthVerification: 'email-verification token; owned by no workspace',
+  EmailDelivery:
+    'system-email idempotency ledger (LUM-1041): no workspaceId, only the send key + outcome',
 }
 
 export type BlobCleanup =

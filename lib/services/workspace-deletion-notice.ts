@@ -1,5 +1,6 @@
 import {
   sendEmail,
+  isEmailDelivered,
   buildWorkspaceDeletionEmail,
 } from '@/lib/integrations/email'
 import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
@@ -52,7 +53,9 @@ export async function sendDeletionNotice(
         idempotencyKey: `workspace-deletion/${notice.workspaceId}/${notice.kind}/${notice.requestedAt.getTime()}/${clerkId}`,
       }
     )
-    if (result.status === 'sent') sent++
+    // A duplicate of a SENT key: this owner already got this notice
+    // (LUM-1041); one still in flight elsewhere counts as not delivered.
+    if (isEmailDelivered(result)) sent++
     else failed++
   }
   if (failed > 0) {
