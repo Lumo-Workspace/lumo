@@ -7,9 +7,9 @@ import { initiativeService } from '@/lib/services/initiative.service'
 /**
  * POST /api/initiatives
  *
- * Create a team-level Initiative directly (no plan run required). Auth via
+ * Create a team-level Initiative. Auth via
  * Clerk (web) or Bearer (CLI — `lumo initiative create`). Scoped to the
- * workspace's default team; `planRunId` is null and `status` starts ACTIVE.
+ * workspace's default team; `status` starts ACTIVE.
  */
 export async function POST(request: Request): Promise<Response> {
   const identity = await requireIdentity(request)

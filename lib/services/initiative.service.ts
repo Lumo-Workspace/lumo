@@ -21,8 +21,8 @@ import {
 /**
  * A materialised initiative as returned to callers. `identifier` is the
  * human-referenceable `<TEAM>-INIT-<number>` (e.g. `LUM-INIT-3`); the `INIT`
- * infix keeps initiative ids from colliding with task (`LUM-3`) or idea
- * (`LUM-I3`) ids in the same team namespace.
+ * infix keeps initiative ids from colliding with task (`LUM-3`) ids in the
+ * same team namespace.
  */
 export interface InitiativeListItem {
   id: string
@@ -31,15 +31,7 @@ export interface InitiativeListItem {
   name: string
   status: InitiativeStatus
   taskCount: number
-  ideaCount: number
   createdAt: Date
-}
-
-/** A consumed idea in an initiative's lineage (`<TEAM>-I<number>`). */
-export interface InitiativeIdeaRef {
-  id: string
-  identifier: string
-  statement: string
 }
 
 /** An attached task in an initiative's lineage (`<TEAM>-<number>`). */
@@ -58,8 +50,6 @@ export interface InitiativeDetail {
   assumptionNote: string | null
   status: InitiativeStatus
   createdAt: Date
-  /** Ideas this initiative consumed (idea.initiativeId backref). */
-  ideas: InitiativeIdeaRef[]
   /** Tasks materialised under this initiative (task.initiativeId backref). */
   tasks: InitiativeTaskRef[]
   /** Roll-up of the attached tasks for a progress read-out. */
@@ -144,12 +134,11 @@ function toListItem(
     name: row.name,
     status: row.status,
     taskCount: row._count.tasks,
-    ideaCount: row._count.ideas,
     createdAt: row.createdAt,
   }
 }
 
-/** A freshly-created initiative has no lineage yet — counts are zero. */
+/** A freshly-created initiative has no attached tasks yet. */
 function toCreatedItem(
   row: InitiativeCreatedRow,
   teamIdentifier: string
@@ -161,7 +150,6 @@ function toCreatedItem(
     name: row.name,
     status: row.status,
     taskCount: 0,
-    ideaCount: 0,
     createdAt: row.createdAt,
   }
 }
@@ -179,11 +167,6 @@ function toDetail(
     assumptionNote: row.assumptionNote,
     status: row.status,
     createdAt: row.createdAt,
-    ideas: row.ideas.map(i => ({
-      id: i.id,
-      identifier: `${teamIdentifier}-I${i.number}`,
-      statement: i.statement,
-    })),
     tasks: row.tasks.map(t => ({
       id: t.id,
       identifier: `${teamIdentifier}-${t.number}`,
@@ -234,8 +217,8 @@ export interface InitiativeProgressUpdate {
 
 /**
  * Team-level initiative browse (LUM-673). Initiatives live above projects (no
- * projectId), so the team is resolved from the workspace's default team —
- * mirroring the idea pool. Every read is scoped to that team, so a caller
+ * projectId), so the team is resolved from the workspace's default team.
+ * Every read is scoped to that team, so a caller
  * never sees another team's initiatives.
  *
  * Throws with `{ status }`: 404 when the initiative does not exist or belongs
@@ -243,8 +226,8 @@ export interface InitiativeProgressUpdate {
  */
 export const initiativeService = {
   /**
-   * Create a team-level Initiative directly — no plan run required (LUM-673).
-   * The team is resolved from the workspace's default team (mirroring ideas).
+   * Create a team-level Initiative directly (LUM-673). The team is resolved
+   * from the workspace's default team.
    * Throws with `{ status }`: 400 for a blank goal, 404 when the workspace has
    * no default team.
    */

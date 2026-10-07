@@ -66,8 +66,8 @@ describe('doc-example parsing helpers', () => {
     const paths = runnableGrammarPaths(grammar)
     expect(paths).toContain('task list')
     expect(paths).not.toContain('task') // pure routing node
-    expect(paths).toContain('plan') // parent with its own action (LUM-706)
-    expect(paths).toContain('plan status')
+    expect(paths).toContain('priority') // parent with its own action (LUM-706)
+    expect(paths).toContain('priority list')
     expect(paths.some(p => p === 'hook' || p.startsWith('hook '))).toBe(false)
   })
 })

@@ -1,7 +1,5 @@
 export type * from './types'
 export { taskRepository } from './task.repository'
-export { ideaRepository, type IdeaRow } from './idea.repository'
-export { ideaActivityRepository } from './idea-activity.repository'
 export { pullRequestRepository } from './pull-request.repository'
 export { prSecurityScanRepository } from './pr-security-scan.repository'
 export { commentRepository } from './comment.repository'
@@ -51,15 +49,6 @@ export type {
   CreateTaskWebLinkInput,
   UpdateFetchInput,
 } from './task-web-link.repository'
-export { ideaSlackContextRepository } from './idea-slack-context.repository'
-export type { CreateIdeaSlackContextInput } from './idea-slack-context.repository'
-export { ideaWebLinkRepository } from './idea-web-link.repository'
-export type {
-  CreateIdeaWebLinkInput,
-  UpdateFetchInput as IdeaUpdateFetchInput,
-} from './idea-web-link.repository'
-export { ideaFigmaLinkRepository } from './idea-figma-link.repository'
-export type { CreateIdeaFigmaLinkInput } from './idea-figma-link.repository'
 export { taskArtifactRepository } from './task-artifact.repository'
 export type { CreateTaskArtifactInput } from './task-artifact.repository'
 export { prCommentMirrorRepository } from './pr-comment-mirror.repository'

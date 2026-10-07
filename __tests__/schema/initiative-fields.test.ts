@@ -5,7 +5,7 @@
  * the frozen shape directly against prisma/schema.prisma:
  *   - Initiative carries the Linear-aligned scalar fields (name/description/
  *     5-state status/priority/ownerMemberId/targetDate) while KEEPING the
- *     Lumo-specific planRunId + assumptionNote.
+ *     Lumo-specific assumptionNote (planRunId went with plan runs, LUM-1040).
  *   - The two-layer container: Milestone gains a nullable initiativeId
  *     (additive) and Task keeps its nullable initiativeId (direct attach).
  */
@@ -34,7 +34,7 @@ function enumBlock(name: string): string {
 }
 
 describe('LUM-678 Initiative model reshape', () => {
-  it('Initiative has Linear-aligned fields and keeps planRunId assumptionNote', () => {
+  it('Initiative has Linear-aligned fields and keeps assumptionNote', () => {
     const init = modelBlock('Initiative')
 
     // ── Linear scalar fields ─────────────────────────────────────────────────
@@ -65,8 +65,9 @@ describe('LUM-678 Initiative model reshape', () => {
     expect(status).not.toMatch(/\bDROPPED\b/)
 
     // ── Lumo-specific fields KEPT (Linear has no equivalent) ─────────────────
-    expect(init).toMatch(/^\s*planRunId\s+String\?/m)
     expect(init).toMatch(/^\s*assumptionNote\s+String\?/m)
+    // LUM-1040: plan runs are gone, and their lineage column with them.
+    expect(init).not.toMatch(/\bplanRunId\b/)
 
     // ── the redundant goalStatement column was dropped — `name` is canonical ──
     expect(init).not.toMatch(/\bgoalStatement\b/)

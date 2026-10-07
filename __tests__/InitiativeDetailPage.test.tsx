@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 /**
  * LUM-673: the initiative detail page renders the goal statement, the
- * assumption note (bet), status, the consumed ideas and the attached tasks,
+ * assumption note (bet), status and the attached tasks,
  * with the initiative id shown as LUM-INIT-<n>.
  */
 const messages: Record<string, string> = {
@@ -9,10 +9,8 @@ const messages: Record<string, string> = {
   'initiative.status.active': 'Active',
   'initiative.detail.bet': 'The bet',
   'initiative.detail.attachedTasks': 'Attached tasks',
-  'initiative.detail.consumedIdeas': 'Consumed ideas',
   'initiative.detail.progress': '{done}/{total} done',
   'initiative.detail.noTasks': 'No tasks yet',
-  'initiative.detail.noIdeas': 'No ideas yet',
   'initiative.detail.backToList': 'Back to initiatives',
   'initiative.detail.loading': 'Loading…',
   'initiative.detail.notFound': 'Initiative not found',
@@ -60,13 +58,6 @@ const DETAIL = {
   assumptionNote: 'Bet: teams will curate the idea pool weekly',
   status: 'ACTIVE' as const,
   createdAt: '1970-01-01T00:00:00.000Z',
-  ideas: [
-    {
-      id: 'i9',
-      identifier: 'LUM-I5',
-      statement: 'A parked spark worth pursuing',
-    },
-  ],
   tasks: [
     {
       id: 't7',
@@ -85,7 +76,7 @@ const DETAIL = {
 }
 
 describe('InitiativeDetailPage', () => {
-  it('renders goal, bet, status, lineage, and the LUM-INIT-<n> id', () => {
+  it('renders goal, bet, status, attached tasks, and the LUM-INIT-<n> id', () => {
     mockUseInitiativeDetail.mockReturnValue({
       initiative: DETAIL,
       isLoading: false,
@@ -108,12 +99,9 @@ describe('InitiativeDetailPage', () => {
     expect(
       screen.getByText('Bet: teams will curate the idea pool weekly')
     ).toBeInTheDocument()
-    // Consumed ideas lineage.
-    expect(screen.getByText('LUM-I5')).toBeInTheDocument()
-    expect(
-      screen.getByText('A parked spark worth pursuing')
-    ).toBeInTheDocument()
-    // Attached tasks lineage + progress.
+    // No consumed-ideas section any more (LUM-1040).
+    expect(screen.queryByText('Consumed ideas')).not.toBeInTheDocument()
+    // Attached tasks + progress.
     expect(screen.getByText('LUM-7')).toBeInTheDocument()
     expect(screen.getByText('Build the initiatives API')).toBeInTheDocument()
     expect(screen.getByText('Build the initiatives page')).toBeInTheDocument()

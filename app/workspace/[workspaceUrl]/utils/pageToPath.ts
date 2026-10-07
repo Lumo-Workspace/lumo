@@ -35,8 +35,6 @@ export function pageToPath(
         : `${base}/projects`
     case 'documents':
       return `${base}/documents`
-    case 'ideas':
-      return `${base}/ideas`
     case 'run-reviews':
       return `${base}/run-reviews`
     case 'document-editor':

@@ -23,7 +23,6 @@ export const EXPORT_KINDS = [
   'comments',
   'task-artifacts',
   'task-dependencies',
-  'ideas',
   'initiatives',
   'priorities',
   'documents',
@@ -165,7 +164,6 @@ async function pageRows(
           sprintId: true,
           milestoneId: true,
           initiativeId: true,
-          ideaId: true,
           dueDate: true,
           workStartedAt: true,
           claimSnapshot: true,
@@ -181,14 +179,10 @@ async function pageRows(
     }
     case 'comments':
       return prisma.comment.findMany({
-        where: {
-          deletedAt: null,
-          OR: [{ task: inWorkspaceProject }, { idea: { workspaceId } }],
-        },
+        where: { deletedAt: null, task: inWorkspaceProject },
         select: {
           id: true,
           taskId: true,
-          ideaId: true,
           parentId: true,
           authorActorId: true,
           type: true,
@@ -223,22 +217,6 @@ async function pageRows(
           source: true,
           status: true,
           reason: true,
-          ...ts,
-        },
-        ...page,
-      })
-    case 'ideas':
-      return prisma.idea.findMany({
-        where: { workspaceId },
-        select: {
-          id: true,
-          teamId: true,
-          number: true,
-          statement: true,
-          sourceContext: true,
-          status: true,
-          proposedByMemberId: true,
-          initiativeId: true,
           ...ts,
         },
         ...page,

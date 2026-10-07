@@ -84,7 +84,6 @@ export const STOCK_TABLES: readonly StockTable[] = [
     workspaceField: 'workspaceId',
   },
   { label: 'TaskActivity', delegate: 'taskActivity', fields: ['payload'] },
-  { label: 'IdeaActivity', delegate: 'ideaActivity', fields: ['payload'] },
   {
     label: 'Task',
     delegate: 'task',
@@ -96,12 +95,6 @@ export const STOCK_TABLES: readonly StockTable[] = [
       'commentsSummary',
       'agentError',
     ],
-  },
-  {
-    label: 'Idea',
-    delegate: 'idea',
-    fields: ['statement', 'sourceContext'],
-    workspaceField: 'workspaceId',
   },
   {
     label: 'Document',
@@ -122,20 +115,8 @@ export const STOCK_TABLES: readonly StockTable[] = [
     workspaceField: 'workspaceId',
   },
   {
-    label: 'IdeaSlackContext',
-    delegate: 'ideaSlackContext',
-    fields: ['snapshot', 'summary'],
-    workspaceField: 'workspaceId',
-  },
-  {
     label: 'TaskWebLink',
     delegate: 'taskWebLink',
-    fields: ['title', 'description', 'note', 'body'],
-    workspaceField: 'workspaceId',
-  },
-  {
-    label: 'IdeaWebLink',
-    delegate: 'ideaWebLink',
     fields: ['title', 'description', 'note', 'body'],
     workspaceField: 'workspaceId',
   },
@@ -143,11 +124,6 @@ export const STOCK_TABLES: readonly StockTable[] = [
     label: 'TestCaseRun',
     delegate: 'testCaseRun',
     fields: ['evidence', 'note', 'failedStepText', 'actual'],
-  },
-  {
-    label: 'PlanRunStageRecord',
-    delegate: 'planRunStageRecord',
-    fields: ['llmInput', 'llmRawOutput', 'humanConfirmedOutput'],
   },
   {
     label: 'PrCommentSyncJob',

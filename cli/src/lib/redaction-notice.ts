@@ -1,6 +1,6 @@
 /**
- * LUM-784 — the tier-2 retrieval commands (`task|idea slack show`,
- * `task|idea web show`) print stored bodies straight into the agent's
+ * LUM-784 — the tier-2 retrieval commands (`task slack show`,
+ * `task web show`) print stored bodies straight into the agent's
  * context. The server redacts every registry secret on the way out and
  * reports how many; this renders the one-line notice so the agent knows the
  * `AKIA…(len 20)` tokens it sees are redactions, not the source text.

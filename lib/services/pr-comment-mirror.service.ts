@@ -138,7 +138,6 @@ async function isLinkedInSeveralWorkspaces(pr: {
 async function runOutboundCreate(commentId: string) {
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
-  if (!comment.taskId) return // idea comment (LUM-680) — no PR to mirror to
   if (comment.type === 'AGENT') return
 
   const pr = await pullRequestRepository.findByTaskId(comment.taskId)
@@ -314,7 +313,6 @@ async function runOutboundCreate(commentId: string) {
 async function runOutboundUpdate(commentId: string) {
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
-  if (!comment.taskId) return // idea comment (LUM-680) — no PR to mirror to
   const mirror = await prCommentMirrorRepository.findByCommentId(commentId)
   if (!mirror) return // never mirrored — nothing to push
 
@@ -377,7 +375,6 @@ async function runOutboundDelete(commentId: string) {
 
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
-  if (!comment.taskId) return // idea comment (LUM-680) — no PR to mirror to
 
   const pr = await pullRequestRepository.findByTaskId(comment.taskId)
   if (!pr) return

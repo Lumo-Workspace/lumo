@@ -92,8 +92,6 @@ import * as taskCommentsRoute from '@/app/api/tasks/[id]/comments/route'
 import * as taskCommentRoute from '@/app/api/tasks/[id]/comments/[commentId]/route'
 import * as milestoneRoute from '@/app/api/milestones/[milestoneId]/route'
 import * as sprintRoute from '@/app/api/sprints/[sprintId]/route'
-import * as ideaRoute from '@/app/api/ideas/[id]/route'
-import * as ideaCommentsRoute from '@/app/api/ideas/[id]/comments/route'
 import * as memoryRoute from '@/app/api/memories/[memoryId]/route'
 import * as apiKeysRoute from '@/app/api/users/api-keys/route'
 import * as apiKeyRoute from '@/app/api/users/api-keys/[id]/route'
@@ -163,8 +161,6 @@ interface WorkspaceFixture {
   commentId: string
   documentId: string
   documentSlug: string
-  ideaId: string
-  ideaRef: string
   memoryId: string
   apiKeyId: string
 }
@@ -196,7 +192,7 @@ async function seedWorkspace(
   label: 'alpha' | 'bravo',
   ownerClerkId: string,
   ownerToken: string,
-  /** BRAVO gets one extra task / idea so `IDOR-2` / `IDOR-I2` exist only there. */
+  /** BRAVO gets one extra task so `IDOR-2` exists only there. */
   extra: boolean
 ): Promise<WorkspaceFixture> {
   const db = harness.prisma!
@@ -285,39 +281,6 @@ async function seedWorkspace(
       visibility: 'WORKSPACE',
     },
   })
-  const idea = await db.idea.create({
-    data: {
-      teamId: team.id,
-      workspaceId: ws.id,
-      number: 1,
-      statement: `${mark} idea one`,
-      proposedByMemberId: owner.id,
-    },
-  })
-  let ideaProbe = 1
-  const ideaIds = [idea.id]
-  if (extra) {
-    const two = await db.idea.create({
-      data: {
-        teamId: team.id,
-        workspaceId: ws.id,
-        number: 2,
-        statement: `${mark} idea two`,
-        proposedByMemberId: owner.id,
-      },
-    })
-    ideaProbe = 2
-    ideaIds.push(two.id)
-  }
-  for (const ideaId of ideaIds) {
-    await db.comment.create({
-      data: {
-        ideaId,
-        authorActorId: actor.id,
-        body: `<p>${mark} idea comment</p>`,
-      },
-    })
-  }
   const memory = await db.memory.create({
     data: {
       workspaceId: ws.id,
@@ -348,8 +311,6 @@ async function seedWorkspace(
     commentId: comment.id,
     documentId: document.id,
     documentSlug: document.slug,
-    ideaId: idea.id,
-    ideaRef: `IDOR-I${ideaProbe}`,
     memoryId: memory.id,
     apiKeyId: apiKey.id,
   }
@@ -511,7 +472,6 @@ async function snapshotProtected() {
     sprints,
     comments,
     document,
-    ideas,
     memory,
     apiKey,
   ] = await Promise.all([
@@ -534,20 +494,13 @@ async function snapshotProtected() {
       orderBy: { id: 'asc' },
     }),
     db.comment.findMany({
-      where: {
-        OR: [{ task: { teamId: b.teamId } }, { idea: { teamId: b.teamId } }],
-      },
+      where: { task: { teamId: b.teamId } },
       select: { id: true, body: true, deletedAt: true },
       orderBy: { id: 'asc' },
     }),
     db.document.findUnique({
       where: { id: b.documentId },
       select: { title: true, content: true, deletedAt: true },
-    }),
-    db.idea.findMany({
-      where: { teamId: b.teamId },
-      select: { id: true, statement: true, status: true },
-      orderBy: { id: 'asc' },
     }),
     db.memory.findUnique({
       where: { id: b.memoryId },
@@ -565,7 +518,6 @@ async function snapshotProtected() {
     sprints,
     comments,
     document,
-    ideas,
     memory,
     apiKey,
   }
@@ -933,63 +885,6 @@ function crossTenantCases(): DeniedCase[] {
     )
   )
 
-  // idea — no per-idea GET or DELETE route exists; read = its comment thread,
-  // "delete" = the DROPPED lifecycle move. Probed by cuid and by `IDOR-I2`.
-  add('idea', 'read', BOTH, 'GET /api/ideas/[id]/comments (cuid)', as =>
-    call(
-      ideaCommentsRoute.GET,
-      'GET',
-      `/api/ideas/${B().ideaId}/comments`,
-      { id: B().ideaId },
-      as
-    )
-  )
-  add('idea', 'read', BOTH, 'GET /api/ideas/[IDOR-I2]/comments', as =>
-    call(
-      ideaCommentsRoute.GET,
-      'GET',
-      `/api/ideas/${B().ideaRef}/comments`,
-      { id: B().ideaRef },
-      as
-    )
-  )
-  add('idea', 'update', BOTH, 'PATCH /api/ideas/[id] {statement}', as =>
-    call(
-      ideaRoute.PATCH,
-      'PATCH',
-      `/api/ideas/${B().ideaId}`,
-      { id: B().ideaId },
-      as,
-      {
-        statement: 'pwned by alpha',
-      }
-    )
-  )
-  add('idea', 'update', BOTH, 'PATCH /api/ideas/[IDOR-I2] {status}', as =>
-    call(
-      ideaRoute.PATCH,
-      'PATCH',
-      `/api/ideas/${B().ideaRef}`,
-      { id: B().ideaRef },
-      as,
-      {
-        status: 'DEVELOPING',
-      }
-    )
-  )
-  add('idea', 'delete', BOTH, 'PATCH /api/ideas/[id] {status: DROPPED}', as =>
-    call(
-      ideaRoute.PATCH,
-      'PATCH',
-      `/api/ideas/${B().ideaId}`,
-      { id: B().ideaId },
-      as,
-      {
-        status: 'DROPPED',
-      }
-    )
-  )
-
   // memory
   add('memory', 'read', BOTH, 'GET /api/memories/[memoryId]', as =>
     call(
@@ -1275,30 +1170,6 @@ describe('LUM-978 fixture controls: the owning caller is allowed', () => {
           '/x',
           { sprintId: B().sprintId },
           { ...owner, source: 'bearer' }
-        ),
-    ],
-    [
-      'idea GET /api/ideas/[IDOR-I2]/comments',
-      'bearer',
-      () =>
-        call(
-          ideaCommentsRoute.GET,
-          'GET',
-          '/x',
-          { id: B().ideaRef },
-          { ...owner, source: 'bearer' }
-        ),
-    ],
-    [
-      'idea GET /api/ideas/[id]/comments',
-      'clerk',
-      () =>
-        call(
-          ideaCommentsRoute.GET,
-          'GET',
-          '/x',
-          { id: B().ideaId },
-          { ...owner, source: 'clerk' }
         ),
     ],
     [

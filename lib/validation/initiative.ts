@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 /**
  * Payload for `POST /api/initiatives` — creating a team-level Initiative
- * directly (LUM-673), without a converter plan run.
+ * (LUM-673).
  *
  * `name` is the only required field and must be non-blank (trimmed).
  * `assumptionNote` (赌注旁注 — the bet behind the initiative) is optional and
