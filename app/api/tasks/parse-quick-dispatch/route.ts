@@ -39,8 +39,9 @@ export async function POST(request: Request) {
     return NextResponse.json(result)
   } catch (error) {
     const err = error as Error & { status?: number }
-    if (err.status === 404) {
-      return NextResponse.json({ error: err.message }, { status: 404 })
+    // 503 = AI not configured on this deployment (LUM-1019).
+    if (err.status === 404 || err.status === 503) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
     }
     console.error('POST /api/tasks/parse-quick-dispatch error:', error)
     return NextResponse.json(
