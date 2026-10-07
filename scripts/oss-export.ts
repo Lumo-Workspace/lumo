@@ -104,6 +104,7 @@ function parseArgs(argv: string[]) {
     else positional.push(a)
   }
   const [ref, outDir] = positional
+  if (ref?.startsWith('-')) fail([`not a git ref: ${ref}`])
   if (!ref || !outDir)
     fail([
       'usage: npm run oss:export -- <git-ref> <out-dir> [--manifest <path>]',
