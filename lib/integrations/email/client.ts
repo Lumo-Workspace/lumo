@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
-import type { Transporter } from 'nodemailer'
+import type { Transporter, TransportOptions } from 'nodemailer'
 import { logger } from '@/lib/logger'
 
 /**
@@ -57,7 +57,7 @@ export function resolveEmailFrom(env: Env = process.env): string {
  */
 export function smtpTransportOptions(
   env: Env = process.env
-): string | nodemailer.TransportOptions {
+): string | TransportOptions {
   if (env.SMTP_URL) return env.SMTP_URL
   const parsedPort = Number(env.SMTP_PORT)
   const port =
@@ -74,7 +74,7 @@ export function smtpTransportOptions(
     port,
     secure,
     ...(auth ? { auth } : {}),
-  } as nodemailer.TransportOptions
+  } as TransportOptions
 }
 
 let _resend: Resend | null = null
