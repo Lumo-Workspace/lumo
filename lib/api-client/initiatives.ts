@@ -23,14 +23,7 @@ export interface ApiInitiativeListItem {
   name: string
   status: ApiInitiativeStatus
   taskCount: number
-  ideaCount: number
   createdAt: string
-}
-
-export interface ApiInitiativeIdeaRef {
-  id: string
-  identifier: string
-  statement: string
 }
 
 export interface ApiInitiativeTaskRef {
@@ -48,7 +41,6 @@ export interface ApiInitiativeDetail {
   assumptionNote: string | null
   status: ApiInitiativeStatus
   createdAt: string
-  ideas: ApiInitiativeIdeaRef[]
   tasks: ApiInitiativeTaskRef[]
   taskProgress: { total: number; done: number }
 }
@@ -58,7 +50,7 @@ export interface ApiInitiativeDetail {
  * `apiFetch` — pages read initiatives through here rather than hitting `fetch`
  * directly.
  */
-/** Payload for creating an initiative directly (no plan run). */
+/** Payload for creating an initiative. */
 export interface CreateInitiativeBody {
   name: string
   assumptionNote?: string | null
@@ -70,12 +62,12 @@ export const initiativesClient = {
     return apiFetch<T>(API.initiatives.list)
   },
 
-  /** GET one initiative with its lineage. */
+  /** GET one initiative with its attached tasks. */
   getDetail<T>(id: string) {
     return apiFetch<T>(API.initiatives.byId(id))
   },
 
-  /** POST a new initiative created directly (no plan run). */
+  /** POST a new initiative. */
   create<T>(input: CreateInitiativeBody) {
     return apiFetch<T>(API.initiatives.create, { method: 'POST', body: input })
   },

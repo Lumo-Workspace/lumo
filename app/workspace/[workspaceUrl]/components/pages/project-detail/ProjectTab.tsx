@@ -73,7 +73,7 @@ export function ProjectTab({
   return (
     <div className='flex-1 overflow-y-auto'>
       {/* The workspace body geometry (`px-4 md:px-8` + `max-w-[1680px]`), same
-          as Sprints and Ideas — not the design source's 760px column. That column
+          as Sprints — not the design source's 760px column. That column
           was drawn on a 1440px canvas where it left ~81px of gutter on each side;
           carried onto a real window it turns into hundreds of pixels of dead
           space, first on the left when centred, then on the right when pinned

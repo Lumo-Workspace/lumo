@@ -13,8 +13,7 @@ import {
 import { waitUntil } from '@/lib/runtime/wait-until'
 
 // Re-exported for existing importers; the implementation moved to
-// lib/integrations/github/fetch-pull-request.ts so the idea-evidence link path
-// can share it (LUM-684).
+// lib/integrations/github/fetch-pull-request.ts (LUM-684).
 
 /**
  * Reading a PR by URL is done as the workspace's App installation — the

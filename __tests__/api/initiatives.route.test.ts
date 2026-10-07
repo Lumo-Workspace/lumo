@@ -64,7 +64,7 @@ const detailCtx = (initiativeId: string) => ({
 beforeEach(() => jest.clearAllMocks())
 
 describe('POST /api/initiatives (direct create)', () => {
-  it('POST /api/initiatives creates a team initiative without a plan run', async () => {
+  it('POST /api/initiatives creates a team initiative', async () => {
     mockIdentity.mockResolvedValue(ID)
     mockTeam.mockResolvedValue(TEAM)
     mockAggregate.mockResolvedValue({ _max: { number: 2 } })
@@ -91,16 +91,14 @@ describe('POST /api/initiatives (direct create)', () => {
       name: 'Ship the initiatives surface',
       status: 'ACTIVE',
       taskCount: 0,
-      ideaCount: 0,
     })
-    // The row is created with NO plan run and an ACTIVE status, scoped to the
+    // The row is created with an ACTIVE status, scoped to the
     // caller's team — the number follows the current max (2 → 3).
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           teamId: 'team-1',
           number: 3,
-          planRunId: null,
           status: 'ACTIVE',
           name: 'Ship the initiatives surface',
           assumptionNote: 'teams curate directly',
@@ -136,7 +134,7 @@ describe('POST /api/initiatives (direct create)', () => {
 })
 
 describe('GET /api/initiatives (list)', () => {
-  it('returns the caller team initiatives with LUM-INIT-<n> ids + lineage counts', async () => {
+  it('returns the caller team initiatives with LUM-INIT-<n> ids + task counts', async () => {
     mockIdentity.mockResolvedValue(ID)
     mockTeam.mockResolvedValue(TEAM)
     mockFindMany.mockResolvedValue([
@@ -146,7 +144,7 @@ describe('GET /api/initiatives (list)', () => {
         name: 'Ship the converter',
         status: 'ACTIVE',
         createdAt: new Date(0),
-        _count: { tasks: 3, ideas: 2 },
+        _count: { tasks: 3 },
       },
       {
         id: 'init-1',
@@ -154,7 +152,7 @@ describe('GET /api/initiatives (list)', () => {
         name: 'Idea capture',
         status: 'DONE',
         createdAt: new Date(0),
-        _count: { tasks: 1, ideas: 4 },
+        _count: { tasks: 1 },
       },
     ])
 
@@ -169,7 +167,6 @@ describe('GET /api/initiatives (list)', () => {
       name: 'Ship the converter',
       status: 'ACTIVE',
       taskCount: 3,
-      ideaCount: 2,
     })
     // Scoped to the resolved default team — never crosses teams.
     expect(mockFindMany).toHaveBeenCalledWith(
@@ -206,7 +203,6 @@ describe('GET /api/initiatives/[initiativeId] (detail w/ lineage)', () => {
     assumptionNote: 'Bet: teams will curate the idea pool',
     status: 'ACTIVE',
     createdAt: new Date(0),
-    ideas: [{ id: 'i9', number: 5, statement: 'A parked spark' }],
     tasks: [
       { id: 't7', number: 7, title: 'Build the API', status: 'DONE' },
       { id: 't8', number: 8, title: 'Build the page', status: 'TODO' },
@@ -214,7 +210,7 @@ describe('GET /api/initiatives/[initiativeId] (detail w/ lineage)', () => {
     ...over,
   })
 
-  it('returns goal, bet, status, and lineage (ideas + tasks) with correct ids', async () => {
+  it('returns goal, bet, status, and attached tasks with correct ids', async () => {
     mockIdentity.mockResolvedValue(ID)
     mockTeam.mockResolvedValue(TEAM)
     mockFindUnique.mockResolvedValue(detailRow())
@@ -230,10 +226,7 @@ describe('GET /api/initiatives/[initiativeId] (detail w/ lineage)', () => {
       status: 'ACTIVE',
       taskProgress: { total: 2, done: 1 },
     })
-    // Consumed ideas carry the `<TEAM>-I<n>` id; attached tasks the `<TEAM>-<n>`.
-    expect(initiative.ideas).toEqual([
-      { id: 'i9', identifier: 'LUM-I5', statement: 'A parked spark' },
-    ])
+    // Attached tasks carry the `<TEAM>-<n>` id.
     expect(
       initiative.tasks.map((t: { identifier: string }) => t.identifier)
     ).toEqual(['LUM-7', 'LUM-8'])

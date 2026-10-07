@@ -269,7 +269,6 @@ describe('LUM-886 helpers mint with the narrowed permission set', () => {
    */
   const SERVICE_SETS: Record<string, string[]> = {
     'lib/services/task-pr-link.service.ts': ['pullRequestRead'],
-    'lib/services/idea-pull-request.service.ts': ['pullRequestRead'],
     'lib/services/task-pr-sync.service.ts': ['pullRequestRead'],
     'lib/services/stale-pr-reconcile.service.ts': ['pullRequestRead'],
     'lib/services/pr-comment-mirror.service.ts': [

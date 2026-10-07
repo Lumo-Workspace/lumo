@@ -87,8 +87,6 @@ describe('structural — no path from the redaction to the crossing ledger', () 
     'lib/llm/security-hunt-plan-client.ts',
     'app/api/tasks/[id]/slack-contexts/[contextId]/snapshot/route.ts',
     'app/api/tasks/[id]/web-links/[linkId]/body/route.ts',
-    'app/api/ideas/[id]/slack-contexts/[contextId]/snapshot/route.ts',
-    'app/api/ideas/[id]/web-links/[linkId]/body/route.ts',
     'cli/src/lib/redaction-notice.ts',
   ]
 

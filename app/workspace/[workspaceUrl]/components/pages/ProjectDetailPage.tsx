@@ -37,7 +37,7 @@ type ProjectTabKey = (typeof TABS)[number]
 /**
  * One icon per tab, picked to stay clear of the vocabulary the workspace nav
  * already spends: `Target` is Initiatives, `File`/`FileEdit` are Documents and
- * Drafts, `Lightbulb` is Ideas. `Brain` is reused deliberately — it is already
+ * Drafts. `Brain` is reused deliberately — it is already
  * the Memory surface's own icon.
  */
 const TAB_ICONS: Record<ProjectTabKey, LucideIcon> = {

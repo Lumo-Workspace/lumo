@@ -2,9 +2,8 @@
  * @jest-environment node
  */
 /**
- * LUM-883 — the three ways a member could pull an unconfirmed repository into
- * Lumo: link a PR to a task by URL, cite a PR on an idea by URL, add a
- * repository to a project. Each must refuse with 403 before any row is
+ * LUM-883 — the two ways a member could pull an unconfirmed repository into
+ * Lumo: link a PR to a task by URL, or add a repository to a project. Each must refuse with 403 before any row is
  * written, any GitHub call is made or any scan is dispatched.
  *
  * The real token layer runs (auth.ts + confirmed-repositories.ts); only the
@@ -41,17 +40,6 @@ jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
-jest.mock('@/lib/repositories/idea-pull-request.repository', () => ({
-  ideaPullRequestRepository: {
-    findByIdeaAndPr: jest.fn(),
-    create: jest.fn(),
-  },
-}))
-jest.mock('@/lib/services/idea-evidence-resolve', () => ({
-  resolveIdeaRef: jest
-    .fn()
-    .mockResolvedValue({ ideaId: 'idea_1', workspaceId: 'ws_1', teamId: 't' }),
-}))
 jest.mock('@/lib/repositories', () => ({
   projectRepository: {
     findRepositories: jest.fn(),
@@ -78,11 +66,9 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { waitUntil } from '@/lib/runtime/wait-until'
-import { ideaPullRequestRepository } from '@/lib/repositories/idea-pull-request.repository'
 import { projectRepository } from '@/lib/repositories'
 import { loadProjectAndMember } from '@/lib/api/helpers'
 import { linkPullRequest } from '@/lib/services/task-pr-link.service'
-import { ideaPullRequestService } from '@/lib/services/idea-pull-request.service'
 import { POST as addProjectRepository } from '@/app/api/projects/[id]/repositories/route'
 
 const findByWorkspace =
@@ -99,7 +85,6 @@ function noSideEffects() {
   expect(createAppAuthMock).not.toHaveBeenCalled()
   expect(githubRepository.upsertPullRequest).not.toHaveBeenCalled()
   expect(pullRequestRepository.updateTaskId).not.toHaveBeenCalled()
-  expect(ideaPullRequestRepository.create).not.toHaveBeenCalled()
   expect(projectRepository.createRepository).not.toHaveBeenCalled()
   expect(projectRepository.clearDefaultRepositories).not.toHaveBeenCalled()
   expect(dispatchPrSecurityScan).not.toHaveBeenCalled()
@@ -148,19 +133,6 @@ describe('LUM-883 entry points refuse an unconfirmed repository', () => {
       linkPullRequest('task_1', { url: UNCONFIRMED_URL })
     ).rejects.toMatchObject({ status: 403, code: 'repo_not_confirmed' })
     // Not even the "do we already track it" lookup runs.
-    expect(pullRequestRepository.findByRepoAndNumber).not.toHaveBeenCalled()
-    noSideEffects()
-  })
-
-  it('idea PR citation by URL is refused with 403', async () => {
-    await expect(
-      ideaPullRequestService.link({
-        workspaceId: 'ws_1',
-        ideaRef: 'LUM-I1',
-        url: UNCONFIRMED_URL,
-        createdById: 'm1',
-      })
-    ).rejects.toMatchObject({ status: 403, code: 'repo_not_confirmed' })
     expect(pullRequestRepository.findByRepoAndNumber).not.toHaveBeenCalled()
     noSideEffects()
   })

@@ -133,11 +133,6 @@ describe('LUM-898 write paths store credentials redacted', () => {
       authorActorId: 'a',
       body: DIRTY,
     } as never)
-    await commentRepository.createForIdea({
-      ideaId: 'i',
-      authorActorId: 'a',
-      body: DIRTY,
-    } as never)
     await commentRepository.update('c', { body: DIRTY })
 
     const content = { trigger: DIRTY, action: 'rotate' }

@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.97.1",
+  "cliVersion": "1.98.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -1234,211 +1234,12 @@
       "isInvokable": true,
       "description": "Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)"
     },
-    "idea": {
-      "arguments": [
-        { "name": "statement", "required": false, "variadic": false }
-      ],
-      "flags": {
-        "--context": {
-          "long": "--context",
-          "short": "-c",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Free-text origin context for the idea"
-        }
-      },
-      "hasSubcommands": true,
-      "isInvokable": true,
-      "description": "Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool."
-    },
-    "idea comment": {
-      "arguments": [
-        { "name": "id", "required": true, "variadic": false },
-        { "name": "body", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Comment on an idea (LUM-680). <id> is the LUM-I<n> id (a bare number also resolves). Body is plain text — quote it to pass spaces or newlines."
-    },
-    "idea comments": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Inspect an idea comment thread"
-    },
-    "idea comments list": {
-      "arguments": [{ "name": "id", "required": true, "variadic": false }],
-      "flags": {
-        "--full": {
-          "long": "--full",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print every comment, bypassing the output-token cap"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List an idea comment thread (capped to the output budget; --full prints every comment)."
-    },
-    "idea figma": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Attach Figma links to an idea"
-    },
-    "idea figma add": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "url", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Attach a Figma file/frame URL to an idea"
-    },
-    "idea figma context": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "linkId", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show cached Figma design context"
-    },
-    "idea figma list": {
-      "arguments": [{ "name": "idea", "required": true, "variadic": false }],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List Figma links on an idea"
-    },
-    "idea figma refresh": {
-      "arguments": [{ "name": "idea", "required": true, "variadic": false }],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Re-fetch Figma metadata for every link on an idea"
-    },
-    "idea figma rm": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "link-id-or-url", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Remove a Figma link from an idea (idempotent)"
-    },
-    "idea list": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|DEVELOPING|PLANNED|DROPPED) and statement."
-    },
-    "idea slack": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Attach & inspect Slack context on an idea"
-    },
-    "idea slack add": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "permalink", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Attach a Slack thread to an idea"
-    },
-    "idea slack rm": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "contextId", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Remove a Slack context from an idea"
-    },
-    "idea slack show": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "contextId", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the full stored Slack thread snapshot"
-    },
-    "idea update": {
-      "arguments": [{ "name": "id", "required": true, "variadic": false }],
-      "flags": {
-        "--status": {
-          "long": "--status",
-          "short": "-s",
-          "value": "required",
-          "enum": ["captured", "developing", "planned", "dropped"],
-          "enumCaseInsensitive": true,
-          "description": "New status: captured | developing | planned | dropped (case-insensitive)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Move an idea through its lifecycle (LUM-679). Allowed: CAPTURED↔DEVELOPING→PLANNED and any state→DROPPED (DROPPED is terminal). <id> is the LUM-I<n> id (a bare number also resolves)."
-    },
-    "idea web": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Attach & inspect web links on an idea"
-    },
-    "idea web add": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "url", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Attach a web link to an idea"
-    },
-    "idea web rm": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "linkId", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Remove a web link from an idea"
-    },
-    "idea web show": {
-      "arguments": [
-        { "name": "idea", "required": true, "variadic": false },
-        { "name": "linkId", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the fetched web link body as plain text"
-    },
     "initiative": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Team-level Initiatives (LUM-INIT-<n>): create, list, update, and post progress updates. Converter-materialised initiatives show here too."
+      "description": "Team-level Initiatives (LUM-INIT-<n>): create, list, update, and post progress updates."
     },
     "initiative create": {
       "arguments": [{ "name": "goal", "required": true, "variadic": false }],
@@ -1454,7 +1255,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a team-level initiative directly from a goal statement — no plan run required. Prints the LUM-INIT-<n> id; --assumption records the bet behind it."
+      "description": "Create a team-level initiative from a goal statement. Prints the LUM-INIT-<n> id; --assumption records the bet behind it."
     },
     "initiative list": {
       "arguments": [],
@@ -2281,29 +2082,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a \"pass\") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied."
-    },
-    "plan": {
-      "arguments": [],
-      "flags": {
-        "--abandon-active": {
-          "long": "--abandon-active",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Abandon the team’s existing active run before starting a fresh one"
-        }
-      },
-      "hasSubcommands": true,
-      "isInvokable": true,
-      "description": "Start a design-thinking 转换器 run (聚类→对齐→成计划) and print the gate-A web deep-link. Refuses when a run is already active (see `lumo plan status`); --abandon-active abandons the prior run first. Editing/confirmation happen in web."
-    },
-    "plan status": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Print the active plan run’s current stage and the deep-link to its next gate; with no active run, prompts to run `lumo plan`."
     },
     "pr": {
       "arguments": [],

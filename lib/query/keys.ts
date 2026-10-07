@@ -57,16 +57,6 @@ export const queryKeys = {
     detail: (id: string) => ['projects', 'detail', id] as const,
   },
 
-  planRuns: {
-    list: () => ['planRuns', 'list'] as const,
-    latestClustering: () => ['planRuns', 'latestClustering'] as const,
-    archive: (runId: string) => ['planRuns', 'archive', runId] as const,
-    run: (runId: string) => ['planRuns', 'run', runId] as const,
-    alignGate: (runId: string) => ['planRuns', 'alignGate', runId] as const,
-    materializeGate: (runId: string) =>
-      ['planRuns', 'materializeGate', runId] as const,
-  },
-
   sprints: {
     all: () => ['sprints'] as const,
     byTeam: (teamId: string, status?: SprintStatus) =>
@@ -101,12 +91,6 @@ export const queryKeys = {
   // LUM-819 (D): workspace 抽查池 + 虚报率。
   runReviews: {
     pool: () => ['runReviews', 'pool'] as const,
-  },
-
-  ideas: {
-    all: () => ['ideas'] as const,
-    comments: (ideaId: string) => ['ideas', ideaId, 'comments'] as const,
-    activity: (ideaId: string) => ['ideas', ideaId, 'activity'] as const,
   },
 
   summary: {
@@ -151,12 +135,6 @@ export const queryKeys = {
   taskArtifacts: (taskId: string) => ['task-artifacts', taskId] as const,
 
   taskTestCases: (taskId: string) => ['task-test-cases', taskId] as const,
-
-  ideaWebLinks: (ideaId: string) => ['idea-web-links', ideaId] as const,
-
-  ideaFigmaLinks: (ideaId: string) => ['idea-figma-links', ideaId] as const,
-
-  ideaPullRequests: (ideaId: string) => ['idea-pull-requests', ideaId] as const,
 
   integrations: {
     slack: (workspaceUrl: string) =>

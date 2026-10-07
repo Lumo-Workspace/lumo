@@ -17,7 +17,7 @@ export const MEMORY_CATEGORIES = [
   'PROCEDURAL',
 ] as const satisfies readonly MemoryCategory[]
 
-/** `ALL` is the unfiltered chip, not a category — a single-select, like Ideas. */
+/** `ALL` is the unfiltered chip, not a category — a single-select. */
 export type MemoryCategoryFilter = 'ALL' | MemoryCategory
 
 /**

@@ -47,17 +47,6 @@ jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
-jest.mock('@/lib/repositories/idea-pull-request.repository', () => ({
-  ideaPullRequestRepository: {
-    findByIdeaAndPr: jest.fn(),
-    create: jest.fn(),
-  },
-}))
-jest.mock('@/lib/services/idea-evidence-resolve', () => ({
-  resolveIdeaRef: jest
-    .fn()
-    .mockResolvedValue({ ideaId: 'idea_1', workspaceId: 'ws_1', teamId: 't' }),
-}))
 jest.mock('@/lib/crypto', () => ({ decrypt: jest.fn() }))
 jest.mock('@/lib/repositories/member.repository')
 jest.mock('@/lib/repositories/comment.repository')
@@ -76,13 +65,11 @@ import { githubAppInstallationRepository } from '@/lib/repositories/github-app-i
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
-import { ideaPullRequestRepository } from '@/lib/repositories/idea-pull-request.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
 import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
 import { linkPullRequest } from '@/lib/services/task-pr-link.service'
-import { ideaPullRequestService } from '@/lib/services/idea-pull-request.service'
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
 import { reconcileStaleProjectPrs } from '@/lib/services/stale-pr-reconcile.service'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
@@ -167,19 +154,6 @@ describe('LUM-883 a removed repository cannot be re-linked', () => {
     ).rejects.toMatchObject({ status: 403 })
     expect(pullRequestRepository.updateTaskId).not.toHaveBeenCalled()
     expect(dispatchPrSecurityScan).not.toHaveBeenCalled()
-  })
-
-  it('citing an existing PR row on an idea by prId is refused with 403', async () => {
-    ;(pullRequestRepository.findById as jest.Mock).mockResolvedValue(REMOVED_PR)
-    await expect(
-      ideaPullRequestService.link({
-        workspaceId: 'ws_1',
-        ideaRef: 'LUM-I1',
-        prId: 'pr_payroll',
-        createdById: 'm1',
-      })
-    ).rejects.toMatchObject({ status: 403 })
-    expect(ideaPullRequestRepository.create).not.toHaveBeenCalled()
   })
 })
 

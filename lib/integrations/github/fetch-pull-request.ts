@@ -1,8 +1,8 @@
 /**
  * Fetch a single pull request from GitHub with a user's OAuth token.
  *
- * Extracted from `task-pr-link.service.ts` (LUM-684) so the idea-evidence link
- * path can reuse it instead of standing up a second raw `api.github.com` call:
+ * Extracted from `task-pr-link.service.ts` (LUM-684) so other link paths
+ * can reuse it instead of standing up a second raw `api.github.com` call:
  * CLAUDE.md's DIP rule keeps third-party calls behind a `lib/` wrapper, and one
  * copy of the response shape means one place to fix when it drifts.
  *

@@ -35,7 +35,7 @@ export function useInitiatives() {
 }
 
 /**
- * Create a team-level initiative directly (no plan run). On success the
+ * Create a team-level initiative. On success the
  * initiatives list query is invalidated so the new row appears.
  */
 export function useCreateInitiative() {
@@ -54,7 +54,7 @@ export function useCreateInitiative() {
   }
 }
 
-/** One initiative with its lineage. `null` id disables the fetch. */
+/** One initiative with its attached tasks. `null` id disables the fetch. */
 export function useInitiativeDetail(initiativeId: string | null) {
   const query = useQuery({
     queryKey: ['initiative', initiativeId],

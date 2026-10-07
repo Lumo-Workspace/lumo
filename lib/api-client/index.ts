@@ -4,14 +4,11 @@ export { initiativesClient } from './initiatives'
 export type {
   ApiInitiativeListItem,
   ApiInitiativeDetail,
-  ApiInitiativeIdeaRef,
   ApiInitiativeTaskRef,
   ApiInitiativeStatus,
 } from './initiatives'
-export { planRunsClient } from './plan-runs'
 export { projectsClient } from './projects'
 export { documentsClient, documentRevisionsApi } from './documents'
-export { ideasClient } from './ideas'
 export { runReviewsClient } from './run-reviews'
 export type { ReviewPoolView, ReviewPoolItem } from './run-reviews'
 export { documentTemplatesClient } from './document-templates'
@@ -51,9 +48,4 @@ export type {
 } from './memories'
 export { lineageClient } from './lineage'
 export { mentionSearchClient } from './mention-search'
-export type {
-  ClusterGateIdea,
-  ClusterGateView,
-  ConfirmClusterGateResponse,
-} from './plan-runs'
 export { testCasesClient } from './test-cases'
