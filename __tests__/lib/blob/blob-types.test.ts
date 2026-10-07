@@ -66,6 +66,16 @@ describe('references keep public and private apart', () => {
     expect(blobRef('public', 'a/b')).toBe('/api/blob/public/a/b')
   })
 
+  it('public refs are segment-encoded and round-trip', () => {
+    const ref = blobRef('public', 'workspaces/a b/logo%1.png')
+    expect(ref).toBe('/api/blob/public/workspaces/a%20b/logo%251.png')
+    expect(pathnameFromRef(ref, 'public')).toBe('workspaces/a b/logo%1.png')
+    // An encoded slash cannot smuggle a traversal past the segment check.
+    expect(() =>
+      pathnameFromRef('/api/blob/public/a/..%2Fb', 'public')
+    ).toThrow(/unsafe/)
+  })
+
   it('resolves refs and bare pathnames inside their own namespace', () => {
     expect(pathnameFromRef('lumo-blob:private/a/b', 'private')).toBe('a/b')
     expect(pathnameFromRef('/api/blob/public/a/b', 'public')).toBe('a/b')

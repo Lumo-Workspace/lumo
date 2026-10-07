@@ -123,6 +123,16 @@ describe('public blob route', () => {
     expect((await publicReq('workspaces/ws-a/logo-2.png')).status).toBe(404)
   })
 
+  it('a storage failure is a logged 500, not a silent 404', async () => {
+    const storage = await getBlobStorage()
+    const spy = jest
+      .spyOn(storage, 'get')
+      .mockRejectedValueOnce(new Error('disk on fire'))
+    const res = await publicReq('workspaces/ws-a/logo-1.png')
+    expect(res.status).toBe(500)
+    spy.mockRestore()
+  })
+
   it('refuses non-logo pathnames even in the public namespace', async () => {
     const storage = await getBlobStorage()
     await storage.put('workspaces/ws-a/notes.txt', Buffer.from('x'), {

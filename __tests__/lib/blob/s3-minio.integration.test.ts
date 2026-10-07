@@ -2,10 +2,10 @@
  * @jest-environment node
  */
 // LUM-1021: the S3 backend against a REAL MinIO. Skipped unless
-// MINIO_TEST_ENDPOINT is set, e.g.
-//   docker run -d --name lum1021-minio -p 9000:9000 minio/minio server /data
-//   MINIO_TEST_ENDPOINT=http://127.0.0.1:9000 MINIO_TEST_ACCESS_KEY=minioadmin \
-//     MINIO_TEST_SECRET_KEY=minioadmin npx jest s3-minio.integration
+// MINIO_TEST_ENDPOINT is set. Start a local MinIO container, then run this
+// file with MINIO_TEST_ENDPOINT (e.g. http://127.0.0.1:9000) plus
+// MINIO_TEST_ACCESS_KEY / MINIO_TEST_SECRET_KEY set to its root user and
+// password.
 import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3'
 import { randomUUID } from 'node:crypto'
 import {
@@ -23,8 +23,8 @@ describeMinio('S3 backend on real MinIO', () => {
     bucket,
     region: 'us-east-1',
     endpoint: endpoint ?? '',
-    accessKeyId: process.env.MINIO_TEST_ACCESS_KEY ?? 'minioadmin',
-    secretAccessKey: process.env.MINIO_TEST_SECRET_KEY ?? 'minioadmin',
+    accessKeyId: process.env.MINIO_TEST_ACCESS_KEY ?? '',
+    secretAccessKey: process.env.MINIO_TEST_SECRET_KEY ?? '',
     forcePathStyle: true,
   }
   const storage = createS3BlobStorage(config)

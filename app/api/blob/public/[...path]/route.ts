@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 import { openWorkspaceLogo } from '@/lib/services/workspace-logo-blob'
 
 export const runtime = 'nodejs'
@@ -15,7 +16,23 @@ type Params = { params: Promise<{ path: string[] }> }
  */
 export async function GET(_request: Request, { params }: Params) {
   const { path } = await params
-  const opened = await openWorkspaceLogo(path.join('/')).catch(() => null)
+  let opened
+  try {
+    opened = await openWorkspaceLogo(path.join('/'))
+  } catch (error) {
+    // A bad pathname is the caller's 404; anything else is our storage.
+    if ((error as { status?: unknown } | null)?.status === 400) opened = null
+    else {
+      logger.error(
+        '[GET /api/blob/public] storage read failed:',
+        error instanceof Error ? error.message : error
+      )
+      return NextResponse.json(
+        { error: 'storage unavailable' },
+        { status: 500 }
+      )
+    }
+  }
   if (!opened) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }

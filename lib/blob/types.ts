@@ -23,7 +23,9 @@ export interface PutBlobOptions {
   addRandomSuffix?: boolean
   /** Replace an existing object at the same pathname (default: refuse). */
   allowOverwrite?: boolean
-  /** Hint for large bodies (Vercel multipart upload). */
+  /** Hint for large bodies — Vercel multipart upload only. S3 and disk
+   *  write one buffered body (fine for the in-memory export archives that
+   *  set it; S3 PutObject accepts up to 5 GB). */
   multipart?: boolean
 }
 
@@ -150,8 +152,10 @@ export function withRandomSuffix(pathname: string): string {
 
 /** The reference S3 / disk hand back for an object. */
 export function blobRef(access: BlobAccess, pathname: string): string {
+  // Public refs are URLs: encode each segment (decoded again by
+  // pathnameFromRef). Private refs are opaque and stay verbatim.
   return access === 'public'
-    ? `${PUBLIC_BLOB_ROUTE}${pathname}`
+    ? `${PUBLIC_BLOB_ROUTE}${pathname.split('/').map(encodeURIComponent).join('/')}`
     : `${BLOB_REF_SCHEME}private/${pathname}`
 }
 
@@ -179,7 +183,11 @@ export function pathnameFromRef(ref: string, access: BlobAccess): string {
     }
     refAccess = 'public'
     try {
-      pathname = decodeURI(path.slice(PUBLIC_BLOB_ROUTE.length))
+      pathname = path
+        .slice(PUBLIC_BLOB_ROUTE.length)
+        .split('/')
+        .map(decodeURIComponent)
+        .join('/')
     } catch {
       throw blobError(`malformed blob reference: ${ref}`, 400)
     }
