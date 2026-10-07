@@ -1,0 +1,32 @@
+# Build context for the root Dockerfile (LUM-1028). Docker without buildx does
+# not read Dockerfile.dockerignore, so this must live at the repository root.
+
+# Installed / built inside the image. In a lumo worktree node_modules is a
+# symlink to a host path, which must never be copied in.
+node_modules
+**/node_modules
+.next
+out
+build
+coverage
+shared/dist
+cli/dist
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets and local state: every root dotfile / dot-directory (.env*, .git,
+# .worktrees, .vercel, agent tooling). The build needs none of them.
+.*
+**/.env*
+*.pem
+
+# Not needed to build the app
+__tests__
+tests
+docs
+oss
+Dockerfile
+docker-compose.yml
+deploy
+*.log
+.DS_Store

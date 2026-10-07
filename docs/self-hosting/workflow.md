@@ -9,6 +9,9 @@ steps and sleeps are stored in Postgres and executed by a worker
 
 ## Configuration
 
+[Docker Compose](README.md) sets all of this up (the `migrate` service runs
+the deploy order below); the rest of this page explains what it does.
+
 | Variable                               | Required | Meaning                                                                                                            |
 | -------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
 | `WORKFLOW_TARGET_WORLD`                | yes      | `@workflow/world-postgres`                                                                                         |
