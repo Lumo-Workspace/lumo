@@ -149,6 +149,9 @@ describe('ZDR exclusion disclosure LUM-871', () => {
     // The manifest cites the archived probe run (the file itself stays in the
     // internal evaluation tree, LUM-1034).
     expect(MANIFEST).toMatch(/存档于内部评测目录\(LUM-871\)/)
+    // The manifest no longer names the path (it is not public), so pin the
+    // archive itself: a moved or deleted probe run fails here instead.
+    expect(fs.existsSync(path.join(ROOT, PROBE_PATH))).toBe(true)
   })
 
   it('committed probe output carries no credential', () => {
