@@ -6,6 +6,7 @@
 import {
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
@@ -74,9 +75,17 @@ describe('s3ConfigFromEnv', () => {
 })
 
 describe('S3 backend', () => {
+  const notFound = () =>
+    Object.assign(new Error('nf'), {
+      name: 'NotFound',
+      $metadata: { httpStatusCode: 404 },
+    })
+  const commandsOf = (send: jest.Mock) =>
+    send.mock.calls.map(c => (c[0] as object).constructor.name)
+
   it('put writes under the access namespace, refuses overwrite by default', async () => {
     const { storage, send } = setup()
-    send.mockResolvedValue({})
+    send.mockRejectedValueOnce(notFound()).mockResolvedValue({})
     const stored = await storage.put('test-evidence/t/c/f', Buffer.from('hi'), {
       access: 'private',
       contentType: 'text/plain',
@@ -85,7 +94,13 @@ describe('S3 backend', () => {
       url: 'lumo-blob:private/test-evidence/t/c/f',
       pathname: 'test-evidence/t/c/f',
     })
-    const cmd = send.mock.calls[0]![0] as PutObjectCommand
+    const head = send.mock.calls[0]![0] as HeadObjectCommand
+    expect(head).toBeInstanceOf(HeadObjectCommand)
+    expect(head.input).toEqual({
+      Bucket: 'lumo',
+      Key: 'private/test-evidence/t/c/f',
+    })
+    const cmd = send.mock.calls[1]![0] as PutObjectCommand
     expect(cmd).toBeInstanceOf(PutObjectCommand)
     expect(cmd.input).toMatchObject({
       Bucket: 'lumo',
@@ -95,18 +110,21 @@ describe('S3 backend', () => {
       IfNoneMatch: '*',
     })
 
+    // allowOverwrite: no existence check, no conditional header.
     await storage.put('workspaces/w/logo-1.png', Buffer.from('p'), {
       access: 'public',
       allowOverwrite: true,
     })
-    const cmd2 = send.mock.calls[1]![0] as PutObjectCommand
+    expect(send).toHaveBeenCalledTimes(3)
+    const cmd2 = send.mock.calls[2]![0] as PutObjectCommand
+    expect(cmd2).toBeInstanceOf(PutObjectCommand)
     expect(cmd2.input.Key).toBe('public/workspaces/w/logo-1.png')
     expect(cmd2.input).not.toHaveProperty('IfNoneMatch')
   })
 
-  it('maps a 412 precondition failure to 409', async () => {
+  it('server honours If-None-Match: a 412 (lost race after the check) → 409', async () => {
     const { storage, send } = setup()
-    send.mockRejectedValue(
+    send.mockRejectedValueOnce(notFound()).mockRejectedValueOnce(
       Object.assign(new Error('pre'), {
         name: 'PreconditionFailed',
         $metadata: { httpStatusCode: 412 },
@@ -115,6 +133,94 @@ describe('S3 backend', () => {
     await expect(
       storage.put('a/b', Buffer.from('x'), { access: 'private' })
     ).rejects.toMatchObject({ status: 409 })
+    expect(commandsOf(send)).toEqual(['HeadObjectCommand', 'PutObjectCommand'])
+  })
+
+  it('server IGNORES If-None-Match: the prior HeadObject refuses the overwrite without writing', async () => {
+    const { storage, send } = setup()
+    // HeadObject finds the object; a put would have silently overwritten.
+    send.mockResolvedValueOnce({ ContentLength: 1 }).mockResolvedValue({})
+    await expect(
+      storage.put('a/b', Buffer.from('x'), { access: 'private' })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(commandsOf(send)).toEqual(['HeadObjectCommand'])
+  })
+
+  it('server REJECTS If-None-Match (501 NotImplemented): falls back to check-then-put, and remembers', async () => {
+    const { storage, send } = setup()
+    send
+      .mockRejectedValueOnce(notFound())
+      .mockRejectedValueOnce(
+        Object.assign(new Error('ni'), {
+          name: 'NotImplemented',
+          $metadata: { httpStatusCode: 501 },
+        })
+      )
+      .mockResolvedValueOnce({})
+    await expect(
+      storage.put('a/b', Buffer.from('x'), { access: 'private' })
+    ).resolves.toMatchObject({ pathname: 'a/b' })
+    expect(commandsOf(send)).toEqual([
+      'HeadObjectCommand',
+      'PutObjectCommand',
+      'PutObjectCommand',
+    ])
+    expect(send.mock.calls[1]![0].input).toHaveProperty('IfNoneMatch', '*')
+    expect(send.mock.calls[2]![0].input).not.toHaveProperty('IfNoneMatch')
+
+    // Next put: no conditional header attempt, existence still enforced.
+    send.mockReset()
+    send.mockRejectedValueOnce(notFound()).mockResolvedValueOnce({})
+    await storage.put('a/c', Buffer.from('y'), { access: 'private' })
+    expect(commandsOf(send)).toEqual(['HeadObjectCommand', 'PutObjectCommand'])
+    expect(send.mock.calls[1]![0].input).not.toHaveProperty('IfNoneMatch')
+    send.mockReset()
+    send.mockResolvedValueOnce({})
+    await expect(
+      storage.put('a/c', Buffer.from('z'), { access: 'private' })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(commandsOf(send)).toEqual(['HeadObjectCommand'])
+  })
+
+  it('a 400 InvalidArgument to If-None-Match also falls back; other put errors propagate', async () => {
+    const { storage, send } = setup()
+    send
+      .mockRejectedValueOnce(notFound())
+      .mockRejectedValueOnce(
+        Object.assign(new Error('bad'), {
+          name: 'InvalidArgument',
+          $metadata: { httpStatusCode: 400 },
+        })
+      )
+      .mockResolvedValueOnce({})
+    await storage.put('a/b', Buffer.from('x'), { access: 'private' })
+    expect(send).toHaveBeenCalledTimes(3)
+
+    const other = setup()
+    other.send.mockRejectedValueOnce(notFound()).mockRejectedValueOnce(
+      Object.assign(new Error('denied'), {
+        name: 'AccessDenied',
+        $metadata: { httpStatusCode: 403 },
+      })
+    )
+    await expect(
+      other.storage.put('a/b', Buffer.from('x'), { access: 'private' })
+    ).rejects.toThrow('denied')
+    expect(other.send).toHaveBeenCalledTimes(2)
+  })
+
+  it('a HeadObject error other than 404 propagates (never writes blind)', async () => {
+    const { storage, send } = setup()
+    send.mockRejectedValueOnce(
+      Object.assign(new Error('forbidden'), {
+        name: 'Forbidden',
+        $metadata: { httpStatusCode: 403 },
+      })
+    )
+    await expect(
+      storage.put('a/b', Buffer.from('x'), { access: 'private' })
+    ).rejects.toThrow('forbidden')
+    expect(send).toHaveBeenCalledTimes(1)
   })
 
   it('get streams the body; NoSuchKey → null; a public ref cannot read private', async () => {

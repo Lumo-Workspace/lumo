@@ -7,10 +7,25 @@
  * private objects are streamed by an authorising route or handed out as a
  * short-lived presigned URL; public objects (workspace logos) are served by
  * `GET /api/blob/public/...`, which can only reach the `public/` namespace.
+ *
+ * No-overwrite contract (`allowOverwrite` unset): many S3-compatible servers
+ * (older MinIO, some gateways) silently IGNORE `If-None-Match: *` on
+ * PutObject and overwrite, and others REJECT the header (501 NotImplemented /
+ * 400). So the backend first checks existence with HeadObject, then still
+ * sends the conditional put where the server honours it (closing the race
+ * there). On a server that ignores the header a small check-then-put race
+ * remains: two concurrent writers of the SAME new key can both pass the
+ * HeadObject check and the last one wins. Lumo's no-overwrite writes use
+ * random or content-unique pathnames, so this only matters as a safety net.
+ * On a server that rejects the header, the put is retried without it and
+ * later puts skip it. HeadObject on a missing key must answer 404 — on AWS
+ * that needs `s3:ListBucket` (the same permission `get()` already relies on);
+ * without it the 403 propagates instead of silently writing.
  */
 import {
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
@@ -101,6 +116,26 @@ function isNotFound(error: unknown): boolean {
   )
 }
 
+/**
+ * The server does not support a conditional PutObject (`If-None-Match`):
+ * 501 / NotImplemented, or a 400-class "bad request / invalid argument".
+ */
+function isConditionalPutUnsupported(error: unknown): boolean {
+  const e = error as { name?: string; $metadata?: { httpStatusCode?: number } }
+  const status = e?.$metadata?.httpStatusCode
+  return (
+    e?.name === 'NotImplemented' ||
+    status === 501 ||
+    (status === 400 &&
+      [
+        'InvalidArgument',
+        'InvalidRequest',
+        'BadRequest',
+        'NotImplemented',
+      ].includes(e?.name ?? ''))
+  )
+}
+
 function isAlreadyExists(error: unknown): boolean {
   const e = error as { name?: string; $metadata?: { httpStatusCode?: number } }
   return (
@@ -113,6 +148,19 @@ export function createS3BlobStorage(
   client: S3Client = s3ClientFor(config)
 ): BlobStorage {
   const Bucket = config.bucket
+  // Learned per backend instance: does the server accept If-None-Match?
+  // ("accepted" ≠ honoured — an ignoring server also accepts it.)
+  let conditionalPut: 'unknown' | 'accepted' | 'unsupported' = 'unknown'
+
+  async function objectExists(Key: string): Promise<boolean> {
+    try {
+      await client.send(new HeadObjectCommand({ Bucket, Key }))
+      return true
+    } catch (error) {
+      if (isNotFound(error)) return false
+      throw error
+    }
+  }
 
   return {
     kind: 's3',
@@ -123,24 +171,41 @@ export function createS3BlobStorage(
         ? withRandomSuffix(pathname)
         : pathname
       const bytes = await bodyToBuffer(body)
-      try {
-        await client.send(
-          new PutObjectCommand({
-            Bucket,
-            Key: keyOf(opts.access, finalPath),
-            Body: bytes,
-            ContentLength: bytes.length,
-            ContentType: inferContentType(body, opts.contentType),
-            // Same default as Vercel Blob: never silently replace an object.
-            ...(opts.allowOverwrite ? {} : { IfNoneMatch: '*' }),
-          })
-        )
-      } catch (error) {
-        if (isAlreadyExists(error)) {
-          throw blobError(`blob already exists: ${finalPath}`, 409)
-        }
-        throw error
+      const Key = keyOf(opts.access, finalPath)
+      const base = {
+        Bucket,
+        Key,
+        Body: bytes,
+        ContentLength: bytes.length,
+        ContentType: inferContentType(body, opts.contentType),
       }
+      const exists = () => blobError(`blob already exists: ${finalPath}`, 409)
+
+      if (opts.allowOverwrite) {
+        await client.send(new PutObjectCommand(base))
+        return { url: blobRef(opts.access, finalPath), pathname: finalPath }
+      }
+
+      // Same default as Vercel Blob: never silently replace an object. The
+      // existence check holds even where If-None-Match is ignored.
+      if (await objectExists(Key)) throw exists()
+      if (conditionalPut !== 'unsupported') {
+        try {
+          await client.send(new PutObjectCommand({ ...base, IfNoneMatch: '*' }))
+          conditionalPut = 'accepted'
+          return { url: blobRef(opts.access, finalPath), pathname: finalPath }
+        } catch (error) {
+          if (isAlreadyExists(error)) throw exists()
+          if (
+            conditionalPut === 'accepted' ||
+            !isConditionalPutUnsupported(error)
+          ) {
+            throw error
+          }
+          conditionalPut = 'unsupported'
+        }
+      }
+      await client.send(new PutObjectCommand(base))
       return { url: blobRef(opts.access, finalPath), pathname: finalPath }
     },
 

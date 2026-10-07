@@ -44,6 +44,12 @@ Vercel Blob 的访问级别是**按 store** 设置的:公开 store 会直接拒�
 | SARIF 上传(私有)           | 私有 store(客户端直传) | 不支持直传(上传路由回 501)                  | 同左                             | 仅服务端 ingest                                        |
 | 工作区 logo(公开)          | 公开 store 的 CDN URL  | `public/…`,经 `GET /api/blob/public/…` 提供 | `<dir>/public/…`,同左            | 任何人(该路由只读公开命名空间、只认 logo 形状的路径)   |
 
+**后端歧义告警**:同时配了多种后端(例如残留的 `BLOB_READ_WRITE_TOKEN` 加上 `S3_BUCKET`)且没设 `BLOB_STORAGE` 时,仍按上面的优先级选(SaaS 只配 Vercel token,行为不变),但服务端会打一条 warn 日志,写明选中了哪个后端、以及用 `BLOB_STORAGE=…` 覆盖。自托管请显式设 `BLOB_STORAGE`。
+
+**S3 不覆盖语义**:默认(未传 `allowOverwrite`)的写入绝不替换已有对象。很多 S3 兼容服务(旧版 MinIO、部分网关)会**忽略** PutObject 的 `If-None-Match: *` 直接覆盖,另一些会**拒绝**该头(501 NotImplemented / 400)。因此 S3 后端先用 HeadObject 查存在(存在 → 409),再在服务端支持时带条件头写(堵住竞态);服务端拒绝条件头时去掉它重试,之后的写入不再尝试。在忽略条件头的服务上仍有一个小竞态:两个并发写同一个**新**路径的请求可能都通过检查、后写者胜出——Lumo 的不覆盖写入都用随机或内容唯一的路径,这里只是兜底。HeadObject 对不存在的键须返回 404:AWS 上需要 `s3:ListBucket` 权限(`get()` 本来就依赖它),否则 403 会直接抛出而不会盲写。
+
+**切换后端不迁移数据**:把已有部署从 Vercel Blob 换到 S3 / 磁盘时,数据库里已存的 Vercel Blob URL **不会**随之迁移。私有文件(测试证据、编辑器图片、导出包)的 Vercel URL 会被新后端拒绝(`not a blob reference of this backend`,鉴权路由读不出);工作区 logo 存的是 Vercel CDN 地址,只在旧 Vercel store 仍存在时还能显示,且删除/按前缀清理都碰不到它们。切换前须自行把对象搬到新后端并改写库里的引用(本仓库未提供迁移脚本)。
+
 S3 额外提供 `signedReadUrl()`(预签名 GET,默认 300 秒、上限 7 天);Vercel 与磁盘不提供(回 501),私有文件一律由鉴权路由在服务端读出再流给调用方。`LOCAL_BLOB_DIR` 不允许放在 Next 的 `public/` 目录下(启动即报错)。
 
 ## 删除
