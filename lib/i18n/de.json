@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "Läuft noch – schau in ein paar Minuten wieder vorbei.",
   "securityScan.stageReason.NOT_CONFIGURED": "Aus: Lumos verwalteter Scanner ist in dieser Umgebung aus, und dieses Repository hat keinen Scanner-Bericht gesendet.",
   "securityScan.stageReason.DISABLED": "Aus: in den Sicherheitseinstellungen dieses Workspaces deaktiviert.",
-  "securityScan.stageReason.SUPERSEDED": "Nicht abgeschlossen: Ein neuerer Push hat einen neuen Scan gestartet, bevor diese Ebene fertig war."
+  "securityScan.stageReason.SUPERSEDED": "Nicht abgeschlossen: Ein neuerer Push hat einen neuen Scan gestartet, bevor diese Ebene fertig war.",
+  "integrations.notAvailable": "Auf dieser Installation nicht verfügbar: {names}. Sie erscheinen hier, sobald ihre Zugangsdaten konfiguriert sind.",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumos eigene Scanner und der Review-Verifier benötigen Vercel Sandbox, das auf dieser Installation nicht konfiguriert ist. SARIF-Berichte aus deiner CI werden weiterhin angezeigt.",
+  "workspaceSettings.securityScan.sandboxUnavailable": "Auf dieser Installation nicht verfügbar: Vercel Sandbox ist nicht konfiguriert."
 }

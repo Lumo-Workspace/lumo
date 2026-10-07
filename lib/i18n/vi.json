@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "Đang chạy — hãy quay lại sau vài phút.",
   "securityScan.stageReason.NOT_CONFIGURED": "Tắt: trình quét được quản lý của Lumo đang tắt trên bản triển khai này và kho mã chưa gửi báo cáo quét nào.",
   "securityScan.stageReason.DISABLED": "Tắt: đã tắt trong cài đặt bảo mật của không gian làm việc này.",
-  "securityScan.stageReason.SUPERSEDED": "Chưa xong: một lần push mới hơn đã bắt đầu lượt quét mới trước khi lớp này hoàn tất."
+  "securityScan.stageReason.SUPERSEDED": "Chưa xong: một lần push mới hơn đã bắt đầu lượt quét mới trước khi lớp này hoàn tất.",
+  "integrations.notAvailable": "Không khả dụng trên bản triển khai này: {names}. Chúng sẽ xuất hiện ở đây khi thông tin xác thực được cấu hình.",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Trình quét riêng của Lumo và trình xác minh đánh giá cần Vercel Sandbox, vốn chưa được cấu hình trên bản triển khai này. SARIF do CI của bạn tải lên vẫn được hiển thị.",
+  "workspaceSettings.securityScan.sandboxUnavailable": "Không khả dụng trên bản triển khai này: Vercel Sandbox chưa được cấu hình."
 }

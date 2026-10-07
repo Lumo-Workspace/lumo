@@ -32,9 +32,17 @@ const ALL_ON = {
   securityHuntEnabled: true,
 }
 
-function renderCard(initial = ALL_ON, huntAvailable = true) {
+function renderCard(
+  initial = ALL_ON,
+  huntAvailable = true,
+  sandboxAvailable = true
+) {
   return render(
-    <SecurityScanSwitchesCard initial={initial} huntAvailable={huntAvailable} />
+    <SecurityScanSwitchesCard
+      initial={initial}
+      huntAvailable={huntAvailable}
+      sandboxAvailable={sandboxAvailable}
+    />
   )
 }
 
@@ -120,5 +128,33 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
     expect(
       await screen.findByRole('button', { name: 'Disable all' })
     ).toBeInTheDocument()
+  })
+})
+
+describe('LUM-1025 SecurityScanSwitchesCard without Vercel Sandbox', () => {
+  it('locks the hunt and says the deployment lacks Sandbox, not that Lumo turned it off', () => {
+    renderCard(ALL_ON, false, false)
+    expect(toggle('Exploit-path hunt')).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Not available on this deployment: Vercel Sandbox is not configured.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Currently turned off for all workspaces by Lumo.')
+    ).toBeNull()
+    expect(
+      screen.getByText(
+        /Lumo's own scanners and the review verifier need Vercel Sandbox/
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('keeps the platform-off note when Sandbox is configured', () => {
+    renderCard(ALL_ON, false, true)
+    expect(
+      screen.getByText('Currently turned off for all workspaces by Lumo.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/need Vercel Sandbox/)).toBeNull()
   })
 })

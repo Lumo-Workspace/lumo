@@ -71,6 +71,33 @@ import { GET as appReverify } from '@/app/api/github/app/reverify/route'
 import { GET as appSetup } from '@/app/api/github/app/setup/route'
 import { GET as appCallback } from '@/app/api/github/app/callback/route'
 
+// LUM-1025: these routes 404 unless their integration is configured on the
+// deployment — give every optional integration placeholder env (unset only).
+for (const name of [
+  'ENCRYPTION_KEY',
+  'SLACK_CLIENT_ID',
+  'SLACK_CLIENT_SECRET',
+  'SLACK_SIGNING_SECRET',
+  'GITHUB_APP_SLUG',
+  'GITHUB_APP_ID',
+  'GITHUB_APP_PRIVATE_KEY',
+  'GITHUB_APP_CLIENT_ID',
+  'GITHUB_APP_CLIENT_SECRET',
+  'GITHUB_APP_WEBHOOK_SECRET',
+  'GITHUB_CLIENT_ID',
+  'GITHUB_CLIENT_SECRET',
+  'FIGMA_OAUTH_CLIENT_ID',
+  'FIGMA_OAUTH_CLIENT_SECRET',
+  'FIGMA_OAUTH_REDIRECT_URI',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_DRIVE_OAUTH_REDIRECT_URI',
+]) {
+  if (!process.env[name])
+    process.env[name] =
+      name === 'ENCRYPTION_KEY' ? '0'.repeat(64) : 'placeholder'
+}
+
 const APP = 'https://lumo.test'
 
 const membership = (clerkId: string, wsId: string, slug: string) => ({

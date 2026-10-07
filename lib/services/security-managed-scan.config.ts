@@ -6,9 +6,11 @@
  * sandbox) and by stage A (`lib/services/pr-security-scan.service.ts`, for
  * `isManagedScanEnabled`). Neither may pull in `@vercel/sandbox`,
  * `@octokit/auth-app`, or the GitHub integration — the only things this
- * file imports are the two types below. Put anything that needs those
- * heavier deps in `security-managed-scan.service.ts` instead.
+ * file imports are the two types below (plus the pure env reader
+ * `lib/integrations/configured`). Put anything that needs those heavier deps
+ * in `security-managed-scan.service.ts` instead.
  */
+import { isIntegrationConfigured } from '@/lib/integrations/configured'
 import type {
   ResolvedPr,
   NormalizeOutcome,
@@ -228,7 +230,9 @@ export function isSupersededOutcome(outcome: ManagedScanOutcome): boolean {
 }
 
 /**
- * Kill switch: managed scanning is on unless LUMO_MANAGED_SCAN is exactly "off".
+ * Kill switch: managed scanning is on unless LUMO_MANAGED_SCAN is exactly "off"
+ * — or (LUM-1025) Vercel Sandbox is not configured on this deployment, since
+ * every managed run (and the default-branch baseline) boots a sandbox VM.
  *
  * The parameter is a plain string map rather than `NodeJS.ProcessEnv`: Next.js
  * augments that type with a required `NODE_ENV`, so a caller (a test) could not
@@ -237,5 +241,8 @@ export function isSupersededOutcome(outcome: ManagedScanOutcome): boolean {
 export function isManagedScanEnabled(
   env: Record<string, string | undefined> = process.env
 ): boolean {
-  return env.LUMO_MANAGED_SCAN !== 'off'
+  return (
+    env.LUMO_MANAGED_SCAN !== 'off' &&
+    isIntegrationConfigured('vercelSandbox', env)
+  )
 }

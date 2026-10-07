@@ -1,5 +1,9 @@
 import { start } from 'workflow/api'
 import { logger } from '@/lib/logger'
+import {
+  isIntegrationConfigured,
+  SANDBOX_NOT_CONFIGURED,
+} from '@/lib/integrations/configured'
 import { reviewVerifierWorkflow } from '@/lib/workflows/review-verifier'
 import type { ReviewVerifierJob } from './review-verifier.service'
 
@@ -11,6 +15,12 @@ import type { ReviewVerifierJob } from './review-verifier.service'
 export async function startReviewVerifier(
   job: ReviewVerifierJob
 ): Promise<boolean> {
+  if (!isIntegrationConfigured('vercelSandbox')) {
+    logger.info(
+      `[review-verifier] skipped scan=${job.scanId} ${job.repo}#${job.prNumber}: ${SANDBOX_NOT_CONFIGURED}`
+    )
+    return false
+  }
   try {
     const run = await start(reviewVerifierWorkflow, [job])
     logger.info(

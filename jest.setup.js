@@ -50,6 +50,10 @@ process.env.SUPA_POSTGRES_PRISMA_URL =
   'postgresql://test:test@localhost:5432/test'
 process.env.ACCESS_TOKEN_KEY = 'test-access-token-key-32-chars'
 process.env.REFRESH_TOKEN_KEY = 'test-refresh-token-key-32-chars'
+// LUM-1025: suites run as if on Vercel, so Sandbox / Chromium count as
+// configured and the security-scan layers keep their default-on behaviour.
+// Tests of the unconfigured path pass an explicit env without it.
+process.env.VERCEL = '1'
 
 // Mock Prisma Client — spread actual module so runtime enum objects (e.g.
 // DocMentionSource, DocVisibility, TaskStatus …) are available in tests

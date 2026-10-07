@@ -1,5 +1,9 @@
 import { start } from 'workflow/api'
 import { logger } from '@/lib/logger'
+import {
+  isIntegrationConfigured,
+  SANDBOX_NOT_CONFIGURED,
+} from '@/lib/integrations/configured'
 import { securityBaselineScanWorkflow } from '@/lib/workflows/security-baseline-scan'
 import type { BaselineScanJob } from './security-managed-scan.config'
 
@@ -7,6 +11,12 @@ import type { BaselineScanJob } from './security-managed-scan.config'
 export async function startSecurityBaselineScan(
   job: BaselineScanJob
 ): Promise<string | null> {
+  if (!isIntegrationConfigured('vercelSandbox')) {
+    logger.info(
+      `[security-baseline] skipped ${job.repo}@${job.sha.slice(0, 7)}: ${SANDBOX_NOT_CONFIGURED}`
+    )
+    return null
+  }
   try {
     const run = await start(securityBaselineScanWorkflow, [job])
     logger.info(
