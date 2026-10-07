@@ -123,7 +123,7 @@ function main(): void {
 
   const sha = git(repo, ['rev-parse', '--verify', `${ref}^{commit}`]).trim()
   const manifest = JSON.parse(
-    readFileSync(join(repo, manifestPath), 'utf8')
+    readFileSync(resolve(repo, manifestPath), 'utf8')
   ) as OssManifest
 
   // 1. Classify every tracked file of the ref (default deny).

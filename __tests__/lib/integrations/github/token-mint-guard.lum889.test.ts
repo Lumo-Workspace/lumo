@@ -73,6 +73,8 @@ function sidecarAllowlists(dir = 'scripts'): CallSiteAllowlist {
     for (const [file, mints] of Object.entries(declared)) {
       if (path.posix.dirname(file) !== dir)
         throw new Error(`${rel} may only allowlist files in ${dir}/: ${file}`)
+      if (file in PUBLIC_ALLOWED || file in out)
+        throw new Error(`${rel} may not redefine the allowlist for ${file}`)
       out[file] = mints
     }
   }
