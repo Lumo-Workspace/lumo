@@ -1,5 +1,5 @@
 import {
-  getResend,
+  sendEmail,
   buildWorkspaceDeletionEmail,
 } from '@/lib/integrations/email'
 import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
@@ -38,7 +38,6 @@ export async function sendDeletionNotice(
     settingsUrl: `${appUrl}/workspace/${notice.workspaceSlug}/settings/workspace`,
   })
 
-  const resend = getResend()
   let sent = 0
   let failed = 0
   for (const clerkId of notice.ownerClerkIds) {
@@ -47,18 +46,14 @@ export async function sendDeletionNotice(
       failed++
       continue
     }
-    try {
-      const { error } = await resend.emails.send(
-        { from: 'Lumo <noreply@uselumo.ai>', to: [email], subject, html },
-        {
-          idempotencyKey: `workspace-deletion/${notice.workspaceId}/${notice.kind}/${notice.requestedAt.getTime()}/${clerkId}`,
-        }
-      )
-      if (error) failed++
-      else sent++
-    } catch {
-      failed++
-    }
+    const result = await sendEmail(
+      { to: [email], subject, html },
+      {
+        idempotencyKey: `workspace-deletion/${notice.workspaceId}/${notice.kind}/${notice.requestedAt.getTime()}/${clerkId}`,
+      }
+    )
+    if (result.status === 'sent') sent++
+    else failed++
   }
   if (failed > 0) {
     logger.warn('[workspace-deletion] owner notice not delivered to all', {
