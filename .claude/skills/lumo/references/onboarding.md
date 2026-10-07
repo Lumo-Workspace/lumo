@@ -6,6 +6,8 @@
 
 Bootstraps Lumo into a coding-agent installation. Copies the bundled skill files (`SKILL.md` **and its `references/` directory**) into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
 
+Setup records the skill directory in `~/.lumo/skill-installs.json` (user and project scope alike) so `lumo update` / `lumo skill sync` can refresh it later. An existing skill that differs from the bundle is left alone without `--force`.
+
 On `--project` scope, setup also installs a `prepare-commit-msg` git hook that
 auto-appends the branch's task ID (`[LUM-N]`, parsed from a `lumo/LUM-N-...`
 branch name) to any commit subject that lacks it. The hook is pure sh + git
@@ -96,6 +98,8 @@ Synchronously checks `registry.npmjs.org` for the latest published version of `@
 lumo update
 ```
 
+After a successful upgrade it runs the **newly installed** binary's `lumo skill sync`, so the installed skill files match the new CLI. When already on the latest version (or ahead of it) it runs the sync in-process instead — that catches a CLI upgraded with a bare `npm install -g`. A failed npm install skips the sync.
+
 The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
 
 #### When to suggest
@@ -105,3 +109,22 @@ The CLI also performs a passive check at most once every 24 hours (a detached ch
 - The passive notice has appeared and the user wants to act on it
 
 If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not auto-retry; let the user resolve the environment issue first.
+
+### `lumo skill sync` — refresh installed skill files
+
+Overwrites every installed copy of the lumo skill with the one bundled in the running CLI (same semantics as `setup --force` for the skill files; `references/` is replaced wholesale; hooks in `settings.json` are not touched). Targets: every location `lumo setup` recorded in `~/.lumo/skill-installs.json`, plus `~/.claude/skills/lumo` and `./.claude/skills/lumo` when they already hold a skill (installs made before the registry existed — they get recorded). One line per location:
+
+```bash
+lumo skill sync
+# ✓ updated skill (31 files): /Users/me/code/app/.claude/skills/lumo
+# ✓ skill already up to date: /Users/me/.claude/skills/lumo
+# - no longer installed, forgotten: /Users/me/code/old-app/.claude/skills/lumo
+# - skipped Lumo source checkout (skill source, not an install): /Users/me/code/lumo/.claude/skills/lumo
+```
+
+A recorded location without `SKILL.md` is dropped from the registry. The Lumo monorepo's own `.claude/skills/lumo/` is the skill's source and is never overwritten. No installs found → prints a pointer to `lumo setup`, exit 0.
+
+#### When to suggest
+
+- The CLI was upgraded outside `lumo update` (bare `npm install -g`, another package manager) and the skill docs look stale
+- `lumo update` reported it could not refresh the skill files

@@ -149,6 +149,7 @@ import { docShareList } from './commands/doc-share-list'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { setup } from './commands/setup'
+import { skillSync } from './commands/skill-sync'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
 import { worktreeList } from './commands/worktree-list'
@@ -295,9 +296,20 @@ program
 program
   .command('update')
   .description(
-    `Check npm for a newer ${pkg.name} and install it globally if available.`
+    `Check npm for a newer ${pkg.name}, install it globally if available, then refresh installed skill files (lumo skill sync).`
   )
-  .action(wrap(update))
+  .action(wrap(() => update()))
+
+const skillCmd = program
+  .command('skill')
+  .description('Manage the installed lumo agent skill files')
+
+skillCmd
+  .command('sync')
+  .description(
+    'Refresh every installed copy of the lumo skill (locations recorded by `lumo setup`, plus ~/.claude and ./.claude) from the version bundled in this CLI.'
+  )
+  .action(wrap(() => skillSync()))
 
 program
   .command('setup')

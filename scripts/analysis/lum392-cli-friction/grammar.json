@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.98.0",
+  "cliVersion": "1.99.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -2448,6 +2448,20 @@
       "isInvokable": true,
       "description": "Install the Lumo Claude Code skill and wire hook handlers into .claude/settings.json. Run via `npx @lumoai/cli setup` for first-time onboarding."
     },
+    "skill": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Manage the installed lumo agent skill files"
+    },
+    "skill sync": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Refresh every installed copy of the lumo skill (locations recorded by `lumo setup`, plus ~/.claude and ./.claude) from the version bundled in this CLI."
+    },
     "sprint": {
       "arguments": [],
       "flags": {},
@@ -4386,7 +4400,7 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Check npm for a newer @lumoai/cli and install it globally if available."
+      "description": "Check npm for a newer @lumoai/cli, install it globally if available, then refresh installed skill files (lumo skill sync)."
     },
     "usage": {
       "arguments": [],

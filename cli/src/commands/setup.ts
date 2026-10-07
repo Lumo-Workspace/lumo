@@ -13,6 +13,13 @@ import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
+import {
+  bundledSkillDir,
+  hasSkill,
+  recordSkillInstall,
+  skillMatchesBundle,
+  writeSkill,
+} from '../lib/skill-install'
 
 type SetupOptions = {
   user?: boolean
@@ -97,46 +104,29 @@ async function resolveScope(options: SetupOptions): Promise<Scope | null> {
   return null
 }
 
-// Recursively list files under `dir` as paths relative to `base`.
-function listSkillFiles(dir: string, base: string = dir): string[] {
-  const out: string[] = []
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) out.push(...listSkillFiles(full, base))
-    else if (entry.isFile()) out.push(path.relative(base, full))
-  }
-  return out
-}
-
-function filesEqual(src: string, dst: string): boolean {
-  if (!fs.existsSync(dst)) return false
-  if (fs.statSync(src).size !== fs.statSync(dst).size) return false
-  return fs.readFileSync(src).equals(fs.readFileSync(dst))
-}
-
-function installSkill(claudeDir: string, force: boolean): void {
-  const skillDir = path.join(claudeDir, 'skills', 'lumo')
-  const skillDstMain = path.join(skillDir, 'SKILL.md')
+export function installSkill(
+  claudeDir: string,
+  force: boolean,
   // The skill is a directory (SKILL.md + references/*.md) bundled in
   // cli/assets/skill/, shipped via package.json "files".
-  // From dist/cli/src/commands/setup.js → ../../../../assets/skill
-  const skillSrcDir = path.resolve(__dirname, '../../../..', 'assets', 'skill')
+  skillSrcDir: string = bundledSkillDir()
+): void {
+  const skillDir = path.join(claudeDir, 'skills', 'lumo')
 
-  if (!fs.existsSync(path.join(skillSrcDir, 'SKILL.md'))) {
+  if (!hasSkill(skillSrcDir)) {
     throw new Error(
       `Bundled skill asset missing at ${skillSrcDir} — reinstall @lumoai/cli.`
     )
   }
 
-  const relFiles = listSkillFiles(skillSrcDir)
+  // LUM-1042: remember every install location so `lumo update` / `lumo skill
+  // sync` can refresh it later — project-scope paths are otherwise unknowable.
+  recordSkillInstall(skillDir)
 
   // Non-force, install already present: only overwrite when something differs,
   // and then only with --force.
-  if (fs.existsSync(skillDstMain) && !force) {
-    const allMatch = relFiles.every(rel =>
-      filesEqual(path.join(skillSrcDir, rel), path.join(skillDir, rel))
-    )
-    if (allMatch) {
+  if (hasSkill(skillDir) && !force) {
+    if (skillMatchesBundle(skillSrcDir, skillDir)) {
       process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
       return
     }
@@ -147,17 +137,8 @@ function installSkill(claudeDir: string, force: boolean): void {
     return
   }
 
-  // Fresh install or --force: replace the managed references/ dir wholesale so
-  // stale reference files don't linger, then copy every bundled file.
-  fs.rmSync(path.join(skillDir, 'references'), { recursive: true, force: true })
-  for (const rel of relFiles) {
-    const dst = path.join(skillDir, rel)
-    fs.mkdirSync(path.dirname(dst), { recursive: true })
-    fs.copyFileSync(path.join(skillSrcDir, rel), dst)
-  }
-  process.stdout.write(
-    `✓ wrote skill (${relFiles.length} files): ${skillDir}\n`
-  )
+  const count = writeSkill(skillSrcDir, skillDir)
+  process.stdout.write(`✓ wrote skill (${count} files): ${skillDir}\n`)
 }
 
 function mergeSettings(claudeDir: string, agentToken: string): void {
