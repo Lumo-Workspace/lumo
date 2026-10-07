@@ -9,18 +9,18 @@
  * `GET /api/blob/public/...`, which can only reach the `public/` namespace.
  *
  * No-overwrite contract (`allowOverwrite` unset): many S3-compatible servers
- * (older MinIO, some gateways) silently IGNORE `If-None-Match: *` on
- * PutObject and overwrite, and others REJECT the header (501 NotImplemented,
- * or a 400 naming the conditional header). So the backend first checks
- * existence with HeadObject, then still sends the conditional put where the
- * server honours it (closing the race there). On a server that ignores the header a small check-then-put race
- * remains: two concurrent writers of the SAME new key can both pass the
- * HeadObject check and the last one wins. Lumo's no-overwrite writes use
- * random or content-unique pathnames, so this only matters as a safety net.
- * On a server that rejects the header, the put is retried without it and
- * later puts skip it. HeadObject on a missing key must answer 404 — on AWS
- * that needs `s3:ListBucket` (the same permission `get()` already relies on);
- * without it the 403 propagates instead of silently writing.
+ * (older MinIO, some gateways) silently IGNORE `If-None-Match: *` on PutObject
+ * and overwrite, and others REJECT the header (501 NotImplemented, or a 400
+ * naming the conditional header). So the backend first checks existence with
+ * HeadObject, then still sends the conditional put where the server honours it
+ * (closing the race there). On a server that ignores the header a small
+ * check-then-put race remains: two concurrent writers of the SAME new key can
+ * both pass the HeadObject check and the last one wins. Lumo's no-overwrite
+ * writes use random or content-unique pathnames, so this only matters as a
+ * safety net. On a server that rejects the header, the put is retried without
+ * it and later puts skip it. HeadObject on a missing key must answer 404 — on
+ * AWS that needs `s3:ListBucket` (the same permission `get()` already relies
+ * on); without it the 403 propagates instead of silently writing.
  */
 import {
   DeleteObjectsCommand,
