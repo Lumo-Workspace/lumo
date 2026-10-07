@@ -349,7 +349,7 @@ const IMPERATIVE_ZH: RegExp[] = [
 // ─── LUM-998: the shapes the LUM-996 / LUM-997 benchmarks showed missing ─────
 //
 // Written from the TRAIN half of the deterministic split in
-// scripts/analysis/lum996-injection-detector-bench/split.ts and checked against
+// the internal LUM-996 injection-detector benchmark and checked against
 // the train half's benign samples; the held-out half is only measured. Same
 // precision rule as above: every pattern needs a directive shape (verb +
 // referent, a solicitation addressed to the model, an imperative at the start

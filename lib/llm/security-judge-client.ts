@@ -33,7 +33,7 @@ import { gateway } from '@/lib/ai/gateway'
  * generalising them ("what goes wrong because of it", "Problems located in
  * ADDED code") cost 2.5 points of precision at the same recall over 3 runs
  * each (pooled F1 49.6 vs 51.7) — see
- * scripts/analysis/lum988-code-review-replay/README.md. The system prompt is
+ * the internal LUM-988 code-review replay results. The system prompt is
  * what defines the review's scope.
  */
 export const SecurityJudgeSchema = z.object({

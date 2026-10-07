@@ -16,7 +16,7 @@ import { nearDupClusters, type VecItem } from '@/lib/services/memory/near-dup'
  * action invoked by the human-only route.
  *
  * Floor: 0.85 — the cosine at which the eval harness already counts residual
- * near-dup clusters (`scripts/eval/memory/run.ts`), kept identical so the
+ * near-dup clusters (internal LUM-538 memory eval), kept identical so the
  * human's before/after cluster count is the very metric the sweep clusters on.
  */
 export const NEAR_DUP_MERGE_FLOOR = 0.85

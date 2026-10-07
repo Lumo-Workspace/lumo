@@ -24,7 +24,7 @@ import {
   secretStockReredactService,
 } from '@/lib/services/secret-stock-reredact.service'
 import { secretStockRepository } from '@/lib/repositories/secret-stock.repository'
-import { classifyRow } from '../../../scripts/analysis/lum887-secret-stock/classify'
+import { classifyRow } from '@/lib/security-scan/secret-stock/classify'
 
 jest.setTimeout(180_000)
 

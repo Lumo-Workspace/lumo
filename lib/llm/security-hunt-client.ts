@@ -165,7 +165,7 @@ export interface HuntClientInput {
   tools?: HuntToolProbe
   /**
    * LUM-787 — probe-only, like `PlanProbeOverrides` on the planner: the
-   * replay script (`scripts/analysis/lum787-hunt-replay`) A/B-tests the
+   * replay script (internal LUM-787 hunt replay) A/B-tests the
    * hunt on another model THROUGH this function, so the thing measured is
    * the thing shipped. Production passes nothing here and runs
    * HUNT_MODEL. A provider instance, never a bare id: pass `gateway(id)`

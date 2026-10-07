@@ -30,7 +30,7 @@ const ROOT = path.resolve(__dirname, '../../../..')
  * operator probes have no workspace row. Anything else goes through
  * getRepoToken / getRepoCloneToken, which check the confirmed list.
  */
-const ALLOWED: CallSiteAllowlist = {
+const PUBLIC_ALLOWED: CallSiteAllowlist = {
   'lib/integrations/github/app-installations.ts': {
     getGithubAppJwt: [
       'fetchAppInstallation',
@@ -42,14 +42,48 @@ const ALLOWED: CallSiteAllowlist = {
   'lib/services/github-access-recheck.service.ts': {
     createInstallationToken: ['sweep', 'recheckRepository'],
   },
-  'scripts/analysis/lum886-token-permissions/probe.ts': {
-    getGithubAppJwt: ['main'],
-    createInstallationToken: ['mint'],
-    createRepoTokenForInstallation: ['mint'],
-  },
   'scripts/security/lum852-sandbox-probe.ts': {
     createRepoScopedToken: ['mintScopedToken'],
   },
+}
+
+const SIDECAR = 'token-mint-allowlist.json'
+
+/**
+ * Operator probes in internal evaluation trees (left out of the open-source
+ * snapshot, LUM-1034) declare their call sites in a sibling
+ * `token-mint-allowlist.json`. A sidecar may only name files in its own
+ * folder, so it cannot widen the allowlist for anything else.
+ */
+function sidecarAllowlists(dir = 'scripts'): CallSiteAllowlist {
+  const out: Record<string, CallSiteAllowlist[string]> = {}
+  for (const entry of fs.readdirSync(path.join(ROOT, dir), {
+    withFileTypes: true,
+  })) {
+    const rel = path.posix.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (entry.name !== 'node_modules')
+        Object.assign(out, sidecarAllowlists(rel))
+      continue
+    }
+    if (entry.name !== SIDECAR) continue
+    const declared = JSON.parse(
+      fs.readFileSync(path.join(ROOT, rel), 'utf8')
+    ) as CallSiteAllowlist
+    for (const [file, mints] of Object.entries(declared)) {
+      if (path.posix.dirname(file) !== dir)
+        throw new Error(`${rel} may only allowlist files in ${dir}/: ${file}`)
+      if (file in PUBLIC_ALLOWED || file in out)
+        throw new Error(`${rel} may not redefine the allowlist for ${file}`)
+      out[file] = mints
+    }
+  }
+  return out
+}
+
+const ALLOWED: CallSiteAllowlist = {
+  ...PUBLIC_ALLOWED,
+  ...sidecarAllowlists(),
 }
 
 describe('LUM-889 github barrel', () => {

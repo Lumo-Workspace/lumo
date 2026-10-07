@@ -23,7 +23,7 @@ export const LUM771_FEATURE_PUSH =
 // LUM-771 crossing cmu18wl7l — add + heredoc commit + feature push + PR
 // creation whose only `main` is the PR's target branch.
 export const LUM771_PUSH_AND_PR = [
-  "git add cli/package.json scripts/analysis/lum392-cli-friction/grammar.json && git commit -q -F - <<'EOF'",
+  "git add cli/package.json cli/grammar.json && git commit -q -F - <<'EOF'",
   'chore: bump @lumoai/cli 1.60.0→1.61.0 (ship the LUM-771 CLI fix) [LUM-771] [skip-drift]',
   '',
   'Co-Authored-By: Claude <noreply@anthropic.com>',

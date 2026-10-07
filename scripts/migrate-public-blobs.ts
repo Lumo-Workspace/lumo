@@ -31,8 +31,8 @@ import { config } from 'dotenv'
 // .env.production unless LUMO_ENV_FILE points elsewhere.
 config({ path: process.env.LUMO_ENV_FILE ?? '.env.production' })
 
-// Plain stdout/stderr, not console.* (repo rule: no console.log outside
-// scripts/analysis) — this is an operator CLI whose output IS the product.
+// Plain stdout/stderr, not console.* (repo rule: no console.log in
+// production code) — this is an operator CLI whose output IS the product.
 const out = (line: string) => process.stdout.write(`${line}\n`)
 const err = (line: string) => process.stderr.write(`${line}\n`)
 

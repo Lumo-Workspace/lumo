@@ -1,6 +1,10 @@
 /** @jest-environment node */
-import { classifyRow, classifyStoredText, stringsOf } from '../classify'
-import { STOCK_TABLES } from '../tables'
+import {
+  classifyRow,
+  classifyStoredText,
+  stringsOf,
+} from '@/lib/security-scan/secret-stock/classify'
+import { STOCK_TABLES } from '@/lib/security-scan/secret-stock/tables'
 import { redactSecret } from '@/lib/security-scan/redact'
 
 const DASHES = '-'.repeat(5)

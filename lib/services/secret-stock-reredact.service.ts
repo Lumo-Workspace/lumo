@@ -142,7 +142,7 @@ export interface StockReredactOptions {
   afterId?: string | null
   limit?: number
   batchSize?: number
-  /** Stock classifier (scripts/analysis/lum887-secret-stock) for the report. */
+  /** Stock classifier (lib/security-scan/secret-stock) for the report. */
   classify?: (values: unknown[]) => Set<string>
   onRow?: (row: StockRow, rewrite: StockRowRewrite | null) => void
   onBatch?: (stats: StockTableStats) => void
