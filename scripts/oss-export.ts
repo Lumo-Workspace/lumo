@@ -12,7 +12,9 @@
  *   - a tracked file is in neither the include nor the exclude list;
  *   - an exported code file imports an excluded file;
  *   - a config file (package.json scripts, husky hooks, …) names a file the
- *     snapshot does not contain;
+ *     snapshot does not contain, resolved against that config's own base
+ *     (manifest `configRefFiles[].base`), or a shipped config file is not
+ *     listed in `configRefFiles` at all;
  *   - a forbidden marker (excluded path names, internal domains, prod hosts)
  *     appears anywhere in the exported text.
  * See oss/manifest.json for the rules and their reasons.
@@ -38,11 +40,14 @@ import { dirname, join, resolve } from 'node:path'
 import {
   applyTransform,
   classifyFiles,
-  extractPathTokens,
+  findDanglingConfigRefs,
   findImportViolations,
+  findUncoveredConfigFiles,
+  parseConfigRefFiles,
   isOutsideDir,
   scanMarkers,
   summarizePaths,
+  type ConfigRefFile,
   type MarkerHit,
   type OssManifest,
 } from './oss-export/manifest'
@@ -126,6 +131,12 @@ function main(): void {
   const manifest = JSON.parse(
     readFileSync(resolve(repo, manifestPath), 'utf8')
   ) as OssManifest
+  let configRefs: ConfigRefFile[]
+  try {
+    configRefs = parseConfigRefFiles(manifest.configRefFiles ?? [])
+  } catch (err) {
+    fail([`✗ ${manifestPath}: ${(err as Error).message}`])
+  }
 
   // 1. Classify every tracked file of the ref (default deny).
   const files = git(repo, ['ls-tree', '-r', '-z', '--name-only', sha])
@@ -191,21 +202,23 @@ function main(): void {
       writeFileSync(p, applyTransform(readFileSync(p, 'utf8'), t))
     }
 
-    // 5. Config files must only reference files that exist in the snapshot.
-    const danglingRefs: string[] = []
-    for (const cfg of manifest.configRefFiles ?? []) {
-      const p = join(outAbs, cfg)
-      if (!existsSync(p)) {
-        danglingRefs.push(`${cfg} (config file itself missing)`)
-        continue
-      }
-      const base = dirname(cfg)
-      for (const token of extractPathTokens(readFileSync(p, 'utf8'))) {
-        const candidates = [token, join(base, token)]
-        if (!candidates.some(c => existsSync(join(outAbs, c))))
-          danglingRefs.push(`${cfg} → ${token}`)
-      }
-    }
+    // 5. Config files must only reference files that exist in the snapshot,
+    //    each resolved against the base its own tool uses — and every config
+    //    file that ships must be listed, so none goes unchecked.
+    const snapshotFiles = listFilesRecursive(outAbs)
+    const uncovered = findUncoveredConfigFiles(snapshotFiles, configRefs)
+    if (uncovered.length > 0)
+      fail([
+        `✗ ${uncovered.length} snapshot config file(s) are not listed in configRefFiles. Add each with its resolution base:`,
+        ...uncovered.map(f => `    ${f}`),
+      ])
+    const danglingRefs = findDanglingConfigRefs(configRefs, {
+      read: f => {
+        const p = join(outAbs, f)
+        return existsSync(p) ? readFileSync(p, 'utf8') : null
+      },
+      exists: f => existsSync(join(outAbs, f)),
+    })
     if (danglingRefs.length > 0)
       fail([
         '✗ snapshot config references files the snapshot does not contain:',
@@ -214,7 +227,7 @@ function main(): void {
 
     // 6. Forbidden markers anywhere in exported text.
     const hits: MarkerHit[] = []
-    for (const f of listFilesRecursive(outAbs)) {
+    for (const f of snapshotFiles) {
       const p = join(outAbs, f)
       if (lstatSync(p).isSymbolicLink()) continue
       const buf = readFileSync(p)
