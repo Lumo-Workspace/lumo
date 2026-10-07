@@ -6,6 +6,25 @@ import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
 import { inviteRepository } from '@/lib/repositories/invite.repository'
 import { memberAuditContext } from '@/lib/api/audit-context'
+import { logger } from '@/lib/logger'
+
+/**
+ * LUM-1017: the resend button exists only to deliver the email, so a send
+ * that did not happen is an error, not `ok`. The invite itself (and its
+ * refreshed expiry) stays valid either way.
+ */
+const RESEND_EMAIL_ERRORS = {
+  failed: {
+    status: 502,
+    code: 'EMAIL_SEND_FAILED',
+    error: 'The invite email could not be sent',
+  },
+  skipped: {
+    status: 503,
+    code: 'EMAIL_NOT_CONFIGURED',
+    error: 'Email delivery is not configured on this server',
+  },
+} as const
 
 export async function POST(
   request: NextRequest,
@@ -46,10 +65,15 @@ export async function POST(
       inviteUrl,
     })
 
-    await sendEmail(
+    const result = await sendEmail(
       { to: [invite.email], subject, html },
       { idempotencyKey: `workspace-invite-resend/${invite.id}-${Date.now()}` }
     )
+
+    if (result.status !== 'sent') {
+      const { status, code, error } = RESEND_EMAIL_ERRORS[result.status]
+      return NextResponse.json({ ok: false, error, code }, { status })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
@@ -57,7 +81,9 @@ export async function POST(
     if (status) {
       return NextResponse.json({ error: (error as Error).message }, { status })
     }
-    console.error('POST /api/invites/[token]/resend error:', error)
+    logger.error('POST /api/invites/[token]/resend error', {
+      message: error instanceof Error ? error.message : String(error),
+    })
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

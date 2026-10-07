@@ -571,6 +571,8 @@
   "members.revokeFailed": "撤销邀请失败",
   "members.resendSuccess": "邀请已重新发送",
   "members.resendFailed": "重新发送邀请失败",
+  "members.resendEmailFailed": "邀请邮件发送失败。请检查服务器的邮件设置后重试。",
+  "members.resendEmailNotConfigured": "此服务器尚未配置邮件，邀请未发出。请改为分享邀请链接，或请管理员配置邮件。",
   "members.roleUpdated": "角色已更新",
   "members.roleUpdateFailed": "更新角色失败",
   "members.inviteTitle": "邀请团队成员",

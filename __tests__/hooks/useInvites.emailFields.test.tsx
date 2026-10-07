@@ -13,7 +13,10 @@ jest.mock('react-intl', () => ({
 
 import { act, renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { apiFetch } from '@/lib/api-client'
 import {
+  resendErrorMessageId,
   useInvites,
   type EmailField,
 } from '@/app/workspace/[workspaceUrl]/hooks/useInvites'
@@ -116,4 +119,37 @@ describe('useInvites email fields', () => {
     expect(result.current.emailInputs).toHaveLength(1)
     expect(at(result.current.emailInputs, 0).value).toBe('')
   })
+})
+
+describe('LUM-1017 resend failure messages', () => {
+  it('maps the resend route codes to specific messages', () => {
+    expect(resendErrorMessageId({ code: 'EMAIL_SEND_FAILED' })).toBe(
+      'members.resendEmailFailed'
+    )
+    expect(resendErrorMessageId({ code: 'EMAIL_NOT_CONFIGURED' })).toBe(
+      'members.resendEmailNotConfigured'
+    )
+    expect(resendErrorMessageId({ code: 'API_ERROR' })).toBe(
+      'members.resendFailed'
+    )
+    expect(resendErrorMessageId(new Error('boom'))).toBe('members.resendFailed')
+    expect(resendErrorMessageId(null)).toBe('members.resendFailed')
+  })
+
+  it.each([
+    ['EMAIL_SEND_FAILED', 'members.resendEmailFailed'],
+    ['EMAIL_NOT_CONFIGURED', 'members.resendEmailNotConfigured'],
+  ])(
+    'handleResend shows an error toast for %s, not success',
+    async (code, id) => {
+      ;(apiFetch as jest.Mock).mockRejectedValueOnce(
+        Object.assign(new Error('x'), { status: 502, code })
+      )
+      const { result } = renderHook(() => useInvites(), { wrapper: Wrapper })
+      await act(() => result.current.handleResend('tok-1'))
+      expect(toast.error).toHaveBeenCalledWith(id)
+      expect(toast.success).not.toHaveBeenCalled()
+      expect(result.current.resendingToken).toBeNull()
+    }
+  )
 })

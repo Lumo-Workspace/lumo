@@ -902,6 +902,8 @@
   "members.removed": "{name} was removed from the workspace",
   "members.removing": "Removing…",
   "members.resendFailed": "Failed to resend invite",
+  "members.resendEmailFailed": "The invite email couldn't be sent. Check the server's email settings and try again.",
+  "members.resendEmailNotConfigured": "Email isn't set up on this server, so the invite wasn't sent. Share the invite link instead or ask an admin to configure email.",
   "members.resendInvite": "Resend invite",
   "members.resendSuccess": "Invite resent",
   "members.revokeDesc": "This invite link will stop working immediately. You can send a new invite later.",

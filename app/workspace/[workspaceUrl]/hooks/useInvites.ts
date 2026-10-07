@@ -31,6 +31,21 @@ export interface EmailField {
 
 const MAX_EMAIL_FIELDS = 10
 
+/**
+ * LUM-1017: which message to show when a resend fails. The resend route
+ * answers EMAIL_SEND_FAILED (502) / EMAIL_NOT_CONFIGURED (503) when the email
+ * did not go out; anything else falls back to the generic failure.
+ */
+export function resendErrorMessageId(err: unknown): string {
+  const code =
+    typeof err === 'object' && err !== null
+      ? (err as { code?: unknown }).code
+      : undefined
+  if (code === 'EMAIL_NOT_CONFIGURED') return 'members.resendEmailNotConfigured'
+  if (code === 'EMAIL_SEND_FAILED') return 'members.resendEmailFailed'
+  return 'members.resendFailed'
+}
+
 const seedEmailFields = (): EmailField[] => [{ id: 'email-0', value: '' }]
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -144,8 +159,8 @@ export function useInvites() {
       await apiFetch<void>(API.invites.resend(token), { method: 'POST' })
       toast.success(intl.formatMessage({ id: 'members.resendSuccess' }))
       await fetchInvites()
-    } catch {
-      toast.error(intl.formatMessage({ id: 'members.resendFailed' }))
+    } catch (err) {
+      toast.error(intl.formatMessage({ id: resendErrorMessageId(err) }))
     } finally {
       setResendingToken(null)
     }

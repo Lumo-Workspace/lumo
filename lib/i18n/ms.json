@@ -571,6 +571,8 @@
   "members.revokeFailed": "Gagal membatalkan jemputan",
   "members.resendSuccess": "Jemputan dihantar semula",
   "members.resendFailed": "Gagal menghantar semula jemputan",
+  "members.resendEmailFailed": "E-mel jemputan tidak dapat dihantar. Semak tetapan e-mel pelayan dan cuba lagi.",
+  "members.resendEmailNotConfigured": "E-mel belum disediakan pada pelayan ini, jadi jemputan tidak dihantar. Kongsi pautan jemputan atau minta pentadbir mengkonfigurasi e-mel.",
   "members.roleUpdated": "Peranan dikemas kini",
   "members.roleUpdateFailed": "Gagal mengemas kini peranan",
   "members.inviteTitle": "Jemput rakan sepasukan",

@@ -571,6 +571,8 @@
   "members.revokeFailed": "No se pudo revocar la invitación",
   "members.resendSuccess": "Invitación reenviada",
   "members.resendFailed": "No se pudo reenviar la invitación",
+  "members.resendEmailFailed": "No se pudo enviar el correo de invitación. Revisa la configuración de correo del servidor e inténtalo de nuevo.",
+  "members.resendEmailNotConfigured": "El correo no está configurado en este servidor, así que la invitación no se envió. Comparte el enlace de invitación o pídele a un administrador que configure el correo.",
   "members.roleUpdated": "Rol actualizado",
   "members.roleUpdateFailed": "No se pudo actualizar el rol",
   "members.inviteTitle": "Invitar compañeros",

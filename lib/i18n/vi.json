@@ -571,6 +571,8 @@
   "members.revokeFailed": "Thu hồi lời mời thất bại",
   "members.resendSuccess": "Đã gửi lại lời mời",
   "members.resendFailed": "Gửi lại lời mời thất bại",
+  "members.resendEmailFailed": "Không thể gửi email lời mời. Hãy kiểm tra cài đặt email của máy chủ rồi thử lại.",
+  "members.resendEmailNotConfigured": "Máy chủ này chưa được thiết lập email nên lời mời chưa được gửi. Hãy chia sẻ liên kết mời hoặc nhờ quản trị viên cấu hình email.",
   "members.roleUpdated": "Đã cập nhật vai trò",
   "members.roleUpdateFailed": "Cập nhật vai trò thất bại",
   "members.inviteTitle": "Mời đồng nghiệp",

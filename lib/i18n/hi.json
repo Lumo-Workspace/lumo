@@ -571,6 +571,8 @@
   "members.revokeFailed": "आमंत्रण रद्द करने में विफल",
   "members.resendSuccess": "आमंत्रण पुनः भेजा गया",
   "members.resendFailed": "आमंत्रण पुनः भेजने में विफल",
+  "members.resendEmailFailed": "आमंत्रण ईमेल नहीं भेजा जा सका। सर्वर की ईमेल सेटिंग जाँचें और फिर से कोशिश करें।",
+  "members.resendEmailNotConfigured": "इस सर्वर पर ईमेल सेट नहीं है, इसलिए आमंत्रण नहीं भेजा गया। इसके बजाय आमंत्रण लिंक साझा करें या किसी एडमिन से ईमेल कॉन्फ़िगर करने को कहें।",
   "members.roleUpdated": "भूमिका अपडेट की गई",
   "members.roleUpdateFailed": "भूमिका अपडेट करने में विफल",
   "members.inviteTitle": "साथियों को आमंत्रित करें",
