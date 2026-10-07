@@ -1,13 +1,13 @@
 /**
- * LUM-858 — the only place that touches @vercel/blob for workspace exports.
- * Kept tiny so the export service is testable without the SDK. Archives are
- * PRIVATE blobs under `workspaces/<id>/exports/`, so the workspace-deletion
- * prefix sweep (LUM-861) removes them with the workspace; they are only ever
- * read back server-side by the OWNER-gated download route.
+ * LUM-858 — workspace export archives. Kept tiny so the export service is
+ * testable without a blob backend. Archives are PRIVATE blobs under
+ * `workspaces/<id>/exports/`, so the workspace-deletion prefix sweep (LUM-861)
+ * removes them with the workspace; they are only ever read back server-side
+ * by the OWNER-gated download route. Since LUM-1021 they go through
+ * `BlobStorage` (Vercel private store / S3 `private/` / disk `private/`).
  */
-import { get, put } from '@vercel/blob'
+import { getBlobStorage } from '@/lib/blob/storage'
 import { deleteBlobsByPrefix } from './workspace-deletion-blob'
-import { privateBlobToken } from '@/lib/blob/private-store'
 
 const MULTIPART_THRESHOLD = 50 * 1024 * 1024
 
@@ -20,12 +20,12 @@ export async function putExportArchive(
   exportId: string,
   bytes: Uint8Array
 ): Promise<string> {
-  const blob = await put(
+  const storage = await getBlobStorage()
+  const blob = await storage.put(
     `${exportBlobPrefix(workspaceId, exportId)}/workspace-export.zip`,
     Buffer.from(bytes),
     {
       access: 'private',
-      token: privateBlobToken(),
       contentType: 'application/zip',
       addRandomSuffix: true,
       // Large workspaces: upload in parts instead of one request body.
@@ -39,13 +39,10 @@ export async function putExportArchive(
 export async function openExportArchive(
   url: string
 ): Promise<{ stream: ReadableStream<Uint8Array>; size: number } | null> {
-  const res = await get(url, {
-    access: 'private',
-    token: privateBlobToken(),
-    useCache: false,
-  })
-  if (!res || res.statusCode !== 200 || !res.stream) return null
-  return { stream: res.stream, size: res.blob.size }
+  const storage = await getBlobStorage()
+  const res = await storage.get(url, 'private', { noCache: true })
+  if (!res) return null
+  return { stream: res.stream, size: res.size }
 }
 
 /** Remove every blob of one export (idempotent; also clears partial uploads). */
@@ -55,6 +52,6 @@ export async function deleteExportArchive(
 ): Promise<number> {
   return deleteBlobsByPrefix(
     `${exportBlobPrefix(workspaceId, exportId)}/`,
-    privateBlobToken()
+    'private'
   )
 }

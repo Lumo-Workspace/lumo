@@ -24,31 +24,27 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe('private blob calls always use the private store token', () => {
-  it('every file that uses a private blob passes privateBlobToken()', () => {
+  // LUM-1021: the SDK is only imported by the backends in lib/blob/. Every
+  // file there that imports @vercel/blob must route private access through
+  // privateBlobToken(); the behaviour itself is pinned by
+  // __tests__/lib/blob/vercel-blob-storage.test.ts.
+  it('every file that imports @vercel/blob passes privateBlobToken()', () => {
     const offenders: string[] = []
     const users: string[] = []
     for (const dir of ['lib', 'app', 'scripts']) {
       for (const file of sourceFiles(join(ROOT, dir))) {
         const src = readFileSync(file, 'utf8')
         if (!/from '@vercel\/blob(\/client)?'/.test(src)) continue
-        const privateUse =
-          /access:\s*'private'/.test(src) || /\bhandleUpload\(/.test(src)
-        if (!privateUse) continue
         users.push(relative(ROOT, file))
         if (!/privateBlobToken\(\)/.test(src))
           offenders.push(relative(ROOT, file))
       }
     }
-    // The scan must actually be looking at the private-blob modules.
-    expect(users).toEqual(
-      expect.arrayContaining([
-        'lib/services/private-file-blob.ts',
-        'lib/services/workspace-export-blob.ts',
-        'lib/services/security-sarif-blob.ts',
-        'lib/services/public-blob-migration-blob.ts',
-        'app/api/integrations/security/sarif/upload/route.ts',
-      ])
-    )
+    // The scan must actually be looking at the Vercel backend modules.
+    expect(users.sort()).toEqual([
+      'lib/blob/client-upload.ts',
+      'lib/blob/vercel-blob-storage.ts',
+    ])
     expect(offenders).toEqual([])
   })
 

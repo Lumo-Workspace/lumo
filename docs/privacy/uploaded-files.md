@@ -33,11 +33,24 @@ Vercel Blob 的访问级别是**按 store** 设置的:公开 store 会直接拒�
 
 所有私有读写都显式传私有 store 的 token(`lib/blob/private-store.ts`);没配置时直接报错,不会悄悄退回到公开 store。在 LUM-916 之前,导出包和 SARIF 上传代码里写的是 `access: 'private'`,用的却是公开 store 的默认 token,所以在生产上无法工作;这次一并迁到了私有 store。
 
+## 自托管后端(LUM-1021)
+
+所有 blob 读写都经 `lib/blob/` 的 `BlobStorage` 接口(`getBlobStorage()`);SDK 只允许在 `lib/blob/` 里 import(`__tests__/lib/blob/blob-sdk-import-guard.test.ts` + ESLint)。后端按环境变量选:`BLOB_STORAGE` 显式指定 > 有 Vercel Blob token → `vercel` > `S3_BUCKET` → `s3` > `LOCAL_BLOB_DIR` → `disk`。三种后端都把公开/私有放在**分开的命名空间**,私有读永远解析不到公开对象,反之亦然:
+
+| 对象                       | Vercel(SaaS)           | S3 / MinIO                                  | 本地磁盘                         | 谁能读                                                 |
+| -------------------------- | ---------------------- | ------------------------------------------- | -------------------------------- | ------------------------------------------------------ |
+| 测试证据、编辑器图片(私有) | 私有 store             | `private/<路径>`,bucket 不设公开策略        | `<dir>/private/<路径>`,文件 0600 | `GET /api/files/…`:所属工作区成员;公开分享文档内嵌的图 |
+| 工作区导出包(私有)         | 私有 store             | `private/…`                                 | `<dir>/private/…`                | 导出下载路由:仅 OWNER                                  |
+| SARIF 上传(私有)           | 私有 store(客户端直传) | 不支持直传(上传路由回 501)                  | 同左                             | 仅服务端 ingest                                        |
+| 工作区 logo(公开)          | 公开 store 的 CDN URL  | `public/…`,经 `GET /api/blob/public/…` 提供 | `<dir>/public/…`,同左            | 任何人(该路由只读公开命名空间、只认 logo 形状的路径)   |
+
+S3 额外提供 `signedReadUrl()`(预签名 GET,默认 300 秒、上限 7 天);Vercel 与磁盘不提供(回 501),私有文件一律由鉴权路由在服务端读出再流给调用方。`LOCAL_BLOB_DIR` 不允许放在 Next 的 `public/` 目录下(启动即报错)。
+
 ## 删除
 
 - 删除任务:一并删除 `test-evidence/<taskId>/` 下的证据 blob(此前只有删除整个工作区才会删)。删除项目时,项目下每个任务的证据也一并删除。blob 清理在数据库删除提交之后进行,失败只记日志,不会让删除本身失败。
 - 删除工作区:按前缀清理 `workspaces/<id>/`(logo、编辑器图片、导出包)和每个任务的证据目录(LUM-861)。
-- 以上按前缀的清理都会**两个 store 各跑一遍**:历史公开 blob 在公开 store,新文件在私有 store。
+- 以上按前缀的清理都会**两个 store 各跑一遍**:历史公开 blob 在公开 store,新文件在私有 store。S3 / 磁盘后端同样把 `public/` 与 `private/` 两个命名空间各扫一遍。
 
 ## 存量迁移(LUM-916 之前上传的公开 blob)
 

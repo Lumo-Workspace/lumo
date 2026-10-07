@@ -1,20 +1,23 @@
 /**
- * LUM-916 — the only place that touches @vercel/blob for the one-off
- * public→private migration (`scripts/migrate-public-blobs.ts`). Kept tiny so
- * the migration service is testable without the SDK.
+ * LUM-916 — blob access for the one-off public→private migration
+ * (`scripts/migrate-public-blobs.ts`). Kept tiny so the migration service is
+ * testable without a blob backend. Since LUM-1021 it runs on `BlobStorage`;
+ * the blobs it migrates are pre-LUM-916 PUBLIC Vercel Blobs (recognised by
+ * `PUBLIC_BLOB_MARKER`), so on S3 / disk the listing is simply empty.
  */
-import { del, get, list, put } from '@vercel/blob'
-import { privateBlobToken } from '@/lib/blob/private-store'
+import { getBlobStorage } from '@/lib/blob/storage'
 import { PUBLIC_BLOB_MARKER } from '@/lib/repositories/public-blob-migration.repository'
 
-/** Every PUBLIC blob under `prefix` in the default (public) store. */
+/** Every PUBLIC blob under `prefix` in the public namespace. */
 export async function listPublicBlobs(
   prefix: string
 ): Promise<Array<{ url: string; pathname: string }>> {
+  const storage = await getBlobStorage()
   const out: Array<{ url: string; pathname: string }> = []
   let cursor: string | undefined
   do {
-    const page = await list({
+    const page = await storage.list({
+      access: 'public',
       prefix,
       limit: 1000,
       ...(cursor ? { cursor } : {}),
@@ -28,25 +31,28 @@ export async function listPublicBlobs(
   return out
 }
 
-/** Stream a public blob (public store) into the private store, overwriting
- *  a previous copy. */
+/** Stream a public blob into the private namespace, overwriting a previous
+ *  copy. */
 export async function copyToPrivate(
   publicUrl: string,
   privatePathname: string
 ): Promise<void> {
-  const res = await get(publicUrl, { access: 'public' })
-  if (!res || res.statusCode !== 200 || !res.stream) {
+  const storage = await getBlobStorage()
+  const res = await storage.get(publicUrl, 'public')
+  if (!res) {
     throw new Error(`public blob vanished mid-migration: ${publicUrl}`)
   }
-  await put(privatePathname, res.stream, {
+  await storage.put(privatePathname, res.stream, {
     access: 'private',
-    token: privateBlobToken(),
-    contentType: res.blob.contentType,
+    contentType: res.contentType,
     addRandomSuffix: false,
     allowOverwrite: true,
   })
 }
 
+/** Batch-delete public blobs (500 per request). */
 export async function deletePublic(urls: string[]): Promise<void> {
-  for (let i = 0; i < urls.length; i += 500) await del(urls.slice(i, i + 500))
+  const storage = await getBlobStorage()
+  for (let i = 0; i < urls.length; i += 500)
+    await storage.delete(urls.slice(i, i + 500), 'public')
 }

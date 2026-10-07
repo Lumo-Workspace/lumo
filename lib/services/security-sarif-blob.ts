@@ -1,9 +1,9 @@
 /**
- * LUM-735 — the only place that touches @vercel/blob for SARIF ingest. Kept
- * tiny so the ingest service is testable without the SDK.
+ * LUM-735 — SARIF report blobs (private). Kept tiny so the ingest service is
+ * testable without a blob backend; since LUM-1021 it goes through
+ * `BlobStorage`.
  */
-import { del, get, list } from '@vercel/blob'
-import { privateBlobToken } from '@/lib/blob/private-store'
+import { getBlobStorage } from '@/lib/blob/storage'
 
 export const SARIF_BLOB_PREFIX = 'security-sarif/'
 
@@ -17,14 +17,11 @@ export async function fetchPrivateBlob(
   url: string,
   maxBytes: number
 ): Promise<Buffer | null> {
-  const res = await get(url, {
-    access: 'private',
-    token: privateBlobToken(),
-    useCache: false,
-  })
-  if (!res || res.statusCode !== 200 || !res.stream) return null
-  if (res.blob.size > maxBytes) {
-    throw Object.assign(new Error(`gzip size ${res.blob.size} exceeds cap`), {
+  const storage = await getBlobStorage()
+  const res = await storage.get(url, 'private', { noCache: true })
+  if (!res) return null
+  if (res.size > maxBytes) {
+    throw Object.assign(new Error(`gzip size ${res.size} exceeds cap`), {
       status: 413,
     })
   }
@@ -33,7 +30,8 @@ export async function fetchPrivateBlob(
 }
 
 export async function deleteBlob(url: string): Promise<void> {
-  await del(url, { token: privateBlobToken() })
+  const storage = await getBlobStorage()
+  await storage.delete(url, 'private')
 }
 
 /**
@@ -43,13 +41,14 @@ export async function deleteBlob(url: string): Promise<void> {
 export async function listSarifBlobs(): Promise<
   { url: string; uploadedAt: Date }[]
 > {
+  const storage = await getBlobStorage()
   const out: { url: string; uploadedAt: Date }[] = []
   let cursor: string | undefined
   do {
-    const page = await list({
+    const page = await storage.list({
+      access: 'private',
       prefix: SARIF_BLOB_PREFIX,
       limit: 1000,
-      token: privateBlobToken(),
       ...(cursor ? { cursor } : {}),
     })
     for (const b of page.blobs)

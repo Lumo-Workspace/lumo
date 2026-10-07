@@ -82,6 +82,8 @@ const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
 const ALLOW_LISTED: Record<string, string> = {
   'app/api/waitlist/route.ts':
     'Intentionally public: marketing-site waitlist signup, writes only a WaitlistEntry',
+  'app/api/blob/public/[...path]/route.ts':
+    'Intentionally public (LUM-1021): serves workspace logos on S3/disk storage; reads only the public namespace and logo-shaped paths',
 }
 
 type RouteScan = {

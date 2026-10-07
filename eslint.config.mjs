@@ -1,5 +1,13 @@
 import coreWebVitals from 'eslint-config-next/core-web-vitals'
 
+// LUM-1021: blob SDKs are confined to lib/blob (the BlobStorage backends).
+const BLOB_SDK_PATTERN = {
+  group: ['@vercel/blob', '@vercel/blob/*', '@aws-sdk/*'],
+  message:
+    'Use getBlobStorage() from @/lib/blob/storage (LUM-1021); blob SDKs are ' +
+    'only allowed inside lib/blob.',
+}
+
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   ...coreWebVitals,
@@ -58,6 +66,7 @@ export default [
                 'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
                 '@vercel/functions is only allowed inside lib/runtime.',
             },
+            BLOB_SDK_PATTERN,
           ],
         },
       ],
@@ -66,12 +75,39 @@ export default [
   {
     // LUM-1022: @vercel/functions is confined to lib/runtime so self-hosted
     // Node keeps working. Use waitUntil from @/lib/runtime/wait-until.
+    // LUM-1021: likewise blob SDKs are confined to lib/blob.
     files: [
       'app/**/*.{ts,tsx}',
       'components/**/*.{ts,tsx}',
       'lib/**/*.{ts,tsx}',
     ],
-    ignores: ['lib/runtime/**', 'lib/services/**'],
+    ignores: ['lib/runtime/**', 'lib/services/**', 'lib/blob/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@vercel/functions', '@vercel/functions/*'],
+              message:
+                'Import waitUntil from @/lib/runtime/wait-until (LUM-1022); ' +
+                '@vercel/functions is only allowed inside lib/runtime.',
+            },
+            BLOB_SDK_PATTERN,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The two wrapper folders each keep the other's restriction.
+    files: ['lib/runtime/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [BLOB_SDK_PATTERN] }],
+    },
+  },
+  {
+    files: ['lib/blob/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',

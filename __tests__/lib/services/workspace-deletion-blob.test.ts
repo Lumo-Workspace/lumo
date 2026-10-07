@@ -5,6 +5,8 @@
  * shifts the listing) and stops on an empty page or when nothing more is left.
  */
 jest.mock('@vercel/blob', () => ({ list: jest.fn(), del: jest.fn() }))
+// LUM-1021: pin the Vercel backend regardless of the developer's env.
+process.env.BLOB_STORAGE = 'vercel'
 
 import { list, del } from '@vercel/blob'
 import {
@@ -49,9 +51,10 @@ describe('private store sweep (LUM-916)', () => {
     process.env.BLOB_PRIVATE_READ_WRITE_TOKEN = OLD
   })
 
-  it('passes the token to list and del when one is given', async () => {
+  it('passes the private-store token to list and del for private access', async () => {
+    process.env.BLOB_PRIVATE_READ_WRITE_TOKEN = 'priv-token'
     mockList.mockResolvedValueOnce(page(['p1'], false))
-    await expect(deleteBlobsByPrefix('x/', 'priv-token')).resolves.toBe(1)
+    await expect(deleteBlobsByPrefix('x/', 'private')).resolves.toBe(1)
     expect(mockList).toHaveBeenCalledWith({
       prefix: 'x/',
       limit: 1000,
