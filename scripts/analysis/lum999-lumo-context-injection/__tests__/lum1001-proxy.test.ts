@@ -227,7 +227,9 @@ describe('(a) end to end: proxy → runClaude', () => {
     expect(raw).not.toContain(FAKE_KEY)
     expect(raw).toContain(`ANTHROPIC_BASE_URL=${proxy.baseUrl}\0`)
     expect(raw).toContain(`ANTHROPIC_AUTH_TOKEN=${proxy.dummyToken}\0`)
-  })
+    // runClaude's own budget is 20 s; jest's 5 s default made this flake when
+    // the full suite saturates the machine and the child spawns slowly.
+  }, 30_000)
 })
 
 describe('header helpers', () => {
