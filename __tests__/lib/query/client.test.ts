@@ -17,9 +17,24 @@ describe('makeQueryClient realtime fallback', () => {
     expect(q.refetchIntervalInBackground).toBe(false)
   })
 
-  it('defaults from NEXT_PUBLIC_ env (unset → fallback on)', () => {
-    delete process.env.NEXT_PUBLIC_PUSHER_KEY
-    const q = makeQueryClient().getDefaultOptions().queries!
-    expect(q.refetchOnWindowFocus).toBe(true)
+  describe('default from NEXT_PUBLIC_ env', () => {
+    const saved = { ...process.env }
+    afterEach(() => {
+      process.env = { ...saved }
+    })
+
+    it('unset → fallback on', () => {
+      delete process.env.NEXT_PUBLIC_PUSHER_KEY
+      const q = makeQueryClient().getDefaultOptions().queries!
+      expect(q.refetchOnWindowFocus).toBe(true)
+    })
+
+    it('configured → fallback off', () => {
+      process.env.NEXT_PUBLIC_PUSHER_KEY = 'k'
+      process.env.NEXT_PUBLIC_PUSHER_CLUSTER = 'us2'
+      const q = makeQueryClient().getDefaultOptions().queries!
+      expect(q.refetchOnWindowFocus).toBe(false)
+      expect(q.refetchInterval).toBe(false)
+    })
   })
 })
