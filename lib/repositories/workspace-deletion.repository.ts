@@ -21,6 +21,8 @@ export const NON_WORKSPACE_MODELS: Readonly<Record<string, string>> = {
   McpConnection:
     'per-user OAuth connection; its activeWorkspace pointer is SetNull',
   WorkspaceDeletionReceipt: 'deletion evidence that must outlive the workspace',
+  EmailDelivery:
+    'system-email idempotency ledger (LUM-1041): no workspaceId, only the send key + outcome',
 }
 
 export type BlobCleanup =

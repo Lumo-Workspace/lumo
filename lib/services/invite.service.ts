@@ -9,7 +9,11 @@ import {
   inviteExpiresAt,
   maskEmail,
 } from '@/lib/utils/invite'
-import { buildInviteEmail, sendEmail } from '@/lib/integrations/email'
+import {
+  buildInviteEmail,
+  isEmailDelivered,
+  sendEmail,
+} from '@/lib/integrations/email'
 
 /** What happened to the email when an invite was resent. */
 export type InviteResendOutcome = 'sent' | 'failed' | 'skipped'
@@ -293,13 +297,22 @@ export const inviteService = {
       inviteUrl: `${appUrl}/invite/${token}`,
     })
 
+    // Unique per click on purpose (Date.now()): every resend click is a new
+    // email; the key only stops one click from sending twice (LUM-1041).
     const result = await sendEmail(
       { to: [invite.email], subject, html },
       { idempotencyKey: `workspace-invite-resend/${invite.id}-${Date.now()}` }
     )
+    // A duplicate of an already-SENT key (same click, same millisecond) went
+    // out: delivered. One still in flight elsewhere is not known to have.
+    const outcome: InviteResendOutcome = isEmailDelivered(result)
+      ? 'sent'
+      : result.status === 'skipped' && result.reason === 'not_configured'
+        ? 'skipped'
+        : 'failed'
 
     let expiresAt: Date | null = null
-    if (result.status === 'sent') {
+    if (outcome === 'sent') {
       expiresAt = inviteExpiresAt()
       await inviteRepository.resetExpiry(invite.id, expiresAt)
     }
@@ -309,7 +322,7 @@ export const inviteService = {
       action: 'invite.resent',
       target: { type: 'invite', id: invite.id },
       metadata: {
-        outcome: result.status,
+        outcome,
         ...(expiresAt ? { expiresAt } : {}),
         ...(result.status === 'failed' && result.error.code
           ? { errorCode: result.error.code }
@@ -317,6 +330,6 @@ export const inviteService = {
       },
       context: audit,
     })
-    return { outcome: result.status, expiresAt }
+    return { outcome, expiresAt }
   },
 }

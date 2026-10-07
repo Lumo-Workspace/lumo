@@ -560,6 +560,43 @@ model WorkspaceDeletionReceipt {
   @@map("workspace_deletion_receipts")
 }
 
+/// LUM-1041: app-level idempotency for outgoing email. SMTP has no
+/// idempotency of its own, so a send carrying an idempotency key first claims
+/// this row (unique key, SENDING), then sends, then settles it SENT / FAILED.
+/// A key that is SENT (or SENDING and fresh) is never sent again; FAILED or a
+/// stale SENDING (crashed sender) may be reclaimed and retried.
+///
+/// NOT workspace-scoped on purpose: these are system emails (invites, owner
+/// notices, subprocessor notices) keyed by the caller, some sent before any
+/// workspace membership exists. There is no workspaceId column, so the model
+/// is not in WORKSPACE_SCOPED_MODELS and queries never filter by workspace.
+/// Holds no recipient address or content — only the key and the outcome.
+model EmailDelivery {
+  id               String              @id @default(cuid())
+  idempotencyKey   String              @unique
+  status           EmailDeliveryStatus @default(SENDING)
+  /// Bumped on every claim; the compare-and-swap guard for reclaiming.
+  attempts         Int                 @default(1)
+  /// When the current claim started; a SENDING row older than the stale
+  /// window is treated as a crashed send and may be reclaimed.
+  attemptStartedAt DateTime            @default(now())
+  /// SMTP message id from the transport, once SENT.
+  messageId        String?
+  sentAt           DateTime?
+  /// Transport error code (EAUTH, ETIMEDOUT, …) of the last FAILED attempt.
+  errorCode        String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@map("email_deliveries")
+}
+
+enum EmailDeliveryStatus {
+  SENDING
+  SENT
+  FAILED
+}
+
 /// LUM-858: one GDPR data-export request (access / portability). The row is
 /// the audit trail of the export — who asked, when, what it held, who
 /// downloaded it — and outlives its archive: the private blob is deleted when
