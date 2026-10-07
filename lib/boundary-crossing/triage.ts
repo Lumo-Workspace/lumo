@@ -8,7 +8,7 @@
  * writes.
  *
  * Decisions made with the user on LUM-945 (offline comparison on 372
- * human-labelled production crossings, `scripts/analysis/lum945-crossing-triage`):
+ * human-labelled production crossings, internal LUM-945 triage evaluation):
  *   - model: TypeSafe Jev, one boolean question; P(true) = P(legit)
  *   - threshold 0.6 — every category is eligible
  *   - a category whose auto-clears humans overturn too often is paused

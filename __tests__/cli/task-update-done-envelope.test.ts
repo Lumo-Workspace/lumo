@@ -35,7 +35,6 @@ import {
   partitionLinkedPrs,
   describeDoneTransition,
 } from '@/cli/src/commands/task-update'
-import grammarJson from '@/scripts/analysis/lum392-cli-friction/grammar.json'
 
 function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
@@ -358,15 +357,5 @@ describe('task update done envelope', () => {
     code = await taskUpdate('LUM-1', { status: 'in_review', confirm: true })
     expect(code).toBeUndefined()
     expect(patchCalls()).toHaveLength(1)
-  })
-
-  it('task update grammar has --confirm and no --yes/--force alias', () => {
-    const grammar = grammarJson as {
-      commands: Record<string, { flags: Record<string, unknown> }>
-    }
-    const flags = Object.keys(grammar.commands['task update']?.flags ?? {})
-    expect(flags).toContain('--confirm')
-    expect(flags).not.toContain('--yes')
-    expect(flags).not.toContain('--force')
   })
 })

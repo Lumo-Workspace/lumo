@@ -1,7 +1,7 @@
 # 客户代码去向:LLM 链路 × 模型 × 供应商 × 留存政策
 
-> LUM-854 · ZDR 实测于 2026-09-26(`npx tsx scripts/analysis/lum854-zdr/probe.ts`),数据地域实测于 2026-09-27。
-> LUM-871 · 探针于 2026-10-04 重跑,原始输出已提交:[`scripts/analysis/lum854-zdr/probe-output.json`](../../scripts/analysis/lum854-zdr/probe-output.json)(见「原始探针输出」一节);Vercel ZDR 排除限制核对于 2026-10-03(见注意事项第 10 条)。
+> LUM-854 · ZDR 实测于 2026-09-26(LUM-854 ZDR 探针,内部评测工具),数据地域实测于 2026-09-27。
+> LUM-871 · 探针于 2026-10-04 重跑,原始输出存档于内部评测目录(见「原始探针输出」一节);Vercel ZDR 排除限制核对于 2026-10-03(见注意事项第 10 条)。
 > LUM-988 · 新增 `CODE_REVIEW_MODEL`(`anthropic/claude-sonnet-5.5`,PR 扫描的 AI 代码评审),由 `zdr-fetch.ts` 在线路层钉死只走 Anthropic 官方 API;探针于 2026-10-04 23:11Z 重跑并覆盖原始输出。
 > 本文是对外隐私说明的**事实依据**,不是对外文案本身;对外发布前需法务审阅。
 
@@ -18,7 +18,7 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 | 线路层强制 | `lib/ai/zdr-fetch.ts`                  | 改写每个发往 Gateway 的 POST 请求体,强制 `providerOptions.gateway.zeroDataRetention = true`;调用点传 `false` 也会被覆盖;读不懂的请求体直接抛错(fail closed)。LUM-988:请求头 `ai-language-model-id` 命中 `lib/ai/models.ts` 的 `MODEL_PROVIDER_PINS` 时,同时强制 `providerOptions.gateway.only` 为该模型的托管方清单(目前只有 `CODE_REVIEW_MODEL` → anthropic) |
 | 唯一入口   | `lib/ai/gateway.ts`                    | 运行时唯一可用的 Gateway provider,挂载上面的 fetch                                                                                                                                                                                                                                                                                                            |
 | 防绕过     | `__tests__/lib/ai/zdr-gateway.test.ts` | `lib/` `app/` `shared/` 下任何文件直接 import `@ai-sdk/gateway` 或任何模型厂商 SDK(`@ai-sdk/openai`、`@anthropic-ai/sdk`、`openai` 等)即测试失败;另有端到端断言(真实 provider + 假 fetch)证明 chat 与 embedding 请求体都带 ZDR                                                                                                                                |
-| 真实探针   | `scripts/analysis/lum854-zdr/probe.ts` | 用生产同款 provider 对 `lib/ai/models.ts` 每个模型 + embedding 各发一次请求,任何一个没有经过 ZDR 过滤就非零退出                                                                                                                                                                                                                                               |
+| 真实探针   | LUM-854 ZDR 探针(内部评测工具)         | 用生产同款 provider 对 `lib/ai/models.ts` 每个模型 + embedding 各发一次请求,任何一个没有经过 ZDR 过滤就非零退出                                                                                                                                                                                                                                               |
 
 新增模型或换模型:改 `lib/ai/models.ts` 后重跑探针;探针失败说明该模型在 Gateway 上没有 ZDR 供应商,不能用于客户数据。
 
@@ -54,7 +54,7 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 ## 原始探针输出(LUM-871)
 
-- 文件:[`scripts/analysis/lum854-zdr/probe-output.json`](../../scripts/analysis/lum854-zdr/probe-output.json),即 `npx tsx scripts/analysis/lum854-zdr/probe.ts --json` 的 stdout 原样落盘(`.prettierignore` 保持逐字节)。
+- 文件:LUM-854 ZDR 探针 `--json` 模式的 stdout 原样落盘(`.prettierignore` 保持逐字节),存档于内部评测目录(LUM-871),不随开源快照发布。
 - 时间:`probedAt` = 2026-10-04T23:11:43Z(LUM-988 重跑;上一版 2026-10-04T02:40:42Z 时 GLM 落在 baseten,本次落在 alibaba,均在候选集内)。
 - 环境:本机 dev,Gateway 凭据取自主 checkout 的 `.env.local`(`AI_GATEWAY_API_KEY`,非生产凭据);请求经生产同款 provider(`lib/ai/gateway.ts` + `zdr-fetch.ts`),调用点不传任何 providerOptions(`CODE_REVIEW_MODEL` 的 `only` 来自线路层,不是探针专用参数,`planningReasoning` 原文为 `Provider set restricted to: anthropic`)。ZDR 由代码在请求层强制,与凭据环境无关;但「本次落点」与候选集取决于运行那一刻 Gateway 的可用性,生产请求的落点可能不同(只保证在 ZDR 候选集内)。
 - 每行字段:`finalProvider`(落点)、`skippedAsNonZdr` / `skippedAttempts`(被排除的供应商与原因)、`planningReasoning`(Gateway 原文,含 ZDR 前后的候选顺序)。`CROSSING_TRIAGE_MODEL`(Jev)不在其中:它不经 ZDR 层,探针按设计跳过。
@@ -120,7 +120,7 @@ HUNT 与 embedding 要固定地域只能换模型:
 5. **provider 级 prompt caching**:Vercel 说明缓存发生在供应商侧,是否符合 ZDR 取决于供应商。
 6. **BYOK**:ZDR 生效时 Gateway 默认跳过 BYOK key(除非在控制台标记该 key 为 ZDR)。Lumo 目前使用 Gateway 系统凭证。
 7. **范围**:以上覆盖生产运行时(`lib/`、`app/`)。`scripts/` 下的离线评测 / replay 脚本不经此 provider,仅用于内部数据,不处理客户数据。
-8. **越界 AI 复核不是 ZDR**(LUM-945):Jev 唯一供应商 DigitalOcean 不提供零留存,只承诺不训练。对外必须写明这一例外、送出的数据范围,以及关闭 AI review 开关即停止;不得再写「每个 AI 请求都零留存」。`scripts/analysis/lum854-zdr/probe.ts` 跳过此模型(它不是 chat 模型,也不经 ZDR 层)。
+8. **越界 AI 复核不是 ZDR**(LUM-945):Jev 唯一供应商 DigitalOcean 不提供零留存,只承诺不训练。对外必须写明这一例外、送出的数据范围,以及关闭 AI review 开关即停止;不得再写「每个 AI 请求都零留存」。LUM-854 ZDR 探针跳过此模型(它不是 chat 模型,也不经 ZDR 层)。
 9. **套餐前提**:按请求 ZDR 需要 Vercel Pro / Enterprise;本次探针在当前团队下全部通过。
 10. **供应商可把特定模型/功能排除在 ZDR 之外,Gateway 不会因此失败**(LUM-871)。Vercel [ZDR 文档](https://vercel.com/docs/ai-gateway/security-and-compliance/zdr)(2026-09-22 版,「ZDR providers and policies」一节)原文:"In some cases, certain models or functionalities may be excluded from a provider's ZDR policy. AI Gateway will not fail these requests if zero data retention is enabled"。也就是说,`zeroDataRetention: true` 保证的是「只路由到 ZDR 供应商」,不保证该供应商对**每个模型/功能**都零留存。核对结果(2026-10-03):
     - **Vercel 文档本身点名的排除只有一条**:`anthropic/claude-fable-5` 在任何供应商上都不支持 ZDR(留存 30 天)。Lumo 不使用该模型。

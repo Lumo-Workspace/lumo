@@ -14,7 +14,7 @@ import {
 import {
   classifyRow,
   classifyStoredText,
-} from '../../../scripts/analysis/lum887-secret-stock/classify'
+} from '@/lib/security-scan/secret-stock/classify'
 import { buildPrunedPayload } from '@/lib/hook-event/retention'
 
 // Built by concatenation so no credential-shaped literal sits in the repo.

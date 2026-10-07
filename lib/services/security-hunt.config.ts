@@ -239,8 +239,8 @@ export const HUNT_SHELL_COMPRESS_MIN = 2_000
 /**
  * LUM-787 — the compressor is OFF unless `LUMO_HUNT_COMPRESS=on`. LUM-758
  * §6.3 shipped it "measurable and revertible"; this is the revert, on the
- * measurement. Replaying PR 1008's hunt locally (`scripts/analysis/
- * lum787-hunt-replay`), six compressions produced ZERO usable bodies — three
+ * measurement. Replaying PR 1008's hunt locally (internal
+ * LUM-787 hunt replay), six compressions produced ZERO usable bodies — three
  * `(no relevant lines)` sentinels, three `Delay was aborted` — and each one
  * held the step for up to COMPRESS_TIMEOUT_MS on a 40-second search window:
  * two of three tasks ended `timeout` at step 2 with the token budget barely

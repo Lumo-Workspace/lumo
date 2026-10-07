@@ -2,7 +2,7 @@
  * LUM-898 backfill — re-redact credential shapes the current registry
  * recognises in rows stored before it did (HookEvent before LUM-887) or
  * stored with no redaction at all (comments, memory, artifacts …). Tables and
- * columns are the LUM-894 stock list (scripts/analysis/lum887-secret-stock).
+ * columns are the LUM-894 stock list (lib/security-scan/secret-stock).
  *
  * Usage:
  *   npx tsx scripts/backfill-secret-stock-reredact.ts --dry-run [--table <label>] [--limit N] [--show]
@@ -24,8 +24,11 @@ import { config } from 'dotenv'
 // Same env posture as the other backfills: prod DB URL from .env.production.
 config({ path: process.env.LUMO_ENV_FILE ?? '.env.production' })
 
-import { classifyRow, stringsOf } from './analysis/lum887-secret-stock/classify'
-import { STOCK_TABLES } from './analysis/lum887-secret-stock/tables'
+import {
+  classifyRow,
+  stringsOf,
+} from '@/lib/security-scan/secret-stock/classify'
+import { STOCK_TABLES } from '@/lib/security-scan/secret-stock/tables'
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(name)

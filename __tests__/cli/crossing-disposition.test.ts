@@ -32,7 +32,6 @@ import {
   describeRulingConfirmation,
 } from '@/cli/src/commands/crossing-disposition'
 import { EXIT_CONFIRMATION_REQUIRED } from '@/cli/src/lib/confirmation'
-import grammarJson from '@/scripts/analysis/lum392-cli-friction/grammar.json'
 
 function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
@@ -567,25 +566,5 @@ describe('crossing disposition', () => {
     expect(stderr.join('\n')).toMatch(
       /disposition rejected \(HTTP 409\) — Refused: the read receipt has expired\. Re-run the command without --confirm/
     )
-  })
-
-  it('the command tree lists crossing disposition with its flags (grammar in sync)', () => {
-    const cmd = (
-      grammarJson as {
-        commands: Record<string, { flags: Record<string, unknown> }>
-      }
-    ).commands['crossing disposition']
-    expect(cmd).toBeDefined()
-    for (const f of [
-      '--false-positive',
-      '--confirmed',
-      '--note',
-      '--task',
-      '--receipt',
-      '--confirm-read',
-      '--confirm',
-    ]) {
-      expect(Object.keys(cmd?.flags ?? {})).toContain(f)
-    }
   })
 })

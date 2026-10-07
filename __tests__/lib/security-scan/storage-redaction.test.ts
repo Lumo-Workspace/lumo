@@ -36,8 +36,8 @@ import {
   redactStoredFields,
   STORAGE_REDACTED_FIELDS,
 } from '@/lib/security-scan/storage-redaction'
-import { STOCK_TABLES } from '../../../scripts/analysis/lum887-secret-stock/tables'
-import { classifyRow } from '../../../scripts/analysis/lum887-secret-stock/classify'
+import { STOCK_TABLES } from '@/lib/security-scan/secret-stock/tables'
+import { classifyRow } from '@/lib/security-scan/secret-stock/classify'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'

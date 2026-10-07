@@ -323,7 +323,7 @@ Which investigation tasks are worth running for this diff?
 }
 
 /**
- * LUM-776 — probe-only knobs. `scripts/analysis/lum776-plan-probe/probe.ts`
+ * LUM-776 — probe-only knobs. The internal LUM-776 plan probe
  * A/B-tests the planner on real prompts THROUGH this function, so the thing
  * measured is the thing shipped; production passes nothing here.
  */

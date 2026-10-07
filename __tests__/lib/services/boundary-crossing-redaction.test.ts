@@ -24,7 +24,7 @@ jest.mock('@/lib/db/prisma', () => ({
 
 import { detectCrossings } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { classifyRow } from '../../../scripts/analysis/lum887-secret-stock/classify'
+import { classifyRow } from '@/lib/security-scan/secret-stock/classify'
 
 const PASS = 'Xq7' + 'Lp9Zk2'
 const GH_TOKEN = 'ghp' + '_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4Pe7Ab'

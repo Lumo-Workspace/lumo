@@ -7,8 +7,14 @@
  *   DOTENV_CONFIG_PATH="$(pwd)/.env.production" npx tsx -r dotenv/config \
  *     scripts/analysis/lum887-secret-stock/count.ts [--limit N] [--table <label>]
  */
-import { PRE_LUM887_RULE_IDS, classifyRow } from './classify'
-import { STOCK_TABLES, type StockTable } from './tables'
+import {
+  PRE_LUM887_RULE_IDS,
+  classifyRow,
+} from '@/lib/security-scan/secret-stock/classify'
+import {
+  STOCK_TABLES,
+  type StockTable,
+} from '@/lib/security-scan/secret-stock/tables'
 
 const BATCH = 200
 

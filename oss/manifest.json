@@ -1,0 +1,427 @@
+{
+  "$comment": "LUM-1034 default-deny open-source snapshot manifest. Every tracked file must match `include` (exported) or `exclude` (stays private); `exclude` wins. Unclassified files fail `npm run oss:export`. Source of the rules: LUM-1033 rulings D1-D3 and inventory comments 1/5-5/5.",
+  "include": [
+    {
+      "glob": "app/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
+    },
+    {
+      "glob": "components/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
+    },
+    {
+      "glob": "lib/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code (D2: security scan / crossing detection ship with the core)"
+    },
+    {
+      "glob": "cli/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code (already published to npm as @lumoai/cli)"
+    },
+    {
+      "glob": "shared/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
+    },
+    {
+      "glob": "mcp/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
+    },
+    {
+      "glob": "prisma/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code (migrations must never be dropped)"
+    },
+    {
+      "glob": "public/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
+    },
+    {
+      "glob": "__tests__/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code (tests are public; importers of excluded dirs are excluded below)"
+    },
+    {
+      "glob": "tests/**",
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code (legacy test tree)"
+    },
+    {
+      "glob": "deploy/**",
+      "reason": "self-hosting deployment files (LUM-1023 self-host cron); milestone goal is self-hosting"
+    },
+    {
+      "glob": "hooks/**",
+      "reason": "product code (LUM-1033 2/5: PUBLIC)"
+    },
+    {
+      "glob": "types/**",
+      "reason": "product code (LUM-1033 2/5: PUBLIC)"
+    },
+    {
+      "glob": "constants/**",
+      "reason": "product code (LUM-1033 2/5: PUBLIC)"
+    },
+    {
+      "glob": "extensions/**",
+      "reason": "product code (LUM-1033 2/5: PUBLIC)"
+    },
+    {
+      "glob": "__stubs__/**",
+      "reason": "jest module stubs (LUM-1033 2/5: PUBLIC)"
+    },
+    {
+      "glob": "test-utils/**",
+      "reason": "test helpers (LUM-1033 2/5: PUBLIC)"
+    },
+    {
+      "glob": "security/**",
+      "reason": "LUM-1033 ruling D2: security scanning ships with the core (semgrep rules + fixtures)"
+    },
+    {
+      "glob": ".claude/skills/lumo/**",
+      "reason": "LUM-1033 ruling D1: the lumo skill is public (source of the CLI's bundled skill assets)"
+    },
+    {
+      "glob": ".claude/package.json",
+      "reason": "module-type marker for .claude/ scripts"
+    },
+    {
+      "glob": ".claude/launch.json",
+      "reason": "dev-server preview config, no secrets"
+    },
+    {
+      "glob": ".husky/**",
+      "reason": "git hooks; reference only public scripts (drift-check, lint-staged)"
+    },
+    {
+      "glob": ".lintstagedrc.json",
+      "reason": "pre-commit config; references only public scripts"
+    },
+    {
+      "glob": ".lumo/**",
+      "reason": "lumo CLI worktree config (LUM-1033 2/5: PUBLIC, demonstrates usage)"
+    },
+    {
+      "glob": ".env.example",
+      "reason": "placeholder values only"
+    },
+    {
+      "glob": "env.example",
+      "reason": "placeholder values only"
+    },
+    {
+      "glob": ".gitignore",
+      "reason": "build hygiene"
+    },
+    {
+      "glob": ".prettierignore",
+      "reason": "build hygiene (internal-path lines dropped by a transform)"
+    },
+    {
+      "glob": ".prettierrc",
+      "reason": "build hygiene"
+    },
+    {
+      "glob": "README.md",
+      "reason": "project readme (self-hosting rewrite is a separate task)"
+    },
+    {
+      "glob": "LICENSE",
+      "reason": "LUM-1014 ruling (2026-10-06): Elastic-2.0 license text with the Lumo AI copyright line and MIT scope note; must ship with the snapshot"
+    },
+    {
+      "glob": "components.json",
+      "reason": "shadcn config"
+    },
+    {
+      "glob": "eslint.config.mjs",
+      "reason": "lint config"
+    },
+    {
+      "glob": "jest.config.js",
+      "reason": "test config"
+    },
+    {
+      "glob": "jest.setup.js",
+      "reason": "test config"
+    },
+    {
+      "glob": "next.config.mjs",
+      "reason": "build config"
+    },
+    {
+      "glob": "osv-scanner.toml",
+      "reason": "dependency audit config"
+    },
+    {
+      "glob": "package.json",
+      "reason": "package manifest (oss:export script removed by a transform)"
+    },
+    {
+      "glob": "package-lock.json",
+      "reason": "lockfile for npm ci"
+    },
+    {
+      "glob": "postcss.config.mjs",
+      "reason": "build config"
+    },
+    {
+      "glob": "prisma.config.ts",
+      "reason": "prisma config"
+    },
+    {
+      "glob": "proxy.ts",
+      "reason": "Next.js request proxy"
+    },
+    {
+      "glob": "skills-lock.json",
+      "reason": "lists third-party skill sources; lets contributors reinstall .agents/ skills"
+    },
+    {
+      "glob": "tsconfig.json",
+      "reason": "build config"
+    },
+    {
+      "glob": "vercel.json",
+      "reason": "deploy config; buildCommand points at scripts/deploy (public)"
+    },
+    {
+      "glob": "docs/**",
+      "reason": "design-system, privacy and legal docs are public (LUM-1033 2/5); internal reports excluded below"
+    },
+    {
+      "glob": "scripts/**",
+      "reason": "build/lint/dev tooling and maintenance scripts; evaluation and obsolete probes excluded below"
+    }
+  ],
+  "exclude": [
+    {
+      "glob": ".agents/**",
+      "reason": "LUM-1033 D1: vendored third-party skills without LICENSE (reinstall via skills-lock.json)"
+    },
+    {
+      "glob": ".planning/**",
+      "reason": "LUM-1033 D1: internal roadmap / competitor research"
+    },
+    {
+      "glob": ".specify/**",
+      "reason": "LUM-1033 D1: spec-kit templates"
+    },
+    {
+      "glob": ".playwright-mcp/**",
+      "reason": "LUM-1033 D1: debug screenshots"
+    },
+    {
+      "glob": "mcp.json",
+      "reason": "LUM-1033 D1: real workspace/member ids and local absolute paths"
+    },
+    {
+      "glob": "AGENTS.md",
+      "reason": "LUM-1033 D1: stale OpenSpec stub"
+    },
+    {
+      "glob": ".claude/settings.json",
+      "reason": "LUM-1033 D1: would auto-run `lumo hook` for anyone who clones"
+    },
+    {
+      "glob": ".claude/skills/*",
+      "reason": "LUM-1033 2/5: symlinks into the excluded .agents/ tree (would dangle)"
+    },
+    {
+      "glob": "CLAUDE.md",
+      "reason": "internal agent instructions; the snapshot gets the contributor version from oss/overlay/CLAUDE.md (DRAFT, needs user approval)"
+    },
+    {
+      "glob": "oss/**",
+      "reason": "export tooling and manifest (lists internal paths by design)"
+    },
+    {
+      "glob": "scripts/oss-export.ts",
+      "reason": "export tooling (reads oss/, which stays private)"
+    },
+    {
+      "glob": "scripts/oss-export/**",
+      "reason": "export tooling"
+    },
+    {
+      "glob": "scripts/analysis/**",
+      "reason": "LUM-1033 D1/D2: evaluation, tuning evidence and benchmarks move to private"
+    },
+    {
+      "glob": "scripts/eval/**",
+      "reason": "LUM-1033 D1: memory-retrieval evaluation (8 MB embedding fixtures) moves to private"
+    },
+    {
+      "glob": "scripts/crossing-eval.ts",
+      "reason": "LUM-1033 D2: crossing-monitor benchmark runner (datasets live in scripts/analysis)"
+    },
+    {
+      "glob": "scripts/crossing-eval/**",
+      "reason": "LUM-1033 D2: crossing-monitor benchmark datasets"
+    },
+    {
+      "glob": "scripts/boundary-align-eval.ts",
+      "reason": "LUM-1033 D2: detector alignment benchmark"
+    },
+    {
+      "glob": "scripts/boundary-fp-rate.ts",
+      "reason": "LUM-1033 D2: false-positive-rate report over production dispositions"
+    },
+    {
+      "glob": "scripts/_*.ts",
+      "reason": "LUM-1033 3/5: obsolete one-off probes with hard-coded production row ids"
+    },
+    {
+      "glob": "scripts/test-*.ts",
+      "reason": "LUM-1033 3/5: obsolete E2B / agent-sdk probes (REMOVE)"
+    },
+    {
+      "glob": "scripts/setup-vercel-secrets.sh",
+      "reason": "LUM-1033 3/5: obsolete (old Supabase vars)"
+    },
+    {
+      "glob": "scripts/deploy.sh",
+      "reason": "LUM-1033 3/5: obsolete"
+    },
+    {
+      "glob": "scripts/probe-glm-structured.ts",
+      "reason": "LUM-1033 3/5: obsolete model probe"
+    },
+    {
+      "glob": "scripts/debug-og-fetch.ts",
+      "reason": "LUM-1033 3/5: obsolete debug script"
+    },
+    {
+      "glob": "docs/live-docs/lum392-cli-friction-report.md",
+      "reason": "LUM-1033 2/5: internal report built from production data (MOVE-TO-PRIVATE)"
+    },
+    {
+      "glob": "docs/rfc/**",
+      "reason": "LUM-1033 2/5: multi-tenant security RFC is NEEDS-USER-DECISION; default deny until ruled"
+    },
+    {
+      "glob": "__tests__/eval/**",
+      "reason": "LUM-1033 D1: memory-retrieval eval tests import scripts/eval"
+    },
+    {
+      "glob": "__tests__/claim-faithfulness/eval-report.test.ts",
+      "reason": "LUM-1033 D1: test imports the private evaluation tree (found by the export import-graph check)"
+    },
+    {
+      "glob": "__tests__/claim-faithfulness/fixture.test.ts",
+      "reason": "LUM-1033 D1: test imports the private evaluation tree (found by the export import-graph check)"
+    },
+    {
+      "glob": "__tests__/analysis/**",
+      "reason": "LUM-1033 D1: test imports the private evaluation tree (found by the export import-graph check)"
+    },
+    {
+      "glob": "__tests__/crossing-eval.test.ts",
+      "reason": "LUM-1033 D1: test imports the private evaluation tree (found by the export import-graph check) (crossing benchmark datasets)"
+    },
+    {
+      "glob": "__tests__/scripts/lum392-cli-friction-parse.test.ts",
+      "reason": "LUM-1033 D1: test imports the private evaluation tree (found by the export import-graph check) (friction-log parser over production data)"
+    },
+    {
+      "glob": "__tests__/lib/legal/zdr-exclusion-claims.test.ts",
+      "reason": "reads the committed ZDR probe output (measurement evidence, private per LUM-1033 D2) and .planning/"
+    },
+    {
+      "glob": "__tests__/scripts/oss-export-manifest.test.ts",
+      "reason": "tests the private export tooling"
+    },
+    {
+      "glob": "__tests__/memory/fixtures/team-memory-corpus.json",
+      "reason": "real dump of the project's own team memory (183 cards, internal operational notes) — not synthetic"
+    },
+    {
+      "glob": "__tests__/memory/poison-gate.corpus.test.ts",
+      "reason": "runs the gate over the excluded real team-memory corpus"
+    },
+    {
+      "glob": "__tests__/fixtures/lum844/**",
+      "reason": "verbatim capture of a real internal task payload (description, team memories, sessions)"
+    },
+    {
+      "glob": "__tests__/cli/start-output-budget.test.ts",
+      "reason": "budgets are derived from the excluded real LUM-844 capture"
+    },
+    {
+      "glob": "__tests__/lib/services/outcome/git-referent-detector.live.test.ts",
+      "reason": "asserts against specific commits of the private repository's history (LUM-604 live referent); the snapshot starts a new history (LUM-1033 D3)"
+    }
+  ],
+  "overlayDir": "oss/overlay",
+  "transforms": [
+    {
+      "file": "package.json",
+      "type": "jsonDelete",
+      "paths": [["scripts", "oss:export"]],
+      "reason": "the export tooling stays private"
+    },
+    {
+      "file": ".prettierignore",
+      "type": "dropLines",
+      "pattern": "^scripts/(analysis|eval)/",
+      "reason": "entries for excluded fixture files"
+    },
+    {
+      "file": ".gitignore",
+      "type": "dropLines",
+      "pattern": "^scripts/(analysis|eval)/",
+      "reason": "entries for excluded output files"
+    },
+    {
+      "file": "docs/live-docs/README.md",
+      "type": "dropLines",
+      "pattern": "lum392-cli-friction-report\\.md",
+      "reason": "registry row for the excluded internal report"
+    }
+  ],
+  "configRefFiles": [
+    "package.json",
+    ".husky/pre-commit",
+    ".husky/commit-msg",
+    ".lintstagedrc.json",
+    "vercel.json"
+  ],
+  "forbiddenMarkers": [
+    {
+      "id": "excluded-dir:scripts/analysis",
+      "pattern": "scripts/analysis",
+      "reason": "private evaluation tree"
+    },
+    {
+      "id": "excluded-dir:scripts/eval",
+      "pattern": "scripts/eval/",
+      "reason": "private evaluation tree"
+    },
+    {
+      "id": "excluded-dir:.planning",
+      "pattern": "\\.planning/",
+      "reason": "private planning tree"
+    },
+    {
+      "id": "excluded-dir:.specify",
+      "pattern": "\\.specify/",
+      "reason": "excluded tree"
+    },
+    {
+      "id": "excluded-dir:.playwright-mcp",
+      "pattern": "\\.playwright-mcp",
+      "reason": "excluded tree"
+    },
+    {
+      "id": "excluded-file:lum392-report",
+      "pattern": "lum392-cli-friction-report",
+      "reason": "private report"
+    },
+    {
+      "id": "internal-domain:incase.ai",
+      "pattern": "incase\\.ai",
+      "reason": "third-party company domain from early history (LUM-1033 1/5)"
+    },
+    {
+      "id": "prod-host:neon-endpoint",
+      "pattern": "ep-[a-z]+-[a-z]+-[a-z0-9]+(-pooler)?\\.[a-z0-9-]+\\.aws\\.neon\\.tech",
+      "reason": "real Neon endpoint shape (LUM-1033 4/5); placeholders must not look real"
+    }
+  ]
+}
