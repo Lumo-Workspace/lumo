@@ -7,7 +7,16 @@ export type {
 } from './types'
 
 // Client
-export { getResend } from './client'
+export {
+  sendEmail,
+  resolveEmailTransport,
+  resolveEmailFrom,
+  DEFAULT_EMAIL_FROM,
+  type EmailMessage,
+  type EmailTransportKind,
+  type SendEmailOptions,
+  type SendEmailResult,
+} from './client'
 
 // Templates
 export { buildInviteEmail } from './templates/invite'
