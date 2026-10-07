@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
+import {
+  handlePrivateClientUpload,
+  type HandleUploadBody,
+} from '@/lib/blob/client-upload'
 import { logger } from '@/lib/logger'
-import { privateBlobToken } from '@/lib/blob/private-store'
 import {
   authenticateSarifIngest,
   assertPayloadMatchesPrincipal,
@@ -28,7 +30,8 @@ function safeJsonParse(s: string): unknown {
 
 /**
  * POST /api/integrations/security/sarif/upload — LUM-735 token issuance +
- * completion webhook for `@vercel/blob/client`'s `handleUpload`. Whatever the
+ * completion webhook for `@vercel/blob/client`'s `handleUpload` (via
+ * `@/lib/blob/client-upload`; 501 on non-Vercel storage, LUM-1021). Whatever the
  * bearer proved goes into `tokenPayload` server-side, so `onUploadCompleted`
  * starts the ingest run trusting nothing the client sent directly: a
  * `security:ingest` ApiKey contributes its `workspaceId`, a GitHub Actions
@@ -40,12 +43,11 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => {
       throw Object.assign(new Error('Invalid JSON body'), { status: 400 })
     })) as HandleUploadBody
-    const result = await handleUpload({
+    // LUM-916: the report is a private blob — the wrapper pins the token
+    // (and the completion-webhook verification) to the private store.
+    const result = await handlePrivateClientUpload({
       body,
       request,
-      // LUM-916: the report is a private blob — it must land in (and the
-      // completion webhook be verified against) the private store.
-      token: privateBlobToken(),
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const principal = await authenticateSarifIngest(request)
         if (!principal) {
@@ -127,7 +129,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     const status = (error as { status?: unknown } | null)?.status
-    if (status === 400 || status === 401 || status === 403 || status === 429) {
+    if (
+      status === 400 ||
+      status === 401 ||
+      status === 403 ||
+      status === 429 ||
+      status === 501
+    ) {
       const message = error instanceof Error ? error.message : 'Bad Request'
       return NextResponse.json({ error: message }, { status })
     }
