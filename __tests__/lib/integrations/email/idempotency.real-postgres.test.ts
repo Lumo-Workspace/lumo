@@ -187,6 +187,49 @@ describe('sendEmail idempotency (real Postgres)', () => {
     expect(smtpSends).toHaveLength(1)
   })
 
+  it('the FAILED write throws once, its retry lands → the key can be retried immediately', async () => {
+    failNext = 1
+    const spy = jest
+      .spyOn(emailDeliveryRepository, 'markFailed')
+      .mockRejectedValueOnce(new Error('db blip'))
+    try {
+      const first = await sendEmail(MSG, { idempotencyKey: 'k/failed-write' })
+      expect(first.status).toBe('failed')
+      expect(spy).toHaveBeenCalledTimes(2)
+      expect(await row('k/failed-write')).toMatchObject({
+        status: 'FAILED',
+        errorCode: 'ETIMEDOUT',
+      })
+      const retry = await sendEmail(MSG, { idempotencyKey: 'k/failed-write' })
+      expect(retry.status).toBe('sent')
+      expect(smtpSends).toHaveLength(1)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('the FAILED write keeps failing → error log with the key; the row stays SENDING until stale', async () => {
+    failNext = 1
+    const spy = jest
+      .spyOn(emailDeliveryRepository, 'markFailed')
+      .mockRejectedValue(new Error('db gone'))
+    try {
+      const first = await sendEmail(MSG, { idempotencyKey: 'k/failed-lost' })
+      expect(first.status).toBe('failed')
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'send failed and the failure was not recorded, key=k/failed-lost'
+        ),
+        expect.objectContaining({ outcome: 'failed', tries: 3 })
+      )
+    } finally {
+      spy.mockRestore()
+    }
+    expect(await row('k/failed-lost')).toMatchObject({ status: 'SENDING' })
+    const retry = await sendEmail(MSG, { idempotencyKey: 'k/failed-lost' })
+    expect(retry).toMatchObject({ status: 'skipped', prior: 'sending' })
+  })
+
   it('concurrent retries of a FAILED key → exactly one send', async () => {
     failNext = 1
     await sendEmail(MSG, { idempotencyKey: 'k/failed-race' })

@@ -390,15 +390,21 @@ export async function sendEmail(
 export const EMAIL_RECORD_RETRY_DELAYS_MS = [100, 400] as const
 
 /**
- * Write the send outcome for this attempt, retrying a thrown write with
- * backoff. Never throws and never changes the result: a message that went
- * out is reported `sent` even when it could not be recorded.
+ * Write the send outcome (SENT or FAILED) for this attempt: a
+ * compare-and-swap on the attempt's own claim, retrying a thrown write with
+ * bounded backoff. Never throws and never changes the result: a message that
+ * went out is reported `sent` even when it could not be recorded.
  *
- * Remaining edge: if the SENT write never lands, the row stays SENDING; once
- * it is older than EMAIL_CLAIM_STALE_MS a later send with the same key may
- * reclaim it and send again. Over the Resend relay the
- * Resend-Idempotency-Key header (24 h) still dedupes that resend; on other
- * SMTP servers it is a possible duplicate, logged at error level here.
+ * Remaining edges, both by design:
+ * - SENT never lands: the row stays SENDING; once older than
+ *   EMAIL_CLAIM_STALE_MS a later send with the same key may reclaim it and
+ *   send again. Over the Resend relay the Resend-Idempotency-Key header
+ *   (24 h) still dedupes that resend; elsewhere it is a possible duplicate.
+ * - FAILED never lands: the row stays SENDING, so retries of that key are
+ *   skipped as duplicates (in flight) for up to EMAIL_CLAIM_STALE_MS.
+ * A process that crashes after claiming leaves the same SENDING row; the
+ * stale window is what reclaims it. Both write failures are logged at error
+ * level with the key.
  */
 async function recordOutcome(
   key: string,
@@ -430,7 +436,7 @@ async function recordOutcome(
         logger.error(
           result.status === 'sent'
             ? `[email] email was sent but its delivery record was not saved, key=${key}`
-            : `[email] send failure could not be recorded, key=${key}`,
+            : `[email] send failed and the failure was not recorded, key=${key}; for ${EMAIL_CLAIM_STALE_MS / 60_000} min this key is treated as still sending`,
           {
             outcome: result.status,
             attempt,
