@@ -10,7 +10,7 @@
  * The real route, handlers, github service and install service run here; only
  * the data layer and outbound side effects are stubbed.
  */
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/integrations/github', () => ({
   verifyGitHubSignature: jest.fn(),
 }))

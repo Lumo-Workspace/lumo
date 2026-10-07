@@ -15,7 +15,7 @@ import {
   CONTEXT_METRICS_KEY,
 } from '@/lib/context/injection-metrics'
 import type { Prisma } from '@prisma/client'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 export async function POST(request: Request) {
   return handleHookRequest(request, 'SESSION_START', {

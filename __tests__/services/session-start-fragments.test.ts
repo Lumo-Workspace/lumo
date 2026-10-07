@@ -8,7 +8,7 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/services/document.service', () => ({
   scheduleDocumentSummary: jest.fn(),
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
     findById: jest.fn(async () => ({

@@ -14,7 +14,7 @@ jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
       .mockResolvedValue({ signals: [], inserted: 0, skipped: 0 }),
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 // Stub the github integration barrel — its real auth module eager-imports an
 // ESM-only octokit package jest can't transform (same workaround the other
 // github webhook tests use). `main` is not a task branch, so parseBranchIdentifier

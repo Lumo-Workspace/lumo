@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { forecastService } from '@/lib/services/forecast.service'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import type { Interval } from '@/lib/forecast/types'

@@ -4,7 +4,7 @@ jest.mock('@/lib/services/lineage/fragment-usage-audit.service', () => ({
     auditForTask: (...a: unknown[]) => auditForTask(...a),
   },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 

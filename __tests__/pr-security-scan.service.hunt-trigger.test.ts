@@ -75,7 +75,7 @@ jest.mock('@/lib/services/security-baseline.service', () => ({
 jest.mock('@/lib/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 
 import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
@@ -87,7 +87,7 @@ import {
   startSecurityHunt,
 } from '@/lib/services/security-hunt-start'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 

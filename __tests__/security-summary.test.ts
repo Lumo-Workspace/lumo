@@ -9,6 +9,9 @@ import {
   shouldExpandRow,
   isOverSizeLimitOnly,
   isQuietFinding,
+  findingGroupKey,
+  groupFindings,
+  stageReason,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
 import type {
   SecurityScanView,
@@ -383,5 +386,169 @@ describe('isQuietFinding', () => {
     ]) {
       expect(isQuietFinding(finding(over as never) as never)).toBe(true)
     }
+  })
+})
+
+describe('LUM-1012 follow-up — findingGroupKey / groupFindings', () => {
+  test('a ruling wins, then a verifier rejection, then the queue / main labels', () => {
+    expect(findingGroupKey(finding())).toBe('open')
+    expect(
+      findingGroupKey(
+        finding({
+          disposition: 'FALSE_POSITIVE',
+          verifierVerdict: 'REJECTED',
+        } as Partial<SecurityScanView['findings'][number]>)
+      )
+    ).toBe('ruled')
+    expect(
+      findingGroupKey(
+        finding({
+          verifierVerdict: 'REJECTED',
+          queueExit: 'MERGED_UNREVIEWED',
+        } as Partial<SecurityScanView['findings'][number]>)
+      )
+    ).toBe('verifierRejected')
+    expect(
+      findingGroupKey(finding({ queueExit: 'PR_CLOSED', persisting: true }))
+    ).toBe('queueExit')
+    expect(findingGroupKey(finding({ persisting: true }))).toBe('persisting')
+  })
+
+  test('groups come in decide-first order, queue exits split by kind, input order kept', () => {
+    const groups = groupFindings([
+      finding({
+        id: 'rej',
+        verifierVerdict: 'REJECTED',
+      } as Partial<SecurityScanView['findings'][number]>),
+      finding({ id: 'merged', queueExit: 'MERGED_UNREVIEWED' }),
+      finding({ id: 'open-1' }),
+      finding({ id: 'closed', queueExit: 'PR_CLOSED' }),
+      finding({ id: 'open-2' }),
+    ])
+    expect(
+      groups.map(g => [g.key, g.queueExit, g.findings.map(f => f.id)])
+    ).toEqual([
+      ['open', null, ['open-1', 'open-2']],
+      ['queueExit', 'MERGED_UNREVIEWED', ['merged']],
+      ['queueExit', 'PR_CLOSED', ['closed']],
+      ['verifierRejected', null, ['rej']],
+    ])
+  })
+
+  test('no findings, no groups', () => {
+    expect(groupFindings([])).toEqual([])
+  })
+})
+
+describe('LUM-1012 follow-up — stageReason', () => {
+  const base = scan({
+    stages: {
+      secrets: 'RAN',
+      external: 'NOT_CONFIGURED',
+      supplyChain: 'SKIPPED',
+      judge: 'FAILED',
+      hunt: 'SKIPPED',
+    },
+  })
+
+  test('a layer that checked the change has no reason', () => {
+    expect(stageReason('secrets', base)).toBeNull()
+  })
+
+  test('a layer the scan does not carry has no reason', () => {
+    expect(stageReason('hunt', scan())).toBeNull()
+  })
+
+  test('each not-run state names its own cause', () => {
+    expect(stageReason('external', base)?.id).toBe(
+      'securityScan.stageReason.NOT_CONFIGURED'
+    )
+    expect(stageReason('supplyChain', base)?.id).toBe(
+      'securityScan.stageReason.supplyChainSkipped'
+    )
+    expect(stageReason('judge', base)?.id).toBe(
+      'securityScan.stageReason.judgeFailed'
+    )
+    expect(stageReason('hunt', base)?.id).toBe(
+      'securityScan.stageReason.huntSkipped'
+    )
+    expect(
+      stageReason('external', scan({ stages: { external: 'DISABLED' } }))?.id
+    ).toBe('securityScan.stageReason.DISABLED')
+    expect(
+      stageReason('secrets', scan({ stages: { secrets: 'FAILED' } }))?.id
+    ).toBe('securityScan.stageReason.FAILED')
+  })
+
+  test('a size cap wins over the state and carries its numbers', () => {
+    expect(
+      stageReason(
+        'judge',
+        scan({
+          stages: { judge: 'SKIPPED' },
+          judgeOverCap: { diffChars: 189054, capChars: 180000 },
+        } as Partial<SecurityScanView>)
+      )
+    ).toEqual({
+      id: 'securityScan.stageReason.judgeOverCap',
+      values: { size: 189054, cap: 180000 },
+    })
+  })
+
+  test('the hunt file cap carries its numbers', () => {
+    expect(
+      stageReason(
+        'hunt',
+        scan({
+          stages: { hunt: 'SKIPPED' },
+          huntOverCap: { sourceFiles: 400, capFiles: 300 },
+        } as Partial<SecurityScanView>)
+      )
+    ).toEqual({
+      id: 'securityScan.stageReason.huntOverCap',
+      values: { files: 400, cap: 300 },
+    })
+  })
+
+  test('a batched hunt that stopped part-way says why it stopped, not "still running"', () => {
+    for (const [state, id] of [
+      ['FAILED', 'FAILED'],
+      ['SUPERSEDED', 'SUPERSEDED'],
+      ['PARTIAL', 'PARTIAL'],
+    ] as const) {
+      expect(
+        stageReason(
+          'hunt',
+          scan({
+            stages: { hunt: state },
+            huntProgress: { coveredFiles: 40, totalFiles: 120 },
+          } as Partial<SecurityScanView>)
+        )?.id
+      ).toBe(`securityScan.stageReason.${id}`)
+    }
+  })
+
+  test('a partial batched hunt says how far it got; a finished one says nothing', () => {
+    expect(
+      stageReason(
+        'hunt',
+        scan({
+          stages: { hunt: 'PENDING' },
+          huntProgress: { coveredFiles: 40, totalFiles: 120 },
+        } as Partial<SecurityScanView>)
+      )
+    ).toEqual({
+      id: 'securityScan.stageReason.huntInProgress',
+      values: { covered: 40, total: 120 },
+    })
+    expect(
+      stageReason(
+        'hunt',
+        scan({
+          stages: { hunt: 'RAN' },
+          huntProgress: { coveredFiles: 45, totalFiles: 45 },
+        } as Partial<SecurityScanView>)
+      )
+    ).toBeNull()
   })
 })

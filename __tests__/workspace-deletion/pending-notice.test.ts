@@ -29,7 +29,7 @@ jest.mock('@/lib/services/task-context.service', () => ({
 jest.mock('@/lib/services/next-steps.service', () => ({
   nextStepsService: { forExistingTask: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 jest.mock('@/lib/logger', () => ({

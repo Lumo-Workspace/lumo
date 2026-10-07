@@ -50,7 +50,7 @@
 - Contains: Domain services (task.service.ts, project.service.ts, notification.service.ts, etc.)
 - Depends on: `lib/repositories/`, `lib/integrations/` (Slack, GitHub, Pusher), `lib/events/`, `lib/validation/`
 - Used by: API routes and other services
-- Pattern: Throws errors with `Object.assign(new Error(msg), { status })` for API error handling; uses `@vercel/functions` waitUntil for async side effects
+- Pattern: Throws errors with `Object.assign(new Error(msg), { status })` for API error handling; uses `waitUntil` from `@/lib/runtime/wait-until` for async side effects (LUM-1022: delegates to `@vercel/functions` on Vercel; on self-hosted Node the task runs in the background with rejections logged, and work still in flight when the process exits is lost)
 
 **Repository Layer:**
 

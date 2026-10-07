@@ -18,7 +18,7 @@ jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
 // Capture the promise handed to waitUntil so the detach-and-swallow behavior
 // can be asserted directly.
 const waitUntilPromises: Array<Promise<unknown>> = []
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => {
     waitUntilPromises.push(p)
     return p

@@ -10,7 +10,7 @@ import {
   parsePrUrl,
   toPrState,
 } from '@/lib/integrations/github/fetch-pull-request'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 // Re-exported for existing importers; the implementation moved to
 // lib/integrations/github/fetch-pull-request.ts so the idea-evidence link path

@@ -33,7 +33,7 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
   },
 }))
 // waitUntil must run its argument synchronously so the test can observe the call.
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 

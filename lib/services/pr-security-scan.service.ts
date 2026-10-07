@@ -86,7 +86,7 @@ import { securityGraphRulesService } from './security-graph-rules.service'
 import { securityBaselineService } from './security-baseline.service'
 // No LLM/gateway import inside — safe to import statically from stage A.
 import { securityPrReviewService } from './security-pr-review.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import {
   huntBatchProgress,
   planHuntBatches,

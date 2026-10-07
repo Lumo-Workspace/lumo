@@ -10,7 +10,7 @@ import {
 } from '@/lib/integrations/slack/context-fetcher'
 import { ideaSlackContextRepository } from '@/lib/repositories/idea-slack-context.repository'
 import { resolveIdeaRef } from '@/lib/services/idea-evidence-resolve'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { logger } from '@/lib/logger'
 

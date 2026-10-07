@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
 import { taskService } from '@/lib/services'

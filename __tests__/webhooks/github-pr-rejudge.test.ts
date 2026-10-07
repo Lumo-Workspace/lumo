@@ -3,7 +3,7 @@ const rejudgeForTask = jest.fn(async (_id: string) => ({ judged: 0 }))
 const waitUntil = jest.fn((p: Promise<unknown>) => p)
 const warn = jest.fn()
 
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => waitUntil(p),
 }))
 jest.mock('@/lib/services/boundary-crossing-rejudge.service', () => ({

@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { handleHookRequest } from '@/app/api/hooks/_handler'
 import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
 

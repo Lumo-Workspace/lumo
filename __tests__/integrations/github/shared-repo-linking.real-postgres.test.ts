@@ -28,7 +28,7 @@ jest.mock('@/lib/db/prisma', () => ({
     return holder.client
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
   shouldScanOnPrEvent: jest.fn().mockReturnValue(true),

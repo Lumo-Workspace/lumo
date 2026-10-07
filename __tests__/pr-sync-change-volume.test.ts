@@ -8,7 +8,7 @@
 import { handlePullRequest } from '@/app/api/webhooks/github/handlers'
 import { githubService } from '@/lib/services/github.service'
 
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/actor', () => ({
   getActorClerkId: jest.fn(),
   getHumanActorId: jest.fn(),

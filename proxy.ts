@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { requireWorkflowDeliveryAuth } from '@/lib/api/workflow-delivery-auth'
 
 export const PUBLIC_ROUTES = [
   '/signin(.*)',
@@ -7,7 +8,9 @@ export const PUBLIC_ROUTES = [
   '/api/(.*)',
   '/invite(.*)',
   '/share(.*)',
-  '/.well-known/(.*)', // OAuth metadata for MCP clients (RFC 8414, RFC 9728)
+  // OAuth metadata for MCP clients (RFC 8414, RFC 9728), plus the Workflow
+  // SDK's delivery routes — those are gated below when self-hosted (LUM-1031).
+  '/.well-known/(.*)',
   '/security', // public trust page (LUM-856)
 ]
 
@@ -19,6 +22,12 @@ const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES)
 const isDesignSystemRoute = createRouteMatcher(['/design-system(.*)'])
 
 export default clerkMiddleware(async (auth, request) => {
+  // Self-hosted workflow deliveries must present WORKFLOW_SECRET (LUM-1031).
+  // Checked before anything else so a public /.well-known/ route cannot
+  // reach a workflow step without it.
+  const workflowDenied = requireWorkflowDeliveryAuth(request)
+  if (workflowDenied) return workflowDenied
+
   const { userId } = await auth()
   const { pathname } = request.nextUrl
 

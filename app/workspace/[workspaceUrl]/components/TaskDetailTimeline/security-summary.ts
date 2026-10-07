@@ -5,6 +5,7 @@
  * rows default open.
  * No intl, no React — unit-testable on their own.
  */
+import type { ScanStageKeyName } from '@/shared/src/security-scan'
 import type {
   SecurityFindingView,
   SecurityScanView,
@@ -145,4 +146,131 @@ export function blockingFindings(
       .filter(f => f.blocking)
       .map(finding => ({ prNumber: pr.number, finding }))
   )
+}
+
+/**
+ * LUM-1012 follow-up — why a finding sits where it does in a PR's list. The
+ * list is grouped by this key under one heading each, so the reason is said
+ * once instead of as a chip on every row. First match wins: a ruling beats
+ * every other reason; a verifier rejection beats the queue / main labels.
+ */
+export type FindingGroupKey =
+  | 'open'
+  | 'ruled'
+  | 'verifierRejected'
+  | 'queueExit'
+  | 'persisting'
+
+export function findingGroupKey(f: SecurityFindingView): FindingGroupKey {
+  if (f.disposition != null) return 'ruled'
+  if (f.verifierVerdict === 'REJECTED') return 'verifierRejected'
+  if (f.queueExit != null) return 'queueExit'
+  if (f.persisting) return 'persisting'
+  return 'open'
+}
+
+const GROUP_ORDER: FindingGroupKey[] = [
+  'open',
+  'queueExit',
+  'persisting',
+  'verifierRejected',
+  'ruled',
+]
+
+export interface FindingGroup {
+  key: FindingGroupKey
+  /** Set on a `queueExit` group: why the findings left the queue. Findings
+   *  with different exits get separate groups. */
+  queueExit: SecurityFindingView['queueExit']
+  findings: SecurityFindingView[]
+}
+
+/**
+ * Findings grouped by `findingGroupKey` (queue exits split per exit kind), in
+ * a fixed order — the ones someone must decide on first. Within a group the
+ * input order is kept. Empty groups are dropped.
+ */
+export function groupFindings(findings: SecurityFindingView[]): FindingGroup[] {
+  const groups = new Map<string, FindingGroup>()
+  for (const f of findings) {
+    const key = findingGroupKey(f)
+    const queueExit = key === 'queueExit' ? f.queueExit : null
+    const id = `${key}:${queueExit ?? ''}`
+    const group = groups.get(id) ?? { key, queueExit, findings: [] }
+    group.findings.push(f)
+    groups.set(id, group)
+  }
+  return [...groups.values()].sort(
+    (a, b) => GROUP_ORDER.indexOf(a.key) - GROUP_ORDER.indexOf(b.key)
+  )
+}
+
+/**
+ * LUM-1012 follow-up — why a layer did not (fully) run, as an i18n message id
+ * plus its values, for the hover on that layer's checklist item. null for a
+ * layer that simply checked the change. Each reason mirrors where the
+ * pipeline stamps the state (`pr-security-scan.service.ts`,
+ * `security-managed-scan.ts`), so the hover says what actually happened.
+ */
+export function stageReason(
+  stageKey: ScanStageKeyName,
+  scan: Pick<
+    SecurityScanView,
+    'stages' | 'huntOverCap' | 'judgeOverCap' | 'huntProgress'
+  >
+): { id: string; values?: Record<string, number> } | null {
+  const state = scan.stages[stageKey]
+  if (!state) return null
+  const id = (suffix: string) => `securityScan.stageReason.${suffix}`
+  if (stageKey === 'judge' && scan.judgeOverCap)
+    return {
+      id: id('judgeOverCap'),
+      values: {
+        size: scan.judgeOverCap.diffChars,
+        cap: scan.judgeOverCap.capChars,
+      },
+    }
+  if (stageKey === 'hunt' && scan.huntOverCap)
+    return {
+      id: id('huntOverCap'),
+      values: {
+        files: scan.huntOverCap.sourceFiles,
+        cap: scan.huntOverCap.capFiles,
+      },
+    }
+  // Only a hunt still running reads as "n of m so far" — a batched hunt
+  // that then failed or was superseded says that instead.
+  if (
+    stageKey === 'hunt' &&
+    state === 'PENDING' &&
+    scan.huntProgress &&
+    scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles
+  )
+    return {
+      id: id('huntInProgress'),
+      values: {
+        covered: scan.huntProgress.coveredFiles,
+        total: scan.huntProgress.totalFiles,
+      },
+    }
+  switch (state) {
+    case 'RAN':
+      return null
+    case 'SKIPPED':
+      return {
+        id: id(
+          stageKey === 'hunt' ||
+            stageKey === 'judge' ||
+            stageKey === 'supplyChain'
+            ? `${stageKey}Skipped`
+            : 'skipped'
+        ),
+      }
+    case 'FAILED':
+      return { id: id(stageKey === 'judge' ? 'judgeFailed' : 'FAILED') }
+    case 'PARTIAL':
+      return { id: id(stageKey === 'judge' ? 'judgePartial' : 'PARTIAL') }
+    default:
+      return { id: id(state) }
+  }
 }

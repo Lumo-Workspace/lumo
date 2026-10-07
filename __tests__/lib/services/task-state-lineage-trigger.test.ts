@@ -27,7 +27,7 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
     findManyForSecurityByTaskId: jest.fn().mockResolvedValue([]),
   },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => {
     waitUntilPromises.push(p)
     return p

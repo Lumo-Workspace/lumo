@@ -16,7 +16,7 @@ jest.mock('ai', () => ({
   generateText: (...a: unknown[]) => generateTextMock(...a),
 }))
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => void p,
 }))
 jest.mock('@/lib/repositories/session.repository', () => ({

@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { claimFaithfulnessService } from '@/lib/services/claim-faithfulness.service'
 
 /**

@@ -34,7 +34,7 @@ import { rankSessionStartCards } from '@/lib/lineage/session-rank'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { scheduleDocumentSummary } from '@/lib/services/document.service'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import type { TaskFigmaLink } from '@prisma/client'
 import {
   renderSlackContextSection,

@@ -46,7 +46,7 @@ jest.mock('@/lib/repositories/github.repository', () => ({
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/idea-pull-request.repository', () => ({
   ideaPullRequestRepository: {
     findByIdeaAndPr: jest.fn(),

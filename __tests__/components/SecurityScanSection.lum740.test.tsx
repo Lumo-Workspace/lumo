@@ -148,6 +148,15 @@ function renderWith(latest: object, suggested = 0) {
   return render(<SecurityScanSection taskId='t1' />)
 }
 
+// jsdom lacks ResizeObserver, which the Radix tooltip references.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   Object.assign(navigator, { clipboard: { writeText: jest.fn() } })
@@ -177,6 +186,78 @@ describe('LUM-740 panel', () => {
       'LLM review: ran',
       'Vulnerability hunt: scanning',
     ])
+  })
+
+  test('a layer that did not run says why on hover; a checked one has no hover', async () => {
+    renderWith(
+      scan({
+        stages: {
+          secrets: 'RAN',
+          external: 'RAN',
+          supplyChain: 'SKIPPED',
+          judge: 'RAN',
+          hunt: 'SKIPPED',
+        },
+      })
+    )
+    // A checked layer is a labelled image, not a control.
+    expect(screen.getByTestId('stage-secrets').tagName).toBe('SPAN')
+    expect(screen.getByTestId('stage-secrets')).toHaveAttribute('role', 'img')
+    // A checked layer keeps its plain state hover.
+    expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
+      'title',
+      'Secret patterns: ran'
+    )
+    expect(screen.getByTestId('stage-hunt')).not.toHaveAttribute('title')
+    const hunt = screen.getByTestId('stage-hunt')
+    // A layer with a reason is a real button: focusable without tabIndex,
+    // and no role=img describing itself twice.
+    expect(hunt.tagName).toBe('BUTTON')
+    expect(hunt).toHaveAttribute('type', 'button')
+    expect(hunt).not.toHaveAttribute('role')
+    expect(hunt).not.toHaveAttribute('tabindex')
+    // Never hover-only: the reason is the cell's accessible description.
+    const describedBy = hunt.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(document.getElementById(describedBy as string)).toHaveTextContent(
+      'securityScan.stageReason.huntSkipped'
+    )
+    expect(screen.getByTestId('stage-secrets')).not.toHaveAttribute(
+      'aria-describedby'
+    )
+    // Hover / focus opens the tooltip with the same reason.
+    fireEvent.focus(hunt)
+    expect(await screen.findByTestId('stage-reason')).toHaveTextContent(
+      'securityScan.stageReason.huntSkipped'
+    )
+  })
+
+  test('each layer shows its name and an info button that says what it checks', async () => {
+    renderWith(
+      scan({
+        stages: {
+          secrets: 'RAN',
+          external: 'RAN',
+          supplyChain: 'RAN',
+          judge: 'RAN',
+          hunt: 'SKIPPED',
+        },
+      })
+    )
+    // The names ride on the row — no separate header to line up with.
+    const row = screen.getByTestId('security-pr-9')
+    expect(row).toHaveTextContent('External scanner')
+    expect(row).toHaveTextContent('Vulnerability hunt')
+    // Code scan: what it checks plus the scanners behind it.
+    fireEvent.click(screen.getByTestId('layer-info-external'))
+    const external = await screen.findByTestId('layer-info-external-content')
+    expect(external).toHaveTextContent('securityScan.stageInfo.external')
+    expect(external).toHaveTextContent('securityScan.stageInfo.tools')
+    // AI review has no third-party scanner to name.
+    fireEvent.click(screen.getByTestId('layer-info-judge'))
+    const judge = await screen.findByTestId('layer-info-judge-content')
+    expect(judge).toHaveTextContent('securityScan.stageInfo.judge')
+    expect(judge).not.toHaveTextContent('securityScan.stageInfo.tools')
   })
 
   test('a hunt finding shows kind, provenance, reachability, CWE and an expandable call chain', () => {
@@ -323,9 +404,17 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
         ],
       })
     )
-    expect(screen.getByTestId('finding-verifier-rejected')).toHaveTextContent(
-      'securityScan.verifier.rejected'
-    )
+    // The rejection is said once, as its group's heading — not as a chip on
+    // the row; the unverified row sits in the open group above it.
+    expect(
+      screen.getByTestId('finding-group-verifierRejected')
+    ).toHaveTextContent('securityScan.group.verifierRejected · 1')
+    expect(screen.queryByTestId('finding-verifier-rejected')).toBeNull()
+    expect(
+      screen
+        .getAllByTestId(/^finding-group-/)
+        .map(el => el.getAttribute('data-testid'))
+    ).toEqual(['finding-group-open', 'finding-group-verifierRejected'])
     // LUM-1012: nothing to decide, so it is folded to one line; the reason
     // is one click away.
     expect(screen.queryByTestId('finding-verifier-reason')).toBeNull()
@@ -333,6 +422,28 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
     expect(screen.getByTestId('finding-verifier-reason')).toHaveTextContent(
       'guarded at src/a.ts:12'
     )
-    expect(screen.getAllByTestId('finding-verifier-rejected')).toHaveLength(1)
+  })
+})
+
+describe('LUM-1012 finding groups', () => {
+  test('queue exits of different kinds get their own group, each with a distinct test id', () => {
+    renderWith(
+      scan({
+        findings: [
+          finding({ id: 'merged', queueExit: 'MERGED_UNREVIEWED' }),
+          finding({ id: 'closed', queueExit: 'PR_CLOSED' }),
+        ],
+      })
+    )
+    // Nothing to decide, so the row starts folded — open it.
+    fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+    const ids = screen
+      .getAllByTestId(/^finding-group-/)
+      .map(el => el.getAttribute('data-testid'))
+    expect(ids).toEqual([
+      'finding-group-queueExit-MERGED_UNREVIEWED',
+      'finding-group-queueExit-PR_CLOSED',
+    ])
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })

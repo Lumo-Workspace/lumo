@@ -14,7 +14,7 @@ jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
       .mockResolvedValue({ installationId: 1, repositories: ['acme/app'] }),
   },
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => waitUntil(p),
 }))
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({

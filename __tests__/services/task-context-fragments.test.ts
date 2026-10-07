@@ -20,7 +20,7 @@ jest.mock('@/lib/services/task-figma-link.service', () => ({
     refreshLinksForTaskAuto: jest.fn().mockResolvedValue([]),
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: { findById: jest.fn().mockResolvedValue(null) },
 }))

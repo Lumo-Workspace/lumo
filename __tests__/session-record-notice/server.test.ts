@@ -29,7 +29,7 @@ jest.mock('@/lib/auth/identity', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {},
 }))
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 jest.mock('@/lib/logger', () => ({

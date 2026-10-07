@@ -149,7 +149,7 @@ jest.mock('@/lib/services/security-baseline.service', () => ({
 jest.mock('@/lib/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 
 import { NextRequest } from 'next/server'
 import { requireIdentity } from '@/lib/auth'

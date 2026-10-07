@@ -23,11 +23,11 @@ jest.mock('@/lib/services/plan-run.service', () => ({
 jest.mock('@/lib/services/plan-align-runner', () => ({
   triggerAlignStage: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 
 import { planRunService } from '@/lib/services/plan-run.service'
 import { triggerAlignStage } from '@/lib/services/plan-align-runner'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 const confirmClusterGate = planRunService.confirmClusterGate as jest.Mock
 const getClusterGateView = planRunService.getClusterGateView as jest.Mock

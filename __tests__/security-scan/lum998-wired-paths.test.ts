@@ -60,7 +60,7 @@ jest.mock('@/lib/services/task.service', () => ({
     }),
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: {
     findDocumentsForContext: jest.fn().mockResolvedValue([]),

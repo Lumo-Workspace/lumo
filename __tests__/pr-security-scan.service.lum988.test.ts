@@ -96,7 +96,7 @@ jest.mock('@/lib/services/security-baseline.service', () => ({
 jest.mock('@/lib/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))

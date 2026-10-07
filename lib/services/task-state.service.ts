@@ -17,7 +17,7 @@ import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch
 import { readDoneVerdict } from '@/lib/services/done-verdict.service'
 import { renderDoneBlockMessage } from '@/lib/acceptance/done-verdict'
 import { normalizeRichText } from '@/lib/utils/markdown'
-import { waitUntil } from '@vercel/functions'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import type {
   UpdateTaskInput,
   TaskUpdateResult,

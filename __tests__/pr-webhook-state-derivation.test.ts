@@ -12,7 +12,7 @@ import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulne
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
 import { sendChannelNotification } from '@/lib/integrations/slack'
 
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/actor', () => ({
   getActorClerkId: jest.fn(),
   getHumanActorId: jest.fn(),

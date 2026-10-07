@@ -29,7 +29,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 // Outbound side effects only (never on the asserted data path).
-jest.mock('@vercel/functions', () => ({
+jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: unknown) => {
     void Promise.resolve(p).catch(() => {})
   },
