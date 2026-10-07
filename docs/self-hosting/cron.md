@@ -72,10 +72,20 @@ cannot run on direct provider keys (`ANTHROPIC_API_KEY` /
 `OPENAI_COMPATIBLE_BASE_URL`, see `.env.example`); disable it unless
 `AI_GATEWAY_API_KEY` is set.
 
+## Self-host-only jobs
+
+A few routes exist only for self-hosted deployments, so they are not in
+`vercel.json`. They come from `SELF_HOST_ONLY_CRONS` in
+`scripts/self-host-cron.ts` and are appended after the `vercel.json` jobs:
+
+| Job                      | Schedule (UTC) | What it does                                                                                                                                                        |
+| ------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workflow-queue-cleanup` | daily 03:40    | Deletes the Postgres World's permanently failed queue jobs and empty queue bookkeeping (see [workflow.md](workflow.md#queue-maintenance)). A no-op on other worlds. |
+
 ## Changing the schedule
 
-`vercel.json` is the source. After editing its `crons`, regenerate and commit
-the crontab:
+`vercel.json` is the source (plus `SELF_HOST_ONLY_CRONS`). After editing
+either, regenerate and commit the crontab:
 
 ```bash
 npx tsx scripts/self-host-cron.ts          # rewrite deploy/self-host/crontab

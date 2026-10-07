@@ -45,6 +45,7 @@ import {
 } from '@/lib/repositories/workspace-export.repository'
 import {
   buildWorkspaceArchive,
+  EXPORT_CANCELLED_REASON,
   EXPORT_PAGE_SIZE,
   workspaceExportService,
 } from '@/lib/services/workspace-export.service'
@@ -427,6 +428,71 @@ describe('LUM-923 export race with workspace deletion', () => {
 
     expect(repo.markRunning).not.toHaveBeenCalled()
     expect(blob.putExportArchive).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-1030 cancel aftermath (ruling ③)', () => {
+  beforeEach(() => {
+    m(repo.findById).mockResolvedValue(record({ status: 'PENDING' }))
+    m(repo.markRunning).mockResolvedValue(true)
+    m(repo.markReady).mockResolvedValue(true)
+    m(blob.putExportArchive).mockResolvedValue(
+      'https://blob.test/private/exp1.zip'
+    )
+  })
+
+  it('LUM-1030 cancel: a run cancelled while the archive was being built ends FAILED with no archive, never READY', async () => {
+    const order: string[] = []
+    m(blob.putExportArchive).mockImplementation(async () => {
+      order.push('put')
+      return 'https://blob.test/private/exp1.zip'
+    })
+    m(blob.deleteExportArchive).mockImplementation(async () => {
+      order.push('delete')
+    })
+    const isCancelled = jest.fn(async () => {
+      order.push('check')
+      return true
+    })
+
+    await workspaceExportService.generateArchive('exp1', NOW, 'w1', isCancelled)
+
+    expect(repo.markReady).not.toHaveBeenCalled()
+    expect(repo.markFailed).toHaveBeenCalledWith(
+      'exp1',
+      EXPORT_CANCELLED_REASON
+    )
+    // The upload is checked after it exists and removed before returning.
+    expect(order).toEqual(['delete', 'put', 'check', 'delete'])
+    expect(blob.deleteExportArchive).toHaveBeenLastCalledWith('w1', 'exp1')
+  })
+
+  it('LUM-1030 cancel: a run that was not cancelled still becomes READY', async () => {
+    const isCancelled = jest.fn(async () => false)
+
+    await workspaceExportService.generateArchive('exp1', NOW, 'w1', isCancelled)
+
+    expect(isCancelled).toHaveBeenCalledTimes(1)
+    expect(repo.markReady).toHaveBeenCalledTimes(1)
+    expect(repo.markFailed).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1030 cancel: the download of a cancelled export is refused (409), never streamed', async () => {
+    m(repo.findById).mockResolvedValue(
+      record({ status: 'FAILED', error: EXPORT_CANCELLED_REASON })
+    )
+
+    await expect(
+      workspaceExportService.openDownload({
+        workspaceId: 'w1',
+        workspaceSlug: 'acme',
+        role: 'OWNER',
+        clerkId: 'user_owner',
+        exportId: 'exp1',
+        now: NOW,
+      })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(blob.openExportArchive).not.toHaveBeenCalled()
   })
 })
 

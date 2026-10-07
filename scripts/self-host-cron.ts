@@ -8,7 +8,8 @@
  * sends `Authorization: Bearer $CRON_SECRET` — the header `requireCronAuth`
  * (lib/api/cron-auth.ts) checks — and honours the `LUMO_CRON_DISABLED` skip list.
  *
- * vercel.json stays the single source; __tests__/self-host-cron.test.ts fails
+ * vercel.json stays the single source (plus the few self-host-only routes in
+ * SELF_HOST_ONLY_CRONS, LUM-1030); __tests__/self-host-cron.test.ts fails
  * when the checked-in crontab drifts from it.
  *
  * Usage:
@@ -31,6 +32,31 @@ export const CRONTAB_PATH = join(ROOT, 'deploy', 'self-host', 'crontab')
 export const RUNNER_PATH = '/opt/lumo/cron-run.sh'
 
 const FIELD = /^[0-9*/,-]+$/
+
+/**
+ * LUM-1030: routes only a self-hosted deployment schedules — appended after
+ * the vercel.json jobs. The Vercel World has no graphile-worker queue, so
+ * `workflow-queue-cleanup` must not run (or be listed) on Vercel.
+ */
+export const SELF_HOST_ONLY_CRONS: CronJob[] = [
+  { path: '/api/cron/workflow-queue-cleanup', schedule: '40 3 * * *' },
+]
+
+/** The self-hosted schedule: vercel.json's jobs, then the self-host-only ones. */
+export function selfHostJobs(
+  vercelJobs: CronJob[],
+  extra: CronJob[] = SELF_HOST_ONLY_CRONS
+): CronJob[] {
+  const onVercel = new Set(vercelJobs.map(j => j.path))
+  for (const job of extra) {
+    if (onVercel.has(job.path)) {
+      throw new Error(
+        `self-host-only cron ${job.path} is also in vercel.json — list it in one place`
+      )
+    }
+  }
+  return [...vercelJobs, ...extra]
+}
 
 /** Read and validate the `crons` array of a parsed vercel.json. */
 export function parseVercelCrons(vercelJson: unknown): CronJob[] {
@@ -80,6 +106,7 @@ export function renderCrontab(jobs: CronJob[]): string {
   }
   const header = [
     '# GENERATED from vercel.json by `npx tsx scripts/self-host-cron.ts` — do not edit by hand.',
+    '# Self-host-only jobs (SELF_HOST_ONLY_CRONS in that script) follow the vercel.json ones.',
     '# __tests__/self-host-cron.test.ts fails when this file drifts from vercel.json.',
     '#',
     '# Each job calls cron-run.sh, which sends `Authorization: Bearer $CRON_SECRET`',
@@ -95,8 +122,8 @@ export function renderCrontab(jobs: CronJob[]): string {
 
 function main(): void {
   const check = process.argv.includes('--check')
-  const jobs = parseVercelCrons(
-    JSON.parse(readFileSync(VERCEL_JSON_PATH, 'utf8'))
+  const jobs = selfHostJobs(
+    parseVercelCrons(JSON.parse(readFileSync(VERCEL_JSON_PATH, 'utf8')))
   )
   const next = renderCrontab(jobs)
   let current = ''

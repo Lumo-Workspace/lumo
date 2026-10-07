@@ -1,7 +1,11 @@
 import { withWorkflow } from 'workflow/next'
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {}
+const nextConfig = {
+  // LUM-1030: the self-hosted workflow-queue cleanup loads graphile-worker at
+  // runtime (it resolves config/plugins dynamically) — keep it unbundled.
+  serverExternalPackages: ['graphile-worker'],
+}
 
 // LUM-735 v4: Vercel Workflows compile `'use workflow'` / `'use step'` files
 // (lib/workflows/**) and register the /.well-known/workflow/v1/* routes. The

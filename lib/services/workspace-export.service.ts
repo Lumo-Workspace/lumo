@@ -30,6 +30,8 @@ import {
 } from '@/lib/repositories/workspace-export.repository'
 
 export const EXPORT_PAGE_SIZE = 500
+/** `error` of an export whose workflow run was cancelled (LUM-1030). */
+export const EXPORT_CANCELLED_REASON = 'export cancelled'
 const RECENT_EXPORTS = 10
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -255,7 +257,8 @@ export const workspaceExportService = {
   async generateArchive(
     exportId: string,
     now = new Date(),
-    workspaceId?: string
+    workspaceId?: string,
+    isRunCancelled: () => Promise<boolean> = async () => false
   ): Promise<void> {
     const record = await repo.findById(exportId)
     if (!record) {
@@ -277,6 +280,16 @@ export const workspaceExportService = {
       exportId,
       bytes
     )
+    // LUM-1030 ruling ③: cancelling the run does not interrupt this step, so
+    // an export cancelled mid-build would still turn READY with a
+    // downloadable archive. Ask before it becomes visible; a cancelled export
+    // ends FAILED with no archive.
+    if (await isRunCancelled()) {
+      await blob.deleteExportArchive(record.workspaceId, exportId)
+      await repo.markFailed(exportId, EXPORT_CANCELLED_REASON)
+      logger.info(`[workspace-export] cancelled export=${exportId}`)
+      return
+    }
     const completedAt = new Date()
     let ready = false
     try {

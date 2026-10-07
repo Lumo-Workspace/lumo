@@ -15,6 +15,7 @@ import {
   type SarifIngestJob,
 } from '@/lib/services/security-sarif-ingest.service'
 import type { ScanStages } from '@/lib/security-scan/types'
+import { isCurrentRunCancelled } from './run-cancellation'
 
 export async function resolveSarifScanStep(
   job: SarifIngestJob
@@ -34,6 +35,9 @@ export async function persistSarifFindingsStep(
   input: PersistInput
 ): Promise<PersistOutcome> {
   'use step'
+  // LUM-1030 ruling ③: a cancelled run (superseded / swept managed scan) may
+  // still have this step in flight; its report is discarded, not written.
+  if (await isCurrentRunCancelled()) return { written: 0, partial: false }
   return securitySarifIngestService.persistFindings(input)
 }
 
