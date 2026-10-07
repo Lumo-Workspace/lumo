@@ -57,6 +57,8 @@ jest.mock('nodemailer', () => ({
 }))
 const realNodemailer = jest.requireActual('nodemailer')
 
+import { emailDeliveryRepository } from '@/lib/repositories/email-delivery.repository'
+import { logger } from '@/lib/logger'
 import {
   EMAIL_CLAIM_STALE_MS,
   resetEmailTransportForTests,
@@ -210,6 +212,74 @@ describe('sendEmail idempotency (real Postgres)', () => {
     expect(out.status).toBe('sent')
     expect(smtpSends).toHaveLength(1)
     expect(await row('k/stale')).toMatchObject({ status: 'SENT', attempts: 2 })
+  })
+
+  it('repository: a superseded attempt cannot settle the row (markSent / markFailed CAS on attempts)', async () => {
+    const t0 = new Date(Date.now() - EMAIL_CLAIM_STALE_MS - 60_000)
+    const first = await emailDeliveryRepository.claim('k/cas', new Date(0), t0)
+    expect(first).toEqual({ claimed: true, attempt: 1 })
+    // attempt 1 is judged stale and reclaimed as attempt 2
+    const second = await emailDeliveryRepository.claim(
+      'k/cas',
+      new Date(Date.now() - EMAIL_CLAIM_STALE_MS)
+    )
+    expect(second).toEqual({ claimed: true, attempt: 2 })
+
+    // attempt 1 finishes late: neither outcome may land
+    expect(await emailDeliveryRepository.markSent('k/cas', 1, 'late-id')).toBe(
+      false
+    )
+    expect(await emailDeliveryRepository.markFailed('k/cas', 1, 'EAUTH')).toBe(
+      false
+    )
+    expect(await row('k/cas')).toMatchObject({
+      status: 'SENDING',
+      attempts: 2,
+      messageId: null,
+      sentAt: null,
+    })
+
+    expect(await emailDeliveryRepository.markSent('k/cas', 2, 'new-id')).toBe(
+      true
+    )
+    // and a late attempt 1 cannot overwrite attempt 2's SENT either
+    expect(await emailDeliveryRepository.markSent('k/cas', 1, 'late-id')).toBe(
+      false
+    )
+    expect(await row('k/cas')).toMatchObject({
+      status: 'SENT',
+      attempts: 2,
+      messageId: 'new-id',
+    })
+  })
+
+  it("end to end: a stale attempt reclaimed mid-send keeps the newer attempt's record and warns", async () => {
+    // attempt 1 hangs in SMTP; meanwhile its claim goes stale and attempt 2 sends
+    sendDelayMs = 400
+    const slow = sendEmail(MSG, { idempotencyKey: 'k/late' })
+    await new Promise(r => setTimeout(r, 100))
+    await db!.emailDelivery.update({
+      where: { idempotencyKey: 'k/late' },
+      data: {
+        attemptStartedAt: new Date(Date.now() - EMAIL_CLAIM_STALE_MS - 1000),
+      },
+    })
+    sendDelayMs = 0
+    const fast = await sendEmail(MSG, { idempotencyKey: 'k/late' })
+    expect(fast.status).toBe('sent')
+    const fastId = fast.status === 'sent' ? fast.id : null
+    const late = await slow
+    expect(late.status).toBe('sent')
+
+    expect(await row('k/late')).toMatchObject({
+      status: 'SENT',
+      attempts: 2,
+      messageId: fastId,
+    })
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('superseded'),
+      expect.objectContaining({ attempt: 1, idempotencyKey: 'k/late' })
+    )
   })
 
   it('a fresh SENDING claim (send in flight elsewhere) is not taken over', async () => {

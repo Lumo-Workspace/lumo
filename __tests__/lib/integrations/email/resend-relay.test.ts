@@ -197,16 +197,46 @@ describe('idempotency ledger failures', () => {
     expect(mockCreateTransport).not.toHaveBeenCalled()
   })
 
-  it('recording the outcome fails → the send result still stands', async () => {
+  it('a failed SENT write is retried with backoff and then lands: still sent, no error', async () => {
     process.env.SMTP_HOST = 'mail.internal'
-    ;(prisma.emailDelivery.updateMany as jest.Mock).mockRejectedValueOnce(
-      new Error('db gone')
-    )
+    const updateMany = prisma.emailDelivery.updateMany as jest.Mock
+    updateMany
+      .mockRejectedValueOnce(new Error('db blip'))
+      .mockRejectedValueOnce(new Error('db blip'))
     const out = await sendEmail(MSG, { idempotencyKey: 'k' })
     expect(out.status).toBe('sent')
+    expect(updateMany).toHaveBeenCalledTimes(3)
+    expect(logger.error).not.toHaveBeenCalled()
+  })
+
+  it('the SENT write keeps failing → bounded retries, error log names the key, caller still gets sent', async () => {
+    process.env.SMTP_HOST = 'mail.internal'
+    const updateMany = prisma.emailDelivery.updateMany as jest.Mock
+    updateMany
+      .mockRejectedValueOnce(new Error('db gone'))
+      .mockRejectedValueOnce(new Error('db gone'))
+      .mockRejectedValueOnce(new Error('db gone'))
+    const out = await sendEmail(MSG, { idempotencyKey: 'k/unrecorded' })
+    expect(out.status).toBe('sent')
+    expect(updateMany).toHaveBeenCalledTimes(
+      client.EMAIL_RECORD_RETRY_DELAYS_MS.length + 1
+    )
     expect(logger.error).toHaveBeenCalledWith(
-      '[email] could not record delivery outcome',
-      expect.objectContaining({ outcome: 'sent' })
+      '[email] email was sent but its delivery record was not saved, key=k/unrecorded',
+      expect.objectContaining({ outcome: 'sent', tries: 3 })
+    )
+  })
+
+  it('a superseded attempt (CAS miss) is not an error: warns and keeps the result', async () => {
+    process.env.SMTP_HOST = 'mail.internal'
+    ;(prisma.emailDelivery.updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    })
+    const out = await sendEmail(MSG, { idempotencyKey: 'k' })
+    expect(out.status).toBe('sent')
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('superseded'),
+      expect.objectContaining({ outcome: 'sent', attempt: 1 })
     )
   })
 })

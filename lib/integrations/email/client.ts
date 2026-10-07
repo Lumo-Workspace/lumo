@@ -377,23 +377,70 @@ export async function sendEmail(
   }
 
   const result = await deliver(kind, message, key)
-  try {
-    if (result.status === 'sent') {
-      await emailDeliveryRepository.markSent(key, result.id)
-    } else if (result.status === 'failed') {
-      await emailDeliveryRepository.markFailed(
-        key,
-        claim.attempt,
-        result.error.code ?? null
-      )
-    }
-  } catch (e) {
-    // The send outcome stands; a SENDING row left behind is reclaimable after
-    // EMAIL_CLAIM_STALE_MS (and Resend's own header dedupes a relay resend).
-    logger.error('[email] could not record delivery outcome', {
-      outcome: result.status,
-      name: e instanceof Error ? e.name : 'Error',
-    })
+  if (result.status === 'sent' || result.status === 'failed') {
+    await recordOutcome(key, claim.attempt, result)
   }
   return result
+}
+
+/**
+ * Backoff between attempts to write a send outcome to the ledger: up to
+ * EMAIL_RECORD_RETRY_DELAYS_MS.length + 1 tries in total.
+ */
+export const EMAIL_RECORD_RETRY_DELAYS_MS = [100, 400] as const
+
+/**
+ * Write the send outcome for this attempt, retrying a thrown write with
+ * backoff. Never throws and never changes the result: a message that went
+ * out is reported `sent` even when it could not be recorded.
+ *
+ * Remaining edge: if the SENT write never lands, the row stays SENDING; once
+ * it is older than EMAIL_CLAIM_STALE_MS a later send with the same key may
+ * reclaim it and send again. Over the Resend relay the
+ * Resend-Idempotency-Key header (24 h) still dedupes that resend; on other
+ * SMTP servers it is a possible duplicate, logged at error level here.
+ */
+async function recordOutcome(
+  key: string,
+  attempt: number,
+  result:
+    | { status: 'sent'; id: string | null }
+    | { status: 'failed'; error: SendEmailError }
+): Promise<void> {
+  for (let i = 0; ; i++) {
+    try {
+      const applied =
+        result.status === 'sent'
+          ? await emailDeliveryRepository.markSent(key, attempt, result.id)
+          : await emailDeliveryRepository.markFailed(
+              key,
+              attempt,
+              result.error.code ?? null
+            )
+      if (!applied) {
+        logger.warn(
+          '[email] outcome not recorded: this attempt was superseded by a newer claim',
+          { outcome: result.status, attempt, idempotencyKey: key }
+        )
+      }
+      return
+    } catch (e) {
+      const delay = EMAIL_RECORD_RETRY_DELAYS_MS[i]
+      if (delay === undefined) {
+        logger.error(
+          result.status === 'sent'
+            ? `[email] email was sent but its delivery record was not saved, key=${key}`
+            : `[email] send failure could not be recorded, key=${key}`,
+          {
+            outcome: result.status,
+            attempt,
+            tries: i + 1,
+            name: e instanceof Error ? e.name : 'Error',
+          }
+        )
+        return
+      }
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
 }

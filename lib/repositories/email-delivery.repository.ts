@@ -91,32 +91,38 @@ export const emailDeliveryRepository = {
   },
 
   /**
-   * The send went out. Not guarded by attempt: a message that left the
-   * process is the truth, even from an attempt that was later reclaimed.
+   * Settle this attempt's claim as SENT. Compare-and-swap on
+   * (key, SENDING, attempts = this attempt): a late, superseded attempt
+   * (judged stale and reclaimed) never overwrites a newer attempt's state,
+   * messageId or sentAt. Returns false when the claim was no longer this
+   * attempt's.
    */
   async markSent(
     idempotencyKey: string,
+    attempt: number,
     messageId: string | null,
     now: Date = new Date()
-  ): Promise<void> {
-    await prisma.emailDelivery.updateMany({
-      where: { idempotencyKey },
+  ): Promise<boolean> {
+    const { count } = await prisma.emailDelivery.updateMany({
+      where: { idempotencyKey, status: 'SENDING', attempts: attempt },
       data: { status: 'SENT', sentAt: now, messageId, errorCode: null },
     })
+    return count === 1
   },
 
   /**
-   * The send failed: free the key for a retry. Only this attempt's own
-   * SENDING claim is settled — never a SENT row, never a newer attempt.
+   * Settle this attempt's claim as FAILED (frees the key for a retry). Same
+   * compare-and-swap as markSent; false when the claim was superseded.
    */
   async markFailed(
     idempotencyKey: string,
     attempt: number,
     errorCode: string | null
-  ): Promise<void> {
-    await prisma.emailDelivery.updateMany({
-      where: { idempotencyKey, attempts: attempt, status: 'SENDING' },
+  ): Promise<boolean> {
+    const { count } = await prisma.emailDelivery.updateMany({
+      where: { idempotencyKey, status: 'SENDING', attempts: attempt },
       data: { status: 'FAILED', errorCode },
     })
+    return count === 1
   },
 }
