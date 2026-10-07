@@ -59,9 +59,11 @@ async function trigger(
   data: unknown,
   label: string
 ): Promise<void> {
-  const pusher = getPusher()
-  if (!pusher) return
   try {
+    // Inside the try: a bad config that makes the constructor throw must not
+    // break the caller either.
+    const pusher = getPusher()
+    if (!pusher) return
     await pusher.trigger(channel, eventName, data)
   } catch (err) {
     logger.error(`[pusher] Failed to push ${label} event:`, err)

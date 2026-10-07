@@ -131,6 +131,22 @@ describe('server realtime wrapper', () => {
     ).resolves.toBeUndefined()
     expect(logError).toHaveBeenCalledTimes(1)
   })
+
+  it('a throwing constructor is logged, not thrown', async () => {
+    const m = loadWith({
+      PUSHER_APP_ID: 'a',
+      PUSHER_KEY: 'k',
+      PUSHER_SECRET: 's',
+      PUSHER_CLUSTER: 'us2',
+    })
+    ctor.mockImplementationOnce(() => {
+      throw new Error('bad options')
+    })
+    await expect(
+      m.pushUserEvent('u1', { type: 'notification:new' })
+    ).resolves.toBeUndefined()
+    expect(logError).toHaveBeenCalledTimes(1)
+  })
 })
 
 export {}

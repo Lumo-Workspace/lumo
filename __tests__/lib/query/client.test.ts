@@ -19,12 +19,16 @@ describe('makeQueryClient realtime fallback', () => {
 
   describe('default from NEXT_PUBLIC_ env', () => {
     const saved = { ...process.env }
+    beforeEach(() => {
+      for (const k of Object.keys(process.env)) {
+        if (k.startsWith('NEXT_PUBLIC_PUSHER_')) delete process.env[k]
+      }
+    })
     afterEach(() => {
       process.env = { ...saved }
     })
 
     it('unset → fallback on', () => {
-      delete process.env.NEXT_PUBLIC_PUSHER_KEY
       const q = makeQueryClient().getDefaultOptions().queries!
       expect(q.refetchOnWindowFocus).toBe(true)
     })
