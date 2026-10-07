@@ -45,6 +45,9 @@ export interface SensitiveReadMatch {
    *  sensitive — the compiled PolicyRule's id and verbatim text. */
   ruleId?: string
   ruleText?: string
+  /** LUM-1036: paths read by the same event beyond
+   *  `MAX_SENSITIVE_READS_PER_EVENT`, carried on the last kept match. */
+  alsoRead?: string[]
 }
 
 /**
@@ -477,6 +480,37 @@ function dedupe(ms: SensitiveReadMatch[]): SensitiveReadMatch[] {
 export const MAX_SENSITIVE_READS_PER_EVENT = 5
 
 /**
+ * LUM-1036 — the cap bounds how many crossings one event writes, never what
+ * the reviewer can learn about it. Before, a command that read five decoy
+ * credential stores first silently dropped every later path (and a project
+ * rule's path, filtered AFTER the cap, could be pushed out entirely by five
+ * built-in hits). Now the last kept match carries every path past the cap in
+ * `alsoRead`, so the crossing names them, and project-rule reads are capped on
+ * their own list.
+ */
+function capWithOverflow(ms: SensitiveReadMatch[]): SensitiveReadMatch[] {
+  if (ms.length <= MAX_SENSITIVE_READS_PER_EVENT) return ms
+  const kept = ms.slice(0, MAX_SENSITIVE_READS_PER_EVENT)
+  const last = kept[kept.length - 1]!
+  kept[kept.length - 1] = {
+    ...last,
+    alsoRead: ms.slice(MAX_SENSITIVE_READS_PER_EVENT).map(m => m.path),
+  }
+  return kept
+}
+
+function sensitiveReadCandidates(input: {
+  toolName: string | null
+  filePath: string | null
+  command: string | null
+}): ReadCandidate[] {
+  if (input.toolName === 'Read') {
+    return input.filePath ? [{ raw: input.filePath, via: 'Read' }] : []
+  }
+  return input.command ? readCandidatesInCommand(input.command) : []
+}
+
+/**
  * The sensitive reads one hook event performs: the Read tool's file, or the
  * Bash command's read operands. Every other tool returns [].
  */
@@ -488,15 +522,8 @@ export function detectSensitiveReads(
   },
   projectRules: readonly ProjectReadRule[] = []
 ): SensitiveReadMatch[] {
-  let candidates: ReadCandidate[] = []
-  if (input.toolName === 'Read') {
-    if (input.filePath) candidates = [{ raw: input.filePath, via: 'Read' }]
-  } else if (input.command) {
-    candidates = readCandidatesInCommand(input.command)
-  }
-  return classifyAll(candidates, projectRules).slice(
-    0,
-    MAX_SENSITIVE_READS_PER_EVENT
+  return capWithOverflow(
+    classifyAll(sensitiveReadCandidates(input), projectRules)
   )
 }
 
@@ -504,7 +531,8 @@ export function detectSensitiveReads(
  * Only the reads a PROJECT rule adds on top of the built-in list. The
  * built-in matches are emitted by the pure `detectCrossings` (no policy
  * there); the detector service, which loads the compiled policy, appends
- * these. Empty when the project has no SENSITIVE_PATH_READ globs.
+ * these. Empty when the project has no SENSITIVE_PATH_READ globs. Filtered
+ * BEFORE the cap (LUM-1036), so built-in hits can never crowd them out.
  */
 export function detectProjectSensitiveReads(
   input: {
@@ -515,5 +543,9 @@ export function detectProjectSensitiveReads(
   projectRules: readonly ProjectReadRule[]
 ): SensitiveReadMatch[] {
   if (projectRules.length === 0) return []
-  return detectSensitiveReads(input, projectRules).filter(m => m.ruleId != null)
+  return capWithOverflow(
+    classifyAll(sensitiveReadCandidates(input), projectRules).filter(
+      m => m.ruleId != null
+    )
+  )
 }
