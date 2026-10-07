@@ -124,6 +124,11 @@ describe('smtpTransportOptions', () => {
       secure: false,
     })
   })
+  it('falls back to 587 when SMTP_PORT is not a valid port', () => {
+    expect(
+      smtpTransportOptions({ SMTP_HOST: 'mail', SMTP_PORT: 'abc' })
+    ).toMatchObject({ port: 587, secure: false })
+  })
   it('SMTP_SECURE overrides the port default', () => {
     expect(
       smtpTransportOptions({
@@ -178,6 +183,7 @@ describe('sendEmail', () => {
       status: 'failed',
       error: { name: 'validation_error', message: 'bad to' },
     })
+    expect(logger.error).toHaveBeenCalled()
   })
 
   it('smtp mode: sends the rendered html/text with from/to/subject', async () => {

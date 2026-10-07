@@ -59,7 +59,11 @@ export function smtpTransportOptions(
   env: Env = process.env
 ): string | nodemailer.TransportOptions {
   if (env.SMTP_URL) return env.SMTP_URL
-  const port = env.SMTP_PORT ? Number(env.SMTP_PORT) : 587
+  const parsedPort = Number(env.SMTP_PORT)
+  const port =
+    env.SMTP_PORT && Number.isInteger(parsedPort) && parsedPort > 0
+      ? parsedPort
+      : 587
   const secure = env.SMTP_SECURE ? env.SMTP_SECURE === 'true' : port === 465
   const auth =
     env.SMTP_USER || env.SMTP_PASS
@@ -141,6 +145,11 @@ export async function sendEmail(
           : undefined
       )
       if (error) {
+        logger.error('[email] send failed', {
+          transport: kind,
+          name: error.name,
+          message: error.message,
+        })
         return {
           status: 'failed',
           error: { name: error.name, message: error.message },
