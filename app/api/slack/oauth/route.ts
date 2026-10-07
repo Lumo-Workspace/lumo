@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encodeOauthState } from '@/lib/integrations/oauth-state'
 
@@ -16,6 +17,9 @@ const SLACK_SCOPES = [
 ].join(',')
 
 export async function GET(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('slack')
+  if (notConfigured) return notConfigured
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
@@ -35,13 +39,6 @@ export async function GET(request: NextRequest) {
     const ws = await getUserWorkspace(userId, workspaceUrl)
     if (!ws || ws.workspace.slug !== workspaceUrl) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    if (!process.env.SLACK_CLIENT_ID || !process.env.SLACK_CLIENT_SECRET) {
-      return NextResponse.json(
-        { error: 'Slack OAuth not configured' },
-        { status: 500 }
-      )
     }
 
     const state = encodeOauthState({

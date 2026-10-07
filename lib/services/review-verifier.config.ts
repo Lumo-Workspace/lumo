@@ -3,10 +3,19 @@
  * reads it to decide whether to keep the managed scan's VM alive and to
  * start the verifier.
  */
+import { isIntegrationConfigured } from '@/lib/integrations/configured'
 
-/** `LUMO_REVIEW_VERIFIER=off` is the kill switch. */
-export function isReviewVerifierEnabled(): boolean {
-  return process.env.LUMO_REVIEW_VERIFIER !== 'off'
+/**
+ * `LUMO_REVIEW_VERIFIER=off` is the kill switch. LUM-1025: also off when
+ * Vercel Sandbox is not configured — the verifier works in a sandbox checkout.
+ */
+export function isReviewVerifierEnabled(
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  return (
+    env.LUMO_REVIEW_VERIFIER !== 'off' &&
+    isIntegrationConfigured('vercelSandbox', env)
+  )
 }
 
 /**

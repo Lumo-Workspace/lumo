@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "अभी चल रहा है — कुछ मिनट बाद फिर देखें।",
   "securityScan.stageReason.NOT_CONFIGURED": "बंद: इस डिप्लॉयमेंट पर Lumo का प्रबंधित स्कैनर बंद है और इस रिपॉज़िटरी ने कोई स्कैनर रिपोर्ट नहीं भेजी है।",
   "securityScan.stageReason.DISABLED": "बंद: इस वर्कस्पेस की सुरक्षा सेटिंग्स में बंद किया गया है।",
-  "securityScan.stageReason.SUPERSEDED": "पूरा नहीं हुआ: इस परत के खत्म होने से पहले एक नए push ने नया स्कैन शुरू कर दिया।"
+  "securityScan.stageReason.SUPERSEDED": "पूरा नहीं हुआ: इस परत के खत्म होने से पहले एक नए push ने नया स्कैन शुरू कर दिया।",
+  "integrations.notAvailable": "इस डिप्लॉयमेंट पर उपलब्ध नहीं: {names}। इनके क्रेडेंशियल कॉन्फ़िगर होते ही ये यहाँ दिखेंगे।",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo के अपने स्कैनर और समीक्षा सत्यापक को Vercel Sandbox चाहिए, जो इस डिप्लॉयमेंट पर कॉन्फ़िगर नहीं है। आपके CI द्वारा अपलोड की गई SARIF रिपोर्ट अब भी दिखती हैं।",
+  "workspaceSettings.securityScan.sandboxUnavailable": "इस डिप्लॉयमेंट पर उपलब्ध नहीं: Vercel Sandbox कॉन्फ़िगर नहीं है।"
 }

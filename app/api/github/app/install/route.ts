@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encodeOauthState } from '@/lib/integrations/oauth-state'
 import { logger } from '@/lib/logger'
+import { integrationConfigStatus } from '@/lib/integrations/configured'
 
 /**
  * GET /api/github/app/install?workspaceUrl={slug}
@@ -41,13 +42,19 @@ export async function GET(request: NextRequest) {
   // A missing slug is a deployment problem, not the owner's. This is a
   // full-page navigation from the Install button, so a JSON error would be the
   // whole page; send them back to the card with a toast that names the fix.
+  // LUM-1025: the slug alone is not enough — the setup leg mints tokens and
+  // verifies the installer, so the whole App must be configured.
   const appSlug = process.env.GITHUB_APP_SLUG
-  if (!appSlug) {
+  const status = integrationConfigStatus('github')
+  if (!appSlug || !status.configured) {
     logger.error(
-      '[github/app/install] GITHUB_APP_SLUG is not set — the install button cannot work until it is'
+      `[github/app/install] the GitHub App is not configured (missing: ${status.missing.join(', ')}) — the install button cannot work until it is`
     )
+    // A deployment without the App may lack NEXT_PUBLIC_APP_URL too; an
+    // `undefined/…` redirect would throw, so fall back to the request origin.
+    const base = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceUrl}/settings/integrations?github_app_error=not_configured`
+      `${base}/workspace/${workspaceUrl}/settings/integrations?github_app_error=not_configured`
     )
   }
 

@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "아직 실행 중입니다. 몇 분 뒤에 다시 확인하세요.",
   "securityScan.stageReason.NOT_CONFIGURED": "꺼짐: 이 배포에서는 Lumo 관리형 스캐너가 꺼져 있고 이 저장소는 스캐너 보고서를 보낸 적이 없습니다.",
   "securityScan.stageReason.DISABLED": "꺼짐: 이 워크스페이스의 보안 설정에서 꺼져 있습니다.",
-  "securityScan.stageReason.SUPERSEDED": "완료되지 않음: 이 계층이 끝나기 전에 새 push로 새 스캔이 시작되었습니다."
+  "securityScan.stageReason.SUPERSEDED": "완료되지 않음: 이 계층이 끝나기 전에 새 push로 새 스캔이 시작되었습니다.",
+  "integrations.notAvailable": "이 배포에서는 사용할 수 없음: {names}. 자격 증명을 구성하면 여기에 표시됩니다.",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo 자체 스캐너와 리뷰 검증기는 Vercel Sandbox가 필요하지만 이 배포에는 구성되어 있지 않습니다. CI에서 업로드한 SARIF는 계속 표시됩니다.",
+  "workspaceSettings.securityScan.sandboxUnavailable": "이 배포에서는 사용할 수 없음: Vercel Sandbox가 구성되지 않았습니다."
 }

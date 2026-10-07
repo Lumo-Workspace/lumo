@@ -28,7 +28,20 @@ const SECTION_KEY: Record<IntegrationKind, string> = {
   PERSONAL: 'personal',
 }
 
-export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
+interface IntegrationsPageProps {
+  isOwner: boolean
+  /**
+   * LUM-1025 — whether this deployment has the env an integration needs. An
+   * unconfigured card is not rendered at all (it would only fetch a status
+   * nobody can change); the page names it once as not available instead.
+   */
+  configured: Record<IntegrationId, boolean>
+}
+
+export function IntegrationsPage({
+  isOwner,
+  configured,
+}: IntegrationsPageProps) {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
 
@@ -170,6 +183,11 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   const isCardVisible = (id: IntegrationId) =>
     isOwner || getIntegrationKind(id) !== 'TEAM' || connectedMap[id] === true
 
+  const unavailableNames = (Object.keys(cards) as IntegrationId[])
+    .filter(id => !configured[id])
+    .map(id => intl.formatMessage({ id: `${id}.title` }))
+    .sort((a, b) => a.localeCompare(b, intl.locale))
+
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-8 py-10'>
@@ -182,7 +200,7 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
 
         <div className='flex flex-col gap-10'>
           {KIND_ORDER.map(kind => {
-            const ids = idsByKind[kind]
+            const ids = idsByKind[kind].filter(id => configured[id])
             if (ids.length === 0) return null
             const section = SECTION_KEY[kind]
             const sectionVisible = ids.some(id => isCardVisible(id))
@@ -214,6 +232,19 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
             )
           })}
         </div>
+
+        {unavailableNames.length > 0 && (
+          <p className='text-xs text-muted-foreground mt-10'>
+            {intl.formatMessage(
+              { id: 'integrations.notAvailable' },
+              {
+                names: intl.formatList(unavailableNames, {
+                  type: 'conjunction',
+                }),
+              }
+            )}
+          </p>
+        )}
       </div>
     </div>
   )
