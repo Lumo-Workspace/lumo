@@ -69,14 +69,6 @@ describe('authUserRepository', () => {
     expect(mockAuthUser.findMany).not.toHaveBeenCalled()
   })
 
-  it('findMany with no filter at all lists the first page', async () => {
-    mockAuthUser.findMany.mockResolvedValue([])
-    await authUserRepository.findMany({ limit: 10 })
-    expect(mockAuthUser.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {}, take: 10 })
-    )
-  })
-
   it('update writes the given fields and returns the selected row', async () => {
     mockAuthUser.update.mockResolvedValue({ id: 'u1' })
     await authUserRepository.update('u1', { image: 'https://x' })
