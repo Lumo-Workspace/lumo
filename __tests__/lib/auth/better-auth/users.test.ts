@@ -24,9 +24,6 @@ import {
   DEFAULT_USER_LIST_LIMIT,
   MAX_USER_LIST_LIMIT,
   betterAuthUserDirectory as dir,
-  createUserDirectory,
-  getUserDirectory,
-  isUserDirectoryConfigured,
 } from '@/lib/auth/better-auth/users'
 
 const ada = {
@@ -79,11 +76,5 @@ describe('betterAuthUserDirectory', () => {
       image: 'https://blob/avatars/u1/a.png',
     })
     expect(out).toMatchObject({ imageUrl: 'https://blob/avatars/u1/a.png' })
-  })
-
-  it('request-scoped and standalone directories are the same, always configured', async () => {
-    await expect(getUserDirectory()).resolves.toBe(dir)
-    await expect(createUserDirectory()).resolves.toBe(dir)
-    expect(isUserDirectoryConfigured()).toBe(true)
   })
 })

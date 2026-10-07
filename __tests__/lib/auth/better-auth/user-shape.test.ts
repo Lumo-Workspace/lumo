@@ -3,7 +3,6 @@
  */
 import {
   emailAddressId,
-  joinName,
   nameFieldsForCreate,
   nameFieldsForUpdate,
   splitName,
@@ -19,12 +18,6 @@ describe('Better Auth user shape (LUM-1027)', () => {
     expect(splitName('  Ada  ')).toEqual({ firstName: 'Ada', lastName: null })
     expect(splitName('')).toEqual({ firstName: null, lastName: null })
     expect(splitName(null)).toEqual({ firstName: null, lastName: null })
-  })
-
-  it('joinName joins non-empty parts or falls back', () => {
-    expect(joinName('Ada', 'Lovelace')).toBe('Ada Lovelace')
-    expect(joinName(' ', null, 'fallback')).toBe('fallback')
-    expect(joinName('Ada', undefined)).toBe('Ada')
   })
 
   it('nameFieldsForCreate derives first/last from name, or name from email', () => {

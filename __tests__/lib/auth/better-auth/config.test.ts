@@ -47,7 +47,6 @@ describe('Better Auth config (LUM-1027)', () => {
       AUTH_GITHUB_CLIENT_ID: 'gh-id',
       AUTH_GITHUB_CLIENT_SECRET: 'gh-value',
       AUTH_GOOGLE_CLIENT_ID: 'g-id',
-      // no Google secret → Google stays off
       GITHUB_CLIENT_ID: 'integration-id-is-not-used',
     }
     expect(resolveSocialProviders(env)).toEqual({
