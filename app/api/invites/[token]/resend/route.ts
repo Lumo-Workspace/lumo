@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
-import { sendEmail, buildInviteEmail } from '@/lib/integrations/email'
-import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
-import { inviteRepository } from '@/lib/repositories/invite.repository'
 import { memberAuditContext } from '@/lib/api/audit-context'
 import { logger } from '@/lib/logger'
 
@@ -12,8 +9,8 @@ import { logger } from '@/lib/logger'
  * LUM-1017: every non-2xx answer from this route is
  * `{ ok: false, error, code }` so the client can pick a message by `code`.
  * The resend button exists only to deliver the email, so a send that did not
- * happen is an error, not `ok`; the invite itself (and its refreshed expiry)
- * stays valid either way.
+ * happen is an error, not `ok`. The service extends the invite's expiry only
+ * on `sent`; on failed / skipped the invite keeps its old expiry.
  */
 const RESEND_EMAIL_ERRORS = {
   failed: {
@@ -69,7 +66,7 @@ export async function POST(
 
     const { token } = await params
 
-    const invite = await inviteService.resendInvite(
+    const { outcome } = await inviteService.resendInvite(
       token,
       ws.workspaceId,
       memberAuditContext(request.headers, {
@@ -78,29 +75,8 @@ export async function POST(
       })
     )
 
-    // Reset expiry
-    const expiresAt = inviteExpiresAt()
-    await inviteRepository.resetExpiry(invite.id, expiresAt)
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const inviteUrl = `${appUrl}/invite/${token}`
-    const inviterFullName = invite.inviterName
-    const inviterFirstName = inviterFullName.split(' ')[0] || inviterFullName
-    const { subject, html } = buildInviteEmail({
-      workspaceName: invite.workspace.name,
-      inviterName: inviterFullName,
-      inviterFirstName,
-      inviterEmail: ws.workspace.slug + '@uselumo.ai',
-      inviteUrl,
-    })
-
-    const result = await sendEmail(
-      { to: [invite.email], subject, html },
-      { idempotencyKey: `workspace-invite-resend/${invite.id}-${Date.now()}` }
-    )
-
-    if (result.status !== 'sent') {
-      const { status, code, error } = RESEND_EMAIL_ERRORS[result.status]
+    if (outcome !== 'sent') {
+      const { status, code, error } = RESEND_EMAIL_ERRORS[outcome]
       return failure(status, code, error)
     }
 
