@@ -12,4 +12,5 @@ export {
   pushProjectEvent,
   pushUserEvent,
   pushActivityEvent,
+  isServerRealtimeConfigured,
 } from './server'
