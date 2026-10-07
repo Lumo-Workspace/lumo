@@ -53,7 +53,8 @@ export async function sendDeletionNotice(
         idempotencyKey: `workspace-deletion/${notice.workspaceId}/${notice.kind}/${notice.requestedAt.getTime()}/${clerkId}`,
       }
     )
-    // A duplicate key: this owner already got this notice (LUM-1041).
+    // A duplicate of a SENT key: this owner already got this notice
+    // (LUM-1041); one still in flight elsewhere counts as not delivered.
     if (isEmailDelivered(result)) sent++
     else failed++
   }

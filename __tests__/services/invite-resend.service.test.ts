@@ -130,6 +130,20 @@ describe('inviteService.resendInvite — expiry follows the send outcome', () =>
     expect(mockResetExpiry).toHaveBeenCalledWith('inv-1', out.expiresAt)
   })
 
+  it('a duplicate still in flight elsewhere is not known delivered → failed, old expiry kept', async () => {
+    mockSendEmail.mockResolvedValue({
+      status: 'skipped',
+      reason: 'duplicate',
+      prior: 'sending',
+      id: null,
+    })
+
+    const out = await inviteService.resendInvite('tok-1', 'ws-1', audit)
+
+    expect(out).toEqual({ outcome: 'failed', expiresAt: null })
+    expect(mockResetExpiry).not.toHaveBeenCalled()
+  })
+
   it('a non-PENDING invite throws before any send, expiry or audit', async () => {
     mockFindByTokenForResend.mockResolvedValue({
       id: 'inv-1',

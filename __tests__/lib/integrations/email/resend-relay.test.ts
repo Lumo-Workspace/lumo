@@ -34,6 +34,8 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
+import { readFileSync } from 'fs'
+import path from 'path'
 import * as client from '@/lib/integrations/email/client'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/db/prisma'
@@ -210,7 +212,25 @@ describe('idempotency ledger failures', () => {
 })
 
 describe('no Resend SDK', () => {
-  it('the client module no longer exposes a Resend SDK transport', () => {
-    expect(resolveEmailTransport({ RESEND_API_KEY: 're_x' })).not.toBe('resend')
+  const root = path.resolve(__dirname, '../../../..')
+
+  it('`resend` is not a dependency in package.json or the lockfile', () => {
+    const pkg = JSON.parse(
+      readFileSync(path.join(root, 'package.json'), 'utf8')
+    )
+    expect(pkg.dependencies).not.toHaveProperty('resend')
+    expect(pkg.devDependencies ?? {}).not.toHaveProperty('resend')
+    const lock = JSON.parse(
+      readFileSync(path.join(root, 'package-lock.json'), 'utf8')
+    )
+    expect(lock.packages).not.toHaveProperty(['node_modules/resend'])
+  })
+
+  it('the email client source does not import the SDK', () => {
+    const src = readFileSync(
+      path.join(root, 'lib/integrations/email/client.ts'),
+      'utf8'
+    )
+    expect(src).not.toMatch(/from ['"]resend['"]|require\(['"]resend['"]\)/)
   })
 })

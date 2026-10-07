@@ -93,8 +93,13 @@ async function main() {
           'No email transport configured (SMTP_URL/SMTP_HOST or RESEND_API_KEY)'
         )
       }
-      // sent, or skipped as a duplicate key: this owner already has the
-      // notice (a crashed earlier run), so it is recorded as delivered.
+      if (result.status === 'skipped' && result.prior === 'sending') {
+        // Another run is sending this exact notice right now (or crashed
+        // mid-send): not recorded here; a rerun records or retries it.
+        throw new Error('Already being sent by another run; rerun later')
+      }
+      // sent, or a duplicate of a key already SENT: this owner already has
+      // the notice (a crashed earlier run), so it is recorded as delivered.
       return { messageId: result.id }
     },
   }

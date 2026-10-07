@@ -53,11 +53,18 @@ export type SendEmailResult =
       id: string | null
     }
 
-/** True when the email went out, now or by an earlier/concurrent send. */
+/**
+ * True when the email is known to have gone out: sent now, or a duplicate of
+ * a key already SENT. A duplicate of a key still SENDING elsewhere is NOT
+ * delivered — that send may yet fail or have crashed — so callers count it
+ * as not delivered and a later retry settles it.
+ */
 export function isEmailDelivered(result: SendEmailResult): boolean {
   return (
     result.status === 'sent' ||
-    (result.status === 'skipped' && result.reason === 'duplicate')
+    (result.status === 'skipped' &&
+      result.reason === 'duplicate' &&
+      result.prior === 'sent')
   )
 }
 

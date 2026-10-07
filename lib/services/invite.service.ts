@@ -303,12 +303,13 @@ export const inviteService = {
       { to: [invite.email], subject, html },
       { idempotencyKey: `workspace-invite-resend/${invite.id}-${Date.now()}` }
     )
-    // A duplicate (same click, same millisecond) already went out: delivered.
+    // A duplicate of an already-SENT key (same click, same millisecond) went
+    // out: delivered. One still in flight elsewhere is not known to have.
     const outcome: InviteResendOutcome = isEmailDelivered(result)
       ? 'sent'
-      : result.status === 'failed'
-        ? 'failed'
-        : 'skipped'
+      : result.status === 'skipped' && result.reason === 'not_configured'
+        ? 'skipped'
+        : 'failed'
 
     let expiresAt: Date | null = null
     if (outcome === 'sent') {

@@ -91,8 +91,16 @@ describe('resolveEmailTransport', () => {
 })
 
 describe('isEmailDelivered', () => {
-  it('sent, or skipped as a duplicate, is delivered; failed / not configured is not', () => {
+  it('sent, or a duplicate of a SENT key, is delivered; in-flight duplicate / failed / not configured is not', () => {
     expect(isEmailDelivered({ status: 'sent', id: null })).toBe(true)
+    expect(
+      isEmailDelivered({
+        status: 'skipped',
+        reason: 'duplicate',
+        prior: 'sent',
+        id: 'm1',
+      })
+    ).toBe(true)
     expect(
       isEmailDelivered({
         status: 'skipped',
@@ -100,7 +108,7 @@ describe('isEmailDelivered', () => {
         prior: 'sending',
         id: null,
       })
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isEmailDelivered({ status: 'skipped', reason: 'not_configured' })
     ).toBe(false)

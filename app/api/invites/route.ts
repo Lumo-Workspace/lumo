@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
 
       results.push({
         email,
-        // A duplicate means this invite's email already went out (or is going
-        // out) under the same key — delivered, not failed (LUM-1041).
+        // A duplicate of an already-SENT key: this invite's email went out
+        // (LUM-1041). One still in flight elsewhere is reported failed.
         status: isEmailDelivered(result) ? 'sent' : 'failed',
       })
     }
