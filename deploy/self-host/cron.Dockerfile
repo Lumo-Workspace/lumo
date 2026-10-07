@@ -7,4 +7,6 @@ RUN apk add --no-cache supercronic curl ca-certificates tzdata
 COPY crontab cron-run.sh /opt/lumo/
 RUN chmod 0755 /opt/lumo/cron-run.sh
 USER nobody
-CMD ["supercronic", "/opt/lumo/crontab"]
+# Absolute path: as PID 1 supercronic re-executes itself (to reap children)
+# via argv[0], which must therefore resolve without a PATH lookup.
+CMD ["/usr/bin/supercronic", "/opt/lumo/crontab"]

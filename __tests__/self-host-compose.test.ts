@@ -71,7 +71,7 @@ describe('self-host compose: scheduler', () => {
     expect(CRONTAB_PATH).toMatch(/deploy\/self-host\/crontab$/)
     expect(cronDockerfile).toContain(`COPY crontab cron-run.sh ${optDir}/`)
     expect(cronDockerfile).toMatch(
-      new RegExp(`CMD \\["supercronic", "${optDir}/crontab"\\]`)
+      new RegExp(`CMD \\["/usr/bin/supercronic", "${optDir}/crontab"\\]`)
     )
     // cron-run.sh needs curl >= 7.76 (--fail-with-body).
     expect(cronDockerfile).toMatch(/apk add .*\bcurl\b/)
