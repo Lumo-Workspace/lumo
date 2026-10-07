@@ -30,8 +30,9 @@ import {
  * workspace has no rows left, so it is never a recipient.
  *
  * Idempotent: each delivered (change, workspace, owner) is recorded in
- * SubprocessorNoticeDelivery after Resend accepts it, and a rerun skips it;
- * the Resend idempotency key covers a crash between the send and the record.
+ * SubprocessorNoticeDelivery after the SMTP server accepts it, and a rerun
+ * skips it; the email idempotency key (app-level ledger, LUM-1041) covers a
+ * crash between the send and the record.
  * Each workspace that got the notice also gets a SYSTEM audit event.
  */
 

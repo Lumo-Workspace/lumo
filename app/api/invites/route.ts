@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser, requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { sendInvitesSchema } from '@/lib/validation/schemas'
-import { sendEmail, buildInviteEmail } from '@/lib/integrations/email'
+import {
+  sendEmail,
+  isEmailDelivered,
+  buildInviteEmail,
+} from '@/lib/integrations/email'
 import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
@@ -79,7 +83,9 @@ export async function POST(request: NextRequest) {
 
       results.push({
         email,
-        status: result.status === 'sent' ? 'sent' : 'failed',
+        // A duplicate means this invite's email already went out (or is going
+        // out) under the same key — delivered, not failed (LUM-1041).
+        status: isEmailDelivered(result) ? 'sent' : 'failed',
       })
     }
 

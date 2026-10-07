@@ -115,6 +115,21 @@ describe('inviteService.resendInvite — expiry follows the send outcome', () =>
     )
   })
 
+  it('skipped as a duplicate key (LUM-1041: the email already went out) → delivered: extends the expiry, audits sent', async () => {
+    mockSendEmail.mockResolvedValue({
+      status: 'skipped',
+      reason: 'duplicate',
+      prior: 'sent',
+      id: 'm0',
+    })
+
+    const out = await inviteService.resendInvite('tok-1', 'ws-1', audit)
+
+    expect(out.outcome).toBe('sent')
+    expect(out.expiresAt).toBeInstanceOf(Date)
+    expect(mockResetExpiry).toHaveBeenCalledWith('inv-1', out.expiresAt)
+  })
+
   it('a non-PENDING invite throws before any send, expiry or audit', async () => {
     mockFindByTokenForResend.mockResolvedValue({
       id: 'inv-1',

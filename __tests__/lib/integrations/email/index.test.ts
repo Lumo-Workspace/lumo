@@ -5,13 +5,6 @@
  * Ensures all public functions and types are accessible from the index.
  */
 
-// Mock the Resend client to avoid requiring RESEND_API_KEY during tests
-jest.mock('resend', () => ({
-  Resend: jest.fn().mockImplementation(() => ({
-    emails: { send: jest.fn() },
-  })),
-}))
-
 import * as emailModule from '@/lib/integrations/email'
 
 describe('lib/integrations/email barrel exports', () => {

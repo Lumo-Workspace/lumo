@@ -5,6 +5,8 @@
  */
 jest.mock('@/lib/integrations/email/client', () => ({
   sendEmail: jest.fn(),
+  isEmailDelivered: jest.requireActual('@/lib/integrations/email/client')
+    .isEmailDelivered,
 }))
 jest.mock('@/lib/utils/clerk-helpers', () => ({
   lookupClerkProfiles: jest.fn(),
@@ -84,5 +86,32 @@ describe('sendDeletionNotice', () => {
       'bo@example.test',
     ])
     expect(send.mock.calls[0][1].idempotencyKey).toContain('ws1/scheduled/')
+  })
+
+  it('a duplicate key (LUM-1041: this owner already has the notice) counts as sent', async () => {
+    const send = sendEmail as jest.Mock
+    send.mockReset()
+    send.mockResolvedValueOnce({
+      status: 'skipped',
+      reason: 'duplicate',
+      prior: 'sent',
+      id: 'm0',
+    })
+    ;(lookupClerkProfiles as jest.Mock).mockResolvedValue(
+      new Map([['o1', { name: 'Ada', email: 'ada@example.test' }]])
+    )
+
+    const out = await sendDeletionNotice({
+      kind: 'scheduled',
+      workspaceId: 'ws1',
+      workspaceName: 'Acme',
+      workspaceSlug: 'acme',
+      actorClerkId: 'o1',
+      ownerClerkIds: ['o1'],
+      requestedAt: new Date('2026-10-01T12:00:00.000Z'),
+      executeAt,
+    })
+
+    expect(out).toEqual({ sent: 1, failed: 0 })
   })
 })

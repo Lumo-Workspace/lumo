@@ -88,11 +88,13 @@ async function main() {
       if (result.status === 'failed') {
         throw new Error(`${result.error.name}: ${result.error.message}`)
       }
-      if (result.status === 'skipped') {
+      if (result.status === 'skipped' && result.reason === 'not_configured') {
         throw new Error(
-          'No email transport configured (RESEND_API_KEY or SMTP_URL/SMTP_HOST)'
+          'No email transport configured (SMTP_URL/SMTP_HOST or RESEND_API_KEY)'
         )
       }
+      // sent, or skipped as a duplicate key: this owner already has the
+      // notice (a crashed earlier run), so it is recorded as delivered.
       return { messageId: result.id }
     },
   }
