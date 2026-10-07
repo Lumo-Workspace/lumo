@@ -1,4 +1,5 @@
 # GENERATED from vercel.json by `npx tsx scripts/self-host-cron.ts` — do not edit by hand.
+# Self-host-only jobs (SELF_HOST_ONLY_CRONS in that script) follow the vercel.json ones.
 # __tests__/self-host-cron.test.ts fails when this file drifts from vercel.json.
 #
 # Each job calls cron-run.sh, which sends `Authorization: Bearer $CRON_SECRET`
@@ -20,3 +21,4 @@
 20 * * * * /opt/lumo/cron-run.sh execute-workspace-deletions /api/cron/execute-workspace-deletions
 10 4 * * * /opt/lumo/cron-run.sh purge-trash /api/cron/purge-trash
 25 4 * * * /opt/lumo/cron-run.sh prune-audit-events /api/cron/prune-audit-events
+40 3 * * * /opt/lumo/cron-run.sh workflow-queue-cleanup /api/cron/workflow-queue-cleanup

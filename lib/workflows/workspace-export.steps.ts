@@ -4,16 +4,19 @@
  * policy: generation is idempotent (a retry clears its own earlier upload).
  */
 import { workspaceExportService } from '@/lib/services/workspace-export.service'
+import { isCurrentRunCancelled } from './run-cancellation'
 
 export async function generateWorkspaceExportStep(
   exportId: string,
   workspaceId?: string
 ): Promise<void> {
   'use step'
+  // LUM-1030: a cancel mid-build must not leave a READY, downloadable export.
   await workspaceExportService.generateArchive(
     exportId,
     new Date(),
-    workspaceId
+    workspaceId,
+    isCurrentRunCancelled
   )
 }
 

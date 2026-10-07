@@ -17,10 +17,12 @@ import { requireCronAuth } from '@/lib/api/cron-auth'
 import {
   CRONTAB_PATH,
   RUNNER_PATH,
+  SELF_HOST_ONLY_CRONS,
   VERCEL_JSON_PATH,
   jobName,
   parseVercelCrons,
   renderCrontab,
+  selfHostJobs,
 } from '../scripts/self-host-cron'
 
 const RUNNER = join(__dirname, '..', 'deploy', 'self-host', 'cron-run.sh')
@@ -33,15 +35,15 @@ describe('self-host crontab drift guard', () => {
 
   it('checked-in deploy/self-host/crontab equals the render of vercel.json', () => {
     // On failure: run `npx tsx scripts/self-host-cron.ts` and commit the result.
-    expect(crontab).toBe(renderCrontab(vercelJobs))
+    expect(crontab).toBe(renderCrontab(selfHostJobs(vercelJobs)))
   })
 
-  it('schedules every vercel.json cron exactly once with the same expression', () => {
+  it('schedules every vercel.json cron (and each self-host-only one) exactly once with the same expression', () => {
     const lines = crontab
       .split('\n')
       .filter(l => l.trim() && !l.startsWith('#'))
-    expect(lines).toHaveLength(vercelJobs.length)
-    for (const job of vercelJobs) {
+    expect(lines).toHaveLength(vercelJobs.length + SELF_HOST_ONLY_CRONS.length)
+    for (const job of [...vercelJobs, ...SELF_HOST_ONLY_CRONS]) {
       const matching = lines.filter(l => l.endsWith(` ${job.path}`))
       expect(matching).toEqual([
         `${job.schedule} ${RUNNER_PATH} ${jobName(job.path)} ${job.path}`,
@@ -209,5 +211,36 @@ describe('cron-run.sh against a real HTTP server', () => {
     expect(r.code).not.toBe(0)
     expect(r.stderr).toContain('CRON_SECRET is not set')
     expect(received).toEqual([])
+  })
+})
+
+describe('selfHostJobs (LUM-1030)', () => {
+  it('appends the self-host-only jobs after the vercel.json ones', () => {
+    const vercel = [{ path: '/api/cron/purge-trash', schedule: '10 4 * * *' }]
+    expect(selfHostJobs(vercel)).toEqual([...vercel, ...SELF_HOST_ONLY_CRONS])
+  })
+
+  it('keeps workflow-queue-cleanup out of vercel.json (the Vercel World has no queue to clean)', () => {
+    const vercelPaths = parseVercelCrons(
+      JSON.parse(readFileSync(VERCEL_JSON_PATH, 'utf8'))
+    ).map(j => j.path)
+    expect(SELF_HOST_ONLY_CRONS.map(j => j.path)).toContain(
+      '/api/cron/workflow-queue-cleanup'
+    )
+    for (const job of SELF_HOST_ONLY_CRONS) {
+      expect(vercelPaths).not.toContain(job.path)
+    }
+  })
+
+  it('refuses a self-host-only job that is also in vercel.json', () => {
+    const dup = { path: '/api/cron/x', schedule: '* * * * *' }
+    expect(() => selfHostJobs([dup], [dup])).toThrow(/also in vercel.json/)
+  })
+
+  it('every self-host-only job has a route file gated by requireCronAuth', () => {
+    for (const job of SELF_HOST_ONLY_CRONS) {
+      const route = join(__dirname, '..', 'app', job.path, 'route.ts')
+      expect(readFileSync(route, 'utf8')).toContain('requireCronAuth')
+    }
   })
 })

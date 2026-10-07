@@ -6,6 +6,7 @@
  * for facts the run must record (see the service header).
  */
 import { securityHuntService } from '@/lib/services/security-hunt.service'
+import { isCurrentRunCancelled } from './run-cancellation'
 import type {
   VerifySubgraphInput,
   VerifySubgraphOutput,
@@ -82,6 +83,9 @@ export async function persistHuntFindingsStep(
   input: PersistHuntInput
 ): Promise<{ written: number }> {
   'use step'
+  // LUM-1030 ruling ③: a hunt the stale sweep cancelled may still have this
+  // step in flight; its findings are discarded, not written.
+  if (await isCurrentRunCancelled()) return { written: 0 }
   return securityHuntService.persist(input)
 }
 

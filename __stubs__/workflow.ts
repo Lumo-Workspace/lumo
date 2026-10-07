@@ -7,3 +7,11 @@
  * stand-in.
  */
 export const sleep = jest.fn(async (_duration: string | Date) => undefined)
+
+/** LUM-1030: step-context metadata (`isCurrentRunCancelled` reads the run id). */
+export const getWorkflowMetadata = jest.fn(() => ({
+  workflowName: 'stub',
+  workflowRunId: 'run_stub',
+  workflowStartedAt: new Date(0),
+  url: 'http://localhost/stub',
+}))
