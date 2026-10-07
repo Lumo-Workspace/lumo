@@ -21,7 +21,7 @@ function main() {
   console.log('🔧 Setting up environment variables for Google OAuth Login...\n')
 
   const envPath = path.join(process.cwd(), '.env.local')
-  const envExamplePath = path.join(process.cwd(), 'env.example')
+  const envExamplePath = path.join(process.cwd(), '.env.example')
 
   // Check if .env.local already exists
   if (fs.existsSync(envPath)) {
@@ -31,7 +31,7 @@ function main() {
     fs.copyFileSync(envPath, envPath + '.backup')
   }
 
-  // Read env.example as template
+  // Read .env.example as template
   let envContent = ''
   if (fs.existsSync(envExamplePath)) {
     envContent = fs.readFileSync(envExamplePath, 'utf8')

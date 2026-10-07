@@ -1,0 +1,190 @@
+# Lumo — one-command self-hosting (LUM-1028).
+#
+#   cp .env.example .env      # fill the "Required" section, then
+#   docker compose up -d --build
+#
+# Full guide: docs/self-hosting/README.md. Values come from `.env` (read by
+# compose for ${...} below and passed to the app via env_file). The service
+# wiring (database, Redis, MinIO, Soketi, workflows) is fixed here and
+# overrides whatever `.env` says for those variables.
+
+x-app-build: &app-build # Built once (by `app`); `migrate` runs the same image.
+  image: ${LUMO_IMAGE:-lumo-app:local}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:?set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in .env}
+      NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
+      NEXT_PUBLIC_PUSHER_HOST: ${SOKETI_PUBLIC_HOST:-localhost}
+      NEXT_PUBLIC_PUSHER_PORT: ${SOKETI_PUBLIC_PORT:-6001}
+      NEXT_PUBLIC_PUSHER_USE_TLS: ${SOKETI_PUBLIC_TLS:-false}
+
+x-app-env: &app-env
+  env_file: [.env]
+  environment:
+    # Postgres (pgvector). The container has no TLS, so sslmode=disable
+    # (lib/db/prisma.ts otherwise insists on a verified TLS connection).
+    DATABASE_URL: postgresql://lumo:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/lumo?sslmode=disable
+    DATABASE_URL_UNPOOLED: postgresql://lumo:${POSTGRES_PASSWORD}@postgres:5432/lumo?sslmode=disable
+    # Durable workflows on the Postgres World (docs/self-hosting/workflow.md).
+    # Direct connection; WORKFLOW_SECRET must be URL-safe (openssl rand -hex 32).
+    WORKFLOW_TARGET_WORLD: '@workflow/world-postgres'
+    WORKFLOW_POSTGRES_URL: postgres://lumo:${POSTGRES_PASSWORD}@postgres:5432/lumo?sslmode=disable
+    WORKFLOW_SECRET: ${WORKFLOW_SECRET:?set WORKFLOW_SECRET in .env}
+    WORKFLOW_LOCAL_BASE_URL: http://workflow:${WORKFLOW_SECRET}@localhost:3000
+    PORT: '3000'
+    CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in .env}
+    # Rate limits shared across restarts / instances.
+    REDIS_URL: redis://redis:6379
+    # File storage on MinIO (private bucket, created by minio-init).
+    BLOB_STORAGE: s3
+    S3_BUCKET: ${S3_BUCKET:-lumo}
+    S3_REGION: us-east-1
+    S3_ENDPOINT: http://minio:9000
+    S3_FORCE_PATH_STYLE: 'true'
+    S3_ACCESS_KEY_ID: lumo
+    S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    # Realtime on Soketi. The server reaches it inside the network; browsers
+    # use the NEXT_PUBLIC_PUSHER_* build args above.
+    PUSHER_APP_ID: lumo
+    PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
+    PUSHER_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
+    PUSHER_HOST: soketi
+    PUSHER_PORT: '6001'
+    PUSHER_USE_TLS: 'false'
+
+services:
+  postgres:
+    # Lumo's migrations CREATE EXTENSION vector: plain postgres images fail.
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lumo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: lumo
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lumo -d lumo']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    restart: unless-stopped
+    command: ['server', '/data']
+    environment:
+      MINIO_ROOT_USER: lumo
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    volumes: [minio-data:/data]
+    healthcheck:
+      # The image has bash but no curl: probe the liveness endpoint over /dev/tcp.
+      test:
+        - CMD
+        - bash
+        - -c
+        - 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /minio/health/live HTTP/1.0\r\n\r\n" >&3 && read -r s <&3 && [[ $$s == *" 200 "* ]]'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Creates the private bucket once (no public policy: every read goes
+  # through Lumo's authenticated routes). Idempotent.
+  minio-init:
+    image: cgr.dev/chainguard/minio-client:latest
+    environment:
+      MC_HOST_lumo: http://lumo:${MINIO_ROOT_PASSWORD}@minio:9000
+    command: ['mb', '--ignore-existing', 'lumo/${S3_BUCKET:-lumo}']
+    depends_on:
+      minio: { condition: service_healthy }
+    restart: 'no'
+
+  soketi:
+    image: quay.io/soketi/soketi:1.6-16-debian
+    restart: unless-stopped
+    environment:
+      SOKETI_DEFAULT_APP_ID: lumo
+      SOKETI_DEFAULT_APP_KEY: ${SOKETI_APP_KEY:-lumo}
+      SOKETI_DEFAULT_APP_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
+    ports: ['${SOKETI_PUBLIC_PORT:-6001}:6001']
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:6001/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # One-shot: schema migrations, then the workflow World's own schemas.
+  # Runs on every `up`; both steps are idempotent.
+  migrate:
+    <<: *app-env
+    image: ${LUMO_IMAGE:-lumo-app:local}
+    command:
+      ['sh', '-c', 'npx prisma migrate deploy && npm run workflow:bootstrap']
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  app:
+    <<: [*app-build, *app-env]
+    restart: unless-stopped
+    ports: ['${LUMO_PORT:-3000}:3000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      minio-init: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      soketi: { condition: service_healthy }
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/signin').then(r=>process.exit(r.status<500?0:1),()=>process.exit(1))"
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  # Scheduled jobs (docs/self-hosting/cron.md): supercronic runs
+  # deploy/self-host/crontab, each line calling the app with CRON_SECRET.
+  cron:
+    image: ${LUMO_CRON_IMAGE:-lumo-cron:local}
+    build:
+      context: deploy/self-host
+      dockerfile: cron.Dockerfile
+    restart: unless-stopped
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in .env}
+      APP_URL: http://app:3000
+      TZ: UTC
+      LUMO_CRON_DISABLED: ${LUMO_CRON_DISABLED:-}
+    depends_on:
+      app: { condition: service_healthy }
+
+  # Dev only: catches outgoing mail. `docker compose --profile mail up -d`
+  # and set SMTP_URL=smtp://mailpit:1025 in .env; UI on :8025.
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: [mail]
+    ports: ['8025:8025']
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
