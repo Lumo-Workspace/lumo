@@ -3,7 +3,7 @@
  * subprocessor list) against the facts they must cover.
  *
  * Usage:
- *   npx tsx scripts/analysis/lum857-legal/check-legal-docs.ts <mode>
+ *   npx tsx scripts/legal/check-legal-docs.ts <mode>
  *
  * Modes:
  *   subprocessors  every runtime third party + every LLM host in the LUM-854
@@ -23,7 +23,7 @@ import { execFileSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
-const ROOT = path.resolve(__dirname, '../../..')
+const ROOT = path.resolve(__dirname, '../..')
 const LIVE_DOCS = 'docs/live-docs'
 
 export const LEGAL_DOCS = {

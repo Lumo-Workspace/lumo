@@ -10,11 +10,18 @@
  *   5. nothing configured → vercel, which fails on first use with the token
  *      error it always had (blob features stay off until configured).
  *
+ * When more than one backend is configured and `BLOB_STORAGE` is unset (e.g.
+ * a leftover Vercel token next to S3_BUCKET), the precedence above still
+ * applies — SaaS sets only the Vercel token, so it is unchanged — but a
+ * warning names the chosen backend and how to override it, once per backend
+ * build.
+ *
  * Backends are loaded with a dynamic import: the SDKs pull in undici /
  * node-only modules that break jsdom tests merely importing a service, and a
  * deployment only ever loads the one SDK it uses.
  */
 import type { BlobBackendKind, BlobStorage } from '@/lib/blob/types'
+import { logger } from '@/lib/logger'
 
 type Env = Record<string, string | undefined>
 
@@ -41,11 +48,47 @@ export function resolveBlobBackend(env: Env = process.env): BlobBackendKind {
   return 'vercel'
 }
 
+/** Backends with config present in env, in precedence order. */
+function configuredBackends(env: Env): BlobBackendKind[] {
+  const kinds: BlobBackendKind[] = []
+  if (
+    has(env.BLOB_READ_WRITE_TOKEN) ||
+    has(env.BLOB_PRIVATE_READ_WRITE_TOKEN)
+  ) {
+    kinds.push('vercel')
+  }
+  if (has(env.S3_BUCKET)) kinds.push('s3')
+  if (has(env.LOCAL_BLOB_DIR)) kinds.push('disk')
+  return kinds
+}
+
+/**
+ * Warning text when the backend was picked implicitly among several
+ * configured ones; null when the choice is unambiguous.
+ */
+export function ambiguousBlobBackendWarning(
+  env: Env = process.env
+): string | null {
+  if (has(env.BLOB_STORAGE)) return null
+  const kinds = configuredBackends(env)
+  if (kinds.length < 2) return null
+  const chosen = resolveBlobBackend(env)
+  const others = kinds.filter(k => k !== chosen)
+  return (
+    `[blob] several blob backends are configured (${kinds.join(', ')}); ` +
+    `using "${chosen}" by precedence (Vercel token > S3_BUCKET > LOCAL_BLOB_DIR). ` +
+    `Set BLOB_STORAGE=${others.join('|')} to use another backend, or ` +
+    `BLOB_STORAGE=${chosen} (or remove the unused settings) to silence this warning.`
+  )
+}
+
 /** Build a backend from env (no caching). */
 export async function createBlobStorage(
   env: Env = process.env
 ): Promise<BlobStorage> {
   const kind = resolveBlobBackend(env)
+  const warning = ambiguousBlobBackendWarning(env)
+  if (warning) logger.warn(warning)
   if (kind === 's3') {
     const { createS3BlobStorage, s3ConfigFromEnv } =
       await import('@/lib/blob/s3-blob-storage')

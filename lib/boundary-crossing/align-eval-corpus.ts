@@ -100,7 +100,7 @@ const PUSH_RULES = [PUSH_RULE, MAIN_RULE]
 const LUM772_FEATURE_PUSH =
   'git push -u origin lumo/LUM-771-crossing-fixes 2>&1 | tail -3'
 const LUM772_PUSH_AND_PR = [
-  "git add cli/package.json scripts/analysis/grammar.json && git commit -q -F - <<'EOF'",
+  "git add cli/package.json cli/grammar.json && git commit -q -F - <<'EOF'",
   'chore: bump @lumoai/cli 1.60.0→1.61.0 (ship the LUM-771 CLI fix) [LUM-771] [skip-drift]',
   'EOF',
   'git push -q origin lumo/LUM-771-cli-bump && gh pr create --base main --head lumo/LUM-771-cli-bump --title "chore: bump @lumoai/cli [LUM-771]" --body "release of the LUM-771 fix"',

@@ -470,7 +470,7 @@ describe('LUM-751: fixture-shaped paths are downgraded', () => {
     'src/mocks/handlers.ts',
     'e2e/login.spec.ts',
     'components/Button.stories.tsx',
-    'scripts/eval/vectors.fixture.json',
+    'data/vectors.fixture.json',
     'prisma/seed.ts',
   ])('%s is downgraded', p => expect(isDowngradedPath(p)).toBe(true))
 

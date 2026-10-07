@@ -5,7 +5,7 @@ import { gateway } from '@/lib/ai/gateway'
 
 /**
  * LUM-984 — the one model call the offline boundary-crossing experiments
- * (`scripts/analysis/lum945-*`, `lum958-*`, `lum965-*`) make. They used to
+ * (internal LUM-945 / LUM-958 / LUM-965 evaluations) make. They used to
  * import `generateObject` from `ai` directly; routing them through this
  * wrapper keeps the `ai` import inside `lib/` and every call on the ZDR
  * gateway (`@/lib/ai/gateway`).
