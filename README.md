@@ -479,6 +479,14 @@ a failed/blocked migration fails the build instead of shipping code against a
 not-yet-migrated schema. Preview/dev builds skip the migrate step. Migrations
 use the unpooled connection automatically via `prisma.config.ts`.
 
+### Self-hosting (Docker Compose)
+
+`cp .env.example .env`, fill in the required values, then
+`docker compose up -d --build` — see
+[docs/self-hosting/README.md](docs/self-hosting/README.md) for the full guide
+(services, build-time settings, what works without optional services,
+upgrades).
+
 ### Other Platforms
 
 ```bash

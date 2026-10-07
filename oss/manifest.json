@@ -102,10 +102,6 @@
       "reason": "placeholder values only"
     },
     {
-      "glob": "env.example",
-      "reason": "placeholder values only"
-    },
-    {
       "glob": ".gitignore",
       "reason": "build hygiene"
     },
@@ -168,6 +164,22 @@
     {
       "glob": "proxy.ts",
       "reason": "Next.js request proxy"
+    },
+    {
+      "glob": "instrumentation.ts",
+      "reason": "Next.js boot hook that starts the self-hosted workflow worker (LUM-1030); public product code"
+    },
+    {
+      "glob": "Dockerfile",
+      "reason": "self-hosting image (LUM-1028); milestone goal is self-hosting"
+    },
+    {
+      "glob": ".dockerignore",
+      "reason": "build context for the self-hosting image (LUM-1028)"
+    },
+    {
+      "glob": "docker-compose.yml",
+      "reason": "one-command self-hosting stack (LUM-1028); milestone goal is self-hosting"
     },
     {
       "glob": "skills-lock.json",

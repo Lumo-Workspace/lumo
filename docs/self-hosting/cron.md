@@ -12,6 +12,10 @@ them. This repo ships that schedule:
 Each crontab line runs `/opt/lumo/cron-run.sh <job-name> <path>`, so put both
 files under `/opt/lumo/` in whatever runs the schedule.
 
+With [Docker Compose](README.md) this is already done: the `cron` service
+(`deploy/self-host/cron.Dockerfile`) runs supercronic with both files and the
+app's `CRON_SECRET`.
+
 ## Environment
 
 Set these in the scheduler's environment:
