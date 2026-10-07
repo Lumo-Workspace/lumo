@@ -190,10 +190,16 @@ export function redactEmailSecrets(
  * name / message (secrets redacted) / code / statusCode — never the error
  * object itself, whose nodemailer variants can carry the transport config.
  * Accepts thrown errors and Resend's `{ name, message, statusCode }` result.
+ *
+ * `code`: the error's own string `code` when it has one; otherwise its `name`
+ * for a Resend-shaped value — a plain `{ name, … }` result, or anything
+ * (including an `Error` instance) that failed on the Resend transport, since
+ * Resend puts its error code (`rate_limit_exceeded`, …) in `name`.
  */
 export function toEmailError(
   e: unknown,
-  env: Env = process.env
+  env: Env = process.env,
+  transport?: EmailTransportKind
 ): SendEmailError {
   const obj =
     typeof e === 'object' && e !== null
@@ -207,11 +213,13 @@ export function toEmailError(
   const name = typeof obj?.name === 'string' && obj.name ? obj.name : 'Error'
   const message =
     typeof obj?.message === 'string' ? obj.message : obj ? '' : String(e)
-  // Resend reports its error code as `name`; thrown errors use `code`.
+  // Resend reports its error code as `name` — in its `{ error }` result and
+  // on errors its SDK throws; other thrown errors use `code`.
+  const nameIsCode = transport === 'resend' || !(e instanceof Error)
   const code =
-    typeof obj?.code === 'string'
+    typeof obj?.code === 'string' && obj.code
       ? obj.code
-      : obj && !(e instanceof Error) && typeof obj.name === 'string'
+      : obj && nameIsCode && typeof obj.name === 'string' && obj.name
         ? obj.name
         : undefined
   const statusCode =
@@ -228,7 +236,7 @@ function sendFailed(
   transport: EmailTransportKind,
   e: unknown
 ): SendEmailResult {
-  const error = toEmailError(e)
+  const error = toEmailError(e, process.env, transport)
   logger.error('[email] send failed', { transport, ...error })
   return { status: 'failed', error }
 }

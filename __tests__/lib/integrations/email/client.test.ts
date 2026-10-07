@@ -362,6 +362,44 @@ describe('sendEmail', () => {
     expect(logged).not.toContain('Authorization')
   })
 
+  it('resend mode: a thrown Resend Error carries its name as code and its statusCode, redacted', async () => {
+    process.env.RESEND_API_KEY = 're_live_ERRKEY'
+    mockResendSend.mockRejectedValue(
+      Object.assign(new Error('rate limited for re_live_ERRKEY'), {
+        name: 'rate_limit_exceeded',
+        statusCode: 429,
+        headers: { Authorization: 'Bearer re_live_ERRKEY' },
+      })
+    )
+    const out = await sendEmail({ to: ['x'], subject: 's', html: 'h' })
+    expect(out).toEqual({
+      status: 'failed',
+      error: {
+        name: 'rate_limit_exceeded',
+        message: 'rate limited for ***',
+        code: 'rate_limit_exceeded',
+        statusCode: 429,
+      },
+    })
+    const logged = JSON.stringify((logger.error as jest.Mock).mock.calls)
+    expect(logged).toContain('"code":"rate_limit_exceeded"')
+    expect(logged).not.toContain('ERRKEY')
+    expect(logged).not.toContain('Authorization')
+  })
+
+  it('smtp mode: a thrown Error without a code does not get its name as code', async () => {
+    process.env.SMTP_HOST = 'mail.internal'
+    mockCreateTransport.mockImplementation(() => ({
+      sendMail: jest.fn().mockRejectedValue(new Error('boom')),
+    }))
+    await expect(
+      sendEmail({ to: ['x'], subject: 's', html: 'h' })
+    ).resolves.toEqual({
+      status: 'failed',
+      error: { name: 'Error', message: 'boom' },
+    })
+  })
+
   it('smtp mode: sends the rendered html/text with from/to/subject', async () => {
     process.env.SMTP_HOST = 'mail.internal'
     process.env.SMTP_PORT = '2525'
