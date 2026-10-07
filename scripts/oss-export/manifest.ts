@@ -49,8 +49,12 @@ export interface OssManifest {
   overlayDir?: string
   transforms?: Transform[]
   forbiddenMarkers?: ForbiddenMarker[]
-  /** Snapshot files whose path-like tokens must exist in the snapshot. */
-  configRefFiles?: string[]
+  /**
+   * Snapshot config files whose path-like tokens must exist in the snapshot.
+   * Raw JSON; validated by parseConfigRefFiles (each entry must declare the
+   * base its tool resolves relative paths against).
+   */
+  configRefFiles?: unknown[]
 }
 
 /**
@@ -329,17 +333,148 @@ export function scanMarkers(
 }
 
 const PATH_TOKEN_RE =
-  /(?:^|[\s"'`=(])((?:\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|mjs|cjs|sh|json))(?=$|[\s"'`;)&|])/g
+  /(?:^|[\s"'`=(])((?:\.\/[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)*|[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+)\.(?:ts|tsx|js|mjs|cjs|sh|json))(?=$|[\s"'`;)&|])/g
 
-/** Repo-relative file paths mentioned in a config file (scripts, hooks). */
+/**
+ * Relative file paths mentioned in a config file (scripts, hooks, jest
+ * config). A single-segment name only counts when written as `./name.ext`;
+ * jest's `<rootDir>/` prefix is read as `./` (rootDir = the config's dir).
+ */
 export function extractPathTokens(content: string): string[] {
   const out = new Set<string>()
+  const text = content.replace(/<rootDir>\//g, './')
   PATH_TOKEN_RE.lastIndex = 0
   let m: RegExpExecArray | null
-  while ((m = PATH_TOKEN_RE.exec(content)) !== null) {
+  while ((m = PATH_TOKEN_RE.exec(text)) !== null) {
     const token = m[1]!.replace(/^\.\//, '')
     if (token.startsWith('node_modules/') || token.includes('://')) continue
     out.add(token)
   }
   return [...out]
+}
+
+// ---------------------------------------------------------------------------
+// Config-reference check
+// ---------------------------------------------------------------------------
+
+/**
+ * The directory a config's tool resolves relative paths against:
+ *   - `root`      — the snapshot root (git hooks run from the repo root;
+ *                   lint-staged runs commands from the git root);
+ *   - `configDir` — the config file's own directory (npm scripts run in the
+ *                   package dir; tsconfig include/extends/baseUrl and jest
+ *                   `<rootDir>` are relative to the config file).
+ * A token is checked against that ONE base only — a same-named file that
+ * exists under the other base does not make the reference valid.
+ */
+export type ConfigRefBase = 'root' | 'configDir'
+
+export interface ConfigRefFile {
+  file: string
+  base: ConfigRefBase
+  /** Base-relative globs for generated outputs (e.g. `dist/**`). */
+  ignore?: string[]
+  reason: string
+}
+
+const CONFIG_REF_BASES: readonly ConfigRefBase[] = ['root', 'configDir']
+
+/** Validate manifest `configRefFiles`; no entry may leave its base implicit. */
+export function parseConfigRefFiles(raw: readonly unknown[]): ConfigRefFile[] {
+  return raw.map((e, i) => {
+    const where = `configRefFiles[${i}]`
+    if (!e || typeof e !== 'object')
+      throw new Error(
+        `${where}: must be { file, base, reason } — declare the base ("root" | "configDir") its tool resolves paths against`
+      )
+    const { file, base, ignore, reason } = e as Record<string, unknown>
+    if (typeof file !== 'string' || file === '')
+      throw new Error(`${where}: missing file`)
+    if (!CONFIG_REF_BASES.includes(base as ConfigRefBase))
+      throw new Error(
+        `${where} (${file}): base must be "root" or "configDir", got ${JSON.stringify(base)}`
+      )
+    if (typeof reason !== 'string' || reason === '')
+      throw new Error(`${where} (${file}): missing reason`)
+    if (
+      ignore !== undefined &&
+      !(Array.isArray(ignore) && ignore.every(g => typeof g === 'string'))
+    )
+      throw new Error(`${where} (${file}): ignore must be a list of globs`)
+    return {
+      file,
+      base: base as ConfigRefBase,
+      ...(ignore !== undefined ? { ignore: ignore as string[] } : {}),
+      reason,
+    }
+  })
+}
+
+function baseDirOf(entry: ConfigRefFile): string {
+  if (entry.base === 'root') return ''
+  const dir = posix.dirname(entry.file)
+  return dir === '.' ? '' : dir
+}
+
+export interface SnapshotReader {
+  /** File content, or null when the file is not in the snapshot. */
+  read(path: string): string | null
+  exists(path: string): boolean
+}
+
+/** `<config> → <token> (resolved against <base>)` for every dangling token. */
+export function findDanglingConfigRefs(
+  entries: readonly ConfigRefFile[],
+  snapshot: SnapshotReader
+): string[] {
+  const dangling: string[] = []
+  for (const entry of entries) {
+    const content = snapshot.read(entry.file)
+    if (content === null) {
+      dangling.push(`${entry.file} (config file itself missing)`)
+      continue
+    }
+    const baseDir = baseDirOf(entry)
+    const baseLabel = baseDir ? `${baseDir}/` : 'the snapshot root'
+    const ignore = (entry.ignore ?? []).map(globToRegExp)
+    for (const token of extractPathTokens(content)) {
+      const rel = posix.normalize(token)
+      if (ignore.some(re => re.test(rel))) continue
+      const target = posix.normalize(posix.join(baseDir, rel))
+      const escapes = target === '..' || target.startsWith('../')
+      if (escapes || !snapshot.exists(target))
+        dangling.push(
+          `${entry.file} → ${token} (resolved against ${baseLabel})`
+        )
+    }
+  }
+  return dangling
+}
+
+/**
+ * Files whose relative paths are resolved by a tool. Every one of them that
+ * ships must be listed in `configRefFiles`, so none is silently unchecked.
+ */
+const CONFIG_FILE_RES = [
+  /(?:^|\/)package\.json$/,
+  /(?:^|\/)tsconfig[^/]*\.json$/,
+  /(?:^|\/)jest\.config\.[cm]?[jt]s$/,
+  /(?:^|\/)\.lintstagedrc[^/]*$/,
+  /(?:^|\/)vercel\.json$/,
+  /(?:^|\/)\.husky\/[^/_][^/]*$/,
+]
+
+export function isConfigRefCandidate(path: string): boolean {
+  return CONFIG_FILE_RES.some(re => re.test(path))
+}
+
+/** Snapshot config files that `configRefFiles` does not list (sorted). */
+export function findUncoveredConfigFiles(
+  snapshotFiles: readonly string[],
+  entries: readonly ConfigRefFile[]
+): string[] {
+  const listed = new Set(entries.map(e => e.file))
+  return snapshotFiles
+    .filter(f => isConfigRefCandidate(f) && !listed.has(f))
+    .sort()
 }

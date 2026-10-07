@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import { execFileSync } from 'child_process'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -7,13 +8,17 @@ import {
   classifyFiles,
   extractPathTokens,
   extractSpecifiers,
+  findDanglingConfigRefs,
   findImportViolations,
+  findUncoveredConfigFiles,
+  parseConfigRefFiles,
   globToRegExp,
   isOutsideDir,
   matchesGlob,
   resolveSpecifier,
   scanMarkers,
   summarizePaths,
+  type ConfigRefFile,
   type OssManifest,
 } from '../../scripts/oss-export/manifest'
 
@@ -231,6 +236,159 @@ describe('output scans', () => {
   })
 })
 
+describe('config-reference check (each config resolves against its own base)', () => {
+  const snapshot = (
+    contents: Record<string, string>,
+    others: string[] = []
+  ) => {
+    const all = new Set([...Object.keys(contents), ...others])
+    return {
+      read: (p: string) => contents[p] ?? null,
+      exists: (p: string) => all.has(p),
+    }
+  }
+  const entry = (
+    file: string,
+    base: ConfigRefFile['base'],
+    ignore?: string[]
+  ): ConfigRefFile => ({
+    file,
+    base,
+    reason: 'test',
+    ...(ignore ? { ignore } : {}),
+  })
+
+  it('flags a token that only exists relative to the WRONG base', () => {
+    // npm runs cli/package.json scripts inside cli/, so the script must be
+    // cli/scripts/bundle-assets.js — a root scripts/bundle-assets.js does not
+    // make the reference valid.
+    const pkg = entry('cli/package.json', 'configDir')
+    expect(
+      findDanglingConfigRefs(
+        [pkg],
+        snapshot(
+          {
+            'cli/package.json':
+              '{"scripts":{"build":"node ./scripts/bundle-assets.js"}}',
+          },
+          ['scripts/bundle-assets.js']
+        )
+      )
+    ).toEqual([
+      'cli/package.json → scripts/bundle-assets.js (resolved against cli/)',
+    ])
+    // git runs hooks from the repository root, so a hook's token must exist
+    // at the root — a same-named file next to the hook does not count.
+    const hook = entry('.husky/pre-commit', 'root')
+    expect(
+      findDanglingConfigRefs(
+        [hook],
+        snapshot(
+          { '.husky/pre-commit': 'npx tsx scripts/drift-check.ts "$1"' },
+          ['.husky/scripts/drift-check.ts']
+        )
+      )
+    ).toEqual([
+      '.husky/pre-commit → scripts/drift-check.ts (resolved against the snapshot root)',
+    ])
+  })
+
+  it('accepts tokens that exist relative to the correct base', () => {
+    expect(
+      findDanglingConfigRefs(
+        [
+          entry('cli/package.json', 'configDir', ['dist/**']),
+          entry('.husky/pre-commit', 'root'),
+        ],
+        snapshot(
+          {
+            'cli/package.json':
+              '{"bin":{"lumo":"dist/cli/src/index.js"},"scripts":{"build":"tsc && node ./scripts/bundle-assets.js"}}',
+            '.husky/pre-commit': 'npx tsx scripts/drift-check.ts "$1"',
+          },
+          ['cli/scripts/bundle-assets.js', 'scripts/drift-check.ts']
+        )
+      )
+    ).toEqual([])
+  })
+
+  it('a token that climbs out of the snapshot is dangling', () => {
+    expect(
+      findDanglingConfigRefs(
+        [entry('cli/tsconfig.json', 'configDir')],
+        snapshot({
+          'cli/tsconfig.json': '{"extends": "../../outside/base.json"}',
+        })
+      )
+    ).toEqual([
+      'cli/tsconfig.json → ../../outside/base.json (resolved against cli/)',
+    ])
+  })
+
+  it('reports a configured file that is missing from the snapshot', () => {
+    expect(
+      findDanglingConfigRefs([entry('vercel.json', 'root')], snapshot({}))
+    ).toEqual(['vercel.json (config file itself missing)'])
+  })
+
+  it('checks jest <rootDir> references that the token scan used to skip', () => {
+    const jest =
+      "setupFilesAfterEnv: ['<rootDir>/jest.setup.js'], '^w$': '<rootDir>/__stubs__/workflow.ts'"
+    expect(extractPathTokens(jest).sort()).toEqual([
+      '__stubs__/workflow.ts',
+      'jest.setup.js',
+    ])
+    expect(
+      findDanglingConfigRefs(
+        [entry('jest.config.js', 'configDir')],
+        snapshot({ 'jest.config.js': jest }, ['jest.setup.js'])
+      )
+    ).toEqual([
+      'jest.config.js → __stubs__/workflow.ts (resolved against the snapshot root)',
+    ])
+  })
+
+  it('every config file in the snapshot must be listed — none is skipped', () => {
+    expect(
+      findUncoveredConfigFiles(
+        [
+          'package.json',
+          'cli/package.json',
+          'cli/tsconfig.json',
+          'jest.config.js',
+          '.husky/pre-commit',
+          '.lintstagedrc.json',
+          'vercel.json',
+          'lib/a.ts',
+          'lib/fixtures/data.json',
+        ],
+        [entry('package.json', 'root'), entry('vercel.json', 'root')]
+      )
+    ).toEqual([
+      '.husky/pre-commit',
+      '.lintstagedrc.json',
+      'cli/package.json',
+      'cli/tsconfig.json',
+      'jest.config.js',
+    ])
+  })
+
+  it('rejects entries that do not declare their resolution base', () => {
+    expect(() => parseConfigRefFiles(['package.json'])).toThrow(/base/)
+    expect(() =>
+      parseConfigRefFiles([
+        { file: 'package.json', base: 'either', reason: 'x' },
+      ])
+    ).toThrow(/base/)
+    expect(() =>
+      parseConfigRefFiles([{ file: 'package.json', base: 'root' }])
+    ).toThrow(/reason/)
+    expect(
+      parseConfigRefFiles([{ file: 'package.json', base: 'root', reason: 'x' }])
+    ).toEqual([{ file: 'package.json', base: 'root', reason: 'x' }])
+  })
+})
+
 describe('isOutsideDir', () => {
   it('only a real `..` segment leaves the repository', () => {
     expect(isOutsideDir('/r/repo', '/r/snap')).toBe(true)
@@ -255,6 +413,18 @@ describe('oss/manifest.json', () => {
       })
     for (const m of manifest.forbiddenMarkers ?? [])
       expect(() => new RegExp(m.pattern)).not.toThrow()
+  })
+
+  it('every configRefFiles entry declares its base and every config file of the repo is listed', () => {
+    const entries = parseConfigRefFiles(manifest.configRefFiles ?? [])
+    const tracked = execFileSync('git', ['ls-files', '-z'], {
+      cwd: join(__dirname, '../..'),
+      encoding: 'utf8',
+    })
+      .split('\0')
+      .filter(Boolean)
+    const cls = classifyFiles(tracked, manifest)
+    expect(findUncoveredConfigFiles(cls.included, entries)).toEqual([])
   })
 
   it('keeps the LUM-1033 D1 exclusions private and the lumo skill public', () => {

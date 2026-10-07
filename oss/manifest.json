@@ -376,11 +376,68 @@
     }
   ],
   "configRefFiles": [
-    "package.json",
-    ".husky/pre-commit",
-    ".husky/commit-msg",
-    ".lintstagedrc.json",
-    "vercel.json"
+    {
+      "file": "package.json",
+      "base": "configDir",
+      "reason": "npm runs scripts in the package directory (here the snapshot root)"
+    },
+    {
+      "file": "cli/package.json",
+      "base": "configDir",
+      "ignore": ["dist/**"],
+      "reason": "npm runs cli scripts inside cli/; dist/ is build output"
+    },
+    {
+      "file": "shared/package.json",
+      "base": "configDir",
+      "ignore": ["dist/**"],
+      "reason": "main/types resolve inside shared/; dist/ is build output"
+    },
+    {
+      "file": ".claude/package.json",
+      "base": "configDir",
+      "reason": "package manifest; paths resolve inside .claude/"
+    },
+    {
+      "file": ".husky/pre-commit",
+      "base": "root",
+      "reason": "git runs hooks from the repository root, not from .husky/"
+    },
+    {
+      "file": ".husky/commit-msg",
+      "base": "root",
+      "reason": "git runs hooks from the repository root, not from .husky/"
+    },
+    {
+      "file": ".lintstagedrc.json",
+      "base": "root",
+      "reason": "lint-staged runs commands from the git root"
+    },
+    {
+      "file": "vercel.json",
+      "base": "configDir",
+      "reason": "Vercel resolves buildCommand/functions against the project dir (vercel.json's dir)"
+    },
+    {
+      "file": "jest.config.js",
+      "base": "configDir",
+      "reason": "jest <rootDir> defaults to the config file's directory"
+    },
+    {
+      "file": "tsconfig.json",
+      "base": "configDir",
+      "reason": "tsc resolves include/extends/baseUrl relative to the tsconfig"
+    },
+    {
+      "file": "cli/tsconfig.json",
+      "base": "configDir",
+      "reason": "tsc resolves include/extends/rootDirs relative to the tsconfig"
+    },
+    {
+      "file": "shared/tsconfig.json",
+      "base": "configDir",
+      "reason": "tsc resolves include/rootDir relative to the tsconfig"
+    }
   ],
   "forbiddenMarkers": [
     {
