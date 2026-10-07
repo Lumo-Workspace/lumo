@@ -62,6 +62,7 @@ describe('(a) the env handed to the agent', () => {
     process.env = { ...saved }
   })
 
+  // runClaude below has a 20 s budget; jest's 5 s default flaked under a full run.
   it('has no *_API_KEY, no AI_GATEWAY_* and no value equal to the real key', async () => {
     process.env.AI_GATEWAY_API_KEY = FAKE_KEY
     process.env.ANTHROPIC_API_KEY = FAKE_KEY
@@ -83,7 +84,7 @@ describe('(a) the env handed to the agent', () => {
     expect(Object.keys(env).filter(k => k.startsWith('AI_GATEWAY'))).toEqual([])
     expect(Object.values(env).filter(v => v.includes(FAKE_KEY))).toEqual([])
     expect(env.ANTHROPIC_BASE_URL).toBe('http://127.0.0.1:9')
-  })
+  }, 30_000)
 
   it('refuses a non-loopback base URL, so the agent can only reach the local proxy', async () => {
     const root = join(tmp, 'episodes')
@@ -100,7 +101,7 @@ describe('(a) the env handed to the agent', () => {
       })
     ).rejects.toThrow(/loopback/)
     expect(existsSync(join(sb.dir, 'claude.stdout.json'))).toBe(false)
-  })
+  }, 30_000)
 })
 
 describe('(b) episode dirs are always fresh', () => {
