@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { getCurrentUser, requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { sendInvitesSchema } from '@/lib/validation/schemas'
 import { sendEmail, buildInviteEmail } from '@/lib/integrations/email'
@@ -26,8 +25,8 @@ export async function POST(request: NextRequest) {
     if (memberResult instanceof NextResponse) return memberResult
     const member = memberResult
 
-    // Get inviter name from Clerk
-    const clerkUser = await currentUser()
+    // Get inviter name from the auth provider
+    const clerkUser = await getCurrentUser()
     const inviterFirstName =
       clerkUser?.firstName ??
       clerkUser?.emailAddresses[0]?.emailAddress ??

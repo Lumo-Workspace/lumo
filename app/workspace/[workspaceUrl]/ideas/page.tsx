@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUserId } from '@/lib/auth'
 import { prisma } from '@/lib/db/prisma'
 import WorkspaceApp from '../WorkspaceApp'
 
@@ -9,7 +9,7 @@ export default async function IdeasPage({
   params: Promise<{ workspaceUrl: string }>
 }) {
   const { workspaceUrl } = await params
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
 
   if (!userId) redirect('/signin')
 

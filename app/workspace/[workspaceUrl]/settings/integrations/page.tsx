@@ -1,5 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
-import { getUserWorkspace } from '@/lib/auth'
+import { getCurrentUserId, getUserWorkspace } from '@/lib/auth'
 import { configuredRegistryIntegrations } from '@/lib/integrations/configured'
 import { IntegrationsPage } from '../../components/pages/IntegrationsPage'
 
@@ -9,7 +8,7 @@ export default async function IntegrationsSettingsPage({
   params: Promise<{ workspaceUrl: string }>
 }) {
   const { workspaceUrl } = await params
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
   let isOwner = false
   if (userId) {
     // The page's own workspace, not the user's default (LUM-987).

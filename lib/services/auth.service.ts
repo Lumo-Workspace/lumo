@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 
 /**
@@ -81,8 +81,8 @@ export const authService = {
    * hook, MCP, and other machine-only paths should skip this.
    */
   async fetchUserProfile(clerkId: string): Promise<UserProfile> {
-    const client = await clerkClient()
-    const clerkUser = await client.users.getUser(clerkId)
+    const client = await getUserDirectory()
+    const clerkUser = await client.getUser(clerkId)
 
     const email =
       clerkUser.emailAddresses.find(

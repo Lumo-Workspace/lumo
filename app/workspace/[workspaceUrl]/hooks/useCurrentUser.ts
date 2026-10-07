@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useUser } from '@/lib/auth/client'
 
 export interface CurrentUser {
   /** Clerk user ID */
@@ -23,7 +23,7 @@ export interface UseCurrentUserReturn {
 }
 
 /**
- * Thin wrapper around Clerk's useUser that flattens deeply nested fields
+ * Thin wrapper around the auth provider's useUser that flattens deeply nested fields
  * (email, displayName, initials) so consumers don't violate LoD.
  */
 export function useCurrentUser(): UseCurrentUserReturn {

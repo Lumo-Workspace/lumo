@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUserId } from './clerk/session'
 import { verifyBearer } from './bearer'
 import { resolveActiveMembership } from './index'
 import {
@@ -74,7 +74,7 @@ export async function requireIdentity(
   }
 
   // 2. Clerk session (browser) ─────────────────────────────────────────
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

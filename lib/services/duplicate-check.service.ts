@@ -69,9 +69,9 @@ A score of 1.0 means exact duplicate, 0.8+ means very similar, 0.5-0.8 means rel
   let clerkNameMap = new Map<string, string>()
   if (uniqueClerkIds.length > 0) {
     try {
-      const { clerkClient } = await import('@clerk/nextjs/server')
-      const client = await clerkClient()
-      const users = await client.users.getUserList({
+      const { getUserDirectory } = await import('@/lib/auth/users')
+      const client = await getUserDirectory()
+      const users = await client.getUserList({
         userId: uniqueClerkIds,
         limit: uniqueClerkIds.length,
       })

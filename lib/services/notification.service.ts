@@ -118,20 +118,18 @@ export const notificationService = {
       ),
     ]
     const refIdsOf = (key: 'projectId' | 'milestoneId' | 'documentId') => [
-      ...new Set(
-        rawNotifications.map(n => n[key]).filter(Boolean) as string[]
-      ),
+      ...new Set(rawNotifications.map(n => n[key]).filter(Boolean) as string[]),
     ]
     const projectIds = refIdsOf('projectId')
     const milestoneIds = refIdsOf('milestoneId')
     const documentIds = refIdsOf('documentId')
 
     // Batch-fetch Clerk profiles for HUMAN trigger actors
-    const { clerkClient } = await import('@clerk/nextjs/server')
-    const clerk = await clerkClient()
+    const { getUserDirectory } = await import('@/lib/auth/users')
+    const clerk = await getUserDirectory()
     const clerkUsers =
       humanClerkIds.length > 0
-        ? await clerk.users.getUserList({
+        ? await clerk.getUserList({
             userId: humanClerkIds,
             limit: humanClerkIds.length,
           })
@@ -170,9 +168,7 @@ export const notificationService = {
       const task = n.taskId ? taskMap.get(n.taskId) : null
       const sprint = n.sprintId ? sprintMap.get(n.sprintId) : null
       const project = n.projectId ? projectMap.get(n.projectId) : null
-      const milestone = n.milestoneId
-        ? milestoneMap.get(n.milestoneId)
-        : null
+      const milestone = n.milestoneId ? milestoneMap.get(n.milestoneId) : null
       const doc = n.documentId ? documentMap.get(n.documentId) : null
       // Resolve actor display info from the trigger relation
       let actor: { name: string; imageUrl: string | null } | null = null

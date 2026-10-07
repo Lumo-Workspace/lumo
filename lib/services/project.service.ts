@@ -65,9 +65,9 @@ export const projectService = {
     )
     const nameByClerkId = new Map<string, string>()
     if (clerkIds.length > 0) {
-      const { clerkClient } = await import('@clerk/nextjs/server')
-      const clerk = await clerkClient()
-      const { data: users } = await clerk.users.getUserList({
+      const { getUserDirectory } = await import('@/lib/auth/users')
+      const clerk = await getUserDirectory()
+      const { data: users } = await clerk.getUserList({
         userId: clerkIds,
         limit: clerkIds.length,
       })

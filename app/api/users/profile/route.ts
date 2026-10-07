@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { requireAuth } from '@/lib/auth'
 
 /**
@@ -32,8 +32,8 @@ export async function PATCH(request: Request) {
     if (firstName) update.firstName = firstName
     if (lastName) update.lastName = lastName
 
-    const client = await clerkClient()
-    await client.users.updateUser(userId, update)
+    const users = await getUserDirectory()
+    await users.updateUser(userId, update)
 
     return NextResponse.json({ ok: true })
   } catch (error) {

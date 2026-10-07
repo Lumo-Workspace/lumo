@@ -56,7 +56,8 @@ const AUTH_GUARDS = new Set([
   'lib/auth/clerk-webhook#verifyClerkWebhook',
   'lib/services/auth.service#authService.verifyApiKey',
   // app/api/mcp: passed to `withMcpAuth(..., { required: true })`.
-  '@clerk/mcp-tools/server#verifyClerkToken',
+  // LUM-1026: the @/lib/auth wrapper around Clerk's verifyClerkToken.
+  'lib/auth/mcp#verifyMcpAccessToken',
 ])
 
 const AUTH_DELEGATES = new Set([

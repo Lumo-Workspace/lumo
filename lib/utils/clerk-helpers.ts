@@ -1,4 +1,4 @@
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 
 export interface CachedClerkUser {
   name: string
@@ -30,8 +30,8 @@ export async function getClerkUser(clerkId: string): Promise<CachedClerkUser> {
   }
 
   try {
-    const client = await clerkClient()
-    const clerkUser = await client.users.getUser(clerkId)
+    const client = await getUserDirectory()
+    const clerkUser = await client.getUser(clerkId)
 
     const firstName = clerkUser.firstName ?? ''
     const lastName = clerkUser.lastName ?? ''
@@ -60,8 +60,8 @@ export async function enrichClerkUsers(
   clerkIds: string[]
 ): Promise<Map<string, EnrichedUser>> {
   if (clerkIds.length === 0) return new Map()
-  const client = await clerkClient()
-  const users = await client.users.getUserList({
+  const client = await getUserDirectory()
+  const users = await client.getUserList({
     userId: clerkIds,
     limit: clerkIds.length,
   })
@@ -92,10 +92,10 @@ export async function lookupClerkProfiles(
 ): Promise<Map<string, ClerkProfile>> {
   const out = new Map<string, ClerkProfile>()
   if (clerkIds.length === 0) return out
-  const client = await clerkClient()
+  const client = await getUserDirectory()
   for (let i = 0; i < clerkIds.length; i += CLERK_USER_LIST_LIMIT) {
     const ids = clerkIds.slice(i, i + CLERK_USER_LIST_LIMIT)
-    const { data } = await client.users.getUserList({
+    const { data } = await client.getUserList({
       userId: [...ids],
       limit: ids.length,
     })

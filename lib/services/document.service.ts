@@ -1,4 +1,4 @@
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import {
   documentRepository,
   type DocumentFilters,
@@ -283,10 +283,10 @@ export const documentService = {
       }
     }
 
-    const client = await clerkClient()
+    const client = await getUserDirectory()
     const clerkUsers =
       allClerkIds.size > 0
-        ? await client.users.getUserList({
+        ? await client.getUserList({
             userId: [...allClerkIds],
             limit: 100,
           })
@@ -357,8 +357,8 @@ export const documentService = {
       allClerkIds.add(s.member.clerkId)
     }
 
-    const client = await clerkClient()
-    const clerkUsers = await client.users.getUserList({
+    const client = await getUserDirectory()
+    const clerkUsers = await client.getUserList({
       userId: [...allClerkIds],
       limit: 100,
     })
@@ -520,8 +520,8 @@ export const documentService = {
     }
 
     // Resolve creator name via Clerk
-    const client = await clerkClient()
-    const clerkUsers = await client.users.getUserList({
+    const client = await getUserDirectory()
+    const clerkUsers = await client.getUserList({
       userId: [document.createdBy.clerkId],
       limit: 1,
     })

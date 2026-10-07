@@ -1,12 +1,20 @@
 /**
- * Clerk Authentication Helpers
+ * Server-side auth interface (LUM-1026) — the only way app code reaches the
+ * auth provider. Clerk is the implementation today (./clerk/*); nothing
+ * outside lib/auth may import a provider SDK (ESLint + a jest guard).
  *
- * Re-exports Clerk server-side auth utilities for convenience.
- * Use these in Server Components and API Routes.
+ * Entry points:
+ *   @/lib/auth            — session + workspace membership (this barrel, server-only)
+ *   @/lib/auth/users      — user directory lookups / profile writes
+ *   @/lib/auth/client     — provider, hooks, sign-in UI for client components
+ *   @/lib/auth/middleware — middleware factory for proxy.ts
+ *   @/lib/auth/mcp        — MCP OAuth access-token verification
+ *   @/lib/auth/oauth-metadata — /.well-known/oauth-* discovery handlers
+ *   @/lib/auth/clerk-webhook — user-sync webhook verification
  *
  * Usage in Server Component:
- *   import { auth, currentUser } from '@/lib/auth'
- *   const { userId } = await auth()
+ *   import { getCurrentUserId } from '@/lib/auth'
+ *   const userId = await getCurrentUserId()
  *
  * Usage in API Route:
  *   import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
@@ -14,9 +22,11 @@
  *   if (authResult instanceof NextResponse) return authResult
  */
 
-export { auth, currentUser } from '@clerk/nextjs/server'
+import { getCurrentUserId, getCurrentUser } from './clerk/session'
 
-import { auth, currentUser } from '@clerk/nextjs/server'
+export { getCurrentUserId, getCurrentUser }
+export type { AuthUser, AuthEmailAddress } from './types'
+
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
@@ -33,7 +43,7 @@ import {
 export async function requireAuth(): Promise<
   { userId: string } | NextResponse
 > {
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -159,11 +169,11 @@ export async function getUserWorkspace(clerkId: string, slug?: string | null) {
 }
 
 /**
- * Emails of the signed-in user that Clerk has verified, lowercased.
+ * Emails of the signed-in user that the auth provider has verified, lowercased.
  * Only these may be used to grant access (e.g. matching workspace invites).
  */
 export async function getVerifiedEmails(): Promise<string[]> {
-  const user = await currentUser()
+  const user = await getCurrentUser()
   if (!user) return []
   return user.emailAddresses
     .filter(e => e.verification?.status === 'verified')

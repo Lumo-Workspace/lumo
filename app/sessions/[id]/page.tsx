@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUserId } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import { sessionDetailService } from '@/lib/services/session-detail.service'
 import { countToolCalls, mergeEvents } from './merge-events'
@@ -22,7 +22,7 @@ export default async function SessionDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
   if (!userId) redirect('/signin')
 
   const { id } = await params

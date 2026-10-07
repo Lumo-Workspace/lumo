@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { requireIdentity } from '@/lib/auth'
 import { getOrCreateHumanActor } from '@/lib/actor'
 import { memberService } from '@/lib/services/member.service'
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
     const members = await memberService.listMembers(workspaceId)
 
     // Batch-fetch Clerk user profiles
-    const client = await clerkClient()
-    const clerkUsers = await client.users.getUserList({
+    const users = await getUserDirectory()
+    const clerkUsers = await users.getUserList({
       userId: members.map(m => m.clerkId),
       // Clerk caps getUserList at 500; the old fixed 100 silently dropped
       // members past the first page in larger workspaces.

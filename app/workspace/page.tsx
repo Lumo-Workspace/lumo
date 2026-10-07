@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@clerk/nextjs/server'
-import { getUserWorkspace } from '@/lib/auth'
+import { getCurrentUserId, getUserWorkspace } from '@/lib/auth'
 
 export default async function WorkspaceIndexPage() {
-  const { userId } = await auth()
+  const userId = await getCurrentUserId()
 
   if (!userId) redirect('/signin')
 
