@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "実行中です。数分後にもう一度確認してください。",
   "securityScan.stageReason.NOT_CONFIGURED": "オフ：この環境では Lumo のマネージドスキャナーがオフで、このリポジトリからスキャナーレポートも送られていません。",
   "securityScan.stageReason.DISABLED": "オフ：このワークスペースのセキュリティ設定でオフになっています。",
-  "securityScan.stageReason.SUPERSEDED": "未完了：このレイヤーが終わる前に、新しい push で新しいスキャンが始まりました。"
+  "securityScan.stageReason.SUPERSEDED": "未完了：このレイヤーが終わる前に、新しい push で新しいスキャンが始まりました。",
+  "integrations.notAvailable": "このデプロイでは利用できません: {names}。認証情報を設定するとここに表示されます。",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo 独自のスキャナーとレビュー検証には Vercel Sandbox が必要ですが、このデプロイでは設定されていません。CI からアップロードされた SARIF は引き続き表示されます。",
+  "workspaceSettings.securityScan.sandboxUnavailable": "このデプロイでは利用できません: Vercel Sandbox が設定されていません。"
 }

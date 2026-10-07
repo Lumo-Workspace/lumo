@@ -1,24 +1,13 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import Pusher from 'pusher-js'
-
-let _pusher: Pusher | null = null
-
-function getPusherClient(): Pusher | null {
-  const key = process.env.NEXT_PUBLIC_PUSHER_KEY
-  const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER
-  if (!key || !cluster) return null
-
-  if (!_pusher) {
-    _pusher = new Pusher(key, { cluster })
-  }
-  return _pusher
-}
+import { getPusherClient } from '@/lib/integrations/pusher/client'
 
 /**
  * Subscribe to a Pusher channel + event. Cleans up on unmount or when
- * channelName / eventName changes.
+ * channelName / eventName changes. A no-op when realtime is not configured
+ * (self-hosted without Pusher/Soketi) — the query client then refetches on
+ * focus/interval instead (lib/query/client.ts).
  */
 export function usePusherEvent<T = unknown>(
   channelName: string | null,

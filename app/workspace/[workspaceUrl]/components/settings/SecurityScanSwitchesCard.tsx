@@ -12,6 +12,12 @@ interface SecurityScanSwitchesCardProps {
   initial: WorkspaceSecuritySwitches
   /** False when the platform env turned the hunt off: shown off, locked. */
   huntAvailable: boolean
+  /**
+   * LUM-1025 — false when Vercel Sandbox is not configured on this
+   * deployment: the managed scanners and the hunt cannot run, and the notes
+   * say so instead of blaming a platform-wide switch.
+   */
+  sandboxAvailable: boolean
 }
 
 interface SwitchRowProps {
@@ -60,6 +66,7 @@ function SwitchRow({
 export function SecurityScanSwitchesCard({
   initial,
   huntAvailable,
+  sandboxAvailable,
 }: SecurityScanSwitchesCardProps) {
   const intl = useIntl()
   const [switches, setSwitches] = useState<WorkspaceSecuritySwitches>(initial)
@@ -97,7 +104,9 @@ export function SecurityScanSwitchesCard({
     save({ all: allOff }, allOff ? 'allEnabled' : 'allDisabled')
 
   const scanOn = switches.securityScanEnabled
-  const platformNote = t('platformOff')
+  const platformNote = t(
+    sandboxAvailable ? 'platformOff' : 'sandboxUnavailable'
+  )
 
   return (
     <div className='rounded-lg border border-border overflow-hidden mb-8'>
@@ -124,6 +133,7 @@ export function SecurityScanSwitchesCard({
         description={t('scan.description')}
         checked={scanOn}
         disabled={saving}
+        note={sandboxAvailable ? undefined : t('scan.sandboxUnavailable')}
         onChange={set('securityScanEnabled')}
       />
       <SwitchRow

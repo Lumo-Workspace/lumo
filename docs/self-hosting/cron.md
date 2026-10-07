@@ -66,8 +66,11 @@ PRs: `sweep-unconfirmed-scan-code`, `sweep-expired-scan-evidence` and
 `recheck-github-access` are what delete stored scan code once it is no longer
 needed.
 
-`triage-crossings` calls a model every 5 minutes for workspaces with AI review
-on; disable it if you have no model provider configured.
+`triage-crossings` calls an evaluation model every 5 minutes for workspaces with
+AI review on. Evaluation models exist only on the Vercel AI Gateway, so the job
+cannot run on direct provider keys (`ANTHROPIC_API_KEY` /
+`OPENAI_COMPATIBLE_BASE_URL`, see `.env.example`); disable it unless
+`AI_GATEWAY_API_KEY` is set.
 
 ## Changing the schedule
 

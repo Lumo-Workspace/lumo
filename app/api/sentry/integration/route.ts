@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { sentryService } from '@/lib/services/sentry.service'
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('sentry')
+  if (notConfigured) return notConfigured
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult

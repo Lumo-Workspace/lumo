@@ -13,6 +13,8 @@
  * forced ZDR flag would be refused. Callers decide what they may send.
  */
 
+import { resolveAiRoute } from './routing'
+
 const GATEWAY_EVALUATION_URL =
   'https://ai-gateway.vercel.sh/v4/ai/evaluation-model'
 const PROTOCOL_VERSION = '0.0.1'
@@ -74,6 +76,13 @@ export async function evaluateBoolean(
   input: BooleanEvaluationInput,
   fetchImpl: typeof fetch = fetch
 ): Promise<BooleanEvaluationResult> {
+  // LUM-1019 — evaluation models exist only on the AI Gateway; a self-hosted
+  // deployment routing direct (or with no AI at all) has nowhere to send this.
+  if (resolveAiRoute().kind !== 'gateway') {
+    throw new EvaluationError(
+      'evaluation models need the AI Gateway (AI_GATEWAY_API_KEY); this deployment does not route through it'
+    )
+  }
   let res: Response
   try {
     res = await fetchImpl(GATEWAY_EVALUATION_URL, {

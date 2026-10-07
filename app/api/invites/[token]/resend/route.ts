@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
-import { getResend, buildInviteEmail } from '@/lib/integrations/email'
+import { sendEmail, buildInviteEmail } from '@/lib/integrations/email'
 import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
 import { inviteRepository } from '@/lib/repositories/invite.repository'
@@ -46,14 +46,8 @@ export async function POST(
       inviteUrl,
     })
 
-    const resend = getResend()
-    await resend.emails.send(
-      {
-        from: 'Lumo <noreply@uselumo.ai>',
-        to: [invite.email],
-        subject,
-        html,
-      },
+    await sendEmail(
+      { to: [invite.email], subject, html },
       { idempotencyKey: `workspace-invite-resend/${invite.id}-${Date.now()}` }
     )
 

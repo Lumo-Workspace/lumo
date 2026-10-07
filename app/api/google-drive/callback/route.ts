@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { memberAuditContext } from '@/lib/api/audit-context'
 import {
@@ -7,6 +8,9 @@ import {
 } from '@/lib/services/google-drive-integration.service'
 
 export async function GET(request: NextRequest) {
+  // LUM-1025: not configured on this deployment → 404, never a 500.
+  const notConfigured = requireIntegrationConfigured('googleDrive')
+  if (notConfigured) return notConfigured
   const code = request.nextUrl.searchParams.get('code')
   const state = request.nextUrl.searchParams.get('state')
   const errorParam = request.nextUrl.searchParams.get('error')

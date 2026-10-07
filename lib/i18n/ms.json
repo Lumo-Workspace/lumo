@@ -2769,5 +2769,8 @@
   "securityScan.stageReason.PENDING": "Masih berjalan — semak semula dalam beberapa minit.",
   "securityScan.stageReason.NOT_CONFIGURED": "Mati: pengimbas terurus Lumo dimatikan pada deployment ini dan repositori ini belum menghantar laporan pengimbas.",
   "securityScan.stageReason.DISABLED": "Mati: dimatikan dalam tetapan keselamatan ruang kerja ini.",
-  "securityScan.stageReason.SUPERSEDED": "Tidak selesai: push yang lebih baharu memulakan imbasan baharu sebelum lapisan ini selesai."
+  "securityScan.stageReason.SUPERSEDED": "Tidak selesai: push yang lebih baharu memulakan imbasan baharu sebelum lapisan ini selesai.",
+  "integrations.notAvailable": "Tidak tersedia pada deployment ini: {names}. Ia akan muncul di sini setelah kelayakannya dikonfigurasikan.",
+  "workspaceSettings.securityScan.scan.sandboxUnavailable": "Pengimbas Lumo sendiri dan pengesah semakan memerlukan Vercel Sandbox, yang belum dikonfigurasikan pada deployment ini. SARIF yang dimuat naik oleh CI anda masih dipaparkan.",
+  "workspaceSettings.securityScan.sandboxUnavailable": "Tidak tersedia pada deployment ini: Vercel Sandbox belum dikonfigurasikan."
 }

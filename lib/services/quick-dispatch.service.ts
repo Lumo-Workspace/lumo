@@ -2,6 +2,7 @@ import { GENERATION_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
+import { isAiUnavailableError } from '@/lib/ai/routing'
 import { clerkClient } from '@clerk/nextjs/server'
 import { taskService } from '@/lib/services/task.service'
 import {
@@ -198,10 +199,22 @@ export const quickDispatchService = {
     // Step 1: Run rule parser
     const ruleResult = parseQuickDispatch(input, mentions ?? [])
 
-    // Step 2: If unparsed text remains, call AI
+    // Step 2: If unparsed text remains, call AI. LUM-1019 — when this
+    // deployment cannot serve the model (no AI backend, or a direct provider
+    // with no mapping for it) the rule-parsed actions still go through; with
+    // none, the 503 says why. `gateway()` throws before any request is sent.
     let aiActions: QuickAction[] = []
-
+    let model: ReturnType<typeof gateway> | null = null
     if (ruleResult.unparsed) {
+      try {
+        model = gateway(GENERATION_MODEL)
+      } catch (err) {
+        if (!isAiUnavailableError(err) || ruleResult.actions.length === 0)
+          throw err
+      }
+    }
+
+    if (model) {
       const member = await memberRepository.findByWorkspaceAndClerkId(
         workspaceId,
         userId
@@ -258,7 +271,7 @@ export const quickDispatchService = {
       })
 
       const { object } = await generateObject({
-        model: gateway(GENERATION_MODEL),
+        model,
         schema: QuickDispatchV2ResponseSchema,
         system: QUICK_DISPATCH_V2_SYSTEM_PROMPT,
         prompt,
