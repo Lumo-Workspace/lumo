@@ -255,7 +255,9 @@ describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
       '/api/auth/callback/github',
       'AUTH_DISABLE_SIGNUP',
       'SMTP_URL=smtp://mailpit:1025',
-      'LUM-1044',
+      // MCP OAuth is served by the instance itself (LUM-1044).
+      '<BETTER_AUTH_URL>/api/mcp',
+      '/oauth/consent',
     ]) {
       expect(guide).toContain(needle)
     }

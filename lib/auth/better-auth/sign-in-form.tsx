@@ -21,6 +21,7 @@ import {
   errorMessageId,
   safeRedirectTarget,
 } from './sign-in-helpers'
+import { oauthRedirectUrl } from './consent-helpers'
 
 type Mode = 'signIn' | 'signUp'
 
@@ -70,8 +71,11 @@ export function SignIn() {
     setErrorId(null)
     const authClient = getAuthClient()
     let code: string | null = null
+    // Set when this sign-in continues an MCP client's OAuth authorization
+    // (LUM-1044): the server answers with the consent page or the client.
+    let continueTo: string | null = null
     try {
-      const { error } = isSignUp
+      const { data, error } = isSignUp
         ? await authClient.signUp.email({
             name: name.trim(),
             email: email.trim(),
@@ -79,6 +83,7 @@ export function SignIn() {
           })
         : await authClient.signIn.email({ email: email.trim(), password })
       code = error ? (error.code ?? '') : null
+      continueTo = oauthRedirectUrl(data)
     } catch {
       code = '' // network failure → generic message
     }
@@ -88,7 +93,7 @@ export function SignIn() {
       return
     }
     // Full navigation so server components see the new session cookie.
-    hardNavigate(target)
+    hardNavigate(continueTo ?? target)
   }
 
   const handleSocial = async (provider: SocialProviderId) => {

@@ -3943,6 +3943,11 @@ model AuthUser {
   sessions AuthSession[]
   accounts AuthAccount[]
 
+  oauthClients       AuthOauthClient[]
+  oauthRefreshTokens AuthOauthRefreshToken[]
+  oauthAccessTokens  AuthOauthAccessToken[]
+  oauthConsents      AuthOauthConsent[]
+
   @@map("auth_users")
 }
 
@@ -3957,6 +3962,9 @@ model AuthSession {
   userId    String
 
   user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  oauthRefreshTokens AuthOauthRefreshToken[]
+  oauthAccessTokens  AuthOauthAccessToken[]
 
   @@index([userId])
   @@map("auth_sessions")
@@ -3994,4 +4002,206 @@ model AuthVerification {
 
   @@index([identifier])
   @@map("auth_verifications")
+}
+
+// ─── MCP OAuth authorization server (LUM-1044) ──────────────────────────────
+// Better Auth `jwt` + `@better-auth/oauth-provider` tables, used only when
+// AUTH_PROVIDER=better-auth. Column names are the plugins' field names (the
+// Prisma adapter addresses them directly); JSON fields are stored as text
+// because the adapter serialises them. The SaaS (Clerk) deployment never
+// writes here.
+
+/// Signing keys of the `jwt` plugin (private keys encrypted with BETTER_AUTH_SECRET).
+model AuthJwks {
+  id         String    @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+
+  @@map("auth_jwks")
+}
+
+/// An OAuth client (in practice: an MCP client that registered dynamically).
+model AuthOauthClient {
+  id                               String    @id
+  clientId                         String    @unique
+  clientSecret                     String?
+  clientDiscoveryId                String?
+  disabled                         Boolean?  @default(false)
+  skipConsent                      Boolean?
+  enableEndSession                 Boolean?
+  subjectType                      String?
+  scopes                           String[]
+  clientCredentialsScopes          String[]
+  userId                           String?
+  createdAt                        DateTime?
+  updatedAt                        DateTime?
+  name                             String?
+  uri                              String?
+  icon                             String?
+  contacts                         String[]
+  tos                              String?
+  policy                           String?
+  softwareId                       String?
+  softwareVersion                  String?
+  softwareStatement                String?
+  redirectUris                     String[]
+  postLogoutRedirectUris           String[]
+  backchannelLogoutUri             String?
+  backchannelLogoutSessionRequired Boolean?
+  tokenEndpointAuthMethod          String?
+  applicationType                  String?
+  jwks                             String?
+  jwksUri                          String?
+  grantTypes                       String[]
+  responseTypes                    String[]
+  requirePKCE                      Boolean?
+  dpopBoundAccessTokens            Boolean?  @default(false)
+  referenceId                      String?
+  metadata                         String?
+
+  user          AuthUser?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resources     AuthOauthClientResource[]
+  refreshTokens AuthOauthRefreshToken[]
+  accessTokens  AuthOauthAccessToken[]
+  consents      AuthOauthConsent[]
+
+  @@index([userId])
+  @@map("auth_oauth_clients")
+}
+
+/// A protected resource tokens are issued for (RFC 8707) — the MCP endpoint.
+model AuthOauthResource {
+  id                            String    @id
+  identifier                    String    @unique
+  name                          String
+  accessTokenTtl                Int?
+  refreshTokenTtl               Int?
+  signingAlgorithm              String?
+  signingKeyId                  String?
+  allowedScopes                 String[]
+  customClaims                  String?
+  dpopBoundAccessTokensRequired Boolean?  @default(false)
+  disabled                      Boolean?  @default(false)
+  createdAt                     DateTime?
+  updatedAt                     DateTime?
+  policyVersion                 Int?      @default(1)
+  metadata                      String?
+
+  clients AuthOauthClientResource[]
+
+  @@map("auth_oauth_resources")
+}
+
+/// Which client may request which resource.
+model AuthOauthClientResource {
+  id         String    @id
+  clientId   String
+  resourceId String
+  metadata   String?
+  createdAt  DateTime?
+
+  client   AuthOauthClient   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  resource AuthOauthResource @relation(fields: [resourceId], references: [identifier], onDelete: Cascade)
+
+  @@unique([clientId, resourceId])
+  @@index([clientId])
+  @@index([resourceId])
+  @@map("auth_oauth_client_resources")
+}
+
+/// A rotating refresh token (`offline_access`); stored hashed.
+model AuthOauthRefreshToken {
+  id                      String    @id
+  token                   String    @unique
+  clientId                String
+  sessionId               String?
+  userId                  String
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  expiresAt               DateTime
+  createdAt               DateTime
+  revoked                 DateTime?
+  rotatedAt               DateTime?
+  rotationReplayResponse  String?
+  rotationReplayExpiresAt DateTime?
+  authTime                DateTime?
+  confirmation            String?
+  scopes                  String[]
+
+  client       AuthOauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  session      AuthSession?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user         AuthUser               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessTokens AuthOauthAccessToken[]
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@map("auth_oauth_refresh_tokens")
+}
+
+/// An opaque access token (issued only when no resource is bound — the MCP
+/// endpoint rejects those; resource-bound tokens are JWTs and not stored).
+model AuthOauthAccessToken {
+  id                      String    @id
+  token                   String?   @unique
+  clientId                String
+  sessionId               String?
+  userId                  String?
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  refreshId               String?
+  expiresAt               DateTime
+  createdAt               DateTime
+  revoked                 DateTime?
+  confirmation            String?
+  scopes                  String[]
+
+  client  AuthOauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  session AuthSession?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user    AuthUser?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refresh AuthOauthRefreshToken? @relation(fields: [refreshId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@index([refreshId])
+  @@map("auth_oauth_access_tokens")
+}
+
+/// A user's consent to a client for a set of scopes.
+model AuthOauthConsent {
+  id                      String   @id
+  clientId                String
+  userId                  String?
+  referenceId             String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  scopes                  String[]
+  createdAt               DateTime
+  updatedAt               DateTime
+
+  client AuthOauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  user   AuthUser?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("auth_oauth_consents")
+}
+
+/// Single-use `jti` tombstones for `private_key_jwt` client assertions.
+model AuthOauthClientAssertion {
+  id        String   @id
+  expiresAt DateTime
+
+  @@map("auth_oauth_client_assertions")
 }

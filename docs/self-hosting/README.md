@@ -138,8 +138,14 @@ bundled Postgres. No Clerk account or `CLERK_*` variable is involved.
   `AUTH_GITHUB_CLIENT_SECRET` (or the `AUTH_GOOGLE_*` pair). The button
   appears once both are set; no rebuild needed. These are separate from the
   `GITHUB_CLIENT_*` variables of the GitHub integration.
-- **Not available yet:** MCP OAuth — `/api/mcp` answers 501 in this mode
-  (LUM-1044), so MCP clients cannot connect. The Lumo CLI works.
+- **MCP clients** (Claude, MCP Inspector, …) connect to
+  `<BETTER_AUTH_URL>/api/mcp`; this instance serves the OAuth flow itself
+  (discovery, dynamic client registration, PKCE, consent at
+  `/oauth/consent`). `BETTER_AUTH_URL` (or `NEXT_PUBLIC_APP_URL`) must be the
+  public URL — issuer and token audience derive from it; without it
+  `/api/mcp` answers 501. Redirect URIs must be `https://` or
+  `http://localhost`, so clients that use a custom scheme (e.g. `cursor://`)
+  cannot register yet. The Lumo CLI uses API keys.
 
 Clerk is what the hosted service uses. `docker-compose.yml` does not support
 it; to run a Clerk image anyway, build with

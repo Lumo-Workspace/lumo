@@ -29,6 +29,8 @@ import {
   resolveSocialProviders,
 } from './config'
 import { nameFieldsForCreate, nameFieldsForUpdate } from './user-shape'
+import { resolveMcpOAuthUrls } from './mcp-oauth-config'
+import { MCP_OAUTH_DISABLED_PATHS, mcpOAuthPlugins } from './mcp-oauth-plugins'
 import { buildVerifyEmail } from '@/lib/integrations/email/templates/verify-email'
 
 /** Session cookie cache: page loads skip the DB for this many seconds. */
@@ -51,6 +53,9 @@ const lumoPublicConfigPlugin = {
 } satisfies BetterAuthPlugin
 
 function createBetterAuth() {
+  // MCP OAuth (LUM-1044) needs a fixed public URL for its issuer and token
+  // audience; without BETTER_AUTH_URL / NEXT_PUBLIC_APP_URL it stays off.
+  const mcpOAuthUrls = resolveMcpOAuthUrls()
   return betterAuth({
     secret: resolveBetterAuthSecret(),
     baseURL: resolveBetterAuthBaseUrl(),
@@ -126,7 +131,13 @@ function createBetterAuth() {
         },
       },
     },
-    plugins: [lumoPublicConfigPlugin, nextCookies()],
+    disabledPaths: mcpOAuthUrls ? MCP_OAUTH_DISABLED_PATHS : [],
+    plugins: [
+      lumoPublicConfigPlugin,
+      ...(mcpOAuthUrls ? mcpOAuthPlugins(mcpOAuthUrls) : []),
+      // Must stay last: sets cookies from server actions.
+      nextCookies(),
+    ],
   })
 }
 
