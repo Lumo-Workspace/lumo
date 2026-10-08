@@ -13,11 +13,9 @@
  */
 const mockVerifyClerkToken = jest.fn()
 const mockClerkAuth = jest.fn()
-jest.mock(
-  '@clerk/mcp-tools/server',
-  () => ({ verifyClerkToken: (...a: unknown[]) => mockVerifyClerkToken(...a) }),
-  { virtual: true }
-)
+jest.mock('@clerk/mcp-tools/server', () => ({
+  verifyClerkToken: (...a: unknown[]) => mockVerifyClerkToken(...a),
+}))
 const mockClerkMetadata = jest.fn()
 jest.mock(
   '@clerk/mcp-tools/next',

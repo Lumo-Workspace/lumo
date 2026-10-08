@@ -54,17 +54,13 @@ jest.mock('@/lib/mcp/audit', () => ({
 // Note: FIXTURE_AUTH_INFO is inlined in the factory — jest.mock factories are
 // hoisted before const declarations so we cannot reference module-level vars.
 
-jest.mock(
-  '@clerk/mcp-tools/server',
-  () => ({
-    verifyClerkToken: jest.fn().mockReturnValue({
-      token: 'fixture-bearer-token',
-      clientId: 'test_client',
-      scopes: [],
-    }),
+jest.mock('@clerk/mcp-tools/server', () => ({
+  verifyClerkToken: jest.fn().mockReturnValue({
+    token: 'fixture-bearer-token',
+    clientId: 'test_client',
+    scopes: [],
   }),
-  { virtual: true }
-)
+}))
 
 jest.mock('@clerk/nextjs/server', () => ({
   auth: jest.fn().mockResolvedValue({ userId: 'test_user_clerk_id' }),

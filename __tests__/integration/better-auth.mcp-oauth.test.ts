@@ -30,11 +30,9 @@ jest.unmock('@prisma/client')
 jest.mock('@/lib/integrations/github/auth', () => ({}))
 // The Clerk MCP helpers (ESM-only for jest) must never run in this mode.
 const clerkCalled = jest.fn()
-jest.mock(
-  '@clerk/mcp-tools/server',
-  () => ({ verifyClerkToken: (...a: unknown[]) => clerkCalled(...a) }),
-  { virtual: true }
-)
+jest.mock('@clerk/mcp-tools/server', () => ({
+  verifyClerkToken: (...a: unknown[]) => clerkCalled(...a),
+}))
 jest.mock(
   '@clerk/mcp-tools/next',
   () => ({
