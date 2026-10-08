@@ -5,9 +5,10 @@
  * process and must be started once at boot: `world.start()` launches the
  * worker and re-enqueues every pending/running run, which is how an
  * in-flight export resumes after a restart. This follows the official
- * `instrumentation.ts` example (`getWorld().start?.()`), but only when the
- * Postgres World is selected — the Vercel World needs no start, and the
- * Vercel deployment path must not change.
+ * `instrumentation.ts` example (`(await getWorld()).start?.()` — `getWorld()`
+ * is async since Workflow SDK 5), but only when the Postgres World is
+ * selected — the Vercel World needs no start, and the Vercel deployment path
+ * must not change.
  *
  * Node runtime only (imported lazily from `instrumentation.ts`).
  */
@@ -22,13 +23,17 @@ interface StartableWorld {
 }
 
 export interface StartDeps {
-  /** Resolves the runtime's world singleton (`workflow/runtime#getWorld`). */
-  getWorld: () => StartableWorld | Promise<StartableWorld>
+  /**
+   * Resolves the runtime's world singleton (`workflow/runtime#getWorld`,
+   * async since Workflow SDK 5 — a missed `await` would read `.start` off the
+   * promise and silently never start the worker).
+   */
+  getWorld: () => Promise<StartableWorld>
 }
 
 async function defaultGetWorld(): Promise<StartableWorld> {
   const { getWorld } = await import('workflow/runtime')
-  return getWorld() as StartableWorld
+  return await getWorld()
 }
 
 /**

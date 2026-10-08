@@ -5,22 +5,24 @@ import { sameSecret } from '@/lib/api/cron-auth'
  * LUM-1031 — the gate on the Workflow SDK's delivery routes when Lumo is
  * self-hosted.
  *
- * `withWorkflow` generates `/.well-known/workflow/v1/{flow,step,webhook/[token]}`
- * and `proxy.ts` makes `/.well-known/(.*)` public. On Vercel that is fine: the
- * Vercel World's queue authenticates its own deliveries. Self-hosted on the
- * Postgres World it is not: the graphile-worker job runner POSTs each job to
- * those routes over loopback HTTP carrying only `x-vqs-*` headers
- * (`@workflow/world-postgres/dist/queue.js:280-300`), and the receiving
- * handler checks only that those headers are present
- * (`@workflow/world-local/dist/queue.js:262-279`). Anyone who can reach the
+ * `withWorkflow` generates `/.well-known/workflow/v1/{flow,webhook/[token]}`
+ * (since Workflow SDK 5 the flow route also serves step deliveries — the 4.x
+ * `/step` route is gone) and `proxy.ts` makes `/.well-known/(.*)` public. On
+ * Vercel that is fine: the Vercel World's queue authenticates its own
+ * deliveries. Self-hosted on the Postgres World it is not: the graphile-worker
+ * job runner POSTs each job to the flow route over loopback HTTP carrying only
+ * `x-vqs-*` headers (`@workflow/world-postgres/dist/queue.js:411-440`), and
+ * the receiving handler checks only that those headers are present
+ * (`@workflow/world-local/dist/queue.js:326-345`). Anyone who can reach the
  * app could otherwise run arbitrary workflow steps.
  *
  * How the worker carries the credential: the delivery base URL is
- * `WORKFLOW_LOCAL_BASE_URL` verbatim when set (`queue.js:188-191`), the route
+ * `WORKFLOW_LOCAL_BASE_URL` verbatim when set (`queue.js:322-325`), the route
  * URL keeps its userinfo (`@workflow/utils/dist/workflow-routes.js:14-20`),
  * and the transport hands that URL to `node:http.request`
  * (`@workflow/world/dist/node-http.js:284`), which turns `user:pass@` into
- * `Authorization: Basic …`. So the operator sets
+ * `Authorization: Basic …`. (Line numbers: workflow 5.1.0 /
+ * world-postgres 5.0.2.) So the operator sets
  *
  *     WORKFLOW_SECRET=<random>
  *     WORKFLOW_LOCAL_BASE_URL=http://workflow:<url-encoded WORKFLOW_SECRET>@localhost:3000
@@ -38,7 +40,8 @@ const WORKFLOW_ROUTE_PREFIX = '/.well-known/workflow/'
 /**
  * Whether the Workflow runtime resolves to the Vercel World. Mirrors
  * `resolveWorkflowTargetWorld` / `isVercelWorldTarget` in
- * `@workflow/utils/dist/world-target.js` (a transitive dependency we do not
+ * `@workflow/utils/dist/world-target.js:15-24` (utils 5.0.1, unchanged from
+ * 4.x; a transitive dependency we do not
  * import directly): an explicit `WORKFLOW_TARGET_WORLD` wins, otherwise a
  * Vercel deployment id selects Vercel.
  */

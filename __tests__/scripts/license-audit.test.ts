@@ -180,6 +180,33 @@ describe('collectProdPackages', () => {
     )
   })
 
+  it('LUM-1032: follows an optional peer npm keeps in production (not dev-flagged), as optional', () => {
+    const kept = collectProdPackages({
+      packages: {
+        '': { name: 'root', dependencies: { plugin: '^1' } },
+        'node_modules/plugin': {
+          version: '1.0.0',
+          license: 'MIT',
+          peerDependencies: { typescript: '>=5', absent: '^1' },
+          peerDependenciesMeta: {
+            typescript: { optional: true },
+            absent: { optional: true },
+          },
+        },
+        'node_modules/typescript': { version: '5.9.3', license: 'Apache-2.0' },
+      },
+    })
+    expect(kept.packages.map(p => p.path).sort()).toEqual([
+      'node_modules/plugin',
+      'node_modules/typescript',
+    ])
+    expect(
+      kept.packages.find(p => p.path === 'node_modules/typescript')
+    ).toMatchObject({ optionalOnly: true, via: 'plugin' })
+    // A missing optional peer is neither followed nor reported.
+    expect(kept.unresolved).toEqual([])
+  })
+
   it('skips extraneous workspace roots instead of reporting their deps as unresolved', () => {
     expect(closure.unresolved).toEqual([])
     const broken = collectProdPackages({

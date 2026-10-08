@@ -19,8 +19,8 @@ the deploy order below); the rest of this page explains what it does.
 | `WORKFLOW_SECRET`                      | yes      | Random secret the delivery routes require (`openssl rand -hex 32`).                                                |
 | `WORKFLOW_LOCAL_BASE_URL`              | yes      | `http://workflow:<url-encoded WORKFLOW_SECRET>@localhost:<PORT>` — where the worker delivers, carrying the secret. |
 | `PORT`                                 | yes      | The port `next start` listens on; must match the port in `WORKFLOW_LOCAL_BASE_URL`.                                |
-| `WORKFLOW_POSTGRES_WORKER_CONCURRENCY` | no       | Concurrent step executions per process (default 10).                                                               |
-| `WORKFLOW_POSTGRES_MAX_POOL_SIZE`      | no       | The World's `pg` pool size (default 10; graphile recommends at least concurrency + 2).                             |
+| `WORKFLOW_POSTGRES_WORKER_CONCURRENCY` | yes      | Concurrent jobs per process. Set it to `10` (compose does): the World's own default is 50, more than its pool.     |
+| `WORKFLOW_POSTGRES_MAX_POOL_SIZE`      | no       | The World's `pg` pool size (default 10; graphile recommends at least 10 or concurrency + 2, whichever is larger).  |
 
 The app checks this at boot (`instrumentation.ts`): a missing
 `WORKFLOW_POSTGRES_URL` stops the start, and a pooler URL, a missing secret or
@@ -57,10 +57,51 @@ The worker runs inside the Next.js process, so the app must be a long-running
 process (`next start`, not serverless). On boot it re-enqueues every pending
 or running run, which is how a run interrupted by a restart resumes.
 
+## Upgrading from Workflow SDK 4.x
+
+Lumo moved to Workflow SDK 5 (`workflow` 5.1.0, `@workflow/world-postgres`
+5.0.2) in LUM-1032. A deployment that already ran on the 4.x Postgres World
+needs two extra steps, once:
+
+1. **Drain in-flight runs first.** A run started on 4.x cannot continue on
+   5.x: its event log uses 4.x event ids, and the 5.x runtime fails every
+   replay of it with `Event id is not slot-numbered` (reproduced in LUM-1032).
+   Such a run stays `running` and is retried with backoff, never finishing — a
+   workspace export sleeping toward its 7-day expiry then never deletes its
+   archive. Before switching the image, wait until nothing is pending or
+   running, or cancel what you can give up:
+
+   ```sql
+   select status, count(*) from workflow.workflow_runs
+    where status in ('pending', 'running') group by status;
+   ```
+
+   An export still `READY` from before the upgrade keeps refusing downloads
+   after its `expiresAt`, but its archive is no longer deleted automatically:
+   remove it from storage by hand once it has expired.
+
+2. **Recreate the World's schemas.** world-postgres 4.3.9 recorded migration
+   0015 without 0011–0014, so the 5.x migrator — which only applies migrations
+   newer than the last recorded one — never applies those four and then fails
+   on a later migration that needs them (`column run.attributes does not
+exist`). On such a database `npm run workflow:bootstrap` refuses to run and
+   prints this path instead. With the app stopped:
+
+   ```sql
+   DROP SCHEMA workflow, workflow_drizzle, graphile_worker CASCADE;
+   ```
+
+   then run `npm run workflow:bootstrap` again (compose: `docker compose up -d`
+   re-runs `migrate`). This deletes only workflow run history — Lumo's own
+   data lives in `public` and is untouched.
+
+A database created on 5.x needs neither step.
+
 ## Security of the delivery routes
 
-The worker delivers each job to `/.well-known/workflow/v1/{flow,step}` over
-loopback HTTP. Those routes would otherwise accept any caller, so Lumo gates
+The worker delivers each job to `/.well-known/workflow/v1/flow` over loopback
+HTTP (since Workflow SDK 5 that one route runs steps too; the 4.x `/step`
+route is gone). Those routes would otherwise accept any caller, so Lumo gates
 them (LUM-1031, `lib/api/workflow-delivery-auth.ts`): every request must carry
 `WORKFLOW_SECRET` as HTTP Basic credentials, which the worker sends because it
 is embedded in `WORKFLOW_LOCAL_BASE_URL`. Without the secret the routes answer
@@ -74,8 +115,8 @@ path and the `Authorization` header, never the body, and passes the request
 on untouched; with it active, exports run to completion end to end on the
 Postgres World (LUM-1030), and a worker presenting the wrong secret is refused.
 
-Still block `/.well-known/workflow/v1/flow` and `/step` at your reverse proxy
-if you can: loopback delivery never crosses it.
+Still block `/.well-known/workflow/v1/flow` at your reverse proxy if you can:
+loopback delivery never crosses it.
 
 ## Cancelling
 
