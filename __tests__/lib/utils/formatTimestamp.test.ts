@@ -1,7 +1,10 @@
 import { formatTimestamp } from '@/lib/utils/formatTimestamp'
 
 describe('formatTimestamp', () => {
-  const NOW = new Date('2026-04-16T14:00:00.000Z')
+  // formatTimestamp buckets by the viewer's LOCAL calendar day, so every
+  // fixture is built from local date parts. A fixed UTC instant made the
+  // Today/Yesterday cases fail in far-off zones (UTC+14, UTC-11).
+  const NOW = new Date(2026, 3, 16, 14, 0, 0) // 16 Apr 2026, 14:00 local
 
   beforeAll(() => {
     jest.useFakeTimers()
@@ -23,23 +26,23 @@ describe('formatTimestamp', () => {
   })
 
   it('returns "Today HH:MM AM/PM" earlier the same day', () => {
-    const d = new Date(NOW.getTime() - 6 * 60 * 60 * 1000) // 6h ago
+    const d = new Date(2026, 3, 16, 8, 0, 0) // 08:00 local, same day
     const result = formatTimestamp(d, 'en-US')
     expect(result.startsWith('Today ')).toBe(true)
   })
 
   it('returns "Yesterday" for the prior day', () => {
-    const d = new Date(NOW.getTime() - 30 * 60 * 60 * 1000) // 30h ago
+    const d = new Date(2026, 3, 15, 8, 0, 0) // 08:00 local, prior day
     expect(formatTimestamp(d)).toBe('Yesterday')
   })
 
   it('returns "Mon DD" for older dates in the same year', () => {
-    const d = new Date('2026-02-01T12:00:00.000Z')
+    const d = new Date(2026, 1, 1, 12, 0, 0)
     expect(formatTimestamp(d, 'en-US')).toMatch(/^\w{3} \d+$/)
   })
 
   it('returns "Mon DD, YYYY" for older dates in prior years', () => {
-    const d = new Date('2024-02-01T12:00:00.000Z')
+    const d = new Date(2024, 1, 1, 12, 0, 0)
     expect(formatTimestamp(d, 'en-US')).toMatch(/^\w{3} \d+, 2024$/)
   })
 
