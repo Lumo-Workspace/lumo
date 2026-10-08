@@ -14,13 +14,13 @@ const cliRoot = path.resolve(__dirname, '..')
 // next to a generated plugin.json, so the package root is also a portable
 // Agent Plugins package (LUM-1049). `setup` installs that same skills/lumo/
 // directory into .claude/skills/lumo/ or .agents/skills/lumo/.
-const { writePluginBundle } = require(
-  path.join(cliRoot, 'dist', 'cli', 'src', 'lib', 'codex-plugin.js')
-)
-const pkg = require(path.join(cliRoot, 'package.json'))
 const skillSrcDir = path.join(repoRoot, '.claude', 'skills', 'lumo')
 
 try {
+  const { writePluginBundle } = require(
+    path.join(cliRoot, 'dist', 'cli', 'src', 'lib', 'codex-plugin.js')
+  )
+  const pkg = require(path.join(cliRoot, 'package.json'))
   const { skillFiles } = writePluginBundle(skillSrcDir, cliRoot, {
     version: pkg.version,
     license: pkg.license,

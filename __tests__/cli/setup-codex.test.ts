@@ -82,16 +82,18 @@ describe('installSkill', () => {
     }
   })
 
-  it('overwrites and drops stale references with --force', () => {
+  it('overwrites and drops stale top-level and reference files with --force', () => {
     const src = tmp()
     const dst = join(tmp(), 'lumo')
     try {
       makeSkill(src, 'new')
       makeSkill(dst, 'old')
       writeFileSync(join(dst, 'references', 'stale.md'), 'x')
+      writeFileSync(join(dst, 'OLD.md'), 'x')
       installSkill(src, dst, true)
       expect(readFileSync(join(dst, 'SKILL.md'), 'utf8')).toBe('new')
       expect(existsSync(join(dst, 'references', 'stale.md'))).toBe(false)
+      expect(existsSync(join(dst, 'OLD.md'))).toBe(false)
     } finally {
       rmSync(src, { recursive: true, force: true })
       rmSync(dst, { recursive: true, force: true })

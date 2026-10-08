@@ -174,9 +174,10 @@ export function installSkill(
     return
   }
 
-  // Fresh install or --force: replace the managed references/ dir wholesale so
-  // stale reference files don't linger, then copy every bundled file.
-  fs.rmSync(path.join(skillDir, 'references'), { recursive: true, force: true })
+  // Fresh install or --force: the whole skills/lumo/ dir is Lumo-managed, so
+  // replace it wholesale — stale files (top-level or under references/) don't
+  // linger — then copy every bundled file.
+  fs.rmSync(skillDir, { recursive: true, force: true })
   for (const rel of relFiles) {
     const dst = path.join(skillDir, rel)
     fs.mkdirSync(path.dirname(dst), { recursive: true })
