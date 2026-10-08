@@ -54,6 +54,10 @@ process.env.REFRESH_TOKEN_KEY = 'test-refresh-token-key-32-chars'
 // configured and the security-scan layers keep their default-on behaviour.
 // Tests of the unconfigured path pass an explicit env without it.
 process.env.VERCEL = '1'
+// LUM-1043: `.env` (cp .env.example .env for docker compose) sets
+// AUTH_PROVIDER=better-auth and next/jest loads it. Suites start on the
+// default provider; Better Auth suites set AUTH_PROVIDER themselves.
+delete process.env.AUTH_PROVIDER
 
 // Mock Prisma Client — spread actual module so runtime enum objects (e.g.
 // DocMentionSource, DocVisibility, TaskStatus …) are available in tests
