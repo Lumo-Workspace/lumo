@@ -159,11 +159,27 @@ describe('redactConnectionUrl', () => {
 describe('startSelfHostedWorkflowWorld', () => {
   it('LUM-1030 boot: starts the world when the Postgres World is selected', async () => {
     const start = jest.fn(async () => undefined)
-    const getWorld = jest.fn(() => ({ start }))
+    const getWorld = jest.fn(async () => ({ start }))
 
     await expect(
       startSelfHostedWorkflowWorld(env(GOOD), { getWorld })
     ).resolves.toBe(true)
+    expect(start).toHaveBeenCalledTimes(1)
+  })
+
+  it('LUM-1032 boot: awaits the async getWorld() of Workflow SDK 5 before starting', async () => {
+    const start = jest.fn(async () => undefined)
+    let resolveWorld: (w: { start: typeof start }) => void = () => undefined
+    const pending = new Promise<{ start: typeof start }>(resolve => {
+      resolveWorld = resolve
+    })
+    const started = startSelfHostedWorkflowWorld(env(GOOD), {
+      getWorld: () => pending,
+    })
+    await Promise.resolve()
+    expect(start).not.toHaveBeenCalled()
+    resolveWorld({ start })
+    await expect(started).resolves.toBe(true)
     expect(start).toHaveBeenCalledTimes(1)
   })
 
@@ -187,7 +203,7 @@ describe('startSelfHostedWorkflowWorld', () => {
         ...GOOD,
         WORKFLOW_POSTGRES_URL: 'postgres://u:p@x-pooler.neon.tech/db',
       }),
-      { getWorld: () => ({ start }) }
+      { getWorld: async () => ({ start }) }
     )
     expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/pooler/))
     expect(start).toHaveBeenCalledTimes(1)

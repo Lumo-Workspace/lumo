@@ -118,6 +118,10 @@ describe('self-host compose: app wiring', () => {
     )
   })
 
+  it('LUM-1032: pins the worker concurrency to the pg pool (world-postgres 5.x defaults to 50)', () => {
+    expect(env.get('WORKFLOW_POSTGRES_WORKER_CONCURRENCY')).toBe('10')
+  })
+
   it('every database URL disables TLS for the bundled Postgres (lib/db/prisma.ts forces verified TLS otherwise)', () => {
     for (const name of [
       'DATABASE_URL',

@@ -8,8 +8,9 @@
  * box, so the lockfile, not the local node_modules, is the right source).
  *
  * Roots = the root package + every workspace (`shared`, `agent-server`, `cli`),
- * following `dependencies`, `optionalDependencies` and non-optional
- * `peerDependencies`. `devDependencies` are never followed.
+ * following `dependencies`, `optionalDependencies`, required
+ * `peerDependencies`, and optional peers npm keeps in the production tree.
+ * `devDependencies` are never followed.
  *
  * Each package's license comes from the lockfile `license` field, falling back
  * to `node_modules/<path>/package.json`. With `--check-node-modules` it also
@@ -335,6 +336,24 @@ export function resolveDependency(
   }
 }
 
+/**
+ * Whether an OPTIONAL peer of `fromPath` is part of the production install.
+ * npm keeps an optional peer that something else put in the tree, and an
+ * optional-peer edge from a production package clears its `dev` flag
+ * (arborist `calc-dep-flags`), so `--omit=dev` installs it. LUM-1032:
+ * `@workflow/typescript-plugin` 5 made its `typescript` peer optional, and npm
+ * still ships typescript to production. An optional peer the lockfile flags
+ * `dev` is not reached from production and stays out.
+ */
+function installedOptionalPeer(
+  packages: Lockfile['packages'],
+  fromPath: string,
+  dep: string
+): boolean {
+  const target = resolveDependency(packages, fromPath, dep)
+  return !!target && !packages[target]?.dev
+}
+
 function nameFromPath(path: string): string {
   const idx = path.lastIndexOf('node_modules/')
   return idx >= 0 ? path.slice(idx + 'node_modules/'.length) : path
@@ -382,8 +401,15 @@ export function collectProdPackages(lock: Lockfile): Closure {
         optional: true,
       })),
       ...Object.keys(entry.peerDependencies ?? {})
-        .filter(name => !entry!.peerDependenciesMeta?.[name]?.optional)
-        .map(name => ({ name, optional: false })),
+        .filter(
+          name =>
+            !entry!.peerDependenciesMeta?.[name]?.optional ||
+            installedOptionalPeer(pkgs, realPath, name)
+        )
+        .map(name => ({
+          name,
+          optional: !!entry!.peerDependenciesMeta?.[name]?.optional,
+        })),
     ]
     const via =
       realPath === '' ? '<root>' : (entry.name ?? nameFromPath(realPath))

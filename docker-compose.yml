@@ -36,6 +36,9 @@ x-app-env: &app-env
     WORKFLOW_POSTGRES_URL: postgres://lumo:${POSTGRES_PASSWORD}@postgres:5432/lumo?sslmode=disable
     WORKFLOW_SECRET: ${WORKFLOW_SECRET:?set WORKFLOW_SECRET in .env}
     WORKFLOW_LOCAL_BASE_URL: http://workflow:${WORKFLOW_SECRET}@localhost:3000
+    # world-postgres 5.x defaults to 50 concurrent jobs, above its default
+    # 10-connection pg pool; pin the 4.x value (docs/self-hosting/workflow.md).
+    WORKFLOW_POSTGRES_WORKER_CONCURRENCY: '10'
     PORT: '3000'
     CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in .env}
     # Sign-in with Better Auth: accounts and sessions in this Postgres

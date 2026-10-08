@@ -41,11 +41,11 @@ describe('workflowTaskIdentifiers', () => {
   it('LUM-1030 cleanup: mirrors the World job names, honouring WORKFLOW_POSTGRES_JOB_PREFIX', () => {
     expect(workflowTaskIdentifiers(env({}))).toEqual([
       'workflow_flows',
-      'workflow_steps',
+      'workflow_flows_executor',
     ])
     expect(
       workflowTaskIdentifiers(env({ WORKFLOW_POSTGRES_JOB_PREFIX: 'lumo_' }))
-    ).toEqual(['lumo_flows', 'lumo_steps'])
+    ).toEqual(['lumo_flows', 'lumo_flows_executor'])
   })
 })
 
@@ -71,7 +71,7 @@ describe('workflowQueueMaintenanceService.cleanup', () => {
     })
     expect(repo.cleanup).toHaveBeenCalledWith({
       connectionString: PG.WORKFLOW_POSTGRES_URL,
-      taskIdentifiersToKeep: ['workflow_flows', 'workflow_steps'],
+      taskIdentifiersToKeep: ['workflow_flows', 'workflow_flows_executor'],
     })
   })
 
