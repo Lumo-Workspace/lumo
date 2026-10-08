@@ -302,15 +302,15 @@ program
 program
   .command('setup')
   .description(
-    'Install the Lumo Claude Code skill and wire hook handlers into .claude/settings.json. Run via `npx @lumoai/cli setup` for first-time onboarding.'
+    'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: install the skill into .agents/skills/ for Codex, no hooks). Run via `npx @lumoai/cli setup` for first-time onboarding.'
   )
   .option(
     '--user',
-    'Install into ~/.claude (applies across all projects for this user)'
+    'Install into ~/.claude, or ~/.agents for Codex (applies across all projects for this user)'
   )
   .option(
     '--project',
-    'Install into ./.claude (applies to the current project only)'
+    'Install into ./.claude, or ./.agents for Codex (applies to the current project only)'
   )
   .option(
     '--force',
@@ -318,7 +318,7 @@ program
   )
   .option(
     '--agent <token>',
-    'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command. Defaults to claude-code.'
+    'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout instead. Defaults to claude-code.'
   )
   .action(
     wrap(options =>
