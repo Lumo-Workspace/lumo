@@ -162,6 +162,7 @@ describe('checkAuthorizationPkce', () => {
       { code_challenge: 'abc', code_challenge_method: 'plain' },
     ],
     ['no query at all', undefined],
+    ['a pushed request_uri without a challenge', { request_uri: 'urn:x' }],
   ])('rejects %s', (_n, q) => {
     expect(checkAuthorizationPkce(q)).toEqual(expect.any(String))
   })

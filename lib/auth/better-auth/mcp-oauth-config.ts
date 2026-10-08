@@ -196,9 +196,8 @@ export function checkAuthorizationPkce(query: unknown): string | null {
     string,
     unknown
   >
-  // A pushed request (request_uri) is resolved later; Lumo does not enable
-  // PAR, so Better Auth rejects it on its own.
-  if (q.request_uri !== undefined) return null
+  // No exemption for pushed requests (request_uri): Lumo does not enable PAR,
+  // and a request without its own S256 challenge is refused here regardless.
   if (typeof q.code_challenge !== 'string' || q.code_challenge.length === 0) {
     return 'code_challenge is required (PKCE)'
   }
