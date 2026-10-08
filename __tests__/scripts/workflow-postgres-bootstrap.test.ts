@@ -4,7 +4,7 @@
  * 0011–0014 on 5.x. The script is plain ESM run by `node` in the runtime
  * image, so its pure helpers are exercised through a real `node` process.
  */
-import { execFileSync } from 'child_process'
+import { execFileSync, spawnSync } from 'child_process'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 
@@ -57,6 +57,34 @@ describe('workflow-postgres-bootstrap.mjs', () => {
     expect(
       call('skippedWorldMigrations', JOURNAL_5, [1771000000000, 1771500000000])
     ).toEqual([])
+  })
+
+  it('LUM-1032: an unreachable database fails closed with one readable line, never bootstrapping', () => {
+    const r = spawnSync(
+      process.execPath,
+      [
+        join(
+          __dirname,
+          '..',
+          '..',
+          'scripts',
+          'workflow-postgres-bootstrap.mjs'
+        ),
+      ],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          WORKFLOW_POSTGRES_URL: 'postgres://u:pw-not-logged@127.0.0.1:1/x',
+        },
+      }
+    )
+    expect(r.status).toBe(1)
+    expect(r.stderr).toMatch(
+      /^workflow:bootstrap: could not check the World's migration state: /
+    )
+    expect(r.stderr).not.toContain('pw-not-logged')
+    expect(r.stdout).not.toMatch(/Setting up database schema/)
   })
 
   it('LUM-1032: the refusal names the skipped migrations, the drain and the three schemas to drop', () => {

@@ -96,10 +96,22 @@ async function main() {
     )
     process.exit(1)
   }
-  const skipped = skippedWorldMigrations(
-    readJournal(),
-    await appliedMigrationTimes(url)
-  )
+  let skipped
+  try {
+    skipped = skippedWorldMigrations(
+      readJournal(),
+      await appliedMigrationTimes(url)
+    )
+  } catch (error) {
+    // Fail closed with a readable line (no connection string: pg errors do
+    // not carry it) instead of an unhandled rejection's stack.
+    process.stderr.write(
+      `workflow:bootstrap: could not check the World's migration state: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`
+    )
+    process.exit(1)
+  }
   if (skipped.length > 0) {
     process.stderr.write(`${legacyDatabaseMessage(skipped)}\n`)
     process.exit(1)
