@@ -14,7 +14,8 @@ describe('Vercel Workflows wiring (LUM-735 v4)', () => {
 
   it('declares workflow as a runtime dependency', () => {
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-    expect(pkg.dependencies.workflow).toMatch(/^\^4\./)
+    // LUM-1032: pinned exactly — world-postgres pins @workflow/world exactly.
+    expect(pkg.dependencies.workflow).toBe('5.1.0')
   })
 
   it('maps the ESM-only workflow entrypoints to Jest stubs', () => {

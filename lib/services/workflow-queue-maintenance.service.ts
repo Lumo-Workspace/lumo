@@ -35,13 +35,17 @@ export type WorkflowQueueCleanupResult =
   | { skipped: false; tasks: string[] }
 
 /**
- * The two graphile task identifiers the World registers
- * (`getJobQueueName` in `@workflow/world-postgres/dist/queue.js`):
- * `${WORKFLOW_POSTGRES_JOB_PREFIX || 'workflow_'}flows` / `…steps`.
+ * The graphile task identifiers the 5.x World registers
+ * (`getJobQueueName` / `executorTask` in
+ * `@workflow/world-postgres/dist/queue.js:179-185, 694-699`):
+ * `${WORKFLOW_POSTGRES_JOB_PREFIX || 'workflow_'}flows`, plus `…flows_executor`
+ * when `WORKFLOW_POSTGRES_INVOKE=1`. Step deliveries ride the flows task since
+ * 5.x (the 4.x `…steps` task is gone). Kept unconditionally so a cleanup never
+ * garbage-collects an identifier a running worker has cached.
  */
 export function workflowTaskIdentifiers(env: NodeJS.ProcessEnv): string[] {
   const prefix = env.WORKFLOW_POSTGRES_JOB_PREFIX || 'workflow_'
-  return [`${prefix}flows`, `${prefix}steps`]
+  return [`${prefix}flows`, `${prefix}flows_executor`]
 }
 
 export const workflowQueueMaintenanceService = {

@@ -42,17 +42,13 @@ jest.mock('@/lib/mcp/audit', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
 }))
 
-jest.mock(
-  '@clerk/mcp-tools/server',
-  () => ({
-    verifyClerkToken: jest.fn((_auth: unknown, token: string | undefined) =>
-      token === 'fixture-bearer-token'
-        ? { token, clientId: 'test_client', scopes: [] }
-        : undefined
-    ),
-  }),
-  { virtual: true }
-)
+jest.mock('@clerk/mcp-tools/server', () => ({
+  verifyClerkToken: jest.fn((_auth: unknown, token: string | undefined) =>
+    token === 'fixture-bearer-token'
+      ? { token, clientId: 'test_client', scopes: [] }
+      : undefined
+  ),
+}))
 
 jest.mock('@clerk/nextjs/server', () => ({
   auth: jest.fn().mockResolvedValue({ userId: 'test_user_clerk_id' }),

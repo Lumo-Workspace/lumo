@@ -16,6 +16,14 @@ export const PUBLIC_ROUTES = [
 
 const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES)
 
+// The MCP OAuth consent screen (LUM-1044) must never render inside another
+// site's frame, or a hidden Allow button could be clickjacked.
+const isOAuthConsentRoute = createRouteMatcher(['/oauth/consent(.*)'])
+const NO_FRAMING_HEADERS = {
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "frame-ancestors 'none'",
+}
+
 // Dev-only design-system catalog (LUM-291). Public in development so it renders
 // without signing in; in production the page itself returns notFound(), so the
 // route never exists there and this exception is inert.
@@ -48,6 +56,10 @@ export default createAuthMiddleware(async (auth, request) => {
       pathname.startsWith('/signup'))
   ) {
     return NextResponse.redirect(new URL('/workspace', request.url))
+  }
+
+  if (isOAuthConsentRoute(request)) {
+    return NextResponse.next({ headers: NO_FRAMING_HEADERS })
   }
 
   return NextResponse.next()

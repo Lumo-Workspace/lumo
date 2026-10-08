@@ -27,6 +27,23 @@ export const NON_WORKSPACE_MODELS: Readonly<Record<string, string>> = {
   AuthSession: 'login session of an AuthUser; owned by no workspace',
   AuthAccount: 'credential / OAuth link of an AuthUser; owned by no workspace',
   AuthVerification: 'email-verification token; owned by no workspace',
+  // LUM-1044: the self-hosted MCP OAuth authorization server — signing keys,
+  // MCP clients and the per-user grants/tokens issued to them. Bound to a
+  // user (or to the instance), never to a workspace.
+  AuthJwks:
+    'MCP OAuth token-signing keys of the instance; owned by no workspace',
+  AuthOauthClient: 'registered MCP OAuth client; owned by no workspace',
+  AuthOauthResource:
+    'the MCP endpoint as an OAuth resource; owned by no workspace',
+  AuthOauthClientResource: 'client ↔ resource link; owned by no workspace',
+  AuthOauthRefreshToken:
+    'MCP refresh token of an AuthUser; owned by no workspace',
+  AuthOauthAccessToken:
+    'MCP access token of an AuthUser; owned by no workspace',
+  AuthOauthConsent:
+    "an AuthUser's consent to an MCP client; owned by no workspace",
+  AuthOauthClientAssertion:
+    'single-use client-assertion id; owned by no workspace',
   EmailDelivery:
     'system-email idempotency ledger (LUM-1041): no workspaceId, only the send key + outcome',
 }

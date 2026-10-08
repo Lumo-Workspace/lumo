@@ -34,15 +34,13 @@ jest.mock('@clerk/nextjs/server', () => ({
     return mockClerkMiddlewareFn
   },
 }))
-// @clerk/mcp-tools subpaths are ESM-only exports jest cannot resolve, so the
-// mocks are virtual (as in __tests__/app/api/mcp/route.integration.test.ts).
-jest.mock(
-  '@clerk/mcp-tools/server',
-  () => ({
-    verifyClerkToken: (...args: unknown[]) => mockVerifyClerkToken(...args),
-  }),
-  { virtual: true }
-)
+// @clerk/mcp-tools is ESM-only; jest.config.js maps the /server entry to its
+// dist file (LUM-1047), so its mock is NOT virtual — a virtual mock of a
+// mapped path stops binding once another suite in the same worker loaded the
+// real module. Unmapped subpaths (e.g. /next) still need virtual mocks.
+jest.mock('@clerk/mcp-tools/server', () => ({
+  verifyClerkToken: (...args: unknown[]) => mockVerifyClerkToken(...args),
+}))
 jest.mock(
   '@clerk/mcp-tools/next',
   () => ({

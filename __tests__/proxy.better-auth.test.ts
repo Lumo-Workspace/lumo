@@ -89,6 +89,30 @@ describe('proxy.ts with Better Auth', () => {
     )
   })
 
+  it('the MCP OAuth consent page cannot be framed (LUM-1044)', async () => {
+    mockGetSession.mockResolvedValue(sessionFor('ba_user_1'))
+    const res = await run(page('/oauth/consent?client_id=c&sig=s'))
+    expect(res.headers.get('x-middleware-next')).toBe('1')
+    expect(res.headers.get('x-frame-options')).toBe('DENY')
+    expect(res.headers.get('content-security-policy')).toBe(
+      "frame-ancestors 'none'"
+    )
+    // …and other pages are left as they were.
+    const other = await run(page('/workspace'))
+    expect(other.headers.get('x-frame-options')).toBeNull()
+  })
+
+  it('the consent page is behind sign-in', async () => {
+    mockGetSession.mockResolvedValue(sessionFor(null))
+    const res = await run(page('/oauth/consent?client_id=c&sig=s'))
+    expect(res.status).toBe(307)
+    const location = new URL(res.headers.get('location')!)
+    expect(location.pathname).toBe('/signin')
+    expect(location.searchParams.get('redirect_url')).toBe(
+      '/oauth/consent?client_id=c&sig=s'
+    )
+  })
+
   it('looks the session up once per request', async () => {
     mockGetSession.mockResolvedValue(sessionFor(null))
     await run(page('/workspace'))

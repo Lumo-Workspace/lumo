@@ -9,8 +9,12 @@ import { toAuthUser } from './user-shape'
 
 /** The signed-in user's id for the current request, or null. */
 export async function getCurrentUserId(): Promise<string | null> {
+  // headers() first: while `next build` prerenders a page it bails out here
+  // (the page becomes dynamic) before the instance is built — the image is
+  // built without BETTER_AUTH_SECRET, which only exists at runtime (LUM-1043).
+  const requestHeaders = await headers()
   const session = await getBetterAuth().api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })
   return session?.user.id ?? null
 }

@@ -1,36 +1,48 @@
 /**
  * OAuth discovery metadata entry point (LUM-1026): handlers for the
  * /.well-known/oauth-* routes MCP clients read to find the authorization
- * server. Clerk serves the real documents; under Better Auth (LUM-1027) MCP
- * OAuth is unsupported and both routes answer 501 with an explanation.
- * The provider is checked per request, so building the app needs no keys.
+ * server. Clerk serves the real documents in the SaaS deployment; under
+ * Better Auth (LUM-1044) the self-hosted instance serves its own, or 501 when
+ * it has no public URL yet. The provider is checked per request, so building
+ * the app needs no keys.
  */
 import * as clerk from './clerk/oauth-metadata'
+import * as betterAuth from './better-auth/oauth-metadata'
 import { isMcpOAuthSupported, mcpOAuthUnsupportedResponse } from './mcp'
+import { isBetterAuth } from './provider'
 
 type Handler = (request: Request) => Response | Promise<Response>
 
-/** Build `make()` once, on the first request that needs it. */
-function lazyClerk(make: () => Handler): Handler {
-  let handler: Handler | null = null
+/**
+ * Pick the provider per request; build the Clerk handler once, on the first
+ * request that needs it.
+ */
+function perProvider(
+  makeClerk: () => Handler,
+  betterAuthHandler: () => Promise<Response>
+): Handler {
+  let clerkHandler: Handler | null = null
   return request => {
     if (!isMcpOAuthSupported()) return mcpOAuthUnsupportedResponse()
-    handler ??= make()
-    return handler(request)
+    if (isBetterAuth()) return betterAuthHandler()
+    clerkHandler ??= makeClerk()
+    return clerkHandler(request)
   }
 }
 
 /** GET handler for /.well-known/oauth-authorization-server (RFC 8414). */
 export function oauthAuthorizationServerMetadataHandler(): Handler {
-  return lazyClerk(
-    () => clerk.oauthAuthorizationServerMetadataHandler() as Handler
+  return perProvider(
+    () => clerk.oauthAuthorizationServerMetadataHandler() as Handler,
+    betterAuth.authorizationServerMetadata
   )
 }
 
 /** GET handler for /.well-known/oauth-protected-resource (RFC 9728). */
 export function oauthProtectedResourceMetadataHandler(): Handler {
-  return lazyClerk(
-    () => clerk.oauthProtectedResourceMetadataHandler() as Handler
+  return perProvider(
+    () => clerk.oauthProtectedResourceMetadataHandler() as Handler,
+    betterAuth.protectedResourceMetadata
   )
 }
 

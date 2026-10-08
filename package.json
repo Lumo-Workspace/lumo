@@ -45,6 +45,7 @@
     "@ai-sdk/openai-compatible": "^2.0.81",
     "@aws-sdk/client-s3": "^3.1147.0",
     "@aws-sdk/s3-request-presigner": "^3.1147.0",
+    "@better-auth/oauth-provider": "1.7.7",
     "@chat-adapter/slack": "^4.23.0",
     "@clerk/mcp-tools": "^0.3.1",
     "@clerk/nextjs": "^7.5.1",
@@ -119,7 +120,7 @@
     "@vercel/functions": "^3.4.3",
     "@vercel/kv": "^3.0.0",
     "@vercel/sandbox": "^3.2.2",
-    "@workflow/world-postgres": "4.3.9",
+    "@workflow/world-postgres": "5.0.2",
     "ai": "^6.0.146",
     "autoprefixer": "^10.4.27",
     "better-auth": "1.7.7",
@@ -167,7 +168,7 @@
     "tailwindcss-animate": "^1.0.7",
     "turndown": "^7.2.2",
     "vaul": "^1.1.2",
-    "workflow": "^4.8.8",
+    "workflow": "5.1.0",
     "zod": "^4.3.6"
   },
   "overrides": {
