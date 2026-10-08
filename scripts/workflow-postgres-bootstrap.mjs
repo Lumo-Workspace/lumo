@@ -103,12 +103,13 @@ async function main() {
       await appliedMigrationTimes(url)
     )
   } catch (error) {
-    // Fail closed with a readable line (no connection string: pg errors do
-    // not carry it) instead of an unhandled rejection's stack.
+    // Fail closed with one readable line instead of an unhandled rejection's
+    // stack; any `user:password@` in the message is redacted.
+    const message = (
+      error instanceof Error ? error.message : String(error)
+    ).replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^@/\s]*@/gi, '$1[redacted]@')
     process.stderr.write(
-      `workflow:bootstrap: could not check the World's migration state: ${
-        error instanceof Error ? error.message : String(error)
-      }\n`
+      `workflow:bootstrap: could not check the World's migration state: ${message}\n`
     )
     process.exit(1)
   }

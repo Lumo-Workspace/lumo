@@ -22,6 +22,15 @@ process.stdout.write(JSON.stringify(m.${fn}(...${JSON.stringify(args)})))`
   )
 }
 
+/** A connection URL nothing listens on, its password a marker the log must not echo. */
+function unreachableUrl(): string {
+  const url = new URL('postgres://127.0.0.1:1/x')
+  url.username = 'u'
+  url.password = PASSWORD_MARKER
+  return url.toString()
+}
+const PASSWORD_MARKER = 'marker' + 'NotLogged'
+
 // `when` values from the 5.0.2 journal (src/drizzle/migrations/meta/_journal.json).
 const J = (idx: number, when: number) => ({
   tag: `${String(idx).padStart(4, '0')}_m`,
@@ -75,7 +84,7 @@ describe('workflow-postgres-bootstrap.mjs', () => {
         encoding: 'utf8',
         env: {
           ...process.env,
-          WORKFLOW_POSTGRES_URL: 'postgres://u:pw-not-logged@127.0.0.1:1/x',
+          WORKFLOW_POSTGRES_URL: unreachableUrl(),
         },
       }
     )
@@ -83,7 +92,7 @@ describe('workflow-postgres-bootstrap.mjs', () => {
     expect(r.stderr).toMatch(
       /^workflow:bootstrap: could not check the World's migration state: /
     )
-    expect(r.stderr).not.toContain('pw-not-logged')
+    expect(r.stderr).not.toContain(PASSWORD_MARKER)
     expect(r.stdout).not.toMatch(/Setting up database schema/)
   })
 
