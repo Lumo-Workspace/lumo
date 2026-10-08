@@ -16,7 +16,10 @@ interface Options {
   onOpenTaskSideEffect: (task: ApiTask | MyTask) => void
   /** Caller-provided base "open new task modal" side effect. */
   onOpenNewTaskModal: (assigneeId?: string, status?: ApiStatus) => void
-  currentMemberId: string | undefined
+  /** The viewer's actor id. Task assignees (the picker and the task API) are
+   * actor ids, never WorkspaceMember ids (LUM-1045). Null until the member
+   * has an actor. */
+  currentActorId: string | null
   /** Draft service hooks — invoked from the restore/save/delete callbacks. */
   saveDraft: (
     type: 'TASK' | 'PROJECT',
@@ -45,7 +48,7 @@ interface Options {
 export function useWorkspaceModalState({
   onOpenTaskSideEffect,
   onOpenNewTaskModal,
-  currentMemberId,
+  currentActorId,
   saveDraft,
   deleteDraft,
 }: Options) {
@@ -122,9 +125,9 @@ export function useWorkspaceModalState({
 
   const openNewTaskModalForMe = useCallback(
     (status?: ApiStatus) => {
-      openNewTaskModal(currentMemberId, status)
+      openNewTaskModal(currentActorId ?? undefined, status)
     },
-    [openNewTaskModal, currentMemberId]
+    [openNewTaskModal, currentActorId]
   )
 
   const openNewTaskForSprint = useCallback(
