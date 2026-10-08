@@ -14,8 +14,10 @@ x-app-build: &app-build # Built once (by `app`); `migrate` runs the same image.
     context: .
     dockerfile: Dockerfile
     args:
+      # Better Auth: no Clerk account needed (LUM-1043). Must match the
+      # runtime AUTH_PROVIDER below — static pages bake it in at build time.
+      AUTH_PROVIDER: better-auth
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:?set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in .env}
       NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
       NEXT_PUBLIC_PUSHER_HOST: ${SOKETI_PUBLIC_HOST:-localhost}
       NEXT_PUBLIC_PUSHER_PORT: ${SOKETI_PUBLIC_PORT:-6001}
@@ -36,6 +38,11 @@ x-app-env: &app-env
     WORKFLOW_LOCAL_BASE_URL: http://workflow:${WORKFLOW_SECRET}@localhost:3000
     PORT: '3000'
     CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in .env}
+    # Sign-in with Better Auth: accounts and sessions in this Postgres
+    # (docs/self-hosting/README.md#sign-in). The secret needs >= 32 chars.
+    AUTH_PROVIDER: better-auth
+    BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env (openssl rand -hex 32)}
+    BETTER_AUTH_URL: ${BETTER_AUTH_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
     # Rate limits shared across restarts / instances.
     REDIS_URL: redis://redis:6379
     # File storage on MinIO (private bucket, created by minio-init).
@@ -177,8 +184,10 @@ services:
     depends_on:
       app: { condition: service_healthy }
 
-  # Dev only: catches outgoing mail. `docker compose --profile mail up -d`
-  # and set SMTP_URL=smtp://mailpit:1025 in .env; UI on :8025.
+  # Dev only: catches outgoing mail (sign-up verification, invites — an
+  # invitee must verify their email before accepting). Set
+  # SMTP_URL=smtp://mailpit:1025 in .env, `docker compose --profile mail up -d`,
+  # then read the mail at http://localhost:8025.
   mailpit:
     image: axllent/mailpit:latest
     profiles: [mail]
