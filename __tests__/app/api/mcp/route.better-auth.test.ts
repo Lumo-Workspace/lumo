@@ -150,6 +150,13 @@ describe('MCP with Better Auth and BETTER_AUTH_URL', () => {
     expect(mockVerifyClerkToken).not.toHaveBeenCalled()
   })
 
+  it('a verification error fails closed as a 401, not a 500', async () => {
+    mockVerifyEndpoint.mockRejectedValue(new Error('db down'))
+    await expect(verifyMcpAccessToken('tok')).resolves.toBeUndefined()
+    const res = await POST(mcpRequest('POST', 'tok'))
+    expect(res.status).toBe(401)
+  })
+
   it('maps an accepted token to the AuthInfo shape the MCP server reads', async () => {
     const exp = Math.floor(Date.now() / 1000) + 600
     mockVerifyEndpoint.mockResolvedValue({

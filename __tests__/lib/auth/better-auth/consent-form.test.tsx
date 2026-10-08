@@ -85,6 +85,19 @@ describe('OAuthConsent', () => {
     await screen.findByText('oauth.consent.title:cid')
   })
 
+  it('falls back to the client id when the lookup fails (Allow stays usable)', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('network'))
+    render(<OAuthConsent />)
+    await screen.findByText('oauth.consent.title:cid')
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'oauth.consent.allow',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
+  })
+
   it.each([
     ['Allow', 'oauth.consent.allow', true],
     ['Deny', 'oauth.consent.deny', false],

@@ -18,6 +18,7 @@ import {
   type McpAuthInfo,
 } from './mcp-oauth-config'
 import { BETTER_AUTH_URL_ENV } from './config'
+import { logger } from '@/lib/logger'
 
 export const MCP_OAUTH_UNSUPPORTED_MESSAGE =
   `MCP OAuth needs a public URL when AUTH_PROVIDER=better-auth: set ${BETTER_AUTH_URL_ENV} ` +
@@ -61,13 +62,23 @@ export async function verifyMcpAccessToken(
   if (!bearerToken) return undefined
   const urls = resolveMcpOAuthUrls()
   if (!urls) return undefined
-  const { getBetterAuth } = await import('./server')
-  const api = getBetterAuth().api as unknown as {
-    lumoVerifyMcpAccessToken: VerifyEndpoint
+  let result: VerifyResult
+  try {
+    const { getBetterAuth } = await import('./server')
+    const api = getBetterAuth().api as unknown as {
+      lumoVerifyMcpAccessToken: VerifyEndpoint
+    }
+    result = await api.lumoVerifyMcpAccessToken({
+      body: { token: bearerToken },
+    })
+  } catch (err) {
+    // Fail closed: an unverifiable token is no token (401, not 500).
+    logger.warn('[mcp-oauth] access-token verification failed', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return undefined
   }
-  const { payload, clientName } = await api.lumoVerifyMcpAccessToken({
-    body: { token: bearerToken },
-  })
+  const { payload, clientName } = result
   return toMcpAuthInfo(bearerToken, payload, {
     resource: urls.resource,
     nowSeconds: Math.floor(Date.now() / 1000),

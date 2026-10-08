@@ -34,11 +34,17 @@ function useClientName(clientId: string | null): string | null {
     if (!clientId) return
     let cancelled = false
     void (async () => {
-      const { data } = await getAuthClient().$fetch<PublicClient>(
-        '/oauth2/public-client',
-        { method: 'GET', query: { client_id: clientId } }
-      )
-      if (!cancelled) setName(data?.client_name?.trim() || clientId)
+      let label = clientId
+      try {
+        const { data } = await getAuthClient().$fetch<PublicClient>(
+          '/oauth2/public-client',
+          { method: 'GET', query: { client_id: clientId } }
+        )
+        label = data?.client_name?.trim() || clientId
+      } catch {
+        // Show the client id; the decision is still checked server-side.
+      }
+      if (!cancelled) setName(label)
     })()
     return () => {
       cancelled = true

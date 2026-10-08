@@ -110,6 +110,13 @@ function oauthProviderOptions(urls: McpOAuthUrls) {
   } satisfies OAuthOptions<Scope[]>
 }
 
+/** Whether a POST body is itself an authorization request (vs. sign-in / consent). */
+function isAuthorizationRequest(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false
+  const b = body as Record<string, unknown>
+  return b.response_type !== undefined || b.client_id !== undefined
+}
+
 function badRequest(error: string, description: string): APIError {
   return new APIError('BAD_REQUEST', { error, error_description: description })
 }
@@ -131,18 +138,21 @@ function lumoMcpOAuthPlugin(providerOptions: OAuthOptions<Scope[]>) {
         {
           matcher: ctx => ctx.path === '/oauth2/authorize',
           handler: createAuthMiddleware(async ctx => {
-            // A request to /oauth2/authorize itself carries its parameters in
-            // the query (GET) or form body (POST). Better Auth also re-runs
-            // authorize internally after sign-in / consent, with ctx.query
-            // restored from the server-signed request that passed this check.
-            const direct = ctx.request
-              ? new URL(ctx.request.url).pathname.endsWith('/oauth2/authorize')
-              : false
-            const params =
-              direct && ctx.method === 'POST' ? ctx.body : ctx.query
-            const problem = checkAuthorizationPkce(params)
-            // Plain 400, never a redirect: redirect_uri is not validated yet.
-            if (problem) throw badRequest('invalid_request', problem)
+            // A GET carries the request in the query, a POST to
+            // /oauth2/authorize in the form body. Better Auth also re-runs
+            // authorize internally after sign-in / consent (a POST to another
+            // path), with ctx.query restored from the server-signed request
+            // that already passed this check. Check every place parameters
+            // can come from that Better Auth may read — never fewer.
+            const candidates: unknown[] = [ctx.query]
+            if (ctx.method === 'POST' && isAuthorizationRequest(ctx.body)) {
+              candidates.push(ctx.body)
+            }
+            for (const params of candidates) {
+              const problem = checkAuthorizationPkce(params)
+              // Plain 400, never a redirect: redirect_uri is not validated yet.
+              if (problem) throw badRequest('invalid_request', problem)
+            }
           }),
         },
       ],

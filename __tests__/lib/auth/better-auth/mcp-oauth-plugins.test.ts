@@ -181,6 +181,30 @@ describe('MCP OAuth plugins (in-memory Better Auth)', () => {
     expect(res.status).toBe(400)
   })
 
+  it('checks the body of a POST to a non-canonical authorize path too (trailing slash)', async () => {
+    const res = await auth.handler(
+      new Request(
+        `${BASE}/api/auth/oauth2/authorize/?code_challenge=${challenge}&code_challenge_method=S256`,
+        {
+          method: 'POST',
+          headers: {
+            cookie,
+            origin: BASE,
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            response_type: 'code',
+            client_id: clientId,
+            redirect_uri: REDIRECT_URI,
+            scope: 'mcp',
+          }).toString(),
+        }
+      )
+    )
+    expect(res.headers.get('location') ?? '').not.toContain('code=')
+    expect([400, 404]).toContain(res.status)
+  })
+
   it('issues a resource-bound token that the verify endpoint maps to AuthInfo', async () => {
     const authz = await call(authorizePath(), { headers: { cookie } })
     const consentUrl = new URL(authz.headers.get('location') ?? '', BASE)
@@ -211,9 +235,7 @@ describe('MCP OAuth plugins (in-memory Better Auth)', () => {
     const { access_token } = (await tokenRes.json()) as { access_token: string }
 
     const api = auth.api as unknown as {
-      lumoVerifyMcpAccessToken: (i: {
-        body: { token: string }
-      }) => Promise<{
+      lumoVerifyMcpAccessToken: (i: { body: { token: string } }) => Promise<{
         payload: Record<string, unknown> | null
         clientName: string | null
       }>
