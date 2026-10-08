@@ -194,7 +194,7 @@ export default function DashboardApp() {
   const modalState = useWorkspaceModalState({
     onOpenTaskSideEffect: taskHandlers.handleOpenTask,
     onOpenNewTaskModal: taskHandlers.openNewTaskModal,
-    currentMemberId,
+    currentActorId,
     saveDraft,
     deleteDraft,
   })
