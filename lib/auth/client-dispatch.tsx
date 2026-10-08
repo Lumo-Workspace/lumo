@@ -38,6 +38,23 @@ function BetterAuthSignIn() {
   )
 }
 
+const BetterAuthConsentForm = lazy(async () => ({
+  default: (await import('./better-auth/consent-form')).OAuthConsent,
+}))
+
+/**
+ * Consent screen of the self-hosted MCP OAuth authorization server
+ * (LUM-1044, mounted on /oauth/consent). Better Auth only — under Clerk the
+ * page does not exist (Clerk hosts its own consent).
+ */
+export function OAuthConsent() {
+  return (
+    <Suspense fallback={null}>
+      <BetterAuthConsentForm />
+    </Suspense>
+  )
+}
+
 const IMPLEMENTATIONS: Record<AuthProviderName, ClientAuthImplementation> = {
   clerk: {
     Provider: clerk.AuthProvider,

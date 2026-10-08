@@ -59,8 +59,9 @@ function withCors(res: Response): Response {
 }
 
 async function handler(req: Request): Promise<Response> {
-  // Self-hosted on Better Auth (LUM-1027): no OAuth issuer for MCP tokens —
-  // say so plainly instead of a 401 that sends clients into a login loop.
+  // Self-hosted on Better Auth without a public URL (LUM-1044): no OAuth
+  // issuer for MCP tokens — say so plainly instead of a 401 that sends
+  // clients into a login loop.
   if (!isMcpOAuthSupported()) return withCors(mcpOAuthUnsupportedResponse())
   return withCors(await authedHandler(req))
 }

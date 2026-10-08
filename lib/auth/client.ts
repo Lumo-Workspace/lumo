@@ -5,7 +5,13 @@
  * LUM-1027) is chosen by the `provider` prop of <AuthProvider>
  * (./client-dispatch, a 'use client' module).
  */
-export { AuthProvider, SignIn, useUser, useSignOut } from './client-dispatch'
+export {
+  AuthProvider,
+  OAuthConsent,
+  SignIn,
+  useUser,
+  useSignOut,
+} from './client-dispatch'
 export type { AuthProviderName } from './provider'
 export type {
   AuthClientUser,

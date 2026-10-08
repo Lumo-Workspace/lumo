@@ -171,6 +171,30 @@ describe('SignIn (Better Auth)', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/workspace/acme')
   })
 
+  it('continues an MCP OAuth authorization after sign-in (LUM-1044)', async () => {
+    // The server answers a sign-in that carried the signed OAuth request with
+    // where to go next (consent page or the client); that wins over the target.
+    mockSignInEmail.mockResolvedValue({
+      data: { redirect: true, url: '/oauth/consent?client_id=c&sig=s' },
+      error: null,
+    })
+    await renderForm()
+    fireEvent.change(screen.getByLabelText('auth.field.email'), {
+      target: { value: 'ada@x.io' },
+    })
+    fireEvent.change(screen.getByLabelText('auth.field.password'), {
+      target: { value: 'correct horse' },
+    })
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'auth.signIn.submit' })
+      )
+    })
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/oauth/consent?client_id=c&sig=s'
+    )
+  })
+
   it('shows the mapped error and stays on the page', async () => {
     mockSignInEmail.mockResolvedValue({
       data: null,
