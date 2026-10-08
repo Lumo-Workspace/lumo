@@ -28,7 +28,7 @@ export async function skillSync(deps: SkillSyncDeps = {}): Promise<number> {
     return 1
   }
 
-  const results = syncSkills(srcDir, [
+  const { results, registryError } = syncSkills(srcDir, [
     skillDirFor(deps.homeDir ?? os.homedir()),
     skillDirFor(deps.cwd ?? process.cwd()),
   ])
@@ -40,7 +40,12 @@ export async function skillSync(deps: SkillSyncDeps = {}): Promise<number> {
     return 0
   }
   for (const r of results) process.stdout.write(formatResult(r) + '\n')
-  return results.some(r => r.outcome === 'failed') ? 1 : 0
+  if (registryError) {
+    process.stderr.write(
+      `✗ could not save the install registry (${registryError}); the locations above were still synced.\n`
+    )
+  }
+  return registryError || results.some(r => r.outcome === 'failed') ? 1 : 0
 }
 
 export function formatResult(r: SkillSyncResult): string {

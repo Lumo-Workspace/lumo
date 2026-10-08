@@ -98,7 +98,7 @@ Synchronously checks `registry.npmjs.org` for the latest published version of `@
 lumo update
 ```
 
-After a successful upgrade it runs the **newly installed** binary's `lumo skill sync`, so the installed skill files match the new CLI. When already on the latest version (or ahead of it) it runs the sync in-process instead — that catches a CLI upgraded with a bare `npm install -g`. A failed npm install skips the sync.
+After a successful upgrade it runs `skill sync` from the **newly installed** package (its entry point under `npm root -g`, run with the current node — not whichever `lumo` is first on PATH, which may be an `npm link` or another prefix), so the installed skill files match the new CLI. If that entry point can't be found it prints a pointer to `lumo skill sync` and exits 1. When already on the latest version (or ahead of it) it runs the sync in-process instead — that catches a CLI upgraded with a bare `npm install -g`. A failed npm install skips the sync.
 
 The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
 
@@ -122,7 +122,7 @@ lumo skill sync
 # - skipped Lumo source checkout (skill source, not an install): /Users/me/code/lumo/.claude/skills/lumo
 ```
 
-A location that can't be read or written prints `✗ could not refresh (<reason>): <path>`, stays registered for the next run, and makes the command exit 1 — the other locations are still refreshed. A recorded location without `SKILL.md` is dropped from the registry. The Lumo monorepo's own `.claude/skills/lumo/` is the skill's source and is never overwritten. No installs found → prints a pointer to `lumo setup`, exit 0.
+A location that can't be read or written prints `✗ could not refresh (<reason>): <path>`, stays registered for the next run, and makes the command exit 1 — the other locations are still refreshed. Failing to save the registry itself prints `✗ could not save the install registry (…)` after the per-location lines and also exits 1. A recorded location without `SKILL.md` is dropped from the registry. The Lumo monorepo's own `.claude/skills/lumo/` is the skill's source and is never overwritten. No installs found → prints a pointer to `lumo setup`, exit 0.
 
 #### When to suggest
 

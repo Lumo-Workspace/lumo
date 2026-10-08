@@ -128,12 +128,13 @@ export interface SkillSyncResult {
  * Refresh every registered skill directory (plus `discovered` ones that
  * already hold a skill — installs made before the registry existed) from
  * `srcDir`, then rewrite the registry: discovered installs are added,
- * vanished ones removed.
+ * vanished ones removed. A registry write failure is reported alongside the
+ * per-location results, never instead of them.
  */
 export function syncSkills(
   srcDir: string,
   discovered: string[] = []
-): SkillSyncResult[] {
+): { results: SkillSyncResult[]; registryError?: string } {
   const registered = readSkillInstalls().map(d => path.resolve(d))
   const found = discovered.map(d => path.resolve(d)).filter(hasSkill)
   const targets = [...new Set([...registered, ...found])]
@@ -148,10 +149,15 @@ export function syncSkills(
     }
   })
 
-  writeSkillInstalls(
-    results.filter(r => r.outcome !== 'missing').map(r => r.skillDir)
-  )
-  return results
+  try {
+    writeSkillInstalls(
+      results.filter(r => r.outcome !== 'missing').map(r => r.skillDir)
+    )
+  } catch (err) {
+    const registryError = err instanceof Error ? err.message : String(err)
+    return { results, registryError }
+  }
+  return { results }
 }
 
 function syncOne(srcDir: string, skillDir: string): SkillSyncResult {

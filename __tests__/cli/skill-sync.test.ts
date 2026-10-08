@@ -107,7 +107,7 @@ describe('syncSkills', () => {
     recordSkillInstall(good)
     chmodSync(bad, 0o555)
     try {
-      const results = syncSkills(join(base, 'bundle'))
+      const results = syncSkills(join(base, 'bundle')).results
       expect(results.map(r => r.outcome)).toEqual(['failed', 'updated'])
       expect(read(good, 'SKILL.md')).toBe('new skill')
       expect(readSkillInstalls()).toEqual([bad, good])
@@ -128,7 +128,7 @@ describe('syncSkills', () => {
     writeTree(dir, OLD)
     recordSkillInstall(dir)
 
-    const results = syncSkills(join(base, 'bundle'))
+    const results = syncSkills(join(base, 'bundle')).results
 
     expect(results).toEqual([{ skillDir: dir, outcome: 'updated', files: 2 }])
     expect(read(dir, 'SKILL.md')).toBe('new skill')
@@ -136,17 +136,43 @@ describe('syncSkills', () => {
     expect(existsSync(join(dir, 'references', 'stale.md'))).toBe(false)
   })
 
+  it('a registry write failure keeps the per-location results', async () => {
+    const proj = skillDirFor(join(base, 'proj'))
+    writeTree(proj, OLD)
+    writeFileSync(join(base, 'not-a-dir'), '')
+    process.env.LUMO_CONFIG_DIR = join(base, 'not-a-dir')
+
+    const { results, registryError } = syncSkills(join(base, 'bundle'), [proj])
+    expect(results.map(r => r.outcome)).toEqual(['updated'])
+    expect(registryError).toBeTruthy()
+    expect(read(proj, 'SKILL.md')).toBe('new skill')
+
+    writeTree(proj, OLD)
+    const code = await skillSync({
+      srcDir: join(base, 'bundle'),
+      homeDir: join(base, 'home'),
+      cwd: join(base, 'proj'),
+    })
+    expect(code).toBe(1)
+    expect(stdoutSpy.mock.calls.join('')).toContain('updated skill')
+    expect(stderrSpy.mock.calls.join('')).toContain(
+      'could not save the install registry'
+    )
+  })
+
   it('reports an identical install as up to date', () => {
     const dir = skillDirFor(join(base, 'proj'))
     writeTree(dir, NEW)
     recordSkillInstall(dir)
-    expect(syncSkills(join(base, 'bundle'))[0]!.outcome).toBe('up-to-date')
+    expect(syncSkills(join(base, 'bundle')).results[0]!.outcome).toBe(
+      'up-to-date'
+    )
   })
 
   it('forgets a recorded install that no longer exists', () => {
     const dir = skillDirFor(join(base, 'deleted-proj'))
     recordSkillInstall(dir)
-    expect(syncSkills(join(base, 'bundle'))[0]!.outcome).toBe('missing')
+    expect(syncSkills(join(base, 'bundle')).results[0]!.outcome).toBe('missing')
     expect(readSkillInstalls()).toEqual([])
   })
 
@@ -155,7 +181,7 @@ describe('syncSkills', () => {
     writeTree(dir, OLD)
     const nowhere = skillDirFor(join(base, 'no-skill-here'))
 
-    const results = syncSkills(join(base, 'bundle'), [dir, nowhere])
+    const results = syncSkills(join(base, 'bundle'), [dir, nowhere]).results
 
     expect(results.map(r => r.outcome)).toEqual(['updated'])
     expect(readSkillInstalls()).toEqual([dir])
@@ -169,7 +195,7 @@ describe('syncSkills', () => {
     recordSkillInstall(dir)
 
     expect(isLumoSourceCheckout(dir)).toBe(true)
-    expect(syncSkills(join(base, 'bundle'))[0]!.outcome).toBe('source')
+    expect(syncSkills(join(base, 'bundle')).results[0]!.outcome).toBe('source')
     expect(read(dir, 'SKILL.md')).toBe('old skill')
     expect(readSkillInstalls()).toEqual([dir])
   })
@@ -211,7 +237,14 @@ describe('skillSync command', () => {
 describe('update', () => {
   const pkg = { name: '@lumoai/cli', version: '1.0.0' }
 
-  it('after a successful npm upgrade, syncs skills with the newly installed binary', async () => {
+  function fakeGlobalRoot(): string {
+    const root = join(base, 'global', 'node_modules')
+    writeTree(root, { '@lumoai/cli/dist/cli/src/index.js': '' })
+    return root
+  }
+
+  it('after a successful npm upgrade, syncs skills with the newly installed entry point', async () => {
+    const root = fakeGlobalRoot()
     const calls: string[][] = []
     const run: RunCommand = async (cmd, args) => {
       calls.push([cmd, ...args])
@@ -224,14 +257,36 @@ describe('update', () => {
       fetchLatest: async () => '1.1.0',
       run,
       syncInProcess,
+      globalRoot: () => root,
     })
 
     expect(code).toBe(0)
     expect(calls).toEqual([
       ['npm', 'install', '-g', '@lumoai/cli@latest'],
-      ['lumo', 'skill', 'sync'],
+      [
+        process.execPath,
+        join(root, '@lumoai/cli/dist/cli/src/index.js'),
+        'skill',
+        'sync',
+      ],
     ])
     expect(syncInProcess).not.toHaveBeenCalled()
+  })
+
+  it('cannot locate the new install: no PATH guess, points at the manual command', async () => {
+    const calls: string[][] = []
+    const code = await update({
+      pkg,
+      fetchLatest: async () => '1.1.0',
+      run: async (cmd, args) => {
+        calls.push([cmd, ...args])
+        return 0
+      },
+      globalRoot: () => join(base, 'empty-root'),
+    })
+    expect(code).toBe(1)
+    expect(calls).toHaveLength(1)
+    expect(stderrSpy.mock.calls.join('')).toContain('lumo skill sync')
   })
 
   it('does not sync when the npm upgrade fails', async () => {
