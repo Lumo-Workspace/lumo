@@ -52,7 +52,7 @@ export const INSTALLATION_TOKEN_PERMISSIONS = {
 
 /**
  * The production App's (`uselumo`, App ID 3207183) repository permissions,
- * as `gh api apps/uselumo --jq .permissions` returned them on 2026-09-28.
+ * as `gh api apps/uselumo --jq .permissions` returned them on 2026-10-08.
  * The only production installation (Lumo-Workspace) carries exactly these.
  * A test holds every set above to this list, and the probe script re-reads the
  * live App to catch the list itself going stale.
