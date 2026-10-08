@@ -57,7 +57,7 @@ describe('GET /api/github/app/install', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     process.env.NEXT_PUBLIC_APP_URL = APP_URL
-    process.env.GITHUB_APP_SLUG = 'lumo-agent'
+    process.env.GITHUB_APP_SLUG = 'uselumo'
     mockRequireAuth.mockResolvedValue({ userId: 'clerk_1' })
     mockGetUserWorkspace.mockResolvedValue({
       workspaceId: 'w1',
@@ -72,7 +72,7 @@ describe('GET /api/github/app/install', () => {
     expect(res.status).toBe(307)
     const location = new URL(res.headers.get('location')!)
     expect(location.origin + location.pathname).toBe(
-      'https://github.com/apps/lumo-agent/installations/new'
+      'https://github.com/apps/uselumo/installations/new'
     )
     const encrypted = /^enc\((.*)\)$/.exec(
       location.searchParams.get('state') ?? ''

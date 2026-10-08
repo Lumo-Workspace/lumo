@@ -3,7 +3,7 @@
  * actually reach the GitHub endpoints its callers hit, and does the committed
  * production App permission list still match the live App?
  *
- * 1. Reads `GET /apps/lumo-agent` (through `gh`) and compares its
+ * 1. Reads `GET /apps/uselumo` (through `gh`) and compares its
  *    permissions with `PRODUCTION_APP_PERMISSIONS`; every set in
  *    `REPO_TOKEN_PERMISSIONS` must fit inside the live list.
  * 2. Mints one token per set through the App configured in env (locally the
@@ -103,7 +103,7 @@ async function main() {
   // Unauthenticated, GET /apps/{slug} omits `permissions`; `gh` supplies a
   // user token, which is enough.
   const live = JSON.parse(
-    execSync('gh api apps/lumo-agent --jq .permissions', { encoding: 'utf8' })
+    execSync('gh api apps/uselumo --jq .permissions', { encoding: 'utf8' })
   ) as Record<string, string>
   const liveJson = JSON.stringify(Object.entries(live ?? {}).sort())
   const committedJson = JSON.stringify(
@@ -113,7 +113,7 @@ async function main() {
     liveJson === committedJson,
     'production App permission list',
     liveJson === committedJson
-      ? 'committed list matches GET /apps/lumo-agent'
+      ? 'committed list matches GET /apps/uselumo'
       : `live ${liveJson} ≠ committed ${committedJson}`
   )
   for (const [set, perms] of Object.entries({
