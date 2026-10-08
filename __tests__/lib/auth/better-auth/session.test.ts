@@ -4,11 +4,13 @@
 // LUM-1027 — Better Auth server session: id from the validated session,
 // the full user re-read from the database.
 const mockGetSession = jest.fn()
+const mockGetBetterAuth = jest.fn()
 jest.mock('@/lib/auth/better-auth/server', () => ({
-  getBetterAuth: () => ({ api: { getSession: mockGetSession } }),
+  getBetterAuth: () => mockGetBetterAuth(),
 }))
 const requestHeaders = new Headers({ cookie: 'better-auth.session_token=t' })
-jest.mock('next/headers', () => ({ headers: async () => requestHeaders }))
+const mockHeaders = jest.fn()
+jest.mock('next/headers', () => ({ headers: () => mockHeaders() }))
 const mockFindById = jest.fn()
 jest.mock('@/lib/repositories/auth-user.repository', () => ({
   authUserRepository: { findById: (id: string) => mockFindById(id) },
@@ -19,7 +21,11 @@ import {
   getCurrentUserId,
 } from '@/lib/auth/better-auth/session'
 
-beforeEach(() => jest.resetAllMocks())
+beforeEach(() => {
+  jest.resetAllMocks()
+  mockHeaders.mockResolvedValue(requestHeaders)
+  mockGetBetterAuth.mockReturnValue({ api: { getSession: mockGetSession } })
+})
 
 describe('Better Auth session', () => {
   it('getCurrentUserId validates the request cookies', async () => {
@@ -28,6 +34,13 @@ describe('Better Auth session', () => {
     expect(mockGetSession).toHaveBeenCalledWith({ headers: requestHeaders })
     mockGetSession.mockResolvedValueOnce(null)
     await expect(getCurrentUserId()).resolves.toBeNull()
+  })
+
+  it('reads the request headers before building the instance, so a prerender bails out without BETTER_AUTH_SECRET (LUM-1043)', async () => {
+    const bailout = new Error('Dynamic server usage: headers')
+    mockHeaders.mockRejectedValueOnce(bailout)
+    await expect(getCurrentUserId()).rejects.toBe(bailout)
+    expect(mockGetBetterAuth).not.toHaveBeenCalled()
   })
 
   it('getCurrentUser reads the fresh row (e.g. just-verified email)', async () => {

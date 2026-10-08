@@ -11,6 +11,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import { CRONTAB_PATH, RUNNER_PATH } from '../scripts/self-host-cron'
+import { MIN_SECRET_LENGTH } from '../lib/auth/better-auth/config'
 
 const ROOT = join(__dirname, '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
@@ -20,6 +21,7 @@ const dockerfile = read('Dockerfile')
 const cronDockerfile = read('deploy/self-host/cron.Dockerfile')
 const envExample = read('.env.example')
 const runner = read('deploy/self-host/cron-run.sh')
+const guide = read('docs/self-hosting/README.md')
 
 /** The indented block of one top-level compose service. */
 function serviceBlock(name: string): string {
@@ -44,6 +46,14 @@ function appEnvironment(): Map<string, string> {
     env.set(m[1]!, m[2]!.replace(/^'(.*)'$/, '$1'))
   }
   return env
+}
+
+/** The `x-app-build` block (image build args). */
+function composeBuildArgs(): string {
+  return compose.slice(
+    compose.indexOf('x-app-build:'),
+    compose.indexOf('x-app-env:')
+  )
 }
 
 /** Names `.env.example` documents, as a set or commented assignment. */
@@ -170,14 +180,10 @@ describe('self-host image: NEXT_PUBLIC_* build args', () => {
     expect([...used].filter(n => !args.has(n))).toEqual([])
   })
 
-  it('compose passes the publishable key and the browser-side Soketi settings as build args', () => {
-    const build = compose.slice(
-      compose.indexOf('x-app-build:'),
-      compose.indexOf('x-app-env:')
-    )
+  it('compose passes the app URL and the browser-side Soketi settings as build args', () => {
+    const build = composeBuildArgs()
     for (const name of [
       'NEXT_PUBLIC_APP_URL',
-      'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
       'NEXT_PUBLIC_PUSHER_KEY',
       'NEXT_PUBLIC_PUSHER_HOST',
       'NEXT_PUBLIC_PUSHER_PORT',
@@ -188,5 +194,70 @@ describe('self-host image: NEXT_PUBLIC_* build args', () => {
     // Server and browser must agree on the Soketi app key.
     expect(build).toContain('NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}')
     expect(appEnvironment().get('PUSHER_KEY')).toBe('${SOKETI_APP_KEY:-lumo}')
+  })
+})
+
+describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
+  const env = appEnvironment()
+
+  it('compose builds and runs with AUTH_PROVIDER=better-auth (static pages bake it in at build time)', () => {
+    expect(composeBuildArgs()).toMatch(/\n\s+AUTH_PROVIDER: better-auth\n/)
+    expect(env.get('AUTH_PROVIDER')).toBe('better-auth')
+  })
+
+  it('compose requires no CLERK_* / NEXT_PUBLIC_CLERK_* variable', () => {
+    expect(compose).not.toMatch(/CLERK/)
+  })
+
+  it('BETTER_AUTH_SECRET is required; BETTER_AUTH_URL falls back to the app URL', () => {
+    expect(env.get('BETTER_AUTH_SECRET')).toMatch(/^\$\{BETTER_AUTH_SECRET:\?/)
+    expect(env.get('BETTER_AUTH_URL')).toBe(
+      '${BETTER_AUTH_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}'
+    )
+  })
+
+  it('the image defaults to better-auth at build AND runtime, and needs the Clerk key only for a Clerk build', () => {
+    expect(dockerfile).toMatch(/^ARG AUTH_PROVIDER=better-auth$/m)
+    const builder = dockerfile.slice(
+      dockerfile.indexOf('AS builder'),
+      dockerfile.indexOf('AS runner')
+    )
+    const runner = dockerfile.slice(dockerfile.indexOf('AS runner'))
+    for (const stage of [builder, runner]) {
+      expect(stage).toMatch(/^ARG AUTH_PROVIDER$/m)
+      expect(stage).toMatch(/AUTH_PROVIDER=\$AUTH_PROVIDER\b/)
+    }
+    // The Clerk key is optional unless AUTH_PROVIDER=clerk.
+    expect(builder).toMatch(/^ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$/m)
+    expect(builder).toMatch(
+      /clerk\) test -n "\$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"/
+    )
+  })
+
+  it('the app refuses to start with a BETTER_AUTH_SECRET shorter than the library minimum', () => {
+    const cmd = dockerfile.match(/^CMD (.*)$/m)?.[1] ?? ''
+    expect(cmd).toContain(`\${#BETTER_AUTH_SECRET} -lt ${MIN_SECRET_LENGTH}`)
+  })
+
+  it('.env.example makes Better Auth the required provider and leaves Clerk optional', () => {
+    const required = envExample.slice(0, envExample.indexOf('# 2. OPTIONAL'))
+    expect(required).toMatch(/^AUTH_PROVIDER=better-auth$/m)
+    expect(required).toMatch(/^BETTER_AUTH_SECRET=$/m)
+    expect(required).not.toMatch(/^[A-Z_]*CLERK[A-Z_]*=/m)
+    expect(required).toMatch(/^# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=/m)
+  })
+
+  it('the self-hosting guide no longer requires Clerk and documents the auth setup', () => {
+    expect(guide).not.toMatch(/Clerk is required|A \*\*Clerk\*\* application/)
+    for (const needle of [
+      'BETTER_AUTH_SECRET',
+      'openssl rand -hex 32',
+      '/api/auth/callback/github',
+      'AUTH_DISABLE_SIGNUP',
+      'SMTP_URL=smtp://mailpit:1025',
+      'LUM-1044',
+    ]) {
+      expect(guide).toContain(needle)
+    }
   })
 })
