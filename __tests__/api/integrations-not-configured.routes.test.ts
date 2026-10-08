@@ -168,7 +168,7 @@ describe('GET /api/github/app/install when the App is not configured', () => {
       member: { id: 'm1' },
     })
     // A slug alone is not a configured App (LUM-1025).
-    process.env.GITHUB_APP_SLUG = 'lumo-agent'
+    process.env.GITHUB_APP_SLUG = 'uselumo'
     const { GET } = await import('@/app/api/github/app/install/route')
     const res = await GET(req('/api/github/app/install'))
     expect(res.status).toBe(307)

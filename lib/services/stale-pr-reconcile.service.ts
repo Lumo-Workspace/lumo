@@ -26,7 +26,7 @@ import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissi
 const GH_HEADERS = {
   Accept: 'application/vnd.github+json',
   'X-GitHub-Api-Version': '2022-11-28',
-  'User-Agent': 'lumo-agent/1.0',
+  'User-Agent': 'uselumo/1.0',
 }
 
 /** Never issue more than this many GitHub reads for one page load. */

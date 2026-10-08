@@ -14,7 +14,7 @@ import { REPO_TOKEN_PERMISSIONS } from './token-permissions'
 const GH_HEADERS = {
   Accept: 'application/vnd.github+json',
   'X-GitHub-Api-Version': '2022-11-28',
-  'User-Agent': 'lumo-agent/1.0',
+  'User-Agent': 'uselumo/1.0',
 }
 
 /**

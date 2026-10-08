@@ -658,7 +658,7 @@ describe('LUM-988 verifier comments follow the latest verdict', () => {
   })
 
   it('with the App slug set, another App quoting the marker is never edited', async () => {
-    process.env.GITHUB_APP_SLUG = 'lumo-agent'
+    process.env.GITHUB_APP_SLUG = 'uselumo'
     listReview.mockResolvedValue([
       comment(1, 'fp-r', 'original', {
         id: 2,
@@ -668,7 +668,7 @@ describe('LUM-988 verifier comments follow the latest verdict', () => {
       comment(2, 'fp-r', 'original', {
         id: 3,
         type: 'Bot',
-        login: 'lumo-agent[bot]',
+        login: 'uselumo[bot]',
       }),
     ])
     findById.mockResolvedValue(
@@ -689,15 +689,15 @@ describe('LUM-988 verifier comments follow the latest verdict', () => {
   })
 
   it('isLumoBotComment: login match when the slug is set, type alone otherwise', () => {
-    process.env.GITHUB_APP_SLUG = 'lumo-agent'
+    process.env.GITHUB_APP_SLUG = 'uselumo'
     expect(
-      isLumoBotComment({ user: { type: 'Bot', login: 'lumo-agent[bot]' } })
+      isLumoBotComment({ user: { type: 'Bot', login: 'uselumo[bot]' } })
     ).toBe(true)
     expect(
       isLumoBotComment({ user: { type: 'Bot', login: 'renovate[bot]' } })
     ).toBe(false)
     expect(
-      isLumoBotComment({ user: { type: 'User', login: 'lumo-agent[bot]' } })
+      isLumoBotComment({ user: { type: 'User', login: 'uselumo[bot]' } })
     ).toBe(false)
     expect(isLumoBotComment({ user: null })).toBe(false)
     delete process.env.GITHUB_APP_SLUG
