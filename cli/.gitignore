@@ -2,6 +2,9 @@
 dist/
 
 # Generated at build time; source of truth lives in
-# ../.claude/skills/lumo/ (SKILL.md + references/). Shipped in the npm tarball
-# via the `files` field but not tracked in git to avoid drift.
+# ../.claude/skills/lumo/ (SKILL.md + references/) and package.json. Shipped in
+# the npm tarball via the `files` field but not tracked in git to avoid drift.
+# assets/ is the pre-LUM-1049 skill location, kept ignored for old checkouts.
 assets/
+skills/
+plugin.json

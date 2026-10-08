@@ -6,6 +6,8 @@
 
 Bootstraps Lumo into a coding-agent installation. Copies the bundled skill files (`SKILL.md` **and its `references/` directory**) into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
 
+**`--agent codex`** installs for Codex instead: the same skill files go to `<scope>/.agents/skills/lumo/` (Codex loads skills from there in the CLI, desktop app and IDE extension), and **no hooks are written** — Lumo has no Codex hook adapter yet, so session binding (`session attach/status`) and activity capture stay Claude Code only. Nothing under `.claude/` is touched. The `--project` git hook below is installed as usual. The npm package root is also a portable Agent Plugins package (`plugin.json` + `skills/lumo/`), so a Codex / ChatGPT plugin marketplace can list `@lumoai/cli` as an `npm` source.
+
 On `--project` scope, setup also installs a `prepare-commit-msg` git hook that
 auto-appends the branch's task ID (`[LUM-N]`, parsed from a `lumo/LUM-N-...`
 branch name) to any commit subject that lacks it. The hook is pure sh + git
@@ -18,22 +20,24 @@ not touch git hooks.
 
 When logged in, setup ends with one `ℹ Session records in this workspace: …` line — the workspace's current session record mode and retention, and that an OWNER can change it in Settings → Data retention (link included). Not logged in, offline, or an older server → the line is skipped silently; setup never fails on it.
 
-`--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
+For every other agent, `--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
 
 ```bash
 npx @lumoai/cli setup                    # interactive: prompts user/project; agent=claude-code
 npx @lumoai/cli setup --user             # write to ~/.claude/
 npx @lumoai/cli setup --project          # write to ./.claude/
 lumo setup --project --force             # same via global install: overwrite skill files if they differ from bundled
-lumo setup --project --agent codex       # bake agent=codex into the hook commands
+lumo setup --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, no hooks
+lumo setup --project --agent cursor      # bake agent=cursor into the hook commands
 ```
 
 #### When to suggest
 
 - The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
-- A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` yet
+- A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` (or, for Codex, `.agents/skills/lumo/SKILL.md`) yet
+- The user works in Codex — `lumo setup --agent codex` (add `--user` for every repo)
 - After `npm install -g @lumoai/cli`, before the first `lumo auth login`
-- Wiring Lumo into a non-Claude-Code agent (Codex / Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
+- Wiring Lumo hooks into another agent (Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
 
 If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown. An unrecognized `--agent` token aborts before writing anything.
 

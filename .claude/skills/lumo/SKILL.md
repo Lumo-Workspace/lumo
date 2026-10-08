@@ -10,6 +10,8 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
 
+**Agent support:** everything works in Claude Code. In Codex (skill installed by `lumo setup --agent codex`) there are no Lumo hooks yet — `session attach/status`, activity capture, `memory sync` and `usage resync` are Claude Code only, so skip them and say so; every other command works.
+
 ## How this skill is organized
 
 **Starting, resuming, or finishing work on a task? Read [Core workflow](#core-workflow) at the bottom first** — it's the happy path (attach → context → work → test cases → wrap-up) and the recurring traps. The catalog is a lookup table, not the starting point.
@@ -47,7 +49,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
-- `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill files + hooks
+- `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill files + hooks (`--agent codex`: skill into `.agents/skills/`, no hooks)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
 - `lumo update` — upgrade the CLI to the latest npm release
@@ -179,7 +181,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Sessions — see [sessions.md](references/sessions.md)
 
-- `lumo session attach <id>` — bind this session to a task; prints blockers/security findings only — run `task context` next. **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
+- `lumo session attach <id>` — bind this session to a task; prints blockers/security findings only — run `task context` next. **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new agent session instead. No `--force`, no `session detach`.
 - `lumo session attach --steward <milestone>` — bind as a **STEWARD (governance) session** on a milestone (LUM-640): plan & accept only — self-dispatch to in_progress is refused; commits/PRs become milestone-scoped boundary crossings (web+human disposition only). Same lifetime lock. See [sessions.md](references/sessions.md)
 - `lumo session status` — show current binding (a task, or the milestone + STEWARD role)
 - `lumo usage resync [--apply]` — correct historical inflated token numbers from local transcripts; dry run first, then `--apply`. See [sessions.md](references/sessions.md)
@@ -208,7 +210,7 @@ Don't guess these:
 - No `lumo verify`, `lumo task criteria …`, `lumo criteria audit` or `lumo outcome rate` (removed in LUM-942 with task acceptance criteria) — and no `lumo verdict`, `lumo fidelity`, `lumo outcome record` (LUM-733). Evidence is test cases (`lumo task testcase`); milestone exit criteria (`lumo milestone criteria`) remain
 - No subtasks / `--parent` (removed in LUM-959) — group related tasks with a milestone, order them with `task deps add`, and fold small follow-ups into the original task
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
-- No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
+- No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new agent session
 - No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
 - No `lumo pr show` / `lumo scan` — the by-number security read-out is `lumo pr scan <number>` (scan _settings_ are `lumo workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` — it's `lumo task artifact update`

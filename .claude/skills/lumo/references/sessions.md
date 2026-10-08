@@ -98,7 +98,7 @@ lumo session attach LUM-42 --no-worktree   # never create one, even with autoWor
 
 What it does:
 
-- Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets it automatically); errors out if unset — must run from inside a Claude Code session.
+- Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets it automatically); errors out if unset — must run from inside a Claude Code session. Codex sets no such id and has no Lumo hooks yet, so `session attach` / `session status` don't work there — tell the user binding is Claude Code only for now instead of retrying.
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
 - Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning and **undispositioned security findings**.

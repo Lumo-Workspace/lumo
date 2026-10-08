@@ -1,6 +1,6 @@
 {
   "name": "@lumoai/cli",
-  "version": "1.98.0",
+  "version": "1.99.0",
   "description": "Lumo CLI — manage tasks and sessions from the terminal",
   "license": "MIT",
   "author": "cli@uselumo.ai",
@@ -18,7 +18,8 @@
     "cli",
     "task-management",
     "project-management",
-    "claude-code"
+    "claude-code",
+    "codex"
   ],
   "engines": {
     "node": ">=18"
@@ -28,7 +29,8 @@
   },
   "files": [
     "dist",
-    "assets",
+    "skills",
+    "plugin.json",
     "LICENSE"
   ],
   "publishConfig": {
@@ -37,7 +39,7 @@
   "scripts": {
     "build": "tsc && chmod +x dist/cli/src/index.js && node ./scripts/bundle-assets.js",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist assets",
+    "clean": "rm -rf dist assets skills plugin.json",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {

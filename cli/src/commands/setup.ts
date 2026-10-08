@@ -13,6 +13,7 @@ import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
+import { BUNDLED_SKILL_REL, listFiles } from '../lib/codex-plugin'
 
 type SetupOptions = {
   user?: boolean
@@ -56,26 +57,62 @@ export async function setup(options: SetupOptions): Promise<number> {
     return 1
   }
 
-  const scope = await resolveScope(options)
+  const codex = agentResult.token === 'codex'
+  const scope = await resolveScope(options, codex)
   if (!scope) return 130
 
   const root = scope === 'user' ? os.homedir() : process.cwd()
-  const claudeDir = path.join(root, '.claude')
+  const configRoot = path.join(root, codex ? '.agents' : '.claude')
 
-  process.stdout.write(`\nInstalling Lumo for ${scope} scope: ${claudeDir}\n\n`)
+  process.stdout.write(
+    `\nInstalling Lumo for ${scope} scope: ${configRoot}\n\n`
+  )
 
-  installSkill(claudeDir, options.force === true)
-  mergeSettings(claudeDir, agentResult.token)
+  installSkill(
+    bundledSkillDir(),
+    skillInstallDir(root, agentResult.token),
+    options.force === true
+  )
+  if (codex) {
+    // LUM-1049: Codex reads skills natively from .agents/skills/; Lumo has no
+    // Codex hook adapter yet, so nothing is written to its hook config.
+    process.stdout.write(
+      'ℹ Codex: Lumo hooks are not available yet — `lumo session attach` and activity capture work in Claude Code only.\n'
+    )
+  } else {
+    mergeSettings(configRoot, agentResult.token)
+  }
   if (scope === 'project') {
     installGitHook(root)
   }
   await printSessionRecordNotice()
-  printPostInstall()
+  printPostInstall(codex)
 
   return 0
 }
 
-async function resolveScope(options: SetupOptions): Promise<Scope | null> {
+/**
+ * Where setup installs the lumo skill: Codex loads skills from
+ * `<root>/.agents/skills/` (repo or ~), every other agent token keeps the
+ * Claude Code layout `<root>/.claude/skills/`.
+ */
+export function skillInstallDir(root: string, agentToken: string): string {
+  return agentToken === 'codex'
+    ? path.join(root, '.agents', 'skills', 'lumo')
+    : path.join(root, '.claude', 'skills', 'lumo')
+}
+
+// The skill directory bundled at the package root by scripts/bundle-assets.js
+// and shipped via package.json "files".
+// From dist/cli/src/commands/setup.js → ../../../../skills/lumo
+function bundledSkillDir(): string {
+  return path.resolve(__dirname, '../../../..', BUNDLED_SKILL_REL)
+}
+
+async function resolveScope(
+  options: SetupOptions,
+  codex: boolean
+): Promise<Scope | null> {
   if (options.user) return 'user'
   if (options.project) return 'project'
 
@@ -88,7 +125,9 @@ async function resolveScope(options: SetupOptions): Promise<Scope | null> {
 
   const answer = (
     await promptLine(
-      'Install Lumo for [u]ser (~/.claude) or [p]roject (./.claude)? [u/P]: '
+      codex
+        ? 'Install Lumo for [u]ser (~/.agents) or [p]roject (./.agents)? [u/P]: '
+        : 'Install Lumo for [u]ser (~/.claude) or [p]roject (./.claude)? [u/P]: '
     )
   ).toLowerCase()
   if (answer === 'u' || answer === 'user') return 'user'
@@ -97,30 +136,18 @@ async function resolveScope(options: SetupOptions): Promise<Scope | null> {
   return null
 }
 
-// Recursively list files under `dir` as paths relative to `base`.
-function listSkillFiles(dir: string, base: string = dir): string[] {
-  const out: string[] = []
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) out.push(...listSkillFiles(full, base))
-    else if (entry.isFile()) out.push(path.relative(base, full))
-  }
-  return out
-}
-
 function filesEqual(src: string, dst: string): boolean {
   if (!fs.existsSync(dst)) return false
   if (fs.statSync(src).size !== fs.statSync(dst).size) return false
   return fs.readFileSync(src).equals(fs.readFileSync(dst))
 }
 
-function installSkill(claudeDir: string, force: boolean): void {
-  const skillDir = path.join(claudeDir, 'skills', 'lumo')
+export function installSkill(
+  skillSrcDir: string,
+  skillDir: string,
+  force: boolean
+): void {
   const skillDstMain = path.join(skillDir, 'SKILL.md')
-  // The skill is a directory (SKILL.md + references/*.md) bundled in
-  // cli/assets/skill/, shipped via package.json "files".
-  // From dist/cli/src/commands/setup.js → ../../../../assets/skill
-  const skillSrcDir = path.resolve(__dirname, '../../../..', 'assets', 'skill')
 
   if (!fs.existsSync(path.join(skillSrcDir, 'SKILL.md'))) {
     throw new Error(
@@ -128,7 +155,7 @@ function installSkill(claudeDir: string, force: boolean): void {
     )
   }
 
-  const relFiles = listSkillFiles(skillSrcDir)
+  const relFiles = listFiles(skillSrcDir)
 
   // Non-force, install already present: only overwrite when something differs,
   // and then only with --force.
@@ -294,7 +321,7 @@ export async function printSessionRecordNotice(
   if (notice) process.stdout.write(`\nℹ ${notice}\n`)
 }
 
-function printPostInstall(): void {
+function printPostInstall(codex: boolean): void {
   const onPath = isLumoOnPath()
   const credsPath = path.join(configDir(), 'credentials.json')
   const authed = fs.existsSync(credsPath)
@@ -305,7 +332,9 @@ function printPostInstall(): void {
   if (!onPath || isRunningUnderNpx()) {
     steps.push({
       command: 'npm install -g @lumoai/cli',
-      why: 'install the CLI globally so Claude Code hooks can find it',
+      why: codex
+        ? 'install the CLI globally so Codex can run lumo commands'
+        : 'install the CLI globally so Claude Code hooks can find it',
     })
   }
   if (!authed) {
@@ -317,7 +346,9 @@ function printPostInstall(): void {
   if (onPath && authed && !isRunningUnderNpx()) {
     steps.push({
       command: null,
-      why: 'All set. Open Claude Code in this directory — the SKILL.md and hooks are wired in.',
+      why: codex
+        ? 'All set. Start a new Codex session in this directory — the lumo skill is installed.'
+        : 'All set. Open Claude Code in this directory — the SKILL.md and hooks are wired in.',
     })
   }
   process.stdout.write(`\n${formatNextSteps(steps)}\n\n`)
