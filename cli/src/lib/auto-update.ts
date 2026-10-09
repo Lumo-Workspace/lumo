@@ -163,6 +163,9 @@ export async function maybeAutoUpdate(
     if (!isNewer(current, latest)) return
     const now = (deps.now ?? Date.now)()
     if (!acquireFileLock(lockPath(), LOCK_STALE_MS)) return
+    // Kept when npm is still running after the wait: the lock then clears by
+    // staleness (5 min), so `lumo update` can't race a live global install.
+    let keepLock = false
     try {
       // Re-read under the lock: a peer may have just finished an attempt.
       const last = readAutoUpdateState().lastAutoUpdateAttempt
@@ -171,18 +174,19 @@ export async function maybeAutoUpdate(
         deps.pkgRoot !== undefined ? deps.pkgRoot : findCliPackageRoot()
       if (!isGlobalNpmInstall(root, deps.spawnSync)) return
       writeAutoUpdateState({ lastAutoUpdateAttempt: now, lastError: null })
-      const error = await installGlobally(
+      const { error, stillRunning } = await installGlobally(
         latest,
         deps.spawn ?? spawn,
         deps.npmWaitMs ?? NPM_WAIT_MS
       )
+      keepLock = stillRunning
       if (error)
         writeAutoUpdateState({
           lastAutoUpdateAttempt: now,
           lastError: error.slice(0, ERROR_MAX),
         })
     } finally {
-      releaseFileLock(lockPath())
+      if (!keepLock) releaseFileLock(lockPath())
     }
   } catch {
     /* never affect the CLI */
@@ -201,18 +205,18 @@ export function isAutoUpdateInProgress(): boolean {
 /**
  * Run npm detached from this worker, its output appended to auto-update.log
  * (a file, not a pipe, so npm survives the worker exiting). Resolves to an
- * error string, or null on success. A child still running after `waitMs`
- * is reported as such; its final outcome is unknown.
+ * error string (null on success). A child still running after `waitMs`
+ * is reported with `stillRunning: true`; its final outcome is unknown.
  */
 function installGlobally(
   version: string,
   spawnFn: typeof spawn,
   waitMs: number
-): Promise<string | null> {
+): Promise<{ error: string | null; stillRunning: boolean }> {
   return new Promise(resolve => {
     let done = false
     let logFd: number | null = null
-    const finish = (err: string | null): void => {
+    const finish = (err: string | null, stillRunning = false): void => {
       if (done) return
       done = true
       clearTimeout(timer)
@@ -223,10 +227,10 @@ function installGlobally(
           /* already closed */
         }
       }
-      resolve(err)
+      resolve({ error: err, stillRunning })
     }
     const timer = setTimeout(
-      () => finish(`still running after ${waitMs / 1000}s`),
+      () => finish(`still running after ${waitMs / 1000}s`, true),
       waitMs
     )
     try {

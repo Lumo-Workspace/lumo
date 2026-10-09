@@ -49,16 +49,18 @@ lumo update
 
 Checks npm for a newer release and runs `npm install -g @lumoai/cli@latest` if one is available. The CLI also performs a background check once every 24 hours and prints a one-line notice on subsequent invocations when an upgrade is available.
 
-Auto-update is on by default: the CLI installs new releases in the background. Turn it off with `lumo update --auto off` (back on with `lumo update --auto on`), or set `LUMO_NO_AUTO_UPDATE=1` in the environment.
+Auto-update is on by default: the CLI installs new releases in the background. Turn it off with `lumo update --auto off` (back on with `lumo update --auto on`), or set `LUMO_NO_AUTO_UPDATE=1` in the environment. It is also off whenever `CI` is set (CI runs never self-update).
 
 ### Keeping installs in sync
 
-User-scope installs (`~/.claude/`, `~/.codex/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Run `lumo init --upgrade` to refresh every known install by hand.
+User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Run `lumo init --upgrade` to refresh every known install by hand.
 
 ```bash
 lumo doctor      # read-only report of every Lumo install and its state
 lumo uninstall   # remove Lumo-owned skills, hooks and the git hook block
 ```
+
+`lumo uninstall --agent <token>` filters by agent (`claude-code`, `codex`, …); the `prepare-commit-msg` hook is labelled `git`, so it is only included by `--agent git` (or no `--agent`).
 
 ## Authentication
 
@@ -103,13 +105,13 @@ lumo task update LUM-42 --status done
 ## Commands
 
 | Group       | Highlights                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------ | ------------------------------- |
+| ----------- | ------------------------------------------------------------------------------------------ |
 | `init`      | Install skill files (SKILL.md + references/) + hooks into `~/.claude/` or `./.claude/`     |
 | `doctor`    | Read-only report of every Lumo install (skills, hooks, git hook) and whether it is current |
 | `uninstall` | Remove Lumo-owned skills, hooks and the git hook block                                     |
 | `auth`      | `login`, `logout`                                                                          |
 | `whoami`    | Show current identity + workspace                                                          |
-| `update`    | Self-update to the latest npm release; `--auto on                                          | off` toggles background updates |
+| `update`    | Self-update to the latest npm release; `--auto on\|off` toggles background updates         |
 | `task`      | `create`, `update`, `list`, `show`, `comment`, `context`                                   |
 | `session`   | `attach`, `status`, `detach` (binds Claude Code sessions)                                  |
 | `project`   | `list`                                                                                     |

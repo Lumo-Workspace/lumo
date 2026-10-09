@@ -20,7 +20,7 @@ import {
   repoRoot,
   type InstallLocation,
 } from '../lib/install-locations'
-import { readRegistryChecked } from '../lib/install-registry'
+import { GIT_HOOK_AGENT, readRegistryChecked } from '../lib/install-registry'
 import {
   classifySkillDir,
   isNewerVersion,
@@ -265,7 +265,6 @@ function settingsRow(
 function gitHookRow(
   file: string,
   scope: 'user' | 'project',
-  agent: string,
   root: string | null,
   current: { path: string; coreHooksPath: string | null } | null
 ): DoctorRow | null {
@@ -294,7 +293,7 @@ function gitHookRow(
     path: file,
     kind: 'git-hook',
     scope,
-    agent,
+    agent: GIT_HOOK_AGENT,
     group,
     tracked: isCurrent && !hooksPath ? false : fileTracked(file),
     state: upToDate ? 'up to date' : 'behind',
@@ -408,15 +407,12 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
 
   // prepare-commit-msg: this repo's hooks dir plus recorded hooks.
   let current: { path: string; coreHooksPath: string | null } | null = null
-  const hookFiles = new Map<
-    string,
-    { scope: 'user' | 'project'; agent: string }
-  >()
+  const hookFiles = new Map<string, { scope: 'user' | 'project' }>()
   if (root) {
     const { dir, coreHooksPath } = resolveGitHooksDir(root)
     if (dir) {
       current = { path: path.join(dir, 'prepare-commit-msg'), coreHooksPath }
-      hookFiles.set(current.path, { scope: 'project', agent: 'git' })
+      hookFiles.set(current.path, { scope: 'project' })
     }
   }
   for (const rec of registry.installs) {
@@ -426,10 +422,10 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
       continue
     }
     if (hookFiles.has(rec.path)) continue
-    hookFiles.set(rec.path, { scope: rec.scope, agent: rec.agent })
+    hookFiles.set(rec.path, { scope: rec.scope })
   }
   for (const [file, t] of hookFiles) {
-    const row = gitHookRow(file, t.scope, t.agent, root, current)
+    const row = gitHookRow(file, t.scope, root, current)
     if (row) rows.push(row)
   }
   const codex = codexRow(home, warnings)

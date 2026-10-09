@@ -15,8 +15,9 @@ import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
 import { bundledSkillDir, copySkillTree, listFiles } from '../lib/codex-plugin'
-import { hashSkillDir } from '../lib/skill-hash'
+import { hashSkillDir, MARKER_FILE } from '../lib/skill-hash'
 import {
+  GIT_HOOK_AGENT,
   readMarker,
   readRegistry,
   upsertInstall,
@@ -176,7 +177,7 @@ export async function init(
   if (scope === 'project') {
     const hookPath = installGitHook(root)
     if (hookPath) {
-      recordInstall('git-hook', hookPath, scope, agentResult.token, cliVersion)
+      recordInstall('git-hook', hookPath, scope, GIT_HOOK_AGENT, cliVersion)
     }
   }
   await printSessionRecordNotice()
@@ -228,6 +229,14 @@ function filesEqual(src: string, dst: string): boolean {
   if (!fs.existsSync(dst)) return false
   if (fs.statSync(src).size !== fs.statSync(dst).size) return false
   return fs.readFileSync(src).equals(fs.readFileSync(dst))
+}
+
+/** Whether `dir` holds exactly `relFiles` (ignoring the Lumo marker). */
+function sameFileSet(dir: string, relFiles: readonly string[]): boolean {
+  const have = listFiles(dir).filter(f => f !== MARKER_FILE)
+  return (
+    have.length === relFiles.length && have.every((f, i) => f === relFiles[i])
+  )
 }
 
 function isInstalledResult(r: SkillInstallResult): boolean {
@@ -325,11 +334,16 @@ export function installSkill(
     const allMatch = relFiles.every(rel =>
       filesEqual(path.join(skillSrcDir, rel), path.join(skillDir, rel))
     )
-    if (
-      allMatch ||
-      (installed !== null && !isNewerVersion(installed, ctx.cliVersion))
-    ) {
-      if (!readMarker(skillDir)) {
+    // A modified copy is only adopted when it IS the bundle: same file set and
+    // bytes. Bundled files + an extra user file must stay `modified`, or the
+    // marker would make that user file Lumo-managed (and later deletable).
+    const identical = allMatch && sameFileSet(skillDir, relFiles)
+    const upToDate =
+      cls.state === 'managed'
+        ? allMatch || !isNewerVersion(installed!, ctx.cliVersion)
+        : identical
+    if (upToDate) {
+      if (!readMarker(skillDir) || cls.state === 'modified') {
         // Adopt a legacy copy: explicit command, so a tracked dir may get the marker.
         writeSkillMarker(skillDir, ctx, allMatch ? ctx.cliVersion : installed!)
         if (cls.gitTracked) process.stdout.write(gitDiffNote(skillDir))
@@ -426,18 +440,15 @@ async function upgradeInstalls(args: {
     if (r.kind !== 'claude-settings' || !fs.existsSync(r.path)) continue
     found++
     try {
-      const tracked = isPathGitTracked(r.path)
       mergeSettings(path.dirname(r.path), r.agent)
       recordInstall('claude-settings', r.path, r.scope, r.agent, cliVersion)
-      if (tracked) process.stdout.write(gitDiffNote(r.path))
     } catch (err) {
       fail(r.path, err)
     }
   }
-  const hookTargets = new Map<string, { scope: Scope; agent: string }>()
+  const hookTargets = new Map<string, { scope: Scope }>()
   for (const r of reg.installs) {
-    if (r.kind === 'git-hook')
-      hookTargets.set(r.path, { scope: r.scope, agent: r.agent })
+    if (r.kind === 'git-hook') hookTargets.set(r.path, { scope: r.scope })
   }
   const root = repoRoot(cwd)
   if (root) {
@@ -445,8 +456,7 @@ async function upgradeInstalls(args: {
     const { dir, coreHooksPath } = resolveGitHooksDir(root)
     if (dir && !coreHooksPath) {
       const p = path.join(dir, 'prepare-commit-msg')
-      if (!hookTargets.has(p))
-        hookTargets.set(p, { scope: 'project', agent: 'claude-code' })
+      if (!hookTargets.has(p)) hookTargets.set(p, { scope: 'project' })
     }
   }
   for (const [hookPath, t] of hookTargets) {
@@ -456,7 +466,7 @@ async function upgradeInstalls(args: {
       found++
       if (res === 'updated')
         process.stdout.write(`✓ updated prepare-commit-msg hook: ${hookPath}\n`)
-      recordInstall('git-hook', hookPath, t.scope, t.agent, cliVersion)
+      recordInstall('git-hook', hookPath, t.scope, GIT_HOOK_AGENT, cliVersion)
     } catch (err) {
       fail(hookPath, err)
     }
@@ -508,6 +518,7 @@ function mergeSettings(claudeDir: string, agentToken: string): string {
     existing as Parameters<typeof mergeLumoHooks>[0],
     agentToken
   )
+  const tracked = fs.existsSync(settingsPath) && isPathGitTracked(settingsPath)
   fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n')
 
   const changed = stats.addedEvents.length + stats.updatedEvents.length
@@ -520,6 +531,7 @@ function mergeSettings(claudeDir: string, agentToken: string): string {
       `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length})\n`
     )
   }
+  if (tracked) process.stdout.write(gitDiffNote(settingsPath))
   return settingsPath
 }
 

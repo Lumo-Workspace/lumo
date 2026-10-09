@@ -28,13 +28,33 @@ export function isNewerVersion(current: string, candidate: string): boolean {
  * auto-write a path whose tracked-ness could not be established.
  */
 function isGitTracked(dir: string): boolean {
-  return lsFilesTracked(dir, [])
+  return isPathGitTracked(dir)
 }
 
-/** Same fail-closed check for a single file or directory path. */
+/** Resolve symlinks (leaf or any parent); a missing path resolves as-is. */
+function realOrResolved(p: string): string {
+  try {
+    return fs.realpathSync(p)
+  } catch {
+    return path.resolve(p)
+  }
+}
+
+/**
+ * Same fail-closed check for a single file or directory path. Symlinks are
+ * resolved first, so a stow-style `~/.claude/settings.json` -> dotfiles repo
+ * link is checked in the repo it points into.
+ */
 export function isPathGitTracked(p: string): boolean {
-  if (fs.statSync(p).isDirectory()) return lsFilesTracked(p, [])
-  return lsFilesTracked(path.dirname(p), ['--', path.basename(p)])
+  const real = realOrResolved(p)
+  let isDir = false
+  try {
+    isDir = fs.statSync(real).isDirectory()
+  } catch {
+    // missing: check it as a file path
+  }
+  if (isDir) return lsFilesTracked(real, [])
+  return lsFilesTracked(path.dirname(real), ['--', path.basename(real)])
 }
 
 function lsFilesTracked(cwd: string, extra: string[]): boolean {

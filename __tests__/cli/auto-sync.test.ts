@@ -81,28 +81,40 @@ afterEach(() => {
 
 describe('maybeAutoSync', () => {
   it('fast path: same lastSyncedVersion does no work', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     seed([rec(dir)], '2.0.0')
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
     expect(existsSync(join(cfg, 'auto-sync.lock'))).toBe(false)
     expect(lines).toEqual([])
   })
 
   it('does nothing when the CLI version is unknown', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     seed([rec(dir)])
-    maybeAutoSync(null, { bundledSkillDir: bundled, log })
+    maybeAutoSync(null, {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
   })
 
   it('updates a user-scope managed older skill, marker, record, and logs once', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     seed([rec(dir)])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('new')
     expect(readMarker(dir)?.version).toBe('2.0.0')
     expect(readMarker(dir)?.hash).toBe(hashSkillDir(dir))
@@ -114,10 +126,15 @@ describe('maybeAutoSync', () => {
   })
 
   it('prints nothing when quiet (lumo hook ...) but still updates', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     seed([rec(dir)])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log, quiet: true })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+      quiet: true,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('new')
     expect(lines).toEqual([])
   })
@@ -136,7 +153,11 @@ describe('maybeAutoSync', () => {
     git('add', '.')
     git('commit', '-m', 'x')
     seed([rec(dir)])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
     expect(
       execFileSync('git', ['status', '--porcelain'], {
@@ -148,28 +169,40 @@ describe('maybeAutoSync', () => {
   })
 
   it('skips project-scope records', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     seed([rec(dir, { scope: 'project' })])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
   })
 
   it('leaves a locally modified skill untouched', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     writeFileSync(join(dir, 'SKILL.md'), 'edited by user')
     seed([rec(dir)])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('edited by user')
     expect(lines).toEqual([])
   })
 
   it('never downgrades a skill newer than the running CLI', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '3.0.0')
     seed([rec(dir)])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
     expect(readMarker(dir)?.version).toBe('3.0.0')
     expect(lines).toEqual([
@@ -178,28 +211,41 @@ describe('maybeAutoSync', () => {
   })
 
   it('stays silent about a newer skill when quiet', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '3.0.0')
     seed([rec(dir)])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log, quiet: true })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+      quiet: true,
+    })
     expect(lines).toEqual([])
   })
 
   it('treats a missing bundled SKILL.md as an error (version not advanced)', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     seed([rec(dir)])
     rmSync(join(bundled, 'SKILL.md'))
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
     expect(readRegistry().lastSyncedVersion).toBeNull()
   })
 
   it('never overwrites a corrupt installs.json', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     writeFileSync(join(cfg, 'installs.json'), '{ corrupt')
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(cfg, 'installs.json'), 'utf8')).toBe('{ corrupt')
     expect(existsSync(join(cfg, 'auto-sync.lock'))).toBe(false)
   })
@@ -219,7 +265,11 @@ describe('maybeAutoSync', () => {
     git('add', '.')
     git('commit', '-m', 'x')
     seed([rec(settings, { kind: 'claude-settings' })])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(settings, 'utf8')).toBe('{}\n')
     expect(
       execFileSync('git', ['status', '--porcelain'], {
@@ -230,19 +280,27 @@ describe('maybeAutoSync', () => {
   })
 
   it('skips while a fresh lock is held, and steals a stale one', () => {
-    const dir = join(root, 'skill')
+    const dir = join(root, 'u', 'skills', 'lumo')
     installSkillAt(dir, '1.0.0')
     seed([rec(dir)])
     const lock = join(cfg, 'auto-sync.lock')
     writeFileSync(lock, '')
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
     expect(readRegistry().lastSyncedVersion).toBeNull()
     expect(existsSync(lock)).toBe(true)
 
     const old = new Date(Date.now() - 120_000)
     utimesSync(lock, old, old)
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('new')
     expect(existsSync(lock)).toBe(false)
   })
@@ -252,7 +310,11 @@ describe('maybeAutoSync', () => {
     writeFileSync(settings, '{ not json')
     seed([rec(settings, { kind: 'claude-settings' })])
     expect(() =>
-      maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+      maybeAutoSync('2.0.0', {
+        bundledSkillDir: bundled,
+        homeDir: join(root, 'home'),
+        log,
+      })
     ).not.toThrow()
     expect(readRegistry().lastSyncedVersion).toBeNull()
     expect(existsSync(join(cfg, 'auto-sync.lock'))).toBe(false)
@@ -262,7 +324,11 @@ describe('maybeAutoSync', () => {
     const settings = join(root, 'settings.json')
     writeFileSync(settings, JSON.stringify({ permissions: { allow: [] } }))
     seed([rec(settings, { kind: 'claude-settings' })])
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     const merged = JSON.parse(readFileSync(settings, 'utf8'))
     expect(Object.keys(merged.hooks)).toEqual(
       expect.arrayContaining(LUMO_HOOK_EVENTS.map(e => e[0]))
@@ -274,7 +340,11 @@ describe('maybeAutoSync', () => {
     const stamp = new Date(Date.now() - 100_000)
     utimesSync(settings, stamp, stamp)
     writeRegistry({ ...readRegistry(), lastSyncedVersion: '2.0.0' })
-    maybeAutoSync('2.1.0', { bundledSkillDir: bundled, log })
+    maybeAutoSync('2.1.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
     expect(readFileSync(settings, 'utf8')).toBe(before)
   })
 })

@@ -4462,7 +4462,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Only installs of this agent (claude-code, codex, git, ...)"
+          "description": "Only installs of this agent (claude-code, codex, git, ...); the prepare-commit-msg hook is labelled git, so it is included only by --agent git"
         },
         "--confirm": {
           "long": "--confirm",

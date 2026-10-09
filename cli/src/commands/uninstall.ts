@@ -5,9 +5,14 @@ import { configDir } from '../lib/config'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 import { removeGitHookBlock } from '../lib/git-hook-template'
 import { removeLumoHooks } from '../lib/hooks-template'
-import { isLumoSkillSource, repoRoot } from '../lib/install-locations'
+import {
+  isLumoSkillSource,
+  isSkillsLumoPath,
+  repoRoot,
+} from '../lib/install-locations'
 import {
   readRegistryChecked,
+  recordAgent,
   removeInstall,
   type InstallKind,
 } from '../lib/install-registry'
@@ -115,6 +120,14 @@ export function planUninstall(
       })
       continue
     }
+    if (row.kind === 'skill' && !isSkillsLumoPath(row.path)) {
+      skipped.push({
+        row,
+        reason:
+          'not a skills/lumo directory — never removed, even with --force',
+      })
+      continue
+    }
     if (row.kind === 'skill' && row.state === 'modified' && !opts.force) {
       skipped.push({
         row,
@@ -130,7 +143,7 @@ export function planUninstall(
   for (const rec of registry.installs) {
     if (fs.existsSync(rec.path)) continue
     if (!inScope(scope, rec.scope, !inRepo(root, rec.path))) continue
-    if (opts.agent && rec.agent !== opts.agent) continue
+    if (opts.agent && recordAgent(rec) !== opts.agent) continue
     staleRecords.push({ kind: rec.kind, path: rec.path })
   }
   return { actions, skipped, staleRecords, registryCorrupt: corrupt }

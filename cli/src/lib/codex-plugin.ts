@@ -89,26 +89,72 @@ export function bundledSkillDir(fromDir: string = __dirname): string {
   return path.resolve(fromDir, '../../../..', BUNDLED_SKILL_REL)
 }
 
+const STAGING_PREFIX = '.lumo-staging-'
+const BACKUP_PREFIX = '.lumo-backup-'
+const STALE_SIBLING_MS = 60 * 60 * 1000
+
 /**
- * Replace `dst` with a copy of `src`. Copies into a sibling temp dir first and
- * only removes the old `dst` at the final rename, so a mid-copy failure leaves
- * the previous copy intact. Returns the relative file list.
+ * Remove `.lumo-staging-*` / `.lumo-backup-*` dirs in `parent` older than an
+ * hour — leftovers of a killed process. Fresh ones may belong to a live peer.
+ */
+export function cleanStaleSwapDirs(
+  parent: string,
+  now: number = Date.now()
+): void {
+  let names: string[]
+  try {
+    names = fs.readdirSync(parent)
+  } catch {
+    return
+  }
+  for (const name of names) {
+    if (!name.startsWith(STAGING_PREFIX) && !name.startsWith(BACKUP_PREFIX))
+      continue
+    const full = path.join(parent, name)
+    try {
+      if (now - fs.statSync(full).mtimeMs > STALE_SIBLING_MS)
+        fs.rmSync(full, { recursive: true, force: true })
+    } catch {
+      // best effort
+    }
+  }
+}
+
+/**
+ * Replace `dst` with a copy of `src`. Copies into a dot-prefixed staging
+ * sibling (never loadable as a skill), then swaps: dst -> backup, staging ->
+ * dst, drop backup. If the second rename fails the backup is renamed back, so
+ * at no point are both copies gone. Returns the relative file list.
  */
 export function copySkillTree(src: string, dst: string): string[] {
   const files = listFiles(src)
-  const tmp = `${dst}.tmp-${process.pid}`
-  fs.mkdirSync(path.dirname(dst), { recursive: true })
+  const parent = path.dirname(dst)
+  const staging = path.join(parent, `${STAGING_PREFIX}${process.pid}`)
+  const backup = path.join(parent, `${BACKUP_PREFIX}${process.pid}`)
+  fs.mkdirSync(parent, { recursive: true })
+  cleanStaleSwapDirs(parent)
   try {
-    fs.rmSync(tmp, { recursive: true, force: true })
+    fs.rmSync(staging, { recursive: true, force: true })
     for (const rel of files) {
-      const to = path.join(tmp, rel)
+      const to = path.join(staging, rel)
       fs.mkdirSync(path.dirname(to), { recursive: true })
       fs.copyFileSync(path.join(src, rel), to)
     }
-    fs.rmSync(dst, { recursive: true, force: true })
-    fs.renameSync(tmp, dst)
+    let backedUp = false
+    if (fs.existsSync(dst)) {
+      fs.rmSync(backup, { recursive: true, force: true })
+      fs.renameSync(dst, backup)
+      backedUp = true
+    }
+    try {
+      fs.renameSync(staging, dst)
+    } catch (err) {
+      if (backedUp) fs.renameSync(backup, dst)
+      throw err
+    }
+    if (backedUp) fs.rmSync(backup, { recursive: true, force: true })
   } finally {
-    fs.rmSync(tmp, { recursive: true, force: true })
+    fs.rmSync(staging, { recursive: true, force: true })
   }
   return files
 }

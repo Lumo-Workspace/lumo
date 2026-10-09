@@ -315,6 +315,25 @@ describe('fix round 1', () => {
     expect(readAutoUpdateState().lastError).toBe('still running after 0.02s')
   })
 
+  it('keeps auto-update.lock when npm outlives the wait (M3)', async () => {
+    const never = jest.fn(() => {
+      const c = new EventEmitter() as any
+      c.unref = jest.fn()
+      return c
+    })
+    await maybeAutoUpdate('1.0.0', '1.1.0', isNewer, {
+      env: baseEnv,
+      pkgRoot,
+      spawnSync: fakeSpawnSync(globalRoot) as any,
+      spawn: never as any,
+      npmWaitMs: 20,
+    })
+    // npm may still be installing: the lock stays until it goes stale (5 min),
+    // so a manual `lumo update` cannot start a concurrent global install.
+    expect(existsSync(join(cfg, 'auto-update.lock'))).toBe(true)
+    expect(isAutoUpdateInProgress()).toBe(true)
+  })
+
   it('re-reads the attempt state after taking the lock', async () => {
     const t0 = Date.now()
     mkdirSync(cfg, { recursive: true })

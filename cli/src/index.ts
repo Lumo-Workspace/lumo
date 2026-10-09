@@ -161,7 +161,11 @@ import {
   runBackgroundRefresh,
 } from './lib/update-check'
 import { sanitizeField } from './lib/sanitize'
-import { maybeAutoSync, shouldAutoSync } from './lib/auto-sync'
+import {
+  maybeAutoSync,
+  shouldAutoSync,
+  shouldCheckForUpdates,
+} from './lib/auto-sync'
 
 // Introspection mode: tooling (CLI grammar extraction) imports
 // this module to walk the registered commander tree without running the CLI.
@@ -189,8 +193,12 @@ if (isUpdateCheckWorker) {
     .catch(() => {})
     .finally(() => process.exit(0))
 } else if (!isIntrospect) {
-  printUpdateNoticeIfAny(pkg.name, pkg.version)
-  maybeRefreshInBackground(pkg.name)
+  // Not for `uninstall`: the background worker could reinstall the CLI after
+  // `npm rm -g` or recreate ~/.lumo after `--purge`.
+  if (shouldCheckForUpdates(process.argv)) {
+    printUpdateNoticeIfAny(pkg.name, pkg.version)
+    maybeRefreshInBackground(pkg.name)
+  }
   // First run of a new version: refresh user-scope installs. Silent for
   // `lumo hook …` (its output is consumed by the agent). Skipped entirely for
   // read-only `doctor` and `uninstall`. Never throws.
@@ -374,7 +382,7 @@ program
   )
   .option(
     '--agent <token>',
-    'Only installs of this agent (claude-code, codex, git, ...)'
+    'Only installs of this agent (claude-code, codex, git, ...); the prepare-commit-msg hook is labelled git, so it is included only by --agent git'
   )
   .option(
     '--force',

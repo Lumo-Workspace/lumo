@@ -174,7 +174,12 @@ describe('the Lumo skill source is never written or deleted', () => {
         },
       ],
     })
-    maybeAutoSync('2.0.0', { bundledSkillDir: bundledSkill(), quiet: true })
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundledSkill(),
+      quiet: true,
+      // never scan the real ~ for legacy copies
+      homeDir: join(skill, '..', '..', '..', 'no-home'),
+    })
     expect(readFileSync(join(skill, 'SKILL.md'), 'utf8')).toBe('SOURCE')
     expect(readMarker(skill)?.version).toBe('1.0.0')
   })

@@ -16,8 +16,29 @@ export interface InstallRecord {
   installedAt: string
 }
 
+/** Agent label for prepare-commit-msg installs: the hook serves git, not an agent. */
+export const GIT_HOOK_AGENT = 'git'
+
+/**
+ * The agent a record belongs to for display and `--agent` filtering. Git-hook
+ * records are always `git`, whatever an older CLI wrote into them.
+ */
+export function recordAgent(
+  rec: Pick<InstallRecord, 'kind' | 'agent'>
+): string {
+  return rec.kind === 'git-hook' ? GIT_HOOK_AGENT : rec.agent
+}
+
+export interface SyncAttempt {
+  version: string
+  /** ISO timestamp of the last auto-sync slow path that did not finish clean. */
+  at: string
+}
+
 export interface InstallRegistry {
   lastSyncedVersion: string | null
+  /** Throttles auto-sync retries for the same version (LUM-1052 I2). */
+  lastSyncAttempt?: SyncAttempt
   installs: InstallRecord[]
 }
 
@@ -56,11 +77,17 @@ export function readRegistry(): InstallRegistry {
     >
     if (!raw || typeof raw !== 'object' || !Array.isArray(raw.installs))
       return empty()
+    const attempt = raw.lastSyncAttempt as Record<string, unknown> | undefined
     return {
       lastSyncedVersion:
         typeof raw.lastSyncedVersion === 'string'
           ? raw.lastSyncedVersion
           : null,
+      ...(attempt &&
+      typeof attempt.version === 'string' &&
+      typeof attempt.at === 'string'
+        ? { lastSyncAttempt: { version: attempt.version, at: attempt.at } }
+        : {}),
       installs: raw.installs.filter(isRecord),
     }
   } catch {

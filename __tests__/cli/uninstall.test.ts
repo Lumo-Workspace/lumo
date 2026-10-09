@@ -301,7 +301,7 @@ describe('scope and agent filtering', () => {
     writeSettings(f.projSettings)
     mkdirSync(join(f.repo, '.git', 'hooks'), { recursive: true })
     writeFileSync(f.hook, mergeGitHook(null).content)
-    const otherSkill = join(tmp(), 'lumo')
+    const otherSkill = join(tmp(), '.claude', 'skills', 'lumo')
     writeSkill(otherSkill)
     upsertInstall({
       kind: 'skill',

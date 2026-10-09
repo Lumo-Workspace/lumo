@@ -27,15 +27,9 @@ export function repoRoot(cwd: string): string | null {
   return out ? out : null
 }
 
-/**
- * Every place a Lumo skill may live, whether or not it exists: user
- * ~/.claude and ~/.agents, plus the same two under the repo root of `cwd`.
- */
-export function knownSkillLocations(
-  opts: LocationOptions = {}
-): InstallLocation[] {
-  const home = opts.homeDir ?? os.homedir()
-  const locs: InstallLocation[] = [
+/** The two user-scope skill dirs: ~/.claude/skills/lumo and ~/.agents/skills/lumo. */
+export function userSkillLocations(home: string): InstallLocation[] {
+  return [
     {
       path: path.join(home, '.claude', 'skills', 'lumo'),
       scope: 'user',
@@ -47,6 +41,29 @@ export function knownSkillLocations(
       agent: 'codex',
     },
   ]
+}
+
+/**
+ * Defense in depth for anything that rewrites or deletes a recorded skill
+ * path: only a dir whose last two segments are `skills/lumo` qualifies.
+ */
+export function isSkillsLumoPath(p: string): boolean {
+  const resolved = path.resolve(p)
+  return (
+    path.basename(resolved) === 'lumo' &&
+    path.basename(path.dirname(resolved)) === 'skills'
+  )
+}
+
+/**
+ * Every place a Lumo skill may live, whether or not it exists: user
+ * ~/.claude and ~/.agents, plus the same two under the repo root of `cwd`.
+ */
+export function knownSkillLocations(
+  opts: LocationOptions = {}
+): InstallLocation[] {
+  const home = opts.homeDir ?? os.homedir()
+  const locs: InstallLocation[] = userSkillLocations(home)
   const root = repoRoot(opts.cwd ?? process.cwd())
   if (root) {
     locs.push(

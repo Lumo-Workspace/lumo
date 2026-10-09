@@ -1,13 +1,19 @@
 import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
 import { configDir } from './config'
 import { readCliVersion } from './cli-version'
 import { bundledSkillDir, copySkillTree } from './codex-plugin'
 import { acquireFileLock } from './file-lock'
 import { mergeLumoHooks } from './hooks-template'
-import { isLumoSkillSource } from './install-locations'
+import {
+  isLumoSkillSource,
+  isSkillsLumoPath,
+  userSkillLocations,
+} from './install-locations'
 import {
   readRegistry,
+  readMarker,
   readRegistryChecked,
   upsertInstall,
   writeMarker,
@@ -32,8 +38,19 @@ export function shouldAutoSync(argv: readonly string[]): boolean {
   return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '')
 }
 
+/**
+ * Whether the update notice and the background refresh/auto-update worker may
+ * run. Not for `uninstall`: the worker could reinstall the CLI right after
+ * `npm rm -g`, or recreate ~/.lumo after `--purge`.
+ */
+export function shouldCheckForUpdates(argv: readonly string[]): boolean {
+  return argv[2] !== 'uninstall'
+}
+
 const LOCK_FILE = 'auto-sync.lock'
 const LOCK_STALE_MS = 60_000
+/** A failed slow path for the same version is retried at most this often. */
+const RETRY_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 export type AutoSyncOptions = {
   /** Directory holding the bundled skill (defaults to the packaged assets). */
@@ -42,6 +59,10 @@ export type AutoSyncOptions = {
   log?: (line: string) => void
   /** Suppress all output (e.g. `lumo hook …`, whose output the agent reads). */
   quiet?: boolean
+  /** Home dir whose user-scope skill dirs may be adopted (defaults to ~). */
+  homeDir?: string
+  /** Clock seam for the retry throttle. */
+  now?: () => number
 }
 
 /** Take the sync lock; false when another process holds a fresh one. */
@@ -65,6 +86,7 @@ function replaceSkill(
 type SkillSync =
   | { kind: 'updated' }
   | { kind: 'newer'; installed: string }
+  | { kind: 'not-skills-lumo' }
   | { kind: 'none' }
 
 function syncSkill(
@@ -72,6 +94,7 @@ function syncSkill(
   version: string,
   bundled: string
 ): SkillSync {
+  if (!isSkillsLumoPath(rec.path)) return { kind: 'not-skills-lumo' }
   if (isLumoSkillSource(rec.path)) return { kind: 'none' }
   const cls = classifySkillDir(rec.path)
   if (cls.state !== 'managed' || cls.gitTracked) return { kind: 'none' }
@@ -97,6 +120,56 @@ function syncSettings(rec: InstallRecord, version: string): void {
 }
 
 /**
+ * Pre-registry installs (`~/.claude/skills/lumo`, `~/.agents/skills/lumo` with
+ * no record): adopt a managed, untracked copy — marker (if absent) plus a
+ * registry record — so the sync below treats it like any other install.
+ * Modified, git-tracked and source copies are left alone.
+ */
+function adoptLegacyUserSkills(
+  home: string,
+  recorded: readonly InstallRecord[]
+): boolean {
+  let clean = true
+  for (const loc of userSkillLocations(home)) {
+    if (recorded.some(r => r.kind === 'skill' && r.path === loc.path)) continue
+    try {
+      if (!fs.existsSync(loc.path) || isLumoSkillSource(loc.path)) continue
+      const cls = classifySkillDir(loc.path)
+      if (cls.state !== 'managed' || cls.gitTracked) continue
+      const version = cls.version ?? '0.0.0'
+      const hash = hashSkillDir(loc.path)
+      const installedAt = new Date().toISOString()
+      if (!readMarker(loc.path))
+        writeMarker(loc.path, { version, hash, agent: loc.agent, installedAt })
+      upsertInstall({
+        kind: 'skill',
+        path: loc.path,
+        scope: 'user',
+        agent: loc.agent,
+        version,
+        hash,
+        installedAt,
+      })
+    } catch {
+      clean = false
+    }
+  }
+  return clean
+}
+
+/** True when a failed attempt at this version happened under 6h ago. */
+function recentlyAttempted(
+  reg: { lastSyncAttempt?: { version: string; at: string } },
+  version: string,
+  now: number
+): boolean {
+  const a = reg.lastSyncAttempt
+  if (!a || a.version !== version) return false
+  const at = Date.parse(a.at)
+  return Number.isFinite(at) && now - at < RETRY_INTERVAL_MS
+}
+
+/**
  * First run of a new CLI version: bring user-scope, untracked, unmodified
  * installs up to date. Never throws; never touches project-scope or
  * git-tracked paths (those need an explicit `lumo init --upgrade`).
@@ -107,22 +180,27 @@ export function maybeAutoSync(
 ): void {
   try {
     if (!currentVersion) return
+    const now = (opts.now ?? Date.now)()
     const first = readRegistryChecked()
     if (first.corrupt) return
     if (first.registry.lastSyncedVersion === currentVersion) return
+    if (recentlyAttempted(first.registry, currentVersion, now)) return
 
     const lockPath = path.join(configDir(), LOCK_FILE)
     if (!acquireLock(lockPath)) return
     try {
       const locked = readRegistryChecked()
       if (locked.corrupt) return
-      const reg = locked.registry
-      if (reg.lastSyncedVersion === currentVersion) return
+      if (locked.registry.lastSyncedVersion === currentVersion) return
+      if (recentlyAttempted(locked.registry, currentVersion, now)) return
       const bundled = opts.bundledSkillDir ?? bundledSkillDir()
       const log =
         opts.log ?? ((line: string) => void process.stderr.write(line + '\n'))
-      let clean = true
-      for (const rec of reg.installs) {
+      let clean = adoptLegacyUserSkills(
+        opts.homeDir ?? os.homedir(),
+        locked.registry.installs
+      )
+      for (const rec of readRegistry().installs) {
         if (rec.scope !== 'user') continue
         try {
           if (rec.kind === 'skill') {
@@ -134,6 +212,10 @@ export function maybeAutoSync(
               log(
                 `⚠ Lumo skill at ${rec.path} is ${res.installed}, newer than this CLI (${currentVersion}) — run lumo update`
               )
+            else if (res.kind === 'not-skills-lumo')
+              log(
+                `⚠ Lumo auto-sync skipped ${rec.path}: not a skills/lumo directory`
+              )
           } else if (rec.kind === 'claude-settings') {
             syncSettings(rec, currentVersion)
           }
@@ -141,11 +223,17 @@ export function maybeAutoSync(
           clean = false
         }
       }
+      const fresh = readRegistry()
       if (clean) {
-        const fresh = readRegistry()
         fresh.lastSyncedVersion = currentVersion
-        writeRegistry(fresh)
+        delete fresh.lastSyncAttempt
+      } else {
+        fresh.lastSyncAttempt = {
+          version: currentVersion,
+          at: new Date(now).toISOString(),
+        }
       }
+      writeRegistry(fresh)
     } finally {
       fs.rmSync(lockPath, { force: true })
     }
