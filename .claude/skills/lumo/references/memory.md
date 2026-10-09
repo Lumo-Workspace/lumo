@@ -35,6 +35,7 @@ lumo memory promote <memoryId>     # TASK → PROJECT
 lumo memory rm <memoryId> --confirm  # hard delete (without --confirm: exit 4 + envelope)
 
 # Downsync team memory into the local Claude Code memory store
+# (Claude Code only: in a Codex shell `memory sync` / `memory push` exit 1 unless --dir is given — Codex never reads this store)
 lumo memory sync                   # write team/<id>.md + a managed MEMORY.md block
 lumo memory sync --dry-run         # preview the reconcile plan, write nothing
 lumo memory sync --project <ref>   # target a specific project (default: bound session)

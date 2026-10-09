@@ -92,7 +92,7 @@ describe('collisionService.checkFileCollision — querying', () => {
       filePath: '/repo/a.ts',
       excludeSessionFamilyRoot: 'sess_self',
       since: new Date(NOW.getTime() - 30 * 60_000),
-      toolNames: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'],
+      toolNames: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'apply_patch'],
     })
   })
 

@@ -10,7 +10,7 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
 
-**Agent support:** everything works in Claude Code. In Codex (skill installed by `lumo setup --agent codex`) there are no Lumo hooks yet — `session attach/status`, activity capture, `memory sync` and `usage resync` are Claude Code only, so skip them and say so; every other command works.
+**Agent support:** Claude Code and Codex (CLI + desktop app; `lumo setup --agent codex` installs the skill and `.codex/hooks.json`). In Codex, `session attach/status` and activity capture work once the user has **trusted the Lumo hooks** (Codex app Settings → Hooks, or `/hooks`) — untrusted hooks are skipped silently, and attach/status then print a warning to relay. `memory sync` / `memory push` are Claude Code only (Codex refuses them; team memory comes via `task context`). See [sessions.md](references/sessions.md#codex).
 
 ## How this skill is organized
 
