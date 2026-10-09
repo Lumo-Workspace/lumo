@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { TaskArtifactAgent } from '@prisma/client'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { sessionService } from '@/lib/services/session.service'
 import { nextStepsService } from '@/lib/services/next-steps.service'
@@ -10,6 +11,8 @@ const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 interface Body {
   taskIdentifier?: unknown
+  /** LUM-1051: coding agent (TaskArtifactAgent), sent by the CLI from Codex. */
+  agent?: unknown
 }
 
 export async function POST(
@@ -38,10 +41,15 @@ export async function POST(
   }
 
   try {
+    const agent =
+      typeof body.agent === 'string' && body.agent in TaskArtifactAgent
+        ? (body.agent as TaskArtifactAgent)
+        : undefined
     const result = await sessionService.bindSessionToTask({
       identity,
       sessionId,
       taskIdentifier,
+      ...(agent ? { agent } : {}),
     })
     // LUM-528: the first session-start (startup) is structurally unbound, so a
     // bind-then-work-then-end session would never record lineage edges. Record

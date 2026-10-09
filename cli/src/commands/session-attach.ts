@@ -121,7 +121,11 @@ export async function sessionAttach(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${creds.token}`,
       },
-      body: JSON.stringify({ taskIdentifier: identifier }),
+      // LUM-1051: record the agent when this attach creates the session row.
+      body: JSON.stringify({
+        taskIdentifier: identifier,
+        ...(isCodexShell() ? { agent: 'CODEX' } : {}),
+      }),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

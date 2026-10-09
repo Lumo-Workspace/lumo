@@ -77,6 +77,25 @@ describe('LUM-1051: Codex hook self-check on attach', () => {
     expect(await attachOutput()).toContain('not installed or not trusted')
   })
 
+  it('tells the server the session is a Codex one, and only in Codex', async () => {
+    const bindBody = () =>
+      JSON.parse(
+        (global.fetch as jest.Mock).mock.calls.find(([u]) =>
+          String(u).endsWith('/bind-task')
+        )![1].body
+      )
+    process.env.CODEX_THREAD_ID = 'sess-codex'
+    mockResolve.mockResolvedValue('sess-codex')
+    mockServer(200, 3)
+    await attachOutput()
+    expect(bindBody()).toEqual({ taskIdentifier: 'LUM-12', agent: 'CODEX' })
+
+    delete process.env.CODEX_THREAD_ID
+    mockServer(200, 3)
+    await attachOutput()
+    expect(bindBody()).toEqual({ taskIdentifier: 'LUM-12' })
+  })
+
   it('stays quiet once hook events have arrived', async () => {
     process.env.CODEX_THREAD_ID = 'sess-codex'
     mockResolve.mockResolvedValue('sess-codex')

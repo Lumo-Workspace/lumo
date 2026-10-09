@@ -441,6 +441,40 @@ describe('sessionRepository.upsertWithTaskId', () => {
     expect(sessionCreate()).not.toHaveBeenCalled()
   })
 
+  it('LUM-1051: records the agent on a row the attach creates, never on an existing one', async () => {
+    findUnique.mockResolvedValue(null)
+    sessionCreate().mockResolvedValue({ id: 'sess_1', taskId: 'task_42' })
+    await sessionRepository.upsertWithTaskId({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      taskId: 'task_42',
+      agent: 'CODEX',
+      now,
+    })
+    expect(sessionCreate()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ agent: 'CODEX' }),
+      })
+    )
+
+    findUnique.mockResolvedValue({ workspaceMemberId: 'wm_1' })
+    sessionUpdate().mockResolvedValue({ id: 'sess_1', taskId: 'task_42' })
+    await sessionRepository.upsertWithTaskId({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      taskId: 'task_42',
+      agent: 'CODEX',
+      now,
+    })
+    expect(sessionUpdate()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { taskId: 'task_42', bindingSource: 'ATTACH' },
+      })
+    )
+  })
+
   it('returns ownedByOther when session belongs to a different member', async () => {
     findUnique.mockResolvedValue({ workspaceMemberId: 'wm_other' })
 
