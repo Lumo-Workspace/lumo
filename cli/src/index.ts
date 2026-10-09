@@ -149,6 +149,7 @@ import { docShareList } from './commands/doc-share-list'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
+import { doctor } from './commands/doctor'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
 import { worktreeList } from './commands/worktree-list'
@@ -349,6 +350,14 @@ function registerInit(name: string, hidden: boolean): void {
 registerInit('init', false)
 // `setup` is the pre-LUM-1052 name; hidden alias running the same action.
 registerInit('setup', true)
+
+program
+  .command('doctor')
+  .description(
+    'Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH and untrusted Codex hooks; always exits 0.'
+  )
+  .option('--json', 'Machine-readable output')
+  .action(wrap(options => doctor(options as { json?: boolean })))
 
 const crossing = program
   .command('crossing')

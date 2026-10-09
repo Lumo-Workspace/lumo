@@ -44,7 +44,7 @@ const DEFAULT_AGENT_TOKEN = 'claude-code'
  * prefix so a re-run can recognize — and rewrite — an entry baked with a
  * different (or no) `--agent` token.
  */
-function isLumoHookCommand(command: string, slug: string): boolean {
+export function isLumoHookCommand(command: string, slug: string): boolean {
   return (
     command === `lumo hook ${slug}` || command.startsWith(`lumo hook ${slug} `)
   )

@@ -827,6 +827,22 @@
       "isInvokable": true,
       "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
     },
+    "doctor": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Machine-readable output"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH and untrusted Codex hooks; always exits 0."
+    },
     "hook": {
       "arguments": [],
       "flags": {},

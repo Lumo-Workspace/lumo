@@ -50,6 +50,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
 - `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — install skill files + hooks (`lumo setup` is a hidden alias; `--upgrade` refreshes every known install, skipping modified or newer copies; `--agent codex`: skill into `.agents/skills/`, no hooks)
+- `lumo doctor [--json]` — read-only report of every Lumo install (skills, Claude/Codex hooks, git hook): version, state, fix command; warns on missing hook events, `lumo` not on PATH, untrusted Codex hooks
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
 - `lumo update` — upgrade the CLI to the latest npm release

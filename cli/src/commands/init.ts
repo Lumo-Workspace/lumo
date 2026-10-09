@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { execSync, spawnSync } from 'child_process'
+import { execSync } from 'child_process'
 import { mergeLumoHooks } from '../lib/hooks-template'
 import { formatNextSteps, type NextStep } from '../lib/next-steps'
 import {
@@ -28,6 +28,7 @@ import {
   isPathGitTracked,
 } from '../lib/install-state'
 import { readCliVersion } from '../lib/cli-version'
+import { gitCapture, resolveGitHooksDir } from '../lib/git-hooks-dir'
 import { detectInstalledSkills } from '../lib/install-locations'
 
 type InitOptions = {
@@ -461,12 +462,6 @@ function mergeSettings(claudeDir: string, agentToken: string): string {
   return settingsPath
 }
 
-function gitCapture(cwd: string, args: string[]): string | null {
-  const res = spawnSync('git', args, { cwd, encoding: 'utf8' })
-  if (res.error || res.status !== 0) return null
-  return res.stdout.trim()
-}
-
 /** Returns the hook file path when Lumo's block is in place, else null. */
 export function installGitHook(projectRoot: string): string | null {
   if (
@@ -478,27 +473,17 @@ export function installGitHook(projectRoot: string): string | null {
     return null
   }
 
-  const coreHooksPath =
-    gitCapture(projectRoot, ['config', 'core.hooksPath']) || null
+  const { dir: absHooksDir, coreHooksPath } = resolveGitHooksDir(projectRoot)
   if (resolveHookInstall(coreHooksPath).mode === 'degrade') {
     printGitHookManualInstructions(coreHooksPath!)
     return null
   }
-
-  const hooksDirRaw = gitCapture(projectRoot, [
-    'rev-parse',
-    '--git-path',
-    'hooks',
-  ])
-  if (!hooksDirRaw) {
+  if (!absHooksDir) {
     process.stdout.write(
       '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'
     )
     return null
   }
-  const absHooksDir = path.isAbsolute(hooksDirRaw)
-    ? hooksDirRaw
-    : path.join(projectRoot, hooksDirRaw)
   const hookPath = path.join(absHooksDir, 'prepare-commit-msg')
 
   const existing = fs.existsSync(hookPath)

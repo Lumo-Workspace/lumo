@@ -43,6 +43,30 @@ lumo init --project --agent cursor      # bake agent=cursor into the hook comman
 
 If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown. An unrecognized `--agent` token aborts before writing anything.
 
+### `lumo doctor [--json]` — inspect every Lumo install (read-only)
+
+Lists what Lumo installed on this machine and in the current repo, grouped as `This machine` (user-scope paths, the default `.git/hooks`), `This repo — committed` (git-tracked, incl. a tracked `core.hooksPath` dir) and `This repo — uncommitted`. Sources: the install registry, the known skill locations, `~/.claude/settings.json` and `<repo>/.claude/settings.json` Lumo hook entries, the `prepare-commit-msg` block (honours `core.hooksPath`) and `~/.codex/hooks.json` `lumo hook` entries. Each row shows path, kind, version, state and a fix command:
+
+| State            | Meaning                                                 | Suggested command                                                      |
+| ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `up to date`     | matches this CLI                                        | none                                                                   |
+| `behind <v>`     | managed copy older than the CLI (git hook: stale block) | `lumo init --upgrade`                                                  |
+| `modified`       | edited locally                                          | `lumo init --force` (discards the edits — only if the user wants that) |
+| `newer than CLI` | installed by a newer CLI                                | `lumo update`                                                          |
+| `incomplete`     | Claude settings missing hook events                     | `lumo init --user` / `--project`                                       |
+
+Warnings (never change the exit code, which is always 0): missing Lumo hook events vs the canonical list, `lumo` not resolvable on PATH, user and project skill of one agent at different versions, an unreadable registry (reported, never rewritten), registry entries whose path is gone, and Codex hooks not trusted. Codex trust is a text scan of `~/.codex/config.toml` for a `[hooks.state."<hooks.json>:<event_snake>:…"]` section with a `trusted_hash`; the hash is not verified (shown as `trusted (hash not verified)`), and a missing entry means open `/hooks` in Codex and Trust. `--json` prints `{ cliVersion, rows, warnings }`.
+
+```bash
+lumo doctor
+lumo doctor --json
+```
+
+#### When to suggest
+
+- The user asks whether Lumo is installed correctly, why hooks do not fire, or which copies are outdated
+- Before `lumo init --upgrade` or `--force`, to preview what would change
+
 ## Authentication
 
 ### `lumo auth login` — paste an API key to log in
