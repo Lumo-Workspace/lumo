@@ -28,6 +28,7 @@ import {
   isNewerVersion,
   isPathGitTracked,
 } from '../lib/install-state'
+import { describeAutoUpdate, getAutoUpdateStatus } from '../lib/auto-update'
 import { readCliVersion } from '../lib/cli-version'
 import { gitCapture, resolveGitHooksDir } from '../lib/git-hooks-dir'
 import {
@@ -180,6 +181,7 @@ export async function init(
   }
   await printSessionRecordNotice()
   printPostInstall(codex)
+  process.stdout.write(`${describeAutoUpdate(getAutoUpdateStatus())}\n`)
 
   return 0
 }

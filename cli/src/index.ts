@@ -185,7 +185,7 @@ const isUpdateCheckWorker =
   process.argv[2] === '__update-check' && !!process.argv[3]
 
 if (isUpdateCheckWorker) {
-  runBackgroundRefresh(process.argv[3] as string)
+  runBackgroundRefresh(process.argv[3] as string, pkg.version)
     .catch(() => {})
     .finally(() => process.exit(0))
 } else if (!isIntrospect) {
@@ -303,9 +303,10 @@ program
 program
   .command('update')
   .description(
-    `Check npm for a newer ${pkg.name} and install it globally if available.`
+    `Check npm for a newer ${pkg.name} and install it globally if available. The CLI also updates itself in the background by default; --auto on|off toggles that.`
   )
-  .action(wrap(update))
+  .option('--auto <on|off>', 'Turn background auto-update on or off')
+  .action(wrap(options => update(options as { auto?: string })))
 
 function registerInit(name: string, hidden: boolean): void {
   program

@@ -54,7 +54,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits; prints `npm rm -g @lumoai/cli` last) — see [onboarding.md](references/onboarding.md)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
-- `lumo update` — upgrade the CLI to the latest npm release
+- `lumo update [--auto on|off]` — upgrade the CLI now; `--auto` toggles background self-update (default on; also off via `LUMO_NO_AUTO_UPDATE=1`/`CI`) — see [onboarding.md](references/onboarding.md)
 
 ### Task context & retrieval — see [task-context.md](references/task-context.md)
 

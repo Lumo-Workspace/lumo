@@ -4503,10 +4503,19 @@
     },
     "update": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--auto": {
+          "long": "--auto",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Turn background auto-update on or off"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Check npm for a newer @lumoai/cli and install it globally if available."
+      "description": "Check npm for a newer @lumoai/cli and install it globally if available. The CLI also updates itself in the background by default; --auto on|off toggles that."
     },
     "usage": {
       "arguments": [],

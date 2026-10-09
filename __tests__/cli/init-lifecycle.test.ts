@@ -437,4 +437,22 @@ describe('init --upgrade git hook', () => {
       '2.0.0'
     )
   })
+
+  it('prints one auto-update line telling how to turn it off', async () => {
+    const prevCi = process.env.CI
+    const prevNo = process.env.LUMO_NO_AUTO_UPDATE
+    delete process.env.CI
+    delete process.env.LUMO_NO_AUTO_UPDATE
+    try {
+      const e = env()
+      await init({ project: true }, e.deps)
+      const lines = stdout.split('\n').filter(l => l.includes('Auto-update'))
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toContain('on')
+      expect(lines[0]).toContain('lumo update --auto off')
+    } finally {
+      if (prevCi !== undefined) process.env.CI = prevCi
+      if (prevNo !== undefined) process.env.LUMO_NO_AUTO_UPDATE = prevNo
+    }
+  })
 })

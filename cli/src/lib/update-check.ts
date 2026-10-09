@@ -3,6 +3,7 @@ import * as path from 'path'
 import * as https from 'https'
 import { spawn } from 'child_process'
 import { configDir } from './config'
+import { maybeAutoUpdate } from './auto-update'
 
 const CACHE_FILE = path.join(configDir(), 'update-check.json')
 const CHECK_INTERVAL_MS = 1000 * 60 * 60 * 24
@@ -121,7 +122,14 @@ export function maybeRefreshInBackground(name: string): void {
 
 // Entrypoint for the detached child. Called from index.ts when argv[2] is
 // the sentinel; performs the fetch and writes the cache, then exits.
-export async function runBackgroundRefresh(name: string): Promise<void> {
+export async function runBackgroundRefresh(
+  name: string,
+  current: string | null = null
+): Promise<void> {
   const latest = await fetchLatestVersion(name, 5000)
-  if (latest) writeCache({ lastChecked: Date.now(), latest })
+  if (!latest) return
+  writeCache({ lastChecked: Date.now(), latest })
+  // Auto-update (default on) runs here, in the detached worker only — never on
+  // the foreground path. Failures fall back to the "Update available" notice.
+  if (current) await maybeAutoUpdate(current, latest, isNewer)
 }

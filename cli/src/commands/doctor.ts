@@ -3,6 +3,11 @@ import * as os from 'os'
 import * as path from 'path'
 import { readCliVersion } from '../lib/cli-version'
 import {
+  describeAutoUpdate,
+  getAutoUpdateStatus,
+  type AutoUpdateStatus,
+} from '../lib/auto-update'
+import {
   HOOK_SCRIPT_BLOCK,
   LUMO_HOOK_BEGIN,
   LUMO_HOOK_END,
@@ -56,6 +61,7 @@ export interface DoctorReport {
   cliVersion: string | null
   rows: DoctorRow[]
   warnings: DoctorWarning[]
+  autoUpdate: AutoUpdateStatus
 }
 
 /** Test seams: everything defaults to the real environment. */
@@ -452,7 +458,7 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
         '`lumo` is not resolvable on PATH, so installed hooks cannot run; install it globally (npm install -g @lumoai/cli)',
     })
 
-  return { cliVersion, rows, warnings }
+  return { cliVersion, rows, warnings, autoUpdate: getAutoUpdateStatus() }
 }
 
 const GROUP_TITLES: Array<[DoctorGroup, string]> = [
@@ -465,6 +471,7 @@ const GROUP_TITLES: Array<[DoctorGroup, string]> = [
 function renderText(report: DoctorReport): string {
   const lines: string[] = [
     `Lumo doctor — CLI ${report.cliVersion ?? 'unknown version'}`,
+    describeAutoUpdate(report.autoUpdate),
   ]
   if (report.rows.length === 0) lines.push('', 'No Lumo installs found.')
   for (const [group, title] of GROUP_TITLES) {

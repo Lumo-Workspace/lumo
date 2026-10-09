@@ -148,8 +148,12 @@ Not a pre-flight check: don't run it (or `lumo --version`) before other commands
 Synchronously checks `registry.npmjs.org` for the latest published version of `@lumoai/cli`. When a newer version exists, runs `npm install -g @lumoai/cli@latest` and streams npm's output. When already on the latest, exits cleanly with a "Already on the latest version (X)" message.
 
 ```bash
-lumo update
+lumo update               # upgrade now (prints the auto-update state)
+lumo update --auto off    # stop background self-update (persists in ~/.lumo/settings.json)
+lumo update --auto on     # re-enable it
 ```
+
+**Auto-update (default on).** The same detached worker that refreshes the 24-hour cache runs `npm install -g @lumoai/cli@<latest>` in the background, at most once per 24 hours, and only when the running CLI is a global npm install (not `npm link`, a monorepo checkout or npx). It is disabled by `lumo update --auto off` (`{ "autoUpdate": false }` in `<config dir>/settings.json`), `LUMO_NO_AUTO_UPDATE=1`, or any non-empty `CI` other than `false`/`0`. It never prints and never blocks `lumo hook`; on failure (e.g. EACCES) the attempt and a truncated error are recorded in `auto-update.json` and the normal "Update available" notice still appears. `lumo init` and `lumo doctor` show the current state in one line.
 
 The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
 
@@ -159,4 +163,4 @@ The CLI also performs a passive check at most once every 24 hours (a detached ch
 - A bug-fix or feature mentioned in conversation requires a newer CLI than the user is running
 - The passive notice has appeared and the user wants to act on it
 
-If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not auto-retry; let the user resolve the environment issue first.
+If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not retry in a loop; let the user resolve the environment issue first.

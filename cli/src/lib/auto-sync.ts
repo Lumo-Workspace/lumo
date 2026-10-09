@@ -3,6 +3,7 @@ import * as path from 'path'
 import { configDir } from './config'
 import { readCliVersion } from './cli-version'
 import { bundledSkillDir, copySkillTree } from './codex-plugin'
+import { acquireFileLock } from './file-lock'
 import { mergeLumoHooks } from './hooks-template'
 import { isLumoSkillSource } from './install-locations'
 import {
@@ -45,23 +46,7 @@ export type AutoSyncOptions = {
 
 /** Take the sync lock; false when another process holds a fresh one. */
 function acquireLock(lockPath: string): boolean {
-  fs.mkdirSync(path.dirname(lockPath), { recursive: true })
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      fs.closeSync(fs.openSync(lockPath, 'wx'))
-      return true
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') return false
-      try {
-        if (Date.now() - fs.statSync(lockPath).mtimeMs < LOCK_STALE_MS)
-          return false
-        fs.rmSync(lockPath, { force: true })
-      } catch {
-        return false
-      }
-    }
-  }
-  return false
+  return acquireFileLock(lockPath, LOCK_STALE_MS)
 }
 
 /** Replace a managed skill dir with the bundled copy and a fresh marker. */
