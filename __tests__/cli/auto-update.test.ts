@@ -17,6 +17,7 @@ import { join } from 'path'
 import {
   getAutoUpdateStatus,
   describeAutoUpdate,
+  isAutoUpdateEligible,
   isGlobalNpmInstall,
   maybeAutoUpdate,
   readAutoUpdateState,
@@ -429,5 +430,19 @@ describe('fix round 1', () => {
     const out = err.mock.calls.map(c => String(c[0])).join('')
     err.mockRestore()
     expect(out).toContain('Update available')
+  })
+})
+
+describe('isAutoUpdateEligible (shared by the worker and lumo doctor)', () => {
+  it('is the global-install check on the running package root', () => {
+    const run = jest.fn(() => ({ status: 1, stdout: '' }))
+    expect(isAutoUpdateEligible(null, run)).toBe(false)
+    expect(run).not.toHaveBeenCalled()
+    expect(isAutoUpdateEligible('/some/pkg', run)).toBe(false)
+    expect(run).toHaveBeenCalledWith(
+      'npm',
+      ['root', '-g'],
+      expect.objectContaining({ timeout: 5000 })
+    )
   })
 })

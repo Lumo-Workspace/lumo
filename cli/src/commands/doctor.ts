@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
+import { readCliVersion } from '../lib/cli-version'
 import {
   describeAutoUpdate,
   getAutoUpdateStatus,
-  isGlobalNpmInstall,
+  isAutoUpdateEligible,
   type AutoUpdateStatus,
 } from '../lib/auto-update'
 import {
@@ -569,8 +569,7 @@ export async function doctor(
   // Probed here, not in collectDoctor: uninstall reuses the collector and must
   // not pay for an `npm root -g` spawn.
   if (report.autoUpdate.enabled) {
-    const isGlobal =
-      deps.isGlobalInstall ?? (() => isGlobalNpmInstall(findCliPackageRoot()))
+    const isGlobal = deps.isGlobalInstall ?? (() => isAutoUpdateEligible())
     report.autoUpdate = { ...report.autoUpdate, eligible: isGlobal() }
   }
   process.stdout.write(

@@ -760,6 +760,16 @@ describe('doctor auto-update eligibility', () => {
     )
   })
 
+  it('carries eligibility in --json output', async () => {
+    const f = fixture()
+    await doctor({ json: true }, { ...f.deps, isGlobalInstall: () => false })
+    expect(JSON.parse(stdout).autoUpdate).toEqual({
+      enabled: true,
+      source: 'default',
+      eligible: false,
+    })
+  })
+
   it('does not probe the install when auto-update is off', async () => {
     const f = fixture()
     const probe = jest.fn(() => false)

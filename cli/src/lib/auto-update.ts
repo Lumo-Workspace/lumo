@@ -154,6 +154,18 @@ export type AutoUpdateDeps = {
 }
 
 /**
+ * Whether background auto-update can act on this install: the running package
+ * is a real global npm install. The worker gates on this and `lumo doctor`
+ * reports it, so the two can't disagree.
+ */
+export function isAutoUpdateEligible(
+  pkgRoot: string | null = findCliPackageRoot(),
+  run?: SpawnSyncFn
+): boolean {
+  return isGlobalNpmInstall(pkgRoot, run)
+}
+
+/**
  * Worker-side auto-update: install `latest` globally when allowed. Never
  * throws and never prints — failures are recorded in auto-update.json and the
  * ordinary "Update available" notice keeps showing.
@@ -179,7 +191,7 @@ export async function maybeAutoUpdate(
       if (last !== undefined && now - last < ATTEMPT_INTERVAL_MS) return
       const root =
         deps.pkgRoot !== undefined ? deps.pkgRoot : findCliPackageRoot()
-      if (!isGlobalNpmInstall(root, deps.spawnSync)) return
+      if (!isAutoUpdateEligible(root, deps.spawnSync)) return
       writeAutoUpdateState({ lastAutoUpdateAttempt: now, lastError: null })
       const { error, stillRunning } = await installGlobally(
         latest,
