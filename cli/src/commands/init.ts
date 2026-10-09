@@ -555,6 +555,7 @@ function hasLumoCodexHooks(file: string): boolean {
 export function upgradeCodexHooksFile(
   hooksPath: string
 ): 'updated' | 'unchanged' {
+  const tracked = fs.existsSync(hooksPath) && isPathGitTracked(hooksPath)
   const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS, {
     quiet: true,
   })
@@ -566,6 +567,7 @@ export function upgradeCodexHooksFile(
     `✓ updated Codex hooks: ${hooksPath} (added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}) — re-trust in Codex /hooks\n` +
       `${codexTrustInstructions(hooksPath)}\n`
   )
+  if (tracked) process.stdout.write(gitDiffNote(hooksPath))
   return 'updated'
 }
 
@@ -619,7 +621,7 @@ export function mergeHooksFile(
       `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length})\n`
     )
   }
-  if (tracked) process.stdout.write(gitDiffNote(settingsPath))
+  if (tracked && changed > 0) process.stdout.write(gitDiffNote(settingsPath))
   return { path: settingsPath, stats }
 }
 

@@ -364,9 +364,13 @@ describe('fix round 1', () => {
     ).toBe('v3 body')
   })
 
-  it('notes git diff when re-merging a tracked settings.json', async () => {
+  it('notes git diff only when re-merging actually changes a tracked settings.json', async () => {
     const e = env()
     await init({ project: true }, e.deps)
+    const file = join(e.project, '.claude', 'settings.json')
+    const json = JSON.parse(readFileSync(file, 'utf8'))
+    delete json.hooks[Object.keys(json.hooks)[0]!]
+    writeFileSync(file, JSON.stringify(json, null, 2) + '\n')
     execFileSync('git', ['add', '.claude/settings.json'], { cwd: e.project })
     execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
       cwd: e.project,
@@ -374,6 +378,10 @@ describe('fix round 1', () => {
     stdout = ''
     await init({ upgrade: true }, e.deps)
     expect(stdout).toContain('settings.json is tracked by git')
+    // second run changes nothing -> no note
+    stdout = ''
+    await init({ upgrade: true }, e.deps)
+    expect(stdout).not.toContain('settings.json is tracked by git')
   })
 })
 
@@ -564,5 +572,26 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
     const before = readFileSync(file, 'utf8')
     expect(upgradeCodexHooksFile(file)).toBe('unchanged')
     expect(readFileSync(file, 'utf8')).toBe(before)
+  })
+
+  it('upgradeCodexHooksFile prints the git-diff note and re-trust hint when it changes a tracked file', () => {
+    const dir = tmp()
+    gitInit(dir)
+    const file = codexFile(dir)
+    mergeHooksFile(file, 'codex', CODEX_HOOK_EVENTS, { quiet: true })
+    const json = JSON.parse(readFileSync(file, 'utf8'))
+    delete json.hooks[Object.keys(json.hooks)[0]!]
+    writeFileSync(file, JSON.stringify(json, null, 2) + '\n')
+    execFileSync('git', ['add', '.codex/hooks.json'], { cwd: dir })
+    execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
+      cwd: dir,
+    })
+    stdout = ''
+    expect(upgradeCodexHooksFile(file)).toBe('updated')
+    expect(stdout).toContain('hooks.json is tracked by git')
+    expect(stdout).toContain('re-trust')
+    stdout = ''
+    expect(upgradeCodexHooksFile(file)).toBe('unchanged')
+    expect(stdout).not.toContain('tracked by git')
   })
 })
