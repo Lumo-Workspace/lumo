@@ -94,7 +94,13 @@ function fixture() {
   return {
     home,
     repo,
-    deps: { homeDir: home, cwd: repo, cliVersion: '2.0.0', env: { PATH: bin } },
+    deps: {
+      homeDir: home,
+      cwd: repo,
+      cliVersion: '2.0.0',
+      env: { PATH: bin },
+      isGlobalInstall: () => true,
+    },
   }
 }
 const rowFor = (r: DoctorReport, p: string) => r.rows.find(x => x.path === p)
@@ -134,7 +140,7 @@ describe('skill rows and grouping', () => {
     })
     expect(rowFor(r, old)).toMatchObject({
       group: 'machine',
-      state: 'behind 1.0.0',
+      state: 'behind CLI 2.0.0',
       suggestion: 'lumo init --upgrade',
     })
   })
@@ -212,7 +218,7 @@ describe('skill rows and grouping', () => {
       })
     )
     expect(rowFor(collectDoctor(f.deps), other)).toMatchObject({
-      state: 'behind 1.0.0',
+      state: 'behind CLI 2.0.0',
     })
   })
 
@@ -469,7 +475,7 @@ describe('doctor command', () => {
     expect(code).toBe(0)
     expect(stdout).toContain('This machine')
     expect(stdout).toContain(up)
-    expect(stdout).toContain('behind 1.0.0')
+    expect(stdout).toContain('behind CLI 2.0.0')
     expect(stdout).toContain('lumo init --upgrade')
     expect(stdout).toContain('lumo-not-on-path')
     expect(hashSkillDir(up)).toBe(before)
@@ -735,5 +741,33 @@ describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
     expect(row.detail).toContain(
       "open /hooks in Codex and Trust if Lumo hooks don't fire"
     )
+  })
+})
+
+describe('doctor auto-update eligibility', () => {
+  it('says plain "on" for a global npm install', async () => {
+    const f = fixture()
+    await doctor({}, { ...f.deps, isGlobalInstall: () => true })
+    expect(stdout).toContain('Auto-update: on — the CLI updates itself')
+    expect(stdout).not.toContain('skipped for this install')
+  })
+
+  it('says auto-update is skipped when this is not a global npm install', async () => {
+    const f = fixture()
+    await doctor({}, { ...f.deps, isGlobalInstall: () => false })
+    expect(stdout).toContain(
+      'Auto-update: on, but skipped for this install (not a global npm install — e.g. npm link or npx); update it yourself'
+    )
+  })
+
+  it('does not probe the install when auto-update is off', async () => {
+    const f = fixture()
+    const probe = jest.fn(() => false)
+    await doctor(
+      {},
+      { ...f.deps, env: { ...f.deps.env, CI: 'true' }, isGlobalInstall: probe }
+    )
+    expect(probe).not.toHaveBeenCalled()
+    expect(stdout).toContain('Auto-update: off (CI environment)')
   })
 })

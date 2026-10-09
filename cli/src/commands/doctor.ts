@@ -1,10 +1,11 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { readCliVersion } from '../lib/cli-version'
+import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
 import {
   describeAutoUpdate,
   getAutoUpdateStatus,
+  isGlobalNpmInstall,
   type AutoUpdateStatus,
 } from '../lib/auto-update'
 import {
@@ -75,6 +76,8 @@ export interface DoctorDeps {
   cwd?: string
   cliVersion?: string | null
   env?: Record<string, string | undefined>
+  /** Whether the running CLI is a global npm install (auto-update only runs for those). */
+  isGlobalInstall?: () => boolean
 }
 
 const CMD_UPGRADE = 'lumo init --upgrade'
@@ -216,7 +219,7 @@ function skillRow(
     return {
       ...base,
       version: v,
-      state: `behind ${v}`,
+      state: `behind CLI ${cliVersion}`,
       suggestion: CMD_UPGRADE,
     }
   if (cliVersion && isNewerVersion(cliVersion, v))
@@ -563,6 +566,13 @@ export async function doctor(
   deps: DoctorDeps = {}
 ): Promise<number> {
   const report = collectDoctor(deps)
+  // Probed here, not in collectDoctor: uninstall reuses the collector and must
+  // not pay for an `npm root -g` spawn.
+  if (report.autoUpdate.enabled) {
+    const isGlobal =
+      deps.isGlobalInstall ?? (() => isGlobalNpmInstall(findCliPackageRoot()))
+    report.autoUpdate = { ...report.autoUpdate, eligible: isGlobal() }
+  }
   process.stdout.write(
     options.json ? JSON.stringify(report, null, 2) + '\n' : renderText(report)
   )
