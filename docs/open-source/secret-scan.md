@@ -31,9 +31,12 @@ future commits or the entire working directory.
 scanned content. Symlink target text is scanned without following the link;
 submodules are refused rather than silently omitted. Non-UTF-8 source bytes are
 preserved when checking exact-content exceptions.
+Case-folding and Unicode-normalization path collisions are refused before any
+snapshot file is written, including collisions between directory prefixes.
 
 The added URL rule covers PostgreSQL, MySQL, MariaDB, MongoDB, Redis, SQL Server,
 and CockroachDB, including driver-qualified schemes such as `mysql+pymysql`.
+Empty usernames are supported (for example Redis password-only URLs).
 Other connection formats (for example SQL Server semicolon connection strings)
 are not covered by this extra rule; there is no universal credential-format guarantee.
 

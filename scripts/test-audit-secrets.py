@@ -27,15 +27,17 @@ class SecretAuditTest(unittest.TestCase):
                 (repo / file).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / file, repo / file)
 
-            def git(*args):
+            def git(*args, input=None):
                 return subprocess.check_output(
                     ["git", "-C", str(repo), "-c", "core.hooksPath=/dev/null", *args],
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, input=input,
                 )
 
             git("init", "-q")
             git("config", "user.name", "Audit test")
             git("config", "user.email", "audit-test@example.invalid")
+            git("config", "core.ignorecase", "false")
+            git("config", "core.precomposeunicode", "false")
             (repo / ".gitignore").write_text("*.report.json\n")
             file = "__tests__/audit-fixture.txt"
             line = "value: '" + "AKIA" + "ABCDEFGHIJKLMNOP" + "',"
@@ -161,6 +163,12 @@ class SecretAuditTest(unittest.TestCase):
             self.assertEqual({x["startLine"] for x in report["findings"]}, set(range(1, len(schemes) + 1)))
             self.assertTrue(all(x["rule"] == "database-url-password" for x in report["findings"]))
 
+            (repo / "excluded.env").write_text("redis://:" + "".join(["unreviewed", "-audit", "-only"]) + "@localhost/0\n")
+            commit()
+            code, report = scan("snapshot")
+            self.assertEqual((code, report["unresolved"]), (1, 1))
+            self.assertEqual(report["findings"][0]["rule"], "database-url-password")
+
             # Materializing a symlink must scan its blob without following it.
             (repo / "excluded.env").unlink()
             (repo / "credential-link").symlink_to(candidate.strip().split("=", 1)[1])
@@ -261,6 +269,26 @@ class SecretAuditTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 2)
             self.assertIn("--ref is snapshot-only", result.stderr)
+
+            # Build colliding Git trees directly: the host filesystem need not
+            # support creating both names, and the worktree is never overwritten.
+            oid = git("hash-object", "-w", "--stdin", input=candidate.encode()).decode().strip()
+            original_tree = git("write-tree").decode().strip()
+            for left, right in (("Case.env", "case.env"), ("Dir/a.env", "dir/b.env"),
+                                ("caf\u00e9.env", "cafe\u0301.env")):
+                git("read-tree", original_tree)
+                for path in (left, right):
+                    git("update-index", "--add", "--cacheinfo", "100644," + oid + "," + path)
+                tree = git("write-tree").decode().strip()
+                collision = git("commit-tree", tree, "-m", "Synthetic collision fixture").decode().strip()
+                self.assertIn(left.encode(), git("ls-tree", "-r", "-z", collision))
+                self.assertIn(right.encode(), git("ls-tree", "-r", "-z", collision))
+                result = subprocess.run(
+                    ["python3", str(repo / "scripts/audit-secrets.py"), "snapshot", "--ref", collision, "--gitleaks-bin", BINARY],
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 2, "collision: " + left + " / " + right)
+                self.assertIn("Snapshot path collision", result.stderr)
 
 
 if __name__ == "__main__":

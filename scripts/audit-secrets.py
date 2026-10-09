@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +37,7 @@ def git(*args, input=None, stdout=subprocess.PIPE):
 def materialize_snapshot(revision, snapshot, temp):
     # Read immutable blobs, ignoring export-ignore/export-subst and checkout filters.
     entries = []
+    portable_paths = {}
     for record in git("ls-tree", "-r", "-z", revision).split(b"\0"):
         if not record:
             continue
@@ -44,6 +46,12 @@ def materialize_snapshot(revision, snapshot, temp):
         path = Path(name.decode("utf-8", errors="surrogateescape"))
         if path.is_absolute() or ".." in path.parts or ".git" in path.parts:
             raise AuditError("Unsafe tracked path; snapshot extraction refused")
+        for depth in range(1, len(path.parts) + 1):
+            prefix = "/".join(path.parts[:depth])
+            portable = unicodedata.normalize("NFD", prefix).casefold()
+            if portable in portable_paths and portable_paths[portable] != prefix:
+                raise AuditError("Snapshot path collision under case/Unicode normalization; no files overwritten")
+            portable_paths[portable] = prefix
         if kind != b"blob" or mode not in (b"100644", b"100755", b"120000"):
             raise AuditError("Snapshot includes a submodule/unsupported entry; audit it separately")
         entries.append((oid, path))
