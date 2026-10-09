@@ -5,6 +5,7 @@ import { configDir } from '../lib/config'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 import { removeGitHookBlock } from '../lib/git-hook-template'
 import { removeLumoHooks } from '../lib/hooks-template'
+import { classifyCodexRules } from '../lib/codex-rules'
 import {
   isLumoSkillSource,
   isSkillsLumoPath,
@@ -43,6 +44,7 @@ type ActionKind =
   | 'strip-settings'
   | 'strip-git-hook'
   | 'strip-codex'
+  | 'remove-codex-rules'
 
 export interface PlannedAction {
   row: DoctorRow
@@ -76,6 +78,7 @@ const ACTION_FOR_KIND: Record<DoctorKind, ActionKind> = {
   'claude-settings': 'strip-settings',
   'git-hook': 'strip-git-hook',
   'codex-hooks': 'strip-codex',
+  'codex-rules': 'remove-codex-rules',
 }
 
 function inRepo(root: string | null, p: string): boolean {
@@ -163,6 +166,8 @@ function describeAction(a: PlannedAction): string {
       return `Remove the Lumo block from ${row.path}; the file is deleted only if nothing else is left${tag}${team}`
     case 'strip-codex':
       return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${tag}${team}`
+    case 'remove-codex-rules':
+      return `Delete the Lumo Codex rule ${row.path} (lets \`lumo\` run outside Codex's sandbox)${tag}${team}`
   }
 }
 
@@ -272,6 +277,22 @@ function applyAction(a: PlannedAction): Applied {
         changed: true,
       }
     }
+    case 'remove-codex-rules': {
+      // Re-checked at apply time: only a file still carrying the Lumo marker.
+      const state = classifyCodexRules(row.path)
+      if (state !== 'current' && state !== 'outdated')
+        return {
+          line: `${row.path} is no longer Lumo's Codex rule; left as is`,
+          changed: false,
+        }
+      fs.unlinkSync(row.path)
+      try {
+        fs.rmdirSync(path.dirname(row.path)) // only succeeds when empty
+      } catch {
+        // other rules files live there: keep the directory
+      }
+      return { line: `Deleted Codex rule ${row.path}`, changed: true }
+    }
   }
 }
 
@@ -280,6 +301,7 @@ const REGISTRY_KIND: Record<ActionKind, InstallKind | null> = {
   'strip-settings': 'claude-settings',
   'strip-git-hook': 'git-hook',
   'strip-codex': 'codex-hooks',
+  'remove-codex-rules': 'codex-rules',
 }
 
 /** Empty configDir() without removing the directory itself where possible. */

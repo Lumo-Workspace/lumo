@@ -83,12 +83,11 @@ export interface GitCoordinate {
  * 变量报出来（`_` 前缀在本仓库的配置里也不豁免）——它们是类型签名的一部分，
  * 不是变量。
  */
-/* eslint-disable no-unused-vars */
+
 export type RunCommand = (
   cmd: string,
   args: string[]
 ) => { status: number | null; stdout: string }
-/* eslint-enable no-unused-vars */
 
 /**
  * 从 cwd 的 git 检出读被测代码的坐标。
@@ -106,7 +105,7 @@ export function readGitCoordinate(run: RunCommand): GitCoordinate {
   if (!/^[0-9a-f]{7,40}$/i.test(sha))
     return { commitSha: null, commitDirty: null }
 
-  const status = run('git', ['status', '--porcelain'])
+  const status = run('git', ['--no-optional-locks', 'status', '--porcelain'])
   const dirty = status.status === 0 ? status.stdout.trim().length > 0 : null
   return { commitSha: sha, commitDirty: dirty }
 }

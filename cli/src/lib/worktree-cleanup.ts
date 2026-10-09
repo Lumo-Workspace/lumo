@@ -61,7 +61,10 @@ export function assessWorktree(
       detail: 'the current directory is inside it',
     }
   }
-  if (gitOutput(['status', '--porcelain'], entry.path).length > 0) {
+  if (
+    gitOutput(['--no-optional-locks', 'status', '--porcelain'], entry.path)
+      .length > 0
+  ) {
     return {
       ...base,
       removable: false,

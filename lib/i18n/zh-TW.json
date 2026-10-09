@@ -670,7 +670,7 @@
   "settings.cli": "命令行",
   "cli.subtitle": "Lumo 命令列工具 — 安裝、登入、保持更新。",
   "cli.step.install.title": "安裝",
-  "cli.step.install.description": "全域安裝 CLI，並自動設定 Claude Code 的 skill 與 hooks。",
+  "cli.step.install.description": "全域安裝 CLI，並自動為 Claude Code 與 Codex 設定 skill 與 hooks。",
   "cli.step.login.title": "登入",
   "cli.step.login.description": "會在瀏覽器中開啟本頁面。可在下方或 API Keys 頁面建立一個 key，再貼回終端機。",
   "cli.step.login.labelPlaceholder": "Key 名稱（如 Claude Code on Macbook）",

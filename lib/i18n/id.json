@@ -670,7 +670,7 @@
   "settings.cli": "CLI",
   "cli.subtitle": "Antarmuka baris perintah Lumo — instal, masuk, dan tetap perbarui.",
   "cli.step.install.title": "Instal",
-  "cli.step.install.description": "Menginstal CLI secara global dan menyiapkan skill Claude Code beserta hooks.",
+  "cli.step.install.description": "Menginstal CLI secara global dan menyiapkan skill serta hooks untuk Claude Code dan Codex.",
   "cli.step.login.title": "Masuk",
   "cli.step.login.description": "Membuka halaman ini di peramban Anda. Buat key di bawah atau di halaman API Keys, lalu tempelkan kembali ke terminal.",
   "cli.step.login.labelPlaceholder": "Nama key (mis. Claude Code on Macbook)",

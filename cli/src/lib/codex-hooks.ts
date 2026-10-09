@@ -9,7 +9,7 @@ import * as path from 'path'
  * never re-triggers the review.
  */
 
-/** Where `lumo init --agent codex` writes hooks: `<root>/.codex/hooks.json`. */
+/** Where `lumo init` writes Codex hooks: `<root>/.codex/hooks.json`. */
 export function codexHooksPath(root: string): string {
   return path.join(root, '.codex', 'hooks.json')
 }

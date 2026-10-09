@@ -670,7 +670,7 @@
   "settings.cli": "CLI",
   "cli.subtitle": "Lumo command-line interface — install, log in, and stay up to date.",
   "cli.step.install.title": "Install",
-  "cli.step.install.description": "Installs the CLI globally and wires up the Claude Code skill and hooks.",
+  "cli.step.install.description": "Installs the CLI globally and wires up the skill and hooks for Claude Code and Codex.",
   "cli.step.login.title": "Log in",
   "cli.step.login.description": "Opens this page in your browser. Create a key below or on the API Keys page, then paste it back into the terminal.",
   "cli.step.login.labelPlaceholder": "Key label (e.g. Claude Code on Macbook)",

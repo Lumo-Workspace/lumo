@@ -7,6 +7,7 @@ import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { installAuthFailureTracker } from './lib/auth-failure'
+import { installSandboxNetworkTracker } from './lib/sandbox-network-hint'
 import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
@@ -210,10 +211,16 @@ if (isUpdateCheckWorker) {
 // the `lumo auth login` remediation, so agents need no whoami pre-probe.
 const authTracker =
   !isIntrospect && !isUpdateCheckWorker ? installAuthFailureTracker() : null
+// LUM-1054: inside Codex's sandbox (no network) an unreachable API ends with
+// the cause and the fix instead of a bare `fetch failed`.
+const sandboxNetTracker =
+  !isIntrospect && !isUpdateCheckWorker ? installSandboxNetworkTracker() : null
 
 function exitWith(code: number): never {
   const hint = authTracker?.hintFor(code)
   if (hint) console.error(hint)
+  const netHint = sandboxNetTracker?.hintFor(code)
+  if (netHint) console.error(netHint)
   process.exit(code)
 }
 
@@ -322,27 +329,27 @@ function registerInit(name: string, hidden: boolean): void {
     .description(
       hidden
         ? 'Alias of `lumo init` (kept for older docs and scripts).'
-        : 'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: the skill into .agents/skills/ and hooks into .codex/hooks.json, which you then trust in Codex /hooks). Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs.'
+        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
     )
     .option(
       '--user',
-      'Install into ~/.claude, or ~/.agents + ~/.codex for Codex (applies across all projects for this user)'
+      'Install into ~/.claude and ~/.agents + ~/.codex (applies across all projects for this user)'
     )
     .option(
       '--project',
-      'Install into ./.claude, or ./.agents + ./.codex for Codex (applies to the current project only)'
+      'Install into ./.claude and ./.agents + ./.codex (applies to the current project only)'
     )
     .option(
       '--force',
-      'Overwrite existing skill files (SKILL.md + references/) even when they were modified locally'
+      'Overwrite existing skill files (SKILL.md + references/) even when they were modified locally, and a .codex/rules/lumo.rules Lumo did not write'
     )
     .option(
       '--agent <token>',
-      'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout and .codex/hooks.json instead. Defaults to claude-code.'
+      'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex.'
     )
     .option(
       '--upgrade',
-      'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks)'
+      'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs'
     )
     .action(
       wrap(options =>
@@ -366,7 +373,7 @@ registerInit('setup', true)
 program
   .command('doctor')
   .description(
-    'Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH and untrusted Codex hooks; always exits 0.'
+    'Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, the Codex rule, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH, untrusted Codex hooks and Codex installs where `lumo` has no network in the sandbox; always exits 0.'
   )
   .option('--json', 'Machine-readable output')
   .action(wrap(options => doctor(options as { json?: boolean })))
@@ -374,7 +381,7 @@ program
 program
   .command('uninstall')
   .description(
-    'Remove what `lumo init` installed: Lumo skill dirs, Lumo hook entries in Claude settings and Codex hooks.json (~/.codex or ./.codex), the marked block in prepare-commit-msg, and the install registry records. Locally edited skill copies are skipped unless --force; foreign hooks and file content are kept. Without --confirm prints a confirmation envelope (exit 4) listing every path; never commits. Ends with the manual `npm rm -g @lumoai/cli` step.'
+    'Remove what `lumo init` installed: Lumo skill dirs, Lumo hook entries in Claude settings and Codex hooks.json (~/.codex or ./.codex), the Lumo Codex rule (.codex/rules/lumo.rules), the marked block in prepare-commit-msg, and the install registry records. Locally edited skill copies are skipped unless --force; foreign hooks and file content are kept. Without --confirm prints a confirmation envelope (exit 4) listing every path; never commits. Ends with the manual `npm rm -g @lumoai/cli` step.'
   )
   .option(
     '--scope <scope>',
