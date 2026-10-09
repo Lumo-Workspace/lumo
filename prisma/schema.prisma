@@ -2616,6 +2616,10 @@ enum HookEventType {
   ELICITATION_RESULT
   CWD_CHANGED
   INSTRUCTIONS_LOADED
+  // LUM-1051: Codex-only events (no Claude Code counterpart)
+  PRE_COMPACT
+  POST_COMPACT
+  INTERRUPT
 }
 
 model HookEvent {

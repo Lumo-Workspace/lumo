@@ -69,7 +69,12 @@ export function categorizeHookEvent(
     case 'CWD_CHANGED':
       return 'config_change'
     case 'INSTRUCTIONS_LOADED':
+    case 'PRE_COMPACT':
+    case 'POST_COMPACT':
       return 'session_boundary'
+    // LUM-1051: Codex ends an interrupted turn with INTERRUPT instead of STOP.
+    case 'INTERRUPT':
+      return 'turn_failure'
     case 'TASK_CREATED':
     case 'TASK_COMPLETED':
       return 'task_event'
@@ -208,6 +213,9 @@ const PILL_LABEL: Record<AgentRunHookEventType, string> = {
   ELICITATION_RESULT: 'Elicit ✓',
   CWD_CHANGED: 'CWD',
   INSTRUCTIONS_LOADED: 'Instructions',
+  PRE_COMPACT: 'Compact ▶',
+  POST_COMPACT: 'Compact ■',
+  INTERRUPT: 'Interrupt',
 }
 
 export function pillLabel(event: AgentRunHookEventItem): string {
@@ -383,6 +391,11 @@ export function summarizeEvent(
       const path =
         getString(payload, 'path') ?? getString(payload, 'source') ?? ''
       return path
+    }
+    case 'PRE_COMPACT':
+    case 'POST_COMPACT': {
+      const trigger = getString(payload, 'trigger')
+      return trigger ? `[${trigger}]` : ''
     }
     // Unknown / future event types: no summary rather than a crash.
     default:

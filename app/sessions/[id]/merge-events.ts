@@ -248,6 +248,9 @@ const EVENT_ROLE: Record<HookEventType, EventRole> = {
   ELICITATION_RESULT: 'skip',
   CWD_CHANGED: 'skip',
   INSTRUCTIONS_LOADED: 'skip',
+  PRE_COMPACT: 'skip',
+  POST_COMPACT: 'skip',
+  INTERRUPT: 'skip',
 }
 
 // ─── Item builders ──────────────────────────────────────────────────────────

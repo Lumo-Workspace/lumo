@@ -1,7 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { resolveSessionId } from '../lib/session-id'
+import { noSessionMessage, resolveSessionId } from '../lib/session-id'
 
 interface StatusResponse {
   exists: boolean
@@ -187,10 +187,7 @@ function attributionBlock(data: StatusResponse, bound: boolean): string {
 export async function sessionStatus(): Promise<number | void> {
   const sessionId = await resolveSessionId({ write: false })
   if (!sessionId) {
-    console.error(
-      'Error: $CLAUDE_CODE_SESSION_ID is not set.\n' +
-        '`lumo session status` must be run inside a Claude Code session.'
-    )
+    console.error(noSessionMessage('lumo session status'))
     return 1
   }
 

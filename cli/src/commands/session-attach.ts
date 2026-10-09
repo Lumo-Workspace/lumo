@@ -5,7 +5,7 @@ import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { autoDownsyncOnAttach } from '../lib/memory-auto'
 import { attachWorktreeStep } from '../lib/worktree-attach'
-import { resolveSessionId } from '../lib/session-id'
+import { noSessionMessage, resolveSessionId } from '../lib/session-id'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -73,10 +73,7 @@ export async function sessionAttach(
   // subagent's, refuse rather than bind the whole session on a guess.
   const sessionId = await resolveSessionId({ write: true, strict: true })
   if (!sessionId) {
-    console.error(
-      'Error: $CLAUDE_CODE_SESSION_ID is not set.\n' +
-        '`lumo session attach` must be run inside a Claude Code session.'
-    )
+    console.error(noSessionMessage('lumo session attach'))
     return 1
   }
 
