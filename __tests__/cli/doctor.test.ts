@@ -9,6 +9,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'fs'
 import { tmpdir } from 'os'
@@ -689,6 +690,50 @@ describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
     })
     expect(warn(r, 'registry-stale').some(w => w.message.includes(gone))).toBe(
       true
+    )
+  })
+
+  const trustAll = (home: string, key: string) => {
+    mkdirSync(join(home, '.codex'), { recursive: true })
+    writeFileSync(
+      join(home, '.codex', 'config.toml'),
+      CODEX_HOOK_EVENTS.map(
+        ([ev]) =>
+          `[hooks.state."${key}:${codexEventKey(ev)}:0:0"]\ntrusted_hash = "sha256:x"\n`
+      ).join('\n')
+    )
+  }
+
+  it('matches trust keyed by the realpath when the hooks file is reached through a symlinked dir', () => {
+    const f = fixture()
+    const link = join(tmp(), 'link')
+    symlinkSync(realpathSync(f.home), link)
+    const viaLink = join(link, '.codex', 'hooks.json')
+    writeCodex(viaLink, CODEX_HOOK_EVENTS)
+    trustAll(f.home, join(realpathSync(f.home), '.codex', 'hooks.json'))
+    const r = collectDoctor({ ...f.deps, homeDir: link })
+    const row = rowFor(r, viaLink)!
+    expect(row.state).toBe('trusted (hash not verified)')
+    expect(warn(r, 'codex-untrusted')).toHaveLength(0)
+  })
+
+  it('still matches trust keyed by the path as given', () => {
+    const f = fixture()
+    const p = join(f.repo, '.codex', 'hooks.json')
+    writeCodex(p, CODEX_HOOK_EVENTS)
+    trustAll(f.home, p)
+    const row = rowFor(collectDoctor(f.deps), p)!
+    expect(row.state).toBe('trusted (hash not verified)')
+  })
+
+  it('a project hooks.json with no trust match says unverified, not "not trusted"', () => {
+    const f = fixture()
+    const p = join(f.repo, '.codex', 'hooks.json')
+    writeCodex(p, CODEX_HOOK_EVENTS)
+    const row = rowFor(collectDoctor(f.deps), p)!
+    expect(row.state).toBe('trust unverified')
+    expect(row.detail).toContain(
+      "open /hooks in Codex and Trust if Lumo hooks don't fire"
     )
   })
 })

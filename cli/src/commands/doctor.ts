@@ -337,7 +337,17 @@ function codexRow(
   } catch {
     // no config.toml: nothing is trusted yet
   }
+  // Codex keys trust by the absolute path it resolved, which may be the
+  // realpath of a symlinked dir (/tmp vs /private/tmp) — accept either.
   const trusted = codexTrustedEvents(toml, file)
+  let real = file
+  try {
+    real = fs.realpathSync(file)
+  } catch {
+    // keep the given path
+  }
+  if (real !== file)
+    for (const e of codexTrustedEvents(toml, real)) trusted.add(e)
   const untrusted = events.filter(e => !trusted.has(codexEventKey(e)))
   const missing = CODEX_HOOK_EVENTS.filter(
     ([event, slug]) =>
@@ -352,14 +362,26 @@ function codexRow(
     group: groupFor(scope, root, file, () => tracked),
     tracked,
     state:
-      untrusted.length === 0 ? 'trusted (hash not verified)' : 'not trusted',
+      untrusted.length === 0
+        ? 'trusted (hash not verified)'
+        : scope === 'project'
+          ? 'trust unverified'
+          : 'not trusted',
   }
   const details: string[] = []
   if (untrusted.length > 0) {
-    details.push(`${CODEX_HINT}: ${untrusted.join(', ')}`)
+    const projectHint = `${CODEX_HINT} if Lumo hooks don't fire`
+    details.push(
+      scope === 'project'
+        ? `${projectHint}: ${untrusted.join(', ')}`
+        : `${CODEX_HINT}: ${untrusted.join(', ')}`
+    )
     warnings.push({
       code: 'codex-untrusted',
-      message: `Codex hooks not trusted (${file}) — ${CODEX_HINT} (${untrusted.join(', ')})`,
+      message:
+        scope === 'project'
+          ? `Codex hooks trust unverified (${file}) — ${projectHint} (${untrusted.join(', ')})`
+          : `Codex hooks not trusted (${file}) — ${CODEX_HINT} (${untrusted.join(', ')})`,
     })
   }
   if (missing.length > 0) {
