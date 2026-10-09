@@ -348,3 +348,34 @@ describe('maybeAutoSync', () => {
     expect(readFileSync(settings, 'utf8')).toBe(before)
   })
 })
+
+describe('Codex hooks (LUM-1052 x LUM-1051)', () => {
+  it('never rewrites a recorded codex-hooks file, even with a Lumo event missing', () => {
+    const file = join(root, 'home', '.codex', 'hooks.json')
+    mkdirSync(join(file, '..'), { recursive: true })
+    const original = JSON.stringify({
+      hooks: {
+        Stop: [
+          {
+            hooks: [
+              { type: 'command', command: 'lumo hook stop --agent codex' },
+            ],
+          },
+        ],
+      },
+    })
+    writeFileSync(file, original)
+    seed([rec(file, { kind: 'codex-hooks', agent: 'codex' })])
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
+    expect(readFileSync(file, 'utf8')).toBe(original)
+    const reg = readRegistry()
+    expect(reg.lastSyncedVersion).toBe('2.0.0')
+    expect(reg.installs).toEqual([
+      expect.objectContaining({ kind: 'codex-hooks', version: '1.0.0' }),
+    ])
+  })
+})

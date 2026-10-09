@@ -12,7 +12,13 @@ import {
 } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { init, installSkill } from '@/cli/src/commands/init'
+import {
+  init,
+  installSkill,
+  mergeHooksFile,
+  upgradeCodexHooksFile,
+} from '@/cli/src/commands/init'
+import { CODEX_HOOK_EVENTS } from '@/cli/src/lib/hooks-template'
 import { readMarker, readRegistry } from '@/cli/src/lib/install-registry'
 import { HOOK_SCRIPT_BLOCK } from '@/cli/src/lib/git-hook-template'
 import { hashSkillDir } from '@/cli/src/lib/skill-hash'
@@ -454,5 +460,109 @@ describe('init --upgrade git hook', () => {
       if (prevCi !== undefined) process.env.CI = prevCi
       if (prevNo !== undefined) process.env.LUMO_NO_AUTO_UPDATE = prevNo
     }
+  })
+})
+
+describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
+  const codexFile = (root: string): string => join(root, '.codex', 'hooks.json')
+
+  it('init --agent codex --project writes .codex/hooks.json and records it as codex-hooks', async () => {
+    const e = env()
+    expect(await init({ project: true, agent: 'codex' }, e.deps)).toBe(0)
+    const file = codexFile(e.project)
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    expect(Object.keys(parsed.hooks).sort()).toEqual(
+      CODEX_HOOK_EVENTS.map(([ev]) => ev).sort()
+    )
+    expect(existsSync(join(e.project, '.claude', 'settings.json'))).toBe(false)
+    expect(stdout).toContain('Codex runs these hooks only after you trust them')
+    expect(readRegistry().installs).toContainEqual(
+      expect.objectContaining({
+        kind: 'codex-hooks',
+        path: file,
+        scope: 'project',
+        agent: 'codex',
+        version: '2.0.0',
+      })
+    )
+  })
+
+  it('re-running init --agent codex leaves the hooks file byte-identical', async () => {
+    const e = env()
+    await init({ user: true, agent: 'codex' }, e.deps)
+    const file = codexFile(e.home)
+    // Formatting a user tool might apply: a rewrite would normalize it.
+    const custom = JSON.stringify(JSON.parse(readFileSync(file, 'utf8')))
+    writeFileSync(file, custom)
+    await init({ user: true, agent: 'codex' }, e.deps)
+    expect(readFileSync(file, 'utf8')).toBe(custom)
+  })
+
+  it('init --upgrade leaves a complete Codex hooks file alone (no re-trust)', async () => {
+    const e = env()
+    await init({ user: true, agent: 'codex' }, e.deps)
+    const file = codexFile(e.home)
+    const before = readFileSync(file, 'utf8')
+    stdout = ''
+    expect(await init({ upgrade: true }, e.deps)).toBe(0)
+    expect(readFileSync(file, 'utf8')).toBe(before)
+    expect(stdout).toContain(`Codex hooks already up to date: ${file}`)
+    expect(stdout).not.toContain('re-trust')
+  })
+
+  it('init --upgrade rewrites Codex hooks only when the Lumo event set differs, then asks to re-trust', async () => {
+    const e = env()
+    await init({ user: true, agent: 'codex' }, e.deps)
+    const file = codexFile(e.home)
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    delete parsed.hooks.Interrupt
+    parsed.hooks.Stop.push({ hooks: [{ type: 'command', command: 'mine' }] })
+    writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
+    stdout = ''
+    expect(await init({ upgrade: true }, e.deps)).toBe(0)
+    const after = JSON.parse(readFileSync(file, 'utf8'))
+    expect(after.hooks.Interrupt[0].hooks[0].command).toBe(
+      'lumo hook interrupt --agent codex'
+    )
+    expect(after.hooks.Stop[1].hooks[0].command).toBe('mine')
+    expect(stdout).toContain('re-trust in Codex /hooks')
+  })
+
+  it('init --upgrade adopts an unrecorded ~/.codex/hooks.json carrying Lumo entries', async () => {
+    const e = env()
+    const file = codexFile(e.home)
+    mkdirSync(join(file, '..'), { recursive: true })
+    writeFileSync(
+      file,
+      JSON.stringify({
+        hooks: {
+          Stop: [
+            {
+              hooks: [
+                { type: 'command', command: 'lumo hook stop --agent codex' },
+              ],
+            },
+          ],
+        },
+      })
+    )
+    expect(await init({ upgrade: true }, e.deps)).toBe(0)
+    expect(stdout).toContain('re-trust in Codex /hooks')
+    expect(readRegistry().installs).toContainEqual(
+      expect.objectContaining({
+        kind: 'codex-hooks',
+        path: file,
+        scope: 'user',
+      })
+    )
+  })
+
+  it('upgradeCodexHooksFile reports unchanged without touching the file', () => {
+    const dir = tmp()
+    const file = codexFile(dir)
+    mergeHooksFile(file, 'codex', CODEX_HOOK_EVENTS)
+    const before = readFileSync(file, 'utf8')
+    expect(upgradeCodexHooksFile(file)).toBe('unchanged')
+    expect(readFileSync(file, 'utf8')).toBe(before)
   })
 })

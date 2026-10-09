@@ -528,3 +528,76 @@ describe('registry, purge and final step', () => {
     expect(shouldAutoSync(['node', 'lumo', 'uninstall'])).toBe(false)
   })
 })
+
+describe('project-level Codex hooks (LUM-1052 x LUM-1051)', () => {
+  it('--scope project strips only Lumo entries from <repo>/.codex/hooks.json and drops its record', async () => {
+    const f = fixture()
+    const p = join(f.repo, '.codex', 'hooks.json')
+    mkdirSync(join(p, '..'), { recursive: true })
+    writeFileSync(
+      p,
+      JSON.stringify({
+        hooks: {
+          Stop: [
+            {
+              hooks: [
+                { type: 'command', command: 'lumo hook stop --agent codex' },
+              ],
+            },
+            { hooks: [{ type: 'command', command: 'my-codex-hook' }] },
+          ],
+          Interrupt: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'lumo hook interrupt --agent codex',
+                },
+              ],
+            },
+          ],
+        },
+      })
+    )
+    upsertInstall({
+      kind: 'codex-hooks',
+      path: p,
+      scope: 'project',
+      agent: 'codex',
+      version: '2.0.0',
+      installedAt: '2026-01-01T00:00:00.000Z',
+    })
+    const plan = planUninstall({ scope: 'project' }, f.deps)
+    expect(plan.actions.map(a => [a.action, a.row.path])).toContainEqual([
+      'strip-codex',
+      p,
+    ])
+    expect(await uninstall({ scope: 'project', confirm: true }, f.deps)).toBe(0)
+    expect(json(p)).toEqual({
+      hooks: {
+        Stop: [{ hooks: [{ type: 'command', command: 'my-codex-hook' }] }],
+      },
+    })
+    expect(readRegistry().installs.some(r => r.path === p)).toBe(false)
+  })
+
+  it('--scope user leaves the project Codex hooks file alone', async () => {
+    const f = fixture()
+    const p = join(f.repo, '.codex', 'hooks.json')
+    mkdirSync(join(p, '..'), { recursive: true })
+    const body = JSON.stringify({
+      hooks: {
+        Stop: [
+          {
+            hooks: [
+              { type: 'command', command: 'lumo hook stop --agent codex' },
+            ],
+          },
+        ],
+      },
+    })
+    writeFileSync(p, body)
+    await uninstall({ scope: 'user', confirm: true }, f.deps)
+    expect(readFileSync(p, 'utf8')).toBe(body)
+  })
+})

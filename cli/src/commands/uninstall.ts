@@ -162,7 +162,7 @@ function describeAction(a: PlannedAction): string {
     case 'strip-git-hook':
       return `Remove the Lumo block from ${row.path}; the file is deleted only if nothing else is left${tag}${team}`
     case 'strip-codex':
-      return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${team}`
+      return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${tag}${team}`
   }
 }
 
@@ -279,7 +279,7 @@ const REGISTRY_KIND: Record<ActionKind, InstallKind | null> = {
   'remove-skill': 'skill',
   'strip-settings': 'claude-settings',
   'strip-git-hook': 'git-hook',
-  'strip-codex': null,
+  'strip-codex': 'codex-hooks',
 }
 
 /** Empty configDir() without removing the directory itself where possible. */

@@ -22,10 +22,13 @@ import {
   type DoctorReport,
 } from '@/cli/src/commands/doctor'
 import { HOOK_SCRIPT_BLOCK } from '@/cli/src/lib/git-hook-template'
-import { LUMO_HOOK_EVENTS } from '@/cli/src/lib/hooks-template'
+import {
+  CODEX_HOOK_EVENTS,
+  LUMO_HOOK_EVENTS,
+} from '@/cli/src/lib/hooks-template'
 import { shouldAutoSync } from '@/cli/src/lib/auto-sync'
 import { resolveGitHooksDir } from '@/cli/src/lib/git-hooks-dir'
-import { writeMarker } from '@/cli/src/lib/install-registry'
+import { upsertInstall, writeMarker } from '@/cli/src/lib/install-registry'
 import { hashSkillDir } from '@/cli/src/lib/skill-hash'
 
 jest.mock('@/cli/src/lib/skill-version-hashes.json', () => ({}))
@@ -603,5 +606,89 @@ describe('fix round 1', () => {
     expect([...codexTrustedEvents(toml, '/h/hooks.json')]).toEqual([
       'pre_tool_use',
     ])
+  })
+})
+
+describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
+  const writeCodex = (
+    file: string,
+    events: ReadonlyArray<readonly [string, string]>
+  ) => {
+    mkdirSync(join(file, '..'), { recursive: true })
+    const hooks: Record<string, unknown> = {}
+    for (const [ev, slug] of events)
+      hooks[ev] = [
+        {
+          hooks: [
+            { type: 'command', command: `lumo hook ${slug} --agent codex` },
+          ],
+        },
+      ]
+    writeFileSync(file, JSON.stringify({ hooks }))
+  }
+
+  it('lists the repo .codex/hooks.json with trust read from ~/.codex/config.toml', () => {
+    const f = fixture()
+    const p = join(f.repo, '.codex', 'hooks.json')
+    writeCodex(p, CODEX_HOOK_EVENTS)
+    mkdirSync(join(f.home, '.codex'), { recursive: true })
+    writeFileSync(
+      join(f.home, '.codex', 'config.toml'),
+      CODEX_HOOK_EVENTS.map(
+        ([ev]) =>
+          `[hooks.state."${p}:${codexEventKey(ev)}:0:0"]\ntrusted_hash = "sha256:x"\n`
+      ).join('\n')
+    )
+    const r = collectDoctor(f.deps)
+    expect(rowFor(r, p)).toMatchObject({
+      kind: 'codex-hooks',
+      scope: 'project',
+      agent: 'codex',
+      group: 'repo-uncommitted',
+      state: 'trusted (hash not verified)',
+    })
+    expect(warn(r, 'codex-untrusted')).toHaveLength(0)
+    expect(warn(r, 'missing-hook-events')).toHaveLength(0)
+  })
+
+  it('flags missing Codex events with the upgrade command', () => {
+    const f = fixture()
+    const p = join(f.home, '.codex', 'hooks.json')
+    writeCodex(
+      p,
+      CODEX_HOOK_EVENTS.filter(([ev]) => ev !== 'Interrupt')
+    )
+    const r = collectDoctor(f.deps)
+    const row = rowFor(r, p)!
+    expect(row.suggestion).toBe('lumo init --upgrade')
+    expect(row.detail).toContain('missing 1 hook event(s)')
+    expect(
+      warn(r, 'missing-hook-events').some(w => w.message.includes('Interrupt'))
+    ).toBe(true)
+  })
+
+  it('includes recorded codex-hooks files from other repos and reports stale records', () => {
+    const f = fixture()
+    const other = tmp()
+    const p = join(other, '.codex', 'hooks.json')
+    writeCodex(p, CODEX_HOOK_EVENTS)
+    const gone = join(tmp(), '.codex', 'hooks.json')
+    for (const path of [p, gone])
+      upsertInstall({
+        kind: 'codex-hooks',
+        path,
+        scope: 'project',
+        agent: 'codex',
+        version: '2.0.0',
+        installedAt: '2026-01-01T00:00:00.000Z',
+      })
+    const r = collectDoctor(f.deps)
+    expect(rowFor(r, p)).toMatchObject({
+      group: 'other-repos',
+      kind: 'codex-hooks',
+    })
+    expect(warn(r, 'registry-stale').some(w => w.message.includes(gone))).toBe(
+      true
+    )
   })
 })

@@ -168,6 +168,7 @@ export async function init(
     // .codex/hooks.json (same shape as Claude's settings.json `hooks`).
     const hooksPath = codexHooksPath(root)
     mergeHooksFile(hooksPath, agentResult.token, CODEX_HOOK_EVENTS)
+    recordInstall('codex-hooks', hooksPath, scope, 'codex', cliVersion)
     process.stdout.write(`\n${codexTrustInstructions(hooksPath)}\n`)
   } else {
     const settingsPath = path.join(configRoot, 'settings.json')
@@ -452,6 +453,15 @@ async function upgradeInstalls(args: {
       fail(r.path, err)
     }
   }
+  for (const t of codexHookTargets(reg.installs, homeDir, cwd)) {
+    found++
+    try {
+      upgradeCodexHooksFile(t.path)
+      recordInstall('codex-hooks', t.path, t.scope, 'codex', cliVersion)
+    } catch (err) {
+      fail(t.path, err)
+    }
+  }
   const hookTargets = new Map<string, { scope: Scope }>()
   for (const r of reg.installs) {
     if (r.kind === 'git-hook') hookTargets.set(r.path, { scope: r.scope })
@@ -504,6 +514,62 @@ export function refreshGitHookFile(
 }
 
 /**
+ * Codex hooks files `init --upgrade` refreshes: registry records plus the
+ * standard user (`~/.codex/hooks.json`) and repo (`<repo>/.codex/hooks.json`)
+ * locations when they already carry `lumo hook … --agent codex` entries.
+ */
+function codexHookTargets(
+  installs: readonly InstallRecord[],
+  homeDir: string,
+  cwd: string
+): Array<{ path: string; scope: Scope }> {
+  const targets = new Map<string, Scope>()
+  for (const r of installs) {
+    if (r.kind === 'codex-hooks') targets.set(r.path, r.scope)
+  }
+  const standard: Array<[string, Scope]> = [[codexHooksPath(homeDir), 'user']]
+  const root = repoRoot(cwd)
+  if (root) standard.push([codexHooksPath(root), 'project'])
+  for (const [p, scope] of standard) {
+    if (!targets.has(p) && hasLumoCodexHooks(p)) targets.set(p, scope)
+  }
+  return [...targets]
+    .filter(([p]) => fs.existsSync(p))
+    .map(([p, scope]) => ({ path: p, scope }))
+}
+
+function hasLumoCodexHooks(file: string): boolean {
+  try {
+    return fs.readFileSync(file, 'utf8').includes('--agent codex')
+  } catch {
+    return false
+  }
+}
+
+/**
+ * `init --upgrade` for a Codex hooks file. Codex asks for trust again after
+ * any entry changes, so the file is rewritten only when the Lumo event set
+ * differs (an event added or an entry rewritten) — and then the user is told
+ * to re-trust. Auto-sync never calls this.
+ */
+export function upgradeCodexHooksFile(
+  hooksPath: string
+): 'updated' | 'unchanged' {
+  const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS, {
+    quiet: true,
+  })
+  if (stats.addedEvents.length + stats.updatedEvents.length === 0) {
+    process.stdout.write(`✓ Codex hooks already up to date: ${hooksPath}\n`)
+    return 'unchanged'
+  }
+  process.stdout.write(
+    `✓ updated Codex hooks: ${hooksPath} (added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}) — re-trust in Codex /hooks\n` +
+      `${codexTrustInstructions(hooksPath)}\n`
+  )
+  return 'updated'
+}
+
+/**
  * Merge the Lumo hook entries into a hooks file — Claude Code's
  * `settings.json`, or Codex's `hooks.json` (LUM-1051) — keeping every other
  * key and non-Lumo hook as is. An existing file is rewritten only when a Lumo
@@ -513,7 +579,8 @@ export function refreshGitHookFile(
 export function mergeHooksFile(
   settingsPath: string,
   agentToken: string,
-  events?: Parameters<typeof mergeLumoHooks>[2]
+  events?: Parameters<typeof mergeLumoHooks>[2],
+  opts: { quiet?: boolean } = {}
 ): { path: string; stats: MergeStats } {
   let existing: unknown = {}
   const exists = fs.existsSync(settingsPath)
@@ -541,6 +608,8 @@ export function mergeHooksFile(
   if (!exists || changed > 0) {
     fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n')
   }
+  if (opts.quiet) return { path: settingsPath, stats }
+
   if (changed === 0) {
     process.stdout.write(
       `✓ hooks already wired in (agent=${agentToken}): ${settingsPath} (${stats.alreadyPresent.length} events)\n`

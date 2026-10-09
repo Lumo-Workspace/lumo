@@ -13,7 +13,12 @@ import {
   LUMO_HOOK_END,
 } from '../lib/git-hook-template'
 import { resolveGitHooksDir } from '../lib/git-hooks-dir'
-import { LUMO_HOOK_EVENTS, isLumoHookCommand } from '../lib/hooks-template'
+import {
+  CODEX_HOOK_EVENTS,
+  LUMO_HOOK_EVENTS,
+  isLumoHookCommand,
+} from '../lib/hooks-template'
+import { codexHooksPath } from '../lib/codex-hooks'
 import {
   detectInstalledSkills,
   isLumoSkillSource,
@@ -306,8 +311,19 @@ function gitHookRow(
   return row
 }
 
-function codexRow(home: string, warnings: DoctorWarning[]): DoctorRow | null {
-  const file = path.join(home, '.codex', 'hooks.json')
+/**
+ * A Codex hooks.json with `lumo hook` entries: user (`~/.codex/hooks.json`) or
+ * project (`<repo>/.codex/hooks.json`, written by `init --agent codex
+ * --project`). Codex keeps trust for both in `~/.codex/config.toml`, keyed by
+ * the hooks file's absolute path.
+ */
+function codexRow(
+  file: string,
+  scope: 'user' | 'project',
+  home: string,
+  root: string | null,
+  warnings: DoctorWarning[]
+): DoctorRow | null {
   const data = readJson(file)
   if (!data) return null
   const hooks = data.hooks && typeof data.hooks === 'object' ? data.hooks : data
@@ -323,23 +339,38 @@ function codexRow(home: string, warnings: DoctorWarning[]): DoctorRow | null {
   }
   const trusted = codexTrustedEvents(toml, file)
   const untrusted = events.filter(e => !trusted.has(codexEventKey(e)))
+  const missing = CODEX_HOOK_EVENTS.filter(
+    ([event, slug]) =>
+      !eventCommands(hooks, event).some(c => isLumoHookCommand(c, slug))
+  ).map(([event]) => event)
+  const tracked = isPathGitTracked(file)
   const row: DoctorRow = {
     path: file,
     kind: 'codex-hooks',
-    scope: 'user',
+    scope,
     agent: 'codex',
-    group: 'machine',
-    tracked: isPathGitTracked(file),
+    group: groupFor(scope, root, file, () => tracked),
+    tracked,
     state:
       untrusted.length === 0 ? 'trusted (hash not verified)' : 'not trusted',
   }
+  const details: string[] = []
   if (untrusted.length > 0) {
-    row.detail = `${CODEX_HINT}: ${untrusted.join(', ')}`
+    details.push(`${CODEX_HINT}: ${untrusted.join(', ')}`)
     warnings.push({
       code: 'codex-untrusted',
-      message: `Codex hooks not trusted — ${CODEX_HINT} (${untrusted.join(', ')})`,
+      message: `Codex hooks not trusted (${file}) — ${CODEX_HINT} (${untrusted.join(', ')})`,
     })
   }
+  if (missing.length > 0) {
+    details.push(`missing ${missing.length} hook event(s)`)
+    row.suggestion = CMD_UPGRADE
+    warnings.push({
+      code: 'missing-hook-events',
+      message: `${file} is missing Lumo Codex hook events: ${missing.join(', ')}`,
+    })
+  }
+  if (details.length > 0) row.detail = details.join('; ')
   return row
 }
 
@@ -428,8 +459,23 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
     const row = gitHookRow(file, t.scope, root, current)
     if (row) rows.push(row)
   }
-  const codex = codexRow(home, warnings)
-  if (codex) rows.push(codex)
+  // Codex hooks.json: user + this repo's file plus recorded ones.
+  const codexFiles = new Map<string, 'user' | 'project'>()
+  codexFiles.set(codexHooksPath(home), 'user')
+  if (root) codexFiles.set(codexHooksPath(root), 'project')
+  for (const rec of registry.installs) {
+    if (rec.kind !== 'codex-hooks') continue
+    if (!fs.existsSync(rec.path)) {
+      stale(rec.path)
+      continue
+    }
+    if (codexFiles.has(rec.path)) continue
+    codexFiles.set(rec.path, rec.scope)
+  }
+  for (const [file, scope] of codexFiles) {
+    const row = codexRow(file, scope, home, root, warnings)
+    if (row) rows.push(row)
+  }
 
   // The same agent's skill at user and project scope with different versions.
   const skills = rows.filter(

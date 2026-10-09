@@ -3,7 +3,16 @@ import * as path from 'path'
 import { configDir } from './config'
 import { MARKER_FILE } from './skill-hash'
 
-export type InstallKind = 'skill' | 'claude-settings' | 'git-hook'
+/**
+ * `codex-hooks` (LUM-1051/1052): a Codex `hooks.json` init wrote Lumo entries
+ * into. Auto-sync never rewrites it (any change makes Codex ask for trust
+ * again); only `init --upgrade` does, when the Lumo event set differs.
+ */
+export type InstallKind =
+  | 'skill'
+  | 'claude-settings'
+  | 'git-hook'
+  | 'codex-hooks'
 
 export interface InstallRecord {
   kind: InstallKind
