@@ -17,7 +17,7 @@ const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 /**
  * Parse the `X-Lumo-Agent` request header into a TaskArtifactAgent enum value.
  * The CLI hook sends the already-normalized enum token (e.g. `CODEX`), baked in
- * at `lumo setup --agent <token>`. An absent or unrecognized value yields
+ * at `lumo init --agent <token>`. An absent or unrecognized value yields
  * `undefined` so the session falls back to the DB default (CLAUDE_CODE) rather
  * than failing the hook — agent attribution is best-effort metadata.
  */

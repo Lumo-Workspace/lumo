@@ -28,7 +28,7 @@ You see a suggestion line. Confirm the inferred task is the one the user wants, 
 
 ### Session record notice at session start (LUM-943)
 
-Every session start — bound or not — injects one line saying how this workspace stores session records: the mode (kept forever / kept at least N days / code and command output not stored, discarded after the work is used up), that credentials are always redacted, and that an OWNER can change it in **Settings → Data retention** (with the link). It is read fresh each session start, so an OWNER's change shows on the next one. An older server or a failed lookup simply omits the line. `lumo setup` prints the same line when logged in.
+Every session start — bound or not — injects one line saying how this workspace stores session records: the mode (kept forever / kept at least N days / code and command output not stored, discarded after the work is used up), that credentials are always redacted, and that an OWNER can change it in **Settings → Data retention** (with the link). It is read fresh each session start, so an OWNER's change shows on the next one. An older server or a failed lookup simply omits the line. `lumo init` prints the same line when logged in.
 
 #### When to suggest
 
@@ -255,10 +255,10 @@ Nothing to suggest — these run on their own. If a teammate asks why a task sho
 
 ## Codex
 
-Codex (CLI and desktop app, 0.162+) is a supported agent since LUM-1051. `lumo setup --agent codex` installs the skill and `.codex/hooks.json` ([onboarding.md](onboarding.md)); the user must **trust** the hooks once (Codex app Settings → Hooks, or `/hooks`).
+Codex (CLI and desktop app, 0.162+) is a supported agent since LUM-1051. `lumo init --agent codex` installs the skill and `.codex/hooks.json` ([onboarding.md](onboarding.md)); the user must **trust** the hooks once (Codex app Settings → Hooks, or `/hooks`).
 
 - **Session id.** Codex sets `CODEX_THREAD_ID` in every shell; it wins over a `CLAUDE_CODE_SESSION_ID` inherited from a parent Claude Code session. The session is `CODEX_SESSION_ID`. Inside a Codex subagent the two differ and the CLI uses the child session `<CODEX_SESSION_ID>:<CODEX_THREAD_ID>` — the same id the hooks build from the payload's `session_id` + `agent_id` — so a subagent's `session attach` is deterministic (no Claude-style ambiguity errors).
-- **Hook trust self-check.** Codex skips untrusted hooks with no error. When the server has no hook event for this Codex session, `session attach` (after the bind line) and `session status` (on stderr) print `no hook events have reached Lumo from this Codex session …` — relay it: the user must run `lumo setup --agent codex` and trust the `lumo hook …` entries. Until then nothing of the session is recorded.
+- **Hook trust self-check.** Codex skips untrusted hooks with no error. When the server has no hook event for this Codex session, `session attach` (after the bind line) and `session status` (on stderr) print `no hook events have reached Lumo from this Codex session …` — relay it: the user must run `lumo init --agent codex` and trust the `lumo hook …` entries. Until then nothing of the session is recorded.
 - **Events.** Captured: SessionStart/End, UserPromptSubmit, Pre/PostToolUse, PermissionRequest, SubagentStart/Stop, Stop, plus Codex-only PreCompact / PostCompact / Interrupt (shown on the timeline). Codex has no PostToolUseFailure (a failed command is a normal PostToolUse without exit code), PermissionDenied (a declined approval shows as Interrupt), PostToolBatch, Worktree*, FileChanged, ConfigChange, Task*, Notification, Elicitation\*, CwdChanged or InstructionsLoaded — those signals are absent for Codex sessions.
 - **Tools.** Codex writes files only through `apply_patch`; it counts as a write tool (collision warnings, sensitive-path and secret checks, deleted-test detection) with its paths read from the patch headers. Reads go through `Bash`. `collaborationspawn_agent` / `collaborationwait_agent` are its subagent tools.
 - **Token usage** comes from the Codex rollout (`~/.codex/sessions/…/rollout-*.jsonl`) on every Stop, subagents from their own rollouts. No mid-turn live usage (no PostToolBatch); an interrupted turn's usage lands with the next Stop. `lumo usage resync` is not needed for Codex.

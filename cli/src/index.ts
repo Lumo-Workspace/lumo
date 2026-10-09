@@ -148,7 +148,9 @@ import { docUnshare } from './commands/doc-unshare'
 import { docShareList } from './commands/doc-share-list'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
-import { setup } from './commands/setup'
+import { init } from './commands/init'
+import { doctor } from './commands/doctor'
+import { uninstall } from './commands/uninstall'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
 import { worktreeList } from './commands/worktree-list'
@@ -159,6 +161,11 @@ import {
   runBackgroundRefresh,
 } from './lib/update-check'
 import { sanitizeField } from './lib/sanitize'
+import {
+  maybeAutoSync,
+  shouldAutoSync,
+  shouldCheckForUpdates,
+} from './lib/auto-sync'
 
 // Introspection mode: tooling (CLI grammar extraction) imports
 // this module to walk the registered commander tree without running the CLI.
@@ -182,12 +189,21 @@ const isUpdateCheckWorker =
   process.argv[2] === '__update-check' && !!process.argv[3]
 
 if (isUpdateCheckWorker) {
-  runBackgroundRefresh(process.argv[3] as string)
+  runBackgroundRefresh(process.argv[3] as string, pkg.version)
     .catch(() => {})
     .finally(() => process.exit(0))
 } else if (!isIntrospect) {
-  printUpdateNoticeIfAny(pkg.name, pkg.version)
-  maybeRefreshInBackground(pkg.name)
+  // Not for `uninstall`: the background worker could reinstall the CLI after
+  // `npm rm -g` or recreate ~/.lumo after `--purge`.
+  if (shouldCheckForUpdates(process.argv)) {
+    printUpdateNoticeIfAny(pkg.name, pkg.version)
+    maybeRefreshInBackground(pkg.name)
+  }
+  // First run of a new version: refresh user-scope installs. Silent for
+  // `lumo hook …` (its output is consumed by the agent). Skipped entirely for
+  // read-only `doctor` and `uninstall`. Never throws.
+  if (shouldAutoSync(process.argv))
+    maybeAutoSync(pkg.version, { quiet: process.argv[2] === 'hook' })
 }
 
 // LUM-843: a 401 that a command reported only as `HTTP 401` still ends with
@@ -295,39 +311,100 @@ program
 program
   .command('update')
   .description(
-    `Check npm for a newer ${pkg.name} and install it globally if available.`
+    `Check npm for a newer ${pkg.name} and install it globally if available. The CLI also updates itself in the background by default; --auto on|off toggles that.`
   )
-  .action(wrap(update))
+  .option('--auto <on|off>', 'Turn background auto-update on or off')
+  .action(wrap(options => update(options as { auto?: string })))
+
+function registerInit(name: string, hidden: boolean): void {
+  program
+    .command(name, hidden ? { hidden: true } : undefined)
+    .description(
+      hidden
+        ? 'Alias of `lumo init` (kept for older docs and scripts).'
+        : 'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: the skill into .agents/skills/ and hooks into .codex/hooks.json, which you then trust in Codex /hooks). Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs.'
+    )
+    .option(
+      '--user',
+      'Install into ~/.claude, or ~/.agents + ~/.codex for Codex (applies across all projects for this user)'
+    )
+    .option(
+      '--project',
+      'Install into ./.claude, or ./.agents + ./.codex for Codex (applies to the current project only)'
+    )
+    .option(
+      '--force',
+      'Overwrite existing skill files (SKILL.md + references/) even when they were modified locally'
+    )
+    .option(
+      '--agent <token>',
+      'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout and .codex/hooks.json instead. Defaults to claude-code.'
+    )
+    .option(
+      '--upgrade',
+      'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks)'
+    )
+    .action(
+      wrap(options =>
+        init(
+          options as {
+            user?: boolean
+            project?: boolean
+            force?: boolean
+            agent?: string
+            upgrade?: boolean
+          }
+        )
+      )
+    )
+}
+
+registerInit('init', false)
+// `setup` is the pre-LUM-1052 name; hidden alias running the same action.
+registerInit('setup', true)
 
 program
-  .command('setup')
+  .command('doctor')
   .description(
-    'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: the skill into .agents/skills/ and hooks into .codex/hooks.json, which you then trust in Codex /hooks). Run via `npx @lumoai/cli setup` for first-time onboarding.'
+    'Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH and untrusted Codex hooks; always exits 0.'
+  )
+  .option('--json', 'Machine-readable output')
+  .action(wrap(options => doctor(options as { json?: boolean })))
+
+program
+  .command('uninstall')
+  .description(
+    'Remove what `lumo init` installed: Lumo skill dirs, Lumo hook entries in Claude settings and Codex hooks.json (~/.codex or ./.codex), the marked block in prepare-commit-msg, and the install registry records. Locally edited skill copies are skipped unless --force; foreign hooks and file content are kept. Without --confirm prints a confirmation envelope (exit 4) listing every path; never commits. Ends with the manual `npm rm -g @lumoai/cli` step.'
   )
   .option(
-    '--user',
-    'Install into ~/.claude, or ~/.agents + ~/.codex for Codex (applies across all projects for this user)'
-  )
-  .option(
-    '--project',
-    'Install into ./.claude, or ./.agents + ./.codex for Codex (applies to the current project only)'
-  )
-  .option(
-    '--force',
-    'Overwrite existing skill files (SKILL.md + references/) when they differ from the bundled version'
+    '--scope <scope>',
+    'user (this machine), project (the current repo) or all (also recorded installs in other repos). Default: all'
   )
   .option(
     '--agent <token>',
-    'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout and .codex/hooks.json instead. Defaults to claude-code.'
+    'Only installs of this agent (claude-code, codex, git, ...); the prepare-commit-msg hook is labelled git, so it is included only by --agent git'
+  )
+  .option(
+    '--force',
+    'Also delete skill copies that were edited locally (discards those edits)'
+  )
+  .option(
+    '--purge',
+    'Also delete everything in ~/.lumo (credentials, caches, install registry)'
+  )
+  .option(
+    '--confirm',
+    'Apply the removal after the user has approved the envelope'
   )
   .action(
     wrap(options =>
-      setup(
+      uninstall(
         options as {
-          user?: boolean
-          project?: boolean
-          force?: boolean
+          scope?: string
           agent?: string
+          force?: boolean
+          purge?: boolean
+          confirm?: boolean
         }
       )
     )
@@ -2717,7 +2794,7 @@ const hook = program
   )
 
 // Slug → help-text for every `lumo hook <slug>` subcommand. Each one accepts
-// an optional `--agent <token>` flag (baked into settings.json by `lumo setup
+// an optional `--agent <token>` flag (baked into settings.json by `lumo init
 // --agent <token>`); the value rides to the server as the X-Lumo-Agent header
 // so auto-sedimented memories are attributed to the agent that produced them.
 // Keep this list in sync with LUMO_HOOK_EVENTS (cli/src/lib/hooks-template.ts)
@@ -2841,7 +2918,7 @@ for (const [slug, description] of HOOK_SUBCOMMANDS) {
     .description(description)
     .option(
       '--agent <token>',
-      'Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`.'
+      'Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo init --agent`.'
     )
     .action(
       wrap((opts: unknown) =>

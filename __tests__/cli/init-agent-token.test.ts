@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { resolveAgentToken } from '@/cli/src/commands/setup'
+import { resolveAgentToken } from '@/cli/src/commands/init'
 
 describe('resolveAgentToken', () => {
   it('defaults to claude-code when no token is supplied', () => {

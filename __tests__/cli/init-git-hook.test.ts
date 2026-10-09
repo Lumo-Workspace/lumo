@@ -5,7 +5,7 @@ import { execFileSync } from 'child_process'
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { installGitHook } from '@/cli/src/commands/setup'
+import { installGitHook } from '@/cli/src/commands/init'
 import { LUMO_HOOK_BEGIN } from '@/cli/src/lib/git-hook-template'
 
 let stdoutSpy: jest.SpyInstance

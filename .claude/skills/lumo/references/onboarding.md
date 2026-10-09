@@ -2,11 +2,11 @@
 
 ## Onboarding
 
-### `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill + hooks
+### `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — install skill + hooks (alias: `lumo setup`)
 
 Bootstraps Lumo into a coding-agent installation. Copies the bundled skill files (`SKILL.md` **and its `references/` directory**) into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
 
-**`--agent codex`** installs for Codex instead: the same skill files go to `<scope>/.agents/skills/lumo/` (Codex loads skills from there in the CLI, desktop app and IDE extension), and 12 hook entries are merged into `<scope>/.codex/hooks.json` (`~/.codex/hooks.json` for `--user`) — the 9 events Codex shares with Claude Code plus Codex's `PreCompact` / `PostCompact` / `Interrupt`. Nothing under `.claude/` is touched. **Codex runs a hook only after the user trusts it** (Codex app: Settings → Hooks → Trust each `lumo hook …` entry; Codex CLI: `/hooks`); until then it is skipped silently, so setup prints that step and `session attach` / `session status` warn when no hook event has arrived. Hook commands are byte-stable (`lumo hook <slug> --agent codex`), so re-running setup or upgrading the CLI does not ask for trust again. The `--project` git hook below is installed as usual. The npm package root is also a portable Agent Plugins package (`plugin.json` + `skills/lumo/`), so a Codex / ChatGPT plugin marketplace can list `@lumoai/cli` as an `npm` source.
+**`--agent codex`** installs for Codex instead: the same skill files go to `<scope>/.agents/skills/lumo/` (Codex loads skills from there in the CLI, desktop app and IDE extension), and 12 hook entries are merged into `<scope>/.codex/hooks.json` (`~/.codex/hooks.json` for `--user`) — the 9 events Codex shares with Claude Code plus Codex's `PreCompact` / `PostCompact` / `Interrupt`. Nothing under `.claude/` is touched. **Codex runs a hook only after the user trusts it** (Codex app: Settings → Hooks → Trust each `lumo hook …` entry; Codex CLI: `/hooks`); until then it is skipped silently, so setup prints that step and `session attach` / `session status` warn when no hook event has arrived. Hook commands are byte-stable (`lumo hook <slug> --agent codex`) and an unchanged file is never rewritten, so re-running `init` or upgrading the CLI does not ask for trust again; auto-sync never touches Codex hooks, and `init --upgrade` rewrites them only when the Lumo event set changed (it then prints "re-trust in Codex /hooks"). `init` records the file in the install registry (kind `codex-hooks`). The `--project` git hook below is installed as usual. The npm package root is also a portable Agent Plugins package (`plugin.json` + `skills/lumo/`), so a Codex / ChatGPT plugin marketplace can list `@lumoai/cli` as an `npm` source.
 
 On `--project` scope, setup also installs a `prepare-commit-msg` git hook that
 auto-appends the branch's task ID (`[LUM-N]`, parsed from a `lumo/LUM-N-...`
@@ -23,23 +23,74 @@ When logged in, setup ends with one `ℹ Session records in this workspace: …`
 For every other agent, `--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
 
 ```bash
-npx @lumoai/cli setup                    # interactive: prompts user/project; agent=claude-code
-npx @lumoai/cli setup --user             # write to ~/.claude/
-npx @lumoai/cli setup --project          # write to ./.claude/
-lumo setup --project --force             # same via global install: overwrite skill files if they differ from bundled
-lumo setup --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, hooks into ./.codex/hooks.json (then trust them)
-lumo setup --project --agent cursor      # bake agent=cursor into the hook commands
+npx @lumoai/cli init                     # interactive: prompts user/project; agent=claude-code
+npx @lumoai/cli init  --user             # write to ~/.claude/
+npx @lumoai/cli init  --project          # write to ./.claude/
+lumo init --project --force             # same via global install: overwrite skill files if they differ from bundled
+lumo init --upgrade                     # refresh all known installs: skills (managed+older only; modified/newer skipped, never downgrades), Claude settings hooks, Codex hooks.json (only when the Lumo event set changed — then re-trust in Codex /hooks), and the Lumo prepare-commit-msg block (default hooks dir / recorded paths)
+lumo init --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, hooks into ./.codex/hooks.json (then trust them)
+lumo setup --project                    # legacy hidden alias of `lumo init`
+lumo init --project --agent cursor      # bake agent=cursor into the hook commands
 ```
 
 #### When to suggest
 
 - The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
 - A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` (or, for Codex, `.agents/skills/lumo/SKILL.md`) yet
-- The user works in Codex — `lumo setup --agent codex` (add `--user` for every repo)
+- The user works in Codex — `lumo init --agent codex` (add `--user` for every repo)
 - After `npm install -g @lumoai/cli`, before the first `lumo auth login`
 - Wiring Lumo hooks into another agent (Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
 
 If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown. An unrecognized `--agent` token aborts before writing anything.
+
+### `lumo doctor [--json]` — inspect every Lumo install (read-only)
+
+Lists what Lumo installed on this machine and in the current repo, grouped as `This machine` (user-scope paths, the default `.git/hooks`), `This repo — committed` (git-tracked, incl. a tracked `core.hooksPath` dir), `This repo — uncommitted` and `Other repos` (recorded project installs outside the current repo). Sources: the install registry (skills, Claude settings and git hooks; stale paths warn), the known skill locations, `~/.claude/settings.json` and `<repo>/.claude/settings.json` Lumo hook entries, the `prepare-commit-msg` block (honours `core.hooksPath`) and `~/.codex/hooks.json` `lumo hook` entries. Each row shows path, kind, version, state and a fix command:
+
+| State            | Meaning                                                 | Suggested command                                                      |
+| ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `up to date`     | matches this CLI                                        | none                                                                   |
+| `behind <v>`     | managed copy older than the CLI (git hook: stale block) | `lumo init --upgrade`                                                  |
+| `modified`       | edited locally                                          | `lumo init --force` (discards the edits — only if the user wants that) |
+| `newer than CLI` | installed by a newer CLI                                | `lumo update`                                                          |
+| `incomplete`     | Claude settings missing hook events                     | `lumo init --user` / `--project`                                       |
+
+Warnings (never change the exit code, which is always 0): missing Lumo hook events vs the canonical list, `lumo` not resolvable on PATH, user and project skill of one agent at different versions, an unreadable registry (reported, never rewritten), registry entries whose path is gone, and Codex hooks not trusted or missing events. Codex rows cover `~/.codex/hooks.json`, `<repo>/.codex/hooks.json` and recorded `codex-hooks` files; trust for all of them is a text scan of `~/.codex/config.toml` for a `[hooks.state."<hooks.json>:<event_snake>:…"]` section with a `trusted_hash`; the hash is not verified (shown as `trusted (hash not verified)`), and a missing entry means open `/hooks` in Codex and Trust (a project-level `.codex/hooks.json` with no match shows `trust unverified` — Trust only if the hooks don't fire). Trust keys are matched by both the given path and its realpath. `--json` prints `{ cliVersion, rows, warnings }`.
+
+```bash
+lumo doctor
+lumo doctor --json
+```
+
+#### When to suggest
+
+- The user asks whether Lumo is installed correctly, why hooks do not fire, or which copies are outdated
+- Before `lumo init --upgrade` or `--force`, to preview what would change
+
+### `lumo uninstall` — remove what `lumo init` installed (gated)
+
+Plans from the same collector as `lumo doctor`, so both agree on what is installed. Without `--confirm` it prints the standard confirmation envelope (exit 4) listing every path and action and changes nothing; re-run its `confirmCommand` only after the user approves. It never commits.
+
+| Flag              | Meaning                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| `--scope <s>`     | `user` (this machine) · `project` (the current repo) · `all` (default; also recorded installs in other repos) |
+| `--agent <token>` | only that agent's installs (`claude-code`, `codex`, `git`, …); the git hook is labelled `git`                 |
+| `--force`         | also delete skill copies edited locally (listed as `Skip …` otherwise)                                        |
+| `--purge`         | also empty `~/.lumo` (credentials, caches, install registry) — the user must log in again                     |
+
+`--agent` never matches the `prepare-commit-msg` rows unless it is `--agent git` (they belong to git, not to an agent). Only skill dirs whose path ends in `skills/lumo` are ever deleted; any other recorded skill path is listed as skipped, even with `--force`. What `--confirm` does: deletes Lumo-managed skill dirs; removes only `lumo hook` entries from `settings.json` and Codex `hooks.json` (`~/.codex/` and `<repo>/.codex/`, plus recorded ones) (file, other hooks and empty-array cleanup — the file stays); removes only the marked block from `prepare-commit-msg` (file deleted only when nothing but a shebang remains; under `core.hooksPath` only if the markers are present); drops registry records. Git-tracked paths are flagged "affects the whole team after you commit" — the deletion is left uncommitted for the user to review. An unreadable `installs.json` is never rewritten (only `--purge` deletes it). Codex trust entries in `config.toml` are left alone. `--purge` only works with `--scope all`. Settings/hooks JSON files are rewritten with normalized 2-space formatting. The "committed" flag follows git tracking of each path (also for other repos and dotfiles-tracked user paths). In the Lumo source repo `.claude/skills/lumo` is the skill source: `uninstall`, `init`, `init --upgrade` and auto-sync never touch it (symlinks into it are resolved) and `doctor` shows it as "Lumo skill source (not an install)". The exemption covers the skill only: Claude settings and the git hook in the Lumo repo are treated like any other committed install. The last line printed is the manual step `npm rm -g @lumoai/cli`.
+
+```bash
+lumo uninstall                       # envelope, nothing changes
+lumo uninstall --scope project --confirm
+lumo uninstall --scope user --agent codex --confirm
+lumo uninstall --purge --confirm
+```
+
+#### When to suggest
+
+- The user wants Lumo removed from this repo or machine, or to start clean before re-running `lumo init`
+- Never run it, or add `--confirm`, on your own initiative
 
 ## Authentication
 
@@ -97,8 +148,22 @@ Not a pre-flight check: don't run it (or `lumo --version`) before other commands
 Synchronously checks `registry.npmjs.org` for the latest published version of `@lumoai/cli`. When a newer version exists, runs `npm install -g @lumoai/cli@latest` and streams npm's output. When already on the latest, exits cleanly with a "Already on the latest version (X)" message.
 
 ```bash
-lumo update
+lumo update               # upgrade now (prints the auto-update state)
+lumo update --auto off    # stop background self-update (persists in ~/.lumo/settings.json)
+lumo update --auto on     # re-enable it
 ```
+
+**Auto-update (default on).** The same detached worker that refreshes the 24-hour cache runs `npm install -g @lumoai/cli@<latest>` in the background, at most once per 24 hours, and only when the running CLI is a global npm install (not `npm link`, a monorepo checkout or npx). It is disabled by `lumo update --auto off` (`{ "autoUpdate": false }` in `<config dir>/settings.json`), `LUMO_NO_AUTO_UPDATE=1`, or any non-empty `CI` other than `false`/`0`. It never prints and never blocks `lumo hook`; on failure (e.g. EACCES) the attempt and a truncated error are recorded in `auto-update.json` and the normal "Update available" notice still appears. npm output goes to `auto-update.log`; a manual `lumo update` exits 1 ("background update in progress") while one is running. `lumo init` and `lumo doctor` show the current state in one line.
+
+If the background npm install is still running after 120 s, `auto-update.lock` is kept until it goes stale (5 min) so a manual `lumo update` cannot start a second global install. `lumo uninstall` skips the update notice and the background worker entirely (so nothing reinstalls the CLI after `npm rm -g` or recreates `~/.lumo` after `--purge`).
+
+**Auto-sync of installs (first run of a new CLI version).** The first command run by a new CLI version brings installs up to date, then records the version so later commands skip it in O(1):
+
+- **User scope only** (`~/.claude/skills/lumo`, `~/.agents/skills/lumo`, and user `settings.json` hooks). Project-scope installs need an explicit `lumo init --upgrade`.
+- **Legacy adoption:** a pre-registry user copy with no `installs.json` record is adopted (marker + record) when it is an unmodified released version, then synced like any other install.
+- **Never git-tracked** (symlinks are resolved, so a dotfiles-repo link counts as tracked), **never downgrades** (a newer copy prints a "run lumo update" warning), **never touches a modified copy**, and only writes dirs ending in `skills/lumo`.
+- Output is at most one stderr line per changed skill (`✓ Lumo skill updated to <v>: <path>`); nothing is printed under `lumo hook`. It never fails the command. `doctor` and `uninstall` never trigger it.
+- If a run hits an error, it is retried for the same version at most once every 6 hours (`lastSyncAttempt` in `installs.json`).
 
 The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
 
@@ -108,4 +173,4 @@ The CLI also performs a passive check at most once every 24 hours (a detached ch
 - A bug-fix or feature mentioned in conversation requires a newer CLI than the user is running
 - The passive notice has appeared and the user wants to act on it
 
-If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not auto-retry; let the user resolve the environment issue first.
+If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not retry in a loop; let the user resolve the environment issue first.

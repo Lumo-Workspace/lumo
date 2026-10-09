@@ -29,7 +29,7 @@ import {
   CODEX_HOOK_EVENTS,
   LUMO_HOOK_EVENTS,
 } from '@/cli/src/lib/hooks-template'
-import { mergeHooksFile } from '@/cli/src/commands/setup'
+import { mergeHooksFile } from '@/cli/src/commands/init'
 import {
   codexHooksPath,
   codexMemoryStoreError,

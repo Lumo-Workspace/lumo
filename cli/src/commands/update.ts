@@ -1,15 +1,39 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
+import {
+  describeAutoUpdate,
+  getAutoUpdateStatus,
+  isAutoUpdateInProgress,
+  writeAutoUpdateSetting,
+} from '../lib/auto-update'
 import { fetchLatestVersion, isNewer } from '../lib/update-check'
 
 type Pkg = { name: string; version: string }
 
-export async function update(): Promise<number> {
+export async function update(options: { auto?: string } = {}): Promise<number> {
+  if (options.auto !== undefined) {
+    if (options.auto !== 'on' && options.auto !== 'off') {
+      process.stderr.write('Error: --auto must be "on" or "off".\n')
+      return 1
+    }
+    writeAutoUpdateSetting(options.auto === 'on')
+    process.stdout.write(`${describeAutoUpdate(getAutoUpdateStatus())}\n`)
+    return 0
+  }
+
+  if (isAutoUpdateInProgress()) {
+    process.stderr.write(
+      'Not updating: a background update is in progress — try again in a minute.\n'
+    )
+    return 1
+  }
+
   const pkg = require(
     path.resolve(__dirname, '../../../..', 'package.json')
   ) as Pkg
 
   process.stdout.write(`Current: ${pkg.name}@${pkg.version}\n`)
+  process.stdout.write(`${describeAutoUpdate(getAutoUpdateStatus())}\n`)
   process.stdout.write('Checking npm registry...\n')
 
   const latest = await fetchLatestVersion(pkg.name, 5000)

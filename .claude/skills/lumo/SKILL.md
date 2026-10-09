@@ -10,7 +10,7 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
 
-**Agent support:** Claude Code and Codex (CLI + desktop app; `lumo setup --agent codex` installs the skill and `.codex/hooks.json`). In Codex, `session attach/status` and activity capture work once the user has **trusted the Lumo hooks** (Codex app Settings → Hooks, or `/hooks`) — untrusted hooks are skipped silently, and attach/status then print a warning to relay. `memory sync` / `memory push` are Claude Code only (Codex refuses them; team memory comes via `task context`). See [sessions.md](references/sessions.md#codex).
+**Agent support:** Claude Code and Codex (`lumo init --agent codex` installs the skill and `.codex/hooks.json`). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn; relay it. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
 
 ## How this skill is organized
 
@@ -20,7 +20,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 | Domain                                                                                 | Read this reference                                                  |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `setup`, `auth login/logout`, `whoami`, `update`                                       | [references/onboarding.md](references/onboarding.md)                 |
+| `init`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)                 |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
@@ -49,10 +49,12 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
-- `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill files + hooks (`--agent codex`: skill into `.agents/skills/`, no hooks)
+- `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — install skill files + hooks (`lumo setup` is a hidden alias; `--upgrade` refreshes every known install, skipping modified or newer copies; `--agent codex`: skill into `.agents/skills/` + hooks into `.codex/hooks.json`, then trust them in Codex)
+- `lumo doctor [--json]` — read-only report of every Lumo install (skills, Claude/Codex hooks, git hook): version, state, fix command; warns on missing hook events, `lumo` not on PATH, untrusted Codex hooks
+- `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits) — see [onboarding.md](references/onboarding.md)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
-- `lumo update` — upgrade the CLI to the latest npm release
+- `lumo update [--auto on|off]` — upgrade the CLI now; `--auto` toggles background self-update (default on; also off via `LUMO_NO_AUTO_UPDATE=1`/`CI`) — see [onboarding.md](references/onboarding.md)
 
 ### Task context & retrieval — see [task-context.md](references/task-context.md)
 
@@ -242,5 +244,5 @@ Don't guess these:
 - **Evidence before "done".** Never claim done from reading code — run the checks and record a test-case run. While a PR is open, the task is IN_REVIEW, not DONE.
 - **DONE is the user's call** — `--status done` exits 4 for their approval; blocking crossings, blocking security findings and proven test-case defects refuse it with 409.
 - **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`.
-- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done`, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `doc rebuild-source` on an existing source) run without `--confirm` prints a `confirmation_required` envelope on stdout and does nothing. Show every line of its `changes` to the user, wait for their explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed", and adding it on your own initiative is the exact failure the protocol exists to stop. **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned boundary crossing, a blocking security finding): relay its `blockers` and `remediation` to the user; nothing on `task update` clears it — no retry, no flag. A boundary crossing is the one blocker with a terminal path, and it is the user's — see `crossing disposition` above. Details: [confirmation.md](references/confirmation.md)
+- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done`, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source) run without `--confirm` prints a `confirmation_required` envelope on stdout and does nothing. Show every line of its `changes` to the user, wait for their explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed", and adding it on your own initiative is the exact failure the protocol exists to stop. **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned boundary crossing, a blocking security finding): relay its `blockers` and `remediation` to the user; nothing on `task update` clears it — no retry, no flag. A boundary crossing is the one blocker with a terminal path, and it is the user's — see `crossing disposition` above. Details: [confirmation.md](references/confirmation.md)
 - **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.

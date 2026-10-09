@@ -9,7 +9,7 @@ import * as path from 'path'
  * never re-triggers the review.
  */
 
-/** Where `lumo setup --agent codex` writes hooks: `<root>/.codex/hooks.json`. */
+/** Where `lumo init --agent codex` writes hooks: `<root>/.codex/hooks.json`. */
 export function codexHooksPath(root: string): string {
   return path.join(root, '.codex', 'hooks.json')
 }
@@ -31,7 +31,7 @@ export function codexTrustInstructions(hooksPath: string): string {
 export function codexHooksSilentWarning(): string {
   return (
     'lumo: no hook events have reached Lumo from this Codex session — its Lumo hooks are not installed or not trusted yet.\n' +
-    '  Run `lumo setup --agent codex`, then trust the "lumo hook …" entries (Codex app: Settings → Hooks; Codex CLI: /hooks).\n' +
+    '  Run `lumo init --agent codex`, then trust the "lumo hook …" entries (Codex app: Settings → Hooks; Codex CLI: /hooks).\n' +
     '  Until then this session is not recorded (no timeline, boundary checks or token usage).'
   )
 }

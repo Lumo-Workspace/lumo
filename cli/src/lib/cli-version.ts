@@ -29,3 +29,27 @@ export function readCliVersion(startDir: string = __dirname): string | null {
   }
   return null
 }
+
+/**
+ * Directory of the running `@lumoai/cli` package (the one holding its
+ * package.json), found by walking up from `startDir`. Null when not found.
+ */
+export function findCliPackageRoot(
+  startDir: string = __dirname
+): string | null {
+  let dir = startDir
+  for (let i = 0; i < 8; i++) {
+    try {
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+      ) as { name?: unknown }
+      if (pkg.name === PACKAGE_NAME) return dir
+    } catch {
+      // keep walking up
+    }
+    const parent = path.dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
+}

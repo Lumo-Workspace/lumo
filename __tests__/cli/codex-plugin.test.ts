@@ -1,12 +1,22 @@
 /**
  * @jest-environment node
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import {
+  chmodSync,
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import {
   AGENT_PLUGINS_SCHEMA,
   buildPluginManifest,
+  bundledSkillDir,
+  copySkillTree,
   listFiles,
   writePluginBundle,
 } from '@/cli/src/lib/codex-plugin'
@@ -99,5 +109,51 @@ describe('writePluginBundle', () => {
       rmSync(src, { recursive: true, force: true })
       rmSync(out, { recursive: true, force: true })
     }
+  })
+})
+
+describe('bundledSkillDir', () => {
+  it('resolves to <pkg>/skills/lumo from the compiled lib depth', () => {
+    const pkg = join(tmpdir(), 'pkg')
+    expect(bundledSkillDir(join(pkg, 'dist', 'cli', 'src', 'lib'))).toBe(
+      join(pkg, 'skills', 'lumo')
+    )
+  })
+})
+
+describe('copySkillTree', () => {
+  it('replaces the destination wholesale, dropping stale files', () => {
+    const root = tmp()
+    const src = join(root, 'src')
+    const dst = join(root, 'out', 'lumo')
+    mkdirSync(join(src, 'references'), { recursive: true })
+    writeFileSync(join(src, 'SKILL.md'), 'new')
+    writeFileSync(join(src, 'references', 'a.md'), 'a')
+    mkdirSync(dst, { recursive: true })
+    writeFileSync(join(dst, 'stale.md'), 'x')
+    expect(copySkillTree(src, dst)).toEqual(['SKILL.md', 'references/a.md'])
+    expect(listFiles(dst)).toEqual(['SKILL.md', 'references/a.md'])
+    expect(readdirSync(join(root, 'out'))).toEqual(['lumo'])
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('leaves the old copy intact when the copy fails midway', () => {
+    const root = tmp()
+    const src = join(root, 'src')
+    const dst = join(root, 'lumo')
+    mkdirSync(src)
+    writeFileSync(join(src, 'SKILL.md'), 'new')
+    mkdirSync(dst)
+    writeFileSync(join(dst, 'SKILL.md'), 'old')
+    // force a mid-copy failure with an unreadable source file
+    writeFileSync(join(src, 'z.md'), 'z')
+    chmodSync(join(src, 'z.md'), 0o000)
+    if (process.getuid && process.getuid() !== 0) {
+      expect(() => copySkillTree(src, dst)).toThrow()
+      expect(readFileSync(join(dst, 'SKILL.md'), 'utf8')).toBe('old')
+      expect(readdirSync(root).sort()).toEqual(['lumo', 'src'])
+    }
+    chmodSync(join(src, 'z.md'), 0o644)
+    rmSync(root, { recursive: true, force: true })
   })
 })
