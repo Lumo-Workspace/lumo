@@ -4,6 +4,7 @@ import { configDir } from './config'
 import { readCliVersion } from './cli-version'
 import { bundledSkillDir, copySkillTree } from './codex-plugin'
 import { mergeLumoHooks } from './hooks-template'
+import { isLumoSkillSource } from './install-locations'
 import {
   readRegistry,
   readRegistryChecked,
@@ -86,6 +87,7 @@ function syncSkill(
   version: string,
   bundled: string
 ): SkillSync {
+  if (isLumoSkillSource(rec.path)) return { kind: 'none' }
   const cls = classifySkillDir(rec.path)
   if (cls.state !== 'managed' || cls.gitTracked) return { kind: 'none' }
   const installed = cls.version ?? '0.0.0'

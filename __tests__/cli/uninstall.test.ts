@@ -167,10 +167,10 @@ describe('confirmation envelope', () => {
     const f = fixture()
     writeSkill(f.userSkill)
     await uninstall(
-      { scope: 'user', agent: 'claude-code', purge: true },
+      { agent: 'claude-code', purge: true },
       {
         ...f.deps,
-        argv: argv('--scope', 'user', '--agent', 'claude-code', '--purge'),
+        argv: argv('--agent', 'claude-code', '--purge'),
       }
     )
     const env = JSON.parse(stdout) as {
@@ -178,7 +178,7 @@ describe('confirmation envelope', () => {
       changes: string[]
     }
     expect(env.confirmCommand).toBe(
-      'lumo uninstall --scope user --agent claude-code --purge --confirm'
+      'lumo uninstall --agent claude-code --purge --confirm'
     )
     expect(env.changes.join('\n')).toContain('--purge')
   })
@@ -191,6 +191,104 @@ describe('confirmation envelope', () => {
     expect(await uninstall({ scope: 'nope' }, f.deps)).toBe(1)
     err.mockRestore()
     expect(stdout).toBe('')
+  })
+})
+
+describe('team-impact flag follows git tracking', () => {
+  it('flags a committed skill that lives in another repo', async () => {
+    const f = fixture()
+    const other = tmp()
+    gitInit(other)
+    const skill = join(other, '.claude', 'skills', 'lumo')
+    writeSkill(skill)
+    git(other, 'add', '.')
+    git(other, 'commit', '-qm', 'x')
+    upsertInstall({
+      kind: 'skill',
+      path: skill,
+      scope: 'project',
+      agent: 'claude-code',
+      version: '2.0.0',
+      installedAt: '2026-01-01T00:00:00.000Z',
+    })
+    await uninstall({}, { ...f.deps, argv: argv() })
+    const line = (JSON.parse(stdout) as { changes: string[] }).changes.find(c =>
+      c.includes(skill)
+    )
+    expect(line).toContain('affects the whole team after you commit')
+  })
+
+  it('flags a git-tracked user-scope settings file (dotfiles) and not an untracked one', async () => {
+    const f = fixture()
+    gitInit(f.home)
+    writeSettings(f.userSettings)
+    git(f.home, 'add', '.')
+    git(f.home, 'commit', '-qm', 'dots')
+    writeSkill(f.userSkill)
+    await uninstall({}, { ...f.deps, argv: argv() })
+    const changes = (JSON.parse(stdout) as { changes: string[] }).changes
+    expect(changes.find(c => c.includes(f.userSettings))).toContain(
+      'affects the whole team'
+    )
+    // the skill is untracked (added after the commit)
+    expect(
+      changes.find(c => c.includes(`skill dir ${f.userSkill}`))
+    ).not.toContain('affects the whole team')
+  })
+
+  it('does not flag the untracked default .git/hooks hook', async () => {
+    const f = fixture()
+    mkdirSync(join(f.repo, '.git', 'hooks'), { recursive: true })
+    writeFileSync(f.hook, mergeGitHook(null).content)
+    await uninstall({}, { ...f.deps, argv: argv() })
+    const line = (JSON.parse(stdout) as { changes: string[] }).changes.find(c =>
+      c.includes(f.hook)
+    )
+    expect(line).not.toContain('affects the whole team')
+  })
+})
+
+describe('minor behaviors', () => {
+  it('--purge with a narrower --scope is refused', async () => {
+    const f = fixture()
+    const err = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+    expect(
+      await uninstall({ scope: 'user', purge: true, confirm: true }, f.deps)
+    ).toBe(1)
+    expect(err.mock.calls.join('')).toContain('--purge')
+    err.mockRestore()
+    expect(stdout).toBe('')
+  })
+
+  it('a git hook with an unterminated block is neither reported as removed nor dropped from the registry', async () => {
+    const f = fixture()
+    mkdirSync(join(f.repo, '.git', 'hooks'), { recursive: true })
+    const broken = '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nfoo\n'
+    writeFileSync(f.hook, broken)
+    upsertInstall({
+      kind: 'git-hook',
+      path: f.hook,
+      scope: 'project',
+      agent: 'git',
+      version: '2.0.0',
+      installedAt: '2026-01-01T00:00:00.000Z',
+    })
+    expect(await uninstall({ confirm: true }, f.deps)).toBe(0)
+    expect(readFileSync(f.hook, 'utf8')).toBe(broken)
+    expect(stdout).not.toContain(`✓ Removed the Lumo block from ${f.hook}`)
+    expect(stdout).not.toContain(`✓ Deleted ${f.hook}`)
+    expect(readRegistry().installs.map(r => r.path)).toContain(f.hook)
+  })
+
+  it('the envelope notes JSON files are rewritten with 2-space formatting', async () => {
+    const f = fixture()
+    writeSettings(f.userSettings)
+    await uninstall({}, { ...f.deps, argv: argv() })
+    expect(
+      (JSON.parse(stdout) as { changes: string[] }).changes.join('\n')
+    ).toContain('2-space')
   })
 })
 

@@ -5,7 +5,7 @@ import { configDir } from '../lib/config'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 import { removeGitHookBlock } from '../lib/git-hook-template'
 import { removeLumoHooks } from '../lib/hooks-template'
-import { repoRoot } from '../lib/install-locations'
+import { isLumoSkillSource, repoRoot } from '../lib/install-locations'
 import {
   readRegistryChecked,
   removeInstall,
@@ -107,6 +107,14 @@ export function planUninstall(
   for (const row of report.rows) {
     if (!inScope(scope, row.scope, row.group === 'other-repos')) continue
     if (opts.agent && row.agent !== opts.agent) continue
+    if (row.kind === 'skill' && isLumoSkillSource(row.path)) {
+      skipped.push({
+        row,
+        reason:
+          'Lumo skill source (not an install) — never removed, even with --force',
+      })
+      continue
+    }
     if (row.kind === 'skill' && row.state === 'modified' && !opts.force) {
       skipped.push({
         row,
@@ -131,7 +139,7 @@ export function planUninstall(
 function describeAction(a: PlannedAction): string {
   const { row } = a
   const tag = row.group === 'other-repos' ? ' [other repo]' : ''
-  const team = row.group === 'repo-committed' ? ` ⚠ ${COMMITTED_NOTE}` : ''
+  const team = row.tracked ? ` ⚠ ${COMMITTED_NOTE}` : ''
   const ver = row.version ? ` v${row.version}` : ''
   switch (a.action) {
     case 'remove-skill':
@@ -141,7 +149,7 @@ function describeAction(a: PlannedAction): string {
     case 'strip-git-hook':
       return `Remove the Lumo block from ${row.path}; the file is deleted only if nothing else is left${tag}${team}`
     case 'strip-codex':
-      return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept`
+      return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${team}`
   }
 }
 
@@ -154,6 +162,14 @@ function describePlan(plan: UninstallPlan, opts: UninstallOptions): string[] {
     )
   if (plan.actions.some(a => a.action === 'strip-codex'))
     lines.push(`Note: ${CODEX_NOTE}`)
+  if (
+    plan.actions.some(
+      a => a.action === 'strip-settings' || a.action === 'strip-codex'
+    )
+  )
+    lines.push(
+      'Note: settings/hooks JSON files are rewritten with normalized 2-space formatting (content other than Lumo entries is kept)'
+    )
   if (plan.registryCorrupt)
     lines.push(
       opts.purge
@@ -181,31 +197,48 @@ function readJsonObject(file: string): Record<string, unknown> {
   return v as Record<string, unknown>
 }
 
-/** Returns the human-readable result line for one applied action. */
-function applyAction(a: PlannedAction): string {
+/** Result of one applied action; `changed: false` means nothing was touched. */
+interface Applied {
+  line: string
+  changed: boolean
+}
+
+function applyAction(a: PlannedAction): Applied {
   const { row } = a
   switch (a.action) {
     case 'remove-skill':
       fs.rmSync(row.path, { recursive: true, force: true })
-      return `Deleted skill dir ${row.path}`
+      return { line: `Deleted skill dir ${row.path}`, changed: true }
     case 'strip-settings': {
       const { result, removed } = removeLumoHooks(
         readJsonObject(row.path) as never
       )
+      if (removed === 0)
+        return { line: `No Lumo hook entries in ${row.path}`, changed: false }
       writeJson(row.path, result)
-      return `Removed ${removed} Lumo hook entr${removed === 1 ? 'y' : 'ies'} from ${row.path}`
+      return {
+        line: `Removed ${removed} Lumo hook entr${removed === 1 ? 'y' : 'ies'} from ${row.path}`,
+        changed: true,
+      }
     }
     case 'strip-git-hook': {
       const { content, changed } = removeGitHookBlock(
         fs.readFileSync(row.path, 'utf8')
       )
-      if (!changed) return `No Lumo block found in ${row.path}; left as is`
+      if (!changed)
+        return {
+          line: `No complete Lumo block in ${row.path}; left as is`,
+          changed: false,
+        }
       if (content === null) {
         fs.unlinkSync(row.path)
-        return `Deleted ${row.path} (only the Lumo block was in it)`
+        return {
+          line: `Deleted ${row.path} (only the Lumo block was in it)`,
+          changed: true,
+        }
       }
       fs.writeFileSync(row.path, content)
-      return `Removed the Lumo block from ${row.path}`
+      return { line: `Removed the Lumo block from ${row.path}`, changed: true }
     }
     case 'strip-codex': {
       const data = readJsonObject(row.path)
@@ -215,8 +248,16 @@ function applyAction(a: PlannedAction): string {
         (_event, c) => c.startsWith('lumo hook '),
         !nested
       )
+      if (removed === 0)
+        return {
+          line: `No \`lumo hook\` entries in ${row.path}`,
+          changed: false,
+        }
       writeJson(row.path, result)
-      return `Removed ${removed} \`lumo hook\` entr${removed === 1 ? 'y' : 'ies'} from ${row.path}`
+      return {
+        line: `Removed ${removed} \`lumo hook\` entr${removed === 1 ? 'y' : 'ies'} from ${row.path}`,
+        changed: true,
+      }
     }
   }
 }
@@ -256,6 +297,12 @@ export async function uninstall(
     )
     return 1
   }
+  if (opts.purge && scope !== 'all') {
+    process.stderr.write(
+      `Error: --purge empties the whole Lumo config directory, so it cannot be combined with --scope ${scope}; use --scope all (the default).\n`
+    )
+    return 1
+  }
   const plan = planUninstall(opts, deps)
 
   if (!isConfirmed(opts)) {
@@ -277,7 +324,12 @@ export async function uninstall(
 
   for (const a of plan.actions) {
     try {
-      out.push(`✓ ${applyAction(a)}`)
+      const applied = applyAction(a)
+      if (!applied.changed) {
+        out.push(`- ${applied.line}`)
+        continue
+      }
+      out.push(`✓ ${applied.line}`)
     } catch (err) {
       fail(a.row.path, err)
       continue

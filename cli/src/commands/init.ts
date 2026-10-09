@@ -30,7 +30,11 @@ import {
 } from '../lib/install-state'
 import { readCliVersion } from '../lib/cli-version'
 import { gitCapture, resolveGitHooksDir } from '../lib/git-hooks-dir'
-import { detectInstalledSkills, repoRoot } from '../lib/install-locations'
+import {
+  detectInstalledSkills,
+  isLumoSkillSource,
+  repoRoot,
+} from '../lib/install-locations'
 
 type InitOptions = {
   user?: boolean
@@ -54,6 +58,7 @@ export type SkillInstallResult =
   | 'up-to-date'
   | 'skipped-modified'
   | 'skipped-newer'
+  | 'skipped-source'
 
 export type SkillInstallContext = {
   cliVersion: string
@@ -290,6 +295,14 @@ export function installSkill(
     throw new Error(
       `Bundled skill asset missing at ${skillSrcDir} — reinstall @lumoai/cli.`
     )
+  }
+
+  // The Lumo repo's own .claude/skills/lumo is the skill source: never write it.
+  if (isLumoSkillSource(skillDir)) {
+    process.stdout.write(
+      `ℹ ${skillDir} is the Lumo skill source (not an install) — left untouched.\n`
+    )
+    return 'skipped-source'
   }
 
   const relFiles = listFiles(skillSrcDir)

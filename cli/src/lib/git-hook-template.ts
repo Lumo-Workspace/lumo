@@ -101,10 +101,12 @@ export function removeGitHookBlock(existing: string): {
   if (endIdx === -1) return { content: existing, changed: false }
 
   let before = existing.slice(0, beginIdx)
-  const after = existing.slice(endIdx + LUMO_HOOK_END.length).replace(/^\n/, '')
+  let after = existing.slice(endIdx + LUMO_HOOK_END.length).replace(/^\n/, '')
   // mergeGitHook separates an appended block with a blank line; undo it.
   if (after === '' && before.endsWith('\n\n')) before = before.slice(0, -1)
+  // ...and avoid leaving two blank lines where the block sat between them.
+  if (before.endsWith('\n\n') && after.startsWith('\n')) after = after.slice(1)
   const content = before + after
-  const rest = content.replace(/^#!.*$/m, '').trim()
+  const rest = content.replace(/^#![^\n]*/, '').trim()
   return { content: rest === '' ? null : content, changed: true }
 }

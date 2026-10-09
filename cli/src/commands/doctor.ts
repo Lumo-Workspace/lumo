@@ -11,6 +11,7 @@ import { resolveGitHooksDir } from '../lib/git-hooks-dir'
 import { LUMO_HOOK_EVENTS, isLumoHookCommand } from '../lib/hooks-template'
 import {
   detectInstalledSkills,
+  isLumoSkillSource,
   repoRoot,
   type InstallLocation,
 } from '../lib/install-locations'
@@ -38,6 +39,8 @@ export interface DoctorRow {
   scope: 'user' | 'project'
   agent: string
   group: DoctorGroup
+  /** Whether git tracks the path (fails closed: unknown counts as tracked). */
+  tracked?: boolean
   version?: string
   state: string
   suggestion?: string
@@ -148,6 +151,14 @@ function eventCommands(hooks: unknown, event: string): string[] {
   return out
 }
 
+const SOURCE_STATE = 'Lumo skill source (not an install)'
+
+/** Tracked status of a hook/settings file; paths under a `.git` dir never are. */
+function fileTracked(file: string): boolean {
+  if (file.split(path.sep).includes('.git')) return false
+  return isPathGitTracked(file)
+}
+
 function inRepo(root: string | null, p: string): boolean {
   if (!root) return false
   const rel = path.relative(root, p)
@@ -179,7 +190,9 @@ function skillRow(
     scope: loc.scope,
     agent: loc.agent,
     group: groupFor(loc.scope, root, loc.path, () => cls.gitTracked),
+    tracked: cls.gitTracked,
   }
+  if (isLumoSkillSource(loc.path)) return { ...base, state: SOURCE_STATE }
   if (cls.state === 'modified')
     return {
       ...base,
@@ -229,6 +242,7 @@ function settingsRow(
     scope,
     agent: 'claude-code',
     group: groupFor(scope, root, file, () => isPathGitTracked(file)),
+    tracked: isPathGitTracked(file),
     state: missing.length === 0 ? 'up to date' : 'incomplete',
   }
   if (missing.length > 0) {
@@ -276,6 +290,7 @@ function gitHookRow(
     scope,
     agent,
     group,
+    tracked: isCurrent && !hooksPath ? false : fileTracked(file),
     state: upToDate ? 'up to date' : 'behind',
   }
   if (!upToDate) {
@@ -309,6 +324,7 @@ function codexRow(home: string, warnings: DoctorWarning[]): DoctorRow | null {
     scope: 'user',
     agent: 'codex',
     group: 'machine',
+    tracked: isPathGitTracked(file),
     state:
       untrusted.length === 0 ? 'trusted (hash not verified)' : 'not trusted',
   }

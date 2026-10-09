@@ -145,4 +145,15 @@ describe('removeGitHookBlock', () => {
   it('a husky-style file with only the block and no shebang is deleted', () => {
     expect(removeGitHookBlock(`${HOOK_SCRIPT_BLOCK}\n`).content).toBeNull()
   })
+
+  it('only a shebang on the FIRST line counts as empty', () => {
+    // a non-first-line "#!" is content, so the file is not "just a shebang"
+    const text = `\n#!/not/a/shebang\n${HOOK_SCRIPT_BLOCK}\n`
+    expect(removeGitHookBlock(text).content).toBe('\n#!/not/a/shebang\n')
+  })
+
+  it('collapses the extra blank line when user content follows the block', () => {
+    const text = `#!/bin/sh\n\n${HOOK_SCRIPT_BLOCK}\n\necho after\n`
+    expect(removeGitHookBlock(text).content).toBe('#!/bin/sh\n\necho after\n')
+  })
 })

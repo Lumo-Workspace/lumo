@@ -71,3 +71,32 @@ export function detectInstalledSkills(
 ): InstallLocation[] {
   return knownSkillLocations(opts).filter(l => fs.existsSync(l.path))
 }
+
+/**
+ * True for the Lumo source repo itself: `cli/package.json` is `@lumoai/cli`
+ * and `.claude/skills/lumo/SKILL.md` exists. Its `.claude/skills/lumo` is the
+ * skill SOURCE, never an install.
+ */
+export function isLumoSourceRepo(root: string): boolean {
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(root, 'cli', 'package.json'), 'utf8')
+    ) as { name?: unknown }
+    return (
+      pkg.name === '@lumoai/cli' &&
+      fs.existsSync(path.join(root, '.claude', 'skills', 'lumo', 'SKILL.md'))
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Whether `skillDir` is `<lumo source repo>/.claude/skills/lumo`. */
+export function isLumoSkillSource(skillDir: string): boolean {
+  const dir = path.resolve(skillDir)
+  const root = path.resolve(dir, '..', '..', '..')
+  return (
+    dir === path.join(root, '.claude', 'skills', 'lumo') &&
+    isLumoSourceRepo(root)
+  )
+}
