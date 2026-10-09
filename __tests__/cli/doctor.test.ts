@@ -23,6 +23,7 @@ import {
 } from '@/cli/src/commands/doctor'
 import { HOOK_SCRIPT_BLOCK } from '@/cli/src/lib/git-hook-template'
 import { LUMO_HOOK_EVENTS } from '@/cli/src/lib/hooks-template'
+import { shouldAutoSync } from '@/cli/src/lib/auto-sync'
 import { resolveGitHooksDir } from '@/cli/src/lib/git-hooks-dir'
 import { writeMarker } from '@/cli/src/lib/install-registry'
 import { hashSkillDir } from '@/cli/src/lib/skill-hash'
@@ -504,5 +505,103 @@ describe('registration', () => {
     else process.env.LUMO_CLI_INTROSPECT = prev
     const cmd = program.commands.find(c => c.name() === 'doctor')
     expect(cmd?.options.map(o => o.long)).toContain('--json')
+  })
+})
+
+describe('fix round 1', () => {
+  const writeRegistry = (installs: unknown[]): void =>
+    writeFileSync(
+      join(process.env.LUMO_CONFIG_DIR as string, 'installs.json'),
+      JSON.stringify({ lastSyncedVersion: null, installs })
+    )
+
+  it('shouldAutoSync skips doctor and uninstall only', () => {
+    const argv = (c?: string) => ['node', 'lumo', ...(c ? [c] : [])]
+    expect(shouldAutoSync(argv('doctor'))).toBe(false)
+    expect(shouldAutoSync(argv('uninstall'))).toBe(false)
+    expect(shouldAutoSync(argv('hook'))).toBe(true)
+    expect(shouldAutoSync(argv('task'))).toBe(true)
+    expect(shouldAutoSync(argv())).toBe(true)
+  })
+
+  it('lists recorded settings and git-hook installs in other repos', async () => {
+    const f = fixture()
+    const other = tmp()
+    const settings = join(other, '.claude', 'settings.json')
+    writeSettings(settings, ALL)
+    const hook = join(other, '.git', 'hooks', 'prepare-commit-msg')
+    mkdirSync(join(hook, '..'), { recursive: true })
+    writeFileSync(hook, `#!/bin/sh\n${HOOK_SCRIPT_BLOCK}\n`)
+    const rec = (kind: string, path: string) => ({
+      kind,
+      path,
+      scope: 'project',
+      agent: 'claude-code',
+      version: '1.0.0',
+      installedAt: 'x',
+    })
+    writeRegistry([rec('claude-settings', settings), rec('git-hook', hook)])
+    const r = collectDoctor(f.deps)
+    expect(rowFor(r, settings)).toMatchObject({
+      group: 'other-repos',
+      kind: 'claude-settings',
+    })
+    expect(rowFor(r, hook)).toMatchObject({
+      group: 'other-repos',
+      kind: 'git-hook',
+    })
+    await doctor({}, f.deps)
+    expect(stdout).toContain('Other repos')
+  })
+
+  it('warns about stale registry paths of every kind', () => {
+    const f = fixture()
+    const rec = (kind: string, path: string) => ({
+      kind,
+      path,
+      scope: 'project',
+      agent: 'claude-code',
+      version: '1.0.0',
+      installedAt: 'x',
+    })
+    writeRegistry([
+      rec('skill', '/nope/a'),
+      rec('claude-settings', '/nope/b'),
+      rec('git-hook', '/nope/c'),
+    ])
+    expect(warn(collectDoctor(f.deps), 'registry-stale')).toHaveLength(3)
+  })
+
+  it('resolves a relative core.hooksPath via git rev-parse', () => {
+    const f = fixture()
+    git(f.repo, 'config', 'core.hooksPath', 'hooks/custom')
+    const r = resolveGitHooksDir(f.repo)
+    expect(r.coreHooksPath).toBe('hooks/custom')
+    expect(r.dir).toBe(join(f.repo, 'hooks', 'custom'))
+  })
+
+  it('stale core.hooksPath hook has no command, only a manual hint', () => {
+    const f = fixture()
+    git(f.repo, 'config', 'core.hooksPath', '.husky')
+    const hook = join(f.repo, '.husky', 'prepare-commit-msg')
+    mkdirSync(join(hook, '..'), { recursive: true })
+    writeFileSync(
+      hook,
+      '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
+    )
+    const row = rowFor(collectDoctor(f.deps), hook)!
+    expect(row.state).toBe('behind')
+    expect(row.suggestion).toBeUndefined()
+    expect(row.detail).toContain('by hand')
+  })
+
+  it('codexTrustedEvents tolerates whitespace and a trailing comment on the header', () => {
+    const toml = [
+      '  [ hooks.state."/h/hooks.json:pre_tool_use:0:0" ]   # trusted via /hooks',
+      'trusted_hash = "sha256:abc"',
+    ].join('\n')
+    expect([...codexTrustedEvents(toml, '/h/hooks.json')]).toEqual([
+      'pre_tool_use',
+    ])
   })
 })

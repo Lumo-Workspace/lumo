@@ -16,16 +16,16 @@ export interface GitHooksDir {
 }
 
 /**
- * Resolve where git runs hooks from for the repo at `projectRoot`:
- * `core.hooksPath` when configured, otherwise `git rev-parse --git-path hooks`
- * (which is correct inside linked worktrees too).
+ * Resolve where git runs hooks from for the repo at `projectRoot` via
+ * `git rev-parse --git-path hooks` (correct inside linked worktrees too).
+ * `coreHooksPath` is reported separately so callers can degrade.
  */
 export function resolveGitHooksDir(projectRoot: string): GitHooksDir {
   const coreHooksPath =
     gitCapture(projectRoot, ['config', 'core.hooksPath']) || null
-  const raw = coreHooksPath
-    ? coreHooksPath
-    : gitCapture(projectRoot, ['rev-parse', '--git-path', 'hooks'])
+  // --git-path already honours core.hooksPath (incl. `~` expansion and
+  // relative paths), so it is the single source of truth for the directory.
+  const raw = gitCapture(projectRoot, ['rev-parse', '--git-path', 'hooks'])
   if (!raw) return { dir: null, coreHooksPath }
   return {
     dir: path.isAbsolute(raw) ? raw : path.join(projectRoot, raw),

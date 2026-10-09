@@ -19,6 +19,17 @@ import {
 } from './install-state'
 import { hashSkillDir } from './skill-hash'
 
+/** Commands that must never trigger the first-run-of-a-version sync. */
+const NO_AUTO_SYNC_COMMANDS = new Set(['doctor', 'uninstall'])
+
+/**
+ * Whether `maybeAutoSync` may run for this invocation. `doctor` is read-only
+ * and `uninstall` removes installs, so neither may rewrite them first.
+ */
+export function shouldAutoSync(argv: readonly string[]): boolean {
+  return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '')
+}
+
 const LOCK_FILE = 'auto-sync.lock'
 const LOCK_STALE_MS = 60_000
 

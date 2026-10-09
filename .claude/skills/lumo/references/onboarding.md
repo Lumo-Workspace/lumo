@@ -27,7 +27,7 @@ npx @lumoai/cli init                     # interactive: prompts user/project; ag
 npx @lumoai/cli init  --user             # write to ~/.claude/
 npx @lumoai/cli init  --project          # write to ./.claude/
 lumo init --project --force             # same via global install: overwrite skill files if they differ from bundled
-lumo init --upgrade                     # refresh all known installs (managed+older only; modified/newer skipped, never downgrades)
+lumo init --upgrade                     # refresh all known installs: skills (managed+older only; modified/newer skipped, never downgrades), Claude settings hooks, and the Lumo prepare-commit-msg block (default hooks dir / recorded paths)
 lumo init --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, no hooks
 lumo setup --project                    # legacy hidden alias of `lumo init`
 lumo init --project --agent cursor      # bake agent=cursor into the hook commands
@@ -45,7 +45,7 @@ If stdin is not a TTY (CI, piped invocation), the default scope is `project` and
 
 ### `lumo doctor [--json]` — inspect every Lumo install (read-only)
 
-Lists what Lumo installed on this machine and in the current repo, grouped as `This machine` (user-scope paths, the default `.git/hooks`), `This repo — committed` (git-tracked, incl. a tracked `core.hooksPath` dir) and `This repo — uncommitted`. Sources: the install registry, the known skill locations, `~/.claude/settings.json` and `<repo>/.claude/settings.json` Lumo hook entries, the `prepare-commit-msg` block (honours `core.hooksPath`) and `~/.codex/hooks.json` `lumo hook` entries. Each row shows path, kind, version, state and a fix command:
+Lists what Lumo installed on this machine and in the current repo, grouped as `This machine` (user-scope paths, the default `.git/hooks`), `This repo — committed` (git-tracked, incl. a tracked `core.hooksPath` dir), `This repo — uncommitted` and `Other repos` (recorded project installs outside the current repo). Sources: the install registry (skills, Claude settings and git hooks; stale paths warn), the known skill locations, `~/.claude/settings.json` and `<repo>/.claude/settings.json` Lumo hook entries, the `prepare-commit-msg` block (honours `core.hooksPath`) and `~/.codex/hooks.json` `lumo hook` entries. Each row shows path, kind, version, state and a fix command:
 
 | State            | Meaning                                                 | Suggested command                                                      |
 | ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |

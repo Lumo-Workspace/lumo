@@ -14,6 +14,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { init, installSkill } from '@/cli/src/commands/init'
 import { readMarker, readRegistry } from '@/cli/src/lib/install-registry'
+import { HOOK_SCRIPT_BLOCK } from '@/cli/src/lib/git-hook-template'
 import { hashSkillDir } from '@/cli/src/lib/skill-hash'
 import { readCliVersion } from '@/cli/src/lib/cli-version'
 import skillVersionHashes from '@/cli/src/lib/skill-version-hashes.json'
@@ -367,5 +368,73 @@ describe('fix round 1', () => {
     stdout = ''
     await init({ upgrade: true }, e.deps)
     expect(stdout).toContain('settings.json is tracked by git')
+  })
+})
+
+describe('init --upgrade git hook', () => {
+  const STALE =
+    '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
+
+  it('refreshes a stale Lumo block in the default hooks dir and keeps foreign content', async () => {
+    const e = env()
+    const hook = join(e.project, '.git', 'hooks', 'prepare-commit-msg')
+    mkdirSync(join(hook, '..'), { recursive: true })
+    writeFileSync(hook, `${STALE}echo mine\n`)
+    expect(await init({ upgrade: true }, e.deps)).toBe(0)
+    const text = readFileSync(hook, 'utf8')
+    expect(text).toContain(HOOK_SCRIPT_BLOCK)
+    expect(text).not.toContain('\nold\n')
+    expect(text).toContain('echo mine')
+  })
+
+  it('leaves an already-current hook byte-identical and does not create one', async () => {
+    const e = env()
+    const hook = join(e.project, '.git', 'hooks', 'prepare-commit-msg')
+    expect(await init({ upgrade: true }, e.deps)).toBe(0)
+    expect(existsSync(hook)).toBe(false)
+    mkdirSync(join(hook, '..'), { recursive: true })
+    writeFileSync(hook, `#!/bin/sh\n${HOOK_SCRIPT_BLOCK}\n`)
+    const before = readFileSync(hook, 'utf8')
+    await init({ upgrade: true }, e.deps)
+    expect(readFileSync(hook, 'utf8')).toBe(before)
+  })
+
+  it('never rewrites a core.hooksPath hook', async () => {
+    const e = env()
+    execFileSync('git', ['config', 'core.hooksPath', '.husky'], {
+      cwd: e.project,
+    })
+    const hook = join(e.project, '.husky', 'prepare-commit-msg')
+    mkdirSync(join(hook, '..'), { recursive: true })
+    writeFileSync(hook, STALE)
+    await init({ upgrade: true }, e.deps)
+    expect(readFileSync(hook, 'utf8')).toBe(STALE)
+  })
+
+  it('refreshes a recorded git-hook path and records the new version', async () => {
+    const e = env()
+    const hook = join(tmp(), 'prepare-commit-msg')
+    writeFileSync(hook, STALE)
+    writeFileSync(
+      join(process.env.LUMO_CONFIG_DIR as string, 'installs.json'),
+      JSON.stringify({
+        lastSyncedVersion: null,
+        installs: [
+          {
+            kind: 'git-hook',
+            path: hook,
+            scope: 'project',
+            agent: 'claude-code',
+            version: '1.0.0',
+            installedAt: 'x',
+          },
+        ],
+      })
+    )
+    await init({ upgrade: true }, e.deps)
+    expect(readFileSync(hook, 'utf8')).toContain(HOOK_SCRIPT_BLOCK)
+    expect(readRegistry().installs.find(r => r.path === hook)?.version).toBe(
+      '2.0.0'
+    )
   })
 })

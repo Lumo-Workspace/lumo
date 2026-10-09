@@ -8,6 +8,7 @@ import {
   mergeGitHook,
   resolveHookInstall,
   HOOK_SCRIPT_BLOCK,
+  LUMO_HOOK_BEGIN,
 } from '../lib/git-hook-template'
 import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
@@ -29,7 +30,7 @@ import {
 } from '../lib/install-state'
 import { readCliVersion } from '../lib/cli-version'
 import { gitCapture, resolveGitHooksDir } from '../lib/git-hooks-dir'
-import { detectInstalledSkills } from '../lib/install-locations'
+import { detectInstalledSkills, repoRoot } from '../lib/install-locations'
 
 type InitOptions = {
   user?: boolean
@@ -418,12 +419,57 @@ async function upgradeInstalls(args: {
       fail(r.path, err)
     }
   }
+  const hookTargets = new Map<string, { scope: Scope; agent: string }>()
+  for (const r of reg.installs) {
+    if (r.kind === 'git-hook')
+      hookTargets.set(r.path, { scope: r.scope, agent: r.agent })
+  }
+  const root = repoRoot(cwd)
+  if (root) {
+    // A core.hooksPath hook is user-managed (husky etc.): never rewritten here.
+    const { dir, coreHooksPath } = resolveGitHooksDir(root)
+    if (dir && !coreHooksPath) {
+      const p = path.join(dir, 'prepare-commit-msg')
+      if (!hookTargets.has(p))
+        hookTargets.set(p, { scope: 'project', agent: 'claude-code' })
+    }
+  }
+  for (const [hookPath, t] of hookTargets) {
+    try {
+      const res = refreshGitHookFile(hookPath)
+      if (res === 'absent') continue
+      found++
+      if (res === 'updated')
+        process.stdout.write(`✓ updated prepare-commit-msg hook: ${hookPath}\n`)
+      recordInstall('git-hook', hookPath, t.scope, t.agent, cliVersion)
+    } catch (err) {
+      fail(hookPath, err)
+    }
+  }
   if (found === 0) {
     process.stdout.write(
       'No Lumo installs found. Run `lumo init` to install.\n'
     )
   }
   return failures > 0 ? 1 : 0
+}
+
+/**
+ * Bring the Lumo block of an existing prepare-commit-msg up to date. Only
+ * files that already carry the Lumo markers are touched, and only when the
+ * block differs; foreign hook content is preserved by mergeGitHook.
+ */
+export function refreshGitHookFile(
+  hookPath: string
+): 'updated' | 'unchanged' | 'absent' {
+  if (!fs.existsSync(hookPath)) return 'absent'
+  const existing = fs.readFileSync(hookPath, 'utf8')
+  if (!existing.includes(LUMO_HOOK_BEGIN)) return 'absent'
+  const { content, status } = mergeGitHook(existing)
+  if (status === 'unchanged') return 'unchanged'
+  fs.writeFileSync(hookPath, content)
+  fs.chmodSync(hookPath, 0o755)
+  return 'updated'
 }
 
 function mergeSettings(claudeDir: string, agentToken: string): string {

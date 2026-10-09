@@ -21,7 +21,11 @@ import {
   isPathGitTracked,
 } from '../lib/install-state'
 
-export type DoctorGroup = 'machine' | 'repo-committed' | 'repo-uncommitted'
+export type DoctorGroup =
+  | 'machine'
+  | 'repo-committed'
+  | 'repo-uncommitted'
+  | 'other-repos'
 export type DoctorKind =
   | 'skill'
   | 'claude-settings'
@@ -103,9 +107,10 @@ export function codexTrustedEvents(
   const prefix = `${hooksJsonPath}:`
   let current: string | null = null
   for (const line of toml.split(/\r?\n/)) {
-    const header = /^\s*\[(.+)\]\s*$/.exec(line)
-    if (header) {
-      const m = /^hooks\.state\."(.*)"$/.exec(header[1]!)
+    if (/^\s*\[/.test(line)) {
+      // Header line, tolerating surrounding whitespace and a trailing comment.
+      const m =
+        /^\s*\[\s*hooks\.state\."((?:[^"\\]|\\.)*)"\s*\]\s*(?:#.*)?$/.exec(line)
       current =
         m && m[1]!.startsWith(prefix)
           ? (m[1]!.slice(prefix.length).split(':')[0] ?? null)
@@ -143,14 +148,28 @@ function eventCommands(hooks: unknown, event: string): string[] {
   return out
 }
 
-function groupFor(scope: 'user' | 'project', tracked: boolean): DoctorGroup {
+function inRepo(root: string | null, p: string): boolean {
+  if (!root) return false
+  const rel = path.relative(root, p)
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+}
+
+/** Paths outside the current repo (and not user-scope) are "other repos". */
+function groupFor(
+  scope: 'user' | 'project',
+  root: string | null,
+  p: string,
+  tracked: () => boolean
+): DoctorGroup {
   if (scope === 'user') return 'machine'
-  return tracked ? 'repo-committed' : 'repo-uncommitted'
+  if (!inRepo(root, p)) return 'other-repos'
+  return tracked() ? 'repo-committed' : 'repo-uncommitted'
 }
 
 function skillRow(
   loc: InstallLocation,
-  cliVersion: string | null
+  cliVersion: string | null,
+  root: string | null
 ): DoctorRow | null {
   const cls = classifySkillDir(loc.path)
   if (cls.state === 'missing') return null
@@ -159,7 +178,7 @@ function skillRow(
     kind: 'skill' as const,
     scope: loc.scope,
     agent: loc.agent,
-    group: groupFor(loc.scope, cls.gitTracked),
+    group: groupFor(loc.scope, root, loc.path, () => cls.gitTracked),
   }
   if (cls.state === 'modified')
     return {
@@ -189,7 +208,8 @@ function skillRow(
 function settingsRow(
   file: string,
   scope: 'user' | 'project',
-  warnings: DoctorWarning[]
+  warnings: DoctorWarning[],
+  root: string | null
 ): DoctorRow | null {
   const data = readJson(file)
   if (!data) return null
@@ -203,13 +223,12 @@ function settingsRow(
     else missing.push(event)
   }
   if (!any) return null
-  const tracked = scope === 'project' && isPathGitTracked(file)
   const row: DoctorRow = {
     path: file,
     kind: 'claude-settings',
     scope,
     agent: 'claude-code',
-    group: groupFor(scope, tracked),
+    group: groupFor(scope, root, file, () => isPathGitTracked(file)),
     state: missing.length === 0 ? 'up to date' : 'incomplete',
   }
   if (missing.length > 0) {
@@ -223,10 +242,13 @@ function settingsRow(
   return row
 }
 
-function gitHookRow(root: string): DoctorRow | null {
-  const { dir, coreHooksPath } = resolveGitHooksDir(root)
-  if (!dir) return null
-  const file = path.join(dir, 'prepare-commit-msg')
+function gitHookRow(
+  file: string,
+  scope: 'user' | 'project',
+  agent: string,
+  root: string | null,
+  current: { path: string; coreHooksPath: string | null } | null
+): DoctorRow | null {
   let text: string
   try {
     text = fs.readFileSync(file, 'utf8')
@@ -238,24 +260,30 @@ function gitHookRow(root: string): DoctorRow | null {
   const end = text.indexOf(LUMO_HOOK_END, begin)
   const block =
     end === -1 ? null : text.slice(begin, end + LUMO_HOOK_END.length)
+  const isCurrent = current !== null && current.path === file
+  const hooksPath = isCurrent ? current.coreHooksPath : null
   // The default hooks dir lives under .git and is never tracked; only a
   // configured core.hooksPath dir can be committed.
-  const tracked = coreHooksPath ? isPathGitTracked(file) : false
-  const group: DoctorGroup = tracked
-    ? 'repo-committed'
-    : coreHooksPath
-      ? 'repo-uncommitted'
+  const group: DoctorGroup = isCurrent
+    ? hooksPath
+      ? groupFor('project', root, file, () => isPathGitTracked(file))
       : 'machine'
-  const current = block === HOOK_SCRIPT_BLOCK
-  return {
+    : groupFor(scope, root, file, () => isPathGitTracked(file))
+  const upToDate = block === HOOK_SCRIPT_BLOCK
+  const row: DoctorRow = {
     path: file,
     kind: 'git-hook',
-    scope: 'project',
-    agent: 'git',
+    scope,
+    agent,
     group,
-    state: current ? 'up to date' : 'behind',
-    ...(current ? {} : { suggestion: CMD_UPGRADE }),
+    state: upToDate ? 'up to date' : 'behind',
   }
+  if (!upToDate) {
+    if (hooksPath)
+      row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`lumo init --project\` prints`
+    else row.suggestion = CMD_UPGRADE
+  }
+  return row
 }
 
 function codexRow(home: string, warnings: DoctorWarning[]): DoctorRow | null {
@@ -312,6 +340,14 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
         'installs.json is unreadable; doctor ignored it and did not rewrite it',
     })
 
+  const root = repoRoot(cwd)
+  const stale = (p: string): void => {
+    warnings.push({
+      code: 'registry-stale',
+      message: `registry lists ${p} but it no longer exists`,
+    })
+  }
+
   // Skills: detected locations plus anything the registry recorded.
   const locs = new Map<string, InstallLocation>()
   for (const l of detectInstalledSkills({ homeDir: home, cwd }))
@@ -319,38 +355,68 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   for (const rec of registry.installs) {
     if (rec.kind !== 'skill' || locs.has(rec.path)) continue
     if (!fs.existsSync(rec.path)) {
-      warnings.push({
-        code: 'registry-stale',
-        message: `registry lists ${rec.path} but it no longer exists`,
-      })
+      stale(rec.path)
       continue
     }
     locs.set(rec.path, { path: rec.path, scope: rec.scope, agent: rec.agent })
   }
   for (const l of locs.values()) {
-    const row = skillRow(l, cliVersion)
+    const row = skillRow(l, cliVersion, root)
     if (row) rows.push(row)
   }
 
-  const root = repoRoot(cwd)
-  const settingsFiles: Array<[string, 'user' | 'project']> = [
-    [path.join(home, '.claude', 'settings.json'), 'user'],
-  ]
+  // Claude settings: the two standard files plus recorded ones.
+  const settingsFiles = new Map<string, 'user' | 'project'>()
+  settingsFiles.set(path.join(home, '.claude', 'settings.json'), 'user')
   if (root)
-    settingsFiles.push([path.join(root, '.claude', 'settings.json'), 'project'])
+    settingsFiles.set(path.join(root, '.claude', 'settings.json'), 'project')
+  for (const rec of registry.installs) {
+    if (rec.kind !== 'claude-settings') continue
+    if (!fs.existsSync(rec.path)) {
+      stale(rec.path)
+      continue
+    }
+    if (settingsFiles.has(rec.path)) continue
+    settingsFiles.set(rec.path, rec.scope)
+  }
   for (const [file, scope] of settingsFiles) {
-    const row = settingsRow(file, scope, warnings)
+    const row = settingsRow(file, scope, warnings, root)
     if (row) rows.push(row)
   }
+
+  // prepare-commit-msg: this repo's hooks dir plus recorded hooks.
+  let current: { path: string; coreHooksPath: string | null } | null = null
+  const hookFiles = new Map<
+    string,
+    { scope: 'user' | 'project'; agent: string }
+  >()
   if (root) {
-    const row = gitHookRow(root)
+    const { dir, coreHooksPath } = resolveGitHooksDir(root)
+    if (dir) {
+      current = { path: path.join(dir, 'prepare-commit-msg'), coreHooksPath }
+      hookFiles.set(current.path, { scope: 'project', agent: 'git' })
+    }
+  }
+  for (const rec of registry.installs) {
+    if (rec.kind !== 'git-hook') continue
+    if (!fs.existsSync(rec.path)) {
+      stale(rec.path)
+      continue
+    }
+    if (hookFiles.has(rec.path)) continue
+    hookFiles.set(rec.path, { scope: rec.scope, agent: rec.agent })
+  }
+  for (const [file, t] of hookFiles) {
+    const row = gitHookRow(file, t.scope, t.agent, root, current)
     if (row) rows.push(row)
   }
   const codex = codexRow(home, warnings)
   if (codex) rows.push(codex)
 
   // The same agent's skill at user and project scope with different versions.
-  const skills = rows.filter(r => r.kind === 'skill' && r.version)
+  const skills = rows.filter(
+    r => r.kind === 'skill' && r.version && r.group !== 'other-repos'
+  )
   for (const u of skills.filter(r => r.scope === 'user')) {
     for (const p of skills.filter(
       r => r.scope === 'project' && r.agent === u.agent
@@ -377,6 +443,7 @@ const GROUP_TITLES: Array<[DoctorGroup, string]> = [
   ['machine', 'This machine'],
   ['repo-committed', 'This repo — committed'],
   ['repo-uncommitted', 'This repo — uncommitted'],
+  ['other-repos', 'Other repos'],
 ]
 
 function renderText(report: DoctorReport): string {
