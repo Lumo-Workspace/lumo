@@ -7,6 +7,7 @@ import { join } from 'path'
 import {
   CODEX_RULES_MARKER,
   CODEX_SANDBOX_NETWORK_HINT,
+  CODEX_FILE_READING_COMMANDS,
   CODEX_SANDBOXED_COMMANDS,
   CODEX_SERVER_ONLY_COMMANDS,
   LUMO_CODEX_RULES,
@@ -22,7 +23,10 @@ import {
   isCodexServerOnly,
 } from '@/cli/src/lib/codex-rules'
 import grammarJson from '../../scripts/analysis/lum392-cli-friction/grammar.json'
-import { createSandboxNetworkTracker } from '@/cli/src/lib/sandbox-network-hint'
+import {
+  createSandboxNetworkTracker,
+  isSandboxNetworkDenial,
+} from '@/cli/src/lib/sandbox-network-hint'
 
 let roots: string[]
 const tmp = (): string => {
@@ -53,7 +57,7 @@ describe('Codex rules file (LUM-1054)', () => {
       /pattern = \["lumo", "task", \[[^\]]*"show"[^\]]*\]\]/
     )
     expect(LUMO_CODEX_RULES).toMatch(
-      /pattern = \["lumo", "doc", \[[^\]]*"patch"[^\]]*\]\]/
+      /pattern = \["lumo", "doc", \[[^\]]*"show"[^\]]*\]\]/
     )
     expect(LUMO_CODEX_RULES).toContain('match = ["lumo session status"]')
   })
@@ -85,7 +89,7 @@ describe('Codex rules file (LUM-1054)', () => {
     expect(patternOf('"lumo", "task", "testcase"')).not.toContain(
       '"disposition"'
     )
-    expect(patternOf('"lumo", "crossing"')).toBe('"explain"')
+    expect(patternOf('"lumo", "crossing"')).toBeUndefined()
     for (const example of [
       '"lumo init"',
       '"lumo uninstall --confirm"',
@@ -111,6 +115,56 @@ describe('Codex rules file (LUM-1054)', () => {
       'task testcase run'
     )
     expect(codexCommandPath(['nope'])).toBeNull()
+  })
+
+  it('keeps every file-reading command out of the allow list and the rules text', () => {
+    const fileReading = Object.keys(CODEX_FILE_READING_COMMANDS)
+    expect(fileReading.length).toBeGreaterThan(0)
+    for (const cmd of fileReading) {
+      expect([cmd, CODEX_SERVER_ONLY_COMMANDS.includes(cmd)]).toEqual([
+        cmd,
+        false,
+      ])
+      expect([cmd, isCodexServerOnly([...cmd.split(' '), 'X1'])]).toEqual([
+        cmd,
+        false,
+      ])
+      expect(CODEX_SANDBOXED_COMMANDS[cmd]).toContain(
+        'reads local files (--file …) — Codex asks first'
+      )
+      // Its leaf never appears in the pattern of its parent's rule.
+      const parts = cmd.split(' ')
+      const leaf = parts.pop()!
+      const parent = ['lumo', ...parts].map(t => `"${t}"`).join(', ')
+      const rule = new RegExp(
+        `pattern = \\[${parent}, (\\[[^\\]]*\\]|"[^"]*")\\]`
+      ).exec(LUMO_CODEX_RULES)?.[1]
+      expect([cmd, rule?.includes(`"${leaf}"`) ?? false]).toEqual([cmd, false])
+      expect(LUMO_CODEX_RULES).toContain(`"lumo ${cmd}"`) // a not_match example
+    }
+  })
+
+  it('no allowed command takes a flag that reads a local file (grammar.json)', () => {
+    const commands = (
+      grammarJson as {
+        commands: Record<
+          string,
+          {
+            isInvokable: boolean
+            flags: Record<string, { long: string; description: string }>
+          }
+        >
+      }
+    ).commands
+    const fileFlag = /^--(.*-)?(file|dir|path)$|^--step-evidence$/
+    const offenders = Object.entries(commands)
+      .filter(([k, v]) => v.isInvokable && isCodexServerOnly(k.split(' ')))
+      .flatMap(([k, v]) =>
+        Object.values(v.flags)
+          .filter(f => fileFlag.test(f.long))
+          .map(f => `${k} ${f.long}`)
+      )
+    expect(offenders).toEqual([])
   })
 
   it('every command in the CLI tree is classified exactly once (new commands must pick a side)', () => {
@@ -211,12 +265,40 @@ describe('Codex rules file (LUM-1054)', () => {
     installCodexRules(codexRulesPathForHooks(hooks))
     expect(codexNetworkState(hooks, home)).toBe('rules')
   })
+
+  it('codexNetworkState: a project counts the user-layer rules file (Codex always loads it)', () => {
+    const home = tmp()
+    const repo = tmp()
+    const projectHooks = join(repo, '.codex', 'hooks.json')
+    const userHooks = join(home, '.codex', 'hooks.json')
+    expect(codexNetworkState(projectHooks, home)).toBe('off')
+    installCodexRules(codexRulesPath(home))
+    expect(codexNetworkState(projectHooks, home)).toBe('rules')
+    expect(codexNetworkState(userHooks, home)).toBe('rules')
+    // A foreign user-layer lumo.rules is not Lumo's rule.
+    writeFileSync(codexRulesPath(home), 'prefix_rule(pattern = ["mine"])\n')
+    expect(codexNetworkState(projectHooks, home)).toBe('off')
+    // Project-layer rules never count for the user layer.
+    rmSync(codexRulesPath(home))
+    installCodexRules(codexRulesPathForHooks(projectHooks))
+    expect(codexNetworkState(userHooks, home)).toBe('off')
+    expect(codexNetworkState(projectHooks, home)).toBe('rules')
+  })
 })
 
 describe('sandbox network hint (LUM-1054)', () => {
-  const failing = (async () => {
-    throw new TypeError('fetch failed')
-  }) as unknown as typeof fetch
+  // The shapes measured in a real Codex sandbox (codex-cli 0.162.0, macOS).
+  const rejecting = (err: unknown) =>
+    (async () => {
+      throw err
+    }) as unknown as typeof fetch
+  const denial = (code: string) =>
+    Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(new Error(`getaddrinfo ${code} www.uselumo.ai`), {
+        code,
+      }),
+    })
+  const failing = rejecting(denial('ENOTFOUND'))
   const ok = (async () => new Response('{}')) as typeof fetch
 
   it('is due in a Codex sandbox after a rejected fetch and a non-zero exit', async () => {
@@ -267,6 +349,79 @@ describe('sandbox network hint (LUM-1054)', () => {
       )
     )
     expect(t.hintFor(1)).toBe(CODEX_SANDBOX_NETWORK_HINT)
+  })
+
+  it('counts only sandbox-shaped denials (ENOTFOUND / EPERM / EACCES / EAI_AGAIN)', async () => {
+    for (const code of ['ENOTFOUND', 'EPERM', 'EACCES', 'EAI_AGAIN']) {
+      expect(isSandboxNetworkDenial(denial(code))).toBe(true)
+      const t = createSandboxNetworkTracker({ CODEX_SANDBOX: 'seatbelt' }, [
+        'task',
+        'show',
+      ])
+      await t
+        .wrapFetch(rejecting(denial(code)))('https://x')
+        .catch(() => null)
+      expect([code, t.hintFor(1)]).toEqual([code, CODEX_SANDBOX_NETWORK_HINT])
+    }
+    const timeout = new DOMException(
+      'The operation was aborted due to timeout',
+      'TimeoutError'
+    )
+    const abort = new DOMException('This operation was aborted', 'AbortError')
+    const notSandbox = [
+      timeout,
+      abort,
+      denial('ECONNREFUSED'),
+      Object.assign(new TypeError('fetch failed'), {
+        cause: new Error('bad port'),
+      }),
+      new TypeError('fetch failed'),
+      new Error('boom'),
+    ]
+    for (const err of notSandbox) {
+      expect(isSandboxNetworkDenial(err)).toBe(false)
+      const t = createSandboxNetworkTracker({ CODEX_SANDBOX: 'seatbelt' }, [
+        'task',
+        'show',
+      ])
+      await t
+        .wrapFetch(rejecting(err))('https://x')
+        .catch(() => null)
+      expect(t.hintFor(1)).toBeNull()
+    }
+  })
+
+  it('a printed timeout or HTTP error with the same prefix is not a denial', () => {
+    const t = createSandboxNetworkTracker({ CODEX_SANDBOX: 'seatbelt' }, [
+      'task',
+      'show',
+    ])
+    t.noteOutput(
+      'Error: could not reach Lumo API at https://x (The operation was aborted due to timeout)\n'
+    )
+    expect(t.hintFor(1)).toBeNull()
+  })
+
+  it('a denial followed by a success never hints: not on exit 0, not on a later non-zero exit', async () => {
+    // In the sandbox every request is denied, so one response proves the
+    // network works and a non-zero exit has another cause.
+    for (const order of ['fail-then-ok', 'ok-then-fail'] as const) {
+      const t = createSandboxNetworkTracker({ CODEX_SANDBOX: 'seatbelt' }, [
+        'task',
+        'show',
+      ])
+      const f = t.wrapFetch(failing)
+      const o = t.wrapFetch(ok)
+      if (order === 'fail-then-ok') {
+        await f('https://x').catch(() => null)
+        await o('https://x')
+      } else {
+        await o('https://x')
+        await f('https://x').catch(() => null)
+      }
+      expect([order, t.hintFor(0)]).toEqual([order, null])
+      expect([order, t.hintFor(1)]).toEqual([order, null])
+    }
   })
 
   it('stays silent outside the sandbox, on exit 0, and when fetch succeeded', async () => {

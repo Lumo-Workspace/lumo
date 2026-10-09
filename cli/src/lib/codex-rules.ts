@@ -10,9 +10,9 @@ import * as path from 'path'
  * (`[sandbox_workspace_write] network_access = true`), `lumo init` writes a
  * Codex rules file whose `prefix_rule`s let the **server-only** `lumo`
  * commands run outside the sandbox without prompting: the ones that only talk
- * to the Lumo API (reading local config/credentials, reading a `--file` to
- * upload, read-only git) and never write local files or start local processes
- * with side effects. Every other `lumo` command — init/uninstall/update, auth,
+ * to the Lumo API (reading only Lumo's own config/credentials, read-only git)
+ * and never read an arbitrary local file to upload, write local files or start
+ * local processes with side effects. Every other `lumo` command — init/uninstall/update, auth,
  * worktrees, memory sync/push, hooks, `session attach` (can create a
  * worktree), `task update` (a confirmed DONE removes worktrees) — and every
  * non-lumo command stays sandboxed, so Codex asks (or the command fails) as
@@ -33,23 +33,19 @@ export const CODEX_RULES_MARKER =
 
 /**
  * Server-only commands (grammar.json paths): run outside Codex's sandbox
- * without prompting. A path covers everything after it (`priority` also
+ * without prompting. None of them takes a flag or argument that reads a local
+ * file (those are in {@link CODEX_FILE_READING_COMMANDS}). A path covers everything after it (`priority` also
  * covers `priority list`), so never list a path that has a sandboxed command
  * below it.
  */
 export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'audit list',
   'cost',
-  'crossing explain',
-  'doc append',
   'doc bind',
-  'doc create',
   'doc delete',
-  'doc diff',
   'doc import-gdoc',
   'doc list',
   'doc move',
-  'doc patch',
   'doc rebuild-source',
   'doc share',
   'doc share-list',
@@ -57,7 +53,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'doc sync',
   'doc unbind',
   'doc unshare',
-  'doc update',
   'initiative create',
   'initiative list',
   'initiative progress add',
@@ -73,7 +68,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'milestone changelog',
   'milestone create',
   'milestone criteria list',
-  'milestone criteria set',
   'milestone criteria verdict',
   'milestone delete',
   'milestone list',
@@ -107,7 +101,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'sprint update',
   'tag create',
   'tag list',
-  'task artifact add',
   'task artifact list',
   'task artifact rm',
   'task artifact show',
@@ -141,30 +134,57 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'task slack show',
   'task status',
   'task statuses',
-  'task template create',
-  'task template edit',
   'task template list',
   'task template rm',
   'task template show',
   'task testcase add',
   'task testcase list',
   'task testcase rm',
-  // reads HEAD + `git --no-optional-locks status` for the commit coordinate
-  'task testcase run',
   'task testcase show',
   'task testcase update',
   'task web show',
   // assesses local worktrees read-only (never removes them)
   'task wrapup',
-  'usage resync',
   'workspace security-scan',
 ]
+
+/**
+ * Server-only commands that can read an arbitrary local file and send it to
+ * the Lumo API (the flag that does it). A prefix rule cannot exclude a flag,
+ * so the whole command stays sandboxed: Codex asks first, and no prompt-
+ * injected `lumo doc create --file ~/.ssh/id_rsa` runs unseen.
+ */
+export const CODEX_FILE_READING_COMMANDS: Readonly<Record<string, string>> = {
+  'crossing explain': '--file <json>',
+  'doc append': '--file',
+  'doc create': '--file',
+  'doc diff': '--file',
+  'doc patch': '--file',
+  'doc update': '--file',
+  'milestone criteria set': '--file <json>',
+  'task artifact add': '--file',
+  'task template create': '--file',
+  'task template edit': '--file',
+  'task testcase run': '--evidence-file, --step-evidence <step>=<file>',
+  'usage resync':
+    'reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects)',
+}
+
+/** The reason recorded for every {@link CODEX_FILE_READING_COMMANDS} entry. */
+export const FILE_READING_REASON =
+  'reads local files (--file …) — Codex asks first'
 
 /**
  * Commands that stay inside Codex's sandbox (Codex asks before running them
  * outside it), with the reason. A path covers everything below it.
  */
 export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(
+    Object.entries(CODEX_FILE_READING_COMMANDS).map(([cmd, flag]) => [
+      cmd,
+      `${FILE_READING_REASON} (${flag})`,
+    ])
+  ),
   'auth login': 'writes ~/.lumo credentials and opens a browser',
   'auth logout': 'deletes ~/.lumo credentials',
   'crossing disposition':
@@ -257,11 +277,12 @@ export function buildCodexRules(
 
   const lines: string[] = [
     CODEX_RULES_MARKER,
-    '# Lets the server-only `lumo` commands (they only call the Lumo API and write no',
-    "# local files) run outside Codex's no-network sandbox without prompting. Every",
-    '# other command, including `lumo init`, `lumo uninstall`, `lumo update`,',
-    '# `lumo auth`, `lumo worktree`, `lumo memory sync/push`, `lumo session attach`',
-    '# and `lumo task update`, stays sandboxed, so Codex asks as usual.',
+    '# Lets the server-only `lumo` commands (they only call the Lumo API, read no',
+    "# local file to upload and write none) run outside Codex's no-network sandbox",
+    '# without prompting. Every other command, including `lumo init`, `lumo update`,',
+    '# `lumo uninstall`, `lumo auth`, `lumo worktree`, `lumo memory sync/push`,',
+    '# `lumo session attach`, `lumo task update` and the commands that take a',
+    '# `--file` (`lumo doc create/update/patch …`), stays sandboxed, so Codex asks.',
   ]
   for (const g of ordered) {
     const leaves = [...g.leaves].sort()
@@ -276,7 +297,7 @@ export function buildCodexRules(
     lines.push(`${RULE_INDENT}pattern = [${pattern}],`)
     lines.push(`${RULE_INDENT}decision = "allow",`)
     lines.push(
-      `${RULE_INDENT}justification = "Server-only Lumo command: needs network to reach the Lumo API, writes no local files",`
+      `${RULE_INDENT}justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",`
     )
     lines.push(`${RULE_INDENT}match = [${match.join(', ')}],`)
     if (nm.length > 0)
@@ -398,15 +419,21 @@ export type CodexNetworkState = 'rules' | 'config' | 'off'
 
 /**
  * The network state for a Codex hooks file's layer: the Lumo rules file next
- * to it, else `network_access = true` in that layer's or the user's
- * config.toml, else off.
+ * to it or in the user layer (`~/.codex/rules/`, which Codex always loads —
+ * also for a project), else `network_access = true` in that layer's or the
+ * user's config.toml, else off.
  */
 export function codexNetworkState(
   hooksPath: string,
   homeDir: string
 ): CodexNetworkState {
-  const rules = classifyCodexRules(codexRulesPathForHooks(hooksPath))
-  if (rules === 'current' || rules === 'outdated') return 'rules'
+  for (const file of new Set([
+    codexRulesPathForHooks(hooksPath),
+    codexRulesPath(homeDir),
+  ])) {
+    const rules = classifyCodexRules(file)
+    if (rules === 'current' || rules === 'outdated') return 'rules'
+  }
   const tomls = new Set([
     path.join(path.dirname(hooksPath), 'config.toml'),
     path.join(homeDir, '.codex', 'config.toml'),
@@ -427,7 +454,7 @@ export function codexRulesNote(
   scope: 'user' | 'project'
 ): string {
   return (
-    `ℹ Server-only \`lumo\` commands (they only call the Lumo API) now run outside Codex's sandbox without a prompt; Codex still asks before any other lumo command (init, update, auth, worktree, memory sync/push, session attach, task update…) and everything else stays sandboxed without network.\n` +
+    `ℹ Server-only \`lumo\` commands (they only call the Lumo API) now run outside Codex's sandbox without a prompt; Codex still asks before any other lumo command (init, update, auth, worktree, memory sync/push, session attach, task update, and the ones that read a local file such as doc create/update/patch --file) and everything else stays sandboxed without network.\n` +
     `  Restart Codex to load ${file}.` +
     (scope === 'project'
       ? ' Codex loads a project rules file only once you trust the project.'
@@ -452,7 +479,7 @@ export const CODEX_SANDBOX_NETWORK_HINT =
  */
 export function codexSandboxedCommandHint(commandPath: string): string {
   return (
-    `Hint: this ran inside Codex's sandbox, which has no network by default. \`lumo ${commandPath}\` changes local files or runs local processes, so Lumo's Codex rule leaves it sandboxed on purpose (only server-only lumo commands run outside it without asking). ` +
+    `Hint: this ran inside Codex's sandbox, which has no network by default. \`lumo ${commandPath}\` reads or changes local files or runs local processes, so Lumo's Codex rule leaves it sandboxed on purpose (only server-only lumo commands run outside it without asking). ` +
     "Re-run it with Codex's approval to run outside the sandbox, or ask the user to run it in their own terminal."
   )
 }
