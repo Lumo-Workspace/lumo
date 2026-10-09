@@ -31,7 +31,7 @@ jest.mock('fs', () => {
 
 import { tmpdir } from 'os'
 import { basename, dirname, join } from 'path'
-import { copySkillTree } from '@/cli/src/lib/codex-plugin'
+import { cleanStaleSwapDirs, copySkillTree } from '@/cli/src/lib/codex-plugin'
 
 let root: string
 let src: string
@@ -86,5 +86,44 @@ describe('copySkillTree swap (I3)', () => {
       'lumo',
       'other',
     ])
+  })
+
+  it('restores the newest backup into a missing dst instead of deleting it', () => {
+    const parent = dirname(dst)
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000)
+    const older = new Date(Date.now() - 3 * 60 * 60 * 1000)
+    realFs.rmSync(dst, { recursive: true })
+    for (const [n, body, t] of [
+      ['.lumo-backup-1', 'older', older],
+      ['.lumo-backup-2', 'newest', old],
+    ] as const) {
+      realFs.mkdirSync(join(parent, n))
+      realFs.writeFileSync(join(parent, n, 'SKILL.md'), body)
+      realFs.utimesSync(join(parent, n), t, t)
+    }
+    cleanStaleSwapDirs(parent, Date.now(), dst)
+    expect(realFs.readFileSync(join(dst, 'SKILL.md'), 'utf8')).toBe('newest')
+    expect(realFs.readdirSync(parent)).toEqual(['lumo'])
+  })
+
+  it('a crash-orphaned old backup restores the skill even when the new install then fails', () => {
+    const parent = dirname(dst)
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000)
+    realFs.rmSync(dst, { recursive: true })
+    realFs.mkdirSync(join(parent, '.lumo-backup-9'))
+    realFs.writeFileSync(join(parent, '.lumo-backup-9', 'SKILL.md'), 'old')
+    realFs.utimesSync(join(parent, '.lumo-backup-9'), old, old)
+    failRenameTo = dst
+    expect(() => copySkillTree(src, dst)).toThrow('simulated rename failure')
+    expect(realFs.readFileSync(join(dst, 'SKILL.md'), 'utf8')).toBe('old')
+  })
+
+  it('stamps the backup with the swap time so age-based cleanup measures from the swap', () => {
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000)
+    realFs.utimesSync(dst, old, old)
+    failRenameTo = dst
+    expect(() => copySkillTree(src, dst)).toThrow('simulated rename failure')
+    // restored backup is now dst; its mtime must be recent, not the old one
+    expect(Date.now() - realFs.statSync(dst).mtimeMs).toBeLessThan(60 * 1000)
   })
 })

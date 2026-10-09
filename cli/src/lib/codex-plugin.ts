@@ -96,10 +96,13 @@ const STALE_SIBLING_MS = 60 * 60 * 1000
 /**
  * Remove `.lumo-staging-*` / `.lumo-backup-*` dirs in `parent` older than an
  * hour — leftovers of a killed process. Fresh ones may belong to a live peer.
+ * When `dst` is given and missing (a crash between the swap's two renames),
+ * the newest stale backup is restored to `dst` instead of being deleted.
  */
 export function cleanStaleSwapDirs(
   parent: string,
-  now: number = Date.now()
+  now: number = Date.now(),
+  dst?: string
 ): void {
   let names: string[]
   try {
@@ -107,13 +110,38 @@ export function cleanStaleSwapDirs(
   } catch {
     return
   }
+  const stale: { full: string; mtimeMs: number; isBackup: boolean }[] = []
   for (const name of names) {
-    if (!name.startsWith(STAGING_PREFIX) && !name.startsWith(BACKUP_PREFIX))
-      continue
+    const isBackup = name.startsWith(BACKUP_PREFIX)
+    if (!name.startsWith(STAGING_PREFIX) && !isBackup) continue
     const full = path.join(parent, name)
     try {
-      if (now - fs.statSync(full).mtimeMs > STALE_SIBLING_MS)
-        fs.rmSync(full, { recursive: true, force: true })
+      const mtimeMs = fs.statSync(full).mtimeMs
+      if (now - mtimeMs > STALE_SIBLING_MS)
+        stale.push({ full, mtimeMs, isBackup })
+    } catch {
+      // best effort
+    }
+  }
+  let restore: string | null = null
+  if (dst !== undefined && !fs.existsSync(dst)) {
+    const newest = stale
+      .filter(s => s.isBackup)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)[0]
+    if (newest) {
+      try {
+        fs.renameSync(newest.full, dst)
+        restore = newest.full
+      } catch {
+        // best effort — leave the backup for the next run
+        restore = newest.full
+      }
+    }
+  }
+  for (const s of stale) {
+    if (s.full === restore) continue
+    try {
+      fs.rmSync(s.full, { recursive: true, force: true })
     } catch {
       // best effort
     }
@@ -132,7 +160,7 @@ export function copySkillTree(src: string, dst: string): string[] {
   const staging = path.join(parent, `${STAGING_PREFIX}${process.pid}`)
   const backup = path.join(parent, `${BACKUP_PREFIX}${process.pid}`)
   fs.mkdirSync(parent, { recursive: true })
-  cleanStaleSwapDirs(parent)
+  cleanStaleSwapDirs(parent, Date.now(), dst)
   try {
     fs.rmSync(staging, { recursive: true, force: true })
     for (const rel of files) {
@@ -145,6 +173,10 @@ export function copySkillTree(src: string, dst: string): string[] {
       fs.rmSync(backup, { recursive: true, force: true })
       fs.renameSync(dst, backup)
       backedUp = true
+      // rename keeps dst's old mtime; stamp the swap time so the age-based
+      // cleanup never mistakes a just-made backup for a stale leftover.
+      const swapped = new Date()
+      fs.utimesSync(backup, swapped, swapped)
     }
     try {
       fs.renameSync(staging, dst)
