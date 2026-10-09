@@ -5,14 +5,16 @@ import { spawn } from 'child_process'
 import { configDir } from './config'
 import { maybeAutoUpdate } from './auto-update'
 
-const CACHE_FILE = path.join(configDir(), 'update-check.json')
+function cacheFile(): string {
+  return path.join(configDir(), 'update-check.json')
+}
 const CHECK_INTERVAL_MS = 1000 * 60 * 60 * 24
 
 type Cache = { lastChecked: number; latest: string }
 
 function readCache(): Cache | null {
   try {
-    const raw = fs.readFileSync(CACHE_FILE, 'utf8')
+    const raw = fs.readFileSync(cacheFile(), 'utf8')
     const parsed = JSON.parse(raw) as Cache
     if (
       typeof parsed.lastChecked !== 'number' ||
@@ -27,8 +29,8 @@ function readCache(): Cache | null {
 
 function writeCache(cache: Cache): void {
   try {
-    fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true })
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache))
+    fs.mkdirSync(path.dirname(cacheFile()), { recursive: true })
+    fs.writeFileSync(cacheFile(), JSON.stringify(cache))
   } catch {
     /* swallow — the update check is non-essential */
   }
@@ -112,7 +114,7 @@ export function maybeRefreshInBackground(name: string): void {
     const child = spawn(
       process.execPath,
       [process.argv[1] || '', '__update-check', name],
-      { detached: true, stdio: 'ignore' }
+      { detached: true, stdio: 'ignore', windowsHide: true }
     )
     child.unref()
   } catch {
@@ -124,12 +126,20 @@ export function maybeRefreshInBackground(name: string): void {
 // the sentinel; performs the fetch and writes the cache, then exits.
 export async function runBackgroundRefresh(
   name: string,
-  current: string | null = null
+  current: string | null = null,
+  deps: {
+    fetchLatest?: (name: string, timeoutMs: number) => Promise<string | null>
+    autoUpdate?: (current: string, latest: string) => Promise<void>
+  } = {}
 ): Promise<void> {
-  const latest = await fetchLatestVersion(name, 5000)
+  const latest = await (deps.fetchLatest ?? fetchLatestVersion)(name, 5000)
   if (!latest) return
   writeCache({ lastChecked: Date.now(), latest })
   // Auto-update (default on) runs here, in the detached worker only — never on
   // the foreground path. Failures fall back to the "Update available" notice.
-  if (current) await maybeAutoUpdate(current, latest, isNewer)
+  if (current)
+    await (deps.autoUpdate ?? ((c, l) => maybeAutoUpdate(c, l, isNewer)))(
+      current,
+      latest
+    )
 }

@@ -69,7 +69,7 @@ export interface DoctorDeps {
   homeDir?: string
   cwd?: string
   cliVersion?: string | null
-  env?: { PATH?: string }
+  env?: Record<string, string | undefined>
 }
 
 const CMD_UPGRADE = 'lumo init --upgrade'
@@ -458,7 +458,7 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
         '`lumo` is not resolvable on PATH, so installed hooks cannot run; install it globally (npm install -g @lumoai/cli)',
     })
 
-  return { cliVersion, rows, warnings, autoUpdate: getAutoUpdateStatus() }
+  return { cliVersion, rows, warnings, autoUpdate: getAutoUpdateStatus(env) }
 }
 
 const GROUP_TITLES: Array<[DoctorGroup, string]> = [

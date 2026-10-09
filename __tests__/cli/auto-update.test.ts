@@ -20,9 +20,11 @@ import {
   isGlobalNpmInstall,
   maybeAutoUpdate,
   readAutoUpdateState,
+  isAutoUpdateInProgress,
   writeAutoUpdateSetting,
 } from '@/cli/src/lib/auto-update'
 import { acquireFileLock } from '@/cli/src/lib/file-lock'
+import { runBackgroundRefresh } from '@/cli/src/lib/update-check'
 import { findCliPackageRoot } from '@/cli/src/lib/cli-version'
 
 const isNewer = (c: string, l: string): boolean => c !== l && l > c
@@ -249,7 +251,7 @@ describe('maybeAutoUpdate', () => {
   })
 
   it('records a truncated error on failure and never throws', async () => {
-    const spawnFn = fakeSpawn({ code: 243, stderr: 'EACCES '.repeat(100) })
+    const spawnFn = fakeSpawn({ code: 243 })
     await expect(run({ spawnFn }).p).resolves.toBeUndefined()
     const st = readAutoUpdateState()
     expect(st.lastError).toContain('code 243')
@@ -262,22 +264,6 @@ describe('maybeAutoUpdate', () => {
     await run({ spawnFn }).p
     expect(readAutoUpdateState().lastError).toContain('ENOENT')
   })
-
-  it('failure leaves the cache so the Update-available notice still shows', async () => {
-    mkdirSync(cfg, { recursive: true })
-    writeFileSync(
-      join(cfg, 'update-check.json'),
-      JSON.stringify({ lastChecked: Date.now(), latest: '9.9.9' })
-    )
-    await run({ spawnFn: fakeSpawn({ code: 1 }) }).p
-    jest.resetModules()
-    const { printUpdateNoticeIfAny } = require('@/cli/src/lib/update-check')
-    const err = jest.spyOn(process.stderr, 'write').mockReturnValue(true)
-    printUpdateNoticeIfAny('@lumoai/cli', '1.0.0')
-    const out = err.mock.calls.map(c => String(c[0])).join('')
-    err.mockRestore()
-    expect(out).toContain('Update available')
-  })
 })
 
 describe('acquireFileLock', () => {
@@ -288,5 +274,141 @@ describe('acquireFileLock', () => {
     const old = new Date(Date.now() - 10_000)
     utimesSync(lock, old, old)
     expect(acquireFileLock(lock, 1000)).toBe(true)
+  })
+})
+
+describe('fix round 1', () => {
+  it('npm link layout (global entry is a symlink to the checkout) is not a global install', () => {
+    const checkout = join(root, 'checkout', 'cli')
+    mkdirSync(checkout, { recursive: true })
+    const g = join(root, 'linkprefix', 'lib', 'node_modules')
+    mkdirSync(join(g, '@lumoai'), { recursive: true })
+    symlinkSync(checkout, join(g, '@lumoai', 'cli'))
+    expect(isGlobalNpmInstall(checkout, fakeSpawnSync(g) as any)).toBe(false)
+    expect(
+      isGlobalNpmInstall(join(g, '@lumoai', 'cli'), fakeSpawnSync(g) as any)
+    ).toBe(false)
+  })
+
+  it('npm output goes to an append fd on auto-update.log, not a pipe', async () => {
+    const { sp, p } = run()
+    await p
+    const stdio = sp.fn.mock.calls[0]![2].stdio
+    expect(typeof stdio[1]).toBe('number')
+    expect(typeof stdio[2]).toBe('number')
+    expect(existsSync(join(cfg, 'auto-update.log'))).toBe(true)
+  })
+
+  it('records "still running after <wait>" when npm outlives the wait', async () => {
+    const never = jest.fn(() => {
+      const c = new EventEmitter() as any
+      c.unref = jest.fn()
+      return c
+    })
+    await maybeAutoUpdate('1.0.0', '1.1.0', isNewer, {
+      env: baseEnv,
+      pkgRoot,
+      spawnSync: fakeSpawnSync(globalRoot) as any,
+      spawn: never as any,
+      npmWaitMs: 20,
+    })
+    expect(readAutoUpdateState().lastError).toBe('still running after 0.02s')
+  })
+
+  it('re-reads the attempt state after taking the lock', async () => {
+    const t0 = Date.now()
+    mkdirSync(cfg, { recursive: true })
+    // The state appears while we hold no lock yet: simulate a peer that
+    // finished its attempt just before we acquired it.
+    const lockPath = join(cfg, 'auto-update.lock')
+    const sp = fakeSpawn({ code: 0 })
+    const realWrite = writeFileSync
+    // peer wrote state and released the lock before our acquire; our first
+    // read (before the lock) must not be the one that decides.
+    realWrite(
+      join(cfg, 'auto-update.json'),
+      JSON.stringify({ lastAutoUpdateAttempt: t0 })
+    )
+    await maybeAutoUpdate('1.0.0', '1.1.0', isNewer, {
+      env: baseEnv,
+      pkgRoot,
+      now: () => t0 + 1000,
+      spawnSync: fakeSpawnSync(globalRoot) as any,
+      spawn: sp.fn as any,
+    })
+    expect(sp.fn).not.toHaveBeenCalled()
+    expect(existsSync(lockPath)).toBe(false)
+  })
+
+  it('isAutoUpdateInProgress reflects a fresh lock only', () => {
+    expect(isAutoUpdateInProgress()).toBe(false)
+    mkdirSync(cfg, { recursive: true })
+    const lock = join(cfg, 'auto-update.lock')
+    writeFileSync(lock, '')
+    expect(isAutoUpdateInProgress()).toBe(true)
+    const old = new Date(Date.now() - 3600_000)
+    utimesSync(lock, old, old)
+    expect(isAutoUpdateInProgress()).toBe(false)
+  })
+
+  it('detached spawn hides the Windows console', async () => {
+    const { sp, p } = run()
+    await p
+    expect(sp.calls[0]!.opts.windowsHide).toBe(true)
+  })
+
+  it('refuses a non-semver latest without spawning', async () => {
+    const sp = fakeSpawn({ code: 0 })
+    await maybeAutoUpdate('1.0.0', '1.1.0; rm -rf ~', () => true, {
+      env: baseEnv,
+      pkgRoot,
+      spawnSync: fakeSpawnSync(globalRoot) as any,
+      spawn: sp.fn as any,
+    })
+    expect(sp.fn).not.toHaveBeenCalled()
+  })
+
+  it('runBackgroundRefresh wires the fetched latest into auto-update', async () => {
+    const autoUpdate = jest.fn(async () => {})
+    await runBackgroundRefresh('@lumoai/cli', '1.0.0', {
+      fetchLatest: async () => '1.1.0',
+      autoUpdate,
+    })
+    expect(autoUpdate).toHaveBeenCalledWith('1.0.0', '1.1.0')
+    expect(
+      JSON.parse(readFileSync(join(cfg, 'update-check.json'), 'utf8')).latest
+    ).toBe('1.1.0')
+  })
+
+  it('runBackgroundRefresh skips auto-update when the current version is unknown', async () => {
+    const autoUpdate = jest.fn(async () => {})
+    await runBackgroundRefresh('@lumoai/cli', null, {
+      fetchLatest: async () => '1.1.0',
+      autoUpdate,
+    })
+    expect(autoUpdate).not.toHaveBeenCalled()
+  })
+
+  it('a failed install is recorded while the cache and notice stay intact', async () => {
+    const sp = fakeSpawn({ code: 1 })
+    await runBackgroundRefresh('@lumoai/cli', '1.0.0', {
+      fetchLatest: async () => '9.9.9',
+      autoUpdate: (c, l) =>
+        maybeAutoUpdate(c, l, isNewer, {
+          env: baseEnv,
+          pkgRoot,
+          spawnSync: fakeSpawnSync(globalRoot) as any,
+          spawn: sp.fn as any,
+        }),
+    })
+    expect(sp.fn).toHaveBeenCalledTimes(1)
+    expect(readAutoUpdateState().lastError).toContain('code 1')
+    jest.resetModules()
+    const { printUpdateNoticeIfAny } = require('@/cli/src/lib/update-check')
+    const err = jest.spyOn(process.stderr, 'write').mockReturnValue(true)
+    printUpdateNoticeIfAny('@lumoai/cli', '1.0.0')
+    const out = err.mock.calls.map(c => String(c[0])).join('')
+    err.mockRestore()
+    expect(out).toContain('Update available')
   })
 })

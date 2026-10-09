@@ -10,6 +10,7 @@ const ATTEMPT_INTERVAL_MS = 1000 * 60 * 60 * 24
 const LOCK_STALE_MS = 1000 * 60 * 5
 const NPM_WAIT_MS = 1000 * 120
 const ERROR_MAX = 200
+const VERSION_RE = /^\d+\.\d+\.\d+$/
 
 export const AUTO_UPDATE_OFF_COMMAND = 'lumo update --auto off'
 
@@ -125,10 +126,11 @@ export function isGlobalNpmInstall(
     })
     const root = (res.stdout ?? '').trim()
     if (res.status !== 0 || !root) return false
-    return (
-      fs.realpathSync(pkgRoot) ===
-      fs.realpathSync(path.join(root, ...PACKAGE_NAME.split('/')))
-    )
+    const entry = path.join(root, ...PACKAGE_NAME.split('/'))
+    // `npm link` makes the global entry a symlink to a dev checkout; replacing
+    // that would clobber the developer's working tree link.
+    if (fs.lstatSync(entry).isSymbolicLink()) return false
+    return fs.realpathSync(pkgRoot) === fs.realpathSync(entry)
   } catch {
     return false
   }
@@ -140,6 +142,8 @@ export type AutoUpdateDeps = {
   pkgRoot?: string | null
   spawnSync?: SpawnSyncFn
   spawn?: typeof spawn
+  /** How long the worker waits for npm before recording it as still running. */
+  npmWaitMs?: number
 }
 
 /**
@@ -155,17 +159,23 @@ export async function maybeAutoUpdate(
 ): Promise<void> {
   try {
     if (!getAutoUpdateStatus(deps.env).enabled) return
+    if (!VERSION_RE.test(latest)) return
     if (!isNewer(current, latest)) return
     const now = (deps.now ?? Date.now)()
-    const last = readAutoUpdateState().lastAutoUpdateAttempt
-    if (last !== undefined && now - last < ATTEMPT_INTERVAL_MS) return
     if (!acquireFileLock(lockPath(), LOCK_STALE_MS)) return
     try {
+      // Re-read under the lock: a peer may have just finished an attempt.
+      const last = readAutoUpdateState().lastAutoUpdateAttempt
+      if (last !== undefined && now - last < ATTEMPT_INTERVAL_MS) return
       const root =
         deps.pkgRoot !== undefined ? deps.pkgRoot : findCliPackageRoot()
       if (!isGlobalNpmInstall(root, deps.spawnSync)) return
       writeAutoUpdateState({ lastAutoUpdateAttempt: now, lastError: null })
-      const error = await installGlobally(latest, deps.spawn ?? spawn)
+      const error = await installGlobally(
+        latest,
+        deps.spawn ?? spawn,
+        deps.npmWaitMs ?? NPM_WAIT_MS
+      )
       if (error)
         writeAutoUpdateState({
           lastAutoUpdateAttempt: now,
@@ -179,40 +189,65 @@ export async function maybeAutoUpdate(
   }
 }
 
-/** Run npm detached from this worker; resolves to an error string or null. */
+/** True while a background update holds a fresh lock. */
+export function isAutoUpdateInProgress(): boolean {
+  try {
+    return Date.now() - fs.statSync(lockPath()).mtimeMs < LOCK_STALE_MS
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Run npm detached from this worker, its output appended to auto-update.log
+ * (a file, not a pipe, so npm survives the worker exiting). Resolves to an
+ * error string, or null on success. A child still running after `waitMs`
+ * is reported as such; its final outcome is unknown.
+ */
 function installGlobally(
   version: string,
-  spawnFn: typeof spawn
+  spawnFn: typeof spawn,
+  waitMs: number
 ): Promise<string | null> {
   return new Promise(resolve => {
-    let stderr = ''
     let done = false
+    let logFd: number | null = null
     const finish = (err: string | null): void => {
       if (done) return
       done = true
       clearTimeout(timer)
+      if (logFd !== null) {
+        try {
+          fs.closeSync(logFd)
+        } catch {
+          /* already closed */
+        }
+      }
       resolve(err)
     }
-    const timer = setTimeout(() => finish(null), NPM_WAIT_MS)
+    const timer = setTimeout(
+      () => finish(`still running after ${waitMs / 1000}s`),
+      waitMs
+    )
     try {
+      fs.mkdirSync(configDir(), { recursive: true })
+      logFd = fs.openSync(path.join(configDir(), 'auto-update.log'), 'a')
       const child = spawnFn(
         'npm',
         ['install', '-g', `${PACKAGE_NAME}@${version}`],
         {
           detached: true,
-          stdio: ['ignore', 'ignore', 'pipe'],
+          stdio: ['ignore', logFd, logFd],
           shell: process.platform === 'win32',
+          windowsHide: true,
         }
       )
-      child.stderr?.on('data', (d: Buffer) => {
-        stderr += d.toString()
-      })
       child.on('error', e => finish(`failed to launch npm: ${e.message}`))
       child.on('close', code =>
         finish(
           code === 0
             ? null
-            : `npm exited with code ${code}: ${stderr.trim().slice(-ERROR_MAX)}`
+            : `npm exited with code ${code} (see auto-update.log)`
         )
       )
       child.unref()

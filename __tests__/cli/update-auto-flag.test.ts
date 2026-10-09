@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { mkdtempSync, readFileSync, rmSync } from 'fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { update } from '@/cli/src/commands/update'
@@ -69,12 +69,24 @@ describe('lumo update --auto', () => {
 })
 
 describe('doctor auto-update line', () => {
-  it('reports the state in the report', () => {
-    const r = collectDoctor({ homeDir: cfg, cwd: cfg, cliVersion: '1.0.0' })
-    expect(r.autoUpdate).toEqual({ enabled: true, source: 'default' })
-    process.env.LUMO_NO_AUTO_UPDATE = '1'
+  it('reports the state in the report, using the env seam', () => {
+    const base = { homeDir: cfg, cwd: cfg, cliVersion: '1.0.0' }
+    process.env.LUMO_NO_AUTO_UPDATE = '1' // must be ignored when env is injected
+    expect(collectDoctor({ ...base, env: { PATH: '' } }).autoUpdate).toEqual({
+      enabled: true,
+      source: 'default',
+    })
     expect(
-      collectDoctor({ homeDir: cfg, cwd: cfg, cliVersion: '1.0.0' }).autoUpdate
-    ).toEqual({ enabled: false, source: 'env' })
+      collectDoctor({ ...base, env: { PATH: '', CI: 'true' } }).autoUpdate
+    ).toEqual({ enabled: false, source: 'ci' })
+  })
+})
+
+describe('manual lumo update while a background update runs', () => {
+  it('refuses with exit 1 and does not start a second install', async () => {
+    mkdirSync(cfg, { recursive: true })
+    writeFileSync(join(cfg, 'auto-update.lock'), '')
+    expect(await update()).toBe(1)
+    expect(err).toContain('a background update is in progress')
   })
 })

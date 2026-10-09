@@ -3,6 +3,7 @@ import * as path from 'path'
 import {
   describeAutoUpdate,
   getAutoUpdateStatus,
+  isAutoUpdateInProgress,
   writeAutoUpdateSetting,
 } from '../lib/auto-update'
 import { fetchLatestVersion, isNewer } from '../lib/update-check'
@@ -18,6 +19,13 @@ export async function update(options: { auto?: string } = {}): Promise<number> {
     writeAutoUpdateSetting(options.auto === 'on')
     process.stdout.write(`${describeAutoUpdate(getAutoUpdateStatus())}\n`)
     return 0
+  }
+
+  if (isAutoUpdateInProgress()) {
+    process.stderr.write(
+      'Not updating: a background update is in progress — try again in a minute.\n'
+    )
+    return 1
   }
 
   const pkg = require(
