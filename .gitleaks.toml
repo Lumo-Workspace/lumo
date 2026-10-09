@@ -6,6 +6,6 @@ useDefault = true
 [[rules]]
 id = "database-url-password"
 description = "Password embedded in a database connection URL"
-regex = '''(?i)(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis(?:s)?)://[^\s:/"'`]+:([^\s@/"'`]+)@'''
+regex = '''(?i)(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis(?:s)?|mssql|sqlserver|cockroachdb)(?:\+[a-z][a-z0-9_-]*)?://[^\s:/"'`]+:([^\s@/"'`]+)@'''
 secretGroup = 1
-keywords = ["postgres", "mysql", "mongodb", "redis"]
+keywords = ["postgres", "mysql", "mariadb", "mongodb", "redis", "mssql", "sqlserver", "cockroachdb"]

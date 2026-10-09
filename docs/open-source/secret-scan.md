@@ -12,12 +12,25 @@ git fetch origin --prune --tags
 python3 scripts/audit-secrets.py history --report /tmp/lumo-history-audit.json
 ```
 
-Set `GITLEAKS_BIN` if the binary is outside PATH. Exit 0 means no unresolved
+Use `--gitleaks-bin /path/to/gitleaks` if the binary is outside PATH. This is a
+trusted local executable chosen by the operator, never by scanned content.
+Exit 0 means no unresolved
 matches; exit 1 means at least one match needs review or rotation evidence.
-Tool failures also exit nonzero. Snapshot mode archives the specified commit,
+Tool failures also exit nonzero and report the exit code, report presence, and
+a fixed diagnostic category without reproducing source text or scanner logs.
+Snapshot mode reads every tracked blob directly from the specified commit,
 so untracked files, ignored production env files, and node_modules are excluded.
 Re-run on the actual final public-release commit; this audit does not certify
 future commits or the entire working directory.
+`export-ignore`, `export-subst`, and checkout filters cannot exclude or alter
+scanned content. Symlink target text is scanned without following the link;
+submodules are refused rather than silently omitted. Non-UTF-8 source bytes are
+preserved when checking exact-content exceptions.
+
+The added URL rule covers PostgreSQL, MySQL, MariaDB, MongoDB, Redis, SQL Server,
+and CockroachDB, including driver-qualified schemes such as `mysql+pymysql`.
+Other connection formats (for example SQL Server semicolon connection strings)
+are not covered by this extra rule; there is no universal credential-format guarantee.
 
 History mode scans all locally available refs with `--all --full-history` and
 refuses shallow clones. Fetch every relevant remote first. Unreachable/dangling
@@ -65,7 +78,7 @@ false positives. The rotation ledger matches only the immutable historical
 commit, file, line span, and rule, and only in history mode; it cannot exempt a
 new occurrence in a release snapshot.
 
-| Historical location                  | Credential                                 | Disposition / evidence still needed                 |
+| Historical location                  | Credential                                 | Recorded rotation evidence                          |
 | ------------------------------------ | ------------------------------------------ | --------------------------------------------------- |
 | `.env.production:12` at `e4f0147ee1` | Neon pooled DATABASE_URL password          | Owner confirmed rotation in this chat on 2026-10-10 |
 | `.env.production:13` at `e4f0147ee1` | Neon direct DATABASE_URL_UNPOOLED password | Owner confirmed rotation in this chat on 2026-10-10 |
@@ -88,3 +101,6 @@ and private-history rotation audit remain separate checks.
 Regression check: `python3 scripts/test-audit-secrets.py` uses a disposable Git
 repository to verify exact fixture exceptions, changed fixture rejection,
 database URL detection, metadata-only reports, and deleted-credential detection.
+It also verifies export-ignore coverage, non-UTF-8 source handling, rotation-ledger
+matching (and rejection of mismatched metadata), driver-qualified URL schemes,
+and safe failure diagnostics.
