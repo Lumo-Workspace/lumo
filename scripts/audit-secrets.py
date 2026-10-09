@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import re
 import subprocess
 import sys
 import tempfile
@@ -84,24 +85,22 @@ def main():
     binary = shutil.which(args.gitleaks_bin)
     if binary is None:
         parser.error("Install Gitleaks 8.30.1 or provide --gitleaks-bin")
-    try:
-        # The operator intentionally selects a trusted executable. Arguments are
-        # fixed, shell=False, and scanned content never controls this invocation.
-        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
-        version_result = subprocess.run([binary, "version"], capture_output=True, shell=False)
-        if version_result.returncode:
-            raise AuditError(f"Gitleaks version check failed (exit {version_result.returncode})")
-        version = version_result.stdout.decode("utf-8", errors="replace").strip()
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        parser.error("Install Gitleaks 8.30.1 or provide --gitleaks-bin")
+    # The operator intentionally selects a trusted executable. Arguments are
+    # fixed, shell=False, and scanned content never controls this invocation.
+    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
+    version_result = subprocess.run([binary, "version"], capture_output=True, shell=False)
+    if version_result.returncode:
+        raise AuditError(f"Gitleaks version check failed (exit {version_result.returncode})")
+    version = version_result.stdout.decode("utf-8", errors="replace").strip()
     if version.lstrip("v") != VERSION:
         parser.error("This reviewed inventory requires Gitleaks " + VERSION)
     if args.mode == "history" and git("rev-parse", "--is-shallow-repository").strip() != b"false":
         parser.error("History scan requires an unshallow repository")
     inventory = json.loads((ROOT / "docs/open-source/secret-scan-false-positives.json").read_text())
     reviewed = {
-        (x["file"], x["rule"], x["contentSha256"]): x["reason"]
+        (x["file"], x["rule"], x["contentSha256"], span[0], span[1]): x["reason"]
         for x in inventory["falsePositives"]
+        for span in x["lineSpans"]
     }
     rotations = json.loads((ROOT / "docs/open-source/historical-credential-rotations.json").read_text())["rotations"]
     revision = git("rev-parse", "--verify", "--end-of-options", args.ref + "^{commit}").decode().strip()
@@ -134,19 +133,23 @@ def main():
             file = finding["File"]
             if args.mode == "snapshot":
                 file = str(Path(file).relative_to(snapshot))
-            commit = finding["Commit"]
+            commit = finding.get("Commit", "")
+            if args.mode == "history" and (not isinstance(commit, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", commit)):
+                raise AuditError("History finding has no valid immutable commit identifier; no clean result")
             key = (commit, file)
             if key not in sources:
                 sources[key] = (
-                    (snapshot / file).read_bytes().decode("utf-8", errors="surrogateescape")
+                    (snapshot / file).read_bytes()
                     if args.mode == "snapshot"
-                    else git("show", commit + ":" + file).decode("utf-8", errors="surrogateescape")
-                ).splitlines()
+                    else git("show", commit + ":" + file)
+                ).split(b"\n")
             start, end = finding["StartLine"], finding["EndLine"]
-            # Only compare exact source spans. A changed fixture fails closed.
-            span = "\n".join(sources[key][start - 1:end])
-            digest = hashlib.sha256(span.encode("utf-8", errors="surrogateescape")).hexdigest()
-            reason = reviewed.get((file, finding["RuleID"], digest))
+            if not (isinstance(start, int) and isinstance(end, int) and 1 <= start <= end <= len(sources[key])):
+                raise AuditError("Finding has an invalid source line span; no clean result")
+            # Use LF boundaries exactly as Gitleaks does, preserving CR/non-UTF-8 bytes.
+            span = b"\n".join(sources[key][start - 1:end])
+            digest = hashlib.sha256(span).hexdigest()
+            reason = reviewed.get((file, finding["RuleID"], digest, start, end))
             rotation = next((x for x in rotations if (
                 args.mode == "history" and x["file"] == file
                 and x["rule"] == finding["RuleID"] and commit == x["commit"]

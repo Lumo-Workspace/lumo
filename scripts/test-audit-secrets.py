@@ -37,13 +37,13 @@ class SecretAuditTest(unittest.TestCase):
             git("config", "user.name", "Audit test")
             git("config", "user.email", "audit-test@example.invalid")
             (repo / ".gitignore").write_text("*.report.json\n")
-            file = "__tests__/security-scan/sarif.test.ts"
-            entries = json.loads((ROOT / "docs/open-source/secret-scan-false-positives.json").read_text())
-            hashes = {x["contentSha256"] for x in entries["falsePositives"] if x["file"] == file}
-            line = next(
-                line for line in (ROOT / file).read_text().splitlines()
-                if hashlib.sha256(line.encode()).hexdigest() in hashes
-            )
+            file = "__tests__/audit-fixture.txt"
+            line = "value: '" + "AKIA" + "ABCDEFGHIJKLMNOP" + "',"
+            (repo / "docs/open-source/secret-scan-false-positives.json").write_text(json.dumps({
+                "falsePositives": [{"file": file, "rule": "aws-access-token",
+                    "contentSha256": hashlib.sha256(line.encode()).hexdigest(),
+                    "lineSpans": [[1, 1]], "reason": "Synthetic regression fixture"}],
+            }))
             fixture = repo / file
             fixture.parent.mkdir(parents=True)
             fixture.write_text(line + "\n")
@@ -65,6 +65,11 @@ class SecretAuditTest(unittest.TestCase):
             code, report = scan("snapshot")
             self.assertEqual((code, report["reviewedFalsePositives"], report["unresolved"]), (0, 1, 0))
 
+            fixture.write_text("\n" + line + "\n")
+            commit()
+            code, report = scan("snapshot")
+            self.assertEqual((code, report["unresolved"]), (1, 1))
+
             changed = re.sub(
                 r"AKIA[A-Z0-9]{16}",
                 lambda match: match[0][:-1] + ("Z" if match[0][-1] != "Z" else "Y"), line,
@@ -72,6 +77,7 @@ class SecretAuditTest(unittest.TestCase):
             self.assertNotEqual(line, changed)
             fixture.write_text(changed + "\n")
             commit()
+            mutated_commit = git("rev-parse", "HEAD").decode().strip()
             code, report = scan("snapshot")
             self.assertEqual((code, report["unresolved"]), (1, 1))
 
@@ -94,6 +100,9 @@ class SecretAuditTest(unittest.TestCase):
             self.assertEqual(report["unresolved"], 2)
             self.assertEqual({x["file"] for x in report["findings"] if x["disposition"] == "unresolved"},
                              {file, ".env.production"})
+            self.assertEqual([(x["commit"], x["startLine"]) for x in report["findings"]
+                              if x["file"] == file and x["disposition"] == "unresolved"],
+                             [(mutated_commit, 1)])
 
             # Only the immutable original occurrence is confirmed rotated.
             credential_commit = git("rev-parse", "HEAD").decode().strip()
@@ -148,6 +157,14 @@ class SecretAuditTest(unittest.TestCase):
             self.assertEqual({x["startLine"] for x in report["findings"]}, set(range(1, len(schemes) + 1)))
             self.assertTrue(all(x["rule"] == "database-url-password" for x in report["findings"]))
 
+            # Materializing a symlink must scan its blob without following it.
+            (repo / "excluded.env").unlink()
+            (repo / "credential-link").symlink_to(candidate.strip().split("=", 1)[1])
+            commit()
+            code, report = scan("snapshot")
+            self.assertEqual((code, report["unresolved"]), (1, 1))
+            self.assertEqual(report["findings"][0]["file"], "credential-link")
+
             # A failed scanner gets useful fixed diagnostics without echoing logs.
             stub = repo / "failing-gitleaks"
             stub.write_text("#!/bin/sh\nif [ \"$1\" = version ]; then echo 8.30.1; exit 0; fi\n"
@@ -160,6 +177,38 @@ class SecretAuditTest(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("exit 2; report absent; category configuration", result.stderr)
             self.assertNotIn("synthetic-sensitive-output", result.stderr + result.stdout)
+
+            # Missing commit metadata cannot accidentally read the current index.
+            for commit_value in (None, "", "--help"):
+                with self.subTest(invalid_commit=commit_value):
+                    row = {"File": file, "RuleID": "aws-access-token", "StartLine": 1, "EndLine": 1}
+                    if commit_value is not None:
+                        row["Commit"] = commit_value
+                    payload = json.dumps([row])
+                    stub.write_text("#!/usr/bin/env python3\nimport json,sys\n"
+                        "if sys.argv[1]=='version': print('8.30.1'); sys.exit(0)\n"
+                        "report=next(x.split('=',1)[1] for x in sys.argv if x.startswith('--report-path='))\n"
+                        "open(report,'w').write(" + repr(payload) + ")\n")
+                    result = subprocess.run(
+                        ["python3", str(repo / "scripts/audit-secrets.py"), "history", "--gitleaks-bin", str(stub)],
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("no valid immutable commit identifier", result.stderr)
+                    self.assertNotIn("Traceback", result.stderr)
+
+            # U+0085 is not an LF line boundary, even though splitlines splits it.
+            blob = b"# prefix with separator \xc2\x85 and invalid byte \xff\n" + candidate.encode()
+            (repo / "credential-link").unlink()
+            (repo / "line-boundaries.env").write_bytes(blob)
+            (repo / "docs/open-source/secret-scan-false-positives.json").write_text(json.dumps({
+                "falsePositives": [{"file": "line-boundaries.env", "rule": "database-url-password",
+                    "contentSha256": hashlib.sha256(candidate.rstrip("\n").encode()).hexdigest(),
+                    "lineSpans": [[2, 2]], "reason": "Synthetic line-boundary regression fixture"}],
+            }))
+            commit()
+            code, report = scan("snapshot")
+            self.assertEqual((code, report["reviewedFalsePositives"], report["unresolved"]), (0, 1, 0))
 
 
 if __name__ == "__main__":

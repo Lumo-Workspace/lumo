@@ -48,9 +48,10 @@ values in tasks, PRs, or logs.
 
 `secret-scan-false-positives.json` records reviewed synthetic test fixtures,
 documentation placeholders, and local-development defaults. Exceptions require
-the same file, rule, and SHA-256 of the exact matched source span. There is no
+the same file, rule, reviewed line span, and SHA-256 of the exact matched bytes.
+LF alone defines line boundaries, preserving CR and non-UTF-8 bytes. There is no
 blanket exemption for tests, docs, or env templates. Changed matched content
-requires another review. Line movement alone does not change the disposition.
+requires another review, including movement to an unreviewed line span.
 
 Security fixtures contain deliberately recognizable fake AWS, Stripe, Twilio,
 GitHub, JWT, and generic tokens, paired with scanner/masking assertions. Historical
@@ -103,4 +104,6 @@ repository to verify exact fixture exceptions, changed fixture rejection,
 database URL detection, metadata-only reports, and deleted-credential detection.
 It also verifies export-ignore coverage, non-UTF-8 source handling, rotation-ledger
 matching (and rejection of mismatched metadata), driver-qualified URL schemes,
-and safe failure diagnostics.
+safe failure diagnostics, symlink target blobs, missing commit rejection,
+relocated fixtures, and LF-only line boundaries. Test fixtures are self-contained
+and do not depend on unrelated tests in the live repository.
