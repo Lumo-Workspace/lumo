@@ -91,12 +91,24 @@ export function isLumoSourceRepo(root: string): boolean {
   }
 }
 
-/** Whether `skillDir` is `<lumo source repo>/.claude/skills/lumo`. */
+function realOrResolved(p: string): string {
+  try {
+    return fs.realpathSync(p)
+  } catch {
+    return path.resolve(p)
+  }
+}
+
+/**
+ * Whether `skillDir` is `<lumo source repo>/.claude/skills/lumo`. Symlinks are
+ * resolved first (leaf or any parent), so a link into the checkout cannot
+ * route a write or delete around the guard.
+ */
 export function isLumoSkillSource(skillDir: string): boolean {
-  const dir = path.resolve(skillDir)
+  const dir = realOrResolved(skillDir)
   const root = path.resolve(dir, '..', '..', '..')
   return (
-    dir === path.join(root, '.claude', 'skills', 'lumo') &&
+    dir === path.join(realOrResolved(root), '.claude', 'skills', 'lumo') &&
     isLumoSourceRepo(root)
   )
 }

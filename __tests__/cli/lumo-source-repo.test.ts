@@ -9,6 +9,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'fs'
 import { tmpdir } from 'os'
@@ -205,5 +206,83 @@ describe('the Lumo skill source is never written or deleted', () => {
     stdout = ''
     await uninstall({ force: true }, { ...deps, argv: ['uninstall'] })
     expect(stdout).not.toContain(`Delete skill dir ${skill}`)
+  })
+})
+
+describe('symlinks and registry cannot route around the guard', () => {
+  /** home whose skill dir reaches the source via a leaf or a parent link. */
+  function linkedHome(mode: 'leaf' | 'parent') {
+    const src = sourceRepo()
+    const home = tmp()
+    if (mode === 'leaf') {
+      mkdirSync(join(home, '.claude', 'skills'), { recursive: true })
+      symlinkSync(src.skill, join(home, '.claude', 'skills', 'lumo'))
+    } else {
+      symlinkSync(join(src.root, '.claude'), join(home, '.claude'))
+    }
+    return { ...src, home, via: join(home, '.claude', 'skills', 'lumo') }
+  }
+  const depsFor = (home: string, cwd: string) => ({
+    homeDir: home,
+    cwd,
+    cliVersion: '2.0.0',
+    env: { PATH: '' },
+  })
+
+  it.each(['leaf', 'parent'] as const)(
+    'isLumoSkillSource sees through a %s symlink',
+    mode => {
+      const l = linkedHome(mode)
+      expect(isLumoSkillSource(l.via)).toBe(true)
+    }
+  )
+
+  it.each(['leaf', 'parent'] as const)(
+    'uninstall --force never deletes the source through a %s symlink',
+    async mode => {
+      const l = linkedHome(mode)
+      markManaged(l.skill)
+      await uninstall({ confirm: true, force: true }, depsFor(l.home, tmp()))
+      expect(readFileSync(join(l.skill, 'SKILL.md'), 'utf8')).toBe('SOURCE')
+      expect(existsSync(join(l.skill, 'SKILL.md'))).toBe(true)
+    }
+  )
+
+  it.each(['leaf', 'parent'] as const)(
+    'init --user --force never writes the source through a %s symlink',
+    async mode => {
+      const l = linkedHome(mode)
+      await init(
+        { user: true, force: true },
+        {
+          cliVersion: '2.0.0',
+          homeDir: l.home,
+          cwd: tmp(),
+          bundledSkillDir: bundledSkill(),
+        }
+      )
+      expect(readFileSync(join(l.skill, 'SKILL.md'), 'utf8')).toBe('SOURCE')
+      expect(existsSync(join(l.skill, '.lumo-install.json'))).toBe(false)
+    }
+  )
+
+  it('a registry skill record pointing at the source is ignored from another repo', async () => {
+    const { skill } = sourceRepo()
+    markManaged(skill)
+    writeRegistry({
+      lastSyncedVersion: null,
+      installs: [
+        {
+          kind: 'skill',
+          path: skill,
+          scope: 'project',
+          agent: 'claude-code',
+          version: '1.0.0',
+          installedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    })
+    await uninstall({ confirm: true, force: true }, depsFor(tmp(), tmp()))
+    expect(readFileSync(join(skill, 'SKILL.md'), 'utf8')).toBe('SOURCE')
   })
 })
