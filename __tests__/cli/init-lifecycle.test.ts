@@ -15,9 +15,13 @@ import { join } from 'path'
 import { init, installSkill } from '@/cli/src/commands/init'
 import { readMarker, readRegistry } from '@/cli/src/lib/install-registry'
 import { hashSkillDir } from '@/cli/src/lib/skill-hash'
+import { readCliVersion } from '@/cli/src/lib/cli-version'
 import skillVersionHashes from '@/cli/src/lib/skill-version-hashes.json'
 
 jest.mock('@/cli/src/lib/skill-version-hashes.json', () => ({}))
+jest.mock('@/cli/src/lib/cli-version', () => ({
+  readCliVersion: jest.fn(() => '2.0.0'),
+}))
 jest.mock('@/cli/src/lib/session-record-notice', () => ({
   fetchSessionRecordNotice: async () => null,
 }))
@@ -44,6 +48,7 @@ function gitInit(dir: string): void {
   execFileSync('git', ['init', '-q'], { cwd: dir })
   execFileSync('git', ['config', 'user.email', 't@t'], { cwd: dir })
   execFileSync('git', ['config', 'user.name', 't'], { cwd: dir })
+  execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir })
 }
 
 beforeEach(() => {
@@ -143,7 +148,9 @@ describe('init (fresh project install)', () => {
     ;(skillVersionHashes as Record<string, string>)[hashSkillDir(skillDir)] =
       '1.0.0'
     execFileSync('git', ['add', '.'], { cwd: e.project })
-    execFileSync('git', ['commit', '-qm', 'x'], { cwd: e.project })
+    execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
+      cwd: e.project,
+    })
     await init({ project: true }, e.deps)
     expect(readFileSync(join(skillDir, 'SKILL.md'), 'utf8')).toBe('v2 body')
     expect(stdout).toContain('git diff')
@@ -277,5 +284,88 @@ describe('init --upgrade', () => {
     const e = env()
     expect(await init({ upgrade: true }, e.deps)).toBe(0)
     expect(stdout).toContain('No Lumo installs found')
+  })
+})
+
+describe('fix round 1', () => {
+  const ctx = (cliVersion: string) => ({ cliVersion, agent: 'claude-code' })
+
+  it('--force never downgrades a newer managed copy', () => {
+    const e = env()
+    const dst = join(e.home, 'lumo')
+    installSkill(e.bundled, dst, false, ctx('3.0.0'))
+    writeFileSync(join(e.bundled, 'SKILL.md'), 'old bundle')
+    expect(installSkill(e.bundled, dst, true, ctx('2.0.0'))).toBe(
+      'skipped-newer'
+    )
+    expect(readFileSync(join(dst, 'SKILL.md'), 'utf8')).toBe('v2 body')
+    expect(readMarker(dst)?.version).toBe('3.0.0')
+  })
+
+  it('fails with exit 1 when the CLI version is unknown', async () => {
+    const e = env()
+    ;(readCliVersion as jest.Mock).mockReturnValueOnce(null)
+    const { cliVersion: _omit, ...deps } = e.deps
+    expect(await init({ project: true }, deps)).toBe(1)
+    expect(readRegistry().installs).toEqual([])
+  })
+
+  it('adopts a git-tracked legacy copy under explicit init (marker + diff note)', async () => {
+    const e = env('v1 body', '1.0.0')
+    const skill = join(e.project, '.claude', 'skills', 'lumo')
+    writeSkill(skill, 'v1 body')
+    ;(skillVersionHashes as Record<string, string>)[hashSkillDir(skill)] =
+      '1.0.0'
+    execFileSync('git', ['add', '.'], { cwd: e.project })
+    execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
+      cwd: e.project,
+    })
+    await init({ upgrade: true }, e.deps)
+    expect(readMarker(skill)?.version).toBe('1.0.0')
+    expect(stdout).toContain('git diff')
+  })
+
+  it.each([['user'], ['project'], ['force'], ['agent']])(
+    '--upgrade rejects --%s',
+    async flag => {
+      const e = env()
+      const opts = { upgrade: true, [flag]: flag === 'agent' ? 'codex' : true }
+      expect(await init(opts, e.deps)).toBe(1)
+    }
+  )
+
+  it('one failing target does not abort the rest; exit is non-zero', async () => {
+    const e = env()
+    await init({ project: true }, e.deps)
+    await init({ user: true }, e.deps)
+    const userSettings = join(e.home, '.claude', 'settings.json')
+    writeFileSync(userSettings, '{}\n')
+    writeFileSync(join(e.project, '.claude', 'settings.json'), '{ not json')
+    writeFileSync(join(e.bundled, 'SKILL.md'), 'v3 body')
+    const code = await init(
+      { upgrade: true },
+      { ...e.deps, cliVersion: '3.0.0' }
+    )
+    expect(code).toBe(1)
+    // the settings.json recorded after the broken one was still re-merged
+    expect(readFileSync(userSettings, 'utf8')).toContain('hooks')
+    expect(
+      readFileSync(
+        join(e.project, '.claude', 'skills', 'lumo', 'SKILL.md'),
+        'utf8'
+      )
+    ).toBe('v3 body')
+  })
+
+  it('notes git diff when re-merging a tracked settings.json', async () => {
+    const e = env()
+    await init({ project: true }, e.deps)
+    execFileSync('git', ['add', '.claude/settings.json'], { cwd: e.project })
+    execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
+      cwd: e.project,
+    })
+    stdout = ''
+    await init({ upgrade: true }, e.deps)
+    expect(stdout).toContain('settings.json is tracked by git')
   })
 })

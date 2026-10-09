@@ -22,7 +22,12 @@ import {
   writeMarker,
   type InstallRecord,
 } from '../lib/install-registry'
-import { classifySkillDir, isNewerVersion } from '../lib/install-state'
+import {
+  classifySkillDir,
+  isNewerVersion,
+  isPathGitTracked,
+} from '../lib/install-state'
+import { readCliVersion } from '../lib/cli-version'
 import { detectInstalledSkills } from '../lib/install-locations'
 
 type InitOptions = {
@@ -74,27 +79,29 @@ export function resolveAgentToken(
   return { token: ENUM_TO_TOKEN[enumValue]! }
 }
 
-/** Version of the running CLI, read from the package.json next to dist/. */
-export function readCliVersion(): string {
-  for (const rel of ['../../../..', '../..']) {
-    try {
-      const v = (
-        require(path.resolve(__dirname, rel, 'package.json')) as {
-          version?: string
-        }
-      ).version
-      if (v) return v
-    } catch {
-      // try the next layout (compiled dist/ vs. ts source)
-    }
+function requireCliVersion(): string {
+  const v = readCliVersion()
+  if (!v) {
+    throw new Error(
+      'Could not determine the @lumoai/cli version — reinstall @lumoai/cli.'
+    )
   }
-  return '0.0.0'
+  return v
 }
 
 export async function init(
   options: InitOptions,
   deps: InitDeps = {}
 ): Promise<number> {
+  if (
+    options.upgrade &&
+    (options.user || options.project || options.force || options.agent)
+  ) {
+    process.stderr.write(
+      'Error: --upgrade cannot be combined with --user, --project, --force or --agent.\n'
+    )
+    return 1
+  }
   if (options.user && options.project) {
     process.stderr.write(
       'Error: --user and --project are mutually exclusive.\n'
@@ -109,6 +116,12 @@ export async function init(
   }
 
   const cliVersion = deps.cliVersion ?? readCliVersion()
+  if (!cliVersion) {
+    process.stderr.write(
+      'Error: could not determine the @lumoai/cli version — reinstall @lumoai/cli.\n'
+    )
+    return 1
+  }
   const homeDir = deps.homeDir ?? os.homedir()
   const cwd = deps.cwd ?? process.cwd()
   const bundled = deps.bundledSkillDir ?? bundledSkillDir()
@@ -274,7 +287,7 @@ export function installSkill(
   skillDir: string,
   force: boolean,
   ctx: SkillInstallContext = {
-    cliVersion: readCliVersion(),
+    cliVersion: requireCliVersion(),
     agent: 'claude-code',
   }
 ): SkillInstallResult {
@@ -288,14 +301,28 @@ export function installSkill(
   const cls = classifySkillDir(skillDir)
   let result: SkillInstallResult = 'installed'
 
+  // No-downgrade has no --force exception: a managed copy newer than this CLI
+  // is never touched.
+  const installed = cls.state === 'managed' ? (cls.version ?? '0.0.0') : null
+  if (installed !== null && isNewerVersion(ctx.cliVersion, installed)) {
+    process.stdout.write(
+      `⚠ your CLI (${ctx.cliVersion}) is older than the installed skill (${installed}) — run lumo update\n`
+    )
+    return 'skipped-newer'
+  }
+
   if (cls.state !== 'missing' && !force) {
     const allMatch = relFiles.every(rel =>
       filesEqual(path.join(skillSrcDir, rel), path.join(skillDir, rel))
     )
-    if (allMatch) {
+    if (
+      allMatch ||
+      (installed !== null && !isNewerVersion(installed, ctx.cliVersion))
+    ) {
       if (!readMarker(skillDir)) {
-        // Adopt a legacy copy that already matches the bundle.
-        writeSkillMarker(skillDir, ctx, ctx.cliVersion, cls.gitTracked)
+        // Adopt a legacy copy: explicit command, so a tracked dir may get the marker.
+        writeSkillMarker(skillDir, ctx, allMatch ? ctx.cliVersion : installed!)
+        if (cls.gitTracked) process.stdout.write(gitDiffNote(skillDir))
       }
       process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
       return 'up-to-date'
@@ -306,22 +333,6 @@ export function installSkill(
           `  Skipped. Re-run with --force to overwrite.\n`
       )
       return 'skipped-modified'
-    }
-    // managed
-    const installed = cls.version ?? '0.0.0'
-    if (isNewerVersion(ctx.cliVersion, installed)) {
-      process.stdout.write(
-        `⚠ your CLI (${ctx.cliVersion}) is older than the installed skill (${installed}) — run lumo update\n`
-      )
-      return 'skipped-newer'
-    }
-    if (!isNewerVersion(installed, ctx.cliVersion)) {
-      // Same version, content equals what that version shipped.
-      if (!readMarker(skillDir)) {
-        writeSkillMarker(skillDir, ctx, installed, cls.gitTracked)
-      }
-      process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
-      return 'up-to-date'
     }
     result = 'upgraded'
   } else if (cls.state !== 'missing') {
@@ -337,7 +348,7 @@ export function installSkill(
     fs.mkdirSync(path.dirname(dst), { recursive: true })
     fs.copyFileSync(path.join(skillSrcDir, rel), dst)
   }
-  writeSkillMarker(skillDir, ctx, ctx.cliVersion, false)
+  writeSkillMarker(skillDir, ctx, ctx.cliVersion)
   process.stdout.write(
     `✓ wrote skill (${relFiles.length} files): ${skillDir}\n`
   )
@@ -345,17 +356,11 @@ export function installSkill(
   return result
 }
 
-/**
- * Write the install marker. Adoption of an existing git-tracked copy skips the
- * marker so an adopt-only run never dirties a team-reviewed path.
- */
 function writeSkillMarker(
   skillDir: string,
   ctx: SkillInstallContext,
-  version: string,
-  skipBecauseTracked: boolean
+  version: string
 ): void {
-  if (skipBecauseTracked) return
   writeMarker(skillDir, {
     version,
     hash: hashSkillDir(skillDir),
@@ -392,28 +397,44 @@ async function upgradeInstalls(args: {
 
   process.stdout.write('\nUpgrading Lumo installs\n\n')
   let found = 0
+  let failures = 0
+  const fail = (target: string, err: unknown): void => {
+    failures++
+    const msg = err instanceof Error ? err.message : String(err)
+    process.stderr.write(`✗ ${target}: ${msg}\n`)
+  }
   for (const t of targets.values()) {
     if (!fs.existsSync(t.path)) continue
     found++
-    const res = installSkill(bundled, t.path, false, {
-      cliVersion,
-      agent: t.agent,
-    })
-    if (isInstalledResult(res))
-      recordSkill(t.path, t.scope, t.agent, cliVersion)
+    try {
+      const res = installSkill(bundled, t.path, false, {
+        cliVersion,
+        agent: t.agent,
+      })
+      if (isInstalledResult(res))
+        recordSkill(t.path, t.scope, t.agent, cliVersion)
+    } catch (err) {
+      fail(t.path, err)
+    }
   }
   for (const r of reg.installs) {
     if (r.kind !== 'claude-settings' || !fs.existsSync(r.path)) continue
     found++
-    mergeSettings(path.dirname(r.path), r.agent)
-    recordInstall('claude-settings', r.path, r.scope, r.agent, cliVersion)
+    try {
+      const tracked = isPathGitTracked(r.path)
+      mergeSettings(path.dirname(r.path), r.agent)
+      recordInstall('claude-settings', r.path, r.scope, r.agent, cliVersion)
+      if (tracked) process.stdout.write(gitDiffNote(r.path))
+    } catch (err) {
+      fail(r.path, err)
+    }
   }
   if (found === 0) {
     process.stdout.write(
       'No Lumo installs found. Run `lumo init` to install.\n'
     )
   }
-  return 0
+  return failures > 0 ? 1 : 0
 }
 
 function mergeSettings(claudeDir: string, agentToken: string): string {

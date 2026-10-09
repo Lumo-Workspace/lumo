@@ -20,7 +20,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 | Domain                                                                                 | Read this reference                                                  |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `setup`, `auth login/logout`, `whoami`, `update`                                       | [references/onboarding.md](references/onboarding.md)                 |
+| `init`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)                 |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |

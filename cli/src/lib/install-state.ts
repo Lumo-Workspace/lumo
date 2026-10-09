@@ -1,5 +1,6 @@
 import { execFileSync } from 'child_process'
 import * as fs from 'fs'
+import * as path from 'path'
 import { isNewer } from './update-check'
 import { readMarker } from './install-registry'
 import { hashSkillDir } from './skill-hash'
@@ -27,9 +28,19 @@ export function isNewerVersion(current: string, candidate: string): boolean {
  * auto-write a path whose tracked-ness could not be established.
  */
 function isGitTracked(dir: string): boolean {
+  return lsFilesTracked(dir, [])
+}
+
+/** Same fail-closed check for a single file or directory path. */
+export function isPathGitTracked(p: string): boolean {
+  if (fs.statSync(p).isDirectory()) return lsFilesTracked(p, [])
+  return lsFilesTracked(path.dirname(p), ['--', path.basename(p)])
+}
+
+function lsFilesTracked(cwd: string, extra: string[]): boolean {
   try {
-    const out = execFileSync('git', ['ls-files'], {
-      cwd: dir,
+    const out = execFileSync('git', ['ls-files', ...extra], {
+      cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
     })
