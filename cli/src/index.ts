@@ -150,6 +150,7 @@ import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
 import { doctor } from './commands/doctor'
+import { uninstall } from './commands/uninstall'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
 import { worktreeList } from './commands/worktree-list'
@@ -360,6 +361,45 @@ program
   )
   .option('--json', 'Machine-readable output')
   .action(wrap(options => doctor(options as { json?: boolean })))
+
+program
+  .command('uninstall')
+  .description(
+    'Remove what `lumo init` installed: Lumo skill dirs, Lumo hook entries in Claude settings and ~/.codex/hooks.json, the marked block in prepare-commit-msg, and the install registry records. Locally edited skill copies are skipped unless --force; foreign hooks and file content are kept. Without --confirm prints a confirmation envelope (exit 4) listing every path; never commits. Ends with the manual `npm rm -g @lumoai/cli` step.'
+  )
+  .option(
+    '--scope <scope>',
+    'user (this machine), project (the current repo) or all (also recorded installs in other repos). Default: all'
+  )
+  .option(
+    '--agent <token>',
+    'Only installs of this agent (claude-code, codex, git, ...)'
+  )
+  .option(
+    '--force',
+    'Also delete skill copies that were edited locally (discards those edits)'
+  )
+  .option(
+    '--purge',
+    'Also delete everything in ~/.lumo (credentials, caches, install registry)'
+  )
+  .option(
+    '--confirm',
+    'Apply the removal after the user has approved the envelope'
+  )
+  .action(
+    wrap(options =>
+      uninstall(
+        options as {
+          scope?: string
+          agent?: string
+          force?: boolean
+          purge?: boolean
+          confirm?: boolean
+        }
+      )
+    )
+  )
 
 const crossing = program
   .command('crossing')

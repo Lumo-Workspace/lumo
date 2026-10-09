@@ -67,6 +67,31 @@ lumo doctor --json
 - The user asks whether Lumo is installed correctly, why hooks do not fire, or which copies are outdated
 - Before `lumo init --upgrade` or `--force`, to preview what would change
 
+### `lumo uninstall` — remove what `lumo init` installed (gated)
+
+Plans from the same collector as `lumo doctor`, so both agree on what is installed. Without `--confirm` it prints the standard confirmation envelope (exit 4) listing every path and action and changes nothing; re-run its `confirmCommand` only after the user approves. It never commits.
+
+| Flag              | Meaning                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| `--scope <s>`     | `user` (this machine) · `project` (the current repo) · `all` (default; also recorded installs in other repos) |
+| `--agent <token>` | only that agent's installs (`claude-code`, `codex`, `git`, …)                                                 |
+| `--force`         | also delete skill copies edited locally (listed as `Skip …` otherwise)                                        |
+| `--purge`         | also empty `~/.lumo` (credentials, caches, install registry) — the user must log in again                     |
+
+What `--confirm` does: deletes Lumo-managed skill dirs; removes only `lumo hook` entries from `settings.json` and `~/.codex/hooks.json` (file, other hooks and empty-array cleanup — the file stays); removes only the marked block from `prepare-commit-msg` (file deleted only when nothing but a shebang remains; under `core.hooksPath` only if the markers are present); drops registry records. Git-tracked paths are flagged "affects the whole team after you commit" — the deletion is left uncommitted for the user to review. An unreadable `installs.json` is never rewritten (only `--purge` deletes it). Codex trust entries in `config.toml` are left alone. The last line printed is the manual step `npm rm -g @lumoai/cli`.
+
+```bash
+lumo uninstall                       # envelope, nothing changes
+lumo uninstall --scope project --confirm
+lumo uninstall --scope user --agent codex --confirm
+lumo uninstall --purge --confirm
+```
+
+#### When to suggest
+
+- The user wants Lumo removed from this repo or machine, or to start clean before re-running `lumo init`
+- Never run it, or add `--confirm`, on your own initiative
+
 ## Authentication
 
 ### `lumo auth login` — paste an API key to log in

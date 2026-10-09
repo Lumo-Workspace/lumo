@@ -4453,6 +4453,54 @@
       "isInvokable": true,
       "description": "Whole wrap-up in one read (LUM-841): test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: requests no receipt, changes no status. Defaults to the session-bound task."
     },
+    "uninstall": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only installs of this agent (claude-code, codex, git, ...)"
+        },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Apply the removal after the user has approved the envelope"
+        },
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also delete skill copies that were edited locally (discards those edits)"
+        },
+        "--purge": {
+          "long": "--purge",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also delete everything in ~/.lumo (credentials, caches, install registry)"
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "user (this machine), project (the current repo) or all (also recorded installs in other repos). Default: all"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Remove what `lumo init` installed: Lumo skill dirs, Lumo hook entries in Claude settings and ~/.codex/hooks.json, the marked block in prepare-commit-msg, and the install registry records. Locally edited skill copies are skipped unless --force; foreign hooks and file content are kept. Without --confirm prints a confirmation envelope (exit 4) listing every path; never commits. Ends with the manual `npm rm -g @lumoai/cli` step."
+    },
     "update": {
       "arguments": [],
       "flags": {},

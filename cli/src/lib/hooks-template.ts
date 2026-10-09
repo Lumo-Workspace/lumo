@@ -144,3 +144,63 @@ export function mergeLumoHooks(
 
   return { merged: base, stats }
 }
+
+/**
+ * Remove Lumo hook entries, keeping every other key, group and hook. Groups
+ * and event arrays that this call emptied are dropped (ones already empty are
+ * left alone), and so is a `hooks` object that ends up empty. `isOurs`
+ * defaults to the canonical `lumo hook <slug>` match for the event; pass your
+ * own for other agents. With `topLevel` the events live at the root of the
+ * file instead of under `hooks` (Codex tolerates both). Never mutates input.
+ */
+export function removeLumoHooks(
+  existing: SettingsShape | undefined | null,
+  isOurs: (event: string, command: string) => boolean = defaultIsOurs,
+  topLevel = false
+): { result: SettingsShape; removed: number } {
+  const base = (existing ? JSON.parse(JSON.stringify(existing)) : {}) as Record<
+    string,
+    unknown
+  >
+  const holder = (topLevel ? base : base.hooks) as
+    | Record<string, unknown>
+    | undefined
+  let removed = 0
+  if (holder && typeof holder === 'object') {
+    for (const event of Object.keys(holder)) {
+      const groups = holder[event]
+      if (!Array.isArray(groups)) continue
+      const kept: unknown[] = []
+      let touched = false
+      for (const g of groups) {
+        const list = (g as { hooks?: unknown } | null)?.hooks
+        if (!Array.isArray(list)) {
+          kept.push(g)
+          continue
+        }
+        const left = list.filter(h => {
+          const c = (h as { command?: unknown } | null)?.command
+          return !(typeof c === 'string' && isOurs(event, c))
+        })
+        if (left.length === list.length) {
+          kept.push(g)
+          continue
+        }
+        removed += list.length - left.length
+        touched = true
+        if (left.length > 0) kept.push({ ...(g as object), hooks: left })
+      }
+      if (!touched) continue
+      if (kept.length > 0) holder[event] = kept
+      else delete holder[event]
+    }
+    if (!topLevel && Object.keys(holder).length === 0 && removed > 0)
+      delete base.hooks
+  }
+  return { result: base as SettingsShape, removed }
+}
+
+function defaultIsOurs(event: string, command: string): boolean {
+  const slug = LUMO_HOOK_EVENTS.find(([e]) => e === event)?.[1]
+  return slug !== undefined && isLumoHookCommand(command, slug)
+}
