@@ -10,7 +10,7 @@ import {
   resolveSessionStartStdout,
 } from '@/cli/src/lib/hook-runner'
 import { fetchSessionRecordNotice } from '@/cli/src/lib/session-record-notice'
-import { printSessionRecordNotice } from '@/cli/src/commands/setup'
+import { printSessionRecordNotice } from '@/cli/src/commands/init'
 import type { Credentials } from '@/cli/src/lib/config'
 
 const NOTICE =

@@ -2,7 +2,7 @@
 
 ## Onboarding
 
-### `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill + hooks
+### `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — install skill + hooks (alias: `lumo setup`)
 
 Bootstraps Lumo into a coding-agent installation. Copies the bundled skill files (`SKILL.md` **and its `references/` directory**) into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
 
@@ -23,19 +23,21 @@ When logged in, setup ends with one `ℹ Session records in this workspace: …`
 For every other agent, `--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
 
 ```bash
-npx @lumoai/cli setup                    # interactive: prompts user/project; agent=claude-code
-npx @lumoai/cli setup --user             # write to ~/.claude/
-npx @lumoai/cli setup --project          # write to ./.claude/
-lumo setup --project --force             # same via global install: overwrite skill files if they differ from bundled
-lumo setup --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, no hooks
-lumo setup --project --agent cursor      # bake agent=cursor into the hook commands
+npx @lumoai/cli init                     # interactive: prompts user/project; agent=claude-code
+npx @lumoai/cli init  --user             # write to ~/.claude/
+npx @lumoai/cli init  --project          # write to ./.claude/
+lumo init --project --force             # same via global install: overwrite skill files if they differ from bundled
+lumo init --upgrade                     # refresh all known installs (managed+older only; modified/newer skipped, never downgrades)
+lumo init --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, no hooks
+lumo setup --project                    # legacy hidden alias of `lumo init`
+lumo init --project --agent cursor      # bake agent=cursor into the hook commands
 ```
 
 #### When to suggest
 
 - The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
 - A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` (or, for Codex, `.agents/skills/lumo/SKILL.md`) yet
-- The user works in Codex — `lumo setup --agent codex` (add `--user` for every repo)
+- The user works in Codex — `lumo init --agent codex` (add `--user` for every repo)
 - After `npm install -g @lumoai/cli`, before the first `lumo auth login`
 - Wiring Lumo hooks into another agent (Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
 

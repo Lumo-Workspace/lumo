@@ -14,12 +14,43 @@ import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
 import { BUNDLED_SKILL_REL, listFiles } from '../lib/codex-plugin'
+import { hashSkillDir } from '../lib/skill-hash'
+import {
+  readMarker,
+  readRegistry,
+  upsertInstall,
+  writeMarker,
+  type InstallRecord,
+} from '../lib/install-registry'
+import { classifySkillDir, isNewerVersion } from '../lib/install-state'
+import { detectInstalledSkills } from '../lib/install-locations'
 
-type SetupOptions = {
+type InitOptions = {
   user?: boolean
   project?: boolean
   force?: boolean
   agent?: string
+  upgrade?: boolean
+}
+
+/** Test seams: everything defaults to the real environment. */
+export type InitDeps = {
+  cliVersion?: string
+  homeDir?: string
+  cwd?: string
+  bundledSkillDir?: string
+}
+
+export type SkillInstallResult =
+  | 'installed'
+  | 'upgraded'
+  | 'up-to-date'
+  | 'skipped-modified'
+  | 'skipped-newer'
+
+export type SkillInstallContext = {
+  cliVersion: string
+  agent: string
 }
 
 type Scope = 'user' | 'project'
@@ -43,7 +74,27 @@ export function resolveAgentToken(
   return { token: ENUM_TO_TOKEN[enumValue]! }
 }
 
-export async function setup(options: SetupOptions): Promise<number> {
+/** Version of the running CLI, read from the package.json next to dist/. */
+export function readCliVersion(): string {
+  for (const rel of ['../../../..', '../..']) {
+    try {
+      const v = (
+        require(path.resolve(__dirname, rel, 'package.json')) as {
+          version?: string
+        }
+      ).version
+      if (v) return v
+    } catch {
+      // try the next layout (compiled dist/ vs. ts source)
+    }
+  }
+  return '0.0.0'
+}
+
+export async function init(
+  options: InitOptions,
+  deps: InitDeps = {}
+): Promise<number> {
   if (options.user && options.project) {
     process.stderr.write(
       'Error: --user and --project are mutually exclusive.\n'
@@ -57,22 +108,34 @@ export async function setup(options: SetupOptions): Promise<number> {
     return 1
   }
 
+  const cliVersion = deps.cliVersion ?? readCliVersion()
+  const homeDir = deps.homeDir ?? os.homedir()
+  const cwd = deps.cwd ?? process.cwd()
+  const bundled = deps.bundledSkillDir ?? bundledSkillDir()
+
+  if (options.upgrade) {
+    return upgradeInstalls({ cliVersion, homeDir, cwd, bundled })
+  }
+
   const codex = agentResult.token === 'codex'
   const scope = await resolveScope(options, codex)
   if (!scope) return 130
 
-  const root = scope === 'user' ? os.homedir() : process.cwd()
+  const root = scope === 'user' ? homeDir : cwd
   const configRoot = path.join(root, codex ? '.agents' : '.claude')
 
   process.stdout.write(
     `\nInstalling Lumo for ${scope} scope: ${configRoot}\n\n`
   )
 
-  installSkill(
-    bundledSkillDir(),
-    skillInstallDir(root, agentResult.token),
-    options.force === true
-  )
+  const skillDir = skillInstallDir(root, agentResult.token)
+  const skillResult = installSkill(bundled, skillDir, options.force === true, {
+    cliVersion,
+    agent: agentResult.token,
+  })
+  if (isInstalledResult(skillResult)) {
+    recordSkill(skillDir, scope, agentResult.token, cliVersion)
+  }
   if (codex) {
     // LUM-1049: Codex reads skills natively from .agents/skills/; Lumo has no
     // Codex hook adapter yet, so nothing is written to its hook config.
@@ -80,10 +143,20 @@ export async function setup(options: SetupOptions): Promise<number> {
       'ℹ Codex: Lumo hooks are not available yet — `lumo session attach` and activity capture work in Claude Code only.\n'
     )
   } else {
-    mergeSettings(configRoot, agentResult.token)
+    const settingsPath = mergeSettings(configRoot, agentResult.token)
+    recordInstall(
+      'claude-settings',
+      settingsPath,
+      scope,
+      agentResult.token,
+      cliVersion
+    )
   }
   if (scope === 'project') {
-    installGitHook(root)
+    const hookPath = installGitHook(root)
+    if (hookPath) {
+      recordInstall('git-hook', hookPath, scope, agentResult.token, cliVersion)
+    }
   }
   await printSessionRecordNotice()
   printPostInstall(codex)
@@ -110,7 +183,7 @@ function bundledSkillDir(): string {
 }
 
 async function resolveScope(
-  options: SetupOptions,
+  options: InitOptions,
   codex: boolean
 ): Promise<Scope | null> {
   if (options.user) return 'user'
@@ -142,13 +215,69 @@ function filesEqual(src: string, dst: string): boolean {
   return fs.readFileSync(src).equals(fs.readFileSync(dst))
 }
 
+function isInstalledResult(r: SkillInstallResult): boolean {
+  return r === 'installed' || r === 'upgraded' || r === 'up-to-date'
+}
+
+function recordInstall(
+  kind: InstallRecord['kind'],
+  installPath: string,
+  scope: Scope,
+  agent: string,
+  version: string,
+  hash?: string
+): void {
+  upsertInstall({
+    kind,
+    path: installPath,
+    scope,
+    agent,
+    version,
+    ...(hash ? { hash } : {}),
+    installedAt: new Date().toISOString(),
+  })
+}
+
+/** Registry record for a skill dir, using the version/hash its marker holds. */
+function recordSkill(
+  skillDir: string,
+  scope: Scope,
+  agent: string,
+  fallbackVersion: string
+): void {
+  const marker = readMarker(skillDir)
+  recordInstall(
+    'skill',
+    skillDir,
+    scope,
+    agent,
+    marker?.version ?? fallbackVersion,
+    marker?.hash
+  )
+}
+
+function gitDiffNote(skillDir: string): string {
+  return `ℹ ${skillDir} is tracked by git — the change shows up in \`git diff\`; review and commit it for your team.\n`
+}
+
+/**
+ * Install or upgrade the bundled skill into `skillDir`.
+ *
+ * - missing → install; `managed` + bundled newer → replace the whole dir
+ *   (explicit user command, so git-tracked paths may be written);
+ * - same version → up to date; installed newer than the CLI → skip (never
+ *   downgrade); `modified` → skip unless `force`.
+ * A marker (`.lumo-install.json`) is written after every write.
+ */
 export function installSkill(
   skillSrcDir: string,
   skillDir: string,
-  force: boolean
-): void {
-  const skillDstMain = path.join(skillDir, 'SKILL.md')
-
+  force: boolean,
+  ctx: SkillInstallContext = {
+    cliVersion: readCliVersion(),
+    agent: 'claude-code',
+  }
+): SkillInstallResult {
   if (!fs.existsSync(path.join(skillSrcDir, 'SKILL.md'))) {
     throw new Error(
       `Bundled skill asset missing at ${skillSrcDir} — reinstall @lumoai/cli.`
@@ -156,39 +285,138 @@ export function installSkill(
   }
 
   const relFiles = listFiles(skillSrcDir)
+  const cls = classifySkillDir(skillDir)
+  let result: SkillInstallResult = 'installed'
 
-  // Non-force, install already present: only overwrite when something differs,
-  // and then only with --force.
-  if (fs.existsSync(skillDstMain) && !force) {
+  if (cls.state !== 'missing' && !force) {
     const allMatch = relFiles.every(rel =>
       filesEqual(path.join(skillSrcDir, rel), path.join(skillDir, rel))
     )
     if (allMatch) {
+      if (!readMarker(skillDir)) {
+        // Adopt a legacy copy that already matches the bundle.
+        writeSkillMarker(skillDir, ctx, ctx.cliVersion, cls.gitTracked)
+      }
       process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
-      return
+      return 'up-to-date'
     }
-    process.stdout.write(
-      `⚠ ${skillDir} exists and differs from the bundled version.\n` +
-        `  Re-run with --force to overwrite.\n`
-    )
-    return
+    if (cls.state === 'modified') {
+      process.stdout.write(
+        `⚠ ${skillDir} exists and differs from the bundled version (modified locally).\n` +
+          `  Skipped. Re-run with --force to overwrite.\n`
+      )
+      return 'skipped-modified'
+    }
+    // managed
+    const installed = cls.version ?? '0.0.0'
+    if (isNewerVersion(ctx.cliVersion, installed)) {
+      process.stdout.write(
+        `⚠ your CLI (${ctx.cliVersion}) is older than the installed skill (${installed}) — run lumo update\n`
+      )
+      return 'skipped-newer'
+    }
+    if (!isNewerVersion(installed, ctx.cliVersion)) {
+      // Same version, content equals what that version shipped.
+      if (!readMarker(skillDir)) {
+        writeSkillMarker(skillDir, ctx, installed, cls.gitTracked)
+      }
+      process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
+      return 'up-to-date'
+    }
+    result = 'upgraded'
+  } else if (cls.state !== 'missing') {
+    result = 'upgraded'
   }
 
-  // Fresh install or --force: the whole skills/lumo/ dir is Lumo-managed, so
-  // replace it wholesale — stale files (top-level or under references/) don't
-  // linger — then copy every bundled file.
+  // Fresh install, upgrade, or --force: the whole skills/lumo/ dir is
+  // Lumo-managed, so replace it wholesale — stale files (top-level or under
+  // references/) don't linger — then copy every bundled file.
   fs.rmSync(skillDir, { recursive: true, force: true })
   for (const rel of relFiles) {
     const dst = path.join(skillDir, rel)
     fs.mkdirSync(path.dirname(dst), { recursive: true })
     fs.copyFileSync(path.join(skillSrcDir, rel), dst)
   }
+  writeSkillMarker(skillDir, ctx, ctx.cliVersion, false)
   process.stdout.write(
     `✓ wrote skill (${relFiles.length} files): ${skillDir}\n`
   )
+  if (cls.gitTracked) process.stdout.write(gitDiffNote(skillDir))
+  return result
 }
 
-function mergeSettings(claudeDir: string, agentToken: string): void {
+/**
+ * Write the install marker. Adoption of an existing git-tracked copy skips the
+ * marker so an adopt-only run never dirties a team-reviewed path.
+ */
+function writeSkillMarker(
+  skillDir: string,
+  ctx: SkillInstallContext,
+  version: string,
+  skipBecauseTracked: boolean
+): void {
+  if (skipBecauseTracked) return
+  writeMarker(skillDir, {
+    version,
+    hash: hashSkillDir(skillDir),
+    agent: ctx.agent,
+    installedAt: new Date().toISOString(),
+  })
+}
+
+/**
+ * `lumo init --upgrade`: upgrade every known install (registry records plus
+ * detected locations) that is managed and older; re-merge hooks for recorded
+ * claude-settings. Modified or newer copies are skipped with a message.
+ */
+async function upgradeInstalls(args: {
+  cliVersion: string
+  homeDir: string
+  cwd: string
+  bundled: string
+}): Promise<number> {
+  const { cliVersion, homeDir, cwd, bundled } = args
+  const reg = readRegistry()
+  const targets = new Map<
+    string,
+    { path: string; scope: Scope; agent: string }
+  >()
+  for (const r of reg.installs) {
+    if (r.kind === 'skill') {
+      targets.set(r.path, { path: r.path, scope: r.scope, agent: r.agent })
+    }
+  }
+  for (const l of detectInstalledSkills({ homeDir, cwd })) {
+    if (!targets.has(l.path)) targets.set(l.path, l)
+  }
+
+  process.stdout.write('\nUpgrading Lumo installs\n\n')
+  let found = 0
+  for (const t of targets.values()) {
+    if (!fs.existsSync(t.path)) continue
+    found++
+    const res = installSkill(bundled, t.path, false, {
+      cliVersion,
+      agent: t.agent,
+    })
+    if (isInstalledResult(res))
+      recordSkill(t.path, t.scope, t.agent, cliVersion)
+  }
+  for (const r of reg.installs) {
+    if (r.kind !== 'claude-settings' || !fs.existsSync(r.path)) continue
+    found++
+    mergeSettings(path.dirname(r.path), r.agent)
+    recordInstall('claude-settings', r.path, r.scope, r.agent, cliVersion)
+  }
+  if (found === 0) {
+    process.stdout.write(
+      'No Lumo installs found. Run `lumo init` to install.\n'
+    )
+  }
+  return 0
+}
+
+function mergeSettings(claudeDir: string, agentToken: string): string {
   const settingsPath = path.join(claudeDir, 'settings.json')
   let existing: unknown = {}
 
@@ -221,6 +449,7 @@ function mergeSettings(claudeDir: string, agentToken: string): void {
       `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length})\n`
     )
   }
+  return settingsPath
 }
 
 function gitCapture(cwd: string, args: string[]): string | null {
@@ -229,21 +458,22 @@ function gitCapture(cwd: string, args: string[]): string | null {
   return res.stdout.trim()
 }
 
-export function installGitHook(projectRoot: string): void {
+/** Returns the hook file path when Lumo's block is in place, else null. */
+export function installGitHook(projectRoot: string): string | null {
   if (
     gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true'
   ) {
     process.stdout.write(
       '⚠ Not a git repository (or git unavailable) — skipped prepare-commit-msg hook.\n'
     )
-    return
+    return null
   }
 
   const coreHooksPath =
     gitCapture(projectRoot, ['config', 'core.hooksPath']) || null
   if (resolveHookInstall(coreHooksPath).mode === 'degrade') {
     printGitHookManualInstructions(coreHooksPath!)
-    return
+    return null
   }
 
   const hooksDirRaw = gitCapture(projectRoot, [
@@ -255,7 +485,7 @@ export function installGitHook(projectRoot: string): void {
     process.stdout.write(
       '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'
     )
-    return
+    return null
   }
   const absHooksDir = path.isAbsolute(hooksDirRaw)
     ? hooksDirRaw
@@ -271,7 +501,7 @@ export function installGitHook(projectRoot: string): void {
     process.stdout.write(
       `✓ prepare-commit-msg hook already up to date: ${hookPath}\n`
     )
-    return
+    return hookPath
   }
 
   try {
@@ -281,7 +511,7 @@ export function installGitHook(projectRoot: string): void {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     process.stdout.write(`⚠ could not write prepare-commit-msg hook: ${msg}\n`)
-    return
+    return null
   }
 
   const verb =
@@ -291,6 +521,7 @@ export function installGitHook(projectRoot: string): void {
         ? 'appended to'
         : 'updated'
   process.stdout.write(`✓ ${verb} prepare-commit-msg hook: ${hookPath}\n`)
+  return hookPath
 }
 
 function printGitHookManualInstructions(coreHooksPath: string): void {
@@ -307,7 +538,7 @@ function printGitHookManualInstructions(coreHooksPath: string): void {
 /**
  * LUM-943: tell the member how their workspace keeps session records (mode,
  * retention, where an OWNER changes it). Prints nothing when the notice can't
- * be fetched — not logged in, offline, an older server — so setup never fails
+ * be fetched — not logged in, offline, an older server — so init never fails
  * or stalls on it.
  */
 export async function printSessionRecordNotice(

@@ -21,16 +21,24 @@ export function isNewerVersion(current: string, candidate: string): boolean {
   return isNewer(current, candidate)
 }
 
+/**
+ * Fails closed: only "git is not installed" or "not inside a git work tree"
+ * mean untracked. Any other git failure is treated as tracked so callers never
+ * auto-write a path whose tracked-ness could not be established.
+ */
 function isGitTracked(dir: string): boolean {
   try {
     const out = execFileSync('git', ['ls-files'], {
       cwd: dir,
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
     })
     return out.trim().length > 0
-  } catch {
-    return false
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException & { stderr?: string | Buffer }
+    if (e.code === 'ENOENT') return false
+    if (/not a git repository/i.test(String(e.stderr ?? ''))) return false
+    return true
   }
 }
 

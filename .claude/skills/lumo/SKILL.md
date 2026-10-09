@@ -10,7 +10,7 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
 
-**Agent support:** everything works in Claude Code. In Codex (skill installed by `lumo setup --agent codex`) there are no Lumo hooks yet — `session attach/status`, activity capture, `memory sync` and `usage resync` are Claude Code only, so skip them and say so; every other command works.
+**Agent support:** everything works in Claude Code. In Codex (skill installed by `lumo init --agent codex`) there are no Lumo hooks yet — `session attach/status`, activity capture, `memory sync` and `usage resync` are Claude Code only, so skip them and say so; every other command works.
 
 ## How this skill is organized
 
@@ -49,7 +49,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
-- `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill files + hooks (`--agent codex`: skill into `.agents/skills/`, no hooks)
+- `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — install skill files + hooks (`lumo setup` is a hidden alias; `--upgrade` refreshes every known install, skipping modified or newer copies; `--agent codex`: skill into `.agents/skills/`, no hooks)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
 - `lumo update` — upgrade the CLI to the latest npm release

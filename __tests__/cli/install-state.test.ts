@@ -82,6 +82,22 @@ describe('classifySkillDir', () => {
     execFileSync('git', ['init', '-q'], { cwd: root })
     expect(classifySkillDir(d, {}).gitTracked).toBe(false)
   })
+  it('fails closed: an unreadable git index counts as tracked', () => {
+    const d = skill()
+    execFileSync('git', ['init', '-q'], { cwd: root })
+    writeFileSync(join(root, '.git', 'index'), 'garbage')
+    expect(classifySkillDir(d, {}).gitTracked).toBe(true)
+  })
+  it('git not installed counts as untracked', () => {
+    const d = skill()
+    const prev = process.env.PATH
+    process.env.PATH = ''
+    try {
+      expect(classifySkillDir(d, {}).gitTracked).toBe(false)
+    } finally {
+      process.env.PATH = prev
+    }
+  })
 })
 
 describe('isNewerVersion', () => {

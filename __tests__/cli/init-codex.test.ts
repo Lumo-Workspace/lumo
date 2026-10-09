@@ -11,7 +11,7 @@ import {
 } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { installSkill, skillInstallDir } from '@/cli/src/commands/setup'
+import { installSkill, skillInstallDir } from '@/cli/src/commands/init'
 
 let stdoutSpy: jest.SpyInstance
 

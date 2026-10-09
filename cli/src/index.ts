@@ -148,7 +148,7 @@ import { docUnshare } from './commands/doc-unshare'
 import { docShareList } from './commands/doc-share-list'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
-import { setup } from './commands/setup'
+import { init } from './commands/init'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
 import { worktreeList } from './commands/worktree-list'
@@ -299,39 +299,52 @@ program
   )
   .action(wrap(update))
 
-program
-  .command('setup')
-  .description(
-    'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: install the skill into .agents/skills/ for Codex, no hooks). Run via `npx @lumoai/cli setup` for first-time onboarding.'
-  )
-  .option(
-    '--user',
-    'Install into ~/.claude, or ~/.agents for Codex (applies across all projects for this user)'
-  )
-  .option(
-    '--project',
-    'Install into ./.claude, or ./.agents for Codex (applies to the current project only)'
-  )
-  .option(
-    '--force',
-    'Overwrite existing skill files (SKILL.md + references/) when they differ from the bundled version'
-  )
-  .option(
-    '--agent <token>',
-    'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout instead. Defaults to claude-code.'
-  )
-  .action(
-    wrap(options =>
-      setup(
-        options as {
-          user?: boolean
-          project?: boolean
-          force?: boolean
-          agent?: string
-        }
+function registerInit(name: string, hidden: boolean): void {
+  program
+    .command(name, hidden ? { hidden: true } : undefined)
+    .description(
+      hidden
+        ? 'Alias of `lumo init` (kept for older docs and scripts).'
+        : 'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: install the skill into .agents/skills/ for Codex, no hooks). Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs.'
+    )
+    .option(
+      '--user',
+      'Install into ~/.claude, or ~/.agents for Codex (applies across all projects for this user)'
+    )
+    .option(
+      '--project',
+      'Install into ./.claude, or ./.agents for Codex (applies to the current project only)'
+    )
+    .option(
+      '--force',
+      'Overwrite existing skill files (SKILL.md + references/) even when they were modified locally'
+    )
+    .option(
+      '--agent <token>',
+      'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout instead. Defaults to claude-code.'
+    )
+    .option(
+      '--upgrade',
+      'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped'
+    )
+    .action(
+      wrap(options =>
+        init(
+          options as {
+            user?: boolean
+            project?: boolean
+            force?: boolean
+            agent?: string
+            upgrade?: boolean
+          }
+        )
       )
     )
-  )
+}
+
+registerInit('init', false)
+// `setup` is the pre-LUM-1052 name; hidden alias running the same action.
+registerInit('setup', true)
 
 const crossing = program
   .command('crossing')
@@ -2717,7 +2730,7 @@ const hook = program
   )
 
 // Slug → help-text for every `lumo hook <slug>` subcommand. Each one accepts
-// an optional `--agent <token>` flag (baked into settings.json by `lumo setup
+// an optional `--agent <token>` flag (baked into settings.json by `lumo init
 // --agent <token>`); the value rides to the server as the X-Lumo-Agent header
 // so auto-sedimented memories are attributed to the agent that produced them.
 // Keep this list in sync with LUMO_HOOK_EVENTS (cli/src/lib/hooks-template.ts)
@@ -2828,7 +2841,7 @@ for (const [slug, description] of HOOK_SUBCOMMANDS) {
     .description(description)
     .option(
       '--agent <token>',
-      'Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`.'
+      'Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo init --agent`.'
     )
     .action(
       wrap((opts: unknown) =>

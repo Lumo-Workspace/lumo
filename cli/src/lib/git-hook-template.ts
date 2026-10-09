@@ -15,7 +15,7 @@ const SHEBANG = '#!/bin/sh'
 // already carries any [LUM-x] tag.
 export const HOOK_SCRIPT_BLOCK = `${LUMO_HOOK_BEGIN}
 # Auto-append the branch's task ID ([LUM-N]) to the commit subject when absent.
-# Managed by \`lumo setup\` — edit between the markers at your own risk.
+# Managed by \`lumo init\` — edit between the markers at your own risk.
 case "$2" in
   merge|squash) exit 0 ;;
 esac
@@ -32,7 +32,11 @@ awk -v id="$lumo_id" '
 ' "$1" > "$lumo_tmp" && mv "$lumo_tmp" "$1"
 ${LUMO_HOOK_END}`
 
-export type MergeGitHookStatus = 'created' | 'updated' | 'unchanged' | 'appended'
+export type MergeGitHookStatus =
+  | 'created'
+  | 'updated'
+  | 'unchanged'
+  | 'appended'
 
 /**
  * Idempotently fold the Lumo block into an existing prepare-commit-msg file.
@@ -71,7 +75,7 @@ export function mergeGitHook(existing: string | null): {
 }
 
 /**
- * Decide whether `lumo setup` can write the hook directly. When
+ * Decide whether `lumo init` can write the hook directly. When
  * `core.hooksPath` is set (husky or a custom dir), writing into it risks being
  * clobbered or landing where git won't run it — so we degrade to instructions.
  */

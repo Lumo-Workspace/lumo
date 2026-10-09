@@ -28,7 +28,7 @@ You see a suggestion line. Confirm the inferred task is the one the user wants, 
 
 ### Session record notice at session start (LUM-943)
 
-Every session start — bound or not — injects one line saying how this workspace stores session records: the mode (kept forever / kept at least N days / code and command output not stored, discarded after the work is used up), that credentials are always redacted, and that an OWNER can change it in **Settings → Data retention** (with the link). It is read fresh each session start, so an OWNER's change shows on the next one. An older server or a failed lookup simply omits the line. `lumo setup` prints the same line when logged in.
+Every session start — bound or not — injects one line saying how this workspace stores session records: the mode (kept forever / kept at least N days / code and command output not stored, discarded after the work is used up), that credentials are always redacted, and that an OWNER can change it in **Settings → Data retention** (with the link). It is read fresh each session start, so an OWNER's change shows on the next one. An older server or a failed lookup simply omits the line. `lumo init` prints the same line when logged in.
 
 #### When to suggest
 
