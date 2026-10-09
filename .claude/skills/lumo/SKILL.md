@@ -10,7 +10,7 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
 
-**Agent support:** Claude Code and Codex (CLI + desktop app; `lumo init --agent codex` installs the skill and `.codex/hooks.json`). In Codex, `session attach/status` and activity capture work once the user has **trusted the Lumo hooks** (Codex app Settings → Hooks, or `/hooks`) — untrusted hooks are skipped silently, and attach/status then print a warning to relay. `memory sync` / `memory push` are Claude Code only (Codex refuses them; team memory comes via `task context`). See [sessions.md](references/sessions.md#codex).
+**Agent support:** Claude Code and Codex (`lumo init --agent codex` installs the skill and `.codex/hooks.json`). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn; relay it. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
 
 ## How this skill is organized
 
@@ -51,7 +51,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — install skill files + hooks (`lumo setup` is a hidden alias; `--upgrade` refreshes every known install, skipping modified or newer copies; `--agent codex`: skill into `.agents/skills/` + hooks into `.codex/hooks.json`, then trust them in Codex)
 - `lumo doctor [--json]` — read-only report of every Lumo install (skills, Claude/Codex hooks, git hook): version, state, fix command; warns on missing hook events, `lumo` not on PATH, untrusted Codex hooks
-- `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits; prints `npm rm -g @lumoai/cli` last) — see [onboarding.md](references/onboarding.md)
+- `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits) — see [onboarding.md](references/onboarding.md)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
 - `lumo update [--auto on|off]` — upgrade the CLI now; `--auto` toggles background self-update (default on; also off via `LUMO_NO_AUTO_UPDATE=1`/`CI`) — see [onboarding.md](references/onboarding.md)
