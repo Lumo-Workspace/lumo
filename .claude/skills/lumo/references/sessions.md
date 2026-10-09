@@ -191,7 +191,7 @@ The user asks to "review/accept/plan a milestone", to act as reviewer/steward ac
 
 ### Parallel sessions
 
-Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID`. Two terminals running `claude code` and binding to different tasks will not interfere — bindings are scoped per session row server-side.
+Each Claude Code or Codex session has its own session id (`CLAUDE_CODE_SESSION_ID` / `CODEX_THREAD_ID`, see [Codex](#codex) below). Two terminals running an agent and binding to different tasks will not interfere — bindings are scoped per session row server-side.
 
 ### `lumo session status` — show current binding
 
@@ -199,7 +199,7 @@ Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID`. Two terminals run
 lumo session status
 ```
 
-Prints what the current Claude Code session is bound to — a task, a milestone (`Role: STEWARD (governance — plan & accept only)`), or "(no task)" if none. Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code).
+Prints what the current Claude Code or Codex session is bound to — a task, a milestone (`Role: STEWARD (governance — plan & accept only)`), or "(no task)" if none. Must run inside a Claude Code or Codex session (`$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`).
 
 Against a server that reports attribution (LUM-932) it also lists where the run's work is going. A subagent's own session prints `Subagent of: <parent session>` and shows its family's view.
 

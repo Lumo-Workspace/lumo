@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.101.0",
+  "cliVersion": "1.101.2",
   "commands": {
     "audit": {
       "arguments": [],
@@ -159,7 +159,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Aggregate a single Claude Code session"
+          "description": "Aggregate a single Claude Code or Codex session"
         },
         "--since": {
           "long": "--since",
@@ -2511,14 +2511,14 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead."
+      "description": "Attach the current Claude Code or Codex session to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead."
     },
     "session status": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show what this Claude Code session is bound to: a task, a milestone (STEWARD governance session), or nothing."
+      "description": "Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing."
     },
     "setup": {
       "arguments": [],

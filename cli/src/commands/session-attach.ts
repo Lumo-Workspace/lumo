@@ -45,19 +45,20 @@ interface StewardBoundResponse {
 }
 
 /**
- * `lumo session attach <identifier> [--steward]` — bind the currently-running
- * Claude Code session to a task, or (with `--steward`) to a MILESTONE as a
+ * `lumo session attach <identifier> [--steward]` — bind the current Claude
+ * Code or Codex session to a task, or (with `--steward`) to a MILESTONE as a
  * STEWARD (governance) session (LUM-640).
  *
- * Required environment: `CLAUDE_CODE_SESSION_ID` (set automatically by
- * Claude Code). Must be invoked from inside a Claude Code session.
+ * Required environment: `CLAUDE_CODE_SESSION_ID` (Claude Code) or
+ * `CODEX_THREAD_ID` (Codex, LUM-1051), both set automatically by the agent —
+ * resolved in `lib/session-id`. Must be invoked from inside such a session.
  *
  * Both forms are a **lifetime lock** (LUM-459/LUM-640): the binding is
  * write-once. Re-attaching to the *same* task/milestone is an idempotent
  * no-op. Attaching to anything else — a different task, a different
  * milestone, a task after a steward bind, a milestone after a task bind —
  * is refused with HTTP 409; there is no `--force` and no `session detach`;
- * a different binding requires a brand-new Claude Code session.
+ * a different binding requires a brand-new agent session.
  *
  * A STEWARD session plans and accepts only: task create/update, milestone
  * exit criteria, deps confirm/dismiss, milestone add/remove and all
@@ -172,14 +173,14 @@ export async function sessionAttach(
     if (stewardMilestone) {
       console.error(
         `Error: this session is a STEWARD (governance) session for milestone "${stewardMilestone}" — ` +
-          'it cannot attach a task. Start a new Claude Code session to ' +
+          'it cannot attach a task. Start a new session to ' +
           `implement ${identifier}.`
       )
       return 1
     }
     console.error(
       `Error: this session is permanently bound to ${current}. ` +
-        'A session works one task for its lifetime — start a new Claude Code ' +
+        'A session works one task for its lifetime — start a new Claude Code or Codex ' +
         `session to work on ${identifier}.`
     )
     return 1

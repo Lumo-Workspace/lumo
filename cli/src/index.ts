@@ -603,7 +603,7 @@ program
     'Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session'
   )
   .option('--task <id>', 'Aggregate a single task (e.g. LUM-42)')
-  .option('--session <id>', 'Aggregate a single Claude Code session')
+  .option('--session <id>', 'Aggregate a single Claude Code or Codex session')
   .option(
     '--since <date>',
     'Workspace window lower bound (ISO date); default last 30 days'
@@ -678,7 +678,7 @@ const session = program
 session
   .command('attach <identifier>')
   .description(
-    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead.'
+    'Attach the current Claude Code or Codex session to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead.'
   )
   .option(
     '--steward',
@@ -704,7 +704,7 @@ session
 session
   .command('status')
   .description(
-    'Show what this Claude Code session is bound to: a task, a milestone (STEWARD governance session), or nothing.'
+    'Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing.'
   )
   .action(wrap(() => sessionStatus()))
 

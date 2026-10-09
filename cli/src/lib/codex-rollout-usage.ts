@@ -56,8 +56,10 @@ function accumulateRollout(
     return { seen: false, subagentThreadIds: [] }
   }
   let model = 'unknown'
-  // The rollout's own thread (session_meta.id). Usage records of any other
-  // thread are skipped so a subagent's usage can never count twice.
+  // The rollout's own thread: the FIRST session_meta.id. A forked subagent's
+  // rollout (`forked_from_id`) also carries a copy of the parent's
+  // session_meta after its own, which must not take over. Usage records of
+  // any other thread are skipped so a subagent's usage can never count twice.
   let ownThread: string | null = null
   const byResponse = new Map<string, { model: string; usage: ModelUsage }>()
   const subagents = new Set<string>()
@@ -73,7 +75,8 @@ function accumulateRollout(
     const p = line.payload
     if (!p || typeof p !== 'object') continue
     if (line.type === 'session_meta') {
-      if (typeof p.id === 'string' && p.id) ownThread = p.id
+      if (ownThread === null && typeof p.id === 'string' && p.id)
+        ownThread = p.id
       continue
     }
     if (line.type === 'turn_context') {
