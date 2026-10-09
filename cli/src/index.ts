@@ -159,6 +159,7 @@ import {
   runBackgroundRefresh,
 } from './lib/update-check'
 import { sanitizeField } from './lib/sanitize'
+import { maybeAutoSync } from './lib/auto-sync'
 
 // Introspection mode: tooling (CLI grammar extraction) imports
 // this module to walk the registered commander tree without running the CLI.
@@ -188,6 +189,9 @@ if (isUpdateCheckWorker) {
 } else if (!isIntrospect) {
   printUpdateNoticeIfAny(pkg.name, pkg.version)
   maybeRefreshInBackground(pkg.name)
+  // First run of a new version: refresh user-scope installs. Silent for
+  // `lumo hook …` (its output is consumed by the agent). Never throws.
+  maybeAutoSync(pkg.version, { quiet: process.argv[2] === 'hook' })
 }
 
 // LUM-843: a 401 that a command reported only as `HTTP 401` still ends with
