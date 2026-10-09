@@ -198,12 +198,12 @@
       "reason": "design-system, privacy and legal docs are public (LUM-1033 2/5); internal reports excluded below"
     },
     {
-      "glob": "scripts/**",
-      "reason": "build/lint/dev tooling and maintenance scripts; evaluation and obsolete probes excluded below"
-    },
-    {
       "glob": "scripts/cli-grammar/**",
       "reason": "LUM-1055: CLI command grammar snapshot + drift guards (grammar-drift / doc-examples / AST validator) moved out of the private scripts/analysis tree so the public repo keeps them"
+    },
+    {
+      "glob": "scripts/**",
+      "reason": "build/lint/dev tooling and maintenance scripts; evaluation and obsolete probes excluded below"
     }
   ],
   "exclude": [
