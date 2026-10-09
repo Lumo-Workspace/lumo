@@ -243,6 +243,26 @@ describe('sumCodexRolloutUsage', () => {
     }
   })
 
+  it('skips usage records of another thread (never double counts a subagent)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lumo-codex-rollout-'))
+    try {
+      const file = join(root, `rollout-x-${ROOT_ID}.jsonl`)
+      const foreign = usageLine('resp_x', 500, 0, 5)
+      ;(foreign.payload as Record<string, unknown>).thread_id = SUB_ID
+      const own = usageLine('resp_o', 100, 0, 1)
+      ;(own.payload as Record<string, unknown>).thread_id = ROOT_ID
+      writeFileSync(
+        file,
+        [{ type: 'session_meta', payload: { id: ROOT_ID } }, own, foreign]
+          .map(l => JSON.stringify(l))
+          .join('\n')
+      )
+      expect(sumCodexRolloutUsage(file)!.total.inputTokens).toBe(100)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('returns null for a missing or usage-less rollout', () => {
     expect(sumCodexRolloutUsage('/nonexistent/rollout.jsonl')).toBeNull()
   })

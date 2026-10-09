@@ -24,7 +24,10 @@ const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 function parseAgentHeader(request: Request): TaskArtifactAgent | undefined {
   const raw = request.headers.get('x-lumo-agent')
   if (!raw) return undefined
-  return raw in TaskArtifactAgent ? (raw as TaskArtifactAgent) : undefined
+  // Own keys only — `in` would also accept prototype keys like `toString`.
+  return Object.prototype.hasOwnProperty.call(TaskArtifactAgent, raw)
+    ? (raw as TaskArtifactAgent)
+    : undefined
 }
 
 export interface AfterRecordContext {

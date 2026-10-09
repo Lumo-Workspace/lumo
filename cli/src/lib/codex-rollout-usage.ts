@@ -56,6 +56,9 @@ function accumulateRollout(
     return { seen: false, subagentThreadIds: [] }
   }
   let model = 'unknown'
+  // The rollout's own thread (session_meta.id). Usage records of any other
+  // thread are skipped so a subagent's usage can never count twice.
+  let ownThread: string | null = null
   const byResponse = new Map<string, { model: string; usage: ModelUsage }>()
   const subagents = new Set<string>()
   let anonymous = 0
@@ -69,6 +72,10 @@ function accumulateRollout(
     }
     const p = line.payload
     if (!p || typeof p !== 'object') continue
+    if (line.type === 'session_meta') {
+      if (typeof p.id === 'string' && p.id) ownThread = p.id
+      continue
+    }
     if (line.type === 'turn_context') {
       if (typeof p.model === 'string' && p.model) model = p.model
       continue
@@ -86,6 +93,12 @@ function accumulateRollout(
       continue
     }
     if (line.type !== 'token_usage_record') continue
+    if (
+      ownThread !== null &&
+      typeof p.thread_id === 'string' &&
+      p.thread_id !== ownThread
+    )
+      continue
     const u = p.usage as Record<string, unknown> | undefined
     if (!u || typeof u !== 'object') continue
     const input = num(u.input_tokens)

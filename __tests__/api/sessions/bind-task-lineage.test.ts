@@ -111,3 +111,21 @@ describe('bind-task route — attribution recompute (LUM-932)', () => {
     expect(recomputeAttributionSafely).toHaveBeenCalledWith('s-1')
   })
 })
+
+describe('bind-task route — agent (LUM-1051)', () => {
+  it('forwards a known agent and drops unknown or prototype keys', async () => {
+    await bindRoute.POST(
+      req({ taskIdentifier: 'LUM-42', agent: 'CODEX' }),
+      params
+    )
+    expect(sessionService.bindSessionToTask).toHaveBeenLastCalledWith(
+      expect.objectContaining({ agent: 'CODEX' })
+    )
+    for (const agent of ['toString', 'bogus', 7]) {
+      await bindRoute.POST(req({ taskIdentifier: 'LUM-42', agent }), params)
+      expect(
+        (sessionService.bindSessionToTask as jest.Mock).mock.lastCall[0]
+      ).not.toHaveProperty('agent')
+    }
+  })
+})

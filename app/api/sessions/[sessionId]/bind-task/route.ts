@@ -42,7 +42,8 @@ export async function POST(
 
   try {
     const agent =
-      typeof body.agent === 'string' && body.agent in TaskArtifactAgent
+      typeof body.agent === 'string' &&
+      Object.prototype.hasOwnProperty.call(TaskArtifactAgent, body.agent)
         ? (body.agent as TaskArtifactAgent)
         : undefined
     const result = await sessionService.bindSessionToTask({
