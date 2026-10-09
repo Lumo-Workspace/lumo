@@ -306,6 +306,40 @@ function sessionContextEnvelope(
 }
 
 /**
+ * LUM-1054: Codex takes hook stdout as plain text OR one JSON object, and
+ * marks a mix of both (our status line followed by the context JSON line) as
+ * a failed hook run — dropping every line. Fold the lines Claude Code gets
+ * into a single `hookSpecificOutput` object: plain lines verbatim, envelope
+ * lines by their `additionalContext`, joined with newlines. The parts were
+ * already sanitized when the lines were built. Returns [] when there is
+ * nothing to say.
+ */
+export function codexHookStdout(eventName: string, lines: string[]): string[] {
+  const parts = lines.map(line => {
+    try {
+      const parsed: unknown = JSON.parse(line)
+      const ctx = (
+        parsed as { hookSpecificOutput?: { additionalContext?: unknown } }
+      )?.hookSpecificOutput?.additionalContext
+      if (typeof ctx === 'string') return ctx
+    } catch {
+      // not JSON — a plain status line
+    }
+    return line
+  })
+  const filled = parts.filter(p => p !== '')
+  if (filled.length === 0) return []
+  return [
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: eventName,
+        additionalContext: filled.join('\n'),
+      },
+    }),
+  ]
+}
+
+/**
  * Dependencies for `resolveSessionStartStdout`, injected so the orchestration
  * can be unit-tested without touching git. The only signal we need is the
  * task inferred from local git; binding is no longer done automatically
@@ -725,7 +759,13 @@ export async function runHookWithBody(
                   }
                 )
               : formatHookStdoutLines(path, responseBody)
-          for (const line of lines) {
+          // LUM-1054: Codex rejects text + JSON on one run. PreToolUse is
+          // already a single Codex-valid object, so only SessionStart folds.
+          const out =
+            agentEnum === 'CODEX' && path === 'session-start'
+              ? codexHookStdout('SessionStart', lines)
+              : lines
+          for (const line of out) {
             process.stdout.write(line + '\n')
           }
         } catch {
