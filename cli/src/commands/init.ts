@@ -13,7 +13,7 @@ import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
-import { BUNDLED_SKILL_REL, listFiles } from '../lib/codex-plugin'
+import { bundledSkillDir, copySkillTree, listFiles } from '../lib/codex-plugin'
 import { hashSkillDir } from '../lib/skill-hash'
 import {
   readMarker,
@@ -188,13 +188,6 @@ export function skillInstallDir(root: string, agentToken: string): string {
     : path.join(root, '.claude', 'skills', 'lumo')
 }
 
-// The skill directory bundled at the package root by scripts/bundle-assets.js
-// and shipped via package.json "files".
-// From dist/cli/src/commands/setup.js → ../../../../skills/lumo
-function bundledSkillDir(): string {
-  return path.resolve(__dirname, '../../../..', BUNDLED_SKILL_REL)
-}
-
 async function resolveScope(
   options: InitOptions,
   codex: boolean
@@ -342,12 +335,7 @@ export function installSkill(
   // Fresh install, upgrade, or --force: the whole skills/lumo/ dir is
   // Lumo-managed, so replace it wholesale — stale files (top-level or under
   // references/) don't linger — then copy every bundled file.
-  fs.rmSync(skillDir, { recursive: true, force: true })
-  for (const rel of relFiles) {
-    const dst = path.join(skillDir, rel)
-    fs.mkdirSync(path.dirname(dst), { recursive: true })
-    fs.copyFileSync(path.join(skillSrcDir, rel), dst)
-  }
+  copySkillTree(skillSrcDir, skillDir)
   writeSkillMarker(skillDir, ctx, ctx.cliVersion)
   process.stdout.write(
     `✓ wrote skill (${relFiles.length} files): ${skillDir}\n`

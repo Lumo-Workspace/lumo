@@ -82,6 +82,38 @@ export function listFiles(dir: string, base: string = dir): string[] {
 }
 
 /**
+ * Where the bundled skill lives on disk. `fromDir` is the compiled module dir
+ * (`<pkg>/dist/cli/src/lib`), four levels below the package root.
+ */
+export function bundledSkillDir(fromDir: string = __dirname): string {
+  return path.resolve(fromDir, '../../../..', BUNDLED_SKILL_REL)
+}
+
+/**
+ * Replace `dst` with a copy of `src`. Copies into a sibling temp dir first and
+ * only removes the old `dst` at the final rename, so a mid-copy failure leaves
+ * the previous copy intact. Returns the relative file list.
+ */
+export function copySkillTree(src: string, dst: string): string[] {
+  const files = listFiles(src)
+  const tmp = `${dst}.tmp-${process.pid}`
+  fs.mkdirSync(path.dirname(dst), { recursive: true })
+  try {
+    fs.rmSync(tmp, { recursive: true, force: true })
+    for (const rel of files) {
+      const to = path.join(tmp, rel)
+      fs.mkdirSync(path.dirname(to), { recursive: true })
+      fs.copyFileSync(path.join(src, rel), to)
+    }
+    fs.rmSync(dst, { recursive: true, force: true })
+    fs.renameSync(tmp, dst)
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+  return files
+}
+
+/**
  * Write the plugin bundle into `packageRoot`: a fresh copy of `skillSrcDir`
  * at `skills/lumo/` (stale files removed first) and `plugin.json`.
  */
@@ -94,13 +126,7 @@ export function writePluginBundle(
     throw new Error(`cannot find SKILL.md under ${skillSrcDir}`)
   }
   const skillDst = path.join(packageRoot, BUNDLED_SKILL_REL)
-  fs.rmSync(skillDst, { recursive: true, force: true })
-  const skillFiles = listFiles(skillSrcDir)
-  for (const rel of skillFiles) {
-    const dst = path.join(skillDst, rel)
-    fs.mkdirSync(path.dirname(dst), { recursive: true })
-    fs.copyFileSync(path.join(skillSrcDir, rel), dst)
-  }
+  const skillFiles = copySkillTree(skillSrcDir, skillDst)
   fs.writeFileSync(
     path.join(packageRoot, 'plugin.json'),
     JSON.stringify(buildPluginManifest(pkg), null, 2) + '\n'

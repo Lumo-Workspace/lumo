@@ -2,10 +2,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { configDir } from './config'
 import { readCliVersion } from './cli-version'
-import { BUNDLED_SKILL_REL, listFiles } from './codex-plugin'
+import { bundledSkillDir, copySkillTree } from './codex-plugin'
 import { mergeLumoHooks } from './hooks-template'
 import {
   readRegistry,
+  readRegistryChecked,
   upsertInstall,
   writeMarker,
   writeRegistry,
@@ -28,10 +29,6 @@ export type AutoSyncOptions = {
   log?: (line: string) => void
   /** Suppress all output (e.g. `lumo hook …`, whose output the agent reads). */
   quiet?: boolean
-}
-
-function defaultBundledDir(): string {
-  return path.resolve(__dirname, '../../..', BUNDLED_SKILL_REL)
 }
 
 /** Take the sync lock; false when another process holds a fresh one. */
@@ -61,31 +58,32 @@ function replaceSkill(
   rec: InstallRecord,
   version: string
 ): void {
-  const files = listFiles(bundled)
-  fs.rmSync(rec.path, { recursive: true, force: true })
-  for (const rel of files) {
-    const dst = path.join(rec.path, rel)
-    fs.mkdirSync(path.dirname(dst), { recursive: true })
-    fs.copyFileSync(path.join(bundled, rel), dst)
-  }
+  copySkillTree(bundled, rec.path)
   const hash = hashSkillDir(rec.path)
   const installedAt = new Date().toISOString()
   writeMarker(rec.path, { version, hash, agent: rec.agent, installedAt })
   upsertInstall({ ...rec, version, hash, installedAt })
 }
 
-/** Returns the updated path, or null when nothing was written. */
+type SkillSync =
+  | { kind: 'updated' }
+  | { kind: 'newer'; installed: string }
+  | { kind: 'none' }
+
 function syncSkill(
   rec: InstallRecord,
   version: string,
   bundled: string
-): string | null {
+): SkillSync {
   const cls = classifySkillDir(rec.path)
-  if (cls.state !== 'managed' || cls.gitTracked) return null
-  if (!isNewerVersion(cls.version ?? '0.0.0', version)) return null
-  if (!fs.existsSync(path.join(bundled, 'SKILL.md'))) return null
+  if (cls.state !== 'managed' || cls.gitTracked) return { kind: 'none' }
+  const installed = cls.version ?? '0.0.0'
+  if (isNewerVersion(version, installed)) return { kind: 'newer', installed }
+  if (!isNewerVersion(installed, version)) return { kind: 'none' }
+  if (!fs.existsSync(path.join(bundled, 'SKILL.md')))
+    throw new Error(`bundled skill missing at ${bundled}`)
   replaceSkill(bundled, rec, version)
-  return rec.path
+  return { kind: 'updated' }
 }
 
 /** Re-merge Lumo hooks only when the Lumo event set differs. */
@@ -111,14 +109,18 @@ export function maybeAutoSync(
 ): void {
   try {
     if (!currentVersion) return
-    if (readRegistry().lastSyncedVersion === currentVersion) return
+    const first = readRegistryChecked()
+    if (first.corrupt) return
+    if (first.registry.lastSyncedVersion === currentVersion) return
 
     const lockPath = path.join(configDir(), LOCK_FILE)
     if (!acquireLock(lockPath)) return
     try {
-      const reg = readRegistry()
+      const locked = readRegistryChecked()
+      if (locked.corrupt) return
+      const reg = locked.registry
       if (reg.lastSyncedVersion === currentVersion) return
-      const bundled = opts.bundledSkillDir ?? defaultBundledDir()
+      const bundled = opts.bundledSkillDir ?? bundledSkillDir()
       const log =
         opts.log ?? ((line: string) => void process.stderr.write(line + '\n'))
       let clean = true
@@ -126,9 +128,14 @@ export function maybeAutoSync(
         if (rec.scope !== 'user') continue
         try {
           if (rec.kind === 'skill') {
-            const updated = syncSkill(rec, currentVersion, bundled)
-            if (updated && !opts.quiet)
-              log(`✓ Lumo skill updated to ${currentVersion}: ${updated}`)
+            const res = syncSkill(rec, currentVersion, bundled)
+            if (opts.quiet) continue
+            if (res.kind === 'updated')
+              log(`✓ Lumo skill updated to ${currentVersion}: ${rec.path}`)
+            else if (res.kind === 'newer')
+              log(
+                `⚠ Lumo skill at ${rec.path} is ${res.installed}, newer than this CLI (${currentVersion}) — run lumo update`
+              )
           } else if (rec.kind === 'claude-settings') {
             syncSettings(rec, currentVersion)
           }

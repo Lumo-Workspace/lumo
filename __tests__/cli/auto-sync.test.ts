@@ -172,6 +172,61 @@ describe('maybeAutoSync', () => {
     maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
     expect(readMarker(dir)?.version).toBe('3.0.0')
+    expect(lines).toEqual([
+      `⚠ Lumo skill at ${dir} is 3.0.0, newer than this CLI (2.0.0) — run lumo update`,
+    ])
+  })
+
+  it('stays silent about a newer skill when quiet', () => {
+    const dir = join(root, 'skill')
+    installSkillAt(dir, '3.0.0')
+    seed([rec(dir)])
+    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log, quiet: true })
+    expect(lines).toEqual([])
+  })
+
+  it('treats a missing bundled SKILL.md as an error (version not advanced)', () => {
+    const dir = join(root, 'skill')
+    installSkillAt(dir, '1.0.0')
+    seed([rec(dir)])
+    rmSync(join(bundled, 'SKILL.md'))
+    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('old')
+    expect(readRegistry().lastSyncedVersion).toBeNull()
+  })
+
+  it('never overwrites a corrupt installs.json', () => {
+    const dir = join(root, 'skill')
+    installSkillAt(dir, '1.0.0')
+    writeFileSync(join(cfg, 'installs.json'), '{ corrupt')
+    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    expect(readFileSync(join(cfg, 'installs.json'), 'utf8')).toBe('{ corrupt')
+    expect(existsSync(join(cfg, 'auto-sync.lock'))).toBe(false)
+  })
+
+  it('leaves a git-tracked claude-settings record untouched', () => {
+    const repo = join(root, 'repo')
+    mkdirSync(repo)
+    const settings = join(repo, 'settings.json')
+    writeFileSync(settings, '{}\n')
+    const git = (...a: string[]): void =>
+      void execFileSync(
+        'git',
+        ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a],
+        { cwd: repo, stdio: 'ignore' }
+      )
+    git('init')
+    git('add', '.')
+    git('commit', '-m', 'x')
+    seed([rec(settings, { kind: 'claude-settings' })])
+    maybeAutoSync('2.0.0', { bundledSkillDir: bundled, log })
+    expect(readFileSync(settings, 'utf8')).toBe('{}\n')
+    expect(
+      execFileSync('git', ['status', '--porcelain'], {
+        cwd: repo,
+        encoding: 'utf8',
+      })
+    ).toBe('')
   })
 
   it('skips while a fresh lock is held, and steals a stale one', () => {

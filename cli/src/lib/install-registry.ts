@@ -68,6 +68,31 @@ export function readRegistry(): InstallRegistry {
   }
 }
 
+/**
+ * Like readRegistry, but reports an existing-yet-unparseable file so callers
+ * that would rewrite it can refuse instead of clobbering it. A missing file is
+ * a normal empty registry.
+ */
+export function readRegistryChecked(): {
+  registry: InstallRegistry
+  corrupt: boolean
+} {
+  let text: string
+  try {
+    text = fs.readFileSync(registryPath(), 'utf8')
+  } catch {
+    return { registry: empty(), corrupt: false }
+  }
+  try {
+    const raw = JSON.parse(text) as Record<string, unknown>
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.installs))
+      return { registry: empty(), corrupt: true }
+  } catch {
+    return { registry: empty(), corrupt: true }
+  }
+  return { registry: readRegistry(), corrupt: false }
+}
+
 export function writeRegistry(reg: InstallRegistry): void {
   fs.mkdirSync(configDir(), { recursive: true })
   fs.writeFileSync(registryPath(), JSON.stringify(reg, null, 2) + '\n')
