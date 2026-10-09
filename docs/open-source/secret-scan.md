@@ -21,6 +21,8 @@ a fixed diagnostic category without reproducing source text or scanner logs.
 Internally the scanner reserves exit 3 for detected findings; exit 1 is a tool
 failure, even if a partial report exists. An explicitly created empty ignore
 file prevents repository `.gitleaksignore` entries from suppressing audit matches.
+Findings whose source blob cannot be read remain explicitly unresolved in the
+report, with exception/rotation matching disabled for those findings.
 Snapshot mode reads every tracked blob directly from the specified commit,
 so untracked files, ignored production env files, and node_modules are excluded.
 Re-run on the actual final public-release commit; this audit does not certify

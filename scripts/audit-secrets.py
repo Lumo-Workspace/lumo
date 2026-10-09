@@ -121,10 +121,10 @@ def main():
     if version_result.returncode:
         raise AuditError(f"Gitleaks version check failed (exit {version_result.returncode})")
     version = version_result.stdout.decode("utf-8", errors="replace").strip()
-    if version.lstrip("v") != VERSION:
-        parser.error("This reviewed inventory requires Gitleaks " + VERSION)
+    if version not in (VERSION, "v" + VERSION):
+        raise AuditError("Cannot verify Gitleaks 8.30.1 version (expected bare or v-prefixed version); no clean result")
     if args.mode == "history" and git("rev-parse", "--is-shallow-repository").strip() != b"false":
-        parser.error("History scan requires an unshallow repository")
+        raise AuditError("History scan requires an unshallow repository")
     inventory = json.loads((ROOT / "docs/open-source/secret-scan-false-positives.json").read_text())
     ledger = json.loads((ROOT / "docs/open-source/historical-credential-rotations.json").read_text())
     rotations = ledger.get("rotations") if isinstance(ledger, dict) else None
@@ -136,7 +136,7 @@ def main():
     }
     revision = git("rev-parse", "--verify", "--end-of-options", (args.ref or "HEAD") + "^{commit}").decode().strip()
     with tempfile.TemporaryDirectory(prefix="lumo-secret-audit-") as temp:
-        temp = Path(temp)
+        temp = Path(temp).resolve()
         raw = temp / "redacted.json"
         ignore_file = temp / "empty.gitleaksignore"
         ignore_file.write_bytes(b"")
@@ -159,7 +159,7 @@ def main():
         # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
         result = subprocess.run(command, capture_output=True, shell=False)
         if result.returncode not in (0, FINDINGS_EXIT) or not raw.exists():
-            parser.error(scanner_diagnostic(result, raw))
+            raise AuditError(scanner_diagnostic(result, raw))
         findings = json.loads(raw.read_text())
         if not isinstance(findings, list) or bool(findings) != (result.returncode == FINDINGS_EXIT):
             raise AuditError("Scanner report/exit status mismatch; no clean result")
@@ -168,27 +168,37 @@ def main():
         for finding in findings:
             file = finding["File"]
             if args.mode == "snapshot":
-                file = str(Path(file).relative_to(snapshot))
+                reported = Path(file)
+                reported = reported if reported.is_absolute() else snapshot / reported
+                file = str(reported.resolve().relative_to(snapshot))
             commit = finding.get("Commit", "")
             if args.mode == "history" and (not isinstance(commit, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", commit)):
                 raise AuditError("History finding has no valid immutable commit identifier; no clean result")
             key = (commit, file)
             if key not in sources:
-                sources[key] = (
-                    (snapshot / file).read_bytes()
-                    if args.mode == "snapshot"
-                    else git("show", commit + ":" + file)
-                ).split(b"\n")
+                try:
+                    sources[key] = (
+                        (snapshot / file).read_bytes()
+                        if args.mode == "snapshot"
+                        else git("show", commit + ":" + file)
+                    ).split(b"\n")
+                except (AuditError, OSError):
+                    # Keep the location visible, but never trust an exception or
+                    # rotation when its immutable source cannot be inspected.
+                    sources[key] = None
+            source_lines = sources[key]
             start, end = finding["StartLine"], finding["EndLine"]
             start_column, end_column = finding["StartColumn"], finding["EndColumn"]
-            if not (isinstance(start, int) and isinstance(end, int) and 1 <= start <= end <= len(sources[key])):
+            if not (all(type(n) is int for n in (start, end, start_column, end_column))
+                    and 1 <= start <= end and min(start_column, end_column) >= 0
+                    and (source_lines is None or end <= len(source_lines))):
                 raise AuditError("Finding has an invalid source line span; no clean result")
             # Use LF boundaries exactly as Gitleaks does, preserving CR/non-UTF-8 bytes.
-            span = b"\n".join(sources[key][start - 1:end])
-            digest = hashlib.sha256(span).hexdigest()
+            span = b"\n".join(source_lines[start - 1:end]) if source_lines is not None else None
+            digest = hashlib.sha256(span).hexdigest() if span is not None else None
             reason = reviewed.get((file, finding["RuleID"], digest, start, end))
             rotation = next((x for x in rotations if (
-                args.mode == "history" and x["file"] == file
+                source_lines is not None and args.mode == "history" and x["file"] == file
                 and x["rule"] == finding["RuleID"] and commit == x["commit"]
                 and x["startLine"] == start and x["endLine"] == end
                 and x["startColumn"] == start_column and x["endColumn"] == end_column
@@ -199,7 +209,8 @@ def main():
                 "startColumn": start_column, "endColumn": end_column,
                 "commit": commit or revision, "rule": finding["RuleID"],
                 "disposition": "confirmed-rotated" if rotation else "reviewed-false-positive" if reason else "unresolved",
-                "reason": rotation["evidence"] if rotation else reason or "Requires review or credential rotation evidence",
+                "reason": "Cannot read immutable source; exception and rotation verification unavailable"
+                if source_lines is None else rotation["evidence"] if rotation else reason or "Requires review or credential rotation evidence",
             })
     unresolved = sum(x["disposition"] == "unresolved" for x in rows)
     false_positives = sum(x["disposition"] == "reviewed-false-positive" for x in rows)

@@ -212,6 +212,21 @@ class SecretAuditTest(unittest.TestCase):
                     self.assertIn("no valid immutable commit identifier", result.stderr)
                     self.assertNotIn("Traceback", result.stderr)
 
+            missing = {"File": "missing:path.env", "RuleID": "aws-access-token",
+                       "StartLine": 1, "EndLine": 1, "StartColumn": 1, "EndColumn": 2,
+                       "Commit": git("rev-parse", "HEAD").decode().strip()}
+            stub.with_name("stub-report.json").write_text(json.dumps([missing]))
+            report_file = repo / "missing.report.json"
+            result = subprocess.run(
+                ["python3", str(repo / "scripts/audit-secrets.py"), "history", "--gitleaks-bin", str(stub), "--report", str(report_file)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 1)
+            missing_report = json.loads(report_file.read_text())
+            self.assertEqual((missing_report["unresolved"], missing_report["confirmedRotated"]), (1, 0))
+            self.assertEqual(missing_report["findings"][0]["file"], "missing:path.env")
+            self.assertIn("Cannot read immutable source", missing_report["findings"][0]["reason"])
+
             # U+0085 is not an LF line boundary, even though splitlines splits it.
             blob = b"# prefix with separator \xc2\x85 and invalid byte \xff\n" + candidate.encode()
             (repo / "credential-link").unlink()
