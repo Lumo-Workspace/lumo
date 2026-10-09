@@ -149,7 +149,7 @@ describe('sessionAttach', () => {
       expect.stringContaining('LUM-7')
     )
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('new Claude Code session')
+      expect.stringContaining('new Claude Code or Codex session')
     )
     // The remedy names the task the user was trying to attach to.
     expect(consoleErrorSpy).toHaveBeenCalledWith(

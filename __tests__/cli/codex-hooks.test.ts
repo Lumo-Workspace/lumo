@@ -263,6 +263,28 @@ describe('sumCodexRolloutUsage', () => {
     }
   })
 
+  it('counts a forked subagent whose rollout also copies the parent session_meta', () => {
+    // Sanitized real codex-cli 0.162.0 rollouts (LUM-1053 TC4): the child
+    // rollout's first session_meta is its own thread, the second a copy of
+    // the parent's — the child's own usage must still count.
+    const dir = join(__dirname, '../fixtures/codex-hooks/forked-subagent')
+    const PARENT = '01a11ff4-e642-78d3-b71a-ff587f783c89'
+    const CHILD = '01a11ff5-a9b9-7ca3-bfb2-f2c887b717e3'
+    const sum = (t: {
+      inputTokens: number
+      outputTokens: number
+      cacheReadTokens: number
+      cacheCreationTokens: number
+    }) =>
+      t.inputTokens + t.outputTokens + t.cacheReadTokens + t.cacheCreationTokens
+    const usage = sumCodexRolloutUsage(
+      join(dir, `rollout-2026-10-09T20-18-25-${PARENT}.jsonl`)
+    )!
+    expect(Object.keys(usage.bySubagent)).toEqual([CHILD])
+    expect(sum(usage.bySubagent[CHILD]!.total)).toBe(51968)
+    expect(sum(usage.total)).toBe(372527 + 51968)
+  })
+
   it('returns null for a missing or usage-less rollout', () => {
     expect(sumCodexRolloutUsage('/nonexistent/rollout.jsonl')).toBeNull()
   })

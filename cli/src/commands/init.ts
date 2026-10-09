@@ -34,8 +34,14 @@ import {
   isNewerVersion,
   isPathGitTracked,
 } from '../lib/install-state'
-import { describeAutoUpdate, getAutoUpdateStatus } from '../lib/auto-update'
-import { readCliVersion } from '../lib/cli-version'
+import {
+  describeAutoUpdate,
+  getAutoUpdateStatus,
+  isAutoUpdateEligible,
+  type AutoUpdateStatus,
+  type SpawnSyncFn,
+} from '../lib/auto-update'
+import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
 import { gitCapture, resolveGitHooksDir } from '../lib/git-hooks-dir'
 import {
   detectInstalledSkills,
@@ -57,6 +63,11 @@ export type InitDeps = {
   homeDir?: string
   cwd?: string
   bundledSkillDir?: string
+  /** Whether the running CLI is a global npm install (auto-update only runs for those). */
+  isGlobalInstall?: () => boolean
+  /** Package root and spawnSync for the default eligibility probe (same seams as doctor). */
+  pkgRoot?: string | null
+  spawnSync?: SpawnSyncFn
 }
 
 export type SkillInstallResult =
@@ -189,9 +200,33 @@ export async function init(
   }
   await printSessionRecordNotice()
   printPostInstall(codex)
-  process.stdout.write(`${describeAutoUpdate(getAutoUpdateStatus())}\n`)
+  process.stdout.write(`${describeAutoUpdate(autoUpdateForInstall(deps))}\n`)
 
   return 0
+}
+
+/**
+ * Auto-update status with eligibility probed (same rule as `lumo doctor` and
+ * the worker): "on" for an npm link / npx / monorepo install says it is
+ * skipped instead of promising background updates.
+ */
+function autoUpdateForInstall(deps: InitDeps): AutoUpdateStatus {
+  const status = getAutoUpdateStatus()
+  if (!status.enabled) return status
+  const isGlobal =
+    deps.isGlobalInstall ??
+    (() =>
+      isAutoUpdateEligible(
+        deps.pkgRoot !== undefined ? deps.pkgRoot : findCliPackageRoot(),
+        deps.spawnSync
+      ))
+  let eligible = false
+  try {
+    eligible = isGlobal()
+  } catch {
+    // Can't tell → treat like any other non-global install (never throws).
+  }
+  return { ...status, eligible }
 }
 
 /**
