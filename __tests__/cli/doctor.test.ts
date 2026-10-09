@@ -330,7 +330,7 @@ describe('git hook', () => {
       '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
     )
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
-      state: 'behind',
+      state: 'behind CLI 2.0.0',
       suggestion: 'lumo init --upgrade',
     })
   })
@@ -600,7 +600,7 @@ describe('fix round 1', () => {
       '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
     )
     const row = rowFor(collectDoctor(f.deps), hook)!
-    expect(row.state).toBe('behind')
+    expect(row.state).toBe('behind CLI 2.0.0')
     expect(row.suggestion).toBeUndefined()
     expect(row.detail).toContain('by hand')
   })
@@ -768,6 +768,24 @@ describe('doctor auto-update eligibility', () => {
       source: 'default',
       eligible: false,
     })
+  })
+
+  it('probes with the injected package root and spawnSync', async () => {
+    const f = fixture()
+    const g = join(tmp(), 'lib', 'node_modules')
+    const pkg = join(g, '@lumoai', 'cli')
+    mkdirSync(pkg, { recursive: true })
+    const spawnSync = jest.fn(() => ({ status: 0, stdout: g + '\n' }))
+    const { isGlobalInstall: _probe, ...base } = f.deps
+    await doctor({}, { ...base, pkgRoot: pkg, spawnSync })
+    expect(spawnSync).toHaveBeenCalledTimes(1)
+    expect(stdout).toContain('Auto-update: on — the CLI updates itself')
+
+    stdout = ''
+    const noSpawn = jest.fn()
+    await doctor({}, { ...base, pkgRoot: null, spawnSync: noSpawn })
+    expect(noSpawn).not.toHaveBeenCalled()
+    expect(stdout).toContain('skipped for this install')
   })
 
   it('does not probe the install when auto-update is off', async () => {

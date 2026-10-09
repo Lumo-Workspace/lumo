@@ -109,7 +109,7 @@ function writeAutoUpdateState(state: AttemptState): void {
   }
 }
 
-type SpawnSyncFn = (
+export type SpawnSyncFn = (
   cmd: string,
   args: string[],
   opts: { encoding: 'utf8'; timeout: number; shell: boolean }

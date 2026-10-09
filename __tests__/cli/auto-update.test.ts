@@ -445,4 +445,15 @@ describe('isAutoUpdateEligible (shared by the worker and lumo doctor)', () => {
       expect.objectContaining({ timeout: 5000 })
     )
   })
+
+  it('is true for the global install layout and uses the root it is given', () => {
+    expect(
+      isAutoUpdateEligible(pkgRoot, fakeSpawnSync(globalRoot) as any)
+    ).toBe(true)
+    const other = join(root, 'elsewhere', 'cli')
+    mkdirSync(other, { recursive: true })
+    expect(isAutoUpdateEligible(other, fakeSpawnSync(globalRoot) as any)).toBe(
+      false
+    )
+  })
 })
