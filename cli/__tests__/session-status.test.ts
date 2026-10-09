@@ -5,6 +5,7 @@
  * an old server (no attribution fields) prints exactly what it always did.
  */
 jest.mock('../src/lib/session-id', () => ({
+  ...jest.requireActual('../src/lib/session-id'),
   resolveSessionId: async () => 'sess-1',
 }))
 jest.mock('../src/lib/config', () => ({

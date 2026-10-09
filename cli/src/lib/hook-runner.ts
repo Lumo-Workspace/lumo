@@ -6,6 +6,11 @@ import { readCliVersion } from './cli-version'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { sumTranscriptUsage } from './transcript-usage'
+import { sumCodexRolloutUsage } from './codex-rollout-usage'
+import {
+  APPLY_PATCH_TOOL,
+  applyPatchDeletedPaths,
+} from '../../../shared/src/apply-patch'
 import { readGitBranch } from './git-branch'
 import { resolveBoundProjectId } from './resolve-project'
 import { resolveBoundTaskIdentifier } from './resolve-bound-task'
@@ -69,6 +74,10 @@ export type HookPath =
   | 'elicitation-result'
   | 'cwd-changed'
   | 'instructions-loaded'
+  // LUM-1051: Codex-only events
+  | 'pre-compact'
+  | 'post-compact'
+  | 'interrupt'
 
 /**
  * Read the full hook JSON from stdin.
@@ -400,8 +409,15 @@ export function resolveSessionStartStdout(
  * effort: returns the body unchanged on any failure (no transcript_path,
  * unreadable, unparseable, no usage). The hook is never blocked or failed by
  * this.
+ *
+ * LUM-1051: a Codex hook (`agentEnum === 'CODEX'`) reads its rollout file
+ * instead — Codex has no PostToolBatch, so usage arrives on Stop only.
  */
-export function augmentBodyWithUsage(path: HookPath, body: string): string {
+export function augmentBodyWithUsage(
+  path: HookPath,
+  body: string,
+  agentEnum: string | null = null
+): string {
   if (path !== 'stop' && path !== 'stop-failure' && path !== 'post-tool-batch')
     return body
   let parsed: Record<string, unknown>
@@ -412,7 +428,10 @@ export function augmentBodyWithUsage(path: HookPath, body: string): string {
   }
   const transcriptPath = parsed['transcript_path']
   if (typeof transcriptPath !== 'string' || !transcriptPath) return body
-  const usage = sumTranscriptUsage(transcriptPath)
+  const usage =
+    agentEnum === 'CODEX'
+      ? sumCodexRolloutUsage(transcriptPath)
+      : sumTranscriptUsage(transcriptPath)
   if (!usage) return body
   const subEntries = Object.entries(usage.bySubagent)
   return JSON.stringify({
@@ -513,14 +532,19 @@ export function augmentBodyWithDeletedTestFiles(
     return body
   }
   if (!parsed || typeof parsed !== 'object') return body
-  if (parsed['tool_name'] !== 'Bash') return body
   const input = parsed['tool_input']
-  const command =
-    input && typeof input === 'object'
-      ? (input as Record<string, unknown>)['command']
-      : undefined
-  if (typeof command !== 'string' || !looksLikeDeleteCommand(command))
-    return body
+  if (parsed['tool_name'] === APPLY_PATCH_TOOL) {
+    // LUM-1051: a Codex patch that deletes a file is its `rm`.
+    if (applyPatchDeletedPaths(input).length === 0) return body
+  } else {
+    if (parsed['tool_name'] !== 'Bash') return body
+    const command =
+      input && typeof input === 'object'
+        ? (input as Record<string, unknown>)['command']
+        : undefined
+    if (typeof command !== 'string' || !looksLikeDeleteCommand(command))
+      return body
+  }
   const cwd =
     typeof parsed['cwd'] === 'string' && parsed['cwd']
       ? (parsed['cwd'] as string)
@@ -665,7 +689,7 @@ export async function runHookWithBody(
             path,
             augmentBodyWithDeletedTestFiles(
               path,
-              augmentBodyWithUsage(path, body)
+              augmentBodyWithUsage(path, body, agentEnum)
             )
           )
         )
@@ -718,10 +742,10 @@ export async function runHookWithBody(
     // fast path inside autoUpsyncOnDrain means most `stop` events do zero
     // network (and never resolve the project). Best-effort: a failure is
     // logged, never thrown — the hook still exits 0.
+    // Codex has no Claude Code memory store to drain (LUM-1051).
     if (
-      path === 'session-end' ||
-      path === 'stop' ||
-      path === 'task-completed'
+      agentEnum !== 'CODEX' &&
+      (path === 'session-end' || path === 'stop' || path === 'task-completed')
     ) {
       try {
         await autoUpsyncOnDrain({

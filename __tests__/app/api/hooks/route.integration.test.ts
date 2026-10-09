@@ -116,6 +116,17 @@ describe('POST /api/hooks/pre-tool-use', () => {
     expect(arg).not.toHaveProperty('agent')
   })
 
+  it('ignores a prototype key as X-Lumo-Agent (LUM-1051)', async () => {
+    await postPre(
+      post(
+        'http://x/api/hooks/pre-tool-use',
+        { tool_name: 'Read' },
+        { Authorization: 'Bearer lum_ok', 'X-Lumo-Agent': 'toString' }
+      )
+    )
+    expect(mockRecord.mock.calls[0][0]).not.toHaveProperty('agent')
+  })
+
   it('forwards no agent key when the X-Lumo-Agent header is absent', async () => {
     await postPre(
       post(

@@ -529,6 +529,9 @@ export type AgentRunHookEventType =
   | 'ELICITATION_RESULT'
   | 'CWD_CHANGED'
   | 'INSTRUCTIONS_LOADED'
+  | 'PRE_COMPACT'
+  | 'POST_COMPACT'
+  | 'INTERRUPT'
 
 export interface AgentRunHookEventItem {
   id: string

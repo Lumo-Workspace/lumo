@@ -1,3 +1,5 @@
+import { codexMemoryStoreError } from '../lib/codex-hooks'
+import { isCodexShell } from '../lib/session-id'
 import { unlinkSync } from 'node:fs'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -23,6 +25,10 @@ interface PushOptions {
  * removed from the outbox on success.
  */
 export async function memoryPush(options: PushOptions): Promise<number | void> {
+  if (!options.dir && isCodexShell()) {
+    console.error(codexMemoryStoreError('lumo memory push'))
+    return 1
+  }
   const dir = resolveMemoryDir(process.cwd(), undefined, options.dir)
   const candidates = collectUpsyncCandidates(dir)
   if (candidates.length === 0) {

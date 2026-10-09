@@ -12,6 +12,12 @@ import {
   WRITTEN_PATH_PROBE_FILE_DIR,
 } from '../../shared/src/written-path-probe'
 import {
+  APPLY_PATCH_TOOL,
+  applyPatchDeletedPaths,
+  applyPatchText,
+  parseApplyPatch,
+} from '../../shared/src/apply-patch'
+import {
   isCrossingAdvisoryRule,
   isShapeRule,
   redactForStorage,
@@ -144,11 +150,31 @@ export function isClippedDetail(detail: string): boolean {
   return detail.endsWith('…')
 }
 
-/** Pull the Bash command text out of a PostToolUse payload (unindexed JSON). */
+/** Codex `apply_patch` event (LUM-1051): `tool_input.command` is patch text. */
+function isApplyPatch(payload: unknown): boolean {
+  return (
+    !!payload &&
+    typeof payload === 'object' &&
+    (payload as Record<string, unknown>).tool_name === APPLY_PATCH_TOOL
+  )
+}
+
+/**
+ * Pull the Bash command text out of a PostToolUse payload (unindexed JSON).
+ * LUM-1051: an `apply_patch` command is patch text, not shell — matching it
+ * against the shell rules would flag any patch that merely mentions
+ * `git push`. Its file deletions are what a shell `rm` would be, so they are
+ * read as a synthetic `rm -- <paths>` (TEST_FILE_DELETED, migration deletes,
+ * project action rules); a patch without deletions has no command.
+ */
 function readCommand(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null
   const input = (payload as Record<string, unknown>).tool_input
   if (!input || typeof input !== 'object') return null
+  if (isApplyPatch(payload)) {
+    const deleted = applyPatchDeletedPaths(input)
+    return deleted.length > 0 ? `rm -- ${deleted.join(' ')}` : null
+  }
   const cmd = (input as Record<string, unknown>).command
   return typeof cmd === 'string' ? cmd : null
 }
@@ -175,13 +201,18 @@ export function readDeletedTestFiles(payload: unknown): string[] | null {
 
 /**
  * Pull written file content (Write `content` / Edit `new_string` / MultiEdit
- * `edits[].new_string` / NotebookEdit `new_source`, LUM-904) for secret
- * scanning.
+ * `edits[].new_string` / NotebookEdit `new_source`, LUM-904; Codex
+ * `apply_patch` added lines, LUM-1051) for secret scanning.
  */
 function readWrittenContent(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null
   const input = (payload as Record<string, unknown>).tool_input
   if (!input || typeof input !== 'object') return null
+  if (isApplyPatch(payload)) {
+    const text = applyPatchText(input)
+    const added = text === null ? '' : parseApplyPatch(text).addedText
+    return added !== '' ? added : null
+  }
   const o = input as Record<string, unknown>
   const edits = Array.isArray(o.edits)
     ? o.edits.map(e =>
@@ -1399,6 +1430,28 @@ function matchSensitiveGlob(glob: string, path: string): boolean {
 }
 
 /**
+ * Every file a write event touches: the indexed `filePath`, plus — for a Codex
+ * `apply_patch` (LUM-1051) — each file named in the patch headers.
+ */
+export function writtenFilePaths(input: {
+  filePath: string | null
+  payload: unknown
+}): string[] {
+  const paths = input.filePath ? [input.filePath] : []
+  if (isApplyPatch(input.payload)) {
+    const text = applyPatchText(
+      (input.payload as Record<string, unknown>).tool_input
+    )
+    for (const f of text === null ? [] : parseApplyPatch(text).files) {
+      for (const p of [f.path, f.moveTo]) {
+        if (p && !paths.includes(p)) paths.push(p)
+      }
+    }
+  }
+  return paths
+}
+
+/**
  * An Edit/Write that lands on a sensitive path (LUM-736 L4). Pure — the
  * project's override globs are passed in; the caller loads them from the
  * compiled policy best-effort. Only write tools carrying a file path can match;
@@ -1572,12 +1625,16 @@ export const boundaryDetectorService = {
       confirmed.push(...projectCrossings)
       // LUM-736: sensitive-path edit — the project's path-glob override (if the
       // compiled policy carries one) replaces the built-in path set.
-      const sensitive = detectSensitivePathEdit({
-        toolName: input.toolName,
-        filePath: input.filePath,
-        sensitivePathGlobs: sensitivePathGlobsFromRules(projectRules),
-      })
-      if (sensitive) confirmed.push(sensitive)
+      // LUM-1051: an apply_patch can touch several files — check each one.
+      const sensitivePathGlobs = sensitivePathGlobsFromRules(projectRules)
+      for (const filePath of writtenFilePaths(input)) {
+        const sensitive = detectSensitivePathEdit({
+          toolName: input.toolName,
+          filePath,
+          sensitivePathGlobs,
+        })
+        if (sensitive) confirmed.push(sensitive)
+      }
       // LUM-963: the project's own sensitive-read paths (advisory, additive).
       confirmed.push(
         ...detectProjectSensitiveReadCrossings(

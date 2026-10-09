@@ -131,6 +131,17 @@ export const HOOK_PAYLOAD_SCHEMAS: Record<HookEventType, z.ZodType> = {
   ELICITATION: base,
   ELICITATION_RESULT: base,
   CWD_CHANGED: base,
+  // LUM-1051: Codex-only. Compaction carries `trigger` (manual / auto); an
+  // interrupt (Esc, or a declined approval) carries only the common fields.
+  PRE_COMPACT: z.looseObject({
+    ...commonFields,
+    trigger: z.string().optional(),
+  }),
+  POST_COMPACT: z.looseObject({
+    ...commonFields,
+    trigger: z.string().optional(),
+  }),
+  INTERRUPT: base,
 }
 
 export interface HookPayloadValidationResult {

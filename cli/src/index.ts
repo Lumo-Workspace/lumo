@@ -302,15 +302,15 @@ program
 program
   .command('setup')
   .description(
-    'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: install the skill into .agents/skills/ for Codex, no hooks). Run via `npx @lumoai/cli setup` for first-time onboarding.'
+    'Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: the skill into .agents/skills/ and hooks into .codex/hooks.json, which you then trust in Codex /hooks). Run via `npx @lumoai/cli setup` for first-time onboarding.'
   )
   .option(
     '--user',
-    'Install into ~/.claude, or ~/.agents for Codex (applies across all projects for this user)'
+    'Install into ~/.claude, or ~/.agents + ~/.codex for Codex (applies across all projects for this user)'
   )
   .option(
     '--project',
-    'Install into ./.claude, or ./.agents for Codex (applies to the current project only)'
+    'Install into ./.claude, or ./.agents + ./.codex for Codex (applies to the current project only)'
   )
   .option(
     '--force',
@@ -318,7 +318,7 @@ program
   )
   .option(
     '--agent <token>',
-    'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout instead. Defaults to claude-code.'
+    'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout and .codex/hooks.json instead. Defaults to claude-code.'
   )
   .action(
     wrap(options =>
@@ -2713,7 +2713,7 @@ worktree
 const hook = program
   .command('hook')
   .description(
-    'Claude Code hook ingestion (invoked by settings.json, not humans)'
+    'Coding-agent hook ingestion (invoked by Claude Code settings.json or Codex hooks.json, not humans)'
   )
 
 // Slug → help-text for every `lumo hook <slug>` subcommand. Each one accepts
@@ -2819,6 +2819,19 @@ const HOOK_SUBCOMMANDS: ReadonlyArray<readonly [HookPath, string]> = [
   [
     'instructions-loaded',
     'Forward an InstructionsLoaded hook event to Lumo (reads JSON from stdin)',
+  ],
+  // LUM-1051: Codex-only events (CODEX_HOOK_EVENTS in hooks-template.ts).
+  [
+    'pre-compact',
+    'Forward a Codex PreCompact hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'post-compact',
+    'Forward a Codex PostCompact hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'interrupt',
+    'Forward a Codex Interrupt hook event to Lumo (reads JSON from stdin)',
   ],
 ]
 

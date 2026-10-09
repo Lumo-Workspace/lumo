@@ -115,6 +115,10 @@ const SKIPPED: Record<string, Record<string, unknown>> = {
     hook_event_name: 'InstructionsLoaded',
     file_path: '/repo/CLAUDE.md',
   },
+  // LUM-1051: Codex-only events (payload shapes from the LUM-1050 probe).
+  PRE_COMPACT: { hook_event_name: 'PreCompact', trigger: 'manual' },
+  POST_COMPACT: { hook_event_name: 'PostCompact', trigger: 'manual' },
+  INTERRUPT: { hook_event_name: 'Interrupt' },
 }
 
 const RENDERED: HookEventType[] = [
@@ -134,7 +138,7 @@ function toolNameOf(payload: Record<string, unknown>): string | null {
 describe('hook event types the session timeline does not render', () => {
   it('covers every HookEventType in the schema', () => {
     const all = Object.values(PrismaHookEventType).sort()
-    expect(all).toHaveLength(25)
+    expect(all).toHaveLength(28)
     expect([...RENDERED, ...Object.keys(SKIPPED)].sort()).toEqual(all)
   })
 
