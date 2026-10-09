@@ -25,7 +25,7 @@ export function CliPage() {
             id: 'cli.step.install.description',
           })}
         >
-          <CodeBlock lines={['npm install -g @lumoai/cli', 'lumo setup']} />
+          <CodeBlock lines={['npm install -g @lumoai/cli', 'lumo init']} />
         </CliStep>
 
         <CliStep

@@ -33,9 +33,9 @@ afterEach(() => {
 
 describe('CodeBlock', () => {
   it('renders every line with a leading $ prompt', () => {
-    render(<CodeBlock lines={['npm install -g @lumoai/cli', 'lumo setup']} />)
+    render(<CodeBlock lines={['npm install -g @lumoai/cli', 'lumo init']} />)
     expect(screen.getByText('npm install -g @lumoai/cli')).toBeInTheDocument()
-    expect(screen.getByText('lumo setup')).toBeInTheDocument()
+    expect(screen.getByText('lumo init')).toBeInTheDocument()
     expect(screen.getAllByText('$').length).toBe(2)
   })
 
@@ -45,12 +45,12 @@ describe('CodeBlock', () => {
   })
 
   it('writes the corresponding line to the clipboard when copy clicked', async () => {
-    render(<CodeBlock lines={['npm install -g @lumoai/cli', 'lumo setup']} />)
+    render(<CodeBlock lines={['npm install -g @lumoai/cli', 'lumo init']} />)
     const buttons = screen.getAllByRole('button', { name: /copy/i })
     await act(async () => {
       fireEvent.click(buttons[1]!)
     })
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('lumo setup')
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('lumo init')
   })
 
   it('flips the button icon to a check after copy then back after 2s', async () => {

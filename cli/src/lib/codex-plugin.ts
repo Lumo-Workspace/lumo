@@ -7,7 +7,7 @@ import * as path from 'path'
  * marketplace can reference `@lumoai/cli` with an `npm` source. The package
  * root carries `plugin.json` plus `skills/lumo/` — both generated at build
  * time from `.claude/skills/lumo/` (the single source) and package.json, so
- * neither can drift from what `lumo setup` installs.
+ * neither can drift from what `lumo init` installs.
  */
 
 export const AGENT_PLUGINS_SCHEMA =

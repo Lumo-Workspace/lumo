@@ -646,7 +646,7 @@ export async function runHookWithBody(
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
     // Tell the server which coding agent produced this hook. The token is
-    // baked into the hook command at `lumo setup --agent <token>`; we send
+    // baked into the hook command at `lumo init --agent <token>`; we send
     // the normalized enum so the server can record it on the session. An
     // unrecognized/absent token is dropped — the server then falls back to
     // its default (CLAUDE_CODE).

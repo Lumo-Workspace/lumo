@@ -79,7 +79,7 @@ describe('CliPage', () => {
   it('renders the install commands', () => {
     render(<CliPage />)
     expect(screen.getByText('npm install -g @lumoai/cli')).toBeInTheDocument()
-    expect(screen.getByText('lumo setup')).toBeInTheDocument()
+    expect(screen.getByText('lumo init')).toBeInTheDocument()
   })
 
   it('renders the login command', () => {
