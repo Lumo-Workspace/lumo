@@ -4,6 +4,10 @@ import {
   isPrunedPayload,
   isUserDeletedPayload,
 } from '@/lib/hook-event/retention'
+import {
+  APPLY_PATCH_TOOL,
+  parseApplyPatch,
+} from '../../../../../shared/src/apply-patch'
 
 /**
  * Visual category for a single agent hook event. Drives icon color and
@@ -34,8 +38,21 @@ export type EventCategory =
   | 'notification'
 
 const READ_TOOLS = new Set(['Read', 'Grep', 'Glob'])
-const WRITE_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
-const EXEC_TOOLS = new Set(['Bash', 'Task'])
+// LUM-1051: `apply_patch` is Codex's only file-writing tool; Codex spawns and
+// waits on subagents with `collaborationspawn_agent` / `…wait_agent`.
+const WRITE_TOOLS = new Set([
+  'Edit',
+  'MultiEdit',
+  'Write',
+  'NotebookEdit',
+  APPLY_PATCH_TOOL,
+])
+const EXEC_TOOLS = new Set([
+  'Bash',
+  'Task',
+  'collaborationspawn_agent',
+  'collaborationwait_agent',
+])
 const PLAN_TOOLS = new Set(['TodoWrite'])
 
 export function categorizeHookEvent(
@@ -419,6 +436,10 @@ function summarizeToolInput(
       return getString(input, 'file_path') ?? ''
     case 'NotebookEdit':
       return getString(input, 'notebook_path') ?? ''
+    case APPLY_PATCH_TOOL:
+      return parseApplyPatch(getString(input, 'command') ?? '')
+        .files.map(f => f.moveTo ?? f.path)
+        .join(', ')
     case 'WebFetch':
       return getString(input, 'url') ?? ''
     case 'Grep': {
