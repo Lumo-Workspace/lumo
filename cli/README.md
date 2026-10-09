@@ -1,6 +1,6 @@
 # Lumo CLI
 
-Manage [Lumo](https://www.uselumo.ai) tasks, sessions, sprints, and documents from the terminal. Designed to pair with Claude Code so AI agents can bind to a task, load context, and update state without leaving the shell.
+Manage [Lumo](https://www.uselumo.ai) tasks, sessions, sprints, and documents from the terminal. Designed to pair with Claude Code and Codex so AI agents can bind to a task, load context, and update state without leaving the shell.
 
 ## Install
 
@@ -14,28 +14,31 @@ Verify:
 lumo --version
 ```
 
-## One-Shot Setup for Claude Code
+## One-Shot Setup for Claude Code and Codex
 
-If you use [Claude Code](https://claude.com/claude-code), wire up the Lumo skill + hooks in one command — no install required upfront:
+Wire up the Lumo skill + hooks for [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex) in one command — no install required upfront:
 
 ```bash
 npx @lumoai/cli init
 ```
 
-The command interactively asks whether to install for the current user (`~/.claude/`) or just the current project (`./.claude/`), then:
+The command interactively asks whether to install for the current user (`~/.claude/`, `~/.agents/`, `~/.codex/`) or just the current project (`./.claude/`, `./.agents/`, `./.codex/`), then:
 
-1. Drops the skill files (`SKILL.md` + `references/`) into `.claude/skills/lumo/`
-2. Idempotently merges 25 Lumo hook handlers into `.claude/settings.json` (existing hooks and permissions are preserved)
-3. Prints any remaining steps (global install, `lumo auth login`)
+1. Drops the skill files (`SKILL.md` + `references/`) into `.claude/skills/lumo/` (Claude Code) and `.agents/skills/lumo/` (Codex)
+2. Idempotently merges the Lumo hook handlers into `.claude/settings.json` and `.codex/hooks.json` (existing hooks and permissions are preserved). Codex runs hooks only after you trust them: Codex app Settings → Hooks, or `/hooks` in the Codex CLI
+3. Writes `.codex/rules/lumo.rules`, a Codex rule that lets `lumo` commands run outside Codex's sandbox (which has no network) so they can reach the Lumo API; every other command stays sandboxed. Restart Codex to load it (a project rule loads once the project is trusted)
+4. Prints any remaining steps (global install, `lumo auth login`)
 
 Non-interactive flags for CI / scripts:
 
 ```bash
 npx @lumoai/cli init --project
 npx @lumoai/cli init --user --force
+npx @lumoai/cli init --project --agent codex        # only Codex
+npx @lumoai/cli init --project --agent claude-code  # only Claude Code
 ```
 
-After `init`, install the CLI globally so Claude Code's hooks can resolve the `lumo` binary at startup:
+After `init`, install the CLI globally so the agents' hooks can resolve the `lumo` binary at startup:
 
 ```bash
 npm install -g @lumoai/cli
@@ -57,7 +60,7 @@ User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after 
 
 ```bash
 lumo doctor      # read-only report of every Lumo install and its state
-lumo uninstall   # remove Lumo-owned skills, hooks and the git hook block
+lumo uninstall   # remove Lumo-owned skills, hooks, the Codex rule and the git hook block
 ```
 
 `lumo uninstall --agent <token>` filters by agent (`claude-code`, `codex`, …); the `prepare-commit-msg` hook is labelled `git`, so it is only included by `--agent git` (or no `--agent`).

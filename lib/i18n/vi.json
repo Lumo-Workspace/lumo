@@ -670,7 +670,7 @@
   "settings.cli": "CLI",
   "cli.subtitle": "Giao diện dòng lệnh Lumo — cài đặt, đăng nhập và luôn cập nhật.",
   "cli.step.install.title": "Cài đặt",
-  "cli.step.install.description": "Cài đặt CLI ở phạm vi toàn cục và thiết lập skill cùng hooks của Claude Code.",
+  "cli.step.install.description": "Cài đặt CLI ở phạm vi toàn cục và thiết lập skill cùng hooks cho Claude Code và Codex.",
   "cli.step.login.title": "Đăng nhập",
   "cli.step.login.description": "Mở trang này trong trình duyệt của bạn. Tạo key bên dưới hoặc trên trang API Keys, sau đó dán lại vào terminal.",
   "cli.step.login.labelPlaceholder": "Tên key (ví dụ: Claude Code on Macbook)",

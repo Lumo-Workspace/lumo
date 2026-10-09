@@ -670,7 +670,7 @@
   "settings.cli": "CLI",
   "cli.subtitle": "Lumo Befehlszeilen-Tool — installieren, anmelden und aktuell bleiben.",
   "cli.step.install.title": "Installieren",
-  "cli.step.install.description": "Installiert das CLI global und richtet den Claude-Code-Skill und die Hooks ein.",
+  "cli.step.install.description": "Installiert das CLI global und richtet den Skill und die Hooks für Claude Code und Codex ein.",
   "cli.step.login.title": "Anmelden",
   "cli.step.login.description": "Öffnet diese Seite im Browser. Erstellen Sie unten oder auf der API-Keys-Seite einen Schlüssel und fügen Sie ihn dann im Terminal ein.",
   "cli.step.login.labelPlaceholder": "Schlüsselname (z. B. Claude Code on Macbook)",

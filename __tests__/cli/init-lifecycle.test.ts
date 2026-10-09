@@ -138,9 +138,13 @@ describe('init (fresh project install)', () => {
     const kinds = readRegistry()
       .installs.map(r => `${r.kind}:${r.scope}`)
       .sort()
+    // LUM-1054: no --agent installs Claude Code and Codex.
     expect(kinds).toEqual([
       'claude-settings:project',
+      'codex-hooks:project',
+      'codex-rules:project',
       'git-hook:project',
+      'skill:project',
       'skill:project',
     ])
     const hook = readRegistry().installs.find(r => r.kind === 'git-hook')!

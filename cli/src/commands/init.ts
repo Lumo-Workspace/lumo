@@ -8,6 +8,12 @@ import {
   type MergeStats,
 } from '../lib/hooks-template'
 import { codexHooksPath, codexTrustInstructions } from '../lib/codex-hooks'
+import {
+  classifyCodexRules,
+  codexRulesNote,
+  codexRulesPath,
+  installCodexRules,
+} from '../lib/codex-rules'
 import { formatNextSteps, type NextStep } from '../lib/next-steps'
 import {
   mergeGitHook,
@@ -87,9 +93,10 @@ type Scope = 'user' | 'project'
 
 /**
  * Validate the `--agent` flag and canonicalize it to the CLI token baked into
- * the hook commands. Defaults to `claude-code` — accurate today, since only
- * Claude Code emits hook events. Returns `{ error }` for an unrecognized
- * token so the caller can abort before writing settings.json.
+ * the hook commands. Without the flag the token is `claude-code`; `init`
+ * itself then installs every default agent (see `initAgentTokens`). Returns
+ * `{ error }` for an unrecognized token so the caller can abort before
+ * writing settings.json.
  */
 export function resolveAgentToken(
   raw: string | undefined
@@ -102,6 +109,21 @@ export function resolveAgentToken(
     }
   }
   return { token: ENUM_TO_TOKEN[enumValue]! }
+}
+
+/**
+ * LUM-1054: the agents `lumo init` sets up. No `--agent` → Claude Code and
+ * Codex together (user ruling: no agent detection, always both); `--agent
+ * <token>` narrows it to that one, as before.
+ */
+export const DEFAULT_INIT_AGENTS = ['claude-code', 'codex'] as const
+
+export function initAgentTokens(
+  raw: string | undefined
+): { tokens: string[] } | { error: string } {
+  if (raw === undefined) return { tokens: [...DEFAULT_INIT_AGENTS] }
+  const res = resolveAgentToken(raw)
+  return 'error' in res ? res : { tokens: [res.token] }
 }
 
 function requireCliVersion(): string {
@@ -134,11 +156,12 @@ export async function init(
     return 1
   }
 
-  const agentResult = resolveAgentToken(options.agent)
+  const agentResult = initAgentTokens(options.agent)
   if ('error' in agentResult) {
     process.stderr.write(`Error: ${agentResult.error}\n`)
     return 1
   }
+  const tokens = agentResult.tokens
 
   const cliVersion = deps.cliVersion ?? readCliVersion()
   if (!cliVersion) {
@@ -155,51 +178,53 @@ export async function init(
     return upgradeInstalls({ cliVersion, homeDir, cwd, bundled })
   }
 
-  const codex = agentResult.token === 'codex'
-  const scope = await resolveScope(options, codex)
+  const scope = await resolveScope(options, tokens)
   if (!scope) return 130
 
   const root = scope === 'user' ? homeDir : cwd
-  const configRoot = path.join(root, codex ? '.agents' : '.claude')
-
-  process.stdout.write(
-    `\nInstalling Lumo for ${scope} scope: ${configRoot}\n\n`
+  const configRoots = tokens.flatMap(t =>
+    t === 'codex'
+      ? [path.join(root, '.agents'), path.join(root, '.codex')]
+      : [path.join(root, '.claude')]
   )
 
-  const skillDir = skillInstallDir(root, agentResult.token)
-  const skillResult = installSkill(bundled, skillDir, options.force === true, {
-    cliVersion,
-    agent: agentResult.token,
-  })
-  if (isInstalledResult(skillResult)) {
-    recordSkill(skillDir, scope, agentResult.token, cliVersion)
-  }
-  if (codex) {
-    // LUM-1051: Codex reads skills from .agents/skills/ and hooks from
-    // .codex/hooks.json (same shape as Claude's settings.json `hooks`).
-    const hooksPath = codexHooksPath(root)
-    mergeHooksFile(hooksPath, agentResult.token, CODEX_HOOK_EVENTS)
-    recordInstall('codex-hooks', hooksPath, scope, 'codex', cliVersion)
-    process.stdout.write(`\n${codexTrustInstructions(hooksPath)}\n`)
-  } else {
-    const settingsPath = path.join(configRoot, 'settings.json')
-    mergeHooksFile(settingsPath, agentResult.token)
-    recordInstall(
-      'claude-settings',
-      settingsPath,
-      scope,
-      agentResult.token,
-      cliVersion
+  process.stdout.write(
+    `\nInstalling Lumo for ${scope} scope: ${[...new Set(configRoots)].join(', ')}\n`
+  )
+
+  for (const token of tokens) {
+    if (tokens.length > 1) process.stdout.write(`\n${agentHeading(token)}\n`)
+    else process.stdout.write('\n')
+    const skillDir = skillInstallDir(root, token)
+    const skillResult = installSkill(
+      bundled,
+      skillDir,
+      options.force === true,
+      {
+        cliVersion,
+        agent: token,
+      }
     )
+    if (isInstalledResult(skillResult)) {
+      recordSkill(skillDir, scope, token, cliVersion)
+    }
+    if (token === 'codex') {
+      installCodex(root, scope, cliVersion, options.force === true)
+    } else {
+      const settingsPath = path.join(root, '.claude', 'settings.json')
+      mergeHooksFile(settingsPath, token)
+      recordInstall('claude-settings', settingsPath, scope, token, cliVersion)
+    }
   }
   if (scope === 'project') {
+    process.stdout.write('\n')
     const hookPath = installGitHook(root)
     if (hookPath) {
       recordInstall('git-hook', hookPath, scope, GIT_HOOK_AGENT, cliVersion)
     }
   }
   await printSessionRecordNotice()
-  printPostInstall(codex)
+  printPostInstall(tokens)
   process.stdout.write(`${describeAutoUpdate(autoUpdateForInstall(deps))}\n`)
 
   return 0
@@ -229,6 +254,52 @@ function autoUpdateForInstall(deps: InitDeps): AutoUpdateStatus {
   return { ...status, eligible }
 }
 
+function agentHeading(token: string): string {
+  return token === 'codex'
+    ? 'Codex'
+    : token === 'claude-code'
+      ? 'Claude Code'
+      : token
+}
+
+/**
+ * Codex half of init (LUM-1051 + LUM-1054): hooks into `.codex/hooks.json`
+ * (rewritten only when a Lumo entry changes, so trust survives a re-run), the
+ * rules file that lets `lumo` reach the API from the sandbox, and the trust
+ * instructions.
+ */
+function installCodex(
+  root: string,
+  scope: Scope,
+  cliVersion: string,
+  force: boolean
+): void {
+  const hooksPath = codexHooksPath(root)
+  mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS)
+  recordInstall('codex-hooks', hooksPath, scope, 'codex', cliVersion)
+
+  const rulesPath = codexRulesPath(root)
+  const tracked = fs.existsSync(rulesPath) && isPathGitTracked(rulesPath)
+  const res = installCodexRules(rulesPath, force)
+  if (res === 'skipped-foreign') {
+    process.stdout.write(
+      `⚠ ${rulesPath} exists and was not written by Lumo — left as is, so \`lumo\` may not reach the Lumo API from Codex's sandbox.\n` +
+        `  Re-run with --force to replace it, or add a prefix_rule for ["lumo"] to it yourself.\n`
+    )
+  } else {
+    process.stdout.write(
+      res === 'unchanged'
+        ? `✓ Codex rule already in place: ${rulesPath}\n`
+        : `✓ wrote Codex rule: ${rulesPath}\n`
+    )
+    if (tracked && res !== 'unchanged')
+      process.stdout.write(gitDiffNote(rulesPath))
+    recordInstall('codex-rules', rulesPath, scope, 'codex', cliVersion)
+    process.stdout.write(`${codexRulesNote(rulesPath, scope)}\n`)
+  }
+  process.stdout.write(`\n${codexTrustInstructions(hooksPath)}\n`)
+}
+
 /**
  * Where setup installs the lumo skill: Codex loads skills from
  * `<root>/.agents/skills/` (repo or ~), every other agent token keeps the
@@ -240,9 +311,21 @@ export function skillInstallDir(root: string, agentToken: string): string {
     : path.join(root, '.claude', 'skills', 'lumo')
 }
 
+/** The interactive scope question, naming every directory init will write. */
+export function scopePrompt(tokens: readonly string[]): string {
+  const dirs = (base: string) =>
+    tokens
+      .map(t =>
+        t === 'codex' ? `${base}/.agents + ${base}/.codex` : `${base}/.claude`
+      )
+      .filter((d, i, all) => all.indexOf(d) === i)
+      .join(', ')
+  return `Install Lumo for [u]ser (${dirs('~')}) or [p]roject (${dirs('.')})? [u/P]: `
+}
+
 async function resolveScope(
   options: InitOptions,
-  codex: boolean
+  tokens: readonly string[]
 ): Promise<Scope | null> {
   if (options.user) return 'user'
   if (options.project) return 'project'
@@ -254,13 +337,7 @@ async function resolveScope(
     return 'project'
   }
 
-  const answer = (
-    await promptLine(
-      codex
-        ? 'Install Lumo for [u]ser (~/.agents + ~/.codex) or [p]roject (./.agents + ./.codex)? [u/P]: '
-        : 'Install Lumo for [u]ser (~/.claude) or [p]roject (./.claude)? [u/P]: '
-    )
-  ).toLowerCase()
+  const answer = (await promptLine(scopePrompt(tokens))).toLowerCase()
   if (answer === 'u' || answer === 'user') return 'user'
   if (answer === '' || answer === 'p' || answer === 'project') return 'project'
   process.stderr.write(`Unrecognized choice "${answer}". Aborting.\n`)
@@ -497,6 +574,16 @@ async function upgradeInstalls(args: {
       fail(t.path, err)
     }
   }
+  for (const r of reg.installs) {
+    if (r.kind !== 'codex-rules' || !fs.existsSync(r.path)) continue
+    found++
+    try {
+      if (upgradeCodexRulesFile(r.path) !== 'foreign')
+        recordInstall('codex-rules', r.path, r.scope, 'codex', cliVersion)
+    } catch (err) {
+      fail(r.path, err)
+    }
+  }
   const hookTargets = new Map<string, { scope: Scope }>()
   for (const r of reg.installs) {
     if (r.kind === 'git-hook') hookTargets.set(r.path, { scope: r.scope })
@@ -603,6 +690,34 @@ export function upgradeCodexHooksFile(
       `${codexTrustInstructions(hooksPath)}\n`
   )
   if (tracked) process.stdout.write(gitDiffNote(hooksPath))
+  return 'updated'
+}
+
+/**
+ * `init --upgrade` for a recorded Codex rules file: rewritten only when it
+ * still carries the Lumo marker and differs; a file the user took over (no
+ * marker) is left alone.
+ */
+export function upgradeCodexRulesFile(
+  rulesPath: string
+): 'updated' | 'unchanged' | 'foreign' {
+  const state = classifyCodexRules(rulesPath)
+  if (state === 'foreign' || state === 'missing') {
+    process.stdout.write(
+      `- ${rulesPath} is no longer Lumo's Codex rule — left as is\n`
+    )
+    return 'foreign'
+  }
+  if (state === 'current') {
+    process.stdout.write(`✓ Codex rule already in place: ${rulesPath}\n`)
+    return 'unchanged'
+  }
+  const tracked = isPathGitTracked(rulesPath)
+  installCodexRules(rulesPath)
+  process.stdout.write(
+    `✓ updated Codex rule: ${rulesPath} — restart Codex to load it\n`
+  )
+  if (tracked) process.stdout.write(gitDiffNote(rulesPath))
   return 'updated'
 }
 
@@ -745,10 +860,12 @@ export async function printSessionRecordNotice(
   if (notice) process.stdout.write(`\nℹ ${notice}\n`)
 }
 
-function printPostInstall(codex: boolean): void {
+function printPostInstall(tokens: readonly string[]): void {
   const onPath = isLumoOnPath()
   const credsPath = path.join(configDir(), 'credentials.json')
   const authed = fs.existsSync(credsPath)
+  const codex = tokens.includes('codex')
+  const claude = tokens.some(t => t !== 'codex')
 
   // LUM-686: same conditional advice, now assembled as NextStep[] and handed
   // to the shared renderer. Locally static — setup has no task state to judge.
@@ -756,9 +873,12 @@ function printPostInstall(codex: boolean): void {
   if (!onPath || isRunningUnderNpx()) {
     steps.push({
       command: 'npm install -g @lumoai/cli',
-      why: codex
-        ? 'install the CLI globally so Codex and its hooks can run lumo'
-        : 'install the CLI globally so Claude Code hooks can find it',
+      why:
+        codex && claude
+          ? 'install the CLI globally so Claude Code, Codex and their hooks can run lumo'
+          : codex
+            ? 'install the CLI globally so Codex and its hooks can run lumo'
+            : 'install the CLI globally so Claude Code hooks can find it',
     })
   }
   if (!authed) {
@@ -770,9 +890,12 @@ function printPostInstall(codex: boolean): void {
   if (onPath && authed && !isRunningUnderNpx()) {
     steps.push({
       command: null,
-      why: codex
-        ? 'All set once the hooks are trusted (above). Start a new Codex session in this directory — the lumo skill and hooks are installed.'
-        : 'All set. Open Claude Code in this directory — the SKILL.md and hooks are wired in.',
+      why:
+        codex && claude
+          ? 'All set. Open Claude Code in this directory, or start a new Codex session once its hooks are trusted (above) — the lumo skill and hooks are installed for both.'
+          : codex
+            ? 'All set once the hooks are trusted (above). Start a new Codex session in this directory — the lumo skill and hooks are installed.'
+            : 'All set. Open Claude Code in this directory — the SKILL.md and hooks are wired in.',
     })
   }
   process.stdout.write(`\n${formatNextSteps(steps)}\n\n`)

@@ -22,6 +22,11 @@ import {
 } from '../lib/hooks-template'
 import { codexHooksPath } from '../lib/codex-hooks'
 import {
+  classifyCodexRules,
+  codexNetworkState,
+  codexRulesPath,
+} from '../lib/codex-rules'
+import {
   detectInstalledSkills,
   isLumoSkillSource,
   repoRoot,
@@ -44,6 +49,7 @@ export type DoctorKind =
   | 'claude-settings'
   | 'git-hook'
   | 'codex-hooks'
+  | 'codex-rules'
 
 export interface DoctorRow {
   path: string
@@ -405,7 +411,52 @@ function codexRow(
       message: `${file} is missing Lumo Codex hook events: ${missing.join(', ')}`,
     })
   }
+  // LUM-1054: whether `lumo` commands in a Codex shell can reach the API.
+  const network = codexNetworkState(file, home)
+  if (network === 'config') {
+    details.push(
+      'network: on for every sandboxed command (network_access = true in config.toml)'
+    )
+  } else if (network === 'off') {
+    details.push(
+      "network: lumo commands have no network in Codex's sandbox (no .codex/rules/lumo.rules)"
+    )
+    row.suggestion ??= `lumo init --agent codex --${scope}`
+    warnings.push({
+      code: 'codex-no-network',
+      message: `\`lumo\` commands cannot reach the Lumo API from Codex's sandbox for ${file} — run \`lumo init --agent codex --${scope}\` to add the Codex rule`,
+    })
+  }
   if (details.length > 0) row.detail = details.join('; ')
+  return row
+}
+
+/**
+ * The Lumo rules file (LUM-1054). Only a file carrying the Lumo marker is an
+ * install; a `lumo.rules` the user wrote is theirs and not listed.
+ */
+function codexRulesRow(
+  file: string,
+  scope: 'user' | 'project',
+  root: string | null
+): DoctorRow | null {
+  const state = classifyCodexRules(file)
+  if (state === 'missing' || state === 'foreign') return null
+  const tracked = isPathGitTracked(file)
+  const row: DoctorRow = {
+    path: file,
+    kind: 'codex-rules',
+    scope,
+    agent: 'codex',
+    group: groupFor(scope, root, file, () => tracked),
+    tracked,
+    state: state === 'current' ? 'up to date' : 'outdated',
+    detail:
+      scope === 'project'
+        ? '`lumo` runs outside the Codex sandbox (loaded once the project is trusted in Codex)'
+        : '`lumo` runs outside the Codex sandbox',
+  }
+  if (state === 'outdated') row.suggestion = CMD_UPGRADE
   return row
 }
 
@@ -509,6 +560,23 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   }
   for (const [file, scope] of codexFiles) {
     const row = codexRow(file, scope, home, root, warnings)
+    if (row) rows.push(row)
+  }
+  // Codex rules: user + this repo's file plus recorded ones.
+  const rulesFiles = new Map<string, 'user' | 'project'>()
+  rulesFiles.set(codexRulesPath(home), 'user')
+  if (root) rulesFiles.set(codexRulesPath(root), 'project')
+  for (const rec of registry.installs) {
+    if (rec.kind !== 'codex-rules') continue
+    if (!fs.existsSync(rec.path)) {
+      stale(rec.path)
+      continue
+    }
+    if (rulesFiles.has(rec.path)) continue
+    rulesFiles.set(rec.path, rec.scope)
+  }
+  for (const [file, scope] of rulesFiles) {
+    const row = codexRulesRow(file, scope, root)
     if (row) rows.push(row)
   }
 

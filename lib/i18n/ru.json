@@ -670,7 +670,7 @@
   "settings.cli": "CLI",
   "cli.subtitle": "Интерфейс командной строки Lumo — установка, вход и обновления.",
   "cli.step.install.title": "Установить",
-  "cli.step.install.description": "Устанавливает CLI глобально и настраивает skill и hooks Claude Code.",
+  "cli.step.install.description": "Устанавливает CLI глобально и настраивает skill и hooks для Claude Code и Codex.",
   "cli.step.login.title": "Войти",
   "cli.step.login.description": "Открывает эту страницу в браузере. Создайте ключ ниже или на странице API Keys и вставьте его обратно в терминал.",
   "cli.step.login.labelPlaceholder": "Название ключа (например, Claude Code on Macbook)",
