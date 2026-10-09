@@ -424,7 +424,7 @@ function codexRow(
     row.suggestion ??= `lumo init --agent codex --${scope}`
     warnings.push({
       code: 'codex-no-network',
-      message: `\`lumo\` commands cannot reach the Lumo API from Codex's sandbox for ${file} — run \`lumo init --agent codex --${scope}\` to add the Codex rule`,
+      message: `\`lumo\` commands cannot reach the Lumo API from Codex's sandbox for ${file} — run \`lumo init --agent codex --${scope}\` to add the Codex rule for server-only lumo commands`,
     })
   }
   if (details.length > 0) row.detail = details.join('; ')
@@ -453,8 +453,8 @@ function codexRulesRow(
     state: state === 'current' ? 'up to date' : 'outdated',
     detail:
       scope === 'project'
-        ? '`lumo` runs outside the Codex sandbox (loaded once the project is trusted in Codex)'
-        : '`lumo` runs outside the Codex sandbox',
+        ? "server-only `lumo` commands run outside Codex's sandbox; Codex asks before the others (loaded once the project is trusted in Codex)"
+        : "server-only `lumo` commands run outside Codex's sandbox; Codex asks before the others",
   }
   if (state === 'outdated') row.suggestion = CMD_UPGRADE
   return row

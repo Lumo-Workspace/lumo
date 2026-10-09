@@ -128,6 +128,19 @@ describe('readGitCoordinate', () => {
     expect(readGitCoordinate(run).commitSha).toBeNull()
   })
 
+  it('reads git without optional locks, so it never writes .git/index (LUM-1054: runs outside Codex sandbox)', () => {
+    const calls: string[][] = []
+    const run = (_c: string, args: string[]) => {
+      calls.push(args)
+      return args[1] === 'HEAD' ? ok('a1b2c3d4e5f6\n') : ok('')
+    }
+    readGitCoordinate(run)
+    expect(calls).toEqual([
+      ['rev-parse', 'HEAD'],
+      ['--no-optional-locks', 'status', '--porcelain'],
+    ])
+  })
+
   it('leaves dirty unknown when git status itself fails', () => {
     const run = (_c: string, args: string[]) =>
       args[1] === 'HEAD' ? ok('a1b2c3d4e5f6\n') : boom()

@@ -1,4 +1,9 @@
-import { CODEX_SANDBOX_NETWORK_HINT } from './codex-rules'
+import {
+  CODEX_SANDBOX_NETWORK_HINT,
+  codexCommandPath,
+  codexSandboxedCommandHint,
+  isCodexServerOnly,
+} from './codex-rules'
 
 /**
  * LUM-1054: a command run inside Codex's sandbox (no network by default) dies
@@ -6,7 +11,8 @@ import { CODEX_SANDBOX_NETWORK_HINT } from './codex-rules'
  * sites. Like the LUM-843 auth hint, the entry point watches the process once
  * instead: a rejected fetch (or that message on the output), then a non-zero
  * exit while `CODEX_SANDBOX` is set, gets one paragraph naming the cause and
- * the fix appended.
+ * the fix appended. A command Lumo's Codex rule leaves sandboxed on purpose
+ * gets a different paragraph: approve it in Codex instead of re-running init.
  */
 
 const UNREACHABLE_MARKER = 'could not reach Lumo API'
@@ -21,7 +27,8 @@ export interface SandboxNetworkTracker {
 }
 
 export function createSandboxNetworkTracker(
-  env: Record<string, string | undefined> = process.env
+  env: Record<string, string | undefined> = process.env,
+  args: readonly string[] = process.argv.slice(2)
 ): SandboxNetworkTracker {
   let unreachable = false
   return {
@@ -51,6 +58,9 @@ export function createSandboxNetworkTracker(
     },
     hintFor(exitCode) {
       if (exitCode === 0 || !unreachable || !env.CODEX_SANDBOX) return null
+      const commandPath = codexCommandPath(args)
+      if (commandPath !== null && !isCodexServerOnly(args))
+        return codexSandboxedCommandHint(commandPath)
       return CODEX_SANDBOX_NETWORK_HINT
     },
   }
