@@ -21,7 +21,8 @@ import * as path from 'path'
  * project is trusted.
  *
  * Every leaf of the commander tree must be classified in exactly one of the
- * two lists below (a jest test walks grammar.json), so a new command forces a
+ * two lists below (__tests__/cli/codex-sandbox-network.test.ts walks
+ * scripts/cli-grammar/grammar.json), so a new command forces a
  * conscious ALLOW/DENY decision.
  *
  * The file is wholly Lumo's: the first line marks it, init rewrites it only

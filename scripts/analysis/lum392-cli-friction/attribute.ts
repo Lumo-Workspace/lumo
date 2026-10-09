@@ -18,7 +18,7 @@
  * valid-result — LUM-392's #1 friction ("status walking") lives there.
  * Pure functions; ordering/windowing comes from the caller's records.
  */
-import type { AstVerdictKind } from './validate'
+import type { AstVerdictKind } from '../../cli-grammar/validate'
 
 export const REDUNDANT_WINDOW_MS = 10 * 60 * 1000
 
@@ -158,7 +158,11 @@ function classifyOne(
   // ---- redundancy (fifth class) ----
   const redundant = redundancyReason(records, index)
   if (redundant) {
-    return { resultClass: 'redundant-valid', reason: redundant, maskedFailure: false }
+    return {
+      resultClass: 'redundant-valid',
+      reason: redundant,
+      maskedFailure: false,
+    }
   }
 
   return { resultClass: 'valid-result', reason: 'ok', maskedFailure: false }

@@ -5,7 +5,7 @@ import {
   firstPositionalArg,
   parseInvocation,
   tokenize,
-} from '../../scripts/analysis/lum392-cli-friction/parse'
+} from '../parse'
 
 describe('tokenize', () => {
   it('splits on whitespace and honors quotes', () => {

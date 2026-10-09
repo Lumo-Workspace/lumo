@@ -3,7 +3,10 @@
  * otherwise free-text positionals (comment bodies, titles) leak fake
  * `--flag` tokens into flag stats and AST validation.
  */
-import { extractLumoSegments, parseInvocation } from '../parse'
+import {
+  extractLumoSegments,
+  parseInvocation,
+} from '../../../cli-grammar/parse'
 
 describe('extractLumoSegments preserves original quoting', () => {
   it('keeps quoted bodies intact', () => {
@@ -22,9 +25,9 @@ describe('extractLumoSegments preserves original quoting', () => {
   })
 
   it('still splits statements and ignores non-invocations', () => {
-    expect(
-      extractLumoSegments('cd x && lumo task list && echo done')
-    ).toEqual(['lumo task list'])
+    expect(extractLumoSegments('cd x && lumo task list && echo done')).toEqual([
+      'lumo task list',
+    ])
     expect(extractLumoSegments('echo lumo task list')).toEqual([])
     expect(extractLumoSegments('grep lumo SKILL.md')).toEqual([])
   })
@@ -54,9 +57,7 @@ describe('parseInvocation flag extraction with quoting preserved', () => {
   })
 
   it('still extracts real flags', () => {
-    const inv = parseInvocation(
-      'lumo task update LUM-2 --status done -p high'
-    )
+    const inv = parseInvocation('lumo task update LUM-2 --status done -p high')
     expect(inv.flags).toEqual(expect.arrayContaining(['--status', '-p']))
   })
 })
