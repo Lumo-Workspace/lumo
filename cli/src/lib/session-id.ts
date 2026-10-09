@@ -71,10 +71,51 @@ async function fetchResolution(
   }
 }
 
+/** Agent ids the server accepts in a child session id (`<sid>:<agentId>`). */
+const AGENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+
+/**
+ * LUM-1051: the Lumo session id of a Codex shell, or undefined outside Codex.
+ * Codex sets CODEX_THREAD_ID in every shell it runs; CODEX_SESSION_ID is the
+ * root session. Inside a subagent the two differ, and the subagent's child
+ * session is `<sid>:<thread>` — the same id the hook builds from the payload's
+ * `session_id` + `agent_id` — so Codex needs no server-side argv resolve.
+ * Checked before CLAUDE_CODE_SESSION_ID, which a Codex started from a Claude
+ * Code session inherits from its parent.
+ */
+export function codexSessionId(
+  env: Record<string, string | undefined> = process.env
+): string | undefined {
+  const thread = env.CODEX_THREAD_ID
+  if (!thread) return undefined
+  const sid = env.CODEX_SESSION_ID || thread
+  if (thread === sid || !AGENT_ID_RE.test(thread) || sid.includes(':')) {
+    return sid
+  }
+  return `${sid}:${thread}`
+}
+
+/** True when this CLI runs inside a Codex shell (LUM-1051). */
+export function isCodexShell(
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  return Boolean(env.CODEX_THREAD_ID)
+}
+
+/** Printed when neither Claude Code nor Codex exposed a session id. */
+export function noSessionMessage(command: string): string {
+  return (
+    'Error: no coding-agent session found ($CLAUDE_CODE_SESSION_ID / $CODEX_THREAD_ID are not set).\n' +
+    `\`${command}\` must be run inside a Claude Code or Codex session.`
+  )
+}
+
 export async function resolveSessionId(opts: {
   write: boolean
   strict?: boolean
 }): Promise<string | undefined> {
+  const codex = codexSessionId()
+  if (codex) return codex
   const sessionId = process.env.CLAUDE_CODE_SESSION_ID
   if (!sessionId) return undefined
   const creds = readCredentials()

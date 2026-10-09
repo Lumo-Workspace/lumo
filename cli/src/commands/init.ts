@@ -2,7 +2,12 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { execSync } from 'child_process'
-import { mergeLumoHooks } from '../lib/hooks-template'
+import {
+  CODEX_HOOK_EVENTS,
+  mergeLumoHooks,
+  type MergeStats,
+} from '../lib/hooks-template'
+import { codexHooksPath, codexTrustInstructions } from '../lib/codex-hooks'
 import { formatNextSteps, type NextStep } from '../lib/next-steps'
 import {
   mergeGitHook,
@@ -159,13 +164,14 @@ export async function init(
     recordSkill(skillDir, scope, agentResult.token, cliVersion)
   }
   if (codex) {
-    // LUM-1049: Codex reads skills natively from .agents/skills/; Lumo has no
-    // Codex hook adapter yet, so nothing is written to its hook config.
-    process.stdout.write(
-      'ℹ Codex: Lumo hooks are not available yet — `lumo session attach` and activity capture work in Claude Code only.\n'
-    )
+    // LUM-1051: Codex reads skills from .agents/skills/ and hooks from
+    // .codex/hooks.json (same shape as Claude's settings.json `hooks`).
+    const hooksPath = codexHooksPath(root)
+    mergeHooksFile(hooksPath, agentResult.token, CODEX_HOOK_EVENTS)
+    process.stdout.write(`\n${codexTrustInstructions(hooksPath)}\n`)
   } else {
-    const settingsPath = mergeSettings(configRoot, agentResult.token)
+    const settingsPath = path.join(configRoot, 'settings.json')
+    mergeHooksFile(settingsPath, agentResult.token)
     recordInstall(
       'claude-settings',
       settingsPath,
@@ -215,7 +221,7 @@ async function resolveScope(
   const answer = (
     await promptLine(
       codex
-        ? 'Install Lumo for [u]ser (~/.agents) or [p]roject (./.agents)? [u/P]: '
+        ? 'Install Lumo for [u]ser (~/.agents + ~/.codex) or [p]roject (./.agents + ./.codex)? [u/P]: '
         : 'Install Lumo for [u]ser (~/.claude) or [p]roject (./.claude)? [u/P]: '
     )
   ).toLowerCase()
@@ -440,7 +446,7 @@ async function upgradeInstalls(args: {
     if (r.kind !== 'claude-settings' || !fs.existsSync(r.path)) continue
     found++
     try {
-      mergeSettings(path.dirname(r.path), r.agent)
+      mergeHooksFile(r.path, r.agent)
       recordInstall('claude-settings', r.path, r.scope, r.agent, cliVersion)
     } catch (err) {
       fail(r.path, err)
@@ -497,11 +503,22 @@ export function refreshGitHookFile(
   return 'updated'
 }
 
-function mergeSettings(claudeDir: string, agentToken: string): string {
-  const settingsPath = path.join(claudeDir, 'settings.json')
+/**
+ * Merge the Lumo hook entries into a hooks file — Claude Code's
+ * `settings.json`, or Codex's `hooks.json` (LUM-1051) — keeping every other
+ * key and non-Lumo hook as is. An existing file is rewritten only when a Lumo
+ * entry was added or updated, so re-running init leaves it byte-identical
+ * (Codex re-asks for trust after any change).
+ */
+export function mergeHooksFile(
+  settingsPath: string,
+  agentToken: string,
+  events?: Parameters<typeof mergeLumoHooks>[2]
+): { path: string; stats: MergeStats } {
   let existing: unknown = {}
+  const exists = fs.existsSync(settingsPath)
 
-  if (fs.existsSync(settingsPath)) {
+  if (exists) {
     try {
       existing = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
     } catch (err) {
@@ -511,17 +528,19 @@ function mergeSettings(claudeDir: string, agentToken: string): string {
       )
     }
   } else {
-    fs.mkdirSync(claudeDir, { recursive: true })
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
   }
 
   const { merged, stats } = mergeLumoHooks(
     existing as Parameters<typeof mergeLumoHooks>[0],
-    agentToken
+    agentToken,
+    events
   )
-  const tracked = fs.existsSync(settingsPath) && isPathGitTracked(settingsPath)
-  fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n')
-
   const changed = stats.addedEvents.length + stats.updatedEvents.length
+  const tracked = exists && isPathGitTracked(settingsPath)
+  if (!exists || changed > 0) {
+    fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n')
+  }
   if (changed === 0) {
     process.stdout.write(
       `✓ hooks already wired in (agent=${agentToken}): ${settingsPath} (${stats.alreadyPresent.length} events)\n`
@@ -532,7 +551,7 @@ function mergeSettings(claudeDir: string, agentToken: string): string {
     )
   }
   if (tracked) process.stdout.write(gitDiffNote(settingsPath))
-  return settingsPath
+  return { path: settingsPath, stats }
 }
 
 /** Returns the hook file path when Lumo's block is in place, else null. */
@@ -632,7 +651,7 @@ function printPostInstall(codex: boolean): void {
     steps.push({
       command: 'npm install -g @lumoai/cli',
       why: codex
-        ? 'install the CLI globally so Codex can run lumo commands'
+        ? 'install the CLI globally so Codex and its hooks can run lumo'
         : 'install the CLI globally so Claude Code hooks can find it',
     })
   }
@@ -646,7 +665,7 @@ function printPostInstall(codex: boolean): void {
     steps.push({
       command: null,
       why: codex
-        ? 'All set. Start a new Codex session in this directory — the lumo skill is installed.'
+        ? 'All set once the hooks are trusted (above). Start a new Codex session in this directory — the lumo skill and hooks are installed.'
         : 'All set. Open Claude Code in this directory — the SKILL.md and hooks are wired in.',
     })
   }

@@ -13,6 +13,10 @@
 import { activeDurationMs } from '@/lib/agent-run/active-time'
 import type { HookEventType } from '@prisma/client'
 import {
+  APPLY_PATCH_TOOL,
+  parseApplyPatch,
+} from '../../../shared/src/apply-patch'
+import {
   readRedactedPatch,
   readRedactedStats,
   type RedactedPatchStats,
@@ -218,7 +222,14 @@ function compactToolCall(
   const t = formatTime(anchor.createdAt)
   const tool = anchor.toolName ?? 'Unknown'
   const input = getRecord(anchor.payload, 'tool_input')
-  const response = post ? getRecord(post.payload, 'tool_response') : null
+  // LUM-1051: Codex sends tool_response as a bare string (the output text).
+  const rawResponse = post ? getAny(post.payload, 'tool_response') : null
+  const response =
+    typeof rawResponse === 'string'
+      ? { stdout: rawResponse }
+      : post
+        ? getRecord(post.payload, 'tool_response')
+        : null
   const postArrived = post !== null
 
   const body = compactForTool(
@@ -330,6 +341,13 @@ function compactForTool(
           ? (getAny(response, 'filenames') as unknown[]).length
           : null)
       return `Glob "${pattern}" → ${numFiles ?? 0} files`
+    }
+    case APPLY_PATCH_TOOL: {
+      const patch = parseApplyPatch(getString(input, 'command') ?? '')
+      const paths = patch.files.map(f =>
+        f.op === 'update' ? (f.moveTo ?? f.path) : `${f.op} ${f.path}`
+      )
+      return `apply_patch ${paths.join(', ') || '(no path)'} +${patch.added} -${patch.removed}`
     }
     case 'Task': {
       const subagent = getString(input, 'subagent_type') ?? 'general'

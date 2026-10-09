@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.100.0",
+  "cliVersion": "1.101.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -848,7 +848,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Claude Code hook ingestion (invoked by settings.json, not humans)"
+      "description": "Coding-agent hook ingestion (invoked by Claude Code settings.json or Codex hooks.json, not humans)"
     },
     "hook config-change": {
       "arguments": [],
@@ -946,6 +946,22 @@
       "isInvokable": true,
       "description": "Forward an InstructionsLoaded hook event to Lumo (reads JSON from stdin)"
     },
+    "hook interrupt": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo init --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Forward a Codex Interrupt hook event to Lumo (reads JSON from stdin)"
+    },
     "hook notification": {
       "arguments": [],
       "flags": {
@@ -994,6 +1010,22 @@
       "isInvokable": true,
       "description": "Forward a PermissionRequest hook event to Lumo (reads JSON from stdin)"
     },
+    "hook post-compact": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo init --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Forward a Codex PostCompact hook event to Lumo (reads JSON from stdin)"
+    },
     "hook post-tool-batch": {
       "arguments": [],
       "flags": {
@@ -1041,6 +1073,22 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Forward a PostToolUseFailure hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook pre-compact": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo init --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Forward a Codex PreCompact hook event to Lumo (reads JSON from stdin)"
     },
     "hook pre-tool-use": {
       "arguments": [],
@@ -1259,7 +1307,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout instead. Defaults to claude-code."
+          "description": "Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout and .codex/hooks.json instead. Defaults to claude-code."
         },
         "--force": {
           "long": "--force",
@@ -1275,7 +1323,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Install into ./.claude, or ./.agents for Codex (applies to the current project only)"
+          "description": "Install into ./.claude, or ./.agents + ./.codex for Codex (applies to the current project only)"
         },
         "--upgrade": {
           "long": "--upgrade",
@@ -1291,12 +1339,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Install into ~/.claude, or ~/.agents for Codex (applies across all projects for this user)"
+          "description": "Install into ~/.claude, or ~/.agents + ~/.codex for Codex (applies across all projects for this user)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: install the skill into .agents/skills/ for Codex, no hooks). Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
+      "description": "Install the Lumo skill and wire hook handlers into .claude/settings.json (with --agent codex: the skill into .agents/skills/ and hooks into .codex/hooks.json, which you then trust in Codex /hooks). Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
     },
     "initiative": {
       "arguments": [],
@@ -2481,7 +2529,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout instead. Defaults to claude-code."
+          "description": "Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout and .codex/hooks.json instead. Defaults to claude-code."
         },
         "--force": {
           "long": "--force",
@@ -2497,7 +2545,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Install into ./.claude, or ./.agents for Codex (applies to the current project only)"
+          "description": "Install into ./.claude, or ./.agents + ./.codex for Codex (applies to the current project only)"
         },
         "--upgrade": {
           "long": "--upgrade",
@@ -2513,7 +2561,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Install into ~/.claude, or ~/.agents for Codex (applies across all projects for this user)"
+          "description": "Install into ~/.claude, or ~/.agents + ~/.codex for Codex (applies across all projects for this user)"
         }
       },
       "hasSubcommands": false,

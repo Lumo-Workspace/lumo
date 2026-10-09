@@ -6,7 +6,7 @@
 
 Bootstraps Lumo into a coding-agent installation. Copies the bundled skill files (`SKILL.md` **and its `references/` directory**) into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
 
-**`--agent codex`** installs for Codex instead: the same skill files go to `<scope>/.agents/skills/lumo/` (Codex loads skills from there in the CLI, desktop app and IDE extension), and **no hooks are written** — Lumo has no Codex hook adapter yet, so session binding (`session attach/status`) and activity capture stay Claude Code only. Nothing under `.claude/` is touched. The `--project` git hook below is installed as usual. The npm package root is also a portable Agent Plugins package (`plugin.json` + `skills/lumo/`), so a Codex / ChatGPT plugin marketplace can list `@lumoai/cli` as an `npm` source.
+**`--agent codex`** installs for Codex instead: the same skill files go to `<scope>/.agents/skills/lumo/` (Codex loads skills from there in the CLI, desktop app and IDE extension), and 12 hook entries are merged into `<scope>/.codex/hooks.json` (`~/.codex/hooks.json` for `--user`) — the 9 events Codex shares with Claude Code plus Codex's `PreCompact` / `PostCompact` / `Interrupt`. Nothing under `.claude/` is touched. **Codex runs a hook only after the user trusts it** (Codex app: Settings → Hooks → Trust each `lumo hook …` entry; Codex CLI: `/hooks`); until then it is skipped silently, so setup prints that step and `session attach` / `session status` warn when no hook event has arrived. Hook commands are byte-stable (`lumo hook <slug> --agent codex`) and an unchanged file is never rewritten, so re-running `init` or upgrading the CLI does not ask for trust again. The `--project` git hook below is installed as usual. The npm package root is also a portable Agent Plugins package (`plugin.json` + `skills/lumo/`), so a Codex / ChatGPT plugin marketplace can list `@lumoai/cli` as an `npm` source.
 
 On `--project` scope, setup also installs a `prepare-commit-msg` git hook that
 auto-appends the branch's task ID (`[LUM-N]`, parsed from a `lumo/LUM-N-...`
@@ -28,7 +28,7 @@ npx @lumoai/cli init  --user             # write to ~/.claude/
 npx @lumoai/cli init  --project          # write to ./.claude/
 lumo init --project --force             # same via global install: overwrite skill files if they differ from bundled
 lumo init --upgrade                     # refresh all known installs: skills (managed+older only; modified/newer skipped, never downgrades), Claude settings hooks, and the Lumo prepare-commit-msg block (default hooks dir / recorded paths)
-lumo init --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, no hooks
+lumo init --project --agent codex       # Codex: skill into ./.agents/skills/lumo/, hooks into ./.codex/hooks.json (then trust them)
 lumo setup --project                    # legacy hidden alias of `lumo init`
 lumo init --project --agent cursor      # bake agent=cursor into the hook commands
 ```

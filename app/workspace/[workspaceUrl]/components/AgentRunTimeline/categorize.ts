@@ -4,6 +4,10 @@ import {
   isPrunedPayload,
   isUserDeletedPayload,
 } from '@/lib/hook-event/retention'
+import {
+  APPLY_PATCH_TOOL,
+  parseApplyPatch,
+} from '../../../../../shared/src/apply-patch'
 
 /**
  * Visual category for a single agent hook event. Drives icon color and
@@ -34,8 +38,21 @@ export type EventCategory =
   | 'notification'
 
 const READ_TOOLS = new Set(['Read', 'Grep', 'Glob'])
-const WRITE_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
-const EXEC_TOOLS = new Set(['Bash', 'Task'])
+// LUM-1051: `apply_patch` is Codex's only file-writing tool; Codex spawns and
+// waits on subagents with `collaborationspawn_agent` / `…wait_agent`.
+const WRITE_TOOLS = new Set([
+  'Edit',
+  'MultiEdit',
+  'Write',
+  'NotebookEdit',
+  APPLY_PATCH_TOOL,
+])
+const EXEC_TOOLS = new Set([
+  'Bash',
+  'Task',
+  'collaborationspawn_agent',
+  'collaborationwait_agent',
+])
 const PLAN_TOOLS = new Set(['TodoWrite'])
 
 export function categorizeHookEvent(
@@ -69,7 +86,12 @@ export function categorizeHookEvent(
     case 'CWD_CHANGED':
       return 'config_change'
     case 'INSTRUCTIONS_LOADED':
+    case 'PRE_COMPACT':
+    case 'POST_COMPACT':
       return 'session_boundary'
+    // LUM-1051: Codex ends an interrupted turn with INTERRUPT instead of STOP.
+    case 'INTERRUPT':
+      return 'turn_failure'
     case 'TASK_CREATED':
     case 'TASK_COMPLETED':
       return 'task_event'
@@ -208,6 +230,9 @@ const PILL_LABEL: Record<AgentRunHookEventType, string> = {
   ELICITATION_RESULT: 'Elicit ✓',
   CWD_CHANGED: 'CWD',
   INSTRUCTIONS_LOADED: 'Instructions',
+  PRE_COMPACT: 'Compact ▶',
+  POST_COMPACT: 'Compact ■',
+  INTERRUPT: 'Interrupt',
 }
 
 export function pillLabel(event: AgentRunHookEventItem): string {
@@ -384,6 +409,11 @@ export function summarizeEvent(
         getString(payload, 'path') ?? getString(payload, 'source') ?? ''
       return path
     }
+    case 'PRE_COMPACT':
+    case 'POST_COMPACT': {
+      const trigger = getString(payload, 'trigger')
+      return trigger ? `[${trigger}]` : ''
+    }
     // Unknown / future event types: no summary rather than a crash.
     default:
       return ''
@@ -406,6 +436,10 @@ function summarizeToolInput(
       return getString(input, 'file_path') ?? ''
     case 'NotebookEdit':
       return getString(input, 'notebook_path') ?? ''
+    case APPLY_PATCH_TOOL:
+      return parseApplyPatch(getString(input, 'command') ?? '')
+        .files.map(f => f.moveTo ?? f.path)
+        .join(', ')
     case 'WebFetch':
       return getString(input, 'url') ?? ''
     case 'Grep': {

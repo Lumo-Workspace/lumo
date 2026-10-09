@@ -1,3 +1,4 @@
+import type { TaskArtifactAgent } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
@@ -18,6 +19,8 @@ interface BindSessionToTaskInput {
   identity: VerifyApiKeyResult
   sessionId: string
   taskIdentifier: string
+  /** LUM-1051: coding agent recorded when this attach creates the row. */
+  agent?: TaskArtifactAgent
 }
 
 export type BindSessionToTaskResult = {
@@ -150,6 +153,7 @@ export const sessionService = {
     identity,
     sessionId,
     taskIdentifier,
+    agent,
   }: BindSessionToTaskInput): Promise<BindSessionToTaskResult> {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -255,6 +259,7 @@ export const sessionService = {
       ...(child
         ? { parentSessionId: child.parentSessionId, agentId: child.agentId }
         : {}),
+      ...(agent ? { agent } : {}),
       now: new Date(),
     })
     if (upserted.ownedByOther) {

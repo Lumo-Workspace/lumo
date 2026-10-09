@@ -98,7 +98,7 @@ lumo session attach LUM-42 --no-worktree   # never create one, even with autoWor
 
 What it does:
 
-- Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets it automatically); errors out if unset — must run from inside a Claude Code session. Codex sets no such id and has no Lumo hooks yet, so `session attach` / `session status` don't work there — tell the user binding is Claude Code only for now instead of retrying.
+- Reads the session id from the environment: in Codex `CODEX_SESSION_ID` / `CODEX_THREAD_ID` (see [Codex](#codex)), otherwise `CLAUDE_CODE_SESSION_ID` (Claude Code sets it automatically); errors out when neither is set — must run from inside a Claude Code or Codex session.
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
 - Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning and **undispositioned security findings**.
@@ -108,7 +108,7 @@ After attaching, always run `lumo task context <identifier>` to load the task ba
 
 #### Auto-downsync on attach
 
-A successful `session attach` also runs a **best-effort team-memory downsync** for the bound task's project — the same work as `lumo memory sync` (including the P4b code-anchor staleness check), landing the team's memory in your local Claude Code memory store without a separate command.
+A successful `session attach` (Claude Code only — skipped in Codex) also runs a **best-effort team-memory downsync** for the bound task's project — the same work as `lumo memory sync` (including the P4b code-anchor staleness check), landing the team's memory in your local Claude Code memory store without a separate command.
 
 - **Throttle-gated:** network is skipped entirely if this repo already synced within `LUMO_SYNC_THROTTLE_HOURS` (default **12h**), so re-attaches and same-day sessions are cheap.
 - **Non-blocking:** a sync failure is swallowed — it **never** changes the bind outcome.
@@ -253,9 +253,20 @@ A **human-applied** `blocked` tag has no auto-block record and is **never** auto
 
 Nothing to suggest — these run on their own. If a teammate asks why a task shows `blocked`, explain it's the auto-block (repeated same-tool failures) and that it clears itself once the task makes progress; a human can also remove the tag manually from the board.
 
+## Codex
+
+Codex (CLI and desktop app, 0.162+) is a supported agent since LUM-1051. `lumo init --agent codex` installs the skill and `.codex/hooks.json` ([onboarding.md](onboarding.md)); the user must **trust** the hooks once (Codex app Settings → Hooks, or `/hooks`).
+
+- **Session id.** Codex sets `CODEX_THREAD_ID` in every shell; it wins over a `CLAUDE_CODE_SESSION_ID` inherited from a parent Claude Code session. The session is `CODEX_SESSION_ID`. Inside a Codex subagent the two differ and the CLI uses the child session `<CODEX_SESSION_ID>:<CODEX_THREAD_ID>` — the same id the hooks build from the payload's `session_id` + `agent_id` — so a subagent's `session attach` is deterministic (no Claude-style ambiguity errors).
+- **Hook trust self-check.** Codex skips untrusted hooks with no error. When the server has no hook event for this Codex session, `session attach` (after the bind line) and `session status` (on stderr) print `no hook events have reached Lumo from this Codex session …` — relay it: the user must run `lumo init --agent codex` and trust the `lumo hook …` entries. Until then nothing of the session is recorded.
+- **Events.** Captured: SessionStart/End, UserPromptSubmit, Pre/PostToolUse, PermissionRequest, SubagentStart/Stop, Stop, plus Codex-only PreCompact / PostCompact / Interrupt (shown on the timeline). Codex has no PostToolUseFailure (a failed command is a normal PostToolUse without exit code), PermissionDenied (a declined approval shows as Interrupt), PostToolBatch, Worktree*, FileChanged, ConfigChange, Task*, Notification, Elicitation\*, CwdChanged or InstructionsLoaded — those signals are absent for Codex sessions.
+- **Tools.** Codex writes files only through `apply_patch`; it counts as a write tool (collision warnings, sensitive-path and secret checks, deleted-test detection) with its paths read from the patch headers. Reads go through `Bash`. `collaborationspawn_agent` / `collaborationwait_agent` are its subagent tools.
+- **Token usage** comes from the Codex rollout (`~/.codex/sessions/…/rollout-*.jsonl`) on every Stop, subagents from their own rollouts. No mid-turn live usage (no PostToolBatch); an interrupted turn's usage lands with the next Stop. `lumo usage resync` is not needed for Codex.
+- **Memory.** `memory sync` / `memory push` refuse in a Codex shell (they target Claude Code's memory store, which Codex never reads; `--dir` still writes explicitly). Team memory reaches Codex through `lumo task context` and the session-start hook.
+
 ## usage resync
 
-`lumo usage resync [--apply] [--json]` (LUM-932) recomputes token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; sessions go in batches of 50 per request on a dry run and 10 with `--apply`.
+`lumo usage resync [--apply] [--json]` (LUM-932) recomputes Claude Code token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; sessions go in batches of 50 per request on a dry run and 10 with `--apply`.
 
 **When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Run it as a dry run first (default: prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then re-run with `--apply` once they agree.
 

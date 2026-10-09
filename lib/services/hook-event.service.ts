@@ -20,6 +20,10 @@ import {
 import { logger } from '@/lib/logger'
 import { AGENT_ID_RE } from '@/lib/session/child-session-id'
 import { provisionalTaskFor } from '@/lib/services/attribution.service'
+import {
+  APPLY_PATCH_TOOL,
+  applyPatchPrimaryPath,
+} from '../../shared/src/apply-patch'
 
 interface RecordHookEventInput {
   identity: VerifyApiKeyResult
@@ -79,8 +83,17 @@ function extractNestedStringField(
  * Returns null for events that carry no file path (Bash, Stop, prompts, …).
  * Payload-shape-driven rather than type-driven: a Bash tool_input has no
  * file_path, so it naturally yields null without enumerating event types.
+ * The one exception is Codex's `apply_patch` (LUM-1051), whose path lives in
+ * the patch header — the first file it writes.
  */
 export function extractFilePath(payload: unknown): string | null {
+  if (extractStringField(payload, 'tool_name') === APPLY_PATCH_TOOL) {
+    const input =
+      payload && typeof payload === 'object'
+        ? (payload as Record<string, unknown>)['tool_input']
+        : undefined
+    return applyPatchPrimaryPath(input)
+  }
   return (
     extractNestedStringField(payload, 'tool_input', 'file_path') ??
     extractNestedStringField(payload, 'tool_input', 'notebook_path') ??

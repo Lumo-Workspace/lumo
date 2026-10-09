@@ -5,7 +5,15 @@ import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { autoDownsyncOnAttach } from '../lib/memory-auto'
 import { attachWorktreeStep } from '../lib/worktree-attach'
-import { resolveSessionId } from '../lib/session-id'
+import {
+  isCodexShell,
+  noSessionMessage,
+  resolveSessionId,
+} from '../lib/session-id'
+import {
+  codexHooksSilentWarning,
+  codexSessionHasEvents,
+} from '../lib/codex-hooks'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -73,10 +81,7 @@ export async function sessionAttach(
   // subagent's, refuse rather than bind the whole session on a guess.
   const sessionId = await resolveSessionId({ write: true, strict: true })
   if (!sessionId) {
-    console.error(
-      'Error: $CLAUDE_CODE_SESSION_ID is not set.\n' +
-        '`lumo session attach` must be run inside a Claude Code session.'
-    )
+    console.error(noSessionMessage('lumo session attach'))
     return 1
   }
 
@@ -98,6 +103,16 @@ export async function sessionAttach(
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const url = `${trimTrailingSlash(apiUrl)}/api/sessions/${encodeURIComponent(sessionId)}/bind-task`
 
+  // LUM-1051: an untrusted Codex hook is skipped silently. Ask before binding
+  // (the bind creates the session row) whether any hook event has arrived.
+  const codexHooksSilent =
+    isCodexShell() &&
+    (await codexSessionHasEvents({
+      base: trimTrailingSlash(apiUrl),
+      token: creds.token,
+      sessionId,
+    })) === false
+
   let res: Response
   try {
     res = await fetch(url, {
@@ -106,7 +121,11 @@ export async function sessionAttach(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${creds.token}`,
       },
-      body: JSON.stringify({ taskIdentifier: identifier }),
+      // LUM-1051: record the agent when this attach creates the session row.
+      body: JSON.stringify({
+        taskIdentifier: identifier,
+        ...(isCodexShell() ? { agent: 'CODEX' } : {}),
+      }),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -182,6 +201,10 @@ export async function sessionAttach(
   console.log(
     `Attached session ${sessionId} to ${body.taskIdentifier} "${sanitizeField(body.taskTitle)}"${retagged}`
   )
+  if (codexHooksSilent) {
+    console.log('')
+    console.log(codexHooksSilentWarning())
+  }
   // Warnings come before contract/memory: matches the hook injection order —
   // short, actionable information first.
   if (body.blockerWarningSection) {
@@ -212,7 +235,8 @@ export async function sessionAttach(
       creds.token,
       body.taskIdentifier
     )
-    if (proj.ok) {
+    // LUM-1051: Codex does not read the Claude Code memory store.
+    if (proj.ok && !isCodexShell()) {
       const sync = await autoDownsyncOnAttach({
         cwd: process.cwd(),
         base,

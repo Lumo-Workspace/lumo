@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { listTranscripts } from '../lib/transcript-scan'
 import { sumTranscriptUsage } from '../lib/transcript-usage'
+import { isCodexShell } from '../lib/session-id'
 
 /**
  * Sessions per request. --apply runs a write transaction per family, so its
@@ -40,6 +41,13 @@ export async function usageResync(options?: {
   if (!creds) {
     console.error('Error: not logged in. Run `lumo auth login` first.')
     return 1
+  }
+  // LUM-1051: Codex usage is read from the rollout on every Stop and never
+  // went through the inflated path this command corrects.
+  if (isCodexShell() && !options?.json) {
+    console.error(
+      'Note: Codex sessions need no resync (their usage is read from the Codex rollout on every Stop). This resyncs Claude Code transcripts only (~/.claude/projects).'
+    )
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const url = `${trimTrailingSlash(apiUrl)}/api/sessions/usage-resync`

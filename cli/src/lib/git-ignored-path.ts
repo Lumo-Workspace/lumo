@@ -9,6 +9,10 @@ export {
   WRITTEN_PATH_PROBE_FIELD,
   WRITTEN_PATH_PROBE_FILE_DIR,
 } from '../../../shared/src/written-path-probe'
+import {
+  APPLY_PATCH_TOOL,
+  applyPatchPrimaryPath,
+} from '../../../shared/src/apply-patch'
 
 /**
  * LUM-893 — the local half of the HARDCODED_SECRET "is this file ever going to
@@ -110,15 +114,23 @@ export function probeCheckoutRelativePath(
   }
 }
 
-/** Tool events that write a file to disk (LUM-904: NotebookEdit too). */
+/**
+ * Tool events that write a file to disk (LUM-904: NotebookEdit too; LUM-1051:
+ * Codex `apply_patch`).
+ */
 export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set([
   'Write',
   'Edit',
   'MultiEdit',
   'NotebookEdit',
+  APPLY_PATCH_TOOL,
 ])
 
-/** The written path: `file_path`, or NotebookEdit's `notebook_path`. */
+/**
+ * The written path: `file_path`, NotebookEdit's `notebook_path`, or — for an
+ * apply_patch `command` — the first file the patch writes (the same path the
+ * server indexes, so the probe answers for the file it judges).
+ */
 export function writtenFilePath(input: unknown): string | null {
   if (!input || typeof input !== 'object') return null
   const o = input as Record<string, unknown>
@@ -126,5 +138,5 @@ export function writtenFilePath(input: unknown): string | null {
     const v = o[key]
     if (typeof v === 'string' && v) return v
   }
-  return null
+  return applyPatchPrimaryPath(input)
 }

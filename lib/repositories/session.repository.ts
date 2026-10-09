@@ -144,6 +144,12 @@ interface UpsertWithTaskIdData {
   /** LUM-932: set when `id` is a child session (`<parent>:<agentId>`). */
   parentSessionId?: string
   agentId?: string
+  /**
+   * LUM-1051: coding agent of a row this attach creates (a Codex session can
+   * be attached before any hook reached the server). Never changes an
+   * existing row — the first hook event already recorded it.
+   */
+  agent?: TaskArtifactAgent
 }
 
 interface UpsertWithMilestoneIdData {
@@ -162,6 +168,7 @@ async function ensureParentRow(
     workspaceId: string
     workspaceMemberId: string
     now: Date
+    agent?: TaskArtifactAgent
   }
 ): Promise<{
   id: string
@@ -180,6 +187,7 @@ async function ensureParentRow(
       startedAt: data.now,
       lastActivityAt: data.now,
       eventCount: 0,
+      ...(data.agent ? { agent: data.agent } : {}),
     },
     update: {},
     select: { id: true, taskId: true, role: true, milestoneId: true },
@@ -655,6 +663,7 @@ export const sessionRepository = {
           workspaceId: data.workspaceId,
           workspaceMemberId: data.workspaceMemberId,
           now: data.now,
+          ...(data.agent ? { agent: data.agent } : {}),
         })
       }
       const existing = await tx.session.findUnique({
@@ -696,6 +705,7 @@ export const sessionRepository = {
                 agentId: data.agentId ?? null,
               }
             : {}),
+          ...(data.agent ? { agent: data.agent } : {}),
           startedAt: data.now,
           lastActivityAt: data.now,
           eventCount: 0,

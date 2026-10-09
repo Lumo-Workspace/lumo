@@ -24,7 +24,7 @@ export async function resolveBoundTask(args: {
     return {
       ok: false,
       message:
-        'Error: $CLAUDE_CODE_SESSION_ID is not set — run inside a session bound via `lumo session attach <LUM-N>`, or pass --task <LUM-N>.',
+        'Error: no coding-agent session found ($CLAUDE_CODE_SESSION_ID / $CODEX_THREAD_ID are not set) — run inside a session bound via `lumo session attach <LUM-N>`, or pass --task <LUM-N>.',
     }
   }
   let bound: { taskIdentifier: string | null } | null
