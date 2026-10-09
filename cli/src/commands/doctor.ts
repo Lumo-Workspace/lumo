@@ -1,10 +1,12 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { readCliVersion } from '../lib/cli-version'
+import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
 import {
   describeAutoUpdate,
   getAutoUpdateStatus,
+  isAutoUpdateEligible,
+  type SpawnSyncFn,
   type AutoUpdateStatus,
 } from '../lib/auto-update'
 import {
@@ -75,9 +77,19 @@ export interface DoctorDeps {
   cwd?: string
   cliVersion?: string | null
   env?: Record<string, string | undefined>
+  /** Whether the running CLI is a global npm install (auto-update only runs for those). */
+  isGlobalInstall?: () => boolean
+  /** Package root and spawnSync for the default eligibility probe (same seams as the worker). */
+  pkgRoot?: string | null
+  spawnSync?: SpawnSyncFn
 }
 
 const CMD_UPGRADE = 'lumo init --upgrade'
+
+/** State for an install older than what the running CLI would write. */
+function behindCli(cliVersion: string | null): string {
+  return cliVersion ? `behind CLI ${cliVersion}` : 'behind'
+}
 const CMD_FORCE = 'lumo init --force'
 const CMD_UPDATE = 'lumo update'
 const CODEX_HINT = 'open /hooks in Codex and Trust'
@@ -216,7 +228,7 @@ function skillRow(
     return {
       ...base,
       version: v,
-      state: `behind ${v}`,
+      state: behindCli(cliVersion),
       suggestion: CMD_UPGRADE,
     }
   if (cliVersion && isNewerVersion(cliVersion, v))
@@ -271,7 +283,8 @@ function gitHookRow(
   file: string,
   scope: 'user' | 'project',
   root: string | null,
-  current: { path: string; coreHooksPath: string | null } | null
+  current: { path: string; coreHooksPath: string | null } | null,
+  cliVersion: string | null
 ): DoctorRow | null {
   let text: string
   try {
@@ -301,7 +314,7 @@ function gitHookRow(
     agent: GIT_HOOK_AGENT,
     group,
     tracked: isCurrent && !hooksPath ? false : fileTracked(file),
-    state: upToDate ? 'up to date' : 'behind',
+    state: upToDate ? 'up to date' : behindCli(cliVersion),
   }
   if (!upToDate) {
     if (hooksPath)
@@ -478,7 +491,7 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
     hookFiles.set(rec.path, { scope: rec.scope })
   }
   for (const [file, t] of hookFiles) {
-    const row = gitHookRow(file, t.scope, root, current)
+    const row = gitHookRow(file, t.scope, root, current, cliVersion)
     if (row) rows.push(row)
   }
   // Codex hooks.json: user + this repo's file plus recorded ones.
@@ -563,6 +576,19 @@ export async function doctor(
   deps: DoctorDeps = {}
 ): Promise<number> {
   const report = collectDoctor(deps)
+  // Probed here, not in collectDoctor: uninstall reuses the collector and must
+  // not pay for an `npm root -g` spawn.
+  if (report.autoUpdate.enabled) {
+    // One-shot diagnostic: a synchronous `npm root -g` (5 s cap) is fine here.
+    const isGlobal =
+      deps.isGlobalInstall ??
+      (() =>
+        isAutoUpdateEligible(
+          deps.pkgRoot !== undefined ? deps.pkgRoot : findCliPackageRoot(),
+          deps.spawnSync
+        ))
+    report.autoUpdate = { ...report.autoUpdate, eligible: isGlobal() }
+  }
   process.stdout.write(
     options.json ? JSON.stringify(report, null, 2) + '\n' : renderText(report)
   )

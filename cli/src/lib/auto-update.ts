@@ -16,7 +16,12 @@ export const AUTO_UPDATE_OFF_COMMAND = 'lumo update --auto off'
 
 export type AutoUpdateEnv = Record<string, string | undefined>
 export type AutoUpdateSource = 'default' | 'setting' | 'env' | 'ci'
-export type AutoUpdateStatus = { enabled: boolean; source: AutoUpdateSource }
+export type AutoUpdateStatus = {
+  enabled: boolean
+  source: AutoUpdateSource
+  /** Set by `lumo doctor` only: false when this install is not a global npm install, so updates are skipped. */
+  eligible?: boolean
+}
 
 function settingsPath(): string {
   return path.join(configDir(), 'settings.json')
@@ -66,6 +71,8 @@ export function getAutoUpdateStatus(
 
 /** One human line describing the state, with how to change it. */
 export function describeAutoUpdate(status: AutoUpdateStatus): string {
+  if (status.enabled && status.eligible === false)
+    return 'Auto-update: on, but skipped for this install (not a global npm install — e.g. npm link or npx); update it yourself'
   if (status.enabled)
     return `Auto-update: on — the CLI updates itself in the background; turn off with \`${AUTO_UPDATE_OFF_COMMAND}\``
   const why =
@@ -102,7 +109,7 @@ function writeAutoUpdateState(state: AttemptState): void {
   }
 }
 
-type SpawnSyncFn = (
+export type SpawnSyncFn = (
   cmd: string,
   args: string[],
   opts: { encoding: 'utf8'; timeout: number; shell: boolean }
@@ -147,6 +154,18 @@ export type AutoUpdateDeps = {
 }
 
 /**
+ * Whether background auto-update can act on this install: the running package
+ * is a real global npm install. The worker gates on this and `lumo doctor`
+ * reports it, so the two can't disagree.
+ */
+export function isAutoUpdateEligible(
+  pkgRoot: string | null = findCliPackageRoot(),
+  run?: SpawnSyncFn
+): boolean {
+  return isGlobalNpmInstall(pkgRoot, run)
+}
+
+/**
  * Worker-side auto-update: install `latest` globally when allowed. Never
  * throws and never prints — failures are recorded in auto-update.json and the
  * ordinary "Update available" notice keeps showing.
@@ -172,7 +191,7 @@ export async function maybeAutoUpdate(
       if (last !== undefined && now - last < ATTEMPT_INTERVAL_MS) return
       const root =
         deps.pkgRoot !== undefined ? deps.pkgRoot : findCliPackageRoot()
-      if (!isGlobalNpmInstall(root, deps.spawnSync)) return
+      if (!isAutoUpdateEligible(root, deps.spawnSync)) return
       writeAutoUpdateState({ lastAutoUpdateAttempt: now, lastError: null })
       const { error, stillRunning } = await installGlobally(
         latest,
