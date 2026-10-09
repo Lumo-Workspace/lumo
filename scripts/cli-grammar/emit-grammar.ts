@@ -1,8 +1,8 @@
 /**
  * LUM-413: regenerate grammar.json from the live CLI commander tree.
  *
- * Run:    npx tsx scripts/analysis/lum392-cli-friction/emit-grammar.ts
- * Print:  npx tsx scripts/analysis/lum392-cli-friction/emit-grammar.ts --print
+ * Run:    npx tsx scripts/cli-grammar/emit-grammar.ts
+ * Print:  npx tsx scripts/cli-grammar/emit-grammar.ts --print
  *
  * Imports cli/src/index.ts under LUMO_CLI_INTROSPECT=1 (no parse, no update
  * check, no side effects) and walks the registered command tree. The
@@ -19,9 +19,9 @@ async function main() {
   process.env.LUMO_CLI_INTROSPECT = '1'
   const here = dirname(fileURLToPath(import.meta.url))
   const cliPkg = JSON.parse(
-    readFileSync(join(here, '../../../cli/package.json'), 'utf8')
+    readFileSync(join(here, '../../cli/package.json'), 'utf8')
   ) as { version: string }
-  const { program } = (await import('../../../cli/src/index')) as {
+  const { program } = (await import('../../cli/src/index')) as {
     program: CommandLike
   }
   const grammar = extractGrammar(program, cliPkg.version)

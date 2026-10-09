@@ -5,7 +5,7 @@ Instructions for AI coding agents (and humans) contributing to Lumo.
 ## Project
 
 Lumo is a project management tool for small dev teams.
-Stack: Next.js (App Router), TypeScript, Prisma, Postgres, Clerk auth, Tailwind CSS, shadcn/ui.
+Stack: Next.js (App Router), TypeScript, Prisma, Postgres, Better Auth (default) or Clerk (`AUTH_PROVIDER`), Tailwind CSS, shadcn/ui.
 
 ## Code Style
 
@@ -86,6 +86,7 @@ Standard Next.js App Router layout. Only the non-obvious bits:
   - Keep the frontmatter `description` category-level and under 1000 characters; put new usage triggers in the matching section's "When to suggest".
   - Keep the `##` / `###` sections in step with the real behavior (flags, examples, empty-string semantics, status enums).
 - Exceptions: pure internal refactors, error-copy tweaks and bug fixes that don't change how the command is called.
+- When the command tree changes (commands or flags added, renamed or removed), regenerate the snapshot in the same pull request with `npx tsx scripts/cli-grammar/emit-grammar.ts`; the `grammar-drift` and `doc-examples` tests in `scripts/cli-grammar/__tests__/` fail until `grammar.json` and the skill docs match the CLI.
 - The local commit-msg hook (`scripts/drift-check.ts`) prints a non-blocking reminder when a commit stages `cli/src/commands/**` without touching the skill docs; add `[skip-drift]` to the commit message when the change is one of the exceptions above.
 
 ## Forbidden

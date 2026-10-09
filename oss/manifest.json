@@ -200,6 +200,10 @@
     {
       "glob": "scripts/**",
       "reason": "build/lint/dev tooling and maintenance scripts; evaluation and obsolete probes excluded below"
+    },
+    {
+      "glob": "scripts/cli-grammar/**",
+      "reason": "LUM-1055: CLI command grammar snapshot + drift guards (grammar-drift / doc-examples / AST validator) moved out of the private scripts/analysis tree so the public repo keeps them"
     }
   ],
   "exclude": [
@@ -237,7 +241,7 @@
     },
     {
       "glob": "CLAUDE.md",
-      "reason": "internal agent instructions; the snapshot gets the contributor version from oss/overlay/CLAUDE.md (DRAFT, needs user approval)"
+      "reason": "internal agent instructions; the snapshot gets the contributor version from oss/overlay/CLAUDE.md (adopted as the public version, LUM-1035 ruling 2026-10-10)"
     },
     {
       "glob": "oss/**",
@@ -304,6 +308,10 @@
       "reason": "LUM-1033 2/5: internal report built from production data (MOVE-TO-PRIVATE)"
     },
     {
+      "glob": "docs/live-docs/README.md",
+      "reason": "内部 live doc id 和链接（LUM-1035 裁定 2026-10-10）"
+    },
+    {
       "glob": "docs/rfc/**",
       "reason": "LUM-1033 2/5: multi-tenant security RFC is NEEDS-USER-DECISION; default deny until ruled"
     },
@@ -326,10 +334,6 @@
     {
       "glob": "__tests__/crossing-eval.test.ts",
       "reason": "LUM-1033 D1: test imports the private evaluation tree (found by the export import-graph check) (crossing benchmark datasets)"
-    },
-    {
-      "glob": "__tests__/scripts/lum392-cli-friction-parse.test.ts",
-      "reason": "LUM-1033 D1: test imports the private evaluation tree (found by the export import-graph check) (friction-log parser over production data)"
     },
     {
       "glob": "__tests__/lib/legal/zdr-exclusion-claims.test.ts",
@@ -379,12 +383,6 @@
       "type": "dropLines",
       "pattern": "^scripts/(analysis|eval)/",
       "reason": "entries for excluded output files"
-    },
-    {
-      "file": "docs/live-docs/README.md",
-      "type": "dropLines",
-      "pattern": "lum392-cli-friction-report\\.md",
-      "reason": "registry row for the excluded internal report"
     }
   ],
   "configRefFiles": [

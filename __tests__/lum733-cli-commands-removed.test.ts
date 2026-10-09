@@ -45,7 +45,7 @@ describe('LUM-733 CLI surface reduction', () => {
     }
 
     // 2. The grammar snapshot (removed commands absent, neighbours kept) is
-    //    asserted by the CLI-grammar suite that lives next to grammar.json.
+    //    asserted by the CLI-grammar suite in scripts/cli-grammar/__tests__/.
 
     // 3. The skill docs the agent reads.
     const docs = [

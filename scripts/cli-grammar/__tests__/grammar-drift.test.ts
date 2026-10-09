@@ -2,7 +2,7 @@
  * LUM-413: grammar snapshot drift guard. Regenerates the grammar from the
  * live CLI source (cli/src/index.ts under LUMO_CLI_INTROSPECT=1) and fails
  * when the committed grammar.json no longer matches — so any CLI command
- * change forces `npx tsx scripts/analysis/lum392-cli-friction/emit-grammar.ts`
+ * change forces `npx tsx scripts/cli-grammar/emit-grammar.ts`
  * and a re-run of the AST regression set.
  */
 import { execFileSync } from 'child_process'

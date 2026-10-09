@@ -34,7 +34,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { estimateTokens } from '../../../lib/context/budget'
-import { readSkillDescription } from '../lum392-cli-friction/doc-examples'
+import { readSkillDescription } from '../../cli-grammar/doc-examples'
 
 /** Repo root, derived from this file's location (scripts/analysis/context-budget). */
 export const REPO_ROOT = join(__dirname, '..', '..', '..')

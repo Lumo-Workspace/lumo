@@ -24,7 +24,7 @@ import {
   extractLumoSegments,
   firstPositionalArg,
   parseInvocation,
-} from './parse'
+} from '../../cli-grammar/parse'
 
 config({ path: process.env.DOTENV_CONFIG_PATH ?? '.env.production' })
 

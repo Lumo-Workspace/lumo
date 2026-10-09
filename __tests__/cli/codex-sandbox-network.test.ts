@@ -22,7 +22,7 @@ import {
   installCodexRules,
   isCodexServerOnly,
 } from '@/cli/src/lib/codex-rules'
-import grammarJson from '../../scripts/analysis/lum392-cli-friction/grammar.json'
+import grammarJson from '../../scripts/cli-grammar/grammar.json'
 import {
   createSandboxNetworkTracker,
   isSandboxNetworkDenial,

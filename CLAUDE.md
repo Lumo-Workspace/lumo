@@ -90,7 +90,7 @@ Standard Next.js App Router layout. Only the non-obvious bits (not derivable by 
   - 对应的 `##` / `###` 章节要反映命令的真实行为（flags、示例、空字符串语义、状态枚举等）
   - **SKILL.md 正文软预算 ~30k 字符**（`wc -m`）：正文每次 skill 调用整体载入。catalog 每条只放一行摘要 + `references/` 链接；示例 / flags / "When to suggest" 一律归 references（按需加载）。新 domain 先建 reference 再进 catalog
 - 例外：纯内部重构、错误文案微调、不影响调用方式的 bug fix 不需要更新文档
-- 不要让 CLI 文档和实际行为漂移——agent 依赖 SKILL.md 决定调用方式，文档错了会反复踩坑
+- 不要让 CLI 文档和实际行为漂移——agent 依赖 SKILL.md 决定调用方式;命令树变了同 PR 跑 `npx tsx scripts/cli-grammar/emit-grammar.ts` 重生成 grammar.json
 - **本地 commit-msg 钩子会机械化这条规则**(LUM-405,`scripts/drift-check.ts`)：commit 暂存了 `cli/src/commands/**` 却没动 `.claude/skills/lumo/SKILL.md`(或 `references/`)时打一条**非阻塞**漂移提醒。属上面「例外」清单(纯内部重构等)时，在 commit message 里加 `[skip-drift]` 静默该次检查——检查永不替你判断意图，由你显式断言、并留痕在 git 历史里
 
 ## Forbidden

@@ -296,6 +296,13 @@ function read(rel: string): string {
 }
 
 function checkPublished(): string[] {
+  // The live-doc registry (doc ids + links into the hosted workspace) is
+  // internal and not part of the open-source snapshot (LUM-1035): report a
+  // gap instead of crashing with ENOENT.
+  if (!fs.existsSync(path.join(ROOT, LIVE_DOCS, 'README.md')))
+    return [
+      `${LIVE_DOCS}/README.md not found — the published check needs the internal live-doc registry`,
+    ]
   const readme = read(`${LIVE_DOCS}/README.md`)
   const gaps: string[] = []
   for (const file of Object.values(LEGAL_DOCS)) {
