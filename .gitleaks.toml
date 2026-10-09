@@ -1,0 +1,11 @@
+title = "Lumo release and private-history secret scan"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "database-url-password"
+description = "Password embedded in a database connection URL"
+regex = '''(?i)(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis(?:s)?)://[^\s:/"'`]+:([^\s@/"'`]+)@'''
+secretGroup = 1
+keywords = ["postgres", "mysql", "mongodb", "redis"]
