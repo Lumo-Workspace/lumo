@@ -93,6 +93,7 @@ class SecretAuditTest(unittest.TestCase):
             self.assertEqual(report["findings"][0]["rule"], "database-url-password")
             self.assertEqual(set(report["findings"][0]), {
                 "file", "startLine", "endLine", "commit", "rule", "disposition", "reason",
+                "startColumn", "endColumn",
             })
 
             code, report = scan("history")
@@ -106,10 +107,12 @@ class SecretAuditTest(unittest.TestCase):
 
             # Only the immutable original occurrence is confirmed rotated.
             credential_commit = git("rev-parse", "HEAD").decode().strip()
+            columns = next(x for x in report["findings"] if x["file"] == ".env.production")
             ledger = repo / "docs/open-source/historical-credential-rotations.json"
             rotation = {
                 "file": ".env.production", "rule": "database-url-password",
                 "commit": credential_commit, "startLine": 12, "endLine": 12,
+                "startColumn": columns["startColumn"], "endColumn": columns["endColumn"],
                 "evidence": "Synthetic regression-test rotation attestation",
             }
             ledger.write_text(json.dumps({"rotations": [rotation]}))
@@ -123,7 +126,8 @@ class SecretAuditTest(unittest.TestCase):
             self.assertEqual((code, report["confirmedRotated"], report["unresolved"]), (1, 0, 1))
 
             for key, wrong in (("commit", "0" * 40), ("file", "other.env"),
-                               ("rule", "other-rule"), ("startLine", 11), ("endLine", 13)):
+                               ("rule", "other-rule"), ("startLine", 11), ("endLine", 13),
+                               ("startColumn", columns["startColumn"] + 1), ("endColumn", columns["endColumn"] + 1)):
                 with self.subTest(mismatched_rotation=key):
                     ledger.write_text(json.dumps({"rotations": [{**rotation, key: wrong}]}))
                     commit()
@@ -178,17 +182,28 @@ class SecretAuditTest(unittest.TestCase):
             self.assertIn("exit 2; report absent; category configuration", result.stderr)
             self.assertNotIn("synthetic-sensitive-output", result.stderr + result.stdout)
 
+            stub.write_text("#!/usr/bin/env python3\nimport sys\n"
+                "if sys.argv[1]=='version': print('8.30.1'); sys.exit(0)\n"
+                "report=next(x.split('=',1)[1] for x in sys.argv if x.startswith('--report-path='))\n"
+                "open(report,'w').write('[]')\nsys.exit(1)\n")
+            result = subprocess.run(
+                ["python3", str(repo / "scripts/audit-secrets.py"), "snapshot", "--gitleaks-bin", str(stub)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("exit 1; report present", result.stderr)
+
             # Missing commit metadata cannot accidentally read the current index.
             for commit_value in (None, "", "--help"):
                 with self.subTest(invalid_commit=commit_value):
                     row = {"File": file, "RuleID": "aws-access-token", "StartLine": 1, "EndLine": 1}
                     if commit_value is not None:
                         row["Commit"] = commit_value
-                    payload = json.dumps([row])
-                    stub.write_text("#!/usr/bin/env python3\nimport json,sys\n"
+                    stub.with_name("stub-report.json").write_text(json.dumps([row]))
+                    stub.write_text("#!/usr/bin/env python3\nimport sys\nfrom pathlib import Path\n"
                         "if sys.argv[1]=='version': print('8.30.1'); sys.exit(0)\n"
                         "report=next(x.split('=',1)[1] for x in sys.argv if x.startswith('--report-path='))\n"
-                        "open(report,'w').write(" + repr(payload) + ")\n")
+                        "Path(report).write_bytes(Path(__file__).with_name('stub-report.json').read_bytes())\nsys.exit(3)\n")
                     result = subprocess.run(
                         ["python3", str(repo / "scripts/audit-secrets.py"), "history", "--gitleaks-bin", str(stub)],
                         capture_output=True, text=True,
@@ -209,6 +224,28 @@ class SecretAuditTest(unittest.TestCase):
             commit()
             code, report = scan("snapshot")
             self.assertEqual((code, report["reviewedFalsePositives"], report["unresolved"]), (0, 1, 0))
+
+            for file, key, error in (("docs/open-source/secret-scan-false-positives.json", "reason", "Invalid false-positive inventory metadata"),
+                                     ("docs/open-source/historical-credential-rotations.json", "evidence", "Invalid rotation ledger metadata")):
+                config = repo / file
+                original = config.read_text()
+                data = json.loads(original)
+                next(iter(data.values()))[0].pop(key)
+                config.write_text(json.dumps(data))
+                result = subprocess.run(
+                    ["python3", str(repo / "scripts/audit-secrets.py"), "snapshot", "--gitleaks-bin", BINARY],
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(error, result.stderr)
+                config.write_text(original)
+
+            result = subprocess.run(
+                ["python3", str(repo / "scripts/audit-secrets.py"), "history", "--ref", "HEAD", "--gitleaks-bin", BINARY],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("--ref is snapshot-only", result.stderr)
 
 
 if __name__ == "__main__":

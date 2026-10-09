@@ -18,6 +18,9 @@ Exit 0 means no unresolved
 matches; exit 1 means at least one match needs review or rotation evidence.
 Tool failures also exit nonzero and report the exit code, report presence, and
 a fixed diagnostic category without reproducing source text or scanner logs.
+Internally the scanner reserves exit 3 for detected findings; exit 1 is a tool
+failure, even if a partial report exists. An explicitly created empty ignore
+file prevents repository `.gitleaksignore` entries from suppressing audit matches.
 Snapshot mode reads every tracked blob directly from the specified commit,
 so untracked files, ignored production env files, and node_modules are excluded.
 Re-run on the actual final public-release commit; this audit does not certify
@@ -73,10 +76,15 @@ branches/tags; repository is not shallow.
 | Tracked snapshot |     122 |                      122 |                 0 |          0 |
 | Private history  |     177 |                      175 |                 2 |          0 |
 
+The table contains occurrence counts from completed scans, not inventory row
+counts. The inventory has 149 distinct file/rule/content exceptions, each with
+reviewed line spans; an exception can cover repeated occurrences in the snapshot
+and historical commits. Rotation attestations are two separate ledger entries.
+
 No production credential was found in the scanned snapshot. The two historical
 findings remain in reports with a `confirmed-rotated` disposition, separate from
 false positives. The rotation ledger matches only the immutable historical
-commit, file, line span, and rule, and only in history mode; it cannot exempt a
+commit, file, line/column span, and rule, and only in history mode; it cannot exempt a
 new occurrence in a release snapshot.
 
 | Historical location                  | Credential                                 | Recorded rotation evidence                          |
