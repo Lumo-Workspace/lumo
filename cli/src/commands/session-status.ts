@@ -1,7 +1,12 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { noSessionMessage, resolveSessionId } from '../lib/session-id'
+import {
+  isCodexShell,
+  noSessionMessage,
+  resolveSessionId,
+} from '../lib/session-id'
+import { codexHooksSilentWarning } from '../lib/codex-hooks'
 
 interface StatusResponse {
   exists: boolean
@@ -222,6 +227,7 @@ export async function sessionStatus(): Promise<number | void> {
       `Session ${sessionId} has no server-side state yet (no task bound, no hook events).\n` +
         `Run \`lumo session attach <LUM-N>\` to bind it.\n`
     )
+    if (isCodexShell()) console.error(codexHooksSilentWarning())
     return
   }
   if (!res.ok) {
@@ -230,6 +236,10 @@ export async function sessionStatus(): Promise<number | void> {
   }
 
   const data = (await res.json()) as StatusResponse
+  // LUM-1051: a bound Codex session with no events = hooks not trusted.
+  if (isCodexShell() && data.eventCount === 0) {
+    console.error(codexHooksSilentWarning())
+  }
   // LUM-640: the steward form — milestone-bound governance session.
   if (data.role === 'STEWARD' && data.milestoneName) {
     process.stdout.write(

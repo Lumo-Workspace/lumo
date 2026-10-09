@@ -1,0 +1,340 @@
+[
+  {
+    "event": "PostToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PostToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "echo hello-probe"
+      },
+      "tool_response": "hello-probe\n",
+      "tool_use_id": "exec-0bd0f705-5ffc-4c3d-a53d-412797d012fb"
+    }
+  },
+  {
+    "event": "PostToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PostToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "apply_patch",
+      "tool_input": {
+        "command": "*** Begin Patch\n*** Update File: /repo/a.txt\n@@\n-hi\n+hello\n*** End Patch"
+      },
+      "tool_response": "Exit code: 0\nWall time: 0 seconds\nOutput:\nSuccess. Updated the following files:\nM /repo/a.txt\n",
+      "tool_use_id": "exec-783bf76d-c9d8-4d3e-bf91-64581dacd676"
+    }
+  },
+  {
+    "event": "PostToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PostToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "collaborationspawn_agent",
+      "tool_input": {
+        "task_name": "pwd_probe",
+        "message": "gAAAAA<ciphertext removed>"
+      },
+      "tool_response": "{\"task_name\":\"/root/pwd_probe\"}",
+      "tool_use_id": "call_c9da03b05bf04b169b4d48fcba794588"
+    }
+  },
+  {
+    "event": "PostToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-abf2-7120-83df-fedc00f1b2be",
+      "agent_id": "01a11e00-aba8-7df2-9b0b-98c78d214c73",
+      "agent_type": "default",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-12-02-01a11e00-aba8-7df2-9b0b-98c78d214c73.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PostToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "pwd"
+      },
+      "tool_response": "/repo\n",
+      "tool_use_id": "exec-a2aff952-04c4-4699-9de9-61a3935ff1b5"
+    }
+  },
+  {
+    "event": "PostToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PostToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "collaborationwait_agent",
+      "tool_input": {
+        "timeout_ms": 10000
+      },
+      "tool_response": "{\"message\":\"Wait completed.\",\"timed_out\":false}",
+      "tool_use_id": "call_9d9b584f49214df4b2b06f86efb70105"
+    }
+  },
+  {
+    "event": "PreToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PreToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "echo hello-probe"
+      },
+      "tool_use_id": "exec-0bd0f705-5ffc-4c3d-a53d-412797d012fb"
+    }
+  },
+  {
+    "event": "PreToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PreToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "apply_patch",
+      "tool_input": {
+        "command": "*** Begin Patch\n*** Update File: /repo/a.txt\n@@\n-hi\n+hello\n*** End Patch"
+      },
+      "tool_use_id": "exec-783bf76d-c9d8-4d3e-bf91-64581dacd676"
+    }
+  },
+  {
+    "event": "PreToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PreToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "collaborationspawn_agent",
+      "tool_input": {
+        "task_name": "pwd_probe",
+        "message": "gAAAAA<ciphertext removed>"
+      },
+      "tool_use_id": "call_c9da03b05bf04b169b4d48fcba794588"
+    }
+  },
+  {
+    "event": "PreToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PreToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "collaborationwait_agent",
+      "tool_input": {
+        "timeout_ms": 10000
+      },
+      "tool_use_id": "call_9d9b584f49214df4b2b06f86efb70105"
+    }
+  },
+  {
+    "event": "PreToolUse",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-abf2-7120-83df-fedc00f1b2be",
+      "agent_id": "01a11e00-aba8-7df2-9b0b-98c78d214c73",
+      "agent_type": "default",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-12-02-01a11e00-aba8-7df2-9b0b-98c78d214c73.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PreToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "pwd"
+      },
+      "tool_use_id": "exec-a2aff952-04c4-4699-9de9-61a3935ff1b5"
+    }
+  },
+  {
+    "event": "SessionEnd",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "SessionEnd",
+      "reason": "other"
+    }
+  },
+  {
+    "event": "SessionStart",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "SessionStart",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "source": "startup"
+    }
+  },
+  {
+    "event": "Stop",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "Stop",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "stop_hook_active": false,
+      "last_assistant_message": "done"
+    }
+  },
+  {
+    "event": "SubagentStart",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-abf2-7120-83df-fedc00f1b2be",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-12-02-01a11e00-aba8-7df2-9b0b-98c78d214c73.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "SubagentStart",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "agent_id": "01a11e00-aba8-7df2-9b0b-98c78d214c73",
+      "agent_type": "default"
+    }
+  },
+  {
+    "event": "SubagentStop",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-abf2-7120-83df-fedc00f1b2be",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "agent_transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-12-02-01a11e00-aba8-7df2-9b0b-98c78d214c73.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "SubagentStop",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "stop_hook_active": false,
+      "agent_id": "01a11e00-aba8-7df2-9b0b-98c78d214c73",
+      "agent_type": "default",
+      "last_assistant_message": "`pwd` output: `/repo`"
+    }
+  },
+  {
+    "event": "UserPromptSubmit",
+    "payload": {
+      "session_id": "01a11e00-83c8-7ce3-b89d-eb1a44e13f3d",
+      "turn_id": "01a11e00-883c-73e1-a62d-9edaa0d2462c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-11-53-01a11e00-83c8-7ce3-b89d-eb1a44e13f3d.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "UserPromptSubmit",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "prompt": "Do these steps: 1) run the shell command 'echo hello-probe'. 2) Edit a.txt to change 'hi' to 'hello' using apply_patch. 3) Spawn one subagent (if you have a spawn/sub-agent tool) asking it to run 'pwd' and report. Then reply done."
+    }
+  },
+  {
+    "event": "Interrupt",
+    "payload": {
+      "session_id": "01a11e04-8798-7b01-a562-c1b9965a1902",
+      "turn_id": "01a11e06-79ad-71e2-be82-25286c73ca6c",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-16-15-01a11e04-8798-7b01-a562-c1b9965a1902.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "Interrupt",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "default"
+    }
+  },
+  {
+    "event": "PermissionRequest",
+    "payload": {
+      "session_id": "01a11e04-8798-7b01-a562-c1b9965a1902",
+      "turn_id": "01a11e04-bd9b-77c3-8181-c731f9aabc07",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-16-15-01a11e04-8798-7b01-a562-c1b9965a1902.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PermissionRequest",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "default",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "touch /tmp/scratch",
+        "description": "Do you want to allow creating outside.txt outside the sandbox?"
+      }
+    }
+  },
+  {
+    "event": "PostCompact",
+    "payload": {
+      "session_id": "01a11e04-8798-7b01-a562-c1b9965a1902",
+      "turn_id": "01a11e05-c42f-7073-a347-4dff088b3f3f",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-16-15-01a11e04-8798-7b01-a562-c1b9965a1902.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PostCompact",
+      "model": "gpt-6.1-sol",
+      "trigger": "manual"
+    }
+  },
+  {
+    "event": "PreCompact",
+    "payload": {
+      "session_id": "01a11e04-8798-7b01-a562-c1b9965a1902",
+      "turn_id": "01a11e05-c42f-7073-a347-4dff088b3f3f",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-16-15-01a11e04-8798-7b01-a562-c1b9965a1902.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "PreCompact",
+      "model": "gpt-6.1-sol",
+      "trigger": "manual"
+    }
+  },
+  {
+    "event": "SessionStart",
+    "payload": {
+      "session_id": "01a11e04-8798-7b01-a562-c1b9965a1902",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-16-15-01a11e04-8798-7b01-a562-c1b9965a1902.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "SessionStart",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "default",
+      "source": "compact"
+    }
+  },
+  {
+    "event": "SessionStart",
+    "payload": {
+      "session_id": "01a11e04-8798-7b01-a562-c1b9965a1902",
+      "transcript_path": "/home/user/.codex/sessions/2026/10/09/rollout-2026-10-09T11-16-15-01a11e04-8798-7b01-a562-c1b9965a1902.jsonl",
+      "cwd": "/repo",
+      "hook_event_name": "SessionStart",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "default",
+      "source": "resume"
+    }
+  }
+]

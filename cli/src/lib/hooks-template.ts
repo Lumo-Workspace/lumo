@@ -31,6 +31,28 @@ export const LUMO_HOOK_EVENTS: ReadonlyArray<readonly [string, string]> = [
   ['InstructionsLoaded', 'instructions-loaded'],
 ]
 
+/**
+ * LUM-1051: the Codex hook events Lumo handles (codex-cli 0.162.0, LUM-1050
+ * probe). Nine share a Claude Code name; PreCompact / PostCompact / Interrupt
+ * are Codex-only. The other 16 Claude events have no Codex counterpart — an
+ * unknown name in hooks.json is silently ignored, so they are left out rather
+ * than written as dead entries.
+ */
+export const CODEX_HOOK_EVENTS: ReadonlyArray<readonly [string, string]> = [
+  ['SessionStart', 'session-start'],
+  ['SessionEnd', 'session-end'],
+  ['UserPromptSubmit', 'user-prompt-submit'],
+  ['PreToolUse', 'pre-tool-use'],
+  ['PermissionRequest', 'permission-request'],
+  ['PostToolUse', 'post-tool-use'],
+  ['PreCompact', 'pre-compact'],
+  ['PostCompact', 'post-compact'],
+  ['SubagentStart', 'subagent-start'],
+  ['SubagentStop', 'subagent-stop'],
+  ['Stop', 'stop'],
+  ['Interrupt', 'interrupt'],
+]
+
 type HookEntry = { type: 'command'; command: string }
 type HookGroup = { matcher?: string; hooks: HookEntry[] }
 type SettingsShape = { hooks?: Record<string, HookGroup[]> }
@@ -58,10 +80,11 @@ function isLumoHookCommand(command: string, slug: string): boolean {
 // `agentToken` is baked into every command (`lumo hook <slug> --agent
 // <token>`) so the hook tells the server which coding agent owns the session.
 export function buildLumoHookFragment(
-  agentToken: string = DEFAULT_AGENT_TOKEN
+  agentToken: string = DEFAULT_AGENT_TOKEN,
+  events: ReadonlyArray<readonly [string, string]> = LUMO_HOOK_EVENTS
 ): SettingsShape {
   const hooks: Record<string, HookGroup[]> = {}
-  for (const [event, slug] of LUMO_HOOK_EVENTS) {
+  for (const [event, slug] of events) {
     hooks[event] = [
       {
         hooks: [
@@ -91,7 +114,8 @@ export type MergeStats = {
 
 export function mergeLumoHooks(
   existing: SettingsShape | undefined | null,
-  agentToken: string = DEFAULT_AGENT_TOKEN
+  agentToken: string = DEFAULT_AGENT_TOKEN,
+  events: ReadonlyArray<readonly [string, string]> = LUMO_HOOK_EVENTS
 ): {
   merged: SettingsShape
   stats: MergeStats
@@ -106,7 +130,7 @@ export function mergeLumoHooks(
     updatedEvents: [],
   }
 
-  for (const [event, slug] of LUMO_HOOK_EVENTS) {
+  for (const [event, slug] of events) {
     const ourCmd = `lumo hook ${slug} --agent ${agentToken}`
     const groups = base.hooks[event] ?? []
 

@@ -1,3 +1,5 @@
+import { codexMemoryStoreError } from '../lib/codex-hooks'
+import { isCodexShell } from '../lib/session-id'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -25,6 +27,10 @@ interface SyncOptions {
  * clobbered. `--dry-run` prints the plan; `--clean` removes everything sync owns.
  */
 export async function memorySync(options: SyncOptions): Promise<number | void> {
+  if (!options.dir && isCodexShell()) {
+    console.error(codexMemoryStoreError('lumo memory sync'))
+    return 1
+  }
   const dir = resolveMemoryDir(process.cwd(), undefined, options.dir)
 
   // --clean is purely local — no project, no network, no login required.
