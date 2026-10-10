@@ -40,6 +40,20 @@ export const prReviewControlRepository = {
       return decision.allowed
     })
   },
+  /** Return a round whose head was superseded before its review landed. */
+  async release(id: string, head: string): Promise<void> {
+    await transaction(async tx => {
+      const { reviewHeads } = await tx.pullRequest.findUniqueOrThrow({
+        where: { id },
+        select: { reviewHeads: true },
+      })
+      if (!reviewHeads.includes(head)) return
+      await tx.pullRequest.update({
+        where: { id },
+        data: { reviewHeads: reviewHeads.filter(h => h !== head) },
+      })
+    })
+  },
   async update(id: string, action: 'pause' | 'resume', limit?: number) {
     return prisma.pullRequest.update({
       where: { id },

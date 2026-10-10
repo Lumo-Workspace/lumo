@@ -446,6 +446,9 @@ async function countFixed(scan: ScanWithFindings): Promise<number> {
  * that died without finalizing. Anything else is a live or finished scan and
  * the caller dedups onto it.
  */
+/** LUM-1056: the PR head moved while this run read or reviewed it. */
+class HeadMovedError extends Error {}
+
 function isRerunnable(existing: {
   status: ScanStatus
   startedAt: Date
@@ -707,15 +710,9 @@ export const prSecurityScanService = {
     // fails — it owns releasing that VM (`releaseKeptVmBestEffort`).
     let keptVm: ReviewVerifierJob | null = null
     let vmConsumerStarted = false
+    let reservedHead = false
 
     try {
-      const aiAllowed =
-        (layers.aiReview || layers.hunt) &&
-        (input.reviewMode !== undefined ||
-          (await prReviewControlRepository.reserve(pr.id, headSha)))
-      const reviewAllowed = layers.aiReview && aiAllowed
-      const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
-      if (reviewPaused) partialCauses.push('AI_REVIEW_PAUSED')
       const diff = await fetchPrDiff({
         workspaceId: pr.workspaceId,
         fullName: pr.repo,
@@ -731,8 +728,20 @@ export const prSecurityScanService = {
           prNumber: pr.number,
         })) !== headSha
       )
-        throw new Error('PR head changed while reading review diff')
+        throw new HeadMovedError('PR head changed while reading review diff')
+      // Reserved only once the diff is proven to be this head's: a push that
+      // raced the read must not spend a round on a head nobody reviewed.
+      const aiAllowed =
+        (layers.aiReview || layers.hunt) &&
+        (input.reviewMode !== undefined ||
+          (await prReviewControlRepository.reserve(pr.id, headSha)))
+      reservedHead = aiAllowed && input.reviewMode === undefined
+      const reviewAllowed = layers.aiReview && aiAllowed
+      const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
+      if (reviewPaused) partialCauses.push('AI_REVIEW_PAUSED')
       let reviewDiff = diff
+      // Paths whose PR-diff sections the judge reviews; null = the whole diff.
+      let reviewScope: Set<string> | null = null
       if (reviewAllowed && input.reviewMode !== 'full') {
         const baseline = await prReviewControlRepository.baseline(pr.id, scanId)
         if (baseline) {
@@ -744,6 +753,7 @@ export const prSecurityScanService = {
               head: headSha,
             })
             reviewDiff = affectedReviewDiff(diff, paths)
+            if (reviewDiff !== diff) reviewScope = new Set(paths)
           } catch {
             logger.info(
               `[pr-security-scan] incremental baseline unavailable pr=${pr.id}: full review`
@@ -1161,9 +1171,17 @@ export const prSecurityScanService = {
         manualFindings ??
         (await prReviewControlRepository.priorFindings(pr.id, scanId))
       const seen = new Set(judgeRows.map(row => row.fingerprint))
+      // A complete judge pass over a finding's file that does not report it
+      // again closes it: that file was re-read, not merely left out of scope.
+      const judgeCompleted = judgeStatus === 'RAN' && !truncated
       for (const finding of carried) {
         if (finding.verifierVerdict === 'REJECTED') continue
         if (seen.has(finding.fingerprint)) continue
+        if (
+          judgeCompleted &&
+          (reviewScope === null || reviewScope.has(finding.filePath))
+        )
+          continue
         judgeRows.push({
           scanId,
           kind: finding.kind,
@@ -1275,7 +1293,7 @@ export const prSecurityScanService = {
           prNumber: pr.number,
         })) !== headSha
       )
-        throw new Error('PR head changed before review completed')
+        throw new HeadMovedError('PR head changed before review completed')
       // Spec §6.1: findings and the status describing them are ONE write, so a
       // crash between them can never leave a FINDINGS scan with no rows (or
       // rows nobody can see under a scan still RUNNING).
@@ -1413,6 +1431,10 @@ export const prSecurityScanService = {
       logger.error(
         `[pr-security-scan] scan failed pr=${pr.id} sha=${headSha}: ${message}`
       )
+      // A newer push superseded this head before its review landed. The
+      // round was never delivered, so it goes back to the budget.
+      if (reservedHead && error instanceof HeadMovedError)
+        await prReviewControlRepository.release(pr.id, headSha)
       // LUM-739: a hunt that was never started must not read as "scanning".
       if (stages.hunt === 'PENDING') delete stages.hunt
       await prSecurityScanRepository.finalize(scanId, {

@@ -117,3 +117,14 @@ test('same-head manual restarts have only one claimant and cannot collide with a
   })
   expect(await prSecurityScanRepository.restart('scan', true)).toBe(false)
 })
+
+test('releasing a superseded head returns its round to the budget', async () => {
+  await prReviewControlRepository.update('pr', 'resume', 2)
+  expect(await prReviewControlRepository.reserve('pr', 'x')).toBe(true)
+  expect(await prReviewControlRepository.reserve('pr', 'y')).toBe(true)
+  expect(await prReviewControlRepository.reserve('pr', 'z')).toBe(false)
+  await prReviewControlRepository.release('pr', 'x')
+  await prReviewControlRepository.release('pr', 'absent')
+  expect((await prReviewControlRepository.get('pr')).reviewHeads).toEqual(['y'])
+  expect(await prReviewControlRepository.reserve('pr', 'z')).toBe(true)
+})

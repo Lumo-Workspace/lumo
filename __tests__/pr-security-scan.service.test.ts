@@ -1849,9 +1849,92 @@ test('LUM-1056: a push during diff retrieval cannot publish a checked result for
   expect(judgeSecurity).not.toHaveBeenCalled()
 })
 
+function priorJudgeFinding(filePath: string) {
+  return {
+    id: 'old-finding',
+    scanId: 'old-scan',
+    fingerprint: 'old-fp',
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    severity: 'HIGH',
+    ruleId: 'review:logic_error',
+    filePath,
+    line: 7,
+    title: 'old issue',
+    detail: 'old issue',
+    evidence: 'old evidence',
+    disposition: null,
+    callChain: null,
+    secretDowngrade: null,
+  }
+}
+
+test('LUM-1056: a complete judge pass over a file that no longer reports its finding closes it', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  ;(prReviewControlRepository.priorFindings as jest.Mock).mockResolvedValueOnce(
+    [priorJudgeFinding('src/a.ts')]
+  )
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(judgeSecurity).toHaveBeenCalledTimes(1)
+  const rows = repo.persistResult.mock.calls[0]![1] as { fingerprint: string }[]
+  expect(rows.map(r => r.fingerprint)).not.toContain('old-fp')
+})
+
+test('LUM-1056: an incremental pass keeps a finding in a file outside its scope', async () => {
+  const a = 'diff --git a/src/a.ts b/src/a.ts\n' + CLEAN_DIFF
+  const b =
+    'diff --git a/src/b.ts b/src/b.ts\n' + CLEAN_DIFF.replace(/a\.ts/g, 'b.ts')
+  fetchPrDiff.mockResolvedValue(a + '\n' + b)
+  ;(prReviewControlRepository.baseline as jest.Mock).mockResolvedValueOnce({
+    headSha: 'previous',
+  })
+  ;(gh.fetchReviewChangedPaths as jest.Mock).mockResolvedValueOnce(['src/a.ts'])
+  ;(prReviewControlRepository.priorFindings as jest.Mock).mockResolvedValueOnce(
+    [priorJudgeFinding('src/b.ts')]
+  )
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's1',
+    expect.arrayContaining([
+      expect.objectContaining({ fingerprint: 'old-fp' }),
+    ]),
+    expect.anything()
+  )
+})
+
+test('LUM-1056: a push during diff retrieval does not spend an automatic round', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  fetchPrHeadSha.mockResolvedValueOnce('old').mockResolvedValueOnce('new')
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(prReviewControlRepository.reserve).not.toHaveBeenCalled()
+})
+
+test('LUM-1056: a head superseded before persistence returns its round', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  fetchPrHeadSha
+    .mockResolvedValueOnce('old')
+    .mockResolvedValueOnce('old')
+    .mockResolvedValueOnce('new')
+  const result = await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  expect(result).toMatchObject({ status: 'FAILED' })
+  expect(prReviewControlRepository.reserve).toHaveBeenCalledWith('pr1', 'old')
+  expect(prReviewControlRepository.release).toHaveBeenCalledWith('pr1', 'old')
+})
+
+test('LUM-1056: a failure other than a superseded head keeps the reservation', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  repo.persistResult.mockRejectedValueOnce(new Error('db down'))
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(prReviewControlRepository.release).not.toHaveBeenCalled()
+})
+
 jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
+    release: jest.fn().mockResolvedValue(undefined),
     baseline: jest.fn().mockResolvedValue(null),
     priorFindings: jest.fn().mockResolvedValue([]),
     findingsOnScan: jest.fn().mockResolvedValue([]),
