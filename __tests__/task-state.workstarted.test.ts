@@ -105,35 +105,44 @@ describe('workStartedAt set-once (LUM-437)', () => {
 })
 
 describe('workStartedAt and BACKLOG (LUM-1057)', () => {
-  const stampedIn = () =>
-    (update.mock.calls[0]?.[2] as Record<string, unknown> | undefined)
-      ?.workStartedAt
+  /** The data passed to the single update() call — fails if it never ran. */
+  const updateData = (): Record<string, unknown> => {
+    expect(update).toHaveBeenCalledTimes(1)
+    return update.mock.calls[0][2] as Record<string, unknown>
+  }
 
   it('does not stamp when a BACKLOG task is scheduled into TODO', async () => {
     findForUpdate.mockResolvedValue({ ...TODO_TASK, status: 'BACKLOG' })
     await updateTask('t-1', 'w-1', { status: 'TODO' })
-    expect(stampedIn()).toBeUndefined()
+    expect(updateData()).toMatchObject({ status: 'TODO' })
+    expect(updateData()).not.toHaveProperty('workStartedAt')
   })
 
   it('does not stamp when a TODO task is moved back into BACKLOG', async () => {
     findForUpdate.mockResolvedValue({ ...TODO_TASK, status: 'TODO' })
     await updateTask('t-1', 'w-1', { status: 'BACKLOG' })
-    expect(stampedIn()).toBeUndefined()
+    expect(updateData()).toMatchObject({ status: 'BACKLOG' })
+    expect(updateData()).not.toHaveProperty('workStartedAt')
   })
 
   it('stamps when a BACKLOG task goes straight to IN_PROGRESS', async () => {
     findForUpdate.mockResolvedValue({ ...TODO_TASK, status: 'BACKLOG' })
     await updateTask('t-1', 'w-1', { status: 'IN_PROGRESS' })
-    expect(stampedIn()).toBeInstanceOf(Date)
+    expect(updateData().workStartedAt).toBeInstanceOf(Date)
   })
 
-  it('keeps the original stamp when a started task is moved back into BACKLOG (set-once)', async () => {
+  // BACKLOG is not a start status, so this cannot exercise the set-once guard
+  // (the guard itself is covered by the LUM-437 suite above). What it pins is
+  // that de-scheduling never clears an existing stamp: no workStartedAt key —
+  // in particular no `null` — reaches the update.
+  it('never clears the stamp when a started task is moved back into BACKLOG', async () => {
     findForUpdate.mockResolvedValue({
       ...TODO_TASK,
       status: 'IN_PROGRESS',
       workStartedAt: new Date('2026-09-01T00:00:00.000Z'),
     })
     await updateTask('t-1', 'w-1', { status: 'BACKLOG' })
-    expect(stampedIn()).toBeUndefined()
+    expect(updateData()).toMatchObject({ status: 'BACKLOG' })
+    expect(updateData()).not.toHaveProperty('workStartedAt')
   })
 })
