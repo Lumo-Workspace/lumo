@@ -57,8 +57,9 @@ type ActorFilter = { actorType?: AuditActorType; actorId?: string }
 
 /**
  * Resolve `actor` to a filter: `me`, `system`, an email or display name of
- * a current member, a member id, or a raw Clerk user id (`user_…`, which
- * also finds former members). Unknown or ambiguous refs are 404 / 400.
+ * a current member, a member id, or a raw auth user id (`user_…` — Clerk
+ * ids and, since LUM-1070, Better Auth ids share the prefix; it also finds
+ * former members). Unknown or ambiguous refs are 404 / 400.
  */
 async function resolveActorFilter(
   viewer: AuditViewer,

@@ -8,6 +8,8 @@
 export {
   AuthProvider,
   OAuthConsent,
+  PasswordSettings,
+  ResetPassword,
   SignIn,
   useUser,
   useSignOut,

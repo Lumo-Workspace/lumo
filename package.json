@@ -123,6 +123,7 @@
     "@workflow/world-postgres": "5.0.2",
     "ai": "^6.0.146",
     "autoprefixer": "^10.4.27",
+    "bcryptjs": "3.0.3",
     "better-auth": "1.7.7",
     "chat": "^4.23.0",
     "class-variance-authority": "^0.7.1",
