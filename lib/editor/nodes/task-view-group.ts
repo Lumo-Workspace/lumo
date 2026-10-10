@@ -7,7 +7,13 @@ export interface TaskGroup {
   tasks: ApiTask[]
 }
 
-const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const STATUS_ORDER = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 
 /**
  * Bucket tasks for the task-view list. Pure + deterministic. `projectNames` /

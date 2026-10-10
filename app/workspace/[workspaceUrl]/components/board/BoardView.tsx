@@ -116,6 +116,12 @@ export interface BoardColumn {
   icon?: ReactNode
 }
 
+const BACKLOG_COLUMN: BoardColumn = {
+  id: 'BACKLOG',
+  label: 'Backlog',
+  icon: <StatusIcon status='BACKLOG' size={13} />,
+}
+
 const STATUS_COLUMNS: BoardColumn[] = [
   { id: 'TODO', label: 'Todo', icon: <StatusIcon status='TODO' size={13} /> },
   {
@@ -146,7 +152,10 @@ interface BoardViewProps<T extends { id: string; viewOrder: number | null }> {
   onAddTask?: (columnId: string) => void
   /** When set, drag reordering within a column is blocked and a hint is shown. */
   orderingLabel?: string | undefined
-  /** Custom column list. Defaults to the four task-status columns. */
+  /**
+   * Custom column list. Defaults to the four task-status columns, plus a
+   * leading Backlog column only while some task is in BACKLOG (LUM-1057).
+   */
   columns?: BoardColumn[]
   /** Map a task to the id of the column it belongs in. Defaults to `t.status`. */
   getColumnId?: (task: T) => string
@@ -162,7 +171,7 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
   renderCard,
   onAddTask,
   orderingLabel,
-  columns = STATUS_COLUMNS,
+  columns,
   getColumnId = (t: T) => String((t as unknown as { status: string }).status),
 }: BoardViewProps<T>) {
   const intl = useIntl()
@@ -173,6 +182,11 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
   // users know same-column reorder persists but will be visually
   // overridden until they switch back to Manual.
   const activeTask = tasks.find(t => t.id === activeId) ?? null
+  const shownColumns =
+    columns ??
+    (tasks.some(t => getColumnId(t) === BACKLOG_COLUMN.id)
+      ? [BACKLOG_COLUMN, ...STATUS_COLUMNS]
+      : STATUS_COLUMNS)
 
   return (
     <DndContext
@@ -183,7 +197,7 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
       onDragEnd={onDragEnd}
     >
       <div className='border-t border-border p-8 flex gap-3 flex-1 bg-muted/50 overflow-x-auto'>
-        {columns.map(column => {
+        {shownColumns.map(column => {
           const filtered = tasks.filter(t => getColumnId(t) === column.id)
           const col = orderingLabel
             ? filtered

@@ -23,7 +23,13 @@ import type {
   TaskViewMode,
 } from './task-view-config'
 
-const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const STATUS_ORDER = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 const PRIORITY_ORDER: ApiPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
 const GROUP_BY_ORDER: TaskViewGroupBy[] = [
   'none',
@@ -35,7 +41,7 @@ const VIEW_ORDER: TaskViewMode[] = ['list', 'kanban']
 
 interface TaskViewConfigPanelProps {
   config: TaskViewConfig
-  onChange: (next: TaskViewConfig) => void // eslint-disable-line no-unused-vars
+  onChange: (next: TaskViewConfig) => void
 }
 
 export function TaskViewConfigPanel({

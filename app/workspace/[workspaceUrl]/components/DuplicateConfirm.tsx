@@ -17,6 +17,7 @@ export interface DuplicateMatch {
 }
 
 const STATUS_LABEL: Record<string, string> = {
+  BACKLOG: 'Backlog',
   TODO: 'Todo',
   IN_PROGRESS: 'In Progress',
   IN_REVIEW: 'In Review',

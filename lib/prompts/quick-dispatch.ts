@@ -50,7 +50,7 @@ export const QuickDispatchResponseSchema = z.object({
     .string()
     .nullable()
     .describe('ISO 8601 datetime string, or null if no date mentioned'),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']),
+  status: z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']),
   titleTooVague: z
     .boolean()
     .describe('True if the extracted title is too generic to be useful'),
@@ -138,7 +138,7 @@ export const QuickDispatchV2ResponseSchema = z.object({
           taskTitle: z.string().describe('Task title for display'),
           fields: z.object({
             status: z
-              .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+              .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
               .optional(),
             assigneeActorId: z.string().optional(),
             priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
@@ -147,7 +147,13 @@ export const QuickDispatchV2ResponseSchema = z.object({
         z.object({
           type: z.literal('create'),
           title: z.string(),
-          status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']),
+          status: z.enum([
+            'BACKLOG',
+            'TODO',
+            'IN_PROGRESS',
+            'IN_REVIEW',
+            'DONE',
+          ]),
           priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
           projectId: z
             .string()
@@ -190,7 +196,7 @@ interface BuildV2PromptParams {
     id: string
     identifier: string
     title: string
-    status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
   }[]
   currentDate: string
 }

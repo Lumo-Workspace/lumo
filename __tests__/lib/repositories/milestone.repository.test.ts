@@ -157,7 +157,13 @@ describe('milestoneRepository.countTasksByStatus', () => {
       { status: 'DONE', _count: { _all: 2 } },
     ])
     const result = await milestoneRepository.countTasksByStatus('m1')
-    expect(result).toEqual({ TODO: 3, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 2 })
+    expect(result).toEqual({
+      BACKLOG: 0,
+      TODO: 3,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 2,
+    })
     expect(mockTaskGroupBy).toHaveBeenCalledWith({
       by: ['status'],
       where: { milestoneId: 'm1' },

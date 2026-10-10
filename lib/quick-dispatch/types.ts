@@ -21,7 +21,7 @@ export type QuickAction =
       taskIdentifier: string
       taskTitle: string
       fields: {
-        status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+        status?: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
         assigneeActorId?: string
         priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
       }
@@ -30,7 +30,7 @@ export type QuickAction =
   | {
       type: 'create'
       title: string
-      status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+      status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
       priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
       projectId: string | null
       projectName: string | null

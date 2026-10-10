@@ -50,7 +50,8 @@ export function computeWeightedProgress(
   let totalWeight = 0
   let measuredTasks = 0
   for (const t of tasks) {
-    if (t.changedFileCount === null) continue
+    // BACKLOG is unscheduled and outside progress (LUM-1057).
+    if (t.changedFileCount === null || t.status === 'BACKLOG') continue
     measuredTasks++
     totalWeight += t.changedFileCount
     if (t.status === 'DONE') doneWeight += t.changedFileCount

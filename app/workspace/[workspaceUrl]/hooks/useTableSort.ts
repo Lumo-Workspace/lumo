@@ -30,10 +30,11 @@ export function useTableSort<K extends string>(
 // ── Sort helpers ───────────────────────────────────────────────────────────────
 
 const STATUS_ORDER: Record<string, number> = {
-  TODO: 0,
-  IN_PROGRESS: 1,
-  IN_REVIEW: 2,
-  DONE: 3,
+  BACKLOG: 0,
+  TODO: 1,
+  IN_PROGRESS: 2,
+  IN_REVIEW: 3,
+  DONE: 4,
 }
 
 const PRIORITY_ORDER: Record<string, number> = {

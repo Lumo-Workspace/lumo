@@ -65,6 +65,10 @@ export function useFilterLabels(
 
   const valueLabel = useMemo(() => {
     const statusLabels: Record<string, string> = {
+      BACKLOG: intl.formatMessage({
+        id: 'status.backlog',
+        defaultMessage: 'Backlog',
+      }),
       TODO: intl.formatMessage({ id: 'status.todo', defaultMessage: 'Todo' }),
       IN_PROGRESS: intl.formatMessage({
         id: 'status.inProgress',

@@ -1649,6 +1649,7 @@
   "status.inProgress": "Đang thực hiện",
   "status.inReview": "Đang xem xét",
   "status.done": "Hoàn thành",
+  "status.backlog": "Tồn đọng",
   "status.todo": "Cần làm",
   "editor.textStyle.regular": "Văn bản thường",
   "editor.textStyle.h1": "Tiêu đề 1",

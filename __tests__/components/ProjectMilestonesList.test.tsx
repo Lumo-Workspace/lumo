@@ -115,6 +115,7 @@ function milestone(
 }
 
 const counts = (done: number, todo: number) => ({
+  BACKLOG: 0,
   TODO: todo,
   IN_PROGRESS: 0,
   IN_REVIEW: 0,

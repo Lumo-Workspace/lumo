@@ -153,11 +153,12 @@ export const sprintRepository = {
     return prisma.sprint.delete({ where: { id: sprintId } })
   },
 
+  /** Sprint progress counts; BACKLOG is unscheduled and never counted (LUM-1057). */
   async countTasks(sprintId: string, filter: { status?: TaskStatus } = {}) {
     return prisma.task.count({
       where: {
         sprintId,
-        ...(filter.status ? { status: filter.status } : {}),
+        status: filter.status ?? { not: 'BACKLOG' },
       },
     })
   },
@@ -207,7 +208,7 @@ export const sprintRepository = {
     const ids = closed.map(s => s.id)
     const grouped = await prisma.task.groupBy({
       by: ['sprintId', 'status'],
-      where: { sprintId: { in: ids } },
+      where: { sprintId: { in: ids }, status: { not: 'BACKLOG' } },
       _count: { _all: true },
     })
     const totals = new Map<string, { done: number; total: number }>()

@@ -351,6 +351,10 @@ a.mention {
   margin-right: 3px;
   color: var(--status-todo);
 }
+.mention-task[data-mention-status='BACKLOG']::before {
+  content: '◌';
+  color: var(--status-todo);
+}
 .mention-task[data-mention-status='TODO']::before {
   content: '○';
   color: var(--status-todo);

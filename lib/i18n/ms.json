@@ -1649,6 +1649,7 @@
   "status.inProgress": "Sedang dilaksanakan",
   "status.inReview": "Dalam semakan",
   "status.done": "Selesai",
+  "status.backlog": "Tunggakan",
   "status.todo": "Perlu dilakukan",
   "editor.textStyle.regular": "Teks biasa",
   "editor.textStyle.h1": "Tajuk 1",

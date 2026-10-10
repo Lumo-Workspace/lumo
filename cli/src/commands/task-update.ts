@@ -24,7 +24,13 @@ import {
 import { fetchStatusDigest, printStatusDigest } from '../lib/status-digest'
 import { resolveSessionId } from '../lib/session-id'
 
-const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const ALLOWED_STATUSES = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
 
 export interface UpdateTaskOptions {

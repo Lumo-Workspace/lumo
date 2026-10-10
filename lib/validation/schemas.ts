@@ -190,7 +190,7 @@ export const createTaskSchema = z.object({
     .max(500, 'Title must be at most 500 characters'),
   description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
   status: z
-    .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+    .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
     .optional()
     .default('TODO'),
   priority: z
@@ -210,7 +210,9 @@ export const updateTaskSchema = z
     title: z.string().trim().min(1).max(500).optional(),
     description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
     spec: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
-    status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+    status: z
+      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+      .optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeActorId: z.string().nullable().optional(),
     projectId: z.string().optional(),
@@ -289,7 +291,9 @@ export const cliUpdateTaskSchema = z
       .max(500, 'Title must be at most 500 characters')
       .optional(),
     description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
-    status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+    status: z
+      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+      .optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
     milestoneRef: z.string().trim().min(1).max(200).nullable().optional(),
@@ -598,7 +602,9 @@ const executeUpdateActionSchema = z.object({
   type: z.literal('update'),
   taskId: z.string(),
   fields: z.object({
-    status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+    status: z
+      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+      .optional(),
     assigneeActorId: z.string().optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   }),
@@ -607,7 +613,9 @@ const executeUpdateActionSchema = z.object({
 const executeCreateActionSchema = z.object({
   type: z.literal('create'),
   title: z.string().trim().min(1).max(500),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).default('TODO'),
+  status: z
+    .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+    .default('TODO'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   projectId: z.string().min(1, 'Project ID is required'),
   assigneeActorId: z.string().nullable().optional(),
@@ -633,7 +641,9 @@ export const executeQuickDispatchSchema = z.object({
 export const taskDraftDataSchema = z.object({
   title: z.string().max(500).optional(),
   description: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+  status: z
+    .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+    .optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   projectId: z.string().optional(),
   assigneeId: z.string().optional(),
@@ -720,7 +730,7 @@ export const workspaceTaskFiltersSchema = z.object({
   projectIds: z.array(z.string()).optional(),
   milestoneIds: z.array(z.string()).optional(),
   statuses: z
-    .array(z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
+    .array(z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
     .optional(),
   priorities: z.array(z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])).optional(),
   assigneeActorIds: z.array(z.string()).optional(),

@@ -1,6 +1,6 @@
 import type { Mention, QuickAction, ParseResult } from './types'
 
-type Status = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+type Status = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
 export const STATUS_KEYWORDS: Record<string, Status> = {

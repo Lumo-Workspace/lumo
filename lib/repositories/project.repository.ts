@@ -67,12 +67,19 @@ export const projectRepository = {
 
     const map = new Map<
       string,
-      { TODO: number; IN_PROGRESS: number; IN_REVIEW: number; DONE: number }
+      {
+        BACKLOG: number
+        TODO: number
+        IN_PROGRESS: number
+        IN_REVIEW: number
+        DONE: number
+      }
     >()
     for (const row of rows) {
       // Type guard only: groupBy widens `by` keys to nullable; runtime always has projectId.
       if (!row.projectId) continue
       const bucket = map.get(row.projectId) ?? {
+        BACKLOG: 0,
         TODO: 0,
         IN_PROGRESS: 0,
         IN_REVIEW: 0,

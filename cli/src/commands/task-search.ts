@@ -21,7 +21,13 @@ import {
  * ranked by relevance unless `--exact`.
  */
 
-const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const STATUSES = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 
 export interface TaskSearchOptions {

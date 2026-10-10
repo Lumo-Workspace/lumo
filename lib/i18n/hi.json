@@ -1649,6 +1649,7 @@
   "status.inProgress": "प्रगति पर",
   "status.inReview": "समीक्षा में",
   "status.done": "पूर्ण",
+  "status.backlog": "बैकलॉग",
   "status.todo": "करना है",
   "editor.textStyle.regular": "सामान्य पाठ",
   "editor.textStyle.h1": "शीर्षक 1",

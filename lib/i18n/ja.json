@@ -1649,6 +1649,7 @@
   "status.inProgress": "進行中",
   "status.inReview": "レビュー中",
   "status.done": "完了",
+  "status.backlog": "バックログ",
   "status.todo": "未着手",
   "editor.textStyle.regular": "標準テキスト",
   "editor.textStyle.h1": "見出し 1",

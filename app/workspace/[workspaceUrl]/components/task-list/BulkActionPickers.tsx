@@ -37,7 +37,9 @@ export function BulkStatusPicker({
       <PopoverContent className='w-48 p-0' align='end'>
         <Command>
           <CommandList>
-            {(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const).map(s => (
+            {(
+              ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+            ).map(s => (
               <CommandItem
                 key={s}
                 onSelect={() => {

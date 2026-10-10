@@ -6,6 +6,7 @@ import { StatusIcon } from './StatusIcon'
 /** react-intl message ids for task-status labels (keys already exist in all
  *  16 locales — also used by <StatusIcon> aria-labels). */
 const STATUS_LABEL_ID: Record<string, string> = {
+  BACKLOG: 'status.backlog',
   TODO: 'status.todo',
   IN_PROGRESS: 'status.inProgress',
   IN_REVIEW: 'status.inReview',
