@@ -10,6 +10,7 @@
   "securityScan.review.queued": "Review requested. Results will appear when it finishes.",
   "securityScan.review.stale": "Latest commit has no scan yet. These results are for an earlier commit.",
   "auth.divider.or": "or",
+  "auth.error.accountSuspended": "This account has been suspended. Contact support if you think this is a mistake.",
   "auth.error.generic": "Something went wrong. Please try again.",
   "auth.error.invalidCredentials": "Incorrect email or password.",
   "auth.error.passwordTooShort": "Password must be at least 8 characters.",

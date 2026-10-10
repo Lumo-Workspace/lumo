@@ -3960,6 +3960,14 @@ model AuthUser {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  /// LUM-1071: Better Auth admin plugin fields (names fixed by better-auth
+  /// 1.7.7 plugins/admin/schema). Written by lib/services/auth-user-admin
+  /// (scripts/auth-admin/*) and read by the plugin's sign-in ban check.
+  role       String?
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+
   sessions AuthSession[]
   accounts AuthAccount[]
 
@@ -3980,6 +3988,10 @@ model AuthSession {
   ipAddress String?
   userAgent String?
   userId    String
+
+  /// LUM-1071: admin plugin field. Impersonation is disabled in Lumo, so it
+  /// stays null; the column exists because the plugin's schema declares it.
+  impersonatedBy String?
 
   user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 

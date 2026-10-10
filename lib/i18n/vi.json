@@ -10,6 +10,7 @@
   "securityScan.review.queued": "Đã yêu cầu đánh giá. Kết quả sẽ hiện khi hoàn tất.",
   "securityScan.review.stale": "Commit mới nhất chưa được quét. Đây là kết quả của commit trước.",
   "auth.divider.or": "hoặc",
+  "auth.error.accountSuspended": "Tài khoản này đã bị tạm ngưng. Hãy liên hệ bộ phận hỗ trợ nếu bạn cho rằng đây là nhầm lẫn.",
   "auth.error.generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
   "auth.error.invalidCredentials": "Email hoặc mật khẩu không đúng.",
   "auth.error.passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",

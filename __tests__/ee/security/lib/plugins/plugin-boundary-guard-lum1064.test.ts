@@ -160,9 +160,9 @@ describe('the OSS overlay of the installed lists (RFC §3.3)', () => {
         : [relative(OVERLAY, join(dir, e.name)).split('\\').join('/')]
     )
 
-  it('overlays exactly the two installed lists (plus the contributor CLAUDE.md)', () => {
+  it('overlays exactly the two installed lists (plus the contributor CLAUDE.md and the plain MIT LICENSE)', () => {
     expect(overlayFiles(OVERLAY).sort()).toEqual(
-      ['CLAUDE.md', ...Object.keys(INSTALLED_LIST_EDGES)].sort()
+      ['CLAUDE.md', 'LICENSE', ...Object.keys(INSTALLED_LIST_EDGES)].sort()
     )
   })
 

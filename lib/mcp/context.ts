@@ -22,6 +22,29 @@ export async function resolveLumoContext(
     return buildCtx(input.clerkUserId, connection.id, bound)
   }
 
+  // A connection that has never been bound, from a client the user already
+  // picked a workspace for under another OAuth client id (re-registration,
+  // e.g. every client after the Clerk → Better Auth switch — LUM-1073):
+  // carry that choice over instead of asking again.
+  if (!connection.activeWorkspaceId && input.clientName) {
+    const sibling = await mcpConnectionRepository.findLatestBoundSibling(
+      input.clerkUserId,
+      input.clientName,
+      connection.id
+    )
+    const inherited = sibling?.activeWorkspaceId
+      ? memberships.find(m => m.workspaceId === sibling.activeWorkspaceId)
+      : undefined
+    if (inherited) {
+      await mcpConnectionRepository.setActiveWorkspace(
+        connection.id,
+        inherited.workspaceId,
+        { auto: true }
+      )
+      return buildCtx(input.clerkUserId, connection.id, inherited)
+    }
+  }
+
   if (memberships.length === 1) {
     const sole = memberships[0]!
     await mcpConnectionRepository.setActiveWorkspace(

@@ -255,7 +255,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "Elastic-2.0",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/cli-lumo/lumo/issues"
   },

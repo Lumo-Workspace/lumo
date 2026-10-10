@@ -17,6 +17,7 @@ import {
 import {
   resolveMcpOAuthUrls,
   toMcpAuthInfo,
+  toNativeSchemePlaceholder,
 } from '@/lib/auth/better-auth/mcp-oauth-config'
 
 const BASE = 'http://localhost:3000'
@@ -263,5 +264,159 @@ describe('MCP OAuth plugins (in-memory Better Auth)', () => {
       body: JSON.stringify({ token: 'x' }),
     })
     expect(res.status).toBe(404)
+  })
+})
+
+// LUM-1073 (ruling Q7): allowlisted app-scheme redirect URIs, end to end.
+describe('MCP OAuth plugins — app-scheme redirect URIs (cursor://)', () => {
+  const CURSOR_CB = 'cursor://anysphere.cursor-mcp/oauth/callback'
+  const CURSOR_URIS = [
+    CURSOR_CB,
+    'https://www.cursor.com/agents/mcp/oauth/callback',
+    'http://localhost:8787/callback',
+  ]
+  let cursorClientId = ''
+
+  const authorize = (extra: Record<string, string | null> = {}) => {
+    const p: Record<string, string | null> = {
+      response_type: 'code',
+      client_id: cursorClientId,
+      redirect_uri: CURSOR_CB,
+      scope: 'mcp offline_access',
+      state: 'cursor-st',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      resource: urls.resource,
+      ...extra,
+    }
+    const q = new URLSearchParams()
+    for (const [k, v] of Object.entries(p)) if (v !== null) q.set(k, v)
+    return call(`/oauth2/authorize?${q}`, { headers: { cookie } })
+  }
+
+  it('registers Cursor’s DCR request and stores/returns the real cursor:// URI', async () => {
+    const res = await call('/oauth2/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        client_name: 'Cursor',
+        redirect_uris: CURSOR_URIS,
+        token_endpoint_auth_method: 'none',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+      }),
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as Record<string, unknown>
+    cursorClientId = body.client_id as string
+    expect(body.redirect_uris).toEqual(CURSOR_URIS)
+    expect(body.application_type).toBe('native')
+    const row = (db.authOauthClient as Record<string, unknown>[]).find(
+      c => c.clientId === cursorClientId
+    )
+    expect(row?.redirectUris).toEqual(CURSOR_URIS)
+    // Consent stays on: DCR cannot opt a client out of it.
+    expect(row?.skipConsent).not.toBe(true)
+  })
+
+  it.each([
+    ['an app scheme off the allowlist', ['myapp://callback']],
+    ['windsurf://', ['windsurf://codeium.windsurf/cb']],
+    ['a reverse-domain private-use scheme', ['com.example.app:/callback']],
+    [
+      'Lumo’s own placeholder sent directly',
+      [toNativeSchemePlaceholder(CURSOR_CB)],
+    ],
+  ])('rejects registering %s with 400', async (_name, redirect_uris) => {
+    const before = db.authOauthClient!.length
+    const res = await call('/oauth2/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        redirect_uris,
+        token_endpoint_auth_method: 'none',
+      }),
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'invalid_redirect_uri',
+    })
+    expect(db.authOauthClient!.length).toBe(before)
+  })
+
+  it('rejects an authorization request without PKCE, without redirecting to cursor://', async () => {
+    const res = await authorize({
+      code_challenge: null,
+      code_challenge_method: null,
+    })
+    expect(res.status).toBe(400)
+    expect(res.headers.get('location')).toBeNull()
+  })
+
+  it('rejects plain PKCE (S256 only)', async () => {
+    const res = await authorize({ code_challenge_method: 'plain' })
+    expect(res.status).toBe(400)
+    expect(res.headers.get('location')).toBeNull()
+  })
+
+  it('does not accept the placeholder or a different cursor:// path as redirect_uri', async () => {
+    for (const redirect_uri of [
+      toNativeSchemePlaceholder(CURSOR_CB),
+      'cursor://anysphere.cursor-mcp/oauth/other',
+    ]) {
+      const res = await authorize({ redirect_uri })
+      const location = res.headers.get('location') ?? ''
+      expect(location).not.toMatch(/^cursor:|^ai\.uselumo/)
+      expect(location).toContain('invalid_redirect')
+    }
+  })
+
+  it('asks for consent, then redirects to cursor:// with a code that exchanges for an MCP token', async () => {
+    const authz = await authorize()
+    const consentUrl = new URL(authz.headers.get('location') ?? '', BASE)
+    expect(consentUrl.pathname).toBe('/oauth/consent')
+    const consent = await call('/oauth2/consent', {
+      method: 'POST',
+      headers: { cookie, accept: 'application/json' },
+      body: JSON.stringify({
+        accept: true,
+        oauth_query: consentUrl.search.slice(1),
+      }),
+    })
+    const { url } = (await consent.json()) as { url: string }
+    expect(url.startsWith(`${CURSOR_CB}?`)).toBe(true)
+    const callback = new URL(url)
+    expect(callback.searchParams.get('state')).toBe('cursor-st')
+    const code = callback.searchParams.get('code') ?? ''
+    expect(code).not.toBe('')
+
+    const tokenRes = await call('/oauth2/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: CURSOR_CB,
+        client_id: cursorClientId,
+        code_verifier: verifier,
+        resource: urls.resource,
+      }).toString(),
+    })
+    expect(tokenRes.status).toBe(200)
+    const { access_token } = (await tokenRes.json()) as { access_token: string }
+    const api = auth.api as unknown as {
+      lumoVerifyMcpAccessToken: (i: { body: { token: string } }) => Promise<{
+        payload: Record<string, unknown> | null
+        clientName: string | null
+      }>
+    }
+    const verified = await api.lumoVerifyMcpAccessToken({
+      body: { token: access_token },
+    })
+    expect(verified.clientName).toBe('Cursor')
+    expect(
+      toMcpAuthInfo(access_token, verified.payload, {
+        resource: urls.resource,
+        nowSeconds: Math.floor(Date.now() / 1000),
+      })
+    ).toMatchObject({ clientId: cursorClientId })
   })
 })

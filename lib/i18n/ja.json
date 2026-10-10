@@ -10,6 +10,7 @@
   "securityScan.review.queued": "レビューを依頼しました。完了後に結果が表示されます。",
   "securityScan.review.stale": "最新コミットは未スキャンです。以前のコミットの結果を表示しています。",
   "auth.divider.or": "または",
+  "auth.error.accountSuspended": "このアカウントは停止されています。誤りだと思われる場合はサポートにお問い合わせください。",
   "auth.error.generic": "問題が発生しました。もう一度お試しください。",
   "auth.error.invalidCredentials": "メールアドレスまたはパスワードが正しくありません。",
   "auth.error.passwordTooShort": "パスワードは 8 文字以上にしてください。",

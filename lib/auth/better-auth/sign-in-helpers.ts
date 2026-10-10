@@ -53,6 +53,8 @@ const ERROR_MESSAGE_IDS: Record<string, string> = {
   EMAIL_PASSWORD_SIGN_UP_DISABLED: 'auth.error.signUpDisabled',
   INVALID_TOKEN: 'auth.resetPassword.invalidToken',
   TOO_MANY_REQUESTS: 'auth.error.tooManyRequests',
+  // LUM-1071: the admin plugin refuses a session for a banned user.
+  BANNED_USER: 'auth.error.accountSuspended',
 }
 
 export function errorMessageId(code: string | null | undefined): string {

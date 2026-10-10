@@ -46,6 +46,10 @@ describe('errorMessageId', () => {
     expect(errorMessageId('SOMETHING_NEW')).toBe('auth.error.generic')
     expect(errorMessageId(undefined)).toBe('auth.error.generic')
   })
+
+  it('maps the admin plugin ban refusal to the suspended-account message (LUM-1071)', () => {
+    expect(errorMessageId('BANNED_USER')).toBe('auth.error.accountSuspended')
+  })
 })
 
 describe('LUM-1070 password + social error helpers', () => {
