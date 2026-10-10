@@ -103,7 +103,7 @@ the rest of the core. Features that need an outside service degrade instead of f
 | AI (task breakdown, summaries, AI review, memory search)                       | `AI_GATEWAY_API_KEY`, or direct keys (`ANTHROPIC_API_KEY` / `OPENAI_COMPATIBLE_*`) | AI features say "AI is not configured". Memory search falls back to lexical matching without a 1024-dimension embedding model. |
 | Crossing triage (`triage-crossings` cron, evaluation model)                    | the Vercel AI Gateway (`AI_GATEWAY_API_KEY`)                                       | The job has nothing to run on direct keys; add it to `LUMO_CRON_DISABLED`.                                                     |
 | Email (invites, sign-up verification, notices)                                 | `SMTP_URL` / `SMTP_*`, or `RESEND_API_KEY`                                         | Emails are logged and skipped. Sign-in still works, but nobody can verify an address, so **invites cannot be accepted**.       |
-| GitHub / Slack / Figma / Google Drive / Sentry                                 | their variables plus `ENCRYPTION_KEY` (see `.env.example`)                         | The integration is hidden; its routes answer 404 `integration_not_configured`.                                                 |
+| GitHub / Slack / Figma / Google Drive / Sentry                                 | their variables plus `ENCRYPTION_KEY` ([integrations.md](integrations.md))         | The integration is hidden; its routes answer 404 `integration_not_configured`.                                                 |
 | Managed PR security scan, L3 hunt, review verifier                             | a Vercel Sandbox (Vercel OIDC credentials)                                         | Off; the settings page marks them unavailable.                                                                                 |
 | SARIF upload from your own CI (`POST /api/integrations/security/sarif/upload`) | Vercel Blob (the CI uploads straight to the store)                                 | Answers 501 on MinIO / disk storage.                                                                                           |
 | Link previews of sites that block plain fetches                                | a Chromium (`CHROME_PATH`)                                                         | Previews use the plain fetch only.                                                                                             |
@@ -195,6 +195,13 @@ migration script for this.
 - **Logs**: `docker compose logs -f app cron`.
 - **Data** lives in the named volumes `postgres-data`, `redis-data` and
   `minio-data`. `docker compose down` keeps them; `down -v` deletes them.
+
+### Integrations
+
+GitHub, Slack, Figma, Google Drive and Sentry each need an app you register
+with the provider; webhooks need a URL the provider can reach. Step-by-step
+setup, the permissions and events each one needs, tunnels for a private
+server, and `ENCRYPTION_KEY`: [integrations.md](integrations.md).
 
 ### Using your own Postgres / S3 / Pusher
 

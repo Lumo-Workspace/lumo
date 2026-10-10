@@ -501,6 +501,110 @@
       "type": "dropLines",
       "pattern": " /api/cron/(prune-security-sarif|sweep-expired-scan-evidence|sweep-security-scans|sweep-unconfirmed-scan-code|triage-crossings)$",
       "reason": "LUM-1065: same jobs as the vercel.json filter (the crontab is generated from vercel.json; __tests__/self-host-cron.test.ts keeps the two in step in the snapshot too)"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "^# -+\\n# PR security scan — [\\s\\S]*?(?=^# -+\\n# Link previews)",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: drop the PR security scan settings section"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": ", PR security scans\\)\\.",
+      "replacement": ").",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "\\. Crossing triage \\(an evaluation\\n#    model\\) only exists here\\.",
+      "replacement": ".",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "workspace exports,\\n# SARIF uploads\\) — ",
+      "replacement": "workspace exports) —\n# ",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": " Direct SARIF uploads\\n# \\(POST /api/integrations/security/sarif/upload\\) need Vercel Blob and\\n# answer 501 on S3 / disk\\.",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "\\(workspace exports, PR scans, SARIF ingest\\)",
+      "replacement": "(workspace exports)",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "\\(MCP tool calls, SARIF ingest, waitlist signup\\)",
+      "replacement": "(MCP tool calls, waitlist signup)",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "README.md",
+      "type": "replace",
+      "pattern": "^## 🔐 GitHub App permissions\\n[\\s\\S]*?^\\*\\*Tests and builds come from your own CI\\.\\*\\* Lumo runs static analysis only\\n\\(the scan above\\) and never executes",
+      "replacement": "## 🔌 Integrations\n\nGitHub, Slack, Figma, Google Drive and Sentry are optional. Setting them up\nfor a self-hosted deployment — the GitHub App's permissions and webhook\nevents, callback URLs, tunnels and `ENCRYPTION_KEY` — is described in\n[docs/self-hosting/integrations.md](docs/self-hosting/integrations.md).\n\n**Tests and builds come from your own CI.** Lumo never executes",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: the GitHub App section is the hosted App (plugin permissions included) and duplicates docs/self-hosting/integrations.md; the Security scan section is plugin-only"
+    },
+    {
+      "file": "docs/self-hosting/cron.md",
+      "type": "replace",
+      "pattern": "^If you do not use PR security scanning[\\s\\S]*?(?=^## Self-host-only jobs$)",
+      "replacement": "`recheck-github-access` only has work while a\n[GitHub App](integrations.md#github-app) is installed; keep it enabled then —\nit is what notices a repository the verifier can no longer read.\n\n",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: the plugin's cron jobs are filtered out of vercel.json and the crontab"
+    },
+    {
+      "file": "docs/self-hosting/workflow.md",
+      "type": "replace",
+      "pattern": "workspace exports, PR security scans and hunts,\\nSARIF ingest —",
+      "replacement": "workspace exports —",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "docs/self-hosting/workflow.md",
+      "type": "replace",
+      "pattern": "^- \\*\\*Managed scan / hunt\\*\\*[\\s\\S]*?was cancelled\\.\\n",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "docs/self-hosting/README.md",
+      "type": "dropLines",
+      "pattern": "^\\| (Crossing triage|Managed PR security scan|SARIF upload from your own CI)",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: rows of the optional-services table that describe plugin features"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "^  \\{\\n    q: 'What happens when the scan finds something\\?',\\n    a: '[^\\n]*',\\n  \\},\\n",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: the PR scan FAQ entry"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "By default, the code a security scan quoted is cleared 7 days after its pull request is merged or closed\\. ",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "test-case and scan record",
+      "replacement": "test-case record",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
     }
   ],
   "configRefFiles": [
@@ -622,6 +726,29 @@
       "id": "plugin-table:delegate",
       "pattern": "\\.(prSecurityScan|prSecurityFinding|projectPolicy)\\b",
       "reason": "LUM-1065 (RFC §4 option A): the plugin tables stay in the schema, but no shipped code or test reads or writes them through the Prisma client"
+    },
+    {
+      "id": "plugin-env:docs",
+      "pattern": "\\b(VERCEL_OIDC_TOKEN|LUMO_MANAGED_SCAN|LUMO_MANAGED_SCAN_HOURLY_CAP|LUMO_SECURITY_HUNT|LUMO_SECURITY_SUGGEST|LUMO_OIDC_AUDIENCE|LUMO_REVIEW_RANKER|LUMO_REVIEW_VERIFIER|LUMO_HUNT_COMPRESS)\\b",
+      "files": [
+        ".env.example",
+        "README.md",
+        "docs/**",
+        "components/landing/**"
+      ],
+      "reason": "LUM-1078: the security plugin's settings (every env var ee/ reads, plus the Vercel Sandbox credential) must not be documented in the snapshot; core code may still name VERCEL_OIDC_TOKEN (AI Gateway routing)"
+    },
+    {
+      "id": "plugin-feature:docs",
+      "pattern": "SARIF|[Ss]ecurity[ -][Ss]can|[Mm]anaged (PR )?scan|PR scans|[Hh]unts?\\b|[Cc]rossing triage|triage-crossings|sweep-security-scans|prune-security-sarif|sweep-unconfirmed-scan-code|sweep-expired-scan-evidence|Vercel Sandbox|scan code",
+      "files": [".env.example", "README.md", "docs/self-hosting/**"],
+      "reason": "LUM-1078: the snapshot's setup docs must not describe the security plugin's features or cron jobs (guards the replace transforms above against a renamed heading)"
+    },
+    {
+      "id": "plugin-feature:landing-faq",
+      "pattern": "scan finds something|security scan quoted|test-case and scan record",
+      "files": ["components/landing/home/faq.tsx"],
+      "reason": "LUM-1078: the landing FAQ entries that describe the PR scan"
     }
   ]
 }
