@@ -582,7 +582,7 @@
     {
       "file": "docs/self-hosting/README.md",
       "type": "dropLines",
-      "pattern": "^\\| (Crossing triage|Managed PR security scan|SARIF upload from your own CI) ",
+      "pattern": "^\\| (Crossing triage|Managed PR security scan|SARIF upload from your own CI)",
       "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: rows of the optional-services table that describe plugin features"
     },
     {
