@@ -100,12 +100,16 @@ function emptySummary(): RejudgeSummary {
 /**
  * The policy rule source's reader (the security plugin's: the compiler's own,
  * cached, installation token). LUM-1063: the rules are a plugin's, the
- * re-judge is the core's — with no source installed the text cannot be read
- * and a POLICY_WEAKENING row is UNDECIDABLE (nothing is written).
+ * re-judge is the core's. LUM-1068: with no plugin installed the core's own
+ * Forbidden rule source reads the same two files, so a restored rule's open
+ * row can still be re-judged.
  */
 const defaultReadSource: PolicySourceReader = async input => {
   const source = policyRuleSource()
-  return source ? source.readSource(input) : null
+  if (source) return source.readSource(input)
+  const { forbiddenRuleSourceService } =
+    await import('@/lib/services/forbidden-rule-source.service')
+  return forbiddenRuleSourceService.readSource(input)
 }
 
 /** A stored rule's text by ref (rows written before the text was stamped). */
@@ -186,7 +190,11 @@ async function judge(row: Row, ctx: PassContext): Promise<RejudgeVerdict> {
           : null)
       const source = await sourceFor(row, ctx)
       return rejudgePolicyWeakening(
-        { detail: row.detail, policyRuleText: text },
+        {
+          detail: row.detail,
+          policyRuleText: text,
+          policyRuleRef: row.policyRuleRef,
+        },
         source
       )
     }

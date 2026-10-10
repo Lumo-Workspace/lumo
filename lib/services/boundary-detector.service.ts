@@ -52,6 +52,7 @@ import {
 } from '@/lib/boundary-crossing/detection-input'
 import { isReversible, severityFor } from '@/lib/boundary-crossing/taxonomy'
 import { sensitivePathGlobsFromRules } from '@/lib/boundary-crossing/policy-rule-paths'
+import { forbiddenRuleSourceService } from '@/lib/services/forbidden-rule-source.service'
 import {
   pluginCrossingDetectors,
   policyRuleSource,
@@ -1285,11 +1286,13 @@ export const boundaryDetectorService = {
       // default repository.
       let projectRules: PolicyRule[] = []
       let projectId: string | null = null
+      let workspaceId: string | null = null
       try {
         const task = await taskRepository.findWithProjectWorkspaceId(
           input.taskId
         )
         projectId = task?.projectId ?? null
+        workspaceId = task?.project.workspaceId ?? null
         const source = policyRuleSource()
         if (task && source) {
           projectRules = await source.rulesForTask({
@@ -1300,6 +1303,18 @@ export const boundaryDetectorService = {
         }
       } catch {
         // observer: never throw, project path is best-effort
+      }
+      // LUM-1068: the core's deterministic rule source — the `## Forbidden`
+      // items of CLAUDE.md / AGENTS.md, no model. Runs with or without the
+      // plugin, AFTER its compile above so a removal the plugin just
+      // recorded is deduped (one removal = one POLICY_WEAKENING row).
+      // Never throws.
+      if (projectId && workspaceId) {
+        await forbiddenRuleSourceService.observe({
+          taskId: input.taskId,
+          projectId,
+          workspaceId,
+        })
       }
       // LUM-736: sensitive-path edit — the project's path-glob override (if the
       // compiled policy carries one) replaces the built-in path set.

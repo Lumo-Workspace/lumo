@@ -69,6 +69,20 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
     findForExplanation: (...a: unknown[]) => findForExplanation(...a),
   },
 }))
+// LUM-1068: the core Forbidden rule source (own suites:
+// __tests__/lib/boundary-crossing/forbidden-rules-lum1068.test.ts and
+// __tests__/lib/services/forbidden-rule-source-lum1068.test.ts).
+const observeForbidden = jest.fn(async (_input: unknown) => ({
+  outcome: 'NO_REPOSITORY',
+  recorded: 0,
+}))
+const readForbiddenSource = jest.fn(async (_input: unknown) => null)
+jest.mock('@/lib/services/forbidden-rule-source.service', () => ({
+  forbiddenRuleSourceService: {
+    observe: (input: unknown) => observeForbidden(input),
+    readSource: (input: unknown) => readForbiddenSource(input),
+  },
+}))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn(async () => ({})) },
 }))
@@ -189,8 +203,16 @@ describe('LUM-1063 crossings without a plugin', () => {
       expect({ event: e.name, rows }).toEqual({ event: e.name, rows: expected })
     }
     // No policy rule source → the project's default repository is never
-    // even looked up (the compile context is the plugin's).
+    // even looked up (the compile context is the plugin's). LUM-1068: the
+    // core Forbidden rule source still looks at every event (mocked here;
+    // its own suites cover it).
     expect(findDefaultRepository).not.toHaveBeenCalled()
+    expect(observeForbidden).toHaveBeenCalledTimes(CORPUS.length)
+    expect(observeForbidden).toHaveBeenCalledWith({
+      taskId: 't-1',
+      projectId: 'p-1',
+      workspaceId: 'w-1',
+    })
   })
 
   it('records the action classes without the LLM prose confirmation', async () => {
@@ -334,7 +356,8 @@ describe('LUM-1063 crossings without a plugin', () => {
       policyRuleText: text,
       task,
     }
-    // No policy rule source: the source cannot be read → UNDECIDABLE, no write.
+    // No policy rule source: the core Forbidden source reads the files
+    // (LUM-1068) — none here → UNDECIDABLE, no write.
     findOpen.mockResolvedValue([pw])
     downgrade.mockClear()
     const none = await boundaryCrossingRejudgeService.sweep({
@@ -342,6 +365,11 @@ describe('LUM-1063 crossings without a plugin', () => {
     })
     expect(none).toMatchObject({ judged: 1, undecidable: 1, downgraded: 0 })
     expect(downgrade).not.toHaveBeenCalled()
+    expect(readForbiddenSource).toHaveBeenCalledWith({
+      projectId: 'p1',
+      workspaceId: 'w1',
+      fullName: 'o/r',
+    })
     // The script path injects its own reader: the judge itself is core.
     const injected = await boundaryCrossingRejudgeService.sweep({
       categories: ['POLICY_WEAKENING'],

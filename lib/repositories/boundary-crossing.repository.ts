@@ -437,6 +437,40 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * LUM-1068 dedupe read: the project's OPEN (undispositioned)
+   * POLICY_WEAKENING rows on one side of the advisory line — the rule each
+   * one names — optionally only those whose `policyRuleRef` starts with
+   * `ruleRefPrefix` (the core Forbidden source's rows). Newest first, capped.
+   */
+  async findOpenPolicyWeakeningRules(input: {
+    projectId: string
+    advisory: boolean
+    ruleRefPrefix?: string
+    take?: number
+  }): Promise<
+    Array<{
+      id: string
+      policyRuleRef: string | null
+      policyRuleText: string | null
+    }>
+  > {
+    return prisma.boundaryCrossing.findMany({
+      where: {
+        category: 'POLICY_WEAKENING',
+        disposition: null,
+        advisory: input.advisory,
+        task: { projectId: input.projectId },
+        ...(input.ruleRefPrefix
+          ? { policyRuleRef: { startsWith: input.ruleRefPrefix } }
+          : {}),
+      },
+      select: { id: true, policyRuleRef: true, policyRuleText: true },
+      orderBy: { detectedAt: 'desc' },
+      take: input.take ?? 500,
+    })
+  },
+
+  /**
    * LUM-780 re-judge read: the OPEN, BLOCKING rows of the re-judgeable
    * categories — exactly the rows the DONE gate counts (`disposition: null`
    * + `advisory: false`), never a milestone-scoped steward row (no task, no

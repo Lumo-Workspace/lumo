@@ -934,6 +934,7 @@ model Project {
   memories                 Memory[]
   projectPolicies          ProjectPolicy[]
   crossingSuppressionRules CrossingSuppressionRule[]
+  forbiddenRuleSnapshot    ForbiddenRuleSnapshot?
 
   @@index([workspaceId])
   @@index([teamId])
@@ -956,6 +957,28 @@ model ProjectPolicy {
   @@unique([projectId, sourceHash])
   @@index([projectId, compiledAt]) // latest + previous lookup
   @@map("project_policies")
+}
+
+/// LUM-1068: the core's own copy of a project's `## Forbidden` rules, parsed
+/// deterministically from its default repository's CLAUDE.md / AGENTS.md
+/// (lib/boundary-crossing/forbidden-rules.ts). One row per project: the rule
+/// set last observed, so the next parse can tell which rules were removed
+/// (POLICY_WEAKENING without the security plugin). Core table — the plugin's
+/// LLM-compiled rules stay in ProjectPolicy.
+model ForbiddenRuleSnapshot {
+  id                 String   @id @default(cuid())
+  projectId          String   @unique
+  sourceHash         String // sha256 of the CLAUDE.md + AGENTS.md text the rules were parsed from
+  // The text before that — a hook instance whose 60 s file cache still holds
+  // it must not flip the snapshot back (stale read, not a revert).
+  previousSourceHash String?
+  rules              Json // ForbiddenRule[] ({ id, text, file })
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("forbidden_rule_snapshots")
 }
 
 // LUM-751: a human-authored, per-repository false-positive rule. A later
