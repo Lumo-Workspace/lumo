@@ -2,30 +2,8 @@
 // Glob matching is implemented inline (no picomatch dependency).
 // Supports: ** (any path segments), * (within a single segment), literal chars.
 
-/** Convert a glob pattern to a RegExp. */
-function globToRegExp(glob: string): RegExp {
-  // Escape all regex metacharacters except * which we handle specially
-  const parts = glob.split('**')
-  const escaped = parts
-    .map(
-      part =>
-        part
-          .split('*')
-          .map(seg => seg.replace(/[.+^${}()|[\]\\]/g, '\\$&'))
-          .join('[^/]*') // single * = any chars within one segment
-    )
-    .join('.*') // ** = any path segments (including separators)
-  return new RegExp(`^${escaped}$`)
-}
-
-/**
- * Returns true if any of the changedPaths matches the glob.
- * Supports ** (cross-segment wildcard) and * (single-segment wildcard).
- */
-export function matchPathGlob(glob: string, changedPaths: string[]): boolean {
-  const re = globToRegExp(glob)
-  return changedPaths.some(p => re.test(p))
-}
+// LUM-1063: glob matching lives in the core (`lib/policy/path-glob`).
+export { matchPathGlob } from '@/lib/policy/path-glob'
 
 /**
  * Returns true if sub appears as a literal substring of command (case-sensitive).

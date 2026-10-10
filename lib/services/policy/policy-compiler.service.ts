@@ -23,10 +23,8 @@ import {
   projectPolicyRepository,
   type StoredProjectPolicy,
 } from '@/lib/repositories/project-policy.repository'
-import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { logger } from '@/lib/logger'
-import { ruleTextPresentIn } from '@/lib/boundary-crossing/rejudge-cause'
-import { isReversible } from '@/lib/services/boundary-detector.service'
+import { recordPolicyWeakening } from '@/lib/services/boundary-crossing-policy-weakening.service'
 import { isObligationText } from './rule-polarity'
 import { pushRuleShape } from './push-rule'
 import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
@@ -123,27 +121,10 @@ async function readSource(
 }
 
 /**
- * Crossings for deterministic+blocking rules that no longer are.
- *
- * The discriminator is NOT "did the rule set change" — it is **is the rule's
- * text still in the source**. Those are different questions, and conflating
- * them is what made this detector cry wolf:
- *
- *  - `sourceHash` is salted with COMPILER_VERSION, so bumping the compiler
- *    forces a recompile of an UNCHANGED CLAUDE.md. LUM-770 bumped it, and its
- *    own safety net — which deliberately downgrades an obligation carrying a
- *    cmd-substr predicate — then reported itself as a HIGH policy weakening.
- *  - rule identity is `sha256(text)` of LLM-extracted text, so a classifier
- *    that paraphrases by one character produces a new id and the old one reads
- *    as "removed". Observed 4 times for one untouched rule in a single day.
- *
- * A rule whose text is still in the file was not weakened by a person. That is
- * still worth recording — a classifier that quietly stops treating a Forbidden
- * line as deterministic leaves the project less protected in practice — but as
- * ADVISORY, attributed to the compiler, and not blocking anyone's DONE.
- *
- * A same-id difference is definitionally this case: the id IS the text hash, so
- * identical id means identical text means nobody edited that rule.
+ * Crossings for deterministic+blocking rules that no longer are. LUM-1063: the
+ * judge (is the rule's TEXT still in the source?) and the recording are core
+ * (`recordPolicyWeakening`, decision Q2 on LUM-1058); this compiler only
+ * supplies the two rule sets and the source it read.
  */
 async function emitWeakening(
   prevRules: PolicyRule[],
@@ -151,36 +132,7 @@ async function emitWeakening(
   taskId: string,
   source: string
 ): Promise<void> {
-  const nextById = new Map(nextRules.map(r => [r.id, r]))
-  const weakened = prevRules.filter(r => {
-    if (!(r.tier === 'deterministic' && r.blocking)) return false
-    const next = nextById.get(r.id)
-    if (next == null) return true // removed
-    return !(next.tier === 'deterministic' && next.blocking) // downgraded
-  })
-  for (const r of weakened) {
-    // LUM-780: one shared predicate with the re-judge (tolerates a trailing
-    // classifier gloss on the rule side; the source is never loosened).
-    const stillInSource = ruleTextPresentIn(source, r.text)
-    const detail = stillInSource
-      ? `The policy compiler stopped treating this rule as deterministic+blocking, but its text is UNCHANGED in CLAUDE.md — a classifier decision, not an edit: "${r.text}"`
-      : `A deterministic Forbidden rule was removed from CLAUDE.md: "${r.text}"`
-    await boundaryCrossingRepository.create({
-      taskId,
-      category: 'POLICY_WEAKENING',
-      severity: stillInSource ? 'MEDIUM' : 'HIGH',
-      advisory: stillInSource,
-      detail,
-      target: `weakening:${r.id}`,
-      // LUM-630: route through the taxonomy instead of eating the
-      // repository's `?? false` default.
-      reversible: isReversible('POLICY_WEAKENING'),
-      policyRuleRef: r.id,
-      // LUM-780: the text the re-judge asks the source about — stamped so a
-      // future pass never has to recover it from a clipped detail.
-      policyRuleText: r.text,
-    })
-  }
+  await recordPolicyWeakening({ prevRules, nextRules, taskId, source })
 }
 
 /**

@@ -14,7 +14,9 @@
  *   - the command judged is the hook event's FULL command when it is on
  *     record; a `detail` that `clip` truncated is never judged alone
  *     (`TRUNCATED` → left open, reported);
- *   - a project with no stored policy cannot be judged (`NO_POLICY`);
+ *   - a project with no stored policy cannot be judged (`NO_POLICY`), nor
+ *     can anything when no detector judges project rules (LUM-1063: the
+ *     rule matchers are a plugin's);
  *   - a rule whose id no longer exists in the current policy is only a
  *     candidate when NO current deterministic rule matches the command
  *     (`RULE_RETIRED`) — a reworded successor that still matches keeps the
@@ -26,6 +28,7 @@ import type { PolicyRule } from '@/lib/policy/types'
 import {
   detectProjectActionCrossings,
   isClippedDetail,
+  projectRuleDetectionInstalled,
 } from '@/lib/services/boundary-detector.service'
 
 /** One OPEN PROJECT_RULE_VIOLATION row as the backfill reads it. */
@@ -79,7 +82,10 @@ export function rejudgeRow(
   row: RejudgeRow,
   currentRules: PolicyRule[] | null
 ): RejudgeDecision {
-  if (currentRules == null) return { row, verdict: 'NO_POLICY', command: null }
+  // LUM-1063: the rules are judged by a plugin detector. Without one nothing
+  // can be decided — never a "no longer matches" for want of a matcher.
+  if (currentRules == null || !projectRuleDetectionInstalled())
+    return { row, verdict: 'NO_POLICY', command: null }
   const command = judgeableCommand(row)
   if (command == null) return { row, verdict: 'TRUNCATED', command: null }
   const hits = detectProjectActionCrossings(

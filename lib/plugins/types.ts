@@ -10,12 +10,17 @@
  * that means on its surface.
  *
  * This file holds the server extension points: DONE gate, agent context,
- * core events, retention (PR2) and workspace settings (PR3). The crossing
- * detector / explainer / policy rule source (PR4) join it in their own PR.
- * The client UI slots live apart in `lib/plugins/client.tsx`, so no server
- * code reaches the browser bundle.
+ * core events, retention (PR2) and workspace settings (PR3, LUM-1062). The
+ * crossing detector / explainer / policy rule source (PR4, LUM-1063) are
+ * declared in `./crossing-types`. The client UI slots live apart in
+ * `lib/plugins/client.tsx`, so no server code reaches the browser bundle.
  */
 import type { ZodType } from 'zod'
+import type {
+  CrossingDetector,
+  CrossingExplainer,
+  PolicyRuleSource,
+} from './crossing-types'
 
 /** A server plugin. `register` runs once per process (see registry.ts). */
 export interface LumoServerPlugin {
@@ -35,6 +40,13 @@ export interface PluginRegistrar {
   retention(r: RetentionContributor): void
   /** Workspace setting columns the plugin owns (LUM-1062). */
   workspaceSettings(s: WorkspaceSettingsContributor): void
+  // LUM-1063 (PR4) — boundary crossings, see ./crossing-types.
+  /** Extra hook detectors run by the core detection pipeline. */
+  crossingDetector(d: CrossingDetector): void
+  /** The SYSTEM explanation of a crossing (first registered answers). */
+  crossingExplainer(e: CrossingExplainer): void
+  /** A project's compiled policy rules. */
+  policyRuleSource(s: PolicyRuleSource): void
 }
 
 // ── DONE gate ────────────────────────────────────────────────────────────────
@@ -125,6 +137,8 @@ export interface CoreEvents {
   }
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
   'task.prLinked': { taskId: string; pullRequestId: string }
+  /** LUM-1063: a task's status changed (after the update committed). */
+  'task.statusChanged': { taskId: string; status: string }
 }
 
 /**

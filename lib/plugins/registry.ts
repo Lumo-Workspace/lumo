@@ -22,6 +22,11 @@ import type {
   RetentionContributor,
   WorkspaceSettingsContributor,
 } from './types'
+import type {
+  CrossingDetector,
+  CrossingExplainer,
+  PolicyRuleSource,
+} from './crossing-types'
 
 type EventHandlers = {
   [E in keyof CoreEvents]: CoreEventHandler<E>[]
@@ -34,6 +39,10 @@ export interface PluginRegistry {
   readonly agentContexts: readonly AgentContextContributor[]
   readonly retention: readonly RetentionContributor[]
   readonly workspaceSettings: readonly WorkspaceSettingsContributor[]
+  // LUM-1063 (PR4): boundary crossings.
+  readonly crossingDetectors: readonly CrossingDetector[]
+  readonly crossingExplainers: readonly CrossingExplainer[]
+  readonly policyRuleSources: readonly PolicyRuleSource[]
   handlersFor<E extends keyof CoreEvents>(
     event: E
   ): readonly CoreEventHandler<E>[]
@@ -48,10 +57,14 @@ export function createPluginRegistry(
   const agentContexts: AgentContextContributor[] = []
   const retention: RetentionContributor[] = []
   const workspaceSettings: WorkspaceSettingsContributor[] = []
+  const crossingDetectors: CrossingDetector[] = []
+  const crossingExplainers: CrossingExplainer[] = []
+  const policyRuleSources: PolicyRuleSource[] = []
   const handlers: EventHandlers = {
     'github.pullRequest': [],
     'github.push': [],
     'task.prLinked': [],
+    'task.statusChanged': [],
   }
   for (const plugin of plugins) {
     if (ids.includes(plugin.id))
@@ -63,6 +76,9 @@ export function createPluginRegistry(
       retention: r => void retention.push(r),
       on: (event, handler) => void handlers[event].push(handler),
       workspaceSettings: s => void workspaceSettings.push(s),
+      crossingDetector: d => void crossingDetectors.push(d),
+      crossingExplainer: e => void crossingExplainers.push(e),
+      policyRuleSource: r => void policyRuleSources.push(r),
     })
   }
   return {
@@ -71,6 +87,9 @@ export function createPluginRegistry(
     agentContexts,
     retention,
     workspaceSettings,
+    crossingDetectors,
+    crossingExplainers,
+    policyRuleSources,
     handlersFor: event => handlers[event],
   }
 }

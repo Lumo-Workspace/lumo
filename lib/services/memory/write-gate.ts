@@ -9,11 +9,14 @@
  * and directive checks are unaffected, and they are the ones that matter for
  * an untrusted write.
  *
+ * LUM-1063: the stored policy is read through the core's `policyRuleSource`
+ * extension point (the security plugin's compiled ProjectPolicy).
+ *
  * Fail-open is deliberate and scoped: a policy read that throws must not turn
  * a legitimate `lumo project memory add` into a 500. The two content checks
  * still run.
  */
-import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
+import { policyRuleSource } from '@/lib/plugins/crossings'
 import { logger } from '@/lib/logger'
 import {
   formatMemoryRejection,
@@ -26,10 +29,14 @@ import type { MemoryCategory } from '@prisma/client'
 export async function loadPolicyRulesForProject(
   projectId: string
 ): Promise<PolicyRuleRef[]> {
+  // LUM-1063: the compiled policy is a plugin's (`policyRuleSource`); without
+  // one there are no rules and the conflict check contributes nothing.
+  const source = policyRuleSource()
+  if (!source) return []
   try {
-    const policy = await projectPolicyRepository.latestForProject(projectId)
-    if (!policy) return []
-    return policy.rules.map(r => ({
+    const rules = await source.storedRules(projectId)
+    if (!rules) return []
+    return rules.map(r => ({
       id: r.id,
       text: r.text,
       tier: r.tier,
