@@ -464,3 +464,53 @@ describe('explain --task (LUM-932)', () => {
     expect(stdout.join('')).toContain('EZE-7')
   })
 })
+
+// LUM-1059: crossings carry a `<TEAM>-X<n>` ref. The batch envelopes key
+// receipts by ref; ids may be typed as ref or cuid, and the step-order check
+// still holds when the typed form differs from the map key.
+describe('LUM-1059 batch with crossing refs', () => {
+  const REF: Record<string, string> = {
+    'cx-a': 'LUM-X1',
+    'cx-b': 'LUM-X2',
+    'cx-c': 'LUM-X3',
+  }
+  beforeEach(() =>
+    routeFetch({ crossings: IDS.map(id => crossing(id, { ref: REF[id] })) })
+  )
+
+  it('LUM-1059 step 1 keys receipts by ref and shows refs; writes still go to the cuids', async () => {
+    setArgv('crossing', 'disposition', 'lum-x1', 'cx-b', '--false-positive')
+    const code = await crossingDisposition(['lum-x1', 'cx-b'], {
+      falsePositive: true,
+    })
+    expect(code).toBe(EXIT_CONFIRMATION_REQUIRED)
+    const e = envelope()
+    expect(e.changes.join('\n')).toContain('── [1/2] crossing LUM-X1 ──')
+    expect(e.changes.join('\n')).toContain('── [2/2] crossing LUM-X2 ──')
+    expect(e.receipt?.token).toBe(`LUM-X1=${r1('cx-a')},LUM-X2=${r1('cx-b')}`)
+    for (const [url] of fetchMock.mock.calls.filter(([u]) =>
+      String(u).endsWith('/receipt')
+    )) {
+      expect(String(url)).toMatch(/\/boundary-crossings\/cx-[ab]\//)
+    }
+  })
+
+  it('LUM-1059 a stage-1 receipt keyed by ref is refused at --confirm when the id is typed as the cuid', async () => {
+    const code = await crossingDisposition(['cx-a', 'cx-b'], {
+      falsePositive: true,
+      confirm: true,
+      receipt: `LUM-X1=${r1('cx-a')},LUM-X2=${r2('cx-b')}`,
+    })
+    expect(code).toBe(1)
+    expect(stderr.join('\n')).toContain('read not yet acknowledged for LUM-X1')
+    expect(rulingWrites()).toHaveLength(0)
+  })
+
+  it('LUM-1059 the same crossing named by ref and cuid joins the batch once', async () => {
+    const code = await crossingDisposition(['LUM-X1', 'cx-a', 'cx-b'], {
+      falsePositive: true,
+    })
+    expect(code).toBe(EXIT_CONFIRMATION_REQUIRED)
+    expect(envelope().changes[0]).toContain('Batch of 2 crossings')
+  })
+})

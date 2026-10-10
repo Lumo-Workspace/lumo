@@ -82,18 +82,12 @@ export async function crossingDispositionBatch(
       return 1
     }
     receipts = parsed
-    const wrongStage: string[] = []
-    for (const [id, token] of receipts) {
-      if (!ids.includes(id)) continue
-      if (step === 3 && token.startsWith('r1.')) wrongStage.push(id)
-      if (step === 2 && token.startsWith('r2.')) wrongStage.push(id)
-    }
+    const wrongStage = [...receipts]
+      .filter(([id]) => ids.some(typed => sameId(typed, id)))
+      .filter(([, token]) => isWrongStage(step, token))
+      .map(([id]) => id)
     if (wrongStage.length > 0) {
-      console.error(
-        step === 3
-          ? `Error: read not yet acknowledged for ${wrongStage.map(sanitizeField).join(', ')} — these are stage-1 receipts. Run --confirm-read with them first (after the user confirms they read the envelope); only the receipts that step returns are accepted with --confirm.`
-          : `Error: these receipts already acknowledge the read (${wrongStage.map(sanitizeField).join(', ')}) — the next step is --confirm with the same receipts (after the user approves the ruling).`
-      )
+      console.error(wrongStageError(step, wrongStage))
       return 1
     }
   }
@@ -163,6 +157,15 @@ export async function crossingDispositionBatch(
     return
   }
   if (step > 1) {
+    // LUM-1059: the ids and the receipt keys may name a crossing in different
+    // forms (ref vs cuid) — re-check the stage per crossing once it is known.
+    const lateWrongStage = batch
+      .filter(c => isWrongStage(step, receiptFor(receipts, c) ?? ''))
+      .map(crossingLabel)
+    if (lateWrongStage.length > 0) {
+      console.error(wrongStageError(step, lateWrongStage))
+      return 1
+    }
     const noReceipt = batch
       .filter(c => !receiptFor(receipts, c))
       .map(crossingLabel)
@@ -280,6 +283,25 @@ export async function crossingDispositionBatch(
   // LUM-842: once for the whole batch — what still blocks DONE.
   await printStatusDigest(base, creds.token, taskId)
   return failed > 0 ? 1 : undefined
+}
+
+/** Same crossing id as typed — refs compare in any case (LUM-1059). */
+function sameId(a: string, b: string): boolean {
+  return a === b || a.toUpperCase() === b.toUpperCase()
+}
+
+/** A receipt from the wrong handshake stage for this step. */
+function isWrongStage(step: number, token: string): boolean {
+  return (
+    (step === 3 && token.startsWith('r1.')) ||
+    (step === 2 && token.startsWith('r2.'))
+  )
+}
+
+function wrongStageError(step: number, ids: string[]): string {
+  return step === 3
+    ? `Error: read not yet acknowledged for ${ids.map(sanitizeField).join(', ')} — these are stage-1 receipts. Run --confirm-read with them first (after the user confirms they read the envelope); only the receipts that step returns are accepted with --confirm.`
+    : `Error: these receipts already acknowledge the read (${ids.map(sanitizeField).join(', ')}) — the next step is --confirm with the same receipts (after the user approves the ruling).`
 }
 
 type PostResult =
