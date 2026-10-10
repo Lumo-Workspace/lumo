@@ -1,10 +1,17 @@
 import type { TaskStatus } from '@prisma/client'
 
-/** Statuses that mean work on the task has not started yet. */
-const NOT_STARTED: ReadonlySet<string> = new Set<TaskStatus>([
-  'BACKLOG',
-  'TODO',
-])
+/**
+ * Whether entering each status marks the task as started. Exhaustive on
+ * purpose: adding a TaskStatus value fails to compile until it is decided
+ * here, instead of silently defaulting to "started".
+ */
+const STARTS_WORK: Record<TaskStatus, boolean> = {
+  BACKLOG: false,
+  TODO: false,
+  IN_PROGRESS: true,
+  IN_REVIEW: true,
+  DONE: true,
+}
 
 /**
  * Whether entering `status` marks the task as started — the single rule
@@ -13,6 +20,6 @@ const NOT_STARTED: ReadonlySet<string> = new Set<TaskStatus>([
  * (LUM-1057); once stamped, the value is never reset, so moving a started
  * task back to TODO or BACKLOG keeps the original date.
  */
-export function isWorkStartedStatus(status: string): boolean {
-  return !NOT_STARTED.has(status)
+export function isWorkStartedStatus(status: TaskStatus): boolean {
+  return STARTS_WORK[status]
 }

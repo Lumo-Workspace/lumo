@@ -188,7 +188,7 @@ export async function updateTask(
   // Guarded on the pre-update value so a bounce back never resets it.
   if (
     rest.status !== undefined &&
-    isWorkStartedStatus(rest.status) &&
+    isWorkStartedStatus(rest.status as TaskStatusValue) &&
     task.workStartedAt == null
   ) {
     data.workStartedAt = new Date()
