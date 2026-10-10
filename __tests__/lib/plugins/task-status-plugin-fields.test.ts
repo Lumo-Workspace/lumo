@@ -11,7 +11,17 @@ const mockPlugin = {
       id: 'fake',
       taskStatus: async () => ({
         nextActions: [{ kind: 'FAKE' }],
-        fields: { version: 99, nextActions: [], fakeField: { ok: true } },
+        // An own `__proto__` key (as JSON.parse makes one) must not reach
+        // the report's prototype.
+        fields: Object.assign(
+          JSON.parse('{"__proto__": {"polluted": true}}') as object,
+          {
+            version: 99,
+            nextActions: [],
+            toString: 'x',
+            fakeField: { ok: true },
+          }
+        ) as Record<string, unknown>,
       }),
     })
   },
@@ -83,6 +93,10 @@ it('appends plugin fields and rows without replacing core fields', async () => {
   expect((report.nextActions as Array<{ kind: string }>)[0]).toEqual({
     kind: 'FAKE',
   })
+  expect(Object.getPrototypeOf(report)).toBe(Object.prototype)
+  expect(report.polluted).toBeUndefined()
+  // `toString` is not a core field: an own plugin field is fine.
+  expect(report.toString).toBe('x')
   const keys = Object.keys(report)
-  expect(keys[keys.length - 1]).toBe('fakeField')
+  expect(keys.slice(-2)).toEqual(['toString', 'fakeField'])
 })

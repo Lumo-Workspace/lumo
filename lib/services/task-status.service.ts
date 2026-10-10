@@ -338,7 +338,10 @@ export const taskStatusService = {
     }
     // Plugin fields come last and never replace a core field.
     for (const [key, value] of Object.entries(pluginStatus.fields)) {
-      if (!(key in report))
+      if (
+        key !== '__proto__' &&
+        !Object.prototype.hasOwnProperty.call(report, key)
+      )
         (report as unknown as Record<string, unknown>)[key] = value
     }
     return report

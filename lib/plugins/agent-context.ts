@@ -11,6 +11,10 @@ import { logger } from '@/lib/logger'
 import { getPluginRegistry } from './registry'
 import type { TaskStatusSection } from './types'
 
+function hasOwn(o: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(o, key)
+}
+
 /**
  * Session-start / attach sections of every contributor, joined by a blank
  * line; `''` when none has anything to show.
@@ -70,7 +74,8 @@ export async function collectTaskStatusSections(
     if (!section) continue
     merged.nextActions.push(...section.nextActions)
     for (const [key, value] of Object.entries(section.fields)) {
-      if (!(key in merged.fields)) merged.fields[key] = value
+      if (key === '__proto__' || hasOwn(merged.fields, key)) continue
+      merged.fields[key] = value
     }
   }
   return merged
