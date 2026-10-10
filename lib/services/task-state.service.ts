@@ -18,6 +18,7 @@ import { readDoneVerdict } from '@/lib/services/done-verdict.service'
 import { renderDoneBlockMessage } from '@/lib/acceptance/done-verdict'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@/lib/runtime/wait-until'
+import { isWorkStartedStatus } from '@/lib/task/work-started'
 import type {
   UpdateTaskInput,
   TaskUpdateResult,
@@ -183,14 +184,11 @@ export async function updateTask(
     data.description = normalizeRichText(rest.description)
   if (rest.spec !== undefined) data.spec = rest.spec
   if (rest.status !== undefined) data.status = rest.status
-  // Set-once: the first time a task leaves TODO it has "started" — feeds the
-  // milestone derived start date (LUM-636). Guarded on the pre-update value so
-  // a bounce back to TODO never resets it. Moving into BACKLOG is not a start
-  // either (LUM-1057).
+  // Set-once start stamp (LUM-437); see isWorkStartedStatus for the rule.
+  // Guarded on the pre-update value so a bounce back never resets it.
   if (
     rest.status !== undefined &&
-    rest.status !== 'TODO' &&
-    rest.status !== 'BACKLOG' &&
+    isWorkStartedStatus(rest.status) &&
     task.workStartedAt == null
   ) {
     data.workStartedAt = new Date()

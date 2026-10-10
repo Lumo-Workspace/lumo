@@ -5,6 +5,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 import { dispatchCreateTaskSideEffects } from '@/lib/services/task-notifications.service'
 import { normalizeRichText } from '@/lib/utils/markdown'
+import { isWorkStartedStatus } from '@/lib/task/work-started'
 
 /**
  * Create a human-authored task. Validates the milestone and assignee,
@@ -103,8 +104,11 @@ export async function createTask(
     milestoneId: resolvedMilestoneId,
     order: taskOrder,
     dueDate: dueDate ?? null,
-    // A task born already past TODO counts as started immediately (LUM-437).
-    ...(status && status !== 'TODO' ? { workStartedAt: new Date() } : {}),
+    // A task born already started is stamped immediately (LUM-437); one born
+    // in BACKLOG or TODO is not (LUM-1057).
+    ...(status && isWorkStartedStatus(status)
+      ? { workStartedAt: new Date() }
+      : {}),
   })
 
   if (input.tagIds && input.tagIds.length > 0) {
