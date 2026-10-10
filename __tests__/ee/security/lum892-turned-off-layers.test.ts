@@ -22,10 +22,10 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchDefaultBranchHead: jest.fn(),
   readRepoFile: jest.fn().mockResolvedValue(null),
 }))
-jest.mock('@/lib/llm/security-judge-client', () => ({
+jest.mock('@/ee/security/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByPrAndSha: jest.fn(),
     create: jest.fn(),
@@ -46,10 +46,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn(),
-    findSecuritySwitches: jest.fn(),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
@@ -58,78 +55,84 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn(),
+    findSecuritySwitches: jest.fn(),
     findLastSarifIngestAt: jest.fn(),
     findSecurityBaseline: jest.fn(),
     setSecurityBaseline: jest.fn(),
   },
 }))
+
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
 }))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
   securityManagedScanOpsService: {
     supersedeOlderRuns: jest.fn(),
     enforceHourlyCap: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-baseline-scan-start', () => ({
+jest.mock('@/ee/security/services/security-baseline-scan-start', () => ({
   startSecurityBaselineScan: jest.fn(),
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   recordHuntStartBestEffort: jest.fn(),
   cancelHuntRun: jest.fn(),
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   stopRepoSandboxesByTag: jest.fn(),
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn(), markScanningOff: jest.fn() },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn(),
 }))
-jest.mock('@/lib/services/security-sarif-blob', () => ({
+jest.mock('@/ee/security/services/security-sarif-blob', () => ({
   fetchPrivateBlob: jest.fn(),
   deleteBlob: jest.fn(),
   listSarifBlobs: jest.fn(),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
-import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
-import { startSecurityBaselineScan } from '@/lib/services/security-baseline-scan-start'
-import { startSecurityHunt } from '@/lib/services/security-hunt-start'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { startSecurityManagedScan } from '@/ee/security/services/security-managed-scan-start'
+import { securityManagedScanOpsService } from '@/ee/security/services/security-managed-scan-ops.service'
+import { startSecurityBaselineScan } from '@/ee/security/services/security-baseline-scan-start'
+import { startSecurityHunt } from '@/ee/security/services/security-hunt-start'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/security-judge-client'
+import * as judge from '@/ee/security/llm/security-judge-client'
 
-import { isCompleteScan } from '@/lib/services/pr-security-scan.service'
+import { isCompleteScan } from '@/ee/security/services/pr-security-scan.service'
 import {
   SCAN_UNFINISHED_NOTE,
   isOwnedUnfinished,
   scanCoverageState,
   turnedOffLayers,
 } from '@/shared/src/security-scan'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
-const wsRepo = workspaceRepository as jest.Mocked<typeof workspaceRepository>
 const prRepo = pullRequestRepository as jest.Mocked<
   typeof pullRequestRepository
 >
-const projRepo = projectRepository as jest.Mocked<typeof projectRepository>
+const colRepo = securityColumnsRepository as jest.Mocked<
+  typeof securityColumnsRepository
+>
 const fetchPrDiff = gh.fetchPrDiff as jest.Mock
 const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
 const judgeSecurity = judge.judgeSecurity as jest.Mock
@@ -158,14 +161,14 @@ const ALL_ON = {
   securityHuntEnabled: true,
 }
 const switches = (patch: Partial<typeof ALL_ON>) =>
-  wsRepo.findSecuritySwitches.mockResolvedValue({ ...ALL_ON, ...patch })
+  colRepo.findSecuritySwitches.mockResolvedValue({ ...ALL_ON, ...patch })
 
 beforeEach(() => {
   jest.clearAllMocks()
   delete process.env.LUMO_SECURITY_HUNT
   delete process.env.LUMO_MANAGED_SCAN
   switches({})
-  wsRepo.findSecurityPolicy.mockResolvedValue(null)
+  colRepo.findSecurityPolicy.mockResolvedValue(null)
   prRepo.findById.mockResolvedValue(PR as never)
   prRepo.findByRepoAndNumber.mockResolvedValue(PR as never)
   fetchPrHeadSha.mockResolvedValue('sha-1')
@@ -189,8 +192,8 @@ beforeEach(() => {
   ;(
     securityManagedScanOpsService.enforceHourlyCap as jest.Mock
   ).mockResolvedValue({ capped: false })
-  projRepo.findLastSarifIngestAt.mockResolvedValue(null as never)
-  projRepo.findSecurityBaseline.mockResolvedValue(null as never)
+  colRepo.findLastSarifIngestAt.mockResolvedValue(null as never)
+  colRepo.findSecurityBaseline.mockResolvedValue(null as never)
   judgeSecurity.mockResolvedValue({ findings: [] })
   startManaged.mockResolvedValue('run_m1')
   startBaseline.mockResolvedValue('run_b1')
@@ -207,8 +210,8 @@ afterAll(() => {
 })
 
 const { buildSummary } = jest.requireActual(
-  '@/lib/services/security-pr-review.service'
-) as typeof import('@/lib/services/security-pr-review.service')
+  '@/ee/security/services/security-pr-review.service'
+) as typeof import('@/ee/security/services/security-pr-review.service')
 
 const runStageA = () =>
   prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
@@ -303,7 +306,7 @@ describe('LUM-892 turned-off layer', () => {
     expect(body).not.toContain('Turned off in')
   })
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

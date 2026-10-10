@@ -38,7 +38,7 @@ jest.mock('@/lib/services/github.service', () => ({
     isRepoConfirmedElsewhere: jest.fn().mockResolvedValue(false),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
@@ -66,7 +66,7 @@ import { githubAppInstallationRepository } from '@/lib/repositories/github-app-i
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { projectRepository } from '@/lib/repositories'
 import { loadProjectAndMember } from '@/lib/api/helpers'

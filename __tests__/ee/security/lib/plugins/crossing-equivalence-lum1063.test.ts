@@ -42,7 +42,7 @@ jest.mock('@/lib/repositories/project.repository', () => ({
     findDefaultRepository: jest.fn(async () => ({ fullName: 'o/r' })),
   },
 }))
-jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
+jest.mock('@/ee/security/services/policy/policy-compiler.service', () => ({
   policyCompilerService: {
     ensureCompiled: jest.fn(async () => ({
       sourceHash: 'h',
@@ -73,7 +73,7 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
     }),
   },
 }))
-jest.mock('@/lib/llm/action-confirm-client', () => ({
+jest.mock('@/ee/security/llm/action-confirm-client', () => ({
   confirmActionExecuted: jest.fn(async () => 'PROSE_ONLY'),
 }))
 

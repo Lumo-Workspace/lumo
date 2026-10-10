@@ -11,7 +11,7 @@ jest.mock('child_process', () => ({
   ...jest.requireActual('child_process'),
   execFileSync: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-falsifier-client', () => ({
+jest.mock('@/ee/security/llm/security-falsifier-client', () => ({
   falsifyCandidate: jest.fn(),
 }))
 
@@ -19,7 +19,7 @@ import { existsSync } from 'fs'
 import { execFileSync } from 'child_process'
 import path from 'path'
 import { config } from 'dotenv'
-import { falsifyCandidate } from '@/lib/llm/security-falsifier-client'
+import { falsifyCandidate } from '@/ee/security/llm/security-falsifier-client'
 import {
   VARIANTS,
   loadEnv,

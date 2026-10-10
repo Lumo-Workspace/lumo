@@ -36,16 +36,16 @@ import {
   type ActionConfirmInput,
   type ActionConfirmJudge,
   type ActionConfirmVerdict,
-} from '@/lib/boundary-crossing/action-confirm'
-import { matchUntrustedCodeExecution } from '@/lib/boundary-crossing/untrusted-code'
-import { matchDestructiveFs } from '@/lib/boundary-crossing/destructive-fs'
+} from '@/ee/security/boundary-crossing/action-confirm'
+import { matchUntrustedCodeExecution } from '@/ee/security/boundary-crossing/untrusted-code'
+import { matchDestructiveFs } from '@/ee/security/boundary-crossing/destructive-fs'
 import {
   detectProjectSensitiveReads,
   detectSensitiveReads,
   type SensitiveReadMatch,
-} from '@/lib/boundary-crossing/sensitive-read'
-import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
-import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
+} from '@/ee/security/boundary-crossing/sensitive-read'
+import { matchActionRule } from '@/ee/security/boundary-crossing/action-rule-match'
+import { matchPushTarget } from '@/ee/security/boundary-crossing/push-target-match'
 // NOTE: the LLM client (`@/lib/llm/action-confirm-client`) is loaded LAZILY
 // inside its cached wrapper — it pulls in the heavy `ai` / `@ai-sdk/gateway`
 // SDK, and a static import would drag that into every module that loads the
@@ -120,7 +120,7 @@ function cachedActionConfirm(
   const hit = actionConfirmCache.get(key)
   if (hit) return hit
   // Lazy import: pay the SDK load only when the model is actually consulted.
-  const p = import('@/lib/llm/action-confirm-client').then(mod =>
+  const p = import('@/ee/security/llm/action-confirm-client').then(mod =>
     mod.confirmActionExecuted(input)
   )
   actionConfirmCache.set(key, p)

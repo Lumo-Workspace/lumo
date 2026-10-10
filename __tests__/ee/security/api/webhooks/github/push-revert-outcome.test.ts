@@ -34,14 +34,14 @@ jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
 jest.mock('@/lib/services/github.service')
 jest.mock('@/lib/repositories/pull-request.repository')
 // LUM-738 — the baseline service reaches github/contents → auth (octokit ESM).
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: {
     requestFromPush: jest.fn().mockResolvedValue('requested'),
   },
 }))
 
 import { handlePush } from '@/app/api/webhooks/github/handlers'
-import { securityBaselineService } from '@/lib/services/security-baseline.service'
+import { securityBaselineService } from '@/ee/security/services/security-baseline.service'
 
 const REVERT = 'aee920c669b44aa3875327574304067e353bf219'
 

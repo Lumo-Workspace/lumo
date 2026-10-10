@@ -9,8 +9,8 @@
  * routing itself and the principal it produces.
  */
 jest.mock('@/lib/auth/bearer', () => ({ verifyBearer: jest.fn() }))
-jest.mock('@/lib/auth/github-oidc', () => ({
-  ...jest.requireActual('@/lib/auth/github-oidc'),
+jest.mock('@/ee/security/auth/github-oidc', () => ({
+  ...jest.requireActual('@/ee/security/auth/github-oidc'),
   verifyGithubActionsToken: jest.fn(),
 }))
 
@@ -18,9 +18,9 @@ import {
   authenticateSarifIngest,
   assertPayloadMatchesPrincipal,
   type SarifIngestPrincipal,
-} from '@/lib/auth/sarif-ingest-auth'
+} from '@/ee/security/auth/sarif-ingest-auth'
 import { verifyBearer } from '@/lib/auth/bearer'
-import { verifyGithubActionsToken } from '@/lib/auth/github-oidc'
+import { verifyGithubActionsToken } from '@/ee/security/auth/github-oidc'
 
 const mockedVerifyBearer = verifyBearer as jest.Mock
 const mockedVerifyOidc = verifyGithubActionsToken as jest.Mock

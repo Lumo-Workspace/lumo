@@ -16,6 +16,7 @@
  * `lib/plugins/client.tsx`, so no server code reaches the browser bundle.
  */
 import type { ZodType } from 'zod'
+import type { AuditedWorkspaceSettings } from '@/lib/audit/workspace-settings'
 import type {
   CrossingDetector,
   CrossingExplainer,
@@ -249,6 +250,17 @@ export interface WorkspaceSettingsContributor {
    * events, as the core settings.
    */
   columns: Record<string, ZodType>
+  /**
+   * LUM-1065: owned columns a settings change audits (LUM-907), per audit
+   * action; merged with the core's in the same events.
+   */
+  audit?: AuditedWorkspaceSettings
+  /**
+   * LUM-1065: the value Prisma writes for an accepted column value, when it
+   * is not the value itself — e.g. `Prisma.DbNull` to clear a nullable Json
+   * column. The audit diff still sees the validated value.
+   */
+  toColumnWrite?(column: string, value: unknown): unknown
   /** Extra top-level fields of `GET /api/workspaces/me`. */
   meFields?(): Record<string, unknown>
   /**

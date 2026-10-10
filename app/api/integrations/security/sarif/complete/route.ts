@@ -3,15 +3,15 @@ import {
   authenticateSarifIngest,
   assertPayloadMatchesPrincipal,
   type SarifIngestPrincipal,
-} from '@/lib/auth/sarif-ingest-auth'
-import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
-import { startSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-start'
+} from '@/ee/security/auth/sarif-ingest-auth'
+import { checkSarifIngestRateLimit } from '@/ee/security/services/security-sarif-rate-limit'
+import { startSecuritySarifIngest } from '@/ee/security/services/security-sarif-ingest-start'
 import {
   sarifCompleteBodySchema,
   expectedSarifPathname,
   pathnameMatches,
   BLOB_HOST_SUFFIX,
-} from '@/lib/validation/security-sarif'
+} from '@/ee/security/validation/security-sarif'
 
 export const runtime = 'nodejs'
 

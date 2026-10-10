@@ -12,16 +12,22 @@
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('test-token'),
 }))
-jest.mock('@/lib/services/policy/policy-compiler.service')
+jest.mock('@/ee/security/services/policy/policy-compiler.service')
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   addedLinesFromDiff: jest.requireActual('@/lib/integrations/github/contents')
     .addedLinesFromDiff,
 }))
-jest.mock('@/lib/llm/code-rule-judge-client')
+jest.mock('@/ee/security/llm/code-rule-judge-client')
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { findSecuritySwitches: jest.fn() },
+  workspaceRepository: {},
 }))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecuritySwitches: jest.fn(),
+  },
+}))
+
 jest.mock('@/lib/db/prisma', () => {
   const client: Record<string, unknown> = {
     boundaryCrossing: { updateMany: jest.fn(), create: jest.fn() },
@@ -36,12 +42,12 @@ jest.mock('@/lib/db/prisma', () => {
 import {
   codePipelineService,
   semanticRulesOffReason,
-} from '@/lib/services/policy/code-pipeline.service'
-import * as compiler from '@/lib/services/policy/policy-compiler.service'
+} from '@/ee/security/services/policy/code-pipeline.service'
+import * as compiler from '@/ee/security/services/policy/policy-compiler.service'
 import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/code-rule-judge-client'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import * as judge from '@/ee/security/llm/code-rule-judge-client'
 import { prisma } from '@/lib/db/prisma'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const BASE = {
   taskId: 't1',
@@ -59,7 +65,7 @@ const SEMANTIC = {
   severity: 'LOW' as const,
   blocking: false,
 }
-const switches = workspaceRepository.findSecuritySwitches as jest.Mock
+const switches = securityColumnsRepository.findSecuritySwitches as jest.Mock
 const db = (
   prisma as unknown as {
     boundaryCrossing: { updateMany: jest.Mock; create: jest.Mock }

@@ -2,23 +2,23 @@
 jest.mock('@/lib/logger', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findStaleVerifierHolds: jest.fn(),
     claimStaleVerifierHold: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 
-import { prSecurityScanRepository as repo } from '@/lib/repositories/pr-security-scan.repository'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { prSecurityScanRepository as repo } from '@/ee/security/repositories/pr-security-scan.repository'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import {
   VERIFIER_SWEEP_LIMIT,
   reviewVerifierOpsService,
-} from '@/lib/services/review-verifier-ops.service'
-import { VERIFIER_HOLD_MS } from '@/lib/security-scan/verifier'
+} from '@/ee/security/services/review-verifier-ops.service'
+import { VERIFIER_HOLD_MS } from '@/ee/security/security-scan/verifier'
 
 describe('LUM-988 stale verifier hold sweep', () => {
   it('releases only holds older than the window that it wins the claim on, and syncs each', async () => {

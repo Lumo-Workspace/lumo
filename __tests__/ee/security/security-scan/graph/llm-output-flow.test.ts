@@ -3,8 +3,11 @@ import {
   findLlmOutputFlows,
   LLM_OUTPUT_SINK_META,
   LLM_OUTPUT_TARGET_SINKS,
-} from '@/lib/security-scan/graph/llm-output-flow'
-import { SOURCE_RULES, matchCallRule } from '@/lib/security-scan/graph/patterns'
+} from '@/ee/security/security-scan/graph/llm-output-flow'
+import {
+  SOURCE_RULES,
+  matchCallRule,
+} from '@/ee/security/security-scan/graph/patterns'
 
 const ROUTE = 'app/api/sql/route.ts'
 const SERVICE = 'lib/services/sql.service.ts'

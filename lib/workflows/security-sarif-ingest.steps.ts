@@ -13,8 +13,8 @@ import {
   type PersistOutcome,
   type ResolveOutcome,
   type SarifIngestJob,
-} from '@/lib/services/security-sarif-ingest.service'
-import type { ScanStages } from '@/lib/security-scan/types'
+} from '@/ee/security/services/security-sarif-ingest.service'
+import type { ScanStages } from '@/ee/security/security-scan/types'
 import { isCurrentRunCancelled } from './run-cancellation'
 
 export async function resolveSarifScanStep(

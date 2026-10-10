@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCronAuth } from '@/lib/api/cron-auth'
-import { sweepExpiredScanEvidence } from '@/lib/services/scan-evidence-retention.service'
+import { sweepExpiredScanEvidence } from '@/ee/security/services/scan-evidence-retention.service'
 
 export const runtime = 'nodejs'
 

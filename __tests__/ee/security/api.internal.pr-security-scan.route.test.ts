@@ -7,7 +7,7 @@
  * run with a full 300s budget instead of inline in a ~15s waitUntil.
  * Self-call only: gated by the shared CRON_SECRET.
  */
-jest.mock('@/lib/services/pr-security-scan.service', () => ({
+jest.mock('@/ee/security/services/pr-security-scan.service', () => ({
   prSecurityScanService: { run: jest.fn() },
 }))
 jest.mock('@/lib/logger', () => ({
@@ -15,7 +15,7 @@ jest.mock('@/lib/logger', () => ({
 }))
 
 import { POST } from '@/app/api/internal/pr-security-scan/route'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
 import { logger } from '@/lib/logger'
 
 const run = prSecurityScanService.run as jest.Mock

@@ -21,7 +21,7 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { generateEvalObject } from '@/lib/llm/offline-eval-client'
+import { generateEvalObject } from '@/ee/private/llm/offline-eval-client'
 import {
   DEFAULT_CACHE_DIR,
   SOURCES,

@@ -18,7 +18,7 @@ jest.mock('@/lib/db/prisma', () => ({
 import {
   prSecurityScanRepository,
   type NewFindingInput,
-} from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/repositories/pr-security-scan.repository'
 
 const mockTransaction = (prisma as unknown as { $transaction: jest.Mock })
   .$transaction

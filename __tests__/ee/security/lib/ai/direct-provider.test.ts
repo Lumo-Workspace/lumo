@@ -48,7 +48,7 @@ describe('unconfigured route', () => {
   it('evaluation models refuse to run off the gateway', async () => {
     process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
     const { evaluateBoolean, EvaluationError } =
-      await import('@/lib/ai/evaluation')
+      await import('@/ee/security/ai/evaluation')
     const fetchImpl = jest.fn()
     await expect(
       evaluateBoolean(

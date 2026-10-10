@@ -25,11 +25,11 @@ import {
   renderPreToolUseSecurityReminder,
   renderSessionStartSecuritySection,
   type ReminderFinding,
-} from '@/lib/security-scan/agent-reminder'
-import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
-import { buildPlanPrompt } from '@/lib/llm/security-hunt-plan-client'
-import { renderTaskForPrompt } from '@/lib/llm/security-hunt-client'
-import { buildCompressPrompt } from '@/lib/llm/security-hunt-compress-client'
+} from '@/ee/security/security-scan/agent-reminder'
+import { renderHuntTaskContext } from '@/ee/security/security-scan/hunt/task-context'
+import { buildPlanPrompt } from '@/ee/security/llm/security-hunt-plan-client'
+import { renderTaskForPrompt } from '@/ee/security/llm/security-hunt-client'
+import { buildCompressPrompt } from '@/ee/security/llm/security-hunt-compress-client'
 import { escapesWrapper } from '@/shared/src/untrusted-content'
 
 /** The attack shape: an imperative, then a forged close, then "prompt". */

@@ -43,7 +43,7 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: { runInbound: jest.fn() },
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: { requestFromPush: jest.fn() },
 }))
 jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
@@ -51,7 +51,7 @@ jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
     recordRevertsFromPush: jest.fn().mockResolvedValue(undefined),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn(),
   shouldScanOnPrEvent: jest.fn().mockReturnValue(true),
 }))
@@ -86,7 +86,7 @@ import { NextRequest } from 'next/server'
 import { verifyGitHubSignature } from '@/lib/integrations/github'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { githubAppInstallationRepository } from '@/lib/repositories'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
 import { sendChannelNotification } from '@/lib/integrations/slack'
 
 const verify = verifyGitHubSignature as jest.Mock

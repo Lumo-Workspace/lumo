@@ -5,24 +5,24 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/workflows/security-hunt', () => ({
   securityHuntWorkflow: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { recordHuntStart: jest.fn() },
 }))
 
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
 
 import { getRun, start } from 'workflow/api'
 import { logger } from '@/lib/logger'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   cancelHuntRun,
   recordHuntStartBestEffort,
   startSecurityHunt,
-} from '@/lib/services/security-hunt-start'
+} from '@/ee/security/services/security-hunt-start'
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
-import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
+import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 
 const startMock = start as unknown as jest.Mock
 const JOB = {

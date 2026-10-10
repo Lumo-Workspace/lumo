@@ -58,13 +58,13 @@ jest.mock('@/lib/repositories/pr-comment-mirror.repository', () => ({
 jest.mock('@/lib/repositories/actor.repository', () => ({
   actorRepository: { findGithubIdentitiesByIds: jest.fn(async () => []) },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: { buildSessionStartSection: jest.fn() },
 }))
 
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
 
 const mockFindById = taskRepository.findById as jest.Mock
 const mockSecurity =

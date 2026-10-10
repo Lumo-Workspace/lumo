@@ -38,7 +38,7 @@ jest.mock('@/lib/repositories/retrospective.repository', () => ({
     loadPerSessionCost: jest.fn(() => Promise.resolve([])),
   },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: {
     loadOpenFindingsForTask: jest.fn(() => Promise.resolve(null)),
   },
@@ -63,7 +63,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
 import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
 import { readTestCaseAdvisories } from '@/lib/services/done-verdict.service'
 

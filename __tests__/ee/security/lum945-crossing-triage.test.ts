@@ -16,12 +16,12 @@ import {
   shouldAutoClear,
   triageSkipReason,
   type TriageInput,
-} from '@/lib/boundary-crossing/triage'
+} from '@/ee/security/boundary-crossing/triage'
 import {
   EvaluationError,
   evaluateBoolean,
   readBooleanAnswer,
-} from '@/lib/ai/evaluation'
+} from '@/ee/security/ai/evaluation'
 
 // Assembled at runtime so this file carries no key-shaped literal.
 const FAKE_AWS_KEY = ['AKIA', 'IOSFODNN7', 'EXAMPLE'].join('')

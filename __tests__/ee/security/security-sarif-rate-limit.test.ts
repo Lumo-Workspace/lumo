@@ -35,7 +35,7 @@ import { logger } from '@/lib/logger'
 import {
   checkSarifIngestRateLimit,
   __resetRateLimiterForTests,
-} from '@/lib/services/security-sarif-rate-limit'
+} from '@/ee/security/services/security-sarif-rate-limit'
 
 const mockedWarn = logger.warn as jest.Mock
 

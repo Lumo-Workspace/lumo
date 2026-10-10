@@ -1,6 +1,6 @@
 /** @jest-environment node */
 const sweep = jest.fn()
-jest.mock('@/lib/services/boundary-crossing-triage.service', () => ({
+jest.mock('@/ee/security/services/boundary-crossing-triage.service', () => ({
   boundaryCrossingTriageService: {
     sweep: (...args: unknown[]) => sweep(...args),
   },

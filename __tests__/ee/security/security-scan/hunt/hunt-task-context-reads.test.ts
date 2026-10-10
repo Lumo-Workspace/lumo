@@ -19,7 +19,7 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findProjectId: jest.fn() },
 }))
 
-import { loadHuntTaskContext } from '@/lib/services/security-hunt-task-context'
+import { loadHuntTaskContext } from '@/ee/security/services/security-hunt-task-context'
 import { logger } from '@/lib/logger'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'

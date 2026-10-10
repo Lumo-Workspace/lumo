@@ -11,8 +11,8 @@ jest.mock('@/lib/db/prisma', () => ({
     return harness.prisma
   },
 }))
-import { prReviewControlRepository } from '@/lib/repositories/pr-review-control.repository'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 
 jest.setTimeout(180_000)
 beforeAll(async () => {

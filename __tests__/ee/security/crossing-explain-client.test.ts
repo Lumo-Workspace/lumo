@@ -23,12 +23,12 @@ jest.mock('@/lib/ai/models', () => ({
 }))
 
 describe('explainCrossing (LUM-590)', () => {
-  let explainCrossing: (typeof import('@/lib/llm/crossing-explain-client'))['explainCrossing']
+  let explainCrossing: (typeof import('@/ee/security/llm/crossing-explain-client'))['explainCrossing']
 
   beforeEach(async () => {
     jest.clearAllMocks()
     // Dynamic import after mocks are in place.
-    const mod = await import('@/lib/llm/crossing-explain-client')
+    const mod = await import('@/ee/security/llm/crossing-explain-client')
     explainCrossing = mod.explainCrossing
   })
 

@@ -6,11 +6,11 @@
  */
 // LUM-866: every workspace here has the default switches (all on); the
 // platform env in each test still decides the ceiling.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
@@ -23,10 +23,10 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   // LUM-785: stage A's graph rules read touched files; null = not found.
   readRepoFile: jest.fn().mockResolvedValue(null),
 }))
-jest.mock('@/lib/llm/security-judge-client', () => ({
+jest.mock('@/ee/security/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByPrAndSha: jest.fn(),
     create: jest.fn(),
@@ -49,9 +49,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 // LUM-740: the workspace policy read behind every "blocking" decision;
 // null = the 732 default these expectations were written against.
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
@@ -61,16 +59,22 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
-    findLastSarifIngestAt: jest.fn(),
     // LUM-775: the default-branch baseline behind the merged-PR queue exit.
+  },
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    findLastSarifIngestAt: jest.fn(),
     findSecurityBaseline: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
 // LUM-745: supersede / hourly cap run before start().
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
   securityManagedScanOpsService: {
     supersedeOlderRuns: jest.fn(),
     enforceHourlyCap: jest.fn(),
@@ -78,7 +82,7 @@ jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
 }))
 // LUM-739: this suite pins the hunt OFF (see beforeEach); the trigger/handoff
 // behaviour has its own suite in pr-security-scan.service.hunt-trigger.test.ts.
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   recordHuntStartBestEffort: jest.fn(),
 }))
@@ -86,15 +90,15 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
 }))
 // LUM-738 — the lazy baseline request made when stage A queues the managed run.
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: { ensure: jest.fn().mockResolvedValue('present') },
 }))
 // LUM-735 Task 2 — the PR write-back is fired best-effort from run().
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
 
@@ -103,25 +107,23 @@ import {
   STALE_RUNNING_MS,
   stagesOf,
   isCompleteScan,
-} from '@/lib/services/pr-security-scan.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/services/pr-security-scan.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
-import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
-import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
-import { securityBaselineService } from '@/lib/services/security-baseline.service'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { startSecurityManagedScan } from '@/ee/security/services/security-managed-scan-start'
+import { securityManagedScanOpsService } from '@/ee/security/services/security-managed-scan-ops.service'
+import { securityBaselineService } from '@/ee/security/services/security-baseline.service'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import { waitUntil } from '@/lib/runtime/wait-until'
-import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
+import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/security-judge-client'
+import * as judge from '@/ee/security/llm/security-judge-client'
 import { secretFingerprint } from '@/lib/security-scan/redact'
 import {
   SECURITY_DIFF_MAX_CHARS,
   JUDGE_TIMEOUT_CEILING_MS,
   JUDGE_DIFF_BUDGET_TIERS,
-} from '@/lib/security-scan'
+} from '@/ee/security/security-scan'
 
 /** 最高档的字符预算——越过它才谈得上截断（LUM-811）。 */
 const JUDGE_DIFF_TOP_TIER_CHARS =
@@ -211,9 +213,9 @@ beforeEach(() => {
   capCheck.mockResolvedValue({ capped: false })
   repo.setManagedRunId.mockResolvedValue(undefined)
   waitUntilMock.mockClear()
-  ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
-    undefined
-  )
+  ;(
+    securityColumnsRepository.findLastSarifIngestAt as jest.Mock
+  ).mockResolvedValue(undefined)
 })
 
 // The stale-RUNNING test freezes Date.now with a spy; restore it so a later
@@ -674,7 +676,8 @@ test('getForTask returns the latest scan per PR and the blocking count', async (
 })
 
 test('LUM-775 getForTask: a merged PR row carries its queue exit, is not blocking and is left out of the counts', async () => {
-  const baselineRead = projectRepository.findSecurityBaseline as jest.Mock
+  const baselineRead =
+    securityColumnsRepository.findSecurityBaseline as jest.Mock
   baselineRead.mockResolvedValue({
     sha: 'main',
     at: '2026-09-10T11:00:00Z',
@@ -773,7 +776,8 @@ test('LUM-775 getForTask: a merged PR row carries its queue exit, is not blockin
 })
 
 describe('LUM-735 SARIF push — stage A side', () => {
-  const lastIngest = projectRepository.findLastSarifIngestAt as jest.Mock
+  const lastIngest =
+    securityColumnsRepository.findLastSarifIngestAt as jest.Mock
   const countExternal = repo.countExternalFindings as jest.Mock
   const ORIGINAL_LUMO_MANAGED_SCAN = process.env.LUMO_MANAGED_SCAN
 
@@ -849,7 +853,7 @@ describe('LUM-735 SARIF push — stage A side', () => {
     waitUntilMock.mockClear()
     syncReview.mockClear()
     ;(
-      workspaceRepository.findSecurityPolicy as jest.Mock
+      securityColumnsRepository.findSecurityPolicy as jest.Mock
     ).mockResolvedValueOnce({
       block: [],
     })
@@ -1692,7 +1696,8 @@ test('a FAILED scan still hands the PR write-back to waitUntil (P9)', async () =
   expect(syncReview).toHaveBeenCalledWith('s1')
   expect(waitUntilMock).toHaveBeenCalledWith(syncReview.mock.results[0]!.value)
 })
-import { prReviewControlRepository } from '@/lib/repositories/pr-review-control.repository'
+import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 test('LUM-1056: exhausted AI budget still runs secrets and records an incomplete paused head', async () => {
   fetchPrDiff.mockResolvedValue(SECRET_DIFF)
@@ -1931,7 +1936,7 @@ test('LUM-1056: a failure other than a superseded head keeps the reservation', a
   expect(prReviewControlRepository.release).not.toHaveBeenCalled()
 })
 
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     release: jest.fn().mockResolvedValue(undefined),

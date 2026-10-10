@@ -14,10 +14,13 @@
  */
 import ts from 'typescript'
 import { execFileSync } from 'node:child_process'
-import { evaluateHuntTrigger } from '@/lib/security-scan/hunt/trigger'
-import { calleeText } from '@/lib/security-scan/graph/build-subgraph'
-import { matchCallRule, SINK_RULES } from '@/lib/security-scan/graph/patterns'
-import { matchSinkRule } from '@/lib/security-scan/hunt/repo-symbols'
+import { evaluateHuntTrigger } from '@/ee/security/security-scan/hunt/trigger'
+import { calleeText } from '@/ee/security/security-scan/graph/build-subgraph'
+import {
+  matchCallRule,
+  SINK_RULES,
+} from '@/ee/security/security-scan/graph/patterns'
+import { matchSinkRule } from '@/ee/security/security-scan/hunt/repo-symbols'
 
 /** The text path: one added line in a graph-source file. */
 function textSinks(...texts: string[]): string[] {

@@ -31,7 +31,7 @@ jest.mock('@/lib/db/prisma', () => ({
     },
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-gate', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-gate', () => ({
   listOpenBlockingFindings: jest.fn(async () => []),
 }))
 jest.mock('@/lib/repositories/test-case.repository', () => ({

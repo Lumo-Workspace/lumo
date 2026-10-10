@@ -12,8 +12,8 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
-  ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
+  ...jest.requireActual('@/ee/security/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
   restrictSandboxEgress: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -23,29 +23,29 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   revokeInstallationToken: jest.fn(),
   getRepoToken: jest.fn(),
 }))
-jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+jest.mock('@/ee/security/services/sandbox-credential-scrub', () => ({
   scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findStagesById: jest.fn() },
 }))
 
 import {
   createRepoSandbox,
   restrictSandboxEgress,
-} from '@/lib/integrations/vercel-sandbox'
+} from '@/ee/security/integrations/vercel-sandbox'
 import {
   getRepoCloneToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
-import { scrubSandboxCredentials } from '@/lib/services/sandbox-credential-scrub'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { securityManagedScanService } from '@/lib/services/security-managed-scan.service'
-import { buildSummary } from '@/lib/services/security-pr-review.service'
-import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
+import { scrubSandboxCredentials } from '@/ee/security/services/sandbox-credential-scrub'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { securityManagedScanService } from '@/ee/security/services/security-managed-scan.service'
+import { buildSummary } from '@/ee/security/services/security-pr-review.service'
+import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
 
 const TOKEN = 'fake-scan-token'
 const JOB = {

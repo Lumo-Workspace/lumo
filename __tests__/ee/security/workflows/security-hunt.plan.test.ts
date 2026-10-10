@@ -38,11 +38,11 @@ import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
   type HuntTask,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import {
   planFallback,
   categoriesToTasks,
-} from '@/lib/security-scan/hunt/plan-fallback'
+} from '@/ee/security/security-scan/hunt/plan-fallback'
 
 const verifyGraph = buildVerifySubgraphStep as jest.Mock
 const plan = planHuntStep as jest.Mock

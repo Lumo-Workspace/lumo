@@ -9,7 +9,7 @@
  *
  * Test names below are literal MACHINE checkpointers — do not rename.
  */
-import { computeFalsePositiveRates } from '@/lib/boundary-crossing/false-positive-rate'
+import { computeFalsePositiveRates } from '@/ee/private/boundary-crossing/false-positive-rate'
 
 describe('LUM-751 — AUTO_SUPPRESSED by repository rule', () => {
   it('AUTO_SUPPRESSED rows are counted apart from the human false-positive rate', () => {

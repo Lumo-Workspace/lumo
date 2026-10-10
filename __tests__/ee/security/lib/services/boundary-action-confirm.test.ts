@@ -27,19 +27,19 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
 // The LLM confirmation client — lazily imported by the detector, picked up here.
-jest.mock('@/lib/llm/action-confirm-client', () => ({
+jest.mock('@/ee/security/llm/action-confirm-client', () => ({
   confirmActionExecuted: jest.fn(),
 }))
 
 import { boundaryDetectorService } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { confirmActionExecuted } from '@/lib/llm/action-confirm-client'
+import { confirmActionExecuted } from '@/ee/security/llm/action-confirm-client'
 import {
   confirmActionCrossing,
   stripProse,
   type ActionConfirmVerdict,
-} from '@/lib/boundary-crossing/action-confirm'
+} from '@/ee/security/boundary-crossing/action-confirm'
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock

@@ -8,7 +8,7 @@ import {
 } from '@/lib/auth'
 import { taskService } from '@/lib/services'
 import { taskRepository } from '@/lib/repositories'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
 
 jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
@@ -24,7 +24,7 @@ jest.mock('@/lib/repositories', () => ({
     findByWorkspaceIdentifier: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan.service', () => ({
+jest.mock('@/ee/security/services/pr-security-scan.service', () => ({
   prSecurityScanService: { getForTask: jest.fn(), disposition: jest.fn() },
 }))
 

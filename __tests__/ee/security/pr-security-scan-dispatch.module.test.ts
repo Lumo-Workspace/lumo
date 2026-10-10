@@ -10,7 +10,7 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
 import { logger } from '@/lib/logger'
 
 const warn = logger.warn as jest.Mock

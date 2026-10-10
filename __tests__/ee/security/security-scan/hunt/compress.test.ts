@@ -23,7 +23,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   findRepoSandboxByTag: jest.fn(),
   createRepoSandbox: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -36,7 +36,7 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 }))
 // The compressor as `runHuntShell` sees it. The REAL one is exercised below
 // through `requireActual`, against these same `ai` mocks.
-jest.mock('@/lib/llm/security-hunt-compress-client', () => ({
+jest.mock('@/ee/security/llm/security-hunt-compress-client', () => ({
   compressShellOutput: jest.fn(),
 }))
 jest.mock('ai', () => ({ generateText: jest.fn() }))
@@ -48,17 +48,19 @@ jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
  * there would let the two halves of the accounting agree with each other
  * while agreeing with nothing.
  */
-jest.mock('@/lib/services/security-hunt-sandbox', () => ({
-  ...jest.requireActual('@/lib/services/security-hunt-sandbox'),
+jest.mock('@/ee/security/services/security-hunt-sandbox', () => ({
+  ...jest.requireActual('@/ee/security/services/security-hunt-sandbox'),
   attachOrCreateHuntSandbox: jest.fn(),
   stopHuntSandbox: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
+jest.mock('@/ee/security/llm/security-hunt-client', () => ({
+  huntTask: jest.fn(),
+}))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   readRepoFile: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findDispositionedByPullRequest: jest.fn(),
     persistHuntResult: jest.fn(),
@@ -70,18 +72,18 @@ import { generateText } from 'ai'
 import {
   attachOrCreateHuntSandbox,
   runHuntShell,
-} from '@/lib/services/security-hunt-sandbox'
-import { huntTask } from '@/lib/llm/security-hunt-client'
-import { securityHuntService } from '@/lib/services/security-hunt.service'
-import { compressShellOutput } from '@/lib/llm/security-hunt-compress-client'
-import { NO_RELEVANT_LINES } from '@/lib/security-scan/hunt/compress-usable'
+} from '@/ee/security/services/security-hunt-sandbox'
+import { huntTask } from '@/ee/security/llm/security-hunt-client'
+import { securityHuntService } from '@/ee/security/services/security-hunt.service'
+import { compressShellOutput } from '@/ee/security/llm/security-hunt-compress-client'
+import { NO_RELEVANT_LINES } from '@/ee/security/security-scan/hunt/compress-usable'
 import { FAST_MODEL } from '@/lib/ai/models'
 import {
   HUNT_COMPRESS_TOKEN_BUDGET,
   HUNT_SHELL_COMPRESS_MIN,
   HUNT_SHELL_OUTPUT_MAX,
   type HuntTask,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 const compress = compressShellOutput as jest.Mock
 const gen = generateText as jest.Mock
@@ -320,8 +322,8 @@ describe('LUM-758 §6 shell output compression', () => {
  */
 describe('compressShellOutput', () => {
   const { compressShellOutput: real } = jest.requireActual<
-    typeof import('@/lib/llm/security-hunt-compress-client')
-  >('@/lib/llm/security-hunt-compress-client')
+    typeof import('@/ee/security/llm/security-hunt-compress-client')
+  >('@/ee/security/llm/security-hunt-compress-client')
 
   const input = {
     objective: TASK.objective,

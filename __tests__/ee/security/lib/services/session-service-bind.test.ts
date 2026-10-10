@@ -39,7 +39,7 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
     buildBlockerWarningSectionForTask: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: {
     buildSessionStartSection: jest.fn(),
   },
@@ -51,7 +51,7 @@ import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
 import { sessionService } from '@/lib/services/session.service'
 
 const sessRepo = sessionRepository as jest.Mocked<typeof sessionRepository>

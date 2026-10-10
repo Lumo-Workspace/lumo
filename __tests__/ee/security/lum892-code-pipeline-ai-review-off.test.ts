@@ -14,23 +14,28 @@
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('test-token'),
 }))
-jest.mock('@/lib/services/policy/policy-compiler.service')
+jest.mock('@/ee/security/services/policy/policy-compiler.service')
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   addedLinesFromDiff: jest.requireActual('@/lib/integrations/github/contents')
     .addedLinesFromDiff,
 }))
-jest.mock('@/lib/llm/code-rule-judge-client')
+jest.mock('@/ee/security/llm/code-rule-judge-client')
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { findSecuritySwitches: jest.fn() },
+  workspaceRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecuritySwitches: jest.fn(),
+  },
 }))
 
-import { codePipelineService } from '@/lib/services/policy/code-pipeline.service'
-import * as compiler from '@/lib/services/policy/policy-compiler.service'
+import { codePipelineService } from '@/ee/security/services/policy/code-pipeline.service'
+import * as compiler from '@/ee/security/services/policy/policy-compiler.service'
 import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/code-rule-judge-client'
+import * as judge from '@/ee/security/llm/code-rule-judge-client'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const BASE = {
   taskId: 't1',
@@ -62,7 +67,7 @@ const ALL_ON = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
 }
-const switches = workspaceRepository.findSecuritySwitches as jest.Mock
+const switches = securityColumnsRepository.findSecuritySwitches as jest.Mock
 const ensureCompiled = compiler.policyCompilerService
   .ensureCompiled as jest.Mock
 const judgeCodeRules = judge.judgeCodeRules as jest.Mock

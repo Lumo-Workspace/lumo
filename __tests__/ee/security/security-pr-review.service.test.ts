@@ -24,7 +24,7 @@ jest.mock('@/lib/integrations/github/pr-comment-client', () => {
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByIdForReview: jest.fn(),
     // LUM-901: this scan is the PR's newest — the sync goes ahead.
@@ -38,7 +38,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 // LUM-901: scanning on for the workspace — the sync goes ahead.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: jest.fn().mockResolvedValue({ scan: true }),
 }))
 jest.mock('@/lib/logger', () => ({
@@ -62,15 +62,15 @@ import {
   fingerprintMarker,
   SUMMARY_MARKER,
   REVIEW_MAX_INLINE,
-} from '@/lib/services/security-pr-review.service'
+} from '@/ee/security/services/security-pr-review.service'
 import {
   prCommentClient,
   GithubApiError,
 } from '@/lib/integrations/github/pr-comment-client'
 import { getRepoToken } from '@/lib/integrations/github/auth'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
-import type { ReviewFindingRow } from '@/lib/repositories/pr-security-scan.repository'
+import type { ReviewFindingRow } from '@/ee/security/repositories/pr-security-scan.repository'
 
 const findById = prSecurityScanRepository.findByIdForReview as jest.Mock
 const token = getRepoToken as jest.Mock

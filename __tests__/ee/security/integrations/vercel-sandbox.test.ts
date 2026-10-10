@@ -12,7 +12,7 @@ import {
   denySandboxEgress,
   findRepoSandboxByTag,
   stopRepoSandboxesByTag,
-} from '@/lib/integrations/vercel-sandbox'
+} from '@/ee/security/integrations/vercel-sandbox'
 
 const create = Sandbox.create as jest.Mock
 const list = Sandbox.list as jest.Mock
@@ -296,7 +296,8 @@ describe('getRepoSandbox (LUM-746 reconnect)', () => {
     })
     const stop = jest.fn()
     get.mockResolvedValue({ name: 'sb-1', cwd: '/vercel', runCommand, stop })
-    const { getRepoSandbox } = await import('@/lib/integrations/vercel-sandbox')
+    const { getRepoSandbox } =
+      await import('@/ee/security/integrations/vercel-sandbox')
     const sandbox = await getRepoSandbox({ name: 'sb-1' })
     expect(get).toHaveBeenCalledWith({ name: 'sb-1' })
     expect(sandbox.name).toBe('sb-1')

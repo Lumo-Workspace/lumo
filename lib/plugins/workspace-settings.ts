@@ -9,6 +9,11 @@
  * settings. A column nobody owns — a plugin's column on a server without that
  * plugin — is neither served nor accepted (400).
  */
+import {
+  AUDITED_WORKSPACE_SETTINGS,
+  type AuditedWorkspaceSettings,
+  type WorkspaceSettingsAuditAction,
+} from '@/lib/audit/workspace-settings'
 import { WORKSPACE_COLUMNS } from '@/lib/repositories/workspace-columns'
 import { updateWorkspaceSchema } from '@/lib/validation/schemas'
 import { getPluginRegistry } from './registry'
@@ -123,6 +128,47 @@ export function pluginWorkspaceWrites(
       ([column, value]) => column in owned && value !== undefined
     )
   )
+}
+
+/**
+ * LUM-1065: the audited settings columns — the core's plus every installed
+ * plugin's `audit` columns, under the same actions. A plugin may only audit
+ * columns it owns.
+ */
+export function auditedWorkspaceSettings(): AuditedWorkspaceSettings {
+  const merged: Partial<Record<WorkspaceSettingsAuditAction, string[]>> = {}
+  for (const [action, cols] of Object.entries(AUDITED_WORKSPACE_SETTINGS))
+    merged[action as WorkspaceSettingsAuditAction] = [...cols]
+  for (const c of getPluginRegistry().workspaceSettings) {
+    for (const [action, cols] of Object.entries(c.audit ?? {})) {
+      for (const column of cols ?? []) {
+        if (!(column in c.columns))
+          throw new Error(
+            `plugin ${c.key} audits workspace setting "${column}" it does not own`
+          )
+      }
+      const key = action as WorkspaceSettingsAuditAction
+      merged[key] = [...(merged[key] ?? []), ...(cols ?? [])]
+    }
+  }
+  return merged
+}
+
+/**
+ * LUM-1065: a settings update as Prisma writes it — each plugin-owned column
+ * mapped through its owner's `toColumnWrite` (core columns, and owned values
+ * the owner does not map, pass through unchanged).
+ */
+export function toWorkspaceColumnWrites<T extends object>(data: T): T {
+  const out: Record<string, unknown> = { ...(data as Record<string, unknown>) }
+  for (const c of getPluginRegistry().workspaceSettings) {
+    if (!c.toColumnWrite) continue
+    for (const column of Object.keys(c.columns)) {
+      if (column in out && out[column] !== undefined)
+        out[column] = c.toColumnWrite(column, out[column])
+    }
+  }
+  return out as T
 }
 
 /**

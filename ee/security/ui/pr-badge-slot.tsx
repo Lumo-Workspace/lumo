@@ -7,7 +7,7 @@
  * the whole list.
  */
 import type { ClientSlotProps } from '@/lib/plugins/client'
-import { useSecurityScans } from '@/app/workspace/[workspaceUrl]/hooks/useSecurityScans'
+import { useSecurityScans } from '@/ee/security/hooks/useSecurityScans'
 import {
   ScanningOffBadge,
   SecurityScanBadge,

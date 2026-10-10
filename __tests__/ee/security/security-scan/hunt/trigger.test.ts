@@ -3,7 +3,7 @@ import {
   evaluateHuntTrigger,
   HUNT_SITES_MAX,
   HUNT_SITES_PER_RULE_MAX,
-} from '@/lib/security-scan/hunt/trigger'
+} from '@/ee/security/security-scan/hunt/trigger'
 
 const file = (path: string, ...texts: string[]) => ({
   path,

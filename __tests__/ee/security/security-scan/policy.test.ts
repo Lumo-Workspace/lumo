@@ -5,14 +5,19 @@
  * { provenance, severity } pairs block DONE. null = the 732 default;
  * LLM_JUDGE can never block, at the API edge and at the reader.
  */
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findLatestByPullRequestIds: jest.fn() },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findManyForSecurityByTaskId: jest.fn() },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { findSecurityPolicy: jest.fn() },
+  workspaceRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn(),
+  },
 }))
 
 import {
@@ -22,18 +27,18 @@ import {
   isBlockingUnderPolicy,
   type PolicyFindingInput,
   type SecurityPolicy,
-} from '@/lib/security-scan/policy'
+} from '@/ee/security/security-scan/policy'
 import {
   isBlockingFinding,
   listOpenBlockingFindings,
-} from '@/lib/services/pr-security-scan-gate'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/services/pr-security-scan-gate'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const scans = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
-const policyOf = workspaceRepository.findSecurityPolicy as jest.Mock
+const policyOf = securityColumnsRepository.findSecurityPolicy as jest.Mock
 
 type OpenFinding = PolicyFindingInput & { ruleId?: string; filePath?: string }
 const open = (over: Partial<OpenFinding>): OpenFinding => ({

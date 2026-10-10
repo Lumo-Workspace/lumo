@@ -23,14 +23,14 @@ import {
   STUB_JUDGES,
   GOLD_CORPUS,
   type EvalJudges,
-} from '@/lib/boundary-crossing/align-eval'
+} from '@/ee/private/boundary-crossing/align-eval'
 
 async function resolveJudges(live: boolean): Promise<EvalJudges> {
   if (!live) return STUB_JUDGES
   // Lazy-import the real model clients ONLY on --live so the default path never
   // pulls in the `ai` SDK (and never hits the network).
   const { confirmActionExecuted } =
-    await import('@/lib/llm/action-confirm-client')
+    await import('@/ee/security/llm/action-confirm-client')
   return { action: confirmActionExecuted }
 }
 

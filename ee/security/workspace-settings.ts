@@ -6,10 +6,11 @@
  * contributor owns them. Validators are the ones PATCH /api/workspaces/me
  * applied before the split.
  */
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import type { WorkspaceSettingsContributor } from '@/lib/plugins/types'
-import { securityPolicySchema } from '@/lib/security-scan/policy'
-import { platformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
+import { securityPolicySchema } from '@/ee/security/security-scan/policy'
+import { platformSecurityCeiling } from '@/ee/security/security-scan/workspace-switches'
 
 export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
   key: 'security',
@@ -26,6 +27,22 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     securityAiReviewEnabled: z.boolean().optional(),
     securityHuntEnabled: z.boolean().optional(),
   },
+  // LUM-907: audited with the core settings (moved out of the core list in
+  // LUM-1065; same actions as before).
+  audit: {
+    'workspace.security_settings_updated': [
+      'securityPolicy',
+      'securityScanEnabled',
+      'securityAiReviewEnabled',
+      'securityHuntEnabled',
+    ],
+    'workspace.retention_updated': ['scanEvidenceRetentionDays'],
+  },
+  // LUM-740: `securityPolicy: null` resets to the default — clear the Json
+  // column to SQL NULL (Prisma rejects a bare null for a Json column). This
+  // mapping lived in the core workspaceRepository.update before LUM-1065.
+  toColumnWrite: (column, value) =>
+    column === 'securityPolicy' && value === null ? Prisma.DbNull : value,
   // LUM-866: which scan layers the platform allows at all — the settings
   // page shows a layer the env turned off as off and not toggleable.
   meFields: () => ({ securityPlatform: platformSecurityCeiling() }),
@@ -33,7 +50,7 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
   // model, so it is part of the workspace's AI review.
   async aiReviewEnabled(workspaceId) {
     const { loadSecurityLayers } =
-      await import('@/lib/services/security-workspace-switches.service')
+      await import('@/ee/security/services/security-workspace-switches.service')
     return (await loadSecurityLayers(workspaceId)).aiReview
   },
 }

@@ -7,14 +7,14 @@
  */
 
 // LUM-866: every workspace here has the default switches (all on).
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findScanForSuggestion: jest.fn(),
     setSuggestedDisposition: jest.fn(),
@@ -23,13 +23,13 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     updateDisposition: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-disposition-falsifier-client', () => ({
+jest.mock('@/ee/security/llm/security-disposition-falsifier-client', () => ({
   falsifyExternalFinding: jest.fn(),
 }))
 jest.mock('@/lib/logger', () => ({
@@ -44,11 +44,11 @@ jest.mock('@/lib/logger', () => ({
 import {
   securitySuggestDispositionService,
   SUGGEST_MAX_PER_SCAN,
-} from '@/lib/services/security-suggest-disposition.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/services/security-suggest-disposition.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
-import { falsifyExternalFinding } from '@/lib/llm/security-disposition-falsifier-client'
-import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
+import { falsifyExternalFinding } from '@/ee/security/llm/security-disposition-falsifier-client'
+import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 
 const findScan = prSecurityScanRepository.findScanForSuggestion as jest.Mock
 const suggest = prSecurityScanRepository.setSuggestedDisposition as jest.Mock

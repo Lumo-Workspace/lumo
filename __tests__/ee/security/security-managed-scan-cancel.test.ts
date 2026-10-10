@@ -5,7 +5,7 @@ jest.mock('@/lib/logger', () => ({
 
 import { getRun } from 'workflow/api'
 import { logger } from '@/lib/logger'
-import { cancelManagedRun } from '@/lib/services/security-managed-scan-cancel'
+import { cancelManagedRun } from '@/ee/security/services/security-managed-scan-cancel'
 
 const getRunMock = getRun as unknown as jest.Mock
 

@@ -33,7 +33,22 @@ export interface DropLinesTransform {
   reason: string
 }
 
-export type Transform = JsonDeleteTransform | DropLinesTransform
+export interface JsonArrayFilterTransform {
+  file: string
+  type: 'jsonArrayFilter'
+  /** Key path of the array, e.g. ["crons"]. */
+  path: string[]
+  /** Object key whose string value is tested, e.g. "path". */
+  key: string
+  /** Elements whose `key` matches this regex (JS source) are removed. */
+  pattern: string
+  reason: string
+}
+
+export type Transform =
+  | JsonDeleteTransform
+  | DropLinesTransform
+  | JsonArrayFilterTransform
 
 export interface ForbiddenMarker {
   id: string
@@ -273,6 +288,7 @@ export function findImportViolations(
 // ---------------------------------------------------------------------------
 
 export function applyTransform(content: string, t: Transform): string {
+  if (t.type === 'jsonArrayFilter') return filterJsonArray(content, t)
   if (t.type === 'dropLines') {
     const re = new RegExp(t.pattern)
     return content
@@ -302,6 +318,70 @@ export function applyTransform(content: string, t: Transform): string {
   if (deleted === 0) return content
   // Keep the repo's 2-space JSON style and trailing newline.
   return `${JSON.stringify(json, null, 2)}\n`
+}
+
+/**
+ * LUM-1065: drop the elements of a JSON array whose `key` matches `pattern`
+ * (e.g. the plugin's `crons` in vercel.json). A missing array is not an
+ * error, for the same reason as a missing jsonDelete key; nothing removed
+ * leaves the file byte-identical.
+ */
+function filterJsonArray(content: string, t: JsonArrayFilterTransform): string {
+  const json = JSON.parse(content) as Record<string, unknown>
+  let node: unknown = json
+  for (const key of t.path.slice(0, -1)) {
+    node =
+      node && typeof node === 'object'
+        ? (node as Record<string, unknown>)[key]
+        : undefined
+  }
+  const last = t.path[t.path.length - 1]
+  if (last === undefined || !node || typeof node !== 'object') return content
+  const arr = (node as Record<string, unknown>)[last]
+  if (!Array.isArray(arr)) return content
+  const re = new RegExp(t.pattern)
+  const kept = arr.filter(el => {
+    const v =
+      el && typeof el === 'object'
+        ? (el as Record<string, unknown>)[t.key]
+        : undefined
+    return !(typeof v === 'string' && re.test(v))
+  })
+  if (kept.length === arr.length) return content
+  ;(node as Record<string, unknown>)[last] = kept
+  return `${JSON.stringify(json, null, 2)}\n`
+}
+
+// ---------------------------------------------------------------------------
+// Overlay
+// ---------------------------------------------------------------------------
+
+export interface ImportCheckInput {
+  /** Files whose imports are checked (exported or overlaid). */
+  importers: string[]
+  /** Tracked files that stay private and are not replaced by the overlay. */
+  excluded: string[]
+}
+
+/**
+ * LUM-1065 (RFC §6.3): the import check must see the snapshot as it will be,
+ * i.e. after the overlay. An overlay file stands in for whatever the ref has
+ * at that path: an excluded file it replaces counts as present (importing it
+ * is fine), and its OWN imports are checked instead of the replaced file's.
+ * Read overlaid paths from the overlay when checking.
+ */
+export function importCheckInput(
+  cls: Pick<Classification, 'included' | 'excluded'>,
+  overlayFiles: readonly string[]
+): ImportCheckInput {
+  const overlay = new Set(overlayFiles)
+  const importers = [
+    ...new Set([
+      ...cls.included,
+      ...overlayFiles.filter(f => CODE_FILE_RE.test(f)),
+    ]),
+  ]
+  return { importers, excluded: cls.excluded.filter(f => !overlay.has(f)) }
 }
 
 // ---------------------------------------------------------------------------

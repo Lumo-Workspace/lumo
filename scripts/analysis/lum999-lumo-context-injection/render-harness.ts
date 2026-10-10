@@ -139,7 +139,7 @@ jest.mock('@/lib/repositories/actor.repository', () => ({
     ),
   },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: {},
 }))
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({

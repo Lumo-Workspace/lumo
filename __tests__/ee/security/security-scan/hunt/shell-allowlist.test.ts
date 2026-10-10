@@ -13,9 +13,9 @@ import {
   checkHuntCommand,
   HUNT_SHELL_COMMANDS,
   HUNT_SHELL_PROBES,
-} from '@/lib/security-scan/hunt/shell-allowlist'
-import { sanitizeHuntOutput } from '@/lib/services/security-hunt-sandbox'
-import { HUNT_SHELL_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
+} from '@/ee/security/security-scan/hunt/shell-allowlist'
+import { sanitizeHuntOutput } from '@/ee/security/services/security-hunt-sandbox'
+import { HUNT_SHELL_OUTPUT_MAX } from '@/ee/security/services/security-hunt.config'
 
 const ok = (cmd: string) => expect(checkHuntCommand(cmd).ok).toBe(true)
 const denied = (cmd: string) => {

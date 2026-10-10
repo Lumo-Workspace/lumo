@@ -1,0 +1,5 @@
+{
+  "scripts/security/lum852-sandbox-probe.ts": {
+    "createRepoScopedToken": ["mintScopedToken"]
+  }
+}

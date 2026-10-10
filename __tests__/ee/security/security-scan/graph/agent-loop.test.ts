@@ -3,7 +3,7 @@ import {
   AGENT_LOOP_SHAPES,
   AGENT_LOOP_SHAPE_META,
   findUnboundedAgentLoops,
-} from '@/lib/security-scan/graph/agent-loop'
+} from '@/ee/security/security-scan/graph/agent-loop'
 
 const ROUTE = 'app/api/agent/route.ts'
 const LIB = 'lib/services/agent.service.ts'
@@ -244,7 +244,7 @@ export async function nested() {
     // hand-written loop — nothing here for this rule to see.
     const findings = findingsOf([
       [
-        'lib/llm/security-hunt-client.ts',
+        'ee/security/llm/security-hunt-client.ts',
         `import { generateText, stepCountIs, hasToolCall } from 'ai'
 
 export async function runHunt(input: { maxSteps: number }) {

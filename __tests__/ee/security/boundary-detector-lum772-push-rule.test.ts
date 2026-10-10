@@ -9,12 +9,12 @@
  * Test names below are literal MACHINE checkpointers — do not rename.
  */
 import { detectProjectActionCrossings } from '@/lib/services/boundary-detector.service'
-import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
+import { matchActionRule } from '@/ee/security/boundary-crossing/action-rule-match'
 import {
   matchPushTarget,
   pushDestinations,
-} from '@/lib/boundary-crossing/push-target-match'
-import { compileRuleSet } from '@/lib/services/policy/policy-compiler.service'
+} from '@/ee/security/boundary-crossing/push-target-match'
+import { compileRuleSet } from '@/ee/security/services/policy/policy-compiler.service'
 import type { PolicyRule } from '@/lib/policy/types'
 
 // LUM-771 crossing cmu16ehy4 — a feature push piped to tail.

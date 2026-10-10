@@ -17,7 +17,7 @@ import {
   type Rates,
   type TrajectoryScore,
 } from '../lum958-basharena-llm/report'
-import { wilson } from '@/lib/boundary-crossing/eval/stats'
+import { wilson } from '@/ee/private/boundary-crossing/eval/stats'
 import type { MonitorRecord } from './records'
 import type { Split } from './split'
 

@@ -14,7 +14,7 @@
  * never counts as LEGIT.
  */
 import { readFile, writeFile } from 'node:fs/promises'
-import { generateEvalObject } from '@/lib/llm/offline-eval-client'
+import { generateEvalObject } from '@/ee/private/llm/offline-eval-client'
 import type { CorpusItem } from './corpus'
 import {
   TRIAGE_SYSTEM_PROMPT,

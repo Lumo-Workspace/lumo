@@ -45,7 +45,7 @@ jest.mock('@/lib/repositories/github.repository', () => ({
     findIntegrationByLogin: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
@@ -66,7 +66,7 @@ import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
 import { linkPullRequest } from '@/lib/services/task-pr-link.service'
 
 const findByWorkspace =

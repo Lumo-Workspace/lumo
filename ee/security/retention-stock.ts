@@ -13,13 +13,13 @@ import type {
 import {
   prSecurityScanRepository,
   type RetentionCandidate,
-} from '@/lib/repositories/pr-security-scan.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+} from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
   retentionCutoffs,
 } from '@/lib/retention/scan-evidence'
-import { scanRetentionDueReason } from '@/lib/services/scan-evidence-retention.service'
+import { scanRetentionDueReason } from '@/ee/security/services/scan-evidence-retention.service'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 /** Rows read per stock query. */
 const PAGE = 200
@@ -32,7 +32,7 @@ export function scanEvidenceStockDriver(): RetentionStockDriver<RetentionCandida
   return {
     async *pages(now) {
       const zeroRetention =
-        await workspaceRepository.findZeroScanEvidenceRetentionIds()
+        await securityColumnsRepository.findZeroScanEvidenceRetentionIds()
       const { hardCap } = retentionCutoffs(now)
       let after: string | null = null
       for (;;) {
@@ -49,7 +49,7 @@ export function scanEvidenceStockDriver(): RetentionStockDriver<RetentionCandida
           await prSecurityScanRepository.findPullRequestsWithUnfinishedScans([
             ...new Set(page.map(c => c.pullRequestId)),
           ])
-        const days = await workspaceRepository.findScanEvidenceRetention([
+        const days = await securityColumnsRepository.findScanEvidenceRetention([
           ...new Set(page.map(c => c.workspaceId)),
         ])
         yield page.map((c): RetentionStockClassified<RetentionCandidate> => {

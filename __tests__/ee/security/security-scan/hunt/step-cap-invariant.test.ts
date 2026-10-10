@@ -20,7 +20,7 @@ import {
   HUNT_TRACE_MAX_STEPS,
   huntMaxStepsPerCategory,
   huntSpendableTokens,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 describe('LUM-794 hunt step cap invariant', () => {
   it('is a finite positive integer', () => {
@@ -51,7 +51,7 @@ describe('LUM-794 hunt step cap invariant', () => {
 
   it('is not assigned a literal in the config source', () => {
     const source = readFileSync(
-      resolve(process.cwd(), 'lib/services/security-hunt.config.ts'),
+      resolve(process.cwd(), 'ee/security/services/security-hunt.config.ts'),
       'utf8'
     )
     const assignment = source.match(

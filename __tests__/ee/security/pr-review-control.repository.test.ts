@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { prisma } from '@/lib/db/prisma'
-import { prReviewControlRepository } from '@/lib/repositories/pr-review-control.repository'
+import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     $transaction: jest.fn(),

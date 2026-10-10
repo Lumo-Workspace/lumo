@@ -5,13 +5,13 @@
  * requireIdentity, Zod body validation, service errors mapped to status.
  */
 jest.mock('@/lib/auth/identity', () => ({ requireIdentity: jest.fn() }))
-jest.mock('@/lib/services/security-scan-settings.service', () => ({
+jest.mock('@/ee/security/services/security-scan-settings.service', () => ({
   securityScanSettingsService: { get: jest.fn(), update: jest.fn() },
 }))
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth/identity'
-import { securityScanSettingsService } from '@/lib/services/security-scan-settings.service'
+import { securityScanSettingsService } from '@/ee/security/services/security-scan-settings.service'
 import { GET, PATCH } from '@/app/api/workspaces/me/security-scan/route'
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock

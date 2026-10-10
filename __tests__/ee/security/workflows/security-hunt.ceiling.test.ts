@@ -9,11 +9,11 @@
  */
 // LUM-866: every workspace here has the default switches (all on); the
 // platform env in each test still decides the ceiling.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
@@ -42,7 +42,7 @@ jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     hasNewerScanThan: jest.fn(),
     claimHuntRetry: jest.fn(),
@@ -50,14 +50,14 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     failStaleHunt: jest.fn(),
   },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   stopRepoSandboxesByTag: jest.fn(),
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   cancelHuntRun: jest.fn(),
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 
@@ -70,14 +70,14 @@ import {
   persistHuntFindingsStep,
   requeueHuntStep,
 } from '@/lib/workflows/security-hunt.steps'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { startSecurityHunt } from '@/lib/services/security-hunt-start'
-import { securityHuntOpsService } from '@/lib/services/security-hunt-ops.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { startSecurityHunt } from '@/ee/security/services/security-hunt-start'
+import { securityHuntOpsService } from '@/ee/security/services/security-hunt-ops.service'
 import {
   HUNT_MAX_ATTEMPTS,
   type HuntJob,
   type HuntTask,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 const plan = planHuntStep as jest.Mock
 const hunt = huntTaskStep as jest.Mock

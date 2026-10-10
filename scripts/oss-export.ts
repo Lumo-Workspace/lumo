@@ -10,7 +10,9 @@
  *
  * Fails (exit 1, nothing left in <out-dir>) when:
  *   - a tracked file is in neither the include nor the exclude list;
- *   - an exported code file imports an excluded file;
+ *   - an exported code file imports an excluded file (checked after the
+ *     overlay: an overlaid path counts as present, with the overlay's
+ *     imports);
  *   - a config file (package.json scripts, husky hooks, …) names a file the
  *     snapshot does not contain, resolved against that config's own base
  *     (manifest `configRefFiles[].base`), or a shipped config file is not
@@ -43,6 +45,7 @@ import {
   findDanglingConfigRefs,
   findImportViolations,
   findUncoveredConfigFiles,
+  importCheckInput,
   parseConfigRefFiles,
   isOutsideDir,
   scanMarkers,
@@ -169,9 +172,19 @@ function main(): void {
     mkdirSync(tree)
     execFileSync('tar', ['-xf', tarPath, '-C', tree])
 
-    // 3. Exported code must not import anything that stays private.
-    const violations = findImportViolations(cls.included, cls.excluded, p =>
-      readFileSync(join(tree, p), 'utf8')
+    // 3. Exported code must not import anything that stays private — seen
+    //    after the overlay (LUM-1065): an overlaid path counts as present and
+    //    is checked with the overlay's content, not the ref's.
+    const overlayRoot = manifest.overlayDir
+      ? join(repo, manifest.overlayDir)
+      : null
+    const overlayFiles = overlayRoot ? listFilesRecursive(overlayRoot) : []
+    const overlaid = new Set(overlayFiles)
+    const check = importCheckInput(cls, overlayFiles)
+    const violations = findImportViolations(
+      check.importers,
+      check.excluded,
+      p => readFileSync(join(overlaid.has(p) ? overlayRoot! : tree, p), 'utf8')
     )
     if (violations.length > 0)
       fail([
@@ -183,14 +196,11 @@ function main(): void {
     mkdirSync(outAbs, { recursive: true })
     wroteOut = true
     for (const f of cls.included) copyPreserving(join(tree, f), join(outAbs, f))
-    const overlayFiles: string[] = []
-    if (manifest.overlayDir) {
-      const overlayRoot = join(repo, manifest.overlayDir)
-      for (const f of listFilesRecursive(overlayRoot)) {
+    if (overlayRoot) {
+      for (const f of overlayFiles) {
         const dest = join(outAbs, f)
         rmSync(dest, { force: true })
         copyPreserving(join(overlayRoot, f), dest)
-        overlayFiles.push(f)
       }
     }
     for (const t of manifest.transforms ?? []) {

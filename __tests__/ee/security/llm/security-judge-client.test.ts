@@ -9,13 +9,13 @@ import {
   buildReviewPrompt,
   buildReviewSystemPrompt,
   judgeSecurity,
-} from '@/lib/llm/security-judge-client'
+} from '@/ee/security/llm/security-judge-client'
 import {
   BUG_KINDS,
   MAX_REVIEW_FINDINGS,
   VULN_KINDS,
   isBugKind,
-} from '@/lib/security-scan/review-kinds'
+} from '@/ee/security/security-scan/review-kinds'
 
 const gen = generateObject as jest.Mock
 
