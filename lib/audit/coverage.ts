@@ -181,6 +181,18 @@ export const AUDIT_INSTRUMENTED: Readonly<
 }
 
 /**
+ * LUM-1071: entry points that only delegate to an instrumented unit (key →
+ * the unit it calls). The guard checks the delegation really happens and
+ * holds their app/ callers to the same audit-context rule as instrumented
+ * units, so moving the body behind a wrapper does not drop a caller check.
+ */
+export const AUDIT_DELEGATES: Readonly<Record<AuditUnit, AuditUnit>> = {
+  // The Clerk webhook's entry; the provider-neutral core writes the audit.
+  'lib/services/member-deprovision.service.ts#deprovisionClerkUser':
+    'lib/services/member-deprovision.service.ts#deprovisionUser',
+}
+
+/**
  * Units whose actions are produced indirectly (named here so the guard can
  * still check every action is written somewhere).
  */

@@ -18,7 +18,7 @@ const MIGRATION = path.join(
 )
 
 describe('LUM-1071 admin plugin', () => {
-  it('admin plugin disables both impersonation endpoints', () => {
+  it('admin plugin lists both impersonation endpoints for disabling', () => {
     const plugin = lumoAdminPlugin() as unknown as {
       id: string
       endpoints: Record<string, { path: string }>
@@ -30,6 +30,33 @@ describe('LUM-1071 admin plugin', () => {
       '/admin/impersonate-user',
       '/admin/stop-impersonating',
     ])
+  })
+
+  it('admin plugin is installed in the Better Auth instance with impersonation disabled', async () => {
+    const saved = {
+      secret: process.env.BETTER_AUTH_SECRET,
+      url: process.env.BETTER_AUTH_URL,
+    }
+    process.env.BETTER_AUTH_SECRET = 'x'.repeat(32)
+    process.env.BETTER_AUTH_URL = 'http://localhost:3000'
+    globalThis.lumoBetterAuth = undefined
+    try {
+      const { getBetterAuth } = await import('@/lib/auth/better-auth/server')
+      const options = getBetterAuth().options as {
+        disabledPaths?: string[]
+        plugins?: Array<{ id: string }>
+      }
+      for (const p of ADMIN_DISABLED_PATHS) {
+        expect(options.disabledPaths).toContain(p)
+      }
+      expect(options.plugins?.map(p => p.id)).toContain('admin')
+    } finally {
+      globalThis.lumoBetterAuth = undefined
+      if (saved.secret === undefined) delete process.env.BETTER_AUTH_SECRET
+      else process.env.BETTER_AUTH_SECRET = saved.secret
+      if (saved.url === undefined) delete process.env.BETTER_AUTH_URL
+      else process.env.BETTER_AUTH_URL = saved.url
+    }
   })
 
   it('admin plugin: no role may impersonate', () => {

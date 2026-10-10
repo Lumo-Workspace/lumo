@@ -74,9 +74,12 @@ describe('LUM-1071 auth admin CLI', () => {
   })
 
   it('auth admin describeDatabase prints host/db, never credentials', () => {
-    expect(
-      describeDatabase('postgresql://admin:s3cret@db.example.test:5432/lumo')
-    ).toBe('db.example.test/lumo')
+    // Built at runtime so no credential-shaped literal sits in the repo.
+    const url = new URL('postgresql://db.example.test:5432/lumo')
+    url.username = 'admin'
+    url.password = `pw${Date.now()}`
+    expect(describeDatabase(url.toString())).toBe('db.example.test/lumo')
+    expect(describeDatabase(url.toString())).not.toContain(url.password)
     expect(describeDatabase(undefined)).toBe('(DATABASE_URL not set)')
     expect(describeDatabase('not a url')).toBe('(unparseable DATABASE_URL)')
   })

@@ -20,6 +20,7 @@ import { readFileSync } from 'fs'
 import { execSync } from 'child_process'
 import path from 'path'
 import {
+  AUDIT_DELEGATES,
   AUDIT_EXEMPT,
   AUDIT_INDIRECT_ACTIONS,
   AUDIT_INSTRUMENTED,
@@ -116,10 +117,31 @@ describe('LUM-907 audit coverage guard', () => {
     }
   })
 
+  it('LUM-1071 audit coverage: every delegate calls its instrumented unit and names a real unit', () => {
+    expect(Object.keys(AUDIT_DELEGATES).length).toBeGreaterThan(0)
+    for (const [unit, target] of Object.entries(AUDIT_DELEGATES)) {
+      const [file, name] = split(unit)
+      const body = unitBody(read(file), name)
+      expect([unit, body !== null]).toEqual([unit, true])
+      expect(AUDIT_INSTRUMENTED).toHaveProperty([target])
+      const targetName = split(target)[1]
+      expect([unit, new RegExp(`\\.${targetName}\\(`).test(body!)]).toEqual([
+        unit,
+        true,
+      ])
+      for (const bucket of [AUDIT_INSTRUMENTED, AUDIT_PENDING, AUDIT_EXEMPT]) {
+        expect(bucket).not.toHaveProperty([unit])
+      }
+    }
+  })
+
   it('LUM-907 audit coverage: every app call of an instrumented method passes an audit context in that call', () => {
     // `fooBarService.baz(`, or a module-level `baz(` imported from its module
     // (Figma / Google Drive), or a service-object alias of it.
-    const patterns = Object.keys(AUDIT_INSTRUMENTED).map(u => ({
+    const patterns = [
+      ...Object.keys(AUDIT_INSTRUMENTED),
+      ...Object.keys(AUDIT_DELEGATES),
+    ].map(u => ({
       unit: u,
       p: instrumentedCallPatterns(u as AuditUnit, read(split(u)[0])),
     }))
@@ -146,6 +168,8 @@ describe('LUM-907 audit coverage guard', () => {
       'app/api/google-drive/route.ts',
       'app/api/workspaces/me/audit-events/export/route.ts',
       'app/api/users/api-keys/route.ts',
+      // LUM-1071: reached through AUDIT_DELEGATES (deprovisionClerkUser).
+      'app/api/webhooks/clerk/route.ts',
     ]) {
       expect([route, callers.includes(route)]).toEqual([route, true])
     }
