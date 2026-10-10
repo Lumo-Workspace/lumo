@@ -166,10 +166,9 @@ export async function fetchPrDiff(opts: {
     // can tell the customer so.
     const diffTooLarge =
       res.status === 406 || DIFF_TOO_LARGE_BODY.test(await bodySnippet(res))
-    const log = diffTooLarge ? logger.warn : logger.error
-    log(
-      `[github/contents] fetchPrDiff failed for ${opts.fullName}#${opts.prNumber}: ${res.status}${diffTooLarge ? ' (diff too large)' : ''}`
-    )
+    const message = `[github/contents] fetchPrDiff failed for ${opts.fullName}#${opts.prNumber}: ${res.status}${diffTooLarge ? ' (diff too large)' : ''}`
+    if (diffTooLarge) logger.warn(message)
+    else logger.error(message)
     throw Object.assign(
       new Error(
         `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`

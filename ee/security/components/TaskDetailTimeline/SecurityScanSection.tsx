@@ -903,9 +903,10 @@ function groupHeading(
 }
 
 /**
- * LUM-1079 — the PR was too large to scan at all. With the file count known,
- * drawn like the per-layer notices (the change against the cap); without it,
- * the message alone.
+ * LUM-1079 — the PR was too large to scan at all. Only when the PR is over
+ * the file cap is it drawn like the per-layer notices (the change against
+ * the cap); a diff GitHub refused under the cap (e.g. over its line limit)
+ * has no "how far over" in files, so it gets the message alone.
  */
 function PrTooLargeNotice({
   tooLarge,
@@ -926,7 +927,7 @@ function PrTooLargeNotice({
             { files }
           )
         : intl.formatMessage({ id: 'securityScan.prTooLarge.diffRefused' })
-  if (files === null)
+  if (files === null || files <= tooLarge.capFiles)
     return (
       <p
         data-testid='scan-pr-too-large'

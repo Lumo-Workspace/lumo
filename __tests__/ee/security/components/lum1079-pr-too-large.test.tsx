@@ -161,6 +161,31 @@ test('panel: the notice says why and what to do; no owned line, no raw error', (
   )
 })
 
+test('panel: over the file cap — the change is drawn against the cap', () => {
+  renderPanel(tooLarge())
+  expect(
+    screen.getByTestId('scan-pr-too-large').querySelector('[aria-hidden]')
+  ).not.toBeNull()
+})
+
+test('panel: GitHub refused the diff UNDER the file cap — the message, no over-cap bar', () => {
+  renderPanel(
+    view({
+      stages: SKIPPED,
+      partial: true,
+      error: encodePrTooLarge({
+        reason: 'DIFF_REFUSED',
+        changedFiles: 120,
+        capFiles: 300,
+      }),
+      ...({ partialCauses: ['PR_TOO_LARGE'] } as object),
+    })
+  )
+  const notice = screen.getByTestId('scan-pr-too-large')
+  expect(notice).toHaveTextContent('120 files changed')
+  expect(notice.querySelector('[aria-hidden]')).toBeNull()
+})
+
 test('panel: GitHub refused the diff with no count — the message alone', () => {
   renderPanel(
     view({
