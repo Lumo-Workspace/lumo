@@ -36,7 +36,7 @@ import {
   ScanningOffBadge,
   SecurityScanBadge,
   showsScanningOff,
-} from '../pr-helpers'
+} from '@/ee/security/ui/pr-scan-badge'
 import type {
   SecurityFindingView,
   SecurityScanView,

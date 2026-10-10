@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth/identity'
 import { serviceErrorResponse, zodError } from '@/lib/api/helpers'
-import { updateSecurityScanSettingsSchema } from '@/lib/validation/schemas'
+import { updateSecurityScanSettingsSchema } from '@/lib/validation/security-scan-settings'
 import {
   securityScanSettingsService,
   type SecurityScanSettingsUpdate,

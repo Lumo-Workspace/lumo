@@ -24,7 +24,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
-import { CrossingTriageLine } from './CrossingTriageLine'
+import { PluginSlot } from '@/lib/plugins/client'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
@@ -1162,13 +1162,15 @@ function CrossingRow({
             </p>
           )}
 
-          {c.triageProbability != null && (
-            <CrossingTriageLine
-              crossingId={c.id}
-              probability={c.triageProbability}
-              disposition={c.disposition}
-            />
-          )}
+          {/* LUM-1062: plugin annotations (the AI triage score, LUM-945). */}
+          <PluginSlot
+            name='task.crossing.annotation'
+            props={{
+              crossingId: c.id,
+              triageProbability: c.triageProbability ?? null,
+              disposition: c.disposition,
+            }}
+          />
 
           {c.dispositionNote && (
             <p className='mt-1.5 text-[11px] text-muted-foreground'>

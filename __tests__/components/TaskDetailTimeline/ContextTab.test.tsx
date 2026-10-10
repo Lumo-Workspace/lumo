@@ -31,7 +31,6 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   PrStateBadge: () => <span />,
   CiIcon: () => <span />,
-  SecurityScanBadge: () => <span />,
 }))
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/SpecArtifactGroup',

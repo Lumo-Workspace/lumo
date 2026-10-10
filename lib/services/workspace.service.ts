@@ -3,7 +3,6 @@ import {
   type WorkspaceUpdateData,
 } from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
-import type { SecurityPolicy } from '@/lib/security-scan/policy'
 import {
   nextSessionRecordCutoff,
   sessionRecordChoiceOf,
@@ -15,7 +14,7 @@ import {
   type CrossingRawRetentionDays,
 } from '@/lib/boundary-crossing/raw-retention'
 import type { DeadLetterRetentionDays } from '@/lib/integrations/github/dead-letter-retention'
-import type { ScanEvidenceRetentionDays } from '@/lib/retention/scan-evidence'
+import { pluginWorkspaceWrites } from '@/lib/plugins/workspace-settings'
 import { diffWorkspaceSettings } from '@/lib/audit/workspace-settings'
 import {
   recordAuditEvent,
@@ -24,18 +23,22 @@ import {
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export interface UpdateWorkspaceInput {
+/**
+ * The core settings, plus (LUM-1062) any column an installed plugin owns —
+ * already validated by that plugin's validator at the API edge, written in
+ * the same update. Keys no installed plugin owns are ignored.
+ */
+export type UpdateWorkspaceInput = CoreWorkspaceSettingsInput &
+  Record<string, unknown>
+
+interface CoreWorkspaceSettingsInput {
   name?: string | undefined
   slug?: string | undefined
   summaryEnabled?: boolean | undefined
   summaryFrequency?: string | undefined
   summaryLocale?: string | undefined
-  /** LUM-740: already validated by `securityPolicySchema`; null = reset. */
-  securityPolicy?: SecurityPolicy | null | undefined
   /** LUM-859: one of HOOK_EVENT_RETENTION_DAYS; null = keep forever. */
   hookEventRetentionDays?: HookEventRetentionDays | null | undefined
-  /** LUM-911: one of SCAN_EVIDENCE_RETENTION_DAYS; 0 = zero retention. */
-  scanEvidenceRetentionDays?: ScanEvidenceRetentionDays | undefined
   /** LUM-933: session record mode; USED_UP clears hookEventRetentionDays. */
   hookEventRetentionMode?: HookEventRetentionMode | undefined
   /** LUM-912: one of CROSSING_RAW_RETENTION_DAYS. */
@@ -44,10 +47,6 @@ export interface UpdateWorkspaceInput {
   deadLetterRetentionDays?: DeadLetterRetentionDays | undefined
   /** LUM-917: generate AI-derived content (memories, summaries). */
   aiDerivedContentEnabled?: boolean | undefined
-  /** LUM-866: per-workspace security-scan switches. */
-  securityScanEnabled?: boolean | undefined
-  securityAiReviewEnabled?: boolean | undefined
-  securityHuntEnabled?: boolean | undefined
 }
 
 // ── Retention changes (LUM-933) ─────────────────────────────────────────────
@@ -184,20 +183,13 @@ export const workspaceService = {
       data.summaryFrequency = input.summaryFrequency
     if (input.summaryLocale !== undefined)
       data.summaryLocale = input.summaryLocale
-    if (input.securityPolicy !== undefined)
-      data.securityPolicy = input.securityPolicy
-    if (input.scanEvidenceRetentionDays !== undefined)
-      data.scanEvidenceRetentionDays = input.scanEvidenceRetentionDays
     if (input.deadLetterRetentionDays !== undefined)
       data.deadLetterRetentionDays = input.deadLetterRetentionDays
     if (input.aiDerivedContentEnabled !== undefined)
       data.aiDerivedContentEnabled = input.aiDerivedContentEnabled
-    if (input.securityScanEnabled !== undefined)
-      data.securityScanEnabled = input.securityScanEnabled
-    if (input.securityAiReviewEnabled !== undefined)
-      data.securityAiReviewEnabled = input.securityAiReviewEnabled
-    if (input.securityHuntEnabled !== undefined)
-      data.securityHuntEnabled = input.securityHuntEnabled
+    // LUM-1062: plugin-owned columns (e.g. the security plugin's policy,
+    // evidence retention and scan switches) go in the same update + audit.
+    Object.assign(data, pluginWorkspaceWrites(input))
 
     if (
       input.hookEventRetentionMode !== undefined ||

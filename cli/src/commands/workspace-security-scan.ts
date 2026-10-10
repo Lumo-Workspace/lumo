@@ -1,4 +1,5 @@
 import { apiCall, apiContext } from '../lib/test-case-api'
+import { missingPluginMessage } from '../lib/plugin-route'
 import {
   emitConfirmation,
   isConfirmed,
@@ -167,6 +168,8 @@ export function formatSecurityScanSettings(
 }
 
 const PATH = '/api/workspaces/me/security-scan'
+/** LUM-1062: what a server without the security plugin answers. */
+const NO_PLUGIN = missingPluginMessage('workspace security-scan', 'security')
 
 /**
  * `lumo workspace security-scan` (LUM-1002) — show the PR security-scan
@@ -190,7 +193,8 @@ export async function workspaceSecurityScan(
     ctx,
     PATH,
     {},
-    'security-scan settings'
+    'security-scan settings',
+    NO_PLUGIN
   )
   if (!current.ok || !current.data) return 1
 
@@ -212,7 +216,8 @@ export async function workspaceSecurityScan(
       ctx,
       PATH,
       { method: 'PATCH', json: update },
-      'security-scan update'
+      'security-scan update',
+      NO_PLUGIN
     )
     if (!r.ok || !r.data) return 1
     result = r.data

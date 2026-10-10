@@ -76,7 +76,7 @@ import { scanCoverageState } from '@/shared/src/security-scan'
 import {
   ScanningOffBadge,
   showsScanningOff,
-} from '@/app/workspace/[workspaceUrl]/components/pr-helpers'
+} from '@/ee/security/ui/pr-scan-badge'
 
 const finding = (over: object = {}) => ({
   id: 'f1',

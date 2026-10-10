@@ -32,7 +32,9 @@ import {
 } from '@/lib/services/scan-evidence-retention.service'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import { workspaceService } from '@/lib/services/workspace.service'
-import { updateWorkspaceSchema } from '@/lib/validation/schemas'
+// LUM-1062: the column is the security plugin's; PATCH validates it with the
+// plugin's validator merged into the core schema.
+import { workspaceSettingsUpdateSchema } from '@/lib/plugins/workspace-settings'
 import {
   isScanEvidenceExpired,
   isScanFinal,
@@ -314,14 +316,16 @@ describe('LUM-911 scan evidence retention', () => {
   it('scan evidence retention follows the workspace setting and only owners change it', async () => {
     for (const ok of [0, 7, 14, 30]) {
       expect(
-        updateWorkspaceSchema.safeParse({ scanEvidenceRetentionDays: ok })
-          .success
+        workspaceSettingsUpdateSchema().safeParse({
+          scanEvidenceRetentionDays: ok,
+        }).success
       ).toBe(true)
     }
     for (const bad of [1, 3, 60, null, '7']) {
       expect(
-        updateWorkspaceSchema.safeParse({ scanEvidenceRetentionDays: bad })
-          .success
+        workspaceSettingsUpdateSchema().safeParse({
+          scanEvidenceRetentionDays: bad,
+        }).success
       ).toBe(false)
     }
 

@@ -23,7 +23,10 @@ import {
   INFRASTRUCTURE_SUBPROCESSORS,
   SECURITY_CONTACT_EMAIL,
 } from '@/lib/legal/subprocessors'
-import { RETENTION_FIGURES } from '@/lib/legal/retention-figures'
+import {
+  CORE_RETENTION_FIGURES,
+  retentionFigures,
+} from '@/lib/legal/retention-figures'
 import {
   buildSubprocessorPageView,
   type SubprocessorPageView,
@@ -178,13 +181,14 @@ const NO_CHANGES: SubprocessorPageView = buildSubprocessorPageView({
 
 function render(
   locale: PublicLocale,
-  subprocessors: SubprocessorPageView = NO_CHANGES
+  subprocessors: SubprocessorPageView = NO_CHANGES,
+  figures = retentionFigures()
 ): string {
   return renderToStaticMarkup(
     <IntlProviderWrapper locale={locale}>
       <SecurityPage
         locale={locale}
-        retentionFigures={RETENTION_FIGURES}
+        retentionFigures={figures}
         subprocessors={subprocessors}
       />
     </IntlProviderWrapper>
@@ -310,6 +314,23 @@ describe('/security page (LUM-856)', () => {
       }
     }
     expect(problems).toEqual([])
+  })
+
+  it('LUM-1062 the scan evidence paragraph comes from the security plugin, after the tighten paragraph', () => {
+    const scanLead = 'Security scan evidence ('
+    const withPlugin = text(render('en'))
+    const at = (needle: string) => withPlugin.indexOf(needle)
+    expect(at(scanLead)).toBeGreaterThan(
+      at('A stricter session record setting')
+    )
+    expect(at(scanLead)).toBeLessThan(at('The original command, diff line'))
+
+    // No plugin (the OSS snapshot): no scan paragraph, nothing unfilled.
+    const bare = text(
+      render('en', NO_CHANGES, { ...CORE_RETENTION_FIGURES, contributed: [] })
+    )
+    expect(bare).not.toContain(scanLead)
+    expect(bare).not.toMatch(/\{\w+\}/)
   })
 
   it('security retention copy quotes figures from the retention constants', () => {

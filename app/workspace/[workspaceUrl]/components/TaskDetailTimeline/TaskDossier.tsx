@@ -6,26 +6,22 @@ import { useIntl } from 'react-intl'
 import type { TaskDetail, WorkspaceMemberInfo } from '../../types'
 import { TEST_CASES_ANCHOR, type DossierSection } from './taskTabs'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
-import { useSecurityScans } from '../../hooks/useSecurityScans'
 import { summarizeRunAttributions } from '@/lib/attribution/run-attribution'
 import { RecordTab } from './RecordTab'
 import { AgentRunsSection } from './AgentRunsSection'
-import {
-  BlockingSecurityFindings,
-  SecurityScanSection,
-} from './SecurityScanSection'
 import { RecordRow } from './RecordRow'
-import { formatSecurityVerdict } from './security-summary-line'
 import { LineageTab } from './LineageTab'
 import { TestCasesSection } from './TestCasesSection'
 import { BlockingTestDefects } from './BlockingTestDefects'
 import { useTestCases } from '../../hooks/useTestCases'
 import { summarizeTestCases } from '@/lib/test-cases/case-summary'
 import { MemoryTab } from '../memory/MemoryTab'
+import { PluginTaskDossier } from '@/lib/plugins/client'
 
-/** The Records rows TaskDossier owns: test cases, security, the evidence
- *  sections. `tests` is itself a DossierSection (legacy `/tests` links). */
-type RecordRowKey = DossierSection | 'security'
+/** The Records rows TaskDossier owns: test cases, the evidence sections,
+ *  and one per plugin (LUM-1062: `plugin:<id>`, e.g. the security scan).
+ *  `tests` is itself a DossierSection (legacy `/tests` links). */
+type RecordRowKey = DossierSection | `plugin:${string}`
 
 /** A hash that lands inside the Test cases row: a run (`#run-<id>`, from the
  *  Needs action defect rows or an old Tests-tab link) or the row itself. */
@@ -59,7 +55,8 @@ interface TaskDossierProps {
  *
  * The whole surface is {@link RecordTab} (LUM-1009: Done gate → Needs action →
  * Run overview → Records). This component builds the Records rows it owns —
- * test cases (LUM-1012), the security scan report and the evidence rows (agent
+ * test cases (LUM-1012), the plugin rows (LUM-1062: the security scan report,
+ * through the `task.dossier` slot) and the evidence rows (agent
  * runs, lineage, injected memory) — and keeps them deep-linkable: an old Delivery / Lineage /
  * Memory URL expands its target row and scrolls to it (LUM-458). Run sessions
  * are fetched once here (single source) and shared with the Sessions tile and
@@ -88,21 +85,6 @@ export function TaskDossier({
   const attributionSummary = summarizeRunAttributions(
     runs.map(r => r.attribution)
   )
-
-  // LUM-496: the record tab needs to know whether a security finding still
-  // blocks DONE, to decide which zone the scan section belongs in. Read from
-  // the same react-query key `SecurityScanSection` uses (one fetch); absent
-  // data means "no blocking signal we know of", never a fabricated 0 finding.
-  const { data: securityScans, isError: securityError } =
-    useSecurityScans(taskId)
-  const securityBlocking = securityScans?.blocking.count ?? 0
-  const securityScanned = (securityScans?.prs ?? []).some(
-    p => p.latest !== null
-  )
-  // LUM-1009: the Records row for the security scan. Shown whenever the task
-  // has a PR (or the read failed — said out loud inside, review I4).
-  const showSecurityRecord =
-    securityError || (securityScans?.prs.length ?? 0) > 0
 
   // LUM-1011: test cases feed the Done gate's row and the Needs action queue.
   // Same react-query key the section and the defect queue read (one fetch).
@@ -190,42 +172,6 @@ export function TaskDossier({
     </RecordRow>
   )
 
-  const securityVerdict = securityScans
-    ? formatSecurityVerdict(intl, securityScans)
-    : null
-
-  // LUM-1009: the full scan report as a Records row — never moves, whether or
-  // not a finding blocks (blocking findings also come up in Needs action).
-  const securityRecord = showSecurityRecord ? (
-    <RecordRow
-      id='dossier-security'
-      title={intl.formatMessage({ id: 'securityScan.section.title' })}
-      {...(securityVerdict
-        ? {
-            summary: (
-              <>
-                {securityVerdict.text}
-                {securityVerdict.caveats.map(c => (
-                  <span
-                    key={c.text}
-                    className={
-                      c.tone === 'warning' ? 'text-warning-text' : undefined
-                    }
-                  >
-                    {` · ${c.text}`}
-                  </span>
-                ))}
-              </>
-            ),
-          }
-        : {})}
-      expanded={expanded.has('security')}
-      onToggle={() => toggle('security')}
-    >
-      <SecurityScanSection taskId={taskId} />
-    </RecordRow>
-  ) : null
-
   // LUM-572/1009: agent runs, lineage and injected memory — flat Records
   // rows, one fold level. A legacy deep link expands its target row.
   const evidence = (
@@ -296,34 +242,46 @@ export function TaskDossier({
     </>
   )
 
+  // LUM-1062: plugins (the security scan) add their Done gate signal, Needs
+  // action items and Records row through the `task.dossier` slot. Without a
+  // plugin the gate shows no such row and nothing else is added.
   return (
-    <RecordTab
-      taskIdentifier={taskIdentifier}
-      enabled={enabled}
-      workspaceUrl={workspaceUrl}
-      members={members}
-      agentActors={agentActors}
-      securityBlocking={securityBlocking}
-      securityScanned={securityScanned}
-      blockingSecuritySlot={<BlockingSecurityFindings taskId={taskId} />}
-      testsBlocking={testsSummary.blocking.length}
-      testsSummary={{
-        total: testsSummary.total,
-        passing: testsSummary.passing,
-      }}
-      blockingTestsSlot={
-        <BlockingTestDefects
-          taskId={taskId}
+    <PluginTaskDossier
+      taskId={taskId}
+      isExpanded={id => expanded.has(`plugin:${id}`)}
+      onToggle={id => toggle(`plugin:${id}`)}
+    >
+      {plugins => (
+        <RecordTab
           taskIdentifier={taskIdentifier}
           enabled={enabled}
+          workspaceUrl={workspaceUrl}
+          members={members}
+          agentActors={agentActors}
+          showSecurityGate={plugins.present}
+          securityBlocking={plugins.blocking}
+          securityScanned={plugins.checked}
+          blockingSecuritySlot={plugins.needsAction}
+          testsBlocking={testsSummary.blocking.length}
+          testsSummary={{
+            total: testsSummary.total,
+            passing: testsSummary.passing,
+          }}
+          blockingTestsSlot={
+            <BlockingTestDefects
+              taskId={taskId}
+              taskIdentifier={taskIdentifier}
+              enabled={enabled}
+            />
+          }
+          testCasesSlot={testCasesRecord}
+          securityRecordSlot={plugins.records}
+          evidenceSlot={evidence}
+          attribution={attributionSummary}
+          costApproximate={attributionSummary.approximate}
+          costPreDedupe={preDedupe}
         />
-      }
-      testCasesSlot={testCasesRecord}
-      securityRecordSlot={securityRecord}
-      evidenceSlot={evidence}
-      attribution={attributionSummary}
-      costApproximate={attributionSummary.approximate}
-      costPreDedupe={preDedupe}
-    />
+      )}
+    </PluginTaskDossier>
   )
 }

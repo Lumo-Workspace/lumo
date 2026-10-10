@@ -7,7 +7,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { RETENTION_FIGURES } from '@/lib/legal/retention-figures'
+import { retentionFigures } from '@/lib/legal/retention-figures'
 import { AUDIT_RETENTION_DAYS } from '@/lib/audit/actions'
 
 const ROOT = process.cwd()
@@ -38,7 +38,17 @@ function row(doc: string, label: string): string {
 }
 
 describe('legal retention claims LUM-915', () => {
-  const f = RETENTION_FIGURES
+  // LUM-1062: the scan evidence figures come from the installed security
+  // plugin's retention contribution.
+  const all = retentionFigures()
+  const scanFigures = all.contributed.find(c => c.paragraph === 'scan')
+  if (!scanFigures) throw new Error('security plugin scan figures missing')
+  const f = {
+    ...all,
+    scanDefault: scanFigures.values.scanDefault as number,
+    scanTiers: scanFigures.values.scanTiers as readonly number[],
+    openCap: scanFigures.values.openCap as number,
+  }
 
   it('privacy policy retention rows quote the retention constants', () => {
     const policy = read(POLICY)

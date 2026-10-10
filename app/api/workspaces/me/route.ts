@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
-import { updateWorkspaceSchema } from '@/lib/validation/schemas'
 import { workspaceService, workspaceDeletionService } from '@/lib/services'
-import { platformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
+import {
+  pluginMeFields,
+  serializeWorkspaceSettings,
+  unownedWorkspaceColumns,
+  workspaceSettingsUpdateSchema,
+} from '@/lib/plugins/workspace-settings'
 import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
@@ -19,11 +23,12 @@ export async function GET() {
     if (result instanceof NextResponse) return result
 
     return NextResponse.json({
-      workspace: result.workspace,
+      // LUM-1062: the core columns plus those an installed plugin owns.
+      workspace: serializeWorkspaceSettings(result.workspace),
       role: result.member.role,
-      // LUM-866: which scan layers the platform allows at all — the settings
-      // page shows a layer the env turned off as off and not toggleable.
-      securityPlatform: platformSecurityCeiling(),
+      // LUM-1062: plugin fields (the security plugin: `securityPlatform`);
+      // never one of the core's own fields.
+      ...pluginMeFields(['workspace', 'role', 'pendingDeletion']),
       // LUM-918: the pending deletion (null when none) — drives the banner
       // every member sees and the owner's cancel / delete-now controls.
       pendingDeletion: await workspaceDeletionService.getPending(
@@ -52,7 +57,18 @@ export async function PATCH(request: NextRequest) {
     if (ws instanceof NextResponse) return ws
 
     const body = await request.json()
-    const parsed = updateWorkspaceSchema.safeParse(body)
+    // LUM-1062: a setting owned by a plugin this server does not have.
+    const unowned =
+      body && typeof body === 'object' ? unownedWorkspaceColumns(body) : []
+    if (unowned.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Not available on this server: ${unowned.join(', ')}`,
+        },
+        { status: 400 }
+      )
+    }
+    const parsed = workspaceSettingsUpdateSchema().safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
     const updated = await workspaceService.updateWorkspace(

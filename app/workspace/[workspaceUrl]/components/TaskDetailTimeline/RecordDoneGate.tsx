@@ -96,15 +96,18 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
           .filter(Boolean)
           .join(' · ')
 
+  // LUM-1062: null without a plugin security check — no detail, no row.
   const securityDetail =
-    security.state === 'blocked'
-      ? intl.formatMessage(
-          { id: 'record.gate.security.blocking' },
-          { count: security.blocking }
-        )
-      : security.state === 'clear'
-        ? intl.formatMessage({ id: 'record.gate.security.clear' })
-        : intl.formatMessage({ id: 'record.gate.security.notScanned' })
+    security === null
+      ? null
+      : security.state === 'blocked'
+        ? intl.formatMessage(
+            { id: 'record.gate.security.blocking' },
+            { count: security.blocking }
+          )
+        : security.state === 'clear'
+          ? intl.formatMessage({ id: 'record.gate.security.clear' })
+          : intl.formatMessage({ id: 'record.gate.security.notScanned' })
 
   const testsDetail =
     tests.state === 'blocked'
@@ -133,7 +136,9 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
           {intl.formatMessage({ id: 'record.gap.accepted' })}
         </span>
         <span className='min-w-0 grow basis-48 text-body text-foreground'>
-          {[crossingsDetail, securityDetail, testsDetail].join(' · ')}
+          {[crossingsDetail, securityDetail, testsDetail]
+            .filter(d => d !== null)
+            .join(' · ')}
         </span>
       </section>
     )
@@ -172,13 +177,15 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
         detail={crossingsDetail}
         queueAnchor={queueAnchor}
       />
-      <GateRow
-        testId='gate-security'
-        label={intl.formatMessage({ id: 'securityScan.section.title' })}
-        blocked={security.state === 'blocked'}
-        detail={securityDetail}
-        queueAnchor={queueAnchor}
-      />
+      {security !== null && securityDetail !== null ? (
+        <GateRow
+          testId='gate-security'
+          label={intl.formatMessage({ id: 'securityScan.section.title' })}
+          blocked={security.state === 'blocked'}
+          detail={securityDetail}
+          queueAnchor={queueAnchor}
+        />
+      ) : null}
       <GateRow
         testId='gate-tests'
         label={intl.formatMessage({ id: 'testCases.section.title' })}

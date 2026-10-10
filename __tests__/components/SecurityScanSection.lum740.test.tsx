@@ -72,7 +72,7 @@ jest.mock('@/lib/api-client', () => ({
     bulkDispositionSecurityFindings: (...a: unknown[]) => bulkDisposition(...a),
   },
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
+jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
   SecurityScanBadge: () => <span data-testid='security-scan-badge' />,
 }))
 const useSecurityScans = jest.fn()

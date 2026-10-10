@@ -3,14 +3,8 @@
 import { useIntl } from 'react-intl'
 import { X } from 'lucide-react'
 import { GithubIcon } from '@/components/icons/GithubIcon'
-import {
-  PrStateBadge,
-  CiIcon,
-  ScanningOffBadge,
-  SecurityScanBadge,
-  showsScanningOff,
-} from '../../pr-helpers'
-import { useSecurityScans } from '../../../hooks/useSecurityScans'
+import { PrStateBadge, CiIcon } from '../../pr-helpers'
+import { PluginSlot } from '@/lib/plugins/client'
 import { LinkPrPopover } from '../../LinkPrPopover'
 import { ContextSection } from '../ContextSection'
 
@@ -41,14 +35,6 @@ export function PullRequestsSection({
   onUnlinkPr,
 }: Props): React.ReactElement {
   const intl = useIntl()
-  const {
-    data: security,
-    isLoading: securityLoading,
-    isError: securityError,
-  } = useSecurityScans(taskId)
-  const scanByPrId = new Map(
-    (security?.prs ?? []).map(p => [p.pr.id, p.latest] as const)
-  )
 
   const addSlot = (
     <LinkPrPopover
@@ -86,18 +72,11 @@ export function PullRequestsSection({
                 </a>
                 <div className='flex items-center gap-1.5 mt-1'>
                   <PrStateBadge state={pr.state} />
-                  {/* Review I4: nothing at all while the read is in flight —
-                      an unanswered fetch is not "Not scanned" — and an
-                      explicit unavailable state once it has failed. */}
-                  {securityLoading ? null : security?.scanningOff &&
-                    showsScanningOff(scanByPrId.get(pr.id)) ? (
-                    <ScanningOffBadge />
-                  ) : (
-                    <SecurityScanBadge
-                      scan={scanByPrId.get(pr.id)}
-                      unavailable={securityError}
-                    />
-                  )}
+                  {/* LUM-1062: plugin badges (the security scan state). */}
+                  <PluginSlot
+                    name='task.pullRequest.badge'
+                    props={{ taskId, pullRequestId: pr.id }}
+                  />
                 </div>
                 {pr.statusSyncPaused && (
                   <p

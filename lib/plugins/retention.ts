@@ -8,9 +8,11 @@
  *    scrubs the customer code it holds. Fail-closed — a contributor that
  *    throws makes this throw, so the caller never narrows or unbinds before
  *    the code is gone. No plugin → nothing to scrub here.
+ *  - Public retention copy (LUM-1062): a plugin adds the /security page
+ *    paragraph for the data it stores. No plugin → no such paragraph.
  */
 import { getPluginRegistry } from './registry'
-import type { RetentionContributor } from './types'
+import type { RetentionContributor, RetentionFigureContribution } from './types'
 
 type StockContribution = NonNullable<RetentionContributor['stock']>
 
@@ -37,4 +39,11 @@ export async function scrubPluginRepositoryCode(input: {
       totals[noun] = (totals[noun] ?? 0) + n
   }
   return totals
+}
+
+/** Retention copy contributed by plugins, in registration order (LUM-1062). */
+export function pluginRetentionFigures(): RetentionFigureContribution[] {
+  return getPluginRegistry()
+    .retention.map(r => r.figures)
+    .filter((f): f is RetentionFigureContribution => f !== undefined)
 }

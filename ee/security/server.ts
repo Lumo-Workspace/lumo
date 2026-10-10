@@ -9,7 +9,9 @@
  * `import()` on first use, so the core modules that read the registry
  * (done-verdict, task-status, the hook routes…) do not pull the scan graph
  * into their own static graph. The dispatcher stays static on purpose: it
- * only needs the logger, and the PR events must start it synchronously.
+ * only needs the logger, and the PR events must start it synchronously. The
+ * settings validators, the platform ceiling and the retention figures are
+ * pure and static too (LUM-1062): the settings schema is built synchronously.
  * LUM-1063: so do the policy-check dispatcher (logger only) and the crossing
  * detectors (pure; the hook pipeline calls them synchronously — the LLM
  * confirmation and the policy compiler inside them load lazily).
@@ -24,7 +26,13 @@ import {
   dispatchPrSecurityScan,
   shouldScanOnPrEvent,
 } from '@/lib/services/pr-security-scan-dispatch'
+import {
+  DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
+  SCAN_EVIDENCE_HARD_CAP_DAYS,
+  SCAN_EVIDENCE_RETENTION_DAYS,
+} from '@/lib/retention/scan-evidence'
 import { securityTaskStatusSection } from './task-status'
+import { securityWorkspaceSettings } from './workspace-settings'
 import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch'
 import {
   advancedCommandDetector,
@@ -145,7 +153,21 @@ export const securityPlugin: LumoServerPlugin = {
         )
         return { scan: counts.scans, finding: counts.findings }
       },
+      // LUM-915: the /security page's scan evidence paragraph quotes the
+      // same constants the settings row and the sweep use.
+      figures: {
+        paragraph: 'scan',
+        after: 'tighten',
+        values: {
+          scanDefault: DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
+          scanTiers: SCAN_EVIDENCE_RETENTION_DAYS,
+          openCap: SCAN_EVIDENCE_HARD_CAP_DAYS,
+        },
+      },
     })
+
+    // LUM-1062: the policy, evidence retention and scan switches columns.
+    api.workspaceSettings(securityWorkspaceSettings)
   },
 }
 

@@ -49,7 +49,8 @@ const SECTIONS: { id: string; paragraphs: string[] }[] = [
       'session',
       'usedUp',
       'tighten',
-      'scan',
+      // LUM-1062: plugin paragraphs (the security plugin's 'scan') are
+      // inserted from `retentionFigures.contributed`.
       'crossing',
       'deadLetter',
       'uninstall',
@@ -85,14 +86,36 @@ function retentionValues(
     grace: figures.grace,
     idle: figures.idle,
     auditCap: figures.auditCap,
-    scanDefault: figures.scanDefault,
-    scanTiers: tiers(figures.scanTiers),
-    openCap: figures.openCap,
     crossingDefault: figures.crossingDefault,
     crossingTiers: tiers(figures.crossingTiers),
     deadLetterDefault: figures.deadLetterDefault,
     deadLetterTiers: tiers(figures.deadLetterTiers),
+    // LUM-1062: each contributed paragraph's own figures.
+    ...Object.fromEntries(
+      figures.contributed.flatMap(c =>
+        Object.entries(c.values).map(([key, value]) => [
+          key,
+          typeof value === 'number' ? value : tiers(value),
+        ])
+      )
+    ),
   }
+}
+
+/**
+ * LUM-1062 — a section's paragraph keys with the plugin paragraphs placed
+ * right after the core paragraph each one names (only the retention
+ * section takes contributions).
+ */
+function sectionParagraphs(
+  section: { id: string; paragraphs: string[] },
+  figures: RetentionFigures
+): string[] {
+  if (section.id !== 'retention') return section.paragraphs
+  return section.paragraphs.flatMap(p => [
+    p,
+    ...figures.contributed.filter(c => c.after === p).map(c => c.paragraph),
+  ])
 }
 
 function Section({
@@ -168,7 +191,7 @@ export function SecurityPage({
             id={section.id}
             title={t(`security.${section.id}.heading`)}
           >
-            {section.paragraphs.map(p => (
+            {sectionParagraphs(section, retentionFigures).map(p => (
               <p key={p}>
                 {t(`security.${section.id}.${p}`, sectionValues[section.id])}
               </p>

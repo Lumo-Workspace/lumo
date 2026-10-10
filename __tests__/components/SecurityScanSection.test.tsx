@@ -71,7 +71,7 @@ jest.mock('@/lib/api-client', () => ({
       dispositionSecurityFinding(...a),
   },
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
+jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
   SecurityScanBadge: ({
     scan,
   }: {

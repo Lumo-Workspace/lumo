@@ -24,6 +24,9 @@ interface RecordTabProps {
   /** For resolving the disposition reviewer's name on the crossings panel. */
   members?: WorkspaceMemberInfo[]
   agentActors?: { actorId: string; name: string }[]
+  /** LUM-1062: a plugin (the security scan) contributes to this dossier —
+   *  without one the Done gate has no security row. */
+  showSecurityGate?: boolean
   /** LUM-1009: how many undispositioned security findings hard-block DONE
    *  (LUM-496). */
   securityBlocking?: number
@@ -91,6 +94,7 @@ export function RecordTab({
   workspaceUrl = '',
   members = [],
   agentActors = [],
+  showSecurityGate = true,
   securityBlocking = 0,
   securityScanned = false,
   blockingSecuritySlot,
@@ -143,7 +147,11 @@ export function RecordTab({
     securityBlocking,
     testsBlocking,
   })
-  const gate = deriveDoneGate(gaps, { securityScanned, tests: testsSummary })
+  const gate = deriveDoneGate(gaps, {
+    securityScanned,
+    showSecurity: showSecurityGate,
+    tests: testsSummary,
+  })
   const showSecurityQueue = gaps.securityBlocking > 0
   const showTestsQueue = gaps.testsBlocking > 0
   const hasNeedsAction =

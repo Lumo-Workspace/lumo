@@ -20,6 +20,7 @@ import type {
   DoneGateContributor,
   LumoServerPlugin,
   RetentionContributor,
+  WorkspaceSettingsContributor,
 } from './types'
 import type {
   CrossingDetector,
@@ -37,6 +38,7 @@ export interface PluginRegistry {
   readonly doneGates: readonly DoneGateContributor[]
   readonly agentContexts: readonly AgentContextContributor[]
   readonly retention: readonly RetentionContributor[]
+  readonly workspaceSettings: readonly WorkspaceSettingsContributor[]
   // LUM-1063 (PR4): boundary crossings.
   readonly crossingDetectors: readonly CrossingDetector[]
   readonly crossingExplainers: readonly CrossingExplainer[]
@@ -54,6 +56,7 @@ export function createPluginRegistry(
   const doneGates: DoneGateContributor[] = []
   const agentContexts: AgentContextContributor[] = []
   const retention: RetentionContributor[] = []
+  const workspaceSettings: WorkspaceSettingsContributor[] = []
   const crossingDetectors: CrossingDetector[] = []
   const crossingExplainers: CrossingExplainer[] = []
   const policyRuleSources: PolicyRuleSource[] = []
@@ -72,6 +75,7 @@ export function createPluginRegistry(
       agentContext: c => void agentContexts.push(c),
       retention: r => void retention.push(r),
       on: (event, handler) => void handlers[event].push(handler),
+      workspaceSettings: s => void workspaceSettings.push(s),
       crossingDetector: d => void crossingDetectors.push(d),
       crossingExplainer: e => void crossingExplainers.push(e),
       policyRuleSource: r => void policyRuleSources.push(r),
@@ -82,6 +86,7 @@ export function createPluginRegistry(
     doneGates,
     agentContexts,
     retention,
+    workspaceSettings,
     crossingDetectors,
     crossingExplainers,
     policyRuleSources,

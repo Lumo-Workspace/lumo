@@ -10,15 +10,15 @@ import { readCache, writeCache, clearCache } from '../../cache'
 import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { DataRetentionSection } from '../settings/DataRetentionSection'
-import { SecurityScanSwitchesCard } from '../settings/SecurityScanSwitchesCard'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
-import type { PlatformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
+import { PluginSlot } from '@/lib/plugins/client'
 import { Button } from '@/components/ui/button'
 
 type SummaryFrequency = 'DAILY' | 'EVERY_TWO_DAYS' | 'WEEKLY'
 
-interface Workspace {
+/** The core columns this page reads; plugin-owned ones pass through (LUM-1062). */
+type Workspace = {
   id: string
   name: string
   slug: string
@@ -28,14 +28,10 @@ interface Workspace {
   summaryLocale?: string
   hookEventRetentionDays?: number | null
   hookEventRetentionMode?: string
-  scanEvidenceRetentionDays?: number
   crossingRawRetentionDays?: number
   deadLetterRetentionDays?: number
   aiDerivedContentEnabled?: boolean
-  securityScanEnabled?: boolean
-  securityAiReviewEnabled?: boolean
-  securityHuntEnabled?: boolean
-}
+} & { [column: string]: unknown }
 
 type WorkspaceCache = {
   name?: string
@@ -76,9 +72,9 @@ export function WorkspaceSettingsPage() {
   const [summaryLocale, setSummaryLocale] = useState('en')
   const [savingSummary, setSavingSummary] = useState(false)
 
-  // LUM-866: which scan layers the platform env allows at all
-  const [securityPlatform, setSecurityPlatform] =
-    useState<PlatformSecurityCeiling | null>(null)
+  // LUM-1062: the whole GET /api/workspaces/me response, for plugin
+  // settings sections (the security plugin reads its platform ceiling here).
+  const [me, setMe] = useState<Record<string, unknown>>({})
 
   // ─── Hydrate from cache immediately (stale-while-revalidate) ─────────────
   useEffect(() => {
@@ -104,15 +100,16 @@ export function WorkspaceSettingsPage() {
 
   const fetchWorkspace = useCallback(async () => {
     try {
-      const data = await workspacesClient.getMe<{
-        workspace: Workspace
-        role: string
-        securityPlatform?: PlatformSecurityCeiling
-      }>()
+      const data = await workspacesClient.getMe<
+        {
+          workspace: Workspace
+          role: string
+        } & Record<string, unknown>
+      >()
       const owner = data.role === 'OWNER'
 
       setWorkspace(data.workspace)
-      setSecurityPlatform(data.securityPlatform ?? null)
+      setMe(data)
       setIsOwner(owner)
       setName(data.workspace.name)
       setSlug(data.workspace.slug)
@@ -457,8 +454,6 @@ export function WorkspaceSettingsPage() {
             settings={{
               hookEventRetentionMode: workspace.hookEventRetentionMode ?? null,
               hookEventRetentionDays: workspace.hookEventRetentionDays ?? null,
-              scanEvidenceRetentionDays:
-                workspace.scanEvidenceRetentionDays ?? null,
               crossingRawRetentionDays:
                 workspace.crossingRawRetentionDays ?? null,
               deadLetterRetentionDays:
@@ -466,22 +461,18 @@ export function WorkspaceSettingsPage() {
               aiDerivedContentEnabled:
                 workspace.aiDerivedContentEnabled ?? null,
             }}
+            workspace={workspace}
             workspaceName={workspace.name}
           />
         )}
 
-        {/* PR security-scan switches (LUM-866) — same gating as above. */}
-        {isOwner && workspace?.id && securityPlatform && (
-          <SecurityScanSwitchesCard
+        {/* Plugin settings (LUM-1062; the security plugin's PR scan
+            switches, LUM-866) — same gating as above. */}
+        {isOwner && workspace?.id && (
+          <PluginSlot
             key={workspace.id}
-            initial={{
-              securityScanEnabled: workspace.securityScanEnabled ?? true,
-              securityAiReviewEnabled:
-                workspace.securityAiReviewEnabled ?? true,
-              securityHuntEnabled: workspace.securityHuntEnabled ?? true,
-            }}
-            huntAvailable={securityPlatform.hunt}
-            sandboxAvailable={securityPlatform.sandbox}
+            name='settings.workspace.section'
+            props={{ workspace, me }}
           />
         )}
 
