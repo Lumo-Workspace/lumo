@@ -1,20 +1,20 @@
 # RFC：生产认证从 Clerk 迁移到 Better Auth（LUM-1069）
 
-> 状态：**待用户裁定**。基线 `origin/main` @ 9db0c7993（2026-10-10）。代码结论都在该 commit 上核对过；外部能力以文中链接的官方文档为准（2026-10-10 抓取）；本仓库锁定 `better-auth` 1.7.7、`@better-auth/oauth-provider` 1.7.7（`package.json`）。
+> 状态：**已裁定（2026-10-10）**，结论见 §12；Q5 等用户在 Clerk Dashboard 查数。基线 `origin/main` @ 9db0c7993（2026-10-10）。代码结论都在该 commit 上核对过；外部能力以文中链接的官方文档为准（2026-10-10 抓取）；本仓库锁定 `better-auth` 1.7.7、`@better-auth/oauth-provider` 1.7.7（`package.json`）。
 >
 > 背景裁定：2026-10-10 用户决定把托管 SaaS（www.uselumo.ai）的认证从 Clerk 迁到 Better Auth（下称 BA）。BA 实现已在自托管上线（LUM-1026 抽象层、LUM-1027/1043 邮箱密码与 GitHub/Google、LUM-1044 MCP OAuth、LUM-1041 SMTP）。
 
 ## 0. 结论摘要
 
 1. **可以做，而且可以做到业务表一行不改**：从 Clerk 导出用户后，按原 `user_xxx` id 写入 `auth_users`。身份列共 11 列、分布在 10 张表（附录 A 命令复现），另有 1 列名字看不出来的（`PriorityOverride.memberId`）和富文本里的 `@mention` `data-id`。只要 id 不变，这些都不用动。
-2. **密码能带过去**：Clerk Dashboard 的「Export users」CSV 含哈希密码（Clerk 官方文档），BA 的迁移指南说明这是 bcrypt。BA 的 `emailAndPassword.password.verify` 可以自定义，按前缀识别 bcrypt 后用 `bcryptjs` 校验即可（**要新增一个 npm 依赖**，需用户批准）。CSV 拿不到或某些行不是 bcrypt 时，退路是「忘记密码」邮件重置。
+2. **密码能带过去**：Clerk Dashboard 的「Export users」CSV 含哈希密码（Clerk 官方文档），BA 的迁移指南说明这是 bcrypt。BA 的 `emailAndPassword.password.verify` 可以自定义，按前缀识别 bcrypt 后用 `bcryptjs` 校验即可（新增 npm 依赖，**已批准，引入前跑 `npm audit`**，Q2）。CSV 拿不到或某些行不是 bcrypt 时，退路是「忘记密码」邮件重置。
 3. **社交登录不需要按邮箱猜**：导入时把 Clerk 的 `external_accounts`（provider + `provider_user_id`）直接写成 `auth_accounts` 行。BA 1.7.7 登录时**先按 (providerId, accountId) 找账号**，找不到才按邮箱关联（已在 `node_modules/better-auth/dist/oauth2/link-account.mjs` 核实）。GitHub OAuth App 现在允许 10 个回调 URL，可以和 Clerk 的回调并存，所以回滚时不用改 OAuth app。
 4. **客户端影响**：web 会话全部失效，用户要重新登录一次。**CLI 不受影响**：它用 `lum_` API key，校验只查 DB，不经过 Clerk。**MCP 要重新授权一次**：issuer 从 `clerk.uselumo.ai` 换成 `www.uselumo.ai`，BA 侧 DCR 和 consent 页（LUM-1044）已经实现，只需配好 `BETTER_AUTH_URL`。
 5. **上线前必须补的 BA 缺口**（自托管可以不补，SaaS 不行）：①忘记/重置密码（现在没有接 `sendResetPassword`，也没有页面）；②限流存储：BA 默认用进程内存，在 Vercel 多实例上基本无效，要改成数据库存储，需要一个 additive 迁移；③封禁/删号等运维操作的入口，用来替代 Clerk Dashboard 加 webhook；④新用户 id 加 `user_` 前缀，`audit-query` 依赖这个前缀。
 6. **切换方式**：用 Vercel 的 staged production build（带 BA 环境变量构建，但不自动挂域名），验证后再 promote。**回滚**用 Vercel Instant Rollback 切回切换前的部署：它用的是那次构建的原环境变量，Clerk 实例原样保留，秒级生效。
-7. **工作量**：8 个可以独立合并的任务（T1–T8），约 **10–12.5 人日**（agent）。用户要亲自做的步骤约 3–4 小时，外加一个约 60 分钟的切换窗口，见 §9。
+7. **工作量**：8 个可以独立合并的任务（T1–T8），按 §12 的裁定调整后约 **11–12.5 人日**（agent，即 §9 逐项估算之和）。用户要亲自做的步骤约 3–4 小时，外加一个约 60 分钟的切换窗口，见 §9。
 8. **代码清理**：稳定 30 天后**删除 Clerk 实现**（保留 `lib/auth` 接口和 `clerkId` 这类列名），见 §10。
-9. **托管 MCP 的临时方案（待用户裁定）**：**建议现在就在 Clerk Dashboard 打开「Publish DCR support」**。切换预计 2 周以上，MCP 目前完全不可用；这个开关 5 分钟、随时可关，代价只是切换后用户要再授权一次。打开后要用 MCP Inspector 实测，确认 `registration_endpoint` 出现、能走通。如果切换能在 1 周内完成，就不开，直接等 BA。详见 §4.3。
+9. **托管 MCP 的临时方案（已裁定，Q3）**：切换前在 Clerk Dashboard 打开「Publish DCR support」作为临时方案。打开后用 MCP Inspector 实测：`registration_endpoint` 出现且能连通就保留；实测失败就关掉，等 BA。详见 §4.3。
 
 ---
 
@@ -91,18 +91,18 @@
   - **多个邮箱**：只有主邮箱进 BA。次邮箱已验证、且有人用次邮箱发了未接受的邀请时，Clerk 能匹配，BA 不能匹配（`getVerifiedEmails` 在 BA 下只返回主邮箱，见 `lib/auth/index.ts` 和 `user-shape.ts`）。dry-run 报告「有多个已验证邮箱的用户数」和「发往次邮箱的待接受邀请数」，非 0 就让邀请人重发。
   - **小写后邮箱冲突**（两个 Clerk 用户的邮箱只差大小写）：不导入，逐个人工处理。
   - **`banned=true`**：导入后同步设成 BA 的封禁状态（需要 T2 的 admin 字段）；成员资格此前已被 webhook 停用，不受影响。
-  - **头像**：Clerk 的 `imageUrl` 指向 `img.clerk.com`，Clerk 实例删除后可能失效。建议导入时**只记录 URL**，T8 清理前用一次性脚本把仍指向 Clerk 的头像转存到 Blob（`lib/blob/storage`，与 BA 上传头像同路径）。是否转存待裁定（Q6）。
+  - **头像**：Clerk 的 `imageUrl` 指向 `img.clerk.com`，Clerk 实例删除后可能失效。**已裁定转存（Q6）**：导入时先记录原 URL，由 T3 的 `avatars` 子命令把仍指向 Clerk 的头像转存到自有 Blob（`lib/blob/storage`，路径与 BA 上传头像相同），再改写 `auth_users.image`。转存必须在 T8 和 Clerk 实例删除之前完成。
 - **新用户 id 前缀**：`lib/services/audit-query.service.ts` 用 `ref.startsWith('user_')` 识别「原始 user id」。BA 默认生成的 id 没有这个前缀。T1 用 `advanced.database.generateId`（1.7.7 签名 `({ model, size }) => string | false`）只给 `user` 模型生成 `user_<随机>`，这样新老用户的 id 形状一致。
 
 ## 2. 密码
 
 - **能导出**：只有 Dashboard CSV 一个途径，Backend API 不返回哈希（见 §1.3 的链接）。早期 Clerk 文档要求联系客服才能导出，现行文档已改为自助导出。
-- **算法**：Clerk 现行文档没写自己用什么算法。BA 的 Clerk 迁移指南说 Clerk 用 bcrypt，并会在用户首次登录时把导入的弱哈希透明升级成 bcrypt（<https://better-auth.com/docs/guides/clerk-migration-guide>）。**以导出 CSV 中 `password_hasher` 的实际值为准**：dry-run 会按 hasher 计数，非 bcrypt 的行不写 password。
+- **算法**：Clerk 现行文档没写自己用什么算法。BA 的 Clerk 迁移指南说 Clerk 存的是 bcrypt：用户被导入 Clerk 时如果带的是 md5、sha256 这类弱哈希，**Clerk 自己**会在其首次登录时升级成 bcrypt（<https://better-auth.com/docs/guides/clerk-migration-guide>）。这是 Clerk 内部的行为，意思是导出的哈希应该基本都是 bcrypt；它和 BA 侧要不要重新哈希无关（BA 侧不做，见下文）。**以导出 CSV 中 `password_hasher` 的实际值为准**：dry-run 会按 hasher 计数，非 bcrypt 的行不写 password。
 - **BA 怎么校验**：`emailAndPassword.password = { hash, verify }`，1.7.7 类型为 `verify: ({ hash, password }) => Promise<boolean>`（`node_modules/@better-auth/core/dist/types/init-options.d.mts`）。文档：<https://better-auth.com/docs/authentication/email-password>。实现方式：
   - `hash` 不覆盖，新密码继续用 BA 默认的 scrypt。
   - `verify` 看前缀：`$2a$`、`$2b$`、`$2y$` 走 `bcryptjs.compare`，其余调用 `better-auth/crypto` 的 `verifyPassword`。
-  - 改密码或重置密码后，新哈希自然是 scrypt，bcrypt 会随用户活动逐步淘汰。**不做登录时重新哈希**：BA 没有现成的钩子，收益也小。
-  - **新依赖**：仓库里没有 bcrypt 实现。建议用 `bcryptjs`（纯 JS、MIT，不需要原生编译）。按 CLAUDE.md，要在 PR 描述里注明并经用户批准（Q2）。
+  - **BA 侧不做任何重新哈希**：登录成功后不把 bcrypt 改写成 scrypt。BA 没有现成的钩子，收益也小。只有用户改密码或重置密码时，新哈希才是 scrypt，bcrypt 会随用户活动逐步淘汰。
+  - **新依赖**：仓库里没有 bcrypt 实现。建议用 `bcryptjs`（纯 JS、MIT，不需要原生编译）。用户已批准（Q2）；引入前跑 `npm audit`，并在 T1 的 PR 描述里注明（CLAUDE.md）。
 - **导不出时的退路**（全部依赖 T1 先补好「忘记密码」）：
 
 | 方案                                                       | 优点                         | 缺点                                                                                                |
@@ -153,14 +153,13 @@ magic link 文档：<https://better-auth.com/docs/plugins/magic-link>。**建议
 - **生产配置**：只需要 `BETTER_AUTH_URL=https://www.uselumo.ai`。issuer 由此变成 `https://www.uselumo.ai`，资源（token 的 `aud`）是 `https://www.uselumo.ai/api/mcp`。不设这个变量时 `/api/mcp` 返回 501（`resolveMcpOAuthUrls`）。
 - **已授权的连接**：Clerk 签发的 token 在 BA 下校验失败，`/api/mcp` 返回 401 并带 `WWW-Authenticate`，客户端会重新发现、注册、征求同意。用户看到的是「重新授权一次」。
   - `McpConnection` 按 `(clerkUserId, clientId)` 唯一。新 client id 会生成新行，**之前选定的 active workspace 要重选一次**。旧行留作历史，不删。
-- **切换前要定的策略**：BA 目前只允许 `https://` 和 `http://localhost` 的 redirect URI，**`cursor://` 这类自定义 scheme 注册不了**（自托管 README 已写明）。Clerk 侧现在本来就不可用，所以这不是回退，但 SaaS 上 Cursor 用户会受影响。要不要放开有安全取舍：自定义 scheme 可被其他本地应用抢注，需要配合 PKCE 和逐个 client 的 consent。见 Q7。
+- **切换前要定的策略**：BA 目前只允许 `https://` 和 `http://localhost` 的 redirect URI，**`cursor://` 这类自定义 scheme 注册不了**（自托管 README 已写明）。Clerk 侧现在本来就不可用，所以这不是回退，但 SaaS 上 Cursor 用户会受影响。**已裁定（Q7）**：允许自定义 scheme，但只限 allowlist（例如 `cursor`、`vscode`），授权确认页照常显示。安全取舍：自定义 scheme 可能被其他本地应用抢注，所以靠必填 PKCE S256、每个新 client 都要用户确认、scheme 白名单三层兜底（RFC 8252 §7.1 的 private-use URI scheme）。实现放在 T4：`mcp-oauth-config.ts` 的 redirect URI 分类加一个 `native-scheme` 分支，allowlist 写成常量，不做成可配置，并补测试；同时更新自托管 README 里「cursor:// 不能注册」那句。
 - **迁移完成前的临时方案（用户尚未决定）**：
   - 现状：LUM-1039（#1340）和 LUM-1047（#1354）已合并，Clerk 模式下 MCP 只差 DCR。
   - Clerk 的开关在 Dashboard → OAuth applications → Settings → Client onboarding → **Publish DCR support**（另有 Publish CIMD support）。开启 DCR 后 consent 页强制开启、不能关。<https://clerk.com/docs/guides/configure/auth-strategies/oauth/how-clerk-implements-oauth>
   - **文档没有说明**开启后元数据里是否出现 `registration_endpoint`，示例里没有这个字段，所以开启后要实测。
-  - **建议**：切换日期在 2 周以后，就**现在开启**。理由：MCP 现在完全不可用；开关可逆；consent 强制开启，安全上与 BA 侧等价；代价只是用户切换后再授权一次。
+  - **已裁定（Q3）：切换前开启**。理由：MCP 现在完全不可用；开关可逆；consent 强制开启，安全上与 BA 侧等价；代价只是用户切换后再授权一次。
   - 开启后由用户用 MCP Inspector 实测一遍（发现 → 注册 → 授权 → `tools/list` → `tools/call`）。没有出现 `registration_endpoint` 或注册失败，就关掉开关、等 BA。
-  - 切换能在 1 周内完成，就不开，减少一次用户授权。
   - 开了 DCR 的 Clerk 实例会积累 MCP 客户端注册出来的 OAuth app，在 Clerk 实例销毁时（§10）一并清掉。
 
 ## 5. Clerk 专属功能的替代
@@ -194,7 +193,7 @@ magic link 文档：<https://better-auth.com/docs/plugins/magic-link>。**建议
 | ---------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `AUTH_PROVIDER`                                                  | `better-auth`                          | **构建期和运行期都要**（静态页会把构建时的值烘焙进去，`lib/auth/provider.ts` 注释）。在 Vercel 上，设置后必须**重新构建**才生效 |
 | `BETTER_AUTH_SECRET`                                             | `openssl rand -hex 32` 生成，≥ 32 字符 | 签 cookie，并加密 `auth_jwks` 私钥。**设定后不能随意更换**：换了所有人掉线、MCP token 失效                                      |
-| `BETTER_AUTH_URL`                                                | `https://www.uselumo.ai`               | issuer、MCP 资源和 origin 校验都由它派生。apex 域名跳转到 www 的方式需用户确认（Q4）                                            |
+| `BETTER_AUTH_URL`                                                | `https://www.uselumo.ai`               | issuer、MCP 资源和 origin 校验都由它派生。已裁定（Q4）；apex 域名需继续跳转到 www，T7 冒烟时核对                                |
 | `AUTH_GITHUB_CLIENT_ID/SECRET`、`AUTH_GOOGLE_CLIENT_ID/SECRET`   | 沿用 Clerk 正在用的那对 OAuth app      | §3                                                                                                                              |
 | `AUTH_DISABLE_SIGNUP`                                            | 不设                                   | SaaS 开放注册                                                                                                                   |
 | `CLERK_*`、`NEXT_PUBLIC_CLERK_*`、`CLERK_WEBHOOK_SIGNING_SECRET` | **保留**                               | 回滚要用，§10 清理时再删                                                                                                        |
@@ -276,23 +275,25 @@ i18n：这是邮件或站内公告，不是产品 UI 字符串。如果要做成
 
 每一项都能独立合并。T1–T5 在 Clerk 模式下**不改变生产行为**，可以先合并、先部署。
 
-| #   | 任务                                                                                                                                                                                                                                                                                                                                                                                    | Schema（additive，由部署网关自动应用）        | 估算                      | 依赖           |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------- | -------------- |
-| T1  | **BA 生产加固**：忘记、重置、修改密码（`sendResetPassword` 加页面、邮件模板，16 个 locale）；bcrypt 兼容的 `password.verify`（新依赖 `bcryptjs`）；`rateLimit.storage='database'`；`generateId` 给 user 加 `user_` 前缀；显式写出 `accountLinking`（不加 trusted providers）；错误文案。建议拆成 T1a（密码相关）和 T1b（限流、id、关联）两个 PR                                         | `rateLimit` 表                                | 2.5–3 人日                | —              |
-| T2  | **运维与注销对等**：admin 插件（关闭 impersonate）；`scripts/auth-admin/{ban,unban,remove}.ts`，在同一个 service 里调用 deprovision；新增 `AUTH_USER_*` 停用原因（字符串常量）；测试                                                                                                                                                                                                    | `auth_users` 加 4 列，`auth_sessions` 加 1 列 | 1.5 人日                  | —              |
-| T3  | **导入工具**：`scripts/auth-migration/` 下的 export（读用户 shell 里的 key，分页加 429 退避）、import（加密输入、dry-run 计数报告、幂等 upsert、社交账号、封禁）、收尾增量 `--closing` 模式（§6.3 第 5 步：只插入缺失用户，按 `T_import` 判断是否覆盖密码）、verify（对账：Clerk 总数 = 导入数 + 跳过数；§1.2 每列的 distinct id 都能在 `auth_users` 里找到）、rekey（回滚用）；runbook | 无                                            | 2.5–3 人日                | T2（封禁字段） |
-| T4  | **MCP 生产策略**：决定自定义 scheme（Q7）后实现，可能要加 CIMD；BA 下 `McpConnection` 的 workspace 重选体验；文档                                                                                                                                                                                                                                                                       | 无                                            | 0.5–1 人日                | Q7             |
-| T5  | **preview 演练**：Clerk dev 测试账号矩阵、Neon 分支、preview 别名和 OAuth 回调、按 §6.1 逐项留证、Instant Rollback 演练                                                                                                                                                                                                                                                                 | 无                                            | 1 人日（含用户约 1 小时） | T1–T3          |
-| T6  | **合规与文案**：两份 live doc、i18n、子处理者记录（§8，分两次合并：切换当天、实例删除那天）                                                                                                                                                                                                                                                                                             | 无                                            | 0.5 人日                  | 切换           |
-| T7  | **切换与稳定期**：通知、窗口、冒烟、14 天每日统计 BA 新用户数                                                                                                                                                                                                                                                                                                                           | 无                                            | 0.5 人日 + 窗口           | T1–T5          |
-| T8  | **Clerk 清理**（§10）                                                                                                                                                                                                                                                                                                                                                                   | 无（列名不改）                                | 1–1.5 人日                | 稳定 30 天     |
+| #   | 任务                                                                                                                                                                                                                                                                                                                                                                             | Schema（additive，由部署网关自动应用）        | 估算                      | 依赖                                  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------- | ------------------------------------- |
+| T1  | **BA 生产加固**：忘记、重置、修改密码（`sendResetPassword` 加页面和邮件模板，16 个 locale）；兼容 bcrypt 的 `password.verify`（`bcryptjs`，先 `npm audit`）；`rateLimit.storage='database'`（Q10，先不加 captcha）；`generateId` 给 user 加 `user_` 前缀；显式写出 `accountLinking`（不加 trusted providers）及错误文案。建议拆成 T1a（密码相关）和 T1b（限流、id、关联）两个 PR | `rateLimit` 表                                | 2.5–3 人日                | —                                     |
+| T2  | **运维与注销对等**：admin 插件（关闭 impersonate）；`scripts/auth-admin/{ban,unban,remove}.ts`，在同一个 service 里调用 deprovision；新增 `AUTH_USER_*` 停用原因（字符串常量）；测试                                                                                                                                                                                             | `auth_users` 加 4 列，`auth_sessions` 加 1 列 | 1.5 人日                  | —                                     |
+| T3  | **导入工具**：`scripts/auth-migration/` 下的 export、import、`--closing` 收尾增量、verify 对账、rekey（Q8，回滚用）、`avatars` 头像转存（Q6）；runbook                                                                                                                                                                                                                           | 无                                            | 3–3.5 人日                | T2（封禁字段）                        |
+| T4  | **MCP 生产策略**：协助实测 Clerk DCR 临时方案（Q3）；BA 下的自定义 scheme allowlist（Q7）；`McpConnection` 重选 workspace 的体验；文档                                                                                                                                                                                                                                           | 无                                            | 1 人日                    | —（与 T1–T3 并行）                    |
+| T5  | **preview 演练**：Clerk dev 测试账号矩阵、Neon 分支、preview 别名和 OAuth 回调、按 §6.1 逐项留证（含 allowlist scheme 的 MCP 客户端）、Instant Rollback 演练和 rekey 演练                                                                                                                                                                                                        | 无                                            | 1 人日（含用户约 1 小时） | T1–T4                                 |
+| T6  | **合规与文案**：两份 live doc、i18n、子处理者记录（§8，分两次合并：切换当天、实例删除那天）                                                                                                                                                                                                                                                                                      | 无                                            | 0.5 人日                  | T7                                    |
+| T7  | **切换与稳定期**：通知、窗口、冒烟、14 天回滚期内每日统计 BA 新用户数                                                                                                                                                                                                                                                                                                            | 无                                            | 0.5 人日 + 窗口           | T1–T5                                 |
+| T8  | **Clerk 清理**（§10，Q9）                                                                                                                                                                                                                                                                                                                                                        | 无（列名不改）                                | 1–1.5 人日                | T7 稳定 30 天，且 T3 的头像转存已完成 |
 
-**合计约 10–12.5 人日**（T1–T8 各项估算之和）。 关键路径：T1 → T3 → T5 → T7，约 1.5–2 周。
+**合计约 11–12.5 人日**，即上表逐项之和：下限 2.5+1.5+3+1+1+0.5+0.5+1=11，上限 3+1.5+3.5+1+1+0.5+0.5+1.5=12.5。
+
+**关键路径**：（T1 ∥ T2）→ T3 → T5 → T7。T3 依赖 T2 的封禁字段，所以 T2 也在关键路径上；T1 和 T2 可以并行，T4 与 T1–T3 并行。按 max(T1, T2) 3 + T3 3.5 + T5 1 + T7 0.5 计算，约 8 个工作日，日历上约 1.5–2 周。T6 和 T8 在切换之后。
 
 **必须由用户执行的步骤**：
 
-1. 裁定 §11 的问题，批准新增 `bcryptjs` 依赖。
-2. （可选，§4.3）在 Clerk Dashboard 打开 DCR，用 MCP Inspector 实测。
+1. ~~裁定 §11 的问题~~（已完成，见 §12）；在 Clerk Dashboard 查 Q5 的数据。
+2. 在 Clerk Dashboard 打开 DCR（Q3），用 MCP Inspector 实测，失败就关掉。
 3. 在 Clerk Dashboard 查看：用户总数、有 MFA 的用户数、sign-in 方式（是否有纯手机号或用户名用户）、生产 SSO 用的是哪对 OAuth app。
 4. 给 GitHub 和 Google 的 OAuth app **追加**回调 URL（生产一个，preview 别名一个）。
 5. 演练时在 Clerk dev 实例造测试账号。
@@ -316,7 +317,7 @@ i18n：这是邮件或站内公告，不是产品 UI 字符串。如果要做成
 - **列改名（可选，不建议现在做）**：可以只改 Prisma 字段名、用 `@map` 保持 DB 列名不变（例如 `clerkId` → `userId @map("clerkId")`），没有迁移风险，但会改动几百处调用点。收益是可读性，建议在 T8 之后单独评估。`PriorityOverride.memberId` 的误导性命名可以一起修。
 - **备选**：保留 Clerk 实现，让自托管可选。不推荐：自托管用户没有动机选 Clerk，等于只为假想用户付维护成本。
 
-## 11. 需要用户裁定的问题
+## 11. 需要用户裁定的问题（原始提问，结论见 §12）
 
 | #   | 问题                                                                                                                              | 建议                                               |
 | --- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
@@ -332,6 +333,21 @@ i18n：这是邮件或站内公告，不是产品 UI 字符串。如果要做成
 | Q10 | 是否加 captcha 或更严的登录限流（替代 Clerk 的 bot 防护）                                                                         | 先只用数据库限流，观察 2 周                        |
 
 ---
+
+## 12. 裁定（2026-10-10，记在 LUM-1069 Decisions）
+
+| #   | 结论                                                                                                                                                     | 影响的章节与任务                       |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Q1  | 按本 RFC 推进                                                                                                                                            | 全文                                   |
+| Q2  | 批准新增 `bcryptjs`，引入前跑 `npm audit`                                                                                                                | §2；T1                                 |
+| Q3  | 切换前打开 Clerk DCR 作临时方案；实测 `registration_endpoint` 出现且 MCP Inspector 能连通就保留，失败就关                                                | §4.3；T4（agent 协助实测）与用户步骤 2 |
+| Q4  | 沿用 Clerk 生产现有的 GitHub/Google OAuth app（只追加回调）；`BETTER_AUTH_URL=https://www.uselumo.ai`                                                    | §3、§6.2；T5、T7                       |
+| Q5  | **待定**：MFA、纯手机号、用户名注册的用户数，由用户在 Clerk Dashboard 查后告知。非 0 时按 §2 的「先用密码登录、2FA 后补」处理，并在 T3 的 dry-run 里核对 | §2、§1.4；T3、T7                       |
+| Q6  | 头像转存到自有存储                                                                                                                                       | §1.4；T3 `avatars`；T8 依赖它          |
+| Q7  | 允许 MCP 自定义 scheme 回调，限 allowlist（`cursor`、`vscode` 等），授权确认页照常                                                                       | §4.3；T4、T5                           |
+| Q8  | 回滚期 14 天；回滚时窗口期新用户走 rekey                                                                                                                 | §7；T3 `rekey`；T5 演练                |
+| Q9  | 稳定 30 天后删除 Clerk 实现，保留 `lib/auth` 抽象                                                                                                        | §10；T8                                |
+| Q10 | 先上数据库限流，captcha 视滥用情况再加                                                                                                                   | §5；T1                                 |
 
 ## 附录 A：身份列清单的复现命令
 
