@@ -17,7 +17,9 @@ function switchOf(value: unknown): boolean {
 }
 
 function isPlatformCeiling(value: unknown): value is PlatformSecurityCeiling {
-  return typeof value === 'object' && value !== null && 'hunt' in value
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return typeof v.hunt === 'boolean' && typeof v.sandbox === 'boolean'
 }
 
 export function SecuritySettingsSection({

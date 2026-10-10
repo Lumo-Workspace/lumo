@@ -183,6 +183,17 @@ describe('settings slots', () => {
       />
     )
     expect(screen.queryByTestId('switches-card')).toBeNull()
+    // A malformed ceiling (missing sandbox) is not drawn as a card either.
+    rerender(
+      <PluginSlot
+        name='settings.workspace.section'
+        props={{
+          workspace: { id: 'w1' },
+          me: { securityPlatform: { hunt: true } },
+        }}
+      />
+    )
+    expect(screen.queryByTestId('switches-card')).toBeNull()
     rerender(
       <PluginSlot
         name='settings.workspace.section'
