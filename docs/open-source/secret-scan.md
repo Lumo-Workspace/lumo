@@ -4,7 +4,7 @@
 
 Install [Gitleaks 8.30.1](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1).
 The audit uses its default rules plus a database-URL password rule: the default
-rules alone missed the known historical Neon URLs.
+rules alone do not match passwords embedded in database connection URLs.
 
 ```sh
 python3 scripts/audit-secrets.py snapshot --ref HEAD --report /tmp/lumo-snapshot-audit.json
@@ -63,12 +63,9 @@ requires another review, including movement to an unreviewed line span.
 
 Security fixtures contain deliberately recognizable fake AWS, Stripe, Twilio,
 GitHub, JWT, and generic tokens, paired with scanner/masking assertions. Historical
-auth tests contain explicit test secrets. The historical private-key match in
-`docs/superpowers/plans/2026-06-01-integration-team-modeling-github-app.md:417`
-at `7d92022675` spans example PEM markers with 9/23-character placeholder bodies,
-not a parseable private key. Older Google-auth requirement examples use prose
-placeholders, not issued Google credentials. Database URLs outside the known
-production file are documented placeholders or local/test connection defaults.
+auth tests contain explicit test secrets. Database URLs in tracked files are
+documented placeholders or local/test connection defaults. Reviews of matches
+that exist only in the private repository's history are kept with that history.
 
 ## Rotation ledger
 
@@ -96,5 +93,6 @@ database URL detection, metadata-only reports, and deleted-credential detection.
 It also verifies export-ignore coverage, non-UTF-8 source handling, rotation-ledger
 matching (and rejection of mismatched metadata), driver-qualified URL schemes,
 safe failure diagnostics, symlink target blobs, missing commit rejection,
-relocated fixtures, LF-only line boundaries, and a missing rotation ledger. Test fixtures are self-contained
-and do not depend on unrelated tests in the live repository.
+relocated fixtures, LF-only line boundaries, and a missing rotation ledger. Test
+fixtures are self-contained and do not depend on unrelated tests in the live
+repository.

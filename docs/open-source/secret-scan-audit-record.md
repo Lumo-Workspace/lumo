@@ -5,6 +5,17 @@ history commits, `.env.production` locations, and the owner's rotation
 attestation, so `oss/manifest.json` excludes it (together with
 `historical-credential-rotations.json`) from the public snapshot.
 
+## Private-history reviewed matches
+
+The historical private-key match in
+`docs/superpowers/plans/2026-06-01-integration-team-modeling-github-app.md:417`
+at `7d92022675` spans example PEM markers with 9/23-character placeholder bodies,
+not a parseable private key. Older Google-auth requirement examples use prose
+placeholders, not issued Google credentials. Database URLs outside the known
+production file are documented placeholders or local/test connection defaults.
+The default Gitleaks rules alone missed the known historical Neon URLs, which is
+why the audit adds a database-URL password rule.
+
 ## Audit recorded on 2026-10-10
 
 Snapshot: `b51df3715e7c6889a90dae77ca764a9847151d49` (origin/main at audit time).

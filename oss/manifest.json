@@ -240,6 +240,10 @@
       "reason": "LUM-1033 D1: would auto-run `lumo hook` for anyone who clones"
     },
     {
+      "glob": ".codex/**",
+      "reason": "LUM-1054 lumo init Codex install (#1366): hooks.json would auto-run `lumo hook` for anyone who clones, same as .claude/settings.json; default-deny until ruled"
+    },
+    {
       "glob": ".claude/skills/*",
       "reason": "LUM-1033 2/5: symlinks into the excluded .agents/ tree (would dangle)"
     },
