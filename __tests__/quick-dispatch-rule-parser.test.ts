@@ -31,6 +31,7 @@ describe('STATUS_KEYWORDS', () => {
     expect(STATUS_KEYWORDS['backlog']).toBe('BACKLOG')
     expect(STATUS_KEYWORDS['待规划']).toBe('BACKLOG')
     expect(STATUS_KEYWORDS['搁置']).toBe('BACKLOG')
+    expect(STATUS_KEYWORDS['someday']).toBe('BACKLOG')
   })
 })
 
@@ -91,6 +92,15 @@ describe('parseQuickDispatch', () => {
     })
     expect(result.unparsed).toBe('')
     expect(result.needsConfirmation).toBe(false)
+  })
+
+  it('parses "someday" into a BACKLOG status update, matching the LLM prompt (LUM-1057)', () => {
+    const result = parseQuickDispatch('LUM-42 someday', [taskMention])
+
+    expect(result.actions[0]).toMatchObject({
+      type: 'update',
+      fields: { status: 'BACKLOG' },
+    })
   })
 
   it('parses a backlog keyword into a BACKLOG status update (LUM-1057)', () => {

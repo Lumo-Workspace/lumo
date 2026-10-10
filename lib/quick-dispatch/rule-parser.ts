@@ -25,6 +25,7 @@ export const STATUS_KEYWORDS: Record<string, Status> = {
   backlog: 'BACKLOG',
   待规划: 'BACKLOG',
   搁置: 'BACKLOG',
+  someday: 'BACKLOG',
 }
 
 export const PRIORITY_KEYWORDS: Record<string, Priority> = {
