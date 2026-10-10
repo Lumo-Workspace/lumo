@@ -438,6 +438,90 @@ describe('LUM-1071 auth admin on Better Auth (real Postgres)', () => {
     ).rejects.toMatchObject({ status: 404 })
   })
 
+  it('auth admin remove after an earlier ban (nothing left to deactivate) still reports already_removed on a re-run', async () => {
+    // Its own user: MEMBER of WS only, banned first, then removed.
+    const res = await call('/sign-up/email', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Bo',
+        email: `lum1071-bo-${run}@example.test`,
+        password,
+      }),
+    })
+    expect(res.status).toBe(200)
+    const boId = ((await res.json()) as { user: { id: string } }).user.id
+    await seedMember('m_bo', boId, 'MEMBER', WS)
+    await authUserAdminService.ban(boId)
+    await expect(authUserAdminService.remove(boId)).resolves.toMatchObject({
+      outcome: 'removed',
+      memberships: [
+        expect.objectContaining({
+          memberId: 'm_bo',
+          outcome: 'already_deactivated',
+        }),
+      ],
+    })
+    expect((await membership('m_bo'))?.deactivationReason).toBe(
+      'AUTH_USER_BANNED'
+    )
+    await expect(authUserAdminService.remove(boId)).resolves.toEqual({
+      userId: boId,
+      outcome: 'already_removed',
+    })
+  })
+
+  it('auth admin remove of an id that was never a Better Auth user is not found, even with deactivated memberships', async () => {
+    await seedMember('m_left', 'user_only_left', 'MEMBER', WS)
+    await db().workspaceMember.update({
+      where: { id: 'm_left' },
+      data: { deactivatedAt: new Date(), deactivationReason: 'LEFT' },
+    })
+    const before = await db().auditEvent.count()
+    await expect(
+      authUserAdminService.remove('user_only_left')
+    ).rejects.toMatchObject({
+      status: 404,
+      message: 'No Better Auth user with id user_only_left',
+    })
+    const errors: string[] = []
+    const err = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((chunk: string | Uint8Array) => {
+        errors.push(String(chunk))
+        return true
+      })
+    const out = jest.spyOn(process.stdout, 'write').mockReturnValue(true)
+    let codes: number[]
+    try {
+      codes = [
+        await runAuthAdmin('remove', [
+          '--user-id',
+          'user_only_left',
+          '--confirm',
+        ]),
+        await runAuthAdmin('remove', [
+          '--email',
+          `nobody-${run}@example.test`,
+          '--confirm',
+        ]),
+      ]
+    } finally {
+      err.mockRestore()
+      out.mockRestore()
+    }
+    expect(codes).toEqual([1, 1])
+    expect(errors.join('')).toContain(
+      'No Better Auth user with id user_only_left'
+    )
+    expect(errors.join('')).toContain('No Better Auth user with that email')
+    expect(errors.join('')).not.toContain('already removed')
+    // Nothing written.
+    expect(await membership('m_left')).toMatchObject({
+      deactivationReason: 'LEFT',
+    })
+    expect(await db().auditEvent.count()).toBe(before)
+  })
+
   it('auth admin leaves the Clerk webhook deprovisioning unchanged', async () => {
     await seedKey('m_clerk_gone')
     const outcomes = await memberDeprovisionService.deprovisionClerkUser(

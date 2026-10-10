@@ -27,6 +27,12 @@ jest.mock('@/lib/services/member-deprovision.service', () => ({
     return mockDeprovision
   },
 }))
+const mockCountTrace = jest.fn()
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    countDeactivatedByReasons: (...a: unknown[]) => mockCountTrace(...a),
+  },
+}))
 jest.mock('@/lib/services/audit.service', () => ({
   SYSTEM_AUDIT_CONTEXT: { actor: { type: 'SYSTEM' }, source: 'SYSTEM' },
 }))
@@ -180,26 +186,43 @@ describe('LUM-1071 auth admin service', () => {
     })
   })
 
-  it('auth admin remove of a missing user: already_removed only when nothing is live', async () => {
+  it('auth admin remove of a missing user: already_removed only with a ban/remove trace and nothing live', async () => {
     mockRepo.findBanState.mockResolvedValue(null)
-    mockDeprovision.planDeprovision.mockResolvedValue([
-      { workspaceId: 'ws_a', memberId: 'm1', role: 'MEMBER', action: 'none' },
-    ])
+    const none = {
+      workspaceId: 'ws_a',
+      memberId: 'm1',
+      role: 'MEMBER',
+      action: 'none' as const,
+    }
+    // Removed here: every membership deactivated, one by this service.
+    mockDeprovision.planDeprovision.mockResolvedValue([none])
+    mockCountTrace.mockResolvedValue(1)
     await expect(authUserAdminService.remove('user_1')).resolves.toEqual({
       userId: 'user_1',
       outcome: 'already_removed',
     })
-    mockDeprovision.planDeprovision.mockResolvedValue([
-      {
-        workspaceId: 'ws_a',
-        memberId: 'm1',
-        role: 'MEMBER',
-        action: 'deactivate',
-      },
+    expect(mockCountTrace).toHaveBeenCalledWith('user_1', [
+      'AUTH_USER_BANNED',
+      'AUTH_USER_DELETED',
     ])
+
+    // Never a Better Auth user: only memberships deactivated for other
+    // reasons (left, removed, Clerk) → not found, not "already removed".
+    mockCountTrace.mockResolvedValue(0)
     await expect(authUserAdminService.remove('user_1')).rejects.toMatchObject({
       status: 404,
+      message: 'No Better Auth user with id user_1',
     })
+
+    // No membership at all, or a live one → not found, no trace lookup needed.
+    mockCountTrace.mockClear()
+    for (const plan of [[], [{ ...none, action: 'deactivate' as const }]]) {
+      mockDeprovision.planDeprovision.mockResolvedValue(plan)
+      await expect(authUserAdminService.remove('user_1')).rejects.toMatchObject(
+        { status: 404 }
+      )
+    }
+    expect(mockCountTrace).not.toHaveBeenCalled()
     expect(mockDeprovision.deprovisionUser).not.toHaveBeenCalled()
     expect(mockRepo.deleteUser).not.toHaveBeenCalled()
   })

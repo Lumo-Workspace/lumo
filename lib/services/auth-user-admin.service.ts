@@ -18,10 +18,12 @@
  *
  * Idempotent: re-running a ban rewrites the same fields and finds nothing to
  * revoke or deactivate; re-running a remove after it finished reports
- * `already_removed`. A failed personal-integration cleanup throws (500) after
+ * `already_removed` (see wasRemovedHere for when that can be proven; an id
+ * that never existed is a 404). A failed personal-integration cleanup throws (500) after
  * the deactivation, and a re-run finishes it.
  */
 import { logger } from '@/lib/logger'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import {
   authUserAdminRepository,
   type AuthUserBanState,
@@ -91,6 +93,38 @@ export function lastOwnerWorkspaces(plan: DeprovisionPlanEntry[]): string[] {
   return plan
     .filter(e => e.action === 'keep_last_owner')
     .map(e => e.workspaceId)
+}
+
+/**
+ * Membership reasons only this service writes. `ban` needs an existing
+ * Better Auth user, so a membership carrying one of them proves the id WAS a
+ * user here; with the user now gone, the only way it went is `remove`
+ * (Lumo exposes no other deletion: the admin plugin's endpoints are inert and
+ * self-service deletion is off).
+ */
+export const AUTH_ADMIN_REASONS = [
+  'AUTH_USER_BANNED',
+  'AUTH_USER_DELETED',
+] as const
+
+/**
+ * Whether a missing user is one this service removed: no live membership is
+ * left, and at least one carries an AUTH_ADMIN_REASONS reason. A removal that
+ * left no such trace (the user had no membership, or every one had already
+ * been removed / left under another reason) cannot be told apart from an id
+ * that never existed, and reports not found — still writing nothing.
+ */
+async function wasRemovedHere(
+  userId: string,
+  plan: DeprovisionPlanEntry[]
+): Promise<boolean> {
+  if (plan.length === 0 || plan.some(e => e.action !== 'none')) return false
+  return (
+    (await memberRepository.countDeactivatedByReasons(
+      userId,
+      AUTH_ADMIN_REASONS
+    )) > 0
+  )
 }
 
 async function requireUser(userId: string): Promise<AuthUserBanState> {
@@ -165,19 +199,12 @@ export const authUserAdminService = {
     const user = await authUserAdminRepository.findBanState(userId)
     const plan = await memberDeprovisionService.planDeprovision(userId)
     if (!user) {
-      // A finished removal leaves only deactivated memberships behind. Live
-      // ones mean this id was never a Better Auth user here: refuse rather
-      // than deprovision someone the operator may have mistyped.
-      if (plan.some(e => e.action !== 'none')) {
-        throw httpError(
-          `No Better Auth user with id ${userId} (it still has active memberships)`,
-          404
-        )
+      if (await wasRemovedHere(userId, plan)) {
+        return { userId, outcome: 'already_removed' }
       }
-      if (plan.length === 0) {
-        throw httpError(`No Better Auth user with id ${userId}`, 404)
-      }
-      return { userId, outcome: 'already_removed' }
+      // Never existed here (a typo, a Clerk-only id, a user who left before):
+      // say so instead of pretending a removal happened. Nothing is written.
+      throw httpError(`No Better Auth user with id ${userId}`, 404)
     }
     const blocked = lastOwnerWorkspaces(plan)
     if (blocked.length > 0) {
