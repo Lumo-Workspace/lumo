@@ -49,7 +49,7 @@ describe('LUM-1071 auth admin CLI', () => {
     expect(() =>
       parseAuthAdminArgs('unban', ['--user-id', 'u', '--reason', 'x'])
     ).toThrow(/Usage:/)
-    for (const days of ['0', '1.5', 'week']) {
+    for (const days of ['0', '1.5', 'week', '0x10', '1e1', ' 7']) {
       expect(() =>
         parseAuthAdminArgs('ban', ['--user-id', 'u', '--expires-in-days', days])
       ).toThrow(/positive integer/)

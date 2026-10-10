@@ -85,8 +85,9 @@ export function parseAuthAdminArgs(
   const rawDays = values['expires-in-days'] as string | undefined
   let expiresInDays: number | null = null
   if (rawDays !== undefined) {
-    expiresInDays = Number(rawDays)
-    if (!Number.isInteger(expiresInDays) || expiresInDays <= 0) {
+    // Plain decimal digits only (Number() would accept '0x10', '1e1', ' 7 ').
+    expiresInDays = /^[0-9]+$/.test(rawDays) ? Number(rawDays) : NaN
+    if (!Number.isSafeInteger(expiresInDays) || expiresInDays <= 0) {
       throw usageError(command, '--expires-in-days must be a positive integer.')
     }
   }
