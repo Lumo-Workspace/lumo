@@ -514,3 +514,37 @@ describe('LUM-1059 batch with crossing refs', () => {
     expect(envelope().changes[0]).toContain('Batch of 2 crossings')
   })
 })
+
+describe('LUM-1059 batch bookkeeping across id forms', () => {
+  beforeEach(() =>
+    routeFetch({
+      crossings: [
+        crossing('cx-a', { ref: 'LUM-X1', disposition: 'FALSE_POSITIVE' }),
+        crossing('cx-b', { ref: 'LUM-X2' }),
+        crossing('cx-c', { ref: 'LUM-X3' }),
+      ],
+    })
+  )
+
+  it('LUM-1059 an already-ruled crossing named by cuid and ref is skipped once, never re-added', async () => {
+    const code = await crossingDisposition(['cx-a', 'lum-x1', 'cx-b'], {
+      falsePositive: true,
+    })
+    expect(code).toBe(EXIT_CONFIRMATION_REQUIRED)
+    const text = envelope().changes.join('\n')
+    expect(envelope().changes[0]).toContain('Batch of 1 crossings')
+    expect(text).toContain('Skipped — already FALSE_POSITIVE: LUM-X1')
+    expect(text).not.toContain('crossing LUM-X1 ──')
+  })
+
+  it('LUM-1059 a receipt key in another case than the typed id is not reported as dropped', async () => {
+    const code = await crossingDisposition(['LUM-X2', 'cx-c'], {
+      falsePositive: true,
+      confirm: true,
+      receipt: `lum-x2=${r2('cx-b')},LUM-X3=${r2('cx-c')}`,
+    })
+    expect(code).toBeUndefined()
+    expect(rulingWrites()).toHaveLength(2)
+    expect(stdout.join('')).not.toContain('Dropped from the batch')
+  })
+})

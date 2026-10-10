@@ -136,13 +136,15 @@ export async function crossingDispositionBatch(
   }
   const batch: CrossingForDisposition[] = []
   const already: string[] = []
+  // Every crossing the command names, once — the same crossing named twice
+  // (ref and cuid) joins once.
+  const named: CrossingForDisposition[] = []
   for (const id of ids) {
     const c = read.crossings.find(x =>
       crossingMatches(x, id)
     ) as CrossingForDisposition
-    // The same crossing named twice (ref and cuid) joins once.
-    if (batch.some(b => b.id === c.id) || already.includes(crossingLabel(c)))
-      continue
+    if (named.some(n => n.id === c.id)) continue
+    named.push(c)
     if (c.disposition === target) already.push(crossingLabel(c))
     else batch.push(c)
   }
@@ -159,13 +161,6 @@ export async function crossingDispositionBatch(
   if (step > 1) {
     // LUM-1059: the ids and the receipt keys may name a crossing in different
     // forms (ref vs cuid) — re-check the stage per crossing once it is known.
-    const lateWrongStage = batch
-      .filter(c => isWrongStage(step, receiptFor(receipts, c) ?? ''))
-      .map(crossingLabel)
-    if (lateWrongStage.length > 0) {
-      console.error(wrongStageError(step, lateWrongStage))
-      return 1
-    }
     const noReceipt = batch
       .filter(c => !receiptFor(receipts, c))
       .map(crossingLabel)
@@ -173,6 +168,13 @@ export async function crossingDispositionBatch(
       console.error(
         `Error: --receipt carries no receipt for ${noReceipt.map(sanitizeField).join(', ')} — a crossing can only join a batch at the first step. Drop ${noReceipt.length === 1 ? 'it' : 'them'} from the command, or re-run without any step flag to start the handshake again. Nothing was written.`
       )
+      return 1
+    }
+    const lateWrongStage = batch
+      .filter(c => isWrongStage(step, receiptFor(receipts, c) as string))
+      .map(crossingLabel)
+    if (lateWrongStage.length > 0) {
+      console.error(wrongStageError(step, lateWrongStage))
       return 1
     }
   }
@@ -260,8 +262,7 @@ export async function crossingDispositionBatch(
     }
   }
   const ignored = [...receipts.keys()].filter(
-    key =>
-      !ids.some(id => id === key) && !batch.some(c => crossingMatches(c, key))
+    key => !named.some(c => crossingMatches(c, key))
   )
   const url = dispositionUrl(apiUrl, creds.workspaceSlug ?? '', taskId)
   process.stdout.write(
