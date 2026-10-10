@@ -208,6 +208,10 @@
     {
       "glob": "scripts/**",
       "reason": "build/lint/dev tooling and maintenance scripts; evaluation and obsolete probes excluded below"
+    },
+    {
+      "glob": ".codex/**",
+      "reason": "LUM-1015 裁定 2026-10-10：公开 Codex 的 lumo 集成（#1366 的 hooks.json 与 rules），与 .claude/skills 一样随仓库发布"
     }
   ],
   "exclude": [
@@ -238,10 +242,6 @@
     {
       "glob": ".claude/settings.json",
       "reason": "LUM-1033 D1: would auto-run `lumo hook` for anyone who clones"
-    },
-    {
-      "glob": ".codex/**",
-      "reason": "LUM-1054 lumo init Codex install (#1366): hooks.json would auto-run `lumo hook` for anyone who clones, same as .claude/settings.json; default-deny until ruled"
     },
     {
       "glob": ".claude/skills/*",
