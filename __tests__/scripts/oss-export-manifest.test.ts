@@ -662,6 +662,29 @@ describe('oss/manifest.json', () => {
     expect(crontab.filter(p => before.includes(p))).toEqual(after)
   })
 
+  it('the snapshot gets the plain MIT LICENSE; the private one scopes out the ee/ plugin (LUM-1066)', () => {
+    const root = join(__dirname, '../..')
+    const read = (p: string) => readFileSync(join(root, p), 'utf8')
+    const mit = read('cli/LICENSE')
+    // The ref's LICENSE stays private; the overlay supplies the snapshot's.
+    const cls = classifyFiles(['LICENSE'], manifest)
+    expect(cls.excluded).toEqual(['LICENSE'])
+    expect(read('oss/overlay/LICENSE')).toBe(mit)
+    // Private LICENSE = scope note + the same MIT text. The note names the
+    // proprietary plugin and points at its license.
+    const priv = read('LICENSE')
+    expect(priv.endsWith(mit)).toBe(true)
+    const note = priv.slice(0, priv.length - mit.length)
+    expect(note.startsWith('Copyright (c) 2026 Lumo AI\n')).toBe(true)
+    expect(note).toContain('NOT covered by the MIT License')
+    expect(note).toContain('see ee/LICENSE')
+    // ee/LICENSE is proprietary, not MIT, and never ships.
+    const ee = read('ee/LICENSE')
+    expect(ee).toContain('All rights reserved.')
+    expect(ee).not.toContain('Permission is hereby granted')
+    expect(classifyFiles(['ee/LICENSE'], manifest).included).toEqual([])
+  })
+
   it('the private manifest itself never ships', () => {
     const cls = classifyFiles(
       [

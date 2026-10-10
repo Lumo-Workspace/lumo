@@ -1,0 +1,17 @@
+Lumo Security Plugin - Proprietary License
+
+Copyright (c) 2026 Lumo AI. All rights reserved.
+
+The Lumo security plugin - the contents of this ee/ directory and the other
+plugin files that oss/manifest.json excludes from the open-source export - is
+proprietary software of Lumo AI. It is not licensed under the MIT License that
+covers the rest of this repository, and it is not part of the open-source
+edition of Lumo.
+
+No right to use, copy, modify, merge, publish, distribute, sublicense or sell
+this software, in whole or in part, is granted except under a separate written
+agreement with Lumo AI.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
