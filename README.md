@@ -507,20 +507,11 @@ npm start
 
 ## 📄 License
 
-Lumo is **source-available** under the [Elastic License 2.0](LICENSE) (SPDX: `Elastic-2.0`). It is not an open-source license in the OSI sense. In plain terms:
+Lumo is open source under the [MIT License](LICENSE). Copyright © 2026 Lumo AI.
 
-- **You may** use, copy, modify and self-host Lumo for free — including inside your company, for your own teams.
-- **You may not** offer Lumo to third parties as a hosted or managed service (where the service gives users access to a substantial set of Lumo's features).
-- **You may not** move, change, disable or circumvent any license-key functionality, or remove or obscure functionality protected by a license key.
-- You must keep the license and copyright notices with any copies you distribute.
+The Lumo CLI ([`cli/`](cli/), published to npm as `@lumoai/cli`) and the shared code in [`shared/`](shared/) are MIT as well and carry their own copies of the license ([cli/LICENSE](cli/LICENSE), [shared/LICENSE](shared/LICENSE)); the agent skill files shipped with the CLI (source: `.claude/skills/lumo`) are covered by [cli/LICENSE](cli/LICENSE).
 
-These parts are licensed under the **MIT License** instead:
-
-- the [Lumo CLI](cli/) (`cli/`, published to npm as `@lumoai/cli`) — [cli/LICENSE](cli/LICENSE);
-- the shared code in [`shared/`](shared/), used by both the app and the CLI — [shared/LICENSE](shared/LICENSE);
-- the agent skill files shipped with the CLI (source: `.claude/skills/lumo`) — covered by [cli/LICENSE](cli/LICENSE).
-
-The full terms are in [LICENSE](LICENSE), [cli/LICENSE](cli/LICENSE) and [shared/LICENSE](shared/LICENSE); this summary is not a substitute for them. Copyright © 2026 Lumo AI.
+Lumo follows an open-core model. PR security scanning and the advanced boundary-crossing detection are a commercial plugin of [Lumo Cloud](https://www.uselumo.ai): the plugin is proprietary, is not part of this repository and is not covered by the MIT License. Everything in this repository works without it.
 
 ## 🙏 Acknowledgments
 
