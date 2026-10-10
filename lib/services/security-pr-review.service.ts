@@ -353,6 +353,8 @@ export function buildInlineComment(
 }
 
 export interface SummaryInput {
+  repo?: string
+  prNumber?: number
   headSha: string
   /**
    * LUM-832 — the scan row's status: a FAILED stage A must not read as
@@ -617,6 +619,15 @@ export function buildSummary(input: SummaryInput): string {
   if (attention) blocks.push(attention)
 
   const notices: string[] = []
+  if (Object.values(input.stages).includes('PAUSED')) {
+    const command =
+      input.prNumber && input.repo
+        ? `lumo pr scan ${input.prNumber} --repo ${sanitizeField(input.repo)} --review incremental`
+        : 'lumo pr scan <number> --repo <owner/repo> --review incremental'
+    notices.push(
+      `- Automatic AI checks are paused or their round budget is exhausted. This commit has not been fully reviewed. Request an incremental review with \`${command}\`, or use \`--review full\`. Use \`--resume\` to reset the automatic round budget.`
+    )
+  }
   // With findings open, the owned note still has to be said once.
   if (input.open > 0 && owned)
     notices.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
@@ -865,6 +876,7 @@ export const securityPrReviewService = {
     // old summary back over the newer scan's or the scanning-off notice. A
     // check that cannot be made leaves the comment alone.
     try {
+      if (pr.headSha && pr.headSha !== scan.headSha) return NOTHING
       if (!(await loadSecurityLayers(pr.workspaceId)).scan) {
         logger.info(`[security-pr-review] scanning off — not synced ${where}`)
         return NOTHING
@@ -987,6 +999,8 @@ export const securityPrReviewService = {
       skipped = candidates.length - selected.length
 
       const summary = buildSummary({
+        repo: pr.repo,
+        prNumber: pr.number,
         headSha: scan.headSha,
         stages: scan.stages ?? {},
         status: scan.status,

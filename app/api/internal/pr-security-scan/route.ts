@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const unauthorized = requireCronAuth(request)
   if (unauthorized) return unauthorized
 
-  let body: { pullRequestId?: unknown; trigger?: unknown }
+  let body: { pullRequestId?: unknown; trigger?: unknown; reviewMode?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -44,7 +44,13 @@ export async function POST(request: NextRequest) {
     // routes). Inside the try so a module-init failure also maps to 502.
     const { prSecurityScanService } =
       await import('@/lib/services/pr-security-scan.service')
-    const result = await prSecurityScanService.run({ pullRequestId, trigger })
+    const result = await prSecurityScanService.run({
+      pullRequestId,
+      trigger,
+      ...(body.reviewMode === 'incremental' || body.reviewMode === 'full'
+        ? { reviewMode: body.reviewMode }
+        : {}),
+    })
     if ('skipped' in result) {
       logger.info(
         `[pr-security-scan] skipping pr=${pullRequestId}: ${result.reason}`

@@ -11,6 +11,19 @@ export interface WorkspaceTaskFilterArgs {
 }
 
 export const tasksClient = {
+  reviewPullRequest(
+    number: number,
+    repo: string,
+    action: 'pause' | 'resume' | 'incremental' | 'full'
+  ) {
+    return apiFetch(
+      `/api/pull-requests/${number}/scans?repo=${encodeURIComponent(repo)}`,
+      {
+        method: 'POST',
+        body: { action },
+      }
+    )
+  },
   listMine<T>(opts: { sprintIds?: string[] } = {}) {
     const q = new URLSearchParams()
     if (opts.sprintIds?.length) q.set('sprintIds', opts.sprintIds.join(','))

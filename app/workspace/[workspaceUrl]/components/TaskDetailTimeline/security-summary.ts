@@ -254,6 +254,8 @@ export function stageReason(
       },
     }
   switch (state) {
+    case 'PAUSED':
+      return { id: id('PAUSED') }
     case 'RAN':
       return null
     case 'SKIPPED':

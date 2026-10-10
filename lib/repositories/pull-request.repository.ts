@@ -173,6 +173,7 @@ export const pullRequestRepository = {
         title: true,
         url: true,
         state: true,
+        headSha: true,
         mergedAt: true,
         task: {
           select: { number: true, team: { select: { identifier: true } } },
@@ -260,6 +261,7 @@ export const pullRequestRepository = {
         title: true,
         url: true,
         state: true,
+        headSha: true,
         // LUM-775: the queue-exit rules key on PR state × merge time × the
         // repo's default-branch baseline.
         repo: true,

@@ -18,6 +18,8 @@ import unicodedata
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = "8.30.1"
 FINDINGS_EXIT = 3
+# Private-repository ledger; the public snapshot does not ship it (LUM-1015).
+ROTATION_LEDGER = "docs/open-source/historical-credential-rotations.json"
 
 
 class AuditError(Exception):
@@ -109,6 +111,21 @@ def validate_inventory(reviewed, rotations):
             raise AuditError("Invalid rotation ledger source position")
 
 
+def load_rotations(path):
+    """Return (rotations, present). An absent ledger is an empty ledger.
+
+    Treating absence as empty is safe: the ledger can only turn an otherwise
+    unresolved history finding into confirmed-rotated, never the reverse.
+    A present but unreadable/invalid ledger still fails the audit.
+    """
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        return [], False
+    ledger = json.loads(text)
+    return (ledger.get("rotations") if isinstance(ledger, dict) else None), True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["snapshot", "history"])
@@ -134,8 +151,10 @@ def main():
     if args.mode == "history" and git("rev-parse", "--is-shallow-repository").strip() != b"false":
         raise AuditError("History scan requires an unshallow repository")
     inventory = json.loads((ROOT / "docs/open-source/secret-scan-false-positives.json").read_text())
-    ledger = json.loads((ROOT / "docs/open-source/historical-credential-rotations.json").read_text())
-    rotations = ledger.get("rotations") if isinstance(ledger, dict) else None
+    rotations, ledger_present = load_rotations(ROOT / ROTATION_LEDGER)
+    if args.mode == "history" and not ledger_present:
+        print(f"No rotation ledger at {ROTATION_LEDGER}; treating it as empty, "
+              "so no finding can be marked confirmed-rotated", file=sys.stderr)
     validate_inventory(inventory.get("falsePositives") if isinstance(inventory, dict) else None, rotations)
     reviewed = {
         (x["file"], x["rule"], x["contentSha256"], span[0], span[1]): x["reason"]
@@ -228,6 +247,7 @@ def main():
         "historyScope": "All locally available refs; fetch remote branches/tags before running" if args.mode == "history" else None,
         "total": len(rows), "reviewedFalsePositives": false_positives,
         "confirmedRotated": rotated,
+        "rotationLedger": "present" if ledger_present else "absent",
         "unresolved": unresolved, "findings": rows,
     }
     if args.report:

@@ -670,3 +670,16 @@ describe('LUM-1013 AI review — finding text keeps quoted prose', () => {
     }
   )
 })
+jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+  prReviewControlRepository: {
+    reserve: jest.fn().mockResolvedValue(true),
+    baseline: jest.fn().mockResolvedValue(null),
+    priorFindings: jest.fn().mockResolvedValue([]),
+    findingsOnScan: jest.fn().mockResolvedValue([]),
+    get: jest.fn().mockResolvedValue({
+      reviewPaused: false,
+      reviewRoundLimit: 2,
+      reviewHeads: [],
+    }),
+  },
+}))
