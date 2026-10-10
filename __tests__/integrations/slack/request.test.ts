@@ -59,6 +59,19 @@ describe('verifySlackSignature', () => {
     )
   })
 
+  it('rejects a timestamp more than 5 minutes in the future', () => {
+    const future = NOW + 301
+    expect(
+      verifySlackSignature(
+        body,
+        sign(body, future),
+        String(future),
+        SECRET,
+        NOW
+      )
+    ).toBe(false)
+  })
+
   it('rejects when the signing secret or signature is empty', () => {
     expect(
       verifySlackSignature(body, sign(body, NOW, ''), String(NOW), '', NOW)

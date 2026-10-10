@@ -196,9 +196,10 @@ describe('POST /api/webhooks/slack', () => {
     expect(mockHandleCommand).not.toHaveBeenCalled()
   })
 
-  it('returns 400 for a signed body that does not parse', async () => {
+  it('acknowledges (200) a signed body that does not parse, without handling it', async () => {
     const res = await POST(signed('not json', 'application/json'))
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(200)
+    expect(mockFindIntegrationByTeamId).not.toHaveBeenCalled()
     expect(mockHandleCommand).not.toHaveBeenCalled()
   })
 })

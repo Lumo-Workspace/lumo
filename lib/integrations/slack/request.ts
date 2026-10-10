@@ -16,7 +16,10 @@ export function verifySlackSignature(
   nowSec: number = Math.floor(Date.now() / 1000)
 ): boolean {
   if (!secret || !signature || !/^\d+$/.test(timestamp)) return false
-  if (parseInt(timestamp, 10) < nowSec - MAX_REQUEST_AGE_SEC) return false
+  // Both directions: a stale request is a replay, a far-future one could be
+  // replayed later.
+  if (Math.abs(nowSec - parseInt(timestamp, 10)) > MAX_REQUEST_AGE_SEC)
+    return false
 
   const expected =
     'v0=' +

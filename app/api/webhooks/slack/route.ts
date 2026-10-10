@@ -53,7 +53,12 @@ export async function POST(request: NextRequest) {
       request.headers.get('content-type')
     ) as SlackPayload | null
     if (!payload) {
-      return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+      // Acknowledge (200) like every other unhandled request, so Slack does
+      // not retry a body that will never parse.
+      logger.warn('[slack webhook] unparseable body', {
+        contentType: request.headers.get('content-type'),
+      })
+      return new NextResponse(null, { status: 200 })
     }
 
     // 4. Handle Slack URL verification challenge (one-time setup handshake)

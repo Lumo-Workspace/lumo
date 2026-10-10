@@ -300,8 +300,8 @@ SLACK_CLIENT_SECRET=<Client Secret>
 SLACK_SIGNING_SECRET=<Signing Secret>
 ```
 
-Requests older than 5 minutes or with a bad `X-Slack-Signature` are
-rejected (401), so the server clock must be correct.
+Requests whose timestamp is more than 5 minutes off, or with a bad
+`X-Slack-Signature`, are rejected (401), so the server clock must be correct.
 
 A workspace that connected Slack before a scope was added (e.g.
 `channels:manage` / `groups:write`) keeps its old token until it is
