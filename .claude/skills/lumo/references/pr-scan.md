@@ -209,6 +209,7 @@ by construction — the server never loads the column for this read.
 - `Error: PR #N not found in workspace <slug>` — unknown number, or a PR of another workspace (same message on purpose).
 - `Error: PR #N exists in several repos — pass --repo <owner/repo>` followed by one ready-to-run `lumo pr scan N --repo …` line per candidate.
 - `Error: --repo must be owner/repo` — malformed flag, no request made.
+- ``Error: `lumo pr scan` is not available on this Lumo server — the security plugin is not installed there.`` — the server has no scan routes at all (e.g. a self-hosted open-source build without the security plugin; CLI ≥ 1.106.0). Nothing to retry; don't suggest scan commands against that server.
 
 ## When to suggest
 

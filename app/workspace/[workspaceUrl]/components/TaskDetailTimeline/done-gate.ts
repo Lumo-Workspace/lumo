@@ -39,7 +39,8 @@ export interface DoneGate {
    *  undispositioned proven test defects. */
   blockingTotal: number
   crossings: CrossingsGateRow
-  security: SecurityGateRow
+  /** null when no plugin contributes a security check (LUM-1062). */
+  security: SecurityGateRow | null
   tests: TestsGateRow
 }
 
@@ -47,6 +48,8 @@ export function deriveDoneGate(
   gaps: RecordGaps,
   opts: {
     securityScanned: boolean
+    /** LUM-1062: false without a plugin — no security row at all. */
+    showSecurity?: boolean
     /** LUM-1011: test-case counts for the gate row's detail. */
     tests?: { total: number; passing: number }
   }
@@ -89,7 +92,10 @@ export function deriveDoneGate(
       dispositioned: gaps.crossingsTotal - gaps.crossingsOpen,
       total: gaps.crossingsTotal,
     },
-    security: { state: securityState, blocking: gaps.securityBlocking },
+    security:
+      opts.showSecurity === false
+        ? null
+        : { state: securityState, blocking: gaps.securityBlocking },
     tests: {
       state: testsState,
       blocking: gaps.testsBlocking,

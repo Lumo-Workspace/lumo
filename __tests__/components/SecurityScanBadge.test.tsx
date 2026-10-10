@@ -28,7 +28,7 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-import { SecurityScanBadge } from '@/app/workspace/[workspaceUrl]/components/pr-helpers'
+import { SecurityScanBadge } from '@/ee/security/ui/pr-scan-badge'
 import type {
   SecurityFindingView,
   SecurityScanView,

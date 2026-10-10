@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { securityPolicySchema } from '@/lib/security-scan/policy'
 import { taskTemplateKeySchema } from '@/lib/validation/task-template'
 
 /**
@@ -87,18 +86,15 @@ export const deleteWorkspaceNowSchema = z.object({
   confirmName: z.string().min(1).max(200),
 })
 
+/**
+ * The core part of PATCH /api/workspaces/me. Plugin-owned settings (LUM-1062)
+ * are added by `workspaceSettingsUpdateSchema()` in lib/plugins.
+ */
 export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
-  // LUM-740: the DONE-block policy table; `null` resets to the default.
-  // LLM_JUDGE is not an accepted provenance — see lib/security-scan/policy.ts.
-  securityPolicy: securityPolicySchema.nullable().optional(),
   // LUM-859: raw hook-event retention tier in days; `null` = keep forever.
   hookEventRetentionDays: z
     .union([z.literal(30), z.literal(90), z.literal(180), z.literal(365)])
     .nullable()
-    .optional(),
-  // LUM-911: days a used-up scan keeps its code; 0 = zero retention.
-  scanEvidenceRetentionDays: z
-    .union([z.literal(0), z.literal(7), z.literal(14), z.literal(30)])
     .optional(),
   // LUM-933 / LUM-910: session record mode. USED_UP forces
   // hookEventRetentionDays to null (lib/services/workspace.service.ts).
@@ -113,28 +109,7 @@ export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
     .optional(),
   // LUM-917: generate AI-derived content (memories, session / run summaries).
   aiDerivedContentEnabled: z.boolean().optional(),
-  // LUM-866: per-workspace security-scan switches (the env stays the ceiling).
-  securityScanEnabled: z.boolean().optional(),
-  securityAiReviewEnabled: z.boolean().optional(),
-  securityHuntEnabled: z.boolean().optional(),
 })
-
-// LUM-1002: the security-scan switches alone (CLI + settings card). Either
-// `all` (disable / enable every switch) or one or more single switches.
-export const updateSecurityScanSettingsSchema = z
-  .object({
-    all: z.boolean().optional(),
-    securityScanEnabled: z.boolean().optional(),
-    securityAiReviewEnabled: z.boolean().optional(),
-    securityHuntEnabled: z.boolean().optional(),
-  })
-  .strict()
-  .refine(v => Object.keys(v).length > 0, {
-    message: 'Nothing to change',
-  })
-  .refine(v => v.all === undefined || Object.keys(v).length === 1, {
-    message: '`all` cannot be combined with a single switch',
-  })
 
 // ─── Project ────────────────────────────────────────────────────────────────
 

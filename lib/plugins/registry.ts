@@ -20,6 +20,7 @@ import type {
   DoneGateContributor,
   LumoServerPlugin,
   RetentionContributor,
+  WorkspaceSettingsContributor,
 } from './types'
 
 type EventHandlers = {
@@ -32,6 +33,7 @@ export interface PluginRegistry {
   readonly doneGates: readonly DoneGateContributor[]
   readonly agentContexts: readonly AgentContextContributor[]
   readonly retention: readonly RetentionContributor[]
+  readonly workspaceSettings: readonly WorkspaceSettingsContributor[]
   handlersFor<E extends keyof CoreEvents>(
     event: E
   ): readonly CoreEventHandler<E>[]
@@ -45,6 +47,7 @@ export function createPluginRegistry(
   const doneGates: DoneGateContributor[] = []
   const agentContexts: AgentContextContributor[] = []
   const retention: RetentionContributor[] = []
+  const workspaceSettings: WorkspaceSettingsContributor[] = []
   const handlers: EventHandlers = {
     'github.pullRequest': [],
     'github.push': [],
@@ -59,6 +62,7 @@ export function createPluginRegistry(
       agentContext: c => void agentContexts.push(c),
       retention: r => void retention.push(r),
       on: (event, handler) => void handlers[event].push(handler),
+      workspaceSettings: s => void workspaceSettings.push(s),
     })
   }
   return {
@@ -66,6 +70,7 @@ export function createPluginRegistry(
     doneGates,
     agentContexts,
     retention,
+    workspaceSettings,
     handlersFor: event => handlers[event],
   }
 }

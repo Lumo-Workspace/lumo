@@ -25,12 +25,12 @@ describe('deriveDoneGate', () => {
     expect(gate.headline).toBe('ready')
     expect(gate.blockingTotal).toBe(0)
     expect(gate.crossings.state).toBe('none')
-    expect(gate.security.state).toBe('notScanned')
+    expect(gate.security?.state).toBe('notScanned')
   })
 
   it('reports a clear security row only when a PR was scanned', () => {
     expect(
-      deriveDoneGate(gaps(), { securityScanned: true }).security.state
+      deriveDoneGate(gaps(), { securityScanned: true }).security?.state
     ).toBe('clear')
   })
 

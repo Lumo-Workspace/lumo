@@ -3,6 +3,10 @@
  * FAQ) quotes, read from the same constants the settings rows and the
  * cleanup sweeps use. Server-side: some of the source modules import Node's
  * `crypto`, so the client page receives this plain object as a prop.
+ *
+ * LUM-1062: the core figures are constants here; a plugin adds the
+ * paragraph for the data it stores (the security plugin: scan evidence)
+ * through the `retention` extension point, read by `retentionFigures()`.
  */
 import {
   CROSSING_RAW_RETENTION_DAYS,
@@ -22,13 +26,11 @@ import {
   DEAD_LETTER_PAYLOAD_RETENTION_DAYS,
   DEAD_LETTER_RETENTION_DAYS,
 } from '@/lib/integrations/github/dead-letter-retention'
-import {
-  DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
-  SCAN_EVIDENCE_HARD_CAP_DAYS,
-  SCAN_EVIDENCE_RETENTION_DAYS,
-} from '@/lib/retention/scan-evidence'
+import { pluginRetentionFigures } from '@/lib/plugins/retention'
+import type { RetentionFigureContribution } from '@/lib/plugins/types'
 
-export interface RetentionFigures {
+/** The core figures (every deployment has this data). */
+export interface CoreRetentionFigures {
   /** Session record day tiers an owner can pick (default: keep forever). */
   sessionDays: readonly number[]
   /** Characters of a failed command's error kept when code is stripped. */
@@ -41,28 +43,31 @@ export interface RetentionFigures {
   idle: number
   /** Used-up mode: longest wait after Done for the post-Done review. */
   auditCap: number
-  scanDefault: number
-  scanTiers: readonly number[]
-  /** Days after a scan finished that its code is cleared on a PR that stays open. */
-  openCap: number
   crossingDefault: number
   crossingTiers: readonly number[]
   deadLetterDefault: number
   deadLetterTiers: readonly number[]
 }
 
-export const RETENTION_FIGURES: RetentionFigures = {
+export const CORE_RETENTION_FIGURES: CoreRetentionFigures = {
   sessionDays: HOOK_EVENT_RETENTION_DAYS,
   errorCap: FAILURE_ERROR_CAP,
   commandCap: COMMAND_SUMMARY_CAP,
   grace: USED_UP_GRACE_DAYS,
   idle: USED_UP_IDLE_DAYS,
   auditCap: USED_UP_AUDIT_WAIT_CAP_DAYS,
-  scanDefault: DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
-  scanTiers: SCAN_EVIDENCE_RETENTION_DAYS,
-  openCap: SCAN_EVIDENCE_HARD_CAP_DAYS,
   crossingDefault: DEFAULT_CROSSING_RAW_RETENTION_DAYS,
   crossingTiers: CROSSING_RAW_RETENTION_DAYS,
   deadLetterDefault: DEAD_LETTER_PAYLOAD_RETENTION_DAYS,
   deadLetterTiers: DEAD_LETTER_RETENTION_DAYS,
+}
+
+export interface RetentionFigures extends CoreRetentionFigures {
+  /** Paragraphs installed plugins add, each with its own figures. */
+  contributed: RetentionFigureContribution[]
+}
+
+/** The core figures plus what the installed plugins contribute. */
+export function retentionFigures(): RetentionFigures {
+  return { ...CORE_RETENTION_FIGURES, contributed: pluginRetentionFigures() }
 }

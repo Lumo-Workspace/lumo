@@ -56,7 +56,12 @@ const SETTINGS = {
 
 function renderSection(settings = SETTINGS) {
   return render(
-    <DataRetentionSection settings={settings} workspaceName='Acme' />
+    <DataRetentionSection
+      settings={settings}
+      // LUM-1062: the plugin rows (scan evidence) read the workspace row.
+      workspace={settings}
+      workspaceName='Acme'
+    />
   )
 }
 

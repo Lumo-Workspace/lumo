@@ -9,11 +9,13 @@
  * degrades to "nothing contributed" — see each contributor's doc for what
  * that means on its surface.
  *
- * This file holds the extension points PR2 wires (DONE gate, agent context,
- * core events, retention). The crossing detector / explainer / policy rule
- * source (PR4) and the workspace settings / client UI slots (PR3) join it in
- * their own PRs.
+ * This file holds the server extension points: DONE gate, agent context,
+ * core events, retention (PR2) and workspace settings (PR3). The crossing
+ * detector / explainer / policy rule source (PR4) join it in their own PR.
+ * The client UI slots live apart in `lib/plugins/client.tsx`, so no server
+ * code reaches the browser bundle.
  */
+import type { ZodType } from 'zod'
 
 /** A server plugin. `register` runs once per process (see registry.ts). */
 export interface LumoServerPlugin {
@@ -31,6 +33,8 @@ export interface PluginRegistrar {
   on<E extends keyof CoreEvents>(event: E, handler: CoreEventHandler<E>): void
   /** Retention stock categories and repository-code disposal. */
   retention(r: RetentionContributor): void
+  /** Workspace setting columns the plugin owns (LUM-1062). */
+  workspaceSettings(s: WorkspaceSettingsContributor): void
 }
 
 // ── DONE gate ────────────────────────────────────────────────────────────────
@@ -197,4 +201,46 @@ export interface RetentionContributor {
     workspaceId: string
     repos?: string[] | undefined
   }): Promise<Record<string, number>>
+  /**
+   * LUM-1062 — the public retention copy for this plugin's data (the
+   * /security page): one paragraph `security.retention.<paragraph>`, placed
+   * right after the core paragraph `after`, with the ICU figures it quotes
+   * (a list is joined in the locale's "or" style). Without the plugin the
+   * paragraph is not shown.
+   */
+  figures?: RetentionFigureContribution
+}
+
+export interface RetentionFigureContribution {
+  paragraph: string
+  after: string
+  values: Record<string, number | readonly number[]>
+}
+
+// ── workspace settings (LUM-1062) ────────────────────────────────────────────
+
+/**
+ * Workspace settings a plugin owns (RFC §3.4 设置页, §4 option A): the
+ * columns stay in the core `Workspace` model, but the core serves and writes
+ * them only through this contributor. Without the plugin they are left out
+ * of `GET /api/workspaces/me`, and `PATCH /api/workspaces/me` answers 400 for
+ * them.
+ */
+export interface WorkspaceSettingsContributor {
+  key: string
+  /**
+   * Owned `Workspace` columns → the validator `PATCH /api/workspaces/me`
+   * applies to each (optional fields; absent = unchanged). Accepted values
+   * are written in the same update, with the same OWNER check and audit
+   * events, as the core settings.
+   */
+  columns: Record<string, ZodType>
+  /** Extra top-level fields of `GET /api/workspaces/me`. */
+  meFields?(): Record<string, unknown>
+  /**
+   * Whether the workspace lets AI review send its code to a model (the claim
+   * faithfulness judge asks). Every contributor must agree; with none the
+   * answer is yes, the column default.
+   */
+  aiReviewEnabled?(workspaceId: string): Promise<boolean>
 }

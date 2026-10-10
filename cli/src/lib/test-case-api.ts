@@ -1,5 +1,6 @@
 import { readCredentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
+import { isMissingPluginRoute } from './plugin-route'
 
 /**
  * LUM-801: test case 六条命令共用的取数样板。
@@ -41,7 +42,9 @@ export async function apiCall<T>(
   ctx: ApiContext,
   path: string,
   init: RequestInit & { json?: unknown } = {},
-  what = 'request'
+  what = 'request',
+  /** LUM-1062: printed when the route itself is missing (plugin not installed). */
+  missingRouteMessage?: string
 ): Promise<ApiResult<T>> {
   const { json, ...rest } = init
   const headers: Record<string, string> = {
@@ -65,6 +68,11 @@ export async function apiCall<T>(
 
   if (res.status === 401) {
     console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return { ok: false }
+  }
+
+  if (missingRouteMessage && isMissingPluginRoute(res)) {
+    console.error(missingRouteMessage)
     return { ok: false }
   }
 

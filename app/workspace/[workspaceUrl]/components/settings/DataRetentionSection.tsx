@@ -2,16 +2,15 @@
 
 import { useIntl } from 'react-intl'
 import { SessionRecordRetentionRow } from './SessionRecordRetentionRow'
-import { ScanEvidenceRetentionRow } from './ScanEvidenceRetentionRow'
 import { CrossingRawRetentionRow } from './CrossingRawRetentionRow'
 import { DeadLetterRetentionRow } from './DeadLetterRetentionRow'
 import { AiDerivedContentRow } from './AiDerivedContentRow'
 import { AiDerivedContentDeleteRow } from './AiDerivedContentDeleteRow'
+import { PluginSlot, type WorkspaceSettingsView } from '@/lib/plugins/client'
 
 export interface DataRetentionSettings {
   hookEventRetentionMode: string | null
   hookEventRetentionDays: number | null
-  scanEvidenceRetentionDays: number | null
   crossingRawRetentionDays: number | null
   deadLetterRetentionDays: number | null
   /** LUM-917: null (not loaded) reads as on. */
@@ -24,9 +23,12 @@ export interface DataRetentionSettings {
  */
 export function DataRetentionSection({
   settings,
+  workspace,
   workspaceName,
 }: {
   settings: DataRetentionSettings
+  /** LUM-1062: the workspace row, for plugin rows (scan evidence, LUM-911). */
+  workspace: WorkspaceSettingsView
   /** Re-typed to confirm deleting AI-derived content (LUM-917). */
   workspaceName: string
 }) {
@@ -49,9 +51,7 @@ export function DataRetentionSection({
         initialMode={settings.hookEventRetentionMode}
         initialDays={settings.hookEventRetentionDays}
       />
-      <ScanEvidenceRetentionRow
-        initialDays={settings.scanEvidenceRetentionDays}
-      />
+      <PluginSlot name='settings.retention.row' props={{ workspace }} />
       <CrossingRawRetentionRow
         initialDays={settings.crossingRawRetentionDays}
       />

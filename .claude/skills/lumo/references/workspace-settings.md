@@ -32,6 +32,7 @@ Flags:
 - `--disable-all` / `--enable-all` — every switch at once; cannot be combined with each other or with the single-switch flags.
 - **Turning anything off is gated** by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` it exits 4 with an envelope listing each switch it would turn off and sends nothing. Turning switches on needs no confirmation.
 - `--json` prints `{ switches: { securityScanEnabled, securityAiReviewEnabled, securityHuntEnabled }, platform: { managedScan, hunt }, effective: { scan, managedScan, aiReview, hunt, aiReviewTurnedOff, huntTurnedOff }, canEdit }` (`canEdit` = the caller is an OWNER).
+- On a server without the security plugin (e.g. a self-hosted open-source build) the command prints ``Error: `lumo workspace security-scan` is not available on this Lumo server — the security plugin is not installed there.`` and exits 1 (CLI ≥ 1.106.0); there are no switches to show or change.
 
 ### When to suggest `workspace security-scan`
 

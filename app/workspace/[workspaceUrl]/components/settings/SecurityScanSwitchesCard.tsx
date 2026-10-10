@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { workspacesClient } from '@/lib/api-client'
+import { securityScanClient } from '@/ee/security/api-client'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import type { WorkspaceSecuritySwitches } from '@/lib/security-scan/workspace-switches'
@@ -78,12 +78,12 @@ export function SecurityScanSwitchesCard({
     setSwitches(prev => ({ ...prev, [key]: next }))
 
   const save = async (
-    update: Parameters<typeof workspacesClient.updateSecurityScan>[0],
+    update: Parameters<typeof securityScanClient.updateSecurityScan>[0],
     successId: string
   ) => {
     setSaving(true)
     try {
-      const next = await workspacesClient.updateSecurityScan(update)
+      const next = await securityScanClient.updateSecurityScan(update)
       setSwitches(next.switches)
       toast.success(t(successId))
     } catch (err) {

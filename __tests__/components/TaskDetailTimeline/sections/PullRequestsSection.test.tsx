@@ -11,6 +11,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/LinkPrPopover', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   PrStateBadge: () => <span data-testid='pr-state-badge' />,
   CiIcon: () => <span data-testid='ci-icon' />,
+}))
+// LUM-1062: the scan badge comes from the security plugin's slot component.
+jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
+  ...jest.requireActual('@/ee/security/ui/pr-scan-badge'),
   SecurityScanBadge: ({
     scan,
     unavailable,

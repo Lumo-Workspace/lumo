@@ -39,7 +39,7 @@ describe('LUM-1061 scan-side core files go through the plugin registry', () => {
     expect(source(file)).not.toMatch(/prSecurityScanRepository/)
   })
 
-  it('only lib/plugins/installed.ts imports the plugin tree', () => {
+  it('only the installed lists (and plugin files not yet moved) import the plugin tree', () => {
     const files = execFileSync(
       'git',
       ['ls-files', '-z', 'app', 'components', 'hooks', 'lib', 'shared/src'],
@@ -50,6 +50,14 @@ describe('LUM-1061 scan-side core files go through the plugin registry', () => {
     const importers = files.filter(f =>
       /['"]@\/ee\/|['"](\.\.\/)+ee\//.test(source(f))
     )
-    expect(importers).toEqual(['lib/plugins/installed.ts'])
+    // LUM-1062: the client list joins the server one. Two security-plugin
+    // files that still live under app/ until PR6 import their moved helpers
+    // (scan badges, the plugin API client) from ee/ — plugin to plugin.
+    expect(importers).toEqual([
+      'app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection.tsx',
+      'app/workspace/[workspaceUrl]/components/settings/SecurityScanSwitchesCard.tsx',
+      'lib/plugins/installed.client.ts',
+      'lib/plugins/installed.ts',
+    ])
   })
 })

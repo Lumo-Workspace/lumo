@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { isMissingPluginRoute, missingPluginMessage } from '../lib/plugin-route'
 import { printRedactionNotice } from '../lib/redaction-notice'
 import {
   formatHuntCoverageLine,
@@ -482,6 +483,11 @@ export async function prScan(
 
   if (res.status === 401) {
     console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  // LUM-1062: no scans route at all — a server without the security plugin.
+  if (isMissingPluginRoute(res)) {
+    console.error(missingPluginMessage('pr scan', 'security'))
     return 1
   }
   if (res.status === 404) {

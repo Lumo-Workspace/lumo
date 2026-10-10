@@ -39,7 +39,7 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@/lib/api-client', () => ({
   tasksClient: { dispositionSecurityFinding: jest.fn() },
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
+jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
   SecurityScanBadge: () => <span data-testid='security-scan-badge' />,
 }))
 const useSecurityScans = jest.fn()

@@ -17,14 +17,14 @@ jest.mock('react-intl', () => {
   }
 })
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
-jest.mock('@/lib/api-client', () => ({
-  workspacesClient: { updateSecurityScan: jest.fn() },
+jest.mock('@/ee/security/api-client', () => ({
+  securityScanClient: { updateSecurityScan: jest.fn() },
 }))
 
 import { SecurityScanSwitchesCard } from '@/app/workspace/[workspaceUrl]/components/settings/SecurityScanSwitchesCard'
-import { workspacesClient } from '@/lib/api-client'
+import { securityScanClient } from '@/ee/security/api-client'
 
-const updateSecurityScan = workspacesClient.updateSecurityScan as jest.Mock
+const updateSecurityScan = securityScanClient.updateSecurityScan as jest.Mock
 
 const ALL_ON = {
   securityScanEnabled: true,
