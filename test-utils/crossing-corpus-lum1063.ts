@@ -1,12 +1,12 @@
 /**
  * LUM-1063 — the sample corpus of the crossing-detector equivalence test
- * (`crossing-equivalence-lum1063.test.ts`). One or more events per crossing
+ * (`__tests__/lib/plugins/crossing-equivalence-lum1063.test.ts`). One or more events per crossing
  * category the hook detector produces, plus the shapes that exercise the
  * pipeline's own steps: the base64 evasion pass, the prose confirmation, the
  * net test-file deletion verdict, Codex `apply_patch`, the project's compiled
  * rules (action predicates, sensitive edit / read globs).
  *
- * The recorded outputs in `crossing-equivalence-lum1063.json` were produced
+ * The recorded outputs in `__tests__/lib/plugins/fixtures/crossing-equivalence-lum1063.json` were produced
  * from this corpus on origin/main e60d5d0be (before the detectors moved behind
  * the plugin registry). Credential-shaped values are assembled at runtime so
  * this file carries none.

@@ -18,7 +18,7 @@
 import { writeFileSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { BoundaryCrossingCategory } from '@prisma/client'
-import { CORPUS, CORPUS_RULES } from './fixtures/crossing-corpus-lum1063'
+import { CORPUS, CORPUS_RULES } from '@/test-utils/crossing-corpus-lum1063'
 
 const created: unknown[] = []
 const activities: unknown[] = []
@@ -46,7 +46,7 @@ jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
   policyCompilerService: {
     ensureCompiled: jest.fn(async () => ({
       sourceHash: 'h',
-      rules: jest.requireActual('./fixtures/crossing-corpus-lum1063')
+      rules: jest.requireActual('@/test-utils/crossing-corpus-lum1063')
         .CORPUS_RULES,
     })),
   },

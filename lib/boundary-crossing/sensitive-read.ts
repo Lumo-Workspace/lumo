@@ -30,8 +30,9 @@ import {
   unwrapShellWrapper,
   verbOf,
 } from './command-shape'
-import { stripHeredocBodies } from './action-confirm'
+import { stripHeredocBodies } from './prose'
 import { matchPathGlob } from '@/lib/services/policy/predicate-eval'
+import type { ProjectReadRule } from './policy-rule-paths'
 
 export interface SensitiveReadMatch {
   /** The path as read, normalized (`$HOME`, `/Users/<u>`, `/home/<u>`,
@@ -50,18 +51,8 @@ export interface SensitiveReadMatch {
   alsoRead?: string[]
 }
 
-/**
- * A project's own sensitive-read path (multi-tenant extension): a
- * deterministic `path-glob` PolicyRule the compiler mapped to
- * SENSITIVE_PATH_READ from the customer's CLAUDE.md / AGENTS.md. Project
- * globs ADD to the built-in credential stores — they never replace them, so a
- * project that lists `/opt/configs/*.json` keeps `~/.ssh` covered.
- */
-export interface ProjectReadRule {
-  glob: string
-  ruleId: string
-  ruleText: string
-}
+// LUM-1063: the type lives with the core rule filter (`./policy-rule-paths`).
+export type { ProjectReadRule }
 
 /** A `~/…` / relative glob also matches the absolute spellings of the path. */
 export function matchesReadGlob(glob: string, rawPath: string): boolean {

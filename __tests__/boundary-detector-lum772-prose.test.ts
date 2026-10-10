@@ -19,7 +19,8 @@ import {
   ACTION_CONFIRM_CATEGORIES,
   type ActionConfirmJudge,
 } from '@/lib/boundary-crossing/action-confirm'
-import { COMMAND_MATCHER_CATEGORIES } from '@/lib/services/boundary-detector.service'
+// LUM-1063: the matcher set depends on the installed plugins — a function now.
+import { commandMatcherCategories } from '@/lib/services/boundary-detector.service'
 
 const bash = (command: string) => ({
   toolName: 'Bash' as const,
@@ -67,7 +68,7 @@ describe('LUM-772 lumo CLI prose never raises a command crossing', () => {
         sampled: true,
       })
     }
-    for (const category of COMMAND_MATCHER_CATEGORIES) {
+    for (const category of commandMatcherCategories()) {
       expect({ category, sampled: category in SAMPLE }).toEqual({
         category,
         sampled: true,

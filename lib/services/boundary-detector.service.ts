@@ -1,8 +1,4 @@
-import type {
-  BoundaryCrossingCategory,
-  BoundaryCrossingSeverity,
-} from '@prisma/client'
-import { createHash } from 'crypto'
+import type { BoundaryCrossingCategory } from '@prisma/client'
 // LUM-779: single-sourced with the CLI's local-git probe — see the module doc.
 import { TEST_FILE_TARGET } from '../../shared/src/test-file-path'
 import {
@@ -11,17 +7,12 @@ import {
   WRITTEN_PATH_PROBE_FIELD,
   WRITTEN_PATH_PROBE_FILE_DIR,
 } from '../../shared/src/written-path-probe'
-import {
-  APPLY_PATCH_TOOL,
-  applyPatchDeletedPaths,
-  applyPatchText,
-  parseApplyPatch,
-} from '../../shared/src/apply-patch'
+import { applyPatchText, parseApplyPatch } from '../../shared/src/apply-patch'
 import {
   isCrossingAdvisoryRule,
   isShapeRule,
 } from '@/lib/security-scan/secret-patterns'
-import { redactForStorage, scanSecrets } from '@/lib/security-scan/scan-secrets'
+import { scanSecrets } from '@/lib/security-scan/scan-secrets'
 import type {
   RawSecretFinding,
   SecuritySeverity,
@@ -31,33 +22,13 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
-import {
-  confirmActionCrossing,
-  isActionConfirmCategory,
-  stripProse,
-  type ActionConfirmInput,
-  type ActionConfirmJudge,
-  type ActionConfirmVerdict,
-} from '@/lib/boundary-crossing/action-confirm'
-import { matchPathGlob } from '@/lib/services/policy/predicate-eval'
+import { matchPathGlob } from '@/lib/policy/path-glob'
 import type { PolicyRule } from '@/lib/policy/types'
 import {
   splitCommandSegments as splitCommandSegmentsShared,
   executingSegments,
 } from '@/lib/boundary-crossing/command-shape'
-import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
-import {
-  matchNewDependency,
-  matchUntrustedCodeExecution,
-} from '@/lib/boundary-crossing/untrusted-code'
-import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
-import { matchDestructiveFs } from '@/lib/boundary-crossing/destructive-fs'
-import {
-  detectProjectSensitiveReads,
-  detectSensitiveReads,
-  type ProjectReadRule,
-  type SensitiveReadMatch,
-} from '@/lib/boundary-crossing/sensitive-read'
+import { matchNewDependency } from '@/lib/boundary-crossing/install-sources'
 import {
   EVASION_MARKER,
   isEvasionDecoded,
@@ -69,12 +40,28 @@ import {
   type ActiveSuppressionRule,
 } from '@/lib/boundary-crossing/suppression'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
-// NOTE: the LLM client (`@/lib/llm/action-confirm-client`) is loaded LAZILY
-// inside its cached wrapper — it pulls in the heavy `ai` / `@ai-sdk/gateway`
-// SDK, and a static import would drag that into every module that imports this
-// detector (and every test of it). Deferring the import keeps the cost on the
-// one path that actually calls the model (the prose candidate).
+import { logger } from '@/lib/logger'
+import type {
+  BoundaryDetectionInput,
+  DetectedCrossing,
+} from '@/lib/boundary-crossing/detection-types'
+import {
+  clip,
+  isApplyPatch,
+  readCommand,
+} from '@/lib/boundary-crossing/detection-input'
+import { isReversible, severityFor } from '@/lib/boundary-crossing/taxonomy'
+import { sensitivePathGlobsFromRules } from '@/lib/boundary-crossing/policy-rule-paths'
+import {
+  pluginCrossingDetectors,
+  policyRuleSource,
+} from '@/lib/plugins/crossings'
+import type {
+  CrossingCommandMatcher,
+  CrossingConfirmJudge,
+  CrossingDetectionEvent,
+  CrossingDetector,
+} from '@/lib/plugins/crossing-types'
 
 /**
  * Async forbidden-action boundary detector (LUM-426, extended in LUM-442).
@@ -93,92 +80,27 @@ import { projectRepository } from '@/lib/repositories/project.repository'
  *      so an obfuscated forbidden command is still caught. This is explicitly
  *      defense-in-depth, not a hard boundary: it runs after the fact and can be
  *      evaded; the bar/docs say so to keep the signal from being over-trusted.
+ *
+ * LUM-1063 (RFC LUM-1058 §2.2, PR4): this module is the MIT core's detection
+ * PIPELINE plus its BASELINE detectors — the deterministic classes bound to
+ * Lumo's task / DONE flow (protected push, migration / test-file delete,
+ * destructive DB, new dependency, the action classes' matchers, hook bypass,
+ * hard-coded secrets, sensitive-path edits, steward artifacts) and the base64
+ * evasion pass. The advanced detectors (destructive-fs, untrusted-code,
+ * sensitive reads), the LLM prose confirmation and the compiled project
+ * policy rules are registered by a plugin (`lib/plugins/crossing-types.ts`);
+ * without one, the action classes are recorded without the confirmation.
  */
 
-export interface BoundaryDetectionInput {
-  taskId: string
-  hookEventId?: string | null
-  toolName: string | null
-  filePath: string | null
-  payload: unknown
-}
-
-export interface DetectedCrossing {
-  category: BoundaryCrossingCategory
-  /** Short, human-readable reason — the matched command, or a redacted label
-   *  for a secret (the secret value itself is never stored on the marker). */
-  detail: string
-  /** Severity tier (LUM-442). HIGH crossings are surfaced most prominently and
-   *  force the DONE gate even where the workspace opted out. */
-  severity: BoundaryCrossingSeverity
-  /** Coalescing target (LUM-477): the specific thing this crossing is about — the
-   *  written file for a secret, the normalized command for action
-   *  classes. Repeated detections with the same (taskId, category, target) merge
-   *  into one OPEN crossing instead of recording a duplicate per event. Never the
-   *  secret VALUE — a secret's target is its file, so it stays redacted. */
-  target: string
-  /** LUM-590: advisory crossings come from project-specific predicates — surfaced
-   *  in the panel but never block the DONE gate. A mapped built-in produces a
-   *  blocking crossing; a project-specific predicate produces advisory in v1. */
-  advisory?: boolean
-  /** LUM-590: stable id of the compiled PolicyRule that fired this crossing. */
-  policyRuleRef?: string
-  /** LUM-590: frozen verbatim text of the policy rule at detection time. */
-  policyRuleText?: string
-}
-
-const DETAIL_MAX = 200
-
-/**
- * The stored form of a crossing's `detail` / `target`. LUM-900: both are built
- * from the raw command, so credentials in it are redacted (storage form,
- * `ghp_…(len 40)`) BEFORE the cap — clipping first could cut a secret into a
- * fragment no registry rule recognises any more.
- */
-function clip(s: string): string {
-  const t = redactForStorage(s).text.trim().replace(/\s+/g, ' ')
-  return t.length > DETAIL_MAX ? `${t.slice(0, DETAIL_MAX)}…` : t
-}
-
-/** Was this stored `detail` produced by `clip` truncating the command? A
- *  clipped detail is not the whole command, so nothing may be re-judged from
- *  it alone (LUM-772 backfill). LUM-904: judged on the trailing `…` alone —
- *  the LUM-898 re-redaction shortens a clipped detail that quoted a credential
- *  (201 → 174), so its length says nothing any more. A whole command that
- *  happens to end in `…` reads as clipped too and stays open for a human, the
- *  safe side. */
-export function isClippedDetail(detail: string): boolean {
-  return detail.endsWith('…')
-}
-
-/** Codex `apply_patch` event (LUM-1051): `tool_input.command` is patch text. */
-function isApplyPatch(payload: unknown): boolean {
-  return (
-    !!payload &&
-    typeof payload === 'object' &&
-    (payload as Record<string, unknown>).tool_name === APPLY_PATCH_TOOL
-  )
-}
-
-/**
- * Pull the Bash command text out of a PostToolUse payload (unindexed JSON).
- * LUM-1051: an `apply_patch` command is patch text, not shell — matching it
- * against the shell rules would flag any patch that merely mentions
- * `git push`. Its file deletions are what a shell `rm` would be, so they are
- * read as a synthetic `rm -- <paths>` (TEST_FILE_DELETED, migration deletes,
- * project action rules); a patch without deletions has no command.
- */
-function readCommand(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') return null
-  const input = (payload as Record<string, unknown>).tool_input
-  if (!input || typeof input !== 'object') return null
-  if (isApplyPatch(payload)) {
-    const deleted = applyPatchDeletedPaths(input)
-    return deleted.length > 0 ? `rm -- ${deleted.join(' ')}` : null
-  }
-  const cmd = (input as Record<string, unknown>).command
-  return typeof cmd === 'string' ? cmd : null
-}
+// LUM-1063: moved to pure core modules; re-exported so every caller keeps
+// importing them from here.
+export type { BoundaryDetectionInput, DetectedCrossing }
+export { isClippedDetail } from '@/lib/boundary-crossing/detection-input'
+export { isReversible, severityFor } from '@/lib/boundary-crossing/taxonomy'
+export {
+  sensitivePathGlobsFromRules,
+  sensitiveReadRulesFromRules,
+} from '@/lib/boundary-crossing/policy-rule-paths'
 
 /**
  * LUM-779: the CLI post-tool-use hook folds `_lumo_deleted_test_files` into a
@@ -786,136 +708,6 @@ function matchTestFileDelete(cmd: string): boolean {
   return false
 }
 
-/**
- * Taxonomy-driven reversibility (LUM-435; reclassified LUM-516). Anchored on the
- * world/external-state boundary: a crossing is REVERSIBLE when it mutates only
- * repo or Lumo-internal state (restorable from git or Lumo state), and
- * IRREVERSIBLE only when it destroys external world state that neither git nor
- * Lumo can bring back — a leaked secret, dropped/exfiltrated/deleted data, or
- * terminated infra. Editorial crossings (migration-file deletes, unbound-session
- * work, protected-branch pushes) are reversible: `git restore` / archive-and-reopen /
- * a follow-up commit undoes the artifact.
- *
- * Reversibility is ORTHOGONAL to severity. The DONE gate blocks on severity
- * (HIGH), never on reversibility — so this classification weakens no gate; it
- * only sets the lock/unlock label and the loudness of the remediation nudge. Do
- * NOT "simplify" the editorial classes back to irreversible.
- *
- * Enumerate the reversible set; any unknown/future category falls through to
- * irreversible — the conservative default until it is deliberately classified.
- */
-const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
-  'NEW_NPM_DEPENDENCY',
-  // LUM-942: deprecated — the acceptance-criteria detectors that produced these
-  // were removed and nothing writes them anymore; kept so old rows still render
-  // with their original (editorial, reversible) classification.
-  'TEST_TAMPERING',
-  'CONTRACT_WEAKENING',
-  'SPINOFF_LAUNDERED',
-  'SILENT_FIX',
-  'MIGRATION_FILE_DELETED',
-  'SESSION_BINDING_MISSING',
-  'PUSH_TO_PROTECTED_BRANCH',
-  // LUM-630: a committed CLAUDE.md edit that removed/downgraded a rule is repo
-  // state — `git restore` brings the rule back.
-  'POLICY_WEAKENING',
-  // LUM-640: a steward-session commit is repo state (revertable) and a PR can
-  // be closed — same world-state class as PUSH_TO_PROTECTED_BRANCH.
-  'STEWARD_IMPLEMENTATION_ARTIFACT',
-  // LUM-736: the L4 session-guard classes mutate repo state only (an edit, a
-  // deleted tracked file) or skip a local hook — `git restore` / a follow-up
-  // commit / re-running the hooks undoes each of them.
-  'SENSITIVE_PATH_EDIT',
-  'HOOK_BYPASS',
-  'TEST_FILE_DELETED',
-  // LUM-963: a read mutates nothing — no repo, Lumo or world state changes.
-  // (Sending what was read somewhere is a separate, irreversible class.)
-  'SENSITIVE_PATH_READ',
-])
-
-/** Target prefix stamped by the code pipeline on diff-based rule violations. */
-const CODE_RULE_TARGET_PREFIX = 'coderule:'
-
-export function isReversible(
-  category: BoundaryCrossingCategory,
-  target?: string | null
-): boolean {
-  // LUM-630: PROJECT_RULE_VIOLATION spans two origins with different
-  // world-state footprints, so it is classified by target, not as a whole:
-  // - `coderule:*` (code pipeline) — the violation is diff content, pure repo
-  //   state, undone by a follow-up commit → reversible.
-  // - `actionrule:*` (command matcher) — the matched command is arbitrary
-  //   shell and may have touched external state → conservative irreversible,
-  //   same default as an unknown category.
-  if (category === 'PROJECT_RULE_VIOLATION') {
-    return target?.startsWith(CODE_RULE_TARGET_PREFIX) === true
-  }
-  return REVERSIBLE_CATEGORIES.has(category)
-}
-
-/**
- * Taxonomy-driven severity tier (LUM-442), single source alongside the matchers.
- * HIGH = the "rare but high-severity" classes (secret leak, destructive DB,
- * exfiltration, cloud-data deletion, infra termination, untrusted code
- * execution). MEDIUM = shared-branch
- * push / migration deletion (serious but recoverable). LOW = a dependency
- * install. Evasion-decoded matches are escalated to HIGH at detection time
- * regardless of the underlying class.
- */
-export function severityFor(
-  category: BoundaryCrossingCategory
-): BoundaryCrossingSeverity {
-  switch (category) {
-    case 'NEW_NPM_DEPENDENCY':
-    // LUM-963: a hint for the reviewer, always advisory — never blocks DONE.
-    case 'SENSITIVE_PATH_READ':
-      return 'LOW'
-    case 'PUSH_TO_PROTECTED_BRANCH':
-    case 'MIGRATION_FILE_DELETED':
-    // LUM-942: deprecated (no longer produced — the acceptance-criteria
-    // detectors were removed); old rows keep their original MEDIUM tier.
-    case 'TEST_TAMPERING':
-    case 'CONTRACT_WEAKENING':
-    case 'SPINOFF_LAUNDERED':
-    case 'SILENT_FIX':
-    // LUM-491: unbound-session work is serious (session-binding lock bypass) but
-    // deterministically detectable and not data-destructive, so MEDIUM.
-    case 'SESSION_BINDING_MISSING':
-    // LUM-640: implementation artifacts from a STEWARD (governance) session —
-    // a role-boundary breach, deterministically detectable and repo-scoped
-    // (like SESSION_BINDING_MISSING), so MEDIUM.
-    case 'STEWARD_IMPLEMENTATION_ARTIFACT':
-    // LUM-736 L4 Session Guard: deterministic, repo-scoped, not data-destructive
-    // — visible + tiered, honours the workspace opt-out rather than force-gating.
-    case 'SENSITIVE_PATH_EDIT':
-    case 'HOOK_BYPASS':
-    case 'TEST_FILE_DELETED':
-    // LUM-793: deleting a proven-useful TRAP memory destroys team knowledge but
-    // is not data-destructive to a customer's world — MEDIUM, in the same
-    // visible-and-dismissable tier as TEST_FILE_DELETED (its nearest analogue:
-    // "something that was protecting us stopped existing").
-    case 'USED_TRAP_MEMORY_DELETED':
-      return 'MEDIUM'
-    case 'HARDCODED_SECRET':
-    case 'DESTRUCTIVE_DB_COMMAND':
-    case 'EXFILTRATION_PUBLIC':
-    case 'CLOUD_DATA_DELETION':
-    case 'INFRA_TERMINATION':
-    // LUM-960: wiping a root-level directory / disk outside the repo.
-    case 'DESTRUCTIVE_FS_COMMAND':
-    // LUM-962: running code from an unvetted source — whatever it does is
-    // already done; the same "rare but high-severity" tier as exfiltration.
-    case 'UNTRUSTED_CODE_EXECUTION':
-    // LUM-750 (reverted): the enum value stays (Postgres cannot drop one); it
-    // is never produced, but it stays classified HIGH + irreversible so the
-    // taxonomy table covers every enum value.
-    case 'SELF_DISPOSITION':
-      return 'HIGH'
-    default:
-      return 'MEDIUM'
-  }
-}
-
 // --- LUM-640 steward implementation-artifact detection --------------------------
 
 /**
@@ -977,39 +769,64 @@ function decodeBase64Segments(cmd: string): string[] {
   return out
 }
 
-/** The command-shaped matchers, paired with their category — single source for
- *  both detection (matchCommand) and the coalescing fingerprint below. */
-const COMMAND_MATCHERS: ReadonlyArray<{
-  category: BoundaryCrossingCategory
-  fn: (cmd: string) => boolean
-  /** Match against the raw command instead of its executing segments. */
-  raw?: boolean
-}> = [
+/** The core's command-shaped matchers (baseline), paired with their category —
+ *  single source for both detection (matchCommand) and the coalescing
+ *  fingerprint below. */
+const CORE_COMMAND_MATCHERS: ReadonlyArray<CrossingCommandMatcher> = [
   { category: 'PUSH_TO_PROTECTED_BRANCH', fn: matchProtectedPush },
   { category: 'MIGRATION_FILE_DELETED', fn: matchMigrationDelete },
   { category: 'DESTRUCTIVE_DB_COMMAND', fn: matchDestructiveDb },
   { category: 'NEW_NPM_DEPENDENCY', fn: matchNewNpmDependency },
+  // LUM-1063: the action classes are core matchers; a plugin may add the
+  // LUM-466 prose confirmation on top (without it they are recorded as is).
   { category: 'EXFILTRATION_PUBLIC', fn: matchExfiltrationPublic },
   { category: 'CLOUD_DATA_DELETION', fn: matchCloudDataDeletion },
   { category: 'INFRA_TERMINATION', fn: matchInfraTermination },
-  // LUM-960: rm -rf / find -delete on a root-level path, shred, mkfs, dd of=/dev.
-  { category: 'DESTRUCTIVE_FS_COMMAND', fn: matchDestructiveFs },
-  // LUM-962: reads the RAW command — the `|` between a downloader and an
-  // interpreter is the signal, and the executing-segment view has cut it.
-  // Carriers are excluded inside the matcher itself.
-  {
-    category: 'UNTRUSTED_CODE_EXECUTION',
-    fn: matchUntrustedCodeExecution,
-    raw: true,
-  },
   // LUM-736 L4 Session Guard (segment-scoped; prose-confirmed via LUM-466).
   { category: 'HOOK_BYPASS', fn: matchHookBypass },
   { category: 'TEST_FILE_DELETED', fn: matchTestFileDelete },
 ]
 
-/** The command-shaped categories, for parity guards in tests (LUM-772). */
-export const COMMAND_MATCHER_CATEGORIES: ReadonlyArray<BoundaryCrossingCategory> =
-  COMMAND_MATCHERS.map(m => m.category)
+/**
+ * LUM-1063: the order the command matchers run in — and so the order their
+ * crossings are reported and recorded in. It keeps a slot for the
+ * command-shaped categories a plugin registers (LUM-960 destructive-fs,
+ * LUM-962 untrusted code), so installing the plugin reproduces the pre-split
+ * order exactly. A plugin matcher for a category not listed here runs last.
+ */
+const COMMAND_CATEGORY_ORDER: ReadonlyArray<BoundaryCrossingCategory> = [
+  'PUSH_TO_PROTECTED_BRANCH',
+  'MIGRATION_FILE_DELETED',
+  'DESTRUCTIVE_DB_COMMAND',
+  'NEW_NPM_DEPENDENCY',
+  'EXFILTRATION_PUBLIC',
+  'CLOUD_DATA_DELETION',
+  'INFRA_TERMINATION',
+  'DESTRUCTIVE_FS_COMMAND',
+  'UNTRUSTED_CODE_EXECUTION',
+  'HOOK_BYPASS',
+  'TEST_FILE_DELETED',
+]
+
+/** The core matchers plus every plugin detector's, in COMMAND_CATEGORY_ORDER. */
+function installedCommandMatchers(): CrossingCommandMatcher[] {
+  const all = [
+    ...CORE_COMMAND_MATCHERS,
+    ...pluginCrossingDetectors().flatMap(d => d.commandMatchers ?? []),
+  ]
+  const rank = (c: BoundaryCrossingCategory) => {
+    const i = COMMAND_CATEGORY_ORDER.indexOf(c)
+    return i < 0 ? COMMAND_CATEGORY_ORDER.length : i
+  }
+  // Array.prototype.sort is stable: same-category matchers keep their order.
+  return all.sort((a, b) => rank(a.category) - rank(b.category))
+}
+
+/** The command-shaped categories the installed matchers cover, for parity
+ *  guards in tests (LUM-772). LUM-1063: depends on the installed plugins. */
+export function commandMatcherCategories(): BoundaryCrossingCategory[] {
+  return installedCommandMatchers().map(m => m.category)
+}
 
 /**
  * The coalescing target (LUM-477) for an action-class crossing: the single shell
@@ -1054,7 +871,7 @@ function matchCommand(cmd: string, evasion: boolean): DetectedCrossing[] {
   // The carrier-free command: executing segments only, re-joined so a matcher
   // that reads context across segments (an env var + a curl) still sees it.
   const executing = executingSegments(cmd, { keepGit: true }).join('\n')
-  for (const { category, fn, raw } of COMMAND_MATCHERS) {
+  for (const { category, fn, raw } of installedCommandMatchers()) {
     if (!fn(raw ? cmd : executing)) continue
     out.push({
       category,
@@ -1122,6 +939,10 @@ export function applyNetDeletionState(
 /**
  * Pure taxonomy match. Returns every boundary the event crosses (a command can
  * trip more than one rule). No I/O — safe to unit-test exhaustively.
+ *
+ * LUM-1063: runs the installed detectors — the core baseline plus whatever a
+ * plugin registered (its command matchers join the literal and evasion
+ * passes; its `detect` runs after the secret scan).
  */
 export function detectCrossings(
   input: Pick<BoundaryDetectionInput, 'toolName' | 'filePath' | 'payload'>
@@ -1196,183 +1017,131 @@ export function detectCrossings(
     }
   }
 
-  // LUM-963: reading a credential store outside the repo (Read tool, or a
-  // Bash segment whose verb reads its operands). Recorded LOW + advisory —
-  // agents read config constantly, so this is a hint and never blocks DONE.
-  // Coalesces per normalized path.
-  for (const r of detectSensitiveReads({
-    toolName: input.toolName,
-    filePath: input.filePath,
-    command: cmd,
-  })) {
-    out.push(sensitiveReadCrossing(r))
+  // LUM-1063: the plugin detectors' event-level checks (e.g. LUM-963 reads of
+  // a credential store). A throw drops only that detector's part.
+  const event = detectionEvent(input, cmd)
+  for (const d of pluginCrossingDetectors()) {
+    if (!d.detect) continue
+    try {
+      out.push(...d.detect(event))
+    } catch (error) {
+      logDetectorFailure(d, 'detect', error)
+    }
   }
 
   return out
 }
 
-/** One sensitive read → its crossing. Always LOW + advisory, whether the
- *  built-in list or a project rule made the path sensitive (LUM-963). */
-function sensitiveReadCrossing(r: SensitiveReadMatch): DetectedCrossing {
+function detectionEvent(
+  input: Pick<BoundaryDetectionInput, 'toolName' | 'filePath' | 'payload'>,
+  command: string | null = readCommand(input.payload)
+): CrossingDetectionEvent {
   return {
-    category: 'SENSITIVE_PATH_READ',
-    detail: clip(
-      `read sensitive path ${r.path} (${r.label}) via ${r.via} — advisory${
-        r.alsoRead?.length
-          ? ` — +${r.alsoRead.length} more in this command: ${r.alsoRead.join(', ')}`
-          : ''
-      }`
-    ),
-    severity: severityFor('SENSITIVE_PATH_READ'),
-    target: r.path,
-    advisory: true,
-    ...(r.ruleId != null ? { policyRuleRef: r.ruleId } : {}),
-    ...(r.ruleText != null ? { policyRuleText: r.ruleText } : {}),
+    toolName: input.toolName,
+    filePath: input.filePath,
+    payload: input.payload,
+    command,
   }
 }
 
-/**
- * LUM-963 multi-tenant extension: the project's own sensitive-read paths —
- * deterministic `path-glob` rules the policy compiler mapped to
- * SENSITIVE_PATH_READ from the customer's CLAUDE.md / AGENTS.md. Unlike
- * SENSITIVE_PATH_EDIT's override, these ADD to the built-in credential stores.
- * Pure.
- */
-export function sensitiveReadRulesFromRules(
-  rules: PolicyRule[]
-): ProjectReadRule[] {
-  return rules
-    .filter(
-      r =>
-        r.tier === 'deterministic' &&
-        r.mappedCategory === 'SENSITIVE_PATH_READ' &&
-        r.predicate?.type === 'path-glob' &&
-        r.predicate.value.trim().length > 0
-    )
-    .map(r => ({
-      glob: (r.predicate as { value: string }).value.trim(),
-      ruleId: r.id,
-      ruleText: r.text,
-    }))
+function logDetectorFailure(
+  d: CrossingDetector,
+  hook: string,
+  error: unknown
+): void {
+  logger.error(
+    `[boundary-detector] plugin detector ${d.id}.${hook} failed:`,
+    error instanceof Error ? error.message : String(error)
+  )
+}
+
+/** The categories the installed command matchers find on `cmd` (literal pass,
+ *  no evasion decode) — the confirmation step's "still matches" test. */
+function commandCategories(cmd: string): Set<BoundaryCrossingCategory> {
+  return new Set(matchCommand(cmd, false).map(c => c.category))
 }
 
 /**
- * The reads a project rule adds for one event (built-in reads come from
- * `detectCrossings`). Pure + exported for tests.
+ * The confirmation step (LUM-466) over the crossings `detectCrossings`
+ * produced: each plugin detector's `confirm`, in registration order. With no
+ * plugin — or a confirm that throws — the crossings pass through unchanged:
+ * the action classes are recorded without the LLM prose confirmation (more
+ * noise, never less recall). `judge` overrides the plugin's own judge
+ * (tests, offline eval).
+ */
+export async function confirmActionCandidates(
+  input: {
+    payload: unknown
+    toolName?: string | null
+    filePath?: string | null
+  },
+  crossings: DetectedCrossing[],
+  judge?: CrossingConfirmJudge
+): Promise<DetectedCrossing[]> {
+  const event = detectionEvent({
+    toolName: input.toolName ?? null,
+    filePath: input.filePath ?? null,
+    payload: input.payload,
+  })
+  let out = crossings
+  for (const d of pluginCrossingDetectors()) {
+    if (!d.confirm) continue
+    try {
+      out = await d.confirm(event, out, {
+        commandCategories,
+        ...(judge ? { judge } : {}),
+      })
+    } catch (error) {
+      logDetectorFailure(d, 'confirm', error)
+    }
+  }
+  return out
+}
+
+/** Every plugin detector's `detectWithRules` for one event. */
+function detectWithRules(
+  event: CrossingDetectionEvent,
+  rules: readonly PolicyRule[]
+): DetectedCrossing[] {
+  const out: DetectedCrossing[] = []
+  for (const d of pluginCrossingDetectors()) {
+    if (!d.detectWithRules) continue
+    try {
+      out.push(...d.detectWithRules(event, rules))
+    } catch (error) {
+      logDetectorFailure(d, 'detectWithRules', error)
+    }
+  }
+  return out
+}
+
+/**
+ * The crossings the project's compiled ACTION rules raise for an event
+ * (LUM-590 PROJECT_RULE_VIOLATION). LUM-1063: the predicates are produced by
+ * the plugin's LLM compiler and judged by its detector, so this reads the
+ * installed detectors' output — `[]` without a plugin.
+ */
+export function detectProjectActionCrossings(
+  input: { toolName: string | null; payload: unknown },
+  rules: PolicyRule[]
+): DetectedCrossing[] {
+  return detectWithRules(
+    detectionEvent({ ...input, filePath: null }),
+    rules
+  ).filter(c => c.category === 'PROJECT_RULE_VIOLATION')
+}
+
+/**
+ * The reads a project rule adds for one event (LUM-963; built-in reads come
+ * from `detectCrossings`). LUM-1063: a plugin detector's — `[]` without one.
  */
 export function detectProjectSensitiveReadCrossings(
   input: Pick<BoundaryDetectionInput, 'toolName' | 'filePath' | 'payload'>,
   rules: PolicyRule[]
 ): DetectedCrossing[] {
-  return detectProjectSensitiveReads(
-    {
-      toolName: input.toolName,
-      filePath: input.filePath,
-      command: readCommand(input.payload),
-    },
-    sensitiveReadRulesFromRules(rules)
-  ).map(sensitiveReadCrossing)
-}
-
-// --- LUM-466: action-category prose-vs-real confirmation ----------------------
-//
-// The deterministic command matchers are high-recall and also trip on a
-// forbidden token that appears only as PROSE — inside a commit message, a PR
-// body, an echo string. For each action-category candidate we re-run the
-// matchers on a prose-stripped copy of the command: a category that STILL
-// matches outside all quotes/heredocs is a real executed action (certain → flag,
-// no LLM call); one that vanished matched only prose and is handed to the
-// best-effort LLM confirmation, which suppresses it ONLY on a clear PROSE_ONLY
-// verdict. Conservative + observe-only throughout (criteria 2/3).
-
-// Process-level cache so an identical (category, command) is confirmed once.
-// Failures are NOT cached, so a transient gateway error re-tries on the next hit.
-const actionConfirmCache = new Map<string, Promise<ActionConfirmVerdict>>()
-const ACTION_CONFIRM_CACHE_MAX = 500
-
-function actionConfirmCacheKey(input: ActionConfirmInput): string {
-  return createHash('sha256')
-    .update(`${input.category}\n${input.command}`)
-    .digest('hex')
-}
-
-function cachedActionConfirm(
-  input: ActionConfirmInput
-): Promise<ActionConfirmVerdict> {
-  const key = actionConfirmCacheKey(input)
-  const hit = actionConfirmCache.get(key)
-  if (hit) return hit
-  // Lazy import: pay the SDK load only when the model is actually consulted.
-  const p = import('@/lib/llm/action-confirm-client').then(mod =>
-    mod.confirmActionExecuted(input)
+  return detectWithRules(detectionEvent(input), rules).filter(
+    c => c.category === 'SENSITIVE_PATH_READ'
   )
-  actionConfirmCache.set(key, p)
-  p.catch(() => actionConfirmCache.delete(key))
-  if (actionConfirmCache.size > ACTION_CONFIRM_CACHE_MAX) {
-    const oldest = actionConfirmCache.keys().next().value
-    if (oldest !== undefined) actionConfirmCache.delete(oldest)
-  }
-  return p
-}
-
-/**
- * Confirm the action-category candidates in `crossings` against the command:
- * keep every non-action crossing untouched; keep an action crossing that still
- * matches on the prose-stripped command (a real, deterministically-certain
- * action — NO LLM call); for one that matched ONLY inside prose, ask the
- * best-effort LLM and DROP it only on a clear PROSE_ONLY verdict (REAL_ACTION /
- * uncertain / failure keeps it). Defensive throughout — any error keeps the base
- * (flagged) crossing, so a candidate is never silently lost (criteria 2/3).
- */
-export async function confirmActionCandidates(
-  input: Pick<BoundaryDetectionInput, 'payload'>,
-  crossings: DetectedCrossing[],
-  judge: ActionConfirmJudge = cachedActionConfirm
-): Promise<DetectedCrossing[]> {
-  const cmd = readCommand(input.payload)
-  // Without a command string there is no prose to strip and nothing to confirm
-  // (a Write's HARDCODED_SECRET, etc.) — pass the crossings through untouched.
-  if (!cmd) return crossings
-  // Stage 1: which categories still match OUTSIDE all prose? Those are real,
-  // deterministically-certain actions and never reach the LLM.
-  let certain: Set<BoundaryCrossingCategory>
-  try {
-    certain = new Set(matchCommand(stripProse(cmd), false).map(c => c.category))
-  } catch {
-    // If de-prose itself fails, keep every flag (the conservative direction).
-    return crossings
-  }
-  const out: DetectedCrossing[] = []
-  for (const c of crossings) {
-    if (!isActionConfirmCategory(c.category)) {
-      out.push(c) // HARDCODED_SECRET / NEW_NPM_DEPENDENCY
-      continue
-    }
-    // Evasion-decoded crossings (base64) are deliberate obfuscation, already
-    // HIGH — never let the LLM suppress one (the high-severity red line).
-    if (isEvasionDecoded(c.detail)) {
-      out.push(c)
-      continue
-    }
-    if (certain.has(c.category)) {
-      out.push(c) // matched outside prose → a real action, flagged without the LLM
-      continue
-    }
-    // Prose candidate → best-effort confirmation. Suppress only on PROSE_ONLY;
-    // REAL_ACTION / uncertain / failure keeps the candidate flagged.
-    let verdict: ActionConfirmVerdict
-    try {
-      verdict = await confirmActionCrossing(
-        { command: cmd, category: c.category },
-        { judge }
-      )
-    } catch {
-      verdict = 'REAL_ACTION'
-    }
-    if (verdict === 'PROSE_ONLY') continue
-    out.push(c)
-  }
-  return out
 }
 
 /** Normalize a path for comparison: forward slashes, no leading `./`. */
@@ -1403,24 +1172,6 @@ const DEFAULT_SENSITIVE_PATH_RULES: ReadonlyArray<{
   },
   { label: 'prisma/schema.prisma', re: /(?:^|\/)prisma\/schema\.prisma$/ },
 ]
-
-/**
- * The project's own sensitive-path globs (LUM-736): deterministic `path-glob`
- * rules the policy compiler mapped to SENSITIVE_PATH_EDIT. Non-empty → they
- * REPLACE the built-in path set for that project (an override, not a union);
- * empty → the defaults apply. Pure.
- */
-export function sensitivePathGlobsFromRules(rules: PolicyRule[]): string[] {
-  return rules
-    .filter(
-      r =>
-        r.tier === 'deterministic' &&
-        r.mappedCategory === 'SENSITIVE_PATH_EDIT' &&
-        r.predicate?.type === 'path-glob' &&
-        r.predicate.value.length > 0
-    )
-    .map(r => (r.predicate as { value: string }).value)
-}
 
 /** A repo-relative glob must also match the tail of an absolute event path. */
 function matchSensitiveGlob(glob: string, path: string): boolean {
@@ -1484,82 +1235,6 @@ export function detectSensitivePathEdit(input: {
   }
 }
 
-// --- LUM-590: project action-rule predicates ----------------------------------
-
-/**
- * Resolve the project context needed to load the compiled policy for a task.
- * Returns { projectId, workspaceId, fullName } or null when either the task is
- * absent or the project has no default linked repository.
- * LUM-483 compliant: delegates to repositories, no prisma.* here.
- */
-async function resolveProjectContext(task: {
-  projectId: string
-  project: { workspaceId: string }
-}): Promise<{
-  projectId: string
-  workspaceId: string
-  fullName: string
-} | null> {
-  const defaultRepo = await projectRepository.findDefaultRepository(
-    task.projectId
-  )
-  if (!defaultRepo) return null
-  return {
-    projectId: task.projectId,
-    workspaceId: task.project.workspaceId,
-    fullName: defaultRepo.fullName,
-  }
-}
-
-/**
- * Pure helper (LUM-590): test a set of compiled PolicyRules against a hook
- * event's command and return any crossings. Only deterministic action rules
- * with a cmd-substr predicate are handled here — path-glob action predicates
- * are handled by the code pipeline. No I/O — safe to unit-test exhaustively.
- *
- * v1 semantics: a project-specific predicate (blocking === false) produces an
- * ADVISORY crossing; a mapped built-in (blocking === true) would produce a
- * standard crossing, but in practice blocking rules always go through the
- * existing built-in matchers above.
- */
-export function detectProjectActionCrossings(
-  input: { toolName: string | null; payload: unknown },
-  rules: PolicyRule[]
-): DetectedCrossing[] {
-  const command = readCommand(input.payload)
-  if (!command) return []
-  const out: DetectedCrossing[] = []
-  for (const r of rules) {
-    if (r.kind !== 'action' || r.tier !== 'deterministic' || !r.predicate)
-      continue
-    const p = r.predicate
-    // path-glob action predicates are handled by the code pipeline — skip here.
-    // LUM-751: segment-scoped + prose-stripped (lib/boundary-crossing/
-    // action-rule-match) — a read-only / PR-target reference or a quoted
-    // keyword no longer counts as a violation.
-    // LUM-772: a push prohibition compiles to `push-target` and is judged on
-    // the push's OWN destination (a feature push next to `gh pr create --base
-    // main` is not a push to main).
-    const hit =
-      p.type === 'cmd-substr'
-        ? matchActionRule(p.value, command)
-        : p.type === 'push-target'
-          ? matchPushTarget(p.value, command)
-          : false
-    if (!hit) continue
-    out.push({
-      category: 'PROJECT_RULE_VIOLATION',
-      detail: clip(command),
-      severity: r.severity,
-      target: `actionrule:${r.id}`,
-      advisory: !r.blocking,
-      policyRuleRef: r.id,
-      policyRuleText: r.text,
-    })
-  }
-  return out
-}
-
 /**
  * LUM-923: true only when the task is positively found in the trash. An
  * unknown task, or a failed lookup, reads false so detection still records
@@ -1590,13 +1265,15 @@ export const boundaryDetectorService = {
       // LUM-466: confirm action-category candidates — drop a forbidden token that
       // matched only as prose (commit message / PR body / echo), keep real
       // executed actions and anything the best-effort LLM can't clear.
+      // LUM-1063: a plugin step; without one the candidates are kept as is.
       const confirmed = await confirmActionCandidates(input, crossings)
 
-      // LUM-590: load the project policy best-effort and append any project
-      // action-rule crossings. Wrapped in try/catch per the exit-0 invariant —
-      // the detector must never throw even if the compiler is unavailable.
-      // LUM-751: the task's projectId is captured on the way (for suppression
-      // rules) — it is known even when the project has no default repository.
+      // LUM-590: load the project policy best-effort (the plugin's policy rule
+      // source compiles CLAUDE.md / AGENTS.md). Wrapped in try/catch per the
+      // exit-0 invariant — the detector must never throw even if the compiler
+      // is unavailable. LUM-751: the task's projectId is captured on the way
+      // (for suppression rules) — it is known even when the project has no
+      // default repository.
       let projectRules: PolicyRule[] = []
       let projectId: string | null = null
       try {
@@ -1604,26 +1281,17 @@ export const boundaryDetectorService = {
           input.taskId
         )
         projectId = task?.projectId ?? null
-        const ctx = task ? await resolveProjectContext(task) : null
-        if (ctx) {
-          const { policyCompilerService } =
-            await import('@/lib/services/policy/policy-compiler.service')
-          const compiled = await policyCompilerService.ensureCompiled({
-            projectId: ctx.projectId,
-            workspaceId: ctx.workspaceId,
-            fullName: ctx.fullName,
+        const source = policyRuleSource()
+        if (task && source) {
+          projectRules = await source.rulesForTask({
             taskId: input.taskId,
+            projectId: task.projectId,
+            workspaceId: task.project.workspaceId,
           })
-          projectRules = compiled?.rules ?? []
         }
       } catch {
         // observer: never throw, project path is best-effort
       }
-      const projectCrossings = detectProjectActionCrossings(
-        { toolName: input.toolName, payload: input.payload },
-        projectRules
-      )
-      confirmed.push(...projectCrossings)
       // LUM-736: sensitive-path edit — the project's path-glob override (if the
       // compiled policy carries one) replaces the built-in path set.
       // LUM-1051: an apply_patch can touch several files — check each one.
@@ -1636,17 +1304,10 @@ export const boundaryDetectorService = {
         })
         if (sensitive) confirmed.push(sensitive)
       }
-      // LUM-963: the project's own sensitive-read paths (advisory, additive).
-      confirmed.push(
-        ...detectProjectSensitiveReadCrossings(
-          {
-            toolName: input.toolName,
-            filePath: input.filePath,
-            payload: input.payload,
-          },
-          projectRules
-        )
-      )
+      // LUM-590 / LUM-963: the project rules' own detections (plugin) —
+      // PROJECT_RULE_VIOLATION from action predicates, SENSITIVE_PATH_READ
+      // from the project's read globs.
+      confirmed.push(...detectWithRules(detectionEvent(input), projectRules))
 
       // LUM-751: the project's active, human-authored suppression rules.
       // Best-effort — no rules means nothing is suppressed (the safe side).

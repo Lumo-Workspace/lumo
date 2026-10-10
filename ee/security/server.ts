@@ -10,6 +10,9 @@
  * (done-verdict, task-status, the hook routes…) do not pull the scan graph
  * into their own static graph. The dispatcher stays static on purpose: it
  * only needs the logger, and the PR events must start it synchronously.
+ * LUM-1063: so do the policy-check dispatcher (logger only) and the crossing
+ * detectors (pure; the hook pipeline calls them synchronously — the LLM
+ * confirmation and the policy compiler inside them load lazily).
  */
 import type {
   LumoServerPlugin,
@@ -22,6 +25,12 @@ import {
   shouldScanOnPrEvent,
 } from '@/lib/services/pr-security-scan-dispatch'
 import { securityTaskStatusSection } from './task-status'
+import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch'
+import {
+  advancedCommandDetector,
+  policyRuleDetector,
+} from './crossing-detectors'
+import { compiledPolicyRuleSource } from './policy-rules'
 
 export const securityPlugin: LumoServerPlugin = {
   id: 'security',
@@ -83,6 +92,32 @@ export const securityPlugin: LumoServerPlugin = {
     api.on('github.push', ({ isDefaultBranch, workspaceId, repo, headSha }) => {
       if (!isDefaultBranch) return
       waitUntil(requestBaseline({ workspaceId, repo, sha: headSha }))
+    })
+
+    // LUM-1063 (PR4): boundary crossings. The advanced detectors and the
+    // LUM-466 prose confirmation (LLM), the compiled project policy rules
+    // (LUM-590, LLM compiler) and the system explanation of a crossing (LLM).
+    api.crossingDetector(advancedCommandDetector)
+    api.crossingDetector(policyRuleDetector)
+    api.policyRuleSource(compiledPolicyRuleSource)
+    api.crossingExplainer({
+      id: 'security',
+      async explain(input) {
+        // Dynamic import — keeps the LLM client off the detect/hot path.
+        const { explainCrossing } =
+          await import('@/lib/llm/crossing-explain-client')
+        return explainCrossing(input)
+      },
+    })
+
+    // LUM-590: on IN_REVIEW, dispatch the code-rule pipeline to the foreground
+    // worker (/api/internal/policy-check, 300s). Runs the deterministic
+    // diff-regex pass + the semantic LLM judge against the PR diff and
+    // persists findings as advisory boundary crossings. Must NOT run inline in
+    // the task route's ~15s waitUntil budget (same pattern as run-summary
+    // LUM-576 and fold LUM-555). Best-effort: the dispatcher never throws.
+    api.on('task.statusChanged', ({ taskId, status }) => {
+      if (status === 'IN_REVIEW') void dispatchPolicyCheck(taskId)
     })
 
     api.retention({
