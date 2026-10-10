@@ -35,7 +35,14 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
 import { cleanPrSummary, type PrSummary } from '@/lib/security-scan/pr-summary'
-import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
+import {
+  fetchPrDiff,
+  fetchPrHeadSha,
+  fetchReviewChangedPaths,
+} from '@/lib/integrations/github/contents'
+import { prReviewControlRepository } from '@/lib/repositories/pr-review-control.repository'
+import { affectedReviewDiff } from '@/lib/security-scan/review-control'
+import type { SecretDowngradeReason } from '@/lib/security-scan/types'
 import { reviewContextBudget } from '@/lib/security-scan/review-context'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
@@ -234,12 +241,15 @@ export interface SecurityScanView {
 
 export interface TaskSecurityScans {
   prs: {
+    reviewControl?: { paused: boolean; rounds: number; limit: number }
     pr: {
       id: string
       number: number
       title: string
       url: string
       state: string
+      repo?: string
+      headSha?: string | null
     }
     latest: SecurityScanView | null
   }[]
@@ -462,11 +472,19 @@ async function adoptExisting(existing: {
   if (existing.status === 'PENDING') {
     // Created by a CI SARIF push before any webhook ran (LUM-735): stage A
     // claims it in place. Its EXTERNAL_TOOL rows are the push's, kept.
-    await prSecurityScanRepository.claimPending(existing.id)
+    if ((await prSecurityScanRepository.claimPending(existing.id)) === false)
+      return { deduped: true, scanId: existing.id }
     return { scanId: existing.id }
   }
   if (isRerunnable(existing)) {
-    await prSecurityScanRepository.restart(existing.id)
+    if (
+      (await prSecurityScanRepository.restart(
+        existing.id,
+        false,
+        existing.startedAt
+      )) === false
+    )
+      return { deduped: true, scanId: existing.id }
     return { scanId: existing.id }
   }
   return { deduped: true, scanId: existing.id }
@@ -604,6 +622,7 @@ export const prSecurityScanService = {
   async run(input: {
     pullRequestId: string
     trigger: ScanTrigger
+    reviewMode?: 'incremental' | 'full'
   }): Promise<RunScanResult> {
     const pr = await pullRequestRepository.findById(input.pullRequestId)
     if (!pr) return { skipped: true, reason: 'pr_not_found' }
@@ -628,10 +647,24 @@ export const prSecurityScanService = {
       headSha
     )
     let scanId: string
+    let manualFindings:
+      | Awaited<ReturnType<typeof prReviewControlRepository.priorFindings>>
+      | undefined
     if (existing) {
-      const adopted = await adoptExisting(existing)
-      if ('deduped' in adopted) return adopted
-      scanId = adopted.scanId
+      if (input.reviewMode) {
+        const claimed = await prSecurityScanRepository.restart(
+          existing.id,
+          true
+        )
+        if (!Array.isArray(claimed))
+          return { deduped: true, scanId: existing.id }
+        manualFindings = claimed
+        scanId = existing.id
+      } else {
+        const adopted = await adoptExisting(existing)
+        if ('deduped' in adopted) return adopted
+        scanId = adopted.scanId
+      }
     } else {
       try {
         const created = await prSecurityScanRepository.create({
@@ -676,12 +709,49 @@ export const prSecurityScanService = {
     let vmConsumerStarted = false
 
     try {
+      const aiAllowed =
+        (layers.aiReview || layers.hunt) &&
+        (input.reviewMode !== undefined ||
+          (await prReviewControlRepository.reserve(pr.id, headSha)))
+      const reviewAllowed = layers.aiReview && aiAllowed
+      const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
+      if (reviewPaused) partialCauses.push('AI_REVIEW_PAUSED')
       const diff = await fetchPrDiff({
         workspaceId: pr.workspaceId,
         fullName: pr.repo,
         prNumber: pr.number,
       })
       const files = addedLinesWithNumbers(diff)
+      // The PR diff endpoint follows a moving ref. Refuse a push that raced
+      // this read rather than attaching another head's code to this scan.
+      if (
+        (await fetchPrHeadSha({
+          workspaceId: pr.workspaceId,
+          fullName: pr.repo,
+          prNumber: pr.number,
+        })) !== headSha
+      )
+        throw new Error('PR head changed while reading review diff')
+      let reviewDiff = diff
+      if (reviewAllowed && input.reviewMode !== 'full') {
+        const baseline = await prReviewControlRepository.baseline(pr.id, scanId)
+        if (baseline) {
+          try {
+            const paths = await fetchReviewChangedPaths({
+              workspaceId: pr.workspaceId,
+              fullName: pr.repo,
+              base: baseline.headSha,
+              head: headSha,
+            })
+            reviewDiff = affectedReviewDiff(diff, paths)
+          } catch {
+            logger.info(
+              `[pr-security-scan] incremental baseline unavailable pr=${pr.id}: full review`
+            )
+          }
+        }
+      }
+      const reviewFiles = addedLinesWithNumbers(reviewDiff)
 
       // ── A1: deterministic secret scan (pure) ────────────────────────────
       const secretHits = scanSecrets(files)
@@ -773,11 +843,14 @@ export const prSecurityScanService = {
       // kept alive for it either.
       const huntOverCap = touchedSourcePaths.length > HUNT_MAX_HUNTED_FILES
       const huntWantedForVm =
-        layers.hunt && !huntOverCap && (triggerFirstPass?.hunt ?? false)
+        layers.hunt &&
+        aiAllowed &&
+        !huntOverCap &&
+        (triggerFirstPass?.hunt ?? false)
       // LUM-988: the agentic verifier reads the same checkout. The judge has
       // not run yet when the managed scan starts, so the VM is kept alive
       // whenever the AI review is on and the verifier enabled.
-      const verifierVmWanted = layers.aiReview && isReviewVerifierEnabled()
+      const verifierVmWanted = reviewAllowed && isReviewVerifierEnabled()
 
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
@@ -916,21 +989,23 @@ export const prSecurityScanService = {
       // LUM-866: AI review off for the workspace = the judge is SKIPPED —
       // no model call, and no over-cap notice for a review nobody asked for.
       const judgeOverCap =
-        layers.aiReview && files.length > 0 && diff.length > judgeCapChars
+        reviewAllowed &&
+        reviewFiles.length > 0 &&
+        reviewDiff.length > judgeCapChars
       if (judgeOverCap) {
         judgeBudget = {
-          diffChars: diff.length,
+          diffChars: reviewDiff.length,
           tierChars: judgeCapChars,
           reviewedChars: 0,
           coveredFiles: 0,
-          droppedFiles: files.length,
+          droppedFiles: reviewFiles.length,
         }
         partialCauses.push('JUDGE_OVER_CAP')
         logger.info(
           `[pr-security-scan] judge over cap pr=${pr.id} sha=${headSha} diffChars=${diff.length} cap=${judgeCapChars}: not run`
         )
       }
-      if (layers.aiReview && files.length > 0 && !judgeOverCap) {
+      if (reviewAllowed && reviewFiles.length > 0 && !judgeOverCap) {
         // LUM-758: the budget is spent on WHOLE files, the ones the static
         // pass already flagged first — never on a character offset, which
         // made a file's coverage depend on where its name sorted.
@@ -938,8 +1013,8 @@ export const prSecurityScanService = {
         // LUM-758 拿改动源文件数选档、发的却是字符预算，于是文件少而胖的 PR
         // 比文件多而瘦的 PR 拿到更少的预算；`judgeDiffTier` 现在只收 diff，
         // 再把别的量喂进来是 tsc 错误。天花板（180k / 180s）不动。
-        const tier = judgeDiffTier(diff)
-        const capped = packSecurityDiff(diff, {
+        const tier = judgeDiffTier(reviewDiff)
+        const capped = packSecurityDiff(reviewDiff, {
           priorityPaths: triggerFirstPass?.sites.map(site => site.path) ?? [],
           maxChars: tier.chars,
         })
@@ -1080,15 +1155,63 @@ export const prSecurityScanService = {
       // LUM-892: turned off in the workspace settings = DISABLED, not
       // SKIPPED. SKIPPED is a completed layer ("nothing to review"), so an
       // AI review the customer switched off used to let the scan read CLEAN.
+      // Keep previous AI findings until explicit verification rejects them.
+      // Absence from an incremental scope is never evidence of a fix.
+      const carried =
+        manualFindings ??
+        (await prReviewControlRepository.priorFindings(pr.id, scanId))
+      const seen = new Set(judgeRows.map(row => row.fingerprint))
+      for (const finding of carried) {
+        if (finding.verifierVerdict === 'REJECTED') continue
+        if (seen.has(finding.fingerprint)) continue
+        judgeRows.push({
+          scanId,
+          kind: finding.kind,
+          ruleId: finding.ruleId,
+          severity: finding.severity,
+          provenance: finding.provenance,
+          filePath: finding.filePath,
+          line: finding.line,
+          title: finding.title,
+          detail: finding.detail,
+          evidence: finding.evidence,
+          fingerprint: finding.fingerprint,
+          externalRef: finding.externalRef,
+          disposition: finding.disposition,
+          dispositionNote: finding.dispositionNote,
+          dispositionedById: finding.dispositionedById,
+          dispositionedAt: finding.dispositionedAt,
+          suggestedDisposition: finding.suggestedDisposition,
+          suggestedReason: finding.suggestedReason,
+          suggestionOutcome: finding.suggestionOutcome,
+          cwe: finding.cwe,
+          reachability: finding.reachability,
+          falsifierVerdict: finding.falsifierVerdict,
+          persisting: finding.persisting,
+          inheritedFromFindingId: finding.id,
+          ...(Array.isArray(finding.callChain)
+            ? {
+                callChain: finding.callChain as Array<{
+                  from: string
+                  to: string
+                }>,
+              }
+            : {}),
+          secretDowngrade:
+            finding.secretDowngrade as SecretDowngradeReason | null,
+        })
+      }
       stages.judge = layers.aiReviewTurnedOff
         ? 'DISABLED'
-        : judgeStatus === 'RAN'
-          ? truncated
-            ? 'PARTIAL'
-            : 'RAN'
-          : judgeStatus === 'UNAVAILABLE'
-            ? 'FAILED'
-            : 'SKIPPED'
+        : layers.aiReview && reviewPaused
+          ? 'PAUSED'
+          : judgeStatus === 'RAN'
+            ? truncated
+              ? 'PARTIAL'
+              : 'RAN'
+            : judgeStatus === 'UNAVAILABLE'
+              ? 'FAILED'
+              : 'SKIPPED'
 
       // ── L3 trigger (LUM-739) ────────────────────────────────────────────
       // Pure decision here; the hunt itself is a Vercel Workflow started
@@ -1105,11 +1228,16 @@ export const prSecurityScanService = {
         hasOpenL4Crossing: hasOpenCrossing,
       })
       const huntWanted =
-        layers.hunt && files.length > 0 && huntTrigger.hunt && !huntOverCap
+        layers.hunt &&
+        aiAllowed &&
+        files.length > 0 &&
+        huntTrigger.hunt &&
+        !huntOverCap
       // Off (LUMO_SECURITY_HUNT=off, or the workspace's hunt switch — LUM-866)
       // = no hunt layer at all, not a SKIPPED one: the key is stamped only
       // when the layer exists for this PR.
-      if (layers.hunt) stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
+      if (layers.hunt)
+        stages.hunt = !aiAllowed ? 'PAUSED' : huntWanted ? 'PENDING' : 'SKIPPED'
       // LUM-892: the platform offers the hunt but the customer turned it
       // off — the layer is shown as off in settings rather than vanishing,
       // so a reader can tell "not checked" from "nothing to check".
@@ -1118,14 +1246,18 @@ export const prSecurityScanService = {
       // run (like CodeRabbit's file limit): recorded, with the numbers the
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
       const huntSkippedForCap =
-        layers.hunt && files.length > 0 && huntTrigger.hunt && huntOverCap
+        layers.hunt &&
+        aiAllowed &&
+        files.length > 0 &&
+        huntTrigger.hunt &&
+        huntOverCap
       if (huntSkippedForCap) partialCauses.push('HUNT_OVERSIZED')
 
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions(
         [...secretRows, ...graphRows, ...judgeRows],
-        prior
+        [...(manualFindings ?? []), ...prior]
       )
 
       // `status` stays "are there findings" (732 semantics — FAILED still
@@ -1136,10 +1268,21 @@ export const prSecurityScanService = {
       // them.
       const status: 'CLEAN' | 'FINDINGS' =
         rows.length + externalCount > 0 ? 'FINDINGS' : 'CLEAN'
+      if (
+        (await fetchPrHeadSha({
+          workspaceId: pr.workspaceId,
+          fullName: pr.repo,
+          prNumber: pr.number,
+        })) !== headSha
+      )
+        throw new Error('PR head changed before review completed')
       // Spec §6.1: findings and the status describing them are ONE write, so a
       // crash between them can never leave a FINDINGS scan with no rows (or
       // rows nobody can see under a scan still RUNNING).
       await prSecurityScanRepository.persistResult(scanId, rows, {
+        ...(manualFindings !== undefined
+          ? { replaceStageAFindings: true }
+          : {}),
         status,
         judgeStatus,
         truncated,
@@ -1224,7 +1367,7 @@ export const prSecurityScanService = {
       // Only when some row is one the verifier may reject (non-HIGH bug): a
       // scan of security / HIGH findings has nothing for it to change.
       if (
-        judgeStatus === 'RAN' &&
+        reviewAllowed &&
         judgeRows.some(r => verifierAppliesTo(r)) &&
         isReviewVerifierEnabled()
       ) {
@@ -1309,6 +1452,9 @@ export const prSecurityScanService = {
     let count = 0
     let suggested = 0
     const out = []
+    const controls = await Promise.all(
+      prs.map(pr => prReviewControlRepository.get(pr.id))
+    )
     for (const pr of prs) {
       const scan = latest.get(pr.id)
       const view = scan
@@ -1316,6 +1462,11 @@ export const prSecurityScanService = {
             queueExitOf(f, pr, exitContexts, policy)
           )
         : null
+      if (view && pr.headSha && scan?.headSha !== pr.headSha) {
+        view.complete = false
+        view.coverage = 'UNFINISHED'
+        view.ownedUnfinished = false
+      }
       if (view) {
         count += view.findings.filter(f => f.blocking).length
         suggested += view.findings.filter(
@@ -1326,7 +1477,18 @@ export const prSecurityScanService = {
             f.suggestedDisposition !== null
         ).length
       }
-      out.push({ pr, latest: view })
+      const control = controls[prs.indexOf(pr)]!
+      out.push({
+        pr,
+        latest: view,
+        reviewControl: {
+          paused:
+            control.reviewPaused ||
+            control.reviewHeads.length >= control.reviewRoundLimit,
+          rounds: control.reviewHeads.length,
+          limit: control.reviewRoundLimit,
+        },
+      })
     }
     return {
       prs: out,

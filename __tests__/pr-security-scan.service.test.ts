@@ -19,6 +19,7 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
+  fetchReviewChangedPaths: jest.fn(),
   // LUM-785: stage A's graph rules read touched files; null = not found.
   readRepoFile: jest.fn().mockResolvedValue(null),
 }))
@@ -433,7 +434,7 @@ test('a GitHub failure marks the scan FAILED and a FAILED scan is restarted on t
   })
   fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
   await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_LINK' })
-  expect(repo.restart).toHaveBeenCalledWith('s1')
+  expect(repo.restart).toHaveBeenCalledWith('s1', false, expect.any(Date))
   expect(repo.create).toHaveBeenCalledTimes(1)
 })
 
@@ -471,7 +472,7 @@ test('a scan wedged in RUNNING past the stale window is restarted, a fresh one i
     pullRequestId: 'pr1',
     trigger: 'PR_EVENT',
   })
-  expect(repo.restart).toHaveBeenCalledWith('s-stuck')
+  expect(repo.restart).toHaveBeenCalledWith('s-stuck', false, expect.any(Date))
   expect(r).toMatchObject({
     deduped: false,
     scanId: 's-stuck',
@@ -586,6 +587,7 @@ test('getForTask returns the latest scan per PR and the blocking count', async (
       state: 'open',
       workspaceId: 'ws1',
       repo: 'o/r',
+      headSha: null,
       mergedAt: null,
     },
     // A merged PR with no scan at all reads nothing — no baseline needed.
@@ -597,6 +599,7 @@ test('getForTask returns the latest scan per PR and the blocking count', async (
       state: 'merged',
       workspaceId: 'ws1',
       repo: 'o/r',
+      headSha: null,
       mergedAt: null,
     },
   ])
@@ -689,6 +692,7 @@ test('LUM-775 getForTask: a merged PR row carries its queue exit, is not blockin
       state: 'merged',
       workspaceId: 'ws1',
       repo: 'o/r',
+      headSha: null,
       mergedAt: new Date('2026-09-10T10:00:00Z'),
     },
   ])
@@ -1688,3 +1692,173 @@ test('a FAILED scan still hands the PR write-back to waitUntil (P9)', async () =
   expect(syncReview).toHaveBeenCalledWith('s1')
   expect(waitUntilMock).toHaveBeenCalledWith(syncReview.mock.results[0]!.value)
 })
+import { prReviewControlRepository } from '@/lib/repositories/pr-review-control.repository'
+
+test('LUM-1056: exhausted AI budget still runs secrets and records an incomplete paused head', async () => {
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  ;(prReviewControlRepository.reserve as jest.Mock).mockResolvedValueOnce(false)
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(judgeSecurity).not.toHaveBeenCalled()
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's1',
+    expect.arrayContaining([
+      expect.objectContaining({ provenance: 'DETERMINISTIC', kind: 'SECRET' }),
+    ]),
+    expect.objectContaining({
+      stages: expect.objectContaining({ secrets: 'RAN', judge: 'PAUSED' }),
+    })
+  )
+})
+
+test('LUM-1056: manual full review bypasses the automatic budget', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+    reviewMode: 'full',
+  })
+  expect(prReviewControlRepository.reserve).not.toHaveBeenCalled()
+  expect(judgeSecurity).toHaveBeenCalledTimes(1)
+})
+
+test('LUM-1056: same-head manual review preserves a human ruling even when the judge finds the issue again', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  judgeSecurity.mockResolvedValue({
+    findings: [
+      {
+        kind: 'sql_injection',
+        severity: 'HIGH',
+        filePath: 'src/a.ts',
+        line: 1,
+        title: 'Query',
+        detail: 'Query',
+        evidence: 'db.query(id)',
+      },
+    ],
+  })
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  const old = {
+    ...repo.persistResult.mock.calls[0]![1][0],
+    id: 'old-finding',
+    disposition: 'FALSE_POSITIVE',
+    dispositionNote: 'human ruled',
+    dispositionedById: 'member',
+    dispositionedAt: new Date(),
+    suggestedDisposition: null,
+    suggestionOutcome: null,
+    suggestedReason: null,
+  }
+  repo.persistResult.mockClear()
+  repo.findByPrAndSha.mockResolvedValueOnce({
+    id: 's1',
+    status: 'FINDINGS',
+    startedAt: new Date(),
+  })
+  repo.restart.mockResolvedValueOnce([old] as never)
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+    reviewMode: 'full',
+  })
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's1',
+    expect.arrayContaining([
+      expect.objectContaining({
+        fingerprint: old.fingerprint,
+        disposition: 'FALSE_POSITIVE',
+        dispositionNote: 'human ruled',
+        inheritedFromFindingId: 'old-finding',
+      }),
+    ]),
+    expect.anything()
+  )
+})
+
+test('LUM-1056: paused and incremental scans retain old undispositioned findings instead of silently resolving them', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  ;(prReviewControlRepository.reserve as jest.Mock).mockResolvedValueOnce(false)
+  ;(prReviewControlRepository.priorFindings as jest.Mock).mockResolvedValueOnce(
+    [
+      {
+        id: 'old-finding',
+        scanId: 'old-scan',
+        fingerprint: 'old-fp',
+        provenance: 'LLM_JUDGE',
+        kind: 'CORRECTNESS',
+        severity: 'HIGH',
+        ruleId: 'review:logic_error',
+        filePath: 'unchanged.ts',
+        line: 7,
+        title: 'old issue',
+        detail: 'old issue',
+        evidence: 'old evidence',
+        disposition: null,
+        callChain: null,
+        secretDowngrade: null,
+      },
+    ]
+  )
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's1',
+    expect.arrayContaining([
+      expect.objectContaining({
+        scanId: 's1',
+        fingerprint: 'old-fp',
+        inheritedFromFindingId: 'old-finding',
+        disposition: null,
+      }),
+    ]),
+    expect.anything()
+  )
+})
+
+test('LUM-1056: incremental review excludes unchanged files; missing comparison falls back to full', async () => {
+  const a = 'diff --git a/src/a.ts b/src/a.ts\n' + CLEAN_DIFF
+  const b =
+    'diff --git a/src/b.ts b/src/b.ts\n' + CLEAN_DIFF.replace(/a\.ts/g, 'b.ts')
+  fetchPrDiff.mockResolvedValue(a + '\n' + b)
+  ;(prReviewControlRepository.baseline as jest.Mock).mockResolvedValueOnce({
+    headSha: 'previous',
+  })
+  ;(gh.fetchReviewChangedPaths as jest.Mock).mockResolvedValueOnce(['src/a.ts'])
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(judgeSecurity.mock.calls[0]![0].diff).toContain('src/a.ts')
+  expect(judgeSecurity.mock.calls[0]![0].diff).not.toContain('src/b.ts')
+
+  judgeSecurity.mockClear()
+  ;(prReviewControlRepository.baseline as jest.Mock).mockResolvedValueOnce({
+    headSha: 'unreachable',
+  })
+  ;(gh.fetchReviewChangedPaths as jest.Mock).mockRejectedValueOnce(
+    new Error('diverged')
+  )
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(judgeSecurity.mock.calls[0]![0].diff).toContain('src/b.ts')
+})
+
+test('LUM-1056: a push during diff retrieval cannot publish a checked result for the old head', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  fetchPrHeadSha.mockResolvedValueOnce('old').mockResolvedValueOnce('new')
+  const result = await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  expect(result).toMatchObject({ status: 'FAILED' })
+  expect(repo.persistResult).not.toHaveBeenCalled()
+  expect(judgeSecurity).not.toHaveBeenCalled()
+})
+
+jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+  prReviewControlRepository: {
+    reserve: jest.fn().mockResolvedValue(true),
+    baseline: jest.fn().mockResolvedValue(null),
+    priorFindings: jest.fn().mockResolvedValue([]),
+    findingsOnScan: jest.fn().mockResolvedValue([]),
+    get: jest.fn().mockResolvedValue({
+      reviewPaused: false,
+      reviewRoundLimit: 2,
+      reviewHeads: [],
+    }),
+  },
+}))

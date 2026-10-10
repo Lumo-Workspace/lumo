@@ -9,10 +9,18 @@ and none of the L3 hunt's stored audit (per-task commands, step trace, stop
 arithmetic, sites, model, diff sizing) had any entry point outside a
 prod-database script.
 
-Read-only, no LLM. **Disposition stays web-only** (the LUM-750 CLI path was
+Without control flags this is read-only, no LLM. **Disposition stays web-only** (the LUM-750 CLI path was
 rolled back) — this command reports dispositions, it never records one.
 
 ## Usage
+
+### Review controls (LUM-1056)
+
+`--review incremental` requests review of affected files since the last complete AI review; `--review full` requests the entire PR. Both bypass the automatic budget without consuming or resetting it. Concurrent requests while a review is active deduplicate; a later request after completion starts another review. Active asynchronous layers must finish before the same head can be restarted.
+
+`--pause` pauses automatic AI review and exploit-path discovery. `--resume` resets the budget and resumes future automatic reviews; it does not immediately review the current head. `--limit 1..100` with pause/resume changes the per-PR budget (default 2 distinct admitted heads, including the first). Failed attempts keep their reservation; retries of an admitted head cost no additional round. Deterministic checks continue while AI is paused. Paused does not mean checked and does not clear blocking findings.
+
+Choose exactly one of `--review`, `--pause`, `--resume`. Example: `lumo pr scan 1013 --repo owner/repo --resume --limit 2`. Use these controls when repeated fix pushes keep triggering new AI findings, or when the user requests a manual review/pause/resume.
 
 ```bash
 lumo pr scan 1013                                 # latest head's scan, prose

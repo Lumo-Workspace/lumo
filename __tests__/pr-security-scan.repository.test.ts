@@ -136,6 +136,59 @@ test('restart clears old findings and resets the scan; finalize stamps finishedA
   )
 })
 
+test('LUM-1056: a second pending claimant or retry cannot restart a newly claimed run', async () => {
+  mockScan.updateMany.mockResolvedValueOnce({ count: 0 })
+  expect(await prSecurityScanRepository.claimPending('s')).toBe(false)
+  mockScan.findUnique.mockResolvedValueOnce({
+    status: 'RUNNING',
+    startedAt: new Date(200),
+    stages: null,
+  })
+  expect(
+    await prSecurityScanRepository.restart('s', false, new Date(100))
+  ).toBe(false)
+  expect(mockFinding.deleteMany).not.toHaveBeenCalled()
+  expect(mockScan.update).not.toHaveBeenCalled()
+})
+
+test('LUM-1056: manual restart waits for all asynchronous writers, then clears attempt state', async () => {
+  mockScan.findUnique.mockResolvedValueOnce({
+    status: 'FINDINGS',
+    stages: { hunt: 'PENDING' },
+  })
+  expect(await prSecurityScanRepository.restart('s', true)).toBe(false)
+  mockScan.findUnique.mockResolvedValueOnce({
+    status: 'FINDINGS',
+    stages: { hunt: 'RAN', external: 'RAN' },
+    verifierStartedAt: new Date(),
+    verifiedAt: null,
+  })
+  expect(await prSecurityScanRepository.restart('s', true)).toBe(false)
+  mockScan.findUnique.mockResolvedValueOnce({
+    status: 'FINDINGS',
+    stages: { hunt: 'RAN', external: 'RAN' },
+    verifierStartedAt: new Date(),
+    verifiedAt: new Date(),
+  })
+  mockFinding.findMany.mockResolvedValueOnce([
+    { id: 'human-ruled', disposition: 'FALSE_POSITIVE' },
+  ])
+  expect(await prSecurityScanRepository.restart('s', true)).toEqual([
+    { id: 'human-ruled', disposition: 'FALSE_POSITIVE' },
+  ])
+  expect(mockFinding.deleteMany).not.toHaveBeenCalled()
+  expect(mockScan.update).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      data: expect.objectContaining({
+        huntAttempts: 0,
+        huntJob: Prisma.DbNull,
+        huntRunId: null,
+        verifiedAt: null,
+      }),
+    })
+  )
+})
+
 test('findDispositionedByPullRequest only returns dispositioned findings on that PR', async () => {
   mockFinding.findMany.mockResolvedValue([])
   await prSecurityScanRepository.findDispositionedByPullRequest('pr1')
@@ -284,10 +337,11 @@ describe('LUM-735 SARIF push — shared scan row', () => {
   })
 
   test('claimPending flips PENDING to RUNNING without touching findings', async () => {
+    mockScan.updateMany.mockResolvedValueOnce({ count: 1 })
     await prSecurityScanRepository.claimPending('s1')
-    expect(mockScan.update).toHaveBeenCalledWith(
+    expect(mockScan.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 's1' },
+        where: { id: 's1', status: 'PENDING' },
         data: expect.objectContaining({ status: 'RUNNING' }),
       })
     )

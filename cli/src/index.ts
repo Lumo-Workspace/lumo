@@ -653,8 +653,18 @@ const pr = program
   .description('Inspect pull requests by number — linked to a task or not')
 
 pr.command('scan <number>')
+  .option(
+    '--review <mode>',
+    'Request incremental or full AI review without consuming automatic rounds'
+  )
+  .option('--pause', 'Pause automatic AI reviews for this PR')
+  .option('--resume', 'Resume automatic AI reviews and reset the round budget')
+  .option(
+    '--limit <rounds>',
+    'Set automatic round limit (1..100), with pause or resume'
+  )
   .description(
-    'Security scans of one PR in the workspace, by PR number (LUM-788): the latest head by default — layer states (same labels as task status / the GitHub summary), every finding incl. dispositioned ones with disposition + source, and the hunt coverage line. Read-only; disposition is web-only.'
+    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Finding disposition is web-only.'
   )
   .option(
     '--repo <owner/repo>',

@@ -174,6 +174,43 @@ export async function fetchPrDiff(opts: {
   return res.text()
 }
 
+/** Compare immutable commits. Refuse divergent histories and truncated file
+ * lists rather than using them as proof that an unchanged file was reviewed. */
+export async function fetchReviewChangedPaths(opts: {
+  workspaceId: string
+  fullName: string
+  base: string
+  head: string
+}): Promise<string[]> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.contentsRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/compare/${encodeURIComponent(opts.base)}...${encodeURIComponent(opts.head)}`,
+    {
+      headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` },
+    }
+  )
+  if (!res.ok) throw new Error('Review baseline unavailable')
+  const comparison = (await res.json()) as {
+    status: string
+    files?: { filename: string; previous_filename?: string }[]
+  }
+  if (
+    !['ahead', 'identical'].includes(comparison.status) ||
+    !comparison.files ||
+    comparison.files.length >= 300
+  )
+    throw new Error('Review baseline diverged or comparison incomplete')
+  return comparison.files.flatMap(file => [
+    file.filename,
+    ...(file.previous_filename ? [file.previous_filename] : []),
+  ])
+}
+
 /** One entry of GitHub's `pulls/{n}/files` listing, narrowed to what the
  *  re-judge reads (LUM-780). */
 export interface PrFileEntry {

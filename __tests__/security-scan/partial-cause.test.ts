@@ -114,13 +114,16 @@ beforeEach(() => {
 })
 
 describe('every partial set point records an attributed cause', () => {
-  it('classes every known cause as our fault or coverage owed, and an unknown one as unattributed', () => {
+  it('classes known causes including explicit review pauses, and an unknown one as unattributed', () => {
     for (const cause of PARTIAL_CAUSES) {
-      expect(['OUR_FAULT', 'COVERAGE_OWED']).toContain(partialCauseClass(cause))
+      expect(['OUR_FAULT', 'COVERAGE_OWED', 'USER_CONTROLLED']).toContain(
+        partialCauseClass(cause)
+      )
     }
     expect(partialCauseClass('HUNT_INCOMPLETE')).toBe('OUR_FAULT')
     expect(partialCauseClass('GRAPH_READ_FAILED')).toBe('OUR_FAULT')
     expect(partialCauseClass('JUDGE_TRUNCATED')).toBe('COVERAGE_OWED')
+    expect(partialCauseClass('AI_REVIEW_PAUSED')).toBe('USER_CONTROLLED')
     expect(partialCauseClass('SOMETHING_NEWER')).toBe('UNATTRIBUTED')
   })
 
@@ -316,3 +319,16 @@ describe('exhausted retries never read as checked', () => {
     ).toBe('CHECKED')
   })
 })
+jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+  prReviewControlRepository: {
+    reserve: jest.fn().mockResolvedValue(true),
+    baseline: jest.fn().mockResolvedValue(null),
+    priorFindings: jest.fn().mockResolvedValue([]),
+    findingsOnScan: jest.fn().mockResolvedValue([]),
+    get: jest.fn().mockResolvedValue({
+      reviewPaused: false,
+      reviewRoundLimit: 2,
+      reviewHeads: [],
+    }),
+  },
+}))

@@ -23,6 +23,35 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
+test('LUM-1056 review controls use POST with validated mutually exclusive actions', async () => {
+  const original = global.fetch
+  const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 202 })
+  const originalLog = console.log
+  const originalError = console.error
+  console.log = jest.fn()
+  console.error = jest.fn()
+  global.fetch = fetchMock
+  try {
+    await prScan('7', { repo: 'o/r', review: 'incremental' })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://lumo.test/api/pull-requests/7/scans?repo=o%2Fr',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ action: 'incremental' }),
+      })
+    )
+    fetchMock.mockClear()
+    expect(await prScan('7', { pause: true, resume: true })).toBe(1)
+    expect(await prScan('7', { resume: true, limit: '0' })).toBe(1)
+    expect(await prScan('7', { limit: '2' })).toBe(1)
+    expect(fetchMock).not.toHaveBeenCalled()
+  } finally {
+    global.fetch = original
+    console.log = originalLog
+    console.error = originalError
+  }
+})
+
 function finding(over: Partial<PrScanFinding> = {}): PrScanFinding {
   return {
     id: 'f1',

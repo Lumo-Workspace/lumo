@@ -25,6 +25,10 @@ import {
 } from '../../../shared/src/hunt-audit'
 
 export interface PrScanOptions {
+  review?: 'incremental' | 'full'
+  pause?: boolean
+  resume?: boolean
+  limit?: string
   /** `owner/repo` — needed only when the number exists in several repos. */
   repo?: string | undefined
   /** Every pushed head's scan, newest first, instead of the latest only. */
@@ -141,6 +145,12 @@ export interface PrScanEntry {
 }
 
 export interface PrScanPayload {
+  reviewControl?: {
+    paused: boolean
+    rounds: number
+    limit: number
+    currentHead: string | null
+  }
   version: number
   pullRequest: {
     repo: string
@@ -338,6 +348,19 @@ export function formatPrScan(
 ): string {
   const pr = data.pullRequest
   const lines: string[] = []
+  if (data.reviewControl) {
+    const c = data.reviewControl
+    lines.push(
+      `Automatic AI review: ${c.paused ? 'paused' : 'enabled'} · ${c.rounds}/${c.limit} rounds`
+    )
+    lines.push(
+      `Manual review: lumo pr scan ${pr.number} --repo ${sanitizeField(pr.repo)} --review incremental (or --review full); resume: --resume`
+    )
+    if (c.currentHead && data.scans[0]?.headSha !== c.currentHead)
+      lines.push(
+        '⚠ Latest head has no scan yet; the results below are for an earlier commit.'
+      )
+  }
   lines.push(
     `PR #${pr.number} · ${sanitizeField(pr.repo)} · ${sanitizeField(pr.state)} · ${pr.task ? `task ${sanitizeField(pr.task.identifier)}` : 'no linked task'}`
   )
@@ -402,14 +425,59 @@ export async function prScan(
   const url = `${base}/api/pull-requests/${encodeURIComponent(numberArg.trim())}/scans${qs ? `?${qs}` : ''}`
 
   let res: Response
+  const actions = [opts.pause, opts.resume, opts.review !== undefined].filter(
+    Boolean
+  ).length
+  if (
+    actions > 1 ||
+    (opts.review && !['incremental', 'full'].includes(opts.review)) ||
+    (opts.limit !== undefined &&
+      (!/^\d+$/.test(opts.limit) ||
+        Number(opts.limit) < 1 ||
+        Number(opts.limit) > 100 ||
+        !(opts.pause || opts.resume)))
+  ) {
+    console.error(
+      'Error: choose one of --pause, --resume, --review incremental|full; --limit 1..100 requires --pause or --resume.'
+    )
+    return 1
+  }
   try {
     res = await fetch(url, {
       headers: { Authorization: `Bearer ${creds.token}` },
+      ...(actions
+        ? {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${creds.token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: opts.pause
+                ? 'pause'
+                : opts.resume
+                  ? 'resume'
+                  : opts.review,
+              ...(opts.limit !== undefined
+                ? { limit: Number(opts.limit) }
+                : {}),
+            }),
+          }
+        : {}),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
     return 1
+  }
+  if (actions && res.ok) {
+    process.stdout.write(
+      (opts.review
+        ? `Queued ${opts.review} review for PR #${numberArg}.`
+        : `Automatic AI review ${opts.pause ? 'paused' : 'resumed with a fresh round budget'} for PR #${numberArg}.`) +
+        '\n'
+    )
+    return
   }
 
   if (res.status === 401) {
