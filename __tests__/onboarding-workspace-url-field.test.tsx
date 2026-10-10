@@ -21,6 +21,7 @@ jest.mock('next/image', () => ({
 }))
 
 import { render } from '@testing-library/react'
+import { renderToString } from 'react-dom/server'
 import { OnboardingClient } from '@/app/onboarding/OnboardingClient'
 
 describe('onboarding workspace URL field', () => {
@@ -40,11 +41,61 @@ describe('onboarding workspace URL field', () => {
     )
   })
 
-  it('prefixes the slug with the real workspace URL', () => {
-    const { container } = render(<OnboardingClient />)
-    const prefix = container.querySelector('#ws-url')?.previousElementSibling
-    expect(prefix?.textContent).toBe('uselumo.ai/workspace/')
-    expect(container.textContent).not.toContain('lumo.app/')
+  describe('workspace URL prefix (LUM-1028)', () => {
+    const original = process.env.NEXT_PUBLIC_APP_URL
+    afterEach(() => {
+      if (original === undefined) delete process.env.NEXT_PUBLIC_APP_URL
+      else process.env.NEXT_PUBLIC_APP_URL = original
+    })
+
+    const renderPrefix = () => {
+      const { container } = render(<OnboardingClient />)
+      return {
+        container,
+        prefix:
+          container.querySelector('#ws-url')?.previousElementSibling
+            ?.textContent,
+      }
+    }
+
+    it('keeps the hosted prefix for https://www.uselumo.ai', () => {
+      process.env.NEXT_PUBLIC_APP_URL = 'https://www.uselumo.ai'
+      const { container, prefix } = renderPrefix()
+      expect(prefix).toBe('uselumo.ai/workspace/')
+      expect(container.textContent).not.toContain('lumo.app/')
+    })
+
+    it('shows a self-hosted instance its own address', () => {
+      process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+      expect(renderPrefix().prefix).toBe('localhost:3000/workspace/')
+    })
+
+    it('falls back to the browser host when the app URL is unset or invalid', () => {
+      delete process.env.NEXT_PUBLIC_APP_URL
+      expect(renderPrefix().prefix).toBe(`${window.location.host}/workspace/`)
+      process.env.NEXT_PUBLIC_APP_URL = 'not a url'
+      expect(renderPrefix().prefix).toBe(`${window.location.host}/workspace/`)
+    })
+
+    // renderToString uses the server snapshot, so this is what the HTML holds
+    // before hydration — it must never be the browser host.
+    const serverPrefix = () => {
+      const doc = new DOMParser().parseFromString(
+        renderToString(<OnboardingClient />),
+        'text/html'
+      )
+      return doc.querySelector('#ws-url')?.previousElementSibling?.textContent
+    }
+
+    it('renders the configured prefix on the server', () => {
+      process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+      expect(serverPrefix()).toBe('localhost:3000/workspace/')
+    })
+
+    it('renders the bare fallback on the server when the app URL is unset', () => {
+      delete process.env.NEXT_PUBLIC_APP_URL
+      expect(serverPrefix()).toBe('/workspace/')
+    })
   })
 
   it('runs the prefix straight into the slug with no divider or gap', () => {
