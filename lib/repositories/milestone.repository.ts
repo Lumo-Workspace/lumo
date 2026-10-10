@@ -167,6 +167,7 @@ export const milestoneRepository = {
       _count: { _all: true },
     })
     const result: Record<TaskStatus, number> = {
+      BACKLOG: 0,
       TODO: 0,
       IN_PROGRESS: 0,
       IN_REVIEW: 0,

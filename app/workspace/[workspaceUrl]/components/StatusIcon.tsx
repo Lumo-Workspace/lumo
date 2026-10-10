@@ -9,6 +9,7 @@ import { useIntl } from 'react-intl'
  * and lets dark mode (and any future theme) flow through automatically.
  */
 const STATUS_COLOR_CLASS: Record<string, string> = {
+  BACKLOG: 'text-status-todo',
   TODO: 'text-status-todo',
   IN_PROGRESS: 'text-status-in-progress',
   IN_REVIEW: 'text-status-in-review',
@@ -28,6 +29,30 @@ export function StatusIcon({
   const cy = s / 2
   const r = s * 0.393 // ~5.5 at size=14
   const colorClass = STATUS_COLOR_CLASS[status] ?? STATUS_COLOR_CLASS.TODO
+
+  if (status === 'BACKLOG') {
+    // Dashed circle — not yet scheduled (LUM-1057).
+    return (
+      <svg
+        width={s}
+        height={s}
+        viewBox={`0 0 ${s} ${s}`}
+        fill='none'
+        className={colorClass}
+        aria-label={intl.formatMessage({ id: 'status.backlog' })}
+      >
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          stroke='currentColor'
+          strokeWidth='1.5'
+          strokeDasharray='2 2'
+          fill='none'
+        />
+      </svg>
+    )
+  }
 
   if (status === 'IN_PROGRESS') {
     const top = `${cx},${cy - r}`

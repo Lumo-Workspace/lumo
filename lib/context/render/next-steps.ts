@@ -16,6 +16,7 @@ import {
 } from './test-case-reminder'
 
 export type TaskStatusForNextSteps =
+  | 'BACKLOG'
   | 'TODO'
   | 'IN_PROGRESS'
   | 'IN_REVIEW'

@@ -50,7 +50,8 @@ export function computeSprintCoverage(
       unsprinted += row.count
       continue
     }
-    if (!metaById.has(row.sprintId)) continue
+    // BACKLOG is unscheduled and outside coverage (LUM-1057).
+    if (!metaById.has(row.sprintId) || row.status === 'BACKLOG') continue
     const entry = acc.get(row.sprintId) ?? { taskCount: 0, doneCount: 0 }
     entry.taskCount += row.count
     if (row.status === 'DONE') entry.doneCount += row.count

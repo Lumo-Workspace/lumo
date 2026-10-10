@@ -1659,6 +1659,7 @@
   "status.inProgress": "В работе",
   "status.inReview": "На проверке",
   "status.done": "Готово",
+  "status.backlog": "Бэклог",
   "status.todo": "К выполнению",
   "editor.textStyle.regular": "Обычный текст",
   "editor.textStyle.h1": "Заголовок 1",

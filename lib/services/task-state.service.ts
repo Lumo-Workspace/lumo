@@ -185,10 +185,12 @@ export async function updateTask(
   if (rest.status !== undefined) data.status = rest.status
   // Set-once: the first time a task leaves TODO it has "started" — feeds the
   // milestone derived start date (LUM-636). Guarded on the pre-update value so
-  // a bounce back to TODO never resets it.
+  // a bounce back to TODO never resets it. Moving into BACKLOG is not a start
+  // either (LUM-1057).
   if (
     rest.status !== undefined &&
     rest.status !== 'TODO' &&
+    rest.status !== 'BACKLOG' &&
     task.workStartedAt == null
   ) {
     data.workStartedAt = new Date()

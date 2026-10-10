@@ -93,6 +93,7 @@ describe('ProjectMilestonesOverview', () => {
         name: 'Honest reporting',
         slug: 'honest-reporting',
         taskCounts: {
+          BACKLOG: 0,
           TODO: 2,
           IN_PROGRESS: 1,
           IN_REVIEW: 0,
@@ -104,6 +105,7 @@ describe('ProjectMilestonesOverview', () => {
         slug: 'agent-native-sprints',
         status: 'PLANNED',
         taskCounts: {
+          BACKLOG: 0,
           TODO: 7,
           IN_PROGRESS: 0,
           IN_REVIEW: 0,

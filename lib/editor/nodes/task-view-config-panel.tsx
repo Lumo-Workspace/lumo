@@ -10,7 +10,7 @@ import { useProjects } from '@/app/workspace/[workspaceUrl]/hooks/useProjects'
 import { useTags } from '@/app/workspace/[workspaceUrl]/hooks/useTags'
 import { useMembers } from '@/app/workspace/[workspaceUrl]/hooks/useMembers'
 import { useWorkspaceMilestones } from '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceMilestones'
-import { API_STATUS_LABEL } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
+import { statusLabel } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
 import { PRIORITY_CONFIG } from '@/app/workspace/[workspaceUrl]/components/fields/shared'
 import type { ApiPriority } from '@/app/workspace/[workspaceUrl]/types'
 import {
@@ -23,7 +23,13 @@ import type {
   TaskViewMode,
 } from './task-view-config'
 
-const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const STATUS_ORDER = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 const PRIORITY_ORDER: ApiPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
 const GROUP_BY_ORDER: TaskViewGroupBy[] = [
   'none',
@@ -35,7 +41,7 @@ const VIEW_ORDER: TaskViewMode[] = ['list', 'kanban']
 
 interface TaskViewConfigPanelProps {
   config: TaskViewConfig
-  onChange: (next: TaskViewConfig) => void // eslint-disable-line no-unused-vars
+  onChange: (next: TaskViewConfig) => void
 }
 
 export function TaskViewConfigPanel({
@@ -57,7 +63,7 @@ export function TaskViewConfigPanel({
 
   const statusOptions: FilterOption[] = STATUS_ORDER.map(s => ({
     value: s,
-    label: API_STATUS_LABEL[s] ?? s,
+    label: statusLabel(intl, s),
   }))
   const priorityOptions: FilterOption[] = PRIORITY_ORDER.map(p => ({
     value: p,

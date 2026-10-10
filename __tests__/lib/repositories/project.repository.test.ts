@@ -155,12 +155,14 @@ describe('countTasksByStatus', () => {
     )
 
     expect(result.get('p1')).toEqual({
+      BACKLOG: 0,
       TODO: 3,
       IN_PROGRESS: 1,
       IN_REVIEW: 0,
       DONE: 0,
     })
     expect(result.get('p2')).toEqual({
+      BACKLOG: 0,
       TODO: 0,
       IN_PROGRESS: 0,
       IN_REVIEW: 0,

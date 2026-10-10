@@ -82,6 +82,7 @@ export const projectService = {
 
     return projects.map(p => {
       const counts = statusCounts.get(p.id) ?? {
+        BACKLOG: 0,
         TODO: 0,
         IN_PROGRESS: 0,
         IN_REVIEW: 0,

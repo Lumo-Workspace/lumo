@@ -106,7 +106,7 @@ Pure flag-driven update. Provide at least one of:
 | ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-t, --title <text>`     | string              | Cannot be empty.                                                                                                                                                                                                                                                      |
 | `-d, --description <>`   | string              | `--description ""` clears the field.                                                                                                                                                                                                                                  |
-| `-s, --status <value>`   | enum                | `todo \| in_progress \| in_review \| done` (case-insensitive).                                                                                                                                                                                                        |
+| `-s, --status <value>`   | enum                | `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive).                                                                                                                                                                                             |
 | `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                                                                                                                                                                    |
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
 | `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
@@ -154,12 +154,15 @@ The `Tags:` line is omitted when the resulting tag set is empty. The trailing `N
 
 The server's transition matrix (`lib/task/state-machine.ts`):
 
-| From        | Allowed targets                       |
-| ----------- | ------------------------------------- |
-| TODO        | IN_PROGRESS, IN_REVIEW, DONE          |
-| IN_PROGRESS | TODO, IN_REVIEW, DONE                 |
-| IN_REVIEW   | TODO, IN_PROGRESS, DONE               |
-| DONE        | TODO, IN_PROGRESS, IN_REVIEW (reopen) |
+| From        | Allowed targets                                |
+| ----------- | ---------------------------------------------- |
+| BACKLOG     | TODO, IN_PROGRESS, IN_REVIEW, DONE             |
+| TODO        | BACKLOG, IN_PROGRESS, IN_REVIEW, DONE          |
+| IN_PROGRESS | BACKLOG, TODO, IN_REVIEW, DONE                 |
+| IN_REVIEW   | BACKLOG, TODO, IN_PROGRESS, DONE               |
+| DONE        | BACKLOG, TODO, IN_PROGRESS, IN_REVIEW (reopen) |
+
+BACKLOG (LUM-1057) = not yet scheduled. New tasks still default to TODO. BACKLOG tasks are left out of sprint progress / burnup and milestone progress totals; `milestone show` prints them as `+ N in BACKLOG` after the total.
 
 Practical rules:
 
@@ -194,7 +197,7 @@ When the task has local git worktrees, the envelope ends with one line per workt
 
 - **Show `changes` to the user and wait for an explicit yes**, then run `confirmCommand` unchanged. `--confirm` means the user confirmed — never add it on your own.
 - With `--confirm` the PATCH goes out directly. The server's own DONE gates still apply on top — an undispositioned boundary crossing, a blocking security finding or a proven test-case defect refuses with **409**, which the CLI turns into a structured **`DONE_BLOCKED` error on stdout with exit 5**: the 409 text verbatim, a `blockers[]` with ids (built from `task status` + the crossings read model), and `remediation` lines that only name human-side or user-approved paths. Nothing on `task update` clears any of them — relay, don't retry. A boundary crossing is the one blocker with a terminal path, `lumo crossing disposition <id> …` (itself exit-4: the user rules, never you); once every blocker is cleared, re-run this `--confirm` call. See [confirmation.md](confirmation.md) "When the gate is human-only". Any other 409 stays plain text, exit 1.
-- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
+- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`backlog` / `todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
 - A failed lookup (404, network) exits 1 before any envelope.
 
 ```bash
@@ -236,12 +239,12 @@ LUM-42  IN_PROGRESS  HIGH    web        Fix Slack OAuth redirect
 LUM-48  TODO         MEDIUM  backend    Investigate slow query
 ```
 
-| Flag                    | Type    | Notes                                                                            |
-| ----------------------- | ------- | -------------------------------------------------------------------------------- |
-| `-s, --status <value>`  | enum    | Filter by status: `todo \| in_progress \| in_review \| done` (case-insensitive). |
-| `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).            |
-| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                          |
-| `-n, --limit <count>`   | integer | Cap output to the first N rows.                                                  |
+| Flag                    | Type    | Notes                                                                                       |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| `-s, --status <value>`  | enum    | Filter by status: `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive). |
+| `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).                       |
+| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                                     |
+| `-n, --limit <count>`   | integer | Cap output to the first N rows.                                                             |
 
 ```bash
 lumo task list                                  # everything assigned to me
@@ -269,7 +272,7 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 | --------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
 | `-a, --assignee <ref>`            | string (repeatable) | `me`, an email, a member name, an agent name, or `none` (unassigned). Repeats are ORed.          |
 | `--tag <name>`                    | string (repeatable) | Tag name, matched case-insensitively (any of). Unknown name = error — search never creates tags. |
-| `-s, --status <value>`            | enum (repeatable)   | `todo \| in_progress \| in_review \| done`; repeat or comma-separate.                            |
+| `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done`; repeat or comma-separate.                 |
 | `-p, --priority <level>`          | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate.                                     |
 | `--project <ref>`                 | string              | Project name or slug.                                                                            |
 | `-m, --milestone <ref>`           | string              | Milestone name or UUID.                                                                          |

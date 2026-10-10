@@ -1,6 +1,7 @@
 import type { ApiStatus, ApiTask } from '@/app/workspace/[workspaceUrl]/types'
 
 export const KANBAN_STATUSES: readonly ApiStatus[] = [
+  'BACKLOG',
   'TODO',
   'IN_PROGRESS',
   'IN_REVIEW',

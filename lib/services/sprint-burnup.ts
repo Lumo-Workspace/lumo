@@ -100,10 +100,18 @@ export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
    */
   const members = tasks.filter(t => t.sprintId === sprintId)
 
-  /** Member tasks created on or before eodMs. */
+  /**
+   * Member tasks created on or before eodMs and not in BACKLOG at eodMs —
+   * backlog work is unscheduled and stays out of scope (LUM-1057).
+   */
   function countScope(eodMs: number): number {
     let count = 0
-    for (const t of members) if (t.createdAt.getTime() <= eodMs) count++
+    for (const t of members) {
+      if (t.createdAt.getTime() > eodMs) continue
+      if (statusAt(statusByTask.get(t.id) ?? [], eodMs, t.status) === 'BACKLOG')
+        continue
+      count++
+    }
     return count
   }
   /** Member tasks created by eodMs AND DONE at eodMs. Always <= countScope. */

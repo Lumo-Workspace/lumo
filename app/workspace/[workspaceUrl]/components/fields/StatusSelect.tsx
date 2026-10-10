@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/tooltip'
 import { StatusIcon } from '../StatusIcon'
 import type { ApiStatus } from '../../types'
-import { API_STATUS_LABEL } from '../../utils'
+import { API_STATUS_LABEL, statusLabel } from '../../utils'
 
 export interface StatusSelectProps {
   value: ApiStatus
@@ -35,26 +35,24 @@ export function StatusSelect({
           <SelectTrigger className={triggerClassName}>
             <div className='flex items-center gap-1.5'>
               <StatusIcon status={value} />
-              <span>{API_STATUS_LABEL[value]}</span>
+              <span>{statusLabel(intl, value)}</span>
             </div>
           </SelectTrigger>
         </TooltipTrigger>
         <TooltipContent>
           {intl.formatMessage({ id: 'task.status', defaultMessage: 'Status' })}:{' '}
-          {API_STATUS_LABEL[value]}
+          {statusLabel(intl, value)}
         </TooltipContent>
       </Tooltip>
       <SelectContent>
-        {(Object.entries(API_STATUS_LABEL) as [ApiStatus, string][]).map(
-          ([val, label]) => (
-            <SelectItem key={val} value={val}>
-              <div className='flex items-center gap-2'>
-                <StatusIcon status={val} />
-                {label}
-              </div>
-            </SelectItem>
-          )
-        )}
+        {(Object.keys(API_STATUS_LABEL) as ApiStatus[]).map(val => (
+          <SelectItem key={val} value={val}>
+            <div className='flex items-center gap-2'>
+              <StatusIcon status={val} />
+              {statusLabel(intl, val)}
+            </div>
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   )

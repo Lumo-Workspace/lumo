@@ -1,5 +1,5 @@
 export { flattenTasks } from './flattenTasks'
-export { API_STATUS_LABEL } from './taskStatus'
+export { API_STATUS_LABEL, statusLabel } from './taskStatus'
 export { formatDueDate, isOverdue } from './dueDate'
 export { pageToPath } from './pageToPath'
 export { pathToPage } from './pathToPage'

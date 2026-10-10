@@ -8,6 +8,7 @@ import { useWorkspaceTasks } from '@/app/workspace/[workspaceUrl]/hooks/useWorks
 import { useWorkspaceTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTaskStatus'
 import { useProjects } from '@/app/workspace/[workspaceUrl]/hooks/useProjects'
 import { useWorkspaceMilestones } from '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceMilestones'
+import { statusLabel } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
 import { parseTaskViewConfig, type TaskViewConfig } from './task-view-config'
 import { TaskViewConfigPanel } from './task-view-config-panel'
 import { TaskViewKanban } from './task-view-kanban'
@@ -43,7 +44,8 @@ export function TaskViewBlock({
     intl.formatMessage({
       id: 'editor.taskView.ungrouped',
       defaultMessage: 'No group',
-    })
+    }),
+    s => statusLabel(intl, s)
   )
 
   return (

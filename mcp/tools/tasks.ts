@@ -6,7 +6,7 @@ import { resolveTaskId } from '../resolvers.js'
 import { trashTask } from '../trash.js'
 
 const statusEnum = z
-  .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+  .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
   .describe('Task status')
 
 const priorityEnum = z

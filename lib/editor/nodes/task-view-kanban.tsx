@@ -13,19 +13,18 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { StatusIcon } from '@/app/workspace/[workspaceUrl]/components/StatusIcon'
-import { API_STATUS_LABEL } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
-import type { ApiStatus, ApiTask } from '@/app/workspace/[workspaceUrl]/types'
 import {
-  KANBAN_STATUSES,
-  sortColumnTasks,
-  statusFromDropTarget,
-} from './task-view-kanban-drop'
+  boardStatuses,
+  statusLabel,
+} from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
+import type { ApiStatus, ApiTask } from '@/app/workspace/[workspaceUrl]/types'
+import { sortColumnTasks, statusFromDropTarget } from './task-view-kanban-drop'
 
 interface TaskViewKanbanProps {
   tasks: ApiTask[]
   workspaceUrl: string
   editable: boolean
-  // eslint-disable-next-line no-unused-vars
+
   onStatusChange: (id: string, status: ApiStatus) => void
 }
 
@@ -105,7 +104,8 @@ function KanbanColumn({
 /**
  * Status kanban for the task-view block. Cards are draggable only in editable
  * mode; dropping on a different column calls `onStatusChange` (the block wires
- * that to the optimistic mutation). Always grouped by status (4 fixed columns),
+ * that to the optimistic mutation). Always grouped by status (4 fixed columns,
+ * plus Backlog while any task is in it — LUM-1057),
  * independent of `config.groupBy`.
  */
 export function TaskViewKanban({
@@ -132,9 +132,9 @@ export function TaskViewKanban({
     if (next) onStatusChange(String(event.active.id), next)
   }
 
-  const columns = KANBAN_STATUSES.map(status => ({
+  const columns = boardStatuses(tasks).map(status => ({
     status,
-    label: API_STATUS_LABEL[status] ?? status,
+    label: statusLabel(intl, status),
     tasks: sortColumnTasks(tasks.filter(t => t.status === status)),
   }))
 

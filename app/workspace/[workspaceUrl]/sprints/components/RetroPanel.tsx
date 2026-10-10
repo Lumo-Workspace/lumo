@@ -16,7 +16,7 @@ interface SprintStats {
   byPriority?: Record<string, number>
   byAssignee?: Record<string, number>
   byStatus?: Partial<
-    Record<'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE', number>
+    Record<'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE', number>
   >
 }
 

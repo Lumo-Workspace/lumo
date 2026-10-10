@@ -199,9 +199,11 @@ export function dispatchTaskUpdateNotifications(params: {
     })
   }
 
-  // Sent back (IN_REVIEW → IN_PROGRESS or IN_REVIEW → TODO)
+  // Sent back (IN_REVIEW → IN_PROGRESS / TODO / BACKLOG)
   if (
-    (newStatus === 'IN_PROGRESS' || newStatus === 'TODO') &&
+    (newStatus === 'IN_PROGRESS' ||
+      newStatus === 'TODO' ||
+      newStatus === 'BACKLOG') &&
     oldStatus === 'IN_REVIEW'
   ) {
     notifyStatusChange({
