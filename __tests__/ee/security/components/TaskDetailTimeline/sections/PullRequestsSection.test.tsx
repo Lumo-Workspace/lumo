@@ -46,7 +46,7 @@ const SCANS_LOADED = {
   isError: false,
 }
 const useSecurityScans = jest.fn(() => SCANS_LOADED as unknown)
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: () => useSecurityScans(),
 }))
 

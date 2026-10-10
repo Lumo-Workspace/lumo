@@ -3,11 +3,11 @@ import type { ModelMessage } from 'ai'
 import {
   elideOlderToolResults,
   elisionStub,
-} from '@/lib/security-scan/hunt/transcript'
+} from '@/ee/security/security-scan/hunt/transcript'
 import {
   HUNT_ELIDE_KEEP_STEPS,
   HUNT_ELIDE_MIN_CHARS,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 /** One completed step: the assistant's call and the tool's answer. */
 function step(id: string, output: string, error?: string): ModelMessage[] {

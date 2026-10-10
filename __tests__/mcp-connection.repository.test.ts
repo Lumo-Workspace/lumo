@@ -47,6 +47,30 @@ describe('mcpConnectionRepository', () => {
     })
   })
 
+  describe('findLatestBoundSibling (LUM-1073)', () => {
+    it('finds the latest other bound connection of the same user + client name', async () => {
+      mockPrisma.mcpConnection.findFirst.mockResolvedValue({
+        activeWorkspaceId: 'ws-1',
+      })
+      const result = await mcpConnectionRepository.findLatestBoundSibling(
+        'user_abc',
+        'Cursor',
+        'c-new'
+      )
+      expect(mockPrisma.mcpConnection.findFirst).toHaveBeenCalledWith({
+        where: {
+          clerkUserId: 'user_abc',
+          clientName: 'Cursor',
+          id: { not: 'c-new' },
+          activeWorkspaceId: { not: null },
+        },
+        orderBy: { lastUsedAt: 'desc' },
+        select: { activeWorkspaceId: true },
+      })
+      expect(result).toEqual({ activeWorkspaceId: 'ws-1' })
+    })
+  })
+
   describe('listActiveByClerkUser', () => {
     it('excludes revoked rows', async () => {
       mockPrisma.mcpConnection.findMany.mockResolvedValue([])

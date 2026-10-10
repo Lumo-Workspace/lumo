@@ -9,28 +9,30 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   readRepoFile: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/llm/security-hunt-client', () => ({
+  huntTask: jest.fn(),
+}))
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
 // LUM-758 Task 9: the batch now runs against a sandbox. The layer itself
 // (attach-or-create, the credential guard, the command gate) is covered in
 // `__tests__/ee/security/security-scan/hunt/sandbox-agent.test.ts`; here it is a seam, so
 // these tests can say what `huntBatch` does WITH it.
-jest.mock('@/lib/services/security-hunt-sandbox', () => ({
+jest.mock('@/ee/security/services/security-hunt-sandbox', () => ({
   attachOrCreateHuntSandbox: jest.fn(),
   probeHuntTools: jest.fn(),
   runHuntShell: jest.fn(),
   readHuntFile: jest.fn(),
   stopHuntSandbox: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@/lib/llm/security-falsifier-client', () => ({
+jest.mock('@/ee/security/llm/security-falsifier-client', () => ({
   falsifyCandidate: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-hunt-plan-client', () => ({
+jest.mock('@/ee/security/llm/security-hunt-plan-client', () => ({
   planHuntTasks: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findDispositionedByPullRequest: jest.fn(),
     persistHuntResult: jest.fn(),
@@ -43,22 +45,22 @@ import {
   toHuntFindingRows,
   candidateFilePaths,
   isVerifiableRepoPath,
-} from '@/lib/services/security-hunt.service'
+} from '@/ee/security/services/security-hunt.service'
 import { logger } from '@/lib/logger'
-import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
+import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
-import { huntTask } from '@/lib/llm/security-hunt-client'
-import { falsifyCandidate } from '@/lib/llm/security-falsifier-client'
-import { planHuntTasks } from '@/lib/llm/security-hunt-plan-client'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { huntTask } from '@/ee/security/llm/security-hunt-client'
+import { falsifyCandidate } from '@/ee/security/llm/security-falsifier-client'
+import { planHuntTasks } from '@/ee/security/llm/security-hunt-plan-client'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   attachOrCreateHuntSandbox,
   runHuntShell,
   readHuntFile,
   stopHuntSandbox,
   probeHuntTools,
-} from '@/lib/services/security-hunt-sandbox'
-import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
+} from '@/ee/security/services/security-hunt-sandbox'
+import { SUBGRAPH_MAX_FILES } from '@/ee/security/security-scan/graph/types'
 import {
   HUNT_MIN_BATCH_TIME_MS,
   PLAN_HUNT_TIMEOUT_MS,
@@ -69,13 +71,13 @@ import {
   HUNT_TRACE_TEXT_CHARS,
   HUNT_WRAP_UP_TEXT_CHARS,
   type HuntStepTrace,
-} from '@/lib/services/security-hunt.config'
-import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
-import { stepClipNote } from '@/lib/security-scan/hunt/step-output'
+} from '@/ee/security/services/security-hunt.config'
+import { HUNT_SHELL_COMMANDS } from '@/ee/security/security-scan/hunt/shell-allowlist'
+import { stepClipNote } from '@/ee/security/security-scan/hunt/step-output'
 import {
   HUNT_MAX_STEPS_PER_CATEGORY,
   HUNT_STEP_OUTPUT_MAX,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import { HUNT_MODEL } from '@/lib/ai/models'
 
 const diffMock = fetchPrDiff as jest.Mock

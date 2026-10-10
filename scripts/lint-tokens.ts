@@ -114,7 +114,8 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   /^components\/ui\/navigation-menu\.tsx$/,
 ]
 
-const SCAN_DIRS = ['app', 'components', 'lib'] as const
+// LUM-1065: `ee/` holds the security plugin's UI (absent in the OSS snapshot).
+const SCAN_DIRS = ['app', 'components', 'lib', 'ee'] as const
 const SCAN_EXTS = new Set(['.tsx', '.ts', '.jsx', '.js', '.css'])
 const SKIP_DIRS = new Set([
   'node_modules',

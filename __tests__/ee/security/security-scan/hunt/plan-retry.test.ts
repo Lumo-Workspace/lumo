@@ -4,7 +4,7 @@ import {
   PLAN_FAILURE_TEXT_CHARS,
   classifyPlanFailure,
   PLAN_FAILURE_SHAPES,
-} from '@/lib/security-scan/hunt/plan-retry'
+} from '@/ee/security/security-scan/hunt/plan-retry'
 
 // LUM-758 follow-up. `planHunt` never throws, so `planHuntStep`'s platform
 // retry can never fire — this predicate is the ONLY thing deciding whether a

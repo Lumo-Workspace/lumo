@@ -2,16 +2,16 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   // LUM-746: `repoCheckoutDir` (pure) now lives in the integration module.
-  ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
+  ...jest.requireActual('@/ee/security/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
   // LUM-852: egress policy calls go to the platform; not under test here.
   restrictSandboxEgress: jest.fn(),
   denySandboxEgress: jest.fn(),
 }))
 // LUM-852: the credential proof has its own tests (sandbox-agent, lum852).
-jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+jest.mock('@/ee/security/services/sandbox-credential-scrub', () => ({
   scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
@@ -23,18 +23,18 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrHeadSha: jest.fn(),
 }))
 // LUM-745: the sandbox step's entry guard reads the row's stages.
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findStagesById: jest.fn() },
 }))
 
 import { logger } from '@/lib/logger'
-import { createRepoSandbox } from '@/lib/integrations/vercel-sandbox'
+import { createRepoSandbox } from '@/ee/security/integrations/vercel-sandbox'
 import {
   getRepoCloneToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   securityManagedScanService,
   isManagedScanEnabled,
@@ -53,7 +53,7 @@ import {
   managedScanHourlyCap,
   MANAGED_SCAN_HOURLY_CAP_DEFAULT,
   MANAGED_SCAN_TOOLS,
-} from '@/lib/services/security-managed-scan.service'
+} from '@/ee/security/services/security-managed-scan.service'
 import { dependencyFingerprint } from '@/lib/security-scan/redact'
 
 const TOKEN = 'ghs_INSTALLATIONTOKEN123456'

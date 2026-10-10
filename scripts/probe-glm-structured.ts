@@ -29,7 +29,7 @@ import {
   generateStructuredSummary,
   type TemplateKind,
 } from '../lib/services/session-summary/templates'
-import { classifyRules } from '../lib/llm/policy-compiler-client'
+import { classifyRules } from '@/ee/security/llm/policy-compiler-client'
 
 type Check = { name: string; ok: boolean; detail: string }
 

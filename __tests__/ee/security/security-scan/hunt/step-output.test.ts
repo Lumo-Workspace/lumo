@@ -4,8 +4,8 @@ import {
   newStepLedger,
   stepClipNote,
   STEP_CLIP_MIN_CHARS,
-} from '@/lib/security-scan/hunt/step-output'
-import { HUNT_STEP_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
+} from '@/ee/security/security-scan/hunt/step-output'
+import { HUNT_STEP_OUTPUT_MAX } from '@/ee/security/services/security-hunt.config'
 
 // LUM-787 — the per-step ledger. `runHuntShell` caps one command; nothing
 // capped what a step's parallel commands returned together, and in prod one

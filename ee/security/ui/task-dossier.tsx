@@ -8,13 +8,13 @@
  */
 import { useIntl } from 'react-intl'
 import type { ClientSlotProps } from '@/lib/plugins/client'
-import { useSecurityScans } from '@/app/workspace/[workspaceUrl]/hooks/useSecurityScans'
+import { useSecurityScans } from '@/ee/security/hooks/useSecurityScans'
 import {
   BlockingSecurityFindings,
   SecurityScanSection,
-} from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
+} from '@/ee/security/components/TaskDetailTimeline/SecurityScanSection'
 import { RecordRow } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordRow'
-import { formatSecurityVerdict } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary-line'
+import { formatSecurityVerdict } from '@/ee/security/components/TaskDetailTimeline/security-summary-line'
 
 export function SecurityTaskDossier({
   taskId,

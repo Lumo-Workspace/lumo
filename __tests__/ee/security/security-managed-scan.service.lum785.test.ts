@@ -8,15 +8,15 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
-  ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
+  ...jest.requireActual('@/ee/security/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
   // LUM-852: egress policy calls go to the platform; not under test here.
   restrictSandboxEgress: jest.fn(),
   denySandboxEgress: jest.fn(),
 }))
 // LUM-852: the credential proof has its own tests (sandbox-agent, lum852).
-jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+jest.mock('@/ee/security/services/sandbox-credential-scrub', () => ({
   scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
@@ -27,28 +27,28 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findStagesById: jest.fn() },
 }))
 
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { createRepoSandbox } from '@/lib/integrations/vercel-sandbox'
+import { createRepoSandbox } from '@/ee/security/integrations/vercel-sandbox'
 import {
   getRepoCloneToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   securityManagedScanService,
   SEMGREP_CONFIGS,
-} from '@/lib/services/security-managed-scan.service'
+} from '@/ee/security/services/security-managed-scan.service'
 import {
   LLM_SEMGREP_RULES_YAML,
   SEMGREP_CUSTOM_RULES_EOF,
   SEMGREP_CUSTOM_RULES_PATH,
-} from '@/lib/security-scan/semgrep-rules'
+} from '@/ee/security/security-scan/semgrep-rules'
 
 const JOB = {
   scanId: 's1',

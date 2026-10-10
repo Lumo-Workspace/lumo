@@ -9,8 +9,12 @@ import {
   MCP_OAUTH_SCOPES,
   buildProtectedResourceMetadata,
   checkAuthorizationPkce,
+  MCP_NATIVE_REDIRECT_SCHEMES,
   checkClientRegistration,
   classifyRedirectUri,
+  fromNativeSchemePlaceholder,
+  restoreNativeSchemeRedirectUris,
+  toNativeSchemePlaceholder,
   resolveMcpOAuthUrls,
   toMcpAuthInfo,
 } from '@/lib/auth/better-auth/mcp-oauth-config'
@@ -47,6 +51,10 @@ describe('classifyRedirectUri', () => {
     ['http://localhost:6274/oauth/callback', 'native'],
     ['http://127.0.0.1:33418', 'native'],
     ['http://[::1]:8080/cb', 'native'],
+    ['cursor://anysphere.cursor-mcp/oauth/callback', 'native-scheme'],
+    ['vscode://some.extension/oauth/cb', 'native-scheme'],
+    ['vscode-insiders://some.extension/oauth/cb', 'native-scheme'],
+    ['CURSOR://anysphere.cursor-mcp/oauth/callback', 'native-scheme'],
   ])('accepts %s as %s', (uri, kind) => {
     expect(classifyRedirectUri(uri)).toBe(kind)
   })
@@ -55,8 +63,14 @@ describe('classifyRedirectUri', () => {
     'http://evil.example.com/cb', // plain http, not loopback
     'http://localhost.evil.com/cb', // looks like loopback, is not
     'https://localhost:8443/cb', // https on loopback
-    'cursor://anysphere.cursor-retrieval/oauth', // custom scheme
-    'com.example.app:/callback', // private-use scheme
+    'windsurf://codeium.windsurf/cb', // custom scheme not on the allowlist
+    'myapp://callback', // custom scheme not on the allowlist
+    'com.example.app:/callback', // private-use scheme not on the allowlist
+    'cursor:/no-authority', // allowlisted scheme without a host
+    'cursor:opaque', // allowlisted scheme, opaque form
+    'cursor://anysphere.cursor-mcp/cb#frag', // fragment
+    'cursor://user@anysphere.cursor-mcp/cb', // user info
+    'ai.uselumo.mcp-native-redirect:/637572736f72', // Lumo's own placeholder
     'javascript:alert(1)',
     'data:text/html,hi',
     'file:///etc/passwd',
@@ -95,11 +109,15 @@ describe('checkClientRegistration', () => {
     ['no body', null],
     ['no redirect_uris', { client_name: 'x' }],
     ['empty redirect_uris', { redirect_uris: [] }],
-    ['a disallowed scheme', { redirect_uris: ['cursor://x/cb'] }],
+    ['a disallowed scheme', { redirect_uris: ['myapp://x/cb'] }],
     ['a non-string uri', { redirect_uris: [42] }],
     [
-      'mixed web and loopback',
-      { redirect_uris: ['https://a.example.com/cb', 'http://localhost:1/cb'] },
+      'an allowed app scheme next to a disallowed one',
+      { redirect_uris: ['cursor://a.b/cb', 'myapp://x/cb'] },
+    ],
+    [
+      'an app scheme with application_type web',
+      { redirect_uris: ['cursor://a.b/cb'], application_type: 'web' },
     ],
     [
       'a contradicting application_type',
@@ -127,7 +145,7 @@ describe('checkClientRegistration', () => {
 
   it('reports redirect problems as invalid_redirect_uri, the rest as invalid_client_metadata (RFC 7591)', () => {
     expect(
-      checkClientRegistration({ redirect_uris: ['cursor://x/cb'] })
+      checkClientRegistration({ redirect_uris: ['myapp://x/cb'] })
     ).toMatchObject({
       error: 'invalid_redirect_uri',
     })
@@ -137,6 +155,70 @@ describe('checkClientRegistration', () => {
         grant_types: ['client_credentials'],
       })
     ).toMatchObject({ error: 'invalid_client_metadata' })
+  })
+})
+
+describe('app-scheme redirect URIs (LUM-1073, ruling Q7)', () => {
+  const CURSOR = 'cursor://anysphere.cursor-mcp/oauth/callback'
+
+  it('the allowlist is a fixed constant: cursor, vscode, vscode-insiders', () => {
+    expect([...MCP_NATIVE_REDIRECT_SCHEMES]).toEqual([
+      'cursor',
+      'vscode',
+      'vscode-insiders',
+    ])
+    expect(Object.isFrozen(MCP_NATIVE_REDIRECT_SCHEMES)).toBe(true)
+  })
+
+  it('registers Cursor’s real DCR request (app scheme + https + loopback) as native, with placeholders for Better Auth', () => {
+    const r = checkClientRegistration({
+      client_name: 'Cursor',
+      redirect_uris: [
+        CURSOR,
+        'https://www.cursor.com/agents/mcp/oauth/callback',
+        'http://localhost:8787/callback',
+      ],
+      token_endpoint_auth_method: 'none',
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.body.application_type).toBe('native')
+    const sent = r.body.redirect_uris as string[]
+    expect(sent[0]).toMatch(/^ai\.uselumo\.mcp-native-redirect:\/[0-9a-f]+$/)
+    expect(sent.slice(1)).toEqual([
+      'https://www.cursor.com/agents/mcp/oauth/callback',
+      'http://localhost:8787/callback',
+    ])
+    expect(restoreNativeSchemeRedirectUris(sent)).toEqual([
+      CURSOR,
+      'https://www.cursor.com/agents/mcp/oauth/callback',
+      'http://localhost:8787/callback',
+    ])
+  })
+
+  it('placeholders are reverse-domain, authority-free URIs (what Better Auth accepts) and round-trip exactly', () => {
+    const p = toNativeSchemePlaceholder(CURSOR)
+    const url = new URL(p)
+    expect(url.host).toBe('')
+    expect(url.protocol).toBe('ai.uselumo.mcp-native-redirect:')
+    expect(fromNativeSchemePlaceholder(p)).toBe(CURSOR)
+  })
+
+  it('never decodes a placeholder to a URI outside the allowlist', () => {
+    expect(
+      fromNativeSchemePlaceholder(toNativeSchemePlaceholder('myapp://x/cb'))
+    ).toBeNull()
+    expect(
+      fromNativeSchemePlaceholder('ai.uselumo.mcp-native-redirect:/zz')
+    ).toBeNull()
+    expect(
+      fromNativeSchemePlaceholder('ai.uselumo.mcp-native-redirect:/ff')
+    ).toBeNull()
+    expect(fromNativeSchemePlaceholder('https://a.example.com/cb')).toBeNull()
+    expect(
+      restoreNativeSchemeRedirectUris(['http://localhost:1/cb'])
+    ).toBeNull()
+    expect(restoreNativeSchemeRedirectUris(undefined)).toBeNull()
   })
 })
 

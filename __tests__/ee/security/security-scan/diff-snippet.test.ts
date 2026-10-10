@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { extractDiffHunk } from '@/lib/security-scan/diff-snippet'
+import { extractDiffHunk } from '@/ee/security/security-scan/diff-snippet'
 
 const DIFF = [
   'diff --git a/lib/a.ts b/lib/a.ts',

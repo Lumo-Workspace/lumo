@@ -5,38 +5,38 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findJudgeFindingsForVerify: jest.fn(),
     completeVerification: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-hunt-sandbox', () => ({
+jest.mock('@/ee/security/services/security-hunt-sandbox', () => ({
   attachOrCreateHuntSandbox: jest.fn(),
   releaseManagedScanVm: jest.fn(),
   runVerifierShell: jest.fn(),
   stopHuntSandbox: jest.fn(),
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
-jest.mock('@/lib/llm/review-verifier-client', () => ({
+jest.mock('@/ee/security/llm/review-verifier-client', () => ({
   verifyFindings: jest.fn(),
 }))
-jest.mock('@/lib/llm/review-ranker-client', () => ({
+jest.mock('@/ee/security/llm/review-ranker-client', () => ({
   rankFindings: jest.fn(),
 }))
 
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
-import { prSecurityScanRepository as repo } from '@/lib/repositories/pr-security-scan.repository'
-import * as sandbox from '@/lib/services/security-hunt-sandbox'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
-import { verifyFindings } from '@/lib/llm/review-verifier-client'
-import { rankFindings } from '@/lib/llm/review-ranker-client'
+import { prSecurityScanRepository as repo } from '@/ee/security/repositories/pr-security-scan.repository'
+import * as sandbox from '@/ee/security/services/security-hunt-sandbox'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
+import { verifyFindings } from '@/ee/security/llm/review-verifier-client'
+import { rankFindings } from '@/ee/security/llm/review-ranker-client'
 import {
   citedDiff,
   reviewVerifierService,
-} from '@/lib/services/review-verifier.service'
+} from '@/ee/security/services/review-verifier.service'
 
 const job = {
   scanId: 's1',

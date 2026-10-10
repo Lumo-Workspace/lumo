@@ -9,7 +9,7 @@ import {
   verifierAppliesTo,
   verifierHolding,
   verifierKindOf,
-} from '@/lib/security-scan/verifier'
+} from '@/ee/security/security-scan/verifier'
 
 describe('LUM-988 verifier rules', () => {
   it('only an LLM_JUDGE row with a REJECTED verdict is rejected', () => {

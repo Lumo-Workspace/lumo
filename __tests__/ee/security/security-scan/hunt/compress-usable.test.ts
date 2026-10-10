@@ -1,7 +1,7 @@
 import {
   judgeCompression,
   NO_RELEVANT_LINES,
-} from '@/lib/security-scan/hunt/compress-usable'
+} from '@/ee/security/security-scan/hunt/compress-usable'
 
 describe('judgeCompression', () => {
   // The failure this module exists for: 7 calls, 38,585 chars in, 133 out —

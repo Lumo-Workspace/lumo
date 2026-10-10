@@ -18,12 +18,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { CODE_REVIEW_MODEL } from '../../../lib/ai/models'
-import { rankFindings } from '../../../lib/llm/review-ranker-client'
+import { rankFindings } from '@/ee/security/llm/review-ranker-client'
 import {
   RANKER_DIFF_MAX_CHARS,
   RANKER_TIMEOUT_MS,
-} from '../../../lib/security-scan/verifier'
-import { citedDiff } from '../../../lib/services/review-verifier.service'
+} from '@/ee/security/security-scan/verifier'
+import { citedDiff } from '@/ee/security/services/review-verifier.service'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import { prKey } from './pr-key'
 

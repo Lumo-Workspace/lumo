@@ -11,7 +11,7 @@ import {
   addedControlCallIds,
   calleesOf,
   evaluateHuntTrigger,
-} from '@/lib/security-scan/hunt/trigger'
+} from '@/ee/security/security-scan/hunt/trigger'
 
 const file = (path: string, ...texts: string[]) => ({
   path,

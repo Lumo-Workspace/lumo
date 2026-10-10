@@ -13,8 +13,8 @@ import {
   ShieldQuestion,
 } from 'lucide-react'
 import { useIntl } from 'react-intl'
-import { isOverSizeLimitOnly } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
-import type { SecurityScanView } from '@/lib/services/pr-security-scan.service'
+import { isOverSizeLimitOnly } from '@/ee/security/components/TaskDetailTimeline/security-summary'
+import type { SecurityScanView } from '@/ee/security/services/pr-security-scan.service'
 
 const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
   HIGH: 'text-danger-text',

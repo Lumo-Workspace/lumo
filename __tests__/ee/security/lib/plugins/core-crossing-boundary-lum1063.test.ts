@@ -48,10 +48,10 @@ describe('LUM-1063 crossing-side core files go through the plugin registry', () 
 
   it('the guard pattern recognises the imports it is meant to catch', () => {
     for (const s of [
-      "import { x } from '@/lib/boundary-crossing/sensitive-read'",
-      "await import('@/lib/llm/crossing-explain-client')",
-      "import { p } from '@/lib/services/policy/policy-compiler.service'",
-      "import { r } from '@/lib/repositories/project-policy.repository'",
+      "import { x } from '@/ee/security/boundary-crossing/sensitive-read'",
+      "await import('@/ee/security/llm/crossing-explain-client')",
+      "import { p } from '@/ee/security/services/policy/policy-compiler.service'",
+      "import { r } from '@/ee/security/repositories/project-policy.repository'",
       "import { s } from './untrusted-code'",
     ])
       expect(s).toMatch(PLUGIN_IMPORT)

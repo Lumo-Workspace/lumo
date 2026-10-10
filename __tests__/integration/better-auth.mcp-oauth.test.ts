@@ -340,7 +340,8 @@ describeDb('MCP OAuth on Better Auth, real database (LUM-1044)', () => {
   // ── Dynamic client registration ────────────────────────────────────────────
 
   it.each([
-    ['a custom scheme', 'cursor://anysphere.cursor/callback'],
+    ['a custom scheme off the allowlist', 'myapp://callback'],
+    ['a reverse-domain private-use scheme', 'com.example.app:/callback'],
     ['plain http on a public host', 'http://evil.example.com/cb'],
     ['https on loopback', 'https://localhost:8080/cb'],
     ['javascript:', 'javascript:alert(1)'],
@@ -721,5 +722,81 @@ describeDb('MCP OAuth on Better Auth, real database (LUM-1044)', () => {
       fresh
     )
     expect(mcp.status).toBe(401)
+  })
+
+  // ── LUM-1073: allowlisted app-scheme redirect URI (Cursor) ─────────────────
+
+  it('Cursor (cursor:// + https + loopback): registers, stores the real URI, consents, tools/list', async () => {
+    const CURSOR_CB = 'cursor://anysphere.cursor-mcp/oauth/callback'
+    const uris = [
+      CURSOR_CB,
+      'https://www.cursor.com/agents/mcp/oauth/callback',
+      'http://localhost:8787/callback',
+    ]
+    const reg = await call('/oauth2/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        redirect_uris: uris,
+        token_endpoint_auth_method: 'none',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        client_name: 'LUM-1073 Cursor',
+      }),
+    })
+    expect(reg.status).toBe(201)
+    const regBody = (await reg.json()) as Record<string, unknown>
+    expect(regBody.redirect_uris).toEqual(uris)
+    const cursorClientId = regBody.client_id as string
+    const row = await mod.prisma.authOauthClient.findUnique({
+      where: { clientId: cursorClientId },
+      select: { redirectUris: true, applicationType: true, skipConsent: true },
+    })
+    expect(row).toMatchObject({ redirectUris: uris, applicationType: 'native' })
+    expect(row?.skipConsent).not.toBe(true)
+
+    const noPkce = await call(
+      authorizeUrl({
+        client_id: cursorClientId,
+        redirect_uri: CURSOR_CB,
+        code_challenge: null,
+        code_challenge_method: null,
+      }),
+      { headers: { cookie: sessionCookie } }
+    )
+    expect(noPkce.status).toBe(400)
+    expect(noPkce.headers.get('location')).toBeNull()
+
+    const authz = await call(
+      authorizeUrl({ client_id: cursorClientId, redirect_uri: CURSOR_CB }),
+      { headers: { cookie: sessionCookie } }
+    )
+    const consentLoc = new URL(authz.headers.get('location') ?? '', BASE)
+    expect(consentLoc.pathname).toBe('/oauth/consent')
+    const consent = await call('/oauth2/consent', {
+      method: 'POST',
+      headers: { cookie: sessionCookie, accept: 'application/json' },
+      body: JSON.stringify({
+        accept: true,
+        oauth_query: consentLoc.search.slice(1),
+      }),
+    })
+    const { url } = (await consent.json()) as { url: string }
+    expect(url.startsWith(`${CURSOR_CB}?`)).toBe(true)
+    const code = new URL(url).searchParams.get('code') ?? ''
+    const tok = await token({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: CURSOR_CB,
+      client_id: cursorClientId,
+      code_verifier: verifier,
+      resource: RESOURCE,
+    })
+    expect(tok.status).toBe(200)
+    const { access_token } = (await tok.json()) as { access_token: string }
+    const list = await mcpPost(
+      { jsonrpc: '2.0', id: 31, method: 'tools/list' },
+      access_token
+    )
+    expect(list.status).toBe(200)
   })
 })

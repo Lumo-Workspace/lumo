@@ -16,14 +16,14 @@ jest.mock('@/lib/services/collision.service', () => ({
 jest.mock('@/lib/services/boundary-crossing.service', () => ({
   boundaryCrossingService: { buildAgentReminder: jest.fn() },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: { buildAgentReminder: jest.fn() },
 }))
 
 import { authService } from '@/lib/services/auth.service'
 import { hookEventService } from '@/lib/services/hook-event.service'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
 import { POST } from '@/app/api/hooks/pre-tool-use/route'
 
 const identity = {

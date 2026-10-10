@@ -19,7 +19,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-import { sweepUnconfirmedScanCode } from '@/lib/services/scan-code-retention.service'
+import { sweepUnconfirmedScanCode } from '@/ee/security/services/scan-code-retention.service'
 
 jest.setTimeout(180_000)
 

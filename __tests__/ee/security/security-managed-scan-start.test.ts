@@ -8,7 +8,7 @@ jest.mock('@/lib/workflows/security-managed-scan', () => ({
 
 import { start } from 'workflow/api'
 import { logger } from '@/lib/logger'
-import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
+import { startSecurityManagedScan } from '@/ee/security/services/security-managed-scan-start'
 import { securityManagedScanWorkflow } from '@/lib/workflows/security-managed-scan'
 
 const startMock = start as unknown as jest.Mock

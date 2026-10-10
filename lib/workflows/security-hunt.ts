@@ -74,13 +74,13 @@ import {
   type HuntFindingInput,
   type HuntResult,
   type VerifySubgraphOutput,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import {
   allocateTaskBudgets,
   isOversized,
   plannedTaskCap,
-} from '@/lib/security-scan/hunt/allocation'
-import type { Subgraph } from '@/lib/security-scan/graph/types'
+} from '@/ee/security/security-scan/hunt/allocation'
+import type { Subgraph } from '@/ee/security/security-scan/graph/types'
 import {
   buildVerifySubgraphStep,
   planHuntStep,
@@ -94,12 +94,12 @@ import {
   awaitManagedScanStep,
   stopIfHuntTurnedOffStep,
 } from './security-hunt.steps'
-import { syncPrReviewBestEffort } from './security-scan-helpers'
+import { syncPrReviewBestEffort } from '@/ee/security/workflows/security-scan-helpers'
 import {
   mergeBatchStage,
   planHuntBatches,
   scopeJobToBatch,
-} from '@/lib/security-scan/hunt/batches'
+} from '@/ee/security/security-scan/hunt/batches'
 import type { PartialCause } from '@/shared/src/security-scan'
 
 /** LUM-832 — record a cause once; pure, like `reasonOf`. */

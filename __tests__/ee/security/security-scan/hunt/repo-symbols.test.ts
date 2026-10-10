@@ -15,7 +15,7 @@ import {
   sightingKey,
   sightingsInSource,
   symbolNameOf,
-} from '@/lib/security-scan/hunt/repo-symbols'
+} from '@/ee/security/security-scan/hunt/repo-symbols'
 
 describe('LUM-798 symbol names', () => {
   it('reads the name out of every symbol-id shape', () => {

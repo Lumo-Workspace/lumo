@@ -64,7 +64,8 @@ export default [
     // Layered architecture: the Service layer must not access Prisma directly.
     // Use runInTransaction from @/lib/db/transaction and the repositories in
     // @/lib/repositories. (@/lib/db/errors and @/lib/db/transaction stay allowed.)
-    files: ['lib/services/**/*.ts'],
+    // LUM-1065: the security plugin's services (ee/security/services) too.
+    files: ['lib/services/**/*.ts', 'ee/*/services/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -98,11 +99,13 @@ export default [
       'components/**/*.{ts,tsx}',
       'hooks/**/*.{ts,tsx}',
       'lib/**/*.{ts,tsx}',
+      'ee/**/*.{ts,tsx}',
       'proxy.ts',
     ],
     ignores: [
       'lib/runtime/**',
       'lib/services/**',
+      'ee/*/services/**',
       'lib/blob/**',
       'lib/auth/**',
     ],

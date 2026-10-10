@@ -25,6 +25,7 @@ import {
   AUDIT_INDIRECT_ACTIONS,
   AUDIT_INSTRUMENTED,
   AUDIT_PENDING,
+  AUDIT_PLUGIN_ACTIONS,
   auditedCallArguments,
   callsInstrumentedUnit,
   importedModules,
@@ -87,7 +88,14 @@ describe('LUM-907 audit coverage guard', () => {
       ...Object.values(AUDIT_INSTRUMENTED).flat(),
       ...Object.values(AUDIT_INDIRECT_ACTIONS).flat(),
     ])
-    expect(AUDIT_ACTIONS.filter(a => !written.has(a))).toEqual([])
+    // LUM-1065: a plugin's actions are written by the plugin (checked by its
+    // own guard), and never also by the core.
+    expect(AUDIT_PLUGIN_ACTIONS.filter(a => written.has(a))).toEqual([])
+    expect(
+      AUDIT_ACTIONS.filter(
+        a => !written.has(a) && !AUDIT_PLUGIN_ACTIONS.includes(a)
+      )
+    ).toEqual([])
     // The indirect settings actions are exactly the diff's actions.
     expect(
       [

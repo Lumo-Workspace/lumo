@@ -277,11 +277,8 @@ describe('LUM-886 helpers mint with the narrowed permission set', () => {
       'pullRequestWrite',
       'pullRequestWrite',
     ],
-    'lib/services/security-pr-review.service.ts': [
-      // LUM-892: the scanning-off notice, then the review sync.
-      'pullRequestWrite',
-      'pullRequestWrite',
-    ],
+    // The security plugin's PR review service is pinned the same way in
+    // __tests__/ee/security/lib/integrations/github/token-permissions.test.ts.
   }
 
   it('mints with the narrowed permission set: services (source table)', () => {

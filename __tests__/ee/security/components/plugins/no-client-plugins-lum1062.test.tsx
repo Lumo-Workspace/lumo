@@ -33,7 +33,7 @@ jest.mock('react-intl', () => {
 
 // Any read of the security scans would be a plugin call on a core path.
 const useSecurityScans = jest.fn()
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
 }))
 

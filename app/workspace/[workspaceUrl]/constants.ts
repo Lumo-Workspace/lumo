@@ -13,11 +13,6 @@ export const API = {
     status: (identifier: string) => `/api/tasks/${identifier}/status`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
     progress: (taskId: string) => `/api/tasks/${taskId}/progress`,
-    securityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,
-    securityFindingDisposition: (taskId: string, findingId: string) =>
-      `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,
-    securityFindingsBulkDisposition: (taskId: string) =>
-      `/api/tasks/${taskId}/security-findings/bulk-disposition`,
     boundaryCrossings: (taskId: string) =>
       `/api/tasks/${taskId}/boundary-crossings`,
     boundaryDisposition: (taskId: string) =>
@@ -75,7 +70,6 @@ export const API = {
     deletion: '/api/workspaces/me/deletion',
     aiDerivedContent: '/api/workspaces/me/ai-derived-content',
     // LUM-1002: the PR security-scan switches (also `lumo workspace security-scan`).
-    securityScan: '/api/workspaces/me/security-scan',
     exportDownload: (id: string) =>
       `/api/workspaces/me/exports/${encodeURIComponent(id)}/download`,
     // LUM-907: the workspace audit log (OWNER only) and its CSV export.

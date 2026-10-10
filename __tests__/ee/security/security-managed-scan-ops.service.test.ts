@@ -2,7 +2,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findPendingManagedByPullRequest: jest.fn(),
     mergeStages: jest.fn(),
@@ -10,26 +10,26 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     findStalePendingExternal: jest.fn(),
   },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   stopRepoSandboxesByTag: jest.fn(),
 }))
-jest.mock('@/lib/services/security-managed-scan-cancel', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-cancel', () => ({
   cancelManagedRun: jest.fn(),
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { stopRepoSandboxesByTag } from '@/lib/integrations/vercel-sandbox'
-import { cancelManagedRun } from '@/lib/services/security-managed-scan-cancel'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { stopRepoSandboxesByTag } from '@/ee/security/integrations/vercel-sandbox'
+import { cancelManagedRun } from '@/ee/security/services/security-managed-scan-cancel'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import {
   securityManagedScanOpsService,
   SWEEP_BATCH_LIMIT,
   SWEEP_REASON,
-} from '@/lib/services/security-managed-scan-ops.service'
-import { EXTERNAL_PENDING_DEAD_MS } from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-managed-scan-ops.service'
+import { EXTERNAL_PENDING_DEAD_MS } from '@/ee/security/services/security-managed-scan.config'
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository

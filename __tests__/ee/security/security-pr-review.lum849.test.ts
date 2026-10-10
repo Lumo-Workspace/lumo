@@ -10,7 +10,7 @@
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {},
 }))
 
@@ -20,12 +20,12 @@ import {
   buildSummary,
   commitUrlOf,
   type SummaryInput,
-} from '@/lib/services/security-pr-review.service'
+} from '@/ee/security/services/security-pr-review.service'
 import {
   PR_SUMMARY_CHANGE_MAX_CHARS,
   PR_SUMMARY_INTENT_MAX_CHARS,
   cleanPrSummary,
-} from '@/lib/security-scan/pr-summary'
+} from '@/ee/security/security-scan/pr-summary'
 import {
   SCAN_STAGE_DESCRIPTIONS,
   SCAN_STAGE_KEYS,

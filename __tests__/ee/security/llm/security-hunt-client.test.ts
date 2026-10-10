@@ -9,7 +9,7 @@ jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateText } from 'ai'
 import { HUNT_MODEL } from '@/lib/ai/models'
-import { HUNT_CLIENT_MAX_RETRIES } from '@/lib/services/security-hunt.config'
+import { HUNT_CLIENT_MAX_RETRIES } from '@/ee/security/services/security-hunt.config'
 import {
   allowedToolsFor,
   describeRunShellTool,
@@ -21,24 +21,24 @@ import {
   traceOfStep,
   HUNT_SYSTEM_PROMPT,
   wrapUpWindowMs,
-} from '@/lib/llm/security-hunt-client'
+} from '@/ee/security/llm/security-hunt-client'
 import {
   nextStepTokens,
   stepsLeftForecast,
-} from '@/lib/security-scan/hunt/budget'
-import { elisionStub } from '@/lib/security-scan/hunt/transcript'
-import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
+} from '@/ee/security/security-scan/hunt/budget'
+import { elisionStub } from '@/ee/security/security-scan/hunt/transcript'
+import { HUNT_SHELL_COMMANDS } from '@/ee/security/security-scan/hunt/shell-allowlist'
 import {
   HUNT_WRAP_UP_MIN_TOKENS,
   type HuntStepTrace,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 // LUM-758 Task 9: the client no longer re-exports `numberLines` — `read_file`
 // is gone — but the service still numbers falsifier snippets with it, so its
 // truncation stays covered here, from the module that owns it.
 import {
   numberLines,
   SNIPPET_MAX_CHARS,
-} from '@/lib/security-scan/hunt/snippet'
+} from '@/ee/security/security-scan/hunt/snippet'
 
 const gen = generateText as jest.Mock
 

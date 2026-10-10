@@ -12,26 +12,26 @@ const mockWaitUntil = jest.fn((p: Promise<unknown>) => p)
 jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => mockWaitUntil(p),
 }))
-jest.mock('@/lib/services/pr-security-scan-gate', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-gate', () => ({
   listOpenBlockingFindings: jest.fn(),
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: {
     buildSessionStartSection: jest.fn(),
     loadOpenFindingsForTask: jest.fn(),
     buildAgentReminder: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue('dispatched'),
   shouldScanOnPrEvent: jest.requireActual(
-    '@/lib/services/pr-security-scan-dispatch'
+    '@/ee/security/services/pr-security-scan-dispatch'
   ).shouldScanOnPrEvent,
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: { requestFromPush: jest.fn() },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
 }))
 
@@ -47,11 +47,11 @@ import {
 import { emitCoreEvent } from '@/lib/plugins/events'
 import { scrubPluginRepositoryCode } from '@/lib/plugins/retention'
 import { retentionStockCategories } from '@/lib/services/retention-stock.service'
-import { listOpenBlockingFindings } from '@/lib/services/pr-security-scan-gate'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
-import { securityBaselineService } from '@/lib/services/security-baseline.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { listOpenBlockingFindings } from '@/ee/security/services/pr-security-scan-gate'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
+import { securityBaselineService } from '@/ee/security/services/security-baseline.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
 
 const reminder = prSecurityReminderService as unknown as Record<

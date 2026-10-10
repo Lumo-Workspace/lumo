@@ -1,14 +1,14 @@
 /** @jest-environment node */
 import { GET, POST } from '@/app/api/pull-requests/[number]/scans/route'
-import { prReviewControlService } from '@/lib/services/pr-review-control.service'
-jest.mock('@/lib/services/pr-review-control.service', () => ({
+import { prReviewControlService } from '@/ee/security/services/pr-review-control.service'
+jest.mock('@/ee/security/services/pr-review-control.service', () => ({
   prReviewControlService: { act: jest.fn() },
 }))
 import { requireIdentity } from '@/lib/auth'
-import { prScanReadoutService } from '@/lib/services/pr-scan-readout.service'
+import { prScanReadoutService } from '@/ee/security/services/pr-scan-readout.service'
 
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
-jest.mock('@/lib/services/pr-scan-readout.service', () => ({
+jest.mock('@/ee/security/services/pr-scan-readout.service', () => ({
   prScanReadoutService: { getForPullRequest: jest.fn() },
 }))
 jest.mock('@/lib/logger', () => ({

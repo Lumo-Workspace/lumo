@@ -83,16 +83,48 @@ export function resolveMcpOAuthUrls(
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
-export type RedirectUriKind = 'web' | 'native'
+/**
+ * LUM-1073 (RFC LUM-1069 §4.3, ruling Q7) — the private-use URI schemes
+ * (RFC 8252 §7.1) an MCP client may register a redirect URI under. A fixed
+ * allowlist on purpose, not configuration: a custom scheme can be claimed by
+ * any local app, so each entry is a deliberate security decision, backed by
+ * mandatory PKCE S256 on every authorization request and a consent screen
+ * for every new client.
+ *
+ *   cursor           Cursor's MCP DCR registers
+ *                    cursor://anysphere.cursor-mcp/oauth/callback (alongside
+ *                    https://www.cursor.com/agents/mcp/oauth/callback and
+ *                    http://localhost:8787/callback; Cursor 3.14.27, see
+ *                    https://forum.cursor.com/t/167608 and /t/165019).
+ *   vscode,
+ *   vscode-insiders  Named in ruling Q7. VS Code's MCP client currently
+ *                    registers https://vscode.dev/redirect plus 127.0.0.1
+ *                    loopback URIs (github.com/microsoft/vscode/issues/278512);
+ *                    the scheme is VS Code's own URL handler
+ *                    (vscode://<extension-id>/…), allowed for clients that use it.
+ *
+ * Better Auth itself only accepts reverse-domain private-use schemes without
+ * an authority (com.example.app:/cb), which none of these are — see
+ * {@link toNativeSchemePlaceholder} for how they get past it.
+ */
+export const MCP_NATIVE_REDIRECT_SCHEMES: readonly string[] = Object.freeze([
+  'cursor',
+  'vscode',
+  'vscode-insiders',
+])
+
+export type RedirectUriKind = 'web' | 'native' | 'native-scheme'
 
 /**
  * Classify a redirect URI a client wants to register, or return null when
  * Lumo does not accept it:
  *   https://<non-loopback host>/…           → 'web'
  *   http://localhost|127.0.0.1|[::1][:port]/… → 'native' (RFC 8252 loopback)
- * Everything else — plain http on another host, https on loopback, custom
- * schemes (cursor://, vscode://, com.example.app:/), javascript:, data:, a
- * fragment or user info — is rejected.
+ *   <allowlisted scheme>://<host>/…          → 'native-scheme' (RFC 8252
+ *                                               §7.1; {@link MCP_NATIVE_REDIRECT_SCHEMES})
+ * Everything else — plain http on another host, https on loopback, other
+ * custom schemes (com.example.app:/, myapp://), an allowlisted scheme without
+ * a host, javascript:, data:, a fragment or user info — is rejected.
  */
 export function classifyRedirectUri(raw: string): RedirectUriKind | null {
   let url: URL
@@ -106,7 +138,77 @@ export function classifyRedirectUri(raw: string): RedirectUriKind | null {
   const isLoopback = LOOPBACK_HOSTS.has(host)
   if (url.protocol === 'https:') return isLoopback ? null : 'web'
   if (url.protocol === 'http:') return isLoopback ? 'native' : null
+  const scheme = url.protocol.slice(0, -1)
+  if (
+    MCP_NATIVE_REDIRECT_SCHEMES.includes(scheme) &&
+    raw.toLowerCase().startsWith(`${scheme}://`) &&
+    host.length > 0
+  ) {
+    return 'native-scheme'
+  }
   return null
+}
+
+// Better Auth 1.7 validates a native client's custom-scheme redirect URI as
+// a reverse-domain scheme without an authority (RFC 8252 §7.1's
+// recommendation), so cursor://anysphere.cursor-mcp/… never reaches its
+// store. Lumo's registration hook hands Better Auth a placeholder of that
+// shape instead — `<this scheme>:/<hex of the real URI's UTF-8>` — and an
+// after hook writes the real URI back to the stored client and the response
+// (lumoMcpOAuthPlugin). The placeholder scheme is not allowlisted, so a
+// client can never register a placeholder itself.
+const NATIVE_SCHEME_PLACEHOLDER_PREFIX = 'ai.uselumo.mcp-native-redirect:/'
+
+/** The Better Auth-acceptable stand-in for an allowlisted custom-scheme URI. */
+export function toNativeSchemePlaceholder(uri: string): string {
+  const hex = Array.from(new TextEncoder().encode(uri), b =>
+    b.toString(16).padStart(2, '0')
+  ).join('')
+  return `${NATIVE_SCHEME_PLACEHOLDER_PREFIX}${hex}`
+}
+
+/**
+ * The original URI behind a placeholder, or null when `value` is not one (or
+ * does not decode to an allowlisted custom-scheme URI).
+ */
+export function fromNativeSchemePlaceholder(value: unknown): string | null {
+  if (
+    typeof value !== 'string' ||
+    !value.startsWith(NATIVE_SCHEME_PLACEHOLDER_PREFIX)
+  ) {
+    return null
+  }
+  const encoded = value.slice(NATIVE_SCHEME_PLACEHOLDER_PREFIX.length)
+  if (!/^(?:[0-9a-f]{2})+$/.test(encoded)) return null
+  const bytes = new Uint8Array(encoded.length / 2)
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(encoded.slice(i * 2, i * 2 + 2), 16)
+  }
+  let uri: string
+  try {
+    uri = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return null
+  }
+  return classifyRedirectUri(uri) === 'native-scheme' ? uri : null
+}
+
+/**
+ * `redirect_uris` with every placeholder swapped back for its original URI,
+ * or null when there is nothing to restore.
+ */
+export function restoreNativeSchemeRedirectUris(
+  uris: unknown
+): string[] | null {
+  if (!Array.isArray(uris)) return null
+  let changed = false
+  const restored = uris.map(u => {
+    const original = fromNativeSchemePlaceholder(u)
+    if (original === null) return u
+    changed = true
+    return original
+  })
+  return changed ? (restored as string[]) : null
 }
 
 export type RegistrationCheck =
@@ -132,10 +234,15 @@ const invalidRedirect = (description: string): RegistrationCheck => ({
 /**
  * Apply Lumo's registration policy to an RFC 7591 request body:
  *   - every redirect URI must pass {@link classifyRedirectUri};
- *   - all redirect URIs must be of one kind (web or native);
  *   - `application_type` is inferred from them when the client omits it
  *     (MCP clients rarely send it; Better Auth would otherwise treat a
- *     loopback-only client as `web` and reject it), and must agree when sent;
+ *     loopback-only client as `web` and reject it), and must agree when sent:
+ *     `native` as soon as one URI is loopback or an allowlisted custom scheme
+ *     (Cursor registers its custom scheme, an https URL and a loopback URL
+ *     together — RFC 8252 native clients may use all three), else `web`;
+ *   - allowlisted custom-scheme URIs are replaced by placeholders Better Auth
+ *     accepts ({@link toNativeSchemePlaceholder}), restored after it stores
+ *     the client;
  *   - only the authorization-code and refresh-token grants may be requested.
  * Returns the body to hand on to Better Auth, or why it is rejected.
  */
@@ -149,20 +256,25 @@ export function checkClientRegistration(body: unknown): RegistrationCheck {
     return invalidRedirect('redirect_uris is required')
   }
   const kinds = new Set<RedirectUriKind>()
+  const forBetterAuth: string[] = []
   for (const uri of uris) {
     const kind = typeof uri === 'string' ? classifyRedirectUri(uri) : null
     if (!kind) {
       return invalidRedirect(
-        'redirect_uris must be https URLs or http loopback URLs ' +
-          `(localhost, 127.0.0.1, [::1]); got ${String(uri)}`
+        'redirect_uris must be https URLs, http loopback URLs ' +
+          '(localhost, 127.0.0.1, [::1]) or use an allowed app scheme ' +
+          `(${MCP_NATIVE_REDIRECT_SCHEMES.join(', ')}); got ${String(uri)}`
       )
     }
     kinds.add(kind)
+    forBetterAuth.push(
+      kind === 'native-scheme'
+        ? toNativeSchemePlaceholder(uri as string)
+        : (uri as string)
+    )
   }
-  if (kinds.size > 1) {
-    return invalidRedirect('redirect_uris must be all https or all loopback')
-  }
-  const inferred = [...kinds][0]
+  const inferred: 'web' | 'native' =
+    kinds.has('native') || kinds.has('native-scheme') ? 'native' : 'web'
   if (
     input.application_type !== undefined &&
     input.application_type !== inferred
@@ -181,7 +293,14 @@ export function checkClientRegistration(body: unknown): RegistrationCheck {
       'only the authorization_code and refresh_token grants are supported'
     )
   }
-  return { ok: true, body: { ...input, application_type: inferred } }
+  return {
+    ok: true,
+    body: {
+      ...input,
+      redirect_uris: forBetterAuth,
+      application_type: inferred,
+    },
+  }
 }
 
 // ─── Authorization request policy ───────────────────────────────────────────

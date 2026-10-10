@@ -45,12 +45,12 @@ import {
   HUNT_TASK_TOKEN_MAX,
   HUNT_MAX_FALSIFIED,
   type HuntTask,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import {
   allocateTaskBudgets,
   plannedTaskCap,
-} from '@/lib/security-scan/hunt/allocation'
-import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/lib/security-scan/hunt/candidate'
+} from '@/ee/security/security-scan/hunt/allocation'
+import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/ee/security/security-scan/hunt/candidate'
 
 const verifyGraph = buildVerifySubgraphStep as jest.Mock
 const plan = planHuntStep as jest.Mock

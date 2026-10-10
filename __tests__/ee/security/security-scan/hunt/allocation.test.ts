@@ -6,7 +6,7 @@ import {
   siteCategory,
   taskSiteCount,
   taskTimeMs,
-} from '@/lib/security-scan/hunt/allocation'
+} from '@/ee/security/security-scan/hunt/allocation'
 import {
   HUNT_MAX_PLANNED_TASKS,
   HUNT_MAX_PLANNED_TASKS_CEILING,
@@ -21,8 +21,8 @@ import {
   HUNT_BATCH_WINDOW_CEILING_MS,
   HUNT_TASK_TIME_MS,
   HUNT_TRACE_MAX_STEPS,
-} from '@/lib/services/security-hunt.config'
-import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
+} from '@/ee/security/services/security-hunt.config'
+import type { HuntSignalSite } from '@/ee/security/security-scan/hunt/trigger'
 
 const site = (rule: string, path: string, line: number): HuntSignalSite => ({
   rule,

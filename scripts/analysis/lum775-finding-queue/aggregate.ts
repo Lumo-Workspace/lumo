@@ -12,12 +12,12 @@ import {
   explainQueueExit,
   queueExitContext,
   type QueueExitContext,
-} from '@/lib/security-scan/queue-exit'
+} from '@/ee/security/security-scan/queue-exit'
 import {
   isBlockingUnderPolicy,
   type SecurityPolicy,
-} from '@/lib/security-scan/policy'
-import type { SecurityBaseline } from '@/lib/security-scan/types'
+} from '@/ee/security/security-scan/policy'
+import type { SecurityBaseline } from '@/ee/security/security-scan/types'
 
 export type QueueBucket =
   | 'SUPERSEDED_SCAN'

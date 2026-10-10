@@ -27,7 +27,7 @@ import {
   detectCrossings,
   confirmActionCandidates,
 } from '@/lib/services/boundary-detector.service'
-import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
+import type { ActionConfirmJudge } from '@/ee/security/boundary-crossing/action-confirm'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 

@@ -161,12 +161,8 @@ export const AUDIT_INSTRUMENTED: Readonly<
   'lib/services/boundary-crossing.service.ts#revokeSuppressionRule': [
     'boundary_crossing.suppression_rule_revoked',
   ],
-  'lib/services/pr-security-scan.service.ts#disposition': [
-    'security_finding.dispositioned',
-  ],
-  'lib/services/pr-security-scan.service.ts#dispositionSuggested': [
-    'security_finding.suggestions_confirmed',
-  ],
+  // (Security finding rulings: the security plugin's units, classified in
+  // its own registry — see AUDIT_PLUGIN_ACTIONS below.)
   'lib/services/test-case-defect-disposition.service.ts#rule': [
     'test_case_defect.dispositioned',
   ],
@@ -207,6 +203,18 @@ export const AUDIT_INDIRECT_ACTIONS: Readonly<
 }
 
 /**
+ * LUM-1065: audit actions written by an installed plugin, not by the core.
+ * They stay in AUDIT_ACTIONS (existing audit rows carry them and the audit
+ * log renders them); the plugin's units that write them are classified in
+ * the plugin's own registry and held to this same guard by the plugin's
+ * tests. Without the plugin, nothing writes them.
+ */
+export const AUDIT_PLUGIN_ACTIONS: readonly AuditAction[] = [
+  'security_finding.dispositioned',
+  'security_finding.suggestions_confirmed',
+]
+
+/**
  * In scope but not yet instrumented. PR1 shipped the PR3 points here; PR3
  * instrumented every one of them, and the guard now requires this list to
  * stay EMPTY: a new sensitive unit is instrumented or exempt with a reason,
@@ -242,9 +250,6 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   // LUM-907 PR2: reading the audit log itself (list + CSV export).
   'lib/services/audit-query.service.ts#assertOwner': GATE_HELPER,
   'lib/services/audit-query.service.ts#listAuditEvents': READ_ONLY,
-  // LUM-1002: `get` only reports whether the caller is an OWNER (`canEdit`);
-  // the write goes through workspaceService.updateWorkspace, which is audited.
-  'lib/services/security-scan-settings.service.ts#get': READ_ONLY,
   // LUM-907 PR3 ruling: per-member document shares are routine
   // collaboration (who on the team may read or edit one page), not a change
   // of who OUTSIDE can read it; visibility and the public link are audited.

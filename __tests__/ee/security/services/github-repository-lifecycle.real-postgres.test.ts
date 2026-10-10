@@ -32,7 +32,7 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn(),
   createInstallationToken: jest.fn(),
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/services/comment.service', () => ({
@@ -41,9 +41,9 @@ jest.mock('@/lib/services/comment.service', () => ({
 
 import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
-import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
-import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
+import { securitySarifIngestService } from '@/ee/security/services/security-sarif-ingest.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { requireConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
 import { CODE_REMOVED_MARK } from '@/lib/integrations/github/mirror-code-strip'
 

@@ -5,8 +5,8 @@
  * the LUM-496 / LUM-832 / LUM-892 summary-line rules).
  */
 import type { IntlShape } from 'react-intl'
-import type { TaskSecurityScans } from '@/lib/services/pr-security-scan.service'
-import { formatSecurityVerdict } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary-line'
+import type { TaskSecurityScans } from '@/ee/security/services/pr-security-scan.service'
+import { formatSecurityVerdict } from '@/ee/security/components/TaskDetailTimeline/security-summary-line'
 
 const en = require('@/lib/i18n/en.json') as Record<string, string>
 function format(

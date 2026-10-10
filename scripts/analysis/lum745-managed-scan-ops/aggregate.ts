@@ -4,8 +4,8 @@
  * than 45 min, superseded runs cancelled). `report.ts` reads the rows; this
  * file only counts.
  */
-import { EXTERNAL_ERROR_PREFIX } from '../../../lib/security-scan/stages'
-import { EXTERNAL_PENDING_DEAD_MS } from '../../../lib/services/security-managed-scan.config'
+import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
+import { EXTERNAL_PENDING_DEAD_MS } from '@/ee/security/services/security-managed-scan.config'
 
 export interface ManagedScanRow {
   id: string

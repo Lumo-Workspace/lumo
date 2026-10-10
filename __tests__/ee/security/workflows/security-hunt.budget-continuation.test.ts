@@ -48,8 +48,8 @@ import {
   huntShortfall,
   type HuntJob,
   type HuntTask,
-} from '@/lib/services/security-hunt.config'
-import { summarizeScanReliability } from '@/lib/security-scan/reliability'
+} from '@/ee/security/services/security-hunt.config'
+import { summarizeScanReliability } from '@/ee/security/security-scan/reliability'
 import {
   partialCauseClass,
   scanCoverageState,

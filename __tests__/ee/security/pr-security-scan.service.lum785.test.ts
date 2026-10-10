@@ -8,11 +8,11 @@
  */
 // LUM-866: every workspace here has the default switches (all on); the
 // platform env in each test still decides the ceiling.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
@@ -23,13 +23,13 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrHeadSha: jest.fn(),
   readRepoFile: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-judge-client', () => ({
+jest.mock('@/ee/security/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-falsifier-client', () => ({
+jest.mock('@/ee/security/llm/security-falsifier-client', () => ({
   falsifyCandidate: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByPrAndSha: jest.fn(),
     create: jest.fn(),
@@ -49,9 +49,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
@@ -60,31 +58,36 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
     findLastSarifIngestAt: jest.fn(),
     findSecurityBaseline: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
   securityManagedScanOpsService: {
     supersedeOlderRuns: jest.fn(),
     enforceHourlyCap: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   recordHuntStartBestEffort: jest.fn(),
 }))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: { ensure: jest.fn().mockResolvedValue('present') },
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
@@ -92,16 +95,16 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { securityManagedScanOpsService } from '@/ee/security/services/security-managed-scan-ops.service'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import { logger } from '@/lib/logger'
 import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/security-judge-client'
-import * as falsifier from '@/lib/llm/security-falsifier-client'
-import { graphRuleFingerprint } from '@/lib/services/security-graph-rules.service'
+import * as judge from '@/ee/security/llm/security-judge-client'
+import * as falsifier from '@/ee/security/llm/security-falsifier-client'
+import { graphRuleFingerprint } from '@/ee/security/services/security-graph-rules.service'
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
@@ -139,6 +142,7 @@ export const sqlService = {
 `
 const SERVICE_SOURCE_PARSED = `import { prisma } from '@/lib/db/prisma'
 import { StatementSchema } from '@/lib/validation/sql'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 export const sqlService = {
   async run(statement: string) {
@@ -295,7 +299,7 @@ describe('LUM-785 stage A graph rule', () => {
     expect(repo.persistResult.mock.calls[0]![2].partialCauses).toEqual([])
   })
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

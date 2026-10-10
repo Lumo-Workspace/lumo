@@ -520,13 +520,12 @@ describe('the real package-lock.json (LUM-1016 regression guard)', () => {
     expect(missing.sort()).toEqual(['@vercel/cli-auth', 'khroma'])
   })
 
-  it('audits dependencies only, not Lumo’s own Elastic-2.0 app or MIT CLI (LUM-1014)', () => {
-    expect(lock.packages['']?.license).toBe('Elastic-2.0')
+  it('audits dependencies only, not Lumo’s own MIT app or MIT CLI (LUM-1014, LUM-1066)', () => {
+    expect(lock.packages['']?.license).toBe('MIT')
     expect(lock.packages['cli']?.license).toBe('MIT')
     const paths = new Set(closure.packages.map(p => p.path))
     for (const root of ['', 'cli', 'shared'])
       expect(paths.has(root)).toBe(false)
-    expect(closure.packages.some(p => p.license === 'Elastic-2.0')).toBe(false)
   })
 
   it('agrees with npm’s own dev flags in the lockfile', () => {

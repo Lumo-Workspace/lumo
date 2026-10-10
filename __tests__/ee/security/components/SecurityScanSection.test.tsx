@@ -65,8 +65,8 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries }),
 }))
 const dispositionSecurityFinding = jest.fn().mockResolvedValue({})
-jest.mock('@/lib/api-client', () => ({
-  tasksClient: {
+jest.mock('@/ee/security/api-client', () => ({
+  securityScanClient: {
     dispositionSecurityFinding: (...a: unknown[]) =>
       dispositionSecurityFinding(...a),
   },
@@ -93,11 +93,11 @@ jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
   },
 }))
 const useSecurityScans = jest.fn()
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
 }))
 
-import { SecurityScanSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
+import { SecurityScanSection } from '@/ee/security/components/TaskDetailTimeline/SecurityScanSection'
 import { scanCoverageState } from '@/shared/src/security-scan'
 
 const finding = (over: object) => ({

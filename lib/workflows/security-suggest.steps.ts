@@ -9,7 +9,7 @@ import {
   type PreparedSuggestions,
   type SuggestionCandidate,
   type JudgeResult,
-} from '@/lib/services/security-suggest-disposition.service'
+} from '@/ee/security/services/security-suggest-disposition.service'
 
 export async function prepareSuggestionsStep(
   scanId: string

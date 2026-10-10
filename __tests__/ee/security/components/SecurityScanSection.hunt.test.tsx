@@ -36,18 +36,18 @@ jest.mock('react-intl', () => ({
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }))
-jest.mock('@/lib/api-client', () => ({
-  tasksClient: { dispositionSecurityFinding: jest.fn() },
+jest.mock('@/ee/security/api-client', () => ({
+  securityScanClient: { dispositionSecurityFinding: jest.fn() },
 }))
 jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
   SecurityScanBadge: () => <span data-testid='security-scan-badge' />,
 }))
 const useSecurityScans = jest.fn()
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
 }))
 
-import { SecurityScanSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
+import { SecurityScanSection } from '@/ee/security/components/TaskDetailTimeline/SecurityScanSection'
 
 const pr = {
   id: 'pr1',

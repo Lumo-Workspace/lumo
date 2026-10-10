@@ -17,10 +17,10 @@ jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
 jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => waitUntil(p),
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
   shouldScanOnPrEvent: jest.requireActual(
-    '@/lib/services/pr-security-scan-dispatch'
+    '@/ee/security/services/pr-security-scan-dispatch'
   ).shouldScanOnPrEvent,
 }))
 jest.mock('@/lib/services/github.service', () => ({
@@ -85,7 +85,7 @@ import { linkPullRequest } from '@/lib/services/task-pr-link.service'
 import {
   dispatchPrSecurityScan,
   shouldScanOnPrEvent,
-} from '@/lib/services/pr-security-scan-dispatch'
+} from '@/ee/security/services/pr-security-scan-dispatch'
 import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'

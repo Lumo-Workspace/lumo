@@ -13,15 +13,16 @@
  * So a new file is core by default and is guarded the day it lands; moving a
  * file into `ee/` (PR6) or under a plugin prefix makes it plugin. The module
  * table is RFC appendix A's `MODULES` with the corrections PR1–PR4 recorded
- * (#1373, #1378, #1380, #1379): `lib/security-scan/core-types.ts` is core,
- * `ee/` and `lib/{services,repositories}/pr-review-control.*` (#1367) are
- * plugin. First match wins.
+ * (#1373, #1378, #1380, #1379) and the PR6 paths (LUM-1065): the plugin
+ * lives in `ee/security/`, the private evaluation set in `ee/private/`, and
+ * only framework-fixed files (routes, workflows, semgrep rules, operator
+ * scripts) stay at their old paths. First match wins.
  *
  * Tests follow the same split by LOCATION: a test under `__tests__/ee/` or
  * `test-utils/ee/` is a plugin (or private) test and may import anything;
  * every other shipped test is a core test and must not import a plugin or
- * private file. PR6 excludes `__tests__/ee/**` and `test-utils/ee/**` from
- * the OSS snapshot together with the plugin code.
+ * private file. The manifest excludes `__tests__/ee/**` and `test-utils/ee/**`
+ * from the OSS snapshot together with the plugin code (LUM-1065).
  *
  * The import rules are the ones `scripts/oss-export/manifest.ts` applies to
  * the export (static / side-effect / dynamic `import`, `require`,
@@ -41,7 +42,17 @@ export type Destination = 'core' | 'plugin' | 'private'
 
 const R = (s: string) => new RegExp(s)
 
-/** [module id, destination, path regex]. Unmatched files are core. */
+/**
+ * [module id, destination, path regex]. Unmatched files are core.
+ *
+ * LUM-1065 (PR6) moved the plugin into `ee/security/` and the private
+ * evaluation set into `ee/private/`, so every plugin / private module is
+ * listed FIRST (an `ee/` path can never fall through to a core module).
+ * What stays at its old path does so because of a framework constraint:
+ * App Router routes (the URL is the path), Vercel Workflows files (workflow
+ * and step ids embed the path), the semgrep rules (pinned byte-identical,
+ * never compiled) and the operator scripts.
+ */
 export const BOUNDARY_MODULES: ReadonlyArray<
   readonly [string, Destination, RegExp]
 > = [
@@ -53,11 +64,71 @@ export const BOUNDARY_MODULES: ReadonlyArray<
     'plugin',
     R('^scripts/security/|^scripts/backfill-prv-rejudge\\.ts$'),
   ],
+  ['crossing-eval', 'private', R('^ee/private/')],
   [
-    'crossing-eval',
-    'private',
+    'crossing-ai',
+    'plugin',
     R(
-      '^lib/boundary-crossing/(eval/|align-eval|false-positive-rate)|^lib/llm/offline-eval-client'
+      '^ee/security/(boundary-crossing/triage|services/boundary-crossing-triage|llm/crossing-explain-client|ai/evaluation\\.ts$|components/TaskDetailTimeline/CrossingTriageLine)|^app/api/cron/triage-crossings/|^app/api/tasks/\\[id\\]/boundary-crossings/\\[crossingId\\]/system-explain/'
+    ),
+  ],
+  [
+    'policy-rules',
+    'plugin',
+    R(
+      '^ee/security/(services/policy/|repositories/project-policy|llm/(policy-compiler|code-rule-judge)-client|boundary-crossing/(push-target-match|action-rule-match))|^app/api/internal/policy-check/'
+    ),
+  ],
+  [
+    'crossing-detectors-adv',
+    'plugin',
+    R(
+      '^ee/security/(boundary-crossing/(destructive-fs|sensitive-read|untrusted-code|action-confirm)|llm/action-confirm-client)'
+    ),
+  ],
+  [
+    'scan-hunt',
+    'plugin',
+    R(
+      '^ee/security/(security-scan/(hunt|graph)/|services/security-(hunt|graph-rules)|llm/security-(hunt|falsifier))|^lib/workflows/security-hunt'
+    ),
+  ],
+  [
+    'scan-managed',
+    'plugin',
+    R(
+      '^ee/security/(services/security-(managed-scan|baseline)|security-scan/semgrep-rules|services/sandbox-credential-scrub|integrations/vercel-sandbox/)|^lib/workflows/security-(managed-scan|baseline-scan)|^security/'
+    ),
+  ],
+  [
+    'scan-sarif',
+    'plugin',
+    R(
+      '^ee/security/(security-scan/sarif\\.ts$|services/security-sarif|validation/security-sarif|auth/(sarif-ingest-auth|github-oidc))|^lib/workflows/security-sarif|^app/api/integrations/security/sarif/|^app/api/cron/prune-security-sarif/'
+    ),
+  ],
+  [
+    'scan-ai-review',
+    'plugin',
+    R(
+      '^ee/security/(security-scan/(review-kinds|review-context|related-context|truncate|judge-budget|pr-summary|verifier|diff-snippet|suggestion)\\.ts$|services/(review-verifier|review-context|security-suggest)|llm/(security-judge|review-verifier|review-ranker|security-disposition-falsifier)-client)|^lib/workflows/(review-verifier|security-suggest)'
+    ),
+  ],
+  [
+    'scan-retention',
+    'plugin',
+    R(
+      '^ee/security/(security-scan/evidence-retention|services/(scan-evidence-retention|scan-code-retention)|components/settings/ScanEvidenceRetentionRow)|^app/api/cron/sweep-(expired-scan-evidence|unconfirmed-scan-code)/'
+    ),
+  ],
+  [
+    'scan-core',
+    'plugin',
+    R(
+      // The rest of the plugin tree (entries, UI slots, scan orchestration,
+      // the #1367 review control, the plugin-column repository) and the
+      // routes / workflows that stay at their framework-fixed paths.
+      '^ee/|^lib/workflows/security-pr-review|^app/api/tasks/\\[id\\]/security-(findings|scans)/|^app/api/pull-requests/\\[number\\]/scans/|^app/api/workspaces/me/security-scan/|^app/api/internal/pr-security-scan/|^app/api/cron/sweep-security-scans/'
     ),
   ],
   [
@@ -88,27 +159,6 @@ export const BOUNDARY_MODULES: ReadonlyArray<
     R('^shared/src/(security-scan|hunt-audit)\\.ts$'),
   ],
   [
-    'crossing-ai',
-    'plugin',
-    R(
-      '^lib/boundary-crossing/triage|^lib/services/boundary-crossing-triage|^lib/llm/crossing-explain-client|^lib/ai/evaluation\\.ts$|^app/api/cron/triage-crossings/|^app/api/tasks/\\[id\\]/boundary-crossings/\\[crossingId\\]/system-explain/|CrossingTriageLine'
-    ),
-  ],
-  [
-    'policy-rules',
-    'plugin',
-    R(
-      '^lib/services/policy/|^lib/repositories/project-policy|^lib/llm/(policy-compiler|code-rule-judge)-client|^lib/boundary-crossing/(push-target-match|action-rule-match)|^app/api/internal/policy-check/'
-    ),
-  ],
-  [
-    'crossing-detectors-adv',
-    'plugin',
-    R(
-      '^lib/boundary-crossing/(destructive-fs|sensitive-read|untrusted-code|action-confirm)|^lib/llm/action-confirm-client'
-    ),
-  ],
-  [
     'crossing-detectors',
     'core',
     R(
@@ -127,50 +177,6 @@ export const BOUNDARY_MODULES: ReadonlyArray<
     'core',
     R(
       '^lib/boundary-crossing/|^lib/services/(boundary-crossing|crossing-raw-retention)|^lib/repositories/(boundary-crossing|crossing-|open-crossing-move)|^lib/disposition/|^lib/validation/boundary-crossing|^app/api/tasks/\\[id\\]/boundary-crossings/|BoundaryCrossingsPanel|boundary-(explain|format)\\.ts$|crossing-groups\\.ts$|useBoundaryCrossings|CrossingRawRetentionRow'
-    ),
-  ],
-  [
-    'scan-hunt',
-    'plugin',
-    R(
-      '^lib/security-scan/(hunt|graph)/|^lib/services/security-(hunt|graph-rules)|^lib/llm/security-(hunt|falsifier)|^lib/workflows/security-hunt'
-    ),
-  ],
-  [
-    'scan-managed',
-    'plugin',
-    R(
-      '^lib/services/security-(managed-scan|baseline)|^lib/workflows/security-(managed-scan|baseline-scan)|^lib/security-scan/semgrep-rules|^security/|^lib/services/sandbox-credential-scrub|^lib/integrations/vercel-sandbox/'
-    ),
-  ],
-  [
-    'scan-sarif',
-    'plugin',
-    R(
-      '^lib/security-scan/sarif\\.ts$|^lib/services/security-sarif|^lib/validation/security-sarif|^lib/auth/(sarif-ingest-auth|github-oidc)|^lib/workflows/security-sarif|^app/api/integrations/security/sarif/|^app/api/cron/prune-security-sarif/'
-    ),
-  ],
-  [
-    'scan-ai-review',
-    'plugin',
-    R(
-      '^lib/security-scan/(review-kinds|review-context|related-context|truncate|judge-budget|pr-summary|verifier|diff-snippet|suggestion)\\.ts$|^lib/services/(review-verifier|review-context|security-suggest)|^lib/llm/(security-judge|review-verifier|review-ranker|security-disposition-falsifier)-client|^lib/workflows/(review-verifier|security-suggest)'
-    ),
-  ],
-  [
-    'scan-retention',
-    'plugin',
-    R(
-      '^lib/security-scan/evidence-retention|^lib/services/(scan-evidence-retention|scan-code-retention)|^app/api/cron/sweep-(expired-scan-evidence|unconfirmed-scan-code)/|ScanEvidenceRetentionRow'
-    ),
-  ],
-  [
-    'scan-core',
-    'plugin',
-    R(
-      // PR2 (#1378): the plugin tree itself and the #1367 review-control
-      // files (they read `prisma.prSecurityScan`; option A makes them plugin).
-      '^ee/|^lib/(services|repositories)/pr-review-control|^lib/security-scan/|^lib/services/(pr-security-|pr-scan-readout|security-(pr-review|scan-|workspace-switches))|^lib/repositories/pr-security-scan|^lib/validation/security-scan|^lib/workflows/security-(pr-review|scan-helpers)|^app/api/tasks/\\[id\\]/security-(findings|scans)/|^app/api/pull-requests/\\[number\\]/scans/|^app/api/workspaces/me/security-scan/|^app/api/internal/pr-security-scan/|^app/api/cron/sweep-security-scans/|SecurityScanSection|security-(agent-context|summary-line|summary)\\.ts$|useSecurityScans|SecurityScanSwitchesCard'
     ),
   ],
 ]
@@ -578,6 +584,55 @@ export function findPluginTableAccess(
         hits.push({ file, line: i + 1, kind, text: text.trim() })
         break
       }
+  })
+  return hits
+}
+
+// ── plugin columns on core models (LUM-1065, Q4 option A) ───────────────────
+
+/**
+ * Columns of CORE models that only the security plugin reads or writes
+ * (RFC §4). They stay in the one schema; the core reaches them only through
+ * the `workspaceSettings` extension point, which never names them.
+ */
+export const PLUGIN_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  Workspace: [
+    'securityPolicy',
+    'securityScanEnabled',
+    'securityAiReviewEnabled',
+    'securityHuntEnabled',
+    'scanEvidenceRetentionDays',
+  ],
+  ProjectRepository: ['lastSarifIngestAt', 'securityBaseline'],
+}
+
+export interface ColumnAccessHit {
+  file: string
+  line: number
+  column: string
+  text: string
+}
+
+/**
+ * Lines of one source file that name a plugin column as an identifier or a
+ * string (`select: { securityPolicy: true }`, `row.lastSarifIngestAt`,
+ * `'scanEvidenceRetentionDays'`). Comment lines are skipped — a core comment
+ * may mention the plugin's column; code may not touch it.
+ */
+export function findPluginColumnAccess(
+  file: string,
+  source: string,
+  columns: Readonly<Record<string, readonly string[]>> = PLUGIN_COLUMNS
+): ColumnAccessHit[] {
+  const names = [...new Set(Object.values(columns).flat())]
+  const re = new RegExp(`\\b(${names.join('|')})\\b`)
+  const hits: ColumnAccessHit[] = []
+  source.split('\n').forEach((text, i) => {
+    const code = text
+      .replace(/^\s*(\/\/|\*|\/\*).*$/, '')
+      .replace(/\/\/.*$/, '')
+    const m = re.exec(code)
+    if (m) hits.push({ file, line: i + 1, column: m[1]!, text: text.trim() })
   })
   return hits
 }

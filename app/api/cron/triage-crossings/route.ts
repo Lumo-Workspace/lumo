@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { boundaryCrossingTriageService } from '@/lib/services/boundary-crossing-triage.service'
+import { boundaryCrossingTriageService } from '@/ee/security/services/boundary-crossing-triage.service'
 import { requireCronAuth } from '@/lib/api/cron-auth'
 
 export const runtime = 'nodejs'

@@ -5,8 +5,8 @@
 import {
   formatHuntCoverage,
   parseHuntCoverage,
-} from '@/lib/security-scan/hunt/coverage'
-import { HUNT_CATEGORIES } from '@/lib/services/security-hunt.config'
+} from '@/ee/security/security-scan/hunt/coverage'
+import { HUNT_CATEGORIES } from '@/ee/security/services/security-hunt.config'
 
 const row = (over: Record<string, unknown> = {}) => ({
   category: 'idor',

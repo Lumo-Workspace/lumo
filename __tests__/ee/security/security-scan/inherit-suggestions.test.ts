@@ -1,9 +1,9 @@
 /** @jest-environment node */
-import { inheritDispositions } from '@/lib/security-scan/inherit-dispositions'
+import { inheritDispositions } from '@/ee/security/security-scan/inherit-dispositions'
 import type {
   NewFindingInput,
   DispositionedFingerprint,
-} from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/repositories/pr-security-scan.repository'
 
 const fresh = (fingerprint: string): NewFindingInput => ({
   scanId: 's2',

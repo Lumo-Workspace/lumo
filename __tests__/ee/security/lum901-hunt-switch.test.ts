@@ -44,7 +44,7 @@ jest.mock('@/lib/db/prisma', () => ({
     prSecurityScan: { findUnique: jest.fn(), update: jest.fn() },
   },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     failStaleHunt: jest.fn(),
     disableStaleHunt: jest.fn(),
@@ -54,19 +54,25 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { findSecuritySwitches: jest.fn() },
+  workspaceRepository: {},
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecuritySwitches: jest.fn(),
+  },
+}))
+
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   cancelHuntRun: jest.fn(),
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   stopRepoSandboxesByTag: jest.fn().mockResolvedValue(0),
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
 
@@ -75,10 +81,9 @@ import * as steps from '@/lib/workflows/security-hunt.steps'
 import {
   HUNT_STALE_REASONS,
   securityHuntOpsService,
-} from '@/lib/services/security-hunt-ops.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+} from '@/ee/security/services/security-hunt-ops.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import { prisma } from '@/lib/db/prisma'
 import {
   SCAN_UNFINISHED_NOTE,
@@ -90,23 +95,26 @@ import {
   formatScanStatus,
   formatTurnedOffLines,
 } from '@/cli/src/lib/scan-format'
-import { summarizeSecurityScans } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
-import type { SecurityScanView } from '@/lib/services/pr-security-scan.service'
+import { summarizeSecurityScans } from '@/ee/security/components/TaskDetailTimeline/security-summary'
+import type { SecurityScanView } from '@/ee/security/services/pr-security-scan.service'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const { buildSummary } = jest.requireActual(
-  '@/lib/services/security-pr-review.service'
-) as typeof import('@/lib/services/security-pr-review.service')
+  '@/ee/security/services/security-pr-review.service'
+) as typeof import('@/ee/security/services/security-pr-review.service')
 const realRepo = (
   jest.requireActual(
-    '@/lib/repositories/pr-security-scan.repository'
-  ) as typeof import('@/lib/repositories/pr-security-scan.repository')
+    '@/ee/security/repositories/pr-security-scan.repository'
+  ) as typeof import('@/ee/security/repositories/pr-security-scan.repository')
 ).prSecurityScanRepository
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
 const switches = (s: Record<string, boolean>) =>
-  (workspaceRepository.findSecuritySwitches as jest.Mock).mockResolvedValue(s)
+  (
+    securityColumnsRepository.findSecuritySwitches as jest.Mock
+  ).mockResolvedValue(s)
 const turnedOffStep = steps.stopIfHuntTurnedOffStep as jest.Mock
 
 const JOB = {

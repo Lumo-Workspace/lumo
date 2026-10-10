@@ -4,12 +4,12 @@
  * in its own process and returns fingerprints only; the persist step writes
  * that set to `ProjectRepository.securityBaseline`. Default retry policy.
  */
-import { securityManagedScanService } from '@/lib/services/security-managed-scan.service'
-import { securityBaselineService } from '@/lib/services/security-baseline.service'
+import { securityManagedScanService } from '@/ee/security/services/security-managed-scan.service'
+import { securityBaselineService } from '@/ee/security/services/security-baseline.service'
 import type {
   BaselineScanJob,
   BaselineScanOutcome,
-} from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-managed-scan.config'
 
 export async function scanBaselineInSandboxStep(
   job: BaselineScanJob

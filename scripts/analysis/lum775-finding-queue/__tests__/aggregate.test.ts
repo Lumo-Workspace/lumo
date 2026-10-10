@@ -5,7 +5,7 @@ import {
   renderQueueReport,
   type QueueFindingRow,
 } from '../aggregate'
-import { DEFAULT_SECURITY_POLICY } from '@/lib/security-scan/policy'
+import { DEFAULT_SECURITY_POLICY } from '@/ee/security/security-scan/policy'
 
 const MERGED_AT = new Date('2026-09-10T10:00:00Z')
 const fresh = {

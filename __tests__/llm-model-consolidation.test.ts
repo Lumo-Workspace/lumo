@@ -12,7 +12,7 @@
  *    `@anthropic-ai/sdk`'s `client.messages.create({ model })`. Prefixing this
  *    one with `anthropic/` would 400 the native API (LUM-587 invariant).
  */
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   REASONING_MODEL,
@@ -60,10 +60,9 @@ const GENERATION_CALL_SITES = [
 
 // 桶1 VERIFIER + low-adversarial — MUST stay on REASONING_MODEL (now GPT-5.5);
 // the cheap-model swap must not leak into the verifier tier (LUM-588 invariant).
-const VERIFIER_CALL_SITES = [
-  'lib/llm/claim-faithfulness-judge-client.ts',
-  'lib/llm/action-confirm-client.ts',
-]
+// (The security plugin's action-confirm client is pinned the same way in
+// __tests__/ee/security/llm-model-consolidation.test.ts — LUM-1065.)
+const VERIFIER_CALL_SITES = ['lib/llm/claim-faithfulness-judge-client.ts']
 // EMBEDDING_MODEL stays in ./embedding (coupled to EMBEDDING_DIM / pgvector);
 // the registry is kept gateway-free, so it is not re-exported there.
 import { EMBEDDING_MODEL } from '@/lib/ai/embedding'
@@ -123,9 +122,13 @@ test('lib runtime has no inline gateway claude model literals', () => {
   // Any `gateway('anthropic/claude-…')` literal in lib/ means a call site still
   // hardcodes a model id instead of importing the central constant.
   const inlineGatewayClaude = /gateway\(\s*['"]anthropic\/claude-/
-  const offenders = walkTsFiles(LIB_DIR).filter(f =>
-    inlineGatewayClaude.test(readFileSync(f, 'utf8'))
-  )
+  // LUM-1065: plus the plugin tree when this checkout has one (ee/ is not in
+  // the open-source snapshot).
+  const EE_DIR = join(REPO_ROOT, 'ee')
+  const roots = existsSync(EE_DIR) ? [LIB_DIR, EE_DIR] : [LIB_DIR]
+  const offenders = roots
+    .flatMap(walkTsFiles)
+    .filter(f => inlineGatewayClaude.test(readFileSync(f, 'utf8')))
   expect(offenders.map(f => f.replace(REPO_ROOT + '/', ''))).toEqual([])
 })
 
@@ -213,20 +216,12 @@ test('generation tier repointed to deepseek-v4-pro', () => {
   }
 })
 
-test('policy-compiler tier pinned to glm-5.2, sourced from the registry', () => {
+test('policy-compiler tier pinned to glm-5.2', () => {
   // 桶5 POLICY_COMPILER (LUM-590) — the per-project rule compiler rode Opus 4.8,
   // now GLM-5.2 (LUM-748), via the gateway → provider-prefixed, version dot
-  // (not dash).
+  // (not dash). Its call site is the security plugin's; that it sources this
+  // constant is checked in __tests__/ee/security/llm-model-consolidation.test.ts.
   expect(POLICY_COMPILER_MODEL).toBe('zai/glm-5.2')
-
-  const src = readFileSync(
-    join(LIB_DIR, 'llm/policy-compiler-client.ts'),
-    'utf8'
-  )
-  // Uses the dedicated constant…
-  expect(/\bPOLICY_COMPILER_MODEL\b/.test(src)).toBe(true)
-  // …and no longer shares the verifier (Sonnet) constant.
-  expect(/\bREASONING_MODEL\b/.test(src)).toBe(false)
 })
 
 test('verifier tier rides the reasoning constant (now GPT-5.5)', () => {

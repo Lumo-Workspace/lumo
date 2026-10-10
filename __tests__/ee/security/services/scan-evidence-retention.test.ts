@@ -29,8 +29,8 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 import {
   scrubScanIfZeroRetention,
   sweepExpiredScanEvidence,
-} from '@/lib/services/scan-evidence-retention.service'
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+} from '@/ee/security/services/scan-evidence-retention.service'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import { workspaceService } from '@/lib/services/workspace.service'
 // LUM-1062: the column is the security plugin's; PATCH validates it with the
 // plugin's validator merged into the core schema.
@@ -40,9 +40,9 @@ import {
   isScanFinal,
   pullRequestEndedAt,
   redactHuntAuditToCounts,
-} from '@/lib/security-scan/evidence-retention'
-import { parseHuntCoverage } from '@/lib/security-scan/hunt/coverage'
-import { huntOverCapOf } from '@/lib/security-scan/size-caps'
+} from '@/ee/security/security-scan/evidence-retention'
+import { parseHuntCoverage } from '@/ee/security/security-scan/hunt/coverage'
+import { huntOverCapOf } from '@/ee/security/security-scan/size-caps'
 
 jest.setTimeout(180_000)
 

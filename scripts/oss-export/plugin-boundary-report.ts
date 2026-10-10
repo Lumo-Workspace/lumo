@@ -12,7 +12,9 @@
  *    the two installed lists' entry imports not counted;
  *  - core tests importing plugin/private files (must be 0 after PR5);
  *  - RFC appendix A "mixed" tests (core-side security module + plugin);
- *  - plugin-table access in core code.
+ *  - plugin-table access in core code;
+ *  - plugin-column access in core server code (LUM-1065; cli/ is an HTTP
+ *    client and names API fields, not columns).
  * Lives under scripts/oss-export/ (never shipped) because it names plugin
  * paths and reads the private manifest.
  */
@@ -22,6 +24,7 @@ import {
   boundarySets,
   destinationOf,
   boundaryModuleOf,
+  findPluginColumnAccess,
   findPluginTableAccess,
   forbiddenCoreEdges,
   loadRepo,
@@ -61,6 +64,9 @@ const rules = pluginTableAccessRules(
 const tableHits = sets.coreProd.flatMap(f =>
   findPluginTableAccess(f, repo.read(f), rules)
 )
+const columnHits = sets.coreProd
+  .filter(f => !f.startsWith('cli/'))
+  .flatMap(f => findPluginColumnAccess(f, repo.read(f)))
 
 out(`core prod files: ${sets.coreProd.length}`)
 out(`core test files: ${sets.coreTests.length}`)
@@ -73,6 +79,7 @@ out(
   `RFC appendix A mixed tests: ${mixed.length} (outside the plugin test roots: ${mixedOutsidePluginRoots.length})`
 )
 out(`plugin-table access in core code: ${tableHits.length}`)
+out(`plugin-column access in core server code: ${columnHits.length}`)
 if (list) {
   for (const e of edges) out(`  edge: ${e.from} -> ${e.to} [${e.module}]`)
   for (const f of coreTestsTouching)
@@ -85,4 +92,6 @@ if (list) {
   for (const f of mixed) out(`  mixed: ${f}`)
   for (const h of tableHits)
     out(`  table: ${h.file}:${h.line} (${h.kind}) ${h.text}`)
+  for (const h of columnHits)
+    out(`  column: ${h.file}:${h.line} (${h.column}) ${h.text}`)
 }

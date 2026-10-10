@@ -7,16 +7,16 @@ import { logger } from '@/lib/logger'
 import {
   authenticateSarifIngest,
   assertPayloadMatchesPrincipal,
-} from '@/lib/auth/sarif-ingest-auth'
-import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
-import { startSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-start'
-import { SARIF_MAX_GZ_BYTES } from '@/lib/services/security-sarif-ingest.service'
+} from '@/ee/security/auth/sarif-ingest-auth'
+import { checkSarifIngestRateLimit } from '@/ee/security/services/security-sarif-rate-limit'
+import { startSecuritySarifIngest } from '@/ee/security/services/security-sarif-ingest-start'
+import { SARIF_MAX_GZ_BYTES } from '@/ee/security/services/security-sarif-ingest.service'
 import {
   sarifClientPayloadSchema,
   sarifTokenPayloadSchema,
   expectedSarifPathname,
   pathnameMatches,
-} from '@/lib/validation/security-sarif'
+} from '@/ee/security/validation/security-sarif'
 
 export const runtime = 'nodejs'
 

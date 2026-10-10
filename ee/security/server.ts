@@ -25,7 +25,7 @@ import { waitUntil } from '@/lib/runtime/wait-until'
 import {
   dispatchPrSecurityScan,
   shouldScanOnPrEvent,
-} from '@/lib/services/pr-security-scan-dispatch'
+} from '@/ee/security/services/pr-security-scan-dispatch'
 import {
   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
   SCAN_EVIDENCE_HARD_CAP_DAYS,
@@ -33,7 +33,7 @@ import {
 } from '@/lib/retention/scan-evidence'
 import { securityTaskStatusSection } from './task-status'
 import { securityWorkspaceSettings } from './workspace-settings'
-import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch'
+import { dispatchPolicyCheck } from '@/ee/security/services/policy/policy-check-dispatch'
 import {
   advancedCommandDetector,
   policyRuleDetector,
@@ -49,7 +49,7 @@ export const securityPlugin: LumoServerPlugin = {
       id: 'security',
       async openBlockers(taskId) {
         const { listOpenBlockingFindings } =
-          await import('@/lib/services/pr-security-scan-gate')
+          await import('@/ee/security/services/pr-security-scan-gate')
         return listOpenBlockingFindings(taskId)
       },
     })
@@ -61,7 +61,7 @@ export const securityPlugin: LumoServerPlugin = {
       id: 'security',
       async sessionStart({ taskId, taskIdentifier }) {
         const { prSecurityReminderService } =
-          await import('@/lib/services/pr-security-reminder.service')
+          await import('@/ee/security/services/pr-security-reminder.service')
         return prSecurityReminderService.buildSessionStartSection(
           taskId,
           taskIdentifier
@@ -70,7 +70,7 @@ export const securityPlugin: LumoServerPlugin = {
       taskStatus: securityTaskStatusSection,
       async preToolUseReminder({ taskId }) {
         const { prSecurityReminderService } =
-          await import('@/lib/services/pr-security-reminder.service')
+          await import('@/ee/security/services/pr-security-reminder.service')
         return prSecurityReminderService.buildAgentReminder(taskId)
       },
     })
@@ -113,7 +113,7 @@ export const securityPlugin: LumoServerPlugin = {
       async explain(input) {
         // Dynamic import — keeps the LLM client off the detect/hot path.
         const { explainCrossing } =
-          await import('@/lib/llm/crossing-explain-client')
+          await import('@/ee/security/llm/crossing-explain-client')
         return explainCrossing(input)
       },
     })
@@ -146,7 +146,7 @@ export const securityPlugin: LumoServerPlugin = {
       // and finding rows stay so DONE gating and history survive.
       async scrubRepositoryCode({ workspaceId, repos }) {
         const { prSecurityScanRepository } =
-          await import('@/lib/repositories/pr-security-scan.repository')
+          await import('@/ee/security/repositories/pr-security-scan.repository')
         const counts = await prSecurityScanRepository.scrubCodeForWorkspace(
           workspaceId,
           repos
@@ -178,7 +178,7 @@ async function requestBaseline(input: {
 }): Promise<void> {
   try {
     const { securityBaselineService } =
-      await import('@/lib/services/security-baseline.service')
+      await import('@/ee/security/services/security-baseline.service')
     await securityBaselineService.requestFromPush(input)
   } catch (err) {
     logger.warn(

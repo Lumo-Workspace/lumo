@@ -58,7 +58,6 @@ const DEFAULTS = {
   // An existing workspace after the migration: nothing chosen yet.
   hookEventRetentionMode: 'RETAIN',
   hookEventRetentionDays: null,
-  scanEvidenceRetentionDays: 7,
   crossingRawRetentionDays: 7,
   deadLetterRetentionDays: 7,
   aiDerivedContentEnabled: true,
@@ -68,7 +67,7 @@ function renderSection(settings = DEFAULTS) {
   return render(
     <DataRetentionSection
       settings={settings}
-      // LUM-1062: the plugin rows (scan evidence) read the workspace row.
+      // LUM-1062: plugin rows (slots) read the workspace row.
       workspace={settings}
       workspaceName='Acme'
     />
@@ -87,15 +86,13 @@ beforeEach(() => {
 })
 
 describe('DataRetentionSection', () => {
-  it('data retention block shows four rows with their defaults', async () => {
+  // LUM-1065: the core's three rows. The security plugin's scan evidence row
+  // (a `settings.retention.row` slot) is checked with the plugin, in
+  // __tests__/ee/security/components/settings/DataRetentionSection.scan-row.test.tsx.
+  it('data retention block shows the core rows with their defaults', async () => {
     renderSection()
     expect(screen.getByText('Data retention')).toBeInTheDocument()
-    for (const row of [
-      'session-record',
-      'scan-evidence',
-      'crossing-raw',
-      'dead-letter',
-    ]) {
+    for (const row of ['session-record', 'crossing-raw', 'dead-letter']) {
       expect(screen.getByTestId(`retention-row-${row}`)).toBeInTheDocument()
     }
 
@@ -109,10 +106,6 @@ describe('DataRetentionSection', () => {
       '365 days',
       'Discard when used up',
     ])
-    expect(select('scan-evidence').value).toBe('7')
-    expect(
-      Array.from(select('scan-evidence').options).map(o => o.value)
-    ).toEqual(['0', '7', '14', '30'])
     expect(select('crossing-raw').value).toBe('7')
     expect(
       Array.from(select('crossing-raw').options).map(o => o.value)

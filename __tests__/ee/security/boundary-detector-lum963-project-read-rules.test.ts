@@ -17,18 +17,18 @@ import {
 import {
   matchesReadGlob,
   detectProjectSensitiveReads,
-} from '@/lib/boundary-crossing/sensitive-read'
+} from '@/ee/security/boundary-crossing/sensitive-read'
 import {
   compileRuleSet,
   COMPILER_VERSION,
-} from '@/lib/services/policy/policy-compiler.service'
+} from '@/ee/security/services/policy/policy-compiler.service'
 import type { PolicyRule } from '@/lib/policy/types'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 const mockEnsureCompiled = jest.fn()
-jest.mock('@/lib/services/policy/policy-compiler.service', () => {
+jest.mock('@/ee/security/services/policy/policy-compiler.service', () => {
   const actual = jest.requireActual(
-    '@/lib/services/policy/policy-compiler.service'
+    '@/ee/security/services/policy/policy-compiler.service'
   )
   return {
     ...actual,

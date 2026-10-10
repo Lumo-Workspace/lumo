@@ -1,11 +1,11 @@
 import {
   planFallback,
   categoriesToTasks,
-} from '@/lib/security-scan/hunt/plan-fallback'
+} from '@/ee/security/security-scan/hunt/plan-fallback'
 import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 describe('planFallback', () => {
   it.each([

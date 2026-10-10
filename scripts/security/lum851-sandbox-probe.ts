@@ -22,26 +22,26 @@
 /* eslint-disable no-console -- CLI checkpointer: its output IS the verdict */
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { createScratchSandbox } from '@/lib/integrations/vercel-sandbox'
+import { createScratchSandbox } from '@/ee/security/integrations/vercel-sandbox'
 import {
   changedLinesOfDiff,
   normalizeSarif,
   parseSarif,
   trivyFileLevelKeys,
-} from '@/lib/security-scan/sarif'
-import type { RawSarifFinding } from '@/lib/security-scan/types'
+} from '@/ee/security/security-scan/sarif'
+import type { RawSarifFinding } from '@/ee/security/security-scan/types'
 import {
   SANDBOX_IMAGE,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_VCPUS,
   TRIVY_SEVERITIES,
-} from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-managed-scan.config'
 import {
   MANAGED_REPORT_PATH,
   MANAGED_SIDECAR_PATH,
   managedInstallScript,
   managedToolScript,
-} from '@/lib/services/security-managed-scan.scripts'
+} from '@/ee/security/services/security-managed-scan.scripts'
 
 const TREE_A = '/vercel/lum851-a'
 const TREE_B = '/vercel/lum851-b'

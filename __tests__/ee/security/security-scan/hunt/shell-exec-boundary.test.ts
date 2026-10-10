@@ -19,7 +19,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   findRepoSandboxByTag: jest.fn(),
   createRepoSandbox: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -38,8 +38,10 @@ jest.mock('@/lib/integrations/github/auth', () => ({
  * command the real allow-list admitted.
  */
 const mockChecked: string[] = []
-jest.mock('@/lib/security-scan/hunt/shell-allowlist', () => {
-  const actual = jest.requireActual('@/lib/security-scan/hunt/shell-allowlist')
+jest.mock('@/ee/security/security-scan/hunt/shell-allowlist', () => {
+  const actual = jest.requireActual(
+    '@/ee/security/security-scan/hunt/shell-allowlist'
+  )
   return {
     ...actual,
     checkHuntCommand: jest.fn((cmd: string) => {
@@ -55,17 +57,17 @@ import {
   attachOrCreateHuntSandbox,
   probeHuntTools,
   runHuntShell,
-} from '@/lib/services/security-hunt-sandbox'
+} from '@/ee/security/services/security-hunt-sandbox'
 import {
   HUNT_SHELL_BIN,
   HUNT_SHELL_COMMANDS,
   HUNT_SHELL_FLAG,
   HUNT_SHELL_PROBES,
-} from '@/lib/security-scan/hunt/shell-allowlist'
+} from '@/ee/security/security-scan/hunt/shell-allowlist'
 import {
   createRepoSandbox,
   findRepoSandboxByTag,
-} from '@/lib/integrations/vercel-sandbox'
+} from '@/ee/security/integrations/vercel-sandbox'
 
 const find = findRepoSandboxByTag as jest.Mock
 const create = createRepoSandbox as jest.Mock
@@ -235,7 +237,7 @@ describe('LUM-758 the hunt exec boundary is a single choke point', () => {
 })
 
 describe('LUM-758 source-level: one module may touch a sandbox, one call site may run a command', () => {
-  const sandboxModule = codeOf('lib/services/security-hunt-sandbox.ts')
+  const sandboxModule = codeOf('ee/security/services/security-hunt-sandbox.ts')
 
   it('the command is never interpolated, re-quoted or concatenated in the sandbox module', () => {
     // A template literal or a `+` around the command is precisely how the
@@ -279,8 +281,8 @@ describe('LUM-758 source-level: one module may touch a sandbox, one call site ma
 
   it('the hunt service and LLM client have no route to a sandbox of their own', () => {
     for (const rel of [
-      'lib/services/security-hunt.service.ts',
-      'lib/llm/security-hunt-client.ts',
+      'ee/security/services/security-hunt.service.ts',
+      'ee/security/llm/security-hunt-client.ts',
     ]) {
       const src = codeOf(rel)
       expect(src).not.toMatch(/integrations\/vercel-sandbox/)
@@ -293,7 +295,7 @@ describe('LUM-758 source-level: one module may touch a sandbox, one call site ma
   })
 
   it('the LLM client passes the command through untouched', () => {
-    const client = codeOf('lib/llm/security-hunt-client.ts')
+    const client = codeOf('ee/security/llm/security-hunt-client.ts')
     expect(client).toContain(
       'execute: ({ command }) => input.runShell(command)'
     )
@@ -358,7 +360,9 @@ describe('LUM-782 probe — our own probes take the agent’s path, not a privat
   })
 
   it('LUM-782 probe: the sandbox module still has exactly one exec site that runs a command string', () => {
-    const sandboxModule = codeOf('lib/services/security-hunt-sandbox.ts')
+    const sandboxModule = codeOf(
+      'ee/security/services/security-hunt-sandbox.ts'
+    )
     const execSites = [...sandboxModule.matchAll(/\.run\(/g)].map(m =>
       sandboxModule.slice(m.index, m.index + 200)
     )

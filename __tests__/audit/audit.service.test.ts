@@ -34,7 +34,11 @@ import {
   recordAuditEvent,
 } from '@/lib/services/audit.service'
 import { clientIpHeader, memberAuditContext } from '@/lib/api/audit-context'
-import { diffWorkspaceSettings } from '@/lib/audit/workspace-settings'
+import {
+  AUDITED_WORKSPACE_SETTINGS,
+  auditedColumns,
+  diffWorkspaceSettings,
+} from '@/lib/audit/workspace-settings'
 import { AUDIT_ACTIONS, isAuditAction } from '@/lib/audit/actions'
 import { GET as cronGET } from '@/app/api/cron/prune-audit-events/route'
 
@@ -321,13 +325,13 @@ describe('diffWorkspaceSettings', () => {
         {
           name: 'A',
           summaryEnabled: true,
-          securityPolicy: null,
+          aiDerivedContentEnabled: true,
           hookEventRetentionDays: null,
         },
         {
           name: 'B',
           summaryEnabled: true,
-          securityPolicy: { block: [] },
+          aiDerivedContentEnabled: false,
           hookEventRetentionSince: new Date(),
         }
       )
@@ -338,10 +342,41 @@ describe('diffWorkspaceSettings', () => {
       },
       {
         action: 'workspace.security_settings_updated',
-        changes: { securityPolicy: { from: null, to: { block: [] } } },
+        changes: { aiDerivedContentEnabled: { from: true, to: false } },
       },
     ])
     expect(diffWorkspaceSettings({ name: 'A' }, { name: 'A' })).toEqual([])
+  })
+
+  it('audits only the columns of the map it is given (LUM-1065: core + plugins)', () => {
+    const before = { name: 'A', pluginPolicy: null }
+    const next = { name: 'A', pluginPolicy: { block: [] } }
+    // The core map does not know a plugin's column…
+    expect(diffWorkspaceSettings(before, next)).toEqual([])
+    // …the merged map (core + an installed plugin's `audit`) does.
+    expect(
+      diffWorkspaceSettings(before, next, {
+        ...AUDITED_WORKSPACE_SETTINGS,
+        'workspace.security_settings_updated': [
+          ...AUDITED_WORKSPACE_SETTINGS['workspace.security_settings_updated'],
+          'pluginPolicy',
+        ],
+      })
+    ).toEqual([
+      {
+        action: 'workspace.security_settings_updated',
+        changes: { pluginPolicy: { from: null, to: { block: [] } } },
+      },
+    ])
+  })
+
+  it('auditedColumns lists every column of a map once', () => {
+    expect(
+      auditedColumns({
+        'workspace.settings_updated': ['name', 'slug'],
+        'workspace.retention_updated': ['slug', 'x'],
+      })
+    ).toEqual(['name', 'slug', 'x'])
   })
 })
 

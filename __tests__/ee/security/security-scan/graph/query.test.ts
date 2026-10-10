@@ -1,6 +1,9 @@
 /** @jest-environment node */
-import { reachability } from '@/lib/security-scan/graph/query'
-import type { Subgraph, GraphSymbol } from '@/lib/security-scan/graph/types'
+import { reachability } from '@/ee/security/security-scan/graph/query'
+import type {
+  Subgraph,
+  GraphSymbol,
+} from '@/ee/security/security-scan/graph/types'
 
 const S = (
   id: string,

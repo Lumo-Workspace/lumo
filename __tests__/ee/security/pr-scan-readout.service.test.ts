@@ -5,26 +5,28 @@
  * mocked; the gate (policy / queue exits) runs for real against the default
  * policy so `blocking` / `queueExit` are the production rules, not a stub.
  */
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { listByPullRequest: jest.fn() },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findByNumberInWorkspace: jest.fn() },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-    findSecuritySwitches: jest.fn().mockResolvedValue(null),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    findSecuritySwitches: jest.fn().mockResolvedValue(null),
     findSecurityBaseline: jest.fn().mockResolvedValue(null),
   },
 }))
 
-import { prScanReadoutService } from '@/lib/services/pr-scan-readout.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prScanReadoutService } from '@/ee/security/services/pr-scan-readout.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 
 const listScans = prSecurityScanRepository.listByPullRequest as jest.Mock
@@ -610,7 +612,7 @@ describe('LUM-988 verifier verdict in the read-out', () => {
     })
   })
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

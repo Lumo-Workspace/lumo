@@ -240,9 +240,10 @@ describe('structural: the guard and the wrappers do not know the crossing ledger
   it.each([
     'shared/src/untrusted-content.ts',
     'lib/memory/render.ts',
-    'lib/security-scan/agent-reminder.ts',
-    'lib/security-scan/hunt/task-context.ts',
     'lib/services/content-signals.ts',
+    // The security plugin's wrappers (agent reminder, hunt task context) are
+    // held to the same rule in
+    // __tests__/ee/security/security-scan/inject-redact-no-crossing.test.ts.
   ])('%s imports nothing from boundary-crossing', file => {
     const src = readFileSync(`${process.cwd()}/${file}`, 'utf8')
     expect(src).not.toMatch(/boundary-crossing/)

@@ -22,8 +22,8 @@ jest.mock('@/lib/workflows/security-suggest.steps', () => ({
 jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
   syncPrReviewStep: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
-  ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
+  ...jest.requireActual('@/ee/security/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
   restrictSandboxEgress: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -33,13 +33,13 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   revokeInstallationToken: jest.fn(),
   getRepoToken: jest.fn(),
 }))
-jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+jest.mock('@/ee/security/services/sandbox-credential-scrub', () => ({
   scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findStagesById: jest.fn(),
     mergeStages: jest.fn(),
@@ -51,15 +51,15 @@ import { scanRepositoryInSandboxStep } from '@/lib/workflows/security-managed-sc
 import {
   createRepoSandbox,
   restrictSandboxEgress,
-} from '@/lib/integrations/vercel-sandbox'
+} from '@/ee/security/integrations/vercel-sandbox'
 import {
   getRepoCloneToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
-import { scrubSandboxCredentials } from '@/lib/services/sandbox-credential-scrub'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { securityManagedScanService } from '@/lib/services/security-managed-scan.service'
-import { buildSummary } from '@/lib/services/security-pr-review.service'
+import { scrubSandboxCredentials } from '@/ee/security/services/sandbox-credential-scrub'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { securityManagedScanService } from '@/ee/security/services/security-managed-scan.service'
+import { buildSummary } from '@/ee/security/services/security-pr-review.service'
 
 const scanStep = scanRepositoryInSandboxStep as jest.Mock
 const restrict = restrictSandboxEgress as jest.Mock

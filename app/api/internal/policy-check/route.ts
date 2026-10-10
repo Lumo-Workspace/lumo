@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   // Dynamic import keeps the policyCompilerService → @ai-sdk/gateway graph out
   // of the static import chain (same pattern as run-summary and fold routes).
   const { resolvePolicyCheckContext } =
-    await import('@/lib/services/policy/policy-check-context')
+    await import('@/ee/security/services/policy/policy-check-context')
   const ctx = await resolvePolicyCheckContext(taskId)
   if (!ctx) {
     // No linked repo or no open PR — nothing to check.
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { codePipelineService } =
-    await import('@/lib/services/policy/code-pipeline.service')
+    await import('@/ee/security/services/policy/code-pipeline.service')
   const result = await codePipelineService.runForTask(ctx)
   return NextResponse.json(result)
 }

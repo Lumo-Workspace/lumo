@@ -10,12 +10,12 @@
  * through the `task.statusChanged` core event.
  */
 const dispatchPolicyCheck = jest.fn(async (..._a: unknown[]) => undefined)
-jest.mock('@/lib/services/policy/policy-check-dispatch', () => ({
+jest.mock('@/ee/security/services/policy/policy-check-dispatch', () => ({
   dispatchPolicyCheck: (...a: unknown[]) => dispatchPolicyCheck(...a),
 }))
 const ensureCompiled = jest.fn()
 const readSource = jest.fn()
-jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
+jest.mock('@/ee/security/services/policy/policy-compiler.service', () => ({
   policyCompilerService: {
     ensureCompiled: (...a: unknown[]) => ensureCompiled(...a),
     readSource: (...a: unknown[]) => readSource(...a),
@@ -23,14 +23,14 @@ jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
 }))
 const latestForProject = jest.fn()
 const findRuleTextByRef = jest.fn()
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
+jest.mock('@/ee/security/repositories/project-policy.repository', () => ({
   projectPolicyRepository: {
     latestForProject: (...a: unknown[]) => latestForProject(...a),
     findRuleTextByRef: (...a: unknown[]) => findRuleTextByRef(...a),
   },
 }))
 const explainLLM = jest.fn()
-jest.mock('@/lib/llm/crossing-explain-client', () => ({
+jest.mock('@/ee/security/llm/crossing-explain-client', () => ({
   explainCrossing: (...a: unknown[]) => explainLLM(...a),
 }))
 
