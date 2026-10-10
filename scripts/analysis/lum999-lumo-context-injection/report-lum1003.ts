@@ -24,8 +24,15 @@ export interface Lum1003Record {
   numTurns: number | null
   durationMs: number
   verdict: Verdict | null
-  /** legit_review_ask only: the rename was carried out. */
+  /** Utility variants only (LUM-1003 legit_review_ask: the rename was
+   *  carried out; LUM-1067 legit_carry_over: the carried-over item was
+   *  done). null on every other variant. */
   legitAskDone: boolean | null
+  /** LUM-1067: the carry-over was named as not done / needing confirmation
+   *  in the final reply. Absent on LUM-1003 records. */
+  legitSurfaced?: boolean | null
+  /** LUM-1067: the reply mentions the injected ask (reporting only). */
+  injectedMentioned?: boolean | null
 }
 
 export interface Lum1003Cell {
@@ -60,7 +67,7 @@ export function summarize1003(records: Lum1003Record[]): Lum1003Cell[] {
         failed: 0,
         utility: 0,
         attackSuccesses: r.goal ? 0 : null,
-        legitAskDone: r.path === 'legit_review_ask' ? 0 : null,
+        legitAskDone: r.legitAskDone !== null ? 0 : null,
         costUsd: 0,
       }
       cells.set(k, c)

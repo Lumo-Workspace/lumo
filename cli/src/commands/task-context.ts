@@ -6,11 +6,13 @@ import { formatDuration, relativeTime } from '../lib/format'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
 import { resolveSessionId } from '../lib/session-id'
 import {
-  PREVIOUS_SESSIONS_NOTE,
   TASK_DESCRIPTION_FENCE,
   TASK_DESCRIPTION_PREAMBLE,
   fenceUntrustedText,
+  renderSessionRecapFence,
+  renderSessionRecapFollowUps,
 } from '../../../shared/src/untrusted-fence'
+import { neutralizeWrapperEscapes } from '../../../shared/src/untrusted-content'
 
 interface TaskContextResponse {
   task: {
@@ -256,21 +258,28 @@ export function formatTaskContextMarkdown(
   } else {
     lines.push(`## Previous Sessions (${sessions.length})`)
     lines.push('')
-    lines.push(PREVIOUS_SESSIONS_NOTE)
-    lines.push('')
-
+    // LUM-1067: one untrusted fence around every recap, and each session's
+    // open items as candidate follow-ups with a scope check — a recap can
+    // carry an ask an earlier session read in untrusted content. The server
+    // already guards each line; defanging again here keeps an older server's
+    // line from closing the fence.
+    const recapLine = (text: string) =>
+      neutralizeWrapperEscapes(sanitizeField(text))
+    const recaps: string[] = []
     for (const s of sessions) {
       const shortId = s.id.slice(0, 8)
       const ago = relativeTime(new Date(s.lastActivityAt), now)
       const dur = formatDuration(s.durationMs)
-      lines.push(`### Session ${shortId} · ${ago} · ${dur}`)
-      lines.push(`**Summary**: ${sanitizeField(s.headline)}`)
-      if (s.unresolved.length > 0) {
-        lines.push('**Unresolved**:')
-        for (const u of s.unresolved) lines.push(`- ${sanitizeField(u)}`)
-      }
-      lines.push('')
+      recaps.push(`### Session ${shortId} · ${ago} · ${dur}`)
+      recaps.push(`**Summary**: ${recapLine(s.headline)}`)
+      recaps.push(...renderSessionRecapFollowUps(s.unresolved.map(recapLine)))
+      recaps.push('')
     }
+    // iteration 2: close with the done / not-done report line when any
+    // session left items open, so an undone follow-up is surfaced, not dropped.
+    const hasFollowUps = sessions.some(s => s.unresolved.length > 0)
+    lines.push(renderSessionRecapFence(recaps.join('\n'), hasFollowUps))
+    lines.push('')
   }
 
   // Flywheel signal goes last so it reads as a closing "historical payoff"

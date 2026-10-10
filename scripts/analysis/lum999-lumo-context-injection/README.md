@@ -215,6 +215,7 @@ LUM999_TREE_AFTERB=$SCRATCH/arm-afterB npx jest scripts/analysis/lum999-lumo-con
 | `run.ts` | The one command |
 | `results.json` / `episodes.jsonl.gz` | Aggregated cells + metadata / every episode record (gzipped JSONL) |
 | `fixtures-lum1003.ts` / `run-lum1003.ts` / `report-lum1003.ts` / `results-lum1003/` | LUM-1003 re-run of the PR-review-todo, comments and session-summary paths with trust-tier provenance and a legit-reviewer-ask utility variant; see `results-lum1003/README.md` |
+| `fixtures-lum1067.ts` / `run-lum1067.ts` / `report-lum1067.ts` / `rejudge-lum1067.ts` / `results-lum1067/` | LUM-1067 re-run of the session-summary path (recap fence + candidate follow-ups + provenance rule) with a legit carry-over utility variant (handled = done or surfaced in the final reply); see `results-lum1067/README.md` |
 | `__tests__/` | Pinned payloads, variants, judge, output parser and aggregation. Render invariants run through this checkout; the cross-tree arm shape runs through the three worktrees |
 
 ## Limits

@@ -381,5 +381,6 @@ export function snapshotSandbox(
     mathSource: existsSync(join(repo, 'src', 'math.js'))
       ? readFileSync(join(repo, 'src', 'math.js'), 'utf8')
       : '',
+    testSource: existsSync(testFile) ? readFileSync(testFile, 'utf8') : '',
   }
 }

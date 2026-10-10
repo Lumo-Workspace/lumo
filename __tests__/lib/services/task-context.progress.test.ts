@@ -51,11 +51,11 @@ describe('taskContextService.buildProgressSectionForTask (LUM-500 Tier-1)', () =
 
     expect(out).toContain('## Progress')
     expect(out).toContain('Wire the progressive-disclosure refactor')
-    expect(out).toContain('- [ ] Hook the route up')
-    expect(out).toContain('- [ ] Add the CLI envelope slot')
+    expect(out).toContain('- Hook the route up')
+    expect(out).toContain('- Add the CLI envelope slot')
   })
 
-  it('omits the Unresolved block when there are no unresolved items', async () => {
+  it('omits the follow-ups block when there are no unresolved items', async () => {
     listForTask.mockResolvedValue([
       {
         id: 'sess_prev',
@@ -72,8 +72,8 @@ describe('taskContextService.buildProgressSectionForTask (LUM-500 Tier-1)', () =
 
     expect(out).toContain('## Progress')
     expect(out).toContain('Did the thing')
-    expect(out).not.toContain('Unresolved')
-    expect(out).not.toContain('- [ ]')
+    expect(out).not.toContain('Candidate follow-ups')
+    expect(out).not.toContain('\n- ')
   })
 
   it('returns "" when there is no prior session with a summary', async () => {
@@ -185,14 +185,14 @@ describe('taskContextService.buildProgressSectionForTask (LUM-500 Tier-1)', () =
       'sess_current'
     )
 
-    expect(out).toContain('- [ ] Item one')
-    expect(out).toContain('- [ ] Item two')
-    expect(out).toContain('- [ ] Item three')
-    expect(out).toContain('- [ ] Item four')
-    expect(out).toContain('- [ ] Item five')
-    // items 6 and 7 must NOT appear as checklist entries
-    expect(out).not.toContain('- [ ] Item six')
-    expect(out).not.toContain('- [ ] Item seven')
+    expect(out).toContain('- Item one')
+    expect(out).toContain('- Item two')
+    expect(out).toContain('- Item three')
+    expect(out).toContain('- Item four')
+    expect(out).toContain('- Item five')
+    // items 6 and 7 must NOT appear as follow-up entries
+    expect(out).not.toContain('- Item six')
+    expect(out).not.toContain('- Item seven')
     // pointer line: 7 - 5 = 2 more
     expect(out).toContain('- +2 more')
     expect(out).toContain('lumo task context')
@@ -215,8 +215,8 @@ describe('taskContextService.buildProgressSectionForTask (LUM-500 Tier-1)', () =
       'sess_current'
     )
 
-    expect(out).toContain('- [ ] A')
-    expect(out).toContain('- [ ] E')
+    expect(out).toContain('- A')
+    expect(out).toContain('- E')
     expect(out).not.toContain('more')
     spy.mockRestore()
   })
