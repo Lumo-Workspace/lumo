@@ -22,7 +22,7 @@
 - **依赖关系**：import 图用与 `scripts/oss-export/manifest.ts` 相同的规则抽取（`from` / 裸 `import` / `import()` / `require` / `jest.mock` 系列，解析 `@/` 和相对路径），所以这里算出的「核心 → 插件」边，就是将来 `npm run oss:export` 的 import 检查会报出来的那些边。
 - **覆盖性检查**（脚本 `--files` 输出的两段）：
   1. **名字像安全、但没被归类的文件**（关键词 `secur|scan|crossing|boundar|hunt|semgrep|sarif|redact|secret|inject|triage|verifier|ranker|falsifier|dispos|polic|sandbox|evasion|sensitive|suppress|guard`）——14 个，逐个核实都与安全产品无关，见下表。
-  2. **只被安全文件 import 的未归类生产文件**（排他依赖）——第一轮查出 7 个（`lib/auth/github-oidc.ts`、`lib/integrations/vercel-sandbox/index.ts`、`lib/ai/evaluation.ts`、`lib/integrations/github/mirror-code-strip.ts`、`hook-event-code-backfill` 的 service / repository、`lib/blob/client-upload.ts`、`lib/repositories/repo-spellings.ts`），前 6 个已归入对应模块；后两个是通用基础设施（blob 上传、仓库名拼写变体），留核心。最终结果里只剩这两个。
+  2. **只被安全文件 import 的未归类生产文件**（排他依赖）——迭代归类过程中查出 `lib/auth/github-oidc.ts`、`lib/integrations/vercel-sandbox/index.ts`、`lib/ai/evaluation.ts`、`lib/integrations/github/mirror-code-strip.ts`、`hook-event-code-backfill` 的 service 与 repository，已归入对应模块。最终输出里剩 3 个，都是通用基础设施、留核心：`lib/blob/client-upload.ts`（blob 直传，目前只有 SARIF 上传在用）、`lib/repositories/repo-spellings.ts`（仓库名拼写变体）、`lib/runtime/vercel-oidc.ts`（10 行的 Vercel OIDC token 读取，`lib/ai/evaluation.ts` 归入插件后它只剩插件在用）。
 
 **名字带关键词但与安全无关（误报）**：
 
