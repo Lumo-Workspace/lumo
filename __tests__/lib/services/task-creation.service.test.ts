@@ -171,3 +171,28 @@ describe('createTask — archived milestone bind guard', () => {
     ).rejects.toMatchObject({ status: 409 })
   })
 })
+
+describe('createTask — workStartedAt on creation (LUM-437 / LUM-1057)', () => {
+  const create = (status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS') =>
+    createTask(
+      'proj-1',
+      { title: 'T', status, priority: 'LOW' },
+      'actor-1',
+      'clerk-1'
+    )
+
+  it('does not stamp a task born in BACKLOG — unscheduled is not started', async () => {
+    await create('BACKLOG')
+    expect(createMock.mock.calls[0][0]).not.toHaveProperty('workStartedAt')
+  })
+
+  it('does not stamp a task born in TODO', async () => {
+    await create('TODO')
+    expect(createMock.mock.calls[0][0]).not.toHaveProperty('workStartedAt')
+  })
+
+  it('stamps a task born already in progress', async () => {
+    await create('IN_PROGRESS')
+    expect(createMock.mock.calls[0][0].workStartedAt).toBeInstanceOf(Date)
+  })
+})
