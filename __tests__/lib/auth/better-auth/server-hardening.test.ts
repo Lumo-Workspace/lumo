@@ -302,6 +302,21 @@ describe('forgot / reset / change password (LUM-1070)', () => {
     expect(replay.status).toBe(400)
   })
 
+  it('a reset request does not wait for the email (no enumeration by timing)', async () => {
+    const auth = server.getBetterAuth()
+    const id = `user_clerk${randomBytes(6).toString('hex')}`
+    const email = `${id}@example.test`
+    await seedImportedUser(id, email, freshPassword(), '$2b$')
+    // A mail server that never answers: the response must not wait on it.
+    mockSendEmail.mockReturnValue(new Promise(() => undefined))
+    const res = await post(auth, '/request-password-reset', {
+      email,
+      redirectTo: '/reset-password',
+    })
+    expect(res.status).toBe(200)
+    expect(mockSendEmail).toHaveBeenCalledTimes(1)
+  })
+
   it('reset request for an unknown email answers the same and sends nothing', async () => {
     const auth = server.getBetterAuth()
     const res = await post(auth, '/request-password-reset', {

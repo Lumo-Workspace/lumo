@@ -40,6 +40,7 @@ import {
 import { generateAuthId } from './ids'
 import { RATE_LIMIT_OPTIONS } from './rate-limit'
 import { ACCOUNT_LINKING_OPTIONS } from './account-linking'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 /** Session cookie cache: page loads skip the DB for this many seconds. */
 export const SESSION_COOKIE_CACHE_SECONDS = 5 * 60
@@ -127,7 +128,13 @@ function createBetterAuth() {
     // LUM-1070: counters shared by every instance (./rate-limit).
     rateLimit: RATE_LIMIT_OPTIONS,
     // LUM-1070: new users get `user_…` ids, the shape of a Clerk id (./ids).
-    advanced: { database: { generateId: generateAuthId } },
+    advanced: {
+      database: { generateId: generateAuthId },
+      // LUM-1070: emails (password reset, verification) are sent after the
+      // response, so a reset request for a real account answers as fast as
+      // one for an unknown address (no account enumeration by timing).
+      backgroundTasks: { handler: waitUntil },
+    },
     databaseHooks: {
       user: {
         create: {

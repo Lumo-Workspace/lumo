@@ -4229,7 +4229,7 @@ model AuthOauthClientAssertion {
 // ─── Better Auth rate limiting (LUM-1070) ───────────────────────────────────
 // `rateLimit.storage = 'database'`: one row per (client IP, auth path) bucket,
 // shared by every app instance. Only Better Auth deployments write here; it
-// prunes expired rows itself.
+// deletes expired rows itself whenever a bucket's window rolls over.
 
 /// A rate-limit counter of the Better Auth handler (`key` = IP + path).
 model AuthRateLimit {
