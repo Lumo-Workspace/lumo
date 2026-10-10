@@ -6,6 +6,17 @@
  * expression (`prisma.$queryRawUnsafe`, `schema.parse`, `fetch`).
  */
 
+import type { CallRule } from '@/lib/diff/control-calls'
+
+// LUM-1060 — `CallRule`, `CONTROL_RULES` and `matchCallRule` live in the core
+// (`@/lib/diff/control-calls`, shared with the claim-faithfulness prefilter);
+// re-exported so the subgraph builder and the hunt keep importing them here.
+export {
+  CONTROL_RULES,
+  matchCallRule,
+  type CallRule,
+} from '@/lib/diff/control-calls'
+
 export interface EntryRule {
   id: string
   /** Tested against the repo-relative path. */
@@ -35,11 +46,6 @@ export const ENTRY_RULES: readonly EntryRule[] = [
   },
   { id: 'cli-command', file: /(^|\/)cli\/src\/commands\/[^/]+\.ts$/ },
 ]
-
-export interface CallRule {
-  id: string
-  callee: RegExp
-}
 
 export const SINK_RULES: readonly CallRule[] = [
   {
@@ -105,30 +111,3 @@ export const SOURCE_RULES: readonly CallRule[] = [
 export const NEW_EXPRESSION_SINKS: readonly CallRule[] = [
   { id: 'new-function', callee: /^Function$/ },
 ]
-
-export const CONTROL_RULES: readonly CallRule[] = [
-  {
-    id: 'auth',
-    callee:
-      /(^|\.)(auth|currentUser|getAuth|requireAuth|requireMember|requireWorkspaceMember|requireWorkspaceAccess|assertMember|assertWorkspaceAccess|resolveMember|getCurrentMember|requireApiKey|verifyApiKey|verifyOidc\w*|authenticate\w*|authorize\w*)$/,
-  },
-  { id: 'zod-parse', callee: /\.(parse|safeParse|parseAsync|safeParseAsync)$/ },
-  {
-    id: 'rate-limit',
-    callee:
-      /(^|\.)(rateLimit|ratelimit|checkRateLimit|enforceRateLimit|assertRateLimit)$/,
-  },
-  {
-    id: 'workspace-scope',
-    callee:
-      /(^|\.)(assertWorkspace\w*|requireWorkspace\w*|scopeToWorkspace|withWorkspace\w*)$/,
-  },
-]
-
-export function matchCallRule(
-  rules: readonly CallRule[],
-  callee: string
-): CallRule | null {
-  for (const r of rules) if (r.callee.test(callee)) return r
-  return null
-}

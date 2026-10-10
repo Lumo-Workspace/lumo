@@ -9,7 +9,7 @@ import {
   detectCrossings,
   WRITTEN_PATH_IGNORED_FIELD,
 } from '@/lib/services/boundary-detector.service'
-import { isShapeRule } from '@/lib/security-scan'
+import { isShapeRule } from '@/lib/security-scan/secret-patterns'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { create: jest.fn() },

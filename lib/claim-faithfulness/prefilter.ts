@@ -1,6 +1,6 @@
 import type { PrefilterSignal } from './types'
-import { addedLinesWithNumbers } from '@/lib/security-scan/diff-lines'
-import { addedControlCallIds } from '@/lib/security-scan/hunt/trigger'
+import { addedLinesWithNumbers } from '@/lib/diff/diff-lines'
+import { addedControlCallIds } from '@/lib/diff/control-calls'
 
 // Negative-delivery assertions: a claim that self-reports little/no substantive
 // work. Each fragment is a plain literal — no test asserts "token absent" by

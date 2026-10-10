@@ -10,26 +10,23 @@
  * scrubbed as soon as the scan is final.
  */
 
-/** OWNER-selectable retention tiers, in days. 0 = zero retention. */
-export const SCAN_EVIDENCE_RETENTION_DAYS = [0, 7, 14, 30] as const
+import {
+  DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
+  SCAN_EVIDENCE_HARD_CAP_DAYS,
+  isScanEvidenceRetentionDays,
+} from '@/lib/retention/scan-evidence'
 
-export type ScanEvidenceRetentionDays =
-  (typeof SCAN_EVIDENCE_RETENTION_DAYS)[number]
-
-export const DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS: ScanEvidenceRetentionDays = 7
-
-/**
- * A scan on a PR that never closes still gives its code up this long after
- * it finished. Not below the longest tier: an OWNER's choice is never cut
- * short by the cap.
- */
-export const SCAN_EVIDENCE_HARD_CAP_DAYS = 30
-
-export function isScanEvidenceRetentionDays(
-  value: unknown
-): value is ScanEvidenceRetentionDays {
-  return (SCAN_EVIDENCE_RETENTION_DAYS as readonly unknown[]).includes(value)
-}
+// LUM-1060 — the tiers, the hard cap and the sweep cutoff live in the core
+// (`@/lib/retention/scan-evidence`); re-exported so every existing importer
+// keeps working.
+export {
+  SCAN_EVIDENCE_RETENTION_DAYS,
+  DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
+  SCAN_EVIDENCE_HARD_CAP_DAYS,
+  isScanEvidenceRetentionDays,
+  retentionCutoffs,
+  type ScanEvidenceRetentionDays,
+} from '@/lib/retention/scan-evidence'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -112,14 +109,6 @@ export function isScanEvidenceExpired(input: {
   now: Date
 }): boolean {
   return scanEvidenceExpiryReason(input) !== null
-}
-
-/** The cutoffs a sweep query can narrow candidates with before the exact check. */
-export function retentionCutoffs(now: Date) {
-  return {
-    // Anything finished before this is past the hard cap whatever the tier.
-    hardCap: new Date(now.getTime() - SCAN_EVIDENCE_HARD_CAP_DAYS * DAY_MS),
-  }
 }
 
 // ── huntAudit → counts ──────────────────────────────────────────────────────

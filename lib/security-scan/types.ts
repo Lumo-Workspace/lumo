@@ -7,43 +7,18 @@ import type {
   ScanStageStateName,
 } from '@/shared/src/security-scan'
 
-export type SecuritySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
+import type { SecuritySeverity } from './core-types'
 
-/** One added line with its NEW-file line number (from the `@@ +c,d @@` hunk header). */
-export interface AddedLine {
-  lineNo: number
-  text: string
-}
-
-export interface AddedFile {
-  path: string
-  lines: AddedLine[]
-}
-
-/**
- * Why a hit was downgraded to LOW (LUM-734): the scanner already lowers the
- * severity, but a consumer that renders its own reason (the session-side
- * boundary detector) needs the cause as data, not parsed back out of `detail`.
- */
-export type SecretDowngradeReason = 'PLACEHOLDER_VALUE' | 'DOWNGRADED_PATH'
-
-/** A deterministic secret hit, already redacted — safe to persist as-is. */
-export interface RawSecretFinding {
-  kind: 'SECRET'
-  /** `secret:<pattern-id>` */
-  ruleId: string
-  title: string
-  severity: SecuritySeverity
-  filePath: string
-  line: number
-  /** The triggering line with the matched value replaced by its redaction. */
-  evidence: string
-  /** sha256(ruleId + ':' + rawValue).slice(0, 16) — never reversible to the value. */
-  fingerprint: string
-  detail: string
-  /** Present only when `severity` was lowered to LOW by a downgrade rule. */
-  downgrade?: SecretDowngradeReason
-}
+// LUM-1060 — the core-facing types live in `./core-types` (secret findings,
+// the baseline shape) and `@/lib/diff/diff-lines` (added lines); re-exported
+// here so every existing importer of `./types` keeps working.
+export type {
+  SecuritySeverity,
+  SecretDowngradeReason,
+  RawSecretFinding,
+  SecurityBaseline,
+} from './core-types'
+export type { AddedLine, AddedFile } from '@/lib/diff/diff-lines'
 
 // ── LUM-735: stages + external oracle ────────────────────────────────────────
 
@@ -113,25 +88,6 @@ export interface SarifRun {
   toolName: string
   rules: Map<string, SarifRule>
   results: SarifResult[]
-}
-
-/**
- * LUM-738 — the shape persisted in `ProjectRepository.securityBaseline`: the
- * fingerprint set of the default branch's last managed baseline scan. `at` is
- * null (and `requestedAt` set) while a baseline run is in flight — a claim
- * that stops every concurrent PR from requesting its own run.
- */
-export interface SecurityBaseline {
-  sha: string
-  /** ISO time the baseline was written; null while the run is in flight. */
-  at: string | null
-  /** ISO time the run was requested (lazy build or default-branch push). */
-  requestedAt: string
-  fingerprints: string[]
-  /** A tool hit the fingerprint cap — membership is honest but not whole. */
-  partial: boolean
-  /** Tool slugs whose report made it into the set. */
-  tools: string[]
 }
 
 /** An EXTERNAL_TOOL finding row, redacted and safe to persist as-is. */

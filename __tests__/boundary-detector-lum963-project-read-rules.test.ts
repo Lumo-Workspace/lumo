@@ -22,7 +22,7 @@ import {
   compileRuleSet,
   COMPILER_VERSION,
 } from '@/lib/services/policy/policy-compiler.service'
-import type { PolicyRule } from '@/lib/services/policy/types'
+import type { PolicyRule } from '@/lib/policy/types'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 const mockEnsureCompiled = jest.fn()

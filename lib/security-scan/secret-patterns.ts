@@ -7,7 +7,7 @@
  * ORDER MATTERS: more specific prefixes first (anthropic before openai) — the
  * scanner keeps one finding per line, first-wins among equal severities.
  */
-import type { SecuritySeverity } from './types'
+import type { SecuritySeverity } from './core-types'
 import { shannonEntropy } from './redact'
 
 export interface SecretPattern {
