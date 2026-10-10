@@ -20,6 +20,7 @@ import {
   ALL_SLACK_EVENTS,
   SLACK_EVENT_LABELS,
   SlackEventType,
+  SLACK_RECONNECT_REQUIRED,
 } from '@/lib/integrations/slack/types'
 
 interface ProjectSlackDialogProps {
@@ -75,6 +76,8 @@ export function ProjectSlackDialog({
   const [newChannelName, setNewChannelName] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  // LUM-1080: the Slack token predates the channel-create scopes.
+  const [createNeedsReconnect, setCreateNeedsReconnect] = useState(false)
   const createInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -136,6 +139,7 @@ export function ProjectSlackDialog({
       setShowCreate(false)
       setNewChannelName('')
       setCreateError(null)
+      setCreateNeedsReconnect(false)
       load()
     }
   }, [isOpen, load])
@@ -234,6 +238,7 @@ export function ProjectSlackDialog({
     if (!name) return
     setCreating(true)
     setCreateError(null)
+    setCreateNeedsReconnect(false)
     try {
       const data = await apiFetch<{
         channel?: AvailableChannel
@@ -270,6 +275,16 @@ export function ProjectSlackDialog({
         )
       )
     } catch (err) {
+      if (
+        err instanceof ApiClientError &&
+        err.code === SLACK_RECONNECT_REQUIRED
+      ) {
+        setCreateNeedsReconnect(true)
+        setCreateError(
+          intl.formatMessage({ id: 'slack.reconnectToCreateChannel' })
+        )
+        return
+      }
       setCreateError(
         err instanceof ApiClientError
           ? err.message
@@ -367,6 +382,7 @@ export function ProjectSlackDialog({
                               .slice(0, 80)
                             setShowCreate(true)
                             setCreateError(null)
+                            setCreateNeedsReconnect(false)
                             setNewChannelName(defaultName)
                             setTimeout(() => {
                               const input = createInputRef.current
@@ -402,6 +418,7 @@ export function ProjectSlackDialog({
                                 setShowCreate(false)
                                 setNewChannelName('')
                                 setCreateError(null)
+                                setCreateNeedsReconnect(false)
                               }
                             }}
                             placeholder='channel-name'
@@ -429,6 +446,7 @@ export function ProjectSlackDialog({
                               setShowCreate(false)
                               setNewChannelName('')
                               setCreateError(null)
+                              setCreateNeedsReconnect(false)
                             }}
                           >
                             <X size={12} />
@@ -438,6 +456,22 @@ export function ProjectSlackDialog({
                           <p className='text-xs text-red-600 dark:text-red-400'>
                             {createError}
                           </p>
+                        )}
+                        {createNeedsReconnect && (
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='outline'
+                            className='h-8'
+                            onClick={() =>
+                              window.open(
+                                API.slack.oauth(workspaceUrl),
+                                '_blank'
+                              )
+                            }
+                          >
+                            {intl.formatMessage({ id: 'slack.reconnect' })}
+                          </Button>
                         )}
                       </div>
                     ) : (

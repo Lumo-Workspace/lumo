@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "सभी चैनल सदस्यताएं हटा दी जाएंगी। आप कभी भी पुनः कनेक्ट कर सकते हैं।",
   "slack.connectSuccess": "Slack सफलतापूर्वक कनेक्ट हुआ",
   "slack.connectFailed": "Slack कनेक्ट करने में विफल",
+  "slack.reconnect": "Slack फिर से कनेक्ट करें",
+  "slack.reconnectToCreateChannel": "चैनल बनाने के लिए Slack को नई अनुमतियों की ज़रूरत है। उन्हें देने के लिए Slack फिर से कनेक्ट करें।",
   "slack.disconnectSuccess": "Slack डिस्कनेक्ट हुआ",
   "slack.disconnectFailed": "Slack डिस्कनेक्ट करने में विफल",
   "slack.notificationsUpdated": "Slack सूचनाएं अपडेट की गईं",
