@@ -5,6 +5,7 @@
  * verification rounds were removed: rework (PR cycles + reopens), cost, trend,
  * security / test-case next actions, and the v1 padding old CLIs rely on.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/task-status.service.test.ts.
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     listForLifecycle: jest.fn(() => Promise.resolve([])),
@@ -35,11 +36,8 @@ jest.mock('@/lib/repositories/retrospective.repository', () => ({
     loadPerSessionCost: jest.fn(() => Promise.resolve([])),
   },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
-  prSecurityReminderService: {
-    loadOpenFindingsForTask: jest.fn(() => Promise.resolve(null)),
-  },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/services/test-case-reminder.service', () => ({
   testCaseReminderService: {
     stateForTask: jest.fn(() => Promise.resolve(null)),
@@ -64,7 +62,6 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
 import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
 import { readTestCaseAdvisories } from '@/lib/services/done-verdict.service'
 
@@ -74,8 +71,6 @@ const listActivities = activityRepository.listByTaskAndType as jest.Mock
 const loadActuals = retrospectiveRepository.loadActuals as jest.Mock
 const loadPerSessionCost =
   retrospectiveRepository.loadPerSessionCost as jest.Mock
-const loadFindings =
-  prSecurityReminderService.loadOpenFindingsForTask as jest.Mock
 const testCaseState = testCaseReminderService.stateForTask as jest.Mock
 const testCaseAdvisories = readTestCaseAdvisories as jest.Mock
 
@@ -98,7 +93,6 @@ beforeEach(() => {
   listActivities.mockResolvedValue([])
   loadActuals.mockResolvedValue(null)
   loadPerSessionCost.mockResolvedValue([])
-  loadFindings.mockResolvedValue(null)
   testCaseState.mockResolvedValue(null)
   testCaseAdvisories.mockResolvedValue([])
 })
@@ -183,32 +177,9 @@ describe('taskStatusService.statusForTask (LUM-942)', () => {
     ])
   })
 
-  it('reports a failed security read as null, never as clean', async () => {
-    loadFindings.mockRejectedValue(new Error('db down'))
-    const s = await taskStatusService.statusForTask('t-1')
-    expect(s.securityFindings).toBeNull()
-    expect(s.nextActions).toEqual([])
-  })
-
-  it('lists security findings first, then test-case advisories', async () => {
-    loadFindings.mockResolvedValue({
-      findings: [
-        {
-          id: 'f-1',
-          severity: 'HIGH',
-          provenance: 'DETERMINISTIC',
-          blocking: true,
-          prNumber: 7,
-          ruleId: 'secret',
-          filePath: 'a.ts',
-          line: 3,
-          message: 'leaked key',
-        },
-      ],
-      blockingCount: 1,
-      unconfirmedPrs: [],
-      scans: [],
-    })
+  // LUM-1064: with no plugin installed the core contributes no security
+  // read-out at all — the field is absent and only test-case actions remain.
+  it('without a plugin, omits securityFindings and lists only test-case advisories', async () => {
     testCaseState.mockResolvedValue({
       hasLinkedPr: true,
       hasTestCases: false,
@@ -224,12 +195,11 @@ describe('taskStatusService.statusForTask (LUM-942)', () => {
       },
     ])
     const s = await taskStatusService.statusForTask('t-1')
+    expect(s).not.toHaveProperty('securityFindings')
     expect(s.nextActions.map(a => a.kind)).toEqual([
-      'SECURITY_FINDING',
       'TEST_CASE',
       'TEST_CASE_VERDICT',
     ])
-    expect(s.securityFindings).toMatchObject({ open: 1, blocking: 1 })
   })
 })
 

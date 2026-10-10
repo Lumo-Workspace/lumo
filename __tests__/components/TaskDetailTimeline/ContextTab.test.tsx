@@ -25,8 +25,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWebLinks', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/components/LinkPrPopover', () => ({
   LinkPrPopover: () => <div />,
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: () => ({ data: undefined, isLoading: false }),
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed.client', () => ({
+  INSTALLED_CLIENT_PLUGINS: [],
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   PrStateBadge: () => <span />,

@@ -20,18 +20,19 @@
  *                         is replaceable by a ProjectPolicy `path-glob` rule
  *                         mapped to SENSITIVE_PATH_EDIT.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/boundary-detector-l4-session-guard.test.ts.
 import {
   detectCrossings,
-  confirmActionCandidates,
   detectSensitivePathEdit,
   sensitivePathGlobsFromRules,
   boundaryDetectorService,
 } from '@/lib/services/boundary-detector.service'
-import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
 import type { PolicyRule } from '@/lib/policy/types'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     create: jest.fn(),
@@ -62,14 +63,6 @@ const bashEvent = (command: string) => ({
 })
 const categories = (command: string) =>
   detectCrossings(bashEvent(command)).map(c => c.category)
-
-/** A judge that must never be consulted — a real action is certain without it. */
-const neverJudge: ActionConfirmJudge = jest.fn(async () => {
-  throw new Error(
-    'judge must not be called for a deterministically-certain action'
-  )
-})
-const proseOnlyJudge: ActionConfirmJudge = jest.fn(async () => 'PROSE_ONLY')
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -112,30 +105,6 @@ describe('HOOK_BYPASS — git hook bypass in the command segment (LUM-736)', () 
       'HOOK_BYPASS'
     )
   })
-
-  it('a --no-verify mentioned only inside the commit message is dropped by prose confirmation', async () => {
-    const event = bashEvent(
-      'git commit -m "docs: explain why --no-verify is banned"'
-    )
-    const candidates = detectCrossings(event)
-    const kept = await confirmActionCandidates(
-      event,
-      candidates,
-      proseOnlyJudge
-    )
-    expect(kept.map(c => c.category)).not.toContain('HOOK_BYPASS')
-  })
-
-  it('a real --no-verify outside all quotes is kept without consulting the judge', async () => {
-    const event = bashEvent('git commit --no-verify -m "fix: real bypass"')
-    const kept = await confirmActionCandidates(
-      event,
-      detectCrossings(event),
-      neverJudge
-    )
-    expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
-    expect(neverJudge).not.toHaveBeenCalled()
-  })
 })
 
 // --- HOOK_BYPASS (LUM-744): -n short flag + core.hooksPath override ----------
@@ -163,30 +132,6 @@ describe('HOOK_BYPASS short flag -n — git commit -n is --no-verify (LUM-744)',
     expect(categories('git push -n origin lumo/LUM-744-x')).not.toContain(
       'HOOK_BYPASS'
     )
-  })
-
-  it('does not flag a -n that lives only inside the quoted commit message', async () => {
-    // Attached to the closing quote → not a flag token at all.
-    expect(categories('git commit -m "use -n"')).not.toContain('HOOK_BYPASS')
-    // Free-standing inside quotes → raw candidate, dropped by prose confirmation.
-    const event = bashEvent("git commit -m 'docs: why -n is banned here'")
-    const kept = await confirmActionCandidates(
-      event,
-      detectCrossings(event),
-      proseOnlyJudge
-    )
-    expect(kept.map(c => c.category)).not.toContain('HOOK_BYPASS')
-  })
-
-  it('a real -n outside all quotes is kept without consulting the judge', async () => {
-    const event = bashEvent('git commit -nm "fix: real bypass"')
-    const kept = await confirmActionCandidates(
-      event,
-      detectCrossings(event),
-      neverJudge
-    )
-    expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
-    expect(neverJudge).not.toHaveBeenCalled()
   })
 
   it('still locates git behind a path prefix, an env prefix, or a subshell paren', () => {
@@ -254,17 +199,6 @@ describe('HOOK_BYPASS core.hooksPath — -c core.hooksPath=… before commit/pus
     ).not.toContain('HOOK_BYPASS')
   })
 
-  it('a real override outside all quotes is kept without consulting the judge', async () => {
-    const event = bashEvent('git -c core.hooksPath=/dev/null commit -m "x"')
-    const kept = await confirmActionCandidates(
-      event,
-      detectCrossings(event),
-      neverJudge
-    )
-    expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
-    expect(neverJudge).not.toHaveBeenCalled()
-  })
-
   it('coalesces on the matched segment', () => {
     const [hit] = detectCrossings(
       bashEvent('npm test && git -c core.hooksPath=/dev/null commit -m "x"')
@@ -276,8 +210,6 @@ describe('HOOK_BYPASS core.hooksPath — -c core.hooksPath=… before commit/pus
 // --- HOOK_BYPASS (LUM-744 follow-up): shell-wrapper-quoted git ---------------
 
 describe('HOOK_BYPASS shell wrapper — bash -c / sh -c quoted git (LUM-744 follow-up)', () => {
-  const realActionJudge: ActionConfirmJudge = jest.fn(async () => 'REAL_ACTION')
-
   it("still finds git behind an opening double / single / $' quote", () => {
     // The three steward probes that hit on the LUM-736 \bgit regex but missed
     // once the token parser required a bare `git` token.
@@ -316,27 +248,6 @@ describe('HOOK_BYPASS shell wrapper — bash -c / sh -c quoted git (LUM-744 foll
     expect(categories('sh -c \'git commit -m "use -n"\'')).not.toContain(
       'HOOK_BYPASS'
     )
-  })
-
-  it('a wrapped bypass is a prose candidate: kept on REAL_ACTION, dropped on PROSE_ONLY', async () => {
-    const event = bashEvent('bash -c "git commit --no-verify -m x"')
-    const candidates = detectCrossings(event)
-    expect(candidates.map(c => c.category)).toContain('HOOK_BYPASS')
-
-    const kept = await confirmActionCandidates(
-      event,
-      candidates,
-      realActionJudge
-    )
-    expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
-    expect(realActionJudge).toHaveBeenCalled()
-
-    const dropped = await confirmActionCandidates(
-      event,
-      candidates,
-      proseOnlyJudge
-    )
-    expect(dropped.map(c => c.category)).not.toContain('HOOK_BYPASS')
   })
 
   it('coalesces on the wrapper segment, not the whole line', () => {
@@ -403,18 +314,6 @@ describe('TEST_FILE_DELETED — rm / git rm of a test file (LUM-736)', () => {
         },
       }).map(c => c.category)
     ).not.toContain('TEST_FILE_DELETED')
-  })
-
-  it('a test path quoted only inside a commit message is dropped by prose confirmation', async () => {
-    const event = bashEvent(
-      'git commit -m "chore: rm __tests__/legacy.test.ts follow-up"'
-    )
-    const kept = await confirmActionCandidates(
-      event,
-      detectCrossings(event),
-      proseOnlyJudge
-    )
-    expect(kept.map(c => c.category)).not.toContain('TEST_FILE_DELETED')
   })
 })
 

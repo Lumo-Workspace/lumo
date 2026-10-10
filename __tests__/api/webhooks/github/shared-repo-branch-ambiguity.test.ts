@@ -10,6 +10,7 @@
  * The real route, handlers, github service and install service run here; only
  * the data layer and outbound side effects are stubbed.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/api/webhooks/github/shared-repo-branch-ambiguity.test.ts.
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/integrations/github', () => ({
   verifyGitHubSignature: jest.fn(),
@@ -30,7 +31,6 @@ jest.mock('@/lib/repositories', () => ({
     findAllByInstallationId: jest.fn(),
     findByWorkspace: jest.fn(),
   },
-  prSecurityScanRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
@@ -41,17 +41,12 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: { runInbound: jest.fn() },
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
-  securityBaselineService: { requestFromPush: jest.fn() },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
   gitOutcomeRecorder: {
     recordRevertsFromPush: jest.fn().mockResolvedValue(undefined),
   },
-}))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn(),
-  shouldScanOnPrEvent: jest.fn().mockReturnValue(true),
 }))
 jest.mock('@/lib/services/lineage-outcome.service', () => ({
   stampLineageInBackground: jest.fn(),
@@ -84,7 +79,6 @@ import { NextRequest } from 'next/server'
 import { verifyGitHubSignature } from '@/lib/integrations/github'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { githubAppInstallationRepository } from '@/lib/repositories'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { sendChannelNotification } from '@/lib/integrations/slack'
 
 const verify = verifyGitHubSignature as jest.Mock
@@ -93,7 +87,6 @@ const findRows =
   githubAppInstallationRepository.findAllByInstallationId as jest.Mock
 const findByWorkspace =
   githubAppInstallationRepository.findByWorkspace as jest.Mock
-const dispatchScan = dispatchPrSecurityScan as jest.Mock
 const notify = sendChannelNotification as jest.Mock
 
 const REPO = 'acme-inc/web'
@@ -188,25 +181,23 @@ beforeEach(() => {
 })
 
 describe('LUM-925 shared repository branch placement', () => {
-  it('LUM-925 ambiguous branch links no workspace task', async () => {
+  // LUM-1064: core-only twins of the two placement cases in the plugin half
+  // (those also pin the security scan dispatch); same linking facts, no plugin.
+  it('LUM-925 ambiguous branch links no workspace task (core, no plugin)', async () => {
     owners = ['w-a', 'w-b']
 
     const res = await POST(prOpened())
 
     expect(res.status).toBe(200)
-    // Both workspaces still record the PR, but neither row names a task.
     expect(linkedTaskIds()).toEqual([
       ['w-a', null],
       ['w-b', null],
     ])
     expect(repo.upsertTaskBranch).not.toHaveBeenCalled()
-    expect(dispatchScan).not.toHaveBeenCalled()
     expect(notify).not.toHaveBeenCalled()
   })
 
-  it('LUM-925 unique branch match still links its task', async () => {
-    // w-x owns a LUM-123 too, but never confirmed this repository — it does
-    // not make the branch ambiguous.
+  it('LUM-925 unique branch match still links its task (core, no plugin)', async () => {
     owners = ['w-a', 'w-x']
 
     await POST(prOpened())
@@ -219,7 +210,6 @@ describe('LUM-925 shared repository branch placement', () => {
     expect(repo.upsertTaskBranch).toHaveBeenCalledWith(
       expect.objectContaining({ taskId: 'task-w-a', branchName: BRANCH })
     )
-    expect(dispatchScan).toHaveBeenCalledWith('row-w-a', 'PR_EVENT')
     expect(notify).toHaveBeenCalledTimes(1)
     expect(notify.mock.calls[0]![0]).toBe('w-a')
   })

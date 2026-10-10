@@ -19,15 +19,9 @@
  * tier-2 Slack-snapshot and web-body routes and the LLM-judge
  * diff input of the PR security scan.
  */
-// LUM-866: every workspace here has the default switches (all on); the
-// platform env in each test still decides the ceiling.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
-  // A plain function, not jest.fn: survives resetAllMocks.
-  loadSecurityLayers: async () =>
-    jest
-      .requireActual('@/lib/security-scan/workspace-switches')
-      .resolveSecurityLayers(null),
-}))
+// LUM-1064: plugin cases live in __tests__/ee/security/security-scan/inject-redact-points.test.ts.
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
@@ -65,79 +59,6 @@ jest.mock('@/lib/services/task-web-link.service', () => ({
   taskWebLinkService: { fetchBody: (...a: unknown[]) => mockFetchBody(...a) },
 }))
 
-// ── PR security scan deps (same harness as pr-security-scan.service.test) ──
-jest.mock('@/lib/integrations/github/auth', () => ({
-  getRepoToken: jest.fn().mockResolvedValue('tok'),
-}))
-jest.mock('@/lib/integrations/github/contents', () => ({
-  fetchPrDiff: jest.fn(),
-  fetchPrHeadSha: jest.fn(),
-  // LUM-785: stage A's graph rules read touched files; null = not found.
-  readRepoFile: jest.fn().mockResolvedValue(null),
-}))
-jest.mock('@/lib/llm/security-judge-client', () => ({
-  judgeSecurity: jest.fn(),
-}))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
-  prSecurityScanRepository: {
-    findByPrAndSha: jest.fn(),
-    create: jest.fn(),
-    restart: jest.fn(),
-    claimPending: jest.fn(),
-    finalize: jest.fn(),
-    createFindings: jest.fn(),
-    persistResult: jest.fn(),
-    countExternalFindings: jest.fn(),
-    findDispositionedByPullRequest: jest.fn(),
-    findLatestByPullRequestIds: jest.fn(),
-    findPreviousOpenFingerprints: jest.fn().mockResolvedValue([]),
-    findFindingWithScope: jest.fn(),
-    updateDisposition: jest.fn(),
-    mergeStages: jest.fn(),
-    setManagedRunId: jest.fn(),
-  },
-}))
-jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-  },
-}))
-jest.mock('@/lib/repositories/pull-request.repository', () => ({
-  pullRequestRepository: {
-    findById: jest.fn(),
-    findManyForSecurityByTaskId: jest.fn(),
-  },
-}))
-jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
-    findLastSarifIngestAt: jest.fn(),
-    findSecurityBaseline: jest.fn(),
-  },
-}))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
-  startSecurityManagedScan: jest.fn(),
-}))
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
-  securityManagedScanOpsService: {
-    supersedeOlderRuns: jest.fn(),
-    enforceHourlyCap: jest.fn(),
-  },
-}))
-jest.mock('@/lib/services/security-hunt-start', () => ({
-  startSecurityHunt: jest.fn(),
-  recordHuntStartBestEffort: jest.fn(),
-}))
-jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
-  boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
-}))
-jest.mock('@/lib/services/security-baseline.service', () => ({
-  securityBaselineService: { ensure: jest.fn().mockResolvedValue('present') },
-}))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
-  securityPrReviewService: { sync: jest.fn() },
-}))
-jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
-
 import { NextRequest } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import {
@@ -151,26 +72,9 @@ import {
 import { renderPrReviewTodosSection } from '@/lib/context/render/pr-review-todos'
 import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
 import { stewardContextService } from '@/lib/services/steward-context.service'
-import {
-  findingStatement,
-  renderPreToolUseSecurityReminder,
-  renderSessionStartSecuritySection,
-  type ReminderFinding,
-} from '@/lib/security-scan/agent-reminder'
-import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
-import { buildPlanPrompt } from '@/lib/llm/security-hunt-plan-client'
-import { renderTaskForPrompt } from '@/lib/llm/security-hunt-client'
-import { buildCompressPrompt } from '@/lib/llm/security-hunt-compress-client'
 import { SECRET_PATTERNS } from '@/lib/security-scan/secret-patterns'
 import { GET as taskSlackSnapshotGet } from '@/app/api/tasks/[id]/slack-contexts/[contextId]/snapshot/route'
 import { GET as taskWebBodyGet } from '@/app/api/tasks/[id]/web-links/[linkId]/body/route'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
-import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
-import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/security-judge-client'
 
 /** One synthetic (non-functional) value per registry rule. */
 const CORPUS: { id: string; line: string; value: string }[] = [
@@ -491,142 +395,6 @@ describe('③ steward milestone-memory section', () => {
   })
 })
 
-describe('④ security agent-reminder', () => {
-  const finding = (title: string): ReminderFinding => ({
-    id: 'f1',
-    ruleId: 'llm:hardcoded-credential',
-    severity: 'HIGH',
-    provenance: 'LLM_JUDGE',
-    filePath: 'lib/x.ts',
-    line: 3,
-    title,
-    blocking: true,
-    prNumber: 9,
-  })
-
-  it.each(CORPUS)(
-    '$id — session-start section, pre-tool-use reminder and status statement',
-    ({ line, value }) => {
-      const start = renderSessionStartSecuritySection({
-        findings: [finding(`echoed ${line}`)],
-        unconfirmedPrs: [],
-        identifier: 'LUM-1',
-      })
-      expect(start).not.toContain(value)
-      expect(start).toContain('echoed ')
-      expect(noticeCount(start)).toBe(1)
-
-      const pre = renderPreToolUseSecurityReminder({
-        scans: [
-          {
-            prNumber: 9,
-            headSha: 'abcdef0123',
-            findings: [finding(`echoed ${line}`)],
-          },
-        ],
-        identifier: 'LUM-1',
-      })
-      expect(pre).not.toBeNull()
-      expect(pre!).not.toContain(value)
-      expect(noticeCount(pre!)).toBe(1)
-
-      const statement = findingStatement(finding(`echoed ${line}`))
-      expect(statement).not.toContain(value)
-      expect(statement).toContain(`…(len ${value.length})`)
-    }
-  )
-})
-
-describe('⑦ hunt — task context → plan prompt', () => {
-  it('renderHuntTaskContext masks every field kind and puts the notice first', () => {
-    const out = renderHuntTaskContext({
-      traps: [`${CORPUS[0]!.line} → leak`, `${CORPUS[1]!.line} → leak`],
-      crossings: [
-        `HARDCODED_SECRET: ${CORPUS[2]!.line}`,
-        `TEST_FILE_DELETED: ${CORPUS[3]!.line}`,
-      ],
-    })
-    for (const c of CORPUS.slice(0, 4)) expect(out).not.toContain(c.value)
-    expect(noticeCount(out)).toBe(4)
-    expect(out.split('\n')[1]).toMatch(NOTICE)
-    expect(out.trimEnd().endsWith('</untrusted-task-context>')).toBe(true)
-  })
-
-  it('buildPlanPrompt: the block carries through redacted and a finding title is masked with a marker', () => {
-    const block = renderHuntTaskContext({
-      traps: [`${ALL_LINES.replace(/\n/g, ' ')} → leak`],
-      crossings: [],
-    })
-    const prompt = buildPlanPrompt({
-      reasons: ['diff:sink:prisma-raw'],
-      touchedPaths: ['lib/s.ts'],
-      findings: [
-        {
-          severity: 'HIGH',
-          ruleId: 'ext:sarif:x',
-          title: `found ${CORPUS[3]!.line} and ${CORPUS[5]!.line}`,
-        },
-      ],
-      taskContext: block,
-      timeoutMs: 1_000,
-    })
-    expectNoRawValue(prompt)
-    expect(prompt).toMatch(NOTICE)
-    const findingLine = prompt.split('\n').find(l => l.startsWith('- [HIGH]'))!
-    expect(findingLine).toContain('found ')
-    expect(MARKER.exec(findingLine)![1]).toBe('2')
-  })
-})
-
-describe('⑧ hunt — task header (renderTaskForPrompt)', () => {
-  it.each(CORPUS)(
-    '$id — objective and starting points are masked, marker inline',
-    ({ line, value }) => {
-      const out = renderTaskForPrompt({
-        id: 't1',
-        objective: `trace ${line} to the sink`,
-        category: 'idor',
-        startingPoints: [`lib/${line}.ts`],
-      })
-      expect(out).not.toContain(value)
-      const header = out.split('\n')[0]!
-      expect(header).toMatch(/^## Task t1: trace /)
-      expect(MARKER.exec(header)![1]).toBe('1')
-      expect(out).toContain('Start from: lib/')
-    }
-  )
-
-  it('adds no marker to an ordinary objective', () => {
-    const out = renderTaskForPrompt({
-      id: 't1',
-      objective: 'Check the workspace scope before the Prisma call',
-      category: 'idor',
-      startingPoints: ['a.ts'],
-    })
-    expect(out).not.toContain('⚠')
-  })
-})
-
-describe('⑨ hunt — compressor prompt (buildCompressPrompt)', () => {
-  it('masks the objective inline and the command output at the block head', () => {
-    const prompt = buildCompressPrompt({
-      objective: `trace ${CORPUS[7]!.line}`,
-      category: 'idor',
-      output: `lib/a.ts:1: ${ALL_LINES.split('\n').join('\nlib/a.ts:2: ')}`,
-      timeoutMs: 1_000,
-    })
-    expectNoRawValue(prompt)
-    const objectiveLine = prompt.split('\n')[0]!
-    expect(objectiveLine).toMatch(/^Objective: trace /)
-    expect(MARKER.exec(objectiveLine)![1]).toBe('1')
-    const lines = prompt.split('\n')
-    const open = lines.indexOf('<untrusted-command-output>')
-    expect(lines[open + 1]).toMatch(NOTICE)
-    expect(noticeCount(prompt)).toBe(CORPUS.length)
-    expect(prompt).toContain('lib/a.ts:1: ')
-  })
-})
-
 describe('⑩ tier-2 retrieval routes — Slack snapshot + web body', () => {
   const req = () => new NextRequest('http://localhost/api/x')
   const message = (text: string) => ({
@@ -682,77 +450,6 @@ describe('⑩ tier-2 retrieval routes — Slack snapshot + web body', () => {
   })
 })
 
-describe('⑪ PR security scan — the LLM judge never sees the raw diff value', () => {
-  const repo = prSecurityScanRepository as jest.Mocked<
-    typeof prSecurityScanRepository
-  >
-  const prRepo = pullRequestRepository as jest.Mocked<
-    typeof pullRequestRepository
-  >
-  const fetchPrDiff = gh.fetchPrDiff as jest.Mock
-  const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
-  const judgeSecurity = judge.judgeSecurity as jest.Mock
-
-  beforeEach(() => {
-    process.env.LUMO_SECURITY_HUNT = 'off'
-    prRepo.findById.mockResolvedValue({
-      id: 'pr1',
-      workspaceId: 'w1',
-      taskId: 't1',
-      repo: 'o/r',
-      number: 7,
-    } as never)
-    fetchPrHeadSha.mockResolvedValue('sha-1')
-    repo.findByPrAndSha.mockResolvedValue(null)
-    repo.create.mockResolvedValue({ id: 's1' } as never)
-    repo.findDispositionedByPullRequest.mockResolvedValue([])
-    repo.countExternalFindings.mockResolvedValue(0)
-    repo.setManagedRunId.mockResolvedValue(undefined)
-    judgeSecurity.mockResolvedValue({ findings: [] })
-    ;(
-      securityManagedScanOpsService.supersedeOlderRuns as jest.Mock
-    ).mockResolvedValue({ superseded: 0, cancelled: 0, sandboxesStopped: 0 })
-    ;(
-      securityManagedScanOpsService.enforceHourlyCap as jest.Mock
-    ).mockResolvedValue({ capped: false })
-    ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
-      undefined
-    )
-  })
-
-  it('the diff handed to judgeSecurity carries the redaction tokens, not the values', async () => {
-    const diff = [
-      '--- a/src/cfg.ts',
-      '+++ b/src/cfg.ts',
-      `@@ -1,0 +1,${CORPUS.length} @@`,
-      ...CORPUS.map(c => `+${c.line}`),
-    ].join('\n')
-    fetchPrDiff.mockResolvedValue(diff)
-    const result = await prSecurityScanService.run({
-      pullRequestId: 'pr1',
-      trigger: 'PR_EVENT',
-    })
-    expect(result).toMatchObject({
-      deduped: false,
-      scanId: 's1',
-      status: 'FINDINGS',
-    })
-    expect(judgeSecurity).toHaveBeenCalledTimes(1)
-    const sent: string = judgeSecurity.mock.calls[0]![0].diff
-    expectNoRawValue(sent)
-    expectAllRedactionTokens(sent)
-    // The diff structure the judge reasons over is intact.
-    expect(sent).toContain('+++ b/src/cfg.ts')
-    expect(sent.split('\n').filter(l => l.startsWith('+')).length).toBe(
-      CORPUS.length + 1
-    )
-    // Stage A (deterministic) still saw the real values: one finding per line.
-    const persisted = repo.persistResult.mock.calls[0]![1]
-    expect(persisted).toHaveLength(CORPUS.length)
-    for (const f of persisted) expectNoRawValue(JSON.stringify(f))
-  })
-})
-
 describe('⑫ LUM-998 — task description, session summaries, review todos', () => {
   it('wrapUntrustedTaskDescription: the whole corpus, notice at the head', () => {
     const out = wrapUntrustedTaskDescription(`## Context\n${ALL_LINES}`)
@@ -795,16 +492,3 @@ describe('⑫ LUM-998 — task description, session summaries, review todos', ()
     }
   )
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
-  prReviewControlRepository: {
-    reserve: jest.fn().mockResolvedValue(true),
-    baseline: jest.fn().mockResolvedValue(null),
-    priorFindings: jest.fn().mockResolvedValue([]),
-    findingsOnScan: jest.fn().mockResolvedValue([]),
-    get: jest.fn().mockResolvedValue({
-      reviewPaused: false,
-      reviewRoundLimit: 2,
-      reviewHeads: [],
-    }),
-  },
-}))

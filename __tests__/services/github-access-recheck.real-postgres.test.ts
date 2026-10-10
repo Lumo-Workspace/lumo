@@ -6,6 +6,7 @@
  * version columns, `updateMany` row counts and `nulls: 'first'` ordering are
  * exactly what a mocked Prisma cannot show. Only GitHub is stubbed.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/services/github-access-recheck.real-postgres.test.ts.
 import { createPgliteHarness } from '../../scripts/test-support/pglite-harness'
 
 // jest.setup.js mocks PrismaClient globally; this suite needs the real one.
@@ -18,6 +19,26 @@ jest.mock('@/lib/db/prisma', () => ({
     return harness.prisma
   },
 }))
+// LUM-1064: core test, run without the security plugin (the OSS build). A
+// fake plugin stands in on the retention extension point so the LUM-895
+// rotation case can still make one workspace's code scrub fail.
+const mockScrub = jest.fn<
+  Promise<Record<string, number>>,
+  [{ workspaceId: string; repos?: string[] | undefined }]
+>(async () => ({}))
+jest.mock('@/lib/plugins/installed', () => ({
+  INSTALLED_SERVER_PLUGINS: [
+    {
+      id: 'test-retention',
+      register(api: import('@/lib/plugins/types').PluginRegistrar) {
+        api.retention({
+          key: 'test',
+          scrubRepositoryCode: input => mockScrub(input),
+        })
+      },
+    },
+  ],
+}))
 jest.mock('@/lib/integrations/github', () => ({
   createInstallationToken: jest.fn(async (id: number) => `token-${id}`),
   checkRepositoryReadAccess: jest.fn(),
@@ -29,7 +50,6 @@ jest.mock('@/lib/integrations/github', () => ({
 
 import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'
 import { githubAppInstallationRepository } from '@/lib/repositories'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
   createInstallationToken,
   checkRepositoryReadAccess,
@@ -67,62 +87,6 @@ async function seedRow(
   })
 }
 
-const CODE = 'const token = req.query.t; db.exec(`select ${token}`)'
-let prNumber = 0
-
-/** One PR in `repo` with a scan and a finding holding code. */
-async function seedScan(p: string, workspaceId: string, repo: string) {
-  const number = ++prNumber
-  await harness.prisma!.pullRequest.create({
-    data: {
-      id: `${p}pr`,
-      workspaceId,
-      repo,
-      number,
-      title: `PR ${number}`,
-      url: `https://github.com/${repo}/pull/${number}`,
-      state: 'open',
-      authorLogin: 'octo',
-      headBranch: 'feature',
-      baseBranch: 'main',
-    },
-  })
-  await harness.prisma!.prSecurityScan.create({
-    data: {
-      id: `${p}scan`,
-      pullRequestId: `${p}pr`,
-      workspaceId,
-      headSha: 'abc',
-      trigger: 'PR_EVENT',
-      detectorVersion: 'test',
-      prSummary: { description: CODE },
-    },
-  })
-  await harness.prisma!.prSecurityFinding.create({
-    data: {
-      id: `${p}finding`,
-      scanId: `${p}scan`,
-      kind: 'VULNERABILITY',
-      ruleId: 'vuln:sql-injection',
-      severity: 'HIGH',
-      provenance: 'LLM_JUDGE',
-      filePath: 'src/db.ts',
-      title: 'SQL injection',
-      detail: 'Query built from request input',
-      evidence: CODE,
-      fingerprint: `${p}fp`,
-    },
-  })
-}
-
-async function evidenceOf(p: string) {
-  const finding = await harness.prisma!.prSecurityFinding.findUnique({
-    where: { id: `${p}finding` },
-    select: { evidence: true },
-  })
-  return finding?.evidence
-}
-
 /** A clock whose budget runs out after the first installation of a run. */
 function oneInstallationPerRun() {
   const base = Date.now()
@@ -141,6 +105,7 @@ afterAll(async () => {
 beforeEach(async () => {
   jest.restoreAllMocks()
   jest.clearAllMocks()
+  mockScrub.mockImplementation(async () => ({}))
   await harness.prisma!.prSecurityFinding.deleteMany({})
   await harness.prisma!.prSecurityScan.deleteMany({})
   await harness.prisma!.pullRequest.deleteMany({})
@@ -299,13 +264,10 @@ describe('access recheck on a real Postgres', () => {
       async (_t: string, who: { id?: number }) =>
         who.id === 8 ? null : { id: 7, login: 'octo' }
     )
-    const scrub = prSecurityScanRepository.scrubCodeForWorkspace
-    jest
-      .spyOn(prSecurityScanRepository, 'scrubCodeForWorkspace')
-      .mockImplementation(async (ws, repos) => {
-        if (ws === 'ws_scrub') throw new Error('scrub keeps failing')
-        return scrub.call(prSecurityScanRepository, ws, repos)
-      })
+    mockScrub.mockImplementation(async ({ workspaceId }) => {
+      if (workspaceId === 'ws_scrub') throw new Error('scrub keeps failing')
+      return {}
+    })
 
     const ran: number[] = []
     for (let day = 0; day < 4; day++) {
@@ -332,51 +294,5 @@ describe('access recheck on a real Postgres', () => {
         new Date('2026-09-27T00:00:00Z').getTime()
       )
     }
-  })
-
-  it('LUM-895 re-verification after the scrub keeps the list and the scrub stands', async () => {
-    await seedRow('ws_late', 30)
-    await seedScan('late_', 'ws_late', 'acme/payroll')
-    await seedScan('kept_', 'ws_late', 'acme/api')
-    access.mockImplementation(async (_t: string, name: string) => ({
-      access: name === 'acme/payroll' ? 'unreadable' : 'readable',
-      remaining: 4000,
-    }))
-    // The owner re-verifies right after the recheck scrubbed payroll and
-    // before it writes the narrowed list — confirming payroll again.
-    const scrub = prSecurityScanRepository.scrubCodeForWorkspace
-    let reverified = false
-    jest
-      .spyOn(prSecurityScanRepository, 'scrubCodeForWorkspace')
-      .mockImplementation(async (ws, repos) => {
-        const counts = await scrub.call(prSecurityScanRepository, ws, repos)
-        if (!reverified) {
-          reverified = true
-          await githubAppInstallationRepository.recordVerification(
-            'ws_late',
-            REPOS,
-            { login: 'octo', githubId: 7 }
-          )
-        }
-        return counts
-      })
-
-    const summary = await githubAccessRecheckService.sweep()
-
-    expect(reverified).toBe(true)
-    expect(summary.removed).toBe(0)
-    const after = await db().findUniqueOrThrow({
-      where: { workspaceId: 'ws_late' },
-    })
-    // The re-verification wins the list: payroll stays confirmed, no
-    // removal notice for a repository that is still there.
-    expect(after.repositories).toEqual(REPOS)
-    expect(after.accessRemovedCount).toBe(0)
-    expect(after.accessRemovedReason).toBeNull()
-    expect(after.verifiedAt!.getTime()).toBeGreaterThan(VERIFIED.getTime())
-    // Its old scan evidence is gone and stays gone (the safe side: new
-    // scans bring fresh evidence); other repositories are untouched.
-    expect(await evidenceOf('late_')).toBe('')
-    expect(await evidenceOf('kept_')).toBe(CODE)
   })
 })

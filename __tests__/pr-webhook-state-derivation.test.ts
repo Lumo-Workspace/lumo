@@ -51,10 +51,8 @@ jest.mock('@/lib/services/boundary-crossing-rejudge-trigger', () => ({
 jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
   gitOutcomeRecorder: { onPush: jest.fn() },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn(),
-  shouldScanOnPrEvent: jest.fn().mockReturnValue(false),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
 const upsertPullRequest = githubService.upsertPullRequest as jest.Mock
 const findTaskByIdentifier = githubService.findTaskByIdentifier as jest.Mock

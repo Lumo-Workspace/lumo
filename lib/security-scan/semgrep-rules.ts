@@ -7,7 +7,7 @@
  * itself is not part of the serverless bundle: reading it from disk at run
  * time would depend on output tracing picking it up, and a silently missing
  * rule file would land as a semgrep "config not found" failure in production.
- * `__tests__/security-managed-scan.service.lum785.test.ts` asserts the two
+ * `__tests__/ee/security/security-managed-scan.service.lum785.test.ts` asserts the two
  * are byte-identical — edit the YAML, then paste it here.
  */
 

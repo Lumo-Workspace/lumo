@@ -6,6 +6,7 @@
  * Against a REAL Postgres (every migration replayed into PGlite): only the
  * database can say what the unique index actually accepts.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/repositories/pull-request-per-workspace.real-postgres.test.ts.
 import { createPgliteHarness } from '../../scripts/test-support/pglite-harness'
 
 // jest.setup.js mocks PrismaClient globally; this suite needs the real one.
@@ -21,7 +22,6 @@ jest.mock('@/lib/db/prisma', () => ({
 
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 
 jest.setTimeout(180_000)
 
@@ -99,21 +99,4 @@ it('one pull request row per workspace for the same repo and number', async () =
       },
     })
   ).rejects.toMatchObject({ code: 'P2002' })
-})
-
-it('knows when another workspace holds the same PR', async () => {
-  const solo = await githubRepository.upsertPullRequest({
-    ...prData('ws-a', 'solo'),
-    number: 8,
-  })
-  expect(
-    await prSecurityScanRepository.isPullRequestHeldElsewhere(solo.id)
-  ).toBe(false)
-  await githubRepository.upsertPullRequest({
-    ...prData('ws-b', 'b'),
-    number: 8,
-  })
-  expect(
-    await prSecurityScanRepository.isPullRequestHeldElsewhere(solo.id)
-  ).toBe(true)
 })

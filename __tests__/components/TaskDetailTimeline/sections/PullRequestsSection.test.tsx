@@ -12,40 +12,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   PrStateBadge: () => <span data-testid='pr-state-badge' />,
   CiIcon: () => <span data-testid='ci-icon' />,
 }))
-// LUM-1062: the scan badge comes from the security plugin's slot component.
-jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
-  ...jest.requireActual('@/ee/security/ui/pr-scan-badge'),
-  SecurityScanBadge: ({
-    scan,
-    unavailable,
-  }: {
-    scan: { status: string } | null | undefined
-    unavailable?: boolean
-  }) => (
-    <span
-      data-testid='security-scan-badge'
-      data-unavailable={unavailable ? 'true' : 'false'}
-    >
-      {scan?.status ?? 'none'}
-    </span>
-  ),
-}))
-const SCANS_LOADED = {
-  data: {
-    prs: [
-      {
-        pr: { id: 'pr1' },
-        latest: { status: 'FINDINGS', findings: [{ severity: 'HIGH' }] },
-      },
-    ],
-    blocking: { count: 1 },
-  },
-  isLoading: false,
-  isError: false,
-}
-const useSecurityScans = jest.fn(() => SCANS_LOADED as unknown)
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: () => useSecurityScans(),
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed.client', () => ({
+  INSTALLED_CLIENT_PLUGINS: [],
 }))
 
 import { render, screen } from '@testing-library/react'
@@ -143,93 +112,5 @@ describe('PullRequestsSection', () => {
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 
-  it('passes each PR its latest security scan to the badge', () => {
-    render(
-      <Accordion type='multiple' defaultValue={['pullRequests']}>
-        <PullRequestsSection
-          {...baseProps}
-          pullRequests={[
-            {
-              id: 'pr1',
-              number: 1,
-              title: 'a',
-              url: 'u',
-              state: 'open',
-              ciStatus: null,
-            },
-            {
-              id: 'pr2',
-              number: 2,
-              title: 'b',
-              url: 'v',
-              state: 'open',
-              ciStatus: null,
-            },
-          ]}
-        />
-      </Accordion>
-    )
-    const badges = screen
-      .getAllByTestId('security-scan-badge')
-      .map(b => b.textContent)
-    expect(badges).toEqual(['FINDINGS', 'none'])
-  })
-
   // ── LUM-732 review I4 — the badge must not speak for data it doesn't have ──
-
-  it('renders no badge at all while the scans are still loading', () => {
-    useSecurityScans.mockReturnValueOnce({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    })
-    render(
-      <Accordion type='multiple' defaultValue={['pullRequests']}>
-        <PullRequestsSection
-          {...baseProps}
-          pullRequests={[
-            {
-              id: 'pr1',
-              number: 1,
-              title: 'PR one',
-              url: 'https://x/1',
-              state: 'open',
-              ciStatus: null,
-            },
-          ]}
-        />
-      </Accordion>
-    )
-    // An in-flight fetch is not "Not scanned": show nothing until we know.
-    expect(screen.queryByTestId('security-scan-badge')).toBeNull()
-  })
-
-  it('marks the badge unavailable when the scan fetch failed', () => {
-    useSecurityScans.mockReturnValueOnce({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-    })
-    render(
-      <Accordion type='multiple' defaultValue={['pullRequests']}>
-        <PullRequestsSection
-          {...baseProps}
-          pullRequests={[
-            {
-              id: 'pr1',
-              number: 1,
-              title: 'PR one',
-              url: 'https://x/1',
-              state: 'open',
-              ciStatus: null,
-            },
-          ]}
-        />
-      </Accordion>
-    )
-    expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
-      'data-unavailable',
-      'true'
-    )
-  })
 })

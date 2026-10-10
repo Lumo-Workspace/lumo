@@ -83,10 +83,6 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
   useAgentRuns: jest.fn(),
 }))
 
-// LUM-496: the dossier reads the security scan's blocking count (same
-// react-query key the scan section uses) to tell the record tab which zone the
-// scan belongs in. Mocked here like every other data hook — this suite is about
-// composition, not fetching.
 // LUM-1011: the dossier reads test cases (Done gate row + Test cases section).
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
   useTestCases: jest.fn(() => ({
@@ -101,12 +97,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
     disposeDefect: jest.fn(),
   })),
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: jest.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-  })),
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed.client', () => ({
+  INSTALLED_CLIENT_PLUGINS: [],
 }))
 
 // ①②③ surface — mocked to a single marker carrying ONE cost-home node, so the

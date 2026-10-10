@@ -11,6 +11,7 @@
  * on the rendered *claims*, not on an exported API — importing the components
  * would test React, not the sentences.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/landing/landing-claims.test.ts.
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -19,7 +20,6 @@ import {
   USED_UP_GRACE_DAYS,
 } from '@/lib/hook-event/retention'
 import { INTEGRATIONS } from '@/lib/integrations/registry'
-import { DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS } from '@/lib/security-scan/evidence-retention'
 import { SCAN_STAGE_LABELS } from '@/shared/src/security-scan'
 
 const LANDING_DIR = join(process.cwd(), 'components', 'landing', 'home')
@@ -277,7 +277,9 @@ describe('FAQ retention claims LUM-915', () => {
     return `${all.slice(0, -1).join(', ')} or ${all[all.length - 1]}`
   }
 
-  it('FAQ retention sentences quote the shipped retention constants', () => {
+  // LUM-1064: the scan-evidence sentence is plugin copy and is checked in the
+  // ee half; the session-record sentences are core and are checked here too.
+  it('FAQ retention sentences quote the shipped session-record constants', () => {
     const answer = privacyAnswer()
     expect(answer).toContain('Agent session records are kept by default')
     expect(answer).toContain(
@@ -285,9 +287,6 @@ describe('FAQ retention claims LUM-915', () => {
     )
     expect(answer).toContain(
       `discarded ${USED_UP_GRACE_DAYS} days after the work is used up`
-    )
-    expect(answer).toContain(
-      `cleared ${DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS} days after its pull request is merged or closed`
     )
   })
 })

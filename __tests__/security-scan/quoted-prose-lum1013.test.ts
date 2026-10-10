@@ -12,7 +12,7 @@ import {
   redactKnownSecrets,
   scanSecrets,
 } from '@/lib/security-scan/scan-secrets'
-import type { AddedFile } from '@/lib/security-scan/types'
+import type { AddedFile } from '@/lib/diff/diff-lines'
 
 describe('LUM-1013 — ordinary review prose survives redactFindingText', () => {
   const prose: Array<[string, string]> = [

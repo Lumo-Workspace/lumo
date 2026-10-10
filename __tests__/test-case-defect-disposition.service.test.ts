@@ -39,9 +39,8 @@ const mockAudit = jest.fn()
 jest.mock('@/lib/services/audit.service', () => ({
   recordAuditEvent: (...a: unknown[]) => mockAudit(...a),
 }))
-jest.mock('@/lib/services/pr-security-scan-gate', () => ({
-  listOpenBlockingFindings: jest.fn(() => Promise.resolve([])),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
 const findRun = testCaseRepository.findRunForDisposition as jest.Mock
 const createDisposition = testCaseRepository.createDisposition as jest.Mock

@@ -21,6 +21,7 @@ import {
   type ConfigRefFile,
   type OssManifest,
 } from '../../scripts/oss-export/manifest'
+import * as boundary from '../../test-utils/ee/plugin-boundary'
 
 const rule = (glob: string) => ({ glob, reason: 'test' })
 
@@ -459,5 +460,61 @@ describe('oss/manifest.json', () => {
       manifest
     )
     expect(cls.included).toEqual([])
+  })
+})
+
+// LUM-1064: test-utils/ee/plugin-boundary.ts re-implements the export's import
+// and glob rules (it ships with the tests and so cannot import this private
+// module). The boundary guards are only as good as that copy — pin it to the
+// export on every tracked file of the repository.
+describe('plugin-boundary guard rules match the export (LUM-1064)', () => {
+  const root = join(__dirname, '../..')
+  const tracked = execFileSync('git', ['ls-files', '-z'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+  })
+    .split('\0')
+    .filter(Boolean)
+  const files = new Set(tracked)
+
+  it('shippedFiles() is classifyFiles().included on the real manifest', () => {
+    const manifest = JSON.parse(
+      readFileSync(join(root, 'oss/manifest.json'), 'utf8')
+    ) as OssManifest
+    expect(boundary.shippedFiles(tracked, manifest)).toEqual(
+      classifyFiles(tracked, manifest).included
+    )
+    for (const r of [...manifest.include, ...manifest.exclude])
+      expect(boundary.globToRegExp(r.glob).source).toBe(
+        globToRegExp(r.glob).source
+      )
+  })
+
+  it('extracts and resolves the same import targets on every tracked code file', () => {
+    let compared = 0
+    for (const f of tracked) {
+      if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(f)) continue
+      let src: string
+      try {
+        src = readFileSync(join(root, f), 'utf8')
+      } catch {
+        continue
+      }
+      const specs = extractSpecifiers(src)
+      expect(boundary.extractSpecifiers(src)).toEqual(specs)
+      for (const s of specs) {
+        // The guard additionally resolves `@lumo/shared` (as the RFC script
+        // does), which the export treats as a package.
+        if (s === '@lumo/shared' || s.startsWith('@lumo/shared/')) continue
+        if (
+          boundary.resolveSpecifier(f, s, files) !==
+          resolveSpecifier(f, s, files)
+        )
+          throw new Error(`resolution differs: ${f} → ${s}`)
+      }
+      compared++
+    }
+    expect(compared).toBeGreaterThan(4000)
   })
 })

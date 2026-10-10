@@ -8,6 +8,7 @@
  * Also: the unconfigured route throws a typed error instead of crashing, and
  * the gateway route keeps ZDR even when a provider key is present.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/lib/ai/direct-provider.test.ts.
 import http from 'http'
 import type { AddressInfo } from 'net'
 import { CODE_REVIEW_MODEL, GENERATION_MODEL } from '@/lib/ai/models'
@@ -247,26 +248,6 @@ describe('unconfigured route', () => {
     const { embedTexts } = await import('@/lib/ai/embedding')
     await expect(embedTexts(['x'])).rejects.toBeInstanceOf(AiNotConfiguredError)
     expect(seen).toHaveLength(0)
-  })
-
-  it('evaluation models refuse to run off the gateway', async () => {
-    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
-    const { evaluateBoolean, EvaluationError } =
-      await import('@/lib/ai/evaluation')
-    const fetchImpl = jest.fn()
-    await expect(
-      evaluateBoolean(
-        {
-          model: 'typesafe-ai/jev',
-          state: 's',
-          instructions: 'i',
-          criteria: { true: 't', false: 'f' },
-          timeoutMs: 1000,
-        },
-        fetchImpl as unknown as typeof fetch
-      )
-    ).rejects.toBeInstanceOf(EvaluationError)
-    expect(fetchImpl).not.toHaveBeenCalled()
   })
 })
 

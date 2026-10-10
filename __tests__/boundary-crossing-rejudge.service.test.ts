@@ -7,6 +7,7 @@
  * and UNDECIDABLE write nothing, that a 0-row guarded update leaves no trail,
  * and that no write path ever carries a disposition.
  */
+// LUM-1064: core-only (the rule source is a fake test plugin); no plugin cases.
 const findOpen = jest.fn()
 const downgrade = jest.fn()
 const createActivity = jest.fn()
@@ -26,10 +27,25 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: (...a: unknown[]) => createActivity(...a) },
 }))
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
-  projectPolicyRepository: {
-    findRuleTextByRef: (...a: unknown[]) => findRuleText(...a),
-  },
+// LUM-1063/1064: the stored rule text and the CLAUDE.md source come from the
+// `policyRuleSource` extension point. A fake test plugin stands in for it
+// (the core runs with no real plugin installed): `findRuleText` is its
+// `ruleTextByRef`, `readSourceViaCompiler` its `readSource`.
+jest.mock('@/lib/plugins/installed', () => ({
+  INSTALLED_SERVER_PLUGINS: [
+    {
+      id: 'test-policy-rules',
+      register(api: PluginRegistrar) {
+        api.policyRuleSource({
+          id: 'test-policy-rules',
+          rulesForTask: async () => [],
+          storedRules: async () => null,
+          ruleTextByRef: (...a: unknown[]) => findRuleText(...a),
+          readSource: (...a: unknown[]) => readSourceViaCompiler(...a),
+        })
+      },
+    },
+  ],
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
@@ -44,11 +60,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrFiles: (...a: unknown[]) => fetchPrFiles(...a),
 }))
-jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
-  policyCompilerService: {
-    readSource: (...a: unknown[]) => readSourceViaCompiler(...a),
-  },
-}))
 jest.mock('@/lib/logger', () => ({
   logger: {
     warn: (...a: unknown[]) => warn(...a),
@@ -58,6 +69,7 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
+import type { PluginRegistrar } from '@/lib/plugins/types'
 import { boundaryCrossingRejudgeService } from '@/lib/services/boundary-crossing-rejudge.service'
 
 const SOURCE = `## Forbidden\n- Never delete files in prisma/migrations/\n`

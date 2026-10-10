@@ -54,7 +54,7 @@ it('no tracked TypeScript source contains a literal NUL byte', () => {
 
 it('NUL separators are byte-identical after escaping', () => {
   // The policy compiler salts its sourceHash with the same NUL separator, and
-  // __tests__/policy-compiler.service.test.ts reproduces that salt to seed a
+  // __tests__/ee/security/policy-compiler.service.test.ts reproduces that salt to seed a
   // *stale* hash. Production was already escaped, the test was not — so pin
   // the digest the test-side salt must keep producing.
   const source = '## Forbidden\n- Never push to main or develop directly'
@@ -69,7 +69,7 @@ it('NUL separators are byte-identical after escaping', () => {
   // can drift back to a literal byte without this test noticing.
   for (const rel of [
     'lib/services/policy/policy-compiler.service.ts',
-    '__tests__/policy-compiler.service.test.ts',
+    '__tests__/ee/security/policy-compiler.service.test.ts',
   ]) {
     const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
     expect(src).toContain(`${NUL_ESCAPE}compiler:`)

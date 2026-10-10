@@ -42,9 +42,8 @@ jest.mock('@/lib/repositories/pull-request.repository')
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: { runInbound: jest.fn() },
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
-  securityBaselineService: { requestFromPush: jest.fn() },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
 import { readFileSync } from 'fs'
 import { join } from 'path'
