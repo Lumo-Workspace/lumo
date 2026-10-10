@@ -280,12 +280,16 @@ export type PartialCause = (typeof PARTIAL_CAUSES)[number]
  * `COVERAGE_OWED` is a budget WE set (a cost decision, not a capability
  * limit) that left work we still owe. `UNATTRIBUTED` is a row written before
  * the causes existed, or a cause this build does not know.
+ * `CHANGE_TOO_LARGE` (LUM-1079) is the PR itself being too large to scan at
+ * all: neither our fault nor coverage we owe — a limit on the change, told
+ * to the customer with what to do. Still never checked / CLEAN.
  */
 export type PartialCauseClass =
   | 'OUR_FAULT'
   | 'COVERAGE_OWED'
   | 'UNATTRIBUTED'
   | 'USER_CONTROLLED'
+  | 'CHANGE_TOO_LARGE'
 
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   AI_REVIEW_PAUSED: 'USER_CONTROLLED',
@@ -297,7 +301,7 @@ export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   JUDGE_OVER_CAP: 'COVERAGE_OWED',
   GRAPH_READ_FAILED: 'OUR_FAULT',
   EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
-  PR_TOO_LARGE: 'COVERAGE_OWED',
+  PR_TOO_LARGE: 'CHANGE_TOO_LARGE',
 }
 
 export function isPartialCause(value: unknown): value is PartialCause {

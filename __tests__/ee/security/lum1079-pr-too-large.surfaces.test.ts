@@ -142,7 +142,7 @@ describe('shared rule', () => {
         hasSizeNotice: false,
       })
     ).toBe(true)
-    expect(partialCauseClass('PR_TOO_LARGE')).toBe('COVERAGE_OWED')
+    expect(partialCauseClass('PR_TOO_LARGE')).toBe('CHANGE_TOO_LARGE')
   })
 
   test('size caps carry it, and it counts as a size notice', () => {
@@ -203,6 +203,31 @@ test('agent reminder: a too-large PR is named as such, a failed one as failed', 
   expect(renderUnconfirmedPrLine({ number: 9, reason: 'FAILED' })).toContain(
     'security scan FAILED'
   )
+})
+
+test('reliability: a too-large PR is neither our fault nor coverage owed, and never checked', () => {
+  const r = summarizeScanReliability([
+    {
+      status: 'FAILED',
+      stages: SKIPPED,
+      partial: true,
+      partialCauses: ['PR_TOO_LARGE'],
+      huntAudit: null,
+    },
+    {
+      status: 'CLEAN',
+      stages: { secrets: 'RAN', hunt: 'SKIPPED' },
+      partial: true,
+      partialCauses: ['HUNT_OVERSIZED'],
+      huntAudit: null,
+    },
+  ])
+  expect(r.ourFault).toBe(0)
+  // Only the hunt-over-cap scan owes coverage; the too-large one does not.
+  expect(r.coverageOwedOnly).toBe(1)
+  expect(r.changeTooLarge).toBe(1)
+  expect(r.byCoverage.CHECKED).toBe(0)
+  expect(r.byCoverage.UNFINISHED).toBe(2)
 })
 
 test('reliability: a too-large PR is not counted as our fault; a crash still is', () => {
