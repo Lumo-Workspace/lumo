@@ -10,7 +10,7 @@
    - **留 MIT 核心**：53 个文件 / 16,126 行。密钥注册表与脱敏、hook 载荷的代码脱敏、注入防护、越界记录与人工裁定框架（含 read receipt、抑制规则、raw 保留期）、越界复判（确定性）、hook 接入的检测管线与**基线检测器**。
    - **插件**：161 个文件 / 35,129 行。整个 PR 安全扫描（编排、SARIF 导入、托管扫描、AI 审查 / verifier / ranker、hunt、扫描证据保留）、高级越界检测器、项目策略规则编译（LLM）、越界 AI 分诊与系统解释。
    - **私有（评测）**：12 个文件 / 2,805 行，越界检测评测集与基准。
-2. **扩展机制**：插件放在私有主仓的树内（`ee/security/`），核心只认 `lib/plugins/` 里的注册表接口；在 OSS 快照里，唯一一个列出已装插件的文件（`lib/plugins/installed.ts`）被 overlay 替换成空列表。API route、workflow 文件留在插件树里按文件路由挂载，OSS 里不存在即 404；核心反向依赖（53 条 import 边、31 个核心文件）全部改为注册点。
+2. **扩展机制**：插件放在私有主仓的树内（`ee/security/`），核心只认 `lib/plugins/` 里的注册表接口；在 OSS 快照里，只有两个列出已装插件的文件（服务端 `lib/plugins/installed.ts` 与客户端 `lib/plugins/installed.client.ts`）被 overlay 替换成空列表。API route、workflow 文件留在插件树里按文件路由挂载，OSS 里不存在即 404；核心反向依赖（53 条 import 边、31 个核心文件）全部改为注册点。
 3. **Prisma**：推荐方案 A——安全表留在唯一的核心 schema（迁移本来就不能删），核心代码不读写这些表，用测试守住；可选地按 Prisma 7 的多文件 schema 把这些 model 放到单独的 `.prisma` 文件里。方案 B（插件独立 schema + 独立迁移）代价大、与「迁移永不删除」冲突，不推荐。
 4. **插件许可**：推荐**商业（专有）许可、首期只在 SaaS 用**，保留以后对自托管单独售卖的选项；ELv2 公开源码作为备选。MIT 下 **CLA 不再必要，建议改用 DCO**（需要推翻 LUM-1035 的 CLA 前置条件）。
 5. **首次发布最小路径**：PR 1–7，约 **12–17 人日**。有一个约 5–7 人日的「manifest 排除 + stub」过渡方案可行，但会让公开代码和我们实际运行的代码分叉、并丢掉一部分基线回归测试，**只建议在发布日期压倒一切时使用**。
@@ -70,9 +70,9 @@
 
 `BoundaryCrossingCategory` 共 24 个值，去掉 LUM-942 停产的 `TEST_TAMPERING` / `CONTRACT_WEAKENING` / `SPINOFF_LAUNDERED` / `SILENT_FIX` 和 LUM-750 revert 后保留为废弃值的 `SELF_DISPOSITION`，其余 19 类建议这样分（动作类 3 个在两列都出现：匹配在核心、LLM 确认在插件）：
 
-| 留核心（确定性、与 Lumo 的任务 / DONE 流程直接绑定）                                                                                                                                                                                                                                                                      | 插件（高级规则或依赖 LLM）                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PUSH_TO_PROTECTED_BRANCH`、`MIGRATION_FILE_DELETED`、`TEST_FILE_DELETED`、`HARDCODED_SECRET`（复用核心 `scanSecrets`）、`HOOK_BYPASS`、`SESSION_BINDING_MISSING`、`NEW_NPM_DEPENDENCY`、`DESTRUCTIVE_DB_COMMAND`、`USED_TRAP_MEMORY_DELETED`、`STEWARD_IMPLEMENTATION_ARTIFACT`、`SENSITIVE_PATH_EDIT`（内置路径表部分） | `SENSITIVE_PATH_READ`（`sensitive-read.ts`）、`UNTRUSTED_CODE_EXECUTION`（`untrusted-code.ts`）、`DESTRUCTIVE_FS_COMMAND`（`destructive-fs.ts`）、`EXFILTRATION_PUBLIC` / `CLOUD_DATA_DELETION` / `INFRA_TERMINATION` 的 LLM 二次确认（`action-confirm*`）、`PROJECT_RULE_VIOLATION` / `POLICY_WEAKENING` 与项目级 `SENSITIVE_PATH_EDIT/READ` glob（策略编译器） |
+| 留核心（确定性、与 Lumo 的任务 / DONE 流程直接绑定）                                                                                                                                                                                                                                                                                                                                                                                 | 插件（高级规则或依赖 LLM）                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUSH_TO_PROTECTED_BRANCH`、`MIGRATION_FILE_DELETED`、`TEST_FILE_DELETED`、`HARDCODED_SECRET`（复用核心 `scanSecrets`）、`HOOK_BYPASS`、`SESSION_BINDING_MISSING`、`NEW_NPM_DEPENDENCY`、`DESTRUCTIVE_DB_COMMAND`、`USED_TRAP_MEMORY_DELETED`、`STEWARD_IMPLEMENTATION_ARTIFACT`、`SENSITIVE_PATH_EDIT`（内置路径表部分）、`EXFILTRATION_PUBLIC` / `CLOUD_DATA_DELETION` / `INFRA_TERMINATION` 的确定性匹配（只记录、不做 LLM 确认） | `SENSITIVE_PATH_READ`（`sensitive-read.ts`）、`UNTRUSTED_CODE_EXECUTION`（`untrusted-code.ts`）、`DESTRUCTIVE_FS_COMMAND`（`destructive-fs.ts`）、`EXFILTRATION_PUBLIC` / `CLOUD_DATA_DELETION` / `INFRA_TERMINATION` 的 LLM 二次确认（`action-confirm*`）、`PROJECT_RULE_VIOLATION` / `POLICY_WEAKENING` 与项目级 `SENSITIVE_PATH_EDIT/READ` glob（策略编译器） |
 
 说明：
 
@@ -237,7 +237,7 @@ export const INSTALLED_SERVER_PLUGINS = [securityPlugin]
 export const INSTALLED_SERVER_PLUGINS = []
 ```
 
-- **静态 import 列表，不做运行时按名加载**：Next.js / Turbopack 不能解析变量路径的 `import()`，静态列表也让 tree-shaking 和类型检查生效。客户端另有 `installed.client.ts`，同样处理。
+- **静态 import 列表，不做运行时按名加载**：Next.js / Turbopack 不能解析变量路径的 `import()`，静态列表也让 tree-shaking 和类型检查生效。客户端另有 `installed.client.ts`，同样由 manifest 排除并 overlay 成空列表——OSS 快照里一共只有这两个 overlay 文件（另加已有的 `CLAUDE.md`）。
 - **惰性一次性注册**：`getPluginRegistry()` 第一次被调用时遍历列表执行 `register`，结果缓存在模块作用域。route handler、server component、workflow step、cron 都通过它取扩展点；没有全局启动顺序依赖（`instrumentation.ts` 不参与，避免 edge / 自托管 worker 的差异）。
 - **防漂移**：一条测试断言 overlay 版本只导出空数组、且与正式版本同名同类型；`oss:export` 的 import 检查保证核心文件不直接 import `ee/`。
 
@@ -320,7 +320,7 @@ LUM-1035 的 Decisions 写着「公开仓库接受外部贡献前必须先配好
 
 ### 6.2 推荐路径：真拆（PR 1–7，约 12–17 人日）
 
-见 §7。做完以后私有主仓与 OSS 快照的差别只剩「被排除的插件树 + 一个 overlay 文件 + cron 过滤」，以后每次发布都是同一个动作。
+见 §7。做完以后私有主仓与 OSS 快照的差别只剩「被排除的插件树 + 两个 overlay 文件（`installed.ts` / `installed.client.ts`）+ cron 过滤」，以后每次发布都是同一个动作。
 
 ### 6.3 过渡方案：manifest 排除 + stub（约 5–7 人日）
 
@@ -358,7 +358,7 @@ LUM-1035 的 Decisions 写着「公开仓库接受外部贡献前必须先配好
 | 3                 | UI 插槽与设置分区：6 个组件改用 `<PluginSlot>`；`/api/workspaces/me`、`api-client/workspaces`、`validation/schemas`、`workspace.service` 改用 `workspaceSettings`；CLI 对 404 的降级文案（MIT CLI，同 PR bump 版本并同步 SKILL.md / grammar）             | 2                | 2–3 人日       |
 | 4                 | 越界检测器注册表：拆 `boundary-detector.service.ts`（管线 + 基线检测器留核心，高级检测器 / 动作 LLM 确认 / 策略规则注册进来）；`crossingExplainer`、`policyRuleSource`（write-gate、复判、IN_REVIEW policy check 事件）                                   | 2                | 3–4 人日       |
 | 5                 | 测试拆分：68 个混合测试拆成核心 / 插件两半，基线回归只依赖核心；加守卫测试：核心文件不得 import 插件路径、不得访问插件表                                                                                                                                  | 1–4              | 2–3 人日       |
-| 6                 | 物理归位与快照：插件文件移入 `ee/security/`（route / workflow 留原路径则只排除）；manifest 排除 + overlay `installed.ts` + cron 过滤 transform；`oss:export` 后在快照里跑 `tsc` 与 `jest` 的验证脚本；`crossing-eval` 排除                                | 5                | 1–2 人日       |
+| 6                 | 物理归位与快照：插件文件移入 `ee/security/`（route / workflow 留原路径则只排除）；manifest 排除 + overlay `installed.ts` 与 `installed.client.ts` + cron 过滤 transform；`oss:export` 后在快照里跑 `tsc` 与 `jest` 的验证脚本；`crossing-eval` 排除       | 5                | 1–2 人日       |
 | 7                 | 许可证切换（§8 全部条目）                                                                                                                                                                                                                                 | 用户裁定         | 0.5 人日       |
 | —                 | **首发最小路径合计（PR 1–7）**                                                                                                                                                                                                                            |                  | **12–17 人日** |
 | 8（发布后，可选） | Prisma 多文件 schema 把插件 model 挪进 `security.prisma`；S-b：stage A 改扫描层注册表，把 SARIF 导入 / 确定性密钥扫描提为核心能力                                                                                                                         | 6                | 0.5 + 4–6 人日 |
