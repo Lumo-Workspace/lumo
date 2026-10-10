@@ -61,9 +61,12 @@ describe('self-hosting integrations guide', () => {
     const repoEvents = [...route.matchAll(/case '([a-z_]+)':/g)].map(m => m[1]!)
     const appBlock = route.slice(
       route.indexOf('const APP_EVENTS = new Set(['),
-      route.indexOf('])')
+      route.indexOf('])', route.indexOf('const APP_EVENTS = new Set(['))
     )
     const appEvents = [...appBlock.matchAll(/'([a-z_]+)'/g)].map(m => m[1]!)
+    expect(appEvents).toEqual(
+      expect.arrayContaining(['installation', 'installation_repositories'])
+    )
     expect(repoEvents.length).toBeGreaterThan(4)
     for (const e of [...repoEvents, ...appEvents])
       expect(doc).toContain(`\`${e}\``)
