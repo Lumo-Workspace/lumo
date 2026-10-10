@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,10 +9,37 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import Image from 'next/image'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
+import {
+  workspaceUrlPrefixFromAppUrl,
+  workspaceUrlPrefixFromHost,
+} from '@/lib/workspace/url-prefix'
 import { Plus, X } from 'lucide-react'
 
-// Shown before the slug input; workspaces live at https://www.uselumo.ai/workspace/<slug>.
-const WORKSPACE_URL_PREFIX = 'uselumo.ai/workspace/'
+// Shown before the slug input. Derived from this deployment's own URL
+// (NEXT_PUBLIC_APP_URL, inlined at build time) so a self-hosted instance
+// shows its own address rather than the hosted one.
+function configuredWorkspaceUrlPrefix(): string | null {
+  return workspaceUrlPrefixFromAppUrl(process.env.NEXT_PUBLIC_APP_URL)
+}
+
+// The page host never changes while mounted, so there is nothing to subscribe to.
+function subscribeToNothing(): () => void {
+  return () => {}
+}
+
+function useWorkspaceUrlPrefix(): string {
+  // No usable build-time URL: fall back to the host the page is served from.
+  // The server snapshot has no window, so it renders the bare fallback and
+  // React swaps in the browser host after hydration without a mismatch.
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () =>
+      configuredWorkspaceUrlPrefix() ??
+      workspaceUrlPrefixFromHost(window.location.host) ??
+      '/workspace/',
+    () => configuredWorkspaceUrlPrefix() ?? '/workspace/'
+  )
+}
 
 function WorkspaceStep({
   onCreated,
@@ -20,6 +47,7 @@ function WorkspaceStep({
   onCreated: (workspaceId: string, slug: string) => void
 }) {
   const intl = useIntl()
+  const workspaceUrlPrefix = useWorkspaceUrlPrefix()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
@@ -110,7 +138,7 @@ function WorkspaceStep({
             </Label>
             <div className='flex items-center border border-border rounded-md overflow-hidden bg-transparent dark:bg-input/30 shadow-elevation-1 transition-[color,box-shadow] focus-within:ring-2 focus-within:ring-ring'>
               <span className='pl-3 text-sm text-muted-foreground h-9 flex items-center shrink-0 select-none'>
-                {WORKSPACE_URL_PREFIX}
+                {workspaceUrlPrefix}
               </span>
               <input
                 id='ws-url'
