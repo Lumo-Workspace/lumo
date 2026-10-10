@@ -48,8 +48,10 @@ export const AUDIT_INSTRUMENTED: Readonly<
   'lib/services/member.service.ts#updateMemberRole': ['member.role_changed'],
   'lib/services/member.service.ts#leaveWorkspace': ['member.left'],
   'lib/services/member.service.ts#removeMember': ['member.removed'],
-  // Clerk webhook (WEBHOOK actor): user deleted / banned
-  'lib/services/member-deprovision.service.ts#deprovisionClerkUser': [
+  // Identity-provider deprovisioning: the Clerk webhook (WEBHOOK actor) and,
+  // in Better Auth mode, the operator ban / remove scripts (SYSTEM actor,
+  // LUM-1071) — both through deprovisionUser
+  'lib/services/member-deprovision.service.ts#deprovisionUser': [
     'member.deprovisioned',
     'member.api_keys_revoked',
   ],
@@ -223,6 +225,8 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   'lib/services/workspace-deletion.service.ts#deleteNow':
     'runs the purge at once: the audit rows go with the workspace and the WorkspaceDeletionReceipt is the lasting record (deletion_scheduled precedes it)',
   'app/api/teams/route.ts#GET': READ_ONLY,
+  // LUM-1071: the operator scripts' dry run (deprovisionUser is audited).
+  'lib/services/member-deprovision.service.ts#planDeprovision': READ_ONLY,
   // LUM-907 PR2: reading the audit log itself (list + CSV export).
   'lib/services/audit-query.service.ts#assertOwner': GATE_HELPER,
   'lib/services/audit-query.service.ts#listAuditEvents': READ_ONLY,

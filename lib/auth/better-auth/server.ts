@@ -31,6 +31,7 @@ import {
 import { nameFieldsForCreate, nameFieldsForUpdate } from './user-shape'
 import { resolveMcpOAuthUrls } from './mcp-oauth-config'
 import { MCP_OAUTH_DISABLED_PATHS, mcpOAuthPlugins } from './mcp-oauth-plugins'
+import { ADMIN_DISABLED_PATHS, lumoAdminPlugin } from './admin-plugin'
 import { buildVerifyEmail } from '@/lib/integrations/email/templates/verify-email'
 
 /** Session cookie cache: page loads skip the DB for this many seconds. */
@@ -131,9 +132,15 @@ function createBetterAuth() {
         },
       },
     },
-    disabledPaths: mcpOAuthUrls ? MCP_OAUTH_DISABLED_PATHS : [],
+    disabledPaths: [
+      ...(mcpOAuthUrls ? MCP_OAUTH_DISABLED_PATHS : []),
+      // LUM-1071: impersonation is closed.
+      ...ADMIN_DISABLED_PATHS,
+    ],
     plugins: [
       lumoPublicConfigPlugin,
+      // LUM-1071: ban fields + the sign-in ban check (./admin-plugin).
+      lumoAdminPlugin(),
       ...(mcpOAuthUrls ? mcpOAuthPlugins(mcpOAuthUrls) : []),
       // Must stay last: sets cookies from server actions.
       nextCookies(),

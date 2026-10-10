@@ -170,6 +170,7 @@
   "apiKeys.subtitle": "Use API keys to authenticate Lumo CLI and local tools (like MCP servers). Keys are scoped to your user and workspace.",
   "apiKeys.title": "API Keys",
   "auth.divider.or": "or",
+  "auth.error.accountSuspended": "This account has been suspended. Contact support if you think this is a mistake.",
   "auth.error.generic": "Something went wrong. Please try again.",
   "auth.error.invalidCredentials": "Incorrect email or password.",
   "auth.error.passwordTooShort": "Password must be at least 8 characters.",

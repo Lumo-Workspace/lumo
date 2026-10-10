@@ -10,6 +10,7 @@
   "securityScan.review.queued": "검토를 요청했습니다. 완료되면 결과가 표시됩니다.",
   "securityScan.review.stale": "최신 커밋은 아직 검사되지 않았습니다. 이전 커밋의 결과입니다.",
   "auth.divider.or": "또는",
+  "auth.error.accountSuspended": "이 계정은 정지되었습니다. 착오라고 생각되면 지원팀에 문의해 주세요.",
   "auth.error.generic": "문제가 발생했습니다. 다시 시도해 주세요.",
   "auth.error.invalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
   "auth.error.passwordTooShort": "비밀번호는 8자 이상이어야 합니다.",

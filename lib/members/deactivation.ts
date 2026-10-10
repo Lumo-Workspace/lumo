@@ -14,6 +14,11 @@ export const MEMBER_DEACTIVATION_REASONS = [
   'LEFT',
   'CLERK_USER_DELETED',
   'CLERK_USER_BANNED',
+  // LUM-1071: Better Auth mode — an operator banned / removed the user
+  // (lib/services/auth-user-admin.service.ts). The CLERK_* values stay for
+  // historical rows and the Clerk webhook.
+  'AUTH_USER_DELETED',
+  'AUTH_USER_BANNED',
 ] as const
 
 export type MemberDeactivationReason =
