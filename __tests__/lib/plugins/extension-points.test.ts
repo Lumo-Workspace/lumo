@@ -52,7 +52,8 @@ const beta: LumoServerPlugin = {
       taskStatus: async () => {
         throw new Error('beta down')
       },
-      preToolUseReminder: async () => {
+      // Not async: a synchronous throw must be isolated too.
+      preToolUseReminder: () => {
         throw new Error('beta down')
       },
     })
@@ -130,6 +131,10 @@ describe('agent context (best-effort)', () => {
     await expect(
       collectSessionStartSections({ taskId: 't', taskIdentifier: 'LUM-1' })
     ).resolves.toBe('## Alpha')
+    expect(logger.warn).toHaveBeenCalledWith(
+      'sessionStart.pluginSection.failed',
+      expect.objectContaining({ plugin: 'beta', taskId: 't' })
+    )
   })
 
   it('task status merges rows and fields, skipping a throwing plugin', async () => {

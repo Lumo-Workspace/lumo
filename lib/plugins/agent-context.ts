@@ -24,7 +24,18 @@ export async function collectSessionStartSections(input: {
   )
   if (contributors.length === 0) return ''
   const sections = await Promise.all(
-    contributors.map(c => c.sessionStart!(input).catch(() => ''))
+    contributors.map(async c => {
+      try {
+        return await c.sessionStart!(input)
+      } catch (error) {
+        logger.warn('sessionStart.pluginSection.failed', {
+          plugin: c.id,
+          taskId: input.taskId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return ''
+      }
+    })
   )
   return sections.filter(s => s !== '').join('\n\n')
 }
@@ -78,8 +89,10 @@ export async function collectPreToolUseReminders(input: {
     c => c.preToolUseReminder
   )
   const out: Record<string, string> = {}
+  // The async wrapper turns a synchronous throw into a rejection, so it is
+  // settled (and logged) like any other failure.
   const results = await Promise.allSettled(
-    contributors.map(c => c.preToolUseReminder!(input))
+    contributors.map(async c => c.preToolUseReminder!(input))
   )
   results.forEach((result, i) => {
     const id = contributors[i]!.id

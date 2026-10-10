@@ -283,7 +283,7 @@ export const taskStatusService = {
       claimSnapshot?.claimSnapshotAt ?? null
     )
 
-    return {
+    const report: TaskStatusReport = {
       version: TASK_STATUS_SCHEMA_VERSION,
       task: {
         id: header.id,
@@ -335,8 +335,13 @@ export const taskStatusService = {
           })
         ),
       ],
-      ...(pluginStatus.fields as Partial<TaskStatusPluginFields>),
     }
+    // Plugin fields come last and never replace a core field.
+    for (const [key, value] of Object.entries(pluginStatus.fields)) {
+      if (!(key in report))
+        (report as unknown as Record<string, unknown>)[key] = value
+    }
+    return report
   },
 
   /**
