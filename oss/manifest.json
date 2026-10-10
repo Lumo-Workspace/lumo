@@ -146,6 +146,10 @@
       "reason": "dependency audit config"
     },
     {
+      "glob": ".gitleaks.toml",
+      "reason": "LUM-1015: secret-scan config read by scripts/audit-secrets.py (public so the release snapshot audit can be re-run)"
+    },
+    {
       "glob": "package.json",
       "reason": "package manifest (oss:export script removed by a transform)"
     },
@@ -310,6 +314,14 @@
     {
       "glob": "docs/live-docs/README.md",
       "reason": "内部 live doc id 和链接（LUM-1035 裁定 2026-10-10）"
+    },
+    {
+      "glob": "docs/open-source/historical-credential-rotations.json",
+      "reason": "LUM-1015 裁定 2026-10-10：私有历史 commit、.env.production 行列号与 owner 轮换声明；公开版 audit-secrets.py 缺该文件时按空 ledger 处理"
+    },
+    {
+      "glob": "docs/open-source/secret-scan-audit-record.md",
+      "reason": "LUM-1015 裁定 2026-10-10：私有历史审计记录（Neon 历史位置、轮换说明），从 secret-scan.md 拆出"
     },
     {
       "glob": "docs/rfc/**",
@@ -479,6 +491,11 @@
       "id": "excluded-file:lum392-report",
       "pattern": "lum392-cli-friction-report",
       "reason": "private report"
+    },
+    {
+      "id": "excluded-file:secret-scan-audit-record",
+      "pattern": "secret-scan-audit-record",
+      "reason": "private LUM-1015 history audit record"
     },
     {
       "id": "internal-domain:incase.ai",
