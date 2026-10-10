@@ -17,6 +17,11 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Plus } from 'lucide-react'
 import { useIntl } from 'react-intl'
 import { StatusIcon } from '../StatusIcon'
+import {
+  boardStatuses,
+  statusLabel,
+  type StatusLabelIntl,
+} from '../../utils/taskStatus'
 import { Button } from '@/components/ui/button'
 import {
   shouldVirtualize,
@@ -116,26 +121,13 @@ export interface BoardColumn {
   icon?: ReactNode
 }
 
-const BACKLOG_COLUMN: BoardColumn = {
-  id: 'BACKLOG',
-  label: 'Backlog',
-  icon: <StatusIcon status='BACKLOG' size={13} />,
+function statusColumn(intl: StatusLabelIntl, status: string): BoardColumn {
+  return {
+    id: status,
+    label: statusLabel(intl, status),
+    icon: <StatusIcon status={status} size={13} />,
+  }
 }
-
-const STATUS_COLUMNS: BoardColumn[] = [
-  { id: 'TODO', label: 'Todo', icon: <StatusIcon status='TODO' size={13} /> },
-  {
-    id: 'IN_PROGRESS',
-    label: 'In Progress',
-    icon: <StatusIcon status='IN_PROGRESS' size={13} />,
-  },
-  {
-    id: 'IN_REVIEW',
-    label: 'In Review',
-    icon: <StatusIcon status='IN_REVIEW' size={13} />,
-  },
-  { id: 'DONE', label: 'Done', icon: <StatusIcon status='DONE' size={13} /> },
-]
 
 // ─── BoardView ────────────────────────────────────────────────────────────────
 
@@ -184,9 +176,9 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
   const activeTask = tasks.find(t => t.id === activeId) ?? null
   const shownColumns =
     columns ??
-    (tasks.some(t => getColumnId(t) === BACKLOG_COLUMN.id)
-      ? [BACKLOG_COLUMN, ...STATUS_COLUMNS]
-      : STATUS_COLUMNS)
+    boardStatuses(tasks.map(t => ({ status: getColumnId(t) }))).map(s =>
+      statusColumn(intl, s)
+    )
 
   return (
     <DndContext

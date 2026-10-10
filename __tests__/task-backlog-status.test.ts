@@ -11,7 +11,10 @@ import {
   isValidTaskTransition,
   taskWorkflowCatalog,
 } from '@/lib/task/state-machine'
-import { boardStatuses } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
+import {
+  boardStatuses,
+  statusLabel,
+} from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
 import { statusFromDropTarget } from '@/lib/editor/nodes/task-view-kanban-drop'
 import {
   memberBreakdown,
@@ -56,6 +59,19 @@ describe('boardStatuses', () => {
 
   it('accepts a drop onto the BACKLOG column', () => {
     expect(statusFromDropTarget('BACKLOG', 'TODO')).toBe('BACKLOG')
+  })
+})
+
+describe('statusLabel', () => {
+  const intl = { formatMessage: ({ id }: { id: string }) => `t:${id}` }
+
+  it('localizes every status through its status.* message id', () => {
+    expect(statusLabel(intl, 'BACKLOG')).toBe('t:status.backlog')
+    expect(statusLabel(intl, 'IN_REVIEW')).toBe('t:status.inReview')
+  })
+
+  it('echoes an unknown status back unchanged', () => {
+    expect(statusLabel(intl, 'ARCHIVED')).toBe('ARCHIVED')
   })
 })
 

@@ -101,8 +101,9 @@ describe('BoardView virtualization', () => {
 describe('BoardView backlog column (LUM-1057)', () => {
   it('hides the Backlog column when no task is in BACKLOG', () => {
     const { queryByText } = renderBoard(makeTasks(1, 'TODO'))
-    expect(queryByText('Backlog')).toBeNull()
-    expect(queryByText('Todo')).not.toBeNull()
+    // Column headers are localized: the mocked formatMessage echoes the id.
+    expect(queryByText('status.backlog')).toBeNull()
+    expect(queryByText('status.todo')).not.toBeNull()
   })
 
   it('shows a Backlog column once a task is in BACKLOG', () => {
@@ -110,7 +111,7 @@ describe('BoardView backlog column (LUM-1057)', () => {
       ...makeTasks(1, 'BACKLOG'),
       ...makeTasks(1, 'TODO'),
     ])
-    expect(getByText('Backlog')).not.toBeNull()
+    expect(getByText('status.backlog')).not.toBeNull()
     expect(getByTestId('card-BACKLOG-0')).not.toBeNull()
   })
 })

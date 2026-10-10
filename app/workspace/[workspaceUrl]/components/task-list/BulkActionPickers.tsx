@@ -16,7 +16,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import type { ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../types'
-import { API_STATUS_LABEL } from '../../utils'
+import { statusLabel } from '../../utils'
 import { MemberAvatar, PRIORITY_CONFIG, PriorityDot } from '../fields/shared'
 
 export function BulkStatusPicker({
@@ -48,7 +48,7 @@ export function BulkStatusPicker({
                 }}
                 className='gap-2'
               >
-                {API_STATUS_LABEL[s] ?? s}
+                {statusLabel(intl, s)}
               </CommandItem>
             ))}
           </CommandList>

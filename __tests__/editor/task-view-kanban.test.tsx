@@ -48,10 +48,10 @@ it('renders the four status columns and places cards by status', () => {
       onStatusChange={jest.fn()}
     />
   )
-  expect(screen.getByText('Todo')).toBeInTheDocument()
-  expect(screen.getByText('In Progress')).toBeInTheDocument()
-  expect(screen.getByText('In Review')).toBeInTheDocument()
-  expect(screen.getByText('Done')).toBeInTheDocument()
+  expect(screen.getByText('status.todo')).toBeInTheDocument()
+  expect(screen.getByText('status.inProgress')).toBeInTheDocument()
+  expect(screen.getByText('status.inReview')).toBeInTheDocument()
+  expect(screen.getByText('status.done')).toBeInTheDocument()
   expect(screen.getByText('Alpha')).toBeInTheDocument()
   expect(screen.getByText('Beta')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: /Alpha/ })).toHaveAttribute(

@@ -14,8 +14,8 @@ import {
 } from '@dnd-kit/core'
 import { StatusIcon } from '@/app/workspace/[workspaceUrl]/components/StatusIcon'
 import {
-  API_STATUS_LABEL,
   boardStatuses,
+  statusLabel,
 } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
 import type { ApiStatus, ApiTask } from '@/app/workspace/[workspaceUrl]/types'
 import { sortColumnTasks, statusFromDropTarget } from './task-view-kanban-drop'
@@ -134,7 +134,7 @@ export function TaskViewKanban({
 
   const columns = boardStatuses(tasks).map(status => ({
     status,
-    label: API_STATUS_LABEL[status] ?? status,
+    label: statusLabel(intl, status),
     tasks: sortColumnTasks(tasks.filter(t => t.status === status)),
   }))
 
