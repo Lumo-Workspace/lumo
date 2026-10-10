@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.104.0",
+  "cliVersion": "1.105.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -3547,9 +3547,9 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["todo", "in_progress", "in_review", "done"],
+          "enum": ["backlog", "todo", "in_progress", "in_review", "done"],
           "enumCaseInsensitive": true,
-          "description": "Filter by status: todo | in_progress | in_review | done (case-insensitive)"
+          "description": "Filter by status: backlog | todo | in_progress | in_review | done (case-insensitive)"
         }
       },
       "hasSubcommands": false,
@@ -3810,9 +3810,9 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["todo", "in_progress", "in_review", "done"],
+          "enum": ["backlog", "todo", "in_progress", "in_review", "done"],
           "enumCaseInsensitive": true,
-          "description": "Status: todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)"
+          "description": "Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)"
         },
         "--tag": {
           "long": "--tag",
@@ -4476,9 +4476,9 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["todo", "in_progress", "in_review", "done"],
+          "enum": ["backlog", "todo", "in_progress", "in_review", "done"],
           "enumCaseInsensitive": true,
-          "description": "New status: todo | in_progress | in_review | done (case-insensitive)"
+          "description": "New status: backlog | todo | in_progress | in_review | done (case-insensitive)"
         },
         "--tag": {
           "long": "--tag",

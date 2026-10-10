@@ -764,7 +764,7 @@ task
   )
   .option(
     '-s, --status <value>',
-    'Filter by status: todo | in_progress | in_review | done (case-insensitive)'
+    'Filter by status: backlog | todo | in_progress | in_review | done (case-insensitive)'
   )
   .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
   .option('-n, --limit <count>', 'Show only the first N tasks')
@@ -788,7 +788,7 @@ task
   .option('--tag <name>', 'Tag name (repeatable = any of)', collect, [])
   .option(
     '-s, --status <value>',
-    'Status: todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)',
+    'Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)',
     collect,
     []
   )
@@ -2639,7 +2639,7 @@ task
   .option('-d, --description <text>', 'New description (empty string to clear)')
   .option(
     '-s, --status <value>',
-    'New status: todo | in_progress | in_review | done (case-insensitive)'
+    'New status: backlog | todo | in_progress | in_review | done (case-insensitive)'
   )
   .option(
     '-p, --priority <level>',
