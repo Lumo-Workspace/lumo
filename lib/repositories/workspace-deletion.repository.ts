@@ -27,6 +27,8 @@ export const NON_WORKSPACE_MODELS: Readonly<Record<string, string>> = {
   AuthSession: 'login session of an AuthUser; owned by no workspace',
   AuthAccount: 'credential / OAuth link of an AuthUser; owned by no workspace',
   AuthVerification: 'email-verification token; owned by no workspace',
+  // LUM-1070: Better Auth rate-limit counters (IP + auth path).
+  AuthRateLimit: 'auth rate-limit counter per IP + path; owned by no workspace',
   // LUM-1044: the self-hosted MCP OAuth authorization server — signing keys,
   // MCP clients and the per-user grants/tokens issued to them. Bound to a
   // user (or to the instance), never to a workspace.

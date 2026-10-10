@@ -53,6 +53,15 @@ describe('proxy.ts with Better Auth', () => {
     )
   })
 
+  it('lets an anonymous visitor reach /reset-password (LUM-1070)', async () => {
+    mockGetSession.mockResolvedValue(sessionFor(null))
+    for (const path of ['/reset-password', '/reset-password?token=tok_1']) {
+      const res = await run(page(path))
+      expect(res.status).not.toBe(307)
+      expect(res.headers.get('x-middleware-next')).toBe('1')
+    }
+  })
+
   it('lets a signed-in user through to a protected page', async () => {
     mockGetSession.mockResolvedValue(sessionFor('ba_user_1'))
     const res = await run(page('/workspace'))

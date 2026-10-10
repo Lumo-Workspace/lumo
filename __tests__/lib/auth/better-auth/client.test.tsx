@@ -61,6 +61,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 beforeEach(() => {
   jest.clearAllMocks()
   mockSearchParams.delete('redirect_url')
+  mockSearchParams.delete('error')
   mockFetch.mockResolvedValue({
     data: { socialProviders: ['github'], signUpEnabled: true },
   })
@@ -285,6 +286,58 @@ describe('SignIn (Better Auth)', () => {
     expect(mockSignInSocial).toHaveBeenCalledWith({
       provider: 'github',
       callbackURL: '/workspace',
+      // LUM-1070: a refused sign-in comes back to this form, not to
+      // Better Auth's bare error page.
+      errorCallbackURL: '/signin',
     })
+  })
+
+  it('a social sign-in sent back with ?error=account_not_linked explains it (LUM-1070)', async () => {
+    mockSearchParams.set('error', 'account_not_linked')
+    await renderForm()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'auth.error.accountNotLinked'
+    )
+  })
+
+  it('other social callback errors show a generic provider message (LUM-1070)', async () => {
+    mockSearchParams.set('error', 'unable_to_get_user_info')
+    await renderForm()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'auth.error.socialSignInFailed'
+    )
+  })
+
+  it('links to forgot password in sign-in mode only (LUM-1070)', async () => {
+    await renderForm()
+    expect(
+      screen.getByRole('link', { name: 'auth.signIn.forgotPassword' })
+    ).toHaveAttribute('href', '/reset-password')
+    fireEvent.click(screen.getByText('auth.signIn.switchToSignUp'))
+    expect(
+      screen.queryByRole('link', { name: 'auth.signIn.forgotPassword' })
+    ).toBeNull()
+  })
+
+  it('a rate-limited sign-in (429, no code) says to wait (LUM-1070)', async () => {
+    mockSignInEmail.mockResolvedValue({
+      data: null,
+      error: { status: 429, message: 'Too many requests.' },
+    })
+    await renderForm()
+    fireEvent.change(screen.getByLabelText('auth.field.email'), {
+      target: { value: 'ada@x.io' },
+    })
+    fireEvent.change(screen.getByLabelText('auth.field.password'), {
+      target: { value: 'whatever-123' },
+    })
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'auth.signIn.submit' })
+      )
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'auth.error.tooManyRequests'
+    )
   })
 })

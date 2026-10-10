@@ -3,7 +3,7 @@
 
 import { useRef, useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { useUser } from '@/lib/auth/client'
+import { PasswordSettings, useUser } from '@/lib/auth/client'
 import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -184,6 +184,9 @@ export function ProfilePage() {
             </p>
           </div>
         </div>
+
+        {/* LUM-1070: change password (Better Auth); nothing under Clerk. */}
+        <PasswordSettings />
       </div>
     </div>
   )

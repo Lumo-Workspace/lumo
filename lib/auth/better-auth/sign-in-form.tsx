@@ -9,6 +9,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -17,9 +18,14 @@ import { getAuthClient } from './auth-client'
 import { hardNavigate } from './navigate'
 import type { PublicAuthConfig, SocialProviderId } from './config'
 import {
+  MIN_PASSWORD_LENGTH,
   REDIRECT_PARAM_NAME,
+  RESET_PASSWORD_PATH,
+  authErrorCode,
   errorMessageId,
   safeRedirectTarget,
+  socialErrorCallbackUrl,
+  socialErrorMessageId,
 } from './sign-in-helpers'
 import { oauthRedirectUrl } from './consent-helpers'
 
@@ -29,8 +35,6 @@ const PROVIDER_LABELS: Record<SocialProviderId, string> = {
   github: 'GitHub',
   google: 'Google',
 }
-
-const MIN_PASSWORD_LENGTH = 8
 
 function usePublicAuthConfig(): PublicAuthConfig | null {
   const [config, setConfig] = useState<PublicAuthConfig | null>(null)
@@ -59,7 +63,10 @@ export function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [errorId, setErrorId] = useState<string | null>(null)
+  // A failed social sign-in comes back here with Better Auth's `?error=`.
+  const [errorId, setErrorId] = useState<string | null>(() =>
+    socialErrorMessageId(searchParams.get('error'))
+  )
 
   const target = safeRedirectTarget(searchParams.get(REDIRECT_PARAM_NAME))
   const signUpEnabled = config?.signUpEnabled ?? false
@@ -82,7 +89,7 @@ export function SignIn() {
             password,
           })
         : await authClient.signIn.email({ email: email.trim(), password })
-      code = error ? (error.code ?? '') : null
+      code = error ? authErrorCode(error) : null
       continueTo = oauthRedirectUrl(data)
     } catch {
       code = '' // network failure → generic message
@@ -102,8 +109,9 @@ export function SignIn() {
       const { error } = await getAuthClient().signIn.social({
         provider,
         callbackURL: target,
+        errorCallbackURL: socialErrorCallbackUrl(target),
       })
-      if (error) setErrorId(errorMessageId(error.code))
+      if (error) setErrorId(errorMessageId(authErrorCode(error)))
     } catch {
       setErrorId(errorMessageId(null))
     }
@@ -212,10 +220,17 @@ export function SignIn() {
               onChange={e => setPassword(e.target.value)}
               disabled={submitting}
             />
-            {isSignUp && (
+            {isSignUp ? (
               <p className='text-xs text-muted-foreground'>
                 {t('auth.password.hint')}
               </p>
+            ) : (
+              <Link
+                href={RESET_PASSWORD_PATH}
+                className='block text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
+              >
+                {t('auth.signIn.forgotPassword')}
+              </Link>
             )}
           </div>
           {errorId && (

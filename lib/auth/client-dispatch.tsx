@@ -21,6 +21,7 @@ import type { SignOut, UseUserReturn } from './types'
 interface ClientAuthImplementation {
   Provider: (props: { children: ReactNode }) => ReactNode
   SignIn: () => ReactNode
+  PasswordSettings: () => ReactNode
   useUser: () => UseUserReturn
   useSignOut: () => SignOut
 }
@@ -55,16 +56,51 @@ export function OAuthConsent() {
   )
 }
 
+const BetterAuthResetPasswordForm = lazy(async () => ({
+  default: (await import('./better-auth/reset-password-form')).ResetPassword,
+}))
+
+/**
+ * Forgot / reset password (LUM-1070, mounted on /reset-password). Better Auth
+ * only — Clerk hosts its own reset flow, and the page is a 404 there.
+ */
+export function ResetPassword() {
+  return (
+    <Suspense fallback={null}>
+      <BetterAuthResetPasswordForm />
+    </Suspense>
+  )
+}
+
+const BetterAuthChangePasswordForm = lazy(async () => ({
+  default: (await import('./better-auth/change-password-form')).ChangePassword,
+}))
+
+function BetterAuthPasswordSettings() {
+  return (
+    <Suspense fallback={null}>
+      <BetterAuthChangePasswordForm />
+    </Suspense>
+  )
+}
+
+/** Clerk: Lumo shows no password settings (unchanged). */
+function NoPasswordSettings() {
+  return null
+}
+
 const IMPLEMENTATIONS: Record<AuthProviderName, ClientAuthImplementation> = {
   clerk: {
     Provider: clerk.AuthProvider,
     SignIn: clerk.SignIn,
+    PasswordSettings: NoPasswordSettings,
     useUser: clerk.useUser,
     useSignOut: clerk.useSignOut,
   },
   'better-auth': {
     Provider: betterAuth.AuthProvider,
     SignIn: BetterAuthSignIn,
+    PasswordSettings: BetterAuthPasswordSettings,
     useUser: betterAuth.useUser,
     useSignOut: betterAuth.useSignOut,
   },
@@ -94,6 +130,15 @@ export function AuthProvider({
 export function SignIn() {
   const impl = useContext(ImplementationContext)
   return <impl.SignIn />
+}
+
+/**
+ * LUM-1070 — the change-password section of the profile page: Better Auth's
+ * form, nothing under Clerk.
+ */
+export function PasswordSettings() {
+  const impl = useContext(ImplementationContext)
+  return <impl.PasswordSettings />
 }
 
 /**
