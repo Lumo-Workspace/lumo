@@ -26,8 +26,9 @@ export async function GET() {
       // LUM-1062: the core columns plus those an installed plugin owns.
       workspace: serializeWorkspaceSettings(result.workspace),
       role: result.member.role,
-      // LUM-1062: plugin fields (the security plugin: `securityPlatform`).
-      ...pluginMeFields(),
+      // LUM-1062: plugin fields (the security plugin: `securityPlatform`);
+      // never one of the core's own fields.
+      ...pluginMeFields(['workspace', 'role', 'pendingDeletion']),
       // LUM-918: the pending deletion (null when none) — drives the banner
       // every member sees and the owner's cancel / delete-now controls.
       pendingDeletion: await workspaceDeletionService.getPending(

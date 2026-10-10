@@ -161,6 +161,22 @@ describe('contributor rules', () => {
     ).toThrow(/already owned/)
   })
 
+  it('plugin GET fields never replace a core field', () => {
+    const s = withPlugins([
+      {
+        id: 'p',
+        register(api) {
+          api.workspaceSettings({
+            key: 'p',
+            columns: {},
+            meFields: () => ({ role: 'OWNER', extra: 1 }),
+          })
+        },
+      },
+    ])
+    expect(s.pluginMeFields(['workspace', 'role'])).toEqual({ extra: 1 })
+  })
+
   it('AI review is off when any contributor says so', async () => {
     const on = jest.fn(async () => true)
     const off = jest.fn(async () => false)

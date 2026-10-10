@@ -79,11 +79,20 @@ export function serializeWorkspaceSettings(
   )
 }
 
-/** Extra top-level `GET /api/workspaces/me` fields from every plugin. */
-export function pluginMeFields(): Record<string, unknown> {
+/**
+ * Extra top-level `GET /api/workspaces/me` fields from every plugin. A field
+ * named like one of the core's (`coreFields`) is dropped: a plugin can add to
+ * the response, never replace part of it.
+ */
+export function pluginMeFields(
+  coreFields: readonly string[] = []
+): Record<string, unknown> {
   const fields: Record<string, unknown> = {}
-  for (const c of getPluginRegistry().workspaceSettings)
-    Object.assign(fields, c.meFields?.() ?? {})
+  for (const c of getPluginRegistry().workspaceSettings) {
+    for (const [key, value] of Object.entries(c.meFields?.() ?? {})) {
+      if (!coreFields.includes(key) && key !== '__proto__') fields[key] = value
+    }
+  }
   return fields
 }
 
