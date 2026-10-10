@@ -21,6 +21,8 @@ export interface MilestoneShowData {
   description: string | null
   projectName: string
   taskCounts: {
+    /** LUM-1057; absent on servers that predate BACKLOG. */
+    BACKLOG?: number | undefined
     TODO: number
     IN_PROGRESS: number
     IN_REVIEW: number
@@ -140,6 +142,8 @@ export function formatMilestoneShow(
   m: MilestoneShowData,
   tasks: TaskRow[]
 ): string {
+  // BACKLOG is unscheduled work and stays out of the progress total (LUM-1057).
+  const backlog = m.taskCounts.BACKLOG ?? 0
   const total =
     m.taskCounts.TODO +
     m.taskCounts.IN_PROGRESS +
@@ -172,7 +176,7 @@ export function formatMilestoneShow(
     `Description:`,
     `  ${m.description && m.description.length > 0 ? sanitizeField(m.description) : '-'}`,
     ``,
-    `Tasks:        ${total} total (TODO ${m.taskCounts.TODO} / IN_PROGRESS ${m.taskCounts.IN_PROGRESS} / IN_REVIEW ${m.taskCounts.IN_REVIEW} / DONE ${m.taskCounts.DONE})`,
+    `Tasks:        ${total} total (TODO ${m.taskCounts.TODO} / IN_PROGRESS ${m.taskCounts.IN_PROGRESS} / IN_REVIEW ${m.taskCounts.IN_REVIEW} / DONE ${m.taskCounts.DONE})${backlog > 0 ? ` + ${backlog} in BACKLOG` : ''}`,
   ]
   lines.push(...sprintCoverageLines(m.sprintCoverage))
   lines.push(...crossMilestoneLearningLines(m.crossMilestoneLearning))

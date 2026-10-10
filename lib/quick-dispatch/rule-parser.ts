@@ -1,6 +1,6 @@
 import type { Mention, QuickAction, ParseResult } from './types'
 
-type Status = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+type Status = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
 export const STATUS_KEYWORDS: Record<string, Status> = {
@@ -21,6 +21,11 @@ export const STATUS_KEYWORDS: Record<string, Status> = {
   todo: 'TODO',
   回退: 'TODO',
   reopen: 'TODO',
+  // LUM-1057: not yet scheduled.
+  backlog: 'BACKLOG',
+  待规划: 'BACKLOG',
+  搁置: 'BACKLOG',
+  someday: 'BACKLOG',
 }
 
 export const PRIORITY_KEYWORDS: Record<string, Priority> = {

@@ -17,6 +17,11 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Plus } from 'lucide-react'
 import { useIntl } from 'react-intl'
 import { StatusIcon } from '../StatusIcon'
+import {
+  boardStatuses,
+  statusLabel,
+  type StatusLabelIntl,
+} from '../../utils/taskStatus'
 import { Button } from '@/components/ui/button'
 import {
   shouldVirtualize,
@@ -116,20 +121,13 @@ export interface BoardColumn {
   icon?: ReactNode
 }
 
-const STATUS_COLUMNS: BoardColumn[] = [
-  { id: 'TODO', label: 'Todo', icon: <StatusIcon status='TODO' size={13} /> },
-  {
-    id: 'IN_PROGRESS',
-    label: 'In Progress',
-    icon: <StatusIcon status='IN_PROGRESS' size={13} />,
-  },
-  {
-    id: 'IN_REVIEW',
-    label: 'In Review',
-    icon: <StatusIcon status='IN_REVIEW' size={13} />,
-  },
-  { id: 'DONE', label: 'Done', icon: <StatusIcon status='DONE' size={13} /> },
-]
+function statusColumn(intl: StatusLabelIntl, status: string): BoardColumn {
+  return {
+    id: status,
+    label: statusLabel(intl, status),
+    icon: <StatusIcon status={status} size={13} />,
+  }
+}
 
 // ─── BoardView ────────────────────────────────────────────────────────────────
 
@@ -146,7 +144,10 @@ interface BoardViewProps<T extends { id: string; viewOrder: number | null }> {
   onAddTask?: (columnId: string) => void
   /** When set, drag reordering within a column is blocked and a hint is shown. */
   orderingLabel?: string | undefined
-  /** Custom column list. Defaults to the four task-status columns. */
+  /**
+   * Custom column list. Defaults to the four task-status columns, plus a
+   * leading Backlog column only while some task is in BACKLOG (LUM-1057).
+   */
   columns?: BoardColumn[]
   /** Map a task to the id of the column it belongs in. Defaults to `t.status`. */
   getColumnId?: (task: T) => string
@@ -162,7 +163,7 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
   renderCard,
   onAddTask,
   orderingLabel,
-  columns = STATUS_COLUMNS,
+  columns,
   getColumnId = (t: T) => String((t as unknown as { status: string }).status),
 }: BoardViewProps<T>) {
   const intl = useIntl()
@@ -173,6 +174,11 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
   // users know same-column reorder persists but will be visually
   // overridden until they switch back to Manual.
   const activeTask = tasks.find(t => t.id === activeId) ?? null
+  const shownColumns =
+    columns ??
+    boardStatuses(tasks.map(t => ({ status: getColumnId(t) }))).map(s =>
+      statusColumn(intl, s)
+    )
 
   return (
     <DndContext
@@ -183,7 +189,7 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
       onDragEnd={onDragEnd}
     >
       <div className='border-t border-border p-8 flex gap-3 flex-1 bg-muted/50 overflow-x-auto'>
-        {columns.map(column => {
+        {shownColumns.map(column => {
           const filtered = tasks.filter(t => getColumnId(t) === column.id)
           const col = orderingLabel
             ? filtered

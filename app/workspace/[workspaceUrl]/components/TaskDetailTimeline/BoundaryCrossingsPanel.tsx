@@ -787,6 +787,16 @@ function CrossingRow({
           className={`size-4 shrink-0 text-muted-foreground transition-transform ${collapsed ? '' : 'rotate-90'}`}
           aria-hidden
         />
+        {/* LUM-1059: the ref the CLI and the agent reminder name this
+        crossing by; an unnumbered legacy row has none to show. */}
+        {c.ref && c.ref !== c.id && (
+          <span
+            data-testid={`crossing-ref-${c.id}`}
+            className='font-mono text-[12px] text-muted-foreground'
+          >
+            {c.ref}
+          </span>
+        )}
         <span className='inline-flex items-center gap-1 text-[13px] font-medium text-foreground'>
           {boundaryCategoryLabel(c.category, intl)}
           <InfoTooltip

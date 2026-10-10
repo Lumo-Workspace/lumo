@@ -82,6 +82,8 @@ export type DispositionChannel = 'WEB' | 'CLI' | 'SYSTEM'
 
 export interface BoundaryCrossingView {
   id: string
+  /** LUM-1059: the human-readable `<TEAM>-X<n>` ref (the cuid when unnumbered). */
+  ref: string
   category: string
   detail: string
   detectedAt: string

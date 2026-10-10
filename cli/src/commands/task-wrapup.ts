@@ -237,7 +237,7 @@ function pushCrossing(
       ? `advisory — does not block DONE${c.rejudge ? `; re-judged: ${oneLine(c.rejudge)}` : ''}`
       : 'below the workspace gate — does not block DONE'
   lines.push(
-    `  ${c.blocking ? '•' : '◦'} ${sanitizeField(c.id)}  [${c.severity}] ${sanitizeField(c.category)} (${gate})`
+    `  ${c.blocking ? '•' : '◦'} ${sanitizeField(c.ref)}  [${c.severity}] ${sanitizeField(c.category)} (${gate})`
   )
   const detail = oneLine(c.detail)
   if (detail) lines.push(`      detail: ${clip(detail, 400)}`)
@@ -250,7 +250,7 @@ function pushCrossing(
   const explanations = c.explanations ?? []
   if (explanations.length === 0 && c.blocking) {
     lines.push(
-      `      agent explanation: none — add one first: lumo crossing explain ${shellQuote(c.id)} --task ${shellQuote(task)} --note "…" (append-only; clears nothing)`
+      `      agent explanation: none — add one first: lumo crossing explain ${shellQuote(c.ref)} --task ${shellQuote(task)} --note "…" (append-only; clears nothing)`
     )
   } else if (explanations.length > 0) {
     lines.push(
@@ -262,7 +262,7 @@ function pushCrossing(
   }
   if (!batch) {
     lines.push(
-      `      the user rules → ${crossingCommand([c.id], task, '--false-positive')}  |  ${crossingCommand([c.id], task, '--confirmed')}`
+      `      the user rules → ${crossingCommand([c.ref], task, '--false-positive')}  |  ${crossingCommand([c.ref], task, '--confirmed')}`
     )
   }
 }
@@ -293,7 +293,7 @@ function pushCrossings(lines: string[], input: WrapupInput): void {
   for (const c of result.crossings)
     pushCrossing(lines, c, input.identifier, batch)
   if (batch) {
-    const ids = result.crossings.map(c => c.id)
+    const ids = result.crossings.map(c => c.ref)
     lines.push(
       `  the user rules all ${ids.length} false-positive → ${crossingCommand(ids, input.identifier, '--false-positive')}`,
       `  the user rules all ${ids.length} confirmed      → ${crossingCommand(ids, input.identifier, '--confirmed')}`

@@ -7,19 +7,27 @@ export interface TaskGroup {
   tasks: ApiTask[]
 }
 
-const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const STATUS_ORDER = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 
 /**
  * Bucket tasks for the task-view list. Pure + deterministic. `projectNames` /
  * `milestoneNames` map ids → display names (label falls back to the id).
- * `ungroupedLabel` is the (localized) header for tasks missing the group value.
+ * `ungroupedLabel` is the (localized) header for tasks missing the group value;
+ * `statusLabelOf` localizes status group headers (English when omitted).
  */
 export function groupTasks(
   tasks: ApiTask[],
   groupBy: 'none' | 'status' | 'project' | 'milestone',
   projectNames: Record<string, string>,
   milestoneNames: Record<string, string>,
-  ungroupedLabel: string
+  ungroupedLabel: string,
+  statusLabelOf: (status: string) => string = s => API_STATUS_LABEL[s] ?? s
 ): TaskGroup[] {
   if (groupBy === 'none') {
     return [{ key: 'all', label: '', tasks }]
@@ -27,7 +35,7 @@ export function groupTasks(
   if (groupBy === 'status') {
     return STATUS_ORDER.map(s => ({
       key: s,
-      label: API_STATUS_LABEL[s] ?? s,
+      label: statusLabelOf(s),
       tasks: tasks.filter(t => t.status === s),
     })).filter(g => g.tasks.length > 0)
   }

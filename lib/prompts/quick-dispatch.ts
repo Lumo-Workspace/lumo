@@ -12,6 +12,7 @@ Status mapping:
 - doing, 进行中, in progress, started → IN_PROGRESS
 - review, 评审, in review → IN_REVIEW
 - done, 完成, finished → DONE
+- backlog, 待规划, 搁置, someday → BACKLOG
 - (default or no status mentioned) → TODO
 
 Rules:
@@ -50,7 +51,7 @@ export const QuickDispatchResponseSchema = z.object({
     .string()
     .nullable()
     .describe('ISO 8601 datetime string, or null if no date mentioned'),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']),
+  status: z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']),
   titleTooVague: z
     .boolean()
     .describe('True if the extracted title is too generic to be useful'),
@@ -110,6 +111,7 @@ Status mapping:
 - review, 评审, in review, 提审 → IN_REVIEW
 - done, 完成, finished, 搞定, 关闭, close → DONE
 - todo, 待办, 回退, reopen → TODO
+- backlog, 待规划, 搁置, someday → BACKLOG
 
 Priority mapping:
 - P0, P1, 紧急, urgent, blocker → URGENT
@@ -138,7 +140,7 @@ export const QuickDispatchV2ResponseSchema = z.object({
           taskTitle: z.string().describe('Task title for display'),
           fields: z.object({
             status: z
-              .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+              .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
               .optional(),
             assigneeActorId: z.string().optional(),
             priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
@@ -147,7 +149,13 @@ export const QuickDispatchV2ResponseSchema = z.object({
         z.object({
           type: z.literal('create'),
           title: z.string(),
-          status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']),
+          status: z.enum([
+            'BACKLOG',
+            'TODO',
+            'IN_PROGRESS',
+            'IN_REVIEW',
+            'DONE',
+          ]),
           priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
           projectId: z
             .string()
@@ -190,7 +198,7 @@ interface BuildV2PromptParams {
     id: string
     identifier: string
     title: string
-    status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
   }[]
   currentDate: string
 }

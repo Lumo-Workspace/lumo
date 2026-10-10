@@ -343,7 +343,13 @@ async function updateFromCli(args: {
   input: {
     title?: string | undefined
     description?: string | null | undefined
-    status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | undefined
+    status?:
+      | 'BACKLOG'
+      | 'TODO'
+      | 'IN_PROGRESS'
+      | 'IN_REVIEW'
+      | 'DONE'
+      | undefined
     priority?: TaskPriority | undefined
     assigneeRef?: string | null | undefined
     milestoneRef?: string | null | undefined
@@ -431,7 +437,7 @@ async function updateFromCli(args: {
   const updateInput: {
     title?: string
     description?: string | null
-    status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    status?: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
     priority?: TaskPriority
     assigneeActorId?: string | null
     milestoneId?: string | null

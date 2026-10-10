@@ -210,6 +210,8 @@ describe('task update done blocked', () => {
       {
         kind: 'BOUNDARY_CROSSING',
         id: 'cx-1',
+        // LUM-1059: the ref is shown; the server sent none here, so the cuid.
+        ref: 'cx-1',
         severity: 'MEDIUM',
         category: 'TEST_FILE_DELETED',
         detail: 'deleted __tests__/cli/old.test.ts',
@@ -267,6 +269,7 @@ describe('task update done blocked', () => {
         {
           kind: 'BOUNDARY_CROSSING',
           id: 'cx',
+          ref: 'cx',
           severity: 'HIGH',
           category: 'X',
           detail: 'd',

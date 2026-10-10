@@ -386,6 +386,31 @@ describe('boundaryCrossingService.listAll — acceptance read model', () => {
     expect(views.map(v => v.id)).toEqual(['bc-high', 'bc-medium', 'bc-low'])
   })
 
+  it('LUM-1059 the read model carries the <TEAM>-X<n> ref, the cuid for an unnumbered row', async () => {
+    const row = {
+      category: 'TEST_FILE_DELETED',
+      detail: 'deleted x.test.ts',
+      detectedAt: new Date('2026-06-11T00:00:00.000Z'),
+      reversible: true,
+      severity: 'MEDIUM',
+      disposition: null,
+      dispositionNote: null,
+      dispositionedAt: null,
+      dispositionedById: null,
+      remediationTask: null,
+      task: { team: { identifier: 'LUM' } },
+    }
+    findAll.mockResolvedValue([
+      { ...row, id: 'cuid-numbered', number: 482 },
+      { ...row, id: 'cuid-legacy', number: null },
+    ])
+    const views = await boundaryCrossingService.listAll('t-1')
+    expect(Object.fromEntries(views.map(v => [v.id, v.ref]))).toEqual({
+      'cuid-numbered': 'LUM-X482',
+      'cuid-legacy': 'cuid-legacy',
+    })
+  })
+
   it('crossing surfaces linked remediation task status', async () => {
     findAll.mockResolvedValue([
       {

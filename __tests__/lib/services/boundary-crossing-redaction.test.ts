@@ -7,7 +7,16 @@
  * explanation evidence). Both columns now hold the shared storage-redaction
  * form. Credential-shaped values are assembled at runtime (no literal).
  */
+// LUM-1059: create allocates the crossing number in a transaction.
+function mockTxClient(): unknown {
+  return mockPrisma
+}
 const mockPrisma = {
+  $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+    fn(mockTxClient())
+  ),
+  task: { findUnique: jest.fn(async () => ({ workspaceId: 'w1' })) },
+  workspace: { update: jest.fn(async () => ({ crossingSeq: 1 })) },
   boundaryCrossing: {
     create: jest.fn(),
     update: jest.fn(),

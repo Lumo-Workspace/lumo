@@ -225,7 +225,7 @@ describe('computeMilestoneHealth', () => {
           startDate: null,
           targetDate: new Date(now.getTime() + 3 * DAY),
         },
-        { TODO: 5, IN_PROGRESS: 2, IN_REVIEW: 1, DONE: 2 },
+        { BACKLOG: 0, TODO: 5, IN_PROGRESS: 2, IN_REVIEW: 1, DONE: 2 },
         now
       )
       // total 10, done 2, target in 3d, no start → near-deadline → at-risk
@@ -240,7 +240,7 @@ describe('computeMilestoneHealth', () => {
           startDate: null,
           targetDate: new Date(now.getTime() + 1 * DAY),
         },
-        { TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 4 },
+        { BACKLOG: 0, TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 4 },
         now
       )
       expect(result).toBe('on-track')

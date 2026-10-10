@@ -10,12 +10,14 @@ export type TaskStatusValue = TaskStatus
 // ── Transition map ──────────────────────────────────────────────────────────
 
 const TRANSITIONS: Record<TaskStatusValue, TaskStatusValue[]> = {
-  TODO: ['IN_PROGRESS', 'IN_REVIEW', 'DONE'],
-  IN_PROGRESS: ['TODO', 'IN_REVIEW', 'DONE'],
-  IN_REVIEW: ['TODO', 'IN_PROGRESS', 'DONE'],
+  // LUM-1057: BACKLOG = not yet scheduled; it moves freely to/from every status.
+  BACKLOG: ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
+  TODO: ['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
+  IN_PROGRESS: ['BACKLOG', 'TODO', 'IN_REVIEW', 'DONE'],
+  IN_REVIEW: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'DONE'],
   // IN_REVIEW is included so that undoing an acceptance verdict (LUM-586) can
   // send a DONE task back to IN_REVIEW via the normal state-machine guard.
-  DONE: ['TODO', 'IN_PROGRESS', 'IN_REVIEW'],
+  DONE: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW'],
 }
 
 // ── Catalog ─────────────────────────────────────────────────────────────────

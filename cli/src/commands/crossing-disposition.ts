@@ -6,9 +6,12 @@ import { emitConfirmation } from '../lib/confirmation'
 import { resolveBoundTask } from '../lib/bound-task'
 import { dispositionUrl } from '../lib/open-crossings'
 import {
+  crossingLabel,
+  crossingMatches,
   isReceiptMap,
   parseReceiptMap,
   readCrossings,
+  receiptFor,
   requestReceipt,
   type CrossingDispositionTarget,
   type CrossingForDisposition,
@@ -46,7 +49,7 @@ export function describeCrossingDisposition(
   ctx: { taskIdentifier: string; note?: string | undefined }
 ): string[] {
   const lines = [
-    `Will disposition crossing ${sanitizeField(crossing.id)} on ${ctx.taskIdentifier} as ${target}`,
+    `Will disposition crossing ${sanitizeField(crossingLabel(crossing))} on ${ctx.taskIdentifier} as ${target}`,
     `Disposition: ${crossing.disposition ?? 'OPEN'} → ${target}`,
   ]
   const detail = sanitizeField(crossing.detail).replace(/\s+/g, ' ').trim()
@@ -105,7 +108,7 @@ export function describeRulingConfirmation(
   }
 ): string[] {
   const lines = [
-    `Read acknowledged for crossing ${sanitizeField(crossing.id)} (shown ${ctx.readAt}, acknowledged ${ctx.readAcknowledgedAt}) — recorded with the ruling`,
+    `Read acknowledged for crossing ${sanitizeField(crossingLabel(crossing))} (shown ${ctx.readAt}, acknowledged ${ctx.readAcknowledgedAt}) — recorded with the ruling`,
     `Step 2 of 2 — record the ruling: ${crossing.disposition ?? 'OPEN'} → ${target} on ${ctx.taskIdentifier}`,
   ]
   if (ctx.note) lines.push(`Note to record: ${sanitizeField(ctx.note)}`)
@@ -188,49 +191,32 @@ export async function crossingDisposition(
 
   // A batch the user narrowed to one id still carries its receipts in the
   // `<id>=<token>` form — take this crossing's token out of it.
+  // LUM-1059: the map may key it by ref or by cuid, whichever this id is not —
+  // an unmatched map is resolved against the crossing once it is read.
   let receipt = rawReceipt
+  let pendingMap: Map<string, string> | null = null
   if (rawReceipt && isReceiptMap(rawReceipt)) {
-    const token = parseReceiptMap(rawReceipt)?.get(crossingId)
-    if (!token) {
-      console.error(
-        `Error: --receipt carries no receipt for crossing ${sanitizeField(crossingId)} — re-run the command without any step flag to start the handshake again.`
-      )
+    const map = parseReceiptMap(rawReceipt)
+    const token = map?.get(crossingId)
+    if (token) receipt = token
+    else if (map) {
+      pendingMap = map
+      receipt = undefined
+    } else {
+      console.error(noReceiptInMap(crossingId))
       return 1
     }
-    receipt = token
   }
 
   // Local ordering checks — cheap, and they name the missing step before any
   // request goes out. The server re-checks all of them.
-  if (options.confirm) {
-    if (!receipt) {
-      console.error(
-        'Error: --confirm requires the stage-2 read receipt (--receipt <token>) from the --confirm-read step. Run the command without any step flag first, relay the envelope, confirm the read, relay that envelope, then re-run its confirmCommand verbatim.'
-      )
-      return 1
-    }
-    if (receipt.startsWith('r1.')) {
-      console.error(
-        'Error: read not yet acknowledged — this is the stage-1 receipt. Run the command with --confirm-read --receipt <this token> first (after the user confirms they read the envelope); only the receipt that step returns is accepted with --confirm.'
-      )
+  if (!pendingMap) {
+    const orderError = receiptOrderError(options, receipt)
+    if (orderError) {
+      console.error(orderError)
       return 1
     }
   }
-  if (options.confirmRead) {
-    if (!receipt) {
-      console.error(
-        'Error: --confirm-read requires the read receipt (--receipt <token>) from the envelope. Run the command without any step flag first and relay the envelope.'
-      )
-      return 1
-    }
-    if (receipt.startsWith('r2.')) {
-      console.error(
-        'Error: this receipt already acknowledges the read — the next step is --confirm with this same receipt (after the user approves the ruling).'
-      )
-      return 1
-    }
-  }
-
   const creds = readCredentials()
   if (!creds) {
     console.error('Error: not logged in. Run `lumo auth login` first.')
@@ -266,24 +252,36 @@ export async function crossingDisposition(
     )
     return 1
   }
-  const crossing = read.crossings.find(c => c.id === crossingId)
+  const crossing = read.crossings.find(c => crossingMatches(c, crossingId))
   if (!crossing) {
     console.error(
       `Error: crossing ${sanitizeField(crossingId)} not found on ${taskId}. Ids are listed by \`lumo task status ${taskId}\`.`
     )
     return 1
   }
+  if (pendingMap) {
+    receipt = receiptFor(pendingMap, crossing)
+    if (!receipt) {
+      console.error(noReceiptInMap(crossingId))
+      return 1
+    }
+    const orderError = receiptOrderError(options, receipt)
+    if (orderError) {
+      console.error(orderError)
+      return 1
+    }
+  }
 
   if (crossing.disposition === target) {
     process.stdout.write(
-      `Crossing ${sanitizeField(crossing.id)} is already ${target} — nothing to do.\n`
+      `Crossing ${sanitizeField(crossingLabel(crossing))} is already ${target} — nothing to do.\n`
     )
     return
   }
 
   // Step 1 — read envelope.
   if (!options.confirmRead && !options.confirm) {
-    const issued = await requestReceipt(base, headers, taskId, crossingId, {
+    const issued = await requestReceipt(base, headers, taskId, crossing.id, {
       disposition: target,
     })
     if (issued.status === 'error') {
@@ -308,7 +306,7 @@ export async function crossingDisposition(
 
   // Step 2 — acknowledge the read, get the stage-2 receipt, ruling envelope.
   if (options.confirmRead) {
-    const issued = await requestReceipt(base, headers, taskId, crossingId, {
+    const issued = await requestReceipt(base, headers, taskId, crossing.id, {
       disposition: target,
       acknowledge: receipt as string,
     })
@@ -335,7 +333,7 @@ export async function crossingDisposition(
   let res: Response
   try {
     res = await fetch(
-      `${base}/api/tasks/${encodeURIComponent(taskId)}/boundary-crossings/${encodeURIComponent(crossingId)}/disposition`,
+      `${base}/api/tasks/${encodeURIComponent(taskId)}/boundary-crossings/${encodeURIComponent(crossing.id)}/disposition`,
       {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -375,7 +373,7 @@ export async function crossingDisposition(
   }
   const url = dispositionUrl(apiUrl, creds.workspaceSlug ?? '', taskId)
   process.stdout.write(
-    `✓ Dispositioned crossing ${sanitizeField(outcome.crossingId)} as ${outcome.disposition ?? 'OPEN'} (read acknowledged and ruling approved via CLI).\n` +
+    `✓ Dispositioned crossing ${sanitizeField(crossingLabel(crossing))} as ${outcome.disposition ?? 'OPEN'} (read acknowledged and ruling approved via CLI).\n` +
       (crossing.advisory
         ? ''
         : `  This clears its block on moving ${taskId} to DONE. `) +
@@ -384,6 +382,34 @@ export async function crossingDisposition(
   // LUM-842: the ruling moved what blocks DONE — show where the task stands.
   await printStatusDigest(base, creds.token, taskId)
   return
+}
+
+function noReceiptInMap(crossingId: string): string {
+  return `Error: --receipt carries no receipt for crossing ${sanitizeField(crossingId)} — re-run the command without any step flag to start the handshake again.`
+}
+
+/** The local step-order checks; null when the receipt fits the step. */
+function receiptOrderError(
+  options: CrossingDispositionOptions,
+  receipt: string | undefined
+): string | null {
+  if (options.confirm) {
+    if (!receipt) {
+      return 'Error: --confirm requires the stage-2 read receipt (--receipt <token>) from the --confirm-read step. Run the command without any step flag first, relay the envelope, confirm the read, relay that envelope, then re-run its confirmCommand verbatim.'
+    }
+    if (receipt.startsWith('r1.')) {
+      return 'Error: read not yet acknowledged — this is the stage-1 receipt. Run the command with --confirm-read --receipt <this token> first (after the user confirms they read the envelope); only the receipt that step returns is accepted with --confirm.'
+    }
+  }
+  if (options.confirmRead) {
+    if (!receipt) {
+      return 'Error: --confirm-read requires the read receipt (--receipt <token>) from the envelope. Run the command without any step flag first and relay the envelope.'
+    }
+    if (receipt.startsWith('r2.')) {
+      return 'Error: this receipt already acknowledges the read — the next step is --confirm with this same receipt (after the user approves the ruling).'
+    }
+  }
+  return null
 }
 
 function pickTarget(

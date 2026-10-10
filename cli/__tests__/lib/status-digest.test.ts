@@ -34,6 +34,7 @@ const NO_CROSSINGS: OpenCrossingsResult = {
 function crossing(id: string, blocking: boolean) {
   return {
     id,
+    ref: id,
     category: 'TEST_FILE_DELETED',
     severity: 'MEDIUM' as const,
     detail: 'd',

@@ -12,7 +12,10 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     findUniqueOrThrow: jest.fn(),
+    // LUM-1059: the crossing create resolves its workspace for the number.
+    findUnique: jest.fn(async () => ({ workspaceId: 'w' })),
   },
+  workspace: { update: jest.fn(async () => ({ crossingSeq: 1 })) },
   comment: { create: jest.fn(), update: jest.fn() },
   memory: { create: jest.fn(), update: jest.fn() },
   taskArtifact: {

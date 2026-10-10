@@ -54,7 +54,12 @@ export interface ActorInfo {
 }
 
 export type ApiPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-export type ApiStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+export type ApiStatus =
+  | 'BACKLOG'
+  | 'TODO'
+  | 'IN_PROGRESS'
+  | 'IN_REVIEW'
+  | 'DONE'
 
 // ─── Task pre-fill fields (used for draft restoration and NewTaskModal) ──────
 

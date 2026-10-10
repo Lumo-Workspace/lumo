@@ -145,8 +145,10 @@ describe('RichTextViewer — task view block', () => {
     const stored =
       '<div data-task-view data-task-view-config=\'{"version":1,"view":"list","groupBy":"status","filters":{}}\'></div>'
     render(<RichTextViewer value={stored} />)
-    await waitFor(() => expect(screen.getByText(/Todo/)).toBeInTheDocument())
-    expect(screen.getByText(/Done/)).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByText(/status\.todo/)).toBeInTheDocument()
+    )
+    expect(screen.getByText(/status\.done/)).toBeInTheDocument()
   })
 
   it('does not render the configure panel in the read-only viewer', async () => {
@@ -187,7 +189,7 @@ describe('RichTextViewer — task view block', () => {
       '<div data-task-view data-task-view-config=\'{"version":1,"view":"kanban","groupBy":"none","filters":{}}\'></div>'
     render(<RichTextViewer value={stored} />)
     await waitFor(() =>
-      expect(screen.getByText('In Progress')).toBeInTheDocument()
+      expect(screen.getByText('status.inProgress')).toBeInTheDocument()
     )
     expect(screen.getByText('Alpha')).toBeInTheDocument()
   })

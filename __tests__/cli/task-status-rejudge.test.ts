@@ -47,6 +47,7 @@ const EVIDENCE =
 
 const rejudged: OpenCrossing = {
   id: 'bx-rejudged',
+  ref: 'bx-rejudged',
   category: 'POLICY_WEAKENING',
   severity: 'MEDIUM',
   detail:

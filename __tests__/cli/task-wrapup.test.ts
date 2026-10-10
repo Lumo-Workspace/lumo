@@ -74,6 +74,7 @@ function statusData(
 function crossing(over: Partial<OpenCrossing> = {}): OpenCrossing {
   return {
     id: 'cx-1',
+    ref: over.id ?? 'cx-1',
     category: 'TEST_FILE_DELETED',
     severity: 'MEDIUM',
     detail: 'deleted __tests__/old.test.ts',

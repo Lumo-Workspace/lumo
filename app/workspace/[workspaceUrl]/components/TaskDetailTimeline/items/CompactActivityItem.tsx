@@ -15,7 +15,7 @@ import type { ReactNode } from 'react'
 import type { TimelineActivityEntry, WorkspaceMemberInfo } from '../../../types'
 import { CommentAvatar } from '../../CommentAvatar'
 import { TAG_COLORS } from './tag-colors'
-import { API_STATUS_LABEL } from '../../../utils'
+import { statusLabel } from '../../../utils'
 import { StatusIcon } from '../../StatusIcon'
 import { PRIORITY_CONFIG, PriorityDot } from '../../fields/shared'
 import type { ApiPriority } from '../../../types'
@@ -114,8 +114,8 @@ function formatActivityText(
     case 'STATUS_CHANGED': {
       const fromStatus = String(p.from ?? '')
       const toStatus = String(p.to ?? '')
-      const fromLabel = API_STATUS_LABEL[fromStatus] ?? fromStatus
-      const toLabel = API_STATUS_LABEL[toStatus] ?? toStatus
+      const fromLabel = statusLabel(intl, fromStatus)
+      const toLabel = statusLabel(intl, toStatus)
       return (
         <>
           {intl.formatMessage({

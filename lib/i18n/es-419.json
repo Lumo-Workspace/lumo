@@ -1659,6 +1659,7 @@
   "status.inProgress": "En curso",
   "status.inReview": "En revisión",
   "status.done": "Hecho",
+  "status.backlog": "Pendientes",
   "status.todo": "Por hacer",
   "editor.textStyle.regular": "Texto normal",
   "editor.textStyle.h1": "Encabezado 1",
