@@ -38,7 +38,8 @@ const EXPECTED_SECTION: Record<ContextPath, RegExp> = {
   web: /^## Web Links$/,
   comments: /^## Comments$/,
   memory: /^## Relevant Memory/,
-  session_summary: /^## Previous Sessions/,
+  // LUM-1067: after the fix the recap sits inside its own fence.
+  session_summary: /^(## Previous Sessions|<untrusted-session-recap>)/,
   pr_review_todo: /^## PR review todos$/,
 }
 

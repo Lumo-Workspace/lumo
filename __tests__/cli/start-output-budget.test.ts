@@ -71,8 +71,8 @@ import { formatTaskContextMarkdown } from '@/cli/src/commands/task-context'
 import {
   TASK_DESCRIPTION_FENCE,
   TASK_DESCRIPTION_PREAMBLE,
-  PREVIOUS_SESSIONS_NOTE,
   fenceUntrustedText,
+  renderSessionRecapFence,
 } from '@/shared/src/untrusted-fence'
 
 // UTF-8 bytes (what `wc -c` reports) — the unit the baselines were recorded in.
@@ -152,10 +152,13 @@ describe('LUM-844 start-of-session output budget', () => {
       bareLine,
       `\n${fenceUntrustedText(TASK_DESCRIPTION_FENCE, TASK_DESCRIPTION_PREAMBLE, description)}\n\n`
     )
-    // LUM-1003: one history-not-instructions note under the sessions heading.
+    // LUM-1067: the session recaps print inside one untrusted fence (this
+    // replaced LUM-1003's one-line note); the recap lines themselves are
+    // unchanged.
     const noted = fenced.replace(
-      /(## Previous Sessions \(\d+\)\n\n)/,
-      `$1${PREVIOUS_SESSIONS_NOTE}\n\n`
+      /(## Previous Sessions \(\d+\)\n\n)((?:### Session[^\n]*\n(?:[^\n]+\n)*\n)+)/,
+      (_m, head: string, body: string) =>
+        `${head}${renderSessionRecapFence(body)}\n\n`
     )
     expect(noted).not.toBe(fenced)
     expect(renderContext({ full: true })).toBe(noted)

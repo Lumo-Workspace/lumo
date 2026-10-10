@@ -73,12 +73,25 @@ function getMentionText(mention: Mention): string {
   }
 }
 
+/**
+ * Pattern for one keyword: ASCII keywords match whole words only (so `add`
+ * does not hit "address"); CJK keywords match as substrings, since CJK text
+ * has no word boundaries.
+ */
+function keywordPattern(keyword: string, flags: string): RegExp {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return /^[a-zA-Z0-9]+$/.test(keyword)
+    ? new RegExp(`\\b${escaped}\\b`, flags)
+    : new RegExp(escaped, flags)
+}
+
 function matchesKeyword(text: string, keyword: string): boolean {
-  if (/^[a-zA-Z0-9]+$/.test(keyword)) {
-    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return new RegExp(`\\b${escaped}\\b`, 'i').test(text)
-  }
-  return text.toLowerCase().includes(keyword.toLowerCase())
+  return keywordPattern(keyword, 'i').test(text)
+}
+
+/** Remove every occurrence of `keyword`, with the same matching rule. */
+function stripKeyword(text: string, keyword: string): string {
+  return text.replace(keywordPattern(keyword, 'gi'), '')
 }
 
 function findKeyword<T extends string>(
@@ -102,7 +115,7 @@ function extractCreateTitle(segment: string, mentions: Mention[]): string {
 
   // Remove create keywords
   for (const kw of CREATE_KEYWORDS) {
-    title = title.replace(new RegExp(kw, 'gi'), '')
+    title = stripKeyword(title, kw)
   }
 
   // Remove mention texts
@@ -114,12 +127,12 @@ function extractCreateTitle(segment: string, mentions: Mention[]): string {
 
   // Remove priority keywords
   for (const kw of Object.keys(PRIORITY_KEYWORDS)) {
-    title = title.replace(new RegExp(kw, 'gi'), '')
+    title = stripKeyword(title, kw)
   }
 
   // Remove status keywords
   for (const kw of Object.keys(STATUS_KEYWORDS)) {
-    title = title.replace(new RegExp(kw, 'gi'), '')
+    title = stripKeyword(title, kw)
   }
 
   // Clean up whitespace and common punctuation artifacts

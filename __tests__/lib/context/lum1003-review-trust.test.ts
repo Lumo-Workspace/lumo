@@ -18,7 +18,7 @@ import {
 } from '@/lib/context/render/pr-review-todos'
 import { renderCommentsSection } from '@/lib/context/render/comments'
 import { formatTaskContextMarkdown } from '@/cli/src/commands/task-context'
-import { PREVIOUS_SESSIONS_NOTE } from '@/shared/src/untrusted-fence'
+import { SESSION_RECAP_FENCE } from '@/shared/src/untrusted-fence'
 
 describe('classifyReviewer', () => {
   it.each([
@@ -281,8 +281,10 @@ describe('githubCommentProvenance', () => {
   })
 })
 
-describe('task context "Previous Sessions" — LUM-1003 note', () => {
-  it('prints the history-not-instructions note under the heading', () => {
+// LUM-1067 replaced LUM-1003's one-line note with a fenced recap block
+// (see lum1067-session-recap.test.ts for the full contract).
+describe('task context "Previous Sessions" — recap framing', () => {
+  it('prints the recap fence right under the heading', () => {
     const md = formatTaskContextMarkdown(
       {
         task: {
@@ -308,11 +310,11 @@ describe('task context "Previous Sessions" — LUM-1003 note', () => {
       new Date('2026-10-05T12:00:00Z')
     )
     expect(md).toContain(
-      `## Previous Sessions (1)\n\n${PREVIOUS_SESSIONS_NOTE}\n\n### Session 5e55a1b2`
+      `## Previous Sessions (1)\n\n<${SESSION_RECAP_FENCE}>\n`
     )
   })
 
-  it('does not print the note when there are no previous sessions', () => {
+  it('does not print the fence when there are no previous sessions', () => {
     const md = formatTaskContextMarkdown(
       {
         task: {
@@ -326,6 +328,6 @@ describe('task context "Previous Sessions" — LUM-1003 note', () => {
       },
       new Date('2026-10-05T12:00:00Z')
     )
-    expect(md).not.toContain(PREVIOUS_SESSIONS_NOTE)
+    expect(md).not.toContain(`<${SESSION_RECAP_FENCE}>`)
   })
 })
