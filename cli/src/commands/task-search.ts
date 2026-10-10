@@ -160,7 +160,7 @@ export async function taskSearch(
   const statuses = normalizeEnumList(opts.status, STATUSES)
   if (!statuses.ok) {
     console.error(
-      `Error: invalid status "${statuses.bad}". Allowed: todo, in_progress, in_review, done`
+      `Error: invalid status "${statuses.bad}". Allowed: ${STATUSES.map(s => s.toLowerCase()).join(', ')}`
     )
     return 1
   }

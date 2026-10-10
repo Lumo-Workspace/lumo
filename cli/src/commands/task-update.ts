@@ -474,7 +474,7 @@ async function runTaskUpdate(
     const n = normalizeStatus(opts.status)
     if (!n) {
       console.error(
-        `Error: invalid status "${opts.status}". Allowed: todo, in_progress, in_review, done`
+        `Error: invalid status "${opts.status}". Allowed: ${ALLOWED_STATUSES.map(s => s.toLowerCase()).join(', ')}`
       )
       return 1
     }

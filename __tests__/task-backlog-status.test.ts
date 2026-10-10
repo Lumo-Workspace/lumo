@@ -190,3 +190,18 @@ describe('lumo milestone show', () => {
     expect(out).not.toContain('BACKLOG')
   })
 })
+
+describe('CLI invalid --status error', () => {
+  it('lists backlog among the allowed statuses', async () => {
+    const { taskList } = await import('@/cli/src/commands/task-list')
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(await taskList({ status: 'nope' })).toBe(1)
+      expect(err).toHaveBeenCalledWith(
+        'Error: invalid status "nope". Allowed: backlog, todo, in_progress, in_review, done'
+      )
+    } finally {
+      err.mockRestore()
+    }
+  })
+})

@@ -21,6 +21,10 @@ export const STATUS_KEYWORDS: Record<string, Status> = {
   todo: 'TODO',
   回退: 'TODO',
   reopen: 'TODO',
+  // LUM-1057: not yet scheduled.
+  backlog: 'BACKLOG',
+  待规划: 'BACKLOG',
+  搁置: 'BACKLOG',
 }
 
 export const PRIORITY_KEYWORDS: Record<string, Priority> = {
