@@ -142,6 +142,32 @@ describe('parseQuickDispatch', () => {
     expect(createAction.priority).toBe('MEDIUM')
   })
 
+  describe('create title keyword stripping (LUM-1057)', () => {
+    const titleOf = (text: string) => {
+      const action = parseQuickDispatch(text, []).actions[0] as Extract<
+        ReturnType<typeof parseQuickDispatch>['actions'][number],
+        { type: 'create' }
+      >
+      expect(action.type).toBe('create')
+      return action.title
+    }
+
+    it('keeps English words that merely contain a keyword', () => {
+      expect(titleOf('add address book')).toBe('address book')
+      expect(titleOf('create highlight panel')).toBe('highlight panel')
+      expect(titleOf('create restart worker')).toBe('restart worker')
+    })
+
+    it('still strips whole-word English keywords', () => {
+      expect(titleOf('create login page high')).toBe('login page')
+      expect(titleOf('create login page someday')).toBe('login page')
+    })
+
+    it('still strips CJK keywords inside the text', () => {
+      expect(titleOf('创建 部署脚本 紧急')).toBe('部署脚本')
+    })
+  })
+
   it('returns unparsed text when no mentions or keywords match', () => {
     const result = parseQuickDispatch('今天天气不错', [])
 
