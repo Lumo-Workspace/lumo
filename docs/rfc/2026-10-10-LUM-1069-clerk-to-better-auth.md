@@ -12,7 +12,7 @@
 4. **客户端影响**：web 会话全部失效，用户要重新登录一次。**CLI 不受影响**：它用 `lum_` API key，校验只查 DB，不经过 Clerk。**MCP 要重新授权一次**：issuer 从 `clerk.uselumo.ai` 换成 `www.uselumo.ai`，BA 侧 DCR 和 consent 页（LUM-1044）已经实现，只需配好 `BETTER_AUTH_URL`。
 5. **上线前必须补的 BA 缺口**（自托管可以不补，SaaS 不行）：①忘记/重置密码（现在没有接 `sendResetPassword`，也没有页面）；②限流存储：BA 默认用进程内存，在 Vercel 多实例上基本无效，要改成数据库存储，需要一个 additive 迁移；③封禁/删号等运维操作的入口，用来替代 Clerk Dashboard 加 webhook；④新用户 id 加 `user_` 前缀，`audit-query` 依赖这个前缀。
 6. **切换方式**：用 Vercel 的 staged production build（带 BA 环境变量构建，但不自动挂域名），验证后再 promote。**回滚**用 Vercel Instant Rollback 切回切换前的部署：它用的是那次构建的原环境变量，Clerk 实例原样保留，秒级生效。
-7. **工作量**：7 个可以独立合并的任务，约 **9–12 人日**（agent）。用户要亲自做的步骤约 3–4 小时，外加一个约 60 分钟的切换窗口，见 §9。
+7. **工作量**：8 个可以独立合并的任务（T1–T8），约 **10–12.5 人日**（agent）。用户要亲自做的步骤约 3–4 小时，外加一个约 60 分钟的切换窗口，见 §9。
 8. **代码清理**：稳定 30 天后**删除 Clerk 实现**（保留 `lib/auth` 接口和 `clerkId` 这类列名），见 §10。
 9. **托管 MCP 的临时方案（待用户裁定）**：**建议现在就在 Clerk Dashboard 打开「Publish DCR support」**。切换预计 2 周以上，MCP 目前完全不可用；这个开关 5 分钟、随时可关，代价只是切换后用户要再授权一次。打开后要用 MCP Inspector 实测，确认 `registration_endpoint` 出现、能走通。如果切换能在 1 周内完成，就不开，直接等 BA。详见 §4.3。
 
@@ -205,13 +205,21 @@ magic link 文档：<https://better-auth.com/docs/plugins/magic-link>。**建议
 
 1. **T-1 天（用户）**：Clerk 全量导出（CSV 加 API），本机加密落地；对生产库跑导入的 dry-run，然后正式导入。Clerk 模式不读 `auth_*` 表，所以提前导入没有副作用。
 2. **T0（用户）**：
-   1. 再导出一次，跑增量导入（按 id 幂等 upsert，覆盖这一天里注册的用户和改过的密码）。
-   2. 在 Vercel 设好 §6.2 的变量，**关闭生产域名自动分配**，然后从 `main` 触发一次生产构建，得到 staged deployment。
-   3. 记下当前（Clerk）部署的 id，回滚时用。
+   1. 再导出一次，跑增量导入（按 id 幂等 upsert，覆盖这一天里注册的用户和改过的密码）。记下这次导入的时间戳 `T_import`。
+   2. 可选：如果 Clerk Dashboard 能把注册模式改为受限（以 Dashboard 实际提供的选项为准），在这里打开，缩小下面所说的缺口。
+   3. 在 Vercel 设好 §6.2 的变量，**关闭生产域名自动分配**，然后从 `main` 触发一次生产构建，得到 staged deployment。
+   4. 记下当前（Clerk）部署的 id，回滚时用。
 3. **验证 staged 部署（用户 + agent）**：在 deployment URL 上检查 `/.well-known/oauth-authorization-server` 的 issuer、`/api/auth/lumo/config`（社交按钮）。完整登录要等 promote 之后，因为 origin 必须等于 `BETTER_AUTH_URL`。
 4. **Promote（用户，即「切换按钮」）**：Vercel → Deployments → Promote（<https://vercel.com/docs/deployments/promoting-a-deployment>）。
-5. **冒烟（15 分钟）**：密码账号、GitHub 账号、Google 账号各登录一次；进入已有 workspace；CLI `lumo auth login` 用已有 key；MCP Inspector 授权一次并调用一个工具；新注册一个账号并收到验证邮件。
-6. **恢复**生产域名自动分配。Clerk 的 webhook 端点保持不动：Clerk 侧不会再有事件；即使回滚，Clerk 的事件也能照常处理。
+5. **收尾增量（用户，promote 后立刻做）**：从 T0 增量导出到 promote 之间，Clerk 仍在服务，这段时间（几十分钟）里新注册的人和改过密码的人不在 BA 里。promote 之后应用不再把任何人带到 Clerk，所以这时 Clerk 的数据实际上已冻结。再导出一次，用 T3 的 `--closing` 模式导入：
+   - 只**插入** `auth_users` 里还没有的用户及其账号；
+   - 只有当 BA 一侧的 `auth_accounts.updatedAt <= T_import`（说明切换后用户没在 BA 改过密码）时，才覆盖 credential 的 password；
+   - 其他字段一律不覆盖。
+
+   在这一步完成前，缺口里改过密码的人可以用「忘记密码」自救；缺口里新注册的人会暂时无法登录。如果其中有人在收尾前又在 BA 用同一邮箱注册，邮箱唯一约束会让收尾导入跳过他并报告；这类人保留 BA 账号，他在缺口期间加入的成员资格用 T3 的 rekey 脚本改挂到新 id 上。人数预计是个位数。
+
+6. **冒烟（15 分钟）**：密码账号、GitHub 账号、Google 账号各登录一次；进入已有 workspace；CLI `lumo auth login` 用已有 key；MCP Inspector 授权一次并调用一个工具；新注册一个账号并收到验证邮件。
+7. **恢复**生产域名自动分配。Clerk 的 webhook 端点保持不动：Clerk 侧不会再有事件；即使回滚，Clerk 的事件也能照常处理。
 
 ### 6.4 对外通知文案（草稿，发给所有 workspace 的 owner 和成员）
 
@@ -268,18 +276,18 @@ i18n：这是邮件或站内公告，不是产品 UI 字符串。如果要做成
 
 每一项都能独立合并。T1–T5 在 Clerk 模式下**不改变生产行为**，可以先合并、先部署。
 
-| #   | 任务                                                                                                                                                                                                                                                                                                                                            | Schema（additive，由部署网关自动应用）        | 估算                      | 依赖           |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------- | -------------- |
-| T1  | **BA 生产加固**：忘记、重置、修改密码（`sendResetPassword` 加页面、邮件模板，16 个 locale）；bcrypt 兼容的 `password.verify`（新依赖 `bcryptjs`）；`rateLimit.storage='database'`；`generateId` 给 user 加 `user_` 前缀；显式写出 `accountLinking`（不加 trusted providers）；错误文案。建议拆成 T1a（密码相关）和 T1b（限流、id、关联）两个 PR | `rateLimit` 表                                | 2.5–3 人日                | —              |
-| T2  | **运维与注销对等**：admin 插件（关闭 impersonate）；`scripts/auth-admin/{ban,unban,remove}.ts`，在同一个 service 里调用 deprovision；新增 `AUTH_USER_*` 停用原因（字符串常量）；测试                                                                                                                                                            | `auth_users` 加 4 列，`auth_sessions` 加 1 列 | 1.5 人日                  | —              |
-| T3  | **导入工具**：`scripts/auth-migration/` 下的 export（读用户 shell 里的 key，分页加 429 退避）、import（加密输入、dry-run 计数报告、幂等 upsert、社交账号、封禁）、verify（对账：Clerk 总数 = 导入数 + 跳过数；§1.2 每列的 distinct id 都能在 `auth_users` 里找到）、rekey（回滚用）；runbook                                                    | 无                                            | 2.5–3 人日                | T2（封禁字段） |
-| T4  | **MCP 生产策略**：决定自定义 scheme（Q7）后实现，可能要加 CIMD；BA 下 `McpConnection` 的 workspace 重选体验；文档                                                                                                                                                                                                                               | 无                                            | 0.5–1 人日                | Q7             |
-| T5  | **preview 演练**：Clerk dev 测试账号矩阵、Neon 分支、preview 别名和 OAuth 回调、按 §6.1 逐项留证、Instant Rollback 演练                                                                                                                                                                                                                         | 无                                            | 1 人日（含用户约 1 小时） | T1–T3          |
-| T6  | **合规与文案**：两份 live doc、i18n、子处理者记录（§8，分两次合并：切换当天、实例删除那天）                                                                                                                                                                                                                                                     | 无                                            | 0.5 人日                  | 切换           |
-| T7  | **切换与稳定期**：通知、窗口、冒烟、14 天每日统计 BA 新用户数                                                                                                                                                                                                                                                                                   | 无                                            | 0.5 人日 + 窗口           | T1–T5          |
-| T8  | **Clerk 清理**（§10）                                                                                                                                                                                                                                                                                                                           | 无（列名不改）                                | 1–1.5 人日                | 稳定 30 天     |
+| #   | 任务                                                                                                                                                                                                                                                                                                                                                                                    | Schema（additive，由部署网关自动应用）        | 估算                      | 依赖           |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------- | -------------- |
+| T1  | **BA 生产加固**：忘记、重置、修改密码（`sendResetPassword` 加页面、邮件模板，16 个 locale）；bcrypt 兼容的 `password.verify`（新依赖 `bcryptjs`）；`rateLimit.storage='database'`；`generateId` 给 user 加 `user_` 前缀；显式写出 `accountLinking`（不加 trusted providers）；错误文案。建议拆成 T1a（密码相关）和 T1b（限流、id、关联）两个 PR                                         | `rateLimit` 表                                | 2.5–3 人日                | —              |
+| T2  | **运维与注销对等**：admin 插件（关闭 impersonate）；`scripts/auth-admin/{ban,unban,remove}.ts`，在同一个 service 里调用 deprovision；新增 `AUTH_USER_*` 停用原因（字符串常量）；测试                                                                                                                                                                                                    | `auth_users` 加 4 列，`auth_sessions` 加 1 列 | 1.5 人日                  | —              |
+| T3  | **导入工具**：`scripts/auth-migration/` 下的 export（读用户 shell 里的 key，分页加 429 退避）、import（加密输入、dry-run 计数报告、幂等 upsert、社交账号、封禁）、收尾增量 `--closing` 模式（§6.3 第 5 步：只插入缺失用户，按 `T_import` 判断是否覆盖密码）、verify（对账：Clerk 总数 = 导入数 + 跳过数；§1.2 每列的 distinct id 都能在 `auth_users` 里找到）、rekey（回滚用）；runbook | 无                                            | 2.5–3 人日                | T2（封禁字段） |
+| T4  | **MCP 生产策略**：决定自定义 scheme（Q7）后实现，可能要加 CIMD；BA 下 `McpConnection` 的 workspace 重选体验；文档                                                                                                                                                                                                                                                                       | 无                                            | 0.5–1 人日                | Q7             |
+| T5  | **preview 演练**：Clerk dev 测试账号矩阵、Neon 分支、preview 别名和 OAuth 回调、按 §6.1 逐项留证、Instant Rollback 演练                                                                                                                                                                                                                                                                 | 无                                            | 1 人日（含用户约 1 小时） | T1–T3          |
+| T6  | **合规与文案**：两份 live doc、i18n、子处理者记录（§8，分两次合并：切换当天、实例删除那天）                                                                                                                                                                                                                                                                                             | 无                                            | 0.5 人日                  | 切换           |
+| T7  | **切换与稳定期**：通知、窗口、冒烟、14 天每日统计 BA 新用户数                                                                                                                                                                                                                                                                                                                           | 无                                            | 0.5 人日 + 窗口           | T1–T5          |
+| T8  | **Clerk 清理**（§10）                                                                                                                                                                                                                                                                                                                                                                   | 无（列名不改）                                | 1–1.5 人日                | 稳定 30 天     |
 
-**合计约 9–12 人日。** 关键路径：T1 → T3 → T5 → T7，约 1.5–2 周。
+**合计约 10–12.5 人日**（T1–T8 各项估算之和）。 关键路径：T1 → T3 → T5 → T7，约 1.5–2 周。
 
 **必须由用户执行的步骤**：
 
