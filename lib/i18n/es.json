@@ -2717,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "Sin terminar: un push más reciente inició un nuevo escaneo antes de que esta capa terminara.",
   "integrations.notAvailable": "No disponible en esta instalación: {names}. Aparecerán aquí cuando se configuren sus credenciales.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Los escáneres propios de Lumo y el verificador de revisiones necesitan Vercel Sandbox, que no está configurado en esta instalación. Los SARIF que sube tu CI se siguen mostrando.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "No disponible en esta instalación: Vercel Sandbox no está configurado."
+  "workspaceSettings.securityScan.sandboxUnavailable": "No disponible en esta instalación: Vercel Sandbox no está configurado.",
+  "securityScan.status.tooLarge": "Sin escanear: supera el límite de tamaño",
+  "securityScan.prTooLarge.fileLimit": "Este PR cambia {files} archivos; los análisis de seguridad se ejecutan en PR de hasta {cap} archivos (el máximo para el que GitHub devuelve un diff), así que no se escaneó nada. Para escanearlo, divídelo en PR más pequeños o reduce su alcance.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub no devolvió el diff de este PR porque es demasiado grande ({files} archivos cambiados), así que no se escaneó nada. Para escanearlo, divídelo en PR más pequeños o reduce su alcance.",
+  "securityScan.prTooLarge.diffRefused": "GitHub no devolvió el diff de este PR porque es demasiado grande, así que no se escaneó nada. Para escanearlo, divídelo en PR más pequeños o reduce su alcance.",
+  "securityScan.stageReason.prTooLarge": "No se ejecutó: este PR es demasiado grande para escanearlo. Divídelo en PR más pequeños o reduce su alcance para escanearlo."
 }

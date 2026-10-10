@@ -2717,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "Chưa xong: một lần push mới hơn đã bắt đầu lượt quét mới trước khi lớp này hoàn tất.",
   "integrations.notAvailable": "Không khả dụng trên bản triển khai này: {names}. Chúng sẽ xuất hiện ở đây khi thông tin xác thực được cấu hình.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Trình quét riêng của Lumo và trình xác minh đánh giá cần Vercel Sandbox, vốn chưa được cấu hình trên bản triển khai này. SARIF do CI của bạn tải lên vẫn được hiển thị.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "Không khả dụng trên bản triển khai này: Vercel Sandbox chưa được cấu hình."
+  "workspaceSettings.securityScan.sandboxUnavailable": "Không khả dụng trên bản triển khai này: Vercel Sandbox chưa được cấu hình.",
+  "securityScan.status.tooLarge": "Chưa quét — vượt giới hạn kích thước",
+  "securityScan.prTooLarge.fileLimit": "PR này thay đổi {files} tệp; quét bảo mật chạy trên PR có tối đa {cap} tệp (mức tối đa GitHub trả về diff), nên không có gì trong PR được quét. Để được quét, hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub không trả về diff của PR này vì nó quá lớn ({files} tệp thay đổi), nên không có gì trong PR được quét. Để được quét, hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi.",
+  "securityScan.prTooLarge.diffRefused": "GitHub không trả về diff của PR này vì nó quá lớn, nên không có gì trong PR được quét. Để được quét, hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi.",
+  "securityScan.stageReason.prTooLarge": "Không chạy: PR này quá lớn để quét. Hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi để được quét."
 }

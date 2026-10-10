@@ -2717,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "Inachevée : un push plus récent a lancé une nouvelle analyse avant la fin de cette couche.",
   "integrations.notAvailable": "Indisponible sur ce déploiement : {names}. Ils apparaîtront ici une fois leurs identifiants configurés.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Les scanners propres à Lumo et le vérificateur de revue nécessitent Vercel Sandbox, qui n'est pas configuré sur ce déploiement. Les rapports SARIF envoyés par votre CI restent affichés.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "Indisponible sur ce déploiement : Vercel Sandbox n'est pas configuré."
+  "workspaceSettings.securityScan.sandboxUnavailable": "Indisponible sur ce déploiement : Vercel Sandbox n'est pas configuré.",
+  "securityScan.status.tooLarge": "Non analysée — au-delà de la limite de taille",
+  "securityScan.prTooLarge.fileLimit": "Cette PR modifie {files} fichiers ; les analyses de sécurité portent sur les PR d'au plus {cap} fichiers (le maximum pour lequel GitHub renvoie un diff), donc rien n'y a été analysé. Pour la faire analyser, découpez-la en PR plus petites ou réduisez sa portée.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub n'a pas renvoyé le diff de cette PR car elle est trop volumineuse ({files} fichiers modifiés), donc rien n'y a été analysé. Pour la faire analyser, découpez-la en PR plus petites ou réduisez sa portée.",
+  "securityScan.prTooLarge.diffRefused": "GitHub n'a pas renvoyé le diff de cette PR car elle est trop volumineuse, donc rien n'y a été analysé. Pour la faire analyser, découpez-la en PR plus petites ou réduisez sa portée.",
+  "securityScan.stageReason.prTooLarge": "Non exécuté : cette PR est trop volumineuse pour être analysée. Découpez-la en PR plus petites ou réduisez sa portée pour la faire analyser."
 }

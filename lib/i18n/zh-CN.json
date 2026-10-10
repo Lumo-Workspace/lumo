@@ -2717,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "未完成：这一层跑完前，新的 push 已经开始了新一轮扫描。",
   "integrations.notAvailable": "此部署中不可用：{names}。配置好对应凭据后会显示在这里。",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo 自带的扫描器和审查验证器需要 Vercel Sandbox，但此部署未配置。你的 CI 上传的 SARIF 仍会照常显示。",
-  "workspaceSettings.securityScan.sandboxUnavailable": "此部署中不可用：未配置 Vercel Sandbox。"
+  "workspaceSettings.securityScan.sandboxUnavailable": "此部署中不可用：未配置 Vercel Sandbox。",
+  "securityScan.status.tooLarge": "未扫描：超过大小上限",
+  "securityScan.prTooLarge.fileLimit": "此 PR 改动了 {files} 个文件；安全扫描最多支持改动 {cap} 个文件的 PR（GitHub 最多为这么多文件返回 diff），因此本 PR 未做任何扫描。如需扫描，请拆分成更小的 PR 或缩小改动范围。",
+  "securityScan.prTooLarge.diffRefusedFiles": "PR 过大，GitHub 拒绝返回其 diff（改动了 {files} 个文件），因此本 PR 未做任何扫描。如需扫描，请拆分成更小的 PR 或缩小改动范围。",
+  "securityScan.prTooLarge.diffRefused": "PR 过大，GitHub 拒绝返回其 diff，因此本 PR 未做任何扫描。如需扫描，请拆分成更小的 PR 或缩小改动范围。",
+  "securityScan.stageReason.prTooLarge": "未运行：此 PR 过大，无法扫描。拆分成更小的 PR 或缩小改动范围即可扫描。"
 }

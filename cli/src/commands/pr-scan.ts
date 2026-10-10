@@ -12,6 +12,7 @@ import {
   formatScanningOffLines,
   formatJudgeBudgetLine,
   type JudgeBudgetLine,
+  type PrTooLargeLine,
   type HuntCoverageInput,
 } from '../lib/scan-format'
 import {
@@ -125,6 +126,8 @@ export interface PrScanEntry {
   huntOverCap?: { sourceFiles: number; capFiles: number } | null
   /** LUM-832 — the AI review did not run: over its size cap; absent on an older server. */
   judgeOverCap?: { diffChars: number; capChars: number } | null
+  /** LUM-1079 — the whole PR was too large to scan; absent on an older server. */
+  prTooLarge?: PrTooLargeLine | null
   externalFailureReason: string | null
   startedAt: string
   finishedAt: string | null
@@ -282,7 +285,7 @@ function formatScan(
     ? ` · finished ${s.finishedAt}`
     : ' · not finished'
   lines.push(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages, scanningOff)} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null)} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
   )
   const tail = formatScanLayerTail({
     status: s.status,
@@ -291,6 +294,7 @@ function formatScan(
     partialCauses: s.partialCauses,
     huntOverCap: s.huntOverCap,
     judgeOverCap: s.judgeOverCap,
+    prTooLarge: s.prTooLarge,
     externalFindings: s.counts.externalFindings,
     dependencyFindings: s.counts.dependencyFindings,
     persistingFindings: s.counts.persisting,
@@ -315,7 +319,10 @@ function formatScan(
     lines.push(`    ${formatHuntCoverageLine(s.hunt.coverage)}`)
   }
   const c = s.counts
-  if (c.findings === 0) {
+  if (c.findings === 0 && s.prTooLarge) {
+    // LUM-1079: nothing ran — "none" would read as a clean result.
+    lines.push('  Findings: none — nothing in this PR was scanned')
+  } else if (c.findings === 0) {
     lines.push('  Findings: none on this scan')
   } else {
     const breakdown = [

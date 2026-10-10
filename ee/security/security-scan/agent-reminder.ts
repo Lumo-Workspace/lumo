@@ -50,7 +50,14 @@ export interface ReminderFinding {
  */
 export interface UnconfirmedPr {
   number: number
-  reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING' | 'SCANNING_OFF'
+  /** LUM-1079: TOO_LARGE — the PR was too large to scan at all. */
+  reason:
+    | 'NONE'
+    | 'FAILED'
+    | 'PENDING'
+    | 'RUNNING'
+    | 'SCANNING_OFF'
+    | 'TOO_LARGE'
 }
 
 /** Lines shown per reminder before the list degrades to a `+N more` pointer. */
@@ -136,7 +143,9 @@ export function renderUnconfirmedPrLine(u: UnconfirmedPr): string {
         ? 'no security scan has run'
         : u.reason === 'FAILED'
           ? 'security scan FAILED'
-          : `security scan still ${u.reason}`
+          : u.reason === 'TOO_LARGE'
+            ? 'the PR is too large to scan, so nothing in it was scanned (split it or narrow its scope to get it scanned)'
+            : `security scan still ${u.reason}`
   return `⚠ PR #${u.number}: ${why} — could not confirm it is clean.`
 }
 

@@ -2717,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "Not finished: a newer push started a new scan before this layer completed.",
   "integrations.notAvailable": "Not available on this deployment: {names}. They appear here once their credentials are configured.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo's own scanners and the review verifier need Vercel Sandbox, which is not configured on this deployment. SARIF uploaded by your CI is still shown.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "Not available on this deployment: Vercel Sandbox is not configured."
+  "workspaceSettings.securityScan.sandboxUnavailable": "Not available on this deployment: Vercel Sandbox is not configured.",
+  "securityScan.status.tooLarge": "Not scanned — over the size limit",
+  "securityScan.prTooLarge.fileLimit": "This PR changes {files} files; security scans run on PRs of up to {cap} files (the most GitHub returns a diff for), so nothing in it was scanned. To get it scanned, split it into smaller PRs or narrow its scope.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub would not return this PR's diff because it is too large ({files} files changed), so nothing in it was scanned. To get it scanned, split it into smaller PRs or narrow its scope.",
+  "securityScan.prTooLarge.diffRefused": "GitHub would not return this PR's diff because it is too large, so nothing in it was scanned. To get it scanned, split it into smaller PRs or narrow its scope.",
+  "securityScan.stageReason.prTooLarge": "Not run: this PR is too large to scan. Split it into smaller PRs or narrow its scope to get it scanned."
 }
