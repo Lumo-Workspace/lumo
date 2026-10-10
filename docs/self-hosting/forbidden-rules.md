@@ -60,8 +60,9 @@ a removal; it never invents one.
 - **End of the section**: the next `#` or `##` heading, or a thematic break
   (`---`, `***`, `___`). `###` sub-headings inside it do not end it.
 - **Rule**: a top-level list item (`-`, `*`, `+`, `1.`, `1)`, indented at most
-  three spaces). Its text includes indented continuation lines, nested items
-  and lines that directly follow it; a blank line ends it.
+  three spaces). Its text includes the lines that directly follow it,
+  indented at most three spaces; a blank line ends it. Nested items (exceptions,
+  examples) are not part of the rule, so editing them changes nothing.
 - **Ignored inside the section**: paragraphs, table rows, fenced code blocks
   (` ``` ` / `~~~`), HTML comments, and items whose whole text is struck
   through.

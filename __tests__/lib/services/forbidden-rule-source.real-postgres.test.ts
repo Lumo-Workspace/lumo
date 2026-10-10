@@ -132,6 +132,24 @@ test('insert-or-ignore and compare-and-swap: one winner each', async () => {
     rules: rules.slice(1),
   })
   expect(['h1', 'h2', 'h3']).toContain(snap!.sourceHash)
+  // restore: compare-and-swap on the hash it was advanced to.
+  expect(
+    await forbiddenRuleSnapshotRepository.restore({
+      projectId: 'p-2',
+      fromSourceHash: 'not-current',
+      to: { sourceHash: 'h0', previousSourceHash: null, rules },
+    })
+  ).toBe(false)
+  expect(
+    await forbiddenRuleSnapshotRepository.restore({
+      projectId: 'p-2',
+      fromSourceHash: snap!.sourceHash,
+      to: { sourceHash: 'h0', previousSourceHash: null, rules },
+    })
+  ).toBe(true)
+  expect(
+    await forbiddenRuleSnapshotRepository.findByProject('p-2')
+  ).toMatchObject({ sourceHash: 'h0', previousSourceHash: null, rules })
 })
 
 test('no plugin: a deleted Forbidden rule is one POLICY_WEAKENING row in the database', async () => {

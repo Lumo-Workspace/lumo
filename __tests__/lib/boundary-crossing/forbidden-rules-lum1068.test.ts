@@ -94,13 +94,12 @@ describe('parseForbiddenRules — the supported format', () => {
     expect(texts(`## Forbidden\n- Never a\n* * *\n- b\n`)).toEqual(['Never a'])
   })
 
-  it('joins continuation lines and nested items into the item, a blank line ends it', () => {
+  it('joins continuation lines into the item, a blank line ends it', () => {
     const md = [
       '## Forbidden',
       '- Never push to main',
       '  or develop directly',
       '- Never delete migrations',
-      '  - including squashed ones',
       'lazy continuation line',
       '',
       '  An indented paragraph after a blank line is not a rule',
@@ -110,9 +109,44 @@ describe('parseForbiddenRules — the supported format', () => {
     ].join('\n')
     expect(texts(md)).toEqual([
       'Never push to main or develop directly',
-      'Never delete migrations - including squashed ones lazy continuation line',
+      'Never delete migrations lazy continuation line',
       'Never c',
     ])
+  })
+
+  it('nested items are not part of the rule: editing or dropping one removes nothing', () => {
+    const base = [
+      '## Forbidden',
+      '- Never delete migrations',
+      '  - except squashed dev-only ones',
+      '    (ask first)',
+      '  1. another nested note',
+      '- Never c',
+    ].join('\n')
+    expect(texts(base)).toEqual(['Never delete migrations', 'Never c'])
+    const prev = parseForbiddenRules(base, 'CLAUDE.md')
+    for (const edited of [
+      base.replace('  - except squashed dev-only ones\n', ''),
+      base.replace('dev-only', 'any'),
+    ])
+      expect(
+        removedForbiddenRules(prev, parseForbiddenRules(edited, 'CLAUDE.md'))
+      ).toEqual([])
+  })
+
+  it('a fence closes only on the same character, at least as long', () => {
+    const md = [
+      '## Forbidden',
+      '````',
+      '```',
+      '- Never inside (a shorter fence does not close)',
+      '~~~~',
+      '- Never inside (another character does not close)',
+      '```` trailing text does not close',
+      '````',
+      '- Never real',
+    ].join('\n')
+    expect(texts(md)).toEqual(['Never real'])
   })
 
   it('ignores fenced code, HTML comments, struck-through items and tables', () => {

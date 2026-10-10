@@ -111,6 +111,26 @@ jest.mock('@/lib/repositories/forbidden-rule-snapshot.repository', () => ({
         return true
       }
     ),
+    restore: jest.fn(
+      async (i: {
+        projectId: string
+        fromSourceHash: string
+        to: {
+          sourceHash: string
+          previousSourceHash: string | null
+          rules: unknown[]
+        }
+      }) => {
+        const s = snapshots.get(i.projectId)
+        if (!s || s.sourceHash !== i.fromSourceHash) return false
+        snapshots.set(i.projectId, {
+          ...i.to,
+          rules: [...i.to.rules],
+          updatedAt: new Date(Date.now()),
+        })
+        return true
+      }
+    ),
   },
 }))
 
@@ -456,6 +476,67 @@ describe('no plugin installed', () => {
     expect(weakening().map(r => [r.id, r.policyRuleText])).toEqual([
       ['bc-plugin', 'Never delete files in prisma/migrations/'],
       ['bc-2', 'Never hardcode API keys or secrets'],
+    ])
+  })
+
+  it('a failed recording puts the snapshot back; the next event records it (once)', async () => {
+    await hookEvent()
+    const before = { ...snapshots.get('p-1')! }
+    edit(
+      'CLAUDE.md',
+      CLAUDE_MD.replace(
+        '- Never delete files in prisma/migrations/\n',
+        ''
+      ).replace('- Never hardcode API keys or secrets\n', '')
+    )
+    // The first removed rule is written, the second insert fails.
+    const real = jest.requireMock(
+      '@/lib/repositories/boundary-crossing.repository'
+    ).boundaryCrossingRepository.create as jest.Mock
+    const impl = real.getMockImplementation()!
+    real.mockImplementationOnce(impl).mockImplementationOnce(async () => {
+      throw new Error('database unavailable')
+    })
+    const first = await forbiddenRuleSourceService.observe({
+      taskId: 't-1',
+      projectId: 'p-1',
+      workspaceId: 'w-1',
+    })
+    expect(first.outcome).toBe('ERROR')
+    expect(weakening()).toHaveLength(1)
+    expect(snapshots.get('p-1')).toMatchObject({
+      sourceHash: before.sourceHash,
+      rules: before.rules,
+    })
+    // Retried on the next event: the second rule recorded, the first not twice.
+    await hookEvent()
+    expect(
+      weakening()
+        .map(r => r.policyRuleText)
+        .sort()
+    ).toEqual([
+      'Never delete files in prisma/migrations/',
+      'Never hardcode API keys or secrets',
+    ])
+  })
+
+  it('two core rules where one contains the other are two rules', async () => {
+    edit(
+      'CLAUDE.md',
+      '## Forbidden\n- Never push to main\n- Never push to main or develop directly\n'
+    )
+    await hookEvent()
+    edit(
+      'CLAUDE.md',
+      '## Forbidden\n- Never push to main or develop directly\n'
+    )
+    await hookEvent()
+    later()
+    edit('CLAUDE.md', '## Forbidden\n')
+    await hookEvent()
+    expect(weakening().map(r => r.policyRuleText)).toEqual([
+      'Never push to main',
+      'Never push to main or develop directly',
     ])
   })
 

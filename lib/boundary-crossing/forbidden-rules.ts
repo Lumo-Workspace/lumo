@@ -25,9 +25,10 @@
  *    (`---`, `***`, `___`). `###`+ headings inside it do not end it.
  *  - A rule is a top-level list item of that section: `-`, `*` or `+`, or
  *    `1.` / `1)`, indented at most 3 spaces. The rule text is the item's
- *    first line plus its continuation lines (indented lines, nested items
- *    and lazy continuation lines), joined with single spaces. A blank line
- *    ends the item.
+ *    first line plus its continuation lines (lines indented at most 3
+ *    columns and lazy continuation lines), joined with single spaces. Nested list items are
+ *    NOT part of the rule (and neither is anything after them in that item).
+ *    A blank line ends the item.
  *  - Ignored: everything outside the section; paragraphs and table rows inside
  *    it; fenced code blocks (``` or ~~~); HTML comments (`<!-- … -->`); an
  *    item whose whole text is struck through (`~~…~~`).
@@ -75,9 +76,22 @@ const THEMATIC_BREAK =
   /^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/
 const LIST_ITEM = /^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+(\S.*)$/
 const FENCE = /^ {0,3}(`{3,}|~{3,})/
+const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
+const NESTED_ITEM = /^(?: {2,}|\t)[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\S/
 const INDENTED = /^(?: {2,}|\t)\S/
 const FORBIDDEN_TITLE = /^forbidden\b/i
 const STRUCK = /^~~[^~](?:.*[^~])?~~$/
+
+/** Leading indentation in columns (a tab counts 4). */
+function indentOf(line: string): number {
+  let n = 0
+  for (const ch of line) {
+    if (ch === ' ') n++
+    else if (ch === '\t') n += 4
+    else break
+  }
+  return n
+}
 
 /** Drops `<!-- … -->` (also across lines), keeping the line structure. */
 function stripHtmlComments(markdown: string): string {
@@ -94,23 +108,31 @@ export function parseForbiddenRules(
   const lines = stripHtmlComments(markdown.replace(/\r\n?/g, '\n')).split('\n')
   const items: string[][] = []
   let inSection = false
-  let fence: string | null = null
+  let fence: { char: string; length: number } | null = null
   let current: string[] | null = null
+  // False once a nested item opened under the current item: the nested
+  // item and its lines are not part of the rule.
+  let collecting = false
 
   const close = () => {
     if (current) items.push(current)
     current = null
+    collecting = false
   }
 
   for (const line of lines) {
     if (fence) {
-      if (line.trim().startsWith(fence)) fence = null
+      // CommonMark: the closing fence is the same character, at least as
+      // long as the opening one, and nothing but spaces after it.
+      const c = FENCE_CLOSE.exec(line)
+      if (c && c[1]![0] === fence.char && c[1]!.length >= fence.length)
+        fence = null
       continue
     }
     const f = FENCE.exec(line)
     if (f) {
       close()
-      fence = f[1]!.slice(0, 3)
+      fence = { char: f[1]![0]!, length: f[1]!.length }
       continue
     }
     const h = HEADING.exec(line)
@@ -135,6 +157,13 @@ export function parseForbiddenRules(
     if (item && !INDENTED.test(line)) {
       close()
       current = [item[1]!]
+      collecting = true
+      continue
+    }
+    // A nested item (an exception, an example, a clarification) is not part
+    // of its parent's rule: editing it must not read as the rule removed.
+    if (NESTED_ITEM.test(line)) {
+      collecting = false
       continue
     }
     // A table row is never part of an item (nor a rule).
@@ -142,9 +171,11 @@ export function parseForbiddenRules(
       close()
       continue
     }
-    // An indented line, a nested item or a lazy continuation line belongs
-    // to the open item; anything else (a paragraph) is not a rule.
-    if (current) (current as string[]).push(line.trim())
+    // A continuation line indented at most 3 columns (or a lazy one) belongs
+    // to the open item, not after a nested item; deeper lines belong to
+    // nested content. Anything else (a paragraph) is not a rule.
+    if (current && collecting && indentOf(line) <= 3)
+      (current as string[]).push(line.trim())
   }
   close()
 

@@ -19,6 +19,8 @@
  *    moves the snapshot records (exactly once); an instance still serving
  *    the text from before the last change (its 60 s cache) cannot flip the
  *    snapshot back within two minutes of that change;
+ *  - a removal whose recording fails puts the snapshot back, so the next
+ *    event retries it;
  *  - never throws (the caller is the hook detector, LUM-348 exit-0).
  *
  * Cost on the hook path: the two files are read at most once per 60 s per
@@ -213,15 +215,34 @@ export const forbiddenRuleSourceService = {
 
       const source = forbiddenRuleSourceText(files)
       const removed = removedForbiddenRules(snap.rules, rules)
-      const recorded =
-        removed.length > 0
-          ? await recordForbiddenRuleWeakening({
-              removed,
-              taskId: input.taskId,
+      let recorded = 0
+      if (removed.length > 0) {
+        try {
+          recorded = await recordForbiddenRuleWeakening({
+            removed,
+            taskId: input.taskId,
+            projectId: input.projectId,
+            source,
+          })
+        } catch (error) {
+          // Put the snapshot back so the next event retries the removal
+          // (rows already written are skipped then: they are open and name
+          // the same rule) instead of losing it.
+          _processed.delete(input.projectId)
+          await forbiddenRuleSnapshotRepository
+            .restore({
               projectId: input.projectId,
-              source,
+              fromSourceHash: sourceHash,
+              to: {
+                sourceHash: snap.sourceHash,
+                previousSourceHash: snap.previousSourceHash,
+                rules: snap.rules,
+              },
             })
-          : 0
+            .catch(() => false)
+          throw error
+        }
+      }
       if (!sameForbiddenRuleSet(snap.rules, rules))
         await rejudgeAfterChange(input.projectId, source)
       return { outcome: 'CHANGED', recorded }

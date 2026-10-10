@@ -86,4 +86,30 @@ export const forbiddenRuleSnapshotRepository = {
     })
     return count === 1
   },
+
+  /**
+   * Undo an `advance` whose follow-up (recording the removed rules) failed,
+   * so the next observation retries it — only while nobody moved the
+   * snapshot since (compare-and-swap on the hash the caller advanced to).
+   */
+  async restore(input: {
+    projectId: string
+    fromSourceHash: string
+    to: {
+      sourceHash: string
+      previousSourceHash: string | null
+      rules: readonly ForbiddenRule[]
+    }
+  }): Promise<boolean> {
+    const { count } = await prisma.forbiddenRuleSnapshot.updateMany({
+      where: { projectId: input.projectId, sourceHash: input.fromSourceHash },
+      data: {
+        sourceHash: input.to.sourceHash,
+        previousSourceHash: input.to.previousSourceHash,
+        rules: input.to.rules as unknown as object,
+        updatedAt: new Date(),
+      },
+    })
+    return count === 1
+  },
 }

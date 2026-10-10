@@ -18,9 +18,12 @@
  *    on the same side already names. Without core rows it behaves exactly as
  *    before.
  *
- * "Names the same rule" is `sameRuleText` (normalised equality or
- * containment — the plugin's text is the LLM's extraction of the line). Once
- * the row is ruled on (any disposition), a later removal records again.
+ * "Names the same rule" is the rule id between two core rows, and
+ * `sameRuleText` (normalised equality or containment — the plugin's text is
+ * the LLM's extraction of the line) across the two sources. Once the row is
+ * ruled on (any disposition), a later removal records again. The check and
+ * the insert are not one transaction: two instances racing within
+ * milliseconds could still both record.
  */
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
@@ -38,15 +41,19 @@ import {
 } from '@/lib/boundary-crossing/forbidden-rules'
 import type { PolicyRule } from '@/lib/policy/types'
 
-/** Open rule texts per advisory side, read once per call. */
-type OpenRuleTexts = Map<boolean, string[]>
+/** Open rows' rule (ref + text) per advisory side, read once per call. */
+interface OpenRule {
+  ref: string | null
+  text: string
+}
+type OpenRuleTexts = Map<boolean, OpenRule[]>
 
 async function openRuleTexts(input: {
   projectId: string
   advisory: boolean
   ruleRefPrefix?: string
   cache: OpenRuleTexts
-}): Promise<string[]> {
+}): Promise<OpenRule[]> {
   const hit = input.cache.get(input.advisory)
   if (hit) return hit
   const rows = await boundaryCrossingRepository.findOpenPolicyWeakeningRules({
@@ -54,11 +61,24 @@ async function openRuleTexts(input: {
     advisory: input.advisory,
     ...(input.ruleRefPrefix ? { ruleRefPrefix: input.ruleRefPrefix } : {}),
   })
-  const texts = rows
-    .map(r => r.policyRuleText)
-    .filter((t): t is string => t != null && t.trim() !== '')
-  input.cache.set(input.advisory, texts)
-  return texts
+  const open = rows
+    .filter(r => r.policyRuleText != null && r.policyRuleText.trim() !== '')
+    .map(r => ({ ref: r.policyRuleRef, text: r.policyRuleText as string }))
+  input.cache.set(input.advisory, open)
+  return open
+}
+
+/**
+ * Does an open row already name this rule? Two core rows are the same rule
+ * only by id (two Forbidden lines where one contains the other are two
+ * rules); across sources (the plugin's LLM text vs a literal line) by
+ * `sameRuleText`.
+ */
+function namesRule(open: OpenRule, ref: string, text: string): boolean {
+  const coreOpen = open.ref?.startsWith(FORBIDDEN_RULE_REF_PREFIX) ?? false
+  const coreNew = ref.startsWith(FORBIDDEN_RULE_REF_PREFIX)
+  if (coreOpen && coreNew) return open.ref === ref
+  return sameRuleText(open.text, text)
 }
 
 async function projectIdOfTask(taskId: string): Promise<string | null> {
@@ -94,7 +114,8 @@ export async function recordPolicyWeakening(input: {
           ruleRefPrefix: FORBIDDEN_RULE_REF_PREFIX,
           cache,
         })
-        if (open.some(t => sameRuleText(t, v.policyRuleText))) continue
+        if (open.some(o => namesRule(o, v.policyRuleRef, v.policyRuleText)))
+          continue
       } catch (error) {
         logger.warn(
           `[policy-weakening] dedupe read failed for project ${projectId}: ${
@@ -142,7 +163,8 @@ export async function recordForbiddenRuleWeakening(input: {
       advisory: v.advisory,
       cache,
     })
-    if (open.some(t => sameRuleText(t, v.policyRuleText))) continue
+    if (open.some(o => namesRule(o, v.policyRuleRef, v.policyRuleText)))
+      continue
     await boundaryCrossingRepository.create({
       taskId: input.taskId,
       category: 'POLICY_WEAKENING',
@@ -156,7 +178,7 @@ export async function recordForbiddenRuleWeakening(input: {
     })
     // Two removed rules of one edit can share wording; the second must see
     // the first.
-    open.push(v.policyRuleText)
+    open.push({ ref: v.policyRuleRef, text: v.policyRuleText })
     written++
   }
   return written
