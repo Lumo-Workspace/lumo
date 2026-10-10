@@ -103,7 +103,7 @@ the rest of the core. Features that need an outside service degrade instead of f
 | AI (task breakdown, summaries, AI review, memory search)                       | `AI_GATEWAY_API_KEY`, or direct keys (`ANTHROPIC_API_KEY` / `OPENAI_COMPATIBLE_*`) | AI features say "AI is not configured". Memory search falls back to lexical matching without a 1024-dimension embedding model. |
 | Crossing triage (`triage-crossings` cron, evaluation model)                    | the Vercel AI Gateway (`AI_GATEWAY_API_KEY`)                                       | The job has nothing to run on direct keys; add it to `LUMO_CRON_DISABLED`.                                                     |
 | Email (invites, sign-up verification, notices)                                 | `SMTP_URL` / `SMTP_*`, or `RESEND_API_KEY`                                         | Emails are logged and skipped. Sign-in still works, but nobody can verify an address, so **invites cannot be accepted**.       |
-| GitHub / Slack / Figma / Google Drive / Sentry                                 | their variables plus `ENCRYPTION_KEY` (see `.env.example`)                         | The integration is hidden; its routes answer 404 `integration_not_configured`.                                                 |
+| GitHub / Slack / Figma / Google Drive / Sentry                                 | their variables plus `ENCRYPTION_KEY` ([integrations.md](integrations.md))         | The integration is hidden; its routes answer 404 `integration_not_configured`.                                                 |
 | Managed PR security scan, L3 hunt, review verifier                             | a Vercel Sandbox (Vercel OIDC credentials)                                         | Off; the settings page marks them unavailable.                                                                                 |
 | SARIF upload from your own CI (`POST /api/integrations/security/sarif/upload`) | Vercel Blob (the CI uploads straight to the store)                                 | Answers 501 on MinIO / disk storage.                                                                                           |
 | Link previews of sites that block plain fetches                                | a Chromium (`CHROME_PATH`)                                                         | Previews use the plain fetch only.                                                                                             |
@@ -138,14 +138,18 @@ bundled Postgres. No Clerk account or `CLERK_*` variable is involved.
   `AUTH_GITHUB_CLIENT_SECRET` (or the `AUTH_GOOGLE_*` pair). The button
   appears once both are set; no rebuild needed. These are separate from the
   `GITHUB_CLIENT_*` variables of the GitHub integration.
-- **MCP clients** (Claude, MCP Inspector, …) connect to
+- **MCP clients** (Claude, Cursor, VS Code, MCP Inspector, …) connect to
   `<BETTER_AUTH_URL>/api/mcp`; this instance serves the OAuth flow itself
   (discovery, dynamic client registration, PKCE, consent at
   `/oauth/consent`). `BETTER_AUTH_URL` (or `NEXT_PUBLIC_APP_URL`) must be the
   public URL — issuer and token audience derive from it; without it
-  `/api/mcp` answers 501. Redirect URIs must be `https://` or
-  `http://localhost`, so clients that use a custom scheme (e.g. `cursor://`)
-  cannot register yet. The Lumo CLI uses API keys.
+  `/api/mcp` answers 501. Redirect URIs must be `https://`,
+  `http://localhost` (or `127.0.0.1` / `[::1]`), or one of a fixed list of
+  app schemes — `cursor://`, `vscode://`, `vscode-insiders://`; any other
+  custom scheme is rejected. Every new client still needs your consent, and
+  PKCE (S256) is required. When a client re-registers (e.g. after you change
+  `BETTER_AUTH_URL`), it picks up the workspace last selected for a client
+  of the same name. The Lumo CLI uses API keys.
 
 Clerk is what the hosted service uses. `docker-compose.yml` does not support
 it; to run a Clerk image anyway, build with
@@ -195,6 +199,13 @@ migration script for this.
 - **Logs**: `docker compose logs -f app cron`.
 - **Data** lives in the named volumes `postgres-data`, `redis-data` and
   `minio-data`. `docker compose down` keeps them; `down -v` deletes them.
+
+### Integrations
+
+GitHub, Slack, Figma, Google Drive and Sentry each need an app you register
+with the provider; webhooks need a URL the provider can reach. Step-by-step
+setup, the permissions and events each one needs, tunnels for a private
+server, and `ENCRYPTION_KEY`: [integrations.md](integrations.md).
 
 ### Using your own Postgres / S3 / Pusher
 

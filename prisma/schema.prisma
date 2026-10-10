@@ -3960,6 +3960,14 @@ model AuthUser {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  /// LUM-1071: Better Auth admin plugin fields (names fixed by better-auth
+  /// 1.7.7 plugins/admin/schema). Written by lib/services/auth-user-admin
+  /// (scripts/auth-admin/*) and read by the plugin's sign-in ban check.
+  role       String?
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+
   sessions AuthSession[]
   accounts AuthAccount[]
 
@@ -3980,6 +3988,10 @@ model AuthSession {
   ipAddress String?
   userAgent String?
   userId    String
+
+  /// LUM-1071: admin plugin field. Impersonation is disabled in Lumo, so it
+  /// stays null; the column exists because the plugin's schema declares it.
+  impersonatedBy String?
 
   user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -4224,4 +4236,21 @@ model AuthOauthClientAssertion {
   expiresAt DateTime
 
   @@map("auth_oauth_client_assertions")
+}
+
+// ─── Better Auth rate limiting (LUM-1070) ───────────────────────────────────
+// `rateLimit.storage = 'database'`: one row per (client IP, auth path) bucket,
+// shared by every app instance. Only Better Auth deployments write here; it
+// deletes expired rows itself whenever a bucket's window rolls over.
+
+/// A rate-limit counter of the Better Auth handler (`key` = IP + path).
+model AuthRateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  /// Epoch milliseconds of the last counted request.
+  lastRequest BigInt
+
+  @@index([lastRequest])
+  @@map("auth_rate_limits")
 }

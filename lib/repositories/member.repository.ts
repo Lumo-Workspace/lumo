@@ -110,6 +110,23 @@ export const memberRepository = {
     })
   },
 
+  /**
+   * LUM-1071: how many of a user's memberships were deactivated for one of
+   * `reasons` — the trace a Better Auth ban / removal leaves behind.
+   */
+  async countDeactivatedByReasons(
+    clerkId: string,
+    reasons: readonly MemberDeactivationReason[]
+  ) {
+    return prisma.workspaceMember.count({
+      where: {
+        clerkId,
+        deactivatedAt: { not: null },
+        deactivationReason: { in: [...reasons] },
+      },
+    })
+  },
+
   /** Find the first active member for a clerk user (any workspace). */
   async findFirstByClerkId(clerkId: string) {
     return prisma.workspaceMember.findFirst({

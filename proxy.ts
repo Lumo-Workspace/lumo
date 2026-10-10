@@ -5,6 +5,8 @@ import { requireWorkflowDeliveryAuth } from '@/lib/api/workflow-delivery-auth'
 export const PUBLIC_ROUTES = [
   '/signin(.*)',
   '/signup(.*)',
+  // Forgot / reset password (LUM-1070); a 404 page under Clerk.
+  '/reset-password(.*)',
   '/api/(.*)',
   '/invite(.*)',
   '/share(.*)',

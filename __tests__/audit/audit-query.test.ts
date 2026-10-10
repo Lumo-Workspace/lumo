@@ -298,6 +298,18 @@ describe('LUM-907 audit query service', () => {
     ).rejects.toMatchObject({ status: 404 })
   })
 
+  it('audit query service: a Better Auth user id (LUM-1070 user_ prefix) resolves as a raw user id', async () => {
+    const { generateAuthId } = await import('@/lib/auth/better-auth/ids')
+    const baId = generateAuthId({ model: 'user' })
+    mockRepo.findWorkspaceMembers.mockClear()
+    mockRepo.listPage.mockClear()
+    await listAuditEvents(viewer, { actor: baId }, NOW)
+    // Raw-id branch: no member lookup, filter on the id itself (former
+    // members included), exactly like a Clerk id.
+    expect(mockRepo.findWorkspaceMembers).not.toHaveBeenCalled()
+    expect(mockRepo.listPage.mock.calls[0]![1]).toMatchObject({ actorId: baId })
+  })
+
   it('audit CSV export: bounded at the row cap, newest first, flagged as truncated', async () => {
     const total = AUDIT_EXPORT_MAX_ROWS + 5
     const all = Array.from({ length: total }, (_, i) => row(i))

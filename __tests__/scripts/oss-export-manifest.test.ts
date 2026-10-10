@@ -320,6 +320,41 @@ describe('transforms', () => {
       })
     ).toBe('a\nb\n')
   })
+
+  it('replace cuts a multiline section and rewrites a phrase (LUM-1078)', () => {
+    const src = '# A\nkeep\n# --\n# Plugin\nX=1\n# --\n# B\nkeep\n'
+    expect(
+      applyTransform(src, {
+        file: '.env.example',
+        type: 'replace',
+        pattern: '^# --\\n# Plugin\\n[\\s\\S]*?(?=^# --\\n# B$)',
+        replacement: '',
+        reason: 't',
+      })
+    ).toBe('# A\nkeep\n# --\n# B\nkeep\n')
+    expect(
+      applyTransform('a (x, y) b\nc (x, y)\n', {
+        file: 'f',
+        type: 'replace',
+        pattern: ', y\\)',
+        replacement: ')',
+        reason: 't',
+      })
+    ).toBe('a (x) b\nc (x)\n')
+  })
+
+  it('replace leaves the file byte-identical when nothing matches', () => {
+    const src = 'a\nb\n'
+    expect(
+      applyTransform(src, {
+        file: 'f',
+        type: 'replace',
+        pattern: '^zzz$',
+        replacement: 'q',
+        reason: 't',
+      })
+    ).toBe(src)
+  })
 })
 
 describe('output scans', () => {
@@ -333,6 +368,28 @@ describe('output scans', () => {
       { file: 'lib/x.ts', line: 2, markerId: 'excluded-dir' },
     ])
     expect(JSON.stringify(hits)).not.toContain('lum1')
+  })
+
+  it('scanMarkers applies a file-scoped marker only to matching files (LUM-1078)', () => {
+    const marker = {
+      id: 'plugin-env:docs',
+      pattern: 'LUMO_MANAGED_SCAN',
+      files: ['.env.example', 'docs/**'],
+      reason: 't',
+    }
+    expect(scanMarkers('lib/x.ts', 'LUMO_MANAGED_SCAN', [marker])).toEqual([])
+    expect(
+      scanMarkers('docs/self-hosting/cron.md', 'a\nLUMO_MANAGED_SCAN', [marker])
+    ).toEqual([
+      {
+        file: 'docs/self-hosting/cron.md',
+        line: 2,
+        markerId: 'plugin-env:docs',
+      },
+    ])
+    expect(
+      scanMarkers('.env.example', 'LUMO_MANAGED_SCAN', [marker])
+    ).toHaveLength(1)
   })
 
   it('extractPathTokens finds file paths in npm scripts and hooks', () => {
@@ -603,6 +660,29 @@ describe('oss/manifest.json', () => {
     const crontab = jobPaths(transformed('deploy/self-host/crontab'))
     expect(crontab.filter(p => !routeShips(p))).toEqual([])
     expect(crontab.filter(p => before.includes(p))).toEqual(after)
+  })
+
+  it('the snapshot gets the plain MIT LICENSE; the private one scopes out the ee/ plugin (LUM-1066)', () => {
+    const root = join(__dirname, '../..')
+    const read = (p: string) => readFileSync(join(root, p), 'utf8')
+    const mit = read('cli/LICENSE')
+    // The ref's LICENSE stays private; the overlay supplies the snapshot's.
+    const cls = classifyFiles(['LICENSE'], manifest)
+    expect(cls.excluded).toEqual(['LICENSE'])
+    expect(read('oss/overlay/LICENSE')).toBe(mit)
+    // Private LICENSE = scope note + the same MIT text. The note names the
+    // proprietary plugin and points at its license.
+    const priv = read('LICENSE')
+    expect(priv.endsWith(mit)).toBe(true)
+    const note = priv.slice(0, priv.length - mit.length)
+    expect(note.startsWith('Copyright (c) 2026 Lumo AI\n')).toBe(true)
+    expect(note).toContain('NOT covered by the MIT License')
+    expect(note).toContain('see ee/LICENSE')
+    // ee/LICENSE is proprietary, not MIT, and never ships.
+    const ee = read('ee/LICENSE')
+    expect(ee).toContain('All rights reserved.')
+    expect(ee).not.toContain('Permission is hereby granted')
+    expect(classifyFiles(['ee/LICENSE'], manifest).included).toEqual([])
   })
 
   it('the private manifest itself never ships', () => {

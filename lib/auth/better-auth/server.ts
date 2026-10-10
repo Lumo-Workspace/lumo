@@ -31,7 +31,17 @@ import {
 import { nameFieldsForCreate, nameFieldsForUpdate } from './user-shape'
 import { resolveMcpOAuthUrls } from './mcp-oauth-config'
 import { MCP_OAUTH_DISABLED_PATHS, mcpOAuthPlugins } from './mcp-oauth-plugins'
+import { ADMIN_DISABLED_PATHS, lumoAdminPlugin } from './admin-plugin'
 import { buildVerifyEmail } from '@/lib/integrations/email/templates/verify-email'
+import { verifyPasswordHash } from './password'
+import {
+  RESET_PASSWORD_TOKEN_TTL_SECONDS,
+  sendResetPasswordEmail,
+} from './password-reset'
+import { generateAuthId } from './ids'
+import { RATE_LIMIT_OPTIONS } from './rate-limit'
+import { ACCOUNT_LINKING_OPTIONS } from './account-linking'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 /** Session cookie cache: page loads skip the DB for this many seconds. */
 export const SESSION_COOKIE_CACHE_SECONDS = 5 * 60
@@ -75,7 +85,11 @@ function createBetterAuth() {
       modelName: 'authSession',
       cookieCache: { enabled: true, maxAge: SESSION_COOKIE_CACHE_SECONDS },
     },
-    account: { modelName: 'authAccount' },
+    // LUM-1070: explicit linking policy — no trusted providers (./account-linking).
+    account: {
+      modelName: 'authAccount',
+      accountLinking: ACCOUNT_LINKING_OPTIONS,
+    },
     verification: { modelName: 'authVerification' },
     emailAndPassword: {
       enabled: true,
@@ -84,6 +98,14 @@ function createBetterAuth() {
       // yet); only VERIFIED addresses can match a workspace invite
       // (getVerifiedEmails), so an unverified one grants nothing.
       requireEmailVerification: false,
+      // LUM-1070: bcrypt hashes imported from Clerk verify too; new hashes
+      // stay Better Auth's scrypt (./password).
+      password: { verify: verifyPasswordHash },
+      // LUM-1070: forgot / reset password (./password-reset). A reset signs
+      // the account out everywhere.
+      sendResetPassword: sendResetPasswordEmail,
+      resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_TTL_SECONDS,
+      revokeSessionsOnPasswordReset: true,
     },
     emailVerification: {
       sendOnSignUp: true,
@@ -104,6 +126,16 @@ function createBetterAuth() {
       },
     },
     socialProviders: resolveSocialProviders(),
+    // LUM-1070: counters shared by every instance (./rate-limit).
+    rateLimit: RATE_LIMIT_OPTIONS,
+    // LUM-1070: new users get `user_…` ids, the shape of a Clerk id (./ids).
+    advanced: {
+      database: { generateId: generateAuthId },
+      // LUM-1070: emails (password reset, verification) are sent after the
+      // response, so a reset request for a real account answers as fast as
+      // one for an unknown address (no account enumeration by timing).
+      backgroundTasks: { handler: waitUntil },
+    },
     databaseHooks: {
       user: {
         create: {
@@ -131,9 +163,15 @@ function createBetterAuth() {
         },
       },
     },
-    disabledPaths: mcpOAuthUrls ? MCP_OAUTH_DISABLED_PATHS : [],
+    disabledPaths: [
+      ...(mcpOAuthUrls ? MCP_OAUTH_DISABLED_PATHS : []),
+      // LUM-1071: impersonation is closed.
+      ...ADMIN_DISABLED_PATHS,
+    ],
     plugins: [
       lumoPublicConfigPlugin,
+      // LUM-1071: ban fields + the sign-in ban check (./admin-plugin).
+      lumoAdminPlugin(),
       ...(mcpOAuthUrls ? mcpOAuthPlugins(mcpOAuthUrls) : []),
       // Must stay last: sets cookies from server actions.
       nextCookies(),
