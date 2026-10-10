@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.102.0",
+  "cliVersion": "1.103.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -2229,6 +2229,22 @@
           "enumCaseInsensitive": false,
           "description": "Emit the versioned machine-readable payload ({ pullRequest, scans[].stages / findings[] / hunt.tasks[] })"
         },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Set automatic round limit (1..100), with pause or resume"
+        },
+        "--pause": {
+          "long": "--pause",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Pause automatic AI reviews for this PR"
+        },
         "--repo": {
           "long": "--repo",
           "short": null,
@@ -2236,11 +2252,27 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Narrow to one repo when the same PR number exists in several (the error lists the candidates)"
+        },
+        "--resume": {
+          "long": "--resume",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Resume automatic AI reviews and reset the round budget"
+        },
+        "--review": {
+          "long": "--review",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Request incremental or full AI review without consuming automatic rounds"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Security scans of one PR in the workspace, by PR number (LUM-788): the latest head by default — layer states (same labels as task status / the GitHub summary), every finding incl. dispositioned ones with disposition + source, and the hunt coverage line. Read-only; disposition is web-only."
+      "description": "Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Finding disposition is web-only."
     },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],

@@ -24,7 +24,8 @@ export function shouldScanOnPrEvent(action: string, state: string): boolean {
 
 export async function dispatchPrSecurityScan(
   pullRequestId: string,
-  trigger: ScanDispatchTrigger
+  trigger: ScanDispatchTrigger,
+  reviewMode?: 'incremental' | 'full'
 ): Promise<void> {
   const base = process.env.NEXT_PUBLIC_APP_URL
   if (!base) {
@@ -40,7 +41,7 @@ export async function dispatchPrSecurityScan(
         'content-type': 'application/json',
         authorization: `Bearer ${process.env.CRON_SECRET}`,
       },
-      body: JSON.stringify({ pullRequestId, trigger }),
+      body: JSON.stringify({ pullRequestId, trigger, reviewMode }),
     })
     if (!res.ok) {
       logger.warn(

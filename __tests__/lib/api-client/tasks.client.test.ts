@@ -97,3 +97,13 @@ describe('tasksClient.listByTeam', () => {
     )
   })
 })
+test('LUM-1056 review control sends a structured body through the shared workspace-aware API client', async () => {
+  await tasksClient.reviewPullRequest(7, 'o/r', 'incremental')
+  expect(apiFetch).toHaveBeenCalledWith(
+    '/api/pull-requests/7/scans?repo=o%2Fr',
+    {
+      method: 'POST',
+      body: { action: 'incremental' },
+    }
+  )
+})

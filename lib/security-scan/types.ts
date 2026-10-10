@@ -76,6 +76,7 @@ export type ScanStages = Partial<Record<ScanStageKey, ScanStageState>>
  * never looked, so the scan cannot read as a full pass either.
  */
 export const INCOMPLETE_STAGE_STATES: ReadonlySet<ScanStageState> = new Set([
+  'PAUSED',
   'FAILED',
   'NOT_CONFIGURED',
   'PENDING',

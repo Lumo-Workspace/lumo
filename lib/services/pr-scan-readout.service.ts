@@ -63,6 +63,7 @@ import { redactPromptLine } from '@/lib/security-scan/inject-guard'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { loadSecurityLayers } from '@/lib/services/security-workspace-switches.service'
 import type { ShellDetailTask } from '@/shared/src/hunt-audit'
+import { prReviewControlRepository } from '@/lib/repositories/pr-review-control.repository'
 
 export interface PullRequestScanReadoutInput {
   number: number
@@ -196,6 +197,12 @@ export interface ScanReadoutView {
 }
 
 export interface PullRequestScanReadout {
+  reviewControl?: {
+    paused: boolean
+    rounds: number
+    limit: number
+    currentHead: string | null
+  }
   version: 1
   pullRequest: {
     repo: string
@@ -524,11 +531,12 @@ export const prScanReadoutService = {
       )
     }
     const pr = prs[0]!
-    const [rows, policy, exitContexts, layers] = await Promise.all([
+    const [rows, policy, exitContexts, layers, control] = await Promise.all([
       prSecurityScanRepository.listByPullRequest(pr.id, input.all ? null : 1),
       loadSecurityPolicy(workspaceId),
       loadQueueExitContexts([pr], workspaceId),
       loadSecurityLayers(workspaceId),
+      prReviewControlRepository.get(pr.id),
     ])
     const tally = { redacted: 0 }
     const scans: ScanReadoutView[] = rows.map(scan => {
@@ -628,6 +636,14 @@ export const prScanReadoutService = {
     })
     return {
       version: 1,
+      reviewControl: {
+        paused:
+          control.reviewPaused ||
+          control.reviewHeads.length >= control.reviewRoundLimit,
+        rounds: control.reviewHeads.length,
+        limit: control.reviewRoundLimit,
+        currentHead: pr.headSha,
+      },
       pullRequest: {
         repo: pr.repo,
         number: pr.number,

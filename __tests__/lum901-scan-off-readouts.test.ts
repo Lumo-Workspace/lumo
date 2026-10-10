@@ -243,3 +243,16 @@ describe('LUM-901 CLI readouts show scanning off instead of scan CLEAN', () => {
     expect(lines.join('\n')).toMatch(/scan CLEAN/)
   })
 })
+jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+  prReviewControlRepository: {
+    reserve: jest.fn().mockResolvedValue(true),
+    baseline: jest.fn().mockResolvedValue(null),
+    priorFindings: jest.fn().mockResolvedValue([]),
+    findingsOnScan: jest.fn().mockResolvedValue([]),
+    get: jest.fn().mockResolvedValue({
+      reviewPaused: false,
+      reviewRoundLimit: 2,
+      reviewHeads: [],
+    }),
+  },
+}))

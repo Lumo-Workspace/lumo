@@ -4,7 +4,13 @@
  * real en.json messages and the real PR badge, so the words asserted are the
  * words a customer reads.
  */
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  within,
+  waitFor,
+} from '@testing-library/react'
 
 // react-intl ships ESM jest can't load from node_modules. The messages are the
 // real en.json ones, run through a small formatter covering what these keys
@@ -56,7 +62,10 @@ jest.mock('next/navigation', () => ({
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }))
-jest.mock('@/lib/api-client', () => ({ tasksClient: {} }))
+jest.mock('@/lib/api-client', () => ({
+  tasksClient: { reviewPullRequest: jest.fn() },
+}))
+import { tasksClient } from '@/lib/api-client'
 const useSecurityScans = jest.fn()
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
@@ -96,6 +105,7 @@ const finding = (over: object = {}) => ({
 const scan = (over: {
   stages: Record<string, string>
   findings?: unknown[]
+  ownedUnfinished?: boolean
 }) => {
   const base = {
     id: 's1',
@@ -144,6 +154,39 @@ function renderPanel(data: object) {
 }
 
 beforeEach(() => jest.clearAllMocks())
+
+test('LUM-1056 paused head exposes manual review controls and reports request failures', async () => {
+  const request = tasksClient.reviewPullRequest as jest.Mock
+  request.mockResolvedValueOnce({ queued: true })
+  renderPanel({
+    prs: [
+      {
+        pr: { ...PR, repo: 'o/r' },
+        latest: scan({
+          stages: { secrets: 'RAN', judge: 'PAUSED' },
+          ownedUnfinished: false,
+        }),
+      },
+    ],
+    blocking: { count: 0 },
+    suggested: { count: 0 },
+    scanningOff: false,
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
+  await waitFor(() =>
+    expect(request).toHaveBeenCalledWith(9, 'o/r', 'incremental')
+  )
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    'Review requested'
+  )
+  request.mockRejectedValueOnce(new Error('network'))
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Resume automatic reviews' })
+  )
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Could not update review settings'
+  )
+})
 
 describe('LUM-892 turned-off layer in the task panel', () => {
   const data = (latest: object) => ({

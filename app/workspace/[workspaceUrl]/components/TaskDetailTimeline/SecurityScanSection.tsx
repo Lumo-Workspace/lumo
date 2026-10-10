@@ -55,6 +55,7 @@ import {
   type FindingGroupKey,
 } from './security-summary'
 import { buildAgentContext } from './security-agent-context'
+import { Button } from '@/components/ui/button'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
 
@@ -190,7 +191,7 @@ function SecurityScanPanel({
         // needed / off, ! didn't run) and an ⓘ that says what it checks. The
         // names ride on each row so no header sits apart from the cells.
         <ul className='-my-1 divide-y divide-border/60'>
-          {data.prs.map(({ pr, latest }) => {
+          {data.prs.map(({ pr, latest, reviewControl }) => {
             const expanded = isExpanded(pr.id, latest)
             return (
               <li
@@ -243,6 +244,20 @@ function SecurityScanPanel({
                     )}
                   </span>
                 </div>
+                {pr.repo && pr.state === 'open' && (
+                  <ReviewControls
+                    taskId={taskId}
+                    number={pr.number}
+                    repo={pr.repo}
+                    scan={latest}
+                    {...(reviewControl ? { control: reviewControl } : {})}
+                  />
+                )}
+                {pr.headSha && latest && pr.headSha !== latest.headSha && (
+                  <p className='text-caption text-muted-foreground'>
+                    {intl.formatMessage({ id: 'securityScan.review.stale' })}
+                  </p>
+                )}
                 {latest ? (
                   <div className='mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-[1.375rem]'>
                     {STAGE_ORDER.map(key => (
@@ -263,6 +278,127 @@ function SecurityScanPanel({
             )
           })}
         </ul>
+      )}
+    </div>
+  )
+}
+
+function ReviewControls({
+  taskId,
+  number,
+  repo,
+  control,
+  scan,
+}: {
+  taskId: string
+  number: number
+  repo: string
+  control?: { paused: boolean; rounds: number; limit: number }
+  scan: SecurityScanView | null
+}) {
+  const intl = useIntl()
+  const client = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+  const [queued, setQueued] = useState(false)
+  const requestedVersion = useRef<string | null>(null)
+  const scanVersion = scan?.startedAt ?? null
+  const scanRunning =
+    scan?.status === 'RUNNING' ||
+    scan?.status === 'PENDING' ||
+    Object.values(scan?.stages ?? {}).includes('PENDING')
+  // Manual dispatch may create its scan after our first invalidation. Keep
+  // refreshing this report during that request, bounded to the scan/verifier
+  // lifetime, without causing any additional review requests.
+  useEffect(() => {
+    if (!queued) return
+    const timer = setInterval(() => {
+      if (scanVersion !== requestedVersion.current && !scanRunning) {
+        setQueued(false)
+        return
+      }
+      void client.invalidateQueries({
+        queryKey: queryKeys.tasks.securityScans(taskId),
+      })
+    }, 5000)
+    const deadline = setTimeout(() => clearInterval(timer), 15 * 60_000)
+    return () => {
+      clearInterval(timer)
+      clearTimeout(deadline)
+    }
+  }, [queued, client, taskId, scanVersion, scanRunning])
+  async function act(action: 'pause' | 'resume' | 'incremental' | 'full') {
+    setBusy(true)
+    setError(false)
+    setQueued(false)
+    try {
+      await tasksClient.reviewPullRequest(number, repo, action)
+      requestedVersion.current = scanVersion
+      setQueued(action === 'incremental' || action === 'full')
+      await client.invalidateQueries({
+        queryKey: queryKeys.tasks.securityScans(taskId),
+      })
+    } catch {
+      setError(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className='mt-2 flex flex-wrap items-center gap-2'>
+      {control && (
+        <span className='text-caption text-muted-foreground'>
+          {intl.formatMessage(
+            { id: 'securityScan.review.rounds' },
+            { rounds: control.rounds, limit: control.limit }
+          )}
+        </span>
+      )}
+      <Button
+        variant='outline'
+        size='sm'
+        disabled={busy}
+        onClick={() => void act('incremental')}
+      >
+        {intl.formatMessage({ id: 'securityScan.review.incremental' })}
+      </Button>
+      <Button
+        variant='outline'
+        size='sm'
+        disabled={busy}
+        onClick={() => void act('full')}
+      >
+        {intl.formatMessage({ id: 'securityScan.review.full' })}
+      </Button>
+      {!control?.paused && (
+        <Button
+          variant='ghost'
+          size='sm'
+          disabled={busy}
+          onClick={() => void act('pause')}
+        >
+          {intl.formatMessage({ id: 'securityScan.review.pause' })}
+        </Button>
+      )}
+      {(control?.paused || !control) && (
+        <Button
+          variant='ghost'
+          size='sm'
+          disabled={busy}
+          onClick={() => void act('resume')}
+        >
+          {intl.formatMessage({ id: 'securityScan.review.resume' })}
+        </Button>
+      )}
+      {error && (
+        <span role='alert'>
+          {intl.formatMessage({ id: 'securityScan.review.error' })}
+        </span>
+      )}
+      {queued && (
+        <span role='status'>
+          {intl.formatMessage({ id: 'securityScan.review.queued' })}
+        </span>
       )}
     </div>
   )

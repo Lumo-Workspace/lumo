@@ -46,6 +46,7 @@ export type ScanStageKeyName = (typeof SCAN_STAGE_KEYS)[number]
 
 /** The states a layer can be in. `ScanStageState` in `lib/security-scan/types.ts` derives from this. */
 export const SCAN_STAGE_STATES = [
+  'PAUSED',
   'RAN',
   'FAILED',
   'SKIPPED',
@@ -108,6 +109,7 @@ export const SCAN_STAGE_DESCRIPTIONS: Record<ScanStageKeyName, string> = {
  * (spec P9 — a security signal never claims safety it did not establish).
  */
 export const SCAN_STAGE_STATE_LABELS: Record<ScanStageStateName, string> = {
+  PAUSED: 'paused — request a manual review',
   RAN: 'checked',
   // LUM-832: a layer that did not finish is ours to finish, not a verdict on
   // the code — "failed" read as the latter.
@@ -229,6 +231,8 @@ export function formatQueueExits(
  * not know (a newer server) is read as unattributed, never dropped.
  */
 export const PARTIAL_CAUSES = [
+  /** Automatic AI review was paused or exhausted its per-PR round budget. */
+  'AI_REVIEW_PAUSED',
   /** A planned hunt task never terminated: sandbox, gateway, timeout, step failure. */
   'HUNT_INCOMPLETE',
   /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
@@ -269,9 +273,14 @@ export type PartialCause = (typeof PARTIAL_CAUSES)[number]
  * limit) that left work we still owe. `UNATTRIBUTED` is a row written before
  * the causes existed, or a cause this build does not know.
  */
-export type PartialCauseClass = 'OUR_FAULT' | 'COVERAGE_OWED' | 'UNATTRIBUTED'
+export type PartialCauseClass =
+  | 'OUR_FAULT'
+  | 'COVERAGE_OWED'
+  | 'UNATTRIBUTED'
+  | 'USER_CONTROLLED'
 
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
+  AI_REVIEW_PAUSED: 'USER_CONTROLLED',
   HUNT_INCOMPLETE: 'OUR_FAULT',
   HUNT_BUDGET_SHORT: 'COVERAGE_OWED',
   HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
@@ -342,6 +351,7 @@ export interface ScanCoverageInput {
 }
 
 const UNFINISHED_STAGE_STATES: ReadonlySet<string> = new Set([
+  'PAUSED',
   'FAILED',
   'NOT_CONFIGURED',
   'PARTIAL',
@@ -489,6 +499,17 @@ export function isOwnedUnfinished(
   }
 ): boolean {
   if (scanCoverageState(s) !== 'UNFINISHED') return false
+  if (
+    Object.values(s.stages).includes('PAUSED') &&
+    s.status !== 'FAILED' &&
+    (!s.partial ||
+      (s.partialCauses?.length &&
+        s.partialCauses.every(c => c === 'AI_REVIEW_PAUSED'))) &&
+    !Object.values(s.stages).some(
+      state => state !== 'PAUSED' && state && UNFINISHED_STAGE_STATES.has(state)
+    )
+  )
+    return false
   if (!s.hasSizeNotice) return true
   return !isUnfinishedOnlyBySize({
     ...(s.status !== undefined ? { status: s.status } : {}),
