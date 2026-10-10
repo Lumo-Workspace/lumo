@@ -2,7 +2,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { emitCoreEvent } from '@/lib/plugins/events'
 import { requireConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
 import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 import {
@@ -10,7 +10,6 @@ import {
   parsePrUrl,
   toPrState,
 } from '@/lib/integrations/github/fetch-pull-request'
-import { waitUntil } from '@/lib/runtime/wait-until'
 
 // Re-exported for existing importers; the implementation moved to
 // lib/integrations/github/fetch-pull-request.ts (LUM-684).
@@ -161,11 +160,10 @@ export async function linkPullRequest(
   }
 
   const linked = await pullRequestRepository.updateTaskId(pr!.id, taskId)
-  // LUM-732: a manually linked PR (any state — merged history included) gets
-  // one scan of its current head. Registered with waitUntil (not a bare
-  // `void`) so the runtime keeps the function alive until the dispatch
-  // settles — a dropped promise here reads as "clean" at the DONE gate.
-  waitUntil(dispatchPrSecurityScan(linked.id, 'PR_LINK'))
+  // LUM-1061: plugins react to a manual link — the security plugin scans the
+  // linked PR's current head once (LUM-732, any state, merged history
+  // included), registering the dispatch with waitUntil itself.
+  emitCoreEvent('task.prLinked', { taskId, pullRequestId: linked.id })
   // LUM-929 (user ruling 2026-10-01): a manual link is a claim of ownership.
   // It is allowed on a repository another workspace also confirmed, and the
   // task's comments mirror to the PR as usual — so the caller is told the PR

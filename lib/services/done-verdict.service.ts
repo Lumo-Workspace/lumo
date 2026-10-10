@@ -10,7 +10,7 @@
  */
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
-import { listOpenBlockingFindings } from '@/lib/services/pr-security-scan-gate'
+import { collectDoneGateBlockers } from '@/lib/plugins/done-gate'
 import { logger } from '@/lib/logger'
 import { countEvidence, deriveRunCeiling } from '@/lib/test-cases/provability'
 import {
@@ -135,7 +135,9 @@ export async function collectDoneVerdictSnapshot(
 ): Promise<DoneVerdictSnapshot> {
   const [crossings, securityFindings, testCases] = await Promise.all([
     collectCrossingPlane(taskId, workspaceId),
-    listOpenBlockingFindings(taskId),
+    // LUM-1061: plugin blockers (the security plugin's undispositioned PR
+    // findings). Fail-closed like the other blocking planes; no plugin → [].
+    collectDoneGateBlockers(taskId),
     // fail-closed：这一面能拦闸了（LUM-812），查不出来就不能放行。
     collectTestCasePlane(taskId),
   ])

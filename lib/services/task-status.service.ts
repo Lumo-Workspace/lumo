@@ -18,22 +18,10 @@ import {
   TEST_CASE_ADVISORY_STATEMENT,
 } from '@/lib/context/render/test-case-reminder'
 import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
-import { logger } from '@/lib/logger'
-import {
-  prSecurityReminderService,
-  type TaskSecurityScanSummary,
-} from '@/lib/services/pr-security-reminder.service'
-import {
-  findingStatement,
-  type UnconfirmedPr,
-} from '@/lib/security-scan/agent-reminder'
+import { collectTaskStatusSections } from '@/lib/plugins/agent-context'
 import { readTestCaseAdvisories } from '@/lib/services/done-verdict.service'
 import { testCaseReviewService } from '@/lib/services/test-case-review.service'
 import { reviewSentBackStatement } from '@/lib/test-cases/review'
-import type {
-  FindingProvenance,
-  FindingSeverity,
-} from '@/lib/repositories/pr-security-scan.repository'
 import {
   aggregateRetroStruggle,
   type RetroStruggleAggregate,
@@ -96,23 +84,6 @@ export interface TrendModel {
   }
 }
 
-export interface NextActionSecurityFinding {
-  kind: 'SECURITY_FINDING'
-  findingId: string
-  statement: string
-  severity: FindingSeverity
-  provenance: FindingProvenance
-  blocking: boolean
-  prNumber: number
-  ruleId: string
-  filePath: string
-  line: number | null
-  /**
-   * LUM-758 follow-up (secret: rows) — why the severity was lowered to LOW.
-   * Additive: absent on an older server, and on any row with no downgrade.
-   */
-  secretDowngrade?: string | null
-}
 /**
  * LUM-807: the advisory row for a task that has a PR but no recorded test
  * case. Deliberately shaped like a finding row minus everything that gates:
@@ -145,25 +116,32 @@ export interface NextActionTestCase {
 }
 
 /**
- * One entry of the declarative plan. `kind` discriminates: SECURITY_FINDING is
- * an undispositioned PR security finding (a hard constraint on DONE when
- * `blocking`); the test-case kinds are advisory only.
+ * LUM-1061 — next-action kinds contributed by plugins, keyed by `kind`. A
+ * plugin adds its rows by declaration merging (the security plugin adds
+ * `SECURITY_FINDING`, see ee/security/task-status.ts); without a plugin the
+ * map is empty and only the core kinds below exist.
+ */
+export interface PluginNextActionKinds {}
+
+/**
+ * LUM-1061 — top-level report fields contributed by plugins (declaration
+ * merging, like {@link PluginNextActionKinds}). The security plugin adds
+ * `securityFindings`; without it the field is absent, which the CLI already
+ * reads as "older server" (no security read-out).
+ */
+export interface TaskStatusPluginFields {}
+
+/**
+ * One entry of the declarative plan. `kind` discriminates: plugin rows come
+ * first (with the security plugin: SECURITY_FINDING, a hard constraint on
+ * DONE when `blocking`); the test-case kinds are advisory only.
  */
 export type NextAction =
+  | PluginNextActionKinds[keyof PluginNextActionKinds]
   | NextActionTestCaseVerdict
-  | NextActionSecurityFinding
   | NextActionTestCase
-export interface TaskSecurityFindingsSummary {
-  open: number
-  blocking: number
-  unconfirmedPrs: UnconfirmedPr[]
-  /** LUM-735 — per-PR scan summary passed through from the reminder service,
-   *  for `lumo task status` to render one line per scan. Additive: optional
-   *  so an older cached/serialized summary without it still type-checks. */
-  scans?: TaskSecurityScanSummary[]
-}
 
-export interface TaskStatusReport {
+export interface TaskStatusReport extends TaskStatusPluginFields {
   version: typeof TASK_STATUS_SCHEMA_VERSION
   task: { id: string; identifier: string; title: string; status: string }
   /** Rework traces (LUM-561) — PR cycles and reopens. */
@@ -178,11 +156,8 @@ export interface TaskStatusReport {
   /** Whether the CLAIM faithfully reflects the delivery (LUM-583), read from
    *  the persisted ClaimFaithfulnessVerdict (no LLM at read time). */
   faithfulness: ClaimFaithfulness
-  /** Undispositioned security findings + test-case advisories. */
+  /** Plugin rows (security findings) + test-case advisories. */
   nextActions: NextAction[]
-  /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
-   *  confirm) — distinct from `{ open: 0, … }`. */
-  securityFindings: TaskSecurityFindingsSummary | null
 }
 
 /** Defensive reader for untyped activity JSON payloads. */
@@ -209,7 +184,7 @@ export const taskStatusService = {
       latestRunClaim,
       claimSnapshot,
       faithfulnessVerdict,
-      securityState,
+      pluginStatus,
       testCaseState,
       testCaseVerdicts,
       reviewSentBacks,
@@ -228,17 +203,11 @@ export const taskStatusService = {
       taskRepository.loadClaimSnapshot(taskId),
       // LUM-583: persisted claim-faithfulness verdict (LUM-582); null → PENDING.
       claimFaithfulnessVerdictRepository.findByTaskId(taskId),
-      // LUM-737: undispositioned PR security findings. Fail-closed: a read
-      // failure becomes `securityFindings: null` ("could not confirm").
-      prSecurityReminderService
-        .loadOpenFindingsForTask(taskId)
-        .catch((error: unknown) => {
-          logger.warn('taskStatus.securityRead.failed', {
-            taskId,
-            error: error instanceof Error ? error.message : String(error),
-          })
-          return null
-        }),
+      // LUM-737 / LUM-1061: plugin sections — the security plugin's
+      // undispositioned PR findings and its `securityFindings` read-out
+      // (fail-closed inside the plugin: a read failure is `null`, "could not
+      // confirm"). No plugin → no rows, no field.
+      collectTaskStatusSections(taskId),
       // LUM-807: same reminder service every other surface uses.
       testCaseReminderService
         .stateForTask({ taskId, taskDone: false })
@@ -328,21 +297,7 @@ export const taskStatusService = {
       claim,
       faithfulness,
       nextActions: [
-        ...(securityState?.findings ?? []).map(
-          (f): NextActionSecurityFinding => ({
-            kind: 'SECURITY_FINDING',
-            findingId: f.id,
-            statement: findingStatement(f),
-            severity: f.severity,
-            provenance: f.provenance,
-            blocking: f.blocking,
-            prNumber: f.prNumber,
-            ruleId: f.ruleId,
-            filePath: f.filePath,
-            line: f.line,
-            secretDowngrade: f.secretDowngrade ?? null,
-          })
-        ),
+        ...(pluginStatus.nextActions as PluginNextActionKinds[keyof PluginNextActionKinds][]),
         // LUM-807: advisory-only. A missing test case never refuses DONE.
         ...(testCaseState !== null &&
         remindOnDelivery({
@@ -380,14 +335,7 @@ export const taskStatusService = {
           })
         ),
       ],
-      securityFindings: securityState
-        ? {
-            open: securityState.findings.length,
-            blocking: securityState.blockingCount,
-            unconfirmedPrs: securityState.unconfirmedPrs,
-            scans: securityState.scans,
-          }
-        : null,
+      ...(pluginStatus.fields as Partial<TaskStatusPluginFields>),
     }
   },
 

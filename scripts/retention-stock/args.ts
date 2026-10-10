@@ -3,8 +3,8 @@
  * stock script (run.ts). Pure: no database, no env, no output.
  */
 import {
-  RETENTION_STOCK_CATEGORIES,
   isRetentionStockCategory,
+  retentionStockCategories,
   type RetentionStockCategory,
   type StockApplyResult,
   type StockPlan,
@@ -22,7 +22,7 @@ export interface StockArgs {
 }
 
 export const USAGE = `Usage:
-  npx tsx scripts/retention-stock/run.ts <${RETENTION_STOCK_CATEGORIES.join('|')}|all>
+  npx tsx scripts/retention-stock/run.ts <${retentionStockCategories().join('|')}|all>
       [--apply --confirm-scope <category> --confirm-host <db host>
        --rollback-branch <Neon branch you created>]
       [--limit N] [--batch-size N] [--crossing-rollout-at <ISO time>]
@@ -80,7 +80,7 @@ export function parseStockArgs(argv: string[]): StockArgs & {
   const target = positional[0]!
   const categories =
     target === 'all'
-      ? [...RETENTION_STOCK_CATEGORIES]
+      ? retentionStockCategories()
       : isRetentionStockCategory(target)
         ? [target]
         : null

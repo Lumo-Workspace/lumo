@@ -23,6 +23,10 @@ jest.mock('@/lib/repositories', () => ({
     findAllByInstallationId: jest.fn().mockResolvedValue([]),
     deleteForWorkspace: jest.fn(),
   },
+}))
+// LUM-1061: the security plugin scrubs scan code through the repository
+// module directly, not through the barrel.
+jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     scrubCodeForWorkspace: jest
       .fn()

@@ -3,31 +3,28 @@ import {
   crossingRawRetentionRepository,
   type StockCrossing,
 } from '@/lib/repositories/crossing-raw-retention.repository'
-import {
-  prSecurityScanRepository,
-  type RetentionCandidate,
-} from '@/lib/repositories/pr-security-scan.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { crossingRawPurgeCutoff } from '@/lib/boundary-crossing/raw-retention'
 import {
   buildPurgedDeadLetterPayload,
   deadLetterPurgeCutoff,
 } from '@/lib/integrations/github/dead-letter-retention'
-import {
-  DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
-  retentionCutoffs,
-} from '@/lib/retention/scan-evidence'
 import { purgeCrossingRaw } from './crossing-raw-retention.service'
-import { scanRetentionDueReason } from './scan-evidence-retention.service'
+import { pluginRetentionStocks } from '@/lib/plugins/retention'
+import type {
+  RetentionStockClassified,
+  RetentionStockDriver,
+  RetentionStockRunOptions,
+} from '@/lib/plugins/types'
 import type { Prisma } from '@prisma/client'
 
 /**
  * LUM-914 — the pre-rule retention stock: data stored before the automatic
  * cleanup rules shipped, which the sweeps deliberately never touch.
  *
- *  - `scan-evidence`: scans from before LUM-911 (`retentionTracked = false`)
- *    still holding code. Judged by the LUM-911 rule
- *    (`scanRetentionDueReason`) under the workspace's current tier.
+ *  - plugin categories (LUM-1061, the `retention` extension point): with the
+ *    security plugin, `scan-evidence` — scans from before LUM-911 still
+ *    holding code (ee/security/retention-stock.ts). Without a plugin the
+ *    category does not exist.
  *  - `crossing-raw`: crossings dispositioned before the workspace's
  *    `crossingRawRetentionSince` (LUM-912 rollout) still holding raw text.
  *    Judged by `crossingRawPurgeCutoff` under the current tier.
@@ -41,18 +38,27 @@ import type { Prisma } from '@prisma/client'
  * the operator from scripts/retention-stock.ts — never by a cron.
  */
 
-export const RETENTION_STOCK_CATEGORIES = [
-  'scan-evidence',
+/** The categories the core owns, whatever plugins are installed. */
+export const CORE_RETENTION_STOCK_CATEGORIES = [
   'crossing-raw',
   'dead-letter',
 ] as const
 
-export type RetentionStockCategory = (typeof RETENTION_STOCK_CATEGORIES)[number]
+/** A core category, or one a plugin contributed (e.g. `scan-evidence`). */
+export type RetentionStockCategory = string
+
+/** Every category of this deployment: plugin categories first, then the core's. */
+export function retentionStockCategories(): RetentionStockCategory[] {
+  return [
+    ...pluginRetentionStocks().map(s => s.category),
+    ...CORE_RETENTION_STOCK_CATEGORIES,
+  ]
+}
 
 export function isRetentionStockCategory(
   value: unknown
 ): value is RetentionStockCategory {
-  return (RETENTION_STOCK_CATEGORIES as readonly unknown[]).includes(value)
+  return (retentionStockCategories() as unknown[]).includes(value)
 }
 
 /** Rows read per stock query. */
@@ -62,6 +68,8 @@ const PAGE = 200
 const CROSSING_TX = { timeout: 15_000, maxWait: 10_000 } as const
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+export type StockRunOptions = RetentionStockRunOptions
 
 export interface StockPlan {
   category: RetentionStockCategory
@@ -76,7 +84,8 @@ export interface StockPlan {
   byReason: Record<string, number>
   /** Stock rows the rule leaves alone, by why. */
   held: Record<string, number>
-  /** scan-evidence only: findings of the due scans (their code goes too). */
+  /** Categories whose rows carry secondary rows (scan-evidence: the due
+   *  scans' findings, whose code goes too). */
   findings?: number
   /** crossing-raw only: the rollout instant the stock is bounded by. */
   rolloutAt?: Date | null
@@ -85,114 +94,24 @@ export interface StockPlan {
 export interface StockApplyResult {
   category: RetentionStockCategory
   processed: number
-  /** scan-evidence only: findings scrubbed. */
+  /** Categories with secondary rows only (scan-evidence: findings scrubbed). */
   findings?: number
   /** Last row id processed (progress / resume reference). */
   lastId: string | null
 }
 
-export interface StockRunOptions {
-  now?: Date
-  /** apply: process at most this many due rows. */
-  limit?: number
-  /** apply: rows per write batch (one transaction for scan evidence). */
-  batchSize?: number
-  /** crossing-raw: override the detected LUM-912 rollout instant. */
-  crossingRolloutAt?: Date
-  onBatch?: (progress: { processed: number; lastId: string }) => void
-}
-
-/** One stock row as classified: due (with a reason) or held. */
-type Classified<T> =
-  | { due: true; row: T; reason: string; workspaceId: string; at: Date }
-  | { due: false; row: T; reason: string }
-
-interface CategoryDriver<T extends { id: string }> {
-  /** Stock rows, classified, page by page. */
-  pages(now: Date): AsyncGenerator<Classified<T>[]>
-  /** Process due rows (one batch). */
-  process(
-    rows: Classified<T>[],
-    now: Date
-  ): Promise<{ processed: number; findings?: number }>
-  /** Extra plan fields (scan findings, held remainder…). */
+type Classified<T> = RetentionStockClassified<T>
+/** A driver as the core runs it: a plugin driver, or a core one that also
+ *  fills core-only plan fields (crossing-raw's `rolloutAt`). */
+interface CategoryDriver<T extends { id: string }> extends Omit<
+  RetentionStockDriver<T>,
+  'finishPlan'
+> {
   finishPlan?(plan: StockPlan, dueRows: T[]): Promise<void>
 }
 
 function bump(map: Record<string, number>, key: string, by = 1) {
   map[key] = (map[key] ?? 0) + by
-}
-
-// ── scan evidence ────────────────────────────────────────────────────────────
-
-function scanDriver(): CategoryDriver<RetentionCandidate> {
-  return {
-    async *pages(now) {
-      const zeroRetention =
-        await workspaceRepository.findZeroScanEvidenceRetentionIds()
-      const { hardCap } = retentionCutoffs(now)
-      let after: string | null = null
-      for (;;) {
-        const page = await prSecurityScanRepository.findRetentionCandidates({
-          hardCapCutoff: hardCap,
-          zeroRetentionWorkspaceIds: zeroRetention,
-          after,
-          take: PAGE,
-          retentionTracked: false,
-        })
-        if (page.length === 0) return
-        after = page[page.length - 1]!.id
-        const unfinished =
-          await prSecurityScanRepository.findPullRequestsWithUnfinishedScans([
-            ...new Set(page.map(c => c.pullRequestId)),
-          ])
-        const days = await workspaceRepository.findScanEvidenceRetention([
-          ...new Set(page.map(c => c.workspaceId)),
-        ])
-        yield page.map((c): Classified<RetentionCandidate> => {
-          const reason = scanRetentionDueReason(
-            c,
-            days.get(c.workspaceId) ?? DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
-            !unfinished.has(c.pullRequestId),
-            now
-          )
-          return reason
-            ? {
-                due: true,
-                row: c,
-                reason,
-                workspaceId: c.workspaceId,
-                at: c.finishedAt ?? c.startedAt,
-              }
-            : { due: false, row: c, reason: 'not_due_yet' }
-        })
-        if (page.length < PAGE) return
-      }
-    },
-    async process(rows) {
-      const counts = await prSecurityScanRepository.scrubCodeForRetention(
-        rows.map(r => r.row.id),
-        { retentionTracked: false }
-      )
-      return { processed: counts.scans, findings: counts.findings }
-    },
-    async finishPlan(plan, dueRows) {
-      let findings = 0
-      for (let i = 0; i < dueRows.length; i += PAGE) {
-        const counts = await prSecurityScanRepository.countFindingsByScan(
-          dueRows.slice(i, i + PAGE).map(r => r.id)
-        )
-        for (const n of counts.values()) findings += n
-      }
-      plan.findings = findings
-      // The candidate query only reads scans that could be due (final and
-      // past the cap, on an ended PR, or zero retention); the rest of the
-      // untracked stock is held — open PRs inside the cap, unfinished scans.
-      const total = await prSecurityScanRepository.countUntrackedUnscrubbed()
-      const read = plan.due + (plan.held.not_due_yet ?? 0)
-      if (total > read) bump(plan.held, 'not_final_or_open_pr', total - read)
-    },
-  }
 }
 
 // ── crossing raw text ────────────────────────────────────────────────────────
@@ -358,17 +277,34 @@ function deadLetterDriver(): CategoryDriver<DeadLetterRow> {
   }
 }
 
-function driverFor(
+async function driverFor(
   category: RetentionStockCategory,
   opts: StockRunOptions
-): CategoryDriver<{ id: string }> {
+): Promise<{
+  driver: CategoryDriver<{ id: string }>
+  countsFindings: boolean
+}> {
   switch (category) {
-    case 'scan-evidence':
-      return scanDriver() as unknown as CategoryDriver<{ id: string }>
     case 'crossing-raw':
-      return crossingDriver(opts) as unknown as CategoryDriver<{ id: string }>
+      return {
+        driver: crossingDriver(opts) as unknown as CategoryDriver<{
+          id: string
+        }>,
+        countsFindings: false,
+      }
     case 'dead-letter':
-      return deadLetterDriver() as unknown as CategoryDriver<{ id: string }>
+      return {
+        driver: deadLetterDriver() as unknown as CategoryDriver<{
+          id: string
+        }>,
+        countsFindings: false,
+      }
+  }
+  const plugin = pluginRetentionStocks().find(s => s.category === category)
+  if (!plugin) throw new Error(`unknown retention-stock category: ${category}`)
+  return {
+    driver: await plugin.driver(opts),
+    countsFindings: plugin.countsFindings === true,
   }
 }
 
@@ -379,7 +315,7 @@ export const retentionStockService = {
     opts: StockRunOptions = {}
   ): Promise<StockPlan> {
     const now = opts.now ?? new Date()
-    const driver = driverFor(category, opts)
+    const { driver } = await driverFor(category, opts)
     const plan: StockPlan = {
       category,
       due: 0,
@@ -419,12 +355,12 @@ export const retentionStockService = {
     const now = opts.now ?? new Date()
     const batchSize = Math.max(1, opts.batchSize ?? 20)
     const limit = opts.limit ?? Number.POSITIVE_INFINITY
-    const driver = driverFor(category, opts)
+    const { driver, countsFindings } = await driverFor(category, opts)
     const result: StockApplyResult = {
       category,
       processed: 0,
       lastId: null,
-      ...(category === 'scan-evidence' ? { findings: 0 } : {}),
+      ...(countsFindings ? { findings: 0 } : {}),
     }
     let taken = 0
     for await (const page of driver.pages(now)) {

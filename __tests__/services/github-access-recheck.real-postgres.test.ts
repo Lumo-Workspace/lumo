@@ -28,10 +28,8 @@ jest.mock('@/lib/integrations/github', () => ({
 }))
 
 import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'
-import {
-  githubAppInstallationRepository,
-  prSecurityScanRepository,
-} from '@/lib/repositories'
+import { githubAppInstallationRepository } from '@/lib/repositories'
+import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
   createInstallationToken,
   checkRepositoryReadAccess,
