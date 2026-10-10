@@ -5,6 +5,7 @@
  */
 import { createHmac } from 'crypto'
 import {
+  isSlackResponseUrl,
   parseSlackRequestBody,
   verifySlackSignature,
 } from '@/lib/integrations/slack/request'
@@ -130,5 +131,22 @@ describe('parseSlackRequestBody', () => {
         'application/x-www-form-urlencoded'
       )
     ).toBe(null)
+  })
+})
+
+describe('isSlackResponseUrl', () => {
+  it('accepts only https://hooks.slack.com URLs', () => {
+    expect(isSlackResponseUrl('https://hooks.slack.com/commands/T1/1/x')).toBe(
+      true
+    )
+    expect(isSlackResponseUrl('http://hooks.slack.com/commands/T1/1/x')).toBe(
+      false
+    )
+    expect(isSlackResponseUrl('https://hooks.slack.com.evil.test/x')).toBe(
+      false
+    )
+    expect(isSlackResponseUrl('https://169.254.169.254/latest')).toBe(false)
+    expect(isSlackResponseUrl('not a url')).toBe(false)
+    expect(isSlackResponseUrl(undefined)).toBe(false)
   })
 })

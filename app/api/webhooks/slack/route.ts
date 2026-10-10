@@ -4,6 +4,7 @@ import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
 import { handleCommand, CommandResult } from '@/lib/integrations/slack'
 import {
+  isSlackResponseUrl,
   parseSlackRequestBody,
   verifySlackSignature,
 } from '@/lib/integrations/slack/request'
@@ -91,7 +92,10 @@ export async function POST(request: NextRequest) {
       channelId = payload.event.channel ?? ''
       slackUserId = payload.event.user ?? ''
     } else if (payload.command) {
-      // /lumo slash command
+      // /lumo slash command — reply only to a Slack-hosted response_url
+      if (!isSlackResponseUrl(payload.response_url)) {
+        return new NextResponse(null, { status: 200 })
+      }
       commandText = payload.text ?? ''
       responseUrl = payload.response_url ?? ''
       channelId = payload.channel_id ?? ''

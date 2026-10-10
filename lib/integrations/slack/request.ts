@@ -67,3 +67,17 @@ function asObject(value: unknown): SlackRequestPayload | null {
     ? (value as SlackRequestPayload)
     : null
 }
+
+/**
+ * A slash command's `response_url` must be Slack's own webhook host before
+ * Lumo POSTs a reply to it — defense in depth on top of the signature check.
+ */
+export function isSlackResponseUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.hostname === 'hooks.slack.com'
+  } catch {
+    return false
+  }
+}

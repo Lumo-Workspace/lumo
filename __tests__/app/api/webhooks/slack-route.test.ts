@@ -125,6 +125,18 @@ describe('POST /api/webhooks/slack', () => {
     expect(mockHandleCommand).not.toHaveBeenCalled()
   })
 
+  it('does not run or reply to a slash command whose response_url is not Slack', async () => {
+    const body = slashBody.replace(
+      encodeURIComponent('https://hooks.slack.com/commands/T1/1/abc'),
+      encodeURIComponent('https://169.254.169.254/latest')
+    )
+    const res = await POST(signed(body, FORM))
+    expect(res.status).toBe(200)
+    await Promise.all(pending)
+    expect(mockHandleCommand).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('rejects a replayed (stale) request (401)', async () => {
     const res = await POST(
       signed(slashBody, FORM, { ts: Math.floor(Date.now() / 1000) - 600 })
