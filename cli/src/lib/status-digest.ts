@@ -68,7 +68,9 @@ export function formatStatusDigest(input: StatusDigestInput): string[] {
   const blocking: string[] = []
   const unconfirmed: string[] = []
   if (input.crossings.status === 'ok') {
-    const ids = input.crossings.crossings.filter(c => c.blocking).map(c => c.id)
+    const ids = input.crossings.crossings
+      .filter(c => c.blocking)
+      .map(c => c.ref)
     if (ids.length > 0)
       blocking.push(
         `${plural(ids.length, 'boundary crossing')} (${ids.map(sanitizeField).join(', ')}) — the user rules`

@@ -186,6 +186,20 @@ describe('BoundaryCrossingsPanel', () => {
     expect(screen.getByTestId('boundary-confirm-bc-rep')).toBeInTheDocument()
   })
 
+  it('LUM-1059 shows the crossing ref on its row, and nothing for an unnumbered row', () => {
+    setCrossings([
+      { ...OPEN, id: 'bc-num', ref: 'LUM-X12' },
+      { ...OPEN, id: 'bc-legacy', ref: 'bc-legacy' },
+    ])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-1059' enabled />)
+    expect(screen.getByTestId('crossing-ref-bc-num')).toHaveTextContent(
+      'LUM-X12'
+    )
+    expect(
+      screen.queryByTestId('crossing-ref-bc-legacy')
+    ).not.toBeInTheDocument()
+  })
+
   it('shows no recurrence badge for a single-occurrence crossing (LUM-477)', () => {
     setCrossings([{ ...OPEN, id: 'bc-once', occurrenceCount: 1 }])
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-477' enabled />)

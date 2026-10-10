@@ -109,6 +109,8 @@ const EXPLAIN_SELECT = {
 /** Lightweight projection for the gate / write paths. */
 const SELECT = {
   id: true,
+  // LUM-1059: the per-workspace number behind the `<TEAM>-X<n>` ref.
+  number: true,
   taskId: true,
   category: true,
   detail: true,
@@ -165,7 +167,90 @@ const VIEW_SELECT = {
   // LUM-945: the AI triage score shown on the panel.
   triageProbability: true,
   triageModel: true,
+  // LUM-1059: the team key of the `<TEAM>-X<n>` ref.
+  task: { select: { team: { select: { identifier: true } } } },
 } as const
+
+/**
+ * LUM-1059: the workspace a new crossing numbers in — the task's, else the
+ * steward milestone's project's. Null only if neither resolves (the row is
+ * then stored without a number and readers fall back to the cuid).
+ */
+async function crossingWorkspaceId(
+  client: Prisma.TransactionClient,
+  input: CreateBoundaryCrossingInput
+): Promise<string | null> {
+  if (input.taskId) {
+    const task = await client.task.findUnique({
+      where: { id: input.taskId },
+      select: { workspaceId: true },
+    })
+    if (task) return task.workspaceId
+  }
+  if (input.milestoneId) {
+    const milestone = await client.milestone.findUnique({
+      where: { id: input.milestoneId },
+      select: { project: { select: { workspaceId: true } } },
+    })
+    if (milestone) return milestone.project.workspaceId
+  }
+  return null
+}
+
+async function insertCrossing(
+  client: Prisma.TransactionClient,
+  input: CreateBoundaryCrossingInput
+) {
+  // LUM-900: `detail` / `target` quote the raw command (a credential in it
+  // would be stored verbatim); `dispositionNote` is free text (LUM-898).
+  const stored = redactStoredFields(
+    {
+      detail: input.detail,
+      target: input.target ?? null,
+      dispositionNote: input.dispositionNote ?? null,
+    },
+    STORAGE_REDACTED_FIELDS.boundaryCrossing
+  )
+  const workspaceId = await crossingWorkspaceId(client, input)
+  // LUM-1059: the counter row lock serialises concurrent inserts, as
+  // Workspace.documentSeq does for documents.
+  const number = workspaceId
+    ? (
+        await client.workspace.update({
+          where: { id: workspaceId },
+          data: { crossingSeq: { increment: 1 } },
+          select: { crossingSeq: true },
+        })
+      ).crossingSeq
+    : null
+  return client.boundaryCrossing.create({
+    data: {
+      workspaceId,
+      number,
+      taskId: input.taskId,
+      milestoneId: input.milestoneId ?? null,
+      hookEventId: input.hookEventId ?? null,
+      sessionId: input.sessionId ?? null,
+      category: input.category,
+      detail: stored.detail,
+      target: stored.target,
+      reversible: input.reversible ?? false,
+      severity: input.severity,
+      // LUM-590: advisory crossings surface in the panel but never block DONE.
+      advisory: input.advisory ?? false,
+      policyRuleRef: input.policyRuleRef ?? null,
+      policyRuleText: input.policyRuleText ?? null,
+      // LUM-478: a system auto-resolution (AUTO_LEGIT) is stamped here with its
+      // timestamp/note but NO dispositionedById — the null actor is the
+      // audit-trail marker that this was a detector decision, not a human one.
+      disposition: input.disposition ?? null,
+      dispositionNote: stored.dispositionNote,
+      dispositionedAt: input.dispositionedAt ?? null,
+      suppressionRuleId: input.suppressionRuleId ?? null,
+    },
+    select: SELECT,
+  })
+}
 
 /**
  * Persistence for boundary-crossing markers (LUM-426/435). The marker mirrors
@@ -178,42 +263,8 @@ export const boundaryCrossingRepository = {
     input: CreateBoundaryCrossingInput,
     tx?: Prisma.TransactionClient
   ) {
-    const client = tx ?? prisma
-    // LUM-900: `detail` / `target` quote the raw command (a credential in it
-    // would be stored verbatim); `dispositionNote` is free text (LUM-898).
-    const stored = redactStoredFields(
-      {
-        detail: input.detail,
-        target: input.target ?? null,
-        dispositionNote: input.dispositionNote ?? null,
-      },
-      STORAGE_REDACTED_FIELDS.boundaryCrossing
-    )
-    return client.boundaryCrossing.create({
-      data: {
-        taskId: input.taskId,
-        milestoneId: input.milestoneId ?? null,
-        hookEventId: input.hookEventId ?? null,
-        sessionId: input.sessionId ?? null,
-        category: input.category,
-        detail: stored.detail,
-        target: stored.target,
-        reversible: input.reversible ?? false,
-        severity: input.severity,
-        // LUM-590: advisory crossings surface in the panel but never block DONE.
-        advisory: input.advisory ?? false,
-        policyRuleRef: input.policyRuleRef ?? null,
-        policyRuleText: input.policyRuleText ?? null,
-        // LUM-478: a system auto-resolution (AUTO_LEGIT) is stamped here with its
-        // timestamp/note but NO dispositionedById — the null actor is the
-        // audit-trail marker that this was a detector decision, not a human one.
-        disposition: input.disposition ?? null,
-        dispositionNote: stored.dispositionNote,
-        dispositionedAt: input.dispositionedAt ?? null,
-        suppressionRuleId: input.suppressionRuleId ?? null,
-      },
-      select: SELECT,
-    })
+    if (tx) return insertCrossing(tx, input)
+    return prisma.$transaction(client => insertCrossing(client, input))
   },
 
   /**
@@ -547,6 +598,35 @@ export const boundaryCrossingRepository = {
     })
   },
 
+  /**
+   * LUM-1059: the cuid of a task's crossing by its `<TEAM>-X<n>` number. When
+   * the ref named a team, the task must belong to it (a foreign prefix finds
+   * nothing — the LUM-821 rule). Null when nothing matches.
+   */
+  async findIdByTaskAndNumber(
+    taskId: string,
+    number: number,
+    teamIdentifier: string | null
+  ): Promise<string | null> {
+    const row = await prisma.boundaryCrossing.findFirst({
+      where: {
+        taskId,
+        number,
+        ...(teamIdentifier
+          ? {
+              task: {
+                team: {
+                  identifier: { equals: teamIdentifier, mode: 'insensitive' },
+                },
+              },
+            }
+          : {}),
+      },
+      select: { id: true },
+    })
+    return row?.id ?? null
+  },
+
   async findById(id: string) {
     return prisma.boundaryCrossing.findUnique({ where: { id }, select: SELECT })
   },
@@ -870,6 +950,7 @@ export const boundaryCrossingRepository = {
       where: { taskId, disposition: null, agentNotifiedAt: null },
       select: {
         id: true,
+        number: true,
         category: true,
         severity: true,
         advisory: true,

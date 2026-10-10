@@ -115,7 +115,7 @@ export async function crossingExplain(
       return 1
     }
     process.stdout.write(
-      `✓ Recorded an explanation on crossing ${sanitizeField(result.crossingId)}.\n` +
+      `✓ Recorded an explanation on crossing ${sanitizeField(only.id)}.\n` +
         '  This is an append-only note for the human reviewer — it does not clear ' +
         'the crossing or unblock Done. Once the user rules, record it with ' +
         '`lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope) ' +
@@ -133,7 +133,7 @@ export async function crossingExplain(
   for (const item of items) {
     const result = await postExplanation(base, headers, taskId, item)
     if (result.ok) {
-      lines.push(`  ✓ ${sanitizeField(result.crossingId)}`)
+      lines.push(`  ✓ ${sanitizeField(item.id)}`)
     } else {
       failed++
       lines.push(

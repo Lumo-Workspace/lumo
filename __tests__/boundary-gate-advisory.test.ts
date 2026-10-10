@@ -15,15 +15,20 @@ const mockCreate = jest.fn()
 const mockFindMany = jest.fn()
 const mockFindFirst = jest.fn()
 
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: {
+jest.mock('@/lib/db/prisma', () => {
+  const client: any = {
     boundaryCrossing: {
       create: (...args: any[]) => mockCreate(...args),
       findMany: (...args: any[]) => mockFindMany(...args),
       findFirst: (...args: any[]) => mockFindFirst(...args),
     },
-  },
-}))
+    // LUM-1059: create allocates the crossing number in a transaction.
+    task: { findUnique: async () => ({ workspaceId: 'w1' }) },
+    workspace: { update: async () => ({ crossingSeq: 1 }) },
+  }
+  client.$transaction = (fn: (tx: any) => unknown) => fn(client)
+  return { prisma: client }
+})
 
 beforeEach(() => {
   jest.clearAllMocks()

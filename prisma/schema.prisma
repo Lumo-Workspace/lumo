@@ -333,6 +333,9 @@ model Workspace {
   // Mirrors Team.taskSeq. Atomic increment inside the create transaction
   // serialises concurrent inserts without contention on a SELECT MAX query.
   documentSeq Int      @default(0)
+  // LUM-1059: per-workspace counter for BoundaryCrossing.number (the
+  // human-readable `<TEAM>-X<n>` ref). Same allocation pattern as documentSeq.
+  crossingSeq Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1443,6 +1446,13 @@ model TaskActivity {
  */
 model BoundaryCrossing {
   id                String                       @id @default(cuid())
+  // LUM-1059: the human-readable ref `<TEAM>-X<number>`. `number` is allocated
+  // from Workspace.crossingSeq inside the create transaction; `workspaceId` is
+  // denormalised from the task (or the milestone's project) so the pair can be
+  // unique. Nullable only for rows the backfill could not place — readers fall
+  // back to the cuid. The cuid stays the key everywhere else.
+  workspaceId       String?
+  number            Int?
   // Nullable since LUM-640: a STEWARD_IMPLEMENTATION_ARTIFACT crossing has no
   // task — the steward session is milestone-bound, so the crossing attaches to
   // `milestoneId` instead. Every task-scoped detector still writes a taskId;
@@ -1526,6 +1536,7 @@ model BoundaryCrossing {
   @@index([rawPurgedAt, dispositionedAt])
   // LUM-945: the triage sweep's candidate scan (open, not yet triaged).
   @@index([triagedAt, disposition])
+  @@unique([workspaceId, number])
   @@map("boundary_crossings")
 }
 

@@ -6,10 +6,13 @@ import { emitConfirmation } from '../lib/confirmation'
 import { resolveBoundTask } from '../lib/bound-task'
 import { dispositionUrl } from '../lib/open-crossings'
 import {
+  crossingLabel,
+  crossingMatches,
   formatReceiptMap,
   isReceiptMap,
   parseReceiptMap,
   readCrossings,
+  receiptFor,
   requestReceipt,
   type CrossingDispositionTarget,
   type CrossingForDisposition,
@@ -79,18 +82,12 @@ export async function crossingDispositionBatch(
       return 1
     }
     receipts = parsed
-    const wrongStage: string[] = []
-    for (const [id, token] of receipts) {
-      if (!ids.includes(id)) continue
-      if (step === 3 && token.startsWith('r1.')) wrongStage.push(id)
-      if (step === 2 && token.startsWith('r2.')) wrongStage.push(id)
-    }
+    const wrongStage = [...receipts]
+      .filter(([id]) => ids.some(typed => sameId(typed, id)))
+      .filter(([, token]) => isWrongStage(step, token))
+      .map(([id]) => id)
     if (wrongStage.length > 0) {
-      console.error(
-        step === 3
-          ? `Error: read not yet acknowledged for ${wrongStage.map(sanitizeField).join(', ')} — these are stage-1 receipts. Run --confirm-read with them first (after the user confirms they read the envelope); only the receipts that step returns are accepted with --confirm.`
-          : `Error: these receipts already acknowledge the read (${wrongStage.map(sanitizeField).join(', ')}) — the next step is --confirm with the same receipts (after the user approves the ruling).`
-      )
+      console.error(wrongStageError(step, wrongStage))
       return 1
     }
   }
@@ -128,7 +125,9 @@ export async function crossingDispositionBatch(
     )
     return 1
   }
-  const missing = ids.filter(id => !read.crossings.some(c => c.id === id))
+  const missing = ids.filter(
+    id => !read.crossings.some(c => crossingMatches(c, id))
+  )
   if (missing.length > 0) {
     console.error(
       `Error: ${missing.length === 1 ? 'crossing' : 'crossings'} ${missing.map(sanitizeField).join(', ')} not found on ${taskId} — nothing was written. Ids are listed by \`lumo task status ${taskId}\`; drop the unknown ${missing.length === 1 ? 'id' : 'ids'} from the command.`
@@ -137,9 +136,16 @@ export async function crossingDispositionBatch(
   }
   const batch: CrossingForDisposition[] = []
   const already: string[] = []
+  // Every crossing the command names, once — the same crossing named twice
+  // (ref and cuid) joins once.
+  const named: CrossingForDisposition[] = []
   for (const id of ids) {
-    const c = read.crossings.find(x => x.id === id) as CrossingForDisposition
-    if (c.disposition === target) already.push(id)
+    const c = read.crossings.find(x =>
+      crossingMatches(x, id)
+    ) as CrossingForDisposition
+    if (named.some(n => n.id === c.id)) continue
+    named.push(c)
+    if (c.disposition === target) already.push(crossingLabel(c))
     else batch.push(c)
   }
   const alreadyLine =
@@ -153,18 +159,29 @@ export async function crossingDispositionBatch(
     return
   }
   if (step > 1) {
-    const noReceipt = batch.filter(c => !receipts.has(c.id)).map(c => c.id)
+    // LUM-1059: the ids and the receipt keys may name a crossing in different
+    // forms (ref vs cuid) — re-check the stage per crossing once it is known.
+    const noReceipt = batch
+      .filter(c => !receiptFor(receipts, c))
+      .map(crossingLabel)
     if (noReceipt.length > 0) {
       console.error(
         `Error: --receipt carries no receipt for ${noReceipt.map(sanitizeField).join(', ')} — a crossing can only join a batch at the first step. Drop ${noReceipt.length === 1 ? 'it' : 'them'} from the command, or re-run without any step flag to start the handshake again. Nothing was written.`
       )
       return 1
     }
+    const lateWrongStage = batch
+      .filter(c => isWrongStage(step, receiptFor(receipts, c) as string))
+      .map(crossingLabel)
+    if (lateWrongStage.length > 0) {
+      console.error(wrongStageError(step, lateWrongStage))
+      return 1
+    }
   }
 
   const total = batch.length
   const heading = (i: number, c: CrossingForDisposition) =>
-    `── [${i + 1}/${total}] crossing ${sanitizeField(c.id)} ──`
+    `── [${i + 1}/${total}] crossing ${sanitizeField(crossingLabel(c))} ──`
 
   if (step === 1 || step === 2) {
     const issued = new Map<string, string>()
@@ -178,13 +195,15 @@ export async function crossingDispositionBatch(
     for (const [i, c] of batch.entries()) {
       const res = await requestReceipt(base, headers, taskId, c.id, {
         disposition: target,
-        ...(step === 2 ? { acknowledge: receipts.get(c.id) as string } : {}),
+        ...(step === 2
+          ? { acknowledge: receiptFor(receipts, c) as string }
+          : {}),
       })
       if (res.status === 'error') {
-        errors.push(`  ✗ ${sanitizeField(c.id)} — ${res.reason}`)
+        errors.push(`  ✗ ${sanitizeField(crossingLabel(c))} — ${res.reason}`)
         continue
       }
-      issued.set(c.id, res.receipt)
+      issued.set(crossingLabel(c), res.receipt)
       if (res.expiresAt) expiries.push(res.expiresAt)
       changes.push(heading(i, c))
       changes.push(
@@ -230,19 +249,21 @@ export async function crossingDispositionBatch(
     const result = await postRuling(base, headers, taskId, c.id, {
       disposition: target,
       ...(note ? { dispositionNote: note } : {}),
-      receipt: receipts.get(c.id) as string,
+      receipt: receiptFor(receipts, c) as string,
     })
     if (result.ok) {
       if (!c.advisory) clearedBlocks++
       lines.push(
-        `  ✓ ${sanitizeField(c.id)} → ${result.disposition ?? 'OPEN'}${c.advisory ? ' (advisory — never blocked DONE)' : ''}`
+        `  ✓ ${sanitizeField(crossingLabel(c))} → ${result.disposition ?? 'OPEN'}${c.advisory ? ' (advisory — never blocked DONE)' : ''}`
       )
     } else {
       failed++
-      lines.push(`  ✗ ${sanitizeField(c.id)} — ${result.reason}`)
+      lines.push(`  ✗ ${sanitizeField(crossingLabel(c))} — ${result.reason}`)
     }
   }
-  const ignored = [...receipts.keys()].filter(id => !ids.includes(id))
+  const ignored = [...receipts.keys()].filter(
+    key => !named.some(c => crossingMatches(c, key))
+  )
   const url = dispositionUrl(apiUrl, creds.workspaceSlug ?? '', taskId)
   process.stdout.write(
     `${failed === 0 ? '✓' : '✗'} Dispositioned ${total - failed} of ${total} crossings on ${taskId} as ${target} (read acknowledged and rulings approved via CLI):\n` +
@@ -263,6 +284,25 @@ export async function crossingDispositionBatch(
   // LUM-842: once for the whole batch — what still blocks DONE.
   await printStatusDigest(base, creds.token, taskId)
   return failed > 0 ? 1 : undefined
+}
+
+/** Same crossing id as typed — refs compare in any case (LUM-1059). */
+function sameId(a: string, b: string): boolean {
+  return a === b || a.toUpperCase() === b.toUpperCase()
+}
+
+/** A receipt from the wrong handshake stage for this step. */
+function isWrongStage(step: number, token: string): boolean {
+  return (
+    (step === 3 && token.startsWith('r1.')) ||
+    (step === 2 && token.startsWith('r2.'))
+  )
+}
+
+function wrongStageError(step: number, ids: string[]): string {
+  return step === 3
+    ? `Error: read not yet acknowledged for ${ids.map(sanitizeField).join(', ')} — these are stage-1 receipts. Run --confirm-read with them first (after the user confirms they read the envelope); only the receipts that step returns are accepted with --confirm.`
+    : `Error: these receipts already acknowledge the read (${ids.map(sanitizeField).join(', ')}) — the next step is --confirm with the same receipts (after the user approves the ruling).`
 }
 
 type PostResult =
