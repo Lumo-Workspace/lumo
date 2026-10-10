@@ -187,7 +187,7 @@ const STDERR_REDIRECT_TOKENS = ['2>/dev/null', '2>&1'] as const
  *     re-quoting or interpolating it between the check and the run voids the
  *     check — the gate would have parsed a different string than the one that
  *     runs.
- * `__tests__/security-scan/hunt/shell-exec-boundary.test.ts` holds this.
+ * `__tests__/ee/security/security-scan/hunt/shell-exec-boundary.test.ts` holds this.
  */
 export const HUNT_SHELL_BIN = 'sh'
 export const HUNT_SHELL_FLAG = '-c'

@@ -11,11 +11,30 @@
  * count it as `skipped`, the same way they already treat schema-invalid
  * content — one poisoned row must not abort an LLM batch.
  */
+// LUM-1064: core-only (the stored policy is a fake test plugin); no plugin cases.
+// LUM-1063: the write gate reads the stored policy through the
+// `policyRuleSource` extension point. A fake test plugin stands in for it
+// (the core runs with no real plugin installed); `mockLatestPolicy` is the
+// stored policy row its `storedRules` reads.
 const mockLatestPolicy = jest.fn()
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
-  projectPolicyRepository: {
-    latestForProject: (...a: any[]) => mockLatestPolicy(...a),
-  },
+jest.mock('@/lib/plugins/installed', () => ({
+  INSTALLED_SERVER_PLUGINS: [
+    {
+      id: 'test-policy-rules',
+      register(api: PluginRegistrar) {
+        api.policyRuleSource({
+          id: 'test-policy-rules',
+          rulesForTask: async () => [],
+          storedRules: async (projectId: string) => {
+            const policy = await mockLatestPolicy(projectId)
+            return policy ? policy.rules : null
+          },
+          ruleTextByRef: async () => null,
+          readSource: async () => null,
+        })
+      },
+    },
+  ],
 }))
 
 jest.mock('@/lib/services/memory/canonicalize-language', () => ({
@@ -65,6 +84,7 @@ jest.mock('@/lib/ai/embedding', () => ({
   embedTexts: async () => [[0.1, 0.2]],
 }))
 
+import type { PluginRegistrar } from '@/lib/plugins/types'
 import { memoryManagementService } from '@/lib/services/memory-management.service'
 import { applyLayer1Operations } from '@/lib/services/memory/layer1-apply'
 import { applyLayer2Operations } from '@/lib/services/memory/layer2-apply'

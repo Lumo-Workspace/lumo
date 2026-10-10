@@ -8,6 +8,7 @@
  *   (b) GENERATE: null systemExplanation → calls LLM once, persists, returns.
  * Non-vacuous: stateful mock for findForExplanation.
  */
+// LUM-1064: core-only (the explainer is a fake test plugin); no plugin cases.
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     findForExplanation: jest.fn(),
@@ -51,12 +52,25 @@ jest.mock('@/lib/utils/sanitize', () => ({
   sanitizeField: (s: string) => s,
 }))
 
-// LLM client — dynamic import mocked at the module level.
+// LUM-1063/1064: the explanation comes from the `crossingExplainer`
+// extension point. A fake test plugin stands in for the explainer (the core
+// runs with no real plugin installed); `mockExplainLLM` is its LLM.
 const mockExplainLLM = jest.fn()
-jest.mock('@/lib/llm/crossing-explain-client', () => ({
-  explainCrossing: (...args: unknown[]) => mockExplainLLM(...args),
+jest.mock('@/lib/plugins/installed', () => ({
+  INSTALLED_SERVER_PLUGINS: [
+    {
+      id: 'test-explainer',
+      register(api: PluginRegistrar) {
+        api.crossingExplainer({
+          id: 'test-explainer',
+          explain: (input: unknown) => mockExplainLLM(input),
+        })
+      },
+    },
+  ],
 }))
 
+import type { PluginRegistrar } from '@/lib/plugins/types'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
 

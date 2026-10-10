@@ -14,7 +14,7 @@ import {
   scanSecrets,
 } from '@/lib/security-scan/scan-secrets'
 import { detectCrossings } from '@/lib/services/boundary-detector.service'
-import type { AddedFile } from '@/lib/security-scan/types'
+import type { AddedFile } from '@/lib/diff/diff-lines'
 
 const AWS_KEY = ['AK', 'IA', 'Q', 'R'.repeat(15)].join('')
 const GH_TOKEN = ['gh', 'p_', 'a1B2c3D4e5'.repeat(3), 'f6G7h8I9j0'].join('')

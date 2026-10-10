@@ -23,9 +23,8 @@ jest.mock('@/lib/services/task-context.service', () => ({
 jest.mock('@/lib/services/task-dependency.service', () => ({
   taskDependencyService: {},
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
-  prSecurityReminderService: {},
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))

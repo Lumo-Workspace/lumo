@@ -9,6 +9,9 @@
  * The real token layer runs (auth.ts + confirmed-repositories.ts); only the
  * installation row, the persistence layer and the network are stubbed.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/lum883-entry-points.test.ts.
+// The cases that also pin the security scan dispatch moved there verbatim;
+// the `(core, no plugin)` twins below keep their core facts here.
 jest.mock('@octokit/auth-app', () => ({
   createAppAuth: jest.fn(),
 }))
@@ -36,9 +39,8 @@ jest.mock('@/lib/services/github.service', () => ({
     isRepoConfirmedElsewhere: jest.fn().mockResolvedValue(false),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories', () => ({
   projectRepository: {
@@ -64,7 +66,6 @@ import { githubAppInstallationRepository } from '@/lib/repositories/github-app-i
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { projectRepository } from '@/lib/repositories'
 import { loadProjectAndMember } from '@/lib/api/helpers'
@@ -87,7 +88,6 @@ function noSideEffects() {
   expect(pullRequestRepository.updateTaskId).not.toHaveBeenCalled()
   expect(projectRepository.createRepository).not.toHaveBeenCalled()
   expect(projectRepository.clearDefaultRepositories).not.toHaveBeenCalled()
-  expect(dispatchPrSecurityScan).not.toHaveBeenCalled()
   expect(waitUntil).not.toHaveBeenCalled()
 }
 
@@ -128,7 +128,7 @@ afterEach(() => {
 })
 
 describe('LUM-883 entry points refuse an unconfirmed repository', () => {
-  it('task PR link by URL is refused with 403', async () => {
+  it('task PR link by URL is refused with 403 (core, no plugin)', async () => {
     await expect(
       linkPullRequest('task_1', { url: UNCONFIRMED_URL })
     ).rejects.toMatchObject({ status: 403, code: 'repo_not_confirmed' })
@@ -137,7 +137,7 @@ describe('LUM-883 entry points refuse an unconfirmed repository', () => {
     noSideEffects()
   })
 
-  it('project repository add is refused with 403', async () => {
+  it('project repository add is refused with 403 (core, no plugin)', async () => {
     const { NextRequest } = jest.requireActual('next/server')
     const res = await addProjectRepository(
       new NextRequest('http://localhost/api/projects/proj_1/repositories', {
@@ -153,7 +153,7 @@ describe('LUM-883 entry points refuse an unconfirmed repository', () => {
     noSideEffects()
   })
 
-  it('project repository add answers 400 when the App is not installed', async () => {
+  it('project repository add answers 400 when the App is not installed (core, no plugin)', async () => {
     findByWorkspace.mockResolvedValue(null)
     const { NextRequest } = jest.requireActual('next/server')
     const res = await addProjectRepository(
@@ -182,7 +182,7 @@ describe('LUM-883 entry points still accept a confirmed repository', () => {
     base: { ref: 'main' },
   }
 
-  it('task PR link by URL of a confirmed repository (any case) fetches, links and scans', async () => {
+  it('task PR link by URL of a confirmed repository (any case) fetches and links (core, no plugin)', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
@@ -216,7 +216,8 @@ describe('LUM-883 entry points still accept a confirmed repository', () => {
       'pr_1',
       'task_1'
     )
-    expect(dispatchPrSecurityScan).toHaveBeenCalledWith('pr_1', 'PR_LINK')
+    // No plugin: nothing subscribes to task.prLinked, so no scan is started.
+    expect(waitUntil).not.toHaveBeenCalled()
   })
 
   it('project repository add of a confirmed repository is written', async () => {

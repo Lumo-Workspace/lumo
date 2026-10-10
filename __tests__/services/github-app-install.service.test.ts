@@ -19,14 +19,34 @@ jest.mock('@/lib/repositories', () => ({
   },
 }))
 // LUM-855: uninstall scrubs the workspace's scan code (real-DB coverage in
-// __tests__/lib/services/github-app-uninstall-scrub.test.ts). LUM-1061: the
-// security plugin reads the repository directly, not through the barrel.
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
-  prSecurityScanRepository: {
-    scrubCodeForWorkspace: jest
-      .fn()
-      .mockResolvedValue({ scans: 0, findings: 0 }),
-  },
+// __tests__/lib/services/github-app-uninstall-scrub.test.ts).
+// LUM-1064: core test, run without the security plugin (the OSS build). The
+// scan-code scrub reaches the core only through the plugin retention
+// extension point (`retention.scrubRepositoryCode`), so a fake plugin stands
+// in there, backed by a local test double named like the scan repository so
+// the fail-closed / call-order assertions below read exactly as before. Real
+// plugin wiring: __tests__/ee/security/services/*.real-postgres.test.ts.
+const mockScrubCodeForWorkspace = jest
+  .fn()
+  .mockResolvedValue({ scans: 0, findings: 0 })
+const prSecurityScanRepository = {
+  scrubCodeForWorkspace: mockScrubCodeForWorkspace,
+}
+jest.mock('@/lib/plugins/installed', () => ({
+  INSTALLED_SERVER_PLUGINS: [
+    {
+      id: 'test-scan-code',
+      register(api: import('@/lib/plugins/types').PluginRegistrar) {
+        api.retention({
+          key: 'testScanCode',
+          async scrubRepositoryCode({ workspaceId, repos }) {
+            const counts = await mockScrubCodeForWorkspace(workspaceId, repos)
+            return { scan: counts.scans, finding: counts.findings }
+          },
+        })
+      },
+    },
+  ],
 }))
 // LUM-881: the real listing (app-installations.ts) can be swapped in per test;
 // it only needs an installation token.
@@ -77,7 +97,6 @@ import {
 import { SYSTEM_AUDIT_CONTEXT } from '@/lib/services/audit.service'
 import { githubService } from '@/lib/services/github.service'
 import { githubAppInstallationRepository } from '@/lib/repositories'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
   fetchAppInstallation,
   fetchInstallationRepositories,

@@ -48,11 +48,8 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
     buildBlockerWarningSectionForTask: jest.fn(async () => ''),
   },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
-  prSecurityReminderService: {
-    buildSessionStartSection: jest.fn(async () => ''),
-  },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'

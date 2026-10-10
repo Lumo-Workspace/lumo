@@ -13,72 +13,16 @@
  *     re-judge are core and work;
  *   - a system explanation is refused 501; the memory write gate has no
  *     policy rules; an IN_REVIEW status change starts nothing.
- * Every plugin module is mocked with functions that throw, and each test
- * asserts none was called — a stray call into the plugin fails the suite.
+ *
+ * LUM-1064: core copy — runs with no plugin module mocked at all (the OSS
+ * snapshot ships none). The plugin half, __tests__/ee/security/lib/plugins/
+ * no-plugins-crossings-lum1063.test.ts, additionally mocks every plugin
+ * module with functions that throw and asserts none was called.
  */
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
 jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
-
-const pluginCalls: string[] = []
-function pluginModule(name: string, fns: string[]) {
-  return Object.fromEntries(
-    fns.map(fn => [
-      fn,
-      jest.fn(() => {
-        pluginCalls.push(`${name}.${fn}`)
-        throw new Error(`plugin module called: ${name}.${fn}`)
-      }),
-    ])
-  )
-}
-jest.mock('@/lib/boundary-crossing/action-confirm', () =>
-  pluginModule('action-confirm', [
-    'confirmActionCrossing',
-    'isActionConfirmCategory',
-    'stripProse',
-  ])
-)
-jest.mock('@/lib/boundary-crossing/sensitive-read', () =>
-  pluginModule('sensitive-read', [
-    'detectSensitiveReads',
-    'detectProjectSensitiveReads',
-  ])
-)
-jest.mock('@/lib/boundary-crossing/untrusted-code', () =>
-  pluginModule('untrusted-code', ['matchUntrustedCodeExecution'])
-)
-jest.mock('@/lib/boundary-crossing/destructive-fs', () =>
-  pluginModule('destructive-fs', ['matchDestructiveFs'])
-)
-jest.mock('@/lib/boundary-crossing/action-rule-match', () =>
-  pluginModule('action-rule-match', ['matchActionRule'])
-)
-jest.mock('@/lib/boundary-crossing/push-target-match', () =>
-  pluginModule('push-target-match', ['matchPushTarget'])
-)
-jest.mock('@/lib/llm/action-confirm-client', () =>
-  pluginModule('action-confirm-client', ['confirmActionExecuted'])
-)
-jest.mock('@/lib/llm/crossing-explain-client', () =>
-  pluginModule('crossing-explain-client', ['explainCrossing'])
-)
-jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
-  policyCompilerService: pluginModule('policy-compiler', [
-    'ensureCompiled',
-    'readSource',
-  ]),
-}))
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
-  projectPolicyRepository: pluginModule('project-policy', [
-    'latestForProject',
-    'findRuleTextByRef',
-  ]),
-}))
-jest.mock('@/lib/services/policy/policy-check-dispatch', () =>
-  pluginModule('policy-check-dispatch', ['dispatchPolicyCheck'])
-)
 
 // --- core repositories ---------------------------------------------------------
 const created: Array<Record<string, unknown>> = []
@@ -99,9 +43,9 @@ jest.mock('@/lib/repositories/task.repository', () => ({
     })),
   },
 }))
-const findDefaultRepository = jest.fn(async (..._a: unknown[]) => ({
-  fullName: 'o/r',
-}))
+const findDefaultRepository = jest.fn<Promise<{ fullName: string }>, unknown[]>(
+  async () => ({ fullName: 'o/r' })
+)
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
     findDefaultRepository: (...a: unknown[]) => findDefaultRepository(...a),
@@ -187,16 +131,12 @@ async function record(e: (typeof CORPUS)[number]) {
 }
 
 beforeEach(() => {
-  pluginCalls.length = 0
   findOpen.mockReset().mockResolvedValue([])
   downgrade.mockReset().mockResolvedValue(1)
   listPrs.mockReset().mockResolvedValue([])
   fetchPrFiles.mockReset().mockResolvedValue([])
   findForExplanation.mockReset()
   findDefaultRepository.mockClear()
-})
-afterEach(() => {
-  expect(pluginCalls).toEqual([])
 })
 
 describe('LUM-1063 crossings without a plugin', () => {

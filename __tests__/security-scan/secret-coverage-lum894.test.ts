@@ -1,8 +1,8 @@
 /** @jest-environment node */
-// `@octokit/auth-app` is ESM-only and the sandbox module imports it transitively.
-jest.mock('@/lib/integrations/github/auth', () => ({
-  getRepoToken: jest.fn(),
-}))
+// LUM-1064: plugin cases live in __tests__/ee/security/security-scan/secret-coverage-lum894.test.ts.
+// The cases that also run the hunt sandbox's sanitizeHuntOutput live there
+// verbatim; the "(core entry points)" copies below keep the same assertions
+// over the core redaction entry points.
 
 import {
   redactForInjection,
@@ -14,7 +14,6 @@ import {
 import { secretFingerprint } from '@/lib/security-scan/redact'
 import { redactHookPayload } from '@/lib/validation/hook-payload'
 import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
-import { sanitizeHuntOutput } from '@/lib/services/security-hunt-sandbox'
 
 // Every credential-shaped value below is assembled at runtime from a seeded
 // generator and split prefixes, so no literal in this file looks like a real
@@ -54,7 +53,6 @@ const ENTRY_POINTS: EntryPoint[] = [
   ],
   ['redactForInjection', t => redactForInjection(t).text],
   ['redactKnownSecrets', t => redactKnownSecrets(t)],
-  ['sanitizeHuntOutput', t => sanitizeHuntOutput(t, '')],
 ]
 
 /** Stored copy of a hook event, as the hook handler builds it. */
@@ -146,7 +144,7 @@ describe('LUM-894 private keys split across array elements', () => {
 })
 
 describe('LUM-894 prefixed and headless private key bodies', () => {
-  test('LUM-894 prefixed and headless private key bodies are redacted', () => {
+  test('LUM-894 prefixed and headless private key bodies are redacted (core entry points)', () => {
     const body = bodyLines(700, 25)
     const tailShort = gen(B64, 40, 777) + '=='
     const truncated = [begin(RSA), ...body]
@@ -437,7 +435,7 @@ describe('LUM-894 missed credential shapes', () => {
     'grep -q "^CLERK_SECRET=" .env.local && echo "set"',
   ]
 
-  test('LUM-894 missed credential shapes are redacted without touching benign code', () => {
+  test('LUM-894 missed credential shapes are redacted without touching benign code (core entry points)', () => {
     for (const c of cases) {
       const outputs: Record<string, string> = {}
       for (const [name, redact] of ENTRY_POINTS) outputs[name] = redact(c.line)

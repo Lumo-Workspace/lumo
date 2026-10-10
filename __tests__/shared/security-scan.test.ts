@@ -3,7 +3,7 @@ import {
   EXTERNAL_ERROR_PREFIX,
   externalFailureReason,
 } from '../../shared/src/security-scan'
-import { EXTERNAL_ERROR_PREFIX as LIB_PREFIX } from '../../lib/security-scan/stages'
+// LUM-1064: plugin cases live in __tests__/ee/security/shared/security-scan.test.ts.
 
 /**
  * LUM-756 — the P8 provenance rule for `PrSecurityScan.error`, shared by the
@@ -25,10 +25,5 @@ describe('externalFailureReason', () => {
     expect(externalFailureReason(undefined)).toBeNull()
     expect(externalFailureReason('')).toBeNull()
     expect(externalFailureReason(EXTERNAL_ERROR_PREFIX)).toBeNull()
-  })
-
-  it('is the same constant lib/security-scan/stages re-exports', () => {
-    expect(LIB_PREFIX).toBe(EXTERNAL_ERROR_PREFIX)
-    expect(EXTERNAL_ERROR_PREFIX).toBe('external: ')
   })
 })

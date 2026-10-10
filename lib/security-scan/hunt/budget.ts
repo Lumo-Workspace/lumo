@@ -2,7 +2,7 @@
  * LUM-787 — the token arithmetic of the hunt's tool loop, as pure functions.
  *
  * The predictive stop in `lib/llm/security-hunt-client.ts` runs on these;
- * `__tests__/security-scan/hunt/budget-arithmetic.test.ts` walks a simulated
+ * `__tests__/ee/security/security-scan/hunt/budget-arithmetic.test.ts` walks a simulated
  * search on the same functions and the shipped constants, so the constants
  * are judged against the arithmetic production runs. They live here rather
  * than in the client because the client statically imports `ai`, which the

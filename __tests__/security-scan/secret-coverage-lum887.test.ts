@@ -1,8 +1,8 @@
 /** @jest-environment node */
-// `@octokit/auth-app` is ESM-only and the sandbox module imports it transitively.
-jest.mock('@/lib/integrations/github/auth', () => ({
-  getRepoToken: jest.fn(),
-}))
+// LUM-1064: plugin cases live in __tests__/ee/security/security-scan/secret-coverage-lum887.test.ts.
+// The cases that also run the hunt sandbox's sanitizeHuntOutput live there
+// verbatim; the "(core entry points)" copies below keep the same assertions
+// over the core redaction entry points.
 
 import {
   redactForInjection,
@@ -11,7 +11,6 @@ import {
   scanSecrets,
 } from '@/lib/security-scan/scan-secrets'
 import { redactHookPayload } from '@/lib/validation/hook-payload'
-import { sanitizeHuntOutput } from '@/lib/services/security-hunt-sandbox'
 
 // Every credential-shaped value below is assembled at runtime from a seeded
 // generator and split prefixes, so no literal in this file looks like a real
@@ -59,11 +58,10 @@ const ENTRY_POINTS: EntryPoint[] = [
   ],
   ['redactForInjection', t => redactForInjection(t).text],
   ['redactKnownSecrets', t => redactKnownSecrets(t)],
-  ['sanitizeHuntOutput', t => sanitizeHuntOutput(t, '')],
 ]
 
 describe('LUM-887 private key blocks', () => {
-  test('LUM-887 private key block body never survives any redaction entry point', () => {
+  test('LUM-887 private key block body never survives any redaction entry point (core entry points)', () => {
     let seed = 100
     for (const label of LABELS) {
       const body = bodyLines(seed)
@@ -102,7 +100,7 @@ describe('LUM-887 private key blocks', () => {
 })
 
 describe('LUM-887 truncated private key blocks', () => {
-  test('LUM-887 truncated private key block body is redacted', () => {
+  test('LUM-887 truncated private key block body is redacted (core entry points)', () => {
     const label = 'RSA PRIVATE KEY'
     const body = bodyLines(300, 3)
     const partial = gen(B64, 21, 999) // a line cut mid-way by a cap
@@ -234,13 +232,12 @@ describe('LUM-887 unquoted and unprefixed credential shapes', () => {
     },
   ]
 
-  test('LUM-887 previously missed credential shapes are redacted', () => {
+  test('LUM-887 previously missed credential shapes are redacted (core entry points)', () => {
     for (const c of cases) {
       const outputs = {
         storage: redactForStorage(c.line).text,
         injection: redactForInjection(c.line).text,
         known: redactKnownSecrets(c.line),
-        hunt: sanitizeHuntOutput(c.line, ''),
       }
       for (const [name, out] of Object.entries(outputs))
         expect([c.rule, name, out.includes(c.value)]).toEqual([

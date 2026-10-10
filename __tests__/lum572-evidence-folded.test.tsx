@@ -1,10 +1,11 @@
 /** @jest-environment jsdom */
 /**
  * LUM-572 → LUM-1009 — the dossier's evidence (Agent runs / Lineage causality /
- * Injected team memory) and the security scan report are flat rows in the
- * Record tab's Records section: one fold level, collapsed by default, no
- * "Run report" group or "Evidence & causality" heading around them. A legacy
- * deep link still expands its targeted row. Renders the REAL RecordTab.
+ * Injected team memory) are flat rows in the Record tab's Records section: one
+ * fold level, collapsed by default, no "Run report" group or "Evidence &
+ * causality" heading around them. A legacy deep link still expands its
+ * targeted row. Renders the REAL RecordTab, without the security plugin; the
+ * Security scan row lives in __tests__/ee/security/lum572-evidence-folded.test.tsx.
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -36,9 +37,6 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
   useTaskStatus: jest.fn(),
 }))
-// LUM-732 review I3 promoted the security panel out of the audit fold, so it
-// now mounts with the dossier and would reach for a QueryClient this test has
-// no provider for. Its own behaviour is covered by SecurityScanSection.test.
 // LUM-1011: the dossier reads test cases (Done gate row + Test cases section).
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
   useTestCases: jest.fn(() => ({
@@ -53,12 +51,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
     disposeDefect: jest.fn(),
   })),
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: jest.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-  })),
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed.client', () => ({
+  INSTALLED_CLIENT_PLUGINS: [],
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
   useBoundaryCrossings: jest.fn(() => ({
@@ -94,11 +89,9 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { TaskDossier } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TaskDossier'
 import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
-import { useSecurityScans } from '@/app/workspace/[workspaceUrl]/hooks/useSecurityScans'
 
 const mockAgentRuns = useAgentRuns as jest.Mock
 const mockStatus = useTaskStatus as jest.Mock
-const mockSecurity = useSecurityScans as jest.Mock
 
 const baseProps: any = {
   taskId: 'task-1',
@@ -174,39 +167,6 @@ describe('evidence and security are flat Records rows', () => {
     ).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('lineage-body')).toBeInTheDocument()
     expect(document.getElementById('dossier-lineage')).not.toBeNull()
-  })
-
-  it('a task with a scanned PR gets a collapsed Security scan row in Records, summarised', () => {
-    mockSecurity.mockReturnValue({
-      data: {
-        prs: [
-          {
-            pr: { id: 'pr1', number: 7, title: 'x', url: 'https://x/7' },
-            latest: {
-              id: 's1',
-              status: 'CLEAN',
-              complete: true,
-              findings: [],
-              stages: {},
-              headSha: 'abcdef0123',
-            },
-          },
-        ],
-        blocking: { count: 0 },
-        suggested: { count: 0 },
-        scanningOff: false,
-      },
-      isLoading: false,
-      isError: false,
-    })
-    render(<TaskDossier {...baseProps} />)
-
-    const row = screen.getByRole('button', { name: /Security scan/ })
-    expect(screen.getByTestId('record-records')).toContainElement(row)
-    expect(row).toHaveAttribute('aria-expanded', 'false')
-    // LUM-1012: the row's verdict (formatSecurityVerdict).
-    expect(row).toHaveTextContent('Clean')
-    expect(screen.queryByTestId('record-needs-action')).toBeNull()
   })
 })
 

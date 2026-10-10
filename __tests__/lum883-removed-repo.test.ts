@@ -10,6 +10,9 @@
  * `acme/payroll` was confirmed once and has since been removed; `acme/web`
  * is still confirmed. The real token layer runs.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/lum883-removed-repo.test.ts.
+// The re-link cases also pin the security scan dispatch and moved there
+// verbatim; the `(core, no plugin)` twins below keep their core facts here.
 jest.mock('@octokit/auth-app', () => ({
   createAppAuth: jest.fn(),
 }))
@@ -43,9 +46,8 @@ jest.mock('@/lib/repositories/github.repository', () => ({
     findIntegrationByLogin: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/crypto', () => ({ decrypt: jest.fn() }))
 jest.mock('@/lib/repositories/member.repository')
@@ -64,7 +66,6 @@ import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
@@ -136,16 +137,15 @@ afterEach(() => {
 })
 
 describe('LUM-883 a removed repository cannot be re-linked', () => {
-  it('re-linking an existing PR row by prId is refused with 403', async () => {
+  it('re-linking an existing PR row by prId is refused with 403 (core, no plugin)', async () => {
     ;(pullRequestRepository.findById as jest.Mock).mockResolvedValue(REMOVED_PR)
     await expect(
       linkPullRequest('task_1', { prId: 'pr_payroll' })
     ).rejects.toMatchObject({ status: 403, code: 'repo_not_confirmed' })
     expect(pullRequestRepository.updateTaskId).not.toHaveBeenCalled()
-    expect(dispatchPrSecurityScan).not.toHaveBeenCalled()
   })
 
-  it('re-linking by the URL of a PR row we still hold is refused with 403', async () => {
+  it('re-linking by the URL of a PR row we still hold is refused with 403 (core, no plugin)', async () => {
     ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
       REMOVED_PR
     )
@@ -153,7 +153,6 @@ describe('LUM-883 a removed repository cannot be re-linked', () => {
       linkPullRequest('task_1', { url: REMOVED_PR.url })
     ).rejects.toMatchObject({ status: 403 })
     expect(pullRequestRepository.updateTaskId).not.toHaveBeenCalled()
-    expect(dispatchPrSecurityScan).not.toHaveBeenCalled()
   })
 })
 

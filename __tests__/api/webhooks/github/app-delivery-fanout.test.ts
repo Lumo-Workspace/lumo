@@ -26,7 +26,6 @@ jest.mock('@/lib/repositories', () => ({
     findAllByInstallationId: jest.fn(),
     findByWorkspace: jest.fn(),
   },
-  prSecurityScanRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
@@ -37,13 +36,8 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: { runInbound: jest.fn() },
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
-  securityBaselineService: { requestFromPush: jest.fn() },
-}))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn(),
-  shouldScanOnPrEvent: jest.fn().mockReturnValue(false),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/integrations/slack', () => ({
   sendChannelNotification: jest.fn(),
   sendDMNotification: jest.fn(),

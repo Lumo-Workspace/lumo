@@ -14,12 +14,12 @@
  *
  * Test names below are literal MACHINE checkpointers — do not rename.
  */
+// LUM-1064: plugin cases live in __tests__/ee/private/boundary-auto-suppressed.test.ts.
 import { boundaryDetectorService } from '@/lib/services/boundary-detector.service'
 import { updateTask } from '@/lib/services/task-state.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { computeFalsePositiveRates } from '@/lib/boundary-crossing/false-positive-rate'
 
 // --- shared in-memory crossing store -----------------------------------------
 type Row = {
@@ -135,12 +135,8 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findByTaskId: jest.fn(async () => []) },
 }))
-jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
-  policyCompilerService: { ensureCompiled: jest.fn(async () => null) },
-}))
-jest.mock('@/lib/llm/action-confirm-client', () => ({
-  confirmActionCandidate: jest.fn(async () => 'REAL_ACTION'),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
 // --- gate deps ----------------------------------------------------------------
 jest.mock('@/lib/repositories/task.repository', () => ({
@@ -325,18 +321,5 @@ describe('LUM-751 — AUTO_SUPPRESSED by repository rule', () => {
     )
     expect(store.length).toBeGreaterThan(0)
     expect(store.every(r => r.disposition === null)).toBe(true)
-  })
-
-  it('AUTO_SUPPRESSED rows are counted apart from the human false-positive rate', () => {
-    const report = computeFalsePositiveRates(
-      [
-        { category: 'NEW_NPM_DEPENDENCY', disposition: 'AUTO_SUPPRESSED' },
-        { category: 'NEW_NPM_DEPENDENCY', disposition: 'AUTO_SUPPRESSED' },
-      ],
-      { minSamples: 1 }
-    )
-    expect(report.categories[0]!.autoSuppressed).toBe(2)
-    expect(report.categories[0]!.dispositioned).toBe(0)
-    expect(report.categories[0]!.status).toBe('insufficient')
   })
 })

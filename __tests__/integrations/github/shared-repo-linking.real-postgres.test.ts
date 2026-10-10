@@ -12,6 +12,9 @@
  * already exists keeps working after the repository becomes shared; a manual
  * link claims the PR and is reported as shared.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/integrations/github/shared-repo-linking.real-postgres.test.ts.
+// The two cases that also pin the security scan dispatch moved there verbatim;
+// the `(core, no plugin)` twins below keep their core facts here.
 import { createPgliteHarness } from '../../../scripts/test-support/pglite-harness'
 import { withSoftDelete } from '@/lib/db/soft-delete'
 
@@ -29,10 +32,8 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
-  shouldScanOnPrEvent: jest.fn().mockReturnValue(true),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/services/lineage-outcome.service', () => ({
   stampLineageInBackground: jest.fn(),
 }))
@@ -70,7 +71,6 @@ import { githubService } from '@/lib/services/github.service'
 import { linkPullRequest } from '@/lib/services/task-pr-link.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
@@ -244,7 +244,7 @@ it('backfill leaves an ambiguous branch unlinked and links an unambiguous one', 
   expect(await pullRequestRepository.countTaskLinkedWorkspaces(REPO, 1)).toBe(1)
 })
 
-it('an existing link keeps scanning after the repo becomes shared', async () => {
+it('an existing link keeps working after the repo becomes shared (core, no plugin)', async () => {
   const REPO = 'acme/existing'
   const BRANCH = 'lumo/LUM-123-feature'
   await confirm('ws-a', REPO)
@@ -259,9 +259,8 @@ it('an existing link keeps scanning after the repo becomes shared', async () => 
   ).toBeNull()
   jest.clearAllMocks()
 
-  // A new push to A's PR is still scanned on A's row.
+  // A new push to A's PR still updates A's linked row.
   await handlePullRequest(prEvent(REPO, 5, BRANCH, 'synchronize'), 'ws-a', null)
-  expect(dispatchPrSecurityScan).toHaveBeenCalledWith(aRow!.id, 'PR_EVENT')
   expect(
     (await pullRequestRepository.findByRepoAndNumber('ws-a', REPO, 5))?.taskId
   ).toBe('t-ws-a-123')
@@ -282,7 +281,7 @@ it('an existing link keeps scanning after the repo becomes shared', async () => 
     't-ws-a-123'
   )
 
-  // B's copy of the event creates no link and dispatches nothing for B.
+  // B's copy of the event creates no link and runs no post-merge pass for B.
   jest.clearAllMocks()
   await handlePullRequest(
     prEvent(REPO, 5, BRANCH, 'closed', true),
@@ -291,11 +290,10 @@ it('an existing link keeps scanning after the repo becomes shared', async () => 
   )
   const bRow = await pullRequestRepository.findByRepoAndNumber('ws-b', REPO, 5)
   expect(bRow?.taskId).toBeNull()
-  expect(dispatchPrSecurityScan).not.toHaveBeenCalled()
   expect(enqueueFaithfulnessJudgeOnMerge).not.toHaveBeenCalled()
 })
 
-it('manual link on a shared repo is allowed and reported', async () => {
+it('manual link on a shared repo is allowed and reported (core, no plugin)', async () => {
   const SHARED = 'acme/manual'
   const SOLO = 'acme/manual-solo'
   await confirm('ws-a', SHARED)
@@ -320,7 +318,6 @@ it('manual link on a shared repo is allowed and reported', async () => {
   const linked = await linkPullRequest('t-ws-b-123', { prId: bRow!.id })
   expect(linked.taskId).toBe('t-ws-b-123')
   expect(linked.sharedWithOtherWorkspaces).toBe(true)
-  expect(dispatchPrSecurityScan).toHaveBeenCalledWith(bRow!.id, 'PR_LINK')
   // One linked workspace: the outbound mirror guard (> 1) lets B's comments through.
   expect(await pullRequestRepository.countTaskLinkedWorkspaces(SHARED, 9)).toBe(
     1

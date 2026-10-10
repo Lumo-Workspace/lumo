@@ -52,9 +52,8 @@ jest.mock('@/lib/repositories/comment.repository', () => ({
 }))
 // LUM-793: the memory write gate reads the project's compiled policy — stub
 // it so this suite stays DB-free.
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
-  projectPolicyRepository: { latestForProject: async () => null },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 const mockMemCreate = jest.fn()
 const mockMemUpdateContent = jest.fn()
 const mockMemSupersede = jest.fn()

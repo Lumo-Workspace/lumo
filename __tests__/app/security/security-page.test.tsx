@@ -6,6 +6,10 @@
 process.env.CLERK_SECRET_KEY = 'sk_test_dummy'
 process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = 'pk_test_dummy'
 
+// LUM-1064: plugin cases live in __tests__/ee/security/app/security/security-page.test.tsx.
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
+
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -23,10 +27,7 @@ import {
   INFRASTRUCTURE_SUBPROCESSORS,
   SECURITY_CONTACT_EMAIL,
 } from '@/lib/legal/subprocessors'
-import {
-  CORE_RETENTION_FIGURES,
-  retentionFigures,
-} from '@/lib/legal/retention-figures'
+import { retentionFigures } from '@/lib/legal/retention-figures'
 import {
   buildSubprocessorPageView,
   type SubprocessorPageView,
@@ -36,46 +37,12 @@ import {
   PRIVACY_CONTACT_EMAIL,
   type SubprocessorChange,
 } from '@/lib/legal/subprocessor-changes'
-import {
-  HOOK_EVENT_RETENTION_DAYS,
-  USED_UP_AUDIT_WAIT_CAP_DAYS,
-  USED_UP_GRACE_DAYS,
-  USED_UP_IDLE_DAYS,
-} from '@/lib/hook-event/retention'
-import {
-  COMMAND_SUMMARY_CAP,
-  FAILURE_ERROR_CAP,
-} from '@/lib/hook-payload/redact'
-import {
-  CROSSING_RAW_RETENTION_DAYS,
-  DEFAULT_CROSSING_RAW_RETENTION_DAYS,
-} from '@/lib/boundary-crossing/raw-retention'
-import {
-  DEAD_LETTER_PAYLOAD_RETENTION_DAYS,
-  DEAD_LETTER_RETENTION_DAYS,
-} from '@/lib/integrations/github/dead-letter-retention'
-import {
-  DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
-  SCAN_EVIDENCE_HARD_CAP_DAYS,
-  SCAN_EVIDENCE_RETENTION_DAYS,
-} from '@/lib/security-scan/evidence-retention'
 import { EXPORT_TTL_DAYS } from '@/lib/workspace/export-ttl'
 import { AUDIT_RETENTION_DAYS } from '@/lib/audit/actions'
 import { PUBLIC_ROUTES } from '@/proxy'
 import { generateMetadata } from '@/app/security/page'
 import { aiDerivedContentRepository } from '@/lib/repositories/ai-derived-content.repository'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
-
-/** Intl.ListFormat (ES2021) — absent from the repo's TS lib, present in Node. */
-function orList(locale: string, items: string[]): string {
-  const { ListFormat } = Intl as unknown as {
-    ListFormat: new (
-      locale: string,
-      opts: { type: 'disjunction' }
-    ) => { format: (items: string[]) => string }
-  }
-  return new ListFormat(locale, { type: 'disjunction' }).format(items)
-}
 
 let acceptLanguage: string | null = null
 jest.mock('next/headers', () => ({
@@ -316,80 +283,16 @@ describe('/security page (LUM-856)', () => {
     expect(problems).toEqual([])
   })
 
-  it('LUM-1062 the scan evidence paragraph comes from the security plugin, after the tighten paragraph', () => {
-    const scanLead = 'Security scan evidence ('
-    const withPlugin = text(render('en'))
-    const at = (needle: string) => withPlugin.indexOf(needle)
-    expect(at(scanLead)).toBeGreaterThan(
-      at('A stricter session record setting')
-    )
-    expect(at(scanLead)).toBeLessThan(at('The original command, diff line'))
-
-    // No plugin (the OSS snapshot): no scan paragraph, nothing unfilled.
-    const bare = text(
-      render('en', NO_CHANGES, { ...CORE_RETENTION_FIGURES, contributed: [] })
-    )
-    expect(bare).not.toContain(scanLead)
-    expect(bare).not.toMatch(/\{\w+\}/)
-  })
-
-  it('security retention copy quotes figures from the retention constants', () => {
-    // LUM-915: every figure the retention section states is an ICU value
-    // bound to a lib constant, so no locale can carry a stale number.
-    const retentionKeys = Object.keys(MESSAGES.en!).filter(k =>
-      k.startsWith('security.retention.')
-    )
-    expect(retentionKeys.length).toBeGreaterThan(0)
-    const placeholders = (v: string) =>
-      [...v.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort()
-    // The one literal figure: the zero-retention scan tier.
-    expect(SCAN_EVIDENCE_RETENTION_DAYS).toContain(0)
-
-    const problems: string[] = []
+  // LUM-1064: with no plugin installed (the OSS snapshot) the default render
+  // carries no scan-evidence paragraph and leaves no ICU value unfilled.
+  it('without a plugin, renders the retention section with no scan paragraph', () => {
+    expect(retentionFigures().contributed).toEqual([])
     for (const locale of PUBLIC_LOCALES) {
-      const messages = MESSAGES[locale]!
-      for (const key of [...retentionKeys, 'security.code.hookEvents']) {
-        const value = messages[key] ?? ''
-        if (
-          JSON.stringify(placeholders(value)) !==
-          JSON.stringify(placeholders(MESSAGES.en![key]!))
-        )
-          problems.push(`${locale}: ${key} placeholders differ from en`)
-        const literal = value
-          .replace(/\{\w+\}/g, '')
-          .replace(/SHA-256/g, '')
-          .replace(key === 'security.retention.scan' ? /\b0\b/ : /$^/, '')
-        if (/\d/.test(literal))
-          problems.push(`${locale}: ${key} hard-codes a number`)
-      }
       const page = text(render(locale))
-      if (/\{\w+\}/.test(page))
-        problems.push(`${locale}: unfilled placeholder rendered`)
-      const tiers = orList(locale, HOOK_EVENT_RETENTION_DAYS.map(String))
-      if (!page.includes(tiers))
-        problems.push(`${locale}: session tiers "${tiers}" not rendered`)
+      expect(page).not.toMatch(/\{\w+\}/)
+      expect(page).toContain(MESSAGES[locale]!['security.retention.heading'])
     }
-    expect(problems).toEqual([])
-
-    const en = text(render('en'))
-    const or = (days: readonly number[]) => orList('en', days.map(String))
-    for (const claim of [
-      `content cleared ${or(HOOK_EVENT_RETENTION_DAYS)} days after each event`,
-      `(up to ${new Intl.NumberFormat('en').format(FAILURE_ERROR_CAP)} characters)`,
-      `commands (heredoc bodies removed, up to ${new Intl.NumberFormat('en').format(COMMAND_SUMMARY_CAP)} characters)`,
-      'prompts and agent messages with any code removed',
-      `discarded ${USED_UP_GRACE_DAYS} days after it is used up`,
-      `after ${USED_UP_IDLE_DAYS} days with no agent activity`,
-      `up to ${USED_UP_AUDIT_WAIT_CAP_DAYS} days after completion`,
-      `cleared ${DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS} days after the pull request is merged or closed`,
-      `choose ${or(SCAN_EVIDENCE_RETENTION_DAYS)} days`,
-      `cleared ${SCAN_EVIDENCE_HARD_CAP_DAYS} days after that scan finished`,
-      `without code ${DEFAULT_CROSSING_RAW_RETENTION_DAYS} days after the crossing is dispositioned`,
-      `choose ${or(CROSSING_RAW_RETENTION_DAYS)} days`,
-      `removed ${DEAD_LETTER_PAYLOAD_RETENTION_DAYS} days after the failure`,
-      `choose ${or(DEAD_LETTER_RETENTION_DAYS)} days`,
-    ])
-      expect(en).toContain(claim)
+    expect(text(render('en'))).not.toContain('Security scan evidence (')
   })
 
   it('security page states shipped retention defaults and no unshipped controls', () => {

@@ -2,8 +2,12 @@
 /**
  * LUM-1062 — the core UI with no client plugin installed (the OSS snapshot's
  * `installed.client.ts`): the task dossier, the PR list, the crossings
- * annotation and the retention settings render without any security block,
- * and never read the security scans.
+ * annotation and the retention settings render without any security block.
+ *
+ * LUM-1064: core copy of the ee test of the same name. It imports no plugin
+ * module; the mock of the security scans hook, and the assertions that only
+ * observe it ("never read the security scans"), stay in
+ * __tests__/ee/security/components/plugins/no-client-plugins-lum1062.test.tsx.
  */
 import { render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
@@ -30,12 +34,6 @@ jest.mock('react-intl', () => {
     }),
   }
 })
-
-// Any read of the security scans would be a plugin call on a core path.
-const useSecurityScans = jest.fn()
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: (id: string) => useSecurityScans(id),
-}))
 
 // ── TaskDossier: capture what it hands RecordTab ─────────────────────────────
 const recordTabProps = jest.fn()
@@ -131,7 +129,6 @@ describe('LUM-1062 core UI without client plugins', () => {
       securityRecordSlot: null,
     })
     expect(screen.getByTestId('record-tab')).toBeEmptyDOMElement()
-    expect(useSecurityScans).not.toHaveBeenCalled()
   })
 
   it('the Done gate leaves the security row out', () => {
@@ -176,7 +173,6 @@ describe('LUM-1062 core UI without client plugins', () => {
     )
     expect(screen.getByText('#42 Add stuff')).toBeInTheDocument()
     expect(screen.queryByTestId('security-scan-badge')).toBeNull()
-    expect(useSecurityScans).not.toHaveBeenCalled()
   })
 
   it('Data retention has no scan evidence row', () => {

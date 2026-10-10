@@ -24,15 +24,9 @@ jest.mock('@/lib/repositories', () => ({
     deleteForWorkspace: jest.fn(),
   },
 }))
-// LUM-1061: the security plugin scrubs scan code through the repository
-// module directly, not through the barrel.
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
-  prSecurityScanRepository: {
-    scrubCodeForWorkspace: jest
-      .fn()
-      .mockResolvedValue({ scans: 0, findings: 0 }),
-  },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build);
+// the plugin's scan-code scrub is covered under __tests__/ee/security/.
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 // LUM-879: every workspace code scrub also strips code from PR-mirrored
 // comments; this route test does not exercise that step.
 jest.mock('@/lib/services/pr-comment-code-scrub.service', () => ({

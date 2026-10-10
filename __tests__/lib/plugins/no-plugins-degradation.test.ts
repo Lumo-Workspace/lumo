@@ -12,27 +12,16 @@
  *   - events: PR / push / link events start nothing.
  *   - retention: the stock script only knows the core categories; losing
  *     GitHub access scrubs no plugin data.
- * The plugin modules are mocked so a stray call into them would show up.
+ *
+ * LUM-1064: core copy of the ee test of the same name. It imports no plugin
+ * module; the mocks of the security plugin's modules, and the assertions that
+ * only observe those mocks, stay in
+ * __tests__/ee/security/lib/plugins/no-plugins-degradation.test.ts. The core
+ * side effect a plugin would cause (background work through `waitUntil`) is
+ * still watched here.
  */
 jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
-jest.mock('@/lib/services/pr-security-scan-gate', () => ({
-  listOpenBlockingFindings: jest.fn(),
-}))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
-  prSecurityReminderService: {
-    buildSessionStartSection: jest.fn(),
-    loadOpenFindingsForTask: jest.fn(),
-    buildAgentReminder: jest.fn(),
-  },
-}))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn(),
-  shouldScanOnPrEvent: jest.fn(() => true),
-}))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
-  prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
-}))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 
 // DONE gate: the core planes.
@@ -125,21 +114,13 @@ import {
   retentionStockService,
 } from '@/lib/services/retention-stock.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { listOpenBlockingFindings } from '@/lib/services/pr-security-scan-gate'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { authService } from '@/lib/services/auth.service'
 import { hookEventService } from '@/lib/services/hook-event.service'
 import { POST as preToolUse } from '@/app/api/hooks/pre-tool-use/route'
 
+/** No background work was started (a plugin handler would start some). */
 function expectNoPluginCalls() {
-  expect(listOpenBlockingFindings).not.toHaveBeenCalled()
-  for (const fn of Object.values(prSecurityReminderService))
-    expect(fn).not.toHaveBeenCalled()
-  expect(dispatchPrSecurityScan).not.toHaveBeenCalled()
-  expect(prSecurityScanRepository.scrubCodeForWorkspace).not.toHaveBeenCalled()
   expect(waitUntil).not.toHaveBeenCalled()
 }
 

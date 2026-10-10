@@ -12,14 +12,14 @@
  *     other, so `runHuntShell` scrubs the installation token and runs
  *     `redactKnownSecrets` BEFORE this module sees a character (locked
  *     acceptance criterion; asserted in
- *     `__tests__/security-scan/hunt/compress.test.ts`).
+ *     `__tests__/ee/security/security-scan/hunt/compress.test.ts`).
  *   - **The input is already truncated** to HUNT_SHELL_OUTPUT_MAX. Handing a
  *     500 kB `rg` dump to a FAST model to save 8 kB of GENERATION context
  *     would cost more than the whole hunt.
  *
  * The shell COMMAND is deliberately not passed in. It has exactly two
  * permitted destinations — `checkHuntCommand` and `sh -c` — and
- * `__tests__/security-scan/hunt/shell-exec-boundary.test.ts` counts them; the
+ * `__tests__/ee/security/security-scan/hunt/shell-exec-boundary.test.ts` counts them; the
  * task's objective is a better relevance criterion anyway, because it says
  * what the analyst is chasing rather than what was typed.
  *

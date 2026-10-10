@@ -11,6 +11,10 @@
  * post-write check. Case-insensitive matches and workspaces sharing one
  * installation are exercised throughout.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/services/github-repository-lifecycle.real-postgres.test.ts.
+// The deleted / transferred cases also pin the security plugin's scan-code
+// scrub and moved there verbatim; the `(core, no plugin)` twins below keep
+// their core facts (confirmed list, mirrored comments, sync jobs) here.
 import { createPgliteHarness } from '../../scripts/test-support/pglite-harness'
 
 // jest.setup.js mocks PrismaClient globally; this suite needs the real one.
@@ -30,9 +34,8 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn(),
   createInstallationToken: jest.fn(),
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
-  dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/services/comment.service', () => ({
   commentService: { notifyMentionsForMirror: jest.fn() },
 }))
@@ -42,10 +45,7 @@ import {
   githubAppInstallService,
   scrubWorkspaceCode,
 } from '@/lib/services/github-app-install.service'
-import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
-import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { requireConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
 import { CODE_REMOVED_MARK } from '@/lib/integrations/github/mirror-code-strip'
 
@@ -391,11 +391,9 @@ describe('LUM-879 repository renamed', () => {
     expect(await scanHoldsCode('b_web')).toBe(true)
   })
 
-  it('repository renamed keeps later scans, events and SARIF working under the new name', async () => {
-    // A scan's post-write check sees its PR and the list under the same name.
-    expect(await scrubScanIfRepositoryUnconfirmed('a_web_scan')).toBe(false)
-    expect(await scanHoldsCode('a_web')).toBe(true)
-    // Token mint and App event routing accept the new name (any case)…
+  // LUM-1064: core-only twin of the plugin half's "keeps later scans, events
+  // and SARIF working" case — the token mint and App event routing facts.
+  it('repository renamed keeps token mint and event routing working under the new name (core, no plugin)', async () => {
     await expect(
       requireConfirmedRepository('ws_a', 'acme/web-app')
     ).resolves.toEqual({ installationId: 7, repository: 'Acme/Web-App' })
@@ -405,26 +403,9 @@ describe('LUM-879 repository renamed', () => {
         'acme/WEB-APP'
       )
     ).toEqual(['ws_a', 'ws_b'])
-    // …and no longer the old one.
     expect(
       await githubAppInstallService.isRepositoryConfirmed('ws_a', 'Acme/Web')
     ).toBe(false)
-    // A SARIF report CI pushes under the new name finds both workspaces' PR.
-    const outcome = await securitySarifIngestService.resolveScan({
-      url: 'https://blob.test/r.sarif.gz',
-      pathname: 'r.sarif.gz',
-      repository: 'Acme/Web-App',
-      headSha: 'def',
-      prNumber: 1,
-      tool: 'semgrep',
-    })
-    expect(outcome.kind).toBe('ok')
-    const workspaces = [
-      ...(outcome.kind === 'ok'
-        ? [outcome.pr, ...(outcome.others ?? []).map(o => o.pr)]
-        : []),
-    ].map(pr => pr.workspaceId)
-    expect(workspaces.sort()).toEqual(['ws_a', 'ws_b'])
   })
 
   it('repository renamed is idempotent on redelivery', async () => {
@@ -445,7 +426,7 @@ async function removeRaceRepository() {
 }
 
 describe('LUM-879 repository deleted', () => {
-  it('repository deleted scrubs scan code, strips mirrored comments and retires sync payloads', async () => {
+  it('repository deleted strips mirrored comments and retires sync payloads (core, no plugin)', async () => {
     const before = await db().comment.findUniqueOrThrow({
       where: { id: 'a_api_comment' },
     })
@@ -460,7 +441,6 @@ describe('LUM-879 repository deleted', () => {
     const list = await confirmed('ws_a')
     expect(list).not.toContain('Acme/API')
     expect(list).toEqual(expect.arrayContaining(['acme/keep', 'acme/race']))
-    expect(await scanHoldsCode('a_api')).toBe(false)
 
     // The discussion stays, the code goes; author and timestamps unchanged.
     const after = await db().comment.findUniqueOrThrow({
@@ -513,31 +493,6 @@ describe('LUM-879 repository deleted', () => {
     expect([keptJob.status, keptJob.payloadPurgedAt]).toEqual(['PENDING', null])
   })
 
-  it('a scan write that lands after the removal is scrubbed by its post-write check', async () => {
-    await removeRaceRepository()
-    // The in-flight scan's writer: findings first, then the LUM-896 recheck.
-    await prSecurityScanRepository.createFindings([
-      {
-        scanId: 'a_race_scan',
-        kind: 'VULNERABILITY',
-        ruleId: 'vuln:sql-injection',
-        severity: 'HIGH',
-        provenance: 'LLM_JUDGE',
-        filePath: 'src/late.ts',
-        line: 1,
-        title: 'late',
-        detail: CODE,
-        evidence: CODE,
-        fingerprint: 'late_fp',
-      },
-    ])
-    expect(await scanHoldsCode('a_race')).toBe(true)
-    expect(await scrubScanIfRepositoryUnconfirmed('a_race_scan')).toBe(true)
-    expect(await scanHoldsCode('a_race')).toBe(false)
-    // Control: the same write on a confirmed repository is kept.
-    expect(await scrubScanIfRepositoryUnconfirmed('a_keep_scan')).toBe(false)
-  })
-
   it('a mirrored comment that lands after the removal has its code stripped', async () => {
     await removeRaceRepository()
     const reviewComment = (id: number, prId: string) => ({
@@ -588,7 +543,7 @@ describe('LUM-879 repository deleted', () => {
 })
 
 describe('LUM-879 repository transferred', () => {
-  it('repository transferred removes the old name from every workspace that confirmed it', async () => {
+  it('repository transferred removes the old name from every workspace that confirmed it (core, no plugin)', async () => {
     // The event can arrive on the new owner's installation (99), which no
     // workspace here is bound to; the old name is found wherever confirmed.
     await githubAccessRecheckService.applyRepositoryEvent({
@@ -602,8 +557,6 @@ describe('LUM-879 repository transferred', () => {
     expect(await confirmed('ws_a')).toContain('acme/keep')
     expect(await confirmed('ws_b')).toHaveLength(1)
     expect(await confirmed('ws_b')).not.toContain('acme/lib')
-    expect(await scanHoldsCode('a_lib')).toBe(false)
-    expect(await scanHoldsCode('b_lib')).toBe(false)
     expect(
       (await db().comment.findUniqueOrThrow({ where: { id: 'b_lib_comment' } }))
         .body

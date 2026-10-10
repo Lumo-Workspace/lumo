@@ -14,9 +14,8 @@ jest.mock('@/lib/services/memory/constitution', () => ({
 }))
 // LUM-793: the write gate reads the project's compiled policy; stub it so the
 // suite stays DB-free (no rules → the injection/directive checks still run).
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
-  projectPolicyRepository: { latestForProject: async () => null },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
 const mockResolveDedup = jest.fn()
 jest.mock('@/lib/services/memory/manual-dedup', () => ({

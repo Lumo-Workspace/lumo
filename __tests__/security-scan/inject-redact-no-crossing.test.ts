@@ -13,6 +13,9 @@
  *      prompt builders with every crossing write path spied on; nothing may
  *      be called.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/security-scan/inject-redact-no-crossing.test.ts.
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
@@ -54,10 +57,6 @@ import {
   wrapUntrustedLinkedGroup,
   wrapUntrustedMemory,
 } from '@/lib/memory/render'
-import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
-import { buildPlanPrompt } from '@/lib/llm/security-hunt-plan-client'
-import { renderTaskForPrompt } from '@/lib/llm/security-hunt-client'
-import { buildCompressPrompt } from '@/lib/llm/security-hunt-compress-client'
 import {
   guardInjectedText,
   redactSlackSnapshotForInjection,
@@ -80,11 +79,6 @@ describe('structural — no path from the redaction to the crossing ledger', () 
     'lib/security-scan/secret-patterns.ts',
     'lib/security-scan/redact.ts',
     'lib/memory/render.ts',
-    'lib/security-scan/hunt/task-context.ts',
-    'lib/security-scan/agent-reminder.ts',
-    'lib/llm/security-hunt-client.ts',
-    'lib/llm/security-hunt-compress-client.ts',
-    'lib/llm/security-hunt-plan-client.ts',
     'app/api/tasks/[id]/slack-contexts/[contextId]/snapshot/route.ts',
     'app/api/tasks/[id]/web-links/[linkId]/body/route.ts',
     'cli/src/lib/redaction-notice.ts',
@@ -133,36 +127,6 @@ describe('behavioural — secret content through every render path, crossing pat
     ].join('\n')
     expect(out).not.toContain('AKIAABCDEFGHIJKLMNOP')
     expect(out).toMatch(/suspected credentials/)
-  })
-
-  it('hunt prompts', () => {
-    const block = renderHuntTaskContext({
-      traps: [SECRETS],
-      crossings: [],
-    })
-    const out = [
-      block,
-      buildPlanPrompt({
-        reasons: ['diff:sink:prisma-raw'],
-        touchedPaths: ['lib/s.ts'],
-        findings: [{ severity: 'HIGH', ruleId: 'x', title: SECRETS }],
-        taskContext: block,
-        timeoutMs: 1,
-      }),
-      renderTaskForPrompt({
-        id: 't',
-        objective: SECRETS,
-        category: 'idor',
-        startingPoints: ['a.ts'],
-      }),
-      buildCompressPrompt({
-        objective: SECRETS,
-        category: 'idor',
-        output: SECRETS,
-        timeoutMs: 1,
-      }),
-    ].join('\n')
-    expect(out).not.toContain('AKIAABCDEFGHIJKLMNOP')
   })
 
   it('tier-2 helpers and the pure functions', () => {

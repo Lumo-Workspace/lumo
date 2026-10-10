@@ -17,7 +17,7 @@ import {
   isDowngradedPath,
   isPlaceholderValue,
 } from '@/lib/security-scan/secret-patterns'
-import type { AddedFile } from '@/lib/security-scan/types'
+import type { AddedFile } from '@/lib/diff/diff-lines'
 
 // Each entry: a synthetic (non-functional) value shaped like the real thing.
 const CORPUS: { ruleId: string; line: string; value: string }[] = [

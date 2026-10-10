@@ -142,11 +142,8 @@ jest.mock('@/lib/repositories/retrospective.repository', () => ({
     loadPerSessionCost: jest.fn(() => Promise.resolve([])),
   },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
-  prSecurityReminderService: {
-    loadOpenFindingsForTask: jest.fn(() => Promise.resolve(null)),
-  },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/services/test-case-reminder.service', () => ({
   testCaseReminderService: {
     stateForTask: jest.fn(() => Promise.resolve(null)),

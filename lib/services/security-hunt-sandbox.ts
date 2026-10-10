@@ -486,7 +486,7 @@ export async function stopHuntSandbox(
  * Lives here, not in the service, for the reason the whole module exists:
  * `handle.sandbox` is reachable from exactly one file, so the credential
  * guard and the command gate cannot be routed around
- * (`__tests__/security-scan/hunt/shell-exec-boundary.test.ts` enforces it).
+ * (`__tests__/ee/security/security-scan/hunt/shell-exec-boundary.test.ts` enforces it).
  *
  * null = the file is not there; a read that FAILED throws, because a graph
  * silently missing a file would silently reject good candidates.
@@ -656,7 +656,7 @@ type GatedExec =
  * wrapping, no re-quoting, no interpolation — and the shell is the one the
  * gate's parsing was written and fuzzed against (HUNT_SHELL_BIN /
  * HUNT_SHELL_FLAG live next to that parser for exactly this reason).
- * `__tests__/security-scan/hunt/shell-exec-boundary.test.ts` fails if any of
+ * `__tests__/ee/security/security-scan/hunt/shell-exec-boundary.test.ts` fails if any of
  * that changes. Raw output is NOT sanitized here: the two callers redact it
  * on their own side of the boundary (the probe never returns it at all).
  */

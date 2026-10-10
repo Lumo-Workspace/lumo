@@ -71,18 +71,8 @@ jest.mock('@/lib/repositories/claim-faithfulness-verdict.repository', () => ({
     findByTaskId: jest.fn(() => Promise.resolve(null)),
   },
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
-  prSecurityReminderService: {
-    loadOpenFindingsForTask: jest.fn(() =>
-      Promise.resolve({
-        findings: [],
-        blockingCount: 0,
-        unconfirmedPrs: [],
-        latestScans: [],
-      })
-    ),
-  },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({})),

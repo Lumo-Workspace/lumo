@@ -34,12 +34,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
     disposeDefect: jest.fn(),
   })),
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: jest.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-  })),
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed.client', () => ({
+  INSTALLED_CLIENT_PLUGINS: [],
 }))
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordTab',

@@ -328,7 +328,7 @@ export const HUNT_OVERSIZED_SOURCE_FILES = 40
 export const HUNT_MAX_HUNTED_FILES = 150
 /**
  * Per-task token ceiling. Two constraints define this number, and
- * `__tests__/security-scan/hunt/budget-arithmetic.test.ts` pins both:
+ * `__tests__/ee/security/security-scan/hunt/budget-arithmetic.test.ts` pins both:
  *
  *   HUNT_MAX_PLANNED_TASKS × this            = the §9 acceptance target mean
  *   HUNT_MAX_PLANNED_TASKS × this × 2        ≤ HUNT_TOKEN_BUDGET (one retry each)

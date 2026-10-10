@@ -19,9 +19,8 @@ jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   },
 }))
 
-jest.mock('@/lib/services/security-baseline.service', () => ({
-  securityBaselineService: { requestFromPush: jest.fn() },
-}))
+// LUM-1064: core test, run without the security plugin (the OSS build).
+jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 import { POST } from '@/app/api/webhooks/github/route'
 import { NextRequest } from 'next/server'
 import { githubService } from '@/lib/services/github.service'

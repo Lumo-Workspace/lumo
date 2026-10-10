@@ -7,9 +7,9 @@
  * GitHub file-list reader fails closed (throws) rather than returning a
  * partial list.
  */
+// LUM-1064: plugin cases live in __tests__/ee/security/boundary-crossing-rejudge.repository.test.ts.
 const findMany = jest.fn()
 const updateMany = jest.fn()
-const policyFindMany = jest.fn()
 const prFindMany = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
@@ -18,7 +18,6 @@ jest.mock('@/lib/db/prisma', () => ({
       findMany: (...a: unknown[]) => findMany(...a),
       updateMany: (...a: unknown[]) => updateMany(...a),
     },
-    projectPolicy: { findMany: (...a: unknown[]) => policyFindMany(...a) },
     pullRequest: { findMany: (...a: unknown[]) => prFindMany(...a) },
   },
 }))
@@ -27,14 +26,12 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 }))
 
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { fetchPrFiles } from '@/lib/integrations/github/contents'
 
 beforeEach(() => {
   findMany.mockReset().mockResolvedValue([])
   updateMany.mockReset().mockResolvedValue({ count: 1 })
-  policyFindMany.mockReset().mockResolvedValue([])
   prFindMany.mockReset().mockResolvedValue([])
 })
 
@@ -118,25 +115,6 @@ describe('boundaryCrossingRepository.downgradeToAdvisory', () => {
         now: new Date(),
       })
     ).resolves.toBe(0)
-  })
-})
-
-describe('projectPolicyRepository.findRuleTextByRef', () => {
-  it('finds the rule text across the project policies newest-first, null when no policy carried the id', async () => {
-    policyFindMany.mockResolvedValue([
-      { rules: [{ id: 'aaaa', text: 'newer rule' }] },
-      { rules: [{ id: 'bbbb', text: 'older rule' }] },
-    ])
-    await expect(
-      projectPolicyRepository.findRuleTextByRef('p1', 'bbbb')
-    ).resolves.toBe('older rule')
-    await expect(
-      projectPolicyRepository.findRuleTextByRef('p1', 'zzzz')
-    ).resolves.toBeNull()
-    expect(policyFindMany.mock.calls[0]?.[0]).toMatchObject({
-      where: { projectId: 'p1' },
-      orderBy: { compiledAt: 'desc' },
-    })
   })
 })
 
