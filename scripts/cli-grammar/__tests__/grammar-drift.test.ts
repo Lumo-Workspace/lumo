@@ -47,6 +47,7 @@ describe('grammar.json drift', () => {
 
   it('extracted enum sets match the CLI help-text contract (spot checks)', () => {
     expect(grammar.commands['task update']!.flags['--status']!.enum).toEqual([
+      'backlog',
       'todo',
       'in_progress',
       'in_review',

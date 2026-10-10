@@ -53,7 +53,7 @@ The render-side fence and label apply to every summary, including those stored b
 
 The generation-side provenance rule and the fenced event log apply only to summaries generated after deploy. Existing rows keep their text, and nothing is backfilled.
 
-Session start's "Progress so far" is rendered server-side, so it changes on deploy. `lumo task context`'s "Previous Sessions" is rendered by the CLI, so it changes once the user is on CLI ≥ 1.104.1.
+Session start's "Progress so far" is rendered server-side, so it changes on deploy. `lumo task context`'s "Previous Sessions" is rendered by the CLI, so it changes once the user is on CLI ≥ 1.105.1.
 
 ## Cost
 
