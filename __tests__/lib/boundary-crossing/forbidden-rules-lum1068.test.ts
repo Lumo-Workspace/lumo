@@ -53,15 +53,24 @@ describe('parseForbiddenRules — the supported format', () => {
     ])
   })
 
-  it("parses this repository's own CLAUDE.md (read only) to its Forbidden list", () => {
+  it("parses this repository's own CLAUDE.md (read only): exactly the section's single-line bullets", () => {
+    // Content-independent: whatever the file says today, the rules are the
+    // top-level single-line bullets under `## Forbidden` and nothing else.
     const md = readFileSync(join(__dirname, '../../../CLAUDE.md'), 'utf8')
-    const rules = parseForbiddenRules(md, 'CLAUDE.md')
-    expect(rules.length).toBeGreaterThanOrEqual(4)
-    expect(rules.map(r => r.text)).toContain(
-      'Never push to main or develop directly'
-    )
-    // Nothing from the other sections (the many other bullet lists).
-    for (const r of rules) expect(r.text).toMatch(/^Never /)
+    const lines = md.split('\n')
+    const start = lines.findIndex(l => /^##\s+forbidden\b/i.test(l))
+    const end = lines.findIndex((l, i) => i > start && /^#{1,2}\s/.test(l))
+    const section =
+      start < 0 ? [] : lines.slice(start + 1, end < 0 ? undefined : end)
+    const bullets = section
+      .filter(l => /^[-*+] \S/.test(l))
+      .map(l => l.slice(2).trim())
+    const rules = parseForbiddenRules(md, 'CLAUDE.md').map(r => r.text)
+    if (section.every(l => l.trim() === '' || /^[-*+] \S/.test(l)))
+      expect(rules).toEqual(bullets)
+    else
+      for (const r of rules)
+        expect(section.join(' ').replace(/\s+/g, ' ')).toContain(r)
   })
 
   it('accepts *, + and ordered markers, and a heading with more words', () => {

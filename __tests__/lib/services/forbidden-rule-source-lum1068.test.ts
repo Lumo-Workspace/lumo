@@ -282,6 +282,10 @@ beforeEach(() => {
   readError = null
   defaultRepo = { fullName: 'acme/app' }
   readRepoFile.mockClear()
+  ;(
+    jest.requireMock('@/lib/repositories/project.repository').projectRepository
+      .findDefaultRepository as jest.Mock
+  ).mockClear()
   __resetForbiddenRuleSourceCache()
   repoFiles.set('CLAUDE.md', CLAUDE_MD)
 })
@@ -592,7 +596,7 @@ describe('no plugin installed', () => {
     expect(summary).toMatchObject({ judged: 1, downgraded: 1 })
   })
 
-  it('reads the two files at most once per minute per project', async () => {
+  it('looks up the repository and reads the two files at most once per minute per project', async () => {
     await hookEvent()
     await hookEvent()
     await hookEvent()
@@ -600,5 +604,9 @@ describe('no plugin installed', () => {
       'CLAUDE.md',
       'AGENTS.md',
     ])
+    const { projectRepository } = jest.requireMock(
+      '@/lib/repositories/project.repository'
+    )
+    expect(projectRepository.findDefaultRepository).toHaveBeenCalledTimes(1)
   })
 })

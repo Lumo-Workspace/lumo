@@ -24,7 +24,8 @@
  *  - It ends at the next level-1 or level-2 heading, or at a thematic break
  *    (`---`, `***`, `___`). `###`+ headings inside it do not end it.
  *  - A rule is a top-level list item of that section: `-`, `*` or `+`, or
- *    `1.` / `1)`, indented at most 3 spaces. The rule text is the item's
+ *    `1.` / `1)`, at the start of the line (at most one space before the
+ *    marker; an item indented 2+ spaces reads as nested). The rule text is the item's
  *    first line plus its continuation lines (lines indented at most 3
  *    columns and lazy continuation lines), joined with single spaces. Nested list items are
  *    NOT part of the rule (and neither is anything after them in that item).

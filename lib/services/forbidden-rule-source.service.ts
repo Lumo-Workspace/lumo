@@ -23,9 +23,10 @@
  *    event retries it;
  *  - never throws (the caller is the hook detector, LUM-348 exit-0).
  *
- * Cost on the hook path: the two files are read at most once per 60 s per
- * project per instance, and the database is only touched when the text
- * differs from the last one this instance processed.
+ * Cost on the hook path: the default repository is looked up and the two
+ * files are read at most once per 60 s per project per instance, and the
+ * snapshot is only read when the text differs from the last one this
+ * instance processed.
  */
 import { createHash } from 'crypto'
 import { logger } from '@/lib/logger'
@@ -61,6 +62,14 @@ const _processed = new Map<string, string>()
 export function __resetForbiddenRuleSourceCache(): void {
   _sourceCache.clear()
   _processed.clear()
+}
+
+/** The cached files of a project, while fresh. */
+function freshFiles(projectId: string): ForbiddenRuleSourceFile[] | null {
+  const cached = _sourceCache.get(projectId)
+  return cached && Date.now() - cached.at < SOURCE_CACHE_TTL_MS
+    ? cached.files
+    : null
 }
 
 /** CLAUDE.md and AGENTS.md of the repository (null = file absent). Throws
@@ -163,15 +172,20 @@ export const forbiddenRuleSourceService = {
     workspaceId: string
   }): Promise<ForbiddenRuleObservation> {
     try {
-      const repo = await projectRepository.findDefaultRepository(
-        input.projectId
-      )
-      if (!repo) return { outcome: 'NO_REPOSITORY', recorded: 0 }
-      const files = await readFiles({
-        projectId: input.projectId,
-        workspaceId: input.workspaceId,
-        fullName: repo.fullName,
-      })
+      // The cache answers without the repository lookup too: within its
+      // 60 s a hook event costs no query and no GitHub read.
+      let files = freshFiles(input.projectId)
+      if (!files) {
+        const repo = await projectRepository.findDefaultRepository(
+          input.projectId
+        )
+        if (!repo) return { outcome: 'NO_REPOSITORY', recorded: 0 }
+        files = await readFiles({
+          projectId: input.projectId,
+          workspaceId: input.workspaceId,
+          fullName: repo.fullName,
+        })
+      }
       if (files.every(f => f.content == null))
         return { outcome: 'NO_SOURCE', recorded: 0 }
 

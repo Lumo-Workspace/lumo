@@ -59,9 +59,10 @@ a removal; it never invents one.
   titles are not recognised.
 - **End of the section**: the next `#` or `##` heading, or a thematic break
   (`---`, `***`, `___`). `###` sub-headings inside it do not end it.
-- **Rule**: a top-level list item (`-`, `*`, `+`, `1.`, `1)`, indented at most
-  three spaces). Its text includes the lines that directly follow it,
-  indented at most three spaces; a blank line ends it. Nested items (exceptions,
+- **Rule**: a top-level list item (`-`, `*`, `+`, `1.`, `1)`) at the start of
+  the line (at most one space before the marker; an item indented two or more
+  spaces counts as nested). Its text includes the lines that directly follow
+  it, indented at most three spaces; a blank line ends it. Nested items (exceptions,
   examples) are not part of the rule, so editing them changes nothing.
 - **Ignored inside the section**: paragraphs, table rows, fenced code blocks
   (` ``` ` / `~~~`), HTML comments, and items whose whole text is struck
