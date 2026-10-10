@@ -18,7 +18,7 @@ import {
   PLAN_REASON_OBSERVED_MAX_CHARS,
   PLAN_REASON_MAX_CHARS,
   huntSpendableTokens,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 // LUM-758 follow-up: the per-task ceiling is not a free-floating number — it is
 // pinned on both sides. Raising it alone silently breaks either the acceptance
@@ -148,8 +148,8 @@ describe('hunt budget arithmetic', () => {
 import {
   allocateTaskBudgets,
   taskTimeMs,
-} from '@/lib/security-scan/hunt/allocation'
-import { SANDBOX_TIMEOUT_WITH_HUNT_MS } from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/security-scan/hunt/allocation'
+import { SANDBOX_TIMEOUT_WITH_HUNT_MS } from '@/ee/security/services/security-managed-scan.config'
 import {
   HUNT_ELIDE_KEEP_STEPS,
   HUNT_TASK_TOKEN_MEAN,
@@ -163,13 +163,13 @@ import {
   HUNT_SHELL_OUTPUT_MAX,
   HUNT_STEP_OUTPUT_MAX,
   HUNT_WRAP_UP_MIN_TOKENS,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import {
   lastStepTokens,
   nextStepTokens,
   sumTokens,
-} from '@/lib/security-scan/hunt/budget'
-import { elisionStub } from '@/lib/security-scan/hunt/transcript'
+} from '@/ee/security/security-scan/hunt/budget'
+import { elisionStub } from '@/ee/security/security-scan/hunt/transcript'
 
 /**
  * Commands per step in the simulation. The prompt asks for one or two; prod

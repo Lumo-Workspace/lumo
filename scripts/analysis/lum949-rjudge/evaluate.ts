@@ -15,9 +15,9 @@ import {
   detectSensitivePathEdit,
   type DetectedCrossing,
 } from '@/lib/services/boundary-detector.service'
-import { stubActionJudge } from '@/lib/boundary-crossing/align-eval'
+import { stubActionJudge } from '@/ee/private/boundary-crossing/align-eval'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
-import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
+import type { ActionConfirmJudge } from '@/ee/security/boundary-crossing/action-confirm'
 import type { ConvertedRecord, SkipReason, ToolEvent } from './convert'
 import type { RJudgeRecord } from './source'
 import { classifyRisk, LUMO_COVERAGE, type RiskType } from './gaps'

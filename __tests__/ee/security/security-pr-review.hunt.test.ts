@@ -3,7 +3,7 @@
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {},
 }))
 
@@ -11,7 +11,7 @@ import { SCAN_STAGE_DESCRIPTIONS as D } from '@/shared/src/security-scan'
 import {
   buildSummary,
   SUMMARY_MARKER,
-} from '@/lib/services/security-pr-review.service'
+} from '@/ee/security/services/security-pr-review.service'
 
 describe('LUM-739 hunt stage', () => {
   it('lists hunt after judge and reads a FAILED hunt as incomplete', () => {

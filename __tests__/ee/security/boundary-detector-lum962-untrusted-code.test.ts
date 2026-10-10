@@ -22,13 +22,13 @@ import {
   installSources,
   matchNewDependency,
   matchUntrustedCodeExecution,
-} from '@/lib/boundary-crossing/untrusted-code'
+} from '@/ee/security/boundary-crossing/untrusted-code'
 import {
   splitPipeStages,
   splitSegmentsQuoteAware,
 } from '@/lib/boundary-crossing/command-shape'
 import { isSuppressibleCategory } from '@/lib/boundary-crossing/suppression'
-import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
+import type { ActionConfirmJudge } from '@/ee/security/boundary-crossing/action-confirm'
 
 const bash = (command: string) => ({
   toolName: 'Bash' as const,

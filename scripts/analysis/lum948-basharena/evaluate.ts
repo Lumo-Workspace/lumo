@@ -15,7 +15,7 @@ import {
   detectCrossings,
   type DetectedCrossing,
 } from '@/lib/services/boundary-detector.service'
-import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
+import type { ActionConfirmJudge } from '@/ee/security/boundary-crossing/action-confirm'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 import type { ToolEvent, Trajectory, TrajectoryLabel } from './convert'
 

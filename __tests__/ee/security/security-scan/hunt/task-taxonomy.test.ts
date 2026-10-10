@@ -16,15 +16,15 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   readRepoFile: jest.fn(),
 }))
 
-import { toHuntFindingRows } from '@/lib/services/security-hunt.service'
+import { toHuntFindingRows } from '@/ee/security/services/security-hunt.service'
 import {
   huntFingerprint,
   HUNT_CATEGORIES,
-} from '@/lib/security-scan/hunt/candidate'
-import { mechanicalVerify } from '@/lib/security-scan/hunt/mechanical-verify'
-import type { HuntTask } from '@/lib/services/security-hunt.config'
-import type { Subgraph } from '@/lib/security-scan/graph/types'
-import type { HuntFindingInput } from '@/lib/services/security-hunt.config'
+} from '@/ee/security/security-scan/hunt/candidate'
+import { mechanicalVerify } from '@/ee/security/security-scan/hunt/mechanical-verify'
+import type { HuntTask } from '@/ee/security/services/security-hunt.config'
+import type { Subgraph } from '@/ee/security/security-scan/graph/types'
+import type { HuntFindingInput } from '@/ee/security/services/security-hunt.config'
 
 const candidate = (category: string) => ({
   category,

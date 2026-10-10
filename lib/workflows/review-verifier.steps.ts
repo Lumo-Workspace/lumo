@@ -7,7 +7,7 @@ import {
   reviewVerifierService,
   type ReviewVerifierJob,
   type ReviewVerifierOutcome,
-} from '@/lib/services/review-verifier.service'
+} from '@/ee/security/services/review-verifier.service'
 
 export async function verifyReviewFindingsStep(
   job: ReviewVerifierJob

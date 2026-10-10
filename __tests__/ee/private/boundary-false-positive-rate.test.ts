@@ -16,7 +16,7 @@ import {
   DEFAULT_MIN_SAMPLES,
   type DispositionedCrossing,
   formatReport,
-} from '@/lib/boundary-crossing/false-positive-rate'
+} from '@/ee/private/boundary-crossing/false-positive-rate'
 
 // Spied prisma surface for the read-only proof (criterion 3). Reads return
 // fixtures; every write method is a jest.fn() we assert was never called.

@@ -2,7 +2,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findScanRepository: jest.fn(),
     scrubCodeForScan: jest.fn(),
@@ -13,9 +13,9 @@ jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
 }))
 
 import { logger } from '@/lib/logger'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
-import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
+import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 
 const findScan = prSecurityScanRepository.findScanRepository as jest.Mock
 const scrub = prSecurityScanRepository.scrubCodeForScan as jest.Mock

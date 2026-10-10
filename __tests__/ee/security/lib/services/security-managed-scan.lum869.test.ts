@@ -8,8 +8,8 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
-  ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
+  ...jest.requireActual('@/ee/security/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
   restrictSandboxEgress: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -18,13 +18,13 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoCloneToken: jest.fn(),
   revokeInstallationToken: jest.fn(),
 }))
-jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+jest.mock('@/ee/security/services/sandbox-credential-scrub', () => ({
   scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findStagesById: jest.fn() },
 }))
 
@@ -32,19 +32,19 @@ import {
   createRepoSandbox,
   denySandboxEgress,
   restrictSandboxEgress,
-} from '@/lib/integrations/vercel-sandbox'
+} from '@/ee/security/integrations/vercel-sandbox'
 import {
   getRepoCloneToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
-import { scrubSandboxCredentials } from '@/lib/services/sandbox-credential-scrub'
+import { scrubSandboxCredentials } from '@/ee/security/services/sandbox-credential-scrub'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
 import {
   securityManagedScanService,
   MANAGED_SCAN_TOOLS,
-} from '@/lib/services/security-managed-scan.service'
+} from '@/ee/security/services/security-managed-scan.service'
 
 const TOKEN = 'fake-scan-token'
 const JOB = {

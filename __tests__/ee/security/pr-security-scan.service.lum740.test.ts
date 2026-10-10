@@ -7,11 +7,11 @@
  */
 
 // LUM-866: every workspace here has the default switches (all on).
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 jest.mock('@/lib/logger', () => ({
@@ -27,7 +27,7 @@ const mockAudit = jest.fn()
 jest.mock('@/lib/services/audit.service', () => ({
   recordAuditEvent: (...a: unknown[]) => mockAudit(...a),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findFindingWithScope: jest.fn(),
     updateDisposition: jest.fn(),
@@ -46,35 +46,39 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {},
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
+  workspaceRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
   },
 }))
+
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
   // LUM-785: stage A's graph rules read touched files; null = not found.
   readRepoFile: jest.fn().mockResolvedValue(null),
 }))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
   securityManagedScanOpsService: {},
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   recordHuntStartBestEffort: jest.fn(),
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: {},
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 
 const findFinding = prSecurityScanRepository.findFindingWithScope as jest.Mock
@@ -478,7 +482,7 @@ describe('LUM-740 read model — fixed and suggested counts', () => {
     expect(previousOpen).not.toHaveBeenCalled()
   })
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

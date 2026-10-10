@@ -2,11 +2,24 @@
 
 每次对外发布(打 tag、更新公开仓库、发自托管镜像)之前,在要发布的 commit 上逐项跑一遍。全部退出码为 0 才能发;唯一例外是下文「依赖漏洞」里写的 HIGH 签字放行。
 
-| 检查             | 命令                                                   | 通过条件                                 | 说明                                                                           |
-| ---------------- | ------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------ |
-| 生产依赖许可证   | `npm run license:audit`                                | 退出码 0                                 | 规则和例外见 [dependency-licenses.md](dependency-licenses.md)                  |
-| 生产依赖已知漏洞 | `npm run audit:prod`                                   | 退出码 0(生产依赖里没有 HIGH / CRITICAL) | 规则和已接受项见下文「依赖漏洞」(LUM-1038)                                     |
-| 发布快照密钥     | `python3 scripts/audit-secrets.py snapshot --ref HEAD` | 退出码 0（零未处理项）                   | 安装 Gitleaks 8.30.1；扫描实际发布 commit，见 [secret-scan.md](secret-scan.md) |
+| 检查                     | 命令                                                   | 通过条件                                 | 说明                                                                                                       |
+| ------------------------ | ------------------------------------------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 生产依赖许可证           | `npm run license:audit`                                | 退出码 0                                 | 规则和例外见 [dependency-licenses.md](dependency-licenses.md)                                              |
+| 生产依赖已知漏洞         | `npm run audit:prod`                                   | 退出码 0(生产依赖里没有 HIGH / CRITICAL) | 规则和已接受项见下文「依赖漏洞」(LUM-1038)                                                                 |
+| 发布快照密钥             | `python3 scripts/audit-secrets.py snapshot --ref HEAD` | 退出码 0（零未处理项）                   | 安装 Gitleaks 8.30.1；扫描实际发布 commit，见 [secret-scan.md](secret-scan.md)                             |
+| 快照可构建（私有仓执行） | `bash scripts/oss-export/verify-snapshot.sh <commit>`  | 退出码 0                                 | 导出检查全 0，快照内 `tsc --noEmit --incremental false` 与 `jest` 通过；见下文「快照可构建验证」(LUM-1065) |
+
+## 快照可构建验证(LUM-1065)
+
+开源快照不含安全插件(`ee/`)、私有评测集和它们的测试,两个插件清单(`lib/plugins/installed.ts`、`installed.client.ts`)换成空列表。只做静态的导出检查不够:快照得自己能编译、能跑测试。这一步在私有仓里跑(导出工具 `scripts/oss-export/` 不进快照):
+
+```bash
+bash scripts/oss-export/verify-snapshot.sh <要发布的 commit>   # 加 --keep 保留快照目录
+```
+
+脚本依次:`oss:export` 到 `/private/tmp`(或 `/tmp`)下新建的空目录 → 在快照里 `git init` 并提交一次(让 `origin/main` 指向它,和公开仓库的新克隆一致) → 确认当前目录确实是这次导出的全新快照后才 `npm ci --ignore-scripts` → `npx prisma generate` → `npm run build:shared` → `npx tsc --noEmit --incremental false` → `npx jest`。每步日志和退出码写在 `<工作目录>/logs/`,`summary.txt` 汇总;快照的 `node_modules` 结束时总会删除。任何一步非 0,脚本退出码非 0,不能发布。
+
+导出本身的检查(未分类文件、导入越界、配置引用悬空、禁止标记)必须全为 0;`vercel.json` 与 `deploy/self-host/crontab` 里的插件 cron 由 manifest 的 transform 过滤掉,快照里不会调度到 404。
 
 ## 依赖漏洞(LUM-1038)
 

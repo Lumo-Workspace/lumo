@@ -6,16 +6,12 @@
       "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
     },
     {
-      "glob": "ee/**",
-      "reason": "LUM-1061 (RFC LUM-1058 §7 PR2): plugin entry points; until PR6 the implementations they register still live under lib/** and ship with it, so the entry ships too. PR6 moves this to exclude together with the lib/plugins/installed.ts overlay"
-    },
-    {
       "glob": "components/**",
       "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
     },
     {
       "glob": "lib/**",
-      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code (D2: security scan / crossing detection ship with the core)"
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code. The security plugin is not core (MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6)): its files live in ee/ or are excluded below"
     },
     {
       "glob": "cli/**",
@@ -74,10 +70,6 @@
       "reason": "test helpers (LUM-1033 2/5: PUBLIC)"
     },
     {
-      "glob": "security/**",
-      "reason": "LUM-1033 ruling D2: security scanning ships with the core (semgrep rules + fixtures)"
-    },
-    {
       "glob": ".claude/skills/lumo/**",
       "reason": "LUM-1033 ruling D1: the lumo skill is public (source of the CLI's bundled skill assets)"
     },
@@ -120,10 +112,6 @@
     {
       "glob": "README.md",
       "reason": "project readme (self-hosting rewrite is a separate task)"
-    },
-    {
-      "glob": "LICENSE",
-      "reason": "LUM-1014 ruling (2026-10-06): Elastic-2.0 license text with the Lumo AI copyright line and MIT scope note; must ship with the snapshot"
     },
     {
       "glob": "components.json",
@@ -252,6 +240,10 @@
       "reason": "LUM-1033 2/5: symlinks into the excluded .agents/ tree (would dangle)"
     },
     {
+      "glob": "LICENSE",
+      "reason": "MIT relicense (LUM-1066; MIT open-core ruling 2026-10-10, LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §8): the private LICENSE adds a scope note that the ee/ security plugin is proprietary; the snapshot ships without the plugin, so it gets the plain MIT License (Lumo AI) from oss/overlay/LICENSE"
+    },
+    {
       "glob": "CLAUDE.md",
       "reason": "internal agent instructions; the snapshot gets the contributor version from oss/overlay/CLAUDE.md (adopted as the public version, LUM-1035 ruling 2026-10-10)"
     },
@@ -266,6 +258,98 @@
     {
       "glob": "scripts/oss-export/**",
       "reason": "export tooling"
+    },
+    {
+      "glob": "ee/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — the plugin tree (implementation + server/client entries); proprietary, never in the MIT snapshot"
+    },
+    {
+      "glob": "lib/plugins/installed.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — the server list of installed plugins names ee/security/server; the snapshot gets the empty list from oss/overlay/lib/plugins/installed.ts (RFC §3.3)"
+    },
+    {
+      "glob": "lib/plugins/installed.client.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — the client list of installed plugins names ee/security/client; the snapshot gets the empty list from oss/overlay/lib/plugins/installed.client.ts (RFC §3.3)"
+    },
+    {
+      "glob": "app/api/cron/prune-security-sarif/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/sweep-expired-scan-evidence/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/sweep-security-scans/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/sweep-unconfirmed-scan-code/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/triage-crossings/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/integrations/security/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/internal/policy-check/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/internal/pr-security-scan/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/pull-requests/[number]/scans/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/tasks/[id]/boundary-crossings/[crossingId]/system-explain/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/tasks/[id]/security-findings/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/tasks/[id]/security-scans/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/workspaces/me/security-scan/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "lib/workflows/review-verifier*.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — Vercel Workflows file ('use workflow' / 'use step'): workflow and step ids are derived from the file path (`workflow//./<path>//<fn>`), so moving it would orphan runs in flight across a deploy; it stays in lib/workflows/"
+    },
+    {
+      "glob": "lib/workflows/security-*.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — Vercel Workflows file ('use workflow' / 'use step'): workflow and step ids are derived from the file path (`workflow//./<path>//<fn>`), so moving it would orphan runs in flight across a deploy; it stays in lib/workflows/"
+    },
+    {
+      "glob": "security/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — semgrep rules + their deliberately-vulnerable fixtures (managed scan, LUM-785); kept in place because tsconfig.json / eslint exclude this path so the fixtures are never compiled or linted, and scripts/security/semgrep-rules-test.ts reads it by path"
+    },
+    {
+      "glob": "scripts/security/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — operator scripts that drive the scan sandbox / hunt / falsifier (LUM-1064 scope note ①); kept in place because the shipped semgrep rule header names scripts/security/semgrep-rules-test.ts"
+    },
+    {
+      "glob": "scripts/backfill-prv-rejudge.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — one-off re-judge of policy-rule crossings; imports the plugin policy compiler (LUM-1064 scope note ①)"
+    },
+    {
+      "glob": "__tests__/ee/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — plugin and private-evaluation tests (LUM-1064 split them out of the core tests)"
+    },
+    {
+      "glob": "test-utils/ee/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — plugin test helpers, including the core/plugin boundary table"
     },
     {
       "glob": "scripts/analysis/**",
@@ -333,7 +417,7 @@
     },
     {
       "glob": "docs/rfc/**",
-      "reason": "LUM-1033 2/5: multi-tenant security RFC is NEEDS-USER-DECISION; default deny until ruled"
+      "reason": "LUM-1033 2/5: multi-tenant security RFC is NEEDS-USER-DECISION; default deny until ruled. Also holds the MIT open-core plugin-boundary RFC (LUM-1058, ruling 2026-10-10), which maps the proprietary security plugin and the pre-MIT license history; it stays private"
     },
     {
       "glob": "__tests__/eval/**",
@@ -403,6 +487,124 @@
       "type": "dropLines",
       "pattern": "^scripts/(analysis|eval)/",
       "reason": "entries for excluded output files"
+    },
+    {
+      "file": "vercel.json",
+      "type": "jsonArrayFilter",
+      "path": ["crons"],
+      "key": "path",
+      "pattern": "^/api/cron/(prune-security-sarif|sweep-expired-scan-evidence|sweep-security-scans|sweep-unconfirmed-scan-code|triage-crossings)$",
+      "reason": "LUM-1065 (RFC §3.4 cron): the security plugin's cron routes are excluded, so their schedules would call a 404"
+    },
+    {
+      "file": "deploy/self-host/crontab",
+      "type": "dropLines",
+      "pattern": " /api/cron/(prune-security-sarif|sweep-expired-scan-evidence|sweep-security-scans|sweep-unconfirmed-scan-code|triage-crossings)$",
+      "reason": "LUM-1065: same jobs as the vercel.json filter (the crontab is generated from vercel.json; __tests__/self-host-cron.test.ts keeps the two in step in the snapshot too)"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "^# -+\\n# PR security scan — [\\s\\S]*?(?=^# -+\\n# Link previews)",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: drop the PR security scan settings section"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": ", PR security scans\\)\\.",
+      "replacement": ").",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "\\. Crossing triage \\(an evaluation\\n#    model\\) only exists here\\.",
+      "replacement": ".",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "workspace exports,\\n# SARIF uploads\\) — ",
+      "replacement": "workspace exports) —\n# ",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": " Direct SARIF uploads\\n# \\(POST /api/integrations/security/sarif/upload\\) need Vercel Blob and\\n# answer 501 on S3 / disk\\.",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "\\(workspace exports, PR scans, SARIF ingest\\)",
+      "replacement": "(workspace exports)",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": ".env.example",
+      "type": "replace",
+      "pattern": "\\(MCP tool calls, SARIF ingest, waitlist signup\\)",
+      "replacement": "(MCP tool calls, waitlist signup)",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "README.md",
+      "type": "replace",
+      "pattern": "^## 🔐 GitHub App permissions\\n[\\s\\S]*?^\\*\\*Tests and builds come from your own CI\\.\\*\\* Lumo runs static analysis only\\n\\(the scan above\\) and never executes",
+      "replacement": "## 🔌 Integrations\n\nGitHub, Slack, Figma, Google Drive and Sentry are optional. Setting them up\nfor a self-hosted deployment — the GitHub App's permissions and webhook\nevents, callback URLs, tunnels and `ENCRYPTION_KEY` — is described in\n[docs/self-hosting/integrations.md](docs/self-hosting/integrations.md).\n\n**Tests and builds come from your own CI.** Lumo never executes",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: the GitHub App section is the hosted App (plugin permissions included) and duplicates docs/self-hosting/integrations.md; the Security scan section is plugin-only"
+    },
+    {
+      "file": "docs/self-hosting/cron.md",
+      "type": "replace",
+      "pattern": "^If you do not use PR security scanning[\\s\\S]*?(?=^## Self-host-only jobs$)",
+      "replacement": "`recheck-github-access` only has work while a\n[GitHub App](integrations.md#github-app) is installed; keep it enabled then —\nit is what notices a repository the verifier can no longer read.\n\n",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: the plugin's cron jobs are filtered out of vercel.json and the crontab"
+    },
+    {
+      "file": "docs/self-hosting/workflow.md",
+      "type": "replace",
+      "pattern": "workspace exports, PR security scans and hunts,\\nSARIF ingest —",
+      "replacement": "workspace exports —",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "docs/self-hosting/workflow.md",
+      "type": "replace",
+      "pattern": "^- \\*\\*Managed scan / hunt\\*\\*[\\s\\S]*?was cancelled\\.\\n",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "docs/self-hosting/README.md",
+      "type": "dropLines",
+      "pattern": "^\\| (Crossing triage|Managed PR security scan|SARIF upload from your own CI)",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: rows of the optional-services table that describe plugin features"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "^  \\{\\n    q: 'What happens when the scan finds something\\?',\\n    a: '[^\\n]*',\\n  \\},\\n",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service: the PR scan FAQ entry"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "By default, the code a security scan quoted is cleared 7 days after its pull request is merged or closed\\. ",
+      "replacement": "",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "test-case and scan record",
+      "replacement": "test-case record",
+      "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
     }
   ],
   "configRefFiles": [
@@ -514,6 +716,39 @@
       "id": "prod-host:neon-endpoint",
       "pattern": "ep-[a-z]+-[a-z]+-[a-z0-9]+(-pooler)?\\.[a-z0-9-]+\\.aws\\.neon\\.tech",
       "reason": "real Neon endpoint shape (LUM-1033 4/5); placeholders must not look real"
+    },
+    {
+      "id": "plugin-import:ee",
+      "pattern": "['\"`](@/|(\\.\\./)+)ee/",
+      "reason": "LUM-1065: nothing in the snapshot may import the excluded plugin tree (ee/), not even a test or a doc example"
+    },
+    {
+      "id": "plugin-table:delegate",
+      "pattern": "\\.(prSecurityScan|prSecurityFinding|projectPolicy)\\b",
+      "reason": "LUM-1065 (RFC §4 option A): the plugin tables stay in the schema, but no shipped code or test reads or writes them through the Prisma client"
+    },
+    {
+      "id": "plugin-env:docs",
+      "pattern": "\\b(VERCEL_OIDC_TOKEN|LUMO_MANAGED_SCAN|LUMO_MANAGED_SCAN_HOURLY_CAP|LUMO_SECURITY_HUNT|LUMO_SECURITY_SUGGEST|LUMO_OIDC_AUDIENCE|LUMO_REVIEW_RANKER|LUMO_REVIEW_VERIFIER|LUMO_HUNT_COMPRESS)\\b",
+      "files": [
+        ".env.example",
+        "README.md",
+        "docs/**",
+        "components/landing/**"
+      ],
+      "reason": "LUM-1078: the security plugin's settings (every env var ee/ reads, plus the Vercel Sandbox credential) must not be documented in the snapshot; core code may still name VERCEL_OIDC_TOKEN (AI Gateway routing)"
+    },
+    {
+      "id": "plugin-feature:docs",
+      "pattern": "SARIF|[Ss]ecurity[ -][Ss]can|[Mm]anaged (PR )?scan|PR scans|[Hh]unts?\\b|[Cc]rossing triage|triage-crossings|sweep-security-scans|prune-security-sarif|sweep-unconfirmed-scan-code|sweep-expired-scan-evidence|Vercel Sandbox|scan code",
+      "files": [".env.example", "README.md", "docs/self-hosting/**"],
+      "reason": "LUM-1078: the snapshot's setup docs must not describe the security plugin's features or cron jobs (guards the replace transforms above against a renamed heading)"
+    },
+    {
+      "id": "plugin-feature:landing-faq",
+      "pattern": "scan finds something|security scan quoted|test-case and scan record",
+      "files": ["components/landing/home/faq.tsx"],
+      "reason": "LUM-1078: the landing FAQ entries that describe the PR scan"
     }
   ]
 }

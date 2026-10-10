@@ -3,7 +3,7 @@
  * from a prohibition ("never run X"). Only obligations are downgraded by the
  * policy compiler; anything carrying a prohibition marker is left alone.
  */
-import { isObligationText } from '@/lib/services/policy/rule-polarity'
+import { isObligationText } from '@/ee/security/services/policy/rule-polarity'
 
 describe('isObligationText', () => {
   it('recognises checklist / must-do wording as an obligation', () => {

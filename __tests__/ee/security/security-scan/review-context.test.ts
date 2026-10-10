@@ -9,7 +9,7 @@ import {
   isTestPath,
   loadReviewContext,
   packReviewContext,
-} from '@/lib/security-scan/review-context'
+} from '@/ee/security/security-scan/review-context'
 
 const file = (path: string, chars: number, fill = 'x') => ({
   path,

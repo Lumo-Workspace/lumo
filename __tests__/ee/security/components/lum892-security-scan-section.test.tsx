@@ -67,11 +67,11 @@ jest.mock('@/lib/api-client', () => ({
 }))
 import { tasksClient } from '@/lib/api-client'
 const useSecurityScans = jest.fn()
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
 }))
 
-import { SecurityScanSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
+import { SecurityScanSection } from '@/ee/security/components/TaskDetailTimeline/SecurityScanSection'
 import { scanCoverageState } from '@/shared/src/security-scan'
 import {
   ScanningOffBadge,

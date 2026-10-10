@@ -8,7 +8,8 @@ import fs from 'fs'
 import path from 'path'
 
 const ROOT = path.resolve(__dirname, '../../..')
-const SCANNED_DIRS = ['app', 'lib', 'components', 'shared', 'scripts']
+// LUM-1065: ee/ is the security plugin tree (absent from the OSS snapshot).
+const SCANNED_DIRS = ['app', 'lib', 'components', 'shared', 'scripts', 'ee']
 const ALLOWED_PREFIX = path.join('lib', 'blob') + path.sep
 // Any quoted module specifier counts, wherever it sits: `from`, `import()`,
 // `require()`, side-effect imports, multi-line imports. Prose is ignored.

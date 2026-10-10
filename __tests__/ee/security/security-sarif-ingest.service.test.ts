@@ -3,18 +3,18 @@ import { gzipSync } from 'node:zlib'
 
 // LUM-866: every workspace here has the default switches (all on); the
 // platform env in each test still decides the ceiling.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn(p => p) }))
-jest.mock('@/lib/services/security-sarif-blob', () => ({
+jest.mock('@/ee/security/services/security-sarif-blob', () => ({
   fetchPrivateBlob: jest.fn(),
   deleteBlob: jest.fn(),
   listSarifBlobs: jest.fn(),
@@ -45,13 +45,17 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
     markSarifIngested: jest.fn(),
     findLastSarifIngestAt: jest.fn(),
     findSecurityBaseline: jest.fn(),
   },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     createIfAbsent: jest.fn(),
     ingestExternalFindings: jest.fn(),
@@ -59,10 +63,10 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     findDispositionedByPullRequest: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 // `pr-security-scan.service` (imported below for inheritDispositions /
@@ -70,7 +74,7 @@ jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
 // down to `@vercel/sandbox`, which ships pure ESM and cannot be loaded by
 // Jest's CJS transform. Cut the chain here, the same way
 // `pr-security-scan.service.test.ts` does.
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
 
@@ -78,14 +82,13 @@ import {
   securitySarifIngestService,
   SARIF_MAX_GZ_BYTES,
   type PersistInput,
-} from '@/lib/services/security-sarif-ingest.service'
-import * as blob from '@/lib/services/security-sarif-blob'
+} from '@/ee/security/services/security-sarif-ingest.service'
+import * as blob from '@/ee/security/services/security-sarif-blob'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
 import { logger } from '@/lib/logger'
 import {
   parseSarif,
@@ -93,7 +96,8 @@ import {
   changedLinesOf,
   addedLinesWithNumbers,
   type RawSarifFinding,
-} from '@/lib/security-scan'
+} from '@/ee/security/security-scan'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const KEY = 'AKIAABCDEFGHIJKLMNOP'
 const fetchBlob = blob.fetchPrivateBlob as jest.Mock
@@ -507,7 +511,7 @@ describe('fetchAndNormalize', () => {
 describe('persistFindings', () => {
   it('LUM-896 write path rechecks the confirmed list after the SARIF rows land', async () => {
     const { scrubScanIfRepositoryUnconfirmed: recheck } = jest.requireMock(
-      '@/lib/services/scan-code-retention.service'
+      '@/ee/security/services/scan-code-retention.service'
     ) as { scrubScanIfRepositoryUnconfirmed: jest.Mock }
     recheck.mockClear()
     repo.findDispositionedByPullRequest.mockResolvedValue([])
@@ -564,7 +568,7 @@ describe('persistFindings', () => {
       disposition: 'FALSE_POSITIVE',
       inheritedFromFindingId: 'old',
     })
-    expect(projectRepository.markSarifIngested).toHaveBeenCalledWith(
+    expect(securityColumnsRepository.markSarifIngested).toHaveBeenCalledWith(
       'w1',
       'o/r',
       expect.any(Date)
@@ -615,13 +619,13 @@ describe('persistFindings', () => {
   it('does not stamp lastSarifIngestAt for a managed scan (must not poison the kill switch)', async () => {
     const input: PersistInput = { ...PERSIST_INPUT, auth: 'managed' }
     await securitySarifIngestService.persistFindings(input)
-    expect(projectRepository.markSarifIngested).not.toHaveBeenCalled()
+    expect(securityColumnsRepository.markSarifIngested).not.toHaveBeenCalled()
   })
 
   it('still stamps lastSarifIngestAt for an OIDC (BYO CI) push', async () => {
     const input: PersistInput = { ...PERSIST_INPUT, auth: 'oidc' }
     await securitySarifIngestService.persistFindings(input)
-    expect(projectRepository.markSarifIngested).toHaveBeenCalledWith(
+    expect(securityColumnsRepository.markSarifIngested).toHaveBeenCalledWith(
       'w1',
       'o/r',
       expect.any(Date)
@@ -717,7 +721,8 @@ describe('pruneStaleBlobs', () => {
 // ── LUM-738: baseline membership + supply-chain stage ───────────────────────
 
 describe('LUM-738 baseline — persistFindings', () => {
-  const findBaseline = projectRepository.findSecurityBaseline as jest.Mock
+  const findBaseline =
+    securityColumnsRepository.findSecurityBaseline as jest.Mock
   const baseline = (
     over: Partial<{ at: string | null; fingerprints: string[] }> = {}
   ) => ({
@@ -763,7 +768,7 @@ describe('LUM-738 baseline — persistFindings', () => {
   it('flags a row whose fingerprint is on the landed baseline as persisting, the rest as new, and routes the stage', async () => {
     findBaseline.mockResolvedValue(baseline())
     await securitySarifIngestService.persistFindings(two())
-    expect(projectRepository.findSecurityBaseline).toHaveBeenCalledWith(
+    expect(securityColumnsRepository.findSecurityBaseline).toHaveBeenCalledWith(
       'w1',
       'o/r'
     )

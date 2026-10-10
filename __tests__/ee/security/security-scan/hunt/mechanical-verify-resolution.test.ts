@@ -10,12 +10,12 @@
  * falsifier ever ran. The three tiers below are the three shapes those 23
  * rejections actually had.
  */
-import { buildSubgraph } from '@/lib/security-scan/graph/build-subgraph'
+import { buildSubgraph } from '@/ee/security/security-scan/graph/build-subgraph'
 import {
   mechanicalVerify,
   candidateSymbolRefs,
-} from '@/lib/security-scan/hunt/mechanical-verify'
-import { sightingsInSource } from '@/lib/security-scan/hunt/repo-symbols'
+} from '@/ee/security/security-scan/hunt/mechanical-verify'
+import { sightingsInSource } from '@/ee/security/security-scan/hunt/repo-symbols'
 import { formatPrScan, type PrScanEntry } from '@/cli/src/commands/pr-scan'
 
 const ROUTE = 'app/api/tasks/[id]/route.ts'

@@ -24,7 +24,7 @@ Set these in the scheduler's environment:
 | -------------------- | -------- | ----------------------------------------------------------------------------------------------- |
 | `CRON_SECRET`        | yes      | The same value the app has. Every cron route returns 401 when the app's `CRON_SECRET` is unset. |
 | `APP_URL`            | yes      | Base URL the scheduler can reach the app on, e.g. `http://app:3000`.                            |
-| `LUMO_CRON_DISABLED` | no       | Comma-separated job names to skip, e.g. `triage-crossings,rejudge-crossings`.                   |
+| `LUMO_CRON_DISABLED` | no       | Comma-separated job names to skip, e.g. `roll-sprints,rejudge-crossings`.                       |
 
 Generate a secret with `openssl rand -hex 32` and give the app and the scheduler
 the same value.

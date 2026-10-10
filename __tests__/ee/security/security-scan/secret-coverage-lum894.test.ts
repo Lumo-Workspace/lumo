@@ -14,7 +14,7 @@ import {
   scanSecrets,
 } from '@/lib/security-scan/scan-secrets'
 import { redactHookPayload } from '@/lib/validation/hook-payload'
-import { sanitizeHuntOutput } from '@/lib/services/security-hunt-sandbox'
+import { sanitizeHuntOutput } from '@/ee/security/services/security-hunt-sandbox'
 
 // Every credential-shaped value below is assembled at runtime from a seeded
 // generator and split prefixes, so no literal in this file looks like a real

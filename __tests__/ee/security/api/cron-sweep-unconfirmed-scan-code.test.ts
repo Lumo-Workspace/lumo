@@ -4,7 +4,7 @@
  * LUM-902 — the backstop sweep's cron route: CRON_SECRET only, and
  * scheduled daily in vercel.json.
  */
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   sweepUnconfirmedScanCode: jest
     .fn()
     .mockResolvedValue({ workspaces: 1, repositories: 2, failed: 0 }),
@@ -14,7 +14,7 @@ import { NextRequest } from 'next/server'
 import * as fs from 'fs'
 import * as path from 'path'
 import { GET } from '@/app/api/cron/sweep-unconfirmed-scan-code/route'
-import { sweepUnconfirmedScanCode } from '@/lib/services/scan-code-retention.service'
+import { sweepUnconfirmedScanCode } from '@/ee/security/services/scan-code-retention.service'
 
 const URL = 'http://localhost/api/cron/sweep-unconfirmed-scan-code'
 

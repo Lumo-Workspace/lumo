@@ -29,7 +29,7 @@ import type { z } from 'zod'
 import {
   generateEvalObject,
   type EvalMessage,
-} from '@/lib/llm/offline-eval-client'
+} from '@/ee/private/llm/offline-eval-client'
 import { DEFAULT_CACHE_DIR, loadSplit } from '../lum948-basharena/download'
 import {
   candidatesOf,

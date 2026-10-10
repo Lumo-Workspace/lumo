@@ -21,7 +21,7 @@ jest.mock('@/ee/security/api-client', () => ({
   securityScanClient: { updateSecurityScan: jest.fn() },
 }))
 
-import { SecurityScanSwitchesCard } from '@/app/workspace/[workspaceUrl]/components/settings/SecurityScanSwitchesCard'
+import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { securityScanClient } from '@/ee/security/api-client'
 
 const updateSecurityScan = securityScanClient.updateSecurityScan as jest.Mock

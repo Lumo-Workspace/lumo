@@ -15,13 +15,13 @@ import {
   planHuntTasks,
   PlanPromptInputSchema,
   PLAN_SYSTEM_PROMPT,
-} from '@/lib/llm/security-hunt-plan-client'
+} from '@/ee/security/llm/security-hunt-plan-client'
 import {
   HUNT_MAX_PLANNED_TASKS,
   PLAN_EMPTY_REASON,
   PLAN_HUNT_TIMEOUT_MS,
   PLAN_REASON_MAX_CHARS,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 const gen = generateObject as jest.Mock
 

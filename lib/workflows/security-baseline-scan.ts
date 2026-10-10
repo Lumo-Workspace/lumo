@@ -9,7 +9,7 @@
  * the claim in place; a later PR re-requests once it is stale.
  * Deterministic body: no I/O, no logging, no Date.
  */
-import type { BaselineScanJob } from '@/lib/services/security-managed-scan.config'
+import type { BaselineScanJob } from '@/ee/security/services/security-managed-scan.config'
 import {
   persistSecurityBaselineStep,
   scanBaselineInSandboxStep,

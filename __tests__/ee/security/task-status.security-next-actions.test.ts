@@ -43,7 +43,7 @@ jest.mock('@/lib/db/prisma', () => ({
   prisma: { $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({})) },
 }))
 // LUM-737: undispositioned PR security findings feeding into nextActions.
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: { loadOpenFindingsForTask: jest.fn() },
 }))
 
@@ -63,7 +63,7 @@ beforeEach(() => {
   ;(activityRepository.listByTaskAndType as jest.Mock).mockResolvedValue([])
 })
 
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
 const loadSecurity =
   prSecurityReminderService.loadOpenFindingsForTask as jest.Mock
 

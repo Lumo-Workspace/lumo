@@ -8,9 +8,9 @@ import {
   toGraphRuleRows,
   graphRuleFingerprint,
   GRAPH_RULE_MAX_READS,
-} from '@/lib/services/security-graph-rules.service'
-import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
-import type { LlmOutputFlow } from '@/lib/security-scan/graph/llm-output-flow'
+} from '@/ee/security/services/security-graph-rules.service'
+import { SUBGRAPH_MAX_FILES } from '@/ee/security/security-scan/graph/types'
+import type { LlmOutputFlow } from '@/ee/security/security-scan/graph/llm-output-flow'
 
 const job = {
   workspaceId: 'w1',

@@ -1,4 +1,4 @@
-import { splitDiffByFile } from '@/lib/security-scan/diff-lines'
+import { splitDiffByFile } from '@/ee/security/security-scan/diff-lines'
 import {
   packSecurityDiff,
   truncateSecurityDiff,
@@ -6,8 +6,8 @@ import {
   JUDGE_DIFF_BUDGET_TIERS,
   JUDGE_TIMEOUT_CEILING_MS,
   SECURITY_DIFF_MAX_CHARS,
-} from '@/lib/security-scan/truncate'
-import { HUNT_TASK_CAP_TIERS } from '@/lib/services/security-hunt.config'
+} from '@/ee/security/security-scan/truncate'
+import { HUNT_TASK_CAP_TIERS } from '@/ee/security/services/security-hunt.config'
 
 function fileSection(path: string, body: string): string {
   const added = body.split('\n')

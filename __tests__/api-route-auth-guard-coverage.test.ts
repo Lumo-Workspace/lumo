@@ -49,7 +49,7 @@ const AUTH_GUARDS = new Set([
   'lib/auth#verifyBearer',
   'lib/auth/bearer#verifyBearer',
   'lib/api/cron-auth#requireCronAuth',
-  'lib/auth/sarif-ingest-auth#authenticateSarifIngest',
+  'ee/security/auth/sarif-ingest-auth#authenticateSarifIngest',
   'lib/integrations/github#verifyGitHubSignature',
   'lib/integrations/github/verify#verifyGitHubSignature',
   // LUM-906: Clerk webhook — Svix signature via Clerk's verifyWebhook.

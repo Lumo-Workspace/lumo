@@ -3,8 +3,8 @@ import {
   buildSubgraph,
   listImports,
   countLines,
-} from '@/lib/security-scan/graph/build-subgraph'
-import type { Subgraph } from '@/lib/security-scan/graph/types'
+} from '@/ee/security/security-scan/graph/build-subgraph'
+import type { Subgraph } from '@/ee/security/security-scan/graph/types'
 
 const ROUTE = 'app/api/tasks/[id]/route.ts'
 const SERVICE = 'lib/services/task.service.ts'

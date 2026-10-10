@@ -12,10 +12,10 @@ import { join } from 'node:path'
 import * as coreControlCalls from '@/lib/diff/control-calls'
 import * as coreDiffLines from '@/lib/diff/diff-lines'
 import * as coreScanEvidence from '@/lib/retention/scan-evidence'
-import * as oldDiffLines from '@/lib/security-scan/diff-lines'
-import * as oldEvidenceRetention from '@/lib/security-scan/evidence-retention'
-import * as oldPatterns from '@/lib/security-scan/graph/patterns'
-import * as oldTrigger from '@/lib/security-scan/hunt/trigger'
+import * as oldDiffLines from '@/ee/security/security-scan/diff-lines'
+import * as oldEvidenceRetention from '@/ee/security/security-scan/evidence-retention'
+import * as oldPatterns from '@/ee/security/security-scan/graph/patterns'
+import * as oldTrigger from '@/ee/security/security-scan/hunt/trigger'
 
 describe('LUM-1060 re-exports at the old paths', () => {
   it('diff-lines is the core parser', () => {

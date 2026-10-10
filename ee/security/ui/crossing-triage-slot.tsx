@@ -5,7 +5,7 @@
  * a boundary crossing (LUM-945), shown once the crossing has a score.
  */
 import type { ClientSlotProps } from '@/lib/plugins/client'
-import { CrossingTriageLine } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/CrossingTriageLine'
+import { CrossingTriageLine } from '@/ee/security/components/TaskDetailTimeline/CrossingTriageLine'
 
 export function SecurityCrossingTriage({
   crossingId,

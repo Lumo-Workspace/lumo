@@ -9,7 +9,7 @@ import {
   rankFindings,
   renderRankerPrompt,
   type RankerFinding,
-} from '@/lib/llm/review-ranker-client'
+} from '@/ee/security/llm/review-ranker-client'
 
 const gen = generateObject as jest.Mock
 const finding = (id: string, verifierReason = ''): RankerFinding => ({

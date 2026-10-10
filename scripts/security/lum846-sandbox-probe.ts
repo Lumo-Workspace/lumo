@@ -17,20 +17,20 @@
  *   npx tsx scripts/security/lum846-sandbox-probe.ts
  */
 /* eslint-disable no-console -- CLI checkpointer: its output IS the verdict */
-import { createScratchSandbox } from '@/lib/integrations/vercel-sandbox'
-import { normalizeSarif, parseSarif } from '@/lib/security-scan/sarif'
+import { createScratchSandbox } from '@/ee/security/integrations/vercel-sandbox'
+import { normalizeSarif, parseSarif } from '@/ee/security/security-scan/sarif'
 import {
   MANAGED_SCAN_TOOLS,
   SANDBOX_IMAGE,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_VCPUS,
   type ManagedScanTool,
-} from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-managed-scan.config'
 import {
   MANAGED_REPORT_PATH,
   managedInstallScript,
   managedToolScript,
-} from '@/lib/services/security-managed-scan.scripts'
+} from '@/ee/security/services/security-managed-scan.scripts'
 
 const PROBE_DIR = '/vercel/lum846-probe'
 const BUDGET_MS = SANDBOX_TIMEOUT_MS / 2

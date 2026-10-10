@@ -5,7 +5,7 @@
  * retries) — the service throws for transient failures and returns values
  * for facts the run must record (see the service header).
  */
-import { securityHuntService } from '@/lib/services/security-hunt.service'
+import { securityHuntService } from '@/ee/security/services/security-hunt.service'
 import { isCurrentRunCancelled } from './run-cancellation'
 import type {
   VerifySubgraphInput,
@@ -20,11 +20,11 @@ import type {
   PlanHuntInput,
   PlanHuntOutput,
   HuntJob,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import type {
   HuntRequeueInput,
   HuntRequeueOutcome,
-} from '@/lib/services/security-hunt-ops.service'
+} from '@/ee/security/services/security-hunt-ops.service'
 
 /**
  * LUM-758 Task 10 — runs AFTER the hunt, not before it: the mechanical gate's
@@ -109,7 +109,7 @@ export async function requeueHuntStep(
 ): Promise<HuntRequeueOutcome> {
   'use step'
   const { securityHuntOpsService } =
-    await import('@/lib/services/security-hunt-ops.service')
+    await import('@/ee/security/services/security-hunt-ops.service')
   return securityHuntOpsService.requeueFaultedHunt(input)
 }
 
@@ -120,7 +120,7 @@ export async function continueHuntStep(input: {
 }): Promise<boolean> {
   'use step'
   const { securityHuntOpsService } =
-    await import('@/lib/services/security-hunt-ops.service')
+    await import('@/ee/security/services/security-hunt-ops.service')
   return securityHuntOpsService.continueBatchedHunt(input)
 }
 
@@ -130,6 +130,6 @@ export async function stopIfHuntTurnedOffStep(input: {
 }): Promise<boolean> {
   'use step'
   const { securityHuntOpsService } =
-    await import('@/lib/services/security-hunt-ops.service')
+    await import('@/ee/security/services/security-hunt-ops.service')
   return securityHuntOpsService.stopIfHuntTurnedOff(input.job)
 }

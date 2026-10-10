@@ -20,7 +20,7 @@ import {
   HOOK_EVENT_RETENTION_DAYS,
   USED_UP_GRACE_DAYS,
 } from '@/lib/hook-event/retention'
-import { DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS } from '@/lib/security-scan/evidence-retention'
+import { DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS } from '@/ee/security/security-scan/evidence-retention'
 
 const LANDING_DIR = join(process.cwd(), 'components', 'landing', 'home')
 
@@ -58,6 +58,24 @@ describe('FAQ retention claims LUM-915', () => {
     )
     expect(answer).toContain(
       `cleared ${DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS} days after its pull request is merged or closed`
+    )
+  })
+})
+
+/**
+ * LUM-871 (moved from the core landing test in LUM-1065, with the client it
+ * reads): the FAQ names boundary-crossing triage as the one request outside
+ * the ZDR layer — true only while the evaluation client skips `zdr-fetch`.
+ */
+describe('FAQ privacy claims LUM-871 (plugin side)', () => {
+  it('the crossing-triage evaluation client really bypasses the ZDR layer', () => {
+    const src = readFileSync(
+      join(process.cwd(), 'ee', 'security', 'ai', 'evaluation.ts'),
+      'utf8'
+    )
+    expect(src).not.toMatch(/zdr-fetch/)
+    expect(readLanding('faq.tsx')).toMatch(
+      /for all but boundary-crossing triage/
     )
   })
 })

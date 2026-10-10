@@ -6,8 +6,8 @@
  * classification, the dead-letter age bucket and the script's argument
  * parsing / report formatting.
  */
-import { scanEvidenceExpiryReason } from '@/lib/security-scan/evidence-retention'
-import { scanRetentionDueReason } from '@/lib/services/scan-evidence-retention.service'
+import { scanEvidenceExpiryReason } from '@/ee/security/security-scan/evidence-retention'
+import { scanRetentionDueReason } from '@/ee/security/services/scan-evidence-retention.service'
 import { isRetentionStockCategory } from '@/lib/services/retention-stock.service'
 import { parseStockArgs } from '../../../../scripts/retention-stock/args'
 

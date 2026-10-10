@@ -28,7 +28,7 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 
-import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
+import { projectPolicyRepository } from '@/ee/security/repositories/project-policy.repository'
 
 beforeEach(() => {
   findMany.mockReset().mockResolvedValue([])

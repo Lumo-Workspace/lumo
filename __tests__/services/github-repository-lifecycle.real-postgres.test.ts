@@ -112,7 +112,10 @@ async function seedWorkspace(
   })
 }
 
-/** A PR with a scan and a finding that hold code. */
+/**
+ * A PR. (Its security scan rows, and what the removal does to their code,
+ * are the plugin half's — LUM-1065.)
+ */
 async function seedPr(id: string, ws: string, repo: string, number: number) {
   await db().pullRequest.create({
     data: {
@@ -129,39 +132,6 @@ async function seedPr(id: string, ws: string, repo: string, number: number) {
       baseBranch: 'main',
     },
   })
-  await db().prSecurityScan.create({
-    data: {
-      id: `${id}_scan`,
-      pullRequestId: id,
-      workspaceId: ws,
-      headSha: 'abc',
-      trigger: 'PR_EVENT',
-      detectorVersion: 'test',
-      prSummary: { description: CODE },
-    },
-  })
-  await db().prSecurityFinding.create({
-    data: {
-      scanId: `${id}_scan`,
-      kind: 'VULNERABILITY',
-      ruleId: 'vuln:sql-injection',
-      severity: 'HIGH',
-      provenance: 'LLM_JUDGE',
-      filePath: 'src/db.ts',
-      title: 'SQL injection',
-      detail: CODE,
-      evidence: CODE,
-      fingerprint: `${id}_fp`,
-    },
-  })
-}
-
-async function scanHoldsCode(prId: string) {
-  const scan = await db().prSecurityScan.findUniqueOrThrow({
-    where: { id: `${prId}_scan` },
-    select: { prSummary: true, findings: { select: { detail: true } } },
-  })
-  return JSON.stringify(scan).includes(MARKER)
 }
 
 /** A review comment mirrored from GitHub, as the inbound path stores it. */
@@ -385,10 +355,6 @@ describe('LUM-879 repository renamed', () => {
         })
       ).repositories
     ).toEqual(['Acme/Web-App', 'acme/keep'])
-
-    // A rename is not a removal: the scan code stays.
-    expect(await scanHoldsCode('a_web')).toBe(true)
-    expect(await scanHoldsCode('b_web')).toBe(true)
   })
 
   // LUM-1064: core-only twin of the plugin half's "keeps later scans, events
@@ -479,7 +445,6 @@ describe('LUM-879 repository deleted', () => {
     ).toEqual(new Date('2026-09-02T00:00:00Z'))
 
     // Another repository of the same workspace is untouched.
-    expect(await scanHoldsCode('a_keep')).toBe(true)
     expect(
       (
         await db().comment.findUniqueOrThrow({
@@ -563,7 +528,6 @@ describe('LUM-879 repository transferred', () => {
     ).not.toContain(MARKER)
     // Another installation's workspace is untouched.
     expect(await confirmed('ws_d')).toEqual(['other/thing'])
-    expect(await scanHoldsCode('d_thing')).toBe(true)
   })
 })
 

@@ -10,20 +10,23 @@ import {
   ratio,
   tuneThreshold,
   wilson,
-} from '@/lib/boundary-crossing/eval/stats'
+} from '@/ee/private/boundary-crossing/eval/stats'
 import {
   describeEvent,
   outcomeOf,
   redactedSnippet,
   scoreRun,
-} from '@/lib/boundary-crossing/eval/score'
+} from '@/ee/private/boundary-crossing/eval/score'
 import {
   LIST_MAX,
   formatEvalReport,
   formatThreshold,
   pct,
-} from '@/lib/boundary-crossing/eval/report'
-import type { EvalSample, Verdict } from '@/lib/boundary-crossing/eval/types'
+} from '@/ee/private/boundary-crossing/eval/report'
+import type {
+  EvalSample,
+  Verdict,
+} from '@/ee/private/boundary-crossing/eval/types'
 
 const bash = (command: string) => ({
   toolName: 'Bash' as const,

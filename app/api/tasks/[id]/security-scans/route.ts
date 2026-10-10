@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { taskService } from '@/lib/services'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
 
 type Params = { params: Promise<{ id: string }> }
 

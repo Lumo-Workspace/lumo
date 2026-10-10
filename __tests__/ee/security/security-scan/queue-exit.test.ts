@@ -15,9 +15,9 @@ import {
   queueExitReason,
   type QueueExitFinding,
   type QueueExitPr,
-} from '@/lib/security-scan/queue-exit'
-import { DEFAULT_SECURITY_POLICY } from '@/lib/security-scan/policy'
-import type { SecurityBaseline } from '@/lib/security-scan/types'
+} from '@/ee/security/security-scan/queue-exit'
+import { DEFAULT_SECURITY_POLICY } from '@/ee/security/security-scan/policy'
+import type { SecurityBaseline } from '@/ee/security/security-scan/types'
 
 const MERGED_AT = new Date('2026-09-10T10:00:00Z')
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
 import { memberAuditContext } from '@/lib/api/audit-context'
-import { bulkDispositionSecurityFindingsSchema } from '@/lib/validation/security-scan'
+import { bulkDispositionSecurityFindingsSchema } from '@/ee/security/validation/security-scan'
 import { zodError } from '@/lib/api/helpers'
 
 export const runtime = 'nodejs'

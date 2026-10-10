@@ -45,7 +45,7 @@ import {
   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
   SCAN_EVIDENCE_HARD_CAP_DAYS,
   SCAN_EVIDENCE_RETENTION_DAYS,
-} from '@/lib/security-scan/evidence-retention'
+} from '@/ee/security/security-scan/evidence-retention'
 
 /** Intl.ListFormat (ES2021) — absent from the repo's TS lib, present in Node. */
 function orList(locale: string, items: string[]): string {

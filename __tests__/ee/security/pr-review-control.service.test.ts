@@ -1,15 +1,15 @@
 /** @jest-environment node */
-import { prReviewControlService } from '@/lib/services/pr-review-control.service'
+import { prReviewControlService } from '@/ee/security/services/pr-review-control.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { prReviewControlRepository } from '@/lib/repositories/pr-review-control.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findByNumberInWorkspace: jest.fn() },
 }))
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: { update: jest.fn(), get: jest.fn() },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))

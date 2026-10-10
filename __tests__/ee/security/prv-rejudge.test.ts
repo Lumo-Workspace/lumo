@@ -13,7 +13,7 @@ import {
   rejudgeRow,
   type RejudgeRow,
 } from '@/lib/boundary-crossing/rejudge'
-import { compileRuleSet } from '@/lib/services/policy/policy-compiler.service'
+import { compileRuleSet } from '@/ee/security/services/policy/policy-compiler.service'
 import type { PolicyRule, RawPolicyRule } from '@/lib/policy/types'
 import { createHash } from 'crypto'
 

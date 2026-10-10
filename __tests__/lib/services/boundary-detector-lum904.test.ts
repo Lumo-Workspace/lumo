@@ -20,7 +20,6 @@ import {
 import { extractFilePath } from '@/lib/services/hook-event.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
-import { rejudgeRow } from '@/lib/boundary-crossing/rejudge'
 import { augmentBodyWithWrittenPathIgnored } from '@/cli/src/lib/hook-runner'
 import { prisma } from '@/lib/db/prisma'
 
@@ -224,19 +223,9 @@ describe('LUM-904 clipped detail', () => {
     expect(reredacted).not.toContain(githubToken)
     expect(reredacted.length).not.toBe(201)
     expect(isClippedDetail(reredacted)).toBe(true)
-
-    const row = {
-      id: 'bc-1',
-      taskId: 't1',
-      projectId: 'p1',
-      policyRuleRef: 'r1',
-      policyRuleText: null,
-      detail: reredacted,
-      command: null,
-    }
-    expect(rejudgeRow(row, []).verdict).toBe('TRUNCATED')
-    // With the full hook command on record it is judged as before.
-    expect(rejudgeRow({ ...row, command }, []).verdict).not.toBe('TRUNCATED')
+    // (That the policy-rule re-judge leaves such a row open as TRUNCATED is
+    // the security plugin's — its rule matcher — and is pinned in
+    // __tests__/ee/security/boundary-detector-lum904-rejudge.test.ts, LUM-1065.)
     // A whole (unclipped) detail is still judgeable.
     expect(isClippedDetail('git push origin feature')).toBe(false)
   })

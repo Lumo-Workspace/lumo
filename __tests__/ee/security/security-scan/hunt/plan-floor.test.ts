@@ -22,23 +22,25 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   readRepoFile: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
-jest.mock('@/lib/llm/security-falsifier-client', () => ({
+jest.mock('@/ee/security/llm/security-hunt-client', () => ({
+  huntTask: jest.fn(),
+}))
+jest.mock('@/ee/security/llm/security-falsifier-client', () => ({
   falsifyCandidate: jest.fn(),
 }))
-jest.mock('@/lib/services/security-hunt-sandbox', () => ({
+jest.mock('@/ee/security/services/security-hunt-sandbox', () => ({
   attachOrCreateHuntSandbox: jest.fn(),
   runHuntShell: jest.fn(),
   readHuntFile: jest.fn(),
   stopHuntSandbox: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-hunt-plan-client', () => ({
+jest.mock('@/ee/security/llm/security-hunt-plan-client', () => ({
   planHuntTasks: jest.fn(),
 }))
-jest.mock('@/lib/services/security-hunt-task-context', () => ({
+jest.mock('@/ee/security/services/security-hunt-task-context', () => ({
   loadHuntTaskContext: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findDispositionedByPullRequest: jest.fn(),
     persistHuntResult: jest.fn(),
@@ -46,18 +48,18 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 
-import { securityHuntService } from '@/lib/services/security-hunt.service'
-import { planHuntTasks } from '@/lib/llm/security-hunt-plan-client'
-import { loadHuntTaskContext } from '@/lib/services/security-hunt-task-context'
+import { securityHuntService } from '@/ee/security/services/security-hunt.service'
+import { planHuntTasks } from '@/ee/security/llm/security-hunt-plan-client'
+import { loadHuntTaskContext } from '@/ee/security/services/security-hunt-task-context'
 import {
   EMPTY_HUNT_TASK_CONTEXT,
   type HuntTaskContext,
-} from '@/lib/security-scan/hunt/task-context'
-import { planFallback } from '@/lib/security-scan/hunt/plan-fallback'
+} from '@/ee/security/security-scan/hunt/task-context'
+import { planFallback } from '@/ee/security/security-scan/hunt/plan-fallback'
 import {
   HUNT_MAX_PLANNED_TASKS,
   type HuntJob,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 const planMock = planHuntTasks as jest.Mock
 const contextMock = loadHuntTaskContext as jest.Mock

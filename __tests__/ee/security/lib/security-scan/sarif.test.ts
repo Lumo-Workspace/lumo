@@ -8,7 +8,7 @@
  */
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { normalizeSarif, parseSarif } from '@/lib/security-scan/sarif'
+import { normalizeSarif, parseSarif } from '@/ee/security/security-scan/sarif'
 
 function fixture(name: string) {
   return parseSarif(

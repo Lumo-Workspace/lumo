@@ -28,7 +28,7 @@ import {
   buildPlanPrompt,
   PLAN_SYSTEM_PROMPT,
   type PlanClientInput,
-} from '../../../lib/llm/security-hunt-plan-client'
+} from '@/ee/security/llm/security-hunt-plan-client'
 import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
@@ -36,11 +36,11 @@ import {
   PLAN_HUNT_TIMEOUT_MS,
   PLAN_HUNT_TOKEN_BUDGET,
   PLAN_OBJECTIVE_MAX_CHARS,
-} from '../../../lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import {
   describePlanFailure,
   isTransientPlanError,
-} from '../../../lib/security-scan/hunt/plan-retry'
+} from '@/ee/security/security-scan/hunt/plan-retry'
 import { VARIANTS, type ProbeVariant } from './variants'
 import type { CorpusEntry } from './build-corpus'
 

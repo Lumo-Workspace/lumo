@@ -18,11 +18,11 @@ jest.mock('react-intl', () => ({
 }))
 
 const useSecurityScans = jest.fn()
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
 }))
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection',
+  '@/ee/security/components/TaskDetailTimeline/SecurityScanSection',
   () => ({
     SecurityScanSection: ({ taskId }: { taskId: string }) => (
       <div data-testid='scan-section'>{taskId}</div>
@@ -33,7 +33,7 @@ jest.mock(
   })
 )
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary-line',
+  '@/ee/security/components/TaskDetailTimeline/security-summary-line',
   () => ({
     formatSecurityVerdict: () => ({ text: 'verdict', caveats: [] }),
   })
@@ -57,24 +57,18 @@ jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
   showsScanningOff: (scan: { findings: unknown[] } | null | undefined) =>
     !scan || scan.findings.length === 0,
 }))
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/settings/SecurityScanSwitchesCard',
-  () => ({
-    SecurityScanSwitchesCard: (props: Record<string, unknown>) => (
-      <div data-testid='switches-card' data-props={JSON.stringify(props)} />
-    ),
-  })
-)
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/settings/ScanEvidenceRetentionRow',
-  () => ({
-    ScanEvidenceRetentionRow: ({
-      initialDays,
-    }: {
-      initialDays: number | null
-    }) => <div data-testid='evidence-row'>{String(initialDays)}</div>,
-  })
-)
+jest.mock('@/ee/security/components/settings/SecurityScanSwitchesCard', () => ({
+  SecurityScanSwitchesCard: (props: Record<string, unknown>) => (
+    <div data-testid='switches-card' data-props={JSON.stringify(props)} />
+  ),
+}))
+jest.mock('@/ee/security/components/settings/ScanEvidenceRetentionRow', () => ({
+  ScanEvidenceRetentionRow: ({
+    initialDays,
+  }: {
+    initialDays: number | null
+  }) => <div data-testid='evidence-row'>{String(initialDays)}</div>,
+}))
 
 import { PluginSlot, PluginTaskDossier } from '@/lib/plugins/client'
 

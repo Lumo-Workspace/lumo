@@ -15,7 +15,7 @@ import {
   normalizeSarif,
   parseSarif,
   trivyFileLevelKeys,
-} from '@/lib/security-scan/sarif'
+} from '@/ee/security/security-scan/sarif'
 
 const read = (dir: string, name: string) =>
   readFileSync(join(__dirname, '../../../../fixtures', dir, name), 'utf8')

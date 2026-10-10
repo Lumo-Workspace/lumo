@@ -17,8 +17,8 @@ import {
   DEFAULT_SECURITY_POLICY,
   parseSecurityPolicy,
   type SecurityPolicy,
-} from '../../../lib/security-scan/policy'
-import type { SecurityBaseline } from '../../../lib/security-scan/types'
+} from '@/ee/security/security-scan/policy'
+import type { SecurityBaseline } from '@/ee/security/security-scan/types'
 import {
   classifyQueue,
   renderQueueReport,

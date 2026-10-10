@@ -21,13 +21,13 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
-jest.mock('@/lib/services/security-sarif-blob', () => ({
+jest.mock('@/ee/security/services/security-sarif-blob', () => ({
   fetchPrivateBlob: jest.fn(),
   deleteBlob: jest.fn(),
   listSarifBlobs: jest.fn(),
@@ -48,11 +48,15 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
     markSarifIngested: jest.fn(),
     findSecurityBaseline: jest.fn(),
   },
 }))
+
 jest.mock('@/lib/repositories', () => ({
   projectRepository: {
     clearDefaultRepositories: jest.fn(),
@@ -60,7 +64,7 @@ jest.mock('@/lib/repositories', () => ({
     createRepository: jest.fn(),
   },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     createIfAbsent: jest.fn(),
     ingestExternalFindings: jest.fn(),
@@ -68,13 +72,13 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     findDispositionedByPullRequest: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
@@ -98,13 +102,13 @@ jest.mock('@/lib/services/lineage-outcome.service', () => ({
 import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
-import { fetchPrivateBlob } from '@/lib/services/security-sarif-blob'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
+import { fetchPrivateBlob } from '@/ee/security/services/security-sarif-blob'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { repoNotConfirmedError } from '@/lib/integrations/github/confirmed-repositories'
-import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
+import { securitySarifIngestService } from '@/ee/security/services/security-sarif-ingest.service'
 
 const findByWorkspace =
   githubAppInstallationRepository.findByWorkspace as jest.Mock

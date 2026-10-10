@@ -5,7 +5,7 @@ import {
   DEFAULT_WORKSPACE_SECURITY_SWITCHES,
   platformSecurityCeiling,
   resolveSecurityLayers,
-} from '@/lib/security-scan/workspace-switches'
+} from '@/ee/security/security-scan/workspace-switches'
 
 const ALL_ON = DEFAULT_WORKSPACE_SECURITY_SWITCHES
 /** LUM-1025: Vercel Sandbox configured — the layers' default-on baseline. */

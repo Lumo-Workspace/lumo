@@ -11,13 +11,13 @@ jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 import {
   HUNT_SYSTEM_PROMPT,
   describeRunShellTool,
-} from '@/lib/llm/security-hunt-client'
-import { PLAN_SYSTEM_PROMPT } from '@/lib/llm/security-hunt-plan-client'
-import { categoriesToTasks } from '@/lib/security-scan/hunt/plan-fallback'
+} from '@/ee/security/llm/security-hunt-client'
+import { PLAN_SYSTEM_PROMPT } from '@/ee/security/llm/security-hunt-plan-client'
+import { categoriesToTasks } from '@/ee/security/security-scan/hunt/plan-fallback'
 import {
   HUNT_CATEGORIES,
   HUNT_STEP_OUTPUT_MAX,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 // LUM-787 — PR 1008's t1 was briefed "Across the diff, find …" and spent two
 // of its five shell calls on `git diff`: one refused for the unquoted `>` in

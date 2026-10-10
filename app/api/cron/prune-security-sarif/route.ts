@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCronAuth } from '@/lib/api/cron-auth'
-import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
+import { securitySarifIngestService } from '@/ee/security/services/security-sarif-ingest.service'
 
 /**
  * GET /api/cron/prune-security-sarif

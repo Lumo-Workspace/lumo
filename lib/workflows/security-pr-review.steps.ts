@@ -6,7 +6,7 @@
  * The service never throws, so this step never fails a run and needs no
  * best-effort wrapper of its own.
  */
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 
 export async function syncPrReviewStep(scanId: string): Promise<void> {
   'use step'

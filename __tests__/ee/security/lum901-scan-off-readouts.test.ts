@@ -26,7 +26,7 @@ jest.mock('@/lib/integrations/github/pr-comment-client', () => {
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByIdForReview: jest.fn(),
     hasNewerScanThan: jest.fn(),
@@ -39,16 +39,19 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findByNumberInWorkspace: jest.fn() },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-    findSecuritySwitches: jest.fn(),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    findSecuritySwitches: jest.fn(),
     findSecurityBaseline: jest.fn().mockResolvedValue(null),
   },
 }))
+
 jest.mock('@/lib/logger', () => ({
   logger: {
     debug: jest.fn(),
@@ -58,13 +61,12 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
-import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
-import { prScanReadoutService } from '@/lib/services/pr-scan-readout.service'
+import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
+import { prScanReadoutService } from '@/ee/security/services/pr-scan-readout.service'
 import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
 import { getRepoToken } from '@/lib/integrations/github/auth'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { SCANNING_OFF_NOTE } from '@/shared/src/security-scan'
 import {
   formatPrScan,
@@ -74,10 +76,11 @@ import {
   pushSecurityCoverage,
   type TaskStatusResponse,
 } from '../../../cli/src/commands/task-status'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const repo = prSecurityScanRepository as unknown as Record<string, jest.Mock>
 const gh = prCommentClient as unknown as Record<string, jest.Mock>
-const switches = workspaceRepository.findSecuritySwitches as jest.Mock
+const switches = securityColumnsRepository.findSecuritySwitches as jest.Mock
 
 const REVIEW_SCAN = {
   id: 's-old',
@@ -246,7 +249,7 @@ describe('LUM-901 CLI readouts show scanning off instead of scan CLEAN', () => {
     expect(lines.join('\n')).toMatch(/scan CLEAN/)
   })
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

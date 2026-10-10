@@ -18,7 +18,7 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findLatestByPullRequestIds: jest.fn(),
     findSummaryCommentIdByPullRequest: jest.fn(),
@@ -35,14 +35,19 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn(),
-    findSecuritySwitches: jest.fn(),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: { findSecurityBaseline: jest.fn() },
+  projectRepository: {},
 }))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn(),
+    findSecuritySwitches: jest.fn(),
+    findSecurityBaseline: jest.fn(),
+  },
+}))
+
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
@@ -60,16 +65,16 @@ jest.mock('@/lib/integrations/github/pr-comment-client', () => ({
   },
 }))
 
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
-import { assertNoOpenBlockingSecurityFindings } from '@/lib/services/pr-security-scan-gate'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
+import { assertNoOpenBlockingSecurityFindings } from '@/ee/security/services/pr-security-scan-gate'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { getRepoToken } from '@/lib/integrations/github/auth'
 import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
 import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
 import { SCANNING_OFF_NOTE } from '@/shared/src/security-scan'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
@@ -77,7 +82,9 @@ const repo = prSecurityScanRepository as jest.Mocked<
 const prRepo = pullRequestRepository as jest.Mocked<
   typeof pullRequestRepository
 >
-const wsRepo = workspaceRepository as jest.Mocked<typeof workspaceRepository>
+const colRepo = securityColumnsRepository as jest.Mocked<
+  typeof securityColumnsRepository
+>
 const updateComment = prCommentClient.updateIssueComment as jest.Mock
 const createComment = prCommentClient.createIssueComment as jest.Mock
 
@@ -151,11 +158,11 @@ const ALL_ON = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  wsRepo.findSecuritySwitches.mockResolvedValue({
+  colRepo.findSecuritySwitches.mockResolvedValue({
     ...ALL_ON,
     securityScanEnabled: false,
   })
-  wsRepo.findSecurityPolicy.mockResolvedValue(null)
+  colRepo.findSecurityPolicy.mockResolvedValue(null)
   prRepo.findById.mockResolvedValue(PR as never)
   prRepo.findManyForSecurityByTaskId.mockResolvedValue([TASK_PR] as never)
   repo.findSummaryCommentIdByPullRequest.mockResolvedValue('c-42')
@@ -223,7 +230,7 @@ describe('LUM-892 scanning turned off', () => {
       { number: 7, reason: 'SCANNING_OFF' },
     ])
     // The control: with scanning on the same clean scan vouches.
-    wsRepo.findSecuritySwitches.mockResolvedValue(ALL_ON)
+    colRepo.findSecuritySwitches.mockResolvedValue(ALL_ON)
     const on = await prSecurityReminderService.loadOpenFindingsForTask('t1')
     expect(on.unconfirmedPrs).toEqual([])
   })
@@ -233,13 +240,13 @@ describe('LUM-892 scanning turned off', () => {
     await expect(prSecurityScanService.getForTask('t1')).resolves.toMatchObject(
       { scanningOff: true }
     )
-    wsRepo.findSecuritySwitches.mockResolvedValue(ALL_ON)
+    colRepo.findSecuritySwitches.mockResolvedValue(ALL_ON)
     await expect(prSecurityScanService.getForTask('t1')).resolves.toMatchObject(
       { scanningOff: false }
     )
   })
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

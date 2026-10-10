@@ -22,32 +22,32 @@ jest.mock('@/lib/workflows/security-hunt', () => ({
 jest.mock('@/lib/workflows/review-verifier', () => ({
   reviewVerifierWorkflow: 'verifier',
 }))
-jest.mock('@/lib/services/scan-code-retention.service', () => ({
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { recordHuntStart: jest.fn() },
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }))
 
-import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
-import { startSecurityBaselineScan } from '@/lib/services/security-baseline-scan-start'
-import { startSecurityHunt } from '@/lib/services/security-hunt-start'
-import { startReviewVerifier } from '@/lib/services/review-verifier-start'
-import { isManagedScanEnabled } from '@/lib/services/security-managed-scan.config'
-import { isHuntEnabled } from '@/lib/services/security-hunt.config'
-import { isReviewVerifierEnabled } from '@/lib/services/review-verifier.config'
+import { startSecurityManagedScan } from '@/ee/security/services/security-managed-scan-start'
+import { startSecurityBaselineScan } from '@/ee/security/services/security-baseline-scan-start'
+import { startSecurityHunt } from '@/ee/security/services/security-hunt-start'
+import { startReviewVerifier } from '@/ee/security/services/review-verifier-start'
+import { isManagedScanEnabled } from '@/ee/security/services/security-managed-scan.config'
+import { isHuntEnabled } from '@/ee/security/services/security-hunt.config'
+import { isReviewVerifierEnabled } from '@/ee/security/services/review-verifier.config'
 import {
   platformSecurityCeiling,
   resolveSecurityLayers,
-} from '@/lib/security-scan/workspace-switches'
+} from '@/ee/security/security-scan/workspace-switches'
 import { logger } from '@/lib/logger'
-import type { ManagedScanJob } from '@/lib/services/security-managed-scan.config'
-import type { BaselineScanJob } from '@/lib/services/security-managed-scan.config'
-import type { HuntJob } from '@/lib/services/security-hunt.config'
-import type { ReviewVerifierJob } from '@/lib/services/review-verifier.service'
+import type { ManagedScanJob } from '@/ee/security/services/security-managed-scan.config'
+import type { BaselineScanJob } from '@/ee/security/services/security-managed-scan.config'
+import type { HuntJob } from '@/ee/security/services/security-hunt.config'
+import type { ReviewVerifierJob } from '@/ee/security/services/review-verifier.service'
 
 const SAVED = { ...process.env }
 

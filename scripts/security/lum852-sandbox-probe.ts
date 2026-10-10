@@ -29,25 +29,25 @@ import {
   repoCheckoutDir,
   restrictSandboxEgress,
   type RepoSandbox,
-} from '@/lib/integrations/vercel-sandbox'
+} from '@/ee/security/integrations/vercel-sandbox'
 // LUM-889: the unchecked mint is internal — not in the github barrel.
 import {
   createRepoScopedToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
-import { scrubSandboxCredentials } from '@/lib/services/sandbox-credential-scrub'
+import { scrubSandboxCredentials } from '@/ee/security/services/sandbox-credential-scrub'
 import {
   MANAGED_SCAN_TOOLS,
   SANDBOX_IMAGE,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_VCPUS,
   SCAN_EGRESS_ALLOWLIST,
-} from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-managed-scan.config'
 import {
   MANAGED_REPORT_PATH,
   managedInstallScript,
   managedToolScript,
-} from '@/lib/services/security-managed-scan.scripts'
+} from '@/ee/security/services/security-managed-scan.scripts'
 
 const [repository, sha] = process.argv.slice(2)
 if (!repository || !sha || !/^[0-9a-f]{40}$/.test(sha)) {

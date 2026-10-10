@@ -21,7 +21,7 @@ jest.mock('react-intl', () => ({
 }))
 
 import { render, screen } from '@testing-library/react'
-import { CrossingTriageLine } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/CrossingTriageLine'
+import { CrossingTriageLine } from '@/ee/security/components/TaskDetailTimeline/CrossingTriageLine'
 
 function renderLine(disposition: string | null, probability = 0.734) {
   return render(

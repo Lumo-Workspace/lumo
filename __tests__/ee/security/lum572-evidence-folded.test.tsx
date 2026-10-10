@@ -52,7 +52,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
     disposeDefect: jest.fn(),
   })),
 }))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: jest.fn(() => ({
     data: undefined,
     isLoading: false,
@@ -93,7 +93,7 @@ import { render, screen } from '@testing-library/react'
 import { TaskDossier } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TaskDossier'
 import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
-import { useSecurityScans } from '@/app/workspace/[workspaceUrl]/hooks/useSecurityScans'
+import { useSecurityScans } from '@/ee/security/hooks/useSecurityScans'
 
 const mockAgentRuns = useAgentRuns as jest.Mock
 const mockStatus = useTaskStatus as jest.Mock

@@ -3,7 +3,7 @@ import {
   huntFingerprint,
   HuntCandidateSchema,
   HUNT_CATEGORIES,
-} from '@/lib/security-scan/hunt/candidate'
+} from '@/ee/security/security-scan/hunt/candidate'
 
 describe('LUM-739 hunt candidate', () => {
   it('fingerprint is 16 hex chars and stable', () => {

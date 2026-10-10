@@ -6,8 +6,8 @@
  * Reads the database named by DATABASE_URL; read-only.
  */
 import 'dotenv/config'
-import { securityScanReliabilityService } from '@/lib/services/security-scan-reliability.service'
-import { formatScanReliability } from '@/lib/security-scan/reliability'
+import { securityScanReliabilityService } from '@/ee/security/services/security-scan-reliability.service'
+import { formatScanReliability } from '@/ee/security/security-scan/reliability'
 
 export function parseReliabilityArgs(argv: string[]): {
   since?: Date

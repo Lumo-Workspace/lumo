@@ -38,17 +38,10 @@ function row(doc: string, label: string): string {
 }
 
 describe('legal retention claims LUM-915', () => {
-  // LUM-1062: the scan evidence figures come from the installed security
-  // plugin's retention contribution.
-  const all = retentionFigures()
-  const scanFigures = all.contributed.find(c => c.paragraph === 'scan')
-  if (!scanFigures) throw new Error('security plugin scan figures missing')
-  const f = {
-    ...all,
-    scanDefault: scanFigures.values.scanDefault as number,
-    scanTiers: scanFigures.values.scanTiers as readonly number[],
-    openCap: scanFigures.values.openCap as number,
-  }
+  // LUM-1062 / LUM-1065: the scan evidence figures come from the installed
+  // security plugin's retention contribution; their sentences are checked
+  // with the plugin, __tests__/ee/security/lib/legal/legal-retention-claims.test.ts.
+  const f = retentionFigures()
 
   it('privacy policy retention rows quote the retention constants', () => {
     const policy = read(POLICY)
@@ -60,17 +53,6 @@ describe('legal retention claims LUM-915', () => {
     expect(session).toContain(`held up to ${f.auditCap} days after completion`)
     expect(session).toContain(`${f.idle} days pass with no agent activity`)
     expect(session).toContain(`plus ${f.grace} days`)
-
-    const scan = row(policy, 'Security scan evidence')
-    expect(scan).toContain(
-      `cleared ${f.scanDefault} days after the pull request is merged or closed`
-    )
-    expect(scan).toContain(`choose ${orList(f.scanTiers)} days`)
-    expect(scan).toContain(`cleared ${f.openCap} days after the scan finished`)
-    // The pre-LUM-911 sentence promised scan code for the workspace's life.
-    expect(policy).not.toMatch(
-      /code excerpts attached to findings are kept for as long as the workspace exists/
-    )
 
     const crossing = row(policy, 'Boundary-crossing records')
     expect(crossing).toContain(
@@ -187,9 +169,6 @@ describe('legal retention claims LUM-915', () => {
     )
     expect(retention).toContain(
       `discarded ${f.grace} days after they are used up`
-    )
-    expect(retention).toContain(
-      `cleared ${f.scanDefault} days after the pull request is merged or closed by default (${orList(f.scanTiers)} days selectable; at most ${f.openCap} days`
     )
     expect(retention).toContain(
       `${f.crossingDefault} days after disposition by default (${orList(f.crossingTiers)} days selectable)`

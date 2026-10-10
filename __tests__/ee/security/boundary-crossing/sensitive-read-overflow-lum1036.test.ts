@@ -13,7 +13,7 @@ import {
   detectProjectSensitiveReads,
   detectSensitiveReads,
   MAX_SENSITIVE_READS_PER_EVENT,
-} from '@/lib/boundary-crossing/sensitive-read'
+} from '@/ee/security/boundary-crossing/sensitive-read'
 
 const BUILT_IN = [
   '~/.aws/credentials',

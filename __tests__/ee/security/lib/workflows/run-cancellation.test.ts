@@ -18,20 +18,20 @@ jest.mock('@/lib/logger', () => ({
     debug: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-sarif-ingest.service', () => ({
+jest.mock('@/ee/security/services/security-sarif-ingest.service', () => ({
   securitySarifIngestService: { persistFindings: jest.fn() },
 }))
-jest.mock('@/lib/services/security-hunt.service', () => ({
+jest.mock('@/ee/security/services/security-hunt.service', () => ({
   securityHuntService: { persist: jest.fn() },
 }))
 
 import { getRun } from 'workflow/api'
 import { persistSarifFindingsStep } from '@/lib/workflows/security-sarif-ingest.steps'
 import { persistHuntFindingsStep } from '@/lib/workflows/security-hunt.steps'
-import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
-import { securityHuntService } from '@/lib/services/security-hunt.service'
-import type { PersistInput } from '@/lib/services/security-sarif-ingest.service'
-import type { PersistHuntInput } from '@/lib/services/security-hunt.config'
+import { securitySarifIngestService } from '@/ee/security/services/security-sarif-ingest.service'
+import { securityHuntService } from '@/ee/security/services/security-hunt.service'
+import type { PersistInput } from '@/ee/security/services/security-sarif-ingest.service'
+import type { PersistHuntInput } from '@/ee/security/services/security-hunt.config'
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock
 
