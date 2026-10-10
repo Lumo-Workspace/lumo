@@ -210,7 +210,7 @@ export function formatImportResult(
 export function formatVerify(r: VerifyReport): string[] {
   const lines = [
     `Clerk total: ${r.clerkTotalCount}; exported: ${r.exported}; imported: ${r.imported}; skipped: ${r.skipped}`,
-    `unexplained missing: ${r.unexplainedMissing}; expected accounts missing: ${r.accountsMissing}; banned mismatches: ${r.bannedMismatch}`,
+    `unexplained missing: ${r.unexplainedMissing}; expected accounts missing: ${r.accountsMissing}; banned mismatches (warning only): ${r.bannedMismatch}`,
     'id columns (distinct / missing in auth_users / missing with active membership):',
   ]
   for (const c of r.columns) {

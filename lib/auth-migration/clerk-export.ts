@@ -258,7 +258,7 @@ export function buildBundle(input: {
   const seen = new Set<string>()
   const users: MigrationUser[] = []
   for (const u of input.apiUsers) {
-    if (seen.has(u.id)) continue // offset paging can repeat a row
+    if (seen.has(u.id)) continue // a page re-fetched after a retry could repeat a row
     seen.add(u.id)
     users.push(toMigrationUser(u, input.csv?.get(u.id)))
   }

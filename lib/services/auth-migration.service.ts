@@ -152,6 +152,11 @@ export interface VerifyReport {
   /** Exported users neither in auth_users nor explained by a skip reason. */
   unexplainedMissing: number
   accountsMissing: number
+  /**
+   * Imported users whose ban state differs from the export. A warning, not a
+   * failure: after the cutover a ban or unban done in Better Auth
+   * (scripts/auth-admin, T2) legitimately differs from the frozen Clerk export.
+   */
   bannedMismatch: number
   columns: ColumnCheck[]
   ok: boolean

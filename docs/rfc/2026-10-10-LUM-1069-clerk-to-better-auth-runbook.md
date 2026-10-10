@@ -34,7 +34,7 @@
 ```sh
 mkdir -p ~/lumo-auth-migration && chmod 700 ~/lumo-auth-migration
 # 一个强口令，只放在当前 shell 会话里；记到密码管理器，回滚期结束后销毁
-export LUMO_MIGRATION_PASSPHRASE='<≥20 字符的随机口令>'
+read -rs LUMO_MIGRATION_PASSPHRASE && export LUMO_MIGRATION_PASSPHRASE   # 输入 ≥20 字符的随机口令；不回显、不进 shell 历史
 ```
 
 - 所有导出文件只放在 `~/lumo-auth-migration/`（不在任何 git 工作区内；脚本发现路径在 git 仓库里会拒绝运行）。
@@ -55,7 +55,7 @@ export LUMO_MIGRATION_PASSPHRASE='<≥20 字符的随机口令>'
 3. 拉 API 数据并合并成导出包（只读 GET）：
 
    ```sh
-   export CLERK_MIGRATION_SECRET_KEY='sk_live_…'   # 只在这个 shell 里
+   read -rs CLERK_MIGRATION_SECRET_KEY && export CLERK_MIGRATION_SECRET_KEY   # 粘贴 sk_live_ 密钥；不回显、不进 shell 历史
    npx tsx scripts/auth-migration/export.ts --csv ~/lumo-auth-migration/users-<日期>.csv.enc --out ~/lumo-auth-migration/export-<日期>.enc
    unset CLERK_MIGRATION_SECRET_KEY
    ```

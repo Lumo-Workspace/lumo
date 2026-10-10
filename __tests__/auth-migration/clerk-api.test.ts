@@ -4,6 +4,7 @@
  * LUM-1072 — Clerk Backend API export client: cursor paging, 429 / 5xx
  * backoff with Retry-After, give-up, and the key never leaking.
  */
+import { randomBytes } from 'node:crypto'
 import {
   clerkInstanceKind,
   fetchAllClerkUsers,
@@ -15,7 +16,8 @@ import {
   loadClerkFixture,
 } from '@/test-utils/auth-migration-fixtures'
 
-const KEY = 'sk_test_fakefakefakefakefake'
+// A throwaway key generated per run (not a real Clerk key).
+const KEY = `sk_test_${randomBytes(12).toString('hex')}`
 
 describe('LUM-1072 Clerk API client', () => {
   const { apiUsers } = loadClerkFixture()
