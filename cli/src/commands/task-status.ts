@@ -15,6 +15,7 @@ import {
   formatTurnedOffLines,
   formatScanningOffLines,
   formatScanLayerTail,
+  type PrTooLargeLine,
 } from '../lib/scan-format'
 import {
   fetchOpenCrossings,
@@ -154,7 +155,14 @@ export interface TaskStatusResponse {
     blocking: number
     unconfirmedPrs: Array<{
       number: number
-      reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING' | 'SCANNING_OFF'
+      /** LUM-1079: TOO_LARGE — the PR was too large to scan at all. */
+      reason:
+        | 'NONE'
+        | 'FAILED'
+        | 'PENDING'
+        | 'RUNNING'
+        | 'SCANNING_OFF'
+        | 'TOO_LARGE'
     }>
     /** LUM-735 — one entry per linked PR with a latest scan (open or closed
      *  PRs alike). Optional/absent on an older server — additive field. */
@@ -186,6 +194,8 @@ export interface TaskStatusResponse {
       huntOverCap?: { sourceFiles: number; capFiles: number } | null
       /** LUM-832 — the AI review did not run: over its size cap; absent on an older server. */
       judgeOverCap?: { diffChars: number; capChars: number } | null
+      /** LUM-1079 — the whole PR was too large to scan; absent on an older server. */
+      prTooLarge?: PrTooLargeLine | null
       /** LUM-901 — the workspace has scanning off; absent on an older server. */
       scanningOff?: boolean
       /** LUM-762 — per-task L3 hunt coverage read off `huntAudit`.
@@ -362,7 +372,7 @@ type ScanSummary = NonNullable<
  *  scanner reason may be printed, and only when the layer FAILED. */
 function formatScanSummaryLine(s: ScanSummary): string {
   return (
-    `  PR #${s.prNumber} · scan ${formatScanStatus(s.status, s.stages, s.scanningOff === true)}` +
+    `  PR #${s.prNumber} · scan ${formatScanStatus(s.status, s.stages, s.scanningOff === true, s.prTooLarge != null)}` +
     formatScanLayerTail({
       status: s.status,
       stages: s.stages,
@@ -370,6 +380,7 @@ function formatScanSummaryLine(s: ScanSummary): string {
       partialCauses: s.partialCauses,
       huntOverCap: s.huntOverCap,
       judgeOverCap: s.judgeOverCap,
+      prTooLarge: s.prTooLarge,
       partial: s.partial,
       externalFindings: s.externalFindings,
       dependencyFindings: s.dependencyFindings,
@@ -415,7 +426,9 @@ export function pushSecurityCoverage(
           ? 'no security scan has run'
           : u.reason === 'FAILED'
             ? "security scan didn't finish on our side"
-            : `security scan still ${u.reason}`
+            : u.reason === 'TOO_LARGE'
+              ? 'the PR is too large to scan, so nothing in it was scanned (split it or narrow its scope to get it scanned)'
+              : `security scan still ${u.reason}`
     lines.push(`⚠ PR #${u.number}: ${why} — could not confirm it is clean.`)
   }
 }

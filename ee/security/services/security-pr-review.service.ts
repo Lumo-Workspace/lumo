@@ -62,6 +62,7 @@ import {
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
+  formatPrTooLarge,
   formatTurnedOffNote,
   isCodeReviewFinding,
   isOwnedUnfinished,
@@ -70,6 +71,7 @@ import {
   type HuntOverCapInput,
   type JudgeOverCapInput,
   type HuntProgressInput,
+  type PrTooLargeInput,
   scanStageLabel,
   scanStageStateLabel,
 } from '@/shared/src/security-scan'
@@ -377,6 +379,8 @@ export interface SummaryInput {
   huntOverCap?: HuntOverCapInput | null
   /** LUM-832 — the AI review did not run: the diff was over its size cap. */
   judgeOverCap?: JudgeOverCapInput | null
+  /** LUM-1079 — the whole PR was too large to scan: nothing ran. */
+  prTooLarge?: PrTooLargeInput | null
   /** LUM-832 — the causes on the row; absent/empty reads as unattributed. */
   partialCauses?: string[]
   /** Open (non-dependency) findings per external tool, from the `ext:<tool>:` prefix. */
@@ -581,6 +585,8 @@ function verdictLine(
   }
   if (coverage === 'IN_PROGRESS')
     return '**No open findings yet — the scan is still running.**'
+  // LUM-1079: nothing ran — never "no findings", never ours to finish.
+  if (input.prTooLarge) return '**Not scanned — this PR is too large.**'
   // LUM-832: a fault or shortfall of ours — owned, never "a layer hit its
   // budget cap", which blamed the PR's size for a budget we chose.
   if (owned) return `**No open findings so far — ${SCAN_UNFINISHED_NOTE}.**`
@@ -611,7 +617,9 @@ export function buildSummary(input: SummaryInput): string {
     stages: input.stages,
     partial: input.partial,
     partialCauses: input.partialCauses ?? [],
-    hasSizeNotice: Boolean(input.huntOverCap || input.judgeOverCap),
+    hasSizeNotice: Boolean(
+      input.huntOverCap || input.judgeOverCap || input.prTooLarge
+    ),
   })
   const blocks: string[] = [
     '### 🛡️ Lumo security scan',
@@ -634,6 +642,8 @@ export function buildSummary(input: SummaryInput): string {
   // With findings open, the owned note still has to be said once.
   if (input.open > 0 && owned)
     notices.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
+  // LUM-1079: the whole PR was too large — why, and what to do.
+  if (input.prTooLarge) notices.push(`- ${formatPrTooLarge(input.prTooLarge)}`)
   // LUM-832: a layer over its size cap did not run — stated the way
   // CodeRabbit states its own limit.
   if (input.judgeOverCap)
@@ -1017,6 +1027,7 @@ export const securityPrReviewService = {
           partialCauses: scan.partialCauses ?? [],
           huntAudit: scan.huntAudit,
           judgeBudget: scan.judgeBudget,
+          error: scan.error,
         }),
         partialCauses: scan.partialCauses ?? [],
         externalCounts,

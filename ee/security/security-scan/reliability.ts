@@ -36,6 +36,11 @@ export interface ScanReliability {
   ourFault: number
   /** Scans owing coverage (a budget we set) and no fault of ours. */
   coverageOwedOnly: number
+  /**
+   * LUM-1079 — scans of a PR too large to scan at all: neither our fault nor
+   * coverage we owe (still UNFINISHED in `byCoverage`, never CHECKED).
+   */
+  changeTooLarge: number
   /** `partial` with no cause on record — rows from before LUM-832. */
   unattributed: number
   /** ourFault / settled scans (in-progress ones excluded); null with none settled. */
@@ -62,7 +67,18 @@ function isOversizedAudit(audit: unknown): boolean {
   )
 }
 
+/** LUM-1079 — the only cause on record is the PR being too large to scan. */
+function isChangeTooLargeOnly(row: ReliabilityScanRow): boolean {
+  return (
+    row.partialCauses.length > 0 &&
+    row.partialCauses.every(c => partialCauseClass(c) === 'CHANGE_TOO_LARGE')
+  )
+}
+
 function hasOurFault(row: ReliabilityScanRow, stages: string[]): boolean {
+  // LUM-1079: a PR too large to scan is FAILED on the row (it vouches for
+  // nothing) but is a limit on the change, not a fault of ours.
+  if (isChangeTooLargeOnly(row)) return false
   if (row.status === 'FAILED') return true
   if (stages.includes('FAILED')) return true
   return row.partialCauses.some(c => partialCauseClass(c) === 'OUR_FAULT')
@@ -80,6 +96,7 @@ export function summarizeScanReliability(
   const causes: Record<string, number> = {}
   let ourFault = 0
   let coverageOwedOnly = 0
+  let changeTooLarge = 0
   let unattributed = 0
   let hunted = 0
   let wholeDiff = 0
@@ -98,6 +115,7 @@ export function summarizeScanReliability(
     )
     if (coverage !== 'IN_PROGRESS') {
       if (hasOurFault(row, stages)) ourFault += 1
+      else if (isChangeTooLargeOnly(row)) changeTooLarge += 1
       else if (
         row.partialCauses.some(c => partialCauseClass(c) === 'COVERAGE_OWED')
       )
@@ -117,6 +135,7 @@ export function summarizeScanReliability(
     byCoverage,
     ourFault,
     coverageOwedOnly,
+    changeTooLarge,
     unattributed,
     ourFaultRate: settled > 0 ? ourFault / settled : null,
     causes,
@@ -139,7 +158,7 @@ export function formatScanReliability(r: ScanReliability): string {
     .map(([c, n]) => `${c} ${n} (${partialCauseClass(c)})`)
   return [
     `scans ${r.scans} · checked ${r.byCoverage.CHECKED} · unfinished ${r.byCoverage.UNFINISHED} · turned off ${r.byCoverage.TURNED_OFF} · in progress ${r.byCoverage.IN_PROGRESS}`,
-    `our fault ${r.ourFault} (${pct(r.ourFaultRate)} of settled) · coverage owed only ${r.coverageOwedOnly} · unattributed ${r.unattributed}`,
+    `our fault ${r.ourFault} (${pct(r.ourFaultRate)} of settled) · coverage owed only ${r.coverageOwedOnly} · PR too large to scan ${r.changeTooLarge} · unattributed ${r.unattributed}`,
     `hunt coverage ${r.hunt.wholeDiff}/${r.hunt.hunted} whole-diff (${pct(r.hunt.coverageRatio)})`,
     `causes: ${causes.length > 0 ? causes.join(' · ') : 'none'}`,
   ].join('\n')

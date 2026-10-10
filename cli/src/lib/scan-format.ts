@@ -4,9 +4,11 @@ import {
   SCAN_STAGE_KEYS,
   SCAN_UNFINISHED_NOTE,
   SCANNING_OFF_NOTE,
+  PR_TOO_LARGE_STATUS,
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
+  formatPrTooLarge,
   formatTurnedOffNote,
   isOwnedUnfinished,
   scanStageLabel,
@@ -40,6 +42,8 @@ export interface ScanLayerLineInput {
   huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
   /** LUM-832 — the AI review did not run: over its size cap. Absent on an older server. */
   judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
+  /** LUM-1079 — the whole PR was too large to scan. Absent on an older server. */
+  prTooLarge?: PrTooLargeLine | null | undefined
   /** Raw external-tool hits that are not dependencies (decorates Code scan). */
   externalFindings: number
   /** LUM-738 — DEPENDENCY rows (decorates Dependencies). Absent on an older server. */
@@ -54,6 +58,13 @@ export interface ScanLayerLineInput {
    * no prefix. Callers derive it with `externalFailureReason`.
    */
   externalFailureReason: string | null
+}
+
+/** LUM-1079 — the too-large facts as the server sends them (shape frozen). */
+export interface PrTooLargeLine {
+  reason: 'FILE_LIMIT' | 'DIFF_REFUSED'
+  changedFiles: number | null
+  capFiles: number
 }
 
 const EXTERNAL_ERROR_TAIL = 200
@@ -103,7 +114,7 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
   if (
     isOwnedUnfinished({
       ...s,
-      hasSizeNotice: Boolean(s.huntOverCap || s.judgeOverCap),
+      hasSizeNotice: Boolean(s.huntOverCap || s.judgeOverCap || s.prTooLarge),
     })
   )
     line += ` · ${SCAN_UNFINISHED_NOTE}`
@@ -128,8 +139,11 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
 export function formatSizeCapLines(s: {
   huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
   judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
+  prTooLarge?: PrTooLargeLine | null | undefined
 }): string[] {
   const lines: string[] = []
+  // LUM-1079: the whole PR was too large — why, and what to do.
+  if (s.prTooLarge) lines.push(formatPrTooLarge(s.prTooLarge))
   if (s.judgeOverCap) lines.push(formatJudgeOverCap(s.judgeOverCap))
   if (s.huntOverCap) lines.push(formatHuntOverCap(s.huntOverCap))
   return lines
@@ -154,8 +168,12 @@ export function formatTurnedOffLines(
 export function formatScanStatus(
   status: string,
   stages: Partial<Record<string, string>>,
-  scanningOff = false
+  scanningOff = false,
+  prTooLarge = false
 ): string {
+  // LUM-1079: nothing was scanned because the PR was too large — never
+  // FAILED ("didn't finish on our side") and never CLEAN.
+  if (prTooLarge) return PR_TOO_LARGE_STATUS
   // LUM-901: with scanning off, a CLEAN is about an earlier commit — never
   // the PR's answer now.
   if (status === 'CLEAN' && scanningOff)

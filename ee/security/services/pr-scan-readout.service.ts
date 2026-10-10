@@ -21,6 +21,7 @@ import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
 import type {
   HuntOverCapInput,
   JudgeOverCapInput,
+  PrTooLargeInput,
 } from '@/shared/src/security-scan'
 import {
   prSecurityScanRepository,
@@ -167,6 +168,8 @@ export interface ScanReadoutView {
   huntOverCap: HuntOverCapInput | null
   /** LUM-832 — the AI review did not run: over its size cap. null otherwise. */
   judgeOverCap: JudgeOverCapInput | null
+  /** LUM-1079 — the whole PR was too large to scan. null otherwise. */
+  prTooLarge: PrTooLargeInput | null
   /** P8 — the scrubbed external-scanner reason, or null (raw crash text is never published). */
   externalFailureReason: string | null
   startedAt: string
@@ -604,6 +607,7 @@ export const prScanReadoutService = {
           partialCauses: scan.partialCauses ?? [],
           huntAudit: scan.huntAudit,
           judgeBudget: scan.judgeBudget,
+          error: scan.error,
         }),
         externalFailureReason:
           stages.external === 'FAILED'

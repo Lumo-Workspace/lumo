@@ -2715,5 +2715,10 @@
   "securityScan.stageReason.SUPERSEDED": "Tidak selesai: push yang lebih baru memulai pemindaian baru sebelum lapisan ini selesai.",
   "integrations.notAvailable": "Tidak tersedia di deployment ini: {names}. Akan muncul di sini setelah kredensialnya dikonfigurasi.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Pemindai milik Lumo dan verifikator review memerlukan Vercel Sandbox, yang belum dikonfigurasi di deployment ini. SARIF yang diunggah CI Anda tetap ditampilkan.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "Tidak tersedia di deployment ini: Vercel Sandbox belum dikonfigurasi."
+  "workspaceSettings.securityScan.sandboxUnavailable": "Tidak tersedia di deployment ini: Vercel Sandbox belum dikonfigurasi.",
+  "securityScan.status.tooLarge": "Tidak dipindai — melebihi batas ukuran",
+  "securityScan.prTooLarge.fileLimit": "PR ini mengubah {files} file; pemindaian keamanan berjalan pada PR dengan paling banyak {cap} file (batas GitHub mengembalikan diff), jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub tidak mengembalikan diff PR ini karena terlalu besar ({files} file diubah), jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
+  "securityScan.prTooLarge.diffRefused": "GitHub tidak mengembalikan diff PR ini karena terlalu besar, jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
+  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk dipindai. Pecah menjadi PR yang lebih kecil atau persempit cakupannya agar dipindai."
 }
