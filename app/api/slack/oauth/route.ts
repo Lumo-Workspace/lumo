@@ -14,6 +14,8 @@ const SLACK_SCOPES = [
   'app_mentions:read',
   'commands',
   'im:write',
+  'channels:manage', // LUM-1080: conversations.create / invite — public channels
+  'groups:write', // LUM-1080: the same for private channels
 ].join(',')
 
 export async function GET(request: NextRequest) {

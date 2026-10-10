@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Tất cả các đăng ký kênh sẽ bị xóa. Bạn có thể kết nối lại bất cứ lúc nào.",
   "slack.connectSuccess": "Kết nối Slack thành công",
   "slack.connectFailed": "Kết nối Slack thất bại",
+  "slack.reconnect": "Kết nối lại Slack",
+  "slack.reconnectToCreateChannel": "Slack cần quyền mới để tạo kênh. Hãy kết nối lại Slack để cấp quyền.",
   "slack.disconnectSuccess": "Đã ngắt kết nối Slack",
   "slack.disconnectFailed": "Ngắt kết nối Slack thất bại",
   "slack.notificationsUpdated": "Đã cập nhật thông báo Slack",

@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Semua langganan saluran akan dihapus. Anda dapat terhubung kembali kapan saja.",
   "slack.connectSuccess": "Slack berhasil dihubungkan",
   "slack.connectFailed": "Gagal menghubungkan Slack",
+  "slack.reconnect": "Hubungkan ulang Slack",
+  "slack.reconnectToCreateChannel": "Slack memerlukan izin baru untuk membuat kanal. Hubungkan ulang Slack untuk memberikannya.",
   "slack.disconnectSuccess": "Slack diputuskan",
   "slack.disconnectFailed": "Gagal memutuskan Slack",
   "slack.notificationsUpdated": "Notifikasi Slack diperbarui",

@@ -257,7 +257,8 @@ authorize → the row shows the GitHub login.
 
 ## Slack
 
-Per workspace: notifications, task context from channels, `@Lumo` commands.
+Per workspace: notifications, task context from channels, `@Lumo` and
+`/lumo` commands.
 
 1. <https://api.slack.com/apps> → **Create New App → From scratch**.
 2. **OAuth & Permissions → Redirect URLs**:
@@ -276,7 +277,9 @@ Per workspace: notifications, task context from channels, `@Lumo` commands.
    | `users:read.email`  | `users.lookupByEmail` — find a member's Slack user for DMs and invites                                     |
    | `im:write`          | `conversations.open` — direct-message notifications                                                        |
    | `app_mentions:read` | the `app_mention` event                                                                                    |
-   | `commands`          | a slash command (see the note below)                                                                       |
+   | `commands`          | the `/lumo` slash command (step 5)                                                                         |
+   | `channels:manage`   | `conversations.create` / `invite` — create a public channel from Lumo (`lib/services/slack.service.ts`)    |
+   | `groups:write`      | the same for private channels                                                                              |
 
 4. **Event Subscriptions** → on; **Request URL**
    `https://lumo.example.com/api/webhooks/slack` (Slack verifies it at once;
@@ -284,7 +287,12 @@ Per workspace: notifications, task context from channels, `@Lumo` commands.
    running with `SLACK_SIGNING_SECRET` set). **Subscribe to bot events:**
    `app_mention` — the only event Lumo handles
    (`app/api/webhooks/slack/route.ts`).
-5. **Basic Information → App Credentials**:
+5. **Slash Commands → Create New Command**: command `/lumo`, **Request URL**
+   the same `https://lumo.example.com/api/webhooks/slack`, usage hint e.g.
+   `status LUM-12`. Slack sends slash commands form-encoded and events as
+   JSON; the route verifies the signature on the raw body first, then parses
+   by `Content-Type` (`lib/integrations/slack/request.ts`).
+6. **Basic Information → App Credentials**:
 
 ```dotenv
 SLACK_CLIENT_ID=<Client ID>
@@ -295,22 +303,18 @@ SLACK_SIGNING_SECRET=<Signing Secret>
 Requests older than 5 minutes or with a bad `X-Slack-Signature` are
 rejected (401), so the server clock must be correct.
 
-Known limits of the current code:
+A workspace that connected Slack before a scope was added (e.g.
+`channels:manage` / `groups:write`) keeps its old token until it is
+re-authorized: creating a channel then shows **Reconnect Slack**, which
+re-runs the install with the current scopes and updates the stored token
+(channel subscriptions are kept — unlike Disconnect, which removes them).
 
-- **Slash command.** The `commands` scope is requested and the route has a
-  `/lumo` branch, but Slack sends slash commands form-encoded and the route
-  only parses JSON, so a slash command is acknowledged without doing
-  anything. Use `@Lumo <command>` in a channel instead.
-- **Creating a channel from Lumo** calls `conversations.create` /
-  `conversations.invite` (`lib/services/slack.service.ts`), which Slack
-  documents as needing `channels:manage` (public) / `groups:write`
-  (private). Lumo does not request those scopes, so that action fails with
-  `missing_scope`; picking an existing channel works.
-- Posting to a channel needs the bot to be a member of it (`/invite @<app>`).
+Posting to a channel needs the bot to be a member of it (`/invite @<app>`).
 
 **Verify:** **Settings → Integrations → Slack → Connect** → allow → the card
 shows the Slack workspace. Then mention the app in a channel it is in:
-`@<app> status <TASK-ID>` (e.g. `LUM-12`) replies with the task card.
+`@<app> status <TASK-ID>` (e.g. `LUM-12`) replies with the task card, and
+`/lumo status <TASK-ID>` does the same.
 
 ## Figma
 

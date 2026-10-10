@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Toutes les abonnements aux canaux seront supprimés. Vous pouvez vous reconnecter à tout moment.",
   "slack.connectSuccess": "Slack connecté avec succès",
   "slack.connectFailed": "Échec de la connexion à Slack",
+  "slack.reconnect": "Reconnecter Slack",
+  "slack.reconnectToCreateChannel": "Slack a besoin de nouvelles autorisations pour créer des canaux. Reconnectez Slack pour les accorder.",
   "slack.disconnectSuccess": "Slack déconnecté",
   "slack.disconnectFailed": "Échec de la déconnexion de Slack",
   "slack.notificationsUpdated": "Notifications Slack mises à jour",

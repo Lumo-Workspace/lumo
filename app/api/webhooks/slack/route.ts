@@ -3,27 +3,25 @@ import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
 import { handleCommand, CommandResult } from '@/lib/integrations/slack'
-import { createHmac, timingSafeEqual } from 'crypto'
+import {
+  parseSlackRequestBody,
+  verifySlackSignature,
+} from '@/lib/integrations/slack/request'
+import { waitUntil } from '@/lib/runtime/wait-until'
+import { logger } from '@/lib/logger'
 
-function verifySlackSignature(
-  body: string,
-  signature: string,
-  timestamp: string,
-  secret: string
-): boolean {
-  // Reject requests older than 5 minutes to prevent replay attacks
-  const fiveMinutesAgo = Math.floor(Date.now() / 1000) - 300
-  if (parseInt(timestamp, 10) < fiveMinutesAgo) return false
-
-  const sigBasestring = `v0:${timestamp}:${body}`
-  const expected =
-    'v0=' +
-    createHmac('sha256', secret).update(sigBasestring, 'utf8').digest('hex')
-
-  const a = Buffer.from(signature)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length) return false
-  return timingSafeEqual(a, b)
+// Fields read from the parsed Slack body: Events API JSON or slash-command form.
+interface SlackPayload {
+  type?: string
+  challenge?: string
+  team_id?: string
+  team?: { id?: string }
+  event?: { type?: string; text?: string; channel?: string; user?: string }
+  command?: string
+  text?: string
+  response_url?: string
+  channel_id?: string
+  user_id?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -48,8 +46,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
-    // 3. Parse JSON
-    const payload = JSON.parse(rawBody)
+    // 3. Parse by Content-Type — only after the signature check above
+    //    (LUM-1080: slash commands are form-encoded, events are JSON).
+    const payload = parseSlackRequestBody(
+      rawBody,
+      request.headers.get('content-type')
+    ) as SlackPayload | null
+    if (!payload) {
+      return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+    }
 
     // 4. Handle Slack URL verification challenge (one-time setup handshake)
     if (payload.type === 'url_verification') {
@@ -78,14 +83,14 @@ export async function POST(request: NextRequest) {
       // @Lumo mention — strip the "<@BOTID> " prefix
       const raw: string = payload.event.text ?? ''
       commandText = raw.replace(/^<@[^>]+>\s*/, '').trim()
-      channelId = payload.event.channel
-      slackUserId = payload.event.user
+      channelId = payload.event.channel ?? ''
+      slackUserId = payload.event.user ?? ''
     } else if (payload.command) {
       // /lumo slash command
       commandText = payload.text ?? ''
       responseUrl = payload.response_url ?? ''
-      channelId = payload.channel_id
-      slackUserId = payload.user_id
+      channelId = payload.channel_id ?? ''
+      slackUserId = payload.user_id ?? ''
     } else {
       // Unhandled event type — acknowledge silently
       return new NextResponse(null, { status: 200 })
@@ -128,14 +133,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fire-and-forget — must return 200 before the 3 s Slack timeout
-    executeCommand().catch(err =>
-      console.error('[slack webhook] command error:', err)
-    )
+    // Return 200 before the 3 s Slack timeout; waitUntil keeps the function
+    // alive until the reply is posted (a bare floating promise can be frozen
+    // once the response is sent on serverless).
+    waitUntil(executeCommand())
 
     return new NextResponse(null, { status: 200 })
   } catch (error) {
-    console.error('POST /api/webhooks/slack error:', error)
+    logger.error('POST /api/webhooks/slack error:', error)
     // Always return 200 so Slack does not retry
     return new NextResponse(null, { status: 200 })
   }

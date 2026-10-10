@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Se eliminarán todas las suscripciones a canales. Puede volver a conectarse en cualquier momento.",
   "slack.connectSuccess": "Slack conectado correctamente",
   "slack.connectFailed": "Error al conectar Slack",
+  "slack.reconnect": "Volver a conectar Slack",
+  "slack.reconnectToCreateChannel": "Slack necesita nuevos permisos para crear canales. Vuelve a conectar Slack para concederlos.",
   "slack.disconnectSuccess": "Slack desconectado",
   "slack.disconnectFailed": "Error al desconectar Slack",
   "slack.notificationsUpdated": "Notificaciones de Slack actualizadas",
