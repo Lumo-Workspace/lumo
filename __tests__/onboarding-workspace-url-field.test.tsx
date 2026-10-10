@@ -77,12 +77,24 @@ describe('onboarding workspace URL field', () => {
       expect(renderPrefix().prefix).toBe(`${window.location.host}/workspace/`)
     })
 
-    it('renders the configured prefix on the server with no window', () => {
+    // renderToString uses the server snapshot, so this is what the HTML holds
+    // before hydration — it must never be the browser host.
+    const serverPrefix = () => {
+      const doc = new DOMParser().parseFromString(
+        renderToString(<OnboardingClient />),
+        'text/html'
+      )
+      return doc.querySelector('#ws-url')?.previousElementSibling?.textContent
+    }
+
+    it('renders the configured prefix on the server', () => {
       process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
-      const html = renderToString(<OnboardingClient />)
-      expect(html).toContain('localhost:3000/workspace/')
+      expect(serverPrefix()).toBe('localhost:3000/workspace/')
+    })
+
+    it('renders the bare fallback on the server when the app URL is unset', () => {
       delete process.env.NEXT_PUBLIC_APP_URL
-      expect(renderToString(<OnboardingClient />)).toContain('/workspace/')
+      expect(serverPrefix()).toBe('/workspace/')
     })
   })
 
