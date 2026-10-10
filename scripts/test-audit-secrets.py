@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the release audit in a disposable Git repository (requires Gitleaks)."""
 import hashlib
+import importlib.util
 import json
 import argparse
 from pathlib import Path
@@ -24,6 +25,8 @@ class SecretAuditTest(unittest.TestCase):
                 "docs/open-source/secret-scan-false-positives.json",
                 "docs/open-source/historical-credential-rotations.json",
             ):
+                if not (ROOT / file).exists() and file.endswith("rotations.json"):
+                    continue  # private-only ledger; absent from the public snapshot
                 (repo / file).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / file, repo / file)
 
@@ -111,6 +114,7 @@ class SecretAuditTest(unittest.TestCase):
             credential_commit = git("rev-parse", "HEAD").decode().strip()
             columns = next(x for x in report["findings"] if x["file"] == ".env.production")
             ledger = repo / "docs/open-source/historical-credential-rotations.json"
+            ledger.parent.mkdir(parents=True, exist_ok=True)
             rotation = {
                 "file": ".env.production", "rule": "database-url-password",
                 "commit": credential_commit, "startLine": 12, "endLine": 12,
@@ -289,6 +293,107 @@ class SecretAuditTest(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 2, "collision: " + left + " / " + right)
                 self.assertIn("Snapshot path collision", result.stderr)
+
+
+def load_audit_module():
+    spec = importlib.util.spec_from_file_location("audit_secrets", ROOT / "scripts/audit-secrets.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class MissingRotationLedgerTest(unittest.TestCase):
+    """The public snapshot ships without the private rotation ledger (LUM-1015).
+
+    Uses a stub scanner, so it runs without a Gitleaks install.
+    """
+
+    def test_load_rotations_absent_present_and_invalid(self):
+        audit = load_audit_module()
+        with tempfile.TemporaryDirectory(prefix="lumo-audit-ledger-") as directory:
+            path = Path(directory) / "ledger.json"
+            self.assertEqual(audit.load_rotations(path), ([], False))
+            path.write_text(json.dumps({"rotations": [{"file": "a"}]}))
+            self.assertEqual(audit.load_rotations(path), ([{"file": "a"}], True))
+            path.write_text(json.dumps(["not", "a", "ledger"]))
+            self.assertEqual(audit.load_rotations(path), (None, True))
+            path.write_text("{")
+            with self.assertRaises(ValueError):
+                audit.load_rotations(path)
+
+    def test_modes_without_ledger(self):
+        with tempfile.TemporaryDirectory(prefix="lumo-audit-noledger-") as directory:
+            repo = Path(directory)
+            (repo / "scripts").mkdir()
+            shutil.copyfile(ROOT / "scripts/audit-secrets.py", repo / "scripts/audit-secrets.py")
+            shutil.copyfile(ROOT / ".gitleaks.toml", repo / ".gitleaks.toml")
+            inventory = repo / "docs/open-source/secret-scan-false-positives.json"
+            inventory.parent.mkdir(parents=True)
+            inventory.write_text(json.dumps({"falsePositives": []}))
+            ledger = repo / "docs/open-source/historical-credential-rotations.json"
+            (repo / "leak.env").write_text("synthetic placeholder line\n")
+
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(repo), "-c", "core.hooksPath=/dev/null", *args],
+                    stderr=subprocess.DEVNULL,
+                )
+
+            git("init", "-q")
+            git("config", "user.name", "Audit test")
+            git("config", "user.email", "audit-test@example.invalid")
+            git("add", "-A")
+            git("commit", "-qm", "Synthetic ledger fixture")
+            head = git("rev-parse", "HEAD").decode().strip()
+
+            stub = repo.parent / (repo.name + "-stub-gitleaks")
+            findings_file = repo.parent / (repo.name + "-stub-findings.json")
+            stub.write_text("#!/usr/bin/env python3\nimport sys\nfrom pathlib import Path\n"
+                "if sys.argv[1]=='version': print('8.30.1'); sys.exit(0)\n"
+                "report=next(x.split('=',1)[1] for x in sys.argv if x.startswith('--report-path='))\n"
+                f"data=Path({str(findings_file)!r}).read_text()\n"
+                "Path(report).write_text(data)\nsys.exit(3 if data.strip()!='[]' else 0)\n")
+            stub.chmod(0o700)
+            self.addCleanup(lambda: (stub.unlink(missing_ok=True), findings_file.unlink(missing_ok=True)))
+
+            def scan(mode, findings):
+                findings_file.write_text(json.dumps(findings))
+                report = repo.parent / (repo.name + "-" + mode + ".report.json")
+                self.addCleanup(lambda: report.unlink(missing_ok=True))
+                result = subprocess.run(
+                    ["python3", str(repo / "scripts/audit-secrets.py"), mode,
+                     "--gitleaks-bin", str(stub), "--report", str(report)],
+                    capture_output=True, text=True,
+                )
+                return result, json.loads(report.read_text()) if report.exists() else None
+
+            finding = {"File": "leak.env", "RuleID": "database-url-password", "StartLine": 1,
+                       "EndLine": 1, "StartColumn": 1, "EndColumn": 5, "Commit": head}
+            self.assertFalse(ledger.exists())
+
+            result, report = scan("snapshot", [])
+            self.assertEqual(result.returncode, 0, "snapshot must work without the private ledger")
+            self.assertEqual((report["total"], report["unresolved"], report["rotationLedger"]), (0, 0, "absent"))
+            self.assertNotIn("rotation ledger", result.stderr)
+
+            result, report = scan("snapshot", [{**finding, "Commit": ""}])
+            self.assertEqual((result.returncode, report["unresolved"]), (1, 1))
+
+            result, report = scan("history", [finding])
+            self.assertEqual(result.returncode, 1, "a missing ledger must never resolve a finding")
+            self.assertEqual((report["unresolved"], report["confirmedRotated"], report["rotationLedger"]),
+                             (1, 0, "absent"))
+            self.assertIn("No rotation ledger", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
+            # Present-but-broken ledgers still fail closed instead of reading as empty.
+            for content in ("{", json.dumps({"rotations": [{"file": "leak.env"}]})):
+                with self.subTest(broken_ledger=content[:20]):
+                    ledger.write_text(content)
+                    result, _ = scan("history", [finding])
+                    self.assertEqual(result.returncode, 2)
+                    self.assertNotIn("Traceback", result.stderr)
+            ledger.unlink()
 
 
 if __name__ == "__main__":
