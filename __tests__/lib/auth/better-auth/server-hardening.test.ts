@@ -307,14 +307,21 @@ describe('forgot / reset / change password (LUM-1070)', () => {
     const id = `user_clerk${randomBytes(6).toString('hex')}`
     const email = `${id}@example.test`
     await seedImportedUser(id, email, freshPassword(), '$2b$')
-    // A mail server that never answers: the response must not wait on it.
-    mockSendEmail.mockReturnValue(new Promise(() => undefined))
+    // A mail server that has not answered yet: the response must not wait
+    // on it (awaiting it would hang this request until the test times out).
+    let answerMail: (v: unknown) => void = () => undefined
+    mockSendEmail.mockReturnValue(
+      new Promise(resolve => {
+        answerMail = resolve
+      })
+    )
     const res = await post(auth, '/request-password-reset', {
       email,
       redirectTo: '/reset-password',
     })
     expect(res.status).toBe(200)
     expect(mockSendEmail).toHaveBeenCalledTimes(1)
+    answerMail({ status: 'sent', id: 'late' })
   })
 
   it('reset request for an unknown email answers the same and sends nothing', async () => {
