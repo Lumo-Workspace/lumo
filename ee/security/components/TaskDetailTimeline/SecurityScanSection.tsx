@@ -444,7 +444,9 @@ function StageItem({
   const reasonId = useId()
   const state = scan.stages[stageKey]
   if (!state) return null
+  // LUM-1079: a PR too large to scan skipped every layer for size.
   const overCap =
+    scan.prTooLarge != null ||
     (stageKey === 'hunt' && scan.huntOverCap != null) ||
     (stageKey === 'judge' && scan.judgeOverCap != null)
   const kind = overCap
@@ -806,6 +808,9 @@ function ScanDetails({
           )}
         </p>
       )}
+      {/* LUM-1079: the whole PR was too large to scan — why, and what to
+          do (split it or narrow its scope). Never the owned line above. */}
+      {scan.prTooLarge && <PrTooLargeNotice tooLarge={scan.prTooLarge} />}
       {scan.huntOverCap && (
         <OverCapNotice
           testId='scan-over-cap'
@@ -844,11 +849,14 @@ function ScanDetails({
           {`${intl.formatMessage({ id: 'securityScan.external.failedReason' })} ${externalReason}`}
         </p>
       )}
-      {!externalReason && scan.error && scan.status === 'FAILED' && (
-        <p className='font-mono text-caption text-muted-foreground'>
-          {scan.error}
-        </p>
-      )}
+      {!externalReason &&
+        !scan.prTooLarge &&
+        scan.error &&
+        scan.status === 'FAILED' && (
+          <p className='font-mono text-caption text-muted-foreground'>
+            {scan.error}
+          </p>
+        )}
       {/* Findings someone must decide on first; the quiet ones after, each
           reason said once as its group's heading. */}
       {groupFindings(scan.findings).map(group => (
@@ -892,6 +900,50 @@ function groupHeading(
   if (group.key === 'persisting')
     return intl.formatMessage({ id: 'securityScan.finding.persisting' })
   return intl.formatMessage({ id: `securityScan.group.${group.key}` })
+}
+
+/**
+ * LUM-1079 — the PR was too large to scan at all. With the file count known,
+ * drawn like the per-layer notices (the change against the cap); without it,
+ * the message alone.
+ */
+function PrTooLargeNotice({
+  tooLarge,
+}: {
+  tooLarge: NonNullable<SecurityScanView['prTooLarge']>
+}) {
+  const intl = useIntl()
+  const files = tooLarge.changedFiles
+  const message =
+    tooLarge.reason === 'FILE_LIMIT' && files !== null
+      ? intl.formatMessage(
+          { id: 'securityScan.prTooLarge.fileLimit' },
+          { files, cap: tooLarge.capFiles }
+        )
+      : files !== null
+        ? intl.formatMessage(
+            { id: 'securityScan.prTooLarge.diffRefusedFiles' },
+            { files }
+          )
+        : intl.formatMessage({ id: 'securityScan.prTooLarge.diffRefused' })
+  if (files === null)
+    return (
+      <p
+        data-testid='scan-pr-too-large'
+        className='rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-caption text-foreground/80'
+      >
+        {message}
+      </p>
+    )
+  return (
+    <OverCapNotice
+      testId='scan-pr-too-large'
+      size={files}
+      cap={tooLarge.capFiles}
+    >
+      {message}
+    </OverCapNotice>
+  )
 }
 
 /**

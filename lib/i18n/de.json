@@ -2684,5 +2684,10 @@
   "securityScan.stageReason.SUPERSEDED": "Nicht abgeschlossen: Ein neuerer Push hat einen neuen Scan gestartet, bevor diese Ebene fertig war.",
   "integrations.notAvailable": "Auf dieser Installation nicht verfügbar: {names}. Sie erscheinen hier, sobald ihre Zugangsdaten konfiguriert sind.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumos eigene Scanner und der Review-Verifier benötigen Vercel Sandbox, das auf dieser Installation nicht konfiguriert ist. SARIF-Berichte aus deiner CI werden weiterhin angezeigt.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "Auf dieser Installation nicht verfügbar: Vercel Sandbox ist nicht konfiguriert."
+  "workspaceSettings.securityScan.sandboxUnavailable": "Auf dieser Installation nicht verfügbar: Vercel Sandbox ist nicht konfiguriert.",
+  "securityScan.status.tooLarge": "Nicht gescannt – über dem Größenlimit",
+  "securityScan.prTooLarge.fileLimit": "Dieser PR ändert {files} Dateien; Sicherheitsscans laufen für PRs mit bis zu {cap} Dateien (mehr liefert GitHub nicht als Diff), daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub hat den Diff dieses PRs nicht geliefert, weil er zu groß ist ({files} geänderte Dateien), daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
+  "securityScan.prTooLarge.diffRefused": "GitHub hat den Diff dieses PRs nicht geliefert, weil er zu groß ist, daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
+  "securityScan.stageReason.prTooLarge": "Nicht ausgeführt: Dieser PR ist zu groß zum Scannen. Teile ihn in kleinere PRs auf oder verkleinere seinen Umfang, damit er gescannt wird."
 }

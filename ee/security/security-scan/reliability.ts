@@ -63,6 +63,14 @@ function isOversizedAudit(audit: unknown): boolean {
 }
 
 function hasOurFault(row: ReliabilityScanRow, stages: string[]): boolean {
+  // LUM-1079: a PR too large to scan is FAILED on the row (it vouches for
+  // nothing) but is a limit on the change, not a fault of ours.
+  if (
+    row.status === 'FAILED' &&
+    row.partialCauses.length > 0 &&
+    row.partialCauses.every(c => c === 'PR_TOO_LARGE')
+  )
+    return false
   if (row.status === 'FAILED') return true
   if (stages.includes('FAILED')) return true
   return row.partialCauses.some(c => partialCauseClass(c) === 'OUR_FAULT')

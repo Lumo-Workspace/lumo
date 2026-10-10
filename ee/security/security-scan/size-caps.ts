@@ -12,16 +12,25 @@
  *             model; `stages.judge = SKIPPED`, cause JUDGE_OVER_CAP, and the
  *             numbers are on `judgeBudget` (`diffChars` / `tierChars`).
  *
+ *   - whole PR (LUM-1079) — more changed files than GitHub returns a diff
+ *             for, or GitHub refused the diff (406): no layer runs; cause
+ *             PR_TOO_LARGE, the numbers behind `PR_TOO_LARGE_ERROR_PREFIX`
+ *             on `error`.
+ *
  * Pure: every surface (view, PR summary, CLI payloads) reads the same facts.
  */
-import type {
-  HuntOverCapInput,
-  JudgeOverCapInput,
+import {
+  prTooLargeOf,
+  type HuntOverCapInput,
+  type JudgeOverCapInput,
+  type PrTooLargeInput,
 } from '@/shared/src/security-scan'
 
 export interface ScanSizeCaps {
   huntOverCap: HuntOverCapInput | null
   judgeOverCap: JudgeOverCapInput | null
+  /** LUM-1079 — the whole PR was too large to scan; null otherwise. */
+  prTooLarge: PrTooLargeInput | null
 }
 
 export interface SizeCapRow {
@@ -29,6 +38,8 @@ export interface SizeCapRow {
   partialCauses?: ReadonlyArray<string> | null
   huntAudit?: unknown
   judgeBudget?: unknown
+  /** LUM-1079 — carries the too-large numbers; absent reads as none. */
+  error?: string | null
 }
 
 function positive(n: unknown): n is number {
@@ -66,5 +77,18 @@ export function judgeOverCapOf(row: SizeCapRow): JudgeOverCapInput | null {
 }
 
 export function scanSizeCaps(row: SizeCapRow): ScanSizeCaps {
-  return { huntOverCap: huntOverCapOf(row), judgeOverCap: judgeOverCapOf(row) }
+  return {
+    huntOverCap: huntOverCapOf(row),
+    judgeOverCap: judgeOverCapOf(row),
+    prTooLarge: prTooLargeOf(row),
+  }
+}
+
+/** LUM-1079 — does this scan carry any size notice (layer or whole PR)? */
+export function hasSizeNotice(caps: ScanSizeCaps): boolean {
+  return (
+    caps.huntOverCap !== null ||
+    caps.judgeOverCap !== null ||
+    caps.prTooLarge !== null
+  )
 }

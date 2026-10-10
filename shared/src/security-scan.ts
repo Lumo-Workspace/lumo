@@ -262,6 +262,14 @@ export const PARTIAL_CAUSES = [
   'GRAPH_READ_FAILED',
   /** A managed / pushed scanner report was cut at the finding cap. */
   'EXTERNAL_TRUNCATED',
+  /**
+   * LUM-1079 — the PR was too large to scan at all: it changes more files
+   * than GitHub returns a diff for (`GITHUB_DIFF_MAX_FILES`, checked before
+   * the diff is requested), or GitHub refused the diff as too large (406).
+   * No layer ran. The customer is told so, and how to get a scan: split the
+   * PR or narrow its scope (`formatPrTooLarge`). Never our "didn't finish".
+   */
+  'PR_TOO_LARGE',
 ] as const
 
 export type PartialCause = (typeof PARTIAL_CAUSES)[number]
@@ -289,6 +297,7 @@ export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   JUDGE_OVER_CAP: 'COVERAGE_OWED',
   GRAPH_READ_FAILED: 'OUR_FAULT',
   EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
+  PR_TOO_LARGE: 'COVERAGE_OWED',
 }
 
 export function isPartialCause(value: unknown): value is PartialCause {
@@ -499,6 +508,9 @@ export function isOwnedUnfinished(
   }
 ): boolean {
   if (scanCoverageState(s) !== 'UNFINISHED') return false
+  // LUM-1079: the PR was too large to scan at all — a limit on the change,
+  // told by its own notice (`formatPrTooLarge`), never as our failure.
+  if (isPrTooLargeOnly(s.partialCauses)) return false
   if (
     Object.values(s.stages).includes('PAUSED') &&
     s.status !== 'FAILED' &&
@@ -516,6 +528,108 @@ export function isOwnedUnfinished(
     stages: s.stages,
     partialCauses: s.partialCauses ?? [],
   })
+}
+
+/**
+ * LUM-1079 — the PR was too large to scan at all. GitHub returns a PR's diff
+ * for up to this many changed files (beyond it the diff endpoint answers 406
+ * "diff too large"), so stage A checks the PR's file count first and does
+ * not request a diff it cannot get. Not a cost cap of ours and never raised
+ * here: the per-layer caps (`HUNT_MAX_HUNTED_FILES`, the AI review's size
+ * tiers) still apply below it.
+ */
+export const GITHUB_DIFF_MAX_FILES = 300
+
+/**
+ * Why the PR was too large: over the file count GitHub returns a diff for
+ * (checked before asking), or GitHub refused the diff itself (406 — e.g. over
+ * its line limit with fewer files).
+ */
+export type PrTooLargeReason = 'FILE_LIMIT' | 'DIFF_REFUSED'
+
+export interface PrTooLargeInput {
+  reason: PrTooLargeReason
+  /** Files the PR changes, per GitHub; null when it could not be read. */
+  changedFiles: number | null
+  /** The most files a PR may change and still be scanned. */
+  capFiles: number
+}
+
+/**
+ * The facts ride on `PrSecurityScan.error` behind this prefix (no schema
+ * change). Like `EXTERNAL_ERROR_PREFIX`, the prefix is the proof the text is
+ * ours: stage A's raw crash text never starts with it.
+ */
+export const PR_TOO_LARGE_ERROR_PREFIX = 'pr-too-large: '
+
+export function encodePrTooLarge(input: PrTooLargeInput): string {
+  return `${PR_TOO_LARGE_ERROR_PREFIX}${JSON.stringify(input)}`
+}
+
+function isPrTooLargeOnly(
+  causes: ReadonlyArray<string> | null | undefined
+): boolean {
+  return (
+    !!causes && causes.length > 0 && causes.every(c => c === 'PR_TOO_LARGE')
+  )
+}
+
+function countOrNull(n: unknown): number | null {
+  return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : null
+}
+
+/**
+ * The too-large facts of a scan row, or null when it was not skipped for
+ * size. Keyed on the cause, so the notice is never lost: a row whose
+ * `error` cannot be parsed still says the PR was too large, just without
+ * the numbers.
+ */
+export function prTooLargeOf(row: {
+  partialCauses?: ReadonlyArray<string> | null | undefined
+  error?: string | null | undefined
+}): PrTooLargeInput | null {
+  if (!(row.partialCauses ?? []).includes('PR_TOO_LARGE')) return null
+  const fallback: PrTooLargeInput = {
+    reason: 'DIFF_REFUSED',
+    changedFiles: null,
+    capFiles: GITHUB_DIFF_MAX_FILES,
+  }
+  const error = row.error
+  if (!error || !error.startsWith(PR_TOO_LARGE_ERROR_PREFIX)) return fallback
+  try {
+    const raw = JSON.parse(error.slice(PR_TOO_LARGE_ERROR_PREFIX.length)) as {
+      reason?: unknown
+      changedFiles?: unknown
+      capFiles?: unknown
+    }
+    return {
+      reason: raw.reason === 'FILE_LIMIT' ? 'FILE_LIMIT' : 'DIFF_REFUSED',
+      changedFiles: countOrNull(raw.changedFiles),
+      capFiles: countOrNull(raw.capFiles) ?? GITHUB_DIFF_MAX_FILES,
+    }
+  } catch {
+    return fallback
+  }
+}
+
+/** The status word plain-text surfaces print instead of FAILED / CLEAN. */
+export const PR_TOO_LARGE_STATUS = 'not scanned — PR too large'
+
+/**
+ * LUM-1079 — the plain-text notice (PR summary, CLI): why nothing was
+ * scanned, and what the customer can do. The web panel says the same through
+ * `securityScan.prTooLarge.*` in i18n.
+ */
+export function formatPrTooLarge(c: PrTooLargeInput): string {
+  const advice =
+    'To get it scanned, split it into smaller PRs or narrow its scope.'
+  if (c.reason === 'FILE_LIMIT' && c.changedFiles !== null)
+    return `This PR changes ${thousands(c.changedFiles)} files; security scans run on PRs of up to ${thousands(c.capFiles)} files (the most GitHub returns a diff for), so nothing in it was scanned. ${advice}`
+  const files =
+    c.changedFiles !== null
+      ? ` (${thousands(c.changedFiles)} files changed)`
+      : ''
+  return `GitHub would not return this PR's diff because it is too large${files}, so nothing in it was scanned. ${advice}`
 }
 
 /**
