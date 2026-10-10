@@ -20,11 +20,12 @@ import {
 import {
   isCrossingAdvisoryRule,
   isShapeRule,
-  redactForStorage,
-  scanSecrets,
-  type RawSecretFinding,
-  type SecuritySeverity,
-} from '@/lib/security-scan'
+} from '@/lib/security-scan/secret-patterns'
+import { redactForStorage, scanSecrets } from '@/lib/security-scan/scan-secrets'
+import type {
+  RawSecretFinding,
+  SecuritySeverity,
+} from '@/lib/security-scan/core-types'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -39,7 +40,7 @@ import {
   type ActionConfirmVerdict,
 } from '@/lib/boundary-crossing/action-confirm'
 import { matchPathGlob } from '@/lib/services/policy/predicate-eval'
-import type { PolicyRule } from '@/lib/services/policy/types'
+import type { PolicyRule } from '@/lib/policy/types'
 import {
   splitCommandSegments as splitCommandSegmentsShared,
   executingSegments,

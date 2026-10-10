@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { addedLinesWithNumbers } from '@/lib/security-scan/diff-lines'
+import { addedLinesWithNumbers } from '@/lib/diff/diff-lines'
 
 const DIFF = [
   'diff --git a/src/a.ts b/src/a.ts',

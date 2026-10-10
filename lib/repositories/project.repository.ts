@@ -1,6 +1,6 @@
 import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
 import type { Prisma } from '@prisma/client'
-import type { SecurityBaseline } from '@/lib/security-scan/types'
+import type { SecurityBaseline } from '@/lib/security-scan/core-types'
 
 export interface ProjectUpdateData {
   name?: string

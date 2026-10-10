@@ -1,6 +1,6 @@
 import { redactHookPayload } from '@/lib/validation/hook-payload'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
-import { MAX_SCANNED_LINE_CHARS } from '@/lib/security-scan'
+import { MAX_SCANNED_LINE_CHARS } from '@/lib/security-scan/scan-secrets'
 
 const AWS_KEY = 'AKIA' + 'Q3ZT7XW2PL9MN4RB'
 

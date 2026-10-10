@@ -15,7 +15,7 @@ import {
   type CrossingRawRetentionDays,
 } from '@/lib/boundary-crossing/raw-retention'
 import type { DeadLetterRetentionDays } from '@/lib/integrations/github/dead-letter-retention'
-import type { ScanEvidenceRetentionDays } from '@/lib/security-scan/evidence-retention'
+import type { ScanEvidenceRetentionDays } from '@/lib/retention/scan-evidence'
 import { diffWorkspaceSettings } from '@/lib/audit/workspace-settings'
 import {
   recordAuditEvent,

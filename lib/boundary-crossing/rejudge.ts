@@ -22,7 +22,7 @@
  *   - this module writes nothing. The plan is data; the script applies it,
  *     and only with `--apply`.
  */
-import type { PolicyRule } from '@/lib/services/policy/types'
+import type { PolicyRule } from '@/lib/policy/types'
 import {
   detectProjectActionCrossings,
   isClippedDetail,

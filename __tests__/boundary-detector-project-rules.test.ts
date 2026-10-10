@@ -1,5 +1,5 @@
 import { detectProjectActionCrossings } from '@/lib/services/boundary-detector.service'
-import type { PolicyRule } from '@/lib/services/policy/types'
+import type { PolicyRule } from '@/lib/policy/types'
 
 const rules: PolicyRule[] = [
   {

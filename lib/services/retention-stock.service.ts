@@ -16,7 +16,7 @@ import {
 import {
   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
   retentionCutoffs,
-} from '@/lib/security-scan/evidence-retention'
+} from '@/lib/retention/scan-evidence'
 import { purgeCrossingRaw } from './crossing-raw-retention.service'
 import { scanRetentionDueReason } from './scan-evidence-retention.service'
 import type { Prisma } from '@prisma/client'

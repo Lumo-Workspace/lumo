@@ -14,7 +14,7 @@ import {
   type RejudgeRow,
 } from '@/lib/boundary-crossing/rejudge'
 import { compileRuleSet } from '@/lib/services/policy/policy-compiler.service'
-import type { PolicyRule, RawPolicyRule } from '@/lib/services/policy/types'
+import type { PolicyRule, RawPolicyRule } from '@/lib/policy/types'
 import { createHash } from 'crypto'
 
 /** Stored ids are the compiler's sha256(text) prefix — stable across re-runs. */

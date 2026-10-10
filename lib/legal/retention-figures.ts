@@ -26,7 +26,7 @@ import {
   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
   SCAN_EVIDENCE_HARD_CAP_DAYS,
   SCAN_EVIDENCE_RETENTION_DAYS,
-} from '@/lib/security-scan/evidence-retention'
+} from '@/lib/retention/scan-evidence'
 
 export interface RetentionFigures {
   /** Session record day tiers an owner can pick (default: keep forever). */

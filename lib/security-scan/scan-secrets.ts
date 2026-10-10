@@ -2,12 +2,12 @@
  * PURE — deterministic secret scan over added lines (LUM-732).
  * Output is already redacted; the raw value never leaves this function.
  */
+import type { AddedFile } from '@/lib/diff/diff-lines'
 import type {
-  AddedFile,
   RawSecretFinding,
   SecretDowngradeReason,
   SecuritySeverity,
-} from './types'
+} from './core-types'
 import {
   PRIVATE_KEY_BLOCK_SOURCE,
   PRIVATE_KEY_HEADLESS_SOURCE,

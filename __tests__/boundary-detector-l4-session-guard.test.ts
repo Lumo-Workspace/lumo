@@ -28,7 +28,7 @@ import {
   boundaryDetectorService,
 } from '@/lib/services/boundary-detector.service'
 import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
-import type { PolicyRule } from '@/lib/services/policy/types'
+import type { PolicyRule } from '@/lib/policy/types'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 

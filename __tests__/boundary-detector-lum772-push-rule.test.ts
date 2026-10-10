@@ -15,7 +15,7 @@ import {
   pushDestinations,
 } from '@/lib/boundary-crossing/push-target-match'
 import { compileRuleSet } from '@/lib/services/policy/policy-compiler.service'
-import type { PolicyRule } from '@/lib/services/policy/types'
+import type { PolicyRule } from '@/lib/policy/types'
 
 // LUM-771 crossing cmu16ehy4 — a feature push piped to tail.
 export const LUM771_FEATURE_PUSH =
