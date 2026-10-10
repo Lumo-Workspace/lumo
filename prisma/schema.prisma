@@ -1974,6 +1974,10 @@ model SlackChannel {
 
 model PullRequest {
   id             String    @id @default(cuid())
+  // LUM-1056: durable automatic-review budget; reservations survive retries.
+  reviewPaused   Boolean   @default(false)
+  reviewRoundLimit Int     @default(2)
+  reviewHeads    String[]  @default([])
   workspaceId    String
   taskId         String?
   integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)

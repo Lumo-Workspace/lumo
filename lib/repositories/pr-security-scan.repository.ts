@@ -112,6 +112,8 @@ export interface PersistHuntResultInput {
 }
 
 export interface FinalizeScanInput {
+  /** Manual same-head review replaces stage A rows only when it succeeds. */
+  replaceStageAFindings?: boolean
   status: ScanStatus
   judgeStatus: JudgeStatus | null
   truncated: boolean
@@ -347,6 +349,7 @@ export interface ScanForReview {
   pullRequest: {
     id: string
     repo: string
+    headSha?: string | null
     number: number
     workspaceId: string
     task: { number: number; team: { identifier: string } } | null
@@ -928,11 +931,12 @@ export const prSecurityScanRepository = {
   },
 
   /** A PENDING row (created by a SARIF push) is claimed by stage A; findings untouched. */
-  async claimPending(id: string): Promise<void> {
-    await prisma.prSecurityScan.update({
-      where: { id },
+  async claimPending(id: string): Promise<boolean> {
+    const result = await prisma.prSecurityScan.updateMany({
+      where: { id, status: 'PENDING' },
       data: { status: 'RUNNING', startedAt: new Date(), error: null },
     })
+    return result.count === 1
   },
 
   /**
@@ -940,16 +944,52 @@ export const prSecurityScanRepository = {
    * findings and the ingest-owned `stages.external` were written by the SARIF
    * push and are not stage A's to discard (LUM-735).
    */
-  async restart(id: string): Promise<void> {
-    await withSerializableRetry(async tx => {
+  async restart(
+    id: string,
+    manual = false,
+    expectedStartedAt?: Date
+  ): Promise<
+    boolean | Awaited<ReturnType<typeof prisma.prSecurityFinding.findMany>>
+  > {
+    return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id },
-        select: { stages: true },
+        select: {
+          stages: true,
+          status: true,
+          startedAt: true,
+          verifierStartedAt: true,
+          verifiedAt: true,
+        },
       })
+      if (
+        expectedStartedAt &&
+        current?.startedAt &&
+        current.startedAt.getTime() !== expectedStartedAt.getTime()
+      )
+        return false
+      if (
+        manual &&
+        (!current ||
+          !['CLEAN', 'FINDINGS', 'FAILED'].includes(current.status) ||
+          Object.values((current.stages as ScanStages | null) ?? {}).includes(
+            'PENDING'
+          ) ||
+          (current.verifierStartedAt && !current.verifiedAt))
+      )
+        return false
       const external = (current?.stages as ScanStages | null)?.external
-      await tx.prSecurityFinding.deleteMany({
-        where: { scanId: id, provenance: { not: 'EXTERNAL_TOOL' } },
-      })
+      // Snapshot human rulings under the same serializable lock as the
+      // restart. A concurrent disposition forces a retry with fresh data.
+      const snapshot = manual
+        ? await tx.prSecurityFinding.findMany({
+            where: { scanId: id, provenance: 'LLM_JUDGE' },
+          })
+        : null
+      if (!manual)
+        await tx.prSecurityFinding.deleteMany({
+          where: { scanId: id, provenance: { not: 'EXTERNAL_TOOL' } },
+        })
       await tx.prSecurityScan.update({
         where: { id },
         data: {
@@ -969,8 +1009,15 @@ export const prSecurityScanRepository = {
           error: null,
           startedAt: new Date(),
           finishedAt: null,
+          verifierStartedAt: null,
+          verifiedAt: null,
+          huntJob: Prisma.DbNull,
+          huntAudit: Prisma.DbNull,
+          huntRunId: null,
+          huntAttempts: 0,
         },
       })
+      return snapshot ?? true
     })
   },
 
@@ -1086,6 +1133,10 @@ export const prSecurityScanRepository = {
           finishedAt: new Date(),
         },
       })
+      if (final.replaceStageAFindings)
+        await tx.prSecurityFinding.deleteMany({
+          where: { scanId, provenance: { not: 'EXTERNAL_TOOL' } },
+        })
       if (findings.length > 0)
         await tx.prSecurityFinding.createMany({ data: findings })
       // LUM-735 review C2 — stage A decided `final.status` from an external
@@ -1589,6 +1640,7 @@ export const prSecurityScanRepository = {
           select: {
             id: true,
             repo: true,
+            headSha: true,
             number: true,
             workspaceId: true,
             task: {

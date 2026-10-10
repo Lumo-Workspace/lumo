@@ -5,6 +5,59 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 }))
 
 import { addedLinesFromDiff } from '@/lib/integrations/github/contents'
+import { fetchReviewChangedPaths } from '@/lib/integrations/github/contents'
+
+test('LUM-1056 compare refuses divergent and capped histories, includes previous paths on rename', async () => {
+  const original = global.fetch
+  const fetchMock = jest.fn()
+  global.fetch = fetchMock
+  try {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'ahead',
+        files: [{ filename: 'new.ts', previous_filename: 'old.ts' }],
+      }),
+    })
+    expect(
+      await fetchReviewChangedPaths({
+        workspaceId: 'w',
+        fullName: 'o/r',
+        base: 'a',
+        head: 'b',
+      })
+    ).toEqual(['new.ts', 'old.ts'])
+    for (const value of [
+      { status: 'diverged', files: [] },
+      {
+        status: 'ahead',
+        files: Array.from({ length: 300 }, () => ({ filename: 'f' })),
+      },
+      { status: 'ahead' },
+    ]) {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => value })
+      await expect(
+        fetchReviewChangedPaths({
+          workspaceId: 'w',
+          fullName: 'o/r',
+          base: 'a',
+          head: 'b',
+        })
+      ).rejects.toThrow()
+    }
+    fetchMock.mockResolvedValueOnce({ ok: false })
+    await expect(
+      fetchReviewChangedPaths({
+        workspaceId: 'w',
+        fullName: 'o/r',
+        base: 'gone',
+        head: 'b',
+      })
+    ).rejects.toThrow()
+  } finally {
+    global.fetch = original
+  }
+})
 
 test('addedLinesFromDiff returns added lines per file, excluding +++ headers', () => {
   const diff = [

@@ -1,5 +1,9 @@
 /** @jest-environment node */
-import { GET } from '@/app/api/pull-requests/[number]/scans/route'
+import { GET, POST } from '@/app/api/pull-requests/[number]/scans/route'
+import { prReviewControlService } from '@/lib/services/pr-review-control.service'
+jest.mock('@/lib/services/pr-review-control.service', () => ({
+  prReviewControlService: { act: jest.fn() },
+}))
 import { requireIdentity } from '@/lib/auth'
 import { prScanReadoutService } from '@/lib/services/pr-scan-readout.service'
 
@@ -33,6 +37,30 @@ beforeEach(() => {
     source: 'bearer',
   })
   read.mockResolvedValue({ version: 1, scans: [] })
+})
+
+test('LUM-1056 POST validates controls and derives workspace from the identity', async () => {
+  const act = prReviewControlService.act as jest.Mock
+  act.mockResolvedValueOnce({ queued: true, mode: 'full' })
+  const request = {
+    url: 'https://lumo.test/api/pull-requests/7/scans?repo=o/r',
+    json: async () => ({ action: 'full' }),
+  } as never
+  const res = await POST(request, params('7'))
+  expect(res.status).toBe(202)
+  expect(act).toHaveBeenCalledWith('ws-1', 7, 'o/r', 'full', undefined)
+  for (const body of [
+    { action: 'full', workspaceId: 'other' },
+    { action: 'resume', limit: 0 },
+    { action: 'resume', limit: 101 },
+  ]) {
+    const invalid = await POST(
+      { ...(request as object), json: async () => body } as never,
+      params('7')
+    )
+    expect(invalid.status).toBe(400)
+  }
+  expect(act).toHaveBeenCalledTimes(1)
 })
 
 /**

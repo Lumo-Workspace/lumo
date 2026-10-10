@@ -1,4 +1,10 @@
 import { z } from 'zod'
+export const reviewActionSchema = z
+  .object({
+    action: z.enum(['pause', 'resume', 'incremental', 'full']),
+    limit: z.number().int().min(1).max(100).optional(),
+  })
+  .strict()
 
 /**
  * Body for POST /api/tasks/[id]/security-findings/[findingId]/disposition

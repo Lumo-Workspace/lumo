@@ -68,7 +68,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Pull requests by number — see [pr-scan.md](references/pr-scan.md)
 
-- `lumo pr scan <number> [--repo owner/repo] [--all] [--full] [--json]` — one PR's security scans by number, linked to a task or not: layer line (same labels as `task status`), every finding incl. dispositioned ones + their source, hunt coverage; `--full` per-task hunt detail, `--all` every head. Read-only.
+- `lumo pr scan <number> [--repo owner/repo] [--all] [--full] [--json]` — read one PR’s scans; `--review incremental|full` requests review, `--pause` / `--resume [--limit N]` controls automatic AI rounds. See the reference before using control flags.
 
 ### Tasks — see [tasks.md](references/tasks.md)
 

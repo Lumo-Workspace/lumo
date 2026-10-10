@@ -544,3 +544,16 @@ describe('a layer over its size cap does not run and the scan says why', () => {
     )
   })
 })
+jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+  prReviewControlRepository: {
+    reserve: jest.fn().mockResolvedValue(true),
+    baseline: jest.fn().mockResolvedValue(null),
+    priorFindings: jest.fn().mockResolvedValue([]),
+    findingsOnScan: jest.fn().mockResolvedValue([]),
+    get: jest.fn().mockResolvedValue({
+      reviewPaused: false,
+      reviewRoundLimit: 2,
+      reviewHeads: [],
+    }),
+  },
+}))
