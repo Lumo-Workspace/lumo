@@ -65,11 +65,13 @@ describe('formatTaskContextMarkdown', () => {
     expect(md).toContain('## Previous Sessions (1)')
     expect(md).toContain('### Session abc12345 · 2 days ago · 1h 20min')
     expect(md).toContain('**Summary**: Wire Session.taskId')
-    expect(md).toContain('**Unresolved**:')
+    // LUM-1067: open items are candidate follow-ups, not "Unresolved"
+    expect(md).not.toContain('**Unresolved**:')
+    expect(md).toContain('**Candidate follow-ups**')
     expect(md).toContain('- Schema design not finalized')
   })
 
-  it('skips the Unresolved block when empty', () => {
+  it('skips the follow-ups block when empty', () => {
     const md = formatTaskContextMarkdown(
       {
         task: baseTask,
@@ -88,7 +90,7 @@ describe('formatTaskContextMarkdown', () => {
       },
       now
     )
-    expect(md).not.toContain('**Unresolved**:')
+    expect(md).not.toContain('**Candidate follow-ups**')
   })
 
   it('uses hour+minute duration formatting for long sessions', () => {

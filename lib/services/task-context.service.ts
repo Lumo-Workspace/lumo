@@ -62,7 +62,10 @@ import {
   classifyReviewer,
   githubCommentProvenance,
 } from '@/lib/context/reviewer-trust'
-import { PREVIOUS_SESSIONS_NOTE } from '@/shared/src/untrusted-fence'
+import {
+  renderSessionRecapFence,
+  renderSessionRecapFollowUps,
+} from '@/shared/src/untrusted-fence'
 import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
 import {
   stripPrMirrorHeader,
@@ -1094,8 +1097,8 @@ export const taskContextService = {
    *
    * A pure render of {@link buildPreviousSessionRecoveryForTask} — no fetching
    * beyond that one call. Returns "" when there is no prior session with a
-   * summary, so the caller can omit the section. The "Unresolved" checklist is
-   * dropped entirely when the prior session left nothing open.
+   * summary, so the caller can omit the section. The candidate follow-ups list
+   * is dropped entirely when the prior session left nothing open.
    */
   async buildProgressSectionForTask(
     taskId: string,
@@ -1111,20 +1114,26 @@ export const taskContextService = {
     const headline = durationLabel
       ? `${recovery.headline} (${durationLabel} active)`
       : recovery.headline
-    const lines = ['## Progress so far', PREVIOUS_SESSIONS_NOTE, headline]
+    // LUM-1067: the recap prints inside an untrusted fence and its open items
+    // are candidate follow-ups with a scope check, not `- [ ]` todos — a
+    // stored summary can carry an ask an earlier session read in untrusted
+    // content, and old summaries never get the generation-side rule.
+    const body = [headline]
     if (recovery.unresolved.length > 0) {
       const CAP = 5
       const visible = recovery.unresolved.slice(0, CAP)
       const overflow = recovery.unresolved.length - CAP
-      lines.push('', 'Unresolved:')
-      for (const item of visible) lines.push(`- [ ] ${item}`)
+      body.push('', ...renderSessionRecapFollowUps(visible))
       if (overflow > 0) {
-        lines.push(
+        body.push(
           `- +${overflow} more — \`lumo task context\` for the full list`
         )
       }
     }
-    return lines.join('\n')
+    return [
+      '## Progress so far',
+      renderSessionRecapFence(body.join('\n')),
+    ].join('\n')
   },
 
   /**
