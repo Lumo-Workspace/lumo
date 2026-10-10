@@ -320,6 +320,41 @@ describe('transforms', () => {
       })
     ).toBe('a\nb\n')
   })
+
+  it('replace cuts a multiline section and rewrites a phrase (LUM-1078)', () => {
+    const src = '# A\nkeep\n# --\n# Plugin\nX=1\n# --\n# B\nkeep\n'
+    expect(
+      applyTransform(src, {
+        file: '.env.example',
+        type: 'replace',
+        pattern: '^# --\\n# Plugin\\n[\\s\\S]*?(?=^# --\\n# B$)',
+        replacement: '',
+        reason: 't',
+      })
+    ).toBe('# A\nkeep\n# --\n# B\nkeep\n')
+    expect(
+      applyTransform('a (x, y) b\nc (x, y)\n', {
+        file: 'f',
+        type: 'replace',
+        pattern: ', y\\)',
+        replacement: ')',
+        reason: 't',
+      })
+    ).toBe('a (x) b\nc (x)\n')
+  })
+
+  it('replace leaves the file byte-identical when nothing matches', () => {
+    const src = 'a\nb\n'
+    expect(
+      applyTransform(src, {
+        file: 'f',
+        type: 'replace',
+        pattern: '^zzz$',
+        replacement: 'q',
+        reason: 't',
+      })
+    ).toBe(src)
+  })
 })
 
 describe('output scans', () => {
@@ -333,6 +368,28 @@ describe('output scans', () => {
       { file: 'lib/x.ts', line: 2, markerId: 'excluded-dir' },
     ])
     expect(JSON.stringify(hits)).not.toContain('lum1')
+  })
+
+  it('scanMarkers applies a file-scoped marker only to matching files (LUM-1078)', () => {
+    const marker = {
+      id: 'plugin-env:docs',
+      pattern: 'LUMO_MANAGED_SCAN',
+      files: ['.env.example', 'docs/**'],
+      reason: 't',
+    }
+    expect(scanMarkers('lib/x.ts', 'LUMO_MANAGED_SCAN', [marker])).toEqual([])
+    expect(
+      scanMarkers('docs/self-hosting/cron.md', 'a\nLUMO_MANAGED_SCAN', [marker])
+    ).toEqual([
+      {
+        file: 'docs/self-hosting/cron.md',
+        line: 2,
+        markerId: 'plugin-env:docs',
+      },
+    ])
+    expect(
+      scanMarkers('.env.example', 'LUMO_MANAGED_SCAN', [marker])
+    ).toHaveLength(1)
   })
 
   it('extractPathTokens finds file paths in npm scripts and hooks', () => {

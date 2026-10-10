@@ -225,6 +225,12 @@ The platform is fully responsive and works on:
 
 ## 🔐 GitHub App permissions
 
+> This section documents the hosted service's App, which also carries the
+> security plugin's permissions. To register an App for a self-hosted
+> deployment, follow
+> [docs/self-hosting/integrations.md](docs/self-hosting/integrations.md):
+> it is the source for the core's minimum permissions, events and URLs.
+
 A workspace connects GitHub over **two grants with different jobs**, both
 shown as their own row in workspace → settings → integrations:
 
@@ -485,7 +491,9 @@ use the unpooled connection automatically via `prisma.config.ts`.
 `docker compose up -d --build` — see
 [docs/self-hosting/README.md](docs/self-hosting/README.md) for the full guide
 (services, build-time settings, what works without optional services,
-upgrades).
+upgrades) and
+[docs/self-hosting/integrations.md](docs/self-hosting/integrations.md) for
+GitHub, Slack, Figma, Google Drive and Sentry.
 
 ### Other Platforms
 

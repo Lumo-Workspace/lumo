@@ -45,15 +45,40 @@ export interface JsonArrayFilterTransform {
   reason: string
 }
 
+/**
+ * LUM-1078: replace every match of a multiline regex — used to cut a whole
+ * section (or one phrase) of a file that also serves the private repository,
+ * without marker comments in the source. A pattern that matches nothing
+ * leaves the file unchanged, like the other transforms; what must be gone is
+ * guarded separately by a file-scoped forbidden marker, so a renamed
+ * heading fails the export instead of leaking the section.
+ */
+export interface ReplaceTransform {
+  file: string
+  type: 'replace'
+  /** JS regex source, compiled with the `g` and `m` flags. */
+  pattern: string
+  /** Replacement text (`$1` etc. refer to capture groups). */
+  replacement: string
+  reason: string
+}
+
 export type Transform =
   | JsonDeleteTransform
   | DropLinesTransform
   | JsonArrayFilterTransform
+  | ReplaceTransform
 
 export interface ForbiddenMarker {
   id: string
   /** JS regex source; matched case-sensitively per line. */
   pattern: string
+  /**
+   * LUM-1078: globs limiting the marker to these snapshot files (e.g. the
+   * docs and `.env.example`, where a plugin setting must not appear while
+   * core code may still name it). Omitted = every file.
+   */
+  files?: string[]
   reason: string
 }
 
@@ -289,6 +314,8 @@ export function findImportViolations(
 
 export function applyTransform(content: string, t: Transform): string {
   if (t.type === 'jsonArrayFilter') return filterJsonArray(content, t)
+  if (t.type === 'replace')
+    return content.replace(new RegExp(t.pattern, 'gm'), t.replacement)
   if (t.type === 'dropLines') {
     const re = new RegExp(t.pattern)
     return content
@@ -403,7 +430,9 @@ export function scanMarkers(
   content: string,
   markers: readonly ForbiddenMarker[]
 ): MarkerHit[] {
-  const compiled = markers.map(m => ({ id: m.id, re: new RegExp(m.pattern) }))
+  const compiled = markers
+    .filter(m => !m.files || m.files.some(g => matchesGlob(file, g)))
+    .map(m => ({ id: m.id, re: new RegExp(m.pattern) }))
   const hits: MarkerHit[] = []
   content.split('\n').forEach((line, idx) => {
     for (const m of compiled)
