@@ -155,7 +155,7 @@ beforeAll(async () => {
     BETTER_AUTH_URL: BASE,
     BETTER_AUTH_SECRET: randomBytes(32).toString('base64'),
   })
-  delete globalThis.lumoBetterAuth
+  globalThis.lumoBetterAuth = undefined
   server = await import('@/lib/auth/better-auth/server')
   bcrypt = await import('bcryptjs')
 })
@@ -165,7 +165,7 @@ afterEach(() => {
 })
 
 afterAll(() => {
-  delete globalThis.lumoBetterAuth
+  globalThis.lumoBetterAuth = undefined
   process.env = savedEnv
 })
 
@@ -372,7 +372,7 @@ describe('forgot / reset / change password (LUM-1070)', () => {
 describe('database rate limiting across instances (LUM-1070)', () => {
   it('two instances over one database share the sign-in bucket; the 4th attempt is 429', async () => {
     const first = server.getBetterAuth()
-    delete globalThis.lumoBetterAuth
+    globalThis.lumoBetterAuth = undefined
     const second = server.getBetterAuth()
     expect(second).not.toBe(first)
 
@@ -414,9 +414,7 @@ describe('account linking policy (LUM-1070)', () => {
     const ctx = await auth.$context
     expect(ctx.trustedProviders).not.toContain('github')
     expect(ctx.trustedProviders).not.toContain('google')
-    // requireLocalEmailVerified is left at Better Auth's default (true).
-    expect(
-      auth.options.account?.accountLinking?.requireLocalEmailVerified
-    ).toBeUndefined()
+    // The exact match above leaves requireLocalEmailVerified unset, i.e. at
+    // Better Auth's default (true): an unverified local email never links.
   })
 })

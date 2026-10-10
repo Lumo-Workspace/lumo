@@ -113,14 +113,14 @@ describeDb('Better Auth hardening on a real database (LUM-1070)', () => {
       BETTER_AUTH_URL: BASE,
       BETTER_AUTH_SECRET: randomBytes(32).toString('base64'),
     })
-    delete globalThis.lumoBetterAuth
+    globalThis.lumoBetterAuth = undefined
     server = await import('@/lib/auth/better-auth/server')
     prisma = (await import('@/lib/db/prisma')).prisma
     bcrypt = await import('bcryptjs')
   })
 
   afterAll(async () => {
-    delete globalThis.lumoBetterAuth
+    globalThis.lumoBetterAuth = undefined
     if (prisma) {
       await prisma.authUser.deleteMany({ where: { email: { in: emails } } })
       await prisma.authRateLimit.deleteMany({
@@ -227,7 +227,7 @@ describeDb('Better Auth hardening on a real database (LUM-1070)', () => {
 
   it('two instances share the sign-in limit through auth_rate_limits', async () => {
     const first = server.getBetterAuth()
-    delete globalThis.lumoBetterAuth
+    globalThis.lumoBetterAuth = undefined
     const second = server.getBetterAuth()
     expect(second).not.toBe(first)
     const attempt = (instance: Instance) =>
