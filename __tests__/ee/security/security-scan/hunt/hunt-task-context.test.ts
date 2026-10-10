@@ -17,7 +17,7 @@ import {
   isEmptyHuntTaskContext,
   renderHuntTaskContext,
   toContextLine,
-} from '@/lib/security-scan/hunt/task-context'
+} from '@/ee/security/security-scan/hunt/task-context'
 
 const ESC = '\u001b'
 

@@ -11,7 +11,7 @@ jest.mock('@/lib/logger', () => ({
 import {
   carriesToken,
   scrubSandboxCredentials,
-} from '@/lib/services/sandbox-credential-scrub'
+} from '@/ee/security/services/sandbox-credential-scrub'
 
 const TOKEN = 'fake-scoped-clone-token-'.repeat(2)
 const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64')

@@ -11,7 +11,7 @@ import { promisify } from 'node:util'
 import type {
   RelatedHit,
   RelatedSearch,
-} from '../../../lib/security-scan/related-context'
+} from '@/ee/security/security-scan/related-context'
 
 const run = promisify(execFile)
 

@@ -1,6 +1,6 @@
 /** @jest-environment node */
-import { buildSubgraph } from '@/lib/security-scan/graph/build-subgraph'
-import { mechanicalVerify } from '@/lib/security-scan/hunt/mechanical-verify'
+import { buildSubgraph } from '@/ee/security/security-scan/graph/build-subgraph'
+import { mechanicalVerify } from '@/ee/security/security-scan/hunt/mechanical-verify'
 
 const ROUTE = 'app/api/tasks/[id]/route.ts'
 const SERVICE = 'lib/services/task.service.ts'

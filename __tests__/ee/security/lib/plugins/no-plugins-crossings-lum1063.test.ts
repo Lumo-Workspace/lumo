@@ -33,50 +33,50 @@ function pluginModule(name: string, fns: string[]) {
     ])
   )
 }
-jest.mock('@/lib/boundary-crossing/action-confirm', () =>
+jest.mock('@/ee/security/boundary-crossing/action-confirm', () =>
   pluginModule('action-confirm', [
     'confirmActionCrossing',
     'isActionConfirmCategory',
     'stripProse',
   ])
 )
-jest.mock('@/lib/boundary-crossing/sensitive-read', () =>
+jest.mock('@/ee/security/boundary-crossing/sensitive-read', () =>
   pluginModule('sensitive-read', [
     'detectSensitiveReads',
     'detectProjectSensitiveReads',
   ])
 )
-jest.mock('@/lib/boundary-crossing/untrusted-code', () =>
+jest.mock('@/ee/security/boundary-crossing/untrusted-code', () =>
   pluginModule('untrusted-code', ['matchUntrustedCodeExecution'])
 )
-jest.mock('@/lib/boundary-crossing/destructive-fs', () =>
+jest.mock('@/ee/security/boundary-crossing/destructive-fs', () =>
   pluginModule('destructive-fs', ['matchDestructiveFs'])
 )
-jest.mock('@/lib/boundary-crossing/action-rule-match', () =>
+jest.mock('@/ee/security/boundary-crossing/action-rule-match', () =>
   pluginModule('action-rule-match', ['matchActionRule'])
 )
-jest.mock('@/lib/boundary-crossing/push-target-match', () =>
+jest.mock('@/ee/security/boundary-crossing/push-target-match', () =>
   pluginModule('push-target-match', ['matchPushTarget'])
 )
-jest.mock('@/lib/llm/action-confirm-client', () =>
+jest.mock('@/ee/security/llm/action-confirm-client', () =>
   pluginModule('action-confirm-client', ['confirmActionExecuted'])
 )
-jest.mock('@/lib/llm/crossing-explain-client', () =>
+jest.mock('@/ee/security/llm/crossing-explain-client', () =>
   pluginModule('crossing-explain-client', ['explainCrossing'])
 )
-jest.mock('@/lib/services/policy/policy-compiler.service', () => ({
+jest.mock('@/ee/security/services/policy/policy-compiler.service', () => ({
   policyCompilerService: pluginModule('policy-compiler', [
     'ensureCompiled',
     'readSource',
   ]),
 }))
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
+jest.mock('@/ee/security/repositories/project-policy.repository', () => ({
   projectPolicyRepository: pluginModule('project-policy', [
     'latestForProject',
     'findRuleTextByRef',
   ]),
 }))
-jest.mock('@/lib/services/policy/policy-check-dispatch', () =>
+jest.mock('@/ee/security/services/policy/policy-check-dispatch', () =>
   pluginModule('policy-check-dispatch', ['dispatchPolicyCheck'])
 )
 

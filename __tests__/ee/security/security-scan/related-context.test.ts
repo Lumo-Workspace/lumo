@@ -5,7 +5,7 @@ import {
   packRelatedSnippets,
   pathProximity,
   type RelatedSearch,
-} from '@/lib/security-scan/related-context'
+} from '@/ee/security/security-scan/related-context'
 
 const DIFF = [
   'diff --git a/src/billing/charge.py b/src/billing/charge.py',

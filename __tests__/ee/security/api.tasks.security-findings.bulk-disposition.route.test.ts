@@ -9,14 +9,14 @@
 import { POST } from '@/app/api/tasks/[id]/security-findings/bulk-disposition/route'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
-import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
+import { suggestionOutcomeFor } from '@/ee/security/security-scan/suggestion'
 
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/api/resolve-task-param', () => ({
   resolveTaskParam: jest.fn(),
 }))
-jest.mock('@/lib/services/pr-security-scan.service', () => ({
+jest.mock('@/ee/security/services/pr-security-scan.service', () => ({
   prSecurityScanService: { dispositionSuggested: jest.fn() },
 }))
 

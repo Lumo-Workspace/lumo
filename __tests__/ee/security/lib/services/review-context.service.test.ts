@@ -5,7 +5,7 @@ jest.mock('@/lib/integrations/github/contents', () => ({
 }))
 
 import * as gh from '@/lib/integrations/github/contents'
-import { reviewContextService } from '@/lib/services/review-context.service'
+import { reviewContextService } from '@/ee/security/services/review-context.service'
 
 const withToken = gh.withRepoReadToken as jest.Mock
 const read = gh.readRepoFileWithToken as jest.Mock

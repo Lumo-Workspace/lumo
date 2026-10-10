@@ -2,7 +2,7 @@
  * LUM-948 — BashArena offline eval. Hand-written fixtures only: they mirror the
  * SHAPE of the two (unlicensed) third-party datasets, never their content.
  */
-import { stubActionJudge } from '@/lib/boundary-crossing/align-eval'
+import { stubActionJudge } from '@/ee/private/boundary-crossing/align-eval'
 import {
   convertControlArenaCall,
   convertSyntheticCall,

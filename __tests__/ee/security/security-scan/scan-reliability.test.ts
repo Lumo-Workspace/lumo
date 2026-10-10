@@ -5,20 +5,20 @@
  * read off the stored rows (it used to exist only as a yellow line in the
  * customer's panel).
  */
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findForReliability: jest.fn() },
 }))
 
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   formatScanReliability,
   summarizeScanReliability,
   type ReliabilityScanRow,
-} from '@/lib/security-scan/reliability'
+} from '@/ee/security/security-scan/reliability'
 import {
   RELIABILITY_DEFAULT_WINDOW_MS,
   securityScanReliabilityService,
-} from '@/lib/services/security-scan-reliability.service'
+} from '@/ee/security/services/security-scan-reliability.service'
 import { parseReliabilityArgs } from '@/scripts/security/scan-reliability'
 
 const findForReliability =

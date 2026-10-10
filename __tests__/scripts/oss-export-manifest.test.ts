@@ -11,6 +11,7 @@ import {
   findDanglingConfigRefs,
   findImportViolations,
   findUncoveredConfigFiles,
+  importCheckInput,
   parseConfigRefFiles,
   globToRegExp,
   isOutsideDir,
@@ -174,7 +175,116 @@ describe('import graph guard', () => {
   })
 })
 
+describe('import check sees the overlay (LUM-1065, RFC §6.3)', () => {
+  const sources: Record<string, string> = {
+    'lib/plugins/registry.ts':
+      "import { INSTALLED_SERVER_PLUGINS } from './installed'",
+    // The ref's version names the private plugin…
+    'lib/plugins/installed.ts': "import { p } from '@/ee/security/server'",
+    'ee/security/server.ts': 'export const p = 1',
+  }
+  // …the overlay's version is the empty list.
+  const overlay: Record<string, string> = {
+    'lib/plugins/installed.ts':
+      "import type { P } from '@/lib/plugins/types'\nexport const L: readonly P[] = []",
+    'lib/plugins/types.ts': 'export type P = 1',
+  }
+  const cls = {
+    included: ['lib/plugins/registry.ts', 'lib/plugins/types.ts'],
+    excluded: ['lib/plugins/installed.ts', 'ee/security/server.ts'],
+  }
+  const read = (p: string) => overlay[p] ?? sources[p] ?? ''
+
+  it('without the overlay, importing the excluded list is a violation', () => {
+    const check = importCheckInput(cls, [])
+    expect(
+      findImportViolations(
+        check.importers,
+        check.excluded,
+        p => sources[p] ?? ''
+      )
+    ).toEqual([
+      {
+        from: 'lib/plugins/registry.ts',
+        specifier: './installed',
+        target: 'lib/plugins/installed.ts',
+      },
+    ])
+  })
+
+  it('an overlaid path counts as present and is checked with the overlay content', () => {
+    const check = importCheckInput(cls, [
+      'lib/plugins/installed.ts',
+      'CLAUDE.md',
+    ])
+    expect(check.excluded).toEqual(['ee/security/server.ts'])
+    expect(check.importers).toContain('lib/plugins/installed.ts')
+    expect(check.importers).not.toContain('CLAUDE.md')
+    expect(findImportViolations(check.importers, check.excluded, read)).toEqual(
+      []
+    )
+  })
+
+  it('an overlay that itself imports an excluded file is still caught', () => {
+    const check = importCheckInput(cls, ['lib/plugins/installed.ts'])
+    const leaky = (p: string) =>
+      p === 'lib/plugins/installed.ts'
+        ? "import { p } from '@/ee/security/server'"
+        : read(p)
+    expect(
+      findImportViolations(check.importers, check.excluded, leaky)
+    ).toEqual([
+      {
+        from: 'lib/plugins/installed.ts',
+        specifier: '@/ee/security/server',
+        target: 'ee/security/server.ts',
+      },
+    ])
+  })
+})
+
 describe('transforms', () => {
+  it('jsonArrayFilter drops matching elements and keeps 2-space JSON (LUM-1065)', () => {
+    const src = JSON.stringify({
+      buildCommand: 'b',
+      crons: [
+        { path: '/api/cron/keep', schedule: '1' },
+        { path: '/api/cron/plugin-a', schedule: '2' },
+        { path: '/api/cron/plugin-ab', schedule: '3' },
+      ],
+    })
+    const out = applyTransform(src, {
+      file: 'vercel.json',
+      type: 'jsonArrayFilter',
+      path: ['crons'],
+      key: 'path',
+      pattern: '^/api/cron/(plugin-a)$',
+      reason: 't',
+    })
+    expect(JSON.parse(out)).toEqual({
+      buildCommand: 'b',
+      crons: [
+        { path: '/api/cron/keep', schedule: '1' },
+        { path: '/api/cron/plugin-ab', schedule: '3' },
+      ],
+    })
+    expect(out.endsWith('}\n')).toBe(true)
+  })
+
+  it('jsonArrayFilter leaves the file byte-identical when nothing matches or the array is missing', () => {
+    const t = {
+      file: 'vercel.json',
+      type: 'jsonArrayFilter' as const,
+      path: ['crons'],
+      key: 'path',
+      pattern: '^/x$',
+      reason: 't',
+    }
+    const src = '{"crons":[{"path":"/y"}]}'
+    expect(applyTransform(src, t)).toBe(src)
+    expect(applyTransform('{"a":1}', t)).toBe('{"a":1}')
+  })
+
   it('jsonDelete removes a key path and keeps 2-space JSON', () => {
     const out = applyTransform(
       JSON.stringify({ scripts: { a: 'x', 'oss:export': 'y' } }),
@@ -448,6 +558,51 @@ describe('oss/manifest.json', () => {
       '.claude/skills/lumo/SKILL.md',
       'app/page.tsx',
     ])
+  })
+
+  it('the snapshot keeps exactly the crons whose route ships, in vercel.json and the crontab (LUM-1065)', () => {
+    const root = join(__dirname, '../..')
+    const tracked = execFileSync('git', ['ls-files', '-z'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+      .split('\0')
+      .filter(Boolean)
+    const shipped = new Set(classifyFiles(tracked, manifest).included)
+    const transformed = (file: string) =>
+      (manifest.transforms ?? [])
+        .filter(t => t.file === file)
+        .reduce(
+          (src, t) => applyTransform(src, t),
+          readFileSync(join(root, file), 'utf8')
+        )
+    const routeShips = (path: string) => shipped.has(`app${path}/route.ts`)
+    const before = (
+      JSON.parse(readFileSync(join(root, 'vercel.json'), 'utf8')) as {
+        crons: Array<{ path: string }>
+      }
+    ).crons.map(c => c.path)
+    const after = (
+      JSON.parse(transformed('vercel.json')) as {
+        crons: Array<{ path: string }>
+      }
+    ).crons.map(c => c.path)
+    // Every kept cron has its route; every dropped one is a route that stays
+    // private — the filter neither leaves a 404 nor drops a core job.
+    expect(after.filter(p => !routeShips(p))).toEqual([])
+    expect(before.filter(p => !after.includes(p)).filter(routeShips)).toEqual(
+      []
+    )
+    expect(before.length - after.length).toBe(5)
+    // The crontab (generated from vercel.json) drops the same jobs.
+    const jobPaths = (src: string) =>
+      src
+        .split('\n')
+        .filter(l => /^[^#\s]/.test(l))
+        .map(l => l.trim().split(/\s+/).pop()!)
+    const crontab = jobPaths(transformed('deploy/self-host/crontab'))
+    expect(crontab.filter(p => !routeShips(p))).toEqual([])
+    expect(crontab.filter(p => before.includes(p))).toEqual(after)
   })
 
   it('the private manifest itself never ships', () => {

@@ -36,10 +36,7 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
-    markSarifIngested: jest.fn(),
-    findSecurityBaseline: jest.fn(),
-  },
+  projectRepository: {},
 }))
 jest.mock('@/lib/repositories', () => ({
   projectRepository: {

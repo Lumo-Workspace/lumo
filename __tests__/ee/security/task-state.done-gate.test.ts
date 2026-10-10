@@ -4,7 +4,7 @@
 import { updateTask } from '@/lib/services/task-state.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 
 // updateTask's own deps — mocked so the test isolates the DONE gate.
@@ -14,16 +14,14 @@ import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 // LUM-740: the workspace policy read behind every "blocking" decision;
 // null = the 732 default these expectations were written against.
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     findManyForSecurityByTaskId: jest.fn(),
   },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findLatestByPullRequestIds: jest.fn(),
   },
@@ -34,6 +32,12 @@ jest.mock('@/lib/repositories/task.repository', () => ({
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findByIdSimple: jest.fn() },
 }))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+  },
+}))
+
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: { findById: jest.fn() },
 }))

@@ -4,10 +4,10 @@
  * LUM-590 — Policy compiler service tests.
  *
  * Architecture note on mock strategy:
- * - `@/lib/integrations/github/contents` and `@/lib/llm/policy-compiler-client`
+ * - `@/lib/integrations/github/contents` and `@/ee/security/llm/policy-compiler-client`
  *   are jest.mocked at module scope (intercepts dynamic imports too because jest
  *   rewrites the module registry before tests run).
- * - `@/lib/repositories/project-policy.repository` is jest.mocked with STATEFUL
+ * - `@/ee/security/repositories/project-policy.repository` is jest.mocked with STATEFUL
  *   implementations so that the "cached" test can assert classifyRules is NOT
  *   called a second time when the source hash is unchanged — the mock actually
  *   writes/reads the stored row, making the cache hit non-vacuous (trap 3 from
@@ -20,10 +20,10 @@ import {
   policyCompilerService,
   __resetSourceCache,
   __resetInflight,
-} from '@/lib/services/policy/policy-compiler.service'
+} from '@/ee/security/services/policy/policy-compiler.service'
 import * as contents from '@/lib/integrations/github/contents'
-import * as client from '@/lib/llm/policy-compiler-client'
-import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
+import * as client from '@/ee/security/llm/policy-compiler-client'
+import { projectPolicyRepository } from '@/ee/security/repositories/project-policy.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 // ── Module-level mocks ────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ jest.mock('@/lib/services/boundary-crossing-rejudge.service', () => ({
     rejudgePolicyWeakeningForProject: (i: unknown) => rejudgeForProject(i),
   },
 }))
-jest.mock('@/lib/llm/policy-compiler-client')
+jest.mock('@/ee/security/llm/policy-compiler-client')
 
 // Stateful mock store for projectPolicyRepository.
 // LUM-774: the store is a list of rows keyed by (projectId, sourceHash), with a
@@ -55,7 +55,7 @@ type StoredPolicy = {
   id: string
   projectId: string
   sourceHash: string
-  rules: import('@/lib/services/policy/types').PolicyRule[]
+  rules: import('@/ee/security/services/policy/types').PolicyRule[]
   compiledAt: Date
 }
 const policyStore: StoredPolicy[] = []
@@ -97,7 +97,7 @@ function installPolicyRepositoryMock() {
     async (input: {
       projectId: string
       sourceHash: string
-      rules: import('@/lib/services/policy/types').PolicyRule[]
+      rules: import('@/ee/security/services/policy/types').PolicyRule[]
     }) => {
       if (rowByHash(input.projectId, input.sourceHash)) return false
       policyStore.push({
@@ -121,7 +121,7 @@ function installPolicyRepositoryMock() {
   })
 }
 
-jest.mock('@/lib/repositories/project-policy.repository', () => ({
+jest.mock('@/ee/security/repositories/project-policy.repository', () => ({
   projectPolicyRepository: {
     latestForProject: jest.fn(),
     findByHash: jest.fn(),
@@ -890,7 +890,7 @@ const NAMED_EXPORTS_ONLY = {
 function seedPolicy(
   projectId: string,
   sourceHash: string,
-  rules: import('@/lib/services/policy/types').PolicyRule[]
+  rules: import('@/ee/security/services/policy/types').PolicyRule[]
 ) {
   policyStore.push({
     id: `seed-${policySeq}`,

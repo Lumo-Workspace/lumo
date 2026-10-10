@@ -23,11 +23,11 @@
  */
 // LUM-866: every workspace here has the default switches (all on); the
 // platform env in each test still decides the ceiling.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
@@ -77,10 +77,10 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   // LUM-785: stage A's graph rules read touched files; null = not found.
   readRepoFile: jest.fn().mockResolvedValue(null),
 }))
-jest.mock('@/lib/llm/security-judge-client', () => ({
+jest.mock('@/ee/security/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByPrAndSha: jest.fn(),
     create: jest.fn(),
@@ -100,9 +100,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
@@ -111,31 +109,36 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
     findLastSarifIngestAt: jest.fn(),
     findSecurityBaseline: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
   securityManagedScanOpsService: {
     supersedeOlderRuns: jest.fn(),
     enforceHourlyCap: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   recordHuntStartBestEffort: jest.fn(),
 }))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: { ensure: jest.fn().mockResolvedValue('present') },
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
@@ -145,18 +148,18 @@ import {
   renderPreToolUseSecurityReminder,
   renderSessionStartSecuritySection,
   type ReminderFinding,
-} from '@/lib/security-scan/agent-reminder'
-import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
-import { buildPlanPrompt } from '@/lib/llm/security-hunt-plan-client'
-import { renderTaskForPrompt } from '@/lib/llm/security-hunt-client'
-import { buildCompressPrompt } from '@/lib/llm/security-hunt-compress-client'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/security-scan/agent-reminder'
+import { renderHuntTaskContext } from '@/ee/security/security-scan/hunt/task-context'
+import { buildPlanPrompt } from '@/ee/security/llm/security-hunt-plan-client'
+import { renderTaskForPrompt } from '@/ee/security/llm/security-hunt-client'
+import { buildCompressPrompt } from '@/ee/security/llm/security-hunt-compress-client'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
-import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
+import { securityManagedScanOpsService } from '@/ee/security/services/security-managed-scan-ops.service'
 import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/security-judge-client'
+import * as judge from '@/ee/security/llm/security-judge-client'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 /** One synthetic (non-functional) value per registry rule. */
 const CORPUS: { id: string; line: string; value: string }[] = [
@@ -546,9 +549,9 @@ describe('⑪ PR security scan — the LLM judge never sees the raw diff value',
     ;(
       securityManagedScanOpsService.enforceHourlyCap as jest.Mock
     ).mockResolvedValue({ capped: false })
-    ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
-      undefined
-    )
+    ;(
+      securityColumnsRepository.findLastSarifIngestAt as jest.Mock
+    ).mockResolvedValue(undefined)
   })
 
   it('the diff handed to judgeSecurity carries the redaction tokens, not the values', async () => {
@@ -584,7 +587,7 @@ describe('⑪ PR security scan — the LLM judge never sees the raw diff value',
   })
 })
 
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

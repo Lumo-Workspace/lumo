@@ -27,7 +27,7 @@ import {
   formatReport,
   DEFAULT_MIN_SAMPLES,
   type DispositionedCrossing,
-} from '@/lib/boundary-crossing/false-positive-rate'
+} from '@/ee/private/boundary-crossing/false-positive-rate'
 
 function parseMin(argv: string[]): number {
   const i = argv.indexOf('--min')

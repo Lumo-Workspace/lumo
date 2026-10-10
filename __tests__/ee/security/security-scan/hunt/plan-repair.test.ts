@@ -5,7 +5,7 @@
 import {
   repairPlanText,
   PLAN_REPAIR_KINDS,
-} from '@/lib/security-scan/hunt/plan-repair'
+} from '@/ee/security/security-scan/hunt/plan-repair'
 
 describe('repairPlanText', () => {
   it('reads an empty object as an empty plan — the zero-reasoning `{}` the probe saw twice in 24', () => {

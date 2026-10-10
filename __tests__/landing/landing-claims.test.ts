@@ -223,8 +223,9 @@ describe('FAQ privacy claims LUM-853', () => {
     )
     // LUM-871: boundary-crossing triage (LUM-945, TypeSafe Jev) is the one
     // request sent outside the ZDR layer, so "every AI request ... zero data
-    // retention" must name it.
-    expect(readRoot('lib/ai/evaluation.ts')).not.toMatch(/zdr-fetch/)
+    // retention" must name it. (That client is the security plugin's; the
+    // check that it really skips the ZDR layer lives with the plugin tests,
+    // __tests__/ee/security/landing/landing-claims.test.ts — LUM-1065.)
     expect(answer).toMatch(
       /zero data retention enforced on the request itself for all but boundary-crossing triage/
     )

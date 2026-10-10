@@ -15,13 +15,13 @@
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {},
 }))
 
 import { readFileSync } from 'fs'
 import path from 'path'
-import { buildSummary } from '@/lib/services/security-pr-review.service'
+import { buildSummary } from '@/ee/security/services/security-pr-review.service'
 import {
   SCAN_UNFINISHED_NOTE,
   formatHuntOverCap,
@@ -31,7 +31,7 @@ import {
   formatScanLayerTail,
   formatSizeCapLines,
 } from '@/cli/src/lib/scan-format'
-import type { ScanStages } from '@/lib/security-scan/types'
+import type { ScanStages } from '@/ee/security/security-scan/types'
 
 const ROOT = path.resolve(__dirname, '../../../..')
 const I18N = path.join(ROOT, 'lib/i18n')

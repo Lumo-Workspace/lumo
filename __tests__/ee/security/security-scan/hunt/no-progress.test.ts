@@ -26,8 +26,8 @@ import {
   isNoProgress,
   noProgressStreak,
   normalizeCommand,
-} from '@/lib/security-scan/hunt/progress'
-import { HUNT_NO_PROGRESS_STEPS } from '@/lib/services/security-hunt.config'
+} from '@/ee/security/security-scan/hunt/progress'
+import { HUNT_NO_PROGRESS_STEPS } from '@/ee/security/services/security-hunt.config'
 
 /** The file all three searches read, at its full 65 characters. */
 const F = '__tests__/security-scan/hunt/mechanical-verify-resolution.test.ts'

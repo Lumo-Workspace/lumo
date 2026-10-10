@@ -32,7 +32,7 @@ jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     hasNewerScanThan: jest.fn(),
     claimHuntRetry: jest.fn(),
@@ -40,14 +40,14 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     failStaleHunt: jest.fn(),
   },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   stopRepoSandboxesByTag: jest.fn(),
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   cancelHuntRun: jest.fn(),
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 
@@ -64,7 +64,7 @@ import {
   HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS,
   type HuntJob,
   type HuntTask,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 
 const wait = awaitManagedScanStep as jest.Mock
 const plan = planHuntStep as jest.Mock

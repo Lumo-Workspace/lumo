@@ -17,7 +17,7 @@ import {
   looksLikeJwt,
   pullNumberFromRef,
   verifyGithubActionsToken,
-} from '@/lib/auth/github-oidc'
+} from '@/ee/security/auth/github-oidc'
 
 const { publicKey, privateKey } = generateKeyPairSync('rsa', {
   modulusLength: 2048,

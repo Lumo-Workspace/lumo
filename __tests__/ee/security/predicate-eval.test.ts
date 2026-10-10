@@ -2,7 +2,7 @@ import {
   matchPathGlob,
   matchCmdSubstr,
   matchDiffRegex,
-} from '@/lib/services/policy/predicate-eval'
+} from '@/ee/security/services/policy/predicate-eval'
 
 test('path-glob matches changed paths under a glob', () => {
   expect(matchPathGlob('legacy/**', ['src/a.ts', 'legacy/b.ts'])).toBe(true)

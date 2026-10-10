@@ -2,7 +2,7 @@
 import {
   admitAutomaticReview,
   affectedReviewDiff,
-} from '@/lib/security-scan/review-control'
+} from '@/ee/security/security-scan/review-control'
 import {
   scanCoverageState,
   isOwnedUnfinished,

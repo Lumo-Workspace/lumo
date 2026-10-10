@@ -23,11 +23,11 @@ import { promisify } from 'node:util'
 import {
   verifyFindings,
   type VerifierFinding,
-} from '../../../lib/llm/review-verifier-client'
-import { checkHuntCommand } from '../../../lib/security-scan/hunt/shell-allowlist'
-import { redactKnownSecrets } from '../../../lib/security-scan'
+} from '@/ee/security/llm/review-verifier-client'
+import { checkHuntCommand } from '@/ee/security/security-scan/hunt/shell-allowlist'
+import { redactKnownSecrets } from '@/ee/security/security-scan'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
-import { splitDiffByFile } from '../../../lib/security-scan/diff-lines'
+import { splitDiffByFile } from '@/ee/security/security-scan/diff-lines'
 import { prKey } from './pr-key'
 
 const run = promisify(execFile)

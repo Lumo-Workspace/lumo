@@ -31,7 +31,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
   shouldScanOnPrEvent: jest.fn().mockReturnValue(true),
 }))
@@ -71,7 +71,7 @@ import { handlePullRequest } from '@/app/api/webhooks/github/handlers'
 import { githubService } from '@/lib/services/github.service'
 import { linkPullRequest } from '@/lib/services/task-pr-link.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'

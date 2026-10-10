@@ -58,17 +58,17 @@ jest.mock('@vercel/blob/client', () => ({
   ),
 }))
 jest.mock('@/lib/auth/bearer', () => ({ verifyBearer: jest.fn() }))
-jest.mock('@/lib/auth/github-oidc', () => ({
-  ...jest.requireActual('@/lib/auth/github-oidc'),
+jest.mock('@/ee/security/auth/github-oidc', () => ({
+  ...jest.requireActual('@/ee/security/auth/github-oidc'),
   verifyGithubActionsToken: jest.fn(),
 }))
-jest.mock('@/lib/services/security-sarif-rate-limit', () => ({
+jest.mock('@/ee/security/services/security-sarif-rate-limit', () => ({
   checkSarifIngestRateLimit: jest.fn(),
 }))
-jest.mock('@/lib/services/security-sarif-ingest-start', () => ({
+jest.mock('@/ee/security/services/security-sarif-ingest-start', () => ({
   startSecuritySarifIngest: jest.fn(),
 }))
-jest.mock('@/lib/services/security-sarif-ingest.service', () => ({
+jest.mock('@/ee/security/services/security-sarif-ingest.service', () => ({
   securitySarifIngestService: { pruneStaleBlobs: jest.fn() },
   SARIF_MAX_GZ_BYTES: 100 * 1024 * 1024,
 }))
@@ -79,17 +79,17 @@ jest.mock('@/lib/logger', () => ({
 import { POST as uploadPOST } from '@/app/api/integrations/security/sarif/upload/route'
 import { POST as completePOST } from '@/app/api/integrations/security/sarif/complete/route'
 import { GET as pruneGET } from '@/app/api/cron/prune-security-sarif/route'
-import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
+import { securitySarifIngestService } from '@/ee/security/services/security-sarif-ingest.service'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { handleUpload } from '@vercel/blob/client'
 import { verifyBearer } from '@/lib/auth/bearer'
-import { verifyGithubActionsToken } from '@/lib/auth/github-oidc'
-import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
-import { startSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-start'
+import { verifyGithubActionsToken } from '@/ee/security/auth/github-oidc'
+import { checkSarifIngestRateLimit } from '@/ee/security/services/security-sarif-rate-limit'
+import { startSecuritySarifIngest } from '@/ee/security/services/security-sarif-ingest-start'
 import {
   expectedSarifPathname,
   pathnameMatches,
-} from '@/lib/validation/security-sarif'
+} from '@/ee/security/validation/security-sarif'
 
 const mockedVerifyBearer = verifyBearer as jest.Mock
 const mockedVerifyOidc = verifyGithubActionsToken as jest.Mock

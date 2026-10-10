@@ -18,7 +18,7 @@ import {
 import {
   ACTION_CONFIRM_CATEGORIES,
   type ActionConfirmJudge,
-} from '@/lib/boundary-crossing/action-confirm'
+} from '@/ee/security/boundary-crossing/action-confirm'
 // LUM-1063: the matcher set depends on the installed plugins — a function now.
 import { commandMatcherCategories } from '@/lib/services/boundary-detector.service'
 

@@ -3,14 +3,14 @@
  * judge output → record mapping, failure records, corpus loading from a
  * hand-written cache + fresh export, results-file reading.
  */
-jest.mock('@/lib/llm/offline-eval-client', () => ({
+jest.mock('@/ee/private/llm/offline-eval-client', () => ({
   generateEvalObject: jest.fn(),
 }))
 
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { generateEvalObject } from '@/lib/llm/offline-eval-client'
+import { generateEvalObject } from '@/ee/private/llm/offline-eval-client'
 import { cacheFile } from '../../lum948-basharena/download'
 import type { Candidate } from '../../lum958-basharena-llm/candidates'
 import {

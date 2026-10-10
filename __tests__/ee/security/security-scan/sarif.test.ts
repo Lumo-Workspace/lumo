@@ -11,8 +11,8 @@ import {
   ecosystemOfLockfile,
   repoRelativePath,
   MAX_SARIF_FINDINGS,
-} from '@/lib/security-scan/sarif'
-import { addedLinesWithNumbers } from '@/lib/security-scan/diff-lines'
+} from '@/ee/security/security-scan/sarif'
+import { addedLinesWithNumbers } from '@/ee/security/security-scan/diff-lines'
 import { dependencyFingerprint } from '@/lib/security-scan/redact'
 
 const KEY = 'AKIAABCDEFGHIJKLMNOP'

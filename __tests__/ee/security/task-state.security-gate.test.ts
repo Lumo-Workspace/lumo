@@ -4,7 +4,7 @@
  * LUM-732 — the DONE gate for PR security findings. Exercises the exact
  * function task-state.service wires into the DONE transition.
  */
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findLatestByPullRequestIds: jest.fn() },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
@@ -13,26 +13,30 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 // LUM-740: the gate reads the workspace policy; null = the 732 default this
 // suite was written against.
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-  },
+  workspaceRepository: {},
 }))
 // LUM-775: the default-branch baseline behind the merged-PR exit rules.
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: { findSecurityBaseline: jest.fn() },
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    findSecurityBaseline: jest.fn(),
+  },
 }))
 
 import {
   assertNoOpenBlockingSecurityFindings,
   isBlockingFinding,
-} from '@/lib/services/pr-security-scan-gate'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/services/pr-security-scan-gate'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const scans = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
-const baselineRead = projectRepository.findSecurityBaseline as jest.Mock
+const baselineRead = securityColumnsRepository.findSecurityBaseline as jest.Mock
 
 const finding = (over: object) => ({
   id: 'f',
@@ -196,9 +200,7 @@ describe('LUM-775 queue exit at the DONE gate', () => {
   })
 
   test('a policy-blocking external HIGH absent from a fresh baseline is RESOLVED_ON_MAIN and no longer blocks; present → still blocks', async () => {
-    const policyRead = jest.requireMock(
-      '@/lib/repositories/workspace.repository'
-    ).workspaceRepository.findSecurityPolicy as jest.Mock
+    const policyRead = securityColumnsRepository.findSecurityPolicy as jest.Mock
     policyRead.mockResolvedValue(blockExternalHigh)
     scans.mockResolvedValue([
       scan({ findings: [extHigh({ fingerprint: 'fp-gone' })] }),

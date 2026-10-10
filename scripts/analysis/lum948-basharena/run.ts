@@ -11,7 +11,7 @@
  * never committed) datasets into the local cache. `--confirm` uses align-eval's
  * deterministic stub judge — never a network model.
  */
-import { stubActionJudge } from '@/lib/boundary-crossing/align-eval'
+import { stubActionJudge } from '@/ee/private/boundary-crossing/align-eval'
 import {
   monitorEvalTrajectories,
   syntheticTrajectories,

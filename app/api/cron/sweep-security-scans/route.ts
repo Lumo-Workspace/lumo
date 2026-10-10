@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
-import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
-import { securityHuntOpsService } from '@/lib/services/security-hunt-ops.service'
-import { reviewVerifierOpsService } from '@/lib/services/review-verifier-ops.service'
+import { securityManagedScanOpsService } from '@/ee/security/services/security-managed-scan-ops.service'
+import { securityHuntOpsService } from '@/ee/security/services/security-hunt-ops.service'
+import { reviewVerifierOpsService } from '@/ee/security/services/review-verifier-ops.service'
 import { requireCronAuth } from '@/lib/api/cron-auth'
 
 export const runtime = 'nodejs'

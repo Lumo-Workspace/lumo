@@ -5,7 +5,7 @@
  * model call, what gets written, and what never does.
  */
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: jest.fn(),
 }))
 
@@ -13,7 +13,7 @@ import {
   createBoundaryCrossingTriageService,
   toClearStats,
   type TriageDeps,
-} from '@/lib/services/boundary-crossing-triage.service'
+} from '@/ee/security/services/boundary-crossing-triage.service'
 
 type Candidate = Awaited<ReturnType<TriageDeps['findCandidates']>>[number]
 

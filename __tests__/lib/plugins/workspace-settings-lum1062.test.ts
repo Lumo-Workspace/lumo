@@ -4,17 +4,11 @@
  * LUM-1062 — the `workspaceSettings` extension point (RFC LUM-1058 §3.4
  * 设置页, §4 option A): every Workspace column is owned by the core or by an
  * installed plugin; owned columns are served and written, unowned ones are
- * neither.
+ * neither. (With the security plugin installed: the plugin half,
+ * __tests__/ee/security/lib/plugins/workspace-settings-installed.test.ts —
+ * split in LUM-1065, because the open-source snapshot installs no plugin.)
  */
 import type { LumoServerPlugin } from '@/lib/plugins/types'
-
-const SECURITY_COLUMNS = [
-  'securityPolicy',
-  'scanEvidenceRetentionDays',
-  'securityScanEnabled',
-  'securityAiReviewEnabled',
-  'securityHuntEnabled',
-]
 
 type SettingsModule = typeof import('@/lib/plugins/workspace-settings')
 
@@ -32,60 +26,6 @@ function withPlugins(plugins: readonly LumoServerPlugin[]): SettingsModule {
 
 afterEach(() => {
   jest.dontMock('@/lib/plugins/installed')
-})
-
-describe('installed (the security plugin)', () => {
-  const settings = require('@/lib/plugins/workspace-settings') as SettingsModule
-  const { WORKSPACE_COLUMNS } =
-    require('@/lib/repositories/workspace-columns') as typeof import('@/lib/repositories/workspace-columns')
-
-  it('every Workspace column is owned exactly once: by the core or the plugin', () => {
-    const owned = [
-      ...settings.CORE_WORKSPACE_COLUMNS,
-      ...Object.keys(settings.pluginWorkspaceColumns()),
-    ]
-    expect(new Set(owned).size).toBe(owned.length)
-    expect([...owned].sort()).toEqual([...WORKSPACE_COLUMNS].sort())
-    expect(Object.keys(settings.pluginWorkspaceColumns()).sort()).toEqual(
-      [...SECURITY_COLUMNS].sort()
-    )
-  })
-
-  it('serves the whole row, with the platform ceiling, as before the split', () => {
-    const row = Object.fromEntries(WORKSPACE_COLUMNS.map(c => [c, `v-${c}`]))
-    expect(settings.serializeWorkspaceSettings(row)).toEqual(row)
-    expect(Object.keys(settings.pluginMeFields())).toEqual(['securityPlatform'])
-    expect(
-      settings.unownedWorkspaceColumns({ securityScanEnabled: false })
-    ).toEqual([])
-  })
-
-  it('validates and writes the owned columns with the pre-split validators', () => {
-    const schema = settings.workspaceSettingsUpdateSchema()
-    expect(schema.safeParse({ securityScanEnabled: false }).success).toBe(true)
-    expect(schema.safeParse({ securityScanEnabled: 'no' }).success).toBe(false)
-    expect(schema.safeParse({ scanEvidenceRetentionDays: 14 }).success).toBe(
-      true
-    )
-    expect(schema.safeParse({ scanEvidenceRetentionDays: 3 }).success).toBe(
-      false
-    )
-    expect(schema.safeParse({ securityPolicy: null }).success).toBe(true)
-    expect(
-      schema.safeParse({
-        securityPolicy: {
-          block: [{ provenance: 'LLM_JUDGE', severity: 'HIGH' }],
-        },
-      }).success
-    ).toBe(false)
-    expect(
-      settings.pluginWorkspaceWrites({
-        name: 'Acme',
-        securityHuntEnabled: false,
-        securityScanEnabled: undefined,
-      })
-    ).toEqual({ securityHuntEnabled: false })
-  })
 })
 
 describe('no plugin installed', () => {
@@ -184,5 +124,61 @@ describe('contributor rules', () => {
     await expect(s.isWorkspaceAiReviewEnabled('w1')).resolves.toBe(false)
     expect(on).toHaveBeenCalledWith('w1')
     expect(off).toHaveBeenCalledWith('w1')
+  })
+
+  it('maps owned values through the owner’s toColumnWrite, leaving the rest alone (LUM-1065)', () => {
+    const s = withPlugins([
+      {
+        id: 'p',
+        register(api) {
+          api.workspaceSettings({
+            key: 'p',
+            columns: {
+              jsonCol: require('zod').z.unknown(),
+              flag: require('zod').z.boolean(),
+            },
+            toColumnWrite: (column, value) =>
+              column === 'jsonCol' && value === null ? 'SQL-NULL' : value,
+          })
+        },
+      },
+    ])
+    expect(
+      s.toWorkspaceColumnWrites({ name: 'A', jsonCol: null, flag: false })
+    ).toEqual({ name: 'A', jsonCol: 'SQL-NULL', flag: false })
+    // An absent or undefined owned value is not mapped (nothing is written).
+    expect(s.toWorkspaceColumnWrites({ name: 'A' })).toEqual({ name: 'A' })
+    expect(withPlugins([]).toWorkspaceColumnWrites({ jsonCol: null })).toEqual({
+      jsonCol: null,
+    })
+  })
+
+  it('merges each plugin’s audited columns into the core actions, and only owned ones (LUM-1065)', () => {
+    const { AUDITED_WORKSPACE_SETTINGS } =
+      require('@/lib/audit/workspace-settings') as typeof import('@/lib/audit/workspace-settings')
+    expect(withPlugins([]).auditedWorkspaceSettings()).toEqual(
+      AUDITED_WORKSPACE_SETTINGS
+    )
+    const audited = (cols: string[]): LumoServerPlugin => ({
+      id: 'p',
+      register(api) {
+        api.workspaceSettings({
+          key: 'p',
+          columns: { x: require('zod').z.boolean().optional() },
+          audit: { 'workspace.retention_updated': cols },
+        })
+      },
+    })
+    const merged = withPlugins([audited(['x'])]).auditedWorkspaceSettings()
+    expect(merged['workspace.retention_updated']).toEqual([
+      ...AUDITED_WORKSPACE_SETTINGS['workspace.retention_updated'],
+      'x',
+    ])
+    expect(merged['workspace.settings_updated']).toEqual(
+      AUDITED_WORKSPACE_SETTINGS['workspace.settings_updated']
+    )
+    expect(() =>
+      withPlugins([audited(['name'])]).auditedWorkspaceSettings()
+    ).toThrow(/does not own/)
   })
 })

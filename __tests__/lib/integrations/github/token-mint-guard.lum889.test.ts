@@ -42,9 +42,8 @@ const PUBLIC_ALLOWED: CallSiteAllowlist = {
   'lib/services/github-access-recheck.service.ts': {
     createInstallationToken: ['sweep', 'recheckRepository'],
   },
-  'scripts/security/lum852-sandbox-probe.ts': {
-    createRepoScopedToken: ['mintScopedToken'],
-  },
+  // (The security plugin's operator probe under scripts/security/ declares
+  // its call site in that folder's sidecar — LUM-1065.)
 }
 
 const SIDECAR = 'token-mint-allowlist.json'
@@ -392,6 +391,8 @@ describe('LUM-889 the runtime tree passes the token-mint audit', () => {
     'scripts',
     'components',
     'hooks',
+    // LUM-1065: the security plugin tree (absent from the OSS snapshot).
+    'ee',
     'extensions',
     'constants',
     'types',
@@ -401,11 +402,7 @@ describe('LUM-889 the runtime tree passes the token-mint audit', () => {
   it('no runtime file reaches an unchecked mint outside its allowlisted call sites', () => {
     const files = SCAN.flatMap(dir => runtimeSourceFiles(ROOT, dir))
     // Sanity: the walk reached every tree, so an empty result means clean.
-    for (const expected of [
-      'lib/integrations/github/auth.ts',
-      'proxy.ts',
-      'scripts/security/lum852-sandbox-probe.ts',
-    ])
+    for (const expected of ['lib/integrations/github/auth.ts', 'proxy.ts'])
       expect(files).toContain(expected)
     expect(files.some(f => f.startsWith('mcp/'))).toBe(true)
     expect(files.some(f => f.startsWith('cli/src/'))).toBe(true)

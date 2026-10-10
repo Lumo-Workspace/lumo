@@ -2,7 +2,7 @@
 import {
   resolveImportCandidates,
   isGraphSourcePath,
-} from '@/lib/security-scan/graph/imports'
+} from '@/ee/security/security-scan/graph/imports'
 
 describe('LUM-739 graph imports', () => {
   it('expands an @/ alias to the four TS candidates', () => {

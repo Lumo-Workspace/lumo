@@ -2,7 +2,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   findRepoSandboxByTag: jest.fn(),
   createRepoSandbox: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -18,12 +18,12 @@ import {
   runVerifierShell,
   stopHuntSandbox,
   type HuntSandbox,
-} from '@/lib/services/security-hunt-sandbox'
-import { findRepoSandboxByTag } from '@/lib/integrations/vercel-sandbox'
+} from '@/ee/security/services/security-hunt-sandbox'
+import { findRepoSandboxByTag } from '@/ee/security/integrations/vercel-sandbox'
 import {
   HUNT_SHELL_BIN,
   HUNT_SHELL_FLAG,
-} from '@/lib/security-scan/hunt/shell-allowlist'
+} from '@/ee/security/security-scan/hunt/shell-allowlist'
 
 // Built from pieces so the repo's own secret scan does not flag the fixture.
 const CLONE_TOKEN = ['ghs', 'leaky', 'token', '123'].join('_')

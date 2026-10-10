@@ -20,9 +20,9 @@ import {
   SUPPLY_CHAIN_TOOL,
   isSupersededOutcome,
   type ManagedScanJob,
-} from '@/lib/services/security-managed-scan.config'
-import type { IngestResult } from '@/lib/services/security-sarif-ingest.service'
-import type { ScanStages } from '@/lib/security-scan/types'
+} from '@/ee/security/services/security-managed-scan.config'
+import type { IngestResult } from '@/ee/security/services/security-sarif-ingest.service'
+import type { ScanStages } from '@/ee/security/security-scan/types'
 import {
   markSarifStagesStep,
   persistSarifFindingsStep,
@@ -35,7 +35,7 @@ import {
   markFailedBestEffort,
   suggestDispositionsBestEffort,
   syncPrReviewBestEffort,
-} from './security-scan-helpers'
+} from '@/ee/security/workflows/security-scan-helpers'
 
 /**
  * LUM-876 — once a step's retries are spent, `@workflow/core` rewraps the

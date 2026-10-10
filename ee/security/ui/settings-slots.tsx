@@ -7,9 +7,9 @@
  * plugin owns from the workspace row GET /api/workspaces/me serves.
  */
 import type { ClientSlotProps } from '@/lib/plugins/client'
-import type { PlatformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
-import { SecurityScanSwitchesCard } from '@/app/workspace/[workspaceUrl]/components/settings/SecurityScanSwitchesCard'
-import { ScanEvidenceRetentionRow } from '@/app/workspace/[workspaceUrl]/components/settings/ScanEvidenceRetentionRow'
+import type { PlatformSecurityCeiling } from '@/ee/security/security-scan/workspace-switches'
+import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
+import { ScanEvidenceRetentionRow } from '@/ee/security/components/settings/ScanEvidenceRetentionRow'
 
 /** A stored switch; a missing value reads as the column default (on). */
 function switchOf(value: unknown): boolean {

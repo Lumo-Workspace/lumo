@@ -44,8 +44,8 @@ import {
   GOLD_CORPUS,
   type GoldItem,
   type AlignReport,
-} from '@/lib/boundary-crossing/align-eval'
-import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
+} from '@/ee/private/boundary-crossing/align-eval'
+import type { ActionConfirmJudge } from '@/ee/security/boundary-crossing/action-confirm'
 
 const ALL_CATEGORIES = [
   'PUSH_TO_PROTECTED_BRANCH',

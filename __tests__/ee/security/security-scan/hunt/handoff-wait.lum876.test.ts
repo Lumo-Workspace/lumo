@@ -10,7 +10,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   findRepoSandboxByTag: jest.fn(),
   createRepoSandbox: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -21,14 +21,14 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   revokeInstallationToken: jest.fn(),
 }))
 
-import { awaitManagedScanHandOff } from '@/lib/services/security-hunt-sandbox'
-import { findRepoSandboxByTag } from '@/lib/integrations/vercel-sandbox'
+import { awaitManagedScanHandOff } from '@/ee/security/services/security-hunt-sandbox'
+import { findRepoSandboxByTag } from '@/ee/security/integrations/vercel-sandbox'
 import {
   HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS,
   HUNT_SANDBOX_ATTACH_POLL_MS,
   HUNT_SANDBOX_ATTACH_WAIT_MS,
-} from '@/lib/services/security-hunt.config'
-import { MANAGED_SCAN_DONE_PATH } from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-hunt.config'
+import { MANAGED_SCAN_DONE_PATH } from '@/ee/security/services/security-managed-scan.config'
 
 const find = findRepoSandboxByTag as jest.Mock
 

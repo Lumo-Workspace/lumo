@@ -8,7 +8,7 @@ import {
   renderUnconfirmedPrLine,
   sortReminderFindings,
   type ReminderFinding,
-} from '@/lib/security-scan/agent-reminder'
+} from '@/ee/security/security-scan/agent-reminder'
 
 const f = (over: Partial<ReminderFinding> = {}): ReminderFinding => ({
   id: 'f1',

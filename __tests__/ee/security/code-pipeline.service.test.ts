@@ -14,18 +14,18 @@
 
 // LUM-866: every workspace here has the default switches (all on) unless a test
 // says otherwise (LUM-892 overrides it below).
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 
-import { codePipelineService } from '@/lib/services/policy/code-pipeline.service'
-import * as compiler from '@/lib/services/policy/policy-compiler.service'
+import { codePipelineService } from '@/ee/security/services/policy/code-pipeline.service'
+import * as compiler from '@/ee/security/services/policy/policy-compiler.service'
 import * as gh from '@/lib/integrations/github/contents'
-import * as judge from '@/lib/llm/code-rule-judge-client'
+import * as judge from '@/ee/security/llm/code-rule-judge-client'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 // ── Module-level mocks ────────────────────────────────────────────────────────
@@ -35,9 +35,9 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('test-token'),
 }))
 
-jest.mock('@/lib/services/policy/policy-compiler.service')
+jest.mock('@/ee/security/services/policy/policy-compiler.service')
 jest.mock('@/lib/integrations/github/contents')
-jest.mock('@/lib/llm/code-rule-judge-client')
+jest.mock('@/ee/security/llm/code-rule-judge-client')
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 

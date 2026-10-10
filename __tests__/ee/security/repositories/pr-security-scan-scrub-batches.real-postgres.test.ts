@@ -22,7 +22,7 @@ jest.mock('@/lib/db/prisma', () => ({
 import {
   prSecurityScanRepository,
   SCRUB_BATCH_SIZE,
-} from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/repositories/pr-security-scan.repository'
 
 jest.setTimeout(180_000)
 

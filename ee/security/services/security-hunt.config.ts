@@ -1,0 +1,1394 @@
+/**
+ * LUM-739 — constants, the kill switch and the step I/O types of the L3
+ * hunt. Deliberately import-light (types only): consumed by the
+ * `'use workflow'` orchestrator (`lib/workflows/security-hunt.ts`), whose
+ * bundle the Workflow SDK compiles into a restricted sandbox, and by stage A
+ * for `isHuntEnabled`. Anything that needs GitHub, the AI SDK, zod or the
+ * repositories goes in `security-hunt.service.ts`.
+ */
+import { isIntegrationConfigured } from '@/lib/integrations/configured'
+import type { Subgraph } from '@/ee/security/security-scan/graph/types'
+import type {
+  RejectedCandidate,
+  RepoEvidence,
+  ResolutionTally,
+  VerifiedCandidate,
+  MechanicalVerifyResult,
+} from '@/ee/security/security-scan/hunt/mechanical-verify'
+
+import type { HuntSignalSite } from '@/ee/security/security-scan/hunt/trigger'
+import type { PlanFailureFacts } from '@/ee/security/security-scan/hunt/plan-retry'
+import type { PlanRepairKind } from '@/ee/security/security-scan/hunt/plan-repair'
+import type { PartialCause } from '@/shared/src/security-scan'
+
+export interface HuntJob {
+  scanId: string
+  pullRequestId: string
+  taskId: string | null
+  workspaceId: string
+  /** `owner/repo` */
+  repo: string
+  prNumber: number
+  headSha: string
+  /**
+   * LUM-758 — `evaluateHuntTrigger` 的触发原因，stage A 算完直接传下来。
+   * 规划步的主要输入，也是规划失败时确定性兜底的唯一依据。
+   */
+  reasons: string[]
+  /**
+   * LUM-758 Task 10 review — the TS/TSX paths this diff touched, computed by
+   * stage A from the SAME `files` the trigger consumes and filtered by
+   * `isGraphSourcePath`, so it costs no extra call anywhere.
+   *
+   * It rides along beside `reasons` because `reasons` alone cannot answer two
+   * questions the layer needs:
+   *   - short circuit A: `stage-a:high` and `l4:open-crossing` produce no
+   *     `diff:` reason, so "did this PR touch any source at all" is the only
+   *     thing separating a HIGH-finding PR worth hunting from one that
+   *     touched nothing but a README.
+   *   - the planner: a reason says a sink fired, never WHERE. Without the
+   *     paths a fixture-only `prisma.$queryRawUnsafe` reads exactly like a
+   *     production one, and the plan it provokes costs up to 3 ×
+   *     HUNT_TASK_TOKEN_MAX.
+   */
+  touchedSourcePaths: string[]
+  /**
+   * LUM-758 follow-up — the located rule hits behind `reasons`: which rule
+   * fired, in which file, on which added line.
+   *
+   * `reasons` is a deduplicated set of rule ids and `touchedSourcePaths` is a
+   * flat file list, so between them the layer could say a sink fired and which
+   * files were touched, but never which line — and the agent's prompt said, in
+   * so many words, "find the call sites yourself". It then spent its allowance
+   * re-deriving with `rg` what stage A had already computed and discarded.
+   *
+   * OPTIONAL, and every reader must tolerate its absence: a run queued by the
+   * previous deployment arrives mid-flight without it, and a required field
+   * would turn that whole deploy window into FAILED scans — the same hazard
+   * `reasons` / `touchedSourcePaths` already carry defaults for.
+   */
+  signalSites?: HuntSignalSite[]
+  /**
+   * LUM-758 §5.1 — did stage A actually start the managed scan for this sha?
+   * Decides whether `attachOrCreateHuntSandbox` waits for that VM to show up
+   * or goes straight to creating its own: the managed scan has four
+   * legitimate reasons never to run (BYO SARIF findings already exist, the
+   * feature is off, the hourly cap is reached, the start failed), and in
+   * those cases polling would only burn 30 s. LUM-876: it also means the run
+   * was told to keep its VM for the hunt (`huntWanted`) — a run that will
+   * stop its own VM is not one to wait for.
+   */
+  managedScanStarted: boolean
+  /**
+   * LUM-822 — which start of this scan's hunt this is. Absent on the run stage
+   * A starts (= attempt 1); the stale-hunt sweep's one retry carries 2. Every
+   * write the run makes carries it, so a superseded attempt cannot land.
+   */
+  attempt?: number
+  /**
+   * LUM-832 — which try of THIS batch this run is (1 = first, up to
+   * HUNT_MAX_ATTEMPTS). `attempt` is the row's monotone fence across the
+   * whole scan and keeps counting through batches; the retry budget is per
+   * batch. Absent = `attempt ?? 1`, which is what every pre-LUM-832 job meant.
+   */
+  tries?: number
+  /**
+   * LUM-832 — the batch plan of an oversized diff (`planHuntBatches`), riskiest
+   * first, and which batch this run hunts. Absent on stage A's job: the first
+   * run computes the plan (pure, so a retry recomputes the same one) and every
+   * continuation carries it.
+   */
+  batches?: string[][]
+  batchIndex?: number
+  /** LUM-832 — the layer's state over the batches already run (`mergeBatchStage`). */
+  carriedStage?: 'RAN' | 'PARTIAL' | 'SKIPPED'
+}
+
+/**
+ * LUM-782 — what the start-up probe found on the VM a batch ran on. Three
+ * disjoint lists over `HUNT_SHELL_COMMANDS`, and the third is not padding:
+ *   - `present`   — the probe ran and the tool answered.
+ *   - `missing`   — the shell answered exit 127 (`command not found`): the
+ *     binary is not on PATH, and every agent command naming it would fail the
+ *     same way while looking, in every other column, like a search that
+ *     found nothing.
+ *   - `unverified` — the probe itself could not run (VM gone, timeout, or a
+ *     probe the gate refused — a bug the tests pin). No claim either way; an
+ *     unverified tool is never reported to the model as missing.
+ */
+export interface HuntToolProbe {
+  present: string[]
+  missing: string[]
+  unverified: string[]
+}
+
+/**
+ * LUM-782 — the tools the hunt cannot do without. The system prompt takes
+ * line numbers from `rg -n` / `grep -n`; a VM with `rg` missing degrades to
+ * `grep` (the prompt says so), a VM with BOTH missing has nothing to search
+ * with, and `huntBatch` refuses to start the model rather than let it burn
+ * its allowance on `command not found` — the layer lands FAILED with the
+ * reason, honestly.
+ */
+/**
+ * Tag key marking a VM the hunt booted itself, so "who paid for this VM" is
+ * answerable after the fact. It is applied IN ADDITION to `lumoScan`, never
+ * instead of it — see the tags comment in `security-hunt-sandbox.ts#create`.
+ */
+export const HUNT_SANDBOX_TAG = 'lumoHunt'
+export const HUNT_SEARCH_TOOLS: readonly string[] = ['rg', 'grep']
+
+/** LUM-758 §5.1 — how long to wait for the managed scan's VM, and how often to look. */
+export const HUNT_SANDBOX_ATTACH_WAIT_MS = 30_000
+export const HUNT_SANDBOX_ATTACH_POLL_MS = 3_000
+/**
+ * LUM-852 — how long an attaching hunt waits for the managed scan to finish
+ * (its completion marker) before booting its own VM instead. The agent never
+ * runs on a VM whose egress is still open for the scanners, and cutting it
+ * early would fail those scanners — so past this, a second VM is the price.
+ */
+export const HUNT_MANAGED_SCAN_DONE_WAIT_MS = 90_000
+
+/**
+ * LUM-869 — how long the hunt waits for the managed scan's hand-off BEFORE
+ * its first batch, in a step of its own (`awaitManagedScanStep`) so the wait
+ * is not spent out of a batch's window. The LUM-852 probe measured a whole
+ * managed scan at 126 s (semgrep ~89 s); the in-batch 90 s above lost that
+ * race and booted a second VM. 240 s clears the measured scan with room and
+ * stays under the step's `maxDuration = 300` (same ceiling as
+ * HUNT_BATCH_WINDOW_CEILING_MS).
+ */
+export const HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS = 240_000
+
+/**
+ * LUM-758 §5.1 — how long the credential guard waits for the platform's clone
+ * to land, and how often it looks. `findRepoSandboxByTag` accepts a `pending`
+ * VM on purpose, so the hunt can be holding a VM whose checkout does not
+ * exist yet: to that guard a missing `.git/config` means "not yet", never
+ * "clean", and it refuses once this runs out.
+ */
+export const HUNT_CHECKOUT_WAIT_MS = 20_000
+export const HUNT_CHECKOUT_POLL_MS = 1_000
+/** Characters of one shell command's output that may reach the model. */
+export const HUNT_SHELL_OUTPUT_MAX = 8_000
+/**
+ * LUM-787 — characters ALL of one step's `run_shell` results may add to the
+ * transcript together. The per-command cap above bounds one result; the
+ * model decides how many commands one step fires, and in prod (PR 1008) it
+ * fired six to eight in parallel, each up to 8 000 characters. One such step
+ * added ~9k tokens to a transcript every later step re-sends, and under
+ * HUNT_TASK_TOKEN_MAX the predictive stop then had no choice but to end the
+ * search at step 2 — three of three tasks, zero candidates.
+ *
+ * The number is what the arithmetic in `budget-arithmetic.test.ts` allows:
+ * with the observed prompt size and per-step output below, and older
+ * results elided from the transcript (HUNT_ELIDE_*), this is the largest
+ * per-step growth at which a task still completes four steps AND can afford
+ * its wrap-up under HUNT_TASK_TOKEN_MAX. It is small on purpose — a 20k
+ * allowance in a loop that re-sends its transcript buys four to five steps
+ * and nothing more — and the prompt tells the agent so. Raising it alone
+ * buys the step-2 death back.
+ */
+export const HUNT_STEP_OUTPUT_MAX = 2_400
+/**
+ * LUM-787 — transcript elision. From the step after next, a tool result is
+ * replaced in what the model re-reads by a short stub naming how much was
+ * dropped; the latest step's results stay whole (HUNT_ELIDE_KEEP_STEPS), and
+ * a result at or under HUNT_ELIDE_MIN_CHARS stays whole at any age — a stub
+ * longer than the thing it replaces saves nothing. The stub keeps NO head of
+ * the output: the arithmetic below has no room for one, and what the agent
+ * needs to remember it has already written into its own text between steps.
+ *
+ * Elision touches only what the model is SENT; `result.response.messages`
+ * and the audit keep the full results. The wrap-up replay is elided the
+ * same way, which is what keeps its price (`stop.reserve`) bounded.
+ */
+export const HUNT_ELIDE_KEEP_STEPS = 1
+export const HUNT_ELIDE_MIN_CHARS = 120
+/**
+ * LUM-787 — the observed shape of a search step, measured on the PR 1008
+ * scan (`huntAudit` of cmu2ceb8o000004i73xo2g6n8, 2026-09-15). The
+ * arithmetic test walks a simulated search on these and the constants above,
+ * so a change to any of them is judged against the same physics the
+ * production stop predicate runs on. Change a reading only with a new
+ * measurement.
+ *
+ * - prompt: the first step's input (system + task + tool schemas), 1 727–1 929.
+ * - output per step: text + reasoning billed to a step, max 744 (t2 step 2).
+ * - text carried per step: the assistant text and tool-call JSON that stays
+ *   in the transcript — the output minus the reasoning, ≈ 200.
+ * - result chars per token: the tool-result JSON is escaped before the
+ *   tokenizer sees it; t1 step 1→2 grew 2 981 tokens on ≈ 8 150 characters.
+ */
+export const HUNT_OBSERVED_PROMPT_TOKENS = 1_930
+export const HUNT_OBSERVED_STEP_OUTPUT_TOKENS = 750
+export const HUNT_OBSERVED_STEP_TEXT_TOKENS = 200
+export const HUNT_OBSERVED_RESULT_CHARS_PER_TOKEN = 3
+
+/**
+ * LUM-758 §6 — below this many characters the output is NOT compressed. This
+ * is the FLOOR of the zone where compressing is arguable, not the crossover:
+ * 2 000 characters is ~500 tokens, and one compression call re-reads all of
+ * them plus its own system prompt and then pays for its answer, so under this
+ * mark the call is a loss in raw tokens AND in price, with nothing to weigh.
+ * Above it the trade stops being obvious and becomes the price argument
+ * `HuntAudit.compress` exists to settle — see there. The hunt model can also
+ * read 2 000 characters of `rg` output perfectly well.
+ */
+export const HUNT_SHELL_COMPRESS_MIN = 2_000
+/**
+ * LUM-787 — the compressor is OFF unless `LUMO_HUNT_COMPRESS=on`. LUM-758
+ * §6.3 shipped it "measurable and revertible"; this is the revert, on the
+ * measurement. Replaying PR 1008's hunt locally (internal
+ * LUM-787 hunt replay), six compressions produced ZERO usable bodies — three
+ * `(no relevant lines)` sentinels, three `Delay was aborted` — and each one
+ * held the step for up to COMPRESS_TIMEOUT_MS on a 40-second search window:
+ * two of three tasks ended `timeout` at step 2 with the token budget barely
+ * touched. The production row had done no better (1 usable of 4 charged).
+ * With HUNT_STEP_OUTPUT_MAX bounding what a step may add anyway, the
+ * compressor's remaining job — choosing WHICH lines of a long dump survive —
+ * is done by the model re-running a narrower command, which the step-clip
+ * note tells it to do. Flip the env to measure it again.
+ */
+export function isHuntShellCompressEnabled(): boolean {
+  return process.env.LUMO_HUNT_COMPRESS === 'on'
+}
+/**
+ * Output ceiling of ONE compression call. 2k tokens can be well over
+ * HUNT_SHELL_OUTPUT_MAX characters, which is why the compressed body is
+ * truncated again before it is handed on — see `runHuntShell`.
+ */
+export const HUNT_COMPRESS_TOKEN_BUDGET = 2_000
+
+// `neutralizeUntrustedTags` (LUM-758) lived here so the workflow bundle stayed
+// import-light. LUM-783 generalised it to every fence shape as
+// `neutralizeWrapperEscapes` in `shared/src/untrusted-content.ts` (pure,
+// dependency-free, byte-identical on the `untrusted-*` subset); every caller
+// imports from there now and this module carries no runtime copy.
+
+/**
+ * The six checklist categories, in run order. Duplicated from
+ * `lib/security-scan/hunt/candidate.ts` (which imports zod + node:crypto) so
+ * the workflow bundle stays import-light; a test asserts the two agree.
+ */
+export const HUNT_CATEGORIES = [
+  'idor',
+  'injection',
+  'ssrf',
+  'prompt_injection',
+  'race',
+  'logic',
+] as const
+export type HuntCategory = (typeof HUNT_CATEGORIES)[number]
+
+/**
+ * LUM-758 §11.2 —— 规划步的产出单位。`objective` 是**开放文本**（这个 PR
+ * 具体要查什么），`category` 是**封闭的 6 类之一**，唯一作用是给产出定型：
+ * mechanicalVerify 要它校验、ruleId 要它、falsifier 的 prompt 要它，最关键的是
+ * `huntFingerprint(category, sinkSymbol, entrySymbol)` 要它 —— fingerprint 不
+ * 哈希任务标识，所以 inheritDispositions（人工"忽略"跨扫描继承）不受影响。
+ * 计划开放、finding 分类封闭，是这个设计成立的支点。
+ */
+export interface HuntTask {
+  /** 't1' —— 一次扫描内稳定；原样进 audit，供事后人工读规划质量。 */
+  id: string
+  objective: string
+  category: HuntCategory
+  startingPoints: string[]
+}
+
+/**
+ * §11.5 —— 3 个才像个图；这是最小档（改动 ≤ HUNT_TASK_CAP_TIERS[0] 个源文件）。
+ * LUM-787 后续：任务数随改动源文件数分档放宽（`plannedTaskCap`），封顶
+ * HUNT_MAX_PLANNED_TASKS_CEILING；3 × HUNT_TASK_TOKEN_MEAN = 90k = 最小档的
+ * 验收目标均值（原 60k）。
+ */
+export const HUNT_MAX_PLANNED_TASKS = 3
+export const HUNT_MAX_PLANNED_TASKS_CEILING = 5
+/** 改动源文件数 → 可规划任务数。最后一档兜住其余。 */
+export const HUNT_TASK_CAP_TIERS: ReadonlyArray<{
+  sourceFiles: number
+  tasks: number
+}> = [
+  { sourceFiles: 12, tasks: 3 },
+  { sourceFiles: 30, tasks: 4 },
+  { sourceFiles: Number.POSITIVE_INFINITY, tasks: 5 },
+]
+/**
+ * 改动源文件数超过这个数，最高档也只能看一角：审计 `diff.oversized` 与覆盖行
+ * 标出来，比再加预算诚实。
+ */
+export const HUNT_OVERSIZED_SOURCE_FILES = 40
+/**
+ * LUM-832 — the most source files a hunt runs on (≤ 4 batches of
+ * HUNT_OVERSIZED_SOURCE_FILES). Past it the hunt does NOT run at all — like
+ * CodeRabbit's file limit (150 on Pro), which skips the review — so no tokens
+ * are spent, and the customer is told to narrow the scope or split the PR.
+ */
+export const HUNT_MAX_HUNTED_FILES = 150
+/**
+ * Per-task token ceiling. Two constraints define this number, and
+ * `__tests__/ee/security/security-scan/hunt/budget-arithmetic.test.ts` pins both:
+ *
+ *   HUNT_MAX_PLANNED_TASKS × this            = the §9 acceptance target mean
+ *   HUNT_MAX_PLANNED_TASKS × this × 2        ≤ HUNT_TOKEN_BUDGET (one retry each)
+ *
+ * It is a SOFT ceiling — `generateText` decides how big its next step is, and
+ * the budget can only be judged between steps. It was also, until now, simply
+ * not enforced: the old `spent >= budget` check billed the step that crossed
+ * the line, and prod (PR 970) delivered 38,262 against this 20,000. The
+ * predictive stop in `security-hunt-client.ts` is what makes the number true;
+ * the residual is one step's growth, not one whole late step.
+ *
+ * Raising it is not free and not local: at the observed appetite (~38k for one
+ * task) three tasks would bill ~114k, near twice the acceptance target, for a
+ * layer that has submitted zero candidates across 25 prod scans. Raise the
+ * ceiling only together with HUNT_MAX_PLANNED_TASKS, so the arithmetic above
+ * still holds.
+ */
+//
+// LUM-787 follow-up (2026-09-15, user decision) — the flat 20k became a
+// band. With the transcript bounded (per-step ceiling + elision) a step
+// costs a steady 3–4k, ~1.9k of which is the fixed prompt re-sent every
+// step, and the wrap-up holds 4k; 20k therefore bought exactly 4–5 steps,
+// and the first six production tasks on the new loop (PR 1012) ended
+// `budget` in three of six — no longer starved by their own growth, but by
+// the line itself. And a task briefed to check six call sites got the same
+// line as one briefed to check one.
+//
+//   MIN  — the floor every task gets.
+//   MEAN — what a task gets in an even split; `cap × MEAN` is the pass-1
+//          budget of a scan.
+//   MAX  — the ceiling a site-heavy task may be allocated.
+//
+// Second raise (same day, user decision): 20k/30k/45k → 30k/50k/80k. The
+// hunt pays ~1.9k of fixed prompt per step and reads ≤ 2 400 characters per
+// step, so 45k bought ~14 steps ≈ 34k characters of code — a fraction of
+// what a diff-reading review of a medium PR (100–150k input) sees. At
+// 30k/50k/80k a cap-3 scan's pass 1 is 150k and a cap-5 scan's total 500k,
+// the band the user's PR-review estimate puts medium and large PRs in.
+//
+// `lib/security-scan/hunt/allocation.ts` splits `cap × MEAN` by the sites
+// each task has to cover; `huntTokenBudget(cap)` is twice that, so every
+// task can be retried once. The `_MAX` name is kept because it is still
+// the most any one batch may be handed.
+//
+// LUM-758 第三次抬（2026-09-16，user decision）：30k/50k/80k → ×10。
+//
+// 起因是 PR 1024 的扫描 t1 停在 `budget`。把账拉出来之后，「预算相对步价太
+// 紧」这个直觉并不成立——t1 的预算已经是单步价的 11.5 倍（57,692 / 5,009），
+// 它用满 12 步仍没收敛，而同样 6 sites、同样 57,692 的 t2 用 14 步交了卷。
+// 差别不在预算档位，在任务本身要读多少东西。用户据此裁定：与其继续在「几倍」
+// 上微调，不如把量级整个抬上去。
+//
+//   MIN  30_000 → 300_000
+//   MEAN 50_000 → 500_000
+//   MAX  80_000 → 800_000
+//
+// 抬 token 一项是抬不动的，另外两道天花板必须同时移（见下面各自的推导）：
+// 步数上限（32 步 × 4k ≈ 128k，远不够花）和批次时钟（60s × 1,350 tok/s ≈
+// 81k，更不够花）。
+export const HUNT_TASK_TOKEN_MIN = 300_000
+export const HUNT_TASK_TOKEN_MEAN = 500_000
+export const HUNT_TASK_TOKEN_MAX = 800_000
+
+/**
+ * LUM-758 — 一个任务的搜索跑在**一个** `'use step'`（`huntTaskStep`）里，因此
+ * 受这个仓库 API 路由的 `maxDuration = 300` 约束。留 20s 给步骤自身的开销，
+ * 280s 是一个批次窗口的物理上限——不是一个可以调的偏好。
+ */
+export const HUNT_BATCH_WINDOW_CEILING_MS = 280_000
+
+/**
+ * LUM-758 — PR 1024 扫描（944d3af）实测的两个读数，取**下界**，所以由它们推
+ * 导出来的上限都偏大而不是偏小：
+ *
+ *   单步计费   t1 5 009 · t2 4 744 · t3 4 070   → 取 4 000
+ *   吞吐       t1 1 368 · t2 1 789 · t3 1 406 tok/s → 取 1 350
+ *
+ * 注意这与上面 `HUNT_OBSERVED_*` 那套 LUM-787 的读数并不一致：那套推出来约
+ * 3.8k/步，注释也写 "a steady 3–4k"，而生产实测是 4.0–5.0k。两者都保留：
+ * 那套是**模拟**单步构成的分项读数（`budget-arithmetic` 的搜索模拟走它），
+ * 这两个是**整步计费与整批吞吐**的端到端读数，用来推导时钟与步数上限。
+ */
+export const HUNT_OBSERVED_STEP_TOKENS = 4_000
+export const HUNT_OBSERVED_THROUGHPUT_TPS = 1_350
+
+/**
+ * 一个批次在窗口上限内**真正花得掉**多少 token。
+ *
+ * 这是 ×10 之后诚实的那半句：MAX 是 800k，而一个 step 的 300s 只够花掉约
+ * 378k。差额不是浪费，是**纸面额度**——代码库对这件事一直有同一句话，
+ * "a token allowance the clock cannot spend is an allowance on paper"。
+ * `budget-arithmetic.test.ts` 把这个差额钉出来，所以它是一个被记录的事实，
+ * 而不是一个下次才在生产里发现的意外。要真正花掉 800k，得把一个任务的搜索
+ * 拆到多个 workflow step 上续跑，那是改结构，不是改常量。
+ */
+export function huntSpendableTokens(
+  windowMs: number = HUNT_BATCH_WINDOW_CEILING_MS
+): number {
+  return Math.floor((windowMs / 1_000) * HUNT_OBSERVED_THROUGHPUT_TPS)
+}
+
+/**
+ * 批次时钟。×10 之前是 60s——按实测吞吐只够花掉约 81k，连抬之前的 MIN(30k)
+ * 都刚够，抬之后就是瓶颈本身。现在直接给到窗口物理上限。
+ */
+export const HUNT_TASK_TIME_MS = HUNT_BATCH_WINDOW_CEILING_MS
+/**
+ * Room a task must still have before the forced wrap-up call is worth making.
+ * The wrap-up replays the whole transcript, so it costs about what a late
+ * search step costs; below this there is not enough left to ask the question
+ * and the batch ends as it always did.
+ */
+export const HUNT_WRAP_UP_MIN_TOKENS = 4_000
+/** Wall clock for the wrap-up. The search's own window is already spent. */
+export const HUNT_WRAP_UP_TIMEOUT_MS = 30_000
+
+/**
+ * Below this, asking is worse than not asking: the replay's first token has
+ * not arrived before the abort fires, so the call is billed upstream and
+ * returns nothing. The handover is optional; a guaranteed-doomed one is not
+ * worth a task's last two seconds.
+ */
+export const HUNT_WRAP_UP_MIN_MS = 5_000
+/**
+ * LUM-758 Task 9 — the floor under what is left of a task's window once the
+ * sandbox is in hand. Acquisition is inside the batch's clock (attach poll 30 s
+ * + checkout wait 20 s in the worst case), so a batch can legitimately reach
+ * the model call with almost nothing left: starting a tool-calling loop on
+ * under this much time buys an abort, not an answer. Below it the batch says
+ * `timeout` and lets the orchestrator's retry pass have a fresh window — by
+ * which time the VM the first batch created is usually there to attach to.
+ */
+export const HUNT_MIN_BATCH_TIME_MS = 10_000
+
+/**
+ * Spec §6 L3 "Hunt" budget per scan. LUM-758 把 LUM-762 的 240k/480s 调回
+ * 120k/240s：762 的放大在 prod 被证伪（166k–236k 全部 PARTIAL、0 finding），
+ * 真正的成本源是「无条件跑 6 类」而不是预算太小。任务数降到 ≤3 之后，
+ * 3 任务 × 20k = 60k（= 验收目标均值）跑完 pass 1，剩下的额度足够整轮补跑；
+ * LUM-787 后续把每任务均值提到 30k 再到 50k（transcript 有界后 20k 只够 4–5
+ * 步；45k 也只相当于读 ~34k 字符代码），总量随任务数分档：`huntTokenBudget(cap)`
+ * = cap × 50k × 2，最小档 300k —— 3 × 50k = 150k 跑完 pass 1，仍留一整轮补跑；
+ * 时间 `huntTimeBudgetMs(cap)` = cap × 60s + 最大任务一次重试（96s）。下面两个
+ * 常量是最小档的值，供不知道 cap 的读者用。
+ */
+export function huntTokenBudget(cap: number): number {
+  return Math.max(1, cap) * HUNT_TASK_TOKEN_MEAN * 2
+}
+/**
+ * LUM-787 follow-up — a task's wall clock follows its token allowance
+ * (`taskTimeMs` in allocation.ts: 60 s at the mean, 90 s at the ceiling,
+ * never under 60 s), so the scan's clock is the pass-1 sum — at most cap ×
+ * HUNT_TASK_TIME_MS, because allowances sum to cap × MEAN — plus one retry
+ * of the longest task.
+ */
+export function huntTimeBudgetMs(cap: number): number {
+  // 重试那一项也要夹在窗口上限内：一个 batch 是一个 step，再大的额度也换不来
+  // 比 HUNT_BATCH_WINDOW_CEILING_MS 更长的一次执行。
+  const longestRetryMs = Math.min(
+    HUNT_BATCH_WINDOW_CEILING_MS,
+    Math.ceil((HUNT_TASK_TIME_MS * HUNT_TASK_TOKEN_MAX) / HUNT_TASK_TOKEN_MEAN)
+  )
+  return Math.max(1, cap) * HUNT_TASK_TIME_MS + longestRetryMs
+}
+export const HUNT_TOKEN_BUDGET = huntTokenBudget(HUNT_MAX_PLANNED_TASKS)
+export const HUNT_TIME_BUDGET_MS = huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)
+
+/**
+ * LUM-766 — 规划步在真实 prompt 上的实测（16 份：真实验收合同 + 真实 PR 文件表，
+ * 经 shipped `planHuntTasks`，2026-09-14，共 47 次开推理成功样本）。下面的预算
+ * 常量各自钉在这些读数上，`budget-arithmetic.test.ts` 持有余量系数。改读数要
+ * 附新的测量。
+ *
+ * - 输出需求：FAST_MODEL 是推理模型，这个 schema 上每次规划要先花 200–4 700 个
+ *   reasoning token 再写 100–700 个文本 token，且**重尾**（同一份 prompt 两次跑
+ *   1 938 / 3 912）。观测到的输出 max ≈ 5 400。
+ * - 吞吐：ms ≈ 输出 token × 10.8（≈ 92 tok/s），样本 p10 79 / p0 58 tok/s；
+ *   回归残差 p99 ≈ 7 s（网关排队等固定开销）。
+ * - objective 篇幅：上限 1000 时 max 961，上限 1200 时 max 1058——模型不贴着
+ *   上限写，但会随上限略伸长。
+ */
+export const PLAN_HUNT_OBSERVED_OUTPUT_MAX = 5_400
+/** 取样本 p10 再向下取整——上界要按慢的那头算。 */
+export const PLAN_HUNT_OBSERVED_THROUGHPUT_P10_TPS = 75
+export const PLAN_HUNT_LATENCY_RESIDUAL_P99_MS = 7_000
+export const PLAN_OBJECTIVE_OBSERVED_MAX_CHARS = 1_100
+
+/**
+ * LUM-758 §4.3 — 规划步自身的输出预算。它是路由决策，不是分析。
+ *
+ * LUM-766：它是**尾部上限**，必须盖过实测输出需求并留余量。旧值 5 000 贴着
+ * 观测 max，重尾一来就 finish=length → 零输出 → 退确定性兜底，而且 length /
+ * schema 失败被判非瞬时、**不重试**。8 000 ≈ 1.5 × 观测 max。
+ */
+export const PLAN_HUNT_TOKEN_BUDGET = 8_000
+
+/**
+ * LUM-766 — 规划任务 `objective` 的字符上限，**必须高于模型的自然篇幅并留
+ * ≥ 50% 余量**（用户裁定）。这个数不是「截断长度」：zod 的 .max() 会作为
+ * JSON-schema `maxLength` 随请求发给模型，上限低于自然篇幅时，推理模型会在
+ * 推理里反复重写去凑，直到把 PLAN_HUNT_TOKEN_BUDGET 整个烧光、一个字不输出
+ * （finish=length，16 次里 13 次），剩下的写出来也过不了校验——旧值 400 在真实
+ * prompt 上 0/16 成功。超上限 = schema 失败 → 非瞬时 → 不重试 → 整次扫描退兜底。
+ * 2 000 ≈ 1.8 × 观测 max：即使篇幅随上限再伸长一成，仍有 ≥ 50% 余量。
+ */
+export const PLAN_OBJECTIVE_MAX_CHARS = 2_000
+
+/**
+ * LUM-776 — the plan-level `reason` has the same trap as `objective`: its
+ * zod `.max()` travels to the model as JSON-schema `maxLength`. Production
+ * `plannedBy=model` rows (35 scans to 2026-09-14) show reasons up to 462
+ * characters against the old cap of 400, and the LUM-776 probe (24 real
+ * prompts through the shipped call, cap 1 200) wrote up to 588 — so the old
+ * cap sat INSIDE the natural length, the exact condition LUM-766 measured as
+ * "rewrite until the budget is gone". Same rule as the objective: ≥ 50 % over
+ * the observed max, pinned by `budget-arithmetic.test.ts`.
+ */
+export const PLAN_REASON_OBSERVED_MAX_CHARS = 588
+export const PLAN_REASON_MAX_CHARS = 1_200
+
+/**
+ * LUM-776 — `reason` is OPTIONAL in the plan schema. Production PR 994
+ * (2026-09-14 15:21Z, the first planner failure after LUM-766's second fix)
+ * answered exactly `{"tasks": []}` — no reasoning tokens, eight output
+ * tokens, finish=stop — and was booked as `No object generated: response did
+ * not match schema` because `reason` was required. A model that has nothing
+ * to hunt and nothing to say has given the legal empty plan; this is the
+ * reason the audit records for it, so `plannedReason` is never blank.
+ */
+export const PLAN_EMPTY_REASON =
+  'the planner returned no tasks and gave no reason'
+
+/**
+ * 规划步的墙钟上限。LUM-766（用户裁定：至少覆盖 p99.9）：几十个样本量不出
+ * p99.9，站得住的是**解析上界**——预算封顶了输出，所以
+ *   延迟 ≤ PLAN_HUNT_TOKEN_BUDGET ÷ 最慢吞吐 + 固定开销
+ *   = 8 000 ÷ 75 tok/s + 7 s ≈ 114 s，取 120 s。
+ * 这是 p100（给定预算），自然盖过 p99.9。注意分母用的是样本 p10 吞吐而不是
+ * 均值：上界按慢的那头算。
+ *
+ * 20 s 那版的前提「一次无工具的 FAST 调用拖到 20s 就说明网关有问题」是错的：
+ * 健康调用 p50 就在 20 s 上下，20 s 正好切在分布中位数上——每次尝试一半概率
+ * 被自己的 abort 打断，两次尝试后仍有约四分之一的扫描退成罐头任务（生产
+ * 13 次里 7 次 by=fallback，理由全是 "aborted due to timeout"）。
+ *
+ * 关掉 reasoning 不是出路：2–10 s 返回，但 16 次里 13 次空计划。
+ */
+export const PLAN_HUNT_TIMEOUT_MS = 120_000
+/**
+ * Attempts at the planning call, each with a FRESH `PLAN_HUNT_TIMEOUT_MS`
+ * window. `planHunt` never throws, so `planHuntStep`'s platform retry can never
+ * fire — without this the first transient gateway blip degrades the scan's plan
+ * to the deterministic fallback for good (prod, PR 969). Two, not more: the
+ * fallback is a real answer, not an error path, and with a window that covers
+ * the whole output budget (LUM-766) a timeout means the gateway did not
+ * answer — two windows already equal the hunt's own time budget
+ * (HUNT_TIME_BUDGET_MS); a third would put planning above the hunt itself.
+ */
+export const PLAN_HUNT_MAX_ATTEMPTS = 2
+
+/** Tool-calling rounds one category batch may take. */
+// LUM-787 follow-up: 12 → 16 → 32, kept equal to the audit's trace cap. At
+// the 45k ceiling the replay's three tasks all hit 12 steps with 6–12k of
+// allowance unspent; a ceiling the step cap makes unreachable is a ceiling
+// on paper. At 80k and ~3.2k a step the search can take ~25 steps.
+// LUM-758 (×10): 不再手写。步数上限现在从「这个窗口里花得掉多少 token」除以
+// 「一步多少 token」推出来——32 步在 4k 步价下只够 128k，抬了额度却不抬它，
+// 任务会从停在 `budget` 变成停在 `steps`（PR 1022 就是这么停的），额度一样花
+// 不掉。派生而不是手写，是为了改了步价读数或窗口上限之后它自己跟着动。
+// LUM-794: the derivation is a named function, not an expression inlined
+// into the constant, so the invariant "the cap FOLLOWS the budget" is
+// testable as behaviour (feed it a bigger window, get a bigger cap) rather
+// than only as a re-statement of this line.
+export function huntMaxStepsPerCategory(
+  spendableTokens: number,
+  stepTokens: number
+): number {
+  return Math.ceil(spendableTokens / stepTokens)
+}
+export const HUNT_MAX_STEPS_PER_CATEGORY = huntMaxStepsPerCategory(
+  huntSpendableTokens(),
+  HUNT_OBSERVED_STEP_TOKENS
+)
+/**
+ * LUM-799 — consecutive steps that ask the shell only for commands an
+ * earlier step already ran, before the search is stopped for making no
+ * progress (`noProgressStreak`).
+ *
+ * Three, calibrated against the scan that opened this task (PR 1032,
+ * 58adbdb) rather than picked for roundness. Its three tasks:
+ *
+ *   - t2 alternated two already-issued `sed` slices from step 22 on and
+ *     burned 477k tokens before submitting: three in a row first happens at
+ *     step 24 of 74.
+ *   - t1 searched, repeated a slice at most TWICE in a row, and submitted on
+ *     its own at step 40.
+ *   - t3 repeated one command once and submitted at step 17.
+ *
+ * So 3 is the smallest value that catches the loop and still clears both
+ * searches that converged by themselves — and a threshold that killed those
+ * would be worse than the loop, because a search stopped early is a search
+ * that answers from less than it read.
+ */
+export const HUNT_NO_PROGRESS_STEPS = 3
+/**
+ * LUM-762 — retries INSIDE one model call. The AI SDK's default (2) spends
+ * the category's window sitting in exponential backoff — the production
+ * signature was `Delay was aborted`, an abort that landed mid-backoff. One
+ * retry absorbs a single blip; anything worse should fail fast and be picked
+ * up by the workflow's own retry pass, which gets a fresh window.
+ */
+export const HUNT_CLIENT_MAX_RETRIES = 1
+/** Falsifier calls per scan (one VERIFIER call each); the rest → partial. */
+export const HUNT_MAX_FALSIFIED = 20
+export const HUNT_SNIPPET_RADIUS = 25
+export const HUNT_AUDIT_MAX_REJECTED = 50
+
+/**
+ * LUM-799 — `'no-progress'` is a stop the SEARCH made, not a counter it hit:
+ * the agent spent HUNT_NO_PROGRESS_STEPS steps asking only for output it had
+ * already been shown. It is deliberately its own value rather than folded
+ * into `'steps'`: "the ceiling was too low" and "the agent stopped advancing"
+ * call for opposite responses, and a scan that raises the budget in answer to
+ * a loop pays for the loop ten times over (LUM-758 ×10 did exactly that).
+ */
+export type HuntBatchStop =
+  | 'done'
+  | 'steps'
+  | 'budget'
+  | 'no-progress'
+  | 'timeout'
+  | 'error'
+/**
+ * LUM-762 — `'skipped'` is audit-only: the category never ran because the
+ * scan's budget was gone before its turn. Before this it left no row at all,
+ * so "which categories did not run" was unanswerable after the fact.
+ */
+export type HuntCategoryStop = HuntBatchStop | 'skipped'
+
+/**
+ * LUM-831 — the stops a forced wrap-up can still turn into an ANSWER.
+ *
+ * All three mean the same thing about the SEARCH: it ended without the agent
+ * deciding to submit. They are also the only three the hunt client itself
+ * returns, and every one of them is followed by the wrap-up call that asks the
+ * agent for what it found. `'timeout'`, `'error'` and `'skipped'` are decided
+ * OUTSIDE the client — a step whose sandbox never came up, a batch that threw,
+ * a task whose turn never came — and never carry a wrap-up at all.
+ */
+export const HUNT_ANSWERABLE_STOPS: readonly HuntCategoryStop[] = [
+  'no-progress',
+  'budget',
+  'steps',
+]
+
+/**
+ * LUM-831 — did this task TERMINATE, or was it cut off? The layer's `partial`
+ * verdict is judged on this, not on `stopped === 'done'`.
+ *
+ * `stopped` says how the SEARCH ended and deliberately keeps saying it: `done`
+ * is reserved for an agent that submitted on its own, and the rate of forced
+ * wrap-ups is the honest measure of whether the agent converges. But PARTIAL
+ * is a fail-closed signal meaning "could not confirm this is clean", and a
+ * task that was ASKED for its findings and answered — even with an empty list
+ * — is not that. It looked, and it said so. Treating the two the same made a
+ * correctly-firing no-progress guard (LUM-799) produce routine PARTIALs, which
+ * is exactly the state LUM-762 worked to make rare.
+ *
+ * Terminated, therefore, is one of:
+ *   - `stopped === 'done'` — the agent decided by itself; or
+ *   - an answerable stop whose wrap-up RAN and came back clean.
+ *
+ * Everything else is "don't know" and stays partial: a timeout, a sandbox
+ * failure, a skipped task, a wrap-up that never ran (`skipped`), one that
+ * threw (`error`), and one the provider degraded — `wrapUpWarnings` is only
+ * ever set when the forced tool choice was not honoured, i.e. we never managed
+ * to ask, so its empty answer is evidence about the provider and not about the
+ * diff (see `HuntTaskAudit.wrapUpWarnings`).
+ */
+/**
+ * LUM-832 — WHY a task that did not terminate fell short, because the two
+ * reasons want different remedies:
+ *
+ *   - `infra` — something of ours broke (a timeout, a batch that threw, a
+ *     wrap-up that errored, a provider that ignored the forced call). It is
+ *     random, so the same run again is likely to succeed: retry it once.
+ *   - `budget` — the budget WE set ran out (the task's turn never came, or its
+ *     wrap-up had no tokens / time left). The same run again hits the same
+ *     wall: it is not retried, and the layer ends unfinished (HUNT_BUDGET_SHORT).
+ *
+ * An answerable stop with no wrap-up facts at all (a result replayed from
+ * before LUM-831) says nothing about why — it is counted as `infra`, the
+ * remedy that has always applied to it. null = the task terminated.
+ */
+export function huntShortfall(row: {
+  stopped: HuntCategoryStop
+  wrapUp?: HuntWrapUpFacts | undefined
+  wrapUpWarnings?: readonly string[] | undefined
+}): 'infra' | 'budget' | null {
+  if (huntTaskTerminated(row)) return null
+  if (row.stopped === 'skipped') return 'budget'
+  if (!HUNT_ANSWERABLE_STOPS.includes(row.stopped)) return 'infra'
+  const wrapUp = row.wrapUp
+  if (!wrapUp || wrapUp.error !== undefined) return 'infra'
+  if ((row.wrapUpWarnings?.length ?? 0) > 0) return 'infra'
+  if (
+    wrapUp.ran !== true &&
+    (wrapUp.skipped === 'no-budget' ||
+      wrapUp.skipped === 'no-time' ||
+      wrapUp.skipped === 'disabled')
+  )
+    return 'budget'
+  return 'infra'
+}
+
+export function huntTaskTerminated(row: {
+  stopped: HuntCategoryStop
+  wrapUp?: HuntWrapUpFacts | undefined
+  wrapUpWarnings?: readonly string[] | undefined
+}): boolean {
+  if (row.stopped === 'done') return true
+  if (!HUNT_ANSWERABLE_STOPS.includes(row.stopped)) return false
+  if (row.wrapUp?.ran !== true) return false
+  if (row.wrapUp.error !== undefined) return false
+  return (row.wrapUpWarnings?.length ?? 0) === 0
+}
+
+/**
+ * One attempt at one task. A task the retry pass re-ran has TWO rows in
+ * `HuntAudit.tasks`, in attempt order — the last one is its outcome.
+ * `taskId` is the row's identity (`parseHuntCoverage` groups on it, and two
+ * tasks may share a category); `category` and `objective` are denormalised
+ * onto the row so the audit reads on its own, without joining `planned`.
+ */
+export interface HuntTaskAudit {
+  /**
+   * LUM-758 follow-up — this task never called `submit_candidates` on its own
+   * and was asked for its findings by a forced wrap-up call. The rate of this
+   * across scans is the honest measure of whether the agent converges: a layer
+   * where every task is wrapped up is a layer whose agent never decides.
+   */
+  wrappedUp?: boolean
+  /**
+   * Why a wrap-up that RAN still submitted nothing — the provider's own
+   * warnings, above all an `unsupported-setting` for the forced tool choice.
+   * Absent when it submitted, and absent when it never ran: an empty answer
+   * and a refused request must never read the same, because only one of them
+   * is evidence about the agent.
+   */
+  wrapUpWarnings?: string[]
+  /**
+   * LUM-758 follow-up — what THIS task asked the shell for. Per task, not
+   * per run: "which task burned its allowance on refusals" is the question,
+   * and a run-level total cannot answer it.
+   */
+  shell?: HuntShellStats
+  /** LUM-781 — see `HuntStepTrace`; absent on rows written before it existed. */
+  trace?: HuntStepTrace[]
+  /**
+   * LUM-787 follow-up — signal sites this task had to cover, the weight its
+   * token allowance was allocated by (`stop.budget` is the allowance).
+   * Absent on rows written before the allocator existed.
+   */
+  sites?: number
+  /**
+   * LUM-787 — the gateway model id the search ran on (HUNT_MODEL at the
+   * time). Absent on rows written before the field existed, which all ran
+   * `deepseek/deepseek-v4-pro`. Without this a model swap is unreadable in
+   * the audit that judges it.
+   */
+  model?: string
+  stop?: HuntStopFacts
+  wrapUp?: HuntWrapUpFacts
+  taskId: string
+  objective: string
+  category: HuntCategory
+  candidates: number
+  tokens: number
+  elapsedMs: number
+  stopped: HuntCategoryStop
+}
+
+/** Persisted as `PrSecurityScan.huntAudit` (spec §7). */
+export interface HuntAudit {
+  /**
+   * LUM-832 — which batch of an oversized diff this run hunted (0-based
+   * `index` of `of`) and how many source files it held. Absent on an
+   * un-batched hunt.
+   */
+  batch?: { index: number; of: number; files: number }
+  candidates: number
+  rejected: RejectedCandidate[]
+  /**
+   * LUM-798 — where every submission went: placed by the subgraph, by a sink
+   * rule, by a sandbox sighting of its own file:line, or rejected. The four
+   * partition `candidates`, so the gate's rejection RATE is readable straight
+   * off the audit — which is the number this change has to move (it was
+   * 23/23 across all of production). Absent on rows written before it.
+   */
+  resolution?: ResolutionTally
+  falsifierRejects: number
+  falsifierRejected: Array<{ category: string; sink: string; reason: string }>
+  tasks: HuntTaskAudit[]
+  /**
+   * LUM-758 Task 10 — the MECHANICAL GATE's graph, built after the hunt from
+   * the files the candidates referenced. `partial` is kept for the shape of
+   * the persisted audit and is always false: an on-demand graph cannot be
+   * truncated in the sense that mattered, because its size is decided by the
+   * candidates, not by a ceiling. It is no longer a source of the layer's
+   * `partial` — that it ever was is why PARTIAL used to be routine.
+   */
+  subgraph: { files: number; symbols: number; edges: number; partial: boolean }
+  /** LUM-758 — 规划步选了哪些任务；`[]` = 这个 PR 不值得 hunt。 */
+  planned?: HuntTask[]
+  /**
+   * LUM-787 follow-up — what the hunt was sized to: the diff's touched
+   * source files and lit signal sites, the task cap they bought, and
+   * whether the diff is past HUNT_OVERSIZED_SOURCE_FILES (the hunt then
+   * covered a corner of it, however the tasks ended). Absent on rows
+   * written before the allocator existed.
+   */
+  diff?: {
+    sourceFiles: number
+    sites: number
+    taskCap: number
+    oversized: boolean
+  }
+  plannedReason?: string
+  /**
+   * LUM-766 follow-up — how a FAILED planning call actually ended, when it
+   * failed. Absent on a plan that worked.
+   *
+   * The message alone could not answer the only two questions that matter when
+   * the planner stops producing plans: was the empty answer a model with
+   * nothing to say or one that spent its whole output budget on reasoning
+   * (`finishReason`, `reasoningTokens`), and WHICH field did a schema miss
+   * miss (`textPrefix` — the raw output that failed validation). Both failures
+   * happened in production on the same day and they need opposite responses,
+   * and neither was readable from what we stored.
+   */
+  planFailure?: PlanFailureFacts
+  /**
+   * LUM-776 — the model's answer only became a plan through
+   * `repairPlanText` (`wrapped-array`: a bare task array was wrapped;
+   * `missing-tasks`: an object with no `tasks` key was read as an empty
+   * plan). Absent when the model wrote the envelope right. `plannedBy` is
+   * still `model` — the model did answer — but a repaired `{}` is an empty
+   * plan nobody reasoned about, and the read-out must be able to say so.
+   */
+  planRepair?: PlanRepairKind
+  /**
+   * Who produced `planned`. Three values, and the third is not decoration:
+   *   - `model`   — the planner ran and answered.
+   *   - `fallback`— the planner ran and FAILED, so `planFallback` decided.
+   *     This is the model-failure rate three deferred launch decisions read.
+   *   - `not-attempted` — short circuit A: the diff carried no hunt signal,
+   *     so nothing was planned and no planner was called.
+   * LUM-758 fifth review: short circuit A used to stamp `fallback`, which
+   * booked a planner failure that never happened straight into the read-out
+   * the launch decisions depend on. Leaving it absent would have worked too,
+   * but absent is also what every pre-LUM-758 audit row has — a third value
+   * says "no planning was attempted" without colliding with "written before
+   * this field existed".
+   */
+  plannedBy?: 'model' | 'fallback' | 'not-attempted'
+  /**
+   * LUM-764 — 规划步是否读到并带上了任务上下文（验收标准 / traps / open
+   * crossings / 返工记录）。`false` 的扫描是「这个 PR 没关联任务」，与
+   * LUM-758 的行为逐字相同；缺失 = 本字段存在之前写的行。
+   */
+  taskContext?: boolean
+  /**
+   * LUM-764 — 地板（`planFallback` 的类别）强制补进计划、模型自己没给的那些
+   * 类别。这是地板规则的**代价读数**：非空意味着这次扫描本可能收在 SKIPPED，
+   * 是被机械信号按住不许省的。空数组 = 地板生效但模型已经覆盖。
+   */
+  floorForced?: HuntCategory[]
+  /** LUM-758 §9 风险② — 上线后读它判断 30s 轮询窗口够不够。 */
+  sandbox?: 'attached' | 'created'
+  /**
+   * LUM-758 — false means the agent's VM still had a route out while it ran
+   * (always the case for an attached VM, whose policy belongs to the managed
+   * scan). The command gate is what enforces "no network", so this is not a
+   * breach; it is the difference between one control and two, and a run that
+   * had only one must be answerable after the fact rather than living in a
+   * warn log nobody joins back to the scan.
+   */
+  egressDenied?: boolean
+  /**
+   * LUM-782 — the allowlisted tools as the VM actually had them, pessimistic
+   * across batches: a tool missing in ANY batch is missing for the run (the
+   * same shape as `egressDenied`). Absent on rows written before the probe
+   * existed, and on a run where no batch ever got a VM. The tool description
+   * and `HUNT_SHELL_COMMANDS` are derived from one list; this is the third
+   * declaration — what was really installed — that had never been checked
+   * against the other two.
+   */
+  tools?: HuntToolProbe
+  /**
+   * LUM-758 §6.3 — what the shell-output compressor cost and what it bought,
+   * over every `run_shell` call of every batch of this scan. This step was
+   * scoped as "only if still over budget", so it ships measurable and
+   * revertible — but the two numbers are in DIFFERENT UNITS, and the keep-or-
+   * revert call is wrong if they are compared directly:
+   *
+   * - The saving is `inputChars - outputChars` CHARACTERS. At ~4 characters
+   *   per token, one call can save at most HUNT_SHELL_OUTPUT_MAX = 8 000
+   *   chars ≈ 2 000 tokens of the hunt model's context.
+   * - The price is `tokens` TOKENS: the compressor re-reads that same output
+   *   as its prompt and may emit up to HUNT_COMPRESS_TOKEN_BUDGET = 2 000
+   *   more. So per call the step is roughly BREAK-EVEN in token count, not
+   *   the ~4× win the raw difference in the numbers suggests.
+   *
+   * The real win is therefore a PRICE win — tokens moved off the hunt model
+   * and onto FAST — and `tokenSpent` cannot show it, because it adds FAST and
+   * GENERATION tokens 1:1. A compression that lowers the dollar cost of a
+   * scan can RAISE its "average tokenSpent ≤ 90k" number. Keep or revert this
+   * step on price (tokens × each model's rate), never on `tokenSpent`; the
+   * budget guard is the only thing `tokenSpent` is for here.
+   *
+   * - `calls`: compressions that actually replaced the output.
+   * - `inputChars` / `outputChars`: characters in and out of those calls,
+   *   the compressor's body only — the untrusted wrapper is fixed overhead
+   *   the hunt model pays either way.
+   * - `tokens`: EVERY token compression spent, duds included, and the same
+   *   number is inside the batch's `tokens` (and so inside `tokenSpent`).
+   *   Counting it anywhere else would let compression be paid for with money
+   *   the "average tokenSpent ≤ 90k" metric cannot see.
+   */
+  compress?: HuntCompressStats
+  error?: string
+}
+
+/** One batch's share of `HuntAudit.compress`; summed by the orchestrator. */
+/** How many recorded commands a task's audit carries, and how long each may be. */
+// LUM-787 follow-up (user decision): with the allowlist widened to git and
+// awk, EVERY command a task issues is kept, in full — the audit is what the
+// widening is answerable to. A task issues at most HUNT_MAX_STEPS_PER_CATEGORY
+// steps of a handful of calls each, far under the cap, and a command is at
+// most HUNT_COMMAND_MAX_CHARS (600) long, so 1 000 keeps it whole.
+export const HUNT_SHELL_LOG_MAX = 1_000
+export const HUNT_SHELL_LOG_CHARS = 1_000
+
+/**
+ * LUM-758 follow-up — what the agent actually DID with its allowance.
+ *
+ * Until this existed a task recorded its total tokens, its elapsed time, the
+ * counter that stopped it, and `candidates: 0`. Across 46 production tasks the
+ * agent never once called `submit_candidates` on its own, and three completely
+ * different explanations are indistinguishable from those four numbers:
+ *
+ *   - it spent the allowance mapping the repository and never got to reasoning
+ *   - it looked, and there was genuinely nothing to report
+ *   - it found a lead and ran out of budget before it could verify it, so it
+ *     correctly declined to submit an unverified suspicion
+ *
+ * And a fourth that nothing would have shown at all: the command gate refusing
+ * what it asked for. `runHuntShell` returns the refusal to the model as
+ * `error`, and that string was passed along and counted nowhere — so a task
+ * whose every command was rejected looks exactly like a task that searched
+ * carefully and found nothing.
+ */
+export interface HuntShellStats {
+  /** Commands the agent asked to run. */
+  calls: number
+  /**
+   * …of which the GATE refused. A high share here is not a hunt at all.
+   * Counted off `denied`, never off `error`: `error` is also set when the
+   * sandbox itself dies, and reading a dead VM as a rejected command points
+   * the next investigation at the wrong file.
+   */
+  refused: number
+  /** …of which the sandbox failed to run at all (VM gone, or SHELL_TIMEOUT_MS). */
+  failed: number
+  /**
+   * LUM-782 — …of which the shell RAN but could not find the program (exit
+   * 127, or dash's `: not found` on stderr). Neither `refused` nor `failed`
+   * saw these: `sandbox.run` resolves on a non-zero exit, so a `command not
+   * found` came back as ordinary output and was counted as a command that
+   * ran and returned something. A task whose every `rg` did this read exactly
+   * like a task that searched carefully — the shape LUM-782 was opened on.
+   */
+  notFound: number
+  /** …of which ran and returned nothing: a search that matched no line. */
+  empty: number
+  /**
+   * LUM-799 — …of which had ALREADY been run by this task. The checkout does
+   * not change under the agent, so a repeat returns bytes the model has seen
+   * and costs a whole step to re-read. Counted for every task, including the
+   * ones the no-progress stop never fired on: `71 cmds, repeated 46` and
+   * `39 cmds, repeated 3` are the two shapes this layer has to tell apart,
+   * and the stop reason alone cannot. Absent when nothing was repeated.
+   */
+  repeated?: number
+  /**
+   * LUM-787 — …of which had their output CUT by the per-step ceiling
+   * (HUNT_STEP_OUTPUT_MAX): the step's commands together returned more than
+   * one step may add to the transcript. Absent when no command was clipped,
+   * so a row from a step under the ceiling reads exactly as before. A task
+   * whose every step clips is a task firing too many commands at once — the
+   * prompt tells the model the ceiling, and this is the number that says
+   * whether it listened.
+   */
+  stepClipped?: number
+  /** Total characters handed back to the model, after compression and clipping. */
+  outputChars: number
+  /**
+   * The commands themselves, capped and secret-redacted — the only field that
+   * lets a reader tell mapping from reading, or a loop from progress. A model
+   * can echo a literal it saw in the repo into its next query, so this goes
+   * through `redactKnownSecrets` like every other model-authored string that
+   * gets persisted.
+   *
+   * Each carries its own verdict. A flat list beside `refused: 7` says seven
+   * were rejected without saying WHICH seven or why, which is the half of the
+   * answer a reader actually acts on. `reason` is the gate's own text, not the
+   * model's — but it can quote the command back, so it is redacted too.
+   */
+  commands: Array<{
+    cmd: string
+    denied?: true
+    reason?: string
+    /** LUM-781 — characters handed back to the model for THIS command. */
+    chars?: number
+    /** LUM-781 — the output went through the compressor before the model saw it. */
+    compressed?: true
+    /** LUM-782 — the shell's exit code; absent when the gate refused or the sandbox failed. */
+    exit?: number
+    /** LUM-782 — the shell could not find the program (see `notFound`). */
+    notFound?: true
+    /** LUM-787 — the output was cut by the per-step ceiling; `chars` is what survived. */
+    clipped?: true
+  }>
+}
+
+/**
+ * LUM-781 — per-step trace of one task's search. `HuntShellStats` says what
+ * the agent asked for; this says what it SAID between asks, what each step
+ * cost, and how the search ended — the three things PR 999's audit (23
+ * whole-file reads, 0 candidates, one wrap-up that answered nothing we kept)
+ * could not answer: is the agent advancing toward a conclusion or still
+ * mapping, which counter actually cut it off and with how much left, and
+ * what did the forced hand-over say.
+ *
+ * Observation only. Nothing here changes the budget, the stop predicates,
+ * the prompts or the wrap-up; every field is derived from what the loop
+ * already produced.
+ */
+// LUM-758 (×10): 跟着 HUNT_MAX_STEPS_PER_CATEGORY 走，而不是手写 32。不变量
+// 是「审计装得下每一步」——步数上限抬到 95 而追踪停在 32，就会有 63 步跑过却
+// 无法回看。这个 session 正是靠这份逐步追踪（PR 995 加的）才看出 t1 把预算花
+// 在对同一个文件翻页上，丢掉它等于丢掉诊断下一次的唯一手段。
+export const HUNT_TRACE_MAX_STEPS = HUNT_MAX_STEPS_PER_CATEGORY
+export const HUNT_TRACE_TEXT_CHARS = 300
+export const HUNT_WRAP_UP_TEXT_CHARS = 500
+
+export interface HuntStepTrace {
+  /** 1-based index of the step within the search. */
+  i: number
+  /** The tool this step called, if any (`run_shell` / `submit_candidates`). */
+  tool?: string
+  /** Assistant text written in this step — prefix, secret-redacted. */
+  text?: string
+  inputTokens?: number
+  outputTokens?: number
+  reasoningTokens?: number
+  finishReason?: string
+  /**
+   * LUM-787 — characters of OLDER tool results that were elided from the
+   * transcript this step was sent (see HUNT_ELIDE_KEEP_STEPS). Absent when
+   * nothing was elided, which is every step before the third.
+   */
+  elidedChars?: number
+}
+
+/** How the search ended, with the arithmetic that ended it. */
+export interface HuntStopFacts {
+  by: 'submitted' | 'budget' | 'steps' | 'no-progress' | 'timeout' | 'error'
+  /**
+   * LUM-799 — steps at the stop that had asked the shell only for commands an
+   * earlier step already ran (`noProgressStreak`). Recorded on EVERY stop, not
+   * just the one it caused: on a `no-progress` row it is the streak that fired,
+   * and on the others it is how close the search came — which is the number
+   * that says whether HUNT_NO_PROGRESS_STEPS is set anywhere near right.
+   * Absent when the search never repeated a command at the end, and on rows
+   * written before the field existed.
+   */
+  repeatSteps?: number
+  /** Tokens the search had spent when it stopped. */
+  spent: number
+  budget: number
+  /** What was being held back for the wrap-up at the stop. */
+  reserve: number
+  /** The last step's cost. */
+  lastStep: number
+  /**
+   * LUM-787 — the price the predictive stop charged the next step at: the
+   * pricier of the last two steps (see `nextStepTokens`). Before this the
+   * next step was priced at `lastStep` alone, and a step dearer than the one
+   * before it then cost more than it was charged for — which is how a search
+   * could pass the predicate and still leave less than its wrap-up needed.
+   * Absent on rows written before the field existed.
+   */
+  next?: number
+  steps: number
+}
+
+/** What the forced hand-over did, or why it was not made. */
+export interface HuntWrapUpFacts {
+  /** A wrap-up call came back. */
+  ran: boolean
+  /** Why no call was made. `disabled` = deadline 0 (the caller turned it off). */
+  skipped?: 'submitted' | 'disabled' | 'no-budget' | 'no-time'
+  /** Candidates the wrap-up submitted. */
+  submitted?: number
+  /** What the model answered in prose, if anything — prefix, redacted. */
+  text?: string
+  tokens?: number
+  finishReason?: string
+  /** The call was attempted and threw (timeout / gateway). */
+  error?: string
+}
+
+export interface HuntCompressStats {
+  /** Compressions that replaced the output. */
+  calls: number
+  /**
+   * Compressions that were CHARGED and produced nothing usable — empty, the
+   * `(no relevant lines)` sentinel, or a body too small to be a compression of
+   * its input. Their tokens are in `tokens` and their characters are NOT in
+   * `inputChars` / `outputChars`, because no compression happened.
+   *
+   * This is the number that was missing when it mattered: prod fed 38,585
+   * characters through seven calls and got 133 back — exactly 7 × the sentinel
+   * — and the only way to know was to divide. A task whose `noOpCalls` equals
+   * its call count searched a repository it could not see, and any conclusion
+   * drawn from `candidates: 0` on that scan is worthless.
+   */
+  noOpCalls: number
+  inputChars: number
+  outputChars: number
+  tokens: number
+}
+
+/**
+ * LUM-758 §4.2 — 规划步的输入。finding 摘要在 step 内按 scanId 读库。
+ *
+ * Task 10 去掉了 `subgraph`：子图不再在 hunt 之前建，规划步看到的 diff 视图
+ * 就是 `job.reasons`（entry / sink / control 的 rule id 都在里面）。
+ */
+export interface PlanHuntInput {
+  job: HuntJob
+}
+
+export interface PlanHuntOutput {
+  /** 0–HUNT_MAX_PLANNED_TASKS tasks; `[]` = 这个 PR 不值得 hunt。 */
+  tasks: HuntTask[]
+  reason: string
+  by: 'model' | 'fallback'
+  tokens: number
+  /**
+   * LUM-764 — 这次规划的 prompt 里带了 `<untrusted-task-context>` 吗？
+   * 它同时是**地板规则是否生效**的开关（选项 B：没有不可信文字就不加地板，
+   * 保持 LUM-758 的成本与行为）。
+   *
+   * 可选：一个上个部署排队的 workflow 重放旧 step 结果时这两个字段不存在，
+   * 读取侧按 `?? false` / `?? []` 退化 —— 与 `HuntJob` 三个字段同一道部署
+   * 边界。
+   */
+  taskContext?: boolean
+  /** 地板强制补进计划、模型自己没给的类别（`applyPlanFloor` 的 `forced`）。 */
+  floorForced?: HuntCategory[]
+  /**
+   * LUM-766 follow-up — set only when `by` is `fallback`: how the planning call
+   * that failed actually ended. Object spread bypasses TypeScript's excess
+   * property check, so without this declaration the field is produced, carried
+   * and silently unreadable — the exact shape this layer has lost three fields
+   * to already (`wrappedUp`, `wrapUpWarnings`, and the located sites).
+   */
+  planFailure?: PlanFailureFacts
+  /** LUM-776 — see `HuntAudit.planRepair`; set only when `by` is `model`. */
+  planRepair?: PlanRepairKind
+}
+
+/**
+ * LUM-758 Task 10 — 机械关的子图**按需**建：hunt 跑完之后，只按候选引用到的
+ * 文件建。候选此时还是 `unknown[]`（zod 校验是机械关的活），所以路径收集
+ * 必须防御式读。
+ */
+export interface VerifySubgraphInput {
+  job: HuntJob
+  candidates: unknown[]
+}
+
+/**
+ * LUM-798 — the read returns the graph AND what it could confirm about the
+ * candidates' own `file:line` claims. Both come out of the same pass over the
+ * checkout, so the second answer is free; splitting them into two steps would
+ * mean a second sandbox attach for bytes already read.
+ */
+export interface VerifySubgraphOutput {
+  subgraph: Subgraph
+  evidence: RepoEvidence
+}
+
+export interface HuntBatchInput {
+  job: HuntJob
+  /**
+   * LUM-758 —— 一次批次跑**一个任务**，不是一个类别。同一个 category 在一个
+   * 计划里可以出现多次（不同 objective），所以批次的身份是 `task.id`。
+   */
+  task: HuntTask
+  tokenBudget: number
+  timeBudgetMs: number
+}
+
+export interface HuntBatchOutput {
+  /** Raw submissions — validated by the mechanical gate, not here. */
+  candidates: unknown[]
+  tokens: number
+  /** LUM-787 — the model the search ran on; see `HuntTaskAudit.model`. */
+  model?: string
+  /**
+   * Wall clock for the WHOLE batch, sandbox acquisition included. The
+   * orchestrator's `HUNT_TIME_BUDGET_MS` is spent on this number, and the
+   * attach poll (30 s) plus the checkout wait (20 s) are real seconds of it —
+   * counting only the model call would hide ~50 s of a 240 s budget.
+   */
+  elapsedMs: number
+  stopped: HuntBatchStop
+  error?: string
+  /**
+   * LUM-758 §6.3 — what this batch's `run_shell` compressions cost and saved.
+   * Its `tokens` are ALREADY inside `tokens` above; this field only breaks
+   * them out so the audit can answer "was compression worth it".
+   */
+  compress?: HuntCompressStats
+  /**
+   * LUM-758 follow-up — what the agent asked the shell for.
+   *
+   * REQUIRED, deliberately. The optional form let the timeout and error exits
+   * return without it, and since the client only ever reports
+   * `done | budget | steps`, those two stops come EXCLUSIVELY from those exits
+   * — so every `stopped: 'timeout'` row lost its shell stats by construction,
+   * on precisely the runs where "did the gate eat the window?" is most live.
+   * Required makes that a compile error instead of a review question.
+   */
+  shell: HuntShellStats
+  /**
+   * LUM-781 — the per-step trace, REQUIRED for the same reason `shell` is:
+   * the timeout and error exits are where "what was it doing when the window
+   * closed" matters most, and an optional field is exactly how those rows
+   * would lose it. Empty when no step completed.
+   */
+  trace: HuntStepTrace[]
+  stop?: HuntStopFacts
+  wrapUp?: HuntWrapUpFacts
+  /**
+   * LUM-758 follow-up — the search ended on a counter without the agent ever
+   * submitting, and a forced wrap-up call asked for what it had. `stopped`
+   * still reports the counter: being made to answer is not the same as having
+   * finished, and P9 must keep calling such a layer PARTIAL.
+   */
+  wrappedUp?: boolean
+  /**
+   * Why a wrap-up that RAN still submitted nothing — the provider's own
+   * warnings, above all an `unsupported-setting` for the forced tool choice.
+   * Absent when it submitted, and absent when it never ran: an empty answer
+   * and a refused request must never read the same, because only one of them
+   * is evidence about the agent.
+   */
+  wrapUpWarnings?: string[]
+  /** LUM-758 §5.1 — 这一批用的是复用的 VM 还是自建的。 */
+  sandbox?: 'attached' | 'created'
+  /** Did that VM run with its network egress actually cut? See `HuntSandbox`. */
+  egressDenied?: boolean
+  /** LUM-782 — what the start-up probe found on this batch's VM. */
+  tools?: HuntToolProbe
+}
+
+export interface MechanicalVerifyInput {
+  subgraph: Subgraph
+  candidates: unknown[]
+  /**
+   * LUM-798 — absent on a run resumed across the deploy that introduced it;
+   * the gate then simply has one fewer tier and says so in `resolution`.
+   */
+  evidence?: RepoEvidence
+}
+export type { MechanicalVerifyResult }
+
+export interface FalsifierInput {
+  job: HuntJob
+  candidate: VerifiedCandidate
+}
+
+export interface FalsifierOutput {
+  verdict: 'REJECT' | 'INCONCLUSIVE'
+  reason: string
+  tokens: number
+}
+
+export interface HuntFindingInput extends VerifiedCandidate {
+  falsifierReason: string
+}
+
+export interface PersistHuntInput {
+  job: HuntJob
+  findings: HuntFindingInput[]
+  audit: HuntAudit
+  tokenSpent: number
+  /** LUM-832 — 这一层为什么没跑完整；空数组 = 完整。 */
+  partialCauses: PartialCause[]
+  /**
+   * LUM-758 — 写进 `stages.hunt` 的层状态。LUM-832: PENDING = 还有下一批要跑，
+   * 这一批的发现先落库，层保持进行中。
+   */
+  stage: 'RAN' | 'PARTIAL' | 'SKIPPED' | 'PENDING'
+}
+
+/**
+ * LUM-822 / LUM-832 — stage A's start plus one retry. Here (not in the ops
+ * service) so the deterministic workflow body can decide whether an attempt
+ * that ended on our fault may re-queue, without loading the sandbox module.
+ */
+export const HUNT_MAX_ATTEMPTS = 2
+
+export type HuntResult =
+  | {
+      /** LUM-758: SKIPPED = 规划步说这个 PR 不值得 hunt（空子图或空任务列表）。 */
+      outcome: 'RAN' | 'PARTIAL' | 'SKIPPED'
+      scanId: string
+      findings: number
+      tokenSpent: number
+    }
+  | { outcome: 'FAILED'; scanId: string; reason: string }
+  /** LUM-901: the customer turned the hunt off after it was dispatched. */
+  | { outcome: 'DISABLED'; scanId: string }
+  /** LUM-832: ended on our fault; the next attempt was started in its place. */
+  | { outcome: 'REQUEUED'; scanId: string; attempt: number; reason: string }
+  /** LUM-832: this batch landed; the next batch of the diff was started. */
+  | {
+      outcome: 'CONTINUED'
+      scanId: string
+      batchIndex: number
+      batches: number
+      findings: number
+      tokenSpent: number
+    }
+
+/**
+ * Kill switch: the hunt is on unless LUMO_SECURITY_HUNT is exactly "off" — or
+ * (LUM-1025) Vercel Sandbox is not configured: the hunt reads a sandbox
+ * checkout of the PR head.
+ */
+export function isHuntEnabled(
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  return (
+    env.LUMO_SECURITY_HUNT !== 'off' &&
+    isIntegrationConfigured('vercelSandbox', env)
+  )
+}

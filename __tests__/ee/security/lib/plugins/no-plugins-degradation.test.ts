@@ -16,21 +16,21 @@
  */
 jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 
-jest.mock('@/lib/services/pr-security-scan-gate', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-gate', () => ({
   listOpenBlockingFindings: jest.fn(),
 }))
-jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+jest.mock('@/ee/security/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: {
     buildSessionStartSection: jest.fn(),
     loadOpenFindingsForTask: jest.fn(),
     buildAgentReminder: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn(),
   shouldScanOnPrEvent: jest.fn(() => true),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
@@ -125,10 +125,10 @@ import {
   retentionStockService,
 } from '@/lib/services/retention-stock.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { listOpenBlockingFindings } from '@/lib/services/pr-security-scan-gate'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
-import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { listOpenBlockingFindings } from '@/ee/security/services/pr-security-scan-gate'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
+import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { authService } from '@/lib/services/auth.service'
 import { hookEventService } from '@/lib/services/hook-event.service'

@@ -8,7 +8,8 @@ import fs from 'fs'
 import path from 'path'
 
 const ROOT = path.resolve(__dirname, '../../..')
-const SCANNED_DIRS = ['app', 'lib', 'components', 'shared']
+// LUM-1065: ee/ is the security plugin tree (absent from the OSS snapshot).
+const SCANNED_DIRS = ['app', 'lib', 'components', 'shared', 'ee']
 const ALLOWED_PREFIX = path.join('lib', 'runtime') + path.sep
 // Any quoted '@vercel/functions[/sub]' module specifier counts, wherever it
 // sits: `from`, `import()`, `require()`, a side-effect `import '...'`, or a

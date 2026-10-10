@@ -24,7 +24,7 @@ export const compiledPolicyRuleSource: PolicyRuleSource = {
     const defaultRepo = await projectRepository.findDefaultRepository(projectId)
     if (!defaultRepo) return []
     const { policyCompilerService } =
-      await import('@/lib/services/policy/policy-compiler.service')
+      await import('@/ee/security/services/policy/policy-compiler.service')
     const compiled = await policyCompilerService.ensureCompiled({
       projectId,
       workspaceId,
@@ -37,7 +37,7 @@ export const compiledPolicyRuleSource: PolicyRuleSource = {
   /** LUM-793: the memory write gate reads the stored policy, never compiles. */
   async storedRules(projectId) {
     const { projectPolicyRepository } =
-      await import('@/lib/repositories/project-policy.repository')
+      await import('@/ee/security/repositories/project-policy.repository')
     const policy = await projectPolicyRepository.latestForProject(projectId)
     return policy ? policy.rules : null
   },
@@ -45,14 +45,14 @@ export const compiledPolicyRuleSource: PolicyRuleSource = {
   /** LUM-780: rows written before `policyRuleText` was stamped. */
   async ruleTextByRef(projectId, ruleRef) {
     const { projectPolicyRepository } =
-      await import('@/lib/repositories/project-policy.repository')
+      await import('@/ee/security/repositories/project-policy.repository')
     return projectPolicyRepository.findRuleTextByRef(projectId, ruleRef)
   },
 
   /** The compiler's own reader (cached 60 s, installation token). */
   async readSource(input) {
     const { policyCompilerService } =
-      await import('@/lib/services/policy/policy-compiler.service')
+      await import('@/ee/security/services/policy/policy-compiler.service')
     return policyCompilerService.readSource(input)
   },
 }

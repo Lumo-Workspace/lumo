@@ -8,11 +8,11 @@
  */
 
 // LUM-866: every workspace here has the default switches (all on).
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 import { readFileSync } from 'fs'
@@ -48,29 +48,33 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {},
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
+  workspaceRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
   },
 }))
+
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
   readRepoFile: jest.fn().mockResolvedValue(null),
 }))
-jest.mock('@/lib/services/security-managed-scan-start', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
   securityManagedScanOpsService: {},
 }))
-jest.mock('@/lib/services/security-hunt-start', () => ({
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
   recordHuntStartBestEffort: jest.fn(),
 }))
-jest.mock('@/lib/services/security-baseline.service', () => ({
+jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: {},
 }))
-jest.mock('@/lib/services/security-pr-review.service', () => ({
+jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 
@@ -79,9 +83,9 @@ import {
   prSecurityScanRepository,
   type FinalizeScanInput,
   type PersistHuntResultInput,
-} from '@/lib/repositories/pr-security-scan.repository'
+} from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
 import {
   PARTIAL_CAUSES,
   mergePartialCauses,
@@ -133,13 +137,16 @@ describe('every partial set point records an attributed cause', () => {
    * because the repository inputs no longer accept a bare `partial`.
    */
   it.each([
-    ['lib/services/pr-security-scan.service.ts', 'GRAPH_READ_FAILED'],
-    ['lib/services/pr-security-scan.service.ts', 'JUDGE_TRUNCATED'],
+    ['ee/security/services/pr-security-scan.service.ts', 'GRAPH_READ_FAILED'],
+    ['ee/security/services/pr-security-scan.service.ts', 'JUDGE_TRUNCATED'],
     ['lib/workflows/security-hunt.ts', 'HUNT_INCOMPLETE'],
     ['lib/workflows/security-hunt.ts', 'HUNT_BUDGET_SHORT'],
     ['lib/workflows/security-hunt.ts', 'HUNT_FALSIFIER_OVERFLOW'],
     ['lib/workflows/security-hunt.ts', 'HUNT_OVERSIZED'],
-    ['lib/services/security-sarif-ingest.service.ts', 'EXTERNAL_TRUNCATED'],
+    [
+      'ee/security/services/security-sarif-ingest.service.ts',
+      'EXTERNAL_TRUNCATED',
+    ],
   ])('%s names %s at its set point', (file, cause) => {
     expect(source(file)).toContain(`'${cause}'`)
   })
@@ -166,7 +173,7 @@ describe('every partial set point records an attributed cause', () => {
     }
     expect([hunt.partialCauses, finalize.partialCauses]).toEqual([[], []])
     for (const file of [
-      'lib/services/pr-security-scan.service.ts',
+      'ee/security/services/pr-security-scan.service.ts',
       'lib/workflows/security-hunt.ts',
     ]) {
       expect(source(file)).not.toMatch(/\bpartial = true\b/)
@@ -319,7 +326,7 @@ describe('exhausted retries never read as checked', () => {
     ).toBe('CHECKED')
   })
 })
-jest.mock('@/lib/repositories/pr-review-control.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
     baseline: jest.fn().mockResolvedValue(null),

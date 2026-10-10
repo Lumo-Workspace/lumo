@@ -7,7 +7,7 @@ import { REASONING_MODEL } from '@/lib/ai/models'
 import {
   FALSIFIER_SYSTEM_PROMPT,
   falsifyCandidate,
-} from '@/lib/llm/security-falsifier-client'
+} from '@/ee/security/llm/security-falsifier-client'
 
 const gen = generateObject as jest.Mock
 

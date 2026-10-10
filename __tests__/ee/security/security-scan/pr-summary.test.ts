@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { stripHtmlComments } from '@/lib/security-scan/pr-summary'
+import { stripHtmlComments } from '@/ee/security/security-scan/pr-summary'
 
 describe('LUM-988 stripHtmlComments', () => {
   it('removes every HTML comment, including Lumo markers and an unterminated one', () => {

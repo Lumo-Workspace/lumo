@@ -5,18 +5,18 @@ const sweepHolds = jest.fn()
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
   securityManagedScanOpsService: {
     sweepStalePending: (...args: unknown[]) => sweep(...args),
   },
 }))
-jest.mock('@/lib/services/security-hunt-ops.service', () => ({
+jest.mock('@/ee/security/services/security-hunt-ops.service', () => ({
   securityHuntOpsService: {
     sweepStaleHunts: (...args: unknown[]) => sweepHunts(...args),
   },
 }))
 
-jest.mock('@/lib/services/review-verifier-ops.service', () => ({
+jest.mock('@/ee/security/services/review-verifier-ops.service', () => ({
   reviewVerifierOpsService: {
     sweepStaleHolds: (...args: unknown[]) => sweepHolds(...args),
   },

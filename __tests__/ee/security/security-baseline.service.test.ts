@@ -1,11 +1,11 @@
 /** @jest-environment node */
 // LUM-866: every workspace here has the default switches (all on); the
 // platform env in each test still decides the ceiling.
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
 jest.mock('@/lib/logger', () => ({
@@ -15,27 +15,31 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchDefaultBranchHead: jest.fn(),
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: {
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
     findSecurityBaseline: jest.fn(),
     setSecurityBaseline: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/security-baseline-scan-start', () => ({
+
+jest.mock('@/ee/security/services/security-baseline-scan-start', () => ({
   startSecurityBaselineScan: jest.fn(),
 }))
 
 import { logger } from '@/lib/logger'
 import { fetchDefaultBranchHead } from '@/lib/integrations/github/contents'
-import { projectRepository } from '@/lib/repositories/project.repository'
-import { startSecurityBaselineScan } from '@/lib/services/security-baseline-scan-start'
+import { startSecurityBaselineScan } from '@/ee/security/services/security-baseline-scan-start'
 import {
   securityBaselineService,
   isBaselineLive,
-} from '@/lib/services/security-baseline.service'
-import { BASELINE_STALE_MS } from '@/lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-baseline.service'
+import { BASELINE_STALE_MS } from '@/ee/security/services/security-managed-scan.config'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
-const find = projectRepository.findSecurityBaseline as jest.Mock
-const set = projectRepository.setSecurityBaseline as jest.Mock
+const find = securityColumnsRepository.findSecurityBaseline as jest.Mock
+const set = securityColumnsRepository.setSecurityBaseline as jest.Mock
 const head = fetchDefaultBranchHead as jest.Mock
 const startBaseline = startSecurityBaselineScan as jest.Mock
 

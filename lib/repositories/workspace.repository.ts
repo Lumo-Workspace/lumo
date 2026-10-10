@@ -1,14 +1,10 @@
-import {
+import type {
+  HookEventRetentionMode,
   Prisma,
-  type HookEventRetentionMode,
-  type SummaryFrequency,
+  SummaryFrequency,
 } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
-import {
-  AUDITED_WORKSPACE_SETTINGS,
-  type AuditedWorkspaceSetting,
-} from '@/lib/audit/workspace-settings'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,12 +21,8 @@ export interface WorkspaceUpdateData {
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency | string
   summaryLocale?: string
-  /** LUM-740: the raw policy JSON; `null` resets to the default. */
-  securityPolicy?: unknown
   /** LUM-859: raw hook-event retention in days; null = keep forever. */
   hookEventRetentionDays?: number | null
-  /** LUM-911: days a used-up scan keeps its code; 0 = zero retention. */
-  scanEvidenceRetentionDays?: number
   /** LUM-933: session record mode (RETAIN | USED_UP). */
   hookEventRetentionMode?: HookEventRetentionMode
   /** LUM-933: cutoff — events before it follow the legacy tier. */
@@ -44,38 +36,25 @@ export interface WorkspaceUpdateData {
   deadLetterRetentionDays?: number
   /** LUM-917: generate AI-derived content (memories, summaries). */
   aiDerivedContentEnabled?: boolean
-  /** LUM-866: per-workspace security-scan switches. */
-  securityScanEnabled?: boolean
-  securityAiReviewEnabled?: boolean
-  securityHuntEnabled?: boolean
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
 
 export const workspaceRepository = {
-  /** LUM-911 — each workspace's scan evidence retention, in days. */
-  async findScanEvidenceRetention(
-    workspaceIds: string[]
-  ): Promise<Map<string, number>> {
-    if (workspaceIds.length === 0) return new Map()
-    const rows = await prisma.workspace.findMany({
-      where: { id: { in: workspaceIds } },
-      select: { id: true, scanEvidenceRetentionDays: true },
-    })
-    return new Map(rows.map(row => [row.id, row.scanEvidenceRetentionDays]))
-  },
-
   /** LUM-933 — the stored retention settings a change is computed from. */
-  /** LUM-907: the audited setting columns, read before a settings change. */
+  /**
+   * LUM-907: the audited setting columns, read before a settings change.
+   * The caller names them (LUM-1065: core + installed plugins' columns).
+   */
   async findAuditedSettings(
-    workspaceId: string
-  ): Promise<Record<AuditedWorkspaceSetting, unknown> | null> {
-    const select = Object.fromEntries(
-      Object.values(AUDITED_WORKSPACE_SETTINGS)
-        .flat()
-        .map(f => [f, true])
-    ) as Record<AuditedWorkspaceSetting, true>
-    return prisma.workspace.findUnique({ where: { id: workspaceId }, select })
+    workspaceId: string,
+    columns: readonly string[]
+  ): Promise<Record<string, unknown> | null> {
+    const select = Object.fromEntries(columns.map(f => [f, true]))
+    return prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: select as Prisma.WorkspaceSelect,
+    })
   },
 
   async findRetentionSettings(workspaceId: string): Promise<{
@@ -128,15 +107,6 @@ export const workspaceRepository = {
         hookEventRetentionDays: true,
       },
     })
-  },
-
-  /** LUM-911 — workspaces that keep no scan evidence once a scan is final. */
-  async findZeroScanEvidenceRetentionIds(): Promise<string[]> {
-    const rows = await prisma.workspace.findMany({
-      where: { scanEvidenceRetentionDays: 0 },
-      select: { id: true },
-    })
-    return rows.map(row => row.id)
   },
 
   /** Create workspace with default team, owner member, human + agent actors in a transaction. */
@@ -198,29 +168,6 @@ export const workspaceRepository = {
     return prisma.workspace.findUnique({ where: { id } })
   },
 
-  /** LUM-740: the raw `securityPolicy` Json column (null when unset or the
-   *  workspace is missing) — parse with `parseSecurityPolicy`. */
-  async findSecurityPolicy(id: string): Promise<unknown> {
-    const row = await prisma.workspace.findUnique({
-      where: { id },
-      select: { securityPolicy: true },
-    })
-    return row?.securityPolicy ?? null
-  },
-
-  /** LUM-866: the three security-scan switches; null when the workspace is
-   *  missing — resolve with `resolveSecurityLayers`. */
-  async findSecuritySwitches(id: string) {
-    return prisma.workspace.findUnique({
-      where: { id },
-      select: {
-        securityScanEnabled: true,
-        securityAiReviewEnabled: true,
-        securityHuntEnabled: true,
-      },
-    })
-  },
-
   /** LUM-914 — slug per workspace id (operator reports print slugs, never names). */
   async findSlugs(workspaceIds: string[]): Promise<Map<string, string>> {
     if (workspaceIds.length === 0) return new Map()
@@ -239,19 +186,15 @@ export const workspaceRepository = {
     })
   },
 
-  /** Update workspace fields. A `securityPolicy: null` clears the Json column to SQL NULL (LUM-740). */
+  /**
+   * Update workspace fields. Besides the core fields, `data` may carry the
+   * columns an installed plugin owns (LUM-1062 `workspaceSettings`), already
+   * mapped to Prisma write values by `toWorkspaceColumnWrites` (LUM-1065).
+   */
   async update(id: string, data: WorkspaceUpdateData) {
-    const { securityPolicy, ...rest } = data
-    const payload: Record<string, unknown> = { ...rest }
-    if (securityPolicy !== undefined) {
-      payload.securityPolicy =
-        securityPolicy === null
-          ? Prisma.DbNull
-          : (securityPolicy as Prisma.InputJsonValue)
-    }
     return prisma.workspace.update({
       where: { id },
-      data: payload as Parameters<typeof prisma.workspace.update>[0]['data'],
+      data: data as Parameters<typeof prisma.workspace.update>[0]['data'],
     })
   },
 

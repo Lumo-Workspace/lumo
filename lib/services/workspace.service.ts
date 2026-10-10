@@ -14,8 +14,15 @@ import {
   type CrossingRawRetentionDays,
 } from '@/lib/boundary-crossing/raw-retention'
 import type { DeadLetterRetentionDays } from '@/lib/integrations/github/dead-letter-retention'
-import { pluginWorkspaceWrites } from '@/lib/plugins/workspace-settings'
-import { diffWorkspaceSettings } from '@/lib/audit/workspace-settings'
+import {
+  auditedWorkspaceSettings,
+  pluginWorkspaceWrites,
+  toWorkspaceColumnWrites,
+} from '@/lib/plugins/workspace-settings'
+import {
+  auditedColumns,
+  diffWorkspaceSettings,
+} from '@/lib/audit/workspace-settings'
 import {
   recordAuditEvent,
   type AuditContext,
@@ -119,10 +126,11 @@ async function retentionChangeData(
  * read never blocks the settings change — the event then shows no `from`.
  */
 async function auditedSettingsBefore(
-  workspaceId: string
+  workspaceId: string,
+  columns: readonly string[]
 ): Promise<Record<string, unknown> | null> {
   try {
-    return await workspaceRepository.findAuditedSettings(workspaceId)
+    return await workspaceRepository.findAuditedSettings(workspaceId, columns)
   } catch {
     return null
   }
@@ -202,12 +210,21 @@ export const workspaceService = {
       )
     }
 
-    const before = await auditedSettingsBefore(workspaceId)
-    const updated = await workspaceRepository.update(workspaceId, data)
+    // LUM-1065: the core's audited columns plus the installed plugins'.
+    const audited = auditedWorkspaceSettings()
+    const before = await auditedSettingsBefore(
+      workspaceId,
+      auditedColumns(audited)
+    )
+    const updated = await workspaceRepository.update(
+      workspaceId,
+      toWorkspaceColumnWrites(data)
+    )
     // LUM-907: one event per setting category that actually changed.
     for (const change of diffWorkspaceSettings(
       before ?? {},
-      data as Record<string, unknown>
+      data as Record<string, unknown>,
+      audited
     )) {
       await recordAuditEvent({
         workspaceId,

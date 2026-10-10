@@ -21,23 +21,23 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { judgeSecurity } from '../../../lib/llm/security-judge-client'
+import { judgeSecurity } from '@/ee/security/llm/security-judge-client'
 import {
   REVIEW_PROMPT_MAX_CHARS,
   loadReviewContext,
   reviewContextBudget,
-} from '../../../lib/security-scan/review-context'
+} from '@/ee/security/security-scan/review-context'
 import {
   RELATED_MAX_CHARS,
   loadRelatedContext,
-} from '../../../lib/security-scan/related-context'
+} from '@/ee/security/security-scan/related-context'
 import { gitGrepSearch } from './git-grep-search'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import {
   JUDGE_DIFF_BUDGET_TIERS,
   judgeDiffTier,
   packSecurityDiff,
-} from '../../../lib/security-scan/truncate'
+} from '@/ee/security/security-scan/truncate'
 import { prKey } from './pr-key'
 
 function opt(name: string, fallback?: string): string {

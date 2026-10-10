@@ -2,7 +2,7 @@
 import {
   truncateSecurityDiff,
   SECURITY_DIFF_MAX_CHARS,
-} from '@/lib/security-scan/truncate'
+} from '@/ee/security/security-scan/truncate'
 
 test('truncateSecurityDiff keeps short diffs intact and flags long ones', () => {
   expect(truncateSecurityDiff('+a\n+b')).toEqual({

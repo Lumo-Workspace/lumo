@@ -27,12 +27,12 @@ import {
   runAlignEval,
   stubActionJudge,
   type GoldItem,
-} from '@/lib/boundary-crossing/align-eval'
+} from '@/ee/private/boundary-crossing/align-eval'
 import {
   detectEvent,
   ruleJudge,
   ruleVerdict,
-} from '@/lib/boundary-crossing/eval/rule-judge'
+} from '@/ee/private/boundary-crossing/eval/rule-judge'
 import {
   configsOf,
   lum958SampleKey,
@@ -42,13 +42,19 @@ import {
   readRecordsFiles,
   recordedJudge,
   recordedVerdicts,
-} from '@/lib/boundary-crossing/eval/recorded-judge'
-import { chooseThreshold, runEval } from '@/lib/boundary-crossing/eval/run'
+} from '@/ee/private/boundary-crossing/eval/recorded-judge'
+import {
+  chooseThreshold,
+  runEval,
+} from '@/ee/private/boundary-crossing/eval/run'
 import {
   goldDataset,
   goldSample,
-} from '@/lib/boundary-crossing/eval/datasets/gold'
-import type { EvalSample, Judge } from '@/lib/boundary-crossing/eval/types'
+} from '@/ee/private/boundary-crossing/eval/datasets/gold'
+import type {
+  EvalSample,
+  Judge,
+} from '@/ee/private/boundary-crossing/eval/types'
 
 const bash = (command: string) => ({
   toolName: 'Bash' as const,

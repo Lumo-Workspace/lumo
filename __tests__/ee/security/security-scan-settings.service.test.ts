@@ -7,8 +7,14 @@
  * role from the member row.
  */
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { findSecuritySwitches: jest.fn(), update: jest.fn() },
+  workspaceRepository: { update: jest.fn() },
 }))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecuritySwitches: jest.fn(),
+  },
+}))
+
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findMemberRoleById: jest.fn() },
 }))
@@ -31,7 +37,8 @@ import { workspaceService } from '@/lib/services/workspace.service'
 import {
   securityScanSettingsService,
   switchesForUpdate,
-} from '@/lib/services/security-scan-settings.service'
+} from '@/ee/security/services/security-scan-settings.service'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock
 const CALLER = { workspaceId: 'ws_1', workspaceSlug: 'acme', memberId: 'm_1' }
@@ -42,7 +49,7 @@ const ALL_OFF = {
 }
 
 beforeEach(() => {
-  m(workspaceRepository.findSecuritySwitches).mockReset()
+  m(securityColumnsRepository.findSecuritySwitches).mockReset()
   m(workspaceRepository.update).mockReset()
   m(miscRepository.findMemberRoleById).mockReset()
   m(workspaceService.updateWorkspace).mockClear()
@@ -68,7 +75,7 @@ describe('switchesForUpdate', () => {
 
 describe('securityScanSettingsService.get', () => {
   it('returns switches, ceiling, effective layers and canEdit for an OWNER', async () => {
-    m(workspaceRepository.findSecuritySwitches).mockResolvedValue({
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
       securityScanEnabled: false,
       securityAiReviewEnabled: true,
       securityHuntEnabled: true,
@@ -82,12 +89,12 @@ describe('securityScanSettingsService.get', () => {
     expect(s.canEdit).toBe(true)
   })
   it('canEdit is false for a MEMBER', async () => {
-    m(workspaceRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
     m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
     expect((await securityScanSettingsService.get(CALLER)).canEdit).toBe(false)
   })
   it('404s on a missing workspace', async () => {
-    m(workspaceRepository.findSecuritySwitches).mockResolvedValue(null)
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(null)
     await expect(securityScanSettingsService.get(CALLER)).rejects.toMatchObject(
       { status: 404 }
     )
@@ -98,7 +105,7 @@ describe('securityScanSettingsService.update', () => {
   it('writes every switch off via updateWorkspace with the member role', async () => {
     m(workspaceService.updateWorkspace).mockResolvedValueOnce({})
     m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
-    m(workspaceRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
     const s = await securityScanSettingsService.update(CALLER, { all: false })
     expect(workspaceService.updateWorkspace).toHaveBeenCalledWith(
       'ws_1',

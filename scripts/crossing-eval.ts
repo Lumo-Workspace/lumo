@@ -22,17 +22,20 @@
  * dataset's tune split or given with --threshold; never on the reported set.
  */
 import { homedir } from 'node:os'
-import { stubActionJudge } from '@/lib/boundary-crossing/align-eval'
-import { goldDataset } from '@/lib/boundary-crossing/eval/datasets/gold'
+import { stubActionJudge } from '@/ee/private/boundary-crossing/align-eval'
+import { goldDataset } from '@/ee/private/boundary-crossing/eval/datasets/gold'
 import {
   pickConfig,
   readRecordsFiles,
   recordedJudge,
-} from '@/lib/boundary-crossing/eval/recorded-judge'
-import { formatEvalReport } from '@/lib/boundary-crossing/eval/report'
-import { ruleJudge } from '@/lib/boundary-crossing/eval/rule-judge'
-import { runEval, type DatasetAdapter } from '@/lib/boundary-crossing/eval/run'
-import type { Judge } from '@/lib/boundary-crossing/eval/types'
+} from '@/ee/private/boundary-crossing/eval/recorded-judge'
+import { formatEvalReport } from '@/ee/private/boundary-crossing/eval/report'
+import { ruleJudge } from '@/ee/private/boundary-crossing/eval/rule-judge'
+import {
+  runEval,
+  type DatasetAdapter,
+} from '@/ee/private/boundary-crossing/eval/run'
+import type { Judge } from '@/ee/private/boundary-crossing/eval/types'
 import {
   basharenaMonitorEval,
   basharenaSynthetic,
@@ -231,7 +234,7 @@ async function buildJudge(opts: CliOptions): Promise<Judge> {
     if (!opts.live) return ruleJudge({ kind: 'stub', judge: stubActionJudge })
     // Lazy: the default path never loads the AI SDK or touches the network.
     const { confirmActionExecuted } =
-      await import('@/lib/llm/action-confirm-client')
+      await import('@/ee/security/llm/action-confirm-client')
     return ruleJudge({ kind: 'live', judge: confirmActionExecuted })
   }
   const units = await readRecordsFiles(opts.records)

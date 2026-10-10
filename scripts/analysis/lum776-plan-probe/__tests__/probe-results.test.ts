@@ -9,8 +9,8 @@
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { PLAN_FAILURE_SHAPES } from '@/lib/security-scan/hunt/plan-retry'
-import { PLAN_HUNT_MAX_ATTEMPTS } from '@/lib/services/security-hunt.config'
+import { PLAN_FAILURE_SHAPES } from '@/ee/security/security-scan/hunt/plan-retry'
+import { PLAN_HUNT_MAX_ATTEMPTS } from '@/ee/security/services/security-hunt.config'
 import { shippedVariantName, VARIANTS } from '../variants'
 import type { ProbeResults } from '../probe'
 

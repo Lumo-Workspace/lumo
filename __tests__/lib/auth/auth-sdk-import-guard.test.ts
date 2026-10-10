@@ -9,7 +9,8 @@ import fs from 'fs'
 import path from 'path'
 
 const ROOT = path.resolve(__dirname, '../../..')
-const SCANNED_DIRS = ['app', 'lib', 'components', 'hooks', 'shared']
+// LUM-1065: ee/ is the security plugin tree (absent from the OSS snapshot).
+const SCANNED_DIRS = ['app', 'lib', 'components', 'hooks', 'shared', 'ee']
 const SCANNED_FILES = ['proxy.ts']
 const ALLOWED_PREFIX = path.join('lib', 'auth') + path.sep
 // Any quoted '@clerk/<pkg>[/sub]', 'better-auth[/sub]' or

@@ -14,8 +14,8 @@ import type {
   DatasetAdapter,
   DatasetLoadOptions,
   LoadedDataset,
-} from '@/lib/boundary-crossing/eval/run'
-import type { EvalSample } from '@/lib/boundary-crossing/eval/types'
+} from '@/ee/private/boundary-crossing/eval/run'
+import type { EvalSample } from '@/ee/private/boundary-crossing/eval/types'
 import {
   monitorEvalTrajectories,
   syntheticTrajectories,

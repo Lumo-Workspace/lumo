@@ -31,13 +31,13 @@ import 'dotenv/config'
 import { prisma } from '@/lib/db/prisma'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
-import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
+import { projectPolicyRepository } from '@/ee/security/repositories/project-policy.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import {
   compileRuleSet,
   COMPILER_VERSION,
-} from '@/lib/services/policy/policy-compiler.service'
-import type { PolicyRule } from '@/lib/services/policy/types'
+} from '@/ee/security/services/policy/policy-compiler.service'
+import type { PolicyRule } from '@/ee/security/services/policy/types'
 import {
   backfillNote,
   parseBackfillArgs,

@@ -6,7 +6,7 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
   findRepoSandboxByTag: jest.fn(),
   createRepoSandbox: jest.fn(),
   denySandboxEgress: jest.fn(),
@@ -25,7 +25,7 @@ jest.mock('@/lib/integrations/github/auth', () => ({
  * happens to cross HUNT_SHELL_COMPRESS_MIN must go on testing that path
  * rather than silently start testing a mock's return value.
  */
-jest.mock('@/lib/llm/security-hunt-compress-client', () => ({
+jest.mock('@/ee/security/llm/security-hunt-compress-client', () => ({
   compressShellOutput: jest
     .fn()
     .mockRejectedValue(new Error('compression is not under test here')),
@@ -38,23 +38,23 @@ import {
   sanitizeHuntOutput,
   stopHuntSandbox,
   HUNT_SANDBOX_TAG,
-} from '@/lib/services/security-hunt-sandbox'
+} from '@/ee/security/services/security-hunt-sandbox'
 import {
   HUNT_SHELL_BIN,
   HUNT_SHELL_COMMANDS,
   HUNT_SHELL_FLAG,
   HUNT_SHELL_PROBES,
-} from '@/lib/security-scan/hunt/shell-allowlist'
+} from '@/ee/security/security-scan/hunt/shell-allowlist'
 import {
   findRepoSandboxByTag,
   createRepoSandbox,
   denySandboxEgress,
-} from '@/lib/integrations/vercel-sandbox'
-import { compressShellOutput } from '@/lib/llm/security-hunt-compress-client'
+} from '@/ee/security/integrations/vercel-sandbox'
+import { compressShellOutput } from '@/ee/security/llm/security-hunt-compress-client'
 import {
   HUNT_SHELL_COMPRESS_MIN,
   HUNT_SHELL_OUTPUT_MAX,
-} from '@/lib/services/security-hunt.config'
+} from '@/ee/security/services/security-hunt.config'
 import { logger } from '@/lib/logger'
 
 const find = findRepoSandboxByTag as jest.Mock

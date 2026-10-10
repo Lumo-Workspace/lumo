@@ -3,9 +3,11 @@
  * LUM-1062 — client UI slots (RFC LUM-1058 §3.4 UI 插槽): a slot renders
  * each installed plugin's component in order, the task dossier merges every
  * plugin's contribution in one pass, and with no plugin nothing renders.
+ * (Which slots the installed security plugin fills: the plugin half,
+ * __tests__/ee/security/components/plugins/client-slots-installed.test.ts —
+ * LUM-1065.)
  */
-// react-intl ships ESM only; the installed security plugin's components
-// import it.
+// react-intl ships ESM only; slot components may import it.
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }))
@@ -18,7 +20,6 @@ import {
   type LumoClientPlugin,
   type MergedDossierContribution,
 } from '@/lib/plugins/client'
-import { INSTALLED_CLIENT_PLUGINS } from '@/lib/plugins/installed.client'
 
 const badgePlugin = (id: string): LumoClientPlugin => ({
   id,
@@ -140,18 +141,5 @@ describe('PluginTaskDossier', () => {
     expect(screen.getByTestId('record-b').dataset.expanded).toBe('true')
     screen.getByTestId('record-b').click()
     expect(onToggle).toHaveBeenCalledWith('b')
-  })
-})
-
-describe('installed client plugins', () => {
-  it('the security plugin fills every slot it filled before the split', () => {
-    expect(INSTALLED_CLIENT_PLUGINS.map(p => p.id)).toEqual(['security'])
-    expect(Object.keys(INSTALLED_CLIENT_PLUGINS[0]!.slots).sort()).toEqual([
-      'settings.retention.row',
-      'settings.workspace.section',
-      'task.crossing.annotation',
-      'task.dossier',
-      'task.pullRequest.badge',
-    ])
   })
 })

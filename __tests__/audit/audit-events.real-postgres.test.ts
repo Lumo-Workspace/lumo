@@ -173,6 +173,8 @@ describe('LUM-907 audit write', () => {
     })
   })
 
+  // (The security plugin's columns are audited under the same actions —
+  // __tests__/ee/security/audit/audit-settings.real-postgres.test.ts, LUM-1065.)
   it('LUM-907 audit infra: a settings change writes one event per changed category with from and to', async () => {
     await workspaceService.updateWorkspace(
       WS,
@@ -180,7 +182,7 @@ describe('LUM-907 audit write', () => {
       WS,
       {
         name: 'Renamed',
-        securityHuntEnabled: false,
+        aiDerivedContentEnabled: false,
         deadLetterRetentionDays: 30,
         summaryEnabled: true, // unchanged (default true) — not audited
       },
@@ -197,7 +199,7 @@ describe('LUM-907 audit write', () => {
       changes: { name: { from: `WS ${WS}`, to: 'Renamed' } },
     })
     expect(byAction['workspace.security_settings_updated']).toEqual({
-      changes: { securityHuntEnabled: { from: true, to: false } },
+      changes: { aiDerivedContentEnabled: { from: true, to: false } },
     })
     expect(byAction['workspace.retention_updated']).toEqual({
       changes: { deadLetterRetentionDays: { from: 7, to: 30 } },

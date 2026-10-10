@@ -20,7 +20,7 @@ jest.mock('@/lib/logger', () => ({
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: jest.fn() }))
 jest.mock('workflow', () => ({ sleep: jest.fn() }))
-jest.mock('@/lib/services/security-sarif-blob', () => ({
+jest.mock('@/ee/security/services/security-sarif-blob', () => ({
   fetchPrivateBlob: jest.fn(),
   deleteBlob: jest.fn(),
   listSarifBlobs: jest.fn(),
@@ -40,7 +40,7 @@ jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
 jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
   syncPrReviewStep: jest.fn(),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findScanForSuggestion: jest.fn(),
     markSuggested: jest.fn(),
@@ -51,8 +51,14 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { findSecuritySwitches: jest.fn() },
+  workspaceRepository: {},
 }))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecuritySwitches: jest.fn(),
+  },
+}))
+
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
 }))
@@ -68,7 +74,7 @@ jest.mock('@/lib/integrations/github/pr-comment-client', () => ({
     listReviewComments: jest.fn(),
   },
 }))
-jest.mock('@/lib/llm/security-disposition-falsifier-client', () => ({
+jest.mock('@/ee/security/llm/security-disposition-falsifier-client', () => ({
   falsifyExternalFinding: jest.fn(),
 }))
 
@@ -77,18 +83,18 @@ import { securitySarifIngestWorkflow } from '@/lib/workflows/security-sarif-inge
 import { scanRepositoryInSandboxStep } from '@/lib/workflows/security-managed-scan.steps'
 import * as sarifSteps from '@/lib/workflows/security-sarif-ingest.steps'
 import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { getRepoToken } from '@/lib/integrations/github/auth'
 import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
-import { falsifyExternalFinding } from '@/lib/llm/security-disposition-falsifier-client'
+import { falsifyExternalFinding } from '@/ee/security/llm/security-disposition-falsifier-client'
 import { SCANNING_OFF_NOTE } from '@/shared/src/security-scan'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
-const switchesRow = workspaceRepository.findSecuritySwitches as jest.Mock
+const switchesRow = securityColumnsRepository.findSecuritySwitches as jest.Mock
 const sandbox = scanRepositoryInSandboxStep as jest.Mock
 const resolve = sarifSteps.resolveSarifScanStep as jest.Mock
 const fetchNorm = sarifSteps.fetchAndNormalizeSarifStep as jest.Mock

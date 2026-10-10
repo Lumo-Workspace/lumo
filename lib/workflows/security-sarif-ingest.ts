@@ -20,7 +20,7 @@ import type {
   IngestResult,
   ResolveOutcome,
   SarifIngestJob,
-} from '@/lib/services/security-sarif-ingest.service'
+} from '@/ee/security/services/security-sarif-ingest.service'
 import {
   fetchAndNormalizeSarifStep,
   persistSarifFindingsStep,
@@ -31,7 +31,7 @@ import {
   markFailedBestEffort,
   suggestDispositionsBestEffort,
   syncPrReviewBestEffort,
-} from './security-scan-helpers'
+} from '@/ee/security/workflows/security-scan-helpers'
 
 /** How long a report that failed to ingest stays in blob storage. */
 export const SARIF_FAILED_BLOB_TTL = '24h'

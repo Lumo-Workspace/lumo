@@ -12,11 +12,11 @@ import {
   findingGroupKey,
   groupFindings,
   stageReason,
-} from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
+} from '@/ee/security/components/TaskDetailTimeline/security-summary'
 import type {
   SecurityScanView,
   TaskSecurityScans,
-} from '@/lib/services/pr-security-scan.service'
+} from '@/ee/security/services/pr-security-scan.service'
 
 function finding(over: Partial<SecurityScanView['findings'][number]> = {}) {
   return {

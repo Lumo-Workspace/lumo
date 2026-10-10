@@ -3,7 +3,7 @@ import {
   isPromptSafePath,
   neutralizeForPromptLine,
   PROMPT_PATH_MAX_CHARS,
-} from '@/lib/security-scan/hunt/prompt-safety'
+} from '@/ee/security/security-scan/hunt/prompt-safety'
 
 describe('LUM-758 follow-up — what may enter a prompt’s trusted region', () => {
   const UNSAFE: [string, string][] = [

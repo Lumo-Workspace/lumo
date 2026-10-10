@@ -14,7 +14,7 @@ import {
   isPersonalMediaTarget,
   isRootLevelTarget,
   matchDestructiveFs,
-} from '@/lib/boundary-crossing/destructive-fs'
+} from '@/ee/security/boundary-crossing/destructive-fs'
 
 const RMRF = ['rm', '-rf'].join(' ')
 const RMR = ['rm', '-r'].join(' ')

@@ -14,9 +14,9 @@ import type { TaskStatusSection } from '@/lib/plugins/types'
 import type {
   FindingProvenance,
   FindingSeverity,
-} from '@/lib/repositories/pr-security-scan.repository'
-import type { UnconfirmedPr } from '@/lib/security-scan/agent-reminder'
-import type { TaskSecurityScanSummary } from '@/lib/services/pr-security-reminder.service'
+} from '@/ee/security/repositories/pr-security-scan.repository'
+import type { UnconfirmedPr } from '@/ee/security/security-scan/agent-reminder'
+import type { TaskSecurityScanSummary } from '@/ee/security/services/pr-security-reminder.service'
 
 export interface NextActionSecurityFinding {
   kind: 'SECURITY_FINDING'
@@ -63,8 +63,8 @@ export async function securityTaskStatusSection(
   try {
     const [{ prSecurityReminderService }, { findingStatement }] =
       await Promise.all([
-        import('@/lib/services/pr-security-reminder.service'),
-        import('@/lib/security-scan/agent-reminder'),
+        import('@/ee/security/services/pr-security-reminder.service'),
+        import('@/ee/security/security-scan/agent-reminder'),
       ])
     const state =
       await prSecurityReminderService.loadOpenFindingsForTask(taskId)

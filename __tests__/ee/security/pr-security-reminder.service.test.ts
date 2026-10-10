@@ -7,14 +7,14 @@
  */
 
 // LUM-866: every workspace here has the default switches (all on).
-jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
-      .requireActual('@/lib/security-scan/workspace-switches')
+      .requireActual('@/ee/security/security-scan/workspace-switches')
       .resolveSecurityLayers(null),
 }))
-jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findLatestByPullRequestIds: jest.fn(),
     findUnnotifiedFindingScansByTask: jest.fn(),
@@ -24,9 +24,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 // LUM-740: the workspace policy read behind every "blocking" decision;
 // null = the 732 default these expectations were written against.
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findSecurityPolicy: jest.fn().mockResolvedValue(null),
-  },
+  workspaceRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findManyForSecurityByTaskId: jest.fn() },
@@ -37,14 +35,20 @@ jest.mock('@/lib/repositories/task.repository', () => ({
 // LUM-775: the default-branch baseline, read once per repo for merged/closed
 // PRs — the only witness to "is this still on main".
 jest.mock('@/lib/repositories/project.repository', () => ({
-  projectRepository: { findSecurityBaseline: jest.fn() },
+  projectRepository: {},
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    findSecurityBaseline: jest.fn(),
+  },
 }))
 
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { prSecurityReminderService } from '@/ee/security/services/pr-security-reminder.service'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { projectRepository } from '@/lib/repositories/project.repository'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const latest = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const unnotified =
@@ -52,7 +56,7 @@ const unnotified =
 const mark = prSecurityScanRepository.markAgentNotified as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 const header = taskRepository.findHeaderById as jest.Mock
-const baselineRead = projectRepository.findSecurityBaseline as jest.Mock
+const baselineRead = securityColumnsRepository.findSecurityBaseline as jest.Mock
 
 const finding = (over: object) => ({
   id: 'f',

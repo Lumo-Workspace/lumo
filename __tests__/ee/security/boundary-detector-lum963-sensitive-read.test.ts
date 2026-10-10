@@ -20,8 +20,8 @@ import {
   sensitiveReadsInCommand,
   shellWords,
   MAX_SENSITIVE_READS_PER_EVENT,
-} from '@/lib/boundary-crossing/sensitive-read'
-import { stubActionJudge } from '@/lib/boundary-crossing/align-eval'
+} from '@/ee/security/boundary-crossing/sensitive-read'
+import { stubActionJudge } from '@/ee/private/boundary-crossing/align-eval'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({

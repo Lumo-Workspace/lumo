@@ -12,15 +12,15 @@
  * built to answer "did placement work" could not tell "never placed" from
  * "placed, then rejected" — this task's own error, one level up.
  */
-import { buildSubgraph } from '@/lib/security-scan/graph/build-subgraph'
+import { buildSubgraph } from '@/ee/security/security-scan/graph/build-subgraph'
 import {
   mechanicalVerify,
   candidateSymbolRefs,
-} from '@/lib/security-scan/hunt/mechanical-verify'
+} from '@/ee/security/security-scan/hunt/mechanical-verify'
 import {
   fileSightingsInSource,
   sightingsInSource,
-} from '@/lib/security-scan/hunt/repo-symbols'
+} from '@/ee/security/security-scan/hunt/repo-symbols'
 
 const ROUTE = 'app/api/tasks/[id]/route.ts'
 const AI = 'lib/ai/summary.ts'

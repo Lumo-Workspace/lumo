@@ -16,7 +16,7 @@ import {
   renderFindingsForPrompt,
   verifyFindings,
   type VerifierFinding,
-} from '@/lib/llm/review-verifier-client'
+} from '@/ee/security/llm/review-verifier-client'
 
 const gen = generateText as jest.Mock
 const finding = (id: string): VerifierFinding => ({

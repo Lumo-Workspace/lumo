@@ -98,7 +98,7 @@ function numbered(lines: string[]): string {
 
 export async function verdicts(v: Variant, runs: number): Promise<Verdict[]> {
   const { falsifyCandidate } =
-    await import('@/lib/llm/security-falsifier-client')
+    await import('@/ee/security/llm/security-falsifier-client')
   const entryLine =
     v.lines.findIndex(l => l.includes('export async function POST')) + 1
   const sinkLine = v.lines.findIndex(l => l.includes('exec(`')) + 1

@@ -36,7 +36,7 @@ import {
   createRepoSandbox,
   denySandboxEgress,
   repoCheckoutDir,
-} from '../../../lib/integrations/vercel-sandbox'
+} from '@/ee/security/integrations/vercel-sandbox'
 import {
   HUNT_SANDBOX_TAG,
   probeHuntTools,
@@ -44,12 +44,12 @@ import {
   scrubCloneCredentials,
   stopHuntSandbox,
   type HuntSandbox,
-} from '../../../lib/services/security-hunt-sandbox'
+} from '@/ee/security/services/security-hunt-sandbox'
 import {
   SANDBOX_IMAGE,
   SANDBOX_TIMEOUT_WITH_HUNT_MS,
   SANDBOX_VCPUS,
-} from '../../../lib/services/security-managed-scan.config'
+} from '@/ee/security/services/security-managed-scan.config'
 import {
   HUNT_MAX_STEPS_PER_CATEGORY,
   HUNT_SHELL_LOG_CHARS,
@@ -67,25 +67,25 @@ import {
   type HuntTask,
   type HuntTaskAudit,
   type HuntToolProbe,
-} from '../../../lib/services/security-hunt.config'
-import { huntTask } from '../../../lib/llm/security-hunt-client'
-import { addedLinesWithNumbers } from '../../../lib/security-scan/diff-lines'
+} from '@/ee/security/services/security-hunt.config'
+import { huntTask } from '@/ee/security/llm/security-hunt-client'
+import { addedLinesWithNumbers } from '@/ee/security/security-scan/diff-lines'
 import {
   evaluateHuntTrigger,
   type HuntSignalSite,
-} from '../../../lib/security-scan/hunt/trigger'
-import { categoriesToTasks } from '../../../lib/security-scan/hunt/plan-fallback'
+} from '@/ee/security/security-scan/hunt/trigger'
+import { categoriesToTasks } from '@/ee/security/security-scan/hunt/plan-fallback'
 import {
   allocateTaskBudgets,
   isOversized,
   plannedTaskCap,
-} from '../../../lib/security-scan/hunt/allocation'
-import { isGraphSourcePath } from '../../../lib/security-scan/graph/imports'
+} from '@/ee/security/security-scan/hunt/allocation'
+import { isGraphSourcePath } from '@/ee/security/security-scan/graph/imports'
 import {
   admitStepOutput,
   newStepLedger,
-} from '../../../lib/security-scan/hunt/step-output'
-import { redactKnownSecrets } from '../../../lib/security-scan'
+} from '@/ee/security/security-scan/hunt/step-output'
+import { redactKnownSecrets } from '@/ee/security/security-scan'
 import { formatShellDetail } from '../lum739-hunt-audit/aggregate'
 
 interface Args {

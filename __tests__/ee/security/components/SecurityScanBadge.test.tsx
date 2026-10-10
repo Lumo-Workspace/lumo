@@ -32,7 +32,7 @@ import { SecurityScanBadge } from '@/ee/security/ui/pr-scan-badge'
 import type {
   SecurityFindingView,
   SecurityScanView,
-} from '@/lib/services/pr-security-scan.service'
+} from '@/ee/security/services/pr-security-scan.service'
 
 const finding = (severity: 'LOW' | 'MEDIUM' | 'HIGH'): SecurityFindingView =>
   ({

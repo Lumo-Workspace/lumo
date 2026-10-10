@@ -24,16 +24,16 @@ import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { prisma } from '../../../lib/db/prisma'
-import { prSecurityScanRepository } from '../../../lib/repositories/pr-security-scan.repository'
-import { addedLinesWithNumbers } from '../../../lib/security-scan/diff-lines'
-import { evaluateHuntTrigger } from '../../../lib/security-scan/hunt/trigger'
-import { isGraphSourcePath } from '../../../lib/security-scan/graph/imports'
-import { renderHuntTaskContext } from '../../../lib/security-scan/hunt/task-context'
-import { loadHuntTaskContext } from '../../../lib/services/security-hunt-task-context'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { addedLinesWithNumbers } from '@/ee/security/security-scan/diff-lines'
+import { evaluateHuntTrigger } from '@/ee/security/security-scan/hunt/trigger'
+import { isGraphSourcePath } from '@/ee/security/security-scan/graph/imports'
+import { renderHuntTaskContext } from '@/ee/security/security-scan/hunt/task-context'
+import { loadHuntTaskContext } from '@/ee/security/services/security-hunt-task-context'
 import {
   buildPlanPrompt,
   type PlanClientInput,
-} from '../../../lib/llm/security-hunt-plan-client'
+} from '@/ee/security/llm/security-hunt-plan-client'
 
 export interface CorpusEntry {
   id: string

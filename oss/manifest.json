@@ -6,16 +6,12 @@
       "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
     },
     {
-      "glob": "ee/**",
-      "reason": "LUM-1061 (RFC LUM-1058 §7 PR2): plugin entry points; until PR6 the implementations they register still live under lib/** and ship with it, so the entry ships too. PR6 moves this to exclude together with the lib/plugins/installed.ts overlay"
-    },
-    {
       "glob": "components/**",
       "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
     },
     {
       "glob": "lib/**",
-      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code (D2: security scan / crossing detection ship with the core)"
+      "reason": "LUM-1033 ruling D1 (2026-10-06): public product code. The security plugin is not core (MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6)): its files live in ee/ or are excluded below"
     },
     {
       "glob": "cli/**",
@@ -72,10 +68,6 @@
     {
       "glob": "test-utils/**",
       "reason": "test helpers (LUM-1033 2/5: PUBLIC)"
-    },
-    {
-      "glob": "security/**",
-      "reason": "LUM-1033 ruling D2: security scanning ships with the core (semgrep rules + fixtures)"
     },
     {
       "glob": ".claude/skills/lumo/**",
@@ -268,6 +260,98 @@
       "reason": "export tooling"
     },
     {
+      "glob": "ee/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — the plugin tree (implementation + server/client entries); proprietary, never in the MIT snapshot"
+    },
+    {
+      "glob": "lib/plugins/installed.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — the server list of installed plugins names ee/security/server; the snapshot gets the empty list from oss/overlay/lib/plugins/installed.ts (RFC §3.3)"
+    },
+    {
+      "glob": "lib/plugins/installed.client.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — the client list of installed plugins names ee/security/client; the snapshot gets the empty list from oss/overlay/lib/plugins/installed.client.ts (RFC §3.3)"
+    },
+    {
+      "glob": "app/api/cron/prune-security-sarif/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/sweep-expired-scan-evidence/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/sweep-security-scans/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/sweep-unconfirmed-scan-code/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/cron/triage-crossings/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — cron route (App Router file route); its vercel.json / crontab entry is dropped by the transforms below"
+    },
+    {
+      "glob": "app/api/integrations/security/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/internal/policy-check/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/internal/pr-security-scan/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/pull-requests/[number]/scans/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/tasks/[id]/boundary-crossings/[crossingId]/system-explain/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/tasks/[id]/security-findings/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/tasks/[id]/security-scans/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "app/api/workspaces/me/security-scan/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
+    },
+    {
+      "glob": "lib/workflows/review-verifier*.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — Vercel Workflows file ('use workflow' / 'use step'): workflow and step ids are derived from the file path (`workflow//./<path>//<fn>`), so moving it would orphan runs in flight across a deploy; it stays in lib/workflows/"
+    },
+    {
+      "glob": "lib/workflows/security-*.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — Vercel Workflows file ('use workflow' / 'use step'): workflow and step ids are derived from the file path (`workflow//./<path>//<fn>`), so moving it would orphan runs in flight across a deploy; it stays in lib/workflows/"
+    },
+    {
+      "glob": "security/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — semgrep rules + their deliberately-vulnerable fixtures (managed scan, LUM-785); kept in place because tsconfig.json / eslint exclude this path so the fixtures are never compiled or linted, and scripts/security/semgrep-rules-test.ts reads it by path"
+    },
+    {
+      "glob": "scripts/security/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — operator scripts that drive the scan sandbox / hunt / falsifier (LUM-1064 scope note ①); kept in place because the shipped semgrep rule header names scripts/security/semgrep-rules-test.ts"
+    },
+    {
+      "glob": "scripts/backfill-prv-rejudge.ts",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — one-off re-judge of policy-rule crossings; imports the plugin policy compiler (LUM-1064 scope note ①)"
+    },
+    {
+      "glob": "__tests__/ee/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — plugin and private-evaluation tests (LUM-1064 split them out of the core tests)"
+    },
+    {
+      "glob": "test-utils/ee/**",
+      "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — plugin test helpers, including the core/plugin boundary table"
+    },
+    {
       "glob": "scripts/analysis/**",
       "reason": "LUM-1033 D1/D2: evaluation, tuning evidence and benchmarks move to private"
     },
@@ -403,6 +487,20 @@
       "type": "dropLines",
       "pattern": "^scripts/(analysis|eval)/",
       "reason": "entries for excluded output files"
+    },
+    {
+      "file": "vercel.json",
+      "type": "jsonArrayFilter",
+      "path": ["crons"],
+      "key": "path",
+      "pattern": "^/api/cron/(prune-security-sarif|sweep-expired-scan-evidence|sweep-security-scans|sweep-unconfirmed-scan-code|triage-crossings)$",
+      "reason": "LUM-1065 (RFC §3.4 cron): the security plugin's cron routes are excluded, so their schedules would call a 404"
+    },
+    {
+      "file": "deploy/self-host/crontab",
+      "type": "dropLines",
+      "pattern": " /api/cron/(prune-security-sarif|sweep-expired-scan-evidence|sweep-security-scans|sweep-unconfirmed-scan-code|triage-crossings)$",
+      "reason": "LUM-1065: same jobs as the vercel.json filter (the crontab is generated from vercel.json; __tests__/self-host-cron.test.ts keeps the two in step in the snapshot too)"
     }
   ],
   "configRefFiles": [
@@ -514,6 +612,16 @@
       "id": "prod-host:neon-endpoint",
       "pattern": "ep-[a-z]+-[a-z]+-[a-z0-9]+(-pooler)?\\.[a-z0-9-]+\\.aws\\.neon\\.tech",
       "reason": "real Neon endpoint shape (LUM-1033 4/5); placeholders must not look real"
+    },
+    {
+      "id": "plugin-import:ee",
+      "pattern": "['\"`](@/|(\\.\\./)+)ee/",
+      "reason": "LUM-1065: nothing in the snapshot may import the excluded plugin tree (ee/), not even a test or a doc example"
+    },
+    {
+      "id": "plugin-table:delegate",
+      "pattern": "\\.(prSecurityScan|prSecurityFinding|projectPolicy)\\b",
+      "reason": "LUM-1065 (RFC §4 option A): the plugin tables stay in the schema, but no shipped code or test reads or writes them through the Prisma client"
     }
   ]
 }

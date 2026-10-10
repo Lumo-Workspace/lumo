@@ -37,15 +37,17 @@ jest.mock('react-intl', () => ({
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }))
-jest.mock('@/lib/api-client', () => ({
-  tasksClient: { dispositionSecurityFinding: jest.fn().mockResolvedValue({}) },
+jest.mock('@/ee/security/api-client', () => ({
+  securityScanClient: {
+    dispositionSecurityFinding: jest.fn().mockResolvedValue({}),
+  },
 }))
 const useSecurityScans = jest.fn()
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
 }))
 
-import { BlockingSecurityFindings } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
+import { BlockingSecurityFindings } from '@/ee/security/components/TaskDetailTimeline/SecurityScanSection'
 
 const finding = (over: object) => ({
   id: 'f1',

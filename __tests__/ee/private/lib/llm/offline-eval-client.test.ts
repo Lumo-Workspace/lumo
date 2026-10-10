@@ -11,7 +11,7 @@ jest.mock('@/lib/ai/gateway', () => ({
 
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { generateEvalObject } from '@/lib/llm/offline-eval-client'
+import { generateEvalObject } from '@/ee/private/llm/offline-eval-client'
 
 const mockGenerate = generateObject as jest.Mock
 const schema = z.object({ suspicion: z.number() })
