@@ -6,7 +6,8 @@
  *   oauthProvider()  @better-auth/oauth-provider: /oauth2/authorize, /token,
  *                    /register (RFC 7591), /consent, /revoke, /introspect
  *   lumoMcpOAuth     Lumo's policy on top (./mcp-oauth-config): registration
- *                    redirect-URI rules, mandatory PKCE S256, and a
+ *                    redirect-URI rules (incl. the allowlisted app schemes,
+ *                    LUM-1073), mandatory PKCE S256, and a
  *                    server-only token check used by /api/mcp
  *
  * Package docs are not shipped with the npm tarball; the options used here are
@@ -37,6 +38,7 @@ import {
   MCP_REGISTER_RATE_LIMIT,
   checkAuthorizationPkce,
   checkClientRegistration,
+  restoreNativeSchemeRedirectUris,
   type McpOAuthUrls,
 } from './mcp-oauth-config'
 
@@ -153,6 +155,56 @@ function lumoMcpOAuthPlugin(providerOptions: OAuthOptions<Scope[]>) {
               // Plain 400, never a redirect: redirect_uri is not validated yet.
               if (problem) throw badRequest('invalid_request', problem)
             }
+          }),
+        },
+      ],
+      after: [
+        {
+          // LUM-1073: the registration hook above handed Better Auth
+          // placeholders for allowlisted app-scheme redirect URIs
+          // (cursor://…); write the real URIs back to the stored client and
+          // to the RFC 7591 response, so /oauth2/authorize matches them
+          // exactly (validateRedirectUri) and the client sees what it sent.
+          matcher: ctx => ctx.path === '/oauth2/register',
+          handler: createAuthMiddleware(async ctx => {
+            const returned = ctx.context.returned
+            if (!returned || typeof returned !== 'object') return
+            if (returned instanceof Response || returned instanceof Error) {
+              return
+            }
+            const client = returned as Record<string, unknown>
+            const restored = restoreNativeSchemeRedirectUris(
+              client.redirect_uris
+            )
+            const clientId = client.client_id
+            if (!restored || typeof clientId !== 'string') return
+            const model =
+              providerOptions.schema?.oauthClient?.modelName ?? 'oauthClient'
+            const where = [{ field: 'clientId', value: clientId }]
+            try {
+              const updated = await ctx.context.adapter.update({
+                model,
+                where,
+                update: { redirectUris: restored, updatedAt: new Date() },
+              })
+              if (!updated) throw new Error('client row not found')
+            } catch (error) {
+              // Fail closed: a client left with placeholders could never
+              // complete an authorization anyway — remove it and report.
+              ctx.context.logger.error(
+                'MCP OAuth: restoring app-scheme redirect URIs failed',
+                error
+              )
+              await ctx.context.adapter
+                .delete({ model, where })
+                .catch(() => undefined)
+              throw new APIError('INTERNAL_SERVER_ERROR', {
+                error: 'server_error',
+                error_description: 'client registration could not be completed',
+              })
+            }
+            ctx.setStatus(201)
+            return ctx.json({ ...client, redirect_uris: restored })
           }),
         },
       ],

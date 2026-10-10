@@ -24,6 +24,28 @@ export const mcpConnectionRepository = {
     })
   },
 
+  /**
+   * The user's most recently used other connection from a client of the same
+   * name that has a workspace bound — what a re-registered client (new OAuth
+   * client id, e.g. after the auth-provider switch, LUM-1073) inherits.
+   */
+  findLatestBoundSibling(
+    clerkUserId: string,
+    clientName: string,
+    excludeId: string
+  ) {
+    return prisma.mcpConnection.findFirst({
+      where: {
+        clerkUserId,
+        clientName,
+        id: { not: excludeId },
+        activeWorkspaceId: { not: null },
+      },
+      orderBy: { lastUsedAt: 'desc' },
+      select: { activeWorkspaceId: true },
+    })
+  },
+
   upsertOnConnect(input: UpsertOnConnectInput) {
     return prisma.mcpConnection.upsert({
       where: {
@@ -45,11 +67,7 @@ export const mcpConnectionRepository = {
     })
   },
 
-  setActiveWorkspace(
-    id: string,
-    workspaceId: string,
-    opts: { auto: boolean }
-  ) {
+  setActiveWorkspace(id: string, workspaceId: string, opts: { auto: boolean }) {
     return prisma.mcpConnection.update({
       where: { id },
       data: {
