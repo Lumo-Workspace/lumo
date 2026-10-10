@@ -36,7 +36,7 @@ describe('self-hosting integrations guide', () => {
     }
   })
 
-  it('lists exactly the Slack scopes the install link requests', () => {
+  it('lists every Slack scope the install link requests, and no other', () => {
     const route = read('app/api/slack/oauth/route.ts')
     const block = route.slice(
       route.indexOf('const SLACK_SCOPES = ['),
@@ -45,11 +45,15 @@ describe('self-hosting integrations guide', () => {
     const scopes = [...block.matchAll(/'([a-z_.:]+)'/g)].map(m => m[1]!)
     expect(scopes.length).toBeGreaterThan(5)
     for (const s of scopes) expect(doc).toContain(`\`${s}\``)
+    // The bot-scope table under ## Slack names no scope the link does not ask for.
+    const slack = doc.slice(doc.indexOf('## Slack'), doc.indexOf('## Figma'))
+    const table = [...slack.matchAll(/^\s*\| `([a-z_.:]+)`/gm)].map(m => m[1]!)
+    expect(table.sort()).toEqual([...scopes].sort())
   })
 
   it('lists the Figma and Google Drive scopes', () => {
     for (const s of [...FIGMA_OAUTH_SCOPES, ...GOOGLE_DRIVE_OAUTH_SCOPES])
-      expect(doc).toContain(s)
+      expect(doc).toContain(`\`${s}\``)
   })
 
   it('lists every GitHub webhook event the route handles', () => {

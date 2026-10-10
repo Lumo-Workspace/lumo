@@ -6,7 +6,7 @@
  * App webhook with a signed `ping`: 200 when GITHUB_APP_WEBHOOK_SECRET
  * matches, 401 when it does not. Hold the route to that contract.
  */
-import { createHmac } from 'crypto'
+import { createHmac, randomBytes } from 'crypto'
 import { NextRequest } from 'next/server'
 
 jest.mock('@/lib/services/github.service', () => ({
@@ -29,7 +29,8 @@ jest.mock('@/app/api/webhooks/github/handlers', () => ({}))
 
 import { POST } from '@/app/api/webhooks/github/route'
 
-const SECRET = 'placeholder-webhook-secret'
+// Generated per run: no credential-shaped literal in the source.
+const SECRET = randomBytes(16).toString('hex')
 const BODY = '{"zen":"test","hook_id":1}'
 
 function ping(signature: string) {
@@ -50,7 +51,8 @@ describe('GitHub App webhook ping (integrations.md verification step)', () => {
     process.env.GITHUB_APP_WEBHOOK_SECRET = SECRET
   })
   afterAll(() => {
-    process.env.GITHUB_APP_WEBHOOK_SECRET = prev
+    if (prev === undefined) delete process.env.GITHUB_APP_WEBHOOK_SECRET
+    else process.env.GITHUB_APP_WEBHOOK_SECRET = prev
   })
 
   it('answers 200 to a ping signed with the App webhook secret', async () => {
@@ -60,7 +62,7 @@ describe('GitHub App webhook ping (integrations.md verification step)', () => {
   })
 
   it('answers 401 when the secret does not match', async () => {
-    const sig = `sha256=${createHmac('sha256', 'another-secret').update(BODY).digest('hex')}`
+    const sig = `sha256=${createHmac('sha256', `${SECRET}-wrong`).update(BODY).digest('hex')}`
     const res = await POST(ping(sig))
     expect(res.status).toBe(401)
   })
