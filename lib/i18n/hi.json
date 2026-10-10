@@ -10,6 +10,7 @@
   "securityScan.review.queued": "समीक्षा का अनुरोध किया गया। पूरी होने पर परिणाम दिखेंगे।",
   "securityScan.review.stale": "नवीनतम कमिट अभी स्कैन नहीं हुआ है। ये पुराने कमिट के परिणाम हैं।",
   "auth.divider.or": "या",
+  "auth.error.accountSuspended": "यह खाता निलंबित कर दिया गया है। अगर आपको लगता है कि यह गलती है, तो सहायता टीम से संपर्क करें।",
   "auth.error.generic": "कुछ गलत हो गया। कृपया फिर से कोशिश करें।",
   "auth.error.invalidCredentials": "ईमेल या पासवर्ड गलत है।",
   "auth.error.passwordTooShort": "पासवर्ड कम से कम 8 अक्षरों का होना चाहिए।",

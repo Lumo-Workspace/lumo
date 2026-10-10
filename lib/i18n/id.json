@@ -10,6 +10,7 @@
   "securityScan.review.queued": "Tinjauan diminta. Hasil akan muncul setelah selesai.",
   "securityScan.review.stale": "Commit terbaru belum dipindai. Ini hasil commit sebelumnya.",
   "auth.divider.or": "atau",
+  "auth.error.accountSuspended": "Akun ini telah ditangguhkan. Hubungi dukungan jika menurut Anda ini sebuah kesalahan.",
   "auth.error.generic": "Terjadi kesalahan. Silakan coba lagi.",
   "auth.error.invalidCredentials": "Email atau kata sandi salah.",
   "auth.error.passwordTooShort": "Kata sandi minimal 8 karakter.",

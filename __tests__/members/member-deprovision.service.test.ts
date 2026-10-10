@@ -85,4 +85,87 @@ describe('LUM-906 deprovisioning and integration cleanup', () => {
     expect(mockDeactivate).not.toHaveBeenCalled()
     expect(mockAudit).not.toHaveBeenCalled()
   })
+
+  it('deprovision plan (LUM-1071) reports per-membership actions and writes nothing', async () => {
+    mockFindAll.mockResolvedValue([
+      { id: 'm1', workspaceId: 'ws-1', role: 'MEMBER', deactivatedAt: null },
+      { id: 'm2', workspaceId: 'ws-2', role: 'OWNER', deactivatedAt: null },
+      { id: 'm3', workspaceId: 'ws-3', role: 'OWNER', deactivatedAt: null },
+      {
+        id: 'm4',
+        workspaceId: 'ws-4',
+        role: 'MEMBER',
+        deactivatedAt: new Date(),
+      },
+    ])
+    mockCountOwners.mockImplementation(async (ws: string) =>
+      ws === 'ws-2' ? 1 : 2
+    )
+
+    const plan = await memberDeprovisionService.planDeprovision('user_1')
+
+    expect(plan.map(p => [p.memberId, p.action])).toEqual([
+      ['m1', 'deactivate'],
+      ['m2', 'keep_last_owner'],
+      ['m3', 'deactivate'],
+      ['m4', 'none'],
+    ])
+    expect(mockDeactivate).not.toHaveBeenCalled()
+    expect(mockAudit).not.toHaveBeenCalled()
+  })
+
+  it('deprovision for a Better Auth ban (LUM-1071) audits the AUTH_USER_BANNED reason and the trigger', async () => {
+    mockFindAll.mockResolvedValue([
+      { id: 'm1', workspaceId: 'ws-1', role: 'MEMBER', deactivatedAt: null },
+    ])
+    mockCleanup.mockResolvedValue(true)
+
+    await memberDeprovisionService.deprovisionUser(
+      {
+        userId: 'user_1',
+        reason: 'AUTH_USER_BANNED',
+        auditMetadata: { trigger: 'auth-admin' },
+      },
+      CTX
+    )
+
+    expect(mockFindAll).toHaveBeenCalledWith('user_1')
+    expect(mockDeactivate).toHaveBeenCalledWith('m1', 'AUTH_USER_BANNED')
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'member.deprovisioned',
+        metadata: {
+          reason: 'AUTH_USER_BANNED',
+          clerkUserId: 'user_1',
+          trigger: 'auth-admin',
+          role: 'MEMBER',
+          apiKeysRevoked: 2,
+        },
+      })
+    )
+  })
+
+  it('deprovision from the Clerk webhook keeps its exact audit metadata', async () => {
+    mockFindAll.mockResolvedValue([
+      { id: 'm1', workspaceId: 'ws-1', role: 'MEMBER', deactivatedAt: null },
+    ])
+    mockCleanup.mockResolvedValue(true)
+
+    await memberDeprovisionService.deprovisionClerkUser(TRIGGER, CTX)
+
+    expect(mockAudit.mock.calls[0]![0]).toMatchObject({
+      metadata: {
+        reason: 'CLERK_USER_DELETED',
+        clerkUserId: 'user_1',
+        webhookId: 'msg_1',
+        role: 'MEMBER',
+        apiKeysRevoked: 2,
+      },
+    })
+    expect(
+      Object.keys(
+        (mockAudit.mock.calls[0]![0] as { metadata: object }).metadata
+      )
+    ).toEqual(['reason', 'clerkUserId', 'webhookId', 'role', 'apiKeysRevoked'])
+  })
 })

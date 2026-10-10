@@ -37,6 +37,8 @@ const ERROR_MESSAGE_IDS: Record<string, string> = {
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'auth.error.userExists',
   PASSWORD_TOO_SHORT: 'auth.error.passwordTooShort',
   EMAIL_PASSWORD_SIGN_UP_DISABLED: 'auth.error.signUpDisabled',
+  // LUM-1071: the admin plugin refuses a session for a banned user.
+  BANNED_USER: 'auth.error.accountSuspended',
 }
 
 export function errorMessageId(code: string | null | undefined): string {

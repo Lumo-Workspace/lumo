@@ -10,6 +10,7 @@
   "securityScan.review.queued": "已要求複審，完成後將顯示結果。",
   "securityScan.review.stale": "最新提交尚未掃描，以下是較早提交的結果。",
   "auth.divider.or": "或",
+  "auth.error.accountSuspended": "此帳號已被停用。如認為有誤，請聯絡支援團隊。",
   "auth.error.generic": "發生錯誤，請再試一次。",
   "auth.error.invalidCredentials": "電子郵件或密碼不正確。",
   "auth.error.passwordTooShort": "密碼至少需要 8 個字元。",

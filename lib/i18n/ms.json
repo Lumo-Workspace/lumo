@@ -10,6 +10,7 @@
   "securityScan.review.queued": "Semakan diminta. Hasil akan muncul apabila selesai.",
   "securityScan.review.stale": "Komit terkini belum diimbas. Ini hasil komit terdahulu.",
   "auth.divider.or": "atau",
+  "auth.error.accountSuspended": "Akaun ini telah digantung. Hubungi sokongan jika anda rasa ini satu kesilapan.",
   "auth.error.generic": "Sesuatu tidak kena. Sila cuba lagi.",
   "auth.error.invalidCredentials": "E-mel atau kata laluan salah.",
   "auth.error.passwordTooShort": "Kata laluan mesti sekurang-kurangnya 8 aksara.",

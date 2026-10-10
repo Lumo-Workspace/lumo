@@ -15,6 +15,12 @@
  * already deactivated (or no live key) and changes nothing; if a personal
  * integration cleanup failed, the delivery fails and the retry finishes it.
  * Re-enabling a banned user restores nothing; only a new invite does.
+ *
+ * LUM-1071: the same deprovisioning serves Better Auth mode, where an
+ * operator bans or removes a user (lib/services/auth-user-admin.service.ts,
+ * reasons AUTH_USER_BANNED / AUTH_USER_DELETED). `deprovisionUser` is the
+ * provider-neutral core; `deprovisionClerkUser` is the webhook's entry and
+ * behaves exactly as before.
  */
 import { logger } from '@/lib/logger'
 import type { MemberDeactivationReason } from '@/lib/members/deactivation'
@@ -24,6 +30,32 @@ import {
   type AuditContext,
 } from '@/lib/services/audit.service'
 import { removeMemberIntegrationsSafely } from '@/lib/services/member-integrations.service'
+
+/** A provider-neutral deprovisioning request (LUM-1071). */
+export interface UserDeprovisionTrigger {
+  /** The auth provider's user id — what WorkspaceMember.clerkId stores. */
+  userId: string
+  reason: Extract<
+    MemberDeactivationReason,
+    | 'CLERK_USER_DELETED'
+    | 'CLERK_USER_BANNED'
+    | 'AUTH_USER_DELETED'
+    | 'AUTH_USER_BANNED'
+  >
+  /**
+   * Audit metadata naming the trigger (the webhook's svix-id, the operator
+   * script…); merged after `reason` and `clerkUserId`. Never personal data.
+   */
+  auditMetadata: Record<string, string | null>
+}
+
+/** What deprovisioning would do to one membership (read-only plan). */
+export interface DeprovisionPlanEntry {
+  workspaceId: string
+  memberId: string
+  role: string
+  action: 'deactivate' | 'keep_last_owner' | 'none'
+}
 
 export interface ClerkDeprovisionTrigger {
   clerkUserId: string
@@ -86,16 +118,59 @@ export const memberDeprovisionService = {
     trigger: ClerkDeprovisionTrigger,
     audit: AuditContext
   ): Promise<DeprovisionOutcome[]> {
+    return memberDeprovisionService.deprovisionUser(
+      {
+        userId: trigger.clerkUserId,
+        reason: trigger.reason,
+        auditMetadata: { webhookId: trigger.webhookId },
+      },
+      audit
+    )
+  },
+
+  /**
+   * What `deprovisionUser` would do to each membership of `userId`, without
+   * writing anything (the operator scripts' dry run). Same last-OWNER rule.
+   */
+  async planDeprovision(userId: string): Promise<DeprovisionPlanEntry[]> {
+    const memberships =
+      await memberRepository.findAllByClerkIdIncludingDeactivated(userId)
+    const plan: DeprovisionPlanEntry[] = []
+    for (const m of memberships) {
+      const entry = { workspaceId: m.workspaceId, memberId: m.id, role: m.role }
+      if (m.deactivatedAt !== null) {
+        plan.push({ ...entry, action: 'none' })
+      } else if (
+        m.role === 'OWNER' &&
+        (await memberRepository.countOwners(m.workspaceId)) <= 1
+      ) {
+        plan.push({ ...entry, action: 'keep_last_owner' })
+      } else {
+        plan.push({ ...entry, action: 'deactivate' })
+      }
+    }
+    return plan
+  },
+
+  /**
+   * Deactivate every active membership of `trigger.userId`, whichever auth
+   * provider it comes from (see the module comment). Returns one outcome per
+   * membership touched.
+   */
+  async deprovisionUser(
+    trigger: UserDeprovisionTrigger,
+    audit: AuditContext
+  ): Promise<DeprovisionOutcome[]> {
     const memberships =
       await memberRepository.findAllByClerkIdIncludingDeactivated(
-        trigger.clerkUserId
+        trigger.userId
       )
     let cleanupFailed = false
     const outcomes: DeprovisionOutcome[] = []
     const base = {
       reason: trigger.reason,
-      clerkUserId: trigger.clerkUserId,
-      webhookId: trigger.webhookId,
+      clerkUserId: trigger.userId,
+      ...trigger.auditMetadata,
     }
 
     for (const m of memberships) {
@@ -182,8 +257,9 @@ export const memberDeprovisionService = {
       })
     }
     if (cleanupFailed) {
-      // Fail the delivery so Clerk retries; the retry only finishes the
-      // integration cleanup (deactivation is already done and idempotent).
+      // Fail the delivery so Clerk retries (or the operator re-runs the
+      // script); the retry only finishes the integration cleanup
+      // (deactivation is already done and idempotent).
       throw Object.assign(
         new Error('Personal integration cleanup failed; will retry'),
         { status: 500 }

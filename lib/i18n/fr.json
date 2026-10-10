@@ -10,6 +10,7 @@
   "securityScan.review.queued": "Revue demandée. Les résultats apparaîtront une fois terminée.",
   "securityScan.review.stale": "Le dernier commit n’a pas encore été analysé. Ces résultats concernent un commit précédent.",
   "auth.divider.or": "ou",
+  "auth.error.accountSuspended": "Ce compte a été suspendu. Contactez le support si vous pensez qu'il s'agit d'une erreur.",
   "auth.error.generic": "Une erreur s'est produite. Veuillez réessayer.",
   "auth.error.invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
   "auth.error.passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
