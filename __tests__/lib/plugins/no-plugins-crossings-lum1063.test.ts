@@ -155,6 +155,7 @@ import { loadPolicyRulesForProject } from '@/lib/services/memory/write-gate'
 import { emitCoreEvent } from '@/lib/plugins/events'
 import { getPluginRegistry } from '@/lib/plugins/registry'
 import type { PolicyRule } from '@/lib/policy/types'
+import { rejudgeRow } from '@/lib/boundary-crossing/rejudge'
 
 const FIXTURE = JSON.parse(
   readFileSync(
@@ -407,6 +408,32 @@ describe('LUM-1063 crossings without a plugin', () => {
       readSource: async () => `## Forbidden\n- ${text}\n`,
     })
     expect(injected).toMatchObject({ judged: 1, downgraded: 1 })
+  })
+
+  it('the LUM-772 PRV backfill decides nothing without a rule detector (never "no longer matches")', () => {
+    const rule: PolicyRule = {
+      id: 'r1',
+      text: 'Never run vercel deploy --prod',
+      kind: 'action',
+      tier: 'deterministic',
+      severity: 'HIGH',
+      blocking: false,
+      predicate: { type: 'cmd-substr', value: 'vercel deploy --prod' },
+    }
+    expect(
+      rejudgeRow(
+        {
+          id: 'x',
+          taskId: 't1',
+          projectId: 'p1',
+          policyRuleRef: 'r1',
+          policyRuleText: rule.text,
+          detail: 'npx vercel deploy --prod',
+          command: 'npx vercel deploy --prod',
+        },
+        [rule]
+      )
+    ).toMatchObject({ verdict: 'NO_POLICY' })
   })
 
   it('refuses a system explanation with 501 and persists nothing', async () => {

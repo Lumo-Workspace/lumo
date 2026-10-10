@@ -1116,6 +1116,15 @@ function detectWithRules(
 }
 
 /**
+ * LUM-1063: whether an installed detector judges project policy rules at all.
+ * Without one, `detectProjectActionCrossings` is `[]` for every command — a
+ * caller must not read that as "the rule no longer matches".
+ */
+export function projectRuleDetectionInstalled(): boolean {
+  return pluginCrossingDetectors().some(d => d.detectWithRules != null)
+}
+
+/**
  * The crossings the project's compiled ACTION rules raise for an event
  * (LUM-590 PROJECT_RULE_VIOLATION). LUM-1063: the predicates are produced by
  * the plugin's LLM compiler and judged by its detector, so this reads the
