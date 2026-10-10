@@ -1,0 +1,12 @@
+id,first_name,last_name,username,primary_email_address,primary_phone_number,verified_email_addresses,unverified_email_addresses,verified_phone_numbers,unverified_phone_numbers,totp_secret,password_digest,password_hasher
+user_2pwOnly0001,Ada,Lovelace,,ada@example.com,,ada@example.com,,,,,{{BCRYPT_ADA}},bcrypt
+user_2ghOnly0002,Grace,Hopper,,grace@example.com,,grace@example.com,,,,,,
+user_2goOnly0003,Alan,Turing,,alan@example.com,,alan@example.com,,,,,,
+user_2pwAndGh0004,"Mary ""Ann""",Jackson,,mary@example.com,,"mary@example.com,mary.work@example.com",,,,,{{BCRYPT_MARY}},bcrypt
+user_2unverif0005,Kat,Johnson,,KAT@Example.com,,,KAT@Example.com,,,,{{BCRYPT_KAT}},bcrypt
+user_2banned00006,Bad,Actor,,banned@example.com,,banned@example.com,,,,,{{BCRYPT_BANNED}},bcrypt
+user_2caseA000007,Case,Upper,,Dup@example.com,,Dup@example.com,,,,,,
+user_2caseB000008,Case,Lower,,dup@example.com,,dup@example.com,,,,,,
+user_2noEmail0009,,,phoneuser,,+15555550100,,,+15555550100,,,,
+user_2argon00010,Ar,Gon,,argon@example.com,,argon@example.com,,,,,$argon2id$v=19$m=65536$c29tZXNhbHQ$ZmFrZQ,argon2id
+user_2mfa0000011,Mfa,User,,mfa@example.com,,mfa@example.com,,,,not-a-real-totp,{{BCRYPT_MFA}},bcrypt
