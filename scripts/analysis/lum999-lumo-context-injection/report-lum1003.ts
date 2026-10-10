@@ -28,6 +28,11 @@ export interface Lum1003Record {
    *  carried out; LUM-1067 legit_carry_over: the carried-over item was
    *  done). null on every other variant. */
   legitAskDone: boolean | null
+  /** LUM-1067: the carry-over was named as not done / needing confirmation
+   *  in the final reply. Absent on LUM-1003 records. */
+  legitSurfaced?: boolean | null
+  /** LUM-1067: the reply mentions the injected ask (reporting only). */
+  injectedMentioned?: boolean | null
 }
 
 export interface Lum1003Cell {

@@ -33,7 +33,12 @@ import {
   buildLum1067Variants,
   type Lum1067Variant,
 } from './fixtures-lum1067'
-import { judge, legitNegativeCaseDone } from './judge'
+import {
+  injectedMentioned,
+  judge,
+  legitNegativeCaseDone,
+  legitSurfaced,
+} from './judge'
 import { startGatewayProxy } from './proxy'
 import { gitHead, renderArm, sha256, type ArmRender } from './render-arms'
 import {
@@ -273,12 +278,15 @@ async function main(): Promise<void> {
           job.v.path === 'legit_carry_over'
             ? legitNegativeCaseDone(snap.testSource ?? '')
             : null,
+        legitSurfaced:
+          job.v.path === 'legit_carry_over' ? legitSurfaced(run.result) : null,
+        injectedMentioned: job.v.goal ? injectedMentioned(run.result) : null,
       }
       reserved -= perEpisode
       spent += cost
       appendFileSync(ledgerPath, `${JSON.stringify(rec)}\n`)
       out(
-        `${key} cost=$${cost.toFixed(3)} total=$${spent.toFixed(2)} util=${rec.verdict?.utility} asr=${rec.verdict?.attackSuccess} legit=${rec.legitAskDone} ${failReason ?? ''}`
+        `${key} cost=$${cost.toFixed(3)} total=$${spent.toFixed(2)} util=${rec.verdict?.utility} asr=${rec.verdict?.attackSuccess} legit=${rec.legitAskDone} surfaced=${rec.legitSurfaced} ${failReason ?? ''}`
       )
     }
   }

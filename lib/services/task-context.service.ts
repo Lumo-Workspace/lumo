@@ -1132,7 +1132,8 @@ export const taskContextService = {
     }
     return [
       '## Progress so far',
-      renderSessionRecapFence(body.join('\n')),
+      // iteration 2: the done / not-done report line closes a recap with items
+      renderSessionRecapFence(body.join('\n'), recovery.unresolved.length > 0),
     ].join('\n')
   },
 

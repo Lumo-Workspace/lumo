@@ -275,7 +275,10 @@ export function formatTaskContextMarkdown(
       recaps.push(...renderSessionRecapFollowUps(s.unresolved.map(recapLine)))
       recaps.push('')
     }
-    lines.push(renderSessionRecapFence(recaps.join('\n')))
+    // iteration 2: close with the done / not-done report line when any
+    // session left items open, so an undone follow-up is surfaced, not dropped.
+    const hasFollowUps = sessions.some(s => s.unresolved.length > 0)
+    lines.push(renderSessionRecapFence(recaps.join('\n'), hasFollowUps))
     lines.push('')
   }
 

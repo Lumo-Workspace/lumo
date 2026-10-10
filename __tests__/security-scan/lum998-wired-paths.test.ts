@@ -103,6 +103,7 @@ import {
   SESSION_RECAP_FENCE,
   SESSION_RECAP_FOLLOW_UPS_LABEL,
   SESSION_RECAP_PREAMBLE,
+  SESSION_RECAP_REPORT_LINE,
 } from '@/shared/src/untrusted-fence'
 import { wrapUntrustedTaskDescription } from '@/lib/memory/render'
 import {
@@ -258,6 +259,8 @@ describe('session start — "Progress so far" block', () => {
     expect(lines[label + 1]).toMatch(INLINE)
     expect(lines.some(l => l.startsWith('- [ ]'))).toBe(false)
     expect(lines[lines.length - 1]).toBe(`</${SESSION_RECAP_FENCE}>`)
+    // iteration 2: the done / not-done report line closes the recap
+    expect(lines[lines.length - 2]).toBe(SESSION_RECAP_REPORT_LINE)
   })
   it('defangs a recovered item that tries to close the recap fence', async () => {
     listForTask.mockResolvedValue([
