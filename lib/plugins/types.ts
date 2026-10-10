@@ -11,9 +11,14 @@
  *
  * This file holds the extension points PR2 wires (DONE gate, agent context,
  * core events, retention). The crossing detector / explainer / policy rule
- * source (PR4) and the workspace settings / client UI slots (PR3) join it in
- * their own PRs.
+ * source (PR4, LUM-1063) are declared in `./crossing-types`; the workspace
+ * settings / client UI slots (PR3) join in their own PR.
  */
+import type {
+  CrossingDetector,
+  CrossingExplainer,
+  PolicyRuleSource,
+} from './crossing-types'
 
 /** A server plugin. `register` runs once per process (see registry.ts). */
 export interface LumoServerPlugin {
@@ -31,6 +36,13 @@ export interface PluginRegistrar {
   on<E extends keyof CoreEvents>(event: E, handler: CoreEventHandler<E>): void
   /** Retention stock categories and repository-code disposal. */
   retention(r: RetentionContributor): void
+  // LUM-1063 (PR4) — boundary crossings, see ./crossing-types.
+  /** Extra hook detectors run by the core detection pipeline. */
+  crossingDetector(d: CrossingDetector): void
+  /** The SYSTEM explanation of a crossing (first registered answers). */
+  crossingExplainer(e: CrossingExplainer): void
+  /** A project's compiled policy rules. */
+  policyRuleSource(s: PolicyRuleSource): void
 }
 
 // ── DONE gate ────────────────────────────────────────────────────────────────
@@ -121,6 +133,8 @@ export interface CoreEvents {
   }
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
   'task.prLinked': { taskId: string; pullRequestId: string }
+  /** LUM-1063: a task's status changed (after the update committed). */
+  'task.statusChanged': { taskId: string; status: string }
 }
 
 /**

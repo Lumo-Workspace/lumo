@@ -56,6 +56,7 @@ import {
   type IssuedReceipt,
   type ReceiptSubject,
 } from '@/lib/disposition/read-receipt'
+import { crossingExplainer } from '@/lib/plugins/crossings'
 
 /** LUM-769: who is asking for / presenting a read receipt. */
 export interface ReceiptCaller {
@@ -1639,6 +1640,18 @@ export const boundaryCrossingService = {
       return { explanation: row.systemExplanation }
     }
 
+    // LUM-1063: the explanation is a plugin's (`crossingExplainer`); without
+    // one this server cannot generate it — 501, nothing persisted.
+    const explainer = crossingExplainer()
+    if (!explainer) {
+      throw Object.assign(
+        new Error(
+          'System explanations are not available on this server (no explainer plugin is installed)'
+        ),
+        { status: 501 }
+      )
+    }
+
     // Derive agentContext: load the attrib event + turn stops, mirror listAll.
     // Best-effort — null is acceptable if the session/event can't be resolved.
     // Re-use findById (SELECT) which includes hookEventId not in EXPLAIN_SELECT.
@@ -1667,13 +1680,9 @@ export const boundaryCrossingService = {
       // agentContext degrades to null — do not block explanation generation.
     }
 
-    // Dynamic import — keeps the LLM client off the detect/hot path.
-    const { explainCrossing: callLLM } =
-      await import('@/lib/llm/crossing-explain-client')
-
     let result: { explanation: string }
     try {
-      result = await callLLM({
+      result = await explainer.explain({
         rule: row.policyRuleText ?? null,
         evidence: row.detail,
         category: row.category,

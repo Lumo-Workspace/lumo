@@ -23,11 +23,11 @@
  */
 import type { BoundaryCrossingCategory } from '@prisma/client'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { logger } from '@/lib/logger'
+import { policyRuleSource } from '@/lib/plugins/crossings'
 import {
   REJUDGEABLE_CATEGORIES,
   isRejudgeableCategory,
@@ -97,13 +97,24 @@ function emptySummary(): RejudgeSummary {
   }
 }
 
-/** The compiler's own reader (cached, installation token) — lazily imported
- *  so this module never sits on the policy compiler's import graph at load
- *  time (the compiler calls back into this service after a compile). */
+/**
+ * The policy rule source's reader (the security plugin's: the compiler's own,
+ * cached, installation token). LUM-1063: the rules are a plugin's, the
+ * re-judge is the core's — with no source installed the text cannot be read
+ * and a POLICY_WEAKENING row is UNDECIDABLE (nothing is written).
+ */
 const defaultReadSource: PolicySourceReader = async input => {
-  const { policyCompilerService } =
-    await import('@/lib/services/policy/policy-compiler.service')
-  return policyCompilerService.readSource(input)
+  const source = policyRuleSource()
+  return source ? source.readSource(input) : null
+}
+
+/** A stored rule's text by ref (rows written before the text was stamped). */
+async function ruleTextByRef(
+  projectId: string,
+  ruleRef: string
+): Promise<string | null> {
+  const source = policyRuleSource()
+  return source ? source.ruleTextByRef(projectId, ruleRef) : null
 }
 
 async function sourceFor(row: Row, ctx: PassContext): Promise<string | null> {
@@ -171,10 +182,7 @@ async function judge(row: Row, ctx: PassContext): Promise<RejudgeVerdict> {
       const text =
         row.policyRuleText ??
         (row.policyRuleRef && projectId
-          ? await projectPolicyRepository.findRuleTextByRef(
-              projectId,
-              row.policyRuleRef
-            )
+          ? await ruleTextByRef(projectId, row.policyRuleRef)
           : null)
       const source = await sourceFor(row, ctx)
       return rejudgePolicyWeakening(
