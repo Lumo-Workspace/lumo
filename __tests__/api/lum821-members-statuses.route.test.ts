@@ -92,12 +92,14 @@ describe('GET /api/tasks/statuses', () => {
     const res = await getStatuses(req('/api/tasks/statuses'))
     const body = await res.json()
     expect(body.statuses.map((s: { value: string }) => s.value)).toEqual([
+      'BACKLOG',
       'TODO',
       'IN_PROGRESS',
       'IN_REVIEW',
       'DONE',
     ])
     expect(body.statuses[0].transitionsTo).toEqual([
+      'TODO',
       'IN_PROGRESS',
       'IN_REVIEW',
       'DONE',

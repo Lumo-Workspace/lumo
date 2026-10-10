@@ -20,6 +20,12 @@ jest.mock('@/lib/repositories', () => ({
     findByWorkspaceIdentifier: jest.fn(),
   },
 }))
+// LUM-1059: a `<TEAM>-X<n>` ref resolves to the cuid before any service call.
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: {
+    findIdByTaskAndNumber: jest.fn(async () => 'bc-1'),
+  },
+}))
 jest.mock('@/lib/services/boundary-crossing.service', () => ({
   boundaryCrossingService: {
     disposition: jest.fn(),
@@ -332,5 +338,35 @@ describe('POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition/recei
       params
     )
     expect(unconfigured.status).toBe(503)
+  })
+})
+
+describe('LUM-1059 crossing ref on the CLI disposition routes', () => {
+  const refParams = {
+    params: Promise.resolve({ id: 'LUM-769', crossingId: 'LUM-X7' }),
+  }
+
+  it('LUM-1059 a receipt issued via the ref is issued for the cuid, and the ruling via the ref verifies against the cuid', async () => {
+    const issue = req({ disposition: 'FALSE_POSITIVE' })
+    const issued = await POST_RECEIPT(issue.request, refParams)
+    expect(issued.status).toBe(200)
+    expect(mockIssue).toHaveBeenCalledWith(
+      't-1',
+      'bc-1',
+      'FALSE_POSITIVE',
+      expect.anything()
+    )
+
+    const rule = req({ disposition: 'FALSE_POSITIVE', receipt: RECEIPT })
+    const res = await POST(rule.request, refParams)
+    expect(res.status).toBe(200)
+    expect(mockVerify).toHaveBeenCalledWith(
+      't-1',
+      'bc-1',
+      'FALSE_POSITIVE',
+      RECEIPT,
+      expect.anything()
+    )
+    expect(mockDisposition.mock.calls[0]![1]).toBe('bc-1')
   })
 })

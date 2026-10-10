@@ -15,8 +15,9 @@ describe('statusFromDropTarget', () => {
     expect(statusFromDropTarget(null, 'TODO')).toBeNull()
     expect(statusFromDropTarget('BOGUS', 'TODO')).toBeNull()
   })
-  it('exposes the four statuses in board order', () => {
+  it('exposes every droppable status in board order', () => {
     expect(KANBAN_STATUSES).toEqual([
+      'BACKLOG',
       'TODO',
       'IN_PROGRESS',
       'IN_REVIEW',

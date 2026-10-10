@@ -14,7 +14,12 @@ export type ApiInitiativeStatus =
   | 'ACTIVE'
   | 'COMPLETED'
   | 'CANCELLED'
-export type ApiTaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+export type ApiTaskStatus =
+  | 'BACKLOG'
+  | 'TODO'
+  | 'IN_PROGRESS'
+  | 'IN_REVIEW'
+  | 'DONE'
 
 export interface ApiInitiativeListItem {
   id: string

@@ -1816,6 +1816,7 @@
   "status.done": "Done",
   "status.inProgress": "In Progress",
   "status.inReview": "In Review",
+  "status.backlog": "Backlog",
   "status.todo": "Todo",
   "summary.additionalStats": "Additional Stats",
   "summary.agentStats": "Agent Tasks",

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { slugify } from '@/lib/utils/slugify'
+import { statusLabel } from '../utils/taskStatus'
 
 export interface DuplicateMatch {
   taskId: string
@@ -14,13 +15,6 @@ export interface DuplicateMatch {
   score: number
   assigneeName: string | null
   priority: string
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  TODO: 'Todo',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
 }
 
 const PRIORITY_LABEL: Record<string, string> = {
@@ -95,7 +89,7 @@ export function DuplicateConfirm({
                 <div className='flex items-center gap-1 text-xs text-muted-foreground'>
                   <span>{identifier}</span>
                   <span>·</span>
-                  <span>{STATUS_LABEL[match.status] ?? match.status}</span>
+                  <span>{statusLabel(intl, match.status)}</span>
                   {match.assigneeName && (
                     <>
                       <span>·</span>

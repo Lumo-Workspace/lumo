@@ -23,6 +23,9 @@ export interface CrossingAttribution {
 
 export interface OpenCrossing {
   id: string
+  /** LUM-1059: what to show and type — `<TEAM>-X<n>`, or the cuid against an
+   *  older server that sends no ref. */
+  ref: string
   category: string
   severity: CrossingSeverity
   /** One-line-able detail of what tripped the detector. */
@@ -89,6 +92,7 @@ const SEVERITY_RANK: Record<CrossingSeverity, number> = {
  *  full LUM-435 view; we read only the few fields the terminal needs. */
 interface RawCrossing {
   id: string
+  ref?: string
   category: string
   severity: string
   detail: string
@@ -176,6 +180,7 @@ export async function fetchOpenCrossings(
       const advisory = c.advisory === true
       return {
         id: c.id,
+        ref: typeof c.ref === 'string' && c.ref.length > 0 ? c.ref : c.id,
         category: c.category,
         severity,
         detail: c.detail,

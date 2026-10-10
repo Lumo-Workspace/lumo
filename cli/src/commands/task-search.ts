@@ -21,7 +21,13 @@ import {
  * ranked by relevance unless `--exact`.
  */
 
-const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const STATUSES = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 
 export interface TaskSearchOptions {
@@ -154,7 +160,7 @@ export async function taskSearch(
   const statuses = normalizeEnumList(opts.status, STATUSES)
   if (!statuses.ok) {
     console.error(
-      `Error: invalid status "${statuses.bad}". Allowed: todo, in_progress, in_review, done`
+      `Error: invalid status "${statuses.bad}". Allowed: ${STATUSES.map(s => s.toLowerCase()).join(', ')}`
     )
     return 1
   }

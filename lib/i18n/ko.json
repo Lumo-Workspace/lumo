@@ -1659,6 +1659,7 @@
   "status.inProgress": "진행 중",
   "status.inReview": "검토 중",
   "status.done": "완료",
+  "status.backlog": "백로그",
   "status.todo": "할 일",
   "editor.textStyle.regular": "일반 텍스트",
   "editor.textStyle.h1": "제목 1",

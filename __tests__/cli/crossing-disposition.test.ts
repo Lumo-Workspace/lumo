@@ -568,3 +568,83 @@ describe('crossing disposition', () => {
     )
   })
 })
+
+// LUM-1059: the crossing is addressed by its `<TEAM>-X<n>` ref. The ref is
+// what the envelopes show; every server call still goes to the cuid, so the
+// LUM-769 receipt is issued and verified against the same subject.
+describe('LUM-1059 crossing ref', () => {
+  const WITH_REF = { ...CROSSING, ref: 'LUM-X7' }
+
+  beforeEach(() => {
+    routeFetch({ crossings: jsonResponse(200, { crossings: [WITH_REF] }) })
+    process.argv = [
+      'node',
+      'lumo',
+      'crossing',
+      'disposition',
+      'lum-x7',
+      '--false-positive',
+    ]
+  })
+
+  it('LUM-1059 a ref (any case) walks all three steps against the cuid and shows the ref', async () => {
+    const step1 = await crossingDisposition('lum-x7', { falsePositive: true })
+    expect(step1).toBe(EXIT_CONFIRMATION_REQUIRED)
+    expect(envelope().changes[0]).toBe(
+      'Will disposition crossing LUM-X7 on LUM-741 as FALSE_POSITIVE'
+    )
+    expect(envelope().confirmCommand).toBe(
+      `lumo crossing disposition lum-x7 --false-positive --receipt ${R1} --confirm-read`
+    )
+
+    stdout = []
+    const step2 = await crossingDisposition('lum-x7', {
+      falsePositive: true,
+      confirmRead: true,
+      receipt: R1,
+    })
+    expect(step2).toBe(EXIT_CONFIRMATION_REQUIRED)
+    expect(envelope().changes[0]).toContain(
+      'Read acknowledged for crossing LUM-X7'
+    )
+
+    stdout = []
+    const step3 = await crossingDisposition('lum-x7', {
+      falsePositive: true,
+      confirm: true,
+      receipt: R2,
+    })
+    expect(step3).toBeUndefined()
+    expect(stdout.join('')).toContain(
+      '✓ Dispositioned crossing LUM-X7 as FALSE_POSITIVE'
+    )
+    // Every receipt call and the write went to the cuid path.
+    expect(receiptCalls()).toHaveLength(2)
+    for (const [url] of [...receiptCalls(), ...writes()]) {
+      expect(String(url)).toContain('/boundary-crossings/cx-1/')
+    }
+    expect(writes()).toHaveLength(1)
+  })
+
+  it('LUM-1059 a batch receipt map keyed by ref serves a run that names the cuid', async () => {
+    const step3 = await crossingDisposition('cx-1', {
+      falsePositive: true,
+      confirm: true,
+      receipt: `LUM-X7=${R2}`,
+    })
+    expect(step3).toBeUndefined()
+    expect(stderr).toEqual([])
+    const body = JSON.parse((writes()[0]![1] as { body: string }).body) as {
+      receipt: string
+    }
+    expect(body.receipt).toBe(R2)
+  })
+
+  it('LUM-1059 an unknown ref is not found and nothing is written', async () => {
+    const code = await crossingDisposition('LUM-X8', { falsePositive: true })
+    expect(code).toBe(1)
+    expect(stderr.join('\n')).toContain('crossing LUM-X8 not found on LUM-741')
+    expect(receiptCalls()).toHaveLength(0)
+    expect(writes()).toHaveLength(0)
+  })
+})

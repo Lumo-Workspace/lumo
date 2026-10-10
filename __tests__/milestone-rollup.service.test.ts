@@ -47,7 +47,14 @@ const mockRetro = generateMilestoneRetro as jest.Mock
 function counts(
   partial: Partial<Record<TaskStatus, number>>
 ): Record<TaskStatus, number> {
-  return { TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0, ...partial }
+  return {
+    BACKLOG: 0,
+    TODO: 0,
+    IN_PROGRESS: 0,
+    IN_REVIEW: 0,
+    DONE: 0,
+    ...partial,
+  }
 }
 
 function milestoneRow(overrides: Record<string, unknown> = {}) {

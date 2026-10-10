@@ -16,7 +16,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import type { ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../types'
-import { API_STATUS_LABEL } from '../../utils'
+import { statusLabel } from '../../utils'
 import { MemberAvatar, PRIORITY_CONFIG, PriorityDot } from '../fields/shared'
 
 export function BulkStatusPicker({
@@ -37,7 +37,9 @@ export function BulkStatusPicker({
       <PopoverContent className='w-48 p-0' align='end'>
         <Command>
           <CommandList>
-            {(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const).map(s => (
+            {(
+              ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+            ).map(s => (
               <CommandItem
                 key={s}
                 onSelect={() => {
@@ -46,7 +48,7 @@ export function BulkStatusPicker({
                 }}
                 className='gap-2'
               >
-                {API_STATUS_LABEL[s] ?? s}
+                {statusLabel(intl, s)}
               </CommandItem>
             ))}
           </CommandList>

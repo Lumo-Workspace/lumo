@@ -36,6 +36,8 @@ export type DoneBlocker =
   | {
       kind: 'BOUNDARY_CROSSING'
       id: string
+      /** LUM-1059: `<TEAM>-X<n>` (the cuid against an older server). */
+      ref: string
       severity: string
       category: string
       detail: string
@@ -56,6 +58,8 @@ export type DoneBlocker =
  *  a blocker the agent is told to get dispositioned. */
 export interface NonBlockingCrossing {
   id: string
+  /** LUM-1059: `<TEAM>-X<n>` (the cuid against an older server). */
+  ref: string
   severity: string
   category: string
   detail: string
@@ -162,6 +166,7 @@ export async function collectDoneBlockers(args: {
         blockers.push({
           kind: 'BOUNDARY_CROSSING',
           id: c.id,
+          ref: c.ref,
           severity: c.severity,
           category: c.category,
           detail: c.detail,
@@ -169,6 +174,7 @@ export async function collectDoneBlockers(args: {
       } else {
         nonBlocking.push({
           id: c.id,
+          ref: c.ref,
           severity: c.severity,
           category: c.category,
           detail: c.detail,
@@ -197,7 +203,7 @@ export function buildRemediation(
   if (kinds.has('BOUNDARY_CROSSING')) {
     const ids = blockers
       .filter(b => b.kind === 'BOUNDARY_CROSSING')
-      .map(b => (b as { id: string }).id)
+      .map(b => (b as { ref: string }).ref)
     lines.push(
       `BOUNDARY_CROSSING: leave a rationale with \`lumo crossing explain ${ids[0]} --task ${ctx.identifier} --note "…"\` (append-only; it does not clear anything), then relay each crossing to the user. Once they rule, record it with \`lumo crossing disposition ${ids[0]} --false-positive\` or \`--confirmed\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
     )
@@ -247,7 +253,7 @@ export function buildBlockedError(args: {
 function blockerLine(b: DoneBlocker): string {
   switch (b.kind) {
     case 'BOUNDARY_CROSSING':
-      return `[${b.severity}] ${b.category} ${b.id}: ${b.detail}`
+      return `[${b.severity}] ${b.category} ${b.ref}: ${b.detail}`
     case 'SECURITY_FINDING':
       return `[${b.severity}] ${b.ruleId} ${b.findingId} — ${b.filePath}${b.line != null ? `:${b.line}` : ''} (PR #${b.prNumber}): ${b.statement}`
   }
@@ -268,7 +274,7 @@ export function renderBlocked(err: BlockedError, isTTY: boolean): string {
           'Also open, not blocking DONE (advisory / below the workspace gate):',
           ...err.nonBlocking.map(
             c =>
-              `  ◦ [${c.severity}${c.advisory ? ' advisory' : ''}] ${sanitizeField(c.category)} ${c.id}: ${sanitizeField(c.detail)}`
+              `  ◦ [${c.severity}${c.advisory ? ' advisory' : ''}] ${sanitizeField(c.category)} ${sanitizeField(c.ref)}: ${sanitizeField(c.detail)}`
           ),
         ]
       : []),

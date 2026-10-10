@@ -143,3 +143,32 @@ describe('LUM-897 advisory-aware crossing reminder', () => {
     expect(guidance).toMatch(/blocking/)
   })
 })
+
+// LUM-1059: the reminder names each crossing by its `<TEAM>-X<n>` ref (the
+// cuid only for a row that has no number).
+describe('LUM-1059 crossing ref in the reminder', () => {
+  it('LUM-1059 the reminder shows the ref, and the cuid for an unnumbered row', async () => {
+    bc.findMany.mockResolvedValueOnce([
+      {
+        id: 'cmv1mvckp000206l5n039w0vu',
+        number: 482,
+        category: 'HARDCODED_SECRET',
+        severity: 'HIGH',
+        advisory: false,
+        task: { number: 12, team: { identifier: 'LUM' } },
+      },
+      {
+        id: 'bc-legacy',
+        number: null,
+        category: 'TEST_FILE_DELETED',
+        severity: 'MEDIUM',
+        advisory: false,
+        task: { number: 12, team: { identifier: 'LUM' } },
+      },
+    ])
+    const text = await boundaryCrossingService.buildAgentReminder('t-1')
+    expect(text).toContain('[HIGH] HARDCODED_SECRET (LUM-X482)')
+    expect(text).not.toContain('cmv1mvckp000206l5n039w0vu')
+    expect(text).toContain('[MEDIUM] TEST_FILE_DELETED (bc-legacy)')
+  })
+})

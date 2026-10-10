@@ -26,6 +26,8 @@ export function describeMilestoneDelete(
 }
 
 interface TaskCounts {
+  /** LUM-1057; absent on servers that predate BACKLOG. */
+  BACKLOG?: number | undefined
   TODO: number
   IN_PROGRESS: number
   IN_REVIEW: number
@@ -33,7 +35,13 @@ interface TaskCounts {
 }
 
 function totalTasks(counts: TaskCounts): number {
-  return counts.TODO + counts.IN_PROGRESS + counts.IN_REVIEW + counts.DONE
+  return (
+    (counts.BACKLOG ?? 0) +
+    counts.TODO +
+    counts.IN_PROGRESS +
+    counts.IN_REVIEW +
+    counts.DONE
+  )
 }
 
 export async function milestoneDelete(

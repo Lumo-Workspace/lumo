@@ -191,7 +191,7 @@ function readJsonString(value: unknown): string | null {
 }
 
 const REOPEN_FROM = new Set(['IN_REVIEW', 'DONE'])
-const REOPEN_TO = new Set(['IN_PROGRESS', 'TODO'])
+const REOPEN_TO = new Set(['IN_PROGRESS', 'TODO', 'BACKLOG'])
 
 export const taskStatusService = {
   /**

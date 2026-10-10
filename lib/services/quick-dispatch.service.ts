@@ -257,7 +257,12 @@ export const quickDispatchService = {
         id: t.id,
         identifier: `${t.team.identifier}-${t.number}`,
         title: t.title,
-        status: t.status as 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE',
+        status: t.status as
+          | 'BACKLOG'
+          | 'TODO'
+          | 'IN_PROGRESS'
+          | 'IN_REVIEW'
+          | 'DONE',
       }))
 
       const currentDate = new Date().toISOString().split('T')[0] ?? ''

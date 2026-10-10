@@ -13,6 +13,7 @@ jest.mock('@/lib/events/dispatcher', () => ({ dispatchEvents: jest.fn() }))
 describe('allowedTaskTransitions', () => {
   it('mirrors the transition matrix', () => {
     expect(allowedTaskTransitions('TODO')).toEqual([
+      'BACKLOG',
       'IN_PROGRESS',
       'IN_REVIEW',
       'DONE',
@@ -20,6 +21,7 @@ describe('allowedTaskTransitions', () => {
     // LUM-586: DONE → IN_REVIEW is now legal so that undoing an acceptance
     // verdict can send a DONE task back to IN_REVIEW via the state machine.
     expect(allowedTaskTransitions('DONE')).toEqual([
+      'BACKLOG',
       'TODO',
       'IN_PROGRESS',
       'IN_REVIEW',
@@ -27,7 +29,13 @@ describe('allowedTaskTransitions', () => {
   })
 
   it('agrees with isValidTaskTransition for every pair', () => {
-    const statuses = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+    const statuses = [
+      'BACKLOG',
+      'TODO',
+      'IN_PROGRESS',
+      'IN_REVIEW',
+      'DONE',
+    ] as const
     for (const from of statuses) {
       for (const to of statuses) {
         if (from === to) continue
@@ -56,6 +64,8 @@ describe('invalidTransitionMessage', () => {
   it('formats the message with from → to and the allowed list', () => {
     const msg = invalidTransitionMessage('DONE', 'DONE')
     expect(msg).toContain('Invalid status transition: DONE → DONE')
-    expect(msg).toContain('Allowed from DONE: TODO, IN_PROGRESS, IN_REVIEW')
+    expect(msg).toContain(
+      'Allowed from DONE: BACKLOG, TODO, IN_PROGRESS, IN_REVIEW'
+    )
   })
 })

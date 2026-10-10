@@ -200,7 +200,11 @@ export async function handlePullRequest(
   )
 
   if (action === 'opened' || action === 'reopened') {
-    if (linkedTask.status === 'TODO' || linkedTask.status === 'IN_PROGRESS') {
+    if (
+      linkedTask.status === 'BACKLOG' ||
+      linkedTask.status === 'TODO' ||
+      linkedTask.status === 'IN_PROGRESS'
+    ) {
       const prOpenedPayload = {
         taskId: linkedTask.id,
         taskTitle: linkedTask.title,

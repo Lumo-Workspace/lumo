@@ -44,7 +44,7 @@ it('emits an updated config when a status filter is toggled', async () => {
   )
   await userEvent.click(screen.getByRole('button', { name: /configure/i }))
   await userEvent.click(
-    await screen.findByRole('checkbox', { name: 'In Progress' })
+    await screen.findByRole('checkbox', { name: 'status.inProgress' })
   )
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({

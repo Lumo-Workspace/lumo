@@ -23,7 +23,7 @@ the **same** `GET …/status` + open-crossings reads as this command:
 ```
 Status now (same read as `lumo task status LUM-42`; no need to run it again):
   LUM-42 IN_PROGRESS
-  Blocks DONE: 1 boundary crossing (cmtw…) — the user rules
+  Blocks DONE: 1 boundary crossing (LUM-X12) — the user rules
 ```
 
 The `task update --status done` exit-4 envelope and exit-5 `DONE_BLOCKED` error
@@ -63,7 +63,7 @@ shape changes bump it; additive fields don't. Pin on `version` when scripting.
 - `task { id, identifier, title, status }`, `cost { tokenCost, activeTimeSec }` (`tokenCost: null` = not measured), `struggleTrail { pullRequests[], reopens[] }`, `trend { cost[], rework { reopens, extraPrCycles, total } }`, `claim`, `faithfulness`;
 - `nextActions` entries carry a `kind` discriminator: `SECURITY_FINDING` (`findingId`, `statement`, `severity`, `provenance`, `blocking`, `prNumber`, `ruleId`, `filePath`, `line`), `TEST_CASE` (`statement`, `command`, `advisory: true`) or `TEST_CASE_VERDICT` (`signal`, `number`, `title`, `ceilingReason?`, `advisory: true`). Advisory rows carry no `blocking` field and the DONE gate never reads them;
 - `securityFindings { open, blocking, unconfirmedPrs[], scans?[] }` — **`null` means the scan read failed**: treat as "could not confirm", not "safe";
-- open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, category, severity, detail, attribution }`); **`null` when the crossings check failed**, distinct from `[]`.
+- open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, ref, category, severity, detail, attribution }` — `ref` is the `<TEAM>-X<n>` to show and type, `id` the cuid); **`null` when the crossings check failed**, distinct from `[]`.
 
 ## Responding to an open crossing — `lumo crossing explain`
 
@@ -77,7 +77,7 @@ lumo crossing explain <id> --task LUM-12 --note "…"   # unattached session: na
 
 - it **only appends** a note — it **never clears the crossing or unblocks DONE** (the user rules, via `lumo crossing disposition` or the web panel);
 - the note is shown to the human at disposition time, labelled _agent self-report · unverified_; earlier notes are immutable;
-- `<id>` must be a crossing on the **session-bound task**; an unattached session passes `--task <LUM-N>` (wins over the binding);
+- `<id>` is the crossing's ref `<TEAM>-X<n>` (`LUM-X12`, any case — LUM-1059; the cuid also works) and must be a crossing on the **session-bound task**; an unattached session passes `--task <LUM-N>` (wins over the binding);
 - **several crossings → one call** (LUM-845): `lumo crossing explain --file notes.json` with `[{"id": "<crossing>", "note": "<text>"}, …]` (`--file -` reads stdin). Each note is reported on its own `✓`/`✗` line; any failure exits 1, the others are still recorded. `--file` replaces `<id> --note`;
 - **the note runs past the same detectors the crossing came from.** Quoting the flagged material back (path, command, matched text) records a **second** crossing. Describe what was flagged instead of reproducing it.
 
@@ -106,7 +106,7 @@ A gated mutation on the [confirmation protocol](confirmation.md), as a **three-s
 - `--task <LUM-N>` overrides the session binding; an already-matching ruling is a no-op (exit 0);
 - **still web-only:** reverting a ruling to OPEN, repository suppression rules, and steward milestone crossings.
 
-**Batch form (LUM-845):** `lumo crossing disposition <id1> <id2> <id3> --false-positive --note "…"` — same handshake, ONE envelope per step for the whole batch (a `── [i/N] crossing <id> ──` block per crossing, nothing trimmed), one receipt per crossing carried as `--receipt <id>=<token>,…`. Mixed rulings = one batch per ruling. If the user disputes one, drop its id from the `confirmCommand` (it stays OPEN); adding an id after step 1 is refused. Step 3 reports every crossing `✓`/`✗`, exit 1 if any failed.
+**Batch form (LUM-845):** `lumo crossing disposition <id1> <id2> <id3> --false-positive --note "…"` — same handshake, ONE envelope per step for the whole batch (a `── [i/N] crossing <id> ──` block per crossing, nothing trimmed), one receipt per crossing carried as `--receipt <ref>=<token>,…`. Mixed rulings = one batch per ruling. If the user disputes one, drop its id from the `confirmCommand` (it stays OPEN); adding an id after step 1 is refused. Step 3 reports every crossing `✓`/`✗`, exit 1 if any failed.
 
 After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 

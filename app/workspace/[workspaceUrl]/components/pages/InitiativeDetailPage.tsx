@@ -36,6 +36,7 @@ const INITIATIVE_STATUS_VARIANT: Record<
 }
 
 const TASK_STATUS_KEY: Record<ApiTaskStatus, string> = {
+  BACKLOG: 'status.backlog',
   TODO: 'initiative.task.todo',
   IN_PROGRESS: 'initiative.task.inProgress',
   IN_REVIEW: 'initiative.task.inReview',

@@ -13,6 +13,8 @@ export type CrossingDispositionTarget = 'FALSE_POSITIVE' | 'CONFIRMED'
 /** The slice of the LUM-435 crossing view the envelope shows. */
 export interface CrossingForDisposition {
   id: string
+  /** LUM-1059: the human-readable `<TEAM>-X<n>` ref; absent on an older server. */
+  ref?: string
   category: string
   severity: string
   detail: string
@@ -135,10 +137,40 @@ export async function readCrossings(
   }
 }
 
+/** LUM-1059: what to show for a crossing — its ref, else the cuid. */
+export function crossingLabel(c: {
+  id: string
+  ref?: string | undefined
+}): string {
+  return c.ref || c.id
+}
+
+/** LUM-1059: whether a user-typed id names this crossing — the cuid, or the
+ *  ref in any case (`lum-x12` = `LUM-X12`). */
+export function crossingMatches(
+  c: { id: string; ref?: string | undefined },
+  typed: string
+): boolean {
+  const key = typed.trim()
+  return c.id === key || (!!c.ref && c.ref.toUpperCase() === key.toUpperCase())
+}
+
+/** LUM-1059: this crossing's token in a receipt map keyed by ref or cuid
+ *  (an envelope from before refs keys by cuid). */
+export function receiptFor(
+  receipts: Map<string, string>,
+  c: { id: string; ref?: string | undefined }
+): string | undefined {
+  for (const [key, token] of receipts) {
+    if (crossingMatches(c, key)) return token
+  }
+  return undefined
+}
+
 /**
  * A batch carries one receipt per crossing in a single `--receipt` value
  * (LUM-845): `<id>=<token>,<id>=<token>`. Tokens are `r1.`/`r2.` + digits and
- * a base64url signature, crossing ids are cuids — neither contains `=` or
+ * a base64url signature, crossing ids are refs (`LUM-X12`) or cuids — none contains `=` or
  * `,`, so the pair list needs no quoting and survives `shellQuote` bare.
  */
 export function formatReceiptMap(receipts: Map<string, string>): string {

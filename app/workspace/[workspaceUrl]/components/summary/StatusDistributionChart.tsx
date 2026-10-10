@@ -10,13 +10,20 @@ interface StatusDistributionChartProps {
 // truth, shared with <StatusIcon> and .mention-task chips). Bars and legend
 // dots use the same map.
 const STATUS_BG_CLASS: Record<string, string> = {
+  BACKLOG: 'bg-status-todo/50',
   TODO: 'bg-status-todo',
   IN_PROGRESS: 'bg-status-in-progress',
   IN_REVIEW: 'bg-status-in-review',
   DONE: 'bg-status-done',
 }
 
-const STATUS_KEYS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const STATUS_KEYS = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
 
 export function StatusDistributionChart({
   distribution,
@@ -24,6 +31,7 @@ export function StatusDistributionChart({
   const intl = useIntl()
 
   const STATUS_LABELS: Record<string, string> = {
+    BACKLOG: intl.formatMessage({ id: 'status.backlog' }),
     TODO: intl.formatMessage({ id: 'summary.todo' }),
     IN_PROGRESS: intl.formatMessage({ id: 'summary.inProgress' }),
     IN_REVIEW: intl.formatMessage({ id: 'summary.inReview' }),
@@ -63,6 +71,8 @@ export function StatusDistributionChart({
       <div className='flex flex-wrap gap-x-4 gap-y-1.5'>
         {STATUS_KEYS.map(key => {
           const count = distribution[key] ?? 0
+          // Backlog only shows up once something is in it (LUM-1057).
+          if (key === 'BACKLOG' && count === 0) return null
           return (
             <div key={key} className='flex items-center gap-1.5'>
               <span
