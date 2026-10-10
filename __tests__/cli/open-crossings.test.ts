@@ -91,3 +91,35 @@ describe('fetchOpenCrossings distinguishes failure from empty (LUM-480)', () => 
     expect(result.status).toBe('error')
   })
 })
+
+// LUM-1059: the read model carries the `<TEAM>-X<n>` ref; an older server
+// sends none, and the CLI shows the cuid instead.
+describe('LUM-1059 crossing ref', () => {
+  it('LUM-1059 keeps the server ref and falls back to the cuid without one', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      jsonResponse(200, {
+        crossings: [
+          {
+            id: 'cuid-a',
+            ref: 'LUM-X3',
+            category: 'TEST_TAMPERING',
+            severity: 'HIGH',
+            detail: 'd',
+            disposition: null,
+          },
+          {
+            id: 'cuid-b',
+            category: 'HARDCODED_SECRET',
+            severity: 'HIGH',
+            detail: 'd',
+            disposition: null,
+          },
+        ],
+      })
+    )
+    const result = await fetchOpenCrossings(API, TOKEN, TASK)
+    if (result.status !== 'ok') throw new Error('expected ok')
+    const refs = Object.fromEntries(result.crossings.map(c => [c.id, c.ref]))
+    expect(refs).toEqual({ 'cuid-a': 'LUM-X3', 'cuid-b': 'cuid-b' })
+  })
+})

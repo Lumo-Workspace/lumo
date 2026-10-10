@@ -6,10 +6,13 @@ import { emitConfirmation } from '../lib/confirmation'
 import { resolveBoundTask } from '../lib/bound-task'
 import { dispositionUrl } from '../lib/open-crossings'
 import {
+  crossingLabel,
+  crossingMatches,
   formatReceiptMap,
   isReceiptMap,
   parseReceiptMap,
   readCrossings,
+  receiptFor,
   requestReceipt,
   type CrossingDispositionTarget,
   type CrossingForDisposition,
@@ -128,7 +131,9 @@ export async function crossingDispositionBatch(
     )
     return 1
   }
-  const missing = ids.filter(id => !read.crossings.some(c => c.id === id))
+  const missing = ids.filter(
+    id => !read.crossings.some(c => crossingMatches(c, id))
+  )
   if (missing.length > 0) {
     console.error(
       `Error: ${missing.length === 1 ? 'crossing' : 'crossings'} ${missing.map(sanitizeField).join(', ')} not found on ${taskId} — nothing was written. Ids are listed by \`lumo task status ${taskId}\`; drop the unknown ${missing.length === 1 ? 'id' : 'ids'} from the command.`
@@ -138,8 +143,13 @@ export async function crossingDispositionBatch(
   const batch: CrossingForDisposition[] = []
   const already: string[] = []
   for (const id of ids) {
-    const c = read.crossings.find(x => x.id === id) as CrossingForDisposition
-    if (c.disposition === target) already.push(id)
+    const c = read.crossings.find(x =>
+      crossingMatches(x, id)
+    ) as CrossingForDisposition
+    // The same crossing named twice (ref and cuid) joins once.
+    if (batch.some(b => b.id === c.id) || already.includes(crossingLabel(c)))
+      continue
+    if (c.disposition === target) already.push(crossingLabel(c))
     else batch.push(c)
   }
   const alreadyLine =
@@ -153,7 +163,9 @@ export async function crossingDispositionBatch(
     return
   }
   if (step > 1) {
-    const noReceipt = batch.filter(c => !receipts.has(c.id)).map(c => c.id)
+    const noReceipt = batch
+      .filter(c => !receiptFor(receipts, c))
+      .map(crossingLabel)
     if (noReceipt.length > 0) {
       console.error(
         `Error: --receipt carries no receipt for ${noReceipt.map(sanitizeField).join(', ')} — a crossing can only join a batch at the first step. Drop ${noReceipt.length === 1 ? 'it' : 'them'} from the command, or re-run without any step flag to start the handshake again. Nothing was written.`
@@ -164,7 +176,7 @@ export async function crossingDispositionBatch(
 
   const total = batch.length
   const heading = (i: number, c: CrossingForDisposition) =>
-    `── [${i + 1}/${total}] crossing ${sanitizeField(c.id)} ──`
+    `── [${i + 1}/${total}] crossing ${sanitizeField(crossingLabel(c))} ──`
 
   if (step === 1 || step === 2) {
     const issued = new Map<string, string>()
@@ -178,13 +190,15 @@ export async function crossingDispositionBatch(
     for (const [i, c] of batch.entries()) {
       const res = await requestReceipt(base, headers, taskId, c.id, {
         disposition: target,
-        ...(step === 2 ? { acknowledge: receipts.get(c.id) as string } : {}),
+        ...(step === 2
+          ? { acknowledge: receiptFor(receipts, c) as string }
+          : {}),
       })
       if (res.status === 'error') {
-        errors.push(`  ✗ ${sanitizeField(c.id)} — ${res.reason}`)
+        errors.push(`  ✗ ${sanitizeField(crossingLabel(c))} — ${res.reason}`)
         continue
       }
-      issued.set(c.id, res.receipt)
+      issued.set(crossingLabel(c), res.receipt)
       if (res.expiresAt) expiries.push(res.expiresAt)
       changes.push(heading(i, c))
       changes.push(
@@ -230,19 +244,22 @@ export async function crossingDispositionBatch(
     const result = await postRuling(base, headers, taskId, c.id, {
       disposition: target,
       ...(note ? { dispositionNote: note } : {}),
-      receipt: receipts.get(c.id) as string,
+      receipt: receiptFor(receipts, c) as string,
     })
     if (result.ok) {
       if (!c.advisory) clearedBlocks++
       lines.push(
-        `  ✓ ${sanitizeField(c.id)} → ${result.disposition ?? 'OPEN'}${c.advisory ? ' (advisory — never blocked DONE)' : ''}`
+        `  ✓ ${sanitizeField(crossingLabel(c))} → ${result.disposition ?? 'OPEN'}${c.advisory ? ' (advisory — never blocked DONE)' : ''}`
       )
     } else {
       failed++
-      lines.push(`  ✗ ${sanitizeField(c.id)} — ${result.reason}`)
+      lines.push(`  ✗ ${sanitizeField(crossingLabel(c))} — ${result.reason}`)
     }
   }
-  const ignored = [...receipts.keys()].filter(id => !ids.includes(id))
+  const ignored = [...receipts.keys()].filter(
+    key =>
+      !ids.some(id => id === key) && !batch.some(c => crossingMatches(c, key))
+  )
   const url = dispositionUrl(apiUrl, creds.workspaceSlug ?? '', taskId)
   process.stdout.write(
     `${failed === 0 ? '✓' : '✗'} Dispositioned ${total - failed} of ${total} crossings on ${taskId} as ${target} (read acknowledged and rulings approved via CLI):\n` +

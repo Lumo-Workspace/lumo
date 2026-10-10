@@ -1,3 +1,4 @@
+import { formatCrossingRef } from '@/lib/boundary-crossing/crossing-ref'
 import { createHash } from 'crypto'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
@@ -238,6 +239,8 @@ export interface ExplainOutcome {
 /** Full crossing view for the acceptance bar — open AND dispositioned (LUM-435). */
 export interface BoundaryCrossingView {
   id: string
+  /** LUM-1059: the human-readable `<TEAM>-X<n>` ref (the cuid when unnumbered). */
+  ref: string
   category: string
   detail: string
   detectedAt: string
@@ -926,6 +929,7 @@ export const boundaryCrossingService = {
           : buildAttributionView(null, null)
       return {
         id: c.id,
+        ref: formatCrossingRef(c.task?.team.identifier, c.number, c.id),
         category: c.category,
         detail: c.detail,
         detectedAt: iso(c.detectedAt) ?? '',
@@ -1709,7 +1713,11 @@ export const boundaryCrossingService = {
       new Date()
     )
     const line = (c: (typeof open)[number]) =>
-      `  • [${c.severity}] ${c.category} (${c.id})`
+      `  • [${c.severity}] ${c.category} (${formatCrossingRef(
+        c.task?.team?.identifier,
+        c.number,
+        c.id
+      )})`
     const blocking = open.filter(c => !c.advisory)
     const advisory = open.filter(c => c.advisory)
     const plural = (n: number) => (n === 1 ? '' : 's')

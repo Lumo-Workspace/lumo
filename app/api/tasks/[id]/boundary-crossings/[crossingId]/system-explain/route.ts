@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
+import { resolveCrossingParam } from '@/lib/api/resolve-crossing-param'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
 
 export const runtime = 'nodejs'
@@ -36,10 +37,12 @@ export async function POST(request: NextRequest, { params }: Params) {
     )
   }
 
-  const { id: rawId, crossingId } = await params
+  const { id: rawId, crossingId: rawCrossingId } = await params
   const task = await resolveTaskParam(rawId, identity.workspaceId)
   if (!task)
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+  // LUM-1059: accept the `<TEAM>-X<n>` ref; resolve to the cuid first.
+  const crossingId = await resolveCrossingParam(rawCrossingId, task.id)
 
   try {
     const result = await boundaryCrossingService.explainCrossing(

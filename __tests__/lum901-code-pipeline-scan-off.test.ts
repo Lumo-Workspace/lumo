@@ -22,9 +22,16 @@ jest.mock('@/lib/llm/code-rule-judge-client')
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: { findSecuritySwitches: jest.fn() },
 }))
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: { boundaryCrossing: { updateMany: jest.fn(), create: jest.fn() } },
-}))
+jest.mock('@/lib/db/prisma', () => {
+  const client: Record<string, unknown> = {
+    boundaryCrossing: { updateMany: jest.fn(), create: jest.fn() },
+    // LUM-1059: create allocates the crossing number in a transaction.
+    task: { findUnique: jest.fn(async () => ({ workspaceId: 'w1' })) },
+    workspace: { update: jest.fn(async () => ({ crossingSeq: 1 })) },
+  }
+  client.$transaction = (fn: (tx: unknown) => unknown) => fn(client)
+  return { prisma: client }
+})
 
 import {
   codePipelineService,

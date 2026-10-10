@@ -5,7 +5,8 @@ let crossingSeq = 0
 
 function crossing(p: Partial<BoundaryCrossingView> = {}): BoundaryCrossingView {
   return {
-    id: `x-${crossingSeq++}`,
+    id: `x-${crossingSeq}`,
+    ref: `LUM-X${crossingSeq++}`,
     category: 'other',
     detail: 'd',
     detectedAt: 'now',

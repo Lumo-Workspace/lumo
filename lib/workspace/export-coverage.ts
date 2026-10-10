@@ -70,6 +70,9 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   MilestoneMemoryEdge: TELEMETRY,
   DroppedFragment: TELEMETRY,
   OutcomeSignal: TELEMETRY,
+  // LUM-1059: gained a denormalised workspaceId for its `<TEAM>-X<n>` number;
+  // detector output about agent runs, never part of the export.
+  BoundaryCrossing: TELEMETRY,
   // LUM-919: the exported audit log carries the same notice as an event.
   SubprocessorNoticeDelivery:
     "Lumo's record of the subprocessor notices it emailed (idempotency)",
