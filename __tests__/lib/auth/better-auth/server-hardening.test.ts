@@ -10,8 +10,8 @@
  *   - bcrypt hashes imported from Clerk sign in ($2a$ / $2b$ / $2y$)
  *   - forgot → reset password (localized email) and change password
  *   - new user ids start with `user_`
- *   - rate limits are counted in the shared database store: two instances
- *     over one database share a bucket
+ *   - rate limits are counted in the database store (the cross-process
+ *     proof is the real-Postgres twin, see the rate-limit test below)
  *   - the account-linking policy trusts no provider
  *
  * NODE_ENV is set to production before Better Auth loads: its rate limiter
@@ -54,6 +54,12 @@ const mockSendEmail = jest.fn()
 jest.mock('@/lib/integrations/email/client', () => ({
   sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }))
+// Better Auth hands deferred work (the emails) to this; captured so a test
+// can see the email still pending after the response has been returned.
+const mockWaitUntil = jest.fn((_p: Promise<unknown>) => undefined)
+jest.mock('@/lib/runtime/wait-until', () => ({
+  waitUntil: (p: Promise<unknown>) => mockWaitUntil(p),
+}))
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }))
@@ -63,7 +69,15 @@ type ServerModule = typeof import('@/lib/auth/better-auth/server')
 
 let server: ServerModule
 let bcrypt: typeof import('bcryptjs')
-const savedEnv = { ...process.env }
+// Only the env keys this file touches are saved and put back.
+const TOUCHED_ENV = [
+  'NODE_ENV',
+  'AUTH_PROVIDER',
+  'BETTER_AUTH_URL',
+  'BETTER_AUTH_SECRET',
+] as const
+const savedEnv: Record<string, string | undefined> = {}
+let warnSpy: jest.SpyInstance | undefined
 
 // Each request gets its own client IP unless a test pins one, so the
 // sign-in limit (3 per 10 s per IP + path) only bites where it is tested.
@@ -146,9 +160,9 @@ const credentialHashOf = (userId: string) =>
 const freshPassword = () => `pw-${randomBytes(9).toString('base64url')}`
 
 beforeAll(async () => {
-  for (const k of Object.keys(process.env)) {
-    if (k.includes('CLERK')) delete process.env[k]
-  }
+  const clerkKeys = Object.keys(process.env).filter(k => k.includes('CLERK'))
+  for (const k of [...TOUCHED_ENV, ...clerkKeys]) savedEnv[k] = process.env[k]
+  for (const k of clerkKeys) delete process.env[k]
   Object.assign(process.env, {
     NODE_ENV: 'production',
     AUTH_PROVIDER: 'better-auth',
@@ -161,17 +175,22 @@ beforeAll(async () => {
 })
 
 afterEach(() => {
-  jest.restoreAllMocks()
+  warnSpy?.mockRestore()
+  warnSpy = undefined
 })
 
 afterAll(() => {
   globalThis.lumoBetterAuth = undefined
-  process.env = savedEnv
+  for (const [k, v] of Object.entries(savedEnv)) {
+    if (v === undefined) delete process.env[k]
+    else process.env[k] = v
+  }
 })
 
 beforeEach(() => {
   // Better Auth logs every refused sign-in; not useful here.
-  jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+  warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+  mockWaitUntil.mockClear()
   mockSendEmail.mockReset()
   mockSendEmail.mockResolvedValue({ status: 'sent', id: 'msg_1' })
 })
@@ -307,21 +326,39 @@ describe('forgot / reset / change password (LUM-1070)', () => {
     const id = `user_clerk${randomBytes(6).toString('hex')}`
     const email = `${id}@example.test`
     await seedImportedUser(id, email, freshPassword(), '$2b$')
-    // A mail server that has not answered yet: the response must not wait
-    // on it (awaiting it would hang this request until the test times out).
+    // A mail server that has not answered yet.
     let answerMail: (v: unknown) => void = () => undefined
+    let mailDone = false
     mockSendEmail.mockReturnValue(
       new Promise(resolve => {
         answerMail = resolve
+      }).then(v => {
+        mailDone = true
+        return v
       })
     )
     const res = await post(auth, '/request-password-reset', {
       email,
       redirectTo: '/reset-password',
     })
+    // The response is complete while the send is still pending…
     expect(res.status).toBe(200)
     expect(mockSendEmail).toHaveBeenCalledTimes(1)
+    expect(mailDone).toBe(false)
+    // …because the send was handed to waitUntil (run after the response).
+    expect(mockWaitUntil).toHaveBeenCalledTimes(1)
+    const deferred = mockWaitUntil.mock.calls[0]![0]
+    let deferredDone = false
+    void deferred.then(() => {
+      deferredDone = true
+    })
+    await Promise.resolve()
+    expect(deferredDone).toBe(false)
+    // Answering the mail settles the deferred task (nothing left pending).
     answerMail({ status: 'sent', id: 'late' })
+    await deferred
+    expect(mailDone).toBe(true)
+    expect(deferredDone).toBe(true)
   })
 
   it('reset request for an unknown email answers the same and sends nothing', async () => {
@@ -391,8 +428,15 @@ describe('forgot / reset / change password (LUM-1070)', () => {
   })
 })
 
-describe('database rate limiting across instances (LUM-1070)', () => {
-  it('two instances over one database share the sign-in bucket; the 4th attempt is 429', async () => {
+describe('database rate-limit store (LUM-1070)', () => {
+  // In ONE process this cannot prove cross-instance sharing: Better Auth's
+  // memory store is a module-level Map, so two instances here would share it
+  // anyway. What this test proves is that the counter lives in the DATABASE
+  // store (the rows below). Sharing between separate processes / Vercel
+  // instances is proven on real Postgres by "two instances share the sign-in
+  // limit through auth_rate_limits" in
+  // __tests__/integration/better-auth.hardening.test.ts.
+  it('counts sign-ins in the database store (one row per IP + path); the 4th attempt is 429', async () => {
     const first = server.getBetterAuth()
     globalThis.lumoBetterAuth = undefined
     const second = server.getBetterAuth()
@@ -406,10 +450,7 @@ describe('database rate limiting across instances (LUM-1070)', () => {
         { email: 'nobody@example.test', password: freshPassword() },
         { ip }
       )
-    // Alternate instances. (Better Auth's memory store is a module-level Map,
-    // so in ONE process it would also be shared — the rows asserted below
-    // are what prove the counter lives in the database, where separate
-    // processes / Vercel instances see it too.)
+    // Alternate instances so both go through the configured store.
     expect((await attempt(first)).status).toBe(401)
     expect((await attempt(second)).status).toBe(401)
     expect((await attempt(first)).status).toBe(401)
@@ -436,7 +477,10 @@ describe('account linking policy (LUM-1070)', () => {
     const ctx = await auth.$context
     expect(ctx.trustedProviders).not.toContain('github')
     expect(ctx.trustedProviders).not.toContain('google')
-    // The exact match above leaves requireLocalEmailVerified unset, i.e. at
-    // Better Auth's default (true): an unverified local email never links.
+    // requireLocalEmailVerified is deliberately not set, so Better Auth's
+    // default (true) applies: an unverified local email never links.
+    expect(auth.options.account?.accountLinking).not.toHaveProperty(
+      'requireLocalEmailVerified'
+    )
   })
 })

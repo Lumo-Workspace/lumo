@@ -64,7 +64,8 @@ describeDb('Better Auth hardening on a real database (LUM-1070)', () => {
   let server: typeof import('@/lib/auth/better-auth/server')
   let prisma: typeof import('@/lib/db/prisma').prisma
   let bcrypt: typeof import('bcryptjs')
-  const savedEnv = { ...process.env }
+  // Only the env keys this suite touches are saved and put back.
+  const savedEnv: Record<string, string | undefined> = {}
   const emails: string[] = []
   const rateLimitIp = `198.51.100.${(parseInt(run, 16) % 200) + 1}`
 
@@ -102,9 +103,16 @@ describeDb('Better Auth hardening on a real database (LUM-1070)', () => {
   }
 
   beforeAll(async () => {
-    for (const k of Object.keys(process.env)) {
-      if (k.includes('CLERK')) delete process.env[k]
-    }
+    const clerkKeys = Object.keys(process.env).filter(k => k.includes('CLERK'))
+    const touched = [
+      'DATABASE_URL',
+      'NODE_ENV',
+      'AUTH_PROVIDER',
+      'BETTER_AUTH_URL',
+      'BETTER_AUTH_SECRET',
+    ]
+    for (const k of [...touched, ...clerkKeys]) savedEnv[k] = process.env[k]
+    for (const k of clerkKeys) delete process.env[k]
     Object.assign(process.env, {
       DATABASE_URL: DB_URL,
       // Better Auth only rate-limits in production.
@@ -128,7 +136,10 @@ describeDb('Better Auth hardening on a real database (LUM-1070)', () => {
       })
       await prisma.$disconnect()
     }
-    process.env = savedEnv
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
   })
 
   beforeEach(() => {
