@@ -6,6 +6,10 @@
       "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
     },
     {
+      "glob": "ee/**",
+      "reason": "LUM-1061 (RFC LUM-1058 §7 PR2): plugin entry points; until PR6 the implementations they register still live under lib/** and ship with it, so the entry ships too. PR6 moves this to exclude together with the lib/plugins/installed.ts overlay"
+    },
+    {
       "glob": "components/**",
       "reason": "LUM-1033 ruling D1 (2026-10-06): public product code"
     },

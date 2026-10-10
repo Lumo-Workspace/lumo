@@ -23,7 +23,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import { collectSessionStartSections } from '@/lib/plugins/agent-context'
 import {
   assembleLineageSection,
   computeFragmentTrust,
@@ -728,7 +728,7 @@ export const taskContextService = {
     testCaseSection: string
     memorySection: string
     linkedResourcesSection: string
-    /** LUM-737: undispositioned security findings on the task's PRs ('' = nothing to show). */
+    /** LUM-737 / LUM-1061: plugin sections ('' = nothing to show); name kept for the published CLI. */
     securityFindingsSection: string
     fragments: FragmentRef[]
     /** Fragments dropped by the relevance gate before ranking (LUM-522). */
@@ -812,18 +812,12 @@ export const taskContextService = {
         pullRequestRepository.listByTask(taskId),
         [] as Awaited<ReturnType<typeof pullRequestRepository.listByTask>>
       ),
-      // LUM-737: undispositioned security findings on the task's PRs — the
-      // "fix before you claim done" warning. Best-effort: a scan read
-      // failing must never take session-start down, and '' means "nothing
-      // to show", never "confirmed clean" (task status carries the
-      // fail-closed read).
-      safe(
-        prSecurityReminderService.buildSessionStartSection(
-          taskId,
-          taskIdentifier
-        ),
-        ''
-      ),
+      // LUM-737 / LUM-1061: plugin sections — with the security plugin, the
+      // undispositioned findings on the task's PRs ("fix before you claim
+      // done"). Best-effort: a plugin read failing must never take
+      // session-start down, and '' means "nothing to show", never "confirmed
+      // clean" (task status carries the fail-closed read).
+      safe(collectSessionStartSections({ taskId, taskIdentifier }), ''),
     ])
 
     const projectRenderable = toProjectRenderables(projectMemories)

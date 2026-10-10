@@ -7,10 +7,8 @@ import {
 } from '@/lib/services/audit.service'
 import { githubService } from '@/lib/services/github.service'
 import { TOKEN_FAILING_ALERT_MS } from '@/lib/services/github-access-recheck.config'
-import {
-  githubAppInstallationRepository,
-  prSecurityScanRepository,
-} from '@/lib/repositories'
+import { githubAppInstallationRepository } from '@/lib/repositories'
+import { scrubPluginRepositoryCode } from '@/lib/plugins/retention'
 import {
   fetchAppInstallation,
   fetchInstallationRepositories,
@@ -77,24 +75,24 @@ function without(names: string[], exclude: Set<string>): string[] {
 
 /**
  * LUM-855 — uninstalling the App disposes of the customer code Lumo holds for
- * that workspace: security-scan evidence, call chains, hunt audit/job and PR
- * summaries. Scan and finding rows stay so DONE gating and history survive.
+ * that workspace. LUM-1061: plugins scrub what they hold first (the security
+ * plugin: scan evidence, call chains, hunt audit/job and PR summaries — scan
+ * and finding rows stay so DONE gating and history survive); a plugin scrub
+ * that throws stops here, before anything narrows.
  */
 export async function scrubWorkspaceCode(
   workspaceId: string,
   reason: string,
   repos?: string[]
 ) {
-  const counts = await prSecurityScanRepository.scrubCodeForWorkspace(
-    workspaceId,
-    repos
-  )
+  const counts = await scrubPluginRepositoryCode({ workspaceId, repos })
   // LUM-879 — and the code in comments mirrored from those repositories'
   // PRs, with the sync jobs still holding GitHub's raw payload.
   const mirrored = await scrubMirroredCommentCode(workspaceId, reason, repos)
   const scope = repos ? ` (${repos.length} repo(s))` : ''
+  const plugin = Object.entries(counts).map(([noun, n]) => `${n} ${noun}(s), `)
   logger.info(
-    `[github/app] workspace ${workspaceId} ${reason}${scope}: scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s), ${mirrored.comments} mirrored comment(s); retired ${mirrored.jobs} sync job(s)`
+    `[github/app] workspace ${workspaceId} ${reason}${scope}: scrubbed code from ${plugin.join('')}${mirrored.comments} mirrored comment(s); retired ${mirrored.jobs} sync job(s)`
   )
   return counts
 }

@@ -17,8 +17,11 @@ jest.mock('@/lib/repositories', () => ({
     renameRepository: jest.fn(),
     findAllForInstallationNarrowing: jest.fn().mockResolvedValue([]),
   },
-  // LUM-855: uninstall scrubs the workspace's scan code (real-DB coverage in
-  // __tests__/lib/services/github-app-uninstall-scrub.test.ts).
+}))
+// LUM-855: uninstall scrubs the workspace's scan code (real-DB coverage in
+// __tests__/lib/services/github-app-uninstall-scrub.test.ts). LUM-1061: the
+// security plugin reads the repository directly, not through the barrel.
+jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     scrubCodeForWorkspace: jest
       .fn()
@@ -73,10 +76,8 @@ import {
 } from '@/lib/services/github-app-install.service'
 import { SYSTEM_AUDIT_CONTEXT } from '@/lib/services/audit.service'
 import { githubService } from '@/lib/services/github.service'
-import {
-  githubAppInstallationRepository,
-  prSecurityScanRepository,
-} from '@/lib/repositories'
+import { githubAppInstallationRepository } from '@/lib/repositories'
+import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
   fetchAppInstallation,
   fetchInstallationRepositories,

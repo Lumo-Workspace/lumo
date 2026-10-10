@@ -20,11 +20,7 @@ import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
-import {
-  dispatchPrSecurityScan,
-  shouldScanOnPrEvent,
-} from '@/lib/services/pr-security-scan-dispatch'
-import { logger } from '@/lib/logger'
+import { emitCoreEvent } from '@/lib/plugins/events'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -165,13 +161,17 @@ export async function handlePullRequest(
     branchName: pr.head.ref,
   })
 
-  // LUM-732: every push to a task-linked open PR gets a security scan of its
-  // current head. The worker dedups on (pr, headSha), so redelivery is harmless.
-  // Static analysis only (LUM-837): Lumo never runs the customer's tests or
-  // build — typecheck/test verdicts come from their own CI (handleCheckSuite).
-  if (shouldScanOnPrEvent(action, state)) {
-    waitUntil(dispatchPrSecurityScan(prRow.id, 'PR_EVENT'))
-  }
+  // LUM-1061: plugins react to a task-linked PR event — the security plugin
+  // scans the current head of an open PR (LUM-732; static analysis only,
+  // LUM-837: typecheck/test verdicts come from the customer's own CI via
+  // handleCheckSuite). Fire-and-forget; handlers register their own waitUntil.
+  emitCoreEvent('github.pullRequest', {
+    workspaceId,
+    taskId: linkedTask.id,
+    pullRequestId: prRow.id,
+    action,
+    state,
+  })
 
   // Close the task's lineage edges when this PR reaches a terminal state
   // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so
@@ -331,33 +331,16 @@ export async function handlePush(
 
   const branchName = ref.slice('refs/heads/'.length)
 
-  // LUM-738 — a push to the default branch moves the repository security
-  // baseline: refresh the default-branch fingerprint set that decides
-  // whether a PR's dependency finding is new or already there. Detached +
-  // fail-soft, and BEFORE the task lookup below — `main` maps to no task.
-  if (branchName === repository.default_branch) {
-    // Dynamic import: the baseline service reaches github/contents → auth
-    // (octokit, ESM) and the workflow start; keeping it off this module's
-    // static graph keeps the webhook handlers loadable where that chain is
-    // not (the same boundary stage A draws around the LLM gateway).
-    waitUntil(
-      import('@/lib/services/security-baseline.service')
-        .then(({ securityBaselineService }) =>
-          securityBaselineService.requestFromPush({
-            workspaceId,
-            repo: repository.full_name,
-            sha: head_commit.id,
-          })
-        )
-        .then(() => undefined)
-        .catch(err => {
-          logger.warn(
-            '[webhook] security baseline request failed:',
-            err instanceof Error ? err.message : String(err)
-          )
-        })
-    )
-  }
+  // LUM-1061: plugins react to every branch push — the security plugin
+  // refreshes the repository baseline on a default-branch push (LUM-738).
+  // BEFORE the task lookup below — `main` maps to no task. Fire-and-forget.
+  emitCoreEvent('github.push', {
+    workspaceId,
+    repo: repository.full_name,
+    branch: branchName,
+    isDefaultBranch: branchName === repository.default_branch,
+    headSha: head_commit.id,
+  })
 
   const task = await findTaskForBranch(
     branchName,

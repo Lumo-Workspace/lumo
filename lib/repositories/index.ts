@@ -1,7 +1,6 @@
 export type * from './types'
 export { taskRepository } from './task.repository'
 export { pullRequestRepository } from './pull-request.repository'
-export { prSecurityScanRepository } from './pr-security-scan.repository'
 export { commentRepository } from './comment.repository'
 export { projectRepository } from './project.repository'
 export { documentRepository } from './document.repository'

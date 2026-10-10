@@ -1,7 +1,8 @@
 /**
  * LUM-914 — the pre-rule retention stock: data stored before the automatic
  * cleanup rules shipped, which the daily sweeps deliberately never touch.
- * Three categories (rules: lib/services/retention-stock.service.ts):
+ * Three categories (rules: lib/services/retention-stock.service.ts; scan-evidence
+ * comes from the security plugin, ee/security/retention-stock.ts):
  *
  *   scan-evidence  PR security scans from before LUM-911 still holding code
  *   crossing-raw   boundary crossings dispositioned before LUM-912 still
