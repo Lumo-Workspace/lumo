@@ -47,12 +47,6 @@ export function pageToPath(
       return project?.number
         ? `${base}/sprints/${project.number}`
         : `${base}/sprints`
-    case 'initiatives':
-      return `${base}/initiatives`
-    case 'initiative-detail':
-      return project?.id
-        ? `${base}/initiatives/${project.id}`
-        : `${base}/initiatives`
     default:
       return `${base}/my-tasks`
   }

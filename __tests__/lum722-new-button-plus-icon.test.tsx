@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 /**
  * LUM-722 — the "New milestone" (milestones tab) and "New memory" (memory tab)
- * primary CTAs must both lead with a Plus icon, matching the Initiatives /
- * Sprints "+ New …" shape so sibling tabs read as one system.
+ * primary CTAs must both lead with a Plus icon, matching the Sprints
+ * "+ New …" shape so sibling tabs read as one system.
  *
  * The icon is decorative (aria-hidden), so the accessible name stays the label
  * alone — asserted here too, since that is what every other test looks the

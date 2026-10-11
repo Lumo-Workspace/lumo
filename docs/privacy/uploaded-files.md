@@ -71,7 +71,7 @@ npx tsx scripts/migrate-public-blobs.ts
 加 `--apply --confirm-host <数据库 host>` 后:
 
 1. 把每个被引用的公开 blob 复制成私有副本:证据保留原来的任务/用例目录;图片按**引用它的工作区**各复制一份,放到 `workspaces/<id>/images/`(同一张图被两个工作区引用,就各有一份)
-2. 把库里所有引用改写成 `/api/files/…` 链接。覆盖的字段:任务描述、任务/想法评论、文档正文与 markdown 源、文档历史版本、文档模板、文档评论、里程碑/项目/Initiative 描述、Initiative 进展、测试 run 的证据、草稿。改写不会改变这些行的 `updatedAt`
+2. 把库里所有引用改写成 `/api/files/…` 链接。覆盖的字段:任务描述、任务/想法评论、文档正文与 markdown 源、文档历史版本、文档模板、文档评论、里程碑/项目描述、测试 run 的证据、草稿。改写不会改变这些行的 `updatedAt`
 3. 所有引用都改写完成后,删除公开原件
 4. 只有加了 `--delete-orphans` 才会删除没有任何引用的公开 blob
 

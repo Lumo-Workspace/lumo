@@ -1,11 +1,5 @@
 export type * from './types'
 export { taskService } from './task.service'
-export {
-  initiativeService,
-  type InitiativeListItem,
-  type InitiativeDetail,
-  type InitiativeTaskRef,
-} from './initiative.service'
 export type {
   UpdateTaskInput,
   TaskUpdateResult,

@@ -264,7 +264,7 @@ describe('/security page (LUM-856)', () => {
     expect(leftOut).toMatch(/uploaded files and images/)
 
     // Every non-English locale carries its own translation, not the English
-    // sentence, and the zh locales name initiatives/sprints as the sidebar does.
+    // sentence, and the zh locales name sprints as the sidebar does.
     const problems: string[] = []
     for (const locale of PUBLIC_LOCALES) {
       const exportText = MESSAGES[locale]!['security.code.export'] ?? ''
@@ -274,7 +274,7 @@ describe('/security page (LUM-856)', () => {
     for (const locale of ['zh-CN', 'zh-TW']) {
       const messages = MESSAGES[locale]!
       const exportText = messages['security.code.export'] ?? ''
-      for (const key of ['sidebar.initiatives', 'sidebar.sprints']) {
+      for (const key of ['sidebar.sprints']) {
         const term = messages[key] ?? ''
         if (!term || !exportText.includes(term))
           problems.push(`${locale}: export copy does not use ${key} "${term}"`)

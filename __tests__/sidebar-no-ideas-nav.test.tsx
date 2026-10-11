@@ -119,3 +119,25 @@ describe('workspace sidebar — Ideas removed', () => {
     expect(pathToPage('/workspace/lumo/ideas', 'lumo').page).not.toBe('ideas')
   })
 })
+
+// LUM-1083: the Initiatives feature was removed — no sidebar entry, no route.
+describe('workspace sidebar — Initiatives removed', () => {
+  it('renders no Initiatives entry and no link to /initiatives', () => {
+    renderSidebar()
+    expect(screen.queryByText('sidebar.initiatives')).not.toBeInTheDocument()
+    const hrefs = Array.from(document.querySelectorAll('a')).map(a =>
+      a.getAttribute('href')
+    )
+    expect(hrefs.some(h => h?.includes('/initiatives'))).toBe(false)
+    expect(screen.getByText('sidebar.documents')).toBeInTheDocument()
+  })
+
+  it('resolves old /initiatives links to the default page', () => {
+    expect(pathToPage('/workspace/lumo/initiatives', 'lumo').page).toBe(
+      'my-tasks'
+    )
+    expect(
+      pathToPage('/workspace/lumo/initiatives/LUM-INIT-3', 'lumo').page
+    ).toBe('my-tasks')
+  })
+})

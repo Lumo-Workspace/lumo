@@ -44,7 +44,6 @@ export const MENTION_COLUMNS: readonly IdColumn[] = [
   { model: 'documentRevision', field: 'content' },
   { model: 'documentComment', field: 'body' },
   { model: 'project', field: 'description' },
-  { model: 'initiative', field: 'description' },
   { model: 'milestone', field: 'description' },
 ]
 

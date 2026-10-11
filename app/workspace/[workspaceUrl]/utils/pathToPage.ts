@@ -42,10 +42,5 @@ export function pathToPage(
     return { page: 'sprint-detail', projectSlug: sprintId }
   }
   if (rest.startsWith('/sprints')) return { page: 'sprints' }
-  if (rest.startsWith('/initiatives/')) {
-    const initiativeId = rest.slice('/initiatives/'.length).split('/')[0]
-    return { page: 'initiative-detail', projectSlug: initiativeId }
-  }
-  if (rest.startsWith('/initiatives')) return { page: 'initiatives' }
   return { page: 'my-tasks' }
 }
