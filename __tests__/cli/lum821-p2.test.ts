@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * LUM-821 P2 (CLI): task delete (exit-4 envelope), task history rendering,
- * project create/update, initiative update + progress add/list.
+ * project create/update.
  */
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(() => ({
@@ -20,12 +20,6 @@ import {
   taskHistory,
 } from '@/cli/src/commands/task-history'
 import { projectCreate, projectUpdate } from '@/cli/src/commands/project-manage'
-import {
-  buildInitiativePatch,
-  formatProgressUpdates,
-  initiativeProgressAdd,
-  initiativeUpdate,
-} from '@/cli/src/commands/initiative-manage'
 import { EXIT_CONFIRMATION_REQUIRED } from '@/cli/src/lib/confirmation'
 import { localDayStart } from '@/cli/src/lib/local-day'
 
@@ -239,79 +233,5 @@ describe('project create / update', () => {
   it('update with no fields fails before any network call', async () => {
     expect(await projectUpdate('api', {})).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
-  })
-})
-
-describe('initiative update / progress', () => {
-  it('buildInitiativePatch maps flags, clears with "", rejects legacy DONE', () => {
-    expect(
-      buildInitiativePatch({
-        status: 'completed',
-        goal: ' New goal ',
-        priority: '',
-        target: '2026-12-31',
-      })
-    ).toEqual({
-      ok: true,
-      body: {
-        status: 'COMPLETED',
-        name: 'New goal',
-        priority: null,
-        targetDate: localDayStart('2026-12-31'),
-      },
-    })
-    expect(buildInitiativePatch({ status: 'done' }).ok).toBe(false)
-    expect(buildInitiativePatch({ target: '2026-13-01' }).ok).toBe(false)
-    expect(buildInitiativePatch({}).ok).toBe(false)
-  })
-
-  it('update PATCHes the ref path', async () => {
-    routes['PATCH /api/initiatives/LUM-INIT-3'] = () =>
-      json({
-        initiative: {
-          identifier: 'LUM-INIT-3',
-          status: 'CANCELLED',
-          name: 'Goal',
-        },
-      })
-    expect(
-      await initiativeUpdate('LUM-INIT-3', { status: 'cancelled' })
-    ).toBeUndefined()
-    expect(out).toContain('Updated LUM-INIT-3  CANCELLED  Goal')
-  })
-
-  it('progress add posts body + normalised health; bad health fails offline', async () => {
-    routes['POST /api/initiatives/LUM-INIT-3/updates'] = () =>
-      json({ update: { id: 'u1' } }, 201)
-    expect(
-      await initiativeProgressAdd('LUM-INIT-3', 'Search shipped', {
-        health: 'at-risk',
-      })
-    ).toBeUndefined()
-    expect(JSON.parse(String(method('POST')[0]![1].body))).toEqual({
-      body: 'Search shipped',
-      health: 'AT_RISK',
-    })
-    fetchMock.mockClear()
-    expect(
-      await initiativeProgressAdd('LUM-INIT-3', 'x', { health: 'meh' })
-    ).toBe(1)
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('progress list renders date, health, author and indented body', () => {
-    const text = formatProgressUpdates(
-      [
-        {
-          id: 'u1',
-          authorMemberId: 'm1',
-          body: 'Line 1\nLine 2',
-          health: 'ON_TRACK',
-          createdAt: localDayStart('2026-09-23')!,
-        },
-      ],
-      new Map([['m1', 'Alice']])
-    )
-    expect(text).toBe('2026-09-23  ON_TRACK  Alice\n  Line 1\n  Line 2')
   })
 })

@@ -3,7 +3,7 @@
  *
  * LUM-821 P2 routes over CLI bearer: DELETE /api/tasks/by-identifier/[id],
  * GET /api/tasks/[id]/timeline (workspace-scoped), POST /api/projects,
- * PATCH /api/projects/[id], and the initiative PATCH / updates routes.
+ * and PATCH /api/projects/[id].
  */
 jest.mock('@/lib/auth/bearer', () => ({ verifyBearer: jest.fn() }))
 jest.mock('@/lib/auth', () => ({
@@ -21,14 +21,6 @@ jest.mock('@/lib/services', () => ({
   timelineService: { getTimeline: jest.fn() },
   projectService: { createProject: jest.fn(), updateProject: jest.fn() },
 }))
-jest.mock('@/lib/services/initiative.service', () => ({
-  initiativeService: {
-    update: jest.fn(),
-    postProgressUpdate: jest.fn(),
-    listProgressUpdates: jest.fn(),
-    getDetail: jest.fn(),
-  },
-}))
 
 import type { NextRequest } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
@@ -36,16 +28,10 @@ import { requireIdentity } from '@/lib/auth'
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { taskRepository } from '@/lib/repositories'
 import { projectService, timelineService } from '@/lib/services'
-import { initiativeService } from '@/lib/services/initiative.service'
 import { DELETE as deleteTask } from '@/app/api/tasks/by-identifier/[identifier]/route'
 import { GET as timeline } from '@/app/api/tasks/[id]/timeline/route'
 import { POST as createProject } from '@/app/api/projects/route'
 import { PATCH as patchProject } from '@/app/api/projects/[id]/route'
-import { PATCH as patchInitiative } from '@/app/api/initiatives/[initiativeId]/route'
-import {
-  GET as listUpdates,
-  POST as postUpdate,
-} from '@/app/api/initiatives/[initiativeId]/updates/route'
 
 const identity = {
   workspaceId: 'ws1',
@@ -160,40 +146,5 @@ describe('project routes over bearer', () => {
       'm1',
       { name: 'API v2' }
     )
-  })
-})
-
-describe('initiative routes', () => {
-  const params = { params: Promise.resolve({ initiativeId: 'LUM-INIT-3' }) }
-  it('PATCH validates then updates; invalid status is 400', async () => {
-    ;(initiativeService.update as jest.Mock).mockResolvedValue({
-      identifier: 'LUM-INIT-3',
-    })
-    expect(
-      (await patchInitiative(req('PATCH', { status: 'COMPLETED' }), params))
-        .status
-    ).toBe(200)
-    expect(
-      (await patchInitiative(req('PATCH', { status: 'DONE' }), params)).status
-    ).toBe(400)
-    expect(initiativeService.update).toHaveBeenCalledTimes(1)
-  })
-  it('POST updates records the caller as author; service 404 passes through', async () => {
-    ;(initiativeService.postProgressUpdate as jest.Mock).mockResolvedValue({
-      id: 'u1',
-    })
-    expect(
-      (await postUpdate(req('POST', { body: 'x', health: 'ON_TRACK' }), params))
-        .status
-    ).toBe(201)
-    expect(initiativeService.postProgressUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ authorMemberId: 'm1', ref: 'LUM-INIT-3' })
-    )
-    ;(initiativeService.listProgressUpdates as jest.Mock).mockRejectedValue(
-      Object.assign(new Error('Initiative LUM-INIT-3 not found'), {
-        status: 404,
-      })
-    )
-    expect((await listUpdates(req(), params)).status).toBe(404)
   })
 })

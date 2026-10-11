@@ -336,46 +336,6 @@ export const referenceSources: ReferenceSource[] = [
         data: { description, ...keep(row) },
       })
   ),
-  textSource(
-    'initiative.description',
-    async () =>
-      (
-        await prisma.initiative.findMany({
-          where: { description: contains },
-          select: {
-            id: true,
-            description: true,
-            workspaceId: true,
-            updatedAt: true,
-          },
-        })
-      ).map(r => ({ ...r, text: r.description })),
-    (row, description) =>
-      prisma.initiative.update({
-        where: { id: row.id },
-        data: { description, ...keep(row) },
-      })
-  ),
-  textSource(
-    'initiativeUpdate.body',
-    async () =>
-      (
-        await prisma.initiativeUpdate.findMany({
-          where: { body: contains },
-          select: {
-            id: true,
-            body: true,
-            initiative: { select: { workspaceId: true } },
-          },
-        })
-      ).map(r => ({
-        id: r.id,
-        workspaceId: r.initiative.workspaceId,
-        text: r.body,
-      })),
-    (row, body) =>
-      prisma.initiativeUpdate.update({ where: { id: row.id }, data: { body } })
-  ),
   jsonSource(
     'testCaseRun.evidence',
     async () =>

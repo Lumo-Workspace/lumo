@@ -45,12 +45,6 @@ export const API = {
     pool: '/api/test-case-reviews',
     review: (runId: string) => `/api/test-case-reviews/${runId}`,
   },
-  initiatives: {
-    // Team-level initiatives (LUM-673): list + detail + direct create.
-    list: '/api/initiatives',
-    create: '/api/initiatives',
-    byId: (id: string) => `/api/initiatives/${id}`,
-  },
   projects: {
     list: '/api/projects',
     byId: (id: string) => `/api/projects/${id}`,

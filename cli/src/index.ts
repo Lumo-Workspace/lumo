@@ -14,7 +14,6 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
 import { nextCommand } from './commands/next'
-import { initiativeCreate, initiativeList } from './commands/initiative'
 import { cost } from './commands/cost'
 import { priority, priorityList } from './commands/priority'
 import {
@@ -43,12 +42,6 @@ import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
-import {
-  initiativeProgressAdd,
-  initiativeProgressList,
-  initiativeUpdate,
-  type InitiativeUpdateOptions,
-} from './commands/initiative-manage'
 import { taskDelete } from './commands/task-delete'
 import { taskHistory } from './commands/task-history'
 import { projectCreate, projectUpdate } from './commands/project-manage'
@@ -511,98 +504,6 @@ program
       nextCommand(options as { count?: string; claimable?: boolean })
     )
   )
-
-const initiativeCmd = program
-  .command('initiative')
-  .description(
-    'Team-level Initiatives (LUM-INIT-<n>): create, list, update, and post progress updates.'
-  )
-
-initiativeCmd
-  .command('create <goal>')
-  .description(
-    'Create a team-level initiative from a goal statement. Prints the LUM-INIT-<n> id; --assumption records the bet behind it.'
-  )
-  .option(
-    '--assumption <text>',
-    'The bet/assumption behind the initiative (赌注旁注)'
-  )
-  .action(
-    wrap((goal, options) =>
-      initiativeCreate(
-        goal as string | undefined,
-        options as { assumption?: string }
-      )
-    )
-  )
-
-initiativeCmd
-  .command('list')
-  .description(
-    'List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (PROPOSED | PLANNED | ACTIVE | COMPLETED | CANCELLED) and goal.'
-  )
-  .action(wrap(() => initiativeList()))
-
-initiativeCmd
-  .command('update <initiative>')
-  .description(
-    'Update an initiative (LUM-INIT-<n> or its number): status, goal, description, priority, start/target dates. Empty string clears description, priority and dates.'
-  )
-  .option(
-    '-s, --status <value>',
-    'Status: proposed | planned | active | completed | cancelled (case-insensitive)'
-  )
-  .option('--goal <text>', 'New goal statement (the initiative name)')
-  .option('-d, --description <text>', 'Description; empty string clears it')
-  .option(
-    '-p, --priority <level>',
-    'Priority: low | medium | high | urgent (case-insensitive); empty string clears it'
-  )
-  .option(
-    '--start <date>',
-    'Start date YYYY-MM-DD (your local day); empty string clears it'
-  )
-  .option(
-    '--target <date>',
-    'Target date YYYY-MM-DD (your local day); empty string clears it'
-  )
-  .action(
-    wrap((ref, options) =>
-      initiativeUpdate(ref as string, options as InitiativeUpdateOptions)
-    )
-  )
-
-const initiativeProgress = initiativeCmd
-  .command('progress')
-  .description(
-    'Progress updates on an initiative: append-only posts with an optional health (on_track | at_risk | off_track)'
-  )
-
-initiativeProgress
-  .command('add <initiative> <body>')
-  .description(
-    'Post a progress update on an initiative (append-only; post a new one to correct).'
-  )
-  .option(
-    '--health <value>',
-    'Health: on_track | at_risk | off_track (case-insensitive)'
-  )
-  .action(
-    wrap((ref, body, options) =>
-      initiativeProgressAdd(
-        ref as string,
-        body as string,
-        options as { health?: string }
-      )
-    )
-  )
-
-initiativeProgress
-  .command('list <initiative>')
-  .description(
-    'List an initiative’s progress updates newest-first (date, health, author, body).'
-  )
-  .action(wrap(ref => initiativeProgressList(ref as string)))
 
 program
   .command('cost')

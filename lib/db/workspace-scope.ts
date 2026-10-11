@@ -52,7 +52,6 @@ export const WORKSPACE_SCOPED_MODELS = [
   'GitHubIntegration',
   'GoogleDriveIntegration',
   'HookEvent',
-  'Initiative',
   'LineageEdge',
   'Memory',
   'MemoryStaleAnchorReport',

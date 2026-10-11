@@ -377,7 +377,6 @@ model Workspace {
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
   priorities              Priority[]
-  initiatives             Initiative[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -677,7 +676,6 @@ model Team {
   tasks       Task[]
   sprints     Sprint[]
   priorities  Priority[]
-  initiatives Initiative[]
 
   @@unique([workspaceId, identifier])
   @@index([workspaceId])
@@ -765,87 +763,6 @@ model Priority {
 
   @@index([teamId, effectiveFrom])
   @@map("priorities")
-}
-
-// ─── Initiative (team-level strategic layer, LUM-663) ──────────────────────
-
-// LUM-678: Linear-aligned lifecycle — a clean 5-state enum. (The interim
-// additive step kept the legacy DONE/DROPPED values; this follow-up removes them
-// via a destructive type-swap now that data loss is acceptable — no real users.)
-enum InitiativeStatus {
-  PROPOSED
-  PLANNED
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
-
-// Team-level strategic layer (= Linear Initiative). NO projectId — lives above
-// projects, never touches the core Milestone. `number` is per-team, rendered as
-// LUM-INIT-N ((teamId, number) is the visible id).
-model Initiative {
-  id          String @id @default(cuid())
-  teamId      String
-  workspaceId String
-  number      Int
-
-  // LUM-678 (Spec2-16): Linear-aligned scalar fields. `name` is the short title
-  // (required — the single source of truth for the initiative's goal text);
-  // `description` is the body. `priority` reuses TaskPriority (nullable).
-  // `ownerMemberId` is a soft member pointer (no FK).
-  // `startDate`/`targetDate` bracket the initiative's window.
-  name          String
-  description   String?          @db.Text
-  priority      TaskPriority?
-  ownerMemberId String?
-  startDate     DateTime?
-  targetDate    DateTime?
-  status        InitiativeStatus @default(ACTIVE)
-
-  // Lumo-specific, KEPT (Linear has no equivalent): the epistemic bet behind it.
-  assumptionNote String? @db.Text // 赌注旁注 — the bet's side note
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  team       Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tasks      Task[]
-  // LUM-678: the two-layer container — an initiative holds Milestones (each with
-  // their own tasks) and directly-attached Tasks.
-  milestones Milestone[]
-  // LUM-821: append-only progress posts (Linear "initiative updates").
-  updates    InitiativeUpdate[]
-
-  @@unique([teamId, number])
-  @@index([teamId, status])
-  @@index([workspaceId])
-  @@map("initiatives")
-}
-
-// LUM-821: health of an initiative as declared in a progress update
-// (Linear's onTrack / atRisk / offTrack).
-enum InitiativeHealth {
-  ON_TRACK
-  AT_RISK
-  OFF_TRACK
-}
-
-// LUM-821: an append-only progress post on an initiative — what changed, and
-// optionally how healthy it looks. `authorMemberId` is a soft member pointer
-// (no FK, cf. Initiative.ownerMemberId). Never edited; a correction is a new post.
-model InitiativeUpdate {
-  id             String            @id @default(cuid())
-  initiativeId   String
-  authorMemberId String
-  body           String            @db.Text
-  health         InitiativeHealth?
-  createdAt      DateTime          @default(now())
-
-  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
-
-  @@index([initiativeId, createdAt])
-  @@map("initiative_updates")
 }
 
 // ─── Agent Profiles ─────────────────────────────────────────────────────────
@@ -1098,10 +1015,8 @@ model Task {
   claimSnapshotSessionId String?
   claimSnapshotAt        DateTime?
 
-  // LUM-663 (Spec2-1): initiativeId = the Initiative this task rolls up to;
-  // sizeHint = a coarse S/M/L sizing. Both nullable.
-  initiativeId String?
-  sizeHint     SizeHint?
+  // LUM-663 (Spec2-1): sizeHint = a coarse S/M/L sizing. Nullable.
+  sizeHint SizeHint?
 
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -1109,7 +1024,6 @@ model Task {
   sprint     Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   milestone  Milestone?  @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   assignee   Actor?      @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
-  initiative Initiative? @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
 
   viewTaskOrders          ViewTaskOrder[]
   comments                Comment[]
@@ -1157,7 +1071,6 @@ model Task {
   @@index([assigneeActorId])
   @@index([sprintId])
   @@index([milestoneId])
-  @@index([initiativeId])
   @@index([deletedAt])
   @@index([trashRootId])
   @@map("tasks")
@@ -1205,10 +1118,6 @@ model Sprint {
 model Milestone {
   id           String    @id @default(cuid())
   projectId    String
-  // LUM-678 (Spec2-16): optional roll-up to a team-level Initiative. Additive and
-  // orthogonal to the existing project scoping — a milestone stays project-scoped
-  // and simply *also* participates in an initiative when this is set.
-  initiativeId String?
   name         String
   slug         String
   description  String?
@@ -1237,9 +1146,6 @@ model Milestone {
   completedOverrideNote       String?
 
   project               Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  // LUM-678: nullable roll-up to a team-level Initiative (SetNull so dropping an
-  // initiative never cascades away project milestones).
-  initiative            Initiative?              @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
   tasks                 Task[]
   summary               MilestoneSummary?
   // LUM-640: STEWARD (governance) sessions bound to this milestone.
@@ -1262,7 +1168,6 @@ model Milestone {
   @@index([projectId, completedAt])
   @@index([projectId, sortOrder])
   @@index([projectId, archivedAt])
-  @@index([initiativeId])
   @@map("milestones")
 }
 

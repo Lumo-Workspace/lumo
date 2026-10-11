@@ -153,7 +153,7 @@ Instant Rollback 之后，窗口期在 BA 新注册的人在 Clerk 里不存在�
    npx tsx scripts/auth-migration/rekey.ts --map ~/lumo-auth-migration/map.enc --confirm
    ```
 
-   在一个事务里改写附录 A 的 11 列、`PriorityOverride.memberId` 和富文本 mention（`Comment.body`、`Task.description`、`Document.content`、`DocumentRevision.content`、`DocumentComment.body`、`Project/Initiative/Milestone.description`；含回收站里的任务和文档）。`auth_users` 里的 BA 行不改（Clerk 模式不读它）；若之后再切回 BA，重新导入会把这些人报告为 `email_taken`，届时人工处理。
+   在一个事务里改写附录 A 的 11 列、`PriorityOverride.memberId` 和富文本 mention（`Comment.body`、`Task.description`、`Document.content`、`DocumentRevision.content`、`DocumentComment.body`、`Project/Milestone.description`；含回收站里的任务和文档）。`auth_users` 里的 BA 行不改（Clerk 模式不读它）；若之后再切回 BA，重新导入会把这些人报告为 `email_taken`，届时人工处理。
 
 ## 7. 销毁（回滚期 14 天结束后）
 

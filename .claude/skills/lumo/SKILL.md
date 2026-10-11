@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, task status and wrap-up, test cases, tasks, initiatives, projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, priorities, PR security scans, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "task status", "test case", "what should I work on", "resume task".'
+description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, task status and wrap-up, test cases, tasks, projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, priorities, PR security scans, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "task status", "test case", "what should I work on", "resume task".'
 ---
 
 ## Prerequisites
@@ -29,7 +29,6 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `audit list` — workspace audit log (OWNER only)                                        | [references/audit.md](references/audit.md)                           |
 | `workspace security-scan` — PR security-scan switches, disable/enable all (OWNER)      | [references/workspace-settings.md](references/workspace-settings.md) |
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                             | [references/task-deps.md](references/task-deps.md)                   |
-| `initiative create/list/update/progress` (`LUM-INIT-<n>`)                              | [references/initiatives.md](references/initiatives.md)               |
 | `task artifact*`, `task figma*`                                                        | [references/artifacts-figma.md](references/artifacts-figma.md)       |
 | `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                   | [references/test-cases.md](references/test-cases.md)                 |
 | `task status/wrapup`, `crossing explain/disposition` — self-check, resume, DONE gate   | [references/task-status.md](references/task-status.md)               |
@@ -97,12 +96,6 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Workspace settings — see [workspace-settings.md](references/workspace-settings.md)
 
 - `lumo workspace security-scan` — show / set the PR security-scan switches; `--disable-all` / `--enable-all` (OWNER; turning off exits 4)
-
-### Initiatives (team-level, `LUM-INIT-<n>`) — see [initiatives.md](references/initiatives.md)
-
-- `lumo initiative create "<goal>" [--assumption <text>]` — create an initiative; `--assumption` records the bet behind it
-- `lumo initiative list` — team initiatives newest-first; detail browsable in web
-- `lumo initiative update <LUM-INIT-n> [--status --goal --target …]` · `initiative progress add/list` — edit an initiative; append-only progress posts with health
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 
