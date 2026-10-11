@@ -322,10 +322,9 @@ describe('/security page (LUM-856)', () => {
     expect(en['security.notYet.body']).toMatch(
       /encryption with a separate key for each workspace/
     )
-    // LUM-860: uninstall and repository removal both clear scan code.
-    expect(en['security.retention.uninstall']).toMatch(
-      /or removing a repository from it, clears the code/
-    )
+    // LUM-860's uninstall paragraph is plugin copy (scan code) the
+    // open-source snapshot drops; it is checked in
+    // __tests__/ee/security/landing/hosted-copy-lum1081.test.tsx (LUM-1081).
     expect(en['security.code.retention']).toBeUndefined()
     expect(en['security.code.uninstall']).toBeUndefined()
   })
