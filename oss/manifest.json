@@ -728,6 +728,160 @@
       "pattern": "^## 🤝 Contributing\\n\\n1\\. Fork the repository\\n[\\s\\S]*?^5\\. Open a Pull Request\\n",
       "replacement": "## 🤝 Contributing\n\nSee [CONTRIBUTING.md](CONTRIBUTING.md): pull requests are reviewed in this\nrepository, and every commit needs a DCO sign-off (`git commit -s`). Report\nvulnerabilities privately as described in [SECURITY.md](SECURITY.md), not in\na public issue.\n",
       "reason": "LUM-1035: the public repository's contribution path (DCO, review here, patch back-port) lives in CONTRIBUTING.md from oss/overlay"
+    },
+    {
+      "file": "components/landing/home/how-it-works.tsx",
+      "type": "replace",
+      "pattern": "// therefore test cases \\+ scan findings, and the panels no longer show a clean\\n// board: run #4821 raises boundary flags on the Guardrails card and PR #482\\n// carries 8 findings on the Security card, so those same numbers appear here\\.",
+      "replacement": "// therefore test cases + boundary crossings, and the panels no longer show a\n// clean board: run #4821 raises boundary flags on the Guardrails card, and one\n// of them is still open for a person to rule on.",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the comment that ties step three to the Security card"
+    },
+    {
+      "file": "components/landing/home/how-it-works.tsx",
+      "type": "replace",
+      "pattern": " Every pull request is scanned\\.",
+      "replacement": "",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: step three's PR-scan sentence"
+    },
+    {
+      "file": "components/landing/home/how-it-works.tsx",
+      "type": "replace",
+      "pattern": "'Pull requests scanned before they merge',",
+      "replacement": "'Boundary crossings ruled on by a person',",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: step three's PR-scan point becomes the core crossing ruling"
+    },
+    {
+      "file": "components/landing/home/how-it-works.tsx",
+      "type": "replace",
+      "pattern": "\\{ label: 'Scan findings', val: '8 open', kind: 'warn' \\},",
+      "replacement": "{ label: 'Open crossings', val: '1 to rule on', kind: 'warn' },",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: step three's scan-findings row becomes the run's open crossing (as on the hero card)"
+    },
+    {
+      "file": "components/landing/home/lumo-terminal.tsx",
+      "type": "replace",
+      "pattern": "^// What working with Lumo actually looks like[\\s\\S]*?^// because the agent does not get to close its own task\\.\\n",
+      "replacement": "// What working with Lumo actually looks like inside a coding agent: you point it\n// at a task with one command, it runs prechecks, then drives the lumo CLI as\n// tool calls (attach + context → test-case runs → wrapup) and reports back —\n// the real agent transcript shape, kept model-/tool-neutral (\"coding agent\").\n// Commands are the genuine ones: `lumo task testcase run <task>/TC<n> --result\n// <r> --env <e> [--evidence-file …]` and `lumo task wrapup <task>` match\n// cli/src/commands/ (wrapup output abridged). The run ends IN_REVIEW with a\n// boundary crossing still open, because the agent does not get to close its\n// own task.\n",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the header comment that names `lumo pr scan`"
+    },
+    {
+      "file": "components/landing/home/lumo-terminal.tsx",
+      "type": "replace",
+      "pattern": "^  \\{\\n    kind: 'say',\\n    text: 'Cases pass\\. Scanning the PR before I hand it back\\.',\\n  \\},\\n  \\{\\n    kind: 'tool',\\n    cmd: 'lumo pr scan 482',\\n[\\s\\S]*?\\n  \\},\\n",
+      "replacement": "  {\n    kind: 'say',\n    text: 'Cases pass. Wrapping up before I hand it back.',\n  },\n",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the `lumo pr scan` step of the demo"
+    },
+    {
+      "file": "components/landing/home/lumo-terminal.tsx",
+      "type": "replace",
+      "pattern": "      '\\[2/4\\] Security scans      PR #482 · 8 open, 2 blocking',\\n      '\\[3/4\\] Boundary crossings  none open',",
+      "replacement": "      '[3/4] Boundary crossings  1 undispositioned: 1 blocking DONE',",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the wrapup's scan line; the open item is the run's boundary crossing"
+    },
+    {
+      "file": "components/landing/home/lumo-terminal.tsx",
+      "type": "replace",
+      "pattern": "8 scan findings left for you\\.",
+      "replacement": "1 boundary crossing left for you to rule on.",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the closing summary"
+    },
+    {
+      "file": "components/landing/home/lumo-terminal.tsx",
+      "type": "replace",
+      "pattern": "run the test cases, scan the PR — and a task can’t be",
+      "replacement": "run the test cases, wrap up — and a task can’t be",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the section lede"
+    },
+    {
+      "file": "components/landing/home/lumo-terminal.tsx",
+      "type": "replace",
+      "pattern": "// A findings line is attention",
+      "replacement": "// A warning line is attention",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: comment wording"
+    },
+    {
+      "file": "components/landing/home/compare.tsx",
+      "type": "replace",
+      "pattern": "^// One column per lane Lumo covers:[\\s\\S]*?^// the agent's work really pass\\?\\) and security \\(did it ship a hole\\?\\) follow\\.\\n",
+      "replacement": "// One column per neighbouring lane: Linear for tracking, QA Wolf for QA,\n// CodeRabbit for PR review — the best-known name in each (LUM-827 follow-up).\n// PR review is not part of this edition, so the table compares tracking, QA\n// and the agent guardrails it ships. The QA group opens with the specialist's\n// home-turf rows (Lumo honestly takes ✗ there), so the column reads like its\n// product, not like a quiz written for Lumo; Lumo's own rows follow.\n// Issue tracking comes first to answer \"can it replace our tracker?\"; QA (did\n// the agent's work really pass?) and the guardrails (what did it do?) follow.\n",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the comment that sells PR review and security as a Lumo lane"
+    },
+    {
+      "file": "components/landing/home/compare.tsx",
+      "type": "replace",
+      "pattern": "weakening detectors were removed in LUM-942\\); the scan layers\\n// are SCAN_STAGE_LABELS; the scan gate blocks per the workspace security\\n// policy \\(lib/services/pr-security-scan-gate\\.ts, default deterministic HIGH\\)\\n// until a person dispositions the finding; an agent can move a task to\\n// review, not Done\\.",
+      "replacement": "weakening detectors were removed in LUM-942); a person rules on each\n// boundary crossing; an agent can move a task to review, not Done.",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the comment that grounds the scan rows in the plugin's code"
+    },
+    {
+      "file": "components/landing/home/compare.tsx",
+      "type": "replace",
+      "pattern": "^      \\{\\n        capability: 'Reviews the whole diff for bugs, not only security',[\\s\\S]*?(?=^      \\{\\n        capability: 'Flags risky agent actions as they happen',)",
+      "replacement": "",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the PR review, secret/vulnerability scan, exploit hunt and findings-gate rows (all plugin features)"
+    },
+    {
+      "file": "components/landing/home/compare.tsx",
+      "type": "replace",
+      "pattern": "title: 'Code review & security',\\n    question: 'It shipped the feature\\. Did it ship a bug or a hole with it\\?',",
+      "replacement": "title: 'Agent guardrails',\n    question: 'It shipped the feature. What did the agent do on the way?',",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the group keeps only the core guardrail row"
+    },
+    {
+      "file": "components/landing/home/compare.tsx",
+      "type": "replace",
+      "pattern": "Three tools, one lane each\\. Lumo runs all three\\.",
+      "replacement": "Three tools, one lane each. Lumo keeps the whole task in one place.",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the section title"
+    },
+    {
+      "file": "components/landing/home/compare.tsx",
+      "type": "replace",
+      "pattern": "Lumo tracks,\\n            tests and scans the same task, and it doesn&apos;t close until the\\n            checks pass and a person signs off\\.",
+      "replacement": "Lumo tracks and\n            tests the same task, records what its agents did on the way, and it\n            doesn&apos;t close until the checks pass and a person signs off.",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the section lede"
+    },
+    {
+      "file": "app/layout.tsx",
+      "type": "replace",
+      "pattern": "scan every pull request before it merges, and meter",
+      "replacement": "flag every boundary your agents cross, and meter",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the site description's PR-scan clause"
+    },
+    {
+      "file": "components/security/SecurityPage.tsx",
+      "type": "replace",
+      "pattern": "paragraphs: \\['hosting', 'transit', 'atRest', 'tokens', 'sandbox'\\],",
+      "replacement": "paragraphs: ['hosting', 'transit', 'atRest', 'tokens'],",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: /security: the Vercel Sandbox paragraph describes the scan machines"
+    },
+    {
+      "file": "components/security/SecurityPage.tsx",
+      "type": "replace",
+      "pattern": "^      // LUM-945: the one AI path without zero data retention\\.\\n      'triage',\\n",
+      "replacement": "",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: /security: the crossing-triage paragraph (plugin)"
+    },
+    {
+      "file": "components/security/SecurityPage.tsx",
+      "type": "replace",
+      "pattern": "^      // LUM-1062: plugin paragraphs \\(the security plugin's 'scan'\\) are\\n      // inserted from `retentionFigures\\.contributed`\\.\\n",
+      "replacement": "      // LUM-1062: plugin paragraphs are inserted from\n      // `retentionFigures.contributed`.\n",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: /security: comment"
+    },
+    {
+      "file": "components/security/SecurityPage.tsx",
+      "type": "replace",
+      "pattern": "^      'uninstall',\\n",
+      "replacement": "",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: /security: the paragraph on clearing scan code when the App is uninstalled"
+    },
+    {
+      "file": "lib/i18n/*.json",
+      "type": "localeKeys",
+      "delete": "^(securityScan\\.(action|banner|callChain|codeScrubbed|disposition|finding|fixed|group|kind|meta|provenance|reachability|result|review|severity|stageInfo|stageReason|suggested|verifier)(\\.|$)|securityScan\\.external\\.(failedReason|notConfigured)|securityScan\\.section\\.(empty|scanningOff|loadError)$|securityScan\\.prTooLarge\\.|securityScan\\.status\\.tooLarge$|workspaceSettings\\.(securityScan|scanEvidence)\\.|dataRetention\\.scan\\.|boundary\\.panel\\.triage|record\\.queue\\.securityBlocking$|security\\.(infra\\.sandbox|code\\.triage|retention\\.(scan|uninstall))$)",
+      "promote": "oss.",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: drop the plugin's own messages (settings incl. aiReview, panel, triage, /security paragraphs) that no snapshot code renders, and swap in the translated `oss.*` wording for the /security page and GitHub card messages core code still renders"
     }
   ],
   "configRefFiles": [
@@ -884,6 +1038,57 @@
       "pattern": "[Cc]rossing triage|does not offer zero data retention|security-scan|SCAN_EVIDENCE|lib/ai/evaluation|PR/scan",
       "files": ["components/landing/home/faq.tsx"],
       "reason": "LUM-1035: guards the faq.tsx privacy-answer transforms — crossing triage and scan evidence are plugin features"
+    },
+    {
+      "id": "plugin-feature:landing-how",
+      "pattern": "[Ss]can findings|[Ss]canned|Security card|PR #482",
+      "files": ["components/landing/home/how-it-works.tsx"],
+      "reason": "LUM-1081: guards the how-it-works.tsx transforms"
+    },
+    {
+      "id": "plugin-feature:landing-terminal",
+      "pattern": "pr scan|[Ss]can(ning)? the PR|Security scans|[Ss]can findings|findings",
+      "files": ["components/landing/home/lumo-terminal.tsx"],
+      "reason": "LUM-1081: guards the lumo-terminal.tsx transforms (the `lumo pr scan` demo)"
+    },
+    {
+      "id": "plugin-feature:landing-compare",
+      "pattern": "SCAN_STAGE_LABELS|pr-security-scan|working exploit|[Ll]eaked secrets|Findings hold the task|and scans the same task|runs all three|ship a hole|Its AI review|Code review & security",
+      "files": ["components/landing/home/compare.tsx"],
+      "reason": "LUM-1081: guards the compare.tsx transforms"
+    },
+    {
+      "id": "plugin-feature:site-meta",
+      "pattern": "scan every pull request|before it merges",
+      "files": ["app/layout.tsx"],
+      "reason": "LUM-1081: guards the site description transform"
+    },
+    {
+      "id": "plugin-feature:security-page",
+      "pattern": "'sandbox'|'triage'|'uninstall'|security plugin",
+      "files": ["components/security/SecurityPage.tsx"],
+      "reason": "LUM-1081: guards the /security section transforms"
+    },
+    {
+      "id": "plugin-i18n:keys",
+      "pattern": "^\\s*\"(oss\\.|security\\.(infra\\.sandbox|code\\.triage|retention\\.(scan|uninstall))\"|workspaceSettings\\.(securityScan|scanEvidence)\\.|dataRetention\\.scan\\.|boundary\\.panel\\.triage|securityScan\\.(action|banner|review|finding|suggested|stageReason|verifier)\\b)",
+      "files": ["lib/i18n/*.json"],
+      "reason": "LUM-1081: guards the localeKeys transform (language-independent: key names)"
+    },
+    {
+      "id": "plugin-i18n:en-copy",
+      "pattern": "[Cc]rossing triage|TypeSafe|\\bJev\\b|[Ss]ecurity scanning|review pull requests for security|security scan records|Scan evidence|run security scans|scan this workspace's pull requests|stop scanning",
+      "files": [
+        "lib/i18n/en.json",
+        "lib/i18n/en-AU.json",
+        "lib/i18n/en-GB.json"
+      ],
+      "reason": "LUM-1081: the English wording of the plugin descriptions the localeKeys transform removes or rewrites"
+    },
+    {
+      "id": "wrong-domain:lumo.ai-email",
+      "pattern": "[A-Za-z0-9._%+-]+@lumo\\.ai\\b",
+      "reason": "LUM-1081: the support and security addresses are on uselumo.ai (user ruling 2026-10-11)"
     }
   ]
 }

@@ -50,6 +50,7 @@ import {
   isOutsideDir,
   scanMarkers,
   summarizePaths,
+  transformTargets,
   type ConfigRefFile,
   type MarkerHit,
   type OssManifest,
@@ -203,13 +204,18 @@ function main(): void {
         copyPreserving(join(overlayRoot, f), dest)
       }
     }
+    const copied = listFilesRecursive(outAbs)
     for (const t of manifest.transforms ?? []) {
-      const p = join(outAbs, t.file)
-      if (!existsSync(p))
+      // LUM-1081: `file` may be a glob (e.g. every lib/i18n locale).
+      const targets = transformTargets(t, copied)
+      if (targets.length === 0)
         fail([
           `✗ transform target is not in the snapshot: ${t.file} (${t.type})`,
         ])
-      writeFileSync(p, applyTransform(readFileSync(p, 'utf8'), t))
+      for (const f of targets) {
+        const p = join(outAbs, f)
+        writeFileSync(p, applyTransform(readFileSync(p, 'utf8'), t))
+      }
     }
 
     // 5. Config files must only reference files that exist in the snapshot,

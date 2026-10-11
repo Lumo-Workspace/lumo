@@ -63,11 +63,31 @@ export interface ReplaceTransform {
   reason: string
 }
 
+/**
+ * LUM-1081: rewrite the top-level keys of flat JSON message files (the
+ * `lib/i18n/*.json` locales). Keys matching `delete` are removed; then every
+ * key `<promote><key>` replaces the value of `<key>` (which must exist — a
+ * stale variant fails the export rather than shipping the hosted text) and is
+ * itself removed. The private repo keeps the snapshot's wording as ordinary,
+ * translated `oss.*` keys, so every locale's parity check covers it.
+ * `file` may be a glob (see `transformTargets`).
+ */
+export interface LocaleKeysTransform {
+  file: string
+  type: 'localeKeys'
+  /** JS regex source tested against each top-level key; matches are removed. */
+  delete?: string
+  /** Key prefix of the snapshot variants, e.g. "oss.". */
+  promote?: string
+  reason: string
+}
+
 export type Transform =
   | JsonDeleteTransform
   | DropLinesTransform
   | JsonArrayFilterTransform
   | ReplaceTransform
+  | LocaleKeysTransform
 
 export interface ForbiddenMarker {
   id: string
@@ -312,8 +332,51 @@ export function findImportViolations(
 // Transforms
 // ---------------------------------------------------------------------------
 
+/**
+ * LUM-1081: the snapshot files a transform applies to. A `file` without glob
+ * characters names one file (as before); with `*` it applies to every
+ * matching snapshot file. Empty = the target is missing (the export fails).
+ */
+export function transformTargets(
+  t: Pick<Transform, 'file'>,
+  snapshotFiles: readonly string[]
+): string[] {
+  if (!/[*?]/.test(t.file))
+    return snapshotFiles.includes(t.file) ? [t.file] : []
+  return snapshotFiles.filter(f => matchesGlob(f, t.file)).sort()
+}
+
+function rewriteLocaleKeys(content: string, t: LocaleKeysTransform): string {
+  const json = JSON.parse(content) as Record<string, unknown>
+  const del = t.delete ? new RegExp(t.delete) : null
+  const prefix = t.promote ?? ''
+  const out: Record<string, unknown> = {}
+  let changed = false
+  for (const [key, value] of Object.entries(json)) {
+    if ((prefix && key.startsWith(prefix)) || (del && del.test(key))) {
+      changed = true
+      continue
+    }
+    out[key] = value
+  }
+  if (prefix) {
+    for (const [key, value] of Object.entries(json)) {
+      if (!key.startsWith(prefix)) continue
+      const target = key.slice(prefix.length)
+      if (!(target in out))
+        throw new Error(
+          `localeKeys: ${key} has no ${target} to replace (removed or renamed?)`
+        )
+      out[target] = value
+    }
+  }
+  if (!changed) return content
+  return `${JSON.stringify(out, null, 2)}\n`
+}
+
 export function applyTransform(content: string, t: Transform): string {
   if (t.type === 'jsonArrayFilter') return filterJsonArray(content, t)
+  if (t.type === 'localeKeys') return rewriteLocaleKeys(content, t)
   if (t.type === 'replace')
     return content.replace(new RegExp(t.pattern, 'gm'), t.replacement)
   if (t.type === 'dropLines') {
