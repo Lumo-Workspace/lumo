@@ -416,6 +416,10 @@
       "reason": "LUM-1015 裁定 2026-10-10：私有历史审计记录（Neon 历史位置、轮换说明），从 secret-scan.md 拆出"
     },
     {
+      "glob": "docs/open-source/release-and-sync.md",
+      "reason": "LUM-1035: private maintainer runbook for publishing to Lumo-Workspace/lumo-oss and back-porting external PRs (names the private repo layout, ee/ and overlay)"
+    },
+    {
       "glob": "docs/rfc/**",
       "reason": "LUM-1033 2/5: multi-tenant security RFC is NEEDS-USER-DECISION; default deny until ruled. Also holds the MIT open-core plugin-boundary RFC (LUM-1058, ruling 2026-10-10), which maps the proprietary security plugin and the pre-MIT license history; it stays private"
     },
@@ -605,6 +609,125 @@
       "pattern": "test-case and scan record",
       "replacement": "test-case record",
       "reason": "LUM-1078: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this text for the hosted service"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "<span className=\\{styles\\.ledeKey\\}>Secure</span>: every pull request\\n            is scanned before it merges — for vulnerabilities, and for the\\n            boundaries your agents crossed writing it\\. You review the proof, not\\n            the diff\\.",
+      "replacement": "<span className={styles.ledeKey}>Secure</span>: every boundary your\n            agents cross writing it — a deleted test, a skipped hook, a pasted\n            key — is recorded as it happens. You review the proof, not the\n            diff.",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the hero lede's PR-scan half"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "^              <div className=\\{styles\\.metric\\}>\\n                <div className=\\{styles\\.metricLabel\\}>PR SCAN</div>\\n[\\s\\S]*?^              </div>\\n",
+      "replacement": "              <div className={styles.metric}>\n                <div className={styles.metricLabel}>CROSSINGS</div>\n                <div className={styles.metricValue}>1</div>\n                <div className={styles.metricSub}>open · needs a decision</div>\n              </div>\n",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the hero card's PR SCAN metric becomes the run's open boundary crossing (core)"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "^// What the hero card hands back\\.[\\s\\S]*?^const HERO_HANDOFF = \\[\\n[\\s\\S]*?^\\]\\n",
+      "replacement": "// What the hero card hands back. Deliberately NOT a clean board: the page's\n// whole argument is that a machine pass is not a closing, so the badge reads\n// IN REVIEW and the open row comes first. Both rows are the same run the\n// feature cards below describe — one of run #4821's boundary crossings and\n// 3/3 test cases with evidence.\nconst HERO_HANDOFF = [\n  {\n    open: true,\n    text: 'Boundary crossing: a test file was deleted',\n    source: 'run #4821',\n  },\n  {\n    open: false,\n    text: '3 / 3 test cases passed with evidence',\n    source: 'preview · 4f2a9c1',\n  },\n]\n",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: drop the hero hand-off row for PR scan findings"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "^// Three of the eight findings[\\s\\S]*?^// The 04 panel shows ONE test case",
+      "replacement": "// The verification panel shows ONE test case",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the comment that grounds the scan findings in the plugin's scanner"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "^const SCAN_FINDINGS = \\[\\n[\\s\\S]*?^\\]\\n\\n",
+      "replacement": "",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the security card's sample findings"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "^          \\{/\\* 04 · PR security scan \\*/\\}\\n[\\s\\S]*?(?=^          \\{/\\* 05 · )",
+      "replacement": "",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the 04 · SECURITY feature card (PR security scan)"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "\\b05 · ",
+      "replacement": "04 · ",
+      "reason": "LUM-1035: renumber the feature cards after the 04 · SECURITY card is cut (05 → 04)"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "\\b06 · ",
+      "replacement": "05 · ",
+      "reason": "LUM-1035: renumber the feature cards (06 → 05)"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "\\b07 · ",
+      "replacement": "06 · ",
+      "reason": "LUM-1035: renumber the feature cards (07 → 06)"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "\\b08 · ",
+      "replacement": "07 · ",
+      "reason": "LUM-1035: renumber the feature cards (08 → 07)"
+    },
+    {
+      "file": "components/landing/home/lumo-home.tsx",
+      "type": "replace",
+      "pattern": "Run every test case, scan every pull request — and meter every token\\n          along the way\\.",
+      "replacement": "Run every test case, record every boundary crossing — and meter\n          every token along the way.",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the closing call to action"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "zero data retention enforced on the request itself for all but boundary-crossing triage, whose host does not train on your data but does not offer zero data retention\\.",
+      "replacement": "zero data retention enforced on the request itself.",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the privacy answer's crossing-triage exception (triage is plugin code, LUM-1058 RFC crossing-ai); without the plugin every AI request carries ZDR"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "^//     the one exception is boundary-crossing triage[^\\n]*\\n//     via lib/ai/evaluation\\.ts[^\\n]*\\n//     which the answer must name \\(LUM-871\\);\\n",
+      "replacement": "",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the comment explaining the crossing-triage exception"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "agent activity, PR/scan records and several child tables",
+      "replacement": "agent activity and several child tables",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service"
+    },
+    {
+      "file": "components/landing/home/faq.tsx",
+      "type": "replace",
+      "pattern": "\\(lib/hook-event/retention\\.ts\\); scan code cleared\\n//   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS after merge or close\\n//   \\(lib/security-scan/evidence-retention\\.ts\\)\\.",
+      "replacement": "(lib/hook-event/retention.ts).",
+      "reason": "LUM-1035 (2026-10-11 ruling ④): the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this landing copy for the hosted service: the comment for the scan-evidence sentence the LUM-1078 transform already cuts"
+    },
+    {
+      "file": "README.md",
+      "type": "replace",
+      "pattern": "^(# Lumo[^\\n]*\\n)",
+      "replacement": "$1\n**[Contributing](CONTRIBUTING.md)** · **[Security policy](SECURITY.md)** · **[License](LICENSE)**\n",
+      "reason": "LUM-1035: link the public repository's CONTRIBUTING.md and SECURITY.md (both from oss/overlay, so the links only hold in the snapshot)"
+    },
+    {
+      "file": "README.md",
+      "type": "replace",
+      "pattern": "^## 🤝 Contributing\\n\\n1\\. Fork the repository\\n[\\s\\S]*?^5\\. Open a Pull Request\\n",
+      "replacement": "## 🤝 Contributing\n\nSee [CONTRIBUTING.md](CONTRIBUTING.md): pull requests are reviewed in this\nrepository, and every commit needs a DCO sign-off (`git commit -s`). Report\nvulnerabilities privately as described in [SECURITY.md](SECURITY.md), not in\na public issue.\n",
+      "reason": "LUM-1035: the public repository's contribution path (DCO, review here, patch back-port) lives in CONTRIBUTING.md from oss/overlay"
     }
   ],
   "configRefFiles": [
@@ -749,6 +872,18 @@
       "pattern": "scan finds something|security scan quoted|test-case and scan record",
       "files": ["components/landing/home/faq.tsx"],
       "reason": "LUM-1078: the landing FAQ entries that describe the PR scan"
+    },
+    {
+      "id": "plugin-feature:landing-home",
+      "pattern": "PR SCAN|SECURITY SCAN|SCAN_FINDINGS|[Ss]can findings|scanned before it merges|scan every pull request|layers before it merges|exploit path|security-scan|semgrep|[Ss]arif",
+      "files": ["components/landing/home/lumo-home.tsx"],
+      "reason": "LUM-1035: guards the lumo-home.tsx transforms — the snapshot's landing page must not describe the PR security scan (a renamed sentence fails the export instead of shipping)"
+    },
+    {
+      "id": "plugin-feature:landing-faq-privacy",
+      "pattern": "[Cc]rossing triage|does not offer zero data retention|security-scan|SCAN_EVIDENCE|lib/ai/evaluation|PR/scan",
+      "files": ["components/landing/home/faq.tsx"],
+      "reason": "LUM-1035: guards the faq.tsx privacy-answer transforms — crossing triage and scan evidence are plugin features"
     }
   ]
 }

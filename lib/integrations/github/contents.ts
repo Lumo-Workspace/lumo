@@ -160,9 +160,59 @@ export async function fetchPrDiff(opts: {
   )
 
   if (!res.ok) {
-    logger.error(
-      `[github/contents] fetchPrDiff failed for ${opts.fullName}#${opts.prNumber}: ${res.status}`
+    // LUM-1079: GitHub answers 406 when the diff is too large to render
+    // (over its file / line limits). That is a fact about the PR, not an
+    // outage — flagged (`diffTooLarge: true` on the thrown error) so callers
+    // can tell the customer so.
+    const diffTooLarge =
+      res.status === 406 || DIFF_TOO_LARGE_BODY.test(await bodySnippet(res))
+    const message = `[github/contents] fetchPrDiff failed for ${opts.fullName}#${opts.prNumber}: ${res.status}${diffTooLarge ? ' (diff too large)' : ''}`
+    if (diffTooLarge) logger.warn(message)
+    else logger.error(message)
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status, diffTooLarge }
     )
+  }
+
+  return res.text()
+}
+
+/** GitHub's "diff too large" wording (e.g. `too_large`, "diff exceeded the maximum number of files"). */
+const DIFF_TOO_LARGE_BODY = /too_large|diff (is )?too large|diff exceeded/i
+
+async function bodySnippet(res: Response): Promise<string> {
+  try {
+    return (await res.text()).slice(0, 500)
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * LUM-1079 — how many files the PR changes (`changed_files` on the pulls
+ * payload), so a scan can tell a PR too large for a diff before asking for
+ * one. null when GitHub did not say. Throws on an API error like its
+ * siblings.
+ */
+export async function fetchPrChangedFiles(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<number | null> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
     throw Object.assign(
       new Error(
         `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
@@ -170,8 +220,9 @@ export async function fetchPrDiff(opts: {
       { status: res.status }
     )
   }
-
-  return res.text()
+  const body = (await res.json()) as { changed_files?: unknown }
+  const n = body.changed_files
+  return typeof n === 'number' && Number.isInteger(n) && n >= 0 ? n : null
 }
 
 /** Compare immutable commits. Refuse divergent histories and truncated file

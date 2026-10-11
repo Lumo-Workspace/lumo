@@ -47,3 +47,10 @@ export interface NotificationPayload {
 export type CommandResult =
   | { type: 'blocks'; blocks: object[] }
   | { type: 'text'; text: string }
+
+/**
+ * Error `code` an API returns when the stored Slack token lacks a scope the
+ * action needs (installs made before the scope was requested — LUM-1080). The
+ * UI answers it with a "Reconnect Slack" action instead of a bare failure.
+ */
+export const SLACK_RECONNECT_REQUIRED = 'SLACK_RECONNECT_REQUIRED'

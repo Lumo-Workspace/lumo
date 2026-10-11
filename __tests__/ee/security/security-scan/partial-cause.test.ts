@@ -120,9 +120,12 @@ beforeEach(() => {
 describe('every partial set point records an attributed cause', () => {
   it('classes known causes including explicit review pauses, and an unknown one as unattributed', () => {
     for (const cause of PARTIAL_CAUSES) {
-      expect(['OUR_FAULT', 'COVERAGE_OWED', 'USER_CONTROLLED']).toContain(
-        partialCauseClass(cause)
-      )
+      expect([
+        'OUR_FAULT',
+        'COVERAGE_OWED',
+        'USER_CONTROLLED',
+        'CHANGE_TOO_LARGE',
+      ]).toContain(partialCauseClass(cause))
     }
     expect(partialCauseClass('HUNT_INCOMPLETE')).toBe('OUR_FAULT')
     expect(partialCauseClass('GRAPH_READ_FAILED')).toBe('OUR_FAULT')

@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Все подписки на каналы будут удалены. Вы сможете переподключиться в любое время.",
   "slack.connectSuccess": "Slack успешно подключён",
   "slack.connectFailed": "Не удалось подключить Slack",
+  "slack.reconnect": "Переподключить Slack",
+  "slack.reconnectToCreateChannel": "Для создания каналов Slack нужны новые разрешения. Переподключите Slack, чтобы их выдать.",
   "slack.disconnectSuccess": "Slack отключён",
   "slack.disconnectFailed": "Не удалось отключить Slack",
   "slack.notificationsUpdated": "Уведомления Slack обновлены",
@@ -2715,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "Не завершено: более новый push запустил новое сканирование до того, как этот уровень закончил.",
   "integrations.notAvailable": "Недоступно в этой установке: {names}. Появятся здесь, как только будут настроены их учётные данные.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Собственным сканерам Lumo и верификатору ревью нужен Vercel Sandbox, который в этой установке не настроен. SARIF, загруженный вашим CI, по-прежнему отображается.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "Недоступно в этой установке: Vercel Sandbox не настроен."
+  "workspaceSettings.securityScan.sandboxUnavailable": "Недоступно в этой установке: Vercel Sandbox не настроен.",
+  "securityScan.status.tooLarge": "Не проверено — превышен лимит размера",
+  "securityScan.prTooLarge.fileLimit": "Этот PR изменяет файлов: {files}; проверки безопасности выполняются для PR не более чем с {cap} файлами (максимум, для которого GitHub отдаёт diff), поэтому в нём ничего не проверено. Чтобы его проверить, разделите его на PR поменьше или сузьте объём изменений.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub не отдал diff этого PR, потому что он слишком большой (изменено файлов: {files}), поэтому в нём ничего не проверено. Чтобы его проверить, разделите его на PR поменьше или сузьте объём изменений.",
+  "securityScan.prTooLarge.diffRefused": "GitHub не отдал diff этого PR, потому что он слишком большой, поэтому в нём ничего не проверено. Чтобы его проверить, разделите его на PR поменьше или сузьте объём изменений.",
+  "securityScan.stageReason.prTooLarge": "Не запускалось: этот PR слишком большой для проверки. Разделите его на PR поменьше или сузьте объём изменений, чтобы его проверить."
 }

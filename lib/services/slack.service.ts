@@ -6,6 +6,7 @@ import type {
   UpdateSlackChannelData,
 } from '@/lib/repositories/slack.repository'
 import type { SlackEventType } from '@/lib/integrations/slack'
+import { SLACK_RECONNECT_REQUIRED } from '@/lib/integrations/slack/types'
 import {
   recordAuditEvent,
   type AuditContext,
@@ -202,12 +203,16 @@ export const slackService = {
 
       // Provide a user-friendly message for common errors
       let message = 'Failed to create Slack channel'
+      let code: string | undefined
       if (data.error === 'name_taken')
         message = `A channel named #${name} already exists in Slack`
-      else if (data.error === 'missing_scope')
+      else if (data.error === 'missing_scope') {
+        // LUM-1080: installs made before channels:manage / groups:write were
+        // requested lack them until a workspace admin reconnects Slack.
         message =
-          'Missing Slack permission. Add channels:manage (or groups:write for private) to your app scopes and reinstall.'
-      else if (
+          'Slack needs new permissions to create channels. Reconnect Slack to grant them.'
+        code = SLACK_RECONNECT_REQUIRED
+      } else if (
         data.error === 'invalid_name' ||
         data.error === 'invalid_name_specials'
       )
@@ -216,6 +221,7 @@ export const slackService = {
       throw Object.assign(new Error(message), {
         status: 422,
         slackError: data.error,
+        ...(code ? { code } : {}),
       })
     }
 

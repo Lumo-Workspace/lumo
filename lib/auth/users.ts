@@ -29,6 +29,13 @@ export function isUserDirectoryConfigured(): boolean {
   return isBetterAuth() || clerk.isUserDirectoryConfigured()
 }
 
+/**
+ * Better Auth's name columns for a new user (pure, no SDK). Exposed for the
+ * Clerk → Better Auth import (LUM-1072), which writes `auth_users` rows
+ * itself and must name them exactly as a Better Auth sign-up would.
+ */
+export { nameFieldsForCreate } from './better-auth/user-shape'
+
 export type {
   AuthEmailAddress,
   AuthUser,

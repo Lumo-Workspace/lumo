@@ -1,0 +1,369 @@
+[
+  {
+    "id": "user_2pwOnly0001",
+    "object": "user",
+    "username": null,
+    "first_name": "Ada",
+    "last_name": "Lovelace",
+    "image_url": "https://img.clerk.com/fake-avatar-1",
+    "has_image": true,
+    "primary_email_address_id": "idn_1",
+    "email_addresses": [
+      {
+        "id": "idn_1",
+        "object": "email_address",
+        "email_address": "ada@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000001000,
+    "updated_at": 1760000001000
+  },
+  {
+    "id": "user_2ghOnly0002",
+    "object": "user",
+    "username": null,
+    "first_name": "Grace",
+    "last_name": "Hopper",
+    "image_url": "https://img.clerk.com/fake-avatar-2",
+    "has_image": true,
+    "primary_email_address_id": "idn_2",
+    "email_addresses": [
+      {
+        "id": "idn_2",
+        "object": "email_address",
+        "email_address": "grace@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [
+      {
+        "object": "external_account",
+        "id": "eac_gh_1000002",
+        "provider": "oauth_github",
+        "provider_user_id": "1000002",
+        "approved_scopes": "read:user user:email",
+        "email_address": "unused@example.com"
+      }
+    ],
+    "password_enabled": false,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000002000,
+    "updated_at": 1760000002000
+  },
+  {
+    "id": "user_2goOnly0003",
+    "object": "user",
+    "username": null,
+    "first_name": "Alan",
+    "last_name": "Turing",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_3",
+    "email_addresses": [
+      {
+        "id": "idn_3",
+        "object": "email_address",
+        "email_address": "alan@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [
+      {
+        "object": "external_account",
+        "id": "eac_go_109000000000000000003",
+        "provider": "oauth_google",
+        "provider_user_id": "109000000000000000003",
+        "approved_scopes": "email openid profile",
+        "email_address": "unused@example.com"
+      }
+    ],
+    "password_enabled": false,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000003000,
+    "updated_at": 1760000003000
+  },
+  {
+    "id": "user_2pwAndGh0004",
+    "object": "user",
+    "username": null,
+    "first_name": "Mary \"Ann\"",
+    "last_name": "Jackson",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_4",
+    "email_addresses": [
+      {
+        "id": "idn_4",
+        "object": "email_address",
+        "email_address": "mary@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      },
+      {
+        "id": "idn_44",
+        "object": "email_address",
+        "email_address": "Mary.Work@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [
+      {
+        "object": "external_account",
+        "id": "eac_gh_1000004",
+        "provider": "oauth_github",
+        "provider_user_id": "1000004",
+        "approved_scopes": "read:user user:email",
+        "email_address": "unused@example.com"
+      }
+    ],
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000004000,
+    "updated_at": 1760000004000
+  },
+  {
+    "id": "user_2unverif0005",
+    "object": "user",
+    "username": null,
+    "first_name": "Kat",
+    "last_name": "Johnson",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_5",
+    "email_addresses": [
+      {
+        "id": "idn_5",
+        "object": "email_address",
+        "email_address": "KAT@Example.com",
+        "verification": {
+          "status": "unverified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000005000,
+    "updated_at": 1760000005000
+  },
+  {
+    "id": "user_2banned00006",
+    "object": "user",
+    "username": null,
+    "first_name": "Bad",
+    "last_name": "Actor",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_6",
+    "email_addresses": [
+      {
+        "id": "idn_6",
+        "object": "email_address",
+        "email_address": "banned@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": true,
+    "locked": false,
+    "created_at": 1760000006000,
+    "updated_at": 1760000006000
+  },
+  {
+    "id": "user_2caseA000007",
+    "object": "user",
+    "username": null,
+    "first_name": "Case",
+    "last_name": "Upper",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_7",
+    "email_addresses": [
+      {
+        "id": "idn_7",
+        "object": "email_address",
+        "email_address": "Dup@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": false,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000007000,
+    "updated_at": 1760000007000
+  },
+  {
+    "id": "user_2caseB000008",
+    "object": "user",
+    "username": null,
+    "first_name": "Case",
+    "last_name": "Lower",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_8",
+    "email_addresses": [
+      {
+        "id": "idn_8",
+        "object": "email_address",
+        "email_address": "dup@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": false,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000008000,
+    "updated_at": 1760000008000
+  },
+  {
+    "id": "user_2noEmail0009",
+    "object": "user",
+    "username": "phoneuser",
+    "first_name": null,
+    "last_name": null,
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": null,
+    "email_addresses": [],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": false,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000009000,
+    "updated_at": 1760000009000
+  },
+  {
+    "id": "user_2argon00010",
+    "object": "user",
+    "username": null,
+    "first_name": "Ar",
+    "last_name": "Gon",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_10",
+    "email_addresses": [
+      {
+        "id": "idn_10",
+        "object": "email_address",
+        "email_address": "argon@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": false,
+    "created_at": 1760000010000,
+    "updated_at": 1760000010000
+  },
+  {
+    "id": "user_2mfa0000011",
+    "object": "user",
+    "username": null,
+    "first_name": "Mfa",
+    "last_name": "User",
+    "image_url": "https://img.clerk.com/default-generated",
+    "has_image": false,
+    "primary_email_address_id": "idn_11",
+    "email_addresses": [
+      {
+        "id": "idn_11",
+        "object": "email_address",
+        "email_address": "mfa@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "phone_numbers": [],
+    "external_accounts": [],
+    "password_enabled": true,
+    "two_factor_enabled": true,
+    "totp_enabled": true,
+    "backup_code_enabled": false,
+    "banned": false,
+    "locked": true,
+    "created_at": 1760000011000,
+    "updated_at": 1760000011000
+  }
+]

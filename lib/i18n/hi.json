@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "सभी चैनल सदस्यताएं हटा दी जाएंगी। आप कभी भी पुनः कनेक्ट कर सकते हैं।",
   "slack.connectSuccess": "Slack सफलतापूर्वक कनेक्ट हुआ",
   "slack.connectFailed": "Slack कनेक्ट करने में विफल",
+  "slack.reconnect": "Slack फिर से कनेक्ट करें",
+  "slack.reconnectToCreateChannel": "चैनल बनाने के लिए Slack को नई अनुमतियों की ज़रूरत है। उन्हें देने के लिए Slack फिर से कनेक्ट करें।",
   "slack.disconnectSuccess": "Slack डिस्कनेक्ट हुआ",
   "slack.disconnectFailed": "Slack डिस्कनेक्ट करने में विफल",
   "slack.notificationsUpdated": "Slack सूचनाएं अपडेट की गईं",
@@ -2715,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "पूरा नहीं हुआ: इस परत के खत्म होने से पहले एक नए push ने नया स्कैन शुरू कर दिया।",
   "integrations.notAvailable": "इस डिप्लॉयमेंट पर उपलब्ध नहीं: {names}। इनके क्रेडेंशियल कॉन्फ़िगर होते ही ये यहाँ दिखेंगे।",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo के अपने स्कैनर और समीक्षा सत्यापक को Vercel Sandbox चाहिए, जो इस डिप्लॉयमेंट पर कॉन्फ़िगर नहीं है। आपके CI द्वारा अपलोड की गई SARIF रिपोर्ट अब भी दिखती हैं।",
-  "workspaceSettings.securityScan.sandboxUnavailable": "इस डिप्लॉयमेंट पर उपलब्ध नहीं: Vercel Sandbox कॉन्फ़िगर नहीं है।"
+  "workspaceSettings.securityScan.sandboxUnavailable": "इस डिप्लॉयमेंट पर उपलब्ध नहीं: Vercel Sandbox कॉन्फ़िगर नहीं है।",
+  "securityScan.status.tooLarge": "स्कैन नहीं हुआ — आकार सीमा से अधिक",
+  "securityScan.prTooLarge.fileLimit": "यह PR {files} फ़ाइलें बदलता है; सुरक्षा स्कैन अधिकतम {cap} फ़ाइलों वाले PR पर चलते हैं (GitHub इतनी ही फ़ाइलों का diff लौटाता है), इसलिए इसमें कुछ भी स्कैन नहीं हुआ। स्कैन करवाने के लिए इसे छोटे PR में बाँटें या इसका दायरा कम करें।",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub ने इस PR का diff नहीं लौटाया क्योंकि यह बहुत बड़ा है ({files} फ़ाइलें बदली गईं), इसलिए इसमें कुछ भी स्कैन नहीं हुआ। स्कैन करवाने के लिए इसे छोटे PR में बाँटें या इसका दायरा कम करें।",
+  "securityScan.prTooLarge.diffRefused": "GitHub ने इस PR का diff नहीं लौटाया क्योंकि यह बहुत बड़ा है, इसलिए इसमें कुछ भी स्कैन नहीं हुआ। स्कैन करवाने के लिए इसे छोटे PR में बाँटें या इसका दायरा कम करें।",
+  "securityScan.stageReason.prTooLarge": "नहीं चला: यह PR स्कैन करने के लिए बहुत बड़ा है। स्कैन करवाने के लिए इसे छोटे PR में बाँटें या इसका दायरा कम करें।"
 }

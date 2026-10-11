@@ -685,6 +685,117 @@ describe('oss/manifest.json', () => {
     expect(classifyFiles(['ee/LICENSE'], manifest).included).toEqual([])
   })
 
+  describe('public repository files and landing cleanup (LUM-1035)', () => {
+    const root = join(__dirname, '../..')
+    const read = (p: string) => readFileSync(join(root, p), 'utf8')
+    const tracked = (paths: string[]) =>
+      execFileSync('git', ['ls-files', '-z', '--', ...paths], {
+        cwd: root,
+        encoding: 'utf8',
+      })
+        .split('\0')
+        .filter(Boolean)
+    const LUM1035 = (manifest.transforms ?? []).filter(t =>
+      t.reason.startsWith('LUM-1035')
+    )
+    const transformed = (file: string) =>
+      (manifest.transforms ?? [])
+        .filter(t => t.file === file)
+        .reduce((src, t) => applyTransform(src, t), read(file))
+
+    it('CONTRIBUTING, SECURITY and the DCO workflow ship from the overlay only', () => {
+      for (const f of [
+        'CONTRIBUTING.md',
+        'SECURITY.md',
+        '.github/workflows/dco.yml',
+        '.github/scripts/check-dco.mjs',
+      ])
+        expect(read(`oss/overlay/${f}`).length).toBeGreaterThan(0)
+      // The private repo runs no GitHub Actions and has no root copies.
+      expect(tracked(['.github', 'CONTRIBUTING.md', 'SECURITY.md'])).toEqual([])
+      expect(read('oss/overlay/CONTRIBUTING.md')).toContain('git commit -s')
+      expect(read('oss/overlay/CONTRIBUTING.md')).toContain('Signed-off-by')
+      expect(read('oss/overlay/.github/workflows/dco.yml')).toContain(
+        'node .github/scripts/check-dco.mjs'
+      )
+    })
+
+    it('the release runbook stays private', () => {
+      const cls = classifyFiles(
+        ['docs/open-source/release-and-sync.md'],
+        manifest
+      )
+      expect(cls.excluded).toEqual(['docs/open-source/release-and-sync.md'])
+    })
+
+    it('every LUM-1035 transform still matches its source file', () => {
+      expect(LUM1035.length).toBeGreaterThan(0)
+      for (const t of LUM1035) {
+        const src = read(t.file)
+        expect({
+          file: t.file,
+          t,
+          changes: applyTransform(src, t) !== src,
+        }).toEqual({
+          file: t.file,
+          t,
+          changes: true,
+        })
+      }
+    })
+
+    it('the snapshot landing page, FAQ and README carry no plugin copy; the private sources keep it', () => {
+      const markers = manifest.forbiddenMarkers ?? []
+      for (const f of [
+        'components/landing/home/lumo-home.tsx',
+        'components/landing/home/faq.tsx',
+        'README.md',
+      ])
+        expect(scanMarkers(f, transformed(f), markers)).toEqual([])
+
+      const home = transformed('components/landing/home/lumo-home.tsx')
+      expect(home).not.toMatch(/PR SCAN|SECURITY|SCAN_FINDINGS|scan findings/)
+      // The feature cards stay numbered 01–07 with no gap.
+      const kickers = [...home.matchAll(/cellKicker\}>(\d\d) · /g)].map(
+        m => m[1]
+      )
+      expect(kickers).toEqual(['01', '02', '03', '04', '05', '06', '07'])
+      const faq = transformed('components/landing/home/faq.tsx')
+      expect(faq).not.toMatch(/crossing triage|security scan|scan finds/i)
+      expect(faq).toContain(
+        'zero data retention enforced on the request itself.'
+      )
+
+      const readme = transformed('README.md')
+      expect(readme.split('\n').slice(0, 4).join('\n')).toContain(
+        '[Contributing](CONTRIBUTING.md)** · **[Security policy](SECURITY.md)'
+      )
+      expect(readme).toContain('See [CONTRIBUTING.md](CONTRIBUTING.md)')
+
+      // Private repo keeps the hosted-service copy (ruling 2026-10-11 ④).
+      expect(read('components/landing/home/lumo-home.tsx')).toContain(
+        'SECURITY SCAN'
+      )
+      expect(read('components/landing/home/faq.tsx')).toContain(
+        'for all but boundary-crossing triage'
+      )
+    })
+
+    it('publish.sh is a dry run: it never pushes, tags remotely or calls GitHub', () => {
+      const src = read('scripts/oss-export/publish.sh')
+      // Drop heredoc bodies (the printed instructions) and comments.
+      const executed = src
+        .replace(/<<'?EOF'?[\s\S]*?\nEOF\n/g, '\n')
+        .split('\n')
+        .filter(l => !/^\s*#/.test(l))
+        .join('\n')
+      expect(executed).not.toMatch(
+        /git(\s+-C\s+\S+)?\s+push|\bgh\s|curl|wget|git\s+tag|git\s+remote/
+      )
+      expect(src).toContain('git push -u origin main')
+    })
+  })
+
   it('the private manifest itself never ships', () => {
     const cls = classifyFiles(
       [

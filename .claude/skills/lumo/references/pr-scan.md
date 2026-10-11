@@ -133,7 +133,22 @@ split the PR.`; past the AI review's 180,000-character cap the AI review is
 review runs on up to 180,000, so it did not run. To get it, narrow the review
 scope or split the PR.` These are the only lines that ask something of the
 customer; when a size cap is the only gap they replace the owned "not finished
-on our side" note. `this run was sized for fewer
+on our side" note.
+
+**PR too large to scan (LUM-1079).** A PR that changes more than **300 files**
+(`GITHUB_DIFF_MAX_FILES` — the most GitHub returns a diff for, checked before
+the diff is requested), or whose diff GitHub refuses as too large (406), is not
+scanned at all: every layer reads `skipped`, cause `PR_TOO_LARGE`, and the head
+line's status reads `not scanned — PR too large` instead of `FAILED` / `CLEAN`.
+The line under it says why and what to do — `This PR changes N files; security
+scans run on PRs of up to 300 files (the most GitHub returns a diff for), so
+nothing in it was scanned. To get it scanned, split it into smaller PRs or
+narrow its scope.` (or `GitHub would not return this PR's diff because it is too
+large (N files changed), …`) — and `Findings: none — nothing in this PR was
+scanned`. Never the owned "not finished on our side" note, never counted as
+checked. Suggest splitting the PR; re-running the scan on the same head will
+not help. A real fault of ours (sandbox timeout, GitHub outage) keeps the
+owned note. `this run was sized for fewer
 files than the diff — the rest is still on us` (formerly `oversized`) is kept
 for rows hunted before batching, whose layer reads PARTIAL.
 
