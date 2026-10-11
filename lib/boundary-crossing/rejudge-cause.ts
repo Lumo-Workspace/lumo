@@ -130,7 +130,14 @@ export function ruleTextFromDetail(detail: string): string | null {
 export interface PolicyWeakeningRow {
   detail: string
   policyRuleText: string | null
+  /** LUM-1068: `forbidden:<id>` marks a row of the core Forbidden source. */
+  policyRuleRef?: string | null
 }
+
+/** LUM-1068: `policyRuleRef` prefix of a core Forbidden-source row (a literal
+ *  `## Forbidden` item, no classifier involved — lib/boundary-crossing/
+ *  forbidden-rules.ts). The plugin's rows carry a bare LLM rule id. */
+export const FORBIDDEN_RULE_REF_PREFIX = 'forbidden:'
 
 /**
  * POLICY_WEAKENING: the current criterion (LUM-770) is "is the rule's text
@@ -179,7 +186,9 @@ export function rejudgePolicyWeakening(
     write: {
       severity: 'MEDIUM',
       detail: clip(
-        `The policy compiler stopped treating this rule as deterministic+blocking, but its text is UNCHANGED in CLAUDE.md — a classifier decision, not an edit (re-judged, LUM-780): "${text}"`
+        row.policyRuleRef?.startsWith(FORBIDDEN_RULE_REF_PREFIX)
+          ? `This Forbidden rule's text is back in CLAUDE.md/AGENTS.md (restored or moved), so it no longer reads as deleted (re-judged, LUM-780): "${text}"`
+          : `The policy compiler stopped treating this rule as deterministic+blocking, but its text is UNCHANGED in CLAUDE.md — a classifier decision, not an edit (re-judged, LUM-780): "${text}"`
       ),
     },
   }

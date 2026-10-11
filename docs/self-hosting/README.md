@@ -207,6 +207,11 @@ with the provider; webhooks need a URL the provider can reach. Step-by-step
 setup, the permissions and events each one needs, tunnels for a private
 server, and `ENCRYPTION_KEY`: [integrations.md](integrations.md).
 
+With the GitHub App connected, deleting a rule from the `## Forbidden`
+section of a project's `CLAUDE.md` / `AGENTS.md` is recorded as a
+POLICY_WEAKENING crossing (no model involved). What is recorded and the exact
+format that is recognised: [forbidden-rules.md](forbidden-rules.md).
+
 ### Using your own Postgres / S3 / Pusher
 
 Edit `docker-compose.yml`: drop the bundled service and change the matching
