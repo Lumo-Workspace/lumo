@@ -337,6 +337,44 @@ describe('email code sign-in (LUM-1082)', () => {
     await Promise.all(mockWaitUntil.mock.calls.map(c => c[0]))
   })
 
+  it('an existing UNVERIFIED account is not taken over by code: refused like a wrong code, nothing changed', async () => {
+    const auth = rebuild({})
+    const id = `user_u${randomBytes(6).toString('hex')}`
+    const email = freshEmail('unverified')
+    const now = new Date()
+    mockDb.authUser!.push({
+      id,
+      name: 'Someone',
+      email,
+      emailVerified: false,
+      image: null,
+      firstName: 'Someone',
+      lastName: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    mockDb.authAccount!.push({
+      id: `acc-${id}`,
+      accountId: id,
+      providerId: 'credential',
+      userId: id,
+      password: 'unused',
+      createdAt: now,
+      updatedAt: now,
+    })
+    await sendCode(auth, email)
+    const res = await post(auth, '/sign-in/email-otp', {
+      email,
+      otp: lastCode(),
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ code: 'INVALID_OTP' })
+    expect(res.headers.getSetCookie().join(';')).not.toMatch(/session_token/)
+    expect(mockDb.authUser!.find(u => u.id === id)?.emailVerified).toBe(false)
+    expect(mockDb.authAccount!.some(a => a.userId === id)).toBe(true)
+    expect(mockDb.authSession!.some(s => s.userId === id)).toBe(false)
+  })
+
   it('the plugin password-reset / change-email endpoints are disabled', async () => {
     const auth = rebuild({})
     for (const path of [
@@ -364,7 +402,7 @@ describe('password switch (LUM-1082)', () => {
     expect(signUp.status).toBe(400)
     const signIn = await post(auth, '/sign-in/email', {
       email,
-      password: 'whatever-123',
+      password: `pw-${randomBytes(9).toString('base64url')}`,
     })
     expect(signIn.status).toBe(400)
     for (const path of [

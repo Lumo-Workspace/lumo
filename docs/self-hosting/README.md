@@ -137,7 +137,9 @@ once email is configured; and **email + password**, on by default.
   Without it the page shows only the password form; in development
   (`NODE_ENV` not `production`) codes are offered anyway and written to the
   server log. Three wrong codes void a code; sending and checking codes is
-  rate limited per IP.
+  rate limited per IP. An existing account whose email is not verified cannot
+  sign in by code (it answers like a wrong code): verify the address by the
+  emailed link or sign in with the password first.
 - **Turning passwords off.** `AUTH_DISABLE_PASSWORD=true` removes password
   sign-in, sign-up, forgot / reset password (`/reset-password` is a 404) and
   the change-password card, leaving email codes and GitHub / Google — the

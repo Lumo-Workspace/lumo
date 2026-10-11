@@ -17,12 +17,23 @@
  *   Requests are rate limited by the plugin's rules (3 / 60 s per IP on the
  *   send and sign-in paths), counted in the shared database store (./rate-limit).
  *
+ * An existing account whose email is NOT verified cannot sign in by code
+ * (lumoEmailOtpGuardPlugin): Better Auth would "promote" it — drop its
+ * password / OAuth links and sessions, mark the email verified, and sign the
+ * code holder in — but Lumo-side grants made by whoever registered it
+ * unverified (API keys, workspaces, MCP connections) would carry over to the
+ * mailbox owner's session, and that registrant could be someone else. Such an
+ * account answers like a wrong code; its owner verifies by link or signs in
+ * with the password first.
+ *
  * Only the sign-in and email-verification flows are used. The plugin's
  * password-reset-by-code endpoints are disabled (the link flow of
  * ./password-reset stays the one way to reset a password), and so is
  * change-email.
  */
 import type { EmailOTPOptions } from 'better-auth/plugins/email-otp'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
+import type { BetterAuthPlugin } from 'better-auth'
 import { sendEmail } from '@/lib/integrations/email/client'
 import { buildSignInCodeEmail } from '@/lib/integrations/email/templates/sign-in-code'
 import { resolvePublicLocale } from '@/lib/i18n/public-locale'
@@ -95,5 +106,39 @@ export function emailOtpOptions(opts: {
     allowedAttempts: EMAIL_OTP_ALLOWED_ATTEMPTS,
     storeOTP: 'hashed',
     disableSignUp: opts.disableSignUp,
+  }
+}
+
+/** The sign-in-by-code endpoint (better-auth emailOTP). */
+export const EMAIL_OTP_SIGN_IN_PATH = '/sign-in/email-otp'
+
+/**
+ * Refuses code sign-in into an existing account with an unverified email —
+ * before the code is checked, with the plugin's own "invalid code" answer,
+ * so the response says nothing about the account.
+ */
+export function lumoEmailOtpGuardPlugin(): BetterAuthPlugin {
+  return {
+    id: 'lumo-email-otp-guard',
+    hooks: {
+      before: [
+        {
+          matcher: ctx => ctx.path === EMAIL_OTP_SIGN_IN_PATH,
+          handler: createAuthMiddleware(async ctx => {
+            const raw = (ctx.body as { email?: unknown } | undefined)?.email
+            if (typeof raw !== 'string') return
+            const found = await ctx.context.internalAdapter.findUserByEmail(
+              raw.toLowerCase()
+            )
+            if (found && !found.user.emailVerified) {
+              throw new APIError('BAD_REQUEST', {
+                code: 'INVALID_OTP',
+                message: 'Invalid OTP',
+              })
+            }
+          }),
+        },
+      ],
+    },
   }
 }

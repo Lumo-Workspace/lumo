@@ -46,7 +46,11 @@ import { generateAuthId } from './ids'
 import { RATE_LIMIT_OPTIONS } from './rate-limit'
 import { ACCOUNT_LINKING_OPTIONS } from './account-linking'
 import { waitUntil } from '@/lib/runtime/wait-until'
-import { EMAIL_OTP_DISABLED_PATHS, emailOtpOptions } from './email-otp'
+import {
+  EMAIL_OTP_DISABLED_PATHS,
+  emailOtpOptions,
+  lumoEmailOtpGuardPlugin,
+} from './email-otp'
 
 /** Session cookie cache: page loads skip the DB for this many seconds. */
 export const SESSION_COOKIE_CACHE_SECONDS = 5 * 60
@@ -217,7 +221,10 @@ function createBetterAuth() {
       lumoAdminPlugin(),
       // LUM-1082: email one-time-code sign-in (./email-otp).
       ...(emailCodeEnabled
-        ? [emailOTP(emailOtpOptions({ disableSignUp: isSignUpDisabled() }))]
+        ? [
+            lumoEmailOtpGuardPlugin(),
+            emailOTP(emailOtpOptions({ disableSignUp: isSignUpDisabled() })),
+          ]
         : []),
       ...(mcpOAuthUrls ? mcpOAuthPlugins(mcpOAuthUrls) : []),
       // Must stay last: sets cookies from server actions.
