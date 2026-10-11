@@ -1,6 +1,6 @@
 # Lumo Data Processing Agreement (Template)
 
-Version: 2026-10-05 · Draft for legal review (LUM-857)
+Version: 2026-10-12 · Draft for legal review (LUM-857)
 
 This Data Processing Agreement ("DPA") forms part of the agreement for the Lumo service (the "Agreement") between [Customer legal name] ("Customer") and [Lumo legal entity], [registered address] ("Lumo"). It applies where Lumo processes Customer Personal Data on Customer's behalf in providing the Service, and it sets out the terms required by Article 28(3) of Regulation (EU) 2016/679 (the "GDPR") and the equivalent UK and Swiss laws. If this DPA conflicts with the Agreement, this DPA prevails on data protection matters.
 
@@ -133,7 +133,7 @@ Special categories of data: none intended. Customer should not submit special ca
 | --- | --- |
 | Encryption in transit | All connections to the Service and between the Service and its Subprocessors use TLS |
 | Encryption at rest | Database and file storage are encrypted at rest by the hosting providers; integration access tokens are additionally encrypted with AES-256-GCM at the application layer |
-| Authentication and access control | User authentication through Clerk; every request is authorised against the user's workspace membership; data of one workspace is not accessible to members of another; an invitation can only be accepted by a user who has confirmed ownership of the invited email address; when a member is removed, leaves, or their account is deleted or blocked in the identity provider, their membership is deactivated, their personal API keys are revoked and their personal integration credentials in that workspace are deleted at once, while the content they created stays with the workspace |
+| Authentication and access control | User authentication through Lumo's own authentication service, with accounts and sessions stored in Lumo's database and one-time sign-in codes sent by email; every request is authorised against the user's workspace membership; data of one workspace is not accessible to members of another; an invitation can only be accepted by a user who has confirmed ownership of the invited email address; when a member is removed, leaves, or their account is deleted or blocked in Lumo's authentication service, their membership is deactivated, their personal API keys are revoked and their personal integration credentials in that workspace are deleted at once, while the content they created stays with the workspace |
 | Least privilege | Production credentials are held in the hosting provider's secret store and are not stored in source code; the GitHub App requests only the repository permissions the Service needs, and scan sandboxes receive short-lived, repository-scoped credentials |
 | Isolation of code analysis | Customer repositories are analysed in isolated, short-lived virtual machines that are discarded after each scan |
 | AI data handling | Every AI model request except boundary-crossing triage enforces zero data retention and excludes providers that would train on or retain the data; boundary-crossing triage uses a provider that does not train on the data but does not offer zero data retention, and can be turned off with the AI review setting |

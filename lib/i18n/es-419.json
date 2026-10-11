@@ -2345,7 +2345,7 @@
   "security.infra.tokens": "Los tokens de acceso de los servicios que conectas (GitHub, Slack, Figma, Google Drive, Sentry) además son cifrados por Lumo con AES-256-GCM antes de almacenarse.",
   "security.infra.sandbox": "Los análisis de seguridad se ejecutan en máquinas virtuales aisladas y de corta duración (Vercel Sandbox). El repositorio se clona con un token de solo lectura para ese único repositorio, que se revoca justo después de la clonación; el acceso a la red está restringido mientras se ejecutan los escáneres, y la máquina se detiene cuando termina el análisis.",
   "security.auth.heading": "Autenticación y acceso",
-  "security.auth.signin": "El inicio de sesión, las cuentas y las sesiones los gestiona Clerk.",
+  "security.auth.signin": "El inicio de sesión, las cuentas y las sesiones los gestiona el propio servicio de autenticación de Lumo y se guardan en la base de datos de Lumo. Los códigos de inicio de sesión se envían por correo electrónico y también puedes iniciar sesión con Google.",
   "security.auth.roles": "Cada espacio de trabajo tiene propietarios y miembros. Solo los propietarios pueden cambiar la configuración de retención de datos o eliminar el espacio de trabajo.",
   "security.auth.apiKeys": "Las claves de API de la CLI de Lumo se muestran una sola vez, cuando se crean, y se almacenan solo como un hash SHA-256.",
   "security.code.heading": "Cómo se maneja tu código",

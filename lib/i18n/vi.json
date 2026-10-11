@@ -2345,7 +2345,7 @@
   "security.infra.tokens": "Token truy cập của các dịch vụ bạn kết nối (GitHub, Slack, Figma, Google Drive, Sentry) được Lumo mã hóa thêm bằng AES-256-GCM trước khi lưu.",
   "security.infra.sandbox": "Các lượt quét bảo mật chạy trong máy ảo biệt lập, tồn tại ngắn hạn (Vercel Sandbox). Kho mã được sao chép (clone) bằng một token chỉ đọc dành riêng cho đúng kho mã đó, và token này bị thu hồi ngay sau khi sao chép; quyền truy cập mạng bị hạn chế trong khi các trình quét chạy, và máy được dừng khi lượt quét kết thúc.",
   "security.auth.heading": "Xác thực và quyền truy cập",
-  "security.auth.signin": "Đăng nhập, tài khoản và phiên được Clerk xử lý.",
+  "security.auth.signin": "Đăng nhập, tài khoản và phiên do dịch vụ xác thực riêng của Lumo xử lý và được lưu trong cơ sở dữ liệu của Lumo. Mã đăng nhập được gửi qua email, và bạn cũng có thể đăng nhập bằng Google.",
   "security.auth.roles": "Mỗi không gian làm việc có chủ sở hữu và thành viên. Chỉ chủ sở hữu mới có thể thay đổi cài đặt lưu giữ dữ liệu hoặc xóa không gian làm việc.",
   "security.auth.apiKeys": "Khóa API cho Lumo CLI chỉ được hiển thị một lần, khi được tạo, và chỉ được lưu dưới dạng mã băm SHA-256.",
   "security.code.heading": "Cách mã nguồn của bạn được xử lý",

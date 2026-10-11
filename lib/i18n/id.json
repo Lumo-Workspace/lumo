@@ -2345,7 +2345,7 @@
   "security.infra.tokens": "Token akses untuk layanan yang Anda hubungkan (GitHub, Slack, Figma, Google Drive, Sentry) juga dienkripsi oleh Lumo dengan AES-256-GCM sebelum disimpan.",
   "security.infra.sandbox": "Pemindaian keamanan berjalan di mesin virtual terisolasi yang berumur pendek (Vercel Sandbox). Repositori di-clone dengan token hanya-baca untuk satu repositori tersebut saja, yang dicabut segera setelah clone selesai; akses jaringan dibatasi selama pemindai berjalan, dan mesin dihentikan saat pemindaian berakhir.",
   "security.auth.heading": "Autentikasi dan akses",
-  "security.auth.signin": "Proses masuk, akun, dan sesi ditangani oleh Clerk.",
+  "security.auth.signin": "Proses masuk, akun, dan sesi ditangani oleh layanan autentikasi milik Lumo sendiri dan disimpan di basis data Lumo. Kode masuk dikirim melalui email, dan Anda juga dapat masuk dengan Google.",
   "security.auth.roles": "Setiap ruang kerja memiliki pemilik dan anggota. Hanya pemilik yang dapat mengubah pengaturan retensi data atau menghapus ruang kerja.",
   "security.auth.apiKeys": "Kunci API untuk Lumo CLI ditampilkan satu kali, saat dibuat, dan hanya disimpan sebagai hash SHA-256.",
   "security.code.heading": "Cara kode Anda ditangani",

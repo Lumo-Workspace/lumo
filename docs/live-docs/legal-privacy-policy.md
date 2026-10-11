@@ -1,6 +1,6 @@
 # Lumo Privacy Policy
 
-Last updated: 2026-10-04 · Draft for legal review (LUM-857)
+Last updated: 2026-10-12 · Draft for legal review (LUM-857)
 
 This policy explains what personal data [Lumo legal entity], [registered address] ("Lumo", "we", "us") collects when you use the Lumo website, web application, command-line tool (CLI) and integrations (together, the "Service"), why we collect it, how long we keep it, who we share it with, and the rights you have.
 
@@ -69,7 +69,7 @@ When an AI feature runs, the relevant text (which may include code) is sent to a
 | Technical data and logs | [Log retention period] |
 | Backups | Deleted data can persist in encrypted database backups for up to [backup retention period] before it is overwritten. |
 
-When a workspace owner removes you from a workspace, you leave it, or your account is deleted or blocked by your sign-in provider, your membership in the workspace is deactivated at once, your personal API keys stop working and your personal GitHub, Figma and Google Drive connections in that workspace are disconnected (their stored credentials are deleted); the tasks, comments, documents and agent session records you created stay with the workspace, attributed to you. If you are invited again later, the same membership is restored.
+When a workspace owner removes you from a workspace, you leave it, or your Lumo account is deleted or blocked, your membership in the workspace is deactivated at once, your personal API keys stop working and your personal GitHub, Figma and Google Drive connections in that workspace are disconnected (their stored credentials are deleted); the tasks, comments, documents and agent session records you created stay with the workspace, attributed to you. If you are invited again later, the same membership is restored.
 
 When a workspace owner deletes a workspace, the deletion is scheduled 48 hours ahead and every workspace owner is emailed; any owner can cancel it during that window. When the 48 hours pass, we permanently delete the workspace's database records and stored files and keep a deletion receipt recording what was deleted and when (not the deleted content). An owner who needs the data erased immediately, for example to meet an erasure request, can run the scheduled deletion at once from workspace settings. If you uninstall the GitHub App, or remove a repository from it, but keep the workspace, we immediately clear the code stored with the affected security scans (quoted code, call chains, AI-written finding text, pull-request summaries and the scan's audit records), whatever the retention setting; each finding's rule, file, line, severity and dispositions are kept. Other data already collected from GitHub, such as pull-request records, stays with the workspace; contact us if you want it deleted.
 
@@ -89,7 +89,7 @@ Lumo and most of its subprocessors process data in the United States. Where pers
 - All traffic to the Service is encrypted in transit with TLS.
 - Our database and file storage providers encrypt data at rest.
 - Integration access tokens are additionally encrypted with AES-256-GCM before they are stored.
-- Sign-in is handled by Clerk; access to workspace data is limited to members of that workspace.
+- Sign-in is handled by Lumo's own authentication service: your account and sessions are stored in our database (Neon), one-time sign-in codes are emailed to you through Resend, and you can choose to sign in with Google instead. Our previous sign-in provider, Clerk, no longer handles sign-in; it keeps the account data it already held until we delete it at the end of a short transition period. Access to workspace data is limited to members of that workspace.
 - Security scans of your code run in isolated, short-lived sandboxes.
 
 ## Your rights

@@ -172,8 +172,8 @@ once email is configured; and **email + password**, on by default.
   `BETTER_AUTH_URL`), it picks up the workspace last selected for a client
   of the same name. The Lumo CLI uses API keys.
 
-Clerk is what the hosted service uses. `docker-compose.yml` does not support
-it; to run a Clerk image anyway, build with
+Clerk is also supported (the hosted service used it until October 2026).
+`docker-compose.yml` does not support it; to run a Clerk image anyway, build with
 `--build-arg AUTH_PROVIDER=clerk --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_…`
 and run it with `AUTH_PROVIDER=clerk` and `CLERK_SECRET_KEY`.
 

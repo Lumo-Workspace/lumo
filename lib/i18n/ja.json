@@ -2345,7 +2345,7 @@
   "security.infra.tokens": "接続したサービス（GitHub、Slack、Figma、Google Drive、Sentry）のアクセストークンは、保存前に Lumo によって AES-256-GCM で追加的に暗号化されます。",
   "security.infra.sandbox": "セキュリティスキャンは、短時間のみ存在する隔離された仮想マシン（Vercel Sandbox）で実行されます。リポジトリは、その 1 つのリポジトリに限定された読み取り専用トークンでクローンされ、このトークンはクローン直後に失効されます。スキャナーの実行中はネットワークアクセスが制限され、スキャン終了時にマシンは停止されます。",
   "security.auth.heading": "認証とアクセス",
-  "security.auth.signin": "サインイン、アカウント、セッションは Clerk が処理します。",
+  "security.auth.signin": "サインイン、アカウント、セッションは Lumo 独自の認証サービスが処理し、Lumo のデータベースに保存されます。サインインコードはメールで送信されます。Google でサインインすることもできます。",
   "security.auth.roles": "各ワークスペースにはオーナーとメンバーがいます。データ保持設定の変更やワークスペースの削除ができるのはオーナーのみです。",
   "security.auth.apiKeys": "Lumo CLI の API キーは作成時に一度だけ表示され、SHA-256 ハッシュとしてのみ保存されます。",
   "security.code.heading": "コードの取り扱い",
