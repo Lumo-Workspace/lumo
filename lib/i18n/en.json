@@ -1652,6 +1652,8 @@
   "slack.channelNote": "Channel notifications are configured per project.",
   "slack.configRefreshed": "Configuration refreshed from server",
   "slack.connectFailed": "Failed to connect Slack",
+  "slack.reconnect": "Reconnect Slack",
+  "slack.reconnectToCreateChannel": "Slack needs new permissions to create channels. Reconnect Slack to grant them.",
   "slack.connectSuccess": "Slack connected successfully",
   "slack.connected": "Connected",
   "slack.connectedTo": "Connected to workspace: {teamName}",

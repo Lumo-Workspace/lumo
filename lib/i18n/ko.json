@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "모든 채널 구독이 제거됩니다. 언제든지 다시 연결할 수 있습니다.",
   "slack.connectSuccess": "Slack이 성공적으로 연결되었습니다",
   "slack.connectFailed": "Slack 연결에 실패했습니다",
+  "slack.reconnect": "Slack 다시 연결",
+  "slack.reconnectToCreateChannel": "채널을 만들려면 Slack에 새 권한이 필요합니다. Slack을 다시 연결해 권한을 부여하세요.",
   "slack.disconnectSuccess": "Slack 연결이 해제되었습니다",
   "slack.disconnectFailed": "Slack 연결 해제에 실패했습니다",
   "slack.notificationsUpdated": "Slack 알림이 업데이트되었습니다",

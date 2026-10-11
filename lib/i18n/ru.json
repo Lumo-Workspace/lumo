@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Все подписки на каналы будут удалены. Вы сможете переподключиться в любое время.",
   "slack.connectSuccess": "Slack успешно подключён",
   "slack.connectFailed": "Не удалось подключить Slack",
+  "slack.reconnect": "Переподключить Slack",
+  "slack.reconnectToCreateChannel": "Для создания каналов Slack нужны новые разрешения. Переподключите Slack, чтобы их выдать.",
   "slack.disconnectSuccess": "Slack отключён",
   "slack.disconnectFailed": "Не удалось отключить Slack",
   "slack.notificationsUpdated": "Уведомления Slack обновлены",

@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Alle Kanalabonnements werden entfernt. Sie können jederzeit erneut eine Verbindung herstellen.",
   "slack.connectSuccess": "Slack erfolgreich verbunden",
   "slack.connectFailed": "Slack-Verbindung fehlgeschlagen",
+  "slack.reconnect": "Slack erneut verbinden",
+  "slack.reconnectToCreateChannel": "Slack benötigt neue Berechtigungen, um Kanäle zu erstellen. Verbinde Slack erneut, um sie zu erteilen.",
   "slack.disconnectSuccess": "Slack getrennt",
   "slack.disconnectFailed": "Slack-Trennung fehlgeschlagen",
   "slack.notificationsUpdated": "Slack-Benachrichtigungen aktualisiert",

@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "所有頻道訂閱將被移除。你可以隨時重新連線。",
   "slack.connectSuccess": "Slack 連線成功",
   "slack.connectFailed": "Slack 連線失敗",
+  "slack.reconnect": "重新連線 Slack",
+  "slack.reconnectToCreateChannel": "建立頻道需要新的 Slack 權限。請重新連線 Slack 以授予權限。",
   "slack.disconnectSuccess": "Slack 已中斷連線",
   "slack.disconnectFailed": "Slack 中斷連線失敗",
   "slack.notificationsUpdated": "Slack 通知已更新",

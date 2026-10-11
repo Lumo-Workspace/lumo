@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "すべてのチャンネルサブスクリプションが削除されます。いつでも再接続できます。",
   "slack.connectSuccess": "Slackが正常に接続されました",
   "slack.connectFailed": "Slackの接続に失敗しました",
+  "slack.reconnect": "Slackを再接続",
+  "slack.reconnectToCreateChannel": "チャンネルを作成するには Slack に新しい権限が必要です。Slack を再接続して権限を付与してください。",
   "slack.disconnectSuccess": "Slackが切断されました",
   "slack.disconnectFailed": "Slackの切断に失敗しました",
   "slack.notificationsUpdated": "Slack通知を更新しました",

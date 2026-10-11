@@ -79,9 +79,9 @@ const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
       'Sentry webhook: handleWebhook verifies the sentry-hook-signature HMAC with the stored client secret before acting (401 otherwise)',
   },
   'app/api/webhooks/slack/route.ts': {
-    call: 'local#verifySlackSignature',
+    call: 'lib/integrations/slack/request#verifySlackSignature',
     reason:
-      'Slack webhook: in-file verifySlackSignature checks the v0 HMAC with SLACK_SIGNING_SECRET and a 5-minute replay window',
+      'Slack webhook: verifySlackSignature checks the v0 HMAC over the raw body with SLACK_SIGNING_SECRET and a 5-minute replay window, before the body is parsed (LUM-1080)',
   },
 }
 
