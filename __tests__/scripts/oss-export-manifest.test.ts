@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { execFileSync } from 'child_process'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 
 import {
@@ -19,6 +19,7 @@ import {
   resolveSpecifier,
   scanMarkers,
   summarizePaths,
+  transformTargets,
   type ConfigRefFile,
   type OssManifest,
 } from '../../scripts/oss-export/manifest'
@@ -354,6 +355,71 @@ describe('transforms', () => {
         reason: 't',
       })
     ).toBe(src)
+  })
+})
+
+describe('localeKeys transform and glob targets (LUM-1081)', () => {
+  const locale = (o: Record<string, string>) =>
+    `${JSON.stringify(o, null, 2)}\n`
+
+  it('deletes matching keys and promotes `oss.` variants in place', () => {
+    const src = locale({
+      a: 'keep',
+      'plugin.x': 'gone',
+      b: 'hosted text',
+      'oss.b': 'snapshot text',
+      c: 'keep too',
+    })
+    expect(
+      applyTransform(src, {
+        file: 'lib/i18n/*.json',
+        type: 'localeKeys',
+        delete: '^plugin\\.',
+        promote: 'oss.',
+        reason: 't',
+      })
+    ).toBe(locale({ a: 'keep', b: 'snapshot text', c: 'keep too' }))
+  })
+
+  it('a variant whose key is gone fails the export instead of shipping', () => {
+    const src = locale({ 'oss.b': 'snapshot text', a: 'x' })
+    expect(() =>
+      applyTransform(src, {
+        file: 'f.json',
+        type: 'localeKeys',
+        promote: 'oss.',
+        reason: 't',
+      })
+    ).toThrow('oss.b has no b')
+  })
+
+  it('leaves the file byte-identical when nothing matches', () => {
+    const src = '{\n  "a": "x"\n}\n'
+    expect(
+      applyTransform(src, {
+        file: 'f.json',
+        type: 'localeKeys',
+        delete: '^zzz',
+        promote: 'oss.',
+        reason: 't',
+      })
+    ).toBe(src)
+  })
+
+  it('transformTargets: a plain path names one file, a glob every match', () => {
+    const files = [
+      'lib/i18n/en.json',
+      'lib/i18n/de.json',
+      'lib/i18n/x.ts',
+      'a.json',
+    ]
+    expect(transformTargets({ file: 'a.json' }, files)).toEqual(['a.json'])
+    expect(transformTargets({ file: 'missing.json' }, files)).toEqual([])
+    expect(transformTargets({ file: 'lib/i18n/*.json' }, files)).toEqual([
+      'lib/i18n/de.json',
+      'lib/i18n/en.json',
+    ])
+    expect(transformTargets({ file: 'nope/*.json' }, files)).toEqual([])
   })
 })
 
@@ -793,6 +859,144 @@ describe('oss/manifest.json', () => {
         /git(\s+-C\s+\S+)?\s+push|\bgh\s|curl|wget|git\s+tag|git\s+remote/
       )
       expect(src).toContain('git push -u origin main')
+    })
+  })
+
+  describe('plugin copy scrub (LUM-1081)', () => {
+    const root = join(__dirname, '../..')
+    const read = (p: string) => readFileSync(join(root, p), 'utf8')
+    const LUM1081 = (manifest.transforms ?? []).filter(t =>
+      t.reason.startsWith('LUM-1081')
+    )
+    const locales = readdirSync(join(root, 'lib/i18n'))
+      .filter(f => f.endsWith('.json'))
+      .map(f => `lib/i18n/${f}`)
+    const transformed = (file: string) =>
+      (manifest.transforms ?? [])
+        .filter(t => transformTargets(t, [file]).length > 0)
+        .reduce((src, t) => applyTransform(src, t), read(file))
+    const SURFACES = [
+      'components/landing/home/how-it-works.tsx',
+      'components/landing/home/lumo-terminal.tsx',
+      'components/landing/home/compare.tsx',
+      'app/layout.tsx',
+      'components/security/SecurityPage.tsx',
+      'app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx',
+    ]
+    /** Plugin features described in the snapshot's user-facing copy. */
+    const PLUGIN_COPY =
+      /lumo pr scan|scan the PR|[Ss]can findings|scanned before|scan every pull request|[Cc]rossing triage|boundary-crossing triage|TypeSafe|security scanning|run security scans|SARIF|working exploit|Findings hold the task/
+
+    it('every LUM-1081 transform still matches its source file', () => {
+      expect(LUM1081.length).toBeGreaterThan(0)
+      for (const t of LUM1081) {
+        const targets = transformTargets(t, [...SURFACES, ...locales])
+        expect({ t, targets: targets.length > 0 }).toEqual({ t, targets: true })
+        const changes = targets.some(
+          f => applyTransform(read(f), t) !== read(f)
+        )
+        expect({ t, changes }).toEqual({ t, changes: true })
+      }
+    })
+
+    it('the snapshot copy carries no plugin feature description; markers stay clean', () => {
+      const markers = manifest.forbiddenMarkers ?? []
+      for (const f of [...SURFACES, ...locales]) {
+        const out = transformed(f)
+        expect({ f, hits: scanMarkers(f, out, markers) }).toEqual({
+          f,
+          hits: [],
+        })
+        if (!f.endsWith('.json'))
+          expect({ f, plugin: PLUGIN_COPY.exec(out)?.[0] ?? null }).toEqual({
+            f,
+            plugin: null,
+          })
+      }
+      const en = JSON.parse(transformed('lib/i18n/en.json')) as Record<
+        string,
+        string
+      >
+      const described = Object.entries(en).filter(
+        ([k, v]) =>
+          /^(security|github|workspaceSettings|apiKeys|dataRetention)\./.test(
+            k
+          ) && PLUGIN_COPY.test(v)
+      )
+      expect(described).toEqual([])
+      expect(en['security.code.ai']).toMatch(/^To write summaries/)
+      expect(en['github.description']).toBe(
+        "Pull requests and checks for this workspace's repositories."
+      )
+      expect(Object.keys(en).some(k => k.startsWith('oss.'))).toBe(false)
+      expect(
+        Object.keys(en).some(k =>
+          k.startsWith('workspaceSettings.securityScan.')
+        )
+      ).toBe(false)
+    })
+
+    it('every locale stays in parity after the transform', () => {
+      const keys = (f: string) =>
+        Object.keys(JSON.parse(transformed(f)) as object).sort()
+      const enKeys = keys('lib/i18n/en.json')
+      for (const f of locales)
+        expect({ f, same: keys(f).join() === enKeys.join() }).toEqual({
+          f,
+          same: true,
+        })
+    })
+
+    it('the snapshot /security page drops the plugin paragraphs only', () => {
+      const page = transformed('components/security/SecurityPage.tsx')
+      expect(page).toContain(
+        "paragraphs: ['hosting', 'transit', 'atRest', 'tokens'],"
+      )
+      for (const p of [
+        'training',
+        'hookEvents',
+        'crossing',
+        'deadLetter',
+        'derived',
+      ])
+        expect(page).toContain(`'${p}'`)
+      expect(page).not.toMatch(/'sandbox'|'triage'|'uninstall'/)
+    })
+
+    it('every oss.* variant has its hosted key in every locale (private repo)', () => {
+      for (const f of locales) {
+        const d = JSON.parse(read(f)) as Record<string, string>
+        const variants = Object.keys(d).filter(k => k.startsWith('oss.'))
+        expect(variants.length).toBe(9)
+        for (const v of variants) {
+          expect({ f, v, base: v.slice(4) in d }).toEqual({ f, v, base: true })
+          expect(d[v]).not.toBe(d[v.slice(4)])
+          expect(d[v]).not.toMatch(/\[TODO:/)
+        }
+      }
+    })
+
+    it('the private sources keep the hosted copy', () => {
+      expect(read('components/landing/home/lumo-terminal.tsx')).toContain(
+        "cmd: 'lumo pr scan 482'"
+      )
+      expect(read('components/landing/home/how-it-works.tsx')).toContain(
+        'Every pull request is scanned.'
+      )
+      expect(read('components/landing/home/compare.tsx')).toContain(
+        'An agent that hunts for a working exploit'
+      )
+      expect(read('app/layout.tsx')).toContain('scan every pull request')
+      expect(read('components/security/SecurityPage.tsx')).toContain("'triage'")
+      const en = JSON.parse(read('lib/i18n/en.json')) as Record<string, string>
+      expect(en['security.code.triage']).toMatch(/^Boundary-crossing triage/)
+      expect(en['github.description']).toContain('security scanning')
+    })
+
+    it('support and security addresses are on uselumo.ai', () => {
+      expect(read('README.md')).toContain('support@uselumo.ai')
+      expect(read('README.md')).not.toMatch(/@lumo\.ai\b/)
+      expect(read('oss/overlay/SECURITY.md')).toContain('security@uselumo.ai')
     })
   })
 

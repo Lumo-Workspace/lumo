@@ -877,9 +877,30 @@
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: /security: the paragraph on clearing scan code when the App is uninstalled"
     },
     {
+      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx",
+      "type": "replace",
+      "pattern": "^        <div className='mb-8 rounded-md border border-border p-4'>\\n          <p className='text-sm font-medium text-foreground'>\\n            \\{intl\\.formatMessage\\(\\{ id: 'apiKeys\\.ingest\\.title' \\}\\)\\}\\n[\\s\\S]*?^        </div>\\n\\n",
+      "replacement": "",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the CI ingest key card only feeds the plugin's SARIF upload route"
+    },
+    {
+      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx",
+      "type": "replace",
+      "pattern": "^    creatingIngest,\\n",
+      "replacement": "",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: unused once the ingest card is cut (noUnusedLocals)"
+    },
+    {
+      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx",
+      "type": "replace",
+      "pattern": "^    handleCreateIngestKey,\\n",
+      "replacement": "",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: unused once the ingest card is cut (noUnusedLocals)"
+    },
+    {
       "file": "lib/i18n/*.json",
       "type": "localeKeys",
-      "delete": "^(securityScan\\.(action|banner|callChain|codeScrubbed|disposition|finding|fixed|group|kind|meta|provenance|reachability|result|review|severity|stageInfo|stageReason|suggested|verifier)(\\.|$)|securityScan\\.external\\.(failedReason|notConfigured)|securityScan\\.section\\.(empty|scanningOff|loadError)$|securityScan\\.prTooLarge\\.|securityScan\\.status\\.tooLarge$|workspaceSettings\\.(securityScan|scanEvidence)\\.|dataRetention\\.scan\\.|boundary\\.panel\\.triage|record\\.queue\\.securityBlocking$|security\\.(infra\\.sandbox|code\\.triage|retention\\.(scan|uninstall))$)",
+      "delete": "^(securityScan\\.(action|banner|callChain|codeScrubbed|disposition|finding|fixed|group|kind|meta|provenance|reachability|result|review|severity|stageInfo|stageReason|suggested|verifier)(\\.|$)|securityScan\\.external\\.(failedReason|notConfigured)|securityScan\\.section\\.(empty|scanningOff|loadError)$|securityScan\\.prTooLarge\\.|securityScan\\.status\\.tooLarge$|workspaceSettings\\.(securityScan|scanEvidence)\\.|dataRetention\\.scan\\.|boundary\\.panel\\.triage|record\\.queue\\.securityBlocking$|apiKeys\\.ingest\\.|security\\.(infra\\.sandbox|code\\.triage|retention\\.(scan|uninstall))$)",
       "promote": "oss.",
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: drop the plugin's own messages (settings incl. aiReview, panel, triage, /security paragraphs) that no snapshot code renders, and swap in the translated `oss.*` wording for the /security page and GitHub card messages core code still renders"
     }
@@ -1071,13 +1092,13 @@
     },
     {
       "id": "plugin-i18n:keys",
-      "pattern": "^\\s*\"(oss\\.|security\\.(infra\\.sandbox|code\\.triage|retention\\.(scan|uninstall))\"|workspaceSettings\\.(securityScan|scanEvidence)\\.|dataRetention\\.scan\\.|boundary\\.panel\\.triage|securityScan\\.(action|banner|review|finding|suggested|stageReason|verifier)\\b)",
+      "pattern": "^\\s*\"(oss\\.|security\\.(infra\\.sandbox|code\\.triage|retention\\.(scan|uninstall))\"|workspaceSettings\\.(securityScan|scanEvidence)\\.|apiKeys\\.ingest\\.|dataRetention\\.scan\\.|boundary\\.panel\\.triage|securityScan\\.(action|banner|review|finding|suggested|stageReason|verifier)\\b)",
       "files": ["lib/i18n/*.json"],
       "reason": "LUM-1081: guards the localeKeys transform (language-independent: key names)"
     },
     {
       "id": "plugin-i18n:en-copy",
-      "pattern": "[Cc]rossing triage|TypeSafe|\\bJev\\b|[Ss]ecurity scanning|review pull requests for security|security scan records|Scan evidence|run security scans|scan this workspace's pull requests|stop scanning",
+      "pattern": "[Cc]rossing triage|TypeSafe|\\bJev\\b|[Ss]ecurity scanning|review pull requests for security|security scan records|Scan evidence|run security scans|scan this workspace's pull requests|stop scanning|SARIF",
       "files": [
         "lib/i18n/en.json",
         "lib/i18n/en-AU.json",
@@ -1089,6 +1110,14 @@
       "id": "wrong-domain:lumo.ai-email",
       "pattern": "[A-Za-z0-9._%+-]+@lumo\\.ai\\b",
       "reason": "LUM-1081: the support and security addresses are on uselumo.ai (user ruling 2026-10-11)"
+    },
+    {
+      "id": "plugin-feature:ci-ingest-card",
+      "pattern": "apiKeys\\.ingest\\.|handleCreateIngestKey",
+      "files": [
+        "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx"
+      ],
+      "reason": "LUM-1081: guards the ApiKeysPage transforms (CI ingest key card)"
     }
   ]
 }

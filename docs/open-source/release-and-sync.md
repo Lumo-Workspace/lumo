@@ -32,7 +32,7 @@
 bash scripts/oss-export/publish.sh <sha> --version v0.1.0
 ```
 
-`publish.sh` 是 **dry run**:导出快照到 `/private/tmp/lumo-oss-publish.*/snapshot`(保留供审阅)、跑 `verify-snapshot.sh`、Gitleaks 已安装时跑密钥扫描、检查快照里有 README/LICENSE/CONTRIBUTING/SECURITY/DCO workflow 且没有 `ee/`、`oss/`、本文件,最后**打印**发布命令。它从不 `git push`、不打 tag、不调 `gh`、不联网。退出码:
+`publish.sh` 是 **dry run**:导出快照到 `/private/tmp/lumo-oss-publish.*/snapshot`(保留供审阅)、跑 `verify-snapshot.sh`、Gitleaks 已安装时跑密钥扫描、检查快照里有 README/LICENSE/CONTRIBUTING/SECURITY/DCO workflow 且没有 `ee/`、`oss/`、本文件,最后**打印**发布命令。它从不 `git push`、不打 tag、不建仓库、不调 `gh` 或 GitHub API;但它**不是离线的**:`verify-snapshot.sh` 会在快照里 `npm ci --ignore-scripts`,从 npm registry 下载依赖(`--skip-verify` 跳过这一步,退出码随之为 3)。退出码:
 
 | 退出码 | 含义                                                                        |
 | ------ | --------------------------------------------------------------------------- |
@@ -63,7 +63,7 @@ bash scripts/oss-export/publish.sh <sha> --version v0.1.0
    - **Code security**:开启 Secret scanning 与 **Push protection**、**Private vulnerability reporting**(`SECURITY.md` 指向它)、Dependabot alerts 与 Dependabot security updates。
    - **Actions**:允许运行;「Fork pull request workflows」要求首次贡献者经批准后才运行;Workflow permissions 选 Read。
    - 首个 PR(或手动 re-run)跑过一次 `DCO` 后,它才会出现在 required checks 的可选列表里。
-4. 在一个测试 PR 上确认 `DCO` 检查生效:未签名 commit 失败,`git commit -s` 后通过。
+4. 在一个测试 PR 上确认 `DCO` 检查生效:未签名 commit 失败,`git commit -s` 后通过;作者邮箱写成 `…[bot]@users.noreply.github.com` 的未签名 commit 在人开的 PR 里同样失败(机器人豁免只认 GitHub 账号:PR 由白名单 bot 开、且 commit 关联到同一 bot 账号)。超过 250 个 commit 的 PR 直接失败。
 
 ### 2.3 记录
 
