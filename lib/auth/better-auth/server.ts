@@ -15,6 +15,7 @@ import { betterAuth } from 'better-auth'
 import { createAuthEndpoint } from 'better-auth/api'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { nextCookies } from 'better-auth/next-js'
+import { emailOTP } from 'better-auth/plugins/email-otp'
 import type { BetterAuthPlugin } from 'better-auth'
 import { prisma } from '@/lib/db/prisma'
 import { authUserRepository } from '@/lib/repositories/auth-user.repository'
@@ -22,6 +23,9 @@ import { logger } from '@/lib/logger'
 import { sendEmail } from '@/lib/integrations/email/client'
 import {
   BETTER_AUTH_BASE_PATH,
+  googleSignInSharesDriveClient,
+  isEmailCodeSignInEnabled,
+  isPasswordSignInEnabled,
   isSignUpDisabled,
   resolveBetterAuthBaseUrl,
   resolveBetterAuthSecret,
@@ -42,6 +46,11 @@ import { generateAuthId } from './ids'
 import { RATE_LIMIT_OPTIONS } from './rate-limit'
 import { ACCOUNT_LINKING_OPTIONS } from './account-linking'
 import { waitUntil } from '@/lib/runtime/wait-until'
+import {
+  EMAIL_OTP_DISABLED_PATHS,
+  emailOtpOptions,
+  lumoEmailOtpGuardPlugin,
+} from './email-otp'
 
 /** Session cookie cache: page loads skip the DB for this many seconds. */
 export const SESSION_COOKIE_CACHE_SECONDS = 5 * 60
@@ -62,10 +71,46 @@ const lumoPublicConfigPlugin = {
   },
 } satisfies BetterAuthPlugin
 
+/**
+ * LUM-1082 — password endpoints that stay reachable when `emailAndPassword`
+ * is off (Better Auth only refuses sign-in and sign-up then): with password
+ * sign-in disabled nobody may set or reset a password either.
+ */
+export const PASSWORD_DISABLED_PATHS = [
+  '/request-password-reset',
+  '/reset-password',
+  '/change-password',
+] as const
+
+/** LUM-1082: configuration mistakes worth a log line at start-up. */
+function warnAboutSignInConfig(opts: {
+  passwordEnabled: boolean
+  emailCodeEnabled: boolean
+}): void {
+  if (googleSignInSharesDriveClient()) {
+    logger.warn(
+      '[auth] AUTH_GOOGLE_CLIENT_ID is the Google Drive import client (GOOGLE_CLIENT_ID): ' +
+        "Google's sign-in screen will also list the Drive access granted to that client. " +
+        'Use a separate OAuth client for sign-in.'
+    )
+  }
+  if (!opts.passwordEnabled && !opts.emailCodeEnabled) {
+    logger.warn(
+      '[auth] AUTH_DISABLE_PASSWORD is set and no email transport is configured: ' +
+        'only GitHub / Google sign-in is available'
+    )
+  }
+}
+
 function createBetterAuth() {
   // MCP OAuth (LUM-1044) needs a fixed public URL for its issuer and token
   // audience; without BETTER_AUTH_URL / NEXT_PUBLIC_APP_URL it stays off.
   const mcpOAuthUrls = resolveMcpOAuthUrls()
+  // LUM-1082: email-first sign-in. Password sign-in is a switch (the hosted
+  // SaaS turns it off); the email code needs a way to deliver it.
+  const passwordEnabled = isPasswordSignInEnabled()
+  const emailCodeEnabled = isEmailCodeSignInEnabled()
+  warnAboutSignInConfig({ passwordEnabled, emailCodeEnabled })
   return betterAuth({
     secret: resolveBetterAuthSecret(),
     baseURL: resolveBetterAuthBaseUrl(),
@@ -92,7 +137,7 @@ function createBetterAuth() {
     },
     verification: { modelName: 'authVerification' },
     emailAndPassword: {
-      enabled: true,
+      enabled: passwordEnabled,
       disableSignUp: isSignUpDisabled(),
       // Sign-in works before verification (a fresh instance may have no SMTP
       // yet); only VERIFIED addresses can match a workspace invite
@@ -167,11 +212,20 @@ function createBetterAuth() {
       ...(mcpOAuthUrls ? MCP_OAUTH_DISABLED_PATHS : []),
       // LUM-1071: impersonation is closed.
       ...ADMIN_DISABLED_PATHS,
+      ...(passwordEnabled ? [] : PASSWORD_DISABLED_PATHS),
+      ...(emailCodeEnabled ? EMAIL_OTP_DISABLED_PATHS : []),
     ],
     plugins: [
       lumoPublicConfigPlugin,
       // LUM-1071: ban fields + the sign-in ban check (./admin-plugin).
       lumoAdminPlugin(),
+      // LUM-1082: email one-time-code sign-in (./email-otp).
+      ...(emailCodeEnabled
+        ? [
+            lumoEmailOtpGuardPlugin(),
+            emailOTP(emailOtpOptions({ disableSignUp: isSignUpDisabled() })),
+          ]
+        : []),
       ...(mcpOAuthUrls ? mcpOAuthPlugins(mcpOAuthUrls) : []),
       // Must stay last: sets cookies from server actions.
       nextCookies(),

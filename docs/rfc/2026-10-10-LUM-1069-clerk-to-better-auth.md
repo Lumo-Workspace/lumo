@@ -189,14 +189,15 @@ magic link 文档：<https://better-auth.com/docs/plugins/magic-link>。**建议
 
 ### 6.2 生产环境变量（Vercel → Production，由用户设置）
 
-| 变量                                                             | 值                                     | 说明                                                                                                                            |
-| ---------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `AUTH_PROVIDER`                                                  | `better-auth`                          | **构建期和运行期都要**（静态页会把构建时的值烘焙进去，`lib/auth/provider.ts` 注释）。在 Vercel 上，设置后必须**重新构建**才生效 |
-| `BETTER_AUTH_SECRET`                                             | `openssl rand -hex 32` 生成，≥ 32 字符 | 签 cookie，并加密 `auth_jwks` 私钥。**设定后不能随意更换**：换了所有人掉线、MCP token 失效                                      |
-| `BETTER_AUTH_URL`                                                | `https://www.uselumo.ai`               | issuer、MCP 资源和 origin 校验都由它派生。已裁定（Q4）；apex 域名需继续跳转到 www，T7 冒烟时核对                                |
-| `AUTH_GITHUB_CLIENT_ID/SECRET`、`AUTH_GOOGLE_CLIENT_ID/SECRET`   | 沿用 Clerk 正在用的那对 OAuth app      | §3                                                                                                                              |
-| `AUTH_DISABLE_SIGNUP`                                            | 不设                                   | SaaS 开放注册                                                                                                                   |
-| `CLERK_*`、`NEXT_PUBLIC_CLERK_*`、`CLERK_WEBHOOK_SIGNING_SECRET` | **保留**                               | 回滚要用，§10 清理时再删                                                                                                        |
+| 变量                                                             | 值                                     | 说明                                                                                                                                           |
+| ---------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_PROVIDER`                                                  | `better-auth`                          | **构建期和运行期都要**（静态页会把构建时的值烘焙进去，`lib/auth/provider.ts` 注释）。在 Vercel 上，设置后必须**重新构建**才生效                |
+| `BETTER_AUTH_SECRET`                                             | `openssl rand -hex 32` 生成，≥ 32 字符 | 签 cookie，并加密 `auth_jwks` 私钥。**设定后不能随意更换**：换了所有人掉线、MCP token 失效                                                     |
+| `BETTER_AUTH_URL`                                                | `https://www.uselumo.ai`               | issuer、MCP 资源和 origin 校验都由它派生。已裁定（Q4）；apex 域名需继续跳转到 www，T7 冒烟时核对                                               |
+| `AUTH_GITHUB_CLIENT_ID/SECRET`、`AUTH_GOOGLE_CLIENT_ID/SECRET`   | 沿用 Clerk 正在用的那对 OAuth app      | §3                                                                                                                                             |
+| `AUTH_DISABLE_SIGNUP`                                            | 不设                                   | SaaS 开放注册                                                                                                                                  |
+| `AUTH_DISABLE_PASSWORD`                                          | `true`                                 | LUM-1082：对齐 Clerk 生产（邮箱验证码 + Google，无密码框）；邮箱验证码走 `RESEND_API_KEY`。登录 client 不得与 Drive 的 `GOOGLE_CLIENT_ID` 相同 |
+| `CLERK_*`、`NEXT_PUBLIC_CLERK_*`、`CLERK_WEBHOOK_SIGNING_SECRET` | **保留**                               | 回滚要用，§10 清理时再删                                                                                                                       |
 
 ### 6.3 生产切换步骤（窗口约 60 分钟，选低峰）
 

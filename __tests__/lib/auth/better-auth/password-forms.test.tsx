@@ -5,12 +5,14 @@ const mockRequestPasswordReset = jest.fn()
 const mockResetPassword = jest.fn()
 const mockChangePassword = jest.fn()
 const mockListAccounts = jest.fn()
+const mockFetch = jest.fn()
 jest.mock('@/lib/auth/better-auth/auth-client', () => ({
   getAuthClient: () => ({
     requestPasswordReset: (...a: unknown[]) => mockRequestPasswordReset(...a),
     resetPassword: (...a: unknown[]) => mockResetPassword(...a),
     changePassword: (...a: unknown[]) => mockChangePassword(...a),
     listAccounts: (...a: unknown[]) => mockListAccounts(...a),
+    $fetch: (...a: unknown[]) => mockFetch(...a),
   }),
 }))
 jest.mock('@clerk/nextjs', () => ({
@@ -33,7 +35,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }))
 
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import {
   AuthProvider,
@@ -56,6 +58,7 @@ const submit = async (name: string) => {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockFetch.mockResolvedValue({ data: null })
   for (const k of ['token', 'error']) mockSearchParams.delete(k)
 })
 
@@ -213,5 +216,21 @@ describe('PasswordSettings (LUM-1070)', () => {
     expect(
       screen.queryByRole('button', { name: 'profile.password.submit' })
     ).toBeNull()
+  })
+
+  it('Better Auth with password sign-in off (LUM-1082): no change-password card', async () => {
+    mockFetch.mockResolvedValue({
+      data: {
+        socialProviders: [],
+        signUpEnabled: true,
+        passwordEnabled: false,
+        emailCodeEnabled: true,
+      },
+    })
+    const { container } = render(<PasswordSettings />, { wrapper: baWrapper })
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+    await act(async () => undefined)
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByText('profile.password.title')).toBeNull()
   })
 })

@@ -11,6 +11,8 @@
  *
  * No SDK imports here: this module is safe for proxy.ts, server and client.
  */
+import { isPasswordSignInEnabled } from './better-auth/config'
+
 export const AUTH_PROVIDER_ENV = 'AUTH_PROVIDER'
 
 export const AUTH_PROVIDERS = ['clerk', 'better-auth'] as const
@@ -34,4 +36,12 @@ export function resolveAuthProvider(env: Env = process.env): AuthProviderName {
 /** Whether this deployment authenticates with Better Auth. */
 export function isBetterAuth(env: Env = process.env): boolean {
   return resolveAuthProvider(env) === 'better-auth'
+}
+
+/**
+ * LUM-1082 — whether /reset-password exists: Better Auth with password
+ * sign-in on (AUTH_DISABLE_PASSWORD unset). Clerk hosts its own reset flow.
+ */
+export function hasPasswordReset(env: Env = process.env): boolean {
+  return isBetterAuth(env) && isPasswordSignInEnabled(env)
 }

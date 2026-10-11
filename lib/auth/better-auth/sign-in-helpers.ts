@@ -55,6 +55,19 @@ const ERROR_MESSAGE_IDS: Record<string, string> = {
   TOO_MANY_REQUESTS: 'auth.error.tooManyRequests',
   // LUM-1071: the admin plugin refuses a session for a banned user.
   BANNED_USER: 'auth.error.accountSuspended',
+  // LUM-1082: email one-time-code sign-in (better-auth emailOTP).
+  INVALID_OTP: 'auth.error.invalidCode',
+  OTP_EXPIRED: 'auth.error.codeExpired',
+  TOO_MANY_ATTEMPTS: 'auth.error.tooManyCodeAttempts',
+  INVALID_EMAIL: 'auth.error.invalidEmail',
+}
+
+/** LUM-1082: a sign-in code is this many digits (./email-otp). */
+export const EMAIL_CODE_LENGTH = 6
+
+/** LUM-1082: what the user typed as the code, digits only. */
+export function normalizeEmailCode(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, EMAIL_CODE_LENGTH)
 }
 
 export function errorMessageId(code: string | null | undefined): string {

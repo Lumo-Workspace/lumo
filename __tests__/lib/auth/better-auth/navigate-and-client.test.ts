@@ -25,7 +25,11 @@ describe('getAuthClient', () => {
     expect(mockCreateAuthClient).toHaveBeenCalledWith({
       basePath: '/api/auth',
       // LUM-1044: carries the signed OAuth request on sign-in / consent POSTs.
-      plugins: [expect.objectContaining({ id: 'oauth-provider-client' })],
+      plugins: [
+        expect.objectContaining({ id: 'oauth-provider-client' }),
+        // LUM-1082: email one-time-code sign-in.
+        expect.objectContaining({ id: 'email-otp' }),
+      ],
     })
   })
 })

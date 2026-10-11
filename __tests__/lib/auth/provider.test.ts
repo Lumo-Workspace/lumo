@@ -3,7 +3,11 @@
  */
 // LUM-1027 — AUTH_PROVIDER selects the auth implementation; Clerk stays the
 // default so the SaaS deployment is unchanged.
-import { isBetterAuth, resolveAuthProvider } from '@/lib/auth/provider'
+import {
+  hasPasswordReset,
+  isBetterAuth,
+  resolveAuthProvider,
+} from '@/lib/auth/provider'
 
 describe('resolveAuthProvider', () => {
   it('defaults to clerk when unset or blank', () => {
@@ -28,5 +32,19 @@ describe('resolveAuthProvider', () => {
   it('isBetterAuth reflects the resolved provider', () => {
     expect(isBetterAuth({ AUTH_PROVIDER: 'better-auth' })).toBe(true)
     expect(isBetterAuth({})).toBe(false)
+  })
+})
+
+describe('hasPasswordReset (LUM-1082)', () => {
+  it('only Better Auth with password sign-in on', () => {
+    expect(hasPasswordReset({})).toBe(false) // Clerk
+    expect(hasPasswordReset({ AUTH_PROVIDER: 'clerk' })).toBe(false)
+    expect(hasPasswordReset({ AUTH_PROVIDER: 'better-auth' })).toBe(true)
+    expect(
+      hasPasswordReset({
+        AUTH_PROVIDER: 'better-auth',
+        AUTH_DISABLE_PASSWORD: 'true',
+      })
+    ).toBe(false)
   })
 })
