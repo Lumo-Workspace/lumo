@@ -23,7 +23,8 @@ const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
 }
 
 /**
- * LUM-732 — per-PR security-scan badge. Six states: scanning / clean /
+ * LUM-732 — per-PR security-scan badge. Six states (plus LUM-1079's
+ * "too large to scan"): scanning / clean /
  * findings (count, toned by the worst severity) / failed / not scanned /
  * status unavailable. Hierarchy by typography and icon; semantic colour for
  * clean (success), MEDIUM (warning) and HIGH (destructive).
@@ -62,6 +63,13 @@ export function SecurityScanBadge({
     icon = <Loader2 size={12} className='animate-spin' />
     label = intl.formatMessage({ id: `securityScan.status.${scan.status}` })
     state = 'scanning'
+  } else if (scan.prTooLarge) {
+    // LUM-1079: the PR was too large to scan — a limit on the change, said
+    // as such: never "Scan didn't finish", never "Clean".
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.tooLarge' })
+    tone = 'text-warning-text'
+    state = 'too-large'
   } else if (scan.status === 'FAILED') {
     icon = <ShieldOff size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.FAILED' })

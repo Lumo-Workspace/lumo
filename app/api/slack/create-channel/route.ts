@@ -50,10 +50,18 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ channel })
   } catch (error) {
-    const err = error as Error & { status?: number; slackError?: string }
+    const err = error as Error & {
+      status?: number
+      slackError?: string
+      code?: string
+    }
     if (err.status === 422) {
       return NextResponse.json(
-        { error: err.message, slackError: err.slackError },
+        {
+          error: err.message,
+          slackError: err.slackError,
+          ...(err.code ? { code: err.code } : {}),
+        },
         { status: 422 }
       )
     }

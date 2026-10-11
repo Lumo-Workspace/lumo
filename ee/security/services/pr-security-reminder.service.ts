@@ -48,9 +48,11 @@ import {
 } from '@/ee/security/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
 import { loadSecurityLayers } from './security-workspace-switches.service'
-import type {
-  HuntOverCapInput,
-  JudgeOverCapInput,
+import {
+  prTooLargeOf,
+  type HuntOverCapInput,
+  type JudgeOverCapInput,
+  type PrTooLargeInput,
 } from '@/shared/src/security-scan'
 
 export interface OpenSecurityFinding extends ReminderFinding {
@@ -97,6 +99,11 @@ export interface TaskSecurityScanSummary {
   /** LUM-832 — the AI review did not run: over its size cap. null otherwise. */
   judgeOverCap: JudgeOverCapInput | null
   /**
+   * LUM-1079 — the whole PR was too large to scan. null otherwise. Additive:
+   * an older CLI ignores it.
+   */
+  prTooLarge: PrTooLargeInput | null
+  /**
    * LUM-775 — undispositioned, non-persisting rows on this scan that have
    * left the queue because the PR merged or closed, by reason. Derived at
    * read time (never stored); `{}` on an open PR. Additive: an older CLI
@@ -136,7 +143,9 @@ function unconfirmedReason(
   scan: ScanWithFindings | undefined
 ): UnconfirmedPr['reason'] | null {
   if (!scan) return 'NONE'
-  if (scan.status === 'FAILED') return 'FAILED'
+  // LUM-1079: a PR too large to scan is not a scan that broke.
+  if (scan.status === 'FAILED')
+    return prTooLargeOf(scan) ? 'TOO_LARGE' : 'FAILED'
   if (scan.status === 'PENDING') return 'PENDING'
   if (scan.status === 'RUNNING') return 'RUNNING'
   return null
@@ -219,6 +228,7 @@ export const prSecurityReminderService = {
             partialCauses: scan.partialCauses ?? [],
             huntAudit: scan.huntAudit,
             judgeBudget: scan.judgeBudget,
+            error: scan.error,
           }),
           queueExits,
           scanningOff,

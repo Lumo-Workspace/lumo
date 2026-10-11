@@ -58,12 +58,14 @@ export function isOverSizeLimitOnly(
   scan: Pick<
     SecurityScanView,
     'coverage' | 'ownedUnfinished' | 'huntOverCap' | 'judgeOverCap'
-  >
+  > & { prTooLarge?: SecurityScanView['prTooLarge'] }
 ): boolean {
   return (
     scan.coverage === 'UNFINISHED' &&
     !scan.ownedUnfinished &&
-    (scan.huntOverCap != null || scan.judgeOverCap != null)
+    (scan.huntOverCap != null ||
+      scan.judgeOverCap != null ||
+      scan.prTooLarge != null)
   )
 }
 
@@ -217,11 +219,13 @@ export function stageReason(
   scan: Pick<
     SecurityScanView,
     'stages' | 'huntOverCap' | 'judgeOverCap' | 'huntProgress'
-  >
+  > & { prTooLarge?: SecurityScanView['prTooLarge'] }
 ): { id: string; values?: Record<string, number> } | null {
   const state = scan.stages[stageKey]
   if (!state) return null
   const id = (suffix: string) => `securityScan.stageReason.${suffix}`
+  // LUM-1079: no layer ran because the whole PR was too large.
+  if (scan.prTooLarge) return { id: id('prTooLarge') }
   if (stageKey === 'judge' && scan.judgeOverCap)
     return {
       id: id('judgeOverCap'),

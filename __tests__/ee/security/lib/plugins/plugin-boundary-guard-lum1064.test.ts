@@ -160,9 +160,18 @@ describe('the OSS overlay of the installed lists (RFC §3.3)', () => {
         : [relative(OVERLAY, join(dir, e.name)).split('\\').join('/')]
     )
 
-  it('overlays exactly the two installed lists (plus the contributor CLAUDE.md and the plain MIT LICENSE)', () => {
+  it('overlays exactly the two installed lists (plus the contributor CLAUDE.md, the plain MIT LICENSE and the public-repo files of LUM-1035)', () => {
     expect(overlayFiles(OVERLAY).sort()).toEqual(
-      ['CLAUDE.md', 'LICENSE', ...Object.keys(INSTALLED_LIST_EDGES)].sort()
+      [
+        'CLAUDE.md',
+        'LICENSE',
+        // LUM-1035: public-repository docs and the DCO check (snapshot only).
+        'CONTRIBUTING.md',
+        'SECURITY.md',
+        '.github/workflows/dco.yml',
+        '.github/scripts/check-dco.mjs',
+        ...Object.keys(INSTALLED_LIST_EDGES),
+      ].sort()
     )
   })
 

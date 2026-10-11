@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "すべてのチャンネルサブスクリプションが削除されます。いつでも再接続できます。",
   "slack.connectSuccess": "Slackが正常に接続されました",
   "slack.connectFailed": "Slackの接続に失敗しました",
+  "slack.reconnect": "Slackを再接続",
+  "slack.reconnectToCreateChannel": "チャンネルを作成するには Slack に新しい権限が必要です。Slack を再接続して権限を付与してください。",
   "slack.disconnectSuccess": "Slackが切断されました",
   "slack.disconnectFailed": "Slackの切断に失敗しました",
   "slack.notificationsUpdated": "Slack通知を更新しました",
@@ -2715,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "未完了：このレイヤーが終わる前に、新しい push で新しいスキャンが始まりました。",
   "integrations.notAvailable": "このデプロイでは利用できません: {names}。認証情報を設定するとここに表示されます。",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Lumo 独自のスキャナーとレビュー検証には Vercel Sandbox が必要ですが、このデプロイでは設定されていません。CI からアップロードされた SARIF は引き続き表示されます。",
-  "workspaceSettings.securityScan.sandboxUnavailable": "このデプロイでは利用できません: Vercel Sandbox が設定されていません。"
+  "workspaceSettings.securityScan.sandboxUnavailable": "このデプロイでは利用できません: Vercel Sandbox が設定されていません。",
+  "securityScan.status.tooLarge": "未スキャン：サイズ上限超過",
+  "securityScan.prTooLarge.fileLimit": "この PR は {files} 個のファイルを変更しています。セキュリティスキャンの対象は変更ファイルが {cap} 個までの PR です（GitHub が diff を返す上限）。そのため、この PR は一切スキャンされていません。スキャンするには、PR を小さく分割するか変更範囲を絞ってください。",
+  "securityScan.prTooLarge.diffRefusedFiles": "PR が大きすぎるため、GitHub がこの PR の diff を返しませんでした（{files} 個のファイルを変更）。そのため、この PR は一切スキャンされていません。スキャンするには、PR を小さく分割するか変更範囲を絞ってください。",
+  "securityScan.prTooLarge.diffRefused": "PR が大きすぎるため、GitHub がこの PR の diff を返しませんでした。そのため、この PR は一切スキャンされていません。スキャンするには、PR を小さく分割するか変更範囲を絞ってください。",
+  "securityScan.stageReason.prTooLarge": "未実行：この PR は大きすぎてスキャンできません。PR を小さく分割するか変更範囲を絞るとスキャンされます。"
 }

@@ -420,6 +420,8 @@
   "slack.disconnectDesc": "Semua langganan saluran akan dibuang. Anda boleh menyambung semula pada bila-bila masa.",
   "slack.connectSuccess": "Slack berjaya disambung",
   "slack.connectFailed": "Gagal menyambung Slack",
+  "slack.reconnect": "Sambung semula Slack",
+  "slack.reconnectToCreateChannel": "Slack memerlukan kebenaran baharu untuk mencipta saluran. Sambung semula Slack untuk memberikannya.",
   "slack.disconnectSuccess": "Slack diputuskan sambungan",
   "slack.disconnectFailed": "Gagal memutuskan sambungan Slack",
   "slack.notificationsUpdated": "Pemberitahuan Slack dikemas kini",
@@ -2715,5 +2717,10 @@
   "securityScan.stageReason.SUPERSEDED": "Tidak selesai: push yang lebih baharu memulakan imbasan baharu sebelum lapisan ini selesai.",
   "integrations.notAvailable": "Tidak tersedia pada deployment ini: {names}. Ia akan muncul di sini setelah kelayakannya dikonfigurasikan.",
   "workspaceSettings.securityScan.scan.sandboxUnavailable": "Pengimbas Lumo sendiri dan pengesah semakan memerlukan Vercel Sandbox, yang belum dikonfigurasikan pada deployment ini. SARIF yang dimuat naik oleh CI anda masih dipaparkan.",
-  "workspaceSettings.securityScan.sandboxUnavailable": "Tidak tersedia pada deployment ini: Vercel Sandbox belum dikonfigurasikan."
+  "workspaceSettings.securityScan.sandboxUnavailable": "Tidak tersedia pada deployment ini: Vercel Sandbox belum dikonfigurasikan.",
+  "securityScan.status.tooLarge": "Tidak diimbas — melebihi had saiz",
+  "securityScan.prTooLarge.fileLimit": "PR ini mengubah {files} fail; imbasan keselamatan dijalankan pada PR dengan paling banyak {cap} fail (had GitHub memulangkan diff), jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
+  "securityScan.prTooLarge.diffRefusedFiles": "GitHub tidak memulangkan diff PR ini kerana ia terlalu besar ({files} fail diubah), jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
+  "securityScan.prTooLarge.diffRefused": "GitHub tidak memulangkan diff PR ini kerana ia terlalu besar, jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
+  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk diimbas. Pecahkan kepada PR yang lebih kecil atau kecilkan skopnya untuk mengimbasnya."
 }

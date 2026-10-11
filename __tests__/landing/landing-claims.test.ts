@@ -11,7 +11,9 @@
  * on the rendered *claims*, not on an exported API — importing the components
  * would test React, not the sentences.
  */
-// LUM-1064: plugin cases live in __tests__/ee/security/landing/landing-claims.test.ts.
+// LUM-1064: plugin cases live in __tests__/ee/security/landing/landing-claims.test.ts
+// (LUM-1035 moved the scan-layer and crossing-triage ZDR cases there too: the
+// open-source snapshot cuts that copy from the landing page).
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -20,24 +22,11 @@ import {
   USED_UP_GRACE_DAYS,
 } from '@/lib/hook-event/retention'
 import { INTEGRATIONS } from '@/lib/integrations/registry'
-import { SCAN_STAGE_LABELS } from '@/shared/src/security-scan'
 
 const LANDING_DIR = join(process.cwd(), 'components', 'landing', 'home')
 
 function readLanding(file: string): string {
   return readFileSync(join(LANDING_DIR, file), 'utf8')
-}
-
-/** The body of a top-level `const <name> = [ … ]` block, comments stripped. */
-function arrayLiteral(source: string, name: string): string {
-  const start = source.indexOf(`const ${name} = [`)
-  expect(start).toBeGreaterThan(-1)
-  const end = source.indexOf('\n]\n', start)
-  expect(end).toBeGreaterThan(start)
-  return source
-    .slice(start, end)
-    .replace(/\/\/[^\n]*/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
 }
 
 describe('landing claims LUM-804', () => {
@@ -62,52 +51,6 @@ describe('landing claims LUM-804', () => {
     const orphaned = references.filter(n => !cited.has(n)).sort()
 
     expect({ dangling, orphaned }).toEqual({ dangling: [], orphaned: [] })
-  })
-
-  it('copy that counts the scan layers agrees with SCAN_STAGE_LABELS', () => {
-    const labels = Object.values(SCAN_STAGE_LABELS)
-    const COUNT_WORD: Record<number, string> = {
-      3: 'three',
-      4: 'four',
-      5: 'five',
-      6: 'six',
-      7: 'seven',
-    }
-    const word = COUNT_WORD[labels.length]
-    expect(word).toBeDefined()
-
-    // Both the Security card and the FAQ spell the layer count out in prose.
-    // Add a sixth layer and these sentences silently become wrong, which is
-    // exactly the drift this guard exists to catch.
-    for (const file of ['lumo-home.tsx', 'faq.tsx']) {
-      const prose = readLanding(file)
-        .replace(/\/\/[^\n]*/g, '')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-      if (!/\b\w+ layers before it merges/.test(prose)) continue
-
-      expect(prose).toMatch(new RegExp(`${word} layers before it merges`))
-      for (const stem of [
-        'secrets',
-        'code scan',
-        'dependencies',
-        'AI review',
-      ]) {
-        expect(prose).toContain(stem)
-      }
-      expect(prose).toMatch(/exploit path/)
-    }
-  })
-
-  it('security findings list only names layers the scan actually has', () => {
-    const block = arrayLiteral(readLanding('lumo-home.tsx'), 'SCAN_FINDINGS')
-    const layers = [...block.matchAll(/meta: '([^·']+)·/g)].map(m =>
-      (m[1] ?? '').trim()
-    )
-
-    expect(layers.length).toBeGreaterThan(0)
-    for (const layer of layers) {
-      expect(Object.values(SCAN_STAGE_LABELS)).toContain(layer)
-    }
   })
 
   it('FAQ names only integrations that exist in the registry', () => {
@@ -221,15 +164,12 @@ describe('FAQ privacy claims LUM-853', () => {
     expect(readRoot('lib/ai/zdr-fetch.ts')).toMatch(
       /ZDR_GATEWAY_OPTIONS = \{ zeroDataRetention: true \}/
     )
-    // LUM-871: boundary-crossing triage (LUM-945, TypeSafe Jev) is the one
-    // request sent outside the ZDR layer, so "every AI request ... zero data
-    // retention" must name it. (That client is the security plugin's; the
-    // check that it really skips the ZDR layer lives with the plugin tests,
-    // __tests__/ee/security/landing/landing-claims.test.ts — LUM-1065.)
-    expect(answer).toMatch(
-      /zero data retention enforced on the request itself for all but boundary-crossing triage/
-    )
-    expect(answer).toMatch(/does not offer zero data retention/)
+    // LUM-871's exception (boundary-crossing triage runs outside the ZDR
+    // layer) is plugin copy: the FAQ names it only while the security plugin
+    // ships, so it is asserted in
+    // __tests__/ee/security/landing/landing-claims.test.ts (LUM-1035). The
+    // open-source snapshot drops that clause (oss/manifest.json transform).
+    expect(answer).toMatch(/zero data retention enforced on the request itself/)
     // Team wording rule for processing location.
     expect(answer).toMatch(/routed globally/)
     expect(answer).toMatch(/don’t promise a processing region/)

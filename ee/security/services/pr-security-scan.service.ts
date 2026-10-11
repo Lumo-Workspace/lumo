@@ -39,6 +39,7 @@ import {
   type PrSummary,
 } from '@/ee/security/security-scan/pr-summary'
 import {
+  fetchPrChangedFiles,
   fetchPrDiff,
   fetchPrHeadSha,
   fetchReviewChangedPaths,
@@ -103,15 +104,20 @@ import {
 } from '@/ee/security/security-scan/hunt/batches'
 import { JUDGE_DIFF_BUDGET_TIERS } from '@/ee/security/security-scan/truncate'
 import {
+  hasSizeNotice,
   scanSizeCaps,
   type ScanSizeCaps,
 } from '@/ee/security/security-scan/size-caps'
 import {
+  encodePrTooLarge,
+  GITHUB_DIFF_MAX_FILES,
+  SCAN_STAGE_KEYS,
   isOwnedUnfinished,
   scanCoverageState,
   type HuntOverCapInput,
   type JudgeOverCapInput,
   type PartialCause,
+  type PrTooLargeInput,
   type ScanCoverageState,
 } from '@/shared/src/security-scan'
 
@@ -219,6 +225,13 @@ export interface SecurityScanView {
    * (CodeRabbit-style notice). null otherwise.
    */
   judgeOverCap: JudgeOverCapInput | null
+  /**
+   * LUM-1079 — the whole PR was too large to scan (more changed files than
+   * GitHub returns a diff for, or GitHub refused the diff): no layer ran.
+   * Told with the reason and what to do (split / narrow), never as our
+   * "didn't finish" and never as checked. null otherwise.
+   */
+  prTooLarge: PrTooLargeInput | null
   /**
    * LUM-832 — unfinished for a reason of OURS (a fault, a budget shortfall),
    * which gets the owned line. False when a size cap is the only gap: that
@@ -371,6 +384,7 @@ function sizeCapsOf(s: ScanWithFindings): ScanSizeCaps {
     partialCauses: s.partialCauses ?? [],
     huntAudit: s.huntAudit,
     judgeBudget: s.judgeBudget,
+    error: s.error,
   })
 }
 
@@ -412,8 +426,7 @@ function toScanView(
       stages,
       partial: s.partial,
       partialCauses: s.partialCauses ?? [],
-      hasSizeNotice:
-        sizeCaps.huntOverCap !== null || sizeCaps.judgeOverCap !== null,
+      hasSizeNotice: hasSizeNotice(sizeCaps),
     }),
     externalLate:
       stages.external === 'PENDING' &&
@@ -627,6 +640,71 @@ async function releaseKeptVmBestEffort(job: ReviewVerifierJob): Promise<void> {
   }
 }
 
+/**
+ * LUM-1079 — `fetchPrDiff` flags GitHub's "diff too large" refusal (406)
+ * with `diffTooLarge: true` on the error it throws.
+ */
+export function isPrDiffTooLargeError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { diffTooLarge?: unknown }).diffTooLarge === true
+  )
+}
+
+/**
+ * LUM-1079 — the PR's changed-file count, or null when it could not be read.
+ * Best-effort: a failed read only skips the early check — the diff request
+ * still runs, and GitHub's own 406 is the backstop.
+ */
+async function changedFilesBestEffort(pr: {
+  workspaceId: string
+  repo: string
+  number: number
+}): Promise<number | null> {
+  try {
+    return await fetchPrChangedFiles({
+      workspaceId: pr.workspaceId,
+      fullName: pr.repo,
+      prNumber: pr.number,
+    })
+  } catch (error) {
+    logger.info(
+      `[pr-security-scan] changed-file count unavailable ${pr.repo}#${pr.number}: ${error instanceof Error ? error.message : error}`
+    )
+    return null
+  }
+}
+
+/**
+ * LUM-1079 — the PR was too large to scan: no layer ran, so every layer is
+ * SKIPPED and the row says why (cause PR_TOO_LARGE, numbers on `error`).
+ * Status stays FAILED — the scan vouches for nothing, so it can never read
+ * as CLEAN or checked, and a re-trigger re-runs it in place — but every
+ * surface tells it as a limit on the change, with what to do, instead of
+ * our "didn't finish". The PR summary says the same.
+ */
+async function finishTooLarge(
+  scanId: string,
+  tooLarge: PrTooLargeInput
+): Promise<RunScanResult> {
+  logger.info(
+    `[pr-security-scan] PR too large to scan scan=${scanId} reason=${tooLarge.reason} files=${tooLarge.changedFiles ?? '?'}`
+  )
+  const stages: ScanStages = {}
+  for (const key of SCAN_STAGE_KEYS) stages[key] = 'SKIPPED'
+  await prSecurityScanRepository.finalize(scanId, {
+    status: 'FAILED',
+    judgeStatus: null,
+    truncated: false,
+    stages,
+    partialCauses: ['PR_TOO_LARGE'],
+    error: encodePrTooLarge(tooLarge),
+  })
+  waitUntil(securityPrReviewService.sync(scanId))
+  return { deduped: false, scanId, status: 'FAILED', findings: 0 }
+}
+
 export const prSecurityScanService = {
   async run(input: {
     pullRequestId: string
@@ -719,11 +797,31 @@ export const prSecurityScanService = {
     let reservedHead = false
 
     try {
-      const diff = await fetchPrDiff({
-        workspaceId: pr.workspaceId,
-        fullName: pr.repo,
-        prNumber: pr.number,
-      })
+      // LUM-1079: a PR GitHub will not return a diff for is told as too
+      // large — checked by file count BEFORE asking, with GitHub's own
+      // refusal (406) as the backstop. Never our FAILED "didn't finish".
+      const changedFiles = await changedFilesBestEffort(pr)
+      if (changedFiles !== null && changedFiles > GITHUB_DIFF_MAX_FILES)
+        return await finishTooLarge(scanId, {
+          reason: 'FILE_LIMIT',
+          changedFiles,
+          capFiles: GITHUB_DIFF_MAX_FILES,
+        })
+      let diff: string
+      try {
+        diff = await fetchPrDiff({
+          workspaceId: pr.workspaceId,
+          fullName: pr.repo,
+          prNumber: pr.number,
+        })
+      } catch (error) {
+        if (!isPrDiffTooLargeError(error)) throw error
+        return await finishTooLarge(scanId, {
+          reason: 'DIFF_REFUSED',
+          changedFiles,
+          capFiles: GITHUB_DIFF_MAX_FILES,
+        })
+      }
       const files = addedLinesWithNumbers(diff)
       // The PR diff endpoint follows a moving ref. Refuse a push that raced
       // this read rather than attaching another head's code to this scan.
