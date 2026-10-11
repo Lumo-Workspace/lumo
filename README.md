@@ -530,7 +530,7 @@ Lumo follows an open-core model. Pull-request vulnerability checks and the advan
 
 ## 📞 Support
 
-For support, email support@lumo.ai or create an issue in the repository.
+For support, email support@uselumo.ai or create an issue in the repository.
 
 ---
 

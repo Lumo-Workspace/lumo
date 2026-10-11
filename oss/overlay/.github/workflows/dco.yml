@@ -39,12 +39,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        # The pull request commits API lists at most 250 commits; larger pull
-        # requests are split before review anyway.
+        # `author` is the GitHub account GitHub linked each commit to (null when
+        # none); the checker's bot exemption reads it, never the author email.
+        # This API lists at most 250 commits even when paginated; the checker
+        # compares the count with the pull request's own and fails short lists.
         run: |
           gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/commits" \
-            --jq '.[] | {sha: .sha, message: .commit.message, authorName: .commit.author.name, authorEmail: .commit.author.email, parents: (.parents | length)} | @json' \
+            --jq '.[] | {sha: .sha, message: .commit.message, authorName: .commit.author.name, authorEmail: .commit.author.email, authorLogin: (.author.login // null), authorType: (.author.type // null), parents: (.parents | length)} | @json' \
             > "${RUNNER_TEMP}/commits.ndjson"
 
       - name: Check every commit is signed off
-        run: node .github/scripts/check-dco.mjs < "${RUNNER_TEMP}/commits.ndjson"
+        env:
+          # From the event payload: the pull request's commit count and the
+          # account that opened it (only a GitHub App can open one as its bot).
+          EXPECTED_COMMITS: ${{ github.event.pull_request.commits }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+        run: |
+          node .github/scripts/check-dco.mjs \
+            --expected-commits "$EXPECTED_COMMITS" \
+            --pr-author "$PR_AUTHOR" --pr-author-type "$PR_AUTHOR_TYPE" \
+            < "${RUNNER_TEMP}/commits.ndjson"

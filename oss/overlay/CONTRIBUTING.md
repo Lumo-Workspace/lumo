@@ -52,8 +52,13 @@ Signed-off-by: Your Name <you@example.com>
   git rebase --signoff origin/main
   git push --force-with-lease
   ```
-- Commits by GitHub bot accounts (for example Dependabot) and merge commits are
-  exempt from the check; a maintainer reviews those pull requests.
+- Merge commits are exempt, and so are commits by the GitHub bot accounts
+  Dependabot, Renovate and GitHub Actions — but only in a pull request that bot
+  opened, and only when GitHub links the commit to that bot account. A
+  maintainer reviews those pull requests. Every other commit needs a sign-off,
+  whatever author email it carries.
+- The check reads at most 250 commits per pull request (GitHub's limit) and
+  fails a longer one; squash or split it.
 
 ## Development environment
 

@@ -7,7 +7,9 @@
 #
 # It prepares and checks everything a release needs, then PRINTS the commands a
 # maintainer runs to publish. It never pushes, tags, creates a repository or
-# calls the GitHub API — no `git push`, no `gh`, no network. Steps:
+# calls the GitHub API — no `git push`, no `git tag`, no `gh`. It is not
+# offline: step 2 installs the snapshot's dependencies from the npm registry
+# (`npm ci` inside verify-snapshot.sh; `--skip-verify` skips it). Steps:
 #   1. export the snapshot of <git-ref> into a new temp dir (kept for review)
 #   2. bash scripts/oss-export/verify-snapshot.sh <git-ref> (unless --skip-verify)
 #   3. secret scan: python3 scripts/audit-secrets.py snapshot --ref <sha>, only
