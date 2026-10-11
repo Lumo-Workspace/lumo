@@ -81,18 +81,23 @@ export async function sendSignInCodeEmail(
   const { subject, html, text } = buildSignInCodeEmail(otp, locale)
   const result = await sendEmail({ to: [email], subject, html, text })
   if (result.status === 'sent') return
-  if (result.status === 'skipped' && result.reason === 'not_configured') {
-    // Development without SMTP: the log is the mailbox. Never in production
-    // (there the code sign-in is not offered without a transport).
-    if (env.NODE_ENV !== 'production') {
-      logger.info('[auth] email code (dev, email not configured)', {
-        type,
-        code: otp,
-      })
-    }
+  // Development without SMTP: the log is the mailbox. Only for an explicit
+  // NODE_ENV=development (`next dev`); anywhere else the code is never logged.
+  if (
+    result.status === 'skipped' &&
+    result.reason === 'not_configured' &&
+    env.NODE_ENV === 'development'
+  ) {
+    logger.info('[auth] email code (dev, email not configured)', {
+      type,
+      code: otp,
+    })
     return
   }
-  logger.warn('[auth] email code not sent', { status: result.status })
+  logger.warn('[auth] email code not sent', {
+    status: result.status,
+    ...(result.status === 'skipped' ? { reason: result.reason } : {}),
+  })
 }
 
 /** The `emailOTP(...)` options of the Lumo instance. */

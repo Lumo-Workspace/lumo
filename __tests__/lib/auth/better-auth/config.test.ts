@@ -80,7 +80,7 @@ describe('Better Auth config (LUM-1027)', () => {
       socialProviders: ['github', 'google'],
       signUpEnabled: false,
       passwordEnabled: true,
-      emailCodeEnabled: true, // NODE_ENV unset → development
+      emailCodeEnabled: false, // no transport, not development
     })
     expect(JSON.stringify(config)).not.toContain('value')
   })
@@ -109,6 +109,9 @@ describe('Better Auth config (LUM-1027)', () => {
         true
       )
       expect(isEmailCodeSignInEnabled({ NODE_ENV: 'development' })).toBe(true)
+      // Only an explicit development: test / unset do not count.
+      expect(isEmailCodeSignInEnabled({ NODE_ENV: 'test' })).toBe(false)
+      expect(isEmailCodeSignInEnabled({})).toBe(false)
     })
 
     it('the public config of the hosted SaaS: codes + social, no password', () => {

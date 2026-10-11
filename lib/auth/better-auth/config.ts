@@ -103,10 +103,11 @@ export function isPasswordSignInEnabled(env: Env = process.env): boolean {
 
 /**
  * LUM-1082 — email one-time-code sign-in. Needs a way to deliver the code:
- * an email transport, or development, where the code goes to the server log.
+ * an email transport, or NODE_ENV=development (`next dev`), where the code
+ * goes to the server log.
  */
 export function isEmailCodeSignInEnabled(env: Env = process.env): boolean {
-  return resolveEmailTransport(env) !== 'none' || env.NODE_ENV !== 'production'
+  return resolveEmailTransport(env) !== 'none' || env.NODE_ENV === 'development'
 }
 
 /**

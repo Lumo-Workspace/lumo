@@ -85,18 +85,26 @@ describe('sendSignInCodeEmail (LUM-1082)', () => {
     )
   })
 
-  it('production never logs the code', async () => {
-    mockSendEmail.mockResolvedValue({
-      status: 'skipped',
-      reason: 'not_configured',
-    })
-    await sendSignInCodeEmail(
-      { email: 'a@x.io', otp: '654321', type: 'sign-in' },
-      undefined,
-      { NODE_ENV: 'production' }
-    )
-    expect(JSON.stringify(mockLogger.info.mock.calls)).not.toContain('654321')
-  })
+  it.each(['production', 'test', undefined])(
+    'NODE_ENV=%s never logs the code; the skipped send is a warning',
+    async nodeEnv => {
+      mockSendEmail.mockResolvedValue({
+        status: 'skipped',
+        reason: 'not_configured',
+      })
+      await sendSignInCodeEmail(
+        { email: 'a@x.io', otp: '654321', type: 'sign-in' },
+        undefined,
+        nodeEnv ? { NODE_ENV: nodeEnv } : {}
+      )
+      expect(JSON.stringify(mockLogger.info.mock.calls)).not.toContain('654321')
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[auth] email code not sent',
+        { status: 'skipped', reason: 'not_configured' }
+      )
+      expect(JSON.stringify(mockLogger.warn.mock.calls)).not.toContain('654321')
+    }
+  )
 
   it('a failed send is a warning without the code', async () => {
     mockSendEmail.mockResolvedValue({

@@ -135,7 +135,7 @@ once email is configured; and **email + password**, on by default.
   read the mail Lumo sent.
 - **Email codes** need email (`SMTP_URL` / `SMTP_*` or `RESEND_API_KEY`).
   Without it the page shows only the password form; in development
-  (`NODE_ENV` not `production`) codes are offered anyway and written to the
+  (`NODE_ENV=development`, i.e. `next dev`) codes are offered anyway and written to the
   server log. Three wrong codes void a code; sending and checking codes is
   rate limited per IP. An existing account whose email is not verified cannot
   sign in by code (it answers like a wrong code): verify the address by the
