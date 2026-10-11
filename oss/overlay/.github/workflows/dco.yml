@@ -1,0 +1,50 @@
+# Developer Certificate of Origin: every commit in a pull request must carry a
+# `Signed-off-by:` trailer matching its author (`git commit -s`). See
+# CONTRIBUTING.md. Make the `DCO` job a required status check on `main` in the
+# branch protection settings.
+#
+# Runs on `pull_request` (not `pull_request_target`): the token is read-only and
+# no repository secret is exposed to code from forks. The checker script is
+# taken from the base commit, so a pull request cannot change how it is judged.
+name: DCO
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dco-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dco:
+    name: DCO
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the checker from the base commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: List the pull request's commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        # The pull request commits API lists at most 250 commits; larger pull
+        # requests are split before review anyway.
+        run: |
+          gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/commits" \
+            --jq '.[] | {sha: .sha, message: .commit.message, authorName: .commit.author.name, authorEmail: .commit.author.email, parents: (.parents | length)} | @json' \
+            > "${RUNNER_TEMP}/commits.ndjson"
+
+      - name: Check every commit is signed off
+        run: node .github/scripts/check-dco.mjs < "${RUNNER_TEMP}/commits.ndjson"

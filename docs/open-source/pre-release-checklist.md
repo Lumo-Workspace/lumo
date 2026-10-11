@@ -2,12 +2,24 @@
 
 每次对外发布(打 tag、更新公开仓库、发自托管镜像)之前,在要发布的 commit 上逐项跑一遍。全部退出码为 0 才能发;唯一例外是下文「依赖漏洞」里写的 HIGH 签字放行。
 
-| 检查                     | 命令                                                   | 通过条件                                 | 说明                                                                                                       |
-| ------------------------ | ------------------------------------------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 生产依赖许可证           | `npm run license:audit`                                | 退出码 0                                 | 规则和例外见 [dependency-licenses.md](dependency-licenses.md)                                              |
-| 生产依赖已知漏洞         | `npm run audit:prod`                                   | 退出码 0(生产依赖里没有 HIGH / CRITICAL) | 规则和已接受项见下文「依赖漏洞」(LUM-1038)                                                                 |
-| 发布快照密钥             | `python3 scripts/audit-secrets.py snapshot --ref HEAD` | 退出码 0（零未处理项）                   | 安装 Gitleaks 8.30.1；扫描实际发布 commit，见 [secret-scan.md](secret-scan.md)                             |
-| 快照可构建（私有仓执行） | `bash scripts/oss-export/verify-snapshot.sh <commit>`  | 退出码 0                                 | 导出检查全 0，快照内 `tsc --noEmit --incremental false` 与 `jest` 通过；见下文「快照可构建验证」(LUM-1065) |
+| 检查                         | 命令                                                                                  | 通过条件                                 | 说明                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 生产依赖许可证               | `npm run license:audit`                                                               | 退出码 0                                 | 规则和例外见 [dependency-licenses.md](dependency-licenses.md)                                              |
+| 生产依赖已知漏洞             | `npm run audit:prod`                                                                  | 退出码 0(生产依赖里没有 HIGH / CRITICAL) | 规则和已接受项见下文「依赖漏洞」(LUM-1038)                                                                 |
+| 发布快照密钥                 | `python3 scripts/audit-secrets.py snapshot --ref HEAD`                                | 退出码 0（零未处理项）                   | 安装 Gitleaks 8.30.1；扫描实际发布 commit，见 [secret-scan.md](secret-scan.md)                             |
+| 快照可构建（私有仓执行）     | `bash scripts/oss-export/verify-snapshot.sh <commit>`                                 | 退出码 0                                 | 导出检查全 0，快照内 `tsc --noEmit --incremental false` 与 `jest` 通过；见下文「快照可构建验证」(LUM-1065) |
+| 发布总闸(私有仓执行,dry run) | `bash scripts/oss-export/publish.sh <commit> --version vX.Y.Z [--public-clone <dir>]` | 退出码 0                                 | 依次跑导出、快照可构建、发布快照密钥、公开仓文件齐全、外部 PR 已回流;只打印发布命令,不推送(LUM-1035)       |
+
+## 首次公开发布前置(LUM-1035)
+
+公开仓库 `Lumo-Workspace/lumo-oss` 的首个 commit 必须是扫描过的快照。推送之前,下列各项全部完成并在 LUM-1035 留下记录。标 **【用户】** 的需要用户本人或其授权的人执行(账号权限、法务、下载二进制),agent 不代做。
+
+- [ ] **【用户】法务审阅许可证措辞**:私有仓 `LICENSE` 开头的范围说明、快照用的 `oss/overlay/LICENSE`(纯 MIT)、`ee/LICENSE`(插件专有许可)。审阅后如需改字,三处与 `__tests__/scripts/oss-export-manifest.test.ts` 的 LICENSE 断言一起改(LUM-1066 遗留,裁定 2026-10-11 ⑤)。
+- [ ] **【用户】在最终快照上重跑 gitleaks**:先由用户同意下载安装 Gitleaks **8.30.1**(裁定 ⑥,未同意前 agent 不下载任何二进制),再在要发布的那个 commit 上跑 `python3 scripts/audit-secrets.py snapshot --ref <sha>`,零未处理项;`publish.sh` 检测到已安装的 8.30.1 时会自动跑这一步,未安装时退出码 3(未就绪)。报告存档到任务。
+- [ ] **【用户】确认 `SECURITY.md` 的报告邮箱**:`oss/overlay/SECURITY.md` 现在写的是 `security@uselumo.ai`(占位),确认这个邮箱存在、有人值守;否则改成真实地址后重新导出。
+- [ ] **【用户】在 GitHub 建库并完成设置**:在 `Lumo-Workspace` 组织下建 Public 仓库 `lumo-oss`(不初始化任何文件),推首个快照 commit 与 tag,然后配置分支保护(要求 PR、审批与 `DCO` 检查)、只开 squash merge 且默认提交说明含 commit 详情(保留 `Signed-off-by`)、Secret scanning + Push protection、Private vulnerability reporting、Dependabot alerts 与 security updates。步骤与命令见维护者发布手册(私有仓 `docs/open-source/release-and-sync.md`,不进快照)。
+- [ ] 早期代码归属已确认。
+- [ ] `publish.sh` 在发布 commit 上退出码 0(首发时没有公开仓可比对,`public-clone` 关卡为 skip)。
 
 ## 快照可构建验证(LUM-1065)
 
