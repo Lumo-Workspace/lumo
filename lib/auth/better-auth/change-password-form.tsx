@@ -5,6 +5,7 @@
  * Clerk the slot renders nothing). Changing it signs out every other session.
  * An account without a password (GitHub / Google only) is told to set one
  * through "Forgot password?" instead — a reset adds the password.
+ * LUM-1082: nothing at all when the instance turned password sign-in off.
  */
 import { useEffect, useState, type FormEvent } from 'react'
 import { useIntl } from 'react-intl'
@@ -13,6 +14,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getAuthClient } from './auth-client'
+import { passwordEnabledIn, usePublicAuthConfig } from './public-config'
 import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -49,6 +51,13 @@ function useHasPassword(): boolean | null {
 }
 
 export function ChangePassword() {
+  const config = usePublicAuthConfig()
+  // Wait for the options so the card never flashes on a password-less instance.
+  if (config === undefined || !passwordEnabledIn(config)) return null
+  return <ChangePasswordCard />
+}
+
+function ChangePasswordCard() {
   const intl = useIntl()
   const t = (id: string) => intl.formatMessage({ id })
   const hasPassword = useHasPassword()

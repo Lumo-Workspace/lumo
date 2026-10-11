@@ -111,8 +111,13 @@ the rest of the core. Features that need an outside service degrade instead of f
 ## Sign-in
 
 Compose runs Lumo with **Better Auth** (`AUTH_PROVIDER=better-auth`):
-email + password accounts, sessions and verification tokens live in the
-bundled Postgres. No Clerk account or `CLERK_*` variable is involved.
+accounts, sessions and verification tokens live in the bundled Postgres. No
+Clerk account or `CLERK_*` variable is involved.
+
+The sign-in page offers, top to bottom: the GitHub / Google buttons you
+configured; **email codes** (enter an email, receive a 6-digit code valid for
+10 minutes, enter it — a new email gets an account in the same step), shown
+once email is configured; and **email + password**, on by default.
 
 - **`BETTER_AUTH_SECRET`** (required, at least 32 characters) signs session
   cookies: `openssl rand -hex 32`. Compose refuses to start without it, and
@@ -128,6 +133,17 @@ bundled Postgres. No Clerk account or `CLERK_*` variable is involved.
   Mailpit: set `SMTP_URL=smtp://mailpit:1025` in `.env`, run
   `docker compose --profile mail up -d`, and open <http://localhost:8025> to
   read the mail Lumo sent.
+- **Email codes** need email (`SMTP_URL` / `SMTP_*` or `RESEND_API_KEY`).
+  Without it the page shows only the password form; in development
+  (`NODE_ENV` not `production`) codes are offered anyway and written to the
+  server log. Three wrong codes void a code; sending and checking codes is
+  rate limited per IP.
+- **Turning passwords off.** `AUTH_DISABLE_PASSWORD=true` removes password
+  sign-in, sign-up, forgot / reset password (`/reset-password` is a 404) and
+  the change-password card, leaving email codes and GitHub / Google — the
+  hosted uselumo.ai setup. Configure email first, or nobody without a social
+  login can sign in (Lumo logs a warning). Existing password accounts keep
+  their email and sign in with a code. No rebuild needed.
 - **Closing sign-up.** `AUTH_DISABLE_SIGNUP=true` turns off email sign-up:
   only existing accounts can sign in. Create your own account first, then set
   it and run `docker compose up -d` (no rebuild). Accepting an invite needs an
@@ -137,7 +153,10 @@ bundled Postgres. No Clerk account or `CLERK_*` variable is involved.
   `…/callback/google`) and set `AUTH_GITHUB_CLIENT_ID` +
   `AUTH_GITHUB_CLIENT_SECRET` (or the `AUTH_GOOGLE_*` pair). The button
   appears once both are set; no rebuild needed. These are separate from the
-  `GITHUB_CLIENT_*` variables of the GitHub integration.
+  `GITHUB_CLIENT_*` variables of the GitHub integration. Use a **separate**
+  Google OAuth client from the Google Drive integration's `GOOGLE_CLIENT_ID`
+  — otherwise Google's sign-in screen also lists the Drive access granted to
+  that client; Lumo logs a warning when the two ids are equal.
 - **MCP clients** (Claude, Cursor, VS Code, MCP Inspector, …) connect to
   `<BETTER_AUTH_URL>/api/mcp`; this instance serves the OAuth flow itself
   (discovery, dynamic client registration, PKCE, consent at

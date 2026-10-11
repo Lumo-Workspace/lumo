@@ -374,8 +374,11 @@ GOOGLE_CLIENT_SECRET=<client secret>
 GOOGLE_DRIVE_OAUTH_REDIRECT_URI=https://lumo.example.com/api/google-drive/callback
 ```
 
-These are separate from `AUTH_GOOGLE_*` ("Sign in with Google"); one Google
-OAuth client can serve both if it lists both redirect URIs.
+These are separate from `AUTH_GOOGLE_*` ("Continue with Google") and must
+be a **different** OAuth client: the Drive flow asks Google to include
+previously granted scopes, so a shared client makes the sign-in consent
+screen list Drive access too. Lumo logs a warning at start-up when
+`AUTH_GOOGLE_CLIENT_ID` equals `GOOGLE_CLIENT_ID`.
 
 **Verify:** the member's Google Drive row → **Connect** → choose the account
 → the row shows the email; then import a Google Doc into a project.

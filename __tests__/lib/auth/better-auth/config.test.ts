@@ -2,6 +2,9 @@
  * @jest-environment node
  */
 import {
+  googleSignInSharesDriveClient,
+  isEmailCodeSignInEnabled,
+  isPasswordSignInEnabled,
   isSignUpDisabled,
   resolveBetterAuthBaseUrl,
   resolveBetterAuthSecret,
@@ -76,7 +79,65 @@ describe('Better Auth config (LUM-1027)', () => {
     expect(config).toEqual({
       socialProviders: ['github', 'google'],
       signUpEnabled: false,
+      passwordEnabled: true,
+      emailCodeEnabled: true, // NODE_ENV unset → development
     })
     expect(JSON.stringify(config)).not.toContain('value')
+  })
+
+  describe('LUM-1082 sign-in options', () => {
+    it('password sign-in is on unless AUTH_DISABLE_PASSWORD is true / 1 / yes', () => {
+      expect(isPasswordSignInEnabled({})).toBe(true)
+      for (const v of ['true', 'TRUE', '1', 'yes', ' yes ']) {
+        expect(isPasswordSignInEnabled({ AUTH_DISABLE_PASSWORD: v })).toBe(
+          false
+        )
+      }
+      for (const v of ['', 'false', '0', 'no']) {
+        expect(isPasswordSignInEnabled({ AUTH_DISABLE_PASSWORD: v })).toBe(true)
+      }
+    })
+
+    it('email codes need a transport in production; development logs them', () => {
+      const prod = { NODE_ENV: 'production' }
+      expect(isEmailCodeSignInEnabled(prod)).toBe(false)
+      expect(isEmailCodeSignInEnabled({ ...prod, SMTP_URL: 'smtp://m' })).toBe(
+        true
+      )
+      expect(isEmailCodeSignInEnabled({ ...prod, SMTP_HOST: 'm' })).toBe(true)
+      expect(isEmailCodeSignInEnabled({ ...prod, RESEND_API_KEY: 'k' })).toBe(
+        true
+      )
+      expect(isEmailCodeSignInEnabled({ NODE_ENV: 'development' })).toBe(true)
+    })
+
+    it('the public config of the hosted SaaS: codes + social, no password', () => {
+      expect(
+        resolvePublicAuthConfig({
+          NODE_ENV: 'production',
+          RESEND_API_KEY: 'k',
+          AUTH_DISABLE_PASSWORD: 'true',
+        })
+      ).toMatchObject({ passwordEnabled: false, emailCodeEnabled: true })
+    })
+
+    it('flags a Google sign-in client equal to the Drive client', () => {
+      expect(
+        googleSignInSharesDriveClient({
+          AUTH_GOOGLE_CLIENT_ID: 'same.apps',
+          GOOGLE_CLIENT_ID: ' same.apps ',
+        })
+      ).toBe(true)
+      expect(
+        googleSignInSharesDriveClient({
+          AUTH_GOOGLE_CLIENT_ID: 'a.apps',
+          GOOGLE_CLIENT_ID: 'b.apps',
+        })
+      ).toBe(false)
+      expect(googleSignInSharesDriveClient({ GOOGLE_CLIENT_ID: 'b' })).toBe(
+        false
+      )
+      expect(googleSignInSharesDriveClient({})).toBe(false)
+    })
   })
 })

@@ -19,7 +19,9 @@ import { emailDeliveryRepository } from '@/lib/repositories/email-delivery.repos
  *
  * Callers use `sendEmail`; they never import a provider SDK.
  */
-export type EmailTransportKind = 'smtp' | 'resend_relay' | 'none'
+import { resolveEmailTransport, type EmailTransportKind } from './transport'
+
+export { resolveEmailTransport, type EmailTransportKind }
 
 export interface EmailMessage {
   to: string[]
@@ -86,14 +88,6 @@ export const RESEND_SMTP_RELAY = {
 export const DEFAULT_EMAIL_FROM = 'Lumo <noreply@uselumo.ai>'
 
 type Env = Record<string, string | undefined>
-
-export function resolveEmailTransport(
-  env: Env = process.env
-): EmailTransportKind {
-  if (env.SMTP_URL || env.SMTP_HOST) return 'smtp'
-  if (env.RESEND_API_KEY) return 'resend_relay'
-  return 'none'
-}
 
 export function resolveEmailFrom(env: Env = process.env): string {
   return env.EMAIL_FROM || DEFAULT_EMAIL_FROM

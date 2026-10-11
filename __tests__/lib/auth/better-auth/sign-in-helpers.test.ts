@@ -6,6 +6,7 @@ import {
   authErrorCode,
   changePasswordErrorMessageId,
   errorMessageId,
+  normalizeEmailCode,
   safeRedirectTarget,
   socialErrorCallbackUrl,
   socialErrorMessageId,
@@ -101,5 +102,22 @@ describe('LUM-1070 password + social error helpers', () => {
     expect(changePasswordErrorMessageId('PASSWORD_TOO_SHORT')).toBe(
       'auth.error.passwordTooShort'
     )
+  })
+})
+
+describe('email code helpers (LUM-1082)', () => {
+  it('maps the emailOTP error codes', () => {
+    expect(errorMessageId('INVALID_OTP')).toBe('auth.error.invalidCode')
+    expect(errorMessageId('OTP_EXPIRED')).toBe('auth.error.codeExpired')
+    expect(errorMessageId('TOO_MANY_ATTEMPTS')).toBe(
+      'auth.error.tooManyCodeAttempts'
+    )
+    expect(errorMessageId('INVALID_EMAIL')).toBe('auth.error.invalidEmail')
+  })
+
+  it('keeps only the first 6 digits of what was typed or pasted', () => {
+    expect(normalizeEmailCode(' 123 456 ')).toBe('123456')
+    expect(normalizeEmailCode('12-34-56-78')).toBe('123456')
+    expect(normalizeEmailCode('abc')).toBe('')
   })
 })
