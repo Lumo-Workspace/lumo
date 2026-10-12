@@ -41,7 +41,11 @@ export async function sprintRemove(
     { headers: { Authorization: `Bearer ${creds.token}` } }
   )
   if (!tr.ok) {
-    console.error(errHttp(`task ${taskIdentifier} lookup`, tr.status))
+    console.error(
+      tr.status === 404
+        ? `Error: task ${taskIdentifier} not found`
+        : errHttp(`task ${taskIdentifier} lookup`, tr.status)
+    )
     return 1
   }
   const { task } = (await tr.json()) as { task: { id: string } }

@@ -31,7 +31,7 @@ function row(
     frameName: 'Welcome',
     thumbnailUrl: 'https://thumb.example/a.png',
     thumbnailFetchedAt: new Date().toISOString(),
-    lastSyncedAt: '2026-05-28T00:00:00Z',
+    lastSyncedAt: '2026-05-28T12:00:00Z',
     lastSyncError: null,
     createdAt: '2026-05-20T00:00:00Z',
     ...o,

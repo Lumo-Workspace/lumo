@@ -57,10 +57,10 @@ export function fmtTimestamp(iso: string | null | undefined): string {
  */
 export function formatDuration(ms: number): string {
   if (!(ms > 0)) return '0s'
-  if (ms < 60_000) {
-    return `${Math.max(1, Math.round(ms / 1000))}s`
-  }
-  const totalMinutes = Math.round(ms / 60_000)
+  // Decide the unit on the rounded value, so 59.6s reads `1m`, not `60s`.
+  const seconds = Math.max(1, Math.round(ms / 1000))
+  if (seconds < 60) return `${seconds}s`
+  const totalMinutes = Math.max(1, Math.round(ms / 60_000))
   if (totalMinutes < 60) return `${totalMinutes}m`
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60

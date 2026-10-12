@@ -90,6 +90,12 @@ describe('durations', () => {
     expect(formatDuration(3 * 3_600_000)).toBe('3h')
   })
 
+  it('switches unit on the rounded value (59.6s is 1m, not 60s)', () => {
+    expect(formatDuration(59_400)).toBe('59s')
+    expect(formatDuration(59_600)).toBe('1m')
+    expect(formatDuration(59 * 60_000 + 40_000)).toBe('1h')
+  })
+
   it('formatDurationSec is the same shape for seconds (task status cost)', () => {
     expect(formatDurationSec(0)).toBe('0s')
     expect(formatDurationSec(12)).toBe('12s')
