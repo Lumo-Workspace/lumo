@@ -25,7 +25,11 @@ import {
   splitNextActions,
   type TaskStatusResponse,
 } from './task-status'
-import { describeDoneTransition, type LinkedPr } from './task-update'
+import {
+  describeDoneTransition,
+  qualifiesForOneStepDone,
+  type LinkedPr,
+} from './task-update'
 import { errAuth, errNotLoggedIn } from '../lib/errors'
 import {
   bulletLines,
@@ -55,6 +59,8 @@ import { colorEnabled, terminalWidth } from '../lib/ui'
  * approval it mentions is something the agent relays to the user, and the
  * only approval-flagged command it prints is the DONE envelope's own
  * confirmCommand, shown only when nothing is left and labelled as the user's.
+ * LUM-1106: when every linked PR is merged it prints the plain one-step
+ * `--status done` command instead — no approval flag at all.
  */
 
 export type Read<T> = { ok: true; value: T } | { ok: false; reason: string }
@@ -389,6 +395,13 @@ function pushDone(
   opts: LayoutOptions
 ): void {
   lines.push(...header(4, 'DONE', opts))
+  // LUM-1106: READY with every linked PR merged (at least one) is the
+  // one-step case — `task update --status done` runs without an envelope.
+  // READY already means every read succeeded and nothing blocks DONE.
+  const oneStep =
+    r.level === 'READY' &&
+    input.task.ok &&
+    qualifiesForOneStepDone(input.task.value.pullRequests, true)
   const label: Record<Readiness['level'], string> = {
     DONE: 'DONE — already closed',
     UNCONFIRMED:
@@ -397,7 +410,9 @@ function pushDone(
     NOT_YET: 'NOT YET — work is left before asking for DONE',
     READY: 'READY — relay the DONE envelope below to the user',
   }
-  lines.push(`  Readiness: ${label[r.level]}`)
+  lines.push(
+    `  Readiness: ${oneStep ? 'READY — one step: every linked PR is merged and nothing blocks DONE' : label[r.level]}`
+  )
   for (const reason of r.reasons)
     lines.push(...dashLines(sanitizeField(reason), 4, opts))
 
@@ -451,11 +466,21 @@ function pushDone(
   if (r.level === 'READY') {
     const inside = input.worktrees?.items.some(i => i.reason === 'cwd')
     lines.push(
-      '  Show the user the lines above. Only after they approve, run:',
-      commandLine(
-        `lumo task update ${input.identifier} --status done --confirm`,
-        4
-      )
+      ...(oneStep
+        ? [
+            '  All PRs merged, nothing blocks DONE — run it directly, no approval step:',
+            commandLine(
+              `lumo task update ${input.identifier} --status done`,
+              4
+            ),
+          ]
+        : [
+            '  Show the user the lines above. Only after they approve, run:',
+            commandLine(
+              `lumo task update ${input.identifier} --status done --confirm`,
+              4
+            ),
+          ])
     )
     if (inside && input.worktrees) {
       lines.push(

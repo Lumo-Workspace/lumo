@@ -354,8 +354,8 @@ describe('lumo task wrapup (LUM-841)', () => {
       expect(out).toContain('Readiness: BLOCKED')
       expect(out).not.toMatch(CONFIRM_FLAG)
 
-      // once nothing is left, the only --confirm is the DONE confirmCommand,
-      // printed as the user's approval
+      // LUM-1106: once nothing is left and every linked PR is merged, DONE
+      // is one step — the plain command, no --confirm anywhere
       stdout = []
       route({
         '/boundary-crossings': jsonResponse(200, {
@@ -365,13 +365,38 @@ describe('lumo task wrapup (LUM-841)', () => {
       })
       await taskWrapup('LUM-9001')
       const ready = stdout.join('')
-      expect(ready).toContain('Readiness: READY')
-      const confirms = ready.split('\n').filter(l => CONFIRM_FLAG.test(l))
+      expect(ready).toContain('Readiness: READY — one step')
+      expect(ready).not.toMatch(CONFIRM_FLAG)
       // LUM-1091: the command alone on its line, right under the instruction
+      expect(ready).toContain(
+        '  All PRs merged, nothing blocks DONE — run it directly, no approval step:\n    lumo task update LUM-9001 --status done\n'
+      )
+
+      // no linked PR: READY, but the DONE envelope still applies — the only
+      // --confirm is its confirmCommand, printed as the user's approval
+      stdout = []
+      route({
+        '/boundary-crossings': jsonResponse(200, {
+          gateEnabled: true,
+          crossings: [],
+        }),
+        '/by-identifier/': jsonResponse(200, {
+          task: {
+            identifier: 'LUM-9001',
+            title: 'Wrap me up',
+            status: 'IN_REVIEW',
+            pullRequests: [],
+          },
+        }),
+      })
+      await taskWrapup('LUM-9001')
+      const noPr = stdout.join('')
+      expect(noPr).toContain('Readiness: READY — relay the DONE envelope')
+      const confirms = noPr.split('\n').filter(l => CONFIRM_FLAG.test(l))
       expect(confirms).toEqual([
         '    lumo task update LUM-9001 --status done --confirm',
       ])
-      expect(ready).toContain(
+      expect(noPr).toContain(
         '  Show the user the lines above. Only after they approve, run:\n    lumo task update LUM-9001 --status done --confirm\n'
       )
     })

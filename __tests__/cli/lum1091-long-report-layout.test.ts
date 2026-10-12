@@ -548,8 +548,9 @@ describe('LUM-1091 long-report layout', () => {
 
   it('task wrapup READY: the DONE command is alone on its line, under the instruction', () => {
     const out = ALL_REPORTS[2]![1]
+    // LUM-1106: every linked PR merged → the one-step command, no --confirm
     expect(out).toContain(
-      '  Show the user the lines above. Only after they approve, run:\n    lumo task update LUM-9001 --status done --confirm\n'
+      '  All PRs merged, nothing blocks DONE — run it directly, no approval step:\n    lumo task update LUM-9001 --status done\n'
     )
   })
 
