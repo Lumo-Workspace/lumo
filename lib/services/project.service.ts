@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
@@ -66,10 +67,7 @@ export const projectService = {
     if (clerkIds.length > 0) {
       const { getUserDirectory } = await import('@/lib/auth/users')
       const clerk = await getUserDirectory()
-      const { data: users } = await clerk.getUserList({
-        userId: clerkIds,
-        limit: clerkIds.length,
-      })
+      const users = await listUsersByIds(clerk, clerkIds)
       for (const u of users) {
         const trimmed = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()
         nameByClerkId.set(

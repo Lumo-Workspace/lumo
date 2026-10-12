@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { getUserDirectory } from '@/lib/auth/users'
 import { requireIdentity } from '@/lib/auth'
 import { getOrCreateHumanActor } from '@/lib/actor'
@@ -21,14 +22,12 @@ export async function GET(request: NextRequest) {
 
     // Batch-fetch Clerk user profiles
     const users = await getUserDirectory()
-    const clerkUsers = await users.getUserList({
-      userId: members.map(m => m.clerkId),
-      // Clerk caps getUserList at 500; the old fixed 100 silently dropped
-      // members past the first page in larger workspaces.
-      limit: Math.min(500, Math.max(1, members.length)),
-    })
+    const clerkUsers = await listUsersByIds(
+      users,
+      members.map(m => m.clerkId)
+    )
 
-    const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
+    const userMap = new Map(clerkUsers.map(u => [u.id, u]))
 
     // Lazy-create actors for members that don't have one yet (pre-migration data)
     for (const m of members) {
