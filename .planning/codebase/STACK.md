@@ -73,7 +73,6 @@
 
 - Pusher 5.3.3 (server) - WebSocket provider for real-time updates
 - pusher-js 8.5.0 (client) - Pusher client library
-- @chat-adapter/slack 4.23.0 - Slack chat adapter
 
 **Internationalization:**
 
@@ -185,7 +184,7 @@
 
 **Slack:**
 
-- @chat-adapter/slack 4.23.0 - Slack messaging adapter
+- No SDK — Slack Web API via `fetch` (`lib/integrations/slack/`)
 
 **Email:**
 

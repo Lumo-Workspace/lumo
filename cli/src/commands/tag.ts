@@ -1,6 +1,7 @@
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { colorEnabled, style } from '../lib/ui'
+import { successLine } from '../lib/feedback'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 /** LUM-821: workspace tags — list with usage counts, create with a color. */
@@ -84,7 +85,18 @@ export async function tagCreate(
     'tag create'
   )
   if (!r.ok || !r.data) return 1
-  process.stdout.write(
-    `Created tag "${sanitizeField(r.data.tag.name)}"  (${r.data.tag.id})\n`
-  )
+  process.stdout.write(formatCreatedTagLine(r.data.tag) + '\n')
+}
+
+/** LUM-1092: `Created tag "<name>"  <id>` (was `(<id>)`). */
+export function formatCreatedTagLine(tag: {
+  id: string
+  name: string
+}): string {
+  return successLine({
+    verb: 'Created',
+    kind: 'tag',
+    title: tag.name,
+    id: tag.id,
+  })
 }

@@ -12,6 +12,7 @@ import {
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { cmd as cmdRef, hint } from '../lib/feedback'
 
 /**
  * `lumo doc patch` / `lumo doc append` (LUM-409) — section-addressed writes.
@@ -140,12 +141,15 @@ async function docSectionEdit(
   if (!res.ok) {
     const text = await res.text()
     const message = extractErrorMessage(text)
+    const reshow = `lumo doc show ${reference}${
+      opts.section ? ` --section "${opts.section}"` : ''
+    }`
     if (res.status === 409) {
       console.error(`Error: revision conflict: ${sanitizeField(message)}`)
       console.error(
-        `Hint: re-read the section (lumo doc show ${reference}${
-          opts.section ? ` --section "${opts.section}"` : ''
-        }), rebase your edit on it, then retry with --if-revision <current>.`
+        hint(
+          `re-read the section (${cmdRef(reshow)}), rebase your edit on it, then retry with --if-revision <current>.`
+        )
       )
       return 1
     }
@@ -154,10 +158,10 @@ async function docSectionEdit(
       // the addressed section has (the message names each category, old→new).
       console.error(`Error: ${sanitizeField(message)}`)
       console.error(
-        `Hint: if the deletion is intentional, re-run with --allow-shrink. ` +
-          `Otherwise re-read the section (lumo doc show ${reference}${
-            opts.section ? ` --section "${opts.section}"` : ''
-          }) and rebase your edit on it.`
+        hint(
+          `if the deletion is intentional, re-run with --allow-shrink. ` +
+            `Otherwise re-read the section (${cmdRef(reshow)}) and rebase your edit on it.`
+        )
       )
       return 1
     }

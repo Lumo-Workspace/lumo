@@ -20,7 +20,9 @@ export function formatImportedLine(doc: {
   const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
   return (
     `Imported ${doc.id} "${escaped}"  ${doc.url}\n` +
-    `Note: imported content follows Lumo sharing and is no longer gated by Google permissions.`
+    warn(
+      'imported content follows Lumo sharing and is no longer gated by Google permissions.'
+    )
   )
 }
 

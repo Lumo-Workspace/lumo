@@ -120,7 +120,7 @@ describe('lumo audit list', () => {
       '2026-10-03 01:02Z  github_app.uninstalled  system                          integration  SYSTEM  -'
     )
     expect(out).toContain(
-      'More events: lumo audit list --action "member" --since "7d" --cursor CUR123'
+      'Hint: more events with `lumo audit list --action "member" --since "7d" --cursor CUR123`'
     )
   })
 

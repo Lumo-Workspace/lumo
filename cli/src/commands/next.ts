@@ -113,7 +113,9 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
       // Older server predating F4 — degrade to the standard ranking with a
       // one-line notice rather than silently returning nothing.
       console.error(
-        'Note: `--claimable` needs an updated Lumo server; showing the standard ranking instead.'
+        warn(
+          '`--claimable` needs an updated Lumo server; showing the standard ranking instead.'
+        )
       )
     } else {
       const ranked = rankTasks(gate.kept, activeSprintIds, new Date()).slice(
@@ -204,7 +206,7 @@ export function formatNextOutput(
     ])
   )
   if (ranked.length > 1) {
-    lines.push('(or pick any other LUM-N from the list)')
+    lines.push('(or pick any other task from the list)')
   }
 
   return lines.join('\n')

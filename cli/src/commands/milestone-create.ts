@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveProjectId } from '../lib/resolve'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { successLine } from '../lib/feedback'
 
 export interface CreateMilestoneOptions {
   project?: string
@@ -33,7 +34,12 @@ export function formatCreatedMilestoneLine(milestone: {
   id: string
   name: string
 }): string {
-  return `Created milestone "${sanitizeField(milestone.name)}"  ${milestone.id}`
+  return successLine({
+    verb: 'Created',
+    kind: 'milestone',
+    title: milestone.name,
+    id: milestone.id,
+  })
 }
 
 export async function milestoneCreate(

@@ -2,13 +2,11 @@
  * @jest-environment node
  */
 
-// Mock Slack integration to prevent 'chat' module resolution failure in test env
+// Keep the Slack senders (and their DB/token deps) out of this unit test
 jest.mock('@/lib/integrations/slack', () => ({
   sendChannelNotification: jest.fn(),
   sendDMNotification: jest.fn(),
   handleCommand: jest.fn(),
-  slackAdapter: {},
-  bot: {},
 }))
 
 jest.mock('@/lib/db/prisma', () => ({
@@ -96,11 +94,36 @@ describe('shouldNotify', () => {
     expect(result).toBe(false)
   })
 
-  it('maps AGENT_DONE to notifySlackAgentDone', async () => {
-    mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
-    mockPrefFindUnique.mockResolvedValue({ notifySlackAgentDone: false })
+  // LUM-1098: these types have no Slack send path, so the Slack channel has
+  // no preference route for them (the notifySlackAgent* columns are unread).
+  it.each(['AGENT_DONE', 'AGENT_FAILED', 'TASK_SPEC_READY'] as const)(
+    'has no Slack preference route for %s',
+    async type => {
+      mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
+      mockPrefFindUnique.mockResolvedValue({
+        notifySlackAgentDone: false,
+        notifySlackAssigned: false,
+      })
 
-    const result = await shouldNotify('actor-1', 'slack', 'AGENT_DONE')
+      const result = await shouldNotify('actor-1', 'slack', type)
+      expect(result).toBe(true)
+      expect(mockPrefFindUnique).not.toHaveBeenCalled()
+    }
+  )
+
+  it('still gates the in-app channel for AGENT_DONE', async () => {
+    mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
+    mockPrefFindUnique.mockResolvedValue({ notifyInAppAgentDone: false })
+
+    const result = await shouldNotify('actor-1', 'inApp', 'AGENT_DONE')
+    expect(result).toBe(false)
+  })
+
+  it('still gates Slack TASK_ASSIGNED on notifySlackAssigned', async () => {
+    mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
+    mockPrefFindUnique.mockResolvedValue({ notifySlackAssigned: false })
+
+    const result = await shouldNotify('actor-1', 'slack', 'TASK_ASSIGNED')
     expect(result).toBe(false)
   })
 

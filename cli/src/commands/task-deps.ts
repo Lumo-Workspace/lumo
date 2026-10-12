@@ -7,6 +7,7 @@ import {
   type ConfirmFlags,
 } from '../lib/confirmation'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { successLine } from '../lib/feedback'
 
 interface ResolveResponse {
   id: string
@@ -302,7 +303,16 @@ export async function taskDepsAdd(
     'dependency add'
   )
   if (typeof res === 'number') return res
-  console.log(`Added: ${task.identifier} blocked by ${opts.blockedBy}`)
+  console.log(formatDepsAdded(task.identifier, opts.blockedBy))
+}
+
+/** LUM-1092: `Added dependency LUM-42 blocked by LUM-9` (was `Added: …`). */
+export function formatDepsAdded(identifier: string, blockedBy: string): string {
+  return successLine({
+    verb: 'Added',
+    kind: 'dependency',
+    ref: sanitizeField(`${identifier} blocked by ${blockedBy}`),
+  })
 }
 
 /** `lumo task deps confirm <LUM-N> <edge> [--reverse]` */
@@ -333,13 +343,25 @@ export async function taskDepsConfirm(
     'dependency confirm'
   )
   if (typeof res === 'number') return res
-  console.log(
-    sanitizeField(
-      `Confirmed: [${shortId(edge.id)}] ${task.identifier} ${
-        edge.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
-      } ${edge.other.identifier} "${edge.other.title}"${opts.reverse ? ' (reversed)' : ''}`
-    )
-  )
+  console.log(formatDepsConfirmed(task.identifier, edge, opts.reverse ?? false))
+}
+
+/** LUM-1092: `Confirmed dependency [id] LUM-42 blocked by LUM-9 "Title"`. */
+export function formatDepsConfirmed(
+  identifier: string,
+  edge: DepEdge,
+  reversed: boolean
+): string {
+  const dir = edge.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
+  return successLine({
+    verb: 'Confirmed',
+    kind: 'dependency',
+    ref: sanitizeField(
+      `[${shortId(edge.id)}] ${identifier} ${dir} ${edge.other.identifier}`
+    ),
+    title: edge.other.title,
+    ...(reversed ? { suffix: '(reversed)' } : {}),
+  })
 }
 
 /** `lumo task deps dismiss <LUM-N> <edge>` */
@@ -361,11 +383,18 @@ export async function taskDepsDismiss(
     'dependency dismiss'
   )
   if (typeof res === 'number') return res
-  console.log(
-    sanitizeField(
-      `Dismissed: [${shortId(edge.id)}] ${edge.other.identifier} "${edge.other.title}" (won't be suggested again)`
-    )
-  )
+  console.log(formatDepsDismissed(edge))
+}
+
+/** LUM-1092: `Dismissed dependency [id] LUM-38 "Title" (won't be suggested again)`. */
+export function formatDepsDismissed(edge: DepEdge): string {
+  return successLine({
+    verb: 'Dismissed',
+    kind: 'dependency',
+    ref: sanitizeField(`[${shortId(edge.id)}] ${edge.other.identifier}`),
+    title: edge.other.title,
+    suffix: "(won't be suggested again)",
+  })
 }
 
 /** The changes[] block for the `task deps rm` confirmation envelope. */
@@ -407,5 +436,14 @@ export async function taskDepsRm(
     'dependency delete'
   )
   if (typeof res === 'number') return res
-  console.log(`Removed [${shortId(edge.id)}] from ${task.identifier}`)
+  console.log(formatDepsRemoved(task.identifier, edge))
+}
+
+/** LUM-1092: `Removed dependency [id] from LUM-42` (was `Removed [id] from …`). */
+export function formatDepsRemoved(identifier: string, edge: DepEdge): string {
+  return successLine({
+    verb: 'Removed',
+    kind: 'dependency',
+    ref: sanitizeField(`[${shortId(edge.id)}] from ${identifier}`),
+  })
 }

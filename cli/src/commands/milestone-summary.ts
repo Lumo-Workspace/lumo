@@ -2,7 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
-import { errAuth, errNotLoggedIn, httpFailed } from '../lib/errors'
+import { errAuth, errNotLoggedIn, httpFailed, warn } from '../lib/errors'
 
 export interface MilestoneSummaryOptions {
   project?: string
@@ -113,7 +113,9 @@ export async function milestoneSummary(
     // 202 means queued; regeneration is async. The GET below may still return
     // the old summary or 404 — warn the user.
     console.error(
-      'Note: summary regeneration queued. Result below may still be the previous summary.'
+      warn(
+        'summary regeneration queued. Result below may still be the previous summary.'
+      )
     )
   }
 

@@ -102,7 +102,7 @@ What it does:
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
 - Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning and **undispositioned security findings**.
-- Does **not** print team memory or the `## Test cases` nudge (LUM-807) — `lumo task context` prints both, and attach output is re-read on every later step (LUM-844). Instead one line: `Background (team memory, test cases, sources, prior sessions): lumo task context LUM-42`.
+- Does **not** print team memory or the `## Test cases` nudge (LUM-807) — `lumo task context` prints both, and attach output is re-read on every later step (LUM-844). Instead one line: ``Hint: run `lumo task context LUM-42` for background (team memory, test cases, sources, prior sessions)``.
 
 After attaching, always run `lumo task context <identifier>` to load the task background — memory and the test-case nudge live there.
 

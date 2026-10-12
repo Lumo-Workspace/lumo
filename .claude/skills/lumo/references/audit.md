@@ -17,7 +17,7 @@ lumo audit list --since 30d --csv > audit.csv
 2026-10-04 15:54Z  member.role_changed  Alice Chen <alice@example.com>  member cm1abc  WEB  203.0.113.9
 2026-10-04 15:50Z  invite.created       Alice Chen <alice@example.com>  invite cm1def  CLI  203.0.113.9
 
-More events: lumo audit list --cursor eyJ…
+Hint: more events with `lumo audit list --cursor eyJ…`
 ```
 
 Flags:
@@ -26,7 +26,7 @@ Flags:
 - `--actor` — `me`, `system`, a current member's email or display name, a member id, or a Clerk user id (`user_…`, the only way to find a former member's events). An ambiguous name is rejected — use the email.
 - `--since` / `--until` — `7d` (days back from now), a date `2026-10-01` (UTC; `--until` includes that whole day) or an ISO date-time with an offset.
 - `--target-type` (`workspace | member | invite | data_export | session | task_template | integration | api_key | document | task | boundary_crossing | suppression_rule | security_finding | test_case_run | sentry_mapping | audit_log`, case-insensitive) and `--target <id>`.
-- `--limit` (1–200, default 50) and `--cursor` (from the `More events:` hint or `nextCursor` in `--json`) page through older events.
+- `--limit` (1–200, default 50) and `--cursor` (from the `Hint: more events with …` line or `nextCursor` in `--json`) page through older events.
 - `--json` prints `{ events: [{ id, createdAt, action, actorType, actorId, actorMemberId, actorName, actorEmail, source, targetType, targetId, ip, userAgent, metadata }], nextCursor }`. `source` is `WEB` (browser), `CLI` (any API-key request: CLI, MCP, scripts), `WEBHOOK` or `SYSTEM`.
 - `--csv` (also from the web page's Export CSV) is itself recorded as an `audit_log.exported` event; plain listing is not. It writes the whole filtered log (not one page; `--limit` / `--cursor` are ignored) to stdout, newest first, capped at 10,000 rows — a stderr warning says when the cap cut it off; narrow the dates for the rest. Cells starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` so spreadsheets do not run them as formulas. `--json` and `--csv` are mutually exclusive.
 

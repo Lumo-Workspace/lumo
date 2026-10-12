@@ -39,7 +39,7 @@
 **Slack Integration:**
 
 - OAuth 2.0 app
-- SDK: `@chat-adapter/slack` 4.23.0
+- SDK: none — Slack Web API called with `fetch`
 - Auth: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`
 - What it's used for:
   - Workspace notifications (task assignments, mentions, agent updates)
@@ -242,7 +242,7 @@
 2. **Slack Event Subscriptions** (`app/api/webhooks/slack/route.ts`)
    - Events: Message events, app mentions, slash commands
    - Signature verification: Slack signing secret (X-Slack-Request-Timestamp + X-Slack-Signature)
-   - Processing: Handled by `lib/integrations/slack/bot.ts`
+   - Processing: Handled by `lib/integrations/slack/commands.ts` (slash commands)
 
 3. **E2B Sandbox Webhooks** (`app/api/webhooks/sandbox/route.ts`)
    - Events: Code execution completion, errors
@@ -260,7 +260,7 @@
    - Send channel notifications (via `sendChannelNotification`)
    - Send direct messages (via `sendDMNotification`)
    - List channels, get user info
-   - Client: Slack SDK (via `@chat-adapter/slack`)
+   - Client: `fetch` against the Slack Web API
 
 3. **Resend API**
    - Send invitation emails
@@ -302,7 +302,6 @@
 - `commands.ts` - Command handler for slash commands
 - `notify.ts` - Functions to send channel/DM notifications
 - `types.ts` - Slack event types and payloads
-- `declarations.d.ts` - Type stubs for `@chat-adapter/slack`
 
 ### Email (`lib/integrations/email/`)
 
@@ -349,7 +348,7 @@
 **Signature Verification:**
 
 - GitHub: HMAC-SHA256 on webhook body via `verifyGitHubSignature()` in `lib/integrations/github/verify.ts`
-- Slack: Timestamp + signature via Slack SDK's built-in verification in `@chat-adapter/slack`
+- Slack: Timestamp + signature via `verifySlackSignature()` in `lib/integrations/slack/request.ts`
 
 **Scopes & Permissions:**
 

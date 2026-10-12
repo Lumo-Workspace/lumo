@@ -2,6 +2,7 @@ import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { httpFailed, warn } from '../lib/errors'
+import { cmd, hint } from '../lib/feedback'
 
 export interface AuditListOptions {
   action?: string
@@ -110,7 +111,9 @@ export function formatAuditList(
       .map(([k, v]) => `${k} ${JSON.stringify(v)}`)
     lines.push(
       '',
-      `More events: lumo audit list ${[...flags, `--cursor ${page.nextCursor}`].join(' ')}`
+      hint(
+        `more events with ${cmd(`lumo audit list ${[...flags, `--cursor ${page.nextCursor}`].join(' ')}`)}`
+      )
     )
   }
   return lines.join('\n')

@@ -5,6 +5,7 @@ import { listTranscripts } from '../lib/transcript-scan'
 import { sumTranscriptUsage } from '../lib/transcript-usage'
 import { isCodexShell } from '../lib/session-id'
 import { errAuth, errNotLoggedIn } from '../lib/errors'
+import { hint } from '../lib/feedback'
 
 /**
  * Sessions per request. --apply runs a write transaction per family, so its
@@ -47,7 +48,9 @@ export async function usageResync(options?: {
   // went through the inflated path this command corrects.
   if (isCodexShell() && !options?.json) {
     console.error(
-      'Note: Codex sessions need no resync (their usage is read from the Codex rollout on every Stop). This resyncs Claude Code transcripts only (~/.claude/projects).'
+      hint(
+        'Codex sessions need no resync (their usage is read from the Codex rollout on every Stop). This resyncs Claude Code transcripts only (~/.claude/projects).'
+      )
     )
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
