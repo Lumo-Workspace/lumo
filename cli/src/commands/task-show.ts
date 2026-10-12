@@ -7,6 +7,7 @@ import {
   TASK_DESCRIPTION_PREAMBLE,
   fenceUntrustedText,
 } from '../../../shared/src/untrusted-fence'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ShowResponse {
   task: {
@@ -74,7 +75,7 @@ export async function taskShow(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -93,7 +94,7 @@ export async function taskShow(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -103,7 +104,7 @@ export async function taskShow(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: task show failed (HTTP ${res.status})`)
+    console.error(errHttp('task show', res.status))
     return 1
   }
 

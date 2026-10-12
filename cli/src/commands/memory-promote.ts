@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export async function memoryPromote(
   memoryId: string | undefined
@@ -13,7 +14,7 @@ export async function memoryPromote(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -54,9 +55,7 @@ export async function memoryPromote(
       /* */
     }
     console.error(
-      m
-        ? `Error: ${sanitizeField(m)}`
-        : `Error: promote failed (HTTP ${res.status})`
+      m ? `Error: ${sanitizeField(m)}` : errHttp('promote', res.status)
     )
     return 1
   }

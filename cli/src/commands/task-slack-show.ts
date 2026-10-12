@@ -5,6 +5,7 @@ import {
   formatSlackSnapshot,
   type SlackSnapshotMessage,
 } from '../lib/tier2-render'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface SlackSnapshot {
   messages?: SlackSnapshotMessage[]
@@ -30,7 +31,7 @@ export async function taskSlackShow(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -50,7 +51,7 @@ export async function taskSlackShow(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -60,7 +61,7 @@ export async function taskSlackShow(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: slack show failed (HTTP ${res.status})`)
+    console.error(errHttp('slack show', res.status))
     return 1
   }
 

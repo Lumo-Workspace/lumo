@@ -1,4 +1,5 @@
 import { sanitizeField } from './sanitize'
+import { AUTH_INVALID_REASON } from './errors'
 
 /**
  * The server calls behind the `lumo crossing disposition` handshake (LUM-769),
@@ -122,7 +123,7 @@ export async function readCrossings(
     }
   }
   if (res.status === 401) {
-    return { status: 'error', reason: 'API key invalid or revoked' }
+    return { status: 'error', reason: AUTH_INVALID_REASON }
   }
   if (!res.ok) return { status: 'error', reason: `HTTP ${res.status}` }
   let data: { crossings?: CrossingForDisposition[] }

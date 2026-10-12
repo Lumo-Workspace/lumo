@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ShareListResponse {
   shares: Array<{
@@ -39,7 +40,7 @@ export async function docShareList(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -62,7 +63,7 @@ export async function docShareList(
   ])
   if (!sharesRes.ok) {
     const text = await sharesRes.text()
-    console.error(`Error: ${sharesRes.status} ${sharesRes.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc share list', sharesRes.status, text))
     return 1
   }
   const { shares } = (await sharesRes.json()) as ShareListResponse

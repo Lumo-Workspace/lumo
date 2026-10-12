@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.108.1",
+  "cliVersion": "1.108.2",
   "commands": {
     "audit": {
       "arguments": [],

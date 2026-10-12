@@ -108,7 +108,7 @@ the delete itself (a few retries), and prints `✓ Removed worktree <path>` as
 usual. If something keeps recreating files, it prints instead:
 
 ```
-Warning: worktree <path> is unregistered from git, but its directory could not be fully deleted — something kept writing into it.
+⚠ worktree <path> is unregistered from git, but its directory could not be fully deleted — something kept writing into it.
   Left behind: app/ (1 file), node_modules/ (10000+ files)
   Still running inside it: pid 123 (node) — stop it (e.g. the dev server) first
   Clean up with: rm -rf '<path>'

@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 /**
  * LUM-649 — `lumo milestone changelog`. Assembles a milestone's DONE tasks +
@@ -188,7 +189,7 @@ export async function milestoneChangelog(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -219,11 +220,11 @@ export async function milestoneChangelog(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    let errMsg = `milestone changelog failed (HTTP ${res.status})`
+    let errMsg = httpFailed('milestone changelog', res.status)
     try {
       const errBody = (await res.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

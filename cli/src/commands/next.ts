@@ -7,6 +7,7 @@ import {
   filterClaimable,
   formatClaimableExclusions,
 } from '../lib/claimable-filter'
+import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
 
 export interface NextOptions {
   count?: string
@@ -43,7 +44,7 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -62,13 +63,17 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
       activeSprintIds = new Set(data.sprintIds)
     } else {
       console.error(
-        `Warning: could not load active sprints (HTTP ${res.status}); ranking without sprint boost.`
+        warn(
+          `could not load active sprints (HTTP ${res.status}); ranking without sprint boost.`
+        )
       )
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(
-      `Warning: could not load active sprints (${msg}); ranking without sprint boost.`
+      warn(
+        `could not load active sprints (${msg}); ranking without sprint boost.`
+      )
     )
   }
 
@@ -87,11 +92,11 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: task fetch failed (HTTP ${res.status})`)
+    console.error(errHttp('task fetch', res.status))
     return 1
   }
 

@@ -7,6 +7,7 @@ import {
   type ConfirmFlags,
 } from '../lib/confirmation'
 import { resolveSessionId } from '../lib/session-id'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 type RmOptions = ConfirmFlags
 
@@ -56,7 +57,7 @@ export async function memoryRm(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -85,7 +86,7 @@ export async function memoryRm(
       return 1
     }
     if (showRes.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
     if (showRes.status === 404) {
@@ -93,7 +94,7 @@ export async function memoryRm(
       return 1
     }
     if (!showRes.ok) {
-      console.error(`Error: memory lookup failed (HTTP ${showRes.status})`)
+      console.error(errHttp('memory lookup', showRes.status))
       return 1
     }
     const { memory } = (await showRes.json()) as {
@@ -119,7 +120,7 @@ export async function memoryRm(
     return 1
   }
   if (res.status !== 204) {
-    console.error(`Error: delete failed (HTTP ${res.status})`)
+    console.error(errHttp('delete', res.status))
     return 1
   }
   process.stdout.write(`Deleted memory ${memoryId}\n`)

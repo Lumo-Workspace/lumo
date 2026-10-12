@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { listTranscripts } from '../lib/transcript-scan'
 import { sumTranscriptUsage } from '../lib/transcript-usage'
 import { isCodexShell } from '../lib/session-id'
+import { errAuth, errNotLoggedIn } from '../lib/errors'
 
 /**
  * Sessions per request. --apply runs a write transaction per family, so its
@@ -39,7 +40,7 @@ export async function usageResync(options?: {
   const apply = options?.apply === true
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   // LUM-1051: Codex usage is read from the rollout on every Stop and never
@@ -182,7 +183,7 @@ async function postBatch(
     return `Error: could not reach Lumo API at ${apiUrl} (${msg})`
   }
   if (res.status === 401) {
-    return 'Error: API key invalid or revoked. Run `lumo auth login`.'
+    return errAuth()
   }
   if (!res.ok) {
     let message = `HTTP ${res.status}`

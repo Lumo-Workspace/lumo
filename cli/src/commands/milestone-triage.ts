@@ -8,6 +8,7 @@ import {
   type BatchOutcome,
 } from '../lib/milestone-batch'
 import { resolveSessionId } from '../lib/session-id'
+import { errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface MilestoneTriageOptions {
   project?: string
@@ -79,7 +80,7 @@ export async function milestoneTriage(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -107,7 +108,7 @@ export async function milestoneTriage(
       { headers: { Authorization: `Bearer ${creds.token}` } }
     )
     if (!tasksRes.ok) {
-      throw new Error(`milestone tasks fetch failed (HTTP ${tasksRes.status})`)
+      throw new Error(httpFailed('milestone tasks fetch', tasksRes.status))
     }
     const body = (await tasksRes.json()) as { tasks: MilestoneTaskRow[] }
     milestoneTasks = body.tasks
@@ -138,7 +139,7 @@ export async function milestoneTriage(
       if (res.ok) {
         outcomes.push({ task: ref, status: 'ok' })
       } else {
-        let msg = `triage failed (HTTP ${res.status})`
+        let msg = httpFailed('triage', res.status)
         try {
           const errBody = (await res.json()) as { error?: string }
           if (errBody.error) msg = errBody.error

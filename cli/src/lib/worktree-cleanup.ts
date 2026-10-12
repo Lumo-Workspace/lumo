@@ -11,6 +11,7 @@ import {
   removeWorktreeDir,
   type WorktreeResidue,
 } from './worktree-remove'
+import { warn } from './errors'
 
 /**
  * Safe worktree cleanup for finished tasks (LUM-825) — shared by the DONE
@@ -210,7 +211,7 @@ export function reportRemoval(
 ): void {
   for (const p of result.removed) console.log(`✓ Removed worktree ${p}`)
   for (const f of result.failed) {
-    console.error(`Warning: could not remove worktree ${f.path}: ${f.error}`)
+    console.error(warn(`could not remove worktree ${f.path}: ${f.error}`))
   }
   for (const r of result.residue) {
     for (const line of describeResidue(r.path, r.residue)) console.error(line)

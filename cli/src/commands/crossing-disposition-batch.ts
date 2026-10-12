@@ -22,6 +22,7 @@ import {
   describeRulingConfirmation,
 } from './crossing-disposition'
 import { resolveSessionId } from '../lib/session-id'
+import { AUTH_INVALID_REASON, errNotLoggedIn } from '../lib/errors'
 
 export interface BatchDispositionOptions {
   note?: string | undefined
@@ -94,7 +95,7 @@ export async function crossingDispositionBatch(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -335,7 +336,7 @@ async function postRuling(
     return { ok: false, reason: `could not reach Lumo API (${msg})` }
   }
   if (res.status === 401) {
-    return { ok: false, reason: 'API key invalid or revoked' }
+    return { ok: false, reason: AUTH_INVALID_REASON }
   }
   if (!res.ok) {
     const errBody = (await res.json().catch(() => null)) as {

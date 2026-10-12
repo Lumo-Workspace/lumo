@@ -25,6 +25,7 @@ import {
   formatHuntTaskDetail,
   type ShellDetailTask,
 } from '../../../shared/src/hunt-audit'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface PrScanOptions {
   review?: 'incremental' | 'full'
@@ -420,7 +421,7 @@ export async function prScan(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -489,7 +490,7 @@ export async function prScan(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   // LUM-1062: no scans route at all — a server without the security plugin.
@@ -518,9 +519,7 @@ export async function prScan(
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
-    console.error(
-      `Error: pr scan failed (HTTP ${res.status})${body.error ? `: ${sanitizeField(body.error)}` : ''}`
-    )
+    console.error(errHttp('pr scan', res.status, body.error))
     return 1
   }
 

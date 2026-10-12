@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
 
@@ -77,7 +78,7 @@ export async function milestoneList(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -107,7 +108,7 @@ export async function milestoneList(
     { headers: { Authorization: `Bearer ${creds.token}` } }
   )
   if (!res.ok) {
-    console.error(`Error: milestone list failed (HTTP ${res.status})`)
+    console.error(errHttp('milestone list', res.status))
     return 1
   }
   const data = (await res.json()) as MilestonesResponse

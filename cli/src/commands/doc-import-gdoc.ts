@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn, httpFailed, warn } from '../lib/errors'
 
 export interface ImportGdocOptions {
   scope?: string
@@ -39,7 +40,7 @@ export async function docImportGdoc(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   if (!url || url.trim().length === 0) {
@@ -70,7 +71,7 @@ export async function docImportGdoc(
   }
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc import-gdoc', res.status, text))
     return 1
   }
 
@@ -99,7 +100,9 @@ export async function docImportGdoc(
     if (!bindRes.ok) {
       const text = await bindRes.text()
       console.error(
-        `Warning: imported but bind to ${opts.task} failed: ${bindRes.status} ${sanitizeField(text)}`
+        warn(
+          `imported but ${httpFailed(`bind to ${opts.task}`, bindRes.status, text)}`
+        )
       )
       return 1
     }

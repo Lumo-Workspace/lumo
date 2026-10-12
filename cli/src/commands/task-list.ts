@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
 import { resolveMilestoneId } from '../lib/resolve'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export { formatTaskListTable } from '../lib/format'
 export type { TaskRow } from '../lib/format'
@@ -65,7 +66,7 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -104,11 +105,11 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: task list failed (HTTP ${res.status})`)
+    console.error(errHttp('task list', res.status))
     return 1
   }
 

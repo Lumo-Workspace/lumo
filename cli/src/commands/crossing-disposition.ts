@@ -18,6 +18,7 @@ import {
 } from '../lib/crossing-handshake'
 import { crossingDispositionBatch } from './crossing-disposition-batch'
 import { resolveSessionId } from '../lib/session-id'
+import { errAuth, errNotLoggedIn } from '../lib/errors'
 
 export type { CrossingDispositionTarget, CrossingForDisposition }
 
@@ -219,7 +220,7 @@ export async function crossingDisposition(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -350,7 +351,7 @@ export async function crossingDisposition(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {

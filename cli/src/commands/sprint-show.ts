@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface ShowSprintOptions {
   team?: string
@@ -91,7 +92,7 @@ export async function sprintShow(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -131,15 +132,15 @@ export async function sprintShow(
   }
 
   if (sprintRes.status === 401 || tasksRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!sprintRes.ok) {
-    console.error(`Error: sprint show failed (HTTP ${sprintRes.status})`)
+    console.error(errHttp('sprint show', sprintRes.status))
     return 1
   }
   if (!tasksRes.ok) {
-    console.error(`Error: sprint tasks failed (HTTP ${tasksRes.status})`)
+    console.error(errHttp('sprint tasks', tasksRes.status))
     return 1
   }
 

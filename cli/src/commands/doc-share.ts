@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 const ALLOWED_ROLES = ['VIEWER', 'EDITOR', 'MANAGER'] as const
 type Role = (typeof ALLOWED_ROLES)[number]
@@ -45,7 +46,7 @@ export async function docShare(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -89,7 +90,7 @@ export async function docShare(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc share', res.status, text))
     return 1
   }
 

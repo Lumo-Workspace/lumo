@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatFigmaContext } from '../lib/tier2-render'
 import { reportPull } from '../lib/report-pull'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface FigmaMetadata {
   id: string
@@ -42,7 +43,7 @@ export async function taskFigmaContext(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -62,7 +63,7 @@ export async function taskFigmaContext(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -72,7 +73,7 @@ export async function taskFigmaContext(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: figma context failed (HTTP ${res.status})`)
+    console.error(errHttp('figma context', res.status))
     return 1
   }
 

@@ -1,3 +1,5 @@
+import { AUTH_INVALID_MESSAGE, httpFailed } from './errors'
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -47,10 +49,10 @@ async function fetchJson<T>(
     throw new Error(`Could not reach Lumo API at ${base} (${msg})`)
   }
   if (res.status === 401) {
-    throw new Error('API key invalid or revoked. Run `lumo auth login`.')
+    throw new Error(AUTH_INVALID_MESSAGE)
   }
   if (!res.ok) {
-    throw new Error(`Request failed (HTTP ${res.status}): ${path}`)
+    throw new Error(httpFailed('Request', res.status, path))
   }
   return (await res.json()) as T
 }
@@ -190,10 +192,10 @@ export async function resolveSprintId(
     throw new Error(`sprint #${n} not found in this workspace. ${hint}`)
   }
   if (res.status === 401) {
-    throw new Error('API key invalid or revoked. Run `lumo auth login`.')
+    throw new Error(AUTH_INVALID_MESSAGE)
   }
   if (!res.ok) {
-    throw new Error(`sprint lookup failed (HTTP ${res.status})`)
+    throw new Error(httpFailed('sprint lookup', res.status))
   }
   const body = (await res.json()) as SprintByNumberResponse
   return {

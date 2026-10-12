@@ -1,6 +1,13 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  errAuth,
+  errHttp,
+  errNotLoggedIn,
+  httpFailed,
+  warn,
+} from '../lib/errors'
 
 type Outcome = 'MERGED' | 'REJECTED' | 'REWORKED' | 'UNKNOWN'
 type Disclosure = 'FULL' | 'INDEX'
@@ -99,7 +106,7 @@ export async function taskLineage(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -118,7 +125,7 @@ export async function taskLineage(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -128,7 +135,7 @@ export async function taskLineage(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: lineage fetch failed (HTTP ${res.status})`)
+    console.error(errHttp('lineage fetch', res.status))
     return 1
   }
 
@@ -144,12 +151,12 @@ export async function taskLineage(
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`Warning: could not fetch signal health (${msg})\n`)
+      process.stderr.write(warn(`could not fetch signal health (${msg})\n`))
       return
     }
     if (!signalRes.ok) {
       process.stderr.write(
-        `Warning: signal health fetch failed (HTTP ${signalRes.status})\n`
+        warn(`${httpFailed('signal health fetch', signalRes.status)}\n`)
       )
       return
     }

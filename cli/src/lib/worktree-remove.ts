@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { spawnSync } from 'child_process'
 import { gitOutput, parseWorktreePorcelain, runGit } from './worktree'
+import { warn } from './errors'
 
 /**
  * Remove one worktree without leaving a half-deleted directory (LUM-971).
@@ -199,7 +200,9 @@ export function describeResidue(
   residue: WorktreeResidue
 ): string[] {
   const lines = [
-    `Warning: worktree ${wtPath} is unregistered from git, but its directory could not be fully deleted — something kept writing into it.`,
+    warn(
+      `worktree ${wtPath} is unregistered from git, but its directory could not be fully deleted — something kept writing into it.`
+    ),
   ]
   if (residue.entries.length > 0) {
     lines.push(`  Left behind: ${residue.entries.join(', ')}`)

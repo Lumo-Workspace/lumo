@@ -25,6 +25,7 @@ import {
   type TaskStatusResponse,
 } from './task-status'
 import { describeDoneTransition, type LinkedPr } from './task-update'
+import { errAuth, errNotLoggedIn } from '../lib/errors'
 
 /**
  * `lumo task wrapup [task]` (LUM-841) — the whole wrap-up in one read.
@@ -437,7 +438,7 @@ export async function taskWrapup(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
@@ -477,7 +478,7 @@ export async function taskWrapup(
     return 1
   }
   if (!status.ok && status.reason === 'HTTP 401') {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
 

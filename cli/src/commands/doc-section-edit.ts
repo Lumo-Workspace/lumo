@@ -11,6 +11,7 @@ import {
 } from '../lib/doc-input'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 /**
  * `lumo doc patch` / `lumo doc append` (LUM-409) — section-addressed writes.
@@ -104,7 +105,7 @@ async function docSectionEdit(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -160,9 +161,7 @@ async function docSectionEdit(
       )
       return 1
     }
-    console.error(
-      `Error: ${res.status} ${res.statusText}: ${sanitizeField(message)}`
-    )
+    console.error(errHttp('doc section edit', res.status, message))
     return 1
   }
 

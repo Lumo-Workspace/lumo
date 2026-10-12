@@ -13,6 +13,7 @@ import {
   renderSessionRecapFollowUps,
 } from '../../../shared/src/untrusted-fence'
 import { neutralizeWrapperEscapes } from '../../../shared/src/untrusted-content'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface TaskContextResponse {
   task: {
@@ -86,7 +87,7 @@ export async function taskContext(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -105,7 +106,7 @@ export async function taskContext(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -115,7 +116,7 @@ export async function taskContext(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: context fetch failed (HTTP ${res.status})`)
+    console.error(errHttp('context fetch', res.status))
     return 1
   }
 
