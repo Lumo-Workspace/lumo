@@ -1,5 +1,6 @@
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { httpFailed, warn } from '../lib/errors'
 
 export interface AuditListOptions {
@@ -66,12 +67,14 @@ function actorLabel(e: AuditListEvent): string {
 }
 
 /**
- * Render a page as fixed-width rows: UTC time, action, actor, target,
- * source, IP. A trailing hint carries the cursor for the next page.
+ * Render a page as a table (LUM-1089, header on a TTY only): UTC time,
+ * action, actor, target, source, IP. A trailing hint carries the cursor for
+ * the next page.
  */
 export function formatAuditList(
   page: AuditListPage,
-  opts: AuditListOptions = {}
+  opts: AuditListOptions = {},
+  env: ListRenderOptions = {}
 ): string {
   if (page.events.length === 0) return 'No audit events.'
   const rows = page.events.map(e => ({
@@ -84,19 +87,15 @@ export function formatAuditList(
     source: e.source,
     ip: sanitizeField(e.ip ?? '-'),
   }))
-  const w = (k: keyof (typeof rows)[number]) =>
-    Math.max(...rows.map(r => r[k].length))
-  const [aw, uw, tw, sw] = [w('action'), w('actor'), w('target'), w('source')]
-  const lines = rows.map(r =>
-    [
-      r.time,
-      r.action.padEnd(aw),
-      r.actor.padEnd(uw),
-      r.target.padEnd(tw),
-      r.source.padEnd(sw),
-      r.ip,
-    ].join('  ')
-  )
+  const lines = [
+    renderListTable(
+      rows.map(r => [r.time, r.action, r.actor, r.target, r.source, r.ip]),
+      {
+        header: ['TIME (UTC)', 'ACTION', 'ACTOR', 'TARGET', 'SOURCE', 'IP'],
+        ...env,
+      }
+    ),
+  ]
   if (page.nextCursor) {
     const flags = Object.entries({
       '--action': opts.action,

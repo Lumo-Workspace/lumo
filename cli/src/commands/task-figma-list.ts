@@ -1,24 +1,43 @@
-import { listFigmaLinks } from '../lib/figma-api'
+import { listFigmaLinks, type FigmaLinkJson } from '../lib/figma-api'
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 const STALE_MS = 25 * 24 * 3600 * 1000
 
-function formatRow(
-  id: string,
-  fileName: string,
-  frame: string,
-  synced: string,
-  stale: boolean
+type FigmaListLink = Pick<
+  FigmaLinkJson,
+  | 'id'
+  | 'fileName'
+  | 'frameName'
+  | 'lastSyncedAt'
+  | 'thumbnailUrl'
+  | 'thumbnailFetchedAt'
+>
+
+/**
+ * LUM-1089: `<id>  <file>  <frame>  <synced>  [⚠ thumbnail stale]` as a table
+ * (header on a TTY only; the frame name is cut to the terminal width there).
+ */
+export function formatFigmaList(
+  links: FigmaListLink[],
+  now: number,
+  opts: ListRenderOptions = {}
 ): string {
-  return [
-    id.padEnd(10),
-    sanitizeField(fileName).padEnd(20),
-    sanitizeField(frame).padEnd(24),
-    synced.padEnd(12),
-    stale ? '⚠ thumbnail stale' : '',
-  ]
-    .join(' ')
-    .trimEnd()
+  const rows = links.map(link => {
+    const stale =
+      link.thumbnailFetchedAt === null ||
+      now - new Date(link.thumbnailFetchedAt).getTime() > STALE_MS
+    return [
+      link.id,
+      sanitizeField(link.fileName),
+      sanitizeField(link.frameName ?? '(file-level)'),
+      link.lastSyncedAt.slice(0, 10),
+      stale && !!link.thumbnailUrl ? '⚠ thumbnail stale' : '',
+    ]
+  })
+  const header = ['ID', 'FILE', 'FRAME', 'SYNCED']
+  if (rows.some(r => r[4])) header.push('NOTE')
+  return renderListTable(rows, { header, flex: 2, ...opts })
 }
 
 export async function taskFigmaList(args: {
@@ -29,21 +48,6 @@ export async function taskFigmaList(args: {
     console.log('No Figma links attached.')
     return 0
   }
-  for (const link of links) {
-    const frame = link.frameName ?? '(file-level)'
-    const synced = link.lastSyncedAt.slice(0, 10)
-    const stale =
-      link.thumbnailFetchedAt === null ||
-      Date.now() - new Date(link.thumbnailFetchedAt).getTime() > STALE_MS
-    console.log(
-      formatRow(
-        link.id,
-        link.fileName,
-        frame,
-        synced,
-        stale && !!link.thumbnailUrl
-      )
-    )
-  }
+  console.log(formatFigmaList(links, Date.now()))
   return 0
 }

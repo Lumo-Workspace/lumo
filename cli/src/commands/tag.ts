@@ -1,6 +1,7 @@
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
-import { colorEnabled, renderTable, style } from '../lib/ui'
+import { colorEnabled, style } from '../lib/ui'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 /** LUM-821: workspace tags — list with usage counts, create with a color. */
 
@@ -14,24 +15,24 @@ export interface TagRow {
 
 /**
  * `name  #color  N tasks  M docs`, aligned by display width via the shared
- * ui.ts table (LUM-1086). Usage counts are dimmed on a colour TTY only; names
- * are sanitized before any styling.
+ * list table (LUM-1086 / LUM-1089: header on a TTY only). Usage counts are
+ * dimmed on a colour TTY only; names are sanitized before any styling.
  */
 export function formatTagList(
   tags: TagRow[],
-  opts: { color?: boolean } = {}
+  opts: ListRenderOptions = {}
 ): string {
   if (tags.length === 0) return 'No tags.'
   const color = opts.color ?? colorEnabled()
   const plural = (n: number, one: string) => `${n} ${n === 1 ? one : one + 's'}`
-  return renderTable(
+  return renderListTable(
     tags.map(t => [
       sanitizeField(t.name),
       t.color ?? '-',
       style.dim(plural(t.taskCount, 'task'), color),
       style.dim(plural(t.documentCount, 'doc'), color),
     ]),
-    { color }
+    { header: ['NAME', 'COLOR', 'TASKS', 'DOCS'], flex: 0, ...opts, color }
   )
 }
 

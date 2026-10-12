@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizeScope } from './doc-create'
 import { buildTree, flattenWithDepth } from '../lib/doc-tree'
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface ListDocOptions {
@@ -24,31 +25,51 @@ interface DocRow {
 
 function visibilityLabel(v: DocRow['visibility'] | null | undefined): string {
   // Some routes (e.g. /api/tasks/<id>/documents) have returned rows without a
-  // visibility field at runtime — fall back instead of crashing on .padEnd.
+  // visibility field at runtime — fall back instead of crashing.
   if (!v) return '-'
   if (v === 'PRIVATE') return 'PERSONAL'
   return v
 }
 
-export function formatDocListRows(rows: DocRow[]): string[] {
-  if (rows.length === 0) return []
-  return rows.map(r => {
-    const label = visibilityLabel(r.visibility).padEnd(10, ' ')
-    const project = sanitizeField(r.project?.name ?? '-').padEnd(14, ' ')
-    return `${r.id}  ${label}  ${project}  ${sanitizeField(r.title)}`
-  })
+const DOC_HEADER = ['ID', 'SCOPE', 'PROJECT', 'TITLE']
+
+function docCells(row: DocRow, indent = ''): string[] {
+  return [
+    row.id,
+    visibilityLabel(row.visibility),
+    sanitizeField(row.project?.name ?? '-'),
+    `${indent}${sanitizeField(row.title)}`,
+  ]
 }
 
-export function formatDocListRowsAsTree(rows: DocRow[]): string[] {
+/** LUM-1089: rows as a table split into lines (header on a TTY only). */
+function docTableLines(cells: string[][], opts: ListRenderOptions): string[] {
+  return renderListTable(cells, { header: DOC_HEADER, flex: 3, ...opts }).split(
+    '\n'
+  )
+}
+
+export function formatDocListRows(
+  rows: DocRow[],
+  opts: ListRenderOptions = {}
+): string[] {
   if (rows.length === 0) return []
-  const tree = buildTree(rows)
-  const flat = flattenWithDepth(tree)
-  return flat.map(({ row, depth }) => {
-    const label = visibilityLabel(row.visibility).padEnd(10, ' ')
-    const project = sanitizeField(row.project?.name ?? '-').padEnd(14, ' ')
-    const indent = '  '.repeat(depth)
-    return `${row.id}  ${label}  ${project}  ${indent}${sanitizeField(row.title)}`
-  })
+  return docTableLines(
+    rows.map(r => docCells(r)),
+    opts
+  )
+}
+
+export function formatDocListRowsAsTree(
+  rows: DocRow[],
+  opts: ListRenderOptions = {}
+): string[] {
+  if (rows.length === 0) return []
+  const flat = flattenWithDepth(buildTree(rows))
+  return docTableLines(
+    flat.map(({ row, depth }) => docCells(row, '  '.repeat(depth))),
+    opts
+  )
 }
 
 export async function docList(opts: ListDocOptions): Promise<number | void> {
