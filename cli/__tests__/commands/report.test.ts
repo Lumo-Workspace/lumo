@@ -163,7 +163,7 @@ describe('formatReport', () => {
     const alice = out.split('\n').find(l => l.startsWith('Alice'))
     expect(alice).toMatch(/Alice\s+1,000,000\s+3 \(1 unmetered\)\s+1$/)
     const unassigned = out.split('\n').find(l => l.startsWith('(unassigned)'))
-    expect(unassigned).toMatch(/—\s+0\s+1$/)
+    expect(unassigned).toMatch(/\s-\s+0\s+1$/)
   })
 
   it('lists completed tasks with local done day and assignee, sanitized, with truncation note', () => {
@@ -171,7 +171,7 @@ describe('formatReport', () => {
       'Completed tasks (showing 2 of 3; raise --limit for more)'
     )
     expect(out).toMatch(/LUM-2\s+2026-10-12\s+Alice\s+Ship report/)
-    expect(out).toMatch(/LUM-1\s+2026-10-08\s+—\s+Evil/)
+    expect(out).toMatch(/LUM-1\s+2026-10-08\s+-\s+Evil/)
     expect(out).not.toContain('\u001b')
   })
 

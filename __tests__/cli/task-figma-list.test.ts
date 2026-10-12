@@ -43,7 +43,7 @@ describe('taskFigmaList', () => {
     mockList.mockResolvedValue({ links: [] })
     const exit = await taskFigmaList({ identifier: 'LUM-42' })
     expect(exit).toBe(0)
-    expect(logSpy).toHaveBeenCalledWith('No Figma links attached.')
+    expect(logSpy).toHaveBeenCalledWith('No Figma links on LUM-42.')
   })
 
   it('renders each link as a fixed-width row with frame name', async () => {

@@ -1,3 +1,4 @@
+import { emptyState, fmtTimestamp } from '../lib/format'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
@@ -77,9 +78,9 @@ export function formatAuditList(
   opts: AuditListOptions = {},
   env: ListRenderOptions = {}
 ): string {
-  if (page.events.length === 0) return 'No audit events.'
+  if (page.events.length === 0) return emptyState('audit events')
   const rows = page.events.map(e => ({
-    time: `${e.createdAt.slice(0, 16).replace('T', ' ')}Z`,
+    time: fmtTimestamp(e.createdAt),
     action: sanitizeField(e.action),
     actor: sanitizeField(actorLabel(e)),
     target: sanitizeField(
@@ -92,7 +93,7 @@ export function formatAuditList(
     renderListTable(
       rows.map(r => [r.time, r.action, r.actor, r.target, r.source, r.ip]),
       {
-        header: ['TIME (UTC)', 'ACTION', 'ACTOR', 'TARGET', 'SOURCE', 'IP'],
+        header: ['TIME', 'ACTION', 'ACTOR', 'TARGET', 'SOURCE', 'IP'],
         ...env,
       }
     ),

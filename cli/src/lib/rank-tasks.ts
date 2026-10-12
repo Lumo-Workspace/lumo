@@ -1,3 +1,4 @@
+import { fmtDay } from './format'
 /**
  * Pure ranking logic for `lumo next`. Given the caller's open tasks plus the
  * set of ACTIVE sprint ids, produce a recommendation order and a per-task list
@@ -115,7 +116,7 @@ function deriveReasons(
   }
 
   if (task.dueDate) {
-    const day = task.dueDate.slice(0, 10)
+    const day = fmtDay(task.dueDate)
     const due = new Date(task.dueDate).getTime()
     const overdue = !Number.isNaN(due) && due < now.getTime()
     reasons.push(overdue ? `due ${day} (overdue)` : `due ${day}`)

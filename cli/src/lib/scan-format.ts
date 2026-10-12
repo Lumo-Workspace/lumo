@@ -1,3 +1,4 @@
+import { fmtCount } from './format'
 import { sanitizeField } from './sanitize'
 import {
   formatQueueExits,
@@ -302,10 +303,6 @@ export interface JudgeBudgetLine {
   droppedFiles: number
 }
 
-function count(n: number): string {
-  return n.toLocaleString('en-US')
-}
-
 /**
  * LUM-814 — one line of budget arithmetic under the layer line:
  *
@@ -338,12 +335,12 @@ export function formatJudgeBudgetLine(b: JudgeBudgetLine | null): string {
   const head = `${scanStageLabel('judge')} budget`
   if (b === null) return `${head}: not recorded on this scan`
   const parts = [
-    `diff ${count(b.diffChars)} chars`,
-    `tier ${count(b.tierChars)}`,
+    `diff ${fmtCount(b.diffChars)} chars`,
+    `tier ${fmtCount(b.tierChars)}`,
   ]
   if (b.droppedFiles > 0) {
     if (b.diffChars > b.tierChars)
-      parts.push(`over by ${count(b.diffChars - b.tierChars)}`)
+      parts.push(`over by ${fmtCount(b.diffChars - b.tierChars)}`)
     const total = b.coveredFiles + b.droppedFiles
     // Share of the DIFF left unreviewed, not the share of files: one dropped
     // lockfile and one dropped route handler are not the same loss.
@@ -352,12 +349,12 @@ export function formatJudgeBudgetLine(b: JudgeBudgetLine | null): string {
         ? ((b.diffChars - b.reviewedChars) / b.diffChars) * 100
         : 0
     parts.push(
-      `${count(b.droppedFiles)} of ${count(total)} files dropped, ${unreviewed.toFixed(1)}% of the diff unreviewed`
+      `${fmtCount(b.droppedFiles)} of ${fmtCount(total)} files dropped, ${unreviewed.toFixed(1)}% of the diff unreviewed`
     )
   } else {
     const left = Math.max(0, b.tierChars - b.diffChars)
     const pct = b.tierChars > 0 ? (left / b.tierChars) * 100 : 0
-    parts.push(`${count(left)} left, ${pct.toFixed(1)}%`)
+    parts.push(`${fmtCount(left)} left, ${pct.toFixed(1)}%`)
   }
   return `${head}: ${parts.join(' · ')}`
 }

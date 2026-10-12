@@ -10,6 +10,7 @@
  *
  * Pure: each function returns the text the command prints.
  */
+import { fmtTimestamp } from './format'
 import {
   LINKED_FENCE,
   fenceUntrustedText,
@@ -85,7 +86,8 @@ export function formatFigmaContext(
   if (metadata.frameName)
     lines.push(`frame: ${guardInlineText(metadata.frameName)}`)
   lines.push(`url:   ${metadata.url}`)
-  if (metadata.lastSyncedAt) lines.push(`synced: ${metadata.lastSyncedAt}`)
+  if (metadata.lastSyncedAt)
+    lines.push(`synced: ${fmtTimestamp(metadata.lastSyncedAt)}`)
   if (metadata.lastSyncError)
     lines.push(`syncError: ${guardInlineText(metadata.lastSyncError)}`)
   if (note) lines.push(`\nnote: ${sanitizeField(note)}`)

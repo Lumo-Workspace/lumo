@@ -69,6 +69,13 @@ describe('formatOperationCost', () => {
     expect(out.toLowerCase()).toContain('heuristic')
   })
 
+  it('prints the attribution caveat as a Note:, not a Hint: (LUM-1088)', () => {
+    const out = formatOperationCost(data, 'tool')
+    const line = out.split('\n').find(l => l.includes('heuristic'))
+    expect(line).toMatch(/^Note: token→tool attribution is heuristic/)
+    expect(out).not.toMatch(/^Hint:/m)
+  })
+
   it('prints the top commands under a Bash row', () => {
     const out = formatOperationCost(
       {

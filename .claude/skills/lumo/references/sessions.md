@@ -199,7 +199,7 @@ Each Claude Code or Codex session has its own session id (`CLAUDE_CODE_SESSION_I
 lumo session status
 ```
 
-Prints what the current Claude Code or Codex session is bound to — `Session <id>`, then `Label:  value` rows padded to the widest label (LUM-1090): `Bound to:  LUM-12 "<title>"`, a milestone (`Role:  STEWARD (governance — plan & accept only)` + `Bound to:  milestone "<name>"`), or `(no task)` if none, and `Events:  <n>`. Must run inside a Claude Code or Codex session (`$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`).
+Prints what the current Claude Code or Codex session is bound to — `Session <id>`, then `Label:  value` rows padded to the widest label (LUM-1090): `Bound to:  LUM-12 "<title>"`, a milestone (`Role:  STEWARD (governance — plan & accept only)` + `Bound to:  milestone "<name>"`), or `-` if none, and `Events:  <n>`. Must run inside a Claude Code or Codex session (`$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`).
 
 Against a server that reports attribution (LUM-932) it also lists where the run's work is going, as headed sections with aligned tables. A subagent's own session prints a `Subagent of:  <parent session>` row first and shows its family's view.
 

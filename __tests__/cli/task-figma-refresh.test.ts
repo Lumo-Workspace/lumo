@@ -32,7 +32,7 @@ describe('taskFigmaRefresh', () => {
     const exit = await taskFigmaRefresh({ identifier: 'LUM-42' })
     expect(exit).toBe(0)
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('No Figma links attached to LUM-42')
+      expect.stringContaining('No Figma links on LUM-42')
     )
   })
 

@@ -62,7 +62,14 @@ export const style = {
   cyan: sgr(36, 39),
 }
 
-/** The one icon set CLI output draws from. Plain Unicode, width 1 each. */
+/**
+ * The one icon set CLI output draws from. Plain Unicode, width 1 each.
+ *
+ * `success` (`✓`) is reserved for environment / flow confirmations (auth,
+ * init, worktree ready, crossing rulings, memory push, …). Resource
+ * create / update / delete success lines (`successLine` in `lib/feedback.ts`)
+ * do not carry it — LUM-1088 rule, user ruling 2026-10-13.
+ */
 export const icons = {
   success: '✓',
   error: '✗',

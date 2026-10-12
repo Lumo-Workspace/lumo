@@ -1,3 +1,4 @@
+import { NONE } from '../lib/format'
 import * as fs from 'fs'
 import * as path from 'path'
 import {
@@ -15,12 +16,12 @@ function nodeModulesLinked(dir: string): boolean {
   }
 }
 
-/** Pull a `<TEAM>-N` id from a worktree dir basename or its branch, else '—'. */
+/** Pull a `<TEAM>-N` id from a worktree dir basename or its branch, else `-`. */
 function taskIdOf(dirBase: string, branch: string | null): string {
   return (
     matchTaskIdentifier(dirBase) ??
     (branch ? matchTaskIdentifier(branch) : null) ??
-    '—'
+    NONE
   )
 }
 
@@ -32,7 +33,7 @@ export async function worktreeList(): Promise<number> {
   ).filter(e => e.path.startsWith(worktreesDir + path.sep))
 
   if (entries.length === 0) {
-    console.log('(no worktrees under .worktrees/)')
+    console.log('No worktrees under .worktrees/.')
     return 0
   }
 

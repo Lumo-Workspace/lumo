@@ -1,8 +1,9 @@
+import { fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveSessionId } from '../lib/session-id'
-import { NOT_LOGGED_IN_MESSAGE, errAuth } from '../lib/errors'
+import { NOT_LOGGED_IN_MESSAGE, errAuth, errHttp } from '../lib/errors'
 
 interface SignalRow {
   id: string
@@ -60,7 +61,7 @@ export async function outcomeShow(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: could not read the well (HTTP ${res.status}).`)
+    console.error(errHttp('outcome well read', res.status))
     return 1
   }
 
@@ -81,7 +82,7 @@ export async function outcomeShow(
     return
   }
   for (const s of well.signals) {
-    const when = (s.occurredAt ?? s.detectedAt).slice(0, 10)
+    const when = fmtDay(s.occurredAt ?? s.detectedAt)
     const note = s.evidence?.note ? ` — ${sanitizeField(s.evidence.note)}` : ''
     process.stdout.write(
       `  ${when}  ${sanitizeField(s.kind)} (${sanitizeField(s.source)})${note}\n`

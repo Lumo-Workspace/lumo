@@ -51,9 +51,7 @@ const root = {
 }
 
 it('prints only the binding rows when attribution is absent', async () => {
-  expect(await run(root)).toBe(
-    'Session sess-1\nBound to:  (no task)\nEvents:    7\n'
-  )
+  expect(await run(root)).toBe('Session sess-1\nBound to:  -\nEvents:    7\n')
 })
 
 it('prints segments, evidence, subagents and the approximate warning', async () => {
@@ -146,13 +144,13 @@ it('prints Subagent of for a child session', async () => {
   })
   expect(out.split('\n').slice(1, 3)).toEqual([
     'Subagent of:  sess-1',
-    'Bound to:     (no task)',
+    'Bound to:     -',
   ])
 })
 
 it('tolerates an empty attribution payload', async () => {
   expect(await run({ ...root, attribution: {} })).toBe(
-    'Session sess-1\nBound to:  (no task)\nEvents:    7\n'
+    'Session sess-1\nBound to:  -\nEvents:    7\n'
   )
 })
 
@@ -161,7 +159,7 @@ it('tolerates non-array segments and malformed evidence', async () => {
     ...root,
     attribution: { segments: 'nope', subagents: { a: 1 }, approximate: false },
   })
-  expect(out).toBe('Session sess-1\nBound to:  (no task)\nEvents:    7\n')
+  expect(out).toBe('Session sess-1\nBound to:  -\nEvents:    7\n')
   const out2 = await run({
     ...root,
     attribution: {

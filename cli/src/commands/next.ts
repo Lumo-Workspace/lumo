@@ -166,7 +166,7 @@ export function formatNextOutput(
   opts: ListRenderOptions = {}
 ): string {
   const first = ranked[0]
-  if (!first) return 'No open tasks assigned to you. 🎉'
+  if (!first) return 'No open tasks assigned to you.'
 
   const plural = ranked.length === 1 ? '' : 's'
   const lines: string[] = [

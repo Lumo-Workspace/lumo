@@ -1,3 +1,4 @@
+import { fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
@@ -45,11 +46,6 @@ interface SprintSnapshot {
   endDate?: string | null
 }
 
-function fmtDate(v: string | null | undefined): string {
-  if (!v) return '-'
-  return v.slice(0, 10)
-}
-
 export function formatSprintUpdateSummary(
   before: SprintSnapshot,
   after: UpdatePayload
@@ -60,10 +56,10 @@ export function formatSprintUpdateSummary(
     changes.push(`name "${beforeName}" → "${sanitizeField(after.name)}"`)
   }
   if (after.startDate !== undefined) {
-    changes.push(`start → ${fmtDate(after.startDate)}`)
+    changes.push(`start → ${fmtCalendarDay(after.startDate)}`)
   }
   if (after.endDate !== undefined) {
-    changes.push(`end → ${fmtDate(after.endDate)}`)
+    changes.push(`end → ${fmtCalendarDay(after.endDate)}`)
   }
   return `Updated sprint #${before.number} "${beforeName}": ${changes.join(', ')}`
 }

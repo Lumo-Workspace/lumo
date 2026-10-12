@@ -1,3 +1,4 @@
+import { NONE, fmtCount } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -144,13 +145,6 @@ export function resolveReportWindow(
   return { ok: true, window: { sinceDay, untilDay, sinceIso, untilIso, days } }
 }
 
-/** Deterministic thousands separator (no locale dependency, test-stable). */
-export function groupThousands(value: number): string {
-  return Math.round(value)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
-
 export interface FormatReportOptions extends ListRenderOptions {
   window: ReportWindow
   /** Human label of the `--member` filter, when given. */
@@ -197,7 +191,7 @@ export function formatReport(
           'Tokens',
           data.team.sessions === 0
             ? 'none recorded in this window'
-            : `${groupThousands(t.total)} (output ${groupThousands(t.output)} · input ${groupThousands(t.input)} · cache_create ${groupThousands(t.cacheCreation)} · cache_read ${groupThousands(t.cacheRead)})`,
+            : `${fmtCount(t.total)} (output ${fmtCount(t.output)} · input ${fmtCount(t.input)} · cache_create ${fmtCount(t.cacheCreation)} · cache_read ${fmtCount(t.cacheRead)})`,
         ],
         ['Sessions', sessionsLine],
         [
@@ -216,8 +210,8 @@ export function formatReport(
       renderTable(
         data.team.byModel.map(m => [
           sanitizeField(m.model),
-          groupThousands(m.total),
-          groupThousands(m.output),
+          fmtCount(m.total),
+          fmtCount(m.output),
         ]),
         {
           header: ['MODEL', 'TOKENS', 'OUTPUT'],
@@ -237,8 +231,8 @@ export function formatReport(
         data.byMember.map(m => [
           sanitizeField(m.label),
           m.sessions === 0 && m.tokens.total === 0
-            ? '—'
-            : groupThousands(m.tokens.total),
+            ? NONE
+            : fmtCount(m.tokens.total),
           m.unmeteredSessions > 0
             ? `${m.sessions} (${m.unmeteredSessions} unmetered)`
             : String(m.sessions),
@@ -271,7 +265,7 @@ export function formatReport(
         ct.items.map(i => [
           i.identifier,
           localDayLabel(i.completedAt),
-          i.assignee ? sanitizeField(i.assignee) : '—',
+          i.assignee ? sanitizeField(i.assignee) : NONE,
           sanitizeField(i.title),
         ]),
         {

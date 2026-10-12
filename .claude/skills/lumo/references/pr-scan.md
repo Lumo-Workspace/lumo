@@ -57,8 +57,8 @@ PR #1013  feat: size the hunt by diff [LUM-787]
   URL:    https://github.com/Lumo-Workspace/lumo/pull/1013
 
 Scan abcdef0 · FINDINGS
-  Started:        2026-09-15T07:00:00.000Z
-  Finished:       2026-09-15T07:04:00.000Z
+  Started:        2026-09-15 15:00
+  Finished:       2026-09-15 15:04
   Trigger:        PR_EVENT
   Tokens:         61,000
   Secrets:        checked
@@ -99,7 +99,7 @@ With review controls on the payload an `AI review` block follows the header:
 `⚠ Latest head has no scan yet; …` when the newest head is unscanned.
 
 - **Header** — `PR #N  <title>`, then `Repo` / `State` / `Task` (`LUM-N` or `no linked task`) / `URL` rows.
-- **Scan heading + rows** — `Scan <short sha> · <status>`: the scan status (`PENDING` / `RUNNING` / `CLEAN` / `FINDINGS` / `FAILED`; a `CLEAN` scan with a layer turned off in the workspace settings prints `no findings in the checks that ran` instead — LUM-892; with scanning turned off for the workspace a `CLEAN` prints `no findings on the commit it scanned (scanning is off now)`, and a `⚠ Security scanning is turned off in this workspace's settings. …` line precedes the scans — LUM-901: an older scan never stands as the PR's answer); rows `Started`, `Finished` (`not finished`), `Trigger`, and `Tokens` — the hunt's token spend (`not metered` when the row carries null — null is never printed as 0).
+- **Scan heading + rows** — `Scan <short sha> · <status>`: the scan status (`PENDING` / `RUNNING` / `CLEAN` / `FINDINGS` / `FAILED`; a `CLEAN` scan with a layer turned off in the workspace settings prints `no findings in the checks that ran` instead — LUM-892; with scanning turned off for the workspace a `CLEAN` prints `no findings on the commit it scanned (scanning is off now)`, and a `⚠ Security scanning is turned off in this workspace's settings. …` line precedes the scans — LUM-901: an older scan never stands as the PR's answer); rows `Started`, `Finished` (local `YYYY-MM-DD HH:MM`; `not finished`), `Trigger`, and `Tokens` — the hunt's token spend (`not metered` when the row carries null — null is never printed as 0).
 - **Layer rows** — one row per layer, the same five-layer grammar and display labels as `lumo task status` and the GitHub PR summary (`Secrets` · `Code scan` · `Dependencies` · `AI review` · `Exploit paths`; states `checked` / `⚠ didn't finish` / `skipped` / `off` / `scanning` / `⚠ partly checked` / `⚠ superseded` / `off in workspace settings`). `off in workspace settings` (LUM-892, stored `DISABLED`) is a layer the customer turned off in the workspace's security settings (AI review, exploit-path hunt — including a hunt turned off while it was running, LUM-901; or every layer of a managed run that reported after scanning was turned off): never counted as checked, never our fault — a line `Turned off in this workspace's settings: <layers>. That check / Those checks did not look at this PR.` follows the layer rows. `checked` means the layer completed, not that it found nothing. A `Note:  part of this scan hasn't finished on our side — not counted as checked` row (LUM-832) appears whenever the scan did not finish and nothing is left queued — whatever the cause, it is worded as ours and never names a reason or asks for anything (the cause itself is internal: `PrSecurityScan.partialCauses`, read by `scripts/security/scan-reliability.ts`); a `Queue:  N left the queue (…)` row explains where a merged/closed PR's undispositioned rows went (LUM-775); an external-scanner reason prints only in its scrubbed form, after `— ` on the `Code scan` row. `AI review has not covered every file yet` under `AI review` marks a truncated review.
 - **Budget line** (LUM-814) — the AI-review layer's own arithmetic, nested under the `AI review` row whenever the layer exists, truncated or not:
   - reviewed whole: `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%`

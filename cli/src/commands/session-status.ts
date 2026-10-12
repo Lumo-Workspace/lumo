@@ -1,3 +1,4 @@
+import { NONE } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -269,7 +270,7 @@ export function formatSessionStatus(
     label: 'Bound to',
     value: bound
       ? `${sanitizeField(data.taskIdentifier ?? '')} "${sanitizeField(data.taskTitle ?? '')}"`
-      : '(no task)',
+      : NONE,
   })
   fields.push({ label: 'Events', value: String(data.eventCount) })
   lines.push(...fieldLines(fields, 0, opts))

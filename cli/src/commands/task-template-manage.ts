@@ -1,3 +1,4 @@
+import { fmtCount } from '../lib/format'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 import {
@@ -172,7 +173,7 @@ export function formatTemplateCreatedLine(t: {
     kind: 'task template',
     ref: sanitizeField(t.key),
     title: t.name,
-    suffix: `(${t.content.length.toLocaleString('en-US')} chars)`,
+    suffix: `(${fmtCount(t.content.length)} chars)`,
   })
 }
 
@@ -241,7 +242,7 @@ export async function taskTemplateEdit(
     patch.key !== undefined ? `key → ${sanitizeField(t.key)}` : null,
     patch.name !== undefined ? `name → "${sanitizeField(t.name)}"` : null,
     patch.content !== undefined
-      ? `content (${t.content.length.toLocaleString('en-US')} chars)`
+      ? `content (${fmtCount(t.content.length)} chars)`
       : null,
   ].filter(Boolean)
   process.stdout.write(

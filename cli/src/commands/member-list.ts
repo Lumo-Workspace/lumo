@@ -1,3 +1,4 @@
+import { emptyState } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { apiContext } from '../lib/test-case-api'
@@ -16,7 +17,7 @@ export function formatMemberList(
   opts: ListRenderOptions = {}
 ): string {
   if (dir.members.length === 0 && dir.agents.length === 0) {
-    return 'No members.'
+    return emptyState('members')
   }
   const lines: string[] = []
   if (dir.members.length > 0) {

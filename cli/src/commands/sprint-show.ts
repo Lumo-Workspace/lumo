@@ -1,7 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
-import { type TaskRow } from '../lib/format'
+import { fmtCalendarDay, fmtDay, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
@@ -42,10 +42,6 @@ export interface SprintBlockers {
   stalledTaskIds: SprintBlockerItem[]
   failingAgentTaskIds: SprintBlockerItem[]
   staleOpenPrNumbers: number[]
-}
-
-function fmtDate(iso: string | null): string {
-  return iso ? iso.slice(0, 10) : '-'
 }
 
 const BLOCKER_LABELS = {
@@ -100,10 +96,10 @@ export function formatSprintShow(
     { label: 'Sprint', value: `#${s.number} ${sanitizeField(s.name)}` },
     { label: 'Status', value: s.status },
     { label: 'Team', value: sanitizeField(s.team.name) },
-    { label: 'Start', value: fmtDate(s.startDate) },
-    { label: 'End', value: fmtDate(s.endDate) },
-    { label: 'Started', value: fmtDate(s.startedAt) },
-    { label: 'Closed', value: fmtDate(s.closedAt) },
+    { label: 'Start', value: fmtCalendarDay(s.startDate) },
+    { label: 'End', value: fmtCalendarDay(s.endDate) },
+    { label: 'Started', value: fmtDay(s.startedAt) },
+    { label: 'Closed', value: fmtDay(s.closedAt) },
   ]
   const progressRow: Field[] = [
     { label: 'Progress', value: `${progress.done} / ${progress.total}` },

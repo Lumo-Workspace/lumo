@@ -9,11 +9,11 @@ describe('formatDuration', () => {
     expect(formatDuration(45_000)).toBe('45s')
   })
   it('renders minutes under an hour', () => {
-    expect(formatDuration(23 * 60_000)).toBe('23min')
+    expect(formatDuration(23 * 60_000)).toBe('23m')
   })
   it('renders hours and h+min', () => {
     expect(formatDuration(60 * 60_000)).toBe('1h')
-    expect(formatDuration(90 * 60_000)).toBe('1h 30min')
+    expect(formatDuration(90 * 60_000)).toBe('1h 30m')
   })
 })
 
@@ -23,9 +23,7 @@ describe('relativeTime', () => {
     expect(relativeTime(new Date('2026-06-01T11:59:30Z'), now)).toBe('just now')
   })
   it('minutes / hours / days', () => {
-    expect(relativeTime(new Date('2026-06-01T11:30:00Z'), now)).toBe(
-      '30min ago'
-    )
+    expect(relativeTime(new Date('2026-06-01T11:30:00Z'), now)).toBe('30m ago')
     expect(relativeTime(new Date('2026-06-01T10:00:00Z'), now)).toBe('2h ago')
     expect(relativeTime(new Date('2026-05-30T12:00:00Z'), now)).toBe(
       '2 days ago'

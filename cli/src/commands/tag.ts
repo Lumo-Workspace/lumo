@@ -1,3 +1,4 @@
+import { emptyState } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { colorEnabled, style } from '../lib/ui'
@@ -23,7 +24,7 @@ export function formatTagList(
   tags: TagRow[],
   opts: ListRenderOptions = {}
 ): string {
-  if (tags.length === 0) return 'No tags.'
+  if (tags.length === 0) return emptyState('tags')
   const color = opts.color ?? colorEnabled()
   const plural = (n: number, one: string) => `${n} ${n === 1 ? one : one + 's'}`
   return renderListTable(

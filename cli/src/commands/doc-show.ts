@@ -1,3 +1,4 @@
+import { NONE, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { tiptapToMarkdown } from '../lib/markdown-tiptap'
@@ -31,9 +32,9 @@ export function formatShowOutput(vm: ShowDocViewModel): string {
     `ID: ${vm.id}`,
     `Title: ${sanitizeField(vm.title)}`,
     `Scope: ${scopeLabel(vm.scope)}`,
-    `Project: ${vm.projectName ? sanitizeField(vm.projectName) : '-'}`,
-    `Created: ${vm.createdAt}`,
-    `Updated: ${vm.updatedAt}`,
+    `Project: ${vm.projectName ? sanitizeField(vm.projectName) : NONE}`,
+    `Created: ${fmtTimestamp(vm.createdAt)}`,
+    `Updated: ${fmtTimestamp(vm.updatedAt)}`,
     `Revision: ${vm.revision ?? '-'}`,
     `Mentioned tasks: ${vm.mentionedTasks.length ? vm.mentionedTasks.join(', ') : '-'}`,
   ]

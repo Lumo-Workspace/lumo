@@ -34,6 +34,7 @@ import {
   type LayoutOptions,
 } from '../lib/report-layout'
 import { colorEnabled, terminalWidth } from '../lib/ui'
+import { fmtTokens, formatDurationSec } from '../lib/format'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
@@ -566,33 +567,6 @@ export function formatTaskStatus(
   return lines.join('\n') + '\n'
 }
 
-/** Compact a token count for the terminal — 1_200_000 → "1.2M", 850_000 →
- *  "850K", 0 → "0". Uses the SAME Intl compact formatter the web card's
- *  fmtCompact uses (notation:'compact', maximumFractionDigits:1) so the same
- *  number reads identically in both surfaces — no presentation drift (LUM-560). */
-const TOKEN_FMT = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
-})
-function fmtTokens(n: number): string {
-  return TOKEN_FMT.format(n)
-}
-
-/** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s". 0 → "0s". */
-function fmtDuration(totalSec: number): string {
-  const sec = Math.max(0, Math.round(totalSec))
-  if (sec === 0) return '0s'
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  const parts: string[] = []
-  if (h > 0) parts.push(`${h}h`)
-  if (m > 0) parts.push(`${m}m`)
-  // Show seconds only when the duration is under an hour (keeps long runs tidy).
-  if (s > 0 && h === 0) parts.push(`${s}s`)
-  return parts.join(' ')
-}
-
 /**
  * Append the honest "Cost" section (LUM-560): token spend and active time,
  * read from the same loadActuals source as the web card (no drift). Token
@@ -620,7 +594,7 @@ function pushCost(
         },
         {
           label: 'Active time',
-          value: `${fmtDuration(cost.activeTimeSec)} (non-idle)`,
+          value: `${formatDurationSec(cost.activeTimeSec)} (non-idle)`,
         },
       ],
       2,

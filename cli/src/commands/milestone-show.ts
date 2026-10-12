@@ -1,7 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
-import { type TaskRow } from '../lib/format'
+import { fmtCalendarDay, fmtDay, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
@@ -86,10 +86,6 @@ export interface MilestoneShowData {
         rate: number | null
       }
     | undefined
-}
-
-function fmtDate(iso: string | null): string {
-  return iso ? iso.slice(0, 10) : '-'
 }
 
 function sprintCoverageLines(
@@ -206,22 +202,22 @@ export function formatMilestoneShow(
     ? `${state}  (stale — task progress indicates ${drift === 'complete' ? 'COMPLETED' : 'ACTIVE'}; auto-updating)`
     : state
   const targetValue = m.staleness?.datesMissing
-    ? `${fmtDate(m.targetDate)}  (no target date — schedule health unavailable)`
-    : fmtDate(m.targetDate)
+    ? `${fmtCalendarDay(m.targetDate)}  (no target date — schedule health unavailable)`
+    : fmtCalendarDay(m.targetDate)
   const lines = fieldLines(
     [
       { label: 'Milestone', value: sanitizeField(m.name) },
       { label: 'State', value: stateValue },
       {
         label: 'Completed',
-        value: m.completedAt ? m.completedAt.slice(0, 10) : 'no',
+        value: fmtDay(m.completedAt),
       },
       {
         label: 'Archived',
-        value: m.archivedAt ? m.archivedAt.slice(0, 10) : 'no',
+        value: fmtDay(m.archivedAt),
       },
       { label: 'Health', value: formatHealth(m.health) },
-      { label: 'Start', value: fmtDate(m.startDate) },
+      { label: 'Start', value: fmtCalendarDay(m.startDate) },
       { label: 'Target', value: targetValue },
       { label: 'Project', value: sanitizeField(m.projectName) },
     ],

@@ -1,8 +1,8 @@
+import { NONE, emptyState, fmtDay, fmtTimestamp } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { actorNameMap, fetchDirectory } from '../lib/directory'
 import { resolveTaskRef } from '../lib/comment-ref'
-import { localDayLabel } from '../lib/local-day'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { colorEnabled, terminalWidth } from '../lib/ui'
 import { shellQuote } from '../lib/confirmation'
@@ -39,9 +39,7 @@ const PAGE = 100
 const MAX_PAGES = 10
 
 const str = (v: unknown): string =>
-  v === null || v === undefined || v === ''
-    ? '(none)'
-    : sanitizeField(String(v))
+  v === null || v === undefined || v === '' ? NONE : sanitizeField(String(v))
 
 /** One activity → a short human line. Unknown types fall back to the type name. */
 export function describeActivity(
@@ -50,11 +48,8 @@ export function describeActivity(
 ): string {
   const p = a.payload ?? {}
   const who = (id: unknown) =>
-    typeof id === 'string'
-      ? sanitizeField(names.get(id) ?? 'unknown')
-      : '(none)'
-  const day = (v: unknown) =>
-    typeof v === 'string' ? localDayLabel(v) : '(none)'
+    typeof id === 'string' ? sanitizeField(names.get(id) ?? 'unknown') : NONE
+  const day = (v: unknown) => (typeof v === 'string' ? fmtDay(v) : NONE)
   switch (a.type) {
     case 'STATUS_CHANGED':
       return `status ${str(p.from)} → ${str(p.to)}`
@@ -98,12 +93,10 @@ export function formatHistory(
   names: Map<string, string>,
   opts: ListRenderOptions = {}
 ): string {
-  if (entries.length === 0) return 'No history.'
+  if (entries.length === 0) return emptyState('history')
   const rows = entries.map(a => {
-    const d = new Date(a.createdAt)
-    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     return [
-      `${localDayLabel(a.createdAt)} ${hhmm}`,
+      fmtTimestamp(a.createdAt),
       a.actorId ? sanitizeField(names.get(a.actorId) ?? 'unknown') : 'system',
       describeActivity(a, names),
     ]

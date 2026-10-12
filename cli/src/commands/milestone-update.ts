@@ -1,3 +1,4 @@
+import { NONE, fmtCalendarDay, fmtCount } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
@@ -74,12 +75,6 @@ interface MilestoneSnapshot {
   tokenBudget?: number | null
 }
 
-function fmtDate(v: string | null | undefined): string {
-  if (v === null) return '∅'
-  if (v === undefined) return '-'
-  return v.slice(0, 10)
-}
-
 export function formatMilestoneUpdateSummary(
   before: MilestoneSnapshot,
   after: UpdatePayload
@@ -91,20 +86,22 @@ export function formatMilestoneUpdateSummary(
   }
   if (after.description !== undefined) {
     changes.push(
-      after.description === null ? 'description → ∅' : 'description updated'
+      after.description === null
+        ? `description → ${NONE}`
+        : 'description updated'
     )
   }
   if (after.startDate !== undefined) {
-    changes.push(`start → ${fmtDate(after.startDate)}`)
+    changes.push(`start → ${fmtCalendarDay(after.startDate)}`)
   }
   if (after.targetDate !== undefined) {
-    changes.push(`target → ${fmtDate(after.targetDate)}`)
+    changes.push(`target → ${fmtCalendarDay(after.targetDate)}`)
   }
   if (after.tokenBudget !== undefined) {
     changes.push(
       after.tokenBudget === null
-        ? 'token budget → ∅'
-        : `token budget → ${after.tokenBudget.toLocaleString('en-US')}`
+        ? `token budget → ${NONE}`
+        : `token budget → ${fmtCount(after.tokenBudget)}`
     )
   }
   return `Updated milestone "${beforeName}": ${changes.join(', ')}`

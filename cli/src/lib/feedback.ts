@@ -9,7 +9,14 @@
  *
  * Hints are one line, `Hint: <text>`. Advice with a command to run belongs in
  * the `Next:` block (`lib/next-steps.ts`) instead; inside hint prose a command
- * is written as {@link cmd} (backticked).
+ * is written as {@link cmd} (backticked). A caveat about how far a number can
+ * be trusted (not something to do) is a `Note: <text>` instead — see {@link note}.
+ *
+ * `✓` prefix rule (LUM-1088, user ruling 2026-10-13): the `✓` icon
+ * (`icons.success` in `lib/ui.ts`) marks ENVIRONMENT / FLOW confirmations only
+ * — auth login, init / install, worktree ready, crossing rulings, memory push
+ * and the like. Resource create / update / delete success lines built by
+ * {@link successLine} never carry it: their first word is already the verb.
  *
  * No colour here: these strings are printed to agents as-is.
  */
@@ -52,7 +59,7 @@ export function successLine(parts: SuccessLineParts): string {
 
 export const HINT_PREFIX = 'Hint:'
 
-/** `Hint: <text>` — the single prefix for inline advice (no `Tip:`/`Note:`). */
+/** `Hint: <text>` — the single prefix for inline advice (no `Tip:`). */
 export function hint(text: string): string {
   return `${HINT_PREFIX} ${text}`
 }
@@ -60,4 +67,15 @@ export function hint(text: string): string {
 /** A command referenced inside prose: `` `lumo …` ``. */
 export function cmd(command: string): string {
   return `\`${command}\``
+}
+
+export const NOTE_PREFIX = 'Note:'
+
+/**
+ * `Note: <text>` — a precision caveat on what was just printed (e.g. "this
+ * attribution is heuristic"), as opposed to a {@link hint}, which suggests
+ * something to do. Not for warnings: those use `warn()` from `lib/errors.ts`.
+ */
+export function note(text: string): string {
+  return `${NOTE_PREFIX} ${text}`
 }
