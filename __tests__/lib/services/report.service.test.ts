@@ -27,6 +27,7 @@ import {
   completionsInWindow,
   defaultReportWindow,
   lastDoneAt,
+  PROJECT_IN_LIST_MAX,
   reportService,
   sessionCoverage,
   UNASSIGNED_LABEL,
@@ -264,16 +265,39 @@ describe('multi-tenant scoping', () => {
     })
     expect(resolveProjectId).toHaveBeenCalledWith('w1', 'Lumo')
     expect(repo.listProjectTaskIds).toHaveBeenCalledWith('w1', 'p1')
-    // No unbounded IN list is pushed to the DB; filtering happens in memory.
-    expect(
-      hooks.findToolAttributionEvents.mock.calls[0]![0]
-    ).not.toHaveProperty('taskIds')
+    // A small project narrows the scan in the DB…
+    expect(hooks.findToolAttributionEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ taskIds: ['t1', 't2'] })
+    )
     expect(r.team.tokens.total).toBe(10)
     expect(r.team.sessions).toBe(1)
     expect(repo.listDoneTransitionsSince).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: 'p1' })
     )
     expect(r.filter.projectId).toBe('p1')
+  })
+
+  it('filters a large project in memory instead of an unbounded IN list', async () => {
+    ;(resolveProjectId as jest.Mock).mockResolvedValue('p1')
+    const ids = Array.from(
+      { length: PROJECT_IN_LIST_MAX + 1 },
+      (_, i) => `t${i}`
+    )
+    repo.listProjectTaskIds.mockResolvedValue(ids)
+    hooks.findToolAttributionEvents.mockResolvedValue([
+      stop('in', 'm1', '2026-10-08T00:00:00Z', usage(9), 't5'),
+      stop('out', 'm1', '2026-10-08T00:00:00Z', usage(99), 'elsewhere'),
+    ] as never)
+    const r = await reportService.getReport('w1', {
+      since: SINCE,
+      until: UNTIL,
+      projectRef: 'Big',
+    })
+    const scope = hooks.findToolAttributionEvents.mock.calls[0]![0] as {
+      taskIds?: string[]
+    }
+    expect(scope.taskIds).toBeUndefined()
+    expect(r.team.tokens.total).toBe(10)
   })
 
   it('skips the event scan for a project with no tasks', async () => {

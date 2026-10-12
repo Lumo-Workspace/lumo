@@ -527,6 +527,8 @@ export const hookEventRepository = {
           until?: Date | undefined
           /** LUM-1100: only this member's events. */
           workspaceMemberId?: string | undefined
+          /** LUM-1100: only events attached to these tasks (bounded list). */
+          taskIds?: string[] | undefined
         }
   ) {
     const type: Prisma.HookEventWhereInput['type'] = {
@@ -559,6 +561,7 @@ export const hookEventRepository = {
               ...(scope.workspaceMemberId
                 ? { workspaceMemberId: scope.workspaceMemberId }
                 : {}),
+              ...(scope.taskIds ? { taskId: { in: scope.taskIds } } : {}),
             }
     return prisma.hookEvent.findMany({
       where,

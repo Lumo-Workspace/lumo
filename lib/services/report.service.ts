@@ -24,6 +24,8 @@ export const REPORT_DEFAULT_WINDOW_DAYS = 7
 /** Widest window one request may ask for (bounds the hook-event scan). */
 export const REPORT_MAX_WINDOW_DAYS = 366
 export const REPORT_DEFAULT_LIMIT = 50
+/** Largest project whose task ids are pushed to the DB as an IN list. */
+export const PROJECT_IN_LIST_MAX = 1000
 export const REPORT_MAX_LIMIT = 500
 /** byMember key for completed tasks with no human owner. */
 export const UNASSIGNED_LABEL = '(unassigned)'
@@ -267,8 +269,9 @@ export const reportService = {
         await import('@/lib/services/task-cli.service')
       projectId = await resolveProjectId(workspaceId, input.projectRef)
     }
-    // --project: filter events in memory by task membership rather than
-    // pushing every project task id into an IN list (unbounded bind params).
+    // --project: a small project narrows the event scan in the DB
+    // (`taskId IN …`); past PROJECT_IN_LIST_MAX ids the bind list would be
+    // unbounded, so the window is read once and filtered in memory instead.
     const projectTaskIds = projectId
       ? new Set(
           await reportRepository.listProjectTaskIds(workspaceId, projectId)
@@ -283,6 +286,10 @@ export const reportService = {
             since: input.since,
             until: input.until,
             workspaceMemberId: memberId ?? undefined,
+            taskIds:
+              projectTaskIds && projectTaskIds.size <= PROJECT_IN_LIST_MAX
+                ? [...projectTaskIds]
+                : undefined,
           }),
       reportRepository.listDoneTransitionsSince({
         workspaceId,
