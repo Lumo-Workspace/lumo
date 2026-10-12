@@ -28,13 +28,17 @@ export const MAX_MENTIONED_NAMES = 10
  * people a mention named). A failed lookup just leaves the name out.
  */
 async function resolveNames(
+  event: SlackEventType,
   payload: NotificationPayload,
   audience: NotificationAudience
 ): Promise<NotificationPayload> {
-  const needActor = !payload.actorName && !!payload.actorClerkId
-  // Only channel posts list who was mentioned; a DM's recipient is the one.
+  const needActor = !payload.actorName?.trim() && !!payload.actorClerkId
+  // Only channel mention posts list who was mentioned; a DM's recipient is
+  // the one, and other events never show the list.
   const mentionedIds =
-    audience === 'dm' || (payload.mentionedNames?.length ?? 0) > 0
+    event !== 'comment_mention' ||
+    audience === 'dm' ||
+    (payload.mentionedNames?.length ?? 0) > 0
       ? []
       : (payload.mentionedClerkIds ?? []).slice(0, MAX_MENTIONED_NAMES)
   if (!needActor && mentionedIds.length === 0) return payload
@@ -57,7 +61,7 @@ async function buildMessage(
 ): Promise<SlackMessage> {
   return buildNotificationMessage(
     event,
-    await resolveNames(payload, audience),
+    await resolveNames(event, payload, audience),
     audience
   )
 }

@@ -147,3 +147,20 @@ describe('mentioned-name lookups (LUM-1095 scan follow-up)', () => {
     expect(mockGetClerkUser).toHaveBeenCalledTimes(MAX_MENTIONED_NAMES)
   })
 })
+
+describe('lookup scoping (LUM-1095 scan follow-up 2)', () => {
+  it('a whitespace-only actorName still resolves the actor', async () => {
+    await sendChannelNotification(
+      'ws_1',
+      'task_assigned',
+      { ...payload, actorName: '   ' },
+      'proj_1'
+    )
+    expect(JSON.stringify(messages()[0])).toContain('by *Ada Lovelace*')
+  })
+
+  it('non-mention events skip mentioned-name lookups', async () => {
+    await sendChannelNotification('ws_1', 'task_done', payload, 'proj_1')
+    expect(mockGetClerkUser.mock.calls.map(c => c[0])).toEqual(['user_ada'])
+  })
+})
