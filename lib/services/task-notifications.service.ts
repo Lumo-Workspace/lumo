@@ -8,6 +8,7 @@ import { sendChannelNotification } from '@/lib/integrations/slack'
 import {
   buildTaskNotificationCtx,
   dispatchTaskUpdateNotifications,
+  shouldNotify,
 } from '@/lib/services/notification.service'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
@@ -91,9 +92,13 @@ export function dispatchCreateTaskSideEffects(opts: {
   if (assigneeActorId) {
     taskRepository
       .findActorWithMember(assigneeActorId, workspaceId)
-      .then(actor => {
+      .then(async actor => {
         if (!actor || actor.type !== 'HUMAN' || !actor.member) return
         if (actor.member.clerkId === actorClerkId) return
+        // LUM-1101: the create path honours the in-app preference too.
+        if (!(await shouldNotify(assigneeActorId, 'inApp', 'TASK_ASSIGNED'))) {
+          return
+        }
         return notificationRepository.create({
           workspaceId,
           recipientActorId: assigneeActorId,

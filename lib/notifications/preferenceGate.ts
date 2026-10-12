@@ -27,6 +27,9 @@ const INAPP_MAP: Partial<Record<NotificationType, string>> = {
 // AGENT_* have no Slack sender, so they have no route here and the
 // notifySlackAgentDone / notifySlackAgentInput columns are not read (their
 // switches are hidden in the settings UI). Add a route together with a sender.
+// The Slack channel is fail-closed (LUM-1101): an unmapped type is NOT sent,
+// so a new sender without a route here never silently ignores a stored
+// notifySlack*=false — it sends nothing until the route is added.
 const SLACK_MAP: Partial<Record<NotificationType, string>> = {
   TASK_ASSIGNED: 'notifySlackAssigned',
   TASK_SENT_BACK: 'notifySlackAssigned',
@@ -37,6 +40,16 @@ const SLACK_MAP: Partial<Record<NotificationType, string>> = {
   PROJECT_MENTIONED: 'notifySlackMention',
   MILESTONE_MENTIONED: 'notifySlackMention',
   DOCUMENT_MENTIONED: 'notifySlackMention',
+}
+
+// Personal Slack DMs that have no NotificationType (no inbox row): the GitHub
+// PR webhooks DM the project owner (pr_opened) and the assignee (pr_merged).
+// They are task activity, so the "Task assigned" switch governs them.
+export type PersonalSlackEvent = 'pr_opened' | 'pr_merged'
+
+const SLACK_EVENT_MAP: Record<PersonalSlackEvent, string> = {
+  pr_opened: 'notifySlackAssigned',
+  pr_merged: 'notifySlackAssigned',
 }
 
 export const MENTION_NOTIFICATION_TYPES = [
@@ -68,8 +81,10 @@ function getPreferenceField(
  * Check whether a notification should be delivered to a recipient on a given channel.
  * Returns true if:
  * - The notification type requires action (always delivered)
+ * - In-app only: the type has no preference route (nothing to honour)
  * - No preference record exists (defaults are all true)
  * - The corresponding preference toggle is true
+ * Slack is fail-closed: a type with no Slack route returns false.
  */
 export async function shouldNotify(
   recipientActorId: string,
@@ -79,8 +94,26 @@ export async function shouldNotify(
   if (ALWAYS_NOTIFY.has(notificationType)) return true
 
   const field = getPreferenceField(channel, notificationType)
-  if (!field) return true // unmapped type → deliver
+  if (!field) return channel === 'inApp' // unmapped: in-app delivers, Slack fails closed
 
+  return isFieldEnabled(recipientActorId, field)
+}
+
+/**
+ * Gate for personal Slack DMs that have no NotificationType (GitHub PR
+ * webhooks). Same defaults as shouldNotify: no member / no row → deliver.
+ */
+export async function shouldNotifySlackEvent(
+  recipientActorId: string,
+  event: PersonalSlackEvent
+): Promise<boolean> {
+  return isFieldEnabled(recipientActorId, SLACK_EVENT_MAP[event])
+}
+
+async function isFieldEnabled(
+  recipientActorId: string,
+  field: string
+): Promise<boolean> {
   const actor = await prisma.actor.findUnique({
     where: { id: recipientActorId },
     select: { member: { select: { id: true } } },
@@ -111,7 +144,10 @@ export async function shouldNotifyBatch(
   if (ALWAYS_NOTIFY.has(notificationType)) return new Set(recipientActorIds)
 
   const field = getPreferenceField(channel, notificationType)
-  if (!field) return new Set(recipientActorIds)
+  if (!field) {
+    // unmapped: in-app delivers, Slack fails closed (see SLACK_MAP)
+    return channel === 'inApp' ? new Set(recipientActorIds) : new Set()
+  }
 
   const actors = await prisma.actor.findMany({
     where: { id: { in: recipientActorIds } },
