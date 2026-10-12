@@ -1,0 +1,33 @@
+{
+  "_comment": "LUM-1085: migrations with schema-breaking SQL that predate the two-phase rule. Frozen - never add to this list; new destructive migrations carry the -- lumo:contract-phase marker instead.",
+  "migrations": [
+    "20260321225459_remove_default_team_id",
+    "20260328163731_normalize_task_agent_fields",
+    "20260329060000_actor_abstraction",
+    "20260329120000_schema_cleanup",
+    "20260329140000_drop_github_repo",
+    "20260331044218_remove_task_agent_metadata",
+    "20260331050000_move_sandbox_id_to_agent_run",
+    "20260331060000_merge_spec_review_into_input_required",
+    "20260401184821_add_mcp_auth",
+    "20260418120000_rename_project_default_reviewer_to_owner",
+    "20260420114419_add_team_sprints_enabled",
+    "20260423230000_restructure_session_summary",
+    "20260504120000_drop_memory_archived_at",
+    "20260521120000_remove_task_reviewer",
+    "20260522080000_drop_lumo_proposal",
+    "20260607160000_drop_agentrun_stack",
+    "20260610033019_drop_task_repository_id",
+    "20260613100000_run_summary",
+    "20260615130000_rename_clarify_to_interaction_rounds",
+    "20260704150000_lum678_clean_initiative",
+    "20260727000000_drop_risk_assessment",
+    "20260914000000_lum714_drop_milestone_status",
+    "20261006000000_lum942_drop_acceptance_criteria_verification",
+    "20261006010000_lum942_drop_gate_signals",
+    "20261006100000_lum942_drop_lumo_ci_runs",
+    "20261009090000_lum959_drop_task_parent",
+    "20261021090000_lum1040_remove_ideas_plan_runs",
+    "20261030090000_lum1083_remove_initiatives"
+  ]
+}

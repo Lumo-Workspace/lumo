@@ -23,6 +23,7 @@
     "lint:tokens:update": "tsx scripts/lint-tokens.ts --update",
     "i18n:sync": "tsx scripts/i18n-sync-locales.ts",
     "i18n:check": "tsx scripts/i18n-sync-locales.ts --check",
+    "migrations:check": "tsx scripts/migrations/destructive-guard.ts",
     "license:audit": "tsx scripts/license-audit.ts",
     "audit:prod": "npm audit --package-lock-only --omit=dev --audit-level=high",
     "type-check": "tsc --noEmit",
