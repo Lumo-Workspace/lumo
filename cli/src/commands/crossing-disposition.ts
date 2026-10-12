@@ -18,7 +18,7 @@ import {
 } from '../lib/crossing-handshake'
 import { crossingDispositionBatch } from './crossing-disposition-batch'
 import { resolveSessionId } from '../lib/session-id'
-import { errAuth, errNotLoggedIn } from '../lib/errors'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export type { CrossingDispositionTarget, CrossingForDisposition }
 
@@ -359,12 +359,8 @@ export async function crossingDisposition(
       error?: unknown
     } | null
     const detail =
-      errBody && typeof errBody.error === 'string'
-        ? sanitizeField(errBody.error)
-        : ''
-    console.error(
-      `Error: disposition rejected (HTTP ${res.status})${detail ? ` — ${detail}` : ''}`
-    )
+      errBody && typeof errBody.error === 'string' ? errBody.error : null
+    console.error(errHttp('disposition', res.status, detail))
     return 1
   }
 

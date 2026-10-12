@@ -1,3 +1,4 @@
+import { emptyState } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { slugify } from '../lib/resolve'
@@ -30,7 +31,7 @@ export function formatProjectList(
   const rows = projects
     .filter(p => !p.isIdea)
     .map(p => [sanitizeField(slugify(p.name)), sanitizeField(p.name)])
-  if (rows.length === 0) return 'No projects.'
+  if (rows.length === 0) return emptyState('projects')
   return renderListTable(rows, { header: ['SLUG', 'NAME'], flex: 1, ...opts })
 }
 

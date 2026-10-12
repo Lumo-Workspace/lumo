@@ -101,7 +101,7 @@ describe('LUM-1090 — one label width per detail view', () => {
         'Status:    TODO',
         'Priority:  LOW',
         'Project:   Lumo',
-        'Assignee:  (unassigned)',
+        'Assignee:  -',
         'URL:       https://lumo.test/LUM-42',
       ].join('\n')
     )

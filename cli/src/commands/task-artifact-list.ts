@@ -1,3 +1,4 @@
+import { emptyState } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
@@ -59,7 +60,7 @@ export async function taskArtifactList(
 
   const { artifacts } = (await res.json()) as { artifacts: ArtifactRow[] }
   if (artifacts.length === 0) {
-    process.stdout.write(`No artifacts on ${identifier}\n`)
+    process.stdout.write(emptyState('artifacts', identifier) + '\n')
     return
   }
   process.stdout.write(formatArtifactList(artifacts) + '\n')

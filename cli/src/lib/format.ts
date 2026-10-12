@@ -1,20 +1,115 @@
 import { sanitizeField } from './sanitize'
 import { renderListTable, type ListRenderOptions } from './list-table'
+import { localDayLabel } from './local-day'
 
 /**
- * Shared CLI time/duration formatters. Extracted from task-context.ts so the
- * session-start recovery card (hook-runner.ts) can reuse the exact same shape.
+ * Shared CLI value formatters — LUM-1088: the one place dates, timestamps,
+ * durations, token counts, empty values and empty states are spelled. Pure
+ * (no clock / env beyond the process timezone), no colour.
+ *
+ * Dates come in two kinds and must not be mixed up:
+ * - CALENDAR-DAY fields (sprint start/end, milestone start/target) are stored
+ *   as the day's UTC midnight and mean "that day for everyone" (LUM-700).
+ *   {@link fmtCalendarDay} reads the UTC date and never shifts it — converting
+ *   to the local zone would show the previous day west of UTC.
+ * - TIMESTAMPS (createdAt, completedAt, scan started/finished, audit time,
+ *   due dates — LUM-821 stores those as the author's local midnight) are
+ *   instants; {@link fmtDay} / {@link fmtTimestamp} show them in the shell's
+ *   local timezone.
  */
 
+/** The placeholder for an absent field value (no assignee, no date, n/a, …). */
+export const NONE = '-'
+
+/** `value`, or {@link NONE} when it is null / undefined / empty. */
+export function orNone(value: string | null | undefined): string {
+  return value === null || value === undefined || value === '' ? NONE : value
+}
+
+const CALENDAR_DAY_PREFIX = /^\d{4}-\d{2}-\d{2}(?:$|T)/
+
+/**
+ * A calendar-day field stored as UTC midnight → `YYYY-MM-DD` of that UTC day
+ * (never shifted to the local zone). Absent → {@link NONE}.
+ */
+export function fmtCalendarDay(iso: string | null | undefined): string {
+  if (!iso || !CALENDAR_DAY_PREFIX.test(iso)) return NONE
+  // Intentional UTC slice: the stored value IS the calendar day (LUM-700).
+  return iso.slice(0, 10)
+}
+
+/** A timestamp → the LOCAL calendar day it falls on, `YYYY-MM-DD`. Absent → {@link NONE}. */
+export function fmtDay(iso: string | null | undefined): string {
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return NONE
+  return localDayLabel(iso)
+}
+
+/** A timestamp → local `YYYY-MM-DD HH:MM`. Absent / unparsable → {@link NONE}. */
+export function fmtTimestamp(iso: string | null | undefined): string {
+  if (!iso) return NONE
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return NONE
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${localDayLabel(iso)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/**
+ * Elapsed milliseconds → `45s`, `12m`, `2h 14m`, `3h`. Seconds only show
+ * under a minute; 0 (or less) → `0s`.
+ */
 export function formatDuration(ms: number): string {
-  if (ms < 60_000) {
-    return `${Math.max(1, Math.round(ms / 1000))}s`
-  }
-  const totalMinutes = Math.round(ms / 60_000)
-  if (totalMinutes < 60) return `${totalMinutes}min`
+  if (!(ms > 0)) return '0s'
+  // Decide the unit on the rounded value, so 59.6s reads `1m`, not `60s`.
+  const seconds = Math.max(1, Math.round(ms / 1000))
+  if (seconds < 60) return `${seconds}s`
+  const totalMinutes = Math.max(1, Math.round(ms / 60_000))
+  if (totalMinutes < 60) return `${totalMinutes}m`
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}min`
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
+}
+
+/** Same as {@link formatDuration}, for a value in seconds. */
+export function formatDurationSec(sec: number): string {
+  return formatDuration(sec * 1000)
+}
+
+const COMPACT_FMT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+
+/**
+ * Token count for a one-line summary — `1.2M`, `850K`, `812`. The same Intl
+ * compact formatter the web card uses (LUM-560), so both surfaces agree.
+ */
+export function fmtTokens(n: number): string {
+  return COMPACT_FMT.format(n)
+}
+
+/**
+ * Exact integer with `,` thousands separators — `1,234,567`. For ledgers and
+ * breakdowns (cost tables, lineage, scan budgets) where every digit matters.
+ * Rounds first (attributed token figures can be fractional, LUM-840);
+ * deterministic, no locale dependency.
+ */
+export function fmtCount(n: number): string {
+  const r = Math.round(n)
+  const sign = r < 0 ? '-' : ''
+  return (
+    sign +
+    Math.abs(r)
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  )
+}
+
+/**
+ * The one empty-state sentence: `No <things>.` / `No <things> on <scope>.`
+ * Follow-up advice goes on its own `Hint:` / `Next:` line, not here.
+ */
+export function emptyState(things: string, scope?: string): string {
+  return scope ? `No ${things} on ${scope}.` : `No ${things}.`
 }
 
 export function relativeTime(then: Date, now: Date): string {
@@ -22,7 +117,7 @@ export function relativeTime(then: Date, now: Date): string {
   const seconds = Math.floor(diffMs / 1000)
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}min ago`
+  if (minutes < 60) return `${minutes}m ago`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
@@ -79,7 +174,7 @@ export function renderTaskTable(
       r.id,
       r.status,
       r.priority,
-      ...columns.map(c => r[c] ?? '-'),
+      ...columns.map(c => r[c] ?? NONE),
       r.title,
     ]),
     {
@@ -106,7 +201,7 @@ export function formatTaskListTable(
   tasks: TaskRow[],
   opts: ListRenderOptions = {}
 ): string {
-  if (tasks.length === 0) return 'No tasks.'
+  if (tasks.length === 0) return emptyState('tasks')
   return renderTaskTable(
     tasks.map(t => ({
       id: `${t.teamIdentifier}-${t.number}`,

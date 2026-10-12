@@ -28,7 +28,11 @@ async function resolveMilestoneName(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) {
-    throw new Error(`milestone ${id} not found (HTTP ${res.status})`)
+    throw new Error(
+      res.status === 404
+        ? `milestone ${id} not found`
+        : httpFailed(`milestone ${id} lookup`, res.status)
+    )
   }
   const { milestone } = (await res.json()) as { milestone: { name: string } }
   return milestone.name

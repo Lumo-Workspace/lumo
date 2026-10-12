@@ -1,3 +1,4 @@
+import { emptyState, fmtDay } from '../lib/format'
 import { listFigmaLinks, type FigmaLinkJson } from '../lib/figma-api'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
@@ -31,7 +32,7 @@ export function formatFigmaList(
       link.id,
       sanitizeField(link.fileName),
       sanitizeField(link.frameName ?? '(file-level)'),
-      link.lastSyncedAt.slice(0, 10),
+      fmtDay(link.lastSyncedAt),
       stale && !!link.thumbnailUrl ? '⚠ thumbnail stale' : '',
     ]
   })
@@ -45,7 +46,7 @@ export async function taskFigmaList(args: {
 }): Promise<number> {
   const { links } = await listFigmaLinks(args.identifier)
   if (links.length === 0) {
-    console.log('No Figma links attached.')
+    console.log(emptyState('Figma links', args.identifier))
     return 0
   }
   console.log(formatFigmaList(links, Date.now()))

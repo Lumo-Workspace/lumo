@@ -1,9 +1,9 @@
 import { readCredentials } from '../lib/config'
 import { shellQuote } from '../lib/confirmation'
 import { sanitizeField } from '../lib/sanitize'
-import { renderTaskTable } from '../lib/format'
+import { emptyState, fmtDay, renderTaskTable } from '../lib/format'
 import type { ListRenderOptions } from '../lib/list-table'
-import { localDayLabel, localDayStart } from '../lib/local-day'
+import { localDayStart } from '../lib/local-day'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import {
   actorNameMap,
@@ -149,7 +149,7 @@ export function formatSearchTable(
   names: Map<string, string>,
   opts: ListRenderOptions = {}
 ): string {
-  if (tasks.length === 0) return 'No tasks.'
+  if (tasks.length === 0) return emptyState('tasks')
   return renderTaskTable(
     tasks.map(t => ({
       id: `${t.teamIdentifier}-${t.number}`,
@@ -159,7 +159,7 @@ export function formatSearchTable(
       assignee: t.assigneeActorId
         ? sanitizeField(names.get(t.assigneeActorId) ?? '?')
         : '-',
-      due: t.dueDate ? localDayLabel(t.dueDate) : '-',
+      due: fmtDay(t.dueDate),
       title: sanitizeField(t.title),
     })),
     ['project', 'assignee', 'due'],

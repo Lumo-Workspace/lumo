@@ -1,8 +1,9 @@
+import { fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { promptLine } from '../lib/line-prompt'
-import { errAuth, errNotLoggedIn } from '../lib/errors'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface PriorityView {
   id: string
@@ -137,7 +138,7 @@ export function formatPriorityHistory(
     history
       .map(p => {
         const marker = p.id === currentId ? '*' : ' '
-        const when = p.effectiveFrom.slice(0, 10)
+        const when = fmtDay(p.effectiveFrom)
         return `${marker} ${when}  ${sanitizeField(p.statement)}`
       })
       .join('\n') + '\n'
@@ -153,7 +154,5 @@ async function errorMessage(res: Response, action: string): Promise<string> {
   } catch {
     // Body wasn't JSON
   }
-  return serverMsg
-    ? `Error: ${sanitizeField(serverMsg)}`
-    : `Error: could not ${action} (HTTP ${res.status})`
+  return errHttp(action, res.status, serverMsg)
 }

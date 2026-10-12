@@ -1,3 +1,4 @@
+import { fmtCount, fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -165,14 +166,6 @@ export async function taskLineage(
   }
 }
 
-/** Deterministic thousands separator (no locale dependency, test-stable).
- *  Rounds first: attributed token figures can be fractional (LUM-840). */
-function groupThousands(n: number): string {
-  return Math.round(n)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
-
 /** Integer percentage, 0 when the denominator is 0 (never NaN). */
 function pct(num: number, den: number): number {
   return den === 0 ? 0 : Math.round((num / den) * 100)
@@ -238,9 +231,9 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   lines.push(`- Fragments: ${t.fragmentCount}`)
   lines.push(`- Edges: ${t.edgeCount}`)
   lines.push(
-    `- Tokens: ${groupThousands(t.tokens.total)} ` +
-      `(in ${groupThousands(t.tokens.input)} · out ${groupThousands(t.tokens.output)} · ` +
-      `cache-read ${groupThousands(t.tokens.cacheRead)} · cache-create ${groupThousands(t.tokens.cacheCreation)})`
+    `- Tokens: ${fmtCount(t.tokens.total)} ` +
+      `(in ${fmtCount(t.tokens.input)} · out ${fmtCount(t.tokens.output)} · ` +
+      `cache-read ${fmtCount(t.tokens.cacheRead)} · cache-create ${fmtCount(t.tokens.cacheCreation)})`
   )
   lines.push(`- Loops: ${t.loopCount}`)
   const totalsOutcome = outcomeSummary(t.outcomes)
@@ -260,12 +253,10 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     lines.push('')
     lines.push('Top operations by token cost:')
     for (const op of data.totals.topOperations) {
-      lines.push(
-        `  ${sanitizeField(op.tool)} — ${groupThousands(op.total)} tokens`
-      )
+      lines.push(`  ${sanitizeField(op.tool)} — ${fmtCount(op.total)} tokens`)
       for (const c of (op.commands ?? []).slice(0, 3)) {
         lines.push(
-          `    ↳ ${sanitizeField(c.command)} — ${groupThousands(c.total)} tokens`
+          `    ↳ ${sanitizeField(c.command)} — ${fmtCount(c.total)} tokens`
         )
       }
     }
@@ -273,10 +264,10 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   }
 
   for (const g of data.groups) {
-    lines.push(`## ${sanitizeField(g.label)} · ${g.includedAt.slice(0, 10)}`)
+    lines.push(`## ${sanitizeField(g.label)} · ${fmtDay(g.includedAt)}`)
     if (g.cost) {
       lines.push(
-        `**Cost**: ${groupThousands(g.cost.total)} tokens · ${g.cost.loopCount} loops`
+        `**Cost**: ${fmtCount(g.cost.total)} tokens · ${g.cost.loopCount} loops`
       )
     } else {
       lines.push('**Cost**: (no captured cost)')

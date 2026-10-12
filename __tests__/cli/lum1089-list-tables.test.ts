@@ -9,6 +9,7 @@
  * - columns align by display width (CJK counts 2);
  * - milestone state / health labels are upper-case in list and show.
  */
+import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   MIN_FLEX_WIDTH,
   flexColumnCap,
@@ -503,10 +504,10 @@ describe('milestone / sprint / tag / member / audit lists', () => {
       nextCursor: null,
     }
     expect(formatAuditList(page, {}, PIPE)).toBe(
-      '2026-10-04 15:54Z  member.role_changed  李超 <li@example.com>  member cm1abc  WEB  203.0.113.9'
+      `${fmtTimestamp('2026-10-04T15:54:00.000Z')}  member.role_changed  李超 <li@example.com>  member cm1abc  WEB  203.0.113.9`
     )
     expect(formatAuditList(page, {}, TTY).split('\n')[0]).toMatch(
-      /^TIME \(UTC\)\s+ACTION\s+ACTOR\s+TARGET\s+SOURCE\s+IP$/
+      /^TIME\s+ACTION\s+ACTOR\s+TARGET\s+SOURCE\s+IP$/
     )
   })
 })

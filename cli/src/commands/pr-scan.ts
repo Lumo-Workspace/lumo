@@ -1,3 +1,4 @@
+import { fmtCount, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -252,7 +253,7 @@ function plural(n: number, one: string, many: string): string {
 
 function formatTokens(n: number | null): string {
   // null = not metered (team rule: null ≠ 0) — say so rather than print 0.
-  return n === null ? 'not metered' : n.toLocaleString('en-US')
+  return n === null ? 'not metered' : fmtCount(n)
 }
 
 /** The hunt's audit header (`--full`) as labelled rows (LUM-1091). */
@@ -333,8 +334,11 @@ function formatScan(
     opts
   )
   const meta: Field[] = [
-    { label: 'Started', value: s.startedAt },
-    { label: 'Finished', value: s.finishedAt ?? 'not finished' },
+    { label: 'Started', value: fmtTimestamp(s.startedAt) },
+    {
+      label: 'Finished',
+      value: s.finishedAt ? fmtTimestamp(s.finishedAt) : 'not finished',
+    },
     { label: 'Trigger', value: sanitizeField(s.trigger) },
     { label: 'Tokens', value: formatTokens(s.tokenSpent) },
   ]

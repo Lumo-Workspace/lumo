@@ -1,8 +1,9 @@
+import { NONE, fmtCount } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { errAuth, errNotLoggedIn } from '../lib/errors'
-import { hint } from '../lib/feedback'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { note } from '../lib/feedback'
 
 /**
  * Local copies of the server's OperationCostResponse shape. The CLI is a
@@ -42,13 +43,6 @@ export interface OperationCostResponse {
 
 type By = 'tool' | 'model' | 'member' | 'session'
 
-/** Deterministic thousands separator (no locale dependency, test-stable). */
-function groupThousands(value: number): string {
-  return Math.round(value)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
-
 /** Wide enough for `Bash · typecheck/lint/build`. */
 const LABEL_WIDTH = 28
 /** Commands listed under a `Bash · <purpose>` row. */
@@ -83,11 +77,11 @@ function rankTable(title: string, rows: OperationCostRowDto[]): string {
     lines.push(
       rankRow(
         label,
-        groupThousands(r.output),
-        groupThousands(r.input),
-        groupThousands(r.cacheCreation),
-        groupThousands(r.cacheRead),
-        groupThousands(r.total)
+        fmtCount(r.output),
+        fmtCount(r.input),
+        fmtCount(r.cacheCreation),
+        fmtCount(r.cacheRead),
+        fmtCount(r.total)
       )
     )
   for (const r of rows.slice(0, 20)) {
@@ -117,12 +111,12 @@ export function formatOperationCost(
           : data.byTool
   const pct =
     data.coverage.perStepPct == null
-      ? 'n/a'
+      ? NONE
       : `${Math.round(data.coverage.perStepPct * 100)}%`
   const out: string[] = []
   out.push(`Per-operation cost — ${data.scope.kind} ${data.scope.label}`)
   out.push(
-    `Total: output ${groupThousands(data.grandTotal.output)} · input ${groupThousands(data.grandTotal.input)} · cache_create ${groupThousands(data.grandTotal.cacheCreation)} · cache_read ${groupThousands(data.grandTotal.cacheRead)} · all ${groupThousands(data.grandTotal.total)} tokens`
+    `Total: output ${fmtCount(data.grandTotal.output)} · input ${fmtCount(data.grandTotal.input)} · cache_create ${fmtCount(data.grandTotal.cacheCreation)} · cache_read ${fmtCount(data.grandTotal.cacheRead)} · all ${fmtCount(data.grandTotal.total)} tokens`
   )
   out.push(
     `Per-step attribution: ${pct} of ${data.coverage.toolTurns} tool-using turns (rest fall back to per-turn split)`
@@ -137,7 +131,7 @@ export function formatOperationCost(
     out.push('\n' + rankTable('By session:', data.bySession))
   out.push('')
   out.push(
-    hint(
+    note(
       'token→tool attribution is heuristic — a model step that fires several tools in parallel splits its tokens evenly across them. output (generation) and cache_read (~95%, structural — turns × context) attribute cleanly per step; input and cache_create are bursty (prompt + cache checkpoints) and per-tool figures for those two are coarse.'
     )
   )
@@ -193,7 +187,7 @@ export async function cost(opts: {
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: server returned HTTP ${res.status}`)
+    console.error(errHttp('cost report', res.status))
     return 1
   }
 

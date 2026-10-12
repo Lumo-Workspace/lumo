@@ -1,3 +1,4 @@
+import { fmtCount } from './format'
 import * as fs from 'fs'
 import { checkArtifactFilePath, type PathGuardResult } from './path-guard'
 import { unreadableFileMessage } from './doc-input'
@@ -92,8 +93,8 @@ export async function loadTemplateFile(
     return {
       ok: false,
       message:
-        `${label} is ${content.length.toLocaleString('en-US')} characters; ` +
-        `a task template is capped at ${TEMPLATE_CONTENT_MAX.toLocaleString('en-US')}. ` +
+        `${label} is ${fmtCount(content.length)} characters; ` +
+        `a task template is capped at ${fmtCount(TEMPLATE_CONTENT_MAX)}. ` +
         'Shorten it and retry (nothing was uploaded).',
     }
   }

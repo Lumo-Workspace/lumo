@@ -1,3 +1,4 @@
+import { emptyState, fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
@@ -26,11 +27,6 @@ export interface SprintListOptions {
 
 const VALID_STATUSES = ['DRAFT', 'ACTIVE', 'CLOSED'] as const
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '-'
-  return iso.slice(0, 10)
-}
-
 /**
  * Render sprints as a table (server already sorts by number desc; LUM-1089
  * header on a TTY only):
@@ -40,12 +36,12 @@ export function formatSprintList(
   rows: SprintRow[],
   opts: ListRenderOptions = {}
 ): string {
-  if (rows.length === 0) return 'No sprints.'
+  if (rows.length === 0) return emptyState('sprints')
   return renderListTable(
     rows.map(r => [
       r.status,
       `#${r.number}`,
-      `${formatDate(r.startDate)}..${formatDate(r.endDate)}`,
+      `${fmtCalendarDay(r.startDate)}..${fmtCalendarDay(r.endDate)}`,
       sanitizeField(r.name),
     ]),
     { header: ['STATUS', 'SPRINT', 'DATES', 'NAME'], flex: 3, ...opts }

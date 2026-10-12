@@ -6,6 +6,7 @@
  * hunt coverage line, findings incl. dispositioned rows with their source),
  * `--full` per-task hunt detail from the shared printer, `--json` passthrough.
  */
+import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   formatPrScan,
   prScan,
@@ -339,8 +340,8 @@ describe('formatPrScan', () => {
     expect(lines.slice(5, 28)).toEqual([
       '',
       'Scan abcdef0 · FINDINGS',
-      '  Started:        2026-09-15T07:00:00.000Z',
-      '  Finished:       2026-09-15T07:04:00.000Z',
+      `  Started:        ${fmtTimestamp('2026-09-15T07:00:00.000Z')}`,
+      `  Finished:       ${fmtTimestamp('2026-09-15T07:04:00.000Z')}`,
       '  Trigger:        PR_EVENT',
       '  Tokens:         61,000',
       '  Secrets:        checked',
@@ -499,7 +500,7 @@ describe('formatPrScan', () => {
     expect(out).toContain(
       [
         'Scan abcdef0 · CLEAN',
-        '  Started:        2026-09-15T07:00:00.000Z',
+        `  Started:        ${fmtTimestamp('2026-09-15T07:00:00.000Z')}`,
         '  Finished:       not finished',
         '  Trigger:        PR_EVENT',
         '  Tokens:         not metered',
@@ -509,8 +510,8 @@ describe('formatPrScan', () => {
     expect(out).toContain(
       [
         'Scan 0123456 · FAILED',
-        '  Started:    2026-09-15T07:00:00.000Z',
-        '  Finished:   2026-09-15T07:04:00.000Z',
+        `  Started:    ${fmtTimestamp('2026-09-15T07:00:00.000Z')}`,
+        `  Finished:   ${fmtTimestamp('2026-09-15T07:04:00.000Z')}`,
         '  Trigger:    PR_EVENT',
         '  Tokens:     61,000',
         '  Secrets:    checked',

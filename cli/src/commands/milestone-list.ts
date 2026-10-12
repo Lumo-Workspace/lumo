@@ -1,3 +1,4 @@
+import { emptyState, fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
@@ -41,11 +42,6 @@ export interface MilestoneListOptions {
   cursor?: string | undefined
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '-'
-  return iso.slice(0, 10)
-}
-
 /**
  * Render milestones as a table (LUM-1089, header on a TTY only):
  *   <STATE>  <HEALTH>  <target-date or ->  <name>
@@ -60,12 +56,12 @@ export function formatMilestoneList(
   rows: MilestoneRow[],
   opts: ListRenderOptions = {}
 ): string {
-  if (rows.length === 0) return 'No milestones.'
+  if (rows.length === 0) return emptyState('milestones')
   return renderListTable(
     rows.map(r => [
       milestoneState(r),
       formatHealth(r.health),
-      formatDate(r.targetDate),
+      fmtCalendarDay(r.targetDate),
       sanitizeField(r.name),
     ]),
     { header: ['STATE', 'HEALTH', 'TARGET', 'NAME'], flex: 3, ...opts }

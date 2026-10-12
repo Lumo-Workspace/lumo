@@ -63,7 +63,7 @@ describe('formatTaskContextMarkdown', () => {
       now
     )
     expect(md).toContain('## Previous Sessions (1)')
-    expect(md).toContain('### Session abc12345 · 2 days ago · 1h 20min')
+    expect(md).toContain('### Session abc12345 · 2 days ago · 1h 20m')
     expect(md).toContain('**Summary**: Wire Session.taskId')
     // LUM-1067: open items are candidate follow-ups, not "Unresolved"
     expect(md).not.toContain('**Unresolved**:')
@@ -112,7 +112,7 @@ describe('formatTaskContextMarkdown', () => {
       },
       now
     )
-    expect(md).toContain('· 2h 15min')
+    expect(md).toContain('· 2h 15m')
   })
 
   it('inlines memorySection between header and sessions when present', () => {
@@ -178,7 +178,7 @@ describe('formatTaskContextMarkdown', () => {
     expect(mdMissing).not.toContain('## PR review todos')
   })
 
-  it('renders "just now" / "Xmin ago" / "yesterday" per relative-time rules', () => {
+  it('renders "just now" / "Xm ago" / "yesterday" per relative-time rules', () => {
     const mk = (offsetSec: number) => ({
       id: 'x12345678',
       startedAt: new Date(
@@ -196,7 +196,7 @@ describe('formatTaskContextMarkdown', () => {
     ).toContain('· just now ·')
     expect(
       formatTaskContextMarkdown({ task: baseTask, sessions: [mk(180)] }, now)
-    ).toContain('· 3min ago ·')
+    ).toContain('· 3m ago ·')
     expect(
       formatTaskContextMarkdown(
         { task: baseTask, sessions: [mk(24 * 3600 + 100)] },

@@ -1,3 +1,4 @@
+import { fmtCount } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -27,7 +28,7 @@ interface ResyncResponse {
   results: ResyncResult[]
 }
 
-const n = (v: number) => v.toLocaleString('en-US')
+const n = fmtCount
 
 /**
  * `lumo usage resync [--apply] [--json]` (LUM-932) — recompute token usage

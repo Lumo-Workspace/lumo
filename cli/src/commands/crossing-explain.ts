@@ -5,7 +5,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { printStatusDigest } from '../lib/status-digest'
 import { resolveBoundTask } from '../lib/bound-task'
 import { resolveSessionId } from '../lib/session-id'
-import { errAuth, errNotLoggedIn } from '../lib/errors'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface CrossingExplainOptions {
   note?: string
@@ -224,12 +224,10 @@ async function postExplanation(
       error?: unknown
     } | null
     const detail =
-      errBody && typeof errBody.error === 'string'
-        ? sanitizeField(errBody.error)
-        : ''
+      errBody && typeof errBody.error === 'string' ? errBody.error : null
     return {
       ok: false,
-      error: `Error: explanation rejected (HTTP ${res.status})${detail ? ` — ${detail}` : ''}`,
+      error: errHttp('explanation', res.status, detail),
     }
   }
   const outcome = (await res.json()) as ExplainOutcome

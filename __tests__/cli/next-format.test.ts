@@ -69,7 +69,7 @@ describe('formatNextOutput', () => {
   })
 
   it('returns the empty-state line when there are no tasks', () => {
-    expect(formatNextOutput([], 0)).toBe('No open tasks assigned to you. 🎉')
+    expect(formatNextOutput([], 0)).toBe('No open tasks assigned to you.')
   })
 
   it('strips control characters from the title', () => {

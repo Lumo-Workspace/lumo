@@ -15,6 +15,7 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
+import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   formatTaskStatus,
   taskStatus,
@@ -570,8 +571,8 @@ describe('LUM-1091 long-report layout', () => {
     expect(out).toContain(
       [
         'Scan abcdef0 · FINDINGS',
-        '  Started:        2026-09-15T07:00:00.000Z',
-        '  Finished:       2026-09-15T07:04:00.000Z',
+        `  Started:        ${fmtTimestamp('2026-09-15T07:00:00.000Z')}`,
+        `  Finished:       ${fmtTimestamp('2026-09-15T07:04:00.000Z')}`,
         '  Trigger:        PR_EVENT',
         '  Tokens:         61,000',
         '  Secrets:        checked',

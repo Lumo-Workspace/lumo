@@ -140,7 +140,7 @@ describe('testcase list', () => {
             {
               result: 'PASS',
               environment: evil('LOCAL'),
-              createdAt: '2026-10-13T00:00:00Z',
+              createdAt: '2026-10-13T12:00:00Z',
               commitSha: null,
               commitDirty: null,
             },
@@ -167,7 +167,7 @@ describe('testcase list', () => {
             {
               result: 'PASS',
               environment: 'LOCAL',
-              createdAt: '2026-10-13T00:00:00Z',
+              createdAt: '2026-10-13T12:00:00Z',
               commitSha: null,
               commitDirty: null,
               executedBy: 'Ada\tTC3\nLovelace',

@@ -1,7 +1,7 @@
+import { NONE, fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { localDayLabel } from '../lib/local-day'
 import {
   TASK_DESCRIPTION_FENCE,
   TASK_DESCRIPTION_PREAMBLE,
@@ -53,7 +53,7 @@ export function formatTaskShow(
       color: opts.color === true,
     }),
   ]
-  let assignee = '(unassigned)'
+  let assignee = NONE
   if (task.assignee) {
     const label = sanitizeField(task.assignee.label)
     assignee =
@@ -67,8 +67,7 @@ export function formatTaskShow(
     { label: 'Project', value: sanitizeField(task.project.name) },
     { label: 'Assignee', value: assignee },
   ]
-  if (task.dueDate)
-    fields.push({ label: 'Due', value: localDayLabel(task.dueDate) })
+  if (task.dueDate) fields.push({ label: 'Due', value: fmtDay(task.dueDate) })
   fields.push({ label: 'URL', value: task.url, whole: true })
   lines.push(...fieldLines(fields, 0, opts))
   const description = fenceUntrustedText(

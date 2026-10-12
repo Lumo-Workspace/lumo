@@ -1,3 +1,4 @@
+import { fmtDay } from '../lib/format'
 import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { formatEvidenceLines } from '../lib/test-case-evidence'
@@ -131,7 +132,7 @@ export async function taskTestCaseShow(
         : ''
     const executor = formatExecutor(run)
     console.log(
-      `  ${run.createdAt.slice(0, 10)}  ${run.result} on ${run.environment}` +
+      `  ${fmtDay(run.createdAt)}  ${run.result} on ${run.environment}` +
         freshnessNote(run, pullRequests) +
         (executor ? `  ${executor}` : '') +
         at +

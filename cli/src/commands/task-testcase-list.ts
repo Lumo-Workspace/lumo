@@ -1,3 +1,4 @@
+import { emptyState, fmtDay } from '../lib/format'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { formatExecutor } from '../lib/test-case-executor'
 import { sanitizeField } from '../lib/sanitize'
@@ -50,7 +51,7 @@ export async function taskTestCaseList(
 
   const cases = r.data.testCases
   if (cases.length === 0) {
-    console.log(`No test cases on ${identifier}.`)
+    console.log(emptyState('test cases', identifier))
     return
   }
 
@@ -63,7 +64,7 @@ export async function taskTestCaseList(
       const sha = run.commitSha ? ` @${run.commitSha.slice(0, 7)}` : ''
       const dirty = run.commitDirty === true ? '+dirty' : ''
       const executor = formatExecutor(run)
-      last = `${run.result} on ${run.environment}${sha}${dirty} (${run.createdAt.slice(0, 10)})${executor ? ` ${executor}` : ''}`
+      last = `${run.result} on ${run.environment}${sha}${dirty} (${fmtDay(run.createdAt)})${executor ? ` ${executor}` : ''}`
     }
     console.log(
       `TC${c.number}\t${oneCell(sanitizeField(c.title))}\t${c.steps.length} steps / ${c.verification.length} verify\t${oneCell(sanitizeField(last))}`

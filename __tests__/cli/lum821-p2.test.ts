@@ -133,7 +133,7 @@ describe('task history', () => {
         a('ASSIGNEE_CHANGED', { fromActorId: null, toActorId: 'act-a' }),
         names
       )
-    ).toBe('assignee (none) → Alice')
+    ).toBe('assignee - → Alice')
     expect(
       describeActivity(
         a('TAGS_CHANGED', { added: ['bug'], removed: ['ux'] }),
@@ -145,7 +145,7 @@ describe('task history', () => {
         a('DUE_DATE_CHANGED', { from: null, to: localDayStart('2026-09-30') }),
         names
       )
-    ).toBe('due (none) → 2026-09-30')
+    ).toBe('due - → 2026-09-30')
     expect(describeActivity(a('SOMETHING_NEW', {}), names)).toBe(
       'something new'
     )

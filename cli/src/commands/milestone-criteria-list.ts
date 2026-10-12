@@ -1,3 +1,4 @@
+import { fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
@@ -36,7 +37,7 @@ export function formatExitCriteriaRows(criteria: ExitCriterionRow[]): string {
     )
     if (c.verdict) {
       const parts: string[] = []
-      if (c.verdictAt) parts.push(`at ${c.verdictAt.slice(0, 10)}`)
+      if (c.verdictAt) parts.push(`at ${fmtDay(c.verdictAt)}`)
       if (c.verdictEvidence)
         parts.push(`evidence: ${sanitizeField(c.verdictEvidence)}`)
       if (c.verdictNote) parts.push(`note: ${sanitizeField(c.verdictNote)}`)

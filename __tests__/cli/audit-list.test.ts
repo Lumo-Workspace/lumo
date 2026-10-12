@@ -14,6 +14,7 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
+import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   auditList,
   auditQuery,
@@ -114,10 +115,10 @@ describe('lumo audit list', () => {
       (calls[0]?.init?.headers as Record<string, string>).Authorization
     ).toBe('Bearer tok')
     expect(out).toContain(
-      '2026-10-04 15:54Z  member.role_changed     Alice Chen <alice@example.com>  member m_2   WEB     203.0.113.9'
+      `${fmtTimestamp('2026-10-04T15:54:00.000Z')}  member.role_changed     Alice Chen <alice@example.com>  member m_2   WEB     203.0.113.9`
     )
     expect(out).toContain(
-      '2026-10-03 01:02Z  github_app.uninstalled  system                          integration  SYSTEM  -'
+      `${fmtTimestamp('2026-10-03T01:02:00.000Z')}  github_app.uninstalled  system                          integration  SYSTEM  -`
     )
     expect(out).toContain(
       'Hint: more events with `lumo audit list --action "member" --since "7d" --cursor CUR123`'

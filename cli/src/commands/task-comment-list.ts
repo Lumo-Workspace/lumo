@@ -1,3 +1,4 @@
+import { emptyState, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -73,7 +74,9 @@ function renderCommentBlock(c: CommentNode, indent: string): string {
   const author = sanitizeField(c.authorActorId ?? 'unknown')
   // `#<short id>` is the handle `task comment --reply-to` and
   // `task comments edit/rm` take (LUM-821).
-  lines.push(`${indent}#${shortCommentId(c.id)} · ${author} · ${c.createdAt}`)
+  lines.push(
+    `${indent}#${shortCommentId(c.id)} · ${author} · ${fmtTimestamp(c.createdAt)}`
+  )
   const text = sanitizeField(commentPlainText(c.body))
   for (const line of (text || '(empty)').split('\n')) {
     lines.push(`${indent}${line}`)
@@ -96,7 +99,7 @@ export function formatCommentThread(
   comments: CommentNode[],
   opts: CommentThreadOptions = {}
 ): string {
-  if (comments.length === 0) return '(no comments)'
+  if (comments.length === 0) return emptyState('comments')
   const blocks = comments.map(c => renderCommentBlock(c, ''))
   if (opts.full) return fenceCommentThread(blocks.join(COMMENT_SEPARATOR))
   const id = opts.identifier ?? '<LUM-N>'
@@ -278,7 +281,7 @@ export async function taskCommentList(
 
   const { comments } = (await res.json()) as { comments: CommentNode[] }
   if (!comments || comments.length === 0) {
-    console.log('(no comments)')
+    console.log(emptyState('comments'))
     return
   }
   console.log(
