@@ -2404,9 +2404,9 @@
           "long": "--member",
           "short": null,
           "value": "required",
-          "enum": ["me", "email", "display"],
+          "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Only this member: me | email | display name"
+          "description": "Only this member: me, an email, or a display name"
         },
         "--project": {
           "long": "--project",
@@ -2420,17 +2420,17 @@
           "long": "--since",
           "short": null,
           "value": "required",
-          "enum": ["YYYY-MM-DD", "Nd"],
+          "enum": null,
           "enumCaseInsensitive": false,
-          "description": "First day, inclusive: YYYY-MM-DD | Nd (last N days incl. today, e.g. 30d) | today | yesterday"
+          "description": "First day, inclusive: a YYYY-MM-DD date, Nd for the last N days incl. today (e.g. 30d), today, or yesterday"
         },
         "--until": {
           "long": "--until",
           "short": null,
           "value": "required",
-          "enum": ["YYYY-MM-DD", "today", "yesterday"],
+          "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Last day, inclusive: YYYY-MM-DD | today | yesterday (default today)"
+          "description": "Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)"
         }
       },
       "hasSubcommands": false,

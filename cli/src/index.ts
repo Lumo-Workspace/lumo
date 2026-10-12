@@ -543,13 +543,13 @@ program
   )
   .option(
     '--since <day>',
-    'First day, inclusive: YYYY-MM-DD | Nd (last N days incl. today, e.g. 30d) | today | yesterday'
+    'First day, inclusive: a YYYY-MM-DD date, Nd for the last N days incl. today (e.g. 30d), today, or yesterday'
   )
   .option(
     '--until <day>',
-    'Last day, inclusive: YYYY-MM-DD | today | yesterday (default today)'
+    'Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)'
   )
-  .option('--member <ref>', 'Only this member: me | email | display name')
+  .option('--member <ref>', 'Only this member: me, an email, or a display name')
   .option('--project <name>', 'Only tasks (and their sessions) in this project')
   .option('--limit <N>', 'Max completed tasks listed (default 50, max 500)')
   .option('--json', 'Emit the versioned payload as JSON')
