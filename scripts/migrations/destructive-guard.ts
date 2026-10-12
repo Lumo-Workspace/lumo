@@ -543,8 +543,34 @@ export function run(opts: RunOptions = {}): number {
   return 1
 }
 
-if (process.argv[1] && process.argv[1].endsWith('destructive-guard.ts')) {
-  const i = process.argv.indexOf('--base')
-  const base = i !== -1 ? process.argv[i + 1] : undefined
-  process.exit(run(base ? { base } : {}))
+/**
+ * Parse CLI args: `--base <ref>` or `--base=<ref>`. Returns null when `--base`
+ * has no value, so a typo never silently falls back to origin/main. Other args
+ * (e.g. file paths lint-staged may append) are ignored.
+ */
+export function parseArgs(argv: string[]): { base?: string } | null {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!
+    if (a.startsWith('--base=')) {
+      const v = a.slice('--base='.length)
+      return v ? { base: v } : null
+    }
+    if (a === '--base') {
+      const v = argv[i + 1]
+      return v && !v.startsWith('-') ? { base: v } : null
+    }
+  }
+  return {}
+}
+
+if (
+  process.argv[1] &&
+  /(^|[\\/])destructive-guard\.[cm]?[jt]s$/.test(process.argv[1])
+) {
+  const args = parseArgs(process.argv.slice(2))
+  if (!args) {
+    process.stderr.write('✖ [migration-guard] --base needs a git ref\n')
+    process.exit(2)
+  }
+  process.exit(run(args))
 }

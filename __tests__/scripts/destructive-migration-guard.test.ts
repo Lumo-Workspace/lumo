@@ -16,6 +16,7 @@ import {
   hasContractMarker,
   listMigrations,
   normIdent,
+  parseArgs,
   parsePrismaSchema,
   run,
   splitStatements,
@@ -284,7 +285,27 @@ describe('destructive-migration guard', () => {
           parsePrismaSchema('')
         )
       ).toBeNull()
+      // Same migration: a base that maps the column flags it; no base → only
+      // the marker check runs (MARKED has one), so nothing is reported.
+      expect(
+        checkMigration('m', MARKED, parsePrismaSchema(SCHEMA_WITH_COLUMN))
+      ).toHaveLength(1)
       expect(checkMigration('m', MARKED, null)).toEqual([])
+      expect(
+        checkMigration('m', DROP_COLUMN_SQL, null).map(v => v.kind)
+      ).toEqual(['missing-marker'])
+    })
+
+    it('parses --base strictly', () => {
+      expect(parseArgs([])).toEqual({})
+      expect(parseArgs(['--base', 'origin/dev'])).toEqual({
+        base: 'origin/dev',
+      })
+      expect(parseArgs(['--base=abc123'])).toEqual({ base: 'abc123' })
+      expect(parseArgs(['--base'])).toBeNull()
+      expect(parseArgs(['--base', '--x'])).toBeNull()
+      expect(parseArgs(['--base='])).toBeNull()
+      expect(parseArgs(['prisma/migrations/x/migration.sql'])).toEqual({})
     })
   })
 
