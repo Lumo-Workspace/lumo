@@ -1,6 +1,7 @@
 import { readCredentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { isMissingPluginRoute } from './plugin-route'
+import { sanitizeField } from './sanitize'
 
 /**
  * LUM-801: test case 六条命令共用的取数样板。
@@ -92,6 +93,6 @@ export async function apiCall<T>(
 /** 逐行打印一段带 1-based 编号的步骤。 */
 export function printNumbered(items: string[], indent = '  '): void {
   items.forEach((text, i) => {
-    console.log(`${indent}${i + 1}. ${text}`)
+    console.log(`${indent}${i + 1}. ${sanitizeField(text)}`)
   })
 }
