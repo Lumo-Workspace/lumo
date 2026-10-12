@@ -180,7 +180,7 @@ export function formatTemplateCreatedLine(t: {
 export function templateCreatedNextSteps(key: string): NextStep[] {
   return [
     {
-      command: `lumo task create <title> --template ${key}`,
+      command: `lumo task create <title> --template ${sanitizeField(key)}`,
       why: 'create a task from this template',
     },
   ]

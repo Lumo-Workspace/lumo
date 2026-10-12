@@ -133,6 +133,9 @@ describe('success lines share one shape', () => {
         why: 'create a task from this template',
       },
     ])
+    expect(templateCreatedNextSteps('k\u001b[2J')[0]?.command).toBe(
+      'lumo task create <title> --template k[2J'
+    )
   })
 })
 
