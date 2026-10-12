@@ -5,8 +5,7 @@
 // `getUserList` call (or pages of 500) lose users or fail against a
 // directory that enforces Clerk's documented 100-id cap. Through the shared
 // helper they get every user back, 100 ids per call.
-import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { AuthUser, UserListQuery } from '@/lib/auth/users'
 
@@ -98,22 +97,29 @@ describe('source guard: userId lookups go through listUsersByIds', () => {
     return source.slice(openParen + 1)
   }
 
+  /** Repo-relative .ts/.tsx paths under `dir` (filesystem walk, no git). */
+  function sourceFiles(root: string, dir: string): string[] {
+    return readdirSync(path.join(root, dir), {
+      recursive: true,
+      encoding: 'utf8',
+    })
+      .filter(f => /\.tsx?$/.test(f))
+      .map(f => path.posix.join(dir, f.split(path.sep).join('/')))
+  }
+
   it('finds no direct userId-filtered getUserList call outside the helper', () => {
     const root = path.resolve(__dirname, '../../..')
-    const files = execFileSync(
-      'git',
-      ['grep', '-l', 'getUserList(', '--', 'lib', 'app', 'components'],
-      { cwd: root, encoding: 'utf8' }
+    const files = ['lib', 'app', 'components'].flatMap(dir =>
+      sourceFiles(root, dir)
     )
-      .split('\n')
-      .filter(Boolean)
-    expect(files.length).toBeGreaterThan(0)
+    expect(files).toContain('lib/auth/user-batch.ts')
 
     const offenders: string[] = []
     const needle = 'getUserList('
     for (const file of files) {
       if (ALLOWED.has(file)) continue
       const source = readFileSync(path.join(root, file), 'utf8')
+      if (!source.includes(needle)) continue
       let at = source.indexOf(needle)
       while (at !== -1) {
         const arg = callArgument(source, at + needle.length - 1)
