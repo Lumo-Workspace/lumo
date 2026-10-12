@@ -5,6 +5,7 @@ import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { localDayLabel, localDayStart } from '../lib/local-day'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { colorEnabled, heading, kvBlock, renderTable } from '../lib/ui'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 /**
  * LUM-1100 — `lumo report`: token usage + tasks completed over a window of
@@ -150,7 +151,7 @@ export function groupThousands(value: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-export interface FormatReportOptions {
+export interface FormatReportOptions extends ListRenderOptions {
   window: ReportWindow
   /** Human label of the `--member` filter, when given. */
   memberLabel?: string | undefined
@@ -219,7 +220,7 @@ export function formatReport(
           groupThousands(m.output),
         ]),
         {
-          header: ['model', 'tokens', 'output'],
+          header: ['MODEL', 'TOKENS', 'OUTPUT'],
           align: [undefined, 'right', 'right'],
           maxWidths: [40],
           color,
@@ -244,7 +245,7 @@ export function formatReport(
           String(m.completedCount),
         ]),
         {
-          header: ['member', 'tokens', 'sessions', 'done'],
+          header: ['MEMBER', 'TOKENS', 'SESSIONS', 'DONE'],
           align: [undefined, 'right', 'right', 'right'],
           maxWidths: [32],
           color,
@@ -265,7 +266,8 @@ export function formatReport(
         : ` (${ct.total})`
     out.push(heading(`Completed tasks${shown}`, { color }))
     out.push(
-      renderTable(
+      // LUM-1089 list shape: header + width-fitted title on a TTY only.
+      renderListTable(
         ct.items.map(i => [
           i.identifier,
           localDayLabel(i.completedAt),
@@ -273,9 +275,11 @@ export function formatReport(
           sanitizeField(i.title),
         ]),
         {
-          header: ['task', 'done', 'assignee', 'title'],
-          maxWidths: [undefined, undefined, 24, 72],
+          header: ['TASK', 'DONE', 'ASSIGNEE', 'TITLE'],
+          flex: 3,
           color,
+          ...(opts.tty !== undefined ? { tty: opts.tty } : {}),
+          ...(opts.width !== undefined ? { width: opts.width } : {}),
         }
       )
     )

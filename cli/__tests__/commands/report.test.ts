@@ -175,6 +175,14 @@ describe('formatReport', () => {
     expect(out).not.toContain('\u001b')
   })
 
+  it('prints the task-list header only on a TTY', () => {
+    const tty = formatReport(data, { window: win({}), tty: true, width: 40 })
+    expect(tty).toMatch(/^TASK\s+DONE\s+ASSIGNEE\s+TITLE$/m)
+    const piped = formatReport(data, { window: win({}), tty: false })
+    expect(piped).not.toMatch(/^TASK\s+DONE/m)
+    expect(piped).toContain('Ship report')
+  })
+
   it('renders an explicit empty state', () => {
     const empty = formatReport(
       {
