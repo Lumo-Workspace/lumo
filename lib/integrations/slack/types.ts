@@ -43,9 +43,11 @@ export interface NotificationPayload {
 }
 
 // Input: the raw text after "@Lumo " or "/lumo "
-// Returns: Slack Block Kit blocks array OR a plain string message
+// Returns: Slack Block Kit blocks array OR a plain string message. A blocks
+// reply always carries `text` too — the escaped notification/screen-reader
+// fallback (LUM-1094).
 export type CommandResult =
-  | { type: 'blocks'; blocks: object[] }
+  | { type: 'blocks'; blocks: object[]; text: string }
   | { type: 'text'; text: string }
 
 /**

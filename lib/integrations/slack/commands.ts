@@ -1,9 +1,16 @@
 import { prisma } from '@/lib/db/prisma'
 import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
-import { slugify } from '@/lib/utils/slugify'
+import { buildTaskIdentifier, buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 import { CommandResult } from './types'
 import { escapeMrkdwn } from './mrkdwn'
+import {
+  linkButton,
+  priorityLabel,
+  sectionBlock,
+  slackMessage,
+  statusLabel,
+} from './blocks'
 import { taskRepository } from '@/lib/repositories/task.repository'
 
 // Resolve Slack user email → WorkspaceMember in workspaceId
@@ -41,16 +48,8 @@ async function resolveSlackUser(
 
 const TASK_IDENTIFIER_REGEX = /^([A-Za-z]{1,10})-(\d+)$/
 
-function taskUrl(
-  workspaceSlug: string,
-  projectName: string,
-  identifier: string
-) {
-  return `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/projects/${slugify(projectName)}/tasks/${identifier}`
-}
-
-function taskBlocks(task: {
-  id: string
+/** The `status` reply: one task's details, with a text fallback. */
+function taskMessage(task: {
   number: number
   title: string
   status: string
@@ -59,34 +58,29 @@ function taskBlocks(task: {
   workspaceSlug: string
   assigneeName?: string | null
   projectName?: string | null
-}): object[] {
-  const identifier = `${task.teamIdentifier}-${task.number}`
-  return [
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        // LUM-928: stored names/titles are user-controlled — escape them.
-        text: [
-          `*${escapeMrkdwn(identifier)} · ${escapeMrkdwn(task.title)}*`,
-          `Status: ${escapeMrkdwn(task.status)}   Priority: ${escapeMrkdwn(task.priority)}`,
-          task.assigneeName
-            ? `Assignee: ${escapeMrkdwn(task.assigneeName)}`
-            : null,
-          task.projectName
-            ? `Project: ${escapeMrkdwn(task.projectName)}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join('\n'),
-      },
-      accessory: {
-        type: 'button',
-        text: { type: 'plain_text', text: 'Open in Lumo ↗' },
-        url: taskUrl(task.workspaceSlug, task.projectName ?? '', identifier),
-      },
-    },
+}): { blocks: object[]; text: string } {
+  const identifier = buildTaskIdentifier(task.teamIdentifier, task.number)
+  // LUM-928: stored names/titles are user-controlled — escape them.
+  const heading = `${escapeMrkdwn(identifier)} · ${escapeMrkdwn(task.title)}`
+  const meta = `${statusLabel(task.status)} · ${priorityLabel(task.priority)}`
+  const url = buildTaskUrl(
+    task.workspaceSlug,
+    task.projectName ?? '',
+    task.teamIdentifier,
+    task.number
+  )
+  const body = [
+    `*${heading}*`,
+    `Status: ${statusLabel(task.status)}   Priority: ${priorityLabel(task.priority)}`,
+    task.assigneeName ? `Assignee: ${escapeMrkdwn(task.assigneeName)}` : null,
+    task.projectName ? `Project: ${escapeMrkdwn(task.projectName)}` : null,
   ]
+    .filter(Boolean)
+    .join('\n')
+  return {
+    text: slackMessage({ text: `${heading} — ${meta}` }).text,
+    blocks: [sectionBlock(body, linkButton(url))],
+  }
 }
 
 async function findTaskByIdentifier(identifier: string, workspaceId: string) {
@@ -151,8 +145,7 @@ export async function handleCommand(
       if (!task) return taskNotFound(parts[1]!)
       return {
         type: 'blocks',
-        blocks: taskBlocks({
-          id: task.id,
+        ...taskMessage({
           number: task.number,
           title: task.title,
           status: task.status,
@@ -304,23 +297,22 @@ export async function handleCommand(
         dueDate: null,
       })
 
-      const taskIdentifier = `${team.identifier}-${task.number}`
-      const url = taskUrl(team.workspace.slug, project.name, taskIdentifier)
+      const taskIdentifier = buildTaskIdentifier(team.identifier, task.number)
+      const url = buildTaskUrl(
+        team.workspace.slug,
+        project.name,
+        team.identifier,
+        task.number
+      )
+      const created = `✅ Created ${escapeMrkdwn(taskIdentifier)} · ${escapeMrkdwn(title!)}`
       return {
         type: 'blocks',
+        text: slackMessage({ text: created }).text,
         blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `✅ Created *${escapeMrkdwn(taskIdentifier)} · ${escapeMrkdwn(title!)}*`,
-            },
-            accessory: {
-              type: 'button',
-              text: { type: 'plain_text', text: 'Open in Lumo ↗' },
-              url,
-            },
-          },
+          sectionBlock(
+            `✅ Created *${escapeMrkdwn(taskIdentifier)} · ${escapeMrkdwn(title!)}*`,
+            linkButton(url)
+          ),
         ],
       }
     }
@@ -367,24 +359,25 @@ export async function handleCommand(
       if (tasks.length === 0)
         return { type: 'text', text: `You have no open tasks. 🎉` }
 
+      const rows = tasks.map(t => {
+        const identifier = buildTaskIdentifier(t.team.identifier, t.number)
+        return {
+          heading: `${escapeMrkdwn(identifier)} · ${escapeMrkdwn(t.title)}`,
+          mrkdwn: `*${escapeMrkdwn(identifier)}* · ${escapeMrkdwn(t.title)}\n${statusLabel(t.status)} · ${priorityLabel(t.priority)}`,
+          url: buildTaskUrl(
+            t.team.workspace.slug,
+            t.project.name,
+            t.team.identifier,
+            t.number
+          ),
+        }
+      })
       return {
         type: 'blocks',
-        blocks: tasks.map(t => ({
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*${escapeMrkdwn(`${t.team.identifier}-${t.number}`)}* · ${escapeMrkdwn(t.title)}\n${t.status} · ${t.priority}`,
-          },
-          accessory: {
-            type: 'button',
-            text: { type: 'plain_text', text: 'Open ↗' },
-            url: taskUrl(
-              t.team.workspace.slug,
-              t.project.name,
-              `${t.team.identifier}-${t.number}`
-            ),
-          },
-        })),
+        text: slackMessage({
+          text: `Your open tasks: ${rows.map(r => r.heading).join(', ')}`,
+        }).text,
+        blocks: rows.map(r => sectionBlock(r.mrkdwn, linkButton(r.url))),
       }
     }
 
