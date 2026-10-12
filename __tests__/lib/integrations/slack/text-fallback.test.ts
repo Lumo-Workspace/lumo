@@ -22,9 +22,18 @@ jest.mock('@/lib/integrations/slack/token', () => ({
 jest.mock('@/lib/auth/users', () => ({
   isUserDirectoryConfigured: () => true,
   createUserDirectory: async () => ({
+    // notify.ts resolves one DM recipient with getUser.
     getUser: async () => ({
       primaryEmailAddressId: 'em_1',
       emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
+    }),
+    // LUM-1103: the Slack command member lookup batches via getUserList.
+    getUserList: async ({ userId }: { userId: string[] }) => ({
+      data: userId.map(id => ({
+        id,
+        primaryEmailAddressId: 'em_1',
+        emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
+      })),
     }),
   }),
 }))
