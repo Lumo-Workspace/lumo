@@ -3,7 +3,7 @@
  *
  * LUM-1103 — `findMemberByEmail` resolves the Slack caller's member with a
  * constant number of user-directory calls (a batch `getUserList` by id per
- * 500 members), never one `getUser` per member.
+ * 100 members — Clerk's user_id filter cap), never one `getUser` per member.
  */
 
 const mockListActiveMembers = jest.fn()
@@ -106,28 +106,28 @@ describe('slackCommandService.findMemberByEmail — directory call count', () =>
     expect(query.limit).toBe(50)
   })
 
-  it('keeps the call count independent of the member count (5 vs 200)', async () => {
+  it('keeps the call count independent of the member count (5 vs 100)', async () => {
     seed(5)
     await slackCommandService.findMemberByEmail('ws_1', 'nobody@example.com')
     const small = mockGetUserList.mock.calls.length
     jest.clearAllMocks()
-    seed(200)
+    seed(100)
     await slackCommandService.findMemberByEmail('ws_1', 'nobody@example.com')
     expect(mockGetUserList.mock.calls.length).toBe(small)
     expect(small).toBe(1)
     expect(mockGetUser).not.toHaveBeenCalled()
   })
 
-  it('pages ids in chunks of 500 (the getUserList cap)', async () => {
-    seed(1001)
+  it('pages ids in chunks of 100 (Clerk user_id filter cap)', async () => {
+    seed(250)
     const found = await slackCommandService.findMemberByEmail(
       'ws_1',
-      'person1000@example.com'
+      'person249@example.com'
     )
-    expect(found?.memberId).toBe('wm_1000')
+    expect(found?.memberId).toBe('wm_249')
     expect(mockGetUserList).toHaveBeenCalledTimes(3)
     expect(mockGetUserList.mock.calls.map(c => c[0].userId?.length)).toEqual([
-      500, 500, 1,
+      100, 100, 50,
     ])
     expect(mockGetUser).not.toHaveBeenCalled()
   })

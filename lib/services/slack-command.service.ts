@@ -140,11 +140,14 @@ async function updateAsMember(
   )
 }
 
-/** `getUserList` page-size cap, shared by Clerk and Better Auth. */
-const USER_LIST_PAGE = 500
+/**
+ * Ids per `getUserList` call. Clerk's `user_id` filter accepts at most 100
+ * ids (the ids travel in the query string); `limit` alone would allow 500.
+ */
+const USER_LIST_PAGE = 100
 
 /**
- * Directory users by id, one batch `getUserList` per 500 ids. Works for
+ * Directory users by id, one batch `getUserList` per 100 ids. Works for
  * either provider behind `@/lib/auth/users`; ids the directory no longer
  * knows are simply missing from the map.
  */
@@ -169,7 +172,7 @@ export const slackCommandService = {
   /**
    * The active member whose primary email is `email`, or `null`. Profiles
    * live in the user directory; they are fetched by id in batches (LUM-1103),
-   * so a command costs one directory call per 500 members rather than one
+   * so a command costs one directory call per 100 members rather than one
    * per member. Members are still checked in member order, first match wins.
    */
   async findMemberByEmail(
