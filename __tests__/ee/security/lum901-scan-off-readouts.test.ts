@@ -199,8 +199,8 @@ describe('LUM-901 CLI readouts show scanning off instead of scan CLEAN', () => {
     expect(data.scanningOff).toBe(true)
 
     const out = formatPrScan(JSON.parse(JSON.stringify(data)) as PrScanPayload)
-    expect(out).toContain(SCANNING_OFF_NOTE)
-    expect(out).not.toMatch(/· CLEAN ·/)
+    expect(out.replace(/\s+/g, ' ')).toContain(SCANNING_OFF_NOTE)
+    expect(out).not.toMatch(/· CLEAN$/m)
   })
 
   it('control: scanning on, the read-out says so and CLEAN reads as before', async () => {
@@ -210,8 +210,8 @@ describe('LUM-901 CLI readouts show scanning off instead of scan CLEAN', () => {
     })
     expect(data.scanningOff).toBe(false)
     const out = formatPrScan(JSON.parse(JSON.stringify(data)) as PrScanPayload)
-    expect(out).not.toContain(SCANNING_OFF_NOTE)
-    expect(out).toMatch(/· CLEAN ·/)
+    expect(out.replace(/\s+/g, ' ')).not.toContain(SCANNING_OFF_NOTE)
+    expect(out).toMatch(/^Scan \w+ · CLEAN$/m)
   })
 
   const statusScan = {
@@ -240,7 +240,7 @@ describe('LUM-901 CLI readouts show scanning off instead of scan CLEAN', () => {
     pushSecurityCoverage(lines, statusData(true))
     const out = lines.join('\n')
     expect(out).not.toMatch(/scan CLEAN/)
-    expect(out).toContain(SCANNING_OFF_NOTE)
+    expect(out.replace(/\s+/g, ' ')).toContain(SCANNING_OFF_NOTE)
   })
 
   it('control: task status with scanning on still prints scan CLEAN', () => {

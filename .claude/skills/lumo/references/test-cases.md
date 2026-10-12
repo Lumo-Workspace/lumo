@@ -188,7 +188,7 @@ lumo task testcase run LUM-42/TC3 --result pass --env production
 
 **抽查复核（LUM-819，web-only）**：封顶后仍成立的 PASS（有证据、环境对、没有未观察项）进入 workspace 的抽查池，入口是 **Dashboard 上的抽查卡片**（页面在 `/workspace/<slug>/run-reviews`）。每张卡片把证据和它要对照的东西放在一起：**预期结果**、步骤与复验条目、PR，以及「在任务中查看」直达该任务 Tests 标签、定位到那条 run。人随机抽看 → 认可 / 打回，页面给出虚报率（打回数 / 已复核数，样本不足 10 条时只给计数）。复核**只认浏览器会话**，agent/CLI 的 bearer 身份一律 403；**不拦 DONE**。
 
-复核结果**回写到任务上**：Tests 标签的执行历史标出「已抽查：证据成立 / 被打回（谁，何时，理由）」；用例**最新一次执行**被打回时，`lumo task status` 多一行 `• [TEST CASE] TC3 …: a spot-check by <人> sent this PASS back — the evidence did not hold it up …（advisory）` + `run: lumo task testcase show …`。打回之后重新跑过，这行就消失。看到它：补更好的证据或重跑用例，不是去修一个可能没坏的实现。你能做的只是让自己的 PASS 经得起抽查：跑的当下就附证据。
+复核结果**回写到任务上**：Tests 标签的执行历史标出「已抽查：证据成立 / 被打回（谁，何时，理由）」；用例**最新一次执行**被打回时，`lumo task status` 多一行 `• [TEST CASE] TC3 …: a spot-check by <人> sent this PASS back — the evidence did not hold it up …（advisory） — run:`，下一行单独是 `lumo task testcase show …` 命令。打回之后重新跑过，这行就消失。看到它：补更好的证据或重跑用例，不是去修一个可能没坏的实现。你能做的只是让自己的 PASS 经得起抽查：跑的当下就附证据。
 
 **commit 坐标只在 `--env local` 时自动探测**（`git rev-parse HEAD` + `git status --porcelain`）。不在 git 仓库里就留 null，不编造。
 
@@ -229,7 +229,7 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 | ---------------------------------- | ------------------ | ------------------------------------------------------------------------- |
 | `session attach` / `task context`  | 零用例（不看 PR）  | `## Test cases` 小节                                                      |
 | `Next:` 块                         | 有 PR + 零用例     | 一条 `lumo task testcase add …` 建议，排在最后                            |
-| `lumo task status` 的 next actions | 有 PR + 零用例     | `• [TEST CASE] … (advisory)` + `run:` 命令行                              |
+| `lumo task status` 的 next actions | 有 PR + 零用例     | `• [TEST CASE] … (advisory) — run:` + 下一行单独的命令                    |
 | `lumo task status` 的 next actions | 用例有判决信号     | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)`      |
 | `lumo task status` 的 next actions | 最新执行被抽查打回 | `• [TEST CASE] TC3 …: a spot-check by … sent this PASS back … (advisory)` |
 
