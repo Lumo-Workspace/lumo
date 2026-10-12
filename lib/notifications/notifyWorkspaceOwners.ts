@@ -3,10 +3,13 @@ import { prisma } from '@/lib/db/prisma'
 import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
 import { pushUserEvent } from '@/lib/integrations/pusher'
 import type { NotificationType } from '@prisma/client'
+import { shouldNotifyBatch } from './preferenceGate'
 
 /**
  * Send an inbox notification (and real-time push) to every workspace OWNER,
- * skipping the triggering actor if they are themselves an owner.
+ * skipping the triggering actor if they are themselves an owner, and any
+ * owner whose in-app preference turns this type off (one batched preference
+ * read for all owners; ALWAYS_NOTIFY types are never silenced — LUM-1101).
  */
 export async function notifyWorkspaceOwners(params: {
   workspaceId: string
@@ -26,7 +29,15 @@ export async function notifyWorkspaceOwners(params: {
     },
     select: { id: true, member: { select: { clerkId: true } } },
   })
-  const recipients = ownerActors.filter(a => a.id !== triggerActorId)
+  const candidates = ownerActors.filter(a => a.id !== triggerActorId)
+  if (candidates.length === 0) return
+
+  const allowed = await shouldNotifyBatch(
+    candidates.map(a => a.id),
+    'inApp',
+    type
+  )
+  const recipients = candidates.filter(a => allowed.has(a.id))
   if (recipients.length === 0) return
 
   await prisma.notification.createMany({

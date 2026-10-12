@@ -40,17 +40,24 @@ function rowLabels(region: HTMLElement): string[] {
     .map(s => s.closest('div')?.querySelector('p')?.textContent ?? '')
 }
 
-describe('NotificationsPage (LUM-1098)', () => {
-  it('keeps all five in-app toggles', () => {
+describe('NotificationsPage (LUM-1098, LUM-1101)', () => {
+  it('shows only the in-app toggles that have an in-app send path', () => {
     renderPage()
     const inApp = screen.getByRole('region', { name: 'notifications.inApp' })
+    // Comment has no reader and AGENT_* notifications have no creator, so
+    // those switches would do nothing; they stay hidden (columns kept).
     expect(rowLabels(inApp)).toEqual([
       'notifications.taskAssigned',
-      'notifications.newComment',
-      'notifications.agentDone',
-      'notifications.agentInput',
       'notifications.mentioned',
     ])
+  })
+
+  it('writes the matching in-app preference key when an in-app toggle flips', () => {
+    const update = renderPage()
+    const inApp = screen.getByRole('region', { name: 'notifications.inApp' })
+    const switches = within(inApp).getAllByRole('switch')
+    fireEvent.click(switches[1]!)
+    expect(update).toHaveBeenCalledWith({ notifyInAppMention: false })
   })
 
   it('shows only the Slack toggles that have a Slack send path', () => {
