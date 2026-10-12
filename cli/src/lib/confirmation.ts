@@ -167,7 +167,7 @@ export function renderConfirmation(
       : []),
     // LUM-842: before the re-run lines, so the command stays the last line.
     ...(envelope.statusSummary
-      ? ['', ...envelope.statusSummary.map(sanitizeField), '']
+      ? ['', ...envelope.statusSummary.map(terminalLine), '']
       : []),
     `Re-run with ${envelope.confirmCommand.endsWith('--confirm-read') ? '--confirm-read' : '--confirm'} once the user has approved:`,
     `  ${envelope.confirmCommand}`,

@@ -128,6 +128,33 @@ describe('testcase list', () => {
     ])
   })
 
+  it('control characters in the last-run cell are stripped', async () => {
+    respond({
+      testCases: [
+        {
+          number: 3,
+          title: 'Ok',
+          steps: ['a'],
+          verification: [],
+          runs: [
+            {
+              result: 'PASS',
+              environment: evil('LOCAL'),
+              createdAt: '2026-10-13T00:00:00Z',
+              commitSha: null,
+              commitDirty: null,
+            },
+          ],
+        },
+      ],
+    })
+    await taskTestCaseList('LUM-1')
+    const out = printed()
+    expect(out).toContain('PASS on [31mLOCAL[0m2J (2026-10-13)')
+    expect(out).not.toContain(ESC)
+    expect(out).not.toContain(CSI8)
+  })
+
   it("a runner's name with \\t / \\n stays inside the last-run column", async () => {
     respond({
       testCases: [

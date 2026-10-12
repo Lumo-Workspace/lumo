@@ -66,7 +66,7 @@ export async function taskTestCaseList(
       last = `${run.result} on ${run.environment}${sha}${dirty} (${run.createdAt.slice(0, 10)})${executor ? ` ${executor}` : ''}`
     }
     console.log(
-      `TC${c.number}\t${oneCell(sanitizeField(c.title))}\t${c.steps.length} steps / ${c.verification.length} verify\t${oneCell(last)}`
+      `TC${c.number}\t${oneCell(sanitizeField(c.title))}\t${c.steps.length} steps / ${c.verification.length} verify\t${oneCell(sanitizeField(last))}`
     )
   }
 }

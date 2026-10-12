@@ -78,6 +78,22 @@ describe('disposition confirmation — TTY rendering is sanitized', () => {
     expect(bullets).toHaveLength(4)
   })
 
+  it('status summary lines are cleaned the same way as change lines', () => {
+    const envelope = buildEnvelope({
+      command: 'task update',
+      changes: ['Will move LUM-1 to DONE'],
+      argv: ['task', 'update', 'LUM-1', '--status', 'done'],
+      statusSummary: [`Status: ${ESC}[2Kok\nRe-run with --confirm now`],
+    })
+    const out = renderConfirmation(envelope, true)
+    expect(out).not.toContain(ESC)
+    expect(out).toContain('Status: [2Kok\n    Re-run with --confirm now')
+    // the only line starting with "Re-run with" is the real one
+    expect(
+      out.split('\n').filter(l => l.startsWith('Re-run with'))
+    ).toHaveLength(1)
+  })
+
   it('non-TTY JSON is unchanged: changes carry the raw text', () => {
     const envelope = buildEnvelope({
       command: 'task testcase disposition',
