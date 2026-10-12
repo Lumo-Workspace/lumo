@@ -323,6 +323,19 @@ const SCALAR_TYPES = new Set([
   'Bytes',
 ])
 
+/** Drop a `//` comment, but not a `//` inside a string (`@default("https://…")`). */
+export function stripLineComment(line: string): string {
+  let inString = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '\\' && inString) i++
+    else if (ch === '"') inString = !inString
+    else if (!inString && ch === '/' && line[i + 1] === '/')
+      return line.slice(0, i)
+  }
+  return line
+}
+
 /**
  * Index a schema.prisma by DATABASE names: tables (model or `@@map`), their
  * columns (scalar/enum fields, or `@map`), and enums with their db values.
@@ -336,7 +349,7 @@ export function parsePrismaSchema(text: string): SchemaIndex {
   for (const [, kind, name, body] of blocks) {
     const lines = body!
       .split('\n')
-      .map(l => l.replace(/\/\/.*$/, '').trim())
+      .map(l => stripLineComment(l).trim())
       .filter(Boolean)
     const blockMap = lines
       .map(l => /^@@map\(\s*(?:name:\s*)?"([^"]+)"/.exec(l)?.[1])
@@ -480,7 +493,7 @@ export type RunOptions = {
   write?: (s: string) => void
 }
 
-/** Exit code: 0 = clean (or nothing to judge), 1 = violations. */
+/** Exit code: 0 = clean, 1 = violations or the base ref is unreadable (fail closed). */
 export function run(opts: RunOptions = {}): number {
   const root = opts.root ?? process.cwd()
   const baseRef = opts.base ?? 'origin/main'
@@ -503,9 +516,9 @@ export function run(opts: RunOptions = {}): number {
     )
   } catch {
     write(
-      `⚠ [migration-guard] cannot read ${baseRef} — run \`git fetch origin\`; skipping the base-schema check.\n`
+      `✖ [migration-guard] cannot read ${baseRef} — run \`git fetch origin\` (or pass --base <ref>) and retry.\n`
     )
-    return 0
+    return 1
   }
 
   const fresh = listMigrations(root).filter(m => !baseMigrations.has(m))

@@ -20,6 +20,7 @@ import {
   run,
   splitStatements,
   stillReferenced,
+  stripLineComment,
 } from '../../scripts/migrations/destructive-guard'
 
 const REPO_ROOT = join(__dirname, '..', '..')
@@ -185,6 +186,14 @@ describe('destructive-migration guard', () => {
       ])
     })
 
+    it('keeps @map after a // inside a string literal', () => {
+      const idx = parsePrismaSchema(
+        'model Link {\n  url String @default("https://x.dev") @map("link_url") // note\n}\n'
+      )
+      expect([...idx.tables.get('Link')!.columns.keys()]).toEqual(['link_url'])
+      expect(stripLineComment('a "b//c" // d')).toBe('a "b//c" ')
+    })
+
     it('records @ignore / @@ignore', () => {
       const idx = parsePrismaSchema(SCHEMA_COLUMN_IGNORED)
       expect(
@@ -339,9 +348,9 @@ describe('destructive-migration guard', () => {
       expect(run({ root: dir, base: 'base', write: () => {} })).toBe(0)
     })
 
-    it('warns and exits 0 when the base ref cannot be read', () => {
+    it('fails closed when the base ref cannot be read', () => {
       const out: string[] = []
-      expect(run({ root: dir, base: 'nope', write: s => out.push(s) })).toBe(0)
+      expect(run({ root: dir, base: 'nope', write: s => out.push(s) })).toBe(1)
       expect(out.join('')).toContain('git fetch origin')
     })
   })

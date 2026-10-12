@@ -14,7 +14,7 @@ Removing or renaming a column, table, enum type or enum value takes **two releas
    - Enum value: stop writing it and remove it from the Prisma enum.
    - Prefer `@ignore` / `@@ignore`: the schema still matches the database, so no migration is generated. If you delete the field instead, `prisma migrate dev` generates the drop right away (here and in every later PR until the contract release lands): use `prisma migrate dev --create-only` and keep only the non-destructive part.
 2. **Wait** until the expand release is deployed to production (its Vercel deploy is Ready), not just merged.
-3. **Contract release** — a later PR adds the migration that drops it. The first line of its `migration.sql` carries the marker:
+3. **Contract release** — a later PR adds the migration that drops it. Its `migration.sql` carries the marker comment (put it at the top):
 
    ```sql
    -- lumo:contract-phase <reason, e.g. expand shipped in #1400>
@@ -29,7 +29,7 @@ A rename is a removal plus an addition: add the new column, write both (or backf
 
 `scripts/migrations/destructive-guard.ts` enforces the rule:
 
-- **Base-schema check** (`npm run migrations:check`, and automatically on pre-commit through lint-staged when a `prisma/migrations/**/migration.sql` is staged): for every migration that is not yet on `origin/main` (the code production is serving), each `DROP COLUMN`, `DROP TABLE`, `RENAME COLUMN`, `RENAME TO`, `DROP TYPE`, enum value rename, and enum recreate that removes values (Prisma's `CREATE TYPE "X_new"` pattern) must target something that `origin/main`'s `schema.prisma` no longer maps, or maps only as `@ignore` / `@@ignore`. Otherwise the commit is blocked. Run `git fetch origin` first; a stale `origin/main` makes the check judge against old code. Pass `--base <ref>` to compare against another ref.
+- **Base-schema check** (`npm run migrations:check`, and automatically on pre-commit through lint-staged when a `prisma/migrations/**/migration.sql` is staged): for every migration that is not yet on `origin/main` (the code production is serving), each `DROP COLUMN`, `DROP TABLE`, `RENAME COLUMN`, `RENAME TO`, `DROP TYPE`, enum value rename, and enum recreate that removes values (Prisma's `CREATE TYPE "X_new"` pattern) must target something that `origin/main`'s `schema.prisma` no longer maps, or maps only as `@ignore` / `@@ignore`. Otherwise the commit is blocked. Run `git fetch origin` first; a stale `origin/main` makes the check judge against old code. If the base ref can't be read the check fails closed; pass `--base <ref>` to compare against another ref.
 - **Marker check** (jest, `__tests__/scripts/destructive-migration-guard.test.ts`): every migration with such SQL must carry `-- lumo:contract-phase <reason>`. Migrations that predate the rule are frozen in `scripts/migrations/destructive-baseline.json`. Never add to that list.
 
 Out of scope: data-only deletes (`DELETE`, `TRUNCATE`), and tightening constraints (`SET NOT NULL`, a new unique index) that old code may violate. Review those by hand under the same expand/contract reasoning.
