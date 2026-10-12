@@ -11,6 +11,7 @@ import {
 } from '@/lib/agent-run/operation-cost'
 import type { ModelUsage } from '@/lib/services/model-cost'
 import { parseStatusPayload } from '@/lib/summaries/burnup-replay'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 import type {
   ReportCompletedTask,
   ReportMemberRow,
@@ -28,6 +29,8 @@ export const REPORT_MAX_LIMIT = 500
 export const UNASSIGNED_LABEL = '(unassigned)'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+/** Slack on the max window: local-midnight bounds can span a DST shift. */
+const WINDOW_SLACK_MS = 2 * 60 * 60 * 1000
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -96,6 +99,8 @@ export interface SessionEventLike {
  * Sessions seen per member, and which of them never recorded token usage.
  * An unmetered session is NOT a zero-token session — it is reported as a
  * separate count so a total never silently understates (null ≠ 0).
+ * Subagent child sessions (`<parent>:<agentId>`) fold into their parent:
+ * one conversation is one session, metered if any part of it recorded usage.
  */
 export function sessionCoverage(
   events: SessionEventLike[]
@@ -103,10 +108,12 @@ export function sessionCoverage(
   const out = new Map<string, { sessions: Set<string>; metered: Set<string> }>()
   for (const e of events) {
     if (!e.sessionId) continue
+    const session =
+      parseChildSessionId(e.sessionId)?.parentSessionId ?? e.sessionId
     const key = e.workspaceMemberId ?? ''
     const cur = out.get(key) ?? { sessions: new Set(), metered: new Set() }
-    cur.sessions.add(e.sessionId)
-    if (e.usageByModel != null) cur.metered.add(e.sessionId)
+    cur.sessions.add(session)
+    if (e.usageByModel != null) cur.metered.add(session)
     out.set(key, cur)
   }
   return out
@@ -229,7 +236,7 @@ export function validateReportInput(input: ReportInput): number {
   const u = input.until.getTime()
   if (Number.isNaN(s) || Number.isNaN(u)) httpError(400, 'Invalid date')
   if (s >= u) httpError(400, '`since` must be before `until`')
-  if (u - s > REPORT_MAX_WINDOW_DAYS * DAY_MS)
+  if (u - s > REPORT_MAX_WINDOW_DAYS * DAY_MS + WINDOW_SLACK_MS)
     httpError(400, `Window too wide (max ${REPORT_MAX_WINDOW_DAYS} days)`)
   const limit = input.limit ?? REPORT_DEFAULT_LIMIT
   if (!Number.isInteger(limit) || limit < 1 || limit > REPORT_MAX_LIMIT)
@@ -260,19 +267,22 @@ export const reportService = {
         await import('@/lib/services/task-cli.service')
       projectId = await resolveProjectId(workspaceId, input.projectRef)
     }
-    const taskIds = projectId
-      ? await reportRepository.listProjectTaskIds(workspaceId, projectId)
-      : undefined
+    // --project: filter events in memory by task membership rather than
+    // pushing every project task id into an IN list (unbounded bind params).
+    const projectTaskIds = projectId
+      ? new Set(
+          await reportRepository.listProjectTaskIds(workspaceId, projectId)
+        )
+      : null
 
-    const [events, transitions] = await Promise.all([
-      taskIds && taskIds.length === 0
+    const [windowEvents, transitions] = await Promise.all([
+      projectTaskIds && projectTaskIds.size === 0
         ? Promise.resolve([])
         : hookEventRepository.findToolAttributionEvents({
             workspaceId,
             since: input.since,
             until: input.until,
             workspaceMemberId: memberId ?? undefined,
-            taskIds,
           }),
       reportRepository.listDoneTransitionsSince({
         workspaceId,
@@ -280,6 +290,11 @@ export const reportService = {
         projectId: projectId ?? undefined,
       }),
     ])
+
+    const events = projectTaskIds
+      ? windowEvents.filter(e => e.taskId && projectTaskIds.has(e.taskId))
+      : windowEvents
+    const coverage = sessionCoverage(events)
 
     const { rows } = attributeOperationCost(
       events.map(e => ({
@@ -306,6 +321,7 @@ export const reportService = {
     const ids = new Set<string>()
     for (const r of rows) if (r.workspaceMemberId) ids.add(r.workspaceMemberId)
     for (const t of tasks) if (t.assigneeMemberId) ids.add(t.assigneeMemberId)
+    for (const key of coverage.keys()) if (key) ids.add(key)
     if (memberId) ids.add(memberId)
     const memberLabels = await memberRepository.labelsByIds([...ids])
 
@@ -316,7 +332,7 @@ export const reportService = {
       projectId,
       limit,
       costRows: rows,
-      coverage: sessionCoverage(events),
+      coverage,
       completions,
       tasks,
       memberLabels,

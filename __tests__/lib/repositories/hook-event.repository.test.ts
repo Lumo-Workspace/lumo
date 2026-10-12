@@ -340,6 +340,7 @@ describe('findToolAttributionEvents', () => {
         select: {
           sessionId: true,
           workspaceMemberId: true,
+          taskId: true,
           type: true,
           toolName: true,
           toolDetail: true,

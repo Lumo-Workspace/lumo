@@ -45,10 +45,12 @@ const stop = (
   sessionId: string,
   member: string,
   iso: string,
-  usage: Record<string, unknown> | null
+  usage: Record<string, unknown> | null,
+  taskId: string | null = null
 ) => ({
   sessionId,
   workspaceMemberId: member,
+  taskId,
   type: 'STOP',
   toolName: null,
   toolDetail: null,
@@ -187,6 +189,32 @@ describe('token null semantics', () => {
     expect(cov.get('m')?.sessions.size).toBe(1)
     expect(cov.get('m')?.metered.size).toBe(1)
   })
+
+  it('folds subagent child sessions into their parent session', () => {
+    const cov = sessionCoverage([
+      { sessionId: 'p1', workspaceMemberId: 'm', usageByModel: null },
+      { sessionId: 'p1:agent1', workspaceMemberId: 'm', usageByModel: {} },
+      { sessionId: 'p1:agent2', workspaceMemberId: 'm', usageByModel: null },
+    ])
+    expect(cov.get('m')?.sessions.size).toBe(1)
+    expect(cov.get('m')?.metered.size).toBe(1)
+  })
+
+  it('labels a member whose only activity is unmetered sessions', async () => {
+    hooks.findToolAttributionEvents.mockResolvedValue([
+      stop('s9', 'm9', '2026-10-08T00:00:00Z', null),
+    ] as never)
+    const r = await reportService.getReport('w1', {
+      since: SINCE,
+      until: UNTIL,
+    })
+    expect(members.labelsByIds).toHaveBeenCalledWith(['m9'])
+    expect(r.byMember[0]).toMatchObject({
+      memberId: 'm9',
+      label: 'label:m9',
+      unmeteredSessions: 1,
+    })
+  })
 })
 
 describe('multi-tenant scoping', () => {
@@ -224,6 +252,11 @@ describe('multi-tenant scoping', () => {
   it('narrows tokens to the project tasks when --project is given', async () => {
     ;(resolveProjectId as jest.Mock).mockResolvedValue('p1')
     repo.listProjectTaskIds.mockResolvedValue(['t1', 't2'])
+    hooks.findToolAttributionEvents.mockResolvedValue([
+      stop('in', 'm1', '2026-10-08T00:00:00Z', usage(9), 't1'),
+      stop('other', 'm1', '2026-10-08T00:00:00Z', usage(99), 'tX'),
+      stop('loose', 'm2', '2026-10-08T00:00:00Z', usage(99), null),
+    ] as never)
     const r = await reportService.getReport('w1', {
       since: SINCE,
       until: UNTIL,
@@ -231,9 +264,12 @@ describe('multi-tenant scoping', () => {
     })
     expect(resolveProjectId).toHaveBeenCalledWith('w1', 'Lumo')
     expect(repo.listProjectTaskIds).toHaveBeenCalledWith('w1', 'p1')
-    expect(hooks.findToolAttributionEvents).toHaveBeenCalledWith(
-      expect.objectContaining({ taskIds: ['t1', 't2'] })
-    )
+    // No unbounded IN list is pushed to the DB; filtering happens in memory.
+    expect(
+      hooks.findToolAttributionEvents.mock.calls[0]![0]
+    ).not.toHaveProperty('taskIds')
+    expect(r.team.tokens.total).toBe(10)
+    expect(r.team.sessions).toBe(1)
     expect(repo.listDoneTransitionsSince).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: 'p1' })
     )
@@ -409,6 +445,13 @@ describe('validation + defaults', () => {
     expect(() =>
       validateReportInput({ since: SINCE, until: UNTIL, limit: 0 })
     ).toThrow(/limit/)
+    // 366 local days across a DST shift is 366d + 1h: still accepted.
+    expect(() =>
+      validateReportInput({
+        since: new Date(UNTIL.getTime() - 366 * 86_400_000 - 3_600_000),
+        until: UNTIL,
+      })
+    ).not.toThrow()
     expect(validateReportInput({ since: SINCE, until: UNTIL })).toBe(50)
   })
 

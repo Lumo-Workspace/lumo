@@ -51,6 +51,8 @@ export interface ReportResponseDto {
 
 export const DEFAULT_REPORT_DAYS = 7
 const MAX_LIMIT = 500
+/** Mirrors the server's REPORT_MAX_WINDOW_DAYS. */
+const MAX_WINDOW_DAYS = 366
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 const RELATIVE_RE = /^(\d{1,3})d$/
 
@@ -133,6 +135,11 @@ export function resolveReportWindow(
   const days = Math.round(
     (new Date(untilIso).getTime() - new Date(sinceIso).getTime()) / 86_400_000
   )
+  if (days > MAX_WINDOW_DAYS)
+    return {
+      ok: false,
+      error: `window is ${days} days; the maximum is ${MAX_WINDOW_DAYS}`,
+    }
   return { ok: true, window: { sinceDay, untilDay, sinceIso, untilIso, days } }
 }
 

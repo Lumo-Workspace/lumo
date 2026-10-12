@@ -125,7 +125,7 @@ describe('reportRepository', () => {
 })
 
 describe('hookEventRepository.findToolAttributionEvents window scope', () => {
-  it('adds an exclusive until, a member filter and a task filter', async () => {
+  it('adds an exclusive until and a member filter, and selects taskId', async () => {
     const since = new Date('2026-10-06T00:00:00Z')
     const until = new Date('2026-10-13T00:00:00Z')
     await hookEventRepository.findToolAttributionEvents({
@@ -133,14 +133,13 @@ describe('hookEventRepository.findToolAttributionEvents window scope', () => {
       since,
       until,
       workspaceMemberId: 'm1',
-      taskIds: ['t1'],
     })
     expect(p.hookEvent.findMany.mock.calls[0][0].where).toMatchObject({
       workspaceId: 'w1',
       createdAt: { gte: since, lt: until },
       workspaceMemberId: 'm1',
-      taskId: { in: ['t1'] },
     })
+    expect(p.hookEvent.findMany.mock.calls[0][0].select.taskId).toBe(true)
   })
 
   it('keeps the open-ended workspace scope unchanged for lumo cost', async () => {

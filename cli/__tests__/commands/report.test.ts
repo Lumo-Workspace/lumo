@@ -74,6 +74,7 @@ describe('resolveReportWindow', () => {
       { since: '0d' },
       { until: '7d' },
       { since: '2026-10-10', until: '2026-10-01' },
+      { since: '400d' },
     ]) {
       expect(resolveReportWindow(bad, NOW).ok).toBe(false)
     }
