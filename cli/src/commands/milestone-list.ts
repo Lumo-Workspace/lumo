@@ -5,6 +5,12 @@ import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import {
+  buildCommand,
+  pageFooter,
+  paginate,
+  parsePageArgs,
+} from '../lib/pagination'
+import {
   formatHealth,
   milestoneState,
   type MilestoneHealth,
@@ -31,6 +37,8 @@ export interface MilestoneListOptions {
   archived?: boolean | undefined
   all?: boolean | undefined
   search?: string | undefined
+  limit?: string | undefined
+  cursor?: string | undefined
 }
 
 function formatDate(iso: string | null): string {
@@ -89,6 +97,11 @@ export async function milestoneList(
     return 1
   }
   const filter = options.all ? 'all' : options.archived ? 'archived' : 'active'
+  const pageArgs = parsePageArgs(options.limit, options.cursor)
+  if (!pageArgs.ok) {
+    console.error(`Error: ${pageArgs.error}`)
+    return 1
+  }
 
   const query = new URLSearchParams({ filter })
   const term = options.search?.trim()
@@ -103,5 +116,23 @@ export async function milestoneList(
     return 1
   }
   const data = (await res.json()) as MilestonesResponse
-  process.stdout.write(formatMilestoneList(data.milestones) + '\n')
+  // LUM-1093: the route returns the project's whole (filtered) list, so the
+  // page is cut here.
+  const page = paginate(data.milestones, pageArgs)
+  const lines = [
+    page.items.length === 0 && page.total > 0
+      ? 'No milestones on this page.'
+      : formatMilestoneList(page.items),
+    ...pageFooter(
+      { ...page, shown: page.items.length },
+      buildCommand('milestone list', [
+        ['--project', options.project],
+        ['--archived', options.archived],
+        ['--all', options.all],
+        ['--search', options.search],
+        ['--limit', options.limit],
+      ])
+    ),
+  ]
+  process.stdout.write(lines.join('\n') + '\n')
 }

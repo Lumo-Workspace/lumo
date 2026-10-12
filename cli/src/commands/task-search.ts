@@ -1,4 +1,5 @@
 import { readCredentials } from '../lib/config'
+import { shellQuote } from '../lib/confirmation'
 import { sanitizeField } from '../lib/sanitize'
 import { renderTaskTable } from '../lib/format'
 import type { ListRenderOptions } from '../lib/list-table'
@@ -14,6 +15,15 @@ import {
   resolveProjectId,
   resolveSprintId,
 } from '../lib/resolve'
+import {
+  buildCommand,
+  pageFooter,
+  pageJson,
+  paginate,
+  parsePageArgs,
+  type Page,
+  type PageArgs,
+} from '../lib/pagination'
 
 /**
  * `lumo task search [query]` — workspace-wide task query (LUM-821), the CLI
@@ -44,6 +54,7 @@ export interface TaskSearchOptions {
   dueBefore?: string
   dueAfter?: string
   limit?: string
+  cursor?: string
   json?: boolean
   /** LUM-821: substring-only matching, board order (no typo tolerance). */
   exact?: boolean
@@ -62,7 +73,11 @@ export interface SearchTaskRow {
 
 interface SearchResponse {
   tasks: SearchTaskRow[]
-  truncated: boolean
+  /** Legacy unpaged shape: the server cap was hit. */
+  truncated?: boolean
+  /** LUM-1093 paged shape. */
+  total?: number
+  nextCursor?: string | null
 }
 
 /** Normalise a repeatable enum flag; returns the bad value on failure. */
@@ -96,6 +111,8 @@ export function buildSearchQuery(f: {
   dueAfter?: string | undefined
   dueBefore?: string | undefined
   exact?: boolean | undefined
+  /** LUM-1093: the page to fetch (server-side paging). */
+  page?: PageArgs | undefined
 }): string {
   const p = new URLSearchParams()
   if (f.q) {
@@ -115,6 +132,10 @@ export function buildSearchQuery(f: {
   if (f.unassigned) p.set('unassigned', '1')
   if (f.dueAfter) p.set('dueAfter', f.dueAfter)
   if (f.dueBefore) p.set('dueBefore', f.dueBefore)
+  if (f.page) {
+    p.set('limit', String(f.page.limit))
+    if (f.page.offset > 0) p.set('cursor', String(f.page.offset))
+  }
   const qs = p.toString()
   return `/api/tasks/workspace${qs ? `?${qs}` : ''}`
 }
@@ -181,11 +202,9 @@ export async function taskSearch(
       return 1
     }
   }
-  const limit = opts.limit !== undefined ? parseInt(opts.limit, 10) : undefined
-  if (limit !== undefined && (Number.isNaN(limit) || limit < 1)) {
-    console.error(
-      `Error: invalid --limit "${opts.limit}" (expected a positive integer)`
-    )
+  const pageArgs = parsePageArgs(opts.limit, opts.cursor)
+  if (!pageArgs.ok) {
+    console.error(`Error: ${pageArgs.error}`)
     return 1
   }
 
@@ -281,22 +300,77 @@ export async function taskSearch(
     dueAfter: dueAfter ?? undefined,
     dueBefore: dueBefore ?? undefined,
     exact: opts.exact,
+    page: pageArgs,
   })
   const r = await apiCall<SearchResponse>(ctx, path, {}, 'task search')
   if (!r.ok || !r.data) return 1
 
-  const tasks =
-    limit !== undefined ? r.data.tasks.slice(0, limit) : r.data.tasks
+  const page = searchPage(r.data, pageArgs)
   if (opts.json) {
     process.stdout.write(
-      JSON.stringify({ tasks, truncated: r.data.truncated }, null, 2) + '\n'
+      JSON.stringify(
+        {
+          tasks: page.items,
+          truncated: r.data.truncated ?? false,
+          ...pageJson(page),
+        },
+        null,
+        2
+      ) + '\n'
     )
     return
   }
-  process.stdout.write(formatSearchTable(tasks, actorNameMap(dir)) + '\n')
-  if (r.data.truncated) {
-    process.stdout.write(
-      `(result capped at ${r.data.tasks.length} — narrow the filters)\n`
+  const lines = [formatSearchTable(page.items, actorNameMap(dir))]
+  lines.push(
+    ...pageFooter(
+      { ...page, shown: page.items.length },
+      searchCommand(query, opts)
     )
+  )
+  if (r.data.truncated) {
+    lines.push(`(result capped at ${r.data.tasks.length} — narrow the filters)`)
   }
+  process.stdout.write(lines.join('\n') + '\n')
+}
+
+/**
+ * The page to print: a paging server's answer as-is, or — for a server that
+ * predates LUM-1093 and returned its whole capped list — sliced here.
+ */
+export function searchPage(
+  data: SearchResponse,
+  page: PageArgs
+): Page<SearchTaskRow> {
+  if (typeof data.total === 'number') {
+    return {
+      items: data.tasks,
+      total: data.total,
+      offset: page.offset,
+      nextCursor: data.nextCursor ?? null,
+    }
+  }
+  return paginate(data.tasks, page)
+}
+
+/** `lumo task search …` with the caller's filters (footer next-page command). */
+export function searchCommand(
+  query: string | undefined,
+  opts: TaskSearchOptions
+): string {
+  const q = query?.trim()
+  const base = q ? `task search ${shellQuote(sanitizeField(q))}` : 'task search'
+  return buildCommand(base, [
+    ['--assignee', opts.assignee],
+    ['--tag', opts.tag],
+    ['--status', opts.status],
+    ['--priority', opts.priority],
+    ['--project', opts.project],
+    ['--milestone', opts.milestone],
+    ['--sprint', opts.sprint],
+    ['--team', opts.team],
+    ['--due-after', opts.dueAfter],
+    ['--due-before', opts.dueBefore],
+    ['--limit', opts.limit],
+    ['--exact', opts.exact],
+  ])
 }

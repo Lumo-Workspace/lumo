@@ -58,6 +58,15 @@ export interface WorkspaceTaskFilters {
   dueBefore?: Date | undefined
 }
 
+/** LUM-1093: server-side filters of `lumo task list` (all optional, ANDed). */
+export interface AssignedTaskFilters {
+  sprintIds?: string[] | undefined
+  statuses?: TaskStatus[] | undefined
+  milestoneIds?: string[] | undefined
+  /** Exact project name, case-insensitive. */
+  projectName?: string | undefined
+}
+
 /** Terms shorter than this stay exact — 3-letter trigram sets are too small
  * to tell a typo from an unrelated word (`bug` scores 0.5 against "Budget"). */
 export const FUZZY_MIN_TERM_LENGTH = 4
@@ -339,6 +348,24 @@ const TASK_LIST_INCLUDE = {
     },
   },
 } as const
+
+/**
+ * Workspace task query rows: the list include plus the project name so CLI
+ * search rows can show it (the shared list include stays untouched for board
+ * consumers).
+ */
+const WORKSPACE_SEARCH_INCLUDE = {
+  ...TASK_LIST_INCLUDE,
+  project: { select: { id: true, name: true } },
+} as const
+
+/** Fuzzy relevance order: highest score first (stable for equal scores). */
+function sortByRank<T extends { id: string }>(
+  rows: T[],
+  rank: Map<string, number>
+): T[] {
+  return [...rows].sort((a, b) => (rank.get(b.id) ?? 0) - (rank.get(a.id) ?? 0))
+}
 
 /** Agent-state fields + workspace pointer for cancel / resume / status / confirm-spec / respond. */
 const TASK_AGENT_SELECT = {
@@ -763,6 +790,48 @@ export const taskRepository = {
     })
   },
 
+  /**
+   * LUM-1093: one page of an actor's assigned tasks (board order, id breaks
+   * ties) plus the size of the whole filtered set. Pinned to the caller's
+   * workspace; `projectName` matches case-insensitively.
+   */
+  async findAssignedTasksPage(
+    workspaceId: string,
+    actorId: string,
+    filters: AssignedTaskFilters,
+    page: { offset: number; limit: number }
+  ) {
+    const where: Prisma.TaskWhereInput = {
+      workspaceId,
+      assigneeActorId: actorId,
+      ...(filters.sprintIds?.length
+        ? { sprintId: { in: filters.sprintIds } }
+        : {}),
+      ...(filters.statuses?.length ? { status: { in: filters.statuses } } : {}),
+      ...(filters.milestoneIds?.length
+        ? { milestoneId: { in: filters.milestoneIds } }
+        : {}),
+      ...(filters.projectName
+        ? {
+            project: {
+              name: { equals: filters.projectName, mode: 'insensitive' },
+            },
+          }
+        : {}),
+    }
+    const [total, rows] = await Promise.all([
+      prisma.task.count({ where }),
+      prisma.task.findMany({
+        where,
+        include: TASK_ASSIGNED_INCLUDE,
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        skip: page.offset,
+        take: page.limit,
+      }),
+    ])
+    return { rows, total }
+  },
+
   /** Lightweight summary of tasks assigned to an actor — for Quick Dispatch AI context. */
   async findAssignedTasksSummary(actorId: string) {
     return followUp('tasks assigned to an actor').task.findMany({
@@ -866,6 +935,65 @@ export const taskRepository = {
     workspaceId: string,
     filters: WorkspaceTaskFilters = {}
   ) {
+    const { where, rank } = await this.buildWorkspaceWhere(workspaceId, filters)
+    const rows = await prisma.task.findMany({
+      where,
+      include: WORKSPACE_SEARCH_INCLUDE,
+      orderBy: { order: 'asc' },
+      take: WORKSPACE_TASK_QUERY_LIMIT,
+    })
+    if (!rank) return rows
+    return sortByRank(rows, rank)
+  },
+
+  /**
+   * LUM-1093: one page of the workspace task query plus the size of the whole
+   * filtered result. Board order (id breaks ties so pages never overlap);
+   * fuzzy queries keep their relevance order, and their match set is already
+   * capped at WORKSPACE_TASK_QUERY_LIMIT by rankTextMatches.
+   */
+  async findByWorkspaceWithFiltersPage(
+    workspaceId: string,
+    filters: WorkspaceTaskFilters,
+    page: { offset: number; limit: number }
+  ) {
+    const { where, rank } = await this.buildWorkspaceWhere(workspaceId, filters)
+    if (rank) {
+      const rows = await prisma.task.findMany({
+        where,
+        include: WORKSPACE_SEARCH_INCLUDE,
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        take: WORKSPACE_TASK_QUERY_LIMIT,
+      })
+      return {
+        rows: sortByRank(rows, rank).slice(
+          page.offset,
+          page.offset + page.limit
+        ),
+        total: rows.length,
+      }
+    }
+    const [total, rows] = await Promise.all([
+      prisma.task.count({ where }),
+      prisma.task.findMany({
+        where,
+        include: WORKSPACE_SEARCH_INCLUDE,
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        skip: page.offset,
+        take: page.limit,
+      }),
+    ])
+    return { rows, total }
+  },
+
+  /** The workspace task query's WHERE (+ fuzzy relevance ranks, if any). */
+  async buildWorkspaceWhere(
+    workspaceId: string,
+    filters: WorkspaceTaskFilters
+  ): Promise<{
+    where: Prisma.TaskWhereInput
+    rank: Map<string, number> | null
+  }> {
     const where: Prisma.TaskWhereInput = { workspaceId }
     if (filters.projectIds?.length) {
       where.projectId = { in: filters.projectIds }
@@ -923,22 +1051,7 @@ export const taskRepository = {
         ...(filters.dueBefore ? { lt: filters.dueBefore } : {}),
       }
     }
-    const rows = await prisma.task.findMany({
-      where,
-      // project name rides along so CLI search rows can show it; the shared
-      // list include stays untouched for board consumers.
-      include: {
-        ...TASK_LIST_INCLUDE,
-        project: { select: { id: true, name: true } },
-      },
-      orderBy: { order: 'asc' },
-      take: WORKSPACE_TASK_QUERY_LIMIT,
-    })
-    if (!rank) return rows
-    const byRank = rank
-    return [...rows].sort(
-      (a, b) => (byRank.get(b.id) ?? 0) - (byRank.get(a.id) ?? 0)
-    )
+    return { where, rank }
   },
 
   /**

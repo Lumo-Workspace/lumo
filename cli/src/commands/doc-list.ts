@@ -5,12 +5,19 @@ import { buildTree, flattenWithDepth } from '../lib/doc-tree'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  buildCommand,
+  pageFooter,
+  paginate,
+  parsePageArgs,
+} from '../lib/pagination'
 
 export interface ListDocOptions {
   scope?: string
   project?: string
   task?: string
   limit?: string
+  cursor?: string
   tree?: boolean
 }
 
@@ -60,14 +67,27 @@ export function formatDocListRows(
   )
 }
 
+/** Rows in tree (depth-first) order. */
+export function orderAsTree(rows: DocRow[]): DocRow[] {
+  return flattenWithDepth(buildTree(rows)).map(({ row }) => row)
+}
+
+/**
+ * Rows as an indented tree. `context` is the whole list the rows were paged
+ * from (defaults to `rows`), so a page keeps each row's real depth.
+ */
 export function formatDocListRowsAsTree(
   rows: DocRow[],
-  opts: ListRenderOptions = {}
+  opts: ListRenderOptions = {},
+  context: DocRow[] = rows
 ): string[] {
   if (rows.length === 0) return []
-  const flat = flattenWithDepth(buildTree(rows))
+  const depth = new Map(
+    flattenWithDepth(buildTree(context)).map(({ row, depth: d }) => [row.id, d])
+  )
+  const ordered = context === rows ? orderAsTree(rows) : rows
   return docTableLines(
-    flat.map(({ row, depth }) => docCells(row, '  '.repeat(depth))),
+    ordered.map(row => docCells(row, '  '.repeat(depth.get(row.id) ?? 0))),
     opts
   )
 }
@@ -76,6 +96,11 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
     console.error(errNotLoggedIn())
+    return 1
+  }
+  const pageArgs = parsePageArgs(opts.limit, opts.cursor)
+  if (!pageArgs.ok) {
+    console.error(`Error: ${pageArgs.error}`)
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -121,13 +146,25 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
     )
   }
 
-  if (opts.limit) {
-    const n = parseInt(opts.limit, 10)
-    if (!Number.isNaN(n)) rows = rows.slice(0, n)
-  }
-
+  // LUM-1093: the routes return the whole visible list, so the page is cut
+  // here — after tree ordering with --tree, so a page reads top to bottom.
+  const ordered = opts.tree ? orderAsTree(rows) : rows
+  const page = paginate(ordered, pageArgs)
   const lines = opts.tree
-    ? formatDocListRowsAsTree(rows)
-    : formatDocListRows(rows)
+    ? formatDocListRowsAsTree(page.items, {}, ordered)
+    : formatDocListRows(page.items)
+  if (lines.length === 0 && page.total > 0) lines.push('No docs on this page.')
+  lines.push(
+    ...pageFooter(
+      { ...page, shown: page.items.length },
+      buildCommand('doc list', [
+        ['--scope', opts.scope],
+        ['--project', opts.project],
+        ['--task', opts.task],
+        ['--limit', opts.limit],
+        ['--tree', opts.tree],
+      ])
+    )
+  )
   for (const line of lines) console.log(line)
 }

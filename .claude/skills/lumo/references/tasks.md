@@ -247,18 +247,30 @@ Columns align by display width (CJK counts 2). On a terminal (stdout is a TTY) a
 | `-s, --status <value>`  | enum    | Filter by status: `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive). |
 | `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).                       |
 | `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                                     |
-| `-n, --limit <count>`   | integer | Cap output to the first N rows.                                                             |
+| `-n, --limit <count>`   | integer | Tasks per page (1-500, default **50**).                                                     |
+| `--cursor <cursor>`     | string  | Next page — copy it from the footer (or `nextCursor` in `--json`).                          |
+| `--json`                | boolean | `{ tasks, total, nextCursor }`.                                                             |
 
 ```bash
 lumo task list                                  # everything assigned to me
-lumo task list --status in_progress -n 10       # capped, status-filtered
+lumo task list --status in_progress -n 10       # 10 per page, status-filtered
+lumo task list --cursor 50                      # page 2 (from the footer)
 lumo task list --project backend --status todo
 lumo task list --milestone "Q3 Launch"
 ```
 
-When `--milestone` is set, the CLI calls `GET /api/milestones/<id>/tasks?assigned=me` instead of `/api/tasks/me`. Other filters (`--status`, `--limit`) still apply client-side to the milestone-scoped result.
+Every filter and the page run server-side (`GET /api/tasks/me?statuses=…&milestoneIds=…&projectName=…&limit=…&cursor=…`). Against a server that predates paging the CLI filters and pages the full list itself.
 
-Filtering is currently client-side — the server returns the full "my tasks" set and the CLI slices it. This is fine for typical workspaces (dozens of tasks); revisit if a workspace has hundreds.
+#### Paging (LUM-1093) — shared by `task list`, `task search`, `task history`, `task comments list`, `milestone list`, `doc list`
+
+Lists print **50 rows per page** by default (`--limit` 1-500 changes it). When a page is not the whole result, the output ends with a fixed footer — the first line is `Showing <first>-<last> of <total>.`, the second the command for the next page:
+
+```
+Showing 1-50 of 132.
+Hint: next page with `lumo task list --status todo --cursor 50`
+```
+
+The last page prints only the `Showing …` line; a result that fits on one page prints no footer. **If you see the footer, you have not seen everything** — run the printed command before concluding a task/doc/milestone is absent. `--json` (where offered) adds `total` and `nextCursor` (`null` on the last page). The cursor is opaque: copy it, don't compute it.
 
 ### When to suggest `task list`
 
@@ -267,7 +279,7 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 
 ### `lumo task search [query] [flags]` — search tasks across the workspace (LUM-821)
 
-`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), results capped at 500 (a `(result capped …)` line says so).
+`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), paged 50 at a time (`--limit` / `--cursor`, footer as in **Paging** above; a fuzzy query ranks at most 500 matches).
 
 `[query]` is split on whitespace and **every term must match** (AND): as a case-insensitive substring of the title or description, or as the task number (`42`, `LUM-42`). Typo tolerance is a **tiered fallback** — it only runs when what you typed matches nothing, so a correctly spelled word is never widened (`content` never pulls in "context", `form` never "from"/"for"): (1) exact substring / number; if that finds nothing, (2) typo matching of title words via Postgres `pg_trgm` for non-numeric terms of 4+ letters (`serch`, `filtr`, `dashbord`, `migraton` find their task); if that finds nothing too, (3) one swapped pair of adjacent letters (`oauht` → "OAuth"). A typo'd title word must be ≥ 4 letters and at most one letter shorter than the term. Results are ranked by a relevance score summed over the terms: task number 2.0, title substring 1.0, trigram typo 0.9 × similarity, letter swap 0.85, description substring 0.5. `--exact` switches the fallback tiers off.
 
@@ -281,9 +293,10 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 | `-m, --milestone <ref>`           | string              | Milestone name or UUID.                                                                          |
 | `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                       |
 | `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive calendar days in your local timezone (same as the web due-date picker).                |
-| `-n, --limit <count>`             | integer             | Show only the first N rows.                                                                      |
+| `-n, --limit <count>`             | integer             | Tasks per page (1-500, default 50).                                                              |
+| `--cursor <cursor>`               | string              | Next page — from the footer or `nextCursor`.                                                     |
 | `--exact`                         | boolean             | Substring matching only, in board order (default: typo-tolerant, ranked).                        |
-| `--json`                          | boolean             | Raw `{ tasks, truncated }`.                                                                      |
+| `--json`                          | boolean             | `{ tasks, truncated, total, nextCursor }`.                                                       |
 
 ```bash
 lumo task search "oauth redirect"
@@ -366,9 +379,9 @@ lumo task show LUM-42
 
 Use when the user wants the current state of a task without the agent-handoff payload.
 
-### `lumo task history <identifier> [-n <count>] [--json]` — field-change log (LUM-821)
+### `lumo task history <identifier> [-n <count>] [--cursor <c>] [--json]` — field-change log (LUM-821)
 
-The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Default last 30; `-n` raises it. Comments are not included — use `task comments list`.
+The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints this page's entries as a bare array (unchanged shape, no `total`). Comments are not included — use `task comments list`.
 
 ```bash
 lumo task history LUM-42
@@ -391,6 +404,8 @@ lumo task comment LUM-42 "Reproduced the redirect bug on staging — Safari only
 ```
 
 The CLI does not support @-mention chip syntax. If the user wants to ping someone, they should comment from the web UI.
+
+**Listing.** `lumo task comments list <id>` pages top-level threads 50 at a time (replies stay with their parent; `--limit` / `--cursor`, footer as in **Paging** above, printed after the fenced thread). `--full` alone prints every comment with no paging and no output-budget cap.
 
 **Replying (LUM-821).** `lumo task comments list` prints every comment with a short id (`#cmaaaaaa · <author> · <time>`). `--reply-to <comment>` takes that id — any unique prefix of 6+ characters. Threads are one level deep: replying to a reply is refused, naming the top-level comment to reply to instead.
 
