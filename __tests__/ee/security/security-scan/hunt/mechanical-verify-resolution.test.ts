@@ -379,9 +379,9 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
       },
       { full: true }
     )
-    expect(printed).toContain(
-      'placed by subgraph 1 · sink rule 1 · sandbox 1 · unplaced 2'
+    expect(printed).toMatch(
+      /^ +Placed by: +subgraph 1 · sink rule 1 · sandbox 1 · unplaced 2$/m
     )
-    expect(printed).toContain('survived 3 · rejected 2')
+    expect(printed).toMatch(/^ +Outcome: +survived 3 · rejected 2$/m)
   })
 })

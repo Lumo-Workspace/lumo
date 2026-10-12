@@ -1,75 +1,69 @@
 import { prisma } from '@/lib/db/prisma'
 import { decrypt } from '@/lib/crypto'
 import { getSlackIntegrationToken } from './token'
-import { escapeMrkdwn, mrkdwnLink } from './mrkdwn'
-import {
-  SlackMessage,
-  actionsBlock,
-  linkButton,
-  sectionBlock,
-  slackMessage,
-  truncate,
-} from './blocks'
+import { SlackMessage } from './blocks'
+import { buildNotificationMessage } from './notification-message'
 import {
   SlackEventType,
+  NotificationAudience,
   NotificationPayload,
-  SLACK_EVENT_LABELS,
 } from './types'
 
-const EMOJI: Record<SlackEventType, string> = {
-  task_created: '🆕',
-  task_assigned: '👤',
-  task_in_review: '🔍',
-  task_done: '✅',
-  task_sent_back: '↩️',
-  pr_opened: '🔀',
-  pr_merged: '🎉',
-  comment_mention: '💬',
+/** Display name for a Clerk ID, or null when the directory cannot say. */
+async function lookupDisplayName(clerkId: string): Promise<string | null> {
+  try {
+    const { getClerkUser } = await import('@/lib/utils/clerk-helpers')
+    const { name } = await getClerkUser(clerkId)
+    return name && name !== 'Unknown' ? name : null
+  } catch {
+    return null
+  }
 }
 
+/** Most mentioned people looked up (and listed) for one channel post. */
+export const MAX_MENTIONED_NAMES = 10
+
 /**
- * Build the notification message: blocks plus a `text` fallback that says the
- * same thing. LUM-928: every interpolated value is user- or GitHub-controlled —
- * escape it so it cannot inject <!channel>/<!here> pings or disguised links.
+ * Fill in display names the caller only knew by Clerk ID (the actor, and the
+ * people a mention named). A failed lookup just leaves the name out.
  */
-function buildMessage(
+async function resolveNames(
   event: SlackEventType,
-  payload: NotificationPayload
-): SlackMessage {
-  const emoji = EMOJI[event]
-  const label = SLACK_EVENT_LABELS[event]
-  const url = payload.taskUrl
+  payload: NotificationPayload,
+  audience: NotificationAudience
+): Promise<NotificationPayload> {
+  const needActor = !payload.actorName?.trim() && !!payload.actorClerkId
+  // Only channel mention posts list who was mentioned; a DM's recipient is
+  // the one, and other events never show the list.
+  const mentionedIds =
+    event !== 'comment_mention' ||
+    audience === 'dm' ||
+    (payload.mentionedNames?.length ?? 0) > 0
+      ? []
+      : (payload.mentionedClerkIds ?? []).slice(0, MAX_MENTIONED_NAMES)
+  if (!needActor && mentionedIds.length === 0) return payload
 
-  const lines: string[] = [`${emoji} *${label}*`]
-  let fallback = `${emoji} ${label}`
+  const [actorName, mentionedNames] = await Promise.all([
+    needActor ? lookupDisplayName(payload.actorClerkId!) : null,
+    Promise.all(mentionedIds.map(lookupDisplayName)),
+  ])
+  const resolved: NotificationPayload = { ...payload }
+  if (actorName) resolved.actorName = actorName
+  const names = mentionedNames.filter((n): n is string => !!n)
+  if (names.length > 0) resolved.mentionedNames = names
+  return resolved
+}
 
-  if (payload.taskIdentifier && payload.taskTitle) {
-    const task = `${escapeMrkdwn(payload.taskIdentifier)} · ${escapeMrkdwn(payload.taskTitle)}`
-    lines.push(task)
-    fallback += `: ${task}`
-  }
-  if (payload.actorName) {
-    const actor = escapeMrkdwn(payload.actorName)
-    lines.push(`_by ${actor}_`)
-    fallback += ` — by ${actor}`
-  }
-  if (payload.prTitle) {
-    const prLabel = `#${payload.prNumber} ${payload.prTitle}`
-    lines.push(
-      payload.prUrl
-        ? `PR: ${mrkdwnLink(payload.prUrl, prLabel)}`
-        : `PR: ${escapeMrkdwn(prLabel)}`
-    )
-    fallback += ` — PR ${escapeMrkdwn(prLabel)}`
-  }
-  if (payload.commentBody) {
-    lines.push(`> ${escapeMrkdwn(truncate(payload.commentBody, 120))}`)
-  }
-
-  const blocks = [sectionBlock(lines.join('\n'))]
-  if (url) blocks.push(actionsBlock([linkButton(url)]))
-
-  return slackMessage({ text: fallback, blocks })
+async function buildMessage(
+  event: SlackEventType,
+  payload: NotificationPayload,
+  audience: NotificationAudience
+): Promise<SlackMessage> {
+  return buildNotificationMessage(
+    event,
+    await resolveNames(event, payload, audience),
+    audience
+  )
 }
 
 async function getIntegrationToken(
@@ -154,7 +148,7 @@ export async function sendChannelNotification(
     if (!integration || integration.channels.length === 0) return
 
     const token = decrypt(integration.accessToken)
-    const message = buildMessage(event, payload)
+    const message = await buildMessage(event, payload, 'channel')
 
     await Promise.allSettled(
       integration.channels.map(c => postToChannel(token, c.channelId, message))
@@ -197,7 +191,7 @@ export async function sendDMNotification(
     const openData = await openRes.json()
     if (!openData.ok) return
 
-    const message = buildMessage(event, payload)
+    const message = await buildMessage(event, payload, 'dm')
     await postToChannel(token, openData.channel.id, message)
   } catch (error) {
     console.error(`[slack notify] sendDMNotification error (${event}):`, error)

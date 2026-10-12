@@ -4,13 +4,11 @@ import { sanitizeField } from '../lib/sanitize'
 import { isMissingPluginRoute, missingPluginMessage } from '../lib/plugin-route'
 import { printRedactionNotice } from '../lib/redaction-notice'
 import {
-  formatHuntCoverageLine,
   formatSizeCapLines,
-  formatScanLayerTail,
   formatScanStatus,
   formatTurnedOffLines,
   formatScanningOffLines,
-  formatJudgeBudgetLine,
+  scanFields,
   type JudgeBudgetLine,
   type PrTooLargeLine,
   type HuntCoverageInput,
@@ -26,6 +24,17 @@ import {
   type ShellDetailTask,
 } from '../../../shared/src/hunt-audit'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  bulletLines,
+  commandLine,
+  fieldLines,
+  labelWidth,
+  sectionHeading,
+  wrapLines,
+  type Field,
+  type LayoutOptions,
+} from '../lib/report-layout'
+import { colorEnabled, heading, terminalWidth } from '../lib/ui'
 
 export interface PrScanOptions {
   review?: 'incremental' | 'full'
@@ -209,22 +218,32 @@ function findingStanding(f: PrScanFinding): string {
 }
 
 /**
- * Same line grammar as the `[SECURITY]` next-action rows of `lumo task status`;
- * an AI-review correctness finding (`review:<kind>`) leads with `[BUG]` there
- * and here (LUM-988).
+ * One finding as an item (LUM-1091): the title on the bullet line, then
+ * labelled rows — rule + provenance, where, and its standing (with the
+ * falsifier verdict and the AI suggestion when present). Same facts as the
+ * `[SECURITY]` items of `lumo task status`; an AI-review correctness finding
+ * (`review:<kind>`) leads with `[BUG]` there and here (LUM-988).
  */
-function formatFinding(f: PrScanFinding): string {
+function findingLines(f: PrScanFinding, opts: LayoutOptions): string[] {
   const where = f.line == null ? f.filePath : `${f.filePath}:${f.line}`
   const note = sanitizeField(secretDowngradeNote(f.secretDowngrade))
-  const falsifier = f.falsifierVerdict
-    ? ` · falsifier ${f.falsifierVerdict}`
-    : ''
-  const suggestion =
-    f.disposition === null && f.suggestedDisposition
-      ? ` · AI suggests ${f.suggestedDisposition}`
-      : ''
   const bug = isCodeReviewFinding(f.ruleId) ? '[BUG] ' : ''
-  return `${bug}[${f.severity}] ${f.provenance} ${sanitizeField(f.ruleId)} — ${sanitizeField(where)} — ${sanitizeField(f.title)}${note} (${findingStanding(f)}${falsifier}${suggestion})`
+  const fields: Field[] = [
+    {
+      label: 'Rule',
+      value: `${sanitizeField(f.ruleId)} (${f.provenance})`,
+    },
+    { label: 'Where', value: sanitizeField(where) },
+    { label: 'Standing', value: `${findingStanding(f)}${note}` },
+  ]
+  if (f.falsifierVerdict)
+    fields.push({ label: 'Falsifier', value: f.falsifierVerdict })
+  if (f.disposition === null && f.suggestedDisposition)
+    fields.push({ label: 'AI suggests', value: f.suggestedDisposition })
+  return [
+    ...bulletLines(`${bug}[${f.severity}] ${sanitizeField(f.title)}`, 4, opts),
+    ...fieldLines(fields, 6, opts),
+  ]
 }
 
 function plural(n: number, one: string, many: string): string {
@@ -233,98 +252,124 @@ function plural(n: number, one: string, many: string): string {
 
 function formatTokens(n: number | null): string {
   // null = not metered (team rule: null ≠ 0) — say so rather than print 0.
-  return n === null
-    ? 'tokens not metered'
-    : `${n.toLocaleString('en-US')} tokens`
+  return n === null ? 'not metered' : n.toLocaleString('en-US')
 }
 
-function formatHuntHeader(h: PrScanHunt): string {
-  const parts: string[] = []
+/** The hunt's audit header (`--full`) as labelled rows (LUM-1091). */
+function huntAuditFields(h: PrScanHunt): Field[] {
+  const fields: Field[] = []
   if (h.plannedBy) {
-    parts.push(
-      `planned by ${sanitizeField(h.plannedBy)}${h.plannedReason ? ` — ${sanitizeField(h.plannedReason)}` : ''}`
-    )
+    fields.push({
+      label: 'Planned by',
+      value: `${sanitizeField(h.plannedBy)}${h.plannedReason ? ` — ${sanitizeField(h.plannedReason)}` : ''}`,
+    })
   }
   if (h.diff) {
-    parts.push(
-      `diff ${plural(h.diff.sourceFiles, 'source file', 'source files')} · ${plural(h.diff.sites, 'site', 'sites')} · task cap ${h.diff.taskCap}${h.diff.oversized ? ' · this run was sized for fewer files than the diff — the rest is still on us' : ''}`
-    )
+    fields.push({
+      label: 'Diff',
+      value: `${plural(h.diff.sourceFiles, 'source file', 'source files')} · ${plural(h.diff.sites, 'site', 'sites')} · task cap ${h.diff.taskCap}${h.diff.oversized ? ' · this run was sized for fewer files than the diff — the rest is still on us' : ''}`,
+    })
   }
-  if (h.candidates !== null) parts.push(`candidates ${h.candidates}`)
+  if (h.candidates !== null)
+    fields.push({ label: 'Candidates', value: String(h.candidates) })
   if (h.mechanicallyRejected !== null)
-    parts.push(`mechanically rejected ${h.mechanicallyRejected}`)
+    fields.push({
+      label: 'Mechanically rejected',
+      value: String(h.mechanicallyRejected),
+    })
   // LUM-798 — the same drop, broken out by what placed the candidate. Reading
   // "rejected 23 of 23" off a scan is what told us the gate had never judged
   // anything; the breakdown is what says whether that has changed.
   if (h.resolution?.kind === 'placement') {
     const r = h.resolution
-    parts.push(
-      `placed by subgraph ${r.placed.subgraph} · sink rule ${r.placed.sinkRule} · sandbox ${r.placed.sandbox} · unplaced ${r.unplaced}`,
-      `survived ${r.accepted} · rejected ${r.rejected}`
+    fields.push(
+      {
+        label: 'Placed by',
+        value: `subgraph ${r.placed.subgraph} · sink rule ${r.placed.sinkRule} · sandbox ${r.placed.sandbox} · unplaced ${r.unplaced}`,
+      },
+      {
+        label: 'Outcome',
+        value: `survived ${r.accepted} · rejected ${r.rejected}`,
+      }
     )
   } else if (h.resolution) {
     const r = h.resolution
-    parts.push(
-      `resolved by subgraph ${r.subgraph} · sink rule ${r.sinkRule} · sandbox ${r.sandbox} · rejected ${r.rejected} (legacy tally — placements counted only on acceptance)`
-    )
+    fields.push({
+      label: 'Resolved by',
+      value: `subgraph ${r.subgraph} · sink rule ${r.sinkRule} · sandbox ${r.sandbox} · rejected ${r.rejected} (legacy tally — placements counted only on acceptance)`,
+    })
   }
   if (h.falsifierRejects !== null)
-    parts.push(`falsifier rejects ${h.falsifierRejects}`)
-  if (h.error) parts.push(`error: ${sanitizeField(h.error)}`)
-  return parts.length === 0
-    ? 'Hunt: (no audit recorded)'
-    : `Hunt: ${parts.join(' · ')}`
+    fields.push({
+      label: 'Falsifier rejects',
+      value: String(h.falsifierRejects),
+    })
+  if (h.error) fields.push({ label: 'Error', value: sanitizeField(h.error) })
+  return fields
+}
+
+/**
+ * The shared per-task printer's lines, re-based so the report stays three
+ * levels deep: a task line at 4, its commands / steps / stop at 6. A command
+ * the gate let through has a blank mark column there (`✗` = refused); it is
+ * shown as `-` so the line does not start deeper than three levels.
+ */
+function huntTaskLines(tasks: PrScanHunt['tasks']): string[] {
+  return formatHuntTaskDetail(tasks, FULL_TASK_CAP).map(l => {
+    if (!l.startsWith('    ')) return `    ${l}`
+    const rest = l.slice(4)
+    return rest.startsWith('  ') ? `      - ${rest.slice(2)}` : `      ${rest}`
+  })
 }
 
 function formatScan(
   s: PrScanEntry,
   full: boolean,
-  scanningOff: boolean
+  scanningOff: boolean,
+  opts: LayoutOptions
 ): string[] {
-  const lines: string[] = []
-  const finished = s.finishedAt
-    ? ` · finished ${s.finishedAt}`
-    : ' · not finished'
-  lines.push(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null)} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
+  const lines = sectionHeading(
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null)}`,
+    opts
   )
-  const tail = formatScanLayerTail({
-    status: s.status,
-    stages: s.stages,
-    partial: s.partial,
-    partialCauses: s.partialCauses,
-    huntOverCap: s.huntOverCap,
-    judgeOverCap: s.judgeOverCap,
-    prTooLarge: s.prTooLarge,
-    externalFindings: s.counts.externalFindings,
-    dependencyFindings: s.counts.dependencyFindings,
-    persistingFindings: s.counts.persisting,
-    queueExits: s.queueExits,
-    externalFailureReason: s.externalFailureReason,
-  })
-  // The tail starts with ` · `; on its own line the leading separator goes.
-  if (tail) lines.push(`  ${tail.replace(/^ · /, '')}`)
-  // LUM-832: the file cap, stated like CodeRabbit states its own.
-  for (const l of formatSizeCapLines(s)) lines.push(`  ${l}`)
-  // LUM-892: layers turned off in settings — the customer's choice, said so.
-  for (const l of formatTurnedOffLines(s.stages)) lines.push(`  ${l}`)
-  // LUM-814: the judge's budget arithmetic, one line under the layer it
-  // belongs to and before the hunt's own detail — stage order, same as the
-  // segments above. Printed whenever the layer exists, including when it was
-  // not truncated: "reviewed whole with 2.2% of the tier left" is a fact the
-  // `truncated` boolean above could never carry.
-  if (s.stages.judge) {
-    lines.push(`    ${formatJudgeBudgetLine(s.judgeBudget ?? null)}`)
-  }
-  if (s.hunt?.coverage && s.hunt.coverage.categories.length > 0) {
-    lines.push(`    ${formatHuntCoverageLine(s.hunt.coverage)}`)
-  }
+  const meta: Field[] = [
+    { label: 'Started', value: s.startedAt },
+    { label: 'Finished', value: s.finishedAt ?? 'not finished' },
+    { label: 'Trigger', value: sanitizeField(s.trigger) },
+    { label: 'Tokens', value: formatTokens(s.tokenSpent) },
+  ]
+  // LUM-814: the judge's budget arithmetic sits under the AI review row —
+  // printed whenever the layer exists, including when it was not truncated:
+  // "reviewed whole with 2.2% of the tier left" is a fact the `truncated`
+  // boolean could never carry.
+  const layers = scanFields(
+    {
+      status: s.status,
+      stages: s.stages,
+      partial: s.partial,
+      partialCauses: s.partialCauses,
+      huntOverCap: s.huntOverCap,
+      judgeOverCap: s.judgeOverCap,
+      prTooLarge: s.prTooLarge,
+      externalFindings: s.counts.externalFindings,
+      dependencyFindings: s.counts.dependencyFindings,
+      persistingFindings: s.counts.persisting,
+      queueExits: s.queueExits,
+      externalFailureReason: s.externalFailureReason,
+    },
+    {
+      judgeBudget: s.judgeBudget ?? null,
+      hunt: s.hunt?.coverage ?? null,
+      truncated: s.truncated,
+    }
+  )
   const c = s.counts
+  let findingsValue: string
   if (c.findings === 0 && s.prTooLarge) {
     // LUM-1079: nothing ran — "none" would read as a clean result.
-    lines.push('  Findings: none — nothing in this PR was scanned')
+    findingsValue = 'none — nothing in this PR was scanned'
   } else if (c.findings === 0) {
-    lines.push('  Findings: none on this scan')
+    findingsValue = 'none on this scan'
   } else {
     const breakdown = [
       `${c.open} open`,
@@ -332,55 +377,106 @@ function formatScan(
       `${c.dispositioned} dispositioned`,
     ]
     if (c.persisting > 0) breakdown.push(`${c.persisting} already on main`)
-    lines.push(`  Findings: ${c.findings} (${breakdown.join(' · ')})`)
-    for (const f of s.findings) lines.push(`    ${formatFinding(f)}`)
+    findingsValue = `${c.findings} (${breakdown.join(' · ')})`
   }
+  const findingsRow: Field[] = [{ label: 'Findings', value: findingsValue }]
+  const w = labelWidth([...meta, ...layers, ...findingsRow])
+  lines.push(...fieldLines([...meta, ...layers], 2, opts, w))
+  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  // LUM-892: layers turned off in settings — the customer's choice, said so.
+  for (const l of [...formatSizeCapLines(s), ...formatTurnedOffLines(s.stages)])
+    lines.push(...wrapLines(l, 2, opts))
+  lines.push(...fieldLines(findingsRow, 2, opts, w))
+  if (c.findings > 0)
+    for (const f of s.findings) lines.push(...findingLines(f, opts))
   if (full && s.hunt) {
-    lines.push(`  ${formatHuntHeader(s.hunt)}`)
-    for (const l of formatHuntTaskDetail(s.hunt.tasks, FULL_TASK_CAP)) {
-      lines.push(`    ${l}`)
-    }
+    const audit = huntAuditFields(s.hunt)
+    lines.push('  Hunt audit:')
+    if (audit.length === 0) lines.push('    (no audit recorded)')
+    else lines.push(...fieldLines(audit, 4, opts))
+    lines.push('  Hunt tasks:')
     if (s.hunt.tasks.length === 0) lines.push('    (no per-task audit rows)')
+    else lines.push(...huntTaskLines(s.hunt.tasks))
   }
   return lines
 }
 
 /**
  * Render the read-out as prose. The PR header first (repo, state, linked
- * task or none), then one block per scan, newest first. A PR with no scan
- * says so in the fail-closed wording of `lumo task status` — never an
- * implicit "clean".
+ * task or none, URL), the AI-review controls, then one block per scan,
+ * newest first. A PR with no scan says so in the fail-closed wording of
+ * `lumo task status` — never an implicit "clean". LUM-1091: headings over
+ * labelled rows, commands on their own lines, prose wrapped.
  */
 export function formatPrScan(
   data: PrScanPayload,
-  opts: { full?: boolean | undefined } = {}
+  opts: {
+    full?: boolean | undefined
+    width?: number | undefined
+    color?: boolean | undefined
+  } = {}
 ): string {
+  const layout: LayoutOptions = { width: opts.width, color: opts.color }
   const pr = data.pullRequest
-  const lines: string[] = []
+  const lines: string[] = [
+    heading(`PR #${pr.number}  ${sanitizeField(pr.title)}`, {
+      color: layout.color === true,
+    }),
+    ...fieldLines(
+      [
+        { label: 'Repo', value: sanitizeField(pr.repo) },
+        { label: 'State', value: sanitizeField(pr.state) },
+        {
+          label: 'Task',
+          value: pr.task ? sanitizeField(pr.task.identifier) : 'no linked task',
+        },
+        { label: 'URL', value: sanitizeField(pr.url) },
+      ],
+      2,
+      layout
+    ),
+  ]
+  // LUM-901: said before any scan, so an older result is read as older.
+  for (const l of formatScanningOffLines(data.scanningOff))
+    lines.push(...wrapLines(`⚠ ${l}`, 0, layout))
   if (data.reviewControl) {
     const c = data.reviewControl
+    const base = `lumo pr scan ${pr.number} --repo ${sanitizeField(pr.repo)}`
+    lines.push(...sectionHeading('AI review', layout))
     lines.push(
-      `Automatic AI review: ${c.paused ? 'paused' : 'enabled'} · ${c.rounds}/${c.limit} rounds`
-    )
-    lines.push(
-      `Manual review: lumo pr scan ${pr.number} --repo ${sanitizeField(pr.repo)} --review incremental (or --review full); resume: --resume`
+      ...fieldLines(
+        [
+          {
+            label: 'Automatic',
+            value: `${c.paused ? 'paused' : 'enabled'} · ${c.rounds}/${c.limit} rounds`,
+          },
+        ],
+        2,
+        layout
+      ),
+      '  Run a review now (incremental or full):',
+      commandLine(`${base} --review incremental`, 4),
+      commandLine(`${base} --review full`, 4),
+      '  Resume automatic review:',
+      commandLine(`${base} --resume`, 4)
     )
     if (c.currentHead && data.scans[0]?.headSha !== c.currentHead)
       lines.push(
-        '⚠ Latest head has no scan yet; the results below are for an earlier commit.'
+        ...wrapLines(
+          '⚠ Latest head has no scan yet; the results below are for an earlier commit.',
+          2,
+          layout
+        )
       )
   }
-  lines.push(
-    `PR #${pr.number} · ${sanitizeField(pr.repo)} · ${sanitizeField(pr.state)} · ${pr.task ? `task ${sanitizeField(pr.task.identifier)}` : 'no linked task'}`
-  )
-  lines.push(sanitizeField(pr.title))
-  lines.push(sanitizeField(pr.url))
-  // LUM-901: said before any scan, so an older result is read as older.
-  for (const l of formatScanningOffLines(data.scanningOff)) lines.push(`⚠ ${l}`)
   if (data.scans.length === 0) {
     lines.push('')
     lines.push(
-      `⚠ No security scan has run for PR #${pr.number} — could not confirm it is clean.`
+      ...wrapLines(
+        `⚠ No security scan has run for PR #${pr.number} — could not confirm it is clean.`,
+        0,
+        layout
+      )
     )
     return lines.join('\n') + '\n'
   }
@@ -390,10 +486,10 @@ export function formatPrScan(
       `${plural(data.scans.length, 'scan', 'scans')} on record, newest first`
     )
   }
-  for (const s of data.scans) {
-    lines.push('')
-    lines.push(...formatScan(s, opts.full === true, data.scanningOff === true))
-  }
+  for (const s of data.scans)
+    lines.push(
+      ...formatScan(s, opts.full === true, data.scanningOff === true, layout)
+    )
   return lines.join('\n') + '\n'
 }
 
@@ -531,5 +627,11 @@ export async function prScan(
     return
   }
   printRedactionNotice(data.redactedSecrets)
-  process.stdout.write(formatPrScan(data, { full: opts.full }))
+  process.stdout.write(
+    formatPrScan(data, {
+      full: opts.full,
+      width: terminalWidth(),
+      color: colorEnabled(),
+    })
+  )
 }

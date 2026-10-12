@@ -30,16 +30,55 @@ export const SLACK_EVENT_LABELS: Record<SlackEventType, string> = {
   comment_mention: 'Comment mention',
 }
 
+/** What a notification is about — drives the title line and mention label. */
+export type NotificationEntityKind =
+  | 'task'
+  | 'document'
+  | 'project'
+  | 'milestone'
+
+/**
+ * Where an @-mention was written: a comment thread, or the entity's own body
+ * (task/project/milestone description, document content).
+ */
+export type MentionSurface = 'comment' | 'content'
+
+/**
+ * Who a message is for. A DM speaks to its recipient ("You were assigned…");
+ * a channel post describes the event to everyone.
+ */
+export type NotificationAudience = 'channel' | 'dm'
+
 export interface NotificationPayload {
-  taskId?: string
-  taskTitle?: string
-  taskIdentifier?: string // e.g. "ENG-123"
-  taskUrl?: string // full URL to task in Lumo
-  actorName?: string // display name of who triggered the event
-  prNumber?: number
-  prTitle?: string
-  prUrl?: string
-  commentBody?: string
+  /** Defaults to 'task'. */
+  entityKind?: NotificationEntityKind | undefined
+  entityId?: string | undefined
+  entityTitle?: string | undefined
+  /** Tasks only, e.g. "ENG-123". */
+  entityIdentifier?: string | undefined
+  /** Full URL to the entity in Lumo. */
+  entityUrl?: string | undefined
+  /** Display name of who triggered the event. */
+  actorName?: string | undefined
+  /**
+   * Clerk ID of who triggered the event; the sender resolves it to
+   * `actorName` when no name is given. Never rendered.
+   */
+  actorClerkId?: string | undefined
+  /**
+   * Clerk IDs of the people a mention named (channel posts list their names;
+   * nobody is `<@…>`-pinged). Never rendered.
+   */
+  mentionedClerkIds?: string[] | undefined
+  /** Resolved display names for `mentionedClerkIds`. */
+  mentionedNames?: string[] | undefined
+  /** comment_mention only. Defaults to 'comment'. */
+  mentionSurface?: MentionSurface | undefined
+  prNumber?: number | undefined
+  prTitle?: string | undefined
+  prUrl?: string | undefined
+  /** Plain text to quote; paragraphs separated by newlines. */
+  quote?: string | undefined
 }
 
 // Input: the raw text after "@Lumo " or "/lumo "

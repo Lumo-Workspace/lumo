@@ -39,3 +39,71 @@ export function htmlToPreview(
 ): string {
   return decodeHtmlEntities((html ?? '').replace(/<[^>]+>/g, '')).slice(0, max)
 }
+
+/** Longest quote text kept from stored HTML (the Slack layer cuts further). */
+export const HTML_QUOTE_MAX = 2000
+
+const BLOCK_CLOSE_RE =
+  /<\/(?:p|div|li|h[1-6]|blockquote|pre|tr|ul|ol|table)\s*>/gi
+
+/**
+ * Turn stored rich-text HTML into plain text that keeps its paragraphs: block
+ * ends and `<br>` become newlines, list items get a `• ` bullet, runs of blank
+ * lines collapse to one. Cut to `max` characters with a trailing `…` (code
+ * points, so emoji are never split). Plain text — escape before rendering.
+ */
+export function htmlToQuote(
+  html: string | null | undefined,
+  max = HTML_QUOTE_MAX
+): string {
+  const text = decodeHtmlEntities(
+    (html ?? '')
+      .replace(/<\/p>\s*<\/li>/gi, '</li>')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<li\b[^>]*>/gi, '• ')
+      .replace(BLOCK_CLOSE_RE, '\n')
+      .replace(/<[^>]+>/g, '')
+  )
+    .split('\n')
+    .map(line => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  const chars = Array.from(text)
+  if (chars.length <= max) return text
+  return (
+    chars
+      .slice(0, Math.max(0, max - 1))
+      .join('')
+      .trimEnd() + '…'
+  )
+}
+
+const MENTION_TAG_RE =
+  /<(?:span|a)\b[^>]*\bclass="[^"]*\bmention\b[^"]*"[^>]*>/g
+
+function mentionsUser(blockHtml: string, clerkId: string): boolean {
+  const tags = blockHtml.match(MENTION_TAG_RE) ?? []
+  return tags.some(tag => {
+    const type = /data-mention-type="([^"]+)"/.exec(tag)?.[1] ?? 'user'
+    return type === 'user' && tag.includes(`data-id="${clerkId}"`)
+  })
+}
+
+/**
+ * The text around where `clerkId` is @-mentioned in `html`: the paragraph
+ * (or list item / heading) holding the mention, as `htmlToQuote` text. Falls
+ * back to the start of the whole document when the mention is not found.
+ */
+export function mentionContext(
+  html: string | null | undefined,
+  clerkId: string,
+  max = HTML_QUOTE_MAX
+): string {
+  const source = html ?? ''
+  const blocks = source.split(
+    /(?<=<\/(?:p|li|h[1-6]|blockquote|pre|td|div)\s*>)/i
+  )
+  const hit = blocks.find(block => mentionsUser(block, clerkId))
+  return htmlToQuote(hit ?? source, max)
+}
