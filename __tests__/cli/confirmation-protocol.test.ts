@@ -499,7 +499,9 @@ describe('--confirm executes the mutation', () => {
     const code = await taskDepsRm('LUM-42', 'a1b2c3', { confirm: true })
     expect(code).toBeUndefined()
     expect(mutations()).toHaveLength(1)
-    expect(stdout.join('')).toContain('Removed [a1b2c3d4] from LUM-42')
+    expect(stdout.join('')).toContain(
+      'Removed dependency [a1b2c3d4] from LUM-42'
+    )
   })
 
   it('doc rebuild-source --force proceeds without an envelope', async () => {

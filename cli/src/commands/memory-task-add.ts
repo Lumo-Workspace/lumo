@@ -5,6 +5,7 @@ import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { cmd, hint } from '../lib/feedback'
 
 interface AddOptions extends MemoryFlags {
   category?: string
@@ -162,7 +163,10 @@ export async function memoryTaskAdd(
     default:
       process.stdout.write(
         `Added ${built.category} memory to ${identifier}${boundSuffix}\n` +
-          'Tip: only useful for this task? If it generalizes, use `lumo project memory add` or `lumo memory promote` later.\n'
+          hint(
+            `only useful for this task? If it generalizes, use ${cmd('lumo project memory add')} or ${cmd('lumo memory promote')} later.`
+          ) +
+          '\n'
       )
   }
 }

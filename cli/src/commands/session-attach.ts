@@ -15,6 +15,7 @@ import {
   codexSessionHasEvents,
 } from '../lib/codex-hooks'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { cmd, hint } from '../lib/feedback'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -223,9 +224,7 @@ export async function sessionAttach(
   // session start is re-read on every later step. One pointer instead; the
   // correctness signals above (blockers, security findings) stay.
   console.log('')
-  console.log(
-    `Background (team memory, test cases, sources, prior sessions): lumo task context ${body.taskIdentifier}`
-  )
+  console.log(formatBackgroundHint(body.taskIdentifier))
 
   // LUM-551: attach-triggered best-effort downsync. Resolve the bound task's
   // project and refresh team memory (throttle-gated inside autoDownsyncOnAttach).
@@ -371,4 +370,11 @@ async function stewardAttach(args: {
     console.log('')
     console.log(sanitizeField(body.stewardMemorySection))
   }
+}
+
+/** LUM-1092: the one pointer to `task context`, through the shared hint(). */
+export function formatBackgroundHint(taskIdentifier: string): string {
+  return hint(
+    `run ${cmd(`lumo task context ${taskIdentifier}`)} for background (team memory, test cases, sources, prior sessions)`
+  )
 }

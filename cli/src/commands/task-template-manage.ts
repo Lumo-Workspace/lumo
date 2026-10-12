@@ -6,6 +6,8 @@ import {
   type ConfirmFlags,
 } from '../lib/confirmation'
 import { loadTemplateFile, type TemplateFileDeps } from '../lib/template-file'
+import { successLine } from '../lib/feedback'
+import { emitNextSteps, type NextStep } from '../lib/next-steps'
 
 /**
  * LUM-974: `lumo task template show / create / edit / rm`. Task templates are
@@ -155,9 +157,33 @@ export async function taskTemplateCreate(
   )
   if (!r.ok || !r.data) return 1
   const t = r.data.template
-  process.stdout.write(
-    `Created task template ${sanitizeField(t.key)} "${sanitizeField(t.name)}" (${t.content.length.toLocaleString('en-US')} chars). Use it with \`lumo task create <title> --template ${sanitizeField(t.key)}\`.\n`
-  )
+  process.stdout.write(formatTemplateCreatedLine(t) + '\n')
+  emitNextSteps(templateCreatedNextSteps(t.key))
+}
+
+/** LUM-1092: `Created task template <key> "<name>" (<n> chars)`. */
+export function formatTemplateCreatedLine(t: {
+  key: string
+  name: string
+  content: string
+}): string {
+  return successLine({
+    verb: 'Created',
+    kind: 'task template',
+    ref: sanitizeField(t.key),
+    title: t.name,
+    suffix: `(${t.content.length.toLocaleString('en-US')} chars)`,
+  })
+}
+
+/** The usage advice that used to trail the line as `Use it with …`. */
+export function templateCreatedNextSteps(key: string): NextStep[] {
+  return [
+    {
+      command: `lumo task create <title> --template ${sanitizeField(key)}`,
+      why: 'create a task from this template',
+    },
+  ]
 }
 
 export interface TemplateEditOptions {

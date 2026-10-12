@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { hint } from './feedback'
 
 /**
  * LUM-1054: Codex's default `workspace-write` sandbox has no network, so every
@@ -463,19 +464,20 @@ export function codexRulesNote(
  * (`CODEX_SANDBOX` set) when it could not reach the Lumo API: the rule is
  * missing or not loaded.
  */
-export const CODEX_SANDBOX_NETWORK_HINT =
-  "Hint: this ran inside Codex's sandbox, which has no network by default, so lumo could not reach the Lumo API. " +
-  'Fix: run `lumo init` (or `lumo init --agent codex`) to add the Codex rule that runs server-only `lumo` commands outside the sandbox (.codex/rules/lumo.rules), then restart Codex — a project rules file loads only in a trusted project. ' +
-  'Run lumo as its own command with flags after the subcommand: piped or redirected (`lumo … | head`), or `lumo --no-hints task …`, it stays sandboxed. ' +
-  'Alternatively allow network for every sandboxed command: add `[sandbox_workspace_write]` with `network_access = true` to ~/.codex/config.toml.'
+export const CODEX_SANDBOX_NETWORK_HINT = hint(
+  "this ran inside Codex's sandbox, which has no network by default, so lumo could not reach the Lumo API. " +
+    'Fix: run `lumo init` (or `lumo init --agent codex`) to add the Codex rule that runs server-only `lumo` commands outside the sandbox (.codex/rules/lumo.rules), then restart Codex — a project rules file loads only in a trusted project. ' +
+    'Run lumo as its own command with flags after the subcommand: piped or redirected (`lumo … | head`), or `lumo --no-hints task …`, it stays sandboxed. ' +
+    'Alternatively allow network for every sandboxed command: add `[sandbox_workspace_write]` with `network_access = true` to ~/.codex/config.toml.'
+)
 
 /**
  * Appended instead when the failing command is one Lumo's rule leaves
  * sandboxed on purpose (it writes local files or runs local processes).
  */
 export function codexSandboxedCommandHint(commandPath: string): string {
-  return (
-    `Hint: this ran inside Codex's sandbox, which has no network by default. \`lumo ${commandPath}\` reads or changes local files or runs local processes, so Lumo's Codex rule leaves it sandboxed on purpose (only server-only lumo commands run outside it without asking). ` +
-    "Re-run it with Codex's approval to run outside the sandbox, or ask the user to run it in their own terminal."
+  return hint(
+    `this ran inside Codex's sandbox, which has no network by default. \`lumo ${commandPath}\` reads or changes local files or runs local processes, so Lumo's Codex rule leaves it sandboxed on purpose (only server-only lumo commands run outside it without asking). ` +
+      "Re-run it with Codex's approval to run outside the sandbox, or ask the user to run it in their own terminal."
   )
 }
