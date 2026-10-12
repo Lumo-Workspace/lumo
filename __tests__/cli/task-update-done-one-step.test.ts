@@ -60,6 +60,7 @@ interface World {
   /** undefined → the field is absent (older server). */
   pullRequests?: Pr[] | undefined
   omitPullRequests?: boolean
+  taskStatus?: string
   status?: { code: number; body?: unknown }
   crossings?: { code: number; body?: unknown }
 }
@@ -92,7 +93,7 @@ function install(world: World) {
         identifier: 'LUM-1',
         title: 'My Task',
         url: 'https://api.lumo.test/workspace/lumo/my-tasks/LUM-1',
-        status: 'IN_REVIEW',
+        status: world.taskStatus ?? 'IN_REVIEW',
       }
       if (!world.omitPullRequests) task.pullRequests = world.pullRequests ?? []
       return jsonResponse(200, { task })
@@ -296,6 +297,11 @@ describe('task update --status done, one step', () => {
       pullRequests: [mergedA],
       status: { code: 200, body: { ...CLEAN_STATUS, securityFindings: null } },
     })
+    expectEnvelopeNoPatch(await taskUpdate('LUM-1', { status: 'done' }))
+  })
+
+  it('task already DONE: envelope, no PATCH', async () => {
+    install({ pullRequests: [mergedA], taskStatus: 'DONE' })
     expectEnvelopeNoPatch(await taskUpdate('LUM-1', { status: 'done' }))
   })
 

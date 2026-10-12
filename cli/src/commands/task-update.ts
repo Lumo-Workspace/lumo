@@ -373,7 +373,12 @@ async function gateDone(args: {
     }
   }
   const { lines: statusSummary, clearsDone } = await digest
-  if (qualifiesForOneStepDone(task.pullRequests, clearsDone)) {
+  // Already DONE: nothing to move — keep the envelope (pre-LUM-1106
+  // behaviour) rather than sending a DONE → DONE PATCH unasked.
+  if (
+    task.status !== 'DONE' &&
+    qualifiesForOneStepDone(task.pullRequests, clearsDone)
+  ) {
     return {
       kind: 'one-step',
       summary: describeOneStepDone(task, task.pullRequests ?? []),
