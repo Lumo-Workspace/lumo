@@ -19,19 +19,16 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-// Mock Clerk so resolveSlackUser can short-circuit
-jest.mock('@clerk/nextjs/server', () => ({
-  createClerkClient: () => ({
-    users: { getUser: jest.fn() },
-  }),
-}))
-
 // LUM-1096: `status` now requires a linked Slack user.
+// LUM-1103: the member lookup batches by id through getUserList.
 jest.mock('@/lib/auth/users', () => ({
   createUserDirectory: async () => ({
-    getUser: async () => ({
-      primaryEmailAddressId: 'em_1',
-      emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
+    getUserList: async ({ userId }: { userId: string[] }) => ({
+      data: userId.map(id => ({
+        id,
+        primaryEmailAddressId: 'em_1',
+        emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
+      })),
     }),
   }),
 }))

@@ -9,6 +9,7 @@ import { slackCommandRepository } from '@/lib/repositories/slack-command.reposit
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
+import type { AuthUser } from '@/lib/auth/users'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 
 /** A task as the Slack replies show it — flat, no nested relations. */
@@ -139,10 +140,37 @@ async function updateAsMember(
   )
 }
 
+/** `getUserList` page-size cap, shared by Clerk and Better Auth. */
+const USER_LIST_PAGE = 500
+
+/**
+ * Directory users by id, one batch `getUserList` per 500 ids. Works for
+ * either provider behind `@/lib/auth/users`; ids the directory no longer
+ * knows are simply missing from the map.
+ */
+async function usersByIds(ids: string[]): Promise<Map<string, AuthUser>> {
+  const out = new Map<string, AuthUser>()
+  const unique = [...new Set(ids)]
+  if (unique.length === 0) return out
+  const { createUserDirectory } = await import('@/lib/auth/users')
+  const directory = await createUserDirectory()
+  for (let i = 0; i < unique.length; i += USER_LIST_PAGE) {
+    const page = unique.slice(i, i + USER_LIST_PAGE)
+    const { data } = await directory.getUserList({
+      userId: page,
+      limit: page.length,
+    })
+    for (const user of data) out.set(user.id, user)
+  }
+  return out
+}
+
 export const slackCommandService = {
   /**
    * The active member whose primary email is `email`, or `null`. Profiles
-   * live in the user directory, so members are checked one by one.
+   * live in the user directory; they are fetched by id in batches (LUM-1103),
+   * so a command costs one directory call per 500 members rather than one
+   * per member. Members are still checked in member order, first match wins.
    */
   async findMemberByEmail(
     workspaceId: string,
@@ -150,10 +178,12 @@ export const slackCommandService = {
   ): Promise<SlackLinkedMember | null> {
     const wanted = email.trim().toLowerCase()
     const members = await slackCommandRepository.listActiveMembers(workspaceId)
-    const { createUserDirectory } = await import('@/lib/auth/users')
-    const directory = await createUserDirectory()
+    if (members.length === 0) return null
+    const users = await usersByIds(members.map(m => m.clerkId))
     for (const member of members) {
-      const user = await directory.getUser(member.clerkId)
+      // Users the directory no longer knows are absent: skip, don't fail.
+      const user = users.get(member.clerkId)
+      if (!user) continue
       const primary = user.emailAddresses.find(
         e => e.id === user.primaryEmailAddressId
       )

@@ -28,15 +28,18 @@ const USERS: Record<string, { firstName: string; email: string }> = {
   user_2: { firstName: 'Ada', email: 'ada@example.com' },
   user_gone: { firstName: 'Gone', email: 'gone@example.com' },
 }
+// LUM-1103: the member lookup batches by id through getUserList.
 jest.mock('@/lib/auth/users', () => ({
   createUserDirectory: async () => ({
-    getUser: async (id: string) => ({
-      id,
-      firstName: USERS[id]!.firstName,
-      lastName: '',
-      username: null,
-      primaryEmailAddressId: `em_${id}`,
-      emailAddresses: [{ id: `em_${id}`, emailAddress: USERS[id]!.email }],
+    getUserList: async ({ userId }: { userId: string[] }) => ({
+      data: userId.map(id => ({
+        id,
+        firstName: USERS[id]!.firstName,
+        lastName: '',
+        username: null,
+        primaryEmailAddressId: `em_${id}`,
+        emailAddresses: [{ id: `em_${id}`, emailAddress: USERS[id]!.email }],
+      })),
     }),
   }),
 }))
