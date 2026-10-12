@@ -8,7 +8,6 @@
 import { slackCommandRepository } from '@/lib/repositories/slack-command.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 
@@ -35,6 +34,8 @@ export interface SlackTaskDetail extends SlackTaskSummary {
 /** A workspace member matched from a Slack user. */
 export interface SlackLinkedMember {
   memberId: string
+  /** The member's auth-provider user id (the web/API `actorClerkId`). */
+  clerkId: string
   /** `null` if the member has no actor row (cannot be assigned). */
   actorId: string | null
   name: string
@@ -105,6 +106,39 @@ async function assigneeNameOf(
   return null
 }
 
+/**
+ * Apply a task write through the shared task update service — the one the
+ * web `PATCH /api/tasks/[id]` and CLI `PATCH /api/tasks/by-identifier` call.
+ * Those routes authorize "active member of the task's workspace"; the Slack
+ * caller is already an active member of the install's workspace
+ * (`findMemberByEmail`) and the task was looked up inside it.
+ */
+async function updateAsMember(
+  workspaceId: string,
+  taskId: string,
+  input: { status?: 'DONE' | 'IN_REVIEW'; assigneeActorId?: string },
+  caller: Pick<SlackLinkedMember, 'actorId' | 'clerkId'>
+): Promise<void> {
+  const taskCheck = await slackCommandRepository.findTaskForUpdate(
+    workspaceId,
+    taskId
+  )
+  if (!taskCheck) {
+    throw Object.assign(new Error('Task not found'), { status: 404 })
+  }
+  // Dynamic import: task-state pulls the lineage / memory / plugin chains,
+  // which the Slack command tests (and the reply-only paths) don't need.
+  const { updateTaskWithSideEffects } =
+    await import('@/lib/services/task-state.service')
+  await updateTaskWithSideEffects(
+    taskId,
+    input,
+    taskCheck,
+    caller.actorId,
+    caller.clerkId
+  )
+}
+
 export const slackCommandService = {
   /**
    * The active member whose primary email is `email`, or `null`. Profiles
@@ -128,6 +162,7 @@ export const slackCommandService = {
       if (primary?.emailAddress.toLowerCase() === wanted) {
         return {
           memberId: member.id,
+          clerkId: member.clerkId,
           actorId: member.actor?.id ?? null,
           // Lumo's own record, never the Slack-supplied string.
           name: displayName(user, primary.emailAddress),
@@ -161,22 +196,38 @@ export const slackCommandService = {
     }
   },
 
-  /** Move a task to DONE / IN_REVIEW through the task state machine. */
+  /**
+   * Move a task to DONE / IN_REVIEW as `caller` (LUM-1102).
+   *
+   * Goes through the same service entry as the web and CLI task update
+   * (`updateTaskWithSideEffects`): status-machine validation, the DONE gate,
+   * activity events and the `task.statusChanged` core event. Slack has no
+   * "confirm past the soft prompt" step, so — like the CLI — it never sets
+   * `overrideDoneGate`: an open DONE blocker refuses the move (409).
+   *
+   * Throws `{ status }` errors from the shared service; the caller turns a
+   * 4xx into a reply only the caller sees.
+   */
   async setStatus(
-    task: Pick<SlackTaskSummary, 'id' | 'projectId' | 'status'>,
-    to: 'DONE' | 'IN_REVIEW'
+    workspaceId: string,
+    taskId: string,
+    to: 'DONE' | 'IN_REVIEW',
+    caller: Pick<SlackLinkedMember, 'actorId' | 'clerkId'>
   ): Promise<void> {
-    await transitionTaskStatus(task.id, task.projectId, to, {
-      currentStatus: task.status,
-    })
+    await updateAsMember(workspaceId, taskId, { status: to }, caller)
   },
 
+  /**
+   * Assign a task as `caller`, through the same service entry as the web and
+   * CLI (assignee-in-workspace validation, activity, notifications).
+   */
   async assign(
     workspaceId: string,
     taskId: string,
-    actorId: string
+    assigneeActorId: string,
+    caller: Pick<SlackLinkedMember, 'actorId' | 'clerkId'>
   ): Promise<void> {
-    await slackCommandRepository.setAssignee(workspaceId, taskId, actorId)
+    await updateAsMember(workspaceId, taskId, { assigneeActorId }, caller)
   },
 
   /**
