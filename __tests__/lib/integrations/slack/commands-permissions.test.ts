@@ -26,6 +26,7 @@ jest.mock('@/lib/db/prisma', () => ({
 const USERS: Record<string, { firstName: string; email: string }> = {
   user_1: { firstName: 'Dev', email: 'dev@example.com' },
   user_2: { firstName: 'Ada', email: 'ada@example.com' },
+  user_gone: { firstName: 'Gone', email: 'gone@example.com' },
 }
 jest.mock('@/lib/auth/users', () => ({
   createUserDirectory: async () => ({
@@ -105,14 +106,32 @@ const p = prisma as unknown as {
 const SLACK_EMAILS: Record<string, string> = {
   U1: 'dev@example.com',
   U2: 'ada@example.com',
-  // A Slack user whose Lumo membership was deactivated: the active-member
-  // query no longer returns them.
+  // A Slack user whose Lumo membership was deactivated.
   U_GONE: 'gone@example.com',
 }
 
-const MEMBERS = [
-  { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
-  { id: 'wm_2', clerkId: 'user_2', actor: { id: 'actor_2' } },
+// The workspace's member rows, deactivated one included: the mocked query
+// honours a `deactivatedAt: null` filter, so dropping the active-member
+// filter would let U_GONE through and fail the tests below.
+const MEMBER_ROWS = [
+  {
+    id: 'wm_1',
+    clerkId: 'user_1',
+    actor: { id: 'actor_1' },
+    deactivatedAt: null,
+  },
+  {
+    id: 'wm_2',
+    clerkId: 'user_2',
+    actor: { id: 'actor_2' },
+    deactivatedAt: null,
+  },
+  {
+    id: 'wm_gone',
+    clerkId: 'user_gone',
+    actor: { id: 'actor_gone' },
+    deactivatedAt: new Date('2026-10-01T00:00:00Z'),
+  },
 ]
 
 const TASK_ROW = {
@@ -153,7 +172,14 @@ beforeEach(() => {
           : { ok: false, error: 'user_not_found' },
     }
   }) as unknown as typeof fetch
-  p.workspaceMember.findMany.mockResolvedValue(MEMBERS)
+  p.workspaceMember.findMany.mockImplementation(
+    async (args: { where: { workspaceId: string; deactivatedAt?: null } }) =>
+      MEMBER_ROWS.filter(
+        m =>
+          args.where.workspaceId === 'ws_1' &&
+          (!('deactivatedAt' in args.where) || m.deactivatedAt === null)
+      ).map(({ deactivatedAt: _d, ...m }) => m)
+  )
   p.team.findFirst.mockResolvedValue({
     id: 'team_1',
     identifier: 'ENG',
