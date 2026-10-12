@@ -105,6 +105,23 @@ describe('renderListTable', () => {
     expect(flexColumnCap([['x'.repeat(80), 'y']], 1, 40)).toBe(MIN_FLEX_WIDTH)
     expect(flexColumnCap([['abc', 'y']], 1, 40)).toBe(40 - 3 - 2)
   })
+
+  it('an all-empty trailing column costs no gap in the flex cap', () => {
+    expect(flexColumnCap([['abc', 'y', '']], 1, 40)).toBe(40 - 3 - 2)
+  })
+
+  it('TTY: a figma list with no stale link uses the full width for the frame', () => {
+    const link = {
+      id: 'cfl_1',
+      fileName: 'File',
+      frameName: 'F'.repeat(80),
+      lastSyncedAt: '2026-06-28T00:00:00Z',
+      thumbnailUrl: null,
+      thumbnailFetchedAt: null,
+    }
+    const [, row = ''] = formatFigmaList([link], 0, TTY).split('\n')
+    expect(stringWidth(row)).toBe(60)
+  })
 })
 
 describe('task tables (task list / search / next)', () => {

@@ -56,7 +56,11 @@ export function flexColumnCap(
   widths.forEach((w, i) => {
     if (i !== flex) fixed += w
   })
-  const gaps = GAP * Math.max(0, widths.length - 1)
+  // renderTable drops trailing empty cells, so an all-empty trailing column
+  // (e.g. figma's NOTE when nothing is stale) costs no gap.
+  let cols = widths.length
+  while (cols > 0 && (widths[cols - 1] ?? 0) === 0) cols--
+  const gaps = GAP * Math.max(0, cols - 1)
   return Math.max(MIN_FLEX_WIDTH, width - fixed - gaps)
 }
 
