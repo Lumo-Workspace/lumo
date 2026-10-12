@@ -75,6 +75,9 @@ describe('parsePageArgs', () => {
     expect(parsePageArgs('abc', undefined).ok).toBe(false)
     expect(parsePageArgs('501', undefined).ok).toBe(false)
     expect(parsePageArgs(undefined, 'xyz').ok).toBe(false)
+    // Same bound as the server's cursor schema (at most 9 digits).
+    expect(parsePageArgs(undefined, '1234567890').ok).toBe(false)
+    expect(parsePageArgs(undefined, '123456789').ok).toBe(true)
   })
 })
 
@@ -319,6 +322,40 @@ describe('task search paging', () => {
     const body = JSON.parse(out)
     expect(body).toMatchObject({ total: 75, nextCursor: '5', truncated: false })
     expect(body.tasks).toHaveLength(5)
+  })
+
+  it('a capped fuzzy result still says so on the paged path (text + --json)', async () => {
+    global.fetch = jest.fn(async (url: string) => {
+      const u = new URL(String(url))
+      if (u.pathname === '/api/workspaces/members') {
+        return json({ members: [], agentActors: [] })
+      }
+      return json({
+        tasks: Array.from({ length: 50 }, (_, i) => ({
+          number: i + 1,
+          title: 'x',
+          status: 'TODO',
+          priority: 'LOW',
+          teamIdentifier: 'LUM',
+          dueDate: null,
+          assigneeActorId: null,
+          project: null,
+        })),
+        total: 500,
+        nextCursor: '50',
+        truncated: true,
+      })
+    }) as unknown as typeof fetch
+    await taskSearch('serch', {})
+    expect(FOOTER.exec(out)!.slice(1)).toEqual(['1', '50', '500'])
+    expect(out).toContain('(result capped at 500 — narrow the filters)')
+    out = ''
+    await taskSearch('serch', { json: true })
+    expect(JSON.parse(out)).toMatchObject({
+      truncated: true,
+      total: 500,
+      nextCursor: '50',
+    })
   })
 
   it('searchCommand keeps every filter', () => {

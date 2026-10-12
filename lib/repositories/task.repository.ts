@@ -935,7 +935,7 @@ export const taskRepository = {
     workspaceId: string,
     filters: WorkspaceTaskFilters = {}
   ) {
-    const { where, rank } = await this.buildWorkspaceWhere(workspaceId, filters)
+    const { where, rank } = await buildWorkspaceWhere(workspaceId, filters)
     const rows = await prisma.task.findMany({
       where,
       include: WORKSPACE_SEARCH_INCLUDE,
@@ -957,7 +957,7 @@ export const taskRepository = {
     filters: WorkspaceTaskFilters,
     page: { offset: number; limit: number }
   ) {
-    const { where, rank } = await this.buildWorkspaceWhere(workspaceId, filters)
+    const { where, rank } = await buildWorkspaceWhere(workspaceId, filters)
     if (rank) {
       const rows = await prisma.task.findMany({
         where,
@@ -971,6 +971,8 @@ export const taskRepository = {
           page.offset + page.limit
         ),
         total: rows.length,
+        // The ranked match set stops at the cap, so `total` is a floor.
+        truncated: rank.size >= WORKSPACE_TASK_QUERY_LIMIT,
       }
     }
     const [total, rows] = await Promise.all([
@@ -983,75 +985,7 @@ export const taskRepository = {
         take: page.limit,
       }),
     ])
-    return { rows, total }
-  },
-
-  /** The workspace task query's WHERE (+ fuzzy relevance ranks, if any). */
-  async buildWorkspaceWhere(
-    workspaceId: string,
-    filters: WorkspaceTaskFilters
-  ): Promise<{
-    where: Prisma.TaskWhereInput
-    rank: Map<string, number> | null
-  }> {
-    const where: Prisma.TaskWhereInput = { workspaceId }
-    if (filters.projectIds?.length) {
-      where.projectId = { in: filters.projectIds }
-    }
-    if (filters.milestoneIds?.length) {
-      where.milestoneId = { in: filters.milestoneIds }
-    }
-    if (filters.statuses?.length) {
-      where.status = { in: filters.statuses }
-    }
-    if (filters.priorities?.length) {
-      where.priority = { in: filters.priorities }
-    }
-    if (filters.assigneeActorIds?.length && filters.unassigned) {
-      where.OR = [
-        { assigneeActorId: { in: filters.assigneeActorIds } },
-        { assigneeActorId: null },
-      ]
-    } else if (filters.assigneeActorIds?.length) {
-      where.assigneeActorId = { in: filters.assigneeActorIds }
-    } else if (filters.unassigned) {
-      where.assigneeActorId = null
-    }
-    if (filters.tagIds?.length) {
-      where.taskTags = { some: { tagId: { in: filters.tagIds } } }
-    }
-    if (filters.sprintIds?.length) {
-      where.sprintId = { in: filters.sprintIds }
-    }
-    // Each whitespace-separated term must appear (AND), in title or
-    // description, case-insensitive substring — `oauth redirect` matches
-    // "Fix OAuth callback redirect". A number term (`42` / `LUM-42`) also
-    // matches the task number. Fuzzy mode (LUM-821) swaps this for the ranked
-    // trigram query below.
-    const terms = splitSearchTerms(filters.q)
-    let rank: Map<string, number> | null = null
-    if (terms.length && filters.fuzzy) {
-      const matches = await this.rankTextMatches(workspaceId, terms)
-      rank = new Map(matches.map(m => [m.id, m.score]))
-      where.id = { in: matches.map(m => m.id) }
-    } else if (terms.length) {
-      where.AND = terms.map(term => {
-        const textMatch: Prisma.TaskWhereInput[] = [
-          { title: { contains: term, mode: 'insensitive' } },
-          { description: { contains: term, mode: 'insensitive' } },
-        ]
-        const num = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/.exec(term)
-        if (num) textMatch.push({ number: Number(num[1]) })
-        return { OR: textMatch }
-      })
-    }
-    if (filters.dueAfter || filters.dueBefore) {
-      where.dueDate = {
-        ...(filters.dueAfter ? { gte: filters.dueAfter } : {}),
-        ...(filters.dueBefore ? { lt: filters.dueBefore } : {}),
-      }
-    }
-    return { where, rank }
+    return { rows, total, truncated: false }
   },
 
   /**
@@ -1439,4 +1373,75 @@ export const taskRepository = {
       },
     })
   },
+}
+
+/**
+ * The workspace task query's WHERE (+ fuzzy relevance ranks, if any). A
+ * module function, not a repository method, so no caller depends on `this`.
+ */
+async function buildWorkspaceWhere(
+  workspaceId: string,
+  filters: WorkspaceTaskFilters
+): Promise<{
+  where: Prisma.TaskWhereInput
+  rank: Map<string, number> | null
+}> {
+  const where: Prisma.TaskWhereInput = { workspaceId }
+  if (filters.projectIds?.length) {
+    where.projectId = { in: filters.projectIds }
+  }
+  if (filters.milestoneIds?.length) {
+    where.milestoneId = { in: filters.milestoneIds }
+  }
+  if (filters.statuses?.length) {
+    where.status = { in: filters.statuses }
+  }
+  if (filters.priorities?.length) {
+    where.priority = { in: filters.priorities }
+  }
+  if (filters.assigneeActorIds?.length && filters.unassigned) {
+    where.OR = [
+      { assigneeActorId: { in: filters.assigneeActorIds } },
+      { assigneeActorId: null },
+    ]
+  } else if (filters.assigneeActorIds?.length) {
+    where.assigneeActorId = { in: filters.assigneeActorIds }
+  } else if (filters.unassigned) {
+    where.assigneeActorId = null
+  }
+  if (filters.tagIds?.length) {
+    where.taskTags = { some: { tagId: { in: filters.tagIds } } }
+  }
+  if (filters.sprintIds?.length) {
+    where.sprintId = { in: filters.sprintIds }
+  }
+  // Each whitespace-separated term must appear (AND), in title or
+  // description, case-insensitive substring — `oauth redirect` matches
+  // "Fix OAuth callback redirect". A number term (`42` / `LUM-42`) also
+  // matches the task number. Fuzzy mode (LUM-821) swaps this for the ranked
+  // trigram query below.
+  const terms = splitSearchTerms(filters.q)
+  let rank: Map<string, number> | null = null
+  if (terms.length && filters.fuzzy) {
+    const matches = await taskRepository.rankTextMatches(workspaceId, terms)
+    rank = new Map(matches.map(m => [m.id, m.score]))
+    where.id = { in: matches.map(m => m.id) }
+  } else if (terms.length) {
+    where.AND = terms.map(term => {
+      const textMatch: Prisma.TaskWhereInput[] = [
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+      ]
+      const num = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/.exec(term)
+      if (num) textMatch.push({ number: Number(num[1]) })
+      return { OR: textMatch }
+    })
+  }
+  if (filters.dueAfter || filters.dueBefore) {
+    where.dueDate = {
+      ...(filters.dueAfter ? { gte: filters.dueAfter } : {}),
+      ...(filters.dueBefore ? { lt: filters.dueBefore } : {}),
+    }
+  }
+  return { where, rank }
 }

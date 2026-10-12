@@ -28,22 +28,27 @@ export const taskQueryService = {
 
   /**
    * LUM-1093: one page of the workspace task query with the total match
-   * count and the cursor of the next page (null on the last page).
+   * count, the cursor of the next page (null on the last page) and whether
+   * the match set was capped.
    */
   async findForWorkspacePage(
     workspaceId: string,
     filters: WorkspaceTaskFilters,
     page: PageRequest
   ) {
-    const { rows, total } = await taskRepository.findByWorkspaceWithFiltersPage(
-      workspaceId,
-      filters,
-      page
-    )
+    const { rows, total, truncated } =
+      await taskRepository.findByWorkspaceWithFiltersPage(
+        workspaceId,
+        filters,
+        page
+      )
     return {
       tasks: rows.map(shapeTask),
       total,
       nextCursor: nextPageCursor(page, rows.length, total),
+      // A fuzzy query ranks at most WORKSPACE_TASK_QUERY_LIMIT matches; when
+      // it hit that cap, `total` is a floor and the caller must say so.
+      truncated,
     }
   },
 

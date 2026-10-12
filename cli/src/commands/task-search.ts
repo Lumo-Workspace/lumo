@@ -73,7 +73,7 @@ export interface SearchTaskRow {
 
 interface SearchResponse {
   tasks: SearchTaskRow[]
-  /** Legacy unpaged shape: the server cap was hit. */
+  /** The server cap was hit (legacy shape, and fuzzy queries when paged). */
   truncated?: boolean
   /** LUM-1093 paged shape. */
   total?: number
@@ -328,7 +328,10 @@ export async function taskSearch(
     )
   )
   if (r.data.truncated) {
-    lines.push(`(result capped at ${r.data.tasks.length} — narrow the filters)`)
+    // Paged servers report the capped match count in `total`; the legacy
+    // shape only had the (capped) list itself.
+    const capped = r.data.total ?? r.data.tasks.length
+    lines.push(`(result capped at ${capped} — narrow the filters)`)
   }
   process.stdout.write(lines.join('\n') + '\n')
 }

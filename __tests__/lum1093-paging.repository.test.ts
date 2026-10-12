@@ -68,6 +68,54 @@ describe('taskRepository.findByWorkspaceWithFiltersPage', () => {
   })
 })
 
+describe('fuzzy paging keeps the capped signal (scan finding, LUM-1093)', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('flags truncated when the ranked match set hit the cap', async () => {
+    const matches = Array.from({ length: 500 }, (_, i) => ({
+      id: `t${i}`,
+      score: 1,
+    }))
+    jest.spyOn(taskRepository, 'rankTextMatches').mockResolvedValue(matches)
+    mockFindMany.mockResolvedValue(
+      matches.map(m => ({ id: m.id, team: { identifier: 'LUM' } }))
+    )
+    const r = await taskQueryService.findForWorkspacePage(
+      'w1',
+      { q: 'serch', fuzzy: true },
+      { offset: 0, limit: 50 }
+    )
+    expect(r.tasks).toHaveLength(50)
+    expect(r.total).toBe(500)
+    expect(r.truncated).toBe(true)
+    expect(r.nextCursor).toBe('50')
+  })
+
+  it('a fuzzy result under the cap is not truncated', async () => {
+    jest
+      .spyOn(taskRepository, 'rankTextMatches')
+      .mockResolvedValue([{ id: 'a', score: 1 }])
+    mockFindMany.mockResolvedValue([{ id: 'a', team: { identifier: 'L' } }])
+    const r = await taskQueryService.findForWorkspacePage(
+      'w1',
+      { q: 'serch', fuzzy: true },
+      { offset: 0, limit: 50 }
+    )
+    expect(r.truncated).toBe(false)
+  })
+
+  it('a counted (non-fuzzy) page is never truncated', async () => {
+    mockCount.mockResolvedValue(9000)
+    const r = await taskQueryService.findForWorkspacePage(
+      'w1',
+      {},
+      { offset: 0, limit: 50 }
+    )
+    expect(r.truncated).toBe(false)
+    expect(r.total).toBe(9000)
+  })
+})
+
 describe('taskQueryService paging', () => {
   it('findForWorkspacePage adds teamIdentifier, total and nextCursor', async () => {
     mockCount.mockResolvedValue(3)

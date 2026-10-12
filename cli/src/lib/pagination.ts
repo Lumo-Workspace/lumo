@@ -52,7 +52,7 @@ export function parsePageArgs(
   }
   let offset = 0
   if (cursor !== undefined) {
-    if (!/^\d+$/.test(cursor.trim())) {
+    if (!/^\d{1,9}$/.test(cursor.trim())) {
       return {
         ok: false,
         error: `invalid --cursor "${sanitizeField(cursor)}" (copy it from the previous page's footer or nextCursor)`,

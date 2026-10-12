@@ -160,6 +160,22 @@ describe('GET /api/tasks/workspace paging', () => {
     expect(mockWorkspaceAll).not.toHaveBeenCalled()
   })
 
+  it('paged fuzzy call passes the capped signal through', async () => {
+    mockWorkspacePage.mockResolvedValue({
+      rows: [],
+      total: 500,
+      truncated: true,
+    })
+    const body = await (
+      await getWorkspace(wsReq('?q=serch&match=fuzzy&cursor=500'))
+    ).json()
+    expect(body).toMatchObject({
+      total: 500,
+      nextCursor: null,
+      truncated: true,
+    })
+  })
+
   it('legacy call keeps { tasks, truncated }', async () => {
     mockWorkspaceAll.mockResolvedValue([])
     const body = await (await getWorkspace(wsReq(''))).json()
