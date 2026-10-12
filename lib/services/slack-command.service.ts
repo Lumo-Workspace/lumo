@@ -1,0 +1,246 @@
+/**
+ * LUM-1096 — data for the Slack `/lumo` and `@Lumo` commands.
+ *
+ * lib/integrations/slack/commands.ts parses the command and formats the reply;
+ * everything that reads or writes Lumo data goes through here (and the
+ * repositories below), so the Slack layer never touches Prisma.
+ */
+import { slackCommandRepository } from '@/lib/repositories/slack-command.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import { transitionTaskStatus } from '@/lib/task/state-machine'
+import { buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
+import type { TaskPriority, TaskStatus } from '@prisma/client'
+
+/** A task as the Slack replies show it — flat, no nested relations. */
+export interface SlackTaskSummary {
+  id: string
+  identifier: string
+  number: number
+  title: string
+  status: TaskStatus
+  priority: TaskPriority
+  projectId: string
+  /** `null` when the task has no project (the link then avoids `/projects//`). */
+  projectName: string | null
+  teamIdentifier: string
+  workspaceSlug: string
+}
+
+export interface SlackTaskDetail extends SlackTaskSummary {
+  /** Display name of the assignee, `null` when unassigned. */
+  assigneeName: string | null
+}
+
+/** A workspace member matched from a Slack user. */
+export interface SlackLinkedMember {
+  memberId: string
+  /** `null` if the member has no actor row (cannot be assigned). */
+  actorId: string | null
+  name: string
+}
+
+export type SlackCreateTaskResult =
+  | { kind: 'team_not_found'; teamIdentifier: string }
+  | { kind: 'no_project'; teamIdentifier: string }
+  | { kind: 'created'; task: SlackTaskSummary }
+
+const TASK_IDENTIFIER_REGEX = /^([A-Za-z]{1,10})-(\d+)$/
+
+interface TaskRow {
+  id: string
+  number: number
+  title: string
+  status: TaskStatus
+  priority: TaskPriority
+  projectId: string
+  project: { name: string } | null
+  team: { identifier: string; workspace: { slug: string } }
+}
+
+function toSummary(row: TaskRow): SlackTaskSummary {
+  return {
+    id: row.id,
+    identifier: buildTaskIdentifier(row.team.identifier, row.number),
+    number: row.number,
+    title: row.title,
+    status: row.status,
+    priority: row.priority,
+    projectId: row.projectId,
+    projectName: row.project?.name || null,
+    teamIdentifier: row.team.identifier,
+    workspaceSlug: row.team.workspace.slug,
+  }
+}
+
+function displayName(
+  user: {
+    firstName: string | null
+    lastName: string | null
+    username: string | null
+  },
+  email: string
+): string {
+  const full = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+  return full || user.username || email.split('@')[0] || email
+}
+
+async function assigneeNameOf(
+  assignee: {
+    type: string
+    memberId: string | null
+    externalIdentity: string | null
+    agent: { name: string } | null
+  } | null
+): Promise<string | null> {
+  if (!assignee) return null
+  if (assignee.agent?.name) return assignee.agent.name
+  if (assignee.memberId) {
+    const labels = await memberRepository.labelsByIds([assignee.memberId])
+    return labels.get(assignee.memberId) ?? null
+  }
+  if (assignee.externalIdentity) {
+    return assignee.externalIdentity.replace(/^github:/, '')
+  }
+  return null
+}
+
+export const slackCommandService = {
+  /**
+   * The active member whose primary email is `email`, or `null`. Profiles
+   * live in the user directory, so members are checked one by one.
+   */
+  async findMemberByEmail(
+    workspaceId: string,
+    email: string
+  ): Promise<SlackLinkedMember | null> {
+    const members = await slackCommandRepository.listActiveMembers(workspaceId)
+    const { createUserDirectory } = await import('@/lib/auth/users')
+    const directory = await createUserDirectory()
+    for (const member of members) {
+      const user = await directory.getUser(member.clerkId)
+      const primary = user.emailAddresses.find(
+        e => e.id === user.primaryEmailAddressId
+      )
+      if (primary?.emailAddress === email) {
+        return {
+          memberId: member.id,
+          actorId: member.actor?.id ?? null,
+          name: displayName(user, email),
+        }
+      }
+    }
+    return null
+  },
+
+  /** A task by its `TEAM-123` identifier, or `null` if there is none. */
+  async findTask(
+    workspaceId: string,
+    identifier: string
+  ): Promise<SlackTaskDetail | null> {
+    const match = identifier.match(TASK_IDENTIFIER_REGEX)
+    if (!match) return null
+    const team = await slackCommandRepository.findTeamByIdentifier(
+      workspaceId,
+      match[1]!.toUpperCase()
+    )
+    if (!team) return null
+    const row = await slackCommandRepository.findTaskByNumber(
+      workspaceId,
+      team.id,
+      parseInt(match[2]!, 10)
+    )
+    if (!row) return null
+    return {
+      ...toSummary(row),
+      assigneeName: await assigneeNameOf(row.assignee),
+    }
+  },
+
+  /** Move a task to DONE / IN_REVIEW through the task state machine. */
+  async setStatus(
+    task: Pick<SlackTaskSummary, 'id' | 'projectId' | 'status'>,
+    to: 'DONE' | 'IN_REVIEW'
+  ): Promise<void> {
+    await transitionTaskStatus(task.id, task.projectId, to, {
+      currentStatus: task.status,
+    })
+  },
+
+  async assign(
+    workspaceId: string,
+    taskId: string,
+    actorId: string
+  ): Promise<void> {
+    await slackCommandRepository.setAssignee(workspaceId, taskId, actorId)
+  },
+
+  /**
+   * Create a task in the team's most recently updated project, numbered from
+   * the team's atomic sequence (LUM-920).
+   */
+  async createTask(
+    workspaceId: string,
+    teamIdentifier: string,
+    title: string
+  ): Promise<SlackCreateTaskResult> {
+    const team = await slackCommandRepository.findTeamByIdentifier(
+      workspaceId,
+      teamIdentifier
+    )
+    if (!team) return { kind: 'team_not_found', teamIdentifier }
+
+    const project = await slackCommandRepository.findLatestProjectForTeam(
+      workspaceId,
+      team.id
+    )
+    if (!project) return { kind: 'no_project', teamIdentifier: team.identifier }
+
+    // createWithSequence also applies the task storage redaction, so the
+    // reply echoes the stored title rather than the raw input.
+    const created = await taskRepository.createWithSequence({
+      workspaceId,
+      projectId: project.id,
+      teamId: team.id,
+      title,
+      description: null,
+      status: 'TODO',
+      priority: 'MEDIUM',
+      assigneeActorId: null,
+      agentStatus: null,
+      order: 0,
+      dueDate: null,
+    })
+    return {
+      kind: 'created',
+      task: toSummary({
+        id: created.id,
+        number: created.number,
+        title: created.title,
+        status: created.status,
+        priority: created.priority,
+        projectId: project.id,
+        project: { name: project.name },
+        team: {
+          identifier: team.identifier,
+          workspace: { slug: team.workspace.slug },
+        },
+      }),
+    }
+  },
+
+  /** The actor's open tasks (first `limit`) and how many there are in all. */
+  async listOpenTasks(
+    workspaceId: string,
+    actorId: string,
+    limit: number
+  ): Promise<{ tasks: SlackTaskSummary[]; total: number }> {
+    const { tasks, total } =
+      await slackCommandRepository.listOpenTasksForAssignee(
+        workspaceId,
+        actorId,
+        limit
+      )
+    return { tasks: tasks.map(toSummary), total }
+  },
+}

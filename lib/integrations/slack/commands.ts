@@ -1,133 +1,230 @@
-import { prisma } from '@/lib/db/prisma'
-import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
-import { transitionTaskStatus } from '@/lib/task/state-machine'
-import { buildTaskIdentifier, buildTaskUrl } from '@/lib/utils/buildTaskUrl'
-import { CommandResult } from './types'
+/**
+ * Slack `/lumo` and `@Lumo` command handling (LUM-1096).
+ *
+ * Parses the command, asks lib/services/slack-command.service for the data and
+ * formats the reply with the LUM-1094 Block Kit helpers. No Prisma here.
+ *
+ * Every reply decides its `visibility`: errors, usage hints, "not linked" and
+ * help are `ephemeral`; results worth sharing are `in_channel`. Every
+ * user-controlled value is escaped with `escapeMrkdwn` (LUM-928).
+ */
+import { logger } from '@/lib/logger'
+import {
+  slackCommandService,
+  type SlackLinkedMember,
+  type SlackTaskDetail,
+  type SlackTaskSummary,
+} from '@/lib/services/slack-command.service'
+import { buildMyTasksUrl, buildTaskUrl } from '@/lib/utils/buildTaskUrl'
+import type { CommandResult } from './types'
 import { escapeMrkdwn } from './mrkdwn'
 import {
+  actionsBlock,
+  contextBlock,
+  headerBlock,
   linkButton,
   priorityLabel,
   sectionBlock,
   slackMessage,
   statusLabel,
 } from './blocks'
-import { taskRepository } from '@/lib/repositories/task.repository'
 
-// Resolve Slack user email → WorkspaceMember in workspaceId
-async function resolveSlackUser(
-  slackUserId: string,
-  slackToken: string,
-  workspaceId: string
-) {
-  const res = await fetch(
-    `https://slack.com/api/users.info?user=${slackUserId}`,
-    { headers: { Authorization: `Bearer ${slackToken}` } }
-  )
-  const data = await res.json()
-  if (!data.ok || !data.user?.profile?.email) return null
+/** How many tasks `my-tasks` lists before pointing to Lumo for the rest. */
+export const MY_TASKS_LIMIT = 5
 
-  const email: string = data.user.profile.email
+export const VIEW_ALL_IN_LUMO_LABEL = 'View all in Lumo ↗'
 
-  const members = await prisma.workspaceMember.findMany({
-    where: { workspaceId, ...ACTIVE_MEMBER },
-    select: { id: true, clerkId: true },
-  })
+const NOT_LINKED_TEXT =
+  "Your Slack account isn't linked to a Lumo account in this workspace. Sign in to Lumo with the same email address you use in Slack."
 
-  // Use Clerk backend API to match email → WorkspaceMember
-  const { createUserDirectory } = await import('@/lib/auth/users')
-  const clerk = await createUserDirectory()
-  for (const member of members) {
-    const clerkUser = await clerk.getUser(member.clerkId)
-    const primaryEmail = clerkUser.emailAddresses.find(
-      e => e.id === clerkUser.primaryEmailAddressId
-    )
-    if (primaryEmail?.emailAddress === email) return member
-  }
-  return null
+const CREATE_USAGE_TEXT =
+  'Usage: `create "title" in TEAM` (e.g. `create "Fix bug" in ENG`)'
+
+const COMMANDS: ReadonlyArray<[usage: string, summary: string]> = [
+  ['status ENG-123', 'show a task'],
+  ['assign ENG-123 @user', 'assign a task'],
+  ['done ENG-123', 'mark a task done'],
+  ['in-review ENG-123', 'move a task to in review'],
+  ['create "title" in TEAM', 'create a task'],
+  ['my-tasks', 'list your open tasks'],
+]
+
+// ── Reply builders ─────────────────────────────────────────────────────────
+
+function ephemeral(text: string): CommandResult {
+  return { type: 'text', text, visibility: 'ephemeral' }
 }
 
-const TASK_IDENTIFIER_REGEX = /^([A-Za-z]{1,10})-(\d+)$/
-
-/** The `status` reply: one task's details, with a text fallback. */
-function taskMessage(task: {
-  number: number
-  title: string
-  status: string
-  priority: string
-  teamIdentifier: string
-  workspaceSlug: string
-  assigneeName?: string | null
-  projectName?: string | null
-}): { blocks: object[]; text: string } {
-  const identifier = buildTaskIdentifier(task.teamIdentifier, task.number)
-  // LUM-928: stored names/titles are user-controlled — escape them.
-  const heading = `${escapeMrkdwn(identifier)} · ${escapeMrkdwn(task.title)}`
-  const meta = `${statusLabel(task.status)} · ${priorityLabel(task.priority)}`
-  const url = buildTaskUrl(
-    task.workspaceSlug,
-    task.projectName ?? '',
-    task.teamIdentifier,
-    task.number
-  )
-  const body = [
-    `*${heading}*`,
-    `Status: ${statusLabel(task.status)}   Priority: ${priorityLabel(task.priority)}`,
-    task.assigneeName ? `Assignee: ${escapeMrkdwn(task.assigneeName)}` : null,
-    task.projectName ? `Project: ${escapeMrkdwn(task.projectName)}` : null,
-  ]
-    .filter(Boolean)
-    .join('\n')
+function blocksReply(
+  text: string,
+  blocks: object[],
+  visibility: CommandResult['visibility'] = 'in_channel'
+): CommandResult {
   return {
-    text: slackMessage({ text: `${heading} — ${meta}` }).text,
-    blocks: [sectionBlock(body, linkButton(url))],
+    type: 'blocks',
+    text: slackMessage({ text }).text,
+    blocks,
+    visibility,
   }
 }
 
-async function findTaskByIdentifier(identifier: string, workspaceId: string) {
-  const match = identifier.match(TASK_IDENTIFIER_REGEX)
-  if (!match) return null
-  const [, teamIdentifier, numberStr] = match
-  const number = parseInt(numberStr!, 10)
+/**
+ * Link to a task: the canonical project URL, or the project-less My Tasks
+ * route when the project name is missing (never `/projects//tasks/…`).
+ */
+export function taskUrl(
+  task: Pick<
+    SlackTaskSummary,
+    'workspaceSlug' | 'projectName' | 'teamIdentifier' | 'number' | 'identifier'
+  >
+): string {
+  return task.projectName
+    ? buildTaskUrl(
+        task.workspaceSlug,
+        task.projectName,
+        task.teamIdentifier,
+        task.number
+      )
+    : buildMyTasksUrl(task.workspaceSlug, task.identifier)
+}
 
-  const team = await prisma.team.findFirst({
-    where: { workspaceId, identifier: teamIdentifier!.toUpperCase() },
-    select: { id: true },
-  })
-  if (!team) return null
+/** `ENG-1 · Title`, escaped. */
+function heading(task: Pick<SlackTaskSummary, 'identifier' | 'title'>) {
+  return `${escapeMrkdwn(task.identifier)} · ${escapeMrkdwn(task.title)}`
+}
 
-  return prisma.task.findFirst({
-    where: { teamId: team.id, number },
-    select: {
-      id: true,
-      number: true,
-      title: true,
-      status: true,
-      priority: true,
-      projectId: true,
-      assigneeActorId: true,
-      project: { select: { name: true } },
-      team: {
-        select: { identifier: true, workspace: { select: { slug: true } } },
-      },
-    },
-  })
+/** One task's line: bold heading + status · priority, with an open button. */
+function taskSection(task: SlackTaskSummary): object {
+  return sectionBlock(
+    `*${heading(task)}*\n${statusLabel(task.status)} · ${priorityLabel(task.priority)}`,
+    linkButton(taskUrl(task))
+  )
+}
+
+export function helpReply(): CommandResult {
+  const lines = COMMANDS.map(
+    ([usage, summary]) => `• \`${usage}\` — ${summary}`
+  )
+  return blocksReply(
+    `Available commands: ${COMMANDS.map(([u]) => u.split(' ')[0]).join(', ')}`,
+    [
+      headerBlock('Lumo commands'),
+      sectionBlock(lines.join('\n')),
+      contextBlock([
+        'Type `/lumo <command>`, or mention `@Lumo <command>` in a channel.',
+      ]),
+    ],
+    'ephemeral'
+  )
+}
+
+export function statusReply(task: SlackTaskDetail): CommandResult {
+  const assignee = task.assigneeName
+    ? escapeMrkdwn(task.assigneeName)
+    : 'Unassigned'
+  const meta = [
+    `Status: ${statusLabel(task.status)}`,
+    `Priority: ${priorityLabel(task.priority)}`,
+    `Assignee: ${assignee}`,
+    task.projectName ? `Project: ${escapeMrkdwn(task.projectName)}` : '',
+  ]
+  return blocksReply(
+    `${heading(task)} — ${statusLabel(task.status)} · ${priorityLabel(task.priority)} · ${assignee}`,
+    [
+      sectionBlock(`*${heading(task)}*`, linkButton(taskUrl(task))),
+      contextBlock(meta),
+    ]
+  )
+}
+
+export function statusChangedReply(
+  task: SlackTaskSummary,
+  to: 'DONE' | 'IN_REVIEW'
+): CommandResult {
+  const line = `moved to ${statusLabel(to)}`
+  return blocksReply(`${heading(task)} ${line}`, [
+    sectionBlock(`*${heading(task)}* ${line}`, linkButton(taskUrl(task))),
+  ])
+}
+
+export function assignedReply(
+  task: SlackTaskSummary,
+  assigneeName: string
+): CommandResult {
+  const name = escapeMrkdwn(assigneeName)
+  return blocksReply(`${heading(task)} assigned to ${name}`, [
+    sectionBlock(
+      `*${heading(task)}* assigned to *${name}*`,
+      linkButton(taskUrl(task))
+    ),
+  ])
+}
+
+export function createdReply(task: SlackTaskSummary): CommandResult {
+  return blocksReply(`✅ Created ${heading(task)}`, [
+    sectionBlock(`✅ Created *${heading(task)}*`, linkButton(taskUrl(task))),
+  ])
+}
+
+export function myTasksReply(
+  ownerName: string,
+  tasks: SlackTaskSummary[],
+  total: number
+): CommandResult {
+  const first = tasks[0]
+  if (!first) {
+    return {
+      type: 'text',
+      text: 'You have no open tasks. 🎉',
+      visibility: 'in_channel',
+    }
+  }
+  const count =
+    total > tasks.length
+      ? `Showing ${tasks.length} of ${total} open tasks`
+      : `${total} open ${total === 1 ? 'task' : 'tasks'}`
+  const title = `${ownerName}'s open tasks`
+  return blocksReply(
+    `${escapeMrkdwn(title)} (${count}): ${tasks.map(heading).join(', ')}`,
+    [
+      headerBlock(title),
+      ...tasks.map(taskSection),
+      contextBlock([count]),
+      actionsBlock([
+        linkButton(
+          buildMyTasksUrl(first.workspaceSlug),
+          VIEW_ALL_IN_LUMO_LABEL
+        ),
+      ]),
+    ]
+  )
 }
 
 /** Echoes the user's own argument back — escaped so it stays literal text. */
 function taskNotFound(identifier: string): CommandResult {
-  return {
-    type: 'text',
-    text: `Task \`${escapeMrkdwn(identifier)}\` not found.`,
-  }
+  return ephemeral(`Task \`${escapeMrkdwn(identifier)}\` not found.`)
 }
 
-const HELP_TEXT = `Available commands:
-• \`status ENG-123\` — view task details
-• \`assign ENG-123 @user\` — assign task
-• \`done ENG-123\` — mark task as done
-• \`in-review ENG-123\` — mark task as in review
-• \`create "title" in TEAM\` — create a new task
-• \`my-tasks\` — list your open tasks`
+// ── Slack user → Lumo member ───────────────────────────────────────────────
+
+async function resolveSlackUser(
+  slackUserId: string,
+  slackToken: string,
+  workspaceId: string
+): Promise<SlackLinkedMember | null> {
+  const res = await fetch(
+    `https://slack.com/api/users.info?user=${encodeURIComponent(slackUserId)}`,
+    { headers: { Authorization: `Bearer ${slackToken}` } }
+  )
+  const data = await res.json()
+  if (!data.ok || !data.user?.profile?.email) return null
+  return slackCommandService.findMemberByEmail(
+    workspaceId,
+    data.user.profile.email as string
+  )
+}
+
+// ── Entry point ────────────────────────────────────────────────────────────
 
 export async function handleCommand(
   text: string,
@@ -137,184 +234,88 @@ export async function handleCommand(
 ): Promise<CommandResult> {
   const parts = text.trim().split(/\s+/)
   const cmd = parts[0]?.toLowerCase()
+  const arg = parts[1]
 
   try {
     // ── status ENG-123 ──────────────────────────────────────────────────────
-    if (cmd === 'status' && parts[1]) {
-      const task = await findTaskByIdentifier(parts[1], workspaceId)
-      if (!task) return taskNotFound(parts[1]!)
-      return {
-        type: 'blocks',
-        ...taskMessage({
-          number: task.number,
-          title: task.title,
-          status: task.status,
-          priority: task.priority,
-          teamIdentifier: task.team.identifier,
-          workspaceSlug: task.team.workspace.slug,
-          projectName: task.project?.name,
-        }),
-      }
+    if (cmd === 'status' && arg) {
+      const task = await slackCommandService.findTask(workspaceId, arg)
+      return task ? statusReply(task) : taskNotFound(arg)
     }
 
     // ── done ENG-123 / in-review ENG-123 ───────────────────────────────────
-    if ((cmd === 'done' || cmd === 'in-review') && parts[1]) {
+    if ((cmd === 'done' || cmd === 'in-review') && arg) {
       const member = await resolveSlackUser(
         slackUserId,
         slackToken,
         workspaceId
       )
-      if (!member)
-        return {
-          type: 'text',
-          text: `Your Slack account is not linked to a Lumo account in this workspace. Please use the same email in both.`,
-        }
+      if (!member) return ephemeral(NOT_LINKED_TEXT)
 
-      const task = await findTaskByIdentifier(parts[1]!, workspaceId)
-      if (!task) return taskNotFound(parts[1]!)
+      const task = await slackCommandService.findTask(workspaceId, arg)
+      if (!task) return taskNotFound(arg)
 
-      const newStatus =
-        cmd === 'done' ? ('DONE' as const) : ('IN_REVIEW' as const)
-      await transitionTaskStatus(task.id, task.projectId, newStatus, {
-        currentStatus: task.status,
-      })
-      return {
-        type: 'text',
-        text: `✅ ${escapeMrkdwn(`${task.team.identifier}-${task.number}`)} marked as ${cmd === 'done' ? 'Done' : 'In Review'}.`,
-      }
+      const to = cmd === 'done' ? 'DONE' : 'IN_REVIEW'
+      await slackCommandService.setStatus(task, to)
+      return statusChangedReply(task, to)
     }
 
     // ── assign ENG-123 @user ────────────────────────────────────────────────
-    if (cmd === 'assign' && parts[1] && parts[2]) {
+    if (cmd === 'assign' && arg && parts[2]) {
       const member = await resolveSlackUser(
         slackUserId,
         slackToken,
         workspaceId
       )
-      if (!member)
-        return {
-          type: 'text',
-          text: `Your Slack account is not linked to a Lumo account.`,
-        }
+      if (!member) return ephemeral(NOT_LINKED_TEXT)
 
-      const task = await findTaskByIdentifier(parts[1]!, workspaceId)
-      if (!task) return taskNotFound(parts[1]!)
+      const task = await slackCommandService.findTask(workspaceId, arg)
+      if (!task) return taskNotFound(arg)
 
       // parts[2] is a Slack mention like <@U123456> or <@U123456|displayname>
-      const mentionMatch = parts[2]!.match(/^<@([^|>]+)/)
+      const mentionMatch = parts[2].match(/^<@([^|>]+)/)
       if (!mentionMatch)
-        return { type: 'text', text: `Invalid user format. Use @username.` }
-      const targetSlackId = mentionMatch[1]!
+        return ephemeral('Invalid user format. Mention the assignee with @.')
 
-      const targetMember = await resolveSlackUser(
-        targetSlackId,
+      const target = await resolveSlackUser(
+        mentionMatch[1]!,
         slackToken,
         workspaceId
       )
-      if (!targetMember)
-        return {
-          type: 'text',
-          text: `That user doesn't have a linked Lumo account.`,
-        }
+      if (!target?.actorId)
+        return ephemeral("That user doesn't have a linked Lumo account.")
 
-      // Resolve target member → Actor for assignment
-      const { getHumanActorId } = await import('@/lib/actor')
-      const targetActorId = await getHumanActorId(targetMember.id)
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { assigneeActorId: targetActorId },
-      })
-      return {
-        type: 'text',
-        text: `✅ ${escapeMrkdwn(`${task.team.identifier}-${task.number}`)} assigned.`,
-      }
+      await slackCommandService.assign(workspaceId, task.id, target.actorId)
+      return assignedReply(task, target.name)
     }
 
     // ── create "title" in TEAM ──────────────────────────────────────────────
     if (cmd === 'create') {
       // Validate format before resolving user for a faster error response
       const titleMatch = text.match(/create\s+"([^"]+)"\s+in\s+([A-Za-z]+)/i)
-      if (!titleMatch)
-        return {
-          type: 'text',
-          text: `Usage: \`create "title" in TEAM\` (e.g. \`create "Fix bug" in ENG\`)`,
-        }
+      if (!titleMatch) return ephemeral(CREATE_USAGE_TEXT)
 
       const member = await resolveSlackUser(
         slackUserId,
         slackToken,
         workspaceId
       )
-      if (!member)
-        return {
-          type: 'text',
-          text: `Your Slack account is not linked to a Lumo account.`,
-        }
-      const [, title, teamIdentifierRaw] = titleMatch
-      const teamIdentifier = teamIdentifierRaw!.toUpperCase()
+      if (!member) return ephemeral(NOT_LINKED_TEXT)
 
-      const team = await prisma.team.findFirst({
-        where: { workspaceId, identifier: teamIdentifier },
-        select: {
-          id: true,
-          identifier: true,
-          workspace: { select: { slug: true } },
-        },
-      })
-      if (!team)
-        return {
-          type: 'text',
-          text: `Team \`${escapeMrkdwn(teamIdentifier)}\` not found.`,
-        }
-
-      // Use the most recently updated project for this team as the default
-      const project = await prisma.project.findFirst({
-        where: { teamId: team.id },
-        orderBy: { updatedAt: 'desc' },
-        select: { id: true, name: true },
-      })
-
-      if (!project)
-        return {
-          type: 'text',
-          text: `Team \`${escapeMrkdwn(team.identifier)}\` has no project to create the task in.`,
-        }
-
-      // Number comes from the team's atomic taskSeq — count+1 collides with
-      // (or re-issues) numbers once any task has been hard-deleted (LUM-920).
-      // createWithSequence also applies the task storage redaction.
-      const task = await taskRepository.createWithSequence({
+      const result = await slackCommandService.createTask(
         workspaceId,
-        projectId: project.id,
-        teamId: team.id,
-        title: title!,
-        description: null,
-        status: 'TODO',
-        priority: 'MEDIUM',
-        assigneeActorId: null,
-        agentStatus: null,
-        order: 0,
-        dueDate: null,
-      })
-
-      const taskIdentifier = buildTaskIdentifier(team.identifier, task.number)
-      const url = buildTaskUrl(
-        team.workspace.slug,
-        project.name,
-        team.identifier,
-        task.number
+        titleMatch[2]!.toUpperCase(),
+        titleMatch[1]!
       )
-      const created = `✅ Created ${escapeMrkdwn(taskIdentifier)} · ${escapeMrkdwn(title!)}`
-      return {
-        type: 'blocks',
-        text: slackMessage({ text: created }).text,
-        blocks: [
-          sectionBlock(
-            `✅ Created *${escapeMrkdwn(taskIdentifier)} · ${escapeMrkdwn(title!)}*`,
-            linkButton(url)
-          ),
-        ],
-      }
+      if (result.kind === 'team_not_found')
+        return ephemeral(
+          `Team \`${escapeMrkdwn(result.teamIdentifier)}\` not found.`
+        )
+      if (result.kind === 'no_project')
+        return ephemeral(
+          `Team \`${escapeMrkdwn(result.teamIdentifier)}\` has no project to create the task in.`
+        )
+      return createdReply(result.task)
     }
 
     // ── my-tasks ────────────────────────────────────────────────────────────
@@ -324,67 +325,23 @@ export async function handleCommand(
         slackToken,
         workspaceId
       )
-      if (!member)
-        return {
-          type: 'text',
-          text: `Your Slack account is not linked to a Lumo account.`,
-        }
+      if (!member) return ephemeral(NOT_LINKED_TEXT)
+      // No actor row → nothing can be assigned to them (and an unscoped
+      // `assigneeActorId: null` filter would list unassigned tasks instead).
+      if (!member.actorId) return myTasksReply(member.name, [], 0)
 
-      const { getHumanActorId: getActorId } = await import('@/lib/actor')
-      const memberActorId = await getActorId(member.id)
-      const tasks = await prisma.task.findMany({
-        where: {
-          team: { workspaceId },
-          assigneeActorId: memberActorId,
-          status: { notIn: ['DONE'] },
-        },
-        orderBy: { updatedAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          number: true,
-          title: true,
-          status: true,
-          priority: true,
-          team: {
-            select: {
-              identifier: true,
-              workspace: { select: { slug: true } },
-            },
-          },
-          project: { select: { name: true } },
-        },
-      })
-
-      if (tasks.length === 0)
-        return { type: 'text', text: `You have no open tasks. 🎉` }
-
-      const rows = tasks.map(t => {
-        const identifier = buildTaskIdentifier(t.team.identifier, t.number)
-        return {
-          heading: `${escapeMrkdwn(identifier)} · ${escapeMrkdwn(t.title)}`,
-          mrkdwn: `*${escapeMrkdwn(identifier)}* · ${escapeMrkdwn(t.title)}\n${statusLabel(t.status)} · ${priorityLabel(t.priority)}`,
-          url: buildTaskUrl(
-            t.team.workspace.slug,
-            t.project.name,
-            t.team.identifier,
-            t.number
-          ),
-        }
-      })
-      return {
-        type: 'blocks',
-        text: slackMessage({
-          text: `Your open tasks: ${rows.map(r => r.heading).join(', ')}`,
-        }).text,
-        blocks: rows.map(r => sectionBlock(r.mrkdwn, linkButton(r.url))),
-      }
+      const { tasks, total } = await slackCommandService.listOpenTasks(
+        workspaceId,
+        member.actorId,
+        MY_TASKS_LIMIT
+      )
+      return myTasksReply(member.name, tasks, total)
     }
 
-    // ── unknown command ─────────────────────────────────────────────────────
-    return { type: 'text', text: HELP_TEXT }
+    // ── unknown command / help ─────────────────────────────────────────────
+    return helpReply()
   } catch (error) {
-    console.error('[slack command] error:', error)
-    return { type: 'text', text: `Something went wrong. Please try again.` }
+    logger.error('[slack command] error:', error)
+    return ephemeral('Something went wrong. Please try again.')
   }
 }

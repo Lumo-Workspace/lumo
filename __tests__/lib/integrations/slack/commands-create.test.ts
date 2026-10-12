@@ -106,7 +106,7 @@ describe('slack create command (LUM-920)', () => {
 
     expect(p.project.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { teamId: 'team_1' },
+        where: { workspaceId: 'ws_1', teamId: 'team_1' },
         orderBy: { updatedAt: 'desc' },
       })
     )
@@ -135,6 +135,7 @@ describe('slack create command (LUM-920)', () => {
     expect(result).toEqual({
       type: 'text',
       text: 'Team `ENG` has no project to create the task in.',
+      visibility: 'ephemeral',
     })
     expect(mockTx.task.create).not.toHaveBeenCalled()
   })

@@ -46,9 +46,20 @@ export interface NotificationPayload {
 // Returns: Slack Block Kit blocks array OR a plain string message. A blocks
 // reply always carries `text` too — the escaped notification/screen-reader
 // fallback (LUM-1094).
+//
+// `visibility` (LUM-1096) is decided per reply: errors, usage hints and help
+// are `ephemeral` (only the invoking user sees them); results the channel
+// benefits from are `in_channel`.
+export type CommandVisibility = 'in_channel' | 'ephemeral'
+
 export type CommandResult =
-  | { type: 'blocks'; blocks: object[]; text: string }
-  | { type: 'text'; text: string }
+  | {
+      type: 'blocks'
+      blocks: object[]
+      text: string
+      visibility: CommandVisibility
+    }
+  | { type: 'text'; text: string; visibility: CommandVisibility }
 
 /**
  * Error `code` an API returns when the stored Slack token lacks a scope the
