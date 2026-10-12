@@ -28,6 +28,8 @@ describe('date helpers (in-process, timezone-independent)', () => {
     expect(fmtCalendarDay('2026-06-01T00:00:00.000Z')).toBe('2026-06-01')
     expect(fmtCalendarDay(null)).toBe(NONE)
     expect(fmtCalendarDay(undefined)).toBe(NONE)
+    expect(fmtCalendarDay('garbage')).toBe(NONE)
+    expect(fmtCalendarDay('2026-06-01')).toBe('2026-06-01')
   })
 
   it('fmtDay / fmtTimestamp render a local instant in local wall-clock time', () => {
@@ -175,7 +177,10 @@ describe('sweep over cli/src/commands', () => {
     const handRolled = new RegExp('\\(HTTP \\$\\{')
     const src = new Map(commandSources())
     for (const f of files) {
-      expect([f, handRolled.test(src.get(f) ?? '')]).toEqual([f, false])
+      const body = src.get(f)
+      // A renamed / deleted file must fail here, not pass vacuously.
+      expect([f, body === undefined]).toEqual([f, false])
+      expect([f, handRolled.test(body ?? '')]).toEqual([f, false])
     }
   })
 })

@@ -26,12 +26,14 @@ export function orNone(value: string | null | undefined): string {
   return value === null || value === undefined || value === '' ? NONE : value
 }
 
+const CALENDAR_DAY_PREFIX = /^\d{4}-\d{2}-\d{2}(?:$|T)/
+
 /**
  * A calendar-day field stored as UTC midnight → `YYYY-MM-DD` of that UTC day
  * (never shifted to the local zone). Absent → {@link NONE}.
  */
 export function fmtCalendarDay(iso: string | null | undefined): string {
-  if (!iso) return NONE
+  if (!iso || !CALENDAR_DAY_PREFIX.test(iso)) return NONE
   // Intentional UTC slice: the stored value IS the calendar day (LUM-700).
   return iso.slice(0, 10)
 }
