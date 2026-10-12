@@ -7,8 +7,8 @@
  * ids so callers never handle the cap themselves. Better Auth has no such
  * cap; paging is simply transparent there.
  *
- * Kept apart from `./users` (types only) so suites that mock
- * `@/lib/auth/users` still exercise the real paging.
+ * Lives in its own module (importing only types, never `./users`) so suites
+ * that mock `@/lib/auth/users` still exercise the real paging.
  */
 import type { AuthUser, UserDirectory } from './types'
 
