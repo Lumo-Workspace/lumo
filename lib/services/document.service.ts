@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { getUserDirectory } from '@/lib/auth/users'
 import {
   documentRepository,
@@ -283,14 +284,8 @@ export const documentService = {
     }
 
     const client = await getUserDirectory()
-    const clerkUsers =
-      allClerkIds.size > 0
-        ? await client.getUserList({
-            userId: [...allClerkIds],
-            limit: 100,
-          })
-        : { data: [] }
-    const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
+    const clerkUsers = await listUsersByIds(client, [...allClerkIds])
+    const userMap = new Map(clerkUsers.map(u => [u.id, u]))
 
     return documents.map(doc => {
       const creatorUser = userMap.get(doc.createdBy.clerkId)
@@ -357,11 +352,8 @@ export const documentService = {
     }
 
     const client = await getUserDirectory()
-    const clerkUsers = await client.getUserList({
-      userId: [...allClerkIds],
-      limit: 100,
-    })
-    const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
+    const clerkUsers = await listUsersByIds(client, [...allClerkIds])
+    const userMap = new Map(clerkUsers.map(u => [u.id, u]))
 
     // Walk ancestor chain
     const ancestors = await findAncestors(doc.parentId, workspaceId)
@@ -520,11 +512,9 @@ export const documentService = {
 
     // Resolve creator name via Clerk
     const client = await getUserDirectory()
-    const clerkUsers = await client.getUserList({
-      userId: [document.createdBy.clerkId],
-      limit: 1,
-    })
-    const creatorUser = clerkUsers.data[0]
+    const [creatorUser] = await listUsersByIds(client, [
+      document.createdBy.clerkId,
+    ])
 
     // Fetch attached tags so the create response includes them (only when tags were attached)
     const docTags =

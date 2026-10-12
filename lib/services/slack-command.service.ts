@@ -9,6 +9,7 @@ import { slackCommandRepository } from '@/lib/repositories/slack-command.reposit
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import type { AuthUser } from '@/lib/auth/users'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 
@@ -141,31 +142,16 @@ async function updateAsMember(
 }
 
 /**
- * Ids per `getUserList` call. Clerk's `user_id` filter accepts at most 100
- * ids (the ids travel in the query string); `limit` alone would allow 500.
- */
-const USER_LIST_PAGE = 100
-
-/**
- * Directory users by id, one batch `getUserList` per 100 ids. Works for
- * either provider behind `@/lib/auth/users`; ids the directory no longer
- * knows are simply missing from the map.
+ * Directory users by id, paged by `listUsersByIds` (100 ids per call).
+ * Works for either provider behind `@/lib/auth/users`; ids the directory no
+ * longer knows are simply missing from the map.
  */
 async function usersByIds(ids: string[]): Promise<Map<string, AuthUser>> {
-  const out = new Map<string, AuthUser>()
-  const unique = [...new Set(ids)]
-  if (unique.length === 0) return out
+  if (ids.length === 0) return new Map()
   const { createUserDirectory } = await import('@/lib/auth/users')
   const directory = await createUserDirectory()
-  for (let i = 0; i < unique.length; i += USER_LIST_PAGE) {
-    const page = unique.slice(i, i + USER_LIST_PAGE)
-    const { data } = await directory.getUserList({
-      userId: page,
-      limit: page.length,
-    })
-    for (const user of data) out.set(user.id, user)
-  }
-  return out
+  const users = await listUsersByIds(directory, ids)
+  return new Map(users.map(user => [user.id, user]))
 }
 
 export const slackCommandService = {
