@@ -27,6 +27,8 @@ const USERS: Record<
 > = {
   user_1: { firstName: 'Dev', lastName: 'Person', email: 'dev@example.com' },
   user_2: { firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' },
+  // No name on file: the display name falls back to the directory email.
+  user_4: { firstName: '', lastName: '', email: 'nina@example.com' },
 }
 function authUser(id: string) {
   const u = USERS[id]!
@@ -84,11 +86,13 @@ const SLACK_EMAILS: Record<string, string> = {
   U2: 'ada@example.com',
   // Same person as U1, different casing in Slack's profile.
   U3: 'DEV@Example.com',
+  U4: 'NINA@Example.com',
 }
 
 const MEMBERS = [
   { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
   { id: 'wm_2', clerkId: 'user_2', actor: { id: 'actor_2' } },
+  { id: 'wm_4', clerkId: 'user_4', actor: { id: 'actor_4' } },
 ]
 
 function row(n: number, extra: Record<string, unknown> = {}) {
@@ -173,6 +177,9 @@ describe('help', () => {
     ])
       expect(json).toContain(cmd)
     expect(r.text).toContain('Available commands')
+    // The fallback lists each full usage, arguments included.
+    expect(r.text).toContain('assign ENG-123 @user')
+    expect(r.text).toContain('create "title" in TEAM')
   })
 
   it('a bare subcommand without its argument also gets the help card', async () => {
@@ -356,6 +363,11 @@ describe('assign', () => {
       where: { id: 'task_1', workspaceId: 'ws_1' },
       data: { assigneeActorId: 'actor_2' },
     })
+  })
+
+  it("names the assignee from Lumo's record, not the Slack-supplied email", async () => {
+    const r = await run('assign ENG-1 <@U4>')
+    expect(r.text).toBe('ENG-1 · Fix login assigned to nina')
   })
 
   it('target without a linked Lumo account → ephemeral, no update', async () => {

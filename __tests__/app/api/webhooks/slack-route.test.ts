@@ -357,6 +357,23 @@ describe('POST /api/webhooks/slack', () => {
     })
   })
 
+  // LUM-1096: a failure while running or replying must never surface as an
+  // unhandled rejection / non-200 — Slack would retry and re-run the command.
+  it('answers 200 and swallows (logs) a failure inside the command run', async () => {
+    mockHandleCommand.mockRejectedValue(new Error('boom'))
+    const res = await POST(signed(slashBody, FORM))
+    expect(res.status).toBe(200)
+    await expect(Promise.all(pending)).resolves.toBeDefined()
+  })
+
+  it('answers 200 and does not reject when replying to Slack throws', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'))
+    const res = await POST(signed(slashBody, FORM))
+    expect(res.status).toBe(200)
+    await expect(Promise.all(pending)).resolves.toBeDefined()
+    expect(mockHandleCommand).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects a JSON event with a bad signature (401)', async () => {
     const res = await POST(
       signed(

@@ -57,28 +57,49 @@ export function mentionReplyRequest(
   }
 }
 
+/**
+ * POST a Slack Web API call. Success means HTTP 2xx *and* `{ ok: true }` —
+ * Slack reports most failures as `200 { ok: false, error }`, and a body that
+ * is not JSON is a failure too. Network errors are caught and logged; this
+ * never throws.
+ */
 async function postToSlack(
   token: string,
   url: string,
   body: Record<string, unknown>
 ): Promise<boolean> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
   try {
-    const data = (await res.json()) as { ok?: boolean }
-    return data.ok !== false
-  } catch {
-    return true
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+    let data: { ok?: boolean; error?: string } = {}
+    try {
+      data = (await res.json()) as { ok?: boolean; error?: string }
+    } catch {
+      // non-JSON body: treated as a failure below
+    }
+    if (res.ok && data.ok === true) return true
+    logger.warn('[slack command] Slack rejected the reply', {
+      url,
+      status: res.status,
+      error: data.error ?? null,
+    })
+    return false
+  } catch (error) {
+    logger.error('[slack command] could not reach Slack', { url, error })
+    return false
   }
 }
 
-/** Answer a mention; an ephemeral reply Slack refuses becomes a thread reply. */
+/**
+ * Answer a mention; an ephemeral reply Slack refuses (or that fails) becomes
+ * a thread reply. Never throws — failures are logged.
+ */
 export async function sendMentionReply(
   token: string,
   result: CommandResult,
@@ -94,21 +115,26 @@ export async function sendMentionReply(
   await postToSlack(token, fallback.url, fallback.body)
 }
 
-/** Answer a slash command through its `response_url`. */
+/**
+ * Answer a slash command through its `response_url`. Never throws: the
+ * response_url is single-use and expires, so a failure is logged, not retried.
+ */
 export async function sendSlashCommandReply(
   responseUrl: string,
   result: CommandResult
 ): Promise<void> {
-  const res = await fetch(responseUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(slashCommandReplyBody(result)),
-  })
-  // Nothing to retry into (response_url is single-use and expires), but a
-  // rejected reply must not vanish silently.
-  if (!res.ok) {
-    logger.warn('[slack command] response_url rejected the reply', {
-      status: res.status,
+  try {
+    const res = await fetch(responseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(slashCommandReplyBody(result)),
     })
+    if (!res.ok) {
+      logger.warn('[slack command] response_url rejected the reply', {
+        status: res.status,
+      })
+    }
+  } catch (error) {
+    logger.error('[slack command] could not reach response_url', { error })
   }
 }

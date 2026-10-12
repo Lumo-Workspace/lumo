@@ -53,7 +53,7 @@ beforeEach(() => {
   })) as unknown as typeof fetch
 
   p.workspaceMember.findMany.mockResolvedValue([
-    { id: 'wm_1', clerkId: 'user_1' },
+    { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
   ])
   // Team holds 3 live tasks but its sequence is already at 7 (tasks deleted):
   // count+1 would re-issue 4; the sequence must hand out 8.

@@ -106,7 +106,7 @@ export function helpReply(): CommandResult {
     ([usage, summary]) => `• \`${usage}\` — ${summary}`
   )
   return blocksReply(
-    `Available commands: ${COMMANDS.map(([u]) => u.split(' ')[0]).join(', ')}`,
+    `Available commands: ${COMMANDS.map(([usage]) => usage).join(', ')}`,
     [
       headerBlock('Lumo commands'),
       sectionBlock(lines.join('\n')),

@@ -129,7 +129,8 @@ export const slackCommandService = {
         return {
           memberId: member.id,
           actorId: member.actor?.id ?? null,
-          name: displayName(user, email),
+          // Lumo's own record, never the Slack-supplied string.
+          name: displayName(user, primary.emailAddress),
         }
       }
     }

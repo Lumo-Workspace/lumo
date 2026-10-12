@@ -120,23 +120,29 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Execute command asynchronously — must return 200 within 3 s for slash commands
+    // Never rejects: an error here is logged, and the webhook has already
+    // answered 200, so Slack does not retry (and re-run) the command.
     const executeCommand = async () => {
-      const result: CommandResult = await handleCommand(
-        commandText,
-        slackUserId,
-        token,
-        integration.workspaceId
-      )
+      try {
+        const result: CommandResult = await handleCommand(
+          commandText,
+          slackUserId,
+          token,
+          integration.workspaceId
+        )
 
-      // LUM-1094 text fallback + LUM-1096 visibility/thread live in reply.ts.
-      if (responseUrl) {
-        await sendSlashCommandReply(responseUrl, result)
-      } else {
-        await sendMentionReply(token, result, {
-          channel: channelId,
-          user: slackUserId,
-          threadTs,
-        })
+        // LUM-1094 text fallback + LUM-1096 visibility/thread live in reply.ts.
+        if (responseUrl) {
+          await sendSlashCommandReply(responseUrl, result)
+        } else {
+          await sendMentionReply(token, result, {
+            channel: channelId,
+            user: slackUserId,
+            threadTs,
+          })
+        }
+      } catch (error) {
+        logger.error('[slack webhook] command failed', error)
       }
     }
 

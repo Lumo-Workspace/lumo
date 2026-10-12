@@ -5,6 +5,7 @@
  */
 import { logger } from '@/lib/logger'
 import {
+  sendMentionReply,
   sendSlashCommandReply,
   commandMessage,
   mentionReplyRequest,
@@ -100,5 +101,82 @@ describe('sendSlashCommandReply', () => {
       { status: 404 }
     )
     warn.mockRestore()
+  })
+})
+
+describe('send* never throw and never report a failed send as success', () => {
+  const ctx = { channel: 'C1', user: 'U1', threadTs: '1.2' }
+  let warn: jest.SpyInstance
+  let error: jest.SpyInstance
+  beforeEach(() => {
+    warn = jest.spyOn(logger, 'warn').mockImplementation(() => {})
+    error = jest.spyOn(logger, 'error').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    warn.mockRestore()
+    error.mockRestore()
+  })
+
+  it('a network error on a mention reply is caught and logged', async () => {
+    global.fetch = jest.fn(async () => {
+      throw new TypeError('fetch failed')
+    }) as unknown as typeof fetch
+    await expect(
+      sendMentionReply(
+        'xoxb',
+        { type: 'text', text: 'ok', visibility: 'in_channel' },
+        ctx
+      )
+    ).resolves.toBeUndefined()
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('could not reach Slack'),
+      expect.objectContaining({ url: 'https://slack.com/api/chat.postMessage' })
+    )
+  })
+
+  it('a network error on the response_url is caught and logged', async () => {
+    global.fetch = jest.fn(async () => {
+      throw new TypeError('fetch failed')
+    }) as unknown as typeof fetch
+    await expect(
+      sendSlashCommandReply('https://hooks.slack.com/commands/x', {
+        type: 'text',
+        text: 'ok',
+        visibility: 'ephemeral',
+      })
+    ).resolves.toBeUndefined()
+    expect(error).toHaveBeenCalled()
+  })
+
+  it('chat.postMessage answering ok:false is logged as a failure', async () => {
+    global.fetch = jest.fn(
+      async () => new Response('{"ok":false,"error":"channel_not_found"}')
+    ) as unknown as typeof fetch
+    await sendMentionReply(
+      'xoxb',
+      { type: 'text', text: 'ok', visibility: 'in_channel' },
+      ctx
+    )
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('Slack rejected the reply'),
+      expect.objectContaining({ error: 'channel_not_found' })
+    )
+  })
+
+  it('a non-JSON 5xx from chat.postEphemeral still falls back to a thread reply', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(new Response('upstream error', { status: 502 }))
+      .mockResolvedValueOnce(new Response('{"ok":true}'))
+    global.fetch = fetchMock as unknown as typeof fetch
+    await sendMentionReply(
+      'xoxb',
+      { type: 'text', text: 'e', visibility: 'ephemeral' },
+      ctx
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1]![0]).toBe(
+      'https://slack.com/api/chat.postMessage'
+    )
   })
 })
