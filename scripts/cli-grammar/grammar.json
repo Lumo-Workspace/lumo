@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.112.1",
+  "cliVersion": "1.113.1",
   "commands": {
     "audit": {
       "arguments": [],
@@ -481,13 +481,21 @@
     "doc list": {
       "arguments": [],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
         "--limit": {
           "long": "--limit",
           "short": null,
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Cap output to first N rows"
+          "description": "Docs per page (1-500, default 50)"
         },
         "--project": {
           "long": "--project",
@@ -519,12 +527,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Render as an indented tree"
+          "description": "Render as an indented tree (paged in tree order)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List documents visible to the current user"
+      "description": "List documents visible to the current user, 50 per page (--limit / --cursor)"
     },
     "doc move": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -1791,6 +1799,22 @@
           "enumCaseInsensitive": false,
           "description": "Show only archived milestones"
         },
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Milestones per page (1-500, default 50)"
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -1810,7 +1834,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown."
+      "description": "List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown."
     },
     "milestone move": {
       "arguments": [{ "name": "ref", "required": true, "variadic": false }],
@@ -3082,6 +3106,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
         "--full": {
           "long": "--full",
           "short": null,
@@ -3089,11 +3121,19 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print every comment, bypassing the output-token cap"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Top-level threads per page (1-500, default 50)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List the task comment thread (capped to the output budget; --full prints every comment)"
+      "description": "List the task comment thread, 50 top-level threads per page (--limit / --cursor; capped to the output budget; --full alone prints every comment)"
     },
     "task comments rm": {
       "arguments": [
@@ -3410,13 +3450,21 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue with earlier entries (from the footer)"
+        },
         "--json": {
           "long": "--json",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Emit the raw activity entries as JSON"
+          "description": "Emit the raw activity entries of this page as JSON"
         },
         "--limit": {
           "long": "--limit",
@@ -3424,7 +3472,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Show the last N entries (default 30)"
+          "description": "Entries per page, newest page first (1-500, default 50)"
         }
       },
       "hasSubcommands": false,
@@ -3452,13 +3500,29 @@
     "task list": {
       "arguments": [],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { tasks, total, nextCursor } as JSON"
+        },
         "--limit": {
           "long": "--limit",
           "short": "-n",
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Show only the first N tasks"
+          "description": "Tasks per page (1-500, default 50)"
         },
         "--milestone": {
           "long": "--milestone",
@@ -3487,7 +3551,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List tasks assigned to you. Filter with --status, --project, --milestone, --limit."
+      "description": "List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with \"Showing X-Y of N.\" and the next-page command)."
     },
     "task memory": {
       "arguments": [],
@@ -3667,6 +3731,14 @@
           "enumCaseInsensitive": false,
           "description": "Assignee — me, an email, a member or agent name, or none for unassigned; repeatable (ORed)"
         },
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
         "--due-after": {
           "long": "--due-after",
           "short": null,
@@ -3697,7 +3769,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Emit the raw result as JSON"
+          "description": "Emit { tasks, truncated, total, nextCursor } as JSON"
         },
         "--limit": {
           "long": "--limit",
@@ -3705,7 +3777,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Show only the first N tasks"
+          "description": "Tasks per page (1-500, default 50)"
         },
         "--milestone": {
           "long": "--milestone",
@@ -3766,7 +3838,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side."
+      "description": "Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side; 50 per page (--limit / --cursor, a longer result ends with \"Showing X-Y of N.\" and the next-page command)."
     },
     "task show": {
       "arguments": [

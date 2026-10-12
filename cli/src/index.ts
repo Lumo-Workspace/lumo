@@ -694,24 +694,29 @@ task
 task
   .command('list')
   .description(
-    'List tasks assigned to you. Filter with --status, --project, --milestone, --limit.'
+    'List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with "Showing X-Y of N." and the next-page command).'
   )
   .option(
     '-s, --status <value>',
     'Filter by status: backlog | todo | in_progress | in_review | done (case-insensitive)'
   )
   .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
-  .option('-n, --limit <count>', 'Show only the first N tasks')
+  .option('-n, --limit <count>', 'Tasks per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
   .option(
     '-m, --milestone <ref>',
     'Filter by milestone name or UUID (scopes to my tasks under that milestone)'
   )
+  .option('--json', 'Emit { tasks, total, nextCursor } as JSON')
   .action(wrap(options => taskList(options as Record<string, string>)))
 
 task
   .command('search [query]')
   .description(
-    'Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side.'
+    'Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side; 50 per page (--limit / --cursor, a longer result ends with "Showing X-Y of N." and the next-page command).'
   )
   .option(
     '-a, --assignee <ref>',
@@ -738,12 +743,16 @@ task
   .option('--team <ref>', 'Team to resolve --sprint against')
   .option('--due-after <date>', 'Due on or after YYYY-MM-DD (your local day)')
   .option('--due-before <date>', 'Due on or before YYYY-MM-DD (your local day)')
-  .option('-n, --limit <count>', 'Show only the first N tasks')
+  .option('-n, --limit <count>', 'Tasks per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
   .option(
     '--exact',
     'Substring matching only, in board order (default: typo-tolerant, ranked by relevance)'
   )
-  .option('--json', 'Emit the raw result as JSON')
+  .option('--json', 'Emit { tasks, truncated, total, nextCursor } as JSON')
   .action(
     wrap((query, options) =>
       taskSearch(query as string | undefined, options as Record<string, never>)
@@ -770,13 +779,20 @@ task
   .description(
     'Show the task field-change history (status, priority, title, assignee, due, tags, sprint), oldest first.'
   )
-  .option('-n, --limit <count>', 'Show the last N entries (default 30)')
-  .option('--json', 'Emit the raw activity entries as JSON')
+  .option(
+    '-n, --limit <count>',
+    'Entries per page, newest page first (1-500, default 50)'
+  )
+  .option(
+    '--cursor <cursor>',
+    'Continue with earlier entries (from the footer)'
+  )
+  .option('--json', 'Emit the raw activity entries of this page as JSON')
   .action(
     wrap((identifier, options) =>
       taskHistory(
         identifier as string,
-        options as { limit?: string; json?: boolean }
+        options as { limit?: string; cursor?: string; json?: boolean }
       )
     )
   )
@@ -1047,12 +1063,20 @@ const taskComments = task
 taskComments
   .command('list <identifier>')
   .description(
-    'List the task comment thread (capped to the output budget; --full prints every comment)'
+    'List the task comment thread, 50 top-level threads per page (--limit / --cursor; capped to the output budget; --full alone prints every comment)'
   )
   .option('--full', 'Print every comment, bypassing the output-token cap')
+  .option('--limit <n>', 'Top-level threads per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
   .action(
     wrap((id, opts) =>
-      taskCommentList(id as string, opts as { full?: boolean })
+      taskCommentList(
+        id as string,
+        opts as { full?: boolean; limit?: string; cursor?: string }
+      )
     )
   )
 taskComments
@@ -1816,7 +1840,7 @@ const milestoneCmd = program
 milestoneCmd
   .command('list')
   .description(
-    'List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown.'
+    'List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown.'
   )
   .option('--project <ref>', 'Project name or slug')
   .option('--archived', 'Show only archived milestones')
@@ -1824,6 +1848,11 @@ milestoneCmd
   .option(
     '--search <text>',
     'Filter by name/description substring (case-insensitive)'
+  )
+  .option('--limit <n>', 'Milestones per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
   )
   .action(wrap(options => milestoneList(options as Record<string, string>)))
 
@@ -2462,15 +2491,21 @@ doc
 
 doc
   .command('list')
-  .description('List documents visible to the current user')
+  .description(
+    'List documents visible to the current user, 50 per page (--limit / --cursor)'
+  )
   .option(
     '--scope <scope>',
     'personal | workspace | all (case-insensitive; default: all)'
   )
   .option('--project <ref>', 'Filter by project name/slug')
   .option('--task <LUM-N>', 'Only docs bound to this task')
-  .option('--limit <n>', 'Cap output to first N rows')
-  .option('--tree', 'Render as an indented tree')
+  .option('--limit <n>', 'Docs per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
+  .option('--tree', 'Render as an indented tree (paged in tree order)')
   .action(wrap(opts => docList(opts as Record<string, string>)))
 
 doc

@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { slugify } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 interface ProjectRow {
   id: string
@@ -15,23 +16,22 @@ interface ProjectsResponse {
 }
 
 /**
- * Render projects as `slug-style-name  Display Name` lines. The slug form
- * matches what `lumo task create --project <ref>` accepts (slugify(name)),
- * so users can copy a slug straight into the create flag.
+ * Render projects as a `SLUG  NAME` table (LUM-1089 shape, header on a TTY
+ * only). The slug form matches what `lumo task create --project <ref>`
+ * accepts (slugify(name)), so users can copy a slug straight into the flag.
  *
  * Slug source of truth: `cli/src/lib/resolve.ts` (mirrors server's
  * `lib/utils/slugify.ts`). Keep that single copy in sync with the server.
  */
-export function formatProjectList(projects: ProjectRow[]): string {
-  if (projects.length === 0) return 'No projects.'
+export function formatProjectList(
+  projects: ProjectRow[],
+  opts: ListRenderOptions = {}
+): string {
   const rows = projects
     .filter(p => !p.isIdea)
-    .map(p => ({ slug: slugify(p.name), name: p.name }))
+    .map(p => [sanitizeField(slugify(p.name)), sanitizeField(p.name)])
   if (rows.length === 0) return 'No projects.'
-  const w = Math.max(...rows.map(r => r.slug.length))
-  return rows
-    .map(r => `${r.slug.padEnd(w)}  ${sanitizeField(r.name)}`)
-    .join('\n')
+  return renderListTable(rows, { header: ['SLUG', 'NAME'], flex: 1, ...opts })
 }
 
 export async function projectList(): Promise<number | void> {

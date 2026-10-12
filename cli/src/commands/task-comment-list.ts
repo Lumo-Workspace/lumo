@@ -6,12 +6,20 @@ import {
   truncateUnitsToBudget,
 } from '../../../shared/src/output-budget'
 import { shortCommentId } from '../lib/comment-ref'
+import { shellQuote } from '../lib/confirmation'
 import {
   LINKED_FENCE,
   fenceUntrustedText,
   linkedRetrievalPreamble,
 } from '../../../shared/src/untrusted-fence'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  buildCommand,
+  pageFooter,
+  paginate,
+  parsePageArgs,
+  type PageArgs,
+} from '../lib/pagination'
 
 interface ResolveResponse {
   id: string
@@ -141,12 +149,66 @@ function fenceCommentThread(text: string): string {
  * thread from `/api/tasks/:id/comments` and prints each top-level comment
  * (replies indented) as `author · time` followed by the plain-text body.
  */
+export interface TaskCommentListOptions {
+  full?: boolean | undefined
+  limit?: string | undefined
+  cursor?: string | undefined
+}
+
+/**
+ * LUM-1093: which top-level threads to print. `--full` alone keeps its
+ * "every comment" promise (no paging); otherwise threads are paged 50 at a
+ * time, replies travelling with their parent.
+ */
+export function commentPageArgs(
+  opts: TaskCommentListOptions
+): { ok: true; page: PageArgs | null } | { ok: false; error: string } {
+  if (opts.full && opts.limit === undefined && opts.cursor === undefined) {
+    return { ok: true, page: null }
+  }
+  const r = parsePageArgs(opts.limit, opts.cursor)
+  if (!r.ok) return r
+  return { ok: true, page: { limit: r.limit, offset: r.offset } }
+}
+
+/** The thread for one page plus the LUM-1093 footer (outside the fence). */
+export function formatCommentPage(
+  comments: CommentNode[],
+  page: PageArgs | null,
+  identifier: string,
+  opts: TaskCommentListOptions
+): string {
+  if (!page)
+    return formatCommentThread(comments, { full: opts.full, identifier })
+  const p = paginate(comments, page)
+  const footer = pageFooter(
+    { ...p, shown: p.items.length },
+    buildCommand(
+      `task comments list ${shellQuote(sanitizeField(identifier))}`,
+      [
+        ['--full', opts.full],
+        ['--limit', opts.limit],
+      ]
+    )
+  )
+  const body =
+    p.items.length === 0
+      ? '(no comments on this page)'
+      : formatCommentThread(p.items, { full: opts.full, identifier })
+  return [body, ...footer].join('\n')
+}
+
 export async function taskCommentList(
   identifier: string | undefined,
-  opts: { full?: boolean } = {}
+  opts: TaskCommentListOptions = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: usage: lumo task comments list <LUM-42>')
+    return 1
+  }
+  const paging = commentPageArgs(opts)
+  if (!paging.ok) {
+    console.error(`Error: ${paging.error}`)
     return 1
   }
 
@@ -220,9 +282,6 @@ export async function taskCommentList(
     return
   }
   console.log(
-    formatCommentThread(comments, {
-      full: opts.full,
-      identifier: resolved.identifier,
-    })
+    formatCommentPage(comments, paging.page, resolved.identifier, opts)
   )
 }

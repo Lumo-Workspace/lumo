@@ -190,7 +190,11 @@ describe('task history', () => {
     expect(out).toContain('LUM-9 history (oldest first)')
     expect(out).toMatch(/Claude Code {2}status TODO → DONE/)
     expect(out).not.toContain('priority LOW')
-    expect(out).toContain('(1 earlier entries hidden — raise --limit)')
+    // LUM-1093: the hidden-entries note is now the paging footer.
+    expect(out).toContain('Showing 2-2 of 2.')
+    expect(out).toContain(
+      'Hint: earlier entries with `lumo task history LUM-9 --limit 1 --cursor 1`'
+    )
   })
 
   it('formatHistory of nothing reads "No history."', () => {
