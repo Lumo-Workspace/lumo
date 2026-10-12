@@ -1,6 +1,7 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface TestCaseUpdateOptions {
   title?: string
@@ -70,7 +71,7 @@ export async function taskTestCaseUpdate(
   if (!r.ok || !r.data) return 1
 
   console.log(
-    `Updated ${split.task}/TC${r.data.testCase.number} "${r.data.testCase.title}" ` +
+    `Updated ${split.task}/TC${r.data.testCase.number} "${sanitizeField(r.data.testCase.title)}" ` +
       `(${Object.keys(patch).join(', ')})`
   )
 }

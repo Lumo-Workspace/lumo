@@ -1,5 +1,6 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { formatExecutor } from '../lib/test-case-executor'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ListRow {
   number: number
@@ -56,7 +57,7 @@ export async function taskTestCaseList(
       last = `${run.result} on ${run.environment}${sha}${dirty} (${run.createdAt.slice(0, 10)})${executor ? ` ${executor}` : ''}`
     }
     console.log(
-      `TC${c.number}\t${c.title}\t${c.steps.length} steps / ${c.verification.length} verify\t${last}`
+      `TC${c.number}\t${sanitizeField(c.title)}\t${c.steps.length} steps / ${c.verification.length} verify\t${last}`
     )
   }
 }

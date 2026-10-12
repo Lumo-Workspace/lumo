@@ -1,5 +1,6 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface TestCaseAddOptions {
   title?: string
@@ -70,7 +71,7 @@ export async function taskTestCaseAdd(
   if (!r.ok || !r.data) return 1
 
   console.log(
-    `Created ${identifier}/TC${r.data.testCase.number} "${r.data.testCase.title}"  ` +
+    `Created ${identifier}/TC${r.data.testCase.number} "${sanitizeField(r.data.testCase.title)}"  ` +
       `(${steps.length} steps, ${verification.length} verification)`
   )
 }
