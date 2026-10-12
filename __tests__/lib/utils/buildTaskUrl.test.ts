@@ -1,4 +1,8 @@
-import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
+import {
+  buildMyTasksUrl,
+  buildTaskUrl,
+  buildTaskIdentifier,
+} from '@/lib/utils/buildTaskUrl'
 
 describe('buildTaskUrl', () => {
   const original = process.env.NEXT_PUBLIC_APP_URL
@@ -32,5 +36,26 @@ describe('buildTaskUrl', () => {
 describe('buildTaskIdentifier', () => {
   it('joins team identifier and number', () => {
     expect(buildTaskIdentifier('LUM', 42)).toBe('LUM-42')
+  })
+})
+
+describe('buildMyTasksUrl (LUM-1096)', () => {
+  const original = process.env.NEXT_PUBLIC_APP_URL
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_APP_URL = original
+  })
+
+  it('links the My Tasks page', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://www.uselumo.ai'
+    expect(buildMyTasksUrl('acme')).toBe(
+      'https://www.uselumo.ai/workspace/acme/my-tasks'
+    )
+  })
+
+  it('links one task under My Tasks without a project slug', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://www.uselumo.ai'
+    expect(buildMyTasksUrl('acme', 'ENG-7')).toBe(
+      'https://www.uselumo.ai/workspace/acme/my-tasks/ENG-7'
+    )
   })
 })

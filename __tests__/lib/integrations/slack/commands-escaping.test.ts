@@ -19,6 +19,7 @@ jest.mock('@/lib/db/prisma', () => ({
       create: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
     $transaction: jest.fn((fn: (tx: typeof mockTx) => unknown) => fn(mockTx)),
@@ -50,6 +51,7 @@ const p = prisma as unknown as {
   task: {
     findFirst: jest.Mock
     findMany: jest.Mock
+    count: jest.Mock
     findUniqueOrThrow: jest.Mock
   }
 }
@@ -72,7 +74,7 @@ beforeEach(() => {
     }),
   })) as unknown as typeof fetch
   p.workspaceMember.findMany.mockResolvedValue([
-    { id: 'wm_1', clerkId: 'user_1' },
+    { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
   ])
   p.team.findFirst.mockResolvedValue({
     id: 'team_1',
@@ -136,6 +138,7 @@ describe('Slack command reply mrkdwn escaping', () => {
         project: { name: 'Backend' },
       },
     ])
+    p.task.count.mockResolvedValue(1)
     const mine = await handleCommand('my-tasks', 'U1', 'xoxb', 'ws_1')
     noControlSequences(mine)
     expect(JSON.stringify(mine)).toContain(`Mine ${ESCAPED}`)
@@ -151,6 +154,7 @@ describe('Slack command reply mrkdwn escaping', () => {
     expect(notFound).toEqual({
       type: 'text',
       text: 'Task `&lt;!channel&gt;` not found.',
+      visibility: 'ephemeral',
     })
   })
 

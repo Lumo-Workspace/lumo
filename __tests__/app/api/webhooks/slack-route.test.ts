@@ -48,7 +48,11 @@ beforeEach(() => {
     workspaceId: 'w1',
     accessToken: 'enc',
   })
-  mockHandleCommand.mockResolvedValue({ type: 'text', text: 'ok' })
+  mockHandleCommand.mockResolvedValue({
+    type: 'text',
+    text: 'ok',
+    visibility: 'in_channel',
+  })
   fetchMock.mockResolvedValue(new Response('{}'))
 })
 
@@ -190,6 +194,7 @@ describe('POST /api/webhooks/slack', () => {
   // both send paths (response_url and chat.postMessage).
   const blocksResult = {
     type: 'blocks',
+    visibility: 'in_channel',
     text: 'LUM-12 · Fix login',
     blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'x' } }],
   }
@@ -228,12 +233,145 @@ describe('POST /api/webhooks/slack', () => {
   })
 
   it('never posts an empty text even if a reply comes back blank', async () => {
-    mockHandleCommand.mockResolvedValue({ type: 'text', text: '' })
+    mockHandleCommand.mockResolvedValue({
+      type: 'text',
+      text: '',
+      visibility: 'ephemeral',
+    })
     await POST(signed(slashBody, FORM))
     await Promise.all(pending)
     const sent = JSON.parse(fetchMock.mock.calls[0]![1].body)
     expect(typeof sent.text).toBe('string')
     expect(sent.text.trim()).not.toBe('')
+  })
+
+  // LUM-1096: visibility comes from the reply; mentions answer in a thread.
+  describe('reply visibility and threading (LUM-1096)', () => {
+    function mention(event: Record<string, unknown>) {
+      return signed(
+        JSON.stringify({
+          type: 'event_callback',
+          team_id: 'T1',
+          event: {
+            type: 'app_mention',
+            text: '<@B1> status LUM-12',
+            channel: 'C9',
+            user: 'U2',
+            ...event,
+          },
+        }),
+        'application/json'
+      )
+    }
+
+    it('sends an ephemeral reply to the response_url as response_type ephemeral', async () => {
+      mockHandleCommand.mockResolvedValue({
+        type: 'text',
+        text: 'Task `X` not found.',
+        visibility: 'ephemeral',
+      })
+      await POST(signed(slashBody, FORM))
+      await Promise.all(pending)
+      const sent = JSON.parse(fetchMock.mock.calls[0]![1].body)
+      expect(sent).toEqual({
+        text: 'Task `X` not found.',
+        response_type: 'ephemeral',
+      })
+    })
+
+    it('keeps an in_channel reply in_channel on the response_url', async () => {
+      await POST(signed(slashBody, FORM))
+      await Promise.all(pending)
+      const sent = JSON.parse(fetchMock.mock.calls[0]![1].body)
+      expect(sent.response_type).toBe('in_channel')
+    })
+
+    it('answers a mention in a thread under the mention (thread_ts = ts)', async () => {
+      await POST(mention({ ts: '1700000000.000100' }))
+      await Promise.all(pending)
+      expect(fetchMock.mock.calls[0]![0]).toBe(
+        'https://slack.com/api/chat.postMessage'
+      )
+      expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
+        channel: 'C9',
+        thread_ts: '1700000000.000100',
+        text: 'ok',
+      })
+    })
+
+    it('answers a mention made inside a thread in that same thread', async () => {
+      await POST(
+        mention({ ts: '1700000000.000200', thread_ts: '1700000000.000001' })
+      )
+      await Promise.all(pending)
+      const sent = JSON.parse(fetchMock.mock.calls[0]![1].body)
+      expect(sent.thread_ts).toBe('1700000000.000001')
+    })
+
+    it('sends an ephemeral mention reply via chat.postEphemeral to the mentioning user, in the thread', async () => {
+      mockHandleCommand.mockResolvedValue({
+        type: 'text',
+        text: 'Something went wrong. Please try again.',
+        visibility: 'ephemeral',
+      })
+      fetchMock.mockResolvedValue(new Response('{"ok":true}'))
+      await POST(mention({ ts: '1700000000.000100' }))
+      await Promise.all(pending)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0]![0]).toBe(
+        'https://slack.com/api/chat.postEphemeral'
+      )
+      expect(fetchMock.mock.calls[0]![1].headers.Authorization).toBe(
+        'Bearer xoxb-test'
+      )
+      expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
+        channel: 'C9',
+        user: 'U2',
+        thread_ts: '1700000000.000100',
+        text: 'Something went wrong. Please try again.',
+      })
+    })
+
+    it('falls back to a thread reply when Slack refuses the ephemeral one', async () => {
+      mockHandleCommand.mockResolvedValue({
+        type: 'text',
+        text: 'Task `X` not found.',
+        visibility: 'ephemeral',
+      })
+      fetchMock
+        .mockResolvedValueOnce(
+          new Response('{"ok":false,"error":"user_not_in_channel"}')
+        )
+        .mockResolvedValueOnce(new Response('{"ok":true}'))
+      await POST(mention({ ts: '1700000000.000100' }))
+      await Promise.all(pending)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(fetchMock.mock.calls[1]![0]).toBe(
+        'https://slack.com/api/chat.postMessage'
+      )
+      expect(JSON.parse(fetchMock.mock.calls[1]![1].body)).toEqual({
+        channel: 'C9',
+        thread_ts: '1700000000.000100',
+        text: 'Task `X` not found.',
+      })
+    })
+  })
+
+  // LUM-1096: a failure while running or replying must never surface as an
+  // unhandled rejection / non-200 — Slack would retry and re-run the command.
+  it('answers 200 and swallows (logs) a failure inside the command run', async () => {
+    mockHandleCommand.mockRejectedValue(new Error('boom'))
+    const res = await POST(signed(slashBody, FORM))
+    expect(res.status).toBe(200)
+    await expect(Promise.all(pending)).resolves.toBeDefined()
+  })
+
+  it('answers 200 and does not reject when replying to Slack throws', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'))
+    const res = await POST(signed(slashBody, FORM))
+    expect(res.status).toBe(200)
+    await expect(Promise.all(pending)).resolves.toBeDefined()
+    expect(mockHandleCommand).toHaveBeenCalledTimes(1)
   })
 
   it('rejects a JSON event with a bad signature (401)', async () => {
