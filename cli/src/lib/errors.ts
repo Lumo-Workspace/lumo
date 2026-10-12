@@ -63,3 +63,25 @@ export function errHttp(
 export function warn(message: string): string {
   return `${WARN_PREFIX} ${message}`
 }
+
+/**
+ * LUM-1110: the server refused this CLI as too old (HTTP 426). Names the
+ * versions when known and always ends with `lumo update`.
+ */
+export function cliUpgradeRequired(
+  minVersion: string | null,
+  cliVersion: string | null
+): string {
+  const have = cliVersion ? ` ${cliVersion}` : ''
+  const need = minVersion ? `; it needs ${minVersion} or newer` : ''
+  return `the Lumo server no longer supports this CLI${have} (HTTP 426${need}). Run \`lumo update\` to upgrade.`
+}
+
+/**
+ * LUM-1110: the server has no API route for the command (an HTTP 404 page,
+ * not a JSON "not found") — usually a server older than the CLI.
+ */
+export function serverLacksFeature(command: string | null): string {
+  const what = command ? `\`lumo ${command}\`` : 'this command'
+  return `the Lumo server has no API for ${what} (HTTP 404) — it may not have deployed this feature yet. Retry after the next server deploy; if it persists, check LUMO_API_URL.`
+}

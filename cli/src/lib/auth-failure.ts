@@ -27,7 +27,8 @@ export interface AuthFailureTracker {
   hintFor(exitCode: number): string | null
 }
 
-function hasBearer(input: unknown, init?: RequestInit): boolean {
+/** Whether a request carries `Authorization: Bearer …` (in init or a Request). */
+export function hasBearer(input: unknown, init?: RequestInit): boolean {
   const headerSources: unknown[] = [init?.headers]
   if (typeof Request !== 'undefined' && input instanceof Request)
     headerSources.push(input.headers)
