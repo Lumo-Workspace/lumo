@@ -60,6 +60,21 @@ export function buildTaskNotificationCtx(
   }
 }
 
+/** Slack payload for a task event: the task, and who triggered it. */
+export function taskNotificationPayload(
+  ctx: TaskNotificationCtx,
+  taskId: string
+): NotificationPayload {
+  return {
+    entityKind: 'task',
+    entityId: taskId,
+    entityTitle: ctx.taskTitle,
+    entityIdentifier: ctx.taskIdentifier,
+    entityUrl: ctx.taskUrl,
+    actorClerkId: ctx.triggerClerkId || undefined,
+  }
+}
+
 // ── Notify a single actor (inbox + Slack DM + real-time push) ───────────────
 
 export async function notifyActor(params: {
@@ -80,12 +95,7 @@ export async function notifyActor(params: {
   if (!actor || actor.type !== 'HUMAN' || !actor.member) return
   if (actor.member.clerkId === ctx.triggerClerkId) return
 
-  const payload: NotificationPayload = {
-    taskId,
-    taskTitle: ctx.taskTitle,
-    taskIdentifier: ctx.taskIdentifier,
-    taskUrl: ctx.taskUrl,
-  }
+  const payload = taskNotificationPayload(ctx, taskId)
 
   // Inbox notification (gated by inApp preference)
   const sendInApp = await shouldNotify(
@@ -137,12 +147,7 @@ export function notifyChannel(
     sendChannelNotification(
       ctx.workspaceId,
       slackEventType,
-      {
-        taskId,
-        taskTitle: ctx.taskTitle,
-        taskIdentifier: ctx.taskIdentifier,
-        taskUrl: ctx.taskUrl,
-      },
+      taskNotificationPayload(ctx, taskId),
       ctx.projectId
     )
   )

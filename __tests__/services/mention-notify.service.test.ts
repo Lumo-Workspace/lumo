@@ -63,7 +63,12 @@ const base = {
   notificationType: 'PROJECT_MENTIONED' as const,
   ref: { projectId: 'p1' },
   slackEvent: 'comment_mention' as const,
-  slackPayload: { taskTitle: 'Proj', taskUrl: 'http://x', commentBody: 'hi' },
+  slackPayload: {
+    entityKind: 'project' as const,
+    entityTitle: 'Proj',
+    entityUrl: 'http://x',
+    mentionSurface: 'content' as const,
+  },
   waitUntil: (p: Promise<unknown>) => {
     void p
   },
@@ -122,5 +127,40 @@ describe('notifyMentionDelta', () => {
       Record<string, unknown>
     >
     expect(rows.map(r => r.recipientActorId)).toEqual(['a1'])
+  })
+
+  it("DMs quote the paragraph around each recipient's own mention (content)", async () => {
+    mockFindByWorkspaceAndClerkIds.mockResolvedValue([
+      M('u1', 'a1'),
+      M('u2', 'a2'),
+    ])
+    mockShouldNotifyBatch.mockResolvedValue(new Set(['a1', 'a2']))
+    await notifyMentionDelta({
+      ...base,
+      oldHtml: '',
+      newHtml: `<p>Intro text.</p><p>${span('u1')} owns API</p><p>${span('u2')} owns UI</p>`,
+    })
+    const byRecipient = Object.fromEntries(
+      mockSendDMNotification.mock.calls.map(c => [c[1], c[3]])
+    ) as Record<string, Record<string, unknown>>
+    expect(byRecipient.u1).toMatchObject({
+      entityKind: 'project',
+      entityTitle: 'Proj',
+      actorClerkId: 'author',
+      quote: '@x owns API',
+    })
+    expect(byRecipient.u2!.quote).toBe('@x owns UI')
+  })
+
+  it('DMs quote a comment whole, keeping its paragraphs', async () => {
+    await notifyMentionDelta({
+      ...base,
+      slackPayload: { ...base.slackPayload, mentionSurface: 'comment' },
+      oldHtml: '',
+      newHtml: `<p>Hi ${span('u1')}</p><p>second para</p>`,
+    })
+    expect(mockSendDMNotification.mock.calls[0]![3]).toMatchObject({
+      quote: 'Hi @x\nsecond para',
+    })
   })
 })

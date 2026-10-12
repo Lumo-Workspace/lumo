@@ -31,7 +31,6 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { DocMentionSource } from '@prisma/client'
@@ -831,9 +830,11 @@ export const documentService = {
               ref: { documentId: docId },
               slackEvent: 'comment_mention',
               slackPayload: {
-                taskTitle: updatedTitle,
-                taskUrl: docUrl,
-                commentBody: htmlToPreview(newContent),
+                entityKind: 'document',
+                entityId: docId,
+                entityTitle: updatedTitle,
+                entityUrl: docUrl,
+                mentionSurface: 'content',
               },
               waitUntil,
             })
