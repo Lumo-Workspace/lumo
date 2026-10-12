@@ -2,7 +2,7 @@
 
 ### `lumo project list` — list projects in the workspace
 
-Prints `<slug>  <Display Name>` lines. The slug column matches the `--project <ref>` argument accepted by `task create`, so users (and you) can copy a slug straight from this output into a create command.
+Prints `<slug>  <Display Name>` rows (the shared list table: a `SLUG  NAME` header on a TTY only; piped output has no header and keeps this column order). The slug column matches the `--project <ref>` argument accepted by `task create`, so users (and you) can copy a slug straight from this output into a create command.
 
 ```bash
 lumo project list
@@ -17,7 +17,7 @@ lumo project create "Mobile app" --description "iOS + Android client"
 lumo project update mobile-app --owner alice@example.com
 ```
 
-### `lumo milestone list [--project <ref>] [--archived] [--all] [--search <text>]` — list milestones in a project
+### `lumo milestone list [--project <ref>] [--archived] [--all] [--search <text>] [--limit <n>] [--cursor <c>]` — list milestones in a project
 
 Prints table rows: `<STATE>  <HEALTH>  <target-date or ->  <name>`, sorted by target date asc (nulls last) then created asc. `STATE` is `ACTIVE`, `COMPLETED` or `ARCHIVED` (the same upper-case words `milestone show` prints on its `State:` line). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
 
@@ -31,6 +31,8 @@ Use `--search <text>` to filter to milestones whose **name or description** cont
 | `--archived`      | boolean | Show **only** archived milestones (instead of the default non-archived set).                                      |
 | `--all`           | boolean | Show **both** archived and non-archived milestones.                                                               |
 | `--search <text>` | string  | Filter by **name/description** case-insensitive substring. Combines with the archive filter; blank value ignored. |
+| `--limit <n>`     | integer | Milestones per page (1-500, default 50). More ends with `Showing X-Y of N.` + the next-page command.              |
+| `--cursor <c>`    | string  | Next page, copied from the footer (see **Paging** in [tasks.md](tasks.md)).                                       |
 
 `HEALTH` is the target-date risk light, server-computed from the milestone's target date + task progress:
 

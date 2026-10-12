@@ -5,9 +5,16 @@ import { resolveTaskRef } from '../lib/comment-ref'
 import { localDayLabel } from '../lib/local-day'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { colorEnabled, terminalWidth } from '../lib/ui'
+import { shellQuote } from '../lib/confirmation'
+import {
+  buildCommand,
+  pageFooter,
+  parsePageArgs,
+  type PageArgs,
+} from '../lib/pagination'
 
 /**
- * `lumo task history <LUM-N> [--limit N]` (LUM-821) — the task's field-change
+ * `lumo task history <LUM-N> [--limit N] [--cursor C]` (LUM-821) — the task's field-change
  * log (Jira changelog / Linear issue history): status, priority, title,
  * assignee, due date, tags, sprint… from the activity timeline,
  * oldest first. Comments are left to `task comments list`.
@@ -108,15 +115,40 @@ export function formatHistory(
   })
 }
 
+/**
+ * LUM-1093: history pages from the newest end — the first page is the latest
+ * `limit` entries, and the cursor counts how many newest entries the next
+ * (earlier) page skips. Rows stay oldest first within a page.
+ */
+export function historyPage(
+  all: ActivityEntry[],
+  page: PageArgs
+): {
+  items: ActivityEntry[]
+  total: number
+  offset: number
+  first: number
+  nextCursor: string | null
+} {
+  const end = Math.max(0, all.length - page.offset)
+  const start = Math.max(0, end - page.limit)
+  const items = all.slice(start, end)
+  return {
+    items,
+    total: all.length,
+    offset: page.offset,
+    first: start + 1,
+    nextCursor: start > 0 ? String(page.offset + items.length) : null,
+  }
+}
+
 export async function taskHistory(
   identifier: string,
-  opts: { limit?: string; json?: boolean } = {}
+  opts: { limit?: string; cursor?: string; json?: boolean } = {}
 ): Promise<number | void> {
-  const limit = opts.limit !== undefined ? parseInt(opts.limit, 10) : 30
-  if (Number.isNaN(limit) || limit < 1) {
-    console.error(
-      `Error: invalid --limit "${opts.limit}" (expected a positive integer)`
-    )
+  const pageArgs = parsePageArgs(opts.limit, opts.cursor)
+  if (!pageArgs.ok) {
+    console.error(`Error: ${pageArgs.error}`)
     return 1
   }
   const ctx = apiContext()
@@ -140,26 +172,34 @@ export async function taskHistory(
     if (!r.data.hasMore || !r.data.nextCursor) break
     cursor = r.data.nextCursor
   }
-  const shown = activities.slice(-limit)
+  const page = historyPage(activities, pageArgs)
   if (opts.json) {
-    process.stdout.write(JSON.stringify(shown, null, 2) + '\n')
+    // Unchanged array shape — agents already parse it (LUM-1093 keeps the
+    // --json contract; paging is driven by --limit / --cursor).
+    process.stdout.write(JSON.stringify(page.items, null, 2) + '\n')
     return
   }
   const dir = await fetchDirectory(ctx)
   const names = dir ? actorNameMap(dir) : new Map<string, string>()
-  process.stdout.write(`${task.identifier} history (oldest first)\n`)
-  // TTY → WHEN/ACTOR/CHANGE header + change cut to the terminal width;
-  // piped → headerless, whole rows (LUM-1089 list-table policy).
-  process.stdout.write(
-    formatHistory(shown, names, {
-      tty: Boolean(process.stdout.isTTY),
-      width: terminalWidth(),
-      color: colorEnabled(),
-    }) + '\n'
-  )
-  if (activities.length > shown.length) {
-    process.stdout.write(
-      `(${activities.length - shown.length} earlier entries hidden — raise --limit)\n`
-    )
-  }
+  const lines = [
+    `${task.identifier} history (oldest first)`,
+    page.items.length === 0 && page.total > 0
+      ? 'No entries on this page.'
+      : // TTY → WHEN/ACTOR/CHANGE header + change cut to the terminal
+        // width; piped → headerless, whole rows (LUM-1089 / LUM-1090).
+        formatHistory(page.items, names, {
+          tty: Boolean(process.stdout.isTTY),
+          width: terminalWidth(),
+          color: colorEnabled(),
+        }),
+    ...pageFooter(
+      { ...page, shown: page.items.length },
+      buildCommand(
+        `task history ${shellQuote(sanitizeField(task.identifier))}`,
+        [['--limit', opts.limit]]
+      ),
+      'earlier entries'
+    ),
+  ]
+  process.stdout.write(lines.join('\n') + '\n')
 }

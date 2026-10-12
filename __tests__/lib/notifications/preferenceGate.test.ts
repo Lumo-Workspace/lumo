@@ -26,6 +26,7 @@ import { prisma } from '@/lib/db/prisma'
 import {
   shouldNotify,
   shouldNotifyBatch,
+  shouldNotifySlackEvent,
 } from '@/lib/services/notification.service'
 
 const mockActorFindUnique = prisma.actor.findUnique as jest.Mock
@@ -96,8 +97,10 @@ describe('shouldNotify', () => {
 
   // LUM-1098: these types have no Slack send path, so the Slack channel has
   // no preference route for them (the notifySlackAgent* columns are unread).
+  // LUM-1101: Slack fails closed for an unmapped type — a future sender added
+  // without a route sends nothing instead of ignoring notifySlack*=false.
   it.each(['AGENT_DONE', 'AGENT_FAILED', 'TASK_SPEC_READY'] as const)(
-    'has no Slack preference route for %s',
+    'fails closed on Slack for unmapped %s',
     async type => {
       mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
       mockPrefFindUnique.mockResolvedValue({
@@ -106,10 +109,16 @@ describe('shouldNotify', () => {
       })
 
       const result = await shouldNotify('actor-1', 'slack', type)
-      expect(result).toBe(true)
+      expect(result).toBe(false)
       expect(mockPrefFindUnique).not.toHaveBeenCalled()
     }
   )
+
+  it('in-app still delivers an unmapped type (SPRINT_STARTED has no switch)', async () => {
+    const result = await shouldNotify('actor-1', 'inApp', 'SPRINT_STARTED')
+    expect(result).toBe(true)
+    expect(mockActorFindUnique).not.toHaveBeenCalled()
+  })
 
   it('still gates the in-app channel for AGENT_DONE', async () => {
     mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
@@ -212,5 +221,44 @@ describe('shouldNotifyBatch', () => {
       'TASK_MENTIONED'
     )
     expect(result).toEqual(new Set(['a1']))
+  })
+})
+
+// ── Slack fail-closed in batch + PR event gate (LUM-1101) ───────────────────
+
+describe('shouldNotifyBatch Slack fail-closed (LUM-1101)', () => {
+  it('returns no recipients on Slack for an unmapped type', async () => {
+    const result = await shouldNotifyBatch(
+      ['a-1', 'a-2'],
+      'slack',
+      'AGENT_DONE'
+    )
+    expect(result.size).toBe(0)
+    expect(mockActorFindMany).not.toHaveBeenCalled()
+  })
+
+  it('keeps ALWAYS_NOTIFY types deliverable on Slack', async () => {
+    const result = await shouldNotifyBatch(['a-1'], 'slack', 'AGENT_CLARIFY')
+    expect([...result]).toEqual(['a-1'])
+  })
+})
+
+describe('shouldNotifySlackEvent (LUM-1101)', () => {
+  it.each(['pr_opened', 'pr_merged'] as const)(
+    '%s is silenced by notifySlackAssigned=false',
+    async event => {
+      mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
+      mockPrefFindUnique.mockResolvedValue({ notifySlackAssigned: false })
+      expect(await shouldNotifySlackEvent('actor-1', event)).toBe(false)
+      expect(mockPrefFindUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ select: { notifySlackAssigned: true } })
+      )
+    }
+  )
+
+  it('delivers when no preference row exists', async () => {
+    mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
+    mockPrefFindUnique.mockResolvedValue(null)
+    expect(await shouldNotifySlackEvent('actor-1', 'pr_opened')).toBe(true)
   })
 })

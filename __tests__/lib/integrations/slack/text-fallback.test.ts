@@ -12,7 +12,7 @@ jest.mock('@/lib/db/prisma', () => ({
     workspaceMember: { findMany: jest.fn() },
     team: { findFirst: jest.fn() },
     project: { findFirst: jest.fn() },
-    task: { findFirst: jest.fn(), findMany: jest.fn() },
+    task: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
   },
 }))
 jest.mock('@/lib/crypto', () => ({ decrypt: jest.fn(() => 'xoxb-test') }))
@@ -51,7 +51,7 @@ const p = prisma as unknown as {
   workspaceMember: { findMany: jest.Mock }
   team: { findFirst: jest.Mock }
   project: { findFirst: jest.Mock }
-  task: { findFirst: jest.Mock; findMany: jest.Mock }
+  task: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock }
 }
 
 const INJECT = '<!channel> <https://evil.example|ok> & co'
@@ -150,6 +150,9 @@ describe('command reply text fallback', () => {
   }
 
   it('status reply: blocks + escaped text, readable labels, canonical URL', async () => {
+    p.workspaceMember.findMany.mockResolvedValue([
+      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
+    ])
     p.team.findFirst.mockResolvedValue({ id: 'team_1' })
     p.task.findFirst.mockResolvedValue(storedTask)
     const result = await handleCommand('status ENG-1', 'U1', 'xoxb', 'ws_1')
@@ -169,11 +172,12 @@ describe('command reply text fallback', () => {
 
   it('my-tasks reply: blocks + text, unified button label', async () => {
     p.workspaceMember.findMany.mockResolvedValue([
-      { id: 'wm_1', clerkId: 'user_1' },
+      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
     ])
     p.task.findMany.mockResolvedValue([
       { ...storedTask, status: 'TODO', priority: 'LOW' },
     ])
+    p.task.count.mockResolvedValue(1)
     const result = await handleCommand('my-tasks', 'U1', 'xoxb', 'ws_1')
     expect(result.type).toBe('blocks')
     if (result.type !== 'blocks') return
@@ -196,7 +200,13 @@ describe('command reply text fallback', () => {
       workspace: { slug: 'acme' },
     })
     p.project.findFirst.mockResolvedValue({ id: 'proj_1', name: 'Backend' })
-    mockCreateWithSequence.mockResolvedValue({ id: 'task_9', number: 9 })
+    mockCreateWithSequence.mockResolvedValue({
+      id: 'task_9',
+      number: 9,
+      title: 'Ship it',
+      status: 'TODO',
+      priority: 'MEDIUM',
+    })
     const result = await handleCommand(
       'create "Ship it" in eng',
       'U1',
