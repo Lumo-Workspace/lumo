@@ -91,6 +91,34 @@ describe('fuzzy paging keeps the capped signal (scan finding, LUM-1093)', () => 
     expect(r.nextCursor).toBe('50')
   })
 
+  it('ranks over ids only and loads full rows just for the page', async () => {
+    jest.spyOn(taskRepository, 'rankTextMatches').mockResolvedValue([
+      { id: 'low', score: 0.5 },
+      { id: 'high', score: 2 },
+      { id: 'mid', score: 1 },
+    ])
+    mockFindMany
+      .mockResolvedValueOnce([{ id: 'low' }, { id: 'high' }, { id: 'mid' }])
+      .mockResolvedValueOnce([
+        { id: 'mid', team: { identifier: 'L' } },
+        { id: 'high', team: { identifier: 'L' } },
+      ])
+    const r = await taskRepository.findByWorkspaceWithFiltersPage(
+      'w1',
+      { q: 'serch', fuzzy: true },
+      { offset: 0, limit: 2 }
+    )
+    const [idsCall, pageCall] = mockFindMany.mock.calls.map(c => c[0])
+    expect(idsCall.select).toEqual({ id: true })
+    expect(idsCall.include).toBeUndefined()
+    expect(pageCall.where).toEqual({
+      workspaceId: 'w1',
+      id: { in: ['high', 'mid'] },
+    })
+    expect(r.rows.map(x => x.id)).toEqual(['high', 'mid'])
+    expect(r.total).toBe(3)
+  })
+
   it('a fuzzy result under the cap is not truncated', async () => {
     jest
       .spyOn(taskRepository, 'rankTextMatches')

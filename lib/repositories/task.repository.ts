@@ -959,18 +959,30 @@ export const taskRepository = {
   ) {
     const { where, rank } = await buildWorkspaceWhere(workspaceId, filters)
     if (rank) {
-      const rows = await prisma.task.findMany({
+      // Rank over ids only (the filtered match set is at most the cap), then
+      // load the full rows for just this page.
+      const ids = await prisma.task.findMany({
         where,
-        include: WORKSPACE_SEARCH_INCLUDE,
+        select: { id: true },
         orderBy: [{ order: 'asc' }, { id: 'asc' }],
         take: WORKSPACE_TASK_QUERY_LIMIT,
       })
+      const pageIds = sortByRank(ids, rank)
+        .slice(page.offset, page.offset + page.limit)
+        .map(r => r.id)
+      const full = pageIds.length
+        ? await prisma.task.findMany({
+            where: { workspaceId, id: { in: pageIds } },
+            include: WORKSPACE_SEARCH_INCLUDE,
+          })
+        : []
+      const byId = new Map(full.map(r => [r.id, r]))
       return {
-        rows: sortByRank(rows, rank).slice(
-          page.offset,
-          page.offset + page.limit
-        ),
-        total: rows.length,
+        rows: pageIds.flatMap(id => {
+          const r = byId.get(id)
+          return r ? [r] : []
+        }),
+        total: ids.length,
         // The ranked match set stops at the cap, so `total` is a floor.
         truncated: rank.size >= WORKSPACE_TASK_QUERY_LIMIT,
       }
