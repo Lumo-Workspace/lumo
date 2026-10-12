@@ -143,3 +143,29 @@ lumo cost --since 2026-06-01 --by member --json
 ### When to suggest
 
 The user asks where their tokens went _by operation_ — "which tools are most expensive," cost attribution by model / teammate / session, or a workspace cost window. For the quick per-task Top-5 inline, point them at `lumo task lineage <id>` instead; reach for `lumo cost` for the full breakdown or any non-task scope.
+
+## `lumo report`
+
+Window summary (LUM-1100): **tokens used** and **tasks completed** over a range of local calendar days — the team view plus a per-member split. Token figures use the same attribution as `lumo cost` (hook-recorded per-turn usage).
+
+```bash
+lumo report
+lumo report --since 30d
+lumo report --since 2026-10-01 --until 2026-10-07 --member me
+lumo report --project Lumo --limit 100 --json
+```
+
+- `--since <day>` — first day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday`, or `Nd` = the last N days including today (`7d`, `30d`). Default: the 7 days ending on `--until`.
+- `--until <day>` — last day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday` (default today). Days are the shell's local timezone; the CLI sends local-midnight instants, the server uses the half-open `[since, until+1 day)`. Max window 366 days.
+- `--member <ref>` — only one person: `me`, an email or a display name (same matching as `doc share`). Without it the whole workspace is reported.
+- `--project <name>` — only tasks in that project; tokens narrow to session activity attached to those tasks (work not attached to a task drops out).
+- `--limit <N>` — completed tasks listed (default 50, max 500). Totals and per-member counts always cover all of them; the header says `showing X of Y` when truncated.
+- `--json` — versioned payload: `version: 1`, `window {since, until}`, `filter {memberId, projectId}`, `team {tokens, sessions, unmeteredSessions, completedCount, byModel[]}`, `byMember[] {memberId, label, tokens, sessions, unmeteredSessions, completedCount}`, `completedTasks {total, items[] {identifier, title, completedAt, memberId, assignee}}`.
+
+**Completed = last DONE.** Task has no completion column, so the completion time is the task's **last** `STATUS_CHANGED → DONE` activity. A task counts in the window only if it is DONE now and that last DONE falls inside the window — DONE → reopened → DONE counts once, at the final DONE (so it never appears in two windows). Trashed tasks are excluded. A task is credited to its assignee's member, or to the owner of an assigned personal agent; tasks with no human owner sit under `(unassigned)`.
+
+**Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0.
+
+### When to suggest
+
+The user asks "what did we / I get done this week and what did it cost," wants a weekly or sprint-ish recap of tokens + shipped tasks, or a per-person breakdown of usage and completions. For a per-tool / per-model drill-down of the tokens, follow up with `lumo cost`.

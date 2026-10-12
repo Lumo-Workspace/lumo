@@ -2381,6 +2381,62 @@
       "isInvokable": true,
       "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears)."
     },
+    "report": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the versioned payload as JSON"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Max completed tasks listed (default 50, max 500)"
+        },
+        "--member": {
+          "long": "--member",
+          "short": null,
+          "value": "required",
+          "enum": ["me", "email", "display"],
+          "enumCaseInsensitive": false,
+          "description": "Only this member: me | email | display name"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only tasks (and their sessions) in this project"
+        },
+        "--since": {
+          "long": "--since",
+          "short": null,
+          "value": "required",
+          "enum": ["YYYY-MM-DD", "Nd"],
+          "enumCaseInsensitive": false,
+          "description": "First day, inclusive: YYYY-MM-DD | Nd (last N days incl. today, e.g. 30d) | today | yesterday"
+        },
+        "--until": {
+          "long": "--until",
+          "short": null,
+          "value": "required",
+          "enum": ["YYYY-MM-DD", "today", "yesterday"],
+          "enumCaseInsensitive": false,
+          "description": "Last day, inclusive: YYYY-MM-DD | today | yesterday (default today)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself"
+    },
     "session": {
       "arguments": [],
       "flags": {},
