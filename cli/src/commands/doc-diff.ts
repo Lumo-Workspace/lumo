@@ -5,6 +5,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { readFileUtf8, unreadableFileMessage } from '../lib/doc-input'
 import { checkArtifactFilePath } from '../lib/path-guard'
 import { formatUnifiedDiff } from '../lib/unified-diff'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface DocDiffOptions {
   file?: string
@@ -36,7 +37,7 @@ export async function docDiff(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -65,9 +66,7 @@ export async function docDiff(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(
-      `Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`
-    )
+    console.error(errHttp('doc fetch', res.status, text))
     return 1
   }
   const data = (await res.json()) as {

@@ -2,6 +2,7 @@ import { readCredentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { isMissingPluginRoute } from './plugin-route'
 import { sanitizeField } from './sanitize'
+import { errAuth, errNotLoggedIn, httpFailed } from './errors'
 
 /**
  * LUM-801: test case 六条命令共用的取数样板。
@@ -20,7 +21,7 @@ export interface ApiContext {
 export function apiContext(): ApiContext | null {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return null
   }
   return {
@@ -68,7 +69,7 @@ export async function apiCall<T>(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return { ok: false }
   }
 
@@ -82,9 +83,7 @@ export async function apiCall<T>(
     | null
 
   if (!res.ok) {
-    console.error(
-      `Error: ${body?.error ?? `${what} failed (HTTP ${res.status})`}`
-    )
+    console.error(`Error: ${body?.error ?? httpFailed(what, res.status)}`)
     return { ok: false }
   }
   return { ok: true, data: body as T }

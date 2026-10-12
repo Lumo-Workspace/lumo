@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatPrShow } from '../lib/tier2-render'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface PullRequest {
   id: string
@@ -46,7 +47,7 @@ export async function taskPrShow(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -66,7 +67,7 @@ export async function taskPrShow(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 400) {
@@ -80,7 +81,7 @@ export async function taskPrShow(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: pr show failed (HTTP ${res.status})`)
+    console.error(errHttp('pr show', res.status))
     return 1
   }
 

@@ -11,6 +11,7 @@ import {
   fenceUntrustedText,
   linkedRetrievalPreamble,
 } from '../../../shared/src/untrusted-fence'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ResolveResponse {
   id: string
@@ -151,7 +152,7 @@ export async function taskCommentList(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -172,7 +173,7 @@ export async function taskCommentList(
   }
 
   if (resolveRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (resolveRes.status === 404) {
@@ -182,7 +183,7 @@ export async function taskCommentList(
     return 1
   }
   if (!resolveRes.ok) {
-    console.error(`Error: resolve failed (HTTP ${resolveRes.status})`)
+    console.error(errHttp('resolve', resolveRes.status))
     return 1
   }
   const resolved = (await resolveRes.json()) as ResolveResponse
@@ -201,7 +202,7 @@ export async function taskCommentList(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -209,7 +210,7 @@ export async function taskCommentList(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: comments list failed (HTTP ${res.status})`)
+    console.error(errHttp('comments list', res.status))
     return 1
   }
 

@@ -14,6 +14,7 @@ import {
   codexHooksSilentWarning,
   codexSessionHasEvents,
 } from '../lib/codex-hooks'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -88,7 +89,7 @@ export async function sessionAttach(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -135,7 +136,7 @@ export async function sessionAttach(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -186,7 +187,7 @@ export async function sessionAttach(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: bind-task failed (HTTP ${res.status})`)
+    console.error(errHttp('bind-task', res.status))
     return 1
   }
 
@@ -308,7 +309,7 @@ async function stewardAttach(args: {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   // 400 (ambiguous reference) and 404 (no match) carry actionable server
@@ -345,7 +346,7 @@ async function stewardAttach(args: {
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: bind-milestone failed (HTTP ${res.status})`)
+    console.error(errHttp('bind-milestone', res.status))
     return 1
   }
 

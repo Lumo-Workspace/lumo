@@ -1,5 +1,6 @@
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
+import { httpFailed, warn } from '../lib/errors'
 
 export interface AuditListOptions {
   action?: string
@@ -137,14 +138,16 @@ async function writeCsv(
       error?: string
     } | null
     console.error(
-      `Error: ${sanitizeField(body?.error ?? `audit export failed (HTTP ${res.status})`)}`
+      `Error: ${sanitizeField(body?.error ?? httpFailed('audit export', res.status))}`
     )
     return 1
   }
   process.stdout.write(await res.text())
   if (res.headers.get('x-audit-truncated') === 'true') {
     console.error(
-      `Warning: export capped at ${res.headers.get('x-audit-row-count') ?? 'the maximum number of'} events (newest first) — narrow --since / --until for the rest.`
+      warn(
+        `export capped at ${res.headers.get('x-audit-row-count') ?? 'the maximum number of'} events (newest first) — narrow --since / --until for the rest.`
+      )
     )
   }
 }

@@ -25,6 +25,7 @@ import {
   WORKTREE_CONFIG_PATH,
   type WorktreeConfig,
 } from '../lib/worktree-config'
+import { warn } from '../lib/errors'
 
 export interface WorktreeAddOptions extends ConfirmFlags {
   base?: string | undefined
@@ -116,7 +117,9 @@ export function createTaskWorktree(args: {
       console.log(`Fetching ${base} …`)
       if (runGit(['fetch', 'origin', name], root).status !== 0) {
         console.error(
-          `Warning: git fetch failed; branching off the existing local ${base} (may be stale)`
+          warn(
+            `git fetch failed; branching off the existing local ${base} (may be stale)`
+          )
         )
       }
     }
@@ -152,11 +155,11 @@ export function createTaskWorktree(args: {
   for (const rel of plan.link) {
     const src = path.join(root, rel)
     if (escapes(rel)) {
-      console.log(`Warning: ${rel} resolves outside the repo; not linked`)
+      console.log(warn(`${rel} resolves outside the repo; not linked`))
       continue
     }
     if (!fs.existsSync(src)) {
-      console.log(`Warning: ${rel} is not in the main checkout; not linked`)
+      console.log(warn(`${rel} is not in the main checkout; not linked`))
       continue
     }
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true })
@@ -166,14 +169,16 @@ export function createTaskWorktree(args: {
   for (const rel of plan.copy) {
     const src = path.join(root, rel)
     if (escapes(rel)) {
-      console.log(`Warning: ${rel} resolves outside the repo; not copied`)
+      console.log(warn(`${rel} resolves outside the repo; not copied`))
       continue
     }
     if (!fs.existsSync(src)) {
       // The one warning that matters: husky routes hooks through this dir,
       // so without it git silently skips every hook in the worktree.
       console.log(
-        `Warning: ${rel} is not in the main checkout; not copied (if it is a git-hooks dir, hooks will NOT run in this worktree)`
+        warn(
+          `${rel} is not in the main checkout; not copied (if it is a git-hooks dir, hooks will NOT run in this worktree)`
+        )
       )
       continue
     }
@@ -234,7 +239,7 @@ export async function worktreeAdd(
   const root = getRepoRoot()
   const { config, problems } = readWorktreeConfig(root)
   for (const p of problems) {
-    console.error(`Warning: ${WORKTREE_CONFIG_PATH}: ${p}`)
+    console.error(warn(`${WORKTREE_CONFIG_PATH}: ${p}`))
   }
 
   // `verifyCommand` is a shell command from a committed repo file — the user
@@ -273,7 +278,9 @@ export async function worktreeAdd(
   if (opts.verify) {
     if (!config.verifyCommand) {
       console.error(
-        `Warning: --verify needs "verifyCommand" in ${WORKTREE_CONFIG_PATH}; skipped`
+        warn(
+          `--verify needs "verifyCommand" in ${WORKTREE_CONFIG_PATH}; skipped`
+        )
       )
       return 0
     }
@@ -287,7 +294,7 @@ export async function worktreeAdd(
       shell: true,
     })
     if (v.status !== 0) {
-      console.error('Warning: baseline verify command did not pass cleanly')
+      console.error(warn('baseline verify command did not pass cleanly'))
     }
   }
 

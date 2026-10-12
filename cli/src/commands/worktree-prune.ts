@@ -21,6 +21,7 @@ import {
   reportRemoval,
   type CleanupItem,
 } from '../lib/worktree-cleanup'
+import { errNotLoggedIn } from '../lib/errors'
 
 /** `<TEAM>-N` from a worktree's dir basename or branch, else null. */
 function taskIdOf(entry: WorktreeEntry): string | null {
@@ -41,7 +42,7 @@ function taskIdOf(entry: WorktreeEntry): string | null {
 export async function worktreePrune(opts: ConfirmFlags): Promise<number> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))

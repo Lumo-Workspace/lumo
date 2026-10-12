@@ -6,6 +6,7 @@ import {
   formatBatchSummary,
   type BatchOutcome,
 } from '../lib/milestone-batch'
+import { errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface MilestoneAddOptions {
   project?: string
@@ -46,7 +47,7 @@ export async function milestoneAdd(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -88,7 +89,7 @@ export async function milestoneAdd(
       if (res.ok) {
         outcomes.push({ task: ref, status: 'ok' })
       } else {
-        let msg = `add failed (HTTP ${res.status})`
+        let msg = httpFailed('add', res.status)
         try {
           const body = (await res.json()) as { error?: string }
           if (body.error) msg = body.error

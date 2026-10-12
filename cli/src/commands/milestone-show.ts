@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface ShowMilestoneOptions {
   project?: string
@@ -192,7 +193,7 @@ export async function milestoneShow(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -231,15 +232,15 @@ export async function milestoneShow(
   }
 
   if (milestoneRes.status === 401 || tasksRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!milestoneRes.ok) {
-    console.error(`Error: milestone show failed (HTTP ${milestoneRes.status})`)
+    console.error(errHttp('milestone show', milestoneRes.status))
     return 1
   }
   if (!tasksRes.ok) {
-    console.error(`Error: milestone tasks failed (HTTP ${tasksRes.status})`)
+    console.error(errHttp('milestone tasks', tasksRes.status))
     return 1
   }
 

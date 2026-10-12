@@ -7,6 +7,7 @@ import {
   resolveSessionId,
 } from '../lib/session-id'
 import { codexHooksSilentWarning } from '../lib/codex-hooks'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface StatusResponse {
   exists: boolean
@@ -198,7 +199,7 @@ export async function sessionStatus(): Promise<number | void> {
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -217,7 +218,7 @@ export async function sessionStatus(): Promise<number | void> {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -231,7 +232,7 @@ export async function sessionStatus(): Promise<number | void> {
     return
   }
   if (!res.ok) {
-    console.error(`Error: session status failed (HTTP ${res.status})`)
+    console.error(errHttp('session status', res.status))
     return 1
   }
 

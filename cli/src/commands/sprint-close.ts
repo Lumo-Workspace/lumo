@@ -8,6 +8,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface CloseSprintOptions extends ConfirmFlags {
   team?: string
@@ -100,7 +101,7 @@ export async function sprintClose(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -140,15 +141,15 @@ export async function sprintClose(
   }
 
   if (sprintRes.status === 401 || tasksRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!sprintRes.ok) {
-    console.error(`Error: sprint fetch failed (HTTP ${sprintRes.status})`)
+    console.error(errHttp('sprint fetch', sprintRes.status))
     return 1
   }
   if (!tasksRes.ok) {
-    console.error(`Error: sprint tasks fetch failed (HTTP ${tasksRes.status})`)
+    console.error(errHttp('sprint tasks fetch', tasksRes.status))
     return 1
   }
 
@@ -207,11 +208,11 @@ export async function sprintClose(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    let errMsg = `sprint close failed (HTTP ${res.status})`
+    let errMsg = httpFailed('sprint close', res.status)
     try {
       const errBody = (await res.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

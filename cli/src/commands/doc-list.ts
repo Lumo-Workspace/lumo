@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizeScope } from './doc-create'
 import { buildTree, flattenWithDepth } from '../lib/doc-tree'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface ListDocOptions {
   scope?: string
@@ -53,7 +54,7 @@ export function formatDocListRowsAsTree(rows: DocRow[]): string[] {
 export async function docList(opts: ListDocOptions): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -83,9 +84,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(
-      `Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`
-    )
+    console.error(errHttp('doc list', res.status, text))
     return 1
   }
   const { documents } = (await res.json()) as { documents: DocRow[] }

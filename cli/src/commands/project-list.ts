@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { slugify } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ProjectRow {
   id: string
@@ -28,13 +29,15 @@ export function formatProjectList(projects: ProjectRow[]): string {
     .map(p => ({ slug: slugify(p.name), name: p.name }))
   if (rows.length === 0) return 'No projects.'
   const w = Math.max(...rows.map(r => r.slug.length))
-  return rows.map(r => `${r.slug.padEnd(w)}  ${sanitizeField(r.name)}`).join('\n')
+  return rows
+    .map(r => `${r.slug.padEnd(w)}  ${sanitizeField(r.name)}`)
+    .join('\n')
 }
 
 export async function projectList(): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -53,11 +56,11 @@ export async function projectList(): Promise<number | void> {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: project list failed (HTTP ${res.status})`)
+    console.error(errHttp('project list', res.status))
     return 1
   }
 

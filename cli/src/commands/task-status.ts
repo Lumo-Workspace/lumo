@@ -23,6 +23,7 @@ import {
   type OpenCrossingsResult,
   type CrossingAttribution,
 } from '../lib/open-crossings'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
@@ -722,7 +723,7 @@ export async function taskStatus(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
@@ -751,7 +752,7 @@ export async function taskStatus(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -761,7 +762,7 @@ export async function taskStatus(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: task status failed (HTTP ${res.status})`)
+    console.error(errHttp('task status', res.status))
     return 1
   }
 

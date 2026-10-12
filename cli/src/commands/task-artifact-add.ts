@@ -4,6 +4,7 @@ import { readFileUtf8, unreadableFileMessage } from '../lib/doc-input'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
 import { checkArtifactFilePath } from '../lib/path-guard'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface ArtifactAddOptions {
   kind?: string
@@ -90,7 +91,7 @@ export async function taskArtifactAdd(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -124,7 +125,7 @@ export async function taskArtifactAdd(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -144,7 +145,7 @@ export async function taskArtifactAdd(
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : `Error: artifact add failed (HTTP ${res.status})`
+        : errHttp('artifact add', res.status)
     )
     return 1
   }

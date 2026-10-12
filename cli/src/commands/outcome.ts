@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveSessionId } from '../lib/session-id'
+import { NOT_LOGGED_IN_MESSAGE, errAuth } from '../lib/errors'
 
 interface SignalRow {
   id: string
@@ -16,7 +17,7 @@ async function authBase(): Promise<
   { base: string; headers: Record<string, string> } | { error: string }
 > {
   const creds = readCredentials()
-  if (!creds) return { error: 'not logged in. Run `lumo auth login` first.' }
+  if (!creds) return { error: NOT_LOGGED_IN_MESSAGE }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,
@@ -55,7 +56,7 @@ export async function outcomeShow(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {

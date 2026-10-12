@@ -13,6 +13,7 @@ import { normalizeScope } from './doc-create'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface UpdateDocOptions {
   title?: string
@@ -56,7 +57,7 @@ export async function docUpdate(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -211,7 +212,7 @@ export async function docUpdate(
       )
       return 1
     }
-    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc update', res.status, text))
     return 1
   }
   const { document } = (await res.json()) as {

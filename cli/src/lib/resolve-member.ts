@@ -1,5 +1,5 @@
 import { trimTrailingSlash } from './api'
-import { sanitizeField } from './sanitize'
+import { httpFailed } from './errors'
 
 export interface MemberRow {
   memberId: string
@@ -31,9 +31,7 @@ export async function fetchMembers(
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(
-      `failed to load members (${res.status} ${res.statusText}): ${sanitizeField(text)}`
-    )
+    throw new Error(httpFailed('member list', res.status, text))
   }
   const body = (await res.json()) as MembersResponse
   return body.members.map(m => ({

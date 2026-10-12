@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveProjectId } from '../lib/resolve'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface CreateMilestoneOptions {
   project?: string
@@ -46,7 +47,7 @@ export async function milestoneCreate(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -79,7 +80,7 @@ export async function milestoneCreate(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
 
@@ -94,7 +95,7 @@ export async function milestoneCreate(
     if (serverMsg) {
       console.error(`Error: ${sanitizeField(serverMsg)}`)
     } else {
-      console.error(`Error: milestone create failed (HTTP ${res.status})`)
+      console.error(errHttp('milestone create', res.status))
     }
     return 1
   }

@@ -6,6 +6,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ResolveResponse {
   id: string
@@ -109,7 +110,7 @@ interface Ctx {
 function getCtx(): Ctx | number {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -138,7 +139,7 @@ async function resolveTask(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -148,7 +149,7 @@ async function resolveTask(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: resolve failed (HTTP ${res.status})`)
+    console.error(errHttp('resolve', res.status))
     return 1
   }
   return (await res.json()) as ResolveResponse
@@ -185,7 +186,7 @@ async function depsFetch(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
@@ -193,7 +194,7 @@ async function depsFetch(
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : `Error: ${label} failed (HTTP ${res.status})`
+        : errHttp(label, res.status)
     )
     return 1
   }

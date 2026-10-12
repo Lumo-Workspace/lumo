@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface AddOptions extends MemoryFlags {
   category?: string
@@ -15,7 +16,9 @@ export async function memoryTaskAdd(
   options: AddOptions
 ): Promise<number | void> {
   if (!options.category) {
-    console.error('Error: --category <trap|decision|convention|procedural> is required.')
+    console.error(
+      'Error: --category <trap|decision|convention|procedural> is required.'
+    )
     return 1
   }
   const built = buildMemoryContent(options.category, options)
@@ -29,19 +32,25 @@ export async function memoryTaskAdd(
   if (agentRaw) {
     const normalized = normalizeAgent(agentRaw)
     if (!normalized) {
-      console.error(`Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`)
+      console.error(
+        `Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
+      )
       return 1
     }
     agent = normalized
   }
 
   const creds = readCredentials()
-  if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
+  if (!creds) {
+    console.error(errNotLoggedIn())
+    return 1
+  }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
 
   // Resolve the target: explicit arg > session-bound task.
-  const identifier = identifierArg ?? (await resolveBoundTaskIdentifier(apiUrl, creds.token))
+  const identifier =
+    identifierArg ?? (await resolveBoundTaskIdentifier(apiUrl, creds.token))
   if (!identifier) {
     console.error(
       'Error: no <LUM-N> given and no task bound to this session.\n' +
@@ -53,38 +62,69 @@ export async function memoryTaskAdd(
   // LUM-N → task id.
   let taskId: string
   try {
-    const r = await fetch(`${base}/api/tasks/resolve/${encodeURIComponent(identifier)}`, {
-      headers: { Authorization: `Bearer ${creds.token}` },
-    })
-    if (r.status === 401) { console.error('Error: API key invalid or revoked. Run `lumo auth login`.'); return 1 }
-    if (r.status === 404) { console.error(`Error: task ${identifier} not found in workspace ${creds.workspaceSlug}`); return 1 }
-    if (!r.ok) { console.error(`Error: resolve failed (HTTP ${r.status})`); return 1 }
+    const r = await fetch(
+      `${base}/api/tasks/resolve/${encodeURIComponent(identifier)}`,
+      {
+        headers: { Authorization: `Bearer ${creds.token}` },
+      }
+    )
+    if (r.status === 401) {
+      console.error(errAuth())
+      return 1
+    }
+    if (r.status === 404) {
+      console.error(
+        `Error: task ${identifier} not found in workspace ${creds.workspaceSlug}`
+      )
+      return 1
+    }
+    if (!r.ok) {
+      console.error(errHttp('resolve', r.status))
+      return 1
+    }
     taskId = ((await r.json()) as { id: string }).id
   } catch (err) {
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`)
+    console.error(
+      `Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`
+    )
     return 1
   }
 
   // POST the memory.
   let res: Response
   try {
-    res = await fetch(`${base}/api/tasks/${encodeURIComponent(taskId)}/memories`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        category: built.category,
-        content: built.content,
-        ...(agent ? { agent } : {}),
-      }),
-    })
+    res = await fetch(
+      `${base}/api/tasks/${encodeURIComponent(taskId)}/memories`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${creds.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: built.category,
+          content: built.content,
+          ...(agent ? { agent } : {}),
+        }),
+      }
+    )
   } catch (err) {
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`)
+    console.error(
+      `Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`
+    )
     return 1
   }
   if (res.status !== 201) {
     let m: string | null = null
-    try { const b = (await res.json()) as { error?: string }; if (typeof b.error === 'string') m = b.error } catch { /* */ }
-    console.error(m ? `Error: ${sanitizeField(m)}` : `Error: memory add failed (HTTP ${res.status})`)
+    try {
+      const b = (await res.json()) as { error?: string }
+      if (typeof b.error === 'string') m = b.error
+    } catch {
+      /* */
+    }
+    console.error(
+      m ? `Error: ${sanitizeField(m)}` : errHttp('memory add', res.status)
+    )
     return 1
   }
 
@@ -93,20 +133,31 @@ export async function memoryTaskAdd(
   let outcome = 'ADD'
   let memId = ''
   try {
-    const b = (await res.json()) as { outcome?: string; memory?: { id?: string } }
+    const b = (await res.json()) as {
+      outcome?: string
+      memory?: { id?: string }
+    }
     if (typeof b.outcome === 'string') outcome = b.outcome
     if (b.memory && typeof b.memory.id === 'string') memId = b.memory.id
-  } catch { /* keep defaults */ }
+  } catch {
+    /* keep defaults */
+  }
 
   switch (outcome) {
     case 'NOOP':
-      process.stdout.write(`Skipped — duplicate of existing memory ${memId}, nothing written${boundSuffix}\n`)
+      process.stdout.write(
+        `Skipped — duplicate of existing memory ${memId}, nothing written${boundSuffix}\n`
+      )
       break
     case 'UPDATE':
-      process.stdout.write(`Merged into existing memory ${memId} (near-duplicate)${boundSuffix}\n`)
+      process.stdout.write(
+        `Merged into existing memory ${memId} (near-duplicate)${boundSuffix}\n`
+      )
       break
     case 'SUPERSEDE':
-      process.stdout.write(`Superseded an existing memory; new version ${memId}${boundSuffix}\n`)
+      process.stdout.write(
+        `Superseded an existing memory; new version ${memId}${boundSuffix}\n`
+      )
       break
     default:
       process.stdout.write(

@@ -1,5 +1,5 @@
 import { trimTrailingSlash } from './api'
-import { sanitizeField } from './sanitize'
+import { httpFailed } from './errors'
 
 export interface ResolveTagsDeps {
   apiUrl: string
@@ -55,9 +55,7 @@ export async function resolveTagRefs(
     })
     if (!res.ok) {
       const body = await res.text()
-      throw new Error(
-        `tag resolve failed: ${res.status} ${res.statusText}: ${sanitizeField(body)}`
-      )
+      throw new Error(httpFailed('tag resolve', res.status, body))
     }
     const json = (await res.json()) as ResolveResponse
     nameIds = json.tags.map(t => t.id)

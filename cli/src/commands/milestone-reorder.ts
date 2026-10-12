@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveOrderedIds, type MilestoneRef } from '../lib/milestone-reorder'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface ReorderMilestoneOptions {
   project?: string | undefined
@@ -26,7 +27,7 @@ export async function milestoneReorder(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -44,7 +45,7 @@ export async function milestoneReorder(
     headers: { Authorization: `Bearer ${creds.token}` },
   })
   if (!listRes.ok) {
-    console.error(`Error: milestone list failed (HTTP ${listRes.status})`)
+    console.error(errHttp('milestone list', listRes.status))
     return 1
   }
   const { milestones } = (await listRes.json()) as {
@@ -80,9 +81,7 @@ export async function milestoneReorder(
       const json = JSON.parse(text) as { error?: string }
       if (json.error) msg = json.error
     } catch {}
-    console.error(
-      `Error: ${patchRes.status} ${patchRes.statusText}: ${sanitizeField(msg)}`
-    )
+    console.error(errHttp('milestone reorder', patchRes.status, msg))
     return 1
   }
 

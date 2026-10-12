@@ -11,6 +11,7 @@ import {
   type NextStep,
 } from '../lib/next-steps'
 import { resolveSessionId } from '../lib/session-id'
+import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -98,7 +99,7 @@ async function bindTaskToSprint(
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!sprintRes.ok) {
-      throw new Error(`sprint lookup failed (HTTP ${sprintRes.status})`)
+      throw new Error(httpFailed('sprint lookup', sprintRes.status))
     }
     const { sprint: full } = (await sprintRes.json()) as {
       sprint: { id: string; number: number; name: string; teamId: string }
@@ -122,7 +123,7 @@ async function bindTaskToSprint(
     body: JSON.stringify({ taskId: task.id }),
   })
   if (!bindRes.ok) {
-    let errMsg = `sprint bind failed (HTTP ${bindRes.status})`
+    let errMsg = httpFailed('sprint bind', bindRes.status)
     try {
       const errBody = (await bindRes.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error
@@ -226,7 +227,7 @@ export async function taskCreate(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -298,7 +299,7 @@ export async function taskCreate(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
 
@@ -357,7 +358,7 @@ export async function taskCreate(
   if (serverMsg) {
     console.error(`Error: ${sanitizeField(serverMsg)}`)
   } else {
-    console.error(`Error: task create failed (HTTP ${res.status})`)
+    console.error(errHttp('task create', res.status))
   }
   return 1
 }

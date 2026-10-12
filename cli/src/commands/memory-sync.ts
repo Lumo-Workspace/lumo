@@ -9,6 +9,7 @@ import { resolveBoundProjectId } from '../lib/resolve-project'
 import { resolveMemoryDir } from '../lib/claude-memory-dir'
 import { applySync, type SyncBundle } from '../lib/apply-sync'
 import { shouldRunAnchorCheck, runAnchorCheck } from '../lib/anchor-staleness'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface SyncOptions {
   project?: string
@@ -50,7 +51,7 @@ export async function memorySync(options: SyncOptions): Promise<number | void> {
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -87,11 +88,11 @@ export async function memorySync(options: SyncOptions): Promise<number | void> {
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: memory sync failed (HTTP ${res.status})`)
+    console.error(errHttp('memory sync', res.status))
     return 1
   }
 

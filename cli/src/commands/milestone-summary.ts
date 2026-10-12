@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface MilestoneSummaryOptions {
   project?: string
@@ -45,7 +46,7 @@ export async function milestoneSummary(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -95,11 +96,11 @@ export async function milestoneSummary(
       return 1
     }
     if (retryRes.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
     if (!retryRes.ok && retryRes.status !== 202) {
-      let errMsg = `summary retry failed (HTTP ${retryRes.status})`
+      let errMsg = httpFailed('summary retry', retryRes.status)
       try {
         const errBody = (await retryRes.json()) as { error?: string }
         if (errBody.error) errMsg = errBody.error
@@ -129,7 +130,7 @@ export async function milestoneSummary(
   }
 
   if (summaryRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
 
@@ -152,7 +153,7 @@ export async function milestoneSummary(
     tldr = body.tldr ?? null
     report = body.report ?? null
   } else if (summaryRes.status !== 404) {
-    let errMsg = `milestone summary failed (HTTP ${summaryRes.status})`
+    let errMsg = httpFailed('milestone summary', summaryRes.status)
     try {
       const errBody = (await summaryRes.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

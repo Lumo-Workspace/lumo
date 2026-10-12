@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface SprintRow {
   id: string
@@ -64,7 +65,8 @@ export async function sprintList(
     }
   }
 
-  const limit = options.limit !== undefined ? parseInt(options.limit, 10) : undefined
+  const limit =
+    options.limit !== undefined ? parseInt(options.limit, 10) : undefined
   if (limit !== undefined && (Number.isNaN(limit) || limit < 1)) {
     console.error(
       `Error: invalid --limit "${options.limit}" (expected a positive integer)`
@@ -74,7 +76,7 @@ export async function sprintList(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -102,11 +104,11 @@ export async function sprintList(
   })
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: sprint list failed (HTTP ${res.status})`)
+    console.error(errHttp('sprint list', res.status))
     return 1
   }
 

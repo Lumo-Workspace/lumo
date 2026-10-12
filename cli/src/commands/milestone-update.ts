@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface UpdateMilestoneOptions {
   project?: string
@@ -134,7 +135,7 @@ export async function milestoneUpdate(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -167,11 +168,11 @@ export async function milestoneUpdate(
     return 1
   }
   if (beforeRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!beforeRes.ok) {
-    console.error(`Error: milestone fetch failed (HTTP ${beforeRes.status})`)
+    console.error(errHttp('milestone fetch', beforeRes.status))
     return 1
   }
   const { milestone: before } = (await beforeRes.json()) as {
@@ -194,11 +195,11 @@ export async function milestoneUpdate(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    let errMsg = `milestone update failed (HTTP ${res.status})`
+    let errMsg = httpFailed('milestone update', res.status)
     try {
       const errBody = (await res.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

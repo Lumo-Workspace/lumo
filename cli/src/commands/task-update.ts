@@ -23,6 +23,13 @@ import {
 } from '../lib/blocked-error'
 import { fetchStatusDigest, printStatusDigest } from '../lib/status-digest'
 import { resolveSessionId } from '../lib/session-id'
+import {
+  errAuth,
+  errHttp,
+  errNotLoggedIn,
+  httpFailed,
+  warn,
+} from '../lib/errors'
 
 const ALLOWED_STATUSES = [
   'BACKLOG',
@@ -298,7 +305,7 @@ async function emitDoneConfirmation(args: {
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
@@ -312,7 +319,7 @@ async function emitDoneConfirmation(args: {
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : `Error: task lookup failed (HTTP ${res.status})`
+        : errHttp('task lookup', res.status)
     )
     return 1
   }
@@ -400,7 +407,7 @@ async function cleanupWorktreesAfterDone(args: {
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Warning: worktree cleanup skipped (${msg})`)
+    console.error(warn(`worktree cleanup skipped (${msg})`))
   }
 }
 
@@ -513,7 +520,7 @@ async function runTaskUpdate(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -606,7 +613,7 @@ async function runTaskUpdate(
     }
 
     if (res.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
 
@@ -691,7 +698,7 @@ async function runTaskUpdate(
       if (serverMsg) {
         console.error(`Error: ${sanitizeField(serverMsg)}`)
       } else {
-        console.error(`Error: task update failed (HTTP ${res.status})`)
+        console.error(errHttp('task update', res.status))
       }
       return 1
     }
@@ -712,11 +719,11 @@ async function runTaskUpdate(
       return 1
     }
     if (showRes.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
     if (!showRes.ok) {
-      console.error(`Error: task lookup failed (HTTP ${showRes.status})`)
+      console.error(errHttp('task lookup', showRes.status))
       return 1
     }
     const showData = (await showRes.json()) as {
@@ -763,9 +770,7 @@ async function runTaskUpdate(
           return 1
         }
         if (!sprintRes.ok) {
-          console.error(
-            `Error: sprint lookup failed (HTTP ${sprintRes.status})`
-          )
+          console.error(errHttp('sprint lookup', sprintRes.status))
           return 1
         }
         const { sprint: full } = (await sprintRes.json()) as {
@@ -846,7 +851,7 @@ async function runTaskUpdate(
         return 1
       }
       if (!deleteRes.ok) {
-        let errMsg = `sprint unbind failed (HTTP ${deleteRes.status})`
+        let errMsg = httpFailed('sprint unbind', deleteRes.status)
         try {
           const b = (await deleteRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
@@ -884,7 +889,7 @@ async function runTaskUpdate(
         return 1
       }
       if (!postRes.ok) {
-        let errMsg = `sprint bind failed (HTTP ${postRes.status})`
+        let errMsg = httpFailed('sprint bind', postRes.status)
         try {
           const b = (await postRes.json()) as { error?: string }
           if (b.error) errMsg = b.error

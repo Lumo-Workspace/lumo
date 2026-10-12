@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface Artifact {
   id: string
@@ -34,7 +35,7 @@ export async function taskArtifactShow(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -53,7 +54,7 @@ export async function taskArtifactShow(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -68,7 +69,7 @@ export async function taskArtifactShow(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: artifact show failed (HTTP ${res.status})`)
+    console.error(errHttp('artifact show', res.status))
     return 1
   }
 

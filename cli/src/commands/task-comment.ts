@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { apiContext } from '../lib/test-case-api'
 import { fetchThread, pickComment } from '../lib/comment-ref'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ResolveResponse {
   id: string
@@ -48,7 +49,7 @@ export async function taskComment(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -69,7 +70,7 @@ export async function taskComment(
   }
 
   if (resolveRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (resolveRes.status === 404) {
@@ -79,7 +80,7 @@ export async function taskComment(
     return 1
   }
   if (!resolveRes.ok) {
-    console.error(`Error: resolve failed (HTTP ${resolveRes.status})`)
+    console.error(errHttp('resolve', resolveRes.status))
     return 1
   }
   const resolved = (await resolveRes.json()) as ResolveResponse
@@ -131,7 +132,7 @@ export async function taskComment(
   }
 
   if (postRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (postRes.status !== 201) {
@@ -145,7 +146,7 @@ export async function taskComment(
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : `Error: comment create failed (HTTP ${postRes.status})`
+        : errHttp('comment create', postRes.status)
     )
     return 1
   }
