@@ -12,7 +12,6 @@ import {
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 import type {
   UpdateTaskInput,
@@ -77,10 +76,12 @@ export function dispatchCreateTaskSideEffects(opts: {
       workspaceId,
       'task_created',
       {
-        taskId: task.id,
-        taskTitle: task.title,
-        taskIdentifier,
-        taskUrl,
+        entityKind: 'task',
+        entityId: task.id,
+        entityTitle: task.title,
+        entityIdentifier: taskIdentifier,
+        entityUrl: taskUrl,
+        actorClerkId: actorClerkId || undefined,
       },
       projectId
     )
@@ -289,9 +290,15 @@ export function dispatchUpdateTaskSideEffects(opts: {
           ref: { taskId },
           slackEvent: 'comment_mention',
           slackPayload: {
-            taskTitle: result.task.title,
-            taskUrl,
-            commentBody: htmlToPreview(newHtml),
+            entityKind: 'task',
+            entityId: taskId,
+            entityTitle: result.task.title,
+            entityIdentifier: buildTaskIdentifier(
+              result.task.team.identifier,
+              result.task.number
+            ),
+            entityUrl: taskUrl,
+            mentionSurface: 'content',
           },
           waitUntil,
         })

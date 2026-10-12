@@ -30,7 +30,7 @@ import {
   sendDMNotification,
 } from '@/lib/integrations/slack/notify'
 import type { NotificationPayload } from '@/lib/integrations/slack/types'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
+import { htmlToQuote } from '@/lib/utils/htmlToPreview'
 
 const findUnique = (
   prisma as unknown as { slackIntegration: { findUnique: jest.Mock } }
@@ -41,14 +41,14 @@ const ESCAPED =
   '&lt;!channel&gt; &lt;!here&gt; &lt;@U999&gt; &lt;https://evil.example|click&gt; &amp; co'
 
 const payload: NotificationPayload = {
-  taskIdentifier: 'LUM-<!here>',
-  taskTitle: `Title ${INJECT}`,
-  taskUrl: 'https://www.uselumo.ai/workspace/w/tasks/LUM-1',
+  entityIdentifier: 'LUM-<!here>',
+  entityTitle: `Title ${INJECT}`,
+  entityUrl: 'https://www.uselumo.ai/workspace/w/tasks/LUM-1',
   actorName: `Mallory ${INJECT}`,
   prNumber: 7,
   prTitle: `PR ${INJECT}`,
   prUrl: 'https://github.com/acme/web/pull/7',
-  commentBody: `Hey ${INJECT}`,
+  quote: `Hey ${INJECT}`,
 }
 
 let posted: Array<{ url: string; body: Record<string, unknown> }>
@@ -71,12 +71,20 @@ beforeEach(() => {
   })
 })
 
+/** All mrkdwn of each posted message (sections + context), one string per message. */
 function mrkdwnTexts(): string[] {
   return posted
     .filter(p => p.url.includes('chat.postMessage'))
-    .flatMap(p => p.body.blocks as Array<Record<string, unknown>>)
-    .filter(b => b.type === 'section')
-    .map(b => (b.text as { text: string }).text)
+    .map(p =>
+      (p.body.blocks as Array<Record<string, unknown>>)
+        .flatMap(b => {
+          if (b.type === 'section') return [(b.text as { text: string }).text]
+          if (b.type === 'context')
+            return (b.elements as Array<{ text: string }>).map(e => e.text)
+          return []
+        })
+        .join('\n')
+    )
 }
 
 function assertNeutralised(text: string) {
@@ -87,9 +95,11 @@ function assertNeutralised(text: string) {
   expect(text).toContain(`Mallory ${ESCAPED}`)
   expect(text).toContain(`PR ${ESCAPED}`)
   expect(text).toContain('LUM-&lt;!here&gt;')
-  // The PR line is exactly one link, to the real PR URL.
+  // Exactly two links — the task title to the real task URL and the PR line
+  // to the real PR URL; nothing injected becomes a third.
   const links = text.match(/<[^<>]*>/g) ?? []
   expect(links).toEqual([
+    `<https://www.uselumo.ai/workspace/w/tasks/LUM-1|LUM-&lt;!here&gt; · Title ${ESCAPED}>`,
     `<https://github.com/acme/web/pull/7|#7 PR ${ESCAPED}>`,
   ])
 }
@@ -102,7 +112,7 @@ describe('Slack notification mrkdwn escaping', () => {
     const texts = mrkdwnTexts()
     expect(texts).toHaveLength(2)
     for (const text of texts) assertNeutralised(text)
-    // Comment bodies are escaped too (quoted, truncated preview).
+    // Quoted text is escaped too.
     expect(texts[0]).toContain('\n> Hey &lt;!channel&gt;')
   })
 
@@ -130,11 +140,11 @@ describe('Slack notification mrkdwn escaping', () => {
     await sendChannelNotification(
       'ws_1',
       'comment_mention',
-      { taskIdentifier: 'LUM-1', commentBody: htmlToPreview(stored) },
+      { entityIdentifier: 'LUM-1', quote: htmlToQuote(stored) },
       'proj_1'
     )
     const [text] = mrkdwnTexts()
-    expect(text).toContain('\n> Q&amp;A: x &lt; y ok &lt;!channel&gt;')
+    expect(text).toContain('> Q&amp;A: x &lt; y ok &lt;!channel&gt;')
     expect(text).not.toContain('&amp;amp;')
     expect(text).not.toContain('&amp;lt;')
     // The decoded `<` is re-escaped: no control sequence reaches Slack.
@@ -145,7 +155,7 @@ describe('Slack notification mrkdwn escaping', () => {
     await sendChannelNotification(
       'ws_1',
       'task_created',
-      { taskIdentifier: 'LUM-1', taskTitle: 'Fix login — v2 "beta"' },
+      { entityIdentifier: 'LUM-1', entityTitle: 'Fix login — v2 "beta"' },
       'proj_1'
     )
     expect(mrkdwnTexts()[0]).toContain('LUM-1 · Fix login — v2 "beta"')

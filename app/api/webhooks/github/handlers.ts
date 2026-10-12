@@ -11,6 +11,7 @@ import {
   sendChannelNotification,
   sendDMNotification,
 } from '@/lib/integrations/slack'
+import type { NotificationPayload } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { WebhookTask } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
@@ -32,6 +33,7 @@ type GitHubPR = {
   merged: boolean
   draft: boolean
   user: { login: string }
+  merged_by?: { login: string } | null
   // LUM-746: `sha` is on every pull_request payload; optional so a stripped
   // payload degrades to a head fetch on the request path.
   head: { ref: string; sha?: string }
@@ -64,6 +66,11 @@ type CheckSuitePayload = {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** "octocat (GitHub)" — a GitHub login shown as the actor of a PR event. */
+function githubActorName(login: string | undefined): string | undefined {
+  return login ? `${login} (GitHub)` : undefined
+}
 
 async function findTaskForBranch(
   headBranch: string,
@@ -205,11 +212,13 @@ export async function handlePullRequest(
       linkedTask.status === 'TODO' ||
       linkedTask.status === 'IN_PROGRESS'
     ) {
-      const prOpenedPayload = {
-        taskId: linkedTask.id,
-        taskTitle: linkedTask.title,
-        taskIdentifier,
-        taskUrl,
+      const prOpenedPayload: NotificationPayload = {
+        entityKind: 'task',
+        entityId: linkedTask.id,
+        entityTitle: linkedTask.title,
+        entityIdentifier: taskIdentifier,
+        entityUrl: taskUrl,
+        actorName: githubActorName(pr.user?.login),
         prNumber: pr.number,
         prTitle: pr.title,
         prUrl: pr.html_url,
@@ -240,11 +249,13 @@ export async function handlePullRequest(
       }
     }
   } else if (action === 'closed' && pr.merged) {
-    const mergePayload = {
-      taskId: linkedTask.id,
-      taskTitle: linkedTask.title,
-      taskIdentifier,
-      taskUrl,
+    const mergePayload: NotificationPayload = {
+      entityKind: 'task',
+      entityId: linkedTask.id,
+      entityTitle: linkedTask.title,
+      entityIdentifier: taskIdentifier,
+      entityUrl: taskUrl,
+      actorName: githubActorName(pr.merged_by?.login),
       prNumber: pr.number,
       prTitle: pr.title,
       prUrl: pr.html_url,

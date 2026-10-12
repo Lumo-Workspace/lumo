@@ -4,7 +4,11 @@ import { shouldNotifyBatch } from '@/lib/services/notification.service'
 import { sendDMNotification } from '@/lib/integrations/slack'
 import { pushUserEvent } from '@/lib/integrations/pusher'
 import type { NotificationType } from '@prisma/client'
-import type { SlackEventType, NotificationPayload } from '@/lib/integrations/slack/types'
+import type {
+  SlackEventType,
+  NotificationPayload,
+} from '@/lib/integrations/slack/types'
+import { htmlToQuote, mentionContext } from '@/lib/utils/htmlToPreview'
 
 /** Entity reference columns set on the inbox Notification row. Exactly one of
  *  the *Id fields is typically populated per surface. */
@@ -28,7 +32,13 @@ export interface NotifyMentionDeltaParams {
   notificationType: NotificationType
   ref: MentionNotificationRef
   slackEvent: SlackEventType
-  slackPayload: NotificationPayload
+  /**
+   * What the mention is in (entity kind/title/URL, `mentionSurface`). The
+   * author (`actorClerkId`) and the quote are filled in here: a comment is
+   * quoted whole, an entity body (`mentionSurface: 'content'`) is quoted
+   * around each recipient's own mention.
+   */
+  slackPayload: Omit<NotificationPayload, 'quote' | 'actorClerkId'>
   waitUntil: (promise: Promise<unknown>) => void
 }
 
@@ -40,19 +50,34 @@ export interface NotifyMentionDeltaParams {
  * recipients) + inbox rows (inApp-enabled recipients) + realtime push.
  * Channel broadcast is intentionally NOT done here (comment-only concern).
  */
-export async function notifyMentionDelta(params: NotifyMentionDeltaParams): Promise<void> {
+export async function notifyMentionDelta(
+  params: NotifyMentionDeltaParams
+): Promise<void> {
   const {
-    oldHtml, newHtml, authorClerkId, authorActorId, workspaceId,
-    notificationType, ref, slackEvent, slackPayload, waitUntil,
+    oldHtml,
+    newHtml,
+    authorClerkId,
+    authorActorId,
+    workspaceId,
+    notificationType,
+    ref,
+    slackEvent,
+    slackPayload,
+    waitUntil,
   } = params
 
   const newIds = parseMentionedUserClerkIds(newHtml ?? '', authorClerkId)
   if (newIds.length === 0) return
-  const oldIds = new Set(parseMentionedUserClerkIds(oldHtml ?? '', authorClerkId))
+  const oldIds = new Set(
+    parseMentionedUserClerkIds(oldHtml ?? '', authorClerkId)
+  )
   const delta = newIds.filter(id => !oldIds.has(id))
   if (delta.length === 0) return
 
-  const members = await memberRepository.findByWorkspaceAndClerkIds(workspaceId, delta)
+  const members = await memberRepository.findByWorkspaceAndClerkIds(
+    workspaceId,
+    delta
+  )
   if (members.length === 0) return
 
   const recipientActors = members
@@ -65,10 +90,19 @@ export async function notifyMentionDelta(params: NotifyMentionDeltaParams): Prom
   ])
 
   // Slack DM to slack-enabled recipients
+  const wholeQuote =
+    slackPayload.mentionSurface === 'content' ? null : htmlToQuote(newHtml)
   for (const m of members) {
     if (m.actor?.id && slackAllowed.has(m.actor.id)) {
+      const payload: NotificationPayload = {
+        ...slackPayload,
+        actorClerkId: authorClerkId,
+        quote: wholeQuote ?? mentionContext(newHtml, m.clerkId),
+      }
       waitUntil(
-        sendDMNotification(workspaceId, m.clerkId, slackEvent, slackPayload).catch(() => {})
+        sendDMNotification(workspaceId, m.clerkId, slackEvent, payload).catch(
+          () => {}
+        )
       )
     }
   }
@@ -79,7 +113,9 @@ export async function notifyMentionDelta(params: NotifyMentionDeltaParams): Prom
 
   for (const m of members) {
     if (m.clerkId && m.actor?.id && inAppAllowed.has(m.actor.id)) {
-      waitUntil(pushUserEvent(m.clerkId, { type: 'notification:new' }).catch(() => {}))
+      waitUntil(
+        pushUserEvent(m.clerkId, { type: 'notification:new' }).catch(() => {})
+      )
     }
   }
 

@@ -52,7 +52,10 @@ async function flushWaitUntil() {
 }
 
 import { prisma } from '@/lib/db/prisma'
-import { dispatchTaskUpdateNotifications } from '@/lib/notifications/notifyTaskChange'
+import {
+  dispatchTaskUpdateNotifications,
+  taskNotificationPayload,
+} from '@/lib/notifications/notifyTaskChange'
 import type { TaskNotificationCtx } from '@/lib/notifications/notifyTaskChange'
 
 const mockActorFindUnique = prisma.actor.findUnique as jest.Mock
@@ -132,5 +135,25 @@ describe('dispatchTaskUpdateNotifications — TASK_DONE self-skip', () => {
         }),
       })
     )
+  })
+})
+
+describe('taskNotificationPayload (LUM-1095)', () => {
+  it('describes the task as the entity and carries the trigger as actor', () => {
+    expect(taskNotificationPayload(baseCtx, 'task-1')).toEqual({
+      entityKind: 'task',
+      entityId: 'task-1',
+      entityTitle: 'Some task',
+      entityIdentifier: 'LUM-1',
+      entityUrl: 'https://example.com/LUM-1',
+      actorClerkId: SELF_CLERK_ID,
+    })
+  })
+
+  it('omits the actor when there is no human trigger', () => {
+    expect(
+      taskNotificationPayload({ ...baseCtx, triggerClerkId: '' }, 'task-1')
+        .actorClerkId
+    ).toBeUndefined()
   })
 })

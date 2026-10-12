@@ -94,9 +94,9 @@ describe('notification text fallback', () => {
     '%s: channel and DM chat.postMessage bodies carry a non-empty text',
     async event => {
       const payload = {
-        taskIdentifier: 'LUM-1',
-        taskTitle: 'Fix login',
-        taskUrl: 'https://lumo.test/t/LUM-1',
+        entityIdentifier: 'LUM-1',
+        entityTitle: 'Fix login',
+        entityUrl: 'https://lumo.test/t/LUM-1',
         actorName: 'Ada',
       }
       await sendChannelNotification('ws_1', event, payload, 'proj_1')
@@ -117,8 +117,8 @@ describe('notification text fallback', () => {
       'ws_1',
       'pr_opened',
       {
-        taskIdentifier: 'LUM-2',
-        taskTitle: `Title ${INJECT}`,
+        entityIdentifier: 'LUM-2',
+        entityTitle: `Title ${INJECT}`,
         actorName: `Mallory ${INJECT}`,
         prNumber: 7,
         prTitle: `PR ${INJECT}`,

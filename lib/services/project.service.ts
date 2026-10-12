@@ -8,7 +8,6 @@ import { pushWorkspaceEvent } from '@/lib/integrations/pusher/server'
 import { getActorClerkId } from '@/lib/actor'
 import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { waitUntil } from '@/lib/runtime/wait-until'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -254,9 +253,11 @@ export const projectService = {
               ref: { projectId: project.id },
               slackEvent: 'comment_mention',
               slackPayload: {
-                taskTitle: updated.name,
-                taskUrl: projectUrl,
-                commentBody: htmlToPreview(newHtml),
+                entityKind: 'project',
+                entityId: project.id,
+                entityTitle: updated.name,
+                entityUrl: projectUrl,
+                mentionSurface: 'content',
               },
               waitUntil,
             })

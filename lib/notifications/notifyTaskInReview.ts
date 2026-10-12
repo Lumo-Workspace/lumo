@@ -5,6 +5,7 @@ import {
   sendChannelNotification,
   sendDMNotification,
 } from '@/lib/integrations/slack'
+import type { NotificationPayload } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { notifyWorkspaceOwners } from './notifyWorkspaceOwners'
 
@@ -55,7 +56,17 @@ export async function notifyTaskInReview(params: {
     task.team.identifier,
     task.number
   )
-  const payload = { taskId, taskTitle: task.title, taskIdentifier, taskUrl }
+  const actorClerkId = triggerActorId
+    ? await getActorClerkId(triggerActorId)
+    : null
+  const payload: NotificationPayload = {
+    entityKind: 'task',
+    entityId: taskId,
+    entityTitle: task.title,
+    entityIdentifier: taskIdentifier,
+    entityUrl: taskUrl,
+    actorClerkId: actorClerkId ?? undefined,
+  }
 
   // Slack: channel + DM (DM only if project owner resolvable)
   waitUntil(
