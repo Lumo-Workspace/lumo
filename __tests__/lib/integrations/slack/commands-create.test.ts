@@ -22,14 +22,17 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-jest.mock('@clerk/nextjs/server', () => ({
-  createClerkClient: () => ({
-    users: {
-      getUser: async () => ({
+// LUM-1103: mock the directory abstraction (not the Clerk SDK); the member
+// lookup batches by id through getUserList.
+jest.mock('@/lib/auth/users', () => ({
+  createUserDirectory: async () => ({
+    getUserList: async ({ userId }: { userId: string[] }) => ({
+      data: userId.map(id => ({
+        id,
         primaryEmailAddressId: 'em_1',
         emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
-      }),
-    },
+      })),
+    }),
   }),
 }))
 
