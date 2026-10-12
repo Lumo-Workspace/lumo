@@ -4,6 +4,7 @@ import { actorNameMap, fetchDirectory } from '../lib/directory'
 import { resolveTaskRef } from '../lib/comment-ref'
 import { localDayLabel } from '../lib/local-day'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { colorEnabled, terminalWidth } from '../lib/ui'
 
 /**
  * `lumo task history <LUM-N> [--limit N]` (LUM-821) — the task's field-change
@@ -147,7 +148,15 @@ export async function taskHistory(
   const dir = await fetchDirectory(ctx)
   const names = dir ? actorNameMap(dir) : new Map<string, string>()
   process.stdout.write(`${task.identifier} history (oldest first)\n`)
-  process.stdout.write(formatHistory(shown, names) + '\n')
+  // TTY → WHEN/ACTOR/CHANGE header + change cut to the terminal width;
+  // piped → headerless, whole rows (LUM-1089 list-table policy).
+  process.stdout.write(
+    formatHistory(shown, names, {
+      tty: Boolean(process.stdout.isTTY),
+      width: terminalWidth(),
+      color: colorEnabled(),
+    }) + '\n'
+  )
   if (activities.length > shown.length) {
     process.stdout.write(
       `(${activities.length - shown.length} earlier entries hidden — raise --limit)\n`
