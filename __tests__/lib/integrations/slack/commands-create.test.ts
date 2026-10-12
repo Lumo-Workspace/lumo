@@ -53,7 +53,7 @@ beforeEach(() => {
   })) as unknown as typeof fetch
 
   p.workspaceMember.findMany.mockResolvedValue([
-    { id: 'wm_1', clerkId: 'user_1' },
+    { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
   ])
   // Team holds 3 live tasks but its sequence is already at 7 (tasks deleted):
   // count+1 would re-issue 4; the sequence must hand out 8.
@@ -106,7 +106,7 @@ describe('slack create command (LUM-920)', () => {
 
     expect(p.project.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { teamId: 'team_1' },
+        where: { workspaceId: 'ws_1', teamId: 'team_1' },
         orderBy: { updatedAt: 'desc' },
       })
     )
@@ -135,6 +135,7 @@ describe('slack create command (LUM-920)', () => {
     expect(result).toEqual({
       type: 'text',
       text: 'Team `ENG` has no project to create the task in.',
+      visibility: 'ephemeral',
     })
     expect(mockTx.task.create).not.toHaveBeenCalled()
   })

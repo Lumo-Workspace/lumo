@@ -3,7 +3,10 @@ import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
 import { handleCommand, CommandResult } from '@/lib/integrations/slack'
-import { slackMessage } from '@/lib/integrations/slack/blocks'
+import {
+  sendMentionReply,
+  sendSlashCommandReply,
+} from '@/lib/integrations/slack/reply'
 import {
   isSlackResponseUrl,
   parseSlackRequestBody,
@@ -18,7 +21,14 @@ interface SlackPayload {
   challenge?: string
   team_id?: string
   team?: { id?: string }
-  event?: { type?: string; text?: string; channel?: string; user?: string }
+  event?: {
+    type?: string
+    text?: string
+    channel?: string
+    user?: string
+    ts?: string
+    thread_ts?: string
+  }
   command?: string
   text?: string
   response_url?: string
@@ -82,6 +92,7 @@ export async function POST(request: NextRequest) {
     let responseUrl = ''
     let channelId = ''
     let slackUserId = ''
+    let threadTs: string | undefined
 
     if (
       payload.type === 'event_callback' &&
@@ -92,6 +103,8 @@ export async function POST(request: NextRequest) {
       commandText = raw.replace(/^<@[^>]+>\s*/, '').trim()
       channelId = payload.event.channel ?? ''
       slackUserId = payload.event.user ?? ''
+      // LUM-1096: answer in the mention's thread (or start one under it).
+      threadTs = payload.event.thread_ts ?? payload.event.ts
     } else if (payload.command) {
       // /lumo slash command — reply only to a Slack-hosted response_url
       if (!isSlackResponseUrl(payload.response_url)) {
@@ -107,41 +120,29 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Execute command asynchronously — must return 200 within 3 s for slash commands
+    // Never rejects: an error here is logged, and the webhook has already
+    // answered 200, so Slack does not retry (and re-run) the command.
     const executeCommand = async () => {
-      const result: CommandResult = await handleCommand(
-        commandText,
-        slackUserId,
-        token,
-        integration.workspaceId
-      )
+      try {
+        const result: CommandResult = await handleCommand(
+          commandText,
+          slackUserId,
+          token,
+          integration.workspaceId
+        )
 
-      // LUM-1094: every reply carries a non-empty top-level `text` fallback.
-      const messageBody = slackMessage(
-        result.type === 'blocks'
-          ? { text: result.text, blocks: result.blocks }
-          : { text: result.text }
-      )
-
-      if (responseUrl) {
-        // Slash command response — post back to the response_url provided by Slack
-        await fetch(responseUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...messageBody,
-            response_type: 'in_channel',
-          }),
-        })
-      } else {
-        // Mention — reply in the same channel
-        await fetch('https://slack.com/api/chat.postMessage', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ channel: channelId, ...messageBody }),
-        })
+        // LUM-1094 text fallback + LUM-1096 visibility/thread live in reply.ts.
+        if (responseUrl) {
+          await sendSlashCommandReply(responseUrl, result)
+        } else {
+          await sendMentionReply(token, result, {
+            channel: channelId,
+            user: slackUserId,
+            threadTs,
+          })
+        }
+      } catch (error) {
+        logger.error('[slack webhook] command failed', error)
       }
     }
 
