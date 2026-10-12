@@ -100,8 +100,28 @@ const segmenter = SegmenterImpl
   ? new SegmenterImpl(undefined, { granularity: 'grapheme' })
   : undefined
 
+// Fallback when Intl.Segmenter is missing (small-ICU builds): glue combining
+// marks, variation selectors, skin-tone modifiers and ZWJ-joined code points
+// onto the preceding cluster, which covers what we measure in practice.
+const EXTEND_RE = /^[\p{Mn}\p{Me}\p{Emoji_Modifier}\uFE0E\uFE0F\u200D]$/u
+
+function clusterCodePoints(s: string): string[] {
+  const out: string[] = []
+  let joinNext = false
+  for (const cp of s) {
+    const last = out.length - 1
+    if (last >= 0 && (joinNext || EXTEND_RE.test(cp))) {
+      out[last] += cp
+    } else {
+      out.push(cp)
+    }
+    joinNext = cp === '\u200D'
+  }
+  return out
+}
+
 function graphemes(s: string): string[] {
-  if (!segmenter) return Array.from(s)
+  if (!segmenter) return clusterCodePoints(s)
   return Array.from(segmenter.segment(s), seg => seg.segment)
 }
 
@@ -128,7 +148,7 @@ function isWide(cp: number): boolean {
   return WIDE_RANGES.some(([lo, hi]) => cp >= lo && cp <= hi)
 }
 
-const EMOJI_WIDE_RE = /\p{Emoji_Presentation}|️|\p{Regional_Indicator}/u
+const EMOJI_WIDE_RE = /\p{Emoji_Presentation}|\uFE0F|\p{Regional_Indicator}/u
 const ZERO_WIDTH_RE = /^[\p{Mn}\p{Me}\p{Cf}]/u
 
 function graphemeWidth(g: string): number {
@@ -264,19 +284,25 @@ export interface TableOptions {
 export function renderTable(rows: string[][], opts: TableOptions = {}): string {
   const color = opts.color ?? colorEnabled()
   const gap = ' '.repeat(opts.gap ?? 2)
+  // Cells are single-line: tabs / CR / LF would break column alignment.
   const clip = (r: string[]) =>
     r.map((c, i) => {
+      const flat = c.replace(/[\t\r\n\v\f]/g, ' ')
       const cap = opts.maxWidths?.[i]
-      return cap === undefined ? c : truncate(c, cap)
+      return cap === undefined ? flat : truncate(flat, cap)
     })
   const header = opts.header ? clip(opts.header) : undefined
   const body = rows.map(clip)
   const all = header ? [header, ...body] : body
   if (all.length === 0) return ''
-  const cols = Math.max(...all.map(r => r.length))
-  const widths = Array.from({ length: cols }, (_, i) =>
-    Math.max(...all.map(r => stringWidth(r[i] ?? '')))
-  )
+  // Loops, not Math.max(...spread): large tables would overflow the stack.
+  const widths: number[] = []
+  for (const r of all) {
+    r.forEach((c, i) => {
+      widths[i] = Math.max(widths[i] ?? 0, stringWidth(c))
+    })
+  }
+  const cols = widths.length
   // Padding is computed from the plain cell and placed OUTSIDE any styling,
   // and trailing empty cells are dropped, so no line ends in whitespace —
   // even when the cells carry ANSI codes.
@@ -316,7 +342,8 @@ export function kvBlock(
   const color = opts.color ?? colorEnabled()
   const indent = ' '.repeat(opts.indent ?? 0)
   const labels = pairs.map(([k]) => `${k}:`)
-  const w = opts.labelWidth ?? Math.max(0, ...labels.map(stringWidth))
+  const w =
+    opts.labelWidth ?? labels.reduce((m, l) => Math.max(m, stringWidth(l)), 0)
   const cont = indent + ' '.repeat(w + 1)
   return pairs
     .map(([, value], i) => {

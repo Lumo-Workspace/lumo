@@ -42,6 +42,34 @@ describe('stringWidth', () => {
     expect(stringWidth('✓')).toBe(1)
     expect(stringWidth('⚠')).toBe(1)
   })
+  it('counts zero-width code points as 0', () => {
+    expect(stringWidth('a' + String.fromCodePoint(0x0301))).toBe(1)
+    expect(stringWidth(String.fromCodePoint(0x0301))).toBe(0)
+    expect(stringWidth('a' + String.fromCodePoint(0x200b) + 'b')).toBe(2)
+  })
+  it('VS16 turns a text symbol into a 2-column emoji', () => {
+    const heart = String.fromCodePoint(0x2764)
+    expect(stringWidth(heart)).toBe(1)
+    expect(stringWidth(heart + String.fromCodePoint(0xfe0f))).toBe(2)
+  })
+  it('without Intl.Segmenter, clusters still measure like graphemes', () => {
+    const intl = Intl as unknown as { Segmenter?: unknown }
+    const saved = intl.Segmenter
+    delete intl.Segmenter
+    try {
+      jest.isolateModules(() => {
+        const ui =
+          require('../../src/lib/ui') as typeof import('../../src/lib/ui')
+        expect(ui.stringWidth('e' + String.fromCodePoint(0x0301))).toBe(1)
+        expect(ui.stringWidth('👍🏽')).toBe(2)
+        expect(ui.stringWidth('👨‍👩‍👧')).toBe(2)
+        expect(ui.stringWidth('中文')).toBe(4)
+        expect(ui.truncate('👨‍👩‍👧ab', 3)).toBe('👨‍👩‍👧…')
+      })
+    } finally {
+      intl.Segmenter = saved
+    }
+  })
   it('counts combining marks as 0', () => {
     expect(stringWidth('é')).toBe(1)
   })
@@ -221,6 +249,22 @@ describe('renderTable', () => {
     expect(out.split('\n')[0]).toBe(
       `${ESC}[1mN${ESC}[22m     ${ESC}[1mV${ESC}[22m`
     )
+  })
+  it('flattens tabs / newlines in cells so columns stay aligned', () => {
+    expect(
+      renderTable(
+        [
+          ['a\tb', 'x'],
+          ['abcd', 'y'],
+        ],
+        { color: false }
+      )
+    ).toBe('a b   x\nabcd  y')
+  })
+  it('handles very large tables without overflowing the stack', () => {
+    const rows = Array.from({ length: 200_000 }, (_, i) => [String(i), 'v'])
+    const out = renderTable(rows, { color: false })
+    expect(out.split('\n')).toHaveLength(200_000)
   })
   it('returns an empty string for no rows and no header', () => {
     expect(renderTable([], { color: false })).toBe('')
