@@ -32,7 +32,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task artifact*`, `task figma*`                                                        | [references/artifacts-figma.md](references/artifacts-figma.md)       |
 | `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                   | [references/test-cases.md](references/test-cases.md)                 |
 | `task status/wrapup`, `crossing explain/disposition` — self-check, resume, DONE gate   | [references/task-status.md](references/task-status.md)               |
-| `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5            | [references/task-context.md](references/task-context.md)             |
+| `cost` — per-operation token cost; `report` — tokens + DONE tasks per window           | [references/task-context.md](references/task-context.md)             |
 | `outcome show` — post-hoc outcome well (falsifier oracle, rejection-only)              | [references/outcome.md](references/outcome.md)                       |
 | `priority [text]`, `priority list` — team priority declaration (append-only)           | [references/priority.md](references/priority.md)                     |
 | `project list/create/update`, `milestone*`                                             | [references/milestones.md](references/milestones.md)                 |
@@ -121,6 +121,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Cost (per-operation token read-out) — see [task-context.md](references/task-context.md)
 
 - `lumo cost [--task <id>|--session <id>|--since <date>] [--by tool|model|member|session] [--json]` — per-operation token cost read-out, attributing each model step's token delta to the tool(s) it ran. Scope is mutually exclusive (default = workspace last-30-days). For the per-task Top-5 inline, see `lumo task lineage`.
+- `lumo report [--since 7d|<day>] [--until <day>] [--member me|<ref>] [--project <name>] [--limit N] [--json]` — tokens used + tasks completed over local days (default last 7 incl. today): team totals plus a per-member split; unmetered sessions are counted, never as 0.
 
 ### Priority (team-level declaration) — see [priority.md](references/priority.md)
 

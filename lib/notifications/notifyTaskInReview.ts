@@ -8,12 +8,15 @@ import {
 import type { NotificationPayload } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { notifyWorkspaceOwners } from './notifyWorkspaceOwners'
+import { shouldNotify } from './preferenceGate'
 
 /**
  * Fires a TASK_IN_REVIEW notification:
  * - Slack channel announcement
- * - Slack DM to the project owner (when resolvable)
- * - Inbox notification to every workspace OWNER
+ * - Slack DM to the project owner (when resolvable and their Slack
+ *   preference allows it)
+ * - Inbox notification to every workspace OWNER (each owner's in-app
+ *   preference is applied inside notifyWorkspaceOwners)
  *
  * triggerActorId is an Actor.id when triggered by a user action,
  * or null when triggered by GitHub webhook (no actor).
@@ -68,7 +71,8 @@ export async function notifyTaskInReview(params: {
     actorClerkId: actorClerkId ?? undefined,
   }
 
-  // Slack: channel + DM (DM only if project owner resolvable)
+  // Slack: channel + DM (DM only if project owner resolvable; gated by the
+  // owner's Slack preference — LUM-1101)
   waitUntil(
     sendChannelNotification(
       task.team.workspace.id,
@@ -77,14 +81,20 @@ export async function notifyTaskInReview(params: {
       task.projectId
     )
   )
-  if (ownerClerkId) {
+  if (ownerActorId && ownerClerkId) {
+    const workspaceIdForDM = task.team.workspace.id
     waitUntil(
-      sendDMNotification(
-        task.team.workspace.id,
-        ownerClerkId,
-        'task_in_review',
-        payload
-      )
+      (async () => {
+        if (!(await shouldNotify(ownerActorId, 'slack', 'TASK_IN_REVIEW'))) {
+          return
+        }
+        await sendDMNotification(
+          workspaceIdForDM,
+          ownerClerkId,
+          'task_in_review',
+          payload
+        )
+      })()
     )
   }
 

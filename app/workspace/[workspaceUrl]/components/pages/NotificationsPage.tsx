@@ -10,11 +10,12 @@ interface NotifyRow {
   prefKey: keyof Preferences
 }
 
+// Only events that actually create an inbox item get an in-app switch.
+// notifyInAppComment has no reader and nothing creates AGENT_* notifications
+// (LUM-1101), so those switches would do nothing; their preference columns
+// are kept, just not shown — same treatment as the Slack list below.
 const IN_APP_EVENTS: NotifyRow[] = [
   { labelId: 'notifications.taskAssigned', prefKey: 'notifyInAppAssigned' },
-  { labelId: 'notifications.newComment', prefKey: 'notifyInAppComment' },
-  { labelId: 'notifications.agentDone', prefKey: 'notifyInAppAgentDone' },
-  { labelId: 'notifications.agentInput', prefKey: 'notifyInAppAgentInput' },
   { labelId: 'notifications.mentioned', prefKey: 'notifyInAppMention' },
 ]
 

@@ -22,6 +22,7 @@ import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulne
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { emitCoreEvent } from '@/lib/plugins/events'
+import { shouldNotifySlackEvent } from '@/lib/services/notification.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -237,14 +238,20 @@ export async function handlePullRequest(
       const ownerClerkId = ownerActorId
         ? await getActorClerkId(ownerActorId)
         : null
-      if (ownerClerkId) {
+      if (ownerActorId && ownerClerkId) {
+        // LUM-1101: personal DM honours the owner's Slack preference.
         waitUntil(
-          sendDMNotification(
-            workspaceId,
-            ownerClerkId,
-            'pr_opened',
-            prOpenedPayload
-          )
+          (async () => {
+            if (!(await shouldNotifySlackEvent(ownerActorId, 'pr_opened'))) {
+              return
+            }
+            await sendDMNotification(
+              workspaceId,
+              ownerClerkId,
+              'pr_opened',
+              prOpenedPayload
+            )
+          })()
         )
       }
     }
@@ -268,16 +275,23 @@ export async function handlePullRequest(
         linkedTask.projectId
       )
     )
-    if (linkedTask.assigneeActorId) {
-      const assigneeClerkId = await getActorClerkId(linkedTask.assigneeActorId)
+    const assigneeActorId = linkedTask.assigneeActorId
+    if (assigneeActorId) {
+      const assigneeClerkId = await getActorClerkId(assigneeActorId)
       if (assigneeClerkId) {
+        // LUM-1101: personal DM honours the assignee's Slack preference.
         waitUntil(
-          sendDMNotification(
-            workspaceId,
-            assigneeClerkId,
-            'pr_merged',
-            mergePayload
-          )
+          (async () => {
+            if (!(await shouldNotifySlackEvent(assigneeActorId, 'pr_merged'))) {
+              return
+            }
+            await sendDMNotification(
+              workspaceId,
+              assigneeClerkId,
+              'pr_merged',
+              mergePayload
+            )
+          })()
         )
       }
     }

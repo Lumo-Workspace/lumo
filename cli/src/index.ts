@@ -15,6 +15,7 @@ import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
 import { nextCommand } from './commands/next'
 import { cost } from './commands/cost'
+import { report } from './commands/report'
 import { priority, priorityList } from './commands/priority'
 import {
   crossingExplain,
@@ -529,6 +530,38 @@ program
           session?: string
           since?: string
           by?: string
+          json?: boolean
+        }
+      )
+    )
+  )
+
+program
+  .command('report')
+  .description(
+    'Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself'
+  )
+  .option(
+    '--since <day>',
+    'First day, inclusive: a YYYY-MM-DD date, Nd for the last N days incl. today (e.g. 30d), today, or yesterday'
+  )
+  .option(
+    '--until <day>',
+    'Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)'
+  )
+  .option('--member <ref>', 'Only this member: me, an email, or a display name')
+  .option('--project <name>', 'Only tasks (and their sessions) in this project')
+  .option('--limit <N>', 'Max completed tasks listed (default 50, max 500)')
+  .option('--json', 'Emit the versioned payload as JSON')
+  .action(
+    wrap(options =>
+      report(
+        options as {
+          since?: string
+          until?: string
+          member?: string
+          project?: string
+          limit?: string
           json?: boolean
         }
       )

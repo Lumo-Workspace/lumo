@@ -8,6 +8,7 @@ import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
 export {
   shouldNotify,
   shouldNotifyBatch,
+  shouldNotifySlackEvent,
 } from '@/lib/notifications/preferenceGate'
 
 export {
