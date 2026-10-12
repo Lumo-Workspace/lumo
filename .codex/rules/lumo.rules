@@ -6,10 +6,10 @@
 # `lumo session attach`, `lumo task update` and the commands that take a
 # `--file` (`lumo doc create/update/patch …`), stays sandboxed, so Codex asks.
 prefix_rule(
-    pattern = ["lumo", ["cost", "next", "priority"]],
+    pattern = ["lumo", ["cost", "next", "priority", "report"]],
     decision = "allow",
     justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo cost", "lumo next", "lumo priority"],
+    match = ["lumo cost", "lumo next", "lumo priority", "lumo report"],
     not_match = ["lumo auth login", "lumo auth logout", "lumo crossing disposition", "lumo crossing explain", "lumo doctor", "lumo hook", "lumo init", "lumo setup", "lumo uninstall", "lumo uninstall --confirm", "lumo update", "lumo usage resync", "lumo whoami", "lumo worktree", "lumo worktree add LUM-1", "lumox status"],
 )
 prefix_rule(

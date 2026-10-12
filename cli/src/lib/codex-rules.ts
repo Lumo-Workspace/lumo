@@ -85,6 +85,7 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'project memory add',
   'project memory list',
   'project update',
+  'report',
   'session status',
   'sprint add',
   'sprint close',
