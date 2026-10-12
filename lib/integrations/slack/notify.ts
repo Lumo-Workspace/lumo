@@ -3,6 +3,14 @@ import { decrypt } from '@/lib/crypto'
 import { getSlackIntegrationToken } from './token'
 import { escapeMrkdwn, mrkdwnLink } from './mrkdwn'
 import {
+  SlackMessage,
+  actionsBlock,
+  linkButton,
+  sectionBlock,
+  slackMessage,
+  truncate,
+} from './blocks'
+import {
   SlackEventType,
   NotificationPayload,
   SLACK_EVENT_LABELS,
@@ -19,23 +27,32 @@ const EMOJI: Record<SlackEventType, string> = {
   comment_mention: '💬',
 }
 
-function buildBlocks(
+/**
+ * Build the notification message: blocks plus a `text` fallback that says the
+ * same thing. LUM-928: every interpolated value is user- or GitHub-controlled —
+ * escape it so it cannot inject <!channel>/<!here> pings or disguised links.
+ */
+function buildMessage(
   event: SlackEventType,
   payload: NotificationPayload
-): object[] {
+): SlackMessage {
   const emoji = EMOJI[event]
   const label = SLACK_EVENT_LABELS[event]
   const url = payload.taskUrl
 
-  // LUM-928: every interpolated value is user- or GitHub-controlled — escape
-  // it so it cannot inject <!channel>/<!here> pings or disguised links.
   const lines: string[] = [`${emoji} *${label}*`]
+  let fallback = `${emoji} ${label}`
+
   if (payload.taskIdentifier && payload.taskTitle) {
-    lines.push(
-      `${escapeMrkdwn(payload.taskIdentifier)} · ${escapeMrkdwn(payload.taskTitle)}`
-    )
+    const task = `${escapeMrkdwn(payload.taskIdentifier)} · ${escapeMrkdwn(payload.taskTitle)}`
+    lines.push(task)
+    fallback += `: ${task}`
   }
-  if (payload.actorName) lines.push(`_by ${escapeMrkdwn(payload.actorName)}_`)
+  if (payload.actorName) {
+    const actor = escapeMrkdwn(payload.actorName)
+    lines.push(`_by ${actor}_`)
+    fallback += ` — by ${actor}`
+  }
   if (payload.prTitle) {
     const prLabel = `#${payload.prNumber} ${payload.prTitle}`
     lines.push(
@@ -43,29 +60,16 @@ function buildBlocks(
         ? `PR: ${mrkdwnLink(payload.prUrl, prLabel)}`
         : `PR: ${escapeMrkdwn(prLabel)}`
     )
+    fallback += ` — PR ${escapeMrkdwn(prLabel)}`
   }
   if (payload.commentBody) {
-    lines.push(`> ${escapeMrkdwn(payload.commentBody.slice(0, 120))}`)
+    lines.push(`> ${escapeMrkdwn(truncate(payload.commentBody, 120))}`)
   }
 
-  const blocks: object[] = [
-    { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
-  ]
+  const blocks = [sectionBlock(lines.join('\n'))]
+  if (url) blocks.push(actionsBlock([linkButton(url)]))
 
-  if (url) {
-    blocks.push({
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: 'Open in Lumo ↗' },
-          url,
-        },
-      ],
-    })
-  }
-
-  return blocks
+  return slackMessage({ text: fallback, blocks })
 }
 
 async function getIntegrationToken(
@@ -78,7 +82,7 @@ async function getIntegrationToken(
 async function postToChannel(
   token: string,
   channelId: string,
-  blocks: object[]
+  message: SlackMessage
 ): Promise<void> {
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
@@ -86,7 +90,7 @@ async function postToChannel(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ channel: channelId, blocks }),
+    body: JSON.stringify({ channel: channelId, ...message }),
   })
   const data = await res.json().catch(() => ({}))
   if (!(data as { ok?: boolean }).ok) {
@@ -150,10 +154,10 @@ export async function sendChannelNotification(
     if (!integration || integration.channels.length === 0) return
 
     const token = decrypt(integration.accessToken)
-    const blocks = buildBlocks(event, payload)
+    const message = buildMessage(event, payload)
 
     await Promise.allSettled(
-      integration.channels.map(c => postToChannel(token, c.channelId, blocks))
+      integration.channels.map(c => postToChannel(token, c.channelId, message))
     )
   } catch (error) {
     console.error(
@@ -193,8 +197,8 @@ export async function sendDMNotification(
     const openData = await openRes.json()
     if (!openData.ok) return
 
-    const blocks = buildBlocks(event, payload)
-    await postToChannel(token, openData.channel.id, blocks)
+    const message = buildMessage(event, payload)
+    await postToChannel(token, openData.channel.id, message)
   } catch (error) {
     console.error(`[slack notify] sendDMNotification error (${event}):`, error)
   }

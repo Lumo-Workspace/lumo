@@ -3,6 +3,7 @@ import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
 import { handleCommand, CommandResult } from '@/lib/integrations/slack'
+import { slackMessage } from '@/lib/integrations/slack/blocks'
 import {
   isSlackResponseUrl,
   parseSlackRequestBody,
@@ -114,10 +115,12 @@ export async function POST(request: NextRequest) {
         integration.workspaceId
       )
 
-      const messageBody =
+      // LUM-1094: every reply carries a non-empty top-level `text` fallback.
+      const messageBody = slackMessage(
         result.type === 'blocks'
-          ? { blocks: result.blocks }
+          ? { text: result.text, blocks: result.blocks }
           : { text: result.text }
+      )
 
       if (responseUrl) {
         // Slash command response — post back to the response_url provided by Slack

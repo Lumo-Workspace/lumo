@@ -186,6 +186,56 @@ describe('POST /api/webhooks/slack', () => {
     })
   })
 
+  // LUM-1094: a blocks reply must also carry the top-level text fallback, on
+  // both send paths (response_url and chat.postMessage).
+  const blocksResult = {
+    type: 'blocks',
+    text: 'LUM-12 · Fix login',
+    blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'x' } }],
+  }
+
+  it('sends text alongside blocks to the response_url', async () => {
+    mockHandleCommand.mockResolvedValue(blocksResult)
+    await POST(signed(slashBody, FORM))
+    await Promise.all(pending)
+    const sent = JSON.parse(fetchMock.mock.calls[0]![1].body)
+    expect(sent).toEqual({
+      text: 'LUM-12 · Fix login',
+      blocks: blocksResult.blocks,
+      response_type: 'in_channel',
+    })
+  })
+
+  it('sends text alongside blocks via chat.postMessage for a mention', async () => {
+    mockHandleCommand.mockResolvedValue(blocksResult)
+    const body = JSON.stringify({
+      type: 'event_callback',
+      team_id: 'T1',
+      event: {
+        type: 'app_mention',
+        text: '<@B1> status LUM-12',
+        channel: 'C9',
+      },
+    })
+    await POST(signed(body, 'application/json'))
+    await Promise.all(pending)
+    const sent = JSON.parse(fetchMock.mock.calls[0]![1].body)
+    expect(sent).toEqual({
+      channel: 'C9',
+      text: 'LUM-12 · Fix login',
+      blocks: blocksResult.blocks,
+    })
+  })
+
+  it('never posts an empty text even if a reply comes back blank', async () => {
+    mockHandleCommand.mockResolvedValue({ type: 'text', text: '' })
+    await POST(signed(slashBody, FORM))
+    await Promise.all(pending)
+    const sent = JSON.parse(fetchMock.mock.calls[0]![1].body)
+    expect(typeof sent.text).toBe('string')
+    expect(sent.text.trim()).not.toBe('')
+  })
+
   it('rejects a JSON event with a bad signature (401)', async () => {
     const res = await POST(
       signed(
