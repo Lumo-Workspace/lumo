@@ -3,7 +3,9 @@
  *
  * LUM-1096 — how a command reply is posted back to Slack.
  */
+import { logger } from '@/lib/logger'
 import {
+  sendSlashCommandReply,
   commandMessage,
   mentionReplyRequest,
   slashCommandReplyBody,
@@ -79,5 +81,24 @@ describe('mentionReplyRequest', () => {
       { channel: 'C1', user: 'U1' }
     )
     expect(body).toEqual({ channel: 'C1', text: 'ok' })
+  })
+})
+
+describe('sendSlashCommandReply', () => {
+  it('logs (does not throw) when the response_url rejects the reply', async () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {})
+    global.fetch = jest.fn(
+      async () => new Response('expired_url', { status: 404 })
+    ) as unknown as typeof fetch
+    await sendSlashCommandReply('https://hooks.slack.com/commands/x', {
+      type: 'text',
+      text: 'ok',
+      visibility: 'ephemeral',
+    })
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('response_url rejected'),
+      { status: 404 }
+    )
+    warn.mockRestore()
   })
 })

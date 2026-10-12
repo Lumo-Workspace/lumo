@@ -150,6 +150,9 @@ describe('command reply text fallback', () => {
   }
 
   it('status reply: blocks + escaped text, readable labels, canonical URL', async () => {
+    p.workspaceMember.findMany.mockResolvedValue([
+      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
+    ])
     p.team.findFirst.mockResolvedValue({ id: 'team_1' })
     p.task.findFirst.mockResolvedValue(storedTask)
     const result = await handleCommand('status ENG-1', 'U1', 'xoxb', 'ws_1')

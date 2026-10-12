@@ -82,6 +82,8 @@ const p = prisma as unknown as {
 const SLACK_EMAILS: Record<string, string> = {
   U1: 'dev@example.com',
   U2: 'ada@example.com',
+  // Same person as U1, different casing in Slack's profile.
+  U3: 'DEV@Example.com',
 }
 
 const MEMBERS = [
@@ -257,6 +259,13 @@ describe('status', () => {
     expect(json).toContain('https://lumo.test/workspace/acme/my-tasks/ENG-1')
   })
 
+  it('Slack user not linked → ephemeral, task never looked up', async () => {
+    const r = await run('status ENG-1', 'U_UNKNOWN')
+    expect(r.visibility).toBe('ephemeral')
+    expect(r.text).toMatch(/isn't linked to a Lumo account/)
+    expect(p.task.findFirst).not.toHaveBeenCalled()
+  })
+
   it('not found → ephemeral, argument escaped', async () => {
     p.task.findFirst.mockResolvedValue(null)
     const r = await run('status ENG-404')
@@ -292,6 +301,12 @@ describe('done / in-review', () => {
     expect(r.text).toBe('ENG-1 · Fix login moved to ✅ Done')
     expect(blocksJson(r)).toContain('Open in Lumo ↗')
     expect(blocksJson(r)).not.toMatch(/"DONE"|marked as Done/)
+  })
+
+  it('matches the Slack email to the member case-insensitively', async () => {
+    const r = await run('done ENG-1', 'U3')
+    expect(r.visibility).toBe('in_channel')
+    expect(mockTransition).toHaveBeenCalled()
   })
 
   it('in-review → 👀 In review', async () => {
@@ -422,7 +437,8 @@ describe('my-tasks', () => {
     p.task.count.mockResolvedValue(12)
     const r = await run('my-tasks')
     expectWellFormed(r)
-    expect(r.visibility).toBe('in_channel')
+    // Personal list: only the person who asked sees it.
+    expect(r.visibility).toBe('ephemeral')
     expect(p.task.findMany.mock.calls[0][0]).toMatchObject({
       take: 5,
       where: { workspaceId: 'ws_1', assigneeActorId: 'actor_1' },
@@ -433,7 +449,7 @@ describe('my-tasks', () => {
     })
     const json = blocksJson(r)
     expect(json).toContain('"type":"header"')
-    expect(json).toContain("Dev Person's open tasks")
+    expect(json).toContain('Your open tasks')
     expect(json).toContain('Showing 5 of 12 open tasks')
     expect(json).toContain('View all in Lumo ↗')
     expect(json).toContain('"url":"https://lumo.test/workspace/acme/my-tasks"')
@@ -451,14 +467,14 @@ describe('my-tasks', () => {
     expect(json).not.toContain('Showing')
   })
 
-  it('no open tasks → in_channel text', async () => {
+  it('no open tasks → ephemeral text', async () => {
     p.task.findMany.mockResolvedValue([])
     p.task.count.mockResolvedValue(0)
     const r = await run('my-tasks')
     expect(r).toEqual({
       type: 'text',
       text: 'You have no open tasks. 🎉',
-      visibility: 'in_channel',
+      visibility: 'ephemeral',
     })
   })
 

@@ -9,6 +9,7 @@
  *   `chat.postMessage`, so no new scope); if Slack refuses it, the reply falls
  *   back to a normal thread reply so the user is never left without one.
  */
+import { logger } from '@/lib/logger'
 import { slackMessage, type SlackMessage } from './blocks'
 import type { CommandResult } from './types'
 
@@ -98,9 +99,16 @@ export async function sendSlashCommandReply(
   responseUrl: string,
   result: CommandResult
 ): Promise<void> {
-  await fetch(responseUrl, {
+  const res = await fetch(responseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(slashCommandReplyBody(result)),
   })
+  // Nothing to retry into (response_url is single-use and expires), but a
+  // rejected reply must not vanish silently.
+  if (!res.ok) {
+    logger.warn('[slack command] response_url rejected the reply', {
+      status: res.status,
+    })
+  }
 }

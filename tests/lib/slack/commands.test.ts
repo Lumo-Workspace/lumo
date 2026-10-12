@@ -26,6 +26,16 @@ jest.mock('@clerk/nextjs/server', () => ({
   }),
 }))
 
+// LUM-1096: `status` now requires a linked Slack user.
+jest.mock('@/lib/auth/users', () => ({
+  createUserDirectory: async () => ({
+    getUser: async () => ({
+      primaryEmailAddressId: 'em_1',
+      emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
+    }),
+  }),
+}))
+
 import { handleCommand } from '@/lib/integrations/slack'
 import { prisma } from '@/lib/db/prisma'
 
@@ -49,6 +59,18 @@ const mockTask = {
 }
 
 describe('handleCommand — status', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        ok: true,
+        user: { profile: { email: 'dev@example.com' } },
+      }),
+    })) as unknown as typeof fetch
+    asMock(prisma.workspaceMember.findMany).mockResolvedValue([
+      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
+    ])
+  })
+
   it('returns blocks when task exists', async () => {
     asMock(prisma.team.findFirst).mockResolvedValue(mockTeam)
     asMock(prisma.task.findFirst).mockResolvedValue(mockTask)

@@ -114,6 +114,7 @@ export const slackCommandService = {
     workspaceId: string,
     email: string
   ): Promise<SlackLinkedMember | null> {
+    const wanted = email.trim().toLowerCase()
     const members = await slackCommandRepository.listActiveMembers(workspaceId)
     const { createUserDirectory } = await import('@/lib/auth/users')
     const directory = await createUserDirectory()
@@ -122,7 +123,9 @@ export const slackCommandService = {
       const primary = user.emailAddresses.find(
         e => e.id === user.primaryEmailAddressId
       )
-      if (primary?.emailAddress === email) {
+      // Email addresses are case-insensitive in practice (Slack and the
+      // directory may store different casing).
+      if (primary?.emailAddress.toLowerCase() === wanted) {
         return {
           memberId: member.id,
           actorId: member.actor?.id ?? null,

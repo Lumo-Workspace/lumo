@@ -167,7 +167,6 @@ export function createdReply(task: SlackTaskSummary): CommandResult {
 }
 
 export function myTasksReply(
-  ownerName: string,
   tasks: SlackTaskSummary[],
   total: number
 ): CommandResult {
@@ -176,14 +175,14 @@ export function myTasksReply(
     return {
       type: 'text',
       text: 'You have no open tasks. 🎉',
-      visibility: 'in_channel',
+      visibility: 'ephemeral',
     }
   }
   const count =
     total > tasks.length
       ? `Showing ${tasks.length} of ${total} open tasks`
       : `${total} open ${total === 1 ? 'task' : 'tasks'}`
-  const title = `${ownerName}'s open tasks`
+  const title = 'Your open tasks'
   return blocksReply(
     `${escapeMrkdwn(title)} (${count}): ${tasks.map(heading).join(', ')}`,
     [
@@ -196,7 +195,9 @@ export function myTasksReply(
           VIEW_ALL_IN_LUMO_LABEL
         ),
       ]),
-    ]
+    ],
+    // Personal data: only the person who asked sees it.
+    'ephemeral'
   )
 }
 
@@ -239,6 +240,13 @@ export async function handleCommand(
   try {
     // ── status ENG-123 ──────────────────────────────────────────────────────
     if (cmd === 'status' && arg) {
+      // Task details are workspace data: only linked Lumo members may read them.
+      const member = await resolveSlackUser(
+        slackUserId,
+        slackToken,
+        workspaceId
+      )
+      if (!member) return ephemeral(NOT_LINKED_TEXT)
       const task = await slackCommandService.findTask(workspaceId, arg)
       return task ? statusReply(task) : taskNotFound(arg)
     }
@@ -328,14 +336,14 @@ export async function handleCommand(
       if (!member) return ephemeral(NOT_LINKED_TEXT)
       // No actor row → nothing can be assigned to them (and an unscoped
       // `assigneeActorId: null` filter would list unassigned tasks instead).
-      if (!member.actorId) return myTasksReply(member.name, [], 0)
+      if (!member.actorId) return myTasksReply([], 0)
 
       const { tasks, total } = await slackCommandService.listOpenTasks(
         workspaceId,
         member.actorId,
         MY_TASKS_LIMIT
       )
-      return myTasksReply(member.name, tasks, total)
+      return myTasksReply(tasks, total)
     }
 
     // ── unknown command / help ─────────────────────────────────────────────
