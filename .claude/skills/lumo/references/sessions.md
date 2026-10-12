@@ -199,18 +199,25 @@ Each Claude Code or Codex session has its own session id (`CLAUDE_CODE_SESSION_I
 lumo session status
 ```
 
-Prints what the current Claude Code or Codex session is bound to — a task, a milestone (`Role: STEWARD (governance — plan & accept only)`), or "(no task)" if none. Must run inside a Claude Code or Codex session (`$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`).
+Prints what the current Claude Code or Codex session is bound to — `Session <id>`, then `Label:  value` rows padded to the widest label (LUM-1090): `Bound to:  LUM-12 "<title>"`, a milestone (`Role:  STEWARD (governance — plan & accept only)` + `Bound to:  milestone "<name>"`), or `(no task)` if none, and `Events:  <n>`. Must run inside a Claude Code or Codex session (`$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`).
 
-Against a server that reports attribution (LUM-932) it also lists where the run's work is going. A subagent's own session prints `Subagent of: <parent session>` and shows its family's view.
+Against a server that reports attribution (LUM-932) it also lists where the run's work is going, as headed sections with aligned tables. A subagent's own session prints a `Subagent of:  <parent session>` row first and shows its family's view.
 
 ```
-  Attribution:
-    LUM-12  turns 1–4  auto-detected · high (git hint LUM-12, lumo cmd LUM-12)
-    LUM-13  turn 5  auto-detected · medium (agent prompt LUM-13)
-  Subagents:
-    Explore (abc123)  LUM-14 subagent attach
-    general-purpose ×12  follows parent
-  ⚠ Some work was auto-detected — time and cost may be inaccurate. Run `lumo session attach <LUM-N>` for exact numbers.
+Session 7c0e…
+Bound to:  LUM-12 "Fix login"
+Events:    42
+
+Attribution
+  LUM-12  turns 1–4  auto-detected · high (git hint LUM-12, lumo cmd LUM-12)
+  LUM-13  turn 5     auto-detected · medium (agent prompt LUM-13)
+
+Subagents
+  Explore (abc123)     LUM-14 subagent attach
+  general-purpose ×12  follows parent
+
+⚠ Some work was auto-detected — time and cost may be inaccurate. For exact numbers, run:
+  lumo session attach <LUM-N>
 ```
 
 - Turns are numbered from 1 (turn 1 = the session's first prompt), the same as the web run panel.
@@ -218,8 +225,8 @@ Against a server that reports attribution (LUM-932) it also lists where the run'
 - A subagent with no task of its own prints `follows parent` — its work goes wherever the parent's does.
 - Subagents whose line would be identical (same type and same tasks/source words) are collapsed into one `<type> ×N` line; a lone subagent keeps its short `(id)`.
 - A bound session whose attribution has not been computed yet still lists its bound task as `attached`.
-- An unbound session with no signal yet prints `Attribution: none yet (no task signal)`; it is auto-detected later from branch, commits and `lumo` commands.
-- The `⚠` line means some of the work is inferred, so time and cost are approximate; `lumo session attach <LUM-N>` makes them exact. Older servers print only the binding lines.
+- An unbound session with no signal yet prints `None yet (no task signal)` under the Attribution heading, with `lumo session attach <LUM-N>` on a line of its own; it is auto-detected later from branch, commits and `lumo` commands.
+- The `⚠` line means some of the work is inferred, so time and cost are approximate; `lumo session attach <LUM-N>` makes them exact. Older servers print only the binding rows.
 
 #### When to suggest
 

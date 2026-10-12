@@ -380,8 +380,8 @@ describe('milestone / sprint / tag / member / audit lists', () => {
       health: 'on-track',
     }
     const out = formatMilestoneShow(data, [])
-    expect(out).toContain('State:        ACTIVE\n')
-    expect(out).toContain('Health:       ON-TRACK\n')
+    expect(out).toContain('State:      ACTIVE\n')
+    expect(out).toContain('Health:     ON-TRACK\n')
     expect(milestoneState({ completedAt: 'x', archivedAt: null })).toBe(
       'COMPLETED'
     )

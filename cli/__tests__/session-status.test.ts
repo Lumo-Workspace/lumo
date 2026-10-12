@@ -2,7 +2,9 @@
  * @jest-environment node
  *
  * LUM-932 P4: `lumo session status` lists task attribution and subagents;
- * an old server (no attribution fields) prints exactly what it always did.
+ * an old server (no attribution fields) prints only the binding rows.
+ * LUM-1090: rows are `Label:  value` padded to the widest label; attribution
+ * and subagents are headed sections with aligned tables.
  */
 jest.mock('../src/lib/session-id', () => ({
   ...jest.requireActual('../src/lib/session-id'),
@@ -48,9 +50,9 @@ const root = {
   taskTitle: null,
 }
 
-it('prints today output when attribution is absent', async () => {
+it('prints only the binding rows when attribution is absent', async () => {
   expect(await run(root)).toBe(
-    'Session sess-1\n  Bound to:  (no task)\n  Events:    7\n'
+    'Session sess-1\nBound to:  (no task)\nEvents:    7\n'
   )
 })
 
@@ -99,18 +101,19 @@ it('prints segments, evidence, subagents and the approximate warning', async () 
       approximate: true,
     },
   })
-  expect(out).toContain('  Attribution:\n')
   expect(out).toContain(
-    '    LUM-12  turns 1–4  auto-detected · high (git hint LUM-12, lumo cmd LUM-12)\n'
+    '\nAttribution\n' +
+      '  LUM-12  turns 1–4  auto-detected · high (git hint LUM-12, lumo cmd LUM-12)\n' +
+      '  LUM-13  turn 5     auto-detected · medium (agent prompt LUM-13)\n'
   )
   expect(out).toContain(
-    '    LUM-13  turn 5  auto-detected · medium (agent prompt LUM-13)\n'
+    '\nSubagents\n' +
+      '  Explore (123456)   LUM-14 subagent attach\n' +
+      '  subagent (zzz999)  follows parent\n'
   )
-  expect(out).toContain('  Subagents:\n')
-  expect(out).toContain('    Explore (123456)  LUM-14 subagent attach\n')
-  expect(out).toContain('    subagent (zzz999)  follows parent\n')
   expect(out).toContain(
-    '  ⚠ Some work was auto-detected — time and cost may be inaccurate. Run `lumo session attach <LUM-N>` for exact numbers.\n'
+    '\n⚠ Some work was auto-detected — time and cost may be inaccurate. For exact numbers, run:\n' +
+      '  lumo session attach <LUM-N>\n'
   )
 })
 
@@ -124,7 +127,8 @@ it('prints the none-yet line for an unattributed, unbound session', async () => 
       approximate: false,
     },
   })
-  expect(out).toContain('  Attribution: none yet (no task signal)')
+  expect(out).toContain('\nAttribution\n  None yet (no task signal)')
+  expect(out).toContain('\n    lumo session attach <LUM-N>\n')
   expect(out).not.toContain('⚠')
 })
 
@@ -140,12 +144,15 @@ it('prints Subagent of for a child session', async () => {
       approximate: false,
     },
   })
-  expect(out.split('\n')[1]).toBe('  Subagent of: sess-1')
+  expect(out.split('\n').slice(1, 3)).toEqual([
+    'Subagent of:  sess-1',
+    'Bound to:     (no task)',
+  ])
 })
 
 it('tolerates an empty attribution payload', async () => {
   expect(await run({ ...root, attribution: {} })).toBe(
-    'Session sess-1\n  Bound to:  (no task)\n  Events:    7\n'
+    'Session sess-1\nBound to:  (no task)\nEvents:    7\n'
   )
 })
 
@@ -154,7 +161,7 @@ it('tolerates non-array segments and malformed evidence', async () => {
     ...root,
     attribution: { segments: 'nope', subagents: { a: 1 }, approximate: false },
   })
-  expect(out).toBe('Session sess-1\n  Bound to:  (no task)\n  Events:    7\n')
+  expect(out).toBe('Session sess-1\nBound to:  (no task)\nEvents:    7\n')
   const out2 = await run({
     ...root,
     attribution: {
@@ -176,7 +183,7 @@ it('tolerates non-array segments and malformed evidence', async () => {
   expect(out2).toContain('(git hint LUM-1)')
 })
 
-it('keeps steward output exactly as today even with attribution', async () => {
+it('prints the steward rows and no attribution even when it is present', async () => {
   const out = await run({
     ...root,
     role: 'STEWARD',
@@ -189,7 +196,7 @@ it('keeps steward output exactly as today even with attribution', async () => {
     },
   })
   expect(out).toBe(
-    'Session sess-1\n  Role:      STEWARD (governance — plan & accept only)\n  Bound to:  milestone "M1"\n  Events:    7\n'
+    'Session sess-1\nRole:      STEWARD (governance — plan & accept only)\nBound to:  milestone "M1"\nEvents:    7\n'
   )
 })
 
@@ -236,8 +243,8 @@ it('treats non-string confidence, identifiers and session ids as missing', async
       approximate: true,
     },
   })
-  expect(out).toContain('    ?  turn 1  auto-detected\n')
-  expect(out).toContain('    Explore ()  ? subagent attach, LUM-9 ?\n')
+  expect(out).toContain('\n  ?  turn 1  auto-detected\n')
+  expect(out).toContain('\n  Explore ()  ? subagent attach, LUM-9 ?\n')
   expect(out).not.toContain('undefined')
 })
 
@@ -271,11 +278,11 @@ it('groups subagents whose rendered line is identical into one counted line', as
       approximate: false,
     },
   })
-  const block = out.slice(out.indexOf('  Subagents:\n'))
+  const block = out.slice(out.indexOf('Subagents\n'))
   expect(block).toBe(
-    '  Subagents:\n' +
-      '    general-purpose ×120  LUM-932 inherited\n' +
-      '    Explore (ccc111)  follows parent\n' +
-      '    general-purpose ×2  follows parent\n'
+    'Subagents\n' +
+      '  general-purpose ×120  LUM-932 inherited\n' +
+      '  Explore (ccc111)      follows parent\n' +
+      '  general-purpose ×2    follows parent\n'
   )
 })

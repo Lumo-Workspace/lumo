@@ -39,7 +39,7 @@ describe('formatSprintShow', () => {
     expect(out).toContain('Started:   2026-06-01')
     expect(out).toContain('Closed:    -')
     expect(out).toContain('Progress:  4 / 10')
-    expect(out).toContain('LUM-42  IN_PROGRESS')
+    expect(out).toContain('\nTasks (1)\n  LUM-42  IN_PROGRESS')
   })
 
   it('renders "-" for null dates and omits task table when no tasks', () => {
@@ -55,13 +55,14 @@ describe('formatSprintShow', () => {
     expect(out).toContain('Started:   -')
     expect(out).toContain('Closed:    -')
     expect(out).toContain('Progress:  0 / 0')
+    expect(out).toContain('\nTasks (0)\n  None — no task is in this sprint.')
     expect(out).not.toContain('LUM-')
   })
 
   it('never renders a Health line', () => {
     const out = formatSprintShow(sprint, progress, [task])
     expect(out).not.toContain('Health:')
-    expect(out).not.toContain('Blockers:')
+    expect(out).not.toContain('Blockers')
   })
 
   it('renders the blockers section when blockers are provided', () => {
@@ -78,12 +79,20 @@ describe('formatSprintShow', () => {
     }
     const out = formatSprintShow(sprint, progress, [task], topBlockers)
     expect(out).not.toContain('Health:')
-    expect(out).toContain('Blockers:')
-    expect(out).toContain('LUM-1 Fix login')
-    expect(out).toContain('LUM-8 Wire API')
-    expect(out).toContain('LUM-5 Add tests')
-    expect(out).toContain('LUM-9 Agent task')
-    expect(out).toContain('#12, #15')
+    // LUM-1090: one blocker per line, aligned under the value column.
+    expect(out).toContain(
+      [
+        '',
+        'Blockers',
+        '  Overdue:     LUM-1 Fix login',
+        '               LUM-8 Wire API',
+        '  Stalled:     LUM-5 Add tests',
+        '  Agent fail:  LUM-9 Agent task',
+        '  Stale PRs:   #12',
+        '               #15',
+        '',
+      ].join('\n')
+    )
   })
 
   it('renders no Blockers section when all blocker groups are empty', () => {
@@ -94,6 +103,6 @@ describe('formatSprintShow', () => {
       staleOpenPrNumbers: [],
     }
     const out = formatSprintShow(sprint, progress, [], topBlockers)
-    expect(out).not.toContain('Blockers:')
+    expect(out).not.toContain('Blockers')
   })
 })

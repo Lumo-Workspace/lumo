@@ -1,9 +1,19 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
-import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  fieldLines,
+  labelWidth,
+  reportWidth,
+  sectionHeading,
+  type DetailOptions,
+  type Field,
+} from '../lib/report-layout'
+import { taskTableSection } from '../lib/detail-layout'
+import { colorEnabled, terminalWidth, truncate } from '../lib/ui'
 
 export interface ShowSprintOptions {
   team?: string
@@ -38,51 +48,77 @@ function fmtDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '-'
 }
 
-function blockerLine(label: string, items: SprintBlockerItem[]): string | null {
-  if (items.length === 0) return null
-  const rendered = items
-    .map(i => `${i.identifier} ${sanitizeField(i.title)}`)
-    .join(', ')
-  return `  ${label.padEnd(11)}${rendered}`
+const BLOCKER_LABELS = {
+  overdue: 'Overdue',
+  stalled: 'Stalled',
+  agentFail: 'Agent fail',
+  stalePrs: 'Stale PRs',
+} as const
+
+/**
+ * LUM-1090: one blocker per line — `LUM-1 Fix login` — aligned under the
+ * value column of its category row, each cut with `…` to the report width.
+ */
+function blockerLines(b: SprintBlockers, opts: DetailOptions): string[] {
+  const groups: Array<[string, string[]]> = [
+    [BLOCKER_LABELS.overdue, b.overdueTaskIds.map(blockerItem)],
+    [BLOCKER_LABELS.stalled, b.stalledTaskIds.map(blockerItem)],
+    [BLOCKER_LABELS.agentFail, b.failingAgentTaskIds.map(blockerItem)],
+    [BLOCKER_LABELS.stalePrs, b.staleOpenPrNumbers.map(n => `#${n}`)],
+  ]
+  const present = groups.filter(([, items]) => items.length > 0)
+  if (present.length === 0) return []
+  const labelW = labelWidth(present.map(([label]) => ({ label, value: '' })))
+  const room = reportWidth(opts) - (2 + labelW + 2)
+  const fields: Field[] = present.map(([label, items]) => {
+    const [first = '', ...rest] = items.map(i => truncate(i, room))
+    return { label, value: first, more: rest }
+  })
+  return [
+    ...sectionHeading('Blockers', opts),
+    ...fieldLines(fields, 2, opts, labelW),
+  ]
 }
 
+function blockerItem(i: SprintBlockerItem): string {
+  return `${i.identifier} ${sanitizeField(i.title)}`
+}
+
+/**
+ * LUM-1090 — `sprint show` as a detail view: `Label:  value` rows padded to
+ * the widest label, a `Blockers` section with one blocker per line, and the
+ * `Tasks (N)` table. Plain text unless `opts` turns colour on.
+ */
 export function formatSprintShow(
   s: SprintShowData,
   progress: { done: number; total: number },
   tasks: TaskRow[],
-  topBlockers?: SprintBlockers
+  topBlockers?: SprintBlockers,
+  opts: DetailOptions = {}
 ): string {
-  const lines = [
-    `Sprint:    #${s.number} ${sanitizeField(s.name)}`,
-    `Status:    ${s.status}`,
-    `Team:      ${sanitizeField(s.team.name)}`,
-    `Start:     ${fmtDate(s.startDate)}`,
-    `End:       ${fmtDate(s.endDate)}`,
-    `Started:   ${fmtDate(s.startedAt)}`,
-    `Closed:    ${fmtDate(s.closedAt)}`,
-    ``,
-    `Progress:  ${progress.done} / ${progress.total}`,
+  const header: Field[] = [
+    { label: 'Sprint', value: `#${s.number} ${sanitizeField(s.name)}` },
+    { label: 'Status', value: s.status },
+    { label: 'Team', value: sanitizeField(s.team.name) },
+    { label: 'Start', value: fmtDate(s.startDate) },
+    { label: 'End', value: fmtDate(s.endDate) },
+    { label: 'Started', value: fmtDate(s.startedAt) },
+    { label: 'Closed', value: fmtDate(s.closedAt) },
   ]
-
-  if (topBlockers) {
-    const blockerLines = [
-      blockerLine('Overdue:', topBlockers.overdueTaskIds),
-      blockerLine('Stalled:', topBlockers.stalledTaskIds),
-      blockerLine('Agent fail:', topBlockers.failingAgentTaskIds),
-      topBlockers.staleOpenPrNumbers.length > 0
-        ? `  ${'Stale PRs:'.padEnd(11)}${topBlockers.staleOpenPrNumbers
-            .map(n => `#${n}`)
-            .join(', ')}`
-        : null,
-    ].filter((l): l is string => l !== null)
-    if (blockerLines.length > 0) {
-      lines.push('Blockers:', ...blockerLines)
-    }
-  }
-
-  if (tasks.length > 0) {
-    lines.push('', formatTaskListTable(tasks))
-  }
+  const progressRow: Field[] = [
+    { label: 'Progress', value: `${progress.done} / ${progress.total}` },
+  ]
+  // One label width across both groups, so the values share a column.
+  const labelW = labelWidth([...header, ...progressRow])
+  const lines = [
+    ...fieldLines(header, 0, opts, labelW),
+    '',
+    ...fieldLines(progressRow, 0, opts, labelW),
+  ]
+  if (topBlockers) lines.push(...blockerLines(topBlockers, opts))
+  lines.push(
+    ...taskTableSection(tasks, 'None — no task is in this sprint.', opts)
+  )
   return lines.join('\n')
 }
 
@@ -152,6 +188,10 @@ export async function sprintShow(
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
   process.stdout.write(
-    formatSprintShow(sprint, progress, tasks, topBlockers) + '\n'
+    formatSprintShow(sprint, progress, tasks, topBlockers, {
+      width: terminalWidth(),
+      color: colorEnabled(),
+      tty: Boolean(process.stdout.isTTY),
+    }) + '\n'
   )
 }

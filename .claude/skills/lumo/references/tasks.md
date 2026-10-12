@@ -163,7 +163,7 @@ The server's transition matrix (`lib/task/state-machine.ts`):
 | IN_REVIEW   | BACKLOG, TODO, IN_PROGRESS, DONE               |
 | DONE        | BACKLOG, TODO, IN_PROGRESS, IN_REVIEW (reopen) |
 
-BACKLOG (LUM-1057) = not yet scheduled. New tasks still default to TODO. BACKLOG tasks are left out of sprint progress / burnup and milestone progress totals; `milestone show` prints them as `+ N in BACKLOG` after the total.
+BACKLOG (LUM-1057) = not yet scheduled. New tasks still default to TODO. BACKLOG tasks are left out of sprint progress / burnup and milestone progress totals; `milestone show` prints them on a `Backlog:  N (not in the total)` row of its Progress section.
 
 Practical rules:
 
@@ -371,7 +371,7 @@ When to suggest: the user asks "what should I work on", "what's next", "recommen
 
 ### `lumo task show <identifier>` — print one task's detail
 
-Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), due date when set, URL, and the full description below in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Lighter than `task context` because it does not load prior session summaries or memory.
+Returns a `<id>  <title>` line (bold on a TTY), then `Label:  value` rows padded to the widest label (LUM-1090) — status, priority, project, assignee (with display name from Clerk), due date when set, URL (never wrapped: a URL too long for its row moves, whole, under `URL:`) — and the full description below, verbatim, in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Lighter than `task context` because it does not load prior session summaries or memory.
 
 ```bash
 lumo task show LUM-42
@@ -381,7 +381,7 @@ Use when the user wants the current state of a task without the agent-handoff pa
 
 ### `lumo task history <identifier> [-n <count>] [--cursor <c>] [--json]` — field-change log (LUM-821)
 
-The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints this page's entries as a bare array (unchanged shape, no `total`). Comments are not included — use `task comments list`.
+The task's changelog, oldest first, as a table: `YYYY-MM-DD HH:MM  actor  change` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints this page's entries as a bare array (unchanged shape, no `total`). Comments are not included — use `task comments list`.
 
 ```bash
 lumo task history LUM-42
