@@ -206,6 +206,35 @@ function taskNotFound(identifier: string): CommandResult {
   return ephemeral(`Task \`${escapeMrkdwn(identifier)}\` not found.`)
 }
 
+/**
+ * Run a task write. When the shared task service refuses it (a 4xx — e.g.
+ * the DONE gate's 409 or an invalid status transition), returns a reply only
+ * the caller sees, carrying the service's reason; `null` when it went through.
+ * Anything else propagates to the generic error reply.
+ */
+async function refusedWrite(
+  action: string,
+  write: () => Promise<void>
+): Promise<CommandResult | null> {
+  try {
+    await write()
+    return null
+  } catch (error) {
+    const status = (error as { status?: unknown } | null)?.status
+    if (
+      typeof status === 'number' &&
+      status >= 400 &&
+      status < 500 &&
+      error instanceof Error
+    ) {
+      return ephemeral(
+        `Couldn't ${escapeMrkdwn(action)}: ${escapeMrkdwn(error.message)}`
+      )
+    }
+    throw error
+  }
+}
+
 // ── Slack user → Lumo member ───────────────────────────────────────────────
 
 async function resolveSlackUser(
@@ -264,8 +293,11 @@ export async function handleCommand(
       if (!task) return taskNotFound(arg)
 
       const to = cmd === 'done' ? 'DONE' : 'IN_REVIEW'
-      await slackCommandService.setStatus(task, to)
-      return statusChangedReply(task, to)
+      const refused = await refusedWrite(
+        `move ${task.identifier} to ${to === 'DONE' ? 'Done' : 'In review'}`,
+        () => slackCommandService.setStatus(workspaceId, task.id, to, member)
+      )
+      return refused ?? statusChangedReply(task, to)
     }
 
     // ── assign ENG-123 @user ────────────────────────────────────────────────
@@ -293,8 +325,16 @@ export async function handleCommand(
       if (!target?.actorId)
         return ephemeral("That user doesn't have a linked Lumo account.")
 
-      await slackCommandService.assign(workspaceId, task.id, target.actorId)
-      return assignedReply(task, target.name)
+      const assigneeActorId = target.actorId
+      const refused = await refusedWrite(`assign ${task.identifier}`, () =>
+        slackCommandService.assign(
+          workspaceId,
+          task.id,
+          assigneeActorId,
+          member
+        )
+      )
+      return refused ?? assignedReply(task, target.name)
     }
 
     // ── create "title" in TEAM ──────────────────────────────────────────────

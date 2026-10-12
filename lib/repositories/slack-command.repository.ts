@@ -56,11 +56,23 @@ export const slackCommandRepository = {
     })
   },
 
-  /** Point a task's assignee at an actor. */
-  async setAssignee(workspaceId: string, taskId: string, actorId: string) {
-    await prisma.task.update({
+  /**
+   * The pre-update view of a task that the shared task update service
+   * (`updateTaskWithSideEffects`) diffs against for its activity events.
+   */
+  async findTaskForUpdate(workspaceId: string, taskId: string) {
+    return prisma.task.findFirst({
       where: { id: taskId, workspaceId },
-      data: { assigneeActorId: actorId },
+      select: {
+        id: true,
+        projectId: true,
+        number: true,
+        title: true,
+        priority: true,
+        dueDate: true,
+        description: true,
+        project: { select: { name: true, workspaceId: true } },
+      },
     })
   },
 

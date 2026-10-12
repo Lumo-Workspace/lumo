@@ -52,9 +52,12 @@ jest.mock('@/lib/auth/users', () => ({
   }),
 }))
 
-const mockTransition = jest.fn()
-jest.mock('@/lib/task/state-machine', () => ({
-  transitionTaskStatus: (...a: unknown[]) => mockTransition(...a),
+// LUM-1102: done / in-review / assign go through the shared task update
+// service (the web/CLI entry). Its own behaviour (DONE gate, validation) is
+// exercised for Slack in commands-permissions.test.ts.
+const mockUpdate = jest.fn()
+jest.mock('@/lib/services/task-state.service', () => ({
+  updateTaskWithSideEffects: (...a: unknown[]) => mockUpdate(...a),
 }))
 
 const mockCreateWithSequence = jest.fn()
@@ -143,7 +146,7 @@ beforeEach(() => {
   p.task.findFirst.mockResolvedValue(
     row(1, { title: 'Fix login', status: 'IN_PROGRESS', priority: 'HIGH' })
   )
-  mockTransition.mockResolvedValue([])
+  mockUpdate.mockResolvedValue({})
 })
 
 const run = (text: string, user = 'U1') =>
@@ -302,9 +305,13 @@ describe('done / in-review', () => {
     const r = await run('done ENG-1')
     expectWellFormed(r)
     expect(r.visibility).toBe('in_channel')
-    expect(mockTransition).toHaveBeenCalledWith('task_1', 'proj_1', 'DONE', {
-      currentStatus: 'IN_PROGRESS',
-    })
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'task_1',
+      { status: 'DONE' },
+      expect.objectContaining({ id: 'task_1', projectId: 'proj_1' }),
+      'actor_1',
+      'user_1'
+    )
     expect(r.text).toBe('ENG-1 · Fix login moved to ✅ Done')
     expect(blocksJson(r)).toContain('Open in Lumo ↗')
     expect(blocksJson(r)).not.toMatch(/"DONE"|marked as Done/)
@@ -313,16 +320,17 @@ describe('done / in-review', () => {
   it('matches the Slack email to the member case-insensitively', async () => {
     const r = await run('done ENG-1', 'U3')
     expect(r.visibility).toBe('in_channel')
-    expect(mockTransition).toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalled()
   })
 
   it('in-review → 👀 In review', async () => {
     const r = await run('in-review ENG-1')
-    expect(mockTransition).toHaveBeenCalledWith(
+    expect(mockUpdate).toHaveBeenCalledWith(
       'task_1',
-      'proj_1',
-      'IN_REVIEW',
-      expect.anything()
+      { status: 'IN_REVIEW' },
+      expect.anything(),
+      'actor_1',
+      'user_1'
     )
     expect(r.text).toBe('ENG-1 · Fix login moved to 👀 In review')
   })
@@ -331,18 +339,18 @@ describe('done / in-review', () => {
     const r = await run('done ENG-1', 'U_UNKNOWN')
     expect(r.visibility).toBe('ephemeral')
     expect(r.text).toMatch(/isn't linked to a Lumo account/)
-    expect(mockTransition).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('task not found → ephemeral', async () => {
     p.task.findFirst.mockResolvedValue(null)
     const r = await run('done ENG-9')
     expect(r.visibility).toBe('ephemeral')
-    expect(mockTransition).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
-  it('an invalid transition → ephemeral generic error', async () => {
-    mockTransition.mockRejectedValue(new Error('invalid transition'))
+  it('an unexpected failure → ephemeral generic error', async () => {
+    mockUpdate.mockRejectedValue(new Error('db down'))
     const r = await run('done ENG-1')
     expect(r).toEqual({
       type: 'text',
@@ -359,10 +367,13 @@ describe('assign', () => {
     expect(r.visibility).toBe('in_channel')
     expect(r.text).toBe('ENG-1 · Fix login assigned to Ada Lovelace')
     expect(blocksJson(r)).toContain('assigned to *Ada Lovelace*')
-    expect(p.task.update).toHaveBeenCalledWith({
-      where: { id: 'task_1', workspaceId: 'ws_1' },
-      data: { assigneeActorId: 'actor_2' },
-    })
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'task_1',
+      { assigneeActorId: 'actor_2' },
+      expect.objectContaining({ id: 'task_1' }),
+      'actor_1',
+      'user_1'
+    )
   })
 
   it("names the assignee from Lumo's record, not the Slack-supplied email", async () => {
@@ -374,7 +385,7 @@ describe('assign', () => {
     const r = await run('assign ENG-1 <@U_NOBODY>')
     expect(r.visibility).toBe('ephemeral')
     expect(r.text).toMatch(/doesn't have a linked Lumo account/)
-    expect(p.task.update).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('target member without an actor row is never assigned null', async () => {
@@ -384,7 +395,7 @@ describe('assign', () => {
     ])
     const r = await run('assign ENG-1 <@U2>')
     expect(r.visibility).toBe('ephemeral')
-    expect(p.task.update).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('not a mention → ephemeral usage hint', async () => {
