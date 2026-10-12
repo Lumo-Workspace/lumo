@@ -190,7 +190,7 @@ describe('task list paging', () => {
     const fetchMock = meServer()
     global.fetch = fetchMock as unknown as typeof fetch
     expect(await taskList({ status: 'todo' })).toBeUndefined()
-    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('limit')).toBe(
+    expect(new URL(fetchMock.mock.calls[0]![0]).searchParams.get('limit')).toBe(
       '50'
     )
     const rows = out.split('\n').filter(l => /^LUM-\d+/.test(l))
@@ -202,10 +202,10 @@ describe('task list paging', () => {
 
     // Run the printed command: page 2 holds LUM-51..100.
     out = ''
-    expect(await taskList({ status: 'todo', cursor: next[2] })).toBeUndefined()
-    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get('cursor')).toBe(
-      '50'
-    )
+    expect(await taskList({ status: 'todo', cursor: next[2]! })).toBeUndefined()
+    expect(
+      new URL(fetchMock.mock.calls[1]![0]).searchParams.get('cursor')
+    ).toBe('50')
     const page2 = out.split('\n').filter(l => /^LUM-\d+/.test(l))
     expect(page2[0]).toMatch(/^LUM-51\s/)
     expect(page2[49]).toMatch(/^LUM-100\s/)
