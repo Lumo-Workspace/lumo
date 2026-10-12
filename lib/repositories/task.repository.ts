@@ -58,6 +58,15 @@ export interface WorkspaceTaskFilters {
   dueBefore?: Date | undefined
 }
 
+/** LUM-1093: server-side filters of `lumo task list` (all optional, ANDed). */
+export interface AssignedTaskFilters {
+  sprintIds?: string[] | undefined
+  statuses?: TaskStatus[] | undefined
+  milestoneIds?: string[] | undefined
+  /** Exact project name, case-insensitive. */
+  projectName?: string | undefined
+}
+
 /** Terms shorter than this stay exact — 3-letter trigram sets are too small
  * to tell a typo from an unrelated word (`bug` scores 0.5 against "Budget"). */
 export const FUZZY_MIN_TERM_LENGTH = 4
@@ -339,6 +348,24 @@ const TASK_LIST_INCLUDE = {
     },
   },
 } as const
+
+/**
+ * Workspace task query rows: the list include plus the project name so CLI
+ * search rows can show it (the shared list include stays untouched for board
+ * consumers).
+ */
+const WORKSPACE_SEARCH_INCLUDE = {
+  ...TASK_LIST_INCLUDE,
+  project: { select: { id: true, name: true } },
+} as const
+
+/** Fuzzy relevance order: highest score first (stable for equal scores). */
+function sortByRank<T extends { id: string }>(
+  rows: T[],
+  rank: Map<string, number>
+): T[] {
+  return [...rows].sort((a, b) => (rank.get(b.id) ?? 0) - (rank.get(a.id) ?? 0))
+}
 
 /** Agent-state fields + workspace pointer for cancel / resume / status / confirm-spec / respond. */
 const TASK_AGENT_SELECT = {
@@ -763,6 +790,48 @@ export const taskRepository = {
     })
   },
 
+  /**
+   * LUM-1093: one page of an actor's assigned tasks (board order, id breaks
+   * ties) plus the size of the whole filtered set. Pinned to the caller's
+   * workspace; `projectName` matches case-insensitively.
+   */
+  async findAssignedTasksPage(
+    workspaceId: string,
+    actorId: string,
+    filters: AssignedTaskFilters,
+    page: { offset: number; limit: number }
+  ) {
+    const where: Prisma.TaskWhereInput = {
+      workspaceId,
+      assigneeActorId: actorId,
+      ...(filters.sprintIds?.length
+        ? { sprintId: { in: filters.sprintIds } }
+        : {}),
+      ...(filters.statuses?.length ? { status: { in: filters.statuses } } : {}),
+      ...(filters.milestoneIds?.length
+        ? { milestoneId: { in: filters.milestoneIds } }
+        : {}),
+      ...(filters.projectName
+        ? {
+            project: {
+              name: { equals: filters.projectName, mode: 'insensitive' },
+            },
+          }
+        : {}),
+    }
+    const [total, rows] = await Promise.all([
+      prisma.task.count({ where }),
+      prisma.task.findMany({
+        where,
+        include: TASK_ASSIGNED_INCLUDE,
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        skip: page.offset,
+        take: page.limit,
+      }),
+    ])
+    return { rows, total }
+  },
+
   /** Lightweight summary of tasks assigned to an actor — for Quick Dispatch AI context. */
   async findAssignedTasksSummary(actorId: string) {
     return followUp('tasks assigned to an actor').task.findMany({
@@ -866,79 +935,69 @@ export const taskRepository = {
     workspaceId: string,
     filters: WorkspaceTaskFilters = {}
   ) {
-    const where: Prisma.TaskWhereInput = { workspaceId }
-    if (filters.projectIds?.length) {
-      where.projectId = { in: filters.projectIds }
-    }
-    if (filters.milestoneIds?.length) {
-      where.milestoneId = { in: filters.milestoneIds }
-    }
-    if (filters.statuses?.length) {
-      where.status = { in: filters.statuses }
-    }
-    if (filters.priorities?.length) {
-      where.priority = { in: filters.priorities }
-    }
-    if (filters.assigneeActorIds?.length && filters.unassigned) {
-      where.OR = [
-        { assigneeActorId: { in: filters.assigneeActorIds } },
-        { assigneeActorId: null },
-      ]
-    } else if (filters.assigneeActorIds?.length) {
-      where.assigneeActorId = { in: filters.assigneeActorIds }
-    } else if (filters.unassigned) {
-      where.assigneeActorId = null
-    }
-    if (filters.tagIds?.length) {
-      where.taskTags = { some: { tagId: { in: filters.tagIds } } }
-    }
-    if (filters.sprintIds?.length) {
-      where.sprintId = { in: filters.sprintIds }
-    }
-    // Each whitespace-separated term must appear (AND), in title or
-    // description, case-insensitive substring — `oauth redirect` matches
-    // "Fix OAuth callback redirect". A number term (`42` / `LUM-42`) also
-    // matches the task number. Fuzzy mode (LUM-821) swaps this for the ranked
-    // trigram query below.
-    const terms = splitSearchTerms(filters.q)
-    let rank: Map<string, number> | null = null
-    if (terms.length && filters.fuzzy) {
-      const matches = await this.rankTextMatches(workspaceId, terms)
-      rank = new Map(matches.map(m => [m.id, m.score]))
-      where.id = { in: matches.map(m => m.id) }
-    } else if (terms.length) {
-      where.AND = terms.map(term => {
-        const textMatch: Prisma.TaskWhereInput[] = [
-          { title: { contains: term, mode: 'insensitive' } },
-          { description: { contains: term, mode: 'insensitive' } },
-        ]
-        const num = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/.exec(term)
-        if (num) textMatch.push({ number: Number(num[1]) })
-        return { OR: textMatch }
-      })
-    }
-    if (filters.dueAfter || filters.dueBefore) {
-      where.dueDate = {
-        ...(filters.dueAfter ? { gte: filters.dueAfter } : {}),
-        ...(filters.dueBefore ? { lt: filters.dueBefore } : {}),
-      }
-    }
+    const { where, rank } = await buildWorkspaceWhere(workspaceId, filters)
     const rows = await prisma.task.findMany({
       where,
-      // project name rides along so CLI search rows can show it; the shared
-      // list include stays untouched for board consumers.
-      include: {
-        ...TASK_LIST_INCLUDE,
-        project: { select: { id: true, name: true } },
-      },
+      include: WORKSPACE_SEARCH_INCLUDE,
       orderBy: { order: 'asc' },
       take: WORKSPACE_TASK_QUERY_LIMIT,
     })
     if (!rank) return rows
-    const byRank = rank
-    return [...rows].sort(
-      (a, b) => (byRank.get(b.id) ?? 0) - (byRank.get(a.id) ?? 0)
-    )
+    return sortByRank(rows, rank)
+  },
+
+  /**
+   * LUM-1093: one page of the workspace task query plus the size of the whole
+   * filtered result. Board order (id breaks ties so pages never overlap);
+   * fuzzy queries keep their relevance order, and their match set is already
+   * capped at WORKSPACE_TASK_QUERY_LIMIT by rankTextMatches.
+   */
+  async findByWorkspaceWithFiltersPage(
+    workspaceId: string,
+    filters: WorkspaceTaskFilters,
+    page: { offset: number; limit: number }
+  ) {
+    const { where, rank } = await buildWorkspaceWhere(workspaceId, filters)
+    if (rank) {
+      // Rank over ids only (the filtered match set is at most the cap), then
+      // load the full rows for just this page.
+      const ids = await prisma.task.findMany({
+        where,
+        select: { id: true },
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        take: WORKSPACE_TASK_QUERY_LIMIT,
+      })
+      const pageIds = sortByRank(ids, rank)
+        .slice(page.offset, page.offset + page.limit)
+        .map(r => r.id)
+      const full = pageIds.length
+        ? await prisma.task.findMany({
+            where: { workspaceId, id: { in: pageIds } },
+            include: WORKSPACE_SEARCH_INCLUDE,
+          })
+        : []
+      const byId = new Map(full.map(r => [r.id, r]))
+      return {
+        rows: pageIds.flatMap(id => {
+          const r = byId.get(id)
+          return r ? [r] : []
+        }),
+        total: ids.length,
+        // The ranked match set stops at the cap, so `total` is a floor.
+        truncated: rank.size >= WORKSPACE_TASK_QUERY_LIMIT,
+      }
+    }
+    const [total, rows] = await Promise.all([
+      prisma.task.count({ where }),
+      prisma.task.findMany({
+        where,
+        include: WORKSPACE_SEARCH_INCLUDE,
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        skip: page.offset,
+        take: page.limit,
+      }),
+    ])
+    return { rows, total, truncated: false }
   },
 
   /**
@@ -1326,4 +1385,75 @@ export const taskRepository = {
       },
     })
   },
+}
+
+/**
+ * The workspace task query's WHERE (+ fuzzy relevance ranks, if any). A
+ * module function, not a repository method, so no caller depends on `this`.
+ */
+async function buildWorkspaceWhere(
+  workspaceId: string,
+  filters: WorkspaceTaskFilters
+): Promise<{
+  where: Prisma.TaskWhereInput
+  rank: Map<string, number> | null
+}> {
+  const where: Prisma.TaskWhereInput = { workspaceId }
+  if (filters.projectIds?.length) {
+    where.projectId = { in: filters.projectIds }
+  }
+  if (filters.milestoneIds?.length) {
+    where.milestoneId = { in: filters.milestoneIds }
+  }
+  if (filters.statuses?.length) {
+    where.status = { in: filters.statuses }
+  }
+  if (filters.priorities?.length) {
+    where.priority = { in: filters.priorities }
+  }
+  if (filters.assigneeActorIds?.length && filters.unassigned) {
+    where.OR = [
+      { assigneeActorId: { in: filters.assigneeActorIds } },
+      { assigneeActorId: null },
+    ]
+  } else if (filters.assigneeActorIds?.length) {
+    where.assigneeActorId = { in: filters.assigneeActorIds }
+  } else if (filters.unassigned) {
+    where.assigneeActorId = null
+  }
+  if (filters.tagIds?.length) {
+    where.taskTags = { some: { tagId: { in: filters.tagIds } } }
+  }
+  if (filters.sprintIds?.length) {
+    where.sprintId = { in: filters.sprintIds }
+  }
+  // Each whitespace-separated term must appear (AND), in title or
+  // description, case-insensitive substring — `oauth redirect` matches
+  // "Fix OAuth callback redirect". A number term (`42` / `LUM-42`) also
+  // matches the task number. Fuzzy mode (LUM-821) swaps this for the ranked
+  // trigram query below.
+  const terms = splitSearchTerms(filters.q)
+  let rank: Map<string, number> | null = null
+  if (terms.length && filters.fuzzy) {
+    const matches = await taskRepository.rankTextMatches(workspaceId, terms)
+    rank = new Map(matches.map(m => [m.id, m.score]))
+    where.id = { in: matches.map(m => m.id) }
+  } else if (terms.length) {
+    where.AND = terms.map(term => {
+      const textMatch: Prisma.TaskWhereInput[] = [
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+      ]
+      const num = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/.exec(term)
+      if (num) textMatch.push({ number: Number(num[1]) })
+      return { OR: textMatch }
+    })
+  }
+  if (filters.dueAfter || filters.dueBefore) {
+    where.dueDate = {
+      ...(filters.dueAfter ? { gte: filters.dueAfter } : {}),
+      ...(filters.dueBefore ? { lt: filters.dueBefore } : {}),
+    }
+  }
+  return { where, rank }
 }

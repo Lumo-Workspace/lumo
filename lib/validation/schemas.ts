@@ -723,6 +723,18 @@ export const workspaceTaskFiltersSchema = z.object({
   dueBefore: z.coerce.date().optional(),
 })
 
+/**
+ * LUM-1093: server-side filters of GET /api/tasks/me (`lumo task list`).
+ * Only read on the paged path (`limit` / `cursor` present).
+ */
+export const myTaskFiltersSchema = z.object({
+  statuses: z
+    .array(z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
+    .optional(),
+  milestoneIds: z.array(z.string().min(1)).optional(),
+  projectName: z.string().trim().min(1).max(200).optional(),
+})
+
 // ─── Task Dependencies ─────────────────────────────────────────────────────
 
 export const addDependencyBodySchema = z.object({

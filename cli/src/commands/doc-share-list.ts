@@ -4,6 +4,7 @@ import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 interface ShareListResponse {
   shares: Array<{
@@ -18,16 +19,17 @@ export interface ShareListRow {
   role: string
 }
 
-export function formatShareListRows(rows: ShareListRow[]): string[] {
+/** LUM-1089 table shape: `NAME  ROLE` (header on a TTY only). */
+export function formatShareListRows(
+  rows: ShareListRow[],
+  opts: ListRenderOptions = {}
+): string[] {
   if (rows.length === 0) return []
-  // Sanitize first, then measure/pad off the sanitized string so the
-  // column width matches the printed cell (control chars stripped).
-  const sanitized = rows.map(r => ({
-    name: sanitizeField(r.displayName),
-    role: r.role,
-  }))
-  const nameWidth = Math.max(...sanitized.map(r => r.name.length))
-  return sanitized.map(r => `${r.name.padEnd(nameWidth, ' ')}  ${r.role}`)
+  // Sanitize before the table measures the cells (control chars stripped).
+  return renderListTable(
+    rows.map(r => [sanitizeField(r.displayName), r.role]),
+    { header: ['NAME', 'ROLE'], flex: 0, ...opts }
+  ).split('\n')
 }
 
 export async function docShareList(
