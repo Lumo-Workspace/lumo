@@ -44,65 +44,108 @@ workspace <slug>` — so the command never leaks whether a PR exists elsewhere.
 
 ## Reading the output
 
-```
-PR #1013 · Lumo-Workspace/lumo · merged · task LUM-787
-feat: size the hunt by diff [LUM-787]
-https://github.com/Lumo-Workspace/lumo/pull/1013
+Layout (LUM-1091, shared with `task status` / `task wrapup`): a heading per
+block, facts as `Label:  value` rows (a value too long for the line moves
+under its label), at most three indent levels, prose wrapped at 100 columns,
+every command on its own line; bold headings / dim labels only on a TTY.
 
-Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · trigger PR_EVENT · 61,000 tokens
-  Secrets: checked · Code scan: ⚠ didn't finish (1 external finding) · Dependencies: checked · AI review: checked · Exploit paths: checked · part of this scan hasn't finished on our side — not counted as checked — gitleaks exit 2
+```
+PR #1013  feat: size the hunt by diff [LUM-787]
+  Repo:   Lumo-Workspace/lumo
+  State:  merged
+  Task:   LUM-787
+  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013
+
+Scan abcdef0 · FINDINGS
+  Started:        2026-09-15T07:00:00.000Z
+  Finished:       2026-09-15T07:04:00.000Z
+  Trigger:        PR_EVENT
+  Tokens:         61,000
+  Secrets:        checked
+  Code scan:      ⚠ didn't finish (1 external finding) — gitleaks exit 2
+  Dependencies:   checked (1 dependency finding, 1 already on main)
+  AI review:      checked
     AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%
-    Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts) · t3 race skipped
-  Findings: 6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)
-    [HIGH] DETERMINISTIC secret:aws-access-key-id — src/cfg.ts:12 — AWS access key id (blocks DONE)
-    [LOW] DETERMINISTIC secret:generic-api-key — src/cfg.ts:12 — … — placeholder value, downgraded (FALSE_POSITIVE · human · "doc example")
-    [MEDIUM] EXTERNAL_TOOL ext:codeql:js/sql-injection — src/cfg.ts — … (ACCEPTED_RISK · inherited from an earlier scan of this PR)
-    [LOW] LLM_JUDGE vuln:xss — src/cfg.ts:12 — … (merged unreviewed · AI suggests FALSE_POSITIVE)
-    [BUG] [MEDIUM] LLM_JUDGE review:logic_error — src/auth.ts:40 — Inverted permission check (advisory)
+  Exploit paths:  checked
+    2/3 planned tasks done
+    t1  idor       41.2s  done
+    t2  injection  72.0s  done (2 attempts)
+    t3  race              skipped
+  Note:           part of this scan hasn't finished on our side — not counted as checked
+  Queue:          1 left the queue (1 merged unreviewed)
+  Findings:       6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)
+    • [HIGH] AWS access key id
+      Rule:      secret:aws-access-key-id (DETERMINISTIC)
+      Where:     src/cfg.ts:12
+      Standing:  blocks DONE
+    • [LOW] AWS access key id
+      Rule:      secret:generic-api-key (DETERMINISTIC)
+      Where:     src/cfg.ts:12
+      Standing:  FALSE_POSITIVE · human · "doc example" — placeholder value, downgraded
+    • [LOW] …
+      Rule:         vuln:xss (LLM_JUDGE)
+      Where:        src/cfg.ts:12
+      Standing:     merged unreviewed
+      AI suggests:  FALSE_POSITIVE
+    • [BUG] [MEDIUM] Inverted permission check
+      Rule:      review:logic_error (LLM_JUDGE)
+      Where:     src/auth.ts:40
+      Standing:  advisory
 ```
 
-- **Header** — repo, PR state, and `task LUM-N` or `no linked task`.
-- **Scan line** — short head sha, scan status (`PENDING` / `RUNNING` / `CLEAN` / `FINDINGS` / `FAILED`; a `CLEAN` scan with a layer turned off in the workspace settings prints `no findings in the checks that ran` instead — LUM-892; with scanning turned off for the workspace a `CLEAN` prints `no findings on the commit it scanned (scanning is off now)`, and a `⚠ Security scanning is turned off in this workspace's settings. …` line precedes the scans — LUM-901: an older scan never stands as the PR's answer), timestamps, trigger, and the hunt's token spend (`tokens not metered` when the row carries null — null is never printed as 0).
-- **Layer line** — the same five-layer grammar and display labels as `lumo task status` and the GitHub PR summary (`Secrets` · `Code scan` · `Dependencies` · `AI review` · `Exploit paths`; states `checked` / `⚠ didn't finish` / `skipped` / `off` / `scanning` / `⚠ partly checked` / `⚠ superseded` / `off in workspace settings`). `off in workspace settings` (LUM-892, stored `DISABLED`) is a layer the customer turned off in the workspace's security settings (AI review, exploit-path hunt — including a hunt turned off while it was running, LUM-901; or every layer of a managed run that reported after scanning was turned off): never counted as checked, never our fault — a line `Turned off in this workspace's settings: <layers>. That check / Those checks did not look at this PR.` follows the layer line. `checked` means the layer completed, not that it found nothing. A trailing `· part of this scan hasn't finished on our side — not counted as checked` (LUM-832) appears whenever the scan did not finish and nothing is left queued — whatever the cause, it is worded as ours and never names a reason or asks for anything (the cause itself is internal: `PrSecurityScan.partialCauses`, read by `scripts/security/scan-reliability.ts`); `· N left the queue (…)` explains where a merged/closed PR's undispositioned rows went (LUM-775); an external-scanner reason prints only in its scrubbed form.
-- **Budget line** (LUM-814) — the AI-review layer's own arithmetic, printed whenever the layer exists, truncated or not:
+With review controls on the payload an `AI review` block follows the header:
+`Automatic:  enabled · 1/2 rounds`, then the `--review incremental`,
+`--review full` and `--resume` commands each on its own line, and
+`⚠ Latest head has no scan yet; …` when the newest head is unscanned.
+
+- **Header** — `PR #N  <title>`, then `Repo` / `State` / `Task` (`LUM-N` or `no linked task`) / `URL` rows.
+- **Scan heading + rows** — `Scan <short sha> · <status>`: the scan status (`PENDING` / `RUNNING` / `CLEAN` / `FINDINGS` / `FAILED`; a `CLEAN` scan with a layer turned off in the workspace settings prints `no findings in the checks that ran` instead — LUM-892; with scanning turned off for the workspace a `CLEAN` prints `no findings on the commit it scanned (scanning is off now)`, and a `⚠ Security scanning is turned off in this workspace's settings. …` line precedes the scans — LUM-901: an older scan never stands as the PR's answer); rows `Started`, `Finished` (`not finished`), `Trigger`, and `Tokens` — the hunt's token spend (`not metered` when the row carries null — null is never printed as 0).
+- **Layer rows** — one row per layer, the same five-layer grammar and display labels as `lumo task status` and the GitHub PR summary (`Secrets` · `Code scan` · `Dependencies` · `AI review` · `Exploit paths`; states `checked` / `⚠ didn't finish` / `skipped` / `off` / `scanning` / `⚠ partly checked` / `⚠ superseded` / `off in workspace settings`). `off in workspace settings` (LUM-892, stored `DISABLED`) is a layer the customer turned off in the workspace's security settings (AI review, exploit-path hunt — including a hunt turned off while it was running, LUM-901; or every layer of a managed run that reported after scanning was turned off): never counted as checked, never our fault — a line `Turned off in this workspace's settings: <layers>. That check / Those checks did not look at this PR.` follows the layer rows. `checked` means the layer completed, not that it found nothing. A `Note:  part of this scan hasn't finished on our side — not counted as checked` row (LUM-832) appears whenever the scan did not finish and nothing is left queued — whatever the cause, it is worded as ours and never names a reason or asks for anything (the cause itself is internal: `PrSecurityScan.partialCauses`, read by `scripts/security/scan-reliability.ts`); a `Queue:  N left the queue (…)` row explains where a merged/closed PR's undispositioned rows went (LUM-775); an external-scanner reason prints only in its scrubbed form, after `— ` on the `Code scan` row. `AI review has not covered every file yet` under `AI review` marks a truncated review.
+- **Budget line** (LUM-814) — the AI-review layer's own arithmetic, nested under the `AI review` row whenever the layer exists, truncated or not:
   - reviewed whole: `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%`
   - truncated: `AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31.5% of the diff unreviewed`
   - no record: `AI review budget: not recorded on this scan` — a scan from before the column existed, or one whose judge never reached the budget step. Never read it as a spend of zero; same fail-closed rule as `tokens not metered`. Only scans run after LUM-814 carry the numbers, so an old PR needs a re-scan to show them.
 
   The dropped share is measured in **characters of the diff**, not in files — one dropped lockfile and one dropped route handler are not the same loss. No threshold is flagged (there is no `near cap` marker): the percentage is the signal. The count of changed **source files** is deliberately absent — LUM-811 stopped selecting the tier by it, and printing it here would imply a relationship that no longer exists.
 
-- **Coverage line** — `Exploit paths done/total` plus one `t<n> <category> <seconds> <stop>` cell per planned hunt task (LUM-762). Absent when the scan stored no usable audit.
-- **Findings** — every row of the scan, dispositioned ones included, one tag each in parentheses. A row leading with `[BUG]` is a non-security finding from the AI code review (rule id `review:<kind>`, LUM-988): same scan and disposition flow, never blocking:
+- **Coverage table** — under the `Exploit paths` row: `done/total planned tasks done`, then one `t<n>  <category>  <seconds>  <stop>` row per planned hunt task (LUM-762; the id column only when the audit has task ids). Absent when the scan stored no usable audit.
+- **Findings** — a `Findings:` count row, then every row of the scan, dispositioned ones included: `• [SEVERITY] <title>` with `Rule:  <ruleId> (<PROVENANCE>)`, `Where:` and one `Standing:` value (plus `Falsifier:` / `AI suggests:` rows when present). A row leading with `[BUG]` is a non-security finding from the AI code review (rule id `review:<kind>`, LUM-988): same scan and disposition flow, never blocking:
   - `blocks DONE` / `advisory` — open (undispositioned, not on main, still in the queue); the split follows the workspace policy.
-  - `<DISPOSITION> · human` / `· inherited from an earlier scan of this PR` / `· AI-suggested, human-confirmed` — ruled rows, with the human's note when one was left. A disposition is never an AI verdict on its own: an unconfirmed suggestion shows as `AI suggests <DISPOSITION>` on an open row.
+  - `<DISPOSITION> · human` / `· inherited from an earlier scan of this PR` / `· AI-suggested, human-confirmed` — ruled rows, with the human's note when one was left. A disposition is never an AI verdict on its own: an unconfirmed suggestion shows as an `AI suggests:  <DISPOSITION>` row on an open finding.
   - `already on main` — the fingerprint is on the default-branch baseline (LUM-738); not introduced by this PR.
   - `rejected by verifier — "<reason>"` — an AI-review finding the agentic verifier rejected after reading the repository (LUM-988; it only rejects non-HIGH bugs, and must cite the refuting `path:line`), or that the ranker run right after it put below its keep threshold — that reason starts with `Ranked low:` and cites no line (it compares the PR's findings with each other; same non-HIGH-bugs-only rule). Not open: no inline PR comment, not counted, not in `task status` or the agent reminders. A human can still disposition it.
   - `resolved on main` / `merged unreviewed` / `PR closed` — the row left the queue when the PR merged or closed (LUM-775).
-  - `falsifier INCONCLUSIVE` rides along on hunt rows — the falsifier never says PASS.
+  - `Falsifier:  INCONCLUSIVE` rides along on hunt rows — the falsifier never says PASS.
 - **No scan on record** prints `⚠ No security scan has run for PR #N — could not confirm it is clean.` — the fail-closed wording of `task status`, never an implicit clean.
 - A `⚠ N suspected credentials were redacted before injection …` line above the read-out means the server masked registry secrets in free text (finding titles, hunt commands, model step text) before it reached your terminal (LUM-784).
 
 ### `--full` — the hunt's per-task detail
 
 ```
-  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · candidates 2 · mechanically rejected 1 · placed by subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1 · survived 1 · rejected 1 · falsifier rejects 1
+  Hunt audit:
+    Planned by:             model — two sinks lit
+    Diff:                   14 source files · 9 sites · task cap 4
+    Candidates:             2
+    Mechanically rejected:  1
+    Placed by:              subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1
+    Outcome:                survived 1 · rejected 1
+    Falsifier rejects:      1
+  Hunt tasks:
     t1 done · alibaba/qwen3-coder-plus · 3 sites · 2 cmds (gate refused 1, sandbox failed 0, not found 0, empty 0)
-          rg -n queryRaw lib/  [900 chars]
-        ✗ curl https://evil.test   ← segment is not read-only
-        #1 tool=run_shell in=1900 out=300
-        stop: submitted · spent 9800/30000 · reserve 4400 · last step 4300 · next 4400 · 3 steps
-        wrap-up: not made (submitted)
+      - rg -n queryRaw lib/  [900 chars]
+      ✗ curl https://evil.test   ← segment is not read-only
+      #1 tool=run_shell in=1900 out=300
+      stop: submitted · spent 9800/30000 · reserve 4400 · last step 4300 · next 4400 · 3 steps
+      wrap-up: not made (submitted)
     t2 steps · alibaba/qwen3-coder-plus · 6 sites · no shell commands
-        stop: steps · spent 19000/30000 · reserve 0 · last step ? · 4 steps
-    t3 no-progress · alibaba/qwen3-coder-plus · 1 sites · 24 cmds (gate refused 0, sandbox failed 0, not found 0, empty 1, repeated 6)
-        stop: no-progress · spent 99000/666666 · reserve 5000 · last step 5000 · 24 steps · 3 repeat steps
+      stop: steps · spent 19000/30000 · reserve 0 · last step ? · 4 steps
 ```
 
 Same printer as the lum739 audit report (`shared/src/hunt-audit.ts`), so the
 two read the same. Per task: the header (task id, stop reason, model, sites,
 shell counts — `no shell commands` for a task that never asked the sandbox
 for anything), every command with its output size (`✗` = refused by the gate,
-with the gate's reason), the step trace (`#i tool= in= out= reasoning= elided=
+with the gate's reason; `-` = let through), the step trace (`#i tool= in= out= reasoning= elided=
 finish= "text"`), the `stop:` arithmetic (spent/budget, reserve held for the
 wrap-up, last step's cost, the price the next step was charged at, steps),
 and the wrap-up outcome. Fields a row was written without are simply not
@@ -125,7 +168,7 @@ run's batch.
 
 **Size caps (LUM-832, CodeRabbit's shape).** A layer whose input is over its
 cap does not run at all — no tokens are spent — and the scan says so under
-the layer line: past 150 touched source files the hunt is `skipped` (cause
+the layer rows: past 150 touched source files the hunt is `skipped` (cause
 `HUNT_OVERSIZED`) with `This PR touches N source files; exploit-path checks
 run on up to 150, so they did not run. To get them, narrow the review scope or
 split the PR.`; past the AI review's 180,000-character cap the AI review is
@@ -138,8 +181,8 @@ on our side" note.
 **PR too large to scan (LUM-1079).** A PR that changes more than **300 files**
 (`GITHUB_DIFF_MAX_FILES` — the most GitHub returns a diff for, checked before
 the diff is requested), or whose diff GitHub refuses as too large (406), is not
-scanned at all: every layer reads `skipped`, cause `PR_TOO_LARGE`, and the head
-line's status reads `not scanned — PR too large` instead of `FAILED` / `CLEAN`.
+scanned at all: every layer reads `skipped`, cause `PR_TOO_LARGE`, and the scan
+heading's status reads `not scanned — PR too large` instead of `FAILED` / `CLEAN`.
 The line under it says why and what to do — `This PR changes N files; security
 scans run on PRs of up to 300 files (the most GitHub returns a diff for), so
 nothing in it was scanned. To get it scanned, split it into smaller PRs or

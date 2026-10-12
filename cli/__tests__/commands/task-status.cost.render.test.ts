@@ -35,10 +35,10 @@ describe('task status cost render (LUM-560)', () => {
       withCost({ tokenCost: 1_200_000, activeTimeSec: 8040 }),
       FULL
     )
-    expect(out).toContain('Cost:')
-    expect(out).toContain('Tokens: 1.2M')
+    expect(out).toMatch(/^Cost$/m)
+    expect(out).toMatch(/^ {2}Tokens: +1\.2M$/m)
     // 8040s = 2h 14m of non-idle time.
-    expect(out).toContain('Active time: 2h 14m (non-idle)')
+    expect(out).toMatch(/^ {2}Active time: +2h 14m \(non-idle\)$/m)
     expect(out).not.toContain('Rework rounds')
   })
 
@@ -47,7 +47,9 @@ describe('task status cost render (LUM-560)', () => {
       withCost({ tokenCost: null, activeTimeSec: 0 }),
       FULL
     )
-    expect(out).toContain('Tokens: not recorded (no session usage captured)')
+    expect(out).toMatch(
+      /^ {2}Tokens: +not recorded \(no session usage captured\)$/m
+    )
     // Must NOT print a fake "0" token figure for an unmeasured cost.
     expect(out).not.toMatch(/Tokens:\s*0\b/)
   })
@@ -57,12 +59,12 @@ describe('task status cost render (LUM-560)', () => {
       withCost({ tokenCost: 0, activeTimeSec: 5 }),
       FULL
     )
-    expect(out).toContain('Tokens: 0')
+    expect(out).toMatch(/^ {2}Tokens: +0$/m)
     expect(out).not.toContain('not recorded')
   })
 
   it('omits the cost section entirely when the server did not emit it', () => {
     const out = formatTaskStatus(withCost(undefined), FULL)
-    expect(out).not.toContain('Cost:')
+    expect(out).not.toMatch(/^Cost$/m)
   })
 })

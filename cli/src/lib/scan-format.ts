@@ -15,6 +15,8 @@ import {
   scanStageStateLabel,
   turnedOffLayers,
 } from '../../../shared/src/security-scan'
+import type { Field } from './report-layout'
+import { renderTable } from './ui'
 
 /**
  * LUM-788 — the scan-line grammar shared by `lumo task status` (one line per
@@ -87,28 +89,62 @@ function tail(s: string, max: number): string {
  * only the Dependencies segment, and each only when N > 0.
  */
 export function formatScanLayerTail(s: ScanLayerLineInput): string {
-  const segments: string[] = []
+  const segments = scanLayerRows(s).map(r => `${r.label}: ${r.value}`)
+  let line = ''
+  if (segments.length > 0) line += ` · ${segments.join(' · ')}`
+  for (const note of scanLayerNotes(s)) line += ` · ${note}`
+  // LUM-756 (P8): only the prefixed, scrubbed scanner reason is printed, and
+  // only the text after the prefix (the caller has already applied the rule).
+  const reason = scrubbedExternalReason(s)
+  if (reason) line += ` — ${reason}`
+  return line
+}
+
+/** One layer of a scan as a labelled row (LUM-1091): `Code scan` / `checked (2 external findings)`. */
+export interface ScanLayerRow {
+  key: string
+  label: string
+  value: string
+}
+
+/**
+ * The layer segments of `formatScanLayerTail` as rows — same keys, same
+ * order, same words — for the reports that print one labelled row per layer
+ * (LUM-1091). Stage rows only for keys present, in secrets/external/
+ * supplyChain/judge/hunt order; the `(N external findings)` count only
+ * decorates Code scan, the dependency count (with its already-on-main share)
+ * only Dependencies, and each only when N > 0.
+ */
+export function scanLayerRows(s: ScanLayerLineInput): ScanLayerRow[] {
+  const rows: ScanLayerRow[] = []
   for (const key of SCAN_STAGE_KEYS) {
     const state = s.stages[key]
     if (!state) continue
-    const head = `${scanStageLabel(key)}: ${scanStageStateLabel(state)}`
+    const head = scanStageStateLabel(state)
+    let value = head
     if (key === 'external' && s.externalFindings > 0) {
       const noun = s.externalFindings === 1 ? 'finding' : 'findings'
-      segments.push(`${head} (${s.externalFindings} external ${noun})`)
+      value = `${head} (${s.externalFindings} external ${noun})`
     } else if (key === 'supplyChain' && (s.dependencyFindings ?? 0) > 0) {
       const n = s.dependencyFindings ?? 0
       const noun = n === 1 ? 'finding' : 'findings'
       const persisting = s.persistingFindings ?? 0
       const tail = persisting > 0 ? `, ${persisting} already on main` : ''
-      segments.push(`${head} (${n} dependency ${noun}${tail})`)
+      value = `${head} (${n} dependency ${noun}${tail})`
     } else if (key === 'hunt' && s.huntProgress) {
-      segments.push(`${head} (${formatHuntProgress(s.huntProgress)})`)
-    } else {
-      segments.push(head)
+      value = `${head} (${formatHuntProgress(s.huntProgress)})`
     }
+    rows.push({ key, label: scanStageLabel(key), value })
   }
-  let line = ''
-  if (segments.length > 0) line += ` · ${segments.join(' · ')}`
+  return rows
+}
+
+/**
+ * The scan-wide notes that follow the layers: the owned "didn't finish"
+ * sentence (LUM-832) and where a merged / closed PR's rows went (LUM-775).
+ */
+export function scanLayerNotes(s: ScanLayerLineInput): string[] {
+  const notes: string[] = []
   // LUM-832: one owned note when something did not finish, whatever the
   // cause — never the bare `partial`, which read as a verdict on the PR.
   if (
@@ -117,18 +153,77 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
       hasSizeNotice: Boolean(s.huntOverCap || s.judgeOverCap || s.prTooLarge),
     })
   )
-    line += ` · ${SCAN_UNFINISHED_NOTE}`
+    notes.push(SCAN_UNFINISHED_NOTE)
   // LUM-775: what left the queue because the PR merged / closed, and why —
   // so a merged PR's line explains where its findings went instead of
   // silently listing fewer open rows than the scan found.
   const exits = formatQueueExits(s.queueExits)
-  if (exits) line += ` · ${exits}`
-  // LUM-756 (P8): only the prefixed, scrubbed scanner reason is printed, and
-  // only the text after the prefix (the caller has already applied the rule).
-  if (s.externalFailureReason) {
-    line += ` — ${sanitizeField(tail(s.externalFailureReason, EXTERNAL_ERROR_TAIL))}`
+  if (exits) notes.push(exits)
+  return notes
+}
+
+/** P8 — the scrubbed, tail-clipped external-scanner reason, or null. */
+function scrubbedExternalReason(s: ScanLayerLineInput): string | null {
+  return s.externalFailureReason
+    ? sanitizeField(tail(s.externalFailureReason, EXTERNAL_ERROR_TAIL))
+    : null
+}
+
+/** What `scanFields` adds under the layer rows; each optional. */
+export interface ScanFieldExtras {
+  /** LUM-814 — printed under AI review when given (null = not recorded). */
+  judgeBudget?: JudgeBudgetLine | null
+  /** LUM-762 — the hunt's per-task table under Exploit paths. */
+  hunt?: HuntCoverageInput | null
+  /** `pr scan` — the AI review has not covered every file yet. */
+  truncated?: boolean
+}
+
+/**
+ * LUM-1091 — one scan as labelled rows: a row per layer (with the judge's
+ * budget and the hunt's per-task table nested under their own layer), then
+ * `Note` / `Queue` rows for the scan-wide notes. The scrubbed external
+ * reason rides on the Code scan row it explains. Shared by `task status`,
+ * `task wrapup` and `pr scan`, so the three cannot drift.
+ */
+export function scanFields(
+  s: ScanLayerLineInput,
+  extras: ScanFieldExtras = {}
+): Field[] {
+  const reason = scrubbedExternalReason(s)
+  const fields: Field[] = []
+  let reasonPlaced = false
+  for (const r of scanLayerRows(s)) {
+    const f: Field = { label: r.label, value: r.value }
+    if (r.key === 'external' && reason) {
+      f.value = `${r.value} — ${reason}`
+      reasonPlaced = true
+    }
+    if (r.key === 'judge') {
+      const sub: string[] = []
+      if (extras.truncated) sub.push('AI review has not covered every file yet')
+      if (extras.judgeBudget !== undefined)
+        sub.push(formatJudgeBudgetLine(extras.judgeBudget))
+      if (sub.length > 0) f.sub = sub
+    }
+    if (r.key === 'hunt' && extras.hunt && extras.hunt.categories.length > 0)
+      f.sub = formatHuntCoverageLines(extras.hunt)
+    fields.push(f)
   }
-  return line
+  if (extras.truncated && !s.stages.judge)
+    fields.push({
+      label: 'Note',
+      value: 'AI review has not covered every file yet',
+    })
+  for (const n of scanLayerNotes(s)) {
+    fields.push({
+      label: n === SCAN_UNFINISHED_NOTE ? 'Note' : 'Queue',
+      value: n,
+    })
+  }
+  if (reason && !reasonPlaced)
+    fields.push({ label: 'Scanner error', value: reason })
+  return fields
 }
 
 /**
@@ -286,24 +381,36 @@ export interface HuntCoverageInput {
 }
 
 /**
- * LUM-762 — the hunt's per-task read-out, one line under its scan:
- * `Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done
- * (2 attempts) · t3 race skipped`. Headed by the same display label as the
- * layer's own segment (LUM-763) — the detail line and the line above it
- * must not name the layer two different ways. Elapsed time is summed over a
+ * LUM-762 — the hunt's per-task read-out, nested under the Exploit paths
+ * row (LUM-1091: a small aligned table, formerly one `·`-joined line): a
+ * `2/3 planned tasks done` line, then one row per planned task —
+ * `t2  injection  72.0s  done (2 attempts)`. Elapsed time is summed over a
  * task's attempts; a skipped task has none to print.
  *
  * LUM-758: a plan may hold two tasks of the same category, so the row is led
- * by its task id. Pre-task-graph audits carry no id — the row then prints
- * exactly as it always did.
+ * by its task id. Pre-task-graph audits carry no id — the id column is then
+ * dropped.
  */
-export function formatHuntCoverageLine(hunt: HuntCoverageInput): string {
-  const parts = hunt.categories.map(c => {
+export function formatHuntCoverageLines(hunt: HuntCoverageInput): string[] {
+  const withId = hunt.categories.some(c => c.taskId !== undefined)
+  const rows = hunt.categories.map(c => {
     const attempts = c.attempts > 1 ? ` (${c.attempts} attempts)` : ''
     const spent =
-      c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s `
-    const id = c.taskId === undefined ? '' : `${sanitizeField(c.taskId)} `
-    return `${id}${sanitizeField(c.category)} ${spent}${sanitizeField(c.stopped)}${attempts}`
+      c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s`
+    const cells = [
+      sanitizeField(c.category),
+      spent,
+      `${sanitizeField(c.stopped)}${attempts}`,
+    ]
+    return withId
+      ? [c.taskId === undefined ? '' : sanitizeField(c.taskId), ...cells]
+      : cells
   })
-  return `${scanStageLabel('hunt')} ${hunt.done}/${hunt.total} done · ${parts.join(' · ')}`
+  const spentCol = withId ? 2 : 1
+  const align: Array<'left' | 'right' | undefined> = []
+  align[spentCol] = 'right'
+  return [
+    `${hunt.done}/${hunt.total} planned tasks done`,
+    ...renderTable(rows, { color: false, align }).split('\n'),
+  ]
 }
