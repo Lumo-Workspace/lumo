@@ -88,6 +88,18 @@ export interface Field {
    * formatted by the caller; they are not wrapped (commands stay whole).
    */
   sub?: string[]
+  /**
+   * LUM-1090 — further values of a list-valued row, one per line, aligned
+   * under the value column (or under the first value when the row moved
+   * under its label). Not wrapped: the caller fits them to the width.
+   */
+  more?: string[]
+  /**
+   * LUM-1090 — never wrap the value (a URL or id must stay copyable whole):
+   * when it does not fit next to its label it moves, unbroken, one level
+   * under the label instead.
+   */
+  whole?: boolean
 }
 
 /** Width of the widest `Label:` among `fields` — to align separate groups. */
@@ -114,18 +126,43 @@ export function fieldLines(
   for (const f of fields) {
     const label = `${f.label}:`
     const shown = style.dim(label, opts.color === true)
-    const inline = indent + labelW + 2 + stringWidth(f.value)
+    const valueCol = indent + labelW + 2
+    const inline = valueCol + stringWidth(f.value)
+    let morePad = ' '.repeat(indent + 2)
     if (f.value === '') {
       out.push(pad + shown)
     } else if (inline <= width) {
       out.push(
         pad + shown + ' '.repeat(labelW - stringWidth(label)) + '  ' + f.value
       )
+      morePad = ' '.repeat(valueCol)
+    } else if (f.whole) {
+      out.push(pad + shown)
+      out.push(' '.repeat(indent + 2) + f.value)
     } else {
       out.push(pad + shown)
       out.push(...wrapLines(f.value, indent + 2, opts))
     }
+    for (const m of f.more ?? []) out.push(morePad + m)
     for (const s of f.sub ?? []) out.push(' '.repeat(indent + 2) + s)
   }
   return out
+}
+
+/** LUM-1090 — a rendered block (e.g. a table) as lines indented `indent` spaces. */
+export function indentLines(block: string, indent: number): string[] {
+  if (block === '') return []
+  const pad = ' '.repeat(indent)
+  return block.split('\n').map(l => (l ? pad + l : ''))
+}
+
+/**
+ * LUM-1090 — what a detail view (`task show`, `milestone show`, `sprint show`,
+ * `session status`) needs from its environment. The pure formatters default
+ * every knob off (100 columns, no colour, no TTY), so tests and piped output
+ * stay plain; the command entry passes the real terminal.
+ */
+export interface DetailOptions extends LayoutOptions {
+  /** stdout is a TTY — embedded tables print their header row (LUM-1089). */
+  tty?: boolean | undefined
 }

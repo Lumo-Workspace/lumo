@@ -80,32 +80,32 @@ On success: `Created milestone "Q3 Launch"  <id>`.
 
 Accepts UUID or name. With a name, `--project <ref>` is required when the workspace has >1 project.
 
-Prints a key:value header (name, state, **health**, dates, project, description), task counts, and the full task table under the milestone. The `Health:` line shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
+Prints `Label:  value` rows padded to the widest label (`Milestone:`, `State:`, `Completed:`, `Archived:`, **`Health:`**, `Start:`, `Target:`, `Project:`), then headed sections (LUM-1090, the same grammar as `task status` — a blank line and a plain heading, bold on a TTY; rows indented two spaces): **Description** (wrapped at 100 columns, every line indented; `-` when empty), **Progress** (`Done:  3 / 6`, `By status:  TODO 1 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 3`, and `Backlog:  N (not in the total)` only when there is BACKLOG work), **Sprint coverage**, **Cross-milestone learning**, and **Tasks (N)** — the task table indented two spaces (header row `ID  STATUS  PRIORITY  PROJECT  TITLE` on a TTY only, title cut to the terminal width there; piped output is headerless and untruncated), or `None — no task is in this milestone.` The `Health:` row shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
 
-**Staleness hints (LUM-624/LUM-714):** the `State:` line is annotated `(stale — task progress indicates COMPLETED|ACTIVE; auto-updating)` when the stored `completedAt` disagrees with the task counts (the server self-heals the drift in the background — a re-read shows the corrected state), and the `Target:` line is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
+**Staleness hints (LUM-624/LUM-714):** the `State:` row is annotated `(stale — task progress indicates COMPLETED|ACTIVE; auto-updating)` when the stored `completedAt` disagrees with the task counts (the server self-heals the drift in the background — a re-read shows the corrected state), and the `Target:` row is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
 
-It also prints a **Sprint coverage** section (above the task table) listing which
-sprints the milestone's tasks span — each row shows the sprint number, status, name,
-and `done/total` progress — plus an `Unscheduled` line counting milestone tasks not in any
-sprint (shown only when there are any). The section is derived from the milestone's
-tasks (no schema relation), so it needs no extra flags. When no task is in any sprint
-it prints `Sprint coverage: (no sprint coverage)`.
+The **Sprint coverage** section (above the task table) lists which
+sprints the milestone's tasks span — one table row per sprint with number, status, name,
+and `done/total` progress (header `SPRINT  STATUS  NAME  PROGRESS` on a TTY only) — plus an
+`Unscheduled` row counting milestone tasks not in any sprint (shown only when there are any).
+The section is derived from the milestone's tasks (no schema relation), so it needs no extra
+flags. When no task is in any sprint it prints `None — no task of this milestone is in a sprint.`
 
-Example coverage section:
+Example coverage section (piped):
 
 ```
-Sprint coverage:
-  #3  ACTIVE  Sprint 3   4/6 done
-  #4  DRAFT   Sprint 4   0/2 done
-  Unscheduled             1 task
+Sprint coverage
+  #3           ACTIVE  Sprint 3  4/6 done
+  #4           DRAFT   Sprint 4  0/2 done
+  Unscheduled                    1 task
 ```
 
 **Cross-milestone learning (LUM-648):** when this milestone's STEWARD sessions were injected prior-milestone distilled learning (the LUM-647 learning unit), a **Cross-milestone learning** section reports how much of it was actually used — `Injected: N prior learnings (from K prior milestones)` and `Usage rate: Z% (judged-used X/Y)`. The rate reuses lineage's `used=true/false/null` usage voting (judged at the successor milestone's close): abstentions (un-audited / judge-abstained impressions) are **excluded from the denominator**, so it is a lower bound. Below 3 judged edges it reads `insufficient (judged Y, need ≥3)` rather than a fabricated percentage. The section is omitted entirely when nothing was injected (that's "nothing to migrate", not 0%).
 
 ```
-Cross-milestone learning:
-  Injected: 8 prior learnings (from 2 prior milestones)
-  Usage rate: 62% (judged-used 5/8)
+Cross-milestone learning
+  Injected:    8 prior learnings (from 2 prior milestones)
+  Usage rate:  62% (judged-used 5/8)
 ```
 
 ```bash

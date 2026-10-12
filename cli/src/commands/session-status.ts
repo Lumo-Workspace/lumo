@@ -8,8 +8,24 @@ import {
 } from '../lib/session-id'
 import { codexHooksSilentWarning } from '../lib/codex-hooks'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  commandLine,
+  fieldLines,
+  indentLines,
+  sectionHeading,
+  wrapLines,
+  type Field,
+  type LayoutOptions,
+} from '../lib/report-layout'
+import {
+  colorEnabled,
+  heading,
+  icons,
+  renderTable,
+  terminalWidth,
+} from '../lib/ui'
 
-interface StatusResponse {
+export interface StatusResponse {
   exists: boolean
   sessionId: string
   startedAt: string
@@ -95,7 +111,8 @@ function turnText(value: unknown): string {
     : '?'
 }
 
-function segmentLine(seg: Attribution['segments'][number]): string {
+/** One attribution segment as table cells: `<id>  <turns>  <how (evidence)>`. */
+function segmentRow(seg: Attribution['segments'][number]): string[] {
   const turns =
     seg.fromTurn === seg.toTurn
       ? `turn ${turnText(seg.fromTurn)}`
@@ -106,7 +123,11 @@ function segmentLine(seg: Attribution['segments'][number]): string {
       ? `${sourceWord(seg.source)} · ${sanitizeField(confidence.toLowerCase())}`
       : sourceWord(seg.source)
   const ev = evidenceText(seg.evidence)
-  return `    ${identifierText(seg.taskIdentifier)}  ${turns}  ${how}${ev ? ` (${ev})` : ''}\n`
+  return [
+    identifierText(seg.taskIdentifier),
+    turns,
+    `${how}${ev ? ` (${ev})` : ''}`,
+  ]
 }
 
 /** The rendered parts of one subagent line: `<type> (<id6>)  <tail>`. */
@@ -135,10 +156,10 @@ function subagentParts(sub: Attribution['subagents'][number]): {
 }
 
 /**
- * One line per distinct `<type>  <tail>` (first-seen order): a lone subagent
- * keeps its `(id6)`, a group prints `<type> ×N` instead of N identical lines.
+ * One row per distinct `<type>  <tail>` (first-seen order): a lone subagent
+ * keeps its `(id6)`, a group prints `<type> ×N` instead of N identical rows.
  */
-function subagentLines(subagents: Attribution['subagents']): string {
+function subagentRows(subagents: Attribution['subagents']): string[][] {
   const groups = new Map<
     string,
     { parts: ReturnType<typeof subagentParts>; count: number }
@@ -150,44 +171,110 @@ function subagentLines(subagents: Attribution['subagents']): string {
     if (g) g.count += 1
     else groups.set(key, { parts, count: 1 })
   }
-  let out = ''
-  for (const { parts, count } of groups.values()) {
-    const label =
-      count === 1
-        ? `${parts.type} (${parts.shortId})`
-        : `${parts.type} ×${count}`
-    out += `    ${label}  ${parts.tail}\n`
-  }
-  return out
+  return [...groups.values()].map(({ parts, count }) => [
+    count === 1
+      ? `${parts.type} (${parts.shortId})`
+      : `${parts.type} ×${count}`,
+    parts.tail,
+  ])
 }
 
-function subagentOfLine(data: StatusResponse): string {
-  return data.parentSessionId
-    ? `  Subagent of: ${sanitizeField(data.parentSessionId)}\n`
-    : ''
-}
+const ATTACH_CMD = 'lumo session attach <LUM-N>'
 
-/** Lines appended after the binding lines. Empty for old servers. */
-function attributionBlock(data: StatusResponse, bound: boolean): string {
+/** Sections after the binding rows. Empty for old servers. */
+function attributionLines(
+  data: StatusResponse,
+  bound: boolean,
+  opts: LayoutOptions
+): string[] {
   const a = data.attribution
-  if (!a || typeof a !== 'object') return ''
+  if (!a || typeof a !== 'object') return []
   const segments = Array.isArray(a.segments) ? a.segments : []
   const subagents = Array.isArray(a.subagents) ? a.subagents : []
-  let out = ''
+  const lines: string[] = []
   if (segments.length > 0) {
-    out += '  Attribution:\n' + segments.map(segmentLine).join('')
+    lines.push(...sectionHeading('Attribution', opts))
+    lines.push(...indentLines(renderTable(segments.map(segmentRow)), 2))
   } else if (a.unattributed && !bound) {
-    out +=
-      '  Attribution: none yet (no task signal) — it will be auto-detected from branch, commits and lumo commands, or run lumo session attach <LUM-N>.\n'
+    lines.push(...sectionHeading('Attribution', opts))
+    lines.push(
+      ...wrapLines(
+        'None yet (no task signal) — it will be auto-detected from branch, commits and lumo commands, or bind it now:',
+        2,
+        opts
+      ),
+      commandLine(ATTACH_CMD, 4)
+    )
   }
   if (subagents.length > 0) {
-    out += '  Subagents:\n' + subagentLines(subagents)
+    lines.push(...sectionHeading('Subagents', opts))
+    lines.push(...indentLines(renderTable(subagentRows(subagents)), 2))
   }
   if (a.approximate) {
-    out +=
-      '  ⚠ Some work was auto-detected — time and cost may be inaccurate. Run `lumo session attach <LUM-N>` for exact numbers.\n'
+    lines.push(
+      '',
+      ...wrapLines(
+        `${icons.warning} Some work was auto-detected — time and cost may be inaccurate. For exact numbers, run:`,
+        0,
+        opts
+      ),
+      commandLine(ATTACH_CMD, 2)
+    )
   }
-  return out
+  return lines
+}
+
+/**
+ * LUM-1090 — `lumo session status` as a detail view: `Session <id>` (bold on a
+ * TTY), the binding as `Label:  value` rows padded to the widest label, then
+ * `Attribution` / `Subagents` sections as aligned tables (LUM-932) and the
+ * approximate-attribution warning with its command on a line of its own.
+ */
+export function formatSessionStatus(
+  sessionId: string,
+  data: StatusResponse,
+  opts: LayoutOptions = {}
+): string {
+  const lines = [
+    heading(`Session ${sessionId}`, { color: opts.color === true }),
+  ]
+  // LUM-640: the steward form — milestone-bound governance session.
+  if (data.role === 'STEWARD' && data.milestoneName) {
+    lines.push(
+      ...fieldLines(
+        [
+          { label: 'Role', value: 'STEWARD (governance — plan & accept only)' },
+          {
+            label: 'Bound to',
+            value: `milestone "${sanitizeField(data.milestoneName)}"`,
+          },
+          { label: 'Events', value: String(data.eventCount) },
+        ],
+        0,
+        opts
+      )
+    )
+    return lines.join('\n') + '\n'
+  }
+  const bound = Boolean(data.taskIdentifier && data.taskTitle)
+  const fields: Field[] = []
+  if (data.parentSessionId) {
+    fields.push({
+      label: 'Subagent of',
+      value: sanitizeField(data.parentSessionId),
+      whole: true,
+    })
+  }
+  fields.push({
+    label: 'Bound to',
+    value: bound
+      ? `${sanitizeField(data.taskIdentifier ?? '')} "${sanitizeField(data.taskTitle ?? '')}"`
+      : '(no task)',
+  })
+  fields.push({ label: 'Events', value: String(data.eventCount) })
+  lines.push(...fieldLines(fields, 0, opts))
+  lines.push(...attributionLines(data, bound, opts))
+  return lines.join('\n') + '\n'
 }
 
 export async function sessionStatus(): Promise<number | void> {
@@ -241,31 +328,10 @@ export async function sessionStatus(): Promise<number | void> {
   if (isCodexShell() && data.eventCount === 0) {
     console.error(codexHooksSilentWarning())
   }
-  // LUM-640: the steward form — milestone-bound governance session.
-  if (data.role === 'STEWARD' && data.milestoneName) {
-    process.stdout.write(
-      `Session ${sessionId}\n` +
-        `  Role:      STEWARD (governance — plan & accept only)\n` +
-        `  Bound to:  milestone "${sanitizeField(data.milestoneName)}"\n` +
-        `  Events:    ${data.eventCount}\n`
-    )
-    return
-  }
-  if (data.taskIdentifier && data.taskTitle) {
-    process.stdout.write(
-      `Session ${sessionId}\n` +
-        subagentOfLine(data) +
-        `  Bound to:  ${data.taskIdentifier} "${sanitizeField(data.taskTitle)}"\n` +
-        `  Events:    ${data.eventCount}\n` +
-        attributionBlock(data, true)
-    )
-  } else {
-    process.stdout.write(
-      `Session ${sessionId}\n` +
-        subagentOfLine(data) +
-        `  Bound to:  (no task)\n` +
-        `  Events:    ${data.eventCount}\n` +
-        attributionBlock(data, false)
-    )
-  }
+  process.stdout.write(
+    formatSessionStatus(sessionId, data, {
+      width: terminalWidth(),
+      color: colorEnabled(),
+    })
+  )
 }

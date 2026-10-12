@@ -40,7 +40,7 @@ const base: MilestoneShowData = {
 describe('formatMilestoneShow — sprint coverage', () => {
   it('renders a coverage row per sprint with done/total and an unsprinted line', () => {
     const out = formatMilestoneShow(base, [])
-    expect(out).toContain('Sprint coverage:')
+    expect(out).toContain('\nSprint coverage\n')
     expect(out).toMatch(/#3\s+ACTIVE\s+Sprint 3\s+4\/6 done/)
     expect(out).toMatch(/#4\s+DRAFT\s+Sprint 4\s+0\/2 done/)
     expect(out).toMatch(/Unscheduled\s+1 task/)
@@ -79,7 +79,9 @@ describe('formatMilestoneShow — sprint coverage', () => {
       { ...base, sprintCoverage: { sprints: [], unsprinted: 0 } },
       []
     )
-    expect(out).toContain('Sprint coverage: (no sprint coverage)')
+    expect(out).toContain(
+      '\nSprint coverage\n  None — no task of this milestone is in a sprint.'
+    )
   })
 
   it('omits the section entirely when sprintCoverage is absent', () => {
@@ -101,17 +103,17 @@ describe('formatMilestoneShow — staleness hints (LUM-624/LUM-714)', () => {
       []
     )
     expect(stale).toContain(
-      'State:        ACTIVE  (stale — task progress indicates COMPLETED; auto-updating)'
+      'State:      ACTIVE  (stale — task progress indicates COMPLETED; auto-updating)'
     )
     expect(stale).toContain(
-      'Target:       -  (no target date — schedule health unavailable)'
+      'Target:     -  (no target date — schedule health unavailable)'
     )
 
     const clean = formatMilestoneShow(
       { ...base, staleness: { completionDrift: null, datesMissing: false } },
       []
     )
-    expect(clean).toContain('State:        ACTIVE\n')
+    expect(clean).toContain('State:      ACTIVE\n')
     expect(clean).not.toContain('stale')
     expect(clean).not.toContain('no target date')
   })

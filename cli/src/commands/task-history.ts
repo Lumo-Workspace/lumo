@@ -3,6 +3,7 @@ import { apiCall, apiContext } from '../lib/test-case-api'
 import { actorNameMap, fetchDirectory } from '../lib/directory'
 import { resolveTaskRef } from '../lib/comment-ref'
 import { localDayLabel } from '../lib/local-day'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 /**
  * `lumo task history <LUM-N> [--limit N]` (LUM-821) — the task's field-change
@@ -79,27 +80,31 @@ export function describeActivity(
   }
 }
 
-/** `YYYY-MM-DD HH:MM  actor  change` rows, oldest first. */
+/**
+ * `YYYY-MM-DD HH:MM  actor  change` rows, oldest first — the LUM-1089 list
+ * table (LUM-1090): a WHEN / ACTOR / CHANGE header on a TTY only, the change
+ * cut to the terminal width there; piped output stays headerless and whole.
+ */
 export function formatHistory(
   entries: ActivityEntry[],
-  names: Map<string, string>
+  names: Map<string, string>,
+  opts: ListRenderOptions = {}
 ): string {
   if (entries.length === 0) return 'No history.'
   const rows = entries.map(a => {
     const d = new Date(a.createdAt)
     const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-    return {
-      when: `${localDayLabel(a.createdAt)} ${hhmm}`,
-      actor: a.actorId
-        ? sanitizeField(names.get(a.actorId) ?? 'unknown')
-        : 'system',
-      change: describeActivity(a, names),
-    }
+    return [
+      `${localDayLabel(a.createdAt)} ${hhmm}`,
+      a.actorId ? sanitizeField(names.get(a.actorId) ?? 'unknown') : 'system',
+      describeActivity(a, names),
+    ]
   })
-  const aw = Math.max(...rows.map(r => r.actor.length))
-  return rows
-    .map(r => `${r.when}  ${r.actor.padEnd(aw)}  ${r.change}`)
-    .join('\n')
+  return renderListTable(rows, {
+    header: ['WHEN', 'ACTOR', 'CHANGE'],
+    flex: 2,
+    ...opts,
+  })
 }
 
 export async function taskHistory(
