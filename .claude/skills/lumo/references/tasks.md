@@ -236,9 +236,11 @@ Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Ful
 Default behavior: prints every task currently assigned to the authenticated user (no project / status filter), one per line, as a fixed-width table:
 
 ```
-LUM-42  IN_PROGRESS  HIGH    web        Fix Slack OAuth redirect
-LUM-48  TODO         MEDIUM  backend    Investigate slow query
+LUM-42  IN_PROGRESS  HIGH    web      Fix Slack OAuth redirect
+LUM-48  TODO         MEDIUM  backend  Investigate slow query
 ```
+
+Columns align by display width (CJK counts 2). On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id. `task search` and `next` use the same table (`next` keeps the `1. LUM-N` rank in column 1; its TTY header reads `TASK  STATUS  PRIORITY  TITLE`).
 
 | Flag                    | Type    | Notes                                                                                       |
 | ----------------------- | ------- | ------------------------------------------------------------------------------------------- |

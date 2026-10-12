@@ -9,7 +9,7 @@ bug    #ff0000  3 tasks  2 docs
 infra  -        1 task   0 docs
 ```
 
-Columns align by display width (CJK names count 2). On a colour terminal the usage counts are dimmed; piped / non-TTY output (and `NO_COLOR`) is plain text with no escape sequences.
+Columns align by display width (CJK names count 2). On a TTY a `NAME  COLOR  TASKS  DOCS` header comes first; piped output has none. On a colour terminal the usage counts are dimmed; piped / non-TTY output (and `NO_COLOR`) is plain text with no escape sequences.
 
 ```bash
 lumo tag list

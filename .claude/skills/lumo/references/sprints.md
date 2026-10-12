@@ -4,7 +4,7 @@
 
 ### `lumo sprint list [flags]` — list sprints in a team
 
-Prints fixed-width rows: `<NUMBER>  <STATUS>  <start>  <end>  <name>`, sorted newest-first (server sort).
+Prints table rows: `<STATUS>  #<number>  <start>..<end>  <name>`, sorted newest-first (server sort). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
 
 | Flag                   | Type    | Notes                                                 |
 | ---------------------- | ------- | ----------------------------------------------------- |

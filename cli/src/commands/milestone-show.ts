@@ -4,12 +4,15 @@ import { resolveMilestoneId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  formatHealth,
+  milestoneState,
+  type MilestoneHealth,
+} from '../lib/milestone-labels'
 
 export interface ShowMilestoneOptions {
   project?: string
 }
-
-type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
 
 export interface MilestoneShowData {
   id: string
@@ -74,18 +77,8 @@ export interface MilestoneShowData {
     | undefined
 }
 
-const HEALTH_LABEL: Record<MilestoneHealth, string> = {
-  'on-track': 'ON-TRACK',
-  'at-risk': 'AT-RISK',
-  overdue: 'OVERDUE',
-}
-
 function fmtDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '-'
-}
-
-function fmtHealth(health: MilestoneHealth | null | undefined): string {
-  return health ? HEALTH_LABEL[health] : '-'
 }
 
 function sprintCoverageLines(
@@ -153,14 +146,11 @@ export function formatMilestoneShow(
   // LUM-714: state is derived, so the line reports what the two timestamps
   // say — and, when the tasks disagree with the stored stamp, what the rollup
   // is about to do about it.
-  const state = m.archivedAt
-    ? 'archived'
-    : m.completedAt
-      ? 'completed'
-      : 'active'
+  // LUM-1089: same upper-case words as `milestone list`'s STATE column.
+  const state = milestoneState(m)
   const drift = m.staleness?.completionDrift
   const stateLine = drift
-    ? `State:        ${state}  (stale — task progress indicates ${drift === 'complete' ? 'completed' : 'active'}; auto-updating)`
+    ? `State:        ${state}  (stale — task progress indicates ${drift === 'complete' ? 'COMPLETED' : 'ACTIVE'}; auto-updating)`
     : `State:        ${state}`
   const targetLine = m.staleness?.datesMissing
     ? `Target:       ${fmtDate(m.targetDate)}  (no target date — schedule health unavailable)`
@@ -170,7 +160,7 @@ export function formatMilestoneShow(
     stateLine,
     `Completed:    ${m.completedAt ? m.completedAt.slice(0, 10) : 'no'}`,
     `Archived:     ${m.archivedAt ? m.archivedAt.slice(0, 10) : 'no'}`,
-    `Health:       ${fmtHealth(m.health)}`,
+    `Health:       ${formatHealth(m.health)}`,
     `Start:        ${fmtDate(m.startDate)}`,
     targetLine,
     `Project:      ${sanitizeField(m.projectName)}`,

@@ -101,7 +101,7 @@ describe('formatMilestoneShow — staleness hints (LUM-624/LUM-714)', () => {
       []
     )
     expect(stale).toContain(
-      'State:        active  (stale — task progress indicates completed; auto-updating)'
+      'State:        ACTIVE  (stale — task progress indicates COMPLETED; auto-updating)'
     )
     expect(stale).toContain(
       'Target:       -  (no target date — schedule health unavailable)'
@@ -111,7 +111,7 @@ describe('formatMilestoneShow — staleness hints (LUM-624/LUM-714)', () => {
       { ...base, staleness: { completionDrift: null, datesMissing: false } },
       []
     )
-    expect(clean).toContain('State:        active\n')
+    expect(clean).toContain('State:        ACTIVE\n')
     expect(clean).not.toContain('stale')
     expect(clean).not.toContain('no target date')
   })

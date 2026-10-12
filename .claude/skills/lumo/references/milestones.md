@@ -19,9 +19,9 @@ lumo project update mobile-app --owner alice@example.com
 
 ### `lumo milestone list [--project <ref>] [--archived] [--all] [--search <text>]` — list milestones in a project
 
-Prints fixed-width rows: `<STATUS>  <HEALTH>  <target-date or ->  <name>`, sorted by target date asc (nulls last) then created asc.
+Prints table rows: `<STATE>  <HEALTH>  <target-date or ->  <name>`, sorted by target date asc (nulls last) then created asc. `STATE` is `ACTIVE`, `COMPLETED` or `ARCHIVED` (the same upper-case words `milestone show` prints on its `State:` line). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
 
-By default, only **non-archived** milestones are listed. Use `--archived` to show **only** archived milestones, or `--all` to show **both** archived and non-archived. Archived rows are marked with a ` (archived)` suffix on the name.
+By default, only **non-archived** milestones are listed. Use `--archived` to show **only** archived milestones, or `--all` to show **both** archived and non-archived. Archived rows show `ARCHIVED` in the `STATE` column.
 
 Use `--search <text>` to filter to milestones whose **name or description** contains the text (case-insensitive substring match). It applies **on top of** the archive filter (e.g. `--all --search q3`). A blank/whitespace-only value is ignored (no filtering). The matched text is bounded to 120 chars server-side.
 
@@ -43,7 +43,7 @@ Use `--search <text>` to filter to milestones whose **name or description** cont
 lumo milestone list                  # one-project workspace (non-archived only)
 lumo milestone list --project lumo   # multi-project workspace
 lumo milestone list --archived       # only archived milestones
-lumo milestone list --all            # archived + non-archived (archived marked "(archived)")
+lumo milestone list --all            # archived + non-archived (archived rows: STATE ARCHIVED)
 lumo milestone list --search q3      # name/description contains "q3" (case-insensitive)
 lumo milestone list --all --search launch   # search across archived + non-archived
 ```
@@ -82,7 +82,7 @@ Accepts UUID or name. With a name, `--project <ref>` is required when the worksp
 
 Prints a key:value header (name, state, **health**, dates, project, description), task counts, and the full task table under the milestone. The `Health:` line shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
 
-**Staleness hints (LUM-624/LUM-714):** the `State:` line is annotated `(stale — task progress indicates completed|active; auto-updating)` when the stored `completedAt` disagrees with the task counts (the server self-heals the drift in the background — a re-read shows the corrected state), and the `Target:` line is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
+**Staleness hints (LUM-624/LUM-714):** the `State:` line is annotated `(stale — task progress indicates COMPLETED|ACTIVE; auto-updating)` when the stored `completedAt` disagrees with the task counts (the server self-heals the drift in the background — a re-read shows the corrected state), and the `Target:` line is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
 
 It also prints a **Sprint coverage** section (above the task table) listing which
 sprints the milestone's tasks span — each row shows the sprint number, status, name,

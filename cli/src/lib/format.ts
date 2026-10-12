@@ -1,4 +1,5 @@
 import { sanitizeField } from './sanitize'
+import { renderListTable, type ListRenderOptions } from './list-table'
 
 /**
  * Shared CLI time/duration formatters. Extracted from task-context.ts so the
@@ -43,35 +44,78 @@ export interface TaskRow {
   project: { id: string; name: string }
 }
 
+/** One task row, already sanitized — the cells `renderTaskTable` prints. */
+export interface TaskTableRow {
+  id: string
+  status: string
+  priority: string
+  title: string
+  project?: string
+  assignee?: string
+  due?: string
+}
+
+export type TaskTableColumn = 'project' | 'assignee' | 'due'
+
+const TASK_COLUMN_HEADER: Record<TaskTableColumn, string> = {
+  project: 'PROJECT',
+  assignee: 'ASSIGNEE',
+  due: 'DUE',
+}
+
 /**
- * Render a task list as a fixed-width table. Each row:
- *   LUM-42  IN_PROGRESS  HIGH    project-name   Title here
- * Columns are right-padded to the widest cell in the result set so output
- * lines up regardless of identifier or project-name length.
+ * LUM-1089: the one task table `task list`, `task search` and `next` share:
+ *   <id>  <STATUS>  <PRIORITY>  [<extra columns>…]  <title>
+ * Header on a TTY only; the title is the column cut to the terminal width.
  */
-export function formatTaskListTable(tasks: TaskRow[]): string {
+export function renderTaskTable(
+  rows: TaskTableRow[],
+  columns: TaskTableColumn[],
+  opts: ListRenderOptions & { idHeader?: string } = {}
+): string {
+  const { idHeader = 'ID', ...env } = opts
+  return renderListTable(
+    rows.map(r => [
+      r.id,
+      r.status,
+      r.priority,
+      ...columns.map(c => r[c] ?? '-'),
+      r.title,
+    ]),
+    {
+      header: [
+        idHeader,
+        'STATUS',
+        'PRIORITY',
+        ...columns.map(c => TASK_COLUMN_HEADER[c]),
+        'TITLE',
+      ],
+      flex: 3 + columns.length,
+      ...env,
+    }
+  )
+}
+
+/**
+ * Render a task list as a table. Each row:
+ *   LUM-42  IN_PROGRESS  HIGH    project-name   Title here
+ * Columns are padded (by display width) to the widest cell in the result set
+ * so output lines up regardless of identifier or project-name length.
+ */
+export function formatTaskListTable(
+  tasks: TaskRow[],
+  opts: ListRenderOptions = {}
+): string {
   if (tasks.length === 0) return 'No tasks.'
-  const rows = tasks.map(t => ({
-    identifier: `${t.teamIdentifier}-${t.number}`,
-    status: t.status,
-    priority: t.priority,
-    project: sanitizeField(t.project.name),
-    title: sanitizeField(t.title),
-  }))
-  const widths = {
-    identifier: Math.max(...rows.map(r => r.identifier.length)),
-    status: Math.max(...rows.map(r => r.status.length)),
-    priority: Math.max(...rows.map(r => r.priority.length)),
-    project: Math.max(...rows.map(r => r.project.length)),
-  }
-  return rows
-    .map(
-      r =>
-        `${r.identifier.padEnd(widths.identifier)}  ` +
-        `${r.status.padEnd(widths.status)}  ` +
-        `${r.priority.padEnd(widths.priority)}  ` +
-        `${r.project.padEnd(widths.project)}  ` +
-        r.title
-    )
-    .join('\n')
+  return renderTaskTable(
+    tasks.map(t => ({
+      id: `${t.teamIdentifier}-${t.number}`,
+      status: t.status,
+      priority: t.priority,
+      project: sanitizeField(t.project.name),
+      title: sanitizeField(t.title),
+    })),
+    ['project'],
+    opts
+  )
 }
