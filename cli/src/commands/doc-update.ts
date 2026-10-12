@@ -14,6 +14,7 @@ import { lookupDocId } from '../lib/resolve-doc-id'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { cmd, hint } from '../lib/feedback'
 
 export interface UpdateDocOptions {
   title?: string
@@ -196,8 +197,10 @@ export async function docUpdate(
     if (res.status === 409 && opts.ifRevision !== undefined) {
       console.error(`Error: revision conflict: ${sanitizeField(message)}`)
       console.error(
-        `Hint: re-read the doc (lumo doc show ${reference} --raw), rebase your edit ` +
-          `on the current source, then retry with --if-revision <current>.`
+        hint(
+          `re-read the doc (${cmd(`lumo doc show ${reference} --raw`)}), rebase your edit ` +
+            `on the current source, then retry with --if-revision <current>.`
+        )
       )
       return 1
     }
@@ -206,9 +209,11 @@ export async function docUpdate(
       // the stored body has (the message names each category, old→new).
       console.error(`Error: ${sanitizeField(message)}`)
       console.error(
-        `Hint: if the deletion is intentional, re-run with --allow-shrink. ` +
-          `Otherwise re-read the current source (lumo doc show ${reference} --raw) ` +
-          `and rebase your edit on it.`
+        hint(
+          `if the deletion is intentional, re-run with --allow-shrink. ` +
+            `Otherwise re-read the current source (${cmd(`lumo doc show ${reference} --raw`)}) ` +
+            `and rebase your edit on it.`
+        )
       )
       return 1
     }

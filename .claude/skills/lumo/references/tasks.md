@@ -80,7 +80,8 @@ Task templates are managed only from the CLI (there is no web UI). Every command
 ```bash
 lumo task template show agent-brief > brief.md     # start from the built-in
 lumo task template create team-brief --name "Team brief" --file brief.md
-# Created task template team-brief "Team brief" (845 chars). Use it with `lumo task create <title> --template team-brief`.
+# Created task template team-brief "Team brief" (845 chars)
+# Next: lumo task create <title> --template team-brief
 lumo task template edit team-brief --file brief.md --name "Team agent brief"
 lumo task template rm team-brief                    # exit 4 envelope; re-run with --confirm after the user approves
 ```

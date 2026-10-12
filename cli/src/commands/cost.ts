@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errNotLoggedIn } from '../lib/errors'
+import { hint } from '../lib/feedback'
 
 /**
  * Local copies of the server's OperationCostResponse shape. The CLI is a
@@ -136,7 +137,9 @@ export function formatOperationCost(
     out.push('\n' + rankTable('By session:', data.bySession))
   out.push('')
   out.push(
-    'Note: token→tool attribution is heuristic — a model step that fires several tools in parallel splits its tokens evenly across them. output (generation) and cache_read (~95%, structural — turns × context) attribute cleanly per step; input and cache_create are bursty (prompt + cache checkpoints) and per-tool figures for those two are coarse.'
+    hint(
+      'token→tool attribution is heuristic — a model step that fires several tools in parallel splits its tokens evenly across them. output (generation) and cache_read (~95%, structural — turns × context) attribute cleanly per step; input and cache_create are bursty (prompt + cache checkpoints) and per-tool figures for those two are coarse.'
+    )
   )
   return out.join('\n')
 }

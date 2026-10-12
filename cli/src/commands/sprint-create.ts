@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errNotLoggedIn, httpFailed } from '../lib/errors'
+import { successLine } from '../lib/feedback'
 
 export interface CreateSprintOptions {
   team?: string
@@ -34,7 +35,13 @@ export function formatCreatedSprintLine(sprint: {
   number: number
   name: string
 }): string {
-  return `Created sprint #${sprint.number} "${sanitizeField(sprint.name)}"  ${sprint.id}`
+  return successLine({
+    verb: 'Created',
+    kind: 'sprint',
+    ref: `#${sprint.number}`,
+    title: sprint.name,
+    id: sprint.id,
+  })
 }
 
 export async function sprintCreate(
