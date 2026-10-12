@@ -129,27 +129,30 @@ Four numbered sections (`[1/4] Test cases` … `[4/4] DONE`), in the same layout
 1. **Test cases** — verdict signals (a `PROVEN_DEFECT` item is followed by `Blocks DONE until the user rules on that run — one of:` and the two `lumo task testcase disposition <task>/TC<n> --known-defect` / `--not-a-defect` commands, one per line, for the **user's** ruling) and the no-test-case advisory.
 2. **Security scans** — undispositioned findings (blocks DONE / advisory) and each linked PR's latest scan as layer rows, same grammar as `task status`.
 3. **Boundary crossings** — every undispositioned crossing (`• <ref> [SEVERITY] CATEGORY (<gate>)`) with what the user needs to rule on it as rows (`Re-judged`, `Detail`, `Seen`, the `⚠ irreversible category` line, `Explanations` with one `- …` line each, or `Explanation: none — add one first` with the `crossing explain` command when a blocking row has none) and the step-1 `lumo crossing disposition … --task <id>` commands — per crossing (`The user rules — one of:`) or, with several, one **batch** command per ruling after the list.
-4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` ends with `Show the user the lines above. Only after they approve, run:` and the DONE command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
+4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` with every linked PR merged (≥1) is labelled `READY — one step: …` and ends with `All PRs merged, nothing blocks DONE — run it directly, no approval step:` and `lumo task update <id> --status done` (LUM-1106); `READY` with no linked PR ends with `Show the user the lines above. Only after they approve, run:` and the `--confirm` command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
 
-| Level            | Meaning                                                                                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `READY`          | nothing blocks and nothing is left agent-side — show the user the DONE lines; only after they approve run `lumo task update <id> --status done --confirm` |
-| `NOT YET`        | a linked PR is not merged                                                                                                                                 |
-| `BLOCKED`        | a human-only gate would refuse DONE: blocking crossing, blocking security finding, proven test-case defect                                                |
-| `CANNOT CONFIRM` | a read failed (status / crossings / task+PRs / security) — never read this as clear                                                                       |
-| `DONE`           | already closed                                                                                                                                            |
+| Level            | Meaning                                                                                                                                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `READY`          | nothing blocks and nothing is left agent-side — with ≥1 PR, all merged: run `lumo task update <id> --status done` directly (one step); with no PR: show the user the DONE lines, only after they approve run it with `--confirm` |
+| `NOT YET`        | a linked PR is not merged                                                                                                                                                                                                        |
+| `BLOCKED`        | a human-only gate would refuse DONE: blocking crossing, blocking security finding, proven test-case defect                                                                                                                       |
+| `CANNOT CONFIRM` | a read failed (status / crossings / task+PRs / security) — never read this as clear                                                                                                                                              |
+| `DONE`           | already closed                                                                                                                                                                                                                   |
 
 **Red lines.** Read-only: GETs plus local `git` inspection; it requests no
 disposition receipt and changes no status. A crossing or test-case ruling still
 walks its handshake one exit-4 envelope at a time, and the DONE `--confirm`
-command appears **only** at `READY`, as the user's approval. When the current
+command appears **only** at `READY` without a linked PR, as the user's approval
+(with all PRs merged the plain one-step command is printed instead). When the current
 directory is inside the task's worktree, run the DONE command from the main
 checkout so the worktree can be removed.
 
 ## The DONE gate
 
-`lumo task update <id> --status done` walks the confirmation protocol: without
-`--confirm` it exits 4 with an envelope for the user to approve. The server then
+`lumo task update <id> --status done` runs in one step when ≥1 linked PR, all
+merged, and the digest shows nothing blocking (LUM-1106); otherwise it walks the
+confirmation protocol: without `--confirm` it exits 4 with an envelope for the
+user to approve. The server then
 refuses DONE with **409** on an undispositioned blocking boundary crossing, a
 blocking security finding, or a test case whose latest run is a proven defect;
 the CLI turns that into exit 5 with a structured `DONE_BLOCKED` error listing

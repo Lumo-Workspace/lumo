@@ -85,7 +85,7 @@ Default-branch detection: `origin/HEAD` → (online) `git remote set-head origin
 ## Lifecycle integration
 
 - **`session attach`** — after the bind, lists the task's worktree(s) by path (all of them when several match — it never picks one silently), marks the one you are in, or hints `lumo worktree add <id>`. It **creates** one (slug = first words of the title) only with `--worktree` or `autoWorktree: true` (`--no-worktree` overrides), only from the main checkout (in any linked worktree it says so and creates nothing), and a creation failure is a warning — attach still succeeds. See [sessions.md](sessions.md).
-- **`task update <id> --status done`** — the DONE envelope gets one line per task worktree: `Will remove worktree <path> (branch … kept)` or `Keeps worktree <path>: <reason>`. After `--confirm` and a successful DONE, only the removable ones are removed (re-checked at that moment). See the safety rules below and [confirmation.md](confirmation.md).
+- **`task update <id> --status done`** — the DONE envelope gets one line per task worktree: `Will remove worktree <path> (branch … kept)` or `Keeps worktree <path>: <reason>`. After `--confirm` (or a one-step DONE — every linked PR merged, nothing blocks, LUM-1106) and a successful DONE, only the removable ones are removed (re-checked at that moment). See the safety rules below and [confirmation.md](confirmation.md).
 - **`lumo worktree prune`** — the catch-all for tasks closed on the web or on another machine.
 
 ### Safety rules (DONE cleanup and `prune`)

@@ -167,13 +167,25 @@ BACKLOG (LUM-1057) = not yet scheduled. New tasks still default to TODO. BACKLOG
 
 Practical rules:
 
-- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call **walks the confirmation protocol** (see below): without `--confirm` it exits 4 with an envelope, never a prompt.
-- **DONE is the user's call** — `--status done` always exits 4 for their approval first (below).
+- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call either runs directly (every linked PR merged, nothing blocks — LUM-1106) or **walks the confirmation protocol** (see below): exit 4 with an envelope, never a prompt.
+- **DONE is the user's call unless the one-step condition holds** — short of it, `--status done` exits 4 for their approval first (below).
 - **A DONE task can be reopened** — to IN_REVIEW, IN_PROGRESS, or TODO. Reopening is a plain status change. To attach context without reopening, `lumo task comment` works.
 
-### `--status done` requires `--confirm` — the confirmation envelope (LUM-755)
+### `--status done` — one step, or the confirmation envelope (LUM-755 / LUM-1106)
 
-DONE is the one status move that needs a human's sign-off. It no longer prompts (LUM-731's interactive yes/no question is gone): run without `--confirm`, the CLI looks the task up, prints a **confirmation envelope** on stdout and exits **4** with nothing sent — no PATCH, and no tag resolution either. The envelope's `changes` carry everything the old prompt showed, including a trailing `⚠` line when a linked PR has not merged (that line replaces the old second prompt — the protocol is one step, and you relay the whole block). Full protocol: [confirmation.md](confirmation.md).
+**One step when nothing is left (LUM-1106).** Before any envelope the CLI checks the _one-step condition_: at least one linked PR, **every** linked PR `merged`, and the status digest read cleanly with `Blocks DONE: nothing on record` (no blocking crossing, no blocking security finding, no proven test-case defect, no `⚠ could not confirm`). When it holds, `--status done` sends the PATCH straight away — no envelope, no `--confirm`, exit 0 — and prints:
+
+```text
+Updated LUM-48 "Title"  https://…/LUM-48
+One-step DONE (no --confirm needed): the linked PR is merged and nothing blocks DONE.
+  Status: IN_REVIEW → DONE
+  #926  merged   refactor: panel  https://github.com/o/r/pull/926
+<worktree cleanup lines, then the status digest>
+```
+
+The first line keeps its `Updated <id> …` format. It fails closed: no linked PR (a docs-only task), any PR open/closed/draft/unknown, an older server that sends no `pullRequests`, or any failed digest read → the exit-4 envelope below, exactly as before. The server's 409 gates still apply to the PATCH either way.
+
+Otherwise DONE needs a human's sign-off. It no longer prompts (LUM-731's interactive yes/no question is gone): run without `--confirm`, the CLI looks the task up, prints a **confirmation envelope** on stdout and exits **4** with nothing sent — no PATCH, and no tag resolution either. The envelope's `changes` carry everything the old prompt showed, including a trailing `⚠` line when a linked PR has not merged (that line replaces the old second prompt — the protocol is one step, and you relay the whole block). Full protocol: [confirmation.md](confirmation.md).
 
 ```bash
 lumo task update LUM-48 --status done
@@ -208,7 +220,7 @@ lumo task update LUM-48 --status done --confirm   # only after the user approved
 ### When to suggest `task update`
 
 - The user describes a state change in natural language (e.g. "mark LUM-48 as in progress", "rename LUM-12 to ...", "assign LUM-30 to me", "bump the priority on LUM-7").
-- After the agent finishes a task and the user confirms — tell the user to run `lumo task update LUM-N --status done` in their terminal (it prompts for confirmation; an agent shell is non-TTY and is refused).
+- After the agent finishes a task: every linked PR merged and nothing blocks → run `lumo task update LUM-N --status done` (one step); otherwise relay its exit-4 envelope and wait for the user's yes.
 - Multiple status changes in a row should each be a separate `update` invocation rather than batched.
 
 ### Sprint output format
@@ -315,7 +327,7 @@ Output: `LUM-42  TODO  HIGH  lumo  Alice  2026-09-30  Fix OAuth` (id · status �
 
 ### `lumo task statuses [--json]` — the workflow as the server defines it
 
-Prints the status set with each status's allowed transitions, the priorities, and which status is gated (`DONE`: needs the user's `--confirm` and a clear DONE gate). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
+Prints the status set with each status's allowed transitions, the priorities, and which status is gated (`DONE`: needs the user's `--confirm` — unless every linked PR is merged and nothing blocks, LUM-1106 — and a clear DONE gate). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
 
 ```bash
 lumo task statuses

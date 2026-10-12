@@ -21,7 +21,11 @@ import {
   emitBlocked,
   isDoneGateRefusal,
 } from '../lib/blocked-error'
-import { fetchStatusDigest, printStatusDigest } from '../lib/status-digest'
+import {
+  fetchStatusDigest,
+  printStatusDigest,
+  readStatusDigest,
+} from '../lib/status-digest'
 import { resolveSessionId } from '../lib/session-id'
 import {
   errAuth,
@@ -277,36 +281,71 @@ export function describeDoneTransition(
 }
 
 /**
- * Look the task up and emit the DONE confirmation envelope (exit 4). Runs
- * before any side effect — tag find-or-create included — so a refused DONE
- * leaves nothing behind. Returns the exit code to propagate; prints its own
- * error on a failed lookup.
+ * LUM-1106: the one-step DONE condition — at least one linked PR, every one
+ * merged, and a status digest that read cleanly with nothing blocking DONE.
+ * Fail-closed: `prs` undefined (an older server that sends no
+ * `pullRequests`), none linked, any PR not merged, or a digest that is not
+ * clear all keep the confirmation envelope.
  */
-async function emitDoneConfirmation(args: {
+export function qualifiesForOneStepDone(
+  prs: LinkedPr[] | undefined,
+  digestClearsDone: boolean
+): boolean {
+  if (!digestClearsDone || !prs || prs.length === 0) return false
+  return partitionLinkedPrs(prs).unmerged.length === 0
+}
+
+/** What a one-step DONE prints after the `Updated …` line (LUM-1106). */
+export function describeOneStepDone(
+  task: { identifier: string; title: string; status: string },
+  prs: LinkedPr[]
+): string[] {
+  return [
+    `One-step DONE (no --confirm needed): ${prs.length === 1 ? 'the linked PR is' : `all ${prs.length} linked PRs are`} merged and nothing blocks DONE.`,
+    ...describeDoneTransition(task, prs)
+      .slice(1)
+      .map(l => `  ${l}`),
+  ]
+}
+
+type DoneGate =
+  | { kind: 'exit'; code: number }
+  | { kind: 'one-step'; summary: string[] }
+
+/**
+ * Look the task up and decide how DONE proceeds. When the one-step
+ * condition holds (LUM-1106) it returns `one-step` and the caller sends the
+ * PATCH; otherwise it emits the DONE confirmation envelope (exit 4). Runs
+ * before any side effect — tag find-or-create included — so a refused DONE
+ * leaves nothing behind. Prints its own error on a failed lookup.
+ */
+async function gateDone(args: {
   base: string
   apiUrl: string
   token: string
   identifier: string
-}): Promise<number> {
+}): Promise<DoneGate> {
+  const exit = (code: number): DoneGate => ({ kind: 'exit', code })
   const { base, apiUrl, token, identifier } = args
   const showUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
   const lookup = fetch(showUrl, {
     headers: { Authorization: `Bearer ${token}` },
   })
   // LUM-842: the status digest rides in the envelope (additive field), read
-  // alongside the task lookup. It never rejects.
-  const digest = fetchStatusDigest(base, token, identifier)
+  // alongside the task lookup. It never rejects. LUM-1106: the same read
+  // decides whether DONE may run in one step.
+  const digest = readStatusDigest(base, token, identifier)
   let res: Response
   try {
     res = await lookup
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return 1
+    return exit(1)
   }
   if (res.status === 401) {
     console.error(errAuth())
-    return 1
+    return exit(1)
   }
   if (!res.ok) {
     let serverMsg: string | null = null
@@ -321,7 +360,7 @@ async function emitDoneConfirmation(args: {
         ? `Error: ${sanitizeField(serverMsg)}`
         : errHttp('task lookup', res.status)
     )
-    return 1
+    return exit(1)
   }
 
   const { task } = (await res.json()) as {
@@ -333,15 +372,24 @@ async function emitDoneConfirmation(args: {
       pullRequests?: LinkedPr[]
     }
   }
+  const { lines: statusSummary, clearsDone } = await digest
+  if (qualifiesForOneStepDone(task.pullRequests, clearsDone)) {
+    return {
+      kind: 'one-step',
+      summary: describeOneStepDone(task, task.pullRequests ?? []),
+    }
+  }
   const prs = task.pullRequests ?? []
-  return emitConfirmation({
-    command: 'task update',
-    changes: [
-      ...describeDoneTransition(task, prs),
-      ...doneWorktreeLines(task.identifier, mergedHeadShasOf(prs)),
-    ],
-    statusSummary: await digest,
-  })
+  return exit(
+    emitConfirmation({
+      command: 'task update',
+      changes: [
+        ...describeDoneTransition(task, prs),
+        ...doneWorktreeLines(task.identifier, mergedHeadShasOf(prs)),
+      ],
+      statusSummary,
+    })
+  )
 }
 
 /**
@@ -528,13 +576,18 @@ async function runTaskUpdate(
 
   // LUM-755: DONE without --confirm stops here with the confirmation
   // envelope — before tag resolution (find-or-create) or any other write.
+  // LUM-1106: unless every linked PR is merged and nothing blocks DONE; then
+  // it runs in one step and says so after the `Updated …` line.
+  let oneStepSummary: string[] | undefined
   if (status === 'DONE' && !opts.confirm) {
-    return emitDoneConfirmation({
+    const gate = await gateDone({
       base: trimTrailingSlash(apiUrl),
       apiUrl,
       token: creds.token,
       identifier,
     })
+    if (gate.kind === 'exit') return gate.code
+    oneStepSummary = gate.summary
   }
 
   // Resolve tag refs into ids
@@ -642,6 +695,7 @@ async function runTaskUpdate(
       }
       if (responseTagNames !== undefined) taskLine.tags = responseTagNames
       process.stdout.write(formatUpdatedTaskLine(taskLine) + '\n')
+      if (oneStepSummary) process.stdout.write(oneStepSummary.join('\n') + '\n')
       if (status === 'DONE') {
         await cleanupWorktreesAfterDone({
           base,
