@@ -277,21 +277,22 @@ export function renderTable(rows: string[][], opts: TableOptions = {}): string {
   const widths = Array.from({ length: cols }, (_, i) =>
     Math.max(...all.map(r => stringWidth(r[i] ?? '')))
   )
-  const line = (r: string[], isHeader: boolean) =>
-    widths
-      .map((w, i) => {
-        const raw = r[i] ?? ''
-        const right = opts.align?.[i] === 'right'
-        const last = i === cols - 1
-        const cell = right
-          ? padStartWidth(raw, w)
-          : last
-            ? raw
-            : padEndWidth(raw, w)
-        return isHeader ? style.bold(cell, color) : cell
-      })
-      .join(gap)
-      .replace(/\s+$/, '')
+  // Padding is computed from the plain cell and placed OUTSIDE any styling,
+  // and trailing empty cells are dropped, so no line ends in whitespace —
+  // even when the cells carry ANSI codes.
+  const line = (r: string[], isHeader: boolean) => {
+    let end = cols
+    while (end > 0 && stripAnsi(r[end - 1] ?? '') === '') end--
+    const parts: string[] = []
+    for (let i = 0; i < end; i++) {
+      const raw = r[i] ?? ''
+      const pad = ' '.repeat(Math.max(0, (widths[i] ?? 0) - stringWidth(raw)))
+      const text = isHeader ? style.bold(raw, color) : raw
+      if (opts.align?.[i] === 'right') parts.push(pad + text)
+      else parts.push(i === end - 1 ? text : text + pad)
+    }
+    return parts.join(gap)
+  }
   return all.map((r, idx) => line(r, Boolean(header) && idx === 0)).join('\n')
 }
 
@@ -320,10 +321,12 @@ export function kvBlock(
   return pairs
     .map(([, value], i) => {
       const [first = '', ...rest] = value.split('\n')
-      const label = style.dim(padEndWidth(labels[i] ?? '', w), color)
-      return [`${indent}${label} ${first}`, ...rest.map(l => cont + l)]
-        .map(l => l.replace(/\s+$/, ''))
-        .join('\n')
+      const text = labels[i] ?? ''
+      const label = style.dim(text, color)
+      const head = first
+        ? `${indent}${label}${' '.repeat(Math.max(0, w - stringWidth(text)))} ${first}`
+        : `${indent}${label}`
+      return [head, ...rest.map(l => (l ? cont + l : ''))].join('\n')
     })
     .join('\n')
 }

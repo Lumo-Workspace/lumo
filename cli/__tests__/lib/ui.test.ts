@@ -12,6 +12,7 @@ import {
   icons,
   kvBlock,
   padEndWidth,
+  padStartWidth,
   renderTable,
   stringWidth,
   style,
@@ -132,6 +133,10 @@ describe('padEndWidth', () => {
     expect(padEndWidth('ab', 4)).toBe('ab  ')
     expect(padEndWidth('abcde', 4)).toBe('abcde')
   })
+  it('padStartWidth pads on the left by display width', () => {
+    expect(padStartWidth('中', 4)).toBe('  中')
+    expect(padStartWidth('abcde', 4)).toBe('abcde')
+  })
 })
 
 describe('renderTable', () => {
@@ -197,6 +202,26 @@ describe('renderTable', () => {
     )
     expect(stripAnsi(out)).toBe('ab    x\nabcd  y')
   })
+  it('leaves no trailing whitespace when the last cells are empty, even styled', () => {
+    const out = renderTable(
+      [
+        ['a', 'b', ''],
+        ['ccc', '', ''],
+      ],
+      { header: ['H1', 'H2', ''], color: true }
+    )
+    for (const l of stripAnsi(out).split('\n')) expect(l).toBe(l.trimEnd())
+    expect(stripAnsi(out)).toBe('H1   H2\na    b\nccc')
+  })
+  it('does not put padding inside styled header cells', () => {
+    const out = renderTable([['abcd', 'x']], {
+      header: ['N', 'V'],
+      color: true,
+    })
+    expect(out.split('\n')[0]).toBe(
+      `${ESC}[1mN${ESC}[22m     ${ESC}[1mV${ESC}[22m`
+    )
+  })
   it('returns an empty string for no rows and no header', () => {
     expect(renderTable([], { color: false })).toBe('')
   })
@@ -222,6 +247,16 @@ describe('kvBlock', () => {
         color: false,
       })
     ).toBe('  Note:    line1\n           line2')
+  })
+  it('an empty value leaves no trailing whitespace, even with colour', () => {
+    const colored = kvBlock(
+      [
+        ['Status', ''],
+        ['Milestone', 'M1'],
+      ],
+      { color: true }
+    )
+    expect(stripAnsi(colored)).toBe('Status:\nMilestone: M1')
   })
   it('dims labels only when colour is on', () => {
     const colored = kvBlock([['A', 'b']], { color: true })
@@ -257,6 +292,7 @@ describe('defaults follow process.stdout (non-TTY → no ESC anywhere)', () => {
   const saved = {
     NO_COLOR: process.env.NO_COLOR,
     FORCE_COLOR: process.env.FORCE_COLOR,
+    TERM: process.env.TERM,
   }
   afterEach(() => {
     if (desc) Object.defineProperty(process.stdout, 'isTTY', desc)
@@ -288,6 +324,7 @@ describe('defaults follow process.stdout (non-TTY → no ESC anywhere)', () => {
     setTTY(true)
     delete process.env.NO_COLOR
     delete process.env.FORCE_COLOR
+    process.env.TERM = 'xterm-256color'
     expect(heading('H')).toContain(ESC)
     process.env.NO_COLOR = '1'
     expect(heading('H')).toBe('H')
