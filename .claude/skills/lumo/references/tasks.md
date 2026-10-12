@@ -180,7 +180,7 @@ Updated LUM-48 "Title"  https://…/LUM-48
 One-step DONE (no --confirm needed): the linked PR is merged and nothing blocks DONE.
   Status: IN_REVIEW → DONE
   #926  merged   refactor: panel  https://github.com/o/r/pull/926
-<worktree cleanup lines, then the status digest>
+<the actual worktree removal report, then the status digest>
 ```
 
 The first line keeps its `Updated <id> …` format. It fails closed: no linked PR (a docs-only task), any PR open/closed/draft/unknown, an older server that sends no `pullRequests`, or any failed digest read → the exit-4 envelope below, exactly as before. The server's 409 gates still apply to the PATCH either way.
