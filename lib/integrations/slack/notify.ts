@@ -20,6 +20,9 @@ async function lookupDisplayName(clerkId: string): Promise<string | null> {
   }
 }
 
+/** Most mentioned people looked up (and listed) for one channel post. */
+export const MAX_MENTIONED_NAMES = 10
+
 /**
  * Fill in display names the caller only knew by Clerk ID (the actor, and the
  * people a mention named). A failed lookup just leaves the name out.
@@ -31,9 +34,9 @@ async function resolveNames(
   const needActor = !payload.actorName && !!payload.actorClerkId
   // Only channel posts list who was mentioned; a DM's recipient is the one.
   const mentionedIds =
-    audience === 'dm' || payload.mentionedNames
+    audience === 'dm' || (payload.mentionedNames?.length ?? 0) > 0
       ? []
-      : (payload.mentionedClerkIds ?? [])
+      : (payload.mentionedClerkIds ?? []).slice(0, MAX_MENTIONED_NAMES)
   if (!needActor && mentionedIds.length === 0) return payload
 
   const [actorName, mentionedNames] = await Promise.all([

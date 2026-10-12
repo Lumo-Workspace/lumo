@@ -221,6 +221,15 @@ describe('mentions — labelled by where they were written', () => {
     }
   )
 
+  it('DM headline trims the actor name like the rest of the message', () => {
+    const { blocks } = blocksOf(
+      'comment_mention',
+      { ...TASK, actorName: '  Ada  ', mentionSurface: 'comment' },
+      'dm'
+    )
+    expect(header(blocks)).toBe('💬 Ada mentioned you in a task comment')
+  })
+
   it('DM without a known actor still says what happened', () => {
     const { blocks } = blocksOf(
       'comment_mention',

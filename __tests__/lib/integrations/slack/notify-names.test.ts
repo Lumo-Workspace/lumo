@@ -35,6 +35,7 @@ jest.mock('@/lib/utils/clerk-helpers', () => ({
 
 import { prisma } from '@/lib/db/prisma'
 import {
+  MAX_MENTIONED_NAMES,
   sendChannelNotification,
   sendDMNotification,
 } from '@/lib/integrations/slack/notify'
@@ -121,5 +122,28 @@ describe('notification names and audiences', () => {
     const [msg] = messages()
     expect(JSON.stringify(msg)).not.toContain('by *')
     expect(msg!.text).toBe('✅ Task done: LUM-1 · Fix login')
+  })
+})
+
+describe('mentioned-name lookups (LUM-1095 scan follow-up)', () => {
+  it('an empty mentionedNames array does not suppress the lookup', async () => {
+    await sendChannelNotification(
+      'ws_1',
+      'comment_mention',
+      { ...payload, mentionedNames: [] },
+      'proj_1'
+    )
+    expect(JSON.stringify(messages()[0])).toContain('mentioned *Bob*')
+  })
+
+  it('looks up at most MAX_MENTIONED_NAMES people', async () => {
+    const ids = Array.from({ length: 25 }, (_, i) => `user_${i}`)
+    await sendChannelNotification(
+      'ws_1',
+      'comment_mention',
+      { ...payload, actorClerkId: undefined, mentionedClerkIds: ids },
+      'proj_1'
+    )
+    expect(mockGetClerkUser).toHaveBeenCalledTimes(MAX_MENTIONED_NAMES)
   })
 })

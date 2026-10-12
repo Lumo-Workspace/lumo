@@ -119,9 +119,10 @@ export function notificationHeadline(
     payload.entityKind ?? 'task',
     payload.mentionSurface ?? 'comment'
   )
+  const actor = payload.actorName?.trim()
   if (audience === 'dm') {
-    return payload.actorName
-      ? `${payload.actorName} mentioned you in ${place}`
+    return actor
+      ? `${actor} mentioned you in ${place}`
       : `You were mentioned in ${place}`
   }
   return `Mention in ${place}`
