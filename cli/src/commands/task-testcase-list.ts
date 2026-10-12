@@ -19,6 +19,15 @@ interface ListRow {
   }>
 }
 
+/**
+ * One tab-separated line per case: sanitizeField keeps \t / \n on purpose,
+ * which in member-writable text (a title, a runner's name) would forge a
+ * column or a whole TC row (LUM-1104).
+ */
+function oneCell(text: string): string {
+  return text.replace(/[\t\r\n\v\f]/g, ' ')
+}
+
 export async function taskTestCaseList(
   identifier: string | undefined
 ): Promise<number | void> {
@@ -57,7 +66,7 @@ export async function taskTestCaseList(
       last = `${run.result} on ${run.environment}${sha}${dirty} (${run.createdAt.slice(0, 10)})${executor ? ` ${executor}` : ''}`
     }
     console.log(
-      `TC${c.number}\t${sanitizeField(c.title)}\t${c.steps.length} steps / ${c.verification.length} verify\t${last}`
+      `TC${c.number}\t${oneCell(sanitizeField(c.title))}\t${c.steps.length} steps / ${c.verification.length} verify\t${oneCell(last)}`
     )
   }
 }

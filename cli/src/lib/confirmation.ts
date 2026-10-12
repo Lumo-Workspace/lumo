@@ -23,6 +23,8 @@
  * Exit codes (see `wrap()` in cli/src/index.ts): 0 ok · 1 error · 4 confirm.
  */
 
+import { sanitizeField } from './sanitize'
+
 export const EXIT_CONFIRMATION_REQUIRED = 4
 
 export interface ConfirmationEnvelope {
@@ -139,6 +141,18 @@ export function buildEnvelope(input: ConfirmationInput): ConfirmationEnvelope {
   }
 }
 
+/**
+ * LUM-1104: a change / status line as printed on a terminal. Changes quote
+ * member-writable text (a test-case title, a note), so terminal control
+ * characters are stripped — an ESC sequence could otherwise erase or repaint
+ * the "⚠ …" consequence line the user is approving. A newline only continues
+ * the same bullet (indented), so it cannot forge a `  - ` line of its own.
+ * TTY only: the JSON envelope keeps the raw text, byte for byte.
+ */
+function terminalLine(text: string): string {
+  return sanitizeField(text).replace(/\r\n?|\n/g, '\n    ')
+}
+
 /** JSON for pipes; the same fields as readable text for a terminal. */
 export function renderConfirmation(
   envelope: ConfirmationEnvelope,
@@ -147,12 +161,14 @@ export function renderConfirmation(
   if (!isTTY) return JSON.stringify(envelope, null, 2) + '\n'
   const lines = [
     `Confirmation required — \`lumo ${envelope.command}\` was not run.`,
-    ...envelope.changes.map(c => `  - ${c}`),
+    ...envelope.changes.map(c => `  - ${terminalLine(c)}`),
     ...(envelope.receipt
       ? [`Read receipt issued (valid until ${envelope.receipt.expiresAt}).`]
       : []),
     // LUM-842: before the re-run lines, so the command stays the last line.
-    ...(envelope.statusSummary ? ['', ...envelope.statusSummary, ''] : []),
+    ...(envelope.statusSummary
+      ? ['', ...envelope.statusSummary.map(sanitizeField), '']
+      : []),
     `Re-run with ${envelope.confirmCommand.endsWith('--confirm-read') ? '--confirm-read' : '--confirm'} once the user has approved:`,
     `  ${envelope.confirmCommand}`,
   ]

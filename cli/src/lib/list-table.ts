@@ -49,7 +49,10 @@ export function flexColumnCap(
   const widths: number[] = []
   for (const r of rows) {
     r.forEach((c, i) => {
-      widths[i] = Math.max(widths[i] ?? 0, stringWidth(c))
+      // Measure what renderTable prints: it flattens tab / CR / LF to a space
+      // first, and stringWidth counts a raw tab as 0 columns (LUM-1104).
+      const flat = c.replace(/[\t\r\n\v\f]/g, ' ')
+      widths[i] = Math.max(widths[i] ?? 0, stringWidth(flat))
     })
   }
   let fixed = 0
