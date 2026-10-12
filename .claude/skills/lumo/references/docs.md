@@ -120,7 +120,7 @@ lumo doc update RFC --tag final --add-tag oops
 
 ## `lumo doc list [flags]` — list documents
 
-Default behavior: lists every document the current user can see, as fixed-width rows: `<cuid>  <SCOPE>  <project|->  <title>`.
+Default behavior: lists every document the current user can see, as table rows: `<cuid>  <SCOPE>  <project|->  <title>`, columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id.
 
 | Flag              | Type    | Notes                                                                                  |
 | ----------------- | ------- | -------------------------------------------------------------------------------------- |

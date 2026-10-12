@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface SprintRow {
@@ -31,23 +32,24 @@ function formatDate(iso: string | null): string {
 }
 
 /**
- * Render sprints as fixed-width rows (server already sorts by number desc):
+ * Render sprints as a table (server already sorts by number desc; LUM-1089
+ * header on a TTY only):
  *   <STATUS>  #<number>  <start>..<end>  <name>
  */
-export function formatSprintList(rows: SprintRow[]): string {
+export function formatSprintList(
+  rows: SprintRow[],
+  opts: ListRenderOptions = {}
+): string {
   if (rows.length === 0) return 'No sprints.'
-
-  const statusW = Math.max(...rows.map(r => r.status.length))
-  const numW = Math.max(...rows.map(r => String(r.number).length))
-
-  return rows
-    .map(r => {
-      const statusCol = r.status.padEnd(statusW)
-      const numCol = `#${r.number}`.padEnd(numW + 1) // +1 for the '#'
-      const dateRange = `${formatDate(r.startDate)}..${formatDate(r.endDate)}`
-      return `${statusCol}  ${numCol}  ${dateRange}  ${sanitizeField(r.name)}`
-    })
-    .join('\n')
+  return renderListTable(
+    rows.map(r => [
+      r.status,
+      `#${r.number}`,
+      `${formatDate(r.startDate)}..${formatDate(r.endDate)}`,
+      sanitizeField(r.name),
+    ]),
+    { header: ['STATUS', 'SPRINT', 'DATES', 'NAME'], flex: 3, ...opts }
+  )
 }
 
 export async function sprintList(

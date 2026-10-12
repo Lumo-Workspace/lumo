@@ -1,5 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
+import { renderTaskTable } from '../lib/format'
+import type { ListRenderOptions } from '../lib/list-table'
 import { localDayLabel, localDayStart } from '../lib/local-day'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import {
@@ -118,39 +120,30 @@ export function buildSearchQuery(f: {
 }
 
 /**
- * Render rows as `LUM-42  STATUS  PRIORITY  project  assignee  due  title`,
- * each column padded to its widest cell.
+ * Render rows as `LUM-42  STATUS  PRIORITY  project  assignee  due  title`
+ * through the shared task table (LUM-1089).
  */
 export function formatSearchTable(
   tasks: SearchTaskRow[],
-  names: Map<string, string>
+  names: Map<string, string>,
+  opts: ListRenderOptions = {}
 ): string {
   if (tasks.length === 0) return 'No tasks.'
-  const rows = tasks.map(t => ({
-    id: `${t.teamIdentifier}-${t.number}`,
-    status: t.status,
-    priority: t.priority,
-    project: sanitizeField(t.project?.name ?? '-'),
-    assignee: t.assigneeActorId
-      ? sanitizeField(names.get(t.assigneeActorId) ?? '?')
-      : '-',
-    due: t.dueDate ? localDayLabel(t.dueDate) : '-',
-    title: sanitizeField(t.title),
-  }))
-  const cols = [
-    'id',
-    'status',
-    'priority',
-    'project',
-    'assignee',
-    'due',
-  ] as const
-  const w = Object.fromEntries(
-    cols.map(c => [c, Math.max(...rows.map(r => r[c].length))])
-  ) as Record<(typeof cols)[number], number>
-  return rows
-    .map(r => cols.map(c => r[c].padEnd(w[c])).join('  ') + '  ' + r.title)
-    .join('\n')
+  return renderTaskTable(
+    tasks.map(t => ({
+      id: `${t.teamIdentifier}-${t.number}`,
+      status: t.status,
+      priority: t.priority,
+      project: sanitizeField(t.project?.name ?? '-'),
+      assignee: t.assigneeActorId
+        ? sanitizeField(names.get(t.assigneeActorId) ?? '?')
+        : '-',
+      due: t.dueDate ? localDayLabel(t.dueDate) : '-',
+      title: sanitizeField(t.title),
+    })),
+    ['project', 'assignee', 'due'],
+    opts
+  )
 }
 
 export async function taskSearch(

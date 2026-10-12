@@ -3,8 +3,12 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
-
-type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import {
+  formatHealth,
+  milestoneState,
+  type MilestoneHealth,
+} from '../lib/milestone-labels'
 
 interface MilestoneRow {
   id: string
@@ -22,16 +26,6 @@ interface MilestonesResponse {
   milestones: MilestoneRow[]
 }
 
-const HEALTH_LABEL: Record<MilestoneHealth, string> = {
-  'on-track': 'ON-TRACK',
-  'at-risk': 'AT-RISK',
-  overdue: 'OVERDUE',
-}
-
-function formatHealth(health: MilestoneHealth | null | undefined): string {
-  return health ? HEALTH_LABEL[health] : '-'
-}
-
 export interface MilestoneListOptions {
   project?: string | undefined
   archived?: boolean | undefined
@@ -44,14 +38,8 @@ function formatDate(iso: string | null): string {
   return iso.slice(0, 10)
 }
 
-/** LUM-714: the milestone's state, folded from its two timestamps. */
-function rowState(r: MilestoneRow): string {
-  if (r.archivedAt) return 'ARCHIVED'
-  return r.completedAt ? 'COMPLETED' : 'ACTIVE'
-}
-
 /**
- * Render milestones as fixed-width rows:
+ * Render milestones as a table (LUM-1089, header on a TTY only):
  *   <STATE>  <HEALTH>  <target-date or ->  <name>
  *
  * STATE is ACTIVE / COMPLETED / ARCHIVED (LUM-714) — derived, never stored.
@@ -60,17 +48,20 @@ function rowState(r: MilestoneRow): string {
  *
  * Sorted server-side by targetDate asc nulls last, createdAt asc.
  */
-export function formatMilestoneList(rows: MilestoneRow[]): string {
+export function formatMilestoneList(
+  rows: MilestoneRow[],
+  opts: ListRenderOptions = {}
+): string {
   if (rows.length === 0) return 'No milestones.'
-  const stateW = Math.max(...rows.map(r => rowState(r).length))
-  const healthW = Math.max(...rows.map(r => formatHealth(r.health).length))
-  const dateW = Math.max(...rows.map(r => formatDate(r.targetDate).length))
-  return rows
-    .map(
-      r =>
-        `${rowState(r).padEnd(stateW)}  ${formatHealth(r.health).padEnd(healthW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${sanitizeField(r.name)}`
-    )
-    .join('\n')
+  return renderListTable(
+    rows.map(r => [
+      milestoneState(r),
+      formatHealth(r.health),
+      formatDate(r.targetDate),
+      sanitizeField(r.name),
+    ]),
+    { header: ['STATE', 'HEALTH', 'TARGET', 'NAME'], flex: 3, ...opts }
+  )
 }
 
 export async function milestoneList(

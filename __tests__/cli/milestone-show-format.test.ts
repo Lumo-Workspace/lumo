@@ -30,7 +30,7 @@ describe('formatMilestoneShow', () => {
   it('renders milestone header + counts + task table', () => {
     const out = formatMilestoneShow(milestone, [task])
     expect(out).toContain('Milestone:    Q3 Launch')
-    expect(out).toContain('State:        active')
+    expect(out).toContain('State:        ACTIVE')
     expect(out).toContain('Completed:    no')
     expect(out).toContain('Archived:     no')
     expect(out).toContain('Start:        2026-06-01')

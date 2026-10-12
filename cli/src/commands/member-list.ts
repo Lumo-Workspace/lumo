@@ -1,4 +1,5 @@
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { apiContext } from '../lib/test-case-api'
 import { fetchDirectory, type Directory } from '../lib/directory'
 
@@ -7,23 +8,29 @@ export interface MemberListOptions {
 }
 
 /**
- * Render the directory: humans as `name  email  ROLE`, then agent actors.
- * Columns are padded to the widest cell (same style as `task list`).
+ * Render the directory: humans as a `name  email  ROLE` table (LUM-1089,
+ * header on a TTY only), then agent actors.
  */
-export function formatMemberList(dir: Directory): string {
+export function formatMemberList(
+  dir: Directory,
+  opts: ListRenderOptions = {}
+): string {
   if (dir.members.length === 0 && dir.agents.length === 0) {
     return 'No members.'
   }
-  const rows = dir.members.map(m => ({
-    name: sanitizeField(m.displayName),
-    email: sanitizeField(m.email ?? '-'),
-    role: m.role,
-  }))
-  const nameW = Math.max(4, ...rows.map(r => r.name.length))
-  const emailW = Math.max(5, ...rows.map(r => r.email.length))
-  const lines = rows.map(
-    r => `${r.name.padEnd(nameW)}  ${r.email.padEnd(emailW)}  ${r.role}`
-  )
+  const lines: string[] = []
+  if (dir.members.length > 0) {
+    lines.push(
+      renderListTable(
+        dir.members.map(m => [
+          sanitizeField(m.displayName),
+          sanitizeField(m.email ?? '-'),
+          m.role,
+        ]),
+        { header: ['NAME', 'EMAIL', 'ROLE'], ...opts }
+      )
+    )
+  }
   if (dir.agents.length > 0) {
     lines.push('', 'Agents:')
     for (const a of dir.agents) {
