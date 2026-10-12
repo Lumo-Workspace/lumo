@@ -102,6 +102,91 @@ describe('testcase list', () => {
     expect(out).not.toContain(ESC)
     expect(out).not.toContain(CSI8)
   })
+
+  // LUM-1104: sanitizeField keeps \n / \t on purpose, but this list is one
+  // tab-separated line per case — a title must not forge a row or a column.
+  it('a title with \\n / \\t forges no extra line or column', async () => {
+    respond({
+      testCases: [
+        {
+          number: 1,
+          title: 'Real\nTC9\tforged\t0 steps / 0 verify\tPASS on LOCAL',
+          steps: ['a'],
+          verification: [],
+          runs: [],
+        },
+      ],
+    })
+    await taskTestCaseList('LUM-1')
+    const lines = printed().split('\n')
+    expect(lines).toHaveLength(1)
+    expect(lines[0]!.split('\t')).toEqual([
+      'TC1',
+      'Real TC9 forged 0 steps / 0 verify PASS on LOCAL',
+      '1 steps / 0 verify',
+      'never run',
+    ])
+  })
+
+  it('control characters in the last-run cell are stripped', async () => {
+    respond({
+      testCases: [
+        {
+          number: 3,
+          title: 'Ok',
+          steps: ['a'],
+          verification: [],
+          runs: [
+            {
+              result: 'PASS',
+              environment: evil('LOCAL'),
+              createdAt: '2026-10-13T00:00:00Z',
+              commitSha: null,
+              commitDirty: null,
+            },
+          ],
+        },
+      ],
+    })
+    await taskTestCaseList('LUM-1')
+    const out = printed()
+    expect(out).toContain('PASS on [31mLOCAL[0m2J (2026-10-13)')
+    expect(out).not.toContain(ESC)
+    expect(out).not.toContain(CSI8)
+  })
+
+  it("a runner's name with \\t / \\n stays inside the last-run column", async () => {
+    respond({
+      testCases: [
+        {
+          number: 2,
+          title: 'Ok',
+          steps: ['a'],
+          verification: [],
+          runs: [
+            {
+              result: 'PASS',
+              environment: 'LOCAL',
+              createdAt: '2026-10-13T00:00:00Z',
+              commitSha: null,
+              commitDirty: null,
+              executedBy: 'Ada\tTC3\nLovelace',
+              sourceSessionId: null,
+            },
+          ],
+        },
+      ],
+    })
+    await taskTestCaseList('LUM-1')
+    const lines = printed().split('\n')
+    expect(lines).toHaveLength(1)
+    expect(lines[0]!.split('\t')).toEqual([
+      'TC2',
+      'Ok',
+      '1 steps / 0 verify',
+      'PASS on LOCAL (2026-10-13) by Ada TC3 Lovelace',
+    ])
+  })
 })
 
 describe('testcase show', () => {
