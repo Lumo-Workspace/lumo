@@ -3,12 +3,12 @@
  *
  * Barrel export verification for @/lib/integrations/slack.
  * Ensures all public functions, types, and constants are accessible from
- * the index — and confirms that the server-only `bot` / `slackAdapter`
- * are NOT re-exported here (they pull pure-ESM `chat` and
- * `@chat-adapter/slack` and must be imported directly from
- * `@/lib/integrations/slack/bot` per
- * MEMORY:project_integrations_barrel_rsc_boundary.md).
+ * the index. The unused Chat SDK adapter (`bot` / `slackAdapter`) and its
+ * `chat` / `@chat-adapter/slack` dependencies were removed in LUM-1098.
  */
+
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
 
 // Mock Prisma to avoid DB connection requirements
 jest.mock('@/lib/db/prisma', () => ({
@@ -60,7 +60,18 @@ describe('lib/integrations/slack barrel exports', () => {
     }
   })
 
-  it('does NOT re-export bot or slackAdapter (pure-ESM deps leak into clients)', () => {
+  it('has no Chat SDK adapter file or dependency left (LUM-1098)', () => {
+    const root = join(__dirname, '../../../..')
+    expect(existsSync(join(root, 'lib/integrations/slack', 'bot.ts'))).toBe(
+      false
+    )
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+    expect(deps).not.toHaveProperty('chat')
+    expect(deps).not.toHaveProperty('@chat-adapter/slack')
+  })
+
+  it('does NOT export bot or slackAdapter', () => {
     expect((slackModule as Record<string, unknown>).bot).toBeUndefined()
     expect(
       (slackModule as Record<string, unknown>).slackAdapter

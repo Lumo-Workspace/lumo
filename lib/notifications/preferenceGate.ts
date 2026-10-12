@@ -23,22 +23,20 @@ const INAPP_MAP: Partial<Record<NotificationType, string>> = {
   AGENT_AUTHORIZE: 'notifyInAppAgentInput',
 }
 
+// Only types that actually send a Slack DM are listed. TASK_SPEC_READY and
+// AGENT_* have no Slack sender, so they have no route here and the
+// notifySlackAgentDone / notifySlackAgentInput columns are not read (their
+// switches are hidden in the settings UI). Add a route together with a sender.
 const SLACK_MAP: Partial<Record<NotificationType, string>> = {
   TASK_ASSIGNED: 'notifySlackAssigned',
   TASK_SENT_BACK: 'notifySlackAssigned',
   TASK_DONE: 'notifySlackAssigned',
   TASK_IN_REVIEW: 'notifySlackAssigned',
-  TASK_SPEC_READY: 'notifySlackAssigned',
   TASK_MENTIONED: 'notifySlackMention',
   DOCUMENT_COMMENT_MENTIONED: 'notifySlackMention',
   PROJECT_MENTIONED: 'notifySlackMention',
   MILESTONE_MENTIONED: 'notifySlackMention',
   DOCUMENT_MENTIONED: 'notifySlackMention',
-  AGENT_DONE: 'notifySlackAgentDone',
-  AGENT_FAILED: 'notifySlackAgentDone',
-  AGENT_VERIFY: 'notifySlackAgentDone',
-  AGENT_CLARIFY: 'notifySlackAgentInput',
-  AGENT_AUTHORIZE: 'notifySlackAgentInput',
 }
 
 export const MENTION_NOTIFICATION_TYPES = [
