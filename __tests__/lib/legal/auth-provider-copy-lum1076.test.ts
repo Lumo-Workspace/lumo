@@ -3,11 +3,13 @@
  * authentication service (Better Auth); Clerk only keeps its data through the
  * rollback period. The legal docs and the /security copy must not describe
  * Clerk as the current sign-in provider. Clerk stays a listed subprocessor
- * until its instance is deleted (RFC LUM-1069 §8), so the subprocessor doc and
- * the `security.subprocessors.purpose.clerk` key are out of scope here.
+ * until its instance is deleted (RFC LUM-1069 §8); its purpose, and Resend's
+ * (one-time sign-in codes), were corrected by the 2026-10-12 change records.
  */
 import fs from 'fs'
 import path from 'path'
+import { SUBPROCESSOR_CHANGES } from '@/lib/legal/subprocessor-changes'
+import { INFRASTRUCTURE_SUBPROCESSORS } from '@/lib/legal/subprocessors'
 
 const ROOT = path.join(__dirname, '..', '..', '..')
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -57,6 +59,7 @@ describe('LUM-1076: auth provider copy', () => {
     expect(clerkLines[0]).toMatch(
       /previous sign-in provider, Clerk, no longer handles sign-in/
     )
+    expect(clerkLines[0]).toMatch(/no later than 2026-11-11/)
   })
 
   it('the DPA describes authentication through Lumo, not Clerk', () => {
@@ -72,4 +75,45 @@ describe('LUM-1076: auth provider copy', () => {
     const doc = read('docs/self-hosting/README.md')
     expect(doc).not.toMatch(/Clerk is what the hosted service uses/)
   })
+
+  it('Clerk stays a listed subprocessor until its instance is deleted', () => {
+    expect(INFRASTRUCTURE_SUBPROCESSORS.some(s => s.id === 'clerk')).toBe(true)
+  })
+
+  it('records the 2026-10-12 purpose corrections for Resend and Clerk as urgent changes', () => {
+    for (const id of [
+      '2026-10-12-resend-purpose',
+      '2026-10-12-clerk-purpose',
+    ]) {
+      const change = SUBPROCESSOR_CHANGES.find(c => c.id === id)
+      expect(change).toBeDefined()
+      expect(change!.kind).toBe('changed')
+      expect(change!.effectiveAt).toBe('2026-10-12')
+      expect(change!.urgent).toBeDefined()
+      expect(change!.before).toEqual(change!.after)
+    }
+  })
+
+  it.each(LOCALES)(
+    '%s: Resend purpose lists sign-in codes; Clerk purpose is the former provider with a deletion date',
+    locale => {
+      const messages = JSON.parse(read(`lib/i18n/${locale}.json`)) as Record<
+        string,
+        string
+      >
+      const en = JSON.parse(read('lib/i18n/en.json')) as Record<string, string>
+      const resend = messages['security.subprocessors.purpose.resend']!
+      const clerk = messages['security.subprocessors.purpose.clerk']!
+      expect(clerk).toContain('2026-11-11')
+      expect(clerk).not.toMatch(/\[TODO/)
+      expect(resend).not.toMatch(/\[TODO/)
+      if (locale.startsWith('en')) {
+        expect(resend).toMatch(/one-time sign-in codes/)
+        expect(clerk).toMatch(/^Former sign-in provider/)
+      } else {
+        expect(resend).not.toBe(en['security.subprocessors.purpose.resend'])
+        expect(clerk).not.toBe(en['security.subprocessors.purpose.clerk'])
+      }
+    }
+  )
 })

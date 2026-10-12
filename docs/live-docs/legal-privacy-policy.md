@@ -89,7 +89,7 @@ Lumo and most of its subprocessors process data in the United States. Where pers
 - All traffic to the Service is encrypted in transit with TLS.
 - Our database and file storage providers encrypt data at rest.
 - Integration access tokens are additionally encrypted with AES-256-GCM before they are stored.
-- Sign-in is handled by Lumo's own authentication service: your account and sessions are stored in our database (Neon), one-time sign-in codes are emailed to you through Resend, and you can choose to sign in with Google instead. Our previous sign-in provider, Clerk, no longer handles sign-in; it keeps the account data it already held until we delete it at the end of a short transition period. Access to workspace data is limited to members of that workspace.
+- Sign-in is handled by Lumo's own authentication service: your account and sessions are stored in our database (Neon), one-time sign-in codes are emailed to you through Resend, and you can choose to sign in with Google instead. Our previous sign-in provider, Clerk, no longer handles sign-in; it keeps the account data it already held, so that we can switch back if needed, until we delete it no later than 2026-11-11. Access to workspace data is limited to members of that workspace.
 - Security scans of your code run in isolated, short-lived sandboxes.
 
 ## Your rights
