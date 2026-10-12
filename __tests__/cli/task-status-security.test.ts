@@ -20,6 +20,12 @@ const SECURITY_ACTION = {
   line: 12,
 }
 
+/** LUM-1091: a `Label:  value` row of the report, whatever the label padding. */
+function row(label: string, value: string): RegExp {
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^ +${esc(label)}: +${esc(value)}$`, 'm')
+}
+
 function payload(over: Partial<TaskStatusResponse> = {}): TaskStatusResponse {
   return {
     version: 2,
@@ -55,12 +61,22 @@ describe('lumo task status — security findings (LUM-737)', () => {
         securityFindings: { open: 2, blocking: 1, unconfirmedPrs: [] },
       })
     )
-    expect(out).toContain('Next actions (2 security findings):')
+    expect(out).toContain('\nNext actions (2 security findings)\n')
     expect(out).toContain(
-      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
+      [
+        '  • [SECURITY] [HIGH] AWS access key id',
+        '    Rule:   secret:aws-access-key-id (DETERMINISTIC)',
+        '    Where:  lib/cfg.ts:12 · PR #12',
+        '    Gate:   blocks DONE',
+      ].join('\n')
     )
     expect(out).toContain(
-      '  • [SECURITY] [HIGH] LLM_JUDGE vuln:sqli — lib/q.ts — raw query (PR #12 · advisory)'
+      [
+        '  • [SECURITY] [HIGH] raw query',
+        '    Rule:   vuln:sqli (LLM_JUDGE)',
+        '    Where:  lib/q.ts · PR #12',
+        '    Gate:   advisory',
+      ].join('\n')
     )
     expect(out).toContain('Fix the findings and push')
     expect(out).toContain('human-only')
@@ -73,7 +89,7 @@ describe('lumo task status — security findings (LUM-737)', () => {
         securityFindings: { open: 1, blocking: 1, unconfirmedPrs: [] },
       })
     )
-    expect(out).toContain('Next actions (1 security finding):')
+    expect(out).toContain('\nNext actions (1 security finding)\n')
   })
 
   it('fails closed: null securityFindings prints could-not-confirm, unconfirmed PRs are listed', () => {
@@ -124,9 +140,8 @@ describe('lumo task status — security rendering details (LUM-737 review)', () 
     const out = formatTaskStatus(
       zeroCriteriaPayload({ nextActions: [SECURITY_ACTION] })
     )
-    expect(out).toContain(
-      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
-    )
+    expect(out).toContain('  • [SECURITY] [HIGH] AWS access key id\n')
+    expect(out).toMatch(row('Gate', 'blocks DONE'))
     expect(out).toContain('Fix the findings and push')
     expect(out).toContain('human-only')
   })
@@ -150,9 +165,11 @@ describe('lumo task status — security rendering details (LUM-737 review)', () 
         ],
       })
     )
-    expect(out).toContain(
-      '  • [SECURITY] [LOW] DETERMINISTIC secret:aws-access-key-id — __tests__/security-scan/hunt/compress.test.ts:219 — AWS access key id (PR #12 · advisory — placeholder value, downgraded)'
+    expect(out).toContain('  • [SECURITY] [LOW] AWS access key id\n')
+    expect(out).toMatch(
+      row('Where', '__tests__/security-scan/hunt/compress.test.ts:219 · PR #12')
     )
+    expect(out).toMatch(row('Gate', 'advisory — placeholder value, downgraded'))
   })
 
   it('leaves the line unchanged when the server sent no downgrade cause', () => {
@@ -161,9 +178,8 @@ describe('lumo task status — security rendering details (LUM-737 review)', () 
     const out = formatTaskStatus(
       zeroCriteriaPayload({ nextActions: [SECURITY_ACTION] })
     )
-    expect(out).toContain(
-      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
-    )
+    expect(out).toMatch(row('Gate', 'blocks DONE'))
+    expect(out).not.toMatch(/downgraded|— *$/m)
   })
 
   it('renders the fail-closed security-scan-failed line', () => {
@@ -215,9 +231,15 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
       })
     )
 
-    expect(out).toContain(
-      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 partly checked'
-    )
+    expect(out).toContain('  PR #12 · scan FINDINGS\n')
+    for (const [label, value] of [
+      ['Secrets', 'checked'],
+      ['Code scan', 'checked'],
+      ['Dependencies', 'checked'],
+      ['AI review', 'checked'],
+      ['Exploit paths', '\u26a0 partly checked'],
+    ])
+      expect(out).toMatch(row(label!, value!))
     for (const key of [
       'secrets RAN',
       'external RAN',
@@ -247,14 +269,14 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
         },
       })
     )
-    expect(out).toContain(
-      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked · 5 left the queue (3 resolved on main, 2 merged unreviewed)'
+    const block = (n: number) =>
+      out.split(`  PR #${n} · scan FINDINGS\n`)[1]!.split('  PR #')[0]!
+    expect(block(12)).toMatch(
+      row('Queue', '5 left the queue (3 resolved on main, 2 merged unreviewed)')
     )
-    expect(out).toContain(
-      '  PR #13 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked\n'
-    )
-    expect(out).not.toMatch(/PR #13 .*left the queue/)
-    expect(out).not.toMatch(/PR #14 .*left the queue/)
+    expect(block(13)).toMatch(row('AI review', 'checked'))
+    expect(block(13)).not.toContain('left the queue')
+    expect(block(14)).not.toContain('left the queue')
   })
 
   it('prints the supplyChain segment in order with the dependency count and its already-on-main share', () => {
@@ -268,9 +290,14 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
         },
       })
     )
-    expect(out).toContain(
-      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked (3 dependency findings, 2 already on main) · AI review: checked'
+    expect(out).toMatch(
+      row('Dependencies', 'checked (3 dependency findings, 2 already on main)')
     )
+    // layer order: secrets, external, supplyChain, judge
+    const order = ['Secrets:', 'Code scan:', 'Dependencies:', 'AI review:'].map(
+      l => out.indexOf(l)
+    )
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 
   it('singular, zero, skipped, and an older server without the counts', () => {
@@ -285,9 +312,7 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
           },
         })
       )
-    ).toContain(
-      'Dependencies: checked (1 dependency finding) · AI review: checked'
-    )
+    ).toMatch(row('Dependencies', 'checked (1 dependency finding)'))
     expect(
       formatTaskStatus(
         payload({
@@ -304,7 +329,7 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
           },
         })
       )
-    ).toContain('Secrets: checked · Dependencies: skipped')
+    ).toMatch(/^ +Secrets: +checked\n +Dependencies: +skipped$/m)
     // Older server: no counts → the segment is still printed, bare.
     expect(
       formatTaskStatus(
@@ -317,8 +342,8 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
           },
         })
       )
-    ).toContain(
-      'Code scan: checked · Dependencies: checked · AI review: checked'
+    ).toMatch(
+      /^ +Code scan: +checked\n +Dependencies: +checked\n +AI review: +checked$/m
     )
   })
 })
@@ -343,17 +368,20 @@ describe('LUM-988 code-review findings in lumo task status', () => {
         ],
       })
     )
-    expect(out).toContain('Next actions (1 security finding · 1 bug):')
+    expect(out).toContain('\nNext actions (1 security finding · 1 bug)\n')
+    expect(out).toContain('  • [SECURITY] [HIGH] AWS access key id\n')
     expect(out).toContain(
-      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id'
-    )
-    expect(out).toContain(
-      '  • [BUG] [MEDIUM] LLM_JUDGE review:logic_error — lib/q.ts:3 — Inverted guard'
+      [
+        '  • [BUG] [MEDIUM] Inverted guard',
+        '    Rule:   review:logic_error (LLM_JUDGE)',
+        '    Where:  lib/q.ts:3 · PR #12',
+        '    Gate:   advisory',
+      ].join('\n')
     )
   })
 
   it('keeps the old heading when there is no bug', () => {
     const out = formatTaskStatus(payload({ nextActions: [SECURITY_ACTION] }))
-    expect(out).toContain('Next actions (1 security finding):')
+    expect(out).toContain('\nNext actions (1 security finding)\n')
   })
 })

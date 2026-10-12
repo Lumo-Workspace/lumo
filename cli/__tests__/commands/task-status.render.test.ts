@@ -28,7 +28,7 @@ function baseResponse(
 describe('task status struggle/rework section', () => {
   it('LUM-561 always renders the section even on a clean task', () => {
     const out = formatTaskStatus(baseResponse(), FULL)
-    expect(out).toMatch(/Struggle \/ rework:/)
+    expect(out).toMatch(/^Struggle \/ rework$/m)
   })
 
   it('LUM-561 empty trail cites its basis, not a bare nothing-outstanding', () => {
@@ -62,8 +62,8 @@ describe('task status struggle/rework section', () => {
     expect(out).toMatch(/3 PRs/)
     expect(out).toMatch(/#654/)
     expect(out).toMatch(/#660/)
-    expect(out).toMatch(/Reopened 2/i)
-    expect(out).toMatch(/IN_REVIEW → IN_PROGRESS/)
+    expect(out).toMatch(/^ {2}Reopened: +2× /m)
+    expect(out).toMatch(/^ {4}IN_REVIEW → IN_PROGRESS$/m)
   })
 
   it('LUM-561 a single PR is the happy path and does not mark the trail non-empty', () => {
@@ -111,10 +111,10 @@ describe('task status Trend section (LUM-562)', () => {
       FULL
     )
     expect(out).toMatch(/Trend \(2 sessions\)/)
-    expect(out).toMatch(/Cost\/session: 4\.2K → 1\.1K tokens/)
+    expect(out).toMatch(/^ {2}Cost\/session: +4\.2K → 1\.1K tokens/m)
     expect(out).toMatch(/↓/)
-    expect(out).toMatch(/5\.3K total/)
-    expect(out).toMatch(/Rework: 2 accrued — 1 reopen, \+1 PR cycle/)
+    expect(out).toMatch(/^ {2}Total: +5\.3K tokens over 2 sessions$/m)
+    expect(out).toMatch(/^ {2}Rework: +2 accrued — 1 reopen, \+1 PR cycle/m)
     expect(out).not.toMatch(/Pass rate/)
   })
 
@@ -135,7 +135,7 @@ describe('task status Trend section (LUM-562)', () => {
       }),
       FULL
     )
-    expect(out).toMatch(/Trend:/)
+    expect(out).toMatch(/^Trend$/m)
     expect(out).toMatch(/no trajectory yet/i)
     expect(out).toMatch(/needs ≥2 sessions/i)
     // never draws a fake direction arrow off a single value
