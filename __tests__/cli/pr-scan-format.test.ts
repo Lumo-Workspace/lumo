@@ -235,9 +235,11 @@ describe('formatPrScan', () => {
     )
     expect(out).toBe(
       [
-        'PR #1013 · Lumo-Workspace/lumo · open · no linked task',
-        'feat: size the hunt by diff [LUM-787]',
-        'https://github.com/Lumo-Workspace/lumo/pull/1013',
+        'PR #1013  feat: size the hunt by diff [LUM-787]',
+        '  Repo:   Lumo-Workspace/lumo',
+        '  State:  open',
+        '  Task:   no linked task',
+        '  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013',
         '',
         '⚠ No security scan has run for PR #1013 — could not confirm it is clean.',
         '',
@@ -326,34 +328,81 @@ describe('formatPrScan', () => {
       })
     )
     const lines = out.split('\n')
-    expect(lines[0]).toBe(
-      'PR #1013 · Lumo-Workspace/lumo · merged · task LUM-787'
-    )
-    expect(lines[4]).toBe(
-      'Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished 2026-09-15T07:04:00.000Z · trigger PR_EVENT · 61,000 tokens'
-    )
-    expect(lines[5]).toBe(
-      "  Secrets: checked · Code scan: ⚠ didn't finish (1 external finding) · Dependencies: checked (1 dependency finding, 1 already on main) · AI review: checked · Exploit paths: checked · part of this scan hasn't finished on our side — not counted as checked · 1 left the queue (1 merged unreviewed) — gitleaks exit 2"
-    )
-    // LUM-814: the judge's own arithmetic sits under the layer line, ahead of
-    // the hunt's detail — stage order, matching the segments above.
-    expect(lines[6]).toBe('    AI review budget: not recorded on this scan')
-    expect(lines[7]).toBe(
-      '    Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts) · t3 race skipped'
-    )
-    expect(lines[8]).toBe(
-      '  Findings: 6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)'
-    )
-    expect(lines.slice(9, 15)).toEqual([
-      '    [HIGH] DETERMINISTIC secret:aws-access-key-id — src/cfg.ts:12 — AWS access key id (blocks DONE)',
-      '    [LOW] DETERMINISTIC secret:generic-api-key — src/cfg.ts:12 — AWS access key id — placeholder value, downgraded (FALSE_POSITIVE · human · "doc example")',
-      '    [MEDIUM] EXTERNAL_TOOL ext:codeql:js/sql-injection — src/cfg.ts — AWS access key id (ACCEPTED_RISK · inherited from an earlier scan of this PR)',
-      '    [HIGH] EXTERNAL_TOOL dep:osv:GHSA-1 — package-lock.json — AWS access key id (already on main)',
-      '    [MEDIUM] LLM_JUDGE hunt:idor — src/cfg.ts:12 — AWS access key id (FALSE_POSITIVE · AI-suggested, human-confirmed · falsifier INCONCLUSIVE)',
-      '    [LOW] LLM_JUDGE vuln:xss — src/cfg.ts:12 — AWS access key id (merged unreviewed · AI suggests FALSE_POSITIVE)',
+    expect(lines.slice(0, 5)).toEqual([
+      'PR #1013  feat: size the hunt by diff [LUM-787]',
+      '  Repo:   Lumo-Workspace/lumo',
+      '  State:  merged',
+      '  Task:   LUM-787',
+      '  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013',
     ])
+    // LUM-1091: the scan is a heading over labelled rows — one per fact.
+    expect(lines.slice(5, 28)).toEqual([
+      '',
+      'Scan abcdef0 · FINDINGS',
+      '  Started:        2026-09-15T07:00:00.000Z',
+      '  Finished:       2026-09-15T07:04:00.000Z',
+      '  Trigger:        PR_EVENT',
+      '  Tokens:         61,000',
+      '  Secrets:        checked',
+      "  Code scan:      ⚠ didn't finish (1 external finding) — gitleaks exit 2",
+      '  Dependencies:   checked (1 dependency finding, 1 already on main)',
+      '  AI review:      checked',
+      // LUM-814: the judge's own arithmetic sits under its layer, ahead of
+      // the hunt's detail — stage order.
+      '    AI review budget: not recorded on this scan',
+      '  Exploit paths:  checked',
+      '    2/3 planned tasks done',
+      '    t1  idor       41.2s  done',
+      '    t2  injection  72.0s  done (2 attempts)',
+      '    t3  race              skipped',
+      "  Note:           part of this scan hasn't finished on our side — not counted as checked",
+      '  Queue:          1 left the queue (1 merged unreviewed)',
+      '  Findings:       6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)',
+      '    • [HIGH] AWS access key id',
+      '      Rule:      secret:aws-access-key-id (DETERMINISTIC)',
+      '      Where:     src/cfg.ts:12',
+      '      Standing:  blocks DONE',
+    ])
+    expect(out).toContain(
+      [
+        '    • [LOW] AWS access key id',
+        '      Rule:      secret:generic-api-key (DETERMINISTIC)',
+        '      Where:     src/cfg.ts:12',
+        '      Standing:  FALSE_POSITIVE · human · "doc example" — placeholder value, downgraded',
+      ].join('\n')
+    )
+    expect(out).toContain(
+      [
+        '      Rule:      ext:codeql:js/sql-injection (EXTERNAL_TOOL)',
+        '      Where:     src/cfg.ts',
+        '      Standing:  ACCEPTED_RISK · inherited from an earlier scan of this PR',
+      ].join('\n')
+    )
+    expect(out).toContain(
+      [
+        '      Rule:      dep:osv:GHSA-1 (EXTERNAL_TOOL)',
+        '      Where:     package-lock.json',
+        '      Standing:  already on main',
+      ].join('\n')
+    )
+    expect(out).toContain(
+      [
+        '      Rule:       hunt:idor (LLM_JUDGE)',
+        '      Where:      src/cfg.ts:12',
+        '      Standing:   FALSE_POSITIVE · AI-suggested, human-confirmed',
+        '      Falsifier:  INCONCLUSIVE',
+      ].join('\n')
+    )
+    expect(out).toContain(
+      [
+        '      Rule:         vuln:xss (LLM_JUDGE)',
+        '      Where:        src/cfg.ts:12',
+        '      Standing:     merged unreviewed',
+        '      AI suggests:  FALSE_POSITIVE',
+      ].join('\n')
+    )
     // Default read-out stops at the findings — the per-task detail is --full.
-    expect(out).not.toContain('Hunt:')
+    expect(out).not.toContain('Hunt audit')
     expect(out).not.toContain('stop:')
   })
 
@@ -362,18 +411,28 @@ describe('formatPrScan', () => {
       full: true,
     })
     const lines = out.split('\n')
-    const at = lines.indexOf(
-      '  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · this run was sized for fewer files than the diff — the rest is still on us · candidates 2 · mechanically rejected 1 · placed by subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1 · survived 1 · rejected 1 · falsifier rejects 1'
-    )
+    const at = lines.indexOf('  Hunt audit:')
     expect(at).toBeGreaterThan(0)
     expect(lines.slice(at + 1, at + 9)).toEqual([
+      '    Planned by:             model — two sinks lit',
+      '    Diff:',
+      '      14 source files · 9 sites · task cap 4 · this run was sized for fewer files than the diff —',
+      '      the rest is still on us',
+      '    Candidates:             2',
+      '    Mechanically rejected:  1',
+      '    Placed by:              subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1',
+      '    Outcome:                survived 1 · rejected 1',
+    ])
+    expect(lines.slice(at + 9, at + 19)).toEqual([
+      '    Falsifier rejects:      1',
+      '  Hunt tasks:',
       '    t1 done · alibaba/qwen3-coder-plus · 3 sites · 2 cmds (gate refused 1, sandbox failed 0, not found 0, empty 0)',
-      '          rg -n queryRaw lib/  [900 chars]',
-      '        ✗ curl https://evil.test   ← segment is not read-only',
-      '        stop: submitted · spent 9800/30000 · reserve 4400 · last step 4300 · next 4400 · 3 steps',
-      '        wrap-up: not made (submitted)',
+      '      - rg -n queryRaw lib/  [900 chars]',
+      '      ✗ curl https://evil.test   ← segment is not read-only',
+      '      stop: submitted · spent 9800/30000 · reserve 4400 · last step 4300 · next 4400 · 3 steps',
+      '      wrap-up: not made (submitted)',
       '    t2 steps · alibaba/qwen3-coder-plus · 6 sites · no shell commands',
-      '        stop: steps · spent 19000/30000 · reserve 0 · last step ? · 4 steps',
+      '      stop: steps · spent 19000/30000 · reserve 0 · last step ? · 4 steps',
       '',
     ])
   })
@@ -383,8 +442,10 @@ describe('formatPrScan', () => {
       payload({ scans: [scan({ hunt: { ...HUNT, resolution: null } })] }),
       { full: true }
     )
-    expect(out).toContain('mechanically rejected 1 · falsifier rejects 1')
-    expect(out).not.toContain('placed by')
+    expect(out).toMatch(
+      /^ {4}Mechanically rejected: +1\n {4}Falsifier rejects: +1$/m
+    )
+    expect(out).not.toContain('Placed by')
   })
 
   it('LUM-798 follow-up prints the first tally shape as legacy, never mixed in', () => {
@@ -410,10 +471,11 @@ describe('formatPrScan', () => {
       }),
       { full: true }
     )
-    expect(out).toContain(
-      'resolved by subgraph 1 · sink rule 0 · sandbox 0 · rejected 1 (legacy tally — placements counted only on acceptance)'
+    expect(out).toMatch(/^ {4}Resolved by:/m)
+    expect(out.replace(/\s+/g, ' ')).toContain(
+      'Resolved by: subgraph 1 · sink rule 0 · sandbox 0 · rejected 1 (legacy tally — placements counted only on acceptance)'
     )
-    expect(out).not.toContain('placed by')
+    expect(out).not.toContain('Placed by')
   })
 
   it('says when a scan has no findings, when tokens were not metered, and lists every head under --all', () => {
@@ -435,14 +497,27 @@ describe('formatPrScan', () => {
     )
     expect(out).toContain('2 scans on record, newest first')
     expect(out).toContain(
-      'Scan abcdef0 · CLEAN · started 2026-09-15T07:00:00.000Z · not finished · trigger PR_EVENT · tokens not metered'
+      [
+        'Scan abcdef0 · CLEAN',
+        '  Started:        2026-09-15T07:00:00.000Z',
+        '  Finished:       not finished',
+        '  Trigger:        PR_EVENT',
+        '  Tokens:         not metered',
+      ].join('\n')
     )
-    expect(out).toContain('  Findings: none on this scan')
+    expect(out).toMatch(/^ {2}Findings: +none on this scan$/m)
     expect(out).toContain(
-      'Scan 0123456 · FAILED · started 2026-09-15T07:00:00.000Z · finished 2026-09-15T07:04:00.000Z · trigger PR_EVENT · 61,000 tokens'
-    )
-    expect(out).toContain(
-      "  Secrets: checked · AI review: ⚠ didn't finish · part of this scan hasn't finished on our side — not counted as checked"
+      [
+        'Scan 0123456 · FAILED',
+        '  Started:    2026-09-15T07:00:00.000Z',
+        '  Finished:   2026-09-15T07:04:00.000Z',
+        '  Trigger:    PR_EVENT',
+        '  Tokens:     61,000',
+        '  Secrets:    checked',
+        "  AI review:  ⚠ didn't finish",
+        '    AI review budget: not recorded on this scan',
+        "  Note:       part of this scan hasn't finished on our side — not counted as checked",
+      ].join('\n')
     )
   })
 
@@ -499,9 +574,18 @@ describe('formatPrScan', () => {
         ],
       },
     })
-    const statusLine = status
-      .split('\n')
-      .find(l => l.startsWith('  PR #1013 · scan FINDINGS'))!
+    // LUM-1091: both print the same layer rows (labels + values); only the
+    // indent and the label padding differ.
+    const rows = (text: string, from: string, to: RegExp) => {
+      const tail = text.split(from)[1]!
+      return tail
+        .split('\n')
+        .slice(1)
+        .filter(l => /^ +[A-Z][\w ]*: /.test(l))
+        .filter(l => !to.test(l))
+        .map(l => l.trim().replace(/: +/, ': '))
+    }
+    const statusRows = rows(status, '  PR #1013 · scan FINDINGS', /^$/)
     const scanOut = formatPrScan(
       payload({
         scans: [
@@ -520,10 +604,13 @@ describe('formatPrScan', () => {
         ],
       })
     )
-    const scanLine = scanOut.split('\n')[5]!
-    expect(statusLine.replace('  PR #1013 · scan FINDINGS · ', '')).toBe(
-      scanLine.replace(/^  /, '')
+    const scanRows = rows(
+      scanOut,
+      'Scan abcdef0 · FINDINGS',
+      /^ +(Started|Finished|Trigger|Tokens|Findings|AI review budget):/
     )
+    expect(statusRows.length).toBeGreaterThan(4)
+    expect(scanRows).toEqual(statusRows)
   })
 })
 
@@ -577,7 +664,7 @@ describe('prScan (command)', () => {
     expect(log.mock.calls[0]![0]).toContain(
       '2 suspected credentials were redacted'
     )
-    expect(stdout.mock.calls[0]![0]).toContain('PR #1013 · Lumo-Workspace/lumo')
+    expect(stdout.mock.calls[0]![0]).toContain('  Repo:   Lumo-Workspace/lumo')
     log.mockRestore()
   })
 
@@ -723,10 +810,17 @@ describe('LUM-988 code-review findings in lumo pr scan', () => {
         ],
       })
     )
-    expect(out).toMatch(
-      /\[BUG\] \[MEDIUM\] LLM_JUDGE review:logic_error — src\/cfg\.ts:12 — Inverted guard/
+    expect(out).toContain(
+      [
+        '    • [BUG] [MEDIUM] Inverted guard',
+        '      Rule:      review:logic_error (LLM_JUDGE)',
+        '      Where:     src/cfg.ts:12',
+        '      Standing:  advisory',
+      ].join('\n')
     )
-    expect(out).toMatch(/^ {4}\[HIGH\] DETERMINISTIC secret:aws-access-key-id/m)
+    expect(out).toContain(
+      '    • [HIGH] AWS access key id\n      Rule:      secret:aws-access-key-id (DETERMINISTIC)'
+    )
   })
 })
 
@@ -753,6 +847,8 @@ describe('LUM-988 verifier verdict in lumo pr scan', () => {
         ],
       })
     )
-    expect(out).toContain('(rejected by verifier — "guarded at src/a.ts:12")')
+    expect(out).toMatch(
+      /^ {6}Standing: +rejected by verifier — "guarded at src\/a\.ts:12"$/m
+    )
   })
 })
