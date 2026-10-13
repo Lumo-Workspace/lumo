@@ -33,7 +33,7 @@ export async function POST(
 
   const { jobId } = genResult
 
-  const workspace = await statsRepository.findWorkspaceSummaryLocale(
+  const workspace = await statsRepository.findWorkspaceDefaultLocale(
     project.workspaceId
   )
 
@@ -47,7 +47,7 @@ export async function POST(
         const { tldr, report } = await generateProjectReport(stats, {
           projectName: projectRecord?.name ?? 'Unknown',
           projectDescription: projectRecord?.description ?? null,
-          locale: workspace?.summaryLocale ?? 'en',
+          locale: workspace?.defaultLocale ?? 'en',
         })
         const summary = await summaryService.createProjectSummary(
           projectId,

@@ -20,8 +20,7 @@ export interface WorkspaceUpdateData {
   logoUrl?: string | null
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency | string
-  summaryLocale?: string
-  /** LUM-1097: default language (Slack channel posts, DM fallback). */
+  /** LUM-1097: default language (Slack, DM fallback, LUM-1117 AI summaries). */
   defaultLocale?: string
   /** LUM-859: raw hook-event retention in days; null = keep forever. */
   hookEventRetentionDays?: number | null

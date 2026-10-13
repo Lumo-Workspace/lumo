@@ -380,11 +380,14 @@ model Workspace {
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
+  /// @deprecated LUM-1117: merged into defaultLocale and no longer written or
+  /// read (phase 1 backfilled it); phase 2 drops the column.
   summaryLocale    String           @default("en")
 
   // LUM-1097: the workspace's default language — Slack channel posts are
   // written in it, and so are DMs to members who have no language preference
-  // of their own. Same codes as UserPreference.locale (lib/i18n/public-locale.ts).
+  // of their own; LUM-1117: AI summaries too (English for languages other
+  // than English and Chinese). Same codes as UserPreference.locale (lib/i18n/public-locale.ts).
   defaultLocale String @default("en")
 
   // LUM-426: default-ON DONE gate. Opting out (false) drops the boundary-crossing

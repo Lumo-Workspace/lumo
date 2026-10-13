@@ -8,6 +8,7 @@ import {
   SUMMARY_SYSTEM_PROMPT_ZH,
   buildProjectPrompt,
   buildWorkspacePrompt,
+  summarySystemPrompt,
 } from '@/lib/summaries/report'
 import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
 
@@ -84,4 +85,18 @@ describe('system prompts', () => {
     expect(SUMMARY_SYSTEM_PROMPT_ZH).toContain('## 今日关注')
     expect(SUMMARY_SYSTEM_PROMPT_ZH).not.toContain('## 风险')
   })
+})
+
+describe('summarySystemPrompt (LUM-1117: keyed by defaultLocale)', () => {
+  it('writes Chinese for the Chinese locales', () => {
+    expect(summarySystemPrompt('zh-CN')).toBe(SUMMARY_SYSTEM_PROMPT_ZH)
+    expect(summarySystemPrompt('zh-TW')).toBe(SUMMARY_SYSTEM_PROMPT_ZH)
+  })
+
+  it.each([['en'], ['en-GB'], ['ja'], ['fr'], ['es-419'], ['']])(
+    'falls back to English for %p',
+    locale => {
+      expect(summarySystemPrompt(locale)).toBe(SUMMARY_SYSTEM_PROMPT_EN)
+    }
+  )
 })

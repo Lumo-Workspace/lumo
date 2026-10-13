@@ -15,10 +15,11 @@ export const statsRepository = {
     })
   },
 
-  async findWorkspaceSummaryLocale(workspaceId: string) {
+  /** LUM-1117: AI summaries are written in the workspace's default language. */
+  async findWorkspaceDefaultLocale(workspaceId: string) {
     return prisma.workspace.findUnique({
       where: { id: workspaceId },
-      select: { summaryLocale: true },
+      select: { defaultLocale: true },
     })
   },
 
