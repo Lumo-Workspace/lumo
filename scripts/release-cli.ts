@@ -375,7 +375,7 @@ export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
     if (
       fail(
         'deploy',
-        `cannot read the production deployment (${errMessage(e)}) — failing closed; check \`vercel login\` / \`vercel link\``
+        `cannot confirm the production deployment (${errMessage(e)}) — failing closed`
       )
     ) {
       return 1
@@ -540,13 +540,27 @@ function sh(cmd: string, args: string[], cwd: string): string {
  * keep `status` so callers can still branch on the exit code.
  */
 export function withStderrReason(cmd: string, e: unknown): Error {
-  const err = e as { status?: number | null; stderr?: unknown }
+  const err = e as {
+    status?: number | null
+    stderr?: unknown
+    code?: unknown
+    message?: unknown
+  }
   const stderr = typeof err.stderr === 'string' ? err.stderr : ''
-  const reason = stderr
-    .split('\n')
-    .map(l => l.trim())
-    .filter(Boolean)
-    .pop()
+  // No stderr = the process never ran or was cut off (ENOENT, maxBuffer):
+  // fall back to the spawn error's code / message so the cause survives.
+  const spawnReason =
+    typeof err.code === 'string'
+      ? err.code
+      : typeof err.message === 'string'
+        ? err.message.split('\n')[0]
+        : undefined
+  const reason =
+    stderr
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean)
+      .pop() ?? spawnReason
   const message = `${cmd} failed${typeof err.status === 'number' ? ` (exit ${err.status})` : ''}${reason ? `: ${reason.slice(0, 200)}` : ''}`
   return Object.assign(new Error(message), { status: err.status })
 }
@@ -660,11 +674,18 @@ export function createVercel(cwd: string): ReleaseVercel {
   return {
     productionDeployment: () => {
       const { projectId, orgId } = readVercelProject(cwd)
-      const raw = sh(
-        'vercel',
-        ['api', `/v9/projects/${projectId}?teamId=${orgId}`, '--raw'],
-        cwd
-      )
+      let raw: string
+      try {
+        raw = sh(
+          'vercel',
+          ['api', `/v9/projects/${projectId}?teamId=${orgId}`, '--raw'],
+          cwd
+        )
+      } catch (e) {
+        throw new Error(
+          `${errMessage(e)}; check \`vercel login\` / \`vercel link\``
+        )
+      }
       const project = parseJson<{
         targets?: {
           production?: {

@@ -565,6 +565,13 @@ describe('release-cli: withStderrReason', () => {
     )
     expect((err as Error & { status?: number }).status).toBe(1)
     expect(withStderrReason('git', {}).message).toBe('git failed')
+    // spawn failures have no stderr: keep the error code
+    expect(
+      withStderrReason('vercel', {
+        code: 'ENOENT',
+        message: 'spawnSync vercel ENOENT',
+      }).message
+    ).toBe('vercel failed: ENOENT')
   })
 })
 
@@ -579,7 +586,7 @@ describe('release-cli: deploy step error reporting', () => {
     const text = out.join('\n')
     expect(text).toContain('cannot tell whether production')
     expect(text).toContain('Not a valid commit name')
-    expect(text).not.toContain('cannot read the production deployment')
+    expect(text).not.toContain('cannot confirm the production deployment')
   })
 })
 
