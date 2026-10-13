@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "기본 언어",
   "workspaceSettings.defaultLanguageDesc": "Slack 채널 메시지는 이 언어로 작성되며, 자신의 언어를 선택하지 않은 멤버에게 보내는 Slack DM도 마찬가지입니다.",
   "workspaceSettings.defaultLanguageUpdated": "기본 언어가 업데이트되었습니다",
-  "workspaceSettings.defaultLanguageUpdateFailed": "기본 언어를 업데이트하지 못했습니다"
+  "workspaceSettings.defaultLanguageUpdateFailed": "기본 언어를 업데이트하지 못했습니다",
+  "workspaceSettings.policyCoverage.title": "자동으로 검사되지 않는 규칙",
+  "workspaceSettings.policyCoverage.description": "각 프로젝트의 CLAUDE.md / AGENTS.md 중 어떤 자동 검사로도 확인되지 않는 규칙입니다. Lumo는 이 규칙의 위반을 표시하지 않으니 직접 확인하세요.",
+  "workspaceSettings.policyCoverage.loading": "규칙 검사 범위를 확인하는 중…",
+  "workspaceSettings.policyCoverage.loadFailed": "규칙 검사 범위를 불러오지 못했습니다. 모든 규칙이 검사된다는 뜻은 아닙니다.",
+  "workspaceSettings.policyCoverage.noProjects": "아직 프로젝트가 없습니다.",
+  "workspaceSettings.policyCoverage.notCompiled": "아직 규칙을 읽지 않았습니다. 작업이 시작되면 Lumo가 프로젝트에 연결된 저장소에서 CLAUDE.md 또는 AGENTS.md를 읽습니다.",
+  "workspaceSettings.policyCoverage.allChecked": "{total}개 규칙이 모두 자동으로 검사됩니다.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{total}개 규칙 중 {unchecked}개는 자동으로 검사되지 않습니다.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "명령이나 프로세스에 대한 판단이 필요합니다. 이런 종류의 규칙에 대한 자동 검사는 아직 없습니다.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "이 규칙은 AI 리뷰로만 검사되는데, 위에서 AI 리뷰가 꺼져 있습니다."
 }

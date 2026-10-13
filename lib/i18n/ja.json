@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "既定の言語",
   "workspaceSettings.defaultLanguageDesc": "Slack チャンネルへのメッセージはこの言語で書かれます。自分の言語を選んでいないメンバーへの Slack DM も同様です。",
   "workspaceSettings.defaultLanguageUpdated": "既定の言語を更新しました",
-  "workspaceSettings.defaultLanguageUpdateFailed": "既定の言語を更新できませんでした"
+  "workspaceSettings.defaultLanguageUpdateFailed": "既定の言語を更新できませんでした",
+  "workspaceSettings.policyCoverage.title": "自動チェックされないルール",
+  "workspaceSettings.policyCoverage.description": "各プロジェクトの CLAUDE.md / AGENTS.md のうち、どの自動チェックの対象にもならないルールです。Lumo はこれらの違反を検出しないため、ご自身で確認してください。",
+  "workspaceSettings.policyCoverage.loading": "ルールの対象範囲を確認しています…",
+  "workspaceSettings.policyCoverage.loadFailed": "ルールの対象範囲を読み込めませんでした。すべてのルールがチェックされているという意味ではありません。",
+  "workspaceSettings.policyCoverage.noProjects": "プロジェクトはまだありません。",
+  "workspaceSettings.policyCoverage.notCompiled": "ルールはまだ読み込まれていません。作業が始まると、Lumo はプロジェクトに連携したリポジトリから CLAUDE.md または AGENTS.md を読み込みます。",
+  "workspaceSettings.policyCoverage.allChecked": "{total} 件すべてのルールが自動でチェックされます。",
+  "workspaceSettings.policyCoverage.someUnchecked": "{total} 件中 {unchecked} 件のルールは自動でチェックされません。",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "コマンドやプロセスについての判断が必要です。この種類のルールの自動チェックはまだありません。",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "このルールは AI レビューでのみチェックされますが、上で AI レビューがオフになっています。"
 }
