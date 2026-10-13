@@ -133,7 +133,8 @@ export const summaryService = {
       const workspaceStats = await aggregateWorkspaceStats(workspace.id)
       const { tldr, report } = await generateWorkspaceReport(workspaceStats, {
         workspaceName: workspace.name,
-        locale: workspace.summaryLocale,
+        // LUM-1117: the workspace's one language field.
+        locale: workspace.defaultLocale,
       })
 
       const workspaceSummary = await this.createWorkspaceSummary(

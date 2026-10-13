@@ -36,7 +36,12 @@ describe('installed (the security plugin)', () => {
 
   it('serves the whole row, with the platform ceiling, as before the split', () => {
     const row = Object.fromEntries(WORKSPACE_COLUMNS.map(c => [c, `v-${c}`]))
-    expect(settings.serializeWorkspaceSettings(row)).toEqual(row)
+    // LUM-1117: summaryLocale is served as the summary language of
+    // defaultLocale ('v-defaultLocale' → 'en'), never the stale column.
+    expect(settings.serializeWorkspaceSettings(row)).toEqual({
+      ...row,
+      summaryLocale: 'en',
+    })
     expect(Object.keys(settings.pluginMeFields())).toEqual(['securityPlatform'])
     expect(
       settings.unownedWorkspaceColumns({ securityScanEnabled: false })
