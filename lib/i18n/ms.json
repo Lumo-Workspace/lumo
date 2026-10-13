@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "Bahasa lalai",
   "workspaceSettings.defaultLanguageDesc": "Mesej saluran Slack ditulis dalam bahasa ini, begitu juga DM Slack kepada ahli yang belum memilih bahasa mereka sendiri.",
   "workspaceSettings.defaultLanguageUpdated": "Bahasa lalai dikemas kini",
-  "workspaceSettings.defaultLanguageUpdateFailed": "Gagal mengemas kini bahasa lalai"
+  "workspaceSettings.defaultLanguageUpdateFailed": "Gagal mengemas kini bahasa lalai",
+  "workspaceSettings.policyCoverage.title": "Peraturan yang tidak disemak secara automatik",
+  "workspaceSettings.policyCoverage.description": "Peraturan daripada CLAUDE.md / AGENTS.md setiap projek yang tidak diliputi oleh mana-mana semakan automatik. Lumo tidak akan menanda pelanggarannya, jadi semak sendiri.",
+  "workspaceSettings.policyCoverage.loading": "Menyemak liputan peraturan…",
+  "workspaceSettings.policyCoverage.loadFailed": "Tidak dapat memuatkan liputan peraturan. Ini tidak bermakna semua peraturan disemak.",
+  "workspaceSettings.policyCoverage.noProjects": "Belum ada projek.",
+  "workspaceSettings.policyCoverage.notCompiled": "Belum ada peraturan dibaca. Lumo membaca CLAUDE.md atau AGENTS.md daripada repositori yang dipautkan ke projek apabila kerja bermula.",
+  "workspaceSettings.policyCoverage.allChecked": "Kesemua {total} peraturan disemak secara automatik.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} daripada {total} peraturan tidak disemak secara automatik.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Memerlukan pertimbangan tentang arahan atau proses. Belum ada semakan automatik untuk jenis peraturan ini.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya semakan AI yang menyemak peraturan ini, dan semakan AI dimatikan di atas."
 }

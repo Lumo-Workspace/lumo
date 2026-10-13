@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "डिफ़ॉल्ट भाषा",
   "workspaceSettings.defaultLanguageDesc": "Slack चैनल संदेश इसी भाषा में लिखे जाते हैं, और उन सदस्यों को भेजे जाने वाले Slack DM भी जिन्होंने अपनी भाषा नहीं चुनी है।",
   "workspaceSettings.defaultLanguageUpdated": "डिफ़ॉल्ट भाषा अपडेट की गई",
-  "workspaceSettings.defaultLanguageUpdateFailed": "डिफ़ॉल्ट भाषा अपडेट नहीं हो सकी"
+  "workspaceSettings.defaultLanguageUpdateFailed": "डिफ़ॉल्ट भाषा अपडेट नहीं हो सकी",
+  "workspaceSettings.policyCoverage.title": "ऐसे नियम जिनकी अपने-आप जाँच नहीं होती",
+  "workspaceSettings.policyCoverage.description": "हर प्रोजेक्ट की CLAUDE.md / AGENTS.md के वे नियम जिन्हें कोई स्वचालित जाँच कवर नहीं करती। Lumo इनके उल्लंघन को चिह्नित नहीं करेगा, इसलिए इन्हें स्वयं जाँचें।",
+  "workspaceSettings.policyCoverage.loading": "नियमों की कवरेज जाँची जा रही है…",
+  "workspaceSettings.policyCoverage.loadFailed": "नियमों की कवरेज लोड नहीं हो सकी। इसका मतलब यह नहीं कि हर नियम की जाँच होती है।",
+  "workspaceSettings.policyCoverage.noProjects": "अभी कोई प्रोजेक्ट नहीं है।",
+  "workspaceSettings.policyCoverage.notCompiled": "अभी तक कोई नियम नहीं पढ़ा गया। काम शुरू होने पर Lumo प्रोजेक्ट से जुड़ी रिपॉज़िटरी से CLAUDE.md या AGENTS.md पढ़ता है।",
+  "workspaceSettings.policyCoverage.allChecked": "सभी {total} नियमों की अपने-आप जाँच होती है।",
+  "workspaceSettings.policyCoverage.someUnchecked": "{total} में से {unchecked} नियमों की अपने-आप जाँच नहीं होती।",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "इसके लिए कमांड या प्रक्रिया पर निर्णय चाहिए। इस तरह के नियम के लिए अभी कोई स्वचालित जाँच नहीं है।",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "इस नियम की जाँच सिर्फ़ AI समीक्षा करती है, और ऊपर AI समीक्षा बंद है।"
 }

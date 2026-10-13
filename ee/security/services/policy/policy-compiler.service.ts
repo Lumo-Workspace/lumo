@@ -27,6 +27,7 @@ import { logger } from '@/lib/logger'
 import { recordPolicyWeakening } from '@/lib/services/boundary-crossing-policy-weakening.service'
 import { isObligationText } from './rule-polarity'
 import { pushRuleShape } from './push-rule'
+import { dedupeRules } from './rule-dedupe'
 import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
 
 /**
@@ -36,7 +37,7 @@ import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
  * of serving a stale rule set until someone edits the doc (LUM-770: the stored
  * policies carried the tsc-obligation-as-prohibition rule).
  */
-export const COMPILER_VERSION = 'lum963'
+export const COMPILER_VERSION = 'lum1114'
 
 // ── In-memory source cache ────────────────────────────────────────────────────
 // Avoids 2 GitHub API reads on every PostToolUse event (ensureCompiled hot path).
@@ -68,7 +69,7 @@ export function __resetInflight(): void {
 // rule mapped to SENSITIVE_PATH_READ ADDS a path to the built-in credential
 // stores; that category is advisory-only, so its rules never block DONE
 // whatever `blocking` says.
-const BUILTIN_CATEGORIES = [
+export const BUILTIN_CATEGORIES = [
   'PUSH_TO_PROTECTED_BRANCH',
   'MIGRATION_FILE_DELETED',
   'HARDCODED_SECRET',
@@ -155,52 +156,72 @@ async function emitWeakening(
  *   naming only built-in-guarded branches → no predicate at all (the built-in,
  *   target-scoped since LUM-464, is the single detector); otherwise → a
  *   `push-target` predicate over the branches the rule names.
+ * - LUM-1114: a semantic rule without an assertion is judged on its own text —
+ *   otherwise nothing ever checks it (./rule-reachability);
+ * - LUM-1114: rules that would detect exactly the same thing are merged into
+ *   one (the others become aliases) — see ./rule-dedupe. Runs last, on the
+ *   post-processed shapes, so two rules the safety nets made identical merge.
  */
 export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
-  return rawRules.map(r => {
-    const hasBuiltin =
-      r.mappedCategory != null &&
-      (BUILTIN_CATEGORIES as readonly string[]).includes(r.mappedCategory)
-    const obligationWithCmdSubstr =
-      r.kind === 'action' &&
-      r.predicate?.type === 'cmd-substr' &&
-      (r.polarity === 'require' || isObligationText(r.text))
-    let predicate = obligationWithCmdSubstr ? undefined : r.predicate
+  return dedupeRules(
+    rawRules.map(r => {
+      const hasBuiltin =
+        r.mappedCategory != null &&
+        (BUILTIN_CATEGORIES as readonly string[]).includes(r.mappedCategory)
+      const obligationWithCmdSubstr =
+        r.kind === 'action' &&
+        r.predicate?.type === 'cmd-substr' &&
+        (r.polarity === 'require' || isObligationText(r.text))
+      let predicate = obligationWithCmdSubstr ? undefined : r.predicate
 
-    // LUM-772: push prohibitions are judged on the push destination only.
-    const push = obligationWithCmdSubstr ? null : pushRuleShape(r)
-    if (push) {
-      predicate = push.coveredByBuiltin
-        ? undefined
-        : { type: 'push-target', value: push.branches.join(',') }
-    }
-    const hasPredicate = predicate != null
+      // LUM-772: push prohibitions are judged on the push destination only.
+      const push = obligationWithCmdSubstr ? null : pushRuleShape(r)
+      if (push) {
+        predicate = push.coveredByBuiltin
+          ? undefined
+          : { type: 'push-target', value: push.branches.join(',') }
+      }
+      const hasPredicate = predicate != null
 
-    const tier: PolicyRule['tier'] =
-      obligationWithCmdSubstr ||
-      (r.tier === 'deterministic' && !hasBuiltin && !hasPredicate)
-        ? 'semantic'
-        : r.tier
+      const tier: PolicyRule['tier'] =
+        obligationWithCmdSubstr ||
+        (r.tier === 'deterministic' && !hasBuiltin && !hasPredicate)
+          ? 'semantic'
+          : r.tier
 
-    const rule: PolicyRule = {
-      id: ruleId(r.text),
-      text: r.text,
-      kind: r.kind,
-      tier,
-      severity: r.severity,
-      // blocking only when mappedCategory resolves to a known built-in that
-      // can block at all (LUM-963: not an advisory-only one).
-      blocking:
-        hasBuiltin && !ADVISORY_ONLY_BUILTINS.has(r.mappedCategory as string),
-    }
-    // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
-    if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
-    if (hasPredicate && predicate != null) rule.predicate = predicate
-    if (r.assertion != null) rule.assertion = r.assertion
-    else if (obligationWithCmdSubstr || (push && !hasPredicate && !hasBuiltin))
-      rule.assertion = r.text
-    return rule
-  })
+      const rule: PolicyRule = {
+        id: ruleId(r.text),
+        text: r.text,
+        kind: r.kind,
+        tier,
+        severity: r.severity,
+        // blocking only when mappedCategory resolves to a known built-in that
+        // can block at all (LUM-963: not an advisory-only one).
+        blocking:
+          hasBuiltin && !ADVISORY_ONLY_BUILTINS.has(r.mappedCategory as string),
+      }
+      // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
+      if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
+      if (hasPredicate && predicate != null) rule.predicate = predicate
+      // LUM-1114: a stored rule re-run here keeps the ids merged into it.
+      if (r.aliases != null && r.aliases.length > 0)
+        rule.aliases = [...r.aliases]
+      // LUM-1114: a semantic rule is judged on its assertion, and the model
+      // sometimes leaves it out (0–17 of ~25 rules across three compiles of
+      // the same file). Without one the judge skips the rule and no other
+      // detector reads it — it is stored and silently checks nothing. The
+      // rule's own text is the assertion then (rule-reachability).
+      const blankAssertion = r.assertion == null || r.assertion.trim() === ''
+      if (!blankAssertion) rule.assertion = r.assertion as string
+      else if (
+        tier === 'semantic' ||
+        obligationWithCmdSubstr ||
+        (push && !hasPredicate && !hasBuiltin)
+      )
+        rule.assertion = r.text
+      return rule
+    })
+  )
 }
 
 /**

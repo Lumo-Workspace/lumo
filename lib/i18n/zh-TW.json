@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "預設語言",
   "workspaceSettings.defaultLanguageDesc": "Slack 頻道訊息使用此語言；未自行選擇語言的成員收到的 Slack 私訊也使用此語言。",
   "workspaceSettings.defaultLanguageUpdated": "預設語言已更新",
-  "workspaceSettings.defaultLanguageUpdateFailed": "更新預設語言失敗"
+  "workspaceSettings.defaultLanguageUpdateFailed": "更新預設語言失敗",
+  "workspaceSettings.policyCoverage.title": "未自動檢查的規則",
+  "workspaceSettings.policyCoverage.description": "各專案 CLAUDE.md / AGENTS.md 中沒有任何自動檢查涵蓋的規則。Lumo 不會標記對這些規則的違反，請自行把關。",
+  "workspaceSettings.policyCoverage.loading": "正在檢查規則涵蓋情況…",
+  "workspaceSettings.policyCoverage.loadFailed": "無法載入規則涵蓋情況。這並不代表所有規則都已被檢查。",
+  "workspaceSettings.policyCoverage.noProjects": "尚無專案。",
+  "workspaceSettings.policyCoverage.notCompiled": "尚未讀取規則。開始工作後，Lumo 會從專案連結的儲存庫讀取 CLAUDE.md 或 AGENTS.md。",
+  "workspaceSettings.policyCoverage.allChecked": "全部 {total} 條規則皆會自動檢查。",
+  "workspaceSettings.policyCoverage.someUnchecked": "{total} 條規則中有 {unchecked} 條不會自動檢查。",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "需要對指令或流程做判斷，目前還沒有針對這類規則的自動檢查。",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "這條規則只由 AI 審查檢查，而上方已關閉 AI 審查。"
 }
