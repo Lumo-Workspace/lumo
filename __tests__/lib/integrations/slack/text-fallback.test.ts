@@ -28,8 +28,20 @@ jest.mock('@/lib/auth/users', () => ({
       emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
     }),
     // LUM-1103: the Slack command member lookup batches via getUserList.
-    getUserList: async ({ userId }: { userId: string[] }) => ({
-      data: userId.map(id => ({
+    getUserList: async ({
+      userId = [],
+      emailAddress = [],
+    }: {
+      userId?: string[]
+      emailAddress?: string[]
+    }) => ({
+      // LUM-1115: the Slack member lookup filters by email.
+      data: [
+        ...userId,
+        ...(emailAddress.some(e => e.toLowerCase() === 'dev@example.com')
+          ? ['user_1']
+          : []),
+      ].map(id => ({
         id,
         primaryEmailAddressId: 'em_1',
         emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],

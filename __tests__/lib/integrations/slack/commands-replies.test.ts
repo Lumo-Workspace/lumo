@@ -46,8 +46,22 @@ jest.mock('@/lib/auth/users', () => ({
   isUserDirectoryConfigured: () => true,
   createUserDirectory: async () => ({
     getUser: async (id: string) => authUser(id),
-    getUserList: async ({ userId }: { userId: string[] }) => ({
-      data: userId.map(authUser),
+    // LUM-1115: the Slack member lookup filters by email.
+    getUserList: async ({
+      userId = [],
+      emailAddress = [],
+    }: {
+      userId?: string[]
+      emailAddress?: string[]
+    }) => ({
+      data: [
+        ...userId,
+        ...Object.keys(USERS).filter(id =>
+          emailAddress.some(
+            e => e.toLowerCase() === USERS[id]!.email.toLowerCase()
+          )
+        ),
+      ].map(authUser),
     }),
   }),
 }))
@@ -128,10 +142,14 @@ beforeEach(() => {
     }
   }) as unknown as typeof fetch
   p.workspaceMember.findMany.mockImplementation(
-    async (args: { where: { id?: { in: string[] } } }) =>
-      args.where.id
-        ? MEMBERS.filter(m => args.where.id!.in.includes(m.id))
-        : MEMBERS
+    async (args: {
+      where: { id?: { in: string[] }; clerkId?: { in: string[] } }
+    }) =>
+      MEMBERS.filter(
+        m =>
+          (!args.where.id || args.where.id.in.includes(m.id)) &&
+          (!args.where.clerkId || args.where.clerkId.in.includes(m.clerkId))
+      )
   )
   p.actor.findUnique.mockImplementation(
     async (args: { where: { memberId: string } }) =>
