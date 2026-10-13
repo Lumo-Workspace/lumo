@@ -2,7 +2,7 @@
  * LUM-1117 — Settings → Workspace has one language setting: the default
  * language (which AI summaries now use too). The AI summary card keeps its
  * on/off switch and frequency but no longer has a "Report language" select,
- * and saving it sends no summaryLocale.
+ * and saving it sends no summary-only language.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { WorkspaceSettingsPage } from '@/app/workspace/[workspaceUrl]/components/pages/WorkspaceSettingsPage'
@@ -63,7 +63,6 @@ beforeEach(() => {
       slug: 'acme',
       summaryEnabled: true,
       summaryFrequency: 'DAILY',
-      summaryLocale: 'zh',
       defaultLocale: 'zh-CN',
     },
   })
@@ -88,7 +87,7 @@ it('shows one language setting — the default language', async () => {
   expect(screen.getByText(/AI summaries use it too/)).toBeTruthy()
 })
 
-it('saving the summary settings sends no summaryLocale', async () => {
+it('saving the summary settings sends only the switch and frequency', async () => {
   render(<WorkspaceSettingsPage />)
   await screen.findByLabelText('Default language')
   const frequency = screen

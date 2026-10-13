@@ -16,7 +16,6 @@ import {
 } from '@/lib/audit/workspace-settings'
 import { WORKSPACE_COLUMNS } from '@/lib/repositories/workspace-columns'
 import { updateWorkspaceSchema } from '@/lib/validation/schemas'
-import { summaryLanguageFor } from '@/lib/i18n/summary-locale'
 import { getPluginRegistry } from './registry'
 import type { WorkspaceSettingsContributor } from './types'
 
@@ -32,9 +31,6 @@ export const CORE_WORKSPACE_COLUMNS: readonly string[] = [
   'updatedAt',
   'summaryFrequency',
   'summaryEnabled',
-  // LUM-1117: deprecated, no longer written; served as the summary language
-  // of defaultLocale for old clients until phase 2 drops the column.
-  'summaryLocale',
   'defaultLocale',
   'boundaryGateEnabled',
   'hookEventRetentionDays',
@@ -83,14 +79,9 @@ export function serializeWorkspaceSettings(
     ...CORE_WORKSPACE_COLUMNS,
     ...Object.keys(pluginWorkspaceColumns()),
   ])
-  const out = Object.fromEntries(
+  return Object.fromEntries(
     Object.entries(row).filter(([column]) => served.has(column))
   )
-  // LUM-1117: the stale column is never served; an old client reads the
-  // language its summaries are actually written in.
-  if ('defaultLocale' in row)
-    out.summaryLocale = summaryLanguageFor(row.defaultLocale as string | null)
-  return out
 }
 
 /**

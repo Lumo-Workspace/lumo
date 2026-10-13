@@ -4,10 +4,6 @@ import {
 } from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import {
-  defaultLocaleFromSummaryLocale,
-  summaryLanguageFor,
-} from '@/lib/i18n/summary-locale'
-import {
   nextSessionRecordCutoff,
   sessionRecordChoiceOf,
   type HookEventRetentionDays,
@@ -47,11 +43,6 @@ interface CoreWorkspaceSettingsInput {
   slug?: string | undefined
   summaryEnabled?: boolean | undefined
   summaryFrequency?: string | undefined
-  /**
-   * LUM-1117: deprecated — sent by the old settings page. Never written;
-   * mapped onto defaultLocale (see `legacySummaryLocaleWrite`).
-   */
-  summaryLocale?: string | undefined
   /** LUM-1097: one of SUPPORTED_LOCALES (validated at the API edge). */
   defaultLocale?: string | undefined
   /** LUM-859: one of HOOK_EVENT_RETENTION_DAYS; null = keep forever. */
@@ -146,25 +137,6 @@ async function auditedSettingsBefore(
   }
 }
 
-/**
- * LUM-1117: an old client's `summaryLocale` asks for summaries in a language.
- * Honour it through defaultLocale only when it changes that language — the
- * old page re-sends its value on every summary save, and an 'en' must not
- * reset a workspace whose default is, say, Japanese (its summaries are
- * already English). Unknown values are ignored.
- */
-async function legacySummaryLocaleWrite(
-  workspaceId: string,
-  summaryLocale: string
-): Promise<string | null> {
-  const wanted = defaultLocaleFromSummaryLocale(summaryLocale)
-  if (!wanted) return null
-  const current = await workspaceRepository.findDefaultLocale(workspaceId)
-  return summaryLanguageFor(current) === summaryLanguageFor(wanted)
-    ? null
-    : wanted
-}
-
 // ── Workspace Service ───────────────────────────────────────────────────────
 
 export const workspaceService = {
@@ -220,13 +192,6 @@ export const workspaceService = {
       data.summaryFrequency = input.summaryFrequency
     if (input.defaultLocale !== undefined)
       data.defaultLocale = input.defaultLocale
-    else if (input.summaryLocale !== undefined) {
-      const legacy = await legacySummaryLocaleWrite(
-        workspaceId,
-        input.summaryLocale
-      )
-      if (legacy) data.defaultLocale = legacy
-    }
     if (input.deadLetterRetentionDays !== undefined)
       data.deadLetterRetentionDays = input.deadLetterRetentionDays
     if (input.aiDerivedContentEnabled !== undefined)
