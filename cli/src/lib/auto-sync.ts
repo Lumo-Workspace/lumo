@@ -28,11 +28,13 @@ import {
 import { hashSkillDir } from './skill-hash'
 
 /** Commands that must never trigger the first-run-of-a-version sync. */
-const NO_AUTO_SYNC_COMMANDS = new Set(['doctor', 'uninstall'])
+const NO_AUTO_SYNC_COMMANDS = new Set(['doctor', 'uninstall', 'skill'])
 
 /**
- * Whether `maybeAutoSync` may run for this invocation. `doctor` is read-only
- * and `uninstall` removes installs, so neither may rewrite them first.
+ * Whether `maybeAutoSync` may run for this invocation. `doctor` and `skill
+ * status` are read-only, `uninstall` removes installs and `skill update`
+ * must write only what it reports (nothing under --dry-run, never hooks), so
+ * none of them may rewrite installs first.
  */
 export function shouldAutoSync(argv: readonly string[]): boolean {
   return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '')

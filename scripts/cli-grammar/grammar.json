@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.117.0",
+  "cliVersion": "1.118.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -2556,6 +2556,77 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Alias of `lumo init` (kept for older docs and scripts)."
+    },
+    "skill": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook"
+    },
+    "skill status": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it"
+    },
+    "skill update": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)"
+        },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing"
+        },
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also overwrite locally modified copies (discards those edits); still never downgrades"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only project-scope copies (this repo and recorded installs in other repos)"
+        },
+        "--user": {
+          "long": "--user",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only user-scope copies (~/.claude, ~/.agents)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Refresh the Lumo skill copies that are behind this CLI from the bundled skill. Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (`lumo init --upgrade` refreshes those)."
     },
     "sprint": {
       "arguments": [],

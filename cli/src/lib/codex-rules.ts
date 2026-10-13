@@ -191,6 +191,9 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
   hook: 'agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself',
   init: 'writes skill, hook and rules files',
   setup: 'alias of init: writes skill, hook and rules files',
+  'skill status':
+    'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)',
+  'skill update': 'writes skill files',
   'memory push': 'deletes local memory files after pushing',
   'memory sync': 'writes the local memory directory',
   'session attach':

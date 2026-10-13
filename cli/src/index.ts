@@ -149,6 +149,7 @@ import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
 import { doctor } from './commands/doctor'
+import { skillStatus, skillUpdate } from './commands/skill'
 import { uninstall } from './commands/uninstall'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
@@ -377,6 +378,59 @@ function registerInit(name: string, hidden: boolean): void {
 registerInit('init', false)
 // `setup` is the pre-LUM-1052 name; hidden alias running the same action.
 registerInit('setup', true)
+
+const skill = program
+  .command('skill')
+  .description(
+    'Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook'
+  )
+
+skill
+  .command('status')
+  .description(
+    'Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it'
+  )
+  .option(
+    '--json',
+    'Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }'
+  )
+  .action(wrap(options => skillStatus(options as { json?: boolean })))
+
+skill
+  .command('update')
+  .description(
+    'Refresh the Lumo skill copies that are behind this CLI from the bundled skill. Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (`lumo init --upgrade` refreshes those).'
+  )
+  .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
+  .option(
+    '--project',
+    'Only project-scope copies (this repo and recorded installs in other repos)'
+  )
+  .option(
+    '--agent <token>',
+    'Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)'
+  )
+  .option(
+    '--dry-run',
+    'List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing'
+  )
+  .option(
+    '--force',
+    'Also overwrite locally modified copies (discards those edits); still never downgrades'
+  )
+  .action(
+    wrap(options =>
+      skillUpdate(
+        options as {
+          user?: boolean
+          project?: boolean
+          agent?: string
+          dryRun?: boolean
+          force?: boolean
+        }
+      )
+    )
+  )
 
 program
   .command('doctor')

@@ -21,7 +21,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 | Domain                                                                                 | Read this reference                                                  |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `init`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)                 |
+| `init`, `skill`, `auth login/logout`, `whoami`, `update`                               | [references/onboarding.md](references/onboarding.md)                 |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
@@ -51,6 +51,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — set up skill + hooks for Claude Code and Codex (`--agent` = only that one; `setup` = hidden alias; `--upgrade` refreshes known installs, skipping modified/newer copies)
 - `lumo doctor [--json]` — read-only report of every Lumo install (skills, hooks, Codex rule, git hook): state + fix command; warns on missing hook events, `lumo` not on PATH, untrusted Codex hooks, no Codex network
+- `lumo skill status [--json]` · `lumo skill update [--user|--project] [--agent <t>] [--dry-run] [--force]` — report / refresh only the skill copies (never hooks) — see [onboarding.md](references/onboarding.md)
 - `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits) — see [onboarding.md](references/onboarding.md)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
