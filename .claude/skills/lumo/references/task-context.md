@@ -155,7 +155,7 @@ lumo report --since 2026-10-01 --until 2026-10-07 --member me
 lumo report --project Lumo --limit 100 --json
 ```
 
-- `--since <day>` — first day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday`, or `Nd` = the last N days including today (`7d`, `30d`). Default: the 7 days ending on `--until`.
+- `--since <day>` — first day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday`, or `Nd` = the N days ending on `--until` (`7d`, `30d`; without `--until`, the last N days including today — `--since 7d --until 2026-09-01` is 2026-08-26 → 2026-09-01). Default: the 7 days ending on `--until`.
 - `--until <day>` — last day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday` (default today). Days are the shell's local timezone; the CLI sends local-midnight instants, the server uses the half-open `[since, until+1 day)`. Max window 366 days.
 - `--member <ref>` — only one person: `me`, an email or a display name (same matching as `doc share`). Without it the whole workspace is reported.
 - `--project <name>` — only tasks in that project; tokens narrow to session activity attached to those tasks (work not attached to a task drops out).
@@ -164,7 +164,7 @@ lumo report --project Lumo --limit 100 --json
 
 **Completed = last DONE.** Task has no completion column, so the completion time is the task's **last** `STATUS_CHANGED → DONE` activity. A task counts in the window only if it is DONE now and that last DONE falls inside the window — DONE → reopened → DONE counts once, at the final DONE (so it never appears in two windows). Trashed tasks are excluded. A task is credited to its assignee's member, or to the owner of an assigned personal agent; tasks with no human owner sit under `(unassigned)`.
 
-**Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0.
+**Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0. Token figures are whole numbers. Usage recorded without a session id still counts toward tokens (not toward sessions), so `Tokens: none recorded in this window` means no tokens **and** no sessions.
 
 ### When to suggest
 

@@ -611,7 +611,7 @@ program
   )
   .option(
     '--since <day>',
-    'First day, inclusive: a YYYY-MM-DD date, Nd for the last N days incl. today (e.g. 30d), today, or yesterday'
+    'First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday'
   )
   .option(
     '--until <day>',
@@ -2734,7 +2734,7 @@ task
   )
   .option(
     '--confirm',
-    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
+    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done with no other flag runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
   )
   .action(
     wrap((identifier, options) =>

@@ -295,6 +295,42 @@ export function qualifiesForOneStepDone(
   return partitionLinkedPrs(prs).unmerged.length === 0
 }
 
+/**
+ * LUM-1116: the flags besides `--status` that a DONE update also applies.
+ * One step covers a status-only change; anything else rides in the envelope
+ * so the user signs off on it too.
+ */
+export function otherFlagsThanStatus(
+  flagsGiven: string[],
+  opts: Pick<
+    UpdateTaskOptions,
+    | 'tag'
+    | 'tagId'
+    | 'addTag'
+    | 'addTagId'
+    | 'removeTag'
+    | 'removeTagId'
+    | 'sprint'
+  >
+): string[] {
+  const other = flagsGiven.filter(f => f !== '--status')
+  const given = (v: string[] | undefined) => v !== undefined && v.length > 0
+  if (given(opts.tag) || given(opts.tagId)) other.push('--tag')
+  if (given(opts.addTag) || given(opts.addTagId)) other.push('--add-tag')
+  if (given(opts.removeTag) || given(opts.removeTagId))
+    other.push('--remove-tag')
+  if (opts.sprint !== undefined) other.push('--sprint')
+  return other
+}
+
+/** The envelope line naming the other changes, or nothing. */
+export function describeOtherChanges(otherFlags: string[]): string[] {
+  if (otherFlags.length === 0) return []
+  return [
+    `Also updates: ${otherFlags.join(', ')} (one-step DONE covers a status-only change)`,
+  ]
+}
+
 /** What a one-step DONE prints after the `Updated …` line (LUM-1106). */
 export function describeOneStepDone(
   task: { identifier: string; title: string; status: string },
@@ -324,9 +360,15 @@ async function gateDone(args: {
   apiUrl: string
   token: string
   identifier: string
+  /**
+   * LUM-1116: the other flags given alongside `--status done` (`--title`,
+   * `--add-tag`, `--sprint` …). Any at all keeps the envelope — one step
+   * covers the status change only — and the envelope names them.
+   */
+  otherFlags: string[]
 }): Promise<DoneGate> {
   const exit = (code: number): DoneGate => ({ kind: 'exit', code })
-  const { base, apiUrl, token, identifier } = args
+  const { base, apiUrl, token, identifier, otherFlags } = args
   const showUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
   const lookup = fetch(showUrl, {
     headers: { Authorization: `Bearer ${token}` },
@@ -377,6 +419,7 @@ async function gateDone(args: {
   // behaviour) rather than sending a DONE → DONE PATCH unasked.
   if (
     task.status !== 'DONE' &&
+    otherFlags.length === 0 &&
     qualifiesForOneStepDone(task.pullRequests, clearsDone)
   ) {
     return {
@@ -390,6 +433,7 @@ async function gateDone(args: {
       command: 'task update',
       changes: [
         ...describeDoneTransition(task, prs),
+        ...describeOtherChanges(otherFlags),
         ...doneWorktreeLines(task.identifier, mergedHeadShasOf(prs)),
       ],
       statusSummary,
@@ -582,7 +626,8 @@ async function runTaskUpdate(
   // LUM-755: DONE without --confirm stops here with the confirmation
   // envelope — before tag resolution (find-or-create) or any other write.
   // LUM-1106: unless every linked PR is merged and nothing blocks DONE; then
-  // it runs in one step and says so after the `Updated …` line.
+  // it runs in one step and says so after the `Updated …` line. LUM-1116:
+  // only for a status-only change — any other flag keeps the envelope.
   let oneStepSummary: string[] | undefined
   if (status === 'DONE' && !opts.confirm) {
     const gate = await gateDone({
@@ -590,6 +635,7 @@ async function runTaskUpdate(
       apiUrl,
       token: creds.token,
       identifier,
+      otherFlags: otherFlagsThanStatus(flagsGiven, opts),
     })
     if (gate.kind === 'exit') return gate.code
     oneStepSummary = gate.summary

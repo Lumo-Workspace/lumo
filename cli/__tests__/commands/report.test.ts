@@ -67,6 +67,20 @@ describe('resolveReportWindow', () => {
     })
   })
 
+  // LUM-1116: Nd counts back from --until, not from today.
+  it('--since Nd ends on --until when both are given', () => {
+    expect(win({ since: '7d', until: '2026-09-01' })).toMatchObject({
+      sinceDay: '2026-08-26',
+      untilDay: '2026-09-01',
+      days: 7,
+    })
+    expect(win({ since: '1d', until: 'yesterday' })).toMatchObject({
+      sinceDay: '2026-10-12',
+      untilDay: '2026-10-12',
+      days: 1,
+    })
+  })
+
   it('rejects malformed values and an inverted window', () => {
     for (const bad of [
       { since: 'last week' },
@@ -203,6 +217,25 @@ describe('formatReport', () => {
     expect(empty).toMatch(/Tokens:\s+none recorded in this window/)
     expect(empty).toContain('No tasks completed in this window.')
     expect(empty).not.toContain('By member')
+  })
+
+  // LUM-1116: usage recorded without a session id has tokens but 0 sessions.
+  it('shows tokens recorded with no session instead of "none recorded"', () => {
+    const noSession = formatReport(
+      {
+        ...data,
+        team: {
+          tokens: tokens(4200),
+          sessions: 0,
+          unmeteredSessions: 0,
+          completedCount: 0,
+          byModel: [{ model: 'claude-opus', ...tokens(4200) }],
+        },
+      },
+      { window: win({}) }
+    )
+    expect(noSession).toMatch(/Tokens:\s+4,200 \(output 4,200/)
+    expect(noSession).not.toContain('none recorded')
   })
 })
 

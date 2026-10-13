@@ -455,6 +455,76 @@ describe('empty window', () => {
   })
 })
 
+// LUM-1116
+describe('token rounding + session-less usage', () => {
+  const row = (over: Record<string, unknown>) => ({
+    tool: 'Bash',
+    verb: null,
+    model: 'claude-opus',
+    sessionId: 's1',
+    workspaceMemberId: 'm1',
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheCreation: 0,
+    ...over,
+  })
+
+  it('reports whole-number token totals even when attributed shares are fractional', () => {
+    const r = buildReport({
+      since: SINCE,
+      until: UNTIL,
+      memberId: null,
+      projectId: null,
+      limit: 50,
+      costRows: [
+        row({ output: 0.1, input: 113919.3 }),
+        row({ output: 0.2, input: 113919.3 }),
+        row({
+          output: 227838.4,
+          input: 113919.3,
+          cacheRead: 0.30000000000000004,
+        }),
+      ],
+      coverage: new Map(),
+      completions: new Map(),
+      tasks: [],
+      memberLabels: new Map([['m1', 'One']]),
+    })
+    const all = [
+      r.team.tokens,
+      ...r.team.byModel,
+      ...r.byMember.map(m => m.tokens),
+    ]
+    for (const t of all)
+      for (const k of [
+        'input',
+        'output',
+        'cacheRead',
+        'cacheCreation',
+        'total',
+      ] as const)
+        expect(Number.isInteger(t[k])).toBe(true)
+    expect(r.team.tokens.total).toBe(569597)
+    expect(r.team.tokens.output).toBe(227839)
+  })
+
+  it('counts tokens from events with no session id (sessions stay 0)', async () => {
+    hooks.findToolAttributionEvents.mockResolvedValue([
+      {
+        ...stop('x', 'm1', '2026-10-08T10:00:00.000Z', usage(500)),
+        sessionId: null,
+      },
+    ] as never)
+    const r = await reportService.getReport('ws-1', {
+      since: SINCE,
+      until: UNTIL,
+    })
+    expect(r.team.sessions).toBe(0)
+    expect(r.team.tokens.total).toBeGreaterThan(0)
+  })
+})
+
 describe('validation + defaults', () => {
   it('rejects since >= until, too-wide windows and bad limits', () => {
     expect(() => validateReportInput({ since: UNTIL, until: SINCE })).toThrow(

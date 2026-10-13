@@ -91,6 +91,19 @@ function addRow(t: ReportTokenTotals, r: OperationCostRow): void {
   t.total += r.input + r.output + r.cacheRead + r.cacheCreation
 }
 
+/**
+ * LUM-1116: attributed cost rows can carry fractional shares, so a fold can
+ * end in float noise (341758.00000000023). Round once, after every row is
+ * in, so the `--json` figures are whole tokens (still numbers).
+ */
+export function roundTotals(t: ReportTokenTotals): void {
+  t.input = Math.round(t.input)
+  t.output = Math.round(t.output)
+  t.cacheRead = Math.round(t.cacheRead)
+  t.cacheCreation = Math.round(t.cacheCreation)
+  t.total = Math.round(t.total)
+}
+
 export interface SessionEventLike {
   sessionId: string | null
   workspaceMemberId: string | null
@@ -165,6 +178,9 @@ export function buildReport(input: BuildReportInput): ReportResponse {
     addRow(member(r.workspaceMemberId).tokens, r)
   }
 
+  roundTotals(teamTokens)
+  for (const m of byModel.values()) roundTotals(m)
+
   let sessions = 0
   let unmetered = 0
   for (const [key, cov] of input.coverage) {
@@ -200,6 +216,7 @@ export function buildReport(input: BuildReportInput): ReportResponse {
 
   // --member: the member's own row always shows, even with no activity.
   if (input.memberId) member(input.memberId)
+  for (const m of members.values()) roundTotals(m.tokens)
 
   const byMember = [...members.values()]
     .filter(m => !input.memberId || m.memberId === input.memberId)

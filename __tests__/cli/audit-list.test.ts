@@ -121,8 +121,18 @@ describe('lumo audit list', () => {
       `${fmtTimestamp('2026-10-03T01:02:00.000Z')}  github_app.uninstalled  system                          integration  SYSTEM  -`
     )
     expect(out).toContain(
-      'Hint: more events with `lumo audit list --action "member" --since "7d" --cursor CUR123`'
+      'Hint: more events with `lumo audit list --action member --since 7d --cursor CUR123`'
     )
+  })
+
+  // LUM-1116: values are shell-quoted only when they need it.
+  it('lumo audit list: next-page hint carries bare values, quoting only unsafe ones', async () => {
+    serve(page)
+    await auditList({ limit: '2', actor: 'Alice Chen' })
+    expect(out).toContain(
+      "Hint: more events with `lumo audit list --actor 'Alice Chen' --limit 2 --cursor CUR123`"
+    )
+    expect(out).not.toContain('"2"')
   })
 
   it('lumo audit list: --json prints the page as returned', async () => {
