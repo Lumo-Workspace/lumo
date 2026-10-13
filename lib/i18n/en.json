@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "Default language",
   "workspaceSettings.defaultLanguageDesc": "Slack channel messages are written in this language, and so are Slack DMs to members who haven't chosen a language of their own.",
   "workspaceSettings.defaultLanguageUpdated": "Default language updated",
-  "workspaceSettings.defaultLanguageUpdateFailed": "Failed to update default language"
+  "workspaceSettings.defaultLanguageUpdateFailed": "Failed to update default language",
+  "workspaceSettings.policyCoverage.title": "Rules not checked automatically",
+  "workspaceSettings.policyCoverage.description": "Rules from each project's CLAUDE.md / AGENTS.md that no automatic check covers. Lumo won't flag a violation of these, so review them yourself.",
+  "workspaceSettings.policyCoverage.loading": "Checking rule coverage…",
+  "workspaceSettings.policyCoverage.loadFailed": "Couldn't load rule coverage. This doesn't mean every rule is checked.",
+  "workspaceSettings.policyCoverage.noProjects": "No projects yet.",
+  "workspaceSettings.policyCoverage.notCompiled": "No rules read yet. Lumo reads CLAUDE.md or AGENTS.md from the project's linked repository once work starts.",
+  "workspaceSettings.policyCoverage.allChecked": "All {total} rules are checked automatically.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} of {total} rules are not checked automatically.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Needs judgement about commands or process. No automatic check exists for this kind of rule yet.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Only AI review checks this rule, and AI review is turned off above."
 }

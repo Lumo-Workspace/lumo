@@ -17,6 +17,11 @@ jest.mock('react-intl', () => {
   }
 })
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
+// LUM-1114: a save invalidates the policy-coverage query.
+const invalidateQueries = jest.fn()
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries }),
+}))
 jest.mock('@/ee/security/api-client', () => ({
   securityScanClient: { updateSecurityScan: jest.fn() },
 }))

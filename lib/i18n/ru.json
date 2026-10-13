@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "Язык по умолчанию",
   "workspaceSettings.defaultLanguageDesc": "На этом языке пишутся сообщения в каналах Slack, а также личные сообщения в Slack участникам, которые не выбрали свой язык.",
   "workspaceSettings.defaultLanguageUpdated": "Язык по умолчанию обновлён",
-  "workspaceSettings.defaultLanguageUpdateFailed": "Не удалось обновить язык по умолчанию"
+  "workspaceSettings.defaultLanguageUpdateFailed": "Не удалось обновить язык по умолчанию",
+  "workspaceSettings.policyCoverage.title": "Правила без автоматической проверки",
+  "workspaceSettings.policyCoverage.description": "Правила из CLAUDE.md / AGENTS.md каждого проекта, которые не покрывает ни одна автоматическая проверка. Lumo не отмечает их нарушения — проверяйте их сами.",
+  "workspaceSettings.policyCoverage.loading": "Проверяем покрытие правил…",
+  "workspaceSettings.policyCoverage.loadFailed": "Не удалось загрузить покрытие правил. Это не значит, что проверяются все правила.",
+  "workspaceSettings.policyCoverage.noProjects": "Проектов пока нет.",
+  "workspaceSettings.policyCoverage.notCompiled": "Правила ещё не прочитаны. Когда начнётся работа, Lumo прочитает CLAUDE.md или AGENTS.md из связанного с проектом репозитория.",
+  "workspaceSettings.policyCoverage.allChecked": "Все правила ({total}) проверяются автоматически.",
+  "workspaceSettings.policyCoverage.someUnchecked": "Не проверяются автоматически: {unchecked} из {total} правил.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Требует оценки команд или процесса. Автоматической проверки для правил такого типа пока нет.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Это правило проверяет только ИИ-ревью, а ИИ-ревью выключено выше."
 }
