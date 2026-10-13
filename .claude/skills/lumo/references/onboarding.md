@@ -169,6 +169,8 @@ If the background npm install is still running after 120 s, `auto-update.lock` i
 - Output is at most one stderr line per changed skill (`✓ Lumo skill updated to <v>: <path>`); nothing is printed under `lumo hook`. It never fails the command. `doctor` and `uninstall` never trigger it.
 - If a run hits an error, it is retried for the same version at most once every 6 hours (`lastSyncAttempt` in `installs.json`).
 
+**CLI ↔ server version mismatch (LUM-1110).** Every request to the Lumo API carries `X-Lumo-Cli-Version` (only requests sent with the Lumo API key; never the npm registry check). The header is a compatibility signal only — it never affects authentication. A server that knows this CLI is too old answers `HTTP 426` with `{ error, code: "CLI_VERSION_UNSUPPORTED", minVersion, cliVersion }` (floor: `MIN_SUPPORTED_CLI_VERSION` in `lib/api/cli-version-gate.ts`, overridable per deployment with `LUMO_MIN_CLI_VERSION`; requests without the header — older CLIs, browsers — always pass). The failing command then ends with ``Hint: the Lumo server no longer supports this CLI <v> (HTTP 426; it needs <min> or newer). Run `lumo update` to upgrade.`` (skipped when the command already printed `lumo update`). The other direction — a command newer than the deployed server — gets an HTML 404 page instead of a JSON error; the command then ends with ``Hint: the Lumo server has no API for `lumo <command>` (HTTP 404) — it may not have deployed this feature yet. …``. A JSON 404 (a task / doc that doesn't exist) never prints it. Both lines appear only on a non-zero exit. On the 426, suggest `lumo update`; on the 404, the server needs a deploy — run the command again once it has shipped, not in a loop. Only the last Lumo API response counts for the 404 line (a command that fell back after it and failed later doesn't get it).
+
 The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
 
 #### When to suggest
@@ -176,5 +178,6 @@ The CLI also performs a passive check at most once every 24 hours (a detached ch
 - The user asks "how do I update", "upgrade lumo", "is there a new version"
 - A bug-fix or feature mentioned in conversation requires a newer CLI than the user is running
 - The passive notice has appeared and the user wants to act on it
+- A command ended with the `HTTP 426 … lumo update` hint (the server refuses this CLI version)
 
 If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not retry in a loop; let the user resolve the environment issue first.
