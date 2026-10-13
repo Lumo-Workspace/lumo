@@ -110,6 +110,43 @@ export const hookEventRepository = {
     return out
   },
 
+  /**
+   * LUM-1114: the Bash commands a session family (the session and its subagent
+   * children, by `parentSessionId`) ran before `before`, newest first, capped at
+   * `take`. Pre-tool events only — each command once. Summarized commands
+   * (used-up workspace, LUM-873) are not the command and are left out.
+   */
+  async findSessionFamilyBashCommands(
+    rootSessionId: string,
+    before: Date,
+    take = 500
+  ): Promise<string[]> {
+    const rows = await prisma.hookEvent.findMany({
+      where: {
+        OR: [
+          { sessionId: rootSessionId },
+          { session: { parentSessionId: rootSessionId } },
+        ],
+        toolName: 'Bash',
+        type: 'PRE_TOOL_USE',
+        createdAt: { lt: before },
+      },
+      select: { payload: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+    const out: string[] = []
+    for (const row of rows) {
+      const payload = row.payload as {
+        tool_input?: { command?: unknown }
+      } | null
+      const command = payload?.tool_input?.command
+      if (typeof command === 'string' && !isCommandSummarized(payload))
+        out.push(command)
+    }
+    return out
+  },
+
   /** Record a Claude Code hook event for audit and activity tracking. */
   async createHookEvent(data: CreateHookEventData) {
     return prisma.hookEvent.create({
@@ -191,6 +228,7 @@ export const hookEventRepository = {
         filePath: true,
         payload: true,
         payloadPrunedAt: true,
+        createdAt: true,
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     })
