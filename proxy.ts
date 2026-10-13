@@ -1,6 +1,7 @@
 import { createAuthMiddleware, createRouteMatcher } from '@/lib/auth/middleware'
 import { NextResponse } from 'next/server'
 import { requireWorkflowDeliveryAuth } from '@/lib/api/workflow-delivery-auth'
+import { cliVersionDenied } from '@/lib/api/cli-version-gate'
 
 export const PUBLIC_ROUTES = [
   '/signin(.*)',
@@ -37,6 +38,12 @@ export default createAuthMiddleware(async (auth, request) => {
   // reach a workflow step without it.
   const workflowDenied = requireWorkflowDeliveryAuth(request)
   if (workflowDenied) return workflowDenied
+
+  // A CLI known to be incompatible gets a 426 naming `lumo update` (LUM-1110).
+  // Compatibility only: requests without X-Lumo-Cli-Version pass, and the
+  // header never reaches authentication below.
+  const cliTooOld = cliVersionDenied(request)
+  if (cliTooOld) return cliTooOld
 
   const userId = await auth.userId()
   const { pathname } = request.nextUrl
