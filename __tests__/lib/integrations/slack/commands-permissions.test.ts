@@ -28,13 +28,25 @@ const USERS: Record<string, { firstName: string; email: string }> = {
   user_2: { firstName: 'Ada', email: 'ada@example.com' },
   user_gone: { firstName: 'Gone', email: 'gone@example.com' },
 }
-// LUM-1103: the member lookup batches by id through getUserList; like the
-// real directory, ids it doesn't know are simply absent from `data`.
+// LUM-1115: the member lookup asks the directory by email (one call); like
+// the real directory, an unknown email or id is simply absent from `data`.
 jest.mock('@/lib/auth/users', () => ({
   createUserDirectory: async () => ({
-    getUserList: async ({ userId }: { userId: string[] }) => ({
-      data: userId
-        .filter(id => USERS[id])
+    getUserList: async ({
+      userId = [],
+      emailAddress = [],
+    }: {
+      userId?: string[]
+      emailAddress?: string[]
+    }) => ({
+      data: Object.keys(USERS)
+        .filter(
+          id =>
+            userId.includes(id) ||
+            emailAddress.some(
+              e => e.toLowerCase() === USERS[id]!.email.toLowerCase()
+            )
+        )
         .map(id => ({
           id,
           firstName: USERS[id]!.firstName,
@@ -179,10 +191,17 @@ beforeEach(() => {
     }
   }) as unknown as typeof fetch
   p.workspaceMember.findMany.mockImplementation(
-    async (args: { where: { workspaceId: string; deactivatedAt?: null } }) =>
+    async (args: {
+      where: {
+        workspaceId: string
+        deactivatedAt?: null
+        clerkId?: { in: string[] }
+      }
+    }) =>
       MEMBER_ROWS.filter(
         m =>
           args.where.workspaceId === 'ws_1' &&
+          (!args.where.clerkId || args.where.clerkId.in.includes(m.clerkId)) &&
           (!('deactivatedAt' in args.where) || m.deactivatedAt === null)
       ).map(({ deactivatedAt: _d, ...m }) => m)
   )
@@ -318,7 +337,10 @@ describe('only active members of the install workspace may write', () => {
       expectTaskUnchanged()
       expect(p.workspaceMember.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { workspaceId: 'ws_1', deactivatedAt: null },
+          where: expect.objectContaining({
+            workspaceId: 'ws_1',
+            deactivatedAt: null,
+          }),
         })
       )
     }
