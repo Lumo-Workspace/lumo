@@ -468,7 +468,7 @@ function pushDone(
     lines.push(
       ...(oneStep
         ? [
-            '  All PRs merged, nothing blocks DONE — run it directly, no approval step:',
+            '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:',
             commandLine(
               `lumo task update ${input.identifier} --status done`,
               4

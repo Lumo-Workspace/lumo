@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { httpFailed, warn } from '../lib/errors'
 import { cmd, hint } from '../lib/feedback'
+import { shellQuote } from '../lib/confirmation'
 
 export interface AuditListOptions {
   action?: string
@@ -109,11 +110,12 @@ export function formatAuditList(
       '--limit': opts.limit,
     })
       .filter(([, v]) => v)
-      .map(([k, v]) => `${k} ${JSON.stringify(v)}`)
+      // LUM-1116: shell-quote only when needed — `--limit 2`, not `--limit "2"`.
+      .map(([k, v]) => `${k} ${shellQuote(String(v))}`)
     lines.push(
       '',
       hint(
-        `more events with ${cmd(`lumo audit list ${[...flags, `--cursor ${page.nextCursor}`].join(' ')}`)}`
+        `more events with ${cmd(`lumo audit list ${[...flags, `--cursor ${shellQuote(page.nextCursor)}`].join(' ')}`)}`
       )
     )
   }

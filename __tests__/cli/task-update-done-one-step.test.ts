@@ -29,6 +29,8 @@ jest.mock('../../cli/src/lib/session-id', () => ({
 import {
   taskUpdate,
   qualifiesForOneStepDone,
+  otherFlagsThanStatus,
+  describeOtherChanges,
 } from '@/cli/src/commands/task-update'
 
 type Pr = {
@@ -164,6 +166,30 @@ describe('qualifiesForOneStepDone (pure)', () => {
     expect(qualifiesForOneStepDone([{ ...mergedA, state: null }], true)).toBe(
       false
     )
+  })
+})
+
+describe('otherFlagsThanStatus / describeOtherChanges (pure)', () => {
+  it('lists every flag besides --status, tags and sprint included', () => {
+    expect(otherFlagsThanStatus(['--status'], {})).toEqual([])
+    expect(
+      otherFlagsThanStatus(['--title', '--status', '--priority'], {
+        addTag: ['a'],
+        removeTagId: ['t'],
+        sprint: '',
+      })
+    ).toEqual([
+      '--title',
+      '--priority',
+      '--add-tag',
+      '--remove-tag',
+      '--sprint',
+    ])
+    expect(otherFlagsThanStatus(['--status'], { tag: [] })).toEqual([])
+    expect(describeOtherChanges([])).toEqual([])
+    expect(describeOtherChanges(['--title', '--due'])).toEqual([
+      'Also updates: --title, --due (one-step DONE covers a status-only change)',
+    ])
   })
 })
 
@@ -303,6 +329,45 @@ describe('task update --status done, one step', () => {
   it('task already DONE: envelope, no PATCH', async () => {
     install({ pullRequests: [mergedA], taskStatus: 'DONE' })
     expectEnvelopeNoPatch(await taskUpdate('LUM-1', { status: 'done' }))
+  })
+
+  // LUM-1116: one step covers a status-only change. Any other field rides
+  // in the envelope so the user signs off on it too.
+  it('--status done --title x in the one-step condition: still envelope, no PATCH, names the extra change', async () => {
+    install({ pullRequests: [mergedA] })
+    process.argv = [
+      'node',
+      'lumo',
+      'task',
+      'update',
+      'LUM-1',
+      '--status',
+      'done',
+      '--title',
+      'x',
+    ]
+    const code = await taskUpdate('LUM-1', { status: 'done', title: 'x' })
+    expectEnvelopeNoPatch(code)
+    const parsed = JSON.parse(stdout.join('')) as {
+      changes: string[]
+      confirmCommand: string
+    }
+    expect(parsed.changes).toContain(
+      'Also updates: --title (one-step DONE covers a status-only change)'
+    )
+    expect(parsed.confirmCommand).toContain('--title')
+    expect(parsed.confirmCommand).toContain('--confirm')
+  })
+
+  it('--status done with tag or sprint flags in the one-step condition: envelope, no PATCH', async () => {
+    install({ pullRequests: [mergedA] })
+    expectEnvelopeNoPatch(
+      await taskUpdate('LUM-1', { status: 'done', addTag: ['x'] })
+    )
+    stdout = []
+    expectEnvelopeNoPatch(
+      await taskUpdate('LUM-1', { status: 'done', sprint: 'S1' })
+    )
   })
 
   it('--confirm still works when the one-step condition is not met', async () => {

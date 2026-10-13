@@ -369,7 +369,7 @@ describe('lumo task wrapup (LUM-841)', () => {
       expect(ready).not.toMatch(CONFIRM_FLAG)
       // LUM-1091: the command alone on its line, right under the instruction
       expect(ready).toContain(
-        '  All PRs merged, nothing blocks DONE — run it directly, no approval step:\n    lumo task update LUM-9001 --status done\n'
+        '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:\n    lumo task update LUM-9001 --status done\n'
       )
 
       // no linked PR: READY, but the DONE envelope still applies — the only
