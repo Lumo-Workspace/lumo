@@ -238,6 +238,12 @@ describe('restart hint after a CLI upgrade', () => {
     ])
   })
 
+  it('no skill copy: no restart hint and nothing recorded', () => {
+    expect(info(null, '1.69.0')).toEqual({ tag: null, notes: [] })
+    expect(info(null, '1.70.0')).toEqual({ tag: null, notes: [] })
+    expect(fs.existsSync(stateFile)).toBe(false)
+  })
+
   it('rides along with the skill info as a trailing note', () => {
     installSkill(home, '.claude', '1.70.0')
     expect(info(null, '1.69.0').notes).toEqual([])

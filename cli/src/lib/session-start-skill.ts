@@ -187,7 +187,9 @@ export function sessionStartSkillInfo(
     } catch {
       // unreadable copy: no tag, no hint
     }
-    if (input.sessionId) {
+    // The restart hint is about reloading the skill: without a readable copy
+    // there is nothing to reload, so neither hint nor record.
+    if (tag !== null && input.sessionId) {
       const upgraded = cliUpgradeNote(
         input.sessionId,
         input.cliVersion,
