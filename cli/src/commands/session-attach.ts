@@ -1,3 +1,4 @@
+import * as os from 'os'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -12,7 +13,9 @@ import {
 } from '../lib/session-id'
 import {
   codexHooksSilentWarning,
+  codexLikelyUntrustedEvents,
   codexSessionHasEvents,
+  codexUntrustedEventsWarning,
 } from '../lib/codex-hooks'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { cmd, hint } from '../lib/feedback'
@@ -108,13 +111,19 @@ export async function sessionAttach(
 
   // LUM-1051: an untrusted Codex hook is skipped silently. Ask before binding
   // (the bind creates the session row) whether any hook event has arrived.
-  const codexHooksSilent =
-    isCodexShell() &&
-    (await codexSessionHasEvents({
-      base: trimTrailingSlash(apiUrl),
-      token: creds.token,
-      sessionId,
-    })) === false
+  const codexHasEvents = isCodexShell()
+    ? await codexSessionHasEvents({
+        base: trimTrailingSlash(apiUrl),
+        token: creds.token,
+        sessionId,
+      })
+    : null
+  const codexHooksSilent = codexHasEvents === false
+  // LUM-1112: some events arrive — name the Lumo events that look untrusted.
+  const codexUntrusted =
+    codexHasEvents === true
+      ? codexLikelyUntrustedEvents({ home: os.homedir(), cwd: process.cwd() })
+      : null
 
   let res: Response
   try {
@@ -207,6 +216,9 @@ export async function sessionAttach(
   if (codexHooksSilent) {
     console.log('')
     console.log(codexHooksSilentWarning())
+  } else if (codexUntrusted && codexUntrusted.length > 0) {
+    console.log('')
+    console.log(codexUntrustedEventsWarning(codexUntrusted))
   }
   // Warnings come before contract/memory: matches the hook injection order —
   // short, actionable information first.
