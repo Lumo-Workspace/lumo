@@ -6,7 +6,7 @@ work, so the next detector fix targets the biggest pattern.
 ```bash
 # 1. export (your terminal — needs the prod pooled URL; output stays outside the repo)
 DATABASE_URL="$PROD_DATABASE_URL" npx tsx scripts/analysis/lum1114-crossing-fp-clusters/export.ts \
-  --out /tmp/lum1114/crossings.json --team LUM --since 2026-09-13   # default: last 30 days
+  --out /tmp/lum1114/crossings.json --workspace lumo --team LUM --since 2026-09-13   # default: last 30 days
 
 # 2. report (offline)
 npx tsx scripts/analysis/lum1114-crossing-fp-clusters/report.ts --in /tmp/lum1114/crossings.json --top 25
@@ -22,7 +22,9 @@ npx tsx scripts/analysis/lum1114-crossing-fp-clusters/report.ts --in /tmp/lum111
   `FP%` = FP ÷ (FP + CONFIRMED), the same denominator as
   `scripts/boundary-fp-rate.ts`.
 - Sorted by human FP count, then OPEN rows — the review a human still owes.
-- One tenant per export (`--team` is required). Other workspaces' crossings
+- One tenant per export: `--workspace <slug>` is required and must resolve to
+  exactly one workspace (slugs and team ids are not unique across tenants);
+  `--team` narrows inside it. Other workspaces' crossings
   are customer data: `--all-tenants` exists for an explicit, justified
   cross-tenant read only. Findings from one tenant (e.g. our own dogfooding)
   are not evidence about customers — a fix must be generic, never keyed to

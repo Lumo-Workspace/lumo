@@ -7,11 +7,14 @@
  *
  *   DATABASE_URL='<prod pooled url>' npx tsx \
  *     scripts/analysis/lum1114-crossing-fp-clusters/export.ts \
- *     --out /tmp/lum1114/crossings.json --team LUM [--since 2026-09-13]
+ *     --out /tmp/lum1114/crossings.json --workspace lumo --team LUM [--since 2026-09-13]
  *
- * One team (tenant) by default — other workspaces' crossings are customer data.
- * `--all-tenants` instead of `--team` reads every workspace; only with a
- * reason that needs it (and the customers' data agreements allow it).
+ * One tenant by default — other workspaces' crossings are customer data.
+ * `--workspace <slug>` must resolve to exactly ONE workspace (slugs and team
+ * identifiers are not unique across tenants — a bare `--team LUM` would also
+ * read another tenant's "LUM"); `--team` then narrows inside it.
+ * `--all-tenants` instead reads every workspace; only with a reason that
+ * needs it (and the customers' data agreements allow it).
  *
  * Write the export OUTSIDE the repository; it is never committed.
  */
@@ -52,16 +55,32 @@ async function main(): Promise<void> {
   if (Number.isNaN(since.getTime())) throw new Error('--since: invalid date')
   // Tenant-scoped by default: other workspaces' crossings are customer data.
   // Reading across tenants is an explicit, separate decision.
+  const slug = flag('--workspace')
   const team = flag('--team')
   const allTenants = process.argv.includes('--all-tenants')
-  if (!team && !allTenants) {
+  if (!slug && !allTenants) {
     throw new Error(
-      '--team <identifier> is required (e.g. --team LUM); crossing tenants needs --all-tenants'
+      '--workspace <slug> is required (e.g. --workspace lumo --team LUM); crossing tenants needs --all-tenants'
     )
   }
 
   const { prisma } = await import('@/lib/db/prisma')
   const host = new URL(process.env.DATABASE_URL ?? 'postgres://unset').host
+  let workspaceId: string | null = null
+  if (slug) {
+    const matches = await prisma.workspace.findMany({
+      where: { slug },
+      select: { id: true, name: true },
+    })
+    if (matches.length !== 1)
+      throw new Error(
+        `--workspace ${slug} matches ${matches.length} workspaces — refusing (tenant must be unambiguous)`
+      )
+    workspaceId = matches[0]!.id
+    process.stdout.write(
+      `[read-only] tenant: workspace ${matches[0]!.name} (${workspaceId})\n`
+    )
+  }
   process.stdout.write(
     `[read-only] LUM-1114 export · db ${host} · since ${since.toISOString()}${team ? ` · team ${team}` : ''}\n`
   )
@@ -70,7 +89,14 @@ async function main(): Promise<void> {
     where: {
       detectedAt: { gte: since },
       taskId: { not: null },
-      ...(team ? { task: { team: { identifier: team } } } : {}),
+      ...(workspaceId || team
+        ? {
+            task: {
+              ...(workspaceId ? { workspaceId } : {}),
+              ...(team ? { team: { identifier: team } } : {}),
+            },
+          }
+        : {}),
     },
     select: {
       id: true,
