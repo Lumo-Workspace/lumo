@@ -1,8 +1,9 @@
-import { readCredentials } from './config'
+import { readCredentials, type Credentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
 import { readCliVersion } from './cli-version'
+import { sessionStartSkillInfo } from './session-start-skill'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { sumTranscriptUsage } from './transcript-usage'
@@ -369,6 +370,8 @@ export interface CliIdentity {
   version: string | null
   email?: string | null
   workspaceSlug?: string | null
+  /** LUM-1111: the loaded skill's tag (`skill 1.2.3`); null/absent adds nothing. */
+  skill?: string | null
 }
 
 const STATUS_LINE_PREFIX = '[Lumo] session_id='
@@ -387,13 +390,76 @@ export function withCliIdentity(lines: string[], id: CliIdentity): string[] {
   const who = id.email
     ? ` · ${sanitizeField(id.email)}${id.workspaceSlug ? ` (${sanitizeField(id.workspaceSlug)})` : ''}`
     : ''
-  const tag = `${id.version ? `lumo ${sanitizeField(id.version)}` : 'lumo'}${who}`
+  const skill = id.skill ? ` · ${sanitizeField(id.skill)}` : ''
+  const tag = `${id.version ? `lumo ${sanitizeField(id.version)}` : 'lumo'}${who}${skill}`
   const cut = first.indexOf(' | ')
   const decorated =
     cut === -1
       ? `${first} | ${tag}`
       : `${first.slice(0, cut)} | ${tag}${first.slice(cut)}`
   return [decorated, ...lines.slice(1)]
+}
+
+/**
+ * LUM-1111: append ` | <note>` segments to the end of the session-start
+ * status line — the one extension point for local hints (skill behind the
+ * CLI, CLI upgraded mid-session, …). Existing segments are never rewritten;
+ * no notes, or no status line, returns the lines unchanged.
+ */
+export function withStatusNotes(
+  lines: string[],
+  notes: readonly string[]
+): string[] {
+  const first = lines[0]
+  const kept = notes.map(n => sanitizeField(n)).filter(n => n !== '')
+  if (kept.length === 0) return lines
+  if (first === undefined || !first.startsWith(STATUS_LINE_PREFIX)) return lines
+  return [[first, ...kept].join(' | '), ...lines.slice(1)]
+}
+
+/** `cwd` from the hook payload, else the hook process's own. */
+function payloadCwd(body: string): string {
+  try {
+    const cwd = (JSON.parse(body || '{}') as { cwd?: unknown }).cwd
+    if (typeof cwd === 'string' && cwd) return cwd
+  } catch {
+    // fall through
+  }
+  return process.cwd()
+}
+
+/**
+ * The session-start stdout: server-driven lines, decorated with the CLI
+ * version + identity (LUM-843) and the local skill version / hints
+ * (LUM-1111). The skill probe never throws and only adds text.
+ */
+function sessionStartLines(
+  responseBody: unknown,
+  hookBody: string,
+  agentEnum: string | null,
+  creds: Pick<Credentials, 'email' | 'workspaceSlug'>
+): string[] {
+  const base = resolveSessionStartStdout(responseBody, {
+    extractTask: () => extractTaskFromGit(),
+  })
+  if (base.length === 0) return base
+  const version = readCliVersion()
+  const sid = (responseBody as { sessionId?: unknown }).sessionId
+  const skill = sessionStartSkillInfo({
+    agentEnum,
+    cliVersion: version,
+    sessionId: typeof sid === 'string' ? sid : null,
+    cwd: payloadCwd(hookBody),
+  })
+  return withStatusNotes(
+    withCliIdentity(base, {
+      version,
+      email: creds.email,
+      workspaceSlug: creds.workspaceSlug,
+      skill: skill.tag,
+    }),
+    skill.notes
+  )
 }
 
 /**
@@ -748,16 +814,7 @@ export async function runHookWithBody(
           const responseBody = await res.json()
           const lines =
             path === 'session-start'
-              ? withCliIdentity(
-                  resolveSessionStartStdout(responseBody, {
-                    extractTask: () => extractTaskFromGit(),
-                  }),
-                  {
-                    version: readCliVersion(),
-                    email: creds.email,
-                    workspaceSlug: creds.workspaceSlug,
-                  }
-                )
+              ? sessionStartLines(responseBody, body, agentEnum, creds)
               : formatHookStdoutLines(path, responseBody)
           // LUM-1054: Codex rejects text + JSON on one run. PreToolUse is
           // already a single Codex-valid object, so only SessionStart folds.
