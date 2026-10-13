@@ -226,6 +226,18 @@ describe('restart hint after a CLI upgrade', () => {
     ])
   })
 
+  it('skips without waiting while another hook holds the lock', () => {
+    fs.mkdirSync(path.dirname(stateFile), { recursive: true })
+    expect(cliUpgradeNote('s1', '1.70.0', stateFile)).toBeNull()
+    fs.writeFileSync(`${stateFile}.lock`, '')
+    expect(cliUpgradeNote('s1', '1.71.0', stateFile)).toBeNull()
+    fs.rmSync(`${stateFile}.lock`)
+    expect(cliUpgradeNote('s1', '1.71.0', stateFile)).toContain(
+      '1.70.0 → 1.71.0'
+    )
+    expect(fs.existsSync(`${stateFile}.lock`)).toBe(false)
+  })
+
   it('treats prototype-named session ids as plain keys', () => {
     expect(cliUpgradeNote('__proto__', '1.70.0', stateFile)).toBeNull()
     expect(cliUpgradeNote('constructor', '1.70.0', stateFile)).toBeNull()

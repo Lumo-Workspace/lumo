@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { configDir } from './config'
+import { acquireFileLock, releaseFileLock } from './file-lock'
 import { detectInstalledSkills } from './install-locations'
 import { skillCopyStatus, type SkillCopyStatus } from './skill-copies'
 
@@ -112,18 +113,28 @@ function writeSessionVersions(file: string, seen: Map<string, string>): void {
   fs.renameSync(tmp, file)
 }
 
+/** A held lock older than this is treated as abandoned. */
+const LOCK_STALE_MS = 10_000
+
 /**
  * Remember which CLI version served this session's SessionStart. When a
  * later SessionStart of the same session (resume / clear / compact) runs
  * under a different CLI, the skill text already in the conversation predates
- * the upgrade: say so once. Concurrent session starts may drop each other's
- * entry (last rename wins) — that only costs a hint. Never throws.
+ * the upgrade: say so once. The read-modify-write runs under a lock file;
+ * when another hook holds it this one skips (no hint, nothing recorded)
+ * rather than wait. Never throws.
  */
 export function cliUpgradeNote(
   sessionId: string,
   cliVersion: string,
   file: string = sessionVersionsPath()
 ): string | null {
+  const lock = `${file}.lock`
+  try {
+    if (!acquireFileLock(lock, LOCK_STALE_MS)) return null
+  } catch {
+    return null
+  }
   try {
     const seen = readSessionVersions(file)
     const prev = seen.get(sessionId)
@@ -140,6 +151,12 @@ export function cliUpgradeNote(
     return `lumo upgraded ${prev} → ${cliVersion} since this session started — restart the session to load the new skill`
   } catch {
     return null
+  } finally {
+    try {
+      releaseFileLock(lock)
+    } catch {
+      // best effort
+    }
   }
 }
 
