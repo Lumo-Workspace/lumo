@@ -591,7 +591,10 @@ describe('textDiff', () => {
     expect(textDiff('a\nb', 'a\nb\n', 'x', 'y')).toBe(
       '--- x\n+++ y\n(only the final newline differs)'
     )
+    // a lone newline is one blank line: a real one-line add
+    expect(textDiff('', '\n', 'x', 'y')).toBe('--- x\n+++ y\n@@ -0,0 +1 @@\n+')
     expect(textDiff('a\n', 'a\n', 'x', 'y')).toBe('')
+    expect(textDiff('', '', 'x', 'y')).toBe('')
   })
 
   it('renders a missing side as a whole-file hunk', () => {
