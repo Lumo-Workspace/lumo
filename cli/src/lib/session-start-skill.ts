@@ -4,6 +4,12 @@ import * as path from 'path'
 import { configDir } from './config'
 import { acquireFileLock, releaseFileLock } from './file-lock'
 import { detectInstalledSkills } from './install-locations'
+import {
+  projectDriftNote,
+  projectDriftOnce,
+  projectNotesPath,
+  type ProjectDriftItem,
+} from './project-install-drift'
 import { skillCopyStatus, type SkillCopyStatus } from './skill-copies'
 
 /**
@@ -176,6 +182,8 @@ export interface SessionStartSkillInput {
   homeDir?: string
   /** Where the restart-hint state lives (defaults to ~/.lumo). */
   sessionVersionsFile?: string
+  /** Where the once-per-session committed-install reminder state lives (defaults to ~/.lumo). */
+  projectNotesFile?: string
 }
 
 const NOTHING: SessionStartSkillInfo = { tag: null, notes: [] }
@@ -185,31 +193,57 @@ export function sessionStartSkillInfo(
   input: SessionStartSkillInput
 ): SessionStartSkillInfo {
   try {
+    if (!input.cliVersion) return NOTHING
+    const cliVersion = input.cliVersion
     const agent = skillAgentFor(input.agentEnum)
-    if (!agent || !input.cliVersion) return NOTHING
     const notes: string[] = []
     let tag: string | null = null
-    try {
-      const copy = sessionSkillCopy({
-        agent,
-        cliVersion: input.cliVersion,
-        homeDir: input.homeDir ?? os.homedir(),
-        cwd: input.cwd,
-      })
-      if (copy) {
-        tag = skillTag(copy)
-        const note = skillVersionNote(copy, input.cliVersion)
-        if (note) notes.push(note)
+    let copy: SkillCopyStatus | null = null
+    let behindNote: string | null = null
+    if (agent) {
+      try {
+        copy = sessionSkillCopy({
+          agent,
+          cliVersion,
+          homeDir: input.homeDir ?? os.homedir(),
+          cwd: input.cwd,
+        })
+        if (copy) {
+          tag = skillTag(copy)
+          behindNote = skillVersionNote(copy, cliVersion)
+        }
+      } catch {
+        // unreadable copy: no tag, no hint
       }
-    } catch {
-      // unreadable copy: no tag, no hint
     }
+    // LUM-1108: the repo's committed install behind the CLI, once per
+    // session. When it names the session's own skill copy it replaces the
+    // plain skill hint (same copy, the project-scoped fix plus the PR step).
+    let drift: ProjectDriftItem[] = []
+    try {
+      drift = projectDriftOnce({
+        cwd: input.cwd,
+        cliVersion,
+        sessionId: input.sessionId,
+        notedFile: input.projectNotesFile ?? projectNotesPath(configDir()),
+      })
+    } catch {
+      // a failed probe only drops the reminder
+    }
+    const ownCopyInDrift =
+      copy !== null &&
+      drift.some(d => d.kind === 'skill' && d.path === copy.path)
+    if (behindNote && !ownCopyInDrift) notes.push(behindNote)
+    const driftNote = projectDriftNote(drift, cliVersion, {
+      restart: ownCopyInDrift,
+    })
+    if (driftNote) notes.push(driftNote)
     // The restart hint is about reloading the skill: without a readable copy
     // there is nothing to reload, so neither hint nor record.
     if (tag !== null && input.sessionId) {
       const upgraded = cliUpgradeNote(
         input.sessionId,
-        input.cliVersion,
+        cliVersion,
         input.sessionVersionsFile
       )
       if (upgraded) notes.push(upgraded)

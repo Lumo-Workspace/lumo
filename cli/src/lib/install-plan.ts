@@ -2,9 +2,15 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { listFiles } from './codex-plugin'
 import { codexHooksPath } from './codex-hooks'
+import { classifyCodexRules, codexRulesPath } from './codex-rules'
 import { mergeGitHook, LUMO_HOOK_BEGIN } from './git-hook-template'
 import { resolveGitHooksDir } from './git-hooks-dir'
-import { mergeLumoHooks, type MergeStats } from './hooks-template'
+import {
+  isLumoHookCommand,
+  LUMO_HOOK_EVENTS,
+  mergeLumoHooks,
+  type MergeStats,
+} from './hooks-template'
 import {
   isLumoSkillSource,
   repoRoot,
@@ -225,17 +231,90 @@ export function collectUpgradeTargets(
     }
   }
 
+  const claudeSettings = installs.filter(
+    r => r.kind === 'claude-settings' && fs.existsSync(r.path)
+  )
+  const codexRules = installs.filter(
+    r => r.kind === 'codex-rules' && fs.existsSync(r.path)
+  )
+  // LUM-1108: a repo's committed `.claude/settings.json` / `.codex/rules/lumo.rules`
+  // is an install even on a machine that never recorded it (a teammate's
+  // clone), so `init --upgrade` — the fix the SessionStart reminder names —
+  // reaches it too.
+  if (root) {
+    const settings = projectClaudeSettingsTarget(root)
+    if (settings && !claudeSettings.some(r => r.path === settings.path))
+      claudeSettings.push(projectRecord('claude-settings', settings))
+    const rules = projectCodexRulesTarget(root)
+    if (rules && !codexRules.some(r => r.path === rules))
+      codexRules.push(
+        projectRecord('codex-rules', { path: rules, agent: 'codex' })
+      )
+  }
+
   return {
     skills: [...skills.values()].filter(t => fs.existsSync(t.path)),
-    claudeSettings: installs.filter(
-      r => r.kind === 'claude-settings' && fs.existsSync(r.path)
-    ),
+    claudeSettings,
     codexHooks: codexHookTargets(installs, homeDir, root),
-    codexRules: installs.filter(
-      r => r.kind === 'codex-rules' && fs.existsSync(r.path)
-    ),
+    codexRules,
     gitHooks: [...gitHooks].map(([p, scope]) => ({ path: p, scope })),
   }
+}
+
+/** A detected (unrecorded) project install, shaped like a registry record. */
+function projectRecord(
+  kind: 'claude-settings' | 'codex-rules',
+  t: { path: string; agent: string }
+): InstallRecord {
+  return {
+    kind,
+    path: t.path,
+    scope: 'project',
+    agent: t.agent,
+    version: '',
+    installedAt: '',
+  }
+}
+
+/**
+ * `<repo>/.claude/settings.json` when it carries Lumo hook entries, with the
+ * agent token baked into them (`--agent <token>`; `claude-code` for a legacy
+ * flagless entry). Null when missing, unreadable or without Lumo hooks.
+ */
+export function projectClaudeSettingsTarget(
+  root: string
+): { path: string; agent: string } | null {
+  const file = path.join(root, '.claude', 'settings.json')
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+  const hooks = (parsed as { hooks?: unknown } | null)?.hooks
+  if (!hooks || typeof hooks !== 'object') return null
+  for (const [event, slug] of LUMO_HOOK_EVENTS) {
+    const groups = (hooks as Record<string, unknown>)[event]
+    if (!Array.isArray(groups)) continue
+    for (const g of groups) {
+      const list = (g as { hooks?: unknown } | null)?.hooks
+      if (!Array.isArray(list)) continue
+      for (const h of list) {
+        const cmd = (h as { command?: unknown } | null)?.command
+        if (typeof cmd !== 'string' || !isLumoHookCommand(cmd, slug)) continue
+        const m = / --agent (\S+)/.exec(cmd)
+        return { path: file, agent: m?.[1] ?? 'claude-code' }
+      }
+    }
+  }
+  return null
+}
+
+/** `<repo>/.codex/rules/lumo.rules` while it still carries the Lumo marker. */
+export function projectCodexRulesTarget(root: string): string | null {
+  const file = codexRulesPath(root)
+  const state = classifyCodexRules(file)
+  return state === 'current' || state === 'outdated' ? file : null
 }
 
 /**
@@ -262,7 +341,7 @@ function codexHookTargets(
     .map(([p, scope]) => ({ path: p, scope }))
 }
 
-function hasLumoCodexHooks(file: string): boolean {
+export function hasLumoCodexHooks(file: string): boolean {
   try {
     return fs.readFileSync(file, 'utf8').includes('--agent codex')
   } catch {
