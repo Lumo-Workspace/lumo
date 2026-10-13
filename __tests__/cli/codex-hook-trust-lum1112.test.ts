@@ -19,7 +19,10 @@ jest.mock('@/cli/src/lib/memory-auto', () => ({
   autoDownsyncOnAttach: jest.fn(),
 }))
 jest.mock('@/cli/src/lib/resolve-project', () => ({
-  resolveBoundProjectId: jest.fn(() => null),
+  resolveBoundProjectId: jest.fn(async () => ({
+    ok: false,
+    error: 'not needed here',
+  })),
 }))
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: () => ({ token: 't', apiUrl: 'https://lumo.test' }),
