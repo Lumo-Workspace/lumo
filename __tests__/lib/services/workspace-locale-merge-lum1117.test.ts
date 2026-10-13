@@ -46,6 +46,21 @@ describe('summaryLanguageFor', () => {
     expect(summaryLanguageFor('zh-TW')).toBe('zh-Hant')
   })
 
+  it.each([
+    ['zh-Hant', 'zh-Hant'],
+    ['zh-Hant-TW', 'zh-Hant'],
+    ['zh-HK', 'zh-Hant'],
+    ['zh-MO', 'zh-Hant'],
+    ['zh_TW', 'zh-Hant'],
+    ['ZH-tw', 'zh-Hant'],
+    ['zh-Hans', 'zh'],
+    ['zh-Hans-HK', 'zh'],
+    ['zh-SG', 'zh'],
+    ['zh', 'zh'],
+  ])('maps %p to %p (LUM-1121)', (locale, expected) => {
+    expect(summaryLanguageFor(locale)).toBe(expected)
+  })
+
   it('falls back to English for every other supported locale', () => {
     for (const locale of PUBLIC_LOCALES.filter(l => !l.startsWith('zh')))
       expect(summaryLanguageFor(locale)).toBe('en')
