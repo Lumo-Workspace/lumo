@@ -324,6 +324,10 @@
       "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — App Router route: the URL is the file path and is hard-coded in the published CLI / customer CI, so the file stays in app/ and only the export drops it (the URL 404s without the plugin)"
     },
     {
+      "glob": "app/api/workspaces/me/policy-coverage/**",
+      "reason": "LUM-1114: security plugin — App Router route (the URL is the file path), so the file stays in app/ and only the export drops it (the URL 404s without the plugin); it serves the plugin-compiled project policy coverage"
+    },
+    {
       "glob": "lib/workflows/review-verifier*.ts",
       "reason": "MIT open-core ruling 2026-10-10 (LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §2, §3.1, §7 PR6): security plugin — Vercel Workflows file ('use workflow' / 'use step'): workflow and step ids are derived from the file path (`workflow//./<path>//<fn>`), so moving it would orphan runs in flight across a deploy; it stays in lib/workflows/"
     },
