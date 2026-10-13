@@ -1,15 +1,17 @@
 /**
  * @jest-environment node
  *
- * LUM-1103 — `findMemberByEmail` resolves the Slack caller's member with a
- * constant number of user-directory calls (a batch `getUserList` by id per
- * 100 members — Clerk's user_id filter cap), never one `getUser` per member.
+ * LUM-1103 / LUM-1115 — `findMemberByEmail` resolves the Slack caller's
+ * member with exactly one user-directory call, filtered by the email
+ * (`getUserList({ emailAddress })`), whatever the workspace's member count —
+ * never a scan of every member's profile, never one `getUser` per member.
  */
 
-const mockListActiveMembers = jest.fn()
+const mockListActiveMembersByClerkIds = jest.fn()
 jest.mock('@/lib/repositories/slack-command.repository', () => ({
   slackCommandRepository: {
-    listActiveMembers: (...a: unknown[]) => mockListActiveMembers(...a),
+    listActiveMembersByClerkIds: (...a: unknown[]) =>
+      mockListActiveMembersByClerkIds(...a),
   },
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({
@@ -35,19 +37,27 @@ const mockGetUser = jest.fn(async (id: string) => {
   if (!u) throw Object.assign(new Error('not found'), { status: 404 })
   return u
 })
-const mockGetUserList = jest.fn(
-  async ({ userId = [] }: { userId?: string[]; limit?: number }) => ({
-    data: userId.flatMap(id => {
-      const u = mockUsers.get(id)
-      return u ? [u] : []
-    }),
-  })
-)
+interface ListQuery {
+  userId?: string[]
+  emailAddress?: string[]
+  limit?: number
+}
+// Like both providers: an email filter matches any of a user's addresses,
+// case-insensitively.
+const mockGetUserList = jest.fn(async (q: ListQuery) => {
+  const all = [...mockUsers.values()]
+  const wanted = (q.emailAddress ?? []).map(e => e.toLowerCase())
+  const data = all.filter(
+    u =>
+      (q.userId ?? []).includes(u.id) ||
+      u.emailAddresses.some(e => wanted.includes(e.emailAddress.toLowerCase()))
+  )
+  return { data: data.slice(0, q.limit ?? 10) }
+})
 jest.mock('@/lib/auth/users', () => ({
   createUserDirectory: async () => ({
     getUser: (id: string) => mockGetUser(id),
-    getUserList: (q: { userId?: string[]; limit?: number }) =>
-      mockGetUserList(q),
+    getUserList: (q: ListQuery) => mockGetUserList(q),
   }),
 }))
 
@@ -82,8 +92,18 @@ function seed(count: number) {
       user(m.clerkId, `person${i}@example.com`, { firstName: `P${i}` }),
     ])
   )
-  mockListActiveMembers.mockResolvedValue(members)
+  primeMembers(members)
   return members
+}
+
+type MemberRow = { id: string; clerkId: string; actor: { id: string } | null }
+
+/** The repository returns the active members among the ids it is given. */
+function primeMembers(members: MemberRow[]) {
+  mockListActiveMembersByClerkIds.mockImplementation(
+    async (_ws: string, ids: string[]) =>
+      members.filter(m => ids.includes(m.clerkId))
+  )
 }
 
 beforeEach(() => {
@@ -92,7 +112,7 @@ beforeEach(() => {
 })
 
 describe('slackCommandService.findMemberByEmail — directory call count', () => {
-  it('makes one batch directory call for 50 members, no per-member getUser', async () => {
+  it('makes one email-filtered directory call for 50 members, no id scan', async () => {
     seed(50)
     const found = await slackCommandService.findMemberByEmail(
       'ws_1',
@@ -102,51 +122,52 @@ describe('slackCommandService.findMemberByEmail — directory call count', () =>
     expect(mockGetUser).not.toHaveBeenCalled()
     expect(mockGetUserList).toHaveBeenCalledTimes(1)
     const query = mockGetUserList.mock.calls[0]![0]
-    expect(query.userId).toHaveLength(50)
-    expect(query.limit).toBe(50)
+    expect(query.emailAddress).toEqual(['person49@example.com'])
+    expect(query.userId).toBeUndefined()
   })
 
-  it('keeps the call count independent of the member count (5 vs 100)', async () => {
-    seed(5)
-    await slackCommandService.findMemberByEmail('ws_1', 'nobody@example.com')
-    const small = mockGetUserList.mock.calls.length
-    jest.clearAllMocks()
+  it.each([5, 100, 250, 1000])(
+    'makes exactly one directory call with %i members',
+    async count => {
+      seed(count)
+      const found = await slackCommandService.findMemberByEmail(
+        'ws_1',
+        `person${count - 1}@example.com`
+      )
+      expect(found?.memberId).toBe(`wm_${count - 1}`)
+      expect(mockGetUserList).toHaveBeenCalledTimes(1)
+      expect(mockGetUser).not.toHaveBeenCalled()
+    }
+  )
+
+  it('asks the repository only about the matched users, scoped to the workspace', async () => {
     seed(100)
-    await slackCommandService.findMemberByEmail('ws_1', 'nobody@example.com')
-    expect(mockGetUserList.mock.calls.length).toBe(small)
-    expect(small).toBe(1)
-    expect(mockGetUser).not.toHaveBeenCalled()
-  })
-
-  it('pages ids in chunks of 100 (Clerk user_id filter cap)', async () => {
-    seed(250)
-    const found = await slackCommandService.findMemberByEmail(
-      'ws_1',
-      'person249@example.com'
-    )
-    expect(found?.memberId).toBe('wm_249')
-    expect(mockGetUserList).toHaveBeenCalledTimes(3)
-    expect(mockGetUserList.mock.calls.map(c => c[0].userId?.length)).toEqual([
-      100, 100, 50,
+    await slackCommandService.findMemberByEmail('ws_1', 'person7@example.com')
+    expect(mockListActiveMembersByClerkIds).toHaveBeenCalledTimes(1)
+    expect(mockListActiveMembersByClerkIds).toHaveBeenCalledWith('ws_1', [
+      'user_7',
     ])
-    expect(mockGetUser).not.toHaveBeenCalled()
   })
 
-  it('makes no directory call when the workspace has no active members', async () => {
-    mockListActiveMembers.mockResolvedValue([])
+  it('makes no member query when no directory user has that email', async () => {
+    seed(10)
     expect(
-      await slackCommandService.findMemberByEmail('ws_1', 'a@example.com')
+      await slackCommandService.findMemberByEmail('ws_1', 'nobody@example.com')
     ).toBeNull()
+    expect(mockGetUserList).toHaveBeenCalledTimes(1)
+    expect(mockListActiveMembersByClerkIds).not.toHaveBeenCalled()
+  })
+
+  it('makes no directory call for a blank email', async () => {
+    seed(10)
+    expect(await slackCommandService.findMemberByEmail('ws_1', '  ')).toBeNull()
     expect(mockGetUserList).not.toHaveBeenCalled()
-    expect(mockGetUser).not.toHaveBeenCalled()
   })
 })
 
 describe('slackCommandService.findMemberByEmail — match semantics unchanged', () => {
   it('matches the primary email case-insensitively and trims input', async () => {
-    mockListActiveMembers.mockResolvedValue([
-      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
-    ])
+    primeMembers([{ id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } }])
     mockUsers = new Map([
       [
         'user_1',
@@ -167,12 +188,14 @@ describe('slackCommandService.findMemberByEmail — match semantics unchanged', 
       actorId: 'actor_1',
       name: 'Dev Person',
     })
+    // The filter is sent normalised (trimmed, lower-cased).
+    expect(mockGetUserList.mock.calls[0]![0].emailAddress).toEqual([
+      'dev.person@example.com',
+    ])
   })
 
   it('ignores a matching non-primary email', async () => {
-    mockListActiveMembers.mockResolvedValue([
-      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
-    ])
+    primeMembers([{ id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } }])
     mockUsers = new Map([
       [
         'user_1',
@@ -190,7 +213,7 @@ describe('slackCommandService.findMemberByEmail — match semantics unchanged', 
   })
 
   it('returns the first member in member order when two share an email', async () => {
-    mockListActiveMembers.mockResolvedValue([
+    primeMembers([
       { id: 'wm_b', clerkId: 'user_b', actor: null },
       { id: 'wm_a', clerkId: 'user_a', actor: { id: 'actor_a' } },
     ])
@@ -211,17 +234,11 @@ describe('slackCommandService.findMemberByEmail — match semantics unchanged', 
     })
   })
 
-  it('skips a member whose directory user no longer exists', async () => {
-    mockListActiveMembers.mockResolvedValue([
-      { id: 'wm_gone', clerkId: 'user_gone', actor: { id: 'actor_gone' } },
-      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
-    ])
-    mockUsers = new Map([['user_1', user('user_1', 'dev@example.com')]])
-    const found = await slackCommandService.findMemberByEmail(
-      'ws_1',
-      'dev@example.com'
-    )
-    expect(found?.memberId).toBe('wm_1')
-    expect(found?.name).toBe('dev')
+  it('returns null when the matched user is not an active member here', async () => {
+    primeMembers([{ id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } }])
+    mockUsers = new Map([['user_x', user('user_x', 'dev@example.com')]])
+    expect(
+      await slackCommandService.findMemberByEmail('ws_1', 'dev@example.com')
+    ).toBeNull()
   })
 })

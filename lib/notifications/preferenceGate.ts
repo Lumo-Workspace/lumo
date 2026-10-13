@@ -10,7 +10,6 @@ const INAPP_MAP: Partial<Record<NotificationType, string>> = {
   TASK_SENT_BACK: 'notifyInAppAssigned',
   TASK_DONE: 'notifyInAppAssigned',
   TASK_IN_REVIEW: 'notifyInAppAssigned',
-  TASK_SPEC_READY: 'notifyInAppAssigned',
   TASK_MENTIONED: 'notifyInAppMention',
   DOCUMENT_COMMENT_MENTIONED: 'notifyInAppMention',
   PROJECT_MENTIONED: 'notifyInAppMention',
@@ -60,11 +59,14 @@ export const MENTION_NOTIFICATION_TYPES = [
   'DOCUMENT_MENTIONED',
 ] as const satisfies readonly NotificationType[]
 
-// requiresAction types are never silenced
+// requiresAction types are never silenced. TASK_SPEC_READY too (LUM-1115):
+// the agent waits in INPUT_REQUIRED for an owner to review the spec, and the
+// inbox is its only channel — the "Task assigned" switch must not hide it.
 const ALWAYS_NOTIFY: Set<NotificationType> = new Set([
   'AGENT_CLARIFY',
   'AGENT_AUTHORIZE',
   'AGENT_VERIFY',
+  'TASK_SPEC_READY',
 ])
 
 function getPreferenceField(

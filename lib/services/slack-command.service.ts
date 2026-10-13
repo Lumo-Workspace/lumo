@@ -9,7 +9,6 @@ import { slackCommandRepository } from '@/lib/repositories/slack-command.reposit
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
-import { listUsersByIds } from '@/lib/auth/user-batch'
 import type { AuthUser } from '@/lib/auth/users'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 
@@ -141,51 +140,66 @@ async function updateAsMember(
   )
 }
 
+/** Directory users one email can match (it is unique per user in practice). */
+const EMAIL_MATCH_LIMIT = 10
+
 /**
- * Directory users by id, paged by `listUsersByIds` (100 ids per call).
- * Works for either provider behind `@/lib/auth/users`; ids the directory no
- * longer knows are simply missing from the map.
+ * Users whose primary email is `email` (already trimmed and lower-cased), in
+ * ONE directory call filtered by email (LUM-1115) — either provider behind
+ * `@/lib/auth/users` supports the `emailAddress` filter. The filter matches
+ * any of a user's addresses, so the primary-address check stays here.
  */
-async function usersByIds(ids: string[]): Promise<Map<string, AuthUser>> {
-  if (ids.length === 0) return new Map()
+async function usersWithPrimaryEmail(
+  email: string
+): Promise<Array<{ user: AuthUser; primaryEmail: string }>> {
   const { createUserDirectory } = await import('@/lib/auth/users')
   const directory = await createUserDirectory()
-  const users = await listUsersByIds(directory, ids)
-  return new Map(users.map(user => [user.id, user]))
+  const { data } = await directory.getUserList({
+    emailAddress: [email],
+    limit: EMAIL_MATCH_LIMIT,
+  })
+  return data.flatMap(user => {
+    const primary = user.emailAddresses.find(
+      e => e.id === user.primaryEmailAddressId
+    )
+    // Email addresses are case-insensitive in practice (Slack and the
+    // directory may store different casing).
+    return primary?.emailAddress.toLowerCase() === email
+      ? [{ user, primaryEmail: primary.emailAddress }]
+      : []
+  })
 }
 
 export const slackCommandService = {
   /**
-   * The active member whose primary email is `email`, or `null`. Profiles
-   * live in the user directory; they are fetched by id in batches (LUM-1103),
-   * so a command costs one directory call per 100 members rather than one
-   * per member. Members are still checked in member order, first match wins.
+   * The active member whose primary email is `email`, or `null`. One
+   * email-filtered directory call finds the user(s) (LUM-1115 — previously
+   * every member's profile was fetched, 100 ids per call), then one query
+   * keeps those that are active members here. With several matches the
+   * first in member order wins.
    */
   async findMemberByEmail(
     workspaceId: string,
     email: string
   ): Promise<SlackLinkedMember | null> {
     const wanted = email.trim().toLowerCase()
-    const members = await slackCommandRepository.listActiveMembers(workspaceId)
-    if (members.length === 0) return null
-    const users = await usersByIds(members.map(m => m.clerkId))
+    if (!wanted) return null
+    const matches = await usersWithPrimaryEmail(wanted)
+    if (matches.length === 0) return null
+    const byId = new Map(matches.map(m => [m.user.id, m]))
+    const members = await slackCommandRepository.listActiveMembersByClerkIds(
+      workspaceId,
+      [...byId.keys()]
+    )
     for (const member of members) {
-      // Users the directory no longer knows are absent: skip, don't fail.
-      const user = users.get(member.clerkId)
-      if (!user) continue
-      const primary = user.emailAddresses.find(
-        e => e.id === user.primaryEmailAddressId
-      )
-      // Email addresses are case-insensitive in practice (Slack and the
-      // directory may store different casing).
-      if (primary?.emailAddress.toLowerCase() === wanted) {
-        return {
-          memberId: member.id,
-          clerkId: member.clerkId,
-          actorId: member.actor?.id ?? null,
-          // Lumo's own record, never the Slack-supplied string.
-          name: displayName(user, primary.emailAddress),
-        }
+      const match = byId.get(member.clerkId)
+      if (!match) continue
+      return {
+        memberId: member.id,
+        clerkId: member.clerkId,
+        actorId: member.actor?.id ?? null,
+        // Lumo's own record, never the Slack-supplied string.
+        name: displayName(match.user, match.primaryEmail),
       }
     }
     return null

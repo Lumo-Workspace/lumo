@@ -67,21 +67,22 @@ describe('mentionReplyRequest', () => {
     })
   })
 
-  it('ephemeral without a known user falls back to a thread reply', () => {
+  // LUM-1115: a private reply is never turned into a public one.
+  it('ephemeral without a known user has no request (never a thread reply)', () => {
     expect(
       mentionReplyRequest(
         { type: 'text', text: 'e', visibility: 'ephemeral' },
         { channel: 'C1', user: '', threadTs: '1.2' }
-      ).url
-    ).toBe('https://slack.com/api/chat.postMessage')
+      )
+    ).toBeNull()
   })
 
   it('omits thread_ts when there is no thread', () => {
-    const { body } = mentionReplyRequest(
+    const req = mentionReplyRequest(
       { type: 'text', text: 'ok', visibility: 'in_channel' },
       { channel: 'C1', user: 'U1' }
     )
-    expect(body).toEqual({ channel: 'C1', text: 'ok' })
+    expect(req?.body).toEqual({ channel: 'C1', text: 'ok' })
   })
 })
 
@@ -163,20 +164,100 @@ describe('send* never throw and never report a failed send as success', () => {
     )
   })
 
-  it('a non-JSON 5xx from chat.postEphemeral still falls back to a thread reply', async () => {
+  // LUM-1115: when Slack refuses the ephemeral reply (user_not_in_channel,
+  // rate limit, Slack Connect…), the reply goes to the user's DM — never to
+  // the channel thread, where everyone would see a private answer.
+  function calledUrls(fetchMock: jest.Mock): string[] {
+    return fetchMock.mock.calls.map(c => c[0] as string)
+  }
+  function bodyOf(fetchMock: jest.Mock, n: number): Record<string, unknown> {
+    const init = fetchMock.mock.calls[n]![1] as { body: string }
+    return JSON.parse(init.body) as Record<string, unknown>
+  }
+
+  it.each([
+    [
+      'ok:false user_not_in_channel',
+      () => new Response('{"ok":false,"error":"user_not_in_channel"}'),
+    ],
+    ['a non-JSON 5xx', () => new Response('upstream error', { status: 502 })],
+  ])(
+    'postEphemeral failing with %s → DM to the user, no in_channel reply',
+    async (_label, failure) => {
+      const fetchMock = jest
+        .fn()
+        .mockResolvedValueOnce(failure())
+        .mockResolvedValueOnce(
+          new Response('{"ok":true,"channel":{"id":"D42"}}')
+        )
+        .mockResolvedValueOnce(new Response('{"ok":true}'))
+      global.fetch = fetchMock as unknown as typeof fetch
+      await sendMentionReply(
+        'xoxb',
+        { type: 'text', text: 'only for you', visibility: 'ephemeral' },
+        ctx
+      )
+      expect(calledUrls(fetchMock)).toEqual([
+        'https://slack.com/api/chat.postEphemeral',
+        'https://slack.com/api/conversations.open',
+        'https://slack.com/api/chat.postMessage',
+      ])
+      expect(bodyOf(fetchMock, 1)).toEqual({ users: 'U1' })
+      // Posted into the DM channel, not the mention's channel or thread.
+      expect(bodyOf(fetchMock, 2)).toEqual({
+        channel: 'D42',
+        text: 'only for you',
+      })
+    }
+  )
+
+  it('DM cannot be opened → only logged, nothing posted to the channel', async () => {
     const fetchMock = jest
       .fn()
-      .mockResolvedValueOnce(new Response('upstream error', { status: 502 }))
-      .mockResolvedValueOnce(new Response('{"ok":true}'))
+      .mockResolvedValueOnce(
+        new Response('{"ok":false,"error":"user_not_in_channel"}')
+      )
+      .mockResolvedValueOnce(
+        new Response('{"ok":false,"error":"missing_scope"}')
+      )
+    global.fetch = fetchMock as unknown as typeof fetch
+    await sendMentionReply(
+      'xoxb',
+      { type: 'text', text: 'only for you', visibility: 'ephemeral' },
+      ctx
+    )
+    expect(calledUrls(fetchMock)).toEqual([
+      'https://slack.com/api/chat.postEphemeral',
+      'https://slack.com/api/conversations.open',
+    ])
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('private reply not delivered'),
+      expect.objectContaining({ channel: 'C1' })
+    )
+  })
+
+  it('an ephemeral reply without a user sends nothing', async () => {
+    const fetchMock = jest.fn()
+    global.fetch = fetchMock as unknown as typeof fetch
+    await sendMentionReply(
+      'xoxb',
+      { type: 'text', text: 'only for you', visibility: 'ephemeral' },
+      { channel: 'C1', user: '', threadTs: '1.2' }
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalled()
+  })
+
+  it('a delivered ephemeral reply makes exactly one call', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(new Response('{"ok":true}'))
     global.fetch = fetchMock as unknown as typeof fetch
     await sendMentionReply(
       'xoxb',
       { type: 'text', text: 'e', visibility: 'ephemeral' },
       ctx
     )
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(fetchMock.mock.calls[1]![0]).toBe(
-      'https://slack.com/api/chat.postMessage'
-    )
+    expect(calledUrls(fetchMock)).toEqual([
+      'https://slack.com/api/chat.postEphemeral',
+    ])
   })
 })

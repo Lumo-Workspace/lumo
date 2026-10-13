@@ -18,10 +18,15 @@ const TASK_SUMMARY_SELECT = {
 } as const
 
 export const slackCommandRepository = {
-  /** Active members of the workspace, with their actor id. */
-  async listActiveMembers(workspaceId: string) {
+  /**
+   * The workspace's active members among the given auth-provider user ids,
+   * with their actor id (LUM-1115: the caller already narrowed the ids to the
+   * directory users that own an email, so this never lists the whole roster).
+   */
+  async listActiveMembersByClerkIds(workspaceId: string, clerkIds: string[]) {
+    if (clerkIds.length === 0) return []
     return prisma.workspaceMember.findMany({
-      where: { workspaceId, ...ACTIVE_MEMBER },
+      where: { workspaceId, clerkId: { in: clerkIds }, ...ACTIVE_MEMBER },
       select: { id: true, clerkId: true, actor: { select: { id: true } } },
     })
   },

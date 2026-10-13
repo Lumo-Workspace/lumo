@@ -58,6 +58,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
+    // 2b. A Slack retry (X-Slack-Retry-Num) means the first delivery was not
+    //     acknowledged within 3 s — it is still running the command. Ack and
+    //     drop the retry so a command never runs twice (LUM-1115); no
+    //     storage needed. X-Slack-No-Retry asks Slack to stop re-sending.
+    const retryNum = request.headers.get('x-slack-retry-num')
+    if (retryNum) {
+      logger.info('[slack webhook] dropped a Slack retry', {
+        retryNum,
+        reason: request.headers.get('x-slack-retry-reason'),
+      })
+      return new NextResponse(null, {
+        status: 200,
+        headers: { 'X-Slack-No-Retry': '1' },
+      })
+    }
+
     // 3. Parse by Content-Type — only after the signature check above
     //    (LUM-1080: slash commands are form-encoded, events are JSON).
     const payload = parseSlackRequestBody(
