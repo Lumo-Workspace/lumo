@@ -24,7 +24,7 @@ import { icons } from '../lib/ui'
 
 /**
  * LUM-1107 — `lumo skill status` / `lumo skill update`: report and refresh
- * only the Lumo skill copies. Unlike `lumo init --upgrade` nothing else is
+ * only the Lumo skill copies. Unlike re-running `lumo init` nothing else is
  * touched: no Claude settings hooks, no Codex hooks.json / rules, no git
  * hook. Safety rules match init/auto-sync: only `…/skills/lumo` dirs are
  * written, never a downgrade, locally modified copies only with `--force`,
@@ -320,8 +320,8 @@ export async function skillUpdate(
   }
   env.out(
     dryRun
-      ? `\n${updated} of ${copies.length} would be updated. Hooks, settings, Codex hooks/rules and the git hook are never touched — \`lumo init --upgrade\` refreshes those.\n`
-      : `\n${updated} of ${copies.length} updated. Hooks, settings, Codex hooks/rules and the git hook were not touched — \`lumo init --upgrade\` refreshes those.\n`
+      ? `\n${updated} of ${copies.length} would be updated. Hooks, settings, Codex hooks/rules and the git hook are never touched — re-running \`lumo init\` refreshes those.\n`
+      : `\n${updated} of ${copies.length} updated. Hooks, settings, Codex hooks/rules and the git hook were not touched — re-running \`lumo init\` refreshes those.\n`
   )
   return failures > 0 ? 1 : 0
 }

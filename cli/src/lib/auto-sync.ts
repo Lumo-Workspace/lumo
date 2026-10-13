@@ -41,7 +41,7 @@ export function shouldAutoSync(argv: readonly string[]): boolean {
 }
 
 /**
- * LUM-1113: `lumo init --upgrade --dry-run` (or `setup …`) promises zero
+ * LUM-1113: `lumo init --dry-run` (or `setup …`) promises zero
  * writes, so neither the first-run sync nor the update check / background
  * auto-update may run before it.
  */
@@ -186,7 +186,7 @@ function recentlyAttempted(
 /**
  * First run of a new CLI version: bring user-scope, untracked, unmodified
  * installs up to date. Never throws; never touches project-scope or
- * git-tracked paths (those need an explicit `lumo init --upgrade`).
+ * git-tracked paths (those need an explicit `lumo init --project`).
  */
 export function maybeAutoSync(
   currentVersion: string | null = readCliVersion(),

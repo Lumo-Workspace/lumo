@@ -2,33 +2,26 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { ENUM_TO_TOKEN, normalizeAgent } from './agent'
 import { listFiles } from './codex-plugin'
-import { codexHooksPath } from './codex-hooks'
 import { classifyCodexRules, codexRulesPath } from './codex-rules'
-import { mergeGitHook, LUMO_HOOK_BEGIN } from './git-hook-template'
-import { resolveGitHooksDir } from './git-hooks-dir'
+import { mergeGitHook, resolveHookInstall } from './git-hook-template'
+import { gitCapture, resolveGitHooksDir } from './git-hooks-dir'
 import {
   isLumoHookCommand,
   LUMO_HOOK_EVENTS,
   mergeLumoHooks,
   type MergeStats,
 } from './hooks-template'
-import {
-  isLumoSkillSource,
-  repoRoot,
-  detectInstalledSkills,
-} from './install-locations'
-import { readMarker, type InstallRecord } from './install-registry'
+import { isLumoSkillSource } from './install-locations'
+import { readMarker } from './install-registry'
 import { classifySkillDir, isNewerVersion } from './install-state'
 import { MARKER_FILE } from './skill-hash'
 
 /**
- * LUM-1113 — the read-only half of `lumo init` / `init --upgrade`: which
- * installs an upgrade visits and what it would do to each. `init` acts on
- * these decisions and `init --upgrade --dry-run` only reports them, so the
- * preview cannot drift from what the real run writes. Nothing here writes.
+ * LUM-1113 / LUM-1118 — the read-only half of `lumo init`: what it would do
+ * to each install of the chosen scope. `init` acts on these decisions and
+ * `init --dry-run` only reports them, so the preview cannot drift from what
+ * the real run writes. Nothing here writes.
  */
-
-type Scope = 'user' | 'project'
 
 function filesEqual(src: string, dst: string): boolean {
   if (!fs.existsSync(dst)) return false
@@ -169,112 +162,41 @@ export function planHooksMerge(
   }
 }
 
-export type GitHookRefreshPlan =
-  | { status: 'absent' }
-  | { status: 'unchanged' }
-  | { status: 'updated'; existing: string; content: string }
+export type GitHookInstallPlan =
+  | { status: 'not-repo' }
+  /** `core.hooksPath` is set (husky etc.): init prints the block instead. */
+  | { status: 'degrade'; coreHooksPath: string }
+  | { status: 'no-dir' }
+  | { status: 'unchanged'; hookPath: string }
+  | {
+      status: 'created' | 'appended' | 'updated'
+      hookPath: string
+      /** The hook as read (null when missing). */
+      existing: string | null
+      content: string
+    }
 
 /**
- * Bringing the Lumo block of an existing prepare-commit-msg up to date: only a
- * file that already carries the Lumo begin marker is a target.
+ * What `lumo init --project` does to the repo's prepare-commit-msg: create
+ * it, append the Lumo block to a foreign hook, replace a stale block, or
+ * nothing. A configured `core.hooksPath` is never written.
  */
-export function planGitHookRefresh(hookPath: string): GitHookRefreshPlan {
-  if (!fs.existsSync(hookPath)) return { status: 'absent' }
-  const existing = fs.readFileSync(hookPath, 'utf8')
-  if (!existing.includes(LUMO_HOOK_BEGIN)) return { status: 'absent' }
+export function planGitHookInstall(projectRoot: string): GitHookInstallPlan {
+  if (
+    gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true'
+  )
+    return { status: 'not-repo' }
+  const { dir, coreHooksPath } = resolveGitHooksDir(projectRoot)
+  if (resolveHookInstall(coreHooksPath).mode === 'degrade')
+    return { status: 'degrade', coreHooksPath: coreHooksPath! }
+  if (!dir) return { status: 'no-dir' }
+  const hookPath = path.join(dir, 'prepare-commit-msg')
+  const existing = fs.existsSync(hookPath)
+    ? fs.readFileSync(hookPath, 'utf8')
+    : null
   const { content, status } = mergeGitHook(existing)
-  if (status === 'unchanged') return { status: 'unchanged' }
-  return { status: 'updated', existing, content }
-}
-
-export interface UpgradeTargets {
-  skills: Array<{ path: string; scope: Scope; agent: string }>
-  claudeSettings: InstallRecord[]
-  codexHooks: Array<{ path: string; scope: Scope }>
-  codexRules: InstallRecord[]
-  /** prepare-commit-msg candidates; files without the Lumo block are not installs. */
-  gitHooks: Array<{ path: string; scope: Scope }>
-}
-
-/**
- * Every install `init --upgrade` visits: registry records plus the detected
- * standard locations, existing paths only, in the order the upgrade runs.
- */
-export function collectUpgradeTargets(
-  installs: readonly InstallRecord[],
-  homeDir: string,
-  cwd: string
-): UpgradeTargets {
-  const skills = new Map<
-    string,
-    { path: string; scope: Scope; agent: string }
-  >()
-  for (const r of installs) {
-    if (r.kind === 'skill') {
-      skills.set(r.path, { path: r.path, scope: r.scope, agent: r.agent })
-    }
-  }
-  for (const l of detectInstalledSkills({ homeDir, cwd })) {
-    if (!skills.has(l.path)) skills.set(l.path, l)
-  }
-
-  const gitHooks = new Map<string, Scope>()
-  for (const r of installs) {
-    if (r.kind === 'git-hook') gitHooks.set(r.path, r.scope)
-  }
-  const root = repoRoot(cwd)
-  if (root) {
-    // A core.hooksPath hook is user-managed (husky etc.): never rewritten here.
-    const { dir, coreHooksPath } = resolveGitHooksDir(root)
-    if (dir && !coreHooksPath) {
-      const p = path.join(dir, 'prepare-commit-msg')
-      if (!gitHooks.has(p)) gitHooks.set(p, 'project')
-    }
-  }
-
-  const claudeSettings = installs.filter(
-    r => r.kind === 'claude-settings' && fs.existsSync(r.path)
-  )
-  const codexRules = installs.filter(
-    r => r.kind === 'codex-rules' && fs.existsSync(r.path)
-  )
-  // LUM-1108: a repo's committed `.claude/settings.json` / `.codex/rules/lumo.rules`
-  // is an install even on a machine that never recorded it (a teammate's
-  // clone), so `init --upgrade` — the fix the SessionStart reminder names —
-  // reaches it too.
-  if (root) {
-    const settings = projectClaudeSettingsTarget(root)
-    if (settings && !claudeSettings.some(r => r.path === settings.path))
-      claudeSettings.push(projectRecord('claude-settings', settings))
-    const rules = projectCodexRulesTarget(root)
-    if (rules && !codexRules.some(r => r.path === rules))
-      codexRules.push(
-        projectRecord('codex-rules', { path: rules, agent: 'codex' })
-      )
-  }
-
-  return {
-    skills: [...skills.values()].filter(t => fs.existsSync(t.path)),
-    claudeSettings,
-    codexHooks: codexHookTargets(installs, homeDir, root),
-    codexRules,
-    gitHooks: [...gitHooks].map(([p, scope]) => ({ path: p, scope })),
-  }
-}
-
-/** A detected (unrecorded) project install, shaped like a registry record. */
-function projectRecord(
-  kind: 'claude-settings' | 'codex-rules',
-  t: { path: string; agent: string }
-): InstallRecord {
-  return {
-    kind,
-    path: t.path,
-    scope: 'project',
-    agent: t.agent,
-    version: '',
-    installedAt: '',
-  }
+  if (status === 'unchanged') return { status, hookPath }
+  return { status, hookPath, existing, content }
 }
 
 /**
@@ -319,30 +241,6 @@ export function projectCodexRulesTarget(root: string): string | null {
   const file = codexRulesPath(root)
   const state = classifyCodexRules(file)
   return state === 'current' || state === 'outdated' ? file : null
-}
-
-/**
- * Codex hooks files `init --upgrade` refreshes: registry records plus the
- * standard user (`~/.codex/hooks.json`) and repo (`<repo>/.codex/hooks.json`)
- * locations when they already carry `lumo hook … --agent codex` entries.
- */
-function codexHookTargets(
-  installs: readonly InstallRecord[],
-  homeDir: string,
-  root: string | null
-): Array<{ path: string; scope: Scope }> {
-  const targets = new Map<string, Scope>()
-  for (const r of installs) {
-    if (r.kind === 'codex-hooks') targets.set(r.path, r.scope)
-  }
-  const standard: Array<[string, Scope]> = [[codexHooksPath(homeDir), 'user']]
-  if (root) standard.push([codexHooksPath(root), 'project'])
-  for (const [p, scope] of standard) {
-    if (!targets.has(p) && hasLumoCodexHooks(p)) targets.set(p, scope)
-  }
-  return [...targets]
-    .filter(([p]) => fs.existsSync(p))
-    .map(([p, scope]) => ({ path: p, scope }))
 }
 
 export function hasLumoCodexHooks(file: string): boolean {

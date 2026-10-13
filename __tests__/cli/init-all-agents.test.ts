@@ -236,18 +236,18 @@ describe('--agent still installs a single agent', () => {
   })
 })
 
-describe('init --upgrade and the Codex rule', () => {
+describe('re-running init and the Codex rule', () => {
   it('refreshes an outdated Lumo rules file and leaves a current one alone', async () => {
     const e = env()
     await init({ user: true }, e.deps)
     const rules = codexRulesPath(e.home)
     writeFileSync(rules, `${CODEX_RULES_MARKER}\nold\n`)
     stdout = ''
-    expect(await init({ upgrade: true }, e.deps)).toBe(0)
+    expect(await init({ user: true }, e.deps)).toBe(0)
     expect(readFileSync(rules, 'utf8')).toBe(LUMO_CODEX_RULES)
-    expect(stdout).toContain(`updated Codex rule: ${rules}`)
+    expect(stdout).toContain(`wrote Codex rule: ${rules}`)
     stdout = ''
-    expect(await init({ upgrade: true }, e.deps)).toBe(0)
+    expect(await init({ user: true }, e.deps)).toBe(0)
     expect(stdout).toContain(`Codex rule already in place: ${rules}`)
   })
 })
@@ -310,7 +310,7 @@ describe('doctor reports the Codex network state', () => {
     )
   })
 
-  it('an outdated Lumo rules file suggests init --upgrade', async () => {
+  it('an outdated Lumo rules file suggests re-running init for its scope and agent', async () => {
     const e = env()
     await init({ user: true, agent: 'codex' }, e.deps)
     writeFileSync(codexRulesPath(e.home), `${CODEX_RULES_MARKER}\nold\n`)
@@ -322,7 +322,7 @@ describe('doctor reports the Codex network state', () => {
     })
     expect(r.rows.find(x => x.kind === 'codex-rules')).toMatchObject({
       state: 'outdated',
-      suggestion: 'lumo init --upgrade',
+      suggestion: 'lumo init --user --agent codex',
     })
   })
 })

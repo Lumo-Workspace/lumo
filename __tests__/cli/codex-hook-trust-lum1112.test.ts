@@ -2,7 +2,8 @@
  * @jest-environment node
  *
  * LUM-1112 — after the Codex hook event set changes, say WHICH events need
- * Trust again: `init --upgrade` names the added/rewritten events, and
+ * Trust again: re-running `lumo init` names the added/rewritten events
+ * (covered in init-lifecycle.test.ts since LUM-1118), and
  * `session attach` / `session status` in a Codex shell list the Lumo events
  * that look untrusted in ~/.codex/config.toml once some events do arrive.
  */
@@ -45,7 +46,7 @@ import { execFileSync } from 'child_process'
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import { CODEX_HOOK_EVENTS } from '@/cli/src/lib/hooks-template'
-import { mergeHooksFile, upgradeCodexHooksFile } from '@/cli/src/commands/init'
+import { mergeHooksFile } from '@/cli/src/commands/init'
 import {
   codexEventKey,
   codexLikelyUntrustedEvents,
@@ -112,34 +113,6 @@ function captureStdout(): { text: () => string } {
   }) as never)
   return { text: () => out }
 }
-
-// ─── init --upgrade names the events ───────────────────────────────────────
-
-describe('upgradeCodexHooksFile lists the events to re-trust', () => {
-  it('names an added event and a rewritten one', () => {
-    const p = installUserHooks()
-    const file = JSON.parse(readFileSync(p, 'utf8')) as {
-      hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>
-    }
-    delete file.hooks.Interrupt
-    file.hooks.Stop![0]!.hooks[0]!.command = 'lumo hook stop'
-    writeFileSync(p, JSON.stringify(file, null, 2))
-
-    const out = captureStdout()
-    expect(upgradeCodexHooksFile(p)).toBe('updated')
-    expect(out.text()).toContain('re-trust in Codex /hooks')
-    expect(out.text()).toContain(
-      'Events to trust again: Interrupt (added), Stop (updated)'
-    )
-  })
-
-  it('names nothing when the event set is unchanged', () => {
-    const p = installUserHooks()
-    const out = captureStdout()
-    expect(upgradeCodexHooksFile(p)).toBe('unchanged')
-    expect(out.text()).not.toContain('Events to trust again')
-  })
-})
 
 // ─── the trust scan behind the warning ─────────────────────────────────────
 

@@ -203,7 +203,7 @@ export function diffSkillDirs(
 
 /**
  * One line of the per-file skill change list (`    ~ SKILL.md (+12 −3)`),
- * shared by `lumo skill update --dry-run` and `lumo init --upgrade --dry-run`.
+ * shared by `lumo skill update --dry-run` and `lumo init --dry-run`.
  */
 export function formatSkillChangeLine(c: SkillFileChange): string {
   const sign = c.change === 'added' ? '+' : c.change === 'deleted' ? '-' : '~'

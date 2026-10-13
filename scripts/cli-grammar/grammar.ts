@@ -96,6 +96,8 @@ interface OptionLike {
   required: boolean
   optional: boolean
   description?: string
+  /** `hideHelp()`: a removed flag kept only to print a migration error. */
+  hidden?: boolean
 }
 
 interface ArgumentLike {
@@ -168,6 +170,7 @@ function toGrammarFlag(opt: OptionLike): GrammarFlag {
 function toGrammarCommand(cmd: CommandLike): GrammarCommand {
   const flags: Record<string, GrammarFlag> = {}
   for (const opt of cmd.options) {
+    if (opt.hidden) continue
     const flag = toGrammarFlag(opt)
     flags[flag.long] = flag
   }

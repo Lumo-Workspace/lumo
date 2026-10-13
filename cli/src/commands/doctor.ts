@@ -97,7 +97,16 @@ export interface DoctorDeps {
   spawnSync?: SpawnSyncFn
 }
 
-const CMD_UPGRADE = 'lumo init --upgrade'
+/**
+ * LUM-1118: the refresh for an install is re-running `lumo init` for its
+ * scope, narrowed to its agent so no other agent gets set up on the way.
+ */
+export function refreshCommand(
+  scope: 'user' | 'project',
+  agent?: string
+): string {
+  return `lumo init --${scope}${agent ? ` --agent ${agent}` : ''}`
+}
 
 /** State for an install older than what the running CLI would write. */
 function behindCli(cliVersion: string | null): string {
@@ -209,7 +218,7 @@ function skillRow(
       ...base,
       version: v,
       state: behindCli(cliVersion),
-      suggestion: CMD_UPGRADE,
+      suggestion: refreshCommand(loc.scope, loc.agent),
     }
   if (cliVersion && isNewerVersion(cliVersion, v))
     return {
@@ -299,7 +308,7 @@ function gitHookRow(
   if (!upToDate) {
     if (hooksPath)
       row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`lumo init --project\` prints`
-    else row.suggestion = CMD_UPGRADE
+    else row.suggestion = refreshCommand('project')
   }
   return row
 }
@@ -370,7 +379,7 @@ function codexRow(
   }
   if (missing.length > 0) {
     details.push(`missing ${missing.length} hook event(s)`)
-    row.suggestion = CMD_UPGRADE
+    row.suggestion = refreshCommand(scope, 'codex')
     warnings.push({
       code: 'missing-hook-events',
       message: `${file} is missing Lumo Codex hook events: ${missing.join(', ')}`,
@@ -421,7 +430,7 @@ function codexRulesRow(
         ? "server-only `lumo` commands run outside Codex's sandbox; Codex asks before the others (loaded once the project is trusted in Codex)"
         : "server-only `lumo` commands run outside Codex's sandbox; Codex asks before the others",
   }
-  if (state === 'outdated') row.suggestion = CMD_UPGRADE
+  if (state === 'outdated') row.suggestion = refreshCommand(scope, 'codex')
   return row
 }
 
@@ -567,6 +576,13 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
       message:
         '`lumo` is not resolvable on PATH, so installed hooks cannot run; install it globally (npm install -g @lumoai/cli)',
     })
+
+  // A project install of another repo is refreshed from inside that repo.
+  for (const r of rows)
+    if (r.group === 'other-repos' && r.suggestion?.startsWith('lumo init '))
+      r.detail = r.detail
+        ? `${r.detail}; run the command in that repo`
+        : 'run the command in that repo'
 
   return { cliVersion, rows, warnings, autoUpdate: getAutoUpdateStatus(env) }
 }

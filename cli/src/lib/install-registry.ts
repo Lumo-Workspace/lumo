@@ -6,7 +6,7 @@ import { MARKER_FILE } from './skill-hash'
 /**
  * `codex-hooks` (LUM-1051/1052): a Codex `hooks.json` init wrote Lumo entries
  * into. Auto-sync never rewrites it (any change makes Codex ask for trust
- * again); only `init --upgrade` does, when the Lumo event set differs.
+ * again); only re-running `lumo init` does, when the Lumo event set differs.
  * `codex-rules` (LUM-1054): the Lumo-owned `.codex/rules/lumo.rules` that
  * lets `lumo` reach the API from Codex's sandbox. Auto-sync never touches it.
  */

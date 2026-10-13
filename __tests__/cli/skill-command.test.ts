@@ -301,7 +301,7 @@ describe('lumo skill update', () => {
     ]
     for (const f of files) {
       mkdirSync(join(f, '..'), { recursive: true })
-      // deliberately stale Lumo content that init --upgrade would rewrite
+      // deliberately stale Lumo content that re-running init would rewrite
       writeFileSync(f, `{"hooks":{"Stop":[]}} # ${f}\n`)
     }
     return files
