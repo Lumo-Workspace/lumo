@@ -280,16 +280,17 @@ function installCodex(
   force: boolean
 ): void {
   const hooksPath = codexHooksPath(root)
-  const existed = fs.existsSync(hooksPath)
   const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS)
   recordInstall('codex-hooks', hooksPath, scope, 'codex', cliVersion)
-  // LUM-1112: a rewrite of an existing file makes Codex ask for trust again —
-  // name the entries it will ask about.
+  // LUM-1112: rewriting a file that already held Lumo entries makes Codex ask
+  // for trust again — name the entries it will ask about. A file without
+  // Lumo entries (new, or only the user's hooks) needs a first trust instead.
+  const hadLumo = stats.alreadyPresent.length + stats.updatedEvents.length > 0
   const changed = [
     ...stats.addedEvents.map(e => `${e} (added)`),
     ...stats.updatedEvents.map(e => `${e} (updated)`),
   ]
-  if (existed && changed.length > 0)
+  if (hadLumo && changed.length > 0)
     process.stdout.write(
       `  Codex will ask to trust them again — re-trust in Codex /hooks. Events to trust again: ${changed.join(', ')}\n`
     )

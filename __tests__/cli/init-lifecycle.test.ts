@@ -542,6 +542,27 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
     expect(stdout).not.toContain('Events to trust again')
   })
 
+  it("an existing hooks.json with only the user's hooks needs a first trust, not a re-trust", async () => {
+    const e = env()
+    const file = codexFile(e.home)
+    mkdirSync(join(file, '..'), { recursive: true })
+    writeFileSync(
+      file,
+      JSON.stringify({
+        hooks: { Stop: [{ hooks: [{ type: 'command', command: 'mine' }] }] },
+      })
+    )
+    await init({ user: true, agent: 'codex', dryRun: true }, e.deps)
+    expect(stdout).toContain(
+      '⚠ Codex runs these hooks only after you trust them — events:'
+    )
+    expect(stdout).not.toContain('trust these hooks again')
+    stdout = ''
+    await init({ user: true, agent: 'codex' }, e.deps)
+    expect(stdout).toContain('Codex runs these hooks only after you trust them')
+    expect(stdout).not.toContain('Events to trust again')
+  })
+
   it('prints the git-diff note when re-running init changes a tracked Codex hooks file', async () => {
     const e = env()
     await init({ project: true, agent: 'codex' }, e.deps)

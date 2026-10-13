@@ -324,8 +324,12 @@ function hooksItem(
       ...addedEvents.map(e => `${e} (added)`),
       ...updatedEvents.map(e => `${e} (updated)`),
     ]
+    // Only a file already holding Lumo entries is *re*-trusted; a new file
+    // or one with only the user's hooks needs a first trust.
+    const hadLumo =
+      plan.stats.alreadyPresent.length + plan.stats.updatedEvents.length > 0
     notes.push(
-      plan.exists
+      hadLumo
         ? `${icons.warning} Codex will ask to trust these hooks again — events: ${events.join(', ')}`
         : `${icons.warning} Codex runs these hooks only after you trust them — events: ${events.join(', ')}`,
       ...codexTrustInstructions(file)
