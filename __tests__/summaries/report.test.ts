@@ -117,16 +117,15 @@ describe('Traditional Chinese prompt (LUM-1121)', () => {
 
   it('is written in Traditional characters, not the Simplified prompt', () => {
     expect(SUMMARY_SYSTEM_PROMPT_ZH_HANT).not.toBe(SUMMARY_SYSTEM_PROMPT_ZH)
-    // Simplified forms that appear in the Simplified prompt must not leak in.
-    for (const simplified of [
-      '关注',
-      '项目',
-      '负责人',
-      '规则',
-      '数据',
-      '优先级',
-      '简报',
-    ])
-      expect(SUMMARY_SYSTEM_PROMPT_ZH_HANT).not.toContain(simplified)
+    // Simplified-only characters (each has a different Traditional form). The
+    // first loop proves the list is live against the Simplified prompt, so the
+    // second one is a real check rather than a list of absent strings.
+    const simplifiedOnly = [
+      ...'项负责简报输须严节条动审尽务数优级紧规则坚实统计写题没轻继续进关为会个标头',
+    ]
+    for (const ch of simplifiedOnly)
+      expect(SUMMARY_SYSTEM_PROMPT_ZH).toContain(ch)
+    for (const ch of simplifiedOnly)
+      expect(SUMMARY_SYSTEM_PROMPT_ZH_HANT).not.toContain(ch)
   })
 })

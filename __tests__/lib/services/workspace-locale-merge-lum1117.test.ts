@@ -57,6 +57,11 @@ describe('summaryLanguageFor', () => {
     ['zh-Hans-HK', 'zh'],
     ['zh-SG', 'zh'],
     ['zh', 'zh'],
+    // Only the script / region positions count; a script outranks a region.
+    ['zh-Latn-TW', 'zh'],
+    ['zh-CN-x-tw', 'zh'],
+    ['zh-CN-u-ca-hk', 'zh'],
+    ['zh-Hant-CN', 'zh-Hant'],
   ])('maps %p to %p (LUM-1121)', (locale, expected) => {
     expect(summaryLanguageFor(locale)).toBe(expected)
   })
