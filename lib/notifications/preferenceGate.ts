@@ -59,15 +59,25 @@ export const MENTION_NOTIFICATION_TYPES = [
   'DOCUMENT_MENTIONED',
 ] as const satisfies readonly NotificationType[]
 
-// requiresAction types are never silenced. TASK_SPEC_READY too (LUM-1115):
-// the agent waits in INPUT_REQUIRED for an owner to review the spec, and the
-// inbox is its only channel — the "Task assigned" switch must not hide it.
+// requiresAction types are never silenced
 const ALWAYS_NOTIFY: Set<NotificationType> = new Set([
   'AGENT_CLARIFY',
   'AGENT_AUTHORIZE',
   'AGENT_VERIFY',
-  'TASK_SPEC_READY',
 ])
+
+// Never silenced in-app only (LUM-1115). TASK_SPEC_READY: the agent waits in
+// INPUT_REQUIRED for an owner to review the spec and the inbox is its only
+// channel, so the "Task assigned" switch must not hide it. Slack keeps its
+// fail-closed rule for these (no route → not sent).
+const ALWAYS_NOTIFY_IN_APP: Set<NotificationType> = new Set(['TASK_SPEC_READY'])
+
+function neverSilenced(channel: Channel, type: NotificationType): boolean {
+  return (
+    ALWAYS_NOTIFY.has(type) ||
+    (channel === 'inApp' && ALWAYS_NOTIFY_IN_APP.has(type))
+  )
+}
 
 function getPreferenceField(
   channel: Channel,
@@ -93,7 +103,7 @@ export async function shouldNotify(
   channel: Channel,
   notificationType: NotificationType
 ): Promise<boolean> {
-  if (ALWAYS_NOTIFY.has(notificationType)) return true
+  if (neverSilenced(channel, notificationType)) return true
 
   const field = getPreferenceField(channel, notificationType)
   if (!field) return channel === 'inApp' // unmapped: in-app delivers, Slack fails closed
@@ -143,7 +153,8 @@ export async function shouldNotifyBatch(
   notificationType: NotificationType
 ): Promise<Set<string>> {
   if (recipientActorIds.length === 0) return new Set()
-  if (ALWAYS_NOTIFY.has(notificationType)) return new Set(recipientActorIds)
+  if (neverSilenced(channel, notificationType))
+    return new Set(recipientActorIds)
 
   const field = getPreferenceField(channel, notificationType)
   if (!field) {

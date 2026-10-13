@@ -36,6 +36,16 @@ interface SlackPayload {
   user_id?: string
 }
 
+/**
+ * Retry reasons meaning the earlier delivery never reached this handler, so
+ * it never ran the command (Slack Events API `X-Slack-Retry-Reason`).
+ */
+const NEVER_DELIVERED_RETRY_REASONS = new Set([
+  'connection_failed',
+  'ssl_error',
+  'too_many_redirects',
+])
+
 export async function POST(request: NextRequest) {
   // LUM-1025: not configured on this deployment → 404, never a 500.
   const notConfigured = requireIntegrationConfigured('slack')
@@ -58,15 +68,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
-    // 2b. A Slack retry (X-Slack-Retry-Num) means the first delivery was not
-    //     acknowledged within 3 s — it is still running the command. Ack and
-    //     drop the retry so a command never runs twice (LUM-1115); no
-    //     storage needed. X-Slack-No-Retry asks Slack to stop re-sending.
+    // 2b. A Slack retry (X-Slack-Retry-Num) usually means the first delivery
+    //     reached us but was not acknowledged within 3 s — it is still
+    //     running the command. Ack and drop the retry so a command never runs
+    //     twice (LUM-1115); no storage needed. X-Slack-No-Retry asks Slack to
+    //     stop re-sending. Only when Slack reports that the first delivery
+    //     never reached us (connection/TLS failure) is the retry processed.
     const retryNum = request.headers.get('x-slack-retry-num')
-    if (retryNum) {
+    const retryReason = request.headers.get('x-slack-retry-reason') ?? ''
+    if (retryNum && !NEVER_DELIVERED_RETRY_REASONS.has(retryReason)) {
       logger.info('[slack webhook] dropped a Slack retry', {
         retryNum,
-        reason: request.headers.get('x-slack-retry-reason'),
+        reason: retryReason || null,
       })
       return new NextResponse(null, {
         status: 200,

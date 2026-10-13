@@ -99,7 +99,7 @@ describe('shouldNotify', () => {
   // no preference route for them (the notifySlackAgent* columns are unread).
   // LUM-1101: Slack fails closed for an unmapped type — a future sender added
   // without a route sends nothing instead of ignoring notifySlack*=false.
-  it.each(['AGENT_DONE', 'AGENT_FAILED'] as const)(
+  it.each(['AGENT_DONE', 'AGENT_FAILED', 'TASK_SPEC_READY'] as const)(
     'fails closed on Slack for unmapped %s',
     async type => {
       mockActorFindUnique.mockResolvedValue({ member: { id: 'member-1' } })
@@ -248,6 +248,11 @@ describe('shouldNotifyBatch Slack fail-closed (LUM-1101)', () => {
     mockActorFindUnique.mockResolvedValue({ member: { id: 'm-1' } })
     mockPrefFindUnique.mockResolvedValue({ notifyInAppAssigned: false })
     expect(await shouldNotify('a-1', 'inApp', 'TASK_SPEC_READY')).toBe(true)
+  })
+
+  it('TASK_SPEC_READY stays fail-closed on Slack (in-app-only exemption)', async () => {
+    const result = await shouldNotifyBatch(['a-1'], 'slack', 'TASK_SPEC_READY')
+    expect(result.size).toBe(0)
   })
 
   it('keeps ALWAYS_NOTIFY types deliverable on Slack', async () => {

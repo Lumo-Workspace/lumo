@@ -188,10 +188,31 @@ describe('slackCommandService.findMemberByEmail — match semantics unchanged', 
       actorId: 'actor_1',
       name: 'Dev Person',
     })
-    // The filter is sent normalised (trimmed, lower-cased).
+    // One call carries the normalised and the as-given (trimmed) spelling,
+    // so a case-sensitive provider filter still finds the user.
+    expect(mockGetUserList).toHaveBeenCalledTimes(1)
     expect(mockGetUserList.mock.calls[0]![0].emailAddress).toEqual([
       'dev.person@example.com',
+      'DEV.PERSON@example.COM',
     ])
+  })
+
+  it('finds the user when the provider filter is case-sensitive', async () => {
+    primeMembers([{ id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } }])
+    mockUsers = new Map([['user_1', user('user_1', 'Dev@Example.com')]])
+    mockGetUserList.mockImplementationOnce(async (q: ListQuery) => ({
+      data: [...mockUsers.values()].filter(u =>
+        u.emailAddresses.some(e =>
+          (q.emailAddress ?? []).includes(e.emailAddress)
+        )
+      ),
+    }))
+    const found = await slackCommandService.findMemberByEmail(
+      'ws_1',
+      'Dev@Example.com'
+    )
+    expect(found?.memberId).toBe('wm_1')
+    expect(mockGetUserList).toHaveBeenCalledTimes(1)
   })
 
   it('ignores a matching non-primary email', async () => {

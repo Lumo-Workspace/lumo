@@ -144,18 +144,22 @@ async function updateAsMember(
 const EMAIL_MATCH_LIMIT = 10
 
 /**
- * Users whose primary email is `email` (already trimmed and lower-cased), in
+ * Users whose primary email is `email` (trimmed and lower-cased; `asGiven`
+ * is the trimmed original spelling), in
  * ONE directory call filtered by email (LUM-1115) — either provider behind
  * `@/lib/auth/users` supports the `emailAddress` filter. The filter matches
  * any of a user's addresses, so the primary-address check stays here.
  */
 async function usersWithPrimaryEmail(
-  email: string
+  email: string,
+  asGiven: string
 ): Promise<Array<{ user: AuthUser; primaryEmail: string }>> {
   const { createUserDirectory } = await import('@/lib/auth/users')
   const directory = await createUserDirectory()
+  // Both spellings in the same call, in case a provider's filter is
+  // case-sensitive and stored the address as Slack reports it.
   const { data } = await directory.getUserList({
-    emailAddress: [email],
+    emailAddress: [...new Set([email, asGiven])],
     limit: EMAIL_MATCH_LIMIT,
   })
   return data.flatMap(user => {
@@ -182,9 +186,10 @@ export const slackCommandService = {
     workspaceId: string,
     email: string
   ): Promise<SlackLinkedMember | null> {
-    const wanted = email.trim().toLowerCase()
+    const trimmed = email.trim()
+    const wanted = trimmed.toLowerCase()
     if (!wanted) return null
-    const matches = await usersWithPrimaryEmail(wanted)
+    const matches = await usersWithPrimaryEmail(wanted, trimmed)
     if (matches.length === 0) return null
     const byId = new Map(matches.map(m => [m.user.id, m]))
     const members = await slackCommandRepository.listActiveMembersByClerkIds(

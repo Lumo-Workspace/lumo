@@ -401,6 +401,32 @@ describe('POST /api/webhooks/slack', () => {
       }
     )
 
+    it.each(['', 'http_error', 'unknown_error'])(
+      'also drops a retry whose reason is %j (first delivery may have run)',
+      async reason => {
+        const req = signed(createMention, 'application/json')
+        req.headers.set('x-slack-retry-num', '1')
+        if (reason) req.headers.set('x-slack-retry-reason', reason)
+        const res = await POST(req)
+        expect(res.status).toBe(200)
+        await Promise.all(pending)
+        expect(mockHandleCommand).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each(['connection_failed', 'ssl_error', 'too_many_redirects'])(
+      'processes a retry whose first delivery never arrived (%s)',
+      async reason => {
+        const req = signed(createMention, 'application/json')
+        req.headers.set('x-slack-retry-num', '1')
+        req.headers.set('x-slack-retry-reason', reason)
+        const res = await POST(req)
+        expect(res.status).toBe(200)
+        await Promise.all(pending)
+        expect(mockHandleCommand).toHaveBeenCalledTimes(1)
+      }
+    )
+
     it('runs the first delivery exactly once', async () => {
       const res = await POST(signed(createMention, 'application/json'))
       expect(res.status).toBe(200)
