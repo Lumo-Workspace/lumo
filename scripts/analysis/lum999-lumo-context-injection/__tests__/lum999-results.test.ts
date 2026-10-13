@@ -42,8 +42,12 @@ describe('committed results', () => {
     expect(totalCost(records)).toBeCloseTo(results.budget.ledgerUsd, 6)
   })
 
-  it('the codec round-trips byte-for-byte', () => {
-    expect(encodeEpisodes(records).equals(gz)).toBe(true)
+  it('the codec round-trips to the recorded checksum', () => {
+    // Compare the decoded checksum, not the gzip bytes: deflate output differs
+    // across zlib builds (CPU arch / Node version), the content does not.
+    expect(decodeEpisodes(encodeEpisodes(records)).sha256).toBe(
+      results.episodes.sha256OfUncompressedJsonl
+    )
   })
 
   it('is byte-identical to the run.ts writer (compact, prettier-ignored)', () => {
