@@ -486,7 +486,7 @@ describe('my-tasks', () => {
     p.task.count.mockResolvedValue(2)
     const r = await run('my-tasks')
     const json = blocksJson(r)
-    expect(json).toContain('2 open tasks')
+    expect(json).toContain('Open tasks: 2')
     expect(json).not.toContain('Showing')
   })
 

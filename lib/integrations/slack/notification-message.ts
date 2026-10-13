@@ -14,6 +14,9 @@
  * through `escapeMrkdwn` / `mrkdwnLink`. Nobody is `<@U…>`-mentioned: names
  * are shown as text only.
  *
+ * LUM-1097: the words come from the `slack.msg.*` catalogue keys in the
+ * `locale` the sender picked (channel: workspace default; DM: recipient).
+ *
  * Pure functions only — no Prisma, no network.
  */
 import { escapeMrkdwn, mrkdwnLink } from './mrkdwn'
@@ -24,10 +27,17 @@ import {
   contextBlock,
   headerBlock,
   linkButton,
+  openInLumoLabel,
   sectionBlock,
   slackMessage,
   truncate,
 } from './blocks'
+import {
+  DEFAULT_SLACK_LOCALE,
+  slackMrkdwn,
+  slackText,
+  type SlackLocale,
+} from './i18n'
 import type {
   MentionSurface,
   NotificationAudience,
@@ -41,7 +51,12 @@ export const NOTIFICATION_QUOTE_LIMIT = 500
 /** Most lines a quote keeps. */
 export const NOTIFICATION_QUOTE_LINES = 8
 
-export const VIEW_PR_LABEL = 'View PR ↗'
+/** The "View PR" button label in `locale`. */
+export function viewPrLabel(locale: SlackLocale = DEFAULT_SLACK_LOCALE) {
+  return slackText(locale, 'msg.viewPr')
+}
+
+export const VIEW_PR_LABEL = viewPrLabel()
 
 const EMOJI: Record<SlackEventType, string> = {
   task_created: '🆕',
@@ -61,46 +76,16 @@ const ENTITY_EMOJI: Record<NotificationEntityKind, string> = {
   milestone: '🏁',
 }
 
-/** Channel headline per event (comment_mention is built from its carrier). */
-const CHANNEL_HEADLINE: Record<
-  Exclude<SlackEventType, 'comment_mention'>,
-  string
-> = {
-  task_created: 'Task created',
-  task_assigned: 'Task assigned',
-  task_in_review: 'Task ready for review',
-  task_done: 'Task done',
-  task_sent_back: 'Task sent back',
-  pr_opened: 'PR opened',
-  pr_merged: 'PR merged',
-}
-
-/** DM headline per event, addressed to the recipient. */
-const DM_HEADLINE: Record<
-  Exclude<SlackEventType, 'comment_mention'>,
-  string
-> = {
-  task_created: 'A new task was created',
-  task_assigned: 'You were assigned a task',
-  task_in_review: 'A task in your project is ready for review',
-  task_done: 'Your task was marked done',
-  task_sent_back: 'Your task was sent back',
-  pr_opened: 'A PR was opened in your project',
-  pr_merged: 'A PR on your task was merged',
-}
-
 /**
  * Where a mention was written, e.g. "a task comment", "a project description",
  * "a document". Descriptions of the entity itself vs comments on it.
  */
 export function mentionPlace(
   kind: NotificationEntityKind,
-  surface: MentionSurface
+  surface: MentionSurface,
+  locale: SlackLocale = DEFAULT_SLACK_LOCALE
 ): string {
-  if (surface === 'comment') {
-    return kind === 'document' ? 'a document comment' : `a ${kind} comment`
-  }
-  return kind === 'document' ? 'a document' : `a ${kind} description`
+  return slackText(locale, `msg.place.${surface}.${kind}`)
 }
 
 /**
@@ -110,22 +95,24 @@ export function mentionPlace(
 export function notificationHeadline(
   event: SlackEventType,
   payload: NotificationPayload,
-  audience: NotificationAudience
+  audience: NotificationAudience,
+  locale: SlackLocale = DEFAULT_SLACK_LOCALE
 ): string {
   if (event !== 'comment_mention') {
-    return audience === 'dm' ? DM_HEADLINE[event] : CHANNEL_HEADLINE[event]
+    return slackText(locale, `msg.${audience}.${event}`)
   }
   const place = mentionPlace(
     payload.entityKind ?? 'task',
-    payload.mentionSurface ?? 'comment'
+    payload.mentionSurface ?? 'comment',
+    locale
   )
   const actor = payload.actorName?.trim()
   if (audience === 'dm') {
     return actor
-      ? `${actor} mentioned you in ${place}`
-      : `You were mentioned in ${place}`
+      ? slackText(locale, 'msg.mention.dmByActor', { actor, place })
+      : slackText(locale, 'msg.mention.dm', { place })
   }
-  return `Mention in ${place}`
+  return slackText(locale, 'msg.mention.channel', { place })
 }
 
 /** "ENG-12 · Title", the document/project/milestone name, or ''. Raw text. */
@@ -191,16 +178,17 @@ function namesList(names: string[]): string {
 }
 
 /**
- * Build a notification message for a channel post or a DM. The `text`
- * fallback is one line: "<emoji> <headline>: <entity> — by <actor> — PR …".
+ * Build a notification message for a channel post or a DM, in `locale`. The
+ * `text` fallback is one line: "<emoji> <headline>: <entity> — by <actor> — PR …".
  */
 export function buildNotificationMessage(
   event: SlackEventType,
   payload: NotificationPayload,
-  audience: NotificationAudience
+  audience: NotificationAudience,
+  locale: SlackLocale = DEFAULT_SLACK_LOCALE
 ): SlackMessage {
   const emoji = EMOJI[event]
-  const headline = notificationHeadline(event, payload, audience)
+  const headline = notificationHeadline(event, payload, audience, locale)
   const label = entityLabel(payload)
   const pr = prLabel(payload)
   const actor = payload.actorName?.trim() || null
@@ -223,27 +211,37 @@ export function buildNotificationMessage(
   if (quote) blocks.push(sectionBlock(quote))
 
   const context: string[] = []
-  if (actor) context.push(`by *${escapeMrkdwn(actor)}*`)
+  if (actor) {
+    context.push(
+      slackMrkdwn(locale, 'msg.by', { actor: `*${escapeMrkdwn(actor)}*` })
+    )
+  }
   if (
     event === 'comment_mention' &&
     audience === 'channel' &&
     mentioned.length
   ) {
-    context.push(`mentioned ${namesList(mentioned)}`)
+    context.push(
+      slackMrkdwn(locale, 'msg.mentioned', { names: namesList(mentioned) })
+    )
   }
   if (context.length > 0) blocks.push(contextBlock([context.join(' · ')]))
 
   const buttons: object[] = []
-  if (payload.entityUrl) buttons.push(linkButton(payload.entityUrl))
-  if (payload.prUrl) buttons.push(linkButton(payload.prUrl, VIEW_PR_LABEL))
+  if (payload.entityUrl) {
+    buttons.push(linkButton(payload.entityUrl, openInLumoLabel(locale)))
+  }
+  if (payload.prUrl) {
+    buttons.push(linkButton(payload.prUrl, viewPrLabel(locale)))
+  }
   if (buttons.length > 0) blocks.push(actionsBlock(buttons))
 
   let fallback = `${emoji} ${escapeMrkdwn(headline)}`
   if (label) fallback += `: ${escapeMrkdwn(label)}`
   if (actor && !(event === 'comment_mention' && audience === 'dm')) {
-    fallback += ` — by ${escapeMrkdwn(actor)}`
+    fallback += ` — ${slackMrkdwn(locale, 'msg.by', { actor: escapeMrkdwn(actor) })}`
   }
   if (pr) fallback += ` — PR ${escapeMrkdwn(pr)}`
 
-  return slackMessage({ text: fallback, blocks })
+  return slackMessage({ text: fallback, blocks, locale })
 }

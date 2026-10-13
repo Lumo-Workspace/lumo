@@ -32,6 +32,7 @@ export const CORE_WORKSPACE_COLUMNS: readonly string[] = [
   'summaryFrequency',
   'summaryEnabled',
   'summaryLocale',
+  'defaultLocale',
   'boundaryGateEnabled',
   'hookEventRetentionDays',
   'hookEventRetentionMode',
