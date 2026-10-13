@@ -76,8 +76,9 @@ function shiftDay(day: string, plusDays: number): string {
 
 /**
  * Resolve `--since` / `--until` into local calendar days, both inclusive.
- * `--since` takes YYYY-MM-DD, `today`, `yesterday` or `Nd` (the last N days
- * including today); `--until` takes YYYY-MM-DD, `today` or `yesterday`.
+ * `--since` takes YYYY-MM-DD, `today`, `yesterday` or `Nd` (the N days
+ * ending on `--until`, so the last N days including today by default);
+ * `--until` takes YYYY-MM-DD, `today` or `yesterday`.
  * Default: the last 7 days including today. Pure (clock injected).
  */
 export function resolveReportWindow(
@@ -114,7 +115,8 @@ export function resolveReportWindow(
           ok: false,
           error: `invalid --since "${opts.since}" (N must be ≥ 1)`,
         }
-      sinceDay = shiftDay(today, -(n - 1))
+      // LUM-1116: the N days ending on --until (today when not given).
+      sinceDay = shiftDay(untilDay, -(n - 1))
     } else {
       const d = named(opts.since)
       if (!d)
@@ -189,7 +191,9 @@ export function formatReport(
       [
         [
           'Tokens',
-          data.team.sessions === 0
+          // LUM-1116: tokens with no session id still count — "none
+          // recorded" only when there are neither tokens nor sessions.
+          t.total === 0 && data.team.sessions === 0
             ? 'none recorded in this window'
             : `${fmtCount(t.total)} (output ${fmtCount(t.output)} · input ${fmtCount(t.input)} · cache_create ${fmtCount(t.cacheCreation)} · cache_read ${fmtCount(t.cacheRead)})`,
         ],

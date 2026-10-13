@@ -5,9 +5,10 @@
  *   its `Authorization: Bearer …`) carries `X-Lumo-Cli-Version`, so the server
  *   can refuse a known-incompatible CLI with a 426 (`lib/api/cli-version-gate.ts`).
  *   Non-Lumo requests (the npm registry check) never get it.
- * - A 426 followed by a non-zero exit ends with one upgrade line naming
- *   `lumo update` — unless the command already printed it (the server's error
- *   text says it, and most commands relay that text).
+ * - A 426 as the last Lumo API response, followed by a non-zero exit, ends
+ *   with one upgrade line naming `lumo update` — unless the command already
+ *   printed it (the server's error text says it, and most commands relay
+ *   that text). A later non-426 answer clears it (LUM-1116).
  * - A 404 answered with an HTML page (no API route at all, as opposed to a
  *   JSON "not found" for a missing resource) as the last Lumo API response,
  *   followed by a non-zero exit, ends
@@ -110,15 +111,14 @@ export function createVersionCompatTracker(opts: {
             : init
         )
         if (!lumo) return res
-        if (res.status === 426) {
-          tooOld = true
-          minVersion = (await readMinVersion(res)) ?? minVersion
-        } else {
-          // Only the latest Lumo response counts: a command that fell back
-          // after a route-missing 404 (LUM-1093 style) and then failed for
-          // another reason must not blame the server's deploy.
-          routeMissing = res.status === 404 && isHtml(res)
-        }
+        // Only the latest Lumo response counts. A command that fell back
+        // after a route-missing 404 (LUM-1093 style) and then failed for
+        // another reason must not blame the server's deploy; likewise a 426
+        // followed by an answer the server did accept (LUM-1116) means this
+        // CLI got through, so the later failure is not "upgrade the CLI".
+        tooOld = res.status === 426
+        routeMissing = !tooOld && res.status === 404 && isHtml(res)
+        if (tooOld) minVersion = (await readMinVersion(res)) ?? minVersion
         return res
       }
       return wrapped as typeof fetch

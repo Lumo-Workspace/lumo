@@ -129,7 +129,7 @@ Four numbered sections (`[1/4] Test cases` … `[4/4] DONE`), in the same layout
 1. **Test cases** — verdict signals (a `PROVEN_DEFECT` item is followed by `Blocks DONE until the user rules on that run — one of:` and the two `lumo task testcase disposition <task>/TC<n> --known-defect` / `--not-a-defect` commands, one per line, for the **user's** ruling) and the no-test-case advisory.
 2. **Security scans** — undispositioned findings (blocks DONE / advisory) and each linked PR's latest scan as layer rows, same grammar as `task status`.
 3. **Boundary crossings** — every undispositioned crossing (`• <ref> [SEVERITY] CATEGORY (<gate>)`) with what the user needs to rule on it as rows (`Re-judged`, `Detail`, `Seen`, the `⚠ irreversible category` line, `Explanations` with one `- …` line each, or `Explanation: none — add one first` with the `crossing explain` command when a blocking row has none) and the step-1 `lumo crossing disposition … --task <id>` commands — per crossing (`The user rules — one of:`) or, with several, one **batch** command per ruling after the list.
-4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` with every linked PR merged (≥1) is labelled `READY — one step: …` and ends with `All PRs merged, nothing blocks DONE — run it directly, no approval step:` and `lumo task update <id> --status done` (LUM-1106); `READY` with no linked PR ends with `Show the user the lines above. Only after they approve, run:` and the `--confirm` command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
+4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` with every linked PR merged (≥1) is labelled `READY — one step: …` and ends with `All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:` and `lumo task update <id> --status done` (LUM-1106; add no other flag — anything besides `--status` takes the envelope, LUM-1116); `READY` with no linked PR ends with `Show the user the lines above. Only after they approve, run:` and the `--confirm` command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
 
 | Level            | Meaning                                                                                                                                                                                                                          |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -149,8 +149,9 @@ checkout so the worktree can be removed.
 
 ## The DONE gate
 
-`lumo task update <id> --status done` runs in one step when ≥1 linked PR, all
-merged, and the digest shows nothing blocking (LUM-1106); otherwise it walks the
+`lumo task update <id> --status done` (no other flag — LUM-1116) runs in one
+step when ≥1 linked PR, all merged, and the digest shows nothing blocking
+(LUM-1106); otherwise it walks the
 confirmation protocol: without `--confirm` it exits 4 with an envelope for the
 user to approve. The server then
 refuses DONE with **409** on an undispositioned blocking boundary crossing, a

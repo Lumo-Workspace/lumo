@@ -550,7 +550,7 @@ describe('LUM-1091 long-report layout', () => {
     const out = ALL_REPORTS[2]![1]
     // LUM-1106: every linked PR merged → the one-step command, no --confirm
     expect(out).toContain(
-      '  All PRs merged, nothing blocks DONE — run it directly, no approval step:\n    lumo task update LUM-9001 --status done\n'
+      '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:\n    lumo task update LUM-9001 --status done\n'
     )
   })
 

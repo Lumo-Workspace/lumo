@@ -210,3 +210,62 @@ describe('scan follow-ups', () => {
     expect(t.hintFor(1)).toBeNull()
   })
 })
+
+describe('LUM-1116 scan follow-ups (PR #1420 MEDIUMs)', () => {
+  it('a later successful Lumo response clears the 426 upgrade hint', async () => {
+    const t = createVersionCompatTracker({ version: '1.117.0' })
+    await t.wrapFetch(recordingFetch(() => json(426, { minVersion: '2.0.0' })))(
+      'https://x/api/a',
+      BEARER
+    )
+    await t.wrapFetch(recordingFetch(() => json(200, { ok: true })))(
+      'https://x/api/b',
+      BEARER
+    )
+    expect(t.hintFor(1)).toBeNull()
+  })
+
+  it('a non-Lumo response after the 426 does not clear it', async () => {
+    const t = createVersionCompatTracker({ version: '1.117.0' })
+    await t.wrapFetch(recordingFetch(() => json(426, { minVersion: '2.0.0' })))(
+      'https://x/api/a',
+      BEARER
+    )
+    await t.wrapFetch(recordingFetch(() => json(200, {})))(
+      'https://registry.npmjs.org/@lumoai%2fcli'
+    )
+    expect(t.hintFor(1)).toBe(`Hint: ${cliUpgradeRequired('2.0.0', '1.117.0')}`)
+  })
+
+  it('never rewrites the headers of a Request passed in, and keeps its method and body', async () => {
+    const seen: { method: string; body: string; headers: Headers }[] = []
+    const realish = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      // What fetch itself does with (Request, init).
+      const req = new Request(input as RequestInfo, init)
+      seen.push({
+        method: req.method,
+        body: await req.text(),
+        headers: req.headers,
+      })
+      return json(200, {})
+    }) as typeof fetch
+    const t = createVersionCompatTracker({ version: '1.117.0' })
+    const original = new Request('https://x/api/tasks', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer c', 'x-other': '1' },
+      body: '{"a":1}',
+    })
+    await t.wrapFetch(realish)(original)
+    expect(original.headers.has(CLI_VERSION_HEADER)).toBe(false)
+    expect([...original.headers.keys()].sort()).toEqual([
+      'authorization',
+      'content-type',
+      'x-other',
+    ])
+    expect(seen[0]!.method).toBe('POST')
+    expect(seen[0]!.body).toBe('{"a":1}')
+    expect(seen[0]!.headers.get(CLI_VERSION_HEADER)).toBe('1.117.0')
+    expect(seen[0]!.headers.get('x-other')).toBe('1')
+    expect(seen[0]!.headers.get('authorization')).toBe('Bearer c')
+  })
+})
