@@ -80,7 +80,8 @@ Task templates are managed only from the CLI (there is no web UI). Every command
 ```bash
 lumo task template show agent-brief > brief.md     # start from the built-in
 lumo task template create team-brief --name "Team brief" --file brief.md
-# Created task template team-brief "Team brief" (845 chars). Use it with `lumo task create <title> --template team-brief`.
+# Created task template team-brief "Team brief" (845 chars)
+# Next: lumo task create <title> --template team-brief
 lumo task template edit team-brief --file brief.md --name "Team agent brief"
 lumo task template rm team-brief                    # exit 4 envelope; re-run with --confirm after the user approves
 ```
@@ -106,7 +107,7 @@ Pure flag-driven update. Provide at least one of:
 | ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-t, --title <text>`     | string              | Cannot be empty.                                                                                                                                                                                                                                                      |
 | `-d, --description <>`   | string              | `--description ""` clears the field.                                                                                                                                                                                                                                  |
-| `-s, --status <value>`   | enum                | `todo \| in_progress \| in_review \| done` (case-insensitive).                                                                                                                                                                                                        |
+| `-s, --status <value>`   | enum                | `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive).                                                                                                                                                                                             |
 | `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                                                                                                                                                                    |
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
 | `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
@@ -154,22 +155,37 @@ The `Tags:` line is omitted when the resulting tag set is empty. The trailing `N
 
 The server's transition matrix (`lib/task/state-machine.ts`):
 
-| From        | Allowed targets                       |
-| ----------- | ------------------------------------- |
-| TODO        | IN_PROGRESS, IN_REVIEW, DONE          |
-| IN_PROGRESS | TODO, IN_REVIEW, DONE                 |
-| IN_REVIEW   | TODO, IN_PROGRESS, DONE               |
-| DONE        | TODO, IN_PROGRESS, IN_REVIEW (reopen) |
+| From        | Allowed targets                                |
+| ----------- | ---------------------------------------------- |
+| BACKLOG     | TODO, IN_PROGRESS, IN_REVIEW, DONE             |
+| TODO        | BACKLOG, IN_PROGRESS, IN_REVIEW, DONE          |
+| IN_PROGRESS | BACKLOG, TODO, IN_REVIEW, DONE                 |
+| IN_REVIEW   | BACKLOG, TODO, IN_PROGRESS, DONE               |
+| DONE        | BACKLOG, TODO, IN_PROGRESS, IN_REVIEW (reopen) |
+
+BACKLOG (LUM-1057) = not yet scheduled. New tasks still default to TODO. BACKLOG tasks are left out of sprint progress / burnup and milestone progress totals; `milestone show` prints them on a `Backlog:  N (not in the total)` row of its Progress section.
 
 Practical rules:
 
-- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call **walks the confirmation protocol** (see below): without `--confirm` it exits 4 with an envelope, never a prompt.
-- **DONE is the user's call** — `--status done` always exits 4 for their approval first (below).
+- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call either runs directly (every linked PR merged, nothing blocks — LUM-1106) or **walks the confirmation protocol** (see below): exit 4 with an envelope, never a prompt.
+- **DONE is the user's call unless the one-step condition holds** — short of it, `--status done` exits 4 for their approval first (below).
 - **A DONE task can be reopened** — to IN_REVIEW, IN_PROGRESS, or TODO. Reopening is a plain status change. To attach context without reopening, `lumo task comment` works.
 
-### `--status done` requires `--confirm` — the confirmation envelope (LUM-755)
+### `--status done` — one step, or the confirmation envelope (LUM-755 / LUM-1106)
 
-DONE is the one status move that needs a human's sign-off. It no longer prompts (LUM-731's interactive yes/no question is gone): run without `--confirm`, the CLI looks the task up, prints a **confirmation envelope** on stdout and exits **4** with nothing sent — no PATCH, and no tag resolution either. The envelope's `changes` carry everything the old prompt showed, including a trailing `⚠` line when a linked PR has not merged (that line replaces the old second prompt — the protocol is one step, and you relay the whole block). Full protocol: [confirmation.md](confirmation.md).
+**One step when nothing is left (LUM-1106).** Before any envelope the CLI checks the _one-step condition_: `--status` is the only flag (LUM-1116 — `--status done --title …`, a tag or `--sprint` flag, etc. always take the envelope, which then adds an `Also updates: --title, … (one-step DONE covers a status-only change)` line so the user signs off on those changes too), at least one linked PR, **every** linked PR `merged`, and the status digest read cleanly with `Blocks DONE: nothing on record` (no blocking crossing, no blocking security finding, no proven test-case defect, no `⚠ could not confirm`). When it holds, `--status done` sends the PATCH straight away — no envelope, no `--confirm`, exit 0 — and prints:
+
+```text
+Updated LUM-48 "Title"  https://…/LUM-48
+One-step DONE (no --confirm needed): the linked PR is merged and nothing blocks DONE.
+  Status: IN_REVIEW → DONE
+  #926  merged   refactor: panel  https://github.com/o/r/pull/926
+<the actual worktree removal report, then the status digest>
+```
+
+The first line keeps its `Updated <id> …` format. It fails closed: any flag besides `--status`, no linked PR (a docs-only task), any PR open/closed/draft/unknown, an older server that sends no `pullRequests`, a task that is already DONE, or any failed digest read → the exit-4 envelope below, exactly as before. The server's 409 gates still apply to the PATCH either way.
+
+Otherwise DONE needs a human's sign-off. It no longer prompts (LUM-731's interactive yes/no question is gone): run without `--confirm`, the CLI looks the task up, prints a **confirmation envelope** on stdout and exits **4** with nothing sent — no PATCH, and no tag resolution either. The envelope's `changes` carry everything the old prompt showed, including a trailing `⚠` line when a linked PR has not merged (that line replaces the old second prompt — the protocol is one step, and you relay the whole block). Full protocol: [confirmation.md](confirmation.md).
 
 ```bash
 lumo task update LUM-48 --status done
@@ -194,7 +210,7 @@ When the task has local git worktrees, the envelope ends with one line per workt
 
 - **Show `changes` to the user and wait for an explicit yes**, then run `confirmCommand` unchanged. `--confirm` means the user confirmed — never add it on your own.
 - With `--confirm` the PATCH goes out directly. The server's own DONE gates still apply on top — an undispositioned boundary crossing, a blocking security finding or a proven test-case defect refuses with **409**, which the CLI turns into a structured **`DONE_BLOCKED` error on stdout with exit 5**: the 409 text verbatim, a `blockers[]` with ids (built from `task status` + the crossings read model), and `remediation` lines that only name human-side or user-approved paths. Nothing on `task update` clears any of them — relay, don't retry. A boundary crossing is the one blocker with a terminal path, `lumo crossing disposition <id> …` (itself exit-4: the user rules, never you); once every blocker is cleared, re-run this `--confirm` call. See [confirmation.md](confirmation.md) "When the gate is human-only". Any other 409 stays plain text, exit 1.
-- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
+- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`backlog` / `todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
 - A failed lookup (404, network) exits 1 before any envelope.
 
 ```bash
@@ -204,7 +220,7 @@ lumo task update LUM-48 --status done --confirm   # only after the user approved
 ### When to suggest `task update`
 
 - The user describes a state change in natural language (e.g. "mark LUM-48 as in progress", "rename LUM-12 to ...", "assign LUM-30 to me", "bump the priority on LUM-7").
-- After the agent finishes a task and the user confirms — tell the user to run `lumo task update LUM-N --status done` in their terminal (it prompts for confirmation; an agent shell is non-TTY and is refused).
+- After the agent finishes a task: every linked PR merged and nothing blocks → run `lumo task update LUM-N --status done` (one step); otherwise relay its exit-4 envelope and wait for the user's yes.
 - Multiple status changes in a row should each be a separate `update` invocation rather than batched.
 
 ### Sprint output format
@@ -232,27 +248,41 @@ Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Ful
 Default behavior: prints every task currently assigned to the authenticated user (no project / status filter), one per line, as a fixed-width table:
 
 ```
-LUM-42  IN_PROGRESS  HIGH    web        Fix Slack OAuth redirect
-LUM-48  TODO         MEDIUM  backend    Investigate slow query
+LUM-42  IN_PROGRESS  HIGH    web      Fix Slack OAuth redirect
+LUM-48  TODO         MEDIUM  backend  Investigate slow query
 ```
 
-| Flag                    | Type    | Notes                                                                            |
-| ----------------------- | ------- | -------------------------------------------------------------------------------- |
-| `-s, --status <value>`  | enum    | Filter by status: `todo \| in_progress \| in_review \| done` (case-insensitive). |
-| `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).            |
-| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                          |
-| `-n, --limit <count>`   | integer | Cap output to the first N rows.                                                  |
+Columns align by display width (CJK counts 2). On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id. `task search` and `next` use the same table (`next` keeps the `1. LUM-N` rank in column 1; its TTY header reads `TASK  STATUS  PRIORITY  TITLE`).
+
+| Flag                    | Type    | Notes                                                                                       |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| `-s, --status <value>`  | enum    | Filter by status: `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive). |
+| `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).                       |
+| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                                     |
+| `-n, --limit <count>`   | integer | Tasks per page (1-500, default **50**).                                                     |
+| `--cursor <cursor>`     | string  | Next page — copy it from the footer (or `nextCursor` in `--json`).                          |
+| `--json`                | boolean | `{ tasks, total, nextCursor }`.                                                             |
 
 ```bash
 lumo task list                                  # everything assigned to me
-lumo task list --status in_progress -n 10       # capped, status-filtered
+lumo task list --status in_progress -n 10       # 10 per page, status-filtered
+lumo task list --cursor 50                      # page 2 (from the footer)
 lumo task list --project backend --status todo
 lumo task list --milestone "Q3 Launch"
 ```
 
-When `--milestone` is set, the CLI calls `GET /api/milestones/<id>/tasks?assigned=me` instead of `/api/tasks/me`. Other filters (`--status`, `--limit`) still apply client-side to the milestone-scoped result.
+Every filter and the page run server-side (`GET /api/tasks/me?statuses=…&milestoneIds=…&projectName=…&limit=…&cursor=…`). Against a server that predates paging the CLI filters and pages the full list itself.
 
-Filtering is currently client-side — the server returns the full "my tasks" set and the CLI slices it. This is fine for typical workspaces (dozens of tasks); revisit if a workspace has hundreds.
+#### Paging (LUM-1093) — shared by `task list`, `task search`, `task history`, `task comments list`, `milestone list`, `doc list`
+
+Lists print **50 rows per page** by default (`--limit` 1-500 changes it). When a page is not the whole result, the output ends with a fixed footer — the first line is `Showing <first>-<last> of <total>.`, the second the command for the next page:
+
+```
+Showing 1-50 of 132.
+Hint: next page with `lumo task list --status todo --cursor 50`
+```
+
+The last page prints only the `Showing …` line; a result that fits on one page prints no footer. **If you see the footer, you have not seen everything** — run the printed command before concluding a task/doc/milestone is absent. `--json` (where offered) adds `total` and `nextCursor` (`null` on the last page). The cursor is opaque: copy it, don't compute it.
 
 ### When to suggest `task list`
 
@@ -261,7 +291,7 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 
 ### `lumo task search [query] [flags]` — search tasks across the workspace (LUM-821)
 
-`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), results capped at 500 (a `(result capped …)` line says so).
+`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), paged 50 at a time (`--limit` / `--cursor`, footer as in **Paging** above; a fuzzy query ranks at most 500 matches — when it hits that cap the output still ends with `(result capped at 500 — narrow the filters)` and `--json` has `truncated: true`).
 
 `[query]` is split on whitespace and **every term must match** (AND): as a case-insensitive substring of the title or description, or as the task number (`42`, `LUM-42`). Typo tolerance is a **tiered fallback** — it only runs when what you typed matches nothing, so a correctly spelled word is never widened (`content` never pulls in "context", `form` never "from"/"for"): (1) exact substring / number; if that finds nothing, (2) typo matching of title words via Postgres `pg_trgm` for non-numeric terms of 4+ letters (`serch`, `filtr`, `dashbord`, `migraton` find their task); if that finds nothing too, (3) one swapped pair of adjacent letters (`oauht` → "OAuth"). A typo'd title word must be ≥ 4 letters and at most one letter shorter than the term. Results are ranked by a relevance score summed over the terms: task number 2.0, title substring 1.0, trigram typo 0.9 × similarity, letter swap 0.85, description substring 0.5. `--exact` switches the fallback tiers off.
 
@@ -269,15 +299,16 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 | --------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
 | `-a, --assignee <ref>`            | string (repeatable) | `me`, an email, a member name, an agent name, or `none` (unassigned). Repeats are ORed.          |
 | `--tag <name>`                    | string (repeatable) | Tag name, matched case-insensitively (any of). Unknown name = error — search never creates tags. |
-| `-s, --status <value>`            | enum (repeatable)   | `todo \| in_progress \| in_review \| done`; repeat or comma-separate.                            |
+| `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done`; repeat or comma-separate.                 |
 | `-p, --priority <level>`          | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate.                                     |
 | `--project <ref>`                 | string              | Project name or slug.                                                                            |
 | `-m, --milestone <ref>`           | string              | Milestone name or UUID.                                                                          |
 | `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                       |
 | `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive calendar days in your local timezone (same as the web due-date picker).                |
-| `-n, --limit <count>`             | integer             | Show only the first N rows.                                                                      |
+| `-n, --limit <count>`             | integer             | Tasks per page (1-500, default 50).                                                              |
+| `--cursor <cursor>`               | string              | Next page — from the footer or `nextCursor`.                                                     |
 | `--exact`                         | boolean             | Substring matching only, in board order (default: typo-tolerant, ranked).                        |
-| `--json`                          | boolean             | Raw `{ tasks, truncated }`.                                                                      |
+| `--json`                          | boolean             | `{ tasks, truncated, total, nextCursor }`.                                                       |
 
 ```bash
 lumo task search "oauth redirect"
@@ -296,7 +327,7 @@ Output: `LUM-42  TODO  HIGH  lumo  Alice  2026-09-30  Fix OAuth` (id · status �
 
 ### `lumo task statuses [--json]` — the workflow as the server defines it
 
-Prints the status set with each status's allowed transitions, the priorities, and which status is gated (`DONE`: needs the user's `--confirm` and a clear DONE gate). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
+Prints the status set with each status's allowed transitions, the priorities, and which status is gated (`DONE`: needs the user's `--confirm` — unless every linked PR is merged and nothing blocks, LUM-1106 — and a clear DONE gate). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
 
 ```bash
 lumo task statuses
@@ -352,7 +383,7 @@ When to suggest: the user asks "what should I work on", "what's next", "recommen
 
 ### `lumo task show <identifier>` — print one task's detail
 
-Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), due date when set, URL, and the full description below in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Lighter than `task context` because it does not load prior session summaries or memory.
+Returns a `<id>  <title>` line (bold on a TTY), then `Label:  value` rows padded to the widest label (LUM-1090) — status, priority, project, assignee (with display name from Clerk), due date when set, URL (never wrapped: a URL too long for its row moves, whole, under `URL:`) — and the full description below, verbatim, in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Lighter than `task context` because it does not load prior session summaries or memory.
 
 ```bash
 lumo task show LUM-42
@@ -360,9 +391,9 @@ lumo task show LUM-42
 
 Use when the user wants the current state of a task without the agent-handoff payload.
 
-### `lumo task history <identifier> [-n <count>] [--json]` — field-change log (LUM-821)
+### `lumo task history <identifier> [-n <count>] [--cursor <c>] [--json]` — field-change log (LUM-821)
 
-The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Default last 30; `-n` raises it. Comments are not included — use `task comments list`.
+The task's changelog, oldest first, as a table: `YYYY-MM-DD HH:MM  actor  change` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints this page's entries as a bare array (unchanged shape, no `total`). Comments are not included — use `task comments list`.
 
 ```bash
 lumo task history LUM-42
@@ -385,6 +416,8 @@ lumo task comment LUM-42 "Reproduced the redirect bug on staging — Safari only
 ```
 
 The CLI does not support @-mention chip syntax. If the user wants to ping someone, they should comment from the web UI.
+
+**Listing.** `lumo task comments list <id>` pages top-level threads 50 at a time (replies stay with their parent; `--limit` / `--cursor`, footer as in **Paging** above, printed after the fenced thread). `--full` alone prints every comment with no paging and no output-budget cap.
 
 **Replying (LUM-821).** `lumo task comments list` prints every comment with a short id (`#cmaaaaaa · <author> · <time>`). `--reply-to <comment>` takes that id — any unique prefix of 6+ characters. Threads are one level deep: replying to a reply is refused, naming the top-level comment to reply to instead.
 

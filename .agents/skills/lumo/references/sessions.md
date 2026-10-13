@@ -102,7 +102,7 @@ What it does:
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
 - Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning and **undispositioned security findings**.
-- Does **not** print team memory or the `## Test cases` nudge (LUM-807) — `lumo task context` prints both, and attach output is re-read on every later step (LUM-844). Instead one line: `Background (team memory, test cases, sources, prior sessions): lumo task context LUM-42`.
+- Does **not** print team memory or the `## Test cases` nudge (LUM-807) — `lumo task context` prints both, and attach output is re-read on every later step (LUM-844). Instead one line: ``Hint: run `lumo task context LUM-42` for background (team memory, test cases, sources, prior sessions)``.
 
 After attaching, always run `lumo task context <identifier>` to load the task background — memory and the test-case nudge live there.
 
@@ -199,18 +199,25 @@ Each Claude Code or Codex session has its own session id (`CLAUDE_CODE_SESSION_I
 lumo session status
 ```
 
-Prints what the current Claude Code or Codex session is bound to — a task, a milestone (`Role: STEWARD (governance — plan & accept only)`), or "(no task)" if none. Must run inside a Claude Code or Codex session (`$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`).
+Prints what the current Claude Code or Codex session is bound to — `Session <id>`, then `Label:  value` rows padded to the widest label (LUM-1090): `Bound to:  LUM-12 "<title>"`, a milestone (`Role:  STEWARD (governance — plan & accept only)` + `Bound to:  milestone "<name>"`), or `-` if none, and `Events:  <n>`. Must run inside a Claude Code or Codex session (`$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`).
 
-Against a server that reports attribution (LUM-932) it also lists where the run's work is going. A subagent's own session prints `Subagent of: <parent session>` and shows its family's view.
+Against a server that reports attribution (LUM-932) it also lists where the run's work is going, as headed sections with aligned tables. A subagent's own session prints a `Subagent of:  <parent session>` row first and shows its family's view.
 
 ```
-  Attribution:
-    LUM-12  turns 1–4  auto-detected · high (git hint LUM-12, lumo cmd LUM-12)
-    LUM-13  turn 5  auto-detected · medium (agent prompt LUM-13)
-  Subagents:
-    Explore (abc123)  LUM-14 subagent attach
-    general-purpose ×12  follows parent
-  ⚠ Some work was auto-detected — time and cost may be inaccurate. Run `lumo session attach <LUM-N>` for exact numbers.
+Session 7c0e…
+Bound to:  LUM-12 "Fix login"
+Events:    42
+
+Attribution
+  LUM-12  turns 1–4  auto-detected · high (git hint LUM-12, lumo cmd LUM-12)
+  LUM-13  turn 5     auto-detected · medium (agent prompt LUM-13)
+
+Subagents
+  Explore (abc123)     LUM-14 subagent attach
+  general-purpose ×12  follows parent
+
+⚠ Some work was auto-detected — time and cost may be inaccurate. For exact numbers, run:
+  lumo session attach <LUM-N>
 ```
 
 - Turns are numbered from 1 (turn 1 = the session's first prompt), the same as the web run panel.
@@ -218,8 +225,8 @@ Against a server that reports attribution (LUM-932) it also lists where the run'
 - A subagent with no task of its own prints `follows parent` — its work goes wherever the parent's does.
 - Subagents whose line would be identical (same type and same tasks/source words) are collapsed into one `<type> ×N` line; a lone subagent keeps its short `(id)`.
 - A bound session whose attribution has not been computed yet still lists its bound task as `attached`.
-- An unbound session with no signal yet prints `Attribution: none yet (no task signal)`; it is auto-detected later from branch, commits and `lumo` commands.
-- The `⚠` line means some of the work is inferred, so time and cost are approximate; `lumo session attach <LUM-N>` makes them exact. Older servers print only the binding lines.
+- An unbound session with no signal yet prints `None yet (no task signal)` under the Attribution heading, with `lumo session attach <LUM-N>` on a line of its own; it is auto-detected later from branch, commits and `lumo` commands.
+- The `⚠` line means some of the work is inferred, so time and cost are approximate; `lumo session attach <LUM-N>` makes them exact. Older servers print only the binding rows.
 
 #### When to suggest
 
@@ -260,7 +267,7 @@ Codex (CLI and desktop app, 0.162+) is a supported agent since LUM-1051. `lumo i
 - **Network.** Codex's default sandbox has no network; the Lumo rules run only the **server-only** `lumo` commands outside it without a prompt — the ones that just call the Lumo API (`task show/context/list/status/wrapup/comment/create`, `doc show/list/…`, `session status`, `next`, …). The `lumo` commands that change local files or start local processes stay sandboxed on purpose: `session attach` (can create a worktree), `task update` (a confirmed DONE removes worktrees), `worktree …`, `memory sync/push`, `init`/`uninstall`/`update`, `auth …`, `hook …`, the commands that can read a local file and upload it (`doc create/update/patch/append/diff`, `task artifact add`, `task template create/edit`, `task testcase run`, `crossing explain`, `milestone criteria set`, `usage resync` — a prefix rule cannot exclude `--file`), plus the human-only `crossing disposition` / `task testcase disposition` (local-only `whoami` / `doctor` run fine sandboxed). For those, request Codex's approval to run outside the sandbox (the user is asked) or have the user run them. Source of truth: `CODEX_SERVER_ONLY_COMMANDS` in `cli/src/lib/codex-rules.ts`. The rules match the words right after `lumo`, so run `lumo …` as its own command with flags after the subcommand — `lumo a && lumo b` is fine, but `lumo … | head` / `> file` / `lumo --no-hints task …` runs sandboxed and fails with `could not reach Lumo API … (fetch failed)`. On that failure inside the sandbox the CLI appends a `Hint:`: for a server-only command it says re-run `lumo init` and restart Codex (a project's rule loads only in a trusted project); for a sandboxed-on-purpose command it says approve it in Codex instead — relay it. Hooks run outside the sandbox either way.
 
 - **Session id.** Codex sets `CODEX_THREAD_ID` in every shell; it wins over a `CLAUDE_CODE_SESSION_ID` inherited from a parent Claude Code session. The session is `CODEX_SESSION_ID`. Inside a Codex subagent the two differ and the CLI uses the child session `<CODEX_SESSION_ID>:<CODEX_THREAD_ID>` — the same id the hooks build from the payload's `session_id` + `agent_id` — so a subagent's `session attach` is deterministic (no Claude-style ambiguity errors).
-- **Hook trust self-check.** Codex skips untrusted hooks with no error. When the server has no hook event for this Codex session, `session attach` (after the bind line) and `session status` (on stderr) print `no hook events have reached Lumo from this Codex session …` — relay it: the user must run `lumo init` (or `lumo init --agent codex`) and trust the `lumo hook …` entries. Until then nothing of the session is recorded.
+- **Hook trust self-check.** Codex skips untrusted hooks with no error. When the server has no hook event for this Codex session, `session attach` (after the bind line) and `session status` (on stderr) print `no hook events have reached Lumo from this Codex session …` — relay it: the user must run `lumo init` (or `lumo init --agent codex`) and trust the `lumo hook …` entries. Until then nothing of the session is recorded. When events do arrive but some Lumo events have no trust entry in `~/.codex/config.toml` for the user or repo `.codex/hooks.json` (LUM-1112 — typically events added or changed by re-running `lumo init`), both print `these Lumo hook events may not be trusted in Codex: <events>` instead — relay it: trust those entries in Codex (`/hooks`). The check is a text scan (hash not verified), so it is worded as "may"; it stays silent when no Lumo event looks trusted at all, and never lists events of a hooks file whose trust it cannot read (the scan can't be relied on there) and never runs in Claude Code.
 - **Session-start context.** The `[Lumo] session_id=…` line, the no-task / detected-task prompt and the task context arrive as developer context (one `additionalContext` JSON object — Codex rejects text mixed with JSON). If the hook list shows `hook: SessionStart Failed` and no `[Lumo] session_id=` line is in context, the installed CLI predates 1.102.0: have the user update it; `lumo session status` still works.
 - **Events.** Captured: SessionStart/End, UserPromptSubmit, Pre/PostToolUse, PermissionRequest, SubagentStart/Stop, Stop, plus Codex-only PreCompact / PostCompact / Interrupt (shown on the timeline). Codex has no PostToolUseFailure (a failed command is a normal PostToolUse without exit code), PermissionDenied (a declined approval shows as Interrupt), PostToolBatch, Worktree*, FileChanged, ConfigChange, Task*, Notification, Elicitation\*, CwdChanged or InstructionsLoaded — those signals are absent for Codex sessions.
 - **Tools.** Codex writes files only through `apply_patch`; it counts as a write tool (collision warnings, sensitive-path and secret checks, deleted-test detection) with its paths read from the patch headers. Reads go through `Bash`. `collaborationspawn_agent` / `collaborationwait_agent` are its subagent tools.

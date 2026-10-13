@@ -120,17 +120,18 @@ lumo doc update RFC --tag final --add-tag oops
 
 ## `lumo doc list [flags]` — list documents
 
-Default behavior: lists every document the current user can see, as fixed-width rows: `<cuid>  <SCOPE>  <project|->  <title>`.
+Default behavior: lists every document the current user can see, as table rows: `<cuid>  <SCOPE>  <project|->  <title>`, columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id.
 
 | Flag              | Type    | Notes                                                                                  |
 | ----------------- | ------- | -------------------------------------------------------------------------------------- |
 | `--scope <scope>` | enum    | `personal`, `workspace`, or `all`. Default `all`.                                      |
 | `--project <ref>` | string  | Filter by project.                                                                     |
 | `--task <LUM-N>`  | string  | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.          |
-| `--limit <n>`     | int     | Cap output to the first N rows.                                                        |
+| `--limit <n>`     | int     | Docs per page (1-500, default 50); more ends with `Showing X-Y of N.` + next command.  |
+| `--cursor <c>`    | string  | Next page, copied from the footer (see **Paging** in [tasks.md](tasks.md)).            |
 | `--tree`          | boolean | Render as an indented tree (two spaces per depth level) instead of the flat row table. |
 
-`--tree` plus filters work together: the CLI fetches with filters applied, then builds the tree from whatever rows came back. Docs whose parent is **not** in the result render as top-level rows. `--limit N --tree` truncates the flat list to N rows _before_ the tree is built. When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
+`--tree` plus filters work together: the CLI fetches with filters applied, then builds the tree from whatever rows came back. Docs whose parent is **not** in the result render as top-level rows. With `--tree` the page is cut **after** tree ordering, so each page reads top to bottom and rows keep their real depth. When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
 
 ```bash
 lumo doc list --scope workspace
@@ -191,7 +192,7 @@ lumo doc unbind cmd_xxx LUM-42
 
 `unshare <doc> <member>` is idempotent (prints `Not shared with <name>`, exit 0 if no row). It does **not** flip visibility back to PRIVATE — do that explicitly via `doc update --scope personal`.
 
-`share-list <doc>` prints fixed-width rows `<displayName>  <ROLE>`; empty output = no shares (may still be WORKSPACE-visible).
+`share-list <doc>` prints table rows `<displayName>  <ROLE>` (a `NAME  ROLE` header on a TTY only); empty output = no shares (may still be WORKSPACE-visible).
 
 ```bash
 lumo doc share "RFC" alice@example.com --role editor
