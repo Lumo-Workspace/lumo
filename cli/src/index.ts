@@ -8,6 +8,10 @@ import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { installAuthFailureTracker } from './lib/auth-failure'
 import { installSandboxNetworkTracker } from './lib/sandbox-network-hint'
+import {
+  commandPathOf,
+  installVersionCompatTracker,
+} from './lib/version-compat'
 import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
@@ -210,12 +214,21 @@ const authTracker =
 // the cause and the fix instead of a bare `fetch failed`.
 const sandboxNetTracker =
   !isIntrospect && !isUpdateCheckWorker ? installSandboxNetworkTracker() : null
+// LUM-1110: every API request carries X-Lumo-Cli-Version; a 426 (CLI too old)
+// ends with `lumo update`, a route-missing 404 with "server may not have
+// deployed this yet" instead of a bare HTTP 404.
+const versionTracker =
+  !isIntrospect && !isUpdateCheckWorker
+    ? installVersionCompatTracker(pkg.version)
+    : null
 
 function exitWith(code: number): never {
   const hint = authTracker?.hintFor(code)
   if (hint) console.error(hint)
   const netHint = sandboxNetTracker?.hintFor(code)
   if (netHint) console.error(netHint)
+  const versionHint = versionTracker?.hintFor(code)
+  if (versionHint) console.error(versionHint)
   process.exit(code)
 }
 
@@ -283,8 +296,9 @@ const program = new Command()
 // Commander does not merge program-level options into a subcommand's own
 // opts(), so the global `--no-hints` is folded into the env channel before any
 // action runs. One silencing path (`nextStepsSilenced`) instead of two.
-program.hook('preAction', thisCommand => {
+program.hook('preAction', (thisCommand, actionCommand) => {
   if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
+  versionTracker?.setCommand(commandPathOf(actionCommand))
 })
 
 const auth = program.command('auth').description('Manage Lumo authentication')
