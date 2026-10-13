@@ -15,6 +15,7 @@ import {
   createGit,
   diffGrammar,
   parseArgs,
+  withStderrReason,
   parseHookEvents,
   renderChangelog,
   resolveBaseline,
@@ -487,6 +488,10 @@ describe('release-cli: parseArgs', () => {
     })
     expect(parseArgs(['--help'])).toBe('help')
     expect(() => parseArgs(['--publish'])).toThrow('unknown argument')
+    expect(() => parseArgs(['--since'])).toThrow('missing value for --since')
+    expect(() => parseArgs(['--changelog-out', '--dry-run'])).toThrow(
+      'missing value for --changelog-out'
+    )
   })
 })
 
@@ -528,7 +533,7 @@ describe('release-cli: createGit against a real repository', () => {
     expect(git.isAncestor(c4, c1)).toBe(false)
     expect(git.showFile(c1, 'cli/package.json')).toBe('{"version":"1.0.0"}')
     expect(git.showFile(c1, 'nope.txt')).toBeNull()
-    expect(git.packageJsonHistory()).toEqual([
+    expect([...git.packageJsonHistory()]).toEqual([
       { sha: c4, version: '1.1.0' },
       { sha: c1, version: '1.0.0' },
     ])
@@ -546,5 +551,53 @@ describe('release-cli: createGit against a real repository', () => {
     expect(sh('tag', '-l', '--format=%(contents)', 'cli-v1.1.0')).toBe(
       '## notes'
     )
+  })
+})
+
+describe('release-cli: withStderrReason', () => {
+  it('puts the last stderr line and exit code on the message and keeps status', () => {
+    const err = withStderrReason('npm', {
+      status: 1,
+      stderr: 'npm error code E404\nnpm error 404 Not Found - @lumoai/nope\n\n',
+    })
+    expect(err.message).toBe(
+      'npm failed (exit 1): npm error 404 Not Found - @lumoai/nope'
+    )
+    expect((err as Error & { status?: number }).status).toBe(1)
+    expect(withStderrReason('git', {}).message).toBe('git failed')
+  })
+})
+
+describe('release-cli: deploy step error reporting', () => {
+  it('reports an ancestry failure as such, not as an unreadable deployment', () => {
+    const { deps, created, out } = makeDeps()
+    deps.git.isAncestor = () => {
+      throw new Error('git failed (exit 128): fatal: Not a valid commit name')
+    }
+    expect(runRelease({ dryRun: false, fetch: true }, deps)).toBe(1)
+    expect(created).toEqual([])
+    const text = out.join('\n')
+    expect(text).toContain('cannot tell whether production')
+    expect(text).toContain('Not a valid commit name')
+    expect(text).not.toContain('cannot read the production deployment')
+  })
+})
+
+describe('release-cli: lazy package.json history', () => {
+  it('stops reading history once the version run is found', () => {
+    const { git } = makeGit({ tags: [] })
+    let read = 0
+    git.packageJsonHistory = function* () {
+      const versions = ['1.116.0', '1.115.0', '1.114.0', 'boom']
+      for (const [i, version] of versions.entries()) {
+        read++
+        if (version === 'boom') throw new Error('read too far')
+        yield { sha: String(i).repeat(40), version }
+      }
+    }
+    expect(
+      resolveBaseline(git, HEAD, ['1.115.0'], undefined, '1.116.0')?.sha
+    ).toBe('1'.repeat(40))
+    expect(read).toBe(3)
   })
 })

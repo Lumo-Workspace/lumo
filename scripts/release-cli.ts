@@ -50,7 +50,7 @@ export interface ReleaseGit {
   showFile(ref: string, path: string): string | null
   listTags(pattern: string): string[]
   /** Commits that touched cli/package.json, newest first, with its version. */
-  packageJsonHistory(): Array<{ sha: string; version: string }>
+  packageJsonHistory(): Iterable<{ sha: string; version: string }>
   log(base: string, head: string, paths: string[]): CommitInfo[]
   diffNameStatus(base: string, head: string, paths: string[]): FileChange[]
   createTag(name: string, message: string): void
@@ -368,21 +368,9 @@ export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
   }
 
   // 2. production deploy contains HEAD
+  let prod: { id: string; commitSha: string } | null = null
   try {
-    const prod = deps.vercel.productionDeployment()
-    if (git.isAncestor(head, prod.commitSha)) {
-      ok(
-        'deploy',
-        `production ${prod.id} (${short(prod.commitSha)}) contains ${short(head)}`
-      )
-    } else if (
-      fail(
-        'deploy',
-        `production ${prod.id} (${short(prod.commitSha)}) does not contain HEAD ${short(head)} — wait for the production deploy, then re-run`
-      )
-    ) {
-      return 1
-    }
+    prod = deps.vercel.productionDeployment()
   } catch (e) {
     if (
       fail(
@@ -391,6 +379,32 @@ export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
       )
     ) {
       return 1
+    }
+  }
+  if (prod) {
+    try {
+      if (git.isAncestor(head, prod.commitSha)) {
+        ok(
+          'deploy',
+          `production ${prod.id} (${short(prod.commitSha)}) contains ${short(head)}`
+        )
+      } else if (
+        fail(
+          'deploy',
+          `production ${prod.id} (${short(prod.commitSha)}) does not contain HEAD ${short(head)} — wait for the production deploy, then re-run`
+        )
+      ) {
+        return 1
+      }
+    } catch (e) {
+      if (
+        fail(
+          'deploy',
+          `cannot tell whether production ${short(prod.commitSha)} contains HEAD (${errMessage(e)}) — failing closed; is the commit fetched?`
+        )
+      ) {
+        return 1
+      }
     }
   }
 
@@ -508,12 +522,33 @@ export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
 // ── real clients ────────────────────────────────────────────────────────────
 
 function sh(cmd: string, args: string[], cwd: string): string {
-  return execFileSync(cmd, args, {
-    cwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 64 * 1024 * 1024,
-  })
+  try {
+    return execFileSync(cmd, args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+  } catch (e) {
+    throw withStderrReason(cmd, e)
+  }
+}
+
+/**
+ * execFileSync's message is just "Command failed: <argv>"; the reason is on
+ * stderr. Keep its last non-empty line (capped) on the error's first line and
+ * keep `status` so callers can still branch on the exit code.
+ */
+export function withStderrReason(cmd: string, e: unknown): Error {
+  const err = e as { status?: number | null; stderr?: unknown }
+  const stderr = typeof err.stderr === 'string' ? err.stderr : ''
+  const reason = stderr
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .pop()
+  const message = `${cmd} failed${typeof err.status === 'number' ? ` (exit ${err.status})` : ''}${reason ? `: ${reason.slice(0, 200)}` : ''}`
+  return Object.assign(new Error(message), { status: err.status })
 }
 
 export function createGit(cwd: string): ReleaseGit {
@@ -543,23 +578,25 @@ export function createGit(cwd: string): ReleaseGit {
     },
     listTags: pattern =>
       git('tag', '--list', pattern).split('\n').filter(Boolean),
-    packageJsonHistory: () =>
-      git('log', '-n', '400', '--format=%H', '--', PACKAGE_JSON)
+    // Lazy: resolveBaseline stops reading at the first commit before the
+    // version run it is looking for, so only a handful of `git show`s run.
+    packageJsonHistory: function* () {
+      const shas = git('log', '-n', '400', '--format=%H', '--', PACKAGE_JSON)
         .split('\n')
         .filter(Boolean)
-        .map(sha => {
-          const content = (() => {
-            try {
-              return git('show', `${sha}:${PACKAGE_JSON}`)
-            } catch {
-              return null
-            }
-          })()
-          return {
-            sha,
-            version: parseJson<{ version?: string }>(content)?.version ?? '',
-          }
-        }),
+      for (const sha of shas) {
+        let content: string | null = null
+        try {
+          content = git('show', `${sha}:${PACKAGE_JSON}`)
+        } catch {
+          content = null
+        }
+        yield {
+          sha,
+          version: parseJson<{ version?: string }>(content)?.version ?? '',
+        }
+      }
+    },
     log: (base, head, paths) =>
       git(
         'log',
@@ -672,10 +709,15 @@ export function parseArgs(argv: string[]): ReleaseOptions | 'help' {
     const a = argv[i]
     if (a === '--dry-run') opts.dryRun = true
     else if (a === '--no-fetch') opts.fetch = false
-    else if (a === '--since' && argv[i + 1]) opts.since = argv[++i] as string
-    else if (a === '--changelog-out' && argv[i + 1])
-      opts.changelogOut = argv[++i] as string
-    else if (a === '--help' || a === '-h') return 'help'
+    else if (a === '--since' || a === '--changelog-out') {
+      const value = argv[i + 1]
+      if (!value || value.startsWith('--')) {
+        throw new Error(`missing value for ${a}`)
+      }
+      i++
+      if (a === '--since') opts.since = value
+      else opts.changelogOut = value
+    } else if (a === '--help' || a === '-h') return 'help'
     else throw new Error(`unknown argument: ${a}`)
   }
   return opts
