@@ -3,7 +3,7 @@
  *
  * LUM-1117 — the on-demand summary routes write the report in the
  * workspace's default language (`defaultLocale`), not the retired
- * `summaryLocale` column.
+ * summary-only language column (dropped in phase 2).
  */
 import { NextRequest } from 'next/server'
 
@@ -21,7 +21,6 @@ jest.mock('@/lib/api/helpers', () => ({
     workspace: {
       id: 'ws1',
       name: 'Acme',
-      summaryLocale: 'en',
       defaultLocale: 'zh-CN',
     },
   })),

@@ -380,9 +380,6 @@ model Workspace {
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
-  /// @deprecated LUM-1117: merged into defaultLocale and no longer written or
-  /// read (phase 1 backfilled it); phase 2 drops the column.
-  summaryLocale    String           @default("en")
 
   // LUM-1097: the workspace's default language — Slack channel posts are
   // written in it, and so are DMs to members who have no language preference

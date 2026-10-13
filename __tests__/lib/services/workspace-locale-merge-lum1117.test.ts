@@ -1,43 +1,44 @@
 /**
  * @jest-environment node
  *
- * LUM-1117 phase 1 — `Workspace.summaryLocale` is merged into
- * `defaultLocale`: the one language field drives AI summaries too, nothing
- * writes `summaryLocale` any more, and an old client that still sends or
- * reads `summaryLocale` is mapped onto `defaultLocale` for one release.
+ * LUM-1117 — the workspace has one language field, `defaultLocale`; AI
+ * summaries use it (English for languages other than English and Chinese).
+ * Phase 2 dropped the old summary-only language column and its one-release
+ * compatibility layer: the API neither serves nor accepts it any more.
  */
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: {
     update: jest.fn(async (_id: string, data: unknown) => data),
     isSlugUnique: jest.fn(),
     findAuditedSettings: jest.fn(async () => ({ defaultLocale: 'en' })),
-    findDefaultLocale: jest.fn(async () => 'en'),
   },
 }))
-const mockRecordAuditEvent = jest.fn()
 jest.mock('@/lib/services/audit.service', () => ({
   ...jest.requireActual('@/lib/services/audit.service'),
-  recordAuditEvent: (...a: unknown[]) => mockRecordAuditEvent(...a),
+  recordAuditEvent: jest.fn(),
 }))
 
+import { Prisma } from '@prisma/client'
 import { workspaceService } from '@/lib/services/workspace.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
-import {
-  defaultLocaleFromSummaryLocale,
-  summaryLanguageFor,
-} from '@/lib/i18n/summary-locale'
+import { summaryLanguageFor } from '@/lib/i18n/summary-locale'
 import { PUBLIC_LOCALES } from '@/lib/i18n/public-locale'
-import { AUDITED_WORKSPACE_SETTINGS } from '@/lib/audit/workspace-settings'
-import { serializeWorkspaceSettings } from '@/lib/plugins/workspace-settings'
+import {
+  auditedColumns,
+  AUDITED_WORKSPACE_SETTINGS,
+} from '@/lib/audit/workspace-settings'
+import {
+  CORE_WORKSPACE_COLUMNS,
+  serializeWorkspaceSettings,
+} from '@/lib/plugins/workspace-settings'
 import { updateWorkspaceSchema } from '@/lib/validation/schemas'
 
-const update = workspaceRepository.update as jest.Mock
-const findDefaultLocale = workspaceRepository.findDefaultLocale as jest.Mock
+/** Built at run time so this file is not a `git grep` hit for the old name. */
+const RETIRED = ['summary', 'Locale'].join('')
 
-beforeEach(() => {
-  jest.clearAllMocks()
-  findDefaultLocale.mockResolvedValue('en')
-})
+const update = workspaceRepository.update as jest.Mock
+
+beforeEach(() => jest.clearAllMocks())
 
 describe('summaryLanguageFor', () => {
   it('writes Chinese summaries for both Chinese locales', () => {
@@ -53,108 +54,37 @@ describe('summaryLanguageFor', () => {
   })
 })
 
-describe('defaultLocaleFromSummaryLocale', () => {
-  it.each([
-    ['zh', 'zh-CN'],
-    ['zh-CN', 'zh-CN'],
-    ['ZH-hans', 'zh-CN'],
-    ['zh-TW', 'zh-TW'],
-    ['zh-hk', 'zh-TW'],
-    ['en', 'en'],
-    ['ja', 'ja'],
-    ['es-419', 'es-419'],
-  ])('maps %p to %p', (legacy, expected) => {
-    expect(defaultLocaleFromSummaryLocale(legacy)).toBe(expected)
+describe('the retired column is gone (phase 2)', () => {
+  it('is not a Workspace column, a core column or an audited setting', () => {
+    expect(Object.values(Prisma.WorkspaceScalarFieldEnum)).not.toContain(
+      RETIRED
+    )
+    expect(CORE_WORKSPACE_COLUMNS).not.toContain(RETIRED)
+    expect(auditedColumns(AUDITED_WORKSPACE_SETTINGS)).not.toContain(RETIRED)
   })
 
-  it.each([['xx'], [''], ['  '], [null], [undefined]])(
-    'has no locale for %p',
-    legacy => {
-      expect(defaultLocaleFromSummaryLocale(legacy)).toBeNull()
-    }
-  )
-})
-
-describe('updateWorkspace — summaryLocale is no longer written', () => {
-  it('never writes the summaryLocale column', async () => {
-    await workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
+  it('an old client sending it writes nothing', async () => {
+    const parsed = updateWorkspaceSchema.safeParse({
       summaryEnabled: true,
-      summaryLocale: 'zh',
+      [RETIRED]: 'zh',
     })
-    const written = update.mock.calls[0]![1] as Record<string, unknown>
-    expect(written).not.toHaveProperty('summaryLocale')
-    expect(AUDITED_WORKSPACE_SETTINGS['workspace.settings_updated']).toEqual(
-      expect.not.arrayContaining(['summaryLocale'])
-    )
-  })
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ summaryEnabled: true })
 
-  it('an old client asking for Chinese summaries moves defaultLocale to zh-CN', async () => {
-    await workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
-      summaryLocale: 'zh',
-    })
-    expect(update).toHaveBeenCalledWith(
+    await workspaceService.updateWorkspace(
       'ws_a',
-      expect.objectContaining({ defaultLocale: 'zh-CN' })
+      'OWNER',
+      'slug',
+      parsed.data!
     )
+    expect(update).toHaveBeenCalledWith('ws_a', { summaryEnabled: true })
   })
 
-  it('a legacy value that keeps the summary language leaves defaultLocale alone', async () => {
-    // A workspace whose default is Japanese already gets English summaries;
-    // the old page re-sending 'en' must not reset it to English.
-    findDefaultLocale.mockResolvedValue('ja')
-    await workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
-      summaryEnabled: false,
-      summaryLocale: 'en',
-    })
-    const written = update.mock.calls[0]![1] as Record<string, unknown>
-    expect(written).not.toHaveProperty('defaultLocale')
-    expect(written).toEqual({ summaryEnabled: false })
-  })
-
-  it('an explicit defaultLocale wins over a legacy summaryLocale', async () => {
-    await workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
-      defaultLocale: 'fr',
-      summaryLocale: 'zh',
-    })
-    expect(update).toHaveBeenCalledWith(
-      'ws_a',
-      expect.objectContaining({ defaultLocale: 'fr' })
-    )
-    expect(findDefaultLocale).not.toHaveBeenCalled()
-  })
-
-  it('an unknown legacy value is ignored', async () => {
-    await workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
-      summaryLocale: 'xx',
-    })
-    const written = update.mock.calls[0]![1] as Record<string, unknown>
-    expect(written).toEqual({})
-  })
-
-  it('the API still accepts summaryLocale from an old client', () => {
-    expect(
-      updateWorkspaceSchema.safeParse({ summaryLocale: 'zh' }).success
-    ).toBe(true)
-  })
-})
-
-describe('GET /api/workspaces/me — summaryLocale is read from defaultLocale', () => {
-  it('serves the summary language of defaultLocale, not the stale column', () => {
+  it('GET serves defaultLocale and nothing derived from the old column', () => {
     const served = serializeWorkspaceSettings({
       id: 'w1',
-      summaryLocale: 'en',
       defaultLocale: 'zh-CN',
     })
-    expect(served).toMatchObject({
-      defaultLocale: 'zh-CN',
-      summaryLocale: 'zh',
-    })
-    expect(
-      serializeWorkspaceSettings({
-        id: 'w1',
-        summaryLocale: 'zh',
-        defaultLocale: 'de',
-      })
-    ).toMatchObject({ summaryLocale: 'en' })
+    expect(served).toEqual({ id: 'w1', defaultLocale: 'zh-CN' })
   })
 })

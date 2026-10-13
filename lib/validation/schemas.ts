@@ -66,9 +66,6 @@ export const createWorkspaceSchema = z.object({
     .optional(),
   summaryEnabled: z.boolean().optional(),
   summaryFrequency: z.enum(['DAILY', 'EVERY_TWO_DAYS', 'WEEKLY']).optional(),
-  // LUM-1117: deprecated — the old settings page's summary language. Mapped
-  // onto defaultLocale by the workspace service; removed in phase 2.
-  summaryLocale: z.string().max(10).optional(),
 })
 
 /** LUM-918: the two kinds of item the trash holds (a route segment). */
