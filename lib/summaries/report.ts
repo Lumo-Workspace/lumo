@@ -6,6 +6,7 @@ import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
 import { parseReport } from './parse-report'
+import { summaryLanguageFor } from '@/lib/i18n/summary-locale'
 
 // ─── System Prompts ──────────────────────────────────────────────────────────
 
@@ -190,13 +191,21 @@ ${projectBreakdownLines}`
 
 // ─── Report generators ────────────────────────────────────────────────────────
 
+/**
+ * LUM-1117: `locale` is the workspace's `defaultLocale`. Summaries exist in
+ * English and Chinese only; every other language falls back to English.
+ */
+export function summarySystemPrompt(locale: string): string {
+  return summaryLanguageFor(locale) === 'zh'
+    ? SUMMARY_SYSTEM_PROMPT_ZH
+    : SUMMARY_SYSTEM_PROMPT_EN
+}
+
 export async function generateProjectReport(
   stats: TaskSummaryStats,
   ctx: ProjectContext
 ): Promise<SummaryReport> {
-  const systemPrompt = ctx.locale.startsWith('zh')
-    ? SUMMARY_SYSTEM_PROMPT_ZH
-    : SUMMARY_SYSTEM_PROMPT_EN
+  const systemPrompt = summarySystemPrompt(ctx.locale)
   const prompt = buildProjectPrompt(stats, ctx)
 
   const { object } = await generateObject({
@@ -221,9 +230,7 @@ export async function generateWorkspaceReport(
   stats: WorkspaceSummaryStats,
   ctx: WorkspaceContext
 ): Promise<SummaryReport> {
-  const systemPrompt = ctx.locale.startsWith('zh')
-    ? SUMMARY_SYSTEM_PROMPT_ZH
-    : SUMMARY_SYSTEM_PROMPT_EN
+  const systemPrompt = summarySystemPrompt(ctx.locale)
   const prompt = buildWorkspacePrompt(stats, ctx)
 
   const { object } = await generateObject({
