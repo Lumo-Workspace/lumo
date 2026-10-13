@@ -177,9 +177,13 @@ describe('downgradeSelfStartedStops', () => {
     ...bash(command),
     sessionId,
   })
-  const run = async (command: string, sessionId?: string | null) => {
+  const run = async (
+    command: string,
+    sessionId?: string | null,
+    workspaceId: string | null = 'ws-1'
+  ) => {
     const input = event(command, sessionId)
-    return downgradeSelfStartedStops(input, detectCrossings(input))
+    return downgradeSelfStartedStops(input, detectCrossings(input), workspaceId)
   }
 
   beforeEach(() => findPrior.mockReset())
@@ -195,7 +199,21 @@ describe('downgradeSelfStartedStops', () => {
   it('a subagent child looks up its root session family', async () => {
     findPrior.mockResolvedValue(['next dev --port 3100 &'])
     await run('pkill -f "next dev"', 'sess-1:agent-abc123')
-    expect(findPrior).toHaveBeenCalledWith('sess-1', expect.any(Date))
+    expect(findPrior).toHaveBeenCalledWith('ws-1', 'sess-1', expect.any(Date))
+  })
+
+  it('reads evidence only from the task own workspace (tenant)', async () => {
+    findPrior.mockResolvedValue(['npx tsx scripts/eval.ts --all &'])
+    await run('pkill -f "scripts/eval.ts"', 'sess-1', 'ws-tenant-a')
+    expect(findPrior).toHaveBeenCalledWith(
+      'ws-tenant-a',
+      'sess-1',
+      expect.any(Date)
+    )
+    findPrior.mockClear()
+    const [c] = await run('pkill -f "scripts/eval.ts"', 'sess-1', null)
+    expect(findPrior).not.toHaveBeenCalled()
+    expect(c?.advisory).toBeFalsy()
   })
 
   it('stays blocking without evidence', async () => {

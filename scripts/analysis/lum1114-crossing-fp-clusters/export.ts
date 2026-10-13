@@ -7,7 +7,11 @@
  *
  *   DATABASE_URL='<prod pooled url>' npx tsx \
  *     scripts/analysis/lum1114-crossing-fp-clusters/export.ts \
- *     --out /tmp/lum1114/crossings.json [--since 2026-09-13] [--team LUM]
+ *     --out /tmp/lum1114/crossings.json --team LUM [--since 2026-09-13]
+ *
+ * One team (tenant) by default — other workspaces' crossings are customer data.
+ * `--all-tenants` instead of `--team` reads every workspace; only with a
+ * reason that needs it (and the customers' data agreements allow it).
  *
  * Write the export OUTSIDE the repository; it is never committed.
  */
@@ -46,7 +50,15 @@ async function main(): Promise<void> {
     ? new Date(sinceFlag)
     : new Date(Date.now() - DEFAULT_DAYS * 24 * 60 * 60 * 1000)
   if (Number.isNaN(since.getTime())) throw new Error('--since: invalid date')
+  // Tenant-scoped by default: other workspaces' crossings are customer data.
+  // Reading across tenants is an explicit, separate decision.
   const team = flag('--team')
+  const allTenants = process.argv.includes('--all-tenants')
+  if (!team && !allTenants) {
+    throw new Error(
+      '--team <identifier> is required (e.g. --team LUM); crossing tenants needs --all-tenants'
+    )
+  }
 
   const { prisma } = await import('@/lib/db/prisma')
   const host = new URL(process.env.DATABASE_URL ?? 'postgres://unset').host

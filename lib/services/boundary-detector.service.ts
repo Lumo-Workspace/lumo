@@ -1262,13 +1262,18 @@ export function detectSensitivePathEdit(input: {
  */
 export async function downgradeSelfStartedStops(
   input: BoundaryDetectionInput,
-  crossings: DetectedCrossing[]
+  crossings: DetectedCrossing[],
+  workspaceId: string | null
 ): Promise<DetectedCrossing[]> {
   const eligible = (c: DetectedCrossing) =>
     c.category === 'INFRA_TERMINATION' &&
     !c.advisory &&
     !isEvasionDecoded(c.detail)
-  if (!input.sessionId || !crossings.some(eligible)) return crossings
+  // Tenant-scoped: a session id is client-reported, so the evidence is read
+  // only from this task's own workspace — another tenant's events can never
+  // turn a crossing here advisory. No workspace → no evidence.
+  if (!input.sessionId || !workspaceId || !crossings.some(eligible))
+    return crossings
   const cmd = readCommand(input.payload)
   if (!cmd || !selfStopPatterns(cmd)) return crossings
   const root =
@@ -1276,6 +1281,7 @@ export async function downgradeSelfStartedStops(
   let prior: string[]
   try {
     prior = await hookEventRepository.findSessionFamilyBashCommands(
+      workspaceId,
       root,
       input.occurredAt ?? new Date()
     )
@@ -1327,10 +1333,7 @@ export const boundaryDetectorService = {
       // matched only as prose (commit message / PR body / echo), keep real
       // executed actions and anything the best-effort LLM can't clear.
       // LUM-1063: a plugin step; without one the candidates are kept as is.
-      const confirmed = await downgradeSelfStartedStops(
-        input,
-        await confirmActionCandidates(input, crossings)
-      )
+      let confirmed = await confirmActionCandidates(input, crossings)
 
       // LUM-590: load the project policy best-effort (the plugin's policy rule
       // source compiles CLAUDE.md / AGENTS.md). Wrapped in try/catch per the
@@ -1358,6 +1361,9 @@ export const boundaryDetectorService = {
       } catch {
         // observer: never throw, project path is best-effort
       }
+      // LUM-1114: a pkill of the session's own background job → advisory.
+      // Needs the task's workspace, so it runs after the lookup above.
+      confirmed = await downgradeSelfStartedStops(input, confirmed, workspaceId)
       // LUM-1068: the core's deterministic rule source — the `## Forbidden`
       // items of CLAUDE.md / AGENTS.md, no model. Runs with or without the
       // plugin, AFTER its compile above so a removal the plugin just

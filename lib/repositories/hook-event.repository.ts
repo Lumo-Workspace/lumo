@@ -113,16 +113,18 @@ export const hookEventRepository = {
   /**
    * LUM-1114: the Bash commands a session family (the session and its subagent
    * children, by `parentSessionId`) ran before `before`, newest first, capped at
-   * `take`. Pre-tool events only — each command once. Summarized commands
+   * `take`, within ONE workspace (tenant). Pre-tool events only — each command once. Summarized commands
    * (used-up workspace, LUM-873) are not the command and are left out.
    */
   async findSessionFamilyBashCommands(
+    workspaceId: string,
     rootSessionId: string,
     before: Date,
     take = 500
   ): Promise<string[]> {
     const rows = await prisma.hookEvent.findMany({
       where: {
+        workspaceId,
         OR: [
           { sessionId: rootSessionId },
           { session: { parentSessionId: rootSessionId } },
