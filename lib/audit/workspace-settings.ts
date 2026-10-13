@@ -16,6 +16,7 @@ export const AUDITED_WORKSPACE_SETTINGS = {
     'summaryEnabled',
     'summaryFrequency',
     'summaryLocale',
+    'defaultLocale',
   ],
   'workspace.security_settings_updated': ['aiDerivedContentEnabled'],
   'workspace.retention_updated': [
