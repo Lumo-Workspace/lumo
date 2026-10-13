@@ -1,7 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { codexTrustInstructions } from './codex-hooks'
-import { classifyCodexRules, LUMO_CODEX_RULES } from './codex-rules'
+import { codexHooksPath, codexTrustInstructions } from './codex-hooks'
+import {
+  classifyCodexRules,
+  codexRulesPath,
+  LUMO_CODEX_RULES,
+} from './codex-rules'
 import {
   HOOK_SCRIPT_BLOCK,
   LUMO_HOOK_BEGIN,
@@ -9,13 +13,11 @@ import {
 } from './git-hook-template'
 import { CODEX_HOOK_EVENTS } from './hooks-template'
 import {
-  collectUpgradeTargets,
   decideSkillInstall,
-  planGitHookRefresh,
+  planGitHookInstall,
   planHooksMerge,
   type HooksMergePlan,
 } from './install-plan'
-import { readRegistry } from './install-registry'
 import { isPathGitTracked } from './install-state'
 import {
   diffSkillDirs,
@@ -29,11 +31,11 @@ import { icons } from './ui'
 import { formatUnifiedDiff } from './unified-diff'
 
 /**
- * LUM-1113 — `lumo init --upgrade --dry-run`: for every install
- * `init --upgrade` visits, what it would do (path, action, unified diff) and
- * whether Codex would ask to trust its hooks again. The decisions come from
- * `install-plan` — the same functions the real upgrade acts on — and nothing
- * here writes a file.
+ * LUM-1113 / LUM-1118 — `lumo init --dry-run`: for every file `lumo init`
+ * would visit in the chosen scope (and `--agent`), what it would do (path,
+ * action, unified diff) and whether Codex would ask to trust its hooks. The
+ * decisions come from `install-plan` — the same functions the real run acts
+ * on — and nothing here writes a file.
  *
  * JSON hook files are diffed on a normalized view that keeps only Lumo's
  * `lumo hook …` entries; everything else in the file is folded to a count so
@@ -41,7 +43,7 @@ import { formatUnifiedDiff } from './unified-diff'
  * shows only its Lumo block.
  */
 
-export type UpgradeItemKind =
+export type InitItemKind =
   | 'skill'
   | 'claude-settings'
   | 'codex-hooks'
@@ -49,18 +51,25 @@ export type UpgradeItemKind =
   | 'git-hook'
 
 /**
+ * - `install`: a new file / dir would be written;
  * - `update`: the file(s) would be rewritten;
  * - `adopt`: content unchanged, only the `.lumo-install.json` marker is written;
  * - `unchanged`: nothing to do;
  * - `skip`: left alone on purpose (modified, newer, not Lumo's, the source repo);
  * - `error`: cannot be planned (unparseable JSON, …) — the real run fails it too.
  */
-export type UpgradeAction = 'update' | 'adopt' | 'unchanged' | 'skip' | 'error'
+export type InitAction =
+  | 'install'
+  | 'update'
+  | 'adopt'
+  | 'unchanged'
+  | 'skip'
+  | 'error'
 
-export interface UpgradeItem {
-  kind: UpgradeItemKind
+export interface InitItem {
+  kind: InitItemKind
   path: string
-  action: UpgradeAction
+  action: InitAction
   /** What is (or is not) done, after the path. */
   summary: string
   /** Extra lines (re-trust, git tracking, folded content). */
@@ -69,11 +78,11 @@ export interface UpgradeItem {
   files?: SkillFileChange[]
   /** Unified diffs, one per changed file ('' parts omitted). */
   diffs: string[]
-  /** Codex will ask to trust these hooks again. */
+  /** Codex will ask to trust these hooks (again). */
   retrust: boolean
 }
 
-const KIND_LABEL: Record<UpgradeItemKind, string> = {
+const KIND_LABEL: Record<InitItemKind, string> = {
   skill: 'skill',
   'claude-settings': 'Claude settings hooks',
   'codex-hooks': 'Codex hooks',
@@ -193,14 +202,6 @@ export function textDiff(
   return diff
 }
 
-function realPath(p: string): string {
-  try {
-    return fs.realpathSync(p)
-  } catch {
-    return path.resolve(p)
-  }
-}
-
 function readOrEmpty(file: string): string {
   try {
     return fs.readFileSync(file, 'utf8')
@@ -212,15 +213,16 @@ function readOrEmpty(file: string): string {
 function skillItem(
   bundled: string,
   dir: string,
-  cliVersion: string
-): UpgradeItem {
+  cliVersion: string,
+  force: boolean
+): InitItem {
   const base = { kind: 'skill' as const, path: dir, diffs: [], retrust: false }
   if (!fs.existsSync(path.join(bundled, 'SKILL.md'))) {
     throw new Error(
       `Bundled skill asset missing at ${bundled} — reinstall @lumoai/cli.`
     )
   }
-  const d = decideSkillInstall(bundled, dir, false, cliVersion)
+  const d = decideSkillInstall(bundled, dir, force, cliVersion)
   switch (d.kind) {
     case 'skipped-source':
       return {
@@ -241,7 +243,7 @@ function skillItem(
         ...base,
         action: 'skip',
         summary:
-          'modified locally — left as is (`lumo skill update --force` overwrites it, discarding the edits)',
+          'modified locally — left as is (`--force` overwrites it, discarding the edits)',
         notes: [],
       }
     case 'up-to-date':
@@ -255,6 +257,15 @@ function skillItem(
           }
     case 'write': {
       const files = diffSkillDirs(bundled, dir)
+      if (d.result === 'installed')
+        // A fresh copy of the bundle: the file list says it all.
+        return {
+          ...base,
+          action: 'install',
+          summary: `new ${cliVersion} copy: ${filesWord(files.length)}`,
+          notes: [],
+          files,
+        }
       const diffs = files.map(f => {
         const installed = path.join(dir, f.file)
         const bundledFile = path.join(bundled, f.file)
@@ -268,7 +279,7 @@ function skillItem(
       return {
         ...base,
         action: 'update',
-        summary: `${d.fromVersion ?? 'unknown'} → ${cliVersion}: ${filesWord(files.length)} changed`,
+        summary: `${d.fromVersion ?? 'modified'} → ${cliVersion}: ${filesWord(files.length)} changed`,
         notes: d.gitTracked ? [gitNote(files.length)] : [],
         files,
         diffs: diffs.filter(Boolean),
@@ -283,7 +294,7 @@ function hooksItem(
   plan: HooksMergePlan,
   agent: string,
   home: string
-): UpgradeItem {
+): InitItem {
   const { addedEvents, updatedEvents } = plan.stats
   const label = kind === 'codex-hooks' ? '' : ` (agent=${agent})`
   if (!plan.writes) {
@@ -297,9 +308,11 @@ function hooksItem(
       retrust: false,
     }
   }
-  const notes: string[] = [
-    'ℹ only Lumo\'s `lumo hook …` entries are shown; other settings are folded ("… N other …") and kept as they are',
-  ]
+  const notes: string[] = plan.exists
+    ? [
+        'ℹ only Lumo\'s `lumo hook …` entries are shown; other settings are folded ("… N other …") and kept as they are',
+      ]
+    : []
   if (
     plan.raw !== null &&
     plan.raw !== JSON.stringify(plan.existing, null, 2) + '\n'
@@ -311,19 +324,25 @@ function hooksItem(
       ...addedEvents.map(e => `${e} (added)`),
       ...updatedEvents.map(e => `${e} (updated)`),
     ]
+    // Only a file already holding Lumo entries is *re*-trusted; a new file
+    // or one with only the user's hooks needs a first trust.
+    const hadLumo =
+      plan.stats.alreadyPresent.length + plan.stats.updatedEvents.length > 0
     notes.push(
-      `${icons.warning} Codex will ask to trust these hooks again — events: ${events.join(', ')}`,
+      hadLumo
+        ? `${icons.warning} Codex will ask to trust these hooks again — events: ${events.join(', ')}`
+        : `${icons.warning} Codex runs these hooks only after you trust them — events: ${events.join(', ')}`,
       ...codexTrustInstructions(file)
         .split('\n')
         .slice(1)
         .map(l => l.trim())
     )
   }
-  if (isPathGitTracked(file)) notes.push(gitNote())
+  if (plan.exists && isPathGitTracked(file)) notes.push(gitNote())
   return {
     kind,
     path: file,
-    action: 'update',
+    action: plan.exists ? 'update' : 'install',
     summary: `add ${addedEvents.length}, update ${updatedEvents.length} Lumo event${addedEvents.length + updatedEvents.length === 1 ? '' : 's'}${label}`,
     notes,
     diffs: [
@@ -338,14 +357,15 @@ function hooksItem(
   }
 }
 
-function codexRulesItem(file: string): UpgradeItem {
+function codexRulesItem(file: string, force: boolean): InitItem {
   const base = { kind: 'codex-rules' as const, path: file, retrust: false }
   const state = classifyCodexRules(file)
-  if (state === 'foreign' || state === 'missing')
+  if (state === 'foreign' && !force)
     return {
       ...base,
       action: 'skip',
-      summary: "no longer Lumo's Codex rule — left as is",
+      summary:
+        "not written by Lumo — left as is (`--force` replaces it with Lumo's rule)",
       notes: [],
       diffs: [],
     }
@@ -358,20 +378,28 @@ function codexRulesItem(file: string): UpgradeItem {
       diffs: [],
     }
   const notes = ['ℹ restart Codex to load the new rule']
-  if (isPathGitTracked(file)) notes.push(gitNote())
+  if (state !== 'missing' && isPathGitTracked(file)) notes.push(gitNote())
   return {
     ...base,
-    action: 'update',
-    summary: 'Lumo-managed file differs from this CLI — rewritten',
+    action: state === 'missing' ? 'install' : 'update',
+    summary:
+      state === 'missing'
+        ? "Lumo's rule for server-only `lumo` commands"
+        : state === 'foreign'
+          ? 'not written by Lumo — replaced (--force)'
+          : 'Lumo-managed file differs from this CLI — rewritten',
     notes,
-    diffs: [
-      textDiff(
-        readOrEmpty(file),
-        LUMO_CODEX_RULES,
-        `a/${path.basename(file)}`,
-        `b/${path.basename(file)}`
-      ),
-    ].filter(Boolean),
+    diffs:
+      state === 'missing'
+        ? []
+        : [
+            textDiff(
+              readOrEmpty(file),
+              LUMO_CODEX_RULES,
+              `a/${path.basename(file)}`,
+              `b/${path.basename(file)}`
+            ),
+          ].filter(Boolean),
   }
 }
 
@@ -382,25 +410,65 @@ function lumoBlock(text: string): string {
   return end === -1 ? '' : text.slice(begin, end + LUMO_HOOK_END.length) + '\n'
 }
 
-function gitHookItem(file: string, home: string): UpgradeItem | null {
-  const plan = planGitHookRefresh(file)
-  if (plan.status === 'absent') return null
-  const base = { kind: 'git-hook' as const, path: file, retrust: false }
-  if (plan.status === 'unchanged')
+function gitHookItem(root: string, home: string): InitItem {
+  const plan = planGitHookInstall(root)
+  const base = { kind: 'git-hook' as const, retrust: false, diffs: [] }
+  switch (plan.status) {
+    case 'not-repo':
+      return {
+        ...base,
+        path: root,
+        action: 'skip',
+        summary: 'not a git repository — no hook',
+        notes: [],
+      }
+    case 'degrade':
+      return {
+        ...base,
+        path: plan.coreHooksPath,
+        action: 'skip',
+        summary:
+          'core.hooksPath is set (husky or a custom dir) — never written; `lumo init --project` prints the block to add by hand',
+        notes: [],
+      }
+    case 'no-dir':
+      return {
+        ...base,
+        path: root,
+        action: 'skip',
+        summary: 'could not resolve the git hooks dir',
+        notes: [],
+      }
+    case 'unchanged':
+      return {
+        ...base,
+        path: plan.hookPath,
+        action: 'unchanged',
+        summary: 'up to date',
+        notes: [],
+      }
+  }
+  const file = plan.hookPath
+  const label = displayPath(file, home)
+  if (plan.status === 'created')
     return {
       ...base,
-      action: 'unchanged',
-      summary: 'up to date',
+      path: file,
+      action: 'install',
+      summary: 'new hook with the Lumo block',
       notes: [],
-      diffs: [],
     }
-  const old = lumoBlock(plan.existing)
+  const old = plan.status === 'updated' ? lumoBlock(plan.existing ?? '') : ''
   return {
     ...base,
+    path: file,
     action: 'update',
-    summary: old
-      ? 'Lumo block replaced'
-      : 'Lumo block has no end marker — a fresh block is appended',
+    summary:
+      plan.status === 'appended'
+        ? (plan.existing ?? '').includes(LUMO_HOOK_BEGIN)
+          ? 'Lumo block has no end marker — a fresh block is appended'
+          : 'Lumo block appended; the existing hook is kept'
+        : 'Lumo block replaced',
     notes: [
       'ℹ only the Lumo block is shown; the rest of the hook is kept as is',
     ],
@@ -408,18 +476,14 @@ function gitHookItem(file: string, home: string): UpgradeItem | null {
       textDiff(
         old,
         `${HOOK_SCRIPT_BLOCK}\n`,
-        `${displayPath(file, home)} (now, Lumo block)`,
-        `${displayPath(file, home)} (after, Lumo block)`
+        `${label} (now, Lumo block)`,
+        `${label} (after, Lumo block)`
       ),
     ].filter(Boolean),
   }
 }
 
-function errorItem(
-  kind: UpgradeItemKind,
-  file: string,
-  err: unknown
-): UpgradeItem {
+function errorItem(kind: InitItemKind, file: string, err: unknown): InitItem {
   return {
     kind,
     path: file,
@@ -431,72 +495,86 @@ function errorItem(
   }
 }
 
-/** Plan every install `init --upgrade` would visit, in the order it runs. Writes nothing. */
-export function planUpgrade(args: {
-  cliVersion: string
+/** Where init puts the skill for an agent token (mirrors `skillInstallDir`). */
+function skillDirFor(root: string, token: string): string {
+  return token === 'codex'
+    ? path.join(root, '.agents', 'skills', 'lumo')
+    : path.join(root, '.claude', 'skills', 'lumo')
+}
+
+/**
+ * Plan every file `lumo init` would visit for `scope` and the agent `tokens`,
+ * in the order it runs. Writes nothing.
+ */
+export function planInit(args: {
+  scope: 'user' | 'project'
+  tokens: readonly string[]
+  /** The scope root: home for `--user`, the cwd for `--project`. */
+  root: string
   homeDir: string
-  cwd: string
   bundled: string
-}): UpgradeItem[] {
-  const t = collectUpgradeTargets(
-    readRegistry().installs,
-    args.homeDir,
-    args.cwd
-  )
-  const items: UpgradeItem[] = []
-  // The same file reached by two spellings (a registry path and the detected
-  // real path, e.g. /var vs /private/var) is written once by the real run —
-  // its second visit finds it up to date — so it is planned once.
-  const seen = new Set<string>()
-  const attempt = (
-    kind: UpgradeItemKind,
-    file: string,
-    fn: () => UpgradeItem | null
-  ): void => {
-    const key = `${kind}\0${realPath(file)}`
-    if (seen.has(key)) return
-    seen.add(key)
+  cliVersion: string
+  force: boolean
+}): InitItem[] {
+  const items: InitItem[] = []
+  const attempt = (kind: InitItemKind, file: string, fn: () => InitItem) => {
     try {
-      const item = fn()
-      if (item) items.push(item)
+      items.push(fn())
     } catch (err) {
       items.push(errorItem(kind, file, err))
     }
   }
-  for (const s of t.skills)
-    attempt('skill', s.path, () =>
-      skillItem(args.bundled, s.path, args.cliVersion)
+  for (const token of args.tokens) {
+    const skill = skillDirFor(args.root, token)
+    attempt('skill', skill, () =>
+      skillItem(args.bundled, skill, args.cliVersion, args.force)
     )
-  for (const r of t.claudeSettings)
-    attempt('claude-settings', r.path, () =>
-      hooksItem(
-        'claude-settings',
-        r.path,
-        planHooksMerge(r.path, r.agent),
-        r.agent,
-        args.homeDir
+    if (token === 'codex') {
+      const hooks = codexHooksPath(args.root)
+      attempt('codex-hooks', hooks, () =>
+        hooksItem(
+          'codex-hooks',
+          hooks,
+          planHooksMerge(hooks, 'codex', CODEX_HOOK_EVENTS),
+          'codex',
+          args.homeDir
+        )
       )
-    )
-  for (const c of t.codexHooks)
-    attempt('codex-hooks', c.path, () =>
-      hooksItem(
-        'codex-hooks',
-        c.path,
-        planHooksMerge(c.path, 'codex', CODEX_HOOK_EVENTS),
-        'codex',
-        args.homeDir
+      const rules = codexRulesPath(args.root)
+      attempt('codex-rules', rules, () => codexRulesItem(rules, args.force))
+    } else {
+      const settings = path.join(args.root, '.claude', 'settings.json')
+      attempt('claude-settings', settings, () =>
+        hooksItem(
+          'claude-settings',
+          settings,
+          planHooksMerge(settings, token),
+          token,
+          args.homeDir
+        )
       )
-    )
-  for (const r of t.codexRules)
-    attempt('codex-rules', r.path, () => codexRulesItem(r.path))
-  for (const g of t.gitHooks)
-    attempt('git-hook', g.path, () => gitHookItem(g.path, args.homeDir))
+    }
+  }
+  if (args.scope === 'project')
+    attempt('git-hook', args.root, () => gitHookItem(args.root, args.homeDir))
   return items
+}
+
+/** The `lumo init …` command that applies a dry run with the same flags. */
+export function initApplyCommand(
+  scope: 'user' | 'project',
+  opts: { agent?: string; force?: boolean }
+): string {
+  let cmd = `lumo init --${scope}`
+  if (opts.agent !== undefined) cmd += ` --agent ${opts.agent}`
+  if (opts.force) cmd += ' --force'
+  return cmd
 }
 
 // ── rendering ──────────────────────────────────────────────────────────────
 
-const VERB: Record<UpgradeAction, string> = {
+const VERB: Record<InitAction, string> = {
+  install: 'would install',
   update: 'would update',
   adopt: 'would adopt',
   unchanged: '·',
@@ -515,17 +593,17 @@ const indent = (text: string, pad = '    '): string =>
  * list and diffs indented beneath; a summary line at the end. Diff lines are
  * indented four spaces (strip them to feed `patch`).
  */
-export function renderUpgradePlan(
-  items: readonly UpgradeItem[],
-  opts: { cliVersion: string; home: string }
-): string {
-  let out = `Lumo init --upgrade — dry run, nothing is written (CLI ${opts.cliVersion})\n\n`
-  if (items.length === 0) {
-    return (
-      out +
-      'No Lumo installs found — nothing to change. Run `lumo init` to install.\n'
-    )
+export function renderInitPlan(
+  items: readonly InitItem[],
+  opts: {
+    cliVersion: string
+    home: string
+    scope: 'user' | 'project'
+    /** The command that applies the plan, e.g. `lumo init --project`. */
+    applyCommand: string
   }
+): string {
+  let out = `Lumo init --dry-run — ${opts.scope} scope, nothing is written (CLI ${opts.cliVersion})\n\n`
   for (const i of items) {
     out += `${VERB[i.action]} ${displayPath(i.path, opts.home)} — ${KIND_LABEL[i.kind]}: ${i.summary}\n`
     for (const n of i.notes) out += `    ${n}\n`
@@ -534,23 +612,21 @@ export function renderUpgradePlan(
     if (i.diffs.length > 0) out += '\n'
   }
   const changing = items.filter(
-    i => i.action === 'update' || i.action === 'adopt'
+    i => i.action === 'install' || i.action === 'update' || i.action === 'adopt'
   )
   const retrust = items.filter(i => i.retrust).length
   const errors = items.filter(i => i.action === 'error').length
   out += '\n'
   if (changing.length === 0 && errors === 0) {
-    out += `Nothing to change — ${items.length === 1 ? 'the Lumo install is' : `all ${items.length} Lumo installs are`} up to date or left as is.\n`
+    out += `Nothing to change — ${items.length === 1 ? 'the Lumo install is' : `all ${items.length} are`} up to date or left as is.\n`
     return out
   }
   out += `${changing.length} of ${items.length} would change`
-  if (retrust > 0)
-    out += `; ${retrust} would make Codex ask to trust hooks again`
+  if (retrust > 0) out += `; ${retrust} would make Codex ask to trust hooks`
   if (errors > 0)
-    out += `; ${errors} cannot be planned (\`init --upgrade\` would fail ${errors === 1 ? 'it' : 'them'} too)`
+    out += `; ${errors} cannot be planned (\`lumo init\` would fail ${errors === 1 ? 'it' : 'them'} too)`
   out += '.\n'
   if (changing.length > 0)
-    out +=
-      'Run `lumo init --upgrade` to apply (it also refreshes the install registry records).\n'
+    out += `Run \`${opts.applyCommand}\` to apply (it also records the installs in the install registry).\n`
   return out
 }

@@ -2,7 +2,7 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
@@ -338,7 +338,7 @@ function registerInit(name: string, hidden: boolean): void {
     .description(
       hidden
         ? 'Alias of `lumo init` (kept for older docs and scripts).'
-        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
+        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; re-run it to refresh an install (unchanged files are not rewritten), with --dry-run to preview."
     )
     .option(
       '--user',
@@ -357,13 +357,11 @@ function registerInit(name: string, hidden: boolean): void {
       'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex.'
     )
     .option(
-      '--upgrade',
-      'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs'
-    )
-    .option(
       '--dry-run',
-      'With --upgrade: print what the upgrade would change — per install the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust again — without writing any file, marker or registry record'
+      'Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record'
     )
+    // LUM-1118: removed; kept hidden only to print the migration error.
+    .addOption(new Option('--upgrade').hideHelp())
     .action(
       wrap(options =>
         init(
@@ -404,7 +402,7 @@ skill
 skill
   .command('update')
   .description(
-    'Refresh the Lumo skill copies that are behind this CLI from the bundled skill. Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (`lumo init --upgrade` refreshes those).'
+    'Refresh the Lumo skill copies that are behind this CLI from the bundled skill. Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those).'
   )
   .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
   .option(

@@ -16,7 +16,10 @@ import {
   CODEX_HOOK_EVENTS,
   LUMO_HOOK_EVENTS,
 } from '@/cli/src/lib/hooks-template'
-import { collectUpgradeTargets } from '@/cli/src/lib/install-plan'
+import {
+  projectClaudeSettingsTarget,
+  projectCodexRulesTarget,
+} from '@/cli/src/lib/install-plan'
 import { writeMarker } from '@/cli/src/lib/install-registry'
 import {
   alreadyNoted,
@@ -167,14 +170,16 @@ describe('projectInstallDrift', () => {
 
 describe('projectDriftNote', () => {
   const item = (
-    kind: 'skill' | 'codex-rules',
+    kind: 'skill' | 'codex-rules' | 'claude-settings',
     relPath: string,
-    version: string | null = null
+    version: string | null = null,
+    agent = kind === 'claude-settings' ? 'claude-code' : 'codex'
   ) => ({
     kind,
     path: path.join(repo, relPath),
     relPath,
     version,
+    agent,
   })
 
   it('no drift: no note', () => {
@@ -189,12 +194,32 @@ describe('projectDriftNote', () => {
     )
   })
 
-  it('hooks / rules only: `lumo init --upgrade` with its dry run', () => {
+  it('hooks / rules only: re-run `lumo init --project` for their agent, with its dry run', () => {
     expect(
       projectDriftNote([item('codex-rules', '.codex/rules/lumo.rules')], CLI)
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --upgrade` (preview with `--dry-run`), then commit the changes in a PR'
+      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
     )
+    expect(
+      projectDriftNote(
+        [item('claude-settings', '.claude/settings.json', null, 'cursor')],
+        CLI
+      )
+    ).toContain('run `lumo init --project --agent cursor` (preview with')
+  })
+
+  it('hooks of two agents: plain `lumo init --project`', () => {
+    const note = projectDriftNote(
+      [
+        item('claude-settings', '.claude/settings.json'),
+        item('codex-rules', '.codex/rules/lumo.rules'),
+      ],
+      CLI
+    )
+    expect(note).toContain(
+      'run `lumo init --project` (preview with `--dry-run`)'
+    )
+    expect(note).not.toContain('--upgrade')
   })
 
   it('both, with the session copy among them: both commands and the restart', () => {
@@ -208,7 +233,7 @@ describe('projectDriftNote', () => {
         { restart: true }
       )
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --project` and `lumo init --upgrade` (preview with `--dry-run`), then commit the changes in a PR, then restart the session'
+      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --project` and `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session'
     )
   })
 })
@@ -260,20 +285,20 @@ describe('once per session', () => {
   })
 })
 
-describe('init --upgrade reaches unrecorded committed installs', () => {
+describe('the committed installs the drift check looks at', () => {
   it('collects the repo .claude/settings.json (with its agent token) and Lumo rules', () => {
     currentInstall()
     write(
       '.claude/settings.json',
       json(buildLumoHookFragment('cursor', LUMO_HOOK_EVENTS.slice(0, 2)))
     )
-    const t = collectUpgradeTargets([], path.join(tmp, 'home'), repo)
-    expect(t.claudeSettings.map(r => [r.path, r.agent, r.scope])).toEqual([
-      [path.join(repo, '.claude', 'settings.json'), 'cursor', 'project'],
-    ])
-    expect(t.codexRules.map(r => r.path)).toEqual([
-      path.join(repo, '.codex', 'rules', 'lumo.rules'),
-    ])
+    expect(projectClaudeSettingsTarget(repo)).toEqual({
+      path: path.join(repo, '.claude', 'settings.json'),
+      agent: 'cursor',
+    })
+    expect(projectCodexRulesTarget(repo)).toBe(
+      path.join(repo, '.codex', 'rules', 'lumo.rules')
+    )
   })
 
   it.each([
@@ -287,16 +312,14 @@ describe('init --upgrade reaches unrecorded committed installs', () => {
       '.claude/settings.json',
       json({ hooks: { Stop: [{ hooks: [{ type: 'command', command }] }] } })
     )
-    const t = collectUpgradeTargets([], path.join(tmp, 'home'), repo)
-    expect(t.claudeSettings.map(r => r.agent)).toEqual([agent])
+    expect(projectClaudeSettingsTarget(repo)?.agent).toBe(agent)
   })
 
   it('a settings file without Lumo hooks and a foreign rules file are not targets', () => {
     git('init', '-q')
     write('.claude/settings.json', json({ hooks: { Stop: [] } }))
     write('.codex/rules/lumo.rules', 'prefix_rule(pattern = ["ls"])\n')
-    const t = collectUpgradeTargets([], path.join(tmp, 'home'), repo)
-    expect(t.claudeSettings).toEqual([])
-    expect(t.codexRules).toEqual([])
+    expect(projectClaudeSettingsTarget(repo)).toBeNull()
+    expect(projectCodexRulesTarget(repo)).toBeNull()
   })
 })

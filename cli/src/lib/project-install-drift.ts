@@ -20,8 +20,8 @@ import { skillCopyStatus } from './skill-copies'
  * hooks, `.codex/hooks.json` and `.codex/rules/lumo.rules`. Auto-sync never
  * touches these (they are shared with the team through git), so the
  * SessionStart status line names them once per session with the fix command.
- * The decisions are the ones `lumo skill update` / `lumo init --upgrade` act
- * on. Purely local and read-only; every entry point swallows its failures.
+ * The decisions are the ones `lumo skill update` / `lumo init --project`
+ * act on. Purely local and read-only; every entry point swallows its failures.
  */
 
 export type ProjectDriftKind =
@@ -38,6 +38,8 @@ export interface ProjectDriftItem {
   relPath: string
   /** Skill copies: the managed version that is behind. */
   version: string | null
+  /** Agent token the install belongs to (the `--agent` of its refresh). */
+  agent: string
 }
 
 /** Never throws: an unreadable / unplannable file is simply not reported. */
@@ -63,6 +65,7 @@ export function projectInstallDrift(opts: {
   const add = (
     kind: ProjectDriftKind,
     file: string,
+    agent: string,
     version: string | null = null
   ): void => {
     items.push({
@@ -70,6 +73,7 @@ export function projectInstallDrift(opts: {
       path: file,
       relPath: path.relative(root, file),
       version,
+      agent,
     })
   }
 
@@ -89,7 +93,7 @@ export function projectInstallDrift(opts: {
       null
     )
     if (copy?.state === 'behind' && copy.gitTracked)
-      add('skill', skill, copy.version)
+      add('skill', skill, agent, copy.version)
   }
 
   const behindAndTracked = (file: string, behind: () => boolean): boolean =>
@@ -103,7 +107,7 @@ export function projectInstallDrift(opts: {
       () => planHooksMerge(settings.path, settings.agent).writes
     )
   )
-    add('claude-settings', settings.path)
+    add('claude-settings', settings.path, settings.agent)
 
   const codexHooks = codexHooksPath(root)
   if (
@@ -113,14 +117,14 @@ export function projectInstallDrift(opts: {
       () => planHooksMerge(codexHooks, 'codex', CODEX_HOOK_EVENTS).writes
     )
   )
-    add('codex-hooks', codexHooks)
+    add('codex-hooks', codexHooks, 'codex')
 
   const rules = safe(() => projectCodexRulesTarget(root), null)
   if (
     rules &&
     behindAndTracked(rules, () => classifyCodexRules(rules) === 'outdated')
   )
-    add('codex-rules', rules)
+    add('codex-rules', rules, 'codex')
 
   return items
 }
@@ -128,9 +132,10 @@ export function projectInstallDrift(opts: {
 /**
  * One status-line segment naming what is behind and how to fix it: skill
  * copies → `lumo skill update --project` (never touches hooks, so Codex keeps
- * its trust); hooks / rules → `lumo init --upgrade`, previewed with
- * `--dry-run`. Either way the result is uncommitted: open a PR. `restart`
- * adds the restart step when the session's own skill copy is among them.
+ * its trust); hooks / rules → re-run `lumo init --project` (narrowed with
+ * `--agent` when they all belong to one agent), previewed with `--dry-run`.
+ * Either way the result is uncommitted: open a PR. `restart` adds the
+ * restart step when the session's own skill copy is among them.
  */
 export function projectDriftNote(
   items: readonly ProjectDriftItem[],
@@ -144,8 +149,12 @@ export function projectDriftNote(
   const cmds: string[] = []
   if (items.some(i => i.kind === 'skill'))
     cmds.push('`lumo skill update --project`')
-  if (items.some(i => i.kind !== 'skill'))
-    cmds.push('`lumo init --upgrade` (preview with `--dry-run`)')
+  const hooks = items.filter(i => i.kind !== 'skill')
+  if (hooks.length > 0) {
+    const agents = [...new Set(hooks.map(i => i.agent))]
+    const init = `lumo init --project${agents.length === 1 ? ` --agent ${agents[0]}` : ''}`
+    cmds.push(`\`${init}\` (preview with \`--dry-run\`)`)
+  }
   const then = opts.restart ? ', then restart the session' : ''
   return `committed Lumo install behind lumo ${cliVersion}: ${what} — run ${cmds.join(' and ')}, then commit the changes in a PR${then}`
 }
