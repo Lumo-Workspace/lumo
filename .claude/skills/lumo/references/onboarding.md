@@ -2,7 +2,7 @@
 
 ## Onboarding
 
-### `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — install skill + hooks (alias: `lumo setup`)
+### `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade [--dry-run]]` — install skill + hooks (alias: `lumo setup`)
 
 Bootstraps Lumo into **Claude Code and Codex at once** (no agent detection — both are always set up; LUM-1054). For Claude Code it copies the bundled skill files (`SKILL.md` **and its `references/` directory**) into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`; for Codex it does the Codex setup below. Existing user permissions and non-Lumo hook entries are preserved. Each install is recorded in the install registry. **`--agent <token>`** narrows it to that one agent (old scripts keep working): `--agent claude-code` writes only `.claude/`, `--agent codex` only `.agents/` + `.codex/`.
 
@@ -30,11 +30,14 @@ npx @lumoai/cli init  --user             # write to ~/.claude/, ~/.agents/ and ~
 npx @lumoai/cli init  --project          # write to ./.claude/, ./.agents/ and ./.codex/
 lumo init --project --force             # same via global install: overwrite skill files if they differ from bundled
 lumo init --upgrade                     # refresh all known installs: skills (managed+older only; modified/newer skipped, never downgrades), Claude settings hooks, Codex hooks.json (only when the Lumo event set changed — then re-trust the listed events in Codex /hooks), recorded Lumo Codex rules, and the Lumo prepare-commit-msg block (default hooks dir / recorded paths)
+lumo init --upgrade --dry-run           # preview the upgrade: per install the path, action and unified diff; writes nothing
 lumo init --project --agent codex       # Codex only: ./.agents/skills/lumo/, ./.codex/hooks.json (then trust them), ./.codex/rules/lumo.rules
 lumo init --project --agent claude-code # Claude Code only: ./.claude/
 lumo setup --project                    # legacy hidden alias of `lumo init`
 lumo init --project --agent cursor      # bake agent=cursor into the hook commands
 ```
+
+**Previewing an upgrade (LUM-1113).** `lumo init --upgrade --dry-run` visits the same installs as `init --upgrade` and decides each one with the same code, but writes nothing — no install file, `.lumo-install.json` marker, install-registry record or lock, and neither the first-run auto-sync nor the update check / background auto-update runs first. Per install it prints one line — `would update` / `would adopt` (legacy copy: only the marker would be written) / `·` (up to date) / `⚠ skip` (modified, newer, a `lumo.rules` that is no longer Lumo's, the Lumo source repo) / `✗ cannot plan` (e.g. unparseable JSON; exit 1) — then the details indented: a skill dir gets the `lumo skill update --dry-run` file list (`~ SKILL.md (+12 −3)`) plus a unified diff per file; Claude `settings.json` and Codex `hooks.json` get a diff of a normalized view that keeps **only** the `lumo hook …` entries and their group's `matcher` (events sorted, every other hook, group, event and setting folded to `"… N other …"`, so nothing of the user's own config is printed); the Codex rule a diff of the whole Lumo-owned file; `prepare-commit-msg` a diff of the Lumo block only. A Codex `hooks.json` change is flagged `⚠ Codex will ask to trust these hooks again — events: …` (Claude settings, rules and the git hook never need Trust). The last line is `N of M would change` (with how many need Codex re-trust) or `Nothing to change — …`; with no installs at all, `No Lumo installs found — nothing to change.` Diff lines are indented four spaces. `--dry-run` without `--upgrade` is an error (exit 1).
 
 #### When to suggest
 
@@ -43,6 +46,7 @@ lumo init --project --agent cursor      # bake agent=cursor into the hook comman
 - The user works in Codex — `lumo init` covers it (add `--user` for every repo)
 - A `lumo` command in Codex fails with `fetch failed` — the Codex rule is missing (installed before CLI 1.102, or an untrusted project) or the command was piped; re-run `lumo init` / `lumo init --agent codex` and restart Codex
 - After `npm install -g @lumoai/cli`, before the first `lumo auth login`
+- Before running `lumo init --upgrade` for a security-conscious team, or on a machine whose hook files were hand-edited — `--dry-run` first and show the user the diffs
 - Wiring Lumo hooks into another agent (Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
 
 If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown. An unrecognized `--agent` token aborts before writing anything.
@@ -69,7 +73,7 @@ lumo doctor --json
 #### When to suggest
 
 - The user asks whether Lumo is installed correctly, why hooks do not fire, or which copies are outdated
-- Before `lumo init --upgrade` or `--force`, to preview what would change
+- Before `lumo init --upgrade` or `--force`, to see which installs are behind (for the file-level diff: `lumo init --upgrade --dry-run`)
 
 ### `lumo skill status [--json]` / `lumo skill update` — the skill copies only
 

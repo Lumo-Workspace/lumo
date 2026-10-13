@@ -37,16 +37,28 @@ const NO_AUTO_SYNC_COMMANDS = new Set(['doctor', 'uninstall', 'skill'])
  * none of them may rewrite installs first.
  */
 export function shouldAutoSync(argv: readonly string[]): boolean {
-  return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '')
+  return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '') && !isInitDryRun(argv)
+}
+
+/**
+ * LUM-1113: `lumo init --upgrade --dry-run` (or `setup …`) promises zero
+ * writes, so neither the first-run sync nor the update check / background
+ * auto-update may run before it.
+ */
+export function isInitDryRun(argv: readonly string[]): boolean {
+  return (
+    (argv[2] === 'init' || argv[2] === 'setup') &&
+    argv.slice(3).includes('--dry-run')
+  )
 }
 
 /**
  * Whether the update notice and the background refresh/auto-update worker may
- * run. Not for `uninstall`: the worker could reinstall the CLI right after
+ * run. Not for `uninstall` (nor an init dry run): the worker could reinstall the CLI right after
  * `npm rm -g`, or recreate ~/.lumo after `--purge`.
  */
 export function shouldCheckForUpdates(argv: readonly string[]): boolean {
-  return argv[2] !== 'uninstall'
+  return argv[2] !== 'uninstall' && !isInitDryRun(argv)
 }
 
 const LOCK_FILE = 'auto-sync.lock'

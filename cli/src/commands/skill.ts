@@ -12,10 +12,12 @@ import { hashSkillDir } from '../lib/skill-hash'
 import {
   collectSkillCopies,
   diffSkillDirs,
+  displayPath,
+  filesWord,
+  formatSkillChangeLine,
   skillCopyStatus,
   SKILL_STATUS_SCHEMA_VERSION,
   type SkillCopyStatus,
-  type SkillFileChange,
   type SkillStatusJson,
 } from '../lib/skill-copies'
 import { icons } from '../lib/ui'
@@ -68,14 +70,6 @@ function resolveEnv(deps: SkillDeps): Env | null {
   }
 }
 
-/** `~`-relative display of a path under the home dir. */
-function display(p: string, home: string): string {
-  const rel = path.relative(home, p)
-  return rel && !rel.startsWith('..') && !path.isAbsolute(rel)
-    ? `~/${rel.split(path.sep).join('/')}`
-    : p
-}
-
 const STATE_LABEL: Record<SkillCopyStatus['state'], string> = {
   'up-to-date': 'up to date',
   behind: 'behind CLI',
@@ -125,7 +119,7 @@ export async function skillStatus(
     return 0
   }
   const rows = status.skills.map(s => [
-    display(s.path, env.homeDir),
+    displayPath(s.path, env.homeDir),
     s.scope,
     s.agent,
     s.version ?? '-',
@@ -170,21 +164,6 @@ export type SkillUpdateResult =
   | 'skipped-source'
   | 'skipped-not-skills-lumo'
 
-function changeLine(c: SkillFileChange): string {
-  const sign = c.change === 'added' ? '+' : c.change === 'deleted' ? '-' : '~'
-  const stats = [
-    c.linesAdded > 0 ? `+${c.linesAdded}` : '',
-    c.linesRemoved > 0 ? `−${c.linesRemoved}` : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
-  return `    ${sign} ${c.file}${stats ? ` (${stats})` : ''}\n`
-}
-
-function filesWord(n: number): string {
-  return `${n} file${n === 1 ? '' : 's'}`
-}
-
 /**
  * Plan and (unless `dryRun`) apply the refresh of one copy. Returns the
  * outcome; prints one heading line per copy plus the file list when it
@@ -196,7 +175,7 @@ export function updateSkillCopy(
   opts: { cliVersion: string; force: boolean; dryRun: boolean; home: string },
   out: (s: string) => void
 ): SkillUpdateResult {
-  const shown = display(copy.path, opts.home)
+  const shown = displayPath(copy.path, opts.home)
   if (!isSkillsLumoPath(copy.path)) {
     out(`${icons.warning} skipped ${shown}: not a skills/lumo directory\n`)
     return 'skipped-not-skills-lumo'
@@ -239,7 +218,7 @@ export function updateSkillCopy(
   out(
     `${verb} ${shown} (${from} → ${opts.cliVersion}): ${filesWord(changes.length)} changed\n`
   )
-  for (const c of changes) out(changeLine(c))
+  for (const c of changes) out(formatSkillChangeLine(c))
   if (!opts.dryRun) {
     copySkillTree(bundled, copy.path)
     const hash = hashSkillDir(copy.path)
