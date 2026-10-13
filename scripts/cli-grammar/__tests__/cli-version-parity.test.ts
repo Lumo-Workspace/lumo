@@ -6,8 +6,9 @@
  * and grammar.json's `cliVersion`. grammar-drift.test.ts deliberately ignores
  * `cliVersion`, so a bump that touched only cli/package.json (#1405) left the
  * other two stale with every test green. This suite pins the three together:
- * a CLI bump must also refresh the lockfile (`npm install --package-lock-only`)
- * and grammar.json (`npx tsx scripts/cli-grammar/emit-grammar.ts`).
+ * a CLI bump must also refresh the lockfile and grammar.json. Since LUM-1119
+ * the bump happens only in the release PR opened by
+ * `npm run release:cli -- --bump <level>`, which writes all three.
  */
 import { readFileSync } from 'fs'
 import { join } from 'path'
