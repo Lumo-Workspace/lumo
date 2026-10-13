@@ -1,26 +1,39 @@
 /**
- * LUM-1109: local release script for @lumoai/cli (CLI + bundled skill + hooks
- * all ship in the one npm package).
+ * LUM-1109 / LUM-1119: local release script for @lumoai/cli (CLI + bundled
+ * skill + hooks all ship in the one npm package).
  *
- *   npm run release:cli -- --dry-run      # every check + changelog, no tag
- *   npm run release:cli                   # checks, changelog, tag cli-v<version>
+ * The CLI version is bumped once per release, not per PR (LUM-1119): ordinary
+ * CLI PRs leave cli/package.json alone. A release is two runs:
  *
- * Steps (a real run stops at the first failure; --dry-run reports them all):
- *   1. git     — on `main`, clean, HEAD == origin/main (after `git fetch`).
- *   2. deploy  — the current production Vercel deployment contains HEAD, so the
- *                server APIs a new command calls already exist (otherwise a
- *                fresh CLI gets 404s). Unreadable → fail closed.
- *   3. npm     — cli/package.json's version is not on npm yet and the tag
- *                `cli-v<version>` does not exist. Unreadable → fail closed.
- *   4. changelog — since the last release (newest `cli-v*` tag that is an
- *                ancestor of HEAD; else the commit that set npm's latest
- *                version; or `--since <ref>`): command/flag changes from the
- *                grammar.json diff, hook changes, skill file changes, commits.
- *   5. tag     — annotated `cli-v<version>` whose message is the changelog.
- *   6. print the remaining human steps: `npm publish` (OTP) + push the tag.
+ *   npm run release:cli -- --bump <patch|minor|major> [--dry-run]
+ *       Opens the release PR. From the latest origin/main: new version = the
+ *       level applied to max(npm's highest published, main's version); creates
+ *       branch `lumo/release-cli-v<new>`, writes the version into
+ *       cli/package.json + package-lock.json, regenerates grammar.json
+ *       (emit-grammar), checks the three agree, commits
+ *       `chore: release CLI v<new> [skip-drift]`, pushes, `gh pr create` with
+ *       a changelog draft — then stops. It never merges.
  *
- * Read-only towards Vercel and npm; never prints or stores credentials. Does
- * not bump the version — each CLI PR still bumps its own (team convention).
+ *   npm run release:cli -- --version <x.y.z> [--dry-run]
+ *       After the release PR is merged and production is deployed (or when
+ *       main already carries an unpublished version): the release checks.
+ *         1. git     — on `main`, clean, HEAD == origin/main (after `git fetch`).
+ *         2. deploy  — the current production Vercel deployment contains HEAD,
+ *                      so the server APIs a new command calls already exist
+ *                      (otherwise a fresh CLI gets 404s). Unreadable → fail closed.
+ *         3. npm     — cli/package.json at HEAD is <x.y.z>, it is higher than
+ *                      every published version, and the tag `cli-v<x.y.z>`
+ *                      does not exist. Unreadable → fail closed.
+ *         4. changelog — since the last release (newest `cli-v*` tag that is an
+ *                      ancestor of HEAD; else the commit that set npm's latest
+ *                      version; or `--since <ref>`): command/flag changes from
+ *                      the grammar.json diff, hook changes, skill file changes,
+ *                      commits.
+ *         5. tag     — annotated `cli-v<x.y.z>` whose message is the changelog.
+ *         6. print the remaining human steps: `npm publish` (OTP) + push the tag.
+ *
+ * Exactly one of --bump / --version is required: the script never guesses a
+ * level. Read-only towards Vercel and npm; never prints or stores credentials.
  */
 import { execFileSync } from 'child_process'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
@@ -30,7 +43,11 @@ export const CLI_PACKAGE = '@lumoai/cli'
 export const TAG_PREFIX = 'cli-v'
 
 const PACKAGE_JSON = 'cli/package.json'
+const PACKAGE_LOCK = 'package-lock.json'
 const GRAMMAR_JSON = 'scripts/cli-grammar/grammar.json'
+/** The three committed places that carry the CLI version (LUM-1104 parity). */
+export const VERSION_FILES = [PACKAGE_JSON, PACKAGE_LOCK, GRAMMAR_JSON]
+export const RELEASE_BRANCH_PREFIX = 'lumo/release-cli-v'
 const HOOKS_TEMPLATE = 'cli/src/lib/hooks-template.ts'
 const SKILL_DIR = '.claude/skills/lumo'
 /** Paths whose commits/changes belong in the CLI changelog. */
@@ -49,11 +66,40 @@ export interface ReleaseGit {
   /** File content at a revision, or null when absent there. */
   showFile(ref: string, path: string): string | null
   listTags(pattern: string): string[]
-  /** Commits that touched cli/package.json, newest first, with its version. */
-  packageJsonHistory(): Iterable<{ sha: string; version: string }>
+  /**
+   * Commits reachable from `head` that touched cli/package.json, newest
+   * first, with its version.
+   */
+  packageJsonHistory(head: string): Iterable<{ sha: string; version: string }>
   log(base: string, head: string, paths: string[]): CommitInfo[]
   diffNameStatus(base: string, head: string, paths: string[]): FileChange[]
   createTag(name: string, message: string): void
+  /** Creates branch `name` at `startPoint` and switches to it. */
+  createBranch(name: string, startPoint: string): void
+  /** Stages exactly `paths` and commits them. */
+  commit(paths: string[], message: string): void
+  /** Pushes `branch` to origin and sets its upstream. */
+  push(branch: string): void
+}
+
+export interface ReleaseGh {
+  /** Opens a pull request; returns its URL. */
+  createPr(pr: {
+    base: string
+    head: string
+    title: string
+    body: string
+  }): string
+}
+
+export interface ReleaseWorkspace {
+  /**
+   * Writes `version` into cli/package.json and package-lock.json, then
+   * regenerates grammar.json (emit-grammar) in the working tree.
+   */
+  setCliVersion(version: string): void
+  /** The CLI version each of VERSION_FILES records in the working tree. */
+  cliVersions(): Record<string, string | undefined>
 }
 
 export interface ReleaseVercel {
@@ -70,16 +116,25 @@ export interface ReleaseDeps {
   git: ReleaseGit
   vercel: ReleaseVercel
   npm: ReleaseNpm
+  gh: ReleaseGh
+  workspace: ReleaseWorkspace
   write: (line: string) => void
   writeFile?: (path: string, content: string) => void
   today?: () => string
 }
+
+export const BUMP_LEVELS = ['patch', 'minor', 'major'] as const
+export type BumpLevel = (typeof BUMP_LEVELS)[number]
 
 export interface ReleaseOptions {
   dryRun: boolean
   fetch: boolean
   since?: string
   changelogOut?: string
+  /** Open the release PR that bumps the version by this level. */
+  bump?: BumpLevel
+  /** Release this version (must equal cli/package.json at HEAD). */
+  version?: string
 }
 
 // ── pure helpers ────────────────────────────────────────────────────────────
@@ -101,7 +156,17 @@ export function compareSemver(a: string, b: string): number {
   return 0
 }
 
-function maxSemver(versions: string[]): string | null {
+/** `version` with `level` applied (lower parts reset to 0). */
+export function bumpSemver(version: string, level: BumpLevel): string {
+  const p = parseSemver(version)
+  if (!p) throw new Error(`not a x.y.z version: ${version}`)
+  const [major, minor, patch] = p
+  if (level === 'major') return `${major + 1}.0.0`
+  if (level === 'minor') return `${major}.${minor + 1}.0`
+  return `${major}.${minor}.${patch + 1}`
+}
+
+export function maxSemver(versions: string[]): string | null {
   const valid = versions.filter(v => parseSemver(v))
   if (valid.length === 0) return null
   return valid.reduce((best, v) => (compareSemver(v, best) > 0 ? v : best))
@@ -292,7 +357,7 @@ export function resolveBaseline(
   const latest = maxSemver(published.filter(older))
   if (!latest) return null
   let first: string | null = null
-  for (const entry of git.packageJsonHistory()) {
+  for (const entry of git.packageJsonHistory(head)) {
     if (entry.version === latest) first = entry.sha
     else if (first) break
   }
@@ -324,17 +389,280 @@ const parseJson = <T>(text: string | null): T | null => {
   }
 }
 
+/** Changelog from the last release (see resolveBaseline) to `head`. */
+function buildChangelog(
+  deps: ReleaseDeps,
+  head: string,
+  published: string[],
+  version: string,
+  since: string | undefined
+): { text: string; baselineLabel: string } | null {
+  const { git } = deps
+  const baseline = resolveBaseline(git, head, published, since, version)
+  if (!baseline) return null
+  const grammarBefore = parseJson<GrammarShape>(
+    git.showFile(baseline.sha, GRAMMAR_JSON)
+  )
+  const grammarAfter = parseJson<GrammarShape>(git.showFile(head, GRAMMAR_JSON))
+  const text = renderChangelog({
+    packageName: CLI_PACKAGE,
+    version,
+    date: (deps.today ?? localDate)(),
+    baselineLabel: baseline.label,
+    grammar: diffGrammar(grammarBefore, grammarAfter),
+    hooks: {
+      before: parseHookEvents(git.showFile(baseline.sha, HOOKS_TEMPLATE)),
+      after: parseHookEvents(git.showFile(head, HOOKS_TEMPLATE)),
+    },
+    changedFiles: git.diffNameStatus(baseline.sha, head, [
+      SKILL_DIR,
+      'cli/src',
+    ]),
+    commits: git.log(baseline.sha, head, RELEASE_PATHS),
+  })
+  return { text, baselineLabel: baseline.label }
+}
+
+const MODE_REQUIRED =
+  'choose one: --bump <patch|minor|major> opens the release PR, --version <x.y.z> releases a version main already carries'
+
 /** Runs the release; returns the process exit code. */
 export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
-  const { git, write } = deps
-  let failed = false
-  const ok = (step: string, msg: string) => write(`✓ ${step}: ${msg}`)
-  /** Records a failure; returns true when the run must stop now. */
-  const fail = (step: string, msg: string): boolean => {
-    write(`✗ ${step}: ${msg}`)
-    failed = true
-    return !opts.dryRun
+  if (opts.bump && opts.version) {
+    deps.write(`✗ ${MODE_REQUIRED} (not both)`)
+    return 2
   }
+  if (opts.bump) return runBump(opts, opts.bump, deps)
+  if (opts.version) return runReleaseChecks(opts, opts.version, deps)
+  deps.write(`✗ ${MODE_REQUIRED}`)
+  return 2
+}
+
+/** Shared step reporter: ok/fail lines + whether the run has failed. */
+function stepper(opts: ReleaseOptions, write: (line: string) => void) {
+  const state = { failed: false }
+  return {
+    state,
+    ok: (step: string, msg: string) => write(`✓ ${step}: ${msg}`),
+    /** Records a failure; returns true when the run must stop now. */
+    fail: (step: string, msg: string): boolean => {
+      write(`✗ ${step}: ${msg}`)
+      state.failed = true
+      return !opts.dryRun
+    },
+  }
+}
+
+/**
+ * --bump: open the release PR from the latest origin/main. Never merges; the
+ * release itself is a later `--version` run once the PR is deployed.
+ */
+export function runBump(
+  opts: ReleaseOptions,
+  level: BumpLevel,
+  deps: ReleaseDeps
+): number {
+  const { git, write } = deps
+  const { ok, fail, state } = stepper(opts, write)
+  write(
+    opts.dryRun
+      ? `${CLI_PACKAGE} release PR (${level} bump, dry run)`
+      : `${CLI_PACKAGE} release PR (${level} bump)`
+  )
+
+  // 1. git — the bump commit is made in this checkout, so it must be clean.
+  let base: string
+  try {
+    if (opts.fetch) git.fetchOrigin()
+    base = git.revParse('origin/main')
+    if (git.statusPorcelain().trim() !== '') {
+      if (fail('git', 'working tree is not clean')) return 1
+    } else {
+      ok('git', `clean; branching from origin/main (${short(base)})`)
+    }
+  } catch (e) {
+    fail('git', errMessage(e))
+    return 1
+  }
+
+  // 2. version — strictly above both main and npm.
+  const mainVersion = parseJson<{ version?: string }>(
+    git.showFile(base, PACKAGE_JSON)
+  )?.version
+  if (!mainVersion || !parseSemver(mainVersion)) {
+    fail('version', `cannot read a version from ${PACKAGE_JSON} at origin/main`)
+    return 1
+  }
+  let published: string[]
+  try {
+    published = deps.npm.publishedVersions(CLI_PACKAGE)
+  } catch (e) {
+    fail(
+      'version',
+      `cannot read published versions (${errMessage(e)}) — failing closed`
+    )
+    return 1
+  }
+  const npmLatest = maxSemver(published)
+  const from =
+    npmLatest && compareSemver(npmLatest, mainVersion) > 0
+      ? npmLatest
+      : mainVersion
+  const next = bumpSemver(from, level)
+  const tag = `${TAG_PREFIX}${next}`
+  const branch = `${RELEASE_BRANCH_PREFIX}${next}`
+  ok(
+    'version',
+    `main ${mainVersion} · npm latest ${npmLatest ?? 'none'} → ${next} (${level})`
+  )
+  if (
+    !published.includes(mainVersion) &&
+    compareSemver(mainVersion, npmLatest ?? '0.0.0') > 0
+  ) {
+    write(
+      `  note: main's ${mainVersion} is not on npm yet — to release it as-is, skip the bump: npm run release:cli -- --version ${mainVersion}`
+    )
+  }
+  if (git.listTags(tag).includes(tag)) {
+    if (fail('version', `tag ${tag} already exists`)) return 1
+  }
+
+  // 3. changelog draft for the PR body
+  let changelog: string
+  try {
+    const built = buildChangelog(deps, base, published, next, opts.since)
+    if (!built) {
+      fail('changelog', 'no previous release found — pass --since <ref>')
+      return 1
+    }
+    changelog = built.text
+    ok('changelog', `draft since ${built.baselineLabel}`)
+  } catch (e) {
+    fail('changelog', errMessage(e))
+    return 1
+  }
+
+  const commitMessage = `chore: release CLI v${next} [skip-drift]`
+  const title = `chore: release CLI v${next}`
+  const body = releasePrBody(next, level, changelog)
+
+  if (opts.dryRun) {
+    write('')
+    write('Would:')
+    write(`  git switch -c ${branch} origin/main`)
+    write(`  set ${next} in ${VERSION_FILES.join(', ')} (emit-grammar)`)
+    write(`  git commit -m "${commitMessage}"`)
+    write(`  git push -u origin ${branch}`)
+    write(`  gh pr create --base main --head ${branch} --title "${title}"`)
+    write('')
+    write('PR body:')
+    write(body)
+    write(
+      state.failed
+        ? 'Dry run finished with failing checks — nothing was changed.'
+        : 'Dry run OK — nothing was changed.'
+    )
+    return state.failed ? 1 : 0
+  }
+
+  // 4. branch + files + parity
+  try {
+    git.createBranch(branch, base)
+    ok('branch', `created ${branch} at ${short(base)}`)
+  } catch (e) {
+    fail('branch', errMessage(e))
+    return 1
+  }
+  try {
+    deps.workspace.setCliVersion(next)
+    const mismatch = Object.entries(deps.workspace.cliVersions())
+      .filter(([, v]) => v !== next)
+      .map(([where, v]) => `${where} = ${String(v)}`)
+    if (mismatch.length > 0) {
+      fail(
+        'files',
+        `versions disagree after the bump (${mismatch.join('; ')}) — left uncommitted on ${branch}`
+      )
+      return 1
+    }
+    ok('files', `${VERSION_FILES.join(', ')} at ${next}`)
+  } catch (e) {
+    fail('files', `${errMessage(e)} — left uncommitted on ${branch}`)
+    return 1
+  }
+
+  // 5. commit, push, PR
+  try {
+    git.commit(VERSION_FILES, commitMessage)
+    ok('commit', commitMessage)
+  } catch (e) {
+    fail('commit', `${errMessage(e)} — changes left on ${branch}`)
+    return 1
+  }
+  try {
+    git.push(branch)
+    ok('push', `origin ${branch}`)
+  } catch (e) {
+    fail('push', `${errMessage(e)} — the commit is on local ${branch}`)
+    return 1
+  }
+  let url: string
+  try {
+    url = deps.gh.createPr({ base: 'main', head: branch, title, body })
+    ok('pr', url)
+  } catch (e) {
+    fail(
+      'pr',
+      `${errMessage(e)} — ${branch} is pushed; open the PR by hand (gh pr create --base main --head ${branch})`
+    )
+    return 1
+  }
+
+  write('')
+  write('Stopped here. Next:')
+  write(`  1. review and merge ${url}`)
+  write('  2. wait until production is deployed from a commit containing it')
+  write(
+    `  3. git switch main && git pull && npm run release:cli -- --version ${next} --dry-run`
+  )
+  write(`  4. npm run release:cli -- --version ${next}   (then npm publish)`)
+  return 0
+}
+
+/** Body of the release PR: what it does, the release steps, the changelog draft. */
+export function releasePrBody(
+  version: string,
+  level: BumpLevel,
+  changelog: string
+): string {
+  return [
+    `Release PR for ${CLI_PACKAGE} ${version} (${level} bump), opened by \`npm run release:cli -- --bump ${level}\`.`,
+    '',
+    `Only the version moves: \`${PACKAGE_JSON}\`, \`${PACKAGE_LOCK}\` (\`packages.cli\`) and \`${GRAMMAR_JSON}\` (\`cliVersion\`, regenerated by emit-grammar).`,
+    '',
+    '## Release steps after merge',
+    '',
+    '1. Wait until production is deployed from a commit that contains this PR (new commands call new server APIs).',
+    `2. On a clean, up-to-date \`main\`: \`npm run release:cli -- --version ${version} --dry-run\`, then without \`--dry-run\` (tags \`${TAG_PREFIX}${version}\` locally).`,
+    `3. \`cd cli && npm publish\` (OTP), then \`git push origin ${TAG_PREFIX}${version}\`.`,
+    '',
+    'See docs/cli-release.md.',
+    '',
+    '## Changelog draft',
+    '',
+    changelog.trimEnd(),
+    '',
+  ].join('\n')
+}
+
+/** --version: the release checks, tag and publish instructions. */
+function runReleaseChecks(
+  opts: ReleaseOptions,
+  expectedVersion: string,
+  deps: ReleaseDeps
+): number {
+  const { git, write } = deps
+  const { ok, fail, state } = stepper(opts, write)
 
   write(
     opts.dryRun ? `${CLI_PACKAGE} release (dry run)` : `${CLI_PACKAGE} release`
@@ -415,15 +743,33 @@ export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
     fail('npm', `cannot read a version from ${PACKAGE_JSON}`)
     return 1
   }
+  if (version !== expectedVersion) {
+    if (
+      fail(
+        'npm',
+        `${PACKAGE_JSON} at HEAD is ${version}, not ${expectedVersion} — merge the release PR (npm run release:cli -- --bump <level>) and pull main first`
+      )
+    )
+      return 1
+  }
   const tag = `${TAG_PREFIX}${version}`
   let published: string[] = []
   try {
     published = deps.npm.publishedVersions(CLI_PACKAGE)
+    const npmLatest = maxSemver(published)
     if (published.includes(version)) {
       if (
         fail(
           'npm',
-          `${version} is already published — bump ${PACKAGE_JSON} first`
+          `${version} is already published — open a release PR first: npm run release:cli -- --bump <patch|minor|major>`
+        )
+      )
+        return 1
+    } else if (npmLatest && compareSemver(version, npmLatest) <= 0) {
+      if (
+        fail(
+          'npm',
+          `${version} is not higher than npm's latest ${npmLatest} — open a release PR: npm run release:cli -- --bump <patch|minor|major>`
         )
       )
         return 1
@@ -449,34 +795,13 @@ export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
   // 4. changelog
   let changelog: string
   try {
-    const baseline = resolveBaseline(git, head, published, opts.since, version)
-    if (!baseline) {
+    const built = buildChangelog(deps, head, published, version, opts.since)
+    if (!built) {
       fail('changelog', 'no previous release found — pass --since <ref>')
       return 1
     }
-    const grammarBefore = parseJson<GrammarShape>(
-      git.showFile(baseline.sha, GRAMMAR_JSON)
-    )
-    const grammarAfter = parseJson<GrammarShape>(
-      git.showFile(head, GRAMMAR_JSON)
-    )
-    changelog = renderChangelog({
-      packageName: CLI_PACKAGE,
-      version,
-      date: (deps.today ?? localDate)(),
-      baselineLabel: baseline.label,
-      grammar: diffGrammar(grammarBefore, grammarAfter),
-      hooks: {
-        before: parseHookEvents(git.showFile(baseline.sha, HOOKS_TEMPLATE)),
-        after: parseHookEvents(git.showFile(head, HOOKS_TEMPLATE)),
-      },
-      changedFiles: git.diffNameStatus(baseline.sha, head, [
-        SKILL_DIR,
-        'cli/src',
-      ]),
-      commits: git.log(baseline.sha, head, RELEASE_PATHS),
-    })
-    ok('changelog', `since ${baseline.label}`)
+    changelog = built.text
+    ok('changelog', `since ${built.baselineLabel}`)
   } catch (e) {
     fail('changelog', errMessage(e))
     return 1
@@ -490,7 +815,7 @@ export function runRelease(opts: ReleaseOptions, deps: ReleaseDeps): number {
     write(`changelog written to ${opts.changelogOut}`)
   }
 
-  if (failed) {
+  if (state.failed) {
     write('Dry run finished with failing checks — nothing was tagged.')
     return 1
   }
@@ -594,8 +919,16 @@ export function createGit(cwd: string): ReleaseGit {
       git('tag', '--list', pattern).split('\n').filter(Boolean),
     // Lazy: resolveBaseline stops reading at the first commit before the
     // version run it is looking for, so only a handful of `git show`s run.
-    packageJsonHistory: function* () {
-      const shas = git('log', '-n', '400', '--format=%H', '--', PACKAGE_JSON)
+    packageJsonHistory: function* (head) {
+      const shas = git(
+        'log',
+        '-n',
+        '400',
+        '--format=%H',
+        head,
+        '--',
+        PACKAGE_JSON
+      )
         .split('\n')
         .filter(Boolean)
       for (const sha of shas) {
@@ -640,6 +973,90 @@ export function createGit(cwd: string): ReleaseGit {
     createTag: (name, message) => {
       // verbatim: the default cleanup strips the changelog's `## ` headings as comments
       git('tag', '-a', '--cleanup=verbatim', name, '-m', message)
+    },
+    createBranch: (name, startPoint) => {
+      git('switch', '--no-track', '-c', name, startPoint)
+    },
+    commit: (paths, message) => {
+      git('add', '--', ...paths)
+      git('commit', '-m', message, '--', ...paths)
+    },
+    push: branch => {
+      git('push', '-u', 'origin', branch)
+    },
+  }
+}
+
+export function createGh(cwd: string): ReleaseGh {
+  return {
+    createPr: ({ base, head, title, body }) => {
+      const out = sh(
+        'gh',
+        [
+          'pr',
+          'create',
+          '--base',
+          base,
+          '--head',
+          head,
+          '--title',
+          title,
+          '--body',
+          body,
+        ],
+        cwd
+      )
+      const url = out
+        .split('\n')
+        .map(l => l.trim())
+        .filter(Boolean)
+        .pop()
+      if (!url) throw new Error('gh pr create printed no URL')
+      return url
+    },
+  }
+}
+
+/** JSON files are written the way npm writes them: 2-space indent + newline. */
+const writeJson = (path: string, value: unknown) =>
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
+
+export function createWorkspace(
+  cwd: string,
+  emitGrammar: () => void = () => {
+    sh('npx', ['tsx', 'scripts/cli-grammar/emit-grammar.ts'], cwd)
+  }
+): ReleaseWorkspace {
+  const read = (rel: string) =>
+    parseJson<unknown>(readFileSync(join(cwd, rel), 'utf8'))
+  return {
+    setCliVersion: version => {
+      const pkg = read(PACKAGE_JSON) as { version?: string } | null
+      if (!pkg) throw new Error(`cannot parse ${PACKAGE_JSON}`)
+      const lock = read(PACKAGE_LOCK) as {
+        packages?: Record<string, { version?: string }>
+      } | null
+      const lockCli = lock?.packages?.['cli']
+      if (!lock || !lockCli) {
+        throw new Error(`${PACKAGE_LOCK} has no packages.cli entry`)
+      }
+      pkg.version = version
+      lockCli.version = version
+      writeJson(join(cwd, PACKAGE_JSON), pkg)
+      writeJson(join(cwd, PACKAGE_LOCK), lock)
+      emitGrammar()
+    },
+    cliVersions: () => {
+      const pkg = read(PACKAGE_JSON) as { version?: string } | null
+      const lock = read(PACKAGE_LOCK) as {
+        packages?: Record<string, { version?: string }>
+      } | null
+      const grammar = read(GRAMMAR_JSON) as { cliVersion?: string } | null
+      return {
+        [PACKAGE_JSON]: pkg?.version,
+        [`${PACKAGE_LOCK} packages.cli`]: lock?.packages?.['cli']?.version,
+        [`${GRAMMAR_JSON} cliVersion`]: grammar?.cliVersion,
+      }
     },
   }
 }
@@ -730,21 +1147,47 @@ export function parseArgs(argv: string[]): ReleaseOptions | 'help' {
     const a = argv[i]
     if (a === '--dry-run') opts.dryRun = true
     else if (a === '--no-fetch') opts.fetch = false
-    else if (a === '--since' || a === '--changelog-out') {
+    else if (
+      a === '--since' ||
+      a === '--changelog-out' ||
+      a === '--bump' ||
+      a === '--version'
+    ) {
       const value = argv[i + 1]
       if (!value || value.startsWith('--')) {
         throw new Error(`missing value for ${a}`)
       }
       i++
       if (a === '--since') opts.since = value
-      else opts.changelogOut = value
+      else if (a === '--changelog-out') opts.changelogOut = value
+      else if (a === '--bump') {
+        if (!(BUMP_LEVELS as readonly string[]).includes(value)) {
+          throw new Error(
+            `--bump takes ${BUMP_LEVELS.join(' | ')}, got ${value}`
+          )
+        }
+        opts.bump = value as BumpLevel
+      } else {
+        if (!parseSemver(value)) {
+          throw new Error(`--version takes x.y.z, got ${value}`)
+        }
+        opts.version = value
+      }
     } else if (a === '--help' || a === '-h') return 'help'
     else throw new Error(`unknown argument: ${a}`)
   }
+  if (opts.bump && opts.version) {
+    throw new Error(`${MODE_REQUIRED} (not both)`)
+  }
+  if (!opts.bump && !opts.version) throw new Error(MODE_REQUIRED)
   return opts
 }
 
-const USAGE = `Usage: npm run release:cli -- [--dry-run] [--no-fetch] [--since <ref>] [--changelog-out <file>]
+const USAGE = `Usage:
+  npm run release:cli -- --bump <patch|minor|major> [--dry-run] [--no-fetch] [--since <ref>]
+      open the release PR (version bump) from origin/main, then stop
+  npm run release:cli -- --version <x.y.z> [--dry-run] [--no-fetch] [--since <ref>] [--changelog-out <file>]
+      after that PR is merged and deployed: release checks, tag, publish steps
 See docs/cli-release.md.`
 
 // Run only when invoked as a script (not when imported by tests).
@@ -766,6 +1209,8 @@ if (process.argv[1] && process.argv[1].endsWith('release-cli.ts')) {
         git: createGit(cwd),
         vercel: createVercel(cwd),
         npm: createNpm(cwd),
+        gh: createGh(cwd),
+        workspace: createWorkspace(cwd),
         write,
       })
     )

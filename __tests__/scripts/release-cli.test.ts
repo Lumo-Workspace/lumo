@@ -1,18 +1,20 @@
 /**
  * @jest-environment node
  *
- * LUM-1109: local CLI release script. Every external system (git, the Vercel
+ * LUM-1109 / LUM-1119: local CLI release script. Every external system (git, the Vercel
  * deployment API, the npm registry) is injected, so these tests drive the real
  * step logic against fakes.
  */
 import { execFileSync } from 'child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
 import {
   CLI_PACKAGE,
+  bumpSemver,
   createGit,
+  createWorkspace,
   diffGrammar,
   parseArgs,
   withStderrReason,
@@ -110,6 +112,7 @@ function makeGit(over: Partial<FakeGitState> = {}) {
   }
   const created: Array<{ name: string; message: string }> = []
   const fetched: string[] = []
+  const actions: string[] = []
   const git: ReleaseGit = {
     fetchOrigin: () => {
       fetched.push('origin')
@@ -133,8 +136,17 @@ function makeGit(over: Partial<FakeGitState> = {}) {
     createTag: (name, message) => {
       created.push({ name, message })
     },
+    createBranch: (name, startPoint) => {
+      actions.push(`branch ${name} ${startPoint}`)
+    },
+    commit: (paths, message) => {
+      actions.push(`commit ${paths.join(',')} ${message}`)
+    },
+    push: branch => {
+      actions.push(`push ${branch}`)
+    },
   }
-  return { git, state, created, fetched }
+  return { git, state, created, fetched, actions }
 }
 
 function makeDeps(
@@ -142,13 +154,39 @@ function makeDeps(
   opts: {
     prodSha?: string | Error
     published?: string[] | Error
+    prError?: Error
+    grammarLags?: boolean
   } = {}
 ) {
   const g = makeGit(gitOver)
   const out: string[] = []
   const prodSha = opts.prodSha ?? PROD_NEWER
   const published = opts.published ?? ['1.114.0', '1.115.0']
+  const prs: Array<{
+    base: string
+    head: string
+    title: string
+    body: string
+  }> = []
+  const versions: Record<string, string | undefined> = {}
   const deps: ReleaseDeps = {
+    gh: {
+      createPr: pr => {
+        if (opts.prError) throw opts.prError
+        prs.push(pr)
+        return 'https://github.com/o/r/pull/99'
+      },
+    },
+    workspace: {
+      setCliVersion: v => {
+        g.actions.push(`set ${v}`)
+        versions['cli/package.json'] = v
+        versions['package-lock.json packages.cli'] = v
+        versions['scripts/cli-grammar/grammar.json cliVersion'] =
+          opts.grammarLags ? '1.116.0' : v
+      },
+      cliVersions: () => ({ ...versions }),
+    },
     git: g.git,
     vercel: {
       productionDeployment: () => {
@@ -166,13 +204,14 @@ function makeDeps(
       out.push(line)
     },
   }
-  return { deps, out, ...g }
+  return { deps, out, prs, ...g }
 }
 
 const run = (
   deps: ReleaseDeps,
   opts: Partial<Parameters<typeof runRelease>[0]> = {}
-) => runRelease({ dryRun: false, fetch: true, ...opts }, deps)
+) =>
+  runRelease({ dryRun: false, fetch: true, version: '1.116.0', ...opts }, deps)
 
 describe('release-cli: runRelease', () => {
   it('tags cli-v<version> with the changelog when every check passes', () => {
@@ -470,9 +509,15 @@ describe('release-cli: renderChangelog', () => {
 
 describe('release-cli: parseArgs', () => {
   it('parses flags and rejects unknown ones', () => {
-    expect(parseArgs([])).toEqual({ dryRun: false, fetch: true })
+    expect(parseArgs(['--version', '1.2.3'])).toEqual({
+      dryRun: false,
+      fetch: true,
+      version: '1.2.3',
+    })
     expect(
       parseArgs([
+        '--version',
+        '1.2.3',
         '--dry-run',
         '--no-fetch',
         '--since',
@@ -485,13 +530,14 @@ describe('release-cli: parseArgs', () => {
       fetch: false,
       since: 'abc',
       changelogOut: 'x.md',
+      version: '1.2.3',
     })
     expect(parseArgs(['--help'])).toBe('help')
     expect(() => parseArgs(['--publish'])).toThrow('unknown argument')
     expect(() => parseArgs(['--since'])).toThrow('missing value for --since')
-    expect(() => parseArgs(['--changelog-out', '--dry-run'])).toThrow(
-      'missing value for --changelog-out'
-    )
+    expect(() =>
+      parseArgs(['--version', '1.2.3', '--changelog-out', '--dry-run'])
+    ).toThrow('missing value for --changelog-out')
   })
 })
 
@@ -533,7 +579,10 @@ describe('release-cli: createGit against a real repository', () => {
     expect(git.isAncestor(c4, c1)).toBe(false)
     expect(git.showFile(c1, 'cli/package.json')).toBe('{"version":"1.0.0"}')
     expect(git.showFile(c1, 'nope.txt')).toBeNull()
-    expect([...git.packageJsonHistory()]).toEqual([
+    expect([...git.packageJsonHistory(c1)]).toEqual([
+      { sha: c1, version: '1.0.0' },
+    ])
+    expect([...git.packageJsonHistory(c4)]).toEqual([
       { sha: c4, version: '1.1.0' },
       { sha: c1, version: '1.0.0' },
     ])
@@ -581,7 +630,9 @@ describe('release-cli: deploy step error reporting', () => {
     deps.git.isAncestor = () => {
       throw new Error('git failed (exit 128): fatal: Not a valid commit name')
     }
-    expect(runRelease({ dryRun: false, fetch: true }, deps)).toBe(1)
+    expect(
+      runRelease({ dryRun: false, fetch: true, version: '1.116.0' }, deps)
+    ).toBe(1)
     expect(created).toEqual([])
     const text = out.join('\n')
     expect(text).toContain('cannot tell whether production')
@@ -606,5 +657,287 @@ describe('release-cli: lazy package.json history', () => {
       resolveBaseline(git, HEAD, ['1.115.0'], undefined, '1.116.0')?.sha
     ).toBe('1'.repeat(40))
     expect(read).toBe(3)
+  })
+})
+
+describe('release-cli: bumpSemver', () => {
+  it('applies patch / minor / major and resets lower parts', () => {
+    expect(bumpSemver('1.120.3', 'patch')).toBe('1.120.4')
+    expect(bumpSemver('1.120.3', 'minor')).toBe('1.121.0')
+    expect(bumpSemver('1.120.3', 'major')).toBe('2.0.0')
+    expect(() => bumpSemver('1.2', 'patch')).toThrow('not a x.y.z version')
+  })
+})
+
+describe('release-cli: an explicit mode is required (LUM-1119)', () => {
+  it('parseArgs refuses to guess a bump level', () => {
+    expect(() => parseArgs([])).toThrow(/choose one: --bump/)
+    expect(() => parseArgs(['--dry-run'])).toThrow(/choose one: --bump/)
+    expect(() => parseArgs(['--bump', 'minor', '--version', '1.2.3'])).toThrow(
+      /not both/
+    )
+    expect(() => parseArgs(['--bump', 'huge'])).toThrow(
+      '--bump takes patch | minor | major, got huge'
+    )
+    expect(() => parseArgs(['--version', 'latest'])).toThrow(
+      '--version takes x.y.z, got latest'
+    )
+    expect(parseArgs(['--bump', 'minor', '--dry-run'])).toEqual({
+      dryRun: true,
+      fetch: true,
+      bump: 'minor',
+    })
+  })
+
+  it('runRelease without --bump or --version does nothing and exits 2', () => {
+    const { deps, out, fetched, actions, created } = makeDeps()
+    expect(runRelease({ dryRun: false, fetch: true }, deps)).toBe(2)
+    expect(fetched).toEqual([])
+    expect(actions).toEqual([])
+    expect(created).toEqual([])
+    expect(out.join('\n')).toMatch(/choose one: --bump/)
+  })
+})
+
+describe('release-cli: --bump opens the release PR (LUM-1119)', () => {
+  const bump = (
+    deps: ReleaseDeps,
+    opts: Partial<Parameters<typeof runRelease>[0]> = {}
+  ) => runRelease({ dryRun: false, fetch: true, bump: 'minor', ...opts }, deps)
+
+  it('--bump minor: branch, three files at the new version, commit, push, PR — then stops', () => {
+    const { deps, out, actions, prs, created, fetched } = makeDeps(
+      { branch: 'some-feature' },
+      { published: ['1.114.0', '1.115.0'] }
+    )
+    expect(bump(deps)).toBe(0)
+    expect(fetched).toEqual(['origin'])
+    // main 1.116.0 > npm 1.115.0 → minor of 1.116.0
+    expect(actions).toEqual([
+      `branch lumo/release-cli-v1.117.0 ${HEAD}`,
+      'set 1.117.0',
+      'commit cli/package.json,package-lock.json,scripts/cli-grammar/grammar.json chore: release CLI v1.117.0 [skip-drift]',
+      'push lumo/release-cli-v1.117.0',
+    ])
+    expect(prs).toHaveLength(1)
+    expect(prs[0]!.base).toBe('main')
+    expect(prs[0]!.head).toBe('lumo/release-cli-v1.117.0')
+    expect(prs[0]!.title).toBe('chore: release CLI v1.117.0')
+    expect(prs[0]!.body).toContain('## Release steps after merge')
+    expect(prs[0]!.body).toContain(
+      'npm run release:cli -- --version 1.117.0 --dry-run'
+    )
+    expect(prs[0]!.body).toContain('## @lumoai/cli 1.117.0')
+    expect(prs[0]!.body).toContain('Since cli-v1.115.0')
+    // never tags or merges in the bump run
+    expect(created).toEqual([])
+    const text = out.join('\n')
+    expect(text).toContain('https://github.com/o/r/pull/99')
+    expect(text).toContain('Stopped here.')
+    expect(text).toContain("main's 1.116.0 is not on npm yet")
+    expect(text).toContain('--version 1.116.0')
+  })
+
+  it('bumps from npm when npm is ahead of main', () => {
+    const { deps, actions, out } = makeDeps({}, { published: ['1.118.0'] })
+    expect(bump(deps, { bump: 'patch' })).toBe(0)
+    expect(actions[0]).toBe(`branch lumo/release-cli-v1.118.1 ${HEAD}`)
+    expect(out.join('\n')).toContain(
+      'main 1.116.0 · npm latest 1.118.0 → 1.118.1 (patch)'
+    )
+    expect(out.join('\n')).not.toContain('is not on npm yet')
+  })
+
+  it('dry run plans the PR without touching git, files or GitHub', () => {
+    const { deps, out, actions, prs } = makeDeps()
+    expect(bump(deps, { dryRun: true })).toBe(0)
+    expect(actions).toEqual([])
+    expect(prs).toEqual([])
+    const text = out.join('\n')
+    expect(text).toContain(
+      'git switch -c lumo/release-cli-v1.117.0 origin/main'
+    )
+    expect(text).toContain('## Changelog draft')
+    expect(text).toContain('Dry run OK — nothing was changed.')
+  })
+
+  it('stops on a dirty working tree before branching', () => {
+    const { deps, actions, prs } = makeDeps({ status: ' M x.ts' })
+    expect(bump(deps)).toBe(1)
+    expect(actions).toEqual([])
+    expect(prs).toEqual([])
+  })
+
+  it('fails closed when npm cannot be read', () => {
+    const { deps, actions } = makeDeps({}, { published: new Error('E500') })
+    expect(bump(deps)).toBe(1)
+    expect(actions).toEqual([])
+  })
+
+  it('stops when the target tag already exists', () => {
+    const { deps, actions, out } = makeDeps({
+      tags: ['cli-v1.115.0', 'cli-v1.117.0'],
+    })
+    expect(bump(deps)).toBe(1)
+    expect(actions).toEqual([])
+    expect(out.join('\n')).toContain('tag cli-v1.117.0 already exists')
+  })
+
+  it('does not commit when the three version files disagree', () => {
+    const { deps, actions, out } = makeDeps({}, { grammarLags: true })
+    expect(bump(deps)).toBe(1)
+    expect(actions.some(a => a.startsWith('commit'))).toBe(false)
+    expect(out.join('\n')).toContain(
+      'scripts/cli-grammar/grammar.json cliVersion = 1.116.0'
+    )
+  })
+
+  it('keeps the gh failure reason and says the branch is pushed', () => {
+    const { deps, actions, out } = makeDeps(
+      {},
+      { prError: new Error('gh failed (exit 1): GraphQL: base is required') }
+    )
+    expect(bump(deps)).toBe(1)
+    expect(actions).toContain('push lumo/release-cli-v1.117.0')
+    const text = out.join('\n')
+    expect(text).toContain('GraphQL: base is required')
+    expect(text).toContain('lumo/release-cli-v1.117.0 is pushed')
+  })
+})
+
+describe('release-cli: --version release checks (LUM-1119)', () => {
+  it('--version equal to main’s unpublished version goes straight to the release checks', () => {
+    const { deps, created, actions } = makeDeps(
+      {},
+      { published: ['1.114.0', '1.115.0'] }
+    )
+    expect(run(deps, { version: '1.116.0' })).toBe(0)
+    expect(actions).toEqual([])
+    expect(created[0]!.name).toBe('cli-v1.116.0')
+  })
+
+  it('stops when --version is not what main carries', () => {
+    const { deps, created, out } = makeDeps()
+    expect(run(deps, { version: '1.117.0' })).toBe(1)
+    expect(created).toEqual([])
+    expect(out.join('\n')).toContain(
+      'cli/package.json at HEAD is 1.116.0, not 1.117.0'
+    )
+  })
+
+  it('stops when the version is not higher than npm’s latest', () => {
+    const { deps, created, out } = makeDeps({}, { published: ['1.117.0'] })
+    expect(run(deps)).toBe(1)
+    expect(created).toEqual([])
+    expect(out.join('\n')).toContain(
+      "1.116.0 is not higher than npm's latest 1.117.0"
+    )
+  })
+})
+
+describe('release-cli: createWorkspace writes the three version files', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'release-ws-'))
+    mkdirSync(join(dir, 'cli'))
+    mkdirSync(join(dir, 'scripts/cli-grammar'), { recursive: true })
+    writeFileSync(
+      join(dir, 'cli/package.json'),
+      `${JSON.stringify({ name: '@lumoai/cli', version: '1.0.0', bin: { lumo: 'x' } }, null, 2)}\n`
+    )
+    writeFileSync(
+      join(dir, 'package-lock.json'),
+      `${JSON.stringify(
+        {
+          name: 'root',
+          version: '0.1.0',
+          packages: {
+            '': { name: 'root', version: '0.1.0' },
+            cli: { name: '@lumoai/cli', version: '1.0.0' },
+            'node_modules/@lumoai/cli': { resolved: 'cli', link: true },
+          },
+        },
+        null,
+        2
+      )}\n`
+    )
+    writeFileSync(
+      join(dir, 'scripts/cli-grammar/grammar.json'),
+      JSON.stringify({ cliVersion: '1.0.0' })
+    )
+  })
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('sets cli/package.json + lockfile packages.cli, then runs emit-grammar', () => {
+    let emitted = 0
+    const ws = createWorkspace(dir, () => {
+      emitted++
+      const v = JSON.parse(
+        readFileSync(join(dir, 'cli/package.json'), 'utf8')
+      ).version
+      writeFileSync(
+        join(dir, 'scripts/cli-grammar/grammar.json'),
+        JSON.stringify({ cliVersion: v })
+      )
+    })
+    ws.setCliVersion('1.1.0')
+    expect(emitted).toBe(1)
+    expect(ws.cliVersions()).toEqual({
+      'cli/package.json': '1.1.0',
+      'package-lock.json packages.cli': '1.1.0',
+      'scripts/cli-grammar/grammar.json cliVersion': '1.1.0',
+    })
+    const lock = JSON.parse(
+      readFileSync(join(dir, 'package-lock.json'), 'utf8')
+    )
+    // root package and the workspace link are untouched
+    expect(lock.version).toBe('0.1.0')
+    expect(lock.packages['']).toEqual({ name: 'root', version: '0.1.0' })
+    expect(readFileSync(join(dir, 'cli/package.json'), 'utf8')).toBe(
+      `${JSON.stringify({ name: '@lumoai/cli', version: '1.1.0', bin: { lumo: 'x' } }, null, 2)}\n`
+    )
+  })
+
+  it('refuses a lockfile without a packages.cli entry', () => {
+    writeFileSync(join(dir, 'package-lock.json'), '{"packages":{}}')
+    const ws = createWorkspace(dir, () => {})
+    expect(() => ws.setCliVersion('1.1.0')).toThrow('no packages.cli entry')
+  })
+})
+
+describe('release-cli: createGit branch/commit against a real repository', () => {
+  let dir: string
+  const sh = (...args: string[]) =>
+    execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim()
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'release-cli-bump-'))
+    sh('init', '-q', '-b', 'main')
+    sh('config', 'user.email', 't@example.com')
+    sh('config', 'user.name', 't')
+    sh('config', 'commit.gpgsign', 'false')
+    writeFileSync(join(dir, 'a.json'), '1')
+    writeFileSync(join(dir, 'other.txt'), '1')
+    sh('add', '-A')
+    sh('commit', '-q', '-m', 'init')
+  })
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('creates the branch and commits only the given paths', () => {
+    const git = createGit(dir)
+    const base = git.revParse('HEAD')
+    git.createBranch('lumo/release-cli-v1.1.0', base)
+    expect(git.currentBranch()).toBe('lumo/release-cli-v1.1.0')
+    writeFileSync(join(dir, 'a.json'), '2')
+    writeFileSync(join(dir, 'other.txt'), '2')
+    git.commit(['a.json'], 'chore: release CLI v1.1.0 [skip-drift]')
+    expect(sh('log', '-1', '--format=%s')).toBe(
+      'chore: release CLI v1.1.0 [skip-drift]'
+    )
+    expect(sh('show', '--name-only', '--format=', 'HEAD')).toBe('a.json')
+    expect(git.statusPorcelain()).toContain('other.txt')
   })
 })
