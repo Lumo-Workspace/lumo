@@ -44,6 +44,7 @@ const row = (id: string, over: Record<string, unknown> = {}) => ({
   filePath: null,
   payload: { tool_input: { command: 'rm -rf /' } },
   payloadPrunedAt: null,
+  createdAt: new Date('2026-10-13T00:00:00Z'),
   ...over,
 })
 
@@ -67,6 +68,9 @@ describe('replayBoundaryDetection', () => {
       toolName: 'Bash',
       filePath: null,
       payload: { tool_input: { command: 'rm -rf /' } },
+      // LUM-1114: the session and the event's time reach the detector.
+      sessionId: 's1',
+      occurredAt: new Date('2026-10-13T00:00:00Z'),
     })
   })
 
