@@ -38,6 +38,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'fs'
+import { execFileSync } from 'child_process'
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import { CODEX_HOOK_EVENTS } from '@/cli/src/lib/hooks-template'
@@ -165,6 +166,38 @@ describe('codexLikelyUntrustedEvents', () => {
 
   it('stays silent (null) when no Codex hooks file carries Lumo hooks', () => {
     expect(codexLikelyUntrustedEvents({ home, cwd })).toBeNull()
+  })
+
+  it('does not report events of a hooks file whose trust it cannot read', () => {
+    // User file: old set without Interrupt, all trusted. Repo file: the full
+    // set, trusted under a key the scan does not see (none of its events
+    // match) — its Interrupt may well be trusted, so it is not reported.
+    const user = installUserHooks()
+    const raw = JSON.parse(readFileSync(user, 'utf8')) as {
+      hooks: Record<string, unknown>
+    }
+    delete raw.hooks.Interrupt
+    writeFileSync(user, JSON.stringify(raw, null, 2))
+    trust(
+      user,
+      ALL.filter(e => e !== 'Interrupt')
+    )
+    const repo = mkdtempSync(join(tmpdir(), 'lum1112-repo-'))
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo })
+      mkdirSync(join(repo, '.codex'), { recursive: true })
+      mergeHooksFile(
+        join(repo, '.codex', 'hooks.json'),
+        'codex',
+        CODEX_HOOK_EVENTS,
+        {
+          quiet: true,
+        }
+      )
+      expect(codexLikelyUntrustedEvents({ home, cwd: repo })).toEqual([])
+    } finally {
+      rmSync(repo, { recursive: true, force: true })
+    }
   })
 
   it('accepts trust keyed by the realpath of the hooks file', () => {

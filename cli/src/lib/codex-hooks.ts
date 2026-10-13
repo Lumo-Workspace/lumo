@@ -130,7 +130,8 @@ function lumoEventsIn(hooksJsonPath: string): string[] {
  *
  * `null` when it cannot be told: no Lumo hooks file, or not a single Lumo
  * event looks trusted (the text scan then likely misses Codex's key format —
- * e.g. a project file — and listing every event would be noise). Callers use
+ * e.g. a project file — and listing every event would be noise). The same
+ * holds per file: events of a file with no readable trust are never listed. Callers use
  * it only once events have arrived, so at least one hook does run.
  */
 export function codexLikelyUntrustedEvents(args: {
@@ -150,19 +151,24 @@ export function codexLikelyUntrustedEvents(args: {
     // no config.toml: nothing is trusted yet
   }
   const installed = new Set<string>()
-  const trusted = new Set<string>()
+  // Events that are, or may be, trusted. A file where not one Lumo event
+  // matches a trust key is one the scan cannot read (e.g. a project file
+  // Codex keys differently): its events may be trusted, so none is reported.
+  const covered = new Set<string>()
+  let readable = false
   for (const file of files) {
     const events = lumoEventsIn(file)
     if (events.length === 0) continue
     const keys = codexTrustedEventsForFile(toml, file)
-    for (const e of events) {
-      installed.add(e)
-      if (keys.has(codexEventKey(e))) trusted.add(e)
-    }
+    const fileTrusted = events.filter(e => keys.has(codexEventKey(e)))
+    if (fileTrusted.length > 0) readable = true
+    for (const e of events) installed.add(e)
+    for (const e of fileTrusted.length > 0 ? fileTrusted : events)
+      covered.add(e)
   }
-  if (installed.size === 0 || trusted.size === 0) return null
+  if (!readable) return null
   return CODEX_HOOK_EVENTS.map(([e]) => e).filter(
-    e => installed.has(e) && !trusted.has(e)
+    e => installed.has(e) && !covered.has(e)
   )
 }
 
