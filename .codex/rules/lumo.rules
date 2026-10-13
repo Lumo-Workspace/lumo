@@ -10,7 +10,7 @@ prefix_rule(
     decision = "allow",
     justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
     match = ["lumo cost", "lumo next", "lumo priority", "lumo report"],
-    not_match = ["lumo auth login", "lumo auth logout", "lumo crossing disposition", "lumo crossing explain", "lumo doctor", "lumo hook", "lumo init", "lumo setup", "lumo uninstall", "lumo uninstall --confirm", "lumo update", "lumo usage resync", "lumo whoami", "lumo worktree", "lumo worktree add LUM-1", "lumox status"],
+    not_match = ["lumo auth login", "lumo auth logout", "lumo crossing disposition", "lumo crossing explain", "lumo doctor", "lumo hook", "lumo init", "lumo setup", "lumo skill status", "lumo skill update", "lumo uninstall", "lumo uninstall --confirm", "lumo update", "lumo usage resync", "lumo whoami", "lumo worktree", "lumo worktree add LUM-1", "lumox status"],
 )
 prefix_rule(
     pattern = ["lumo", "audit", "list"],

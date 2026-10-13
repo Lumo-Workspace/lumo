@@ -23,7 +23,7 @@ the **same** `GET …/status` + open-crossings reads as this command:
 ```
 Status now (same read as `lumo task status LUM-42`; no need to run it again):
   LUM-42 IN_PROGRESS
-  Blocks DONE: 1 boundary crossing (cmtw…) — the user rules
+  Blocks DONE: 1 boundary crossing (LUM-X12) — the user rules
 ```
 
 The `task update --status done` exit-4 envelope and exit-5 `DONE_BLOCKED` error
@@ -43,16 +43,17 @@ signals, unscanned PRs, open boundary crossings.
 
 ### What it prints
 
+- **Layout (LUM-1091, shared with `task wrapup` / `pr scan`)** — each section is a blank line plus a plain heading (`Next actions (…)`, `Security scans`, `Open boundary crossings (…)`, `Cost`, …; bold on a TTY), facts are `Label:  value` rows under it (a value too long for the line moves under its label), at most three indent levels (2/4/6 spaces), prose wrapped at 100 columns, and every shell command on a line of its own. Colour (bold headings, dim labels) only on a TTY without `NO_COLOR`; piped/agent output is plain text.
 - **Header** — task identifier/title and `Status: <STATUS>`.
 - **Default = the self-check core (LUM-733):** header, Next actions, scan coverage, Open boundary crossings. The dashboard sections (**Cost**, **Struggle / rework**, **Trend**) print only with `--full`. The claim text and faithfulness verdict are not rendered in the terminal (`--json` carries `claim` / `faithfulness`).
-- **Cost** (`--full`) — **Tokens** (total across the task's sessions) and **Active time** (non-idle agent seconds — Σ per-turn `STOP − prompt`), read from the same server-side source as the web delivery card (`retrospectiveRepository.loadActuals`), so the two cannot drift. Fail-closed: no recorded session usage prints `Tokens: not recorded (no session usage captured)`, distinct from a measured `0`.
-- **Struggle / rework** (`--full`) — always printed so a clean-looking task still shows its scars: **PR iterations** when the task has >1 PR (a single PR is the happy path), and **reopens** — backward `IN_REVIEW/DONE → IN_PROGRESS/TODO` transitions from the `STATUS_CHANGED` log. Empty trail states its basis (`None recorded — 1 PR, no reopens.`).
-- **Trend** (`--full`) — cost per session across the task's sessions (`4.2K → 1.1K tokens (↓), 5.3K total over 2 sessions`, summing to the Cost total) and rework accrual (`2 accrued — 1 reopen, +1 PR cycle (↑ from 0)`). One session is one data point: it prints `Single attempt so far — no trajectory yet` rather than a fake arrow.
-- **Next actions** — undispositioned **PR security findings** (LUM-737) first, as `• [SECURITY] [SEVERITY] PROVENANCE ruleId — file:line — title (PR #n · blocks DONE | advisory[ — <cause>, downgraded])`, findings the agentic verifier rejected (LUM-988) are not listed — read them with `lumo pr scan`; a non-security finding from the AI code review (rule id `review:<kind>`, kind CORRECTNESS — a logic bug, error handling, a doc mismatch, a test that cannot catch its bug) is tagged `• [BUG]` instead of `• [SECURITY]` and is always `advisory` (LLM findings never block DONE); the heading splits the count when any are present (`Next actions (1 security finding · 2 bugs):`); then the advisory test-case rows (`• [TEST CASE] …` — no test case recorded yet, or a run's verdict signal; see [test-cases.md](test-cases.md)). A finding is fixed by pushing (a fixed fingerprint disappears from the next scan) or dispositioned by a human in the web delivery panel — there is no CLI path to clear one, and a `blocks DONE` finding refuses DONE with 409. The trailing **downgrade cause** appears only on deterministic `secret:*` rows lowered to LOW (`placeholder value` / `test/fixture/doc path`); downgrading is not suppression. Nothing outstanding prints `Next actions: none on record.`
-  - **Per-PR scan status** (LUM-735): one line per linked PR with a latest scan: `PR #945 · scan CLEAN · Secrets: checked · Code scan: checked (2 external findings) · Dependencies: checked · AI review: checked · Exploit paths: ⚠ partly checked · …`. Stage display labels are shared with the GitHub PR summary (`shared/src/security-scan.ts`); full layer grammar, size-cap lines, turned-off lines and the hunt coverage line are documented in [pr-scan.md](pr-scan.md) — `task status` uses the same formatter.
+- **Cost** (`--full`) — **Tokens** (total across the task's sessions) and **Active time** (non-idle agent seconds — Σ per-turn `STOP − prompt`), read from the same server-side source as the web delivery card (`retrospectiveRepository.loadActuals`), so the two cannot drift. Fail-closed: no recorded session usage prints `Tokens:  not recorded (no session usage captured)`, distinct from a measured `0`.
+- **Struggle / rework** (`--full`) — always printed so a clean-looking task still shows its scars: **PR iterations** when the task has >1 PR (a single PR is the happy path), and **Reopened** (`N×`, one `FROM → TO` line per reopen under it) — backward `IN_REVIEW/DONE → IN_PROGRESS/TODO` transitions from the `STATUS_CHANGED` log. Empty trail states its basis (`None recorded — 1 PR, no reopens.`).
+- **Trend** (`--full`) — rows `Cost/session:  4.2K → 1.1K tokens (↓)`, `Total:  5.3K tokens over 2 sessions` (summing to the Cost total) and `Rework:  2 accrued — 1 reopen, +1 PR cycle (↑ from 0)`. One session is one data point: it prints `Single attempt so far — no trajectory yet` rather than a fake arrow.
+- **Next actions** — undispositioned **PR security findings** (LUM-737) first, one item each — `• [SECURITY] [SEVERITY] <title>` with the rows `Rule:  <ruleId> (<PROVENANCE>)`, `Where:  <file:line> · PR #n` and `Gate:  blocks DONE | advisory[ — <cause>, downgraded]`; findings the agentic verifier rejected (LUM-988) are not listed — read them with `lumo pr scan`; a non-security finding from the AI code review (rule id `review:<kind>`, kind CORRECTNESS — a logic bug, error handling, a doc mismatch, a test that cannot catch its bug) is tagged `• [BUG]` instead of `• [SECURITY]` and is always `advisory` (LLM findings never block DONE); the heading splits the count when any are present (`Next actions (1 security finding · 2 bugs)`); then the advisory test-case rows (`• [TEST CASE] …` — no test case recorded yet (`… (advisory) — run:` with the command on the next line), or a run's verdict signal; see [test-cases.md](test-cases.md)). A finding is fixed by pushing (a fixed fingerprint disappears from the next scan) or dispositioned by a human in the web delivery panel — there is no CLI path to clear one, and a `blocks DONE` finding refuses DONE with 409. The trailing **downgrade cause** appears only on deterministic `secret:*` rows lowered to LOW (`placeholder value` / `test/fixture/doc path`); downgrading is not suppression. Nothing outstanding prints `Next actions` / `None on record.`
+  - **Per-PR scan status** (LUM-735), under a `Security scans` heading: a `PR #945 · scan CLEAN` line per linked PR with a latest scan, then one row per layer (`Secrets:  checked`, `Code scan:  checked (2 external findings)`, `Dependencies:  checked`, `AI review:  checked`, `Exploit paths:  ⚠ partly checked`) and `Note:` / `Queue:` rows for the scan-wide notes. Stage display labels are shared with the GitHub PR summary (`shared/src/security-scan.ts`); full layer grammar, size-cap lines, turned-off lines and the hunt coverage table are documented in [pr-scan.md](pr-scan.md) — `task status` uses the same formatter.
   - **Queue exit / persisting findings** (LUM-775 / LUM-738): rows that left the queue on merge/close, and findings already on the default-branch baseline, are not next actions and are not counted.
-  - **Fails closed:** `⚠ Security-scan check failed — could not confirm …` when the scan read errored, and one `⚠ PR #n: … — could not confirm it is clean.` line per open PR whose latest scan is missing / failed / running, or whose workspace turned scanning off. Silence means a successful read with nothing open.
-- **Open boundary crossings** — a trailing block when the task has ≥1 OPEN crossing: `(N undispositioned: B blocking DONE, A advisory / non-blocking)` (LUM-771), then one line per crossing — `• [SEVERITY] CATEGORY — <detail>` for blocking rows, `◦ … (advisory — does not block DONE[ · re-judged: <evidence>])` / `(below the workspace gate — does not block DONE)` for the rest — each with an attribution line `↳ by model=<m> · agent=<type>[/branch] · session=<8-char prefix>` (`unknown` when unresolved, never fabricated), then a pointer to `lumo crossing disposition` and the web panel. Read-only awareness: it clears nothing. A failed crossings read prints `⚠ Boundary-crossing check failed …` instead of staying silent.
+  - **Fails closed:** `⚠ Security-scan check failed — could not confirm …` when the scan read errored, and one `⚠ PR #n: … — could not confirm it is clean.` line per open PR whose latest scan is missing / failed / running, or whose workspace turned scanning off. A PR too large to scan (LUM-1079, `unconfirmedPrs[].reason: TOO_LARGE`) says `the PR is too large to scan, so nothing in it was scanned (split it or narrow its scope to get it scanned)` — see [pr-scan.md](pr-scan.md); its scan line reads `scan not scanned — PR too large` with the reason line under it. Silence means a successful read with nothing open.
+- **Open boundary crossings** — a trailing block when the task has ≥1 OPEN crossing: `(N undispositioned: B blocking DONE, A advisory / non-blocking)` (LUM-771), then one item per crossing — `• <ref> [SEVERITY] CATEGORY (blocks DONE | advisory — does not block DONE | below the workspace gate — does not block DONE)` — with rows `Re-judged:  <evidence>` (a re-judged advisory row only), `Detail:  <first line>` and `By:  model=<m> · agent=<type>[/branch] · session=<8-char prefix>` (`unknown` when unresolved, never fabricated), then the `lumo crossing disposition <id> --false-positive | --confirmed` pointer and the web panel URL, each on its own line. Read-only awareness: it clears nothing. A failed crossings read prints `⚠ Boundary-crossing check failed …` instead of staying silent.
 
 ### --json contract
 
@@ -63,7 +64,7 @@ shape changes bump it; additive fields don't. Pin on `version` when scripting.
 - `task { id, identifier, title, status }`, `cost { tokenCost, activeTimeSec }` (`tokenCost: null` = not measured), `struggleTrail { pullRequests[], reopens[] }`, `trend { cost[], rework { reopens, extraPrCycles, total } }`, `claim`, `faithfulness`;
 - `nextActions` entries carry a `kind` discriminator: `SECURITY_FINDING` (`findingId`, `statement`, `severity`, `provenance`, `blocking`, `prNumber`, `ruleId`, `filePath`, `line`), `TEST_CASE` (`statement`, `command`, `advisory: true`) or `TEST_CASE_VERDICT` (`signal`, `number`, `title`, `ceilingReason?`, `advisory: true`). Advisory rows carry no `blocking` field and the DONE gate never reads them;
 - `securityFindings { open, blocking, unconfirmedPrs[], scans?[] }` — **`null` means the scan read failed**: treat as "could not confirm", not "safe";
-- open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, category, severity, detail, attribution }`); **`null` when the crossings check failed**, distinct from `[]`.
+- open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, ref, category, severity, detail, attribution }` — `ref` is the `<TEAM>-X<n>` to show and type, `id` the cuid); **`null` when the crossings check failed**, distinct from `[]`.
 
 ## Responding to an open crossing — `lumo crossing explain`
 
@@ -77,7 +78,7 @@ lumo crossing explain <id> --task LUM-12 --note "…"   # unattached session: na
 
 - it **only appends** a note — it **never clears the crossing or unblocks DONE** (the user rules, via `lumo crossing disposition` or the web panel);
 - the note is shown to the human at disposition time, labelled _agent self-report · unverified_; earlier notes are immutable;
-- `<id>` must be a crossing on the **session-bound task**; an unattached session passes `--task <LUM-N>` (wins over the binding);
+- `<id>` is the crossing's ref `<TEAM>-X<n>` (`LUM-X12`, any case — LUM-1059; the cuid also works) and must be a crossing on the **session-bound task**; an unattached session passes `--task <LUM-N>` (wins over the binding);
 - **several crossings → one call** (LUM-845): `lumo crossing explain --file notes.json` with `[{"id": "<crossing>", "note": "<text>"}, …]` (`--file -` reads stdin). Each note is reported on its own `✓`/`✗` line; any failure exits 1, the others are still recorded. `--file` replaces `<id> --note`;
 - **the note runs past the same detectors the crossing came from.** Quoting the flagged material back (path, command, matched text) records a **second** crossing. Describe what was flagged instead of reproducing it.
 
@@ -106,7 +107,7 @@ A gated mutation on the [confirmation protocol](confirmation.md), as a **three-s
 - `--task <LUM-N>` overrides the session binding; an already-matching ruling is a no-op (exit 0);
 - **still web-only:** reverting a ruling to OPEN, repository suppression rules, and steward milestone crossings.
 
-**Batch form (LUM-845):** `lumo crossing disposition <id1> <id2> <id3> --false-positive --note "…"` — same handshake, ONE envelope per step for the whole batch (a `── [i/N] crossing <id> ──` block per crossing, nothing trimmed), one receipt per crossing carried as `--receipt <id>=<token>,…`. Mixed rulings = one batch per ruling. If the user disputes one, drop its id from the `confirmCommand` (it stays OPEN); adding an id after step 1 is refused. Step 3 reports every crossing `✓`/`✗`, exit 1 if any failed.
+**Batch form (LUM-845):** `lumo crossing disposition <id1> <id2> <id3> --false-positive --note "…"` — same handshake, ONE envelope per step for the whole batch (a `── [i/N] crossing <id> ──` block per crossing, nothing trimmed), one receipt per crossing carried as `--receipt <ref>=<token>,…`. Mixed rulings = one batch per ruling. If the user disputes one, drop its id from the `confirmCommand` (it stays OPEN); adding an id after step 1 is refused. Step 3 reports every crossing `✓`/`✗`, exit 1 if any failed.
 
 After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 
@@ -123,32 +124,36 @@ asks "can we close this?" / "what is left?". Use it **instead of** chaining
 done` (just to see the envelope) + `worktree list`. Run it again after clearing
 an item.
 
-Four numbered sections:
+Four numbered sections (`[1/4] Test cases` … `[4/4] DONE`), in the same layout as `task status` (headings, labelled rows, ≤3 indent levels, every command on its own line — LUM-1091):
 
-1. **Test cases** — verdict signals (a `PROVEN_DEFECT` line carries the `lumo task testcase disposition <task>/TC<n> --known-defect | --not-a-defect` command for the **user's** ruling) and the no-test-case advisory.
-2. **Security scans** — undispositioned findings (blocks DONE / advisory) and one line per linked PR's latest scan, same grammar as `task status`.
-3. **Boundary crossings** — every undispositioned crossing with what the user needs to rule on it (severity, category, blocks-DONE vs advisory, detail, recurrence, irreversible flag, your explanations, a `crossing explain` hint when a blocking row has none) and the step-1 `lumo crossing disposition … --task <id>` command per ruling — one **batch** command per ruling when there are several.
-4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason).
+1. **Test cases** — verdict signals (a `PROVEN_DEFECT` item is followed by `Blocks DONE until the user rules on that run — one of:` and the two `lumo task testcase disposition <task>/TC<n> --known-defect` / `--not-a-defect` commands, one per line, for the **user's** ruling) and the no-test-case advisory.
+2. **Security scans** — undispositioned findings (blocks DONE / advisory) and each linked PR's latest scan as layer rows, same grammar as `task status`.
+3. **Boundary crossings** — every undispositioned crossing (`• <ref> [SEVERITY] CATEGORY (<gate>)`) with what the user needs to rule on it as rows (`Re-judged`, `Detail`, `Seen`, the `⚠ irreversible category` line, `Explanations` with one `- …` line each, or `Explanation: none — add one first` with the `crossing explain` command when a blocking row has none) and the step-1 `lumo crossing disposition … --task <id>` commands — per crossing (`The user rules — one of:`) or, with several, one **batch** command per ruling after the list.
+4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` with every linked PR merged (≥1) is labelled `READY — one step: …` and ends with `All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:` and `lumo task update <id> --status done` (LUM-1106; add no other flag — anything besides `--status` takes the envelope, LUM-1116); `READY` with no linked PR ends with `Show the user the lines above. Only after they approve, run:` and the `--confirm` command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
 
-| Level            | Meaning                                                                                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `READY`          | nothing blocks and nothing is left agent-side — show the user the DONE lines; only after they approve run `lumo task update <id> --status done --confirm` |
-| `NOT YET`        | a linked PR is not merged                                                                                                                                 |
-| `BLOCKED`        | a human-only gate would refuse DONE: blocking crossing, blocking security finding, proven test-case defect                                                |
-| `CANNOT CONFIRM` | a read failed (status / crossings / task+PRs / security) — never read this as clear                                                                       |
-| `DONE`           | already closed                                                                                                                                            |
+| Level            | Meaning                                                                                                                                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `READY`          | nothing blocks and nothing is left agent-side — with ≥1 PR, all merged: run `lumo task update <id> --status done` directly (one step); with no PR: show the user the DONE lines, only after they approve run it with `--confirm` |
+| `NOT YET`        | a linked PR is not merged                                                                                                                                                                                                        |
+| `BLOCKED`        | a human-only gate would refuse DONE: blocking crossing, blocking security finding, proven test-case defect                                                                                                                       |
+| `CANNOT CONFIRM` | a read failed (status / crossings / task+PRs / security) — never read this as clear                                                                                                                                              |
+| `DONE`           | already closed                                                                                                                                                                                                                   |
 
 **Red lines.** Read-only: GETs plus local `git` inspection; it requests no
 disposition receipt and changes no status. A crossing or test-case ruling still
 walks its handshake one exit-4 envelope at a time, and the DONE `--confirm`
-command appears **only** at `READY`, as the user's approval. When the current
+command appears **only** at `READY` without a linked PR, as the user's approval
+(with all PRs merged the plain one-step command is printed instead). When the current
 directory is inside the task's worktree, run the DONE command from the main
 checkout so the worktree can be removed.
 
 ## The DONE gate
 
-`lumo task update <id> --status done` walks the confirmation protocol: without
-`--confirm` it exits 4 with an envelope for the user to approve. The server then
+`lumo task update <id> --status done` (no other flag — LUM-1116) runs in one
+step when ≥1 linked PR, all merged, and the digest shows nothing blocking
+(LUM-1106); otherwise it walks the
+confirmation protocol: without `--confirm` it exits 4 with an envelope for the
+user to approve. The server then
 refuses DONE with **409** on an undispositioned blocking boundary crossing, a
 blocking security finding, or a test case whose latest run is a proven defect;
 the CLI turns that into exit 5 with a structured `DONE_BLOCKED` error listing
