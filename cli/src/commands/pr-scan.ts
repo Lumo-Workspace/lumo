@@ -206,10 +206,11 @@ export function findingsBreakdown(
   const exits = new Map<string, number>()
   for (const f of findings) {
     if (f.disposition !== null || f.open) continue
+    // Same precedence as each row's `Standing:` line (findingStanding).
     if (f.persisting) persisting++
+    else if (f.verifierVerdict === 'REJECTED') rejected++
     else if (f.queueExit)
       exits.set(f.queueExit, (exits.get(f.queueExit) ?? 0) + 1)
-    else if (f.verifierVerdict === 'REJECTED') rejected++
     // A state this build does not know (a newer server): still counted so
     // the row adds up, but never given a reason it may not have.
     else other++

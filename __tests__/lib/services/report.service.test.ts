@@ -22,6 +22,7 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { reportRepository } from '@/lib/repositories/report.repository'
 import { resolveProjectId } from '@/lib/services/task-cli.service'
+import { formatReport } from '@/cli/src/commands/report'
 import {
   buildReport,
   completionsInWindow,
@@ -544,8 +545,33 @@ describe('token rounding + session-less usage', () => {
       since: SINCE,
       until: UNTIL,
     })
+    // The usage is attributed in full (input 1 + output 500) …
+    expect(r.team.tokens).toMatchObject({ input: 1, output: 500, total: 501 })
+    expect(r.team.byModel).toEqual([
+      expect.objectContaining({ model: 'claude-opus', total: 501 }),
+    ])
+    expect(r.byMember).toEqual([
+      expect.objectContaining({
+        memberId: 'm1',
+        tokens: expect.objectContaining({ total: 501 }),
+        sessions: 0,
+        unmeteredSessions: 0,
+      }),
+    ])
+    // … with no session behind it, and `lumo report` still prints the tokens.
     expect(r.team.sessions).toBe(0)
-    expect(r.team.tokens.total).toBeGreaterThan(0)
+    expect(r.team.unmeteredSessions).toBe(0)
+    const out = formatReport(r, {
+      window: {
+        sinceDay: '2026-10-06',
+        untilDay: '2026-10-12',
+        sinceIso: SINCE.toISOString(),
+        untilIso: UNTIL.toISOString(),
+        days: 7,
+      },
+    })
+    expect(out).toMatch(/Tokens:\s+501 \(output 500/)
+    expect(out).not.toContain('none recorded')
   })
 })
 

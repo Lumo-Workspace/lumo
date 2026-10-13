@@ -881,7 +881,8 @@ describe('Findings count row adds up', () => {
       '0 open',
       '0 block DONE',
       '0 dispositioned',
-      '5 merged unreviewed',
+      '4 merged unreviewed',
+      '1 rejected by verifier',
     ])
     expect(sum(parts)).toBe(5)
     const out = formatPrScan(
@@ -905,7 +906,7 @@ describe('Findings count row adds up', () => {
       { width: 200 }
     )
     expect(out).toMatch(
-      /Findings: +5 \(0 open · 0 block DONE · 0 dispositioned · 5 merged unreviewed\)/
+      /Findings:\s+5 \(0 open · 0 block DONE · 0 dispositioned · 4 merged unreviewed · 1 rejected by verifier\)/
     )
   })
 
