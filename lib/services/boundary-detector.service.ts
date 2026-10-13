@@ -1254,11 +1254,6 @@ export function detectSensitivePathEdit(input: {
 }
 
 /**
- * LUM-923: true only when the task is positively found in the trash. An
- * unknown task, or a failed lookup, reads false so detection still records
- * (fail open: visibility over silence).
- */
-/**
  * LUM-1114: an INFRA_TERMINATION whose pkill / killall only stops processes
  * this session family started earlier (lib/boundary-crossing/self-started-kill)
  * is recorded as advisory — it never blocks DONE. Everything it cannot confirm
@@ -1301,6 +1296,11 @@ export async function downgradeSelfStartedStops(
   )
 }
 
+/**
+ * LUM-923: true only when the task is positively found in the trash. An
+ * unknown task, or a failed lookup, reads false so detection still records
+ * (fail open: visibility over silence).
+ */
 async function isTaskInTrash(taskId: string): Promise<boolean> {
   try {
     return (await taskRepository.isTrashed(taskId)) === true

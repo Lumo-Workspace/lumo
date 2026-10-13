@@ -36,7 +36,12 @@ function stripPort(authority: string): string {
 function ipv4Octets(host: string): number[] | null {
   const parts = host.split('.')
   if (parts.length !== 4) return null
-  const octets = parts.map(p => (/^\d{1,3}$/.test(p) ? Number(p) : NaN))
+  // Plain decimal only: a leading zero (`010`) is octal to curl and the C
+  // resolver (`010.0.0.1` is 8.0.0.1), so it is not read as decimal here —
+  // the host stays public.
+  const octets = parts.map(p =>
+    /^(?:0|[1-9]\d{0,2})$/.test(p) ? Number(p) : NaN
+  )
   return octets.every(o => o >= 0 && o <= 255) ? octets : null
 }
 

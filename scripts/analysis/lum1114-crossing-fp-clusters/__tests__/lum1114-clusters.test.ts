@@ -58,6 +58,11 @@ describe('crossingShape', () => {
     expect(
       crossingShape(row({ target: null, detail: 'docker stop db && echo ok' }))
     ).toBe('docker stop db')
+    expect(
+      crossingShape(
+        row({ target: null, detail: 'cd /app && FOO=1 BAR=2 docker stop db' })
+      )
+    ).toBe('docker stop db')
   })
 
   it('shapes secrets by pattern + extension and code rules by rule id', () => {

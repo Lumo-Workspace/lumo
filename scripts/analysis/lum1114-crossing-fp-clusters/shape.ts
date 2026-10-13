@@ -76,11 +76,13 @@ export function crossingShape(input: {
   const special = nonCommandShape(input.category, raw)
   if (special) return special
   // The first segment is the one the matcher fingerprinted (target), or the
-  // start of the command (detail).
-  const first = raw.split(/\s*(?:&&|\|\||;|\|)\s*/)[0] ?? raw
-  const folded = tokens(first)
-    .map(foldToken)
-    // Leading env assignments and `cd <dir>` are noise for the shape.
-    .filter((t, i, all) => !(i === 0 && /^[A-Z_]+=/.test(t)) && all.length > 0)
+  // start of the command (detail). A leading `cd <dir>` segment is skipped and
+  // leading `NAME=value` env assignments are dropped — both are noise here.
+  const segments = raw.split(/\s*(?:&&|\|\||;|\|)\s*/).filter(Boolean)
+  const first =
+    segments.find(seg => !/^cd(?:\s|$)/.test(seg.trim())) ?? segments[0] ?? raw
+  const toks = tokens(first)
+  const start = toks.findIndex(t => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(t))
+  const folded = toks.slice(start === -1 ? toks.length : start).map(foldToken)
   return folded.slice(0, MAX_TOKENS).join(' ') || '<empty>'
 }

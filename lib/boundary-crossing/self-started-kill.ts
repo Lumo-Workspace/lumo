@@ -16,8 +16,11 @@
  *   - the pattern must be specific — it contains a path separator, a dot or a
  *     space (`scripts/eval.ts`, `next dev`), never a bare program name
  *     (`pkill node` would also stop the user's own node processes);
- *   - an earlier session command must contain the pattern, and must not itself
- *     be a kill (naming the target in an earlier pkill proves nothing).
+ *   - an earlier session command must name the pattern inside a segment that
+ *     EXECUTES something (command-shape `executingSegments`) — a `grep` /
+ *     `cat` / `echo` / `git log` mentioning it started nothing — and that
+ *     command must not itself be a kill (naming the target in an earlier pkill
+ *     proves nothing).
  */
 import { executingSegments, splitCommandSegments } from './command-shape'
 
@@ -126,7 +129,9 @@ export function matchSelfStartedProcesses(
   const starters = priorCommands.filter(c => !isKillCommand(c))
   const matched: string[] = []
   for (const pattern of patterns) {
-    const starter = starters.find(c => c.includes(pattern))
+    const starter = starters.find(c =>
+      executingSegments(c).some(seg => seg.includes(pattern))
+    )
     if (!starter) return null
     matched.push(starter)
   }

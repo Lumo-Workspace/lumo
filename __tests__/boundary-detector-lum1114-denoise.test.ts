@@ -5,11 +5,10 @@
  *   - EXFILTRATION_PUBLIC: an upload to the agent's own dev server / a private
  *     address read as exfiltration to the public internet;
  *   - INFRA_TERMINATION: `pkill -f <pattern>` stopping a background job the
- *     same session started was HIGH + blocking;
- *   - code rules: a line the PR only moved counted as an added line.
+ *     same session started was HIGH + blocking.
+ * The third (code rules: moved lines) is a plugin path — see
+ * __tests__/ee/security/moved-lines-lum1114.test.ts.
  */
-// contents.ts pulls the GitHub App auth (ESM-only @octokit) — not used here.
-jest.mock('@/lib/integrations/github/auth', () => ({}))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findSessionFamilyBashCommands: jest.fn() },
 }))
@@ -28,9 +27,6 @@ import {
   matchSelfStartedProcesses,
   selfStopPatterns,
 } from '@/lib/boundary-crossing/self-started-kill'
-import { neutralizeMovedLines } from '@/ee/security/services/policy/moved-lines'
-import { addedLinesFromDiff } from '@/lib/integrations/github/contents'
-import { matchDiffRegex } from '@/ee/security/services/policy/predicate-eval'
 
 const findPrior = hookEventRepository.findSessionFamilyBashCommands as jest.Mock
 
@@ -75,6 +71,9 @@ describe('url-hosts', () => {
       '$HOST',
       '${API_HOST}:443',
       'localhost.evil.com',
+      '010.0.0.1',
+      '0192.168.1.1',
+      '127.0.0',
     ])
       expect(isNonPublicHost(h)).toBe(false)
   })
@@ -152,6 +151,14 @@ describe('self-started-kill', () => {
     expect(
       matchSelfStartedProcesses(cmd, ['pkill -f scripts/analysis/eval.ts'])
     ).toBeNull()
+    // Reading or searching for it started nothing.
+    expect(
+      matchSelfStartedProcesses(cmd, [
+        'cat scripts/analysis/eval.ts',
+        'grep -n main scripts/analysis/eval.ts',
+        'git log -- scripts/analysis/eval.ts',
+      ])
+    ).toBeNull()
   })
 })
 
@@ -192,52 +199,5 @@ describe('downgradeSelfStartedStops', () => {
     expect((await run('pkill -f "scripts/eval.ts"'))[0]?.advisory).toBeFalsy()
     findPrior.mockResolvedValue(['node server.js &'])
     expect((await run('pkill node'))[0]?.advisory).toBeFalsy()
-  })
-})
-
-describe('code rules: moved lines are not added lines', () => {
-  const diff = [
-    'diff --git a/components/Card.tsx b/components/Card.tsx',
-    '--- a/components/Card.tsx',
-    '+++ b/components/Card.tsx',
-    '@@ -1,6 +1,8 @@',
-    '-      {intl.formatDate(new Date(task.updatedAt))}',
-    '+<div className="card">',
-    '+    {intl.formatDate(new Date(task.updatedAt))}',
-    '+</div>',
-    ' export const x = 1',
-  ].join('\n')
-
-  it('a moved violating line no longer reaches the diff-regex pass', () => {
-    const added = addedLinesFromDiff(neutralizeMovedLines(diff)).flatMap(
-      f => f.addedLines
-    )
-    expect(added).toEqual(['<div className="card">', '</div>'])
-    expect(matchDiffRegex('new Date\\(', added).matched).toBe(false)
-  })
-
-  it('pairs across files and as a multiset', () => {
-    const twoFiles = [
-      '--- a/a.ts',
-      '+++ b/a.ts',
-      '-const now = new Date()',
-      '--- a/b.ts',
-      '+++ b/b.ts',
-      '+const now = new Date()',
-      '+const now = new Date()',
-    ].join('\n')
-    const added = addedLinesFromDiff(neutralizeMovedLines(twoFiles)).flatMap(
-      f => f.addedLines
-    )
-    expect(added).toEqual(['const now = new Date()'])
-  })
-
-  it('a genuinely new violation still fires', () => {
-    const fresh = ['+++ b/a.ts', '+const now = new Date()'].join('\n')
-    expect(neutralizeMovedLines(fresh)).toBe(fresh)
-    const added = addedLinesFromDiff(neutralizeMovedLines(fresh)).flatMap(
-      f => f.addedLines
-    )
-    expect(matchDiffRegex('new Date\\(\\)', added).matched).toBe(true)
   })
 })
