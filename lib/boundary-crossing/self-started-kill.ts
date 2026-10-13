@@ -13,9 +13,9 @@
  *   - only pkill / killall — `kill -9 <pid>`, systemctl, docker, kubectl … carry
  *     no pattern that can be tied to the session, so they never qualify;
  *   - every terminating segment in the command must qualify;
- *   - the pattern must be specific — it contains a path separator, a dot or a
- *     space (`scripts/eval.ts`, `next dev`), never a bare program name
- *     (`pkill node` would also stop the user's own node processes);
+ *   - the pattern must be specific — a path, a file name with an extension, or
+ *     two real words (`scripts/eval.ts`, `eval.ts`, `next dev`), never a bare
+ *     program name (`pkill node` would also stop the user's own processes);
  *   - an earlier session command must name the pattern inside a segment that
  *     EXECUTES something (command-shape `executingSegments`) — a `grep` /
  *     `cat` / `echo` / `git log` mentioning it started nothing — and that
@@ -88,8 +88,17 @@ function killPatterns(segment: string): string[] | null {
 }
 
 /** Specific enough to tie to one command — not a bare program name. */
+/**
+ * Specific enough to tie to one command: a path (`scripts/eval.ts`), a file
+ * name with an extension (`eval.ts`), or at least two words of 3+ letters
+ * (`next dev`). A lone `.`, `node ` or `a.b` is not — those match far more
+ * than the session's own job.
+ */
 function isSpecific(pattern: string): boolean {
-  return /[/.\s]/.test(pattern) && pattern.trim().length >= 4
+  const p = pattern.trim()
+  if (/[A-Za-z0-9_-]{2,}\/[A-Za-z0-9_.-]{2,}/.test(p)) return true
+  if (/[A-Za-z0-9_-]{3,}\.[A-Za-z]{1,5}$/.test(p)) return true
+  return p.split(/\s+/).filter(w => /^[A-Za-z][\w-]{2,}$/.test(w)).length >= 2
 }
 
 function isKillCommand(cmd: string): boolean {

@@ -65,7 +65,7 @@ describe('crossingShape', () => {
     ).toBe('docker stop db')
   })
 
-  it('shapes secrets by pattern + extension and code rules by rule id', () => {
+  it('shapes secrets by pattern + file kind and code rules by rule kind', () => {
     expect(
       crossingShape(
         row({
@@ -79,7 +79,51 @@ describe('crossingShape', () => {
       crossingShape(
         row({ category: 'PROJECT_RULE_VIOLATION', target: 'coderule:r12' })
       )
-    ).toBe('coderule:r12')
+    ).toBe('coderule')
+  })
+})
+
+describe('crossingShape on LUM-912 purged rows', () => {
+  const purged = (category: string, detail: string) =>
+    crossingShape(row({ category, target: 'sha256:0123abcd', detail }))
+
+  it('reads the code-free detail instead of the hash target', () => {
+    expect(purged('INFRA_TERMINATION', 'INFRA_TERMINATION · $ pkill …')).toBe(
+      'pkill'
+    )
+    expect(
+      purged('PROJECT_RULE_VIOLATION', 'PROJECT_RULE_VIOLATION · coderule:830d')
+    ).toBe('coderule')
+    expect(
+      purged('PROJECT_RULE_VIOLATION', 'PROJECT_RULE_VIOLATION · actionrule:b7')
+    ).toBe('actionrule')
+    expect(purged('EXFILTRATION_PUBLIC', 'EXFILTRATION_PUBLIC')).toBe(
+      '<purged>'
+    )
+  })
+
+  it('shapes path-based categories by file kind', () => {
+    expect(
+      purged(
+        'HARDCODED_SECRET',
+        'HARDCODED_SECRET · /r/.worktrees/LUM-1/__tests__/x/a.test.ts'
+      )
+    ).toBe('test file')
+    expect(
+      purged(
+        'SENSITIVE_PATH_EDIT',
+        'SENSITIVE_PATH_EDIT · /r/prisma/schema.prisma'
+      )
+    ).toBe('prisma/schema.prisma')
+    expect(
+      crossingShape(
+        row({
+          category: 'HARDCODED_SECRET',
+          target: '/r/lib/db.ts',
+          detail: 'Database connection string with password in /r/.env.local',
+        })
+      )
+    ).toBe('Database connection string with password in .env*')
   })
 })
 
@@ -134,6 +178,7 @@ describe('clusterCrossings', () => {
     ])
     const text = formatClusters(clusters, { top: 1 })
     expect(text).toMatch(/2 patterns · FP 1/)
+    expect(text).toMatch(/By category[\s\S]*PROJECT_RULE_VIOLATION \(2\)/)
     expect(text).toMatch(/rule: Never push to main/)
     expect(text).toMatch(/1 more/)
   })

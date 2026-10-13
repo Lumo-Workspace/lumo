@@ -12,7 +12,7 @@
  * Write the export OUTSIDE the repository; it is never committed.
  */
 import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 import { formatCrossingRef } from '@/lib/boundary-crossing/crossing-ref'
 import type { ExportedCrossing } from './cluster'
@@ -33,10 +33,12 @@ async function main(): Promise<void> {
   const out = flag('--out')
   if (!out) throw new Error('--out <path> is required (outside the repo)')
   const outPath = resolve(out)
-  // Inside = a relative path that neither climbs out nor jumps drives; a plain
-  // prefix match would also reject a sibling like `<repo>-exports/`.
+  // Outside = the relative path climbs out (`..` / `../…`, not a dir named
+  // `..foo`) or jumps drives; a plain prefix match would also reject a sibling
+  // like `<repo>-exports/`.
   const rel = relative(resolve(process.cwd()), outPath)
-  if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
+  const outside = rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)
+  if (!outside) {
     throw new Error('--out must be outside the repository checkout')
   }
   const sinceFlag = flag('--since')

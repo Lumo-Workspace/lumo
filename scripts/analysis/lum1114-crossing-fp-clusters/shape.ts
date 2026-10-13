@@ -25,14 +25,42 @@ const VERDICT_PREFIXES = [
   /^Stops only processes this session started — advisory —\s*/,
 ]
 
+/** A written / read file, by the kind that decides whether it is noise. */
+function fileKind(path: string): string {
+  const p = path.replace(/\s*\(.*$/, '').replace(/…$/, '')
+  if (/(?:^|\/)__tests__\/|\.(?:test|spec)\.[a-z]+$/i.test(p))
+    return 'test file'
+  if (/(?:^|\/)\.env(?:\.|$)/.test(p)) return '.env*'
+  if (/(?:^|\/)prisma\/schema\.prisma$/.test(p)) return 'prisma/schema.prisma'
+  if (/(?:^|\/)prisma\/migrations\//.test(p)) return 'prisma/migrations/*'
+  if (/^~|\/\.[a-z]+\//i.test(p)) return 'dotfile/home config'
+  const ext = /\.[a-z0-9]+$/i.exec(p)?.[0]
+  return ext ? `*${ext}` : '<noext>'
+}
+
 /** Category-specific shapes where the text is not a command. */
 function nonCommandShape(category: string, text: string): string | null {
-  if (category === 'HARDCODED_SECRET') {
-    // "<pattern title> in <file>" — keep the pattern and the file extension.
+  if (category === 'PROJECT_RULE_VIOLATION') {
+    // One rule, one fix — the rule text splits these further (cluster.ts);
+    // the shape only says whether a code rule or an action rule fired.
+    const kind = /\b(coderule|actionrule):/.exec(text)?.[1]
+    if (kind) return kind
+  }
+  if (category === 'POLICY_WEAKENING')
+    return /UNCHANGED/.test(text)
+      ? 'weakening (rule text unchanged)'
+      : 'weakening'
+  if (
+    category === 'HARDCODED_SECRET' ||
+    category === 'SENSITIVE_PATH_EDIT' ||
+    category === 'SENSITIVE_PATH_READ'
+  ) {
+    // "<pattern title> in <file>", "edited sensitive path <file> …", or a
+    // purged "<file>" — keep the pattern (if any) and the file kind.
     const m = /^(.*?)\s+(?:in|written to)\s+(\S+)/.exec(text)
-    if (!m) return null
-    const ext = /\.[a-z0-9]+$/i.exec(m[2] ?? '')?.[0] ?? '<noext>'
-    return `${(m[1] ?? '').trim()} in *${ext}`
+    if (m) return `${(m[1] ?? '').trim()} in ${fileKind(m[2] ?? '')}`
+    const path = /(\S*[/~]\S+)/.exec(text)?.[1]
+    if (path) return fileKind(path)
   }
   if (text.startsWith('coderule:')) return text.split(':').slice(0, 2).join(':')
   return null
@@ -61,6 +89,34 @@ function tokens(text: string): string[] {
   return text.match(/'[^']*'|"[^"]*"|\S+/g) ?? []
 }
 
+/**
+ * The text a shape is read from. The target first — for the action classes it
+ * is the matched segment — unless it is a LUM-912 purge hash (`sha256:…`) or
+ * the path the detail also carries; then the detail, minus the
+ * `<CATEGORY> · ` prefix and the `$ ` / `…` a code-free summary wraps a
+ * command in. Empty when only the category survived the purge.
+ */
+function readableText(input: {
+  category: string
+  target: string | null
+  detail: string
+}): string {
+  const target = input.target?.trim() ?? ''
+  const useDetail =
+    !target ||
+    target.startsWith('sha256:') ||
+    input.category === 'HARDCODED_SECRET' ||
+    input.category === 'POLICY_WEAKENING'
+  let text = stripVerdictPrefixes(useDetail ? input.detail : target)
+  const prefix = `${input.category} · `
+  if (text.startsWith(prefix)) text = text.slice(prefix.length)
+  if (text === input.category) return ''
+  return text
+    .replace(/^\$\s+/, '')
+    .replace(/\s*…$/, '')
+    .trim()
+}
+
 export function stripVerdictPrefixes(text: string): string {
   let out = text.trim()
   for (const re of VERDICT_PREFIXES) out = out.replace(re, '')
@@ -72,7 +128,8 @@ export function crossingShape(input: {
   target: string | null
   detail: string
 }): string {
-  const raw = stripVerdictPrefixes(input.target?.trim() || input.detail)
+  const raw = readableText(input)
+  if (!raw) return '<purged>'
   const special = nonCommandShape(input.category, raw)
   if (special) return special
   // The first segment is the one the matcher fingerprinted (target), or the

