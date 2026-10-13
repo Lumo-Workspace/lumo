@@ -65,6 +65,8 @@ export async function replayBoundaryDetection(
         toolName: e.toolName,
         filePath: e.filePath,
         payload: e.payload,
+        sessionId,
+        occurredAt: e.createdAt,
       })
       replayed++
     } catch (error) {
