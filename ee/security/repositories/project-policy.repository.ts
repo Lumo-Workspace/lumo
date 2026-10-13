@@ -13,6 +13,7 @@
  * re-activated by bumping its `compiledAt` (`activateIfUnchanged`) instead of
  * inserting a duplicate.
  */
+import { ruleTextForRef } from '@/lib/policy/rule-ref'
 import { prisma } from '@/lib/db/prisma'
 import type { PolicyRule } from '@/ee/security/services/policy/types'
 
@@ -120,10 +121,9 @@ export const projectPolicyRepository = {
     })
     for (const row of rows) {
       const rules = row.rules as unknown as PolicyRule[]
-      const hit = rules.find(r => r.id === ruleRef)
-      if (hit && typeof hit.text === 'string' && hit.text.length > 0) {
-        return hit.text
-      }
+      // LUM-1114: the ref may be an alias merged into another rule.
+      const text = ruleTextForRef(rules, ruleRef)
+      if (typeof text === 'string' && text.length > 0) return text
     }
     return null
   },

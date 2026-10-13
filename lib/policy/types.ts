@@ -26,6 +26,18 @@ export interface PolicyRule {
   assertion?: string
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
   blocking: boolean // true only when mappedCategory set (v1)
+  /**
+   * LUM-1114: other rule texts of the same source that compile to this exact
+   * detection (same kind, tier, category, predicate and assertion) and were
+   * merged into this rule. Their ids stay resolvable — a crossing or a
+   * previous policy naming one still finds this rule (`findRuleByRef`).
+   */
+  aliases?: PolicyRuleAlias[]
+}
+
+export interface PolicyRuleAlias {
+  id: string
+  text: string
 }
 
 /**
