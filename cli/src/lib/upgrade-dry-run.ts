@@ -100,7 +100,8 @@ const plural = (n: number, word: string): string =>
 
 /**
  * The Lumo-managed part of a Claude settings / Codex hooks file as stable
- * pretty JSON: events sorted, only `lumo hook …` entries kept, every other
+ * pretty JSON: events sorted, only `lumo hook …` entries (and the matcher of
+ * their group) kept, every other
  * hook, group, event and top-level setting folded to a count.
  */
 export function lumoHooksView(content: unknown): string {
@@ -127,7 +128,13 @@ export function lumoHooksView(content: unknown): string {
         }))
         const others = list.length - ours.length
         if (others > 0) entries.push(`… ${plural(others, 'hook')}`)
-        items.push({ hooks: entries })
+        // A matcher on a group holding a Lumo hook decides when that hook
+        // fires, so it is shown; groups without a Lumo hook stay folded.
+        items.push(
+          isObject(g) && g.matcher !== undefined
+            ? { matcher: g.matcher, hooks: entries }
+            : { hooks: entries }
+        )
       }
       if (items.length === 0) {
         otherEvents++
@@ -162,7 +169,8 @@ function textLines(text: string): string[] {
 
 /**
  * Unified diff of two texts; a missing side ('') renders as a whole-file
- * add/delete hunk. The final newline is not compared.
+ * add/delete hunk. Texts that differ only in the final newline say so
+ * instead of printing an empty diff.
  */
 export function textDiff(
   oldText: string,
@@ -179,7 +187,10 @@ export function textDiff(
       ? `${head}@@ -0,0 +1${b.length === 1 ? '' : `,${b.length}`} @@\n${b.map(l => `+${l}`).join('\n')}`
       : `${head}@@ -1${a.length === 1 ? '' : `,${a.length}`} +0,0 @@\n${a.map(l => `-${l}`).join('\n')}`
   }
-  return formatUnifiedDiff(a.join('\n'), b.join('\n'), oldLabel, newLabel)
+  const diff = formatUnifiedDiff(a.join('\n'), b.join('\n'), oldLabel, newLabel)
+  if (diff === '' && oldText !== newText)
+    return `--- ${oldLabel}\n+++ ${newLabel}\n(only the final newline differs)`
+  return diff
 }
 
 function realPath(p: string): string {

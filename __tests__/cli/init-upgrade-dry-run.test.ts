@@ -27,6 +27,7 @@ import {
   lumoHooksView,
   planUpgrade,
   renderUpgradePlan,
+  textDiff,
 } from '@/cli/src/lib/upgrade-dry-run'
 import skillVersionHashes from '@/cli/src/lib/skill-version-hashes.json'
 
@@ -535,6 +536,27 @@ describe('lumoHooksView', () => {
     expect(view).not.toMatch(/mine|say done|Alpha|model|Bash/)
   })
 
+  it('shows the matcher of a group holding a Lumo hook', () => {
+    const view = JSON.parse(
+      lumoHooksView({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: 'Edit',
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'lumo hook pre-tool-use --agent claude-code',
+                },
+              ],
+            },
+          ],
+        },
+      })
+    )
+    expect(view.hooks.PreToolUse[0].matcher).toBe('Edit')
+  })
+
   it('renders a non-object file as an empty view', () => {
     expect(lumoHooksView(null)).toBe('{}\n')
   })
@@ -561,5 +583,23 @@ describe('renderUpgradePlan', () => {
     )
     expect(text).toContain('    -x\n    +y')
     expect(text).toContain('1 of 1 would change.')
+  })
+})
+
+describe('textDiff', () => {
+  it('says so when only the final newline differs instead of printing nothing', () => {
+    expect(textDiff('a\nb', 'a\nb\n', 'x', 'y')).toBe(
+      '--- x\n+++ y\n(only the final newline differs)'
+    )
+    expect(textDiff('a\n', 'a\n', 'x', 'y')).toBe('')
+  })
+
+  it('renders a missing side as a whole-file hunk', () => {
+    expect(textDiff('', 'one\ntwo\n', '/dev/null', 'b/f')).toBe(
+      '--- /dev/null\n+++ b/f\n@@ -0,0 +1,2 @@\n+one\n+two'
+    )
+    expect(textDiff('gone\n', '', 'a/f', '/dev/null')).toBe(
+      '--- a/f\n+++ /dev/null\n@@ -1 +0,0 @@\n-gone'
+    )
   })
 })
