@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "PR ini mengubah {files} file; pemindaian keamanan berjalan pada PR dengan paling banyak {cap} file (batas GitHub mengembalikan diff), jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub tidak mengembalikan diff PR ini karena terlalu besar ({files} file diubah), jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
   "securityScan.prTooLarge.diffRefused": "GitHub tidak mengembalikan diff PR ini karena terlalu besar, jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
-  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk dipindai. Pecah menjadi PR yang lebih kecil atau persempit cakupannya agar dipindai."
+  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk dipindai. Pecah menjadi PR yang lebih kecil atau persempit cakupannya agar dipindai.",
+  "workspaceSettings.policyCoverage.title": "Aturan yang tidak diperiksa otomatis",
+  "workspaceSettings.policyCoverage.description": "Aturan dari CLAUDE.md / AGENTS.md tiap proyek yang tidak dicakup pemeriksaan otomatis apa pun. Lumo tidak akan menandai pelanggarannya, jadi periksa sendiri.",
+  "workspaceSettings.policyCoverage.loading": "Memeriksa cakupan aturan…",
+  "workspaceSettings.policyCoverage.loadFailed": "Tidak dapat memuat cakupan aturan. Ini bukan berarti semua aturan diperiksa.",
+  "workspaceSettings.policyCoverage.noProjects": "Belum ada proyek.",
+  "workspaceSettings.policyCoverage.notCompiled": "Belum ada aturan yang dibaca. Lumo membaca CLAUDE.md atau AGENTS.md dari repositori yang terhubung ke proyek setelah pekerjaan dimulai.",
+  "workspaceSettings.policyCoverage.allChecked": "Semua {total} aturan diperiksa otomatis.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} dari {total} aturan tidak diperiksa otomatis.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Perlu penilaian atas perintah atau proses. Belum ada pemeriksaan otomatis untuk jenis aturan ini.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya tinjauan AI yang memeriksa aturan ini, dan tinjauan AI dinonaktifkan di atas."
 }

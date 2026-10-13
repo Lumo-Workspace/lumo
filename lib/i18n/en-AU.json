@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "This PR changes {files} files; security scans run on PRs of up to {cap} files (the most GitHub returns a diff for), so nothing in it was scanned. To get it scanned, split it into smaller PRs or narrow its scope.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub would not return this PR's diff because it is too large ({files} files changed), so nothing in it was scanned. To get it scanned, split it into smaller PRs or narrow its scope.",
   "securityScan.prTooLarge.diffRefused": "GitHub would not return this PR's diff because it is too large, so nothing in it was scanned. To get it scanned, split it into smaller PRs or narrow its scope.",
-  "securityScan.stageReason.prTooLarge": "Not run: this PR is too large to scan. Split it into smaller PRs or narrow its scope to get it scanned."
+  "securityScan.stageReason.prTooLarge": "Not run: this PR is too large to scan. Split it into smaller PRs or narrow its scope to get it scanned.",
+  "workspaceSettings.policyCoverage.title": "Rules not checked automatically",
+  "workspaceSettings.policyCoverage.description": "Rules from each project's CLAUDE.md / AGENTS.md that no automatic check covers. Lumo won't flag a violation of these, so review them yourself.",
+  "workspaceSettings.policyCoverage.loading": "Checking rule coverage…",
+  "workspaceSettings.policyCoverage.loadFailed": "Couldn't load rule coverage. This doesn't mean every rule is checked.",
+  "workspaceSettings.policyCoverage.noProjects": "No projects yet.",
+  "workspaceSettings.policyCoverage.notCompiled": "No rules read yet. Lumo reads CLAUDE.md or AGENTS.md from the project's linked repository once work starts.",
+  "workspaceSettings.policyCoverage.allChecked": "All {total} rules are checked automatically.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} of {total} rules are not checked automatically.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Needs judgement about commands or process. No automatic check exists for this kind of rule yet.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Only AI review checks this rule, and AI review is turned off above."
 }

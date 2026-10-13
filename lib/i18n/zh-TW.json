@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "此 PR 變更了 {files} 個檔案；安全掃描最多支援變更 {cap} 個檔案的 PR（GitHub 最多為這麼多檔案回傳 diff），因此本 PR 未做任何掃描。如需掃描，請拆分成較小的 PR 或縮小變更範圍。",
   "securityScan.prTooLarge.diffRefusedFiles": "PR 過大，GitHub 拒絕回傳其 diff（變更了 {files} 個檔案），因此本 PR 未做任何掃描。如需掃描，請拆分成較小的 PR 或縮小變更範圍。",
   "securityScan.prTooLarge.diffRefused": "PR 過大，GitHub 拒絕回傳其 diff，因此本 PR 未做任何掃描。如需掃描，請拆分成較小的 PR 或縮小變更範圍。",
-  "securityScan.stageReason.prTooLarge": "未執行：此 PR 過大，無法掃描。拆分成較小的 PR 或縮小變更範圍即可掃描。"
+  "securityScan.stageReason.prTooLarge": "未執行：此 PR 過大，無法掃描。拆分成較小的 PR 或縮小變更範圍即可掃描。",
+  "workspaceSettings.policyCoverage.title": "未自動檢查的規則",
+  "workspaceSettings.policyCoverage.description": "各專案 CLAUDE.md / AGENTS.md 中沒有任何自動檢查涵蓋的規則。Lumo 不會標記對這些規則的違反，請自行把關。",
+  "workspaceSettings.policyCoverage.loading": "正在檢查規則涵蓋情況…",
+  "workspaceSettings.policyCoverage.loadFailed": "無法載入規則涵蓋情況。這並不代表所有規則都已被檢查。",
+  "workspaceSettings.policyCoverage.noProjects": "尚無專案。",
+  "workspaceSettings.policyCoverage.notCompiled": "尚未讀取規則。開始工作後，Lumo 會從專案連結的儲存庫讀取 CLAUDE.md 或 AGENTS.md。",
+  "workspaceSettings.policyCoverage.allChecked": "全部 {total} 條規則皆會自動檢查。",
+  "workspaceSettings.policyCoverage.someUnchecked": "{total} 條規則中有 {unchecked} 條不會自動檢查。",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "需要對指令或流程做判斷，目前還沒有針對這類規則的自動檢查。",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "這條規則只由 AI 審查檢查，而上方已關閉 AI 審查。"
 }

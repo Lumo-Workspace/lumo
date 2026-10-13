@@ -45,7 +45,49 @@ function toStored(row: {
   }
 }
 
+export interface ProjectActivePolicy {
+  projectId: string
+  projectName: string
+  /** Null when the project's rules were never compiled. */
+  policy: { compiledAt: Date; rules: PolicyRule[] } | null
+}
+
 export const projectPolicyRepository = {
+  /**
+   * LUM-1114: every project of ONE workspace with its active policy — the
+   * newest row by `compiledAt`. Tenant-scoped by `workspaceId`.
+   */
+  async activePoliciesForWorkspace(
+    workspaceId: string
+  ): Promise<ProjectActivePolicy[]> {
+    const projects = await prisma.project.findMany({
+      where: { workspaceId },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        projectPolicies: {
+          orderBy: { compiledAt: 'desc' },
+          take: 1,
+          select: { compiledAt: true, rules: true },
+        },
+      },
+    })
+    return projects.map(p => {
+      const row = p.projectPolicies[0]
+      return {
+        projectId: p.id,
+        projectName: p.name,
+        policy: row
+          ? {
+              compiledAt: row.compiledAt,
+              rules: row.rules as unknown as PolicyRule[],
+            }
+          : null,
+      }
+    })
+  },
+
   /**
    * Returns the active (most recently compiled or re-activated) policy for a
    * project, or null if none exists yet.

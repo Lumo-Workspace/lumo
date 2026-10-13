@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { securityScanClient } from '@/ee/security/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
@@ -69,6 +71,7 @@ export function SecurityScanSwitchesCard({
   sandboxAvailable,
 }: SecurityScanSwitchesCardProps) {
   const intl = useIntl()
+  const queryClient = useQueryClient()
   const [switches, setSwitches] = useState<WorkspaceSecuritySwitches>(initial)
   const [saving, setSaving] = useState(false)
   const t = (id: string) =>
@@ -85,6 +88,10 @@ export function SecurityScanSwitchesCard({
     try {
       const next = await securityScanClient.updateSecurityScan(update)
       setSwitches(next.switches)
+      // LUM-1114: the AI review switch decides which rules are checked.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.workspacePolicyCoverage(),
+      })
       toast.success(t(successId))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('updateFailed'))

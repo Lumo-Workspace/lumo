@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "Cette PR modifie {files} fichiers ; les analyses de sécurité portent sur les PR d'au plus {cap} fichiers (le maximum pour lequel GitHub renvoie un diff), donc rien n'y a été analysé. Pour la faire analyser, découpez-la en PR plus petites ou réduisez sa portée.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub n'a pas renvoyé le diff de cette PR car elle est trop volumineuse ({files} fichiers modifiés), donc rien n'y a été analysé. Pour la faire analyser, découpez-la en PR plus petites ou réduisez sa portée.",
   "securityScan.prTooLarge.diffRefused": "GitHub n'a pas renvoyé le diff de cette PR car elle est trop volumineuse, donc rien n'y a été analysé. Pour la faire analyser, découpez-la en PR plus petites ou réduisez sa portée.",
-  "securityScan.stageReason.prTooLarge": "Non exécuté : cette PR est trop volumineuse pour être analysée. Découpez-la en PR plus petites ou réduisez sa portée pour la faire analyser."
+  "securityScan.stageReason.prTooLarge": "Non exécuté : cette PR est trop volumineuse pour être analysée. Découpez-la en PR plus petites ou réduisez sa portée pour la faire analyser.",
+  "workspaceSettings.policyCoverage.title": "Règles non vérifiées automatiquement",
+  "workspaceSettings.policyCoverage.description": "Règles du CLAUDE.md / AGENTS.md de chaque projet qu'aucune vérification automatique ne couvre. Lumo ne signale pas leurs violations : vérifiez-les vous-même.",
+  "workspaceSettings.policyCoverage.loading": "Vérification de la couverture des règles…",
+  "workspaceSettings.policyCoverage.loadFailed": "Impossible de charger la couverture des règles. Cela ne signifie pas que toutes les règles sont vérifiées.",
+  "workspaceSettings.policyCoverage.noProjects": "Aucun projet pour le moment.",
+  "workspaceSettings.policyCoverage.notCompiled": "Aucune règle lue pour l'instant. Lumo lit CLAUDE.md ou AGENTS.md depuis le dépôt lié au projet dès que le travail commence.",
+  "workspaceSettings.policyCoverage.allChecked": "Les {total} règles sont toutes vérifiées automatiquement.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} règles sur {total} ne sont pas vérifiées automatiquement.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Demande un jugement sur des commandes ou un processus. Aucune vérification automatique n'existe encore pour ce type de règle.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Seule la revue IA vérifie cette règle, et la revue IA est désactivée ci-dessus."
 }

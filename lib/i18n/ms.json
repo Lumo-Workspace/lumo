@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "PR ini mengubah {files} fail; imbasan keselamatan dijalankan pada PR dengan paling banyak {cap} fail (had GitHub memulangkan diff), jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub tidak memulangkan diff PR ini kerana ia terlalu besar ({files} fail diubah), jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
   "securityScan.prTooLarge.diffRefused": "GitHub tidak memulangkan diff PR ini kerana ia terlalu besar, jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
-  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk diimbas. Pecahkan kepada PR yang lebih kecil atau kecilkan skopnya untuk mengimbasnya."
+  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk diimbas. Pecahkan kepada PR yang lebih kecil atau kecilkan skopnya untuk mengimbasnya.",
+  "workspaceSettings.policyCoverage.title": "Peraturan yang tidak disemak secara automatik",
+  "workspaceSettings.policyCoverage.description": "Peraturan daripada CLAUDE.md / AGENTS.md setiap projek yang tidak diliputi oleh mana-mana semakan automatik. Lumo tidak akan menanda pelanggarannya, jadi semak sendiri.",
+  "workspaceSettings.policyCoverage.loading": "Menyemak liputan peraturan…",
+  "workspaceSettings.policyCoverage.loadFailed": "Tidak dapat memuatkan liputan peraturan. Ini tidak bermakna semua peraturan disemak.",
+  "workspaceSettings.policyCoverage.noProjects": "Belum ada projek.",
+  "workspaceSettings.policyCoverage.notCompiled": "Belum ada peraturan dibaca. Lumo membaca CLAUDE.md atau AGENTS.md daripada repositori yang dipautkan ke projek apabila kerja bermula.",
+  "workspaceSettings.policyCoverage.allChecked": "Kesemua {total} peraturan disemak secara automatik.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} daripada {total} peraturan tidak disemak secara automatik.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Memerlukan pertimbangan tentang arahan atau proses. Belum ada semakan automatik untuk jenis peraturan ini.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya semakan AI yang menyemak peraturan ini, dan semakan AI dimatikan di atas."
 }

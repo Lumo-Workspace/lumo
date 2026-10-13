@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "이 PR은 파일 {files}개를 변경합니다. 보안 스캔은 변경 파일이 최대 {cap}개인 PR에서 실행되므로(GitHub가 diff를 반환하는 최대치) 이 PR은 전혀 스캔되지 않았습니다. 스캔하려면 PR을 더 작게 나누거나 변경 범위를 줄이세요.",
   "securityScan.prTooLarge.diffRefusedFiles": "PR이 너무 커서 GitHub가 이 PR의 diff를 반환하지 않았습니다(파일 {files}개 변경). 따라서 이 PR은 전혀 스캔되지 않았습니다. 스캔하려면 PR을 더 작게 나누거나 변경 범위를 줄이세요.",
   "securityScan.prTooLarge.diffRefused": "PR이 너무 커서 GitHub가 이 PR의 diff를 반환하지 않았습니다. 따라서 이 PR은 전혀 스캔되지 않았습니다. 스캔하려면 PR을 더 작게 나누거나 변경 범위를 줄이세요.",
-  "securityScan.stageReason.prTooLarge": "실행 안 됨: 이 PR은 너무 커서 스캔할 수 없습니다. PR을 더 작게 나누거나 변경 범위를 줄이면 스캔됩니다."
+  "securityScan.stageReason.prTooLarge": "실행 안 됨: 이 PR은 너무 커서 스캔할 수 없습니다. PR을 더 작게 나누거나 변경 범위를 줄이면 스캔됩니다.",
+  "workspaceSettings.policyCoverage.title": "자동으로 검사되지 않는 규칙",
+  "workspaceSettings.policyCoverage.description": "각 프로젝트의 CLAUDE.md / AGENTS.md 중 어떤 자동 검사로도 확인되지 않는 규칙입니다. Lumo는 이 규칙의 위반을 표시하지 않으니 직접 확인하세요.",
+  "workspaceSettings.policyCoverage.loading": "규칙 검사 범위를 확인하는 중…",
+  "workspaceSettings.policyCoverage.loadFailed": "규칙 검사 범위를 불러오지 못했습니다. 모든 규칙이 검사된다는 뜻은 아닙니다.",
+  "workspaceSettings.policyCoverage.noProjects": "아직 프로젝트가 없습니다.",
+  "workspaceSettings.policyCoverage.notCompiled": "아직 규칙을 읽지 않았습니다. 작업이 시작되면 Lumo가 프로젝트에 연결된 저장소에서 CLAUDE.md 또는 AGENTS.md를 읽습니다.",
+  "workspaceSettings.policyCoverage.allChecked": "{total}개 규칙이 모두 자동으로 검사됩니다.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{total}개 규칙 중 {unchecked}개는 자동으로 검사되지 않습니다.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "명령이나 프로세스에 대한 판단이 필요합니다. 이런 종류의 규칙에 대한 자동 검사는 아직 없습니다.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "이 규칙은 AI 리뷰로만 검사되는데, 위에서 AI 리뷰가 꺼져 있습니다."
 }

@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "PR này thay đổi {files} tệp; quét bảo mật chạy trên PR có tối đa {cap} tệp (mức tối đa GitHub trả về diff), nên không có gì trong PR được quét. Để được quét, hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub không trả về diff của PR này vì nó quá lớn ({files} tệp thay đổi), nên không có gì trong PR được quét. Để được quét, hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi.",
   "securityScan.prTooLarge.diffRefused": "GitHub không trả về diff của PR này vì nó quá lớn, nên không có gì trong PR được quét. Để được quét, hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi.",
-  "securityScan.stageReason.prTooLarge": "Không chạy: PR này quá lớn để quét. Hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi để được quét."
+  "securityScan.stageReason.prTooLarge": "Không chạy: PR này quá lớn để quét. Hãy tách thành các PR nhỏ hơn hoặc thu hẹp phạm vi để được quét.",
+  "workspaceSettings.policyCoverage.title": "Quy tắc không được kiểm tra tự động",
+  "workspaceSettings.policyCoverage.description": "Các quy tắc trong CLAUDE.md / AGENTS.md của từng dự án mà không có bước kiểm tra tự động nào bao quát. Lumo sẽ không đánh dấu vi phạm các quy tắc này, nên bạn hãy tự kiểm tra.",
+  "workspaceSettings.policyCoverage.loading": "Đang kiểm tra phạm vi quy tắc…",
+  "workspaceSettings.policyCoverage.loadFailed": "Không tải được phạm vi quy tắc. Điều này không có nghĩa là mọi quy tắc đều được kiểm tra.",
+  "workspaceSettings.policyCoverage.noProjects": "Chưa có dự án nào.",
+  "workspaceSettings.policyCoverage.notCompiled": "Chưa đọc quy tắc nào. Lumo sẽ đọc CLAUDE.md hoặc AGENTS.md từ kho mã liên kết với dự án khi bắt đầu làm việc.",
+  "workspaceSettings.policyCoverage.allChecked": "Cả {total} quy tắc đều được kiểm tra tự động.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} trong {total} quy tắc không được kiểm tra tự động.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Cần đánh giá về lệnh hoặc quy trình. Hiện chưa có bước kiểm tra tự động cho loại quy tắc này.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Chỉ có đánh giá bằng AI kiểm tra quy tắc này, và đánh giá bằng AI đang tắt ở trên."
 }

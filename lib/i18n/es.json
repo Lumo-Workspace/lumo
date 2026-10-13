@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "Este PR cambia {files} archivos; los análisis de seguridad se ejecutan en PR de hasta {cap} archivos (el máximo para el que GitHub devuelve un diff), así que no se escaneó nada. Para escanearlo, divídelo en PR más pequeños o reduce su alcance.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub no devolvió el diff de este PR porque es demasiado grande ({files} archivos cambiados), así que no se escaneó nada. Para escanearlo, divídelo en PR más pequeños o reduce su alcance.",
   "securityScan.prTooLarge.diffRefused": "GitHub no devolvió el diff de este PR porque es demasiado grande, así que no se escaneó nada. Para escanearlo, divídelo en PR más pequeños o reduce su alcance.",
-  "securityScan.stageReason.prTooLarge": "No se ejecutó: este PR es demasiado grande para escanearlo. Divídelo en PR más pequeños o reduce su alcance para escanearlo."
+  "securityScan.stageReason.prTooLarge": "No se ejecutó: este PR es demasiado grande para escanearlo. Divídelo en PR más pequeños o reduce su alcance para escanearlo.",
+  "workspaceSettings.policyCoverage.title": "Reglas que no se comprueban automáticamente",
+  "workspaceSettings.policyCoverage.description": "Reglas del CLAUDE.md / AGENTS.md de cada proyecto que ninguna comprobación automática cubre. Lumo no señalará sus incumplimientos, así que revísalas tú.",
+  "workspaceSettings.policyCoverage.loading": "Comprobando la cobertura de las reglas…",
+  "workspaceSettings.policyCoverage.loadFailed": "No se pudo cargar la cobertura de las reglas. Eso no significa que se comprueben todas.",
+  "workspaceSettings.policyCoverage.noProjects": "Todavía no hay proyectos.",
+  "workspaceSettings.policyCoverage.notCompiled": "Aún no se han leído reglas. Lumo lee CLAUDE.md o AGENTS.md del repositorio vinculado al proyecto cuando empieza el trabajo.",
+  "workspaceSettings.policyCoverage.allChecked": "Las {total} reglas se comprueban automáticamente.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} de {total} reglas no se comprueban automáticamente.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Requiere valorar comandos o procesos. Todavía no existe una comprobación automática para este tipo de regla.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Solo la revisión con IA comprueba esta regla, y la revisión con IA está desactivada arriba."
 }

@@ -2715,5 +2715,15 @@
   "securityScan.prTooLarge.fileLimit": "Dieser PR ändert {files} Dateien; Sicherheitsscans laufen für PRs mit bis zu {cap} Dateien (mehr liefert GitHub nicht als Diff), daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub hat den Diff dieses PRs nicht geliefert, weil er zu groß ist ({files} geänderte Dateien), daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
   "securityScan.prTooLarge.diffRefused": "GitHub hat den Diff dieses PRs nicht geliefert, weil er zu groß ist, daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
-  "securityScan.stageReason.prTooLarge": "Nicht ausgeführt: Dieser PR ist zu groß zum Scannen. Teile ihn in kleinere PRs auf oder verkleinere seinen Umfang, damit er gescannt wird."
+  "securityScan.stageReason.prTooLarge": "Nicht ausgeführt: Dieser PR ist zu groß zum Scannen. Teile ihn in kleinere PRs auf oder verkleinere seinen Umfang, damit er gescannt wird.",
+  "workspaceSettings.policyCoverage.title": "Nicht automatisch geprüfte Regeln",
+  "workspaceSettings.policyCoverage.description": "Regeln aus der CLAUDE.md / AGENTS.md jedes Projekts, die keine automatische Prüfung abdeckt. Lumo meldet Verstöße dagegen nicht – prüfe sie selbst.",
+  "workspaceSettings.policyCoverage.loading": "Regelabdeckung wird geprüft…",
+  "workspaceSettings.policyCoverage.loadFailed": "Die Regelabdeckung konnte nicht geladen werden. Das heißt nicht, dass jede Regel geprüft wird.",
+  "workspaceSettings.policyCoverage.noProjects": "Noch keine Projekte.",
+  "workspaceSettings.policyCoverage.notCompiled": "Noch keine Regeln gelesen. Lumo liest CLAUDE.md oder AGENTS.md aus dem verknüpften Repository des Projekts, sobald die Arbeit beginnt.",
+  "workspaceSettings.policyCoverage.allChecked": "Alle {total} Regeln werden automatisch geprüft.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} von {total} Regeln werden nicht automatisch geprüft.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Erfordert eine Einschätzung von Befehlen oder Abläufen. Für diese Art von Regel gibt es noch keine automatische Prüfung.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Nur das KI-Review prüft diese Regel, und das KI-Review ist oben ausgeschaltet."
 }
