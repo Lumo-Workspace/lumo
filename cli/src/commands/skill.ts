@@ -6,6 +6,7 @@ import { readCliVersion } from '../lib/cli-version'
 import { bundledSkillDir, copySkillTree } from '../lib/codex-plugin'
 import { upsertInstall, writeMarker } from '../lib/install-registry'
 import { isSkillsLumoPath } from '../lib/install-locations'
+import { isNewerVersion } from '../lib/install-state'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { hashSkillDir } from '../lib/skill-hash'
 import {
@@ -204,7 +205,14 @@ export function updateSkillCopy(
     out(`· ${shown}: Lumo skill source (not an install) — left untouched\n`)
     return 'skipped-source'
   }
-  if (copy.state === 'newer') {
+  // No downgrade, ever: a modified copy whose marker says it came from a newer
+  // CLI is refused too, even with --force.
+  const newer =
+    copy.state === 'newer' ||
+    (copy.state === 'modified' &&
+      copy.version !== null &&
+      isNewerVersion(opts.cliVersion, copy.version))
+  if (newer) {
     out(
       `${icons.warning} skipped ${shown}: ${copy.version} is newer than this CLI (${opts.cliVersion}) — run \`lumo update\`\n`
     )

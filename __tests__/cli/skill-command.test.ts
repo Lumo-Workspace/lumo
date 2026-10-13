@@ -359,6 +359,16 @@ describe('lumo skill update', () => {
     expect(out).toContain('newer than this CLI')
   })
 
+  it('never downgrades a modified copy whose marker is newer, even with --force', async () => {
+    const w = world()
+    managedSkill(w.userClaude, '3.0.0')
+    writeFileSync(join(w.userClaude, 'SKILL.md'), 'edited\n')
+    const before = snapshot(w.userClaude)
+    expect(await skillUpdate({ force: true }, w.deps)).toBe(0)
+    expect(snapshot(w.userClaude)).toEqual(before)
+    expect(out).toContain('3.0.0 is newer than this CLI')
+  })
+
   it('never touches the Lumo source repo skill, even with --force', async () => {
     const w = world()
     mkdirSync(join(w.project, 'cli'), { recursive: true })
