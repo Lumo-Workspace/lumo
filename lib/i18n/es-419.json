@@ -2799,5 +2799,15 @@
   "workspaceSettings.defaultLanguage": "Idioma predeterminado",
   "workspaceSettings.defaultLanguageDesc": "Los mensajes de los canales de Slack se escriben en este idioma, igual que los mensajes directos de Slack a los miembros que no eligieron su propio idioma.",
   "workspaceSettings.defaultLanguageUpdated": "Idioma predeterminado actualizado",
-  "workspaceSettings.defaultLanguageUpdateFailed": "No se pudo actualizar el idioma predeterminado"
+  "workspaceSettings.defaultLanguageUpdateFailed": "No se pudo actualizar el idioma predeterminado",
+  "workspaceSettings.policyCoverage.title": "Reglas que no se verifican automáticamente",
+  "workspaceSettings.policyCoverage.description": "Reglas del CLAUDE.md / AGENTS.md de cada proyecto que ninguna verificación automática cubre. Lumo no marcará sus incumplimientos, así que revísalas tú.",
+  "workspaceSettings.policyCoverage.loading": "Verificando la cobertura de las reglas…",
+  "workspaceSettings.policyCoverage.loadFailed": "No se pudo cargar la cobertura de las reglas. Eso no significa que se verifiquen todas.",
+  "workspaceSettings.policyCoverage.noProjects": "Todavía no hay proyectos.",
+  "workspaceSettings.policyCoverage.notCompiled": "Aún no se leyeron reglas. Lumo lee CLAUDE.md o AGENTS.md del repositorio vinculado al proyecto cuando empieza el trabajo.",
+  "workspaceSettings.policyCoverage.allChecked": "Las {total} reglas se verifican automáticamente.",
+  "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} de {total} reglas no se verifican automáticamente.",
+  "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Requiere evaluar comandos o procesos. Todavía no existe una verificación automática para este tipo de regla.",
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Solo la revisión con IA verifica esta regla, y la revisión con IA está desactivada arriba."
 }

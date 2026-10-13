@@ -8,6 +8,7 @@ export type {
   PredicateType,
   RulePredicate,
   PolicyRule,
+  PolicyRuleAlias,
   RawPolicyRule,
   CompiledPolicy,
 } from '@/lib/policy/types'

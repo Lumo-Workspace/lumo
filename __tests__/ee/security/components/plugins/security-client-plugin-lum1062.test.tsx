@@ -62,6 +62,9 @@ jest.mock('@/ee/security/components/settings/SecurityScanSwitchesCard', () => ({
     <div data-testid='switches-card' data-props={JSON.stringify(props)} />
   ),
 }))
+jest.mock('@/ee/security/components/settings/PolicyCoverageCard', () => ({
+  PolicyCoverageCard: () => <div data-testid='policy-coverage-card' />,
+}))
 jest.mock('@/ee/security/components/settings/ScanEvidenceRetentionRow', () => ({
   ScanEvidenceRetentionRow: ({
     initialDays,
@@ -177,6 +180,7 @@ describe('settings slots', () => {
       />
     )
     expect(screen.queryByTestId('switches-card')).toBeNull()
+    expect(screen.queryByTestId('policy-coverage-card')).toBeNull()
     // A malformed ceiling (missing sandbox) is not drawn as a card either.
     rerender(
       <PluginSlot
@@ -210,6 +214,8 @@ describe('settings slots', () => {
       huntAvailable: true,
       sandboxAvailable: false,
     })
+    // LUM-1114: the rule-coverage card sits under the switches.
+    expect(screen.getByTestId('policy-coverage-card')).toBeTruthy()
   })
 
   it('the evidence row reads scanEvidenceRetentionDays (null when absent)', () => {

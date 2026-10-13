@@ -13,6 +13,7 @@
  * re-activated by bumping its `compiledAt` (`activateIfUnchanged`) instead of
  * inserting a duplicate.
  */
+import { ruleTextForRef } from '@/lib/policy/rule-ref'
 import { prisma } from '@/lib/db/prisma'
 import type { PolicyRule } from '@/ee/security/services/policy/types'
 
@@ -44,7 +45,49 @@ function toStored(row: {
   }
 }
 
+export interface ProjectActivePolicy {
+  projectId: string
+  projectName: string
+  /** Null when the project's rules were never compiled. */
+  policy: { compiledAt: Date; rules: PolicyRule[] } | null
+}
+
 export const projectPolicyRepository = {
+  /**
+   * LUM-1114: every project of ONE workspace with its active policy — the
+   * newest row by `compiledAt`. Tenant-scoped by `workspaceId`.
+   */
+  async activePoliciesForWorkspace(
+    workspaceId: string
+  ): Promise<ProjectActivePolicy[]> {
+    const projects = await prisma.project.findMany({
+      where: { workspaceId },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        projectPolicies: {
+          orderBy: { compiledAt: 'desc' },
+          take: 1,
+          select: { compiledAt: true, rules: true },
+        },
+      },
+    })
+    return projects.map(p => {
+      const row = p.projectPolicies[0]
+      return {
+        projectId: p.id,
+        projectName: p.name,
+        policy: row
+          ? {
+              compiledAt: row.compiledAt,
+              rules: row.rules as unknown as PolicyRule[],
+            }
+          : null,
+      }
+    })
+  },
+
   /**
    * Returns the active (most recently compiled or re-activated) policy for a
    * project, or null if none exists yet.
@@ -120,10 +163,9 @@ export const projectPolicyRepository = {
     })
     for (const row of rows) {
       const rules = row.rules as unknown as PolicyRule[]
-      const hit = rules.find(r => r.id === ruleRef)
-      if (hit && typeof hit.text === 'string' && hit.text.length > 0) {
-        return hit.text
-      }
+      // LUM-1114: the ref may be an alias merged into another rule.
+      const text = ruleTextForRef(rules, ruleRef)
+      if (typeof text === 'string' && text.length > 0) return text
     }
     return null
   },

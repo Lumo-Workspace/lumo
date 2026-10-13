@@ -14,6 +14,8 @@ export const queryKeys = {
   workspace: () => ['workspace'] as const,
   // LUM-918: the workspace's pending deletion (banner + danger zone).
   workspacePendingDeletion: () => ['workspace', 'pending-deletion'] as const,
+  // LUM-1114: per project, the policy rules no detector checks.
+  workspacePolicyCoverage: () => ['workspace', 'policy-coverage'] as const,
   // LUM-918: the caller's trash (deleted tasks / own documents).
   trash: () => ['trash'] as const,
   // LUM-907: the workspace audit log, per filter set.
