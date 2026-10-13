@@ -5,7 +5,7 @@ description: 'Use when the user mentions a Lumo task id (LUM-N, or any team pref
 
 ## Prerequisites
 
-Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionStart line (`[Lumo] session_id=… | lumo <version> · <email> (<workspace>)`) already proves the CLI is installed and logged in. Troubleshoot only on failure:
+Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionStart line (`[Lumo] session_id=… | lumo <version> · <email> (<workspace>) · skill <version>`) proves the CLI is installed and logged in. On failure only:
 
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
