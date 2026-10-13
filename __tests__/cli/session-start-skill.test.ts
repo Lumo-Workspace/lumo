@@ -215,10 +215,27 @@ describe('restart hint after a CLI upgrade', () => {
 
   it('keeps at most 200 sessions', () => {
     for (let i = 0; i < 205; i++) cliUpgradeNote(`s${i}`, '1.70.0', stateFile)
-    const seen = JSON.parse(fs.readFileSync(stateFile, 'utf8'))
-    expect(Object.keys(seen)).toHaveLength(200)
-    expect(seen.s0).toBeUndefined()
-    expect(seen.s204).toBe('1.70.0')
+    const seen = new Map<string, string>(
+      JSON.parse(fs.readFileSync(stateFile, 'utf8'))
+    )
+    expect(seen.size).toBe(200)
+    expect(seen.has('s0')).toBe(false)
+    expect(seen.get('s204')).toBe('1.70.0')
+    expect(fs.readdirSync(path.dirname(stateFile))).toEqual([
+      'session-cli-versions.json',
+    ])
+  })
+
+  it('treats prototype-named session ids as plain keys', () => {
+    expect(cliUpgradeNote('__proto__', '1.70.0', stateFile)).toBeNull()
+    expect(cliUpgradeNote('constructor', '1.70.0', stateFile)).toBeNull()
+    expect(cliUpgradeNote('__proto__', '1.71.0', stateFile)).toBe(
+      'lumo upgraded 1.70.0 → 1.71.0 since this session started — restart the session to load the new skill'
+    )
+    expect(JSON.parse(fs.readFileSync(stateFile, 'utf8'))).toEqual([
+      ['constructor', '1.70.0'],
+      ['__proto__', '1.71.0'],
+    ])
   })
 
   it('rides along with the skill info as a trailing note', () => {

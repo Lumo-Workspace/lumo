@@ -81,26 +81,43 @@ export function sessionVersionsPath(): string {
   return path.join(configDir(), SESSION_VERSIONS_FILE)
 }
 
-function readSessionVersions(file: string): Record<string, string> {
+/**
+ * Session ids come from the agent, so they live in a Map (an id such as
+ * `__proto__` is just another key), serialized as `[id, version]` pairs in
+ * insertion order — oldest first.
+ */
+function readSessionVersions(file: string): Map<string, string> {
+  const out = new Map<string, string>()
   try {
     const parsed: unknown = JSON.parse(fs.readFileSync(file, 'utf8'))
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      const out: Record<string, string> = {}
-      for (const [k, v] of Object.entries(parsed))
-        if (typeof v === 'string') out[k] = v
-      return out
-    }
+    if (Array.isArray(parsed))
+      for (const pair of parsed)
+        if (
+          Array.isArray(pair) &&
+          typeof pair[0] === 'string' &&
+          typeof pair[1] === 'string'
+        )
+          out.set(pair[0], pair[1])
   } catch {
     // missing or unreadable: start fresh
   }
-  return {}
+  return out
+}
+
+/** Write via a temp file + rename so a concurrent reader never sees half a file. */
+function writeSessionVersions(file: string, seen: Map<string, string>): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify([...seen]) + '\n')
+  fs.renameSync(tmp, file)
 }
 
 /**
  * Remember which CLI version served this session's SessionStart. When a
  * later SessionStart of the same session (resume / clear / compact) runs
  * under a different CLI, the skill text already in the conversation predates
- * the upgrade: say so once. Never throws.
+ * the upgrade: say so once. Concurrent session starts may drop each other's
+ * entry (last rename wins) — that only costs a hint. Never throws.
  */
 export function cliUpgradeNote(
   sessionId: string,
@@ -109,15 +126,16 @@ export function cliUpgradeNote(
 ): string | null {
   try {
     const seen = readSessionVersions(file)
-    const prev = seen[sessionId]
+    const prev = seen.get(sessionId)
     if (prev === cliVersion) return null
-    delete seen[sessionId]
-    seen[sessionId] = cliVersion
-    const keys = Object.keys(seen)
-    for (const k of keys.slice(0, Math.max(0, keys.length - MAX_SESSIONS)))
-      delete seen[k]
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(file, JSON.stringify(seen) + '\n')
+    seen.delete(sessionId)
+    seen.set(sessionId, cliVersion)
+    for (const k of [...seen.keys()].slice(
+      0,
+      Math.max(0, seen.size - MAX_SESSIONS)
+    ))
+      seen.delete(k)
+    writeSessionVersions(file, seen)
     if (prev === undefined) return null
     return `lumo upgraded ${prev} → ${cliVersion} since this session started — restart the session to load the new skill`
   } catch {
