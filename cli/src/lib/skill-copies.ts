@@ -25,7 +25,7 @@ import { MARKER_FILE } from './skill-hash'
 export const SKILL_STATUS_SCHEMA_VERSION = 1
 
 /**
- * - `up-to-date` — managed copy at the CLI's version (or newer content-equal)
+ * - `up-to-date` — managed copy at exactly the CLI's version
  * - `behind` — managed copy older than the CLI: `lumo skill update` refreshes it
  * - `newer` — managed copy newer than the CLI: never downgraded (`lumo update`)
  * - `modified` — edited locally: skipped unless `--force`
