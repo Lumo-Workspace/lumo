@@ -360,6 +360,10 @@ function registerInit(name: string, hidden: boolean): void {
       '--upgrade',
       'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs'
     )
+    .option(
+      '--dry-run',
+      'With --upgrade: print what the upgrade would change — per install the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust again — without writing any file, marker or registry record'
+    )
     .action(
       wrap(options =>
         init(
@@ -369,6 +373,7 @@ function registerInit(name: string, hidden: boolean): void {
             force?: boolean
             agent?: string
             upgrade?: boolean
+            dryRun?: boolean
           }
         )
       )

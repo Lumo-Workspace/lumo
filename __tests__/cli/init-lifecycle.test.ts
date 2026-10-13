@@ -119,7 +119,14 @@ describe('commander registration', () => {
       c?.options.map(o => o.long).sort()
     expect(flags(initCmd)).toEqual(flags(setupCmd))
     expect(flags(initCmd)).toEqual(
-      ['--agent', '--force', '--project', '--upgrade', '--user'].sort()
+      [
+        '--agent',
+        '--dry-run',
+        '--force',
+        '--project',
+        '--upgrade',
+        '--user',
+      ].sort()
     )
   })
 })

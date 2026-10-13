@@ -1317,6 +1317,14 @@
           "enumCaseInsensitive": false,
           "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex."
         },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --upgrade: print what the upgrade would change — per install the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust again — without writing any file, marker or registry record"
+        },
         "--force": {
           "long": "--force",
           "short": null,
@@ -2519,6 +2527,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex."
+        },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --upgrade: print what the upgrade would change — per install the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust again — without writing any file, marker or registry record"
         },
         "--force": {
           "long": "--force",

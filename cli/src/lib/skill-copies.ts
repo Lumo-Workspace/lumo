@@ -200,3 +200,30 @@ export function diffSkillDirs(
   }
   return out.sort((x, y) => x.file.localeCompare(y.file))
 }
+
+/**
+ * One line of the per-file skill change list (`    ~ SKILL.md (+12 −3)`),
+ * shared by `lumo skill update --dry-run` and `lumo init --upgrade --dry-run`.
+ */
+export function formatSkillChangeLine(c: SkillFileChange): string {
+  const sign = c.change === 'added' ? '+' : c.change === 'deleted' ? '-' : '~'
+  const stats = [
+    c.linesAdded > 0 ? `+${c.linesAdded}` : '',
+    c.linesRemoved > 0 ? `−${c.linesRemoved}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return `    ${sign} ${c.file}${stats ? ` (${stats})` : ''}\n`
+}
+
+export function filesWord(n: number): string {
+  return `${n} file${n === 1 ? '' : 's'}`
+}
+
+/** `~`-relative display of a path under the home dir. */
+export function displayPath(p: string, home: string): string {
+  const r = path.relative(home, p)
+  return r && !r.startsWith('..') && !path.isAbsolute(r)
+    ? `~/${r.split(path.sep).join('/')}`
+    : p
+}

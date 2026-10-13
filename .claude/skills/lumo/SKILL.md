@@ -49,7 +49,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
-- `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — set up skill + hooks for Claude Code and Codex (`--agent` = only that one; `setup` = hidden alias; `--upgrade` refreshes known installs, skipping modified/newer copies)
+- `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade [--dry-run]]` — skill + hooks for Claude Code + Codex (`--agent` = only that one; `--upgrade` refreshes known installs, skips modified/newer; `--dry-run`: diffs, no writes)
 - `lumo doctor [--json]` — read-only report of every Lumo install (skills, hooks, Codex rule, git hook): state + fix command; warns on missing hook events, `lumo` not on PATH, untrusted Codex hooks, no Codex network
 - `lumo skill status [--json]` · `lumo skill update [--user|--project] [--agent <t>] [--dry-run] [--force]` — report / refresh only the skill copies (never hooks) — see [onboarding.md](references/onboarding.md)
 - `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits) — see [onboarding.md](references/onboarding.md)
