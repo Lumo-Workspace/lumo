@@ -101,7 +101,8 @@ export function roundTotals(t: ReportTokenTotals): void {
   t.output = Math.round(t.output)
   t.cacheRead = Math.round(t.cacheRead)
   t.cacheCreation = Math.round(t.cacheCreation)
-  t.total = Math.round(t.total)
+  // The total is the sum of the four whole-number parts, so it always adds up.
+  t.total = t.input + t.output + t.cacheRead + t.cacheCreation
 }
 
 export interface SessionEventLike {

@@ -164,7 +164,7 @@ lumo report --project Lumo --limit 100 --json
 
 **Completed = last DONE.** Task has no completion column, so the completion time is the task's **last** `STATUS_CHANGED → DONE` activity. A task counts in the window only if it is DONE now and that last DONE falls inside the window — DONE → reopened → DONE counts once, at the final DONE (so it never appears in two windows). Trashed tasks are excluded. A task is credited to its assignee's member, or to the owner of an assigned personal agent; tasks with no human owner sit under `(unassigned)`.
 
-**Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0. Token figures are whole numbers. Usage recorded without a session id still counts toward tokens (not toward sessions), so `Tokens: none recorded in this window` means no tokens **and** no sessions.
+**Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0. Token figures are whole numbers (`total` = the sum of the four parts). Usage recorded without a session id still counts toward tokens (not toward sessions), so `Tokens: none recorded in this window` means no tokens **and** no sessions.
 
 ### When to suggest
 

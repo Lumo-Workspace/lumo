@@ -938,6 +938,7 @@ describe('Findings count row adds up', () => {
         blocking: false,
         verifierVerdict: 'REJECTED',
       }),
+      finding({ id: 'g', open: false, blocking: false }),
     ]
     const parts = findingsBreakdown(
       { open: 1, blocking: 1, dispositioned: 1 },
@@ -951,6 +952,7 @@ describe('Findings count row adds up', () => {
       '1 resolved on main',
       '1 PR closed',
       '1 rejected by verifier',
+      '1 other',
     ])
     expect(sum(parts)).toBe(findings.length)
   })

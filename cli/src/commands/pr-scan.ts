@@ -202,13 +202,17 @@ export function findingsBreakdown(
   ]
   let persisting = 0
   let rejected = 0
+  let other = 0
   const exits = new Map<string, number>()
   for (const f of findings) {
     if (f.disposition !== null || f.open) continue
     if (f.persisting) persisting++
     else if (f.queueExit)
       exits.set(f.queueExit, (exits.get(f.queueExit) ?? 0) + 1)
-    else rejected++
+    else if (f.verifierVerdict === 'REJECTED') rejected++
+    // A state this build does not know (a newer server): still counted so
+    // the row adds up, but never given a reason it may not have.
+    else other++
   }
   if (persisting > 0) parts.push(`${persisting} already on main`)
   // Same order as the `Queue` row; a reason this build does not know last.
@@ -222,6 +226,7 @@ export function findingsBreakdown(
       `${exits.get(reason)} ${QUEUE_EXIT_LABELS[reason as QueueExitReason] ?? sanitizeField(reason)}`
     )
   if (rejected > 0) parts.push(`${rejected} rejected by verifier`)
+  if (other > 0) parts.push(`${other} other`)
   return parts
 }
 

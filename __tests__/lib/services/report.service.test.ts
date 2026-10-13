@@ -507,6 +507,30 @@ describe('token rounding + session-less usage', () => {
         expect(Number.isInteger(t[k])).toBe(true)
     expect(r.team.tokens.total).toBe(569597)
     expect(r.team.tokens.output).toBe(227839)
+    for (const t of all)
+      expect(t.total).toBe(t.input + t.output + t.cacheRead + t.cacheCreation)
+  })
+
+  it('keeps total equal to the sum of its rounded parts', () => {
+    const r = buildReport({
+      since: SINCE,
+      until: UNTIL,
+      memberId: null,
+      projectId: null,
+      limit: 50,
+      costRows: [row({ input: 0.4, output: 0.4, cacheRead: 0.4 })],
+      coverage: new Map(),
+      completions: new Map(),
+      tasks: [],
+      memberLabels: new Map([['m1', 'One']]),
+    })
+    expect(r.team.tokens).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+      total: 0,
+    })
   })
 
   it('counts tokens from events with no session id (sessions stay 0)', async () => {
