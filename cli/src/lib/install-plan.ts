@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { ENUM_TO_TOKEN, normalizeAgent } from './agent'
 import { listFiles } from './codex-plugin'
 import { codexHooksPath } from './codex-hooks'
 import { classifyCodexRules, codexRulesPath } from './codex-rules'
@@ -302,8 +303,11 @@ export function projectClaudeSettingsTarget(
       for (const h of list) {
         const cmd = (h as { command?: unknown } | null)?.command
         if (typeof cmd !== 'string' || !isLumoHookCommand(cmd, slug)) continue
-        const m = / --agent (\S+)/.exec(cmd)
-        return { path: file, agent: m?.[1] ?? 'claude-code' }
+        // Only the `--agent <token>` right after the slug, and only a known
+        // agent: anything else falls back to the Claude Code default.
+        const m = /^--agent (\S+)/.exec(cmd.slice(`lumo hook ${slug} `.length))
+        const e = m?.[1] ? normalizeAgent(m[1]) : null
+        return { path: file, agent: (e && ENUM_TO_TOKEN[e]) || 'claude-code' }
       }
     }
   }

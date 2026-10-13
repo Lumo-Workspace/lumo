@@ -276,6 +276,21 @@ describe('init --upgrade reaches unrecorded committed installs', () => {
     ])
   })
 
+  it.each([
+    ['lumo hook stop --agent gemini', 'gemini-cli'],
+    ['lumo hook stop --agent bogus', 'claude-code'],
+    ['lumo hook stop --verbose --agent cursor', 'claude-code'],
+    ['lumo hook stop', 'claude-code'],
+  ])('agent token of %s is %s', (command, agent) => {
+    git('init', '-q')
+    write(
+      '.claude/settings.json',
+      json({ hooks: { Stop: [{ hooks: [{ type: 'command', command }] }] } })
+    )
+    const t = collectUpgradeTargets([], path.join(tmp, 'home'), repo)
+    expect(t.claudeSettings.map(r => r.agent)).toEqual([agent])
+  })
+
   it('a settings file without Lumo hooks and a foreign rules file are not targets', () => {
     git('init', '-q')
     write('.claude/settings.json', json({ hooks: { Stop: [] } }))
