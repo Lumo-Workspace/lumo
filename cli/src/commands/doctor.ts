@@ -20,7 +20,14 @@ import {
   LUMO_HOOK_EVENTS,
   isLumoHookCommand,
 } from '../lib/hooks-template'
-import { codexHooksPath } from '../lib/codex-hooks'
+import {
+  codexEventKey,
+  codexHooksPath,
+  codexTrustedEventsForFile,
+} from '../lib/codex-hooks'
+
+// LUM-1112: the trust scan moved to lib/codex-hooks (session attach/status use it too).
+export { codexEventKey, codexTrustedEvents } from '../lib/codex-hooks'
 import {
   classifyCodexRules,
   codexNetworkState,
@@ -119,39 +126,6 @@ export function lumoOnPath(pathVar: string | undefined): boolean {
     }
   }
   return false
-}
-
-/** PreToolUse -> pre_tool_use, the form Codex uses in config.toml keys. */
-export function codexEventKey(event: string): string {
-  return event.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
-}
-
-/**
- * Snake-case events that have a `[hooks.state."<hooksJson>:<event>:…"]`
- * section carrying a `trusted_hash` line. Plain text scan — no TOML parser,
- * and the hash itself is not verified.
- */
-export function codexTrustedEvents(
-  toml: string,
-  hooksJsonPath: string
-): Set<string> {
-  const trusted = new Set<string>()
-  const prefix = `${hooksJsonPath}:`
-  let current: string | null = null
-  for (const line of toml.split(/\r?\n/)) {
-    if (/^\s*\[/.test(line)) {
-      // Header line, tolerating surrounding whitespace and a trailing comment.
-      const m =
-        /^\s*\[\s*hooks\.state\."((?:[^"\\]|\\.)*)"\s*\]\s*(?:#.*)?$/.exec(line)
-      current =
-        m && m[1]!.startsWith(prefix)
-          ? (m[1]!.slice(prefix.length).split(':')[0] ?? null)
-          : null
-      continue
-    }
-    if (current && /^\s*trusted_hash\s*=/.test(line)) trusted.add(current)
-  }
-  return trusted
 }
 
 function readJson(file: string): Record<string, unknown> | null {
@@ -356,17 +330,8 @@ function codexRow(
   } catch {
     // no config.toml: nothing is trusted yet
   }
-  // Codex keys trust by the absolute path it resolved, which may be the
-  // realpath of a symlinked dir (/tmp vs /private/tmp) — accept either.
-  const trusted = codexTrustedEvents(toml, file)
-  let real = file
-  try {
-    real = fs.realpathSync(file)
-  } catch {
-    // keep the given path
-  }
-  if (real !== file)
-    for (const e of codexTrustedEvents(toml, real)) trusted.add(e)
+  // Keyed by the given path or its realpath (/tmp vs /private/tmp).
+  const trusted = codexTrustedEventsForFile(toml, file)
   const untrusted = events.filter(e => !trusted.has(codexEventKey(e)))
   const missing = CODEX_HOOK_EVENTS.filter(
     ([event, slug]) =>

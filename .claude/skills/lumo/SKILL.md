@@ -10,7 +10,7 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
 
-**Agent support:** Claude Code and Codex (`lumo init` sets up both). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn; relay it. Run `lumo` unpiped in Codex (Lumo rules let server-only commands out of the no-network sandbox; local-effect or `--file` ones (`session attach`, `doc create --file`) need approval); `fetch failed` there prints the fix. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
+**Agent support:** Claude Code and Codex (`lumo init` sets up both). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn (listing events that look untrusted); relay it. Run `lumo` unpiped in Codex (Lumo rules let server-only commands out of the no-network sandbox; local-effect or `--file` ones (`session attach`, `doc create --file`) need approval); `fetch failed` there prints the fix. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
 
 ## How this skill is organized
 

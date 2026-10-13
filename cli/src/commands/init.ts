@@ -685,8 +685,14 @@ export function upgradeCodexHooksFile(
     process.stdout.write(`✓ Codex hooks already up to date: ${hooksPath}\n`)
     return 'unchanged'
   }
+  // LUM-1112: name the entries Codex will ask about, not just their count.
+  const changed = [
+    ...stats.addedEvents.map(e => `${e} (added)`),
+    ...stats.updatedEvents.map(e => `${e} (updated)`),
+  ]
   process.stdout.write(
     `✓ updated Codex hooks: ${hooksPath} (added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}) — re-trust in Codex /hooks\n` +
+      `  Events to trust again: ${changed.join(', ')}\n` +
       `${codexTrustInstructions(hooksPath)}\n`
   )
   if (tracked) process.stdout.write(gitDiffNote(hooksPath))
