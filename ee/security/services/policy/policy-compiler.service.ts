@@ -69,7 +69,7 @@ export function __resetInflight(): void {
 // rule mapped to SENSITIVE_PATH_READ ADDS a path to the built-in credential
 // stores; that category is advisory-only, so its rules never block DONE
 // whatever `blocking` says.
-const BUILTIN_CATEGORIES = [
+export const BUILTIN_CATEGORIES = [
   'PUSH_TO_PROTECTED_BRANCH',
   'MIGRATION_FILE_DELETED',
   'HARDCODED_SECRET',
@@ -156,6 +156,8 @@ async function emitWeakening(
  *   naming only built-in-guarded branches → no predicate at all (the built-in,
  *   target-scoped since LUM-464, is the single detector); otherwise → a
  *   `push-target` predicate over the branches the rule names.
+ * - LUM-1114: a semantic rule without an assertion is judged on its own text —
+ *   otherwise nothing ever checks it (./rule-reachability);
  * - LUM-1114: rules that would detect exactly the same thing are merged into
  *   one (the others become aliases) — see ./rule-dedupe. Runs last, on the
  *   post-processed shapes, so two rules the safety nets made identical merge.
@@ -204,8 +206,15 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
       // LUM-1114: a stored rule re-run here keeps the ids merged into it.
       if (r.aliases != null && r.aliases.length > 0)
         rule.aliases = [...r.aliases]
-      if (r.assertion != null) rule.assertion = r.assertion
+      // LUM-1114: a semantic rule is judged on its assertion, and the model
+      // sometimes leaves it out (0–17 of ~25 rules across three compiles of
+      // the same file). Without one the judge skips the rule and no other
+      // detector reads it — it is stored and silently checks nothing. The
+      // rule's own text is the assertion then (rule-reachability).
+      const blankAssertion = r.assertion == null || r.assertion.trim() === ''
+      if (!blankAssertion) rule.assertion = r.assertion as string
       else if (
+        tier === 'semantic' ||
         obligationWithCmdSubstr ||
         (push && !hasPredicate && !hasBuiltin)
       )

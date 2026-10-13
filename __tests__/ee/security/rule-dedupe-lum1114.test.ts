@@ -11,7 +11,11 @@ import {
   dedupeRules,
   detectionKey,
 } from '@/ee/security/services/policy/rule-dedupe'
-import { compileRuleSet } from '@/ee/security/services/policy/policy-compiler.service'
+import {
+  BUILTIN_CATEGORIES,
+  compileRuleSet,
+} from '@/ee/security/services/policy/policy-compiler.service'
+import { ruleReach } from '@/ee/security/services/policy/rule-reachability'
 import { findRuleByRef, ruleRefs, ruleTextForRef } from '@/lib/policy/rule-ref'
 import { weakenedRules } from '@/lib/boundary-crossing/policy-weakening'
 import { rejudgeRow, type RejudgeRow } from '@/lib/boundary-crossing/rejudge'
@@ -271,5 +275,101 @@ describe('merged ids stay resolvable', () => {
       'STILL_MATCHES'
     )
     expect(rejudgeRow(row('echo ok'), [push]).verdict).toBe('NO_LONGER_MATCHES')
+  })
+})
+
+describe('every compiled code rule is checked by something (rule-reachability)', () => {
+  const builtins = new Set<string>(BUILTIN_CATEGORIES)
+  const raw = (
+    over: Partial<RawPolicyRule> & { text: string }
+  ): RawPolicyRule => ({
+    kind: 'code',
+    tier: 'semantic',
+    severity: 'LOW',
+    blocking: false,
+    ...over,
+  })
+
+  it('a semantic rule the model left without an assertion is judged on its text', () => {
+    const [withRegex, bare, blank] = compileRuleSet([
+      raw({
+        text: 'No console.log in production code',
+        predicate: { type: 'diff-regex', value: 'console\\.log\\(' },
+      }),
+      raw({ text: 'New domain logic goes in lib/services' }),
+      raw({ text: 'Use Prisma for all database access', assertion: '  ' }),
+    ])
+    expect(withRegex?.assertion).toBe('No console.log in production code')
+    expect(bare?.assertion).toBe('New domain logic goes in lib/services')
+    expect(blank?.assertion).toBe('Use Prisma for all database access')
+    for (const r of [withRegex, bare, blank])
+      expect(ruleReach(r!, builtins)).toBe('code-judge')
+  })
+
+  it('a model-written assertion is kept as is', () => {
+    const [r] = compileRuleSet([
+      raw({
+        text: 'No console.log',
+        assertion: 'Added code calls console.log',
+      }),
+    ])
+    expect(r?.assertion).toBe('Added code calls console.log')
+  })
+
+  it('classifies each consumer, and an action semantic rule stays unchecked', () => {
+    const rule = (over: Partial<PolicyRule>) =>
+      ({
+        id: 'x',
+        text: 't',
+        kind: 'code',
+        tier: 'semantic',
+        severity: 'LOW',
+        blocking: false,
+        ...over,
+      }) as PolicyRule
+    expect(
+      ruleReach(
+        rule({
+          kind: 'action',
+          tier: 'deterministic',
+          predicate: { type: 'cmd-substr', value: 'x' },
+        }),
+        builtins
+      )
+    ).toBe('action-predicate')
+    expect(
+      ruleReach(
+        rule({
+          tier: 'deterministic',
+          predicate: { type: 'diff-regex', value: 'x' },
+        }),
+        builtins
+      )
+    ).toBe('code-diff-regex')
+    expect(ruleReach(rule({ assertion: 'a' }), builtins)).toBe('code-judge')
+    expect(
+      ruleReach(
+        rule({
+          kind: 'action',
+          tier: 'deterministic',
+          mappedCategory: 'SENSITIVE_PATH_READ',
+          predicate: { type: 'path-glob', value: '~/.x' },
+        }),
+        builtins
+      )
+    ).toBe('sensitive-path')
+    expect(
+      ruleReach(
+        rule({ kind: 'action', mappedCategory: 'NEW_NPM_DEPENDENCY' }),
+        builtins
+      )
+    ).toBe('builtin')
+    expect(
+      ruleReach(rule({ assertion: undefined as unknown as string }), builtins)
+    ).toBe('unchecked')
+    // No action-side semantic checker exists — fixing that is a separate decision.
+    expect(ruleReach(rule({ kind: 'action', assertion: 'a' }), builtins)).toBe(
+      'unchecked'
+    )
   })
 })
