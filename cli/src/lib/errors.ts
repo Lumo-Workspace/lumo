@@ -83,5 +83,5 @@ export function cliUpgradeRequired(
  */
 export function serverLacksFeature(command: string | null): string {
   const what = command ? `\`lumo ${command}\`` : 'this command'
-  return `the Lumo server has no API for ${what} (HTTP 404) — it may not have deployed this feature yet. Retry after the next server deploy; if it persists, check LUMO_API_URL.`
+  return `the Lumo server has no API for ${what} (HTTP 404) — it may not have deployed this feature yet. Run it again once the server has been updated (not in a loop); if it persists, check LUMO_API_URL.`
 }

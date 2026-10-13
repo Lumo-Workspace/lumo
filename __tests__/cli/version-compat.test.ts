@@ -187,3 +187,26 @@ describe('commandPathOf', () => {
     expect(commandPathOf(root)).toBeNull()
   })
 })
+
+describe('scan follow-ups', () => {
+  it('does not tag a bearer request to a non-/api/ path', async () => {
+    const seen: Seen[] = []
+    const t = createVersionCompatTracker({ version: '1.117.0' })
+    await t.wrapFetch(recordingFetch(html404, seen))(
+      'https://other.example/v1/files',
+      BEARER
+    )
+    expect(seen[0]!.headers.has(CLI_VERSION_HEADER)).toBe(false)
+    expect(t.hintFor(1)).toBeNull()
+  })
+
+  it('drops the 404 hint once a later Lumo request got another answer (fallback path)', async () => {
+    const t = createVersionCompatTracker({ version: '1.117.0' })
+    await t.wrapFetch(recordingFetch(html404))('https://x/api/new', BEARER)
+    await t.wrapFetch(recordingFetch(() => json(500, { error: 'boom' })))(
+      'https://x/api/old',
+      BEARER
+    )
+    expect(t.hintFor(1)).toBeNull()
+  })
+})

@@ -9,7 +9,8 @@
  *   `lumo update` — unless the command already printed it (the server's error
  *   text says it, and most commands relay that text).
  * - A 404 answered with an HTML page (no API route at all, as opposed to a
- *   JSON "not found" for a missing resource) followed by a non-zero exit ends
+ *   JSON "not found" for a missing resource) as the last Lumo API response,
+ *   followed by a non-zero exit, ends
  *   with "the server may not have deployed this feature yet" instead of a
  *   bare `HTTP 404` — the case of a new command against an older server.
  *
@@ -61,6 +62,28 @@ async function readMinVersion(res: Response): Promise<string | null> {
   }
 }
 
+/**
+ * A Lumo API request: bearer-authenticated AND aimed at an `/api/` path (the
+ * npm registry and any other host never get the header or count toward a hint).
+ */
+function isLumoApiRequest(
+  input: Parameters<typeof fetch>[0],
+  init: RequestInit | undefined
+): boolean {
+  if (!hasBearer(input, init)) return false
+  const raw =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : (input as Request).url
+  try {
+    return new URL(raw).pathname.startsWith('/api/')
+  } catch {
+    return false
+  }
+}
+
 function isHtml(res: Response): boolean {
   return /text\/html/i.test(res.headers.get('content-type') ?? '')
 }
@@ -79,7 +102,7 @@ export function createVersionCompatTracker(opts: {
         input: Parameters<typeof fetch>[0],
         init?: Parameters<typeof fetch>[1]
       ) => {
-        const lumo = hasBearer(input, init)
+        const lumo = isLumoApiRequest(input, init)
         const res = await fetchImpl(
           input,
           lumo && opts.version
@@ -90,8 +113,11 @@ export function createVersionCompatTracker(opts: {
         if (res.status === 426) {
           tooOld = true
           minVersion = (await readMinVersion(res)) ?? minVersion
-        } else if (res.status === 404 && isHtml(res)) {
-          routeMissing = true
+        } else {
+          // Only the latest Lumo response counts: a command that fell back
+          // after a route-missing 404 (LUM-1093 style) and then failed for
+          // another reason must not blame the server's deploy.
+          routeMissing = res.status === 404 && isHtml(res)
         }
         return res
       }
