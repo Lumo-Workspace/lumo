@@ -41,7 +41,7 @@ const flag = (long: string, enumValues: string[] | null = null) => ({
   description: '',
 })
 
-const cmd = (flags: Record<string, unknown> = {}) => ({
+const cmd = (flags: Record<string, ReturnType<typeof flag>> = {}) => ({
   arguments: [],
   flags,
   hasSubcommands: false,
