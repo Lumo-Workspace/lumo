@@ -34,15 +34,23 @@ function normalise(text: string | undefined): string {
     .trim()
 }
 
-/** What the rule detects — equal keys mean an identical detector. */
+/**
+ * What the rule detects — equal keys mean an identical detector. A SEMANTIC
+ * rule is judged on its assertion, and one without an assertion is judged on
+ * nothing but its own text, so that text stands in for the assertion: two
+ * differently-worded semantic rules sharing a predicate are two rules (a
+ * compound checklist line must not vanish into a one-clause rule).
+ */
 export function detectionKey(rule: PolicyRule): string {
+  const judged =
+    rule.tier === 'semantic' ? (rule.assertion ?? rule.text) : rule.assertion
   return [
     rule.kind,
     rule.tier,
     rule.mappedCategory ?? '',
     rule.predicate?.type ?? '',
     rule.predicate?.value.trim() ?? '',
-    normalise(rule.assertion),
+    normalise(judged),
   ].join('\u0000')
 }
 

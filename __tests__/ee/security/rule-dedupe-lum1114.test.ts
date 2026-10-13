@@ -146,25 +146,51 @@ describe('dedupeRules', () => {
 })
 
 describe('compileRuleSet de-duplicates after the safety nets', () => {
+  const raw = (
+    text: string,
+    tier: 'deterministic' | 'semantic',
+    value: string
+  ): RawPolicyRule => ({
+    text,
+    kind: 'code',
+    tier,
+    predicate: { type: 'diff-regex', value },
+    severity: 'LOW',
+    blocking: false,
+  })
+
   it('the compiler output for one file carries each detector once', () => {
-    const raw = (text: string, value: string): RawPolicyRule => ({
-      text,
-      kind: 'code',
-      tier: 'semantic',
-      predicate: { type: 'diff-regex', value },
-      severity: 'LOW',
-      blocking: false,
-    })
     const rules = compileRuleSet([
-      raw('No console.log in production code', 'console\\.log\\('),
-      raw('Before opening a PR: no console.log', 'console\\.log\\('),
-      raw('Use async/await, not .then()', '\\.then\\('),
-      raw('Use async/await, not .then()', '\\.then\\('),
+      raw(
+        'No console.log in production code',
+        'deterministic',
+        'console\\.log\\('
+      ),
+      raw(
+        'Before opening a PR: no console.log',
+        'deterministic',
+        'console\\.log\\('
+      ),
+      raw('Use async/await, not .then()', 'semantic', '\\.then\\('),
+      raw('Use async/await, not .then()', 'semantic', '\\.then\\('),
     ])
     expect(rules.map(r => r.text)).toEqual([
       'No console.log in production code',
       'Use async/await, not .then()',
     ])
+  })
+
+  it('semantic rules without an assertion are told apart by their text', () => {
+    const rules = compileRuleSet([
+      raw('No console.log in production code', 'semantic', 'console\\.log\\('),
+      raw(
+        'Before opening a PR: tests pass, no console.log, branch names follow the convention',
+        'semantic',
+        'console\\.log\\('
+      ),
+    ])
+    expect(rules).toHaveLength(2)
+    expect(rules.every(r => r.aliases === undefined)).toBe(true)
   })
 })
 
