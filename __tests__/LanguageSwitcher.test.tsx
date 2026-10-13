@@ -7,6 +7,7 @@ import {
   SUPPORTED_LOCALES,
   QUICK_SWITCH_LOCALES,
   resolveLocale,
+  withCurrentLocale,
 } from '@/lib/i18n/locales'
 
 jest.mock('react-intl', () => ({
@@ -115,6 +116,26 @@ describe('locale option list is single-sourced', () => {
       const src = readFileSync(join(process.cwd(), file), 'utf8')
       expect(src).not.toMatch(/SelectItem value='(en|zh-CN|fr|ja)'/)
     }
+  })
+
+  it('shows a current locale that sits outside the quick-switch subset', () => {
+    // A French viewer must see "Français" on the trigger, not a blank one.
+    render(<LanguageSwitcher value='fr' onChange={jest.fn()} />)
+    const select = screen.getByTestId('language-select')
+    expect(select).toHaveValue('fr')
+    expect(screen.getByRole('option', { name: 'Français' })).toBeInTheDocument()
+  })
+
+  it('adds the current locale to the options only when it is missing and supported', () => {
+    expect(withCurrentLocale(QUICK_SWITCH_LOCALES, 'en')).toBe(
+      QUICK_SWITCH_LOCALES
+    )
+    expect(
+      withCurrentLocale(QUICK_SWITCH_LOCALES, 'ja').map(o => o.value)
+    ).toEqual([...QUICK_SWITCH_LOCALES.map(o => o.value), 'ja'])
+    expect(withCurrentLocale(QUICK_SWITCH_LOCALES, 'kl')).toBe(
+      QUICK_SWITCH_LOCALES
+    )
   })
 
   it('falls back to English for unknown and legacy values', () => {

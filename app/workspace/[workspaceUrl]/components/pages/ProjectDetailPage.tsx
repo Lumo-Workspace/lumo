@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
 import { buildSignalView } from '@/lib/summaries/signal-view'
+import { resolveLocale } from '@/lib/i18n/locales'
 import {
   ApiProject,
   ApiTask,
@@ -116,7 +117,11 @@ export function ProjectDetailPage({
   const { prefs, updatePreferences } = usePreferences()
   const handleLocaleChange = useCallback(
     (locale: string) => {
-      void updatePreferences({ locale: locale as Preferences['locale'] })
+      // A failed save is already surfaced (toast + rollback) by the hook;
+      // catching here only keeps the rejection from going unhandled.
+      updatePreferences({ locale: locale as Preferences['locale'] }).catch(
+        () => {}
+      )
     },
     [updatePreferences]
   )
@@ -194,7 +199,7 @@ export function ProjectDetailPage({
         onSlack={onSlack}
         onCopyLink={onCopyLink}
         copied={copied}
-        locale={prefs.locale}
+        locale={resolveLocale(prefs.locale)}
         onLocaleChange={handleLocaleChange}
       />
 

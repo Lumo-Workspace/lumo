@@ -5,8 +5,9 @@
  * Before this module the list lived inline in the Preferences page. A second
  * switcher (the project header) would have meant a second copy, and two copies
  * of a list drift: a locale added to one renders as an option the other cannot
- * show. Both switchers now read from here, so drift is a compile-time concern
- * rather than a review-time one.
+ * show. Both switchers now read from here, so they cannot disagree with each
+ * other. Keeping this list in step with the message catalogues is still manual
+ * (see SUPPORTED_LOCALES), guarded by a test rather than the compiler.
  *
  * Labels are deliberately NOT run through react-intl — a language picker is
  * read by someone who wants to *leave* the current language, so each option is
@@ -66,6 +67,21 @@ export const QUICK_SWITCH_LOCALES: readonly LocaleOption[] =
   QUICK_SWITCH_LOCALE_VALUES.map(
     value => SUPPORTED_LOCALES.find(o => o.value === value) as LocaleOption
   )
+
+/**
+ * The options a switcher should render for the viewer's current locale: the
+ * given options, plus the current locale when it is supported but not among
+ * them. Without this, a viewer whose locale sits outside the quick-switch
+ * subset (say `fr`) would see a blank trigger, with no hint of what they have.
+ */
+export function withCurrentLocale(
+  options: readonly LocaleOption[],
+  value: string
+): readonly LocaleOption[] {
+  if (options.some(o => o.value === value)) return options
+  const current = SUPPORTED_LOCALES.find(o => o.value === value)
+  return current ? [...options, current] : options
+}
 
 /**
  * Legacy preference values that predate the current locale set.

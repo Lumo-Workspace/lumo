@@ -12,6 +12,7 @@ import {
 import {
   QUICK_SWITCH_LOCALES,
   SUPPORTED_LOCALES,
+  withCurrentLocale,
   type LocaleOption,
 } from '@/lib/i18n/locales'
 
@@ -67,7 +68,7 @@ export function LanguageSwitcher({
         <SelectValue />
       </SelectTrigger>
       <SelectContent align={compact ? 'end' : 'start'}>
-        {options.map(option => (
+        {withCurrentLocale(options, value).map(option => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
           </SelectItem>
