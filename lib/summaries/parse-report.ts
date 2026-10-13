@@ -4,7 +4,9 @@ export interface ParsedReport {
 }
 
 const HEADERS = {
-  focus: ["## Today's Focus", '## 今日关注'],
+  // English, Simplified, and Traditional (LUM-1121: the zh-TW prompt asks for
+  // 今日焦點; 今日關注 is the character-converted form a model may still emit).
+  focus: ["## Today's Focus", '## 今日关注', '## 今日焦點', '## 今日關注'],
 }
 
 const BULLET_RE = /^[-*]\s+/

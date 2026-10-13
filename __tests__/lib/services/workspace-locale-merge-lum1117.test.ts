@@ -41,9 +41,9 @@ const update = workspaceRepository.update as jest.Mock
 beforeEach(() => jest.clearAllMocks())
 
 describe('summaryLanguageFor', () => {
-  it('writes Chinese summaries for both Chinese locales', () => {
+  it('writes Simplified for zh-CN and Traditional for zh-TW (LUM-1121)', () => {
     expect(summaryLanguageFor('zh-CN')).toBe('zh')
-    expect(summaryLanguageFor('zh-TW')).toBe('zh')
+    expect(summaryLanguageFor('zh-TW')).toBe('zh-Hant')
   })
 
   it('falls back to English for every other supported locale', () => {
