@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { taskTemplateKeySchema } from '@/lib/validation/task-template'
+import { PUBLIC_LOCALES } from '@/lib/i18n/public-locale'
 
 /**
  * Max length for rich-text body fields (HTML serialized client-side).
@@ -109,6 +110,9 @@ export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
     .optional(),
   // LUM-917: generate AI-derived content (memories, session / run summaries).
   aiDerivedContentEnabled: z.boolean().optional(),
+  // LUM-1097: default language — Slack channel posts and the DM fallback.
+  // Same codes as UserPreference.locale.
+  defaultLocale: z.enum(PUBLIC_LOCALES).optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────
