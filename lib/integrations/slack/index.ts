@@ -5,7 +5,7 @@ export type {
   CommandResult,
   CommandVisibility,
 } from './types'
-export { ALL_SLACK_EVENTS, SLACK_EVENT_LABELS } from './types'
+export { ALL_SLACK_EVENTS, SLACK_EVENT_LABEL_KEYS } from './types'
 
 // Notification functions
 export { sendChannelNotification, sendDMNotification } from './notify'

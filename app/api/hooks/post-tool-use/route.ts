@@ -39,6 +39,7 @@ export async function POST(request: Request) {
           toolName: ctx.toolName,
           filePath: ctx.filePath,
           payload: ctx.rawPayload,
+          sessionId: ctx.sessionId,
         })
       )
     },

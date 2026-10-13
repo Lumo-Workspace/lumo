@@ -10,6 +10,7 @@ import { readCache, writeCache, clearCache } from '../../cache'
 import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { DataRetentionSection } from '../settings/DataRetentionSection'
+import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
 import { PluginSlot } from '@/lib/plugins/client'
@@ -26,6 +27,7 @@ type Workspace = {
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency
   summaryLocale?: string
+  defaultLocale?: string
   hookEventRetentionDays?: number | null
   hookEventRetentionMode?: string
   crossingRawRetentionDays?: number
@@ -342,6 +344,20 @@ export function WorkspaceSettingsPage() {
             </div>
           </div>
         </div>
+
+        {/* Default language (LUM-1097): Slack channel posts + DM fallback.
+            Rendered once the real workspace row is loaded. */}
+        {isOwner && workspace?.id && (
+          <div className='rounded-lg border border-border overflow-hidden mb-8'>
+            <DefaultLanguageRow
+              key={`${workspace.id}:${workspace.defaultLocale ?? 'en'}`}
+              value={workspace.defaultLocale ?? 'en'}
+              onSaved={defaultLocale =>
+                setWorkspace(prev => (prev ? { ...prev, defaultLocale } : prev))
+              }
+            />
+          </div>
+        )}
 
         {/* Summary settings */}
         {isOwner && (

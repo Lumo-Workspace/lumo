@@ -14,6 +14,11 @@ export interface BoundaryDetectionInput {
   toolName: string | null
   filePath: string | null
   payload: unknown
+  /** LUM-1114: the session that ran the tool (a subagent child keeps its
+   *  `<root>:<agentId>` id), and when — used to tell a pkill of the
+   *  session's own background job from any other. Absent = unknown. */
+  sessionId?: string | null
+  occurredAt?: Date
 }
 
 export interface DetectedCrossing {
