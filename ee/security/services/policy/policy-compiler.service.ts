@@ -201,6 +201,9 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
       // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
       if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
       if (hasPredicate && predicate != null) rule.predicate = predicate
+      // LUM-1114: a stored rule re-run here keeps the ids merged into it.
+      if (r.aliases != null && r.aliases.length > 0)
+        rule.aliases = [...r.aliases]
       if (r.assertion != null) rule.assertion = r.assertion
       else if (
         obligationWithCmdSubstr ||

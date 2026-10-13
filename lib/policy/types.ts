@@ -57,6 +57,9 @@ export interface RawPolicyRule {
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
   blocking: boolean
   polarity?: 'forbid' | 'require' | undefined
+  /** LUM-1114: present when a STORED (already de-duplicated) rule is re-run
+   *  through the compiler — carried over so merged ids stay resolvable. */
+  aliases?: PolicyRuleAlias[] | undefined
 }
 
 export interface CompiledPolicy {

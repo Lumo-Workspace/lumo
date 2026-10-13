@@ -69,9 +69,18 @@ describe('dedupeRules', () => {
   it('never merges different detectors', () => {
     const out = dedupeRules([
       rule({ id: 'a', text: 'r1' }),
-      rule({ id: 'b', text: 'r2', predicate: { type: 'diff-regex', value: 'debugger' } }),
+      rule({
+        id: 'b',
+        text: 'r2',
+        predicate: { type: 'diff-regex', value: 'debugger' },
+      }),
       rule({ id: 'c', text: 'r3', kind: 'action' }),
-      rule({ id: 'd', text: 'r4', tier: 'semantic', assertion: 'no console.log' }),
+      rule({
+        id: 'd',
+        text: 'r4',
+        tier: 'semantic',
+        assertion: 'no console.log',
+      }),
       rule({ id: 'e', text: 'r5', mappedCategory: 'HARDCODED_SECRET' }),
       rule({
         id: 'f',
@@ -126,7 +135,11 @@ describe('dedupeRules', () => {
     )
     expect(detectionKey(rule({ id: 'a', text: 'one' }))).not.toBe(
       detectionKey(
-        rule({ id: 'a', text: 'one', predicate: { type: 'diff-regex', value: 'x' } })
+        rule({
+          id: 'a',
+          text: 'one',
+          predicate: { type: 'diff-regex', value: 'x' },
+        })
       )
     )
   })
@@ -155,6 +168,25 @@ describe('compileRuleSet de-duplicates after the safety nets', () => {
   })
 })
 
+describe('re-running a stored policy keeps its aliases', () => {
+  it('compileRuleSet carries aliases of an already-merged stored rule', () => {
+    const stored = rule({
+      id: 'a',
+      text: 'No console.log in production code',
+      tier: 'semantic',
+      aliases: [{ id: 'b', text: 'Before opening a PR: no console.log' }],
+    })
+    const [again] = compileRuleSet([stored])
+    expect(again?.aliases).toEqual([
+      { id: 'b', text: 'Before opening a PR: no console.log' },
+    ])
+    // The id is re-derived from the text; the alias still finds the rule.
+    expect(findRuleByRef(compileRuleSet([stored]), 'b')?.text).toBe(
+      'No console.log in production code'
+    )
+  })
+})
+
 describe('merged ids stay resolvable', () => {
   const merged = rule({
     id: 'a',
@@ -174,8 +206,18 @@ describe('merged ids stay resolvable', () => {
 
   it('a rule merged into another is not a policy weakening', () => {
     const prev = [
-      rule({ id: 'a', text: 'Never hardcode secrets', mappedCategory: 'HARDCODED_SECRET', blocking: true }),
-      rule({ id: 'b', text: 'No API keys in code', mappedCategory: 'HARDCODED_SECRET', blocking: true }),
+      rule({
+        id: 'a',
+        text: 'Never hardcode secrets',
+        mappedCategory: 'HARDCODED_SECRET',
+        blocking: true,
+      }),
+      rule({
+        id: 'b',
+        text: 'No API keys in code',
+        mappedCategory: 'HARDCODED_SECRET',
+        blocking: true,
+      }),
     ]
     expect(weakenedRules(prev, [merged])).toEqual([])
     // A rule really removed still is.
