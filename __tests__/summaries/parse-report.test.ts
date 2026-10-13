@@ -25,6 +25,30 @@ describe('parseReport', () => {
     expect(parsed.todayFocus).toHaveLength(2)
   })
 
+  it('parses Traditional Chinese headers (LUM-1121)', () => {
+    const input = `## 今日焦點
+
+- 排除 PR #42 的審查阻礙
+- 重新指派 AUTH 停滯任務`
+    const parsed = parseReport(input, 'zh-TW')
+    expect(parsed.todayFocus).toEqual([
+      '排除 PR #42 的審查阻礙',
+      '重新指派 AUTH 停滯任務',
+    ])
+  })
+
+  it('also accepts the character-converted Traditional heading', () => {
+    const parsed = parseReport('## 今日關注\n\n- 審查 PR #42', 'zh-TW')
+    expect(parsed.todayFocus).toEqual(['審查 PR #42'])
+  })
+
+  it('does not mistake another Traditional section for the focus', () => {
+    const input = `## 本週風險
+
+- 七項任務逾期`
+    expect(parseReport(input, 'zh-TW').todayFocus).toEqual([])
+  })
+
   it('tolerates asterisk bullets', () => {
     const input = `## Today's Focus
 

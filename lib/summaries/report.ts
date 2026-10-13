@@ -6,7 +6,10 @@ import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
 import { parseReport } from './parse-report'
-import { summaryLanguageFor } from '@/lib/i18n/summary-locale'
+import {
+  summaryLanguageFor,
+  type SummaryLanguage,
+} from '@/lib/i18n/summary-locale'
 
 // ─── System Prompts ──────────────────────────────────────────────────────────
 
@@ -47,6 +50,27 @@ export const SUMMARY_SYSTEM_PROMPT_ZH = `你是一位项目管理分析师，正
 - 坚持事实。你引用的每一个数字都必须来自统计数据。
 - 不写前言，不使用上述之外的任何小标题，不使用 emoji。
 - 如果没有紧急事项，"今日关注"可以较轻量（如"继续推进 X"）。`
+
+/** LUM-1121 — Traditional Chinese, worded for Taiwan (zh-TW workspaces). */
+export const SUMMARY_SYSTEM_PROMPT_ZH_HANT = `你是一位專案管理分析師，正在為工程主管撰寫每日站立會議的簡報。
+
+請輸出：
+- tldr: 一句話（≤ 35 字），概括主管今天最需要知道的一件事。
+- report: 一份 Markdown 報告，必須**只包含一個章節**：
+
+## 今日焦點
+2–4 個重點，每個重點必須：
+- 以動詞開頭（排除阻礙／審查／重新指派／修正／交付……）
+- ≤ 20 字
+- 盡可能引用具體的成員、任務或數字
+- 本週就能著手處理
+- 依優先順序排列（第一點最緊急）
+
+原則：
+- 全文使用繁體中文（台灣用語）撰寫，不要使用簡體字。
+- 以事實為依據。你引用的每一個數字都必須來自統計資料。
+- 不寫開場白，不使用上述以外的任何標題，不使用 emoji。
+- 如果沒有緊急事項，「今日焦點」可以寫得輕鬆一些（例如「持續推進 X」）。`
 
 // ─── Zod Schema ──────────────────────────────────────────────────────────────
 
@@ -191,14 +215,19 @@ ${projectBreakdownLines}`
 
 // ─── Report generators ────────────────────────────────────────────────────────
 
+const SYSTEM_PROMPTS: Record<SummaryLanguage, string> = {
+  en: SUMMARY_SYSTEM_PROMPT_EN,
+  zh: SUMMARY_SYSTEM_PROMPT_ZH,
+  'zh-Hant': SUMMARY_SYSTEM_PROMPT_ZH_HANT,
+}
+
 /**
  * LUM-1117: `locale` is the workspace's `defaultLocale`. Summaries exist in
- * English and Chinese only; every other language falls back to English.
+ * English, Simplified and (LUM-1121) Traditional Chinese; every other
+ * language falls back to English.
  */
 export function summarySystemPrompt(locale: string): string {
-  return summaryLanguageFor(locale) === 'zh'
-    ? SUMMARY_SYSTEM_PROMPT_ZH
-    : SUMMARY_SYSTEM_PROMPT_EN
+  return SYSTEM_PROMPTS[summaryLanguageFor(locale)]
 }
 
 export async function generateProjectReport(

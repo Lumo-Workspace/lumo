@@ -41,9 +41,29 @@ const update = workspaceRepository.update as jest.Mock
 beforeEach(() => jest.clearAllMocks())
 
 describe('summaryLanguageFor', () => {
-  it('writes Chinese summaries for both Chinese locales', () => {
+  it('writes Simplified for zh-CN and Traditional for zh-TW (LUM-1121)', () => {
     expect(summaryLanguageFor('zh-CN')).toBe('zh')
-    expect(summaryLanguageFor('zh-TW')).toBe('zh')
+    expect(summaryLanguageFor('zh-TW')).toBe('zh-Hant')
+  })
+
+  it.each([
+    ['zh-Hant', 'zh-Hant'],
+    ['zh-Hant-TW', 'zh-Hant'],
+    ['zh-HK', 'zh-Hant'],
+    ['zh-MO', 'zh-Hant'],
+    ['zh_TW', 'zh-Hant'],
+    ['ZH-tw', 'zh-Hant'],
+    ['zh-Hans', 'zh'],
+    ['zh-Hans-HK', 'zh'],
+    ['zh-SG', 'zh'],
+    ['zh', 'zh'],
+    // Only the script / region positions count; a script outranks a region.
+    ['zh-Latn-TW', 'zh'],
+    ['zh-CN-x-tw', 'zh'],
+    ['zh-CN-u-ca-hk', 'zh'],
+    ['zh-Hant-CN', 'zh-Hant'],
+  ])('maps %p to %p (LUM-1121)', (locale, expected) => {
+    expect(summaryLanguageFor(locale)).toBe(expected)
   })
 
   it('falls back to English for every other supported locale', () => {
