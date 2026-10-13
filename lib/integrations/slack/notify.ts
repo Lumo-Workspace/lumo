@@ -3,6 +3,8 @@ import { decrypt } from '@/lib/crypto'
 import { getSlackIntegrationToken } from './token'
 import { SlackMessage } from './blocks'
 import { buildNotificationMessage } from './notification-message'
+import { slackLocaleService } from '@/lib/services/slack-locale.service'
+import type { SlackLocale } from './i18n'
 import {
   SlackEventType,
   NotificationAudience,
@@ -57,12 +59,14 @@ async function resolveNames(
 async function buildMessage(
   event: SlackEventType,
   payload: NotificationPayload,
-  audience: NotificationAudience
+  audience: NotificationAudience,
+  locale: SlackLocale
 ): Promise<SlackMessage> {
   return buildNotificationMessage(
     event,
     await resolveNames(event, payload, audience),
-    audience
+    audience,
+    locale
   )
 }
 
@@ -124,7 +128,8 @@ async function lookupSlackUserByClerkId(
 
 /**
  * Send a notification to all configured SlackChannel rows that have this
- * event enabled. Fire-and-forget safe — never throws.
+ * event enabled, in the workspace's default language (LUM-1097).
+ * Fire-and-forget safe — never throws.
  */
 export async function sendChannelNotification(
   workspaceId: string,
@@ -148,7 +153,8 @@ export async function sendChannelNotification(
     if (!integration || integration.channels.length === 0) return
 
     const token = decrypt(integration.accessToken)
-    const message = await buildMessage(event, payload, 'channel')
+    const locale = await slackLocaleService.forWorkspace(workspaceId)
+    const message = await buildMessage(event, payload, 'channel', locale)
 
     await Promise.allSettled(
       integration.channels.map(c => postToChannel(token, c.channelId, message))
@@ -162,7 +168,8 @@ export async function sendChannelNotification(
 }
 
 /**
- * Send a DM to a Lumo workspace member identified by Clerk ID.
+ * Send a DM to a Lumo workspace member identified by Clerk ID, in their own
+ * language — the workspace default when they have none (LUM-1097).
  * Resolves their Slack user via primary email. Gracefully no-ops if not found.
  * Fire-and-forget safe — never throws.
  */
@@ -191,7 +198,11 @@ export async function sendDMNotification(
     const openData = await openRes.json()
     if (!openData.ok) return
 
-    const message = await buildMessage(event, payload, 'dm')
+    const locale = await slackLocaleService.forRecipient(
+      workspaceId,
+      recipientClerkId
+    )
+    const message = await buildMessage(event, payload, 'dm', locale)
     await postToChannel(token, openData.channel.id, message)
   } catch (error) {
     console.error(`[slack notify] sendDMNotification error (${event}):`, error)

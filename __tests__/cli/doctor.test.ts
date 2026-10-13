@@ -525,10 +525,11 @@ describe('fix round 1', () => {
       JSON.stringify({ lastSyncedVersion: null, installs })
     )
 
-  it('shouldAutoSync skips doctor and uninstall only', () => {
+  it('shouldAutoSync skips doctor, uninstall and skill only', () => {
     const argv = (c?: string) => ['node', 'lumo', ...(c ? [c] : [])]
     expect(shouldAutoSync(argv('doctor'))).toBe(false)
     expect(shouldAutoSync(argv('uninstall'))).toBe(false)
+    expect(shouldAutoSync(argv('skill'))).toBe(false)
     expect(shouldAutoSync(argv('hook'))).toBe(true)
     expect(shouldAutoSync(argv('task'))).toBe(true)
     expect(shouldAutoSync(argv())).toBe(true)

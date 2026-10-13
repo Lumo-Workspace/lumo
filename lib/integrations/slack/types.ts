@@ -19,15 +19,19 @@ export const ALL_SLACK_EVENTS: SlackEventType[] = [
   'comment_mention',
 ]
 
-export const SLACK_EVENT_LABELS: Record<SlackEventType, string> = {
-  task_created: 'Task created',
-  task_assigned: 'Task assigned',
-  task_in_review: 'Task in review',
-  task_done: 'Task done',
-  task_sent_back: 'Task sent back',
-  pr_opened: 'PR opened',
-  pr_merged: 'PR merged',
-  comment_mention: 'Comment mention',
+/**
+ * The react-intl message id of each event's label in the settings UI
+ * (LUM-1097 — translated in every locale, `slack.event.*`).
+ */
+export const SLACK_EVENT_LABEL_KEYS: Record<SlackEventType, string> = {
+  task_created: 'slack.event.task_created',
+  task_assigned: 'slack.event.task_assigned',
+  task_in_review: 'slack.event.task_in_review',
+  task_done: 'slack.event.task_done',
+  task_sent_back: 'slack.event.task_sent_back',
+  pr_opened: 'slack.event.pr_opened',
+  pr_merged: 'slack.event.pr_merged',
+  comment_mention: 'slack.event.comment_mention',
 }
 
 /** What a notification is about — drives the title line and mention label. */

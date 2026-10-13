@@ -9,8 +9,9 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
+- a hint naming `lumo update` (HTTP 426, CLI too old for the server) → `lumo update`; `may not have deployed this feature yet` (HTTP 404) → server needs a deploy — see [onboarding.md](references/onboarding.md)
 
-**Agent support:** Claude Code and Codex (`lumo init` sets up both). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn; relay it. Run `lumo` unpiped in Codex (Lumo rules let server-only commands out of the no-network sandbox; local-effect or `--file` ones (`session attach`, `doc create --file`) need approval); `fetch failed` there prints the fix. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
+**Agent support:** Claude Code and Codex (`lumo init` sets up both). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn (listing events that look untrusted); relay it. Run `lumo` unpiped in Codex (Lumo rules let server-only commands out of the no-network sandbox; local-effect or `--file` ones (`session attach`, `doc create --file`) need approval); `fetch failed` there prints the fix. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
 
 ## How this skill is organized
 
@@ -20,7 +21,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 | Domain                                                                                 | Read this reference                                                  |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `init`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)                 |
+| `init`, `skill`, `auth login/logout`, `whoami`, `update`                               | [references/onboarding.md](references/onboarding.md)                 |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
@@ -50,6 +51,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — set up skill + hooks for Claude Code and Codex (`--agent` = only that one; `setup` = hidden alias; `--upgrade` refreshes known installs, skipping modified/newer copies)
 - `lumo doctor [--json]` — read-only report of every Lumo install (skills, hooks, Codex rule, git hook): state + fix command; warns on missing hook events, `lumo` not on PATH, untrusted Codex hooks, no Codex network
+- `lumo skill status [--json]` · `lumo skill update [--user|--project] [--agent <t>] [--dry-run] [--force]` — report / refresh only the skill copies (never hooks) — see [onboarding.md](references/onboarding.md)
 - `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits) — see [onboarding.md](references/onboarding.md)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)

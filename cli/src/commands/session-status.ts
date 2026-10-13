@@ -7,7 +7,12 @@ import {
   noSessionMessage,
   resolveSessionId,
 } from '../lib/session-id'
-import { codexHooksSilentWarning } from '../lib/codex-hooks'
+import * as os from 'os'
+import {
+  codexHooksSilentWarning,
+  codexLikelyUntrustedEvents,
+  codexUntrustedEventsWarning,
+} from '../lib/codex-hooks'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
   commandLine,
@@ -328,6 +333,14 @@ export async function sessionStatus(): Promise<number | void> {
   // LUM-1051: a bound Codex session with no events = hooks not trusted.
   if (isCodexShell() && data.eventCount === 0) {
     console.error(codexHooksSilentWarning())
+  } else if (isCodexShell() && data.eventCount > 0) {
+    // LUM-1112: events arrive, yet some Lumo events look untrusted.
+    const untrusted = codexLikelyUntrustedEvents({
+      home: os.homedir(),
+      cwd: process.cwd(),
+    })
+    if (untrusted && untrusted.length > 0)
+      console.error(codexUntrustedEventsWarning(untrusted))
   }
   process.stdout.write(
     formatSessionStatus(sessionId, data, {
