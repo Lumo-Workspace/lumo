@@ -123,6 +123,55 @@ export function isRateLimited(error: unknown): boolean {
   )
 }
 
+/**
+ * LUM-1140 — one line for a failed GitHub call, for the logs: the HTTP status
+ * (`none` when the request never got a response), the error's own message
+ * (GitHub's `message` for an API error) and the chain of causes. Octokit (the
+ * token mint) reports a network failure as `status=500` with its cause's
+ * message, which for a refused or timed-out connection is EMPTY — the cause
+ * chain (`AggregateError ETIMEDOUT`) is what says what happened. Nothing here
+ * reads request headers, so no token reaches the log.
+ */
+export function describeGithubFailure(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return `status=none non-error ${typeof error}: ${String(error) || '(empty)'}`
+  }
+  const status = (error as { status?: unknown }).status
+  const parts = [
+    `status=${typeof status === 'number' ? status : 'none'}`,
+    `${error.name}: ${error.message || '(no message)'}`,
+  ]
+  let cause: unknown = (error as { cause?: unknown }).cause
+  for (let depth = 0; cause && depth < 3; depth++) {
+    if (cause instanceof Error) {
+      const code = (cause as { code?: unknown }).code
+      parts.push(
+        `cause=${cause.name}${typeof code === 'string' ? ` ${code}` : ''}${
+          cause.message ? `: ${cause.message}` : ''
+        }`
+      )
+      cause = (cause as { cause?: unknown }).cause
+    } else {
+      parts.push(`cause=${String(cause)}`)
+      break
+    }
+  }
+  return parts.join(' ').slice(0, 500)
+}
+
+/**
+ * LUM-1140 — a failure worth one more try: the request never got an answer
+ * (fetch's `TypeError`, or Octokit's network failure, which it reports as a
+ * 500) or GitHub answered 5xx. A 4xx — refused, not found, not confirmed —
+ * would fail the same way again; a rate limit has its own handling.
+ */
+export function isTransientGithubFailure(error: unknown): boolean {
+  if (!(error instanceof Error) || isRateLimited(error)) return false
+  const status = (error as { status?: unknown }).status
+  if (typeof status === 'number') return status >= 500
+  return error instanceof TypeError
+}
+
 /** Approve `sha`, then dismiss Lumo's earlier change requests. */
 async function approveAndDismiss(input: {
   repo: Repo
@@ -254,7 +303,10 @@ export const prReviewVerdictService = {
    * Lumo's App — `standingLumoReview`; a human's review is never touched,
    * and nothing is approved). Returns how many were dismissed. A listing
    * error or a rate limit throws (the caller decides); any other failed
-   * dismissal is logged and the rest still go.
+   * dismissal is logged and the rest still go — and if one of those failed
+   * transiently (`isTransientGithubFailure`), that error is thrown once the
+   * rest are done, so the caller's retry re-lists and dismisses what is still
+   * standing (an already-dismissed review is no longer CHANGES_REQUESTED).
    */
   async withdrawChangeRequests(input: {
     repo: Repo
@@ -265,6 +317,7 @@ export const prReviewVerdictService = {
       await prCommentClient.listReviews(input)
     )
     let dismissed = 0
+    let transient: unknown = null
     for (const reviewId of changesRequestedIds) {
       try {
         await prCommentClient.dismissReview({
@@ -277,11 +330,14 @@ export const prReviewVerdictService = {
         dismissed++
       } catch (error) {
         if (isRateLimited(error)) throw error
+        if (transient === null && isTransientGithubFailure(error))
+          transient = error
         logger.warn(
-          `[pr-review-verdict] withdraw failed pr=#${input.prNumber} review=${reviewId}: ${describe(error)}`
+          `[pr-review-verdict] withdraw failed pr=#${input.prNumber} review=${reviewId}: ${describeGithubFailure(error)}`
         )
       }
     }
+    if (transient !== null) throw transient
     return dismissed
   },
 }
