@@ -102,6 +102,16 @@ interface ThreadsPage {
   } | null
 }
 
+/**
+ * GraphQL types `resolvedBy` as `User` even when an App's bot resolved the
+ * thread — LUM-1127 prod (lumo-agent-test PR 22): `{ login: "uselumo[bot]",
+ * __typename: "User" }`. A GitHub login cannot contain brackets, so the
+ * `[bot]` suffix is what marks a bot account; report it as REST does (`Bot`).
+ */
+function accountType(login: string, typename: string): string {
+  return login.endsWith('[bot]') ? 'Bot' : typename
+}
+
 /** Pure; exported for tests. One GraphQL thread node → the wrapper's shape. */
 export function toReviewThreadState(node: ReviewThreadNode): ReviewThreadState {
   return {
@@ -109,7 +119,10 @@ export function toReviewThreadState(node: ReviewThreadNode): ReviewThreadState {
     isResolved: node.isResolved,
     isOutdated: node.isOutdated,
     resolvedBy: node.resolvedBy
-      ? { login: node.resolvedBy.login, type: node.resolvedBy.__typename }
+      ? {
+          login: node.resolvedBy.login,
+          type: accountType(node.resolvedBy.login, node.resolvedBy.__typename),
+        }
       : null,
     firstCommentId: node.comments.nodes[0]?.databaseId ?? null,
   }

@@ -464,6 +464,60 @@ describe('planThreadActions — a human-reopened thread is not re-addressed on t
   })
 })
 
+describe("planThreadActions — LUM-1127 a resolve Lumo made itself is not a human's", () => {
+  const lumoResolved = remote({
+    isResolved: true,
+    isOutdated: false,
+    resolvedBy: { login: 'uselumo[bot]', type: 'User' },
+  })
+
+  it('OPEN row, GitHub resolved by Lumo (GraphQL `User`) ⇒ never RESOLVED_BY_USER', () => {
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+    const plan = planThreadActions({
+      rows: [row({ state: 'OPEN' })],
+      findings: [],
+      open: [],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: new Map([['101', lumoResolved]]),
+    })
+    expect(plan.actions.map(a => a.kind)).toEqual(['ADDRESS'])
+  })
+
+  it('RESOLVED_BY_USER recorded for Lumo itself ⇒ healed to ADDRESSED, reopened when reported again', () => {
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+    const f = finding()
+    const plan = planThreadActions({
+      rows: [
+        row({ state: 'RESOLVED_BY_USER', resolvedByLogin: 'uselumo[bot]' }),
+      ],
+      findings: [f],
+      open: [f],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: new Map([['101', lumoResolved]]),
+    })
+    expect(plan.actions).toEqual([
+      expect.objectContaining({ kind: 'SET_STATE', state: 'ADDRESSED' }),
+      expect.objectContaining({ kind: 'REOPEN', threadId: 'PRRT_1' }),
+    ])
+  })
+
+  it('a human resolve through Lumo (`@app resolve`, reply) keeps RESOLVED_BY_USER', () => {
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+    const f = finding()
+    const plan = planThreadActions({
+      rows: [row({ state: 'RESOLVED_BY_USER', resolvedByLogin: 'alice' })],
+      findings: [f],
+      open: [f],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: new Map([['101', lumoResolved]]),
+    })
+    expect(plan.actions).toEqual([])
+  })
+})
+
 describe('applyReviewThreadEvent — the pull_request_review_thread webhook', () => {
   const event = {
     workspaceId: 'w1',
@@ -533,5 +587,8 @@ describe('applyReviewThreadEvent — the pull_request_review_thread webhook', ()
     expect(isLumoActor({ type: 'Bot', login: 'uselumo' })).toBe(true)
     expect(isLumoActor({ type: 'Bot', login: 'other[bot]' })).toBe(false)
     expect(isLumoActor({ type: 'User', login: 'uselumo' })).toBe(false)
+    // GraphQL `resolvedBy` types the bot `User` (LUM-1127 prod, PR 22).
+    expect(isLumoActor({ type: 'User', login: 'uselumo[bot]' })).toBe(true)
+    expect(isLumoActor({ type: 'User', login: 'other[bot]' })).toBe(false)
   })
 })
