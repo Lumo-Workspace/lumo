@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 /**
- * LUM-1136 — the members table's Connection cell. react-intl is mocked with
+ * LUM-1136 — the members table's connection UI: Agents cell, version status,
+ * expanded details, update banner and filter tabs. react-intl is mocked with
  * the real en copy so the rendered text is what the app shows.
  */
 const mockEn: Record<string, string> = require('@/lib/i18n/en.json')
@@ -12,6 +13,12 @@ const mockIntl = {
   locale: 'en',
   formatMessage: ({ id }: { id: string }, values?: Record<string, unknown>) => {
     let msg = mockEn[id] ?? id
+    // Minimal ICU plural support for the banner title.
+    msg = msg.replace(
+      /\{(\w+), plural, one \{([^}]*)\} other \{([^}]*)\}\}/,
+      (_m, k: string, one: string, other: string) =>
+        (values?.[k] === 1 ? one : other).split('#').join(String(values?.[k]))
+    )
     for (const [k, v] of Object.entries(values ?? {})) {
       msg = msg.split(`{${k}}`).join(String(v))
     }
@@ -19,11 +26,15 @@ const mockIntl = {
   },
 }
 
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import {
   MemberConnectionsCell,
   skillVersionLabel,
 } from '@/app/workspace/[workspaceUrl]/components/members/MemberConnectionsCell'
+import { MemberVersionStatus } from '@/app/workspace/[workspaceUrl]/components/members/MemberVersionStatus'
+import { MemberConnectionDetails } from '@/app/workspace/[workspaceUrl]/components/members/MemberConnectionDetails'
+import { ConnectionUpdateBanner } from '@/app/workspace/[workspaceUrl]/components/members/ConnectionUpdateBanner'
+import { MemberFilterTabs } from '@/app/workspace/[workspaceUrl]/components/members/MemberFilterTabs'
 import type { MemberConnectionView } from '@/lib/services/member-connection.service'
 import type { IntlShape } from 'react-intl'
 
@@ -38,7 +49,7 @@ const conn = (p: Partial<MemberConnectionView> = {}): MemberConnectionView => ({
   ...p,
 })
 
-describe('MemberConnectionsCell', () => {
+describe('MemberConnectionsCell (Agents column)', () => {
   it('shows a dash, not "Not connected", while loading or after a failed request', () => {
     render(<MemberConnectionsCell connections={undefined} unknown now={NOW} />)
     expect(screen.queryByText('Not connected')).toBeNull()
@@ -56,7 +67,7 @@ describe('MemberConnectionsCell', () => {
     expect(screen.getByText('Not connected')).toBeTruthy()
   })
 
-  it('renders one line per agent with CLI and skill versions', () => {
+  it('renders one chip per agent with its last-seen time and no versions', () => {
     const { container } = render(
       <MemberConnectionsCell
         connections={[conn(), conn({ agent: 'CODEX', skillVersion: 'source' })]}
@@ -65,54 +76,175 @@ describe('MemberConnectionsCell', () => {
       />
     )
     const text = container.textContent ?? ''
-    expect(text).toContain('Claude Code · 2h ago')
-    expect(text).toContain('CLI 1.121.0 · skill 1.121.0')
+    expect(text).toContain('Claude Code')
+    expect(text).toContain('2h ago')
     expect(text).toContain('Codex')
-    expect(text).toContain('skill from source')
+    expect(text).not.toContain('CLI 1.121.0')
+    expect(container.querySelectorAll('[aria-hidden] svg')).toHaveLength(2)
   })
+})
 
-  it('shows the agent logo chip', () => {
-    const { container } = render(
-      <MemberConnectionsCell
-        connections={[conn({ agent: 'CODEX' })]}
-        unknown={false}
-        now={NOW}
+describe('MemberVersionStatus', () => {
+  const statusOf = (container: HTMLElement) =>
+    container.querySelector('[data-status]')?.getAttribute('data-status')
+
+  it('dash while connections are unknown', () => {
+    render(
+      <MemberVersionStatus
+        connections={undefined}
+        latestCliVersion='1.121.0'
+        unknown
       />
     )
-    const chip = container.querySelector('[aria-hidden] svg')
-    expect(chip).not.toBeNull()
+    expect(screen.getByText('—')).toBeTruthy()
   })
 
-  it('marks behind versions with a hint', () => {
+  it('CLI behind → "Update available" with from → to', () => {
+    const { container } = render(
+      <MemberVersionStatus
+        connections={[conn({ cliVersion: '1.118.2', cliBehind: true })]}
+        latestCliVersion='1.121.0'
+        unknown={false}
+      />
+    )
+    expect(statusOf(container)).toBe('needsUpdate')
+    expect(screen.getByText('Update available')).toBeTruthy()
+    expect(screen.getByText('CLI 1.118.2 → 1.121.0')).toBeTruthy()
+  })
+
+  it('only the skill behind → skill detail', () => {
     render(
-      <MemberConnectionsCell
+      <MemberVersionStatus
+        connections={[conn({ skillBehind: true })]}
+        latestCliVersion='1.121.0'
+        unknown={false}
+      />
+    )
+    expect(screen.getByText('Skill behind its CLI')).toBeTruthy()
+  })
+
+  it('up to date shows the CLI in use', () => {
+    render(
+      <MemberVersionStatus
+        connections={[conn()]}
+        latestCliVersion='1.121.0'
+        unknown={false}
+      />
+    )
+    expect(screen.getByText('Up to date')).toBeTruthy()
+    expect(screen.getByText('CLI 1.121.0')).toBeTruthy()
+  })
+
+  it('unreported CLI → "Version unknown"; none → "Not connected"', () => {
+    const { container, rerender } = render(
+      <MemberVersionStatus
+        connections={[conn({ cliVersion: null })]}
+        latestCliVersion='1.121.0'
+        unknown={false}
+      />
+    )
+    expect(statusOf(container)).toBe('unknown')
+    rerender(
+      <MemberVersionStatus
+        connections={[]}
+        latestCliVersion='1.121.0'
+        unknown={false}
+      />
+    )
+    expect(statusOf(container)).toBe('notConnected')
+    expect(screen.getByText('Not connected')).toBeTruthy()
+  })
+})
+
+describe('MemberConnectionDetails', () => {
+  it('one card per connection with versions, tags and the fix command', () => {
+    const { container } = render(
+      <MemberConnectionDetails
         connections={[
+          conn(),
           conn({
-            cliVersion: '1.100.0',
-            skillVersion: '1.99.0',
+            agent: 'CODEX',
+            cliVersion: '1.118.2',
+            skillVersion: '1.118.2 modified',
             cliBehind: true,
-            skillBehind: true,
           }),
         ]}
-        unknown={false}
         now={NOW}
       />
     )
-    const marks = screen.getAllByText(/\(behind\)/)
-    expect(marks).toHaveLength(2)
-    expect(marks[0]?.getAttribute('title')).toContain('lumo update')
-    expect(marks[1]?.getAttribute('title')).toContain('lumo skill update')
+    const text = container.textContent ?? ''
+    expect(text).toContain('Last seen 2h ago')
+    expect(text).toContain('CLI 1.121.0')
+    expect(text).toContain('latest')
+    expect(text).toContain('skill 1.118.2 (modified)')
+    expect(screen.getAllByText('behind')).toHaveLength(1)
+    expect(screen.getByText('lumo update')).toBeTruthy()
   })
 
-  it('an old CLI that reported nothing shows "CLI version unknown"', () => {
-    render(
-      <MemberConnectionsCell
-        connections={[conn({ cliVersion: null, skillVersion: null })]}
-        unknown={false}
+  it('skill behind → lumo skill update; current → no command', () => {
+    const { rerender } = render(
+      <MemberConnectionDetails
+        connections={[conn({ skillBehind: true })]}
         now={NOW}
       />
     )
-    expect(screen.getByText('CLI version unknown')).toBeTruthy()
+    expect(screen.getByText('lumo skill update')).toBeTruthy()
+    rerender(<MemberConnectionDetails connections={[conn()]} now={NOW} />)
+    expect(screen.queryByText('To update, run:')).toBeNull()
+  })
+
+  it('no connections → setup commands', () => {
+    render(<MemberConnectionDetails connections={[]} now={NOW} />)
+    expect(screen.getByText('npm install -g @lumoai/cli')).toBeTruthy()
+    expect(screen.getByText('lumo init')).toBeTruthy()
+  })
+})
+
+describe('ConnectionUpdateBanner', () => {
+  it('pluralizes the count and wires both actions', () => {
+    const onShowWho = jest.fn()
+    const onDismiss = jest.fn()
+    const { rerender } = render(
+      <ConnectionUpdateBanner
+        count={2}
+        onShowWho={onShowWho}
+        onDismiss={onDismiss}
+      />
+    )
+    expect(screen.getByText('2 agent connections need an update.')).toBeTruthy()
+    fireEvent.click(screen.getByText('Show who'))
+    fireEvent.click(screen.getByLabelText('Dismiss'))
+    expect(onShowWho).toHaveBeenCalledTimes(1)
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+    rerender(
+      <ConnectionUpdateBanner
+        count={1}
+        onShowWho={onShowWho}
+        onDismiss={onDismiss}
+      />
+    )
+    expect(screen.getByText('1 agent connection needs an update.')).toBeTruthy()
+  })
+})
+
+describe('MemberFilterTabs', () => {
+  it('marks the active tab, shows known counts and reports clicks', () => {
+    const onChange = jest.fn()
+    render(
+      <MemberFilterTabs
+        value='all'
+        counts={{ all: 4, needsUpdate: 2 }}
+        onChange={onChange}
+      />
+    )
+    const all = screen.getByRole('button', { name: /All/ })
+    expect(all.getAttribute('aria-pressed')).toBe('true')
+    expect(all.textContent).toBe('All4')
+    expect(
+      screen.getByRole('button', { name: /Not connected/ }).textContent
+    ).toBe('Not connected')
+    fireEvent.click(screen.getByRole('button', { name: /Needs update/ }))
+    expect(onChange).toHaveBeenCalledWith('needsUpdate')
   })
 })
 
