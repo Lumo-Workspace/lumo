@@ -38,6 +38,7 @@ const ALL_ON = {
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
   securityLearningsScope: 'auto' as const,
+  securityReviewAutoPauseAfter: 5,
 }
 
 function renderCard(
@@ -67,6 +68,7 @@ beforeEach(() => {
             securityHuntEnabled: u.all,
             securityRequestChangesEnabled: false,
             securityLearningsScope: 'auto' as const,
+            securityReviewAutoPauseAfter: 5,
           }
         : { ...ALL_ON, ...u },
   }))
@@ -109,6 +111,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
         securityHuntEnabled: false,
         securityRequestChangesEnabled: false,
         securityLearningsScope: 'auto',
+        securityReviewAutoPauseAfter: 5,
       })
     )
   })
@@ -134,6 +137,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
       securityHuntEnabled: false,
       securityRequestChangesEnabled: false,
       securityLearningsScope: 'auto',
+      securityReviewAutoPauseAfter: 5,
     })
     fireEvent.click(screen.getByRole('button', { name: 'Enable all' }))
     await waitFor(() =>
@@ -250,4 +254,31 @@ it('LUM-1134 choosing global warns that public repositories may draw on private 
   expect(
     screen.getByTestId('learnings-scope-global-warning').textContent
   ).toMatch(/public repositories/i)
+})
+
+describe('LUM-1137 pause automatic review after N reviewed commits', () => {
+  const pauseAfter = () =>
+    screen.getByRole('spinbutton', {
+      name: 'Pause automatic review after',
+    }) as HTMLInputElement
+
+  it('shows the stored value (default 5) and saves a change with the other switches', async () => {
+    renderCard()
+    expect(pauseAfter().value).toBe('5')
+    fireEvent.change(pauseAfter(), { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityReviewAutoPauseAfter: 0 })
+      )
+    )
+  })
+
+  it('clamps to 0–100 and is locked while the scan is off', () => {
+    renderCard()
+    fireEvent.change(pauseAfter(), { target: { value: '250' } })
+    expect(pauseAfter().value).toBe('100')
+    fireEvent.click(toggle('Security scan'))
+    expect(pauseAfter()).toBeDisabled()
+  })
 })

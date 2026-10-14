@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Раунды автоматической проверки ИИ: {rounds}/{limit}",
+  "securityScan.review.rounds": "Автоматическая проверка ИИ: проверено коммитов {rounds}/{limit}",
   "securityScan.stageState.PAUSED": "приостановлено — запросите ручную проверку",
-  "securityScan.stageReason.PAUSED": "Автоматические проверки ИИ приостановлены или достигли лимита. Этот коммит проверен не полностью. Запросите проверку или возобновите автоматические проверки.",
+  "securityScan.stageReason.PAUSED": "Автоматические проверки ИИ для этого PR приостановлены (рецензентом или после лимита проверенных коммитов). Этот коммит проверен не полностью. Запросите проверку или возобновите автоматические проверки.",
   "securityScan.review.incremental": "Проверить изменения",
   "securityScan.review.full": "Проверить весь PR",
   "securityScan.review.pause": "Приостановить автопроверки",
@@ -2844,5 +2844,10 @@
   "workspaceSettings.policyCoverage.allChecked": "Все правила ({total}) проверяются автоматически.",
   "workspaceSettings.policyCoverage.someUnchecked": "Не проверяются автоматически: {unchecked} из {total} правил.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Требует оценки команд или процесса. Автоматической проверки для правил такого типа пока нет.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Это правило проверяет только ИИ-ревью, а ИИ-ревью выключено выше."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Это правило проверяет только ИИ-ревью, а ИИ-ревью выключено выше.",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Приостанавливать автоматическую проверку после",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Каждый push в открытый pull request получает автоматическую ИИ-проверку изменений. После такого числа проверенных коммитов в одном pull request автоматические проверки приостанавливаются, пока кто-нибудь не запросит проверку или не возобновит их. 0 — никогда не приостанавливать. По умолчанию 5.",
+  "securityScan.stageState.RATE_LIMITED": "лимит частоты — автоматическая проверка возобновится в течение часа",
+  "securityScan.stageReason.RATE_LIMITED": "Автор PR достиг часового лимита автоматических ИИ-проверок, поэтому этот коммит проверен не полностью. Следующий push после сброса лимита будет проверен автоматически; запросите проверку, чтобы проверить этот коммит сейчас.",
+  "securityScan.review.roundsNoLimit": "Автоматическая проверка ИИ: проверено коммитов {rounds} · без паузы"
 }

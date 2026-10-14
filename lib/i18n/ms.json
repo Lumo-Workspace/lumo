@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Pusingan semakan AI automatik: {rounds}/{limit}",
+  "securityScan.review.rounds": "Semakan AI automatik: {rounds}/{limit} komit disemak",
   "securityScan.stageState.PAUSED": "dijeda — minta semakan manual",
-  "securityScan.stageReason.PAUSED": "Pemeriksaan AI automatik dijeda atau mencapai had pusingan. Komit ini belum disemak sepenuhnya. Minta semakan atau sambung semakan automatik.",
+  "securityScan.stageReason.PAUSED": "Pemeriksaan AI automatik dijeda pada PR ini (oleh penyemak, atau selepas had komit yang disemak). Komit ini belum disemak sepenuhnya. Minta semakan atau sambung semakan automatik.",
   "securityScan.review.incremental": "Semak perubahan",
   "securityScan.review.full": "Semak seluruh PR",
   "securityScan.review.pause": "Jeda semakan automatik",
@@ -2844,5 +2844,10 @@
   "workspaceSettings.policyCoverage.allChecked": "Kesemua {total} peraturan disemak secara automatik.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} daripada {total} peraturan tidak disemak secara automatik.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Memerlukan pertimbangan tentang arahan atau proses. Belum ada semakan automatik untuk jenis peraturan ini.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya semakan AI yang menyemak peraturan ini, dan semakan AI dimatikan di atas."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya semakan AI yang menyemak peraturan ini, dan semakan AI dimatikan di atas.",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Jeda semakan automatik selepas",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Setiap push ke pull request yang terbuka mendapat semakan AI automatik atas perubahannya. Selepas sebanyak ini commit disemak pada satu pull request, semakan automatik dijeda sehingga seseorang meminta semakan atau menyambungnya. 0 = tidak pernah dijeda. Lalai 5.",
+  "securityScan.stageState.RATE_LIMITED": "had kadar dicapai — semakan automatik bersambung dalam sejam",
+  "securityScan.stageReason.RATE_LIMITED": "Pengarang PR mencapai had sejam semakan AI automatik, jadi commit ini belum disemak sepenuhnya. Push seterusnya selepas had ditetapkan semula disemak secara automatik; minta semakan untuk menyemak commit ini sekarang.",
+  "securityScan.review.roundsNoLimit": "Semakan AI automatik: {rounds} komit disemak · tidak pernah dijeda"
 }

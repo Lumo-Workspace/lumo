@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Rondas de revisión automática de IA: {rounds}/{limit}",
+  "securityScan.review.rounds": "Revisión automática de IA: {rounds}/{limit} commits revisados",
   "securityScan.stageState.PAUSED": "en pausa — solicita una revisión manual",
-  "securityScan.stageReason.PAUSED": "Las comprobaciones automáticas de IA están en pausa o han alcanzado el límite de rondas. Este commit no se ha revisado por completo. Solicita una revisión o reanuda las revisiones automáticas.",
+  "securityScan.stageReason.PAUSED": "Las comprobaciones automáticas de IA están en pausa en este PR (por un revisor o después de su límite de commits revisados). Este commit no se revisó por completo. Solicita una revisión o reanuda las revisiones automáticas.",
   "securityScan.review.incremental": "Revisar cambios",
   "securityScan.review.full": "Revisar toda la PR",
   "securityScan.review.pause": "Pausar revisiones automáticas",
@@ -2844,5 +2844,10 @@
   "workspaceSettings.policyCoverage.allChecked": "Las {total} reglas se verifican automáticamente.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} de {total} reglas no se verifican automáticamente.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Requiere evaluar comandos o procesos. Todavía no existe una verificación automática para este tipo de regla.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Solo la revisión con IA verifica esta regla, y la revisión con IA está desactivada arriba."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Solo la revisión con IA verifica esta regla, y la revisión con IA está desactivada arriba.",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Pausar la revisión automática después de",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Cada push a un pull request abierto recibe una revisión automática con IA de lo que cambió. Después de esta cantidad de commits revisados en un pull request, las revisiones automáticas se pausan hasta que alguien pida una revisión o las reanude. 0 = nunca pausar. Predeterminado 5.",
+  "securityScan.stageState.RATE_LIMITED": "límite de frecuencia — la revisión automática se reanuda en menos de una hora",
+  "securityScan.stageReason.RATE_LIMITED": "El autor del PR alcanzó el límite por hora de revisiones automáticas con IA, así que este commit no se revisó por completo. El siguiente push después de que se reinicie el límite se revisa automáticamente; solicita una revisión para revisar este commit ahora.",
+  "securityScan.review.roundsNoLimit": "Revisión automática de IA: {rounds} commits revisados · nunca se pausa"
 }

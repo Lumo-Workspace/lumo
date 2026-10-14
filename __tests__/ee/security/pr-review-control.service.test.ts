@@ -9,6 +9,11 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: { update: jest.fn(), get: jest.fn() },
 }))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findReviewAutoPauseAfter: jest.fn().mockResolvedValue(5),
+  },
+}))
 jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
@@ -35,7 +40,16 @@ test('a member can request a manual full review only for a PR resolved in their 
 })
 
 test('resume updates the durable budget without queuing a review', async () => {
-  await prReviewControlService.act('workspace', 7, 'o/r', 'resume', 2)
+  ;(prReviewControlRepository.get as jest.Mock).mockResolvedValue({
+    reviewPaused: false,
+    reviewHeads: [],
+    reviewHeadCommits: [],
+    reviewCommitLimit: 2,
+  })
+  // LUM-1137: answers with the budget as the readouts show it.
+  expect(
+    await prReviewControlService.act('workspace', 7, 'o/r', 'resume', 2)
+  ).toEqual({ paused: false, rounds: 0, limit: 2, unit: 'commits' })
   expect(prReviewControlRepository.update).toHaveBeenCalledWith(
     'pr',
     'resume',

@@ -4,6 +4,7 @@
  *
  * `Workspace.{securityPolicy, securityScanEnabled, securityAiReviewEnabled,
  * securityHuntEnabled, securityRequestChangesEnabled, securityLearningsScope,
+ * securityReviewAutoPauseAfter,
  * scanEvidenceRetentionDays}` and
  * `ProjectRepository.{lastSarifIngestAt, securityBaseline}` stay in the one
  * core schema (migrations are never deleted), but only the plugin reads or
@@ -20,6 +21,7 @@ import {
   parseLearningsScope,
   type LearningsScope,
 } from '@/ee/security/security-scan/learnings-scope'
+import { parseAutoPauseAfter } from '@/ee/security/security-scan/review-control'
 
 export const securityColumnsRepository = {
   // ── Workspace ──────────────────────────────────────────────────────────────
@@ -75,6 +77,16 @@ export const securityColumnsRepository = {
     return parseLearningsScope(row?.securityLearningsScope)
   },
 
+  /** LUM-1137: pause automatic review after this many reviewed commits
+   *  (0 = never); the default (5) when the workspace is missing. */
+  async findReviewAutoPauseAfter(id: string): Promise<number> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityReviewAutoPauseAfter: true },
+    })
+    return parseAutoPauseAfter(row?.securityReviewAutoPauseAfter)
+  },
+
   /** LUM-866: the three security-scan switches (+ LUM-1130's request-changes
    *  workflow and LUM-1134's learnings scope); null when the workspace is
    *  missing — resolve with `resolveSecurityLayers`. */
@@ -87,12 +99,16 @@ export const securityColumnsRepository = {
         securityHuntEnabled: true,
         securityRequestChangesEnabled: true,
         securityLearningsScope: true,
+        securityReviewAutoPauseAfter: true,
       },
     })
     if (!row) return null
     return {
       ...row,
       securityLearningsScope: parseLearningsScope(row.securityLearningsScope),
+      securityReviewAutoPauseAfter: parseAutoPauseAfter(
+        row.securityReviewAutoPauseAfter
+      ),
     }
   },
 

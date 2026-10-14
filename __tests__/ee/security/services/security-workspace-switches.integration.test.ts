@@ -168,6 +168,7 @@ const ALL_ON = {
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
   securityLearningsScope: 'auto' as const,
+  securityReviewAutoPauseAfter: 5,
 }
 const switches = (patch: Partial<typeof ALL_ON>) =>
   colRepo.findSecuritySwitches.mockResolvedValue({ ...ALL_ON, ...patch })
@@ -418,6 +419,9 @@ describe('LUM-866 workspace hunt switch off', () => {
     expect(persisted().stages.hunt).toBe('PENDING')
   })
 })
+jest.mock('@/ee/security/services/auto-review-admission.service', () =>
+  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
+)
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),

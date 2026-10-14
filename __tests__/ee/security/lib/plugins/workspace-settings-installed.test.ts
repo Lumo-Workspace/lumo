@@ -23,6 +23,8 @@ const SECURITY_COLUMNS = [
   'securityRequestChangesEnabled',
   // LUM-1134: the learnings scope.
   'securityLearningsScope',
+  // LUM-1137: pause automatic review after N reviewed commits.
+  'securityReviewAutoPauseAfter',
 ]
 
 describe('installed (the security plugin)', () => {
@@ -64,6 +66,15 @@ describe('installed (the security plugin)', () => {
     expect(schema.safeParse({ securityLearningsScope: 'org' }).success).toBe(
       false
     )
+    // LUM-1137: the pause-after is a whole number 0–100 (0 = never).
+    for (const v of [0, 5, 100])
+      expect(
+        schema.safeParse({ securityReviewAutoPauseAfter: v }).success
+      ).toBe(true)
+    for (const v of [-1, 101, 1.5])
+      expect(
+        schema.safeParse({ securityReviewAutoPauseAfter: v }).success
+      ).toBe(false)
     expect(
       schema.safeParse({
         securityPolicy: {
@@ -106,6 +117,7 @@ describe('installed (the security plugin)', () => {
         'securityHuntEnabled',
         'securityRequestChangesEnabled',
         'securityLearningsScope',
+        'securityReviewAutoPauseAfter',
       ].sort()
     )
     expect(audited['workspace.retention_updated']).toContain(

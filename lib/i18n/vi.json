@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Lượt đánh giá AI tự động: {rounds}/{limit}",
+  "securityScan.review.rounds": "Đánh giá AI tự động: đã đánh giá {rounds}/{limit} commit",
   "securityScan.stageState.PAUSED": "đã tạm dừng — yêu cầu đánh giá thủ công",
-  "securityScan.stageReason.PAUSED": "Kiểm tra AI tự động đã tạm dừng hoặc đạt giới hạn lượt. Commit này chưa được đánh giá đầy đủ. Hãy yêu cầu đánh giá hoặc tiếp tục đánh giá tự động.",
+  "securityScan.stageReason.PAUSED": "Kiểm tra AI tự động đang tạm dừng trên PR này (do người đánh giá, hoặc sau giới hạn số commit đã đánh giá). Commit này chưa được đánh giá đầy đủ. Hãy yêu cầu đánh giá hoặc tiếp tục đánh giá tự động.",
   "securityScan.review.incremental": "Đánh giá thay đổi",
   "securityScan.review.full": "Đánh giá toàn bộ PR",
   "securityScan.review.pause": "Tạm dừng đánh giá tự động",
@@ -2844,5 +2844,10 @@
   "workspaceSettings.policyCoverage.allChecked": "Cả {total} quy tắc đều được kiểm tra tự động.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} trong {total} quy tắc không được kiểm tra tự động.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Cần đánh giá về lệnh hoặc quy trình. Hiện chưa có bước kiểm tra tự động cho loại quy tắc này.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Chỉ có đánh giá bằng AI kiểm tra quy tắc này, và đánh giá bằng AI đang tắt ở trên."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Chỉ có đánh giá bằng AI kiểm tra quy tắc này, và đánh giá bằng AI đang tắt ở trên.",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Tạm dừng đánh giá tự động sau",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Mỗi lần push vào pull request đang mở đều được AI tự động đánh giá phần thay đổi. Sau từng này commit đã được đánh giá trên một pull request, đánh giá tự động tạm dừng cho đến khi có người yêu cầu đánh giá hoặc tiếp tục lại. 0 = không bao giờ tạm dừng. Mặc định 5.",
+  "securityScan.stageState.RATE_LIMITED": "bị giới hạn tần suất — đánh giá tự động tiếp tục trong vòng một giờ",
+  "securityScan.stageReason.RATE_LIMITED": "Tác giả PR đã chạm giới hạn số lần AI tự động đánh giá mỗi giờ, nên commit này chưa được đánh giá đầy đủ. Lần push tiếp theo sau khi giới hạn được đặt lại sẽ được đánh giá tự động; hãy yêu cầu đánh giá để kiểm tra commit này ngay.",
+  "securityScan.review.roundsNoLimit": "Đánh giá AI tự động: đã đánh giá {rounds} commit · không bao giờ tạm dừng"
 }

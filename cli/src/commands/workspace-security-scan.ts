@@ -15,6 +15,8 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   requestChanges?: string
   /** LUM-1134 — local | global | auto (which repositories' learnings). */
   learningsScope?: string
+  /** LUM-1137 — pause automatic review after N reviewed commits (0 = never). */
+  autoPauseAfter?: string
   disableAll?: boolean
   enableAll?: boolean
   json?: boolean
@@ -34,14 +36,19 @@ export interface SecurityScanSwitches {
   securityRequestChangesEnabled?: boolean
   /** LUM-1134 — absent on a server older than the setting (reads as auto). */
   securityLearningsScope?: LearningsScope
+  /** LUM-1137 — absent on a server older than the setting (reads as 5). */
+  securityReviewAutoPauseAfter?: number
 }
 
 /** LUM-1134 — CodeRabbit's `knowledge_base.learnings.scope` values. */
 export type LearningsScope = 'local' | 'global' | 'auto'
 const LEARNINGS_SCOPES: readonly LearningsScope[] = ['local', 'global', 'auto']
 
-/** The on/off switches (everything but the learnings scope). */
-type OnOffSwitch = Exclude<keyof SecurityScanSwitches, 'securityLearningsScope'>
+/** The on/off switches (everything but the learnings scope and pause-after). */
+type OnOffSwitch = Exclude<
+  keyof SecurityScanSwitches,
+  'securityLearningsScope' | 'securityReviewAutoPauseAfter'
+>
 
 export interface SecurityScanSettingsView {
   switches: SecurityScanSwitches
@@ -84,6 +91,17 @@ function parseLearningsScope(value: string): LearningsScope {
   return scope
 }
 
+/** LUM-1137 — a whole number of reviewed commits, 0–100 (0 = never pause). */
+function parseAutoPauseAfter(value: string): number {
+  const v = value.trim()
+  const n = /^\d+$/.test(v) ? Number(v) : NaN
+  if (!Number.isInteger(n) || n < 0 || n > 100)
+    throw new Error(
+      `--auto-pause-after takes a whole number from 0 to 100 (0 = never pause; got "${value}")`
+    )
+  return n
+}
+
 /**
  * The PATCH body the flags ask for, or null when no change was asked for
  * (a plain read). Throws on a conflicting or malformed combination.
@@ -105,6 +123,10 @@ export function buildSecurityScanUpdate(
     )
   if (opts.learningsScope !== undefined)
     singles.securityLearningsScope = parseLearningsScope(opts.learningsScope)
+  if (opts.autoPauseAfter !== undefined)
+    singles.securityReviewAutoPauseAfter = parseAutoPauseAfter(
+      opts.autoPauseAfter
+    )
 
   if (opts.disableAll && opts.enableAll) {
     throw new Error('use either --disable-all or --enable-all, not both')
@@ -113,7 +135,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes / --learnings-scope'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes / --learnings-scope / --auto-pause-after'
       )
     }
     return { all }
@@ -241,6 +263,13 @@ export function formatSecurityScanSettings(
   }
   if (s.switches.securityLearningsScope !== undefined) {
     lines.push(`Learnings scope: ${s.switches.securityLearningsScope}`)
+  }
+  // LUM-1137: every push is reviewed until N reviewed commits.
+  const pauseAfter = s.switches.securityReviewAutoPauseAfter
+  if (pauseAfter !== undefined) {
+    lines.push(
+      `Automatic review: every push · ${pauseAfter === 0 ? 'never pauses' : `pauses after ${pauseAfter} reviewed commits`}`
+    )
   }
   if (!s.switches.securityScanEnabled) {
     lines.push('', 'Security scanning is off for this workspace.')

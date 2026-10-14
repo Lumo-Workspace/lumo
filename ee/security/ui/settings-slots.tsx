@@ -9,6 +9,7 @@
 import type { ClientSlotProps } from '@/lib/plugins/client'
 import type { PlatformSecurityCeiling } from '@/ee/security/security-scan/workspace-switches'
 import { parseLearningsScope } from '@/ee/security/security-scan/learnings-scope'
+import { parseAutoPauseAfter } from '@/ee/security/security-scan/review-control'
 import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { ScanEvidenceRetentionRow } from '@/ee/security/components/settings/ScanEvidenceRetentionRow'
 import { PolicyCoverageCard } from '@/ee/security/components/settings/PolicyCoverageCard'
@@ -48,6 +49,10 @@ export function SecuritySettingsSection({
           // LUM-1134: auto unless the workspace chose otherwise.
           securityLearningsScope: parseLearningsScope(
             workspace.securityLearningsScope
+          ),
+          // LUM-1137: 5 unless the workspace chose otherwise (0 = never).
+          securityReviewAutoPauseAfter: parseAutoPauseAfter(
+            workspace.securityReviewAutoPauseAfter
           ),
         }}
         huntAvailable={platform.hunt}

@@ -217,6 +217,7 @@ describe('settings slots', () => {
         securityRequestChangesEnabled: false,
         // LUM-1134: absent on the row ⇒ auto (the column default).
         securityLearningsScope: 'auto',
+        securityReviewAutoPauseAfter: 5,
       },
       huntAvailable: true,
       sandboxAvailable: false,

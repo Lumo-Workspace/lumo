@@ -10,11 +10,14 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-test('reservations are serializable and concurrent heads cannot admit more than two rounds', async () => {
+const limit2 = { commitsAtHead: null, workspaceLimit: 2 }
+
+test('reservations are serializable and concurrent heads cannot admit more than two commits', async () => {
   const control = {
     reviewPaused: false,
-    reviewRoundLimit: 2,
+    reviewCommitLimit: null,
     reviewHeads: [] as string[],
+    reviewHeadCommits: [] as number[],
   }
   const read = prisma.pullRequest.findUniqueOrThrow as jest.Mock
   const write = prisma.pullRequest.update as jest.Mock
@@ -24,6 +27,7 @@ test('reservations are serializable and concurrent heads cannot admit more than 
   }))
   write.mockImplementation(async ({ data }) => {
     control.reviewHeads.push(data.reviewHeads.push)
+    control.reviewHeadCommits = data.reviewHeadCommits
   })
   let tail = Promise.resolve()
   const tx = prisma.$transaction as jest.Mock
@@ -36,13 +40,14 @@ test('reservations are serializable and concurrent heads cannot admit more than 
   })
   const admitted = await Promise.all(
     ['a', 'b', 'c', 'd'].map(head =>
-      prReviewControlRepository.reserve('pr', head)
+      prReviewControlRepository.reserve('pr', head, limit2)
     )
   )
   expect(admitted.filter(Boolean)).toHaveLength(2)
   expect(control.reviewHeads).toEqual(['a', 'b'])
-  expect(await prReviewControlRepository.reserve('pr', 'a')).toBe(true)
+  expect(await prReviewControlRepository.reserve('pr', 'a', limit2)).toBe(true)
   expect(control.reviewHeads).toHaveLength(2)
+  expect(control.reviewHeadCommits).toEqual([0, 0])
 })
 
 test('serialization conflicts re-read current state; pause denies even a previously admitted head', async () => {
@@ -52,10 +57,11 @@ test('serialization conflicts re-read current state; pause denies even a previou
   ).mockImplementationOnce(fn => fn(prisma))
   ;(prisma.pullRequest.findUniqueOrThrow as jest.Mock).mockResolvedValueOnce({
     reviewPaused: true,
-    reviewRoundLimit: 2,
+    reviewCommitLimit: null,
     reviewHeads: ['a'],
+    reviewHeadCommits: [1],
   })
-  expect(await prReviewControlRepository.reserve('pr', 'a')).toBe(false)
+  expect(await prReviewControlRepository.reserve('pr', 'a', limit2)).toBe(false)
 })
 
 test('resume clears reservations and applies the configured limit; reads return persisted control', async () => {
@@ -64,15 +70,21 @@ test('resume clears reservations and applies the configured limit; reads return 
   await prReviewControlRepository.update('pr', 'resume', 3)
   expect(write).toHaveBeenLastCalledWith({
     where: { id: 'pr' },
-    data: { reviewPaused: false, reviewHeads: [], reviewRoundLimit: 3 },
+    data: {
+      reviewPaused: false,
+      reviewHeads: [],
+      reviewHeadCommits: [],
+      reviewCommitLimit: 3,
+    },
   })
   ;(prisma.pullRequest.findUniqueOrThrow as jest.Mock).mockResolvedValueOnce({
     reviewPaused: false,
-    reviewRoundLimit: 3,
+    reviewCommitLimit: 3,
     reviewHeads: [],
+    reviewHeadCommits: [],
   })
   expect(await prReviewControlRepository.get('pr')).toMatchObject({
-    reviewRoundLimit: 3,
+    reviewCommitLimit: 3,
   })
 })
 

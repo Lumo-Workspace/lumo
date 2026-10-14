@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "自動 AI レビュー回数：{rounds}/{limit}",
+  "securityScan.review.rounds": "自動 AI レビュー：{rounds}/{limit} コミットをレビュー済み",
   "securityScan.stageState.PAUSED": "一時停止中 — 手動レビューが必要",
-  "securityScan.stageReason.PAUSED": "自動 AI チェックは一時停止中、または回数上限に達しました。このコミットのレビューは未完了です。レビューを依頼するか自動レビューを再開してください。",
+  "securityScan.stageReason.PAUSED": "この PR の自動 AI チェックは一時停止中です（レビュアーによる停止、またはレビュー済みコミット数の上限到達）。このコミットのレビューは未完了です。レビューを依頼するか自動レビューを再開してください。",
   "securityScan.review.incremental": "変更をレビュー",
   "securityScan.review.full": "PR 全体をレビュー",
   "securityScan.review.pause": "自動レビューを停止",
@@ -2844,5 +2844,10 @@
   "workspaceSettings.policyCoverage.allChecked": "{total} 件すべてのルールが自動でチェックされます。",
   "workspaceSettings.policyCoverage.someUnchecked": "{total} 件中 {unchecked} 件のルールは自動でチェックされません。",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "コマンドやプロセスについての判断が必要です。この種類のルールの自動チェックはまだありません。",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "このルールは AI レビューでのみチェックされますが、上で AI レビューがオフになっています。"
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "このルールは AI レビューでのみチェックされますが、上で AI レビューがオフになっています。",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "自動レビューを一時停止するまでのコミット数",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "オープン中のプルリクエストへの push ごとに、変更内容の AI 自動レビューが行われます。1 つのプルリクエストでこの数のコミットをレビューすると、誰かがレビューを依頼するか再開するまで自動レビューは一時停止します。0 = 一時停止しない。既定値は 5。",
+  "securityScan.stageState.RATE_LIMITED": "レート制限中 — 自動レビューは 1 時間以内に再開します",
+  "securityScan.stageReason.RATE_LIMITED": "PR の作成者が 1 時間あたりの AI 自動レビュー上限に達したため、このコミットは完全にはレビューされていません。上限のリセット後の次の push は自動でレビューされます。このコミットを今すぐ確認するにはレビューを依頼してください。",
+  "securityScan.review.roundsNoLimit": "自動 AI レビュー：{rounds} コミットをレビュー済み・一時停止なし"
 }

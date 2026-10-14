@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "自動 AI 審查輪數：{rounds}/{limit}",
+  "securityScan.review.rounds": "自動 AI 審查：已審查 {rounds}/{limit} 個提交",
   "securityScan.stageState.PAUSED": "已暫停，需手動複審",
-  "securityScan.stageReason.PAUSED": "自動 AI 檢查已暫停或已達輪數上限。此提交尚未完成審查，請手動複審或恢復自動審查。",
+  "securityScan.stageReason.PAUSED": "此 PR 的自動 AI 檢查已暫停（由審查者暫停，或已達已審查提交數上限）。此提交尚未完成審查，請手動複審或恢復自動審查。",
   "securityScan.review.incremental": "複審變更",
   "securityScan.review.full": "複審整個 PR",
   "securityScan.review.pause": "暫停自動審查",
@@ -2844,5 +2844,10 @@
   "workspaceSettings.policyCoverage.allChecked": "全部 {total} 條規則皆會自動檢查。",
   "workspaceSettings.policyCoverage.someUnchecked": "{total} 條規則中有 {unchecked} 條不會自動檢查。",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "需要對指令或流程做判斷，目前還沒有針對這類規則的自動檢查。",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "這條規則只由 AI 審查檢查，而上方已關閉 AI 審查。"
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "這條規則只由 AI 審查檢查，而上方已關閉 AI 審查。",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "自動審查暫停門檻",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "開啟中的 PR 每次推送都會自動對變更做 AI 審查。同一個 PR 上審查過這麼多個提交後，自動審查會暫停，直到有人請求審查或恢復自動審查。0 = 永不暫停。預設 5。",
+  "securityScan.stageState.RATE_LIMITED": "已限流 — 自動審查一小時內恢復",
+  "securityScan.stageReason.RATE_LIMITED": "PR 作者已達到每小時自動 AI 審查的上限，此提交尚未完整審查。上限重置後的下一次推送會自動審查；如需現在檢查此提交，請請求審查。",
+  "securityScan.review.roundsNoLimit": "自動 AI 審查：已審查 {rounds} 個提交 · 永不暫停"
 }

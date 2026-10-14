@@ -67,6 +67,8 @@ import {
   formatTurnedOffNote,
   isCodeReviewFinding,
   isOwnedUnfinished,
+  isReviewRateLimited,
+  RATE_LIMITED_STAGE_LABEL,
   scanCoverageState,
   turnedOffLayers,
   type HuntOverCapInput,
@@ -466,7 +468,7 @@ export function commandsBlock(handle: string, approve = false): string {
     ['review', 'incremental review of the changes since the last complete one'],
     ['full review', 'review the whole PR again'],
     ['pause', 'stop automatic AI reviews on new pushes'],
-    ['resume', 'resume them and reset the round budget'],
+    ['resume', 'resume them and reset the reviewed-commit count'],
     [
       'resolve',
       "resolve Lumo's open threads (findings that block DONE stay open)",
@@ -564,9 +566,12 @@ function layerLines(input: SummaryInput): string[] {
           : key === 'supplyChain'
             ? dependencyResult(input)
             : null
-    const status = [scanStageStateLabel(state), extra]
-      .filter(Boolean)
-      .join(' · ')
+    // LUM-1137: a paused layer of a rate-limited scan says so.
+    const label =
+      state === 'PAUSED' && isReviewRateLimited(input.partialCauses)
+        ? RATE_LIMITED_STAGE_LABEL
+        : scanStageStateLabel(state)
+    const status = [label, extra].filter(Boolean).join(' · ')
     lines.push(
       `- **${scanStageLabel(key)}** (${status}): ${SCAN_STAGE_DESCRIPTIONS[key]}`
     )
@@ -690,11 +695,19 @@ export function buildSummary(input: SummaryInput): string {
         ? `lumo pr scan ${input.prNumber} --repo ${sanitizeField(input.repo)} --review incremental`
         : 'lumo pr scan <number> --repo <owner/repo> --review incremental'
     const h = input.commandHandle
-    notices.push(
-      h
-        ? `- Automatic AI checks are paused or their round budget is exhausted. This commit has not been fully reviewed. Comment \`${h} review\` for an incremental review or \`${h} full review\`, and \`${h} resume\` to reset the automatic round budget (CLI: \`${command}\`).`
-        : `- Automatic AI checks are paused or their round budget is exhausted. This commit has not been fully reviewed. Request an incremental review with \`${command}\`, or use \`--review full\`. Use \`--resume\` to reset the automatic round budget.`
-    )
+    // LUM-1137: over the hourly cap — the next push is reviewed anyway.
+    if (isReviewRateLimited(input.partialCauses))
+      notices.push(
+        h
+          ? `- Automatic AI review is rate-limited: this PR's author reached the hourly limit of automatic reviews. This commit has not been fully reviewed. The next push after the limit resets is reviewed automatically, or comment \`${h} review\` for a review now (CLI: \`${command}\`).`
+          : `- Automatic AI review is rate-limited: this PR's author reached the hourly limit of automatic reviews. This commit has not been fully reviewed. The next push after the limit resets is reviewed automatically, or request a review now with \`${command}\`.`
+      )
+    else
+      notices.push(
+        h
+          ? `- Automatic AI checks are paused on this PR (paused by a reviewer, or after its limit of reviewed commits). This commit has not been fully reviewed. Comment \`${h} review\` for an incremental review or \`${h} full review\`, and \`${h} resume\` to review every push again (CLI: \`${command}\`).`
+          : `- Automatic AI checks are paused on this PR (paused by a reviewer, or after its limit of reviewed commits). This commit has not been fully reviewed. Request an incremental review with \`${command}\`, or use \`--review full\`. Use \`--resume\` to review every push again.`
+      )
   }
   // With findings open, the owned note still has to be said once.
   if (input.open > 0 && owned)

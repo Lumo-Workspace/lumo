@@ -1,6 +1,17 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { admitAutomaticReview } from '@/ee/security/security-scan/review-control'
+import {
+  admitAutomaticReview,
+  commitsAfterReserve,
+  withoutHead,
+} from '@/ee/security/security-scan/review-control'
+
+const CONTROL_SELECT = {
+  reviewPaused: true,
+  reviewHeads: true,
+  reviewHeadCommits: true,
+  reviewCommitLimit: true,
+} as const
 
 async function transaction<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>
@@ -19,22 +30,31 @@ export const prReviewControlRepository = {
   async get(id: string) {
     return prisma.pullRequest.findUniqueOrThrow({
       where: { id },
-      select: {
-        reviewPaused: true,
-        reviewRoundLimit: true,
-        reviewHeads: true,
-      },
+      select: CONTROL_SELECT,
     })
   },
-  async reserve(id: string, head: string): Promise<boolean> {
+  /**
+   * LUM-1137: admit `head` under the PR's limit, else the workspace's
+   * `workspaceLimit` (0 = never pause), recording the PR's commit count at
+   * that head (null = unknown, counts as one commit).
+   */
+  async reserve(
+    id: string,
+    head: string,
+    opts: { commitsAtHead: number | null; workspaceLimit: number }
+  ): Promise<boolean> {
     return transaction(async tx => {
-      const control = await tx.pullRequest.findUniqueOrThrow({ where: { id } })
-      const decision = admitAutomaticReview(control, head)
+      const control = await tx.pullRequest.findUniqueOrThrow({
+        where: { id },
+        select: CONTROL_SELECT,
+      })
+      const decision = admitAutomaticReview(control, head, opts.workspaceLimit)
       if (decision.reserve)
         await tx.pullRequest.update({
           where: { id },
           data: {
             reviewHeads: { push: head },
+            reviewHeadCommits: commitsAfterReserve(control, opts.commitsAtHead),
           },
         })
       return decision.allowed
@@ -43,14 +63,14 @@ export const prReviewControlRepository = {
   /** Return a round whose head was superseded before its review landed. */
   async release(id: string, head: string): Promise<void> {
     await transaction(async tx => {
-      const { reviewHeads } = await tx.pullRequest.findUniqueOrThrow({
+      const control = await tx.pullRequest.findUniqueOrThrow({
         where: { id },
-        select: { reviewHeads: true },
+        select: { reviewHeads: true, reviewHeadCommits: true },
       })
-      if (!reviewHeads.includes(head)) return
+      if (!control.reviewHeads.includes(head)) return
       await tx.pullRequest.update({
         where: { id },
-        data: { reviewHeads: reviewHeads.filter(h => h !== head) },
+        data: withoutHead(control, head),
       })
     })
   },
@@ -59,8 +79,11 @@ export const prReviewControlRepository = {
       where: { id },
       data: {
         reviewPaused: action === 'pause',
-        ...(action === 'resume' ? { reviewHeads: [] } : {}),
-        ...(limit !== undefined ? { reviewRoundLimit: limit } : {}),
+        ...(action === 'resume'
+          ? { reviewHeads: [], reviewHeadCommits: [] }
+          : {}),
+        // LUM-1137: the PR's own pause-after, over the workspace setting.
+        ...(limit !== undefined ? { reviewCommitLimit: limit } : {}),
       },
     })
   },

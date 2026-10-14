@@ -19,6 +19,7 @@ jest.mock('@/lib/logger', () => ({
 
 import {
   fetchPrChangedFiles,
+  fetchPrCommitCount,
   fetchPrDiff,
 } from '@/lib/integrations/github/contents'
 import { logger } from '@/lib/logger'
@@ -105,6 +106,41 @@ describe('fetchPrChangedFiles', () => {
     fetchMock.mockResolvedValue(new Response('nope', { status: 404 }))
     expect(await thrown(fetchPrChangedFiles(opts))).toMatchObject({
       status: 404,
+    })
+  })
+})
+
+describe('fetchPrCommitCount (LUM-1137)', () => {
+  const at = { ...opts, head: 'abc' }
+  test('reads commits off the pulls payload for that head', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ commits: 3, head: { sha: 'abc' } }), {
+        status: 200,
+      })
+    )
+    await expect(fetchPrCommitCount(at)).resolves.toBe(3)
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      'https://api.github.com/repos/o/r/pulls/1384'
+    )
+  })
+
+  test('null once the PR moved past the head, or when GitHub does not say', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ commits: 4, head: { sha: 'newer' } }), {
+        status: 200,
+      })
+    )
+    await expect(fetchPrCommitCount(at)).resolves.toBeNull()
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ head: { sha: 'abc' } }), { status: 200 })
+    )
+    await expect(fetchPrCommitCount(at)).resolves.toBeNull()
+  })
+
+  test('throws on an API error', async () => {
+    fetchMock.mockResolvedValue(new Response('nope', { status: 502 }))
+    expect(await thrown(fetchPrCommitCount(at))).toMatchObject({
+      status: 502,
     })
   })
 })

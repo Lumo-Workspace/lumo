@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Putaran tinjauan AI otomatis: {rounds}/{limit}",
+  "securityScan.review.rounds": "Tinjauan AI otomatis: {rounds}/{limit} commit ditinjau",
   "securityScan.stageState.PAUSED": "dijeda — minta tinjauan manual",
-  "securityScan.stageReason.PAUSED": "Pemeriksaan AI otomatis dijeda atau mencapai batas putaran. Commit ini belum ditinjau sepenuhnya. Minta tinjauan atau lanjutkan tinjauan otomatis.",
+  "securityScan.stageReason.PAUSED": "Pemeriksaan AI otomatis dijeda pada PR ini (oleh peninjau, atau setelah batas commit yang ditinjau). Commit ini belum ditinjau sepenuhnya. Minta tinjauan atau lanjutkan tinjauan otomatis.",
   "securityScan.review.incremental": "Tinjau perubahan",
   "securityScan.review.full": "Tinjau seluruh PR",
   "securityScan.review.pause": "Jeda tinjauan otomatis",
@@ -2844,5 +2844,10 @@
   "workspaceSettings.policyCoverage.allChecked": "Semua {total} aturan diperiksa otomatis.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} dari {total} aturan tidak diperiksa otomatis.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Perlu penilaian atas perintah atau proses. Belum ada pemeriksaan otomatis untuk jenis aturan ini.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya tinjauan AI yang memeriksa aturan ini, dan tinjauan AI dinonaktifkan di atas."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya tinjauan AI yang memeriksa aturan ini, dan tinjauan AI dinonaktifkan di atas.",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Jeda tinjauan otomatis setelah",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Setiap push ke pull request yang terbuka mendapat tinjauan AI otomatis atas perubahannya. Setelah sebanyak ini commit ditinjau pada satu pull request, tinjauan otomatis dijeda sampai seseorang meminta tinjauan atau melanjutkannya. 0 = tidak pernah dijeda. Bawaan 5.",
+  "securityScan.stageState.RATE_LIMITED": "kena batas laju — tinjauan otomatis berlanjut dalam satu jam",
+  "securityScan.stageReason.RATE_LIMITED": "Penulis PR mencapai batas per jam tinjauan AI otomatis, jadi commit ini belum ditinjau sepenuhnya. Push berikutnya setelah batas direset ditinjau otomatis; minta tinjauan untuk memeriksa commit ini sekarang.",
+  "securityScan.review.roundsNoLimit": "Tinjauan AI otomatis: {rounds} commit ditinjau · tidak pernah dijeda"
 }

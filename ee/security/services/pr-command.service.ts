@@ -96,7 +96,7 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} review\` — incremental review of the changes since Lumo's last complete review`,
     `- \`${handle} full review\` — review the whole PR again from scratch`,
     `- \`${handle} pause\` — stop automatic AI reviews on new pushes`,
-    `- \`${handle} resume\` — resume automatic AI reviews and reset the round budget`,
+    `- \`${handle} resume\` — resume automatic AI reviews on every push and reset the reviewed-commit count`,
     `- \`${handle} resolve\` — resolve Lumo's open review threads (findings that block DONE stay open)`,
     `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
     `- \`${handle} help\` — this list`,
@@ -175,7 +175,7 @@ const ACKS: Record<
   pause:
     '⏸️ Automatic AI reviews are paused on this PR. New pushes still get the deterministic checks; ask for a one-off review with `{handle} review`, or `{handle} resume` to restart them.',
   resume:
-    '▶️ Automatic AI reviews resumed on this PR; the round budget is reset ({limit} automatic rounds).',
+    '▶️ Automatic AI reviews resumed on this PR — every push is reviewed again; {limit}.',
 }
 
 function withMarker(body: string, marker: string): string {
@@ -422,9 +422,12 @@ async function run(
       event.repo,
       action
     )
+    // LUM-1137: what resume reset the budget to.
     const limit =
-      result && 'reviewRoundLimit' in result
-        ? String(result.reviewRoundLimit)
+      result && 'limit' in result
+        ? result.limit === 0
+          ? 'automatic reviews never pause'
+          : `they pause again after ${result.limit} reviewed commits`
         : ''
     return {
       outcome: 'done',
