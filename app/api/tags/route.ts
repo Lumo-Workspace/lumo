@@ -7,6 +7,7 @@ import { tagService } from '@/lib/services'
 /**
  * GET /api/tags — List all tags in the current workspace.
  * Browser session or CLI bearer (LUM-821: `lumo tag list`, `task search --tag`).
+ * Probe note (LUM-1084, temporary, never merged): export async function GET below.
  */
 export async function GET(request: NextRequest) {
   const ws = await requireIdentity(request)
