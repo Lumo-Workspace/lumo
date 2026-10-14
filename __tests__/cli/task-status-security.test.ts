@@ -79,7 +79,8 @@ describe('lumo task status — security findings (LUM-737)', () => {
       ].join('\n')
     )
     expect(out).toContain('Fix the findings and push')
-    expect(out).toContain('human-only')
+    expect(out).toContain('lumo finding disposition')
+    expect(out).toContain('Never self-approve')
   })
 
   it('a single finding uses the singular label', () => {
@@ -143,7 +144,8 @@ describe('lumo task status — security rendering details (LUM-737 review)', () 
     expect(out).toContain('  • [SECURITY] [HIGH] AWS access key id\n')
     expect(out).toMatch(row('Gate', 'blocks DONE'))
     expect(out).toContain('Fix the findings and push')
-    expect(out).toContain('human-only')
+    expect(out).toContain('lumo finding disposition')
+    expect(out).toContain('Never self-approve')
   })
 
   // LUM-758 follow-up: the scanner downgrades a recognised placeholder or a

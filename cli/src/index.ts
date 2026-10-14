@@ -79,6 +79,10 @@ import { taskTestCaseUpdate } from './commands/task-testcase-update'
 import { taskTestCaseRm } from './commands/task-testcase-rm'
 import { taskTestCaseRun } from './commands/task-testcase-run'
 import { taskTestCaseDisposition } from './commands/task-testcase-disposition'
+import {
+  findingDisposition,
+  type FindingDispositionOptions,
+} from './commands/finding-disposition'
 import { taskWrapup } from './commands/task-wrapup'
 import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
@@ -550,6 +554,35 @@ crossing
     )
   )
 
+const finding = program
+  .command('finding')
+  .description('Rule on PR security findings with user approval (LUM-1128)')
+
+finding
+  .command('disposition <ids...>')
+  .description(
+    "Record the user's ruling on one or more PR security findings (LUM-1128) — how a blocking finding is cleared for DONE (the web panel stays a second surface). Without --confirm it reads the findings from the server and prints ONE confirmation envelope (one line per finding: id, severity, title, ruling, note), exit 4, writes nothing; relay it and re-run its confirmCommand only after the user approves. With --confirm it applies each ruling, reports each finding, and the server records it as channel CLI (actor, session, time); the web panel can correct it. Ids are listed by `lumo task status`. Targets findings on the session-bound task unless --task is given."
+  )
+  .option('--false-positive', 'Rule the findings false positives')
+  .option(
+    '--accepted-risk',
+    'Rule the findings accepted risks (real, knowingly carried — add a --note)'
+  )
+  .option('--note <text>', 'Optional note recorded with each ruling')
+  .option(
+    '--task <identifier>',
+    'Task the findings belong to (defaults to the session-bound task)'
+  )
+  .option(
+    '--confirm',
+    'The user approved the envelope (never add this on your own initiative)'
+  )
+  .action(
+    wrap((ids: unknown, options: unknown) =>
+      findingDisposition(ids as string[], options as FindingDispositionOptions)
+    )
+  )
+
 const outcome = program
   .command('outcome')
   .description('Read the post-hoc outcome well (LUM-598)')
@@ -669,7 +702,7 @@ pr.command('scan <number>')
     'Set automatic round limit (1..100), with pause or resume'
   )
   .description(
-    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Finding disposition is web-only.'
+    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves).'
   )
   .option(
     '--repo <owner/repo>',

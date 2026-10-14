@@ -851,6 +851,61 @@
       "isInvokable": true,
       "description": "Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, the Codex rule, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH, untrusted Codex hooks and Codex installs where `lumo` has no network in the sandbox; always exits 0."
     },
+    "finding": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Rule on PR security findings with user approval (LUM-1128)"
+    },
+    "finding disposition": {
+      "arguments": [{ "name": "ids", "required": true, "variadic": true }],
+      "flags": {
+        "--accepted-risk": {
+          "long": "--accepted-risk",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the findings accepted risks (real, knowingly carried — add a --note)"
+        },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user approved the envelope (never add this on your own initiative)"
+        },
+        "--false-positive": {
+          "long": "--false-positive",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the findings false positives"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Optional note recorded with each ruling"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Task the findings belong to (defaults to the session-bound task)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record the user's ruling on one or more PR security findings (LUM-1128) — how a blocking finding is cleared for DONE (the web panel stays a second surface). Without --confirm it reads the findings from the server and prints ONE confirmation envelope (one line per finding: id, severity, title, ruling, note), exit 4, writes nothing; relay it and re-run its confirmCommand only after the user approves. With --confirm it applies each ruling, reports each finding, and the server records it as channel CLI (actor, session, time); the web panel can correct it. Ids are listed by `lumo task status`. Targets findings on the session-bound task unless --task is given."
+    },
     "hook": {
       "arguments": [],
       "flags": {},
@@ -2173,7 +2228,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Finding disposition is web-only."
+      "description": "Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves)."
     },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],

@@ -998,6 +998,9 @@ function FindingRow({
   const intl = useIntl()
   const queryClient = useQueryClient()
   const [pending, setPending] = useState<Disposition | null>(null)
+  // LUM-1128: a ruled finding (e.g. ruled via `lumo finding disposition`)
+  // can be corrected here — the panel reopens its controls on demand.
+  const [changing, setChanging] = useState(false)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1043,6 +1046,7 @@ function FindingRow({
         queryKey: queryKeys.tasks.securityScans(taskId),
       })
       setPending(null)
+      setChanging(false)
       setNote('')
     } catch {
       setError(intl.formatMessage({ id: 'securityScan.action.error' }))
@@ -1263,7 +1267,19 @@ function FindingRow({
               {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
             </a>
           )}
-          {!finding.disposition && (
+          {finding.disposition && !changing && (
+            <div className='mt-2 flex flex-wrap items-center gap-1.5'>
+              <button
+                type='button'
+                data-testid='finding-change-ruling'
+                onClick={() => setChanging(true)}
+                className={ACTION_BUTTON}
+              >
+                {intl.formatMessage({ id: 'securityScan.action.changeRuling' })}
+              </button>
+            </div>
+          )}
+          {(!finding.disposition || changing) && (
             <div className='mt-2 flex flex-wrap items-center gap-1.5'>
               {pending === null ? (
                 <>
@@ -1291,24 +1307,28 @@ function FindingRow({
                         : 'securityScan.action.copyForAgent',
                     })}
                   </button>
-                  <button
-                    type='button'
-                    onClick={() => setPending('FALSE_POSITIVE')}
-                    className={ACTION_BUTTON}
-                  >
-                    {intl.formatMessage({
-                      id: 'securityScan.action.falsePositive',
-                    })}
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => setPending('ACCEPTED_RISK')}
-                    className={ACTION_BUTTON}
-                  >
-                    {intl.formatMessage({
-                      id: 'securityScan.action.acceptRisk',
-                    })}
-                  </button>
+                  {finding.disposition !== 'FALSE_POSITIVE' && (
+                    <button
+                      type='button'
+                      onClick={() => setPending('FALSE_POSITIVE')}
+                      className={ACTION_BUTTON}
+                    >
+                      {intl.formatMessage({
+                        id: 'securityScan.action.falsePositive',
+                      })}
+                    </button>
+                  )}
+                  {finding.disposition !== 'ACCEPTED_RISK' && (
+                    <button
+                      type='button'
+                      onClick={() => setPending('ACCEPTED_RISK')}
+                      className={ACTION_BUTTON}
+                    >
+                      {intl.formatMessage({
+                        id: 'securityScan.action.acceptRisk',
+                      })}
+                    </button>
+                  )}
                 </>
               ) : (
                 <>
@@ -1336,6 +1356,7 @@ function FindingRow({
                     disabled={submitting}
                     onClick={() => {
                       setPending(null)
+                      setChanging(false)
                       setNote('')
                     }}
                     className='text-caption text-muted-foreground'
