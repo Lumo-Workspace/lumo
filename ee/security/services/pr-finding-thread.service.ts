@@ -575,6 +575,8 @@ export const prFindingThreadService = {
           row: action.row,
           oldThreadId: action.threadId,
         })
+        // About to be posted afresh: an open thread from this sync on.
+        finalState.set(action.row.fingerprint, 'OPEN')
         continue
       }
       try {

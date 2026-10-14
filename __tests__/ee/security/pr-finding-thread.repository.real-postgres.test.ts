@@ -100,6 +100,23 @@ test('update, findByThreadRef and findResolvedByUserFingerprints', async () => {
   expect(resolved.has('other')).toBe(false)
 })
 
+test('re-pointing a thread clears a stale addressedInSha', async () => {
+  await repo.upsert({ ...base, fingerprint: 'fp2', commentId: '5' })
+  const [r] = (await repo.findByPullRequest('pr')).filter(
+    x => x.fingerprint === 'fp2'
+  )
+  await repo.update(r!.id, { state: 'ADDRESSED', addressedInSha: 'h1' })
+  await repo.upsert({ ...base, fingerprint: 'fp2', commentId: '6' })
+  const [after] = (await repo.findByPullRequest('pr')).filter(
+    x => x.fingerprint === 'fp2'
+  )
+  expect(after).toMatchObject({
+    commentId: '6',
+    state: 'OPEN',
+    addressedInSha: null,
+  })
+})
+
 test('findLayerMetaByFingerprints reads the layer facts from the PR findings', async () => {
   await expect(
     repo.findLayerMetaByFingerprints('pr', ['fp-meta', 'nope'])

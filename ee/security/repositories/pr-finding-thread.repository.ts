@@ -118,6 +118,8 @@ export const prFindingThreadRepository = {
         state: rest.state ?? 'OPEN',
         resolvedByLogin: rest.resolvedByLogin ?? null,
         resolvedAt: null,
+        // A re-pointed thread starts over: no stale "addressed on" head.
+        addressedInSha: null,
         filePath: rest.filePath,
       },
     })

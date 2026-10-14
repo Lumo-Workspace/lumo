@@ -290,6 +290,26 @@ describe('reconcile — scan-driven transitions', () => {
     expect(out.counts.open).toBe(1)
   })
 
+  it('reappears after ADDRESSED on an outdated thread ⇒ fresh comment, counted open (old thread left resolved)', async () => {
+    repoMock.findByPullRequest.mockResolvedValue([
+      row({ state: 'ADDRESSED', addressedInSha: 'old' }),
+    ])
+    threads.listReviewThreads.mockResolvedValue([
+      remote({
+        isResolved: true,
+        isOutdated: true,
+        resolvedBy: { login: 'uselumo', type: 'Bot' },
+      }),
+    ])
+    const f = finding({ line: 40 })
+    const out = await prFindingThreadService.reconcile(
+      ctx({ findings: [f], open: [f] })
+    )
+    expect(threads.unresolveThread).not.toHaveBeenCalled()
+    expect(out.repost.get('fp1')?.oldThreadId).toBeNull()
+    expect(out.counts).toEqual({ open: 1, addressed: 0, resolved: 0 })
+  })
+
   it('RESOLVED_BY_USER ⇒ reported back as resolved (so the write-back never re-posts) and never reopened', async () => {
     repoMock.findByPullRequest.mockResolvedValue([
       row({ state: 'RESOLVED_BY_USER', resolvedByLogin: 'alice' }),
@@ -338,6 +358,7 @@ describe('reconcile — scan-driven transitions', () => {
       ctx({ findings: [f], open: [f] })
     )
     expect(out.repost.get('fp1')?.oldThreadId).toBe('PRRT_1')
+    expect(out.counts).toEqual({ open: 1, addressed: 0, resolved: 0 })
     expect(threads.resolveThread).not.toHaveBeenCalled()
     ;(
       prCommentClient.listReviewCommentsOfReview as jest.Mock
