@@ -244,9 +244,12 @@ export function formatMilestoneShow(
     [
       { label: 'Milestone', value: sanitizeField(m.name) },
       { label: 'State', value: stateValue },
-      ...(m.closeGate
-        ? [{ label: 'Close gate', value: formatCloseGate(m.closeGate) }]
-        : []),
+      // null = the server could not read the gate; absent = an older server.
+      ...(m.closeGate === null
+        ? [{ label: 'Close gate', value: 'unknown (could not read)' }]
+        : m.closeGate
+          ? [{ label: 'Close gate', value: formatCloseGate(m.closeGate) }]
+          : []),
       {
         label: 'Completed',
         value: fmtDay(m.completedAt),

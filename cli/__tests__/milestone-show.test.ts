@@ -159,4 +159,10 @@ describe('formatMilestoneShow — close gate (LUM-1135)', () => {
   it('omits the row when the server sent no gate', () => {
     expect(formatMilestoneShow({ ...base }, [])).not.toMatch(/Close gate/)
   })
+
+  it('says unknown when the server sent null (gate read failed)', () => {
+    expect(formatMilestoneShow({ ...base, closeGate: null }, [])).toMatch(
+      /Close gate:\s+unknown \(could not read\)/
+    )
+  })
 })
