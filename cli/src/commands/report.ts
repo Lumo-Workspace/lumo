@@ -337,7 +337,10 @@ export function formatReport(
           // recorded" only when there are neither tokens nor sessions.
           t.total === 0 && data.team.sessions === 0
             ? 'none recorded in this window'
-            : `${fmtCount(t.total)} (output ${fmtCount(t.output)} · input ${fmtCount(t.input)} · cache_create ${fmtCount(t.cacheCreation)} · cache_read ${fmtCount(t.cacheRead)})`,
+            : // Summary line: compact on a TTY and when piped; exact
+              // figures live in the By model table and --json. Kind names
+              // and order match the table columns.
+              `${fmtTokens(t.total)} (input ${fmtTokens(t.input)} · output ${fmtTokens(t.output)} · cache write ${fmtTokens(t.cacheCreation)} · cache read ${fmtTokens(t.cacheRead)})`,
         ],
         ['Sessions', sessionsLine],
         [
