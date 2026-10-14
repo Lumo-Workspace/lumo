@@ -168,7 +168,7 @@ describe('formatReport', () => {
   })
 
   it('shows team tokens and calls out unmetered sessions instead of treating them as 0', () => {
-    expect(out).toMatch(/Tokens:\s+1,234,567 \(output 1,234,567/)
+    expect(out).toMatch(/Tokens:\s+1\.2M \(input 0 · output 1\.2M/)
     expect(out).toContain(
       '5 (2 unmetered — no token usage recorded, not counted as 0)'
     )
@@ -180,6 +180,38 @@ describe('formatReport', () => {
     expect(alice).toMatch(/Alice\s+1,000,000\s+3 \(1 unmetered\)\s+1$/)
     const unassigned = out.split('\n').find(l => l.startsWith('(unassigned)'))
     expect(unassigned).toMatch(/\s-\s+0\s+1$/)
+  })
+
+  // LUM-1123 follow-up: the summary line is compact, with the same kind
+  // names and order as the By model table, on a TTY and when piped.
+  it('summary line uses compact figures with the table kind names and order', () => {
+    const mixed = {
+      input: 21_300,
+      output: 3_190_000,
+      cacheCreation: 52_400_000,
+      cacheRead: 1_050_000_000,
+      total: 1_105_611_300,
+    }
+    const report = (tty: boolean) =>
+      formatReport(
+        {
+          ...data,
+          team: {
+            ...data.team,
+            tokens: mixed,
+            byModel: [{ model: 'claude-opus', ...mixed }],
+          },
+        },
+        { window: win({}), tty }
+      )
+    for (const tty of [false, true]) {
+      const line = report(tty)
+        .split('\n')
+        .find(l => l.startsWith('Tokens:'))
+      expect(line).toMatch(
+        /^Tokens:\s+1\.1B \(input 21\.3K · output 3\.2M · cache write 52\.4M · cache read 1\.1B\)$/
+      )
+    }
   })
 
   // LUM-1123
@@ -409,7 +441,7 @@ describe('formatReport', () => {
       },
       { window: win({}) }
     )
-    expect(noSession).toMatch(/Tokens:\s+4,200 \(output 4,200/)
+    expect(noSession).toMatch(/Tokens:\s+4\.2K \(input 0 · output 4\.2K/)
     expect(noSession).not.toContain('none recorded')
   })
 })
