@@ -8,6 +8,14 @@
 export interface LabelledReply {
   reply: string
   learning: boolean
+  /**
+   * LUM-1139 — a non-learning the deterministic gate is EXPECTED to let
+   * through (a bare "intentional" with no reason): only the model can veto
+   * it. These make the probe's precision measure the model's veto — and so
+   * the cost of retrying a refusal — instead of resting on the gate alone.
+   * Excluded from the gate's own precision test.
+   */
+  modelVeto?: true
 }
 
 export const LABELLED_FINDING = {
@@ -155,4 +163,26 @@ export const LABELLED_REPLIES: LabelledReply[] = [
     learning: false,
     reply: 'This is by design, add it to the allowlist so it stops showing up.',
   },
+  // LUM-1139: negated contractions ("isn't", "wasn't", curly ’ too) — the
+  // gate's `\bn't` never matched them, so they passed as learnings.
+  {
+    learning: false,
+    reply: "This isn't intentional because we forgot to sanitize it.",
+  },
+  { learning: false, reply: "This wasn't intentional." },
+  { learning: false, reply: "That isn't by design." },
+  { learning: false, reply: 'This isn\u2019t intentional, we missed it.' },
+  { learning: false, reply: "It wasn't done on purpose, sorry." },
+  {
+    learning: false,
+    reply: 'This is not really intentional, just legacy code.',
+  },
+  { learning: false, reply: "We didn't do this deliberately." },
+  { learning: false, reply: "This doesn't work as intended." },
+  { learning: false, reply: "These aren't expected here." },
+  // LUM-1139: a positive word with no reason — the gate lets these through
+  // and only the model may refuse them (see `modelVeto`).
+  { learning: false, modelVeto: true, reply: 'This is intentional.' },
+  { learning: false, modelVeto: true, reply: 'False positive.' },
+  { learning: false, modelVeto: true, reply: 'Not applicable here.' },
 ]

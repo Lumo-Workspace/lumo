@@ -63,6 +63,7 @@ import {
   normalizePathGlob,
   screenReplyDetailed,
 } from '@/ee/security/security-scan/thread-reply'
+import { classifyWithRetry } from '@/ee/security/security-scan/thread-reply-retry'
 import type { ThreadReplyVerdict } from '@/ee/security/llm/thread-reply-client'
 
 export interface ThreadReplyEvent {
@@ -112,7 +113,13 @@ function logNoLearning(
   )
 }
 
-/** The model's answer, or null when it could not be had (never thrown). */
+/**
+ * The model's answer, or null when it could not be had (never thrown). A
+ * refusal or a failed call (timeout included) is asked once more, within a
+ * bounded total time (`classifyWithRetry`, LUM-1139) — still inside this one
+ * claimed reply, so a retry never posts a second answer or stores a second
+ * learning.
+ */
 async function askModel(
   finding: { ruleId: string; title: string; filePath: string },
   body: string
@@ -121,14 +128,30 @@ async function askModel(
     const { classifyThreadReply } =
       await import('@/ee/security/llm/thread-reply-client')
     const guarded = guardInjectedText(body)
-    return await classifyThreadReply({
+    const input = {
       finding: {
         ruleId: guardPromptLineText(finding.ruleId),
         title: guardPromptLineText(finding.title),
         filePath: guardPromptLineText(finding.filePath),
       },
       reply: { text: guarded.text, notices: guarded.notices },
-    })
+    }
+    const result = await classifyWithRetry((timeoutMs, attempt) =>
+      classifyThreadReply({
+        ...input,
+        timeoutMs,
+        tier: attempt === 1 ? 'primary' : 'fallback',
+      })
+    )
+    if (result.retried)
+      logger.info(
+        `[pr-thread-reply] classifier retried reason=${result.retried} attempts=${result.attempts} learning=${result.verdict?.isLearning ?? 'none'}`
+      )
+    if (!result.verdict)
+      logger.warn(
+        `[pr-thread-reply] classifier unavailable after ${result.attempts} attempt(s): ${result.errors.join(' | ')}`
+      )
+    return result.verdict
   } catch (error) {
     logger.warn(
       `[pr-thread-reply] classifier unavailable: ${error instanceof Error ? error.message : String(error)}`

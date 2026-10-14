@@ -653,3 +653,113 @@ describe('LUM-1131 prod regression — PR 1457 replies, and why a reply stored n
     )
   })
 })
+
+describe('LUM-1139 — one retry on a model refusal or failure', () => {
+  const NO = { isLearning: false, learning: '', pathGlob: null }
+  let warn: jest.SpyInstance
+  beforeEach(() => {
+    warn = jest.spyOn(logger, 'warn').mockImplementation(() => undefined)
+  })
+  afterEach(() => warn.mockRestore())
+  const warned = (): string[] => warn.mock.calls.map(c => String(c[0]))
+
+  it("a refusal is retried once; the retry's learning is stored once and answered once", async () => {
+    classify.mockResolvedValueOnce(NO)
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'learning_added'
+    )
+    expect(classify).toHaveBeenCalledTimes(2)
+    // The retry is a second opinion from the fallback model.
+    expect(classify.mock.calls.map(c => c[0].tier)).toEqual([
+      'primary',
+      'fallback',
+    ])
+    expect(classify.mock.calls[1][0].reply).toEqual(
+      classify.mock.calls[0][0].reply
+    )
+    expect(claim).toHaveBeenCalledTimes(1)
+    expect(createMemory).toHaveBeenCalledTimes(1)
+    expect(createLearning).toHaveBeenCalledTimes(1)
+    expect(reply).toHaveBeenCalledTimes(1)
+    expect(reply.mock.calls[0][0].body).toContain('Learning added')
+  })
+
+  it('a timeout is retried with a bounded timeout, and the retry can still teach', async () => {
+    classify.mockRejectedValueOnce(
+      Object.assign(new Error('The operation was aborted due to timeout'), {
+        name: 'TimeoutError',
+      })
+    )
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'learning_added'
+    )
+    expect(classify).toHaveBeenCalledTimes(2)
+    for (const [input] of classify.mock.calls)
+      expect(input.timeoutMs).toBeLessThanOrEqual(30_000)
+    expect(reply).toHaveBeenCalledTimes(1)
+  })
+
+  it('two refusals → the generic answer, no learning, warn log', async () => {
+    classify.mockResolvedValue(NO)
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'acknowledged'
+    )
+    expect(classify).toHaveBeenCalledTimes(2)
+    expect(createMemory).not.toHaveBeenCalled()
+    expect(reply).toHaveBeenCalledTimes(1)
+    expect(reply.mock.calls[0][0].body).not.toContain('Learning added')
+    expect(warned().find(w => w.includes('no learning'))).toMatch(
+      /stage=model label=LEARNING reason=model_refused/
+    )
+  })
+
+  it('both calls fail → the generic answer, no learning, warn logs naming both failures', async () => {
+    classify
+      .mockRejectedValueOnce(new Error('timeout one'))
+      .mockRejectedValueOnce(new Error('gateway down'))
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'acknowledged'
+    )
+    expect(classify).toHaveBeenCalledTimes(2)
+    expect(createMemory).not.toHaveBeenCalled()
+    expect(reply).toHaveBeenCalledTimes(1)
+    expect(reply.mock.calls[0][0].body).not.toContain('Learning added')
+    expect(
+      warned().find(w => w.includes('classifier unavailable after 2'))
+    ).toMatch(/timeout one \| gateway down/)
+    expect(warned().find(w => w.includes('no learning'))).toMatch(
+      /stage=model label=LEARNING reason=model_unavailable/
+    )
+  })
+
+  it('a redelivery after a retried learning reuses it — no third model call, no second learning', async () => {
+    classify.mockResolvedValueOnce(NO)
+    reply.mockRejectedValueOnce(new Error('GitHub 502'))
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe('failed')
+    expect(classify).toHaveBeenCalledTimes(2)
+    expect(createMemory).toHaveBeenCalledTimes(1)
+    ;(
+      prReviewLearningRepository.findBySourceReply as jest.Mock
+    ).mockResolvedValue({
+      content: {
+        summary: 's',
+        rule: 'Raw SQL in scripts/admin is intentional: local only.',
+        scope: 'x',
+      },
+      pathGlob: 'scripts/admin/**',
+    })
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'learning_added'
+    )
+    expect(classify).toHaveBeenCalledTimes(2)
+    expect(createMemory).toHaveBeenCalledTimes(1)
+  })
+
+  it('a gate-rejected reply is never sent to the model, retry or not', async () => {
+    await applyThreadReply(
+      event("This isn't intentional because we forgot to sanitize it.")
+    )
+    expect(classify).not.toHaveBeenCalled()
+    expect(createMemory).not.toHaveBeenCalled()
+  })
+})

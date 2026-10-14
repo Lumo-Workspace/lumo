@@ -151,6 +151,12 @@ export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
  * catalog-confirmed 2026-06-24. NOTE: the decision-table "强制 eval" gate was
  * explicitly WAIVED by the user (no judge A/B harness exists yet) — this swap
  * ships on a structured-output probe only, not an accuracy eval. Gateway format.
+ *
+ * Also the fallback for the one retry of the PR thread-reply learning
+ * classifier (LUM-1139, `ee/security/llm/thread-reply-client.ts`): when the
+ * FAST-tier call refuses or fails, a different, larger model gives the
+ * second opinion — whether a reply becomes a stored learning is itself a
+ * memory keep decision. Same ZDR-forced gateway and hosts; no new provider.
  */
 export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 
