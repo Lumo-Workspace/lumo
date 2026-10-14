@@ -2,3 +2,5 @@
 export function round(): number {
   return 1
 }
+
+export const PUSH_2 = 2
