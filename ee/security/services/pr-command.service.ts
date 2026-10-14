@@ -188,8 +188,7 @@ async function run(
   event: PrCommentEvent,
   command: PrCommand,
   login: string,
-  handle: string,
-  writeToken: string
+  handle: string
 ): Promise<{ outcome: PrCommandOutcome; body: string }> {
   if (command === 'resolve') {
     if (
@@ -208,7 +207,13 @@ async function run(
       pullRequestId: event.pullRequestId,
       repo: parseRepo(event.repo),
       prNumber: event.prNumber,
-      token: writeToken,
+      // LUM-1127: GitHub refuses resolveReviewThread to a pull-request-only
+      // token — the thread mutations need `contents: write` as well.
+      token: await getRepoToken(
+        event.workspaceId,
+        event.repo,
+        REPO_TOKEN_PERMISSIONS.reviewThreadWrite
+      ),
       login,
       keep,
     })
@@ -304,7 +309,7 @@ export async function applyPrCommentCommand(
     }
 
     const { outcome, body } = parsed.command
-      ? await run(event, parsed.command, login, handle, writeToken)
+      ? await run(event, parsed.command, login, handle)
       : { outcome: 'help' as const, body: buildHelpReply(handle, parsed.text) }
     await prCommentClient.createIssueComment({
       repo: parseRepo(event.repo),

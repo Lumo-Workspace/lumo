@@ -4,9 +4,11 @@
  * resolved or outdated, and the resolve / unresolve mutations exist only in
  * GraphQL). Callers go through this wrapper, never `fetch` GraphQL themselves.
  *
- * Token: an installation token minted with `pull_requests: write` resolves
- * and unresolves threads (`resolveReviewThread` / `unresolveReviewThread`
- * accept the `Pull requests` permission); reading them needs `read`.
+ * Token: resolving and unresolving threads needs `pull_requests: write` AND
+ * `contents: write` — GitHub refuses the mutations to a `pull_requests`-only
+ * installation token with "Resource not accessible by integration" (mint with
+ * `REPO_TOKEN_PERMISSIONS.reviewThreadWrite`). Reading them needs
+ * `pull_requests: read`.
  */
 import { GithubApiError } from './pr-comment-client'
 

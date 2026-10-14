@@ -386,6 +386,24 @@ describe('resolve', () => {
     expect(replyBody()).toContain('lumo finding disposition')
   })
 
+  // LUM-1127 prod regression: resolveReviewThread is refused to a
+  // `pull_requests: write`-only token — the command must mint with
+  // `contents: write` too.
+  it('regression: resolves with a token minted with contents: write', async () => {
+    ;(getRepoToken as jest.Mock).mockImplementation(
+      async (_w: string, _r: string, perms: object) =>
+        perms === REPO_TOKEN_PERMISSIONS.collaboratorPermission
+          ? 'meta'
+          : JSON.stringify(perms)
+    )
+    await applyPrCommentCommand(event('@uselumo resolve'))
+    expect(resolveThread).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(resolveThread.mock.calls[0][0].token)).toEqual({
+      pull_requests: 'write',
+      contents: 'write',
+    })
+  })
+
   it('an already-resolved thread on GitHub is only recorded', async () => {
     listThreads.mockResolvedValue([
       {
