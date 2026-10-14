@@ -4,3 +4,5 @@ import { exec } from 'child_process'
 export function listDir(dir: string): void {
   exec('ls ' + dir)
 }
+
+export const PROBE_ROUND = 2
