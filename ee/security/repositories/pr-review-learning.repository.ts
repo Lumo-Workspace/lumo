@@ -104,6 +104,40 @@ export const prReviewLearningRepository = {
   },
 
   /**
+   * LUM-1134 — the learnings of this workspace's OTHER repositories whose
+   * memory is still ACTIVE, newest first (the `global` learnings scope).
+   * Pinned to the workspace on both rows: never another tenant's learnings.
+   */
+  async findActiveForOtherRepos(
+    workspaceId: string,
+    repo: string,
+    limit: number
+  ): Promise<ActiveReviewLearning[]> {
+    const rows = await prisma.prReviewLearning.findMany({
+      where: {
+        workspaceId,
+        NOT: { repo: { equals: repo, mode: 'insensitive' } },
+        memory: { workspaceId, status: 'ACTIVE' },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        pathGlob: true,
+        sourcePullRequestId: true,
+        repoWideAt: true,
+        memory: { select: { category: true, content: true } },
+      },
+    })
+    return rows.map(r => ({
+      pathGlob: r.pathGlob,
+      sourcePullRequestId: r.sourcePullRequestId,
+      repoWideAt: r.repoWideAt,
+      category: r.memory.category,
+      content: r.memory.content,
+    }))
+  },
+
+  /**
    * The source PR merged: its learnings now apply to the whole repository.
    * Idempotent — an already-promoted row keeps its first timestamp.
    */
