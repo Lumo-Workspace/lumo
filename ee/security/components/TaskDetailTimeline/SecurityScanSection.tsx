@@ -350,7 +350,13 @@ function ReviewControls({
       {control && (
         <span className='text-caption text-muted-foreground'>
           {intl.formatMessage(
-            { id: 'securityScan.review.rounds' },
+            {
+              // LUM-1137: reviewed commits; limit 0 = never pauses.
+              id:
+                control.limit === 0
+                  ? 'securityScan.review.roundsNoLimit'
+                  : 'securityScan.review.rounds',
+            },
             { rounds: control.rounds, limit: control.limit }
           )}
         </span>
@@ -458,7 +464,13 @@ function StageItem({
         : 'warn'
   const name = intl.formatMessage({ id: `securityScan.stage.${stageKey}` })
   const stateWord = intl.formatMessage({
-    id: `securityScan.stageState.${overCap ? 'SKIPPED' : state}`,
+    id: `securityScan.stageState.${
+      overCap
+        ? 'SKIPPED'
+        : state === 'PAUSED' && scan.reviewRateLimited
+          ? 'RATE_LIMITED'
+          : state
+    }`,
   })
   const progress =
     stageKey === 'hunt' && scan.huntProgress

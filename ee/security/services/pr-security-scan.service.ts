@@ -49,7 +49,13 @@ import {
   fetchReviewChangedPaths,
 } from '@/lib/integrations/github/contents'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
-import { affectedReviewDiff } from '@/ee/security/security-scan/review-control'
+import { autoReviewAdmissionService } from '@/ee/security/services/auto-review-admission.service'
+import {
+  DEFAULT_AUTO_PAUSE_AFTER,
+  affectedReviewDiff,
+  reviewBudgetView,
+  type ReviewBudgetView,
+} from '@/ee/security/security-scan/review-control'
 import type { SecretDowngradeReason } from '@/ee/security/security-scan/types'
 import { reviewContextBudget } from '@/ee/security/security-scan/review-context'
 import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
@@ -118,6 +124,7 @@ import {
   GITHUB_DIFF_MAX_FILES,
   SCAN_STAGE_KEYS,
   isOwnedUnfinished,
+  isReviewRateLimited,
   scanCoverageState,
   type HuntOverCapInput,
   type JudgeOverCapInput,
@@ -238,6 +245,11 @@ export interface SecurityScanView {
    */
   prTooLarge: PrTooLargeInput | null
   /**
+   * LUM-1137 — the paused AI layers were rate-limited (the author's hourly
+   * cap), not paused: the next push is reviewed. Present only when true.
+   */
+  reviewRateLimited?: true
+  /**
    * LUM-832 — unfinished for a reason of OURS (a fault, a budget shortfall),
    * which gets the owned line. False when a size cap is the only gap: that
    * is a limit on the change, told by its notice alone.
@@ -301,7 +313,7 @@ export interface CliFindingRow {
 
 export interface TaskSecurityScans {
   prs: {
-    reviewControl?: { paused: boolean; rounds: number; limit: number }
+    reviewControl?: ReviewBudgetView
     pr: {
       id: string
       number: number
@@ -463,6 +475,9 @@ function toScanView(
     coverage: coverageOf(s),
     huntProgress: huntBatchProgress(s.huntJob, stages.hunt),
     ...sizeCaps,
+    ...(isReviewRateLimited(s.partialCauses)
+      ? { reviewRateLimited: true as const }
+      : {}),
     ownedUnfinished: isOwnedUnfinished({
       status: s.status,
       stages,
@@ -878,14 +893,21 @@ export const prSecurityScanService = {
         throw new HeadMovedError('PR head changed while reading review diff')
       // Reserved only once the diff is proven to be this head's: a push that
       // raced the read must not spend a round on a head nobody reviewed.
+      // LUM-1137: every push, until N reviewed commits, under an hourly cap.
+      const admission =
+        (layers.aiReview || layers.hunt) && input.reviewMode === undefined
+          ? await autoReviewAdmissionService.admit(pr, headSha)
+          : null
       const aiAllowed =
         (layers.aiReview || layers.hunt) &&
-        (input.reviewMode !== undefined ||
-          (await prReviewControlRepository.reserve(pr.id, headSha)))
+        (input.reviewMode !== undefined || admission?.allowed === true)
       reservedHead = aiAllowed && input.reviewMode === undefined
       const reviewAllowed = layers.aiReview && aiAllowed
       const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
-      if (reviewPaused) partialCauses.push('AI_REVIEW_PAUSED')
+      if (reviewPaused)
+        partialCauses.push(
+          admission?.rateLimited ? 'AI_REVIEW_RATE_LIMITED' : 'AI_REVIEW_PAUSED'
+        )
       let reviewDiff = diff
       // Paths whose PR-diff sections the judge reviews; null = the whole diff.
       let reviewScope: Set<string> | null = null
@@ -1637,9 +1659,14 @@ export const prSecurityScanService = {
     let count = 0
     let suggested = 0
     const out = []
-    const controls = await Promise.all(
-      prs.map(pr => prReviewControlRepository.get(pr.id))
-    )
+    const [controls, workspaceLimit] = await Promise.all([
+      Promise.all(prs.map(pr => prReviewControlRepository.get(pr.id))),
+      prs.length > 0
+        ? securityColumnsRepository.findReviewAutoPauseAfter(
+            prs[0]!.workspaceId
+          )
+        : Promise.resolve(DEFAULT_AUTO_PAUSE_AFTER),
+    ])
     for (const pr of prs) {
       const scan = latest.get(pr.id)
       const view = scan
@@ -1666,13 +1693,9 @@ export const prSecurityScanService = {
       out.push({
         pr,
         latest: view,
-        reviewControl: {
-          paused:
-            control.reviewPaused ||
-            control.reviewHeads.length >= control.reviewRoundLimit,
-          rounds: control.reviewHeads.length,
-          limit: control.reviewRoundLimit,
-        },
+        // LUM-1137: reviewed commits against the PR's (else the
+        // workspace's) pause-after; limit 0 = never pauses.
+        reviewControl: reviewBudgetView(control, workspaceLimit),
       })
     }
     return {

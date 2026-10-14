@@ -178,9 +178,10 @@ describe('each command maps to the right service call', () => {
   ])('%s → prReviewControlService.act(…, %s)', async (body, action) => {
     if (action === 'resume')
       act.mockResolvedValue({
-        reviewPaused: false,
-        reviewRoundLimit: 2,
-        reviewHeads: [],
+        paused: false,
+        rounds: 0,
+        limit: 5,
+        unit: 'commits',
       })
     await expect(applyPrCommentCommand(event(body))).resolves.toBe('done')
     expect(act).toHaveBeenCalledWith('w1', 9, 'acme/app', action)
@@ -191,7 +192,21 @@ describe('each command maps to the right service call', () => {
       token: 'write',
     })
     expect(replyBody()).toContain(ackMarker(555, 'w1'))
-    if (action === 'resume') expect(replyBody()).toContain('2 automatic rounds')
+    if (action === 'resume')
+      expect(replyBody()).toContain(
+        'every push is reviewed again; they pause again after 5 reviewed commits'
+      )
+  })
+
+  it('LUM-1137: resume on a workspace that never pauses says so', async () => {
+    act.mockResolvedValue({
+      paused: false,
+      rounds: 0,
+      limit: 0,
+      unit: 'commits',
+    })
+    await applyPrCommentCommand(event('@uselumo resume'))
+    expect(replyBody()).toContain('automatic reviews never pause')
   })
 
   it('checks write access with the metadata-only token', async () => {

@@ -549,6 +549,9 @@ describe('a layer over its size cap does not run and the scan says why', () => {
     )
   })
 })
+jest.mock('@/ee/security/services/auto-review-admission.service', () =>
+  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
+)
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),

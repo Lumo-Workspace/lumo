@@ -702,16 +702,19 @@ const pr = program
 pr.command('scan <number>')
   .option(
     '--review <mode>',
-    'Request incremental or full AI review without consuming automatic rounds'
+    'Request incremental or full AI review without counting toward the automatic budget'
   )
   .option('--pause', 'Pause automatic AI reviews for this PR')
-  .option('--resume', 'Resume automatic AI reviews and reset the round budget')
   .option(
-    '--limit <rounds>',
-    'Set automatic round limit (1..100), with pause or resume'
+    '--resume',
+    'Resume automatic AI review of every push and reset the reviewed-commit count'
+  )
+  .option(
+    '--limit <commits>',
+    'This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume'
   )
   .description(
-    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves).'
+    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control automatic review of every push (paused after N reviewed commits). Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves).'
   )
   .option(
     '--repo <owner/repo>',
@@ -1709,7 +1712,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130) and the learnings scope (LUM-1134). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1724,6 +1727,10 @@ workspaceCmd
   .option(
     '--learnings-scope <local|global|auto>',
     'Which repositories’ learnings the AI review reads (default auto): local = the reviewed repository, global = every repository in this workspace, auto = local for public / global for private repositories'
+  )
+  .option(
+    '--auto-pause-after <n>',
+    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)'
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')

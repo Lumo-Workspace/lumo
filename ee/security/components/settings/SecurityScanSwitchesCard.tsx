@@ -13,6 +13,7 @@ import {
   parseLearningsScope,
   type LearningsScope,
 } from '@/ee/security/security-scan/learnings-scope'
+import { AUTO_PAUSE_AFTER_MAX } from '@/ee/security/security-scan/review-control'
 
 /** LUM-1134 — the order the scope choices are offered in (default first). */
 const SCOPE_CHOICES: readonly LearningsScope[] = ['auto', 'local', 'global']
@@ -125,6 +126,53 @@ function ScopeRow({
   )
 }
 
+interface PauseAfterRowProps {
+  label: string
+  description: string
+  value: number
+  disabled: boolean
+  onChange: (next: number) => void
+}
+
+/** LUM-1137 — pause automatic review after N reviewed commits (0 = never). */
+function PauseAfterRow({
+  label,
+  description,
+  value,
+  disabled,
+  onChange,
+}: PauseAfterRowProps) {
+  return (
+    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+      <div className='min-w-0 sm:flex-1'>
+        <label
+          htmlFor='security-review-auto-pause-after'
+          className='text-sm font-medium text-foreground'
+        >
+          {label}
+        </label>
+        <p className='text-xs text-muted-foreground mt-0.5'>{description}</p>
+      </div>
+      <input
+        id='security-review-auto-pause-after'
+        type='number'
+        inputMode='numeric'
+        min={0}
+        max={AUTO_PAUSE_AFTER_MAX}
+        step={1}
+        value={value}
+        disabled={disabled}
+        onChange={e => {
+          const next = Number.parseInt(e.target.value, 10)
+          if (Number.isNaN(next)) return
+          onChange(Math.min(AUTO_PAUSE_AFTER_MAX, Math.max(0, next)))
+        }}
+        className='h-8 w-24 shrink-0 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+      />
+    </div>
+  )
+}
+
 /**
  * LUM-866 — OWNER-only switches for the PR security scan: the whole scan, the
  * AI review (LLM judge) and the exploit-path hunt. The scan switch is the
@@ -143,7 +191,12 @@ export function SecurityScanSwitchesCard({
     intl.formatMessage({ id: `workspaceSettings.securityScan.${id}` })
 
   const set =
-    (key: Exclude<keyof WorkspaceSecuritySwitches, 'securityLearningsScope'>) =>
+    (
+      key: Exclude<
+        keyof WorkspaceSecuritySwitches,
+        'securityLearningsScope' | 'securityReviewAutoPauseAfter'
+      >
+    ) =>
     (next: boolean) =>
       setSwitches(prev => ({ ...prev, [key]: next }))
 
@@ -249,6 +302,25 @@ export function SecurityScanSwitchesCard({
         globalWarning={t('learningsScope.globalWarning')}
         onChange={next =>
           setSwitches(prev => ({ ...prev, securityLearningsScope: next }))
+        }
+      />
+      {/* LUM-1137: CodeRabbit's auto_pause_after_reviewed_commits — every
+          push is reviewed until N reviewed commits; 0 = never pause. Locked
+          while neither AI layer runs. */}
+      <PauseAfterRow
+        label={t('autoPauseAfter.label')}
+        description={t('autoPauseAfter.description')}
+        value={switches.securityReviewAutoPauseAfter}
+        disabled={
+          saving ||
+          !scanOn ||
+          (!switches.securityAiReviewEnabled && !switches.securityHuntEnabled)
+        }
+        onChange={next =>
+          setSwitches(prev => ({
+            ...prev,
+            securityReviewAutoPauseAfter: next,
+          }))
         }
       />
 

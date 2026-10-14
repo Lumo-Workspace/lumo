@@ -469,6 +469,12 @@ model Workspace {
   // private one, local when the visibility is unknown. Never across
   // workspaces. A CHECK constraint keeps it to those three values.
   securityLearningsScope String @default("auto")
+  // LUM-1137: CodeRabbit's `auto_pause_after_reviewed_commits` — automatic
+  // AI review (and exploit-path discovery) of every push pauses on a PR once
+  // this many commits have been reviewed; 0 = never pause. A PR's own
+  // `--resume --limit` (PullRequest.reviewCommitLimit) overrides it. A CHECK
+  // constraint keeps it to 0–100.
+  securityReviewAutoPauseAfter Int @default(5)
   workspaceExports        WorkspaceExport[]
 
   // LUM-918: pending deletion. An OWNER's delete schedules it 48h out
@@ -2051,8 +2057,17 @@ model PullRequest {
   id             String    @id @default(cuid())
   // LUM-1056: durable automatic-review budget; reservations survive retries.
   reviewPaused   Boolean   @default(false)
+  // LUM-1137: no longer read (the limit is reviewCommitLimit, else the
+  // workspace's securityReviewAutoPauseAfter); dropped in a later release.
   reviewRoundLimit Int     @default(2)
   reviewHeads    String[]  @default([])
+  // LUM-1137: the PR's commit count at each admitted head, aligned with
+  // reviewHeads (a missing entry — a head admitted before this column —
+  // counts as one commit). Reviewed commits = the commits each head added.
+  reviewHeadCommits Int[]  @default([])
+  // LUM-1137: this PR's own pause-after-N-reviewed-commits, set only by
+  // `--resume --limit` / `@uselumo resume`; null = the workspace setting.
+  reviewCommitLimit Int?
   workspaceId    String
   taskId         String?
   integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)

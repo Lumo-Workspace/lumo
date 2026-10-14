@@ -16,13 +16,15 @@ one — the user's ruling goes through [`lumo finding disposition`](#finding-dis
 
 ### Which PRs are reviewed automatically (LUM-1133)
 
-Every open PR of a repository the workspace confirmed is reviewed on `opened` / `reopened` / `synchronize` / `ready_for_review` — task-linked or not (CodeRabbit parity). For a PR **without a task**, the per-repository settings apply (`lumo workspace security-scan --repos`, see [workspace-settings.md](workspace-settings.md)): a repository turned off is not reviewed; a draft is skipped until it is marked ready unless the repository includes drafts; a PR converted back to draft keeps its findings and threads, and its pushes are not reviewed while it is a draft. When several workspaces confirmed the same repository, exactly one reviews a task-less PR (the earliest confirmation that would review it; none when another workspace has the PR linked to its task), so GitHub gets one review. Task-linked PRs are always scanned — the scan is the Done gate's evidence. The per-PR round budget and the 150-file cap apply the same way; `lumo pr scan <n> --review full` still reviews any PR by hand.
+Every open PR of a repository the workspace confirmed is reviewed on `opened` / `reopened` / `synchronize` / `ready_for_review` — task-linked or not (CodeRabbit parity). For a PR **without a task**, the per-repository settings apply (`lumo workspace security-scan --repos`, see [workspace-settings.md](workspace-settings.md)): a repository turned off is not reviewed; a draft is skipped until it is marked ready unless the repository includes drafts; a PR converted back to draft keeps its findings and threads, and its pushes are not reviewed while it is a draft. When several workspaces confirmed the same repository, exactly one reviews a task-less PR (the earliest confirmation that would review it; none when another workspace has the PR linked to its task), so GitHub gets one review. Task-linked PRs are always scanned — the scan is the Done gate's evidence. The per-PR reviewed-commit budget and the 150-file cap apply the same way; `lumo pr scan <n> --review full` still reviews any PR by hand.
 
-### Review controls (LUM-1056)
+### Review controls (LUM-1056, LUM-1137)
+
+Every push to an open PR gets an automatic incremental AI review (and exploit-path hunt) — CodeRabbit's `auto_incremental_review` — until the PR has N reviewed commits (`auto_pause_after_reviewed_commits`): N is the PR's own `--limit`, else the workspace's `--auto-pause-after` ([workspace-settings.md](workspace-settings.md), default 5, `0` = never pause). Reviewed commits are the commits each reviewed push added; the first review counts every commit on the PR. A push superseded by a newer one before its review landed counts nothing (the newer push's review covers its commits). An hourly cap per PR author (20 automatic reviews) also applies: a push over it gets its deterministic checks, its AI layers read `rate-limited — automatic review resumes within the hour`, and the next push after the hour is reviewed; a manual review is never limited.
 
 `--review incremental` requests review of affected files since the last complete AI review; `--review full` requests the entire PR. Both bypass the automatic budget without consuming or resetting it. Concurrent requests while a review is active deduplicate; a later request after completion starts another review. Active asynchronous layers must finish before the same head can be restarted.
 
-`--pause` pauses automatic AI review and exploit-path discovery. `--resume` resets the budget and resumes future automatic reviews; it does not immediately review the current head. `--limit 1..100` with pause/resume changes the per-PR budget (default 2 distinct admitted heads, including the first). Failed attempts keep their reservation; retries of an admitted head cost no additional round. Deterministic checks continue while AI is paused. Paused does not mean checked and does not clear blocking findings.
+`--pause` pauses automatic AI review and exploit-path discovery. `--resume` resets the reviewed-commit count and resumes automatic review of every push; it does not immediately review the current head. `--limit 1..100` with pause/resume gives the PR its own pause-after (reviewed commits), over the workspace setting; a later `--resume` without `--limit` keeps it. Failed attempts keep their reservation; retries of an admitted head count nothing again. Deterministic checks continue while AI is paused. Paused does not mean checked and does not clear blocking findings.
 
 Choose exactly one of `--review`, `--pause`, `--resume`. Example: `lumo pr scan 1013 --repo owner/repo --resume --limit 2`. Use these controls when repeated fix pushes keep triggering new AI findings, or when the user requests a manual review/pause/resume.
 
@@ -107,7 +109,7 @@ Scan abcdef0 · FINDINGS
 ```
 
 With review controls on the payload an `AI review` block follows the header:
-`Automatic:  enabled · 1/2 rounds`, then the `--review incremental`,
+`Automatic:  enabled · 3/5 commits reviewed` (`12 commits reviewed · never pauses` when the limit is 0; an older server prints `1/2 rounds`), then the `--review incremental`,
 `--review full` and `--resume` commands each on its own line, and
 `⚠ Latest head has no scan yet; …` when the newest head is unscanned.
 

@@ -2593,7 +2593,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Set automatic round limit (1..100), with pause or resume"
+          "description": "This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume"
         },
         "--pause": {
           "long": "--pause",
@@ -2617,7 +2617,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Resume automatic AI reviews and reset the round budget"
+          "description": "Resume automatic AI review of every push and reset the reviewed-commit count"
         },
         "--review": {
           "long": "--review",
@@ -2625,12 +2625,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Request incremental or full AI review without consuming automatic rounds"
+          "description": "Request incremental or full AI review without counting toward the automatic budget"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves)."
+      "description": "Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control automatic review of every push (paused after N reviewed commits). Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves)."
     },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],
@@ -5203,6 +5203,14 @@
           "enumCaseInsensitive": false,
           "description": "AI review (LLM security review and triage)"
         },
+        "--auto-pause-after": {
+          "long": "--auto-pause-after",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)"
+        },
         "--confirm": {
           "long": "--confirm",
           "short": null,
@@ -5302,7 +5310,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130) and the learnings scope (LUM-1134). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
+      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
     },
     "worktree": {
       "arguments": [],

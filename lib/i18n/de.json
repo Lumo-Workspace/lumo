@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Automatische KI-Prüfrunden: {rounds}/{limit}",
+  "securityScan.review.rounds": "Automatische KI-Prüfung: {rounds}/{limit} Commits geprüft",
   "securityScan.stageState.PAUSED": "pausiert — manuelle Prüfung anfordern",
-  "securityScan.stageReason.PAUSED": "Automatische KI-Prüfungen sind pausiert oder haben das Rundenlimit erreicht. Dieser Commit wurde nicht vollständig geprüft. Fordern Sie eine Prüfung an oder setzen Sie automatische Prüfungen fort.",
+  "securityScan.stageReason.PAUSED": "Automatische KI-Prüfungen sind für diesen PR pausiert (durch eine prüfende Person oder nach seinem Limit geprüfter Commits). Dieser Commit wurde nicht vollständig geprüft. Fordern Sie eine Prüfung an oder setzen Sie automatische Prüfungen fort.",
   "securityScan.review.incremental": "Änderungen prüfen",
   "securityScan.review.full": "Gesamten PR prüfen",
   "securityScan.review.pause": "Automatische Prüfungen pausieren",
@@ -2884,5 +2884,10 @@
   "members.banner.title": "{count, plural, one {# Agent-Verbindung braucht} other {# Agent-Verbindungen brauchen}} ein Update.",
   "members.banner.body": "Agents mit älteren Versionen fehlen möglicherweise neue Task- und Hook-Befehle.",
   "members.banner.showWho": "Wer betroffen ist",
-  "members.banner.dismiss": "Schließen"
+  "members.banner.dismiss": "Schließen",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Automatische Prüfung pausieren nach",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Jeder Push in einen offenen Pull Request erhält eine automatische KI-Prüfung der Änderungen. Nach so vielen geprüften Commits in einem Pull Request pausieren automatische Prüfungen, bis jemand eine Prüfung anfordert oder sie fortsetzt. 0 = nie pausieren. Standard 5.",
+  "securityScan.stageState.RATE_LIMITED": "Ratenlimit erreicht — automatische Prüfung läuft innerhalb einer Stunde wieder",
+  "securityScan.stageReason.RATE_LIMITED": "Der PR-Autor hat das stündliche Limit automatischer KI-Prüfungen erreicht, daher wurde dieser Commit nicht vollständig geprüft. Der nächste Push nach dem Zurücksetzen des Limits wird automatisch geprüft; fordere eine Prüfung an, um diesen Commit jetzt zu prüfen.",
+  "securityScan.review.roundsNoLimit": "Automatische KI-Prüfung: {rounds} Commits geprüft · pausiert nie"
 }

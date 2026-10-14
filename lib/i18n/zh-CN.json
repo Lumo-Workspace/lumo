@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "自动 AI 审查轮数：{rounds}/{limit}",
+  "securityScan.review.rounds": "自动 AI 审查：已审查 {rounds}/{limit} 个提交",
   "securityScan.stageState.PAUSED": "已暂停，需手动复审",
-  "securityScan.stageReason.PAUSED": "自动 AI 检查已暂停或已达到轮数上限。此提交尚未完成审查，请手动复审或恢复自动审查。",
+  "securityScan.stageReason.PAUSED": "此 PR 的自动 AI 检查已暂停（由审查者暂停，或已达到已审查提交数上限）。此提交尚未完成审查，请手动复审或恢复自动审查。",
   "securityScan.review.incremental": "复审改动",
   "securityScan.review.full": "复审整个 PR",
   "securityScan.review.pause": "暂停自动审查",
@@ -2884,5 +2884,10 @@
   "members.banner.title": "{count} 个 agent 连接需要更新。",
   "members.banner.body": "旧版本的 agent 可能用不了新的任务和 hook 命令。",
   "members.banner.showWho": "查看是谁",
-  "members.banner.dismiss": "关闭"
+  "members.banner.dismiss": "关闭",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "自动审查暂停阈值",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "开放中的 PR 每次推送都会自动对改动做 AI 审查。同一个 PR 上审查过这么多个提交后，自动审查暂停，直到有人请求审查或恢复自动审查。0 = 永不暂停。默认 5。",
+  "securityScan.stageState.RATE_LIMITED": "已限流 — 自动审查一小时内恢复",
+  "securityScan.stageReason.RATE_LIMITED": "PR 作者已达到每小时自动 AI 审查的上限，此提交尚未完整审查。上限重置后的下一次推送会自动审查；如需现在检查此提交，请请求审查。",
+  "securityScan.review.roundsNoLimit": "自动 AI 审查：已审查 {rounds} 个提交 · 永不暂停"
 }

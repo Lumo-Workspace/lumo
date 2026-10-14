@@ -65,6 +65,11 @@ import { sanitizeField } from '@/lib/utils/sanitize'
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
 import type { ShellDetailTask } from '@/shared/src/hunt-audit'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+import {
+  reviewBudgetView,
+  type ReviewBudgetView,
+} from '@/ee/security/security-scan/review-control'
 
 export interface PullRequestScanReadoutInput {
   number: number
@@ -200,12 +205,7 @@ export interface ScanReadoutView {
 }
 
 export interface PullRequestScanReadout {
-  reviewControl?: {
-    paused: boolean
-    rounds: number
-    limit: number
-    currentHead: string | null
-  }
+  reviewControl?: ReviewBudgetView & { currentHead: string | null }
   version: 1
   pullRequest: {
     repo: string
@@ -534,13 +534,15 @@ export const prScanReadoutService = {
       )
     }
     const pr = prs[0]!
-    const [rows, policy, exitContexts, layers, control] = await Promise.all([
-      prSecurityScanRepository.listByPullRequest(pr.id, input.all ? null : 1),
-      loadSecurityPolicy(workspaceId),
-      loadQueueExitContexts([pr], workspaceId),
-      loadSecurityLayers(workspaceId),
-      prReviewControlRepository.get(pr.id),
-    ])
+    const [rows, policy, exitContexts, layers, control, workspaceLimit] =
+      await Promise.all([
+        prSecurityScanRepository.listByPullRequest(pr.id, input.all ? null : 1),
+        loadSecurityPolicy(workspaceId),
+        loadQueueExitContexts([pr], workspaceId),
+        loadSecurityLayers(workspaceId),
+        prReviewControlRepository.get(pr.id),
+        securityColumnsRepository.findReviewAutoPauseAfter(workspaceId),
+      ])
     const tally = { redacted: 0 }
     const scans: ScanReadoutView[] = rows.map(scan => {
       const findings: FindingReadoutView[] = scan.findings.map(f => {
@@ -640,12 +642,10 @@ export const prScanReadoutService = {
     })
     return {
       version: 1,
+      // LUM-1137: reviewed commits against the PR's (else the workspace's)
+      // pause-after; limit 0 = never pauses.
       reviewControl: {
-        paused:
-          control.reviewPaused ||
-          control.reviewHeads.length >= control.reviewRoundLimit,
-        rounds: control.reviewHeads.length,
-        limit: control.reviewRoundLimit,
+        ...reviewBudgetView(control, workspaceLimit),
         currentHead: pr.headSha,
       },
       pullRequest: {
