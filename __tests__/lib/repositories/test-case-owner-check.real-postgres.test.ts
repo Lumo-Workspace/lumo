@@ -41,3 +41,21 @@ it('rejects a test case with both owners', async () => {
     )
   ).rejects.toThrow(/test_cases_owner_check/)
 })
+
+it('rejects a test case run with neither owner', async () => {
+  await expect(
+    harness.prisma!.$executeRawUnsafe(
+      `INSERT INTO test_case_runs (id, "testCaseId", result, environment)
+       VALUES ('lum1135-run-none', 'no-case', 'PASS', 'LOCAL')`
+    )
+  ).rejects.toThrow(/test_case_runs_owner_check/)
+})
+
+it('rejects a disposition with neither owner', async () => {
+  await expect(
+    harness.prisma!.$executeRawUnsafe(
+      `INSERT INTO test_case_run_dispositions (id, "runId", disposition, "dispositionedById", channel)
+       VALUES ('lum1135-disp-none', 'no-run', 'KNOWN_DEFECT', 'm', 'WEB')`
+    )
+  ).rejects.toThrow(/test_case_run_dispositions_owner_check/)
+})
