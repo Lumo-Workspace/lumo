@@ -286,8 +286,13 @@ export const projectService = {
     // Tasks cascade with the project; their evidence blobs do not (LUM-916).
     const evidenceTaskIds =
       await privateFileRepository.findTaskIdsWithTestCasesInProject(projectId)
+    const evidenceMilestoneIds =
+      await privateFileRepository.findMilestoneIdsWithTestCasesInProject(
+        projectId
+      )
     await projectRepository.delete(projectId, project.workspaceId)
     await privateFileService.deleteTaskEvidence(evidenceTaskIds)
+    await privateFileService.deleteMilestoneEvidence(evidenceMilestoneIds)
 
     // Idea drafts are private to the creator — only the creator's own tab
     // needs to react, and that tab already did so optimistically.

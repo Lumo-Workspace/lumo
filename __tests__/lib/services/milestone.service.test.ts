@@ -31,6 +31,19 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
   },
 }))
 
+const mockHasAnyCases = jest.fn()
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: {
+    hasAnyForMilestone: (...a: unknown[]) => mockHasAnyCases(...a),
+  },
+}))
+const mockDeleteEvidence = jest.fn()
+jest.mock('@/lib/services/private-file.service', () => ({
+  privateFileService: {
+    deleteMilestoneEvidence: (...a: unknown[]) => mockDeleteEvidence(...a),
+  },
+}))
+
 // LUM-643: updateMilestone consults the close gate on a
 // COMPLETED transition — default to an empty contract (gate open).
 const mockCountHeld = jest.fn().mockResolvedValue(0)
@@ -233,6 +246,33 @@ describe('milestoneService.deleteMilestone', () => {
     await milestoneService.deleteMilestone('m1', 'mem1')
     expect(mockProjectGet).toHaveBeenCalledWith('p1', 'mem1')
     expect(mockRepoDelete).toHaveBeenCalledWith('m1')
+  })
+
+  it('LUM-1135: sweeps evidence after deleting a milestone that had test cases', async () => {
+    const order: string[] = []
+    mockRepoFindById.mockResolvedValue({ id: 'm1', projectId: 'p1' })
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    mockHasAnyCases.mockImplementation(async () => {
+      order.push('read')
+      return true
+    })
+    mockRepoDelete.mockImplementation(async () => {
+      order.push('delete')
+    })
+    mockDeleteEvidence.mockImplementation(async () => {
+      order.push('sweep')
+    })
+    await milestoneService.deleteMilestone('m1', 'mem1')
+    expect(order).toEqual(['read', 'delete', 'sweep'])
+    expect(mockDeleteEvidence).toHaveBeenCalledWith(['m1'])
+  })
+
+  it('LUM-1135: skips the sweep when the milestone never had test cases', async () => {
+    mockRepoFindById.mockResolvedValue({ id: 'm1', projectId: 'p1' })
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    mockHasAnyCases.mockResolvedValue(false)
+    await milestoneService.deleteMilestone('m1', 'mem1')
+    expect(mockDeleteEvidence).not.toHaveBeenCalled()
   })
 })
 

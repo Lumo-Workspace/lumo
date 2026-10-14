@@ -244,6 +244,15 @@ export const testCaseRepository = {
     })
   },
 
+  /** LUM-1135: any test case at all, soft-deleted included — they still own evidence blobs. */
+  async hasAnyForMilestone(milestoneId: string): Promise<boolean> {
+    const row = await prisma.testCase.findFirst({
+      where: { milestoneId },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
   findByMilestoneAndNumber(
     milestoneId: string,
     number: number

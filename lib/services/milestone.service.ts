@@ -2,6 +2,8 @@ import {
   milestoneRepository,
   type MilestoneListFilter,
 } from '@/lib/repositories/milestone.repository'
+import { testCaseRepository } from '@/lib/repositories/test-case.repository'
+import { privateFileService } from '@/lib/services/private-file.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectService } from '@/lib/services/project.service'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
@@ -655,7 +657,14 @@ export const milestoneService = {
       throw Object.assign(new Error('Milestone not found'), { status: 404 })
     }
     await projectService.getProject(existing.projectId, memberId)
+    // Read before the delete: the cases (soft-deleted too) cascade with the
+    // row, but their evidence blobs do not (LUM-1135).
+    const hadTestCases =
+      await testCaseRepository.hasAnyForMilestone(milestoneId)
     await milestoneRepository.delete(milestoneId)
+    if (hadTestCases) {
+      await privateFileService.deleteMilestoneEvidence([milestoneId])
+    }
   },
 
   async reorderMilestones(
