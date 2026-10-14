@@ -4,6 +4,8 @@
 
 test case 回答「这条剧本跑下来什么结果、**在哪个环境**、**跑的哪版代码**」——这是任务交付证据的落点（LUM-942 起任务级验收标准 / `lumo verify` 已移除）。用例全绿 **不等于** 任务可以 DONE；`lumo task status` 只把它的判决信号列为 advisory（见下方）。
 
+Milestone-level (cross-task) cases use the same flags under `lumo milestone testcase` — see milestones.md.
+
 句柄是 `<task>/TC<n>`，例如 `LUM-42/TC3`。编号是任务内 1-based 顺序号。
 
 ---

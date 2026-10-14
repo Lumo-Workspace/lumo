@@ -2,6 +2,7 @@ import { apiContext, apiCall } from '../lib/test-case-api'
 import { printStatusDigest } from '../lib/status-digest'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { emitConfirmation } from '../lib/confirmation'
+import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 import {
   checkStep,
   describeDefectRead,
@@ -73,6 +74,24 @@ export async function taskTestCaseDisposition(
     )
     return 1
   }
+  return testCaseDispositionInScope(
+    taskScope(split.task),
+    split.caseRef,
+    options
+  )
+}
+
+/**
+ * LUM-1135: the same three-step handshake for any scope. On a milestone the
+ * ruling clears the close gate instead of a task's DONE.
+ */
+export async function testCaseDispositionInScope(
+  scope: TestCaseScope,
+  caseRef: string,
+  options: TestCaseDispositionOptions = {}
+): Promise<number | void> {
+  const handle = `${scope.label}/${caseRef}`
+  const blocks = scope.kind === 'task' ? 'DONE' : 'the milestone close gate'
 
   const ruling = pickRuling(options)
   if (!ruling.ok) {
@@ -92,7 +111,7 @@ export async function taskTestCaseDisposition(
 
   const shown = await apiCall<ShowResponse>(
     ctx,
-    `/api/tasks/${encodeURIComponent(split.task)}/test-cases/${encodeURIComponent(split.caseRef)}`,
+    `${scope.basePath}/test-cases/${encodeURIComponent(caseRef)}`,
     {},
     'test case show'
   )
@@ -108,7 +127,7 @@ export async function taskTestCaseDisposition(
     latest.failureAttribution !== 'IMPLEMENTATION_DEFECT'
   ) {
     console.error(
-      `Error: the latest run of ${handle} is not a proven implementation defect, so it never blocked DONE. Nothing to disposition.`
+      `Error: the latest run of ${handle} is not a proven implementation defect, so it never blocked ${blocks}. Nothing to disposition.`
     )
     return 1
   }
@@ -120,13 +139,13 @@ export async function taskTestCaseDisposition(
   }
 
   const subject: DefectSubject = {
-    caseHandle: `${split.task}/TC${shown.data.testCase.number}`,
+    caseHandle: `${scope.label}/TC${shown.data.testCase.number}`,
     caseTitle: shown.data.testCase.title,
     runId: latest.id,
     recordedAt: latest.createdAt,
     evidenceCount: Array.isArray(latest.evidence) ? latest.evidence.length : 0,
   }
-  const receiptPath = `/api/tasks/${encodeURIComponent(split.task)}/test-case-runs/${encodeURIComponent(latest.id)}/disposition/receipt`
+  const receiptPath = `${scope.basePath}/test-case-runs/${encodeURIComponent(latest.id)}/disposition/receipt`
 
   // 步骤 1 —— 读信封。
   if (step.step === 'READ') {
@@ -143,7 +162,7 @@ export async function taskTestCaseDisposition(
       return 1
     }
     return emitConfirmation({
-      command: 'task testcase disposition',
+      command: `${scope.kind} testcase disposition`,
       changes: [
         ...describeDefectRead(subject, ruling.target, note),
         `Step 1 of 2 — read receipt issued for this run as read above (valid until ${issued.data.expiresAt}; void if a newer run is recorded or someone rules on it first). Next: the user confirms they have READ it, then run the command below; the ruling itself is confirmed in a second envelope`,
@@ -174,7 +193,7 @@ export async function taskTestCaseDisposition(
       return 1
     }
     return emitConfirmation({
-      command: 'task testcase disposition',
+      command: `${scope.kind} testcase disposition`,
       changes: describeDefectRuling(subject, ruling.target, {
         readAt: issued.data.readAt,
         readAcknowledgedAt:
@@ -191,7 +210,7 @@ export async function taskTestCaseDisposition(
   // 步骤 3 —— 落库。
   const wrote = await apiCall<{ disposition: DefectRuling }>(
     ctx,
-    `/api/tasks/${encodeURIComponent(split.task)}/test-case-runs/${encodeURIComponent(latest.id)}/disposition`,
+    `${scope.basePath}/test-case-runs/${encodeURIComponent(latest.id)}/disposition`,
     {
       method: 'POST',
       json: { disposition: ruling.target, note: note ?? null, receipt },
@@ -201,8 +220,10 @@ export async function taskTestCaseDisposition(
   if (!wrote.ok) return 1
 
   process.stdout.write(
-    `Dispositioned ${subject.caseHandle} run ${latest.id}: ${ruling.target}. That run no longer blocks DONE.\n`
+    `Dispositioned ${subject.caseHandle} run ${latest.id}: ${ruling.target}. That run no longer blocks ${blocks}.\n`
   )
   // LUM-842: show what (if anything) still blocks DONE after this ruling.
-  await printStatusDigest(ctx.base, ctx.token, split.task)
+  if (scope.kind === 'task') {
+    await printStatusDigest(ctx.base, ctx.token, scope.label)
+  }
 }

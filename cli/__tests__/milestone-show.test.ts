@@ -118,3 +118,45 @@ describe('formatMilestoneShow — staleness hints (LUM-624/LUM-714)', () => {
     expect(clean).not.toContain('no target date')
   })
 })
+
+describe('formatMilestoneShow — close gate (LUM-1135)', () => {
+  it('shows an open close gate', () => {
+    const out = formatMilestoneShow(
+      {
+        ...base,
+        closeGate: {
+          held: 0,
+          unresolvedCriteria: 0,
+          cases: [{ state: 'open', reason: null }],
+        },
+      },
+      []
+    )
+    expect(out).toMatch(/Close gate:\s+open/)
+  })
+
+  it('summarises a held close gate by reason', () => {
+    const out = formatMilestoneShow(
+      {
+        ...base,
+        closeGate: {
+          held: 3,
+          unresolvedCriteria: 1,
+          cases: [
+            { state: 'held', reason: 'NOT_RUN' },
+            { state: 'held', reason: 'FAILING' },
+            { state: 'open', reason: null },
+          ],
+        },
+      },
+      []
+    )
+    expect(out).toMatch(
+      /Close gate:\s+held \(1 not run, 1 failing, 1 exit criterion\)/
+    )
+  })
+
+  it('omits the row when the server sent no gate', () => {
+    expect(formatMilestoneShow({ ...base }, [])).not.toMatch(/Close gate/)
+  })
+})

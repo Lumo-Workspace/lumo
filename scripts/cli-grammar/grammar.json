@@ -1696,7 +1696,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only)."
+      "description": "DEPRECATED (LUM-1135) — use `milestone testcase`. Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only)."
     },
     "milestone criteria list": {
       "arguments": [
@@ -2001,6 +2001,408 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
+    },
+    "milestone testcase": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Milestone test cases — cross-task end-to-end cases and the milestone close contract (LUM-1135). The close gate opens only when every case’s latest run passed (or a proven defect was dispositioned known)."
+    },
+    "milestone testcase add": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--expected": {
+          "long": "--expected",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--requires-env": {
+          "long": "--requires-env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy"
+        },
+        "--setup": {
+          "long": "--setup",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Preconditions, e.g. \"The user is on the Dashboard.\""
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One execution step (repeatable, ordered). At least one is required."
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Test case title"
+        },
+        "--verify": {
+          "long": "--verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One verification step (repeatable, ordered). May be omitted entirely."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Add a milestone test case. --step / --verify are repeatable and keep the order they appear in."
+    },
+    "milestone testcase disposition": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+        },
+        "--confirm-read": {
+          "long": "--confirm-read",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+        },
+        "--known-defect": {
+          "long": "--known-defect",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "We accept this defect and ship anyway (does NOT claim it is fixed)"
+        },
+        "--not-a-defect": {
+          "long": "--not-a-defect",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The failure was mis-attributed to the implementation"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Why this ruling"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--receipt": {
+          "long": "--receipt",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The read receipt from the previous step of the handshake"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
+    },
+    "milestone testcase list": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List a milestone's test cases with each one's latest run (result, environment, commit)"
+    },
+    "milestone testcase rm": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Alias of --confirm (kept for compatibility)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+    },
+    "milestone testcase run": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--actual": {
+          "long": "--actual",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "What actually happened at the failing step (FAIL only), shown next to the expected result"
+        },
+        "--cause": {
+          "long": "--cause",
+          "short": null,
+          "value": "required",
+          "enum": ["defect", "outdated", "external", "unknown"],
+          "enumCaseInsensitive": true,
+          "description": "Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only \"defect\" carries a burden of proof (needs at least one --evidence / --evidence-file); \"unknown\" is a real answer"
+        },
+        "--commit": {
+          "long": "--commit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)"
+        },
+        "--env": {
+          "long": "--env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production (case-insensitive; no default - say where this ran)"
+        },
+        "--evidence": {
+          "long": "--evidence",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Evidence link (repeatable)"
+        },
+        "--evidence-file": {
+          "long": "--evidence-file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)"
+        },
+        "--failed-step": {
+          "long": "--failed-step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)"
+        },
+        "--failed-verify": {
+          "long": "--failed-verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Free-text note about this run"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--result": {
+          "long": "--result",
+          "short": null,
+          "value": "required",
+          "enum": ["pass", "fail", "blocked"],
+          "enumCaseInsensitive": true,
+          "description": "pass | fail | blocked (case-insensitive)"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as \"no per-step result\", never as passed"
+        },
+        "--step-evidence": {
+          "long": "--step-evidence",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit"
+        },
+        "--unproven": {
+          "long": "--unproven",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in."
+    },
+    "milestone testcase show": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history. Case: TC3"
+    },
+    "milestone testcase update": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--expected": {
+          "long": "--expected",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--requires-env": {
+          "long": "--requires-env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production", "none"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass \"none\" to clear it. Matched exactly: there is no environment hierarchy"
+        },
+        "--setup": {
+          "long": "--setup",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New preconditions"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Replacement step (repeatable, ordered) - replaces the whole steps list"
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New title"
+        },
+        "--verify": {
+          "long": "--verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Replacement verification step (repeatable, ordered) - replaces the whole list"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field."
     },
     "milestone triage": {
       "arguments": [

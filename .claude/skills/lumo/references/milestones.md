@@ -139,7 +139,7 @@ At least one field required.
 
 The old `PLANNED` / `ACTIVE` split is gone — a milestone whose tasks have not started is simply active — and `CANCELLED` is expressed by archiving (a milestone archived while incomplete reads as dropped, not delivered).
 
-**The close is gated by exit criteria (LUM-643):** when the milestone has exit criteria (see `milestone criteria` below), any row not adjudicated MET — unadjudicated (PENDING) **or** NOT_MET — holds the LUM-714 derived completion fail-closed: all tasks DONE leaves the milestone active, `completedAt` unstamped, no retro. There is **no CLI/agent override**: the only escape hatch is a human overriding via the web (`POST /api/milestones/<id>/close-override`, Clerk identity only), stamped on the milestone as a persistent trail (`completedOverride*` — who/when/note, never auto-cleared). To open the gate legitimately, adjudicate the contract with `lumo milestone criteria verdict`.
+**The close is gated by milestone test cases and exit criteria (LUM-1135, LUM-643):** the LUM-714 derived completion needs the whole gate open. A milestone test case holds the gate until its latest run is a PASS (or a proven defect was dispositioned KNOWN_DEFECT); a legacy exit criterion holds it until adjudicated MET. While held, all tasks DONE leaves the milestone active, `completedAt` unstamped, no retro. `lumo milestone show` prints a `Close gate:` row (`open`, or `held (1 not run, 1 failing, ...)`). There is **no CLI/agent override**: the only escape hatch is a human using the **Close anyway** button on the milestone page (`POST /api/milestones/<id>/close-override`, Clerk identity only), stamped on the milestone as a persistent trail (`completedOverride*` - who/when/note, never auto-cleared). To open the gate legitimately, record passing runs with `lumo milestone testcase run`.
 
 ```bash
 lumo milestone update "Q3 Launch" --target 2026-09-15
@@ -148,7 +148,42 @@ lumo milestone update "Q3 Launch" --token-budget 50000000
 lumo milestone update "Q3 Launch" --token-budget ""
 ```
 
-### `lumo milestone criteria set <identifier> --file <criteria.json> [--human]` — submit the exit contract
+### `lumo milestone testcase add|list|show|update|rm|run|disposition <milestone>` - the milestone close contract (LUM-1135)
+
+Milestone test cases are cross-task, end-to-end cases that replace exit criteria as the close contract. Every command mirrors `lumo task testcase` (same flags, same output shape); the differences:
+
+- The first positional is the **milestone** (name, or id), then the case ref (`TC3`) where one applies. Pass `--project <ref>` when the milestone name is ambiguous. Printed handles read `<milestone name>/TC3`.
+- `run` has **no `--pr`** (a milestone spans many PRs; the commit is recorded instead) and prints no task status digest.
+- `disposition <milestone> TC3 --known-defect | --not-a-defect` is the same three-step handshake as `task testcase disposition`; the ruling clears the case's hold on the close gate instead of DONE. Never add `--confirm-read` / `--confirm` yourself.
+
+| Latest run of the case                                               | Gate state | Reason        |
+| -------------------------------------------------------------------- | ---------- | ------------- |
+| none                                                                 | held       | NOT_RUN       |
+| PASS (including UNPROVEN)                                            | open       |               |
+| FAIL, proven implementation defect, dispositioned KNOWN_DEFECT       | open       |               |
+| FAIL, proven implementation defect, not yet ruled on or NOT_A_DEFECT | held       | PROVEN_DEFECT |
+| any other FAIL                                                       | held       | FAILING       |
+| BLOCKED                                                              | held       | BLOCKED       |
+
+```bash
+lumo milestone testcase add "Review v2" --title "PR review round-trip" --step "open a PR in a connected repo" --step "wait for the review" --verify "the review comment is on the PR" --expected "one review comment per finding" --requires-env production
+lumo milestone testcase run "Review v2" TC1 --result pass --env production --evidence https://github.com/o/r/pull/1#issuecomment-1
+lumo milestone testcase list "Review v2"
+lumo milestone testcase show "Review v2" TC1
+lumo milestone testcase update "Review v2" TC1 --expected "one review comment per finding, on the right line"
+lumo milestone testcase rm "Review v2" TC1
+lumo milestone testcase disposition "Review v2" TC1 --known-defect --note "shipping with the line-offset bug"
+```
+
+### When to suggest `milestone testcase`
+
+- A steward session planning a milestone ("what does done mean for this milestone") -> `testcase add` for each cross-task end-to-end scenario.
+- After the last task of a milestone lands -> run each case with `testcase run`, in the environment the case requires.
+- `milestone show` says `Close gate: held` -> `testcase list` to see which case holds it and why.
+
+### `lumo milestone criteria set <identifier> --file <criteria.json> [--human]` - submit the exit contract (Deprecated, LUM-1135)
+
+**Deprecated (LUM-1135):** use `milestone testcase`. Existing exit criteria still hold the gate until adjudicated; do not add new ones.
 
 Milestone-level **exit criteria** (LUM-643) — the close contract. Exit criteria are **adjudicated (裁定)**, not machine-verified — and each item requires only `statement` + `referentKind`. The **steward session (LUM-640) is the intended drafting & adjudicating subject** (drafting is a governance action; session provenance is recorded on every row); `--human` records a transcribed HUMAN_EDIT revision instead.
 

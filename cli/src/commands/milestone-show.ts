@@ -86,6 +86,42 @@ export interface MilestoneShowData {
         rate: number | null
       }
     | undefined
+  /** LUM-1135: close gate (exit criteria + milestone test cases). Absent on older servers. */
+  closeGate?:
+    | {
+        held: number
+        unresolvedCriteria: number
+        cases: Array<{ state: 'open' | 'held'; reason: string | null }>
+      }
+    | null
+    | undefined
+}
+
+const GATE_REASON_LABEL: Record<string, string> = {
+  NOT_RUN: 'not run',
+  FAILING: 'failing',
+  PROVEN_DEFECT: 'proven defect',
+  BLOCKED: 'blocked',
+}
+
+/** LUM-1135: `open` or `held (2 not run, 1 failing, 1 exit criterion)`. */
+export function formatCloseGate(
+  gate: NonNullable<MilestoneShowData['closeGate']>
+): string {
+  if (gate.held === 0) return 'open'
+  const counts = new Map<string, number>()
+  for (const c of gate.cases) {
+    if (c.state !== 'held' || !c.reason) continue
+    const label = GATE_REASON_LABEL[c.reason] ?? c.reason.toLowerCase()
+    counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
+  const parts = [...counts].map(([label, n]) => `${n} ${label}`)
+  if (gate.unresolvedCriteria > 0) {
+    parts.push(
+      `${gate.unresolvedCriteria} exit ${gate.unresolvedCriteria === 1 ? 'criterion' : 'criteria'}`
+    )
+  }
+  return `held (${parts.join(', ')})`
 }
 
 function sprintCoverageLines(
@@ -208,6 +244,9 @@ export function formatMilestoneShow(
     [
       { label: 'Milestone', value: sanitizeField(m.name) },
       { label: 'State', value: stateValue },
+      ...(m.closeGate
+        ? [{ label: 'Close gate', value: formatCloseGate(m.closeGate) }]
+        : []),
       {
         label: 'Completed',
         value: fmtDay(m.completedAt),
@@ -308,6 +347,7 @@ export async function milestoneShow(
       staleness?: MilestoneShowData['staleness']
       sprintCoverage?: MilestoneShowData['sprintCoverage']
       crossMilestoneLearning?: MilestoneShowData['crossMilestoneLearning']
+      closeGate?: MilestoneShowData['closeGate']
     }
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
@@ -343,6 +383,7 @@ export async function milestoneShow(
         staleness: milestone.staleness,
         sprintCoverage: milestone.sprintCoverage,
         crossMilestoneLearning: milestone.crossMilestoneLearning,
+        closeGate: milestone.closeGate,
       },
       tasks,
       {

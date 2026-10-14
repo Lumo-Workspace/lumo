@@ -6,6 +6,7 @@ import { formatDispositionLine } from '../lib/test-case-disposition'
 import { formatExecutor } from '../lib/test-case-executor'
 import { formatStepResultLines } from '../lib/test-case-steps'
 import { sanitizeField } from '../lib/sanitize'
+import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 
 interface RunRow {
   id: string
@@ -92,19 +93,26 @@ export async function taskTestCaseShow(
     )
     return 1
   }
+  return testCaseShowInScope(taskScope(split.task), split.caseRef)
+}
+
+export async function testCaseShowInScope(
+  scope: TestCaseScope,
+  caseRef: string
+): Promise<number | void> {
   const ctx = apiContext()
   if (!ctx) return 1
 
   const r = await apiCall<ShowResponse>(
     ctx,
-    `/api/tasks/${encodeURIComponent(split.task)}/test-cases/${encodeURIComponent(split.caseRef)}`,
+    `${scope.basePath}/test-cases/${encodeURIComponent(caseRef)}`,
     {},
     'test case show'
   )
   if (!r.ok || !r.data) return 1
 
   const { testCase: c, runs, pullRequests } = r.data
-  console.log(`${split.task}/TC${c.number}  ${sanitizeField(c.title)}`)
+  console.log(`${scope.label}/TC${c.number}  ${sanitizeField(c.title)}`)
   if (c.setup) {
     console.log('\nSetup:')
     console.log(`  ${sanitizeField(c.setup)}`)
