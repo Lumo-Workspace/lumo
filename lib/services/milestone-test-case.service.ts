@@ -185,6 +185,8 @@ export const milestoneTestCaseService = {
         ? { requiredEnvironment: body.requiredEnvironment ?? null }
         : {}),
     })
+    // requiredEnvironment shifts the provability ceiling, which can flip the gate.
+    milestoneRollupService.dispatchRollup(milestoneId)
     return { testCase }
   },
 

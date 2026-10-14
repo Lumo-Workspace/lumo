@@ -65,6 +65,6 @@ export const milestoneCloseGateService = {
   },
 
   async countHeld(milestoneId: string): Promise<number> {
-    return (await this.read(milestoneId)).held
+    return (await milestoneCloseGateService.read(milestoneId)).held
   },
 }

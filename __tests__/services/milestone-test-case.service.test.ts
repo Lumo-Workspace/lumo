@@ -206,4 +206,87 @@ describe('milestoneTestCaseService', () => {
     )
     expect(mockDispatch).toHaveBeenCalledWith('m-1')
   })
+  it('update patches only provided fields, passes nulls through, and dispatches the rollup', async () => {
+    repo.findByMilestoneAndNumber.mockResolvedValue(mcase as never)
+    repo.update.mockResolvedValue(mcase as never)
+    await milestoneTestCaseService.update(
+      'm-1',
+      'TC1',
+      { title: 'New', setup: null, requiredEnvironment: null } as never,
+      attribution
+    )
+    expect(repo.update).toHaveBeenCalledWith(mcase.id, {
+      title: 'New',
+      setup: null,
+      requiredEnvironment: null,
+    })
+    expect(mockDispatch).toHaveBeenCalledWith('m-1')
+  })
+
+  it('update is refused with 409 on a completed milestone', async () => {
+    mockFindMilestone.mockResolvedValue({ ...active, completedAt: new Date() })
+    await expect(
+      milestoneTestCaseService.update(
+        'm-1',
+        'TC1',
+        { title: 'x' } as never,
+        attribution
+      )
+    ).rejects.toMatchObject({ status: 409 })
+    expect(repo.update).not.toHaveBeenCalled()
+  })
+
+  it('list maps cases with their runs, executedBy and the gate', async () => {
+    const run = { id: 'r1', testCaseId: mcase.id, executedByMemberId: 'mem-1' }
+    repo.listForMilestone.mockResolvedValue([mcase] as never)
+    repo.runsPerCaseForMilestone.mockResolvedValue(
+      new Map([[mcase.id, [run]]]) as never
+    )
+    const res = await milestoneTestCaseService.list('m-1', 'mem-1')
+    expect(res.testCases).toHaveLength(1)
+    expect(res.testCases[0]!.runs[0]).toMatchObject({
+      id: 'r1',
+      executedBy: 'mem-1',
+    })
+    expect(res.gate).toEqual({ held: 0, unresolvedCriteria: 0, cases: [] })
+  })
+
+  it('getDetail returns the case with its runs', async () => {
+    repo.findByMilestoneAndNumber.mockResolvedValue(mcase as never)
+    repo.listRuns.mockResolvedValue([
+      { id: 'r1', executedByMemberId: null },
+    ] as never)
+    const res = await milestoneTestCaseService.getDetail('m-1', 'TC1', 'mem-1')
+    expect(res.testCase).toBe(mcase)
+    expect(res.runs[0]).toMatchObject({ id: 'r1', executedBy: null })
+  })
+
+  it('resolveCase returns the case, and 404s for another milestone cuid', async () => {
+    repo.findById.mockResolvedValue(mcase as never)
+    await expect(
+      milestoneTestCaseService.resolveCase('m-1', mcase.id, 'mem-1')
+    ).resolves.toBe(mcase)
+    repo.findById.mockResolvedValue({
+      ...mcase,
+      milestoneId: 'm-other',
+    } as never)
+    await expect(
+      milestoneTestCaseService.resolveCase('m-1', mcase.id, 'mem-1')
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('create and remove dispatch the rollup', async () => {
+    repo.createWithNumber.mockResolvedValue(mcase as never)
+    await milestoneTestCaseService.create(
+      'm-1',
+      { title: 'E2E', steps: ['a'], verification: [], expected: 'e' } as never,
+      attribution
+    )
+    expect(mockDispatch).toHaveBeenCalledWith('m-1')
+    mockDispatch.mockClear()
+    repo.findByMilestoneAndNumber.mockResolvedValue(mcase as never)
+    await milestoneTestCaseService.remove('m-1', 'TC1', attribution)
+    expect(repo.softDelete).toHaveBeenCalledWith(mcase.id)
+    expect(mockDispatch).toHaveBeenCalledWith('m-1')
+  })
 })
