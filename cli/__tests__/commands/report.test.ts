@@ -336,6 +336,23 @@ describe('formatReport', () => {
       expect(t.join('\n')).toMatch(/1\.1B\s+2\.2B\s+4\.4B\s+3\.3B\s+11\.1B/)
       expect(tight).toMatch(/exact.*--json/)
     })
+
+    it('never cuts the label column below 12 columns, even if rows still overflow', () => {
+      const tiny = formatReport(wide, {
+        window: win({}),
+        tty: true,
+        width: 40,
+      })
+      const t = tables(tiny)
+      const sub = t.find(l => l.includes('↳'))!
+      // "  ↳ claude-opus-4-5" cut to exactly 12 display columns.
+      expect(sub.startsWith('  ↳ claude-…')).toBe(true)
+      expect(sub.slice(0, 12)).toBe('  ↳ claude-…')
+      expect(
+        t.find(l => l.startsWith('claude-'))!.startsWith('claude-opus… ')
+      ).toBe(true)
+      expect(tiny).toMatch(/exact.*--json/)
+    })
   })
 
   it('lists completed tasks with local done day and assignee, sanitized, with truncation note', () => {

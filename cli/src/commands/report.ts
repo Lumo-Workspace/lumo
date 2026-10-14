@@ -271,8 +271,22 @@ function tokenTables(
   if (!overflows(exact)) return exact
   // Compact units first; if a row still would not fit, cut the MODEL /
   // MEMBER column (with …) down to MIN_LABEL_WIDTH before letting it wrap.
-  let cap = MODEL_WIDTH
+  // Start from the widest label actually printed, so every further step
+  // really narrows the column (no re-render that changes nothing).
+  const labels = [
+    ...data.team.byModel.map(m => sanitizeField(m.model)),
+    ...data.byMember.flatMap(m => [
+      sanitizeField(m.label),
+      ...(m.byModel ?? []).map(c => `  ↳ ${sanitizeField(c.model)}`),
+    ]),
+  ]
+  let cap = Math.min(
+    MODEL_WIDTH,
+    labels.reduce((w, l) => Math.max(w, stringWidth(l)), 0)
+  )
   let compact = render(fmtTokens, cap)
+  // Past the floor a row may still wrap on a very narrow terminal; the
+  // figures are abbreviated either way, so the note below always applies.
   while (overflows(compact) && cap > MIN_LABEL_WIDTH) {
     cap -= 1
     compact = render(fmtTokens, cap)
