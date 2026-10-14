@@ -1,11 +1,12 @@
 /**
  * LUM-988 — run the agentic verifier over one scan's AI-review findings.
  *
- * Started by stage A after it persisted LLM_JUDGE rows (as a workflow, so it
- * may wait for the managed scan's VM). Attaches to that VM — kept alive while
- * the AI review is on — or boots its own sealed one (the hunt's
- * attach-or-create), hands the agent `runVerifierShell` and the diff of the
- * cited files, then — when the verifier came back cleanly — hands what it left
+ * Started by stage A after it persisted LLM_JUDGE rows (as a workflow).
+ * LUM-1084: stage A starts it with `managedScanStarted: false`, so it boots
+ * its own sealed VM at once (the hunt's attach-or-create, create path) rather
+ * than wait up to 30 s + 90 s for the managed scan's hand-off — a race it
+ * lost in every run the LUM-1084 production logs show. It then hands the
+ * agent `runVerifierShell` and the diff of the cited files, then — when the verifier came back cleanly — hands what it left
  * to the listwise ranker, which may reject a policy-applicable finding it
  * ranks below RANKER_KEEP_THRESHOLD. Persists the verdicts the policy applies,
  * stamps `verifiedAt` and re-syncs the PR comments.
