@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'os'
 import { join, relative } from 'path'
 import {
+  shellQuote,
   skillStatus,
   skillUpdate,
   type SkillDeps,
@@ -583,6 +584,25 @@ describe('lumo skill update', () => {
       expect(snapshot(wtCodex)).toEqual(wtBefore)
       expect(readMarker(mainCodex)!.version).toBe(CLI)
       expect(out).toContain(`· ${wtCodex}: in another repo`)
+    })
+
+    it('says nothing is to update here when every copy is in another repo', async () => {
+      const w = world()
+      const other = otherRepo()
+      const before = snapshot(other.root)
+
+      expect(await skillUpdate({ project: true, force: true }, w.deps)).toBe(0)
+
+      expect(snapshot(other.root)).toEqual(before)
+      expect(out).toContain(`· ${other.claude}: in another repo`)
+      expect(out).toContain('Nothing to update in this repo')
+      expect(out).not.toContain('0 of 0')
+    })
+
+    it('shell-quotes a repo path that needs it in the hint', () => {
+      expect(shellQuote('/home/me/repo-1.x')).toBe('/home/me/repo-1.x')
+      expect(shellQuote('/home/me/my repo')).toBe("'/home/me/my repo'")
+      expect(shellQuote("/tmp/it's")).toBe("'/tmp/it'\\''s'")
     })
 
     it('skill status still lists other-repo copies, with a run-it-there hint', async () => {

@@ -161,6 +161,11 @@ export async function skillStatus(
   return 0
 }
 
+/** POSIX-quote a path for a copy-pasteable hint; plain paths stay bare. */
+export function shellQuote(p: string): string {
+  return /^[\w@%+=:,./~-]+$/.test(p) ? p : `'${p.replace(/'/g, `'\\''`)}'`
+}
+
 // ── skill update ───────────────────────────────────────────────────────────
 
 export type SkillUpdateOptions = {
@@ -318,8 +323,14 @@ export async function skillUpdate(
   for (const l of found) {
     if (!isOtherRepoCopy(l, here)) continue
     env.out(
-      `· ${displayPath(l.path, env.homeDir)}: in another repo — not written; run \`cd ${skillCopyRepoRoot(l.path)} && lumo skill update --project\` there\n`
+      `· ${displayPath(l.path, env.homeDir)}: in another repo — not written; run \`cd ${shellQuote(skillCopyRepoRoot(l.path))} && lumo skill update --project\` there\n`
     )
+  }
+  if (copies.length === 0) {
+    env.out(
+      `\nNothing to update in this repo — every copy found belongs to another repo (run \`lumo skill update\` there).\n`
+    )
+    return 0
   }
   let failures = 0
   let updated = 0
