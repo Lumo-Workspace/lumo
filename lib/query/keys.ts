@@ -26,6 +26,7 @@ export const queryKeys = {
     ['audit-events', filters] as const,
   teams: () => ['teams'] as const,
   members: () => ['members'] as const,
+  memberConnections: () => ['members', 'connections'] as const,
   invites: () => ['invites'] as const,
   agentActors: () => ['agentActors'] as const,
   notifications: () => ['notifications'] as const,

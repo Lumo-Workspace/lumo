@@ -19,6 +19,7 @@ import {
 } from '@/lib/attribution/signals'
 import { logger } from '@/lib/logger'
 import { AGENT_ID_RE } from '@/lib/session/child-session-id'
+import type { ClientVersions } from '@/lib/session/client-versions'
 import { provisionalTaskFor } from '@/lib/services/attribution.service'
 import {
   APPLY_PATCH_TOOL,
@@ -48,6 +49,11 @@ interface RecordHookEventInput {
    * summary of the command). When absent it is classified from `payload`.
    */
   bashClassification?: BashClassification | null
+  /**
+   * LUM-1136: CLI / skill versions from the request headers (already
+   * validated). Stored on the session for SESSION_START only.
+   */
+  clientVersions?: ClientVersions
 }
 
 function extractStringField(payload: unknown, field: string): string | null {
@@ -111,6 +117,7 @@ export const hookEventService = {
     agent,
     attributionSignals,
     bashClassification,
+    clientVersions,
   }: RecordHookEventInput) {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -193,6 +200,9 @@ export const hookEventService = {
       turnUsageByModel = session.turnUsageByModel
       if (isStop && split) {
         childUsageToSettle = Object.entries(split.bySubagent)
+      }
+      if (type === 'SESSION_START' && clientVersions) {
+        await sessionRepository.recordClientVersions(sessionId, clientVersions)
       }
     }
 

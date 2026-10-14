@@ -58,6 +58,7 @@ export const API = {
     me: '/api/workspaces/me',
     logo: '/api/workspaces/me/logo',
     members: '/api/workspaces/members',
+    memberConnections: '/api/workspaces/members/connections',
     memberById: (id: string) => `/api/workspaces/members/${id}`,
     leaveWorkspace: '/api/workspaces/members/me',
     exports: '/api/workspaces/me/exports',
