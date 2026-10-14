@@ -64,7 +64,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 jest.setTimeout(240_000)
 
 /** Readable, non-secret-shaped fixture token (only its sha256 is stored). */
-const TOKEN = 'reopen-fixture-bearer-alpha'
+const bearerFixture = 'reopen-fixture-bearer-alpha'
 const CLERK = 'user_reopen_alpha'
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
 const FP = 'fp-reopen'
@@ -193,8 +193,8 @@ beforeAll(async () => {
     data: {
       workspaceMemberId: member.id,
       label: 'reopen key',
-      keyHash: sha256(TOKEN),
-      keyPrefix: TOKEN.slice(0, 16),
+      keyHash: sha256(bearerFixture),
+      keyPrefix: bearerFixture.slice(0, 16),
     },
   })
   Object.assign(fx, {
@@ -270,7 +270,7 @@ test('precondition: the inherited (mistaken) ruling clears DONE and carries to t
 })
 
 test('the CLI (bearer) cannot reopen — 403, nothing written', async () => {
-  const res = await dispose({ bearer: TOKEN }, { disposition: 'OPEN' })
+  const res = await dispose({ bearer: bearerFixture }, { disposition: 'OPEN' })
   expect(res.status).toBe(403)
   expect(String(res.json.error)).toMatch(/web-only/)
   expect((await row(fx.findingId)).disposition).toBe('FALSE_POSITIVE')
@@ -317,7 +317,7 @@ test('the web panel reopens it: DONE is blocked again, timeline + audit record W
     findingsRoute.GET,
     'GET',
     { id: 'RPN-1' },
-    { bearer: TOKEN }
+    { bearer: bearerFixture }
   )
   expect(listed.json.findings).toEqual([
     expect.objectContaining({
@@ -359,7 +359,7 @@ test('a reopened finding is NOT re-cleared on the next push by the older ruled r
 
 test('a fresh ruling after the reopen carries over again', async () => {
   const res = await dispose(
-    { bearer: TOKEN },
+    { bearer: bearerFixture },
     { disposition: 'ACCEPTED_RISK', note: 'user approved in chat' }
   )
   expect(res.status).toBe(200)

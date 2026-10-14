@@ -1912,9 +1912,23 @@ export const prSecurityScanRepository = {
         select: { disposition: true },
       })
       const from = (prior?.disposition ?? null) as FindingDisposition | null
-      const row = await tx.prSecurityFinding.update({
-        where: { id: findingId },
+      // Compare-and-set on `from`: a concurrent ruling that landed between
+      // the read and this write makes the count 0 (Postgres re-checks the
+      // predicate after the row lock), so `from` is never stale. No raw SQL.
+      const { count } = await tx.prSecurityFinding.updateMany({
+        where: { id: findingId, disposition: from },
         data,
+      })
+      if (count === 0) {
+        throw Object.assign(
+          new Error(
+            'The finding was ruled concurrently — reload and try again'
+          ),
+          { status: 409 }
+        )
+      }
+      const row = await tx.prSecurityFinding.findUniqueOrThrow({
+        where: { id: findingId },
       })
       const activity = activityFor(from)
       if (activity) await activityRepository.create(activity, tx)
