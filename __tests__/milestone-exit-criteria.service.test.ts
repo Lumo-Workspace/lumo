@@ -84,6 +84,8 @@ describe('milestoneExitCriteriaService (LUM-643)', () => {
   it('steward session drafts and adjudicates exit criteria with session provenance', async () => {
     // Draft: the steward's governance session id lands on every created row,
     // with the AGENT_DRAFT source.
+    // LUM-1135: a milestone that already has a contract may still replace it.
+    mockCritListByMilestone.mockResolvedValueOnce([criterionRow()])
     await milestoneExitCriteriaService.setCriteria(
       'm-1',
       {
@@ -157,6 +159,24 @@ describe('milestoneExitCriteriaService (LUM-643)', () => {
         stewardAttribution
       )
     ).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('refuses a brand-new contract with 410 and points to milestone testcase', async () => {
+    mockCritListByMilestone.mockResolvedValue([])
+    await expect(
+      milestoneExitCriteriaService.setCriteria(
+        'm-1',
+        {
+          source: 'AGENT_DRAFT',
+          criteria: [{ statement: 's', referentKind: 'EXTERNAL_FACT' }],
+        },
+        stewardAttribution
+      )
+    ).rejects.toMatchObject({
+      status: 410,
+      message: expect.stringContaining('lumo milestone testcase add'),
+    })
+    expect(mockCritCreateMany).not.toHaveBeenCalled()
   })
 
   it('MET verdict on EXTERNAL_FACT criterion without evidence is rejected with 422', async () => {
