@@ -1181,6 +1181,10 @@ model Milestone {
   boundaryCrossings     BoundaryCrossing[]
   // LUM-643: milestone-level exit criteria (the close contract).
   exitCriteria          MilestoneExitCriterion[]
+  // LUM-1135: milestone-level test cases — the close contract that replaces exitCriteria.
+  testCases               TestCase[]
+  testCaseRuns            TestCaseRun[]
+  testCaseRunDispositions TestCaseRunDisposition[]
   // LUM-647: MILESTONE-scope memories distilled from this milestone's close retro.
   memories              Memory[]
   /// LUM-648: cross-milestone learning-migration edges. `asSource` = this
@@ -3836,7 +3840,10 @@ enum TestCaseDispositionChannel {
 
 model TestCase {
   id                  String           @id @default(cuid())
-  taskId              String
+  /// LUM-1135: exactly one of taskId / milestoneId is set (DB CHECK test_cases_owner_check).
+  taskId              String?
+  /// LUM-1135: milestone-level (cross-task end-to-end) case. Number is 1-based within the milestone.
+  milestoneId         String?
   /// 任务内 1-based 顺序号,兼作展示序（v1 不支持重排序）。CLI 句柄 = LUM-12/TC3。
   /// 分配走 max+1 事务 + P2002 重试（LUM-661 模式）。
   number              Int
@@ -3857,11 +3864,14 @@ model TestCase {
   /// 即使还没有 run 也软删,避免两条删除语义。
   deletedAt           DateTime?
 
-  task Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  runs TestCaseRun[]
+  task      Task?         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  milestone Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  runs      TestCaseRun[]
 
   @@unique([taskId, number])
+  @@unique([milestoneId, number])
   @@index([taskId, deletedAt])
+  @@index([milestoneId, deletedAt])
   @@map("test_cases")
 }
 
@@ -3871,7 +3881,9 @@ model TestCaseRun {
   id         String @id @default(cuid())
   testCaseId String
   /// 反范式：任务级查询免 join。
-  taskId     String
+  taskId      String?
+  /// LUM-1135: denormalised owner, same as taskId.
+  milestoneId String?
 
   result      TestCaseRunResult
   /// 没有默认值。整个 feature 的目的就是分清这次跑在哪,给默认值等于鼓励
@@ -3941,11 +3953,13 @@ model TestCaseRun {
   disposition TestCaseRunDisposition?
   reviews     TestCaseRunReview[]
   testCase    TestCase                @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  task        Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        Task?                   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  milestone   Milestone?              @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   pullRequest PullRequest?            @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
 
   @@index([testCaseId, createdAt])
   @@index([taskId, createdAt])
+  @@index([milestoneId, createdAt])
   @@index([pullRequestId])
   @@map("test_case_runs")
 }
@@ -3965,7 +3979,9 @@ model TestCaseRunDisposition {
   /// 唯一：一条 run 最多一个裁定。要改判就在 web 面板上改这一行（同越界可改判）。
   runId  String @unique
   /// 反范式：任务级查询免 join（同 TestCaseRun.taskId）。
-  taskId String
+  taskId      String?
+  /// LUM-1135: denormalised owner, same as taskId.
+  milestoneId String?
 
   disposition TestCaseDefectDisposition
   note        String?
@@ -3977,9 +3993,11 @@ model TestCaseRunDisposition {
   channel           TestCaseDispositionChannel
 
   run  TestCaseRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  task Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task      Task?      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  milestone Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+  @@index([milestoneId])
   @@map("test_case_run_dispositions")
 }
 

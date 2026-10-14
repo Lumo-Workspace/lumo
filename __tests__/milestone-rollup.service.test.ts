@@ -23,14 +23,16 @@ jest.mock('@/lib/services/milestone.service', () => ({
 }))
 // LUM-643: the rollup consults the exit-criteria close gate — default to an
 // empty contract (gate open) so pre-existing rollup behavior is unchanged.
-jest.mock('@/lib/repositories/milestone-exit-criterion.repository', () => ({
-  milestoneExitCriterionRepository: {
-    countUnresolved: jest.fn().mockResolvedValue(0),
+const mockCountHeld = jest.fn().mockResolvedValue(0)
+jest.mock('@/lib/services/milestone-close-gate.service', () => ({
+  milestoneCloseGateService: {
+    countHeld: (...a: unknown[]) => mockCountHeld(...a),
   },
 }))
 
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import {
+  allCountedTasksDone,
   deriveCompletionChange,
   computeMilestoneStaleness,
 } from '@/lib/summaries/milestone-rollup'
@@ -224,5 +226,55 @@ describe('milestone completion rollup (LUM-624/LUM-714)', () => {
         targetDate: null,
       }).datesMissing
     ).toBe(false)
+  })
+
+  it('held test cases withhold the derived completion', () => {
+    expect(
+      deriveCompletionChange({
+        completedAt: null,
+        archived: false,
+        taskCounts: counts({ DONE: 3 }),
+        closeGateHeld: 1,
+      })
+    ).toBeNull()
+  })
+})
+
+describe('LUM-1135: the close gate is read only when it can matter', () => {
+  beforeEach(() => mockCountHeld.mockReset().mockResolvedValue(0))
+
+  it('a reopen is applied even when the gate read throws', async () => {
+    mockCountHeld.mockRejectedValue(new Error('gate read failed'))
+    mockFindById.mockResolvedValue(
+      milestoneRow({ completedAt: new Date('2026-06-01') })
+    )
+    mockCounts.mockResolvedValue(counts({ TODO: 1, DONE: 3 }))
+
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
+
+    expect(mockGuardedUpdate).toHaveBeenCalledWith(
+      'm-1',
+      new Date('2026-06-01'),
+      null
+    )
+    expect(mockCountHeld).not.toHaveBeenCalled()
+  })
+
+  it('the completion path stays fail-closed on a gate read failure', async () => {
+    mockCountHeld.mockRejectedValue(new Error('gate read failed'))
+    mockFindById.mockResolvedValue(milestoneRow())
+    mockCounts.mockResolvedValue(counts({ DONE: 3 }))
+
+    await expect(
+      milestoneRollupService.reconcileMilestoneCompletion('m-1')
+    ).rejects.toThrow('gate read failed')
+    expect(mockGuardedUpdate).not.toHaveBeenCalled()
+  })
+
+  it('allCountedTasksDone ignores BACKLOG and needs at least one counted task', () => {
+    expect(allCountedTasksDone(counts({ DONE: 2, BACKLOG: 4 }))).toBe(true)
+    expect(allCountedTasksDone(counts({ DONE: 2, IN_REVIEW: 1 }))).toBe(false)
+    expect(allCountedTasksDone(counts({ BACKLOG: 4 }))).toBe(false)
+    expect(allCountedTasksDone(counts({}))).toBe(false)
   })
 })

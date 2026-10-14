@@ -24,6 +24,9 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 jest.mock('@/lib/repositories/milestone-summary.repository', () => ({
   milestoneSummaryRepository: { findByMilestoneId: jest.fn() },
 }))
+jest.mock('@/lib/services/milestone-close-gate.service', () => ({
+  milestoneCloseGateService: { read: jest.fn() },
+}))
 jest.mock('@/lib/services/milestone-rollup.service', () => ({
   milestoneRollupService: { observeOnRead: jest.fn() },
 }))
@@ -31,6 +34,7 @@ jest.mock('@/lib/services/milestone-rollup.service', () => ({
 import { GET } from '@/app/api/milestones/[milestoneId]/route'
 import { requireIdentity } from '@/lib/auth'
 import { milestoneService } from '@/lib/services/milestone.service'
+import { milestoneCloseGateService } from '@/lib/services/milestone-close-gate.service'
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
@@ -43,6 +47,7 @@ const mockOutcome = milestoneService.getOutcomeForMilestone as jest.Mock
 const mockCostTrend = milestoneService.getCostTrendForMilestone as jest.Mock
 const mockSegments = milestoneService.getSegmentsForMilestone as jest.Mock
 const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
+const mockCloseGate = milestoneCloseGateService.read as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
 const mockDeliveryStats =
   milestoneService.getDeliveryStatsForMilestone as jest.Mock
@@ -120,6 +125,8 @@ beforeEach(() => {
   mockTopology.mockReset()
   mockTopology.mockResolvedValue(null)
   mockWeighted.mockReset()
+  mockCloseGate.mockReset()
+  mockCloseGate.mockResolvedValue({ held: 0, unresolvedCriteria: 0, cases: [] })
   mockWeighted.mockResolvedValue(emptyWeighted)
 })
 
@@ -510,5 +517,46 @@ describe('GET /api/milestones/[id]', () => {
     const body = await res.json()
     expect(body.milestone.topology).toEqual(topology)
     expect(mockTopology).toHaveBeenCalledWith('m-1')
+  })
+})
+
+describe('GET /api/milestones/[id] closeGate (LUM-1135)', () => {
+  function arrange() {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE', tokenBudget: null },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 0,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 0 })
+    mockOutcome.mockResolvedValue({ claims: [], fate: null })
+  }
+
+  it('includes the close gate read-out', async () => {
+    arrange()
+    mockCloseGate.mockResolvedValue({
+      held: 1,
+      unresolvedCriteria: 0,
+      cases: [],
+    })
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.closeGate.held).toBe(1)
+    expect(mockCloseGate).toHaveBeenCalledWith('m-1')
+  })
+
+  it('degrades closeGate to null when the read fails', async () => {
+    arrange()
+    mockCloseGate.mockRejectedValue(new Error('db down'))
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.closeGate).toBeNull()
   })
 })

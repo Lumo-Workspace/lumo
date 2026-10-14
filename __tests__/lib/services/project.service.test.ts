@@ -33,6 +33,7 @@ jest.mock('@clerk/nextjs/server', () => ({
 jest.mock('@/lib/repositories/private-file.repository', () => ({
   privateFileRepository: {
     findTaskIdsWithTestCasesInProject: jest.fn().mockResolvedValue([]),
+    findMilestoneIdsWithTestCasesInProject: jest.fn().mockResolvedValue([]),
   },
 }))
 

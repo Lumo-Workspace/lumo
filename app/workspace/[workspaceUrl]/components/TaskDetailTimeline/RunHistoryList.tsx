@@ -322,18 +322,31 @@ export function ruleableRunId(runs: TestCaseRunView[]): string | null {
  * 两个值都清闸，所以并排放、不分主次——把其中一个做成主按钮，等于暗示有个
  * 「正确答案」，而这里要的是人真的读一眼再选。
  */
+export type TestCaseOwnerKind = 'task' | 'milestone'
+
 export function DisposeControl({
   runId,
   onDispose,
+  ownerKind = 'task',
 }: {
   runId: string
   onDispose: (runId: string, ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT') => void
+  /**
+   * LUM-1135: 里程碑上两个裁定的后果不对称——「已知缺陷」放行关闭闸，「不是
+   * 缺陷」让这条用例继续拦着、直到重跑通过。所以里程碑要把后果写出来。
+   */
+  ownerKind?: TestCaseOwnerKind
 }) {
   const intl = useIntl()
+  const milestone = ownerKind === 'milestone'
   return (
-    <span className='flex items-center gap-2'>
+    <span className='flex flex-wrap items-center gap-x-2 gap-y-0.5'>
       <span className='text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.disposition.blocking' })}
+        {intl.formatMessage({
+          id: milestone
+            ? 'testCases.disposition.blockingMilestone'
+            : 'testCases.disposition.blocking',
+        })}
       </span>
       {(['KNOWN_DEFECT', 'NOT_A_DEFECT'] as const).map(ruling => (
         <button
@@ -342,9 +355,23 @@ export function DisposeControl({
           onClick={() => onDispose(runId, ruling)}
           className='text-foreground underline-offset-2 hover:underline'
         >
-          {intl.formatMessage({ id: `testCases.disposition.action.${ruling}` })}
+          {intl.formatMessage({
+            id: milestone
+              ? `testCases.disposition.${ruling}`
+              : `testCases.disposition.action.${ruling}`,
+          })}
         </button>
       ))}
+      {milestone ? (
+        <span
+          data-testid='dispose-consequence'
+          className='basis-full text-muted-foreground'
+        >
+          {intl.formatMessage({
+            id: 'testCases.disposition.milestoneConsequence',
+          })}
+        </span>
+      ) : null}
     </span>
   )
 }
@@ -354,6 +381,7 @@ export function RunHistoryList({
   pullRequests,
   requiredEnvironment,
   onDispose,
+  ownerKind = 'task',
 }: {
   runs: TestCaseRunView[]
   pullRequests: TaskPullRequestSnapshot[]
@@ -361,6 +389,8 @@ export function RunHistoryList({
   requiredEnvironment: CeilingEnvironment | null
   /** 落裁定。缺省 = 这个读端不提供裁定入口。 */
   onDispose?: (runId: string, ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT') => void
+  /** 用例属于任务还是里程碑——只决定裁定入口的文案。 */
+  ownerKind?: TestCaseOwnerKind
 }) {
   const intl = useIntl()
   const linkedRunId = useLinkedRunId(runs)
@@ -404,7 +434,11 @@ export function RunHistoryList({
             <AttributionBadge run={r} />
             <DispositionBadge run={r} />
             {onDispose && r.id === ruleable ? (
-              <DisposeControl runId={r.id} onDispose={onDispose} />
+              <DisposeControl
+                runId={r.id}
+                onDispose={onDispose}
+                ownerKind={ownerKind}
+              />
             ) : null}
             <time className='text-muted-foreground'>
               {new Date(r.createdAt).toISOString().slice(0, 10)}

@@ -4,6 +4,8 @@ import { zodError } from '@/lib/api/helpers'
 import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
+import { logger } from '@/lib/logger'
+import { milestoneCloseGateService } from '@/lib/services/milestone-close-gate.service'
 import { milestoneLearningService } from '@/lib/services/milestone-learning.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
@@ -43,6 +45,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       topology,
       weightedProgress,
       crossMilestoneLearning,
+      closeGate,
     ] = await Promise.all([
       milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
       milestoneService.getOutcomeForMilestone(milestoneId),
@@ -67,6 +70,11 @@ export async function GET(request: NextRequest, { params }: Params) {
           console.error('cross-milestone learning read failed:', err)
           return null
         }),
+      // LUM-1135: close-gate read-out; fail-soft like the other secondary reads.
+      milestoneCloseGateService.read(milestoneId).catch(err => {
+        logger.error('milestone close gate read failed:', err)
+        return null
+      }),
     ])
     return NextResponse.json({
       milestone: {
@@ -74,6 +82,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         taskCounts,
         health,
         staleness,
+        closeGate,
         sprintCoverage,
         outcome,
         summaryTldr: summary?.tldr ?? null,

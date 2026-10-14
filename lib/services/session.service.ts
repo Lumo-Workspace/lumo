@@ -426,7 +426,7 @@ export const sessionService = {
     try {
       const { stewardContextService } =
         await import('@/lib/services/steward-context.service')
-      const built = await stewardContextService.buildMilestoneMemorySection(
+      const built = await stewardContextService.buildStewardSections(
         milestone.id
       )
       stewardMemorySection = built.section

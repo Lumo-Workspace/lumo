@@ -123,6 +123,22 @@ describe('PUT /api/milestones/[id]/criteria', () => {
   })
 })
 
+describe('PUT deprecation (LUM-1135)', () => {
+  it('410s a new contract on a milestone with no criteria', async () => {
+    mockSet.mockRejectedValue(
+      Object.assign(new Error('Exit criteria are deprecated'), { status: 410 })
+    )
+    const res = await PUT(
+      jsonRequest('http://x/c', 'PUT', {
+        criteria: [{ statement: 's', referentKind: 'EXTERNAL_FACT' }],
+      }),
+      criteriaParams
+    )
+    expect(res.status).toBe(410)
+    expect(await res.json()).toEqual({ error: 'Exit criteria are deprecated' })
+  })
+})
+
 describe('POST /api/milestones/[id]/criteria/[cid]/verdict', () => {
   it('validates the verdict body and delegates with session attribution', async () => {
     mockAdjudicate.mockResolvedValue({

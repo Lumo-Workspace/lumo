@@ -5,6 +5,7 @@ import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveSessionId } from '../lib/session-id'
 import { printStatusDigest } from '../lib/status-digest'
 import { sanitizeField } from '../lib/sanitize'
+import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 import {
   splitCaseHandle,
   resolveRunLocator,
@@ -92,6 +93,22 @@ export async function taskTestCaseRun(
   if (!split) {
     console.error(
       `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
+    )
+    return 1
+  }
+  return testCaseRunInScope(taskScope(split.task), split.caseRef, options)
+}
+
+export async function testCaseRunInScope(
+  scope: TestCaseScope,
+  caseRef: string,
+  options: TestCaseRunOptions
+): Promise<number | void> {
+  const handle = `${scope.label}/${caseRef}`
+  // LUM-1135: a milestone spans many PRs — the commit is the coordinate.
+  if (scope.kind === 'milestone' && options.pr !== undefined) {
+    console.error(
+      'Error: --pr does not apply to a milestone run (a milestone spans many PRs); the commit is recorded instead.'
     )
     return 1
   }
@@ -208,7 +225,7 @@ export async function taskTestCaseRun(
 
   const ctx = apiContext()
   if (!ctx) return 1
-  const base = `/api/tasks/${encodeURIComponent(split.task)}/test-cases/${encodeURIComponent(split.caseRef)}`
+  const base = `${scope.basePath}/test-cases/${encodeURIComponent(caseRef)}`
 
   const evidence: Array<Record<string, unknown>> = (options.evidence ?? []).map(
     url => ({ type: 'link', url: url.trim() })
@@ -346,5 +363,7 @@ export async function taskTestCaseRun(
   if (hint) console.log(hint)
   // LUM-842: a run can add or clear a DONE-blocking defect — show the task's
   // state now instead of leaving it to a follow-up `lumo task status`.
-  await printStatusDigest(ctx.base, ctx.token, split.task)
+  if (scope.kind === 'task') {
+    await printStatusDigest(ctx.base, ctx.token, scope.label)
+  }
 }

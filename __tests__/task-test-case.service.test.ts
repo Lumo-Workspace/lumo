@@ -51,6 +51,7 @@ const repo = testCaseRepository as jest.Mocked<typeof testCaseRepository>
 const testCase = {
   id: 'tc-1',
   taskId: 't-1',
+  milestoneId: null,
   number: 3,
   title: 'Dashboard footer FDIC disclosure',
   setup: 'The user is on the Dashboard.',
@@ -77,6 +78,7 @@ beforeEach(() => {
   // 字段，所以这里原样回抛。
   repo.createRun.mockImplementation(async input => ({
     ...input,
+    milestoneId: input.milestoneId ?? null,
     // 写入类型是 InputJsonValue，读出来的行类型是 JsonValue —— 只有这一个字段
     // 需要窄一下，其余原样回抛。
     evidence: input.evidence as Prisma.JsonValue,

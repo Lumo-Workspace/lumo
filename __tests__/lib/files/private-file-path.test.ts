@@ -2,6 +2,7 @@ import {
   evidencePathname,
   fileRouteUrl,
   imagePathname,
+  milestoneEvidencePathname,
   parsePrivateFilePath,
   pathnameOf,
   referencedImagePathnames,
@@ -73,5 +74,33 @@ describe('private file paths (LUM-916)', () => {
     ]) {
       expect(withShareToken(other, 't')).toBe(other)
     }
+  })
+})
+
+describe('LUM-1135 milestone evidence', () => {
+  it('round-trips a milestone evidence path', () => {
+    const p = milestoneEvidencePathname('m1', 'c1', 'f1')
+    expect(p).toBe('milestone-evidence/m1/c1/f1')
+    expect(parsePrivateFilePath(p)).toEqual({
+      kind: 'milestone-evidence',
+      milestoneId: 'm1',
+      caseId: 'c1',
+      fileId: 'f1',
+    })
+    expect(
+      pathnameOf({
+        kind: 'milestone-evidence',
+        milestoneId: 'm1',
+        caseId: 'c1',
+        fileId: 'f1',
+      })
+    ).toBe(p)
+  })
+
+  it('rejects traversal and wrong segment counts', () => {
+    expect(parsePrivateFilePath('milestone-evidence/../c1/f1')).toBeNull()
+    expect(parsePrivateFilePath('milestone-evidence/m1/c1')).toBeNull()
+    expect(parsePrivateFilePath('milestone-evidence/m1/../f1')).toBeNull()
+    expect(parsePrivateFilePath('milestone-evidence/m1/c1/f1/x')).toBeNull()
   })
 })

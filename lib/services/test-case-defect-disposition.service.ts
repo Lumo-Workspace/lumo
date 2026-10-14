@@ -40,6 +40,16 @@ import {
 export type DefectRuling = 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
 export type DispositionChannel = 'WEB' | 'CLI'
 
+/** LUM-1135: a run belongs to a task or (cross-task E2E) to a milestone. */
+export type DispositionOwner =
+  | { kind: 'task'; taskId: string }
+  | { kind: 'milestone'; milestoneId: string }
+
+/** 回执只需要一个稳定的 scope 串（只参与签名，从不反查）。 */
+function ownerScope(owner: DispositionOwner): string {
+  return owner.kind === 'task' ? owner.taskId : `milestone:${owner.milestoneId}`
+}
+
 /** 谁在请求 / 出示回执。与越界侧同形。 */
 export interface ReceiptCaller {
   sessionId: string | null
@@ -60,10 +70,14 @@ function hasEvidence(evidence: unknown): boolean {
  *
  * 四道闸，顺序即信息量：不存在 → 用例已删 → 不是「证明了坏」→ 已经不是最新。
  */
-async function loadRuleableRun(taskId: string, runId: string) {
+async function loadRuleableRun(owner: DispositionOwner, runId: string) {
   const run = await testCaseRepository.findRunForDisposition(runId)
-  if (!run || run.taskId !== taskId) {
-    fail('Test case run not found on this task.', 404)
+  const owned =
+    owner.kind === 'task'
+      ? run?.taskId === owner.taskId
+      : run?.milestoneId === owner.milestoneId
+  if (!run || !owned) {
+    fail(`Test case run not found on this ${owner.kind}.`, 404)
   }
   if (run.testCase.deletedAt) {
     fail('That test case has been removed.', 409)
@@ -74,8 +88,11 @@ async function loadRuleableRun(taskId: string, runId: string) {
     !hasEvidence(run.evidence)
   ) {
     fail(
-      'Only a run that proved an implementation defect with evidence can be dispositioned — ' +
-        'every other outcome is advisory and never blocked DONE in the first place.',
+      owner.kind === 'task'
+        ? 'Only a run that proved an implementation defect with evidence can be dispositioned — ' +
+            'every other outcome is advisory and never blocked DONE in the first place.'
+        : 'Only a run that proved an implementation defect with evidence can be dispositioned. ' +
+            'Other failures hold the milestone until the case passes.',
       409
     )
   }
@@ -122,8 +139,8 @@ function requireReceiptSecret(): string {
 
 export const testCaseDefectDispositionService = {
   /** 信封要展示的那条 run（读端；不写任何东西）。 */
-  async describe(taskId: string, runId: string) {
-    const run = await loadRuleableRun(taskId, runId)
+  async describe(owner: DispositionOwner, runId: string) {
+    const run = await loadRuleableRun(owner, runId)
     return {
       runId: run.id,
       caseNumber: run.testCase.number,
@@ -135,16 +152,16 @@ export const testCaseDefectDispositionService = {
   },
 
   async receiptSubject(
-    taskId: string,
+    owner: DispositionOwner,
     runId: string,
     target: DefectRuling,
     caller: ReceiptCaller
   ): Promise<ReceiptSubject> {
-    const run = await loadRuleableRun(taskId, runId)
+    const run = await loadRuleableRun(owner, runId)
     return {
       kind: 'TEST_CASE_DEFECT',
       subjectId: run.id,
-      taskId,
+      taskId: ownerScope(owner),
       target,
       sessionId: caller.sessionId,
       memberId: caller.memberId,
@@ -154,24 +171,24 @@ export const testCaseDefectDispositionService = {
 
   /** 步骤 1：签一张 stage-1 回执。不写任何东西。 */
   async issueReadReceipt(
-    taskId: string,
+    owner: DispositionOwner,
     runId: string,
     target: DefectRuling,
     caller: ReceiptCaller
   ): Promise<IssuedReceipt> {
-    const subject = await this.receiptSubject(taskId, runId, target, caller)
+    const subject = await this.receiptSubject(owner, runId, target, caller)
     return issueReadReceipt(requireReceiptSecret(), subject)
   },
 
   /** 步骤 2：用户说读过了。校验 stage-1、换发 stage-2。不写任何东西。 */
   async acknowledgeReadReceipt(
-    taskId: string,
+    owner: DispositionOwner,
     runId: string,
     target: DefectRuling,
     receipt: string,
     caller: ReceiptCaller
   ): Promise<IssuedReceipt> {
-    const subject = await this.receiptSubject(taskId, runId, target, caller)
+    const subject = await this.receiptSubject(owner, runId, target, caller)
     const out = acknowledgeReadReceipt(requireReceiptSecret(), receipt, subject)
     if (out.ok) return out.issued
     throw receiptRefusal(out, '--confirm-read', 'test case run')
@@ -185,7 +202,7 @@ export const testCaseDefectDispositionService = {
    * WEB 来路没有回执：面板上就是那个人自己在点。
    */
   async rule(input: {
-    taskId: string
+    owner: DispositionOwner
     runId: string
     ruling: DefectRuling
     note?: string | null | undefined
@@ -196,8 +213,8 @@ export const testCaseDefectDispositionService = {
      *  a ruling is always audited). */
     audit: WorkspaceAudit
   }) {
-    const { taskId, runId, ruling, caller, channel } = input
-    const run = await loadRuleableRun(taskId, runId)
+    const { owner, runId, ruling, caller, channel } = input
+    const run = await loadRuleableRun(owner, runId)
     if (run.disposition) {
       fail('That run has already been dispositioned.', 409)
     }
@@ -213,7 +230,7 @@ export const testCaseDefectDispositionService = {
       const verdict = verifyReadReceipt(
         requireReceiptSecret(),
         input.receipt,
-        await this.receiptSubject(taskId, runId, ruling, caller),
+        await this.receiptSubject(owner, runId, ruling, caller),
         new Date(),
         { requireStage: 'ACK' }
       )
@@ -234,24 +251,28 @@ export const testCaseDefectDispositionService = {
     const created = await testCaseRepository.createDisposition(
       {
         runId,
-        taskId,
+        taskId: owner.kind === 'task' ? owner.taskId : null,
+        milestoneId: owner.kind === 'milestone' ? owner.milestoneId : null,
         disposition: ruling,
         note,
         dispositionedById: caller.memberId,
         channel,
       },
-      {
-        actorId: actor?.id ?? null,
-        payload: {
-          runId,
-          caseNumber: run.testCase.number,
-          caseTitle: run.testCase.title,
-          disposition: ruling,
-          note,
-          channel,
-          ...(handshake ?? {}),
-        },
-      }
+      // 里程碑 run 没有 task 时间线可写。
+      owner.kind === 'task'
+        ? {
+            actorId: actor?.id ?? null,
+            payload: {
+              runId,
+              caseNumber: run.testCase.number,
+              caseTitle: run.testCase.title,
+              disposition: ruling,
+              note,
+              channel,
+              ...(handshake ?? {}),
+            },
+          }
+        : null
     )
     // LUM-907：事务提交后再记审计（只记 id 与枚举值，备注与用例标题不进审计日志）。
     await recordAuditEvent({
@@ -259,13 +280,20 @@ export const testCaseDefectDispositionService = {
       action: 'test_case_defect.dispositioned',
       target: { type: 'test_case_run', id: runId },
       metadata: {
-        taskId,
+        ...(owner.kind === 'task'
+          ? { taskId: owner.taskId }
+          : { milestoneId: owner.milestoneId }),
         caseNumber: run.testCase.number,
         disposition: ruling,
         channel,
       },
       context: input.audit.context,
     })
+    if (owner.kind === 'milestone') {
+      const { milestoneRollupService } =
+        await import('@/lib/services/milestone-rollup.service')
+      milestoneRollupService.dispatchRollup(owner.milestoneId)
+    }
     return created
   },
 }

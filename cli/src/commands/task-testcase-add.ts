@@ -1,6 +1,7 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
 import { sanitizeField } from '../lib/sanitize'
+import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 
 export interface TestCaseAddOptions {
   title?: string
@@ -25,6 +26,13 @@ export async function taskTestCaseAdd(
     )
     return 1
   }
+  return testCaseAddInScope(taskScope(identifier), options)
+}
+
+export async function testCaseAddInScope(
+  scope: TestCaseScope,
+  options: TestCaseAddOptions
+): Promise<number | void> {
   const title = options.title?.trim()
   const expected = options.expected?.trim()
   const steps = (options.step ?? []).map(s => s.trim()).filter(Boolean)
@@ -54,7 +62,7 @@ export async function taskTestCaseAdd(
 
   const r = await apiCall<AddResponse>(
     ctx,
-    `/api/tasks/${encodeURIComponent(identifier)}/test-cases`,
+    `${scope.basePath}/test-cases`,
     {
       method: 'POST',
       json: {
@@ -71,7 +79,7 @@ export async function taskTestCaseAdd(
   if (!r.ok || !r.data) return 1
 
   console.log(
-    `Created ${identifier}/TC${r.data.testCase.number} "${sanitizeField(r.data.testCase.title)}"  ` +
+    `Created ${scope.label}/TC${r.data.testCase.number} "${sanitizeField(r.data.testCase.title)}"  ` +
       `(${steps.length} steps, ${verification.length} verification)`
   )
 }
