@@ -9,6 +9,7 @@ export function runListing(req: NextRequest): void {
 }
 
 export function evaluateFormula(req: NextRequest): unknown {
-  const formula = req.nextUrl.searchParams.get('f') ?? '1+1'
-  return eval(formula)
+  const formula = req.nextUrl.searchParams.get('f') ?? '0'
+  const n = Number(formula)
+  return Number.isFinite(n) ? n : null
 }
