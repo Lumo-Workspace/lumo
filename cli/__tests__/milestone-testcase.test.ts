@@ -6,9 +6,14 @@ jest.mock('../src/lib/session-id', () => ({ resolveSessionId: jest.fn() }))
 jest.mock('../src/lib/status-digest', () => ({ printStatusDigest: jest.fn() }))
 
 import { readCredentials } from '../src/lib/config'
+import { printStatusDigest } from '../src/lib/status-digest'
 import {
   milestoneTestCaseAdd,
+  milestoneTestCaseDisposition,
+  milestoneTestCaseRm,
   milestoneTestCaseRun,
+  milestoneTestCaseShow,
+  milestoneTestCaseUpdate,
 } from '../src/commands/milestone-testcase'
 
 const PROJECT_ID = '0123456789abcdef0123456789abcdef'.replace(
@@ -49,10 +54,10 @@ afterEach(() => {
 })
 
 /** First fetches resolve the project then the milestone by name. */
-function queueResolve() {
+function queueResolve(name = 'Review v2') {
   fetchMock.mockImplementation(async (url: string) => {
     if (/\/api\/projects\/[^/]+\/milestones/.test(url)) {
-      return reply({ milestones: [{ id: 'm-1', name: 'Review v2' }] })
+      return reply({ milestones: [{ id: 'm-1', name }] })
     }
     if (/\/api\/projects(\?|$)/.test(url)) {
       return reply({
@@ -69,6 +74,23 @@ function queueResolve() {
         ceiling: { effective: 'PASS' },
       })
     }
+    if (/\/test-cases\/TC1$/.test(url)) {
+      return reply({
+        testCase: { number: 1, title: 'E2E' },
+        runs: [
+          {
+            id: 'run-9',
+            result: 'FAIL',
+            failureAttribution: 'IMPLEMENTATION_DEFECT',
+            evidence: [{}],
+            createdAt: '2026-10-14T00:00:00Z',
+            disposition: null,
+          },
+        ],
+      })
+    }
+    if (/\/disposition$/.test(url))
+      return reply({ disposition: 'KNOWN_DEFECT' })
     return reply({ testCase: { id: 'c', number: 1, title: 'E2E' } })
   })
 }
@@ -88,6 +110,65 @@ it('adds a case to a milestone resolved by name', async () => {
     true
   )
   expect(stdout()).toContain('Created Review v2/TC1 "E2E"')
+  const post = fetchMock.mock.calls.find(c =>
+    /\/api\/milestones\/m-1\/test-cases$/.test(String(c[0]))
+  )!
+  expect(post[1].method).toBe('POST')
+  expect(JSON.parse(post[1].body)).toMatchObject({
+    title: 'E2E',
+    steps: ['open PR'],
+    expected: 'comment posted',
+  })
+})
+
+it('prints a sanitized milestone label', async () => {
+  const esc = String.fromCharCode(0x1b)
+  queueResolve(`Evil${esc}[31m name`)
+  await milestoneTestCaseAdd(`Evil${esc}[31m name`, {
+    title: 'E2E',
+    step: ['s'],
+    expected: 'e',
+    project: 'lumo',
+  })
+  expect(stdout()).toContain('Created ')
+  expect(stdout()).not.toContain(esc)
+})
+
+it.each([
+  ['show', () => milestoneTestCaseShow('Review v2', undefined, {})],
+  [
+    'update',
+    () => milestoneTestCaseUpdate('Review v2', undefined, { title: 'x' }),
+  ],
+  ['rm', () => milestoneTestCaseRm('Review v2', undefined, {})],
+  [
+    'run',
+    () =>
+      milestoneTestCaseRun('Review v2', undefined, {
+        result: 'pass',
+        env: 'local',
+      }),
+  ],
+])('%s without a case ref fails before any request', async (_n, call) => {
+  expect(await call()).toBe(1)
+  expect(fetchMock).not.toHaveBeenCalled()
+})
+
+it('dispositions against the milestone route with no task status call', async () => {
+  queueResolve()
+  await milestoneTestCaseDisposition('Review v2', 'TC1', {
+    knownDefect: true,
+    confirm: true,
+    receipt: 'r2.1.2.3.sig',
+    project: 'lumo',
+  })
+  expect(
+    urls().some(u =>
+      /\/api\/milestones\/m-1\/test-case-runs\/run-9\/disposition$/.test(u)
+    )
+  ).toBe(true)
+  expect(urls().some(u => u.includes('/api/tasks/'))).toBe(false)
+  expect(printStatusDigest).not.toHaveBeenCalled()
 })
 
 it('records a run against TC1', async () => {

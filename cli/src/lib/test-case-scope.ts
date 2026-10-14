@@ -1,5 +1,6 @@
 import type { ApiContext } from './test-case-api'
 import { resolveMilestoneId } from './resolve'
+import { sanitizeField } from './sanitize'
 
 /**
  * LUM-1135: where a test-case command points. Task and milestone cases share
@@ -35,7 +36,8 @@ export async function milestoneScope(
     )
     return {
       basePath: `/api/milestones/${encodeURIComponent(m.id)}`,
-      label: m.name || milestoneRef,
+      // The name is member-authored and prints before every `/TC<n>`.
+      label: sanitizeField(m.name || milestoneRef),
       kind: 'milestone',
     }
   } catch (err) {
