@@ -117,6 +117,12 @@ interface UpsertSessionData {
   agent?: TaskArtifactAgent
   now: Date
   /**
+   * LUM-1136: the CLI version this hook request carried. Written on every
+   * event (not only SessionStart) so a session that outlives a `lumo update`
+   * reports the CLI it runs now. Omitted when absent — never clears a value.
+   */
+  cliVersion?: string
+  /**
    * Cumulative session token totals from the CLI transcript. Carried by STOP
    * (full settlement) and POST_TOOL_BATCH (mid-turn, flat columns only).
    */
@@ -248,6 +254,11 @@ const MEMBER_AGENT_CHUNK = 100
  * in-memory `distinct` over every session in the window: groupBy finds each
  * pair's newest reporting timestamp, then only those rows are read (in chunks).
  */
+/** LUM-1136: the `cliVersion` write for a hook upsert, or nothing when absent. */
+function cliVersionPatch(data: { cliVersion?: string }) {
+  return data.cliVersion ? { cliVersion: data.cliVersion } : {}
+}
+
 async function latestReportedField(
   workspaceId: string,
   since: Date,
@@ -689,6 +700,7 @@ export const sessionRepository = {
             cwd: data.cwd,
             taskId: null,
             ...(data.agent !== undefined ? { agent: data.agent } : {}),
+            ...cliVersionPatch(data),
             startedAt: data.now,
             lastActivityAt: data.now,
             eventCount: 1,
@@ -699,6 +711,7 @@ export const sessionRepository = {
             lastActivityAt: data.now,
             eventCount: { increment: 1 },
             ...(data.cwd !== null ? { cwd: data.cwd } : {}),
+            ...cliVersionPatch(data),
             ...flat,
             loopCount: { increment: 1 },
           },
@@ -747,6 +760,7 @@ export const sessionRepository = {
             cwd: data.cwd,
             taskId: null,
             ...(data.agent !== undefined ? { agent: data.agent } : {}),
+            ...cliVersionPatch(data),
             startedAt: data.now,
             lastActivityAt: data.now,
             eventCount: 1,
@@ -756,6 +770,7 @@ export const sessionRepository = {
             lastActivityAt: data.now,
             eventCount: { increment: 1 },
             ...(data.cwd !== null ? { cwd: data.cwd } : {}),
+            ...cliVersionPatch(data),
             ...midTurnFlat,
           },
           select: { id: true, taskId: true, role: true, milestoneId: true },
@@ -775,6 +790,7 @@ export const sessionRepository = {
     }
     if (data.cwd !== null) setOnUpdate.cwd = data.cwd
     if (data.isStop) setOnUpdate.loopCount = { increment: 1 }
+    if (data.cliVersion) setOnUpdate.cliVersion = data.cliVersion
 
     const row = await prisma.session.upsert({
       where: { id: data.id },
@@ -785,6 +801,7 @@ export const sessionRepository = {
         cwd: data.cwd,
         taskId: null,
         ...(data.agent !== undefined ? { agent: data.agent } : {}),
+        ...cliVersionPatch(data),
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,

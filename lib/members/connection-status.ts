@@ -9,6 +9,7 @@ export type MemberVersionStatus =
   | 'needsUpdate'
   | 'unknown'
   | 'upToDate'
+  | 'stale'
   | 'notConnected'
 
 export type MemberFilter = 'all' | 'needsUpdate' | 'notConnected'
@@ -24,15 +25,19 @@ export function connectionNeedsUpdate(c: MemberConnectionView): boolean {
 }
 
 /**
- * Worst state wins: anything behind → needsUpdate; else any connection whose
- * CLI reported no version (predates LUM-1136) → unknown; else upToDate.
+ * Judged on recently seen connections only — a stale one's versions are a
+ * snapshot that may long since have been updated. Worst state wins: anything
+ * behind → needsUpdate; else any connection with no CLI version reported yet
+ * → unknown; else upToDate. Only stale connections → stale.
  */
 export function memberVersionStatus(
   connections: MemberConnectionView[] | undefined
 ): MemberVersionStatus {
   if (!connections || connections.length === 0) return 'notConnected'
-  if (connections.some(connectionNeedsUpdate)) return 'needsUpdate'
-  if (connections.some(c => c.cliVersion === null)) return 'unknown'
+  const fresh = connections.filter(c => !c.stale)
+  if (fresh.length === 0) return 'stale'
+  if (fresh.some(connectionNeedsUpdate)) return 'needsUpdate'
+  if (fresh.some(c => c.cliVersion === null)) return 'unknown'
   return 'upToDate'
 }
 
@@ -74,6 +79,8 @@ export function countConnectionsNeedingUpdate(
  * CLI needs `lumo skill update`.
  */
 export function connectionFixCommand(c: MemberConnectionView): string | null {
+  // A stale snapshot can't tell whether anything still needs fixing.
+  if (c.stale) return null
   if (c.cliBehind || c.cliVersion === null) return 'lumo update'
   if (c.skillBehind) return 'lumo skill update'
   return null

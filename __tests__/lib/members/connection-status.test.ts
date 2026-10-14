@@ -13,12 +13,24 @@ const conn = (p: Partial<MemberConnectionView> = {}): MemberConnectionView => ({
   cliVersion: '1.121.0',
   skillVersion: '1.121.0',
   lastSeenAt: '2026-10-14T10:00:00Z',
+  stale: false,
   cliBehind: false,
   skillBehind: false,
   ...p,
 })
 
 describe('memberVersionStatus', () => {
+  it('only stale connections → stale; a stale one never sets the status next to a fresh one', () => {
+    expect(memberVersionStatus([conn({ stale: true, cliVersion: null })])).toBe(
+      'stale'
+    )
+    expect(
+      memberVersionStatus([
+        conn(),
+        conn({ agent: 'CODEX', stale: true, cliVersion: null }),
+      ])
+    ).toBe('upToDate')
+  })
   it('no connections → notConnected', () => {
     expect(memberVersionStatus(undefined)).toBe('notConnected')
     expect(memberVersionStatus([])).toBe('notConnected')
@@ -107,4 +119,12 @@ describe('connectionNeedsUpdate / connectionFixCommand', () => {
     expect(connectionFixCommand(conn({ skillBehind: true }))).toBe(
       'lumo skill update'
     ))
+})
+
+describe('connectionFixCommand on a stale connection', () => {
+  it('suggests nothing — the snapshot cannot tell', () => {
+    expect(connectionFixCommand(conn({ stale: true, cliVersion: null }))).toBe(
+      null
+    )
+  })
 })

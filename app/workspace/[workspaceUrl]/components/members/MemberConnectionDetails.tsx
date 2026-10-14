@@ -71,7 +71,11 @@ function ConnectionCard({
                 )
               : intl.formatMessage({ id: 'members.connection.unknown' })}
           </span>
-          {c.cliVersion === null ? null : c.cliBehind ? (
+          {c.cliVersion === null ? null : c.stale ? (
+            <Tag tone='muted'>
+              {intl.formatMessage({ id: 'members.details.asOfLastSeen' })}
+            </Tag>
+          ) : c.cliBehind ? (
             <Tag tone='warn'>{behind}</Tag>
           ) : (
             <Tag tone='ok'>

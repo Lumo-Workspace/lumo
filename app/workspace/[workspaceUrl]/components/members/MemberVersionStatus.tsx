@@ -12,6 +12,7 @@ const DOT: Record<Status, string> = {
   needsUpdate: 'bg-warning-text',
   upToDate: 'bg-success-text',
   unknown: 'bg-muted-foreground',
+  stale: 'bg-muted-foreground',
   notConnected: 'bg-border',
 }
 
@@ -19,6 +20,7 @@ const LABEL_ID: Record<Status, string> = {
   needsUpdate: 'members.status.needsUpdate',
   upToDate: 'members.status.upToDate',
   unknown: 'members.status.unknown',
+  stale: 'members.status.stale',
   notConnected: 'members.connection.none',
 }
 
@@ -46,8 +48,14 @@ function statusDetail(
   }
   if (status === 'unknown')
     return formatMessage({ id: 'members.status.unknownDetail' })
-  if (status === 'upToDate') {
+  if (status === 'stale') {
     const version = connections.find(c => c.cliVersion)?.cliVersion
+    return version
+      ? formatMessage({ id: 'members.status.staleDetail' }, { version })
+      : null
+  }
+  if (status === 'upToDate') {
+    const version = connections.find(c => !c.stale && c.cliVersion)?.cliVersion
     return version
       ? formatMessage({ id: 'members.connection.cli' }, { version })
       : null
