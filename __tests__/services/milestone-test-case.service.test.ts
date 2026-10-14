@@ -259,6 +259,8 @@ describe('milestoneTestCaseService', () => {
     const res = await milestoneTestCaseService.getDetail('m-1', 'TC1', 'mem-1')
     expect(res.testCase).toBe(mcase)
     expect(res.runs[0]).toMatchObject({ id: 'r1', executedBy: null })
+    // Same shape as the task detail — the CLI's show reads pullRequests.
+    expect(res.pullRequests).toEqual([])
   })
 
   it('resolveCase returns the case, and 404s for another milestone cuid', async () => {

@@ -171,6 +171,54 @@ it('dispositions against the milestone route with no task status call', async ()
   expect(printStatusDigest).not.toHaveBeenCalled()
 })
 
+it.each([
+  ['omits pullRequests (older server)', undefined],
+  ['sends an empty pullRequests list', []],
+])(
+  'show prints a run carrying commitSha when the server %s',
+  async (_label, pullRequests) => {
+    queueResolve()
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (url: string) => {
+      if (/\/test-cases\/TC1$/.test(url)) {
+        return reply({
+          testCase: {
+            number: 1,
+            title: 'E2E',
+            setup: null,
+            steps: ['open PR'],
+            verification: [],
+            expected: 'comment posted',
+          },
+          runs: [
+            {
+              id: 'run-1',
+              result: 'PASS',
+              environment: 'STAGING',
+              failedPhase: null,
+              failedIndex: null,
+              failedStepText: null,
+              note: null,
+              evidence: [],
+              pullRequestId: null,
+              commitSha: 'abcdef1234567890',
+              commitDirty: false,
+              createdAt: '2026-10-14T00:00:00Z',
+            },
+          ],
+          ...(pullRequests ? { pullRequests } : {}),
+        })
+      }
+      return base(url)
+    })
+    const code = await milestoneTestCaseShow('Review v2', 'TC1', {
+      project: 'lumo',
+    })
+    expect(code).toBeUndefined()
+    expect(stdout()).toContain('PASS on STAGING  @abcdef1')
+  }
+)
+
 it('records a run against TC1', async () => {
   queueResolve()
   await milestoneTestCaseRun('Review v2', 'TC1', {

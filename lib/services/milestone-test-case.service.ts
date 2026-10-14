@@ -132,6 +132,9 @@ export const milestoneTestCaseService = {
     return {
       testCase,
       runs: runs.map(r => ({ ...r, executedBy: executedBy(r) })),
+      // Same response shape as the task detail: a milestone run binds no PR
+      // (commitSha only), so the list is always empty — but it is present.
+      pullRequests: [],
     }
   },
 

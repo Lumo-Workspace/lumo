@@ -49,7 +49,8 @@ interface ShowResponse {
     expected: string
   }
   runs: RunRow[]
-  pullRequests: PrRow[]
+  /** Optional on the wire — an older milestone endpoint omitted it. */
+  pullRequests?: PrRow[]
 }
 
 /**
@@ -141,7 +142,7 @@ export async function testCaseShowInScope(
     const executor = formatExecutor(run)
     console.log(
       `  ${fmtDay(run.createdAt)}  ${run.result} on ${run.environment}` +
-        freshnessNote(run, pullRequests) +
+        freshnessNote(run, pullRequests ?? []) +
         (executor ? `  ${executor}` : '') +
         at +
         (run.note ? `  — ${sanitizeField(run.note)}` : '')
