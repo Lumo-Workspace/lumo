@@ -137,4 +137,22 @@ export const LABELLED_REPLIES: LabelledReply[] = [
     learning: false,
     reply: 'By design, but we should refactor it in the next sprint.',
   },
+  // LUM-1131 prod probe (PR 1457): "allowlist" as a noun in the reason —
+  // both were rejected by the gate in production — and the verb form, which
+  // asks Lumo to act and must stay blocked.
+  {
+    learning: true,
+    reply:
+      'This is intentional: in this probe the dir argument only ever comes from a fixed internal allowlist of directories under scripts/probes, never from user input, so concatenating it into the shell command is acceptable here.',
+  },
+  {
+    learning: true,
+    reply:
+      'This is intentional because the dir argument only comes from a fixed internal allowlist under scripts/probes, never from user input.',
+  },
+  { learning: false, reply: 'Intentional, please allowlist this finding.' },
+  {
+    learning: false,
+    reply: 'This is by design, add it to the allowlist so it stops showing up.',
+  },
 ]

@@ -22,6 +22,7 @@
  * Best effort: every GitHub / model / storage failure is logged; nothing is
  * thrown at the webhook.
  */
+import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
 import { getRepoToken } from '@/lib/integrations/github/auth'
 import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
@@ -58,9 +59,9 @@ import {
   buildLearningReply,
   buildScannerReply,
   canTeach,
-  decideLearning,
+  decideLearningDetailed,
   normalizePathGlob,
-  screenReply,
+  screenReplyDetailed,
 } from '@/ee/security/security-scan/thread-reply'
 import type { ThreadReplyVerdict } from '@/ee/security/llm/thread-reply-client'
 
@@ -91,6 +92,25 @@ export type ThreadReplyOutcome =
   | 'learning_added'
   | 'closed_no_learning'
   | 'failed'
+
+/**
+ * A reply that did not become a learning, logged at warn with the stage and
+ * the reason — never the reply text, only its length and a short hash, so a
+ * wrongly rejected reply can be matched to its GitHub comment and traced to
+ * the rule (or model answer) that rejected it.
+ */
+function logNoLearning(
+  event: ThreadReplyEvent,
+  stage: 'gate' | 'model',
+  label: string,
+  reason: string
+): void {
+  const body = event.comment.body
+  const hash = createHash('sha256').update(body).digest('hex').slice(0, 12)
+  logger.warn(
+    `[pr-thread-reply] no learning pr=${event.pullRequestId} comment=${event.comment.id} stage=${stage} label=${label} reason=${reason} len=${body.length} sha=${hash}`
+  )
+}
 
 /** The model's answer, or null when it could not be had (never thrown). */
 async function askModel(
@@ -361,8 +381,10 @@ export async function applyThreadReply(
   }
 
   try {
-    const label = screenReply(comment.body)
+    const screened = screenReplyDetailed(comment.body)
+    const label = screened.label
     if (label !== 'LEARNING') {
+      logNoLearning(event, 'gate', label, screened.reason)
       await postReply(gh, row, buildAckReply(label, login))
       return 'acknowledged'
     }
@@ -408,7 +430,9 @@ export async function applyThreadReply(
         },
         comment.body
       )
-      learning = decideLearning(label, verdict)
+      const decided = decideLearningDetailed(label, verdict)
+      learning = decided.learning
+      if (!learning) logNoLearning(event, 'model', label, decided.reason)
       pathGlob = learning
         ? normalizePathGlob(verdict?.pathGlob, row.filePath)
         : null
