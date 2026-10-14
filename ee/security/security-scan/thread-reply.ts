@@ -51,13 +51,44 @@ const POSITIVE = [
   /故意|有意为之|设计如此|按设计|预期行为|不适用|误报/,
 ]
 
-/** Negations that flip a positive word ("not intentional", "unintentional"). */
+/**
+ * A negator: "not", "never", or a contraction ("isn't", "wasn't", "aren't",
+ * "doesn't", "didn't", …), optionally softened ("not really"). The `n't`
+ * form has no word boundary before it — `\bn't` never matched "isn't", so
+ * "This isn't intentional because …" passed as a learning (LUM-1139). Curly
+ * apostrophes are folded to `'` before any pattern runs (`foldApostrophes`).
+ */
+const NEGATOR =
+  "(?:\\bnot|n't|\\bnever)(?:\\s+(?:really|actually|entirely|exactly|quite|necessarily|at all))?"
+
+/** Up to two words between the negator and the positive word ("wasn't done on purpose"). */
+const FILLER = '(?:\\s+[a-z]+){0,2}?'
+
+/**
+ * Negations that flip a positive word ("not intentional", "isn't by design",
+ * "wasn't done on purpose", "unintentional").
+ */
 const NEGATED = [
-  /\b(?:not|n't|never|un)\s*intentional/i,
+  new RegExp(`${NEGATOR}${FILLER}\\s*intentional`, 'i'),
+  /\bunintentional/i,
   /\bunintended\b/i,
-  /\bnot (?:by design|on purpose|deliberate|expected|as intended)\b/i,
-  /不是故意|并非故意|非故意/,
+  new RegExp(
+    `${NEGATOR}${FILLER}\\s+(?:by design|on purpose|deliberate(?:ly)?|expected|as intended|intended)\\b`,
+    'i'
+  ),
+  // "This isn't a false positive", "not really a false positive" — the
+  // positive phrase itself, negated (LUM-1139 review).
+  new RegExp(
+    `${NEGATOR}\\s+(?:(?:a|an|really a|actually a)\\s+)?false positive`,
+    'i'
+  ),
+  /不是故意|并非故意|非故意|不是有意|并非有意|不是设计如此|不是误报|并非误报|不算误报/,
 ]
+
+/** Curly / modifier apostrophes → `'`, so "isn’t" reads like "isn't". */
+function foldApostrophes(text: string): string {
+  return text.replace(/[\u2018\u2019\u02bc\u2032]/g, "'")
+}
 
 /**
  * A plan to change the code — overrides a positive statement ("intentional
@@ -155,9 +186,9 @@ export function screenReplyDetailed(raw: string): {
   label: ReplyLabel
   reason: ScreenReason
 } {
-  const text = raw.trim()
+  const text = foldApostrophes(raw.trim())
   if (!text) return { label: 'OTHER', reason: 'empty' }
-  if (detectInjectionSignals(text).signals.length > 0)
+  if (detectInjectionSignals(raw).signals.length > 0)
     return { label: 'BLOCKED', reason: 'injection_signal' }
   if (anyOf(ACTION_REQUEST, text))
     return { label: 'BLOCKED', reason: 'action_request' }

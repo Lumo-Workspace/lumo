@@ -3,7 +3,8 @@
  * reply say the finding is intentional / not applicable, and if so, what is
  * the one-sentence learning (and the narrowest path glob it covers)?
  *
- * FAST tier (classifier work, `lib/ai/models.ts`). Static imports of `ai` and
+ * FAST tier (classifier work, `lib/ai/models.ts`); the one retry goes to
+ * MEMORY_JUDGE (LUM-1139, `classifyWithRetry`). Static imports of `ai` and
  * the gateway, so this module MUST only be reached via `await import()` from
  * service code (jest TransformStream trap).
  *
@@ -12,7 +13,7 @@
  * object — which the service still gates (`decideLearning`) and cleans
  * (`cleanLearningText`, `normalizePathGlob`). Nothing it says is ever acted on.
  */
-import { FAST_MODEL } from '@/lib/ai/models'
+import { FAST_MODEL, MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -53,7 +54,17 @@ export interface ThreadReplyInput {
   /** The reply, already through `guardInjectedText` (text + notices). */
   reply: { text: string; notices: string[] }
   timeoutMs?: number
+  /**
+   * LUM-1139 — which model answers: the FAST tier first, the fallback for
+   * the one retry (`classifyWithRetry`). Same prompt, same schema, no tools.
+   */
+  tier?: 'primary' | 'fallback'
 }
+
+export const THREAD_REPLY_MODELS = {
+  primary: FAST_MODEL,
+  fallback: MEMORY_JUDGE_MODEL,
+} as const
 
 export function buildThreadReplyPrompt(input: ThreadReplyInput): string {
   return [
@@ -72,7 +83,7 @@ export async function classifyThreadReply(
   input: ThreadReplyInput
 ): Promise<ThreadReplyVerdict> {
   const { object } = await generateObject({
-    model: gateway(FAST_MODEL),
+    model: gateway(THREAD_REPLY_MODELS[input.tier ?? 'primary']),
     schema: ThreadReplySchema,
     system: THREAD_REPLY_SYSTEM_PROMPT,
     prompt: buildThreadReplyPrompt(input),
