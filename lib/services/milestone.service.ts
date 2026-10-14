@@ -3,7 +3,6 @@ import {
   type MilestoneListFilter,
 } from '@/lib/repositories/milestone.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { milestoneExitCriterionRepository } from '@/lib/repositories/milestone-exit-criterion.repository'
 import { projectService } from '@/lib/services/project.service'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -627,12 +626,13 @@ export const milestoneService = {
     }
     await projectService.getProject(existing.projectId, memberId)
 
-    const unresolved =
-      await milestoneExitCriterionRepository.listUnresolved(milestoneId)
-    if (unresolved.length === 0) {
+    const { milestoneCloseGateService } =
+      await import('@/lib/services/milestone-close-gate.service')
+    const held = await milestoneCloseGateService.countHeld(milestoneId)
+    if (held === 0) {
       throw Object.assign(
         new Error(
-          'Nothing to override: this milestone has no unresolved exit criteria. Completion is derived from task completion.'
+          'Nothing to override: no exit criteria or milestone test cases hold this milestone open. Completion is derived from task completion.'
         ),
         { status: 409 }
       )

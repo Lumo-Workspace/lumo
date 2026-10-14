@@ -1,5 +1,5 @@
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
-import { milestoneExitCriterionRepository } from '@/lib/repositories/milestone-exit-criterion.repository'
+import { milestoneCloseGateService } from '@/lib/services/milestone-close-gate.service'
 import {
   deriveCompletionChange,
   computeMilestoneStaleness,
@@ -32,16 +32,14 @@ export const milestoneRollupService = {
     if (!milestone) return
 
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
-    // LUM-643: unresolved exit criteria hold the auto-completion shut
-    // (fail-closed — a count-read failure aborts the reconcile rather than
-    // completing past an unread contract; dispatchRollup swallows it).
-    const unresolvedExitCriteria =
-      await milestoneExitCriterionRepository.countUnresolved(milestoneId)
+    // LUM-643/1135: unresolved exit criteria and held milestone test cases hold
+    // the auto-completion shut (fail-closed — a read failure aborts the reconcile).
+    const closeGateHeld = await milestoneCloseGateService.countHeld(milestoneId)
     const change = deriveCompletionChange({
       completedAt: milestone.completedAt,
       archived: milestone.archivedAt !== null,
       taskCounts,
-      unresolvedExitCriteria,
+      closeGateHeld,
     })
     if (!change) return
 
@@ -86,18 +84,17 @@ export const milestoneRollupService = {
     },
     taskCounts: Record<TaskStatus, number>
   ): Promise<MilestoneStaleness> {
-    const unresolvedExitCriteria = await milestoneExitCriterionRepository
-      .countUnresolved(milestone.id)
-      // Best-effort read enrichment; fail closed (treat as gate-held) so a
-      // count failure can't surface a completion drift the reconcile would
-      // then refuse to apply.
+    const closeGateHeld = await milestoneCloseGateService
+      .countHeld(milestone.id)
+      // Fail closed (treat as gate-held) so a read failure can't surface a
+      // completion drift the reconcile would then refuse to apply.
       .catch(() => 1)
     const staleness = computeMilestoneStaleness({
       completedAt: milestone.completedAt,
       archived: milestone.archivedAt !== null,
       taskCounts,
       targetDate: milestone.targetDate,
-      unresolvedExitCriteria,
+      closeGateHeld,
     })
     if (staleness.completionDrift) {
       this.dispatchRollup(milestone.id)

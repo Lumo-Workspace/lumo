@@ -31,12 +31,12 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
   },
 }))
 
-// LUM-643: updateMilestone consults the exit-criteria close gate on a
+// LUM-643: updateMilestone consults the close gate on a
 // COMPLETED transition — default to an empty contract (gate open).
-const mockListUnresolved = jest.fn().mockResolvedValue([])
-jest.mock('@/lib/repositories/milestone-exit-criterion.repository', () => ({
-  milestoneExitCriterionRepository: {
-    listUnresolved: (...a: any[]) => mockListUnresolved(...a),
+const mockCountHeld = jest.fn().mockResolvedValue(0)
+jest.mock('@/lib/services/milestone-close-gate.service', () => ({
+  milestoneCloseGateService: {
+    countHeld: (...a: unknown[]) => mockCountHeld(...a),
   },
 }))
 

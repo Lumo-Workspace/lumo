@@ -23,9 +23,10 @@ jest.mock('@/lib/services/milestone.service', () => ({
 }))
 // LUM-643: the rollup consults the exit-criteria close gate — default to an
 // empty contract (gate open) so pre-existing rollup behavior is unchanged.
-jest.mock('@/lib/repositories/milestone-exit-criterion.repository', () => ({
-  milestoneExitCriterionRepository: {
-    countUnresolved: jest.fn().mockResolvedValue(0),
+const mockCountHeld = jest.fn().mockResolvedValue(0)
+jest.mock('@/lib/services/milestone-close-gate.service', () => ({
+  milestoneCloseGateService: {
+    countHeld: (...a: unknown[]) => mockCountHeld(...a),
   },
 }))
 
@@ -224,5 +225,16 @@ describe('milestone completion rollup (LUM-624/LUM-714)', () => {
         targetDate: null,
       }).datesMissing
     ).toBe(false)
+  })
+
+  it('held test cases withhold the derived completion', () => {
+    expect(
+      deriveCompletionChange({
+        completedAt: null,
+        archived: false,
+        taskCounts: counts({ DONE: 3 }),
+        closeGateHeld: 1,
+      })
+    ).toBeNull()
   })
 })
