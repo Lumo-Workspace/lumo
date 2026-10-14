@@ -154,6 +154,26 @@ export interface CoreEvents {
     }>
     sender: { login?: string; type?: string } | null
   }
+  /**
+   * LUM-1129: a conversation comment on a PR Lumo holds (any PR row, task
+   * or not) was created / edited / deleted (`issue_comment`). The security
+   * plugin reads `@<app> review|full review|pause|resume|resolve` commands
+   * off it; `prAuthorLogin` is the PR's author.
+   */
+  'github.issueComment': {
+    workspaceId: string
+    pullRequestId: string
+    repo: string
+    prNumber: number
+    action: string
+    comment: {
+      id: number
+      body: string
+      createdAt: string | null
+      user: { login?: string; type?: string } | null
+    }
+    prAuthorLogin: string | null
+  }
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
   'task.prLinked': { taskId: string; pullRequestId: string }
   /** LUM-1063: a task's status changed (after the update committed). */

@@ -76,6 +76,37 @@ export async function checkRepositoryReadAccess(
   return { access: 'unknown', remaining }
 }
 
+/** Roles that may push to the repository (`maintain` reports as `write`). */
+const WRITE_ROLES = new Set(['write', 'maintain', 'admin'])
+
+/**
+ * LUM-1129 — may `login` push to the repository? Asked with a token whose
+ * only permission is `metadata: read`. `unknown` when GitHub could not be
+ * asked or answered something else — a caller gating an action on this
+ * treats it as "no" (fail closed).
+ */
+export async function checkRepositoryWriteAccess(
+  token: string,
+  repositoryFullName: string,
+  login: string
+): Promise<'write' | 'no_write' | 'unknown'> {
+  let res: Response
+  try {
+    res = await fetch(
+      `${GH_API}/repos/${repositoryFullName}/collaborators/${encodeURIComponent(login)}/permission`,
+      { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+    )
+  } catch {
+    return 'unknown'
+  }
+  if (res.status === 404) return 'no_write'
+  if (res.status !== 200) return 'unknown'
+  const data = (await res.json().catch(() => ({}))) as {
+    permission?: string
+  }
+  return WRITE_ROLES.has(data.permission ?? '') ? 'write' : 'no_write'
+}
+
 /**
  * LUM-888 — who the verifier is on GitHub *now*. By id (`GET /user/{id}`)
  * when the id is on record: a renamed account comes back under its new login,
