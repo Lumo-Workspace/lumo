@@ -1,9 +1,9 @@
 import { logger } from '@/lib/logger'
 import { createSlidingWindowRateLimiter } from '@/lib/services/sliding-window-rate-limit'
-import { fetchPrCommitCount } from '@/lib/integrations/github/contents'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import { admitAutomaticReview } from '@/ee/security/security-scan/review-control'
+import { prCommitCountBestEffort } from './pr-commit-count'
 
 /**
  * LUM-1137 — may this push get an automatic AI review (and exploit-path
@@ -16,10 +16,12 @@ import { admitAutomaticReview } from '@/ee/security/security-scan/review-control
  * plan) — so a push storm cannot explode cost. Lumo's agents push under one
  * GitHub identity, so the cap sits above CodeRabbit's per-human numbers:
  * Lumo-Workspace/lumo peaked at 18 automatic reviews in one hour over the 30
- * days before LUM-1137. A head over the cap is not reserved: the scan says
- * "rate-limited", and the next push after the window (or `@uselumo review`)
- * is reviewed. Only a new head counts — a retry of an admitted head does not.
- * The limiter fails open (`sliding-window-rate-limit.ts`).
+ * days before LUM-1137. A head over the cap keeps no reservation: the scan
+ * says "rate-limited", and the next push after the window (or
+ * `@uselumo review`) is reviewed. Only a head this call newly reserved counts — a retry of an
+ * admitted head, or a head the budget refused at reservation, does not: the
+ * cap is checked after the reservation, and a head over it is released. The
+ * limiter fails open (`sliding-window-rate-limit.ts`).
  */
 export const AUTO_REVIEW_HOURLY_CAP = { max: 20, windowMs: 60 * 60_000 }
 
@@ -45,26 +47,6 @@ interface AdmissionPr {
   authorLogin: string
 }
 
-/** The PR's commit count at `head`, or null (counts as one commit). */
-async function commitsAtHeadBestEffort(
-  pr: AdmissionPr,
-  head: string
-): Promise<number | null> {
-  try {
-    return await fetchPrCommitCount({
-      workspaceId: pr.workspaceId,
-      fullName: pr.repo,
-      prNumber: pr.number,
-      head,
-    })
-  } catch (error) {
-    logger.info(
-      `[auto-review-admission] commit count unavailable ${pr.repo}#${pr.number}: ${error instanceof Error ? error.message : error}`
-    )
-    return null
-  }
-}
-
 export const autoReviewAdmissionService = {
   async admit(pr: AdmissionPr, head: string): Promise<AutoReviewAdmission> {
     const [control, workspaceLimit] = await Promise.all([
@@ -73,19 +55,33 @@ export const autoReviewAdmissionService = {
     ])
     const decision = admitAutomaticReview(control, head, workspaceLimit)
     if (!decision.allowed) return { allowed: false, rateLimited: false }
-    if (decision.reserve) {
-      const key = `${pr.workspaceId}:${pr.authorLogin.toLowerCase()}`
-      if (!(await limiter.check(key)))
-        return { allowed: false, rateLimited: true }
-    }
     const commitsAtHead = decision.reserve
-      ? await commitsAtHeadBestEffort(pr, head)
+      ? await prCommitCountBestEffort(pr, head)
       : null
-    const allowed = await prReviewControlRepository.reserve(pr.id, head, {
-      commitsAtHead,
-      workspaceLimit,
-    })
-    return { allowed, rateLimited: false }
+    const { allowed, reserved } = await prReviewControlRepository.reserve(
+      pr.id,
+      head,
+      { commitsAtHead, workspaceLimit }
+    )
+    if (!allowed) return { allowed: false, rateLimited: false }
+    // Only a head this call reserved takes a slot of the hourly cap; over
+    // the cap its reservation is returned, so the budget is not spent either.
+    if (reserved) {
+      const key = `${pr.workspaceId}:${pr.authorLogin.toLowerCase()}`
+      if (!(await limiter.check(key))) {
+        // Best effort: a failed release leaves one commit reserved (the
+        // pre-fix behavior); the head is still rate-limited, not reviewed.
+        try {
+          await prReviewControlRepository.release(pr.id, head)
+        } catch (error) {
+          logger.warn(
+            `[auto-review-admission] release of rate-limited head failed ${pr.repo}#${pr.number}: ${error instanceof Error ? error.message : error}`
+          )
+        }
+        return { allowed: false, rateLimited: true }
+      }
+    }
+    return { allowed: true, rateLimited: false }
   },
 }
 

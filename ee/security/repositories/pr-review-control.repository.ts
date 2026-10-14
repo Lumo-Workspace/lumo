@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import {
   admitAutomaticReview,
   commitsAfterReserve,
+  resumedHeads,
   withoutHead,
 } from '@/ee/security/security-scan/review-control'
 
@@ -36,13 +37,14 @@ export const prReviewControlRepository = {
   /**
    * LUM-1137: admit `head` under the PR's limit, else the workspace's
    * `workspaceLimit` (0 = never pause), recording the PR's commit count at
-   * that head (null = unknown, counts as one commit).
+   * that head (null = unknown, counts as one commit). `reserved` is true
+   * only when this call recorded the head (not a retry of an admitted head).
    */
   async reserve(
     id: string,
     head: string,
     opts: { commitsAtHead: number | null; workspaceLimit: number }
-  ): Promise<boolean> {
+  ): Promise<{ allowed: boolean; reserved: boolean }> {
     return transaction(async tx => {
       const control = await tx.pullRequest.findUniqueOrThrow({
         where: { id },
@@ -57,7 +59,7 @@ export const prReviewControlRepository = {
             reviewHeadCommits: commitsAfterReserve(control, opts.commitsAtHead),
           },
         })
-      return decision.allowed
+      return { allowed: decision.allowed, reserved: decision.reserve }
     })
   },
   /** Return a round whose head was superseded before its review landed. */
@@ -74,14 +76,19 @@ export const prReviewControlRepository = {
       })
     })
   },
-  async update(id: string, action: 'pause' | 'resume', limit?: number) {
+  /** `commitsAtResume`: the PR's commit count now (resume baselines the
+   *  budget there; null = unknown, the next head counts one commit). */
+  async update(
+    id: string,
+    action: 'pause' | 'resume',
+    limit?: number,
+    commitsAtResume: number | null = null
+  ) {
     return prisma.pullRequest.update({
       where: { id },
       data: {
         reviewPaused: action === 'pause',
-        ...(action === 'resume'
-          ? { reviewHeads: [], reviewHeadCommits: [] }
-          : {}),
+        ...(action === 'resume' ? resumedHeads(commitsAtResume) : {}),
         // LUM-1137: the PR's own pause-after, over the workspace setting.
         ...(limit !== undefined ? { reviewCommitLimit: limit } : {}),
       },

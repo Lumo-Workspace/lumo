@@ -43,9 +43,14 @@ test('reservations are serializable and concurrent heads cannot admit more than 
       prReviewControlRepository.reserve('pr', head, limit2)
     )
   )
-  expect(admitted.filter(Boolean)).toHaveLength(2)
+  expect(admitted.filter(a => a.allowed)).toHaveLength(2)
+  expect(admitted.filter(a => a.reserved)).toHaveLength(2)
   expect(control.reviewHeads).toEqual(['a', 'b'])
-  expect(await prReviewControlRepository.reserve('pr', 'a', limit2)).toBe(true)
+  // A retry of an admitted head is allowed without a new reservation.
+  expect(await prReviewControlRepository.reserve('pr', 'a', limit2)).toEqual({
+    allowed: true,
+    reserved: false,
+  })
   expect(control.reviewHeads).toHaveLength(2)
   expect(control.reviewHeadCommits).toEqual([0, 0])
 })
@@ -61,7 +66,9 @@ test('serialization conflicts re-read current state; pause denies even a previou
     reviewHeads: ['a'],
     reviewHeadCommits: [1],
   })
-  expect(await prReviewControlRepository.reserve('pr', 'a', limit2)).toBe(false)
+  expect(
+    (await prReviewControlRepository.reserve('pr', 'a', limit2)).allowed
+  ).toBe(false)
 })
 
 test('resume clears reservations and applies the configured limit; reads return persisted control', async () => {
@@ -75,6 +82,17 @@ test('resume clears reservations and applies the configured limit; reads return 
       reviewHeads: [],
       reviewHeadCommits: [],
       reviewCommitLimit: 3,
+    },
+  })
+  // LUM-1137: with the PR's commit count at resume, a baseline entry.
+  write.mockResolvedValueOnce({})
+  await prReviewControlRepository.update('pr', 'resume', undefined, 25)
+  expect(write).toHaveBeenLastCalledWith({
+    where: { id: 'pr' },
+    data: {
+      reviewPaused: false,
+      reviewHeads: ['resume-baseline'],
+      reviewHeadCommits: [25],
     },
   })
   ;(prisma.pullRequest.findUniqueOrThrow as jest.Mock).mockResolvedValueOnce({

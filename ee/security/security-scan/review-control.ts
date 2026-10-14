@@ -3,15 +3,24 @@
  * `auto_incremental_review` + `auto_pause_after_reviewed_commits`: every push
  * is reviewed until N commits have been reviewed (default 5; 0 = never
  * pause). A head is reserved once; its retries cost nothing. Failed attempts
- * keep their reservation; a superseded head is released (the next head's
- * commits then include its commits). Resume resets the budget. Manual
- * reviews neither consume nor reset it.
+ * keep their reservation; a superseded head is released (a later next head
+ * then counts its commits; if it was the first review, the next head becomes
+ * the first and counts one). Resume resets the budget to a baseline at the
+ * PR's current commit count. Manual reviews neither consume nor reset it.
  *
  * "Reviewed commits" are the commits each admitted head added to the PR:
- * the first head counts every commit on the PR, a later head the commits
- * since the previous admitted head (at least one — a force-push that shrank
- * the PR still reviewed a new head). A head whose commit count is unknown
- * (stored as 0, or admitted before LUM-1137) counts as one commit.
+ * the first automatic review counts one commit (not every commit already on
+ * the PR — a PR opened with N or more commits still gets N reviews), a later
+ * head the commits since the previous admitted head (at least one — a
+ * force-push that shrank the PR still reviewed a new head). A head whose
+ * commit count is unknown (stored as 0, or admitted before LUM-1137) counts
+ * as one commit.
+ *
+ * Resume records the PR's commit count at that moment as a baseline entry
+ * (`RESUME_BASELINE_HEAD`, never a commit SHA) at the front of the arrays: it
+ * counts nothing, and the next head is charged only for the commits added
+ * since the resume. Without a known count there is no baseline and the next
+ * head is the first (one commit).
  *
  * PURE.
  */
@@ -28,12 +37,32 @@ export interface ReviewControl {
   reviewCommitLimit: number | null
 }
 
+/** The `reviewHeads` entry resume stores with the PR's commit count at
+ *  resume time (see the module comment). Not a SHA, so no head matches it. */
+export const RESUME_BASELINE_HEAD = 'resume-baseline'
+
+/** The arrays resume stores: a baseline at `commitsAtResume` when known. */
+export function resumedHeads(
+  commitsAtResume: number | null
+): Pick<ReviewControl, 'reviewHeads' | 'reviewHeadCommits'> {
+  return commitsAtResume !== null && commitsAtResume > 0
+    ? {
+        reviewHeads: [RESUME_BASELINE_HEAD],
+        reviewHeadCommits: [commitsAtResume],
+      }
+    : { reviewHeads: [], reviewHeadCommits: [] }
+}
+
 /** The commits the head at `index` added (see the module comment). */
-function commitsAddedAt(commits: readonly number[], index: number): number {
-  const at = commits[index] ?? 0
-  if (at <= 0) return 1
-  if (index === 0) return at
-  const before = commits[index - 1] ?? 0
+function commitsAddedAt(
+  control: Pick<ReviewControl, 'reviewHeads' | 'reviewHeadCommits'>,
+  index: number
+): number {
+  if (control.reviewHeads[index] === RESUME_BASELINE_HEAD) return 0
+  const at = control.reviewHeadCommits[index] ?? 0
+  // The first automatic review counts one commit, however many the PR has.
+  if (at <= 0 || index === 0) return 1
+  const before = control.reviewHeadCommits[index - 1] ?? 0
   if (before <= 0) return 1
   return Math.max(1, at - before)
 }
@@ -44,7 +73,7 @@ export function reviewedCommits(
 ): number {
   let total = 0
   for (let i = 0; i < control.reviewHeads.length; i++)
-    total += commitsAddedAt(control.reviewHeadCommits, i)
+    total += commitsAddedAt(control, i)
   return total
 }
 

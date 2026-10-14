@@ -4,6 +4,7 @@ import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import { reviewBudgetView } from '@/ee/security/security-scan/review-control'
 import { dispatchPrSecurityScan } from './pr-security-scan-dispatch'
+import { prCommitCountBestEffort } from './pr-commit-count'
 
 export const prReviewControlService = {
   async act(
@@ -32,7 +33,23 @@ export const prReviewControlService = {
     if (pr.state !== 'open')
       throw Object.assign(new Error('PR must be open'), { status: 409 })
     if (action === 'pause' || action === 'resume') {
-      await prReviewControlRepository.update(pr.id, action, limit)
+      // LUM-1137: resume baselines the budget at the PR's current commit
+      // count, so the next push is charged only for the commits it adds. A
+      // stored head GitHub has moved past reads as unknown: no baseline, and
+      // the next head counts one commit.
+      const commitsAtResume =
+        action === 'resume' && pr.headSha
+          ? await prCommitCountBestEffort(
+              { workspaceId, repo: pr.repo, number: pr.number },
+              pr.headSha
+            )
+          : null
+      await prReviewControlRepository.update(
+        pr.id,
+        action,
+        limit,
+        commitsAtResume
+      )
       // LUM-1137: the budget as the readouts show it (PR limit, else the
       // workspace's pause-after; 0 = never pauses).
       const [control, workspaceLimit] = await Promise.all([

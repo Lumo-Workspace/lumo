@@ -134,7 +134,18 @@ interface PauseAfterRowProps {
   onChange: (next: number) => void
 }
 
-/** LUM-1137 — pause automatic review after N reviewed commits (0 = never). */
+/** A typed pause-after, clamped to 0–100; null while not a number yet. */
+function parsePauseAfterInput(raw: string): number | null {
+  const next = Number.parseInt(raw, 10)
+  if (Number.isNaN(next)) return null
+  return Math.min(AUTO_PAUSE_AFTER_MAX, Math.max(0, next))
+}
+
+/**
+ * LUM-1137 — pause automatic review after N reviewed commits (0 = never).
+ * The field keeps its own text so it can be cleared while typing; only a
+ * number reaches `onChange`, and leaving the field shows the saved value.
+ */
 function PauseAfterRow({
   label,
   description,
@@ -142,6 +153,9 @@ function PauseAfterRow({
   disabled,
   onChange,
 }: PauseAfterRowProps) {
+  // Text that is not a number yet (e.g. cleared while typing); null shows
+  // `value`.
+  const [draft, setDraft] = useState<string | null>(null)
   return (
     <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
       <div className='min-w-0 sm:flex-1'>
@@ -160,13 +174,14 @@ function PauseAfterRow({
         min={0}
         max={AUTO_PAUSE_AFTER_MAX}
         step={1}
-        value={value}
+        value={draft ?? String(value)}
         disabled={disabled}
         onChange={e => {
-          const next = Number.parseInt(e.target.value, 10)
-          if (Number.isNaN(next)) return
-          onChange(Math.min(AUTO_PAUSE_AFTER_MAX, Math.max(0, next)))
+          const next = parsePauseAfterInput(e.target.value)
+          setDraft(next === null ? e.target.value : null)
+          if (next !== null) onChange(next)
         }}
+        onBlur={() => setDraft(null)}
         className='h-8 w-24 shrink-0 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
       />
     </div>
