@@ -70,6 +70,8 @@ import { reviewThreadClient } from '@/lib/integrations/github/review-threads'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+import { getRepoToken } from '@/lib/integrations/github/auth'
+import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 
 const access = checkRepositoryWriteAccess as jest.Mock
 const reply = prCommentClient.createIssueComment as jest.Mock
@@ -124,6 +126,11 @@ const replyBody = (): string =>
 beforeEach(() => {
   jest.clearAllMocks()
   process.env.GITHUB_APP_SLUG = 'uselumo'
+  // LUM-1127: thread mutations get their own token (pull_requests + contents write).
+  ;(getRepoToken as jest.Mock).mockImplementation(
+    async (_w: string, _r: string, perms: object) =>
+      perms === REPO_TOKEN_PERMISSIONS.reviewThreadWrite ? 'thread-tok' : 'tok'
+  )
   access.mockResolvedValue('write')
   modeOn.mockResolvedValue(true)
   latest.mockResolvedValue([{ id: 's1', headSha: HEAD, findings: [] }])
@@ -151,10 +158,13 @@ it('resolves open threads, approves the live head and dismisses Lumo’s change 
   await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
     'done'
   )
+  // Threads resolve with the reviewThreadWrite token, as `resolve` does…
   expect(resolveThread).toHaveBeenCalledWith({
     threadId: 'T-fpLow',
-    token: 'tok',
+    token: 'thread-tok',
   })
+  // …the review itself with the pull-request write token.
+  expect(submitReview.mock.calls[0][0].token).toBe('tok')
   expect(submitReview).toHaveBeenCalledWith(
     expect.objectContaining({ event: 'APPROVE', commitId: HEAD })
   )
@@ -287,4 +297,20 @@ it('buildApproveReply pluralises', () => {
       '@x'
     )
   ).toBe('✅ Approved `abcdef1`. Resolved 2 Lumo review threads.')
+})
+
+it('a refused thread-token mint (no Contents: write) ⇒ the LUM-1127 reply, no approval', async () => {
+  ;(getRepoToken as jest.Mock).mockImplementation(
+    async (_w: string, _r: string, perms: object) => {
+      if (perms === REPO_TOKEN_PERMISSIONS.reviewThreadWrite)
+        throw Object.assign(new Error('refused'), { status: 422 })
+      return 'tok'
+    }
+  )
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'failed'
+  )
+  expect(resolveThread).not.toHaveBeenCalled()
+  expect(submitReview).not.toHaveBeenCalled()
+  expect(replyBody()).toContain('Contents: Read & write')
 })
