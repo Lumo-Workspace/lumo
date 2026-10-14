@@ -45,11 +45,29 @@ export const prReviewLearningRepository = {
   async findBySourceReply(
     workspaceId: string,
     sourceReplyId: string
-  ): Promise<{ id: string; memoryId: string } | null> {
-    return prisma.prReviewLearning.findUnique({
+  ): Promise<{
+    id: string
+    memoryId: string
+    pathGlob: string | null
+    content: Prisma.JsonValue
+  } | null> {
+    const row = await prisma.prReviewLearning.findUnique({
       where: { workspaceId_sourceReplyId: { workspaceId, sourceReplyId } },
-      select: { id: true, memoryId: true },
+      select: {
+        id: true,
+        memoryId: true,
+        pathGlob: true,
+        memory: { select: { content: true } },
+      },
     })
+    return row
+      ? {
+          id: row.id,
+          memoryId: row.memoryId,
+          pathGlob: row.pathGlob,
+          content: row.memory.content,
+        }
+      : null
   },
 
   /**

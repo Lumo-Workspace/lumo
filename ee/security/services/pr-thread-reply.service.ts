@@ -31,6 +31,7 @@ import { githubRepository } from '@/lib/repositories/github.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memoryManagementService } from '@/lib/services/memory-management.service'
+import { conventionContentSchema } from '@/lib/memory/schemas'
 import {
   guardInjectedText,
   guardPromptLineText,
@@ -142,33 +143,68 @@ interface GithubCtx {
   token: string
 }
 
-/** Resolve the thread on GitHub (best effort) and record it as closed by the human. */
+/**
+ * LUM-1127 (PR 1454): GitHub refuses thread resolution to a pull-request-only
+ * token, so the close mints `reviewThreadWrite`; a refused mint falls back
+ * to the reply token (the resolve then fails and the reply says so).
+ */
+async function threadToken(
+  workspaceId: string,
+  gh: GithubCtx
+): Promise<string> {
+  try {
+    return await getRepoToken(
+      workspaceId,
+      `${gh.repo.owner}/${gh.repo.name}`,
+      REPO_TOKEN_PERMISSIONS.reviewThreadWrite
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-thread-reply] thread token mint failed: ${error instanceof Error ? error.message : String(error)}`
+    )
+    return gh.token
+  }
+}
+
+/**
+ * Resolve the thread on GitHub and record it as closed by the human. true
+ * only when GitHub says the thread is resolved (by this call or already) —
+ * the reply never claims a close that did not happen, and the row is not
+ * marked closed while GitHub still shows it open. Never throws.
+ */
 async function closeThread(
+  workspaceId: string,
   gh: GithubCtx,
   row: FindingThreadRow,
   login: string
-): Promise<void> {
+): Promise<boolean> {
   try {
+    const token = await threadToken(workspaceId, gh)
     let threadId = row.threadNodeId
     let resolved = false
     if (!threadId) {
-      const threads = await reviewThreadClient.listReviewThreads(gh)
+      const threads = await reviewThreadClient.listReviewThreads({
+        ...gh,
+        token,
+      })
       const t = threads.find(x => String(x.firstCommentId) === row.commentId)
       threadId = t?.id ?? null
       resolved = t?.isResolved ?? false
     }
-    if (threadId && !resolved)
-      await reviewThreadClient.resolveThread({ threadId, token: gh.token })
+    if (!threadId) return false
+    if (!resolved) await reviewThreadClient.resolveThread({ threadId, token })
     await prFindingThreadRepository.update(row.id, {
       state: 'RESOLVED_BY_USER',
       resolvedByLogin: login,
       resolvedAt: new Date(),
-      ...(threadId ? { threadNodeId: threadId } : {}),
+      threadNodeId: threadId,
     })
+    return true
   } catch (error) {
     logger.warn(
       `[pr-thread-reply] close failed fp=${row.fingerprint}: ${error instanceof Error ? error.message : String(error)}`
     )
+    return false
   }
 }
 
@@ -197,7 +233,7 @@ async function projectIdFor(event: ThreadReplyEvent): Promise<string | null> {
   )
 }
 
-/** Store the learning: the memory and its repository scope, in one transaction. false = not stored. */
+/** Store the learning: the memory and its repository scope, in one transaction. */
 async function storeLearning(input: {
   event: ThreadReplyEvent
   row: FindingThreadRow
@@ -205,18 +241,11 @@ async function storeLearning(input: {
   memberId: string | null
   learning: string
   pathGlob: string | null
-}): Promise<boolean> {
+}): Promise<'stored' | 'no_project' | 'failed'> {
   const { event, row, login, learning, pathGlob } = input
   const replyId = String(event.comment.id)
-  if (
-    await prReviewLearningRepository.findBySourceReply(
-      event.workspaceId,
-      replyId
-    )
-  )
-    return true
   const projectId = await projectIdFor(event)
-  if (!projectId) return false
+  if (!projectId) return 'no_project'
   const scope = `Lumo AI review of ${event.repo}${pathGlob ? `, files matching ${pathGlob}` : ''} — from @${login}'s reply on ${event.repo}#${event.prNumber} (finding ${row.ruleId})`
   try {
     await memoryManagementService.createReviewLearning(
@@ -248,12 +277,12 @@ async function storeLearning(input: {
         )
       }
     )
-    return true
+    return 'stored'
   } catch (error) {
     logger.warn(
       `[pr-thread-reply] learning not stored pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
     )
-    return false
+    return 'failed'
   }
 }
 
@@ -344,37 +373,61 @@ export async function applyThreadReply(
     // Learnings shape the AI review only: a scanner / hunt finding gets the
     // thread closed and the way to rule it out.
     if (layerOf(row) !== 'judge') {
+      const closed = await closeThread(event.workspaceId, gh, row, login)
       await postReply(
         gh,
         row,
-        buildScannerReply({ login, blockingFindingId: blockingId })
+        buildScannerReply({ login, closed, blockingFindingId: blockingId })
       )
-      await closeThread(gh, row, login)
       return 'closed_scanner'
     }
 
-    const verdict = await askModel(
-      {
-        ruleId: row.ruleId,
-        title: finding?.title ?? row.ruleId,
-        filePath: row.filePath,
-      },
-      comment.body
+    // Order: store → close → answer. If the answer then fails, the claim is
+    // released and a redelivery lands here again: the stored learning is
+    // reused (no second model call, no second memory) and the close is a
+    // no-op on a resolved thread — so a retry repeats only the answer.
+    const replyId = String(comment.id)
+    const prior = await prReviewLearningRepository.findBySourceReply(
+      event.workspaceId,
+      replyId
     )
-    const learning = decideLearning(label, verdict)
+    let learning: string | null
+    let pathGlob: string | null
+    let stored: 'stored' | 'no_project' | 'failed'
+    if (prior) {
+      const parsed = conventionContentSchema.safeParse(prior.content)
+      learning = parsed.success ? parsed.data.rule : null
+      pathGlob = prior.pathGlob
+      stored = 'stored'
+    } else {
+      const verdict = await askModel(
+        {
+          ruleId: row.ruleId,
+          title: finding?.title ?? row.ruleId,
+          filePath: row.filePath,
+        },
+        comment.body
+      )
+      learning = decideLearning(label, verdict)
+      pathGlob = learning
+        ? normalizePathGlob(verdict?.pathGlob, row.filePath)
+        : null
+      stored = learning
+        ? await storeLearning({
+            event,
+            row,
+            login,
+            memberId,
+            learning,
+            pathGlob,
+          })
+        : 'failed'
+    }
     if (!learning) {
       await postReply(gh, row, buildAckReply('OTHER', login))
       return 'acknowledged'
     }
-    const pathGlob = normalizePathGlob(verdict?.pathGlob, row.filePath)
-    const stored = await storeLearning({
-      event,
-      row,
-      login,
-      memberId,
-      learning,
-      pathGlob,
-    })
+    const closed = await closeThread(event.workspaceId, gh, row, login)
     await postReply(
       gh,
       row,
@@ -384,11 +437,11 @@ export async function applyThreadReply(
         repo: event.repo,
         pathGlob,
         stored,
+        closed,
         blockingFindingId: blockingId,
       })
     )
-    await closeThread(gh, row, login)
-    return stored ? 'learning_added' : 'closed_no_learning'
+    return stored === 'stored' ? 'learning_added' : 'closed_no_learning'
   } catch (error) {
     logger.warn(
       `[pr-thread-reply] reply failed pr=${event.pullRequestId} comment=${comment.id}: ${error instanceof Error ? error.message : String(error)}`

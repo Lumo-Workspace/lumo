@@ -276,10 +276,12 @@ test('memory and learning scope land in one transaction: a failing scope write l
     }
   )
   expect(await countMemories(NEW_CONTENT.rule)).toBe(1)
-  await expect(repo.findBySourceReply('ws', 'atomic-1')).resolves.toEqual({
-    id: expect.any(String),
-    memoryId: id,
-  })
+  await expect(repo.findBySourceReply('ws', 'atomic-1')).resolves.toMatchObject(
+    {
+      memoryId: id,
+      content: NEW_CONTENT,
+    }
+  )
 })
 
 test('releaseReply gives a failed reply back, only while it holds the claim', async () => {

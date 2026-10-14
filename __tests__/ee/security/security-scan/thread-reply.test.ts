@@ -194,7 +194,8 @@ describe('replies', () => {
       learning: 'Raw SQL in scripts/admin is intentional.',
       repo: 'o/r',
       pathGlob: 'scripts/admin/**',
-      stored: true,
+      stored: 'stored',
+      closed: true,
       blockingFindingId: null,
     })
     expect(body).toContain(
@@ -211,13 +212,14 @@ describe('replies', () => {
       learning: 'Intentional fixture token.',
       repo: 'o/r',
       pathGlob: null,
-      stored: true,
+      stored: 'stored',
+      closed: true,
       blockingFindingId: 'f-1',
     })
     expect(body).toMatch(/still blocks moving the task to DONE/)
     expect(body).toContain('lumo finding disposition f-1')
     expect(
-      buildScannerReply({ login: 'a', blockingFindingId: 'f-2' })
+      buildScannerReply({ login: 'a', closed: true, blockingFindingId: 'f-2' })
     ).toContain('lumo finding disposition f-2')
   })
   it('no project → says nothing was stored', () => {
@@ -226,7 +228,8 @@ describe('replies', () => {
       learning: 'x'.repeat(20),
       repo: 'o/r',
       pathGlob: null,
-      stored: false,
+      stored: 'no_project',
+      closed: true,
       blockingFindingId: null,
     })
     expect(body).not.toContain(LEARNING_ADDED)
@@ -302,5 +305,66 @@ describe('learningInScope — CodeRabbit scope rules', () => {
         undefined
       )
     ).toBe(false)
+  })
+})
+
+describe('LUM-1131 review round 3 — gate ordering and question marks', () => {
+  it.each([
+    'This is intentional, see https://example.com/docs?section=auth for why the endpoint is public.',
+    'False positive: `user?.id` is checked two lines above, so it cannot be null here.',
+    'Why flag this? It is intentional because the cache is per-request and never shared.',
+  ])('a "?" that is not the statement does not block a learning: %j', reply => {
+    expect(screenReply(reply)).toBe('LEARNING')
+  })
+
+  it('a positive word inside a question is not evidence', () => {
+    expect(screenReply("Is this intentional? I'm not sure.")).toBe('QUESTION')
+    expect(screenReply('Is it really by design? Please check.')).toBe(
+      'QUESTION'
+    )
+  })
+
+  it.each([
+    'Done on purpose: the retry loop is unbounded because the job runner kills it after 30s.',
+    'Good catch, but this is by design: the endpoint only serves public config.',
+  ])('agreement words do not discard a learning: %j', reply => {
+    expect(screenReply(reply)).toBe('LEARNING')
+  })
+
+  it.each([
+    'Intentional for now, will fix in a follow-up.',
+    'By design, but we should refactor it in the next sprint.',
+    'This was intentional but we should fix it later.',
+  ])('a plan to change the code still vetoes: %j', reply => {
+    expect(screenReply(reply)).toBe('DEFER')
+  })
+})
+
+describe('LUM-1131 review round 3 — replies never overclaim', () => {
+  const base = {
+    login: 'a',
+    learning: 'Fixture tokens are fake by design.',
+    repo: 'o/r',
+    pathGlob: null,
+    blockingFindingId: null,
+  }
+  it('a thread that could not be resolved is not called closed', () => {
+    const body = buildLearningReply({
+      ...base,
+      stored: 'stored',
+      closed: false,
+    })
+    expect(body).not.toMatch(/this thread is closed/)
+    expect(body).toMatch(/could not resolve this thread on GitHub/)
+    expect(body).toContain(LEARNING_ADDED)
+    expect(
+      buildScannerReply({ login: 'a', closed: false, blockingFindingId: null })
+    ).toMatch(/could not resolve this thread/)
+  })
+  it('a failed store says nothing was saved, not "no project"', () => {
+    const body = buildLearningReply({ ...base, stored: 'failed', closed: true })
+    expect(body).not.toContain(LEARNING_ADDED)
+    expect(body).toMatch(/nothing was saved/)
+    expect(body).not.toMatch(/not linked to a Lumo project/)
   })
 })

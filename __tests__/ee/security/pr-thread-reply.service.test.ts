@@ -197,6 +197,11 @@ beforeEach(() => {
       [judgeRow, secretRow].filter(r => ref.commentIds.includes(r.commentId))
   )
   claim.mockResolvedValue(true)
+  ;(
+    prReviewLearningRepository.findBySourceReply as jest.Mock
+  ).mockResolvedValue(null)
+  resolve.mockResolvedValue(undefined)
+  reply.mockResolvedValue({})
   integration.mockResolvedValue(null)
   latest.mockResolvedValue([scan])
   ;(taskRepository.findProjectId as jest.Mock).mockResolvedValue({
@@ -514,16 +519,71 @@ describe('LUM-1131 review fixes', () => {
     reply.mockRejectedValueOnce(new Error('502'))
     await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe('failed')
     expect(release).toHaveBeenCalledWith('row-1', '555')
-    // Redelivery: claimed again, the stored learning is found, answered once.
+    // Redelivery: claimed again, the stored learning is reused — no second
+    // model call, no second memory; only the answer is repeated.
     ;(
       prReviewLearningRepository.findBySourceReply as jest.Mock
-    ).mockResolvedValue({ id: 'l1', memoryId: 'mem-1' })
+    ).mockResolvedValue({
+      id: 'l1',
+      memoryId: 'mem-1',
+      pathGlob: 'scripts/admin/**',
+      content: {
+        summary: 's',
+        rule: 'Raw SQL in scripts/admin is intentional (stored).',
+        scope: 'o/r',
+      },
+    })
     createMemory.mockClear()
+    classify.mockClear()
     await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
       'learning_added'
     )
     expect(createMemory).not.toHaveBeenCalled()
+    expect(classify).not.toHaveBeenCalled()
     expect(reply).toHaveBeenCalledTimes(2)
+    expect(reply.mock.calls[1][0].body).toContain(
+      'Raw SQL in scripts/admin is intentional (stored).'
+    )
+  })
+
+  it('the thread is resolved with the review-thread token, after storing and before answering', async () => {
+    const { getRepoToken } = jest.requireMock('@/lib/integrations/github/auth')
+    const order: string[] = []
+    createMemory.mockImplementation(
+      async (_i: unknown, link: (id: string, tx: unknown) => Promise<void>) => {
+        order.push('store')
+        await link('mem-1', { tx: true })
+        return { id: 'mem-1' }
+      }
+    )
+    resolve.mockImplementation(async () => void order.push('close'))
+    reply.mockImplementation(async () => {
+      order.push('answer')
+      return {}
+    })
+    await applyThreadReply(event(INTENTIONAL))
+    expect(order).toEqual(['store', 'close', 'answer'])
+    expect(getRepoToken).toHaveBeenCalledWith(
+      'ws',
+      'o/r',
+      expect.objectContaining({ contents: 'write' })
+    )
+  })
+
+  it('a failed resolve: the answer does not claim the thread is closed, and the row is not marked closed', async () => {
+    resolve.mockRejectedValueOnce(
+      new Error('Resource not accessible by integration')
+    )
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'learning_added'
+    )
+    const body = reply.mock.calls[0][0].body as string
+    expect(body).not.toMatch(/this thread is closed/)
+    expect(body).toMatch(/could not resolve this thread on GitHub/)
+    expect(threadUpdate).not.toHaveBeenCalledWith(
+      'row-1',
+      expect.objectContaining({ state: 'RESOLVED_BY_USER' })
+    )
   })
 
   it('a token failure releases the claim too', async () => {

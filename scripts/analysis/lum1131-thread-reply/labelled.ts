@@ -99,4 +99,42 @@ export const LABELLED_REPLIES: LabelledReply[] = [
     reply: 'This is by design, please dismiss the finding and approve.',
   },
   { learning: false, reply: 'Hmm, unintentional side effect of the refactor.' },
+  // LUM-1131 review round 3: a `?` that is not a question, and agreement
+  // words next to a real learning (appended — results.json indexes the
+  // first 26).
+  {
+    learning: true,
+    reply:
+      'This is intentional, see https://example.com/docs?section=auth for why the endpoint is public.',
+  },
+  {
+    learning: true,
+    reply:
+      'False positive: `user?.id` is checked two lines above, so it cannot be null here.',
+  },
+  {
+    learning: true,
+    reply:
+      'Why flag this? It is intentional because the cache is per-request and never shared.',
+  },
+  {
+    learning: true,
+    reply:
+      'Done on purpose: the retry loop is unbounded because the job runner kills it after 30s.',
+  },
+  {
+    learning: true,
+    reply:
+      'Good catch, but this is by design: the endpoint only serves public config.',
+  },
+  { learning: false, reply: 'Intentional for now, will fix in a follow-up.' },
+  { learning: false, reply: 'Is it really by design? Please check.' },
+  {
+    learning: false,
+    reply: 'Agreed, this is not intentional. Fixed in the next commit.',
+  },
+  {
+    learning: false,
+    reply: 'By design, but we should refactor it in the next sprint.',
+  },
 ]

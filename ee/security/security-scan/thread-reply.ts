@@ -59,12 +59,22 @@ const NEGATED = [
   /不是故意|并非故意|非故意/,
 ]
 
-const DEFER = [
-  /\b(?:will|i'?ll|we'?ll|gonna|going to|let me|should) (?:fix|change|address|update|look|handle|revisit|remove|clean)/i,
-  /\b(?:later|follow[- ]?up|todo|next (?:pr|sprint|release)|eventually|for now|tech debt)\b/i,
+/**
+ * A plan to change the code — overrides a positive statement ("intentional
+ * for now, will fix in a follow-up" is not a learning).
+ */
+const WILL_CHANGE = [
+  /\b(?:will|i'?ll|we'?ll|gonna|going to|let me|should|need to|have to) (?:fix|change|address|update|look|handle|revisit|remove|clean|refactor)/i,
+  /\b(?:fixing|later|follow[- ]?up|todo|next (?:pr|sprint|release)|eventually|for now|tech debt|temporar(?:y|ily))\b/i,
+  /\bfixed\b/i,
+  /稍后|以后|后续|回头|待办|已修复|修好了|暂时/,
+]
+
+/** Agreement / acknowledgement — a DEFER on its own, never against a positive. */
+const ACKNOWLEDGE = [
   /\b(?:good|nice|great) catch\b/i,
-  /\b(?:fixed|addressed|done|resolved|agreed?|you'?re right|lgtm)\b/i,
-  /稍后|以后|后续|回头|待办|已修复|修好了|同意/,
+  /\b(?:addressed|done|resolved|agreed?|you'?re right|lgtm)\b/i,
+  /同意/,
 ]
 
 /** Asks Lumo to act, or speaks as a system / role — never a learning. */
@@ -80,23 +90,48 @@ const anyOf = (patterns: RegExp[], text: string): boolean =>
   patterns.some(p => p.test(text))
 
 /**
+ * The reply's sentences that are statements, not questions. URLs and code
+ * spans are dropped first, so a `?` in `https://x?a=1` or `user?.id` does
+ * not turn a statement into a question.
+ */
+function statementsOf(text: string): { statements: string; asked: boolean } {
+  const plain = text.replace(/\bhttps?:\/\/\S+/gi, ' ').replace(/`[^`]*`/g, ' ')
+  const sentences = plain.match(/[^.!?。！？\n]+[.!?。！？]*/g) ?? []
+  const statements: string[] = []
+  let asked = false
+  for (const s of sentences) {
+    if (/[?？]\s*$/.test(s.trim())) asked = true
+    else statements.push(s)
+  }
+  return { statements: statements.join(' '), asked }
+}
+
+/**
  * The deterministic half of the classifier. `LEARNING` here only means "may
  * be a learning": the model must agree as well (`decideLearning`).
+ *
+ * The positive evidence must sit in a statement — "Is this intentional?" is
+ * a question, not evidence — while a negation or a plan to change the code
+ * anywhere in the reply still vetoes it. Agreement words ("done", "good
+ * catch") only label a reply that has no positive statement.
  */
 export function screenReply(raw: string): ReplyLabel {
   const text = raw.trim()
   if (!text) return 'OTHER'
   if (detectInjectionSignals(text).signals.length > 0) return 'BLOCKED'
   if (anyOf(ACTION_REQUEST, text)) return 'BLOCKED'
-  if (text.includes('?') || text.includes('？')) return 'QUESTION'
-  if (anyOf(DEFER, text)) return 'DEFER'
+  const { statements, asked } = statementsOf(text)
+  const willChange = anyOf(WILL_CHANGE, text)
   if (
     text.length >= MIN_LEARNING_CHARS &&
     text.length <= MAX_REPLY_CHARS &&
-    anyOf(POSITIVE, text) &&
-    !anyOf(NEGATED, text)
+    anyOf(POSITIVE, statements) &&
+    !anyOf(NEGATED, text) &&
+    !willChange
   )
     return 'LEARNING'
+  if (asked) return 'QUESTION'
+  if (willChange || anyOf(ACKNOWLEDGE, text)) return 'DEFER'
   return 'OTHER'
 }
 
@@ -224,10 +259,19 @@ export interface LearningReplyInput {
   learning: string
   repo: string
   pathGlob: string | null
-  /** Stored as a memory (false = no Lumo project for this repository). */
-  stored: boolean
+  /** Whether the learning was stored as a memory, and if not why. */
+  stored: 'stored' | 'no_project' | 'failed'
+  /** The GitHub thread was really resolved (else the reply says so). */
+  closed: boolean
   /** A gate-blocking finding: the reply must say it still blocks. */
   blockingFindingId: string | null
+}
+
+/** The reply's first line — never claims a close that did not happen. */
+function headLine(login: string, closed: boolean): string {
+  return closed
+    ? `Thanks @${login} — noted, and this thread is closed for this PR.`
+    : `Thanks @${login} — noted. Lumo could not resolve this thread on GitHub; resolve it by hand if you are done with it.`
 }
 
 function blockingNote(findingId: string): string {
@@ -238,10 +282,13 @@ export function buildLearningReply(input: LearningReplyInput): string {
   const scope = input.pathGlob
     ? `\`${input.repo}\`, files matching \`${input.pathGlob}\``
     : `\`${input.repo}\``
-  const head = `Thanks @${input.login} — noted, and this thread is closed for this PR.`
-  const body = input.stored
-    ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, edit or delete this learning in the project's memory in Lumo._`
-    : `\n\nLumo could not store a learning from it: this repository is not linked to a Lumo project.`
+  const head = headLine(input.login, input.closed)
+  const body =
+    input.stored === 'stored'
+      ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, edit or delete this learning in the project's memory in Lumo._`
+      : input.stored === 'no_project'
+        ? `\n\nLumo could not store a learning from it: this repository is not linked to a Lumo project.`
+        : `\n\nLumo could not store a learning from it this time — nothing was saved.`
   return `${head}${body}${input.blockingFindingId ? blockingNote(input.blockingFindingId) : ''}\n\n${REPLY_NOTE_MARKER}`
 }
 
@@ -251,9 +298,10 @@ export function buildLearningReply(input: LearningReplyInput): string {
  */
 export function buildScannerReply(input: {
   login: string
+  closed: boolean
   blockingFindingId: string | null
 }): string {
-  return `Thanks @${input.login} — noted, and this thread is closed for this PR. Learnings only shape Lumo's AI review, and this finding comes from another scan layer: to rule it out, use \`lumo finding disposition\` or the Lumo web panel — the ruling carries over to later pushes of this PR.${input.blockingFindingId ? blockingNote(input.blockingFindingId) : ''}\n\n${REPLY_NOTE_MARKER}`
+  return `${headLine(input.login, input.closed)} Learnings only shape Lumo's AI review, and this finding comes from another scan layer: to rule it out, use \`lumo finding disposition\` or the Lumo web panel — the ruling carries over to later pushes of this PR.${input.blockingFindingId ? blockingNote(input.blockingFindingId) : ''}\n\n${REPLY_NOTE_MARKER}`
 }
 
 export function buildAckReply(label: ReplyLabel, login: string): string {

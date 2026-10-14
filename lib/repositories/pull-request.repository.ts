@@ -200,7 +200,6 @@ export const pullRequestRepository = {
     return rows.map(row => row.id)
   },
 
-  /** Find a PR by ID with task info. */
   /**
    * LUM-1131: the state ('open' | 'closed' | 'merged') of each PR, pinned to
    * the workspace. A missing id is simply absent from the map.
@@ -217,6 +216,7 @@ export const pullRequestRepository = {
     return new Map(rows.map(r => [r.id, r.state]))
   },
 
+  /** Find a PR by ID with task info. */
   async findById(id: string) {
     return prisma.pullRequest.findUnique({
       where: { id },
