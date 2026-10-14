@@ -11,10 +11,13 @@ import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { hashSkillDir } from '../lib/skill-hash'
 import {
   collectSkillCopies,
+  currentRepoSkillPaths,
   diffSkillDirs,
   displayPath,
   filesWord,
   formatSkillChangeLine,
+  isOtherRepoCopy,
+  skillCopyRepoRoot,
   skillCopyStatus,
   SKILL_STATUS_SCHEMA_VERSION,
   type SkillCopyStatus,
@@ -30,6 +33,11 @@ import { icons } from '../lib/ui'
  * written, never a downgrade, locally modified copies only with `--force`,
  * the Lumo source repo's `.claude/skills/lumo` never, git-tracked copies are
  * changed but never committed.
+ *
+ * LUM-1122 — `skill update` writes only user copies and the copies in the
+ * current repo (git toplevel of cwd). Copies the install registry records in
+ * other repos are listed by `skill status` and skipped by `skill update` with
+ * a "run it in that repo" hint, whatever the scope flags or --force.
  */
 
 /** Test seams: everything defaults to the real environment. */
@@ -132,9 +140,12 @@ export async function skillStatus(
       ...deps.render,
     }) + '\n'
   )
-  const behind = status.skills.filter(s => s.state === 'behind').length
-  const modified = status.skills.filter(s => s.state === 'modified').length
-  if (behind + modified > 0) env.out('\n')
+  const here = currentRepoSkillPaths(env.cwd)
+  const local = status.skills.filter(s => !isOtherRepoCopy(s, here))
+  const elsewhere = status.skills.length - local.length
+  const behind = local.filter(s => s.state === 'behind').length
+  const modified = local.filter(s => s.state === 'modified').length
+  if (behind + modified + elsewhere > 0) env.out('\n')
   if (behind > 0)
     env.out(
       `${behind} behind the CLI — run \`lumo skill update\` (preview with --dry-run).\n`
@@ -143,7 +154,16 @@ export async function skillStatus(
     env.out(
       `${modified} modified locally — \`lumo skill update --force\` overwrites (discards the edits).\n`
     )
+  if (elsewhere > 0)
+    env.out(
+      `${elsewhere} in other repos — \`lumo skill update\` only writes the current repo; run it in that repo.\n`
+    )
   return 0
+}
+
+/** POSIX-quote a path for a copy-pasteable hint; plain paths stay bare. */
+export function shellQuote(p: string): string {
+  return /^[\w@%+=:,./~-]+$/.test(p) ? p : `'${p.replace(/'/g, `'\\''`)}'`
 }
 
 // ── skill update ───────────────────────────────────────────────────────────
@@ -279,7 +299,7 @@ export async function skillUpdate(
   }
   const scope = options.user ? 'user' : options.project ? 'project' : undefined
   const dryRun = options.dryRun === true
-  const copies = sortCopies(
+  const found = sortCopies(
     collectSkillCopies({
       homeDir: env.homeDir,
       cwd: env.cwd,
@@ -292,8 +312,24 @@ export async function skillUpdate(
       ? `Lumo skill update — dry run, nothing is written (CLI ${env.cliVersion})\n\n`
       : `Updating Lumo skill copies (CLI ${env.cliVersion})\n\n`
   )
-  if (copies.length === 0) {
+  if (found.length === 0) {
     env.out('No Lumo skill copies found. Run `lumo init` to install.\n')
+    return 0
+  }
+  // Only the user copies and the current repo's copies are written; a copy
+  // the registry records in another repo is that repo's to update.
+  const here = currentRepoSkillPaths(env.cwd)
+  const copies = found.filter(l => !isOtherRepoCopy(l, here))
+  for (const l of found) {
+    if (!isOtherRepoCopy(l, here)) continue
+    env.out(
+      `· ${displayPath(l.path, env.homeDir)}: in another repo — not written; run \`cd ${shellQuote(skillCopyRepoRoot(l.path))} && lumo skill update --project\` there\n`
+    )
+  }
+  if (copies.length === 0) {
+    env.out(
+      `\nNothing to update in this repo — every copy found belongs to another repo (run \`lumo skill update\` there).\n`
+    )
     return 0
   }
   let failures = 0

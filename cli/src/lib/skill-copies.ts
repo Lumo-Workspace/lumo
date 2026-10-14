@@ -5,6 +5,7 @@ import { readMarker, readRegistry } from './install-registry'
 import {
   detectInstalledSkills,
   isLumoSkillSource,
+  knownSkillLocations,
   type InstallLocation,
 } from './install-locations'
 import { classifySkillDir, isNewerVersion } from './install-state'
@@ -85,6 +86,43 @@ export function collectSkillCopies(opts: CollectOptions): InstallLocation[] {
       (opts.scope === undefined || l.scope === opts.scope) &&
       (opts.agent === undefined || l.agent === opts.agent)
   )
+}
+
+function realOrResolved(p: string): string {
+  try {
+    return fs.realpathSync(p)
+  } catch {
+    return path.resolve(p)
+  }
+}
+
+/**
+ * LUM-1122 — the project-scope skill dirs of the repo containing `cwd` (its
+ * git toplevel; in a worktree, the worktree's own toplevel). These are the
+ * only project copies `lumo skill update` writes.
+ */
+export function currentRepoSkillPaths(cwd: string): Set<string> {
+  return new Set(
+    knownSkillLocations({ cwd })
+      .filter(l => l.scope === 'project')
+      .map(l => realOrResolved(l.path))
+  )
+}
+
+/**
+ * A project copy outside the current repo — known only from the install
+ * registry. `skill status` lists it; `skill update` never writes it.
+ */
+export function isOtherRepoCopy(
+  loc: Pick<InstallLocation, 'path' | 'scope'>,
+  here: ReadonlySet<string>
+): boolean {
+  return loc.scope === 'project' && !here.has(realOrResolved(loc.path))
+}
+
+/** The repo root a project skill copy lives in (`<root>/.claude|.agents/skills/lumo`). */
+export function skillCopyRepoRoot(skillDir: string): string {
+  return path.resolve(skillDir, '..', '..', '..')
 }
 
 /** Classify one copy against the running CLI version. */

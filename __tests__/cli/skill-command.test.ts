@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'os'
 import { join, relative } from 'path'
 import {
+  shellQuote,
   skillStatus,
   skillUpdate,
   type SkillDeps,
@@ -446,6 +447,183 @@ describe('lumo skill update', () => {
     expect(err).toContain('mutually exclusive')
     expect(await skillUpdate({ agent: 'nope' }, w.deps)).toBe(1)
     expect(err).toContain('Unknown agent "nope"')
+  })
+
+  describe('LUM-1122: copies recorded in other repos are never written', () => {
+    function register(
+      ...recs: Array<{ path: string; agent?: string; version?: string }>
+    ): void {
+      writeFileSync(
+        registryPath(),
+        JSON.stringify({
+          lastSyncedVersion: null,
+          installs: recs.map(r => ({
+            kind: 'skill',
+            path: r.path,
+            scope: 'project',
+            agent: r.agent ?? 'claude-code',
+            version: r.version ?? '1.0.0',
+            installedAt: '2026-01-01T00:00:00.000Z',
+          })),
+        })
+      )
+    }
+
+    /** Another git repo with a behind copy and a modified copy, both recorded. */
+    function otherRepo() {
+      const root = tmp()
+      gitInit(root)
+      const claude = join(root, '.claude', 'skills', 'lumo')
+      const codex = join(root, '.agents', 'skills', 'lumo')
+      managedSkill(claude, '1.0.0')
+      managedSkill(codex, '1.0.0')
+      writeFileSync(join(codex, 'SKILL.md'), 'hand edits in the other repo\n')
+      register({ path: claude }, { path: codex, agent: 'codex' })
+      return { root, claude, codex }
+    }
+
+    it.each([
+      ['--project --force', { project: true, force: true }],
+      ['--project', { project: true }],
+      ['no scope --force', { force: true }],
+    ])(
+      '%s updates only the current repo; the other repo is byte-identical',
+      async (_label, opts) => {
+        const w = world()
+        managedSkill(w.projClaude, '1.0.0')
+        const other = otherRepo()
+        const before = snapshot(other.root)
+
+        expect(await skillUpdate(opts, w.deps)).toBe(0)
+
+        expect(snapshot(other.root)).toEqual(before)
+        expect(readMarker(w.projClaude)).toMatchObject({ version: CLI })
+        expect(diffSkillDirs(w.bundled, w.projClaude)).toEqual([])
+        expect(out).toContain('1 of 1 updated')
+        expect(out).not.toContain(`updated ${other.claude}`)
+        expect(out).toContain(`· ${other.claude}: in another repo`)
+        expect(out).toContain(`cd ${other.root} && lumo skill update`)
+        // registry records of the other repo keep their old version
+        const reg = readRegistry().installs
+        expect(reg.find(r => r.path === other.claude)?.version).toBe('1.0.0')
+      }
+    )
+
+    it('--dry-run lists only the current repo copy as would-update', async () => {
+      const w = world()
+      managedSkill(w.projCodex, '1.0.0')
+      const other = otherRepo()
+      const before = snapshot(other.root)
+
+      expect(
+        await skillUpdate(
+          { project: true, force: true, dryRun: true, agent: 'codex' },
+          w.deps
+        )
+      ).toBe(0)
+
+      expect(snapshot(other.root)).toEqual(before)
+      expect(out).toContain(`would update ${w.projCodex}`)
+      expect(out).not.toContain(`would update ${other.codex}`)
+      expect(out).toContain(`· ${other.codex}: in another repo`)
+      expect(out).toContain('1 of 1 would be updated')
+    })
+
+    it('--user writes only user copies, never a recorded project copy', async () => {
+      const w = world()
+      managedSkill(w.userClaude, '1.0.0')
+      managedSkill(w.projClaude, '1.0.0')
+      const other = otherRepo()
+      const before = snapshot(other.root)
+
+      expect(await skillUpdate({ user: true, force: true }, w.deps)).toBe(0)
+
+      expect(snapshot(other.root)).toEqual(before)
+      expect(readMarker(w.userClaude)!.version).toBe(CLI)
+      expect(readMarker(w.projClaude)!.version).toBe('1.0.0')
+      expect(out).not.toContain('in another repo')
+    })
+
+    it('in a git worktree nested in the main checkout, writes only the worktree copy', async () => {
+      const w = world()
+      const main = w.project
+      managedSkill(join(main, '.agents', 'skills', 'lumo'), '1.0.0')
+      git(main, 'add', '.')
+      git(main, 'commit', '-qm', 'init')
+      const wt = join(main, '.worktrees', 'LUM-1-x')
+      git(main, 'worktree', 'add', '-q', '-b', 'lumo/LUM-1-x', wt)
+      const mainCodex = join(main, '.agents', 'skills', 'lumo')
+      const wtCodex = join(wt, '.agents', 'skills', 'lumo')
+      register(
+        { path: mainCodex, agent: 'codex' },
+        { path: wtCodex, agent: 'codex' }
+      )
+      const mainBefore = snapshot(mainCodex)
+
+      // From the worktree: the main checkout's copy is "another repo".
+      expect(
+        await skillUpdate(
+          { project: true, force: true, agent: 'codex' },
+          { ...w.deps, cwd: wt }
+        )
+      ).toBe(0)
+      expect(snapshot(mainCodex)).toEqual(mainBefore)
+      expect(readMarker(wtCodex)!.version).toBe(CLI)
+      expect(out).toContain(`· ${mainCodex}: in another repo`)
+
+      // From the main checkout: the worktree copy (under main's dir) is not written.
+      managedSkill(wtCodex, '1.0.0')
+      const wtBefore = snapshot(wtCodex)
+      out = ''
+      expect(
+        await skillUpdate(
+          { project: true, force: true, agent: 'codex' },
+          w.deps
+        )
+      ).toBe(0)
+      expect(snapshot(wtCodex)).toEqual(wtBefore)
+      expect(readMarker(mainCodex)!.version).toBe(CLI)
+      expect(out).toContain(`· ${wtCodex}: in another repo`)
+    })
+
+    it('says nothing is to update here when every copy is in another repo', async () => {
+      const w = world()
+      const other = otherRepo()
+      const before = snapshot(other.root)
+
+      expect(await skillUpdate({ project: true, force: true }, w.deps)).toBe(0)
+
+      expect(snapshot(other.root)).toEqual(before)
+      expect(out).toContain(`· ${other.claude}: in another repo`)
+      expect(out).toContain('Nothing to update in this repo')
+      expect(out).not.toContain('0 of 0')
+    })
+
+    it('shell-quotes a repo path that needs it in the hint', () => {
+      expect(shellQuote('/home/me/repo-1.x')).toBe('/home/me/repo-1.x')
+      expect(shellQuote('/home/me/my repo')).toBe("'/home/me/my repo'")
+      expect(shellQuote("/tmp/it's")).toBe("'/tmp/it'\\''s'")
+    })
+
+    it('skill status still lists other-repo copies, with a run-it-there hint', async () => {
+      const w = world()
+      managedSkill(w.projClaude, '2.0.0')
+      const other = otherRepo()
+
+      const s = await statusJson(w.deps)
+      expect(s.skills.map(x => x.path)).toEqual(
+        expect.arrayContaining([w.projClaude, other.claude, other.codex])
+      )
+
+      out = ''
+      expect(await skillStatus({}, w.deps)).toBe(0)
+      expect(out).toContain(other.claude)
+      expect(out).toContain(
+        '2 in other repos — `lumo skill update` only writes the current repo; run it in that repo.'
+      )
+      // the "behind" hint does not count the other repo's copy
+      expect(out).not.toContain('behind the CLI — run')
+    })
   })
 
   it('is excluded from the first-run auto-sync (which also rewrites hooks)', () => {
