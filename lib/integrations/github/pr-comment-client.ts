@@ -139,6 +139,8 @@ interface CreateReviewInput {
   token: string
   commitId: string
   body: string
+  /** LUM-1130 — 'REQUEST_CHANGES' under the request-changes workflow; default 'COMMENT'. */
+  event?: Exclude<ReviewEvent, 'APPROVE'>
   comments: Array<{
     path: string
     line: number
@@ -150,6 +152,18 @@ interface CreateReviewInput {
 interface ReviewResponse {
   id: number
   html_url: string
+}
+
+/** LUM-1130 — what a review can say about the PR (never 'APPROVE' with inline comments). */
+export type ReviewEvent = 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
+
+/** LUM-1130 — one review as `GET pulls/{n}/reviews` lists it. */
+export interface ListedReview {
+  id: number
+  /** APPROVED | CHANGES_REQUESTED | COMMENTED | DISMISSED | PENDING */
+  state: string
+  commit_id: string | null
+  user: { id?: number; login?: string; type?: string } | null
 }
 
 /**
@@ -211,12 +225,12 @@ async function listSortedComments(
  * take the last page number out of its `Link` header, and walk backwards from
  * there, so the pages that are read are always the newest ones.
  */
-async function listOldestFirstComments(
+async function listOldestFirstComments<T = ListedComment>(
   baseUrl: string,
   token: string
-): Promise<ListedComment[]> {
+): Promise<T[]> {
   const init = { method: 'GET', headers: headers(token) }
-  const first = await callWithHeaders<ListedComment[]>(
+  const first = await callWithHeaders<T[]>(
     `${baseUrl}?per_page=${COMMENTS_PER_PAGE}&page=1`,
     init
   )
@@ -225,10 +239,10 @@ async function listOldestFirstComments(
   if (last === null) {
     // `next` without `last`: the total is unknown, so walk forward until a
     // short page (oldest-first is the best this endpoint offers here).
-    const out: ListedComment[] = [...firstRows]
+    const out: T[] = [...firstRows]
     for (let page = 2; page <= MAX_COMMENT_PAGES; page += 1) {
       const rows =
-        (await call<ListedComment[]>(
+        (await call<T[]>(
           `${baseUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
           init
         )) ?? []
@@ -239,7 +253,7 @@ async function listOldestFirstComments(
   }
   if (last <= 1) return firstRows
 
-  const out: ListedComment[] = []
+  const out: T[] = []
   const stopAt = Math.max(1, last - MAX_COMMENT_PAGES + 1)
   for (let page = last; page >= stopAt; page -= 1) {
     // Page 1 is already in hand — never fetch it twice.
@@ -248,7 +262,7 @@ async function listOldestFirstComments(
       continue
     }
     const rows =
-      (await call<ListedComment[]>(
+      (await call<T[]>(
         `${baseUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
         init
       )) ?? []
@@ -387,8 +401,9 @@ export const prCommentClient = {
 
   /**
    * LUM-735 — one review carrying every inline comment. `event: 'COMMENT'`
-   * only annotates: it never approves and never requests changes, so the PR's
-   * own review requirements are untouched.
+   * (the default) only annotates: it never approves and never requests
+   * changes, so the PR's own review requirements are untouched. LUM-1130:
+   * the workspace's request-changes workflow posts it as 'REQUEST_CHANGES'.
    */
   async createReview(input: CreateReviewInput) {
     const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/reviews`
@@ -398,7 +413,7 @@ export const prCommentClient = {
       body: JSON.stringify({
         commit_id: input.commitId,
         body: input.body,
-        event: 'COMMENT',
+        event: input.event ?? 'COMMENT',
         comments: input.comments,
       }),
     }) as Promise<ReviewResponse>
@@ -429,6 +444,73 @@ export const prCommentClient = {
       method: 'GET',
       headers: headers(input.token),
     }) as Promise<Array<ListedComment>>
+  },
+
+  /**
+   * LUM-1130 — a review with no inline comments: Lumo's verdict
+   * ('APPROVE' / 'REQUEST_CHANGES') on `commitId`.
+   */
+  async submitReview(input: {
+    repo: Repo
+    prNumber: number
+    token: string
+    commitId: string
+    body: string
+    event: Exclude<ReviewEvent, 'COMMENT'>
+  }) {
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/reviews`
+    return call<ReviewResponse>(url, {
+      method: 'POST',
+      headers: headers(input.token),
+      body: JSON.stringify({
+        commit_id: input.commitId,
+        body: input.body,
+        event: input.event,
+      }),
+    }) as Promise<ReviewResponse>
+  },
+
+  /** LUM-1130 — every review on the PR, oldest first (newest pages kept). */
+  async listReviews(input: ListAllCommentsInput): Promise<ListedReview[]> {
+    const base = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/reviews`
+    return listOldestFirstComments<ListedReview>(base, input.token)
+  },
+
+  /**
+   * LUM-1130 — dismiss one review (Lumo's own earlier "changes requested",
+   * once it approves), so GitHub stops showing it.
+   */
+  async dismissReview(input: {
+    repo: Repo
+    prNumber: number
+    reviewId: number
+    message: string
+    token: string
+  }) {
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/reviews/${input.reviewId}/dismissals`
+    await call<unknown>(url, {
+      method: 'PUT',
+      headers: headers(input.token),
+      body: JSON.stringify({ message: input.message, event: 'DISMISS' }),
+    })
+  },
+
+  /**
+   * LUM-1130 — the PR's live head and state, read right before an approval
+   * is submitted (a push since the review means no approval).
+   */
+  async getPullRequestHead(input: {
+    repo: Repo
+    prNumber: number
+    token: string
+  }): Promise<{ sha: string; state: string } | null> {
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}`
+    const pr = await call<{ state?: string; head?: { sha?: string } }>(url, {
+      method: 'GET',
+      headers: headers(input.token),
+    })
+    const sha = pr?.head?.sha
+    return sha && pr?.state ? { sha, state: pr.state } : null
   },
 }
 

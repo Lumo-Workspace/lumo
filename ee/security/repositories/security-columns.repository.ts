@@ -3,7 +3,8 @@
  * Q4 option A) — the security plugin's columns on core models.
  *
  * `Workspace.{securityPolicy, securityScanEnabled, securityAiReviewEnabled,
- * securityHuntEnabled, scanEvidenceRetentionDays}` and
+ * securityHuntEnabled, securityRequestChangesEnabled,
+ * scanEvidenceRetentionDays}` and
  * `ProjectRepository.{lastSarifIngestAt, securityBaseline}` stay in the one
  * core schema (migrations are never deleted), but only the plugin reads or
  * writes them. These queries moved here unchanged from the core
@@ -50,8 +51,19 @@ export const securityColumnsRepository = {
     return row?.securityPolicy ?? null
   },
 
-  /** LUM-866: the three security-scan switches; null when the workspace is
-   *  missing — resolve with `resolveSecurityLayers`. */
+  /** LUM-1130: is the request-changes workflow on? false when the workspace
+   *  is missing. */
+  async findRequestChangesEnabled(id: string): Promise<boolean> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityRequestChangesEnabled: true },
+    })
+    return row?.securityRequestChangesEnabled === true
+  },
+
+  /** LUM-866: the three security-scan switches (+ LUM-1130's request-changes
+   *  workflow); null when the workspace is missing — resolve with
+   *  `resolveSecurityLayers`. */
   async findSecuritySwitches(id: string) {
     return prisma.workspace.findUnique({
       where: { id },
@@ -59,6 +71,7 @@ export const securityColumnsRepository = {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: true,
+        securityRequestChangesEnabled: true,
       },
     })
   },

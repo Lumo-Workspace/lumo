@@ -154,6 +154,7 @@ const ALL_ON = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRequestChangesEnabled: false,
 }
 
 beforeEach(() => {

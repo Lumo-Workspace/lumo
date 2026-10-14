@@ -603,6 +603,7 @@ export const PLUGIN_COLUMNS: Readonly<Record<string, readonly string[]>> = {
     'securityScanEnabled',
     'securityAiReviewEnabled',
     'securityHuntEnabled',
+    'securityRequestChangesEnabled',
     'scanEvidenceRetentionDays',
   ],
   ProjectRepository: ['lastSarifIngestAt', 'securityBaseline'],
