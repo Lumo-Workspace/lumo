@@ -1261,6 +1261,13 @@ export interface HuntBatchOutput {
   stopped: HuntBatchStop
   error?: string
   /**
+   * LUM-1084 — the `error` exit was the gateway saying the hunt model does
+   * not exist (`isModelUnavailableError`). Not transient: the workflow skips
+   * the remaining tasks, the retry pass and the fault re-queue, and ends the
+   * layer with the reason. Only ever set alongside `stopped: 'error'`.
+   */
+  modelUnavailable?: true
+  /**
    * LUM-758 §6.3 — what this batch's `run_shell` compressions cost and saved.
    * Its `tokens` are ALREADY inside `tokens` above; this field only breaks
    * them out so the audit can answer "was compression worth it".

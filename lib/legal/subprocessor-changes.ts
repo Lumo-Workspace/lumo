@@ -137,6 +137,13 @@ const RESEND = {
   location: 'us',
 } as const
 
+/** The Anthropic AI-host entry, unchanged by the 2026-10-14 purpose change. */
+const ANTHROPIC = {
+  gatewaySlug: 'anthropic',
+  entity: 'Anthropic, PBC',
+  location: 'globalRouting',
+} as const
+
 /** The Clerk registry entry, unchanged by the 2026-10-12 purpose correction. */
 const CLERK = {
   id: 'clerk',
@@ -202,5 +209,24 @@ export const SUBPROCESSOR_CHANGES: readonly SubprocessorChange[] = [
       'Clerk (authentication): no longer handles sign-in since Lumo moved sign-in to its own authentication service on 2026-10-12. Clerk keeps the account data it already held only so that Lumo can switch back if needed, and that data is deleted no later than 2026-11-11.',
     before: { list: 'infrastructure', entry: CLERK },
     after: { list: 'infrastructure', entry: CLERK },
+  },
+  {
+    // User ruling 2026-10-14 (LUM-1084, option A, no notice email): the
+    // hunt's model (alibaba/qwen3-coder-plus) left the AI Gateway and the
+    // hunt failed on every production scan; it moves to Claude Haiku 4.5,
+    // pinned to Anthropic's own API. A new purpose for an existing host, so
+    // recorded by hand (the guard cannot see purposes).
+    id: '2026-10-14-anthropic-purpose',
+    kind: 'changed',
+    announcedAt: '2026-10-14',
+    effectiveAt: '2026-10-14',
+    urgent: {
+      reason:
+        'Needed urgently to keep the service available: the security hunt stopped working in production when the model it used was withdrawn, and moving it to an Anthropic model restores it.',
+    },
+    summary:
+      "Anthropic (AI model hosting): purpose extended from AI code review to AI code review and security hunt of pull requests, because the model the hunt ran on through Alibaba Cloud was withdrawn. Hunt requests go only to Anthropic's own API under zero data retention; no subprocessor is added.",
+    before: { list: 'aiHost', entry: ANTHROPIC },
+    after: { list: 'aiHost', entry: ANTHROPIC },
   },
 ]

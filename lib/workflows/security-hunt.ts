@@ -451,6 +451,13 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
      * had already accumulated.
      */
     let failure: string | undefined
+    /**
+     * LUM-1084 — set by the first batch whose error was "the hunt model does
+     * not exist". Nothing after it can succeed on the same model: the
+     * remaining tasks are skipped (no VM is booted for them), the retry pass
+     * and the fault re-queue are not run, and the layer ends on this reason.
+     */
+    let modelUnavailable: string | undefined
     try {
       // Short circuit A (LUM-758 §5.5, Task 10): a diff-level test, taken
       // before anything is built or called. What it asks is "is there any
@@ -600,6 +607,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         // sandbox", not "more than zero" — otherwise the tail of the budget is
         // spent acquiring a VM for a model call that aborts on arrival.
         if (
+          modelUnavailable !== undefined ||
           tokenSpent >= tokenBudgetTotal ||
           timeBudgetTotal - elapsedMs < HUNT_MIN_BATCH_TIME_MS
         ) {
@@ -664,6 +672,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             ? { wrapUpWarnings: batch.wrapUpWarnings }
             : {}),
         }
+        if (batch.modelUnavailable)
+          modelUnavailable ??= `hunt model unavailable: ${batch.model ?? 'unknown model'} — ${batch.error ?? 'model not found'}`
       }
 
       // Pass 2 — one retry per TASK the gateway dropped (LUM-762). Upstream
@@ -675,6 +685,9 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       // 1's: a `'use workflow'` body awaits its steps directly, not through a
       // helper.
       for (const task of planned) {
+        // LUM-1084: a missing model is not a dropped call; a retry would fail
+        // the same way on a fresh VM.
+        if (modelUnavailable !== undefined) break
         const stop = outcomes[task.id]?.stopped
         if (stop !== 'timeout' && stop !== 'error') continue
         if (
@@ -768,7 +781,14 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
      * falsifier, so an attempt that is about to be redone does not pay for
      * judging candidates the retry will submit again.
      */
-    if (partialCauses.includes('HUNT_INCOMPLETE')) {
+    // LUM-1084 — a missing model is not re-queued: the next attempt would
+    // fail in seconds the same way. It ends the layer on its own reason
+    // (FAILED, or PARTIAL for one batch of several, below).
+    if (modelUnavailable !== undefined) failure ??= modelUnavailable
+    if (
+      partialCauses.includes('HUNT_INCOMPLETE') &&
+      modelUnavailable === undefined
+    ) {
       const reason =
         failure ??
         'a planned hunt task did not terminate (sandbox, gateway or clock)'
