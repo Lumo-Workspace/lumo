@@ -771,6 +771,34 @@ function describe(error: unknown): string {
 }
 
 /**
+ * LUM-1127 — the token the thread lifecycle runs with. GitHub refuses
+ * `resolveReviewThread` / `unresolveReviewThread` to a pull-request-only
+ * token, so threads get their own mint (`reviewThreadWrite`). A refused mint
+ * must not take the summary down with it: fall back to the pull-request
+ * token — the thread mutations then fail, are logged, and the next sync
+ * retries them.
+ */
+async function threadToken(
+  workspaceId: string,
+  repository: string,
+  fallback: string,
+  where: string
+): Promise<string> {
+  try {
+    return await getRepoToken(
+      workspaceId,
+      repository,
+      REPO_TOKEN_PERMISSIONS.reviewThreadWrite
+    )
+  } catch (error) {
+    logger.warn(
+      `[security-pr-review] thread token mint failed ${where}: ${describe(error)}`
+    )
+    return fallback
+  }
+}
+
+/**
  * LUM-740 — one summary per PR, keyed by a comment id that lives on the scan
  * row (§6 L5 item 6). Order of preference: the id on this scan; the id an
  * earlier scan of the same PR stored; the legacy marker search over the PR's
@@ -987,7 +1015,7 @@ export const securityPrReviewService = {
         workspaceId: pr.workspaceId,
         repo,
         prNumber: pr.number,
-        token,
+        token: await threadToken(pr.workspaceId, pr.repo, token, where),
         headSha: scan.headSha,
         scan: {
           status: scan.status,

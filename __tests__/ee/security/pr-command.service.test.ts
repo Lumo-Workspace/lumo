@@ -57,6 +57,7 @@ import {
   ackMarker,
   buildHelpReply,
   buildResolveReply,
+  THREAD_TOKEN_REFUSED,
   type PrCommentEvent,
 } from '@/ee/security/services/pr-command.service'
 import {
@@ -384,6 +385,61 @@ describe('resolve', () => {
     expect(replyBody()).toContain('Resolved 1 Lumo review thread.')
     expect(replyBody()).toContain('Left 1 thread open')
     expect(replyBody()).toContain('lumo finding disposition')
+  })
+
+  // LUM-1127 prod regression: resolveReviewThread is refused to a
+  // `pull_requests: write`-only token — the command must mint with
+  // `contents: write` too.
+  it('regression: resolves with a token minted with contents: write', async () => {
+    ;(getRepoToken as jest.Mock).mockImplementation(
+      async (_w: string, _r: string, perms: object) =>
+        perms === REPO_TOKEN_PERMISSIONS.collaboratorPermission
+          ? 'meta'
+          : JSON.stringify(perms)
+    )
+    await applyPrCommentCommand(event('@uselumo resolve'))
+    expect(resolveThread).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(resolveThread.mock.calls[0][0].token)).toEqual({
+      pull_requests: 'write',
+      contents: 'write',
+    })
+  })
+
+  it('a refused thread-token mint replies with the missing permission instead of going silent', async () => {
+    ;(getRepoToken as jest.Mock).mockImplementation(
+      async (_w: string, _r: string, perms: Record<string, string>) => {
+        if (perms.contents)
+          throw Object.assign(new Error('permissions not granted'), {
+            status: 422,
+          })
+        return perms === REPO_TOKEN_PERMISSIONS.collaboratorPermission
+          ? 'meta'
+          : 'write'
+      }
+    )
+    await expect(
+      applyPrCommentCommand(event('@uselumo resolve'))
+    ).resolves.toBe('failed')
+    expect(resolveThread).not.toHaveBeenCalled()
+    expect(updateRow).not.toHaveBeenCalled()
+    expect(replyBody()).toContain(THREAD_TOKEN_REFUSED)
+  })
+
+  it('a transient thread-token mint failure asks to retry, not for a permission', async () => {
+    ;(getRepoToken as jest.Mock).mockImplementation(
+      async (_w: string, _r: string, perms: Record<string, string>) => {
+        if (perms.contents) throw new Error('socket hang up')
+        return perms === REPO_TOKEN_PERMISSIONS.collaboratorPermission
+          ? 'meta'
+          : 'write'
+      }
+    )
+    await expect(
+      applyPrCommentCommand(event('@uselumo resolve'))
+    ).resolves.toBe('failed')
+    expect(resolveThread).not.toHaveBeenCalled()
+    expect(replyBody()).not.toContain('Contents')
+    expect(replyBody()).toContain('try `@uselumo resolve` again later')
   })
 
   it('an already-resolved thread on GitHub is only recorded', async () => {
