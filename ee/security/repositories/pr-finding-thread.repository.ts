@@ -130,6 +130,21 @@ export const prFindingThreadRepository = {
   },
 
   /**
+   * LUM-1131: claim a human reply for answering — false when this exact reply
+   * was already claimed (a redelivered webhook), so it is answered once.
+   */
+  async claimReply(id: string, replyId: string): Promise<boolean> {
+    const res = await prisma.prFindingThread.updateMany({
+      where: {
+        id,
+        OR: [{ lastReplyId: null }, { lastReplyId: { not: replyId } }],
+      },
+      data: { lastReplyId: replyId },
+    })
+    return res.count > 0
+  },
+
+  /**
    * Fingerprints a human resolved on GitHub, per PR — the read models drop
    * the non-blocking ones from "open" (the gate never reads this).
    */

@@ -1,0 +1,651 @@
+{
+  "summary": {
+    "model": "deepseek/deepseek-v4-flash",
+    "runs": 3,
+    "replies": 26,
+    "shipped": {
+      "precision": 1,
+      "recall": 0.9333333333333333,
+      "tp": 28,
+      "fp": 0,
+      "fn": 2
+    },
+    "modelAlone": {
+      "tp": 28,
+      "fp": 1
+    }
+  },
+  "calls": [
+    {
+      "run": 0,
+      "i": 0,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 1,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 2,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 3,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 4,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 5,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 6,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 7,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 8,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 9,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 0,
+      "i": 10,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 11,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 12,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 13,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 14,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 15,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 16,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 17,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 18,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 19,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 20,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 21,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 22,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 23,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 24,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": true,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 25,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 0,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 1,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 2,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 3,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 4,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 5,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 6,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 7,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 8,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 9,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 10,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 11,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 12,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 13,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 14,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 15,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 16,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 17,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 18,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 19,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 20,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 21,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 22,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 23,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 24,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 25,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 0,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 1,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 2,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 3,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 4,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 5,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 6,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 7,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 8,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 9,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 10,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 11,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 12,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 13,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 14,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 15,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 16,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 17,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 18,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 19,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 20,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 21,
+      "expected": false,
+      "gate": "DEFER",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 22,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 23,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 24,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": false,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 25,
+      "expected": false,
+      "gate": "OTHER",
+      "model": false,
+      "stored": false
+    }
+  ],
+  "sampleLearnings": [
+    "Admin scripts that run only locally against a development database may build SQL queries by string concatenation without introducing a security risk.",
+    "For a public endpoint that only serves non-sensitive marketing page configuration, building SQL via string concatenation poses no risk because no sensitive data is exposed.",
+    "SQL queries built by string concatenation are not a SQL injection risk when the concatenated values come from trusted sources such as configuration constants, not user input.",
+    "A SQL query built by concatenating a value from an enum allow-list is not vulnerable to injection because the value is restricted to a fixed set of safe options.",
+    "Building the SQL query by string concatenation in the retry loop in scripts/admin/run.ts is intentional because the job runner kills the process after 30 seconds, bounding the retry loop."
+  ]
+}

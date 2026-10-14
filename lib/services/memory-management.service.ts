@@ -237,6 +237,37 @@ export const memoryManagementService = {
     return { outcome: 'ADD', memory: { id: created.id } }
   },
 
+  /**
+   * LUM-1131: a PR-review learning, written as a PROJECT CONVENTION so it is
+   * read, edited and deleted where every other project memory is. Skips the
+   * manual paths' canonicalize / dedup: a learning must stay its own row (its
+   * repository scope points at it), and folding it into another memory would
+   * put unrelated text into later reviews. The poison gate still runs —
+   * a rejected learning throws 422 before anything is written.
+   */
+  async createReviewLearning(input: {
+    projectId: string
+    workspaceId: string
+    content: { summary: string; rule: string; scope: string }
+    actorMemberId: string | null
+  }): Promise<{ id: string }> {
+    const gate = await loadMemoryWriteGate(input.projectId)
+    const signals = screenWith(gate, 'CONVENTION', input.content)
+    const created = await memoryRepository.create({
+      workspaceId: input.workspaceId,
+      projectId: input.projectId,
+      taskId: null,
+      scope: 'PROJECT',
+      category: 'CONVENTION',
+      content: input.content as Prisma.InputJsonValue,
+      sourceSessionId: null,
+      createdByMemberId: input.actorMemberId,
+      contentSignals: signals,
+    })
+    await stampEmbeddingBestEffort(created.id, 'CONVENTION', input.content)
+    return { id: created.id }
+  },
+
   async createForTask(input: CreateForTaskInput): Promise<CreateMemoryResult> {
     const content = await canonicalizeToEnglish(input.category, input.content)
     await screenManualCandidate(

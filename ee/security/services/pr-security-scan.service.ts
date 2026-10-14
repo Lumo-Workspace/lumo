@@ -52,6 +52,7 @@ import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-
 import { affectedReviewDiff } from '@/ee/security/security-scan/review-control'
 import type { SecretDowngradeReason } from '@/ee/security/security-scan/types'
 import { reviewContextBudget } from '@/ee/security/security-scan/review-context'
+import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
 import { verifierAppliesTo } from '@/ee/security/security-scan/verifier'
@@ -1199,12 +1200,21 @@ export const prSecurityScanService = {
         // the prompt budget with the diff (`reviewContextBudget`), so a
         // top-tier diff gets little or none. Any failure is logged and the
         // review runs on the diff alone. Never throws.
+        // LUM-1131 — what this repository's reviewers ruled intentional /
+        // not applicable in earlier threads, for the files this review
+        // reads. Bounded (≤ 4k chars) and paid for out of the context
+        // budget, so the prompt ceiling holds. Never throws.
+        const learnings = await loadReviewLearnings({
+          workspaceId: pr.workspaceId,
+          repo: pr.repo,
+          reviewedPaths: capped.covered,
+        })
         const context = await reviewContextService.load({
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           headSha,
           paths: capped.covered,
-          maxChars: reviewContextBudget(capped.text.length),
+          maxChars: reviewContextBudget(capped.text.length + learnings.length),
         })
         if (context.error) {
           logger.warn(
@@ -1225,6 +1235,7 @@ export const prSecurityScanService = {
             timeoutMs: tier.timeoutMs,
             // Customer files entering a prompt: same mask as the diff.
             context: redactForInjection(context.text).text,
+            ...(learnings ? { learnings } : {}),
           })
           judgeStatus = 'RAN'
           // Model text headed for a public PR: redacted and neutralised here,

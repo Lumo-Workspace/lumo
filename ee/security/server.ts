@@ -110,6 +110,28 @@ export const securityPlugin: LumoServerPlugin = {
       )
     })
 
+    // LUM-1131: a human reply in one of Lumo's finding threads — answered,
+    // and when it says the finding is intentional / not applicable, the
+    // thread is closed for this PR and a learning stored for later reviews.
+    // Dynamic import: the reply service reaches the model client.
+    api.on('github.reviewComment', event => {
+      if (event.action !== 'created' || event.comment.inReplyToId === null)
+        return
+      waitUntil(
+        (async () => {
+          try {
+            const { applyThreadReply } =
+              await import('@/ee/security/services/pr-thread-reply.service')
+            await applyThreadReply(event)
+          } catch (error) {
+            logger.warn(
+              `[security] thread reply failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
+    })
+
     // LUM-738: a push to the default branch moves the repository security
     // baseline (the default-branch fingerprint set that decides whether a
     // PR's dependency finding is new). Detached + fail-soft. Dynamic import:

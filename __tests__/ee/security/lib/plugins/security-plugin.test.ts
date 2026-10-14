@@ -34,6 +34,9 @@ jest.mock('@/ee/security/services/security-baseline.service', () => ({
 jest.mock('@/ee/security/services/pr-finding-thread.service', () => ({
   applyReviewThreadEvent: jest.fn().mockResolvedValue('recorded'),
 }))
+jest.mock('@/ee/security/services/pr-thread-reply.service', () => ({
+  applyThreadReply: jest.fn().mockResolvedValue('acknowledged'),
+}))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
 }))
@@ -57,6 +60,7 @@ import { securityBaselineService } from '@/ee/security/services/security-baselin
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
 import { applyReviewThreadEvent } from '@/ee/security/services/pr-finding-thread.service'
+import { applyThreadReply } from '@/ee/security/services/pr-thread-reply.service'
 
 const reminder = prSecurityReminderService as unknown as Record<
   string,
@@ -78,6 +82,7 @@ it('is the one installed plugin and registers every server extension point', () 
   expect(registry.handlersFor('github.pullRequest')).toHaveLength(1)
   expect(registry.handlersFor('github.push')).toHaveLength(1)
   expect(registry.handlersFor('github.reviewThread')).toHaveLength(1)
+  expect(registry.handlersFor('github.reviewComment')).toHaveLength(1)
   expect(registry.handlersFor('task.prLinked')).toHaveLength(1)
 })
 
@@ -219,6 +224,36 @@ describe('events', () => {
     expect(mockWaitUntil).toHaveBeenCalledTimes(1)
     await mockWaitUntil.mock.results[0]!.value
     expect(applyReviewThreadEvent).toHaveBeenCalledWith(event)
+  })
+
+  it('LUM-1131: a created reply is handed to the thread-reply service, with waitUntil; anything else is not', async () => {
+    const event = {
+      workspaceId: 'w-1',
+      pullRequestId: 'pr-1',
+      taskId: null,
+      repo: 'o/r',
+      prNumber: 3,
+      action: 'created',
+      comment: {
+        id: 7,
+        body: 'This is intentional because …',
+        inReplyToId: 5,
+        user: { login: 'alice', type: 'User' },
+        authorAssociation: 'COLLABORATOR',
+      },
+    }
+    emitCoreEvent('github.reviewComment', event)
+    expect(mockWaitUntil).toHaveBeenCalledTimes(1)
+    await mockWaitUntil.mock.results[0]!.value
+    expect(applyThreadReply).toHaveBeenCalledWith(event)
+
+    mockWaitUntil.mockClear()
+    emitCoreEvent('github.reviewComment', { ...event, action: 'edited' })
+    emitCoreEvent('github.reviewComment', {
+      ...event,
+      comment: { ...event.comment, inReplyToId: null },
+    })
+    expect(mockWaitUntil).not.toHaveBeenCalled()
   })
 
   it('a failing baseline request is logged, never thrown', async () => {
