@@ -203,6 +203,15 @@ export function describeGatedChanges(
       'Workspace-wide (every member’s PRs); branch protection that requires approvals or blocks on requested changes may count Lumo’s review'
     )
   }
+  // LUM-1140: turning it off withdraws Lumo's standing change requests.
+  if (
+    target.securityRequestChangesEnabled === false &&
+    current.securityRequestChangesEnabled === true
+  ) {
+    lines.push(
+      'Lumo dismisses its standing “Changes requested” reviews on this workspace’s open PRs (in the background; a PR it misses is dismissed at its next review) and posts comment-only reviews from then on — it does not approve, and reviews by people are untouched'
+    )
+  }
   // LUM-1134: `global` lets a PUBLIC repository's review read learnings from
   // the workspace's private repositories — confirmed like any widening.
   const scopeNow = current.securityLearningsScope ?? 'auto'

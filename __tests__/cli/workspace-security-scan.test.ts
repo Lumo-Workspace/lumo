@@ -242,6 +242,15 @@ describe('LUM-1130 --request-changes', () => {
       securityRequestChangesEnabled: false,
     })
     expect(off.join('\n')).toMatch(/Will turn OFF: Request-changes workflow/)
+    // LUM-1140: the envelope says Lumo's change requests are withdrawn
+    expect(off.join('\n')).toMatch(
+      /dismisses its standing “Changes requested” reviews/
+    )
+    expect(
+      describeGatedChanges(RC_ON.switches, { securityHuntEnabled: false }).join(
+        '\n'
+      )
+    ).not.toMatch(/dismisses its standing/)
     expect(
       describeGatedChanges(RC_ON.switches, {
         securityRequestChangesEnabled: true,
