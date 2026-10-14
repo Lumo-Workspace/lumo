@@ -35,6 +35,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { PageBreadcrumb } from '../../PageBreadcrumb'
 
 interface ProjectHeaderProps {
@@ -45,6 +46,10 @@ interface ProjectHeaderProps {
   onSlack?: (() => void) | undefined
   onCopyLink?: (() => void) | undefined
   copied?: boolean | undefined
+  /** The viewer's current UI locale, owned by the page. */
+  locale: string
+  /** Persist a newly picked UI locale. */
+  onLocaleChange: (locale: string) => void
 }
 
 export function ProjectHeader({
@@ -55,13 +60,19 @@ export function ProjectHeader({
   onSlack,
   onCopyLink,
   copied,
+  locale,
+  onLocaleChange,
 }: ProjectHeaderProps) {
   const intl = useIntl()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   return (
     <>
-      <PageBreadcrumb>
+      <PageBreadcrumb
+        actions={
+          <LanguageSwitcher value={locale} onChange={onLocaleChange} compact />
+        }
+      >
         <div className='flex items-center gap-1.5'>
           <Breadcrumb>
             <BreadcrumbList>

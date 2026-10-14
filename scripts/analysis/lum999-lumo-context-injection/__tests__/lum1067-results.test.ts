@@ -30,7 +30,11 @@ describe('LUM-1067 committed results', () => {
   it('episodes match count and sha256, and the codec round-trips', () => {
     expect(records).toHaveLength(results.episodes.count)
     expect(decoded.sha256).toBe(results.episodes.sha256OfUncompressedJsonl)
-    expect(encodeEpisodes(decoded.records).equals(gz)).toBe(true)
+    // Compare the decoded checksum, not the gzip bytes: deflate output differs
+    // across zlib builds (CPU arch / Node version), the content does not.
+    expect(decodeEpisodes(encodeEpisodes(decoded.records)).sha256).toBe(
+      results.episodes.sha256OfUncompressedJsonl
+    )
   })
 
   it('re-aggregates to exactly the committed cells', () => {

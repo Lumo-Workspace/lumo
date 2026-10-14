@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
 import { buildSignalView } from '@/lib/summaries/signal-view'
+import { resolveLocale } from '@/lib/i18n/locales'
 import {
   ApiProject,
   ApiTask,
@@ -25,6 +26,8 @@ import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
 import { sortTasks } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
+import { usePreferences } from '../../hooks/usePreferences'
+import type { Preferences } from '../../hooks/usePreferences'
 import { ProjectHeader } from './project-detail/ProjectHeader'
 import { ProjectTab } from './project-detail/ProjectTab'
 import { ProjectTasksTab } from './project-detail/ProjectTasksTab'
@@ -108,6 +111,21 @@ export function ProjectDetailPage({
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
 
+  // The header's language switcher is a shortcut to the same personal
+  // preference the Preferences page writes — not a project-scoped setting.
+  // Owning the read/write here keeps ProjectHeader presentational.
+  const { prefs, updatePreferences } = usePreferences()
+  const handleLocaleChange = useCallback(
+    (locale: string) => {
+      // A failed save is already surfaced (toast + rollback) by the hook;
+      // catching here only keeps the rejection from going unhandled.
+      updatePreferences({ locale: locale as Preferences['locale'] }).catch(
+        () => {}
+      )
+    },
+    [updatePreferences]
+  )
+
   // Health signals are fetched here rather than inside the Project tab so the
   // data survives tab switches — returning to Project shows the row it had,
   // instead of a skeleton while an identical request runs again.
@@ -181,6 +199,8 @@ export function ProjectDetailPage({
         onSlack={onSlack}
         onCopyLink={onCopyLink}
         copied={copied}
+        locale={resolveLocale(prefs.locale)}
+        onLocaleChange={handleLocaleChange}
       />
 
       {/* Tab nav — a segmented control: one recessed track with the current tab

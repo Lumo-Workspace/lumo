@@ -58,7 +58,21 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/memory/MemoryTab', () => ({
   MemoryTab: () => <div data-testid='body-memory' />,
 }))
 
+// The page reads the viewer's locale preference to feed the header's language
+// switcher. This suite is about which tab is showing, so the preference plumbing
+// is stubbed rather than exercised — see ProjectHeader.language.test.tsx for it.
+jest.mock('@/lib/api-client', () => ({
+  apiFetch: jest.fn().mockResolvedValue({}),
+}))
+jest.mock('next-themes', () => ({
+  useTheme: () => ({ setTheme: jest.fn() }),
+}))
+jest.mock('sonner', () => ({
+  toast: { error: jest.fn(), success: jest.fn() },
+}))
+
 import { render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ProjectDetailPage } from '@/app/workspace/[workspaceUrl]/components/pages/ProjectDetailPage'
 import type { ApiProject } from '@/app/workspace/[workspaceUrl]/types'
 import type { TaskSummaryStats, TopBlockers } from '@/types/summary'
@@ -121,25 +135,30 @@ const project = {
 
 function setup(stats: TaskSummaryStats | null) {
   mockStats.mockReturnValue({ stats, loading: false, error: null })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   return render(
-    <ProjectDetailPage
-      project={project}
-      tasks={[]}
-      setTasks={jest.fn()}
-      viewId={null}
-      loading={false}
-      error={null}
-      onRetry={jest.fn()}
-      onBack={jest.fn()}
-      onNewTask={jest.fn()}
-      onTaskClick={jest.fn()}
-      onDeleteTask={jest.fn()}
-      onTaskStatusChanged={jest.fn()}
-      onUpdateProject={jest.fn()}
-      onDeleteProject={jest.fn()}
-      members={[]}
-      workspaceUrl='acme'
-    />
+    <QueryClientProvider client={client}>
+      <ProjectDetailPage
+        project={project}
+        tasks={[]}
+        setTasks={jest.fn()}
+        viewId={null}
+        loading={false}
+        error={null}
+        onRetry={jest.fn()}
+        onBack={jest.fn()}
+        onNewTask={jest.fn()}
+        onTaskClick={jest.fn()}
+        onDeleteTask={jest.fn()}
+        onTaskStatusChanged={jest.fn()}
+        onUpdateProject={jest.fn()}
+        onDeleteProject={jest.fn()}
+        members={[]}
+        workspaceUrl='acme'
+      />
+    </QueryClientProvider>
   )
 }
 

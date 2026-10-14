@@ -2897,5 +2897,6 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "Chaque push sur une pull request ouverte reçoit une revue IA automatique des changements. Après ce nombre de commits revus sur une pull request, les revues automatiques sont mises en pause jusqu'à ce que quelqu'un demande une revue ou les reprenne. 0 = jamais de pause. Par défaut 5.",
   "securityScan.stageState.RATE_LIMITED": "limite atteinte — la revue automatique reprend dans l’heure",
   "securityScan.stageReason.RATE_LIMITED": "L'auteur de la PR a atteint la limite horaire de revues IA automatiques : ce commit n'a pas été entièrement revu. Le prochain push après la réinitialisation de la limite est revu automatiquement ; demandez une revue pour vérifier ce commit maintenant.",
-  "securityScan.review.roundsNoLimit": "Revue IA automatique : {rounds} commits revus · jamais en pause"
+  "securityScan.review.roundsNoLimit": "Revue IA automatique : {rounds} commits revus · jamais en pause",
+  "language.switcher.label": "Langue"
 }

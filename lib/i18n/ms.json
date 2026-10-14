@@ -2897,5 +2897,6 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "Setiap push ke pull request yang terbuka mendapat semakan AI automatik atas perubahannya. Selepas sebanyak ini commit disemak pada satu pull request, semakan automatik dijeda sehingga seseorang meminta semakan atau menyambungnya. 0 = tidak pernah dijeda. Lalai 5.",
   "securityScan.stageState.RATE_LIMITED": "had kadar dicapai — semakan automatik bersambung dalam sejam",
   "securityScan.stageReason.RATE_LIMITED": "Pengarang PR mencapai had sejam semakan AI automatik, jadi commit ini belum disemak sepenuhnya. Push seterusnya selepas had ditetapkan semula disemak secara automatik; minta semakan untuk menyemak commit ini sekarang.",
-  "securityScan.review.roundsNoLimit": "Semakan AI automatik: {rounds} komit disemak · tidak pernah dijeda"
+  "securityScan.review.roundsNoLimit": "Semakan AI automatik: {rounds} komit disemak · tidak pernah dijeda",
+  "language.switcher.label": "Bahasa"
 }

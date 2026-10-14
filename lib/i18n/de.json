@@ -2897,5 +2897,6 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "Jeder Push in einen offenen Pull Request erhält eine automatische KI-Prüfung der Änderungen. Nach so vielen geprüften Commits in einem Pull Request pausieren automatische Prüfungen, bis jemand eine Prüfung anfordert oder sie fortsetzt. 0 = nie pausieren. Standard 5.",
   "securityScan.stageState.RATE_LIMITED": "Ratenlimit erreicht — automatische Prüfung läuft innerhalb einer Stunde wieder",
   "securityScan.stageReason.RATE_LIMITED": "Der PR-Autor hat das stündliche Limit automatischer KI-Prüfungen erreicht, daher wurde dieser Commit nicht vollständig geprüft. Der nächste Push nach dem Zurücksetzen des Limits wird automatisch geprüft; fordere eine Prüfung an, um diesen Commit jetzt zu prüfen.",
-  "securityScan.review.roundsNoLimit": "Automatische KI-Prüfung: {rounds} Commits geprüft · pausiert nie"
+  "securityScan.review.roundsNoLimit": "Automatische KI-Prüfung: {rounds} Commits geprüft · pausiert nie",
+  "language.switcher.label": "Sprache"
 }

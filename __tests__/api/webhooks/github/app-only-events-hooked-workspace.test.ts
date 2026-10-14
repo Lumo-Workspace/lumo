@@ -67,7 +67,11 @@ function makeRequest(event: string) {
 function hookedWorkspace() {
   findWebhooks.mockResolvedValue([
     {
-      integration: { webhookSecret: 'repo-secret', workspaceId: 'w1', id: 'i1' },
+      integration: {
+        webhookSecret: 'repo-secret',
+        workspaceId: 'w1',
+        id: 'i1',
+      },
     },
   ])
 }
@@ -120,7 +124,15 @@ describe('App delivery for a workspace with a legacy OAuth repo hook', () => {
     findWebhooks.mockResolvedValue([])
     await POST(makeRequest('pull_request'))
     await POST(makeRequest('issue_comment'))
-    expect(handlePullRequest).toHaveBeenCalledWith(expect.anything(), 'w1', null)
-    expect(handleIssueComment).toHaveBeenCalledWith(expect.anything(), 'w1', null)
+    expect(handlePullRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'w1',
+      null
+    )
+    expect(handleIssueComment).toHaveBeenCalledWith(
+      expect.anything(),
+      'w1',
+      null
+    )
   })
 })
