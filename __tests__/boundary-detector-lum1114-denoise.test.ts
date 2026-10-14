@@ -125,10 +125,8 @@ describe('EXFILTRATION_PUBLIC: uploads to local / private hosts', () => {
 describe('self-started-kill', () => {
   it('reads specific pkill / killall patterns, skipping options and redirections', () => {
     expect(
-      selfStopPatterns(
-        'pkill -f "scripts/analysis/eval.ts" 2>/dev/null || true'
-      )
-    ).toEqual(['scripts/analysis/eval.ts'])
+      selfStopPatterns('pkill -f "scripts/tools/eval.ts" 2>/dev/null || true')
+    ).toEqual(['scripts/tools/eval.ts'])
     expect(selfStopPatterns('pkill -TERM -f "next dev"')).toEqual(['next dev'])
     expect(selfStopPatterns('pkill -u me -f "tsx watch.ts"')).toEqual([
       'tsx watch.ts',
@@ -149,23 +147,23 @@ describe('self-started-kill', () => {
   })
 
   it('needs an earlier non-kill session command naming each pattern', () => {
-    const cmd = 'pkill -f "scripts/analysis/eval.ts"'
+    const cmd = 'pkill -f "scripts/tools/eval.ts"'
     expect(
       matchSelfStartedProcesses(cmd, [
-        'npx tsx scripts/analysis/eval.ts --all > /tmp/out.log 2>&1 &',
+        'npx tsx scripts/tools/eval.ts --all > /tmp/out.log 2>&1 &',
       ])
     ).toHaveLength(1)
     expect(matchSelfStartedProcesses(cmd, ['git status'])).toBeNull()
     // Naming it in an earlier kill proves nothing.
     expect(
-      matchSelfStartedProcesses(cmd, ['pkill -f scripts/analysis/eval.ts'])
+      matchSelfStartedProcesses(cmd, ['pkill -f scripts/tools/eval.ts'])
     ).toBeNull()
     // Reading or searching for it started nothing.
     expect(
       matchSelfStartedProcesses(cmd, [
-        'cat scripts/analysis/eval.ts',
-        'grep -n main scripts/analysis/eval.ts',
-        'git log -- scripts/analysis/eval.ts',
+        'cat scripts/tools/eval.ts',
+        'grep -n main scripts/tools/eval.ts',
+        'git log -- scripts/tools/eval.ts',
       ])
     ).toBeNull()
   })
