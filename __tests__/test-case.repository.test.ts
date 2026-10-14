@@ -270,3 +270,92 @@ describe('createDisposition (LUM-812)', () => {
     expect(committed).toEqual([])
   })
 })
+
+describe('LUM-1135 milestone owner', () => {
+  it('allocates numbers within the milestone', async () => {
+    mockAggregate.mockResolvedValueOnce({ _max: { number: 2 } })
+    mockCreate.mockResolvedValueOnce({ id: 'tc-m', number: 3 })
+    await testCaseRepository.createWithNumber({
+      milestoneId: 'm-1',
+      title: 't',
+      setup: null,
+      steps: ['s'],
+      verification: [],
+      expected: 'e',
+    })
+    expect(mockAggregate).toHaveBeenCalledWith({
+      where: { milestoneId: 'm-1' },
+      _max: { number: true },
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ milestoneId: 'm-1', number: 3 }),
+      })
+    )
+  })
+
+  it('lists only live milestone cases', async () => {
+    mockFindMany.mockResolvedValueOnce([])
+    await testCaseRepository.listForMilestone('m-1')
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { milestoneId: 'm-1', deletedAt: null },
+        orderBy: { number: 'asc' },
+      })
+    )
+  })
+
+  it('finds a live milestone case by number', async () => {
+    mockFindFirst.mockResolvedValueOnce(null)
+    await testCaseRepository.findByMilestoneAndNumber('m-1', 2)
+    expect(mockFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { milestoneId: 'm-1', number: 2, deletedAt: null },
+      })
+    )
+  })
+
+  it('groups milestone runs by case, newest first', async () => {
+    mockRunFindMany.mockResolvedValueOnce([
+      { id: 'r2', testCaseId: 'a' },
+      { id: 'r1', testCaseId: 'a' },
+      { id: 'r3', testCaseId: 'b' },
+    ])
+    const grouped = await testCaseRepository.runsPerCaseForMilestone('m-1')
+    expect(mockRunFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { milestoneId: 'm-1' },
+        orderBy: { createdAt: 'desc' },
+      })
+    )
+    expect(grouped.get('a')!.map(r => r.id)).toEqual(['r2', 'r1'])
+  })
+
+  it('writes a milestone disposition without a task activity row', async () => {
+    const activityCreate = jest.fn()
+    const dispositionCreate = jest.fn(async ({ data }) => ({
+      id: 'd-m',
+      ...data,
+    }))
+    mockTransaction.mockImplementation(async fn =>
+      fn({
+        testCaseRunDisposition: { create: dispositionCreate },
+        taskActivity: { create: activityCreate },
+      })
+    )
+    await testCaseRepository.createDisposition(
+      {
+        runId: 'r1',
+        taskId: null,
+        milestoneId: 'm-1',
+        disposition: 'KNOWN_DEFECT',
+        note: null,
+        dispositionedById: 'mem',
+        channel: 'WEB',
+      },
+      null
+    )
+    expect(dispositionCreate).toHaveBeenCalledTimes(1)
+    expect(activityCreate).not.toHaveBeenCalled()
+  })
+})

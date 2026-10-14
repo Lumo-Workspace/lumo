@@ -12,8 +12,7 @@ import {
   STORAGE_REDACTED_FIELDS,
 } from '@/lib/security-scan/storage-redaction'
 
-export interface CreateTestCaseInput {
-  taskId: string
+interface CreateTestCaseFields {
   title: string
   setup: string | null
   steps: string[]
@@ -22,6 +21,22 @@ export interface CreateTestCaseInput {
   /** LUM-808: 省略 / null = 不限。与 run 的 environment 不同，这里「不限」
    *  是有意义的默认，不需要逼调用方表态。 */
   requiredEnvironment?: TestEnvironment | null
+}
+
+/** LUM-1135: a case belongs to exactly one task or one milestone (DB CHECK). */
+export type CreateTestCaseInput = CreateTestCaseFields &
+  (
+    | { taskId: string; milestoneId?: undefined }
+    | { milestoneId: string; taskId?: undefined }
+  )
+
+function ownerWhere(input: {
+  taskId?: string | undefined
+  milestoneId?: string | undefined
+}) {
+  return input.taskId !== undefined
+    ? { taskId: input.taskId }
+    : { milestoneId: input.milestoneId! }
 }
 
 export interface UpdateTestCaseInput {
@@ -35,7 +50,9 @@ export interface UpdateTestCaseInput {
 
 export interface CreateRunInput {
   testCaseId: string
-  taskId: string
+  taskId: string | null
+  /** LUM-1135 */
+  milestoneId?: string | null
   result: TestCaseRunResult
   environment: TestEnvironment
   failedPhase: TestCasePhase | null
@@ -62,6 +79,7 @@ export interface CreateRunInput {
 const caseSelect = {
   id: true,
   taskId: true,
+  milestoneId: true,
   number: true,
   title: true,
   setup: true,
@@ -78,6 +96,7 @@ const runSelect = {
   id: true,
   testCaseId: true,
   taskId: true,
+  milestoneId: true,
   result: true,
   environment: true,
   failedPhase: true,
@@ -137,30 +156,48 @@ function isUniqueCollision(e: unknown): boolean {
   return (e as { code?: unknown } | null)?.code === 'P2002'
 }
 
+async function groupRuns(
+  where: Prisma.TestCaseRunWhereInput
+): Promise<Map<string, TestCaseRunRow[]>> {
+  const rows = await prisma.testCaseRun.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    select: runSelect,
+  })
+  const grouped = new Map<string, TestCaseRunRow[]>()
+  for (const r of rows) {
+    const list = grouped.get(r.testCaseId)
+    if (list) list.push(r)
+    else grouped.set(r.testCaseId, [r])
+  }
+  return grouped
+}
+
 /**
  * LUM-801 哑写层：封装 Prisma 查询、返回领域行。**不含业务规则、不做权限校验**
  * （CLAUDE.md 分层）。跨字段一致性与 400 语义在 task-test-case.service.ts。
  */
 export const testCaseRepository = {
   /**
-   * 分配任务内 1-based `number` 并创建。并发下两个调用可能算出同一个 max+1，
-   * 由 @@unique([taskId, number]) 兜底成 P2002，这里重算后重试。
+   * 分配 owner（task 或 milestone）内 1-based `number` 并创建。并发下两个调用可能算出同一个 max+1，
+   * 由 @@unique([taskId, number]) / @@unique([milestoneId, number]) 兜底成 P2002，这里重算后重试。
    */
   async createWithNumber(
     input: CreateTestCaseInput,
     tx?: Prisma.TransactionClient
   ): Promise<TestCaseRow> {
     const client = tx ?? prisma
+    const { taskId: _t, milestoneId: _m, ...fields } = input
     let lastError: unknown
     for (let attempt = 0; attempt < NUMBER_RETRIES; attempt++) {
       const agg = await client.testCase.aggregate({
-        where: { taskId: input.taskId },
+        where: ownerWhere(input),
         _max: { number: true },
       })
       const next = (agg._max.number ?? 0) + 1
       try {
         return await client.testCase.create({
-          data: { ...input, number: next },
+          data: { ...fields, ...ownerWhere(input), number: next },
           select: caseSelect,
         })
       } catch (e) {
@@ -195,6 +232,24 @@ export const testCaseRepository = {
   ): Promise<TestCaseRow | null> {
     return prisma.testCase.findFirst({
       where: { taskId, number, deletedAt: null },
+      select: caseSelect,
+    })
+  },
+
+  listForMilestone(milestoneId: string): Promise<TestCaseRow[]> {
+    return prisma.testCase.findMany({
+      where: { milestoneId, deletedAt: null },
+      orderBy: { number: 'asc' },
+      select: caseSelect,
+    })
+  },
+
+  findByMilestoneAndNumber(
+    milestoneId: string,
+    number: number
+  ): Promise<TestCaseRow | null> {
+    return prisma.testCase.findFirst({
+      where: { milestoneId, number, deletedAt: null },
       select: caseSelect,
     })
   },
@@ -268,19 +323,15 @@ export const testCaseRepository = {
    * 于是卡片上那个标着「Run history」的区域永远只显示最近一次（LUM-801
    * 走查时被自己的 TC1 抓到）。丢弃数据并没有省下任何查询，所以直接返回全量。
    */
-  async runsPerCase(taskId: string): Promise<Map<string, TestCaseRunRow[]>> {
-    const rows = await prisma.testCaseRun.findMany({
-      where: { taskId },
-      orderBy: { createdAt: 'desc' },
-      select: runSelect,
-    })
-    const grouped = new Map<string, TestCaseRunRow[]>()
-    for (const r of rows) {
-      const list = grouped.get(r.testCaseId)
-      if (list) list.push(r)
-      else grouped.set(r.testCaseId, [r])
-    }
-    return grouped
+  runsPerCase(taskId: string): Promise<Map<string, TestCaseRunRow[]>> {
+    return groupRuns({ taskId })
+  },
+
+  /** LUM-1135: 同 runsPerCase，owner 为 milestone。 */
+  runsPerCaseForMilestone(
+    milestoneId: string
+  ): Promise<Map<string, TestCaseRunRow[]>> {
+    return groupRuns({ milestoneId })
   },
 
   /**
@@ -297,6 +348,7 @@ export const testCaseRepository = {
       select: {
         id: true,
         taskId: true,
+        milestoneId: true,
         testCaseId: true,
         result: true,
         failureAttribution: true,
@@ -329,25 +381,33 @@ export const testCaseRepository = {
   createDisposition(
     input: {
       runId: string
-      taskId: string
+      taskId: string | null
+      milestoneId?: string | null
       disposition: 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
       note: string | null
       dispositionedById: string
       channel: 'WEB' | 'CLI'
     },
-    activity: { actorId: string | null; payload: Record<string, unknown> }
+    activity: {
+      actorId: string | null
+      payload: Record<string, unknown>
+    } | null
   ) {
     return prisma.$transaction(async tx => {
       const row = await tx.testCaseRunDisposition.create({ data: input })
-      await activityRepository.create(
-        {
-          taskId: input.taskId,
-          actorId: activity.actorId,
-          type: 'TEST_CASE_DEFECT_DISPOSITIONED',
-          payload: activity.payload,
-        },
-        tx
-      )
+      // LUM-1135: a milestone has no activity stream — the disposition row
+      // and the audit log are its trail.
+      if (activity !== null && input.taskId !== null) {
+        await activityRepository.create(
+          {
+            taskId: input.taskId,
+            actorId: activity.actorId,
+            type: 'TEST_CASE_DEFECT_DISPOSITIONED',
+            payload: activity.payload,
+          },
+          tx
+        )
+      }
       return row
     })
   },

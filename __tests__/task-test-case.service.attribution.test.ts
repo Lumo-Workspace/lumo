@@ -44,6 +44,7 @@ const repo = testCaseRepository as jest.Mocked<typeof testCaseRepository>
 const testCase = {
   id: 'tc-1',
   taskId: 't-1',
+  milestoneId: null,
   number: 3,
   title: 'Dashboard footer FDIC disclosure',
   setup: null,
@@ -69,6 +70,7 @@ beforeEach(() => {
   repo.listTaskPullRequests.mockResolvedValue([])
   repo.createRun.mockImplementation(async input => ({
     ...input,
+    milestoneId: input.milestoneId ?? null,
     evidence: input.evidence as Prisma.JsonValue,
     unprovenVerification: input.unprovenVerification as Prisma.JsonValue,
     stepResults: input.stepResults as Prisma.JsonValue,
