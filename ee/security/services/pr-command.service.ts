@@ -221,7 +221,15 @@ async function run(
       logger.warn(
         `[pr-command] thread token mint failed pr=#${event.prNumber}: ${describe(error)}`
       )
-      return { outcome: 'failed', body: THREAD_TOKEN_REFUSED }
+      // GitHub refuses a mint asking for an ungranted permission with 422;
+      // anything else (network, 5xx) is transient — say so instead.
+      const refused = (error as { status?: unknown } | null)?.status === 422
+      return {
+        outcome: 'failed',
+        body: refused
+          ? THREAD_TOKEN_REFUSED
+          : `⚠️ Lumo couldn't reach GitHub to resolve its review threads — try \`${handle} resolve\` again later.`,
+      }
     }
     const result = await resolveThreadsByCommand({
       pullRequestId: event.pullRequestId,
