@@ -137,6 +137,15 @@ const RESEND = {
   location: 'us',
 } as const
 
+/** The Clerk registry entry, unchanged by the 2026-10-12 purpose correction. */
+const CLERK = {
+  id: 'clerk',
+  entity: 'Clerk Inc.',
+  docService: 'Authentication',
+  product: 'Clerk',
+  location: 'us',
+} as const
+
 /** Oldest first (by announcedAt). Append only — a sent change is never edited. */
 export const SUBPROCESSOR_CHANGES: readonly SubprocessorChange[] = [
   {
@@ -156,5 +165,42 @@ export const SUBPROCESSOR_CHANGES: readonly SubprocessorChange[] = [
       'Resend (transactional email): purpose corrected to workspace invitations, workspace deletion notices and subprocessor change notices to workspace owners. These emails were already being sent; nothing else changes.',
     before: { list: 'infrastructure', entry: RESEND },
     after: { list: 'infrastructure', entry: RESEND },
+  },
+  {
+    // User ruling 2026-10-12 (LUM-1076): production moved sign-in from Clerk
+    // to Lumo's own authentication service (Better Auth) on 2026-10-12
+    // (LUM-1075); its one-time sign-in codes are emailed through Resend.
+    // Recorded as a purpose correction on the day of the cut-over, like
+    // 2026-10-05-resend-purpose.
+    id: '2026-10-12-resend-purpose',
+    kind: 'changed',
+    announcedAt: '2026-10-12',
+    effectiveAt: '2026-10-12',
+    urgent: {
+      reason:
+        'Correction of an outdated description: Lumo moved sign-in to its own authentication service on 2026-10-12, and Resend already sends its one-time sign-in codes.',
+    },
+    summary:
+      'Resend (transactional email): purpose now also includes one-time sign-in codes, since Lumo moved sign-in to its own authentication service on 2026-10-12. These emails are already being sent; nothing else changes.',
+    before: { list: 'infrastructure', entry: RESEND },
+    after: { list: 'infrastructure', entry: RESEND },
+  },
+  {
+    // User ruling 2026-10-12 (LUM-1076): Clerk stops handling sign-in at the
+    // cut-over but its instance keeps the imported users' data through the
+    // rollback period, so it stays listed until the instance is deleted
+    // (RFC LUM-1069 §8, T8). That deletion is a `removed` record of its own.
+    id: '2026-10-12-clerk-purpose',
+    kind: 'changed',
+    announcedAt: '2026-10-12',
+    effectiveAt: '2026-10-12',
+    urgent: {
+      reason:
+        'Correction of an outdated description: Lumo moved sign-in from Clerk to its own authentication service on 2026-10-12.',
+    },
+    summary:
+      'Clerk (authentication): no longer handles sign-in since Lumo moved sign-in to its own authentication service on 2026-10-12. Clerk keeps the account data it already held only so that Lumo can switch back if needed, and that data is deleted no later than 2026-11-11.',
+    before: { list: 'infrastructure', entry: CLERK },
+    after: { list: 'infrastructure', entry: CLERK },
   },
 ]
