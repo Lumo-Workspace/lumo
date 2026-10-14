@@ -61,12 +61,15 @@ export function checkModels(
     const pin = pins[ref.id]
     if (!pin) return { ...ref, inCatalog }
     const hosts = [...(hostsById.get(ref.id) ?? [])]
+    // Gateway slugs are lower-case today; compare case-insensitively so a
+    // casing change in the catalog does not read as "pin unserved".
+    const pinned = new Set(pin.map(p => p.toLowerCase()))
     return {
       ...ref,
       inCatalog,
       pins: pin,
       hosts,
-      pinUnserved: !hosts.some(h => pin.includes(h)),
+      pinUnserved: !hosts.some(h => pinned.has(h.toLowerCase())),
     }
   })
 }

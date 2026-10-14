@@ -65,6 +65,16 @@ describe('checkModels', () => {
     expect(hasProblems(out)).toBe(true)
   })
 
+  it('matches pinned hosts case-insensitively', () => {
+    const out = checkModels(
+      refs.slice(1, 2),
+      catalog,
+      pins,
+      new Map([['anthropic/claude-sonnet-5.5', ['Anthropic']]])
+    )
+    expect(out[0]).toMatchObject({ pinUnserved: false })
+  })
+
   it('is clean when every id is listed and every pin is served', () => {
     const out = checkModels(
       refs.slice(1),
