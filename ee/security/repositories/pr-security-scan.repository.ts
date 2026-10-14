@@ -3,6 +3,10 @@
  * No business logic: the service decides dedup, inheritance and status.
  */
 import { prisma } from '@/lib/db/prisma'
+import {
+  activityRepository,
+  type CreateActivityData,
+} from '@/lib/repositories/activity.repository'
 import { storedRepoSpellings } from '@/lib/repositories/repo-spellings'
 import { Prisma } from '@prisma/client'
 import type {
@@ -379,6 +383,11 @@ export interface ScanForReview {
 /**
  * A prior finding on the same PR worth inheriting from: a human disposition
  * and/or (LUM-740) an LLM suggestion with the human's outcome on it.
+ *
+ * LUM-1128 follow-up: a REOPENED row (a ruling reverted to open in the web
+ * panel) is one too — `disposition` null with `dispositionedAt` set to the
+ * moment it was reopened. It is the newest verdict for its fingerprint, so
+ * it wins the newest-first pick and nothing older re-clears the finding.
  */
 export interface DispositionedFingerprint {
   id: string
@@ -1700,6 +1709,10 @@ export const prSecurityScanRepository = {
         OR: [
           { disposition: { not: null } },
           { suggestedDisposition: { not: null } },
+          // LUM-1128 follow-up: the reopen marker (disposition null,
+          // dispositionedAt set) — without it an older ruled row of the same
+          // fingerprint is inherited and silently re-clears the reopened one.
+          { dispositionedAt: { not: null } },
         ],
       },
       orderBy: { dispositionedAt: { sort: 'desc', nulls: 'last' } },
@@ -1870,22 +1883,57 @@ export const prSecurityScanRepository = {
       | null
   },
 
+  /**
+   * Write a ruling and its task-timeline entry in ONE transaction (LUM-1128
+   * follow-up). `from` — the disposition before this write — is read inside
+   * the transaction, and `activityFor(from)` builds the timeline entry (null
+   * = none, e.g. a re-save of the same value). If the activity insert fails
+   * the ruling rolls back with it, so a caller never reports "rejected" for
+   * a ruling that was in fact applied. `disposition: null` reopens the
+   * finding (the web panel's revert).
+   */
   async updateDisposition(
     findingId: string,
     data: {
-      disposition: FindingDisposition
+      disposition: FindingDisposition | null
       dispositionNote: string | null
       dispositionedById: string
       dispositionedAt: Date
       /** LUM-740: the human's verdict on a suggested disposition, if any. */
       suggestionOutcome?: SuggestionOutcome | null
-    }
-  ): Promise<FindingRow> {
-    const row = await prisma.prSecurityFinding.update({
-      where: { id: findingId },
-      data,
+    },
+    activityFor: (
+      from: FindingDisposition | null
+    ) => CreateActivityData | null = () => null
+  ): Promise<{ row: FindingRow; from: FindingDisposition | null }> {
+    return prisma.$transaction(async tx => {
+      const prior = await tx.prSecurityFinding.findUnique({
+        where: { id: findingId },
+        select: { disposition: true },
+      })
+      const from = (prior?.disposition ?? null) as FindingDisposition | null
+      // Compare-and-set on `from`: a concurrent ruling that landed between
+      // the read and this write makes the count 0 (Postgres re-checks the
+      // predicate after the row lock), so `from` is never stale. No raw SQL.
+      const { count } = await tx.prSecurityFinding.updateMany({
+        where: { id: findingId, disposition: from },
+        data,
+      })
+      if (count === 0) {
+        throw Object.assign(
+          new Error(
+            'The finding was ruled concurrently — reload and try again'
+          ),
+          { status: 409 }
+        )
+      }
+      const row = await tx.prSecurityFinding.findUniqueOrThrow({
+        where: { id: findingId },
+      })
+      const activity = activityFor(from)
+      if (activity) await activityRepository.create(activity, tx)
+      return { row: row as unknown as FindingRow, from }
     })
-    return row as unknown as FindingRow
   },
 
   // ── LUM-740: suggested dispositions ───────────────────────────────────────

@@ -17,7 +17,6 @@ import {
 } from '@/lib/services/audit.service'
 import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { findingStatement } from '@/ee/security/security-scan/agent-reminder'
 import { sanitizeField } from '@/lib/utils/sanitize'
@@ -290,6 +289,57 @@ export interface FindingDispositionVia {
 }
 
 const WEB_VIA: FindingDispositionVia = { channel: 'WEB', sessionId: null }
+
+type ScopedFinding = NonNullable<
+  Awaited<ReturnType<typeof prSecurityScanRepository.findFindingWithScope>>
+>
+
+/** The finding, or a 404 when it is missing or not on this task. */
+async function findFindingOnTask(
+  taskId: string,
+  findingId: string
+): Promise<ScopedFinding> {
+  const finding = await prSecurityScanRepository.findFindingWithScope(findingId)
+  if (!finding || finding.scan.pullRequest.taskId !== taskId) {
+    throw Object.assign(new Error('Security finding not found on this task'), {
+      status: 404,
+    })
+  }
+  return finding
+}
+
+/**
+ * LUM-1128: the SECURITY_FINDING_DISPOSITIONED timeline entry — which surface
+ * ruled, when, and (CLI) from which session. `to: 'OPEN'` is a reopen.
+ */
+function findingRulingActivity(
+  taskId: string,
+  finding: ScopedFinding,
+  actorId: string | null,
+  t: {
+    from: FindingDisposition | null
+    to: FindingDisposition | 'OPEN'
+    via: FindingDispositionVia
+  }
+) {
+  return {
+    taskId,
+    actorId,
+    type: 'SECURITY_FINDING_DISPOSITIONED' as const,
+    payload: {
+      findingId: finding.id,
+      ruleId: finding.ruleId,
+      severity: finding.severity,
+      filePath: finding.filePath,
+      line: finding.line,
+      from: t.from,
+      to: t.to,
+      channel: t.via.channel,
+      sessionId: t.via.sessionId,
+      confirmedAt: new Date().toISOString(),
+    },
+  }
+}
 
 /**
  * LUM-1128: one finding as `lumo finding disposition` reads it to build its
@@ -1747,32 +1797,38 @@ export const prSecurityScanService = {
     audit: WorkspaceAudit,
     via: FindingDispositionVia = WEB_VIA
   ): Promise<SecurityFindingView> {
-    const finding =
-      await prSecurityScanRepository.findFindingWithScope(findingId)
-    if (!finding || finding.scan.pullRequest.taskId !== taskId) {
-      throw Object.assign(
-        new Error('Security finding not found on this task'),
-        { status: 404 }
-      )
-    }
-    const updated = await prSecurityScanRepository.updateDisposition(
-      findingId,
-      {
-        disposition,
-        dispositionNote: note,
-        dispositionedById: actorMemberId,
-        dispositionedAt: new Date(),
-        // LUM-740: the human's verdict on the falsifier's suggestion (R2).
-        suggestionOutcome: suggestionOutcomeFor(
-          finding.suggestedDisposition,
-          disposition
-        ),
-      }
-    )
-    // LUM-907: ids and enum values only — the note stays on the finding.
+    const finding = await findFindingOnTask(taskId, findingId)
+    const actor = await memberRepository.findActorByMemberId(actorMemberId)
+    // LUM-1128 follow-up: the ruling and its timeline entry are one
+    // transaction, and `from` is read inside it — a failed activity insert
+    // rolls the ruling back instead of leaving it applied behind a 500.
     // Like crossings, a ruling that leaves the disposition unchanged (a
-    // re-save of the same value, e.g. to edit the note) is not audited.
-    const from = finding.disposition ?? null
+    // re-save of the same value, e.g. to edit the note) gets no entry.
+    const { row: updated, from } =
+      await prSecurityScanRepository.updateDisposition(
+        findingId,
+        {
+          disposition,
+          dispositionNote: note,
+          dispositionedById: actorMemberId,
+          dispositionedAt: new Date(),
+          // LUM-740: the human's verdict on the falsifier's suggestion (R2).
+          suggestionOutcome: suggestionOutcomeFor(
+            finding.suggestedDisposition,
+            disposition
+          ),
+        },
+        prior =>
+          prior === disposition
+            ? null
+            : findingRulingActivity(taskId, finding, actor?.id ?? null, {
+                from: prior,
+                to: disposition,
+                via,
+              })
+      )
+    // LUM-907: ids and enum values only — the note stays on the finding.
+    // Recorded after the commit; `recordAuditEvent` never throws.
     if (from !== disposition) {
       await recordAuditEvent({
         workspaceId: audit.workspaceId,
@@ -1781,31 +1837,65 @@ export const prSecurityScanService = {
         metadata: { taskId, from, to: disposition },
         context: audit.context,
       })
-      // LUM-1128: the task-timeline trail — which surface ruled, when, and
-      // (CLI) from which session. Same "real change only" rule as the audit.
-      const actor = await memberRepository.findActorByMemberId(actorMemberId)
-      await activityRepository.create({
-        taskId,
-        actorId: actor?.id ?? null,
-        type: 'SECURITY_FINDING_DISPOSITIONED',
-        payload: {
-          findingId,
-          ruleId: finding.ruleId,
-          severity: finding.severity,
-          filePath: finding.filePath,
-          line: finding.line,
-          from,
-          to: disposition,
-          channel: via.channel,
-          sessionId: via.sessionId,
-          confirmedAt: new Date().toISOString(),
-        },
-      })
     }
     return toFindingView(
       updated,
       await loadSecurityPolicy(finding.scan.pullRequest.workspaceId)
     )
+  },
+
+  /**
+   * LUM-1128 follow-up — revert a ruling to open (the web panel's "Reopen").
+   * Web only, like a crossing's OPEN revert: the route refuses it from a
+   * bearer (CLI) caller. The finding is undecided again, so it blocks DONE
+   * exactly as before it was ruled (same `isBlockingFinding`), and the row
+   * keeps `dispositionedAt` = now with `disposition` null — the reopen
+   * marker `findDispositionedByPullRequest` returns, so the next push does
+   * not re-inherit an older ruling of the same fingerprint. The suggestion
+   * (if any) stays, its outcome back to pending. An already-open finding is
+   * a no-op (nothing written, nothing audited).
+   */
+  async reopen(
+    taskId: string,
+    findingId: string,
+    actorMemberId: string,
+    audit: WorkspaceAudit
+  ): Promise<SecurityFindingView> {
+    const finding = await findFindingOnTask(taskId, findingId)
+    const policy = await loadSecurityPolicy(
+      finding.scan.pullRequest.workspaceId
+    )
+    if (finding.disposition === null) return toFindingView(finding, policy)
+    const actor = await memberRepository.findActorByMemberId(actorMemberId)
+    const { row: updated, from } =
+      await prSecurityScanRepository.updateDisposition(
+        findingId,
+        {
+          disposition: null,
+          dispositionNote: null,
+          dispositionedById: actorMemberId,
+          dispositionedAt: new Date(),
+          suggestionOutcome: null,
+        },
+        prior =>
+          prior === null
+            ? null
+            : findingRulingActivity(taskId, finding, actor?.id ?? null, {
+                from: prior,
+                to: 'OPEN',
+                via: WEB_VIA,
+              })
+      )
+    if (from !== null) {
+      await recordAuditEvent({
+        workspaceId: audit.workspaceId,
+        action: 'security_finding.dispositioned',
+        target: { type: 'security_finding', id: findingId },
+        metadata: { taskId, from, to: 'OPEN' },
+        context: audit.context,
+      })
+    }
+    return toFindingView(updated, policy)
   },
 
   /**

@@ -421,6 +421,21 @@ function formatActivityText(
             : 'activity.securityFindingChannel.WEB',
       })
       const rule = typeof p.ruleId === 'string' ? p.ruleId : ''
+      // LUM-1128 follow-up: `to: 'OPEN'` is a web-panel revert — the ruling
+      // is gone and the finding is undecided (and blocking, if it was) again.
+      if (p.to === 'OPEN') {
+        return (
+          <span className='inline-flex items-center gap-1 align-middle'>
+            <ShieldAlert className='h-3.5 w-3.5 text-warning-text' />
+            <span data-testid='activity-security-finding-reopened'>
+              {intl.formatMessage(
+                { id: 'activity.securityFindingReopened' },
+                { rule, from: findingLabel(p.from), channel }
+              )}
+            </span>
+          </span>
+        )
+      }
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
           <CheckCircle2 className='h-3.5 w-3.5 text-success-text' />

@@ -570,9 +570,12 @@ export const prScanReadoutService = {
           dispositionSource: dispositionSourceOf(f),
           dispositionNote:
             cleanText(f.dispositionNote, DETAIL_MAX, tally) ?? null,
-          dispositionedAt: f.dispositionedAt
-            ? f.dispositionedAt.toISOString()
-            : null,
+          // A reopened row keeps dispositionedAt as its reopen marker
+          // (LUM-1128 follow-up) — it is not a ruling time to show.
+          dispositionedAt:
+            f.disposition && f.dispositionedAt
+              ? f.dispositionedAt.toISOString()
+              : null,
           blocking: open && isBlockingFinding(f, policy),
           open,
           persisting: f.persisting,

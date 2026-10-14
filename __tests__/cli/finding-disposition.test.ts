@@ -246,6 +246,53 @@ describe('finding disposition — envelope (no --confirm)', () => {
     expect(writes()).toHaveLength(0)
   })
 
+  it('non-TTY: a mixed batch (one already ruled) keeps stdout exactly one JSON envelope, the skip note inside its changes', async () => {
+    routeFetch({
+      findings: jsonResponse(200, {
+        findings: [
+          { ...F1, disposition: 'FALSE_POSITIVE', blocking: false },
+          F2,
+        ],
+      }),
+    })
+    const code = await findingDisposition(['f1', 'f2'], {
+      falsePositive: true,
+    })
+    expect(code).toBe(EXIT_CONFIRMATION_REQUIRED)
+    // The whole of stdout parses as ONE JSON document — no prose before it.
+    const envelope = JSON.parse(stdout.join('')) as {
+      status: string
+      changes: string[]
+    }
+    expect(envelope.status).toBe('confirmation_required')
+    expect(envelope.changes).toContain(
+      'Finding f1 is already FALSE_POSITIVE — skipped.'
+    )
+    expect(envelope.changes.some(l => l.startsWith('f2 '))).toBe(true)
+    expect(envelope.changes.some(l => l.startsWith('f1 '))).toBe(false)
+    expect(writes()).toHaveLength(0)
+  })
+
+  it('--confirm on a mixed batch writes only the open one and still reports the skip', async () => {
+    routeFetch({
+      findings: jsonResponse(200, {
+        findings: [
+          { ...F1, disposition: 'FALSE_POSITIVE', blocking: false },
+          F2,
+        ],
+      }),
+    })
+    const code = await findingDisposition(['f1', 'f2'], {
+      falsePositive: true,
+      confirm: true,
+    })
+    expect(code).toBeUndefined()
+    expect(writes()).toHaveLength(1)
+    expect(stdout.join('')).toContain(
+      'Finding f1 is already FALSE_POSITIVE — skipped.'
+    )
+  })
+
   it('a ruling flag is required, and only one', async () => {
     expect(await findingDisposition(['f1'], {})).toBe(1)
     expect(
