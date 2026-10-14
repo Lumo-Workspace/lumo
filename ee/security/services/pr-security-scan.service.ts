@@ -790,8 +790,9 @@ export const prSecurityScanService = {
     // `partial` from them (see `mergePartial` in the repository).
     const partialCauses: PartialCause[] = []
     // LUM-988: stage A kept the managed scan's VM alive for a consumer (the
-    // hunt or the verifier); if none starts — including when stage A itself
-    // fails — it owns releasing that VM (`releaseKeptVmBestEffort`).
+    // hunt; since LUM-1084 never the verifier); if none starts — including
+    // when stage A itself fails — it owns releasing that VM
+    // (`releaseKeptVmBestEffort`).
     let keptVm: ReviewVerifierJob | null = null
     let vmConsumerStarted = false
     let reservedHead = false
@@ -961,10 +962,11 @@ export const prSecurityScanService = {
         aiAllowed &&
         !huntOverCap &&
         (triggerFirstPass?.hunt ?? false)
-      // LUM-988: the agentic verifier reads the same checkout. The judge has
-      // not run yet when the managed scan starts, so the VM is kept alive
-      // whenever the AI review is on and the verifier enabled.
-      const verifierVmWanted = reviewAllowed && isReviewVerifierEnabled()
+      // LUM-1084: the agentic verifier no longer shares this VM. It starts
+      // while the managed scan is still scanning, waited 30 s + 90 s for the
+      // hand-off marker and then booted its own VM anyway; it now boots its
+      // own at once (see the verifier start below), so the VM is kept alive
+      // for the hunt only.
 
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
@@ -1023,16 +1025,15 @@ export const prSecurityScanService = {
               },
               headSha,
               // LUM-758: keep the VM alive past this run for the hunt to
-              // attach to — one microVM, two layers. LUM-988: and for the
-              // verifier.
-              huntWanted: huntWantedForVm || verifierVmWanted,
+              // attach to — one microVM, two layers.
+              huntWanted: huntWantedForVm,
             })
             stages.external = runId ? 'PENDING' : 'FAILED'
             // LUM-738: osv-scanner rides the same run — its layer is pending
             // (or, if nothing could be queued, failed) with the external one.
             stages.supplyChain = runId ? 'PENDING' : 'FAILED'
             managedRunStarted = Boolean(runId)
-            if (runId && (huntWantedForVm || verifierVmWanted)) {
+            if (runId && huntWantedForVm) {
               keptVm = {
                 scanId,
                 workspaceId: pr.workspaceId,
@@ -1493,17 +1494,19 @@ export const prSecurityScanService = {
         judgeRows.some(r => verifierAppliesTo(r)) &&
         isReviewVerifierEnabled()
       ) {
-        const started = await startVerifierBestEffort({
+        await startVerifierBestEffort({
           scanId,
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           prNumber: pr.number,
           headSha,
-          managedScanStarted:
-            managedRunStarted && (huntWantedForVm || verifierVmWanted),
-          stopAttachedWhenDone: !huntRunStarted,
+          // LUM-1084: boot its own VM at once — never wait on the managed
+          // scan's (that wait cost ~2 min per scan and lost the race in the
+          // LUM-1084 production logs). Not a consumer of the kept VM either,
+          // which is released below when the hunt did not start.
+          managedScanStarted: false,
+          stopAttachedWhenDone: false,
         })
-        if (started) vmConsumerStarted = true
       }
       if (keptVm && !vmConsumerStarted) await releaseKeptVmBestEffort(keptVm)
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
