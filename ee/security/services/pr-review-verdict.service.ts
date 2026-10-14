@@ -303,7 +303,10 @@ export const prReviewVerdictService = {
    * Lumo's App — `standingLumoReview`; a human's review is never touched,
    * and nothing is approved). Returns how many were dismissed. A listing
    * error or a rate limit throws (the caller decides); any other failed
-   * dismissal is logged and the rest still go.
+   * dismissal is logged and the rest still go — and if one of those failed
+   * transiently (`isTransientGithubFailure`), that error is thrown once the
+   * rest are done, so the caller's retry re-lists and dismisses what is still
+   * standing (an already-dismissed review is no longer CHANGES_REQUESTED).
    */
   async withdrawChangeRequests(input: {
     repo: Repo
@@ -314,6 +317,7 @@ export const prReviewVerdictService = {
       await prCommentClient.listReviews(input)
     )
     let dismissed = 0
+    let transient: unknown = null
     for (const reviewId of changesRequestedIds) {
       try {
         await prCommentClient.dismissReview({
@@ -326,11 +330,14 @@ export const prReviewVerdictService = {
         dismissed++
       } catch (error) {
         if (isRateLimited(error)) throw error
+        if (transient === null && isTransientGithubFailure(error))
+          transient = error
         logger.warn(
           `[pr-review-verdict] withdraw failed pr=#${input.prNumber} review=${reviewId}: ${describeGithubFailure(error)}`
         )
       }
     }
+    if (transient !== null) throw transient
     return dismissed
   },
 }

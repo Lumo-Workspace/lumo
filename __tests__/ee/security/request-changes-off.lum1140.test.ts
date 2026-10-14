@@ -449,6 +449,21 @@ describe('LUM-1140 regression: a transient GitHub failure does not leave the cha
     expect(noSleep).not.toHaveBeenCalled()
   })
 
+  it('a transient failure of the dismissal itself is retried too', async () => {
+    dismissReview
+      .mockReset()
+      .mockRejectedValueOnce(new GithubApiError(502, null))
+      .mockResolvedValue(undefined)
+    const r = await requestChangesOffService.withdrawAcrossWorkspace(
+      'ws_a',
+      Date.now,
+      noSleep
+    )
+    expect(r).toEqual({ checked: 1, dismissed: 1, stopped: null })
+    expect(dismissReview).toHaveBeenCalledTimes(2)
+    expect(listReviews).toHaveBeenCalledTimes(2)
+  })
+
   it('the lazy path retries a 5xx listing too', async () => {
     listReviews
       .mockRejectedValueOnce(new GithubApiError(502, null))
