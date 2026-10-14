@@ -151,6 +151,16 @@ test('LUM-1137 fix: a reservation the budget refuses does not consume an hourly-
   expect(release).not.toHaveBeenCalled()
 })
 
+test('LUM-1137 fix: a failed release of an over-cap head still reports rate-limited', async () => {
+  for (let i = 0; i < AUTO_REVIEW_HOURLY_CAP.max; i++)
+    await autoReviewAdmissionService.admit({ ...pr, id: `p${i}` }, `h${i}`)
+  release.mockRejectedValueOnce(new Error('db down'))
+  expect(await autoReviewAdmissionService.admit(pr, 'over')).toEqual({
+    allowed: false,
+    rateLimited: true,
+  })
+})
+
 test('retrying an admitted head never counts against the hourly cap', async () => {
   get.mockResolvedValue({
     ...fresh,

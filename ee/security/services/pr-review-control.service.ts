@@ -34,7 +34,9 @@ export const prReviewControlService = {
       throw Object.assign(new Error('PR must be open'), { status: 409 })
     if (action === 'pause' || action === 'resume') {
       // LUM-1137: resume baselines the budget at the PR's current commit
-      // count, so the next push is charged only for the commits it adds.
+      // count, so the next push is charged only for the commits it adds. A
+      // stored head GitHub has moved past reads as unknown: no baseline, and
+      // the next head counts one commit.
       const commitsAtResume =
         action === 'resume' && pr.headSha
           ? await prCommitCountBestEffort(

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { createSlidingWindowRateLimiter } from '@/lib/services/sliding-window-rate-limit'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
@@ -68,7 +69,15 @@ export const autoReviewAdmissionService = {
     if (reserved) {
       const key = `${pr.workspaceId}:${pr.authorLogin.toLowerCase()}`
       if (!(await limiter.check(key))) {
-        await prReviewControlRepository.release(pr.id, head)
+        // Best effort: a failed release leaves one commit reserved (the
+        // pre-fix behavior); the head is still rate-limited, not reviewed.
+        try {
+          await prReviewControlRepository.release(pr.id, head)
+        } catch (error) {
+          logger.warn(
+            `[auto-review-admission] release of rate-limited head failed ${pr.repo}#${pr.number}: ${error instanceof Error ? error.message : error}`
+          )
+        }
         return { allowed: false, rateLimited: true }
       }
     }

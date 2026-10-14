@@ -3,9 +3,10 @@
  * `auto_incremental_review` + `auto_pause_after_reviewed_commits`: every push
  * is reviewed until N commits have been reviewed (default 5; 0 = never
  * pause). A head is reserved once; its retries cost nothing. Failed attempts
- * keep their reservation; a superseded head is released (the next head's
- * commits then include its commits). Resume resets the budget. Manual
- * reviews neither consume nor reset it.
+ * keep their reservation; a superseded head is released (a later next head
+ * then counts its commits; if it was the first review, the next head becomes
+ * the first and counts one). Resume resets the budget to a baseline at the
+ * PR's current commit count. Manual reviews neither consume nor reset it.
  *
  * "Reviewed commits" are the commits each admitted head added to the PR:
  * the first automatic review counts one commit (not every commit already on
