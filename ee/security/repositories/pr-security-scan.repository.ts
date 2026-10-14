@@ -366,6 +366,8 @@ export interface ScanForReview {
     repo: string
     headSha?: string | null
     number: number
+    /** "open" | "closed" | "merged" (optional: older fixtures omit it). */
+    state?: string
     workspaceId: string
     task: { number: number; team: { identifier: string } } | null
     /** `securityPolicy` is the raw Json column — parse with `parseSecurityPolicy`. */
@@ -1676,6 +1678,8 @@ export const prSecurityScanRepository = {
             repo: true,
             headSha: true,
             number: true,
+            // LUM-1140: the off-mode withdrawal only touches an open PR.
+            state: true,
             workspaceId: true,
             task: {
               select: { number: true, team: { select: { identifier: true } } },
@@ -2179,6 +2183,45 @@ export const prSecurityScanRepository = {
     if (!pr) return false
     const others = await prisma.pullRequest.count({
       where: { repo: pr.repo, number: pr.number, id: { not: pullRequestId } },
+    })
+    return others > 0
+  },
+
+  /**
+   * LUM-1140 — this workspace's open PRs, most recently updated first, at
+   * most `limit` (the bulk withdrawal after the request-changes workflow is
+   * turned off; a PR past the cap is caught at its next review).
+   */
+  async findOpenPullRequestsOfWorkspace(
+    workspaceId: string,
+    limit: number
+  ): Promise<Array<{ id: string; repo: string; number: number }>> {
+    return prisma.pullRequest.findMany({
+      where: { workspaceId, state: 'open' },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      select: { id: true, repo: true, number: true },
+    })
+  },
+
+  /**
+   * LUM-1140 — whether another workspace that holds this PR (same repository
+   * and number, LUM-924) has the request-changes workflow on: Lumo's App
+   * reviews as one bot for every workspace sharing the installation, so a
+   * standing "changes requested" may be that workspace's to keep.
+   */
+  async isRequestChangesOnElsewhere(pr: {
+    id: string
+    repo: string
+    number: number
+  }): Promise<boolean> {
+    const others = await prisma.pullRequest.count({
+      where: {
+        repo: pr.repo,
+        number: pr.number,
+        id: { not: pr.id },
+        workspace: { securityRequestChangesEnabled: true },
+      },
     })
     return others > 0
   },

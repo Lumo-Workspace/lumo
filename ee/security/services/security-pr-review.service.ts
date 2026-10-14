@@ -96,6 +96,7 @@ import {
   type ThreadSyncContext,
 } from '@/ee/security/services/pr-finding-thread.service'
 import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
+import { requestChangesOffService } from '@/ee/security/services/request-changes-off.service'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -1296,6 +1297,19 @@ export const securityPrReviewService = {
               !postedNow.has(f.fingerprint)
           ).length,
         })
+      } else if (pr.state === 'open') {
+        // LUM-1140: the mode is off — a "changes requested" Lumo left while
+        // it was on (one the bulk pass on turning it off missed) is
+        // dismissed here. Never approves; never throws.
+        await requestChangesOffService.withdrawOnPullRequest(
+          {
+            id: pr.id,
+            workspaceId: pr.workspaceId,
+            repo: pr.repo,
+            number: pr.number,
+          },
+          token
+        )
       }
     } catch (error) {
       logger.warn(`[security-pr-review] ${where}: ${describe(error)}`)
