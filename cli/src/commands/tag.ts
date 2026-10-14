@@ -1,5 +1,9 @@
+import { emptyState } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
+import { colorEnabled, style } from '../lib/ui'
+import { successLine } from '../lib/feedback'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 /** LUM-821: workspace tags — list with usage counts, create with a color. */
 
@@ -11,26 +15,27 @@ export interface TagRow {
   documentCount: number
 }
 
-/** `name  #color  N tasks  M docs`, padded like the other list commands. */
-export function formatTagList(tags: TagRow[]): string {
-  if (tags.length === 0) return 'No tags.'
-  const rows = tags.map(t => ({
-    name: sanitizeField(t.name),
-    color: t.color ?? '-',
-    tasks: `${t.taskCount} ${t.taskCount === 1 ? 'task' : 'tasks'}`,
-    docs: `${t.documentCount} ${t.documentCount === 1 ? 'doc' : 'docs'}`,
-  }))
-  const w = {
-    name: Math.max(...rows.map(r => r.name.length)),
-    color: Math.max(...rows.map(r => r.color.length)),
-    tasks: Math.max(...rows.map(r => r.tasks.length)),
-  }
-  return rows
-    .map(
-      r =>
-        `${r.name.padEnd(w.name)}  ${r.color.padEnd(w.color)}  ${r.tasks.padEnd(w.tasks)}  ${r.docs}`
-    )
-    .join('\n')
+/**
+ * `name  #color  N tasks  M docs`, aligned by display width via the shared
+ * list table (LUM-1086 / LUM-1089: header on a TTY only). Usage counts are
+ * dimmed on a colour TTY only; names are sanitized before any styling.
+ */
+export function formatTagList(
+  tags: TagRow[],
+  opts: ListRenderOptions = {}
+): string {
+  if (tags.length === 0) return emptyState('tags')
+  const color = opts.color ?? colorEnabled()
+  const plural = (n: number, one: string) => `${n} ${n === 1 ? one : one + 's'}`
+  return renderListTable(
+    tags.map(t => [
+      sanitizeField(t.name),
+      t.color ?? '-',
+      style.dim(plural(t.taskCount, 'task'), color),
+      style.dim(plural(t.documentCount, 'doc'), color),
+    ]),
+    { header: ['NAME', 'COLOR', 'TASKS', 'DOCS'], flex: 0, ...opts, color }
+  )
 }
 
 /** `lumo tag list [--json]` */
@@ -81,7 +86,18 @@ export async function tagCreate(
     'tag create'
   )
   if (!r.ok || !r.data) return 1
-  process.stdout.write(
-    `Created tag "${sanitizeField(r.data.tag.name)}"  (${r.data.tag.id})\n`
-  )
+  process.stdout.write(formatCreatedTagLine(r.data.tag) + '\n')
+}
+
+/** LUM-1092: `Created tag "<name>"  <id>` (was `(<id>)`). */
+export function formatCreatedTagLine(tag: {
+  id: string
+  name: string
+}): string {
+  return successLine({
+    verb: 'Created',
+    kind: 'tag',
+    title: tag.name,
+    id: tag.id,
+  })
 }

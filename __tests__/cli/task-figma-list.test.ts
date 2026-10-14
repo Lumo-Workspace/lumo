@@ -31,7 +31,7 @@ function row(
     frameName: 'Welcome',
     thumbnailUrl: 'https://thumb.example/a.png',
     thumbnailFetchedAt: new Date().toISOString(),
-    lastSyncedAt: '2026-05-28T00:00:00Z',
+    lastSyncedAt: '2026-05-28T12:00:00Z',
     lastSyncError: null,
     createdAt: '2026-05-20T00:00:00Z',
     ...o,
@@ -43,7 +43,7 @@ describe('taskFigmaList', () => {
     mockList.mockResolvedValue({ links: [] })
     const exit = await taskFigmaList({ identifier: 'LUM-42' })
     expect(exit).toBe(0)
-    expect(logSpy).toHaveBeenCalledWith('No Figma links attached.')
+    expect(logSpy).toHaveBeenCalledWith('No Figma links on LUM-42.')
   })
 
   it('renders each link as a fixed-width row with frame name', async () => {

@@ -7,6 +7,7 @@ import {
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { emitConfirmation, type ConfirmFlags } from '../lib/confirmation'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface DocRebuildSourceOptions extends ConfirmFlags {
   allowShrink?: boolean
@@ -50,7 +51,7 @@ export async function docRebuildSource(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -107,9 +108,7 @@ export async function docRebuildSource(
       )
       return 1
     }
-    console.error(
-      `Error: ${res.status} ${res.statusText}: ${sanitizeField(message)}`
-    )
+    console.error(errHttp('doc rebuild-source', res.status, message))
     return 1
   }
 

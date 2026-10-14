@@ -175,7 +175,7 @@ describe('lumo task wrapup (LUM-841)', () => {
     // PR scan state
     expect(out).toContain('PR #77 · scan CLEAN')
     // crossings
-    expect(out).toContain('cx-1  [MEDIUM] TEST_FILE_DELETED (blocks DONE)')
+    expect(out).toContain('  • cx-1 [MEDIUM] TEST_FILE_DELETED (blocks DONE)')
     // DONE readiness + envelope preview: PR merge state and worktree cleanup
     expect(out).toContain('Readiness: BLOCKED')
     expect(out).toContain('#77  merged ')
@@ -207,16 +207,20 @@ describe('lumo task wrapup (LUM-841)', () => {
     )
     expect(out).toContain('2 undispositioned: 1 blocking DONE, 1 advisory')
     // everything the user needs to rule on the blocking row
-    expect(out).toContain('detail: deleted __tests__/old.test.ts')
-    expect(out).toContain('seen ×2 while open')
+    expect(out).toMatch(/^ {4}Detail: +deleted __tests__\/old\.test\.ts$/m)
+    expect(out).toMatch(/^ {4}Seen: +×2 while open$/m)
     expect(out).toContain('irreversible category')
-    expect(out).toContain('agent explanations (1, self-report · unverified):')
-    expect(out).toContain('- the helper it covered was removed')
+    expect(out).toMatch(
+      /^ {4}Explanations: +1 — agent self-report, unverified$/m
+    )
+    expect(out).toContain('    - the helper it covered was removed')
     // the advisory row says so, and is covered by the batch commands
     expect(out).toContain(
-      'cx-2  [LOW] PROJECT_RULE_VIOLATION (advisory — does not block DONE)'
+      '  • cx-2 [LOW] PROJECT_RULE_VIOLATION (advisory — does not block DONE)'
     )
-    expect(out).toContain('Web panel: https://api.lumo.test/workspace/lumo')
+    expect(out).toContain(
+      '  Web panel:\n    https://api.lumo.test/workspace/lumo'
+    )
   })
 
   test('wrapup offers one batch disposition command per ruling for several crossings (LUM-845)', () => {
@@ -256,8 +260,13 @@ describe('lumo task wrapup (LUM-841)', () => {
         },
       })
     )
+    // LUM-1091: each ruling command on a line of its own
     expect(out).toContain(
-      'lumo crossing disposition cx-1 --false-positive --task LUM-9001  |  lumo crossing disposition cx-1 --confirmed --task LUM-9001'
+      [
+        '    The user rules — one of:',
+        '      lumo crossing disposition cx-1 --false-positive --task LUM-9001',
+        '      lumo crossing disposition cx-1 --confirmed --task LUM-9001',
+      ].join('\n')
     )
   })
 
@@ -345,8 +354,8 @@ describe('lumo task wrapup (LUM-841)', () => {
       expect(out).toContain('Readiness: BLOCKED')
       expect(out).not.toMatch(CONFIRM_FLAG)
 
-      // once nothing is left, the only --confirm is the DONE confirmCommand,
-      // printed as the user's approval
+      // LUM-1106: once nothing is left and every linked PR is merged, DONE
+      // is one step — the plain command, no --confirm anywhere
       stdout = []
       route({
         '/boundary-crossings': jsonResponse(200, {
@@ -356,11 +365,40 @@ describe('lumo task wrapup (LUM-841)', () => {
       })
       await taskWrapup('LUM-9001')
       const ready = stdout.join('')
-      expect(ready).toContain('Readiness: READY')
-      const confirms = ready.split('\n').filter(l => CONFIRM_FLAG.test(l))
+      expect(ready).toContain('Readiness: READY — one step')
+      expect(ready).not.toMatch(CONFIRM_FLAG)
+      // LUM-1091: the command alone on its line, right under the instruction
+      expect(ready).toContain(
+        '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:\n    lumo task update LUM-9001 --status done\n'
+      )
+
+      // no linked PR: READY, but the DONE envelope still applies — the only
+      // --confirm is its confirmCommand, printed as the user's approval
+      stdout = []
+      route({
+        '/boundary-crossings': jsonResponse(200, {
+          gateEnabled: true,
+          crossings: [],
+        }),
+        '/by-identifier/': jsonResponse(200, {
+          task: {
+            identifier: 'LUM-9001',
+            title: 'Wrap me up',
+            status: 'IN_REVIEW',
+            pullRequests: [],
+          },
+        }),
+      })
+      await taskWrapup('LUM-9001')
+      const noPr = stdout.join('')
+      expect(noPr).toContain('Readiness: READY — relay the DONE envelope')
+      const confirms = noPr.split('\n').filter(l => CONFIRM_FLAG.test(l))
       expect(confirms).toEqual([
-        '  Show the user the lines above. Only after they approve, run: lumo task update LUM-9001 --status done --confirm',
+        '    lumo task update LUM-9001 --status done --confirm',
       ])
+      expect(noPr).toContain(
+        '  Show the user the lines above. Only after they approve, run:\n    lumo task update LUM-9001 --status done --confirm\n'
+      )
     })
 
     test('wrapup fails closed when a read fails', async () => {

@@ -4,42 +4,37 @@ import * as path from 'path'
 import { execSync } from 'child_process'
 import {
   CODEX_HOOK_EVENTS,
-  mergeLumoHooks,
+  type mergeLumoHooks,
   type MergeStats,
 } from '../lib/hooks-template'
 import { codexHooksPath, codexTrustInstructions } from '../lib/codex-hooks'
 import {
-  classifyCodexRules,
+  decideSkillInstall,
+  planGitHookInstall,
+  planHooksMerge,
+} from '../lib/install-plan'
+import { planInit, renderInitPlan, initApplyCommand } from '../lib/init-dry-run'
+import {
   codexRulesNote,
   codexRulesPath,
   installCodexRules,
 } from '../lib/codex-rules'
 import { formatNextSteps, type NextStep } from '../lib/next-steps'
-import {
-  mergeGitHook,
-  resolveHookInstall,
-  HOOK_SCRIPT_BLOCK,
-  LUMO_HOOK_BEGIN,
-} from '../lib/git-hook-template'
+import { HOOK_SCRIPT_BLOCK } from '../lib/git-hook-template'
 import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
 import { bundledSkillDir, copySkillTree, listFiles } from '../lib/codex-plugin'
-import { hashSkillDir, MARKER_FILE } from '../lib/skill-hash'
+import { hashSkillDir } from '../lib/skill-hash'
 import {
   GIT_HOOK_AGENT,
   readMarker,
-  readRegistry,
   upsertInstall,
   writeMarker,
   type InstallRecord,
 } from '../lib/install-registry'
-import {
-  classifySkillDir,
-  isNewerVersion,
-  isPathGitTracked,
-} from '../lib/install-state'
+import { isPathGitTracked } from '../lib/install-state'
 import {
   describeAutoUpdate,
   getAutoUpdateStatus,
@@ -48,12 +43,6 @@ import {
   type SpawnSyncFn,
 } from '../lib/auto-update'
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
-import { gitCapture, resolveGitHooksDir } from '../lib/git-hooks-dir'
-import {
-  detectInstalledSkills,
-  isLumoSkillSource,
-  repoRoot,
-} from '../lib/install-locations'
 
 type InitOptions = {
   user?: boolean
@@ -61,6 +50,7 @@ type InitOptions = {
   force?: boolean
   agent?: string
   upgrade?: boolean
+  dryRun?: boolean
 }
 
 /** Test seams: everything defaults to the real environment. */
@@ -90,6 +80,10 @@ export type SkillInstallContext = {
 }
 
 type Scope = 'user' | 'project'
+
+/** LUM-1118: `lumo init --upgrade` is gone; re-running init refreshes an install. */
+export const UPGRADE_REMOVED =
+  '`lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--user` / `--project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
 
 /**
  * Validate the `--agent` flag and canonicalize it to the CLI token baked into
@@ -140,13 +134,8 @@ export async function init(
   options: InitOptions,
   deps: InitDeps = {}
 ): Promise<number> {
-  if (
-    options.upgrade &&
-    (options.user || options.project || options.force || options.agent)
-  ) {
-    process.stderr.write(
-      'Error: --upgrade cannot be combined with --user, --project, --force or --agent.\n'
-    )
+  if (options.upgrade) {
+    process.stderr.write(`Error: ${UPGRADE_REMOVED}\n`)
     return 1
   }
   if (options.user && options.project) {
@@ -174,14 +163,30 @@ export async function init(
   const cwd = deps.cwd ?? process.cwd()
   const bundled = deps.bundledSkillDir ?? bundledSkillDir()
 
-  if (options.upgrade) {
-    return upgradeInstalls({ cliVersion, homeDir, cwd, bundled })
-  }
-
   const scope = await resolveScope(options, tokens)
   if (!scope) return 130
 
   const root = scope === 'user' ? homeDir : cwd
+  if (options.dryRun) {
+    const items = planInit({
+      scope,
+      tokens,
+      root,
+      homeDir,
+      bundled,
+      cliVersion,
+      force: options.force === true,
+    })
+    process.stdout.write(
+      renderInitPlan(items, {
+        cliVersion,
+        home: homeDir,
+        scope,
+        applyCommand: initApplyCommand(scope, options),
+      })
+    )
+    return items.some(i => i.action === 'error') ? 1 : 0
+  }
   const configRoots = tokens.flatMap(t =>
     t === 'codex'
       ? [path.join(root, '.agents'), path.join(root, '.codex')]
@@ -275,8 +280,20 @@ function installCodex(
   force: boolean
 ): void {
   const hooksPath = codexHooksPath(root)
-  mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS)
+  const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS)
   recordInstall('codex-hooks', hooksPath, scope, 'codex', cliVersion)
+  // LUM-1112: rewriting a file that already held Lumo entries makes Codex ask
+  // for trust again — name the entries it will ask about. A file without
+  // Lumo entries (new, or only the user's hooks) needs a first trust instead.
+  const hadLumo = stats.alreadyPresent.length + stats.updatedEvents.length > 0
+  const changed = [
+    ...stats.addedEvents.map(e => `${e} (added)`),
+    ...stats.updatedEvents.map(e => `${e} (updated)`),
+  ]
+  if (hadLumo && changed.length > 0)
+    process.stdout.write(
+      `  Codex will ask to trust them again — re-trust in Codex /hooks. Events to trust again: ${changed.join(', ')}\n`
+    )
 
   const rulesPath = codexRulesPath(root)
   const tracked = fs.existsSync(rulesPath) && isPathGitTracked(rulesPath)
@@ -342,20 +359,6 @@ async function resolveScope(
   if (answer === '' || answer === 'p' || answer === 'project') return 'project'
   process.stderr.write(`Unrecognized choice "${answer}". Aborting.\n`)
   return null
-}
-
-function filesEqual(src: string, dst: string): boolean {
-  if (!fs.existsSync(dst)) return false
-  if (fs.statSync(src).size !== fs.statSync(dst).size) return false
-  return fs.readFileSync(src).equals(fs.readFileSync(dst))
-}
-
-/** Whether `dir` holds exactly `relFiles` (ignoring the Lumo marker). */
-function sameFileSet(dir: string, relFiles: readonly string[]): boolean {
-  const have = listFiles(dir).filter(f => f !== MARKER_FILE)
-  return (
-    have.length === relFiles.length && have.every((f, i) => f === relFiles[i])
-  )
 }
 
 function isInstalledResult(r: SkillInstallResult): boolean {
@@ -427,59 +430,40 @@ export function installSkill(
     )
   }
 
-  // The Lumo repo's own .claude/skills/lumo is the skill source: never write it.
-  if (isLumoSkillSource(skillDir)) {
-    process.stdout.write(
-      `ℹ ${skillDir} is the Lumo skill source (not an install) — left untouched.\n`
-    )
-    return 'skipped-source'
-  }
-
   const relFiles = listFiles(skillSrcDir)
-  const cls = classifySkillDir(skillDir)
-  let result: SkillInstallResult = 'installed'
-
-  // No-downgrade has no --force exception: a managed copy newer than this CLI
-  // is never touched.
-  const installed = cls.state === 'managed' ? (cls.version ?? '0.0.0') : null
-  if (installed !== null && isNewerVersion(ctx.cliVersion, installed)) {
-    process.stdout.write(
-      `⚠ your CLI (${ctx.cliVersion}) is older than the installed skill (${installed}) — run lumo update\n`
-    )
-    return 'skipped-newer'
-  }
-
-  if (cls.state !== 'missing' && !force) {
-    const allMatch = relFiles.every(rel =>
-      filesEqual(path.join(skillSrcDir, rel), path.join(skillDir, rel))
-    )
-    // A modified copy is only adopted when it IS the bundle: same file set and
-    // bytes. Bundled files + an extra user file must stay `modified`, or the
-    // marker would make that user file Lumo-managed (and later deletable).
-    const identical = allMatch && sameFileSet(skillDir, relFiles)
-    const upToDate =
-      cls.state === 'managed'
-        ? allMatch || !isNewerVersion(installed!, ctx.cliVersion)
-        : identical
-    if (upToDate) {
-      if (!readMarker(skillDir) || cls.state === 'modified') {
+  const decision = decideSkillInstall(
+    skillSrcDir,
+    skillDir,
+    force,
+    ctx.cliVersion
+  )
+  switch (decision.kind) {
+    case 'skipped-source':
+      // The Lumo repo's own .claude/skills/lumo is the skill source: never write it.
+      process.stdout.write(
+        `ℹ ${skillDir} is the Lumo skill source (not an install) — left untouched.\n`
+      )
+      return 'skipped-source'
+    case 'skipped-newer':
+      // No-downgrade has no --force exception.
+      process.stdout.write(
+        `⚠ your CLI (${ctx.cliVersion}) is older than the installed skill (${decision.installed}) — run lumo update\n`
+      )
+      return 'skipped-newer'
+    case 'up-to-date':
+      if (decision.adoptVersion !== null) {
         // Adopt a legacy copy: explicit command, so a tracked dir may get the marker.
-        writeSkillMarker(skillDir, ctx, allMatch ? ctx.cliVersion : installed!)
-        if (cls.gitTracked) process.stdout.write(gitDiffNote(skillDir))
+        writeSkillMarker(skillDir, ctx, decision.adoptVersion)
+        if (decision.gitTracked) process.stdout.write(gitDiffNote(skillDir))
       }
       process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
       return 'up-to-date'
-    }
-    if (cls.state === 'modified') {
+    case 'skipped-modified':
       process.stdout.write(
         `⚠ ${skillDir} exists and differs from the bundled version (modified locally).\n` +
           `  Skipped. Re-run with --force to overwrite.\n`
       )
       return 'skipped-modified'
-    }
-    result = 'upgraded'
-  } else if (cls.state !== 'missing') {
-    result = 'upgraded'
   }
 
   // Fresh install, upgrade, or --force: the whole skills/lumo/ dir is
@@ -490,8 +474,8 @@ export function installSkill(
   process.stdout.write(
     `✓ wrote skill (${relFiles.length} files): ${skillDir}\n`
   )
-  if (cls.gitTracked) process.stdout.write(gitDiffNote(skillDir))
-  return result
+  if (decision.gitTracked) process.stdout.write(gitDiffNote(skillDir))
+  return decision.result
 }
 
 function writeSkillMarker(
@@ -508,220 +492,6 @@ function writeSkillMarker(
 }
 
 /**
- * `lumo init --upgrade`: upgrade every known install (registry records plus
- * detected locations) that is managed and older; re-merge hooks for recorded
- * claude-settings. Modified or newer copies are skipped with a message.
- */
-async function upgradeInstalls(args: {
-  cliVersion: string
-  homeDir: string
-  cwd: string
-  bundled: string
-}): Promise<number> {
-  const { cliVersion, homeDir, cwd, bundled } = args
-  const reg = readRegistry()
-  const targets = new Map<
-    string,
-    { path: string; scope: Scope; agent: string }
-  >()
-  for (const r of reg.installs) {
-    if (r.kind === 'skill') {
-      targets.set(r.path, { path: r.path, scope: r.scope, agent: r.agent })
-    }
-  }
-  for (const l of detectInstalledSkills({ homeDir, cwd })) {
-    if (!targets.has(l.path)) targets.set(l.path, l)
-  }
-
-  process.stdout.write('\nUpgrading Lumo installs\n\n')
-  let found = 0
-  let failures = 0
-  const fail = (target: string, err: unknown): void => {
-    failures++
-    const msg = err instanceof Error ? err.message : String(err)
-    process.stderr.write(`✗ ${target}: ${msg}\n`)
-  }
-  for (const t of targets.values()) {
-    if (!fs.existsSync(t.path)) continue
-    found++
-    try {
-      const res = installSkill(bundled, t.path, false, {
-        cliVersion,
-        agent: t.agent,
-      })
-      if (isInstalledResult(res))
-        recordSkill(t.path, t.scope, t.agent, cliVersion)
-    } catch (err) {
-      fail(t.path, err)
-    }
-  }
-  for (const r of reg.installs) {
-    if (r.kind !== 'claude-settings' || !fs.existsSync(r.path)) continue
-    found++
-    try {
-      mergeHooksFile(r.path, r.agent)
-      recordInstall('claude-settings', r.path, r.scope, r.agent, cliVersion)
-    } catch (err) {
-      fail(r.path, err)
-    }
-  }
-  for (const t of codexHookTargets(reg.installs, homeDir, cwd)) {
-    found++
-    try {
-      upgradeCodexHooksFile(t.path)
-      recordInstall('codex-hooks', t.path, t.scope, 'codex', cliVersion)
-    } catch (err) {
-      fail(t.path, err)
-    }
-  }
-  for (const r of reg.installs) {
-    if (r.kind !== 'codex-rules' || !fs.existsSync(r.path)) continue
-    found++
-    try {
-      if (upgradeCodexRulesFile(r.path) !== 'foreign')
-        recordInstall('codex-rules', r.path, r.scope, 'codex', cliVersion)
-    } catch (err) {
-      fail(r.path, err)
-    }
-  }
-  const hookTargets = new Map<string, { scope: Scope }>()
-  for (const r of reg.installs) {
-    if (r.kind === 'git-hook') hookTargets.set(r.path, { scope: r.scope })
-  }
-  const root = repoRoot(cwd)
-  if (root) {
-    // A core.hooksPath hook is user-managed (husky etc.): never rewritten here.
-    const { dir, coreHooksPath } = resolveGitHooksDir(root)
-    if (dir && !coreHooksPath) {
-      const p = path.join(dir, 'prepare-commit-msg')
-      if (!hookTargets.has(p)) hookTargets.set(p, { scope: 'project' })
-    }
-  }
-  for (const [hookPath, t] of hookTargets) {
-    try {
-      const res = refreshGitHookFile(hookPath)
-      if (res === 'absent') continue
-      found++
-      if (res === 'updated')
-        process.stdout.write(`✓ updated prepare-commit-msg hook: ${hookPath}\n`)
-      recordInstall('git-hook', hookPath, t.scope, GIT_HOOK_AGENT, cliVersion)
-    } catch (err) {
-      fail(hookPath, err)
-    }
-  }
-  if (found === 0) {
-    process.stdout.write(
-      'No Lumo installs found. Run `lumo init` to install.\n'
-    )
-  }
-  return failures > 0 ? 1 : 0
-}
-
-/**
- * Bring the Lumo block of an existing prepare-commit-msg up to date. Only
- * files that already carry the Lumo markers are touched, and only when the
- * block differs; foreign hook content is preserved by mergeGitHook.
- */
-export function refreshGitHookFile(
-  hookPath: string
-): 'updated' | 'unchanged' | 'absent' {
-  if (!fs.existsSync(hookPath)) return 'absent'
-  const existing = fs.readFileSync(hookPath, 'utf8')
-  if (!existing.includes(LUMO_HOOK_BEGIN)) return 'absent'
-  const { content, status } = mergeGitHook(existing)
-  if (status === 'unchanged') return 'unchanged'
-  fs.writeFileSync(hookPath, content)
-  fs.chmodSync(hookPath, 0o755)
-  return 'updated'
-}
-
-/**
- * Codex hooks files `init --upgrade` refreshes: registry records plus the
- * standard user (`~/.codex/hooks.json`) and repo (`<repo>/.codex/hooks.json`)
- * locations when they already carry `lumo hook … --agent codex` entries.
- */
-function codexHookTargets(
-  installs: readonly InstallRecord[],
-  homeDir: string,
-  cwd: string
-): Array<{ path: string; scope: Scope }> {
-  const targets = new Map<string, Scope>()
-  for (const r of installs) {
-    if (r.kind === 'codex-hooks') targets.set(r.path, r.scope)
-  }
-  const standard: Array<[string, Scope]> = [[codexHooksPath(homeDir), 'user']]
-  const root = repoRoot(cwd)
-  if (root) standard.push([codexHooksPath(root), 'project'])
-  for (const [p, scope] of standard) {
-    if (!targets.has(p) && hasLumoCodexHooks(p)) targets.set(p, scope)
-  }
-  return [...targets]
-    .filter(([p]) => fs.existsSync(p))
-    .map(([p, scope]) => ({ path: p, scope }))
-}
-
-function hasLumoCodexHooks(file: string): boolean {
-  try {
-    return fs.readFileSync(file, 'utf8').includes('--agent codex')
-  } catch {
-    return false
-  }
-}
-
-/**
- * `init --upgrade` for a Codex hooks file. Codex asks for trust again after
- * any entry changes, so the file is rewritten only when the Lumo event set
- * differs (an event added or an entry rewritten) — and then the user is told
- * to re-trust. Auto-sync never calls this.
- */
-export function upgradeCodexHooksFile(
-  hooksPath: string
-): 'updated' | 'unchanged' {
-  const tracked = fs.existsSync(hooksPath) && isPathGitTracked(hooksPath)
-  const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS, {
-    quiet: true,
-  })
-  if (stats.addedEvents.length + stats.updatedEvents.length === 0) {
-    process.stdout.write(`✓ Codex hooks already up to date: ${hooksPath}\n`)
-    return 'unchanged'
-  }
-  process.stdout.write(
-    `✓ updated Codex hooks: ${hooksPath} (added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}) — re-trust in Codex /hooks\n` +
-      `${codexTrustInstructions(hooksPath)}\n`
-  )
-  if (tracked) process.stdout.write(gitDiffNote(hooksPath))
-  return 'updated'
-}
-
-/**
- * `init --upgrade` for a recorded Codex rules file: rewritten only when it
- * still carries the Lumo marker and differs; a file the user took over (no
- * marker) is left alone.
- */
-export function upgradeCodexRulesFile(
-  rulesPath: string
-): 'updated' | 'unchanged' | 'foreign' {
-  const state = classifyCodexRules(rulesPath)
-  if (state === 'foreign' || state === 'missing') {
-    process.stdout.write(
-      `- ${rulesPath} is no longer Lumo's Codex rule — left as is\n`
-    )
-    return 'foreign'
-  }
-  if (state === 'current') {
-    process.stdout.write(`✓ Codex rule already in place: ${rulesPath}\n`)
-    return 'unchanged'
-  }
-  const tracked = isPathGitTracked(rulesPath)
-  installCodexRules(rulesPath)
-  process.stdout.write(
-    `✓ updated Codex rule: ${rulesPath} — restart Codex to load it\n`
-  )
-  if (tracked) process.stdout.write(gitDiffNote(rulesPath))
-  return 'updated'
-}
-
-/**
  * Merge the Lumo hook entries into a hooks file — Claude Code's
  * `settings.json`, or Codex's `hooks.json` (LUM-1051) — keeping every other
  * key and non-Lumo hook as is. An existing file is rewritten only when a Lumo
@@ -734,30 +504,12 @@ export function mergeHooksFile(
   events?: Parameters<typeof mergeLumoHooks>[2],
   opts: { quiet?: boolean } = {}
 ): { path: string; stats: MergeStats } {
-  let existing: unknown = {}
-  const exists = fs.existsSync(settingsPath)
-
-  if (exists) {
-    try {
-      existing = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(
-        `Cannot parse existing ${settingsPath}: ${msg}. Fix the JSON and re-run.`
-      )
-    }
-  } else {
-    fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
-  }
-
-  const { merged, stats } = mergeLumoHooks(
-    existing as Parameters<typeof mergeLumoHooks>[0],
-    agentToken,
-    events
-  )
+  const plan = planHooksMerge(settingsPath, agentToken, events)
+  const { exists, merged, stats } = plan
   const changed = stats.addedEvents.length + stats.updatedEvents.length
   const tracked = exists && isPathGitTracked(settingsPath)
-  if (!exists || changed > 0) {
+  if (plan.writes) {
+    if (!exists) fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
     fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n')
   }
   if (opts.quiet) return { path: settingsPath, stats }
@@ -777,42 +529,31 @@ export function mergeHooksFile(
 
 /** Returns the hook file path when Lumo's block is in place, else null. */
 export function installGitHook(projectRoot: string): string | null {
-  if (
-    gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true'
-  ) {
-    process.stdout.write(
-      '⚠ Not a git repository (or git unavailable) — skipped prepare-commit-msg hook.\n'
-    )
-    return null
+  const plan = planGitHookInstall(projectRoot)
+  switch (plan.status) {
+    case 'not-repo':
+      process.stdout.write(
+        '⚠ Not a git repository (or git unavailable) — skipped prepare-commit-msg hook.\n'
+      )
+      return null
+    case 'degrade':
+      printGitHookManualInstructions(plan.coreHooksPath)
+      return null
+    case 'no-dir':
+      process.stdout.write(
+        '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'
+      )
+      return null
+    case 'unchanged':
+      process.stdout.write(
+        `✓ prepare-commit-msg hook already up to date: ${plan.hookPath}\n`
+      )
+      return plan.hookPath
   }
 
-  const { dir: absHooksDir, coreHooksPath } = resolveGitHooksDir(projectRoot)
-  if (resolveHookInstall(coreHooksPath).mode === 'degrade') {
-    printGitHookManualInstructions(coreHooksPath!)
-    return null
-  }
-  if (!absHooksDir) {
-    process.stdout.write(
-      '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'
-    )
-    return null
-  }
-  const hookPath = path.join(absHooksDir, 'prepare-commit-msg')
-
-  const existing = fs.existsSync(hookPath)
-    ? fs.readFileSync(hookPath, 'utf8')
-    : null
-  const { content, status } = mergeGitHook(existing)
-
-  if (status === 'unchanged') {
-    process.stdout.write(
-      `✓ prepare-commit-msg hook already up to date: ${hookPath}\n`
-    )
-    return hookPath
-  }
-
+  const { hookPath, content, status } = plan
   try {
-    fs.mkdirSync(absHooksDir, { recursive: true })
+    fs.mkdirSync(path.dirname(hookPath), { recursive: true })
     fs.writeFileSync(hookPath, content)
     fs.chmodSync(hookPath, 0o755)
   } catch (err) {

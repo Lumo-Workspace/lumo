@@ -19,6 +19,7 @@ import {
   addedLinesFromDiff,
 } from '@/lib/integrations/github/contents'
 import { matchDiffRegex } from './predicate-eval'
+import { neutralizeMovedLines } from './moved-lines'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { isReversible } from '@/lib/services/boundary-detector.service'
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
@@ -72,11 +73,15 @@ export const codePipelineService = {
     const codeRules = policy.rules.filter(r => r.kind === 'code')
     if (codeRules.length === 0) return { deterministic: 0, advisory: 0 }
 
-    const diff = await fetchPrDiff({
-      workspaceId: input.workspaceId,
-      fullName: input.fullName,
-      prNumber: input.prNumber,
-    })
+    // LUM-1114: lines the PR only moves are context, not additions — both the
+    // diff-regex pass and the judge below read this diff.
+    const diff = neutralizeMovedLines(
+      await fetchPrDiff({
+        workspaceId: input.workspaceId,
+        fullName: input.fullName,
+        prNumber: input.prNumber,
+      })
+    )
 
     const perFile = addedLinesFromDiff(diff)
     const allAdded = perFile.flatMap(f => f.addedLines)

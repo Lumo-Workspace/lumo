@@ -8,14 +8,14 @@ import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { sendChannelNotification } from '@/lib/integrations/slack'
 import { pushTaskEvent } from '@/lib/integrations/pusher'
-import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
+import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 import { taskRepository } from '@/lib/repositories'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
+import { htmlToQuote } from '@/lib/utils/htmlToPreview'
 import { githubCommentProvenance } from '@/lib/context/reviewer-trust'
 
 /** Threads with at most this many comments are rendered inline (full text),
@@ -174,27 +174,31 @@ export const commentService = {
     if (members.length === 0) return
 
     const mentionPayload = {
-      taskId,
-      taskTitle,
-      commentBody: htmlToPreview(body),
-      taskUrl: buildTaskUrl(
+      entityKind: 'task' as const,
+      entityId: taskId,
+      entityTitle: taskTitle,
+      entityIdentifier: buildTaskIdentifier(teamIdentifier, taskNumber),
+      entityUrl: buildTaskUrl(
         workspaceSlug,
         projectName,
         teamIdentifier,
         taskNumber
       ),
+      mentionSurface: 'comment' as const,
     }
 
     // Channel notification stays here (project-level, comment-only — not gated
-    // by personal preference). Fire regardless of per-user delta.
+    // by personal preference). Fire regardless of per-user delta. It names
+    // who was mentioned as plain text — nobody is <@…>-pinged (LUM-1095).
     waitUntil(
       sendChannelNotification(
         workspaceId,
         'comment_mention',
         {
           ...mentionPayload,
-          taskId,
-          taskIdentifier: `${teamIdentifier}-${taskNumber}`,
+          actorClerkId: authorClerkId,
+          mentionedClerkIds: members.map(m => m.clerkId),
+          quote: htmlToQuote(body),
         },
         projectId
       )

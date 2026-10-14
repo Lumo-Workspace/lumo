@@ -9,6 +9,7 @@ import {
   slugify,
 } from './worktree'
 import { readWorktreeConfig, WORKTREE_CONFIG_PATH } from './worktree-config'
+import { warn } from './errors'
 
 /** First few words of a task title as a branch/dir slug. */
 export function slugFromTitle(title: string, maxWords = 4): string {
@@ -81,7 +82,7 @@ export function attachWorktreeStep(args: {
 
     const { config, problems } = readWorktreeConfig(mainRoot)
     for (const p of problems) {
-      console.error(`Warning: ${WORKTREE_CONFIG_PATH}: ${p}`)
+      console.error(warn(`${WORKTREE_CONFIG_PATH}: ${p}`))
     }
     const wantCreate = args.create ?? config.autoWorktree ?? false
     if (!wantCreate) {
@@ -104,7 +105,9 @@ export function attachWorktreeStep(args: {
     })
     if (!result.ok) {
       console.error(
-        `Warning: could not create a worktree (${result.error}); attach itself succeeded — run \`lumo worktree add ${args.taskId}\` to retry`
+        warn(
+          `could not create a worktree (${result.error}); attach itself succeeded — run \`lumo worktree add ${args.taskId}\` to retry`
+        )
       )
       return
     }
@@ -113,6 +116,6 @@ export function attachWorktreeStep(args: {
     console.log(`  cd ${result.dir}`)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Warning: worktree step skipped (${msg})`)
+    console.error(warn(`worktree step skipped (${msg})`))
   }
 }

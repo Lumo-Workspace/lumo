@@ -32,7 +32,11 @@ export interface AuthUser {
   emailAddresses: AuthEmailAddress[]
 }
 
-/** Filters for a batch user lookup. `limit` is a page-size cap (max 500). */
+/**
+ * Filters for a batch user lookup. `limit` is a page-size cap (max 500).
+ * Clerk accepts at most 100 `userId`s per call: look users up by id through
+ * `listUsersByIds` (`@/lib/auth/user-batch`), which pages them (LUM-1105).
+ */
 export interface UserListQuery {
   userId?: string[]
   emailAddress?: string[]

@@ -9,20 +9,32 @@ import {
   secretDowngradeNote,
 } from '../../../shared/src/security-scan'
 import {
-  formatHuntCoverageLine,
   formatSizeCapLines,
   formatScanStatus,
   formatTurnedOffLines,
   formatScanningOffLines,
-  formatScanLayerTail,
+  scanFields,
   type PrTooLargeLine,
 } from '../lib/scan-format'
 import {
   fetchOpenCrossings,
   dispositionUrl,
+  type OpenCrossing,
   type OpenCrossingsResult,
   type CrossingAttribution,
 } from '../lib/open-crossings'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  bulletLines,
+  commandLine,
+  fieldLines,
+  sectionHeading,
+  wrapLines,
+  type Field,
+  type LayoutOptions,
+} from '../lib/report-layout'
+import { colorEnabled, terminalWidth } from '../lib/ui'
+import { fmtTokens, formatDurationSec } from '../lib/format'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
@@ -45,6 +57,10 @@ export interface TaskStatusExtras {
   full?: boolean
   openCrossings?: OpenCrossingsResult
   dispositionUrl?: string
+  /** LUM-1091: report width (default 100) and styling (default off — the
+   *  command passes `colorEnabled()`, so a pure call stays plain text). */
+  width?: number | undefined
+  color?: boolean | undefined
 }
 
 /** One-line a possibly-multiline crossing detail and cap it so the safety block
@@ -263,19 +279,30 @@ export function splitNextActions(actions: NextActionItem[]): {
   return { security, testCase, testCaseVerdict }
 }
 
-/** One advisory line + the command that clears it (LUM-807). */
+/**
+ * One advisory item + the command that clears it (LUM-807). LUM-1091: the
+ * item wraps at the report width and ends in `— run:`; the command follows
+ * alone on its own line.
+ */
 export function pushTestCaseActions(
   lines: string[],
-  actions: TestCaseAction[]
+  actions: TestCaseAction[],
+  opts: LayoutOptions = {}
 ): void {
   for (const a of actions) {
     // LUM-819: an unknown advisory kind may lack either field — never print
     // "undefined"; fall back to its kind.
     const statement =
       typeof a.statement === 'string' ? a.statement : String(a.kind)
-    lines.push(`  • [TEST CASE] ${sanitizeField(statement)} (advisory)`)
-    if (typeof a.command === 'string')
-      lines.push(`    run: ${sanitizeField(a.command)}`)
+    const hasCommand = typeof a.command === 'string'
+    lines.push(
+      ...bulletLines(
+        `[TEST CASE] ${sanitizeField(statement)} (advisory)${hasCommand ? ' — run:' : ''}`,
+        2,
+        opts
+      )
+    )
+    if (hasCommand) lines.push(commandLine(sanitizeField(a.command), 4))
   }
 }
 
@@ -302,60 +329,84 @@ const CEILING_REASON_LABEL: Record<
   'no-evidence': 'no evidence attached',
 }
 
-/** 一条判决层 advisory 渲染成一行。导出给测试用。 */
-export function formatTestCaseVerdictAction(a: TestCaseVerdictAction): string {
+/** The text of one verdict advisory, without its bullet. */
+export function testCaseVerdictText(a: TestCaseVerdictAction): string {
   const why =
     a.signal === 'UNPROVEN_PASS' && a.ceilingReason
       ? ` (${CEILING_REASON_LABEL[a.ceilingReason]})`
       : ''
-  return `  • [TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (advisory)`
+  return `[TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (advisory)`
+}
+
+/** 一条判决层 advisory 渲染成一行。导出给测试用。 */
+export function formatTestCaseVerdictAction(a: TestCaseVerdictAction): string {
+  return `  • ${testCaseVerdictText(a)}`
 }
 
 export function pushTestCaseVerdictActions(
   lines: string[],
-  actions: TestCaseVerdictAction[]
+  actions: TestCaseVerdictAction[],
+  opts: LayoutOptions = {}
 ): void {
-  for (const a of actions) lines.push(formatTestCaseVerdictAction(a))
+  for (const a of actions)
+    lines.push(...bulletLines(testCaseVerdictText(a), 2, opts))
 }
 
-/** Same line grammar as the session-start / PreToolUse reminders. */
-function formatSecurityAction(a: SecurityAction): string {
+/**
+ * One security next-action as an item (LUM-1091): the title on the bullet
+ * line, then labelled rows — rule + provenance, where (file:line, PR), and
+ * whether it blocks DONE. Same facts, in the same words, as the one-line
+ * grammar it replaces.
+ */
+function securityActionLines(a: SecurityAction, opts: LayoutOptions): string[] {
   const where = a.line == null ? a.filePath : `${a.filePath}:${a.line}`
   const title = sanitizeField(a.statement.split(' — ').slice(1).join(' — '))
-  const tag = a.blocking ? 'blocks DONE' : 'advisory'
+  const gate = a.blocking ? 'blocks DONE' : 'advisory'
   // LUM-758 follow-up: a downgraded row is still reported on purpose, so the
-  // line has to say WHY it is LOW — otherwise a placeholder the scanner already
+  // row has to say WHY it is LOW — otherwise a placeholder the scanner already
   // recognised reads as an unexplained credential.
   const note = sanitizeField(secretDowngradeNote(a.secretDowngrade))
-  return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag}${note})`
+  // LUM-988: an AI-review correctness finding (`review:<kind>`) is tagged
+  // `[BUG]` — same scan, same disposition flow, not a security finding.
+  const tag = isCodeReviewFinding(a.ruleId) ? 'BUG' : 'SECURITY'
+  const rule = sanitizeField(a.ruleId)
+  return [
+    ...bulletLines(`[${tag}] [${a.severity}] ${title || rule}`, 2, opts),
+    ...fieldLines(
+      [
+        { label: 'Rule', value: `${rule} (${a.provenance})` },
+        {
+          label: 'Where',
+          value: `${sanitizeField(where)} · PR #${a.prNumber}`,
+        },
+        { label: 'Gate', value: `${gate}${note}` },
+      ],
+      4,
+      opts
+    ),
+  ]
 }
 
 export const SECURITY_HINT =
   'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
 
-/**
- * Render the `[SECURITY]` next-action lines (LUM-737). LUM-988: an AI-review
- * correctness finding (`review:<kind>`) is tagged `[BUG]` — it rides the same
- * scan and the same disposition flow, but it is not a security finding.
- */
+/** Render the `[SECURITY]` / `[BUG]` next-action items (LUM-737, LUM-988). */
 export function pushSecurityActions(
   lines: string[],
-  securityActions: SecurityAction[]
+  securityActions: SecurityAction[],
+  opts: LayoutOptions = {}
 ): void {
-  for (const a of securityActions) {
-    const tag = isCodeReviewFinding(a.ruleId) ? 'BUG' : 'SECURITY'
-    lines.push(`  • [${tag}] ${formatSecurityAction(a)}`)
-  }
+  for (const a of securityActions) lines.push(...securityActionLines(a, opts))
 }
 
-/** `Next actions (2 security findings):`, or split when bugs are present (LUM-988). */
+/** `Next actions (2 security findings)`, or split when bugs are present (LUM-988). */
 export function securityActionsHeading(
   securityActions: SecurityAction[]
 ): string {
   const ruleIds = securityActions.map(a => a.ruleId)
   if (!ruleIds.some(isCodeReviewFinding))
-    return `Next actions (${ruleIds.length} security finding${ruleIds.length === 1 ? '' : 's'}):`
-  return `Next actions (${findingCountPhrase(ruleIds)}):`
+    return `Next actions (${ruleIds.length} security finding${ruleIds.length === 1 ? '' : 's'})`
+  return `Next actions (${findingCountPhrase(ruleIds)})`
 }
 
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
@@ -364,60 +415,77 @@ type ScanSummary = NonNullable<
   NonNullable<TaskStatusResponse['securityFindings']>['scans']
 >[number]
 
-/** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
- *  Secrets: checked · Code scan: checked (2 external findings) · …` — the
- *  layer grammar lives in `cli/src/lib/scan-format.ts`, shared with
- *  `lumo pr scan` (LUM-788) so the two surfaces cannot drift.
- *  LUM-756 (P8): `error` has two writers — only the prefixed, scrubbed
- *  scanner reason may be printed, and only when the layer FAILED. */
-function formatScanSummaryLine(s: ScanSummary): string {
-  return (
-    `  PR #${s.prNumber} · scan ${formatScanStatus(s.status, s.stages, s.scanningOff === true, s.prTooLarge != null)}` +
-    formatScanLayerTail({
-      status: s.status,
-      stages: s.stages,
-      huntProgress: s.huntProgress,
-      partialCauses: s.partialCauses,
-      huntOverCap: s.huntOverCap,
-      judgeOverCap: s.judgeOverCap,
-      prTooLarge: s.prTooLarge,
-      partial: s.partial,
-      externalFindings: s.externalFindings,
-      dependencyFindings: s.dependencyFindings,
-      persistingFindings: s.persistingFindings,
-      queueExits: s.queueExits,
-      externalFailureReason:
-        s.stages.external === 'FAILED' ? externalFailureReason(s.error) : null,
-    })
+/**
+ * LUM-735 — one block per linked PR's latest scan: a `PR #945 · scan CLEAN`
+ * line, then one labelled row per layer (LUM-1091) — the layer grammar lives
+ * in `cli/src/lib/scan-format.ts`, shared with `lumo pr scan` (LUM-788) so
+ * the two surfaces cannot drift. LUM-756 (P8): `error` has two writers —
+ * only the prefixed, scrubbed scanner reason may be printed, and only when
+ * the layer FAILED.
+ */
+function scanSummaryLines(s: ScanSummary, opts: LayoutOptions): string[] {
+  const lines = [
+    `  PR #${s.prNumber} · scan ${formatScanStatus(s.status, s.stages, s.scanningOff === true, s.prTooLarge != null)}`,
+  ]
+  lines.push(
+    ...fieldLines(
+      scanFields(
+        {
+          status: s.status,
+          stages: s.stages,
+          huntProgress: s.huntProgress,
+          partialCauses: s.partialCauses,
+          huntOverCap: s.huntOverCap,
+          judgeOverCap: s.judgeOverCap,
+          prTooLarge: s.prTooLarge,
+          partial: s.partial,
+          externalFindings: s.externalFindings,
+          dependencyFindings: s.dependencyFindings,
+          persistingFindings: s.persistingFindings,
+          queueExits: s.queueExits,
+          externalFailureReason:
+            s.stages.external === 'FAILED'
+              ? externalFailureReason(s.error)
+              : null,
+        },
+        // LUM-762: absent/null = older server or no usable audit — silent.
+        { hunt: s.hunt ?? null }
+      ),
+      4,
+      opts
+    )
   )
+  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  // LUM-892: layers turned off in settings — the customer's choice.
+  // LUM-901: scanning itself is off — this scan is for an earlier commit.
+  for (const l of [
+    ...formatSizeCapLines(s),
+    ...formatTurnedOffLines(s.stages),
+    ...formatScanningOffLines(s.scanningOff),
+  ])
+    lines.push(...wrapLines(l, 4, opts))
+  return lines
 }
 
 export function pushSecurityCoverage(
   lines: string[],
-  data: TaskStatusResponse
+  data: TaskStatusResponse,
+  opts: LayoutOptions = {}
 ): void {
   if (data.securityFindings === undefined) return // older server
   if (data.securityFindings === null) {
     lines.push(
-      '⚠ Security-scan check failed — could not confirm whether any findings are undispositioned.'
+      ...wrapLines(
+        '⚠ Security-scan check failed — could not confirm whether any findings are undispositioned.',
+        2,
+        opts
+      )
     )
     return
   }
   // LUM-735: absent `scans` = older server; tolerate silently, no block.
-  for (const s of data.securityFindings.scans ?? []) {
-    lines.push(formatScanSummaryLine(s))
-    // LUM-832: the file cap, stated like CodeRabbit states its own.
-    for (const l of formatSizeCapLines(s)) lines.push(`    ${l}`)
-    // LUM-892: layers turned off in settings — the customer's choice.
-    for (const l of formatTurnedOffLines(s.stages)) lines.push(`    ${l}`)
-    // LUM-901: scanning itself is off — this scan is for an earlier commit.
-    for (const l of formatScanningOffLines(s.scanningOff))
-      lines.push(`    ${l}`)
-    // LUM-762: absent/null = older server or no usable audit — stay silent.
-    if (s.hunt && s.hunt.categories.length > 0) {
-      lines.push(`    ${formatHuntCoverageLine(s.hunt)}`)
-    }
-  }
+  for (const s of data.securityFindings.scans ?? [])
+    lines.push(...scanSummaryLines(s, opts))
   for (const u of data.securityFindings.unconfirmedPrs) {
     const why =
       u.reason === 'SCANNING_OFF'
@@ -429,21 +497,30 @@ export function pushSecurityCoverage(
             : u.reason === 'TOO_LARGE'
               ? 'the PR is too large to scan, so nothing in it was scanned (split it or narrow its scope to get it scanned)'
               : `security scan still ${u.reason}`
-    lines.push(`⚠ PR #${u.number}: ${why} — could not confirm it is clean.`)
+    lines.push(
+      ...wrapLines(
+        `⚠ PR #${u.number}: ${why} — could not confirm it is clean.`,
+        2,
+        opts
+      )
+    )
   }
 }
 
 /**
  * Render the task status as prose (v2, LUM-942): header, next actions
  * (undispositioned security findings first — the only ones that can hold
- * DONE — then the advisory test-case rows), the security-scan coverage
- * lines, and open boundary crossings. `--full` adds the dashboard sections
- * (cost, struggle/rework trail, trend).
+ * DONE — then the advisory test-case rows), the security-scan coverage, and
+ * open boundary crossings. `--full` adds the dashboard sections (cost,
+ * struggle/rework trail, trend). LUM-1091: every section is a heading over
+ * labelled rows, nested at most three levels deep; prose wraps at the report
+ * width and commands keep a line of their own.
  */
 export function formatTaskStatus(
   data: TaskStatusResponse,
   extras: TaskStatusExtras = {}
 ): string {
+  const opts: LayoutOptions = { width: extras.width, color: extras.color }
   const lines: string[] = []
   const t = data.task
   lines.push(`${t.identifier}  ${sanitizeField(t.title)}`)
@@ -456,79 +533,74 @@ export function formatTaskStatus(
   } = splitNextActions(data.nextActions)
 
   if (extras.full) {
-    pushCost(lines, data)
-    pushStruggleTrail(lines, data)
-    pushTrend(lines, data)
+    pushCost(lines, data, opts)
+    pushStruggleTrail(lines, data, opts)
+    pushTrend(lines, data, opts)
   }
 
-  lines.push('')
   if (securityActions.length > 0) {
-    lines.push(securityActionsHeading(securityActions))
-    pushSecurityActions(lines, securityActions)
-    lines.push(SECURITY_HINT)
+    lines.push(...sectionHeading(securityActionsHeading(securityActions), opts))
+    pushSecurityActions(lines, securityActions, opts)
+    lines.push(...wrapLines(SECURITY_HINT, 2, opts))
   } else if (
     testCaseActions.length === 0 &&
     testCaseVerdictActions.length === 0
   ) {
-    lines.push('Next actions: none on record.')
+    lines.push(...sectionHeading('Next actions', opts))
+    lines.push('  None on record.')
   } else {
-    lines.push('Next actions (advisory only):')
+    lines.push(...sectionHeading('Next actions (advisory only)', opts))
   }
   // LUM-807: advisory last — after everything that can actually hold DONE.
-  pushTestCaseActions(lines, testCaseActions)
+  pushTestCaseActions(lines, testCaseActions, opts)
   // LUM-808: 判决层 advisory 读的是用例最新一次跑出来的结论。
-  pushTestCaseVerdictActions(lines, testCaseVerdictActions)
-  pushSecurityCoverage(lines, data)
+  pushTestCaseVerdictActions(lines, testCaseVerdictActions, opts)
 
-  pushOpenCrossings(lines, extras)
+  const coverage: string[] = []
+  pushSecurityCoverage(coverage, data, opts)
+  if (coverage.length > 0) {
+    lines.push(...sectionHeading('Security scans', opts))
+    lines.push(...coverage)
+  }
+
+  pushOpenCrossings(lines, extras, opts)
   return lines.join('\n') + '\n'
-}
-
-/** Compact a token count for the terminal — 1_200_000 → "1.2M", 850_000 →
- *  "850K", 0 → "0". Uses the SAME Intl compact formatter the web card's
- *  fmtCompact uses (notation:'compact', maximumFractionDigits:1) so the same
- *  number reads identically in both surfaces — no presentation drift (LUM-560). */
-const TOKEN_FMT = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
-})
-function fmtTokens(n: number): string {
-  return TOKEN_FMT.format(n)
-}
-
-/** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s". 0 → "0s". */
-function fmtDuration(totalSec: number): string {
-  const sec = Math.max(0, Math.round(totalSec))
-  if (sec === 0) return '0s'
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  const parts: string[] = []
-  if (h > 0) parts.push(`${h}h`)
-  if (m > 0) parts.push(`${m}m`)
-  // Show seconds only when the duration is under an hour (keeps long runs tidy).
-  if (s > 0 && h === 0) parts.push(`${s}s`)
-  return parts.join(' ')
 }
 
 /**
  * Append the honest "Cost" section (LUM-560): token spend and active time,
  * read from the same loadActuals source as the web card (no drift). Token
- * cost is fail-closed: a null reads as an explicit "not recorded" line, never
+ * cost is fail-closed: a null reads as an explicit "not recorded" row, never
  * a silent or fake 0. Skipped only when the server didn't emit the field.
  */
-function pushCost(lines: string[], data: TaskStatusResponse): void {
+function pushCost(
+  lines: string[],
+  data: TaskStatusResponse,
+  opts: LayoutOptions
+): void {
   const cost = data.cost
   if (!cost) return // can't fabricate cost, so don't claim any.
 
-  lines.push('')
-  lines.push('Cost:')
+  lines.push(...sectionHeading('Cost', opts))
   lines.push(
-    cost.tokenCost == null
-      ? '  Tokens: not recorded (no session usage captured)'
-      : `  Tokens: ${fmtTokens(cost.tokenCost)}`
+    ...fieldLines(
+      [
+        {
+          label: 'Tokens',
+          value:
+            cost.tokenCost == null
+              ? 'not recorded (no session usage captured)'
+              : fmtTokens(cost.tokenCost),
+        },
+        {
+          label: 'Active time',
+          value: `${formatDurationSec(cost.activeTimeSec)} (non-idle)`,
+        },
+      ],
+      2,
+      opts
+    )
   )
-  lines.push(`  Active time: ${fmtDuration(cost.activeTimeSec)} (non-idle)`)
 }
 
 /**
@@ -537,12 +609,15 @@ function pushCost(lines: string[], data: TaskStatusResponse): void {
  * struggle. When the trail is genuinely empty the block states the basis for
  * that rather than leaving a bare clean slate.
  */
-function pushStruggleTrail(lines: string[], data: TaskStatusResponse): void {
+function pushStruggleTrail(
+  lines: string[],
+  data: TaskStatusResponse,
+  opts: LayoutOptions
+): void {
   const trail = data.struggleTrail
   if (!trail) return // can't fabricate, so don't claim "none".
 
-  lines.push('')
-  lines.push('Struggle / rework:')
+  lines.push(...sectionHeading('Struggle / rework', opts))
 
   // A single PR is the happy path; >1 PR is the iteration signal (LUM-557).
   // Reopens (a bounce after IN_REVIEW/DONE) always count.
@@ -554,24 +629,26 @@ function pushStruggleTrail(lines: string[], data: TaskStatusResponse): void {
     )
     return
   }
+  const fields: Field[] = []
   if (prIterated) {
     const PR_CAP = 12
     const nums = trail.pullRequests.map(p => `#${p.number}`)
     const shown = nums.slice(0, PR_CAP).join(', ')
     const overflow =
       nums.length > PR_CAP ? `, +${nums.length - PR_CAP} more` : ''
-    lines.push(
-      `  PR iterations: ${trail.pullRequests.length} PRs (${shown}${overflow})`
-    )
+    fields.push({
+      label: 'PR iterations',
+      value: `${trail.pullRequests.length} PRs (${shown}${overflow})`,
+    })
   }
   if (trail.reopens.length > 0) {
-    lines.push(
-      `  Reopened ${trail.reopens.length}× (bounced back after review/done):`
-    )
-    for (const r of trail.reopens) {
-      lines.push(`    • ${r.from} → ${r.to}`)
-    }
+    fields.push({
+      label: 'Reopened',
+      value: `${trail.reopens.length}× (bounced back after review/done)`,
+      sub: trail.reopens.map(r => `${r.from} → ${r.to}`),
+    })
   }
+  lines.push(...fieldLines(fields, 2, opts))
 }
 
 /** Direction glyph for a delta — ↑ up, ↓ down, → flat. */
@@ -586,42 +663,69 @@ function arrow(delta: number): string {
  * drawing a fake arrow. Per-session cost reuses the Cost section's source, so
  * the points sum to the Cost total.
  */
-function pushTrend(lines: string[], data: TaskStatusResponse): void {
+function pushTrend(
+  lines: string[],
+  data: TaskStatusResponse,
+  opts: LayoutOptions
+): void {
   const trend = data.trend
   if (!trend) return // no trend data — don't invent one.
 
   const cost = trend.cost
   const rw = trend.rework
+  const reworkShort = rw.total === 0 ? 'none' : String(rw.total)
 
-  lines.push('')
   if (cost.length === 0) {
-    lines.push('Trend:')
+    lines.push(...sectionHeading('Trend', opts))
     lines.push('  No measured cost yet — nothing to trend.')
-    lines.push(`  ${rw.total === 0 ? 'rework none' : `rework ${rw.total}`}`)
+    lines.push(
+      ...fieldLines([{ label: 'Rework', value: reworkShort }], 2, opts)
+    )
     return
   }
   if (cost.length === 1) {
-    lines.push('Trend:')
+    lines.push(...sectionHeading('Trend', opts))
     lines.push(
-      '  Single attempt so far — no trajectory yet (a trend needs ≥2 sessions).'
+      ...wrapLines(
+        'Single attempt so far — no trajectory yet (a trend needs ≥2 sessions).',
+        2,
+        opts
+      )
     )
     lines.push(
-      `  cost ${fmtTokens(cost[0]!.total)} tokens · ${rw.total === 0 ? 'rework none' : `rework ${rw.total}`}`
+      ...fieldLines(
+        [
+          { label: 'Cost', value: `${fmtTokens(cost[0]!.total)} tokens` },
+          { label: 'Rework', value: reworkShort },
+        ],
+        2,
+        opts
+      )
     )
     return
   }
 
-  lines.push(`Trend (${cost.length} sessions):`)
+  lines.push(...sectionHeading(`Trend (${cost.length} sessions)`, opts))
   const first = cost[0]!.total
   const last = cost[cost.length - 1]!.total
   const total = cost.reduce((a, c) => a + c.total, 0)
-  lines.push(
-    `  Cost/session: ${fmtTokens(first)} → ${fmtTokens(last)} tokens  (${arrow(last - first)}), ${fmtTokens(total)} total over ${cost.length} sessions`
-  )
+  const fields: Field[] = [
+    {
+      label: 'Cost/session',
+      value: `${fmtTokens(first)} → ${fmtTokens(last)} tokens (${arrow(last - first)})`,
+    },
+    {
+      label: 'Total',
+      value: `${fmtTokens(total)} tokens over ${cost.length} sessions`,
+    },
+  ]
 
   // Rework accrual — monotonic from a clean baseline of 0.
   if (rw.total === 0) {
-    lines.push('  Rework: none accrued (0) — clean across every attempt')
+    fields.push({
+      label: 'Rework',
+      value: 'none accrued (0) — clean across every attempt',
+    })
   } else {
     const parts: string[] = []
     if (rw.reopens > 0)
@@ -630,21 +734,37 @@ function pushTrend(lines: string[], data: TaskStatusResponse): void {
       parts.push(
         `+${rw.extraPrCycles} PR cycle${rw.extraPrCycles === 1 ? '' : 's'}`
       )
-    lines.push(
-      `  Rework: ${rw.total} accrued — ${parts.join(', ')}  (↑ from 0)`
-    )
+    fields.push({
+      label: 'Rework',
+      value: `${rw.total} accrued — ${parts.join(', ')} (↑ from 0)`,
+    })
   }
+  lines.push(...fieldLines(fields, 2, opts))
+}
+
+/** The gate wording of one open crossing — what the server DONE gate does with it. */
+export function crossingGate(c: OpenCrossing): string {
+  return c.blocking
+    ? 'blocks DONE'
+    : c.advisory
+      ? 'advisory — does not block DONE'
+      : 'below the workspace gate — does not block DONE'
 }
 
 /**
- * Append the OPEN boundary-crossings safety block (LUM-448) — a count, one line
- * per crossing with its severity + category + clipped detail, and a pointer to
- * the human-only web disposition panel. Trailing, and silent when there are
- * none.
- * Read-only awareness: the line points at the web UI; it offers no way to clear
- * a crossing from the terminal (LUM-426/435/422).
+ * Append the OPEN boundary-crossings safety block (LUM-448) — a count, one
+ * item per crossing (ref, severity, category, what the gate does with it)
+ * with its re-judge evidence, clipped detail and attribution as labelled
+ * rows, and a pointer to the disposition command and the human-only web
+ * panel. Trailing, and silent when there are none.
+ * Read-only awareness: it offers no way to clear a crossing from here
+ * (LUM-426/435/422).
  */
-function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
+function pushOpenCrossings(
+  lines: string[],
+  extras: TaskStatusExtras,
+  opts: LayoutOptions
+): void {
   const result = extras.openCrossings
   if (!result) return
   // LUM-480: a failed check is NOT "0 open / safe" — say so explicitly rather
@@ -652,7 +772,11 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
   if (result.status === 'error') {
     lines.push('')
     lines.push(
-      '⚠ Boundary-crossing check failed (network/server error) — could not confirm whether any are undispositioned.'
+      ...wrapLines(
+        '⚠ Boundary-crossing check failed (network/server error) — could not confirm whether any are undispositioned.',
+        0,
+        opts
+      )
     )
     return
   }
@@ -662,38 +786,49 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
   // rows (and, with the gate off, non-HIGH rows) are awareness, not blockers.
   const blocking = open.filter(c => c.blocking)
   const rest = open.filter(c => !c.blocking)
-  lines.push('')
   lines.push(
-    `⚠ Open boundary crossings (${open.length} undispositioned: ${blocking.length} blocking DONE, ${rest.length} advisory / non-blocking):`
+    ...sectionHeading(
+      `Open boundary crossings (${open.length} undispositioned: ${blocking.length} blocking DONE, ${rest.length} advisory / non-blocking)`,
+      opts
+    )
   )
   for (const c of open) {
-    const detail = oneLineDetail(c.detail)
-    const tail = detail ? ` — ${detail}` : ''
+    lines.push(
+      ...bulletLines(
+        `${sanitizeField(c.ref)} [${c.severity}] ${sanitizeField(c.category)} (${crossingGate(c)})`,
+        2,
+        opts
+      )
+    )
+    const fields: Field[] = []
     // LUM-780: an advisory row that a SYSTEM re-judge produced says why, so
     // "advisory" reads as a reasoned state rather than a silent downgrade.
-    const rejudged = c.rejudge
-      ? ` · re-judged: ${sanitizeField(c.rejudge)}`
-      : ''
-    const gate = c.blocking
-      ? ''
-      : c.advisory
-        ? ` (advisory — does not block DONE${rejudged})`
-        : ' (below the workspace gate — does not block DONE)'
-    lines.push(
-      `  ${c.blocking ? '•' : '◦'} [${c.severity}] ${sanitizeField(c.category)}${gate}${tail}`
-    )
-    lines.push(`    ${formatAttribution(c.attribution)}`)
+    if (!c.blocking && c.advisory && c.rejudge)
+      fields.push({ label: 'Re-judged', value: sanitizeField(c.rejudge) })
+    const detail = oneLineDetail(c.detail)
+    if (detail) fields.push({ label: 'Detail', value: detail })
+    fields.push({ label: 'By', value: formatAttribution(c.attribution) })
+    lines.push(...fieldLines(fields, 4, opts))
   }
   lines.push(
-    "  Disposition is the user's call: relay each crossing, then `lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope; never self-approve), or the web acceptance panel:"
+    ...wrapLines(
+      "Disposition is the user's call: relay each crossing, then run (exit-4 envelope; never self-approve):",
+      2,
+      opts
+    ),
+    commandLine(
+      'lumo crossing disposition <id> --false-positive | --confirmed',
+      4
+    )
   )
   if (extras.dispositionUrl) {
-    lines.push(`    ${extras.dispositionUrl}`)
+    lines.push('  Or the web acceptance panel:')
+    lines.push(commandLine(extras.dispositionUrl, 4))
   }
 }
 
 /**
- * Compact attribution line for an open crossing (LUM-469): which model + which
+ * Compact attribution for an open crossing (LUM-469): which model + which
  * agent/session committed it, so a reviewer can audit who/what crossed from the
  * terminal. Every dimension that the server couldn't resolve renders `unknown`
  * — never a fabricated value. The session UUID is clipped to a correlatable
@@ -706,7 +841,7 @@ function formatAttribution(a: CrossingAttribution): string {
       : a.agent
     : 'unknown'
   const session = a.sessionId ? a.sessionId.slice(0, 8) : 'unknown'
-  return `↳ by model=${a.model ?? 'unknown'} · agent=${agent} · session=${session}`
+  return `model=${a.model ?? 'unknown'} · agent=${agent} · session=${session}`
 }
 
 /**
@@ -722,7 +857,7 @@ export async function taskStatus(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
@@ -751,7 +886,7 @@ export async function taskStatus(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -761,7 +896,7 @@ export async function taskStatus(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: task status failed (HTTP ${res.status})`)
+    console.error(errHttp('task status', res.status))
     return 1
   }
 
@@ -797,6 +932,8 @@ export async function taskStatus(
         creds.workspaceSlug ?? 'lumo',
         data.task.identifier
       ),
+      width: terminalWidth(),
+      color: colorEnabled(),
     })
   )
 }

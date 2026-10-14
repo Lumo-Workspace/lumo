@@ -43,7 +43,8 @@ interface CoreWorkspaceSettingsInput {
   slug?: string | undefined
   summaryEnabled?: boolean | undefined
   summaryFrequency?: string | undefined
-  summaryLocale?: string | undefined
+  /** LUM-1097: one of SUPPORTED_LOCALES (validated at the API edge). */
+  defaultLocale?: string | undefined
   /** LUM-859: one of HOOK_EVENT_RETENTION_DAYS; null = keep forever. */
   hookEventRetentionDays?: HookEventRetentionDays | null | undefined
   /** LUM-933: session record mode; USED_UP clears hookEventRetentionDays. */
@@ -189,8 +190,8 @@ export const workspaceService = {
       data.summaryEnabled = input.summaryEnabled
     if (input.summaryFrequency !== undefined)
       data.summaryFrequency = input.summaryFrequency
-    if (input.summaryLocale !== undefined)
-      data.summaryLocale = input.summaryLocale
+    if (input.defaultLocale !== undefined)
+      data.defaultLocale = input.defaultLocale
     if (input.deadLetterRetentionDays !== undefined)
       data.deadLetterRetentionDays = input.deadLetterRetentionDays
     if (input.aiDerivedContentEnabled !== undefined)

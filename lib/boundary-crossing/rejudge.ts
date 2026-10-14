@@ -24,6 +24,7 @@
  *   - this module writes nothing. The plan is data; the script applies it,
  *     and only with `--apply`.
  */
+import { findRuleByRef } from '@/lib/policy/rule-ref'
 import type { PolicyRule } from '@/lib/policy/types'
 import {
   detectProjectActionCrossings,
@@ -92,11 +93,19 @@ export function rejudgeRow(
     { toolName: 'Bash', payload: { tool_input: { command } } },
     currentRules
   )
-  if (hits.some(h => h.policyRuleRef === row.policyRuleRef)) {
+  // LUM-1114: the row's rule may since have been merged into another one as
+  // an alias — it is still compiled, and that rule's hits are its hits.
+  const owner = findRuleByRef(currentRules, row.policyRuleRef)
+  if (
+    hits.some(
+      h =>
+        h.policyRuleRef === row.policyRuleRef ||
+        (owner != null && h.policyRuleRef === owner.id)
+    )
+  ) {
     return { row, verdict: 'STILL_MATCHES', command }
   }
-  const ruleStillCompiled = currentRules.some(r => r.id === row.policyRuleRef)
-  if (ruleStillCompiled) return { row, verdict: 'NO_LONGER_MATCHES', command }
+  if (owner) return { row, verdict: 'NO_LONGER_MATCHES', command }
   // The id is gone (reworded / removed). Any current deterministic hit on the
   // same command means a successor rule still forbids it — keep it open.
   return hits.length > 0

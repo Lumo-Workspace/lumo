@@ -49,20 +49,23 @@ function isStatusBody(body: unknown): body is TaskStatusResponse {
   )
 }
 
-/** Render the digest. Pure — both reads are already done. */
-export function formatStatusDigest(input: StatusDigestInput): string[] {
-  const head = `Status now (same read as \`lumo task status ${input.identifier}\`; no need to run it again):`
-  if (!input.status.ok) {
-    return [
-      head,
-      `  ⚠ Could not read the current status (${sanitizeField(input.status.reason)}) — nothing below is confirmed; run \`lumo task status ${input.identifier}\`.`,
-    ]
-  }
+/**
+ * What the digest's reads say about DONE (LUM-1106): what blocks it, and
+ * which reads could not be confirmed. Pure — both reads are already done.
+ * `statusOk: false` means the status read itself failed, so nothing at all
+ * is known.
+ */
+export interface DigestDoneVerdict {
+  statusOk: boolean
+  blocking: string[]
+  unconfirmed: string[]
+}
+
+export function assessDigest(input: StatusDigestInput): DigestDoneVerdict {
+  if (!input.status.ok)
+    return { statusOk: false, blocking: [], unconfirmed: ['task status'] }
   const data = input.status.value
   const split = splitNextActions(data.nextActions)
-  const lines = [head]
-
-  lines.push(`  ${data.task.identifier} ${data.task.status}`)
 
   // What blocks DONE — the same gates `task wrapup` counts.
   const blocking: string[] = []
@@ -90,7 +93,32 @@ export function formatStatusDigest(input: StatusDigestInput): string[] {
     a => a.signal === 'PROVEN_DEFECT'
   ).length
   if (defects > 0) blocking.push(plural(defects, 'proven test-case defect'))
+  return { statusOk: true, blocking, unconfirmed }
+}
 
+/**
+ * True only when every read succeeded and nothing blocks DONE — the exact
+ * condition under which the digest prints "Blocks DONE: nothing on record".
+ * Fail-closed: any failed read is false.
+ */
+export function digestClearsDone(v: DigestDoneVerdict): boolean {
+  return v.statusOk && v.blocking.length === 0 && v.unconfirmed.length === 0
+}
+
+/** Render the digest. Pure — both reads are already done. */
+export function formatStatusDigest(input: StatusDigestInput): string[] {
+  const head = `Status now (same read as \`lumo task status ${input.identifier}\`; no need to run it again):`
+  if (!input.status.ok) {
+    return [
+      head,
+      `  ⚠ Could not read the current status (${sanitizeField(input.status.reason)}) — nothing below is confirmed; run \`lumo task status ${input.identifier}\`.`,
+    ]
+  }
+  const { blocking, unconfirmed } = assessDigest(input)
+  const lines = [head]
+  lines.push(
+    `  ${input.status.value.task.identifier} ${input.status.value.task.status}`
+  )
   if (blocking.length > 0) lines.push(`  Blocks DONE: ${blocking.join(' · ')}`)
   if (unconfirmed.length > 0) {
     lines.push(
@@ -112,6 +140,19 @@ export async function fetchStatusDigest(
   token: string,
   identifier: string
 ): Promise<string[]> {
+  return (await readStatusDigest(base, token, identifier)).lines
+}
+
+/**
+ * LUM-1106: the digest's lines plus whether they clear DONE — one read, so
+ * the verdict a caller acts on is exactly what the printed lines say.
+ * Never throws.
+ */
+export async function readStatusDigest(
+  base: string,
+  token: string,
+  identifier: string
+): Promise<{ lines: string[]; clearsDone: boolean }> {
   const [status, crossings] = await Promise.all([
     readStatus(base, token, identifier),
     fetchOpenCrossings(base, token, identifier).catch(
@@ -121,7 +162,11 @@ export async function fetchStatusDigest(
       })
     ),
   ])
-  return formatStatusDigest({ identifier, status, crossings })
+  const input = { identifier, status, crossings }
+  return {
+    lines: formatStatusDigest(input),
+    clearsDone: digestClearsDone(assessDigest(input)),
+  }
 }
 
 async function readStatus(

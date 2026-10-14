@@ -59,7 +59,7 @@ let restoreEnv: () => void
 let sb: Sandbox
 const realFetch = global.fetch
 /** Background processes a test started; all stopped before the sandbox is deleted. */
-let children: ChildProcess[] = []
+const children: ChildProcess[] = []
 
 beforeAll(() => {
   restoreEnv = isolateGitEnv()
@@ -286,7 +286,7 @@ describe('DONE worktree cleanup (LUM-971)', () => {
     try {
       const r = await done()
       expect(r.out).not.toContain(`✓ Removed worktree ${dir}`)
-      expect(r.err).toContain(`Warning: worktree ${dir} is unregistered`)
+      expect(r.err).toContain(`⚠ worktree ${dir} is unregistered`)
       expect(r.err).toContain('Left behind: app/ (1 file)')
       if (lsofAvailable) {
         expect(r.err).toContain(`Still running inside it: pid ${sleeper.pid}`)

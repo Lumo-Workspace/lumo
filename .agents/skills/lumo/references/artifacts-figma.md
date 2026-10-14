@@ -32,7 +32,7 @@ Output: `Updated [plan] "Final spec" (OpenSpec) on LUM-42`. A 404 (task or artif
 
 #### `lumo task artifact list <task>`
 
-Lists artifacts on the task in order: `<id>  <kind>  <agent>  <source>  <title>`. Prints `No artifacts on <task>` when there are none.
+Lists artifacts on the task in order: `<id>  <kind>  <agent>  <source>  <title>`, columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id. Prints `No artifacts on <task>.` when there are none.
 
 ```bash
 lumo task artifact list LUM-42
@@ -86,10 +86,12 @@ without re-calling Figma.
 
 ```
 $ lumo task figma list LUM-42
-cfl_xxx1  Onboarding       Welcome screen       2026-05-28
-cfl_xxx2  Design System    Button / Primary     2026-05-27
-cfl_xxx3  Onboarding       (file-level)         2026-05-20  ⚠ thumbnail stale
+cfl_xxx1  Onboarding     Welcome screen    2026-05-28
+cfl_xxx2  Design System  Button / Primary  2026-05-27
+cfl_xxx3  Onboarding     (file-level)      2026-05-20  ⚠ thumbnail stale
 ```
+
+Columns are sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the frame name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id.
 
 `⚠ thumbnail stale` appears when `thumbnailFetchedAt > 25 days`.
 

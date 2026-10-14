@@ -47,7 +47,14 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      "PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: \u26a0 partly checked · part of this scan hasn't finished on our side — not counted as checked"
+      [
+        '  PR #12 · scan FINDINGS',
+        '    Secrets:        checked',
+        '    Code scan:      checked',
+        '    AI review:      checked',
+        '    Exploit paths:  ⚠ partly checked',
+        "    Note:           part of this scan hasn't finished on our side — not counted as checked",
+      ].join('\n')
     )
   })
 
@@ -66,9 +73,15 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      'PR #3 · scan CLEAN · Secrets: checked · Code scan: checked · AI review: checked'
+      [
+        '  PR #3 · scan CLEAN',
+        '    Secrets:    checked',
+        '    Code scan:  checked',
+        '    AI review:  checked',
+      ].join('\n')
     )
     expect(out).not.toContain('hunt')
+    expect(out).not.toContain('Exploit paths')
   })
 
   it('LUM-758 leads each coverage row with its task id so two tasks of the same category stay apart', () => {
@@ -111,8 +124,14 @@ describe('LUM-739 hunt stage', () => {
         },
       ])
     )
+    // LUM-1091: the coverage is a small table under the Exploit paths row
     expect(out).toContain(
-      'Exploit paths 2/2 done · t1 injection 41.2s done · t2 injection 12.0s done'
+      [
+        '    Exploit paths:  checked',
+        '      2/2 planned tasks done',
+        '      t1  injection  41.2s  done',
+        '      t2  injection  12.0s  done',
+      ].join('\n')
     )
   })
 
@@ -169,7 +188,14 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      'Exploit paths 2/6 done · idor 41.2s done · injection 72.0s done (2 attempts) · ssrf 120.0s timeout (2 attempts) · race skipped'
+      [
+        '    Exploit paths:  ⚠ partly checked',
+        '      2/6 planned tasks done',
+        '      idor        41.2s  done',
+        '      injection   72.0s  done (2 attempts)',
+        '      ssrf       120.0s  timeout (2 attempts)',
+        '      race               skipped',
+      ].join('\n')
     )
   })
 
@@ -188,8 +214,12 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      'PR #3 · scan CLEAN · Secrets: checked · Exploit paths: checked'
+      [
+        '  PR #3 · scan CLEAN',
+        '    Secrets:        checked',
+        '    Exploit paths:  checked',
+      ].join('\n')
     )
-    expect(out).not.toContain('done ·')
+    expect(out).not.toContain('planned tasks done')
   })
 })

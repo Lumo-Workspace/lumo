@@ -7,6 +7,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export type DeleteDocOptions = ConfirmFlags
 
@@ -35,7 +36,7 @@ export async function docDelete(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -53,9 +54,7 @@ export async function docDelete(
   const showRes = await fetch(`${base}/api/documents/${id}`, { headers })
   if (!showRes.ok) {
     const text = await showRes.text()
-    console.error(
-      `Error: ${showRes.status} ${showRes.statusText}: ${sanitizeField(text)}`
-    )
+    console.error(errHttp('doc lookup', showRes.status, text))
     return 1
   }
   const { document } = (await showRes.json()) as {
@@ -77,9 +76,7 @@ export async function docDelete(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(
-      `Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`
-    )
+    console.error(errHttp('doc delete', res.status, text))
     return 1
   }
   const escaped = sanitizeField(title).replace(/"/g, '\\"')

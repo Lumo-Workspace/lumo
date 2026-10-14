@@ -11,6 +11,7 @@ import {
   sendChannelNotification,
   sendDMNotification,
 } from '@/lib/integrations/slack'
+import type { NotificationPayload } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { WebhookTask } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
@@ -21,6 +22,7 @@ import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulne
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { emitCoreEvent } from '@/lib/plugins/events'
+import { shouldNotifySlackEvent } from '@/lib/services/notification.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,7 @@ type GitHubPR = {
   merged: boolean
   draft: boolean
   user: { login: string }
+  merged_by?: { login: string } | null
   // LUM-746: `sha` is on every pull_request payload; optional so a stripped
   // payload degrades to a head fetch on the request path.
   head: { ref: string; sha?: string }
@@ -64,6 +67,11 @@ type CheckSuitePayload = {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** "octocat (GitHub)" — a GitHub login shown as the actor of a PR event. */
+function githubActorName(login: string | undefined): string | undefined {
+  return login ? `${login} (GitHub)` : undefined
+}
 
 async function findTaskForBranch(
   headBranch: string,
@@ -205,11 +213,13 @@ export async function handlePullRequest(
       linkedTask.status === 'TODO' ||
       linkedTask.status === 'IN_PROGRESS'
     ) {
-      const prOpenedPayload = {
-        taskId: linkedTask.id,
-        taskTitle: linkedTask.title,
-        taskIdentifier,
-        taskUrl,
+      const prOpenedPayload: NotificationPayload = {
+        entityKind: 'task',
+        entityId: linkedTask.id,
+        entityTitle: linkedTask.title,
+        entityIdentifier: taskIdentifier,
+        entityUrl: taskUrl,
+        actorName: githubActorName(pr.user?.login),
         prNumber: pr.number,
         prTitle: pr.title,
         prUrl: pr.html_url,
@@ -228,23 +238,31 @@ export async function handlePullRequest(
       const ownerClerkId = ownerActorId
         ? await getActorClerkId(ownerActorId)
         : null
-      if (ownerClerkId) {
+      if (ownerActorId && ownerClerkId) {
+        // LUM-1101: personal DM honours the owner's Slack preference.
         waitUntil(
-          sendDMNotification(
-            workspaceId,
-            ownerClerkId,
-            'pr_opened',
-            prOpenedPayload
-          )
+          (async () => {
+            if (!(await shouldNotifySlackEvent(ownerActorId, 'pr_opened'))) {
+              return
+            }
+            await sendDMNotification(
+              workspaceId,
+              ownerClerkId,
+              'pr_opened',
+              prOpenedPayload
+            )
+          })()
         )
       }
     }
   } else if (action === 'closed' && pr.merged) {
-    const mergePayload = {
-      taskId: linkedTask.id,
-      taskTitle: linkedTask.title,
-      taskIdentifier,
-      taskUrl,
+    const mergePayload: NotificationPayload = {
+      entityKind: 'task',
+      entityId: linkedTask.id,
+      entityTitle: linkedTask.title,
+      entityIdentifier: taskIdentifier,
+      entityUrl: taskUrl,
+      actorName: githubActorName(pr.merged_by?.login),
       prNumber: pr.number,
       prTitle: pr.title,
       prUrl: pr.html_url,
@@ -257,16 +275,23 @@ export async function handlePullRequest(
         linkedTask.projectId
       )
     )
-    if (linkedTask.assigneeActorId) {
-      const assigneeClerkId = await getActorClerkId(linkedTask.assigneeActorId)
+    const assigneeActorId = linkedTask.assigneeActorId
+    if (assigneeActorId) {
+      const assigneeClerkId = await getActorClerkId(assigneeActorId)
       if (assigneeClerkId) {
+        // LUM-1101: personal DM honours the assignee's Slack preference.
         waitUntil(
-          sendDMNotification(
-            workspaceId,
-            assigneeClerkId,
-            'pr_merged',
-            mergePayload
-          )
+          (async () => {
+            if (!(await shouldNotifySlackEvent(assigneeActorId, 'pr_merged'))) {
+              return
+            }
+            await sendDMNotification(
+              workspaceId,
+              assigneeClerkId,
+              'pr_merged',
+              mergePayload
+            )
+          })()
         )
       }
     }

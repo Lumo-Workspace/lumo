@@ -37,7 +37,7 @@ export async function POST(_req: NextRequest) {
         const stats = await getWorkspaceStats(workspaceId)
         const { tldr, report } = await generateWorkspaceReport(stats, {
           workspaceName: wsResult.workspace.name,
-          locale: wsResult.workspace.summaryLocale ?? 'en',
+          locale: wsResult.workspace.defaultLocale ?? 'en',
         })
         const summary = await summaryService.createWorkspaceSummary(
           workspaceId,

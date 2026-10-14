@@ -33,6 +33,7 @@
  */
 import type { BoundaryCrossingSeverity } from '@prisma/client'
 import type { PolicyRule } from '@/lib/policy/types'
+import { findRuleByRef } from '@/lib/policy/rule-ref'
 import { ruleTextPresentIn } from './rejudge-cause'
 
 /** The deterministic+blocking rules of `prev` that `next` removed or
@@ -41,10 +42,10 @@ export function weakenedRules(
   prevRules: readonly PolicyRule[],
   nextRules: readonly PolicyRule[]
 ): PolicyRule[] {
-  const nextById = new Map(nextRules.map(r => [r.id, r]))
   return prevRules.filter(r => {
     if (!(r.tier === 'deterministic' && r.blocking)) return false
-    const next = nextById.get(r.id)
+    // LUM-1114: a rule merged into another as an alias is still compiled.
+    const next = findRuleByRef(nextRules, r.id)
     if (next == null) return true // removed
     return !(next.tier === 'deterministic' && next.blocking) // downgraded
   })

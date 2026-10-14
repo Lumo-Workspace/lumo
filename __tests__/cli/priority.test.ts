@@ -61,7 +61,9 @@ const view = (id: string, statement: string, effectiveFrom: string) => ({
 describe('lumo priority <text>', () => {
   it('POSTs the given text and confirms', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(201, { priority: view('p1', 'ship the MVP', '2026-01-01') })
+      jsonResponse(201, {
+        priority: view('p1', 'ship the MVP', '2026-01-01T12:00:00.000Z'),
+      })
     )
 
     await priority('ship the MVP')
@@ -83,7 +85,11 @@ describe('lumo priority <text>', () => {
     mockPrompt.mockResolvedValueOnce('focus on the converter')
     fetchMock.mockResolvedValueOnce(
       jsonResponse(201, {
-        priority: view('p1', 'focus on the converter', '2026-01-01'),
+        priority: view(
+          'p1',
+          'focus on the converter',
+          '2026-01-01T12:00:00.000Z'
+        ),
       })
     )
 
@@ -118,10 +124,10 @@ describe('lumo priority list', () => {
   it('GETs and prints the append history newest-first, marking current', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
-        current: view('p2', 'second', '2026-02-01'),
+        current: view('p2', 'second', '2026-02-01T12:00:00.000Z'),
         history: [
-          view('p2', 'second', '2026-02-01'),
-          view('p1', 'first', '2026-01-01'),
+          view('p2', 'second', '2026-02-01T12:00:00.000Z'),
+          view('p1', 'first', '2026-01-01T12:00:00.000Z'),
         ],
       })
     )
@@ -148,7 +154,10 @@ describe('lumo priority list', () => {
 describe('formatPriorityHistory', () => {
   it('marks the current row with * and others with a space', () => {
     const out = formatPriorityHistory(
-      [view('p2', 'newer', '2026-02-01'), view('p1', 'older', '2026-01-01')],
+      [
+        view('p2', 'newer', '2026-02-01T12:00:00.000Z'),
+        view('p1', 'older', '2026-01-01T12:00:00.000Z'),
+      ],
       'p2'
     )
     expect(out).toBe('* 2026-02-01  newer\n  2026-01-01  older\n')

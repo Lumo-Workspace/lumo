@@ -20,7 +20,8 @@ export interface WorkspaceUpdateData {
   logoUrl?: string | null
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency | string
-  summaryLocale?: string
+  /** LUM-1097: default language (Slack, DM fallback, LUM-1117 AI summaries). */
+  defaultLocale?: string
   /** LUM-859: raw hook-event retention in days; null = keep forever. */
   hookEventRetentionDays?: number | null
   /** LUM-933: session record mode (RETAIN | USED_UP). */
@@ -176,6 +177,15 @@ export const workspaceRepository = {
       select: { id: true, slug: true },
     })
     return new Map(rows.map(row => [row.id, row.slug]))
+  },
+
+  /** LUM-1097 — the workspace's default language; null when the workspace is gone. */
+  async findDefaultLocale(workspaceId: string): Promise<string | null> {
+    const row = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { defaultLocale: true },
+    })
+    return row?.defaultLocale ?? null
   },
 
   /** Find workspace name and slug by ID. */

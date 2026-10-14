@@ -38,7 +38,7 @@ const mustDeclareMessage = (identifier: string, title: string): string =>
  * name (the same form the web UI uses in URLs). When ref is omitted, picks
  * the single non-idea project, or throws with a candidate list.
  */
-async function resolveProjectId(
+export async function resolveProjectId(
   workspaceId: string,
   projectRef: string | undefined
 ): Promise<string> {

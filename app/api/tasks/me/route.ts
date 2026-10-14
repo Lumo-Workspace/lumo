@@ -4,6 +4,10 @@ import { getHumanActorId } from '@/lib/actor'
 import { taskRepository, viewRepository } from '@/lib/repositories'
 import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 import { liftTaskTags } from '@/lib/api/task-shape'
+import { zodError } from '@/lib/api/helpers'
+import { taskQueryService } from '@/lib/services/task-query.service'
+import { myTaskFiltersSchema } from '@/lib/validation/schemas'
+import { readPageParams } from '@/lib/validation/pagination'
 
 /**
  * GET /api/tasks/me
@@ -15,31 +19,70 @@ import { liftTaskTags } from '@/lib/api/task-shape'
  *
  * Query params:
  *   sprintIds — comma-separated sprint IDs to filter by (optional)
+ *
+ * LUM-1093 paged shape (`lumo task list`), only when `limit` or `cursor` is
+ * sent — the web board keeps the full list:
+ *   limit (1-500, default 50), cursor (a previous `nextCursor`),
+ *   statuses (comma-separated), milestoneIds (comma-separated),
+ *   projectName (exact, case-insensitive)
+ *   → adds `total` (whole filtered set) and `nextCursor` (null on the last page).
  */
+function parseList(
+  searchParams: URLSearchParams,
+  key: string
+): string[] | undefined {
+  const raw = searchParams.get(key)
+  if (!raw) return undefined
+  const arr = raw.split(',').filter(Boolean)
+  return arr.length ? arr : undefined
+}
+
 export async function GET(req: Request) {
   try {
     const identity = await requireIdentity(req)
     if (identity instanceof NextResponse) return identity
 
+    const { searchParams } = new URL(req.url)
+    const sprintIds = parseList(searchParams, 'sprintIds')
+    const paging = readPageParams(searchParams)
+    if (!paging.ok) return zodError(paging)
+
     const actorId = await getHumanActorId(identity.memberId)
     if (!actorId) {
-      return NextResponse.json({ tasks: [], myTasksViewId: null })
+      return NextResponse.json({
+        tasks: [],
+        myTasksViewId: null,
+        ...(paging.page ? { total: 0, nextCursor: null } : {}),
+      })
     }
-
-    const { searchParams } = new URL(req.url)
-    const sprintIdsParam = searchParams.get('sprintIds')
-    const sprintIds = sprintIdsParam
-      ? sprintIdsParam.split(',').filter(Boolean)
-      : undefined
     // LUM-646: `lumo next --claimable` asks for the extra F2 budget signal so
     // the autonomy gate can drop over-budget tasks. Only computed on request —
     // the default `lumo next` payload stays lean.
     const wantBudget = searchParams.get('claimable') === '1'
 
-    const tasks = await taskRepository.findAssignedTasks(
-      actorId,
-      sprintIds ? { sprintIds } : {}
-    )
+    let tasks: Awaited<ReturnType<typeof taskRepository.findAssignedTasks>>
+    let pageInfo: { total: number; nextCursor: string | null } | null = null
+    if (paging.page) {
+      const filters = myTaskFiltersSchema.safeParse({
+        statuses: parseList(searchParams, 'statuses'),
+        milestoneIds: parseList(searchParams, 'milestoneIds'),
+        projectName: searchParams.get('projectName') ?? undefined,
+      })
+      if (!filters.success) return zodError(filters)
+      const result = await taskQueryService.findAssignedPage(
+        identity.workspaceId,
+        actorId,
+        { ...filters.data, ...(sprintIds ? { sprintIds } : {}) },
+        paging.page
+      )
+      tasks = result.tasks
+      pageInfo = { total: result.total, nextCursor: result.nextCursor }
+    } else {
+      tasks = await taskRepository.findAssignedTasks(
+        actorId,
+        sprintIds ? { sprintIds } : {}
+      )
+    }
 
     // Lazy-create personal KANBAN view for this member
     const myView = await viewRepository.findOrCreateMemberKanban(
@@ -116,6 +159,7 @@ export async function GET(req: Request) {
         }
       }),
       myTasksViewId: myView.id,
+      ...(pageInfo ?? {}),
     })
   } catch (error) {
     console.error('GET /api/tasks/me error:', error)

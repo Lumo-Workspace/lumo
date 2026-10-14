@@ -8,6 +8,7 @@ import {
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn, httpFailed, warn } from '../lib/errors'
 
 export type Scope = 'PRIVATE' | 'WORKSPACE'
 
@@ -63,7 +64,7 @@ export async function docCreate(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -146,7 +147,7 @@ export async function docCreate(
 
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc create', res.status, text))
     return 1
   }
 
@@ -175,7 +176,9 @@ export async function docCreate(
     if (!bindRes.ok) {
       const text = await bindRes.text()
       console.error(
-        `Warning: doc created but bind to ${opts.task} failed: ${bindRes.status} ${text}`
+        warn(
+          `doc created but ${httpFailed(`bind to ${opts.task}`, bindRes.status, text)}`
+        )
       )
       return 1
     }

@@ -1,7 +1,9 @@
+import { fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 /**
  * LUM-643: milestone-level exit criteria — the close contract. Unlike task
@@ -35,7 +37,7 @@ export function formatExitCriteriaRows(criteria: ExitCriterionRow[]): string {
     )
     if (c.verdict) {
       const parts: string[] = []
-      if (c.verdictAt) parts.push(`at ${c.verdictAt.slice(0, 10)}`)
+      if (c.verdictAt) parts.push(`at ${fmtDay(c.verdictAt)}`)
       if (c.verdictEvidence)
         parts.push(`evidence: ${sanitizeField(c.verdictEvidence)}`)
       if (c.verdictNote) parts.push(`note: ${sanitizeField(c.verdictNote)}`)
@@ -56,7 +58,7 @@ export async function milestoneCriteriaList(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -86,16 +88,14 @@ export async function milestoneCriteriaList(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as {
       error?: string
     } | null
-    console.error(
-      `Error: exit-criteria list failed (HTTP ${res.status})${body?.error ? `: ${sanitizeField(body.error)}` : ''}`
-    )
+    console.error(errHttp('exit-criteria list', res.status, body?.error))
     return 1
   }
 

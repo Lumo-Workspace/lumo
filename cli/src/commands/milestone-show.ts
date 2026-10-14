@@ -1,14 +1,29 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
-import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { fmtCalendarDay, fmtDay, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  formatHealth,
+  milestoneState,
+  type MilestoneHealth,
+} from '../lib/milestone-labels'
+import { renderListTable } from '../lib/list-table'
+import {
+  fieldLines,
+  indentLines,
+  sectionHeading,
+  wrapLines,
+  type DetailOptions,
+  type Field,
+} from '../lib/report-layout'
+import { taskTableSection } from '../lib/detail-layout'
+import { colorEnabled, DEFAULT_TERMINAL_WIDTH, terminalWidth } from '../lib/ui'
 
 export interface ShowMilestoneOptions {
   project?: string
 }
-
-type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
 
 export interface MilestoneShowData {
   id: string
@@ -73,45 +88,38 @@ export interface MilestoneShowData {
     | undefined
 }
 
-const HEALTH_LABEL: Record<MilestoneHealth, string> = {
-  'on-track': 'ON-TRACK',
-  'at-risk': 'AT-RISK',
-  overdue: 'OVERDUE',
-}
-
-function fmtDate(iso: string | null): string {
-  return iso ? iso.slice(0, 10) : '-'
-}
-
-function fmtHealth(health: MilestoneHealth | null | undefined): string {
-  return health ? HEALTH_LABEL[health] : '-'
-}
-
 function sprintCoverageLines(
-  coverage: MilestoneShowData['sprintCoverage']
+  coverage: MilestoneShowData['sprintCoverage'],
+  opts: DetailOptions
 ): string[] {
   if (!coverage) return []
+  const lines = sectionHeading('Sprint coverage', opts)
   if (coverage.sprints.length === 0) {
-    return ['', 'Sprint coverage: (no sprint coverage)']
+    return [...lines, '  None — no task of this milestone is in a sprint.']
   }
-  const numW = Math.max(...coverage.sprints.map(s => `#${s.number}`.length))
-  const statusW = Math.max(...coverage.sprints.map(s => s.status.length))
-  const nameW = Math.max(
-    ...coverage.sprints.map(s => sanitizeField(s.name).length)
-  )
-  const rows = coverage.sprints.map(s => {
-    const num = `#${s.number}`.padEnd(numW)
-    const status = s.status.padEnd(statusW)
-    const name = sanitizeField(s.name).padEnd(nameW)
-    return `  ${num}  ${status}  ${name}   ${s.doneCount}/${s.taskCount} done`
-  })
+  const rows = coverage.sprints.map(s => [
+    `#${s.number}`,
+    s.status,
+    sanitizeField(s.name),
+    `${s.doneCount}/${s.taskCount} done`,
+  ])
   if (coverage.unsprinted > 0) {
-    const label = 'Unscheduled'.padEnd(numW + 2 + statusW + 2 + nameW)
-    rows.push(
-      `  ${label}   ${coverage.unsprinted} task${coverage.unsprinted === 1 ? '' : 's'}`
-    )
+    rows.push([
+      'Unscheduled',
+      '',
+      '',
+      `${coverage.unsprinted} task${coverage.unsprinted === 1 ? '' : 's'}`,
+    ])
   }
-  return ['', 'Sprint coverage:', ...rows]
+  // LUM-1090: the LUM-1089 table (header on a TTY only, name cut to fit).
+  const table = renderListTable(rows, {
+    header: ['SPRINT', 'STATUS', 'NAME', 'PROGRESS'],
+    flex: 2,
+    tty: opts.tty === true,
+    color: opts.color === true,
+    width: (opts.width ?? DEFAULT_TERMINAL_WIDTH) - 2,
+  })
+  return [...lines, ...indentLines(table, 2)]
 }
 
 /**
@@ -121,7 +129,8 @@ function sprintCoverageLines(
  * thin the rate reads `insufficient` rather than a fabricated percentage.
  */
 function crossMilestoneLearningLines(
-  learning: MilestoneShowData['crossMilestoneLearning']
+  learning: MilestoneShowData['crossMilestoneLearning'],
+  opts: DetailOptions
 ): string[] {
   if (!learning || learning.injected === 0) return []
   const { injected, judged, judgedUsed, sourceMilestones, rate } = learning
@@ -131,58 +140,99 @@ function crossMilestoneLearningLines(
       ? `insufficient (judged ${judged}, need ≥3)`
       : `${Math.round(rate * 100)}% (judged-used ${judgedUsed}/${judged})`
   return [
-    '',
-    'Cross-milestone learning:',
-    `  Injected: ${injected} prior learning${injected === 1 ? '' : 's'} (from ${srcLabel})`,
-    `  Usage rate: ${rateLabel}`,
+    ...sectionHeading('Cross-milestone learning', opts),
+    ...fieldLines(
+      [
+        {
+          label: 'Injected',
+          value: `${injected} prior learning${injected === 1 ? '' : 's'} (from ${srcLabel})`,
+        },
+        { label: 'Usage rate', value: rateLabel },
+      ],
+      2,
+      opts
+    ),
   ]
 }
 
+/**
+ * LUM-1090: the task counts as labelled rows — done over the progress total,
+ * the per-status breakdown, and BACKLOG (unscheduled work, LUM-1057) on a row
+ * of its own because it stays out of the total.
+ */
+function progressLines(
+  counts: MilestoneShowData['taskCounts'],
+  opts: DetailOptions
+): string[] {
+  const backlog = counts.BACKLOG ?? 0
+  const total =
+    counts.TODO + counts.IN_PROGRESS + counts.IN_REVIEW + counts.DONE
+  const fields: Field[] = [
+    { label: 'Done', value: `${counts.DONE} / ${total}` },
+    {
+      label: 'By status',
+      value: `TODO ${counts.TODO} · IN_PROGRESS ${counts.IN_PROGRESS} · IN_REVIEW ${counts.IN_REVIEW} · DONE ${counts.DONE}`,
+    },
+  ]
+  if (backlog > 0) {
+    fields.push({ label: 'Backlog', value: `${backlog} (not in the total)` })
+  }
+  return [...sectionHeading('Progress', opts), ...fieldLines(fields, 2, opts)]
+}
+
+/**
+ * LUM-1090 — `milestone show` as a detail view: `Label:  value` rows padded to
+ * the widest label, then one headed section each for the description (wrapped
+ * at the report width, every line indented), progress, sprint coverage,
+ * cross-milestone learning and the task table. Plain text unless `opts`
+ * turns colour on (the command entry does, on a TTY).
+ */
 export function formatMilestoneShow(
   m: MilestoneShowData,
-  tasks: TaskRow[]
+  tasks: TaskRow[],
+  opts: DetailOptions = {}
 ): string {
-  // BACKLOG is unscheduled work and stays out of the progress total (LUM-1057).
-  const backlog = m.taskCounts.BACKLOG ?? 0
-  const total =
-    m.taskCounts.TODO +
-    m.taskCounts.IN_PROGRESS +
-    m.taskCounts.IN_REVIEW +
-    m.taskCounts.DONE
   // LUM-714: state is derived, so the line reports what the two timestamps
   // say — and, when the tasks disagree with the stored stamp, what the rollup
   // is about to do about it.
-  const state = m.archivedAt
-    ? 'archived'
-    : m.completedAt
-      ? 'completed'
-      : 'active'
+  // LUM-1089: same upper-case words as `milestone list`'s STATE column.
+  const state = milestoneState(m)
   const drift = m.staleness?.completionDrift
-  const stateLine = drift
-    ? `State:        ${state}  (stale — task progress indicates ${drift === 'complete' ? 'completed' : 'active'}; auto-updating)`
-    : `State:        ${state}`
-  const targetLine = m.staleness?.datesMissing
-    ? `Target:       ${fmtDate(m.targetDate)}  (no target date — schedule health unavailable)`
-    : `Target:       ${fmtDate(m.targetDate)}`
-  const lines = [
-    `Milestone:    ${sanitizeField(m.name)}`,
-    stateLine,
-    `Completed:    ${m.completedAt ? m.completedAt.slice(0, 10) : 'no'}`,
-    `Archived:     ${m.archivedAt ? m.archivedAt.slice(0, 10) : 'no'}`,
-    `Health:       ${fmtHealth(m.health)}`,
-    `Start:        ${fmtDate(m.startDate)}`,
-    targetLine,
-    `Project:      ${sanitizeField(m.projectName)}`,
-    `Description:`,
-    `  ${m.description && m.description.length > 0 ? sanitizeField(m.description) : '-'}`,
-    ``,
-    `Tasks:        ${total} total (TODO ${m.taskCounts.TODO} / IN_PROGRESS ${m.taskCounts.IN_PROGRESS} / IN_REVIEW ${m.taskCounts.IN_REVIEW} / DONE ${m.taskCounts.DONE})${backlog > 0 ? ` + ${backlog} in BACKLOG` : ''}`,
-  ]
-  lines.push(...sprintCoverageLines(m.sprintCoverage))
-  lines.push(...crossMilestoneLearningLines(m.crossMilestoneLearning))
-  if (tasks.length > 0) {
-    lines.push('', formatTaskListTable(tasks))
-  }
+  const stateValue = drift
+    ? `${state}  (stale — task progress indicates ${drift === 'complete' ? 'COMPLETED' : 'ACTIVE'}; auto-updating)`
+    : state
+  const targetValue = m.staleness?.datesMissing
+    ? `${fmtCalendarDay(m.targetDate)}  (no target date — schedule health unavailable)`
+    : fmtCalendarDay(m.targetDate)
+  const lines = fieldLines(
+    [
+      { label: 'Milestone', value: sanitizeField(m.name) },
+      { label: 'State', value: stateValue },
+      {
+        label: 'Completed',
+        value: fmtDay(m.completedAt),
+      },
+      {
+        label: 'Archived',
+        value: fmtDay(m.archivedAt),
+      },
+      { label: 'Health', value: formatHealth(m.health) },
+      { label: 'Start', value: fmtCalendarDay(m.startDate) },
+      { label: 'Target', value: targetValue },
+      { label: 'Project', value: sanitizeField(m.projectName) },
+    ],
+    0,
+    opts
+  )
+  lines.push(...sectionHeading('Description', opts))
+  const description = m.description ? sanitizeField(m.description).trim() : ''
+  lines.push(...(description ? wrapLines(description, 2, opts) : ['  -']))
+  lines.push(...progressLines(m.taskCounts, opts))
+  lines.push(...sprintCoverageLines(m.sprintCoverage, opts))
+  lines.push(...crossMilestoneLearningLines(m.crossMilestoneLearning, opts))
+  lines.push(
+    ...taskTableSection(tasks, 'None — no task is in this milestone.', opts)
+  )
   return lines.join('\n')
 }
 
@@ -192,7 +242,7 @@ export async function milestoneShow(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -231,15 +281,15 @@ export async function milestoneShow(
   }
 
   if (milestoneRes.status === 401 || tasksRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!milestoneRes.ok) {
-    console.error(`Error: milestone show failed (HTTP ${milestoneRes.status})`)
+    console.error(errHttp('milestone show', milestoneRes.status))
     return 1
   }
   if (!tasksRes.ok) {
-    console.error(`Error: milestone tasks failed (HTTP ${tasksRes.status})`)
+    console.error(errHttp('milestone tasks', tasksRes.status))
     return 1
   }
 
@@ -294,7 +344,12 @@ export async function milestoneShow(
         sprintCoverage: milestone.sprintCoverage,
         crossMilestoneLearning: milestone.crossMilestoneLearning,
       },
-      tasks
+      tasks,
+      {
+        width: terminalWidth(),
+        color: colorEnabled(),
+        tty: Boolean(process.stdout.isTTY),
+      }
     ) + '\n'
   )
 }

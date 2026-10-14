@@ -2,12 +2,16 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { installAuthFailureTracker } from './lib/auth-failure'
 import { installSandboxNetworkTracker } from './lib/sandbox-network-hint'
+import {
+  commandPathOf,
+  installVersionCompatTracker,
+} from './lib/version-compat'
 import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
@@ -15,6 +19,7 @@ import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
 import { nextCommand } from './commands/next'
 import { cost } from './commands/cost'
+import { report } from './commands/report'
 import { priority, priorityList } from './commands/priority'
 import {
   crossingExplain,
@@ -144,6 +149,7 @@ import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
 import { doctor } from './commands/doctor'
+import { skillStatus, skillUpdate } from './commands/skill'
 import { uninstall } from './commands/uninstall'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
@@ -208,12 +214,21 @@ const authTracker =
 // the cause and the fix instead of a bare `fetch failed`.
 const sandboxNetTracker =
   !isIntrospect && !isUpdateCheckWorker ? installSandboxNetworkTracker() : null
+// LUM-1110: every API request carries X-Lumo-Cli-Version; a 426 (CLI too old)
+// ends with `lumo update`, a route-missing 404 with "server may not have
+// deployed this yet" instead of a bare HTTP 404.
+const versionTracker =
+  !isIntrospect && !isUpdateCheckWorker
+    ? installVersionCompatTracker(pkg.version)
+    : null
 
 function exitWith(code: number): never {
   const hint = authTracker?.hintFor(code)
   if (hint) console.error(hint)
   const netHint = sandboxNetTracker?.hintFor(code)
   if (netHint) console.error(netHint)
+  const versionHint = versionTracker?.hintFor(code)
+  if (versionHint) console.error(versionHint)
   process.exit(code)
 }
 
@@ -281,8 +296,9 @@ const program = new Command()
 // Commander does not merge program-level options into a subcommand's own
 // opts(), so the global `--no-hints` is folded into the env channel before any
 // action runs. One silencing path (`nextStepsSilenced`) instead of two.
-program.hook('preAction', thisCommand => {
+program.hook('preAction', (thisCommand, actionCommand) => {
   if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
+  versionTracker?.setCommand(commandPathOf(actionCommand))
 })
 
 const auth = program.command('auth').description('Manage Lumo authentication')
@@ -322,7 +338,7 @@ function registerInit(name: string, hidden: boolean): void {
     .description(
       hidden
         ? 'Alias of `lumo init` (kept for older docs and scripts).'
-        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
+        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; re-run it to refresh an install (unchanged files are not rewritten), with --dry-run to preview."
     )
     .option(
       '--user',
@@ -341,9 +357,11 @@ function registerInit(name: string, hidden: boolean): void {
       'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex.'
     )
     .option(
-      '--upgrade',
-      'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs'
+      '--dry-run',
+      'Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record'
     )
+    // LUM-1118: removed; kept hidden only to print the migration error.
+    .addOption(new Option('--upgrade').hideHelp())
     .action(
       wrap(options =>
         init(
@@ -353,6 +371,7 @@ function registerInit(name: string, hidden: boolean): void {
             force?: boolean
             agent?: string
             upgrade?: boolean
+            dryRun?: boolean
           }
         )
       )
@@ -362,6 +381,59 @@ function registerInit(name: string, hidden: boolean): void {
 registerInit('init', false)
 // `setup` is the pre-LUM-1052 name; hidden alias running the same action.
 registerInit('setup', true)
+
+const skill = program
+  .command('skill')
+  .description(
+    'Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook'
+  )
+
+skill
+  .command('status')
+  .description(
+    'Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it'
+  )
+  .option(
+    '--json',
+    'Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }'
+  )
+  .action(wrap(options => skillStatus(options as { json?: boolean })))
+
+skill
+  .command('update')
+  .description(
+    "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
+  )
+  .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
+  .option(
+    '--project',
+    "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
+  )
+  .option(
+    '--agent <token>',
+    'Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)'
+  )
+  .option(
+    '--dry-run',
+    'List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing'
+  )
+  .option(
+    '--force',
+    'Also overwrite locally modified copies (discards those edits); still never downgrades'
+  )
+  .action(
+    wrap(options =>
+      skillUpdate(
+        options as {
+          user?: boolean
+          project?: boolean
+          agent?: string
+          dryRun?: boolean
+          force?: boolean
+        }
+      )
+    )
+  )
 
 program
   .command('doctor')
@@ -535,6 +607,38 @@ program
     )
   )
 
+program
+  .command('report')
+  .description(
+    'Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself'
+  )
+  .option(
+    '--since <day>',
+    'First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday'
+  )
+  .option(
+    '--until <day>',
+    'Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)'
+  )
+  .option('--member <ref>', 'Only this member: me, an email, or a display name')
+  .option('--project <name>', 'Only tasks (and their sessions) in this project')
+  .option('--limit <N>', 'Max completed tasks listed (default 50, max 500)')
+  .option('--json', 'Emit the versioned payload as JSON')
+  .action(
+    wrap(options =>
+      report(
+        options as {
+          since?: string
+          until?: string
+          member?: string
+          project?: string
+          limit?: string
+          json?: boolean
+        }
+      )
+    )
+  )
+
 const priorityCmd = program
   .command('priority [text]')
   .description(
@@ -661,24 +765,29 @@ task
 task
   .command('list')
   .description(
-    'List tasks assigned to you. Filter with --status, --project, --milestone, --limit.'
+    'List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with "Showing X-Y of N." and the next-page command).'
   )
   .option(
     '-s, --status <value>',
     'Filter by status: backlog | todo | in_progress | in_review | done (case-insensitive)'
   )
   .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
-  .option('-n, --limit <count>', 'Show only the first N tasks')
+  .option('-n, --limit <count>', 'Tasks per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
   .option(
     '-m, --milestone <ref>',
     'Filter by milestone name or UUID (scopes to my tasks under that milestone)'
   )
+  .option('--json', 'Emit { tasks, total, nextCursor } as JSON')
   .action(wrap(options => taskList(options as Record<string, string>)))
 
 task
   .command('search [query]')
   .description(
-    'Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side.'
+    'Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side; 50 per page (--limit / --cursor, a longer result ends with "Showing X-Y of N." and the next-page command).'
   )
   .option(
     '-a, --assignee <ref>',
@@ -705,12 +814,16 @@ task
   .option('--team <ref>', 'Team to resolve --sprint against')
   .option('--due-after <date>', 'Due on or after YYYY-MM-DD (your local day)')
   .option('--due-before <date>', 'Due on or before YYYY-MM-DD (your local day)')
-  .option('-n, --limit <count>', 'Show only the first N tasks')
+  .option('-n, --limit <count>', 'Tasks per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
   .option(
     '--exact',
     'Substring matching only, in board order (default: typo-tolerant, ranked by relevance)'
   )
-  .option('--json', 'Emit the raw result as JSON')
+  .option('--json', 'Emit { tasks, truncated, total, nextCursor } as JSON')
   .action(
     wrap((query, options) =>
       taskSearch(query as string | undefined, options as Record<string, never>)
@@ -737,13 +850,20 @@ task
   .description(
     'Show the task field-change history (status, priority, title, assignee, due, tags, sprint), oldest first.'
   )
-  .option('-n, --limit <count>', 'Show the last N entries (default 30)')
-  .option('--json', 'Emit the raw activity entries as JSON')
+  .option(
+    '-n, --limit <count>',
+    'Entries per page, newest page first (1-500, default 50)'
+  )
+  .option(
+    '--cursor <cursor>',
+    'Continue with earlier entries (from the footer)'
+  )
+  .option('--json', 'Emit the raw activity entries of this page as JSON')
   .action(
     wrap((identifier, options) =>
       taskHistory(
         identifier as string,
-        options as { limit?: string; json?: boolean }
+        options as { limit?: string; cursor?: string; json?: boolean }
       )
     )
   )
@@ -1014,12 +1134,20 @@ const taskComments = task
 taskComments
   .command('list <identifier>')
   .description(
-    'List the task comment thread (capped to the output budget; --full prints every comment)'
+    'List the task comment thread, 50 top-level threads per page (--limit / --cursor; capped to the output budget; --full alone prints every comment)'
   )
   .option('--full', 'Print every comment, bypassing the output-token cap')
+  .option('--limit <n>', 'Top-level threads per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
   .action(
     wrap((id, opts) =>
-      taskCommentList(id as string, opts as { full?: boolean })
+      taskCommentList(
+        id as string,
+        opts as { full?: boolean; limit?: string; cursor?: string }
+      )
     )
   )
 taskComments
@@ -1783,7 +1911,7 @@ const milestoneCmd = program
 milestoneCmd
   .command('list')
   .description(
-    'List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown.'
+    'List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown.'
   )
   .option('--project <ref>', 'Project name or slug')
   .option('--archived', 'Show only archived milestones')
@@ -1791,6 +1919,11 @@ milestoneCmd
   .option(
     '--search <text>',
     'Filter by name/description substring (case-insensitive)'
+  )
+  .option('--limit <n>', 'Milestones per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
   )
   .action(wrap(options => milestoneList(options as Record<string, string>)))
 
@@ -2429,15 +2562,21 @@ doc
 
 doc
   .command('list')
-  .description('List documents visible to the current user')
+  .description(
+    'List documents visible to the current user, 50 per page (--limit / --cursor)'
+  )
   .option(
     '--scope <scope>',
     'personal | workspace | all (case-insensitive; default: all)'
   )
   .option('--project <ref>', 'Filter by project name/slug')
   .option('--task <LUM-N>', 'Only docs bound to this task')
-  .option('--limit <n>', 'Cap output to first N rows')
-  .option('--tree', 'Render as an indented tree')
+  .option('--limit <n>', 'Docs per page (1-500, default 50)')
+  .option(
+    '--cursor <cursor>',
+    'Continue from a previous page (from the footer)'
+  )
+  .option('--tree', 'Render as an indented tree (paged in tree order)')
   .action(wrap(opts => docList(opts as Record<string, string>)))
 
 doc
@@ -2598,7 +2737,7 @@ task
   )
   .option(
     '--confirm',
-    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
+    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done with no other flag runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
   )
   .action(
     wrap((identifier, options) =>

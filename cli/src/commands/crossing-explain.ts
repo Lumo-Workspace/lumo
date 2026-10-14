@@ -5,6 +5,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { printStatusDigest } from '../lib/status-digest'
 import { resolveBoundTask } from '../lib/bound-task'
 import { resolveSessionId } from '../lib/session-id'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface CrossingExplainOptions {
   note?: string
@@ -83,7 +84,7 @@ export async function crossingExplain(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
@@ -215,7 +216,7 @@ async function postExplanation(
   if (res.status === 401) {
     return {
       ok: false,
-      error: 'Error: API key invalid or revoked. Run `lumo auth login`.',
+      error: errAuth(),
     }
   }
   if (!res.ok) {
@@ -223,12 +224,10 @@ async function postExplanation(
       error?: unknown
     } | null
     const detail =
-      errBody && typeof errBody.error === 'string'
-        ? sanitizeField(errBody.error)
-        : ''
+      errBody && typeof errBody.error === 'string' ? errBody.error : null
     return {
       ok: false,
-      error: `Error: explanation rejected (HTTP ${res.status})${detail ? ` — ${detail}` : ''}`,
+      error: errHttp('explanation', res.status, detail),
     }
   }
   const outcome = (await res.json()) as ExplainOutcome

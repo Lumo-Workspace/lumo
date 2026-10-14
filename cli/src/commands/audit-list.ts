@@ -1,5 +1,10 @@
+import { emptyState, fmtTimestamp } from '../lib/format'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { httpFailed, warn } from '../lib/errors'
+import { cmd, hint } from '../lib/feedback'
+import { shellQuote } from '../lib/confirmation'
 
 export interface AuditListOptions {
   action?: string
@@ -65,16 +70,18 @@ function actorLabel(e: AuditListEvent): string {
 }
 
 /**
- * Render a page as fixed-width rows: UTC time, action, actor, target,
- * source, IP. A trailing hint carries the cursor for the next page.
+ * Render a page as a table (LUM-1089, header on a TTY only): UTC time,
+ * action, actor, target, source, IP. A trailing hint carries the cursor for
+ * the next page.
  */
 export function formatAuditList(
   page: AuditListPage,
-  opts: AuditListOptions = {}
+  opts: AuditListOptions = {},
+  env: ListRenderOptions = {}
 ): string {
-  if (page.events.length === 0) return 'No audit events.'
+  if (page.events.length === 0) return emptyState('audit events')
   const rows = page.events.map(e => ({
-    time: `${e.createdAt.slice(0, 16).replace('T', ' ')}Z`,
+    time: fmtTimestamp(e.createdAt),
     action: sanitizeField(e.action),
     actor: sanitizeField(actorLabel(e)),
     target: sanitizeField(
@@ -83,19 +90,15 @@ export function formatAuditList(
     source: e.source,
     ip: sanitizeField(e.ip ?? '-'),
   }))
-  const w = (k: keyof (typeof rows)[number]) =>
-    Math.max(...rows.map(r => r[k].length))
-  const [aw, uw, tw, sw] = [w('action'), w('actor'), w('target'), w('source')]
-  const lines = rows.map(r =>
-    [
-      r.time,
-      r.action.padEnd(aw),
-      r.actor.padEnd(uw),
-      r.target.padEnd(tw),
-      r.source.padEnd(sw),
-      r.ip,
-    ].join('  ')
-  )
+  const lines = [
+    renderListTable(
+      rows.map(r => [r.time, r.action, r.actor, r.target, r.source, r.ip]),
+      {
+        header: ['TIME', 'ACTION', 'ACTOR', 'TARGET', 'SOURCE', 'IP'],
+        ...env,
+      }
+    ),
+  ]
   if (page.nextCursor) {
     const flags = Object.entries({
       '--action': opts.action,
@@ -107,10 +110,13 @@ export function formatAuditList(
       '--limit': opts.limit,
     })
       .filter(([, v]) => v)
-      .map(([k, v]) => `${k} ${JSON.stringify(v)}`)
+      // LUM-1116: shell-quote only when needed — `--limit 2`, not `--limit "2"`.
+      .map(([k, v]) => `${k} ${shellQuote(String(v))}`)
     lines.push(
       '',
-      `More events: lumo audit list ${[...flags, `--cursor ${page.nextCursor}`].join(' ')}`
+      hint(
+        `more events with ${cmd(`lumo audit list ${[...flags, `--cursor ${shellQuote(page.nextCursor)}`].join(' ')}`)}`
+      )
     )
   }
   return lines.join('\n')
@@ -137,14 +143,16 @@ async function writeCsv(
       error?: string
     } | null
     console.error(
-      `Error: ${sanitizeField(body?.error ?? `audit export failed (HTTP ${res.status})`)}`
+      `Error: ${sanitizeField(body?.error ?? httpFailed('audit export', res.status))}`
     )
     return 1
   }
   process.stdout.write(await res.text())
   if (res.headers.get('x-audit-truncated') === 'true') {
     console.error(
-      `Warning: export capped at ${res.headers.get('x-audit-row-count') ?? 'the maximum number of'} events (newest first) — narrow --since / --until for the rest.`
+      warn(
+        `export capped at ${res.headers.get('x-audit-row-count') ?? 'the maximum number of'} events (newest first) — narrow --since / --until for the rest.`
+      )
     )
   }
 }

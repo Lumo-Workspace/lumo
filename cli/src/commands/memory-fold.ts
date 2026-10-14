@@ -4,6 +4,7 @@ import { resolveProjectId } from '../lib/resolve'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface FoldOptions {
   dryRun?: boolean
@@ -39,7 +40,7 @@ export async function memoryFold(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -78,7 +79,7 @@ export async function memoryFold(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: fold preview failed (HTTP ${res.status})`)
+    console.error(errHttp('fold preview', res.status))
     return 1
   }
 

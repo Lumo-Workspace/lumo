@@ -5,12 +5,13 @@ description: 'Use when the user mentions a Lumo task id (LUM-N, or any team pref
 
 ## Prerequisites
 
-Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionStart line (`[Lumo] session_id=… | lumo <version> · <email> (<workspace>)`) already proves the CLI is installed and logged in. Troubleshoot only on failure:
+Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionStart line (`[Lumo] session_id=… | lumo <version> · <email> (<workspace>) · skill <version>`) proves the CLI is installed and logged in. On failure only:
 
 - `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
 - an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
+- a hint naming `lumo update` (HTTP 426, CLI too old for the server) → `lumo update`; `may not have deployed this feature yet` (HTTP 404) → server needs a deploy — see [onboarding.md](references/onboarding.md)
 
-**Agent support:** Claude Code and Codex (`lumo init` sets up both). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn; relay it. Run `lumo` unpiped in Codex (Lumo rules let server-only commands out of the no-network sandbox; local-effect or `--file` ones (`session attach`, `doc create --file`) need approval); `fetch failed` there prints the fix. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
+**Agent support:** Claude Code and Codex (`lumo init` sets up both). In Codex, `session attach/status` and activity capture need the user to **trust the Lumo hooks** (`/hooks`) — untrusted hooks are skipped silently and attach/status warn (listing events that look untrusted); relay it. Run `lumo` unpiped in Codex (Lumo rules let server-only commands out of the no-network sandbox; local-effect or `--file` ones (`session attach`, `doc create --file`) need approval); `fetch failed` there prints the fix. `memory sync` / `memory push` are Claude Code only. See [sessions.md](references/sessions.md#codex).
 
 ## How this skill is organized
 
@@ -20,7 +21,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 | Domain                                                                                 | Read this reference                                                  |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `init`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)                 |
+| `init`, `skill`, `auth login/logout`, `whoami`, `update`                               | [references/onboarding.md](references/onboarding.md)                 |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
@@ -32,7 +33,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task artifact*`, `task figma*`                                                        | [references/artifacts-figma.md](references/artifacts-figma.md)       |
 | `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                   | [references/test-cases.md](references/test-cases.md)                 |
 | `task status/wrapup`, `crossing explain/disposition` — self-check, resume, DONE gate   | [references/task-status.md](references/task-status.md)               |
-| `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5            | [references/task-context.md](references/task-context.md)             |
+| `cost` — per-operation token cost; `report` — tokens + DONE tasks per window           | [references/task-context.md](references/task-context.md)             |
 | `outcome show` — post-hoc outcome well (falsifier oracle, rejection-only)              | [references/outcome.md](references/outcome.md)                       |
 | `priority [text]`, `priority list` — team priority declaration (append-only)           | [references/priority.md](references/priority.md)                     |
 | `project list/create/update`, `milestone*`                                             | [references/milestones.md](references/milestones.md)                 |
@@ -48,8 +49,9 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
-- `lumo init [--user|--project] [--force] [--agent <token>] [--upgrade]` — set up skill + hooks for Claude Code and Codex (`--agent` = only that one; `setup` = hidden alias; `--upgrade` refreshes known installs, skipping modified/newer copies)
+- `lumo init [--user|--project] [--force] [--agent <token>] [--dry-run]` — skill + hooks for Claude Code + Codex (`--agent` = only that one; re-run to refresh, skips modified/newer; `--dry-run`: diffs, no writes)
 - `lumo doctor [--json]` — read-only report of every Lumo install (skills, hooks, Codex rule, git hook): state + fix command; warns on missing hook events, `lumo` not on PATH, untrusted Codex hooks, no Codex network
+- `lumo skill status [--json]` · `lumo skill update [--user|--project] [--agent <t>] [--dry-run] [--force]` — report / refresh only the skill copies (never hooks) — see [onboarding.md](references/onboarding.md)
 - `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove Lumo skills, hook entries and the git hook block (exit 4 envelope first; never commits) — see [onboarding.md](references/onboarding.md)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
@@ -73,8 +75,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo task create <title> [flags]` — create a task. **Mid-task** (your session is bound to an in-flight task) it requires `--rework-of <id>` (redirects you to fix the existing task — creates nothing) or `--new-scope` (genuinely new, out-of-scope work). On a review bounce, fix in place instead of spinning off a new task — see [task-status.md](references/task-status.md).
 - `lumo task create <title> --template <key>` pre-fills the description from a template (`lumo task template list`; built-in `agent-brief`). Templates are CLI-only: `task template show/create/edit/rm` (owners upload a Markdown file with `--file`). `lumo task decide <id> "<text>"` appends a dated ruling to the description's `## Decisions` section — use it for scope/approach rulings instead of a comment.
-- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags/due; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
-- `lumo task list [flags]` — list tasks assigned to you
+- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags/due; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` with no other flag runs in one step when ≥1 linked PR, all merged, and nothing blocks DONE; else exit 4 envelope (see [confirmation.md](references/confirmation.md))
+- `lumo task list [flags]` — list tasks assigned to you. Lists page 50 at a time: a footer `Showing X-Y of N.` + next-page command means there is more — run it before concluding something is missing
 - `lumo task search [query] [flags]` — search the whole workspace (any assignee; `--assignee none`, `--tag`, `--status`, `--priority`, `--sprint`, `--due-before/--due-after`); query terms are ANDed and ranked; typo tolerance (`pg_trgm`, then letter swaps) only kicks in when nothing matches exactly, off with `--exact`
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo task history <id>` — field-change log (status/priority/assignee/due/tags…), oldest first
@@ -113,14 +115,15 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Task status, wrap-up & crossings — see [task-status.md](references/task-status.md)
 
 - `lumo task status [task] [--full] [--json]` — read-only self-check (no LLM): `nextActions` (security findings `blocks DONE` vs `advisory`, test-case advisories), PR scans, open crossings; `--full` adds cost / rework / trend. Fails closed (`⚠` = could not confirm). **Run it first when resuming a task.** `task update --status`, `crossing disposition/explain`, `testcase run/disposition` already end with its digest (DONE envelopes: `statusSummary`) — **no follow-up `task status`** after them
-- `lumo task wrapup [task]` — **near the end, instead of chaining reads**: one read-only call prints test-case signals, PR scans, open crossings (ready to relay + per-ruling commands) and DONE readiness with the envelope preview (PR merge state, worktree cleanup). See [task-status.md](references/task-status.md)
+- `lumo task wrapup [task]` — **near the end, instead of chaining reads**: one read-only call prints test-case signals, PR scans, open crossings (ready to relay + per-ruling commands) and DONE readiness with the envelope preview (PR merge state, worktree cleanup)
 - Crossing `<id>` = its ref, e.g. `LUM-X12` (cuid also works)
 - `lumo crossing explain <id> --note "<text>"` (several: `--file <json|->`; unattached: `--task <LUM-N>`) — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done**. A review aid, not a self-clear.
-- `lumo crossing disposition <id...> --false-positive | --confirmed [--note "<text>"] [--task <LUM-N>]` — several ids = one batch, one envelope per step (LUM-845) — record the **user's** ruling on a task crossing through a **three-step** read-then-rule confirmation handshake the server enforces (LUM-769); never supply a step flag (`--confirm-read` / `--confirm`) **on your own initiative** — relay each envelope, then supply it only once the user approves **that step** in chat, and say in the note that the ruling is theirs. Either ruling clears that crossing's block on DONE. Reverting to OPEN, repository suppression and steward crossings stay web-only. See [task-status.md](references/task-status.md)
+- `lumo crossing disposition <id...> --false-positive | --confirmed [--note "<text>"] [--task <LUM-N>]` — several ids = one batch, one envelope per step (LUM-845) — record the **user's** ruling on a task crossing through a **three-step** read-then-rule confirmation handshake the server enforces (LUM-769); never supply a step flag (`--confirm-read` / `--confirm`) **on your own initiative** — relay each envelope, then supply it only once the user approves **that step** in chat, and say in the note that the ruling is theirs. Either ruling clears that crossing's block on DONE. Reverting to OPEN, repository suppression and steward crossings stay web-only.
 
 ### Cost (per-operation token read-out) — see [task-context.md](references/task-context.md)
 
 - `lumo cost [--task <id>|--session <id>|--since <date>] [--by tool|model|member|session] [--json]` — per-operation token cost read-out, attributing each model step's token delta to the tool(s) it ran. Scope is mutually exclusive (default = workspace last-30-days). For the per-task Top-5 inline, see `lumo task lineage`.
+- `lumo report [--since 7d|<day>] [--until <day>] [--member me|<ref>] [--project <name>] [--limit N] [--json]` — tokens used + tasks completed over local days (default last 7 incl. today): team totals plus a per-member split; unmetered sessions are counted, never as 0.
 
 ### Priority (team-level declaration) — see [priority.md](references/priority.md)
 
@@ -173,16 +176,16 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo memory promote <id>` / `lumo memory rm <id> --confirm` — TASK→PROJECT / delete (exit 4 + envelope without `--confirm`)
 - `lumo memory sync [--dry-run] [--clean]` — downsync team memory into the local Claude Code store (`team/<id>.md` + a managed MEMORY.md block); only touches files it owns
 - `lumo memory push [--dry-run]` — upsync locally-authored memories from `<memory-dir>/outbox/*.json` to the team
-- `lumo memory fold [project-ref] --dry-run` — read-only PREVIEW of the autonomous topic-fold pass (folding runs via a daily cron; no manual apply, no `unfold`). See [memory.md](references/memory.md)
+- `lumo memory fold [project-ref] --dry-run` — read-only PREVIEW of the autonomous topic-fold pass (folding runs via a daily cron; no manual apply, no `unfold`)
 
 ### Sessions — see [sessions.md](references/sessions.md)
 
 - `lumo session attach <id>` — bind this session to a task; prints blockers/security findings only — run `task context` next. **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new agent session instead. No `--force`, no `session detach`.
-- `lumo session attach --steward <milestone>` — bind as a **STEWARD (governance) session** on a milestone (LUM-640): plan & accept only — self-dispatch to in_progress is refused; commits/PRs become milestone-scoped boundary crossings (web+human disposition only). Same lifetime lock. See [sessions.md](references/sessions.md)
+- `lumo session attach --steward <milestone>` — bind as a **STEWARD (governance) session** on a milestone (LUM-640): plan & accept only — self-dispatch to in_progress is refused; commits/PRs become milestone-scoped boundary crossings (web+human disposition only). Same lifetime lock.
 - `lumo session status` — show current binding (a task, or the milestone + STEWARD role)
-- `lumo usage resync [--apply]` — correct historical inflated token numbers from local transcripts; dry run first, then `--apply`. See [sessions.md](references/sessions.md)
-- End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
-- Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
+- `lumo usage resync [--apply]` — correct historical inflated token numbers from local transcripts; dry run first, then `--apply`.
+- End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation.
+- Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review
 
 ### Worktrees (local dev tooling) — see [worktree.md](references/worktree.md)
 
@@ -215,7 +218,7 @@ Don't guess these:
 - No `--content` on `task/project memory add` — memory is structured fields (`--category` + per-category flags), see [memory.md](references/memory.md)
 - No global `--verbose` flag on any command
 - `lumo task comments list` (plural) **reads** the thread; `lumo task comment` (singular) **writes** one
-- Status updates: `lumo task update LUM-N --status done` is one direct call — do **not** walk `in_progress → in_review → done` step by step (see [tasks.md](references/tasks.md) for the transition matrix). `--status done` has no interactive prompt and no `--yes`: without `--confirm` it exits 4 with a confirmation envelope you relay to the user (see [confirmation.md](references/confirmation.md))
+- Status updates: `lumo task update LUM-N --status done` is one direct call — do **not** walk `in_progress → in_review → done` step by step (transition matrix: [tasks.md](references/tasks.md)). No prompt, no `--yes`
 - No interactive yes/no prompts anywhere, and no `--yes` on `task update` — every gated mutation exits 4 with a `confirmation_required` envelope instead; `--yes` survives only as a legacy alias of `--confirm` on the delete/rm/close commands
 
 ## Core workflow
@@ -236,7 +239,6 @@ Don't guess these:
 
 - **Attach before coding.** Unattached work is attributed by inference and counts toward gates and cost, but explicit attach is highest-priority.
 - **Evidence before "done".** Never claim done from reading code — run the checks and record a test-case run. While a PR is open, the task is IN_REVIEW, not DONE.
-- **DONE is the user's call** — `--status done` exits 4 for their approval; blocking crossings, blocking security findings and proven test-case defects refuse it with 409.
-- **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`.
-- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done`, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source) run without `--confirm` prints a `confirmation_required` envelope on stdout and does nothing. Show every line of its `changes` to the user, wait for their explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed", and adding it on your own initiative is the exact failure the protocol exists to stop. **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned boundary crossing, a blocking security finding): relay its `blockers` and `remediation` to the user; nothing on `task update` clears it — no retry, no flag. A boundary crossing is the one blocker with a terminal path, and it is the user's — see `crossing disposition` above. Details: [confirmation.md](references/confirmation.md)
+- **DONE is the user's call** — `--status done` exits 4 for their approval unless its one-step condition holds; blocking crossings, blocking security findings and proven test-case defects refuse it with 409.
+- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done` short of its one-step condition, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source) run without `--confirm` prints a `confirmation_required` envelope on stdout and does nothing. Show every line of its `changes` to the user, wait for their explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed", and adding it on your own initiative is the exact failure the protocol exists to stop. **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned boundary crossing, a blocking security finding): relay its `blockers` and `remediation` to the user; nothing on `task update` clears it — no retry, no flag. A boundary crossing is the one blocker with a terminal path, and it is the user's — see `crossing disposition` above. Details: [confirmation.md](references/confirmation.md)
 - **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.

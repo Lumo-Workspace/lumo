@@ -236,7 +236,12 @@ describe('lumo task template create', () => {
       name: 'Triage',
       content: '## Steps\n',
     })
-    expect(out).toContain('Created task template triage "Triage"')
+    expect(out).toContain('Created task template triage "Triage" (9 chars)\n')
+    // LUM-1092: usage advice rides the shared Next: block, not inline prose.
+    expect(out).toContain(
+      'Next:\n  lumo task create <title> --template triage\n'
+    )
+    expect(out).not.toContain('Use it with')
   })
 
   it('a bad file fails locally before any request', async () => {

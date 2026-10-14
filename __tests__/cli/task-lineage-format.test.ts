@@ -137,7 +137,7 @@ describe('formatLineageMarkdown', () => {
           kind: 'session',
           sessionId: 'sess-abcdef12',
           label: 'Session sess-abc',
-          includedAt: '2026-06-02T00:00:00.000Z',
+          includedAt: '2026-06-02T12:00:00.000Z',
           cost: {
             input: 20,
             output: 4,

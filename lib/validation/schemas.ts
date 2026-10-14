@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { taskTemplateKeySchema } from '@/lib/validation/task-template'
+import { PUBLIC_LOCALES } from '@/lib/i18n/public-locale'
 
 /**
  * Max length for rich-text body fields (HTML serialized client-side).
@@ -65,7 +66,6 @@ export const createWorkspaceSchema = z.object({
     .optional(),
   summaryEnabled: z.boolean().optional(),
   summaryFrequency: z.enum(['DAILY', 'EVERY_TWO_DAYS', 'WEEKLY']).optional(),
-  summaryLocale: z.string().max(10).optional(),
 })
 
 /** LUM-918: the two kinds of item the trash holds (a route segment). */
@@ -109,6 +109,9 @@ export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
     .optional(),
   // LUM-917: generate AI-derived content (memories, session / run summaries).
   aiDerivedContentEnabled: z.boolean().optional(),
+  // LUM-1097: default language — Slack channel posts and the DM fallback.
+  // Same codes as UserPreference.locale.
+  defaultLocale: z.enum(PUBLIC_LOCALES).optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────
@@ -721,6 +724,18 @@ export const workspaceTaskFiltersSchema = z.object({
   // calendar days into instants — the server never guesses a zone.
   dueAfter: z.coerce.date().optional(),
   dueBefore: z.coerce.date().optional(),
+})
+
+/**
+ * LUM-1093: server-side filters of GET /api/tasks/me (`lumo task list`).
+ * Only read on the paged path (`limit` / `cursor` present).
+ */
+export const myTaskFiltersSchema = z.object({
+  statuses: z
+    .array(z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
+    .optional(),
+  milestoneIds: z.array(z.string().min(1)).optional(),
+  projectName: z.string().trim().min(1).max(200).optional(),
 })
 
 // ─── Task Dependencies ─────────────────────────────────────────────────────

@@ -1,9 +1,12 @@
+import { fmtCount } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { listTranscripts } from '../lib/transcript-scan'
 import { sumTranscriptUsage } from '../lib/transcript-usage'
 import { isCodexShell } from '../lib/session-id'
+import { errAuth, errNotLoggedIn } from '../lib/errors'
+import { hint } from '../lib/feedback'
 
 /**
  * Sessions per request. --apply runs a write transaction per family, so its
@@ -25,7 +28,7 @@ interface ResyncResponse {
   results: ResyncResult[]
 }
 
-const n = (v: number) => v.toLocaleString('en-US')
+const n = fmtCount
 
 /**
  * `lumo usage resync [--apply] [--json]` (LUM-932) — recompute token usage
@@ -39,14 +42,16 @@ export async function usageResync(options?: {
   const apply = options?.apply === true
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   // LUM-1051: Codex usage is read from the rollout on every Stop and never
   // went through the inflated path this command corrects.
   if (isCodexShell() && !options?.json) {
     console.error(
-      'Note: Codex sessions need no resync (their usage is read from the Codex rollout on every Stop). This resyncs Claude Code transcripts only (~/.claude/projects).'
+      hint(
+        'Codex sessions need no resync (their usage is read from the Codex rollout on every Stop). This resyncs Claude Code transcripts only (~/.claude/projects).'
+      )
     )
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -182,7 +187,7 @@ async function postBatch(
     return `Error: could not reach Lumo API at ${apiUrl} (${msg})`
   }
   if (res.status === 401) {
-    return 'Error: API key invalid or revoked. Run `lumo auth login`.'
+    return errAuth()
   }
   if (!res.ok) {
     let message = `HTTP ${res.status}`

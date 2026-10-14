@@ -1,3 +1,4 @@
+import { emptyState } from '../lib/format'
 import { refreshFigmaLinks, listFigmaLinks } from '../lib/figma-api'
 import { sanitizeField } from '../lib/sanitize'
 
@@ -10,7 +11,7 @@ export async function taskFigmaRefresh(args: {
 
     const { results } = await refreshFigmaLinks(args.identifier)
     if (results.length === 0) {
-      console.log(`No Figma links attached to ${args.identifier}.`)
+      console.log(emptyState('Figma links', args.identifier))
       return 0
     }
     console.log(`Refreshed ${results.length} Figma links on ${args.identifier}`)

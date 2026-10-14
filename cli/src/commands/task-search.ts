@@ -1,6 +1,9 @@
 import { readCredentials } from '../lib/config'
+import { shellQuote } from '../lib/confirmation'
 import { sanitizeField } from '../lib/sanitize'
-import { localDayLabel, localDayStart } from '../lib/local-day'
+import { emptyState, fmtDay, renderTaskTable } from '../lib/format'
+import type { ListRenderOptions } from '../lib/list-table'
+import { localDayStart } from '../lib/local-day'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import {
   actorNameMap,
@@ -12,6 +15,15 @@ import {
   resolveProjectId,
   resolveSprintId,
 } from '../lib/resolve'
+import {
+  buildCommand,
+  pageFooter,
+  pageJson,
+  paginate,
+  parsePageArgs,
+  type Page,
+  type PageArgs,
+} from '../lib/pagination'
 
 /**
  * `lumo task search [query]` — workspace-wide task query (LUM-821), the CLI
@@ -42,6 +54,7 @@ export interface TaskSearchOptions {
   dueBefore?: string
   dueAfter?: string
   limit?: string
+  cursor?: string
   json?: boolean
   /** LUM-821: substring-only matching, board order (no typo tolerance). */
   exact?: boolean
@@ -60,7 +73,11 @@ export interface SearchTaskRow {
 
 interface SearchResponse {
   tasks: SearchTaskRow[]
-  truncated: boolean
+  /** The server cap was hit (legacy shape, and fuzzy queries when paged). */
+  truncated?: boolean
+  /** LUM-1093 paged shape. */
+  total?: number
+  nextCursor?: string | null
 }
 
 /** Normalise a repeatable enum flag; returns the bad value on failure. */
@@ -94,6 +111,8 @@ export function buildSearchQuery(f: {
   dueAfter?: string | undefined
   dueBefore?: string | undefined
   exact?: boolean | undefined
+  /** LUM-1093: the page to fetch (server-side paging). */
+  page?: PageArgs | undefined
 }): string {
   const p = new URLSearchParams()
   if (f.q) {
@@ -113,44 +132,39 @@ export function buildSearchQuery(f: {
   if (f.unassigned) p.set('unassigned', '1')
   if (f.dueAfter) p.set('dueAfter', f.dueAfter)
   if (f.dueBefore) p.set('dueBefore', f.dueBefore)
+  if (f.page) {
+    p.set('limit', String(f.page.limit))
+    if (f.page.offset > 0) p.set('cursor', String(f.page.offset))
+  }
   const qs = p.toString()
   return `/api/tasks/workspace${qs ? `?${qs}` : ''}`
 }
 
 /**
- * Render rows as `LUM-42  STATUS  PRIORITY  project  assignee  due  title`,
- * each column padded to its widest cell.
+ * Render rows as `LUM-42  STATUS  PRIORITY  project  assignee  due  title`
+ * through the shared task table (LUM-1089).
  */
 export function formatSearchTable(
   tasks: SearchTaskRow[],
-  names: Map<string, string>
+  names: Map<string, string>,
+  opts: ListRenderOptions = {}
 ): string {
-  if (tasks.length === 0) return 'No tasks.'
-  const rows = tasks.map(t => ({
-    id: `${t.teamIdentifier}-${t.number}`,
-    status: t.status,
-    priority: t.priority,
-    project: sanitizeField(t.project?.name ?? '-'),
-    assignee: t.assigneeActorId
-      ? sanitizeField(names.get(t.assigneeActorId) ?? '?')
-      : '-',
-    due: t.dueDate ? localDayLabel(t.dueDate) : '-',
-    title: sanitizeField(t.title),
-  }))
-  const cols = [
-    'id',
-    'status',
-    'priority',
-    'project',
-    'assignee',
-    'due',
-  ] as const
-  const w = Object.fromEntries(
-    cols.map(c => [c, Math.max(...rows.map(r => r[c].length))])
-  ) as Record<(typeof cols)[number], number>
-  return rows
-    .map(r => cols.map(c => r[c].padEnd(w[c])).join('  ') + '  ' + r.title)
-    .join('\n')
+  if (tasks.length === 0) return emptyState('tasks')
+  return renderTaskTable(
+    tasks.map(t => ({
+      id: `${t.teamIdentifier}-${t.number}`,
+      status: t.status,
+      priority: t.priority,
+      project: sanitizeField(t.project?.name ?? '-'),
+      assignee: t.assigneeActorId
+        ? sanitizeField(names.get(t.assigneeActorId) ?? '?')
+        : '-',
+      due: fmtDay(t.dueDate),
+      title: sanitizeField(t.title),
+    })),
+    ['project', 'assignee', 'due'],
+    opts
+  )
 }
 
 export async function taskSearch(
@@ -188,11 +202,9 @@ export async function taskSearch(
       return 1
     }
   }
-  const limit = opts.limit !== undefined ? parseInt(opts.limit, 10) : undefined
-  if (limit !== undefined && (Number.isNaN(limit) || limit < 1)) {
-    console.error(
-      `Error: invalid --limit "${opts.limit}" (expected a positive integer)`
-    )
+  const pageArgs = parsePageArgs(opts.limit, opts.cursor)
+  if (!pageArgs.ok) {
+    console.error(`Error: ${pageArgs.error}`)
     return 1
   }
 
@@ -288,22 +300,80 @@ export async function taskSearch(
     dueAfter: dueAfter ?? undefined,
     dueBefore: dueBefore ?? undefined,
     exact: opts.exact,
+    page: pageArgs,
   })
   const r = await apiCall<SearchResponse>(ctx, path, {}, 'task search')
   if (!r.ok || !r.data) return 1
 
-  const tasks =
-    limit !== undefined ? r.data.tasks.slice(0, limit) : r.data.tasks
+  const page = searchPage(r.data, pageArgs)
   if (opts.json) {
     process.stdout.write(
-      JSON.stringify({ tasks, truncated: r.data.truncated }, null, 2) + '\n'
+      JSON.stringify(
+        {
+          tasks: page.items,
+          truncated: r.data.truncated ?? false,
+          ...pageJson(page),
+        },
+        null,
+        2
+      ) + '\n'
     )
     return
   }
-  process.stdout.write(formatSearchTable(tasks, actorNameMap(dir)) + '\n')
-  if (r.data.truncated) {
-    process.stdout.write(
-      `(result capped at ${r.data.tasks.length} — narrow the filters)\n`
+  const lines = [formatSearchTable(page.items, actorNameMap(dir))]
+  lines.push(
+    ...pageFooter(
+      { ...page, shown: page.items.length },
+      searchCommand(query, opts)
     )
+  )
+  if (r.data.truncated) {
+    // Paged servers report the capped match count in `total`; the legacy
+    // shape only had the (capped) list itself.
+    const capped = r.data.total ?? r.data.tasks.length
+    lines.push(`(result capped at ${capped} — narrow the filters)`)
   }
+  process.stdout.write(lines.join('\n') + '\n')
+}
+
+/**
+ * The page to print: a paging server's answer as-is, or — for a server that
+ * predates LUM-1093 and returned its whole capped list — sliced here.
+ */
+export function searchPage(
+  data: SearchResponse,
+  page: PageArgs
+): Page<SearchTaskRow> {
+  if (typeof data.total === 'number') {
+    return {
+      items: data.tasks,
+      total: data.total,
+      offset: page.offset,
+      nextCursor: data.nextCursor ?? null,
+    }
+  }
+  return paginate(data.tasks, page)
+}
+
+/** `lumo task search …` with the caller's filters (footer next-page command). */
+export function searchCommand(
+  query: string | undefined,
+  opts: TaskSearchOptions
+): string {
+  const q = query?.trim()
+  const base = q ? `task search ${shellQuote(sanitizeField(q))}` : 'task search'
+  return buildCommand(base, [
+    ['--assignee', opts.assignee],
+    ['--tag', opts.tag],
+    ['--status', opts.status],
+    ['--priority', opts.priority],
+    ['--project', opts.project],
+    ['--milestone', opts.milestone],
+    ['--sprint', opts.sprint],
+    ['--team', opts.team],
+    ['--due-after', opts.dueAfter],
+    ['--due-before', opts.dueBefore],
+    ['--limit', opts.limit],
+    ['--exact', opts.exact],
+  ])
 }

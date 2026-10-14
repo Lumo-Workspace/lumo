@@ -37,7 +37,7 @@ jest.mock('@/lib/repositories/summary.repository', () => {
           id: 'ws1',
           name: 'WS',
           summaryFrequency: 'DAILY',
-          summaryLocale: 'en',
+          defaultLocale: 'zh-CN',
           summaries: [],
           projects: [project('p1'), project('p2')],
         },
@@ -101,5 +101,14 @@ describe('generateCronSummaries', () => {
     // LUM-709 removed the per-project risk overrides that used to ride along
     // with the aggregation call — the workspace id is now the whole input.
     expect(mocked.workspaceStats.mock.calls[0]).toEqual(['ws1'])
+  })
+
+  it('writes the report in the workspace default language (LUM-1117)', async () => {
+    await summaryService.generateCronSummaries()
+
+    expect(mocked.workspaceReport).toHaveBeenCalledWith(expect.anything(), {
+      workspaceName: 'WS',
+      locale: 'zh-CN',
+    })
   })
 })

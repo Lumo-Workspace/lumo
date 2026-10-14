@@ -6,6 +6,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export type ArtifactRmOptions = ConfirmFlags
 
@@ -57,7 +58,7 @@ export async function taskArtifactRm(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -77,7 +78,7 @@ export async function taskArtifactRm(
       return 1
     }
     if (showRes.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
     if (!showRes.ok) {
@@ -85,7 +86,7 @@ export async function taskArtifactRm(
         (await serverError(showRes)) ??
         (showRes.status === 404
           ? `task ${identifier} or artifact ${artifactId} not found in workspace ${creds.workspaceSlug}`
-          : `artifact lookup failed (HTTP ${showRes.status})`)
+          : httpFailed('artifact lookup', showRes.status))
       console.error(`Error: ${sanitizeField(msg)}`)
       return 1
     }
@@ -106,7 +107,7 @@ export async function taskArtifactRm(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -121,7 +122,7 @@ export async function taskArtifactRm(
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : `Error: artifact rm failed (HTTP ${res.status})`
+        : errHttp('artifact rm', res.status)
     )
     return 1
   }

@@ -31,7 +31,7 @@ export const CORE_WORKSPACE_COLUMNS: readonly string[] = [
   'updatedAt',
   'summaryFrequency',
   'summaryEnabled',
-  'summaryLocale',
+  'defaultLocale',
   'boundaryGateEnabled',
   'hookEventRetentionDays',
   'hookEventRetentionMode',

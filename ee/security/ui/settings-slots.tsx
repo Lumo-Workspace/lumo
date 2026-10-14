@@ -10,6 +10,7 @@ import type { ClientSlotProps } from '@/lib/plugins/client'
 import type { PlatformSecurityCeiling } from '@/ee/security/security-scan/workspace-switches'
 import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { ScanEvidenceRetentionRow } from '@/ee/security/components/settings/ScanEvidenceRetentionRow'
+import { PolicyCoverageCard } from '@/ee/security/components/settings/PolicyCoverageCard'
 
 /** A stored switch; a missing value reads as the column default (on). */
 function switchOf(value: unknown): boolean {
@@ -31,15 +32,19 @@ export function SecuritySettingsSection({
   const platform = me.securityPlatform
   if (!isPlatformCeiling(platform)) return null
   return (
-    <SecurityScanSwitchesCard
-      initial={{
-        securityScanEnabled: switchOf(workspace.securityScanEnabled),
-        securityAiReviewEnabled: switchOf(workspace.securityAiReviewEnabled),
-        securityHuntEnabled: switchOf(workspace.securityHuntEnabled),
-      }}
-      huntAvailable={platform.hunt}
-      sandboxAvailable={platform.sandbox}
-    />
+    <>
+      <SecurityScanSwitchesCard
+        initial={{
+          securityScanEnabled: switchOf(workspace.securityScanEnabled),
+          securityAiReviewEnabled: switchOf(workspace.securityAiReviewEnabled),
+          securityHuntEnabled: switchOf(workspace.securityHuntEnabled),
+        }}
+        huntAvailable={platform.hunt}
+        sandboxAvailable={platform.sandbox}
+      />
+      {/* LUM-1114: the project rules nothing checks automatically. */}
+      <PolicyCoverageCard />
+    </>
   )
 }
 

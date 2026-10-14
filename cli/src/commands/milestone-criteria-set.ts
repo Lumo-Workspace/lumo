@@ -3,12 +3,12 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { readFileUtf8, unreadableFileMessage } from '../lib/doc-input'
 import { checkArtifactFilePath } from '../lib/path-guard'
-import { sanitizeField } from '../lib/sanitize'
 import {
   formatExitCriteriaRows,
   type ExitCriterionRow,
 } from './milestone-criteria-list'
 import { resolveSessionId } from '../lib/session-id'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 const REFERENT_KINDS = [
   'EXTERNAL_FACT',
@@ -111,7 +111,7 @@ export async function milestoneCriteriaSet(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -154,16 +154,14 @@ export async function milestoneCriteriaSet(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as {
       error?: string
     } | null
-    console.error(
-      `Error: exit-criteria set failed (HTTP ${res.status})${body?.error ? `: ${sanitizeField(body.error)}` : ''}`
-    )
+    console.error(errHttp('exit-criteria set', res.status, body?.error))
     return 1
   }
 

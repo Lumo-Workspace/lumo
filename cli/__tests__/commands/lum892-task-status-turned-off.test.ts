@@ -60,18 +60,25 @@ describe('LUM-892 turned-off layer in lumo task status', () => {
       hunt: 'DISABLED',
     })
     expect(out).toContain(
-      '  PR #945 · scan no findings in the checks that ran · Secrets: checked · Code scan: checked · AI review: off in workspace settings · Exploit paths: off in workspace settings'
+      [
+        '  PR #945 · scan no findings in the checks that ran',
+        '    Secrets:        checked',
+        '    Code scan:      checked',
+        '    AI review:      off in workspace settings',
+        '    Exploit paths:  off in workspace settings',
+      ].join('\n')
     )
-    expect(out).toContain(
-      "    Turned off in this workspace's settings: AI review, Exploit paths. Those checks did not look at this PR."
+    expect(out.replace(/\s+/g, ' ')).toContain(
+      "Turned off in this workspace's settings: AI review, Exploit paths. Those checks did not look at this PR."
     )
+    expect(out).toMatch(/^ {4}Turned off in this workspace's settings/m)
     expect(out).not.toContain('scan CLEAN')
     expect(out).not.toContain("hasn't finished on our side")
   })
 
   it('LUM-892 turned-off layer: control, every layer run still prints CLEAN', () => {
     const out = scanLine({ secrets: 'RAN', external: 'RAN', judge: 'RAN' })
-    expect(out).toContain('  PR #945 · scan CLEAN · ')
+    expect(out).toContain('  PR #945 · scan CLEAN\n')
     expect(out).not.toContain('Turned off in')
     expect(formatTurnedOffLines({ judge: 'RAN' })).toEqual([])
     expect(formatScanStatus('FINDINGS', { judge: 'DISABLED' })).toBe('FINDINGS')
@@ -88,7 +95,7 @@ describe('LUM-892 turned-off layer in lumo task status', () => {
         },
       })
     )
-    expect(out).toContain(
+    expect(out.replace(/\s+/g, ' ')).toContain(
       "⚠ PR #945: security scanning is turned off in this workspace's settings — could not confirm it is clean."
     )
   })

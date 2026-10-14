@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.108.0",
+  "cliVersion": "1.120.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -481,13 +481,21 @@
     "doc list": {
       "arguments": [],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
         "--limit": {
           "long": "--limit",
           "short": null,
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Cap output to first N rows"
+          "description": "Docs per page (1-500, default 50)"
         },
         "--project": {
           "long": "--project",
@@ -519,12 +527,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Render as an indented tree"
+          "description": "Render as an indented tree (paged in tree order)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List documents visible to the current user"
+      "description": "List documents visible to the current user, 50 per page (--limit / --cursor)"
     },
     "doc move": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -1309,6 +1317,14 @@
           "enumCaseInsensitive": false,
           "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex."
         },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record"
+        },
         "--force": {
           "long": "--force",
           "short": null,
@@ -1325,14 +1341,6 @@
           "enumCaseInsensitive": false,
           "description": "Install into ./.claude and ./.agents + ./.codex (applies to the current project only)"
         },
-        "--upgrade": {
-          "long": "--upgrade",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs"
-        },
         "--user": {
           "long": "--user",
           "short": null,
@@ -1344,7 +1352,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
+      "description": "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; re-run it to refresh an install (unchanged files are not rewritten), with --dry-run to preview."
     },
     "member": {
       "arguments": [],
@@ -1791,6 +1799,22 @@
           "enumCaseInsensitive": false,
           "description": "Show only archived milestones"
         },
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Milestones per page (1-500, default 50)"
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -1810,7 +1834,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown."
+      "description": "List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown."
     },
     "milestone move": {
       "arguments": [{ "name": "ref", "required": true, "variadic": false }],
@@ -2381,6 +2405,62 @@
       "isInvokable": true,
       "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears)."
     },
+    "report": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the versioned payload as JSON"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Max completed tasks listed (default 50, max 500)"
+        },
+        "--member": {
+          "long": "--member",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only this member: me, an email, or a display name"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only tasks (and their sessions) in this project"
+        },
+        "--since": {
+          "long": "--since",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday"
+        },
+        "--until": {
+          "long": "--until",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself"
+    },
     "session": {
       "arguments": [],
       "flags": {},
@@ -2440,6 +2520,14 @@
           "enumCaseInsensitive": false,
           "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex."
         },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record"
+        },
         "--force": {
           "long": "--force",
           "short": null,
@@ -2456,14 +2544,6 @@
           "enumCaseInsensitive": false,
           "description": "Install into ./.claude and ./.agents + ./.codex (applies to the current project only)"
         },
-        "--upgrade": {
-          "long": "--upgrade",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs"
-        },
         "--user": {
           "long": "--user",
           "short": null,
@@ -2476,6 +2556,77 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Alias of `lumo init` (kept for older docs and scripts)."
+    },
+    "skill": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook"
+    },
+    "skill status": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it"
+    },
+    "skill update": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)"
+        },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing"
+        },
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also overwrite locally modified copies (discards those edits); still never downgrades"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
+        },
+        "--user": {
+          "long": "--user",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only user-scope copies (~/.claude, ~/.agents)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
     },
     "sprint": {
       "arguments": [],
@@ -3026,6 +3177,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
         "--full": {
           "long": "--full",
           "short": null,
@@ -3033,11 +3192,19 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print every comment, bypassing the output-token cap"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Top-level threads per page (1-500, default 50)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List the task comment thread (capped to the output budget; --full prints every comment)"
+      "description": "List the task comment thread, 50 top-level threads per page (--limit / --cursor; capped to the output budget; --full alone prints every comment)"
     },
     "task comments rm": {
       "arguments": [
@@ -3354,13 +3521,21 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue with earlier entries (from the footer)"
+        },
         "--json": {
           "long": "--json",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Emit the raw activity entries as JSON"
+          "description": "Emit the raw activity entries of this page as JSON"
         },
         "--limit": {
           "long": "--limit",
@@ -3368,7 +3543,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Show the last N entries (default 30)"
+          "description": "Entries per page, newest page first (1-500, default 50)"
         }
       },
       "hasSubcommands": false,
@@ -3396,13 +3571,29 @@
     "task list": {
       "arguments": [],
       "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { tasks, total, nextCursor } as JSON"
+        },
         "--limit": {
           "long": "--limit",
           "short": "-n",
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Show only the first N tasks"
+          "description": "Tasks per page (1-500, default 50)"
         },
         "--milestone": {
           "long": "--milestone",
@@ -3431,7 +3622,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List tasks assigned to you. Filter with --status, --project, --milestone, --limit."
+      "description": "List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with \"Showing X-Y of N.\" and the next-page command)."
     },
     "task memory": {
       "arguments": [],
@@ -3611,6 +3802,14 @@
           "enumCaseInsensitive": false,
           "description": "Assignee — me, an email, a member or agent name, or none for unassigned; repeatable (ORed)"
         },
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page (from the footer)"
+        },
         "--due-after": {
           "long": "--due-after",
           "short": null,
@@ -3641,7 +3840,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Emit the raw result as JSON"
+          "description": "Emit { tasks, truncated, total, nextCursor } as JSON"
         },
         "--limit": {
           "long": "--limit",
@@ -3649,7 +3848,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Show only the first N tasks"
+          "description": "Tasks per page (1-500, default 50)"
         },
         "--milestone": {
           "long": "--milestone",
@@ -3710,7 +3909,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side."
+      "description": "Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side; 50 per page (--limit / --cursor, a longer result ends with \"Showing X-Y of N.\" and the next-page command)."
     },
     "task show": {
       "arguments": [
@@ -4283,7 +4482,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt."
+          "description": "With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done with no other flag runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt."
         },
         "--description": {
           "long": "--description",

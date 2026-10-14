@@ -19,10 +19,29 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-// Mock Clerk so resolveSlackUser can short-circuit
-jest.mock('@clerk/nextjs/server', () => ({
-  createClerkClient: () => ({
-    users: { getUser: jest.fn() },
+// LUM-1096: `status` now requires a linked Slack user.
+// LUM-1103: the member lookup batches by id through getUserList.
+jest.mock('@/lib/auth/users', () => ({
+  createUserDirectory: async () => ({
+    getUserList: async ({
+      userId = [],
+      emailAddress = [],
+    }: {
+      userId?: string[]
+      emailAddress?: string[]
+    }) => ({
+      // LUM-1115: the Slack member lookup filters by email.
+      data: [
+        ...userId,
+        ...(emailAddress.some(e => e.toLowerCase() === 'dev@example.com')
+          ? ['user_1']
+          : []),
+      ].map(id => ({
+        id,
+        primaryEmailAddressId: 'em_1',
+        emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
+      })),
+    }),
   }),
 }))
 
@@ -49,6 +68,18 @@ const mockTask = {
 }
 
 describe('handleCommand — status', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        ok: true,
+        user: { profile: { email: 'dev@example.com' } },
+      }),
+    })) as unknown as typeof fetch
+    asMock(prisma.workspaceMember.findMany).mockResolvedValue([
+      { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
+    ])
+  })
+
   it('returns blocks when task exists', async () => {
     asMock(prisma.team.findFirst).mockResolvedValue(mockTeam)
     asMock(prisma.task.findFirst).mockResolvedValue(mockTask)
@@ -91,12 +122,11 @@ describe('handleCommand — status', () => {
 })
 
 describe('handleCommand — unknown command', () => {
-  it('returns HELP_TEXT for an unrecognised command', async () => {
+  it('returns the ephemeral help card for an unrecognised command', async () => {
     const result = await handleCommand('banana', 'U123', 'xoxb-token', 'ws-1')
-    expect(result.type).toBe('text')
-    expect((result as { type: 'text'; text: string }).text).toContain(
-      'Available commands'
-    )
+    expect(result.type).toBe('blocks')
+    expect(result.visibility).toBe('ephemeral')
+    expect(result.text).toContain('Available commands')
   })
 })
 

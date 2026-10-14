@@ -10,6 +10,7 @@ import { readCache, writeCache, clearCache } from '../../cache'
 import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { DataRetentionSection } from '../settings/DataRetentionSection'
+import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
 import { PluginSlot } from '@/lib/plugins/client'
@@ -25,7 +26,7 @@ type Workspace = {
   logoUrl?: string | null
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency
-  summaryLocale?: string
+  defaultLocale?: string
   hookEventRetentionDays?: number | null
   hookEventRetentionMode?: string
   crossingRawRetentionDays?: number
@@ -69,7 +70,6 @@ export function WorkspaceSettingsPage() {
   const [summaryEnabled, setSummaryEnabled] = useState(true)
   const [summaryFrequency, setSummaryFrequency] =
     useState<SummaryFrequency>('DAILY')
-  const [summaryLocale, setSummaryLocale] = useState('en')
   const [savingSummary, setSavingSummary] = useState(false)
 
   // LUM-1062: the whole GET /api/workspaces/me response, for plugin
@@ -115,7 +115,6 @@ export function WorkspaceSettingsPage() {
       setSlug(data.workspace.slug)
       setSummaryEnabled(data.workspace.summaryEnabled ?? true)
       setSummaryFrequency(data.workspace.summaryFrequency ?? 'DAILY')
-      setSummaryLocale(data.workspace.summaryLocale ?? 'en')
       // Persist to cache (merge — don't overwrite logoUrl from Sidebar)
       patchWorkspaceCache({
         name: data.workspace.name,
@@ -204,7 +203,6 @@ export function WorkspaceSettingsPage() {
       const data = await workspacesClient.updateMe<{ workspace: Workspace }>({
         summaryEnabled,
         summaryFrequency,
-        summaryLocale,
       })
       setWorkspace(prev => {
         if (!prev) return prev
@@ -213,8 +211,6 @@ export function WorkspaceSettingsPage() {
           updated.summaryEnabled = data.workspace.summaryEnabled
         if (data.workspace.summaryFrequency !== undefined)
           updated.summaryFrequency = data.workspace.summaryFrequency
-        if (data.workspace.summaryLocale !== undefined)
-          updated.summaryLocale = data.workspace.summaryLocale
         return updated
       })
       toast.success(
@@ -343,6 +339,21 @@ export function WorkspaceSettingsPage() {
           </div>
         </div>
 
+        {/* Default language (LUM-1097): Slack channel posts + DM fallback,
+            and (LUM-1117) AI summaries — the workspace's only language
+            setting. Rendered once the real workspace row is loaded. */}
+        {isOwner && workspace?.id && (
+          <div className='rounded-lg border border-border overflow-hidden mb-8'>
+            <DefaultLanguageRow
+              key={`${workspace.id}:${workspace.defaultLocale ?? 'en'}`}
+              value={workspace.defaultLocale ?? 'en'}
+              onSaved={defaultLocale =>
+                setWorkspace(prev => (prev ? { ...prev, defaultLocale } : prev))
+              }
+            />
+          </div>
+        )}
+
         {/* Summary settings */}
         {isOwner && (
           <div className='rounded-lg border border-border overflow-hidden mb-8'>
@@ -407,26 +418,6 @@ export function WorkspaceSettingsPage() {
                 </option>
                 <option value='WEEKLY'>
                   {intl.formatMessage({ id: 'workspaceSettings.freqWeekly' })}
-                </option>
-              </select>
-            </div>
-
-            {/* Language selector */}
-            <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
-              <label className='text-sm font-medium text-foreground'>
-                {intl.formatMessage({ id: 'workspaceSettings.reportLanguage' })}
-              </label>
-              <select
-                value={summaryLocale}
-                onChange={e => setSummaryLocale(e.target.value)}
-                disabled={savingSummary || !summaryEnabled}
-                className='h-8 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
-              >
-                <option value='en'>
-                  {intl.formatMessage({ id: 'workspaceSettings.langEn' })}
-                </option>
-                <option value='zh'>
-                  {intl.formatMessage({ id: 'workspaceSettings.langZh' })}
                 </option>
               </select>
             </div>

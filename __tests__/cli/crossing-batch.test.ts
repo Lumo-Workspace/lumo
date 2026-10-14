@@ -415,7 +415,7 @@ describe('batch explain', () => {
     const out = stdout.join('')
     expect(out).toContain('Recorded 2 of 3 explanations on LUM-845')
     expect(out).toContain('✓ cx-a')
-    expect(out).toContain('✗ cx-b — explanation rejected (HTTP 404)')
+    expect(out).toContain('✗ cx-b — explanation failed (HTTP 404)')
     expect(out).toContain('✓ cx-c')
     expect(
       fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/status'))

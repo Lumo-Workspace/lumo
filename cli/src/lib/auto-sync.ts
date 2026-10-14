@@ -28,23 +28,37 @@ import {
 import { hashSkillDir } from './skill-hash'
 
 /** Commands that must never trigger the first-run-of-a-version sync. */
-const NO_AUTO_SYNC_COMMANDS = new Set(['doctor', 'uninstall'])
+const NO_AUTO_SYNC_COMMANDS = new Set(['doctor', 'uninstall', 'skill'])
 
 /**
- * Whether `maybeAutoSync` may run for this invocation. `doctor` is read-only
- * and `uninstall` removes installs, so neither may rewrite them first.
+ * Whether `maybeAutoSync` may run for this invocation. `doctor` and `skill
+ * status` are read-only, `uninstall` removes installs and `skill update`
+ * must write only what it reports (nothing under --dry-run, never hooks), so
+ * none of them may rewrite installs first.
  */
 export function shouldAutoSync(argv: readonly string[]): boolean {
-  return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '')
+  return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '') && !isInitDryRun(argv)
+}
+
+/**
+ * LUM-1113: `lumo init --dry-run` (or `setup …`) promises zero
+ * writes, so neither the first-run sync nor the update check / background
+ * auto-update may run before it.
+ */
+export function isInitDryRun(argv: readonly string[]): boolean {
+  return (
+    (argv[2] === 'init' || argv[2] === 'setup') &&
+    argv.slice(3).includes('--dry-run')
+  )
 }
 
 /**
  * Whether the update notice and the background refresh/auto-update worker may
- * run. Not for `uninstall`: the worker could reinstall the CLI right after
+ * run. Not for `uninstall` (nor an init dry run): the worker could reinstall the CLI right after
  * `npm rm -g`, or recreate ~/.lumo after `--purge`.
  */
 export function shouldCheckForUpdates(argv: readonly string[]): boolean {
-  return argv[2] !== 'uninstall'
+  return argv[2] !== 'uninstall' && !isInitDryRun(argv)
 }
 
 const LOCK_FILE = 'auto-sync.lock'
@@ -172,7 +186,7 @@ function recentlyAttempted(
 /**
  * First run of a new CLI version: bring user-scope, untracked, unmodified
  * installs up to date. Never throws; never touches project-scope or
- * git-tracked paths (those need an explicit `lumo init --upgrade`).
+ * git-tracked paths (those need an explicit `lumo init --project`).
  */
 export function maybeAutoSync(
   currentVersion: string | null = readCliVersion(),

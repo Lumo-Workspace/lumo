@@ -48,6 +48,6 @@ describe('milestone update token budget flag', () => {
         { name: 'Q3 Launch', tokenBudget: 5000000 },
         { tokenBudget: null }
       )
-    ).toBe('Updated milestone "Q3 Launch": token budget → ∅')
+    ).toBe('Updated milestone "Q3 Launch": token budget → -')
   })
 })

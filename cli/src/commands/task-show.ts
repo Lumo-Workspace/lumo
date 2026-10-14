@@ -1,12 +1,19 @@
+import { NONE, fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { localDayLabel } from '../lib/local-day'
 import {
   TASK_DESCRIPTION_FENCE,
   TASK_DESCRIPTION_PREAMBLE,
   fenceUntrustedText,
 } from '../../../shared/src/untrusted-fence'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  fieldLines,
+  type Field,
+  type LayoutOptions,
+} from '../lib/report-layout'
+import { colorEnabled, heading, terminalWidth } from '../lib/ui'
 
 interface ShowResponse {
   task: {
@@ -30,28 +37,39 @@ interface ShowResponse {
 }
 
 /**
- * Render task detail as a key:value block. The description follows in its
- * own `<untrusted-task-description>` fence (LUM-998): member-authored text,
- * wrapper tags defanged and directive-shaped content flagged at the head.
+ * Render task detail: the `<id>  <title>` header (bold on a TTY), then
+ * `Label:  value` rows padded to the widest label (LUM-1090, the LUM-1091
+ * grammar; the URL is never wrapped). The description follows in its own
+ * `<untrusted-task-description>` fence (LUM-998): member-authored text,
+ * wrapper tags defanged and directive-shaped content flagged at the head —
+ * printed verbatim, never re-wrapped (it is Markdown).
  */
-export function formatTaskShow(task: ShowResponse['task']): string {
-  const lines: string[] = []
-  lines.push(`${task.identifier}  ${sanitizeField(task.title)}`)
-  lines.push(`Status:    ${task.status}`)
-  lines.push(`Priority:  ${task.priority}`)
-  lines.push(`Project:   ${sanitizeField(task.project.name)}`)
+export function formatTaskShow(
+  task: ShowResponse['task'],
+  opts: LayoutOptions = {}
+): string {
+  const lines: string[] = [
+    heading(`${task.identifier}  ${sanitizeField(task.title)}`, {
+      color: opts.color === true,
+    }),
+  ]
+  let assignee = NONE
   if (task.assignee) {
     const label = sanitizeField(task.assignee.label)
-    const detail =
+    assignee =
       task.assignee.email && task.assignee.type === 'member'
         ? `${label} <${sanitizeField(task.assignee.email)}>`
         : label
-    lines.push(`Assignee:  ${detail}`)
-  } else {
-    lines.push('Assignee:  (unassigned)')
   }
-  if (task.dueDate) lines.push(`Due:       ${localDayLabel(task.dueDate)}`)
-  lines.push(`URL:       ${task.url}`)
+  const fields: Field[] = [
+    { label: 'Status', value: task.status },
+    { label: 'Priority', value: task.priority },
+    { label: 'Project', value: sanitizeField(task.project.name) },
+    { label: 'Assignee', value: assignee },
+  ]
+  if (task.dueDate) fields.push({ label: 'Due', value: fmtDay(task.dueDate) })
+  fields.push({ label: 'URL', value: task.url, whole: true })
+  lines.push(...fieldLines(fields, 0, opts))
   const description = fenceUntrustedText(
     TASK_DESCRIPTION_FENCE,
     TASK_DESCRIPTION_PREAMBLE,
@@ -74,7 +92,7 @@ export async function taskShow(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -93,7 +111,7 @@ export async function taskShow(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -103,10 +121,15 @@ export async function taskShow(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: task show failed (HTTP ${res.status})`)
+    console.error(errHttp('task show', res.status))
     return 1
   }
 
   const data = (await res.json()) as ShowResponse
-  process.stdout.write(formatTaskShow(data.task) + '\n')
+  process.stdout.write(
+    formatTaskShow(data.task, {
+      width: terminalWidth(),
+      color: colorEnabled(),
+    }) + '\n'
+  )
 }

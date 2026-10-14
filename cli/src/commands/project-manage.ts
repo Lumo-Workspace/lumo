@@ -1,8 +1,8 @@
 import { readCredentials } from '../lib/config'
-import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { fetchDirectory, resolveDirectoryMember } from '../lib/directory'
 import { resolveProjectId } from '../lib/resolve'
+import { successLine } from '../lib/feedback'
 
 /** LUM-821: `lumo project create` / `lumo project update`. */
 
@@ -42,9 +42,17 @@ export async function projectCreate(
     'project create'
   )
   if (!r.ok || !r.data) return 1
-  process.stdout.write(
-    `Created project "${sanitizeField(r.data.project.name)}"  (${r.data.project.id})\n`
-  )
+  process.stdout.write(formatCreatedProjectLine(r.data.project) + '\n')
+}
+
+/** LUM-1092: `Created project "<name>"  <id>` (was `(<id>)`). */
+export function formatCreatedProjectLine(project: ProjectRow): string {
+  return successLine({
+    verb: 'Created',
+    kind: 'project',
+    title: project.name,
+    id: project.id,
+  })
 }
 
 export interface ProjectUpdateOptions {
@@ -119,6 +127,10 @@ export async function projectUpdate(
   )
   if (!r.ok || !r.data) return 1
   process.stdout.write(
-    `Updated project "${sanitizeField(r.data.project.name)}"\n`
+    successLine({
+      verb: 'Updated',
+      kind: 'project',
+      title: r.data.project.name,
+    }) + '\n'
   )
 }

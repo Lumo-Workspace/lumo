@@ -9,6 +9,7 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { resolveMemoryDir } from '../lib/claude-memory-dir'
 import { collectUpsyncCandidates, projectMemoriesEndpoint } from '../lib/upsync'
+import { errNotLoggedIn, httpFailed } from '../lib/errors'
 
 interface PushOptions {
   project?: string
@@ -40,7 +41,7 @@ export async function memoryPush(options: PushOptions): Promise<number | void> {
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -97,7 +98,7 @@ export async function memoryPush(options: PushOptions): Promise<number | void> {
     }
     if (!res.ok) {
       console.error(
-        sanitizeField(`✗ ${c.file}: push failed (HTTP ${res.status})`)
+        sanitizeField(`✗ ${c.file}: ${httpFailed('push', res.status)}`)
       )
       continue
     }

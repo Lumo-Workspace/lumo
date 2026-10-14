@@ -169,23 +169,24 @@ describe('taskStatus — output', () => {
     const out = stdout()
     expect(out).toContain('LUM-9  do the thing')
     expect(out).toContain('Status: IN_PROGRESS')
-    expect(out).toContain('Next actions (1 security finding):')
-    expect(out).toContain('[SECURITY] [HIGH] DETERMINISTIC secret:aws')
+    expect(out).toContain('\nNext actions (1 security finding)\n')
+    expect(out).toContain('[SECURITY] [HIGH] ')
+    expect(out).toMatch(/^ +Rule: +secret:aws/m)
     expect(out).toContain('[TEST CASE] No test case recorded yet (advisory)')
-    expect(out).toContain('Cost:')
-    expect(out).toContain('Struggle / rework:')
-    expect(out).toContain('Trend:')
+    expect(out).toMatch(/^Cost$/m)
+    expect(out).toMatch(/^Struggle \/ rework$/m)
+    expect(out).toMatch(/^Trend/m)
   })
 
   it('the default report omits the dashboard sections', () => {
     const out = formatTaskStatus(PAYLOAD)
-    expect(out).not.toContain('Cost:')
+    expect(out).not.toMatch(/^Cost$/m)
     expect(out).not.toContain('Trend')
   })
 
   it('a task with nothing outstanding says so', () => {
     const out = formatTaskStatus({ ...PAYLOAD, nextActions: [] })
-    expect(out).toContain('Next actions: none on record.')
+    expect(out).toContain('\nNext actions\n  None on record.\n')
   })
 
   it('task status no longer renders acceptance criteria or verify rounds', () => {
@@ -314,11 +315,13 @@ describe('taskStatus — open boundary crossings (LUM-448)', () => {
     expect(await taskStatus('LUM-9')).toBeUndefined()
     const out = stdout()
     // The audit line names the model + agent/branch + a correlatable session prefix.
-    expect(out).toContain(
-      'by model=claude-opus-4-8 · agent=CLAUDE_CODE/lumo/LUM-469 · session=sess-abc'
+    expect(out).toMatch(
+      /^ {4}By: +model=claude-opus-4-8 · agent=CLAUDE_CODE\/lumo\/LUM-469 · session=sess-abc$/m
     )
     // A crossing with no attribution degrades every dimension to unknown.
-    expect(out).toContain('by model=unknown · agent=unknown · session=unknown')
+    expect(out).toMatch(
+      /^ {4}By: +model=unknown · agent=unknown · session=unknown$/m
+    )
 
     // --json carries the structured attribution through unchanged.
     writeSpy.mock.calls.length = 0

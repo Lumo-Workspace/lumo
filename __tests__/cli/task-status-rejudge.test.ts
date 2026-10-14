@@ -84,18 +84,27 @@ describe('task status — re-judged advisory rows (LUM-780)', () => {
         crossings: [blocking, rejudged, plainAdvisory],
       },
     })
-    const lines = out.split('\n')
-    const rejudgedLine = lines.find(l => l.includes('POLICY_WEAKENING'))
-    expect(rejudgedLine).toContain(
-      `(advisory — does not block DONE · re-judged: ${EVIDENCE})`
+    // LUM-1091: one item per crossing — the gate in parentheses on the
+    // bullet line, the re-judge evidence as its own labelled row under it.
+    const item = (cat: string) => {
+      const tail = out.split(cat)[1]!
+      return cat + tail.split('\n  • ')[0]!.split('\n  Disposition')[0]!
+    }
+    const rejudgedItem = item('POLICY_WEAKENING')
+    expect(rejudgedItem).toContain(
+      'POLICY_WEAKENING (advisory — does not block DONE)\n'
     )
-    expect(rejudgedLine?.startsWith('  ◦')).toBe(true)
-    const plainLine = lines.find(l => l.includes('HARDCODED_SECRET'))
-    expect(plainLine).toContain('(advisory — does not block DONE)')
-    expect(plainLine).not.toContain('re-judged')
-    const blockingLine = lines.find(l => l.includes('TEST_FILE_DELETED'))
-    expect(blockingLine?.startsWith('  •')).toBe(true)
-    expect(blockingLine).not.toContain('re-judged')
+    expect(rejudgedItem.replace(/\s+/g, ' ')).toContain(
+      `Re-judged: ${EVIDENCE}`
+    )
+    const plainItem = item('HARDCODED_SECRET')
+    expect(plainItem).toContain('(advisory — does not block DONE)')
+    expect(plainItem).not.toContain('Re-judged')
+    const blockingItem = item('TEST_FILE_DELETED')
+    expect(blockingItem).toContain('TEST_FILE_DELETED (blocks DONE)')
+    expect(blockingItem).not.toContain('Re-judged')
+    // a single bullet glyph for every row
+    expect(out).not.toContain('◦')
     expect(out).toContain(
       'Open boundary crossings (3 undispositioned: 1 blocking DONE, 2 advisory / non-blocking)'
     )

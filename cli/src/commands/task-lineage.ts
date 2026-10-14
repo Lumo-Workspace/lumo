@@ -1,6 +1,14 @@
+import { fmtCount, fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  errAuth,
+  errHttp,
+  errNotLoggedIn,
+  httpFailed,
+  warn,
+} from '../lib/errors'
 
 type Outcome = 'MERGED' | 'REJECTED' | 'REWORKED' | 'UNKNOWN'
 type Disclosure = 'FULL' | 'INDEX'
@@ -99,7 +107,7 @@ export async function taskLineage(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -118,7 +126,7 @@ export async function taskLineage(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -128,7 +136,7 @@ export async function taskLineage(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: lineage fetch failed (HTTP ${res.status})`)
+    console.error(errHttp('lineage fetch', res.status))
     return 1
   }
 
@@ -144,26 +152,18 @@ export async function taskLineage(
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`Warning: could not fetch signal health (${msg})\n`)
+      process.stderr.write(warn(`could not fetch signal health (${msg})\n`))
       return
     }
     if (!signalRes.ok) {
       process.stderr.write(
-        `Warning: signal health fetch failed (HTTP ${signalRes.status})\n`
+        warn(`${httpFailed('signal health fetch', signalRes.status)}\n`)
       )
       return
     }
     const signalJson = (await signalRes.json()) as UsageSignalHealth
     process.stdout.write('\n' + formatSignalHealth(signalJson) + '\n')
   }
-}
-
-/** Deterministic thousands separator (no locale dependency, test-stable).
- *  Rounds first: attributed token figures can be fractional (LUM-840). */
-function groupThousands(n: number): string {
-  return Math.round(n)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 /** Integer percentage, 0 when the denominator is 0 (never NaN). */
@@ -231,9 +231,9 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   lines.push(`- Fragments: ${t.fragmentCount}`)
   lines.push(`- Edges: ${t.edgeCount}`)
   lines.push(
-    `- Tokens: ${groupThousands(t.tokens.total)} ` +
-      `(in ${groupThousands(t.tokens.input)} · out ${groupThousands(t.tokens.output)} · ` +
-      `cache-read ${groupThousands(t.tokens.cacheRead)} · cache-create ${groupThousands(t.tokens.cacheCreation)})`
+    `- Tokens: ${fmtCount(t.tokens.total)} ` +
+      `(in ${fmtCount(t.tokens.input)} · out ${fmtCount(t.tokens.output)} · ` +
+      `cache-read ${fmtCount(t.tokens.cacheRead)} · cache-create ${fmtCount(t.tokens.cacheCreation)})`
   )
   lines.push(`- Loops: ${t.loopCount}`)
   const totalsOutcome = outcomeSummary(t.outcomes)
@@ -253,12 +253,10 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     lines.push('')
     lines.push('Top operations by token cost:')
     for (const op of data.totals.topOperations) {
-      lines.push(
-        `  ${sanitizeField(op.tool)} — ${groupThousands(op.total)} tokens`
-      )
+      lines.push(`  ${sanitizeField(op.tool)} — ${fmtCount(op.total)} tokens`)
       for (const c of (op.commands ?? []).slice(0, 3)) {
         lines.push(
-          `    ↳ ${sanitizeField(c.command)} — ${groupThousands(c.total)} tokens`
+          `    ↳ ${sanitizeField(c.command)} — ${fmtCount(c.total)} tokens`
         )
       }
     }
@@ -266,10 +264,10 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   }
 
   for (const g of data.groups) {
-    lines.push(`## ${sanitizeField(g.label)} · ${g.includedAt.slice(0, 10)}`)
+    lines.push(`## ${sanitizeField(g.label)} · ${fmtDay(g.includedAt)}`)
     if (g.cost) {
       lines.push(
-        `**Cost**: ${groupThousands(g.cost.total)} tokens · ${g.cost.loopCount} loops`
+        `**Cost**: ${fmtCount(g.cost.total)} tokens · ${g.cost.loopCount} loops`
       )
     } else {
       lines.push('**Cost**: (no captured cost)')
