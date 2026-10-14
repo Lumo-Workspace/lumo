@@ -1,4 +1,4 @@
-import { resolveRunFields } from '@/lib/services/test-case-core'
+import { ceilingOf, resolveRunFields } from '@/lib/services/test-case-core'
 
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: {
@@ -53,5 +53,54 @@ describe('resolveRunFields (owner-agnostic)', () => {
         evidence: [],
       } as never)
     ).toThrow(/needs at least one evidence entry/)
+  })
+})
+
+describe('ceilingOf (LUM-1135)', () => {
+  const runRow = (over: Record<string, unknown> = {}) =>
+    ({
+      result: 'PASS',
+      environment: 'PRODUCTION',
+      evidence: [{ type: 'link', url: 'https://x' }],
+      ...over,
+    }) as never
+
+  it('a PASS with evidence in the required environment stays PASS', () => {
+    expect(
+      ceilingOf(runRow(), [], { requiredEnvironment: 'PRODUCTION' })
+    ).toEqual({ effective: 'PASS' })
+  })
+
+  it('caps a PASS in the wrong environment at UNPROVEN', () => {
+    expect(
+      ceilingOf(runRow({ environment: 'LOCAL' }), [], {
+        requiredEnvironment: 'PRODUCTION',
+      })
+    ).toMatchObject({ effective: 'UNPROVEN', reason: 'environment' })
+  })
+
+  it('passes the unproven verification list through', () => {
+    const unproven = [{ index: 0, text: 'comment posted' }]
+    expect(
+      ceilingOf(runRow(), unproven, { requiredEnvironment: null })
+    ).toEqual({
+      effective: 'UNPROVEN',
+      reason: 'unobserved',
+      unobserved: unproven,
+    })
+  })
+
+  it('counts evidence from the Json column (non-array = none)', () => {
+    expect(
+      ceilingOf(runRow({ evidence: null }), [], { requiredEnvironment: null })
+    ).toEqual({ effective: 'UNPROVEN', reason: 'no-evidence' })
+  })
+
+  it('a FAIL is never capped', () => {
+    expect(
+      ceilingOf(runRow({ result: 'FAIL', evidence: [] }), [], {
+        requiredEnvironment: 'PRODUCTION',
+      })
+    ).toEqual({ effective: 'FAIL' })
   })
 })
