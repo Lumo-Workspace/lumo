@@ -43,7 +43,9 @@ beforeAll(async () => {
     repo: 'o/r',
     number: 7,
   })
-  // LUM-1137: a PR whose owner chose a limit under LUM-1056 keeps it.
+  // LUM-1137: a PR whose owner chose a limit under LUM-1056 keeps it. The
+  // row is written with raw SQL while the schema is at LUM-1056, so it still
+  // exercises the LUM-1137 copy even though LUM-1138 later drops the column.
   await harness.applyMigration(migration)
   await harness.insert('pull_requests', {
     id: 'custom',
@@ -78,6 +80,13 @@ test('migration preserves an existing PR and initializes its review budget', asy
   await expect(
     prReviewControlRepository.update('pr', 'resume', 0)
   ).rejects.toThrow()
+  // LUM-1138: the contract migration drops the LUM-1056 column.
+  expect(
+    await harness.query(
+      `select 1 from information_schema.columns
+        where table_name = 'pull_requests' and column_name = 'reviewRoundLimit'`
+    )
+  ).toEqual([])
 })
 
 test('real reservations, duplicate head retries, pause and resume enforce the persisted budget', async () => {
