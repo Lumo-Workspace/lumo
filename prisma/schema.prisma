@@ -2057,10 +2057,6 @@ model PullRequest {
   id             String    @id @default(cuid())
   // LUM-1056: durable automatic-review budget; reservations survive retries.
   reviewPaused   Boolean   @default(false)
-  // LUM-1137: no longer read (the limit is reviewCommitLimit, else the
-  // workspace's securityReviewAutoPauseAfter). LUM-1138 expand phase:
-  // @ignore keeps it out of every query; the contract release drops it.
-  reviewRoundLimit Int     @default(2) @ignore
   reviewHeads    String[]  @default([])
   // LUM-1137: the PR's commit count at each admitted head, aligned with
   // reviewHeads (a missing entry — a head admitted before this column —

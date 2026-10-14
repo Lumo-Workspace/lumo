@@ -1,7 +1,8 @@
 /**
- * LUM-1138 expand phase: `pull_requests.reviewRoundLimit` is no longer read
- * (LUM-1137) and is kept out of every Prisma query with `@ignore`, so the
- * contract release can drop it without breaking the deployment still serving.
+ * LUM-1138: `pull_requests.reviewRoundLimit` is no longer read (LUM-1137). The
+ * expand release (#1478) kept it out of every Prisma query with `@ignore`; the
+ * contract release drops the column and the field. Either way no runtime code
+ * may name it and the destructive guard must accept the DROP COLUMN.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
@@ -42,7 +43,7 @@ function sourceFiles(path: string): string[] {
     .flatMap(name => sourceFiles(join(path, name)))
 }
 
-describe('LUM-1138 PullRequest.reviewRoundLimit expand phase', () => {
+describe('LUM-1138 PullRequest.reviewRoundLimit removal', () => {
   it('no runtime code path names the column', () => {
     const files = CODE_ROOTS.flatMap(root => sourceFiles(join(REPO_ROOT, root)))
     expect(files.length).toBeGreaterThan(100)
