@@ -10,6 +10,7 @@ import {
 import { workspaceService } from '@/lib/services/workspace.service'
 import type { AuditContext } from '@/lib/services/audit.service'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+import { waitUntil } from '@/lib/runtime/wait-until'
 
 /**
  * LUM-1002 — the PR security-scan switches as one read/write unit, so the CLI
@@ -71,6 +72,16 @@ export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
   }
 }
 
+/**
+ * LUM-1140 — the bulk withdrawal, imported lazily so a settings read or a
+ * plain switch change never loads the GitHub client.
+ */
+async function withdrawChangeRequests(workspaceId: string): Promise<void> {
+  const { requestChangesOffService } =
+    await import('@/ee/security/services/request-changes-off.service')
+  await requestChangesOffService.withdrawAcrossWorkspace(workspaceId)
+}
+
 export const securityScanSettingsService = {
   async get(caller: SecurityScanSettingsCaller): Promise<SecurityScanSettings> {
     const [stored, role] = await Promise.all([
@@ -99,7 +110,10 @@ export const securityScanSettingsService = {
     update: SecurityScanSettingsUpdate,
     audit?: AuditContext
   ): Promise<SecurityScanSettings> {
-    const role = await miscRepository.findMemberRoleById(caller.memberId)
+    const [role, before] = await Promise.all([
+      miscRepository.findMemberRoleById(caller.memberId),
+      securityColumnsRepository.findSecuritySwitches(caller.workspaceId),
+    ])
     await workspaceService.updateWorkspace(
       caller.workspaceId,
       role ?? '',
@@ -107,6 +121,16 @@ export const securityScanSettingsService = {
       switchesForUpdate(update),
       audit
     )
-    return this.get(caller)
+    const settings = await this.get(caller)
+    // LUM-1140: the request-changes workflow went on → off — dismiss Lumo's
+    // standing "changes requested" reviews on the workspace's open PRs, in
+    // the background (bounded; a PR it misses is caught at its next review).
+    if (
+      before?.securityRequestChangesEnabled === true &&
+      !settings.switches.securityRequestChangesEnabled
+    ) {
+      waitUntil(withdrawChangeRequests(caller.workspaceId))
+    }
+    return settings
   },
 }

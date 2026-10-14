@@ -9,6 +9,8 @@
  *     reviews so GitHub stops showing them.
  *   · `approveByCommand` — `@<app> approve` (the caller has already checked
  *     the asker, the mode and the blocking findings).
+ *   · `withdrawChangeRequests` — LUM-1140: the mode is off, so Lumo's
+ *     standing "changes requested" reviews are dismissed (never approves).
  *
  * Best effort: `apply` never throws (a failed verdict must not fail a scan's
  * write-back); the next sync decides again.
@@ -16,7 +18,10 @@
  * Layering: service — GitHub through `@/lib/integrations/github/*` only.
  */
 import { logger } from '@/lib/logger'
-import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
+import {
+  prCommentClient,
+  type GithubApiError,
+} from '@/lib/integrations/github/pr-comment-client'
 import {
   canSubmitApproval,
   decideReviewVerdict,
@@ -75,6 +80,10 @@ export function dismissMessage(headSha: string): string {
   return `Superseded by Lumo's approval of ${short(headSha)}.`
 }
 
+/** LUM-1140 — why a change request is withdrawn with the mode off. */
+export const WITHDRAW_MESSAGE =
+  "Lumo's request-changes workflow is turned off for this workspace — this change request no longer applies."
+
 export interface VerdictSyncInput {
   repo: Repo
   prNumber: number
@@ -100,6 +109,18 @@ export type ApproveByCommandResult =
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * GitHub said slow down (primary or secondary rate limit): a
+ * `GithubApiError` carrying the moment the limit lifts.
+ */
+export function isRateLimited(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    (error as Partial<GithubApiError>).rateLimitResetAt instanceof Date
+  )
 }
 
 /** Approve `sha`, then dismiss Lumo's earlier change requests. */
@@ -225,5 +246,42 @@ export const prReviewVerdictService = {
       changesRequestedIds: standing.changesRequestedIds,
     })
     return { ok: true, sha: input.sha }
+  },
+
+  /**
+   * LUM-1140 — the request-changes workflow is off: dismiss every Lumo
+   * "changes requested" review still standing on the PR (only reviews by
+   * Lumo's App — `standingLumoReview`; a human's review is never touched,
+   * and nothing is approved). Returns how many were dismissed. A listing
+   * error or a rate limit throws (the caller decides); any other failed
+   * dismissal is logged and the rest still go.
+   */
+  async withdrawChangeRequests(input: {
+    repo: Repo
+    prNumber: number
+    token: string
+  }): Promise<number> {
+    const { changesRequestedIds } = standingLumoReview(
+      await prCommentClient.listReviews(input)
+    )
+    let dismissed = 0
+    for (const reviewId of changesRequestedIds) {
+      try {
+        await prCommentClient.dismissReview({
+          repo: input.repo,
+          prNumber: input.prNumber,
+          reviewId,
+          message: WITHDRAW_MESSAGE,
+          token: input.token,
+        })
+        dismissed++
+      } catch (error) {
+        if (isRateLimited(error)) throw error
+        logger.warn(
+          `[pr-review-verdict] withdraw failed pr=#${input.prNumber} review=${reviewId}: ${describe(error)}`
+        )
+      }
+    }
+    return dismissed
   },
 }
