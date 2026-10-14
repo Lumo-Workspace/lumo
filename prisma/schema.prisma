@@ -1591,6 +1591,9 @@ model PrFindingThread {
   resolvedByLogin String?
   resolvedAt      DateTime?
   addressedInSha  String?
+  // LUM-1131: GitHub REST id of the last human reply Lumo answered in this
+  // thread — a redelivered webhook for the same reply is not answered twice.
+  lastReplyId     String?
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 
@@ -1599,6 +1602,40 @@ model PrFindingThread {
   @@unique([pullRequestId, fingerprint])
   @@index([pullRequestId, state])
   @@map("pr_finding_threads")
+}
+
+// LUM-1131: a repository-scoped learning from a human reply in one of Lumo's
+// finding threads ("this is intentional because …"). The text lives in the
+// linked Memory row (PROJECT / CONVENTION) — that is where people read, edit
+// and delete it; this row only says which repository (and optional path glob)
+// the AI review applies it to. Deleting the memory deletes the learning.
+model PrReviewLearning {
+  id                  String   @id @default(cuid())
+  workspaceId         String
+  memoryId            String   @unique
+  // "owner/name", as on PullRequest.repo.
+  repo                String
+  // null = the whole repository.
+  pathGlob            String?
+  ruleId              String
+  fingerprint         String
+  // The PR the reply was written on (no FK: the learning outlives the PR row).
+  sourcePullRequestId String?
+  // GitHub REST id of the human reply the learning came from.
+  sourceReplyId       String
+  authorLogin         String
+  // CodeRabbit parity: a learning applies only to its source PR until that
+  // PR merges; set when the merge is seen. Readers also treat a merged
+  // source PR as repository-wide (a missed merge event changes nothing).
+  repoWideAt          DateTime?
+  createdAt           DateTime @default(now())
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, sourceReplyId])
+  @@index([workspaceId, repo])
+  @@index([sourcePullRequestId])
+  @@map("pr_review_learnings")
 }
 
 enum PrSecurityFindingDisposition {
@@ -3008,6 +3045,9 @@ model Memory {
   /// LUM-648: cross-milestone learning-migration usage edges — one per steward
   /// session this MILESTONE-scope memory was injected into.
   milestoneMemoryEdges MilestoneMemoryEdge[]
+
+  /// LUM-1131: set when this memory is a PR-review learning (its repo scope).
+  reviewLearning PrReviewLearning?
 
   @@index([projectId, scope, status])
   @@index([taskId, status])

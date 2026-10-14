@@ -574,6 +574,52 @@ export async function handlePullRequestReviewThread(
   })
 }
 
+/**
+ * LUM-1131 — hand a review-line comment to the plugins as
+ * `github.reviewComment` (a human reply in a Lumo finding thread can become
+ * a learning). Only the fields a consumer needs; the body stays untrusted.
+ */
+function emitReviewComment(
+  payload: Record<string, unknown>,
+  workspaceId: string,
+  pr: { id: string; taskId: string | null; repo: string; number: number }
+): void {
+  const c = (payload.comment ?? {}) as {
+    id?: unknown
+    body?: unknown
+    in_reply_to_id?: unknown
+    user?: { login?: unknown; type?: unknown } | null
+    author_association?: unknown
+  }
+  if (typeof c.id !== 'number') return
+  const user = c.user ?? null
+  emitCoreEvent('github.reviewComment', {
+    workspaceId,
+    pullRequestId: pr.id,
+    taskId: pr.taskId,
+    repo: pr.repo,
+    prNumber: pr.number,
+    action: typeof payload.action === 'string' ? payload.action : '',
+    comment: {
+      id: c.id,
+      body: typeof c.body === 'string' ? c.body : '',
+      inReplyToId:
+        typeof c.in_reply_to_id === 'number' ? c.in_reply_to_id : null,
+      user: user
+        ? {
+            ...(typeof user.login === 'string' ? { login: user.login } : {}),
+            ...(typeof user.type === 'string' ? { type: user.type } : {}),
+          }
+        : null,
+      // Raw; the consumer's trust check (`classifyReviewer`) normalises it.
+      authorAssociation:
+        typeof c.author_association === 'string'
+          ? c.author_association.slice(0, 40)
+          : null,
+    },
+  })
+}
+
 export async function handlePullRequestReviewComment(
   payload: Record<string, unknown>,
   workspaceId: string,
@@ -589,7 +635,11 @@ export async function handlePullRequestReviewComment(
     repo,
     prRef.number
   )
-  if (!pr?.taskId) return
+  if (!pr) return
+  // LUM-1131: any PR row Lumo holds — a scan's finding threads exist
+  // wherever the scan commented, task-linked or not.
+  emitReviewComment(payload, workspaceId, pr)
+  if (!pr.taskId) return
   await prCommentMirrorService.runInbound({
     event: 'pull_request_review_comment',
     action: (payload.action as InboundAction) ?? 'created',

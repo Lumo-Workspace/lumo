@@ -65,6 +65,7 @@ export function createPluginRegistry(
     'github.push': [],
     'github.reviewThread': [],
     'github.issueComment': [],
+    'github.reviewComment': [],
     'task.prLinked': [],
     'task.statusChanged': [],
   }

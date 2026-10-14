@@ -200,6 +200,22 @@ export const pullRequestRepository = {
     return rows.map(row => row.id)
   },
 
+  /**
+   * LUM-1131: the state ('open' | 'closed' | 'merged') of each PR, pinned to
+   * the workspace. A missing id is simply absent from the map.
+   */
+  async findStatesByIds(
+    workspaceId: string,
+    ids: string[]
+  ): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map()
+    const rows = await prisma.pullRequest.findMany({
+      where: { workspaceId, id: { in: ids } },
+      select: { id: true, state: true },
+    })
+    return new Map(rows.map(r => [r.id, r.state]))
+  },
+
   /** Find a PR by ID with task info. */
   async findById(id: string) {
     return prisma.pullRequest.findUnique({

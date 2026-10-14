@@ -174,6 +174,27 @@ export interface CoreEvents {
     }
     prAuthorLogin: string | null
   }
+  /**
+   * LUM-1131: a review-line comment on a known PR (`pull_request_review_comment`),
+   * any author — Lumo's own bot included, so a consumer drops its own echo.
+   * `inReplyToId` is the thread's first comment when this is a reply.
+   */
+  'github.reviewComment': {
+    workspaceId: string
+    pullRequestId: string
+    taskId: string | null
+    repo: string
+    prNumber: number
+    action: string
+    comment: {
+      id: number
+      body: string
+      inReplyToId: number | null
+      user: { login?: string; type?: string } | null
+      /** GitHub `author_association`, raw; null when absent. */
+      authorAssociation: string | null
+    }
+  }
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
   'task.prLinked': { taskId: string; pullRequestId: string }
   /** LUM-1063: a task's status changed (after the update committed). */

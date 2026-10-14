@@ -485,6 +485,8 @@ export const PLUGIN_MODELS = [
   'ProjectPolicy',
   // LUM-1127: the PR write-back's per-PR finding threads.
   'PrFindingThread',
+  // LUM-1131: thread replies' repository-scoped learnings.
+  'PrReviewLearning',
 ] as const
 
 /**

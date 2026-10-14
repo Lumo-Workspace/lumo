@@ -83,10 +83,30 @@ export const securityPlugin: LumoServerPlugin = {
     // current head. The worker dedups on (pr, headSha), so redelivery is
     // harmless. Registered with waitUntil so the runtime keeps the function
     // alive until the dispatch settles.
-    api.on('github.pullRequest', ({ action, state, pullRequestId }) => {
-      if (shouldScanOnPrEvent(action, state))
-        waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
-    })
+    api.on(
+      'github.pullRequest',
+      ({ action, state, pullRequestId, workspaceId }) => {
+        if (shouldScanOnPrEvent(action, state))
+          waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
+        // LUM-1131: a merged PR's thread learnings become repository-wide.
+        // Idempotent; a missed event is covered at read time (the review
+        // also treats a merged source PR as repository-wide).
+        if (state === 'merged')
+          waitUntil(
+            (async () => {
+              try {
+                const { promoteLearningsOnMerge } =
+                  await import('@/ee/security/services/review-learnings.service')
+                await promoteLearningsOnMerge(workspaceId, pullRequestId)
+              } catch (error) {
+                logger.warn(
+                  `[security] learning promotion failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+                )
+              }
+            })()
+          )
+      }
+    )
 
     // LUM-732: a manually linked PR (any state — merged history included)
     // gets one scan of its current head. A dropped promise here would read
@@ -130,6 +150,28 @@ export const securityPlugin: LumoServerPlugin = {
           } catch (error) {
             logger.warn(
               `[security] PR command failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
+    })
+
+    // LUM-1131: a human reply in one of Lumo's finding threads — answered,
+    // and when it says the finding is intentional / not applicable, the
+    // thread is closed for this PR and a learning stored for later reviews.
+    // Dynamic import: the reply service reaches the model client.
+    api.on('github.reviewComment', event => {
+      if (event.action !== 'created' || event.comment.inReplyToId === null)
+        return
+      waitUntil(
+        (async () => {
+          try {
+            const { applyThreadReply } =
+              await import('@/ee/security/services/pr-thread-reply.service')
+            await applyThreadReply(event)
+          } catch (error) {
+            logger.warn(
+              `[security] thread reply failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
             )
           }
         })()

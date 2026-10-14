@@ -323,6 +323,26 @@ export const projectRepository = {
   },
 
   /**
+   * LUM-1131: the workspace project a GitHub repository is linked to — the
+   * project whose link is marked default first, then the oldest link. Names
+   * compare case-insensitively (GitHub's do). null when no project links it.
+   */
+  async findProjectIdByRepoFullName(
+    workspaceId: string,
+    fullName: string
+  ): Promise<string | null> {
+    const row = await prisma.projectRepository.findFirst({
+      where: {
+        project: { workspaceId },
+        fullName: { equals: fullName, mode: 'insensitive' },
+      },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      select: { projectId: true },
+    })
+    return row?.projectId ?? null
+  },
+
+  /**
    * Replace the `order` field on a sequence of projects to match the given array
    * (1-based). Runs in a transaction. The `workspaceId` scope is enforced in
    * each update's `where` so a cross-workspace id causes the transaction to
