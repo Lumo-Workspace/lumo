@@ -2835,6 +2835,7 @@
   "milestoneGate.reason.failing": "最近一次執行失敗",
   "milestoneGate.reason.blocked": "最近一次執行被阻擋",
   "milestoneGate.override.open": "仍然關閉",
-  "milestoneGate.override.notePlaceholder": "為什麼可以在這些案例未通過時關閉?",
-  "milestoneGate.override.confirm": "關閉里程碑"
+  "milestoneGate.override.notePlaceholder": "為什麼可以在這些案例未通過時關閉？",
+  "milestoneGate.override.confirm": "關閉里程碑",
+  "milestoneGate.override.failed": "無法關閉里程碑。請檢查網路連線和權限後重試。"
 }

@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "Latest run was blocked",
   "milestoneGate.override.open": "Close anyway",
   "milestoneGate.override.notePlaceholder": "Why is it OK to close without these passing?",
-  "milestoneGate.override.confirm": "Close milestone"
+  "milestoneGate.override.confirm": "Close milestone",
+  "milestoneGate.override.failed": "Could not close the milestone. Check your connection and permissions, then try again."
 }

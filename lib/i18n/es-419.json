@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "La última ejecución quedó bloqueada",
   "milestoneGate.override.open": "Cerrar de todos modos",
   "milestoneGate.override.notePlaceholder": "¿Por qué está bien cerrar sin que estos pasen?",
-  "milestoneGate.override.confirm": "Cerrar hito"
+  "milestoneGate.override.confirm": "Cerrar hito",
+  "milestoneGate.override.failed": "No se pudo cerrar el hito. Revisa tu conexión y permisos e inténtalo de nuevo."
 }

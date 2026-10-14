@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "पिछला रन ब्लॉक हुआ",
   "milestoneGate.override.open": "फिर भी बंद करें",
   "milestoneGate.override.notePlaceholder": "इनके पास हुए बिना बंद करना ठीक क्यों है?",
-  "milestoneGate.override.confirm": "माइलस्टोन बंद करें"
+  "milestoneGate.override.confirm": "माइलस्टोन बंद करें",
+  "milestoneGate.override.failed": "माइलस्टोन बंद नहीं हो सका। अपना कनेक्शन और अनुमतियाँ जाँचें, फिर दोबारा प्रयास करें।"
 }

@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "Последний запуск заблокирован",
   "milestoneGate.override.open": "Всё равно закрыть",
   "milestoneGate.override.notePlaceholder": "Почему можно закрыть этап, если они не пройдены?",
-  "milestoneGate.override.confirm": "Закрыть этап"
+  "milestoneGate.override.confirm": "Закрыть этап",
+  "milestoneGate.override.failed": "Не удалось закрыть этап. Проверьте соединение и права доступа и повторите попытку."
 }

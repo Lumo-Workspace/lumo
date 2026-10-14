@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import { milestonesClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { TestCasesSection } from '../TaskDetailTimeline/TestCasesSection'
 import { MilestoneCloseGateBanner } from './MilestoneCloseGateBanner'
 import { useTestCases } from '../../hooks/useTestCases'
@@ -53,7 +54,16 @@ export function MilestoneTestCasesSection({
             completed={completed}
             onOverride={async note => {
               await milestonesClient.overrideClose(milestoneId, note)
-              await queryClient.invalidateQueries()
+              // Detail page reads detail(id) or byProjectAndSlug — the
+              // milestones prefix covers both (and the list rollups).
+              await Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.milestoneTestCases(milestoneId),
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.milestones.all(),
+                }),
+              ])
             }}
           />
         )}

@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "마지막 실행이 차단됨",
   "milestoneGate.override.open": "그래도 닫기",
   "milestoneGate.override.notePlaceholder": "이 항목들이 통과하지 않아도 닫아도 되는 이유는 무엇인가요?",
-  "milestoneGate.override.confirm": "마일스톤 닫기"
+  "milestoneGate.override.confirm": "마일스톤 닫기",
+  "milestoneGate.override.failed": "마일스톤을 닫지 못했습니다. 연결과 권한을 확인한 뒤 다시 시도하세요."
 }

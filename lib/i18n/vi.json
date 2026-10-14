@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "Lần chạy gần nhất bị chặn",
   "milestoneGate.override.open": "Vẫn đóng",
   "milestoneGate.override.notePlaceholder": "Vì sao có thể đóng khi các mục này chưa đạt?",
-  "milestoneGate.override.confirm": "Đóng cột mốc"
+  "milestoneGate.override.confirm": "Đóng cột mốc",
+  "milestoneGate.override.failed": "Không thể đóng cột mốc. Hãy kiểm tra kết nối và quyền truy cập rồi thử lại."
 }

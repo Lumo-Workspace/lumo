@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "Letzter Lauf blockiert",
   "milestoneGate.override.open": "Trotzdem schließen",
   "milestoneGate.override.notePlaceholder": "Warum ist es in Ordnung, ohne bestandene Tests zu schließen?",
-  "milestoneGate.override.confirm": "Meilenstein schließen"
+  "milestoneGate.override.confirm": "Meilenstein schließen",
+  "milestoneGate.override.failed": "Der Meilenstein konnte nicht geschlossen werden. Prüfe Verbindung und Berechtigungen und versuche es erneut."
 }

@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "La dernière exécution a été bloquée",
   "milestoneGate.override.open": "Clôturer quand même",
   "milestoneGate.override.notePlaceholder": "Pourquoi peut-on clôturer sans que ceux-ci réussissent ?",
-  "milestoneGate.override.confirm": "Clôturer le jalon"
+  "milestoneGate.override.confirm": "Clôturer le jalon",
+  "milestoneGate.override.failed": "Impossible de clôturer le jalon. Vérifiez votre connexion et vos autorisations, puis réessayez."
 }

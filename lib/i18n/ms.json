@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "Larian terakhir disekat",
   "milestoneGate.override.open": "Tutup juga",
   "milestoneGate.override.notePlaceholder": "Mengapa boleh ditutup tanpa kes ini lulus?",
-  "milestoneGate.override.confirm": "Tutup pencapaian"
+  "milestoneGate.override.confirm": "Tutup pencapaian",
+  "milestoneGate.override.failed": "Pencapaian tidak dapat ditutup. Semak sambungan dan kebenaran anda, kemudian cuba lagi."
 }

@@ -35,6 +35,7 @@ export function MilestoneCloseGateBanner({
   const [overriding, setOverriding] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   if (gate.held === 0) {
     return (
@@ -47,9 +48,12 @@ export function MilestoneCloseGateBanner({
 
   async function confirm() {
     setBusy(true)
+    setFailed(false)
     try {
       await onOverride(note.trim())
       setOverriding(false)
+    } catch {
+      setFailed(true)
     } finally {
       setBusy(false)
     }
@@ -98,6 +102,11 @@ export function MilestoneCloseGateBanner({
               id: 'milestoneGate.override.notePlaceholder',
             })}
           />
+          {failed ? (
+            <p role='alert' className='text-body text-danger-text'>
+              {intl.formatMessage({ id: 'milestoneGate.override.failed' })}
+            </p>
+          ) : null}
           <div className='flex gap-2'>
             <Button
               size='sm'

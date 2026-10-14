@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "直近の実行はブロックされました",
   "milestoneGate.override.open": "それでもクローズ",
   "milestoneGate.override.notePlaceholder": "これらが合格していなくてもクローズしてよい理由は?",
-  "milestoneGate.override.confirm": "マイルストーンをクローズ"
+  "milestoneGate.override.confirm": "マイルストーンをクローズ",
+  "milestoneGate.override.failed": "マイルストーンをクローズできませんでした。接続と権限を確認して、もう一度お試しください。"
 }

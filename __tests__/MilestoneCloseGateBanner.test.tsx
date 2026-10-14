@@ -117,3 +117,22 @@ it('says the gate is open when nothing holds', () => {
   )
   expect(screen.getByText(/Close gate open/)).toBeInTheDocument()
 })
+
+it('keeps the note open and shows an error when the override fails', async () => {
+  const onOverride = jest.fn().mockRejectedValue(new Error('403'))
+  render(
+    <MilestoneCloseGateBanner
+      gate={held}
+      allTasksDone
+      completed={false}
+      onOverride={onOverride}
+    />
+  )
+  await userEvent.click(screen.getByRole('button', { name: /Close anyway/ }))
+  await userEvent.type(screen.getByRole('textbox'), 'verified by hand')
+  await userEvent.click(screen.getByRole('button', { name: /Close milestone/ }))
+  expect(await screen.findByRole('alert')).toBeInTheDocument()
+  expect(onOverride).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('textbox')).toHaveValue('verified by hand')
+  expect(screen.getByRole('button', { name: /Close milestone/ })).toBeEnabled()
+})

@@ -2836,5 +2836,6 @@
   "milestoneGate.reason.blocked": "Eksekusi terakhir terblokir",
   "milestoneGate.override.open": "Tutup saja",
   "milestoneGate.override.notePlaceholder": "Mengapa boleh ditutup tanpa lulusnya kasus-kasus ini?",
-  "milestoneGate.override.confirm": "Tutup milestone"
+  "milestoneGate.override.confirm": "Tutup milestone",
+  "milestoneGate.override.failed": "Milestone tidak dapat ditutup. Periksa koneksi dan izin Anda, lalu coba lagi."
 }

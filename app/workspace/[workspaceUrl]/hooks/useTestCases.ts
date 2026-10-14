@@ -75,13 +75,14 @@ export function useTestCases(
 
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey })
-    // 里程碑的 run 可能开/关闭合闸门，页头的完成态要跟着刷新。
+    // 里程碑的 run 可能开/关闭合闸门，页头的完成态要跟着刷新。详情页按 URL 段
+    // 走 detail(id) 或 byProjectAndSlug 两个 key，所以按 milestones 前缀整体失效。
     if (kind === 'milestone') {
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.milestones.detail(id),
+        queryKey: queryKeys.milestones.all(),
       })
     }
-  }, [queryClient, queryKey, kind, id])
+  }, [queryClient, queryKey, kind])
 
   const add = useCallback(
     async (payload: CreateTestCaseBody) => {
