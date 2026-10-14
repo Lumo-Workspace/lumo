@@ -73,6 +73,7 @@ import {
   threadsLine,
 } from '@/ee/security/services/security-pr-review.service'
 import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
+import { getRepoToken } from '@/lib/integrations/github/auth'
 import { reviewThreadClient } from '@/lib/integrations/github/review-threads'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
@@ -157,6 +158,7 @@ const summaryBody = () => String(createIssue.mock.calls[0]?.[0]?.body ?? '')
 
 beforeEach(() => {
   jest.clearAllMocks()
+  ;(getRepoToken as jest.Mock).mockResolvedValue('tok')
   listReview.mockResolvedValue([])
   listThreads.mockResolvedValue([])
   threadRows.mockResolvedValue([])
@@ -221,6 +223,61 @@ describe('LUM-1127 write-back with finding threads', () => {
       token: 'tok',
     })
     expect(summaryBody()).toMatch(/0 open · 1 addressed · 0 resolved on GitHub/)
+  })
+
+  /**
+   * LUM-1127 prod regression (PR 1451): GitHub refuses resolveReviewThread to
+   * a `pull_requests: write`-only installation token ("Resource not
+   * accessible by integration"), so the eval thread stayed open. The token
+   * the thread mutations run with must carry `contents: write` too. The mock
+   * mint hands back its permission set as the token, so the call shows which
+   * set it was minted with.
+   */
+  it('regression: resolves the addressed thread with a token minted with contents: write', async () => {
+    ;(getRepoToken as jest.Mock).mockImplementation(
+      async (_w: string, _r: string, perms: object) => JSON.stringify(perms)
+    )
+    threadRows.mockResolvedValue([
+      thread({ state: 'OPEN', resolvedByLogin: null }),
+    ])
+    listThreads.mockResolvedValue([
+      {
+        id: 'PRRT_1',
+        isResolved: false,
+        isOutdated: false,
+        resolvedBy: null,
+        firstCommentId: 101,
+      },
+    ])
+    findById.mockResolvedValue(scanRow([]))
+    await securityPrReviewService.syncReview('s1')
+    const resolve = reviewThreadClient.resolveThread as jest.Mock
+    expect(resolve).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(resolve.mock.calls[0][0].token)).toEqual({
+      pull_requests: 'write',
+      contents: 'write',
+    })
+    // The rest of the write-back keeps the narrower pull-request token.
+    expect(JSON.parse(createIssue.mock.calls[0][0].token)).toEqual({
+      pull_requests: 'write',
+    })
+  })
+
+  it('regression: a refused thread-token mint still posts the summary (threads retried next sync)', async () => {
+    ;(getRepoToken as jest.Mock).mockImplementation(
+      async (_w: string, _r: string, perms: Record<string, string>) => {
+        if (perms.contents) throw new Error('422 permissions not granted')
+        return 'tok'
+      }
+    )
+    threadRows.mockResolvedValue([
+      thread({ state: 'OPEN', resolvedByLogin: null }),
+    ])
+    listThreads.mockResolvedValue([])
+    findById.mockResolvedValue(scanRow([]))
+    const out = await securityPrReviewService.syncReview('s1')
+    expect(out.posted).toBe(true)
+    expect(summaryBody()).toMatch(/No open findings/)
   })
 
   it('records a thread row for each new inline comment', async () => {
