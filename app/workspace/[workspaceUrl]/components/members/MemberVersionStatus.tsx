@@ -31,10 +31,16 @@ function statusDetail(
 ): string | null {
   if (status === 'needsUpdate') {
     const cli = connections.find(c => c.cliBehind && c.cliVersion)
-    if (cli && latestCliVersion)
+    if (cli?.cliVersion && latestCliVersion)
       return formatMessage(
         { id: 'members.status.cliDetail' },
         { from: cli.cliVersion, to: latestCliVersion }
+      )
+    // Latest unknown: still say which CLI is behind, never blame the skill.
+    if (cli?.cliVersion)
+      return formatMessage(
+        { id: 'members.connection.cli' },
+        { version: cli.cliVersion }
       )
     return formatMessage({ id: 'members.status.skillDetail' })
   }

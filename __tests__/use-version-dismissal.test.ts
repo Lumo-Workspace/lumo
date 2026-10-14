@@ -27,11 +27,23 @@ describe('useVersionDismissal (LUM-1136)', () => {
     expect(result.current.dismissed).toBe(false)
   })
 
-  it('no version → never dismissed, dismiss is a no-op', () => {
+  it('unknown latest version → dismissing still works and is remembered', () => {
     const { result } = renderHook(() => useVersionDismissal(KEY, null))
-    act(() => result.current.dismiss())
     expect(result.current.dismissed).toBe(false)
-    expect(window.localStorage.getItem(KEY)).toBeNull()
+    act(() => result.current.dismiss())
+    expect(result.current.dismissed).toBe(true)
+    expect(window.localStorage.getItem(KEY)).toBe('')
+  })
+
+  it('reads as dismissed until storage has been read (no flash on load)', () => {
+    window.localStorage.setItem(KEY, '1.121.0')
+    const seen: boolean[] = []
+    renderHook(() => {
+      const r = useVersionDismissal(KEY, '1.121.0')
+      seen.push(r.dismissed)
+      return r
+    })
+    expect(seen.every(Boolean)).toBe(true)
   })
 
   it('survives storage that throws', () => {

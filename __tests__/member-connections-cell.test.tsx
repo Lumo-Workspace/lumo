@@ -123,6 +123,18 @@ describe('MemberVersionStatus', () => {
     expect(screen.getByText('Skill behind its CLI')).toBeTruthy()
   })
 
+  it('CLI behind with the latest version unknown names the CLI, not the skill', () => {
+    render(
+      <MemberVersionStatus
+        connections={[conn({ cliVersion: '1.118.2', cliBehind: true })]}
+        latestCliVersion={null}
+        unknown={false}
+      />
+    )
+    expect(screen.getByText('CLI 1.118.2')).toBeTruthy()
+    expect(screen.queryByText('Skill behind its CLI')).toBeNull()
+  })
+
   it('up to date shows the CLI in use', () => {
     render(
       <MemberVersionStatus
