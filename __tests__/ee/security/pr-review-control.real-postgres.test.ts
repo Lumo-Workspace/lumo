@@ -28,7 +28,9 @@ beforeAll(async () => {
     repo: 'o/r',
     number: 7,
   })
-  await harness.applyMigration(migration)
+  // LUM-1127: and every later migration — the repositories under test
+  // read today's columns (e.g. pr_security_scans.judgeReviewScope).
+  await harness.applyMigrationsFrom(migration)
 })
 afterAll(async () => harness.stop())
 

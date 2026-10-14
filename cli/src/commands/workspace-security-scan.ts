@@ -5,21 +5,31 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { wantsRepoReview, workspaceRepoReview } from './workspace-repo-review'
 
 export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   scan?: string
   aiReview?: string
   hunt?: string
+  /** LUM-1130 — the request-changes / approve workflow. */
+  requestChanges?: string
   disableAll?: boolean
   enableAll?: boolean
   json?: boolean
+  /** LUM-1133: per-repository automatic review (workspace-repo-review.ts). */
+  repo?: string
+  repos?: boolean
+  review?: string
+  drafts?: string
 }
 
-/** The three stored switches, as GET/PATCH /api/workspaces/me/security-scan return them. */
+/** The stored switches, as GET/PATCH /api/workspaces/me/security-scan return them. */
 export interface SecurityScanSwitches {
   securityScanEnabled: boolean
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
+  /** LUM-1130 — absent on a server older than the workflow (reads as off). */
+  securityRequestChangesEnabled?: boolean
 }
 
 export interface SecurityScanSettingsView {
@@ -43,6 +53,7 @@ const SWITCH_LABELS: Record<keyof SecurityScanSwitches, string> = {
   securityScanEnabled: 'Security scan (master)',
   securityAiReviewEnabled: 'AI review',
   securityHuntEnabled: 'Exploit-path hunt',
+  securityRequestChangesEnabled: 'Request-changes workflow',
 }
 
 function parseOnOff(flag: string, value: string): boolean {
@@ -66,6 +77,11 @@ export function buildSecurityScanUpdate(
     singles.securityAiReviewEnabled = parseOnOff('--ai-review', opts.aiReview)
   if (opts.hunt !== undefined)
     singles.securityHuntEnabled = parseOnOff('--hunt', opts.hunt)
+  if (opts.requestChanges !== undefined)
+    singles.securityRequestChangesEnabled = parseOnOff(
+      '--request-changes',
+      opts.requestChanges
+    )
 
   if (opts.disableAll && opts.enableAll) {
     throw new Error('use either --disable-all or --enable-all, not both')
@@ -74,7 +90,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes'
       )
     }
     return { all }
@@ -107,7 +123,7 @@ export function describeTurnOffs(
 ): string[] {
   const target = targetSwitches(update)
   const keys = Object.keys(SWITCH_LABELS) as (keyof SecurityScanSwitches)[]
-  const off = keys.filter(k => target[k] === false && current[k])
+  const off = keys.filter(k => target[k] === false && current[k] === true)
   if (off.length === 0) return []
   const lines = off.map(k => `Will turn OFF: ${SWITCH_LABELS[k]}`)
   if (target.securityScanEnabled === false && current.securityScanEnabled) {
@@ -118,6 +134,30 @@ export function describeTurnOffs(
   lines.push(
     'Workspace-wide (every member’s PRs); blocking findings from earlier scans still block Done'
   )
+  return lines
+}
+
+/**
+ * LUM-1130 — every change that needs the user's confirmation: the turn-offs
+ * above, plus turning the request-changes workflow ON (it changes how Lumo's
+ * review reads on every PR in the workspace — "Changes requested" / an
+ * approval — which branch protection may count).
+ */
+export function describeGatedChanges(
+  current: SecurityScanSwitches,
+  update: SecurityScanUpdate
+): string[] {
+  const lines = describeTurnOffs(current, update)
+  const target = targetSwitches(update)
+  if (
+    target.securityRequestChangesEnabled === true &&
+    current.securityRequestChangesEnabled !== true
+  ) {
+    lines.push(
+      'Will turn ON: Request-changes workflow — Lumo’s PR review becomes “Changes requested” while a Lumo thread or a finding that blocks Done is open, and Lumo approves once its complete review of the latest commit leaves nothing open',
+      'Workspace-wide (every member’s PRs); branch protection that requires approvals or blocks on requested changes may count Lumo’s review'
+    )
+  }
   return lines
 }
 
@@ -161,6 +201,12 @@ export function formatSecurityScanSettings(
         `${label.padEnd(w)}  ${onOff(setting).padEnd(7)}  ${(platform === null ? '-' : onOff(platform)).padEnd(8)}  ${runs ? 'yes' : 'no'}`
     ),
   ]
+  if (s.switches.securityRequestChangesEnabled !== undefined) {
+    lines.push(
+      '',
+      `Request-changes workflow: ${onOff(s.switches.securityRequestChangesEnabled)}`
+    )
+  }
   if (!s.switches.securityScanEnabled) {
     lines.push('', 'Security scanning is off for this workspace.')
   }
@@ -179,6 +225,9 @@ const NO_PLUGIN = missingPluginMessage('workspace security-scan', 'security')
 export async function workspaceSecurityScan(
   opts: WorkspaceSecurityScanOptions = {}
 ): Promise<number | void> {
+  // LUM-1133: --repos / --repo … is the per-repository review mode.
+  if (wantsRepoReview(opts)) return workspaceRepoReview(opts)
+
   let update: SecurityScanUpdate | null
   try {
     update = buildSecurityScanUpdate(opts)
@@ -208,7 +257,7 @@ export async function workspaceSecurityScan(
       )
       return 1
     }
-    const changes = describeTurnOffs(current.data.switches, update)
+    const changes = describeGatedChanges(current.data.switches, update)
     if (changes.length > 0 && !isConfirmed(opts)) {
       return emitConfirmation({ command: 'workspace security-scan', changes })
     }

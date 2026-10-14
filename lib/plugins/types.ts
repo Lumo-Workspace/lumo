@@ -119,14 +119,22 @@ export interface AgentContextContributor {
 // ── core events ──────────────────────────────────────────────────────────────
 
 export interface CoreEvents {
-  /** A task-linked pull_request webhook event, after the PR row is stored. */
+  /**
+   * A pull_request webhook event, after the PR row is stored. LUM-1133: every
+   * PR of a confirmed repository — `taskId` is null when no task is linked
+   * (the plugin decides whether such a PR is reviewed).
+   */
   'github.pullRequest': {
     workspaceId: string
-    taskId: string
+    taskId: string | null
     pullRequestId: string
     action: string
     /** Derived from the payload: 'open' | 'closed' | 'merged'. */
     state: string
+    /** `owner/name` as the payload spells it. */
+    repo: string
+    prNumber: number
+    isDraft: boolean
   }
   /** A branch push (not a tag, not a deletion). */
   'github.push': {
@@ -135,6 +143,65 @@ export interface CoreEvents {
     branch: string
     isDefaultBranch: boolean
     headSha: string
+  }
+  /**
+   * LUM-1127: a review thread on a known PR was resolved or unresolved on
+   * GitHub (`pull_request_review_thread`). `sender` is who did it — Lumo's
+   * own bot included, so a consumer can drop its own echo.
+   */
+  'github.reviewThread': {
+    workspaceId: string
+    pullRequestId: string
+    action: string
+    threadNodeId: string | null
+    comments: Array<{
+      id: number
+      body: string
+      user: { type?: string; login?: string } | null
+      in_reply_to_id?: number | null
+    }>
+    sender: { login?: string; type?: string } | null
+  }
+  /**
+   * LUM-1129: a conversation comment on a PR Lumo holds (any PR row, task
+   * or not) was created / edited / deleted (`issue_comment`). The security
+   * plugin reads `@<app> review|full review|pause|resume|resolve` commands
+   * off it; `prAuthorLogin` is the PR's author.
+   */
+  'github.issueComment': {
+    workspaceId: string
+    pullRequestId: string
+    repo: string
+    prNumber: number
+    action: string
+    comment: {
+      id: number
+      body: string
+      createdAt: string | null
+      user: { login?: string; type?: string } | null
+    }
+    prAuthorLogin: string | null
+  }
+  /**
+   * LUM-1131: a review-line comment on a known PR (`pull_request_review_comment`),
+   * any author — Lumo's own bot included, so a consumer drops its own echo.
+   * `inReplyToId` is the thread's first comment when this is a reply.
+   */
+  'github.reviewComment': {
+    workspaceId: string
+    pullRequestId: string
+    taskId: string | null
+    repo: string
+    prNumber: number
+    action: string
+    comment: {
+      id: number
+      body: string
+      inReplyToId: number | null
+      user: { login?: string; type?: string } | null
+      /** GitHub `author_association`, raw; null when absent. */
+      authorAssociation: string | null
+    }
   }
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
   'task.prLinked': { taskId: string; pullRequestId: string }

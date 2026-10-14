@@ -483,6 +483,10 @@ export const PLUGIN_MODELS = [
   'PrSecurityScan',
   'PrSecurityFinding',
   'ProjectPolicy',
+  // LUM-1127: the PR write-back's per-PR finding threads.
+  'PrFindingThread',
+  // LUM-1131: thread replies' repository-scoped learnings.
+  'PrReviewLearning',
 ] as const
 
 /**
@@ -601,6 +605,7 @@ export const PLUGIN_COLUMNS: Readonly<Record<string, readonly string[]>> = {
     'securityScanEnabled',
     'securityAiReviewEnabled',
     'securityHuntEnabled',
+    'securityRequestChangesEnabled',
     'scanEvidenceRetentionDays',
   ],
   ProjectRepository: ['lastSarifIngestAt', 'securityBaseline'],

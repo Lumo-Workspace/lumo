@@ -9,10 +9,14 @@ and none of the L3 hunt's stored audit (per-task commands, step trace, stop
 arithmetic, sites, model, diff sizing) had any entry point outside a
 prod-database script.
 
-Without control flags this is read-only, no LLM. **Disposition stays web-only** (the LUM-750 CLI path was
-rolled back) — this command reports dispositions, it never records one.
+Without control flags this is read-only, no LLM. This command reports dispositions, it never records
+one — the user's ruling goes through [`lumo finding disposition`](#finding-disposition) (or the web panel).
 
 ## Usage
+
+### Which PRs are reviewed automatically (LUM-1133)
+
+Every open PR of a repository the workspace confirmed is reviewed on `opened` / `reopened` / `synchronize` / `ready_for_review` — task-linked or not (CodeRabbit parity). For a PR **without a task**, the per-repository settings apply (`lumo workspace security-scan --repos`, see [workspace-settings.md](workspace-settings.md)): a repository turned off is not reviewed; a draft is skipped until it is marked ready unless the repository includes drafts; a PR converted back to draft keeps its findings and threads, and its pushes are not reviewed while it is a draft. When several workspaces confirmed the same repository, exactly one reviews a task-less PR (the earliest confirmation that would review it; none when another workspace has the PR linked to its task), so GitHub gets one review. Task-linked PRs are always scanned — the scan is the Done gate's evidence. The per-PR round budget and the 150-file cap apply the same way; `lumo pr scan <n> --review full` still reviews any PR by hand.
 
 ### Review controls (LUM-1056)
 
@@ -41,6 +45,14 @@ The PR is resolved **inside the caller's workspace** (bearer API key or
 browser session). A number that belongs to another workspace is
 indistinguishable from one that never existed — `Error: PR #N not found in
 workspace <slug>` — so the command never leaks whether a PR exists elsewhere.
+
+### PR comment commands (LUM-1129)
+
+The same controls work from the PR itself: a top-level PR comment whose line starts with the App's handle (production `@uselumo`; derived from `GITHUB_APP_SLUG`) — `@uselumo review` (= `--review incremental`), `@uselumo full review` (= `--review full`), `@uselumo pause`, `@uselumo resume`, `@uselumo resolve`, `@uselumo help`. Lumo answers with a reply; an unknown command gets the help list. Only accounts with write access to the repository are obeyed (others, bots and edited comments are ignored silently); it works on PRs with no linked task. `resolve` resolves Lumo's open review threads as the commenter's own resolve — it never dispositions a finding, leaves a finding that blocks DONE open (clear those with `lumo finding disposition` or the web panel), and is refused for the PR's author. `@uselumo approve` (LUM-1130, only when the workspace's request-changes workflow is on — `lumo workspace security-scan --request-changes on`) resolves Lumo's open threads and approves the PR's current head, dismissing Lumo's earlier "changes requested"; it is refused while any finding blocks DONE (a thread resolved on GitHub does not clear it — only a disposition does), refused for the PR's author, refused until Lumo's latest scan is of the PR's current head, and does nothing when refused. The security summary comment lists the commands under "Lumo commands".
+
+### Request-changes workflow (LUM-1130)
+
+Off by default (`lumo workspace security-scan --request-changes on|off`, OWNER). On, Lumo's inline review is posted as **Changes requested**, and Lumo keeps requesting changes (one standing review, not one per sync) while any Lumo thread is open or any finding blocks DONE. Lumo **approves** only when the latest head's review is complete (every enabled layer ran whole — not partial, paused, pending or failed), no Lumo thread is open, no finding blocks DONE (resolving its thread on GitHub does not count), every actionable finding is already on the PR, and the PR's head is unchanged when the approval is submitted; it then dismisses its earlier "changes requested" reviews. Off, Lumo posts COMMENT reviews only — turning the workflow off does not withdraw a "Changes requested" Lumo already posted (dismiss it on GitHub, or turn the workflow back on and let Lumo approve). `@uselumo approve` is the reviewer's override: it does not wait for every layer to finish, but it still needs Lumo's latest scan to be of the current head and no blocking finding. Whether Lumo's review counts toward branch protection is GitHub's call.
 
 ## Reading the output
 
@@ -275,4 +287,38 @@ by construction — the server never loads the column for this read.
 - The user asks what the security scan found on a PR ("what did the scan say on #1013", "why is PR 1013 blocked", "show me the scan") — especially a PR **without** a linked task, which `lumo task status` cannot see.
 - `lumo task status` shows a `PR #N · scan …` line and the user wants the findings behind it, the dispositioned history, or why the hunt layer read `⚠ partly checked` / `N/M done` — `lumo pr scan N` then `--full` for the per-task trace.
 - Auditing the L3 hunt on a real scan (which commands the gate refused, how many steps a task got, which model ran) without a prod-database script.
-- **Not** for changing a finding's standing: disposition is human-only in the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.
+- **Not** for changing a finding's standing: that is `lumo finding disposition` (the user's ruling, exit-4 gated) or the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.
+
+## Finding disposition
+
+`lumo finding disposition <id...> --false-positive | --accepted-risk [--note "<text>"] [--task <LUM-N>] [--confirm]`
+(LUM-1128) records the **user's** ruling on one or more PR security findings. It is how a blocking
+finding is cleared for DONE; the web delivery panel stays a second surface (and can correct a CLI
+ruling). Resolving the GitHub review thread does **not** clear the gate.
+
+```bash
+lumo finding disposition cmabc123 --false-positive --note "test fixture, not a real key"
+lumo finding disposition cmabc123 cmdef456 --accepted-risk --note "internal-only endpoint"
+```
+
+A gated mutation on the [confirmation protocol](confirmation.md) — no read receipts, no extra steps:
+
+- **Without `--confirm`** it reads the findings from the server and prints ONE `confirmation_required`
+  envelope (exit 4, nothing written): one line per finding — id, `[SEVERITY]`, title, rule and location,
+  PR, `blocks DONE` / `advisory`, `OPEN → <ruling>`, the note — then the ⚠ DONE consequence. Relay every
+  line to the user.
+- **Only after the user approves in chat**, run the envelope's `confirmCommand` (your command plus
+  `--confirm`). Each finding is reported `✓` / `✗` (exit 1 if any failed), then the status digest.
+  **Never add `--confirm` yourself.**
+- Ids come from `lumo task status` (`Id:` under each `[SECURITY]` / `[BUG]` item) or `DONE_BLOCKED`
+  `blockers[].findingId`. Several ids = one envelope; one ruling per call. An id not on the task fails
+  closed (exit 1, nothing written); a finding already carrying the ruling is skipped.
+- `--accepted-risk` means the risk is real and knowingly carried — ask the user for the why and pass it
+  as `--note`.
+- The server records each ruling with channel `CLI`, the member, the session and the time (task
+  timeline + audit log). There is no agent-session guard: the protection is the user's approval of the
+  envelope. Reverting a ruling to OPEN is not available.
+
+**When to suggest:** `lumo task status` / `task wrapup` lists a blocking `[SECURITY]` / `[BUG]` finding
+the user says is a false positive or an accepted risk; `task update --status done` exits 5 with a
+`SECURITY_FINDING` blocker; the user asks to clear, dismiss or accept a scan finding.

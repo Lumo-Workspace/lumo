@@ -256,14 +256,15 @@ describe('task update done blocked', () => {
     ])
     const text = err.remediation.join('\n')
     expect(text).not.toContain('lumo verify')
-    expect(text).toMatch(/false positive|accepted risk/)
+    expect(text).toMatch(/--false-positive|--accepted-risk/)
+    expect(text).toContain('lumo finding disposition f-1')
     expect(text).not.toContain('crossing explain')
   })
 
   it('remediation never offers a CLI path that clears a blocker', () => {
-    // LUM-769: a boundary crossing may name `lumo crossing disposition` — the
-    // USER's exit-4 path, never a ready-to-run approval — while security
-    // findings still get no CLI clear path at all.
+    // LUM-769 / LUM-1128: a boundary crossing may name `lumo crossing
+    // disposition` and a security finding `lumo finding disposition` — the
+    // USER's exit-4 paths, never a ready-to-run approval.
     const lines = buildRemediation(
       [
         {
@@ -292,6 +293,7 @@ describe('task update done blocked', () => {
     const allowed = [
       'lumo crossing explain',
       'lumo crossing disposition',
+      'lumo finding disposition',
       'lumo task status',
     ]
     for (const l of lines) {
@@ -304,9 +306,10 @@ describe('task update done blocked', () => {
     const byKind = Object.fromEntries(
       lines.map(l => [l.split(':')[0], l])
     ) as Record<string, string>
-    expect(byKind.SECURITY_FINDING).not.toContain('lumo ')
+    expect(byKind.SECURITY_FINDING).toContain('lumo finding disposition f ')
+    expect(byKind.SECURITY_FINDING).toContain('never self-approve')
     expect(byKind.BOUNDARY_CROSSING).toContain('never self-approve')
-    expect(lines.join('\n')).toMatch(/human/i)
+    expect(byKind.SECURITY_FINDING).toMatch(/to the user/)
   })
 
   it('an enrichment read that fails is reported in unconfirmed[], not hidden', async () => {

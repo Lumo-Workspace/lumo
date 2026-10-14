@@ -104,12 +104,16 @@ export async function handlePullRequest(
     repository,
   } = payload as unknown as PullRequestPayload
 
+  // LUM-1133: ready_for_review / converted_to_draft keep `isDraft` current
+  // (a task-less draft is reviewed once it is marked ready).
   const relevantActions = [
     'opened',
     'reopened',
     'closed',
     'synchronize',
     'edited',
+    'ready_for_review',
+    'converted_to_draft',
   ]
   if (!relevantActions.includes(action)) return
 
@@ -158,7 +162,23 @@ export async function handlePullRequest(
     prRow.taskId
   )
 
-  if (!linkedTask) return
+  // The plugin event for this PR. LUM-1133: emitted for a PR without a task
+  // too (taskId null) so it can be reviewed; everything below stays
+  // task-only (branch list, lineage, notifications).
+  const prEvent = {
+    workspaceId,
+    pullRequestId: prRow.id,
+    action,
+    state,
+    repo: repository.full_name,
+    prNumber: pr.number,
+    isDraft: pr.draft === true,
+  }
+
+  if (!linkedTask) {
+    emitCoreEvent('github.pullRequest', { ...prEvent, taskId: null })
+    return
+  }
 
   // Ensure the branch appears in the task's branch list whenever a PR
   // event references it — covers branches created outside Lumo and
@@ -173,13 +193,7 @@ export async function handlePullRequest(
   // scans the current head of an open PR (LUM-732; static analysis only,
   // LUM-837: typecheck/test verdicts come from the customer's own CI via
   // handleCheckSuite). Fire-and-forget; handlers register their own waitUntil.
-  emitCoreEvent('github.pullRequest', {
-    workspaceId,
-    taskId: linkedTask.id,
-    pullRequestId: prRow.id,
-    action,
-    state,
-  })
+  emitCoreEvent('github.pullRequest', { ...prEvent, taskId: linkedTask.id })
 
   // Close the task's lineage edges when this PR reaches a terminal state
   // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so
@@ -433,7 +447,11 @@ export async function handleIssueComment(
   _integrationId: string | null
 ): Promise<void> {
   const issue = payload.issue as
-    | { number: number; pull_request?: unknown }
+    | {
+        number: number
+        pull_request?: unknown
+        user?: { login?: string } | null
+      }
     | undefined
   if (!issue?.pull_request) return // real issue, not a PR
   const repo = (payload.repository as { full_name?: string } | undefined)
@@ -444,7 +462,40 @@ export async function handleIssueComment(
     repo,
     issue.number
   )
-  if (!pr?.taskId) return
+  // A PR Lumo holds no row for: nothing to mirror, nothing to command.
+  if (!pr) return
+  // LUM-1129: any PR row — `@<app> review` must work on a PR with no task.
+  const comment = (payload.comment ?? {}) as {
+    id?: number
+    body?: string
+    created_at?: string
+    user?: { login?: string; type?: string } | null
+  }
+  if (typeof comment.id === 'number') {
+    const user = comment.user ?? null
+    emitCoreEvent('github.issueComment', {
+      workspaceId,
+      pullRequestId: pr.id,
+      repo,
+      prNumber: issue.number,
+      action: typeof payload.action === 'string' ? payload.action : 'created',
+      comment: {
+        id: comment.id,
+        body: typeof comment.body === 'string' ? comment.body : '',
+        createdAt:
+          typeof comment.created_at === 'string' ? comment.created_at : null,
+        user: user
+          ? {
+              ...(typeof user.login === 'string' ? { login: user.login } : {}),
+              ...(typeof user.type === 'string' ? { type: user.type } : {}),
+            }
+          : null,
+      },
+      prAuthorLogin:
+        typeof issue.user?.login === 'string' ? issue.user.login : null,
+    })
+  }
+  if (!pr.taskId) return
   await prCommentMirrorService.runInbound({
     event: 'issue_comment',
     action: (payload.action as InboundAction) ?? 'created',
@@ -481,6 +532,108 @@ export async function handlePullRequestReview(
   })
 }
 
+/**
+ * LUM-1127 — `pull_request_review_thread` (resolved / unresolved): handed to
+ * the plugins as `github.reviewThread`, which records a human resolving one
+ * of Lumo's finding threads. Any PR row Lumo holds — not only task-linked
+ * ones: a scan's threads exist wherever the scan commented.
+ */
+export async function handlePullRequestReviewThread(
+  payload: Record<string, unknown>,
+  workspaceId: string
+): Promise<void> {
+  const prRef = payload.pull_request as { number?: number } | undefined
+  const repo = (payload.repository as { full_name?: string } | undefined)
+    ?.full_name
+  const action = payload.action
+  if (!prRef?.number || !repo || typeof action !== 'string') return
+  const pr = await pullRequestRepository.findByRepoAndNumber(
+    workspaceId,
+    repo,
+    prRef.number
+  )
+  if (!pr) return
+  const thread = (payload.thread ?? {}) as {
+    node_id?: string
+    comments?: Array<{
+      id?: number
+      body?: string
+      user?: { type?: string; login?: string } | null
+      in_reply_to_id?: number | null
+    }>
+  }
+  const sender = (payload.sender ?? null) as {
+    login?: string
+    type?: string
+  } | null
+  emitCoreEvent('github.reviewThread', {
+    workspaceId,
+    pullRequestId: pr.id,
+    action,
+    threadNodeId: typeof thread.node_id === 'string' ? thread.node_id : null,
+    comments: (thread.comments ?? [])
+      .filter(c => typeof c.id === 'number')
+      .map(c => ({
+        id: c.id as number,
+        body: typeof c.body === 'string' ? c.body : '',
+        user: c.user ?? null,
+        in_reply_to_id: c.in_reply_to_id ?? null,
+      })),
+    sender: sender
+      ? {
+          ...(typeof sender.login === 'string' ? { login: sender.login } : {}),
+          ...(typeof sender.type === 'string' ? { type: sender.type } : {}),
+        }
+      : null,
+  })
+}
+
+/**
+ * LUM-1131 — hand a review-line comment to the plugins as
+ * `github.reviewComment` (a human reply in a Lumo finding thread can become
+ * a learning). Only the fields a consumer needs; the body stays untrusted.
+ */
+function emitReviewComment(
+  payload: Record<string, unknown>,
+  workspaceId: string,
+  pr: { id: string; taskId: string | null; repo: string; number: number }
+): void {
+  const c = (payload.comment ?? {}) as {
+    id?: unknown
+    body?: unknown
+    in_reply_to_id?: unknown
+    user?: { login?: unknown; type?: unknown } | null
+    author_association?: unknown
+  }
+  if (typeof c.id !== 'number') return
+  const user = c.user ?? null
+  emitCoreEvent('github.reviewComment', {
+    workspaceId,
+    pullRequestId: pr.id,
+    taskId: pr.taskId,
+    repo: pr.repo,
+    prNumber: pr.number,
+    action: typeof payload.action === 'string' ? payload.action : '',
+    comment: {
+      id: c.id,
+      body: typeof c.body === 'string' ? c.body : '',
+      inReplyToId:
+        typeof c.in_reply_to_id === 'number' ? c.in_reply_to_id : null,
+      user: user
+        ? {
+            ...(typeof user.login === 'string' ? { login: user.login } : {}),
+            ...(typeof user.type === 'string' ? { type: user.type } : {}),
+          }
+        : null,
+      // Raw; the consumer's trust check (`classifyReviewer`) normalises it.
+      authorAssociation:
+        typeof c.author_association === 'string'
+          ? c.author_association.slice(0, 40)
+          : null,
+    },
+  })
+}
+
 export async function handlePullRequestReviewComment(
   payload: Record<string, unknown>,
   workspaceId: string,
@@ -496,7 +649,11 @@ export async function handlePullRequestReviewComment(
     repo,
     prRef.number
   )
-  if (!pr?.taskId) return
+  if (!pr) return
+  // LUM-1131: any PR row Lumo holds — a scan's finding threads exist
+  // wherever the scan commented, task-linked or not.
+  emitReviewComment(payload, workspaceId, pr)
+  if (!pr.taskId) return
   await prCommentMirrorService.runInbound({
     event: 'pull_request_review_comment',
     action: (payload.action as InboundAction) ?? 'created',

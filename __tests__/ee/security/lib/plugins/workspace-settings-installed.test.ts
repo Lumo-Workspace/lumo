@@ -4,7 +4,7 @@
  * LUM-1062 / LUM-1065 — the `workspaceSettings` extension point with the
  * security plugin installed (the plugin half of
  * __tests__/lib/plugins/workspace-settings-lum1062.test.ts): the plugin owns
- * its five Workspace columns, validates them with the pre-split validators,
+ * its six Workspace columns (LUM-1130 added the request-changes workflow), validates them with the pre-split validators,
  * clears the policy Json column to SQL NULL, and audits its columns under
  * the same actions as before the split.
  */
@@ -19,6 +19,8 @@ const SECURITY_COLUMNS = [
   'securityScanEnabled',
   'securityAiReviewEnabled',
   'securityHuntEnabled',
+  // LUM-1130: the request-changes workflow.
+  'securityRequestChangesEnabled',
 ]
 
 describe('installed (the security plugin)', () => {
@@ -94,6 +96,7 @@ describe('installed (the security plugin)', () => {
         'securityScanEnabled',
         'securityAiReviewEnabled',
         'securityHuntEnabled',
+        'securityRequestChangesEnabled',
       ].sort()
     )
     expect(audited['workspace.retention_updated']).toContain(

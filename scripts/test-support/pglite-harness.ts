@@ -10,7 +10,7 @@
  */
 import { spawn, type ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
-import { readFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync } from 'fs'
 import path from 'path'
 import type { PrismaClient as PrismaClientType } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
@@ -37,6 +37,12 @@ export interface PgliteHarness {
   insert(table: string, values: Record<string, unknown>): Promise<void>
   /** Apply one migration file (see `stopBeforeMigration`). */
   applyMigration(name: string): Promise<void>
+  /**
+   * LUM-1127 — apply `name` and every migration after it, in order: a suite
+   * that exercises today's repositories after seeding a pre-migration shape
+   * needs the columns later migrations added too.
+   */
+  applyMigrationsFrom(name: string): Promise<void>
 }
 
 /**
@@ -124,6 +130,15 @@ export function createPgliteHarness(
         await client.query(sql)
       } finally {
         await client.end()
+      }
+    },
+
+    async applyMigrationsFrom(name: string) {
+      const dir = path.resolve(__dirname, '../../prisma/migrations')
+      for (const m of readdirSync(dir).sort()) {
+        if (m < name) continue
+        if (!existsSync(path.join(dir, m, 'migration.sql'))) continue
+        await harness.applyMigration(m)
       }
     },
 

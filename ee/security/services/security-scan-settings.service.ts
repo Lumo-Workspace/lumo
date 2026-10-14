@@ -41,7 +41,11 @@ export type SecurityScanSettingsUpdate =
   | (Partial<WorkspaceSecuritySwitches> & { all?: undefined })
   | { all: boolean }
 
-/** `all: false` = disable all, `all: true` = enable all; else as given. */
+/**
+ * `all: false` = disable all, `all: true` = enable all (the three layer
+ * switches — `all` never touches the request-changes workflow, LUM-1130);
+ * else as given.
+ */
 export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
   [K in keyof WorkspaceSecuritySwitches]?: boolean | undefined
 } {
@@ -56,6 +60,7 @@ export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
     securityScanEnabled: update.securityScanEnabled,
     securityAiReviewEnabled: update.securityAiReviewEnabled,
     securityHuntEnabled: update.securityHuntEnabled,
+    securityRequestChangesEnabled: update.securityRequestChangesEnabled,
   }
 }
 

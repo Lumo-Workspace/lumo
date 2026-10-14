@@ -39,6 +39,10 @@ import {
   policyRuleDetector,
 } from './crossing-detectors'
 import { compiledPolicyRuleSource } from './policy-rules'
+import {
+  parsePrCommand,
+  prCommandHandle,
+} from '@/ee/security/services/pr-command-parse'
 
 export const securityPlugin: LumoServerPlugin = {
   id: 'security',
@@ -79,9 +83,48 @@ export const securityPlugin: LumoServerPlugin = {
     // current head. The worker dedups on (pr, headSha), so redelivery is
     // harmless. Registered with waitUntil so the runtime keeps the function
     // alive until the dispatch settles.
-    api.on('github.pullRequest', ({ action, state, pullRequestId }) => {
-      if (shouldScanOnPrEvent(action, state))
+    //
+    // LUM-1133: a PR without a task is reviewed too, as CodeRabbit does — if
+    // the workspace confirmed the repository and its per-repository settings
+    // allow it (default: on, drafts wait for ready_for_review). The decision
+    // reads the database, so it loads lazily, off the webhook's static graph.
+    api.on('github.pullRequest', event => {
+      const { action, state, pullRequestId, taskId, workspaceId } = event
+      // LUM-1131: a merged PR's thread learnings become repository-wide.
+      // Idempotent; a missed event is covered at read time (the review
+      // also treats a merged source PR as repository-wide).
+      if (state === 'merged')
+        waitUntil(
+          (async () => {
+            try {
+              const { promoteLearningsOnMerge } =
+                await import('@/ee/security/services/review-learnings.service')
+              await promoteLearningsOnMerge(workspaceId, pullRequestId)
+            } catch (error) {
+              logger.warn(
+                `[security] learning promotion failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+              )
+            }
+          })()
+        )
+      if (!shouldScanOnPrEvent(action, state)) return
+      if (taskId !== null) {
         waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
+        return
+      }
+      waitUntil(
+        (async () => {
+          try {
+            const { reviewTasklessPullRequest } =
+              await import('@/ee/security/services/pr-auto-review.service')
+            await reviewTasklessPullRequest(event)
+          } catch (error) {
+            logger.warn(
+              `[security] task-less PR review failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
     })
 
     // LUM-732: a manually linked PR (any state — merged history included)
@@ -89,6 +132,69 @@ export const securityPlugin: LumoServerPlugin = {
     // as "clean" at the DONE gate, hence waitUntil, not a bare `void`.
     api.on('task.prLinked', ({ pullRequestId }) => {
       waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_LINK'))
+    })
+
+    // LUM-1127: a human resolving / unresolving one of Lumo's finding
+    // threads on GitHub. Dynamic import keeps the thread service (and its
+    // GitHub clients) off the webhook's static graph.
+    api.on('github.reviewThread', event => {
+      waitUntil(
+        (async () => {
+          try {
+            const { applyReviewThreadEvent } =
+              await import('@/ee/security/services/pr-finding-thread.service')
+            await applyReviewThreadEvent(event)
+          } catch (error) {
+            logger.warn(
+              `[security] review thread event failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
+    })
+
+    // LUM-1129: `@<app> review | full review | pause | resume | resolve` in a
+    // PR conversation comment. The ordinary comment is dropped here,
+    // synchronously; a command loads the service (GitHub clients) lazily.
+    api.on('github.issueComment', event => {
+      if (event.action !== 'created') return
+      const handle = prCommandHandle()
+      if (!handle || !parsePrCommand(event.comment.body, handle)) return
+      waitUntil(
+        (async () => {
+          try {
+            const { applyPrCommentCommand } =
+              await import('@/ee/security/services/pr-command.service')
+            await applyPrCommentCommand(event)
+          } catch (error) {
+            logger.warn(
+              `[security] PR command failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
+    })
+
+    // LUM-1131: a human reply in one of Lumo's finding threads — answered,
+    // and when it says the finding is intentional / not applicable, the
+    // thread is closed for this PR and a learning stored for later reviews.
+    // Dynamic import: the reply service reaches the model client.
+    api.on('github.reviewComment', event => {
+      if (event.action !== 'created' || event.comment.inReplyToId === null)
+        return
+      waitUntil(
+        (async () => {
+          try {
+            const { applyThreadReply } =
+              await import('@/ee/security/services/pr-thread-reply.service')
+            await applyThreadReply(event)
+          } catch (error) {
+            logger.warn(
+              `[security] thread reply failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
     })
 
     // LUM-738: a push to the default branch moves the repository security

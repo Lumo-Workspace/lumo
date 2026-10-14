@@ -17,6 +17,10 @@ import {
 } from '@/lib/services/audit.service'
 import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { findingStatement } from '@/ee/security/security-scan/agent-reminder'
+import { sanitizeField } from '@/lib/utils/sanitize'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
@@ -48,6 +52,7 @@ import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-
 import { affectedReviewDiff } from '@/ee/security/security-scan/review-control'
 import type { SecretDowngradeReason } from '@/ee/security/security-scan/types'
 import { reviewContextBudget } from '@/ee/security/security-scan/review-context'
+import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
 import { verifierAppliesTo } from '@/ee/security/security-scan/verifier'
@@ -255,6 +260,43 @@ export interface SecurityScanView {
    */
   fixed: number
   findings: SecurityFindingView[]
+}
+
+/**
+ * LUM-1128: which surface a ruling came through. A Clerk browser session is
+ * WEB (the delivery panel); an API-key bearer is CLI (`lumo finding
+ * disposition`, run after the user approved its exit-4 envelope). Recorded on
+ * the SECURITY_FINDING_DISPOSITIONED activity so the timeline says which
+ * surface ruled — and a web correction of a CLI ruling reads as such.
+ */
+export type FindingDispositionChannel = 'WEB' | 'CLI'
+
+export interface FindingDispositionVia {
+  channel: FindingDispositionChannel
+  /** The caller's X-Lumo-Session-Id (CLI only); null when unbound / web. */
+  sessionId: string | null
+}
+
+const WEB_VIA: FindingDispositionVia = { channel: 'WEB', sessionId: null }
+
+/**
+ * LUM-1128: one finding as `lumo finding disposition` reads it to build its
+ * envelope — the fields the user approves, nothing else (ISP). `title` and
+ * `statement` are untrusted scan output, sanitized and injection-redacted
+ * before they reach an agent's context.
+ */
+export interface CliFindingRow {
+  id: string
+  severity: FindingSeverity
+  provenance: FindingProvenance
+  ruleId: string
+  filePath: string
+  line: number | null
+  title: string
+  statement: string
+  prNumber: number
+  disposition: FindingDisposition | null
+  blocking: boolean
 }
 
 export interface TaskSecurityScans {
@@ -1158,12 +1200,22 @@ export const prSecurityScanService = {
         // the prompt budget with the diff (`reviewContextBudget`), so a
         // top-tier diff gets little or none. Any failure is logged and the
         // review runs on the diff alone. Never throws.
+        // LUM-1131 — what reviewers ruled intentional / not applicable in
+        // this PR's threads and merged PRs' threads, for the files this review
+        // reads. Bounded (≤ 4k chars) and paid for out of the context
+        // budget, so the prompt ceiling holds. Never throws.
+        const learnings = await loadReviewLearnings({
+          workspaceId: pr.workspaceId,
+          repo: pr.repo,
+          pullRequestId: pr.id,
+          reviewedPaths: capped.covered,
+        })
         const context = await reviewContextService.load({
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           headSha,
           paths: capped.covered,
-          maxChars: reviewContextBudget(capped.text.length),
+          maxChars: reviewContextBudget(capped.text.length + learnings.length),
         })
         if (context.error) {
           logger.warn(
@@ -1184,6 +1236,7 @@ export const prSecurityScanService = {
             timeoutMs: tier.timeoutMs,
             // Customer files entering a prompt: same mask as the diff.
             context: redactForInjection(context.text).text,
+            ...(learnings ? { learnings } : {}),
           })
           judgeStatus = 'RAN'
           // Model text headed for a public PR: redacted and neutralised here,
@@ -1411,6 +1464,9 @@ export const prSecurityScanService = {
         truncated,
         judgeBudget,
         prSummary,
+        // LUM-1127: which files this head's AI review read — the PR
+        // write-back only resolves a judge thread for a file it covered.
+        judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
         stages,
         partialCauses,
         ...(huntSkippedForCap
@@ -1627,13 +1683,46 @@ export const prSecurityScanService = {
     }
   },
 
+  /**
+   * LUM-1128 — every finding on the task's latest scan per PR, flat, in the
+   * shape the CLI envelope shows. Same read model as the panel (`getForTask`),
+   * so `blocking` here is exactly what the DONE gate counts.
+   */
+  async listFindingsForTask(taskId: string): Promise<CliFindingRow[]> {
+    const view = await this.getForTask(taskId)
+    const rows: CliFindingRow[] = []
+    for (const { pr, latest } of view.prs) {
+      if (!latest) continue
+      for (const f of latest.findings) {
+        rows.push({
+          id: f.id,
+          severity: f.severity,
+          provenance: f.provenance,
+          ruleId: f.ruleId,
+          filePath: f.filePath,
+          line: f.line,
+          title: redactForInjection(sanitizeField(f.title)).text,
+          statement: findingStatement({
+            ...f,
+            prNumber: pr.number,
+          }),
+          prNumber: pr.number,
+          disposition: f.disposition,
+          blocking: f.blocking,
+        })
+      }
+    }
+    return rows
+  },
+
   async disposition(
     taskId: string,
     findingId: string,
     disposition: FindingDisposition,
     note: string | null,
     actorMemberId: string,
-    audit: WorkspaceAudit
+    audit: WorkspaceAudit,
+    via: FindingDispositionVia = WEB_VIA
   ): Promise<SecurityFindingView> {
     const finding =
       await prSecurityScanRepository.findFindingWithScope(findingId)
@@ -1668,6 +1757,26 @@ export const prSecurityScanService = {
         target: { type: 'security_finding', id: findingId },
         metadata: { taskId, from, to: disposition },
         context: audit.context,
+      })
+      // LUM-1128: the task-timeline trail — which surface ruled, when, and
+      // (CLI) from which session. Same "real change only" rule as the audit.
+      const actor = await memberRepository.findActorByMemberId(actorMemberId)
+      await activityRepository.create({
+        taskId,
+        actorId: actor?.id ?? null,
+        type: 'SECURITY_FINDING_DISPOSITIONED',
+        payload: {
+          findingId,
+          ruleId: finding.ruleId,
+          severity: finding.severity,
+          filePath: finding.filePath,
+          line: finding.line,
+          from,
+          to: disposition,
+          channel: via.channel,
+          sessionId: via.sessionId,
+          confirmedAt: new Date().toISOString(),
+        },
       })
     }
     return toFindingView(

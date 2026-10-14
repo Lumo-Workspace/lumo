@@ -188,6 +188,8 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
   'crossing disposition':
     'a human-only ruling: keep Codex asking the user first',
   doctor: 'local-only diagnosis, no Lumo API call (runs fine sandboxed)',
+  'finding disposition':
+    'a human-only ruling: keep Codex asking the user first',
   hook: 'agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself',
   init: 'writes skill, hook and rules files',
   setup: 'alias of init: writes skill, hook and rules files',

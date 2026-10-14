@@ -64,6 +64,7 @@ shape changes bump it; additive fields don't. Pin on `version` when scripting.
 - `task { id, identifier, title, status }`, `cost { tokenCost, activeTimeSec }` (`tokenCost: null` = not measured), `struggleTrail { pullRequests[], reopens[] }`, `trend { cost[], rework { reopens, extraPrCycles, total } }`, `claim`, `faithfulness`;
 - `nextActions` entries carry a `kind` discriminator: `SECURITY_FINDING` (`findingId`, `statement`, `severity`, `provenance`, `blocking`, `prNumber`, `ruleId`, `filePath`, `line`), `TEST_CASE` (`statement`, `command`, `advisory: true`) or `TEST_CASE_VERDICT` (`signal`, `number`, `title`, `ceilingReason?`, `advisory: true`). Advisory rows carry no `blocking` field and the DONE gate never reads them;
 - `securityFindings { open, blocking, unconfirmedPrs[], scans?[] }` — **`null` means the scan read failed**: treat as "could not confirm", not "safe";
+- a finding whose Lumo review thread a human **resolved on GitHub** (LUM-1127) leaves `SECURITY_FINDING` and `open` only when it is **not** blocking; a blocking one stays (`blocking: true`) and still holds DONE until it is dispositioned in Lumo — resolving a conversation is not a disposition;
 - open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, ref, category, severity, detail, attribution }` — `ref` is the `<TEAM>-X<n>` to show and type, `id` the cuid); **`null` when the crossings check failed**, distinct from `[]`.
 
 ## Responding to an open crossing — `lumo crossing explain`
@@ -108,6 +109,8 @@ A gated mutation on the [confirmation protocol](confirmation.md), as a **three-s
 - **still web-only:** reverting a ruling to OPEN, repository suppression rules, and steward milestone crossings.
 
 **Batch form (LUM-845):** `lumo crossing disposition <id1> <id2> <id3> --false-positive --note "…"` — same handshake, ONE envelope per step for the whole batch (a `── [i/N] crossing <id> ──` block per crossing, nothing trimmed), one receipt per crossing carried as `--receipt <ref>=<token>,…`. Mixed rulings = one batch per ruling. If the user disputes one, drop its id from the `confirmCommand` (it stays OPEN); adding an id after step 1 is refused. Step 3 reports every crossing `✓`/`✗`, exit 1 if any failed.
+
+A blocking **security finding** has its own terminal path: `lumo finding disposition <id...> --false-positive | --accepted-risk [--note "…"]` — a plain exit-4 envelope (no receipts); relay it, add `--confirm` only after the user approves. Ids are on each `[SECURITY]` item's `Id:` row. See [pr-scan.md](pr-scan.md#finding-disposition).
 
 After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 

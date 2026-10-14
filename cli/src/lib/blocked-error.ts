@@ -9,7 +9,8 @@
  * Since LUM-769 a boundary crossing does have a terminal path, but it is the
  * USER's — `lumo crossing disposition` walks the same exit-4 protocol (the
  * agent relays the crossing, the user rules, the agent re-runs with the
- * approval flag); security findings stay human-side / web.
+ * approval flag); security findings are ruled through `lumo finding
+ * disposition` (exit-4 envelope, LUM-1128) or the web panel.
  * Echoing the 409 text and exiting 1 left the agent grepping prose to learn
  * that. Instead the CLI now:
  *
@@ -209,8 +210,11 @@ export function buildRemediation(
     )
   }
   if (kinds.has('SECURITY_FINDING')) {
+    const ids = blockers
+      .filter(b => b.kind === 'SECURITY_FINDING')
+      .map(b => (b as { findingId: string }).findingId)
     lines.push(
-      'SECURITY_FINDING: fix and push — a fixed fingerprint disappears from the next scan — or a human marks it false positive / accepted risk in the web delivery panel.'
+      `SECURITY_FINDING: fix and push — a fixed fingerprint disappears from the next scan — or relay the finding to the user and, once they rule, record it with \`lumo finding disposition ${ids.join(' ')} --false-positive\` or \`--accepted-risk\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
     )
   }
   if (unconfirmed.length > 0) {

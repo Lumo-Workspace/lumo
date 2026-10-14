@@ -15,7 +15,14 @@ import { logger } from '@/lib/logger'
  */
 export type ScanDispatchTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
 
-const SCAN_ACTIONS = new Set(['opened', 'reopened', 'synchronize'])
+// LUM-1133: `ready_for_review` — a draft marked ready is reviewed at its
+// current head (drafts are skipped by default for PRs without a task).
+const SCAN_ACTIONS = new Set([
+  'opened',
+  'reopened',
+  'synchronize',
+  'ready_for_review',
+])
 
 /** PURE — which pull_request webhook events warrant a scan. */
 export function shouldScanOnPrEvent(action: string, state: string): boolean {

@@ -35,6 +35,7 @@ const ALL_ON = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRequestChangesEnabled: false,
 }
 
 function renderCard(
@@ -62,6 +63,7 @@ beforeEach(() => {
             securityScanEnabled: u.all,
             securityAiReviewEnabled: u.all,
             securityHuntEnabled: u.all,
+            securityRequestChangesEnabled: false,
           }
         : { ...ALL_ON, ...u },
   }))
@@ -102,6 +104,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
+        securityRequestChangesEnabled: false,
       })
     )
   })
@@ -125,6 +128,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
       securityScanEnabled: false,
       securityAiReviewEnabled: false,
       securityHuntEnabled: false,
+      securityRequestChangesEnabled: false,
     })
     fireEvent.click(screen.getByRole('button', { name: 'Enable all' }))
     await waitFor(() =>
@@ -161,5 +165,37 @@ describe('LUM-1025 SecurityScanSwitchesCard without Vercel Sandbox', () => {
       screen.getByText('Currently turned off for all workspaces by Lumo.')
     ).toBeInTheDocument()
     expect(screen.queryByText(/need Vercel Sandbox/)).toBeNull()
+  })
+})
+
+describe('LUM-1130 request-changes workflow switch', () => {
+  const rc = () => toggle('Request changes until resolved')
+
+  it('is off by default and saved with the other switches', async () => {
+    renderCard()
+    expect(rc()).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(rc())
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityRequestChangesEnabled: true })
+      )
+    )
+  })
+
+  it('reads off and locked with the scan off', () => {
+    renderCard({ ...ALL_ON, securityRequestChangesEnabled: true })
+    expect(rc()).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(toggle('Security scan'))
+    expect(rc()).toBeDisabled()
+    expect(rc()).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('disable all leaves it as it is (it is not a layer)', async () => {
+    renderCard({ ...ALL_ON, securityRequestChangesEnabled: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
+    )
   })
 })

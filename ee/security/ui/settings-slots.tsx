@@ -11,10 +11,11 @@ import type { PlatformSecurityCeiling } from '@/ee/security/security-scan/worksp
 import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { ScanEvidenceRetentionRow } from '@/ee/security/components/settings/ScanEvidenceRetentionRow'
 import { PolicyCoverageCard } from '@/ee/security/components/settings/PolicyCoverageCard'
+import { RepoReviewSettingsCard } from '@/ee/security/components/settings/RepoReviewSettingsCard'
 
-/** A stored switch; a missing value reads as the column default (on). */
-function switchOf(value: unknown): boolean {
-  return typeof value === 'boolean' ? value : true
+/** A stored switch; a missing value reads as the column default. */
+function switchOf(value: unknown, fallback = true): boolean {
+  return typeof value === 'boolean' ? value : fallback
 }
 
 function isPlatformCeiling(value: unknown): value is PlatformSecurityCeiling {
@@ -38,10 +39,17 @@ export function SecuritySettingsSection({
           securityScanEnabled: switchOf(workspace.securityScanEnabled),
           securityAiReviewEnabled: switchOf(workspace.securityAiReviewEnabled),
           securityHuntEnabled: switchOf(workspace.securityHuntEnabled),
+          // LUM-1130: off unless the workspace turned it on.
+          securityRequestChangesEnabled: switchOf(
+            workspace.securityRequestChangesEnabled,
+            false
+          ),
         }}
         huntAvailable={platform.hunt}
         sandboxAvailable={platform.sandbox}
       />
+      {/* LUM-1133: automatic review per connected repository. */}
+      <RepoReviewSettingsCard />
       {/* LUM-1114: the project rules nothing checks automatically. */}
       <PolicyCoverageCard />
     </>

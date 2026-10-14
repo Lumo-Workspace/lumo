@@ -251,3 +251,28 @@ describe('LUM-775 queue exit at the DONE gate', () => {
     expect(baselineRead).not.toHaveBeenCalled()
   })
 })
+
+test('LUM-1128: the refusal names the CLI path, and a FALSE_POSITIVE ruling (any channel) clears the gate', async () => {
+  scans.mockResolvedValue([scan({ findings: [finding({})] })])
+  await expect(
+    assertNoOpenBlockingSecurityFindings('t1')
+  ).rejects.toMatchObject({
+    status: 409,
+    message: expect.stringContaining('lumo finding disposition'),
+  })
+  // The row as the disposition route leaves it after a CLI ruling.
+  scans.mockResolvedValue([
+    scan({
+      findings: [
+        finding({
+          disposition: 'FALSE_POSITIVE',
+          dispositionedById: 'm1',
+          dispositionedAt: new Date(),
+        }),
+      ],
+    }),
+  ])
+  await expect(
+    assertNoOpenBlockingSecurityFindings('t1')
+  ).resolves.toBeUndefined()
+})

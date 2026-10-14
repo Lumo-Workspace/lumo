@@ -70,6 +70,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Pull requests by number — see [pr-scan.md](references/pr-scan.md)
 
 - `lumo pr scan <number> [--repo owner/repo] [--all] [--full] [--json]` — read one PR’s scans; `--review incremental|full` requests review, `--pause` / `--resume [--limit N]` controls automatic AI rounds. See the reference before using control flags.
+- `lumo finding disposition <id...> --false-positive | --accepted-risk [--note]` — the **user's** ruling on security findings (clears a DONE block); exit-4 gated. See [pr-scan.md](references/pr-scan.md#finding-disposition).
 
 ### Tasks — see [tasks.md](references/tasks.md)
 
@@ -97,7 +98,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Workspace settings — see [workspace-settings.md](references/workspace-settings.md)
 
-- `lumo workspace security-scan` — show / set the PR security-scan switches; `--disable-all` / `--enable-all` (OWNER; turning off exits 4)
+- `lumo workspace security-scan` — show / set the PR security-scan switches; `--disable-all` / `--enable-all`; `--request-changes on|off`; `--repos` / `--repo` per-repo review (OWNER; turning off, or request-changes on, exits 4)
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 
@@ -240,5 +241,5 @@ Don't guess these:
 - **Attach before coding.** Unattached work is attributed by inference and counts toward gates and cost, but explicit attach is highest-priority.
 - **Evidence before "done".** Never claim done from reading code — run the checks and record a test-case run. While a PR is open, the task is IN_REVIEW, not DONE.
 - **DONE is the user's call** — `--status done` exits 4 for their approval unless its one-step condition holds; blocking crossings, blocking security findings and proven test-case defects refuse it with 409.
-- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done` short of its one-step condition, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source) run without `--confirm` prints a `confirmation_required` envelope on stdout and does nothing. Show every line of its `changes` to the user, wait for their explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed", and adding it on your own initiative is the exact failure the protocol exists to stop. **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned boundary crossing, a blocking security finding): relay its `blockers` and `remediation` to the user; nothing on `task update` clears it — no retry, no flag. A boundary crossing is the one blocker with a terminal path, and it is the user's — see `crossing disposition` above. Details: [confirmation.md](references/confirmation.md)
+- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done` short of its one-step condition, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source, `finding disposition`) run without `--confirm` prints a `confirmation_required` envelope on stdout and does nothing. Show every line of its `changes` to the user, wait for their explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed", and adding it on your own initiative is the exact failure the protocol exists to stop. **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned boundary crossing, a blocking security finding): relay its `blockers` and `remediation` to the user; nothing on `task update` clears it — no retry, no flag. Crossings and security findings have a terminal path, and it is the user's — `crossing disposition` / `finding disposition`. Details: [confirmation.md](references/confirmation.md)
 - **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.

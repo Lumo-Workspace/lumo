@@ -130,6 +130,12 @@ export interface FinalizeScanInput {
    * column alone, like `judgeBudget` (`restart` is what clears it).
    */
   prSummary?: PrSummary | null
+  /**
+   * LUM-1127 — the paths an incremental AI review read on this head; null =
+   * the whole PR diff. Absent = leave the column alone. The PR write-back
+   * only resolves a judge finding's thread for a file inside this scope.
+   */
+  judgeReviewScope?: string[] | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -345,6 +351,11 @@ export interface ScanForReview {
   /** LUM-988: the verifier started / finished — LLM_JUDGE inline comments wait between. */
   verifierStartedAt: Date | null
   verifiedAt: Date | null
+  /**
+   * LUM-1127 — raw Json: the incremental judge's paths, or null for the
+   * whole diff. Optional so older fixtures still type-check (absent = null).
+   */
+  judgeReviewScope?: unknown
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -354,7 +365,12 @@ export interface ScanForReview {
     workspaceId: string
     task: { number: number; team: { identifier: string } } | null
     /** `securityPolicy` is the raw Json column — parse with `parseSecurityPolicy`. */
-    workspace: { slug: string; securityPolicy: unknown }
+    workspace: {
+      slug: string
+      securityPolicy: unknown
+      /** LUM-1130 — the request-changes workflow (absent reads as off). */
+      securityRequestChangesEnabled?: boolean
+    }
   }
 }
 
@@ -1123,6 +1139,14 @@ export const prSecurityScanRepository = {
                 prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
               }
             : {}),
+          ...(final.judgeReviewScope !== undefined
+            ? {
+                judgeReviewScope:
+                  final.judgeReviewScope === null
+                    ? Prisma.DbNull
+                    : (final.judgeReviewScope as Prisma.InputJsonValue),
+              }
+            : {}),
           stages,
           partial,
           partialCauses,
@@ -1615,6 +1639,7 @@ export const prSecurityScanRepository = {
         suggestedAt: true,
         verifierStartedAt: true,
         verifiedAt: true,
+        judgeReviewScope: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -1646,7 +1671,13 @@ export const prSecurityScanRepository = {
             task: {
               select: { number: true, team: { select: { identifier: true } } },
             },
-            workspace: { select: { slug: true, securityPolicy: true } },
+            workspace: {
+              select: {
+                slug: true,
+                securityPolicy: true,
+                securityRequestChangesEnabled: true,
+              },
+            },
           },
         },
       },

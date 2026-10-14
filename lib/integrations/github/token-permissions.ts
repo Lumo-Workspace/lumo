@@ -30,6 +30,23 @@ export const REPO_TOKEN_PERMISSIONS = {
    * request, so `issues` is not needed), review-line comments and reviews.
    */
   pullRequestWrite: { pull_requests: 'write' },
+  /**
+   * LUM-1127 — resolving / unresolving a review thread (GraphQL
+   * `resolveReviewThread` / `unresolveReviewThread`) and the thread notes and
+   * listings around it. GitHub refuses those mutations to an installation
+   * token holding only `pull_requests: write` ("Resource not accessible by
+   * integration" — seen in production on PR 1451, and probed live: the same
+   * no-op `unresolveReviewThread` is FORBIDDEN with `pull_requests: write`
+   * and with `contents: read` added, and succeeds once `contents: write` is
+   * added). Reading threads works with the pull-request set alone.
+   */
+  reviewThreadWrite: { pull_requests: 'write', contents: 'write' },
+  /**
+   * LUM-1129 — `GET /repos/{r}/collaborators/{login}/permission` for one
+   * repository: may this commenter drive Lumo's reviewer from the PR? Served
+   * under `metadata: read`, the permission every App has.
+   */
+  collaboratorPermission: { metadata: 'read' },
 } as const satisfies Record<string, RepoTokenPermissions>
 
 /**
