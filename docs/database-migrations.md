@@ -42,7 +42,7 @@ A contract migration is a one-way door. After it is deployed, a Vercel **Instant
 
 We evaluated moving destructive migrations to after the new deployment is promoted, and did not do it:
 
-- Vercel's build has no post-promote hook. The only triggers are deployment webhooks (`deployment.succeeded` / `deployment.promoted`) or a GitHub `deployment_status` workflow. The webhook would need a route that runs DDL from a serverless function within its time limit and retries safely. GitHub Actions is not used for this repository.
+- Vercel's build has no post-promote hook. The only triggers are deployment webhooks (`deployment.succeeded` / `deployment.promoted`) or a GitHub `deployment_status` workflow. The webhook would need a route that runs DDL from a serverless function within its time limit and retries safely. A workflow would need production database credentials in CI.
 - `prisma migrate deploy` applies every pending migration in order and cannot skip one. Splitting "safe before build" from "destructive after promote" needs two migration sets or hand-run SQL, outside Prisma's history.
 - It still would not protect Instant Rollback: the dropped column is gone for every older deployment either way.
 

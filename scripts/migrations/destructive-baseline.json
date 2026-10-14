@@ -28,6 +28,7 @@
     "20261006100000_lum942_drop_lumo_ci_runs",
     "20261009090000_lum959_drop_task_parent",
     "20261021090000_lum1040_remove_ideas_plan_runs",
-    "20261030090000_lum1083_remove_initiatives"
+    "20261030090000_lum1083_remove_initiatives",
+    "20261102090000_lum1117_drop_summary_locale"
   ]
 }
