@@ -64,9 +64,9 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
 // the lock semantics (the injection has its own suite).
 jest.mock('@/lib/services/steward-context.service', () => ({
   stewardContextService: {
-    buildMilestoneMemorySection: jest
+    buildStewardSections: jest
       .fn()
-      .mockResolvedValue({ section: '', count: 0 }),
+      .mockResolvedValue({ section: '', memories: [] }),
   },
 }))
 

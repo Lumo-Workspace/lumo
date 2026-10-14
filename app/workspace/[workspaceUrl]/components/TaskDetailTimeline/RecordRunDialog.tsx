@@ -22,6 +22,8 @@ interface RecordRunDialogProps {
   testCase: TestCase
   /** 本任务关联的 PR；下拉只列这些，默认不选中。 */
   pullRequests: TaskPullRequestSnapshot[]
+  /** LUM-1135: 里程碑的 run 不挂 PR，owner 为里程碑时关掉 PR 下拉。 */
+  showPullRequests?: boolean
   onSubmit: (body: RecordRunBody, files: File[]) => Promise<void> | void
   onClose: () => void
 }
@@ -42,6 +44,7 @@ const fieldClass =
 export function RecordRunDialog({
   testCase,
   pullRequests,
+  showPullRequests = true,
   onSubmit,
   onClose,
 }: RecordRunDialogProps) {
@@ -237,23 +240,25 @@ export function RecordRunDialog({
         </select>
       </label>
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.field.pullRequest' })}
-        <select
-          className={fieldClass}
-          value={prNumber}
-          onChange={e => setPrNumber(e.target.value)}
-        >
-          <option value=''>
-            {intl.formatMessage({ id: 'testCases.field.pullRequest.none' })}
-          </option>
-          {pullRequests.map(pr => (
-            <option key={pr.id} value={String(pr.number)}>
-              #{pr.number} {pr.title}
+      {showPullRequests ? (
+        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
+          {intl.formatMessage({ id: 'testCases.field.pullRequest' })}
+          <select
+            className={fieldClass}
+            value={prNumber}
+            onChange={e => setPrNumber(e.target.value)}
+          >
+            <option value=''>
+              {intl.formatMessage({ id: 'testCases.field.pullRequest.none' })}
             </option>
-          ))}
-        </select>
-      </label>
+            {pullRequests.map(pr => (
+              <option key={pr.id} value={String(pr.number)}>
+                #{pr.number} {pr.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       {result === 'FAIL' ? (
         <label className='flex flex-col gap-1 text-body text-muted-foreground'>

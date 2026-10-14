@@ -141,7 +141,7 @@ describe('LUM-812 — the ruling is scoped to one run', () => {
     findRun.mockResolvedValue(runRow({ isLatestForCase: false }))
     await expect(
       testCaseDefectDispositionService.rule({
-        taskId: 't-1',
+        owner: { kind: 'task', taskId: 't-1' },
         runId: 'run-9',
         ruling: 'KNOWN_DEFECT',
         caller: CALLER,
@@ -156,7 +156,7 @@ describe('LUM-812 — the ruling is scoped to one run', () => {
     findRun.mockResolvedValue(runRow({ failureAttribution: 'CASE_OUTDATED' }))
     await expect(
       testCaseDefectDispositionService.rule({
-        taskId: 't-1',
+        owner: { kind: 'task', taskId: 't-1' },
         runId: 'run-9',
         ruling: 'NOT_A_DEFECT',
         caller: CALLER,
@@ -173,7 +173,7 @@ describe('LUM-812 — provenance, not identity', () => {
 
     // WEB：面板上是本人在点，没有回执。
     const web = await testCaseDefectDispositionService.rule({
-      taskId: 't-1',
+      owner: { kind: 'task', taskId: 't-1' },
       runId: 'run-9',
       ruling: 'KNOWN_DEFECT',
       note: 'shipping with it',
@@ -188,20 +188,20 @@ describe('LUM-812 — provenance, not identity', () => {
     // （LUM-750 的身份守卫已于 PR 1006 撤回，别再加回来。）
     findRun.mockResolvedValue(runRow())
     const r1 = await testCaseDefectDispositionService.issueReadReceipt(
-      't-1',
+      { kind: 'task', taskId: 't-1' },
       'run-9',
       'KNOWN_DEFECT',
       CALLER
     )
     const r2 = await testCaseDefectDispositionService.acknowledgeReadReceipt(
-      't-1',
+      { kind: 'task', taskId: 't-1' },
       'run-9',
       'KNOWN_DEFECT',
       r1.receipt,
       CALLER
     )
     const cli = await testCaseDefectDispositionService.rule({
-      taskId: 't-1',
+      owner: { kind: 'task', taskId: 't-1' },
       runId: 'run-9',
       ruling: 'KNOWN_DEFECT',
       caller: CALLER,
@@ -217,7 +217,7 @@ describe('LUM-812 — provenance, not identity', () => {
     // task_activities_actorId_fkey，调用方拿 500，时间线缺这次裁定。
     findRun.mockResolvedValue(runRow())
     await testCaseDefectDispositionService.rule({
-      taskId: 't-1',
+      owner: { kind: 'task', taskId: 't-1' },
       runId: 'run-9',
       ruling: 'KNOWN_DEFECT',
       note: '  shipping with it  ',
@@ -246,7 +246,7 @@ describe('LUM-812 — provenance, not identity', () => {
     findRun.mockResolvedValue(runRow())
     await expect(
       testCaseDefectDispositionService.rule({
-        taskId: 't-1',
+        owner: { kind: 'task', taskId: 't-1' },
         runId: 'run-9',
         ruling: 'KNOWN_DEFECT',
         caller: CALLER,
@@ -270,7 +270,7 @@ describe('LUM-907 test-case defect rulings are audited', () => {
   it('test case defect audit: a web ruling records run, case number and ruling, not the note or title', async () => {
     findRun.mockResolvedValue(runRow())
     await testCaseDefectDispositionService.rule({
-      taskId: 't-1',
+      owner: { kind: 'task', taskId: 't-1' },
       runId: 'run-9',
       ruling: 'KNOWN_DEFECT',
       note: 'secret-note',
@@ -299,7 +299,7 @@ describe('LUM-907 test-case defect rulings are audited', () => {
     findRun.mockResolvedValue(runRow({ disposition: { id: 'd-1' } }))
     await expect(
       testCaseDefectDispositionService.rule({
-        taskId: 't-1',
+        owner: { kind: 'task', taskId: 't-1' },
         runId: 'run-9',
         ruling: 'KNOWN_DEFECT',
         caller: CALLER,
@@ -308,5 +308,120 @@ describe('LUM-907 test-case defect rulings are audited', () => {
       })
     ).rejects.toMatchObject({ status: 409 })
     expect(mockAudit).not.toHaveBeenCalled()
+  })
+})
+
+const mockDispatchRollup = jest.fn()
+jest.mock('@/lib/services/milestone-rollup.service', () => ({
+  milestoneRollupService: {
+    dispatchRollup: (...a: unknown[]) => mockDispatchRollup(...a),
+  },
+}))
+
+describe('LUM-1135 milestone runs', () => {
+  const milestoneRun = {
+    id: 'r-m',
+    taskId: null,
+    milestoneId: 'm-1',
+    testCaseId: 'tc-m',
+    result: 'FAIL',
+    failureAttribution: 'IMPLEMENTATION_DEFECT',
+    evidence: [{ type: 'link', url: 'https://example.test/e2e' }],
+    createdAt: new Date(),
+    disposition: null,
+    isLatestForCase: true,
+    testCase: { id: 'tc-m', number: 1, title: 'E2E', deletedAt: null },
+  }
+
+  it('rules on a milestone run from the web without a task activity', async () => {
+    findRun.mockResolvedValue(milestoneRun)
+    await testCaseDefectDispositionService.rule({
+      owner: { kind: 'milestone', milestoneId: 'm-1' },
+      runId: 'r-m',
+      ruling: 'KNOWN_DEFECT',
+      caller: { sessionId: null, memberId: 'mem-1' },
+      channel: 'WEB',
+      audit: TEST_AUDIT,
+    })
+    expect(createDisposition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: null,
+        milestoneId: 'm-1',
+        disposition: 'KNOWN_DEFECT',
+      }),
+      null
+    )
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ milestoneId: 'm-1' }),
+      })
+    )
+    expect(mockDispatchRollup).toHaveBeenCalledWith('m-1')
+  })
+
+  it('does not dispatch a milestone rollup for a task ruling', async () => {
+    findRun.mockResolvedValue(runRow())
+    await testCaseDefectDispositionService.rule({
+      owner: { kind: 'task', taskId: 't-1' },
+      runId: 'run-9',
+      ruling: 'KNOWN_DEFECT',
+      caller: CALLER,
+      channel: 'WEB',
+      audit: TEST_AUDIT,
+    })
+    expect(mockDispatchRollup).not.toHaveBeenCalled()
+  })
+
+  it('uses milestone wording when a non-defect run is refused', async () => {
+    findRun.mockResolvedValue({ ...milestoneRun, result: 'PASS' })
+    await expect(
+      testCaseDefectDispositionService.describe(
+        { kind: 'milestone', milestoneId: 'm-1' },
+        'r-m'
+      )
+    ).rejects.toThrow(/hold the milestone until the case passes/)
+  })
+
+  it('404s a milestone run looked up through a task scope', async () => {
+    findRun.mockResolvedValue(milestoneRun)
+    await expect(
+      testCaseDefectDispositionService.describe(
+        { kind: 'task', taskId: 't-1' },
+        'r-m'
+      )
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('404s a task run looked up through a milestone scope', async () => {
+    findRun.mockResolvedValue({
+      ...milestoneRun,
+      taskId: 't-1',
+      milestoneId: null,
+    })
+    await expect(
+      testCaseDefectDispositionService.describe(
+        { kind: 'milestone', milestoneId: 'm-1' },
+        'r-m'
+      )
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('a receipt issued for a task scope is not valid for a milestone scope', async () => {
+    findRun.mockResolvedValue(milestoneRun)
+    const r1 = await testCaseDefectDispositionService.issueReadReceipt(
+      { kind: 'milestone', milestoneId: 'm-1' },
+      'r-m',
+      'KNOWN_DEFECT',
+      CALLER
+    )
+    await expect(
+      testCaseDefectDispositionService.acknowledgeReadReceipt(
+        { kind: 'milestone', milestoneId: 'm-2' },
+        'r-m',
+        'KNOWN_DEFECT',
+        r1.receipt,
+        CALLER
+      )
+    ).rejects.toMatchObject({ status: 404 })
   })
 })

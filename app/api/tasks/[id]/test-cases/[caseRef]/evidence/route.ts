@@ -2,22 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { resolveTestCaseParam } from '@/lib/api/resolve-test-case-param'
-import { MAX_EVIDENCE_FILES } from '@/lib/validation/test-case'
+import {
+  EVIDENCE_ALLOWED_TYPES,
+  EVIDENCE_MAX_BYTES,
+  MAX_EVIDENCE_FILES,
+} from '@/lib/validation/test-case'
 import { privateFileService } from '@/lib/services/private-file.service'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
-
-/** 截图与日志两类够用。不收 PDF / 任意二进制。 */
-const ALLOWED_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-  'text/plain',
-  'application/json',
-]
-const MAX_BYTES = 10 * 1024 * 1024 // 10 MB — 与 /api/upload/image 一致
 
 type Params = { params: Promise<{ id: string; caseRef: string }> }
 
@@ -72,14 +65,14 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   // 先全量校验再上传：避免部分成功留下一半孤儿 blob。
   for (const file of files) {
-    if (!ALLOWED_TYPES.includes(file.type))
+    if (!EVIDENCE_ALLOWED_TYPES.includes(file.type))
       return NextResponse.json(
         {
-          error: `Unsupported type "${file.type}". Allowed: ${ALLOWED_TYPES.join(', ')}`,
+          error: `Unsupported type "${file.type}". Allowed: ${EVIDENCE_ALLOWED_TYPES.join(', ')}`,
         },
         { status: 400 }
       )
-    if (file.size > MAX_BYTES)
+    if (file.size > EVIDENCE_MAX_BYTES)
       return NextResponse.json(
         { error: `"${file.name}" is larger than 10 MB` },
         { status: 400 }

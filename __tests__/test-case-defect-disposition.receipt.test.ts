@@ -58,7 +58,7 @@ const TEST_AUDIT = {
 
 const rule = (receipt: string, caller = CALLER) =>
   testCaseDefectDispositionService.rule({
-    taskId: 't-1',
+    owner: { kind: 'task', taskId: 't-1' },
     runId: 'run-9',
     ruling: 'KNOWN_DEFECT',
     caller,
@@ -77,7 +77,7 @@ beforeEach(() => {
 async function stage1() {
   return (
     await testCaseDefectDispositionService.issueReadReceipt(
-      't-1',
+      { kind: 'task', taskId: 't-1' },
       'run-9',
       'KNOWN_DEFECT',
       CALLER
@@ -97,7 +97,7 @@ describe('LUM-812 — the server enforces the handshake order', () => {
     // 补上第二步之后，同一条路就通了。
     const r2 = (
       await testCaseDefectDispositionService.acknowledgeReadReceipt(
-        't-1',
+        { kind: 'task', taskId: 't-1' },
         'run-9',
         'KNOWN_DEFECT',
         r1,
@@ -111,7 +111,7 @@ describe('LUM-812 — the server enforces the handshake order', () => {
     const r1 = await stage1()
     await expect(
       testCaseDefectDispositionService.acknowledgeReadReceipt(
-        't-1',
+        { kind: 'task', taskId: 't-1' },
         'run-9',
         'KNOWN_DEFECT',
         r1,
@@ -124,7 +124,7 @@ describe('LUM-812 — the server enforces the handshake order', () => {
     const r1 = await stage1()
     await expect(
       testCaseDefectDispositionService.acknowledgeReadReceipt(
-        't-1',
+        { kind: 'task', taskId: 't-1' },
         'run-9',
         'NOT_A_DEFECT',
         r1,
@@ -142,7 +142,7 @@ describe('LUM-812 — the server enforces the handshake order', () => {
     const r1 = await stage1()
     const r2 = (
       await testCaseDefectDispositionService.acknowledgeReadReceipt(
-        't-1',
+        { kind: 'task', taskId: 't-1' },
         'run-9',
         'KNOWN_DEFECT',
         r1,
@@ -166,7 +166,7 @@ describe('LUM-812 — the server enforces the handshake order', () => {
     )
     await expect(
       testCaseDefectDispositionService.acknowledgeReadReceipt(
-        't-1',
+        { kind: 'task', taskId: 't-1' },
         'run-9',
         'KNOWN_DEFECT',
         r1,

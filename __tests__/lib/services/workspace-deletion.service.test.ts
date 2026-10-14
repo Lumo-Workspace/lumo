@@ -9,6 +9,7 @@
 jest.mock('@/lib/repositories/workspace-deletion.repository', () => ({
   workspaceDeletionRepository: {
     findTaskIdsWithTestCases: jest.fn(),
+    findMilestoneIdsWithTestCases: jest.fn(),
     purge: jest.fn(),
     settleBlobCleanup: jest.fn(),
   },
@@ -42,6 +43,7 @@ const mockDeleteBlobs = deleteBlobsByPrefixInBothStores as jest.Mock
 beforeEach(() => {
   jest.clearAllMocks()
   repo.findTaskIdsWithTestCases.mockResolvedValue(['task_a'])
+  repo.findMilestoneIdsWithTestCases.mockResolvedValue([])
   repo.purge.mockResolvedValue({
     receiptId: 'rcpt_1',
     rowCounts: { Workspace: 1, Document: 2 },
@@ -59,7 +61,24 @@ describe('workspaceBlobPrefixes', () => {
   })
 })
 
+describe('workspaceBlobPrefixes milestone evidence (LUM-1135)', () => {
+  it('adds each milestone evidence folder', () => {
+    expect(workspaceBlobPrefixes('ws_1', ['t1'], ['m1'])).toEqual([
+      'workspaces/ws_1/',
+      'test-evidence/t1/',
+      'milestone-evidence/m1/',
+    ])
+  })
+})
+
 describe('workspaceDeletionService.deleteWorkspace', () => {
+  it('LUM-1135: sweeps milestone evidence read before the purge', async () => {
+    repo.findMilestoneIdsWithTestCases.mockResolvedValue(['ms_a'])
+    mockDeleteBlobs.mockResolvedValue(0)
+    await workspaceDeletionService.deleteWorkspace('ws_1', 'user_1')
+    expect(mockDeleteBlobs).toHaveBeenCalledWith('milestone-evidence/ms_a/')
+  })
+
   it('receipt: purges with the requester and returns the receipt and counts', async () => {
     mockDeleteBlobs.mockResolvedValue(0)
     const out = await workspaceDeletionService.deleteWorkspace('ws_1', 'user_1')

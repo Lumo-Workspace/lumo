@@ -164,10 +164,9 @@ export async function POST(request: Request) {
           if (steward) {
             const { stewardContextService } =
               await import('@/lib/services/steward-context.service')
-            const built =
-              await stewardContextService.buildMilestoneMemorySection(
-                steward.milestoneId
-              )
+            const built = await stewardContextService.buildStewardSections(
+              steward.milestoneId
+            )
             stewardMemorySection = built.section
 
             // LUM-648: birth one cross-milestone learning edge per injected
