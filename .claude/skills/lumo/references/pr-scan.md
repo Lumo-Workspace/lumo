@@ -42,6 +42,10 @@ browser session). A number that belongs to another workspace is
 indistinguishable from one that never existed — `Error: PR #N not found in
 workspace <slug>` — so the command never leaks whether a PR exists elsewhere.
 
+### PR comment commands (LUM-1129)
+
+The same controls work from the PR itself: a top-level PR comment whose line starts with the App's handle (production `@uselumo`; derived from `GITHUB_APP_SLUG`) — `@uselumo review` (= `--review incremental`), `@uselumo full review` (= `--review full`), `@uselumo pause`, `@uselumo resume`, `@uselumo resolve`, `@uselumo help`. Lumo answers with a reply; an unknown command gets the help list. Only accounts with write access to the repository are obeyed (others, bots and edited comments are ignored silently); it works on PRs with no linked task. `resolve` resolves Lumo's open review threads as the commenter's own resolve — it never dispositions a finding, leaves a finding that blocks DONE open (clear those with `lumo finding disposition` or the web panel), and is refused for the PR's author. The security summary comment lists the commands under "Lumo commands".
+
 ## Reading the output
 
 Layout (LUM-1091, shared with `task status` / `task wrapup`): a heading per

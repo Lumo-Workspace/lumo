@@ -39,6 +39,10 @@ import {
   policyRuleDetector,
 } from './crossing-detectors'
 import { compiledPolicyRuleSource } from './policy-rules'
+import {
+  parsePrCommand,
+  prCommandHandle,
+} from '@/ee/security/services/pr-command-parse'
 
 export const securityPlugin: LumoServerPlugin = {
   id: 'security',
@@ -104,6 +108,28 @@ export const securityPlugin: LumoServerPlugin = {
           } catch (error) {
             logger.warn(
               `[security] review thread event failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
+    })
+
+    // LUM-1129: `@<app> review | full review | pause | resume | resolve` in a
+    // PR conversation comment. The ordinary comment is dropped here,
+    // synchronously; a command loads the service (GitHub clients) lazily.
+    api.on('github.issueComment', event => {
+      if (event.action !== 'created') return
+      const handle = prCommandHandle()
+      if (!handle || !parsePrCommand(event.comment.body, handle)) return
+      waitUntil(
+        (async () => {
+          try {
+            const { applyPrCommentCommand } =
+              await import('@/ee/security/services/pr-command.service')
+            await applyPrCommentCommand(event)
+          } catch (error) {
+            logger.warn(
+              `[security] PR command failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
             )
           }
         })()

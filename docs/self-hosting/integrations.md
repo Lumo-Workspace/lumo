@@ -156,7 +156,7 @@ ignored.
 | `pull_request`                              | links the PR to its task, tracks state, merge and change volume                                              |
 | `push`                                      | records the branch's last commit on its task; detects reverts on the default branch                          |
 | `check_suite`                               | `completed` → the PR's CI status (success / pending / failure)                                               |
-| `issue_comment`                             | mirrors PR conversation comments into the task                                                               |
+| `issue_comment`                             | mirrors PR conversation comments into the task; reads `@<app-slug> review` etc. reviewer commands (LUM-1129) |
 | `pull_request_review`                       | mirrors reviews                                                                                              |
 | `pull_request_review_comment`               | mirrors line comments; a reply in a Lumo finding thread is answered (may store a learning)                   |
 | `pull_request_review_thread`                | a human resolving / unresolving one of Lumo's finding threads — not re-posted, closes a non-blocking finding |

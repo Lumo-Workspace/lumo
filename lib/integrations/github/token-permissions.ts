@@ -30,6 +30,12 @@ export const REPO_TOKEN_PERMISSIONS = {
    * request, so `issues` is not needed), review-line comments and reviews.
    */
   pullRequestWrite: { pull_requests: 'write' },
+  /**
+   * LUM-1129 — `GET /repos/{r}/collaborators/{login}/permission` for one
+   * repository: may this commenter drive Lumo's reviewer from the PR? Served
+   * under `metadata: read`, the permission every App has.
+   */
+  collaboratorPermission: { metadata: 'read' },
 } as const satisfies Record<string, RepoTokenPermissions>
 
 /**

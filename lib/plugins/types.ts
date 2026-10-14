@@ -155,6 +155,26 @@ export interface CoreEvents {
     sender: { login?: string; type?: string } | null
   }
   /**
+   * LUM-1129: a conversation comment on a PR Lumo holds (any PR row, task
+   * or not) was created / edited / deleted (`issue_comment`). The security
+   * plugin reads `@<app> review|full review|pause|resume|resolve` commands
+   * off it; `prAuthorLogin` is the PR's author.
+   */
+  'github.issueComment': {
+    workspaceId: string
+    pullRequestId: string
+    repo: string
+    prNumber: number
+    action: string
+    comment: {
+      id: number
+      body: string
+      createdAt: string | null
+      user: { login?: string; type?: string } | null
+    }
+    prAuthorLogin: string | null
+  }
+  /**
    * LUM-1131: a review-line comment on a known PR (`pull_request_review_comment`),
    * any author — Lumo's own bot included, so a consumer drops its own echo.
    * `inReplyToId` is the thread's first comment when this is a reply.
