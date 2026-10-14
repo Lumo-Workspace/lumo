@@ -7,6 +7,7 @@ import {
   handleIssueComment,
   handlePullRequestReview,
   handlePullRequestReviewComment,
+  handlePullRequestReviewThread,
 } from './handlers'
 import { githubService } from '@/lib/services/github.service'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
@@ -22,6 +23,12 @@ const APP_EVENTS = new Set([
   // The OAuth repo hooks never subscribe to it, so it only arrives here.
   'repository',
 ])
+
+/**
+ * LUM-1127 — repository events only the App webhook delivers (the OAuth repo
+ * hook's event list, `createRepoWebhook`, does not include them).
+ */
+const APP_ONLY_REPO_EVENTS = new Set(['pull_request_review_thread'])
 
 /**
  * POST /api/webhooks/github
@@ -110,7 +117,10 @@ export async function POST(request: NextRequest) {
   // is handled, one after another, each against its own PR rows.
   const hooked = new Set(webhooks.map(w => w.integration.workspaceId))
   for (const workspaceId of viaApp) {
-    if (hooked.has(workspaceId)) continue
+    // LUM-1127: the OAuth repo hook never subscribes to review threads, so
+    // the App copy is the only delivery of that event — never skipped.
+    if (hooked.has(workspaceId) && !APP_ONLY_REPO_EVENTS.has(event ?? ''))
+      continue
     await dispatchRepoEvent(event, payload, workspaceId, null)
   }
 
@@ -154,6 +164,9 @@ async function dispatchRepoEvent(
           workspaceId,
           integrationId
         )
+        break
+      case 'pull_request_review_thread':
+        await handlePullRequestReviewThread(payload, workspaceId)
         break
     }
   } catch (err) {

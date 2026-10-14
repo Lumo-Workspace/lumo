@@ -52,6 +52,7 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   GoogleDriveIntegration: INTEGRATION,
   PullRequest: MIRROR,
   PrSecurityScan: 'scan output derived from repository code',
+  PrFindingThread: 'GitHub review-thread bookkeeping for scan findings',
   PrCommentSyncJob: 'background job queue',
   TaskSlackContext: MIRROR,
   TaskWebLink: MIRROR,

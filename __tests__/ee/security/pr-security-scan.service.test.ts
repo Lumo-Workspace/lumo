@@ -1830,8 +1830,13 @@ test('LUM-1056: incremental review excludes unchanged files; missing comparison 
   await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
   expect(judgeSecurity.mock.calls[0]![0].diff).toContain('src/a.ts')
   expect(judgeSecurity.mock.calls[0]![0].diff).not.toContain('src/b.ts')
+  // LUM-1127: the scope is recorded for the PR write-back's thread rules.
+  expect(repo.persistResult.mock.calls[0]![2]).toMatchObject({
+    judgeReviewScope: ['src/a.ts'],
+  })
 
   judgeSecurity.mockClear()
+  repo.persistResult.mockClear()
   ;(prReviewControlRepository.baseline as jest.Mock).mockResolvedValueOnce({
     headSha: 'unreachable',
   })
@@ -1840,6 +1845,10 @@ test('LUM-1056: incremental review excludes unchanged files; missing comparison 
   )
   await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
   expect(judgeSecurity.mock.calls[0]![0].diff).toContain('src/b.ts')
+  // Full review: null = the whole PR diff.
+  expect(repo.persistResult.mock.calls[0]![2]).toMatchObject({
+    judgeReviewScope: null,
+  })
 })
 
 test('LUM-1056: a push during diff retrieval cannot publish a checked result for the old head', async () => {

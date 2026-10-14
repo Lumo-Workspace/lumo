@@ -91,6 +91,25 @@ export const securityPlugin: LumoServerPlugin = {
       waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_LINK'))
     })
 
+    // LUM-1127: a human resolving / unresolving one of Lumo's finding
+    // threads on GitHub. Dynamic import keeps the thread service (and its
+    // GitHub clients) off the webhook's static graph.
+    api.on('github.reviewThread', event => {
+      waitUntil(
+        (async () => {
+          try {
+            const { applyReviewThreadEvent } =
+              await import('@/ee/security/services/pr-finding-thread.service')
+            await applyReviewThreadEvent(event)
+          } catch (error) {
+            logger.warn(
+              `[security] review thread event failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
+    })
+
     // LUM-738: a push to the default branch moves the repository security
     // baseline (the default-branch fingerprint set that decides whether a
     // PR's dependency finding is new). Detached + fail-soft. Dynamic import:

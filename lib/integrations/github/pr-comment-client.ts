@@ -404,6 +404,24 @@ export const prCommentClient = {
     }) as Promise<ReviewResponse>
   },
 
+  /**
+   * LUM-1127 — the inline comments one review carried (one page of up to
+   * 100 — a Lumo review never carries more than `REVIEW_MAX_INLINE`), so the
+   * write-back can record each new comment's id against its fingerprint.
+   */
+  async listReviewCommentsOfReview(input: {
+    repo: Repo
+    prNumber: number
+    reviewId: number
+    token: string
+  }) {
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/reviews/${input.reviewId}/comments?per_page=${COMMENTS_PER_PAGE}`
+    return ((await call<ListedComment[]>(url, {
+      method: 'GET',
+      headers: headers(input.token),
+    })) ?? []) as ListedComment[]
+  },
+
   async listReviewCommentsSince(input: ListIssueCommentsInput) {
     const sinceParam = encodeURIComponent(input.since.toISOString())
     const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/comments?since=${sinceParam}`
@@ -429,4 +447,6 @@ export interface ListedComment {
    * `null` here for comments whose account has since been deleted, so every
    * read of it must be optional. */
   user: { id: number; type?: string; login?: string } | null
+  /** LUM-1127 — review-line comments only: set on a reply, absent on a thread's first comment. */
+  in_reply_to_id?: number | null
 }

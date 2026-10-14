@@ -136,6 +136,24 @@ export interface CoreEvents {
     isDefaultBranch: boolean
     headSha: string
   }
+  /**
+   * LUM-1127: a review thread on a known PR was resolved or unresolved on
+   * GitHub (`pull_request_review_thread`). `sender` is who did it — Lumo's
+   * own bot included, so a consumer can drop its own echo.
+   */
+  'github.reviewThread': {
+    workspaceId: string
+    pullRequestId: string
+    action: string
+    threadNodeId: string | null
+    comments: Array<{
+      id: number
+      body: string
+      user: { type?: string; login?: string } | null
+      in_reply_to_id?: number | null
+    }>
+    sender: { login?: string; type?: string } | null
+  }
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
   'task.prLinked': { taskId: string; pullRequestId: string }
   /** LUM-1063: a task's status changed (after the update committed). */

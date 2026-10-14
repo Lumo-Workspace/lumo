@@ -1452,6 +1452,9 @@ export const prSecurityScanService = {
         truncated,
         judgeBudget,
         prSummary,
+        // LUM-1127: which files this head's AI review read — the PR
+        // write-back only resolves a judge thread for a file it covered.
+        judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
         stages,
         partialCauses,
         ...(huntSkippedForCap

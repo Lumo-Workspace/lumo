@@ -245,6 +245,7 @@ describe('guard 2: core code does not touch the plugin tables (Q4 option A)', ()
       'prSecurityScan',
       'prSecurityFinding',
       'projectPolicy',
+      'prFindingThread',
     ])
     expect(tableRules.relationFields).toEqual(
       expect.arrayContaining([
@@ -254,6 +255,11 @@ describe('guard 2: core code does not touch the plugin tables (Q4 option A)', ()
           model: 'PullRequest',
           field: 'securityScans',
           target: 'PrSecurityScan',
+        },
+        {
+          model: 'PullRequest',
+          field: 'findingThreads',
+          target: 'PrFindingThread',
         },
       ])
     )

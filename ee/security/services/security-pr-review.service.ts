@@ -86,6 +86,12 @@ import {
 import { sanitizeField } from '@/shared/src/sanitize'
 import { scrubScanIfZeroRetention } from '@/ee/security/services/scan-evidence-retention.service'
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
+import {
+  NO_THREADS,
+  prFindingThreadService,
+  type ThreadCounts,
+  type ThreadSyncContext,
+} from '@/ee/security/services/pr-finding-thread.service'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -421,6 +427,11 @@ export interface SummaryInput {
   attentionFiles?: string[]
   /** LUM-849 — the reviewed head commit on GitHub, for the footer. */
   commitUrl?: string | null
+  /**
+   * LUM-1127 — where Lumo's inline threads stand: still open, resolved by
+   * Lumo as addressed, resolved by a human on GitHub. Absent = no line.
+   */
+  threads?: ThreadCounts
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -430,6 +441,14 @@ function lowLine(input: SummaryInput): string | null {
   const noun = low.count === 1 ? 'finding' : 'findings'
   const where = low.allDowngradedPaths ? ' in test/fixture paths' : ''
   return `- ${low.count} low-severity ${noun}${where} — shown in Lumo only`
+}
+
+/** LUM-1127 — "Review threads: N open · M addressed · K resolved on GitHub". */
+export function threadsLine(threads: ThreadCounts | undefined): string | null {
+  // Only once a thread has moved on: a PR whose threads are all freshly
+  // open says nothing the open-findings verdict above does not.
+  if (!threads || threads.addressed + threads.resolved === 0) return null
+  return `**Review threads:** ${threads.open} open · ${threads.addressed} addressed · ${threads.resolved} resolved on GitHub`
 }
 
 /** LUM-740 — the suggested-false-positive line. */
@@ -628,6 +647,8 @@ export function buildSummary(input: SummaryInput): string {
   ]
   const attention = attentionLine(input.attentionFiles)
   if (attention) blocks.push(attention)
+  const threads = threadsLine(input.threads)
+  if (threads) blocks.push(threads)
 
   const notices: string[] = []
   if (Object.values(input.stages).includes('PAUSED')) {
@@ -922,10 +943,45 @@ export const securityPrReviewService = {
       )
       // LUM-988: a row the agentic verifier rejected is not open — it gets
       // no inline comment and no count, only the summary's one line.
-      const open = undecided.filter(f => !isVerifierRejected(f))
-      const verifierRejected = undecided.length - open.length
+      const unrejected = undecided.filter(f => !isVerifierRejected(f))
+      const verifierRejected = undecided.length - unrejected.length
       // LUM-740: the workspace policy says what blocks DONE (LLM never).
       const policy = parseSecurityPolicy(pr.workspace?.securityPolicy)
+
+      const reviewComments = await prCommentClient.listReviewComments({
+        repo,
+        prNumber: pr.number,
+        token,
+      })
+      // LUM-1127: the inline threads' lifecycle — resolve what a complete
+      // pass no longer reports, reopen regressions, honour a human's resolve.
+      const threadCtx: ThreadSyncContext = {
+        pullRequestId: pr.id,
+        workspaceId: pr.workspaceId,
+        repo,
+        prNumber: pr.number,
+        token,
+        headSha: scan.headSha,
+        scan: {
+          status: scan.status,
+          stages: scan.stages,
+          judgeReviewScope: scan.judgeReviewScope ?? null,
+        },
+        findings: scan.findings,
+        open: unrejected,
+        comments: reviewComments,
+      }
+      const threads = await prFindingThreadService
+        .reconcile(threadCtx)
+        .catch(() => NO_THREADS)
+      // LUM-1127: a thread a human resolved on GitHub closes a non-blocking
+      // finding. A gate-blocking one stays open (and blocking) until it is
+      // dispositioned in Lumo — resolving a conversation is not a decision.
+      const open = unrejected.filter(
+        f =>
+          !threads.resolvedByUser.has(f.fingerprint) ||
+          isBlockingFinding(f, policy)
+      )
       const blocking = open.filter(f => isBlockingFinding(f, policy)).length
       const externalCounts: Record<string, number> = {}
       for (const f of open) {
@@ -947,12 +1003,12 @@ export const securityPrReviewService = {
           }
         : undefined
 
-      const reviewComments = await prCommentClient.listReviewComments({
-        repo,
-        prNumber: pr.number,
-        token,
-      })
       const existing = parseFingerprintMarkers(reviewComments.map(c => c.body))
+      // LUM-1127: never re-post a thread a human resolved (even once its
+      // comment has fallen out of the listing window); a moved finding gets a
+      // fresh comment although its old one still carries the marker.
+      for (const fp of threads.resolvedByUser) existing.add(fp)
+      for (const fp of threads.repost.keys()) existing.delete(fp)
       // LUM-988: a verdict that landed after the hold window finds its
       // comment already on the PR — edit it to say so, rather than leave a
       // comment the summary calls "shown in Lumo only".
@@ -1048,6 +1104,13 @@ export const securityPrReviewService = {
           .filter(f => f.severity !== 'LOW' && f.suggestedDisposition == null)
           .map(f => f.filePath),
         commitUrl: commitUrlOf(pr.repo, scan.headSha),
+        threads: {
+          ...threads.counts,
+          // About to be posted below: open threads from this sync on.
+          open:
+            threads.counts.open +
+            selected.filter(f => !threads.repost.has(f.fingerprint)).length,
+        },
       })
       const idToStore = await upsertSummary({
         repo,
@@ -1073,7 +1136,7 @@ export const securityPrReviewService = {
 
       if (selected.length > 0) {
         try {
-          await prCommentClient.createReview({
+          const review = await prCommentClient.createReview({
             repo,
             prNumber: pr.number,
             token,
@@ -1087,6 +1150,14 @@ export const securityPrReviewService = {
             })),
           })
           inline = selected.length
+          // LUM-1127: give each new comment its thread row.
+          if (review?.id)
+            await prFindingThreadService.recordPosted(
+              threadCtx,
+              review.id,
+              selected,
+              threads.repost
+            )
         } catch (error) {
           // Whatever the failure, none of `selected` made it onto the PR —
           // count them as skipped either way so the next sync retries them.
