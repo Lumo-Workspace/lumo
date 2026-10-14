@@ -88,7 +88,11 @@ export function MilestoneCloseGateBanner({
           variant='outline'
           size='sm'
           className='mt-3'
-          onClick={() => setOverriding(true)}
+          onClick={() => {
+            // A fresh attempt starts without the previous attempt's error.
+            setFailed(false)
+            setOverriding(true)
+          }}
         >
           {intl.formatMessage({ id: 'milestoneGate.override.open' })}
         </Button>
@@ -118,7 +122,10 @@ export function MilestoneCloseGateBanner({
             <Button
               size='sm'
               variant='ghost'
-              onClick={() => setOverriding(false)}
+              onClick={() => {
+                setOverriding(false)
+                setFailed(false)
+              }}
             >
               {intl.formatMessage({ id: 'common.cancel' })}
             </Button>

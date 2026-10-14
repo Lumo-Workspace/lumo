@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Perlu penilaian atas perintah atau proses. Belum ada pemeriksaan otomatis untuk jenis aturan ini.",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya tinjauan AI yang memeriksa aturan ini, dan tinjauan AI dinonaktifkan di atas.",
   "milestoneTestCases.title": "Kasus uji",
-  "milestoneGate.open": "Gerbang penutupan terbuka — semua kasus uji telah lulus.",
+  "milestoneGate.open": "Gerbang penutupan terbuka — setiap kasus uji telah lulus atau cacatnya yang terbukti telah diterima.",
   "milestoneGate.held": "{count, plural, other {# item menahan milestone ini tetap terbuka}}",
   "milestoneGate.criteria": "{count, plural, other {# kriteria keluar usang belum terpenuhi}}",
   "milestoneGate.reason.notRun": "Belum dijalankan",

@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "需要對指令或流程做判斷，目前還沒有針對這類規則的自動檢查。",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "這條規則只由 AI 審查檢查，而上方已關閉 AI 審查。",
   "milestoneTestCases.title": "測試案例",
-  "milestoneGate.open": "關閉閘門已開啟——所有測試案例均已通過。",
+  "milestoneGate.open": "關閉閘門已開啟——每條測試案例都已通過，或其已證實的缺陷已被接受。",
   "milestoneGate.held": "{count, plural, other {有 # 項使此里程碑保持開啟}}",
   "milestoneGate.criteria": "{count, plural, other {有 # 項已棄用的退出標準未滿足}}",
   "milestoneGate.reason.notRun": "尚未執行",

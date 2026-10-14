@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Needs judgement about commands or process. No automatic check exists for this kind of rule yet.",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Only AI review checks this rule, and AI review is turned off above.",
   "milestoneTestCases.title": "Test cases",
-  "milestoneGate.open": "Close gate open — every test case has passed.",
+  "milestoneGate.open": "Close gate open — every test case has passed or its proven defect was accepted.",
   "milestoneGate.held": "{count, plural, one {# item holds this milestone open} other {# items hold this milestone open}}",
   "milestoneGate.criteria": "{count, plural, one {# deprecated exit criterion not met} other {# deprecated exit criteria not met}}",
   "milestoneGate.reason.notRun": "Not run yet",

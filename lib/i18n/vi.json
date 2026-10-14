@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Cần đánh giá về lệnh hoặc quy trình. Hiện chưa có bước kiểm tra tự động cho loại quy tắc này.",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Chỉ có đánh giá bằng AI kiểm tra quy tắc này, và đánh giá bằng AI đang tắt ở trên.",
   "milestoneTestCases.title": "Ca kiểm thử",
-  "milestoneGate.open": "Cổng đóng đã mở — mọi ca kiểm thử đều đã đạt.",
+  "milestoneGate.open": "Cổng đóng đã mở — mọi ca kiểm thử đều đã đạt hoặc lỗi đã được chứng minh của nó đã được chấp nhận.",
   "milestoneGate.held": "{count, plural, other {# mục đang giữ cột mốc này ở trạng thái mở}}",
   "milestoneGate.criteria": "{count, plural, other {# tiêu chí thoát cũ chưa được đáp ứng}}",
   "milestoneGate.reason.notRun": "Chưa chạy",

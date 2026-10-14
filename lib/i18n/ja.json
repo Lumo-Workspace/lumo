@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "コマンドやプロセスについての判断が必要です。この種類のルールの自動チェックはまだありません。",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "このルールは AI レビューでのみチェックされますが、上で AI レビューがオフになっています。",
   "milestoneTestCases.title": "テストケース",
-  "milestoneGate.open": "クローズゲートは開いています — すべてのテストケースが合格しました。",
+  "milestoneGate.open": "クローズゲートは開いています — すべてのテストケースが合格したか、証明された不具合が受け入れられました。",
   "milestoneGate.held": "{count, plural, other {#件がこのマイルストーンを開いたままにしています}}",
   "milestoneGate.criteria": "{count, plural, other {非推奨の終了基準が#件未達成です}}",
   "milestoneGate.reason.notRun": "未実行",

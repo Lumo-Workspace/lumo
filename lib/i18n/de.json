@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Erfordert eine Einschätzung von Befehlen oder Abläufen. Für diese Art von Regel gibt es noch keine automatische Prüfung.",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Nur das KI-Review prüft diese Regel, und das KI-Review ist oben ausgeschaltet.",
   "milestoneTestCases.title": "Testfälle",
-  "milestoneGate.open": "Abschluss-Gate offen — alle Testfälle bestanden.",
+  "milestoneGate.open": "Abschluss-Gate offen — jeder Testfall hat bestanden oder sein nachgewiesener Defekt wurde akzeptiert.",
   "milestoneGate.held": "{count, plural, one {# Punkt hält diesen Meilenstein offen} other {# Punkte halten diesen Meilenstein offen}}",
   "milestoneGate.criteria": "{count, plural, one {# veraltetes Abschlusskriterium nicht erfüllt} other {# veraltete Abschlusskriterien nicht erfüllt}}",
   "milestoneGate.reason.notRun": "Noch nicht ausgeführt",

@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Memerlukan pertimbangan tentang arahan atau proses. Belum ada semakan automatik untuk jenis peraturan ini.",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya semakan AI yang menyemak peraturan ini, dan semakan AI dimatikan di atas.",
   "milestoneTestCases.title": "Kes ujian",
-  "milestoneGate.open": "Get penutupan terbuka — semua kes ujian telah lulus.",
+  "milestoneGate.open": "Get penutupan terbuka — setiap kes ujian telah lulus atau kecacatannya yang terbukti telah diterima.",
   "milestoneGate.held": "{count, plural, other {# item menyebabkan pencapaian ini kekal terbuka}}",
   "milestoneGate.criteria": "{count, plural, other {# kriteria keluar yang telah ditamatkan belum dipenuhi}}",
   "milestoneGate.reason.notRun": "Belum dijalankan",

@@ -136,3 +136,41 @@ it('keeps the note open and shows an error when the override fails', async () =>
   expect(screen.getByRole('textbox')).toHaveValue('verified by hand')
   expect(screen.getByRole('button', { name: /Close milestone/ })).toBeEnabled()
 })
+
+it('clears the previous failure on Cancel and when Close anyway is reopened', async () => {
+  const onOverride = jest.fn().mockRejectedValue(new Error('403'))
+  render(
+    <MilestoneCloseGateBanner
+      gate={held}
+      allTasksDone
+      completed={false}
+      onOverride={onOverride}
+    />
+  )
+  await userEvent.click(screen.getByRole('button', { name: /Close anyway/ }))
+  await userEvent.type(screen.getByRole('textbox'), 'verified by hand')
+  await userEvent.click(screen.getByRole('button', { name: /Close milestone/ }))
+  expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: /Cancel/ }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  await userEvent.click(screen.getByRole('button', { name: /Close anyway/ }))
+  expect(screen.getByRole('textbox')).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+it('says nothing holds the gate without claiming every case passed', () => {
+  render(
+    <MilestoneCloseGateBanner
+      gate={{ held: 0, unresolvedCriteria: 0, cases: [] }}
+      allTasksDone
+      completed={false}
+      onOverride={jest.fn()}
+    />
+  )
+  expect(
+    screen.getByText(
+      'Close gate open — every test case has passed or its proven defect was accepted.'
+    )
+  ).toBeInTheDocument()
+})

@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "इसके लिए कमांड या प्रक्रिया पर निर्णय चाहिए। इस तरह के नियम के लिए अभी कोई स्वचालित जाँच नहीं है।",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "इस नियम की जाँच सिर्फ़ AI समीक्षा करती है, और ऊपर AI समीक्षा बंद है।",
   "milestoneTestCases.title": "टेस्ट केस",
-  "milestoneGate.open": "क्लोज़ गेट खुला है — सभी टेस्ट केस पास हो चुके हैं।",
+  "milestoneGate.open": "क्लोज़ गेट खुला है — हर टेस्ट केस पास हो चुका है या उसका सिद्ध दोष स्वीकार कर लिया गया है।",
   "milestoneGate.held": "{count, plural, one {# आइटम इस माइलस्टोन को खुला रखे हुए है} other {# आइटम इस माइलस्टोन को खुला रखे हुए हैं}}",
   "milestoneGate.criteria": "{count, plural, one {# पुराना एग्ज़िट क्राइटेरिया पूरा नहीं हुआ} other {# पुराने एग्ज़िट क्राइटेरिया पूरे नहीं हुए}}",
   "milestoneGate.reason.notRun": "अभी तक नहीं चलाया गया",

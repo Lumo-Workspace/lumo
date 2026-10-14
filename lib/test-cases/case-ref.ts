@@ -3,6 +3,9 @@
  * routes. Accepts a cuid, `TC3` or `3`. Pure — the owner scoping (a number or
  * cuid only means something inside its own task / milestone) is the caller's.
  */
+/** TestCase.number is a Postgres int4 — anything larger can never match. */
+const MAX_CASE_NUMBER = 2147483647
+
 export type CaseRef =
   | { kind: 'id'; id: string }
   | { kind: 'number'; number: number }
@@ -18,6 +21,7 @@ export function parseCaseRef(raw: string): CaseRef | null {
   const m = /^(?:TC)?(\d+)$/i.exec(ref)
   if (!m) return null
   const number = parseInt(m[1]!, 10)
-  if (!Number.isSafeInteger(number) || number < 1) return null
+  if (!Number.isSafeInteger(number) || number < 1 || number > MAX_CASE_NUMBER)
+    return null
   return { kind: 'number', number }
 }

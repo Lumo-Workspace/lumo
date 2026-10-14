@@ -2829,7 +2829,7 @@
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "명령이나 프로세스에 대한 판단이 필요합니다. 이런 종류의 규칙에 대한 자동 검사는 아직 없습니다.",
   "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "이 규칙은 AI 리뷰로만 검사되는데, 위에서 AI 리뷰가 꺼져 있습니다.",
   "milestoneTestCases.title": "테스트 케이스",
-  "milestoneGate.open": "닫기 게이트 열림 — 모든 테스트 케이스가 통과했습니다.",
+  "milestoneGate.open": "닫기 게이트 열림 — 모든 테스트 케이스가 통과했거나 입증된 결함이 수용되었습니다.",
   "milestoneGate.held": "{count, plural, other {#개 항목이 이 마일스톤을 열어 두고 있습니다}}",
   "milestoneGate.criteria": "{count, plural, other {더 이상 쓰지 않는 종료 기준 #개가 충족되지 않았습니다}}",
   "milestoneGate.reason.notRun": "아직 실행되지 않음",
