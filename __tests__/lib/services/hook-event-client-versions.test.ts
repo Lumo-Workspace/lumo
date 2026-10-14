@@ -60,14 +60,16 @@ beforeEach(() => {
 })
 
 describe('recordHookEvent — client versions', () => {
-  it('SESSION_START records the versions on the session', async () => {
+  it('SESSION_START records the skill version on the session', async () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'SESSION_START',
       payload: { session_id: 'sess_1' },
       clientVersions: versions,
     })
-    expect(sess.recordClientVersions).toHaveBeenCalledWith('sess_1', versions)
+    expect(sess.recordClientVersions).toHaveBeenCalledWith('sess_1', {
+      skillVersion: versions.skillVersion,
+    })
   })
 
   it('every event passes the CLI version to the session upsert', async () => {

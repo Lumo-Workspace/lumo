@@ -245,6 +245,11 @@ function memberAgentKey(workspaceMemberId: string, agent: string): string {
   return `${workspaceMemberId}\u0000${agent}`
 }
 
+/** LUM-1136: the `cliVersion` write for a hook upsert, or nothing when absent. */
+function cliVersionPatch(data: { cliVersion?: string }) {
+  return data.cliVersion ? { cliVersion: data.cliVersion } : {}
+}
+
 /** Keys per follow-up query, so the OR list stays bounded on big workspaces. */
 const MEMBER_AGENT_CHUNK = 100
 
@@ -254,11 +259,6 @@ const MEMBER_AGENT_CHUNK = 100
  * in-memory `distinct` over every session in the window: groupBy finds each
  * pair's newest reporting timestamp, then only those rows are read (in chunks).
  */
-/** LUM-1136: the `cliVersion` write for a hook upsert, or nothing when absent. */
-function cliVersionPatch(data: { cliVersion?: string }) {
-  return data.cliVersion ? { cliVersion: data.cliVersion } : {}
-}
-
 async function latestReportedField(
   workspaceId: string,
   since: Date,

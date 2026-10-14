@@ -207,7 +207,9 @@ export const hookEventService = {
       // The skill copy is loaded once per session, so only SessionStart
       // reports it; the CLI version rides on the upsert above (every event).
       if (type === 'SESSION_START' && clientVersions?.skillVersion) {
-        await sessionRepository.recordClientVersions(sessionId, clientVersions)
+        await sessionRepository.recordClientVersions(sessionId, {
+          skillVersion: clientVersions.skillVersion,
+        })
       }
     }
 
