@@ -169,6 +169,8 @@ export interface FormatReportOptions extends ListRenderOptions {
 
 const TOKEN_HEADERS = ['INPUT', 'OUTPUT', 'CACHE WRITE', 'CACHE READ', 'TOTAL']
 const MODEL_WIDTH = 40
+/** Narrowest the MODEL / MEMBER column is cut to on a tight TTY. */
+const MIN_LABEL_WIDTH = 12
 
 /** INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL cells — `lumo cost` kinds. */
 function kindCells(
@@ -196,7 +198,10 @@ function tokenTables(
   opts: FormatReportOptions,
   color: boolean
 ): string[] {
-  const render = (fmt: (n: number) => string): string[] => {
+  const render = (
+    fmt: (n: number) => string,
+    labelCap = MODEL_WIDTH
+  ): string[] => {
     const out: string[] = []
     if (data.team.byModel.length > 0) {
       out.push('')
@@ -210,7 +215,7 @@ function tokenTables(
           {
             header: ['MODEL', ...TOKEN_HEADERS],
             align: [undefined, 'right', 'right', 'right', 'right', 'right'],
-            maxWidths: [MODEL_WIDTH],
+            maxWidths: [labelCap],
             color,
           }
         )
@@ -249,7 +254,7 @@ function tokenTables(
             'right',
             'right',
           ],
-          maxWidths: [MODEL_WIDTH],
+          maxWidths: [labelCap],
           color,
         })
       )
@@ -261,13 +266,20 @@ function tokenTables(
   const tty = opts.tty ?? Boolean(process.stdout.isTTY)
   if (!tty) return exact
   const width = opts.width ?? terminalWidth()
-  const overflows = exact.some(block =>
-    block.split('\n').some(l => stringWidth(l) > width)
-  )
-  if (!overflows) return exact
+  const overflows = (blocks: string[]) =>
+    blocks.some(block => block.split('\n').some(l => stringWidth(l) > width))
+  if (!overflows(exact)) return exact
+  // Compact units first; if a row still would not fit, cut the MODEL /
+  // MEMBER column (with …) down to MIN_LABEL_WIDTH before letting it wrap.
+  let cap = MODEL_WIDTH
+  let compact = render(fmtTokens, cap)
+  while (overflows(compact) && cap > MIN_LABEL_WIDTH) {
+    cap -= 1
+    compact = render(fmtTokens, cap)
+  }
   return [
-    ...render(fmtTokens),
-    'Token counts abbreviated to fit the terminal — exact values: lumo report --json',
+    ...compact,
+    'Abbreviated to fit the terminal; exact values: lumo report --json',
   ]
 }
 

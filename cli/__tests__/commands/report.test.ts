@@ -323,6 +323,19 @@ describe('formatReport', () => {
       for (const l of t) expect(l.length).toBeLessThanOrEqual(90)
       expect(narrow).toMatch(/exact.*--json/)
     })
+
+    it('cuts the model / member column when compact units alone still overflow', () => {
+      const tight = formatReport(wide, {
+        window: win({}),
+        tty: true,
+        width: 76,
+      })
+      const t = tables(tight)
+      for (const l of t) expect(l.length).toBeLessThanOrEqual(76)
+      expect(t.join('\n')).toContain('…')
+      expect(t.join('\n')).toMatch(/1\.1B\s+2\.2B\s+4\.4B\s+3\.3B\s+11\.1B/)
+      expect(tight).toMatch(/exact.*--json/)
+    })
   })
 
   it('lists completed tasks with local done day and assignee, sanitized, with truncation note', () => {
