@@ -32,6 +32,12 @@ export interface ReportMemberRow {
   memberId: string | null
   label: string
   tokens: ReportTokenTotals
+  /**
+   * LUM-1123: the member's tokens split per model, total desc. The cells sum
+   * exactly to `tokens` (each cell is made whole once; coarser figures are sums
+   * of those whole cells). Empty when the member recorded no token usage.
+   */
+  byModel: ReportModelRow[]
   /** Sessions with activity in the window. */
   sessions: number
   /** Sessions with activity but no recorded token usage — NOT counted as 0 tokens. */

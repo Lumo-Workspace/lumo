@@ -122,6 +122,7 @@ const data: ReportResponseDto = {
       memberId: 'm1',
       label: 'Alice',
       tokens: tokens(1000000),
+      byModel: [{ model: 'claude-opus', ...tokens(1000000) }],
       sessions: 3,
       unmeteredSessions: 1,
       completedCount: 1,
@@ -130,6 +131,7 @@ const data: ReportResponseDto = {
       memberId: null,
       label: '(unassigned)',
       tokens: tokens(0),
+      byModel: [],
       sessions: 0,
       unmeteredSessions: 0,
       completedCount: 1,
@@ -178,6 +180,179 @@ describe('formatReport', () => {
     expect(alice).toMatch(/Alice\s+1,000,000\s+3 \(1 unmetered\)\s+1$/)
     const unassigned = out.split('\n').find(l => l.startsWith('(unassigned)'))
     expect(unassigned).toMatch(/\s-\s+0\s+1$/)
+  })
+
+  // LUM-1123
+  it('By model lists input / output / cache write / cache read / total per model', () => {
+    const lines = out.split('\n')
+    expect(lines).toContainEqual(
+      expect.stringMatching(
+        /^MODEL\s+INPUT\s+OUTPUT\s+CACHE WRITE\s+CACHE READ\s+TOTAL$/
+      )
+    )
+    expect(lines.find(l => l.startsWith('claude-opus'))).toMatch(
+      /^claude-opus\s+0\s+1,234,567\s+0\s+0\s+1,234,567$/
+    )
+  })
+
+  it('By member shows a summary row then one row per model with every token kind', () => {
+    const split = formatReport(
+      {
+        ...data,
+        byMember: [
+          {
+            memberId: 'm1',
+            label: 'Alice',
+            tokens: {
+              input: 11,
+              output: 2200,
+              cacheRead: 330000,
+              cacheCreation: 44000,
+              total: 376211,
+            },
+            byModel: [
+              {
+                model: 'claude-opus',
+                input: 10,
+                output: 2000,
+                cacheRead: 300000,
+                cacheCreation: 40000,
+                total: 342010,
+              },
+              {
+                model: 'claude-sonnet',
+                input: 1,
+                output: 200,
+                cacheRead: 30000,
+                cacheCreation: 4000,
+                total: 34201,
+              },
+            ],
+            sessions: 3,
+            unmeteredSessions: 0,
+            completedCount: 2,
+          },
+        ],
+      },
+      { window: win({}), tty: false }
+    )
+    const lines = split.split('\n')
+    expect(lines).toContainEqual(
+      expect.stringMatching(
+        /^MEMBER\s+INPUT\s+OUTPUT\s+CACHE WRITE\s+CACHE READ\s+TOTAL\s+SESSIONS\s+DONE$/
+      )
+    )
+    const i = lines.findIndex(l => l.startsWith('Alice'))
+    expect(lines[i]).toMatch(/^Alice\s+376,211\s+3\s+2$/)
+    expect(lines[i + 1]).toMatch(
+      /^\s+↳ claude-opus\s+10\s+2,000\s+40,000\s+300,000\s+342,010$/
+    )
+    expect(lines[i + 2]).toMatch(
+      /^\s+↳ claude-sonnet\s+1\s+200\s+4,000\s+30,000\s+34,201$/
+    )
+  })
+
+  it('renders a payload from an older server without byMember[].byModel', () => {
+    const old = formatReport(
+      {
+        ...data,
+        byMember: data.byMember.map(({ byModel: _drop, ...m }) => m),
+      },
+      { window: win({}) }
+    )
+    expect(old).toMatch(/^Alice\s+1,000,000\s+3 \(1 unmetered\)\s+1$/m)
+    expect(old).not.toContain('↳')
+  })
+
+  describe('token table width', () => {
+    const big = {
+      input: 1_111_111_111,
+      output: 2_222_222_222,
+      cacheRead: 3_333_333_333,
+      cacheCreation: 4_444_444_444,
+      total: 11_111_111_110,
+    }
+    const wide: ReportResponseDto = {
+      ...data,
+      team: { ...data.team, byModel: [{ model: 'claude-opus-4-5', ...big }] },
+      byMember: [
+        {
+          memberId: 'm1',
+          label: 'Alice',
+          tokens: big,
+          byModel: [{ model: 'claude-opus-4-5', ...big }],
+          sessions: 3,
+          unmeteredSessions: 0,
+          completedCount: 1,
+        },
+      ],
+    }
+    const tables = (s: string) =>
+      s.slice(s.indexOf('By model'), s.indexOf('Completed tasks')).split('\n')
+    const COMPACT = /\b\d+(\.\d)?[KMBT]\b/
+
+    it('never abbreviates when piped (non-TTY), even past the width', () => {
+      const piped = formatReport(wide, {
+        window: win({}),
+        tty: false,
+        width: 60,
+      })
+      expect(piped).toContain('11,111,111,110')
+      expect(piped).toContain('4,444,444,444')
+      expect(tables(piped).join('\n')).not.toMatch(COMPACT)
+      expect(piped).not.toContain('--json')
+    })
+
+    it('keeps exact figures on a TTY wide enough', () => {
+      const ok = formatReport(wide, { window: win({}), tty: true, width: 200 })
+      expect(ok).toContain('11,111,111,110')
+      expect(ok).not.toContain('--json')
+    })
+
+    it('switches to compact units on an overflowing TTY and says where exact values are', () => {
+      const narrow = formatReport(wide, {
+        window: win({}),
+        tty: true,
+        width: 90,
+      })
+      const t = tables(narrow)
+      expect(t.join('\n')).toMatch(
+        /claude-opus-4-5\s+1\.1B\s+2\.2B\s+4\.4B\s+3\.3B\s+11\.1B/
+      )
+      expect(t.join('\n')).not.toContain('11,111,111,110')
+      for (const l of t) expect(l.length).toBeLessThanOrEqual(90)
+      expect(narrow).toMatch(/exact.*--json/)
+    })
+
+    it('cuts the model / member column when compact units alone still overflow', () => {
+      const tight = formatReport(wide, {
+        window: win({}),
+        tty: true,
+        width: 76,
+      })
+      const t = tables(tight)
+      for (const l of t) expect(l.length).toBeLessThanOrEqual(76)
+      expect(t.join('\n')).toContain('…')
+      expect(t.join('\n')).toMatch(/1\.1B\s+2\.2B\s+4\.4B\s+3\.3B\s+11\.1B/)
+      expect(tight).toMatch(/exact.*--json/)
+    })
+
+    it('never cuts the label column below 12 columns, even if rows still overflow', () => {
+      const tiny = formatReport(wide, {
+        window: win({}),
+        tty: true,
+        width: 40,
+      })
+      const t = tables(tiny)
+      const sub = t.find(l => l.includes('↳'))!
+      // "  ↳ claude-opus-4-5" cut to exactly 12 display columns.
+      expect(sub.startsWith('  ↳ claude-…')).toBe(true)
+      expect(sub.slice(0, 12)).toBe('  ↳ claude-…')
+      expect(
+        t.find(l => l.startsWith('claude-'))!.startsWith('claude-opus… ')
+      ).toBe(true)
+      expect(tiny).toMatch(/exact.*--json/)
+    })
   })
 
   it('lists completed tasks with local done day and assignee, sanitized, with truncation note', () => {
@@ -280,6 +455,10 @@ describe('report()', () => {
     expect(await report({ json: true })).toBeUndefined()
     const printed = JSON.parse(logSpy.mock.calls[0][0])
     expect(printed).toEqual(data)
+    // LUM-1123: the per-member model split passes through.
+    expect(printed.byMember[0].byModel).toEqual([
+      { model: 'claude-opus', ...tokens(1000000) },
+    ])
     expect(printed.version).toBe(1)
     expect(Object.keys(printed)).toEqual([
       'version',
