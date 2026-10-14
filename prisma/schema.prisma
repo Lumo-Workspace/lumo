@@ -454,6 +454,12 @@ model Workspace {
   securityScanEnabled     Boolean           @default(true)
   securityAiReviewEnabled Boolean           @default(true)
   securityHuntEnabled     Boolean           @default(true)
+  // LUM-1130: the PR reviewer's request-changes workflow (CodeRabbit's
+  // `reviews.request_changes_workflow`). Off by default: on, Lumo's review is
+  // "Changes requested" while a Lumo thread or a DONE-blocking finding is
+  // open, and Lumo approves once the latest head's complete review leaves
+  // nothing open.
+  securityRequestChangesEnabled Boolean @default(false)
   workspaceExports        WorkspaceExport[]
 
   // LUM-918: pending deletion. An OWNER's delete schedules it 48h out

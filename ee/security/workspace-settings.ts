@@ -26,6 +26,8 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     securityScanEnabled: z.boolean().optional(),
     securityAiReviewEnabled: z.boolean().optional(),
     securityHuntEnabled: z.boolean().optional(),
+    // LUM-1130: the PR reviewer's request-changes workflow (default off).
+    securityRequestChangesEnabled: z.boolean().optional(),
   },
   // LUM-907: audited with the core settings (moved out of the core list in
   // LUM-1065; same actions as before).
@@ -35,6 +37,7 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
       'securityScanEnabled',
       'securityAiReviewEnabled',
       'securityHuntEnabled',
+      'securityRequestChangesEnabled',
     ],
     'workspace.retention_updated': ['scanEvidenceRetentionDays'],
   },

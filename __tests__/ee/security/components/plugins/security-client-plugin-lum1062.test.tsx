@@ -210,6 +210,8 @@ describe('settings slots', () => {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
+        // LUM-1130: absent on the row ⇒ off (the column default).
+        securityRequestChangesEnabled: false,
       },
       huntAvailable: true,
       sandboxAvailable: false,

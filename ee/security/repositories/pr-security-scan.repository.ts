@@ -365,7 +365,12 @@ export interface ScanForReview {
     workspaceId: string
     task: { number: number; team: { identifier: string } } | null
     /** `securityPolicy` is the raw Json column — parse with `parseSecurityPolicy`. */
-    workspace: { slug: string; securityPolicy: unknown }
+    workspace: {
+      slug: string
+      securityPolicy: unknown
+      /** LUM-1130 — the request-changes workflow (absent reads as off). */
+      securityRequestChangesEnabled?: boolean
+    }
   }
 }
 
@@ -1666,7 +1671,13 @@ export const prSecurityScanRepository = {
             task: {
               select: { number: true, team: { select: { identifier: true } } },
             },
-            workspace: { select: { slug: true, securityPolicy: true } },
+            workspace: {
+              select: {
+                slug: true,
+                securityPolicy: true,
+                securityRequestChangesEnabled: true,
+              },
+            },
           },
         },
       },

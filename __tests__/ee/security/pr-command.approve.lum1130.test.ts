@@ -1,0 +1,249 @@
+/**
+ * @jest-environment node
+ *
+ * LUM-1130 — `@<app> approve`: request-changes workflow only; refused while
+ * a finding blocks DONE (even one whose thread was resolved on GitHub) and
+ * for the PR's own author; otherwise resolves Lumo's threads, approves the
+ * PR's live head and dismisses Lumo's earlier change requests. A refused
+ * approve has no side effect.
+ */
+jest.mock('@/lib/integrations/github/auth', () => ({
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
+}))
+jest.mock('@/lib/integrations/github/collaborator-access', () => ({
+  checkRepositoryWriteAccess: jest.fn(),
+}))
+jest.mock('@/lib/integrations/github/pr-comment-client', () => ({
+  prCommentClient: {
+    createIssueComment: jest.fn().mockResolvedValue({ id: 900 }),
+    listIssueCommentsSince: jest.fn().mockResolvedValue([]),
+    getPullRequestHead: jest.fn(),
+    listReviews: jest.fn(),
+    submitReview: jest.fn().mockResolvedValue({ id: 901 }),
+    dismissReview: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+jest.mock('@/lib/integrations/github/review-threads', () => ({
+  reviewThreadClient: {
+    listReviewThreads: jest.fn().mockResolvedValue([]),
+    resolveThread: jest.fn().mockResolvedValue(undefined),
+    unresolveThread: jest.fn(),
+  },
+}))
+jest.mock('@/ee/security/services/pr-review-control.service', () => ({
+  prReviewControlService: { act: jest.fn() },
+}))
+jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
+  prSecurityScanRepository: {
+    findLatestByPullRequestIds: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
+  securityColumnsRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    findRequestChangesEnabled: jest.fn(),
+  },
+}))
+jest.mock('@/ee/security/repositories/pr-finding-thread.repository', () => ({
+  prFindingThreadRepository: {
+    findByPullRequest: jest.fn().mockResolvedValue([]),
+    update: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {},
+}))
+jest.mock('@/lib/logger', () => ({
+  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+}))
+
+import {
+  applyPrCommentCommand,
+  buildApproveReply,
+  buildHelpReply,
+  type PrCommentEvent,
+} from '@/ee/security/services/pr-command.service'
+import { parsePrCommand } from '@/ee/security/services/pr-command-parse'
+import { checkRepositoryWriteAccess } from '@/lib/integrations/github/collaborator-access'
+import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
+import { reviewThreadClient } from '@/lib/integrations/github/review-threads'
+import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+
+const access = checkRepositoryWriteAccess as jest.Mock
+const reply = prCommentClient.createIssueComment as jest.Mock
+const liveHead = prCommentClient.getPullRequestHead as jest.Mock
+const listReviews = prCommentClient.listReviews as jest.Mock
+const submitReview = prCommentClient.submitReview as jest.Mock
+const dismissReview = prCommentClient.dismissReview as jest.Mock
+const resolveThread = reviewThreadClient.resolveThread as jest.Mock
+const findRows = prFindingThreadRepository.findByPullRequest as jest.Mock
+const latest = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
+const modeOn = securityColumnsRepository.findRequestChangesEnabled as jest.Mock
+
+const HEAD = 'abcdef1234567890abcdef1234567890abcdef12'
+const OLD_SLUG = process.env.GITHUB_APP_SLUG
+const lumoBot = { login: 'uselumo[bot]', type: 'Bot' }
+
+function event(body: string, login = 'alice'): PrCommentEvent {
+  return {
+    workspaceId: 'w1',
+    pullRequestId: 'pr1',
+    repo: 'acme/app',
+    prNumber: 9,
+    action: 'created',
+    comment: {
+      id: 555,
+      body,
+      createdAt: '2026-10-14T08:00:00Z',
+      user: { login, type: 'User' },
+    },
+    prAuthorLogin: 'bob',
+  }
+}
+
+const row = (fingerprint: string, state = 'OPEN') => ({
+  id: `row-${fingerprint}`,
+  pullRequestId: 'pr1',
+  fingerprint,
+  commentId: '101',
+  threadNodeId: `T-${fingerprint}`,
+  state,
+  ruleId: 'r',
+  provenance: 'LLM_JUDGE',
+  kind: 'VULNERABILITY',
+  filePath: 'a.ts',
+  resolvedByLogin: null,
+  addressedInSha: null,
+})
+
+const replyBody = (): string =>
+  (reply.mock.calls[0]![0] as { body: string }).body
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  process.env.GITHUB_APP_SLUG = 'uselumo'
+  access.mockResolvedValue('write')
+  modeOn.mockResolvedValue(true)
+  latest.mockResolvedValue([])
+  findRows.mockResolvedValue([row('fpLow')])
+  liveHead.mockResolvedValue({ sha: HEAD, state: 'open' })
+  listReviews.mockResolvedValue([
+    { id: 41, state: 'CHANGES_REQUESTED', commit_id: 'old', user: lumoBot },
+  ])
+})
+
+afterAll(() => {
+  if (OLD_SLUG === undefined) delete process.env.GITHUB_APP_SLUG
+  else process.env.GITHUB_APP_SLUG = OLD_SLUG
+})
+
+it('parses `approve` and lists it in the help reply', () => {
+  expect(parsePrCommand('@uselumo approve', '@uselumo')).toEqual({
+    command: 'approve',
+    text: 'approve',
+  })
+  expect(buildHelpReply('@uselumo', null)).toContain('`@uselumo approve`')
+})
+
+it('resolves open threads, approves the live head and dismisses Lumo’s change request', async () => {
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'done'
+  )
+  expect(resolveThread).toHaveBeenCalledWith({
+    threadId: 'T-fpLow',
+    token: 'tok',
+  })
+  expect(submitReview).toHaveBeenCalledWith(
+    expect.objectContaining({ event: 'APPROVE', commitId: HEAD })
+  )
+  expect(submitReview.mock.calls[0][0].body).toContain('@alice')
+  expect(dismissReview).toHaveBeenCalledWith(
+    expect.objectContaining({ reviewId: 41 })
+  )
+  expect(replyBody()).toContain('Approved `abcdef1`')
+})
+
+it('mode off ⇒ refused, nothing resolved, nothing approved', async () => {
+  modeOn.mockResolvedValue(false)
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'refused_mode_off'
+  )
+  expect(resolveThread).not.toHaveBeenCalled()
+  expect(submitReview).not.toHaveBeenCalled()
+  expect(replyBody()).toContain('request-changes workflow is off')
+})
+
+it('a blocking finding (its thread resolved on GitHub) ⇒ refused, nothing resolved', async () => {
+  findRows.mockResolvedValue([row('fpBlock', 'RESOLVED_BY_USER')])
+  latest.mockResolvedValue([
+    {
+      id: 's1',
+      findings: [
+        {
+          fingerprint: 'fpBlock',
+          provenance: 'DETERMINISTIC',
+          severity: 'HIGH',
+          disposition: null,
+          persisting: false,
+        },
+      ],
+    },
+  ])
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'refused_blocking'
+  )
+  expect(resolveThread).not.toHaveBeenCalled()
+  expect(submitReview).not.toHaveBeenCalled()
+  expect(replyBody()).toMatch(/1 finding blocks DONE/)
+})
+
+it('the PR’s author ⇒ refused (same rule as resolve)', async () => {
+  await expect(
+    applyPrCommentCommand(event('@uselumo approve', 'bob'))
+  ).resolves.toBe('refused_author')
+  expect(submitReview).not.toHaveBeenCalled()
+})
+
+it('no write access ⇒ ignored silently', async () => {
+  access.mockResolvedValue('read')
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'unauthorized'
+  )
+  expect(submitReview).not.toHaveBeenCalled()
+  expect(reply).not.toHaveBeenCalled()
+})
+
+it('a thread that cannot be resolved ⇒ no approval', async () => {
+  resolveThread.mockRejectedValueOnce(new Error('boom'))
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'failed'
+  )
+  expect(submitReview).not.toHaveBeenCalled()
+})
+
+it('a PR that is no longer open ⇒ no approval', async () => {
+  liveHead.mockResolvedValue({ sha: HEAD, state: 'closed' })
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'failed'
+  )
+  expect(submitReview).not.toHaveBeenCalled()
+  expect(replyBody()).toContain('not open')
+})
+
+it('buildApproveReply pluralises', () => {
+  expect(buildApproveReply({ kind: 'blocked', blocking: 2 }, '@x')).toMatch(
+    /2 findings block DONE/
+  )
+  expect(
+    buildApproveReply(
+      {
+        kind: 'approved',
+        sha: HEAD,
+        result: { resolved: 2, kept: 0, failed: 0 },
+      },
+      '@x'
+    )
+  ).toBe('✅ Approved `abcdef1`. Resolved 2 Lumo review threads.')
+})

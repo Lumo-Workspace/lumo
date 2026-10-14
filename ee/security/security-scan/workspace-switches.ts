@@ -14,17 +14,23 @@ import { isManagedScanEnabled } from '@/ee/security/services/security-managed-sc
 import { isHuntEnabled } from '@/ee/security/services/security-hunt.config'
 import { isIntegrationConfigured } from '@/lib/integrations/configured'
 
-/** The three stored workspace switches (all default on). */
+/**
+ * The stored workspace switches: the three layer switches (default on) and
+ * LUM-1130's request-changes workflow (default OFF — it changes the PR's
+ * merge UX, so a workspace opts in).
+ */
 export interface WorkspaceSecuritySwitches {
   securityScanEnabled: boolean
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
+  securityRequestChangesEnabled: boolean
 }
 
 export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRequestChangesEnabled: false,
 }
 
 /** Which layers may run for one workspace, after the platform ceiling. */

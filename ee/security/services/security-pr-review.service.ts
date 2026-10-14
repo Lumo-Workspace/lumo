@@ -93,6 +93,7 @@ import {
   type ThreadCounts,
   type ThreadSyncContext,
 } from '@/ee/security/services/pr-finding-thread.service'
+import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -438,6 +439,8 @@ export interface SummaryInput {
    * commands are on; absent/null = the summary mentions the CLI only.
    */
   commandHandle?: string | null
+  /** LUM-1130 — the request-changes workflow is on: list `approve` too. */
+  approveCommand?: boolean
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -458,7 +461,7 @@ export function threadsLine(threads: ThreadCounts | undefined): string | null {
 }
 
 /** LUM-1129 — the reviewer commands a PR comment takes, folded. */
-export function commandsBlock(handle: string): string {
+export function commandsBlock(handle: string, approve = false): string {
   const rows = [
     ['review', 'incremental review of the changes since the last complete one'],
     ['full review', 'review the whole PR again'],
@@ -468,6 +471,15 @@ export function commandsBlock(handle: string): string {
       'resolve',
       "resolve Lumo's open threads (findings that block DONE stay open)",
     ],
+    // LUM-1130: only where the request-changes workflow is on.
+    ...(approve
+      ? [
+          [
+            'approve',
+            "resolve Lumo's threads and approve (refused while a finding blocks DONE)",
+          ],
+        ]
+      : []),
   ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
   return `<details>\n<summary>Lumo commands</summary>\n\nComment on this PR (write access required):\n\n${rows.join('\n')}\n\n</details>`
 }
@@ -718,7 +730,8 @@ export function buildSummary(input: SummaryInput): string {
   }
 
   // LUM-1129: the PR comment commands, folded like the layer detail.
-  if (input.commandHandle) blocks.push(commandsBlock(input.commandHandle))
+  if (input.commandHandle)
+    blocks.push(commandsBlock(input.commandHandle, input.approveCommand))
 
   const sha = input.headSha.slice(0, 7)
   const footer = [
@@ -974,6 +987,9 @@ export const securityPrReviewService = {
       const verifierRejected = undecided.length - unrejected.length
       // LUM-740: the workspace policy says what blocks DONE (LLM never).
       const policy = parseSecurityPolicy(pr.workspace?.securityPolicy)
+      // LUM-1130: the request-changes workflow (off by default).
+      const requestChanges =
+        pr.workspace?.securityRequestChangesEnabled === true
 
       const reviewComments = await prCommentClient.listReviewComments({
         repo,
@@ -1125,6 +1141,7 @@ export const securityPrReviewService = {
         error: scan.error,
         taskUrl: taskUrlOf(pr),
         commandHandle: prCommandHandle(),
+        approveCommand: requestChanges,
         prSummary: scan.prSummary,
         // LUM-849: the rows a reader acts on — LOW and suggested false
         // positives stay off the diff, so they stay off this line too.
@@ -1170,6 +1187,9 @@ export const securityPrReviewService = {
             token,
             commitId: scan.headSha,
             body: `🛡️ Lumo security scan — ${scan.headSha.slice(0, 7)}`,
+            // LUM-1130: actionable inline comments request changes when the
+            // workspace turned the workflow on; otherwise only annotate.
+            event: requestChanges ? 'REQUEST_CHANGES' : 'COMMENT',
             comments: selected.map(f => ({
               path: f.filePath,
               line: f.line as number,
@@ -1202,6 +1222,39 @@ export const securityPrReviewService = {
             throw error
           }
         }
+      }
+
+      // LUM-1130: request changes while anything is open; approve once the
+      // latest head's complete review leaves nothing open. Never throws.
+      if (requestChanges) {
+        const newThreads =
+          inline > 0
+            ? selected.filter(f => !threads.repost.has(f.fingerprint)).length
+            : 0
+        const postedNow = new Set(
+          inline > 0 ? selected.map(f => f.fingerprint) : []
+        )
+        await prReviewVerdictService.apply({
+          repo,
+          prNumber: pr.number,
+          token,
+          headSha: scan.headSha,
+          scan: {
+            status: scan.status,
+            partial: scan.partial,
+            stages: (scan.stages as ScanStages | null) ?? null,
+          },
+          openThreads: threads.counts.open + newThreads,
+          blocking,
+          unpostedActionable: open.filter(
+            f =>
+              f.line !== null &&
+              f.severity !== 'LOW' &&
+              f.suggestedDisposition == null &&
+              !existing.has(f.fingerprint) &&
+              !postedNow.has(f.fingerprint)
+          ).length,
+        })
       }
     } catch (error) {
       logger.warn(`[security-pr-review] ${where}: ${describe(error)}`)

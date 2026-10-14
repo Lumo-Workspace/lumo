@@ -14,6 +14,11 @@
  *     and leaves the thread of a finding that blocks DONE open (those are
  *     cleared by `lumo finding disposition` or the web panel). The PR's own
  *     author may not `resolve` by command;
+ *   · LUM-1130 `approve` (the request-changes workflow only): resolves Lumo's
+ *     threads and approves the PR's current head, dismissing Lumo's earlier
+ *     change requests — refused while any finding blocks DONE (a thread
+ *     resolved on GitHub does not clear it), and, like `resolve`, never for
+ *     the PR's own author;
  *   · a redelivered webhook is answered once: the reply carries a marker
  *     naming the command comment, and a marker already on the PR stops it.
  *     Best effort (check, then act): if the reply itself fails, a later
@@ -33,6 +38,8 @@ import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
 import type { CoreEvents } from '@/lib/plugins/types'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { prReviewControlService } from '@/ee/security/services/pr-review-control.service'
+import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import {
   isBlockingFinding,
   loadSecurityPolicy,
@@ -59,6 +66,8 @@ export type PrCommandOutcome =
   | 'duplicate'
   | 'help'
   | 'refused_author'
+  | 'refused_mode_off'
+  | 'refused_blocking'
   | 'done'
   | 'failed'
 
@@ -88,6 +97,7 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} pause\` — stop automatic AI reviews on new pushes`,
     `- \`${handle} resume\` — resume automatic AI reviews and reset the round budget`,
     `- \`${handle} resolve\` — resolve Lumo's open review threads (findings that block DONE stay open)`,
+    `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
     `- \`${handle} help\` — this list`,
     '',
     'Only accounts with write access to the repository can run commands.',
@@ -118,7 +128,39 @@ export function buildResolveReply(
   return lines.join('\n\n')
 }
 
-const ACKS: Record<Exclude<PrCommand, 'resolve' | 'help'>, string> = {
+/** LUM-1130 — the reply to `@<app> approve` (pure). */
+export function buildApproveReply(
+  r:
+    | { kind: 'mode_off' }
+    | { kind: 'blocked'; blocking: number }
+    | { kind: 'unresolved'; result: ResolveByCommandResult }
+    | { kind: 'not_open' }
+    | { kind: 'approved'; sha: string; result: ResolveByCommandResult },
+  handle: string
+): string {
+  switch (r.kind) {
+    case 'mode_off':
+      return "ℹ️ Lumo doesn't approve PRs in this workspace — the request-changes workflow is off. A workspace owner can turn it on in Settings → Workspace → PR security scanning (or `lumo workspace security-scan --request-changes on`)."
+    case 'blocked':
+      return `🔒 Lumo can't approve: ${r.blocking === 1 ? '1 finding blocks' : `${r.blocking} findings block`} DONE until dispositioned in Lumo (\`lumo finding disposition\` or the PR's security panel) — resolving its thread is not a disposition.`
+    case 'unresolved':
+      return `⚠️ Lumo didn't approve: it could not resolve ${r.result.failed === 1 ? '1 thread' : `${r.result.failed} threads`} — try \`${handle} approve\` again later.`
+    case 'not_open':
+      return "⚠️ Lumo didn't approve: the PR is not open."
+    case 'approved': {
+      const resolved =
+        r.result.resolved > 0
+          ? ` Resolved ${r.result.resolved === 1 ? '1 Lumo review thread' : `${r.result.resolved} Lumo review threads`}.`
+          : ''
+      return `✅ Approved \`${r.sha.slice(0, 7)}\`.${resolved}`
+    }
+  }
+}
+
+const ACKS: Record<
+  Exclude<PrCommand, 'resolve' | 'approve' | 'help'>,
+  string
+> = {
   review:
     "👀 Incremental review requested — Lumo reviews the changes since its last complete review. The result lands in the security summary when it's done.",
   'full review':
@@ -183,6 +225,72 @@ async function blockingFingerprints(
   )
 }
 
+/**
+ * LUM-1130 `approve`: mode on, no blocking finding, every open Lumo thread
+ * resolved — then approve the live head. Checks before any side effect: a
+ * refused approve resolves nothing.
+ */
+async function approve(
+  event: PrCommentEvent,
+  login: string,
+  handle: string,
+  writeToken: string
+): Promise<{ outcome: PrCommandOutcome; body: string }> {
+  if (
+    !(await securityColumnsRepository.findRequestChangesEnabled(
+      event.workspaceId
+    ))
+  )
+    return {
+      outcome: 'refused_mode_off',
+      body: buildApproveReply({ kind: 'mode_off' }, handle),
+    }
+  const blocking = await blockingFingerprints(
+    event.pullRequestId,
+    event.workspaceId
+  )
+  if (blocking.size > 0)
+    return {
+      outcome: 'refused_blocking',
+      body: buildApproveReply(
+        { kind: 'blocked', blocking: blocking.size },
+        handle
+      ),
+    }
+  const repo = parseRepo(event.repo)
+  const result = await resolveThreadsByCommand({
+    pullRequestId: event.pullRequestId,
+    repo,
+    prNumber: event.prNumber,
+    token: writeToken,
+    login,
+    keep: blocking,
+  })
+  if (result.failed > 0)
+    return {
+      outcome: 'failed',
+      body: buildApproveReply({ kind: 'unresolved', result }, handle),
+    }
+  const approved = await prReviewVerdictService.approveByCommand({
+    repo,
+    prNumber: event.prNumber,
+    token: writeToken,
+    login,
+  })
+  if (!approved.ok)
+    return {
+      outcome: 'failed',
+      body: buildApproveReply({ kind: 'not_open' }, handle),
+    }
+  return {
+    outcome: 'done',
+    body: buildApproveReply(
+      { kind: 'approved', sha: approved.sha, result },
+      handle
+    ),
+  }
+}
+
 /** Runs one command; returns the reply body (without its marker). */
 async function run(
   event: PrCommentEvent,
@@ -191,11 +299,19 @@ async function run(
   handle: string,
   writeToken: string
 ): Promise<{ outcome: PrCommandOutcome; body: string }> {
+  const isAuthor =
+    !!event.prAuthorLogin &&
+    event.prAuthorLogin.toLowerCase() === login.toLowerCase()
+  if (command === 'approve') {
+    if (isAuthor)
+      return {
+        outcome: 'refused_author',
+        body: `🚫 The PR's author can't approve by command — a reviewer with write access can run \`${handle} approve\`.`,
+      }
+    return approve(event, login, handle, writeToken)
+  }
   if (command === 'resolve') {
-    if (
-      event.prAuthorLogin &&
-      event.prAuthorLogin.toLowerCase() === login.toLowerCase()
-    )
+    if (isAuthor)
       return {
         outcome: 'refused_author',
         body: `🚫 The PR's author can't resolve Lumo's threads by command — a reviewer with write access can run \`${handle} resolve\`, or resolve a thread on GitHub after addressing it.`,
