@@ -126,7 +126,7 @@ beforeEach(() => {
   process.env.GITHUB_APP_SLUG = 'uselumo'
   access.mockResolvedValue('write')
   modeOn.mockResolvedValue(true)
-  latest.mockResolvedValue([])
+  latest.mockResolvedValue([{ id: 's1', headSha: HEAD, findings: [] }])
   findRows.mockResolvedValue([row('fpLow')])
   liveHead.mockResolvedValue({ sha: HEAD, state: 'open' })
   listReviews.mockResolvedValue([
@@ -180,6 +180,7 @@ it('a blocking finding (its thread resolved on GitHub) ⇒ refused, nothing reso
   latest.mockResolvedValue([
     {
       id: 's1',
+      headSha: HEAD,
       findings: [
         {
           fingerprint: 'fpBlock',
@@ -223,13 +224,53 @@ it('a thread that cannot be resolved ⇒ no approval', async () => {
   expect(submitReview).not.toHaveBeenCalled()
 })
 
-it('a PR that is no longer open ⇒ no approval', async () => {
+it('a PR that is no longer open ⇒ no approval, nothing resolved', async () => {
   liveHead.mockResolvedValue({ sha: HEAD, state: 'closed' })
   await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
     'failed'
   )
+  expect(resolveThread).not.toHaveBeenCalled()
   expect(submitReview).not.toHaveBeenCalled()
   expect(replyBody()).toContain('not open')
+})
+
+it('a head Lumo has not reviewed yet ⇒ refused, nothing resolved', async () => {
+  latest.mockResolvedValue([{ id: 's0', headSha: 'old', findings: [] }])
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'refused_unreviewed'
+  )
+  expect(resolveThread).not.toHaveBeenCalled()
+  expect(submitReview).not.toHaveBeenCalled()
+  expect(replyBody()).toContain('latest review is not of `abcdef1`')
+})
+
+it('no scan at all ⇒ refused as unreviewed', async () => {
+  latest.mockResolvedValue([])
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'refused_unreviewed'
+  )
+  expect(submitReview).not.toHaveBeenCalled()
+})
+
+it('a push between the resolve and the submit ⇒ no approval', async () => {
+  liveHead
+    .mockResolvedValueOnce({ sha: HEAD, state: 'open' })
+    .mockResolvedValueOnce({ sha: 'newer', state: 'open' })
+  await expect(applyPrCommentCommand(event('@uselumo approve'))).resolves.toBe(
+    'failed'
+  )
+  expect(submitReview).not.toHaveBeenCalled()
+  expect(replyBody()).toContain('new commit was pushed')
+})
+
+it('an unknown PR author ⇒ refused (fails closed)', async () => {
+  await expect(
+    applyPrCommentCommand({
+      ...event('@uselumo approve'),
+      prAuthorLogin: null,
+    })
+  ).resolves.toBe('refused_author')
+  expect(submitReview).not.toHaveBeenCalled()
 })
 
 it('buildApproveReply pluralises', () => {

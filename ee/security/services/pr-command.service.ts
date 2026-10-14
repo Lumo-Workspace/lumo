@@ -68,6 +68,7 @@ export type PrCommandOutcome =
   | 'refused_author'
   | 'refused_mode_off'
   | 'refused_blocking'
+  | 'refused_unreviewed'
   | 'done'
   | 'failed'
 
@@ -135,6 +136,8 @@ export function buildApproveReply(
     | { kind: 'blocked'; blocking: number }
     | { kind: 'unresolved'; result: ResolveByCommandResult }
     | { kind: 'not_open' }
+    | { kind: 'unreviewed'; sha: string }
+    | { kind: 'head_moved' }
     | { kind: 'approved'; sha: string; result: ResolveByCommandResult },
   handle: string
 ): string {
@@ -147,6 +150,10 @@ export function buildApproveReply(
       return `⚠️ Lumo didn't approve: it could not resolve ${r.result.failed === 1 ? '1 thread' : `${r.result.failed} threads`} — try \`${handle} approve\` again later.`
     case 'not_open':
       return "⚠️ Lumo didn't approve: the PR is not open."
+    case 'unreviewed':
+      return `⏳ Lumo didn't approve: its latest review is not of \`${r.sha.slice(0, 7)}\`. Wait for the review of this commit (or run \`${handle} review\`), then \`${handle} approve\` again.`
+    case 'head_moved':
+      return `⚠️ Lumo didn't approve: a new commit was pushed meanwhile. Run \`${handle} approve\` again once Lumo has reviewed it.`
     case 'approved': {
       const resolved =
         r.result.resolved > 0
@@ -226,9 +233,12 @@ async function blockingFingerprints(
 }
 
 /**
- * LUM-1130 `approve`: mode on, no blocking finding, every open Lumo thread
- * resolved — then approve the live head. Checks before any side effect: a
- * refused approve resolves nothing.
+ * LUM-1130 `approve`. Every check runs before any side effect, so a refused
+ * approve resolves nothing: the mode is on; no finding of the latest scan
+ * blocks DONE; the PR is open and its live head readable; that head is the
+ * one Lumo's latest scan reviewed (an unscanned push is never approved by
+ * command). Then Lumo's threads are resolved and the head approved — the
+ * head is re-read right before the submit and a push in between stops it.
  */
 async function approve(
   event: PrCommentEvent,
@@ -245,9 +255,14 @@ async function approve(
       outcome: 'refused_mode_off',
       body: buildApproveReply({ kind: 'mode_off' }, handle),
     }
-  const blocking = await blockingFingerprints(
+  const [scan] = await prSecurityScanRepository.findLatestByPullRequestIds([
     event.pullRequestId,
-    event.workspaceId
+  ])
+  const policy = await loadSecurityPolicy(event.workspaceId)
+  const blocking = new Set(
+    (scan?.findings ?? [])
+      .filter(f => isBlockingFinding(f, policy))
+      .map(f => f.fingerprint)
   )
   if (blocking.size > 0)
     return {
@@ -258,6 +273,21 @@ async function approve(
       ),
     }
   const repo = parseRepo(event.repo)
+  const live = await prCommentClient.getPullRequestHead({
+    repo,
+    prNumber: event.prNumber,
+    token: writeToken,
+  })
+  if (!live || live.state !== 'open')
+    return {
+      outcome: 'failed',
+      body: buildApproveReply({ kind: 'not_open' }, handle),
+    }
+  if (!scan || scan.headSha !== live.sha)
+    return {
+      outcome: 'refused_unreviewed',
+      body: buildApproveReply({ kind: 'unreviewed', sha: live.sha }, handle),
+    }
   const result = await resolveThreadsByCommand({
     pullRequestId: event.pullRequestId,
     repo,
@@ -276,11 +306,12 @@ async function approve(
     prNumber: event.prNumber,
     token: writeToken,
     login,
+    sha: live.sha,
   })
   if (!approved.ok)
     return {
       outcome: 'failed',
-      body: buildApproveReply({ kind: 'not_open' }, handle),
+      body: buildApproveReply({ kind: 'head_moved' }, handle),
     }
   return {
     outcome: 'done',
@@ -303,7 +334,8 @@ async function run(
     !!event.prAuthorLogin &&
     event.prAuthorLogin.toLowerCase() === login.toLowerCase()
   if (command === 'approve') {
-    if (isAuthor)
+    // Fails closed: an unknown author could be the asker.
+    if (isAuthor || !event.prAuthorLogin)
       return {
         outcome: 'refused_author',
         body: `🚫 The PR's author can't approve by command — a reviewer with write access can run \`${handle} approve\`.`,

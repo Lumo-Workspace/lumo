@@ -96,7 +96,7 @@ export type VerdictOutcome =
 
 export type ApproveByCommandResult =
   | { ok: true; sha: string }
-  | { ok: false; reason: 'head_unreadable' | 'not_open' }
+  | { ok: false; reason: 'head_moved' }
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -198,29 +198,32 @@ export const prReviewVerdictService = {
   },
 
   /**
-   * `@<app> approve` on the PR's current head. Throws on a GitHub failure
-   * (the command path turns that into its own outcome).
+   * `@<app> approve` of `sha` — the head the caller checked. The head is
+   * re-read right before the submit; a push in between means no approval.
+   * Throws on a GitHub failure (the command path turns that into its own
+   * outcome).
    */
   async approveByCommand(input: {
     repo: Repo
     prNumber: number
     token: string
     login: string
+    sha: string
   }): Promise<ApproveByCommandResult> {
-    const live = await prCommentClient.getPullRequestHead(input)
-    if (!live) return { ok: false, reason: 'head_unreadable' }
-    if (live.state !== 'open') return { ok: false, reason: 'not_open' }
     const standing = standingLumoReview(
       await prCommentClient.listReviews(input)
     )
+    const live = await prCommentClient.getPullRequestHead(input)
+    if (!canSubmitApproval(input.sha, live))
+      return { ok: false, reason: 'head_moved' }
     await approveAndDismiss({
       repo: input.repo,
       prNumber: input.prNumber,
       token: input.token,
-      sha: live.sha,
-      body: buildApproveBody(live.sha, input.login),
+      sha: input.sha,
+      body: buildApproveBody(input.sha, input.login),
       changesRequestedIds: standing.changesRequestedIds,
     })
-    return { ok: true, sha: live.sha }
+    return { ok: true, sha: input.sha }
   },
 }
