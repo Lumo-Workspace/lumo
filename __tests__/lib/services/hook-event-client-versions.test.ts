@@ -1,8 +1,10 @@
 /**
  * @jest-environment node
  *
- * LUM-1136 — SessionStart stores the reported CLI / skill versions on the
- * session; other events (and child sessions) never do.
+ * LUM-1136 — every top-level hook event writes the CLI version it carried
+ * (via the session upsert), so a session that outlives a `lumo update` reports
+ * the CLI it runs now; the skill version is written at SessionStart only.
+ * Child sessions never carry versions.
  */
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { createHookEvent: jest.fn() },
@@ -58,17 +60,31 @@ beforeEach(() => {
 })
 
 describe('recordHookEvent — client versions', () => {
-  it('SESSION_START records the versions on the session', async () => {
+  it('SESSION_START records the skill version on the session', async () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'SESSION_START',
       payload: { session_id: 'sess_1' },
       clientVersions: versions,
     })
-    expect(sess.recordClientVersions).toHaveBeenCalledWith('sess_1', versions)
+    expect(sess.recordClientVersions).toHaveBeenCalledWith('sess_1', {
+      skillVersion: versions.skillVersion,
+    })
   })
 
-  it('other event types do not write versions', async () => {
+  it('every event passes the CLI version to the session upsert', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'sess_1', tool_name: 'Read' },
+      clientVersions: { cliVersion: '1.122.0' },
+    })
+    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'sess_1', cliVersion: '1.122.0' })
+    )
+  })
+
+  it('other event types do not write the skill version', async () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'PRE_TOOL_USE',
@@ -76,6 +92,17 @@ describe('recordHookEvent — client versions', () => {
       clientVersions: versions,
     })
     expect(sess.recordClientVersions).not.toHaveBeenCalled()
+  })
+
+  it('no CLI header → the upsert carries no cliVersion (never clears it)', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'sess_1', tool_name: 'Read' },
+    })
+    expect(sess.upsertForHookEvent.mock.calls[0]?.[0]).not.toHaveProperty(
+      'cliVersion'
+    )
   })
 
   it('a subagent SessionStart does not touch versions', async () => {

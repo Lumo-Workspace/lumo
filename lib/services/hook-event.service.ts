@@ -191,6 +191,9 @@ export const hookEventService = {
         workspaceMemberId: memberId,
         cwd,
         ...(agent !== undefined ? { agent } : {}),
+        ...(clientVersions?.cliVersion
+          ? { cliVersion: clientVersions.cliVersion }
+          : {}),
         now: new Date(),
         usage: split ? split.main : null,
         isStop,
@@ -201,8 +204,12 @@ export const hookEventService = {
       if (isStop && split) {
         childUsageToSettle = Object.entries(split.bySubagent)
       }
-      if (type === 'SESSION_START' && clientVersions) {
-        await sessionRepository.recordClientVersions(sessionId, clientVersions)
+      // The skill copy is loaded once per session, so only SessionStart
+      // reports it; the CLI version rides on the upsert above (every event).
+      if (type === 'SESSION_START' && clientVersions?.skillVersion) {
+        await sessionRepository.recordClientVersions(sessionId, {
+          skillVersion: clientVersions.skillVersion,
+        })
       }
     }
 

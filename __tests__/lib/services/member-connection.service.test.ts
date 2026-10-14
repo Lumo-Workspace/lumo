@@ -20,15 +20,22 @@ import {
   buildMemberConnections,
   CONNECTION_WINDOW_DAYS,
   memberConnectionService,
+  STALE_CONNECTION_DAYS,
 } from '@/lib/services/member-connection.service'
 
 const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
 const mockLatest = fetchLatestCliVersion as jest.Mock
 const d = (iso: string) => new Date(iso)
+const NOW = d('2026-10-14T12:00:00Z')
+const build = (
+  activity: Parameters<typeof buildMemberConnections>[0],
+  versions: Parameters<typeof buildMemberConnections>[1],
+  latest: string | null = null
+) => buildMemberConnections(activity, versions, latest, NOW)
 
 describe('buildMemberConnections', () => {
   it('one entry per agent, most recently seen first, with versions merged', () => {
-    const out = buildMemberConnections(
+    const out = build(
       [
         {
           workspaceMemberId: 'm1',
@@ -63,6 +70,7 @@ describe('buildMemberConnections', () => {
           cliVersion: '1.121.0',
           skillVersion: '1.121.0',
           lastSeenAt: '2026-10-14T00:00:00.000Z',
+          stale: false,
           cliBehind: false,
           skillBehind: false,
         },
@@ -71,6 +79,7 @@ describe('buildMemberConnections', () => {
           cliVersion: '1.121.0',
           skillVersion: 'source',
           lastSeenAt: '2026-10-10T00:00:00.000Z',
+          stale: false,
           cliBehind: false,
           skillBehind: false,
         },
@@ -79,7 +88,7 @@ describe('buildMemberConnections', () => {
   })
 
   it('a session from a CLI without the headers yields null versions, not a missing row', () => {
-    const out = buildMemberConnections(
+    const out = build(
       [
         {
           workspaceMemberId: 'm2',
@@ -100,7 +109,7 @@ describe('buildMemberConnections', () => {
   })
 
   it('marks a CLI older than the newest in the workspace (numeric, not lexical)', () => {
-    const out = buildMemberConnections(
+    const out = build(
       [
         {
           workspaceMemberId: 'a',
@@ -145,7 +154,7 @@ describe('buildMemberConnections', () => {
       cliVersion: '1.121.0',
       skillVersion,
     }))
-    const out = buildMemberConnections(
+    const out = build(
       rows.map(r => ({
         workspaceMemberId: r.workspaceMemberId,
         agent: r.agent,
@@ -163,7 +172,7 @@ describe('buildMemberConnections', () => {
   })
 
   it('measures CLIs against the latest published version when known', () => {
-    const out = buildMemberConnections(
+    const out = build(
       [
         {
           workspaceMemberId: 'a',
@@ -185,9 +194,54 @@ describe('buildMemberConnections', () => {
     expect(out.a?.[0]?.cliBehind).toBe(true)
   })
 
+  it('a connection unseen for over STALE_CONNECTION_DAYS is stale and never judged behind', () => {
+    const at = (days: number) => new Date(NOW.getTime() - days * 86_400_000)
+    const out = build(
+      [
+        {
+          workspaceMemberId: 'm',
+          agent: 'CODEX',
+          lastActivityAt: at(STALE_CONNECTION_DAYS + 1),
+        },
+        {
+          workspaceMemberId: 'm',
+          agent: 'CLAUDE_CODE',
+          lastActivityAt: at(STALE_CONNECTION_DAYS - 1),
+        },
+      ],
+      [
+        {
+          workspaceMemberId: 'm',
+          agent: 'CODEX',
+          cliVersion: '1.121.0',
+          skillVersion: '1.120.0',
+        },
+        {
+          workspaceMemberId: 'm',
+          agent: 'CLAUDE_CODE',
+          cliVersion: '1.121.0',
+          skillVersion: '1.120.0',
+        },
+      ],
+      '1.122.0'
+    )
+    const byAgent = Object.fromEntries((out.m ?? []).map(c => [c.agent, c]))
+    expect(byAgent.CODEX).toMatchObject({
+      stale: true,
+      cliVersion: '1.121.0',
+      cliBehind: false,
+      skillBehind: false,
+    })
+    expect(byAgent.CLAUDE_CODE).toMatchObject({
+      stale: false,
+      cliBehind: true,
+      skillBehind: true,
+    })
+  })
+
   it('skips activity rows without a timestamp', () => {
     expect(
-      buildMemberConnections(
+      build(
         [{ workspaceMemberId: 'm', agent: 'CODEX', lastActivityAt: null }],
         []
       )

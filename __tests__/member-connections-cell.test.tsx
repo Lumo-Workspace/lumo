@@ -44,6 +44,7 @@ const conn = (p: Partial<MemberConnectionView> = {}): MemberConnectionView => ({
   cliVersion: '1.121.0',
   skillVersion: '1.121.0',
   lastSeenAt: '2026-10-14T10:00:00Z',
+  stale: false,
   cliBehind: false,
   skillBehind: false,
   ...p,
@@ -168,7 +169,51 @@ describe('MemberVersionStatus', () => {
   })
 })
 
+describe('MemberVersionStatus — stale connections', () => {
+  it('only stale → "Not seen recently" with the last CLI seen', () => {
+    const { container } = render(
+      <MemberVersionStatus
+        connections={[conn({ stale: true })]}
+        latestCliVersion='1.122.0'
+        unknown={false}
+      />
+    )
+    expect(
+      container.querySelector('[data-status]')?.getAttribute('data-status')
+    ).toBe('stale')
+    expect(screen.getByText('Not seen recently')).toBeTruthy()
+    expect(screen.getByText('Last seen on CLI 1.121.0')).toBeTruthy()
+  })
+
+  it('a fresh connection sets the status and the CLI shown, not a stale one', () => {
+    render(
+      <MemberVersionStatus
+        connections={[
+          conn({ agent: 'CODEX', stale: true, cliVersion: '1.119.0' }),
+          conn({ cliVersion: '1.122.0' }),
+        ]}
+        latestCliVersion='1.122.0'
+        unknown={false}
+      />
+    )
+    expect(screen.getByText('Up to date')).toBeTruthy()
+    expect(screen.getByText('CLI 1.122.0')).toBeTruthy()
+  })
+})
+
 describe('MemberConnectionDetails', () => {
+  it('a stale card tags its versions "as of last seen" and offers no fix', () => {
+    render(
+      <MemberConnectionDetails
+        connections={[conn({ stale: true })]}
+        now={NOW}
+      />
+    )
+    expect(screen.getByText('as of last seen')).toBeTruthy()
+    expect(screen.queryByText('latest')).toBeNull()
+    expect(screen.queryByText('To update, run:')).toBeNull()
+  })
+
   it('one card per connection with versions, tags and the fix command', () => {
     const { container } = render(
       <MemberConnectionDetails
