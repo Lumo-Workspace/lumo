@@ -154,6 +154,9 @@ describe('events', () => {
     taskId: 't-1',
     pullRequestId: 'pr-1',
     state: 'open',
+    repo: 'acme/app',
+    prNumber: 1,
+    isDraft: false,
   }
 
   it('scans an open PR on opened / synchronize / reopened, with waitUntil', () => {

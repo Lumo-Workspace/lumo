@@ -119,14 +119,22 @@ export interface AgentContextContributor {
 // ── core events ──────────────────────────────────────────────────────────────
 
 export interface CoreEvents {
-  /** A task-linked pull_request webhook event, after the PR row is stored. */
+  /**
+   * A pull_request webhook event, after the PR row is stored. LUM-1133: every
+   * PR of a confirmed repository — `taskId` is null when no task is linked
+   * (the plugin decides whether such a PR is reviewed).
+   */
   'github.pullRequest': {
     workspaceId: string
-    taskId: string
+    taskId: string | null
     pullRequestId: string
     action: string
     /** Derived from the payload: 'open' | 'closed' | 'merged'. */
     state: string
+    /** `owner/name` as the payload spells it. */
+    repo: string
+    prNumber: number
+    isDraft: boolean
   }
   /** A branch push (not a tag, not a deletion). */
   'github.push': {

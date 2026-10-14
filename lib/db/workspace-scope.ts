@@ -64,6 +64,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'Priority',
   'Project',
   'PullRequest',
+  'RepositoryReviewSetting',
   'SentryIntegration',
   'Session',
   'SlackIntegration',

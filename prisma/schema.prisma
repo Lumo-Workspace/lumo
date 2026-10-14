@@ -350,6 +350,8 @@ model Workspace {
   slackIntegration        SlackIntegration?
   sentryIntegration       SentryIntegration?
   gitHubAppInstallation   GitHubAppInstallation?
+  /// LUM-1133 — per-repository automatic PR review settings.
+  repoReviewSettings      RepositoryReviewSetting[]
   actors                  Actor[]
   agentProfiles           AgentProfile[]
   documents               Document[]
@@ -1566,6 +1568,27 @@ enum PrFindingThreadState {
 // later scan can resolve it as addressed, honour a human resolve, and reopen
 // it on regression (CodeRabbit's thread lifecycle). Findings themselves stay
 // per scan (`PrSecurityFinding`); the thread is per PR.
+/// LUM-1133 — per-repository automatic PR review settings for a workspace
+/// (CodeRabbit `reviews.auto_review`: enabled, drafts). No row = the defaults:
+/// every PR of a confirmed repository is reviewed, drafts are skipped until
+/// they are marked ready. Governs PRs without a Lumo task; task-linked PRs keep
+/// their scan (the DONE gate's evidence).
+model RepositoryReviewSetting {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  /// Lower-cased `owner/name`.
+  repo         String
+  autoReview   Boolean  @default(true)
+  reviewDrafts Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, repo])
+  @@map("repository_review_settings")
+}
+
 model PrFindingThread {
   id              String                      @id @default(cuid())
   pullRequestId   String

@@ -104,12 +104,16 @@ export async function handlePullRequest(
     repository,
   } = payload as unknown as PullRequestPayload
 
+  // LUM-1133: ready_for_review / converted_to_draft keep `isDraft` current
+  // (a task-less draft is reviewed once it is marked ready).
   const relevantActions = [
     'opened',
     'reopened',
     'closed',
     'synchronize',
     'edited',
+    'ready_for_review',
+    'converted_to_draft',
   ]
   if (!relevantActions.includes(action)) return
 
@@ -158,7 +162,23 @@ export async function handlePullRequest(
     prRow.taskId
   )
 
-  if (!linkedTask) return
+  // The plugin event for this PR. LUM-1133: emitted for a PR without a task
+  // too (taskId null) so it can be reviewed; everything below stays
+  // task-only (branch list, lineage, notifications).
+  const prEvent = {
+    workspaceId,
+    pullRequestId: prRow.id,
+    action,
+    state,
+    repo: repository.full_name,
+    prNumber: pr.number,
+    isDraft: pr.draft === true,
+  }
+
+  if (!linkedTask) {
+    emitCoreEvent('github.pullRequest', { ...prEvent, taskId: null })
+    return
+  }
 
   // Ensure the branch appears in the task's branch list whenever a PR
   // event references it — covers branches created outside Lumo and
@@ -173,13 +193,7 @@ export async function handlePullRequest(
   // scans the current head of an open PR (LUM-732; static analysis only,
   // LUM-837: typecheck/test verdicts come from the customer's own CI via
   // handleCheckSuite). Fire-and-forget; handlers register their own waitUntil.
-  emitCoreEvent('github.pullRequest', {
-    workspaceId,
-    taskId: linkedTask.id,
-    pullRequestId: prRow.id,
-    action,
-    state,
-  })
+  emitCoreEvent('github.pullRequest', { ...prEvent, taskId: linkedTask.id })
 
   // Close the task's lineage edges when this PR reaches a terminal state
   // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so

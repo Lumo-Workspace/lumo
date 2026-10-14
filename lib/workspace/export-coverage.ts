@@ -53,6 +53,8 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   PullRequest: MIRROR,
   PrSecurityScan: 'scan output derived from repository code',
   PrFindingThread: 'GitHub review-thread bookkeeping for scan findings',
+  // LUM-1133
+  RepositoryReviewSetting: 'per-repository PR review configuration',
   PrCommentSyncJob: 'background job queue',
   TaskSlackContext: MIRROR,
   TaskWebLink: MIRROR,

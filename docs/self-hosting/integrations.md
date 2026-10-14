@@ -151,17 +151,17 @@ App was not granted makes GitHub refuse the token (422), so do not grant
 Handled in `app/api/webhooks/github/route.ts`; anything else is accepted and
 ignored.
 
-| Event                                       | What Lumo does                                                                                               |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `pull_request`                              | links the PR to its task, tracks state, merge and change volume                                              |
-| `push`                                      | records the branch's last commit on its task; detects reverts on the default branch                          |
-| `check_suite`                               | `completed` → the PR's CI status (success / pending / failure)                                               |
-| `issue_comment`                             | mirrors PR conversation comments into the task; reads `@<app-slug> review` etc. reviewer commands (LUM-1129) |
-| `pull_request_review`                       | mirrors reviews                                                                                              |
-| `pull_request_review_comment`               | mirrors line comments                                                                                        |
-| `pull_request_review_thread`                | a human resolving / unresolving one of Lumo's finding threads — not re-posted, closes a non-blocking finding |
-| `repository`                                | `renamed` follows the new name; `transferred` / `deleted` / `privatized` re-check access                     |
-| `installation`, `installation_repositories` | always delivered to every App (no checkbox): keep the installation and its repositories current              |
+| Event                                       | What Lumo does                                                                                                                                                                                              |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pull_request`                              | links the PR to its task, tracks state, merge and change volume; with the security plugin, reviews every PR of a confirmed repository (LUM-1133: per-repository on/off, drafts wait for `ready_for_review`) |
+| `push`                                      | records the branch's last commit on its task; detects reverts on the default branch                                                                                                                         |
+| `check_suite`                               | `completed` → the PR's CI status (success / pending / failure)                                                                                                                                              |
+| `issue_comment`                             | mirrors PR conversation comments into the task; reads `@<app-slug> review` etc. reviewer commands (LUM-1129)                                                                                                |
+| `pull_request_review`                       | mirrors reviews                                                                                                                                                                                             |
+| `pull_request_review_comment`               | mirrors line comments                                                                                                                                                                                       |
+| `pull_request_review_thread`                | a human resolving / unresolving one of Lumo's finding threads — not re-posted, closes a non-blocking finding                                                                                                |
+| `repository`                                | `renamed` follows the new name; `transferred` / `deleted` / `privatized` re-check access                                                                                                                    |
+| `installation`, `installation_repositories` | always delivered to every App (no checkbox): keep the installation and its repositories current                                                                                                             |
 
 ### 4. Credentials → environment
 

@@ -83,9 +83,31 @@ export const securityPlugin: LumoServerPlugin = {
     // current head. The worker dedups on (pr, headSha), so redelivery is
     // harmless. Registered with waitUntil so the runtime keeps the function
     // alive until the dispatch settles.
-    api.on('github.pullRequest', ({ action, state, pullRequestId }) => {
-      if (shouldScanOnPrEvent(action, state))
+    //
+    // LUM-1133: a PR without a task is reviewed too, as CodeRabbit does — if
+    // the workspace confirmed the repository and its per-repository settings
+    // allow it (default: on, drafts wait for ready_for_review). The decision
+    // reads the database, so it loads lazily, off the webhook's static graph.
+    api.on('github.pullRequest', event => {
+      const { action, state, pullRequestId, taskId } = event
+      if (!shouldScanOnPrEvent(action, state)) return
+      if (taskId !== null) {
         waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
+        return
+      }
+      waitUntil(
+        (async () => {
+          try {
+            const { reviewTasklessPullRequest } =
+              await import('@/ee/security/services/pr-auto-review.service')
+            await reviewTasklessPullRequest(event)
+          } catch (error) {
+            logger.warn(
+              `[security] task-less PR review failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
     })
 
     // LUM-732: a manually linked PR (any state — merged history included)
