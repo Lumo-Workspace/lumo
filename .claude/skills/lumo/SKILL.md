@@ -150,7 +150,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo milestone summary [--retry]` — AI retro
 - `lumo milestone changelog <id> [--json]` — structured changelog from DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones (LUM-508); each claim shows provenance, no-PR/no-claim rendered explicitly (LUM-649)
 - `lumo milestone reorder/move` — manual ordering
-- `lumo milestone criteria set/list/verdict` — milestone **exit criteria** (LUM-643), adjudicated by the steward or a human; unresolved ones hold completion fail-closed; `verdict --met` on `EXTERNAL_FACT` needs `--evidence`, `PENDING_OUTCOME` can never be MET
+- `lumo milestone testcase add/list/show/update/rm/run/disposition <milestone>` — milestone test cases, the close contract (LUM-1135): every case's latest run must pass; `milestone criteria` is deprecated
 
 ### Documents — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** (raw/section/patch/append/diff/rebuild) → [doc-editing.md](references/doc-editing.md)
 
@@ -207,7 +207,7 @@ Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole sh
 
 Don't guess these:
 
-- No `lumo verify`, `lumo task criteria …`, `lumo criteria audit` or `lumo outcome rate` (removed in LUM-942 with task acceptance criteria) — and no `lumo verdict`, `lumo fidelity`, `lumo outcome record` (LUM-733). Evidence is test cases (`lumo task testcase`); milestone exit criteria (`lumo milestone criteria`) remain
+- No `lumo verify`, `lumo task criteria …`, `lumo criteria audit` or `lumo outcome rate` (removed in LUM-942 with task acceptance criteria) — and no `lumo verdict`, `lumo fidelity`, `lumo outcome record` (LUM-733). Evidence is test cases (`lumo task testcase`); milestone close contracts are `lumo milestone testcase` (`milestone criteria` is deprecated)
 - No subtasks / `--parent` (removed in LUM-959) — group related tasks with a milestone, order them with `task deps add`, and fold small follow-ups into the original task
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new agent session

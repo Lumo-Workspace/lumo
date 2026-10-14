@@ -2,8 +2,9 @@ import {
   milestoneRepository,
   type MilestoneListFilter,
 } from '@/lib/repositories/milestone.repository'
+import { testCaseRepository } from '@/lib/repositories/test-case.repository'
+import { privateFileService } from '@/lib/services/private-file.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { milestoneExitCriterionRepository } from '@/lib/repositories/milestone-exit-criterion.repository'
 import { projectService } from '@/lib/services/project.service'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -627,12 +628,13 @@ export const milestoneService = {
     }
     await projectService.getProject(existing.projectId, memberId)
 
-    const unresolved =
-      await milestoneExitCriterionRepository.listUnresolved(milestoneId)
-    if (unresolved.length === 0) {
+    const { milestoneCloseGateService } =
+      await import('@/lib/services/milestone-close-gate.service')
+    const held = await milestoneCloseGateService.countHeld(milestoneId)
+    if (held === 0) {
       throw Object.assign(
         new Error(
-          'Nothing to override: this milestone has no unresolved exit criteria. Completion is derived from task completion.'
+          'Nothing to override: no exit criteria or milestone test cases hold this milestone open. Completion is derived from task completion.'
         ),
         { status: 409 }
       )
@@ -655,7 +657,14 @@ export const milestoneService = {
       throw Object.assign(new Error('Milestone not found'), { status: 404 })
     }
     await projectService.getProject(existing.projectId, memberId)
+    // Read before the delete: the cases (soft-deleted too) cascade with the
+    // row, but their evidence blobs do not (LUM-1135).
+    const hadTestCases =
+      await testCaseRepository.hasAnyForMilestone(milestoneId)
     await milestoneRepository.delete(milestoneId)
+    if (hadTestCases) {
+      await privateFileService.deleteMilestoneEvidence([milestoneId])
+    }
   },
 
   async reorderMilestones(

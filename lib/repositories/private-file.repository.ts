@@ -14,6 +14,26 @@ export const privateFileRepository = {
     return task?.project.workspaceId ?? null
   },
 
+  /** LUM-1135: the workspace owning a milestone (via its project), or null when gone. */
+  async findMilestoneWorkspaceId(milestoneId: string): Promise<string | null> {
+    const m = await prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      select: { project: { select: { workspaceId: true } } },
+    })
+    return m?.project.workspaceId ?? null
+  },
+
+  /** LUM-1135: milestones of a project that have (or had) test cases — swept on project delete. */
+  async findMilestoneIdsWithTestCasesInProject(
+    projectId: string
+  ): Promise<string[]> {
+    const rows = await prisma.milestone.findMany({
+      where: { projectId, testCases: { some: {} } },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
   /** A publicly shared document by its share token, with the bodies that may
    *  reference images. */
   async findSharedDocument(publicToken: string) {

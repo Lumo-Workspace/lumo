@@ -44,9 +44,22 @@ const candidateSelect = {
   },
 } satisfies Prisma.TestCaseRunSelect
 
-export type ReviewCandidateRow = Prisma.TestCaseRunGetPayload<{
+type RawCandidateRow = Prisma.TestCaseRunGetPayload<{
   select: typeof candidateSelect
 }>
+
+/**
+ * 抽查池只收任务级 run（LUM-1135：里程碑级 run 的 task 为 null，不进池子），
+ * 所以这里把 taskId / task 收窄成非空。
+ */
+export type ReviewCandidateRow = Omit<RawCandidateRow, 'task' | 'taskId'> & {
+  taskId: string
+  task: NonNullable<RawCandidateRow['task']>
+}
+
+function taskOwned(row: RawCandidateRow): row is ReviewCandidateRow {
+  return row.taskId !== null && row.task !== null
+}
 
 /**
  * 候选池取数上限（最新的 N 条上报 PASS）。抽查是估比率，不是清库存：池子
@@ -116,12 +129,17 @@ export const testCaseRunReviewRepository = {
    * 推导，数据库里没有这一列可查）。
    */
   async listPassCandidates(workspaceId: string): Promise<ReviewCandidateRow[]> {
-    return prisma.testCaseRun.findMany({
-      where: { ...inWorkspace(workspaceId), result: 'PASS' },
+    const rows = await prisma.testCaseRun.findMany({
+      where: {
+        ...inWorkspace(workspaceId),
+        taskId: { not: null },
+        result: 'PASS',
+      },
       select: candidateSelect,
       orderBy: { createdAt: 'desc' },
       take: CANDIDATE_LIMIT,
     })
+    return rows.filter(taskOwned)
   },
 
   /** 单条 run，限定在调用方的 workspace 内（跨租户读回 null）。 */
@@ -129,9 +147,10 @@ export const testCaseRunReviewRepository = {
     runId: string,
     workspaceId: string
   ): Promise<ReviewCandidateRow | null> {
-    return prisma.testCaseRun.findFirst({
+    const row = await prisma.testCaseRun.findFirst({
       where: { id: runId, ...inWorkspace(workspaceId) },
       select: candidateSelect,
     })
+    return row && taskOwned(row) ? row : null
   },
 }

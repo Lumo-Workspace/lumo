@@ -95,6 +95,16 @@ export const milestoneExitCriteriaService = {
 
     const existing =
       await milestoneExitCriterionRepository.listByMilestone(milestoneId)
+    // LUM-1135 deprecation (release 1 of 2): no new exit-criteria contracts.
+    // A milestone that already has one may still replace it so it can be closed out.
+    if (existing.length === 0) {
+      throw Object.assign(
+        new Error(
+          'Milestone exit criteria are deprecated — write the close contract as milestone test cases instead: `lumo milestone testcase add <milestone> --title … --step … --expected …`.'
+        ),
+        { status: 410 }
+      )
+    }
     for (const row of existing) {
       if (row.verdict !== null) {
         await milestoneExitCriterionRepository.softDelete(row.id)

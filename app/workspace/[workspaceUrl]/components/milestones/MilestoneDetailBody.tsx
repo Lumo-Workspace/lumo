@@ -2,12 +2,14 @@
 
 import { useIntl } from 'react-intl'
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
+import { allCountedTasksDone } from '@/lib/summaries/milestone-rollup'
 import type { MyTask, WorkspaceMemberInfo } from '../../types'
 import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { useMentionSources } from '../../hooks/useMentionSources'
 import { MilestoneHero } from './MilestoneHero'
 import { MilestoneMetricStrip } from './MilestoneMetricStrip'
 import { MilestoneTasksWorkspace } from './MilestoneTasksWorkspace'
+import { MilestoneTestCasesSection } from './MilestoneTestCasesSection'
 
 const SECTION_LABEL =
   'text-caption font-bold uppercase tracking-[0.07em] text-muted-foreground'
@@ -37,6 +39,9 @@ export function MilestoneDetailBody({
   const intl = useIntl()
   const mentionSources = useMentionSources(members)
   const archived = !!milestone.archivedAt
+  const counts = milestone.taskCounts
+  // Same task set as the server's completion rule (BACKLOG is not counted).
+  const allTasksDone = counts !== undefined && allCountedTasksDone(counts)
 
   return (
     <div className='min-h-0 flex-1 overflow-y-auto'>
@@ -90,6 +95,14 @@ export function MilestoneDetailBody({
           onOpenTask={onOpenTask}
         />
       </section>
+
+      <MilestoneTestCasesSection
+        milestoneId={milestone.id}
+        milestoneName={milestone.name}
+        allTasksDone={allTasksDone}
+        completed={milestone.completedAt !== null}
+        members={members}
+      />
     </div>
   )
 }

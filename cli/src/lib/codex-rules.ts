@@ -73,6 +73,11 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'milestone reorder',
   'milestone show',
   'milestone summary',
+  'milestone testcase add',
+  'milestone testcase list',
+  'milestone testcase rm',
+  'milestone testcase show',
+  'milestone testcase update',
   'milestone triage',
   'milestone unarchive',
   'milestone update',
@@ -160,6 +165,7 @@ export const CODEX_FILE_READING_COMMANDS: Readonly<Record<string, string>> = {
   'doc patch': '--file',
   'doc update': '--file',
   'milestone criteria set': '--file <json>',
+  'milestone testcase run': '--evidence-file, --step-evidence <step>=<file>',
   'task artifact add': '--file',
   'task template create': '--file',
   'task template edit': '--file',
@@ -197,6 +203,8 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
     'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)',
   'skill update': 'writes skill files',
   'memory push': 'deletes local memory files after pushing',
+  'milestone testcase disposition':
+    'a human-only ruling: keep Codex asking the user first',
   'memory sync': 'writes the local memory directory',
   'session attach':
     'can create a git worktree (--worktree / autoWorktree) and sync local memory',

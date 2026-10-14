@@ -123,3 +123,55 @@ describe('the envelopes say what is actually being decided', () => {
     ).toMatch(/later run that proves the defect again will block afresh/)
   })
 })
+
+describe('LUM-1135: milestone wording states what each ruling does to the close gate', () => {
+  const MS: DefectSubject = { ...SUBJECT, caseHandle: 'Beta/TC1' }
+  const ack = { readAt: 'a', readAcknowledgedAt: 'b' }
+
+  it('task wording is unchanged when no owner kind is passed', () => {
+    expect(describeDefectRead(SUBJECT, 'NOT_A_DEFECT')).toEqual(
+      describeDefectRead(SUBJECT, 'NOT_A_DEFECT', undefined, 'task')
+    )
+    expect(describeDefectRead(SUBJECT, 'KNOWN_DEFECT').slice(-1)[0]).toBe(
+      "⚠ Approving this clears that run's block on DONE. It does NOT mean the defect is fixed — it means a human looked and decided."
+    )
+    expect(
+      describeDefectRuling(SUBJECT, 'KNOWN_DEFECT', ack).slice(-1)[0]
+    ).toBe(
+      '⚠ This clears the DONE block for that run. A later run that proves the defect again will block afresh.'
+    )
+  })
+
+  it('NOT_A_DEFECT on a milestone says the case stays held, in both envelopes', () => {
+    const read = describeDefectRead(MS, 'NOT_A_DEFECT', undefined, 'milestone')
+    expect(read.join('\n')).toContain(
+      'the case stays held until it passes on a re-run'
+    )
+    expect(read.join('\n')).not.toMatch(/DONE/)
+    expect(read.slice(-1)[0]).toMatch(/does NOT open the milestone close gate/)
+    const ruling = describeDefectRuling(MS, 'NOT_A_DEFECT', ack, 'milestone')
+    expect(ruling.slice(-1)[0]).toBe(
+      '⚠ The case still holds the milestone close gate until it passes on a re-run.'
+    )
+  })
+
+  it('KNOWN_DEFECT on a milestone lets the milestone close', () => {
+    const read = describeDefectRead(MS, 'KNOWN_DEFECT', undefined, 'milestone')
+    expect(read.join('\n')).toContain('let the milestone close anyway')
+    expect(read.slice(-1)[0]).toMatch(
+      /stops that run holding the milestone close gate/
+    )
+    expect(
+      describeDefectRuling(MS, 'KNOWN_DEFECT', ack, 'milestone').slice(-1)[0]
+    ).toMatch(/will hold it afresh/)
+  })
+
+  it('pickRuling explains the asymmetric milestone consequence', () => {
+    const r = pickRuling({}, 'milestone')
+    expect(r.ok).toBe(false)
+    if (!r.ok)
+      expect(r.error).toMatch(/Only --known-defect lets the milestone close/)
+    const t = pickRuling({})
+    if (!t.ok) expect(t.error).toMatch(/Both clear the gate/)
+  })
+})

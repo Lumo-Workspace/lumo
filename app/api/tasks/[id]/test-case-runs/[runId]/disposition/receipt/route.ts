@@ -50,20 +50,20 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
     const issued = parsed.data.acknowledge
       ? await testCaseDefectDispositionService.acknowledgeReadReceipt(
-          task.id,
+          { kind: 'task', taskId: task.id },
           runId,
           parsed.data.disposition,
           parsed.data.acknowledge,
           caller
         )
       : await testCaseDefectDispositionService.issueReadReceipt(
-          task.id,
+          { kind: 'task', taskId: task.id },
           runId,
           parsed.data.disposition,
           caller
         )
     const describe = await testCaseDefectDispositionService.describe(
-      task.id,
+      { kind: 'task', taskId: task.id },
       runId
     )
     return NextResponse.json({ ...issued, subject: describe })

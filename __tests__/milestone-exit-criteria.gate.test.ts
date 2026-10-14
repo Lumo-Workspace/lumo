@@ -14,8 +14,7 @@ const mockRepoFindById = jest.fn()
 const mockRepoUpdate = jest.fn()
 const mockRepoCountTasks = jest.fn()
 const mockRepoGuardedUpdate = jest.fn()
-const mockListUnresolved = jest.fn()
-const mockCountUnresolved = jest.fn()
+const mockCountHeld = jest.fn().mockResolvedValue(0)
 
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/services/project.service', () => ({
@@ -29,10 +28,9 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     updateCompletionIfCurrent: (...a: unknown[]) => mockRepoGuardedUpdate(...a),
   },
 }))
-jest.mock('@/lib/repositories/milestone-exit-criterion.repository', () => ({
-  milestoneExitCriterionRepository: {
-    listUnresolved: (...a: unknown[]) => mockListUnresolved(...a),
-    countUnresolved: (...a: unknown[]) => mockCountUnresolved(...a),
+jest.mock('@/lib/services/milestone-close-gate.service', () => ({
+  milestoneCloseGateService: {
+    countHeld: (...a: unknown[]) => mockCountHeld(...a),
   },
 }))
 
@@ -49,19 +47,6 @@ function milestoneRow(overrides: Record<string, unknown> = {}) {
     completedAt: null,
     targetDate: null,
     description: null,
-    ...overrides,
-  }
-}
-
-function pendingCriterion(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'c-1',
-    milestoneId: 'm-1',
-    statement: 'All flywheel read models are wired to the new schema',
-    referentKind: 'AGENT_CONSTRUCTED_STATE',
-    source: 'AGENT_DRAFT',
-    verdict: null,
-    deletedAt: null,
     ...overrides,
   }
 }
@@ -95,13 +80,13 @@ describe('milestone close gate (LUM-643/LUM-714)', () => {
     // All 26 tasks DONE, but 2 exit criteria unresolved → the LUM-624
     // auto-completion is withheld: no stamp written, no retro.
     mockRepoCountTasks.mockResolvedValue(counts({ DONE: 26 }))
-    mockCountUnresolved.mockResolvedValue(2)
+    mockCountHeld.mockResolvedValue(2)
 
     await milestoneRollupService.reconcileMilestoneCompletion('m-1')
     expect(mockRepoGuardedUpdate).not.toHaveBeenCalled()
 
     // Contract resolved (all MET) → the same shape auto-completes.
-    mockCountUnresolved.mockResolvedValue(0)
+    mockCountHeld.mockResolvedValue(0)
     await milestoneRollupService.reconcileMilestoneCompletion('m-1')
     expect(mockRepoGuardedUpdate).toHaveBeenCalledWith(
       'm-1',
@@ -113,7 +98,7 @@ describe('milestone close gate (LUM-643/LUM-714)', () => {
     // DONE) is never blocked by an unresolved contract — otherwise a milestone
     // would stay stamped complete while work is demonstrably open.
     mockRepoGuardedUpdate.mockClear()
-    mockCountUnresolved.mockResolvedValue(2)
+    mockCountHeld.mockResolvedValue(2)
     const stampedAt = new Date('2026-06-01')
     mockRepoFindById.mockResolvedValue(milestoneRow({ completedAt: stampedAt }))
     mockRepoCountTasks.mockResolvedValue(counts({ TODO: 1, DONE: 26 }))
@@ -126,7 +111,7 @@ describe('milestone close gate (LUM-643/LUM-714)', () => {
     mockRepoGuardedUpdate.mockClear()
     mockRepoFindById.mockResolvedValue(milestoneRow())
     mockRepoCountTasks.mockResolvedValue(counts({ DONE: 26 }))
-    mockCountUnresolved.mockRejectedValue(new Error('db down'))
+    mockCountHeld.mockRejectedValue(new Error('db down'))
     await expect(
       milestoneRollupService.reconcileMilestoneCompletion('m-1')
     ).rejects.toThrow('db down')
@@ -136,7 +121,7 @@ describe('milestone close gate (LUM-643/LUM-714)', () => {
   it('human override stamps completion past the gate and records the trail', async () => {
     // With unresolved criteria the override closes AND leaves the persistent
     // trail: actor, time, note.
-    mockListUnresolved.mockResolvedValue([pendingCriterion()])
+    mockCountHeld.mockResolvedValue(1)
     await milestoneService.overrideMilestoneClose(
       'm-1',
       'mem-1',
@@ -152,9 +137,7 @@ describe('milestone close gate (LUM-643/LUM-714)', () => {
     // An adjudicated NOT_MET criterion holds the gate the same way a pending
     // one does — a failed contract is still an overridable one.
     mockRepoUpdate.mockClear()
-    mockListUnresolved.mockResolvedValue([
-      pendingCriterion({ verdict: 'NOT_MET' }),
-    ])
+    mockCountHeld.mockResolvedValue(1)
     await milestoneService.overrideMilestoneClose('m-1', 'mem-1', null)
     const written = mockRepoUpdate.mock.calls[0]?.[1] as Record<string, unknown>
     expect(written.completedOverrideByMemberId).toBe('mem-1')
@@ -164,7 +147,7 @@ describe('milestone close gate (LUM-643/LUM-714)', () => {
     // trail only ever records real overrides, and completion otherwise stays
     // the rollup's job.
     mockRepoUpdate.mockClear()
-    mockListUnresolved.mockResolvedValue([])
+    mockCountHeld.mockResolvedValue(0)
     await expect(
       milestoneService.overrideMilestoneClose('m-1', 'mem-1', 'noop')
     ).rejects.toMatchObject({ status: 409 })
@@ -174,9 +157,42 @@ describe('milestone close gate (LUM-643/LUM-714)', () => {
   it('an ordinary milestone update never consults the close gate', async () => {
     // There is no status field to patch any more, so a metadata edit must not
     // touch the exit-criteria contract at all.
-    mockListUnresolved.mockResolvedValue([pendingCriterion()])
+    mockCountHeld.mockResolvedValue(1)
     await milestoneService.updateMilestone('m-1', 'mem-1', { name: 'Renamed' })
-    expect(mockListUnresolved).not.toHaveBeenCalled()
+    expect(mockCountHeld).not.toHaveBeenCalled()
     expect(mockRepoUpdate).toHaveBeenCalledWith('m-1', { name: 'Renamed' })
+  })
+
+  it('override succeeds when only test cases hold', async () => {
+    mockRepoFindById.mockResolvedValue({
+      id: 'm-1',
+      projectId: 'p-1',
+      completedAt: null,
+      archivedAt: null,
+    })
+    mockProjectGet.mockResolvedValue({ id: 'p-1' })
+    mockCountHeld.mockResolvedValue(1)
+    mockRepoUpdate.mockResolvedValue({ id: 'm-1' })
+    await expect(
+      milestoneService.overrideMilestoneClose('m-1', 'mem-1', 'ship it')
+    ).resolves.toBeTruthy()
+    expect(mockRepoUpdate).toHaveBeenCalledWith(
+      'm-1',
+      expect.objectContaining({ completedOverrideNote: 'ship it' })
+    )
+  })
+
+  it('override still refuses when nothing holds', async () => {
+    mockRepoFindById.mockResolvedValue({
+      id: 'm-1',
+      projectId: 'p-1',
+      completedAt: null,
+      archivedAt: null,
+    })
+    mockProjectGet.mockResolvedValue({ id: 'p-1' })
+    mockCountHeld.mockResolvedValue(0)
+    await expect(
+      milestoneService.overrideMilestoneClose('m-1', 'mem-1', null)
+    ).rejects.toMatchObject({ status: 409 })
   })
 })
