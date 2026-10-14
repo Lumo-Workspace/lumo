@@ -55,7 +55,16 @@ export const stewardContextService = {
       const { milestoneCloseGateService } =
         await import('@/lib/services/milestone-close-gate.service')
       const gate = await milestoneCloseGateService.read(milestoneId)
-      if (gate.cases.length === 0) return ''
+      const criteriaLine =
+        gate.unresolvedCriteria > 0
+          ? `${gate.unresolvedCriteria} deprecated exit criteri${gate.unresolvedCriteria === 1 ? 'on holds' : 'a hold'} this milestone open — adjudicate with \`lumo milestone criteria verdict\`, or replace with test cases (\`lumo milestone testcase add\`).`
+          : null
+      if (gate.cases.length === 0) {
+        // No cases, but legacy criteria still hold the gate — say so (dual read).
+        return criteriaLine
+          ? ['## Milestone close contract', '', criteriaLine].join('\n')
+          : ''
+      }
       const lines = gate.cases.map(c => {
         const state =
           c.state === 'open'
@@ -69,8 +78,9 @@ export const stewardContextService = {
         '## Milestone test cases (close contract)',
         '',
         gate.held === 0
-          ? 'Every case has passed — the close gate is open.'
+          ? 'Nothing holds the close gate — every case has passed or its proven defect was accepted.'
           : `${gate.held} item(s) hold this milestone open. Once all its tasks are DONE, run the end-to-end cases: \`lumo milestone testcase run <milestone> TC<n> --result … --env …\`.`,
+        ...(criteriaLine ? [criteriaLine] : []),
         '',
         wrapped,
       ].join('\n')

@@ -59,7 +59,10 @@ describe('stewardContextService test-case section (LUM-1135)', () => {
       ],
     })
     const s = await stewardContextService.buildTestCaseSection('m-1')
-    expect(s).toContain('close gate is open')
+    expect(s).toContain(
+      'Nothing holds the close gate — every case has passed or its proven defect was accepted.'
+    )
+    expect(s).not.toContain('Every case has passed')
     expect(s).not.toContain('lumo milestone testcase run')
   })
 
@@ -106,5 +109,44 @@ describe('stewardContextService test-case section (LUM-1135)', () => {
     expect(r.memories).toEqual([])
     expect(r.section).toContain('TC3')
     expect(r.section).toContain('latest run failed')
+  })
+
+  it('with no cases, still says how many deprecated exit criteria hold the gate', async () => {
+    mockRead.mockResolvedValue({ held: 2, unresolvedCriteria: 2, cases: [] })
+    const s = await stewardContextService.buildTestCaseSection('m-1')
+    expect(s).toContain('2 deprecated exit criteria hold this milestone open')
+    mockRead.mockResolvedValue({ held: 1, unresolvedCriteria: 1, cases: [] })
+    expect(await stewardContextService.buildTestCaseSection('m-1')).toContain(
+      '1 deprecated exit criterion holds this milestone open'
+    )
+  })
+
+  it('names the PROVEN_DEFECT and BLOCKED reasons, and the criteria alongside cases', async () => {
+    mockRead.mockResolvedValue({
+      held: 3,
+      unresolvedCriteria: 1,
+      cases: [
+        {
+          number: 1,
+          title: 'Refund',
+          state: 'held',
+          reason: 'PROVEN_DEFECT',
+          unprovenPass: false,
+        },
+        {
+          number: 2,
+          title: 'Deploy',
+          state: 'held',
+          reason: 'BLOCKED',
+          unprovenPass: false,
+        },
+      ],
+    })
+    const s = await stewardContextService.buildTestCaseSection('m-1')
+    expect(s).toContain(
+      'TC1 Refund — proven defect (needs a disposition or a fix)'
+    )
+    expect(s).toContain('TC2 Deploy — latest run blocked')
+    expect(s).toContain('1 deprecated exit criterion holds this milestone open')
   })
 })
