@@ -71,14 +71,18 @@ export function buildMovedNote(headSha: string): string {
 }
 
 /**
- * Lumo's own App account. REST reports it as `<slug>[bot]`, GraphQL's
- * `resolvedBy` as `<slug>` — both type `Bot`. Without the slug configured
- * (dev, tests) any bot counts: a bot resolving a thread is never a human.
+ * Lumo's own App account: `<slug>[bot]` (type `Bot` over REST). GraphQL's
+ * `resolvedBy` types every account `User` — the bot included (LUM-1127 prod:
+ * `uselumo[bot]` / `User`) — so a `[bot]` login counts as a bot whatever the
+ * type says (a human login cannot contain brackets). Without the slug
+ * configured (dev, tests) any bot counts: a bot resolving a thread is never
+ * a human.
  */
 export function isLumoActor(
   actor: { type?: string | null; login?: string | null } | null | undefined
 ): boolean {
-  if (!actor || actor.type !== 'Bot') return false
+  if (!actor) return false
+  if (actor.type !== 'Bot' && !actor.login?.endsWith('[bot]')) return false
   const slug = process.env.GITHUB_APP_SLUG
   if (!slug) return true
   return actor.login === slug || actor.login === `${slug}[bot]`
@@ -246,6 +250,25 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
           resolvedByLogin: null,
         })
       continue
+    }
+    // Recorded as a human's resolve, but the resolver was Lumo itself (the
+    // LUM-1127 misread of GraphQL's `User`-typed bot, or a sync racing
+    // Lumo's own ADDRESS): it is Lumo's addressed thread, so a regression
+    // reopens or reposts it like any other. A human's resolve — `@<app>
+    // resolve` included, which records the asker — is never touched.
+    if (
+      state === 'RESOLVED_BY_USER' &&
+      isLumoActor({ login: row.resolvedByLogin }) &&
+      // …unless GitHub now names a human as the resolver.
+      !(remote?.resolvedBy && !isLumoActor(remote.resolvedBy))
+    ) {
+      actions.push({
+        kind: 'SET_STATE',
+        row,
+        state: 'ADDRESSED',
+        resolvedByLogin: null,
+      })
+      state = 'ADDRESSED'
     }
     // A human closed the conversation: never re-posted, never reopened by Lumo.
     if (state === 'RESOLVED_BY_USER') continue
@@ -460,7 +483,8 @@ async function execute(
 ): Promise<FindingThreadState> {
   const { row } = action
   if (action.kind === 'SET_STATE') {
-    const resolving = action.state === 'RESOLVED_BY_USER'
+    const resolving =
+      action.state === 'RESOLVED_BY_USER' || action.state === 'ADDRESSED'
     await prFindingThreadRepository.update(row.id, {
       state: action.state,
       resolvedByLogin: action.resolvedByLogin,

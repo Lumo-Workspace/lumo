@@ -121,4 +121,14 @@ describe('reviewThreadClient', () => {
       firstCommentId: 9,
     })
   })
+
+  it('toReviewThreadState reports an App bot as `Bot` although GraphQL types it `User` (LUM-1127)', () => {
+    expect(
+      toReviewThreadState({
+        ...node('T', 9),
+        isResolved: true,
+        resolvedBy: { login: 'uselumo[bot]', __typename: 'User' },
+      }).resolvedBy
+    ).toEqual({ login: 'uselumo[bot]', type: 'Bot' })
+  })
 })
