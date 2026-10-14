@@ -2,6 +2,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneCloseGateService } from '@/lib/services/milestone-close-gate.service'
 import {
   deriveCompletionChange,
+  allCountedTasksDone,
   computeMilestoneStaleness,
   type MilestoneStaleness,
 } from '@/lib/summaries/milestone-rollup'
@@ -34,7 +35,15 @@ export const milestoneRollupService = {
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     // LUM-643/1135: unresolved exit criteria and held milestone test cases hold
     // the auto-completion shut (fail-closed — a read failure aborts the reconcile).
-    const closeGateHeld = await milestoneCloseGateService.countHeld(milestoneId)
+    // The gate only matters on the completion path; it never holds a reopen, so
+    // it is read only then — a gate read failure must not strand a reopen.
+    const gateCanMatter =
+      milestone.archivedAt === null &&
+      milestone.completedAt === null &&
+      allCountedTasksDone(taskCounts)
+    const closeGateHeld = gateCanMatter
+      ? await milestoneCloseGateService.countHeld(milestoneId)
+      : 0
     const change = deriveCompletionChange({
       completedAt: milestone.completedAt,
       archived: milestone.archivedAt !== null,

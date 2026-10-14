@@ -32,6 +32,7 @@ jest.mock('@/lib/services/milestone-close-gate.service', () => ({
 
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import {
+  allCountedTasksDone,
   deriveCompletionChange,
   computeMilestoneStaleness,
 } from '@/lib/summaries/milestone-rollup'
@@ -236,5 +237,44 @@ describe('milestone completion rollup (LUM-624/LUM-714)', () => {
         closeGateHeld: 1,
       })
     ).toBeNull()
+  })
+})
+
+describe('LUM-1135: the close gate is read only when it can matter', () => {
+  beforeEach(() => mockCountHeld.mockReset().mockResolvedValue(0))
+
+  it('a reopen is applied even when the gate read throws', async () => {
+    mockCountHeld.mockRejectedValue(new Error('gate read failed'))
+    mockFindById.mockResolvedValue(
+      milestoneRow({ completedAt: new Date('2026-06-01') })
+    )
+    mockCounts.mockResolvedValue(counts({ TODO: 1, DONE: 3 }))
+
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
+
+    expect(mockGuardedUpdate).toHaveBeenCalledWith(
+      'm-1',
+      new Date('2026-06-01'),
+      null
+    )
+    expect(mockCountHeld).not.toHaveBeenCalled()
+  })
+
+  it('the completion path stays fail-closed on a gate read failure', async () => {
+    mockCountHeld.mockRejectedValue(new Error('gate read failed'))
+    mockFindById.mockResolvedValue(milestoneRow())
+    mockCounts.mockResolvedValue(counts({ DONE: 3 }))
+
+    await expect(
+      milestoneRollupService.reconcileMilestoneCompletion('m-1')
+    ).rejects.toThrow('gate read failed')
+    expect(mockGuardedUpdate).not.toHaveBeenCalled()
+  })
+
+  it('allCountedTasksDone ignores BACKLOG and needs at least one counted task', () => {
+    expect(allCountedTasksDone(counts({ DONE: 2, BACKLOG: 4 }))).toBe(true)
+    expect(allCountedTasksDone(counts({ DONE: 2, IN_REVIEW: 1 }))).toBe(false)
+    expect(allCountedTasksDone(counts({ BACKLOG: 4 }))).toBe(false)
+    expect(allCountedTasksDone(counts({}))).toBe(false)
   })
 })

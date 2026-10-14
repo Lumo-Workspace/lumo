@@ -58,9 +58,15 @@ jest.mock(
 )
 // LUM-1135: the test-cases section owns its own react-query data; it has its
 // own suite, so this page-structure test stubs it out.
+const mockSectionProps = jest.fn()
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneTestCasesSection',
-  () => ({ MilestoneTestCasesSection: () => null })
+  () => ({
+    MilestoneTestCasesSection: (p: unknown) => {
+      mockSectionProps(p)
+      return null
+    },
+  })
 )
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMentionSources', () => ({
   useMentionSources: () => ({ members: [], searchEntities: async () => [] }),
@@ -299,4 +305,22 @@ test('renders every milestone task in the shared list with no filter, display or
     ...(tasksHeading.parentElement?.querySelectorAll('button') ?? []),
   ]
   expect(between).toHaveLength(0)
+})
+
+test('LUM-1135: "all tasks DONE" ignores BACKLOG, matching the server completion rule', () => {
+  const allDoneProp = () =>
+    (mockSectionProps.mock.calls.slice(-1)[0]?.[0] as { allTasksDone: boolean })
+      .allTasksDone
+  renderBody({
+    taskCounts: { BACKLOG: 3, TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 2 },
+  } as Partial<ApiMilestone>)
+  expect(allDoneProp()).toBe(true)
+  renderBody({
+    taskCounts: { BACKLOG: 0, TODO: 1, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 2 },
+  } as Partial<ApiMilestone>)
+  expect(allDoneProp()).toBe(false)
+  renderBody({
+    taskCounts: { BACKLOG: 2, TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 },
+  } as Partial<ApiMilestone>)
+  expect(allDoneProp()).toBe(false)
 })

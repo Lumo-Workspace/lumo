@@ -62,6 +62,23 @@ export interface MilestoneStaleness {
 }
 
 /**
+ * Every task that counts toward completion is DONE, and there is at least one.
+ * BACKLOG is not counted — a backlogged task is parked, neither holding the
+ * milestone open nor making it complete (LUM-1057). The web page's "all tasks
+ * DONE" (when Close anyway is offered) must agree with this, so both read it.
+ */
+export function allCountedTasksDone(
+  taskCounts: Record<TaskStatus, number>
+): boolean {
+  const total =
+    taskCounts.TODO +
+    taskCounts.IN_PROGRESS +
+    taskCounts.IN_REVIEW +
+    taskCounts.DONE
+  return total > 0 && taskCounts.DONE === total
+}
+
+/**
  * The completion transition the rollup rules call for, or `null` when none
  * applies (already consistent, archived, no tasks to read a signal from, or
  * held by the exit-criteria close gate).
@@ -79,8 +96,7 @@ export function deriveCompletionChange(
     taskCounts.DONE
   if (total === 0) return null
 
-  const allDone = taskCounts.DONE === total
-  if (allDone) {
+  if (allCountedTasksDone(taskCounts)) {
     if (completedAt !== null) return null
     // LUM-643 close gate: unresolved exit criteria / held test cases hold the auto-completion
     // shut — fail-closed, no transition (and no drift hint) until adjudicated.
