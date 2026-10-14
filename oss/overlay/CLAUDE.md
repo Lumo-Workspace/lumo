@@ -64,13 +64,12 @@ Data flow: `Component → API Client → API Route → Service → Repository �
 
 - API routes should be thin (~50-100 lines): auth check → validate input → call service → return response
 - Services throw errors with `Object.assign(new Error(msg), { status })` pattern
-- New domain logic goes in `lib/services/`, never in API routes or components
 
 ## Project Structure
 
 Standard Next.js App Router layout. Only the non-obvious bits:
 
-- `lib/` is split per the Layered Architecture table above (`repositories/` · `services/` · `api-client/`), plus `lib/validation/` → Zod schemas per domain.
+- `lib/validation/` → Zod schemas per domain.
 - `shared/` → types/errors/constants shared by the app and the CLI (`cli/`, published as `@lumoai/cli`).
 
 ## Database Migrations
@@ -79,6 +78,10 @@ Standard Next.js App Router layout. Only the non-obvious bits:
 - **Production**: migrations are normally applied **only** by CI/CD running `prisma migrate deploy` on deploy — that is the default path. Do not apply a migration to production manually unless the user **explicitly authorizes it in the current session** (a generic standing approval doesn't count). Even with authorization: (a) confirm the exact migration(s) about to apply and call out any data-destructive steps before running anything, (b) use **only** `prisma migrate deploy` — never `migrate dev`, `db push`, `migrate reset`, or direct edits to `_prisma_migrations`, (c) verify with `prisma migrate status` against the prod URL afterward.
 - A merged PR with a new migration ≠ production is migrated. Production is migrated only after the deploy completes. After merging a schema-change PR, verify the migration applied on prod (deploy log, or `prisma migrate status` against the prod URL).
 - When opening a PR with a schema change, mention in the description what production needs (e.g. "requires `migrate deploy` on next deploy", or call out any data-deletion the migration performs).
+
+## Destructive Migrations
+
+Dropping/renaming a column, table or enum value takes two releases: stop using it, then drop. Guard + rollback: [`docs/database-migrations.md`](docs/database-migrations.md).
 
 ## CLI & Skill docs
 
