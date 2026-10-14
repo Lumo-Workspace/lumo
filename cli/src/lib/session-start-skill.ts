@@ -166,6 +166,39 @@ export function cliUpgradeNote(
   }
 }
 
+/**
+ * LUM-1136: the session's skill copy as the `X-Lumo-Skill-Version` header the
+ * SessionStart hook sends, so the members page can show it — `1.2.3`,
+ * `1.2.3 modified`, `modified`, `source`, or `none` when no copy is
+ * installed. Null when it cannot tell (unknown agent, no CLI version,
+ * unreadable copy). Purely local; never throws.
+ */
+export function skillVersionHeaderValue(input: {
+  agentEnum: string | null
+  cliVersion: string | null
+  cwd: string
+  homeDir?: string
+}): string | null {
+  try {
+    if (!input.cliVersion) return null
+    const agent = skillAgentFor(input.agentEnum)
+    if (!agent) return null
+    const copy = sessionSkillCopy({
+      agent,
+      cliVersion: input.cliVersion,
+      homeDir: input.homeDir ?? os.homedir(),
+      cwd: input.cwd,
+    })
+    if (!copy) return 'none'
+    if (copy.state === 'source') return 'source'
+    if (copy.state === 'modified')
+      return copy.version ? `${copy.version} modified` : 'modified'
+    return copy.version
+  } catch {
+    return null
+  }
+}
+
 export interface SessionStartSkillInfo {
   /** Field for the identity segment (`skill 1.2.3`), or null to add nothing. */
   tag: string | null

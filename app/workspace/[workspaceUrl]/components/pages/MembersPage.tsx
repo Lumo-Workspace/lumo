@@ -7,6 +7,9 @@ import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useMembers } from '../../hooks/useMembers'
+import { useMemberConnections } from '../../hooks/useMemberConnections'
+import { useNow } from '@/hooks/use-now'
+import { MemberConnectionsCell } from '../members/MemberConnectionsCell'
 import { useInvites } from '../../hooks/useInvites'
 import { useLeaveWorkspace } from '../../hooks/useLeaveWorkspace'
 import { useRemoveMember } from '../../hooks/useRemoveMember'
@@ -59,6 +62,12 @@ export function MembersPage() {
   const intl = useIntl()
   const { user } = useCurrentUser()
   const { members, setMembers, invalidateMembers } = useMembers()
+  const {
+    connections,
+    latestCliVersion,
+    loading: loadingConnections,
+  } = useMemberConnections()
+  const now = useNow()
 
   const {
     invites,
@@ -206,12 +215,24 @@ export function MembersPage() {
 
           <div className='rounded-lg border border-border overflow-hidden'>
             {/* Table header */}
-            <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-muted border-b border-border'>
+            <div className='grid grid-cols-[1fr_1fr_minmax(0,1.6fr)_96px_96px_32px] gap-4 px-4 py-2 bg-muted border-b border-border'>
               <span className='text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'members.colName' })}
               </span>
               <span className='text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'members.colEmail' })}
+              </span>
+              <span className='text-xs font-medium text-muted-foreground'>
+                {intl.formatMessage({ id: 'members.colConnection' })}
+                {latestCliVersion && (
+                  <span className='font-normal'>
+                    {' · '}
+                    {intl.formatMessage(
+                      { id: 'members.connection.latest' },
+                      { version: latestCliVersion }
+                    )}
+                  </span>
+                )}
               </span>
               <span className='text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'members.colRole' })}
@@ -230,7 +251,7 @@ export function MembersPage() {
               members.map(m => (
                 <div
                   key={m.id}
-                  className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-border/50 last:border-0'
+                  className='grid grid-cols-[1fr_1fr_minmax(0,1.6fr)_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-border/50 last:border-0'
                 >
                   {/* Name + avatar */}
                   <div className='flex items-center gap-2.5 min-w-0'>
@@ -255,6 +276,13 @@ export function MembersPage() {
                   <span className='text-sm text-muted-foreground truncate'>
                     {m.email ?? '—'}
                   </span>
+
+                  {/* Connection — agents + CLI / skill versions (LUM-1136) */}
+                  <MemberConnectionsCell
+                    connections={connections[m.id]}
+                    loading={loadingConnections}
+                    now={now}
+                  />
 
                   {/* Role — editable Select for owners, static Badge for self/members */}
                   <Select

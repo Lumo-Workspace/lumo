@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
  * Every CLI request carries `X-Lumo-Cli-Version` (added once, by the fetch
  * wrapper in `cli/src/lib/version-compat.ts`). The header is a compatibility
  * signal only: it never feeds authentication or authorization, and it is never
- * logged. Requests without it — browsers, MCP clients, CLIs that predate the
+ * logged (the SessionStart hook stores it on the session for the members page,
+ * LUM-1136 — `lib/session/client-versions.ts`). Requests without it — browsers, MCP clients, CLIs that predate the
  * header — are unknown and always let through, as is a value that is not a
  * plain `MAJOR.MINOR.PATCH`. This is not API version negotiation: routes keep
  * their meaning; the gate only stops a known-incompatible CLI early.

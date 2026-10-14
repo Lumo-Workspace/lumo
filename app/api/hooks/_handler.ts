@@ -10,6 +10,7 @@ import {
 import { extractAttributionSignals } from '@/lib/attribution/signals'
 import { classifyBashPayload } from '@/lib/agent-run/bash-category'
 import { hookIngestPolicyService } from '@/lib/services/hook-ingest-policy.service'
+import { parseClientVersionHeaders } from '@/lib/session/client-versions'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
@@ -118,6 +119,7 @@ export async function handleHookRequest(
     const bashClassification = classifyBashPayload(redacted)
 
     const agent = parseAgentHeader(request)
+    const clientVersions = parseClientVersionHeaders(request.headers)
     const recorded = await hookEventService.recordHookEvent({
       identity,
       type,
@@ -125,6 +127,7 @@ export async function handleHookRequest(
       attributionSignals,
       bashClassification,
       ...(agent !== undefined ? { agent } : {}),
+      ...(Object.keys(clientVersions).length > 0 ? { clientVersions } : {}),
     })
 
     let extra: Record<string, unknown> | void | undefined

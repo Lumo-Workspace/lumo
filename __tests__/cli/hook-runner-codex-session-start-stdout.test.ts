@@ -24,6 +24,7 @@ jest.mock('@/cli/src/lib/cli-version', () => ({
 // here it reports nothing so the lines stay byte-for-byte as before.
 jest.mock('@/cli/src/lib/session-start-skill', () => ({
   sessionStartSkillInfo: () => ({ tag: null, notes: [] }),
+  skillVersionHeaderValue: () => null,
 }))
 
 import { readCredentials } from '@/cli/src/lib/config'

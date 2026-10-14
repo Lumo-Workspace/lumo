@@ -2873,6 +2873,13 @@ model Session {
   parentSessionId       String?
   agentId               String?
   agentType             String?
+  // LUM-1136: the Lumo CLI and skill versions the session's SessionStart hook
+  // reported (X-Lumo-Cli-Version / X-Lumo-Skill-Version), shown on the members
+  // page. Skill is `1.2.3`, `1.2.3 modified`, `modified`, `source` or `none`.
+  // Null when the CLI predates the headers; a later SessionStart without them
+  // never clears a known value.
+  cliVersion            String?
+  skillVersion          String?
   // LUM-932: provenance of `taskId` — ATTACH (`lumo session attach` on this
   // row) or INHERITED (copied from the parent's explicit binding).
   bindingSource         SessionBindingSource?

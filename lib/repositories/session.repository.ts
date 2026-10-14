@@ -235,6 +235,72 @@ const TIMELINE_SESSION_SELECT = {
 } satisfies Prisma.SessionSelect
 
 export const sessionRepository = {
+  /**
+   * LUM-1136: store the CLI / skill versions a SessionStart hook reported.
+   * Only the keys present are written, so a later SessionStart from an older
+   * CLI (no headers) never clears a known value. No-op for an unknown id.
+   */
+  async recordClientVersions(
+    id: string,
+    versions: { cliVersion?: string; skillVersion?: string }
+  ): Promise<void> {
+    if (!versions.cliVersion && !versions.skillVersion) return
+    await prisma.session.updateMany({
+      where: { id },
+      data: {
+        ...(versions.cliVersion ? { cliVersion: versions.cliVersion } : {}),
+        ...(versions.skillVersion
+          ? { skillVersion: versions.skillVersion }
+          : {}),
+      },
+    })
+  },
+
+  /**
+   * LUM-1136: per member × agent, the last top-level session activity since
+   * `since` — the members page's "last seen" for each connection.
+   */
+  async lastActivityByMemberAgent(workspaceId: string, since: Date) {
+    const rows = await prisma.session.groupBy({
+      by: ['workspaceMemberId', 'agent'],
+      where: {
+        workspaceId,
+        parentSessionId: null,
+        lastActivityAt: { gte: since },
+      },
+      _max: { lastActivityAt: true },
+    })
+    return rows.map(r => ({
+      workspaceMemberId: r.workspaceMemberId,
+      agent: r.agent,
+      lastActivityAt: r._max.lastActivityAt,
+    }))
+  },
+
+  /**
+   * LUM-1136: per member × agent, the versions from the most recent top-level
+   * session since `since` that reported any (sessions from CLIs that predate
+   * the version headers are skipped, so they don't hide a known version).
+   */
+  async latestClientVersionsByMemberAgent(workspaceId: string, since: Date) {
+    return prisma.session.findMany({
+      where: {
+        workspaceId,
+        parentSessionId: null,
+        lastActivityAt: { gte: since },
+        OR: [{ cliVersion: { not: null } }, { skillVersion: { not: null } }],
+      },
+      orderBy: { lastActivityAt: 'desc' },
+      distinct: ['workspaceMemberId', 'agent'],
+      select: {
+        workspaceMemberId: true,
+        agent: true,
+        cliVersion: true,
+        skillVersion: true,
+      },
+    })
+  },
+
   /** LUM-932: ids of a session's subagent child sessions. */
   async listChildIds(parentSessionId: string): Promise<string[]> {
     const rows = await prisma.session.findMany({
