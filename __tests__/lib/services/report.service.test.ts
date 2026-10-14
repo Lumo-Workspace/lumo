@@ -570,7 +570,7 @@ describe('token rounding + session-less usage', () => {
         days: 7,
       },
     })
-    expect(out).toMatch(/Tokens:\s+501 \(output 500/)
+    expect(out).toMatch(/Tokens:\s+501 \(input 1 · output 500 ·/)
     expect(out).not.toContain('none recorded')
   })
 })
