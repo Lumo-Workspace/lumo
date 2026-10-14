@@ -18,7 +18,11 @@ import {
   modelIdOf,
   withZeroDataRetention,
 } from '@/lib/ai/zdr-fetch'
-import { CODE_REVIEW_MODEL, MODEL_PROVIDER_PINS } from '@/lib/ai/models'
+import {
+  CODE_REVIEW_MODEL,
+  HUNT_MODEL,
+  MODEL_PROVIDER_PINS,
+} from '@/lib/ai/models'
 import {
   auditRuntimeModule,
   collectImports,
@@ -128,6 +132,26 @@ describe('LUM-988 provider pin', () => {
       order: ['bedrock'],
     })
     expect(MODEL_PROVIDER_PINS[CODE_REVIEW_MODEL]).toEqual(['anthropic'])
+  })
+
+  it('LUM-1084 pins the hunt model to Anthropic too: it sends customer code', async () => {
+    expect(HUNT_MODEL).toBe('anthropic/claude-haiku-4.5')
+    expect(MODEL_PROVIDER_PINS[HUNT_MODEL]).toEqual(['anthropic'])
+    const { calls, inner } = captureFetch()
+    const zdrFetch = createZdrFetch(inner)
+    await zdrFetch('https://ai-gateway.vercel.sh/v3/ai/language-model', {
+      method: 'POST',
+      headers: { 'ai-language-model-id': HUNT_MODEL },
+      body: JSON.stringify({
+        prompt: 'diff',
+        providerOptions: { gateway: { only: ['bedrock', 'vertexAnthropic'] } },
+      }),
+    })
+    const sent = JSON.parse(calls[0]!.init!.body as string) as Body
+    expect(sent.providerOptions?.gateway).toEqual({
+      zeroDataRetention: true,
+      only: ['anthropic'],
+    })
   })
 
   it('fails closed: a POST that names no model is refused, never sent unpinned', async () => {

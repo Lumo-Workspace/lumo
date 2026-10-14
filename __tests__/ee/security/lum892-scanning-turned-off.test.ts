@@ -155,6 +155,7 @@ const ALL_ON = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
+  securityLearningsScope: 'auto' as const,
 }
 
 beforeEach(() => {

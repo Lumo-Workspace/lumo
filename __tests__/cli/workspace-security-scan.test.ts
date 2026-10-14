@@ -272,3 +272,67 @@ describe('LUM-1130 --request-changes', () => {
     expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Request-changes/)
   })
 })
+
+describe('LUM-1134 --learnings-scope', () => {
+  const withScope = (
+    scope: 'local' | 'global' | 'auto'
+  ): SecurityScanSettingsView => ({
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityLearningsScope: scope },
+  })
+
+  it('maps the flag (case-insensitive) and refuses a bad value or --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ learningsScope: 'Global' })).toEqual({
+      securityLearningsScope: 'global',
+    })
+    expect(() => buildSecurityScanUpdate({ learningsScope: 'org' })).toThrow(
+      /--learnings-scope takes local, global or auto/
+    )
+    expect(() =>
+      buildSecurityScanUpdate({ disableAll: true, learningsScope: 'local' })
+    ).toThrow(/--learnings-scope/)
+  })
+
+  it('switching to global is gated (public repositories would read private ones’ learnings); local and auto are not', () => {
+    const toGlobal = describeGatedChanges(withScope('auto').switches, {
+      securityLearningsScope: 'global',
+    })
+    expect(toGlobal.join('\n')).toMatch(
+      /Will change: Learnings scope auto → global/
+    )
+    expect(toGlobal.join('\n')).toMatch(/public repositories/)
+    expect(
+      describeGatedChanges(withScope('global').switches, {
+        securityLearningsScope: 'global',
+      })
+    ).toEqual([])
+    for (const scope of ['local', 'auto'] as const)
+      expect(
+        describeGatedChanges(withScope('global').switches, {
+          securityLearningsScope: scope,
+        })
+      ).toEqual([])
+  })
+
+  it('--learnings-scope global without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: withScope('auto') }])
+    expect(await workspaceSecurityScan({ learningsScope: 'global' })).toBe(4)
+    expect(calls).toHaveLength(1)
+    expect(out).toMatch(/confirmation_required/)
+  })
+
+  it('--learnings-scope local PATCHes the scope and prints it', async () => {
+    serve([{ body: withScope('auto') }, { body: withScope('local') }])
+    expect(
+      await workspaceSecurityScan({ learningsScope: 'local' })
+    ).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityLearningsScope: 'local',
+    })
+    expect(out).toMatch(/Learnings scope: local/)
+  })
+
+  it('an older server without the field prints no learnings-scope line', () => {
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Learnings scope/)
+  })
+})

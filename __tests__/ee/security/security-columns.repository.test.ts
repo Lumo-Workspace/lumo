@@ -116,3 +116,24 @@ test('LUM-1130 findRequestChangesEnabled — true only when the workspace turned
     false
   )
 })
+
+// ── LUM-1134 learnings scope ────────────────────────────────────────────────
+
+test('LUM-1134 findLearningsScope — the stored scope; auto when missing or unrecognised', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityLearningsScope: 'global',
+  })
+  expect(await securityColumnsRepository.findLearningsScope('w1')).toBe(
+    'global'
+  )
+  expect(mockWorkspace.findUnique).toHaveBeenLastCalledWith({
+    where: { id: 'w1' },
+    select: { securityLearningsScope: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findLearningsScope('w1')).toBe('auto')
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityLearningsScope: 'bogus',
+  })
+  expect(await securityColumnsRepository.findLearningsScope('w1')).toBe('auto')
+})

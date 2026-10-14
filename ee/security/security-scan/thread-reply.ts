@@ -66,7 +66,13 @@ const NEGATED = [
 const WILL_CHANGE = [
   /\b(?:will|i'?ll|we'?ll|gonna|going to|let me|should|need to|have to) (?:fix|change|address|update|look|handle|revisit|remove|clean|refactor)/i,
   /\b(?:fixing|later|follow[- ]?up|todo|next (?:pr|sprint|release)|eventually|for now|tech debt|temporar(?:y|ily))\b/i,
-  /\bfixed\b/i,
+  // "Fixed" as a report that the code changed — not the adjective ("a fixed
+  // internal allowlist", "a fixed set of paths": the LUM-1131 prod probe on
+  // PR 1457, where the bare word vetoed two genuine learnings).
+  /(?:^|[.!;:,]\s*)fixed\b/i,
+  /\bfixed (?:in|by|it|this|that|now|with|via|on|upstream)\b/i,
+  /\b(?:already|just|been|was|were|is now|got|i|we|i'?ve|we'?ve) fixed\b/i,
+  /\bfixed\s*[.!]?\s*$/i,
   /稍后|以后|后续|回头|待办|已修复|修好了|暂时/,
 ]
 
@@ -77,9 +83,19 @@ const ACKNOWLEDGE = [
   /同意/,
 ]
 
-/** Asks Lumo to act, or speaks as a system / role — never a learning. */
+/**
+ * Asks Lumo to act, or speaks as a system / role — never a learning.
+ *
+ * `allowlist` / `whitelist` count only as a verb aimed at the finding
+ * ("allowlist this", "add it to the allowlist"): as a noun they are how
+ * people explain why code is safe ("the dir only comes from a fixed internal
+ * allowlist") — LUM-1131 prod probe on PR 1457, where the bare word blocked
+ * two genuine learnings before the model was ever asked.
+ */
 const ACTION_REQUEST = [
-  /\b(?:approve|merge|dismiss|disposition|whitelist|allowlist|suppress all|mark (?:all|every|this|it|them)\b)/i,
+  /\b(?:approve|merge|dismiss|disposition|suppress all|mark (?:all|every|this|it|them)\b)/i,
+  /\b(?:white|allow)[- ]?list\s+(?:this|it|them|these|those|all|every|the (?:finding|rule|check|warning|alert|issue|file|path)s?)\b/i,
+  /\badd (?:this|it|them|that|these|those|the (?:finding|rule|check|warning|alert|issue|file|path)s?) to (?:the |an? |your |lumo'?s? )?(?:white|allow)[- ]?list\b/i,
   /\b(?:ignore|disregard|forget) (?:all |any |the )?(?:previous|prior|above|earlier)\b/i,
   /\b(?:system|assistant|developer)\s*:/i,
   /\byou are now\b|\badmin mode\b|\bjailbreak\b/i,
@@ -116,23 +132,53 @@ function statementsOf(text: string): { statements: string; asked: boolean } {
  * catch") only label a reply that has no positive statement.
  */
 export function screenReply(raw: string): ReplyLabel {
+  return screenReplyDetailed(raw).label
+}
+
+/**
+ * Why the gate labelled a reply as it did — logged (never the reply text)
+ * when a reply does not become a learning, so a wrongly rejected one can be
+ * traced to the rule that rejected it.
+ */
+export type ScreenReason =
+  | 'empty'
+  | 'injection_signal'
+  | 'action_request'
+  | 'too_short'
+  | 'too_long'
+  | 'no_positive_statement'
+  | 'negated'
+  | 'will_change'
+  | 'positive'
+
+export function screenReplyDetailed(raw: string): {
+  label: ReplyLabel
+  reason: ScreenReason
+} {
   const text = raw.trim()
-  if (!text) return 'OTHER'
-  if (detectInjectionSignals(text).signals.length > 0) return 'BLOCKED'
-  if (anyOf(ACTION_REQUEST, text)) return 'BLOCKED'
+  if (!text) return { label: 'OTHER', reason: 'empty' }
+  if (detectInjectionSignals(text).signals.length > 0)
+    return { label: 'BLOCKED', reason: 'injection_signal' }
+  if (anyOf(ACTION_REQUEST, text))
+    return { label: 'BLOCKED', reason: 'action_request' }
   const { statements, asked } = statementsOf(text)
   const willChange = anyOf(WILL_CHANGE, text)
-  if (
-    text.length >= MIN_LEARNING_CHARS &&
-    text.length <= MAX_REPLY_CHARS &&
-    anyOf(POSITIVE, statements) &&
-    !anyOf(NEGATED, text) &&
-    !willChange
-  )
-    return 'LEARNING'
-  if (asked) return 'QUESTION'
-  if (willChange || anyOf(ACKNOWLEDGE, text)) return 'DEFER'
-  return 'OTHER'
+  const reason: ScreenReason =
+    text.length < MIN_LEARNING_CHARS
+      ? 'too_short'
+      : text.length > MAX_REPLY_CHARS
+        ? 'too_long'
+        : !anyOf(POSITIVE, statements)
+          ? 'no_positive_statement'
+          : anyOf(NEGATED, text)
+            ? 'negated'
+            : willChange
+              ? 'will_change'
+              : 'positive'
+  if (reason === 'positive') return { label: 'LEARNING', reason }
+  if (asked) return { label: 'QUESTION', reason }
+  if (willChange || anyOf(ACKNOWLEDGE, text)) return { label: 'DEFER', reason }
+  return { label: 'OTHER', reason }
 }
 
 // ── Who may teach Lumo ───────────────────────────────────────────────────────
@@ -242,8 +288,28 @@ export function decideLearning(
   gate: ReplyLabel,
   model: { isLearning: boolean; learning: string } | null
 ): string | null {
-  if (gate !== 'LEARNING' || !model?.isLearning) return null
-  return cleanLearningText(model.learning)
+  return decideLearningDetailed(gate, model).learning
+}
+
+/** Why no learning came out of the model step (logged, like `ScreenReason`). */
+export type DecideReason =
+  | 'gate'
+  | 'model_unavailable'
+  | 'model_refused'
+  | 'learning_text_rejected'
+  | 'learning'
+
+export function decideLearningDetailed(
+  gate: ReplyLabel,
+  model: { isLearning: boolean; learning: string } | null
+): { learning: string | null; reason: DecideReason } {
+  if (gate !== 'LEARNING') return { learning: null, reason: 'gate' }
+  if (!model) return { learning: null, reason: 'model_unavailable' }
+  if (!model.isLearning) return { learning: null, reason: 'model_refused' }
+  const learning = cleanLearningText(model.learning)
+  return learning
+    ? { learning, reason: 'learning' }
+    : { learning: null, reason: 'learning_text_rejected' }
 }
 
 // ── Lumo's answers ───────────────────────────────────────────────────────────
@@ -308,7 +374,7 @@ export function buildAckReply(label: ReplyLabel, login: string): string {
   const body =
     label === 'DEFER'
       ? `Thanks @${login} — Lumo resolves this thread on its own once a push no longer has the finding.`
-      : `Thanks @${login}. Lumo does not discuss findings in threads. If this finding does not apply here, reply with the reason (for example "this is intentional because …") and Lumo will remember it for future reviews of this repository; if it is a real problem, the thread resolves on its own once a push fixes it.`
+      : `Thanks @${login}. Lumo does not discuss findings in threads. If this finding does not apply here, reply with the reason (for example "this is intentional because …") and Lumo will apply it to this pull request's reviews until it merges, then to every pull request in this repository; if it is a real problem, the thread resolves on its own once a push fixes it.`
   return `${body}\n\n${REPLY_NOTE_MARKER}`
 }
 

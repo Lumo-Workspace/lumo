@@ -1,6 +1,7 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { WorkspaceExportView } from '@/lib/services/workspace-export.service'
+import type { MemberConnectionsView } from '@/lib/services/member-connection.service'
 import type {
   AiDerivedContentStatus,
   AiDerivedPurgeResult,
@@ -35,6 +36,11 @@ export const workspacesClient = {
 
   listMembers<T>() {
     return apiFetch<T>(API.workspaces.members)
+  },
+
+  /** LUM-1136: per-member agent connections (agent, CLI / skill version). */
+  listMemberConnections() {
+    return apiFetch<MemberConnectionsView>(API.workspaces.memberConnections)
   },
 
   updateMember<T>(id: string, data: unknown) {

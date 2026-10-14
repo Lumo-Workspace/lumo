@@ -167,3 +167,45 @@ describe('LUM-1130 request-changes workflow setting', () => {
     ).toBe(true)
   })
 })
+
+describe('LUM-1134 learnings scope setting', () => {
+  it('passes the scope through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityLearningsScope: 'local' })
+    ).toMatchObject({ securityLearningsScope: 'local' })
+    expect(switchesForUpdate({ all: false })).not.toHaveProperty(
+      'securityLearningsScope'
+    )
+  })
+  it('reads auto by default and as stored', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityLearningsScope
+    ).toBe('auto')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+      securityLearningsScope: 'global',
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityLearningsScope
+    ).toBe('global')
+  })
+  it('a MEMBER cannot change it (403 from the shipped OWNER gate)', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        securityLearningsScope: 'global',
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
+  })
+})

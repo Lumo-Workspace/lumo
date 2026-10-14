@@ -11,6 +11,7 @@ import { z } from 'zod'
 import type { WorkspaceSettingsContributor } from '@/lib/plugins/types'
 import { securityPolicySchema } from '@/ee/security/security-scan/policy'
 import { platformSecurityCeiling } from '@/ee/security/security-scan/workspace-switches'
+import { LEARNINGS_SCOPES } from '@/ee/security/security-scan/learnings-scope'
 
 export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
   key: 'security',
@@ -28,6 +29,8 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     securityHuntEnabled: z.boolean().optional(),
     // LUM-1130: the PR reviewer's request-changes workflow (default off).
     securityRequestChangesEnabled: z.boolean().optional(),
+    // LUM-1134: the learnings scope — local | global | auto (default auto).
+    securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
   },
   // LUM-907: audited with the core settings (moved out of the core list in
   // LUM-1065; same actions as before).
@@ -38,6 +41,7 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
       'securityAiReviewEnabled',
       'securityHuntEnabled',
       'securityRequestChangesEnabled',
+      'securityLearningsScope',
     ],
     'workspace.retention_updated': ['scanEvidenceRetentionDays'],
   },

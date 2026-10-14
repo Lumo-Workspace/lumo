@@ -3,7 +3,10 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
 import { readCliVersion } from './cli-version'
-import { sessionStartSkillInfo } from './session-start-skill'
+import {
+  sessionStartSkillInfo,
+  skillVersionHeaderValue,
+} from './session-start-skill'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { sumTranscriptUsage } from './transcript-usage'
@@ -780,6 +783,16 @@ export async function runHookWithBody(
     }
     const agentEnum = agentToken ? normalizeAgent(agentToken) : null
     if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
+    // LUM-1136: which skill copy this session loads, for the members page.
+    // The CLI version already rides on every request (X-Lumo-Cli-Version).
+    if (path === 'session-start') {
+      const skillVersion = skillVersionHeaderValue({
+        agentEnum,
+        cliVersion: readCliVersion(),
+        cwd: payloadCwd(body),
+      })
+      if (skillVersion) headers['X-Lumo-Skill-Version'] = skillVersion
+    }
 
     const outgoingBody =
       augmentBodyWithGitTask(

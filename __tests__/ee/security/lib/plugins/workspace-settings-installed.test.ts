@@ -21,6 +21,8 @@ const SECURITY_COLUMNS = [
   'securityHuntEnabled',
   // LUM-1130: the request-changes workflow.
   'securityRequestChangesEnabled',
+  // LUM-1134: the learnings scope.
+  'securityLearningsScope',
 ]
 
 describe('installed (the security plugin)', () => {
@@ -56,6 +58,12 @@ describe('installed (the security plugin)', () => {
       false
     )
     expect(schema.safeParse({ securityPolicy: null }).success).toBe(true)
+    // LUM-1134: the learnings scope is one of three values.
+    for (const v of ['local', 'global', 'auto'])
+      expect(schema.safeParse({ securityLearningsScope: v }).success).toBe(true)
+    expect(schema.safeParse({ securityLearningsScope: 'org' }).success).toBe(
+      false
+    )
     expect(
       schema.safeParse({
         securityPolicy: {
@@ -97,6 +105,7 @@ describe('installed (the security plugin)', () => {
         'securityAiReviewEnabled',
         'securityHuntEnabled',
         'securityRequestChangesEnabled',
+        'securityLearningsScope',
       ].sort()
     )
     expect(audited['workspace.retention_updated']).toContain(
