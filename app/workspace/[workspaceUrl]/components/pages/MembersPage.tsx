@@ -1,7 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, MoreHorizontal, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import {
+  Plus,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  ChevronDown,
+} from 'lucide-react'
 import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
@@ -10,6 +16,19 @@ import { useMembers } from '../../hooks/useMembers'
 import { useMemberConnections } from '../../hooks/useMemberConnections'
 import { useNow } from '@/hooks/use-now'
 import { MemberConnectionsCell } from '../members/MemberConnectionsCell'
+import { MemberVersionStatus } from '../members/MemberVersionStatus'
+import { MemberConnectionDetails } from '../members/MemberConnectionDetails'
+import { MemberFilterTabs } from '../members/MemberFilterTabs'
+import { ConnectionUpdateBanner } from '../members/ConnectionUpdateBanner'
+import { useVersionDismissal } from '../../hooks/useVersionDismissal'
+import {
+  countConnectionsNeedingUpdate,
+  matchesMemberFilter,
+  matchesMemberQuery,
+  memberVersionStatus,
+  MEMBER_FILTERS,
+  type MemberFilter,
+} from '@/lib/members/connection-status'
 import { useInvites } from '../../hooks/useInvites'
 import { useLeaveWorkspace } from '../../hooks/useLeaveWorkspace'
 import { useRemoveMember } from '../../hooks/useRemoveMember'
@@ -56,6 +75,12 @@ function formatDate(iso: string, locale: string = 'en') {
   })
 }
 
+/** Shared column template for the members table header and rows. */
+const ROW_GRID =
+  'grid grid-cols-[minmax(200px,1.6fr)_minmax(200px,1.5fr)_minmax(160px,1.3fr)_104px_88px_80px] gap-4'
+
+const BANNER_DISMISS_KEY = 'lumo.members.updateBannerDismissed'
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MembersPage() {
@@ -69,6 +94,41 @@ export function MembersPage() {
     unavailable: connectionsUnavailable,
   } = useMemberConnections()
   const now = useNow()
+  const connectionsUnknown = loadingConnections || connectionsUnavailable
+
+  // Filters, search, expanded row (LUM-1136 redesign)
+  const [filter, setFilter] = useState<MemberFilter>('all')
+  const [query, setQuery] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const { dismissed: bannerDismissed, dismiss: dismissBanner } =
+    useVersionDismissal(BANNER_DISMISS_KEY, latestCliVersion)
+
+  const { visibleMembers, filterCounts } = useMemo(() => {
+    const searched = members.filter(m => matchesMemberQuery(m, query))
+    // Until connections load, status is unknown: only "All" can filter.
+    if (connectionsUnknown)
+      return {
+        visibleMembers: filter === 'all' ? searched : [],
+        filterCounts: { all: searched.length },
+      }
+    const statusOf = (id: string) => memberVersionStatus(connections[id])
+    const counts: Partial<Record<MemberFilter, number>> = {}
+    for (const f of MEMBER_FILTERS)
+      counts[f] = searched.filter(m =>
+        matchesMemberFilter(statusOf(m.id), f)
+      ).length
+    return {
+      visibleMembers: searched.filter(m =>
+        matchesMemberFilter(statusOf(m.id), filter)
+      ),
+      filterCounts: counts,
+    }
+  }, [members, query, filter, connections, connectionsUnknown])
+
+  const behindCount = connectionsUnknown
+    ? 0
+    : countConnectionsNeedingUpdate(connections)
+  const showBanner = behindCount > 0 && !bannerDismissed
 
   const {
     invites,
@@ -187,187 +247,309 @@ export function MembersPage() {
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className='h-full overflow-y-auto'>
-      <div className='max-w-5xl mx-auto px-6 py-8'>
+      <div className='max-w-6xl mx-auto px-6 py-8 flex flex-col gap-6'>
         {/* Header */}
-        <div className='flex items-center justify-between mb-8'>
-          <h1 className='text-xl font-semibold text-foreground'>
-            {intl.formatMessage({ id: 'members.title' })}
-          </h1>
-          <Button
-            size='sm'
-            className='gap-1.5'
-            onClick={() => setInviteOpen(true)}
-          >
-            <Plus size={14} />
-            {intl.formatMessage({ id: 'common.invite' })}
-          </Button>
+        <div className='flex flex-wrap items-end justify-between gap-4'>
+          <div className='flex flex-col gap-1'>
+            <h1 className='text-xl font-semibold text-foreground'>
+              {intl.formatMessage({ id: 'members.title' })}
+            </h1>
+            <p className='text-sm text-muted-foreground'>
+              {intl.formatMessage({ id: 'members.subtitle' })}
+            </p>
+          </div>
+          <div className='flex flex-wrap items-center gap-2'>
+            <label className='relative flex items-center'>
+              <span className='sr-only'>
+                {intl.formatMessage({ id: 'members.search.label' })}
+              </span>
+              <Search
+                size={14}
+                aria-hidden
+                className='pointer-events-none absolute left-3 text-muted-foreground'
+              />
+              <input
+                type='search'
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={intl.formatMessage({
+                  id: 'members.search.placeholder',
+                })}
+                className='h-9 w-60 rounded-md border border-border bg-transparent pl-8 pr-3 text-sm text-foreground outline-none focus-visible:border-ring placeholder:text-muted-foreground'
+              />
+            </label>
+            <Button className='gap-1.5' onClick={() => setInviteOpen(true)}>
+              <Plus size={14} />
+              {intl.formatMessage({ id: 'common.invite' })}
+            </Button>
+          </div>
         </div>
 
+        {/* Update notice (LUM-1136) */}
+        {showBanner && (
+          <ConnectionUpdateBanner
+            count={behindCount}
+            onShowWho={() => setFilter('needsUpdate')}
+            onDismiss={dismissBanner}
+          />
+        )}
+
         {/* Active members */}
-        <section className='mb-8'>
-          <div className='flex items-center gap-2 mb-3'>
-            <span className='text-sm font-medium text-foreground'>
-              {intl.formatMessage({ id: 'members.active' })}
-            </span>
-            <span className='text-xs text-muted-foreground'>
-              {members.length}
-            </span>
+        <section className='flex flex-col gap-4'>
+          <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border'>
+            <MemberFilterTabs
+              value={filter}
+              counts={filterCounts}
+              onChange={setFilter}
+            />
+            {latestCliVersion && (
+              <p className='pb-2.5 text-xs text-muted-foreground'>
+                {intl.formatMessage(
+                  { id: 'members.latestRelease' },
+                  {
+                    version: (
+                      <span key='v' className='font-mono text-foreground'>
+                        {intl.formatMessage(
+                          { id: 'members.connection.cli' },
+                          { version: latestCliVersion }
+                        )}
+                      </span>
+                    ),
+                  }
+                )}
+              </p>
+            )}
           </div>
 
-          <div className='rounded-lg border border-border overflow-hidden'>
-            {/* Table header */}
-            <div className='grid grid-cols-[1fr_1fr_minmax(0,1.6fr)_96px_96px_32px] gap-4 px-4 py-2 bg-muted border-b border-border'>
-              <span className='text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'members.colName' })}
-              </span>
-              <span className='text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'members.colEmail' })}
-              </span>
-              <span className='text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'members.colConnection' })}
-                {latestCliVersion && (
-                  <span className='font-normal'>
-                    {' · '}
-                    {intl.formatMessage(
-                      { id: 'members.connection.latest' },
-                      { version: latestCliVersion }
-                    )}
-                  </span>
-                )}
-              </span>
-              <span className='text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'members.colRole' })}
-              </span>
-              <span className='text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'members.colJoined' })}
-              </span>
-              <span />
-            </div>
-
-            {members.length === 0 ? (
-              <div className='px-4 py-6 text-sm text-muted-foreground text-center'>
-                {intl.formatMessage({ id: 'common.loading' })}
-              </div>
-            ) : (
-              members.map(m => (
-                <div
-                  key={m.id}
-                  className='grid grid-cols-[1fr_1fr_minmax(0,1.6fr)_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-border/50 last:border-0'
-                >
-                  {/* Name + avatar */}
-                  <div className='flex items-center gap-2.5 min-w-0'>
-                    {m.imageUrl ? (
-                      <img
-                        src={m.imageUrl}
-                        alt={m.name}
-                        className='size-7 rounded-full object-cover shrink-0'
-                        referrerPolicy='no-referrer'
-                      />
-                    ) : (
-                      <div className='size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-foreground shrink-0 uppercase'>
-                        {getInitials(m.name)}
-                      </div>
-                    )}
-                    <span className='text-sm font-medium text-foreground truncate'>
-                      {m.name}
-                    </span>
-                  </div>
-
-                  {/* Email */}
-                  <span className='text-sm text-muted-foreground truncate'>
-                    {m.email ?? '—'}
-                  </span>
-
-                  {/* Connection — agents + CLI / skill versions (LUM-1136) */}
-                  <MemberConnectionsCell
-                    connections={connections[m.id]}
-                    unknown={loadingConnections || connectionsUnavailable}
-                    now={now}
-                  />
-
-                  {/* Role — editable Select for owners, static Badge for self/members */}
-                  <Select
-                    value={m.role}
-                    onValueChange={val =>
-                      handleRoleChange(m.id, val as 'OWNER' | 'MEMBER')
-                    }
-                    disabled={
-                      !isOwner ||
-                      m.id === currentMember?.id ||
-                      updatingRoleId === m.id
-                    }
+          <div className='overflow-x-auto rounded-lg border border-border'>
+            <div className='min-w-[960px]'>
+              {/* Table header */}
+              <div
+                className={`${ROW_GRID} px-4 py-2 bg-muted border-b border-border`}
+              >
+                {(
+                  [
+                    'members.colMember',
+                    'members.colAgents',
+                    'members.colStatus',
+                    'members.colRole',
+                    'members.colJoined',
+                  ] as const
+                ).map(id => (
+                  <span
+                    key={id}
+                    className='text-xs font-medium text-muted-foreground'
                   >
-                    <SelectTrigger className='h-7 w-24 text-xs border-border focus:ring-1'>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='OWNER' className='text-xs'>
-                        {intl.formatMessage({ id: 'members.roleAdmin' })}
-                      </SelectItem>
-                      <SelectItem value='MEMBER' className='text-xs'>
-                        {intl.formatMessage({ id: 'members.roleMember' })}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* Joined */}
-                  <span className='text-sm text-muted-foreground shrink-0 whitespace-nowrap'>
-                    {formatDate(m.joinedAt, intl.locale)}
+                    {intl.formatMessage({ id })}
                   </span>
+                ))}
+                <span />
+              </div>
 
-                  {/* Actions — only show for self if they can leave */}
-                  {m.id === currentMember?.id && canLeave ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          className='h-6 w-6 text-muted-foreground hover:text-foreground shrink-0'
-                        >
-                          <MoreHorizontal size={13} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align='end'>
-                        <DropdownMenuItem
-                          className='cursor-pointer text-danger-text focus:text-danger-text'
-                          onClick={() => setLeaveOpen(true)}
-                        >
-                          {intl.formatMessage({ id: 'members.leaveWorkspace' })}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : isOwner && m.id !== currentMember?.id ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          aria-label={intl.formatMessage({
-                            id: 'members.memberActions',
-                          })}
-                          className='h-6 w-6 text-muted-foreground hover:text-foreground shrink-0'
-                          disabled={removingId === m.id}
-                        >
-                          <MoreHorizontal size={13} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align='end'>
-                        <DropdownMenuItem
-                          className='cursor-pointer text-danger-text focus:text-danger-text'
-                          onClick={() =>
-                            setRemoveTarget({ id: m.id, name: m.name })
+              {members.length === 0 ? (
+                <div className='px-4 py-6 text-sm text-muted-foreground text-center'>
+                  {intl.formatMessage({ id: 'common.loading' })}
+                </div>
+              ) : visibleMembers.length === 0 ? (
+                <div className='px-4 py-10 text-sm text-muted-foreground text-center'>
+                  {intl.formatMessage({ id: 'members.filter.empty' })}
+                </div>
+              ) : (
+                visibleMembers.map(m => {
+                  const isSelf = m.id === currentMember?.id
+                  const expanded = expandedId === m.id
+                  const memberConnections = connections[m.id]
+                  return (
+                    <div
+                      key={m.id}
+                      className='border-b border-border/50 last:border-0'
+                    >
+                      <div
+                        className={`${ROW_GRID} items-center px-4 py-3 min-h-16`}
+                      >
+                        {/* Member — avatar, name, email */}
+                        <div className='flex items-center gap-3 min-w-0'>
+                          {m.imageUrl ? (
+                            <img
+                              src={m.imageUrl}
+                              alt=''
+                              className='size-9 rounded-full object-cover shrink-0'
+                              referrerPolicy='no-referrer'
+                            />
+                          ) : (
+                            <div
+                              aria-hidden
+                              className='size-9 rounded-full bg-muted border border-border flex items-center justify-center text-xs font-semibold text-foreground shrink-0 uppercase'
+                            >
+                              {getInitials(m.name)}
+                            </div>
+                          )}
+                          <div className='flex min-w-0 flex-col'>
+                            <div className='flex items-center gap-2 min-w-0'>
+                              <span className='text-sm font-medium text-foreground truncate'>
+                                {m.name}
+                              </span>
+                              {isSelf && (
+                                <span className='shrink-0 rounded-full border border-border px-1.5 text-[11px] leading-4 text-muted-foreground'>
+                                  {intl.formatMessage({ id: 'members.you' })}
+                                </span>
+                              )}
+                            </div>
+                            <span className='text-xs text-muted-foreground truncate'>
+                              {m.email ?? '—'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Agents (LUM-1136) */}
+                        <MemberConnectionsCell
+                          connections={memberConnections}
+                          unknown={connectionsUnknown}
+                          now={now}
+                        />
+
+                        {/* Version status (LUM-1136) */}
+                        <MemberVersionStatus
+                          connections={memberConnections}
+                          latestCliVersion={latestCliVersion}
+                          unknown={connectionsUnknown}
+                        />
+
+                        {/* Role — editable Select for owners, disabled for self/members */}
+                        <Select
+                          value={m.role}
+                          onValueChange={val =>
+                            handleRoleChange(m.id, val as 'OWNER' | 'MEMBER')
+                          }
+                          disabled={
+                            !isOwner || isSelf || updatingRoleId === m.id
                           }
                         >
-                          {intl.formatMessage({ id: 'members.removeMember' })}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <span />
-                  )}
-                </div>
-              ))
-            )}
+                          <SelectTrigger
+                            aria-label={intl.formatMessage(
+                              { id: 'members.roleFor' },
+                              { name: m.name }
+                            )}
+                            className='w-24 text-xs border-border'
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='OWNER' className='text-xs'>
+                              {intl.formatMessage({ id: 'members.roleAdmin' })}
+                            </SelectItem>
+                            <SelectItem value='MEMBER' className='text-xs'>
+                              {intl.formatMessage({
+                                id: 'members.roleMember',
+                              })}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Joined */}
+                        <span className='text-sm text-muted-foreground shrink-0 whitespace-nowrap'>
+                          {formatDate(m.joinedAt, intl.locale)}
+                        </span>
+
+                        {/* Actions — expand details, then the member menu */}
+                        <div className='flex items-center justify-end'>
+                          {isSelf && canLeave ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant='ghost'
+                                  size='icon'
+                                  aria-label={intl.formatMessage({
+                                    id: 'members.memberActions',
+                                  })}
+                                  className='text-muted-foreground hover:text-foreground shrink-0'
+                                >
+                                  <MoreHorizontal size={14} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align='end'>
+                                <DropdownMenuItem
+                                  className='cursor-pointer text-danger-text focus:text-danger-text'
+                                  onClick={() => setLeaveOpen(true)}
+                                >
+                                  {intl.formatMessage({
+                                    id: 'members.leaveWorkspace',
+                                  })}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : isOwner && !isSelf ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant='ghost'
+                                  size='icon'
+                                  aria-label={intl.formatMessage({
+                                    id: 'members.memberActions',
+                                  })}
+                                  className='text-muted-foreground hover:text-foreground shrink-0'
+                                  disabled={removingId === m.id}
+                                >
+                                  <MoreHorizontal size={14} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align='end'>
+                                <DropdownMenuItem
+                                  className='cursor-pointer text-danger-text focus:text-danger-text'
+                                  onClick={() =>
+                                    setRemoveTarget({ id: m.id, name: m.name })
+                                  }
+                                >
+                                  {intl.formatMessage({
+                                    id: 'members.removeMember',
+                                  })}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : null}
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            aria-expanded={expanded}
+                            aria-label={intl.formatMessage(
+                              {
+                                id: expanded
+                                  ? 'members.details.hide'
+                                  : 'members.details.show',
+                              },
+                              { name: m.name }
+                            )}
+                            className='text-muted-foreground hover:text-foreground shrink-0'
+                            disabled={connectionsUnknown}
+                            onClick={() =>
+                              setExpandedId(expanded ? null : m.id)
+                            }
+                          >
+                            <ChevronDown
+                              size={16}
+                              className={
+                                expanded
+                                  ? 'rotate-180 transition-transform'
+                                  : 'transition-transform'
+                              }
+                            />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {expanded && !connectionsUnknown && (
+                        <div className='pl-16 pr-4 pb-5'>
+                          <MemberConnectionDetails
+                            connections={memberConnections}
+                            now={now}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         </section>
 
