@@ -71,13 +71,17 @@ import { securityScanSettingsService } from '@/ee/security/services/security-sca
 import {
   BULK_MAX_PRS,
   BULK_TIME_BUDGET_MS,
+  RETRY_DELAYS_MS,
   requestChangesOffService,
 } from '@/ee/security/services/request-changes-off.service'
 import {
   WITHDRAW_MESSAGE,
+  describeGithubFailure,
   isRateLimited,
+  isTransientGithubFailure,
   prReviewVerdictService,
 } from '@/ee/security/services/pr-review-verdict.service'
+import { logger } from '@/lib/logger'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock
@@ -316,5 +320,168 @@ describe('LUM-1140 repository', () => {
         number: 1,
       })
     ).toBe(true)
+  })
+})
+
+/**
+ * What production saw on lumo-agent-test#24: the token mint (Octokit) lost
+ * its connection to GitHub. Octokit turns fetch's `TypeError: fetch failed`
+ * into a RequestError with status 500 and the CAUSE's message — and a refused
+ * or timed-out multi-address connect is an `AggregateError` whose message is
+ * empty. Reproduced against @octokit/request 10.0.8: message "" status 500.
+ */
+function octokitNetworkFailure(): Error {
+  // Node's AggregateError (empty message) — built by hand: the TS lib here
+  // predates ES2021's AggregateError / ES2022's error `cause` option.
+  const connect = Object.assign(new Error(''), {
+    name: 'AggregateError',
+    code: 'ETIMEDOUT',
+  })
+  const fetchFailed = Object.assign(new TypeError('fetch failed'), {
+    cause: connect,
+  })
+  return Object.assign(new Error(''), {
+    name: 'HttpError',
+    status: 500,
+    cause: fetchFailed,
+  })
+}
+
+describe('LUM-1140 regression: a transient GitHub failure does not leave the change request standing', () => {
+  const noSleep = jest.fn(async () => undefined)
+  const warns = () => m(logger.warn).mock.calls.map(c => String(c[0]))
+
+  beforeEach(() => {
+    noSleep.mockClear()
+    switches.mockResolvedValue(OFF)
+    mockPrisma.pullRequest.findMany.mockResolvedValue([
+      { id: 'pr24', repo: 'Lumo-Workspace/lumo-agent-test', number: 24 },
+    ])
+    m(getRepoToken).mockReset().mockResolvedValue('tok')
+    listReviews
+      .mockReset()
+      .mockResolvedValue([review(5520255111, 'CHANGES_REQUESTED')])
+  })
+
+  it('the bulk pass retries a failed token mint and dismisses', async () => {
+    m(getRepoToken)
+      .mockRejectedValueOnce(octokitNetworkFailure())
+      .mockResolvedValue('tok')
+    const r = await requestChangesOffService.withdrawAcrossWorkspace(
+      'ws_a',
+      Date.now,
+      noSleep
+    )
+    expect(r).toEqual({ checked: 1, dismissed: 1, stopped: null })
+    expect(dismissReview).toHaveBeenCalledWith(
+      expect.objectContaining({ prNumber: 24, reviewId: 5520255111 })
+    )
+    expect(noSleep).toHaveBeenCalledWith(RETRY_DELAYS_MS[0])
+  })
+
+  it("a failed mint is not reused for the repository's next PR", async () => {
+    mockPrisma.pullRequest.findMany.mockResolvedValue([
+      { id: 'pr24', repo: 'Lumo-Workspace/lumo-agent-test', number: 24 },
+      { id: 'pr25', repo: 'Lumo-Workspace/lumo-agent-test', number: 25 },
+    ])
+    const tries = RETRY_DELAYS_MS.length + 1
+    for (let i = 0; i < tries; i++)
+      m(getRepoToken).mockRejectedValueOnce(octokitNetworkFailure())
+    m(getRepoToken).mockResolvedValue('tok')
+    const r = await requestChangesOffService.withdrawAcrossWorkspace(
+      'ws_a',
+      Date.now,
+      noSleep
+    )
+    // #24 gives up after every retry; #25 mints afresh and is dismissed
+    expect(r).toEqual({ checked: 2, dismissed: 1, stopped: null })
+    expect(getRepoToken).toHaveBeenCalledTimes(tries + 1)
+    expect(dismissReview.mock.calls.map(c => c[0].prNumber)).toEqual([25])
+  })
+
+  it('the warning says what failed: status and cause, never an empty text', async () => {
+    m(getRepoToken).mockRejectedValue(octokitNetworkFailure())
+    await requestChangesOffService.withdrawAcrossWorkspace(
+      'ws_a',
+      Date.now,
+      noSleep
+    )
+    const line = warns().find(w => w.includes('withdraw failed pr=#24'))
+    expect(line).toBe(
+      '[request-changes-off] withdraw failed pr=#24: status=500 HttpError: (no message) cause=TypeError: fetch failed cause=AggregateError ETIMEDOUT'
+    )
+    expect(line).not.toContain('tok')
+  })
+
+  it("a GitHub refusal (4xx) is not retried and the log carries GitHub's message", async () => {
+    listReviews.mockRejectedValue(
+      new GithubApiError(403, {
+        message: 'Resource not accessible by integration',
+      })
+    )
+    const r = await requestChangesOffService.withdrawAcrossWorkspace(
+      'ws_a',
+      Date.now,
+      noSleep
+    )
+    expect(r.dismissed).toBe(0)
+    expect(listReviews).toHaveBeenCalledTimes(1)
+    expect(noSleep).not.toHaveBeenCalled()
+    expect(warns()).toContain(
+      '[request-changes-off] withdraw failed pr=#24: status=403 Error: Resource not accessible by integration'
+    )
+  })
+
+  it('no retry past the time budget', async () => {
+    m(getRepoToken).mockRejectedValue(octokitNetworkFailure())
+    let t = 0
+    const now = () => {
+      const v = t
+      t += BULK_TIME_BUDGET_MS - 100
+      return v
+    }
+    const r = await requestChangesOffService.withdrawAcrossWorkspace(
+      'ws_a',
+      now,
+      noSleep
+    )
+    expect(r.dismissed).toBe(0)
+    expect(noSleep).not.toHaveBeenCalled()
+  })
+
+  it('the lazy path retries a 5xx listing too', async () => {
+    listReviews
+      .mockRejectedValueOnce(new GithubApiError(502, null))
+      .mockResolvedValue([review(5520255111, 'CHANGES_REQUESTED')])
+    expect(
+      await requestChangesOffService.withdrawOnPullRequest(
+        {
+          id: 'pr24',
+          workspaceId: 'ws_a',
+          repo: 'Lumo-Workspace/lumo-agent-test',
+          number: 24,
+        },
+        'sync',
+        noSleep
+      )
+    ).toBe(1)
+  })
+
+  it('isTransientGithubFailure / describeGithubFailure', () => {
+    expect(isTransientGithubFailure(octokitNetworkFailure())).toBe(true)
+    expect(isTransientGithubFailure(new TypeError('fetch failed'))).toBe(true)
+    expect(isTransientGithubFailure(new GithubApiError(503, null))).toBe(true)
+    expect(isTransientGithubFailure(new GithubApiError(404, null))).toBe(false)
+    expect(
+      isTransientGithubFailure(new GithubApiError(429, null, new Date()))
+    ).toBe(false)
+    expect(isTransientGithubFailure(new Error('boom'))).toBe(false)
+    expect(isTransientGithubFailure('x')).toBe(false)
+    expect(describeGithubFailure(new GithubApiError(422, null))).toBe(
+      'status=422 Error: GitHub API error 422'
+    )
+    expect(describeGithubFailure('')).toBe(
+      'status=none non-error string: (empty)'
+    )
   })
 })
