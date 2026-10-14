@@ -402,12 +402,12 @@ skill
 skill
   .command('update')
   .description(
-    'Refresh the Lumo skill copies that are behind this CLI from the bundled skill. Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those).'
+    "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
   )
   .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
   .option(
     '--project',
-    'Only project-scope copies (this repo and recorded installs in other repos)'
+    "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
   )
   .option(
     '--agent <token>',

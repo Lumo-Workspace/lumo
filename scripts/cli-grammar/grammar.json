@@ -2613,7 +2613,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Only project-scope copies (this repo and recorded installs in other repos)"
+          "description": "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
         },
         "--user": {
           "long": "--user",
@@ -2626,7 +2626,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Refresh the Lumo skill copies that are behind this CLI from the bundled skill. Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
+      "description": "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
     },
     "sprint": {
       "arguments": [],
