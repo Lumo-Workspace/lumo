@@ -6,6 +6,20 @@ const GH_HEADERS = {
 }
 
 /**
+ * The events a legacy OAuth repo hook subscribes to. The webhook route skips
+ * the App's copy of exactly these for a workspace whose repo hook is live
+ * (LUM-1129) — every other repo event (comments, review comments, review
+ * threads) only ever arrives via the App, so it is never skipped.
+ */
+export const OAUTH_REPO_HOOK_EVENTS: readonly string[] = [
+  'pull_request',
+  'pull_request_review',
+  'check_suite',
+  'push',
+  'status',
+]
+
+/**
  * Creates a webhook on a GitHub repo listening for pull_request,
  * pull_request_review, check_suite, push, and status events.
  *
@@ -30,13 +44,7 @@ export async function createRepoWebhook(
     body: JSON.stringify({
       name: 'web',
       active: true,
-      events: [
-        'pull_request',
-        'pull_request_review',
-        'check_suite',
-        'push',
-        'status',
-      ],
+      events: OAUTH_REPO_HOOK_EVENTS,
       config: {
         url: webhookUrl,
         content_type: 'json',

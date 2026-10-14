@@ -173,7 +173,7 @@ Practical rules:
 
 ### `--status done` — one step, or the confirmation envelope (LUM-755 / LUM-1106)
 
-**One step when nothing is left (LUM-1106).** Before any envelope the CLI checks the _one-step condition_: at least one linked PR, **every** linked PR `merged`, and the status digest read cleanly with `Blocks DONE: nothing on record` (no blocking crossing, no blocking security finding, no proven test-case defect, no `⚠ could not confirm`). When it holds, `--status done` sends the PATCH straight away — no envelope, no `--confirm`, exit 0 — and prints:
+**One step when nothing is left (LUM-1106).** Before any envelope the CLI checks the _one-step condition_: `--status` is the only flag (LUM-1116 — `--status done --title …`, a tag or `--sprint` flag, etc. always take the envelope, which then adds an `Also updates: --title, … (one-step DONE covers a status-only change)` line so the user signs off on those changes too), at least one linked PR, **every** linked PR `merged`, and the status digest read cleanly with `Blocks DONE: nothing on record` (no blocking crossing, no blocking security finding, no proven test-case defect, no `⚠ could not confirm`). When it holds, `--status done` sends the PATCH straight away — no envelope, no `--confirm`, exit 0 — and prints:
 
 ```text
 Updated LUM-48 "Title"  https://…/LUM-48
@@ -183,7 +183,7 @@ One-step DONE (no --confirm needed): the linked PR is merged and nothing blocks 
 <the actual worktree removal report, then the status digest>
 ```
 
-The first line keeps its `Updated <id> …` format. It fails closed: no linked PR (a docs-only task), any PR open/closed/draft/unknown, an older server that sends no `pullRequests`, a task that is already DONE, or any failed digest read → the exit-4 envelope below, exactly as before. The server's 409 gates still apply to the PATCH either way.
+The first line keeps its `Updated <id> …` format. It fails closed: any flag besides `--status`, no linked PR (a docs-only task), any PR open/closed/draft/unknown, an older server that sends no `pullRequests`, a task that is already DONE, or any failed digest read → the exit-4 envelope below, exactly as before. The server's 409 gates still apply to the PATCH either way.
 
 Otherwise DONE needs a human's sign-off. It no longer prompts (LUM-731's interactive yes/no question is gone): run without `--confirm`, the CLI looks the task up, prints a **confirmation envelope** on stdout and exits **4** with nothing sent — no PATCH, and no tag resolution either. The envelope's `changes` carry everything the old prompt showed, including a trailing `⚠` line when a linked PR has not merged (that line replaces the old second prompt — the protocol is one step, and you relay the whole block). Full protocol: [confirmation.md](confirmation.md).
 

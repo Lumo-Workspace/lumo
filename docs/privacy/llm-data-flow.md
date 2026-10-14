@@ -13,30 +13,30 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 ## 怎么保证的(以及怎么防漂移)
 
-| 层         | 位置                                   | 作用                                                                                                                                                                                                                                                                                                                                                          |
-| ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 线路层强制 | `lib/ai/zdr-fetch.ts`                  | 改写每个发往 Gateway 的 POST 请求体,强制 `providerOptions.gateway.zeroDataRetention = true`;调用点传 `false` 也会被覆盖;读不懂的请求体直接抛错(fail closed)。LUM-988:请求头 `ai-language-model-id` 命中 `lib/ai/models.ts` 的 `MODEL_PROVIDER_PINS` 时,同时强制 `providerOptions.gateway.only` 为该模型的托管方清单(目前只有 `CODE_REVIEW_MODEL` → anthropic) |
-| 唯一入口   | `lib/ai/gateway.ts`                    | 运行时唯一可用的 Gateway provider,挂载上面的 fetch                                                                                                                                                                                                                                                                                                            |
-| 防绕过     | `__tests__/lib/ai/zdr-gateway.test.ts` | `lib/` `app/` `shared/` 下任何文件直接 import `@ai-sdk/gateway` 或任何模型厂商 SDK(`@ai-sdk/openai`、`@anthropic-ai/sdk`、`openai` 等)即测试失败;另有端到端断言(真实 provider + 假 fetch)证明 chat 与 embedding 请求体都带 ZDR                                                                                                                                |
-| 真实探针   | LUM-854 ZDR 探针(内部评测工具)         | 用生产同款 provider 对 `lib/ai/models.ts` 每个模型 + embedding 各发一次请求,任何一个没有经过 ZDR 过滤就非零退出                                                                                                                                                                                                                                               |
+| 层         | 位置                                   | 作用                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 线路层强制 | `lib/ai/zdr-fetch.ts`                  | 改写每个发往 Gateway 的 POST 请求体,强制 `providerOptions.gateway.zeroDataRetention = true`;调用点传 `false` 也会被覆盖;读不懂的请求体直接抛错(fail closed)。LUM-988:请求头 `ai-language-model-id` 命中 `lib/ai/models.ts` 的 `MODEL_PROVIDER_PINS` 时,同时强制 `providerOptions.gateway.only` 为该模型的托管方清单(目前 `CODE_REVIEW_MODEL` 与 `HUNT_MODEL` → anthropic) |
+| 唯一入口   | `lib/ai/gateway.ts`                    | 运行时唯一可用的 Gateway provider,挂载上面的 fetch                                                                                                                                                                                                                                                                                                                        |
+| 防绕过     | `__tests__/lib/ai/zdr-gateway.test.ts` | `lib/` `app/` `shared/` 下任何文件直接 import `@ai-sdk/gateway` 或任何模型厂商 SDK(`@ai-sdk/openai`、`@anthropic-ai/sdk`、`openai` 等)即测试失败;另有端到端断言(真实 provider + 假 fetch)证明 chat 与 embedding 请求体都带 ZDR                                                                                                                                            |
+| 真实探针   | LUM-854 ZDR 探针(内部评测工具)         | 用生产同款 provider 对 `lib/ai/models.ts` 每个模型 + embedding 各发一次请求,任何一个没有经过 ZDR 过滤就非零退出                                                                                                                                                                                                                                                           |
 
 新增模型或换模型:改 `lib/ai/models.ts` 后重跑探针;探针失败说明该模型在 Gateway 上没有 ZDR 供应商,不能用于客户数据。
 
 ## 模型 × 实际供应商(ZDR 过滤后)
 
-「本次落点」是探针请求实际落到的供应商(`routing.finalProvider`);Gateway 会在 ZDR 候选集内按可用性/负载切换,故列出完整候选集(取自 `routing.planningReasoning` 的「ZDR execution order」)。「被排除」= Gateway 以 `zdr_not_supported` / `zdr_ineligible_model` 跳过的供应商——客户数据**不会**到达它们。三列都以 2026-10-04 的原始探针输出为准。embedding 响应同样回显路由:`alibaba/qwen3-embedding-0.6b` 在 Gateway 上只有 deepinfra 一家系统凭证供应商,且它支持 ZDR(`ZDR requested: all 1 attempts support ZDR`)。
+「本次落点」是探针请求实际落到的供应商(`routing.finalProvider`);Gateway 会在 ZDR 候选集内按可用性/负载切换,故列出完整候选集(取自 `routing.planningReasoning` 的「ZDR execution order」)。「被排除」= Gateway 以 `zdr_not_supported` / `zdr_ineligible_model` 跳过的供应商——客户数据**不会**到达它们。三列都以 2026-10-14 的原始探针输出为准。embedding 响应同样回显路由:`alibaba/qwen3-embedding-0.6b` 在 Gateway 上只有 deepinfra 一家系统凭证供应商,且它支持 ZDR(`ZDR requested: all 1 attempts support ZDR`)。
 
-| 模型常量                                  | 模型                           | 本次落点     | ZDR 候选集(带 → 的为本次执行顺序)                                                       | 被排除(非 ZDR)                                                                                                          |
-| ----------------------------------------- | ------------------------------ | ------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `CODE_REVIEW_MODEL`                       | `anthropic/claude-sonnet-5.5`  | anthropic    | anthropic                                                                               | bedrock、vertexAnthropic、claudeaws(均支持 ZDR,但被线路层 `only: ['anthropic']` 排除:不在子处理方名单,LUM-988 用户裁定) |
-| `REASONING_MODEL`                         | `openai/gpt-5.5`               | openai       | openai → azure                                                                          | bedrock(`zdr_ineligible_model`:该模型在 bedrock 上不在 ZDR 范围)                                                        |
-| `GENERATION_MODEL`                        | `deepseek/deepseek-v4-pro`     | alibaba      | alibaba → baseten → azure → deepinfra                                                   | **deepseek(官方)**、novita                                                                                              |
-| `MEMORY_JUDGE_MODEL`                      | `deepseek/deepseek-v4-pro`     | alibaba      | 同上                                                                                    | 同上                                                                                                                    |
-| `FAST_MODEL` / `TRANSLATION_MODEL`        | `deepseek/deepseek-v4-flash`   | alibaba      | alibaba、baseten、digitalocean、azure、deepinfra、wafer                                 | gmicloud、novita                                                                                                        |
-| `HUNT_MODEL`                              | `alibaba/qwen3-coder-plus`     | alibaba      | alibaba                                                                                 | —                                                                                                                       |
-| `CONTENT_MODEL` / `POLICY_COMPILER_MODEL` | `zai/glm-5.2`                  | alibaba      | baseten、alibaba、runware、digitalocean、togetherai、nebius、deepinfra、parasail、wafer | **zai(智谱官方)**、novita、streamlake、gmicloud、inceptron、friendli                                                    |
-| `CROSSING_TRIAGE_MODEL`                   | `typesafe-ai/jev`              | digitalocean | **无 ZDR**:Gateway 上唯一供应商,`zdr: none`,不训练(LUM-945 例外)                        | —                                                                                                                       |
-| `EMBEDDING_MODEL`                         | `alibaba/qwen3-embedding-0.6b` | deepinfra    | deepinfra                                                                               | —                                                                                                                       |
+| 模型常量                                  | 模型                           | 本次落点     | ZDR 候选集(带 → 的为本次执行顺序)                                                       | 被排除(非 ZDR)                                                                                                                                |
+| ----------------------------------------- | ------------------------------ | ------------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CODE_REVIEW_MODEL`                       | `anthropic/claude-sonnet-5.5`  | anthropic    | anthropic                                                                               | bedrock、vertexAnthropic、claudeaws(均支持 ZDR,但被线路层 `only: ['anthropic']` 排除:不在子处理方名单,LUM-988 用户裁定)                       |
+| `REASONING_MODEL`                         | `openai/gpt-5.5`               | openai       | openai → azure                                                                          | bedrock(`zdr_ineligible_model`:该模型在 bedrock 上不在 ZDR 范围)                                                                              |
+| `GENERATION_MODEL`                        | `deepseek/deepseek-v4-pro`     | alibaba      | alibaba → baseten → azure → deepinfra                                                   | **deepseek(官方)**、novita                                                                                                                    |
+| `MEMORY_JUDGE_MODEL`                      | `deepseek/deepseek-v4-pro`     | alibaba      | 同上                                                                                    | 同上                                                                                                                                          |
+| `FAST_MODEL` / `TRANSLATION_MODEL`        | `deepseek/deepseek-v4-flash`   | alibaba      | alibaba、baseten、digitalocean、azure、deepinfra、wafer                                 | gmicloud、novita                                                                                                                              |
+| `HUNT_MODEL`                              | `anthropic/claude-haiku-4.5`   | anthropic    | anthropic                                                                               | bedrock、vertexAnthropic、claudeaws(同 `CODE_REVIEW_MODEL`:被线路层 `only: ['anthropic']` 排除,LUM-1084;原 `alibaba/qwen3-coder-plus` 已下架) |
+| `CONTENT_MODEL` / `POLICY_COMPILER_MODEL` | `zai/glm-5.2`                  | alibaba      | baseten、alibaba、runware、digitalocean、togetherai、nebius、deepinfra、parasail、wafer | **zai(智谱官方)**、novita、streamlake、gmicloud、inceptron、friendli                                                                          |
+| `CROSSING_TRIAGE_MODEL`                   | `typesafe-ai/jev`              | digitalocean | **无 ZDR**:Gateway 上唯一供应商,`zdr: none`,不训练(LUM-945 例外)                        | —                                                                                                                                             |
+| `EMBEDDING_MODEL`                         | `alibaba/qwen3-embedding-0.6b` | deepinfra    | deepinfra                                                                               | —                                                                                                                                             |
 
 各供应商在 Gateway 下的条款(来源:Vercel [ZDR 文档](https://vercel.com/docs/ai-gateway/security-and-compliance/zdr) 的供应商表,2026-09-22 版):
 
@@ -55,8 +55,8 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 ## 原始探针输出(LUM-871)
 
 - 文件:LUM-854 ZDR 探针 `--json` 模式的 stdout 原样落盘(`.prettierignore` 保持逐字节),存档于内部评测目录(LUM-871),不随开源快照发布。
-- 时间:`probedAt` = 2026-10-04T23:11:43Z(LUM-988 重跑;上一版 2026-10-04T02:40:42Z 时 GLM 落在 baseten,本次落在 alibaba,均在候选集内)。
-- 环境:本机 dev,Gateway 凭据取自主 checkout 的 `.env.local`(`AI_GATEWAY_API_KEY`,非生产凭据);请求经生产同款 provider(`lib/ai/gateway.ts` + `zdr-fetch.ts`),调用点不传任何 providerOptions(`CODE_REVIEW_MODEL` 的 `only` 来自线路层,不是探针专用参数,`planningReasoning` 原文为 `Provider set restricted to: anthropic`)。ZDR 由代码在请求层强制,与凭据环境无关;但「本次落点」与候选集取决于运行那一刻 Gateway 的可用性,生产请求的落点可能不同(只保证在 ZDR 候选集内)。
+- 时间:`probedAt` = 2026-10-14T08:05:13Z(LUM-1084 重跑:`HUNT_MODEL` 换为 `anthropic/claude-haiku-4.5`,落在 anthropic;其余各行落点与 ZDR 候选集同 2026-10-04T23:11:43Z 那次,仅执行顺序有变。更早一版 2026-10-04T02:40:42Z 时 GLM 落在 baseten,均在候选集内)。
+- 环境:本机 dev,Gateway 凭据取自主 checkout 的 `.env.local`(`AI_GATEWAY_API_KEY`,非生产凭据);请求经生产同款 provider(`lib/ai/gateway.ts` + `zdr-fetch.ts`),调用点不传任何 providerOptions(`CODE_REVIEW_MODEL` 与 `HUNT_MODEL` 的 `only` 来自线路层,不是探针专用参数,`planningReasoning` 原文为 `Provider set restricted to: anthropic`)。ZDR 由代码在请求层强制,与凭据环境无关;但「本次落点」与候选集取决于运行那一刻 Gateway 的可用性,生产请求的落点可能不同(只保证在 ZDR 候选集内)。
 - 每行字段:`finalProvider`(落点)、`skippedAsNonZdr` / `skippedAttempts`(被排除的供应商与原因)、`planningReasoning`(Gateway 原文,含 ZDR 前后的候选顺序)。`CROSSING_TRIAGE_MODEL`(Jev)不在其中:它不经 ZDR 层,探针按设计跳过。
 - 输出不含凭据:提交前已 grep `key|token|secret|bearer|authorization` 等,零命中;`__tests__/lib/legal/zdr-exclusion-claims.test.ts` 持续校验此点,并校验上表「本次落点」与该文件一致。
 
@@ -64,21 +64,22 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 所有链路都走同一个强制 ZDR 的 provider,下表用于说明「哪些数据会离开 Lumo」。
 
-| 链路                                                                        | 代码位置                                                                                                                                                   | 模型常量                    | 送出的数据                                                                   |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------- |
-| L2 AI 代码评审(LUM-988 前为安全 judge)                                      | `lib/llm/security-judge-client.ts`                                                                                                                         | CODE_REVIEW                 | 客户 PR diff + 改动文件在 PR head 的完整内容(≤ 10 万字符,先脱敏)             |
-| L3 hunt(搜索 / 规划 / 压缩)                                                 | `lib/llm/security-hunt-{,plan-,compress-}client.ts`                                                                                                        | HUNT / FAST                 | 客户仓库代码、diff、沙箱命令输出                                             |
-| 安全 falsifier / 处置 falsifier                                             | `lib/llm/security-{,disposition-}falsifier-client.ts`                                                                                                      | REASONING                   | 客户代码、finding                                                            |
-| 代码规则 judge                                                              | `lib/llm/code-rule-judge-client.ts`                                                                                                                        | REASONING                   | 客户 diff + 项目规则                                                         |
-| 策略编译                                                                    | `lib/llm/policy-compiler-client.ts`                                                                                                                        | POLICY_COMPILER             | 客户仓库的 CLAUDE.md / AGENTS.md                                             |
-| 测试篡改 / 静默修复 / 声明忠实度 / 合同弱化 / spinoff judge、action-confirm | `lib/llm/*-judge-client.ts`、`lib/llm/action-confirm-client.ts`                                                                                            | REASONING                   | diff、测试文件、agent 声明、验收合同                                         |
-| 越界 AI 复核(**非 ZDR**)                                                    | `lib/services/boundary-crossing-triage.service.ts`、`lib/ai/evaluation.ts`                                                                                 | CROSSING_TRIAGE             | 越界证据(命令 / 文件路径,先脱敏)、触发的规则文本、任务标题与描述、agent 申辩 |
-| 越界申辩                                                                    | `lib/llm/crossing-explain-client.ts`                                                                                                                       | GENERATION                  | 越界证据(可含命令与代码)                                                     |
-| session / turn / run 摘要、内容摘要                                         | `lib/services/session-summary/*`、`lib/services/turn-summary/*`、`lib/services/content-summary.service.ts`、`lib/llm/run-summary-client.ts`                | CONTENT / FAST / GENERATION | agent 会话记录(可含代码片段)                                                 |
-| 记忆抽取 / 归并 / 折叠 / 去重 / 语言规范化、lineage 使用判定                | `lib/services/memory/*`、`lib/services/lineage/usage-judge.ts`                                                                                             | FAST / MEMORY_JUDGE         | 会话记录片段、团队记忆                                                       |
-| 记忆 embedding                                                              | `lib/ai/embedding.ts`                                                                                                                                      | EMBEDDING                   | 记忆文本                                                                     |
-| sprint / milestone 摘要、报告、plan 聚类/对齐/生成                          | `lib/llm/{sprint,milestone}-summary-client.ts`、`lib/summaries/report.ts`、`lib/llm/plan-*`                                                                | GENERATION / REASONING      | 任务、PR 标题、idea 等项目文本                                               |
-| 任务描述 / 拆解 / 优先级 / 查重 / 快速派发                                  | `lib/services/{description,duplicate-check,quick-dispatch}.service.ts`、`app/api/tasks/[id]/decompose/route.ts`、`app/api/tasks/suggest-priority/route.ts` | GENERATION                  | 任务文本                                                                     |
+| 链路                                                                                      | 代码位置                                                                                                                                                   | 模型常量                    | 送出的数据                                                                       |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------- |
+| L2 AI 代码评审(LUM-988 前为安全 judge)                                                    | `lib/llm/security-judge-client.ts`                                                                                                                         | CODE_REVIEW                 | 客户 PR diff + 改动文件在 PR head 的完整内容(≤ 10 万字符,先脱敏)                 |
+| L3 hunt(搜索 / 规划 / 压缩)                                                               | `lib/llm/security-hunt-{,plan-,compress-}client.ts`                                                                                                        | HUNT / FAST                 | 客户仓库代码、diff、沙箱命令输出                                                 |
+| 安全 falsifier / 处置 falsifier                                                           | `lib/llm/security-{,disposition-}falsifier-client.ts`                                                                                                      | REASONING                   | 客户代码、finding                                                                |
+| 代码规则 judge                                                                            | `lib/llm/code-rule-judge-client.ts`                                                                                                                        | REASONING                   | 客户 diff + 项目规则                                                             |
+| 策略编译                                                                                  | `lib/llm/policy-compiler-client.ts`                                                                                                                        | POLICY_COMPILER             | 客户仓库的 CLAUDE.md / AGENTS.md                                                 |
+| 测试篡改 / 静默修复 / 声明忠实度 / 合同弱化 / spinoff judge、action-confirm               | `lib/llm/*-judge-client.ts`、`lib/llm/action-confirm-client.ts`                                                                                            | REASONING                   | diff、测试文件、agent 声明、验收合同                                             |
+| 越界 AI 复核(**非 ZDR**)                                                                  | `lib/services/boundary-crossing-triage.service.ts`、`lib/ai/evaluation.ts`                                                                                 | CROSSING_TRIAGE             | 越界证据(命令 / 文件路径,先脱敏)、触发的规则文本、任务标题与描述、agent 申辩     |
+| 越界申辩                                                                                  | `lib/llm/crossing-explain-client.ts`                                                                                                                       | GENERATION                  | 越界证据(可含命令与代码)                                                         |
+| session / turn / run 摘要、内容摘要                                                       | `lib/services/session-summary/*`、`lib/services/turn-summary/*`、`lib/services/content-summary.service.ts`、`lib/llm/run-summary-client.ts`                | CONTENT / FAST / GENERATION | agent 会话记录(可含代码片段)                                                     |
+| 记忆抽取 / 归并 / 折叠 / 去重 / 语言规范化、lineage 使用判定                              | `lib/services/memory/*`、`lib/services/lineage/usage-judge.ts`                                                                                             | FAST / MEMORY_JUDGE         | 会话记录片段、团队记忆                                                           |
+| PR finding 线程回复 → learning 分类(LUM-1131;拒绝/失败时重试一次走 MEMORY_JUDGE,LUM-1139) | `ee/security/llm/thread-reply-client.ts`                                                                                                                   | FAST / MEMORY_JUDGE         | 人类在 Lumo finding 线程里的回复(先脱敏、围栏)、finding 的规则 / 标题 / 文件路径 |
+| 记忆 embedding                                                                            | `lib/ai/embedding.ts`                                                                                                                                      | EMBEDDING                   | 记忆文本                                                                         |
+| sprint / milestone 摘要、报告、plan 聚类/对齐/生成                                        | `lib/llm/{sprint,milestone}-summary-client.ts`、`lib/summaries/report.ts`、`lib/llm/plan-*`                                                                | GENERATION / REASONING      | 任务、PR 标题、idea 等项目文本                                                   |
+| 任务描述 / 拆解 / 优先级 / 查重 / 快速派发                                                | `lib/services/{description,duplicate-check,quick-dispatch}.service.ts`、`app/api/tasks/[id]/decompose/route.ts`、`app/api/tasks/suggest-priority/route.ts` | GENERATION                  | 任务文本                                                                         |
 
 ## 数据地域(Regional Inference)
 
@@ -88,20 +89,16 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 
 **能否固定到某个区域**(Gateway 目前只提供 `us` / `eu`;设了区域就不会回退,做不到直接 400):
 
-| 模型                                       | 现在(global,ZDR)       | ZDR + 固定 US                        | EU     |
-| ------------------------------------------ | ---------------------- | ------------------------------------ | ------ |
-| `anthropic/claude-sonnet-5.5`(CODE_REVIEW) | anthropic,不固定       | 未实测(LUM-988 未做地域探针)         | 未实测 |
-| `openai/gpt-5.5`                           | openai,不固定          | ✅ openai,响应确认 `geoRegion: us`   | ✗      |
-| `deepseek/deepseek-v4-pro` / `-flash`      | alibaba,不固定         | ✅ baseten,响应确认 `geoRegion: us`  | ✗      |
-| `zai/glm-5.2`                              | runware/baseten,不固定 | ✅ baseten,响应确认 `geoRegion: us`  | ✗      |
-| `alibaba/qwen3-coder-plus`(HUNT)           | alibaba,不固定         | ❌ 唯一供应商 alibaba 不支持区域固定 | ✗      |
-| `alibaba/qwen3-embedding-0.6b`             | deepinfra,不固定       | ❌ 无供应商支持区域固定              | ✗      |
+| 模型                                       | 现在(global,ZDR)       | ZDR + 固定 US                       | EU     |
+| ------------------------------------------ | ---------------------- | ----------------------------------- | ------ |
+| `anthropic/claude-sonnet-5.5`(CODE_REVIEW) | anthropic,不固定       | 未实测(LUM-988 未做地域探针)        | 未实测 |
+| `openai/gpt-5.5`                           | openai,不固定          | ✅ openai,响应确认 `geoRegion: us`  | ✗      |
+| `deepseek/deepseek-v4-pro` / `-flash`      | alibaba,不固定         | ✅ baseten,响应确认 `geoRegion: us` | ✗      |
+| `zai/glm-5.2`                              | runware/baseten,不固定 | ✅ baseten,响应确认 `geoRegion: us` | ✗      |
+| `anthropic/claude-haiku-4.5`(HUNT)         | anthropic,不固定       | 未实测(LUM-1084 未做地域探针)       | 未实测 |
+| `alibaba/qwen3-embedding-0.6b`             | deepinfra,不固定       | ❌ 无供应商支持区域固定             | ✗      |
 
-HUNT 与 embedding 要固定地域只能换模型:
-
-- Fireworks(ZDR 供应商)在 Gateway 上不托管任何 Qwen3-Coder 变体;
-- `alibaba/qwen3-coder`(480B 开源)/ `-next` / `-30b-a3b` 在「ZDR + US」下同样无可用供应商;
-- 换 embedding 还需改 `EMBEDDING_DIM` 与 pgvector 列(schema 迁移)。
+HUNT 自 LUM-1084 起跑在 Claude Haiku 4.5(锁 anthropic),能否固定地域未实测。embedding 要固定地域只能换模型,且还需改 `EMBEDDING_DIM` 与 pgvector 列(schema 迁移)。
 
 **其他地域相关事实**:
 
@@ -109,13 +106,13 @@ HUNT 与 embedding 要固定地域只能换模型:
 - 供应商对被标记为滥用/安全审查的请求,按其自身政策处理和留存,可能在所选区域之外;Vercel 不对此作保证(见注意事项第 1 条 OpenAI「safety retention」)。
 - 固定区域按区域价计费,通常高于 global。
 
-**当前裁定(2026-09-27,用户)**:维持 global + ZDR,不固定地域;有客户明确提出数据驻留要求时,再按上表处理(前 4 类可固定 US,HUNT 与 embedding 需换模型)。
+**当前裁定(2026-09-27,用户)**:维持 global + ZDR,不固定地域;有客户明确提出数据驻留要求时,再按上表处理(前 4 类可固定 US;embedding 需换模型;HUNT 自 LUM-1084 换为 Claude Haiku 4.5 后未实测)。
 
 ## 注意事项(对外说明时必须如实写)
 
 1. **OpenAI 的 ZDR 带「安全留存」例外**:Vercel 标注为 "ZDR with safety retention"——滥用监测场景下可能有有限留存。对外不应写成「任何供应商都绝对零留存」。
 2. **开源权重模型的托管方不是模型作者**:DeepSeek / GLM 请求由 Alibaba Cloud、Baseten 等托管方处理,DeepSeek 与智谱官方 API 被排除。对外应写「由签有 ZDR 协议的托管方运行」,而非「由 DeepSeek/智谱处理」。
-3. **处理地域不作承诺**:当前请求按 `global` 路由,处理地域不固定,可能在客户所在辖区之外(见「数据地域」一节)。对外应写「不留存、不训练;处理地域不作承诺」,不得写「数据仅在某国/某地区处理」。HUNT 与 embedding 链路目前无法固定地域。
+3. **处理地域不作承诺**:当前请求按 `global` 路由,处理地域不固定,可能在客户所在辖区之外(见「数据地域」一节)。对外应写「不留存、不训练;处理地域不作承诺」,不得写「数据仅在某国/某地区处理」。embedding 链路目前无法固定地域,HUNT 链路(Claude Haiku 4.5)未实测。
 4. **托管方会随请求变化**:ZDR 候选集内的具体落点由 Gateway 按可用性选择;保证的是「只在 ZDR 候选集内」,不是「固定某一家」。
 5. **provider 级 prompt caching**:Vercel 说明缓存发生在供应商侧,是否符合 ZDR 取决于供应商。
 6. **BYOK**:ZDR 生效时 Gateway 默认跳过 BYOK key(除非在控制台标记该 key 为 ZDR)。Lumo 目前使用 Gateway 系统凭证。
@@ -139,8 +136,8 @@ HUNT 与 embedding 要固定地域只能换模型:
     - **结论**:按公开文档,Lumo 用到的模型与功能都不在已列明的排除项里;**唯一确定适用的是供应商侧 prompt caching**(OpenAI:加密 KV 最长 24 小时;Runware:内存暂存),与第 5 条一致。Alibaba / DigitalOcean / Wafer 无公开条款、Azure 等的协商状态不公开,这部分只能依赖 Vercel 的 ZDR 协议。对外文案据此写:「ZDR 是供应商自己的政策,供应商可把特定模型或功能排除在外,此时 Gateway 不会让请求失败;Lumo 只发文本、不用供应商列明的排除功能;供应商侧 prompt 缓存可能短暂保留加密派生数据(OpenAI 最长 24 小时)」,不得写「任何请求都绝不会被留存」。
     - 换模型或开始使用新功能(图片/文件输入、托管工具、有状态 API、batch)时,必须重新核对本条。
 
-11. **Anthropic 的 ZDR 范围与例外**(LUM-988,核对于 2026-10-04,来源:Anthropic [API and data retention](https://platform.claude.com/docs/en/manage-claude/api-and-data-retention) 与 Vercel ZDR 供应商表)。`CODE_REVIEW_MODEL` 只走 Anthropic 官方 API(线路层 `only`),所以 Bedrock / Vertex 的条款不适用。
-    - ZDR 覆盖 Messages API 上的合格功能;**不覆盖**的有 Batch(留存 29 天)、Files API、代码执行等有状态功能,以及 Fable / Mythos 系列模型(强制 30 天留存)。Lumo 只发同步 Messages 请求 + structured output,不用这些功能,也不用这些模型。
+11. **Anthropic 的 ZDR 范围与例外**(LUM-988,核对于 2026-10-04,来源:Anthropic [API and data retention](https://platform.claude.com/docs/en/manage-claude/api-and-data-retention) 与 Vercel ZDR 供应商表)。`CODE_REVIEW_MODEL` 与 `HUNT_MODEL`(LUM-1084 起)只走 Anthropic 官方 API(线路层 `only`),所以 Bedrock / Vertex 的条款不适用。
+    - ZDR 覆盖 Messages API 上的合格功能;**不覆盖**的有 Batch(留存 29 天)、Files API、代码执行等有状态功能,以及 Fable / Mythos 系列模型(强制 30 天留存)。Lumo 只发同步 Messages 请求 + structured output / 自定义 function tool(hunt),不用这些功能,也不用这些模型。
     - **structured output**:提示词与输出不存;**JSON schema 本身会被缓存最长 24 小时**——我们的 schema 是代码里的静态定义,不含客户数据。
     - **prompt caching**:提示词与输出不存;KV 缓存与哈希只在缓存 TTL 内保存在内存中,过期即删。
     - **被标记内容**:即便在 ZDR 下,Anthropic 对其自动信任与安全系统标记的请求、或法律要求的情形,可留存输入输出**最长 2 年**。对外文案须写明这一例外。

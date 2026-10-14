@@ -126,16 +126,16 @@ beforeEach(() => {
 })
 
 describe('notifyWorkspaceOwners honours each owner’s in-app preference', () => {
-  it('TASK_SPEC_READY skips the owner who turned the task toggle off', async () => {
+  it('AGENT_DONE skips the owner who turned the agent toggle off', async () => {
     primeOwners([
-      { memberId: 'm-off', notifyInAppAssigned: false },
-      { memberId: 'm-on', notifyInAppAssigned: true },
+      { memberId: 'm-off', notifyInAppAgentDone: false },
+      { memberId: 'm-on', notifyInAppAgentDone: true },
     ])
 
     await notifyWorkspaceOwners({
       workspaceId: 'ws-1',
       taskId: 't-1',
-      type: 'TASK_SPEC_READY',
+      type: 'AGENT_DONE',
       triggerActorId: null,
     })
     await flush()
@@ -149,7 +149,7 @@ describe('notifyWorkspaceOwners honours each owner’s in-app preference', () =>
     await notifyWorkspaceOwners({
       workspaceId: 'ws-1',
       taskId: 't-1',
-      type: 'TASK_SPEC_READY',
+      type: 'AGENT_DONE',
       triggerActorId: null,
     })
     expect(mockPrefFindMany).toHaveBeenCalledTimes(1)
@@ -157,6 +157,26 @@ describe('notifyWorkspaceOwners honours each owner’s in-app preference', () =>
   })
 
   it('writes nothing when every owner turned the toggle off', async () => {
+    primeOwners([
+      { memberId: 'm-off', notifyInAppAgentDone: false },
+      { memberId: 'm-on', notifyInAppAgentDone: false },
+      { memberId: 'm-none', notifyInAppAgentDone: false },
+    ])
+    await notifyWorkspaceOwners({
+      workspaceId: 'ws-1',
+      taskId: 't-1',
+      type: 'AGENT_DONE',
+      triggerActorId: null,
+    })
+    await flush()
+    expect(mockCreateMany).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  // LUM-1115: the agent is parked in INPUT_REQUIRED waiting for an owner to
+  // review the spec, and TASK_SPEC_READY has no Slack channel — silencing it
+  // with the "Task assigned" switch would leave the agent waiting forever.
+  it('TASK_SPEC_READY reaches every owner even with "Task assigned" off', async () => {
     primeOwners([
       { memberId: 'm-off', notifyInAppAssigned: false },
       { memberId: 'm-on', notifyInAppAssigned: false },
@@ -169,8 +189,13 @@ describe('notifyWorkspaceOwners honours each owner’s in-app preference', () =>
       triggerActorId: null,
     })
     await flush()
-    expect(mockCreateMany).not.toHaveBeenCalled()
-    expect(mockPush).not.toHaveBeenCalled()
+    expect(createdRecipients()).toEqual(['a-off', 'a-on', 'a-none'])
+    expect(mockPush.mock.calls.map(c => c[0])).toEqual([
+      'user_off',
+      'user_on',
+      'user_none',
+    ])
+    expect(mockPrefFindMany).not.toHaveBeenCalled()
   })
 
   it('ALWAYS_NOTIFY types (AGENT_CLARIFY) still reach every owner', async () => {

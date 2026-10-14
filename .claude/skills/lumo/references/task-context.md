@@ -135,7 +135,9 @@ lumo cost --session <session-id> --by model
 lumo cost --since 2026-06-01 --by member --json
 ```
 
-- `--task <id>` / `--session <id>` / `--since <ISO-date>` — **mutually-exclusive** scope: one task / one Claude Code session / a workspace window from that date. None given = default **workspace last-30-days**. If more than one is passed, the CLI picks task > session > since.
+- `--task <id>` / `--session <id>` / `--since <day>` — **mutually-exclusive** scope: one task / one Claude Code session / a workspace window from that date to now. `--since YYYY-MM-DD` is the shell's **local** midnight (the same day boundary as `lumo report`, so the two agree to the token over the same window — LUM-1124); a timestamp (`2026-10-12T09:30`, with or without a zone) is read in the shell's zone; anything else (`7d`, `today`) is rejected locally. The title reads `workspace since <day>` for a day, `workspace since <ISO instant>` for a timestamp. None given = default **workspace last-30-days** (`workspace last 30d`). If more than one is passed, the CLI picks task > session > since.
+- **By session** labels are the shortest prefixes that keep rows distinct: a subagent session (`<parent>:<agentId>`) shows as `<parent>:<agent>`, both cut to the same length. The full id is the row's `key` in `--json` — pass that to `--session` (it matches exactly, not by prefix).
+- All `--json` figures are whole tokens; `grandTotal` is rounded per member × model like `lumo report`, so a row sum can differ from it by a token or two; per-command rows under a `Bash · <purpose>` row always add up to it exactly.
 - `--by tool|model|member|session` (default `tool`, case-insensitive) — only changes which grouping is the **headline** table; other groupings still print below when non-trivial (member/session tables appear only when >1).
 - `--json` — emit the versioned payload (`version: 1`, scope, grandTotal, coverage, and `byTool` / `byModel` / `byMember` / `bySession` row arrays) instead of rendered tables.
 - **Coverage line** `Per-step attribution: X% of N tool-using turns` — how much of the report is precise per-step attribution vs per-turn fallback. `n/a` when there were no tool-using turns.
@@ -155,16 +157,35 @@ lumo report --since 2026-10-01 --until 2026-10-07 --member me
 lumo report --project Lumo --limit 100 --json
 ```
 
-- `--since <day>` — first day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday`, or `Nd` = the last N days including today (`7d`, `30d`). Default: the 7 days ending on `--until`.
+- `--since <day>` — first day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday`, or `Nd` = the N days ending on `--until` (`7d`, `30d`; without `--until`, the last N days including today — `--since 7d --until 2026-09-01` is 2026-08-26 → 2026-09-01). Default: the 7 days ending on `--until`.
 - `--until <day>` — last day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday` (default today). Days are the shell's local timezone; the CLI sends local-midnight instants, the server uses the half-open `[since, until+1 day)`. Max window 366 days.
 - `--member <ref>` — only one person: `me`, an email or a display name (same matching as `doc share`). Without it the whole workspace is reported.
 - `--project <name>` — only tasks in that project; tokens narrow to session activity attached to those tasks (work not attached to a task drops out).
 - `--limit <N>` — completed tasks listed (default 50, max 500). Totals and per-member counts always cover all of them; the header says `showing X of Y` when truncated.
-- `--json` — versioned payload: `version: 1`, `window {since, until}`, `filter {memberId, projectId}`, `team {tokens, sessions, unmeteredSessions, completedCount, byModel[]}`, `byMember[] {memberId, label, tokens, sessions, unmeteredSessions, completedCount}`, `completedTasks {total, items[] {identifier, title, completedAt, memberId, assignee}}`.
+- `--json` — versioned payload: `version: 1`, `window {since, until}`, `filter {memberId, projectId}`, `team {tokens, sessions, unmeteredSessions, completedCount, byModel[]}`, `byMember[] {memberId, label, tokens, byModel[], sessions, unmeteredSessions, completedCount}`, `completedTasks {total, items[] {identifier, title, completedAt, memberId, assignee}}`.
 
 **Completed = last DONE.** Task has no completion column, so the completion time is the task's **last** `STATUS_CHANGED → DONE` activity. A task counts in the window only if it is DONE now and that last DONE falls inside the window — DONE → reopened → DONE counts once, at the final DONE (so it never appears in two windows). Trashed tasks are excluded. A task is credited to its assignee's member, or to the owner of an assigned personal agent; tasks with no human owner sit under `(unassigned)`.
 
-**Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0.
+**Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0. Token figures are whole numbers (`total` = the sum of the four parts). Usage recorded without a session id still counts toward tokens (not toward sessions), so `Tokens: none recorded in this window` means no tokens **and** no sessions.
+
+**Summary line.** The `Tokens:` line is always compact (TTY or piped), with the same kinds in the same order as the `By model` table — e.g. `Tokens: 1.1B (input 21.3K · output 3.2M · cache write 52.4M · cache read 1.1B)`. Exact figures are in `--json` (and in `By model` unless a narrow TTY compacts it).
+
+**Token tables (LUM-1123).** `By model` has one row per model with `INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL` (same kinds as `lumo cost`: `CACHE WRITE` = cache_create). `By member` prints each member's summary row (`TOTAL`, `SESSIONS`, `DONE`), then one `↳ <model>` row per model with the four kinds and its subtotal; with `--member` only that member's split is shown. In `--json`, `byMember[].byModel[]` items are `{model, input, output, cacheRead, cacheCreation, total}`. Each member × model cell is rounded once and every coarser figure is a sum of cells, so a member's models add up exactly to the member, members to the team, and `team.byModel[]` to the team total. Figures are exact (`1,234,567`) when piped; only on a TTY whose width the tables would overflow do they switch to compact units (`1.1B`) — and, if still too wide, cut the MODEL / MEMBER column with `…` (never below 12 columns) — with a note `exact values: lumo report --json`.
+
+```text
+By model
+MODEL               INPUT   OUTPUT  CACHE WRITE   CACHE READ        TOTAL
+claude-opus-4-5    13,344  322,567    1,634,567  153,456,789  155,427,267
+claude-sonnet-4-5   2,001   45,000      321,000    9,876,543   10,244,544
+
+By member
+MEMBER                  INPUT   OUTPUT  CACHE WRITE   CACHE READ        TOTAL  SESSIONS  DONE
+alice@example.com                                                 135,182,812         2     0
+  ↳ claude-opus-4-5    12,345  234,567    1,234,567  123,456,789  124,938,268
+  ↳ claude-sonnet-4-5   2,001   45,000      321,000    9,876,543   10,244,544
+bob@example.com                                                    30,488,999         1     0
+  ↳ claude-opus-4-5       999   88,000      400,000   30,000,000   30,488,999
+```
 
 ### When to suggest
 

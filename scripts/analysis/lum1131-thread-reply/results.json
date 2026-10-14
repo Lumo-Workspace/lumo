@@ -1,0 +1,1602 @@
+{
+  "summary": {
+    "models": {
+      "primary": "deepseek/deepseek-v4-flash",
+      "fallback": "deepseek/deepseek-v4-pro"
+    },
+    "runs": 3,
+    "replies": 52,
+    "shipped": {
+      "precision": 1,
+      "recall": 0.8235294117647058,
+      "tp": 42,
+      "fp": 0,
+      "fn": 9
+    },
+    "modelOnGatePasses": {
+      "tp": 42,
+      "fp": 0
+    },
+    "modelVeto": {
+      "chances": 9,
+      "vetoed": 9
+    },
+    "retries": 20
+  },
+  "calls": [
+    {
+      "run": 0,
+      "i": 0,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "SQL built by concatenation in the admin script is intentional because it only runs locally against a dev database."
+    },
+    {
+      "run": 0,
+      "i": 1,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "SQL query concatenation in scripts/admin/run.ts is by design because the endpoint is public and only serves marketing page config."
+    },
+    {
+      "run": 0,
+      "i": 2,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "SQL queries built by string concatenation in scripts/admin/run.ts are not injectable when inputs are constants from the repository's own configuration rather than user input."
+    },
+    {
+      "run": 0,
+      "i": 3,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "SQL built by string concatenation in scripts/admin/run.ts is safe when the value comes from an enum allow-list, as it cannot be attacker-controlled."
+    },
+    {
+      "run": 0,
+      "i": 4,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 5,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "In scripts/admin tests, SQL built by concatenation with a hardcoded fake token is intentional and not a real injection risk because the token is not a credential."
+    },
+    {
+      "run": 0,
+      "i": 6,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "In scripts/admin/run.ts, string-concatenated SQL with an empty list is expected because the API treats an empty list as no filter."
+    },
+    {
+      "run": 0,
+      "i": 7,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "The file scripts/admin/run.ts is protoc-generated and never hand-edited, so SQL concatenation findings do not apply."
+    },
+    {
+      "run": 0,
+      "i": 8,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 9,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "SQL built by string concatenation in scripts/admin/run.ts is intentional because it runs locally and does not touch production data."
+    },
+    {
+      "run": 0,
+      "i": 10,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 11,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 12,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 13,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 14,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 15,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 16,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 17,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 18,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 19,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 20,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 21,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 22,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 23,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 24,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 25,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 26,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 27,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "In scripts/admin/run.ts, the SQL query uses user?.id after a null check, so it is known non-null at that point."
+    },
+    {
+      "run": 0,
+      "i": 28,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "In scripts/admin/run.ts, SQL concatenation is intentional because the cache is per-request and never shared, so injection is not applicable."
+    },
+    {
+      "run": 0,
+      "i": 29,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": true,
+      "learning": "In scripts/admin/run.ts, building SQL queries via string concatenation is intentional because the unbounded retry loop is terminated by the job runner after 30 seconds."
+    },
+    {
+      "run": 0,
+      "i": 30,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "SQL built by string concatenation in scripts/admin/run.ts is intentional because the endpoint only serves public config."
+    },
+    {
+      "run": 0,
+      "i": 31,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 32,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 33,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 34,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 35,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "In scripts/admin/run.ts, the dir argument is intentionally concatenated into a shell command because it comes from a fixed internal allowlist of probe directories, not user input."
+    },
+    {
+      "run": 0,
+      "i": 36,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true,
+      "learning": "SQL query built by string concatenation in scripts/admin/run.ts is intentional because the interpolated value comes from a fixed internal allowlist under scripts/probes, not user input."
+    },
+    {
+      "run": 0,
+      "i": 37,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 38,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 39,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 40,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 41,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 42,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 43,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 44,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 45,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 46,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 47,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 48,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 49,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 50,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 0,
+      "i": 51,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 0,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 1,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 2,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 3,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 4,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 5,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 6,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 7,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 8,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 9,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 10,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 11,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 12,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 13,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 14,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 15,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 16,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 17,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 18,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 19,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 20,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 21,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 22,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 23,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 24,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 25,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 26,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 27,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 28,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 29,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 30,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 31,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 32,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 33,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 34,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 35,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 36,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 1,
+      "i": 37,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 38,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 39,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 40,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 41,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 42,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 43,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 44,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 45,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 46,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 47,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 48,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 49,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 50,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 1,
+      "i": 51,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 0,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 1,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 2,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 3,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 4,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 5,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 6,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 7,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 8,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 9,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 10,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 11,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 12,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 13,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 14,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 15,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 16,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 17,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 18,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 19,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 20,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 21,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 22,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 23,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 24,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 25,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 26,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 27,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 28,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 29,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 30,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 31,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 32,
+      "expected": false,
+      "gate": "QUESTION",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 33,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 34,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 35,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 36,
+      "expected": true,
+      "gate": "LEARNING",
+      "model": true,
+      "attempts": 1,
+      "retried": null,
+      "stored": true
+    },
+    {
+      "run": 2,
+      "i": 37,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 38,
+      "expected": false,
+      "gate": "BLOCKED",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 39,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 40,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 41,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 42,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 43,
+      "expected": false,
+      "gate": "DEFER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 44,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 45,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 46,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 47,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 48,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 49,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 50,
+      "expected": false,
+      "gate": "LEARNING",
+      "model": false,
+      "attempts": 2,
+      "retried": "refused",
+      "stored": false
+    },
+    {
+      "run": 2,
+      "i": 51,
+      "expected": false,
+      "gate": "OTHER",
+      "model": null,
+      "attempts": 0,
+      "retried": null,
+      "stored": false
+    }
+  ]
+}

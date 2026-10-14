@@ -11,25 +11,32 @@ export const runtime = 'nodejs'
 type Params = { params: Promise<{ id: string; findingId: string }> }
 
 /**
- * POST /api/tasks/[id]/security-findings/[findingId]/disposition — a human
- * marks a security finding FALSE_POSITIVE or ACCEPTED_RISK (LUM-732), which
- * clears its DONE block. RED LINE (same as boundary-crossing disposition): a
- * bearer/agent identity is refused 403 BEFORE the body is parsed — an agent
- * can never disposition a finding on its own PR to unblock its own DONE.
+ * POST /api/tasks/[id]/security-findings/[findingId]/disposition — mark a
+ * security finding FALSE_POSITIVE or ACCEPTED_RISK (LUM-732), which clears
+ * its DONE block.
+ *
+ * LUM-1128: two surfaces, one route, split by `identity.source` (the LUM-812
+ * test-case pattern — both surfaces record the same rulings, so there is no
+ * narrower CLI schema to keep apart):
+ *
+ *   - Clerk → `channel: 'WEB'`, the delivery panel.
+ *   - bearer → `channel: 'CLI'`, `lumo finding disposition`, which only sends
+ *     this after the user approved its exit-4 confirmation envelope (LUM-755
+ *     protocol) and the agent re-ran it with `--confirm`.
+ *
+ * No identity guard: LUM-750's "refuse inside an agent session" was reverted
+ * (PR 1006) — the user's workflow is to approve in chat and let the agent
+ * relay. The protection is the confirmation protocol plus the channel trail.
+ * Either surface may change an existing ruling, so the web panel can correct
+ * a CLI ruling.
+ *
+ * `disposition: 'OPEN'` reverts a ruling (LUM-1128 follow-up) and is web
+ * only, like a crossing's OPEN revert: a bearer caller gets 403. Reopening
+ * restores the finding's DONE block.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
-
-  if (identity.source !== 'clerk') {
-    return NextResponse.json(
-      {
-        error:
-          'A security finding can only be dispositioned from a human-authenticated browser session — the agent/CLI path is closed by design',
-      },
-      { status: 403 }
-    )
-  }
 
   const { id: rawId, findingId } = await params
   const task = await resolveTaskParam(rawId, identity.workspaceId)
@@ -40,23 +47,49 @@ export async function POST(request: NextRequest, { params }: Params) {
   const parsed = dispositionSecurityFindingSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
 
-  try {
-    const view = await prSecurityScanService.disposition(
-      task.id,
-      findingId,
-      parsed.data.disposition,
-      parsed.data.note ?? null,
-      identity.memberId,
+  const viaCli = identity.source === 'bearer'
+  const { disposition, note } = parsed.data
+  if (disposition === 'OPEN' && viaCli) {
+    return NextResponse.json(
       {
-        workspaceId: identity.workspaceId,
-        context: memberAuditContext(
-          request.headers,
-          { clerkId: identity.clerkId, memberId: identity.memberId },
-          identity.source
-        ),
-      }
+        error:
+          "Reopening a security finding is web-only — use Reopen in the task's security panel",
+      },
+      { status: 403 }
     )
-    return NextResponse.json(view)
+  }
+  const audit = {
+    workspaceId: identity.workspaceId,
+    context: memberAuditContext(
+      request.headers,
+      { clerkId: identity.clerkId, memberId: identity.memberId },
+      identity.source
+    ),
+  }
+  try {
+    const view =
+      disposition === 'OPEN'
+        ? await prSecurityScanService.reopen(
+            task.id,
+            findingId,
+            identity.memberId,
+            audit
+          )
+        : await prSecurityScanService.disposition(
+            task.id,
+            findingId,
+            disposition,
+            note ?? null,
+            identity.memberId,
+            audit,
+            {
+              channel: viaCli ? 'CLI' : 'WEB',
+              sessionId: viaCli
+                ? request.headers.get('X-Lumo-Session-Id')
+                : null,
+            }
+          )
+    return NextResponse.json({ ...view, channel: viaCli ? 'CLI' : 'WEB' })
   } catch (error) {
     const maybeStatus = (error as { status?: unknown } | null)?.status
     const status = typeof maybeStatus === 'number' ? maybeStatus : 500

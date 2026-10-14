@@ -64,6 +64,8 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
+    // LUM-1137: the workspace's pause-after (default 5).
+    findReviewAutoPauseAfter: jest.fn().mockResolvedValue(5),
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
     findLastSarifIngestAt: jest.fn(),
     findSecurityBaseline: jest.fn(),
@@ -1698,6 +1700,7 @@ test('a FAILED scan still hands the PR write-back to waitUntil (P9)', async () =
 })
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+import { autoReviewAdmissionService } from '@/ee/security/services/auto-review-admission.service'
 
 test('LUM-1056: exhausted AI budget still runs secrets and records an incomplete paused head', async () => {
   fetchPrDiff.mockResolvedValue(SECRET_DIFF)
@@ -1713,6 +1716,37 @@ test('LUM-1056: exhausted AI budget still runs secrets and records an incomplete
       stages: expect.objectContaining({ secrets: 'RAN', judge: 'PAUSED' }),
     })
   )
+})
+
+test('LUM-1137: a rate-limited push runs secrets, pauses the AI layers and is recorded as rate-limited (not paused)', async () => {
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  ;(autoReviewAdmissionService.admit as jest.Mock).mockResolvedValueOnce({
+    allowed: false,
+    rateLimited: true,
+  })
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(judgeSecurity).not.toHaveBeenCalled()
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's1',
+    expect.anything(),
+    expect.objectContaining({
+      stages: expect.objectContaining({ secrets: 'RAN', judge: 'PAUSED' }),
+      partialCauses: expect.arrayContaining(['AI_REVIEW_RATE_LIMITED']),
+    })
+  )
+  const [, , result] = repo.persistResult.mock.calls[0]!
+  expect(result.partialCauses).not.toContain('AI_REVIEW_PAUSED')
+})
+
+test('LUM-1137: a manual review is neither admitted nor rate-limited', async () => {
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+    reviewMode: 'incremental',
+  })
+  expect(autoReviewAdmissionService.admit).not.toHaveBeenCalled()
+  expect(judgeSecurity).toHaveBeenCalledTimes(1)
 })
 
 test('LUM-1056: manual full review bypasses the automatic budget', async () => {
@@ -1830,8 +1864,13 @@ test('LUM-1056: incremental review excludes unchanged files; missing comparison 
   await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
   expect(judgeSecurity.mock.calls[0]![0].diff).toContain('src/a.ts')
   expect(judgeSecurity.mock.calls[0]![0].diff).not.toContain('src/b.ts')
+  // LUM-1127: the scope is recorded for the PR write-back's thread rules.
+  expect(repo.persistResult.mock.calls[0]![2]).toMatchObject({
+    judgeReviewScope: ['src/a.ts'],
+  })
 
   judgeSecurity.mockClear()
+  repo.persistResult.mockClear()
   ;(prReviewControlRepository.baseline as jest.Mock).mockResolvedValueOnce({
     headSha: 'unreachable',
   })
@@ -1840,6 +1879,10 @@ test('LUM-1056: incremental review excludes unchanged files; missing comparison 
   )
   await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
   expect(judgeSecurity.mock.calls[0]![0].diff).toContain('src/b.ts')
+  // Full review: null = the whole PR diff.
+  expect(repo.persistResult.mock.calls[0]![2]).toMatchObject({
+    judgeReviewScope: null,
+  })
 })
 
 test('LUM-1056: a push during diff retrieval cannot publish a checked result for the old head', async () => {
@@ -1936,6 +1979,9 @@ test('LUM-1056: a failure other than a superseded head keeps the reservation', a
   expect(prReviewControlRepository.release).not.toHaveBeenCalled()
 })
 
+jest.mock('@/ee/security/services/auto-review-admission.service', () =>
+  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
+)
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
@@ -1945,7 +1991,6 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     findingsOnScan: jest.fn().mockResolvedValue([]),
     get: jest.fn().mockResolvedValue({
       reviewPaused: false,
-      reviewRoundLimit: 2,
       reviewHeads: [],
     }),
   },

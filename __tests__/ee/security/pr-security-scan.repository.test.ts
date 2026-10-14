@@ -18,9 +18,17 @@ jest.mock('@/lib/db/prisma', () => ({
       deleteMany: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn(),
     },
+  },
+}))
+const mockActivityCreate = jest.fn()
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: {
+    create: (...a: unknown[]) => mockActivityCreate(...a),
   },
 }))
 
@@ -201,8 +209,11 @@ test('findDispositionedByPullRequest only returns dispositioned findings on that
         OR: [
           { disposition: { not: null } },
           { suggestedDisposition: { not: null } },
+          // LUM-1128 follow-up: the reopen marker is a verdict too.
+          { dispositionedAt: { not: null } },
         ],
       },
+      orderBy: { dispositionedAt: { sort: 'desc', nulls: 'last' } },
     })
   )
 })
@@ -1298,5 +1309,64 @@ describe('LUM-745 managed-run ops queries', () => {
         data: expect.objectContaining({ stages: { external: 'RAN' } }),
       })
     )
+  })
+})
+
+describe('LUM-1128 follow-up: updateDisposition is one compare-and-set transaction', () => {
+  const finding = prisma.prSecurityFinding as unknown as {
+    findUnique: jest.Mock
+    findUniqueOrThrow: jest.Mock
+    updateMany: jest.Mock
+  }
+  const data = {
+    disposition: null,
+    dispositionNote: null,
+    dispositionedById: 'm1',
+    dispositionedAt: new Date(1),
+    suggestionOutcome: null,
+  }
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockTransaction.mockImplementation(async (arg: unknown) =>
+      (arg as TxCallback)(txClient)
+    )
+  })
+
+  test('reads `from` in the transaction, writes only if unchanged, and inserts the activity with the tx', async () => {
+    finding.findUnique.mockResolvedValue({ disposition: 'FALSE_POSITIVE' })
+    finding.updateMany.mockResolvedValue({ count: 1 })
+    finding.findUniqueOrThrow.mockResolvedValue({ id: 'f1', disposition: null })
+    const activityFor = jest.fn(() => ({
+      taskId: 't1',
+      actorId: null,
+      type: 'SECURITY_FINDING_DISPOSITIONED' as const,
+      payload: {},
+    }))
+    const out = await prSecurityScanRepository.updateDisposition(
+      'f1',
+      data,
+      activityFor
+    )
+    expect(out.from).toBe('FALSE_POSITIVE')
+    expect(finding.updateMany).toHaveBeenCalledWith({
+      where: { id: 'f1', disposition: 'FALSE_POSITIVE' },
+      data,
+    })
+    expect(activityFor).toHaveBeenCalledWith('FALSE_POSITIVE')
+    expect(mockActivityCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: 't1' }),
+      txClient
+    )
+  })
+
+  test('a concurrent ruling between the read and the write is a 409 and writes no activity', async () => {
+    finding.findUnique.mockResolvedValue({ disposition: 'FALSE_POSITIVE' })
+    finding.updateMany.mockResolvedValue({ count: 0 })
+    const activityFor = jest.fn()
+    await expect(
+      prSecurityScanRepository.updateDisposition('f1', data, activityFor)
+    ).rejects.toMatchObject({ status: 409 })
+    expect(activityFor).not.toHaveBeenCalled()
+    expect(mockActivityCreate).not.toHaveBeenCalled()
   })
 })

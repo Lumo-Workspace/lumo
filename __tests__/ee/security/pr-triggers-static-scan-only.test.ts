@@ -27,6 +27,11 @@ jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
     '@/ee/security/services/pr-security-scan-dispatch'
   ).shouldScanOnPrEvent,
 }))
+// LUM-1133: a task-less PR goes to the auto-review policy, which dispatches
+// the same static scan (dispatchPrSecurityScan) — nothing else.
+jest.mock('@/ee/security/services/pr-auto-review.service', () => ({
+  reviewTasklessPullRequest: jest.fn().mockResolvedValue(undefined),
+}))
 jest.mock('@/lib/services/github.service', () => ({
   githubService: {
     upsertPullRequest: jest.fn(),
@@ -163,9 +168,14 @@ test('pr webhook and manual pr link dispatch only the static security scan', asy
   expect(waitUntil).toHaveBeenCalledTimes(1)
 })
 
-test('an unlinked PR event dispatches nothing', async () => {
+test('an unlinked PR event only reaches the auto-review policy (LUM-1133)', async () => {
   findTask.mockResolvedValue(null)
   await handlePullRequest(prPayload('synchronize'), 'ws', 'int1')
+  await Promise.all(waitUntil.mock.results.map(r => r.value))
+  const { reviewTasklessPullRequest } = jest.requireMock(
+    '@/ee/security/services/pr-auto-review.service'
+  )
+  expect(reviewTasklessPullRequest).toHaveBeenCalledTimes(1)
   expect(scan).not.toHaveBeenCalled()
-  expect(waitUntil).not.toHaveBeenCalled()
+  expect(waitUntil).toHaveBeenCalledTimes(1)
 })

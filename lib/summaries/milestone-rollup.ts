@@ -31,8 +31,9 @@ export interface MilestoneRollupInput {
   archived: boolean
   taskCounts: Record<TaskStatus, number>
   /**
-   * LUM-643: active exit criteria not adjudicated MET (unadjudicated or
-   * NOT_MET). While > 0 the close gate holds: an all-tasks-DONE milestone is
+   * LUM-643 → LUM-1135: how many items hold the close gate — unresolved exit
+   * criteria plus milestone test cases that have not passed (positive proof).
+   * While > 0 the close gate holds: an all-tasks-DONE milestone is
    * NOT auto-completed (and reads report no completion drift) until the
    * contract is adjudicated or a human overrides explicitly. Omitted → 0
    * (no contract = gate open), preserving pre-LUM-643 caller behavior.
@@ -42,7 +43,7 @@ export interface MilestoneRollupInput {
    * it would strand a milestone stamped complete while work is demonstrably
    * open.
    */
-  unresolvedExitCriteria?: number
+  closeGateHeld?: number
 }
 
 /** Completion drift + missing-schedule hints surfaced on milestone reads. */
@@ -58,6 +59,23 @@ export interface MilestoneStaleness {
    * health light cannot be computed for it.
    */
   datesMissing: boolean
+}
+
+/**
+ * Every task that counts toward completion is DONE, and there is at least one.
+ * BACKLOG is not counted — a backlogged task is parked, neither holding the
+ * milestone open nor making it complete (LUM-1057). The web page's "all tasks
+ * DONE" (when Close anyway is offered) must agree with this, so both read it.
+ */
+export function allCountedTasksDone(
+  taskCounts: Record<TaskStatus, number>
+): boolean {
+  const total =
+    taskCounts.TODO +
+    taskCounts.IN_PROGRESS +
+    taskCounts.IN_REVIEW +
+    taskCounts.DONE
+  return total > 0 && taskCounts.DONE === total
 }
 
 /**
@@ -78,12 +96,11 @@ export function deriveCompletionChange(
     taskCounts.DONE
   if (total === 0) return null
 
-  const allDone = taskCounts.DONE === total
-  if (allDone) {
+  if (allCountedTasksDone(taskCounts)) {
     if (completedAt !== null) return null
-    // LUM-643 close gate: unresolved exit criteria hold the auto-completion
+    // LUM-643 close gate: unresolved exit criteria / held test cases hold the auto-completion
     // shut — fail-closed, no transition (and no drift hint) until adjudicated.
-    if ((input.unresolvedExitCriteria ?? 0) > 0) return null
+    if ((input.closeGateHeld ?? 0) > 0) return null
     return 'complete'
   }
 

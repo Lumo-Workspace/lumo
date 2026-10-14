@@ -984,6 +984,29 @@ describe('LUM-739 hunt service', () => {
     expect(stopMock).toHaveBeenCalledTimes(2)
   })
 
+  it('LUM-1084: a missing hunt model is flagged modelUnavailable; a plain gateway error is not', async () => {
+    const input = batchInput()
+    huntMock.mockRejectedValueOnce(new Error('Model not exist.'))
+    const gone = await securityHuntService.huntBatch(input)
+    expect(gone).toMatchObject({
+      stopped: 'error',
+      error: 'Model not exist.',
+      modelUnavailable: true,
+    })
+    huntMock.mockRejectedValueOnce(new Error('gateway 500'))
+    const flaky = await securityHuntService.huntBatch(input)
+    expect(flaky.stopped).toBe('error')
+    expect(flaky.modelUnavailable).toBeUndefined()
+    // An abort is a timeout even if its text mentions a model.
+    huntMock.mockRejectedValueOnce(
+      Object.assign(new Error('model_not_found'), { name: 'AbortError' })
+    )
+    const aborted = await securityHuntService.huntBatch(input)
+    expect(aborted.stopped).toBe('timeout')
+    expect(aborted.modelUnavailable).toBeUndefined()
+    expect(stopMock).toHaveBeenCalledTimes(3)
+  })
+
   it('huntBatch records the VM it created, egress and all', async () => {
     attachMock.mockResolvedValue({
       ...HANDLE,

@@ -58,7 +58,8 @@ import { buildAgentContext } from './security-agent-context'
 import { Button } from '@/components/ui/button'
 import { securityScanClient } from '@/ee/security/api-client'
 
-type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
+/** `OPEN` = Reopen: revert a ruling (web only, LUM-1128 follow-up). */
+type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
 
 /**
  * LUM-732 — per-PR security findings with human disposition controls.
@@ -350,7 +351,13 @@ function ReviewControls({
       {control && (
         <span className='text-caption text-muted-foreground'>
           {intl.formatMessage(
-            { id: 'securityScan.review.rounds' },
+            {
+              // LUM-1137: reviewed commits; limit 0 = never pauses.
+              id:
+                control.limit === 0
+                  ? 'securityScan.review.roundsNoLimit'
+                  : 'securityScan.review.rounds',
+            },
             { rounds: control.rounds, limit: control.limit }
           )}
         </span>
@@ -458,7 +465,13 @@ function StageItem({
         : 'warn'
   const name = intl.formatMessage({ id: `securityScan.stage.${stageKey}` })
   const stateWord = intl.formatMessage({
-    id: `securityScan.stageState.${overCap ? 'SKIPPED' : state}`,
+    id: `securityScan.stageState.${
+      overCap
+        ? 'SKIPPED'
+        : state === 'PAUSED' && scan.reviewRateLimited
+          ? 'RATE_LIMITED'
+          : state
+    }`,
   })
   const progress =
     stageKey === 'hunt' && scan.huntProgress
@@ -998,6 +1011,9 @@ function FindingRow({
   const intl = useIntl()
   const queryClient = useQueryClient()
   const [pending, setPending] = useState<Disposition | null>(null)
+  // LUM-1128: a ruled finding (e.g. ruled via `lumo finding disposition`)
+  // can be corrected here — the panel reopens its controls on demand.
+  const [changing, setChanging] = useState(false)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1037,12 +1053,13 @@ function FindingRow({
     try {
       await securityScanClient.dispositionSecurityFinding(taskId, finding.id, {
         disposition: pending,
-        ...(note.trim() ? { note: note.trim() } : {}),
+        ...(pending !== 'OPEN' && note.trim() ? { note: note.trim() } : {}),
       })
       await queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.securityScans(taskId),
       })
       setPending(null)
+      setChanging(false)
       setNote('')
     } catch {
       setError(intl.formatMessage({ id: 'securityScan.action.error' }))
@@ -1263,7 +1280,19 @@ function FindingRow({
               {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
             </a>
           )}
-          {!finding.disposition && (
+          {finding.disposition && !changing && (
+            <div className='mt-2 flex flex-wrap items-center gap-1.5'>
+              <button
+                type='button'
+                data-testid='finding-change-ruling'
+                onClick={() => setChanging(true)}
+                className={ACTION_BUTTON}
+              >
+                {intl.formatMessage({ id: 'securityScan.action.changeRuling' })}
+              </button>
+            </div>
+          )}
+          {(!finding.disposition || changing) && (
             <div className='mt-2 flex flex-wrap items-center gap-1.5'>
               {pending === null ? (
                 <>
@@ -1291,38 +1320,65 @@ function FindingRow({
                         : 'securityScan.action.copyForAgent',
                     })}
                   </button>
-                  <button
-                    type='button'
-                    onClick={() => setPending('FALSE_POSITIVE')}
-                    className={ACTION_BUTTON}
-                  >
-                    {intl.formatMessage({
-                      id: 'securityScan.action.falsePositive',
-                    })}
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => setPending('ACCEPTED_RISK')}
-                    className={ACTION_BUTTON}
-                  >
-                    {intl.formatMessage({
-                      id: 'securityScan.action.acceptRisk',
-                    })}
-                  </button>
+                  {finding.disposition !== 'FALSE_POSITIVE' && (
+                    <button
+                      type='button'
+                      onClick={() => setPending('FALSE_POSITIVE')}
+                      className={ACTION_BUTTON}
+                    >
+                      {intl.formatMessage({
+                        id: 'securityScan.action.falsePositive',
+                      })}
+                    </button>
+                  )}
+                  {finding.disposition !== 'ACCEPTED_RISK' && (
+                    <button
+                      type='button'
+                      onClick={() => setPending('ACCEPTED_RISK')}
+                      className={ACTION_BUTTON}
+                    >
+                      {intl.formatMessage({
+                        id: 'securityScan.action.acceptRisk',
+                      })}
+                    </button>
+                  )}
+                  {finding.disposition && (
+                    // LUM-1128 follow-up: revert a mistaken ruling (e.g. a
+                    // CLI one) — the finding is open again and, if policy
+                    // says so, blocks DONE again. Web only.
+                    <button
+                      type='button'
+                      data-testid='finding-reopen'
+                      onClick={() => setPending('OPEN')}
+                      className={ACTION_BUTTON}
+                    >
+                      {intl.formatMessage({
+                        id: 'securityScan.action.reopen',
+                      })}
+                    </button>
+                  )}
                 </>
               ) : (
                 <>
-                  <input
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    placeholder={intl.formatMessage({
-                      id: 'securityScan.action.notePlaceholder',
-                    })}
-                    aria-label={intl.formatMessage({
-                      id: 'securityScan.action.notePlaceholder',
-                    })}
-                    className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
-                  />
+                  {pending === 'OPEN' ? (
+                    <span className='text-caption text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'securityScan.action.reopenConfirm',
+                      })}
+                    </span>
+                  ) : (
+                    <input
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      placeholder={intl.formatMessage({
+                        id: 'securityScan.action.notePlaceholder',
+                      })}
+                      aria-label={intl.formatMessage({
+                        id: 'securityScan.action.notePlaceholder',
+                      })}
+                      className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
+                    />
+                  )}
                   <button
                     type='button'
                     disabled={submitting}
@@ -1336,6 +1392,7 @@ function FindingRow({
                     disabled={submitting}
                     onClick={() => {
                       setPending(null)
+                      setChanging(false)
                       setNote('')
                     }}
                     className='text-caption text-muted-foreground'

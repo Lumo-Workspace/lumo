@@ -2,12 +2,16 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { installAuthFailureTracker } from './lib/auth-failure'
 import { installSandboxNetworkTracker } from './lib/sandbox-network-hint'
+import {
+  commandPathOf,
+  installVersionCompatTracker,
+} from './lib/version-compat'
 import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
@@ -75,6 +79,10 @@ import { taskTestCaseUpdate } from './commands/task-testcase-update'
 import { taskTestCaseRm } from './commands/task-testcase-rm'
 import { taskTestCaseRun } from './commands/task-testcase-run'
 import { taskTestCaseDisposition } from './commands/task-testcase-disposition'
+import {
+  findingDisposition,
+  type FindingDispositionOptions,
+} from './commands/finding-disposition'
 import { taskWrapup } from './commands/task-wrapup'
 import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
@@ -110,6 +118,15 @@ import { milestoneSummary } from './commands/milestone-summary'
 import { milestoneChangelog } from './commands/milestone-changelog'
 import { milestoneReorder } from './commands/milestone-reorder'
 import { milestoneMove } from './commands/milestone-move'
+import {
+  milestoneTestCaseAdd,
+  milestoneTestCaseList,
+  milestoneTestCaseShow,
+  milestoneTestCaseUpdate,
+  milestoneTestCaseRm,
+  milestoneTestCaseRun,
+  milestoneTestCaseDisposition,
+} from './commands/milestone-testcase'
 import { milestoneCriteriaSet } from './commands/milestone-criteria-set'
 import { milestoneCriteriaList } from './commands/milestone-criteria-list'
 import { milestoneCriteriaVerdict } from './commands/milestone-criteria-verdict'
@@ -145,6 +162,7 @@ import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
 import { doctor } from './commands/doctor'
+import { skillStatus, skillUpdate } from './commands/skill'
 import { uninstall } from './commands/uninstall'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
@@ -209,12 +227,21 @@ const authTracker =
 // the cause and the fix instead of a bare `fetch failed`.
 const sandboxNetTracker =
   !isIntrospect && !isUpdateCheckWorker ? installSandboxNetworkTracker() : null
+// LUM-1110: every API request carries X-Lumo-Cli-Version; a 426 (CLI too old)
+// ends with `lumo update`, a route-missing 404 with "server may not have
+// deployed this yet" instead of a bare HTTP 404.
+const versionTracker =
+  !isIntrospect && !isUpdateCheckWorker
+    ? installVersionCompatTracker(pkg.version)
+    : null
 
 function exitWith(code: number): never {
   const hint = authTracker?.hintFor(code)
   if (hint) console.error(hint)
   const netHint = sandboxNetTracker?.hintFor(code)
   if (netHint) console.error(netHint)
+  const versionHint = versionTracker?.hintFor(code)
+  if (versionHint) console.error(versionHint)
   process.exit(code)
 }
 
@@ -282,8 +309,9 @@ const program = new Command()
 // Commander does not merge program-level options into a subcommand's own
 // opts(), so the global `--no-hints` is folded into the env channel before any
 // action runs. One silencing path (`nextStepsSilenced`) instead of two.
-program.hook('preAction', thisCommand => {
+program.hook('preAction', (thisCommand, actionCommand) => {
   if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
+  versionTracker?.setCommand(commandPathOf(actionCommand))
 })
 
 const auth = program.command('auth').description('Manage Lumo authentication')
@@ -323,7 +351,7 @@ function registerInit(name: string, hidden: boolean): void {
     .description(
       hidden
         ? 'Alias of `lumo init` (kept for older docs and scripts).'
-        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
+        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; re-run it to refresh an install (unchanged files are not rewritten), with --dry-run to preview."
     )
     .option(
       '--user',
@@ -342,9 +370,11 @@ function registerInit(name: string, hidden: boolean): void {
       'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex.'
     )
     .option(
-      '--upgrade',
-      'Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs'
+      '--dry-run',
+      'Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record'
     )
+    // LUM-1118: removed; kept hidden only to print the migration error.
+    .addOption(new Option('--upgrade').hideHelp())
     .action(
       wrap(options =>
         init(
@@ -354,6 +384,7 @@ function registerInit(name: string, hidden: boolean): void {
             force?: boolean
             agent?: string
             upgrade?: boolean
+            dryRun?: boolean
           }
         )
       )
@@ -363,6 +394,59 @@ function registerInit(name: string, hidden: boolean): void {
 registerInit('init', false)
 // `setup` is the pre-LUM-1052 name; hidden alias running the same action.
 registerInit('setup', true)
+
+const skill = program
+  .command('skill')
+  .description(
+    'Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook'
+  )
+
+skill
+  .command('status')
+  .description(
+    'Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it'
+  )
+  .option(
+    '--json',
+    'Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }'
+  )
+  .action(wrap(options => skillStatus(options as { json?: boolean })))
+
+skill
+  .command('update')
+  .description(
+    "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
+  )
+  .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
+  .option(
+    '--project',
+    "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
+  )
+  .option(
+    '--agent <token>',
+    'Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)'
+  )
+  .option(
+    '--dry-run',
+    'List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing'
+  )
+  .option(
+    '--force',
+    'Also overwrite locally modified copies (discards those edits); still never downgrades'
+  )
+  .action(
+    wrap(options =>
+      skillUpdate(
+        options as {
+          user?: boolean
+          project?: boolean
+          agent?: string
+          dryRun?: boolean
+          force?: boolean
+        }
+      )
+    )
+  )
 
 program
   .command('doctor')
@@ -479,6 +563,35 @@ crossing
     )
   )
 
+const finding = program
+  .command('finding')
+  .description('Rule on PR security findings with user approval (LUM-1128)')
+
+finding
+  .command('disposition <ids...>')
+  .description(
+    "Record the user's ruling on one or more PR security findings (LUM-1128) — how a blocking finding is cleared for DONE (the web panel stays a second surface). Without --confirm it reads the findings from the server and prints ONE confirmation envelope (one line per finding: id, severity, title, ruling, note), exit 4, writes nothing; relay it and re-run its confirmCommand only after the user approves. With --confirm it applies each ruling, reports each finding, and the server records it as channel CLI (actor, session, time); the web panel can correct it. Ids are listed by `lumo task status`. Targets findings on the session-bound task unless --task is given."
+  )
+  .option('--false-positive', 'Rule the findings false positives')
+  .option(
+    '--accepted-risk',
+    'Rule the findings accepted risks (real, knowingly carried — add a --note)'
+  )
+  .option('--note <text>', 'Optional note recorded with each ruling')
+  .option(
+    '--task <identifier>',
+    'Task the findings belong to (defaults to the session-bound task)'
+  )
+  .option(
+    '--confirm',
+    'The user approved the envelope (never add this on your own initiative)'
+  )
+  .action(
+    wrap((ids: unknown, options: unknown) =>
+      findingDisposition(ids as string[], options as FindingDispositionOptions)
+    )
+  )
+
 const outcome = program
   .command('outcome')
   .description('Read the post-hoc outcome well (LUM-598)')
@@ -543,7 +656,7 @@ program
   )
   .option(
     '--since <day>',
-    'First day, inclusive: a YYYY-MM-DD date, Nd for the last N days incl. today (e.g. 30d), today, or yesterday'
+    'First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday'
   )
   .option(
     '--until <day>',
@@ -589,16 +702,19 @@ const pr = program
 pr.command('scan <number>')
   .option(
     '--review <mode>',
-    'Request incremental or full AI review without consuming automatic rounds'
+    'Request incremental or full AI review without counting toward the automatic budget'
   )
   .option('--pause', 'Pause automatic AI reviews for this PR')
-  .option('--resume', 'Resume automatic AI reviews and reset the round budget')
   .option(
-    '--limit <rounds>',
-    'Set automatic round limit (1..100), with pause or resume'
+    '--resume',
+    'Resume automatic AI review of every push and reset the reviewed-commit count'
+  )
+  .option(
+    '--limit <commits>',
+    'This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume'
   )
   .description(
-    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Finding disposition is web-only.'
+    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control automatic review of every push (paused after N reviewed commits). Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves).'
   )
   .option(
     '--repo <owner/repo>',
@@ -1596,7 +1712,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs. Any member may read; changing is OWNER only, and turning anything off exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1604,9 +1720,37 @@ workspaceCmd
   )
   .option('--ai-review <on|off>', 'AI review (LLM security review and triage)')
   .option('--hunt <on|off>', 'Exploit-path hunt in the sandbox')
-  .option('--disable-all', 'Turn every switch off at once')
-  .option('--enable-all', 'Turn every switch on at once')
-  .option('--confirm', 'The user approved turning the listed switches off')
+  .option(
+    '--request-changes <on|off>',
+    'Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean'
+  )
+  .option(
+    '--learnings-scope <local|global|auto>',
+    'Which repositories’ learnings the AI review reads (default auto): local = the reviewed repository, global = every repository in this workspace, auto = local for public / global for private repositories'
+  )
+  .option(
+    '--auto-pause-after <n>',
+    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)'
+  )
+  .option('--disable-all', 'Turn every layer switch off at once')
+  .option('--enable-all', 'Turn every layer switch on at once')
+  .option(
+    '--repos',
+    'List each connected repository with its automatic review settings'
+  )
+  .option(
+    '--repo <owner/name>',
+    'One connected repository: show it, or change it with --review / --drafts'
+  )
+  .option(
+    '--review <on|off>',
+    'With --repo: review every PR without a task automatically'
+  )
+  .option(
+    '--drafts <on|off>',
+    'With --repo: review draft PRs too (off = wait for ready for review)'
+  )
+  .option('--confirm', 'The user approved the listed changes')
   .option('--json', 'Emit { switches, platform, effective } as JSON')
   .action(
     wrap(options =>
@@ -2065,7 +2209,7 @@ milestoneCmd
 const milestoneCriteria = milestoneCmd
   .command('criteria')
   .description(
-    'Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only).'
+    'DEPRECATED (LUM-1135) — use `milestone testcase`. Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only).'
   )
 
 milestoneCriteria
@@ -2131,6 +2275,263 @@ milestoneCriteria
           note?: string
           evidence?: string
         }
+      )
+    )
+  )
+
+const milestoneTestCase = milestoneCmd
+  .command('testcase')
+  .description(
+    'Milestone test cases — cross-task end-to-end cases and the milestone close contract (LUM-1135). The close gate opens only when every case’s latest run passed (or a proven defect was dispositioned known).'
+  )
+
+milestoneTestCase
+  .command('add <milestone>')
+  .description(
+    'Add a milestone test case. --step / --verify are repeatable and keep the order they appear in.'
+  )
+  .requiredOption('--title <title>', 'Test case title')
+  .option(
+    '--setup <text>',
+    'Preconditions, e.g. "The user is on the Dashboard."'
+  )
+  .option(
+    '--step <text>',
+    'One execution step (repeatable, ordered). At least one is required.',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--verify <text>',
+    'One verification step (repeatable, ordered). May be omitted entirely.',
+    collect,
+    [] as string[]
+  )
+  .requiredOption('--expected <text>', 'Expected result')
+  .option(
+    '--requires-env <environment>',
+    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
+  )
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, options: unknown) =>
+      milestoneTestCaseAdd(ms as string, options as Record<string, never>)
+    )
+  )
+
+milestoneTestCase
+  .command('list <milestone>')
+  .description(
+    "List a milestone's test cases with each one's latest run (result, environment, commit)"
+  )
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, options: unknown) =>
+      milestoneTestCaseList(ms as string, options as { project?: string })
+    )
+  )
+
+milestoneTestCase
+  .command('show <milestone> <case>')
+  .description(
+    'Show one test case (four sections, 1-based step numbers) plus its run history. Case: TC3'
+  )
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
+      milestoneTestCaseShow(
+        ms as string,
+        caseRef as string,
+        options as { project?: string }
+      )
+    )
+  )
+
+milestoneTestCase
+  .command('update <milestone> <case>')
+  .description(
+    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
+  )
+  .option('--title <title>', 'New title')
+  .option('--setup <text>', 'New preconditions')
+  .option(
+    '--step <text>',
+    'Replacement step (repeatable, ordered) - replaces the whole steps list',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--verify <text>',
+    'Replacement verification step (repeatable, ordered) - replaces the whole list',
+    collect,
+    [] as string[]
+  )
+  .option('--expected <text>', 'New expected result')
+  .option(
+    '--requires-env <environment>',
+    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
+  )
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
+      milestoneTestCaseUpdate(
+        ms as string,
+        caseRef as string,
+        options as Record<string, never>
+      )
+    )
+  )
+
+milestoneTestCase
+  .command('rm <milestone> <case>')
+  .description(
+    'Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
+      milestoneTestCaseRm(
+        ms as string,
+        caseRef as string,
+        options as { project?: string; confirm?: boolean; yes?: boolean }
+      )
+    )
+  )
+
+milestoneTestCase
+  .command('run <milestone> <case>')
+  .description(
+    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
+  )
+  .requiredOption(
+    '--result <result>',
+    'pass | fail | blocked (case-insensitive)'
+  )
+  .requiredOption(
+    '--env <environment>',
+    'local | preview | production (case-insensitive; no default - say where this ran)'
+  )
+  .option(
+    '--commit <sha>',
+    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
+  )
+  .option(
+    '--failed-step <n>',
+    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
+  )
+  .option(
+    '--failed-verify <n>',
+    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
+  )
+  .option(
+    '--cause <cause>',
+    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
+  )
+  .option(
+    '--unproven <n>',
+    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
+    collect,
+    [] as string[]
+  )
+  .option('--note <text>', 'Free-text note about this run')
+  .option(
+    '--evidence <url>',
+    'Evidence link (repeatable)',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--evidence-file <path>',
+    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--step <spec>',
+    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as "no per-step result", never as passed',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--step-evidence <spec>',
+    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--actual <text>',
+    'What actually happened at the failing step (FAIL only), shown next to the expected result'
+  )
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
+      milestoneTestCaseRun(
+        ms as string,
+        caseRef as string,
+        options as Record<string, never>
+      )
+    )
+  )
+
+milestoneTestCase
+  .command('disposition <milestone> <case>')
+  .description(
+    "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
+  )
+  .option(
+    '--known-defect',
+    'We accept this defect and ship anyway (does NOT claim it is fixed)'
+  )
+  .option(
+    '--not-a-defect',
+    'The failure was mis-attributed to the implementation'
+  )
+  .option('--note <text>', 'Why this ruling')
+  .option(
+    '--receipt <token>',
+    'The read receipt from the previous step of the handshake'
+  )
+  .option(
+    '--confirm-read',
+    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+  )
+  .option(
+    '--confirm',
+    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+  )
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
+      milestoneTestCaseDisposition(
+        ms as string,
+        caseRef as string,
+        options as Record<string, never>
       )
     )
   )
@@ -2666,7 +3067,7 @@ task
   )
   .option(
     '--confirm',
-    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
+    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done with no other flag runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
   )
   .action(
     wrap((identifier, options) =>

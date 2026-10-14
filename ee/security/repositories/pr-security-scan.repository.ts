@@ -3,6 +3,10 @@
  * No business logic: the service decides dedup, inheritance and status.
  */
 import { prisma } from '@/lib/db/prisma'
+import {
+  activityRepository,
+  type CreateActivityData,
+} from '@/lib/repositories/activity.repository'
 import { storedRepoSpellings } from '@/lib/repositories/repo-spellings'
 import { Prisma } from '@prisma/client'
 import type {
@@ -130,6 +134,12 @@ export interface FinalizeScanInput {
    * column alone, like `judgeBudget` (`restart` is what clears it).
    */
   prSummary?: PrSummary | null
+  /**
+   * LUM-1127 — the paths an incremental AI review read on this head; null =
+   * the whole PR diff. Absent = leave the column alone. The PR write-back
+   * only resolves a judge finding's thread for a file inside this scope.
+   */
+  judgeReviewScope?: string[] | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -345,22 +355,39 @@ export interface ScanForReview {
   /** LUM-988: the verifier started / finished — LLM_JUDGE inline comments wait between. */
   verifierStartedAt: Date | null
   verifiedAt: Date | null
+  /**
+   * LUM-1127 — raw Json: the incremental judge's paths, or null for the
+   * whole diff. Optional so older fixtures still type-check (absent = null).
+   */
+  judgeReviewScope?: unknown
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
     repo: string
     headSha?: string | null
     number: number
+    /** "open" | "closed" | "merged" (optional: older fixtures omit it). */
+    state?: string
     workspaceId: string
     task: { number: number; team: { identifier: string } } | null
     /** `securityPolicy` is the raw Json column — parse with `parseSecurityPolicy`. */
-    workspace: { slug: string; securityPolicy: unknown }
+    workspace: {
+      slug: string
+      securityPolicy: unknown
+      /** LUM-1130 — the request-changes workflow (absent reads as off). */
+      securityRequestChangesEnabled?: boolean
+    }
   }
 }
 
 /**
  * A prior finding on the same PR worth inheriting from: a human disposition
  * and/or (LUM-740) an LLM suggestion with the human's outcome on it.
+ *
+ * LUM-1128 follow-up: a REOPENED row (a ruling reverted to open in the web
+ * panel) is one too — `disposition` null with `dispositionedAt` set to the
+ * moment it was reopened. It is the newest verdict for its fingerprint, so
+ * it wins the newest-first pick and nothing older re-clears the finding.
  */
 export interface DispositionedFingerprint {
   id: string
@@ -1123,6 +1150,14 @@ export const prSecurityScanRepository = {
                 prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
               }
             : {}),
+          ...(final.judgeReviewScope !== undefined
+            ? {
+                judgeReviewScope:
+                  final.judgeReviewScope === null
+                    ? Prisma.DbNull
+                    : (final.judgeReviewScope as Prisma.InputJsonValue),
+              }
+            : {}),
           stages,
           partial,
           partialCauses,
@@ -1615,6 +1650,7 @@ export const prSecurityScanRepository = {
         suggestedAt: true,
         verifierStartedAt: true,
         verifiedAt: true,
+        judgeReviewScope: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -1642,11 +1678,19 @@ export const prSecurityScanRepository = {
             repo: true,
             headSha: true,
             number: true,
+            // LUM-1140: the off-mode withdrawal only touches an open PR.
+            state: true,
             workspaceId: true,
             task: {
               select: { number: true, team: { select: { identifier: true } } },
             },
-            workspace: { select: { slug: true, securityPolicy: true } },
+            workspace: {
+              select: {
+                slug: true,
+                securityPolicy: true,
+                securityRequestChangesEnabled: true,
+              },
+            },
           },
         },
       },
@@ -1665,6 +1709,10 @@ export const prSecurityScanRepository = {
         OR: [
           { disposition: { not: null } },
           { suggestedDisposition: { not: null } },
+          // LUM-1128 follow-up: the reopen marker (disposition null,
+          // dispositionedAt set) — without it an older ruled row of the same
+          // fingerprint is inherited and silently re-clears the reopened one.
+          { dispositionedAt: { not: null } },
         ],
       },
       orderBy: { dispositionedAt: { sort: 'desc', nulls: 'last' } },
@@ -1835,22 +1883,57 @@ export const prSecurityScanRepository = {
       | null
   },
 
+  /**
+   * Write a ruling and its task-timeline entry in ONE transaction (LUM-1128
+   * follow-up). `from` — the disposition before this write — is read inside
+   * the transaction, and `activityFor(from)` builds the timeline entry (null
+   * = none, e.g. a re-save of the same value). If the activity insert fails
+   * the ruling rolls back with it, so a caller never reports "rejected" for
+   * a ruling that was in fact applied. `disposition: null` reopens the
+   * finding (the web panel's revert).
+   */
   async updateDisposition(
     findingId: string,
     data: {
-      disposition: FindingDisposition
+      disposition: FindingDisposition | null
       dispositionNote: string | null
       dispositionedById: string
       dispositionedAt: Date
       /** LUM-740: the human's verdict on a suggested disposition, if any. */
       suggestionOutcome?: SuggestionOutcome | null
-    }
-  ): Promise<FindingRow> {
-    const row = await prisma.prSecurityFinding.update({
-      where: { id: findingId },
-      data,
+    },
+    activityFor: (
+      from: FindingDisposition | null
+    ) => CreateActivityData | null = () => null
+  ): Promise<{ row: FindingRow; from: FindingDisposition | null }> {
+    return prisma.$transaction(async tx => {
+      const prior = await tx.prSecurityFinding.findUnique({
+        where: { id: findingId },
+        select: { disposition: true },
+      })
+      const from = (prior?.disposition ?? null) as FindingDisposition | null
+      // Compare-and-set on `from`: a concurrent ruling that landed between
+      // the read and this write makes the count 0 (Postgres re-checks the
+      // predicate after the row lock), so `from` is never stale. No raw SQL.
+      const { count } = await tx.prSecurityFinding.updateMany({
+        where: { id: findingId, disposition: from },
+        data,
+      })
+      if (count === 0) {
+        throw Object.assign(
+          new Error(
+            'The finding was ruled concurrently — reload and try again'
+          ),
+          { status: 409 }
+        )
+      }
+      const row = await tx.prSecurityFinding.findUniqueOrThrow({
+        where: { id: findingId },
+      })
+      const activity = activityFor(from)
+      if (activity) await activityRepository.create(activity, tx)
+      return { row: row as unknown as FindingRow, from }
     })
-    return row as unknown as FindingRow
   },
 
   // ── LUM-740: suggested dispositions ───────────────────────────────────────
@@ -2114,6 +2197,45 @@ export const prSecurityScanRepository = {
     if (!pr) return false
     const others = await prisma.pullRequest.count({
       where: { repo: pr.repo, number: pr.number, id: { not: pullRequestId } },
+    })
+    return others > 0
+  },
+
+  /**
+   * LUM-1140 — this workspace's open PRs, most recently updated first, at
+   * most `limit` (the bulk withdrawal after the request-changes workflow is
+   * turned off; a PR past the cap is caught at its next review).
+   */
+  async findOpenPullRequestsOfWorkspace(
+    workspaceId: string,
+    limit: number
+  ): Promise<Array<{ id: string; repo: string; number: number }>> {
+    return prisma.pullRequest.findMany({
+      where: { workspaceId, state: 'open' },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      select: { id: true, repo: true, number: true },
+    })
+  },
+
+  /**
+   * LUM-1140 — whether another workspace that holds this PR (same repository
+   * and number, LUM-924) has the request-changes workflow on: Lumo's App
+   * reviews as one bot for every workspace sharing the installation, so a
+   * standing "changes requested" may be that workspace's to keep.
+   */
+  async isRequestChangesOnElsewhere(pr: {
+    id: string
+    repo: string
+    number: number
+  }): Promise<boolean> {
+    const others = await prisma.pullRequest.count({
+      where: {
+        repo: pr.repo,
+        number: pr.number,
+        id: { not: pr.id },
+        workspace: { securityRequestChangesEnabled: true },
+      },
     })
     return others > 0
   },

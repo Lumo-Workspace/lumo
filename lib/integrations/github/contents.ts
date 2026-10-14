@@ -225,6 +225,45 @@ export async function fetchPrChangedFiles(opts: {
   return typeof n === 'number' && Number.isInteger(n) && n >= 0 ? n : null
 }
 
+/**
+ * LUM-1137 — how many commits the PR has at `head` (`commits` on the pulls
+ * payload), for the "pause after N reviewed commits" budget. null when
+ * GitHub did not say, or when the PR has already moved past `head` (the
+ * count would be another head's). Throws on an API error like its siblings.
+ */
+export async function fetchPrCommitCount(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+  head: string
+}): Promise<number | null> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as {
+    commits?: unknown
+    head?: { sha?: unknown }
+  }
+  if (body.head?.sha !== opts.head) return null
+  const n = body.commits
+  return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : null
+}
+
 /** Compare immutable commits. Refuse divergent histories and truncated file
  * lists rather than using them as proof that an unchanged file was reviewed. */
 export async function fetchReviewChangedPaths(opts: {
@@ -475,6 +514,50 @@ export async function fetchDefaultBranchHead(opts: {
     )
   }
   return { branch, sha }
+}
+
+/**
+ * LUM-1134 — the repository's visibility, read live from GitHub (Lumo stores
+ * none, and a repository can change visibility at any time): `private` /
+ * `public` only on GitHub's explicit `private` flag (an internal repository
+ * reports `private: true`), `unknown` on anything else — a refused mint
+ * (unconfirmed repository, LUM-883), a non-2xx, a network error or a missing
+ * field or a timeout (5s). One metadata-only token, revoked after. Never
+ * throws.
+ */
+const REPO_VISIBILITY_TIMEOUT_MS = 5_000
+
+export async function fetchRepoVisibility(opts: {
+  workspaceId: string
+  fullName: string
+}): Promise<'public' | 'private' | 'unknown'> {
+  let token: string
+  try {
+    token = await getRepoToken(
+      opts.workspaceId,
+      opts.fullName,
+      REPO_TOKEN_PERMISSIONS.repositoryMetadata
+    )
+  } catch {
+    return 'unknown'
+  }
+  try {
+    const [owner, repo] = splitFullName(opts.fullName)
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` },
+      // On the review's critical path: a slow GitHub costs at most this.
+      signal: AbortSignal.timeout(REPO_VISIBILITY_TIMEOUT_MS),
+    })
+    if (!res.ok) return 'unknown'
+    const body = (await res.json()) as { private?: unknown }
+    if (body.private === true) return 'private'
+    if (body.private === false) return 'public'
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  } finally {
+    await revokeInstallationToken(token).catch(() => false)
+  }
 }
 
 /**

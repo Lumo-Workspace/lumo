@@ -20,6 +20,9 @@ const messages: Record<string, string> = {
   'securityScan.action.notePlaceholder': 'Why?',
   'securityScan.action.confirm': 'Confirm',
   'securityScan.action.cancel': 'Cancel',
+  'securityScan.action.changeRuling': 'Change ruling',
+  'securityScan.action.reopen': 'Reopen',
+  'securityScan.action.reopenConfirm': 'Reopen this finding?',
   'securityScan.meta': 'Scanned {sha}',
   'securityScan.section.loadError': 'Could not load security scans.',
   'securityScan.provenance.EXTERNAL_TOOL': 'External tool',
@@ -281,6 +284,91 @@ test('a dispositioned finding shows its disposition and no action buttons', () =
   )
   expect(screen.queryByText('Mark false positive')).toBeNull()
   expect(screen.queryByTestId('security-blocking-banner')).toBeNull()
+})
+
+test('LUM-1128: the web panel can correct an existing (e.g. CLI) ruling', async () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            findings: [
+              finding({ disposition: 'FALSE_POSITIVE', blocking: false }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  if (!screen.queryByTestId('finding-change-ruling'))
+    fireEvent.click(screen.getByText('AWS access key ID'))
+  fireEvent.click(screen.getByTestId('finding-change-ruling'))
+  // Only the other ruling is offered, plus Reopen (LUM-1128 follow-up).
+  expect(screen.queryByText('Mark false positive')).toBeNull()
+  expect(screen.getByTestId('finding-reopen')).toBeInTheDocument()
+  fireEvent.click(screen.getByText('Accept risk'))
+  fireEvent.change(screen.getByPlaceholderText('Why?'), {
+    target: { value: 'real, carried' },
+  })
+  fireEvent.click(screen.getByText('Confirm'))
+  await waitFor(() =>
+    expect(dispositionSecurityFinding).toHaveBeenCalledWith('t1', 'f1', {
+      disposition: 'ACCEPTED_RISK',
+      note: 'real, carried',
+    })
+  )
+})
+
+test('LUM-1128 follow-up: the web panel can reopen a ruled finding (no note sent)', async () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            findings: [
+              finding({ disposition: 'FALSE_POSITIVE', blocking: false }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  if (!screen.queryByTestId('finding-change-ruling'))
+    fireEvent.click(screen.getByText('AWS access key ID'))
+  fireEvent.click(screen.getByTestId('finding-change-ruling'))
+  fireEvent.click(screen.getByTestId('finding-reopen'))
+  // A confirm step that explains the consequence — no note field.
+  expect(screen.getByText('Reopen this finding?')).toBeInTheDocument()
+  expect(screen.queryByPlaceholderText('Why?')).toBeNull()
+  fireEvent.click(screen.getByText('Confirm'))
+  await waitFor(() =>
+    expect(dispositionSecurityFinding).toHaveBeenCalledWith('t1', 'f1', {
+      disposition: 'OPEN',
+    })
+  )
+})
+
+test('an open finding offers no Reopen', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [{ pr, latest: scan({ findings: [finding({})] }) }],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  expect(screen.queryByTestId('finding-reopen')).toBeNull()
 })
 
 test('shows an error and keeps the form when the disposition call fails', async () => {

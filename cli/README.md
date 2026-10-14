@@ -56,7 +56,7 @@ Auto-update is on by default: the CLI installs new releases in the background. T
 
 ### Keeping installs in sync
 
-User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Run `lumo init --upgrade` to refresh every known install by hand.
+User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Re-run `lumo init --user` or `lumo init --project` (in each repo) to refresh an install by hand; add `--dry-run` to preview the diff.
 
 ```bash
 lumo doctor      # read-only report of every Lumo install and its state

@@ -14,6 +14,7 @@
  * Pure functions only — no Prisma, no network.
  */
 import { escapeMrkdwn, mrkdwnLink } from './mrkdwn'
+import { DEFAULT_SLACK_LOCALE, slackText, type SlackLocale } from './i18n'
 
 /** Slack's limit for a section block's `text`. */
 export const SLACK_SECTION_TEXT_LIMIT = 3000
@@ -29,11 +30,17 @@ export const SLACK_CONTEXT_ELEMENTS_LIMIT = 10
  */
 export const SLACK_FALLBACK_TEXT_LIMIT = SLACK_SECTION_TEXT_LIMIT
 
-/** The single label for "open this in Lumo" buttons. */
-export const OPEN_IN_LUMO_LABEL = 'Open in Lumo ↗'
+/** The "open this in Lumo" button label in `locale` (LUM-1097). */
+export function openInLumoLabel(
+  locale: SlackLocale = DEFAULT_SLACK_LOCALE
+): string {
+  return slackText(locale, 'msg.openInLumo')
+}
+
+/** The single label for "open this in Lumo" buttons, in English. */
+export const OPEN_IN_LUMO_LABEL = openInLumoLabel()
 
 const ELLIPSIS = '…'
-const DEFAULT_FALLBACK_TEXT = 'New message from Lumo'
 
 /** A Block Kit block. Kept structural — Slack validates the shape. */
 export type SlackBlock = object
@@ -139,44 +146,76 @@ export function taskLink(identifier: string, url: string): string {
   return mrkdwnLink(url, identifier)
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  BACKLOG: '🗂️ Backlog',
-  TODO: '⚪ To do',
-  IN_PROGRESS: '🔵 In progress',
-  IN_REVIEW: '👀 In review',
-  DONE: '✅ Done',
+const STATUS_EMOJI: Record<string, string> = {
+  BACKLOG: '🗂️',
+  TODO: '⚪',
+  IN_PROGRESS: '🔵',
+  IN_REVIEW: '👀',
+  DONE: '✅',
 }
 
-const PRIORITY_LABELS: Record<string, string> = {
-  URGENT: '🔴 Urgent',
-  HIGH: '🟠 High',
-  MEDIUM: '🟡 Medium',
-  LOW: '⚪ Low',
+const PRIORITY_EMOJI: Record<string, string> = {
+  URGENT: '🔴',
+  HIGH: '🟠',
+  MEDIUM: '🟡',
+  LOW: '⚪',
 }
 
-/** Human-readable task status with emoji; unknown values come back escaped. */
-export function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? escapeMrkdwn(status)
+/** A task status's name in `locale`, without emoji (unknown: as given). */
+export function statusName(
+  status: string,
+  locale: SlackLocale = DEFAULT_SLACK_LOCALE
+): string {
+  return status in STATUS_EMOJI
+    ? slackText(locale, `msg.status.${status}`)
+    : status
 }
 
-/** Human-readable task priority with emoji; unknown values come back escaped. */
-export function priorityLabel(priority: string): string {
-  return PRIORITY_LABELS[priority] ?? escapeMrkdwn(priority)
+/**
+ * Human-readable task status with emoji, in `locale`; unknown values come
+ * back escaped. Escaped mrkdwn.
+ */
+export function statusLabel(
+  status: string,
+  locale: SlackLocale = DEFAULT_SLACK_LOCALE
+): string {
+  const emoji = STATUS_EMOJI[status]
+  return emoji
+    ? `${emoji} ${escapeMrkdwn(statusName(status, locale))}`
+    : escapeMrkdwn(status)
+}
+
+/**
+ * Human-readable task priority with emoji, in `locale`; unknown values come
+ * back escaped. Escaped mrkdwn.
+ */
+export function priorityLabel(
+  priority: string,
+  locale: SlackLocale = DEFAULT_SLACK_LOCALE
+): string {
+  const emoji = PRIORITY_EMOJI[priority]
+  return emoji
+    ? `${emoji} ${escapeMrkdwn(slackText(locale, `msg.priority.${priority}`))}`
+    : escapeMrkdwn(priority)
 }
 
 /**
  * Assemble a message body. `text` is the notification/screen-reader fallback:
  * mrkdwn, escaped by the caller, saying the same thing as the blocks. It is
- * capped, and never sent empty.
+ * capped, and never sent empty (an empty one becomes a generic line in
+ * `locale`).
  */
 export function slackMessage(input: {
   text: string
   blocks?: SlackBlock[]
+  locale?: SlackLocale
 }): SlackMessage {
   const trimmed = input.text.trim()
   const text =
     trimmed === ''
-      ? DEFAULT_FALLBACK_TEXT
+      ? escapeMrkdwn(
+          slackText(input.locale ?? DEFAULT_SLACK_LOCALE, 'msg.defaultFallback')
+        )
       : truncateMrkdwn(trimmed, SLACK_FALLBACK_TEXT_LIMIT)
   return input.blocks ? { text, blocks: input.blocks } : { text }
 }

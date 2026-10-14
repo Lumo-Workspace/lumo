@@ -129,30 +129,21 @@ describe('the Lumo skill source is never written or deleted', () => {
     expect(existsSync(join(skill, '.lumo-install.json'))).toBe(false)
   })
 
-  it('init --upgrade leaves it alone even when a registry record points at it', async () => {
+  it('init --project --dry-run previews it as left untouched', async () => {
     const { root, skill } = sourceRepo()
     markManaged(skill)
-    writeRegistry({
-      lastSyncedVersion: null,
-      installs: [
-        {
-          kind: 'skill',
-          path: skill,
-          scope: 'project',
-          agent: 'claude-code',
-          version: '1.0.0',
-          installedAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    })
-    await init(
-      { upgrade: true },
+    const code = await init(
+      { project: true, agent: 'claude-code', dryRun: true },
       {
         cliVersion: '2.0.0',
         homeDir: tmp(),
         cwd: root,
         bundledSkillDir: bundledSkill(),
       }
+    )
+    expect(code).toBe(0)
+    expect(stdout).toContain(
+      `⚠ skip ${skill} — skill: Lumo skill source (not an install) — left untouched`
     )
     expect(readFileSync(join(skill, 'SKILL.md'), 'utf8')).toBe('SOURCE')
     expect(readMarker(skill)?.version).toBe('1.0.0')

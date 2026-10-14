@@ -364,7 +364,7 @@ describe('I6: no update notice / background refresh for uninstall', () => {
 })
 
 describe('M4: plain init notes git diff for a tracked settings.json', () => {
-  it('prints the same note as --upgrade', async () => {
+  it('prints the git-diff note for a tracked settings.json', async () => {
     const project = tmp()
     gitInit(project)
     mkdirSync(join(project, '.claude'))
@@ -386,7 +386,7 @@ describe('M4: plain init notes git diff for a tracked settings.json', () => {
 })
 
 describe('M5: Done-when end-to-end on a committed legacy repo', () => {
-  it('auto-sync leaves git clean; init --upgrade upgrades the hit only', async () => {
+  it('auto-sync leaves git clean; re-running init --project upgrades the hit only', async () => {
     const repo = tmp()
     gitInit(repo)
     const hit = join(repo, '.claude', 'skills', 'lumo')
@@ -411,7 +411,7 @@ describe('M5: Done-when end-to-end on a committed legacy repo', () => {
 
     expect(
       await init(
-        { upgrade: true },
+        { project: true },
         {
           cliVersion: '2.0.0',
           homeDir: home,
@@ -516,8 +516,11 @@ describe('M7: git-hook installs are labelled agent "git"', () => {
     expect(g.staleRecords.map(s => s.path)).toEqual([gone])
   })
 
-  it('init --upgrade re-records a recorded git hook as agent git', async () => {
-    const hook = join(tmp(), 'prepare-commit-msg')
+  it('re-running init --project re-records a stale git hook as agent git', async () => {
+    const repo = tmp()
+    gitInit(repo)
+    const hook = join(repo, '.git', 'hooks', 'prepare-commit-msg')
+    mkdirSync(join(hook, '..'), { recursive: true })
     writeFileSync(
       hook,
       '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
@@ -527,11 +530,11 @@ describe('M7: git-hook installs are labelled agent "git"', () => {
       installs: [rec(hook, { kind: 'git-hook', scope: 'project' })],
     })
     await init(
-      { upgrade: true },
+      { project: true, agent: 'claude-code' },
       {
         cliVersion: '2.0.0',
         homeDir: tmp(),
-        cwd: tmp(),
+        cwd: repo,
         bundledSkillDir: bundled,
       }
     )

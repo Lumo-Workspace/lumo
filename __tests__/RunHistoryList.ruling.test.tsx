@@ -137,3 +137,25 @@ describe('RunHistoryList ruling controls', () => {
     expect(items[2]).not.toHaveTextContent(/Blocking DONE/)
   })
 })
+
+describe('RunHistoryList ruling controls for a milestone owner (LUM-1135)', () => {
+  it('explains the milestone consequence instead of "Blocking DONE"', () => {
+    render(
+      <RunHistoryList
+        runs={[run('r1', '2026-09-23T07:55:00.000Z')]}
+        pullRequests={[]}
+        requiredEnvironment={null}
+        onDispose={jest.fn()}
+        ownerKind='milestone'
+      />
+    )
+    expect(screen.queryByText(/Blocking DONE/)).toBeNull()
+    expect(
+      screen.getByText('Holding the milestone close gate — a human must rule:')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Known defect lets the milestone close/)
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(2)
+  })
+})

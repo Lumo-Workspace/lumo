@@ -1,6 +1,6 @@
 # Lumo Subprocessors
 
-Last updated: 2026-10-05 · Draft for legal review (LUM-857)
+Last updated: 2026-10-14 · Draft for legal review (LUM-857)
 
 This page lists the third parties ("subprocessors") that [Lumo legal entity] ("Lumo", "we") engages to process Customer Personal Data on behalf of our customers when providing the Lumo service. It is the list referenced by the Lumo Data Processing Agreement (DPA). We notify customers of changes as described in "Changes to this list" below.
 
@@ -15,10 +15,10 @@ These subprocessors process data for every workspace.
 | Vercel Inc. | Vercel Sandbox | Short-lived isolated virtual machines that clone a customer repository to run static security analysis on a pull request; the machine is discarded after the scan | Customer source code | United States |
 | Vercel Inc. | Vercel AI Gateway | Routes every model request to an LLM hosting provider; every request except boundary-crossing triage is sent with zero data retention enforced, and the gateway itself does not retain prompts or outputs | Prompts and outputs (may contain customer code) | Global edge network; no retention |
 | Neon Inc. (a Databricks company) | Serverless Postgres | Primary database for all workspace data | All stored customer data | United States (AWS us-east-1) |
-| Clerk Inc. | Authentication | Sign-in, user accounts, sessions, organization membership | Name, email address, profile image, authentication metadata | United States |
+| Clerk Inc. | Authentication | Former sign-in provider: since 2026-10-12 it no longer handles sign-in and only keeps the account data it already held, so that Lumo can switch back if needed; that data is deleted no later than 2026-11-11 | Name, email address, profile image, authentication metadata | United States |
 | Pusher Ltd. | Pusher Channels | Real-time updates pushed to open browser tabs | Task and activity update events | United States (us2 cluster) |
 | Upstash Inc. (via Vercel KV) | Redis key-value store | Rate limiting of API and upload endpoints | Request counters keyed by workspace or token identifier | United States |
-| Resend Inc. | Transactional email | Sends transactional emails: workspace invitations, workspace deletion notices to workspace owners, and subprocessor change notices to workspace owners | Recipient email address, workspace name, name of the member who sent the invitation or requested the deletion | United States |
+| Resend Inc. | Transactional email | Sends transactional emails: one-time sign-in codes, workspace invitations, workspace deletion notices to workspace owners, and subprocessor change notices to workspace owners | Recipient email address, one-time sign-in code, workspace name, name of the member who sent the invitation or requested the deletion | United States |
 
 ## AI model hosting subprocessors
 
@@ -29,9 +29,9 @@ Which provider serves a given request is chosen by the gateway from the ZDR-elig
 | Subprocessor | Models served for Lumo | Purpose | Retention terms | Data location |
 | --- | --- | --- | --- | --- |
 | OpenAI, L.L.C. | GPT reasoning model | Security judgement, verification and review checks | Zero data retention with safety retention (limited retention for abuse monitoring); no training | Routed globally; no location commitment |
-| Anthropic, PBC | Claude Sonnet model | AI code review of pull requests | Zero data retention; no training | Routed globally; no location commitment |
+| Anthropic, PBC | Claude Sonnet and Haiku models | AI code review and security hunt of pull requests | Zero data retention; no training | Routed globally; no location commitment |
 | Microsoft Corporation (Azure) | GPT reasoning model; open-weight models | Fallback host for the above | Zero data retention; no training | Routed globally; no location commitment |
-| Alibaba Cloud | Qwen coder and embedding models; open-weight models | Security hunt, summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Routed globally; no location commitment |
+| Alibaba Cloud | Qwen embedding model; open-weight models | Summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Routed globally; no location commitment |
 | Baseten, Inc. | Open-weight models | Summaries, content and policy compilation | Zero data retention; no training | Routed globally; no location commitment |
 | DeepInfra, Inc. | Open-weight and embedding models | Summaries, memory, embeddings | Zero data retention; no training | Routed globally; no location commitment |
 | DigitalOcean, LLC | Open-weight models; TypeSafe Jev evaluation model | Fallback host; boundary-crossing triage (Jev) | Zero data retention; no training — except TypeSafe Jev: no zero data retention, no training | Routed globally; no location commitment |
@@ -45,7 +45,7 @@ Notes on AI processing:
 
 - Boundary-crossing triage is the one exception. When Lumo's rule detectors flag an action an AI agent took, Lumo asks TypeSafe's Jev model, through the Vercel AI Gateway, whether the action was a legitimate part of the task. For this it sends the flagged command or file path (with detected credentials redacted), the project rule that fired, the task's title and description, and the agent's own explanation. Jev's only host, DigitalOcean, has committed not to train on the data but does not offer zero data retention. Turning off AI review in workspace settings stops this triage.
 - Zero data retention is each provider's own policy, and a provider can exclude specific models or features from it; the Vercel AI Gateway does not fail such requests (see Vercel's [zero data retention documentation](https://vercel.com/docs/ai-gateway/security-and-compliance/zdr)). Lumo sends only text and does not use the features the providers above list as exclusions, such as stored conversations, file or image inputs, hosted tools or batch processing. Providers may still cache parts of a prompt to speed up repeated requests; OpenAI keeps this cache encrypted for up to 24 hours.
-- AI code review requests are sent only to Anthropic's own API; the gateway is not allowed to route them to any other host of Claude models. Anthropic may retain inputs and outputs of a request flagged by its automated trust and safety systems for up to 2 years, or where required by law.
+- AI code review and security hunt requests are sent only to Anthropic's own API; the gateway is not allowed to route them to any other host of Claude models. Anthropic may retain inputs and outputs of a request flagged by its automated trust and safety systems for up to 2 years, or where required by law.
 - Open-weight models (the DeepSeek and GLM model families) are run by the hosting providers above. The model authors' own APIs (DeepSeek and Zhipu AI) do not receive Lumo customer data: they do not offer zero data retention through the gateway and are excluded from routing.
 - AI requests are routed globally: for each request the gateway picks a region based on availability and latency, so processing may take place outside your region. Zero data retention applies wherever a request is processed. We do not currently commit to a processing location for AI features; customers who need a data-location commitment for AI processing should contact us before relying on this list.
 - Lumo does not use customer data to train models, and does not permit its subprocessors to do so.
@@ -73,5 +73,8 @@ The main tables above list only subprocessors in effect on the "Last updated" da
 | Change | Announced | Takes effect | Summary |
 | --- | --- | --- | --- |
 | 2026-10-05-resend-purpose | 2026-10-05 | 2026-10-05 | Resend (transactional email): purpose corrected to workspace invitations, workspace deletion notices and subprocessor change notices to workspace owners. These emails were already being sent; nothing else changes. |
+| 2026-10-12-resend-purpose | 2026-10-12 | 2026-10-12 | Resend (transactional email): purpose now also includes one-time sign-in codes, since Lumo moved sign-in to its own authentication service on 2026-10-12. These emails are already being sent; nothing else changes. |
+| 2026-10-12-clerk-purpose | 2026-10-12 | 2026-10-12 | Clerk (authentication): no longer handles sign-in since Lumo moved sign-in to its own authentication service on 2026-10-12. Clerk keeps the account data it already held only so that Lumo can switch back if needed, and that data is deleted no later than 2026-11-11. |
+| 2026-10-14-anthropic-purpose | 2026-10-14 | 2026-10-14 | Anthropic (AI model hosting): purpose extended from AI code review to AI code review and security hunt of pull requests, because the model the hunt ran on through Alibaba Cloud was withdrawn. Hunt requests go only to Anthropic's own API under zero data retention; no subprocessor is added. |
 
 Workspace owners receive change notices automatically. A customer can ask [privacy@uselumo.ai] to send these notices to one additional recipient address as well, which we record manually. Anyone else who wants to hear about changes, or who has a question about this list, can contact [privacy@uselumo.ai].

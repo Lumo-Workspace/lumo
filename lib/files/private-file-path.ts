@@ -6,10 +6,12 @@
  * `GET /api/files/<blob pathname>`, so the stored/rendered URL is
  * `<origin>/api/files/<pathname>`.
  *
- * Two kinds, each carrying the id that decides who may read it:
+ * Three kinds, each carrying the id that decides who may read it:
  *   - evidence: `test-evidence/<taskId>/<caseId>/<fileId>` — the task's
  *     workspace (the prefix is unchanged so the LUM-861 workspace-deletion
  *     sweep and task deletion keep finding it)
+ *   - milestone-evidence: `milestone-evidence/<milestoneId>/<caseId>/<fileId>`
+ *     (LUM-1135) — the milestone's project workspace
  *   - image:    `workspaces/<workspaceId>/images/<fileId>` — server-chosen
  *     prefix (LUM-862), swept with the workspace
  *
@@ -24,6 +26,12 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/
 
 export type PrivateFile =
   | { kind: 'evidence'; taskId: string; caseId: string; fileId: string }
+  | {
+      kind: 'milestone-evidence'
+      milestoneId: string
+      caseId: string
+      fileId: string
+    }
   | { kind: 'image'; workspaceId: string; fileId: string }
 
 export function evidencePathname(
@@ -34,14 +42,27 @@ export function evidencePathname(
   return `test-evidence/${taskId}/${caseId}/${fileId}`
 }
 
+/** LUM-1135: milestone test-case evidence — readable by the milestone's project workspace. */
+export function milestoneEvidencePathname(
+  milestoneId: string,
+  caseId: string,
+  fileId: string
+): string {
+  return `milestone-evidence/${milestoneId}/${caseId}/${fileId}`
+}
+
 export function imagePathname(workspaceId: string, fileId: string): string {
   return `workspaces/${workspaceId}/images/${fileId}`
 }
 
 export function pathnameOf(file: PrivateFile): string {
-  return file.kind === 'evidence'
-    ? evidencePathname(file.taskId, file.caseId, file.fileId)
-    : imagePathname(file.workspaceId, file.fileId)
+  if (file.kind === 'evidence') {
+    return evidencePathname(file.taskId, file.caseId, file.fileId)
+  }
+  if (file.kind === 'milestone-evidence') {
+    return milestoneEvidencePathname(file.milestoneId, file.caseId, file.fileId)
+  }
+  return imagePathname(file.workspaceId, file.fileId)
 }
 
 /**
@@ -56,6 +77,9 @@ export function parsePrivateFilePath(pathname: string): PrivateFile | null {
   const [head, a, b, c] = parts as [string, string, string, string]
   if (head === 'test-evidence' && ID.test(a) && ID.test(b) && ID.test(c)) {
     return { kind: 'evidence', taskId: a, caseId: b, fileId: c }
+  }
+  if (head === 'milestone-evidence' && ID.test(a) && ID.test(b) && ID.test(c)) {
+    return { kind: 'milestone-evidence', milestoneId: a, caseId: b, fileId: c }
   }
   if (head === 'workspaces' && b === 'images' && ID.test(a) && ID.test(c)) {
     return { kind: 'image', workspaceId: a, fileId: c }

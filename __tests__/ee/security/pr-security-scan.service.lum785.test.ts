@@ -299,6 +299,9 @@ describe('LUM-785 stage A graph rule', () => {
     expect(repo.persistResult.mock.calls[0]![2].partialCauses).toEqual([])
   })
 })
+jest.mock('@/ee/security/services/auto-review-admission.service', () =>
+  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
+)
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
@@ -307,7 +310,6 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     findingsOnScan: jest.fn().mockResolvedValue([]),
     get: jest.fn().mockResolvedValue({
       reviewPaused: false,
-      reviewRoundLimit: 2,
       reviewHeads: [],
     }),
   },

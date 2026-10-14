@@ -20,6 +20,7 @@
 import { logger } from '@/lib/logger'
 import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 import { HUNT_MODEL } from '@/lib/ai/models'
+import { isModelUnavailableError } from '@/ee/security/security-scan/hunt/model-unavailable'
 import { readRepoFile } from '@/lib/integrations/github/contents'
 import {
   redactKnownSecrets,
@@ -909,8 +910,9 @@ export const securityHuntService = {
       }
     } catch (error) {
       const message = messageOf(error)
+      const modelGone = !isAbort(error) && isModelUnavailableError(error)
       logger.warn(
-        `[security-hunt] batch ${input.task.id} (${input.task.category}) failed scan=${input.job.scanId}: ${message}`
+        `[security-hunt] batch ${input.task.id} (${input.task.category}) failed scan=${input.job.scanId}${modelGone ? ` (hunt model unavailable: ${HUNT_MODEL})` : ''}: ${message}`
       )
       return {
         candidates: [],
@@ -926,6 +928,7 @@ export const securityHuntService = {
         trace,
         stop: stopFrom(isAbort(error) ? 'timeout' : 'error'),
         error: message.slice(0, 300),
+        ...(modelGone ? { modelUnavailable: true as const } : {}),
         compress,
         ...vm,
       }

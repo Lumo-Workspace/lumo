@@ -28,6 +28,8 @@ export const AUDIT_ACTIONS = [
   'workspace.settings_updated',
   'workspace.security_settings_updated',
   'workspace.retention_updated',
+  // LUM-1133: per-repository automatic PR review (on/off, drafts)
+  'repository.review_settings_updated',
   // Data rights
   'workspace.deletion_scheduled',
   'workspace.deletion_cancelled',
@@ -103,6 +105,8 @@ export const AUDIT_TARGET_TYPES = [
   'sentry_mapping',
   'audit_log',
   'subprocessor_change',
+  // LUM-1133: a repository the workspace confirmed (`owner/name`, lower-cased)
+  'repository',
 ] as const
 
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number]

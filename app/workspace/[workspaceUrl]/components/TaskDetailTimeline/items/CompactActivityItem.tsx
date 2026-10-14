@@ -406,6 +406,58 @@ function formatActivityText(
         </span>
       )
     }
+    case 'SECURITY_FINDING_DISPOSITIONED': {
+      // LUM-1128: a ruling on a PR security finding, from either surface.
+      // `from` non-null = a correction (e.g. the web panel changing a CLI
+      // ruling). The channel says which surface ruled.
+      const findingLabel = (v: unknown): string =>
+        v === 'FALSE_POSITIVE' || v === 'ACCEPTED_RISK'
+          ? intl.formatMessage({ id: `securityScan.disposition.${v}` })
+          : String(v ?? '')
+      const channel = intl.formatMessage({
+        id:
+          p.channel === 'CLI'
+            ? 'activity.securityFindingChannel.CLI'
+            : 'activity.securityFindingChannel.WEB',
+      })
+      const rule = typeof p.ruleId === 'string' ? p.ruleId : ''
+      // LUM-1128 follow-up: `to: 'OPEN'` is a web-panel revert — the ruling
+      // is gone and the finding is undecided (and blocking, if it was) again.
+      if (p.to === 'OPEN') {
+        return (
+          <span className='inline-flex items-center gap-1 align-middle'>
+            <ShieldAlert className='h-3.5 w-3.5 text-warning-text' />
+            <span data-testid='activity-security-finding-reopened'>
+              {intl.formatMessage(
+                { id: 'activity.securityFindingReopened' },
+                { rule, from: findingLabel(p.from), channel }
+              )}
+            </span>
+          </span>
+        )
+      }
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <CheckCircle2 className='h-3.5 w-3.5 text-success-text' />
+          <span data-testid='activity-security-finding-dispositioned'>
+            {p.from
+              ? intl.formatMessage(
+                  { id: 'activity.securityFindingRedispositioned' },
+                  {
+                    rule,
+                    from: findingLabel(p.from),
+                    to: findingLabel(p.to),
+                    channel,
+                  }
+                )
+              : intl.formatMessage(
+                  { id: 'activity.securityFindingDispositioned' },
+                  { rule, to: findingLabel(p.to), channel }
+                )}
+          </span>
+        </span>
+      )
+    }
     case 'BOUNDARY_CROSSING_DISPOSITIONED': {
       // LUM-450: a disposition activity may be a first disposition (from absent
       // / null) OR a re-disposition (from non-null) — including a revert to OPEN

@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.116.0",
+  "cliVersion": "1.122.0",
   "commands": {
     "audit": {
       "arguments": [],
@@ -851,6 +851,61 @@
       "isInvokable": true,
       "description": "Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, the Codex rule, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH, untrusted Codex hooks and Codex installs where `lumo` has no network in the sandbox; always exits 0."
     },
+    "finding": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Rule on PR security findings with user approval (LUM-1128)"
+    },
+    "finding disposition": {
+      "arguments": [{ "name": "ids", "required": true, "variadic": true }],
+      "flags": {
+        "--accepted-risk": {
+          "long": "--accepted-risk",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the findings accepted risks (real, knowingly carried — add a --note)"
+        },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user approved the envelope (never add this on your own initiative)"
+        },
+        "--false-positive": {
+          "long": "--false-positive",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the findings false positives"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Optional note recorded with each ruling"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Task the findings belong to (defaults to the session-bound task)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record the user's ruling on one or more PR security findings (LUM-1128) — how a blocking finding is cleared for DONE (the web panel stays a second surface). Without --confirm it reads the findings from the server and prints ONE confirmation envelope (one line per finding: id, severity, title, ruling, note), exit 4, writes nothing; relay it and re-run its confirmCommand only after the user approves. With --confirm it applies each ruling, reports each finding, and the server records it as channel CLI (actor, session, time); the web panel can correct it. Ids are listed by `lumo task status`. Targets findings on the session-bound task unless --task is given."
+    },
     "hook": {
       "arguments": [],
       "flags": {},
@@ -1317,6 +1372,14 @@
           "enumCaseInsensitive": false,
           "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex."
         },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record"
+        },
         "--force": {
           "long": "--force",
           "short": null,
@@ -1333,14 +1396,6 @@
           "enumCaseInsensitive": false,
           "description": "Install into ./.claude and ./.agents + ./.codex (applies to the current project only)"
         },
-        "--upgrade": {
-          "long": "--upgrade",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs"
-        },
         "--user": {
           "long": "--user",
           "short": null,
@@ -1352,7 +1407,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; `lumo init --upgrade` refreshes existing installs."
+      "description": "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; re-run it to refresh an install (unchanged files are not rewritten), with --dry-run to preview."
     },
     "member": {
       "arguments": [],
@@ -1641,7 +1696,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only)."
+      "description": "DEPRECATED (LUM-1135) — use `milestone testcase`. Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only)."
     },
     "milestone criteria list": {
       "arguments": [
@@ -1947,6 +2002,408 @@
       "isInvokable": true,
       "description": "Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
     },
+    "milestone testcase": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Milestone test cases — cross-task end-to-end cases and the milestone close contract (LUM-1135). The close gate opens only when every case’s latest run passed (or a proven defect was dispositioned known)."
+    },
+    "milestone testcase add": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--expected": {
+          "long": "--expected",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--requires-env": {
+          "long": "--requires-env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy"
+        },
+        "--setup": {
+          "long": "--setup",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Preconditions, e.g. \"The user is on the Dashboard.\""
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One execution step (repeatable, ordered). At least one is required."
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Test case title"
+        },
+        "--verify": {
+          "long": "--verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One verification step (repeatable, ordered). May be omitted entirely."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Add a milestone test case. --step / --verify are repeatable and keep the order they appear in."
+    },
+    "milestone testcase disposition": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+        },
+        "--confirm-read": {
+          "long": "--confirm-read",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+        },
+        "--known-defect": {
+          "long": "--known-defect",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "We accept this defect and ship anyway (does NOT claim it is fixed)"
+        },
+        "--not-a-defect": {
+          "long": "--not-a-defect",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The failure was mis-attributed to the implementation"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Why this ruling"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--receipt": {
+          "long": "--receipt",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The read receipt from the previous step of the handshake"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
+    },
+    "milestone testcase list": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List a milestone's test cases with each one's latest run (result, environment, commit)"
+    },
+    "milestone testcase rm": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Alias of --confirm (kept for compatibility)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+    },
+    "milestone testcase run": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--actual": {
+          "long": "--actual",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "What actually happened at the failing step (FAIL only), shown next to the expected result"
+        },
+        "--cause": {
+          "long": "--cause",
+          "short": null,
+          "value": "required",
+          "enum": ["defect", "outdated", "external", "unknown"],
+          "enumCaseInsensitive": true,
+          "description": "Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only \"defect\" carries a burden of proof (needs at least one --evidence / --evidence-file); \"unknown\" is a real answer"
+        },
+        "--commit": {
+          "long": "--commit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)"
+        },
+        "--env": {
+          "long": "--env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production (case-insensitive; no default - say where this ran)"
+        },
+        "--evidence": {
+          "long": "--evidence",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Evidence link (repeatable)"
+        },
+        "--evidence-file": {
+          "long": "--evidence-file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)"
+        },
+        "--failed-step": {
+          "long": "--failed-step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)"
+        },
+        "--failed-verify": {
+          "long": "--failed-verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Free-text note about this run"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--result": {
+          "long": "--result",
+          "short": null,
+          "value": "required",
+          "enum": ["pass", "fail", "blocked"],
+          "enumCaseInsensitive": true,
+          "description": "pass | fail | blocked (case-insensitive)"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as \"no per-step result\", never as passed"
+        },
+        "--step-evidence": {
+          "long": "--step-evidence",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit"
+        },
+        "--unproven": {
+          "long": "--unproven",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in."
+    },
+    "milestone testcase show": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history. Case: TC3"
+    },
+    "milestone testcase update": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--expected": {
+          "long": "--expected",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        },
+        "--requires-env": {
+          "long": "--requires-env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production", "none"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass \"none\" to clear it. Matched exactly: there is no environment hierarchy"
+        },
+        "--setup": {
+          "long": "--setup",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New preconditions"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Replacement step (repeatable, ordered) - replaces the whole steps list"
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New title"
+        },
+        "--verify": {
+          "long": "--verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Replacement verification step (repeatable, ordered) - replaces the whole list"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field."
+    },
     "milestone triage": {
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false },
@@ -2136,7 +2593,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Set automatic round limit (1..100), with pause or resume"
+          "description": "This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume"
         },
         "--pause": {
           "long": "--pause",
@@ -2160,7 +2617,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Resume automatic AI reviews and reset the round budget"
+          "description": "Resume automatic AI review of every push and reset the reviewed-commit count"
         },
         "--review": {
           "long": "--review",
@@ -2168,12 +2625,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Request incremental or full AI review without consuming automatic rounds"
+          "description": "Request incremental or full AI review without counting toward the automatic budget"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control the round budget. Finding disposition is web-only."
+      "description": "Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control automatic review of every push (paused after N reviewed commits). Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves)."
     },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],
@@ -2446,7 +2903,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "First day, inclusive: a YYYY-MM-DD date, Nd for the last N days incl. today (e.g. 30d), today, or yesterday"
+          "description": "First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday"
         },
         "--until": {
           "long": "--until",
@@ -2520,6 +2977,14 @@
           "enumCaseInsensitive": false,
           "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex."
         },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record"
+        },
         "--force": {
           "long": "--force",
           "short": null,
@@ -2536,14 +3001,6 @@
           "enumCaseInsensitive": false,
           "description": "Install into ./.claude and ./.agents + ./.codex (applies to the current project only)"
         },
-        "--upgrade": {
-          "long": "--upgrade",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Upgrade every known Lumo install (no scope prompt): managed, older skill copies are replaced; modified or newer copies are skipped; Codex hooks.json is rewritten only when the Lumo event set changed (then re-trust in Codex /hooks); a recorded Lumo Codex rule is refreshed when it differs"
-        },
         "--user": {
           "long": "--user",
           "short": null,
@@ -2556,6 +3013,77 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Alias of `lumo init` (kept for older docs and scripts)."
+    },
+    "skill": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook"
+    },
+    "skill status": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it"
+    },
+    "skill update": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)"
+        },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing"
+        },
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also overwrite locally modified copies (discards those edits); still never downgrades"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
+        },
+        "--user": {
+          "long": "--user",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only user-scope copies (~/.claude, ~/.agents)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
     },
     "sprint": {
       "arguments": [],
@@ -4411,7 +4939,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt."
+          "description": "With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done with no other flag runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt."
         },
         "--description": {
           "long": "--description",
@@ -4675,13 +5203,21 @@
           "enumCaseInsensitive": false,
           "description": "AI review (LLM security review and triage)"
         },
+        "--auto-pause-after": {
+          "long": "--auto-pause-after",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)"
+        },
         "--confirm": {
           "long": "--confirm",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "The user approved turning the listed switches off"
+          "description": "The user approved the listed changes"
         },
         "--disable-all": {
           "long": "--disable-all",
@@ -4689,7 +5225,15 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Turn every switch off at once"
+          "description": "Turn every layer switch off at once"
+        },
+        "--drafts": {
+          "long": "--drafts",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo: review draft PRs too (off = wait for ready for review)"
         },
         "--enable-all": {
           "long": "--enable-all",
@@ -4697,7 +5241,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Turn every switch on at once"
+          "description": "Turn every layer switch on at once"
         },
         "--hunt": {
           "long": "--hunt",
@@ -4715,6 +5259,46 @@
           "enumCaseInsensitive": false,
           "description": "Emit { switches, platform, effective } as JSON"
         },
+        "--learnings-scope": {
+          "long": "--learnings-scope",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Which repositories’ learnings the AI review reads (default auto): local = the reviewed repository, global = every repository in this workspace, auto = local for public / global for private repositories"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One connected repository: show it, or change it with --review / --drafts"
+        },
+        "--repos": {
+          "long": "--repos",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "List each connected repository with its automatic review settings"
+        },
+        "--request-changes": {
+          "long": "--request-changes",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean"
+        },
+        "--review": {
+          "long": "--review",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo: review every PR without a task automatically"
+        },
         "--scan": {
           "long": "--scan",
           "short": null,
@@ -4726,7 +5310,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs. Any member may read; changing is OWNER only, and turning anything off exits 4 with a confirmation envelope until --confirm."
+      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
     },
     "worktree": {
       "arguments": [],

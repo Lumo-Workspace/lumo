@@ -16,6 +16,7 @@ import {
 } from '../lib/scan-format'
 import {
   QUEUE_EXIT_LABELS,
+  QUEUE_EXIT_REASONS,
   isCodeReviewFinding,
   secretDowngradeNote,
   type QueueExitReason,
@@ -159,11 +160,29 @@ export interface PrScanEntry {
   hunt: PrScanHunt | null
 }
 
+/**
+ * LUM-1137 — `3/5 commits reviewed`, `12 commits reviewed · never pauses`;
+ * an older server counted review rounds (`1/2 rounds`).
+ */
+export function formatReviewBudget(c: {
+  rounds: number
+  limit: number
+  unit?: 'commits'
+}): string {
+  if (c.unit !== 'commits') return `${c.rounds}/${c.limit} rounds`
+  if (c.limit === 0) return `${c.rounds} commits reviewed · never pauses`
+  return `${c.rounds}/${c.limit} commits reviewed`
+}
+
 export interface PrScanPayload {
   reviewControl?: {
     paused: boolean
+    /** Reviewed commits (LUM-1137); review rounds on an older server. */
     rounds: number
+    /** 0 = never pauses (LUM-1137). */
     limit: number
+    /** LUM-1137 — absent on an older server, which counted rounds. */
+    unit?: 'commits'
     currentHead: string | null
   }
   version: number
@@ -181,6 +200,53 @@ export interface PrScanPayload {
   redactedSecrets?: number
   /** LUM-901 — the workspace has scanning off; absent on an older server. */
   scanningOff?: boolean
+}
+
+/**
+ * The `Findings` row's breakdown. `open`, `block(s) DONE` (a subset of open)
+ * and `dispositioned` keep their place; every other row lands in exactly one
+ * extra bucket — already on main, each queue exit (`merged unreviewed` …),
+ * or rejected by the verifier — so the buckets besides `block DONE` add up
+ * to the total (LUM-1116: merged-unreviewed rows used to fall through).
+ */
+export function findingsBreakdown(
+  c: { open: number; blocking: number; dispositioned: number },
+  findings: PrScanFinding[]
+): string[] {
+  const parts = [
+    `${c.open} open`,
+    `${c.blocking} block${c.blocking === 1 ? 's' : ''} DONE`,
+    `${c.dispositioned} dispositioned`,
+  ]
+  let persisting = 0
+  let rejected = 0
+  let other = 0
+  const exits = new Map<string, number>()
+  for (const f of findings) {
+    if (f.disposition !== null || f.open) continue
+    // Same precedence as each row's `Standing:` line (findingStanding).
+    if (f.persisting) persisting++
+    else if (f.verifierVerdict === 'REJECTED') rejected++
+    else if (f.queueExit)
+      exits.set(f.queueExit, (exits.get(f.queueExit) ?? 0) + 1)
+    // A state this build does not know (a newer server): still counted so
+    // the row adds up, but never given a reason it may not have.
+    else other++
+  }
+  if (persisting > 0) parts.push(`${persisting} already on main`)
+  // Same order as the `Queue` row; a reason this build does not know last.
+  const known = QUEUE_EXIT_REASONS as readonly string[]
+  const order = [
+    ...known.filter(k => exits.has(k)),
+    ...[...exits.keys()].filter(k => !known.includes(k)),
+  ]
+  for (const reason of order)
+    parts.push(
+      `${exits.get(reason)} ${QUEUE_EXIT_LABELS[reason as QueueExitReason] ?? sanitizeField(reason)}`
+    )
+  if (rejected > 0) parts.push(`${rejected} rejected by verifier`)
+  if (other > 0) parts.push(`${other} other`)
+  return parts
 }
 
 /** How many hunt tasks `--full` lists per scan — a plan holds at most 5. */
@@ -375,13 +441,7 @@ function formatScan(
   } else if (c.findings === 0) {
     findingsValue = 'none on this scan'
   } else {
-    const breakdown = [
-      `${c.open} open`,
-      `${c.blocking} block${c.blocking === 1 ? 's' : ''} DONE`,
-      `${c.dispositioned} dispositioned`,
-    ]
-    if (c.persisting > 0) breakdown.push(`${c.persisting} already on main`)
-    findingsValue = `${c.findings} (${breakdown.join(' · ')})`
+    findingsValue = `${c.findings} (${findingsBreakdown(c, s.findings).join(' · ')})`
   }
   const findingsRow: Field[] = [{ label: 'Findings', value: findingsValue }]
   const w = labelWidth([...meta, ...layers, ...findingsRow])
@@ -452,7 +512,7 @@ export function formatPrScan(
         [
           {
             label: 'Automatic',
-            value: `${c.paused ? 'paused' : 'enabled'} · ${c.rounds}/${c.limit} rounds`,
+            value: `${c.paused ? 'paused' : 'enabled'} · ${formatReviewBudget(c)}`,
           },
         ],
         2,
@@ -502,7 +562,7 @@ export function formatPrScan(
  *
  * The security scans of one PR in the workspace, by PR number — linked to a
  * task or not. Reads `GET /api/pull-requests/:number/scans`; read-only.
- * Disposition stays web-only (LUM-750's CLI path was rolled back).
+ * Read-only: rule on a finding with `lumo finding disposition` (LUM-1128).
  */
 export async function prScan(
   numberArg: string | undefined,
@@ -583,7 +643,7 @@ export async function prScan(
     process.stdout.write(
       (opts.review
         ? `Queued ${opts.review} review for PR #${numberArg}.`
-        : `Automatic AI review ${opts.pause ? 'paused' : 'resumed with a fresh round budget'} for PR #${numberArg}.`) +
+        : `Automatic AI review ${opts.pause ? 'paused' : 'resumed (every push is reviewed again; reviewed-commit count reset)'} for PR #${numberArg}.`) +
         '\n'
     )
     return

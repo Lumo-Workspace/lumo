@@ -117,6 +117,7 @@ import * as auth from '@/lib/integrations/github/auth'
 import * as judge from '@/ee/security/llm/security-judge-client'
 import { startReviewVerifier } from '@/ee/security/services/review-verifier-start'
 import { startSecurityManagedScan } from '@/ee/security/services/security-managed-scan-start'
+import { startSecurityHunt } from '@/ee/security/services/security-hunt-start'
 import {
   DEFAULT_SECURITY_POLICY,
   isBlockingUnderPolicy,
@@ -472,7 +473,7 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
       prNumber: 7,
       headSha: 'sha-1',
       managedScanStarted: false,
-      stopAttachedWhenDone: true,
+      stopAttachedWhenDone: false,
     })
     const markOrder = (repo.markVerifierStarted as jest.Mock).mock
       .invocationCallOrder[0]!
@@ -511,7 +512,7 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
     expect(repo.markVerifierStarted).not.toHaveBeenCalled()
   })
 
-  it('keeps the managed scan VM alive for the verifier while the AI review is on', async () => {
+  it('LUM-1084: keeps no managed scan VM alive for the verifier, which boots its own at once', async () => {
     process.env.LUMO_MANAGED_SCAN = 'on'
     ;(startSecurityManagedScan as jest.Mock).mockResolvedValue('run-1')
     ;(
@@ -527,31 +528,59 @@ describe('LUM-988 stage A starts the agentic verifier', () => {
       trigger: 'PR_EVENT',
     })
 
+    // Before LUM-1084 the VM was kept for the verifier, which then waited
+    // 30 s + 90 s for the managed scan's hand-off and booted its own anyway.
     expect(
       (startSecurityManagedScan as jest.Mock).mock.calls[0]![0].huntWanted
-    ).toBe(true)
+    ).toBe(false)
+    expect(start).toHaveBeenCalledTimes(1)
     expect(start.mock.calls[0]![0]).toMatchObject({
-      managedScanStarted: true,
-      stopAttachedWhenDone: true,
+      managedScanStarted: false,
+      stopAttachedWhenDone: false,
     })
+    expect(start.mock.calls[0]![0].releaseOnly).toBeUndefined()
   })
 })
 
 describe('LUM-988 VM release and the verifier start condition', () => {
   const start = startReviewVerifier as jest.Mock
+  const startHunt = startSecurityHunt as jest.Mock
   const HIGH_VULN = { ...VULN, severity: 'HIGH' }
   const MEDIUM_BUG = { ...BUG, severity: 'MEDIUM' }
+  // LUM-1084: the VM is kept alive for the hunt only, so these cases need a
+  // diff the hunt trigger fires on (a route handler) and a hunt that then
+  // does not start — the only way a kept VM is left without a consumer.
+  const ROUTE = [
+    'diff --git a/app/api/x/route.ts b/app/api/x/route.ts',
+    '--- a/app/api/x/route.ts',
+    '+++ b/app/api/x/route.ts',
+    '@@ -0,0 +1 @@',
+    '+export async function POST(req: Request) {',
+  ].join('\n')
   beforeEach(() => {
     start.mockResolvedValue(true)
+    startHunt.mockResolvedValue(null)
+    delete process.env.LUMO_SECURITY_HUNT
     process.env.LUMO_MANAGED_SCAN = 'on'
     ;(startSecurityManagedScan as jest.Mock).mockResolvedValue('run-1')
     ;(
       securityColumnsRepository.findLastSarifIngestAt as jest.Mock
     ).mockResolvedValue(null)
-    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    fetchPrDiff.mockResolvedValue(ROUTE)
+  })
+  afterEach(() => {
+    process.env.LUMO_SECURITY_HUNT = 'off'
   })
   const run = () =>
     prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  const releases = () => start.mock.calls.filter(c => c[0].releaseOnly)
+
+  it('keeps the VM for the hunt it triggered', async () => {
+    await run()
+    expect(
+      (startSecurityManagedScan as jest.Mock).mock.calls[0]![0].huntWanted
+    ).toBe(true)
+  })
 
   it('only security or HIGH findings: no verifier, and the kept VM is released', async () => {
     ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
@@ -573,8 +602,9 @@ describe('LUM-988 VM release and the verifier start condition', () => {
 
     jest.clearAllMocks()
     start.mockResolvedValue(true)
+    startHunt.mockResolvedValue(null)
     ;(startSecurityManagedScan as jest.Mock).mockResolvedValue('run-1')
-    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    fetchPrDiff.mockResolvedValue(ROUTE)
     ;(judge.judgeSecurity as jest.Mock).mockRejectedValue(
       new Error('gateway down')
     )
@@ -583,18 +613,43 @@ describe('LUM-988 VM release and the verifier start condition', () => {
     expect(start.mock.calls[0]![0]).toMatchObject({ releaseOnly: true })
   })
 
-  it('a qualifying finding starts the verifier and no release is queued', async () => {
+  it('LUM-1084: a started verifier is not a consumer — the kept VM is still released', async () => {
     ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
       findings: [MEDIUM_BUG, HIGH_VULN],
     })
     await run()
-    expect(start).toHaveBeenCalledTimes(1)
-    expect(start.mock.calls[0]![0].releaseOnly).toBeUndefined()
+    expect(start).toHaveBeenCalledTimes(2)
+    const verify = start.mock.calls.find(c => !c[0].releaseOnly)![0]
+    expect(verify).toMatchObject({
+      managedScanStarted: false,
+      stopAttachedWhenDone: false,
+    })
+    expect(releases()).toHaveLength(1)
+  })
+
+  it('a started hunt consumes the kept VM: nothing is released', async () => {
+    startHunt.mockResolvedValue('run_h1')
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [MEDIUM_BUG],
+    })
+    await run()
+    expect(releases()).toHaveLength(0)
+    expect(start.mock.calls[0]![0]).toMatchObject({ managedScanStarted: false })
   })
 
   it('no managed VM kept alive: nothing to release', async () => {
     process.env.LUMO_MANAGED_SCAN = 'off'
     await run()
+    expect(start).not.toHaveBeenCalled()
+  })
+
+  it('a diff with no hunt trigger keeps no VM, so there is nothing to release', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('app/search.rb', 1_000)]))
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [] })
+    await run()
+    expect(
+      (startSecurityManagedScan as jest.Mock).mock.calls[0]![0].huntWanted
+    ).toBe(false)
     expect(start).not.toHaveBeenCalled()
   })
 
@@ -673,6 +728,9 @@ describe('LUM-1013 AI review — finding text keeps quoted prose', () => {
     }
   )
 })
+jest.mock('@/ee/security/services/auto-review-admission.service', () =>
+  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
+)
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),
@@ -681,7 +739,6 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     findingsOnScan: jest.fn().mockResolvedValue([]),
     get: jest.fn().mockResolvedValue({
       reviewPaused: false,
-      reviewRoundLimit: 2,
       reviewHeads: [],
     }),
   },

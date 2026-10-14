@@ -112,11 +112,13 @@ describe('LUM-907 audit coverage guard — security plugin (LUM-1065)', () => {
         for (const call of auditedCallArguments(src, p, file))
           sites.push({ file, unit, ok: passesAuditContext(src, call) })
     }
-    // The two disposition routes are found.
+    // The two disposition routes and (LUM-1133) the repository review
+    // settings route are found.
     const callers = [...new Set(sites.map(s => s.file))].sort()
     expect(callers).toEqual([
       'app/api/tasks/[id]/security-findings/[findingId]/disposition/route.ts',
       'app/api/tasks/[id]/security-findings/bulk-disposition/route.ts',
+      'app/api/workspaces/me/security-scan/repositories/route.ts',
     ])
     expect(sites.filter(s => !s.ok)).toEqual([])
   })

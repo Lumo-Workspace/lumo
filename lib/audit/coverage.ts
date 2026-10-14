@@ -212,6 +212,8 @@ export const AUDIT_INDIRECT_ACTIONS: Readonly<
 export const AUDIT_PLUGIN_ACTIONS: readonly AuditAction[] = [
   'security_finding.dispositioned',
   'security_finding.suggestions_confirmed',
+  // LUM-1133: per-repository automatic PR review settings
+  'repository.review_settings_updated',
 ]
 
 /**

@@ -350,6 +350,8 @@ model Workspace {
   slackIntegration        SlackIntegration?
   sentryIntegration       SentryIntegration?
   gitHubAppInstallation   GitHubAppInstallation?
+  /// LUM-1133 — per-repository automatic PR review settings.
+  repoReviewSettings      RepositoryReviewSetting[]
   actors                  Actor[]
   agentProfiles           AgentProfile[]
   documents               Document[]
@@ -380,7 +382,12 @@ model Workspace {
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
-  summaryLocale    String           @default("en")
+
+  // LUM-1097: the workspace's default language — Slack channel posts are
+  // written in it, and so are DMs to members who have no language preference
+  // of their own; LUM-1117: AI summaries too (English for languages other
+  // than English and Chinese). Same codes as UserPreference.locale (lib/i18n/public-locale.ts).
+  defaultLocale String @default("en")
 
   // LUM-426: default-ON DONE gate. Opting out (false) drops the boundary-crossing
   // DONE block but never the flagging (recording is always on).
@@ -449,6 +456,25 @@ model Workspace {
   securityScanEnabled     Boolean           @default(true)
   securityAiReviewEnabled Boolean           @default(true)
   securityHuntEnabled     Boolean           @default(true)
+  // LUM-1130: the PR reviewer's request-changes workflow (CodeRabbit's
+  // `reviews.request_changes_workflow`). Off by default: on, Lumo's review is
+  // "Changes requested" while a Lumo thread or a DONE-blocking finding is
+  // open, and Lumo approves once the latest head's complete review leaves
+  // nothing open.
+  securityRequestChangesEnabled Boolean @default(false)
+  // LUM-1134: which repositories' PR-review learnings (LUM-1131) the AI
+  // review reads — CodeRabbit's `knowledge_base.learnings.scope`. "local" =
+  // the reviewed repository only; "global" = every repository of this
+  // workspace; "auto" (default) = local for a public repository, global for a
+  // private one, local when the visibility is unknown. Never across
+  // workspaces. A CHECK constraint keeps it to those three values.
+  securityLearningsScope String @default("auto")
+  // LUM-1137: CodeRabbit's `auto_pause_after_reviewed_commits` — automatic
+  // AI review (and exploit-path discovery) of every push pauses on a PR once
+  // this many commits have been reviewed; 0 = never pause. A PR's own
+  // `--resume --limit` (PullRequest.reviewCommitLimit) overrides it. A CHECK
+  // constraint keeps it to 0–100.
+  securityReviewAutoPauseAfter Int @default(5)
   workspaceExports        WorkspaceExport[]
 
   // LUM-918: pending deletion. An OWNER's delete schedules it 48h out
@@ -1155,6 +1181,10 @@ model Milestone {
   boundaryCrossings     BoundaryCrossing[]
   // LUM-643: milestone-level exit criteria (the close contract).
   exitCriteria          MilestoneExitCriterion[]
+  // LUM-1135: milestone-level test cases — the close contract that replaces exitCriteria.
+  testCases               TestCase[]
+  testCaseRuns            TestCaseRun[]
+  testCaseRunDispositions TestCaseRunDisposition[]
   // LUM-647: MILESTONE-scope memories distilled from this milestone's close retro.
   memories              Memory[]
   /// LUM-648: cross-milestone learning-migration edges. `asSource` = this
@@ -1542,6 +1572,112 @@ enum PrSecurityFindingProvenance {
   EXTERNAL_TOOL
 }
 
+// LUM-1127: where a Lumo inline comment's GitHub thread stands.
+enum PrFindingThreadState {
+  // Posted, unresolved on GitHub.
+  OPEN
+  // Lumo resolved it: a complete pass of the producing layer no longer
+  // reports the fingerprint (`addressedInSha` says on which head).
+  ADDRESSED
+  // A human resolved it on GitHub. Not re-posted; a gate-blocking finding
+  // still blocks DONE until it is dispositioned in Lumo.
+  RESOLVED_BY_USER
+  // The verifier rejected the finding; the comment was retracted.
+  DISMISSED
+}
+
+// LUM-1127: one row per (PR, finding fingerprint) Lumo commented on inline —
+// the durable identity of the GitHub review thread across head commits, so a
+// later scan can resolve it as addressed, honour a human resolve, and reopen
+// it on regression (CodeRabbit's thread lifecycle). Findings themselves stay
+// per scan (`PrSecurityFinding`); the thread is per PR.
+/// LUM-1133 — per-repository automatic PR review settings for a workspace
+/// (CodeRabbit `reviews.auto_review`: enabled, drafts). No row = the defaults:
+/// every PR of a confirmed repository is reviewed, drafts are skipped until
+/// they are marked ready. Governs PRs without a Lumo task; task-linked PRs keep
+/// their scan (the DONE gate's evidence).
+model RepositoryReviewSetting {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  /// Lower-cased `owner/name`.
+  repo         String
+  autoReview   Boolean  @default(true)
+  reviewDrafts Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, repo])
+  @@map("repository_review_settings")
+}
+
+model PrFindingThread {
+  id              String                      @id @default(cuid())
+  pullRequestId   String
+  workspaceId     String
+  fingerprint     String
+  // GitHub REST id of Lumo's inline comment (the thread's first comment).
+  commentId       String
+  // GraphQL node id of the review thread; null until first read back.
+  threadNodeId    String?
+  state           PrFindingThreadState        @default(OPEN)
+  // The finding's layer, kept so an absent fingerprint can still be judged
+  // against the layer that produced it.
+  ruleId          String
+  provenance      PrSecurityFindingProvenance
+  kind            PrSecurityFindingKind
+  filePath        String
+  resolvedByLogin String?
+  resolvedAt      DateTime?
+  addressedInSha  String?
+  // LUM-1131: GitHub REST id of the last human reply Lumo answered in this
+  // thread — a redelivered webhook for the same reply is not answered twice.
+  lastReplyId     String?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, fingerprint])
+  @@index([pullRequestId, state])
+  @@map("pr_finding_threads")
+}
+
+// LUM-1131: a repository-scoped learning from a human reply in one of Lumo's
+// finding threads ("this is intentional because …"). The text lives in the
+// linked Memory row (PROJECT / CONVENTION) — that is where people read, edit
+// and delete it; this row only says which repository (and optional path glob)
+// the AI review applies it to. Deleting the memory deletes the learning.
+model PrReviewLearning {
+  id                  String   @id @default(cuid())
+  workspaceId         String
+  memoryId            String   @unique
+  // "owner/name", as on PullRequest.repo.
+  repo                String
+  // null = the whole repository.
+  pathGlob            String?
+  ruleId              String
+  fingerprint         String
+  // The PR the reply was written on (no FK: the learning outlives the PR row).
+  sourcePullRequestId String?
+  // GitHub REST id of the human reply the learning came from.
+  sourceReplyId       String
+  authorLogin         String
+  // CodeRabbit parity: a learning applies only to its source PR until that
+  // PR merges; set when the merge is seen. Readers also treat a merged
+  // source PR as repository-wide (a missed merge event changes nothing).
+  repoWideAt          DateTime?
+  createdAt           DateTime @default(now())
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, sourceReplyId])
+  @@index([workspaceId, repo])
+  @@index([sourcePullRequestId])
+  @@map("pr_review_learnings")
+}
+
 enum PrSecurityFindingDisposition {
   FALSE_POSITIVE
   ACCEPTED_RISK
@@ -1678,6 +1814,11 @@ model PrSecurityScan {
   // LUM-911: does the retention sweep look at this scan? Rows from before
   // LUM-911 are false (the backlog is a separate task); new rows are true.
   retentionTracked  Boolean                @default(true)
+  // LUM-1127: the paths the AI review (judge) read on this head when the
+  // round was incremental — `["a.ts", …]`; null = the whole PR diff (or a row
+  // from before this column). The PR write-back resolves a judge finding's
+  // thread as addressed only when its file was in this scope.
+  judgeReviewScope  Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1916,8 +2057,14 @@ model PullRequest {
   id             String    @id @default(cuid())
   // LUM-1056: durable automatic-review budget; reservations survive retries.
   reviewPaused   Boolean   @default(false)
-  reviewRoundLimit Int     @default(2)
   reviewHeads    String[]  @default([])
+  // LUM-1137: the PR's commit count at each admitted head, aligned with
+  // reviewHeads (a missing entry — a head admitted before this column —
+  // counts as one commit). Reviewed commits = the commits each head added.
+  reviewHeadCommits Int[]  @default([])
+  // LUM-1137: this PR's own pause-after-N-reviewed-commits, set only by
+  // `--resume --limit` / `@uselumo resume`; null = the workspace setting.
+  reviewCommitLimit Int?
   workspaceId    String
   taskId         String?
   integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)
@@ -1961,6 +2108,7 @@ model PullRequest {
   integration      GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   mirroredComments PrCommentMirror[]
   securityScans    PrSecurityScan[]
+  findingThreads   PrFindingThread[]
   testCaseRuns     TestCaseRun[]
 
   // LUM-924: one row per workspace — workspaces sharing a GitHub App
@@ -2748,6 +2896,13 @@ model Session {
   parentSessionId       String?
   agentId               String?
   agentType             String?
+  // LUM-1136: the Lumo CLI and skill versions the session's SessionStart hook
+  // reported (X-Lumo-Cli-Version / X-Lumo-Skill-Version), shown on the members
+  // page. Skill is `1.2.3`, `1.2.3 modified`, `modified`, `source` or `none`.
+  // Null when the CLI predates the headers; a later SessionStart without them
+  // never clears a known value.
+  cliVersion            String?
+  skillVersion          String?
   // LUM-932: provenance of `taskId` — ATTACH (`lumo session attach` on this
   // row) or INHERITED (copied from the parent's explicit binding).
   bindingSource         SessionBindingSource?
@@ -2943,6 +3098,9 @@ model Memory {
   /// LUM-648: cross-milestone learning-migration usage edges — one per steward
   /// session this MILESTONE-scope memory was injected into.
   milestoneMemoryEdges MilestoneMemoryEdge[]
+
+  /// LUM-1131: set when this memory is a PR-review learning (its repo scope).
+  reviewLearning PrReviewLearning?
 
   @@index([projectId, scope, status])
   @@index([taskId, status])
@@ -3678,7 +3836,10 @@ enum TestCaseDispositionChannel {
 
 model TestCase {
   id                  String           @id @default(cuid())
-  taskId              String
+  /// LUM-1135: exactly one of taskId / milestoneId is set (DB CHECK test_cases_owner_check).
+  taskId              String?
+  /// LUM-1135: milestone-level (cross-task end-to-end) case. Number is 1-based within the milestone.
+  milestoneId         String?
   /// 任务内 1-based 顺序号,兼作展示序（v1 不支持重排序）。CLI 句柄 = LUM-12/TC3。
   /// 分配走 max+1 事务 + P2002 重试（LUM-661 模式）。
   number              Int
@@ -3699,11 +3860,14 @@ model TestCase {
   /// 即使还没有 run 也软删,避免两条删除语义。
   deletedAt           DateTime?
 
-  task Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  runs TestCaseRun[]
+  task      Task?         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  milestone Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  runs      TestCaseRun[]
 
   @@unique([taskId, number])
+  @@unique([milestoneId, number])
   @@index([taskId, deletedAt])
+  @@index([milestoneId, deletedAt])
   @@map("test_cases")
 }
 
@@ -3713,7 +3877,9 @@ model TestCaseRun {
   id         String @id @default(cuid())
   testCaseId String
   /// 反范式：任务级查询免 join。
-  taskId     String
+  taskId      String?
+  /// LUM-1135: denormalised owner, same as taskId.
+  milestoneId String?
 
   result      TestCaseRunResult
   /// 没有默认值。整个 feature 的目的就是分清这次跑在哪,给默认值等于鼓励
@@ -3783,11 +3949,13 @@ model TestCaseRun {
   disposition TestCaseRunDisposition?
   reviews     TestCaseRunReview[]
   testCase    TestCase                @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  task        Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        Task?                   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  milestone   Milestone?              @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   pullRequest PullRequest?            @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
 
   @@index([testCaseId, createdAt])
   @@index([taskId, createdAt])
+  @@index([milestoneId, createdAt])
   @@index([pullRequestId])
   @@map("test_case_runs")
 }
@@ -3807,7 +3975,9 @@ model TestCaseRunDisposition {
   /// 唯一：一条 run 最多一个裁定。要改判就在 web 面板上改这一行（同越界可改判）。
   runId  String @unique
   /// 反范式：任务级查询免 join（同 TestCaseRun.taskId）。
-  taskId String
+  taskId      String?
+  /// LUM-1135: denormalised owner, same as taskId.
+  milestoneId String?
 
   disposition TestCaseDefectDisposition
   note        String?
@@ -3819,9 +3989,11 @@ model TestCaseRunDisposition {
   channel           TestCaseDispositionChannel
 
   run  TestCaseRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  task Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task      Task?      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  milestone Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+  @@index([milestoneId])
   @@map("test_case_run_dispositions")
 }
 

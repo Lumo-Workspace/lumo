@@ -8,6 +8,7 @@
  */
 import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
+  findingsBreakdown,
   formatPrScan,
   prScan,
   type PrScanEntry,
@@ -255,7 +256,7 @@ describe('formatPrScan', () => {
           scan({
             counts: {
               findings: 6,
-              open: 2,
+              open: 1,
               blocking: 1,
               dispositioned: 3,
               persisting: 1,
@@ -337,7 +338,7 @@ describe('formatPrScan', () => {
       '  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013',
     ])
     // LUM-1091: the scan is a heading over labelled rows — one per fact.
-    expect(lines.slice(5, 28)).toEqual([
+    expect(lines.slice(5, 29)).toEqual([
       '',
       'Scan abcdef0 · FINDINGS',
       `  Started:        ${fmtTimestamp('2026-09-15T07:00:00.000Z')}`,
@@ -358,7 +359,8 @@ describe('formatPrScan', () => {
       '    t3  race              skipped',
       "  Note:           part of this scan hasn't finished on our side — not counted as checked",
       '  Queue:          1 left the queue (1 merged unreviewed)',
-      '  Findings:       6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)',
+      '  Findings:',
+      '    6 (1 open · 1 blocks DONE · 3 dispositioned · 1 already on main · 1 merged unreviewed)',
       '    • [HIGH] AWS access key id',
       '      Rule:      secret:aws-access-key-id (DETERMINISTIC)',
       '      Where:     src/cfg.ts:12',
@@ -851,5 +853,108 @@ describe('LUM-988 verifier verdict in lumo pr scan', () => {
     expect(out).toMatch(
       /^ {6}Standing: +rejected by verifier — "guarded at src\/a\.ts:12"$/m
     )
+  })
+})
+
+// LUM-1116: every row lands in one bucket, so the counts add up to the total.
+describe('Findings count row adds up', () => {
+  const sum = (parts: string[]) =>
+    parts
+      .filter(p => !/DONE$/.test(p))
+      .reduce((n, p) => n + Number(p.split(' ')[0]), 0)
+
+  it('a merged PR whose rows all left the queue unreviewed (PR #1420 shape)', () => {
+    const findings = [1, 2, 3, 4, 5].map(i =>
+      finding({
+        id: `f${i}`,
+        open: false,
+        blocking: false,
+        queueExit: 'MERGED_UNREVIEWED',
+        ...(i === 5 ? { verifierVerdict: 'REJECTED' } : {}),
+      })
+    )
+    const parts = findingsBreakdown(
+      { open: 0, blocking: 0, dispositioned: 0 },
+      findings
+    )
+    expect(parts).toEqual([
+      '0 open',
+      '0 block DONE',
+      '0 dispositioned',
+      '4 merged unreviewed',
+      '1 rejected by verifier',
+    ])
+    expect(sum(parts)).toBe(5)
+    const out = formatPrScan(
+      payload({
+        scans: [
+          scan({
+            counts: {
+              findings: 5,
+              open: 0,
+              blocking: 0,
+              dispositioned: 0,
+              persisting: 0,
+              externalFindings: 0,
+              dependencyFindings: 0,
+            },
+            queueExits: { MERGED_UNREVIEWED: 5 },
+            findings,
+          }),
+        ],
+      }),
+      { width: 200 }
+    )
+    expect(out).toMatch(
+      /Findings:\s+5 \(0 open · 0 block DONE · 0 dispositioned · 4 merged unreviewed · 1 rejected by verifier\)/
+    )
+  })
+
+  it('counts persisting, each exit reason and verifier-rejected rows once each', () => {
+    const findings = [
+      finding({ id: 'a' }),
+      finding({
+        id: 'b',
+        open: false,
+        blocking: false,
+        disposition: 'FALSE_POSITIVE',
+        persisting: true,
+      }),
+      finding({ id: 'c', open: false, blocking: false, persisting: true }),
+      finding({
+        id: 'd',
+        open: false,
+        blocking: false,
+        queueExit: 'PR_CLOSED',
+      }),
+      finding({
+        id: 'e',
+        open: false,
+        blocking: false,
+        queueExit: 'RESOLVED_ON_MAIN',
+      }),
+      finding({
+        id: 'f',
+        open: false,
+        blocking: false,
+        verifierVerdict: 'REJECTED',
+      }),
+      finding({ id: 'g', open: false, blocking: false }),
+    ]
+    const parts = findingsBreakdown(
+      { open: 1, blocking: 1, dispositioned: 1 },
+      findings
+    )
+    expect(parts).toEqual([
+      '1 open',
+      '1 blocks DONE',
+      '1 dispositioned',
+      '1 already on main',
+      '1 resolved on main',
+      '1 PR closed',
+      '1 rejected by verifier',
+      '1 other',
+    ])
+    expect(sum(parts)).toBe(findings.length)
   })
 })

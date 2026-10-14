@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       return NextResponse.json(
         {
           error:
-            'Overriding the exit-criteria close gate is human-only; adjudicate the criteria instead (`lumo milestone criteria verdict`).',
+            'Overriding the milestone close gate is human-only; run the milestone test cases (`lumo milestone testcase run`) instead.',
         },
         { status: 403 }
       )

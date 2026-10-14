@@ -134,3 +134,110 @@ describe('securityScanSettingsService.update', () => {
     expect(workspaceRepository.update).not.toHaveBeenCalled()
   })
 })
+
+describe('LUM-1130 request-changes workflow setting', () => {
+  it('passes the switch through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityRequestChangesEnabled: true })
+    ).toMatchObject({ securityRequestChangesEnabled: true })
+    expect(switchesForUpdate({ all: true })).not.toHaveProperty(
+      'securityRequestChangesEnabled'
+    )
+  })
+  it('reads off by default and as stored', async () => {
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityRequestChangesEnabled
+    ).toBe(false)
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+      securityRequestChangesEnabled: true,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityRequestChangesEnabled
+    ).toBe(true)
+  })
+})
+
+describe('LUM-1134 learnings scope setting', () => {
+  it('passes the scope through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityLearningsScope: 'local' })
+    ).toMatchObject({ securityLearningsScope: 'local' })
+    expect(switchesForUpdate({ all: false })).not.toHaveProperty(
+      'securityLearningsScope'
+    )
+  })
+  it('reads auto by default and as stored', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityLearningsScope
+    ).toBe('auto')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+      securityLearningsScope: 'global',
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityLearningsScope
+    ).toBe('global')
+  })
+  it('a MEMBER cannot change it (403 from the shipped OWNER gate)', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        securityLearningsScope: 'global',
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-1137 review pause-after setting', () => {
+  it('passes the value through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityReviewAutoPauseAfter: 0 })
+    ).toMatchObject({ securityReviewAutoPauseAfter: 0 })
+    expect(switchesForUpdate({ all: true })).not.toHaveProperty(
+      'securityReviewAutoPauseAfter'
+    )
+  })
+  it('reads 5 by default', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityReviewAutoPauseAfter
+    ).toBe(5)
+  })
+  it('a MEMBER cannot change it (403 from the shipped OWNER gate)', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        securityReviewAutoPauseAfter: 0,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
+  })
+})

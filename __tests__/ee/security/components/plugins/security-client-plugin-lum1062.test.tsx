@@ -62,6 +62,12 @@ jest.mock('@/ee/security/components/settings/SecurityScanSwitchesCard', () => ({
     <div data-testid='switches-card' data-props={JSON.stringify(props)} />
   ),
 }))
+jest.mock('@/ee/security/components/settings/PolicyCoverageCard', () => ({
+  PolicyCoverageCard: () => <div data-testid='policy-coverage-card' />,
+}))
+jest.mock('@/ee/security/components/settings/RepoReviewSettingsCard', () => ({
+  RepoReviewSettingsCard: () => <div data-testid='repo-review-card' />,
+}))
 jest.mock('@/ee/security/components/settings/ScanEvidenceRetentionRow', () => ({
   ScanEvidenceRetentionRow: ({
     initialDays,
@@ -177,6 +183,7 @@ describe('settings slots', () => {
       />
     )
     expect(screen.queryByTestId('switches-card')).toBeNull()
+    expect(screen.queryByTestId('policy-coverage-card')).toBeNull()
     // A malformed ceiling (missing sandbox) is not drawn as a card either.
     rerender(
       <PluginSlot
@@ -206,10 +213,19 @@ describe('settings slots', () => {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
+        // LUM-1130: absent on the row ⇒ off (the column default).
+        securityRequestChangesEnabled: false,
+        // LUM-1134: absent on the row ⇒ auto (the column default).
+        securityLearningsScope: 'auto',
+        securityReviewAutoPauseAfter: 5,
       },
       huntAvailable: true,
       sandboxAvailable: false,
     })
+    // LUM-1114: the rule-coverage card sits under the switches.
+    expect(screen.getByTestId('policy-coverage-card')).toBeTruthy()
+    // LUM-1133: the per-repository automatic review card.
+    expect(screen.getByTestId('repo-review-card')).toBeTruthy()
   })
 
   it('the evidence row reads scanEvidenceRetentionDays (null when absent)', () => {

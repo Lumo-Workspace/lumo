@@ -16,6 +16,7 @@ jest.mock('@/cli/src/lib/config', () => ({
 
 import {
   buildSecurityScanUpdate,
+  describeGatedChanges,
   describeTurnOffs,
   formatSecurityScanSettings,
   workspaceSecurityScan,
@@ -207,5 +208,179 @@ describe('workspaceSecurityScan', () => {
     serve([{ body: ALL_ON }])
     await workspaceSecurityScan({ json: true })
     expect(JSON.parse(out)).toEqual(ALL_ON)
+  })
+})
+
+describe('LUM-1130 --request-changes', () => {
+  const RC_ON: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityRequestChangesEnabled: true },
+  }
+  const RC_OFF: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityRequestChangesEnabled: false },
+  }
+
+  it('maps the flag and refuses it with --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ requestChanges: 'on' })).toEqual({
+      securityRequestChangesEnabled: true,
+    })
+    expect(() =>
+      buildSecurityScanUpdate({ enableAll: true, requestChanges: 'on' })
+    ).toThrow(/--request-changes/)
+    expect(() => buildSecurityScanUpdate({ requestChanges: 'x' })).toThrow(
+      /--request-changes takes on or off/
+    )
+  })
+
+  it('turning it on or off is gated; leaving it alone is not', () => {
+    const on = describeGatedChanges(RC_OFF.switches, {
+      securityRequestChangesEnabled: true,
+    })
+    expect(on.join('\n')).toMatch(/Will turn ON: Request-changes workflow/)
+    const off = describeGatedChanges(RC_ON.switches, {
+      securityRequestChangesEnabled: false,
+    })
+    expect(off.join('\n')).toMatch(/Will turn OFF: Request-changes workflow/)
+    // LUM-1140: the envelope says Lumo's change requests are withdrawn
+    expect(off.join('\n')).toMatch(
+      /dismisses its standing “Changes requested” reviews/
+    )
+    expect(
+      describeGatedChanges(RC_ON.switches, { securityHuntEnabled: false }).join(
+        '\n'
+      )
+    ).not.toMatch(/dismisses its standing/)
+    expect(
+      describeGatedChanges(RC_ON.switches, {
+        securityRequestChangesEnabled: true,
+      })
+    ).toEqual([])
+    expect(describeGatedChanges(RC_OFF.switches, { all: true })).toEqual([])
+  })
+
+  it('--request-changes on without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: RC_OFF }])
+    expect(await workspaceSecurityScan({ requestChanges: 'on' })).toBe(4)
+    expect(calls).toHaveLength(1)
+    expect(out).toMatch(/confirmation_required/)
+  })
+
+  it('--request-changes on --confirm PATCHes the switch and prints it', async () => {
+    serve([{ body: RC_OFF }, { body: RC_ON }])
+    expect(
+      await workspaceSecurityScan({ requestChanges: 'on', confirm: true })
+    ).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityRequestChangesEnabled: true,
+    })
+    expect(out).toMatch(/Request-changes workflow: on/)
+  })
+
+  it('an older server without the field prints no request-changes line', () => {
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Request-changes/)
+  })
+})
+
+describe('LUM-1134 --learnings-scope', () => {
+  const withScope = (
+    scope: 'local' | 'global' | 'auto'
+  ): SecurityScanSettingsView => ({
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityLearningsScope: scope },
+  })
+
+  it('maps the flag (case-insensitive) and refuses a bad value or --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ learningsScope: 'Global' })).toEqual({
+      securityLearningsScope: 'global',
+    })
+    expect(() => buildSecurityScanUpdate({ learningsScope: 'org' })).toThrow(
+      /--learnings-scope takes local, global or auto/
+    )
+    expect(() =>
+      buildSecurityScanUpdate({ disableAll: true, learningsScope: 'local' })
+    ).toThrow(/--learnings-scope/)
+  })
+
+  it('switching to global is gated (public repositories would read private ones’ learnings); local and auto are not', () => {
+    const toGlobal = describeGatedChanges(withScope('auto').switches, {
+      securityLearningsScope: 'global',
+    })
+    expect(toGlobal.join('\n')).toMatch(
+      /Will change: Learnings scope auto → global/
+    )
+    expect(toGlobal.join('\n')).toMatch(/public repositories/)
+    expect(
+      describeGatedChanges(withScope('global').switches, {
+        securityLearningsScope: 'global',
+      })
+    ).toEqual([])
+    for (const scope of ['local', 'auto'] as const)
+      expect(
+        describeGatedChanges(withScope('global').switches, {
+          securityLearningsScope: scope,
+        })
+      ).toEqual([])
+  })
+
+  it('--learnings-scope global without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: withScope('auto') }])
+    expect(await workspaceSecurityScan({ learningsScope: 'global' })).toBe(4)
+    expect(calls).toHaveLength(1)
+    expect(out).toMatch(/confirmation_required/)
+  })
+
+  it('--learnings-scope local PATCHes the scope and prints it', async () => {
+    serve([{ body: withScope('auto') }, { body: withScope('local') }])
+    expect(
+      await workspaceSecurityScan({ learningsScope: 'local' })
+    ).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityLearningsScope: 'local',
+    })
+    expect(out).toMatch(/Learnings scope: local/)
+  })
+
+  it('an older server without the field prints no learnings-scope line', () => {
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Learnings scope/)
+  })
+})
+
+describe('LUM-1137 --auto-pause-after', () => {
+  const withPauseAfter = (n: number): SecurityScanSettingsView => ({
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityReviewAutoPauseAfter: n },
+  })
+
+  it('maps a whole number 0–100 and refuses anything else or --enable-all', () => {
+    expect(buildSecurityScanUpdate({ autoPauseAfter: '0' })).toEqual({
+      securityReviewAutoPauseAfter: 0,
+    })
+    expect(buildSecurityScanUpdate({ autoPauseAfter: ' 12 ' })).toEqual({
+      securityReviewAutoPauseAfter: 12,
+    })
+    for (const bad of ['-1', '101', '2.5', 'five', ''])
+      expect(() => buildSecurityScanUpdate({ autoPauseAfter: bad })).toThrow(
+        /--auto-pause-after takes a whole number from 0 to 100/
+      )
+    expect(() =>
+      buildSecurityScanUpdate({ enableAll: true, autoPauseAfter: '5' })
+    ).toThrow(/--auto-pause-after/)
+  })
+
+  it('PATCHes the value (no confirmation) and prints it', async () => {
+    serve([{ body: withPauseAfter(5) }, { body: withPauseAfter(0) }])
+    expect(await workspaceSecurityScan({ autoPauseAfter: '0' })).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityReviewAutoPauseAfter: 0,
+    })
+    expect(out).toMatch(/Automatic review: every push · never pauses/)
+  })
+
+  it('prints the limit, and nothing for an older server', () => {
+    expect(formatSecurityScanSettings(withPauseAfter(5))).toMatch(
+      /Automatic review: every push · pauses after 5 reviewed commits/
+    )
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Automatic review/)
   })
 })

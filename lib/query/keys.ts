@@ -14,6 +14,11 @@ export const queryKeys = {
   workspace: () => ['workspace'] as const,
   // LUM-918: the workspace's pending deletion (banner + danger zone).
   workspacePendingDeletion: () => ['workspace', 'pending-deletion'] as const,
+  // LUM-1114: per project, the policy rules no detector checks.
+  workspacePolicyCoverage: () => ['workspace', 'policy-coverage'] as const,
+  // LUM-1133: per-repository automatic PR review settings.
+  workspaceRepoReviewSettings: () =>
+    ['workspace', 'repo-review-settings'] as const,
   // LUM-918: the caller's trash (deleted tasks / own documents).
   trash: () => ['trash'] as const,
   // LUM-907: the workspace audit log, per filter set.
@@ -21,6 +26,7 @@ export const queryKeys = {
     ['audit-events', filters] as const,
   teams: () => ['teams'] as const,
   members: () => ['members'] as const,
+  memberConnections: () => ['members', 'connections'] as const,
   invites: () => ['invites'] as const,
   agentActors: () => ['agentActors'] as const,
   notifications: () => ['notifications'] as const,
@@ -135,6 +141,9 @@ export const queryKeys = {
   taskArtifacts: (taskId: string) => ['task-artifacts', taskId] as const,
 
   taskTestCases: (taskId: string) => ['task-test-cases', taskId] as const,
+
+  milestoneTestCases: (milestoneId: string) =>
+    ['milestone-test-cases', milestoneId] as const,
 
   integrations: {
     slack: (workspaceUrl: string) =>

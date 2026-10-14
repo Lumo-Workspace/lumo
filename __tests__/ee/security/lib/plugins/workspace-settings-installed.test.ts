@@ -4,7 +4,7 @@
  * LUM-1062 / LUM-1065 — the `workspaceSettings` extension point with the
  * security plugin installed (the plugin half of
  * __tests__/lib/plugins/workspace-settings-lum1062.test.ts): the plugin owns
- * its five Workspace columns, validates them with the pre-split validators,
+ * its six Workspace columns (LUM-1130 added the request-changes workflow), validates them with the pre-split validators,
  * clears the policy Json column to SQL NULL, and audits its columns under
  * the same actions as before the split.
  */
@@ -19,6 +19,12 @@ const SECURITY_COLUMNS = [
   'securityScanEnabled',
   'securityAiReviewEnabled',
   'securityHuntEnabled',
+  // LUM-1130: the request-changes workflow.
+  'securityRequestChangesEnabled',
+  // LUM-1134: the learnings scope.
+  'securityLearningsScope',
+  // LUM-1137: pause automatic review after N reviewed commits.
+  'securityReviewAutoPauseAfter',
 ]
 
 describe('installed (the security plugin)', () => {
@@ -54,6 +60,21 @@ describe('installed (the security plugin)', () => {
       false
     )
     expect(schema.safeParse({ securityPolicy: null }).success).toBe(true)
+    // LUM-1134: the learnings scope is one of three values.
+    for (const v of ['local', 'global', 'auto'])
+      expect(schema.safeParse({ securityLearningsScope: v }).success).toBe(true)
+    expect(schema.safeParse({ securityLearningsScope: 'org' }).success).toBe(
+      false
+    )
+    // LUM-1137: the pause-after is a whole number 0–100 (0 = never).
+    for (const v of [0, 5, 100])
+      expect(
+        schema.safeParse({ securityReviewAutoPauseAfter: v }).success
+      ).toBe(true)
+    for (const v of [-1, 101, 1.5])
+      expect(
+        schema.safeParse({ securityReviewAutoPauseAfter: v }).success
+      ).toBe(false)
     expect(
       schema.safeParse({
         securityPolicy: {
@@ -94,6 +115,9 @@ describe('installed (the security plugin)', () => {
         'securityScanEnabled',
         'securityAiReviewEnabled',
         'securityHuntEnabled',
+        'securityRequestChangesEnabled',
+        'securityLearningsScope',
+        'securityReviewAutoPauseAfter',
       ].sort()
     )
     expect(audited['workspace.retention_updated']).toContain(

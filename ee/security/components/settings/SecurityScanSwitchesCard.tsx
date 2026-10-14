@@ -1,12 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { securityScanClient } from '@/ee/security/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
+import {
+  parseLearningsScope,
+  type LearningsScope,
+} from '@/ee/security/security-scan/learnings-scope'
+import { AUTO_PAUSE_AFTER_MAX } from '@/ee/security/security-scan/review-control'
+
+/** LUM-1134 — the order the scope choices are offered in (default first). */
+const SCOPE_CHOICES: readonly LearningsScope[] = ['auto', 'local', 'global']
 
 interface SecurityScanSwitchesCardProps {
   initial: WorkspaceSecuritySwitches
@@ -58,6 +68,126 @@ function SwitchRow({
   )
 }
 
+interface ScopeRowProps {
+  label: string
+  description: string
+  value: LearningsScope
+  disabled: boolean
+  optionLabel: (scope: LearningsScope) => string
+  /** Shown while `global` is chosen (the CLI's confirmation, in words). */
+  globalWarning: string
+  onChange: (next: LearningsScope) => void
+}
+
+/** LUM-1134 — which repositories' learnings the AI review reads. */
+function ScopeRow({
+  label,
+  description,
+  value,
+  disabled,
+  optionLabel,
+  globalWarning,
+  onChange,
+}: ScopeRowProps) {
+  return (
+    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+      <div className='min-w-0 sm:flex-1'>
+        <label
+          htmlFor='security-learnings-scope'
+          className='text-sm font-medium text-foreground'
+        >
+          {label}
+        </label>
+        <p className='text-xs text-muted-foreground mt-0.5'>{description}</p>
+        {value === 'global' && (
+          <p
+            role='alert'
+            data-testid='learnings-scope-global-warning'
+            className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-xs text-warning-text'
+          >
+            {globalWarning}
+          </p>
+        )}
+      </div>
+      <select
+        id='security-learnings-scope'
+        value={value}
+        disabled={disabled}
+        onChange={e => onChange(parseLearningsScope(e.target.value))}
+        className='h-8 min-w-0 sm:w-56 sm:shrink-0 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+      >
+        {SCOPE_CHOICES.map(scope => (
+          <option key={scope} value={scope}>
+            {optionLabel(scope)}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+interface PauseAfterRowProps {
+  label: string
+  description: string
+  value: number
+  disabled: boolean
+  onChange: (next: number) => void
+}
+
+/** A typed pause-after, clamped to 0–100; null while not a number yet. */
+function parsePauseAfterInput(raw: string): number | null {
+  const next = Number.parseInt(raw, 10)
+  if (Number.isNaN(next)) return null
+  return Math.min(AUTO_PAUSE_AFTER_MAX, Math.max(0, next))
+}
+
+/**
+ * LUM-1137 — pause automatic review after N reviewed commits (0 = never).
+ * The field keeps its own text so it can be cleared while typing; only a
+ * number reaches `onChange`, and leaving the field shows the saved value.
+ */
+function PauseAfterRow({
+  label,
+  description,
+  value,
+  disabled,
+  onChange,
+}: PauseAfterRowProps) {
+  // Text that is not a number yet (e.g. cleared while typing); null shows
+  // `value`.
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+      <div className='min-w-0 sm:flex-1'>
+        <label
+          htmlFor='security-review-auto-pause-after'
+          className='text-sm font-medium text-foreground'
+        >
+          {label}
+        </label>
+        <p className='text-xs text-muted-foreground mt-0.5'>{description}</p>
+      </div>
+      <input
+        id='security-review-auto-pause-after'
+        type='number'
+        inputMode='numeric'
+        min={0}
+        max={AUTO_PAUSE_AFTER_MAX}
+        step={1}
+        value={draft ?? String(value)}
+        disabled={disabled}
+        onChange={e => {
+          const next = parsePauseAfterInput(e.target.value)
+          setDraft(next === null ? e.target.value : null)
+          if (next !== null) onChange(next)
+        }}
+        onBlur={() => setDraft(null)}
+        className='h-8 w-24 shrink-0 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+      />
+    </div>
+  )
+}
+
 /**
  * LUM-866 — OWNER-only switches for the PR security scan: the whole scan, the
  * AI review (LLM judge) and the exploit-path hunt. The scan switch is the
@@ -69,13 +199,21 @@ export function SecurityScanSwitchesCard({
   sandboxAvailable,
 }: SecurityScanSwitchesCardProps) {
   const intl = useIntl()
+  const queryClient = useQueryClient()
   const [switches, setSwitches] = useState<WorkspaceSecuritySwitches>(initial)
   const [saving, setSaving] = useState(false)
   const t = (id: string) =>
     intl.formatMessage({ id: `workspaceSettings.securityScan.${id}` })
 
-  const set = (key: keyof WorkspaceSecuritySwitches) => (next: boolean) =>
-    setSwitches(prev => ({ ...prev, [key]: next }))
+  const set =
+    (
+      key: Exclude<
+        keyof WorkspaceSecuritySwitches,
+        'securityLearningsScope' | 'securityReviewAutoPauseAfter'
+      >
+    ) =>
+    (next: boolean) =>
+      setSwitches(prev => ({ ...prev, [key]: next }))
 
   const save = async (
     update: Parameters<typeof securityScanClient.updateSecurityScan>[0],
@@ -85,6 +223,10 @@ export function SecurityScanSwitchesCard({
     try {
       const next = await securityScanClient.updateSecurityScan(update)
       setSwitches(next.switches)
+      // LUM-1114: the AI review switch decides which rules are checked.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.workspacePolicyCoverage(),
+      })
       toast.success(t(successId))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('updateFailed'))
@@ -152,6 +294,49 @@ export function SecurityScanSwitchesCard({
         disabled={saving || !scanOn || !huntAvailable}
         note={huntAvailable ? undefined : platformNote}
         onChange={set('securityHuntEnabled')}
+      />
+      {/* LUM-1130: not a layer — how Lumo's review reads on the PR. Off by
+          default; "enable all" / "disable all" leave it as it is. */}
+      <SwitchRow
+        id='security-request-changes-enabled'
+        label={t('requestChanges.label')}
+        description={t('requestChanges.description')}
+        checked={scanOn && switches.securityRequestChangesEnabled}
+        disabled={saving || !scanOn}
+        onChange={set('securityRequestChangesEnabled')}
+      />
+      {/* LUM-1134: learnings only shape the AI review — locked while it is
+          off. Saved with the switches; "enable all" / "disable all" leave
+          it as it is. */}
+      <ScopeRow
+        label={t('learningsScope.label')}
+        description={t('learningsScope.description')}
+        value={switches.securityLearningsScope}
+        disabled={saving || !scanOn || !switches.securityAiReviewEnabled}
+        optionLabel={scope => t(`learningsScope.${scope}`)}
+        globalWarning={t('learningsScope.globalWarning')}
+        onChange={next =>
+          setSwitches(prev => ({ ...prev, securityLearningsScope: next }))
+        }
+      />
+      {/* LUM-1137: CodeRabbit's auto_pause_after_reviewed_commits — every
+          push is reviewed until N reviewed commits; 0 = never pause. Locked
+          while neither AI layer runs. */}
+      <PauseAfterRow
+        label={t('autoPauseAfter.label')}
+        description={t('autoPauseAfter.description')}
+        value={switches.securityReviewAutoPauseAfter}
+        disabled={
+          saving ||
+          !scanOn ||
+          (!switches.securityAiReviewEnabled && !switches.securityHuntEnabled)
+        }
+        onChange={next =>
+          setSwitches(prev => ({
+            ...prev,
+            securityReviewAutoPauseAfter: next,
+          }))
+        }
       />
 
       <div className='flex justify-end px-5 py-4'>

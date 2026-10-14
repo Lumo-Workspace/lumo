@@ -9,16 +9,22 @@ and none of the L3 hunt's stored audit (per-task commands, step trace, stop
 arithmetic, sites, model, diff sizing) had any entry point outside a
 prod-database script.
 
-Without control flags this is read-only, no LLM. **Disposition stays web-only** (the LUM-750 CLI path was
-rolled back) — this command reports dispositions, it never records one.
+Without control flags this is read-only, no LLM. This command reports dispositions, it never records
+one — the user's ruling goes through [`lumo finding disposition`](#finding-disposition) (or the web panel).
 
 ## Usage
 
-### Review controls (LUM-1056)
+### Which PRs are reviewed automatically (LUM-1133)
+
+Every open PR of a repository the workspace confirmed is reviewed on `opened` / `reopened` / `synchronize` / `ready_for_review` — task-linked or not (CodeRabbit parity). For a PR **without a task**, the per-repository settings apply (`lumo workspace security-scan --repos`, see [workspace-settings.md](workspace-settings.md)): a repository turned off is not reviewed; a draft is skipped until it is marked ready unless the repository includes drafts; a PR converted back to draft keeps its findings and threads, and its pushes are not reviewed while it is a draft. When several workspaces confirmed the same repository, exactly one reviews a task-less PR (the earliest confirmation that would review it; none when another workspace has the PR linked to its task), so GitHub gets one review. Task-linked PRs are always scanned — the scan is the Done gate's evidence. The per-PR reviewed-commit budget and the 150-file cap apply the same way; `lumo pr scan <n> --review full` still reviews any PR by hand.
+
+### Review controls (LUM-1056, LUM-1137)
+
+Every push to an open PR gets an automatic incremental AI review (and exploit-path hunt) — CodeRabbit's `auto_incremental_review` — until the PR has N reviewed commits (`auto_pause_after_reviewed_commits`): N is the PR's own `--limit`, else the workspace's `--auto-pause-after` ([workspace-settings.md](workspace-settings.md), default 5, `0` = never pause). Reviewed commits are the commits each reviewed push added; the first automatic review counts one commit, however many the PR already has. A push superseded by a newer one before its review landed counts nothing (the newer push's review covers its commits). An hourly cap per PR author (20 automatic reviews) also applies: a push over it gets its deterministic checks, its AI layers read `rate-limited — automatic review resumes within the hour`, and the next push after the hour is reviewed; a manual review is never limited.
 
 `--review incremental` requests review of affected files since the last complete AI review; `--review full` requests the entire PR. Both bypass the automatic budget without consuming or resetting it. Concurrent requests while a review is active deduplicate; a later request after completion starts another review. Active asynchronous layers must finish before the same head can be restarted.
 
-`--pause` pauses automatic AI review and exploit-path discovery. `--resume` resets the budget and resumes future automatic reviews; it does not immediately review the current head. `--limit 1..100` with pause/resume changes the per-PR budget (default 2 distinct admitted heads, including the first). Failed attempts keep their reservation; retries of an admitted head cost no additional round. Deterministic checks continue while AI is paused. Paused does not mean checked and does not clear blocking findings.
+`--pause` pauses automatic AI review and exploit-path discovery. `--resume` resets the reviewed-commit count (counting from the PR's current commits, so the next N commits are reviewed) and resumes automatic review of every push; it does not immediately review the current head. `--limit 1..100` with pause/resume gives the PR its own pause-after (reviewed commits), over the workspace setting; a later `--resume` without `--limit` keeps it. Failed attempts keep their reservation; retries of an admitted head count nothing again. Deterministic checks continue while AI is paused. Paused does not mean checked and does not clear blocking findings.
 
 Choose exactly one of `--review`, `--pause`, `--resume`. Example: `lumo pr scan 1013 --repo owner/repo --resume --limit 2`. Use these controls when repeated fix pushes keep triggering new AI findings, or when the user requests a manual review/pause/resume.
 
@@ -41,6 +47,14 @@ The PR is resolved **inside the caller's workspace** (bearer API key or
 browser session). A number that belongs to another workspace is
 indistinguishable from one that never existed — `Error: PR #N not found in
 workspace <slug>` — so the command never leaks whether a PR exists elsewhere.
+
+### PR comment commands (LUM-1129)
+
+The same controls work from the PR itself: a top-level PR comment whose line starts with the App's handle (production `@uselumo`; derived from `GITHUB_APP_SLUG`) — `@uselumo review` (= `--review incremental`), `@uselumo full review` (= `--review full`), `@uselumo pause`, `@uselumo resume`, `@uselumo resolve`, `@uselumo help`. Lumo answers with a reply; an unknown command gets the help list. Only accounts with write access to the repository are obeyed (others, bots and edited comments are ignored silently); it works on PRs with no linked task. `resolve` resolves Lumo's open review threads as the commenter's own resolve — it never dispositions a finding, leaves a finding that blocks DONE open (clear those with `lumo finding disposition` or the web panel), and is refused for the PR's author. `@uselumo approve` (LUM-1130, only when the workspace's request-changes workflow is on — `lumo workspace security-scan --request-changes on`) resolves Lumo's open threads and approves the PR's current head, dismissing Lumo's earlier "changes requested"; it is refused while any finding blocks DONE (a thread resolved on GitHub does not clear it — only a disposition does), refused for the PR's author, refused until Lumo's latest scan is of the PR's current head, and does nothing when refused. The security summary comment lists the commands under "Lumo commands".
+
+### Request-changes workflow (LUM-1130)
+
+Off by default (`lumo workspace security-scan --request-changes on|off`, OWNER). On, Lumo's inline review is posted as **Changes requested**, and Lumo keeps requesting changes (one standing review, not one per sync) while any Lumo thread is open or any finding blocks DONE. Lumo **approves** only when the latest head's review is complete (every enabled layer ran whole — not partial, paused, pending or failed), no Lumo thread is open, no finding blocks DONE (resolving its thread on GitHub does not count), every actionable finding is already on the PR, and the PR's head is unchanged when the approval is submitted; it then dismisses its earlier "changes requested" reviews. Off, Lumo posts COMMENT reviews only, and turning the workflow off withdraws Lumo's standing "Changes requested" (LUM-1140): a background pass dismisses Lumo's own change requests on the workspace's open PRs (up to 50 PRs, stops at GitHub's rate limit), and any PR it misses is dismissed at its next review while the workflow is off. Reviews by people are never touched, nothing is approved, and a PR another workspace holds with the workflow on is left alone. `@uselumo approve` is the reviewer's override: it does not wait for every layer to finish, but it still needs Lumo's latest scan to be of the current head and no blocking finding. Whether Lumo's review counts toward branch protection is GitHub's call.
 
 ## Reading the output
 
@@ -73,7 +87,8 @@ Scan abcdef0 · FINDINGS
     t3  race              skipped
   Note:           part of this scan hasn't finished on our side — not counted as checked
   Queue:          1 left the queue (1 merged unreviewed)
-  Findings:       6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)
+  Findings:
+    6 (1 open · 1 blocks DONE · 3 dispositioned · 1 already on main · 1 merged unreviewed)
     • [HIGH] AWS access key id
       Rule:      secret:aws-access-key-id (DETERMINISTIC)
       Where:     src/cfg.ts:12
@@ -94,7 +109,7 @@ Scan abcdef0 · FINDINGS
 ```
 
 With review controls on the payload an `AI review` block follows the header:
-`Automatic:  enabled · 1/2 rounds`, then the `--review incremental`,
+`Automatic:  enabled · 3/5 commits reviewed` (`12 commits reviewed · never pauses` when the limit is 0; an older server prints `1/2 rounds`), then the `--review incremental`,
 `--review full` and `--resume` commands each on its own line, and
 `⚠ Latest head has no scan yet; …` when the newest head is unscanned.
 
@@ -109,7 +124,7 @@ With review controls on the payload an `AI review` block follows the header:
   The dropped share is measured in **characters of the diff**, not in files — one dropped lockfile and one dropped route handler are not the same loss. No threshold is flagged (there is no `near cap` marker): the percentage is the signal. The count of changed **source files** is deliberately absent — LUM-811 stopped selecting the tier by it, and printing it here would imply a relationship that no longer exists.
 
 - **Coverage table** — under the `Exploit paths` row: `done/total planned tasks done`, then one `t<n>  <category>  <seconds>  <stop>` row per planned hunt task (LUM-762; the id column only when the audit has task ids). Absent when the scan stored no usable audit.
-- **Findings** — a `Findings:` count row, then every row of the scan, dispositioned ones included: `• [SEVERITY] <title>` with `Rule:  <ruleId> (<PROVENANCE>)`, `Where:` and one `Standing:` value (plus `Falsifier:` / `AI suggests:` rows when present). A row leading with `[BUG]` is a non-security finding from the AI code review (rule id `review:<kind>`, LUM-988): same scan and disposition flow, never blocking:
+- **Findings** — a `Findings:` count row (`N (a open · b block(s) DONE · c dispositioned …)`; `block(s) DONE` is the part of `open` that blocks, and every other row is counted once, under the same label as its `Standing:` line — `already on main`, its queue exit — `merged unreviewed` / `resolved on main` / `PR closed` — `rejected by verifier`, or `other` (a state this CLI does not know), so the buckets besides `block DONE` add up to N, LUM-1116; a long row wraps onto the next line), then every row of the scan, dispositioned ones included: `• [SEVERITY] <title>` with `Rule:  <ruleId> (<PROVENANCE>)`, `Where:` and one `Standing:` value (plus `Falsifier:` / `AI suggests:` rows when present). A row leading with `[BUG]` is a non-security finding from the AI code review (rule id `review:<kind>`, LUM-988): same scan and disposition flow, never blocking:
   - `blocks DONE` / `advisory` — open (undispositioned, not on main, still in the queue); the split follows the workspace policy.
   - `<DISPOSITION> · human` / `· inherited from an earlier scan of this PR` / `· AI-suggested, human-confirmed` — ruled rows, with the human's note when one was left. A disposition is never an AI verdict on its own: an unconfirmed suggestion shows as an `AI suggests:  <DISPOSITION>` row on an open finding.
   - `already on main` — the fingerprint is on the default-branch baseline (LUM-738); not introduced by this PR.
@@ -274,4 +289,43 @@ by construction — the server never loads the column for this read.
 - The user asks what the security scan found on a PR ("what did the scan say on #1013", "why is PR 1013 blocked", "show me the scan") — especially a PR **without** a linked task, which `lumo task status` cannot see.
 - `lumo task status` shows a `PR #N · scan …` line and the user wants the findings behind it, the dispositioned history, or why the hunt layer read `⚠ partly checked` / `N/M done` — `lumo pr scan N` then `--full` for the per-task trace.
 - Auditing the L3 hunt on a real scan (which commands the gate refused, how many steps a task got, which model ran) without a prod-database script.
-- **Not** for changing a finding's standing: disposition is human-only in the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.
+- **Not** for changing a finding's standing: that is `lumo finding disposition` (the user's ruling, exit-4 gated) or the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.
+
+## Finding disposition
+
+`lumo finding disposition <id...> --false-positive | --accepted-risk [--note "<text>"] [--task <LUM-N>] [--confirm]`
+(LUM-1128) records the **user's** ruling on one or more PR security findings. It is how a blocking
+finding is cleared for DONE; the web delivery panel stays a second surface (and can correct a CLI
+ruling). Resolving the GitHub review thread does **not** clear the gate.
+
+```bash
+lumo finding disposition cmabc123 --false-positive --note "test fixture, not a real key"
+lumo finding disposition cmabc123 cmdef456 --accepted-risk --note "internal-only endpoint"
+```
+
+A gated mutation on the [confirmation protocol](confirmation.md) — no read receipts, no extra steps:
+
+- **Without `--confirm`** it reads the findings from the server and prints ONE `confirmation_required`
+  envelope (exit 4, nothing written): one line per finding — id, `[SEVERITY]`, title, rule and location,
+  PR, `blocks DONE` / `advisory`, `OPEN → <ruling>`, the note — then the ⚠ DONE consequence. Relay every
+  line to the user.
+- **Only after the user approves in chat**, run the envelope's `confirmCommand` (your command plus
+  `--confirm`). Each finding is reported `✓` / `✗` (exit 1 if any failed), then the status digest.
+  **Never add `--confirm` yourself.**
+- Ids come from `lumo task status` (`Id:` under each `[SECURITY]` / `[BUG]` item) or `DONE_BLOCKED`
+  `blockers[].findingId`. Several ids = one envelope; one ruling per call. An id not on the task fails
+  closed (exit 1, nothing written); a finding already carrying the ruling is skipped — its
+  `Finding <id> is already <RULING> — skipped.` note is a line in the envelope's `changes` (stdout stays one
+  JSON document off a TTY), and is printed as plain text when every id was skipped (exit 0, no envelope).
+- `--accepted-risk` means the risk is real and knowingly carried — ask the user for the why and pass it
+  as `--note`.
+- The server records each ruling with channel `CLI`, the member, the session and the time (task
+  timeline + audit log). There is no agent-session guard: the protection is the user's approval of the
+  envelope. Reverting a ruling to OPEN is **web-only** (the panel's Reopen, under Change ruling; the CLI
+  and any bearer call get 403): the finding blocks DONE again exactly as before it was ruled, the timeline
+  shows `WEB <ruling> → OPEN`, and later pushes do not carry the old ruling back. If the user says a CLI
+  ruling was a mistake, send them to the web panel.
+
+**When to suggest:** `lumo task status` / `task wrapup` lists a blocking `[SECURITY]` / `[BUG]` finding
+the user says is a false positive or an accepted risk; `task update --status done` exits 5 with a
+`SECURITY_FINDING` blocker; the user asks to clear, dismiss or accept a scan finding.

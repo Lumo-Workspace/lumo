@@ -296,6 +296,10 @@ describe('backfilled POST_TOOL_USE events get boundary detection (I1b)', () => {
         tool_name: 'Bash',
         tool_input: { command: 'lumo task context LUM-12' },
       },
+      // LUM-1114: the replayed session and the stored event's own time (the
+      // seeded rp_post createdAt), never the replay's wall clock.
+      sessionId: 'RP',
+      occurredAt: t(22),
     })
   })
 })

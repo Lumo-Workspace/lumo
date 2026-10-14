@@ -17,6 +17,16 @@ export const MAX_NOTE_LEN = 2000
 export const MAX_EVIDENCE_ENTRIES = 10
 /** 单次 run 最多上传的文件数（上传路由侧的闸门）。 */
 export const MAX_EVIDENCE_FILES = 5
+/** 截图与日志两类够用。不收 PDF / 任意二进制。 */
+export const EVIDENCE_ALLOWED_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'text/plain',
+  'application/json',
+]
+export const EVIDENCE_MAX_BYTES = 10 * 1024 * 1024 // 10 MB — 与 /api/upload/image 一致
 /** LUM-1011: 单步耗时上限（一天）——防呆，不是业务规则。 */
 export const MAX_STEP_DURATION_MS = 86_400_000
 

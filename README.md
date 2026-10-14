@@ -248,13 +248,17 @@ workspace without the App installed is not scanned** — the card says so.
 The Lumo GitHub App (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`) needs this
 minimum permission set:
 
-| Permission    | Access       | Used by                                              |
-| ------------- | ------------ | ---------------------------------------------------- |
-| Contents      | Read         | file reads, PR diffs, security-scan clone            |
-| Pull requests | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
-| Issues        | Read & write | comment mirror (issue comments)                      |
-| Checks        | Read         | `check_suite` events → PR CI status                  |
-| Metadata      | Read         | mandatory                                            |
+| Permission    | Access       | Used by                                                     |
+| ------------- | ------------ | ----------------------------------------------------------- |
+| Contents      | Read & write | file reads, PR diffs, scan clone; resolving review threads¹ |
+| Pull requests | Read & write | PR head sha, change volume, comment mirror (LUM-546)        |
+| Issues        | Read & write | comment mirror (issue comments)                             |
+| Checks        | Read         | `check_suite` events → PR CI status                         |
+| Metadata      | Read         | mandatory                                                   |
+
+¹ GitHub refuses `resolveReviewThread` / `unresolveReviewThread` to a token
+without `contents: write` (LUM-1127). Without it the security summary still
+posts; Lumo's review threads are just never resolved.
 
 ### Installation flow
 

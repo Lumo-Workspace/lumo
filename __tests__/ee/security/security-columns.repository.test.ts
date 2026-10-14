@@ -1,8 +1,12 @@
 /** @jest-environment node */
 // LUM-1065: moved with the queries from projectRepository (RFC §4 option A).
 const mockRepo = { findFirst: jest.fn(), updateMany: jest.fn() }
+const mockWorkspace = { findUnique: jest.fn() }
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
+    workspace: {
+      findUnique: (...args: unknown[]) => mockWorkspace.findUnique(...args),
+    },
     projectRepository: {
       findFirst: (...args: unknown[]) => mockRepo.findFirst(...args),
       updateMany: (...args: unknown[]) => mockRepo.updateMany(...args),
@@ -86,4 +90,65 @@ test('LUM-738 baseline — setSecurityBaseline replaces the JSON on every linked
     where: { fullName: 'o/r', project: { workspaceId: 'w1' } },
     data: { securityBaseline: BASELINE },
   })
+})
+
+// ── LUM-1130 request-changes workflow ───────────────────────────────────────
+
+test('LUM-1130 findRequestChangesEnabled — true only when the workspace turned it on', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityRequestChangesEnabled: true,
+  })
+  expect(await securityColumnsRepository.findRequestChangesEnabled('w1')).toBe(
+    true
+  )
+  expect(mockWorkspace.findUnique).toHaveBeenCalledWith({
+    where: { id: 'w1' },
+    select: { securityRequestChangesEnabled: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityRequestChangesEnabled: false,
+  })
+  expect(await securityColumnsRepository.findRequestChangesEnabled('w1')).toBe(
+    false
+  )
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findRequestChangesEnabled('w1')).toBe(
+    false
+  )
+})
+
+// ── LUM-1134 learnings scope ────────────────────────────────────────────────
+
+test('LUM-1134 findLearningsScope — the stored scope; auto when missing or unrecognised', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityLearningsScope: 'global',
+  })
+  expect(await securityColumnsRepository.findLearningsScope('w1')).toBe(
+    'global'
+  )
+  expect(mockWorkspace.findUnique).toHaveBeenLastCalledWith({
+    where: { id: 'w1' },
+    select: { securityLearningsScope: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findLearningsScope('w1')).toBe('auto')
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityLearningsScope: 'bogus',
+  })
+  expect(await securityColumnsRepository.findLearningsScope('w1')).toBe('auto')
+})
+
+// ── LUM-1137 review pause-after ─────────────────────────────────────────────
+
+test('LUM-1137 findReviewAutoPauseAfter — the stored value; 5 when missing or out of range', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityReviewAutoPauseAfter: 0,
+  })
+  expect(await securityColumnsRepository.findReviewAutoPauseAfter('w1')).toBe(0)
+  expect(mockWorkspace.findUnique).toHaveBeenLastCalledWith({
+    where: { id: 'w1' },
+    select: { securityReviewAutoPauseAfter: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findReviewAutoPauseAfter('w1')).toBe(5)
 })

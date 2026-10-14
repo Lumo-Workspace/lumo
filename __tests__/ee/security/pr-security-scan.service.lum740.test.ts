@@ -39,6 +39,17 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findManyForSecurityByTaskId: jest.fn() },
 }))
+const mockActivityCreate = jest.fn()
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: { create: (...a: unknown[]) => mockActivityCreate(...a) },
+}))
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findActorByMemberId: async (memberId: string) => ({
+      id: `actor-${memberId}`,
+    }),
+  },
+}))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {},
 }))
@@ -50,6 +61,8 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
+    // LUM-1137: the workspace's pause-after (default 5).
+    findReviewAutoPauseAfter: jest.fn().mockResolvedValue(5),
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
   },
 }))
@@ -80,6 +93,7 @@ jest.mock('@/ee/security/services/security-pr-review.service', () => ({
 import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { isBlockingFinding } from '@/ee/security/services/pr-security-scan-gate'
 
 const findFinding = prSecurityScanRepository.findFindingWithScope as jest.Mock
 const update = prSecurityScanRepository.updateDisposition as jest.Mock
@@ -126,6 +140,26 @@ const row = (over: object) => ({
   ...over,
 })
 
+/**
+ * LUM-1128 follow-up: `updateDisposition` is one transaction that reads
+ * `from` (the row's disposition before the write) and inserts the timeline
+ * entry `activityFor(from)` builds. This mock emulates it over the row the
+ * test's `findFindingWithScope` serves.
+ */
+const applyOn =
+  (base: object) =>
+  async (
+    id: string,
+    data: object,
+    activityFor?: (from: unknown) => unknown
+  ) => {
+    const current = (await findFinding(id)) as { disposition?: unknown } | null
+    const from = current?.disposition ?? null
+    const activity = activityFor?.(from)
+    if (activity) mockActivityCreate(activity)
+    return { row: { ...base, ...data }, from }
+  }
+
 /** LUM-907: the audit context is required on every ruling. */
 const TEST_AUDIT = {
   workspaceId: 'ws-1',
@@ -138,10 +172,7 @@ const TEST_AUDIT = {
 describe('LUM-740 bulk disposition — service', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    update.mockImplementation(async (_id: string, data: object) => ({
-      ...row({}),
-      ...data,
-    }))
+    update.mockImplementation(applyOn(row({})))
   })
 
   it('a human confirming the suggestion records CONFIRMED', async () => {
@@ -159,7 +190,8 @@ describe('LUM-740 bulk disposition — service', () => {
       expect.objectContaining({
         disposition: 'FALSE_POSITIVE',
         suggestionOutcome: 'CONFIRMED',
-      })
+      }),
+      expect.any(Function)
     )
   })
 
@@ -178,7 +210,8 @@ describe('LUM-740 bulk disposition — service', () => {
       expect.objectContaining({
         disposition: 'ACCEPTED_RISK',
         suggestionOutcome: 'OVERRULED',
-      })
+      }),
+      expect.any(Function)
     )
   })
 
@@ -196,7 +229,8 @@ describe('LUM-740 bulk disposition — service', () => {
     )
     expect(update).toHaveBeenCalledWith(
       'f1',
-      expect.objectContaining({ suggestionOutcome: null })
+      expect.objectContaining({ suggestionOutcome: null }),
+      expect.any(Function)
     )
   })
 
@@ -266,10 +300,7 @@ describe('LUM-907 security finding dispositions are audited', () => {
   }
   beforeEach(() => {
     jest.clearAllMocks()
-    update.mockImplementation(async (_id: string, data: object) => ({
-      ...row({}),
-      ...data,
-    }))
+    update.mockImplementation(applyOn(row({})))
   })
 
   it('security finding audit: a single ruling records the transition, not the note', async () => {
@@ -490,8 +521,255 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     findingsOnScan: jest.fn().mockResolvedValue([]),
     get: jest.fn().mockResolvedValue({
       reviewPaused: false,
-      reviewRoundLimit: 2,
       reviewHeads: [],
     }),
   },
 }))
+
+describe('LUM-1128 the ruling channel is recorded on the task timeline', () => {
+  const audit = {
+    workspaceId: 'w1',
+    context: {
+      actor: { type: 'MEMBER' as const, memberId: 'm1' },
+      source: 'CLI' as const,
+    },
+  }
+  beforeEach(() => {
+    jest.clearAllMocks()
+    update.mockImplementation(applyOn(row({})))
+  })
+
+  it('a CLI ruling writes a SECURITY_FINDING_DISPOSITIONED activity with channel CLI, session and confirmedAt', async () => {
+    // A blocking row (DETERMINISTIC HIGH, open) before the ruling …
+    const blocker = row({
+      severity: 'HIGH',
+      provenance: 'DETERMINISTIC',
+      suggestedDisposition: null,
+    })
+    expect(isBlockingFinding(blocker as never)).toBe(true)
+    findFinding.mockResolvedValue(blocker)
+    update.mockImplementation(applyOn(blocker))
+    const view = await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'FALSE_POSITIVE',
+      'user approved',
+      'm1',
+      audit,
+      { channel: 'CLI', sessionId: 'sess-1' }
+    )
+    // … no longer blocks DONE after it.
+    expect(view.disposition).toBe('FALSE_POSITIVE')
+    expect(view.blocking).toBe(false)
+    expect(isBlockingFinding(view)).toBe(false)
+    expect(mockActivityCreate).toHaveBeenCalledTimes(1)
+    const call = mockActivityCreate.mock.calls[0]![0]
+    expect(call).toMatchObject({
+      taskId: 't1',
+      actorId: 'actor-m1',
+      type: 'SECURITY_FINDING_DISPOSITIONED',
+      payload: {
+        findingId: 'f1',
+        from: null,
+        to: 'FALSE_POSITIVE',
+        channel: 'CLI',
+        sessionId: 'sess-1',
+      },
+    })
+    expect(Number.isNaN(Date.parse(call.payload.confirmedAt))).toBe(false)
+    expect(mockAudit).toHaveBeenCalledTimes(1)
+  })
+
+  it('the web panel can correct a CLI ruling — recorded as channel WEB with the transition', async () => {
+    findFinding.mockResolvedValue(row({ disposition: 'FALSE_POSITIVE' }))
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'ACCEPTED_RISK',
+      null,
+      'm2',
+      { ...audit, context: { ...audit.context, source: 'WEB' as const } }
+    )
+    expect(update).toHaveBeenCalledWith(
+      'f1',
+      expect.objectContaining({ disposition: 'ACCEPTED_RISK' }),
+      expect.any(Function)
+    )
+    expect(mockActivityCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          from: 'FALSE_POSITIVE',
+          to: 'ACCEPTED_RISK',
+          channel: 'WEB',
+          sessionId: null,
+        }),
+      })
+    )
+  })
+
+  it('re-ruling the same value writes no activity', async () => {
+    findFinding.mockResolvedValue(row({ disposition: 'ACCEPTED_RISK' }))
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'ACCEPTED_RISK',
+      'edited',
+      'm1',
+      audit,
+      { channel: 'CLI', sessionId: null }
+    )
+    expect(mockActivityCreate).not.toHaveBeenCalled()
+  })
+
+  it('a finding on another task is a 404 and nothing is written', async () => {
+    findFinding.mockResolvedValue(
+      row({
+        scan: { pullRequest: { taskId: 't-other', workspaceId: 'w1' } },
+      })
+    )
+    await expect(
+      prSecurityScanService.disposition(
+        't1',
+        'f1',
+        'FALSE_POSITIVE',
+        null,
+        'm1',
+        audit,
+        { channel: 'CLI', sessionId: null }
+      )
+    ).rejects.toMatchObject({ status: 404 })
+    expect(update).not.toHaveBeenCalled()
+    expect(mockActivityCreate).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-1128 listFindingsForTask — the CLI envelope read', () => {
+  it('flattens the latest scan per PR with the PR number, blocking flag and a sanitized title', async () => {
+    const spy = jest
+      .spyOn(prSecurityScanService, 'getForTask')
+      .mockResolvedValue({
+        prs: [
+          {
+            pr: { number: 12 },
+            latest: {
+              findings: [
+                {
+                  id: 'f1',
+                  severity: 'HIGH',
+                  provenance: 'DETERMINISTIC',
+                  ruleId: 'secret:aws',
+                  filePath: 'lib/a.ts',
+                  line: 3,
+                  title: 'Key\u001b[31m in source',
+                  disposition: null,
+                  blocking: true,
+                },
+              ],
+            },
+          },
+          { pr: { number: 13 }, latest: null },
+        ],
+      } as never)
+    const rows = await prSecurityScanService.listFindingsForTask('t1')
+    expect(spy).toHaveBeenCalledWith('t1')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      id: 'f1',
+      severity: 'HIGH',
+      prNumber: 12,
+      blocking: true,
+      disposition: null,
+    })
+    expect(rows[0]!.title).not.toContain('\u001b')
+    expect(rows[0]!.statement).toContain('secret:aws at lib/a.ts:3')
+    spy.mockRestore()
+  })
+})
+
+describe('LUM-1128 follow-up: reopen a ruled finding (web panel)', () => {
+  const audit = {
+    workspaceId: 'w1',
+    context: {
+      actor: { type: 'MEMBER' as const, memberId: 'm1' },
+      source: 'WEB' as const,
+    },
+  }
+  const ruledBlocker = row({
+    severity: 'HIGH',
+    provenance: 'DETERMINISTIC',
+    disposition: 'FALSE_POSITIVE',
+    dispositionNote: 'mistaken CLI ruling',
+    dispositionedById: 'm0',
+    dispositionedAt: new Date(1),
+    suggestionOutcome: 'CONFIRMED',
+  })
+  beforeEach(() => {
+    jest.clearAllMocks()
+    update.mockImplementation(applyOn(ruledBlocker))
+  })
+
+  it('clears the ruling, leaves the reopen marker, restores the DONE block, and records WEB from → OPEN', async () => {
+    expect(isBlockingFinding(ruledBlocker as never)).toBe(false)
+    findFinding.mockResolvedValue(ruledBlocker)
+    const before = Date.now()
+    const view = await prSecurityScanService.reopen('t1', 'f1', 'm1', audit)
+
+    const [, data] = update.mock.calls[0]!
+    expect(data).toMatchObject({
+      disposition: null,
+      dispositionNote: null,
+      dispositionedById: 'm1',
+      suggestionOutcome: null,
+    })
+    // The marker inheritance reads: newest verdict for the fingerprint.
+    expect(
+      (data as { dispositionedAt: Date }).dispositionedAt.getTime()
+    ).toBeGreaterThanOrEqual(before)
+    expect(view.disposition).toBeNull()
+    expect(view.blocking).toBe(true)
+    expect(isBlockingFinding(view)).toBe(true)
+
+    expect(mockActivityCreate).toHaveBeenCalledTimes(1)
+    expect(mockActivityCreate.mock.calls[0]![0]).toMatchObject({
+      taskId: 't1',
+      actorId: 'actor-m1',
+      type: 'SECURITY_FINDING_DISPOSITIONED',
+      payload: {
+        findingId: 'f1',
+        from: 'FALSE_POSITIVE',
+        to: 'OPEN',
+        channel: 'WEB',
+        sessionId: null,
+      },
+    })
+    expect(mockAudit).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      action: 'security_finding.dispositioned',
+      target: { type: 'security_finding', id: 'f1' },
+      metadata: { taskId: 't1', from: 'FALSE_POSITIVE', to: 'OPEN' },
+      context: audit.context,
+    })
+  })
+
+  it('an already-open finding is a no-op — nothing written, nothing audited', async () => {
+    findFinding.mockResolvedValue(row({ disposition: null }))
+    const view = await prSecurityScanService.reopen('t1', 'f1', 'm1', audit)
+    expect(view.disposition).toBeNull()
+    expect(update).not.toHaveBeenCalled()
+    expect(mockActivityCreate).not.toHaveBeenCalled()
+    expect(mockAudit).not.toHaveBeenCalled()
+  })
+
+  it('a finding on another task is a 404 and nothing is written', async () => {
+    findFinding.mockResolvedValue(
+      row({
+        disposition: 'FALSE_POSITIVE',
+        scan: { pullRequest: { taskId: 't-other', workspaceId: 'w1' } },
+      })
+    )
+    await expect(
+      prSecurityScanService.reopen('t1', 'f1', 'm1', audit)
+    ).rejects.toMatchObject({ status: 404 })
+    expect(update).not.toHaveBeenCalled()
+  })
+})

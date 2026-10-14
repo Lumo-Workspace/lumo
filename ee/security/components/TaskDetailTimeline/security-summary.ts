@@ -219,7 +219,10 @@ export function stageReason(
   scan: Pick<
     SecurityScanView,
     'stages' | 'huntOverCap' | 'judgeOverCap' | 'huntProgress'
-  > & { prTooLarge?: SecurityScanView['prTooLarge'] }
+  > & {
+    prTooLarge?: SecurityScanView['prTooLarge']
+    reviewRateLimited?: SecurityScanView['reviewRateLimited']
+  }
 ): { id: string; values?: Record<string, number> } | null {
   const state = scan.stages[stageKey]
   if (!state) return null
@@ -259,7 +262,8 @@ export function stageReason(
     }
   switch (state) {
     case 'PAUSED':
-      return { id: id('PAUSED') }
+      // LUM-1137: over the author's hourly cap, not paused.
+      return { id: id(scan.reviewRateLimited ? 'RATE_LIMITED' : 'PAUSED') }
     case 'RAN':
       return null
     case 'SKIPPED':

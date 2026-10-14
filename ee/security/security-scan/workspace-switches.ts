@@ -13,18 +13,36 @@
 import { isManagedScanEnabled } from '@/ee/security/services/security-managed-scan.config'
 import { isHuntEnabled } from '@/ee/security/services/security-hunt.config'
 import { isIntegrationConfigured } from '@/lib/integrations/configured'
+import {
+  DEFAULT_LEARNINGS_SCOPE,
+  type LearningsScope,
+} from '@/ee/security/security-scan/learnings-scope'
+import { DEFAULT_AUTO_PAUSE_AFTER } from '@/ee/security/security-scan/review-control'
 
-/** The three stored workspace switches (all default on). */
+/**
+ * The stored workspace switches: the three layer switches (default on) and
+ * LUM-1130's request-changes workflow (default OFF — it changes the PR's
+ * merge UX, so a workspace opts in).
+ */
 export interface WorkspaceSecuritySwitches {
   securityScanEnabled: boolean
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
+  securityRequestChangesEnabled: boolean
+  /** LUM-1134: which repositories' learnings the AI review reads. */
+  securityLearningsScope: LearningsScope
+  /** LUM-1137: pause automatic review of a PR after this many reviewed
+   *  commits (0 = never pause). */
+  securityReviewAutoPauseAfter: number
 }
 
 export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRequestChangesEnabled: false,
+  securityLearningsScope: DEFAULT_LEARNINGS_SCOPE,
+  securityReviewAutoPauseAfter: DEFAULT_AUTO_PAUSE_AFTER,
 }
 
 /** Which layers may run for one workspace, after the platform ceiling. */

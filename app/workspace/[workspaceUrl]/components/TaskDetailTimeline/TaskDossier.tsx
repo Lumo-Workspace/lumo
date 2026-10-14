@@ -88,7 +88,7 @@ export function TaskDossier({
 
   // LUM-1011: test cases feed the Done gate's row and the Needs action queue.
   // Same react-query key the section and the defect queue read (one fetch).
-  const { testCases } = useTestCases(taskId, enabled)
+  const { testCases } = useTestCases({ kind: 'task', id: taskId }, enabled)
   const testsSummary = summarizeTestCases(testCases)
 
   // Which Records rows are expanded. Collapsed by default; a deep link opens
@@ -164,8 +164,8 @@ export function TaskDossier({
       onToggle={() => toggle('tests')}
     >
       <TestCasesSection
-        taskId={taskId}
-        taskIdentifier={taskIdentifier}
+        owner={{ kind: 'task', id: taskId }}
+        handlePrefix={taskIdentifier}
         enabled={enabled}
         members={members}
       />

@@ -128,7 +128,7 @@ export const BOUNDARY_MODULES: ReadonlyArray<
       // The rest of the plugin tree (entries, UI slots, scan orchestration,
       // the #1367 review control, the plugin-column repository) and the
       // routes / workflows that stay at their framework-fixed paths.
-      '^ee/|^lib/workflows/security-pr-review|^app/api/tasks/\\[id\\]/security-(findings|scans)/|^app/api/pull-requests/\\[number\\]/scans/|^app/api/workspaces/me/security-scan/|^app/api/internal/pr-security-scan/|^app/api/cron/sweep-security-scans/'
+      '^ee/|^lib/workflows/security-pr-review|^app/api/tasks/\\[id\\]/security-(findings|scans)/|^app/api/pull-requests/\\[number\\]/scans/|^app/api/workspaces/me/security-scan/|^app/api/workspaces/me/policy-coverage/|^app/api/internal/pr-security-scan/|^app/api/cron/sweep-security-scans/'
     ),
   ],
   [
@@ -483,6 +483,10 @@ export const PLUGIN_MODELS = [
   'PrSecurityScan',
   'PrSecurityFinding',
   'ProjectPolicy',
+  // LUM-1127: the PR write-back's per-PR finding threads.
+  'PrFindingThread',
+  // LUM-1131: thread replies' repository-scoped learnings.
+  'PrReviewLearning',
 ] as const
 
 /**
@@ -601,6 +605,9 @@ export const PLUGIN_COLUMNS: Readonly<Record<string, readonly string[]>> = {
     'securityScanEnabled',
     'securityAiReviewEnabled',
     'securityHuntEnabled',
+    'securityRequestChangesEnabled',
+    'securityLearningsScope',
+    'securityReviewAutoPauseAfter',
     'scanEvidenceRetentionDays',
   ],
   ProjectRepository: ['lastSarifIngestAt', 'securityBaseline'],

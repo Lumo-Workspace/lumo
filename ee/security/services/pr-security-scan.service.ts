@@ -17,6 +17,9 @@ import {
 } from '@/lib/services/audit.service'
 import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { findingStatement } from '@/ee/security/security-scan/agent-reminder'
+import { sanitizeField } from '@/lib/utils/sanitize'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
@@ -45,9 +48,16 @@ import {
   fetchReviewChangedPaths,
 } from '@/lib/integrations/github/contents'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
-import { affectedReviewDiff } from '@/ee/security/security-scan/review-control'
+import { autoReviewAdmissionService } from '@/ee/security/services/auto-review-admission.service'
+import {
+  DEFAULT_AUTO_PAUSE_AFTER,
+  affectedReviewDiff,
+  reviewBudgetView,
+  type ReviewBudgetView,
+} from '@/ee/security/security-scan/review-control'
 import type { SecretDowngradeReason } from '@/ee/security/security-scan/types'
 import { reviewContextBudget } from '@/ee/security/security-scan/review-context'
+import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
 import { verifierAppliesTo } from '@/ee/security/security-scan/verifier'
@@ -113,6 +123,7 @@ import {
   GITHUB_DIFF_MAX_FILES,
   SCAN_STAGE_KEYS,
   isOwnedUnfinished,
+  isReviewRateLimited,
   scanCoverageState,
   type HuntOverCapInput,
   type JudgeOverCapInput,
@@ -233,6 +244,11 @@ export interface SecurityScanView {
    */
   prTooLarge: PrTooLargeInput | null
   /**
+   * LUM-1137 — the paused AI layers were rate-limited (the author's hourly
+   * cap), not paused: the next push is reviewed. Present only when true.
+   */
+  reviewRateLimited?: true
+  /**
    * LUM-832 — unfinished for a reason of OURS (a fault, a budget shortfall),
    * which gets the owned line. False when a size cap is the only gap: that
    * is a limit on the change, told by its notice alone.
@@ -257,9 +273,97 @@ export interface SecurityScanView {
   findings: SecurityFindingView[]
 }
 
+/**
+ * LUM-1128: which surface a ruling came through. A Clerk browser session is
+ * WEB (the delivery panel); an API-key bearer is CLI (`lumo finding
+ * disposition`, run after the user approved its exit-4 envelope). Recorded on
+ * the SECURITY_FINDING_DISPOSITIONED activity so the timeline says which
+ * surface ruled — and a web correction of a CLI ruling reads as such.
+ */
+export type FindingDispositionChannel = 'WEB' | 'CLI'
+
+export interface FindingDispositionVia {
+  channel: FindingDispositionChannel
+  /** The caller's X-Lumo-Session-Id (CLI only); null when unbound / web. */
+  sessionId: string | null
+}
+
+const WEB_VIA: FindingDispositionVia = { channel: 'WEB', sessionId: null }
+
+type ScopedFinding = NonNullable<
+  Awaited<ReturnType<typeof prSecurityScanRepository.findFindingWithScope>>
+>
+
+/** The finding, or a 404 when it is missing or not on this task. */
+async function findFindingOnTask(
+  taskId: string,
+  findingId: string
+): Promise<ScopedFinding> {
+  const finding = await prSecurityScanRepository.findFindingWithScope(findingId)
+  if (!finding || finding.scan.pullRequest.taskId !== taskId) {
+    throw Object.assign(new Error('Security finding not found on this task'), {
+      status: 404,
+    })
+  }
+  return finding
+}
+
+/**
+ * LUM-1128: the SECURITY_FINDING_DISPOSITIONED timeline entry — which surface
+ * ruled, when, and (CLI) from which session. `to: 'OPEN'` is a reopen.
+ */
+function findingRulingActivity(
+  taskId: string,
+  finding: ScopedFinding,
+  actorId: string | null,
+  t: {
+    from: FindingDisposition | null
+    to: FindingDisposition | 'OPEN'
+    via: FindingDispositionVia
+  }
+) {
+  return {
+    taskId,
+    actorId,
+    type: 'SECURITY_FINDING_DISPOSITIONED' as const,
+    payload: {
+      findingId: finding.id,
+      ruleId: finding.ruleId,
+      severity: finding.severity,
+      filePath: finding.filePath,
+      line: finding.line,
+      from: t.from,
+      to: t.to,
+      channel: t.via.channel,
+      sessionId: t.via.sessionId,
+      confirmedAt: new Date().toISOString(),
+    },
+  }
+}
+
+/**
+ * LUM-1128: one finding as `lumo finding disposition` reads it to build its
+ * envelope — the fields the user approves, nothing else (ISP). `title` and
+ * `statement` are untrusted scan output, sanitized and injection-redacted
+ * before they reach an agent's context.
+ */
+export interface CliFindingRow {
+  id: string
+  severity: FindingSeverity
+  provenance: FindingProvenance
+  ruleId: string
+  filePath: string
+  line: number | null
+  title: string
+  statement: string
+  prNumber: number
+  disposition: FindingDisposition | null
+  blocking: boolean
+}
+
 export interface TaskSecurityScans {
   prs: {
-    reviewControl?: { paused: boolean; rounds: number; limit: number }
+    reviewControl?: ReviewBudgetView
     pr: {
       id: string
       number: number
@@ -421,6 +525,9 @@ function toScanView(
     coverage: coverageOf(s),
     huntProgress: huntBatchProgress(s.huntJob, stages.hunt),
     ...sizeCaps,
+    ...(isReviewRateLimited(s.partialCauses)
+      ? { reviewRateLimited: true as const }
+      : {}),
     ownedUnfinished: isOwnedUnfinished({
       status: s.status,
       stages,
@@ -790,8 +897,9 @@ export const prSecurityScanService = {
     // `partial` from them (see `mergePartial` in the repository).
     const partialCauses: PartialCause[] = []
     // LUM-988: stage A kept the managed scan's VM alive for a consumer (the
-    // hunt or the verifier); if none starts — including when stage A itself
-    // fails — it owns releasing that VM (`releaseKeptVmBestEffort`).
+    // hunt; since LUM-1084 never the verifier); if none starts — including
+    // when stage A itself fails — it owns releasing that VM
+    // (`releaseKeptVmBestEffort`).
     let keptVm: ReviewVerifierJob | null = null
     let vmConsumerStarted = false
     let reservedHead = false
@@ -835,14 +943,21 @@ export const prSecurityScanService = {
         throw new HeadMovedError('PR head changed while reading review diff')
       // Reserved only once the diff is proven to be this head's: a push that
       // raced the read must not spend a round on a head nobody reviewed.
+      // LUM-1137: every push, until N reviewed commits, under an hourly cap.
+      const admission =
+        (layers.aiReview || layers.hunt) && input.reviewMode === undefined
+          ? await autoReviewAdmissionService.admit(pr, headSha)
+          : null
       const aiAllowed =
         (layers.aiReview || layers.hunt) &&
-        (input.reviewMode !== undefined ||
-          (await prReviewControlRepository.reserve(pr.id, headSha)))
+        (input.reviewMode !== undefined || admission?.allowed === true)
       reservedHead = aiAllowed && input.reviewMode === undefined
       const reviewAllowed = layers.aiReview && aiAllowed
       const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
-      if (reviewPaused) partialCauses.push('AI_REVIEW_PAUSED')
+      if (reviewPaused)
+        partialCauses.push(
+          admission?.rateLimited ? 'AI_REVIEW_RATE_LIMITED' : 'AI_REVIEW_PAUSED'
+        )
       let reviewDiff = diff
       // Paths whose PR-diff sections the judge reviews; null = the whole diff.
       let reviewScope: Set<string> | null = null
@@ -961,10 +1076,11 @@ export const prSecurityScanService = {
         aiAllowed &&
         !huntOverCap &&
         (triggerFirstPass?.hunt ?? false)
-      // LUM-988: the agentic verifier reads the same checkout. The judge has
-      // not run yet when the managed scan starts, so the VM is kept alive
-      // whenever the AI review is on and the verifier enabled.
-      const verifierVmWanted = reviewAllowed && isReviewVerifierEnabled()
+      // LUM-1084: the agentic verifier no longer shares this VM. It starts
+      // while the managed scan is still scanning, waited 30 s + 90 s for the
+      // hand-off marker and then booted its own VM anyway; it now boots its
+      // own at once (see the verifier start below), so the VM is kept alive
+      // for the hunt only.
 
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
@@ -1023,16 +1139,15 @@ export const prSecurityScanService = {
               },
               headSha,
               // LUM-758: keep the VM alive past this run for the hunt to
-              // attach to — one microVM, two layers. LUM-988: and for the
-              // verifier.
-              huntWanted: huntWantedForVm || verifierVmWanted,
+              // attach to — one microVM, two layers.
+              huntWanted: huntWantedForVm,
             })
             stages.external = runId ? 'PENDING' : 'FAILED'
             // LUM-738: osv-scanner rides the same run — its layer is pending
             // (or, if nothing could be queued, failed) with the external one.
             stages.supplyChain = runId ? 'PENDING' : 'FAILED'
             managedRunStarted = Boolean(runId)
-            if (runId && (huntWantedForVm || verifierVmWanted)) {
+            if (runId && huntWantedForVm) {
               keptVm = {
                 scanId,
                 workspaceId: pr.workspaceId,
@@ -1157,12 +1272,22 @@ export const prSecurityScanService = {
         // the prompt budget with the diff (`reviewContextBudget`), so a
         // top-tier diff gets little or none. Any failure is logged and the
         // review runs on the diff alone. Never throws.
+        // LUM-1131 — what reviewers ruled intentional / not applicable in
+        // this PR's threads and merged PRs' threads, for the files this review
+        // reads. Bounded (≤ 4k chars) and paid for out of the context
+        // budget, so the prompt ceiling holds. Never throws.
+        const learnings = await loadReviewLearnings({
+          workspaceId: pr.workspaceId,
+          repo: pr.repo,
+          pullRequestId: pr.id,
+          reviewedPaths: capped.covered,
+        })
         const context = await reviewContextService.load({
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           headSha,
           paths: capped.covered,
-          maxChars: reviewContextBudget(capped.text.length),
+          maxChars: reviewContextBudget(capped.text.length + learnings.length),
         })
         if (context.error) {
           logger.warn(
@@ -1183,6 +1308,7 @@ export const prSecurityScanService = {
             timeoutMs: tier.timeoutMs,
             // Customer files entering a prompt: same mask as the diff.
             context: redactForInjection(context.text).text,
+            ...(learnings ? { learnings } : {}),
           })
           judgeStatus = 'RAN'
           // Model text headed for a public PR: redacted and neutralised here,
@@ -1410,6 +1536,9 @@ export const prSecurityScanService = {
         truncated,
         judgeBudget,
         prSummary,
+        // LUM-1127: which files this head's AI review read — the PR
+        // write-back only resolves a judge thread for a file it covered.
+        judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
         stages,
         partialCauses,
         ...(huntSkippedForCap
@@ -1493,17 +1622,19 @@ export const prSecurityScanService = {
         judgeRows.some(r => verifierAppliesTo(r)) &&
         isReviewVerifierEnabled()
       ) {
-        const started = await startVerifierBestEffort({
+        await startVerifierBestEffort({
           scanId,
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           prNumber: pr.number,
           headSha,
-          managedScanStarted:
-            managedRunStarted && (huntWantedForVm || verifierVmWanted),
-          stopAttachedWhenDone: !huntRunStarted,
+          // LUM-1084: boot its own VM at once — never wait on the managed
+          // scan's (that wait cost ~2 min per scan and lost the race in the
+          // LUM-1084 production logs). Not a consumer of the kept VM either,
+          // which is released below when the hunt did not start.
+          managedScanStarted: false,
+          stopAttachedWhenDone: false,
         })
-        if (started) vmConsumerStarted = true
       }
       if (keptVm && !vmConsumerStarted) await releaseKeptVmBestEffort(keptVm)
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
@@ -1578,9 +1709,14 @@ export const prSecurityScanService = {
     let count = 0
     let suggested = 0
     const out = []
-    const controls = await Promise.all(
-      prs.map(pr => prReviewControlRepository.get(pr.id))
-    )
+    const [controls, workspaceLimit] = await Promise.all([
+      Promise.all(prs.map(pr => prReviewControlRepository.get(pr.id))),
+      prs.length > 0
+        ? securityColumnsRepository.findReviewAutoPauseAfter(
+            prs[0]!.workspaceId
+          )
+        : Promise.resolve(DEFAULT_AUTO_PAUSE_AFTER),
+    ])
     for (const pr of prs) {
       const scan = latest.get(pr.id)
       const view = scan
@@ -1607,13 +1743,9 @@ export const prSecurityScanService = {
       out.push({
         pr,
         latest: view,
-        reviewControl: {
-          paused:
-            control.reviewPaused ||
-            control.reviewHeads.length >= control.reviewRoundLimit,
-          rounds: control.reviewHeads.length,
-          limit: control.reviewRoundLimit,
-        },
+        // LUM-1137: reviewed commits against the PR's (else the
+        // workspace's) pause-after; limit 0 = never pauses.
+        reviewControl: reviewBudgetView(control, workspaceLimit),
       })
     }
     return {
@@ -1624,40 +1756,79 @@ export const prSecurityScanService = {
     }
   },
 
+  /**
+   * LUM-1128 — every finding on the task's latest scan per PR, flat, in the
+   * shape the CLI envelope shows. Same read model as the panel (`getForTask`),
+   * so `blocking` here is exactly what the DONE gate counts.
+   */
+  async listFindingsForTask(taskId: string): Promise<CliFindingRow[]> {
+    const view = await this.getForTask(taskId)
+    const rows: CliFindingRow[] = []
+    for (const { pr, latest } of view.prs) {
+      if (!latest) continue
+      for (const f of latest.findings) {
+        rows.push({
+          id: f.id,
+          severity: f.severity,
+          provenance: f.provenance,
+          ruleId: f.ruleId,
+          filePath: f.filePath,
+          line: f.line,
+          title: redactForInjection(sanitizeField(f.title)).text,
+          statement: findingStatement({
+            ...f,
+            prNumber: pr.number,
+          }),
+          prNumber: pr.number,
+          disposition: f.disposition,
+          blocking: f.blocking,
+        })
+      }
+    }
+    return rows
+  },
+
   async disposition(
     taskId: string,
     findingId: string,
     disposition: FindingDisposition,
     note: string | null,
     actorMemberId: string,
-    audit: WorkspaceAudit
+    audit: WorkspaceAudit,
+    via: FindingDispositionVia = WEB_VIA
   ): Promise<SecurityFindingView> {
-    const finding =
-      await prSecurityScanRepository.findFindingWithScope(findingId)
-    if (!finding || finding.scan.pullRequest.taskId !== taskId) {
-      throw Object.assign(
-        new Error('Security finding not found on this task'),
-        { status: 404 }
-      )
-    }
-    const updated = await prSecurityScanRepository.updateDisposition(
-      findingId,
-      {
-        disposition,
-        dispositionNote: note,
-        dispositionedById: actorMemberId,
-        dispositionedAt: new Date(),
-        // LUM-740: the human's verdict on the falsifier's suggestion (R2).
-        suggestionOutcome: suggestionOutcomeFor(
-          finding.suggestedDisposition,
-          disposition
-        ),
-      }
-    )
-    // LUM-907: ids and enum values only — the note stays on the finding.
+    const finding = await findFindingOnTask(taskId, findingId)
+    const actor = await memberRepository.findActorByMemberId(actorMemberId)
+    // LUM-1128 follow-up: the ruling and its timeline entry are one
+    // transaction, and `from` is read inside it — a failed activity insert
+    // rolls the ruling back instead of leaving it applied behind a 500.
     // Like crossings, a ruling that leaves the disposition unchanged (a
-    // re-save of the same value, e.g. to edit the note) is not audited.
-    const from = finding.disposition ?? null
+    // re-save of the same value, e.g. to edit the note) gets no entry.
+    const { row: updated, from } =
+      await prSecurityScanRepository.updateDisposition(
+        findingId,
+        {
+          disposition,
+          dispositionNote: note,
+          dispositionedById: actorMemberId,
+          dispositionedAt: new Date(),
+          // LUM-740: the human's verdict on the falsifier's suggestion (R2).
+          suggestionOutcome: suggestionOutcomeFor(
+            finding.suggestedDisposition,
+            disposition
+          ),
+        },
+        prior =>
+          prior === disposition
+            ? null
+            : findingRulingActivity(taskId, finding, actor?.id ?? null, {
+                from: prior,
+                to: disposition,
+                via,
+              })
+      )
+    // LUM-907: ids and enum values only — the note stays on the finding.
+    // Recorded after the commit; `recordAuditEvent` never throws.
     if (from !== disposition) {
       await recordAuditEvent({
         workspaceId: audit.workspaceId,
@@ -1671,6 +1842,60 @@ export const prSecurityScanService = {
       updated,
       await loadSecurityPolicy(finding.scan.pullRequest.workspaceId)
     )
+  },
+
+  /**
+   * LUM-1128 follow-up — revert a ruling to open (the web panel's "Reopen").
+   * Web only, like a crossing's OPEN revert: the route refuses it from a
+   * bearer (CLI) caller. The finding is undecided again, so it blocks DONE
+   * exactly as before it was ruled (same `isBlockingFinding`), and the row
+   * keeps `dispositionedAt` = now with `disposition` null — the reopen
+   * marker `findDispositionedByPullRequest` returns, so the next push does
+   * not re-inherit an older ruling of the same fingerprint. The suggestion
+   * (if any) stays, its outcome back to pending. An already-open finding is
+   * a no-op (nothing written, nothing audited).
+   */
+  async reopen(
+    taskId: string,
+    findingId: string,
+    actorMemberId: string,
+    audit: WorkspaceAudit
+  ): Promise<SecurityFindingView> {
+    const finding = await findFindingOnTask(taskId, findingId)
+    const policy = await loadSecurityPolicy(
+      finding.scan.pullRequest.workspaceId
+    )
+    if (finding.disposition === null) return toFindingView(finding, policy)
+    const actor = await memberRepository.findActorByMemberId(actorMemberId)
+    const { row: updated, from } =
+      await prSecurityScanRepository.updateDisposition(
+        findingId,
+        {
+          disposition: null,
+          dispositionNote: null,
+          dispositionedById: actorMemberId,
+          dispositionedAt: new Date(),
+          suggestionOutcome: null,
+        },
+        prior =>
+          prior === null
+            ? null
+            : findingRulingActivity(taskId, finding, actor?.id ?? null, {
+                from: prior,
+                to: 'OPEN',
+                via: WEB_VIA,
+              })
+      )
+    if (from !== null) {
+      await recordAuditEvent({
+        workspaceId: audit.workspaceId,
+        action: 'security_finding.dispositioned',
+        target: { type: 'security_finding', id: findingId },
+        metadata: { taskId, from, to: 'OPEN' },
+        context: audit.context,
+      })
+    }
+    return toFindingView(updated, policy)
   },
 
   /**

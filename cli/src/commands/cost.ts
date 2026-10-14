@@ -4,6 +4,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { note } from '../lib/feedback'
+import { localDayStart } from '../lib/local-day'
 
 /**
  * Local copies of the server's OperationCostResponse shape. The CLI is a
@@ -94,12 +95,38 @@ function rankTable(title: string, rows: OperationCostRowDto[]): string {
 }
 
 /**
+ * LUM-1124: `--since` as the server should see it. A bare YYYY-MM-DD is the
+ * shell's LOCAL midnight (the same day boundary `lumo report` uses) — sent
+ * raw, the server would parse it as UTC midnight. A timestamp is read here,
+ * in the shell's zone, and sent as an ISO instant. Null = not a valid day or
+ * timestamp.
+ */
+export function resolveCostSince(
+  since: string
+): { iso: string; day: string | null } | null {
+  const raw = since.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    // Date-shaped only: `new Date('7d')` is invalid, but bare numbers parse.
+    if (!/^\d{4}-\d{2}-\d{2}T/.test(raw)) return null
+    const t = new Date(raw)
+    return Number.isNaN(t.getTime())
+      ? null
+      : { iso: t.toISOString(), day: null }
+  }
+  const iso = localDayStart(raw)
+  return iso ? { iso, day: raw } : null
+}
+
+/**
  * Render an OperationCostResponse as the per-operation cost report. Pure
  * function (no clock / env / network) so it is deterministic and unit-testable.
+ * `sinceDay` = the local day the user asked for; it titles the window instead
+ * of the server's UTC instant.
  */
 export function formatOperationCost(
   data: OperationCostResponse,
-  by: By
+  by: By,
+  sinceDay?: string | null
 ): string {
   const primary =
     by === 'model'
@@ -114,7 +141,13 @@ export function formatOperationCost(
       ? NONE
       : `${Math.round(data.coverage.perStepPct * 100)}%`
   const out: string[] = []
-  out.push(`Per-operation cost — ${data.scope.kind} ${data.scope.label}`)
+  const scopeLabel =
+    data.scope.kind === 'workspace' && sinceDay
+      ? `since ${sinceDay}`
+      : data.scope.label
+  out.push(
+    `Per-operation cost — ${data.scope.kind} ${sanitizeField(scopeLabel)}`
+  )
   out.push(
     `Total: output ${fmtCount(data.grandTotal.output)} · input ${fmtCount(data.grandTotal.input)} · cache_create ${fmtCount(data.grandTotal.cacheCreation)} · cache_read ${fmtCount(data.grandTotal.cacheRead)} · all ${fmtCount(data.grandTotal.total)} tokens`
   )
@@ -158,9 +191,20 @@ export async function cost(opts: {
       : 'tool'
 
   const params = new URLSearchParams()
+  let sinceDay: string | null = null
   if (opts.task) params.set('task', opts.task)
   else if (opts.session) params.set('session', opts.session)
-  else if (opts.since) params.set('since', opts.since)
+  else if (opts.since) {
+    const since = resolveCostSince(opts.since)
+    if (!since) {
+      console.error(
+        `Error: invalid --since "${opts.since}" (expected YYYY-MM-DD or a timestamp such as 2026-10-12T09:30)`
+      )
+      return 1
+    }
+    params.set('since', since.iso)
+    sinceDay = since.day
+  }
 
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const qs = params.toString()
@@ -196,5 +240,5 @@ export async function cost(opts: {
     console.log(JSON.stringify(data, null, 2))
     return
   }
-  console.log(formatOperationCost(data, by))
+  console.log(formatOperationCost(data, by, sinceDay))
 }

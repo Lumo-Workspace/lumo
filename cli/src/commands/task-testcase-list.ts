@@ -2,6 +2,7 @@ import { emptyState, fmtDay } from '../lib/format'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { formatExecutor } from '../lib/test-case-executor'
 import { sanitizeField } from '../lib/sanitize'
+import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 
 interface ListRow {
   number: number
@@ -38,12 +39,18 @@ export async function taskTestCaseList(
     )
     return 1
   }
+  return testCaseListInScope(taskScope(identifier))
+}
+
+export async function testCaseListInScope(
+  scope: TestCaseScope
+): Promise<number | void> {
   const ctx = apiContext()
   if (!ctx) return 1
 
   const r = await apiCall<{ testCases: ListRow[] }>(
     ctx,
-    `/api/tasks/${encodeURIComponent(identifier)}/test-cases`,
+    `${scope.basePath}/test-cases`,
     {},
     'test case list'
   )
@@ -51,7 +58,7 @@ export async function taskTestCaseList(
 
   const cases = r.data.testCases
   if (cases.length === 0) {
-    console.log(emptyState('test cases', identifier))
+    console.log(emptyState('test cases', scope.label))
     return
   }
 

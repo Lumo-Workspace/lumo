@@ -56,6 +56,7 @@ import {
   fetchPrFiles,
   fetchPrHeadSha,
   fetchPrStats,
+  fetchRepoVisibility,
   readRepoFile,
 } from '@/lib/integrations/github/contents'
 import {
@@ -246,6 +247,12 @@ describe('LUM-886 helpers mint with the narrowed permission set', () => {
       'fetchPrHeadSha',
       () => fetchPrHeadSha({ ...repo, prNumber: 7 }),
       { pull_requests: 'read' },
+    ],
+    // LUM-1134: the repository record is served under metadata.
+    [
+      'fetchRepoVisibility',
+      () => fetchRepoVisibility(repo),
+      { metadata: 'read' },
     ],
   ]
 

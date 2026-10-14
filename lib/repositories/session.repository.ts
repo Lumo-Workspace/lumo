@@ -117,6 +117,12 @@ interface UpsertSessionData {
   agent?: TaskArtifactAgent
   now: Date
   /**
+   * LUM-1136: the CLI version this hook request carried. Written on every
+   * event (not only SessionStart) so a session that outlives a `lumo update`
+   * reports the CLI it runs now. Omitted when absent — never clears a value.
+   */
+  cliVersion?: string
+  /**
    * Cumulative session token totals from the CLI transcript. Carried by STOP
    * (full settlement) and POST_TOOL_BATCH (mid-turn, flat columns only).
    */
@@ -234,7 +240,169 @@ const TIMELINE_SESSION_SELECT = {
   usageResyncedAt: true,
 } satisfies Prisma.SessionSelect
 
+/** LUM-1136: map key for a member × agent pair. */
+function memberAgentKey(workspaceMemberId: string, agent: string): string {
+  return `${workspaceMemberId}\u0000${agent}`
+}
+
+/** LUM-1136: the `cliVersion` write for a hook upsert, or nothing when absent. */
+function cliVersionPatch(data: { cliVersion?: string }) {
+  return data.cliVersion ? { cliVersion: data.cliVersion } : {}
+}
+
+/** Keys per follow-up query, so the OR list stays bounded on big workspaces. */
+const MEMBER_AGENT_CHUNK = 100
+
+/**
+ * LUM-1136: per member × agent, the value of `field` from the newest top-level
+ * session since `since` that reported it. Two bounded steps instead of an
+ * in-memory `distinct` over every session in the window: groupBy finds each
+ * pair's newest reporting timestamp, then only those rows are read (in chunks).
+ */
+async function latestReportedField(
+  workspaceId: string,
+  since: Date,
+  field: 'cliVersion' | 'skillVersion'
+): Promise<
+  { workspaceMemberId: string; agent: TaskArtifactAgent; value: string }[]
+> {
+  const reported = {
+    workspaceId,
+    parentSessionId: null,
+    lastActivityAt: { gte: since },
+    [field]: { not: null },
+  } satisfies Prisma.SessionWhereInput
+  const newest = await prisma.session.groupBy({
+    by: ['workspaceMemberId', 'agent'],
+    where: reported,
+    _max: { lastActivityAt: true },
+  })
+  const keys = newest.flatMap(g =>
+    g._max.lastActivityAt
+      ? [
+          {
+            workspaceMemberId: g.workspaceMemberId,
+            agent: g.agent,
+            lastActivityAt: g._max.lastActivityAt,
+          },
+        ]
+      : []
+  )
+  const seen = new Set<string>()
+  const out: {
+    workspaceMemberId: string
+    agent: TaskArtifactAgent
+    value: string
+  }[] = []
+  for (let i = 0; i < keys.length; i += MEMBER_AGENT_CHUNK) {
+    const rows = await prisma.session.findMany({
+      where: { ...reported, OR: keys.slice(i, i + MEMBER_AGENT_CHUNK) },
+      orderBy: { lastActivityAt: 'desc' },
+      select: { workspaceMemberId: true, agent: true, [field]: true },
+    })
+    for (const r of rows as unknown as Array<
+      { workspaceMemberId: string; agent: TaskArtifactAgent } & Record<
+        typeof field,
+        string | null
+      >
+    >) {
+      // Two sessions can share the max timestamp; keep the first per pair.
+      const k = memberAgentKey(r.workspaceMemberId, r.agent)
+      const value = r[field]
+      if (value === null || seen.has(k)) continue
+      seen.add(k)
+      out.push({
+        workspaceMemberId: r.workspaceMemberId,
+        agent: r.agent,
+        value,
+      })
+    }
+  }
+  return out
+}
+
 export const sessionRepository = {
+  /**
+   * LUM-1136: store the CLI / skill versions a SessionStart hook reported.
+   * Only the keys present are written, so a later SessionStart from an older
+   * CLI (no headers) never clears a known value. No-op for an unknown id.
+   */
+  async recordClientVersions(
+    id: string,
+    versions: { cliVersion?: string; skillVersion?: string }
+  ): Promise<void> {
+    if (!versions.cliVersion && !versions.skillVersion) return
+    await prisma.session.updateMany({
+      where: { id },
+      data: {
+        ...(versions.cliVersion ? { cliVersion: versions.cliVersion } : {}),
+        ...(versions.skillVersion
+          ? { skillVersion: versions.skillVersion }
+          : {}),
+      },
+    })
+  },
+
+  /**
+   * LUM-1136: per member × agent, the last top-level session activity since
+   * `since` — the members page's "last seen" for each connection.
+   */
+  async lastActivityByMemberAgent(workspaceId: string, since: Date) {
+    const rows = await prisma.session.groupBy({
+      by: ['workspaceMemberId', 'agent'],
+      where: {
+        workspaceId,
+        parentSessionId: null,
+        lastActivityAt: { gte: since },
+      },
+      _max: { lastActivityAt: true },
+    })
+    return rows.map(r => ({
+      workspaceMemberId: r.workspaceMemberId,
+      agent: r.agent,
+      lastActivityAt: r._max.lastActivityAt,
+    }))
+  },
+
+  /**
+   * LUM-1136: per member × agent, the latest CLI version and the latest skill
+   * version reported since `since` — each field from the newest top-level
+   * session that reported it, so a session that reported only one of them
+   * (or a CLI that predates the headers) never hides the other.
+   */
+  async latestClientVersionsByMemberAgent(workspaceId: string, since: Date) {
+    const [cli, skill] = await Promise.all([
+      latestReportedField(workspaceId, since, 'cliVersion'),
+      latestReportedField(workspaceId, since, 'skillVersion'),
+    ])
+    const out = new Map<
+      string,
+      {
+        workspaceMemberId: string
+        agent: TaskArtifactAgent
+        cliVersion: string | null
+        skillVersion: string | null
+      }
+    >()
+    for (const [field, rows] of [
+      ['cliVersion', cli],
+      ['skillVersion', skill],
+    ] as const) {
+      for (const r of rows) {
+        const k = memberAgentKey(r.workspaceMemberId, r.agent)
+        const row = out.get(k) ?? {
+          workspaceMemberId: r.workspaceMemberId,
+          agent: r.agent,
+          cliVersion: null,
+          skillVersion: null,
+        }
+        row[field] = r.value
+        out.set(k, row)
+      }
+    }
+    return [...out.values()]
+  },
+
   /** LUM-932: ids of a session's subagent child sessions. */
   async listChildIds(parentSessionId: string): Promise<string[]> {
     const rows = await prisma.session.findMany({
@@ -532,6 +700,7 @@ export const sessionRepository = {
             cwd: data.cwd,
             taskId: null,
             ...(data.agent !== undefined ? { agent: data.agent } : {}),
+            ...cliVersionPatch(data),
             startedAt: data.now,
             lastActivityAt: data.now,
             eventCount: 1,
@@ -542,6 +711,7 @@ export const sessionRepository = {
             lastActivityAt: data.now,
             eventCount: { increment: 1 },
             ...(data.cwd !== null ? { cwd: data.cwd } : {}),
+            ...cliVersionPatch(data),
             ...flat,
             loopCount: { increment: 1 },
           },
@@ -590,6 +760,7 @@ export const sessionRepository = {
             cwd: data.cwd,
             taskId: null,
             ...(data.agent !== undefined ? { agent: data.agent } : {}),
+            ...cliVersionPatch(data),
             startedAt: data.now,
             lastActivityAt: data.now,
             eventCount: 1,
@@ -599,6 +770,7 @@ export const sessionRepository = {
             lastActivityAt: data.now,
             eventCount: { increment: 1 },
             ...(data.cwd !== null ? { cwd: data.cwd } : {}),
+            ...cliVersionPatch(data),
             ...midTurnFlat,
           },
           select: { id: true, taskId: true, role: true, milestoneId: true },
@@ -618,6 +790,7 @@ export const sessionRepository = {
     }
     if (data.cwd !== null) setOnUpdate.cwd = data.cwd
     if (data.isStop) setOnUpdate.loopCount = { increment: 1 }
+    if (data.cliVersion) setOnUpdate.cliVersion = data.cliVersion
 
     const row = await prisma.session.upsert({
       where: { id: data.id },
@@ -628,6 +801,7 @@ export const sessionRepository = {
         cwd: data.cwd,
         taskId: null,
         ...(data.agent !== undefined ? { agent: data.agent } : {}),
+        ...cliVersionPatch(data),
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,

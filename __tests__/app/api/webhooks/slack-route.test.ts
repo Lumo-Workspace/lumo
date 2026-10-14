@@ -332,7 +332,9 @@ describe('POST /api/webhooks/slack', () => {
       })
     })
 
-    it('falls back to a thread reply when Slack refuses the ephemeral one', async () => {
+    // LUM-1115: a refused private reply goes to the user's DM — never to
+    // the channel thread where everyone would see it.
+    it('sends a refused ephemeral reply to the user DM, never in_channel', async () => {
       mockHandleCommand.mockResolvedValue({
         type: 'text',
         text: 'Task `X` not found.',
@@ -342,18 +344,103 @@ describe('POST /api/webhooks/slack', () => {
         .mockResolvedValueOnce(
           new Response('{"ok":false,"error":"user_not_in_channel"}')
         )
+        .mockResolvedValueOnce(
+          new Response('{"ok":true,"channel":{"id":"D7"}}')
+        )
         .mockResolvedValueOnce(new Response('{"ok":true}'))
       await POST(mention({ ts: '1700000000.000100' }))
       await Promise.all(pending)
-      expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(fetchMock.mock.calls[1]![0]).toBe(
-        'https://slack.com/api/chat.postMessage'
-      )
-      expect(JSON.parse(fetchMock.mock.calls[1]![1].body)).toEqual({
-        channel: 'C9',
-        thread_ts: '1700000000.000100',
+      expect(fetchMock.mock.calls.map(c => c[0])).toEqual([
+        'https://slack.com/api/chat.postEphemeral',
+        'https://slack.com/api/conversations.open',
+        'https://slack.com/api/chat.postMessage',
+      ])
+      expect(JSON.parse(fetchMock.mock.calls[2]![1].body)).toEqual({
+        channel: 'D7',
         text: 'Task `X` not found.',
       })
+      // No call ever targets the mention's channel except the ephemeral one.
+      const bodies = fetchMock.mock.calls.map(c => JSON.parse(c[1].body))
+      expect(
+        bodies.filter(b => b.channel === 'C9' && b.user === undefined)
+      ).toEqual([])
+    })
+  })
+
+  // LUM-1115: Slack re-delivers an event (X-Slack-Retry-Num) when the first
+  // delivery was not acknowledged within 3 s. That first delivery is still
+  // running the command, so a retry is acknowledged and dropped — otherwise
+  // `@Lumo create` could create the task twice.
+  describe('Slack retries', () => {
+    const createMention = JSON.stringify({
+      type: 'event_callback',
+      team_id: 'T1',
+      event_id: 'Ev1',
+      event: {
+        type: 'app_mention',
+        text: '<@B1> create LUM Fix login',
+        channel: 'C9',
+        user: 'U2',
+        ts: '1.1',
+      },
+    })
+
+    it.each(['1', '2', '3'])(
+      'acknowledges retry #%s with 200 without running the command',
+      async n => {
+        const req = signed(createMention, 'application/json')
+        req.headers.set('x-slack-retry-num', n)
+        req.headers.set('x-slack-retry-reason', 'http_timeout')
+        const res = await POST(req)
+        expect(res.status).toBe(200)
+        expect(res.headers.get('x-slack-no-retry')).toBe('1')
+        await Promise.all(pending)
+        expect(mockHandleCommand).not.toHaveBeenCalled()
+        expect(mockFindIntegrationByTeamId).not.toHaveBeenCalled()
+        expect(fetchMock).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each(['', 'http_error', 'unknown_error'])(
+      'also drops a retry whose reason is %j (first delivery may have run)',
+      async reason => {
+        const req = signed(createMention, 'application/json')
+        req.headers.set('x-slack-retry-num', '1')
+        if (reason) req.headers.set('x-slack-retry-reason', reason)
+        const res = await POST(req)
+        expect(res.status).toBe(200)
+        await Promise.all(pending)
+        expect(mockHandleCommand).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each(['connection_failed', 'ssl_error', 'too_many_redirects'])(
+      'processes a retry whose first delivery never arrived (%s)',
+      async reason => {
+        const req = signed(createMention, 'application/json')
+        req.headers.set('x-slack-retry-num', '1')
+        req.headers.set('x-slack-retry-reason', reason)
+        const res = await POST(req)
+        expect(res.status).toBe(200)
+        await Promise.all(pending)
+        expect(mockHandleCommand).toHaveBeenCalledTimes(1)
+      }
+    )
+
+    it('runs the first delivery exactly once', async () => {
+      const res = await POST(signed(createMention, 'application/json'))
+      expect(res.status).toBe(200)
+      await Promise.all(pending)
+      expect(mockHandleCommand).toHaveBeenCalledTimes(1)
+    })
+
+    it('still rejects an unsigned retry (401)', async () => {
+      const req = signed(createMention, 'application/json', {
+        secret: 'wrong',
+      })
+      req.headers.set('x-slack-retry-num', '1')
+      const res = await POST(req)
+      expect(res.status).toBe(401)
     })
   })
 

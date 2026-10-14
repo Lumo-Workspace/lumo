@@ -21,7 +21,7 @@ import {
   pushSecurityCoverage,
   pushTestCaseActions,
   pushTestCaseVerdictActions,
-  SECURITY_HINT,
+  securityHintLines,
   splitNextActions,
   type TaskStatusResponse,
 } from './task-status'
@@ -154,7 +154,7 @@ export function assessReadiness(input: WrapupInput): Readiness {
   const blockingFindings = split.security.filter(a => a.blocking)
   if (blockingFindings.length > 0)
     blocked.push(
-      `${plural(blockingFindings.length, 'blocking security finding')} — fix and push, or a human dispositions it on the web`
+      `${plural(blockingFindings.length, 'blocking security finding')} — fix and push, or the user rules on each (see the security section)`
     )
   const defects = split.testCaseVerdict.filter(
     a => a.signal === 'PROVEN_DEFECT'
@@ -253,7 +253,7 @@ function pushSecurity(
   const { security } = splitNextActions(data.nextActions)
   const body: string[] = []
   pushSecurityActions(body, security, opts)
-  if (security.length > 0) body.push(...wrapLines(SECURITY_HINT, 2, opts))
+  if (security.length > 0) body.push(...securityHintLines(opts))
   pushSecurityCoverage(body, data, opts)
   if (body.length === 0) {
     lines.push('  No linked PR scans and no open findings.')
@@ -468,7 +468,7 @@ function pushDone(
     lines.push(
       ...(oneStep
         ? [
-            '  All PRs merged, nothing blocks DONE — run it directly, no approval step:',
+            '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:',
             commandLine(
               `lumo task update ${input.identifier} --status done`,
               4

@@ -42,6 +42,8 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
+    // LUM-1137: the workspace's pause-after (default 5).
+    findReviewAutoPauseAfter: jest.fn().mockResolvedValue(5),
     findSecurityPolicy: jest.fn(),
     findSecuritySwitches: jest.fn(),
     findSecurityBaseline: jest.fn(),
@@ -154,6 +156,9 @@ const ALL_ON = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRequestChangesEnabled: false,
+  securityLearningsScope: 'auto' as const,
+  securityReviewAutoPauseAfter: 5,
 }
 
 beforeEach(() => {
@@ -254,7 +259,6 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     findingsOnScan: jest.fn().mockResolvedValue([]),
     get: jest.fn().mockResolvedValue({
       reviewPaused: false,
-      reviewRoundLimit: 2,
       reviewHeads: [],
     }),
   },

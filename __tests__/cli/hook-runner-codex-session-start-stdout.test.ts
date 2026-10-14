@@ -20,6 +20,12 @@ jest.mock('@/cli/src/lib/git-task', () => ({
 jest.mock('@/cli/src/lib/cli-version', () => ({
   readCliVersion: () => '1.102.0',
 }))
+// The local skill probe (LUM-1111) is covered by session-start-skill tests;
+// here it reports nothing so the lines stay byte-for-byte as before.
+jest.mock('@/cli/src/lib/session-start-skill', () => ({
+  sessionStartSkillInfo: () => ({ tag: null, notes: [] }),
+  skillVersionHeaderValue: () => null,
+}))
 
 import { readCredentials } from '@/cli/src/lib/config'
 import { extractTaskFromGit } from '@/cli/src/lib/git-task'

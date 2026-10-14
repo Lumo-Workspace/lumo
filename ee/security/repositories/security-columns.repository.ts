@@ -3,7 +3,9 @@
  * Q4 option A) — the security plugin's columns on core models.
  *
  * `Workspace.{securityPolicy, securityScanEnabled, securityAiReviewEnabled,
- * securityHuntEnabled, scanEvidenceRetentionDays}` and
+ * securityHuntEnabled, securityRequestChangesEnabled, securityLearningsScope,
+ * securityReviewAutoPauseAfter,
+ * scanEvidenceRetentionDays}` and
  * `ProjectRepository.{lastSarifIngestAt, securityBaseline}` stay in the one
  * core schema (migrations are never deleted), but only the plugin reads or
  * writes them. These queries moved here unchanged from the core
@@ -15,6 +17,11 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { scopedPrisma } from '@/lib/db/workspace-scope'
 import type { SecurityBaseline } from '@/ee/security/security-scan/types'
+import {
+  parseLearningsScope,
+  type LearningsScope,
+} from '@/ee/security/security-scan/learnings-scope'
+import { parseAutoPauseAfter } from '@/ee/security/security-scan/review-control'
 
 export const securityColumnsRepository = {
   // ── Workspace ──────────────────────────────────────────────────────────────
@@ -50,17 +57,59 @@ export const securityColumnsRepository = {
     return row?.securityPolicy ?? null
   },
 
-  /** LUM-866: the three security-scan switches; null when the workspace is
+  /** LUM-1130: is the request-changes workflow on? false when the workspace
+   *  is missing. */
+  async findRequestChangesEnabled(id: string): Promise<boolean> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityRequestChangesEnabled: true },
+    })
+    return row?.securityRequestChangesEnabled === true
+  },
+
+  /** LUM-1134: the learnings scope (local | global | auto); the default
+   *  (auto) when the workspace is missing or the value is unrecognised. */
+  async findLearningsScope(id: string): Promise<LearningsScope> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityLearningsScope: true },
+    })
+    return parseLearningsScope(row?.securityLearningsScope)
+  },
+
+  /** LUM-1137: pause automatic review after this many reviewed commits
+   *  (0 = never); the default (5) when the workspace is missing. */
+  async findReviewAutoPauseAfter(id: string): Promise<number> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityReviewAutoPauseAfter: true },
+    })
+    return parseAutoPauseAfter(row?.securityReviewAutoPauseAfter)
+  },
+
+  /** LUM-866: the three security-scan switches (+ LUM-1130's request-changes
+   *  workflow and LUM-1134's learnings scope); null when the workspace is
    *  missing — resolve with `resolveSecurityLayers`. */
   async findSecuritySwitches(id: string) {
-    return prisma.workspace.findUnique({
+    const row = await prisma.workspace.findUnique({
       where: { id },
       select: {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: true,
+        securityRequestChangesEnabled: true,
+        securityLearningsScope: true,
+        securityReviewAutoPauseAfter: true,
       },
     })
+    if (!row) return null
+    return {
+      ...row,
+      securityLearningsScope: parseLearningsScope(row.securityLearningsScope),
+      securityReviewAutoPauseAfter: parseAutoPauseAfter(
+        row.securityReviewAutoPauseAfter
+      ),
+    }
   },
 
   // ── ProjectRepository (tenant-scoped client, as in projectRepository) ────

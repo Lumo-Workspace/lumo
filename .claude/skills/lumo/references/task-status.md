@@ -64,6 +64,7 @@ shape changes bump it; additive fields don't. Pin on `version` when scripting.
 - `task { id, identifier, title, status }`, `cost { tokenCost, activeTimeSec }` (`tokenCost: null` = not measured), `struggleTrail { pullRequests[], reopens[] }`, `trend { cost[], rework { reopens, extraPrCycles, total } }`, `claim`, `faithfulness`;
 - `nextActions` entries carry a `kind` discriminator: `SECURITY_FINDING` (`findingId`, `statement`, `severity`, `provenance`, `blocking`, `prNumber`, `ruleId`, `filePath`, `line`), `TEST_CASE` (`statement`, `command`, `advisory: true`) or `TEST_CASE_VERDICT` (`signal`, `number`, `title`, `ceilingReason?`, `advisory: true`). Advisory rows carry no `blocking` field and the DONE gate never reads them;
 - `securityFindings { open, blocking, unconfirmedPrs[], scans?[] }` — **`null` means the scan read failed**: treat as "could not confirm", not "safe";
+- a finding whose Lumo review thread a human **resolved on GitHub** (LUM-1127) leaves `SECURITY_FINDING` and `open` only when it is **not** blocking; a blocking one stays (`blocking: true`) and still holds DONE until it is dispositioned in Lumo — resolving a conversation is not a disposition;
 - open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, ref, category, severity, detail, attribution }` — `ref` is the `<TEAM>-X<n>` to show and type, `id` the cuid); **`null` when the crossings check failed**, distinct from `[]`.
 
 ## Responding to an open crossing — `lumo crossing explain`
@@ -109,6 +110,8 @@ A gated mutation on the [confirmation protocol](confirmation.md), as a **three-s
 
 **Batch form (LUM-845):** `lumo crossing disposition <id1> <id2> <id3> --false-positive --note "…"` — same handshake, ONE envelope per step for the whole batch (a `── [i/N] crossing <id> ──` block per crossing, nothing trimmed), one receipt per crossing carried as `--receipt <ref>=<token>,…`. Mixed rulings = one batch per ruling. If the user disputes one, drop its id from the `confirmCommand` (it stays OPEN); adding an id after step 1 is refused. Step 3 reports every crossing `✓`/`✗`, exit 1 if any failed.
 
+A blocking **security finding** has its own terminal path: `lumo finding disposition <id...> --false-positive | --accepted-risk [--note "…"]` — a plain exit-4 envelope (no receipts); relay it, add `--confirm` only after the user approves. Ids are on each `[SECURITY]` item's `Id:` row. See [pr-scan.md](pr-scan.md#finding-disposition).
+
 After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 
 ## lumo task wrapup — the whole wrap-up in one read (LUM-841)
@@ -129,7 +132,7 @@ Four numbered sections (`[1/4] Test cases` … `[4/4] DONE`), in the same layout
 1. **Test cases** — verdict signals (a `PROVEN_DEFECT` item is followed by `Blocks DONE until the user rules on that run — one of:` and the two `lumo task testcase disposition <task>/TC<n> --known-defect` / `--not-a-defect` commands, one per line, for the **user's** ruling) and the no-test-case advisory.
 2. **Security scans** — undispositioned findings (blocks DONE / advisory) and each linked PR's latest scan as layer rows, same grammar as `task status`.
 3. **Boundary crossings** — every undispositioned crossing (`• <ref> [SEVERITY] CATEGORY (<gate>)`) with what the user needs to rule on it as rows (`Re-judged`, `Detail`, `Seen`, the `⚠ irreversible category` line, `Explanations` with one `- …` line each, or `Explanation: none — add one first` with the `crossing explain` command when a blocking row has none) and the step-1 `lumo crossing disposition … --task <id>` commands — per crossing (`The user rules — one of:`) or, with several, one **batch** command per ruling after the list.
-4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` with every linked PR merged (≥1) is labelled `READY — one step: …` and ends with `All PRs merged, nothing blocks DONE — run it directly, no approval step:` and `lumo task update <id> --status done` (LUM-1106); `READY` with no linked PR ends with `Show the user the lines above. Only after they approve, run:` and the `--confirm` command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
+4. **DONE** — a readiness verdict plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` with every linked PR merged (≥1) is labelled `READY — one step: …` and ends with `All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:` and `lumo task update <id> --status done` (LUM-1106; add no other flag — anything besides `--status` takes the envelope, LUM-1116); `READY` with no linked PR ends with `Show the user the lines above. Only after they approve, run:` and the `--confirm` command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
 
 | Level            | Meaning                                                                                                                                                                                                                          |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -149,8 +152,9 @@ checkout so the worktree can be removed.
 
 ## The DONE gate
 
-`lumo task update <id> --status done` runs in one step when ≥1 linked PR, all
-merged, and the digest shows nothing blocking (LUM-1106); otherwise it walks the
+`lumo task update <id> --status done` (no other flag — LUM-1116) runs in one
+step when ≥1 linked PR, all merged, and the digest shows nothing blocking
+(LUM-1106); otherwise it walks the
 confirmation protocol: without `--confirm` it exits 4 with an envelope for the
 user to approve. The server then
 refuses DONE with **409** on an undispositioned blocking boundary crossing, a

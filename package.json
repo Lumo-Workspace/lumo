@@ -23,6 +23,8 @@
     "lint:tokens:update": "tsx scripts/lint-tokens.ts --update",
     "i18n:sync": "tsx scripts/i18n-sync-locales.ts",
     "i18n:check": "tsx scripts/i18n-sync-locales.ts --check",
+    "ai:check-models": "tsx scripts/check-model-catalog.ts",
+    "migrations:check": "tsx scripts/migrations/destructive-guard.ts",
     "license:audit": "tsx scripts/license-audit.ts",
     "audit:prod": "npm audit --package-lock-only --omit=dev --audit-level=high",
     "type-check": "tsc --noEmit",
@@ -37,7 +39,8 @@
     "analyze": "next build --experimental-analyze",
     "prepare": "husky",
     "mcp": "tsx mcp/server.ts",
-    "oss:export": "tsx scripts/oss-export.ts"
+    "oss:export": "tsx scripts/oss-export.ts",
+    "release:cli": "tsx scripts/release-cli.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.127",

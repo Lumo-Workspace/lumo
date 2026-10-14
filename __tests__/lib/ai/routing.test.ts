@@ -182,7 +182,7 @@ describe('direct model id mapping', () => {
       OPENAI_COMPATIBLE_BASE_URL: 'http://localhost:11434/v1',
       OPENAI_COMPATIBLE_MODEL: 'llama3.1',
     })
-    for (const id of [FAST_MODEL, HUNT_MODEL, CONTENT_MODEL, REASONING_MODEL])
+    for (const id of [FAST_MODEL, CONTENT_MODEL, REASONING_MODEL])
       expect(directLanguageModelTarget(route, id)).toEqual({
         provider: 'openai-compatible',
         modelId: 'llama3.1',
@@ -190,6 +190,11 @@ describe('direct model id mapping', () => {
     expect(directLanguageModelTarget(route, CODE_REVIEW_MODEL).provider).toBe(
       'anthropic'
     )
+    // LUM-1084: the hunt runs on Claude Haiku, so it stays on Anthropic too.
+    expect(directLanguageModelTarget(route, HUNT_MODEL)).toEqual({
+      provider: 'anthropic',
+      modelId: 'claude-haiku-4-5',
+    })
     // Without an Anthropic key, a Claude id goes to the compatible endpoint.
     const compatOnly = direct({
       OPENAI_COMPATIBLE_BASE_URL: 'http://localhost:11434/v1',
@@ -209,9 +214,12 @@ describe('direct model id mapping', () => {
     expect(() => directLanguageModelTarget(bare, GENERATION_MODEL)).toThrow(
       /deepseek\/deepseek-v4-pro is not available.*ANTHROPIC_MODEL/
     )
-    // The one Claude id in the registry still maps.
+    // The Claude ids in the registry still map.
     expect(directLanguageModelTarget(bare, CODE_REVIEW_MODEL).modelId).toBe(
       'claude-sonnet-5-5'
+    )
+    expect(directLanguageModelTarget(bare, HUNT_MODEL).modelId).toBe(
+      'claude-haiku-4-5'
     )
 
     const withFallback = direct({
@@ -221,7 +229,6 @@ describe('direct model id mapping', () => {
     for (const id of [
       REASONING_MODEL,
       GENERATION_MODEL,
-      HUNT_MODEL,
       CONTENT_MODEL,
       TRANSLATION_MODEL,
       FAST_MODEL,

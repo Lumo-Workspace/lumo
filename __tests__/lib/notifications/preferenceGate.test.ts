@@ -237,6 +237,24 @@ describe('shouldNotifyBatch Slack fail-closed (LUM-1101)', () => {
     expect(mockActorFindMany).not.toHaveBeenCalled()
   })
 
+  // LUM-1115: an owner's spec review unblocks a waiting agent — never silenced.
+  it('delivers TASK_SPEC_READY in-app even with notifyInAppAssigned=false', async () => {
+    mockActorFindMany.mockResolvedValue([{ id: 'a-1', member: { id: 'm-1' } }])
+    mockPrefFindMany.mockResolvedValue([
+      { memberId: 'm-1', notifyInAppAssigned: false },
+    ])
+    const result = await shouldNotifyBatch(['a-1'], 'inApp', 'TASK_SPEC_READY')
+    expect([...result]).toEqual(['a-1'])
+    mockActorFindUnique.mockResolvedValue({ member: { id: 'm-1' } })
+    mockPrefFindUnique.mockResolvedValue({ notifyInAppAssigned: false })
+    expect(await shouldNotify('a-1', 'inApp', 'TASK_SPEC_READY')).toBe(true)
+  })
+
+  it('TASK_SPEC_READY stays fail-closed on Slack (in-app-only exemption)', async () => {
+    const result = await shouldNotifyBatch(['a-1'], 'slack', 'TASK_SPEC_READY')
+    expect(result.size).toBe(0)
+  })
+
   it('keeps ALWAYS_NOTIFY types deliverable on Slack', async () => {
     const result = await shouldNotifyBatch(['a-1'], 'slack', 'AGENT_CLARIFY')
     expect([...result]).toEqual(['a-1'])

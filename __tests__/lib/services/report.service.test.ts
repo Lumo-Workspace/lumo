@@ -22,6 +22,7 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { reportRepository } from '@/lib/repositories/report.repository'
 import { resolveProjectId } from '@/lib/services/task-cli.service'
+import { formatReport } from '@/cli/src/commands/report'
 import {
   buildReport,
   completionsInWindow,
@@ -455,6 +456,125 @@ describe('empty window', () => {
   })
 })
 
+// LUM-1116
+describe('token rounding + session-less usage', () => {
+  const row = (over: Record<string, unknown>) => ({
+    tool: 'Bash',
+    verb: null,
+    model: 'claude-opus',
+    sessionId: 's1',
+    workspaceMemberId: 'm1',
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheCreation: 0,
+    ...over,
+  })
+
+  it('reports whole-number token totals even when attributed shares are fractional', () => {
+    const r = buildReport({
+      since: SINCE,
+      until: UNTIL,
+      memberId: null,
+      projectId: null,
+      limit: 50,
+      costRows: [
+        row({ output: 0.1, input: 113919.3 }),
+        row({ output: 0.2, input: 113919.3 }),
+        row({
+          output: 227838.4,
+          input: 113919.3,
+          cacheRead: 0.30000000000000004,
+        }),
+      ],
+      coverage: new Map(),
+      completions: new Map(),
+      tasks: [],
+      memberLabels: new Map([['m1', 'One']]),
+    })
+    const all = [
+      r.team.tokens,
+      ...r.team.byModel,
+      ...r.byMember.map(m => m.tokens),
+    ]
+    for (const t of all)
+      for (const k of [
+        'input',
+        'output',
+        'cacheRead',
+        'cacheCreation',
+        'total',
+      ] as const)
+        expect(Number.isInteger(t[k])).toBe(true)
+    expect(r.team.tokens.total).toBe(569597)
+    expect(r.team.tokens.output).toBe(227839)
+    for (const t of all)
+      expect(t.total).toBe(t.input + t.output + t.cacheRead + t.cacheCreation)
+  })
+
+  it('keeps total equal to the sum of its rounded parts', () => {
+    const r = buildReport({
+      since: SINCE,
+      until: UNTIL,
+      memberId: null,
+      projectId: null,
+      limit: 50,
+      costRows: [row({ input: 0.4, output: 0.4, cacheRead: 0.4 })],
+      coverage: new Map(),
+      completions: new Map(),
+      tasks: [],
+      memberLabels: new Map([['m1', 'One']]),
+    })
+    expect(r.team.tokens).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+      total: 0,
+    })
+  })
+
+  it('counts tokens from events with no session id (sessions stay 0)', async () => {
+    hooks.findToolAttributionEvents.mockResolvedValue([
+      {
+        ...stop('x', 'm1', '2026-10-08T10:00:00.000Z', usage(500)),
+        sessionId: null,
+      },
+    ] as never)
+    const r = await reportService.getReport('ws-1', {
+      since: SINCE,
+      until: UNTIL,
+    })
+    // The usage is attributed in full (input 1 + output 500) …
+    expect(r.team.tokens).toMatchObject({ input: 1, output: 500, total: 501 })
+    expect(r.team.byModel).toEqual([
+      expect.objectContaining({ model: 'claude-opus', total: 501 }),
+    ])
+    expect(r.byMember).toEqual([
+      expect.objectContaining({
+        memberId: 'm1',
+        tokens: expect.objectContaining({ total: 501 }),
+        sessions: 0,
+        unmeteredSessions: 0,
+      }),
+    ])
+    // … with no session behind it, and `lumo report` still prints the tokens.
+    expect(r.team.sessions).toBe(0)
+    expect(r.team.unmeteredSessions).toBe(0)
+    const out = formatReport(r, {
+      window: {
+        sinceDay: '2026-10-06',
+        untilDay: '2026-10-12',
+        sinceIso: SINCE.toISOString(),
+        untilIso: UNTIL.toISOString(),
+        days: 7,
+      },
+    })
+    expect(out).toMatch(/Tokens:\s+501 \(input 1 · output 500 ·/)
+    expect(out).not.toContain('none recorded')
+  })
+})
+
 describe('validation + defaults', () => {
   it('rejects since >= until, too-wide windows and bad limits', () => {
     expect(() => validateReportInput({ since: UNTIL, until: SINCE })).toThrow(
@@ -483,5 +603,227 @@ describe('validation + defaults', () => {
     const w = defaultReportWindow(UNTIL)
     expect(w.since.toISOString()).toBe('2026-10-06T00:00:00.000Z')
     expect(w.until).toBe(UNTIL)
+  })
+})
+
+// LUM-1123: By model carries all four token kinds; By member splits per model.
+describe('member × model token split', () => {
+  const row = (over: Record<string, unknown>) => ({
+    tool: 'Bash',
+    verb: null,
+    model: 'claude-opus',
+    sessionId: 's1',
+    workspaceMemberId: 'm1',
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheCreation: 0,
+    ...over,
+  })
+  const KINDS = ['input', 'output', 'cacheRead', 'cacheCreation'] as const
+  const build = (
+    costRows: ReturnType<typeof row>[],
+    memberId: string | null = null
+  ) =>
+    buildReport({
+      since: SINCE,
+      until: UNTIL,
+      memberId,
+      projectId: null,
+      limit: 50,
+      costRows: costRows as never,
+      coverage: new Map(),
+      completions: new Map(),
+      tasks: [],
+      memberLabels: new Map([
+        ['m1', 'One'],
+        ['m2', 'Two'],
+      ]),
+    })
+
+  it('gives every byModel row the four token kinds with total = their sum', () => {
+    const r = build([
+      row({ input: 10, output: 20, cacheRead: 300, cacheCreation: 40 }),
+      row({
+        model: 'claude-sonnet',
+        input: 1,
+        output: 2,
+        cacheRead: 3,
+        cacheCreation: 4,
+      }),
+    ])
+    expect(r.team.byModel).toEqual([
+      {
+        model: 'claude-opus',
+        input: 10,
+        output: 20,
+        cacheRead: 300,
+        cacheCreation: 40,
+        total: 370,
+      },
+      {
+        model: 'claude-sonnet',
+        input: 1,
+        output: 2,
+        cacheRead: 3,
+        cacheCreation: 4,
+        total: 10,
+      },
+    ])
+  })
+
+  it('splits each member by model, sorted by total desc', () => {
+    const r = build([
+      row({ input: 5, output: 5 }),
+      row({ model: 'claude-sonnet', output: 100, cacheCreation: 7 }),
+      row({ workspaceMemberId: 'm2', model: 'claude-sonnet', cacheRead: 3 }),
+    ])
+    const one = r.byMember.find(m => m.memberId === 'm1')!
+    expect(one.byModel).toEqual([
+      {
+        model: 'claude-sonnet',
+        input: 0,
+        output: 100,
+        cacheRead: 0,
+        cacheCreation: 7,
+        total: 107,
+      },
+      {
+        model: 'claude-opus',
+        input: 5,
+        output: 5,
+        cacheRead: 0,
+        cacheCreation: 0,
+        total: 10,
+      },
+    ])
+    const two = r.byMember.find(m => m.memberId === 'm2')!
+    expect(two.byModel).toEqual([
+      {
+        model: 'claude-sonnet',
+        input: 0,
+        output: 0,
+        cacheRead: 3,
+        cacheCreation: 0,
+        total: 3,
+      },
+    ])
+  })
+
+  it('member × model cells add up to the member, members to the team, with fractional shares (no ±1 drift)', () => {
+    // Shares chosen so rounding each level independently would drift by 1:
+    // per-cell 0.5+0.5 rounds to 1+1 = 2, but round(1.0) of the sum is 1.
+    const r = build([
+      row({ input: 0.5, output: 113919.3, cacheRead: 0.4 }),
+      row({ model: 'claude-sonnet', input: 0.5, output: 0.6, cacheRead: 0.4 }),
+      row({
+        workspaceMemberId: 'm2',
+        input: 0.5,
+        output: 227838.45,
+        cacheCreation: 0.5,
+      }),
+      row({
+        workspaceMemberId: 'm2',
+        model: 'claude-sonnet',
+        input: 2.5,
+        cacheCreation: 0.5,
+      }),
+    ])
+    const sum = (
+      ts: Array<Record<(typeof KINDS)[number] | 'total', number>>
+    ) => {
+      const o = {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheCreation: 0,
+        total: 0,
+      }
+      for (const t of ts) {
+        for (const k of KINDS) o[k] += t[k]
+        o.total += t.total
+      }
+      return o
+    }
+    for (const m of r.byMember) {
+      expect(sum(m.byModel)).toEqual(m.tokens)
+      for (const c of m.byModel) {
+        for (const k of KINDS) expect(Number.isInteger(c[k])).toBe(true)
+        expect(c.total).toBe(c.input + c.output + c.cacheRead + c.cacheCreation)
+      }
+    }
+    expect(sum(r.byMember.map(m => m.tokens))).toEqual(r.team.tokens)
+    expect(sum(r.team.byModel)).toEqual(r.team.tokens)
+    // The team's per-model row is the sum of every member's cell for it.
+    for (const tm of r.team.byModel) {
+      const cells = r.byMember.flatMap(m =>
+        m.byModel.filter(c => c.model === tm.model)
+      )
+      expect({ model: tm.model, ...sum(cells) }).toEqual(tm)
+    }
+  })
+
+  it('gives members with no token usage an empty byModel list', () => {
+    const r = buildReport({
+      since: SINCE,
+      until: UNTIL,
+      memberId: 'm9',
+      projectId: null,
+      limit: 50,
+      costRows: [],
+      coverage: new Map(),
+      completions: new Map(),
+      tasks: [],
+      memberLabels: new Map([['m9', 'Nine']]),
+    })
+    expect(r.byMember[0]!.byModel).toEqual([])
+  })
+
+  it('--member returns only that member split by model (through the service)', async () => {
+    members.findById.mockResolvedValue({
+      id: 'm1',
+      workspaceId: 'w1',
+      role: 'MEMBER',
+    } as never)
+    hooks.findToolAttributionEvents.mockResolvedValue([
+      stop('s1', 'm1', '2026-10-08T00:00:00Z', {
+        'claude-opus': {
+          input: 1,
+          output: 9,
+          cacheRead: 100,
+          cacheCreation: 20,
+        },
+        'claude-sonnet': {
+          input: 2,
+          output: 3,
+          cacheRead: 0,
+          cacheCreation: 0,
+        },
+      }),
+    ] as never)
+    const r = await reportService.getReport('w1', {
+      since: SINCE,
+      until: UNTIL,
+      memberId: 'm1',
+    })
+    expect(r.byMember).toHaveLength(1)
+    expect(r.byMember[0]!.byModel).toEqual([
+      {
+        model: 'claude-opus',
+        input: 1,
+        output: 9,
+        cacheRead: 100,
+        cacheCreation: 20,
+        total: 130,
+      },
+      {
+        model: 'claude-sonnet',
+        input: 2,
+        output: 3,
+        cacheRead: 0,
+        cacheCreation: 0,
+        total: 5,
+      },
+    ])
   })
 })

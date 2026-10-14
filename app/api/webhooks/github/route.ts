@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyGitHubSignature } from '@/lib/integrations/github'
+import { OAUTH_REPO_HOOK_EVENTS } from '@/lib/integrations/github/webhooks'
 import {
   handlePullRequest,
   handleCheckSuite,
@@ -7,6 +8,7 @@ import {
   handleIssueComment,
   handlePullRequestReview,
   handlePullRequestReviewComment,
+  handlePullRequestReviewThread,
 } from './handlers'
 import { githubService } from '@/lib/services/github.service'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
@@ -24,13 +26,23 @@ const APP_EVENTS = new Set([
 ])
 
 /**
+ * Repository events the legacy OAuth repo hook also delivers — derived from
+ * the hook's own subscription list so the two cannot drift. Every other repo
+ * event (issue_comment, pull_request_review_comment, pull_request_review_thread
+ * — LUM-1127/1129) only ever arrives via the App, so its App copy is
+ * authoritative even for a workspace whose repo hook is live.
+ */
+const OAUTH_HOOK_DELIVERED = new Set<string>(OAUTH_REPO_HOOK_EVENTS)
+
+/**
  * POST /api/webhooks/github
  *
  * Receives GitHub webhook events over two independent deliveries that share
  * this endpoint:
  *
- * - **Repo hooks** created by the OAuth connection (pull_request, push,
- *   check_suite, status, comments, reviews). The workspace comes from
+ * - **Repo hooks** created by the OAuth connection (`OAUTH_REPO_HOOK_EVENTS`:
+ *   pull_request, pull_request_review, push, check_suite, status — never
+ *   comments, review comments or review threads). The workspace comes from
  *   `repository.full_name` and the signature is checked against that
  *   integration's own `webhookSecret`. Only repositories in the workspace's
  *   confirmed App list are handled (LUM-884).
@@ -110,7 +122,12 @@ export async function POST(request: NextRequest) {
   // is handled, one after another, each against its own PR rows.
   const hooked = new Set(webhooks.map(w => w.integration.workspaceId))
   for (const workspaceId of viaApp) {
-    if (hooked.has(workspaceId)) continue
+    // LUM-1127/1129: skip only events the OAuth repo hook subscribes to.
+    // Comments, review comments and review threads are App-only deliveries
+    // (`OAUTH_REPO_HOOK_EVENTS`), so their App copy is never skipped — there
+    // is no second copy to race the dedup.
+    if (hooked.has(workspaceId) && OAUTH_HOOK_DELIVERED.has(event ?? ''))
+      continue
     await dispatchRepoEvent(event, payload, workspaceId, null)
   }
 
@@ -154,6 +171,9 @@ async function dispatchRepoEvent(
           workspaceId,
           integrationId
         )
+        break
+      case 'pull_request_review_thread':
+        await handlePullRequestReviewThread(payload, workspaceId)
         break
     }
   } catch (err) {

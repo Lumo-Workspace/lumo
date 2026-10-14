@@ -1,11 +1,18 @@
-import { NONE, fmtCount } from '../lib/format'
+import { NONE, fmtCount, fmtTokens } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { localDayLabel, localDayStart } from '../lib/local-day'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
-import { colorEnabled, heading, kvBlock, renderTable } from '../lib/ui'
+import {
+  colorEnabled,
+  heading,
+  kvBlock,
+  renderTable,
+  stringWidth,
+  terminalWidth,
+} from '../lib/ui'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 /**
@@ -35,6 +42,11 @@ export interface ReportResponseDto {
     memberId: string | null
     label: string
     tokens: ReportTokenTotalsDto
+    /**
+     * LUM-1123: per-model split of `tokens`. Optional — a server deployed
+     * before LUM-1123 omits it, and the table then shows summary rows only.
+     */
+    byModel?: Array<ReportTokenTotalsDto & { model: string }>
     sessions: number
     unmeteredSessions: number
     completedCount: number
@@ -76,8 +88,9 @@ function shiftDay(day: string, plusDays: number): string {
 
 /**
  * Resolve `--since` / `--until` into local calendar days, both inclusive.
- * `--since` takes YYYY-MM-DD, `today`, `yesterday` or `Nd` (the last N days
- * including today); `--until` takes YYYY-MM-DD, `today` or `yesterday`.
+ * `--since` takes YYYY-MM-DD, `today`, `yesterday` or `Nd` (the N days
+ * ending on `--until`, so the last N days including today by default);
+ * `--until` takes YYYY-MM-DD, `today` or `yesterday`.
  * Default: the last 7 days including today. Pure (clock injected).
  */
 export function resolveReportWindow(
@@ -114,7 +127,8 @@ export function resolveReportWindow(
           ok: false,
           error: `invalid --since "${opts.since}" (N must be ≥ 1)`,
         }
-      sinceDay = shiftDay(today, -(n - 1))
+      // LUM-1116: the N days ending on --until (today when not given).
+      sinceDay = shiftDay(untilDay, -(n - 1))
     } else {
       const d = named(opts.since)
       if (!d)
@@ -153,6 +167,136 @@ export interface FormatReportOptions extends ListRenderOptions {
   color?: boolean
 }
 
+const TOKEN_HEADERS = ['INPUT', 'OUTPUT', 'CACHE WRITE', 'CACHE READ', 'TOTAL']
+const MODEL_WIDTH = 40
+/** Narrowest the MODEL / MEMBER column is cut to on a tight TTY. */
+const MIN_LABEL_WIDTH = 12
+
+/** INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL cells — `lumo cost` kinds. */
+function kindCells(
+  t: ReportTokenTotalsDto,
+  fmt: (n: number) => string
+): string[] {
+  return [
+    fmt(t.input),
+    fmt(t.output),
+    fmt(t.cacheCreation),
+    fmt(t.cacheRead),
+    fmt(t.total),
+  ]
+}
+
+/**
+ * LUM-1123 — the "By model" and "By member" tables. Exact thousands-separated
+ * figures by default (ledger rule, LUM-1088). Only on a TTY where a row would
+ * overflow the terminal (and wrap onto two lines) do both tables switch to
+ * compact units, with a note pointing at `--json` for exact values. Piped /
+ * agent output is never abbreviated or truncated.
+ */
+function tokenTables(
+  data: ReportResponseDto,
+  opts: FormatReportOptions,
+  color: boolean
+): string[] {
+  const render = (
+    fmt: (n: number) => string,
+    labelCap = MODEL_WIDTH
+  ): string[] => {
+    const out: string[] = []
+    if (data.team.byModel.length > 0) {
+      out.push('')
+      out.push(heading('By model', { color }))
+      out.push(
+        renderTable(
+          data.team.byModel.map(m => [
+            sanitizeField(m.model),
+            ...kindCells(m, fmt),
+          ]),
+          {
+            header: ['MODEL', ...TOKEN_HEADERS],
+            align: [undefined, 'right', 'right', 'right', 'right', 'right'],
+            maxWidths: [labelCap],
+            color,
+          }
+        )
+      )
+    }
+    if (data.byMember.length > 0) {
+      const rows: string[][] = []
+      for (const m of data.byMember) {
+        rows.push([
+          sanitizeField(m.label),
+          '',
+          '',
+          '',
+          '',
+          m.sessions === 0 && m.tokens.total === 0 ? NONE : fmt(m.tokens.total),
+          m.unmeteredSessions > 0
+            ? `${m.sessions} (${m.unmeteredSessions} unmetered)`
+            : String(m.sessions),
+          String(m.completedCount),
+        ])
+        for (const c of m.byModel ?? [])
+          rows.push([`  ↳ ${sanitizeField(c.model)}`, ...kindCells(c, fmt)])
+      }
+      out.push('')
+      out.push(heading('By member', { color }))
+      out.push(
+        renderTable(rows, {
+          header: ['MEMBER', ...TOKEN_HEADERS, 'SESSIONS', 'DONE'],
+          align: [
+            undefined,
+            'right',
+            'right',
+            'right',
+            'right',
+            'right',
+            'right',
+            'right',
+          ],
+          maxWidths: [labelCap],
+          color,
+        })
+      )
+    }
+    return out
+  }
+
+  const exact = render(fmtCount)
+  const tty = opts.tty ?? Boolean(process.stdout.isTTY)
+  if (!tty) return exact
+  const width = opts.width ?? terminalWidth()
+  const overflows = (blocks: string[]) =>
+    blocks.some(block => block.split('\n').some(l => stringWidth(l) > width))
+  if (!overflows(exact)) return exact
+  // Compact units first; if a row still would not fit, cut the MODEL /
+  // MEMBER column (with …) down to MIN_LABEL_WIDTH before letting it wrap.
+  // Start from the widest label actually printed, so every further step
+  // really narrows the column (no re-render that changes nothing).
+  const labels = [
+    ...data.team.byModel.map(m => sanitizeField(m.model)),
+    ...data.byMember.flatMap(m => [
+      sanitizeField(m.label),
+      ...(m.byModel ?? []).map(c => `  ↳ ${sanitizeField(c.model)}`),
+    ]),
+  ]
+  let cap = Math.min(
+    MODEL_WIDTH,
+    labels.reduce((w, l) => Math.max(w, stringWidth(l)), 0)
+  )
+  let compact = render(fmtTokens, cap)
+  // Past the floor a row may still wrap on a very narrow terminal; the
+  // figures are abbreviated either way, so the note below always applies.
+  while (overflows(compact) && cap > MIN_LABEL_WIDTH) {
+    cap -= 1
+    compact = render(fmtTokens, cap)
+  }
+  return [
+    ...compact,
+    'Abbreviated to fit the terminal; exact values: lumo report --json',
+  ]
+}
+
 /** Render the report. Pure (no clock / env / network). */
 export function formatReport(
   data: ReportResponseDto,
@@ -189,9 +333,14 @@ export function formatReport(
       [
         [
           'Tokens',
-          data.team.sessions === 0
+          // LUM-1116: tokens with no session id still count — "none
+          // recorded" only when there are neither tokens nor sessions.
+          t.total === 0 && data.team.sessions === 0
             ? 'none recorded in this window'
-            : `${fmtCount(t.total)} (output ${fmtCount(t.output)} · input ${fmtCount(t.input)} · cache_create ${fmtCount(t.cacheCreation)} · cache_read ${fmtCount(t.cacheRead)})`,
+            : // Summary line: compact on a TTY and when piped; exact
+              // figures are in --json (and in the By model table unless a
+              // narrow TTY compacts it). Kind names and order match its columns.
+              `${fmtTokens(t.total)} (input ${fmtTokens(t.input)} · output ${fmtTokens(t.output)} · cache write ${fmtTokens(t.cacheCreation)} · cache read ${fmtTokens(t.cacheRead)})`,
         ],
         ['Sessions', sessionsLine],
         [
@@ -203,50 +352,7 @@ export function formatReport(
     )
   )
 
-  if (data.team.byModel.length > 0) {
-    out.push('')
-    out.push(heading('By model', { color }))
-    out.push(
-      renderTable(
-        data.team.byModel.map(m => [
-          sanitizeField(m.model),
-          fmtCount(m.total),
-          fmtCount(m.output),
-        ]),
-        {
-          header: ['MODEL', 'TOKENS', 'OUTPUT'],
-          align: [undefined, 'right', 'right'],
-          maxWidths: [40],
-          color,
-        }
-      )
-    )
-  }
-
-  if (data.byMember.length > 0) {
-    out.push('')
-    out.push(heading('By member', { color }))
-    out.push(
-      renderTable(
-        data.byMember.map(m => [
-          sanitizeField(m.label),
-          m.sessions === 0 && m.tokens.total === 0
-            ? NONE
-            : fmtCount(m.tokens.total),
-          m.unmeteredSessions > 0
-            ? `${m.sessions} (${m.unmeteredSessions} unmetered)`
-            : String(m.sessions),
-          String(m.completedCount),
-        ]),
-        {
-          header: ['MEMBER', 'TOKENS', 'SESSIONS', 'DONE'],
-          align: [undefined, 'right', 'right', 'right'],
-          maxWidths: [32],
-          color,
-        }
-      )
-    )
-  }
+  out.push(...tokenTables(data, opts, color))
 
   out.push('')
   const ct = data.completedTasks

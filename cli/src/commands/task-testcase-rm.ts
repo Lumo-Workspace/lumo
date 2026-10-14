@@ -1,6 +1,7 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { sanitizeField } from '../lib/sanitize'
+import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 import {
   emitConfirmation,
   isConfirmed,
@@ -47,10 +48,19 @@ export async function taskTestCaseRm(
     )
     return 1
   }
+  return testCaseRmInScope(taskScope(split.task), split.caseRef, options)
+}
+
+export async function testCaseRmInScope(
+  scope: TestCaseScope,
+  caseRef: string,
+  options: TestCaseRmOptions
+): Promise<number | void> {
+  const handle = `${scope.label}/${caseRef}`
   const ctx = apiContext()
   if (!ctx) return 1
 
-  const path = `/api/tasks/${encodeURIComponent(split.task)}/test-cases/${encodeURIComponent(split.caseRef)}`
+  const path = `${scope.basePath}/test-cases/${encodeURIComponent(caseRef)}`
 
   // 没有 --confirm 时先查出它是什么，把信封打给用户，然后停——不发 DELETE。
   // agent 不得自己补 --confirm：那个 flag 的含义是「用户已确认」。
@@ -58,7 +68,7 @@ export async function taskTestCaseRm(
     const look = await apiCall<ShowResponse>(ctx, path, {}, 'test case lookup')
     if (!look.ok || !look.data) return 1
     return emitConfirmation({
-      command: 'task testcase rm',
+      command: `${scope.kind} testcase rm`,
       changes: describeTestCaseRm(
         handle,
         look.data.testCase,

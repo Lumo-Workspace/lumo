@@ -18,7 +18,7 @@ import { API } from '../constants'
 import { apiFetch, ApiClientError } from '@/lib/api-client'
 import {
   ALL_SLACK_EVENTS,
-  SLACK_EVENT_LABELS,
+  SLACK_EVENT_LABEL_KEYS,
   SlackEventType,
   SLACK_RECONNECT_REQUIRED,
 } from '@/lib/integrations/slack/types'
@@ -515,7 +515,9 @@ export function ProjectSlackDialog({
                           className='rounded-sm border-border text-foreground'
                         />
                         <span className='text-sm text-foreground'>
-                          {SLACK_EVENT_LABELS[event]}
+                          {intl.formatMessage({
+                            id: SLACK_EVENT_LABEL_KEYS[event],
+                          })}
                         </span>
                       </label>
                     ))}
