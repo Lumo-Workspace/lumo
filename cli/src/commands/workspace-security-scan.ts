@@ -13,6 +13,8 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   hunt?: string
   /** LUM-1130 — the request-changes / approve workflow. */
   requestChanges?: string
+  /** LUM-1134 — local | global | auto (which repositories' learnings). */
+  learningsScope?: string
   disableAll?: boolean
   enableAll?: boolean
   json?: boolean
@@ -30,7 +32,16 @@ export interface SecurityScanSwitches {
   securityHuntEnabled: boolean
   /** LUM-1130 — absent on a server older than the workflow (reads as off). */
   securityRequestChangesEnabled?: boolean
+  /** LUM-1134 — absent on a server older than the setting (reads as auto). */
+  securityLearningsScope?: LearningsScope
 }
+
+/** LUM-1134 — CodeRabbit's `knowledge_base.learnings.scope` values. */
+export type LearningsScope = 'local' | 'global' | 'auto'
+const LEARNINGS_SCOPES: readonly LearningsScope[] = ['local', 'global', 'auto']
+
+/** The on/off switches (everything but the learnings scope). */
+type OnOffSwitch = Exclude<keyof SecurityScanSwitches, 'securityLearningsScope'>
 
 export interface SecurityScanSettingsView {
   switches: SecurityScanSwitches
@@ -49,7 +60,7 @@ export type SecurityScanUpdate =
   | { all: boolean }
   | Partial<SecurityScanSwitches>
 
-const SWITCH_LABELS: Record<keyof SecurityScanSwitches, string> = {
+const SWITCH_LABELS: Record<OnOffSwitch, string> = {
   securityScanEnabled: 'Security scan (master)',
   securityAiReviewEnabled: 'AI review',
   securityHuntEnabled: 'Exploit-path hunt',
@@ -61,6 +72,16 @@ function parseOnOff(flag: string, value: string): boolean {
   if (v === 'on' || v === 'true') return true
   if (v === 'off' || v === 'false') return false
   throw new Error(`${flag} takes on or off (got "${value}")`)
+}
+
+function parseLearningsScope(value: string): LearningsScope {
+  const v = value.trim().toLowerCase()
+  const scope = LEARNINGS_SCOPES.find(s => s === v)
+  if (!scope)
+    throw new Error(
+      `--learnings-scope takes local, global or auto (got "${value}")`
+    )
+  return scope
 }
 
 /**
@@ -82,6 +103,8 @@ export function buildSecurityScanUpdate(
       '--request-changes',
       opts.requestChanges
     )
+  if (opts.learningsScope !== undefined)
+    singles.securityLearningsScope = parseLearningsScope(opts.learningsScope)
 
   if (opts.disableAll && opts.enableAll) {
     throw new Error('use either --disable-all or --enable-all, not both')
@@ -90,7 +113,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes / --learnings-scope'
       )
     }
     return { all }
@@ -122,7 +145,7 @@ export function describeTurnOffs(
   update: SecurityScanUpdate
 ): string[] {
   const target = targetSwitches(update)
-  const keys = Object.keys(SWITCH_LABELS) as (keyof SecurityScanSwitches)[]
+  const keys = Object.keys(SWITCH_LABELS) as OnOffSwitch[]
   const off = keys.filter(k => target[k] === false && current[k] === true)
   if (off.length === 0) return []
   const lines = off.map(k => `Will turn OFF: ${SWITCH_LABELS[k]}`)
@@ -156,6 +179,15 @@ export function describeGatedChanges(
     lines.push(
       'Will turn ON: Request-changes workflow — Lumo’s PR review becomes “Changes requested” while a Lumo thread or a finding that blocks Done is open, and Lumo approves once its complete review of the latest commit leaves nothing open',
       'Workspace-wide (every member’s PRs); branch protection that requires approvals or blocks on requested changes may count Lumo’s review'
+    )
+  }
+  // LUM-1134: `global` lets a PUBLIC repository's review read learnings from
+  // the workspace's private repositories — confirmed like any widening.
+  const scopeNow = current.securityLearningsScope ?? 'auto'
+  if (target.securityLearningsScope === 'global' && scopeNow !== 'global') {
+    lines.push(
+      `Will change: Learnings scope ${scopeNow} → global — the AI review of every repository in this workspace reads the learnings of all its repositories`,
+      'Including public repositories: their reviews (posted publicly on GitHub) may draw on learnings from your private repositories'
     )
   }
   return lines
@@ -206,6 +238,9 @@ export function formatSecurityScanSettings(
       '',
       `Request-changes workflow: ${onOff(s.switches.securityRequestChangesEnabled)}`
     )
+  }
+  if (s.switches.securityLearningsScope !== undefined) {
+    lines.push(`Learnings scope: ${s.switches.securityLearningsScope}`)
   }
   if (!s.switches.securityScanEnabled) {
     lines.push('', 'Security scanning is off for this workspace.')

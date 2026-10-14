@@ -43,11 +43,14 @@ export type SecurityScanSettingsUpdate =
 
 /**
  * `all: false` = disable all, `all: true` = enable all (the three layer
- * switches — `all` never touches the request-changes workflow, LUM-1130);
+ * switches — `all` never touches the request-changes workflow, LUM-1130,
+ * or the learnings scope, LUM-1134);
  * else as given.
  */
 export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
-  [K in keyof WorkspaceSecuritySwitches]?: boolean | undefined
+  [K in keyof WorkspaceSecuritySwitches]?:
+    | WorkspaceSecuritySwitches[K]
+    | undefined
 } {
   if (update.all !== undefined) {
     return {
@@ -61,6 +64,8 @@ export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
     securityAiReviewEnabled: update.securityAiReviewEnabled,
     securityHuntEnabled: update.securityHuntEnabled,
     securityRequestChangesEnabled: update.securityRequestChangesEnabled,
+    // LUM-1134: the learnings scope (local | global | auto).
+    securityLearningsScope: update.securityLearningsScope,
   }
 }
 

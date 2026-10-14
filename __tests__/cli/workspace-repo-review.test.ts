@@ -76,6 +76,10 @@ describe('buildRepoReviewUpdate', () => {
     expect(() =>
       buildRepoReviewUpdate({ repo: 'acme/app', review: 'on', hunt: 'on' })
     ).toThrow(/cannot be combined/)
+    // LUM-1134: the learnings scope is a workspace switch too.
+    expect(() =>
+      buildRepoReviewUpdate({ repo: 'acme/app', learningsScope: 'local' })
+    ).toThrow(/--learnings-scope/)
   })
 })
 

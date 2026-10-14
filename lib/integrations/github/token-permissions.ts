@@ -47,6 +47,12 @@ export const REPO_TOKEN_PERMISSIONS = {
    * under `metadata: read`, the permission every App has.
    */
   collaboratorPermission: { metadata: 'read' },
+  /**
+   * LUM-1134 — `GET /repos/{owner}/{repo}` for the repository's visibility
+   * (the learnings scope's `auto`). The repository record is served under
+   * `metadata: read`, the permission every App has.
+   */
+  repositoryMetadata: { metadata: 'read' },
 } as const satisfies Record<string, RepoTokenPermissions>
 
 /**

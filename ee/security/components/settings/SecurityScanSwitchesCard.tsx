@@ -9,6 +9,13 @@ import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
+import {
+  parseLearningsScope,
+  type LearningsScope,
+} from '@/ee/security/security-scan/learnings-scope'
+
+/** LUM-1134 — the order the scope choices are offered in (default first). */
+const SCOPE_CHOICES: readonly LearningsScope[] = ['auto', 'local', 'global']
 
 interface SecurityScanSwitchesCardProps {
   initial: WorkspaceSecuritySwitches
@@ -60,6 +67,52 @@ function SwitchRow({
   )
 }
 
+interface ScopeRowProps {
+  label: string
+  description: string
+  value: LearningsScope
+  disabled: boolean
+  optionLabel: (scope: LearningsScope) => string
+  onChange: (next: LearningsScope) => void
+}
+
+/** LUM-1134 — which repositories' learnings the AI review reads. */
+function ScopeRow({
+  label,
+  description,
+  value,
+  disabled,
+  optionLabel,
+  onChange,
+}: ScopeRowProps) {
+  return (
+    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+      <div className='min-w-0 sm:flex-1'>
+        <label
+          htmlFor='security-learnings-scope'
+          className='text-sm font-medium text-foreground'
+        >
+          {label}
+        </label>
+        <p className='text-xs text-muted-foreground mt-0.5'>{description}</p>
+      </div>
+      <select
+        id='security-learnings-scope'
+        value={value}
+        disabled={disabled}
+        onChange={e => onChange(parseLearningsScope(e.target.value))}
+        className='h-8 min-w-0 sm:w-56 sm:shrink-0 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+      >
+        {SCOPE_CHOICES.map(scope => (
+          <option key={scope} value={scope}>
+            {optionLabel(scope)}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 /**
  * LUM-866 — OWNER-only switches for the PR security scan: the whole scan, the
  * AI review (LLM judge) and the exploit-path hunt. The scan switch is the
@@ -77,8 +130,10 @@ export function SecurityScanSwitchesCard({
   const t = (id: string) =>
     intl.formatMessage({ id: `workspaceSettings.securityScan.${id}` })
 
-  const set = (key: keyof WorkspaceSecuritySwitches) => (next: boolean) =>
-    setSwitches(prev => ({ ...prev, [key]: next }))
+  const set =
+    (key: Exclude<keyof WorkspaceSecuritySwitches, 'securityLearningsScope'>) =>
+    (next: boolean) =>
+      setSwitches(prev => ({ ...prev, [key]: next }))
 
   const save = async (
     update: Parameters<typeof securityScanClient.updateSecurityScan>[0],
@@ -169,6 +224,19 @@ export function SecurityScanSwitchesCard({
         checked={scanOn && switches.securityRequestChangesEnabled}
         disabled={saving || !scanOn}
         onChange={set('securityRequestChangesEnabled')}
+      />
+      {/* LUM-1134: learnings only shape the AI review — locked while it is
+          off. Saved with the switches; "enable all" / "disable all" leave
+          it as it is. */}
+      <ScopeRow
+        label={t('learningsScope.label')}
+        description={t('learningsScope.description')}
+        value={switches.securityLearningsScope}
+        disabled={saving || !scanOn || !switches.securityAiReviewEnabled}
+        optionLabel={scope => t(`learningsScope.${scope}`)}
+        onChange={next =>
+          setSwitches(prev => ({ ...prev, securityLearningsScope: next }))
+        }
       />
 
       <div className='flex justify-end px-5 py-4'>

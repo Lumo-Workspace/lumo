@@ -462,6 +462,13 @@ model Workspace {
   // open, and Lumo approves once the latest head's complete review leaves
   // nothing open.
   securityRequestChangesEnabled Boolean @default(false)
+  // LUM-1134: which repositories' PR-review learnings (LUM-1131) the AI
+  // review reads — CodeRabbit's `knowledge_base.learnings.scope`. "local" =
+  // the reviewed repository only; "global" = every repository of this
+  // workspace; "auto" (default) = local for a public repository, global for a
+  // private one, local when the visibility is unknown. Never across
+  // workspaces. A CHECK constraint keeps it to those three values.
+  securityLearningsScope String @default("auto")
   workspaceExports        WorkspaceExport[]
 
   // LUM-918: pending deletion. An OWNER's delete schedules it 48h out
