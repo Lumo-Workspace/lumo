@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
 import { formatWebBody } from '../lib/tier2-render'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 /**
  * `lumo task web show <LUM-N> <link-id>`
@@ -22,7 +23,7 @@ export async function taskWebShow(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -42,7 +43,7 @@ export async function taskWebShow(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -62,7 +63,7 @@ export async function taskWebShow(
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : `Error: web show failed (HTTP ${res.status})`
+        : errHttp('web show', res.status)
     )
     return 1
   }

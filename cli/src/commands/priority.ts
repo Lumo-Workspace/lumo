@@ -1,7 +1,9 @@
+import { fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { promptLine } from '../lib/line-prompt'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface PriorityView {
   id: string
@@ -34,7 +36,7 @@ export async function priority(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -67,7 +69,7 @@ export async function priority(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status !== 201) {
@@ -90,7 +92,7 @@ export async function priority(
 export async function priorityList(): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -109,7 +111,7 @@ export async function priorityList(): Promise<number | void> {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
@@ -136,7 +138,7 @@ export function formatPriorityHistory(
     history
       .map(p => {
         const marker = p.id === currentId ? '*' : ' '
-        const when = p.effectiveFrom.slice(0, 10)
+        const when = fmtDay(p.effectiveFrom)
         return `${marker} ${when}  ${sanitizeField(p.statement)}`
       })
       .join('\n') + '\n'
@@ -152,7 +154,5 @@ async function errorMessage(res: Response, action: string): Promise<string> {
   } catch {
     // Body wasn't JSON
   }
-  return serverMsg
-    ? `Error: ${sanitizeField(serverMsg)}`
-    : `Error: could not ${action} (HTTP ${res.status})`
+  return errHttp(action, res.status, serverMsg)
 }

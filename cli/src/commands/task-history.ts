@@ -1,11 +1,20 @@
+import { NONE, emptyState, fmtDay, fmtTimestamp } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { actorNameMap, fetchDirectory } from '../lib/directory'
 import { resolveTaskRef } from '../lib/comment-ref'
-import { localDayLabel } from '../lib/local-day'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { colorEnabled, terminalWidth } from '../lib/ui'
+import { shellQuote } from '../lib/confirmation'
+import {
+  buildCommand,
+  pageFooter,
+  parsePageArgs,
+  type PageArgs,
+} from '../lib/pagination'
 
 /**
- * `lumo task history <LUM-N> [--limit N]` (LUM-821) — the task's field-change
+ * `lumo task history <LUM-N> [--limit N] [--cursor C]` (LUM-821) — the task's field-change
  * log (Jira changelog / Linear issue history): status, priority, title,
  * assignee, due date, tags, sprint… from the activity timeline,
  * oldest first. Comments are left to `task comments list`.
@@ -30,9 +39,7 @@ const PAGE = 100
 const MAX_PAGES = 10
 
 const str = (v: unknown): string =>
-  v === null || v === undefined || v === ''
-    ? '(none)'
-    : sanitizeField(String(v))
+  v === null || v === undefined || v === '' ? NONE : sanitizeField(String(v))
 
 /** One activity → a short human line. Unknown types fall back to the type name. */
 export function describeActivity(
@@ -41,11 +48,8 @@ export function describeActivity(
 ): string {
   const p = a.payload ?? {}
   const who = (id: unknown) =>
-    typeof id === 'string'
-      ? sanitizeField(names.get(id) ?? 'unknown')
-      : '(none)'
-  const day = (v: unknown) =>
-    typeof v === 'string' ? localDayLabel(v) : '(none)'
+    typeof id === 'string' ? sanitizeField(names.get(id) ?? 'unknown') : NONE
+  const day = (v: unknown) => (typeof v === 'string' ? fmtDay(v) : NONE)
   switch (a.type) {
     case 'STATUS_CHANGED':
       return `status ${str(p.from)} → ${str(p.to)}`
@@ -79,38 +83,65 @@ export function describeActivity(
   }
 }
 
-/** `YYYY-MM-DD HH:MM  actor  change` rows, oldest first. */
+/**
+ * `YYYY-MM-DD HH:MM  actor  change` rows, oldest first — the LUM-1089 list
+ * table (LUM-1090): a WHEN / ACTOR / CHANGE header on a TTY only, the change
+ * cut to the terminal width there; piped output stays headerless and whole.
+ */
 export function formatHistory(
   entries: ActivityEntry[],
-  names: Map<string, string>
+  names: Map<string, string>,
+  opts: ListRenderOptions = {}
 ): string {
-  if (entries.length === 0) return 'No history.'
+  if (entries.length === 0) return emptyState('history')
   const rows = entries.map(a => {
-    const d = new Date(a.createdAt)
-    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-    return {
-      when: `${localDayLabel(a.createdAt)} ${hhmm}`,
-      actor: a.actorId
-        ? sanitizeField(names.get(a.actorId) ?? 'unknown')
-        : 'system',
-      change: describeActivity(a, names),
-    }
+    return [
+      fmtTimestamp(a.createdAt),
+      a.actorId ? sanitizeField(names.get(a.actorId) ?? 'unknown') : 'system',
+      describeActivity(a, names),
+    ]
   })
-  const aw = Math.max(...rows.map(r => r.actor.length))
-  return rows
-    .map(r => `${r.when}  ${r.actor.padEnd(aw)}  ${r.change}`)
-    .join('\n')
+  return renderListTable(rows, {
+    header: ['WHEN', 'ACTOR', 'CHANGE'],
+    flex: 2,
+    ...opts,
+  })
+}
+
+/**
+ * LUM-1093: history pages from the newest end — the first page is the latest
+ * `limit` entries, and the cursor counts how many newest entries the next
+ * (earlier) page skips. Rows stay oldest first within a page.
+ */
+export function historyPage(
+  all: ActivityEntry[],
+  page: PageArgs
+): {
+  items: ActivityEntry[]
+  total: number
+  offset: number
+  first: number
+  nextCursor: string | null
+} {
+  const end = Math.max(0, all.length - page.offset)
+  const start = Math.max(0, end - page.limit)
+  const items = all.slice(start, end)
+  return {
+    items,
+    total: all.length,
+    offset: page.offset,
+    first: start + 1,
+    nextCursor: start > 0 ? String(page.offset + items.length) : null,
+  }
 }
 
 export async function taskHistory(
   identifier: string,
-  opts: { limit?: string; json?: boolean } = {}
+  opts: { limit?: string; cursor?: string; json?: boolean } = {}
 ): Promise<number | void> {
-  const limit = opts.limit !== undefined ? parseInt(opts.limit, 10) : 30
-  if (Number.isNaN(limit) || limit < 1) {
-    console.error(
-      `Error: invalid --limit "${opts.limit}" (expected a positive integer)`
-    )
+  const pageArgs = parsePageArgs(opts.limit, opts.cursor)
+  if (!pageArgs.ok) {
+    console.error(`Error: ${pageArgs.error}`)
     return 1
   }
   const ctx = apiContext()
@@ -134,18 +165,34 @@ export async function taskHistory(
     if (!r.data.hasMore || !r.data.nextCursor) break
     cursor = r.data.nextCursor
   }
-  const shown = activities.slice(-limit)
+  const page = historyPage(activities, pageArgs)
   if (opts.json) {
-    process.stdout.write(JSON.stringify(shown, null, 2) + '\n')
+    // Unchanged array shape — agents already parse it (LUM-1093 keeps the
+    // --json contract; paging is driven by --limit / --cursor).
+    process.stdout.write(JSON.stringify(page.items, null, 2) + '\n')
     return
   }
   const dir = await fetchDirectory(ctx)
   const names = dir ? actorNameMap(dir) : new Map<string, string>()
-  process.stdout.write(`${task.identifier} history (oldest first)\n`)
-  process.stdout.write(formatHistory(shown, names) + '\n')
-  if (activities.length > shown.length) {
-    process.stdout.write(
-      `(${activities.length - shown.length} earlier entries hidden — raise --limit)\n`
-    )
-  }
+  const lines = [
+    `${task.identifier} history (oldest first)`,
+    page.items.length === 0 && page.total > 0
+      ? 'No entries on this page.'
+      : // TTY → WHEN/ACTOR/CHANGE header + change cut to the terminal
+        // width; piped → headerless, whole rows (LUM-1089 / LUM-1090).
+        formatHistory(page.items, names, {
+          tty: Boolean(process.stdout.isTTY),
+          width: terminalWidth(),
+          color: colorEnabled(),
+        }),
+    ...pageFooter(
+      { ...page, shown: page.items.length },
+      buildCommand(
+        `task history ${shellQuote(sanitizeField(task.identifier))}`,
+        [['--limit', opts.limit]]
+      ),
+      'earlier entries'
+    ),
+  ]
+  process.stdout.write(lines.join('\n') + '\n')
 }

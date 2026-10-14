@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { getUserDirectory } from '@/lib/auth/users'
 
 export interface CachedClerkUser {
@@ -61,12 +62,9 @@ export async function enrichClerkUsers(
 ): Promise<Map<string, EnrichedUser>> {
   if (clerkIds.length === 0) return new Map()
   const client = await getUserDirectory()
-  const users = await client.getUserList({
-    userId: clerkIds,
-    limit: clerkIds.length,
-  })
+  const users = await listUsersByIds(client, clerkIds)
   const map = new Map<string, EnrichedUser>()
-  for (const u of users.data) {
+  for (const u of users) {
     map.set(u.id, {
       clerkId: u.id,
       name: [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Unknown',
@@ -81,11 +79,9 @@ export interface ClerkProfile {
   email: string | null
 }
 
-const CLERK_USER_LIST_LIMIT = 500
-
 /**
- * LUM-858: name + primary email for many Clerk users, in pages of 500 (the
- * `getUserList` cap). Users Clerk no longer knows are simply absent.
+ * LUM-858: name + primary email for many Clerk users, paged by
+ * `listUsersByIds` (LUM-1105). Users Clerk no longer knows are simply absent.
  */
 export async function lookupClerkProfiles(
   clerkIds: readonly string[]
@@ -93,21 +89,14 @@ export async function lookupClerkProfiles(
   const out = new Map<string, ClerkProfile>()
   if (clerkIds.length === 0) return out
   const client = await getUserDirectory()
-  for (let i = 0; i < clerkIds.length; i += CLERK_USER_LIST_LIMIT) {
-    const ids = clerkIds.slice(i, i + CLERK_USER_LIST_LIMIT)
-    const { data } = await client.getUserList({
-      userId: [...ids],
-      limit: ids.length,
-    })
-    for (const u of data) {
-      const email =
-        u.emailAddresses.find(e => e.id === u.primaryEmailAddressId)
-          ?.emailAddress ??
-        u.emailAddresses[0]?.emailAddress ??
-        null
-      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
-      out.set(u.id, { name: name || null, email })
-    }
+  for (const u of await listUsersByIds(client, clerkIds)) {
+    const email =
+      u.emailAddresses.find(e => e.id === u.primaryEmailAddressId)
+        ?.emailAddress ??
+      u.emailAddresses[0]?.emailAddress ??
+      null
+    const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+    out.set(u.id, { name: name || null, email })
   }
   return out
 }

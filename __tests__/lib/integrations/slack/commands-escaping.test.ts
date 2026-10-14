@@ -19,20 +19,36 @@ jest.mock('@/lib/db/prisma', () => ({
       create: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
     $transaction: jest.fn((fn: (tx: typeof mockTx) => unknown) => fn(mockTx)),
   },
 }))
 
-jest.mock('@clerk/nextjs/server', () => ({
-  createClerkClient: () => ({
-    users: {
-      getUser: async () => ({
+// LUM-1103: mock the directory abstraction (not the Clerk SDK); the member
+// lookup batches by id through getUserList.
+jest.mock('@/lib/auth/users', () => ({
+  createUserDirectory: async () => ({
+    getUserList: async ({
+      userId = [],
+      emailAddress = [],
+    }: {
+      userId?: string[]
+      emailAddress?: string[]
+    }) => ({
+      // LUM-1115: the Slack member lookup filters by email.
+      data: [
+        ...userId,
+        ...(emailAddress.some(e => e.toLowerCase() === 'dev@example.com')
+          ? ['user_1']
+          : []),
+      ].map(id => ({
+        id,
         primaryEmailAddressId: 'em_1',
         emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
-      }),
-    },
+      })),
+    }),
   }),
 }))
 
@@ -50,6 +66,7 @@ const p = prisma as unknown as {
   task: {
     findFirst: jest.Mock
     findMany: jest.Mock
+    count: jest.Mock
     findUniqueOrThrow: jest.Mock
   }
 }
@@ -72,7 +89,7 @@ beforeEach(() => {
     }),
   })) as unknown as typeof fetch
   p.workspaceMember.findMany.mockResolvedValue([
-    { id: 'wm_1', clerkId: 'user_1' },
+    { id: 'wm_1', clerkId: 'user_1', actor: { id: 'actor_1' } },
   ])
   p.team.findFirst.mockResolvedValue({
     id: 'team_1',
@@ -136,6 +153,7 @@ describe('Slack command reply mrkdwn escaping', () => {
         project: { name: 'Backend' },
       },
     ])
+    p.task.count.mockResolvedValue(1)
     const mine = await handleCommand('my-tasks', 'U1', 'xoxb', 'ws_1')
     noControlSequences(mine)
     expect(JSON.stringify(mine)).toContain(`Mine ${ESCAPED}`)
@@ -151,6 +169,7 @@ describe('Slack command reply mrkdwn escaping', () => {
     expect(notFound).toEqual({
       type: 'text',
       text: 'Task `&lt;!channel&gt;` not found.',
+      visibility: 'ephemeral',
     })
   })
 

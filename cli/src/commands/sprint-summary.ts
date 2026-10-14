@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errNotLoggedIn, httpFailed, warn } from '../lib/errors'
 
 export interface SprintSummaryOptions {
   team?: string
@@ -46,7 +47,7 @@ export async function sprintSummary(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -100,11 +101,11 @@ export async function sprintSummary(
       return 1
     }
     if (retryRes.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
     if (!retryRes.ok && retryRes.status !== 202) {
-      let errMsg = `summary retry failed (HTTP ${retryRes.status})`
+      let errMsg = httpFailed('summary retry', retryRes.status)
       try {
         const errBody = (await retryRes.json()) as { error?: string }
         if (errBody.error) errMsg = errBody.error
@@ -117,7 +118,9 @@ export async function sprintSummary(
     // 202 means queued; regeneration is async. The GET below may still return
     // the old summary or 404 — warn the user.
     console.error(
-      'Note: summary regeneration queued. Result below may still be the previous summary.'
+      warn(
+        'summary regeneration queued. Result below may still be the previous summary.'
+      )
     )
   }
 
@@ -134,7 +137,7 @@ export async function sprintSummary(
   }
 
   if (summaryRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
 
@@ -152,7 +155,7 @@ export async function sprintSummary(
     tldr = body.tldr ?? null
     report = body.report ?? null
   } else if (summaryRes.status !== 404) {
-    let errMsg = `sprint summary failed (HTTP ${summaryRes.status})`
+    let errMsg = httpFailed('sprint summary', summaryRes.status)
     try {
       const errBody = (await summaryRes.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

@@ -1,5 +1,6 @@
 // Category/field metadata + builders for the `lumo memory` commands.
 // Mirrors the four content shapes validated server-side by parseMemoryContent.
+import { emptyState } from './format'
 import { sanitizeField } from './sanitize'
 
 type Built =
@@ -146,7 +147,7 @@ function headline(category: string, content: unknown): string {
 
 /** Fixed-width rows: id  SCOPE  CATEGORY  headline  source(auto|manual). */
 export function formatMemoryList(rows: MemoryRowLike[]): string {
-  if (rows.length === 0) return 'No memories.'
+  if (rows.length === 0) return emptyState('memories')
   const idW = Math.max(...rows.map(r => r.id.length))
   const scopeW = Math.max(...rows.map(r => r.scope.length))
   const catW = Math.max(...rows.map(r => r.category.length))

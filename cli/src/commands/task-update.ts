@@ -21,8 +21,19 @@ import {
   emitBlocked,
   isDoneGateRefusal,
 } from '../lib/blocked-error'
-import { fetchStatusDigest, printStatusDigest } from '../lib/status-digest'
+import {
+  fetchStatusDigest,
+  printStatusDigest,
+  readStatusDigest,
+} from '../lib/status-digest'
 import { resolveSessionId } from '../lib/session-id'
+import {
+  errAuth,
+  errHttp,
+  errNotLoggedIn,
+  httpFailed,
+  warn,
+} from '../lib/errors'
 
 const ALLOWED_STATUSES = [
   'BACKLOG',
@@ -270,36 +281,113 @@ export function describeDoneTransition(
 }
 
 /**
- * Look the task up and emit the DONE confirmation envelope (exit 4). Runs
- * before any side effect — tag find-or-create included — so a refused DONE
- * leaves nothing behind. Returns the exit code to propagate; prints its own
- * error on a failed lookup.
+ * LUM-1106: the one-step DONE condition — at least one linked PR, every one
+ * merged, and a status digest that read cleanly with nothing blocking DONE.
+ * Fail-closed: `prs` undefined (an older server that sends no
+ * `pullRequests`), none linked, any PR not merged, or a digest that is not
+ * clear all keep the confirmation envelope.
  */
-async function emitDoneConfirmation(args: {
+export function qualifiesForOneStepDone(
+  prs: LinkedPr[] | undefined,
+  digestClearsDone: boolean
+): boolean {
+  if (!digestClearsDone || !prs || prs.length === 0) return false
+  return partitionLinkedPrs(prs).unmerged.length === 0
+}
+
+/**
+ * LUM-1116: the flags besides `--status` that a DONE update also applies.
+ * One step covers a status-only change; anything else rides in the envelope
+ * so the user signs off on it too.
+ */
+export function otherFlagsThanStatus(
+  flagsGiven: string[],
+  opts: Pick<
+    UpdateTaskOptions,
+    | 'tag'
+    | 'tagId'
+    | 'addTag'
+    | 'addTagId'
+    | 'removeTag'
+    | 'removeTagId'
+    | 'sprint'
+  >
+): string[] {
+  const other = flagsGiven.filter(f => f !== '--status')
+  const given = (v: string[] | undefined) => v !== undefined && v.length > 0
+  if (given(opts.tag) || given(opts.tagId)) other.push('--tag')
+  if (given(opts.addTag) || given(opts.addTagId)) other.push('--add-tag')
+  if (given(opts.removeTag) || given(opts.removeTagId))
+    other.push('--remove-tag')
+  if (opts.sprint !== undefined) other.push('--sprint')
+  return other
+}
+
+/** The envelope line naming the other changes, or nothing. */
+export function describeOtherChanges(otherFlags: string[]): string[] {
+  if (otherFlags.length === 0) return []
+  return [
+    `Also updates: ${otherFlags.join(', ')} (one-step DONE covers a status-only change)`,
+  ]
+}
+
+/** What a one-step DONE prints after the `Updated …` line (LUM-1106). */
+export function describeOneStepDone(
+  task: { identifier: string; title: string; status: string },
+  prs: LinkedPr[]
+): string[] {
+  return [
+    `One-step DONE (no --confirm needed): ${prs.length === 1 ? 'the linked PR is' : `all ${prs.length} linked PRs are`} merged and nothing blocks DONE.`,
+    ...describeDoneTransition(task, prs)
+      .slice(1)
+      .map(l => `  ${l}`),
+  ]
+}
+
+type DoneGate =
+  | { kind: 'exit'; code: number }
+  | { kind: 'one-step'; summary: string[] }
+
+/**
+ * Look the task up and decide how DONE proceeds. When the one-step
+ * condition holds (LUM-1106) it returns `one-step` and the caller sends the
+ * PATCH; otherwise it emits the DONE confirmation envelope (exit 4). Runs
+ * before any side effect — tag find-or-create included — so a refused DONE
+ * leaves nothing behind. Prints its own error on a failed lookup.
+ */
+async function gateDone(args: {
   base: string
   apiUrl: string
   token: string
   identifier: string
-}): Promise<number> {
-  const { base, apiUrl, token, identifier } = args
+  /**
+   * LUM-1116: the other flags given alongside `--status done` (`--title`,
+   * `--add-tag`, `--sprint` …). Any at all keeps the envelope — one step
+   * covers the status change only — and the envelope names them.
+   */
+  otherFlags: string[]
+}): Promise<DoneGate> {
+  const exit = (code: number): DoneGate => ({ kind: 'exit', code })
+  const { base, apiUrl, token, identifier, otherFlags } = args
   const showUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
   const lookup = fetch(showUrl, {
     headers: { Authorization: `Bearer ${token}` },
   })
   // LUM-842: the status digest rides in the envelope (additive field), read
-  // alongside the task lookup. It never rejects.
-  const digest = fetchStatusDigest(base, token, identifier)
+  // alongside the task lookup. It never rejects. LUM-1106: the same read
+  // decides whether DONE may run in one step.
+  const digest = readStatusDigest(base, token, identifier)
   let res: Response
   try {
     res = await lookup
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return 1
+    return exit(1)
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
-    return 1
+    console.error(errAuth())
+    return exit(1)
   }
   if (!res.ok) {
     let serverMsg: string | null = null
@@ -312,9 +400,9 @@ async function emitDoneConfirmation(args: {
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : `Error: task lookup failed (HTTP ${res.status})`
+        : errHttp('task lookup', res.status)
     )
-    return 1
+    return exit(1)
   }
 
   const { task } = (await res.json()) as {
@@ -326,15 +414,31 @@ async function emitDoneConfirmation(args: {
       pullRequests?: LinkedPr[]
     }
   }
+  const { lines: statusSummary, clearsDone } = await digest
+  // Already DONE: nothing to move — keep the envelope (pre-LUM-1106
+  // behaviour) rather than sending a DONE → DONE PATCH unasked.
+  if (
+    task.status !== 'DONE' &&
+    otherFlags.length === 0 &&
+    qualifiesForOneStepDone(task.pullRequests, clearsDone)
+  ) {
+    return {
+      kind: 'one-step',
+      summary: describeOneStepDone(task, task.pullRequests ?? []),
+    }
+  }
   const prs = task.pullRequests ?? []
-  return emitConfirmation({
-    command: 'task update',
-    changes: [
-      ...describeDoneTransition(task, prs),
-      ...doneWorktreeLines(task.identifier, mergedHeadShasOf(prs)),
-    ],
-    statusSummary: await digest,
-  })
+  return exit(
+    emitConfirmation({
+      command: 'task update',
+      changes: [
+        ...describeDoneTransition(task, prs),
+        ...describeOtherChanges(otherFlags),
+        ...doneWorktreeLines(task.identifier, mergedHeadShasOf(prs)),
+      ],
+      statusSummary,
+    })
+  )
 }
 
 /**
@@ -400,7 +504,7 @@ async function cleanupWorktreesAfterDone(args: {
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Warning: worktree cleanup skipped (${msg})`)
+    console.error(warn(`worktree cleanup skipped (${msg})`))
   }
 }
 
@@ -513,7 +617,7 @@ async function runTaskUpdate(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -521,13 +625,20 @@ async function runTaskUpdate(
 
   // LUM-755: DONE without --confirm stops here with the confirmation
   // envelope — before tag resolution (find-or-create) or any other write.
+  // LUM-1106: unless every linked PR is merged and nothing blocks DONE; then
+  // it runs in one step and says so after the `Updated …` line. LUM-1116:
+  // only for a status-only change — any other flag keeps the envelope.
+  let oneStepSummary: string[] | undefined
   if (status === 'DONE' && !opts.confirm) {
-    return emitDoneConfirmation({
+    const gate = await gateDone({
       base: trimTrailingSlash(apiUrl),
       apiUrl,
       token: creds.token,
       identifier,
+      otherFlags: otherFlagsThanStatus(flagsGiven, opts),
     })
+    if (gate.kind === 'exit') return gate.code
+    oneStepSummary = gate.summary
   }
 
   // Resolve tag refs into ids
@@ -606,7 +717,7 @@ async function runTaskUpdate(
     }
 
     if (res.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
 
@@ -635,6 +746,7 @@ async function runTaskUpdate(
       }
       if (responseTagNames !== undefined) taskLine.tags = responseTagNames
       process.stdout.write(formatUpdatedTaskLine(taskLine) + '\n')
+      if (oneStepSummary) process.stdout.write(oneStepSummary.join('\n') + '\n')
       if (status === 'DONE') {
         await cleanupWorktreesAfterDone({
           base,
@@ -691,7 +803,7 @@ async function runTaskUpdate(
       if (serverMsg) {
         console.error(`Error: ${sanitizeField(serverMsg)}`)
       } else {
-        console.error(`Error: task update failed (HTTP ${res.status})`)
+        console.error(errHttp('task update', res.status))
       }
       return 1
     }
@@ -712,11 +824,11 @@ async function runTaskUpdate(
       return 1
     }
     if (showRes.status === 401) {
-      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      console.error(errAuth())
       return 1
     }
     if (!showRes.ok) {
-      console.error(`Error: task lookup failed (HTTP ${showRes.status})`)
+      console.error(errHttp('task lookup', showRes.status))
       return 1
     }
     const showData = (await showRes.json()) as {
@@ -763,9 +875,7 @@ async function runTaskUpdate(
           return 1
         }
         if (!sprintRes.ok) {
-          console.error(
-            `Error: sprint lookup failed (HTTP ${sprintRes.status})`
-          )
+          console.error(errHttp('sprint lookup', sprintRes.status))
           return 1
         }
         const { sprint: full } = (await sprintRes.json()) as {
@@ -846,7 +956,7 @@ async function runTaskUpdate(
         return 1
       }
       if (!deleteRes.ok) {
-        let errMsg = `sprint unbind failed (HTTP ${deleteRes.status})`
+        let errMsg = httpFailed('sprint unbind', deleteRes.status)
         try {
           const b = (await deleteRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
@@ -884,7 +994,7 @@ async function runTaskUpdate(
         return 1
       }
       if (!postRes.ok) {
-        let errMsg = `sprint bind failed (HTTP ${postRes.status})`
+        let errMsg = httpFailed('sprint bind', postRes.status)
         try {
           const b = (await postRes.json()) as { error?: string }
           if (b.error) errMsg = b.error

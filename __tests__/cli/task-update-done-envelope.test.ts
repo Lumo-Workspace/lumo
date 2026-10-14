@@ -205,7 +205,11 @@ describe('task update done envelope', () => {
   })
 
   it('no --confirm, non-TTY: exit 4 with the envelope, no PATCH', async () => {
-    fetchMock.mockResolvedValueOnce(showOk({ pullRequests: [mergedPr] }))
+    // LUM-1106: merged PRs + a clear digest would run in one step; a failed
+    // status read keeps the envelope (fail-closed).
+    fetchMock
+      .mockResolvedValueOnce(showOk({ pullRequests: [mergedPr] }))
+      .mockResolvedValueOnce(jsonResponse(500, {}))
     const code = await taskUpdate('LUM-1', { status: 'done' })
     expect(code).toBe(4)
     const env = envelope()

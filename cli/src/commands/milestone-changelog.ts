@@ -1,7 +1,9 @@
+import { NONE, fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 /**
  * LUM-649 — `lumo milestone changelog`. Assembles a milestone's DONE tasks +
@@ -80,10 +82,10 @@ const MIN_BASELINE_SAMPLE = 3
  * Render one BaselineStat as an honest inline string:
  * - real base → `4 (base 3, +33% · above)`
  * - no base / thin sample → `2 (no baseline yet)`
- * - current unmeasured → `— (no baseline yet)`
+ * - current unmeasured → `- (no baseline yet)`
  */
 export function formatBaselineStat(stat: BaselineStatPayload): string {
-  const current = stat.current === null ? '—' : String(stat.current)
+  const current = stat.current === null ? NONE : String(stat.current)
   const grounded =
     stat.base !== null &&
     stat.current !== null &&
@@ -107,7 +109,7 @@ function formatWindow(
   startDate: string | null,
   targetDate: string | null
 ): string | null {
-  const fmt = (iso: string) => iso.slice(0, 10)
+  const fmt = fmtCalendarDay
   if (startDate && targetDate) return `${fmt(startDate)} → ${fmt(targetDate)}`
   if (startDate) return `from ${fmt(startDate)}`
   if (targetDate) return `target ${fmt(targetDate)}`
@@ -164,7 +166,7 @@ export function formatMilestoneChangelog(
 
   lines.push('', '## Shipped')
   if (cl.entries.length === 0) {
-    lines.push('(no tasks delivered yet)')
+    lines.push('No tasks delivered yet.')
   } else {
     for (const entry of cl.entries) {
       lines.push('', formatEntry(entry))
@@ -188,7 +190,7 @@ export async function milestoneChangelog(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -219,11 +221,11 @@ export async function milestoneChangelog(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    let errMsg = `milestone changelog failed (HTTP ${res.status})`
+    let errMsg = httpFailed('milestone changelog', res.status)
     try {
       const errBody = (await res.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

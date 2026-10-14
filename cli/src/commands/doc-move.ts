@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveDoc } from '../lib/resolve-doc'
 import { pickNextSortOrder } from '../lib/doc-sort-order'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface MoveDocOptions {
   parent?: string
@@ -38,7 +39,7 @@ export async function docMove(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -55,7 +56,7 @@ export async function docMove(
   }
   if (!listRes.ok) {
     const text = await listRes.text()
-    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc list', listRes.status, text))
     return 1
   }
   const { documents } = (await listRes.json()) as { documents: DocLike[] }
@@ -127,9 +128,7 @@ export async function docMove(
       const json = JSON.parse(text) as { error?: string }
       if (json.error) msg = json.error
     } catch {}
-    console.error(
-      `Error: ${moveRes.status} ${moveRes.statusText}: ${sanitizeField(msg)}`
-    )
+    console.error(errHttp('doc move', moveRes.status, msg))
     return 1
   }
 

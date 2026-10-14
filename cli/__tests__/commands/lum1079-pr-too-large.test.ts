@@ -72,13 +72,14 @@ describe('LUM-1079 lumo task status', () => {
         'TOO_LARGE'
       )
     )
+    const flat = out.replace(/\s+/g, ' ')
     expect(out).toContain('PR #1384 · scan not scanned — PR too large')
-    expect(out).toContain('This PR changes 504 files')
-    expect(out).toContain('split it into smaller PRs or narrow its scope')
-    expect(out).toContain('PR #1384: the PR is too large to scan')
-    expect(out).not.toContain("hasn't finished on our side")
-    expect(out).not.toContain("didn't finish on our side")
-    expect(out).not.toMatch(/scan CLEAN|: checked/)
+    expect(flat).toContain('This PR changes 504 files')
+    expect(flat).toContain('split it into smaller PRs or narrow its scope')
+    expect(flat).toContain('PR #1384: the PR is too large to scan')
+    expect(flat).not.toContain("hasn't finished on our side")
+    expect(flat).not.toContain("didn't finish on our side")
+    expect(out).not.toMatch(/scan CLEAN|: +checked/)
   })
 
   it('a real fault of ours still reads as unfinished on our side', () => {
@@ -142,12 +143,13 @@ describe('LUM-1079 lumo pr scan', () => {
     const out = formatPrScan(
       payload({ partialCauses: ['PR_TOO_LARGE'], prTooLarge: TOO_LARGE })
     )
+    const flat = out.replace(/\s+/g, ' ')
     expect(out).toContain('Scan abcdef1 · not scanned — PR too large')
-    expect(out).toContain('This PR changes 504 files')
-    expect(out).toContain('Findings: none — nothing in this PR was scanned')
-    expect(out).not.toContain("hasn't finished on our side")
-    expect(out).not.toContain('Findings: none on this scan')
-    expect(out).not.toMatch(/CLEAN|: checked/)
+    expect(flat).toContain('This PR changes 504 files')
+    expect(flat).toContain('Findings: none — nothing in this PR was scanned')
+    expect(flat).not.toContain("hasn't finished on our side")
+    expect(flat).not.toContain('Findings: none on this scan')
+    expect(out).not.toMatch(/CLEAN|: +checked/)
   })
 
   it('GitHub refused the diff: says so, with the file count when known', () => {
@@ -161,7 +163,7 @@ describe('LUM-1079 lumo pr scan', () => {
         },
       })
     )
-    expect(out).toContain(
+    expect(out.replace(/\s+/g, ' ')).toContain(
       "GitHub would not return this PR's diff because it is too large (120 files changed)"
     )
   })

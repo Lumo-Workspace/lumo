@@ -1,3 +1,4 @@
+import { emptyState } from '../lib/format'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 
@@ -10,7 +11,7 @@ export interface TaskTemplateListItem {
 
 /** Render the template catalog: one line per key, built-ins marked. */
 export function formatTaskTemplateList(items: TaskTemplateListItem[]): string {
-  if (items.length === 0) return 'No task templates.'
+  if (items.length === 0) return emptyState('task templates')
   const w = Math.max(...items.map(t => t.key.length))
   const lines = [
     'Task templates (use with `lumo task create <title> --template <key>`):',

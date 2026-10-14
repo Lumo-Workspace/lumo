@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ShareListResponse {
   shares: Array<{
@@ -22,7 +23,7 @@ export async function docUnshare(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -62,7 +63,7 @@ export async function docUnshare(
   })
   if (!listRes.ok) {
     const text = await listRes.text()
-    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc share list', listRes.status, text))
     return 1
   }
   const { shares } = (await listRes.json()) as ShareListResponse
@@ -79,7 +80,7 @@ export async function docUnshare(
   })
   if (!delRes.ok) {
     const text = await delRes.text()
-    console.error(`Error: ${delRes.status} ${delRes.statusText}: ${sanitizeField(text)}`)
+    console.error(errHttp('doc unshare', delRes.status, text))
     return 1
   }
   console.log(`Unshared ${docId} ↔ ${sanitizeField(result.member.displayName)}`)

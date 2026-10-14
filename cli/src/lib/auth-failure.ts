@@ -10,8 +10,11 @@
  * remediation line appended. Commands that already say it are left alone.
  */
 
-export const AUTH_LOGIN_HINT =
-  'Hint: the Lumo API rejected the API key (HTTP 401) — run `lumo auth login` to log in again.'
+import { hint } from './feedback'
+
+export const AUTH_LOGIN_HINT = hint(
+  'the Lumo API rejected the API key (HTTP 401) — run `lumo auth login` to log in again.'
+)
 
 const REMEDIATION_MARKER = 'lumo auth login'
 
@@ -24,7 +27,8 @@ export interface AuthFailureTracker {
   hintFor(exitCode: number): string | null
 }
 
-function hasBearer(input: unknown, init?: RequestInit): boolean {
+/** Whether a request carries `Authorization: Bearer …` (in init or a Request). */
+export function hasBearer(input: unknown, init?: RequestInit): boolean {
   const headerSources: unknown[] = [init?.headers]
   if (typeof Request !== 'undefined' && input instanceof Request)
     headerSources.push(input.headers)

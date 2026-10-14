@@ -1,7 +1,9 @@
+import { fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface UpdateSprintOptions {
   team?: string
@@ -44,11 +46,6 @@ interface SprintSnapshot {
   endDate?: string | null
 }
 
-function fmtDate(v: string | null | undefined): string {
-  if (!v) return '-'
-  return v.slice(0, 10)
-}
-
 export function formatSprintUpdateSummary(
   before: SprintSnapshot,
   after: UpdatePayload
@@ -59,10 +56,10 @@ export function formatSprintUpdateSummary(
     changes.push(`name "${beforeName}" → "${sanitizeField(after.name)}"`)
   }
   if (after.startDate !== undefined) {
-    changes.push(`start → ${fmtDate(after.startDate)}`)
+    changes.push(`start → ${fmtCalendarDay(after.startDate)}`)
   }
   if (after.endDate !== undefined) {
-    changes.push(`end → ${fmtDate(after.endDate)}`)
+    changes.push(`end → ${fmtCalendarDay(after.endDate)}`)
   }
   return `Updated sprint #${before.number} "${beforeName}": ${changes.join(', ')}`
 }
@@ -95,7 +92,7 @@ export async function sprintUpdate(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -134,11 +131,11 @@ export async function sprintUpdate(
     return 1
   }
   if (beforeRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!beforeRes.ok) {
-    console.error(`Error: sprint fetch failed (HTTP ${beforeRes.status})`)
+    console.error(errHttp('sprint fetch', beforeRes.status))
     return 1
   }
   const { sprint: before } = (await beforeRes.json()) as {
@@ -168,11 +165,11 @@ export async function sprintUpdate(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    let errMsg = `sprint update failed (HTTP ${res.status})`
+    let errMsg = httpFailed('sprint update', res.status)
     try {
       const errBody = (await res.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error
@@ -183,5 +180,7 @@ export async function sprintUpdate(
     return 1
   }
 
-  process.stdout.write(formatSprintUpdateSummary(beforeSnapshot, payload) + '\n')
+  process.stdout.write(
+    formatSprintUpdateSummary(beforeSnapshot, payload) + '\n'
+  )
 }

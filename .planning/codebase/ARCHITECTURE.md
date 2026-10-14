@@ -141,7 +141,6 @@
 - Structure:
   - `lib/integrations/slack/` (barrel at `index.ts`)
   - `lib/integrations/slack/notify.ts` (notification logic)
-  - `lib/integrations/slack/bot.ts` (Slack adapter)
   - `lib/integrations/slack/commands.ts` (command handler)
 - Rule: Client components import from `lib/integrations/{slack,github}/notify` or `lib/integrations/{slack,github}/auth` directly, never from the barrel
 - Reason: Barrel exports might re-export server-only code; submodule imports are explicit and tree-shakeable
@@ -227,7 +226,7 @@
 
 **Notifications:**
 
-- Multiple channels: Email (Resend), Slack (chat-adapter), in-app (Pusher real-time)
+- Multiple channels: Email (Resend), Slack (Web API), in-app (Pusher real-time)
 - Service: `lib/services/notification.service.ts` orchestrates dispatch
 - Slack integration: `lib/integrations/slack/notify.ts` sends channel/DM notifications
 - Pusher integration: `lib/integrations/pusher/server.ts` broadcasts real-time events
@@ -260,7 +259,6 @@
 - Workspace app token stored in DB (encrypted)
 - Notifications sent via Web API
 - Commands received via HTTP POST to `POST /api/integrations/slack/commands`
-- Adapter: `@chat-adapter/slack` for bot framework
 
 **Main App ↔ Database:**
 

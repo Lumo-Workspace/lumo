@@ -10,7 +10,6 @@ const INAPP_MAP: Partial<Record<NotificationType, string>> = {
   TASK_SENT_BACK: 'notifyInAppAssigned',
   TASK_DONE: 'notifyInAppAssigned',
   TASK_IN_REVIEW: 'notifyInAppAssigned',
-  TASK_SPEC_READY: 'notifyInAppAssigned',
   TASK_MENTIONED: 'notifyInAppMention',
   DOCUMENT_COMMENT_MENTIONED: 'notifyInAppMention',
   PROJECT_MENTIONED: 'notifyInAppMention',
@@ -23,22 +22,33 @@ const INAPP_MAP: Partial<Record<NotificationType, string>> = {
   AGENT_AUTHORIZE: 'notifyInAppAgentInput',
 }
 
+// Only types that actually send a Slack DM are listed. TASK_SPEC_READY and
+// AGENT_* have no Slack sender, so they have no route here and the
+// notifySlackAgentDone / notifySlackAgentInput columns are not read (their
+// switches are hidden in the settings UI). Add a route together with a sender.
+// The Slack channel is fail-closed (LUM-1101): an unmapped type is NOT sent,
+// so a new sender without a route here never silently ignores a stored
+// notifySlack*=false — it sends nothing until the route is added.
 const SLACK_MAP: Partial<Record<NotificationType, string>> = {
   TASK_ASSIGNED: 'notifySlackAssigned',
   TASK_SENT_BACK: 'notifySlackAssigned',
   TASK_DONE: 'notifySlackAssigned',
   TASK_IN_REVIEW: 'notifySlackAssigned',
-  TASK_SPEC_READY: 'notifySlackAssigned',
   TASK_MENTIONED: 'notifySlackMention',
   DOCUMENT_COMMENT_MENTIONED: 'notifySlackMention',
   PROJECT_MENTIONED: 'notifySlackMention',
   MILESTONE_MENTIONED: 'notifySlackMention',
   DOCUMENT_MENTIONED: 'notifySlackMention',
-  AGENT_DONE: 'notifySlackAgentDone',
-  AGENT_FAILED: 'notifySlackAgentDone',
-  AGENT_VERIFY: 'notifySlackAgentDone',
-  AGENT_CLARIFY: 'notifySlackAgentInput',
-  AGENT_AUTHORIZE: 'notifySlackAgentInput',
+}
+
+// Personal Slack DMs that have no NotificationType (no inbox row): the GitHub
+// PR webhooks DM the project owner (pr_opened) and the assignee (pr_merged).
+// They are task activity, so the "Task assigned" switch governs them.
+export type PersonalSlackEvent = 'pr_opened' | 'pr_merged'
+
+const SLACK_EVENT_MAP: Record<PersonalSlackEvent, string> = {
+  pr_opened: 'notifySlackAssigned',
+  pr_merged: 'notifySlackAssigned',
 }
 
 export const MENTION_NOTIFICATION_TYPES = [
@@ -56,6 +66,19 @@ const ALWAYS_NOTIFY: Set<NotificationType> = new Set([
   'AGENT_VERIFY',
 ])
 
+// Never silenced in-app only (LUM-1115). TASK_SPEC_READY: the agent waits in
+// INPUT_REQUIRED for an owner to review the spec and the inbox is its only
+// channel, so the "Task assigned" switch must not hide it. Slack keeps its
+// fail-closed rule for these (no route → not sent).
+const ALWAYS_NOTIFY_IN_APP: Set<NotificationType> = new Set(['TASK_SPEC_READY'])
+
+function neverSilenced(channel: Channel, type: NotificationType): boolean {
+  return (
+    ALWAYS_NOTIFY.has(type) ||
+    (channel === 'inApp' && ALWAYS_NOTIFY_IN_APP.has(type))
+  )
+}
+
 function getPreferenceField(
   channel: Channel,
   type: NotificationType
@@ -70,19 +93,39 @@ function getPreferenceField(
  * Check whether a notification should be delivered to a recipient on a given channel.
  * Returns true if:
  * - The notification type requires action (always delivered)
+ * - In-app only: the type has no preference route (nothing to honour)
  * - No preference record exists (defaults are all true)
  * - The corresponding preference toggle is true
+ * Slack is fail-closed: a type with no Slack route returns false.
  */
 export async function shouldNotify(
   recipientActorId: string,
   channel: Channel,
   notificationType: NotificationType
 ): Promise<boolean> {
-  if (ALWAYS_NOTIFY.has(notificationType)) return true
+  if (neverSilenced(channel, notificationType)) return true
 
   const field = getPreferenceField(channel, notificationType)
-  if (!field) return true // unmapped type → deliver
+  if (!field) return channel === 'inApp' // unmapped: in-app delivers, Slack fails closed
 
+  return isFieldEnabled(recipientActorId, field)
+}
+
+/**
+ * Gate for personal Slack DMs that have no NotificationType (GitHub PR
+ * webhooks). Same defaults as shouldNotify: no member / no row → deliver.
+ */
+export async function shouldNotifySlackEvent(
+  recipientActorId: string,
+  event: PersonalSlackEvent
+): Promise<boolean> {
+  return isFieldEnabled(recipientActorId, SLACK_EVENT_MAP[event])
+}
+
+async function isFieldEnabled(
+  recipientActorId: string,
+  field: string
+): Promise<boolean> {
   const actor = await prisma.actor.findUnique({
     where: { id: recipientActorId },
     select: { member: { select: { id: true } } },
@@ -110,10 +153,14 @@ export async function shouldNotifyBatch(
   notificationType: NotificationType
 ): Promise<Set<string>> {
   if (recipientActorIds.length === 0) return new Set()
-  if (ALWAYS_NOTIFY.has(notificationType)) return new Set(recipientActorIds)
+  if (neverSilenced(channel, notificationType))
+    return new Set(recipientActorIds)
 
   const field = getPreferenceField(channel, notificationType)
-  if (!field) return new Set(recipientActorIds)
+  if (!field) {
+    // unmapped: in-app delivers, Slack fails closed (see SLACK_MAP)
+    return channel === 'inApp' ? new Set(recipientActorIds) : new Set()
+  }
 
   const actors = await prisma.actor.findMany({
     where: { id: { in: recipientActorIds } },

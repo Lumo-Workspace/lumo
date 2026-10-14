@@ -565,8 +565,12 @@ describe('notifyDocMentions', () => {
       'bob-clerk',
       'comment_mention',
       expect.objectContaining({
-        taskTitle: 'Spec',
-        taskUrl: expect.stringContaining('/workspace/acme/documents/spec-3'),
+        entityKind: 'document',
+        entityTitle: 'Spec',
+        entityUrl: expect.stringContaining('/workspace/acme/documents/spec-3'),
+        mentionSurface: 'comment',
+        actorClerkId: 'author-clerk',
+        quote: '@Bob hi',
       })
     )
   })

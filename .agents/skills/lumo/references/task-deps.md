@@ -77,7 +77,7 @@ Marks the edge DISMISSED. The row is kept in the database — this is the key di
 
 ```bash
 lumo task deps dismiss LUM-42 e5f6a7b8
-# Dismissed: [e5f6a7b8] LUM-38 "Add OAuth scopes" (won't be suggested again)
+# Dismissed dependency [e5f6a7b8] LUM-38 "Add OAuth scopes" (won't be suggested again)
 ```
 
 Use `dismiss` for false positives. Use `rm` only when you want the pair eligible for re-detection again.
@@ -89,7 +89,7 @@ Hard-deletes the edge row. Without `--confirm` it resolves the edge, then exits 
 ```bash
 lumo task deps rm LUM-42 a1b2c3d4            # exit 4 + envelope, nothing deleted
 lumo task deps rm LUM-42 a1b2c3d4 --confirm  # after the user approved
-# Removed [a1b2c3d4] from LUM-42
+# Removed dependency [a1b2c3d4] from LUM-42
 ```
 
 **`rm` vs `dismiss`:** deleting removes the immunity — the detection service may re-suggest this pair on the next shared-files sweep or task-mention event. Prefer `dismiss` for detection false positives; use `rm` to fully erase an incorrectly-declared MANUAL edge.

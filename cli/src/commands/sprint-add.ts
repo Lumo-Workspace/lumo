@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveSprintId } from '../lib/resolve'
+import { errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface AddTaskToSprintOptions {
   team?: string
@@ -14,7 +15,7 @@ export async function sprintAdd(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -41,7 +42,11 @@ export async function sprintAdd(
     { headers: { Authorization: `Bearer ${creds.token}` } }
   )
   if (!tr.ok) {
-    console.error(`Error: task ${taskIdentifier} not found (HTTP ${tr.status})`)
+    console.error(
+      tr.status === 404
+        ? `Error: task ${taskIdentifier} not found`
+        : errHttp(`task ${taskIdentifier} lookup`, tr.status)
+    )
     return 1
   }
   const { task } = (await tr.json()) as { task: { id: string } }
@@ -62,7 +67,7 @@ export async function sprintAdd(
     return 1
   }
   if (!res.ok) {
-    let errMsg = `sprint add failed (HTTP ${res.status})`
+    let errMsg = httpFailed('sprint add', res.status)
     try {
       const errBody = (await res.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

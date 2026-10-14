@@ -191,4 +191,58 @@ describe('lumo tag list / create', () => {
   it('empty list reads "No tags."', () => {
     expect(formatTagList([])).toBe('No tags.')
   })
+  // LUM-1086: tag list renders through cli/src/lib/ui.ts; non-TTY bytes must
+  // stay exactly what the hand-padded version produced.
+  it('non-TTY output is byte-identical to the pre-ui.ts layout, no ESC', async () => {
+    const desc = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+    Object.defineProperty(process.stdout, 'isTTY', {
+      value: false,
+      configurable: true,
+    })
+    try {
+      await tagList()
+    } finally {
+      if (desc) Object.defineProperty(process.stdout, 'isTTY', desc)
+      else delete (process.stdout as { isTTY?: boolean }).isTTY
+    }
+    expect(out).toBe(
+      'bug  #ff0000  3 tasks  2 docs\nux   -        1 task   0 docs\n'
+    )
+    expect(out).not.toContain('\u001b')
+  })
+  it('aligns CJK tag names by display width', () => {
+    const lines = formatTagList(
+      [
+        { id: 'a', name: '前端', color: null, taskCount: 1, documentCount: 0 },
+        {
+          id: 'b',
+          name: 'backend',
+          color: null,
+          taskCount: 2,
+          documentCount: 1,
+        },
+      ],
+      { color: false }
+    ).split('\n')
+    expect(lines).toEqual([
+      '前端     -  1 task   0 docs',
+      'backend  -  2 tasks  1 doc',
+    ])
+  })
+  it('on a colour TTY only the usage counts are styled; layout unchanged', () => {
+    const rows = [
+      {
+        id: 'a',
+        name: 'bug',
+        color: '#ff0000',
+        taskCount: 3,
+        documentCount: 2,
+      },
+    ]
+    const colored = formatTagList(rows, { color: true })
+    expect(colored).toContain('\u001b[2m3 tasks')
+    expect(colored.replace(/\u001b\[[0-9;]*m/g, '')).toBe(
+      formatTagList(rows, { color: false })
+    )
+  })
 })

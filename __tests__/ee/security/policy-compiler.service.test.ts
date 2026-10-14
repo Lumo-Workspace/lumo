@@ -720,7 +720,8 @@ test('LUM-772 compiler rewrites push rules to target-aware predicates', async ()
         blocking: false,
         polarity: 'forbid',
       },
-      // 5. Mapped with no predicate at all: unchanged (the built-in covers it).
+      // 5. Mapped with no predicate at all: the built-in covers it — the same
+      //    detector as rule 1 after the rewrite, so LUM-1114 merges it there.
       {
         text: 'Never push to main',
         kind: 'action',
@@ -736,7 +737,8 @@ test('LUM-772 compiler rewrites push rules to target-aware predicates', async ()
     workspaceId: 'w1',
     fullName: 'o/r',
   })
-  const [prod, unmapped, mappedExtra, force, mappedBare] = policy!.rules
+  const [prod, unmapped, mappedExtra, force, ...rest] = policy!.rules
+  expect(rest).toEqual([])
   expect(prod).toMatchObject({
     tier: 'deterministic',
     blocking: true,
@@ -754,8 +756,8 @@ test('LUM-772 compiler rewrites push rules to target-aware predicates', async ()
     predicate: { type: 'push-target', value: 'main,develop,release' },
   })
   expect(force!.predicate).toEqual({ type: 'cmd-substr', value: '--force' })
-  expect(mappedBare!.predicate).toBeUndefined()
-  expect(mappedBare!.tier).toBe('deterministic')
+  // LUM-1114: rule 5 lives on as an alias of rule 1 (same detector).
+  expect(prod!.aliases?.map(a => a.text)).toEqual(['Never push to main'])
   // No rule in the set is target-blind any more.
   expect(
     policy!.rules.some(

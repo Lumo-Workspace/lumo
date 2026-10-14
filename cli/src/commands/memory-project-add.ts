@@ -6,30 +6,47 @@ import { resolveProjectId } from '../lib/resolve'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
-interface AddOptions extends MemoryFlags { category?: string; agent?: string }
+interface AddOptions extends MemoryFlags {
+  category?: string
+  agent?: string
+}
 
 export async function memoryProjectAdd(
   refArg: string | undefined,
   options: AddOptions
 ): Promise<number | void> {
-  if (!options.category) { console.error('Error: --category <trap|decision|convention|procedural> is required.'); return 1 }
+  if (!options.category) {
+    console.error(
+      'Error: --category <trap|decision|convention|procedural> is required.'
+    )
+    return 1
+  }
   const built = buildMemoryContent(options.category, options)
-  if (!built.ok) { console.error(`Error: ${built.error}`); return 1 }
+  if (!built.ok) {
+    console.error(`Error: ${built.error}`)
+    return 1
+  }
 
   let agent: string | undefined
   const agentRaw = options.agent?.trim()
   if (agentRaw) {
     const normalized = normalizeAgent(agentRaw)
     if (!normalized) {
-      console.error(`Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`)
+      console.error(
+        `Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
+      )
       return 1
     }
     agent = normalized
   }
 
   const creds = readCredentials()
-  if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
+  if (!creds) {
+    console.error(errNotLoggedIn())
+    return 1
+  }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
 
@@ -39,53 +56,89 @@ export async function memoryProjectAdd(
     projectId = await resolveProjectId(base, creds.token, refArg)
   } else {
     const bound = await resolveBoundTaskIdentifier(apiUrl, creds.token)
-    if (!bound) { console.error('Error: no <project-ref> given and no task bound to this session.\nPass a project, or run `lumo session attach <LUM-N>`.'); return 1 }
+    if (!bound) {
+      console.error(
+        'Error: no <project-ref> given and no task bound to this session.\nPass a project, or run `lumo session attach <LUM-N>`.'
+      )
+      return 1
+    }
     const r = await resolveBoundProjectId(apiUrl, creds.token, bound)
-    if (!r.ok) { console.error(`Error: ${r.error}`); return 1 }
+    if (!r.ok) {
+      console.error(`Error: ${r.error}`)
+      return 1
+    }
     projectId = r.id
     echoSuffix = ` (project of bound task ${bound})`
   }
 
   let res: Response
   try {
-    res = await fetch(`${base}/api/projects/${encodeURIComponent(projectId)}/memories`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        category: built.category,
-        content: built.content,
-        ...(agent ? { agent } : {}),
-      }),
-    })
+    res = await fetch(
+      `${base}/api/projects/${encodeURIComponent(projectId)}/memories`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${creds.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: built.category,
+          content: built.content,
+          ...(agent ? { agent } : {}),
+        }),
+      }
+    )
   } catch (err) {
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`)
+    console.error(
+      `Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`
+    )
     return 1
   }
   if (res.status !== 201) {
     let m: string | null = null
-    try { const b = (await res.json()) as { error?: string }; if (typeof b.error === 'string') m = b.error } catch { /* */ }
-    console.error(m ? `Error: ${sanitizeField(m)}` : `Error: memory add failed (HTTP ${res.status})`)
+    try {
+      const b = (await res.json()) as { error?: string }
+      if (typeof b.error === 'string') m = b.error
+    } catch {
+      /* */
+    }
+    console.error(
+      m ? `Error: ${sanitizeField(m)}` : errHttp('memory add', res.status)
+    )
     return 1
   }
   let outcome = 'ADD'
   let memId = ''
   try {
-    const b = (await res.json()) as { outcome?: string; memory?: { id?: string } }
+    const b = (await res.json()) as {
+      outcome?: string
+      memory?: { id?: string }
+    }
     if (typeof b.outcome === 'string') outcome = b.outcome
     if (b.memory && typeof b.memory.id === 'string') memId = b.memory.id
-  } catch { /* keep defaults */ }
+  } catch {
+    /* keep defaults */
+  }
 
   switch (outcome) {
     case 'NOOP':
-      process.stdout.write(`Skipped — duplicate of existing memory ${memId}, nothing written${echoSuffix}\n`)
+      process.stdout.write(
+        `Skipped — duplicate of existing memory ${memId}, nothing written${echoSuffix}\n`
+      )
       break
     case 'UPDATE':
-      process.stdout.write(`Merged into existing memory ${memId} (near-duplicate)${echoSuffix}\n`)
+      process.stdout.write(
+        `Merged into existing memory ${memId} (near-duplicate)${echoSuffix}\n`
+      )
       break
     case 'SUPERSEDE':
-      process.stdout.write(`Superseded an existing memory; new version ${memId}${echoSuffix}\n`)
+      process.stdout.write(
+        `Superseded an existing memory; new version ${memId}${echoSuffix}\n`
+      )
       break
     default:
-      process.stdout.write(`Added ${built.category} PROJECT memory${echoSuffix}\n`)
+      process.stdout.write(
+        `Added ${built.category} PROJECT memory${echoSuffix}\n`
+      )
   }
 }

@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
@@ -8,7 +9,6 @@ import { pushWorkspaceEvent } from '@/lib/integrations/pusher/server'
 import { getActorClerkId } from '@/lib/actor'
 import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { waitUntil } from '@/lib/runtime/wait-until'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -67,10 +67,7 @@ export const projectService = {
     if (clerkIds.length > 0) {
       const { getUserDirectory } = await import('@/lib/auth/users')
       const clerk = await getUserDirectory()
-      const { data: users } = await clerk.getUserList({
-        userId: clerkIds,
-        limit: clerkIds.length,
-      })
+      const users = await listUsersByIds(clerk, clerkIds)
       for (const u of users) {
         const trimmed = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()
         nameByClerkId.set(
@@ -254,9 +251,11 @@ export const projectService = {
               ref: { projectId: project.id },
               slackEvent: 'comment_mention',
               slackPayload: {
-                taskTitle: updated.name,
-                taskUrl: projectUrl,
-                commentBody: htmlToPreview(newHtml),
+                entityKind: 'project',
+                entityId: project.id,
+                entityTitle: updated.name,
+                entityUrl: projectUrl,
+                mentionSurface: 'content',
               },
               waitUntil,
             })

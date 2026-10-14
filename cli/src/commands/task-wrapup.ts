@@ -16,6 +16,7 @@ import {
   type CleanupItem,
 } from '../lib/worktree-cleanup'
 import {
+  crossingGate,
   pushSecurityActions,
   pushSecurityCoverage,
   pushTestCaseActions,
@@ -24,7 +25,22 @@ import {
   splitNextActions,
   type TaskStatusResponse,
 } from './task-status'
-import { describeDoneTransition, type LinkedPr } from './task-update'
+import {
+  describeDoneTransition,
+  qualifiesForOneStepDone,
+  type LinkedPr,
+} from './task-update'
+import { errAuth, errNotLoggedIn } from '../lib/errors'
+import {
+  bulletLines,
+  commandLine,
+  fieldLines,
+  sectionHeading,
+  wrapLines,
+  type Field,
+  type LayoutOptions,
+} from '../lib/report-layout'
+import { colorEnabled, terminalWidth } from '../lib/ui'
 
 /**
  * `lumo task wrapup [task]` (LUM-841) — the whole wrap-up in one read.
@@ -43,6 +59,8 @@ import { describeDoneTransition, type LinkedPr } from './task-update'
  * approval it mentions is something the agent relays to the user, and the
  * only approval-flagged command it prints is the DONE envelope's own
  * confirmCommand, shown only when nothing is left and labelled as the user's.
+ * LUM-1106: when every linked PR is merged it prints the plain one-step
+ * `--status done` command instead — no approval flag at all.
  */
 
 export type Read<T> = { ok: true; value: T } | { ok: false; reason: string }
@@ -167,56 +185,81 @@ function partitionPrs(prs: LinkedPr[]): { unmerged: LinkedPr[] } {
   return { unmerged: prs.filter(p => p.state !== 'merged') }
 }
 
-function header(n: number, title: string): string {
-  return `\n[${n}/4] ${title}`
+function header(n: number, title: string, opts: LayoutOptions): string[] {
+  return sectionHeading(`[${n}/4] ${title}`, opts)
 }
 
-function pushTestCases(lines: string[], input: WrapupInput): void {
-  lines.push(header(1, 'Test cases'))
+function pushTestCases(
+  lines: string[],
+  input: WrapupInput,
+  opts: LayoutOptions
+): void {
+  lines.push(...header(1, 'Test cases', opts))
   if (!input.status.ok) {
     lines.push(
-      `  ⚠ Unconfirmed — the task status could not be read (${sanitizeField(input.status.reason)}).`
+      ...wrapLines(
+        `⚠ Unconfirmed — the task status could not be read (${sanitizeField(input.status.reason)}).`,
+        2,
+        opts
+      )
     )
     return
   }
   const split = splitNextActions(input.status.value.nextActions)
-  const body: string[] = []
-  pushTestCaseVerdictActions(body, split.testCaseVerdict)
   const id = input.status.value.task.identifier
+  const body: string[] = []
+  // A proven defect carries the user's two rulings right under its own row,
+  // one command per line (LUM-1091).
   for (const d of split.testCaseVerdict) {
+    pushTestCaseVerdictActions(body, [d], opts)
     if (d.signal !== 'PROVEN_DEFECT') continue
     body.push(
-      `    blocks DONE until the user rules on that run → lumo task testcase disposition ${id}/TC${d.number} --known-defect  |  --not-a-defect`
+      '    Blocks DONE until the user rules on that run — one of:',
+      commandLine(
+        `lumo task testcase disposition ${id}/TC${d.number} --known-defect`,
+        6
+      ),
+      commandLine(
+        `lumo task testcase disposition ${id}/TC${d.number} --not-a-defect`,
+        6
+      )
     )
   }
-  pushTestCaseActions(body, split.testCase)
+  pushTestCaseActions(body, split.testCase, opts)
   if (body.length === 0) {
     lines.push('  No test-case signals.')
     return
   }
-  for (const l of body)
-    if (l !== '') lines.push(l.startsWith(' ') ? l : `  ${l}`)
+  lines.push(...body)
 }
 
-function pushSecurity(lines: string[], input: WrapupInput): void {
-  lines.push(header(2, 'Security scans'))
+function pushSecurity(
+  lines: string[],
+  input: WrapupInput,
+  opts: LayoutOptions
+): void {
+  lines.push(...header(2, 'Security scans', opts))
   if (!input.status.ok) {
     lines.push(
-      `  ⚠ Unconfirmed — the task status could not be read (${sanitizeField(input.status.reason)}).`
+      ...wrapLines(
+        `⚠ Unconfirmed — the task status could not be read (${sanitizeField(input.status.reason)}).`,
+        2,
+        opts
+      )
     )
     return
   }
   const data = input.status.value
   const { security } = splitNextActions(data.nextActions)
   const body: string[] = []
-  pushSecurityActions(body, security)
-  pushSecurityCoverage(body, data)
+  pushSecurityActions(body, security, opts)
+  if (security.length > 0) body.push(...wrapLines(SECURITY_HINT, 2, opts))
+  pushSecurityCoverage(body, data, opts)
   if (body.length === 0) {
     lines.push('  No linked PR scans and no open findings.')
     return
   }
-  for (const l of body) lines.push(l.startsWith(' ') ? l : `  ${l}`)
-  if (security.length > 0) lines.push(`  ${SECURITY_HINT}`)
+  lines.push(...body)
 }
 
 function crossingCommand(ids: string[], task: string, ruling: string): string {
@@ -229,50 +272,81 @@ function pushCrossing(
   lines: string[],
   c: OpenCrossing,
   task: string,
-  batch: boolean
+  batch: boolean,
+  opts: LayoutOptions
 ): void {
-  const gate = c.blocking
-    ? 'blocks DONE'
-    : c.advisory
-      ? `advisory — does not block DONE${c.rejudge ? `; re-judged: ${oneLine(c.rejudge)}` : ''}`
-      : 'below the workspace gate — does not block DONE'
   lines.push(
-    `  ${c.blocking ? '•' : '◦'} ${sanitizeField(c.ref)}  [${c.severity}] ${sanitizeField(c.category)} (${gate})`
+    ...bulletLines(
+      `${sanitizeField(c.ref)} [${c.severity}] ${sanitizeField(c.category)} (${crossingGate(c)})`,
+      2,
+      opts
+    )
   )
-  const detail = oneLine(c.detail)
-  if (detail) lines.push(`      detail: ${clip(detail, 400)}`)
-  const seen = c.occurrenceCount ?? 1
-  if (seen > 1) lines.push(`      seen ×${seen} while open`)
   if (c.reversible === false)
     lines.push(
-      '      ⚠ irreversible category — the action reached outside the repo'
+      '    ⚠ irreversible category — the action reached outside the repo'
     )
+  const fields: Field[] = []
+  // LUM-780: why a SYSTEM re-judge made this row advisory.
+  if (!c.blocking && c.advisory && c.rejudge)
+    fields.push({ label: 'Re-judged', value: oneLine(c.rejudge) })
+  const detail = oneLine(c.detail)
+  if (detail) fields.push({ label: 'Detail', value: clip(detail, 400) })
+  const seen = c.occurrenceCount ?? 1
+  if (seen > 1) fields.push({ label: 'Seen', value: `×${seen} while open` })
   const explanations = c.explanations ?? []
   if (explanations.length === 0 && c.blocking) {
-    lines.push(
-      `      agent explanation: none — add one first: lumo crossing explain ${shellQuote(c.ref)} --task ${shellQuote(task)} --note "…" (append-only; clears nothing)`
-    )
+    fields.push({
+      label: 'Explanation',
+      value: 'none — add one first (append-only; clears nothing):',
+      sub: [
+        `lumo crossing explain ${shellQuote(c.ref)} --task ${shellQuote(task)} --note "…"`,
+      ],
+    })
   } else if (explanations.length > 0) {
-    lines.push(
-      `      agent explanations (${explanations.length}, self-report · unverified):`
-    )
-    for (const e of explanations) {
-      lines.push(`        - ${clip(oneLine(e), 300)}`)
-    }
+    fields.push({
+      label: 'Explanations',
+      value: `${explanations.length} — agent self-report, unverified`,
+    })
   }
+  lines.push(...fieldLines(fields, 4, opts))
+  for (const e of explanations)
+    lines.push(...dashLines(clip(oneLine(e), 300), 4, opts))
   if (!batch) {
     lines.push(
-      `      the user rules → ${crossingCommand([c.ref], task, '--false-positive')}  |  ${crossingCommand([c.ref], task, '--confirmed')}`
+      '    The user rules — one of:',
+      commandLine(crossingCommand([c.ref], task, '--false-positive'), 6),
+      commandLine(crossingCommand([c.ref], task, '--confirmed'), 6)
     )
   }
 }
 
-function pushCrossings(lines: string[], input: WrapupInput): void {
-  lines.push(header(3, 'Boundary crossings'))
+/** A `- text` item at `indent`, wrapped with its continuation under the text. */
+function dashLines(
+  text: string,
+  indent: number,
+  opts: LayoutOptions
+): string[] {
+  const pad = ' '.repeat(indent)
+  return wrapLines(text, indent + 2, opts).map((l, i) =>
+    i === 0 ? `${pad}- ${l.trimStart()}` : l
+  )
+}
+
+function pushCrossings(
+  lines: string[],
+  input: WrapupInput,
+  opts: LayoutOptions
+): void {
+  lines.push(...header(3, 'Boundary crossings', opts))
   const result = input.crossings
   if (result.status === 'error') {
     lines.push(
-      `  ⚠ Boundary-crossing check failed (${sanitizeField(result.reason)}) — could not confirm whether any are undispositioned.`
+      ...wrapLines(
+        `⚠ Boundary-crossing check failed (${sanitizeField(result.reason)}) — could not confirm whether any are undispositioned.`,
+        2,
+        opts
+      )
     )
     return
   }
@@ -286,24 +360,48 @@ function pushCrossings(lines: string[], input: WrapupInput): void {
   )
   const batch = result.crossings.length > 1
   lines.push(
-    batch
-      ? '  Relay them to the user as shown below. Once they rule, run one batch command per ruling (split the ids when the rulings differ; leave out any id they want to keep OPEN): it walks the server-enforced read → ruling handshake with one exit-4 envelope per step for the whole batch — relay each and add a step flag only after the user approves that step.'
-      : '  Relay each one to the user as shown below. Once they pick a ruling, run that command: it walks the server-enforced read → ruling handshake, one exit-4 envelope per step — relay each and add a step flag only after the user approves that step.'
+    ...wrapLines(
+      batch
+        ? 'Relay them to the user as shown below. Once they rule, run one batch command per ruling (split the ids when the rulings differ; leave out any id they want to keep OPEN): it walks the server-enforced read → ruling handshake with one exit-4 envelope per step for the whole batch — relay each and add a step flag only after the user approves that step.'
+        : 'Relay each one to the user as shown below. Once they pick a ruling, run that command: it walks the server-enforced read → ruling handshake, one exit-4 envelope per step — relay each and add a step flag only after the user approves that step.',
+      2,
+      opts
+    )
   )
   for (const c of result.crossings)
-    pushCrossing(lines, c, input.identifier, batch)
+    pushCrossing(lines, c, input.identifier, batch, opts)
   if (batch) {
     const ids = result.crossings.map(c => c.ref)
     lines.push(
-      `  the user rules all ${ids.length} false-positive → ${crossingCommand(ids, input.identifier, '--false-positive')}`,
-      `  the user rules all ${ids.length} confirmed      → ${crossingCommand(ids, input.identifier, '--confirmed')}`
+      `  The user rules all ${ids.length} false-positive:`,
+      commandLine(
+        crossingCommand(ids, input.identifier, '--false-positive'),
+        4
+      ),
+      `  The user rules all ${ids.length} confirmed:`,
+      commandLine(crossingCommand(ids, input.identifier, '--confirmed'), 4)
     )
   }
-  lines.push(`  Web panel: ${input.dispositionUrl}`)
+  lines.push('  Web panel:', commandLine(input.dispositionUrl, 4))
 }
 
-function pushDone(lines: string[], input: WrapupInput, r: Readiness): void {
-  lines.push(header(4, 'DONE'))
+/** The separator `describeWorktreeCleanup` puts before a kept worktree's removal command. */
+const KEEP_LATER = ' — remove it later from elsewhere: '
+
+function pushDone(
+  lines: string[],
+  input: WrapupInput,
+  r: Readiness,
+  opts: LayoutOptions
+): void {
+  lines.push(...header(4, 'DONE', opts))
+  // LUM-1106: READY with every linked PR merged (at least one) is the
+  // one-step case — `task update --status done` runs without an envelope.
+  // READY already means every read succeeded and nothing blocks DONE.
+  const oneStep =
+    r.level === 'READY' &&
+    input.task.ok &&
+    qualifiesForOneStepDone(input.task.value.pullRequests, true)
   const label: Record<Readiness['level'], string> = {
     DONE: 'DONE — already closed',
     UNCONFIRMED:
@@ -312,11 +410,15 @@ function pushDone(lines: string[], input: WrapupInput, r: Readiness): void {
     NOT_YET: 'NOT YET — work is left before asking for DONE',
     READY: 'READY — relay the DONE envelope below to the user',
   }
-  lines.push(`  Readiness: ${label[r.level]}`)
-  for (const reason of r.reasons) lines.push(`    - ${sanitizeField(reason)}`)
+  lines.push(
+    `  Readiness: ${oneStep ? 'READY — one step: every linked PR is merged and nothing blocks DONE' : label[r.level]}`
+  )
+  for (const reason of r.reasons)
+    lines.push(...dashLines(sanitizeField(reason), 4, opts))
 
   // What moving to DONE would change — the same lines `task update --status
-  // done` puts in its envelope, so the user can be shown it from here.
+  // done` puts in its envelope, so the user can be shown it from here. They
+  // are printed verbatim (the envelope's own wording), not re-wrapped.
   const change: string[] = []
   if (input.task.ok) {
     if (r.level !== 'DONE')
@@ -349,27 +451,59 @@ function pushDone(lines: string[], input: WrapupInput, r: Readiness): void {
     )
   }
   lines.push(r.level === 'DONE' ? '  Now:' : '  Moving to DONE would:')
-  for (const c of change) lines.push(`    ${c}`)
+  for (const c of change) {
+    // The envelope's keep line ends in the command that removes the
+    // worktree later; here the command gets a line of its own.
+    const [lead, cmd] = c.split(KEEP_LATER)
+    if (cmd === undefined) lines.push(`    ${c}`)
+    else
+      lines.push(
+        ...wrapLines(`${lead}${KEEP_LATER.trimEnd()}`, 4, opts),
+        commandLine(cmd, 6)
+      )
+  }
 
   if (r.level === 'READY') {
     const inside = input.worktrees?.items.some(i => i.reason === 'cwd')
     lines.push(
-      `  Show the user the lines above. Only after they approve, run: lumo task update ${input.identifier} --status done --confirm`
+      ...(oneStep
+        ? [
+            '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:',
+            commandLine(
+              `lumo task update ${input.identifier} --status done`,
+              4
+            ),
+          ]
+        : [
+            '  Show the user the lines above. Only after they approve, run:',
+            commandLine(
+              `lumo task update ${input.identifier} --status done --confirm`,
+              4
+            ),
+          ])
     )
     if (inside && input.worktrees) {
       lines.push(
-        `    (run it from ${input.worktrees.mainRoot} — the current directory is inside this task's worktree, which blocks its removal)`
+        ...wrapLines(
+          `Run it from ${input.worktrees.mainRoot} — the current directory is inside this task's worktree, which blocks its removal.`,
+          2,
+          opts
+        )
       )
     }
   } else if (r.level !== 'DONE') {
     lines.push(
-      `  Clear the items above, then run \`lumo task wrapup ${input.identifier}\` again.`
+      '  Clear the items above, then run again:',
+      commandLine(`lumo task wrapup ${input.identifier}`, 4)
     )
   }
 }
 
 /** Render the whole report. Pure — every input is already read. */
-export function formatWrapup(input: WrapupInput): string {
+export function formatWrapup(
+  input: WrapupInput,
+  layout: LayoutOptions = {}
+): string {
   const lines: string[] = []
   const title = input.task.ok
     ? input.task.value.title
@@ -382,14 +516,13 @@ export function formatWrapup(input: WrapupInput): string {
       ? input.status.value.task.status
       : 'unknown'
   lines.push(`${input.identifier}  ${sanitizeField(title)}`)
-  lines.push(
-    `Status: ${status} · wrap-up report (read-only — nothing below was run or approved)`
-  )
+  lines.push(`Status: ${status}`)
+  lines.push('Wrap-up report — read-only: nothing below was run or approved.')
   const readiness = assessReadiness(input)
-  pushTestCases(lines, input)
-  pushSecurity(lines, input)
-  pushCrossings(lines, input)
-  pushDone(lines, input, readiness)
+  pushTestCases(lines, input, layout)
+  pushSecurity(lines, input, layout)
+  pushCrossings(lines, input, layout)
+  pushDone(lines, input, readiness, layout)
   return lines.join('\n') + '\n'
 }
 
@@ -437,7 +570,7 @@ export async function taskWrapup(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
@@ -477,7 +610,7 @@ export async function taskWrapup(
     return 1
   }
   if (!status.ok && status.reason === 'HTTP 401') {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
 
@@ -487,17 +620,20 @@ export async function taskWrapup(
       ? status.value.task.identifier
       : taskId
   process.stdout.write(
-    formatWrapup({
-      identifier: resolvedId,
-      status,
-      task,
-      crossings,
-      worktrees: assessWorktrees(resolvedId, task),
-      dispositionUrl: dispositionUrl(
-        base,
-        creds.workspaceSlug ?? 'lumo',
-        resolvedId
-      ),
-    })
+    formatWrapup(
+      {
+        identifier: resolvedId,
+        status,
+        task,
+        crossings,
+        worktrees: assessWorktrees(resolvedId, task),
+        dispositionUrl: dispositionUrl(
+          base,
+          creds.workspaceSlug ?? 'lumo',
+          resolvedId
+        ),
+      },
+      { width: terminalWidth(), color: colorEnabled() }
+    )
   )
 }

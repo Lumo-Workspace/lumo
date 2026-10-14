@@ -53,6 +53,12 @@ import {
 import { isReversible, severityFor } from '@/lib/boundary-crossing/taxonomy'
 import { sensitivePathGlobsFromRules } from '@/lib/boundary-crossing/policy-rule-paths'
 import { forbiddenRuleSourceService } from '@/lib/services/forbidden-rule-source.service'
+import { uploadStaysLocal } from '@/lib/boundary-crossing/url-hosts'
+import {
+  matchSelfStartedProcesses,
+  selfStopPatterns,
+} from '@/lib/boundary-crossing/self-started-kill'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import {
   pluginCrossingDetectors,
   policyRuleSource,
@@ -512,31 +518,33 @@ function matchExfiltrationPublic(cmd: string): boolean {
   if (/\bgh\s+repo\s+create\b[^\n]*--public\b/.test(cmd)) return true
   // Uploading a LOCAL file/form to an external http(s) endpoint (the exfil shape
   // is reading local data and POSTing/PUT-ing it out — `@file` / -T / -F file).
-  const toHttp = /https?:\/\//.test(cmd)
-  if (/\bcurl\b/.test(cmd) && toHttp) {
-    // LUM-957: `-T` only as its own option token (incl. bundled short flags
-    // like `-sT`) — unanchored, it matched inside `-H 'Content-Type: …'`.
-    // Only value-less flags may precede it in a bundle: after an argument-taking
-    // one (`-XPUT`, `-dToken=…`) the `T` is that flag's value, not an upload.
-    // Scoped to curl's own segment so a sibling `kill -TERM` doesn't count;
-    // `\`-newline continuations are joined first to keep a wrapped curl whole.
-    // The short `-d @file` (incl. `-d@file`, `-d @"$f"`) is scoped the same way
-    // — `date -d @<epoch>` in a sibling segment is not an upload.
-    const curlUploadFlag = /(?:^|[\s'"])-[sSLfkvigGINnq]*T/
-    const curlDataFromFile = /(?:^|[\s'"])-[sSLfkvigGINnq]*d\s*['"]?@/
-    if (
-      splitCommandSegmentsShared(cmd.replace(/\\\r?\n/g, ' ')).some(
-        seg =>
-          /\bcurl\b/.test(seg) &&
-          (curlUploadFlag.test(seg) || curlDataFromFile.test(seg))
-      )
-    )
-      return true
-    if (/(?:--upload-file|-F\s+\S*@|--form\s+\S*@)/.test(cmd)) return true
-    if (/--data(?:-binary|-raw|-urlencode)?\s+@/.test(cmd)) return true
-  }
-  if (/\bwget\b[^\n]*--post-file\b/.test(cmd) && toHttp) return true
-  return false
+  // LUM-1114: judged per upload segment, and an upload whose literal URLs are
+  // all loopback / private / reserved-local (`curl -d @body.json
+  // http://localhost:3000/…`, an agent exercising its own dev server) is not
+  // the public internet — see lib/boundary-crossing/url-hosts.
+  if (!/https?:\/\//.test(cmd)) return false
+  // LUM-957: `-T` only as its own option token (incl. bundled short flags
+  // like `-sT`) — unanchored, it matched inside `-H 'Content-Type: …'`.
+  // Only value-less flags may precede it in a bundle: after an argument-taking
+  // one (`-XPUT`, `-dToken=…`) the `T` is that flag's value, not an upload.
+  // Scoped to curl's own segment so a sibling `kill -TERM` doesn't count;
+  // `\`-newline continuations are joined first to keep a wrapped curl whole.
+  // The short `-d @file` (incl. `-d@file`, `-d @"$f"`) is scoped the same way
+  // — `date -d @<epoch>` in a sibling segment is not an upload.
+  const curlUploadFlag = /(?:^|[\s'"])-[sSLfkvigGINnq]*T/
+  const curlDataFromFile = /(?:^|[\s'"])-[sSLfkvigGINnq]*d\s*['"]?@/
+  const curlLongUpload =
+    /(?:--upload-file|-F\s+\S*@|--form\s+\S*@|--data(?:-binary|-raw|-urlencode)?\s+@)/
+  const joined = cmd.replace(/\\\r?\n/g, ' ')
+  return splitCommandSegmentsShared(joined).some(seg => {
+    const upload =
+      (/\bcurl\b/.test(seg) &&
+        (curlUploadFlag.test(seg) ||
+          curlDataFromFile.test(seg) ||
+          curlLongUpload.test(seg))) ||
+      /\bwget\b[^\n]*--post-file\b/.test(seg)
+    return upload && !uploadStaysLocal(seg, joined)
+  })
 }
 
 /** Deleting cloud-storage data (object stores Lumo's stack can actually touch). */
@@ -1246,6 +1254,55 @@ export function detectSensitivePathEdit(input: {
 }
 
 /**
+ * LUM-1114: an INFRA_TERMINATION whose pkill / killall only stops processes
+ * this session family started earlier (lib/boundary-crossing/self-started-kill)
+ * is recorded as advisory — it never blocks DONE. Everything it cannot confirm
+ * — no session, no command, an evasion-decoded hit, a failed lookup — leaves
+ * the crossing blocking, as before.
+ */
+export async function downgradeSelfStartedStops(
+  input: BoundaryDetectionInput,
+  crossings: DetectedCrossing[],
+  workspaceId: string | null
+): Promise<DetectedCrossing[]> {
+  const eligible = (c: DetectedCrossing) =>
+    c.category === 'INFRA_TERMINATION' &&
+    !c.advisory &&
+    !isEvasionDecoded(c.detail)
+  // Tenant-scoped: a session id is client-reported, so the evidence is read
+  // only from this task's own workspace — another tenant's events can never
+  // turn a crossing here advisory. No workspace → no evidence.
+  if (!input.sessionId || !workspaceId || !crossings.some(eligible))
+    return crossings
+  const cmd = readCommand(input.payload)
+  if (!cmd || !selfStopPatterns(cmd)) return crossings
+  const root =
+    parseChildSessionId(input.sessionId)?.parentSessionId ?? input.sessionId
+  let prior: string[]
+  try {
+    prior = await hookEventRepository.findSessionFamilyBashCommands(
+      workspaceId,
+      root,
+      input.occurredAt ?? new Date()
+    )
+  } catch {
+    return crossings
+  }
+  if (!matchSelfStartedProcesses(cmd, prior)) return crossings
+  return crossings.map(c =>
+    eligible(c)
+      ? {
+          ...c,
+          advisory: true,
+          detail: clip(
+            `Stops only processes this session started — advisory — ${c.detail}`
+          ),
+        }
+      : c
+  )
+}
+
+/**
  * LUM-923: true only when the task is positively found in the trash. An
  * unknown task, or a failed lookup, reads false so detection still records
  * (fail open: visibility over silence).
@@ -1276,7 +1333,7 @@ export const boundaryDetectorService = {
       // matched only as prose (commit message / PR body / echo), keep real
       // executed actions and anything the best-effort LLM can't clear.
       // LUM-1063: a plugin step; without one the candidates are kept as is.
-      const confirmed = await confirmActionCandidates(input, crossings)
+      let confirmed = await confirmActionCandidates(input, crossings)
 
       // LUM-590: load the project policy best-effort (the plugin's policy rule
       // source compiles CLAUDE.md / AGENTS.md). Wrapped in try/catch per the
@@ -1304,6 +1361,9 @@ export const boundaryDetectorService = {
       } catch {
         // observer: never throw, project path is best-effort
       }
+      // LUM-1114: a pkill of the session's own background job → advisory.
+      // Needs the task's workspace, so it runs after the lookup above.
+      confirmed = await downgradeSelfStartedStops(input, confirmed, workspaceId)
       // LUM-1068: the core's deterministic rule source — the `## Forbidden`
       // items of CLAUDE.md / AGENTS.md, no model. Runs with or without the
       // plugin, AFTER its compile above so a removal the plugin just

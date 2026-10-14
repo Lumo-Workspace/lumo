@@ -179,9 +179,9 @@ describe('lumo milestone show', () => {
   }
 
   it('reports BACKLOG next to, not inside, the progress total', () => {
-    expect(formatMilestoneShow(milestone, [])).toContain(
-      'Tasks:        2 total (TODO 1 / IN_PROGRESS 0 / IN_REVIEW 0 / DONE 1) + 2 in BACKLOG'
-    )
+    const out = formatMilestoneShow(milestone, [])
+    expect(out).toContain('  Done:       1 / 2\n')
+    expect(out).toContain('  Backlog:    2 (not in the total)')
   })
 
   it('stays silent about BACKLOG when there is none (or an old server)', () => {

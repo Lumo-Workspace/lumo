@@ -7,41 +7,71 @@ import type { Preferences } from '../../hooks/usePreferences'
 
 interface NotifyRow {
   labelId: string
-  inAppKey: keyof Preferences
-  slackKey: keyof Preferences
+  prefKey: keyof Preferences
 }
 
-const NOTIFY_EVENTS: NotifyRow[] = [
-  {
-    labelId: 'notifications.taskAssigned',
-    inAppKey: 'notifyInAppAssigned',
-    slackKey: 'notifySlackAssigned',
-  },
-  {
-    labelId: 'notifications.newComment',
-    inAppKey: 'notifyInAppComment',
-    slackKey: 'notifySlackComment',
-  },
-  {
-    labelId: 'notifications.agentDone',
-    inAppKey: 'notifyInAppAgentDone',
-    slackKey: 'notifySlackAgentDone',
-  },
-  {
-    labelId: 'notifications.agentInput',
-    inAppKey: 'notifyInAppAgentInput',
-    slackKey: 'notifySlackAgentInput',
-  },
-  {
-    labelId: 'notifications.mentioned',
-    inAppKey: 'notifyInAppMention',
-    slackKey: 'notifySlackMention',
-  },
+// Only events that actually create an inbox item get an in-app switch.
+// notifyInAppComment has no reader and nothing creates AGENT_* notifications
+// (LUM-1101), so those switches would do nothing; their preference columns
+// are kept, just not shown — same treatment as the Slack list below.
+const IN_APP_EVENTS: NotifyRow[] = [
+  { labelId: 'notifications.taskAssigned', prefKey: 'notifyInAppAssigned' },
+  { labelId: 'notifications.mentioned', prefKey: 'notifyInAppMention' },
 ]
+
+// Only events that actually send a Slack DM get a Slack switch. Comment,
+// agent-done and agent-input have no Slack sender (LUM-1098), so a switch for
+// them would do nothing; their preference columns are kept, just not shown.
+const SLACK_EVENTS: NotifyRow[] = [
+  { labelId: 'notifications.taskAssigned', prefKey: 'notifySlackAssigned' },
+  { labelId: 'notifications.mentioned', prefKey: 'notifySlackMention' },
+]
+
+interface ToggleSectionProps {
+  title: string
+  rows: NotifyRow[]
+  prefs: Preferences
+  loading: boolean
+  onToggle: (key: keyof Preferences, value: boolean) => void
+}
+
+function ToggleSection({
+  title,
+  rows,
+  prefs,
+  loading,
+  onToggle,
+}: ToggleSectionProps) {
+  const intl = useIntl()
+  return (
+    <section aria-label={title}>
+      <h2 className='text-sm font-semibold text-foreground mb-2'>{title}</h2>
+      <div className='border border-border rounded-lg overflow-hidden bg-card mb-6'>
+        {rows.map((row, i) => (
+          <div
+            key={row.prefKey}
+            className={`flex items-center justify-between px-4 py-3 ${i < rows.length - 1 ? 'border-b border-border' : ''}`}
+          >
+            <p className='text-sm text-foreground'>
+              {intl.formatMessage({ id: row.labelId })}
+            </p>
+            <Switch
+              checked={prefs[row.prefKey] as boolean}
+              onCheckedChange={v => onToggle(row.prefKey, v)}
+              disabled={loading}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 export function NotificationsPage() {
   const { prefs, loading, updatePreferences } = usePreferences()
   const intl = useIntl()
+  const onToggle = (key: keyof Preferences, value: boolean) =>
+    updatePreferences({ [key]: value })
 
   return (
     <div className='h-full overflow-y-auto'>
@@ -53,49 +83,20 @@ export function NotificationsPage() {
           {intl.formatMessage({ id: 'notifications.subtitle' })}
         </p>
 
-        {/* In-App Notifications */}
-        <h2 className='text-sm font-semibold text-foreground mb-2'>
-          {intl.formatMessage({ id: 'notifications.inApp' })}
-        </h2>
-        <div className='border border-border rounded-lg overflow-hidden bg-card mb-6'>
-          {NOTIFY_EVENTS.map((evt, i) => (
-            <div
-              key={evt.inAppKey}
-              className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-border' : ''}`}
-            >
-              <p className='text-sm text-foreground'>
-                {intl.formatMessage({ id: evt.labelId })}
-              </p>
-              <Switch
-                checked={prefs[evt.inAppKey] as boolean}
-                onCheckedChange={v => updatePreferences({ [evt.inAppKey]: v })}
-                disabled={loading}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Slack Notifications */}
-        <h2 className='text-sm font-semibold text-foreground mb-2'>
-          {intl.formatMessage({ id: 'notifications.slack' })}
-        </h2>
-        <div className='border border-border rounded-lg overflow-hidden bg-card'>
-          {NOTIFY_EVENTS.map((evt, i) => (
-            <div
-              key={evt.slackKey}
-              className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-border' : ''}`}
-            >
-              <p className='text-sm text-foreground'>
-                {intl.formatMessage({ id: evt.labelId })}
-              </p>
-              <Switch
-                checked={prefs[evt.slackKey] as boolean}
-                onCheckedChange={v => updatePreferences({ [evt.slackKey]: v })}
-                disabled={loading}
-              />
-            </div>
-          ))}
-        </div>
+        <ToggleSection
+          title={intl.formatMessage({ id: 'notifications.inApp' })}
+          rows={IN_APP_EVENTS}
+          prefs={prefs}
+          loading={loading}
+          onToggle={onToggle}
+        />
+        <ToggleSection
+          title={intl.formatMessage({ id: 'notifications.slack' })}
+          rows={SLACK_EVENTS}
+          prefs={prefs}
+          loading={loading}
+          onToggle={onToggle}
+        />
       </div>
     </div>
   )

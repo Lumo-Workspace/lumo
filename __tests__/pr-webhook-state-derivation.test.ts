@@ -153,3 +153,47 @@ describe('pr webhook state derivation (LUM-828)', () => {
     )
   })
 })
+
+describe('PR Slack payloads (LUM-1095)', () => {
+  it('merged PR names the merger and the task as a generic entity', async () => {
+    await handlePullRequest(
+      payload('closed', { merged_by: { login: 'hubot' } }),
+      'ws-1',
+      null
+    )
+    expect(sendChannelNotification).toHaveBeenCalledWith(
+      'ws-1',
+      'pr_merged',
+      expect.objectContaining({
+        entityKind: 'task',
+        entityId: 'task-1',
+        entityTitle: 'x',
+        entityIdentifier: 'LUM-821',
+        actorName: 'hubot (GitHub)',
+        prNumber: 1071,
+        prUrl: 'https://github.com/a/b/pull/1071',
+      }),
+      'p1'
+    )
+  })
+
+  it('opened PR names the PR author', async () => {
+    findTaskByIdentifier.mockResolvedValue({ ...task, status: 'IN_PROGRESS' })
+    await handlePullRequest(
+      payload('opened', {
+        state: 'open',
+        merged: false,
+        merged_at: null,
+        closed_at: null,
+      }),
+      'ws-1',
+      null
+    )
+    expect(sendChannelNotification).toHaveBeenCalledWith(
+      'ws-1',
+      'pr_opened',
+      expect.objectContaining({ actorName: 'octocat (GitHub)' }),
+      'p1'
+    )
+  })
+})

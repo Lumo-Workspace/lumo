@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { prisma } from '@/lib/db/prisma'
 import type { WorkspaceRole } from '@prisma/client'
 import {
@@ -250,10 +251,7 @@ export const memberRepository = {
     try {
       const { createUserDirectory } = await import('@/lib/auth/users')
       const clerk = await createUserDirectory()
-      const { data: users } = await clerk.getUserList({
-        userId: clerkIds,
-        limit: Math.min(clerkIds.length, 500),
-      })
+      const users = await listUsersByIds(clerk, clerkIds)
 
       const labelByClerkId = new Map<string, string>()
       for (const u of users) {
@@ -388,14 +386,8 @@ export const memberRepository = {
 
     const { createUserDirectory } = await import('@/lib/auth/users')
     const clerk = await createUserDirectory()
-    // Clerk's `getUserList` accepts up to 500 per page. We're filtering by
-    // `userId` (exact-match list), so this `limit` is just a page-size cap,
-    // not a search-scope filter. Workspaces over 500 members would need
-    // pagination — out of scope for v1.
-    const { data: users } = await clerk.getUserList({
-      userId: clerkIds,
-      limit: Math.min(clerkIds.length, 500),
-    })
+    // Paged 100 ids per call (Clerk's `userId` filter cap), LUM-1105.
+    const users = await listUsersByIds(clerk, clerkIds)
 
     const profileByClerkId = new Map<
       string,

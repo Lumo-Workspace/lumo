@@ -3,12 +3,12 @@
  *
  * Barrel export verification for @/lib/integrations/slack.
  * Ensures all public functions, types, and constants are accessible from
- * the index — and confirms that the server-only `bot` / `slackAdapter`
- * are NOT re-exported here (they pull pure-ESM `chat` and
- * `@chat-adapter/slack` and must be imported directly from
- * `@/lib/integrations/slack/bot` per
- * MEMORY:project_integrations_barrel_rsc_boundary.md).
+ * the index. The unused Chat SDK adapter (`bot` / `slackAdapter`) and its
+ * `chat` / `@chat-adapter/slack` dependencies were removed in LUM-1098.
  */
+
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
 
 // Mock Prisma to avoid DB connection requirements
 jest.mock('@/lib/db/prisma', () => ({
@@ -29,9 +29,9 @@ describe('lib/integrations/slack barrel exports', () => {
     expect(slackModule.ALL_SLACK_EVENTS.length).toBeGreaterThan(0)
   })
 
-  it('exports SLACK_EVENT_LABELS as an object', () => {
-    expect(typeof slackModule.SLACK_EVENT_LABELS).toBe('object')
-    expect(slackModule.SLACK_EVENT_LABELS).not.toBeNull()
+  it('exports SLACK_EVENT_LABEL_KEYS as an object', () => {
+    expect(typeof slackModule.SLACK_EVENT_LABEL_KEYS).toBe('object')
+    expect(slackModule.SLACK_EVENT_LABEL_KEYS).not.toBeNull()
   })
 
   it('exports sendChannelNotification as a function', () => {
@@ -49,7 +49,7 @@ describe('lib/integrations/slack barrel exports', () => {
   it('exports all expected public names', () => {
     const expectedExports = [
       'ALL_SLACK_EVENTS',
-      'SLACK_EVENT_LABELS',
+      'SLACK_EVENT_LABEL_KEYS',
       'sendChannelNotification',
       'sendDMNotification',
       'handleCommand',
@@ -60,7 +60,18 @@ describe('lib/integrations/slack barrel exports', () => {
     }
   })
 
-  it('does NOT re-export bot or slackAdapter (pure-ESM deps leak into clients)', () => {
+  it('has no Chat SDK adapter file or dependency left (LUM-1098)', () => {
+    const root = join(__dirname, '../../../..')
+    expect(existsSync(join(root, 'lib/integrations/slack', 'bot.ts'))).toBe(
+      false
+    )
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+    expect(deps).not.toHaveProperty('chat')
+    expect(deps).not.toHaveProperty('@chat-adapter/slack')
+  })
+
+  it('does NOT export bot or slackAdapter', () => {
     expect((slackModule as Record<string, unknown>).bot).toBeUndefined()
     expect(
       (slackModule as Record<string, unknown>).slackAdapter
@@ -83,9 +94,16 @@ describe('lib/integrations/slack barrel exports', () => {
     }
   })
 
-  it('SLACK_EVENT_LABELS has a label for every event in ALL_SLACK_EVENTS', () => {
+  it('SLACK_EVENT_LABEL_KEYS names a translated label for every event (LUM-1097)', () => {
+    // Every locale catalogue carries the key (i18n parity test), so checking
+    // en and zh-CN here proves each event label is a real message id.
+    const en = require('@/lib/i18n/en.json') as Record<string, string>
+    const zh = require('@/lib/i18n/zh-CN.json') as Record<string, string>
     for (const event of slackModule.ALL_SLACK_EVENTS) {
-      expect(typeof slackModule.SLACK_EVENT_LABELS[event]).toBe('string')
+      const key = slackModule.SLACK_EVENT_LABEL_KEYS[event]
+      expect(typeof en[key]).toBe('string')
+      expect(typeof zh[key]).toBe('string')
+      expect(zh[key]).not.toBe(en[key])
     }
   })
 })

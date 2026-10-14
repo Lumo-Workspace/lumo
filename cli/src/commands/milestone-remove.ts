@@ -7,6 +7,7 @@ import {
   formatBatchSummary,
   type BatchOutcome,
 } from '../lib/milestone-batch'
+import { errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface MilestoneRemoveOptions {
   project?: string
@@ -30,7 +31,11 @@ async function resolveMilestoneName(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) {
-    throw new Error(`milestone ${id} not found (HTTP ${res.status})`)
+    throw new Error(
+      res.status === 404
+        ? `milestone ${id} not found`
+        : httpFailed(`milestone ${id} lookup`, res.status)
+    )
   }
   const { milestone } = (await res.json()) as { milestone: { name: string } }
   return milestone.name
@@ -49,7 +54,7 @@ export async function milestoneRemove(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -77,7 +82,7 @@ export async function milestoneRemove(
       { headers: { Authorization: `Bearer ${creds.token}` } }
     )
     if (!tasksRes.ok) {
-      throw new Error(`milestone tasks fetch failed (HTTP ${tasksRes.status})`)
+      throw new Error(httpFailed('milestone tasks fetch', tasksRes.status))
     }
     const body = (await tasksRes.json()) as { tasks: MilestoneTaskRow[] }
     milestoneTasks = body.tasks
@@ -105,7 +110,7 @@ export async function milestoneRemove(
       if (res.ok) {
         outcomes.push({ task: ref, status: 'ok' })
       } else {
-        let msg = `remove failed (HTTP ${res.status})`
+        let msg = httpFailed('remove', res.status)
         try {
           const errBody = (await res.json()) as { error?: string }
           if (errBody.error) msg = errBody.error

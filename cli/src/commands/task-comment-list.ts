@@ -1,3 +1,4 @@
+import { emptyState, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -6,11 +7,20 @@ import {
   truncateUnitsToBudget,
 } from '../../../shared/src/output-budget'
 import { shortCommentId } from '../lib/comment-ref'
+import { shellQuote } from '../lib/confirmation'
 import {
   LINKED_FENCE,
   fenceUntrustedText,
   linkedRetrievalPreamble,
 } from '../../../shared/src/untrusted-fence'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  buildCommand,
+  pageFooter,
+  paginate,
+  parsePageArgs,
+  type PageArgs,
+} from '../lib/pagination'
 
 interface ResolveResponse {
   id: string
@@ -64,7 +74,9 @@ function renderCommentBlock(c: CommentNode, indent: string): string {
   const author = sanitizeField(c.authorActorId ?? 'unknown')
   // `#<short id>` is the handle `task comment --reply-to` and
   // `task comments edit/rm` take (LUM-821).
-  lines.push(`${indent}#${shortCommentId(c.id)} · ${author} · ${c.createdAt}`)
+  lines.push(
+    `${indent}#${shortCommentId(c.id)} · ${author} · ${fmtTimestamp(c.createdAt)}`
+  )
   const text = sanitizeField(commentPlainText(c.body))
   for (const line of (text || '(empty)').split('\n')) {
     lines.push(`${indent}${line}`)
@@ -87,7 +99,7 @@ export function formatCommentThread(
   comments: CommentNode[],
   opts: CommentThreadOptions = {}
 ): string {
-  if (comments.length === 0) return '(no comments)'
+  if (comments.length === 0) return emptyState('comments')
   const blocks = comments.map(c => renderCommentBlock(c, ''))
   if (opts.full) return fenceCommentThread(blocks.join(COMMENT_SEPARATOR))
   const id = opts.identifier ?? '<LUM-N>'
@@ -140,18 +152,72 @@ function fenceCommentThread(text: string): string {
  * thread from `/api/tasks/:id/comments` and prints each top-level comment
  * (replies indented) as `author · time` followed by the plain-text body.
  */
+export interface TaskCommentListOptions {
+  full?: boolean | undefined
+  limit?: string | undefined
+  cursor?: string | undefined
+}
+
+/**
+ * LUM-1093: which top-level threads to print. `--full` alone keeps its
+ * "every comment" promise (no paging); otherwise threads are paged 50 at a
+ * time, replies travelling with their parent.
+ */
+export function commentPageArgs(
+  opts: TaskCommentListOptions
+): { ok: true; page: PageArgs | null } | { ok: false; error: string } {
+  if (opts.full && opts.limit === undefined && opts.cursor === undefined) {
+    return { ok: true, page: null }
+  }
+  const r = parsePageArgs(opts.limit, opts.cursor)
+  if (!r.ok) return r
+  return { ok: true, page: { limit: r.limit, offset: r.offset } }
+}
+
+/** The thread for one page plus the LUM-1093 footer (outside the fence). */
+export function formatCommentPage(
+  comments: CommentNode[],
+  page: PageArgs | null,
+  identifier: string,
+  opts: TaskCommentListOptions
+): string {
+  if (!page)
+    return formatCommentThread(comments, { full: opts.full, identifier })
+  const p = paginate(comments, page)
+  const footer = pageFooter(
+    { ...p, shown: p.items.length },
+    buildCommand(
+      `task comments list ${shellQuote(sanitizeField(identifier))}`,
+      [
+        ['--full', opts.full],
+        ['--limit', opts.limit],
+      ]
+    )
+  )
+  const body =
+    p.items.length === 0
+      ? '(no comments on this page)'
+      : formatCommentThread(p.items, { full: opts.full, identifier })
+  return [body, ...footer].join('\n')
+}
+
 export async function taskCommentList(
   identifier: string | undefined,
-  opts: { full?: boolean } = {}
+  opts: TaskCommentListOptions = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: usage: lumo task comments list <LUM-42>')
     return 1
   }
+  const paging = commentPageArgs(opts)
+  if (!paging.ok) {
+    console.error(`Error: ${paging.error}`)
+    return 1
+  }
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -172,7 +238,7 @@ export async function taskCommentList(
   }
 
   if (resolveRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (resolveRes.status === 404) {
@@ -182,7 +248,7 @@ export async function taskCommentList(
     return 1
   }
   if (!resolveRes.ok) {
-    console.error(`Error: resolve failed (HTTP ${resolveRes.status})`)
+    console.error(errHttp('resolve', resolveRes.status))
     return 1
   }
   const resolved = (await resolveRes.json()) as ResolveResponse
@@ -201,7 +267,7 @@ export async function taskCommentList(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -209,19 +275,16 @@ export async function taskCommentList(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: comments list failed (HTTP ${res.status})`)
+    console.error(errHttp('comments list', res.status))
     return 1
   }
 
   const { comments } = (await res.json()) as { comments: CommentNode[] }
   if (!comments || comments.length === 0) {
-    console.log('(no comments)')
+    console.log(emptyState('comments'))
     return
   }
   console.log(
-    formatCommentThread(comments, {
-      full: opts.full,
-      identifier: resolved.identifier,
-    })
+    formatCommentPage(comments, paging.page, resolved.identifier, opts)
   )
 }

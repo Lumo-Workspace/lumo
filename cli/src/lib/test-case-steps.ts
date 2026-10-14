@@ -1,3 +1,4 @@
+import { sanitizeField } from './sanitize'
 /**
  * LUM-1011: `lumo task testcase run --step / --step-evidence` 的解析，与
  * `testcase show` 的逐步结果打印。
@@ -179,7 +180,8 @@ export function formatStepResultLines(stepResults: unknown): string[] {
     const mark = r.status === 'PASS' ? '✓' : '✗'
     const duration =
       typeof r.durationMs === 'number' ? ` (${r.durationMs}ms)` : ''
-    const text = typeof r.text === 'string' && r.text ? `: ${r.text}` : ''
+    const text =
+      typeof r.text === 'string' && r.text ? `: ${sanitizeField(r.text)}` : ''
     lines.push(`    ${mark} ${label(r.phase, r.index)}${text}${duration}`)
   }
   return lines

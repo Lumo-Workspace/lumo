@@ -1,3 +1,4 @@
+import * as os from 'os'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -12,8 +13,12 @@ import {
 } from '../lib/session-id'
 import {
   codexHooksSilentWarning,
+  codexLikelyUntrustedEvents,
   codexSessionHasEvents,
+  codexUntrustedEventsWarning,
 } from '../lib/codex-hooks'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { cmd, hint } from '../lib/feedback'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -88,7 +93,7 @@ export async function sessionAttach(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -106,13 +111,19 @@ export async function sessionAttach(
 
   // LUM-1051: an untrusted Codex hook is skipped silently. Ask before binding
   // (the bind creates the session row) whether any hook event has arrived.
-  const codexHooksSilent =
-    isCodexShell() &&
-    (await codexSessionHasEvents({
-      base: trimTrailingSlash(apiUrl),
-      token: creds.token,
-      sessionId,
-    })) === false
+  const codexHasEvents = isCodexShell()
+    ? await codexSessionHasEvents({
+        base: trimTrailingSlash(apiUrl),
+        token: creds.token,
+        sessionId,
+      })
+    : null
+  const codexHooksSilent = codexHasEvents === false
+  // LUM-1112: some events arrive — name the Lumo events that look untrusted.
+  const codexUntrusted =
+    codexHasEvents === true
+      ? codexLikelyUntrustedEvents({ home: os.homedir(), cwd: process.cwd() })
+      : null
 
   let res: Response
   try {
@@ -135,7 +146,7 @@ export async function sessionAttach(
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -186,7 +197,7 @@ export async function sessionAttach(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: bind-task failed (HTTP ${res.status})`)
+    console.error(errHttp('bind-task', res.status))
     return 1
   }
 
@@ -205,6 +216,9 @@ export async function sessionAttach(
   if (codexHooksSilent) {
     console.log('')
     console.log(codexHooksSilentWarning())
+  } else if (codexUntrusted && codexUntrusted.length > 0) {
+    console.log('')
+    console.log(codexUntrustedEventsWarning(codexUntrusted))
   }
   // Warnings come before contract/memory: matches the hook injection order —
   // short, actionable information first.
@@ -222,9 +236,7 @@ export async function sessionAttach(
   // session start is re-read on every later step. One pointer instead; the
   // correctness signals above (blockers, security findings) stay.
   console.log('')
-  console.log(
-    `Background (team memory, test cases, sources, prior sessions): lumo task context ${body.taskIdentifier}`
-  )
+  console.log(formatBackgroundHint(body.taskIdentifier))
 
   // LUM-551: attach-triggered best-effort downsync. Resolve the bound task's
   // project and refresh team memory (throttle-gated inside autoDownsyncOnAttach).
@@ -308,7 +320,7 @@ async function stewardAttach(args: {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   // 400 (ambiguous reference) and 404 (no match) carry actionable server
@@ -345,7 +357,7 @@ async function stewardAttach(args: {
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: bind-milestone failed (HTTP ${res.status})`)
+    console.error(errHttp('bind-milestone', res.status))
     return 1
   }
 
@@ -370,4 +382,11 @@ async function stewardAttach(args: {
     console.log('')
     console.log(sanitizeField(body.stewardMemorySection))
   }
+}
+
+/** LUM-1092: the one pointer to `task context`, through the shared hint(). */
+export function formatBackgroundHint(taskIdentifier: string): string {
+  return hint(
+    `run ${cmd(`lumo task context ${taskIdentifier}`)} for background (team memory, test cases, sources, prior sessions)`
+  )
 }

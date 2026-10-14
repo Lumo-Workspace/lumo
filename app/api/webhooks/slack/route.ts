@@ -4,6 +4,10 @@ import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
 import { handleCommand, CommandResult } from '@/lib/integrations/slack'
 import {
+  sendMentionReply,
+  sendSlashCommandReply,
+} from '@/lib/integrations/slack/reply'
+import {
   isSlackResponseUrl,
   parseSlackRequestBody,
   verifySlackSignature,
@@ -17,13 +21,30 @@ interface SlackPayload {
   challenge?: string
   team_id?: string
   team?: { id?: string }
-  event?: { type?: string; text?: string; channel?: string; user?: string }
+  event?: {
+    type?: string
+    text?: string
+    channel?: string
+    user?: string
+    ts?: string
+    thread_ts?: string
+  }
   command?: string
   text?: string
   response_url?: string
   channel_id?: string
   user_id?: string
 }
+
+/**
+ * Retry reasons meaning the earlier delivery never reached this handler, so
+ * it never ran the command (Slack Events API `X-Slack-Retry-Reason`).
+ */
+const NEVER_DELIVERED_RETRY_REASONS = new Set([
+  'connection_failed',
+  'ssl_error',
+  'too_many_redirects',
+])
 
 export async function POST(request: NextRequest) {
   // LUM-1025: not configured on this deployment → 404, never a 500.
@@ -45,6 +66,25 @@ export async function POST(request: NextRequest) {
       )
     ) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    // 2b. A Slack retry (X-Slack-Retry-Num) usually means the first delivery
+    //     reached us but was not acknowledged within 3 s — it is still
+    //     running the command. Ack and drop the retry so a command never runs
+    //     twice (LUM-1115); no storage needed. X-Slack-No-Retry asks Slack to
+    //     stop re-sending. Only when Slack reports that the first delivery
+    //     never reached us (connection/TLS failure) is the retry processed.
+    const retryNum = request.headers.get('x-slack-retry-num')
+    const retryReason = request.headers.get('x-slack-retry-reason') ?? ''
+    if (retryNum && !NEVER_DELIVERED_RETRY_REASONS.has(retryReason)) {
+      logger.info('[slack webhook] dropped a Slack retry', {
+        retryNum,
+        reason: retryReason || null,
+      })
+      return new NextResponse(null, {
+        status: 200,
+        headers: { 'X-Slack-No-Retry': '1' },
+      })
     }
 
     // 3. Parse by Content-Type — only after the signature check above
@@ -81,6 +121,7 @@ export async function POST(request: NextRequest) {
     let responseUrl = ''
     let channelId = ''
     let slackUserId = ''
+    let threadTs: string | undefined
 
     if (
       payload.type === 'event_callback' &&
@@ -91,6 +132,8 @@ export async function POST(request: NextRequest) {
       commandText = raw.replace(/^<@[^>]+>\s*/, '').trim()
       channelId = payload.event.channel ?? ''
       slackUserId = payload.event.user ?? ''
+      // LUM-1096: answer in the mention's thread (or start one under it).
+      threadTs = payload.event.thread_ts ?? payload.event.ts
     } else if (payload.command) {
       // /lumo slash command — reply only to a Slack-hosted response_url
       if (!isSlackResponseUrl(payload.response_url)) {
@@ -106,39 +149,29 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Execute command asynchronously — must return 200 within 3 s for slash commands
+    // Never rejects: an error here is logged, and the webhook has already
+    // answered 200, so Slack does not retry (and re-run) the command.
     const executeCommand = async () => {
-      const result: CommandResult = await handleCommand(
-        commandText,
-        slackUserId,
-        token,
-        integration.workspaceId
-      )
+      try {
+        const result: CommandResult = await handleCommand(
+          commandText,
+          slackUserId,
+          token,
+          integration.workspaceId
+        )
 
-      const messageBody =
-        result.type === 'blocks'
-          ? { blocks: result.blocks }
-          : { text: result.text }
-
-      if (responseUrl) {
-        // Slash command response — post back to the response_url provided by Slack
-        await fetch(responseUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...messageBody,
-            response_type: 'in_channel',
-          }),
-        })
-      } else {
-        // Mention — reply in the same channel
-        await fetch('https://slack.com/api/chat.postMessage', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ channel: channelId, ...messageBody }),
-        })
+        // LUM-1094 text fallback + LUM-1096 visibility/thread live in reply.ts.
+        if (responseUrl) {
+          await sendSlashCommandReply(responseUrl, result)
+        } else {
+          await sendMentionReply(token, result, {
+            channel: channelId,
+            user: slackUserId,
+            threadTs,
+          })
+        }
+      } catch (error) {
+        logger.error('[slack webhook] command failed', error)
       }
     }
 

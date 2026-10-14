@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { notificationRepository } from '@/lib/repositories/notification.repository'
 import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
 import { buildMilestoneUrl } from '@/lib/utils/buildMilestoneUrl'
@@ -8,6 +9,7 @@ import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
 export {
   shouldNotify,
   shouldNotifyBatch,
+  shouldNotifySlackEvent,
 } from '@/lib/notifications/preferenceGate'
 
 export {
@@ -127,15 +129,9 @@ export const notificationService = {
     // Batch-fetch Clerk profiles for HUMAN trigger actors
     const { getUserDirectory } = await import('@/lib/auth/users')
     const clerk = await getUserDirectory()
-    const clerkUsers =
-      humanClerkIds.length > 0
-        ? await clerk.getUserList({
-            userId: humanClerkIds,
-            limit: humanClerkIds.length,
-          })
-        : { data: [] }
+    const clerkUsers = await listUsersByIds(clerk, humanClerkIds)
     const clerkUserMap = new Map(
-      clerkUsers.data.map(u => [
+      clerkUsers.map(u => [
         u.id,
         {
           name:

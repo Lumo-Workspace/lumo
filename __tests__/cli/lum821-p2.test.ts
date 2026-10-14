@@ -133,7 +133,7 @@ describe('task history', () => {
         a('ASSIGNEE_CHANGED', { fromActorId: null, toActorId: 'act-a' }),
         names
       )
-    ).toBe('assignee (none) → Alice')
+    ).toBe('assignee - → Alice')
     expect(
       describeActivity(
         a('TAGS_CHANGED', { added: ['bug'], removed: ['ux'] }),
@@ -145,7 +145,7 @@ describe('task history', () => {
         a('DUE_DATE_CHANGED', { from: null, to: localDayStart('2026-09-30') }),
         names
       )
-    ).toBe('due (none) → 2026-09-30')
+    ).toBe('due - → 2026-09-30')
     expect(describeActivity(a('SOMETHING_NEW', {}), names)).toBe(
       'something new'
     )
@@ -190,7 +190,11 @@ describe('task history', () => {
     expect(out).toContain('LUM-9 history (oldest first)')
     expect(out).toMatch(/Claude Code {2}status TODO → DONE/)
     expect(out).not.toContain('priority LOW')
-    expect(out).toContain('(1 earlier entries hidden — raise --limit)')
+    // LUM-1093: the hidden-entries note is now the paging footer.
+    expect(out).toContain('Showing 2-2 of 2.')
+    expect(out).toContain(
+      'Hint: earlier entries with `lumo task history LUM-9 --limit 1 --cursor 1`'
+    )
   })
 
   it('formatHistory of nothing reads "No history."', () => {

@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveSessionId } from '../lib/session-id'
 import { printStatusDigest } from '../lib/status-digest'
+import { sanitizeField } from '../lib/sanitize'
 import {
   splitCaseHandle,
   resolveRunLocator,
@@ -323,7 +324,7 @@ export async function taskTestCaseRun(
     })
   )
   if (r.data.run.failedStepText) {
-    console.log(`  at: ${r.data.run.failedStepText}`)
+    console.log(`  at: ${sanitizeField(r.data.run.failedStepText)}`)
   }
   if (actual !== null) console.log(`  actual: ${actual}`)
   if (stepResults.length > 0) {

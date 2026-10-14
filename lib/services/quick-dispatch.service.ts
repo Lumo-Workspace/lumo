@@ -3,6 +3,7 @@ import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { isAiUnavailableError } from '@/lib/ai/routing'
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { getUserDirectory } from '@/lib/auth/users'
 import { taskService } from '@/lib/services/task.service'
 import {
@@ -235,11 +236,11 @@ export const quickDispatchService = {
 
       // Build member names from Clerk
       const client = await getUserDirectory()
-      const clerkUsers = await client.getUserList({
-        userId: memberRows.map(m => m.clerkId),
-        limit: 100,
-      })
-      const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
+      const clerkUsers = await listUsersByIds(
+        client,
+        memberRows.map(m => m.clerkId)
+      )
+      const userMap = new Map(clerkUsers.map(u => [u.id, u]))
 
       const members = memberRows
         .filter(m => m.actor !== null)

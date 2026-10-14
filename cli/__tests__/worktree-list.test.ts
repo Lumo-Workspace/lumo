@@ -85,7 +85,7 @@ describe('worktreeList', () => {
     )
     expect(await worktreeList()).toBe(0)
     expect(logSpy.mock.calls.map(c => String(c[0])).join('\n')).toContain(
-      'no worktrees'
+      'No worktrees under .worktrees/.'
     )
   })
 })

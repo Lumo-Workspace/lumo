@@ -141,7 +141,7 @@ describe('skill rows and grouping', () => {
     expect(rowFor(r, old)).toMatchObject({
       group: 'machine',
       state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --upgrade',
+      suggestion: 'lumo init --user --agent codex',
     })
   })
 
@@ -331,7 +331,7 @@ describe('git hook', () => {
     )
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
       state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --upgrade',
+      suggestion: 'lumo init --project',
     })
   })
 
@@ -476,7 +476,8 @@ describe('doctor command', () => {
     expect(stdout).toContain('This machine')
     expect(stdout).toContain(up)
     expect(stdout).toContain('behind CLI 2.0.0')
-    expect(stdout).toContain('lumo init --upgrade')
+    expect(stdout).toContain('-> lumo init --user --agent claude-code')
+    expect(stdout).not.toContain('--upgrade')
     expect(stdout).toContain('lumo-not-on-path')
     expect(hashSkillDir(up)).toBe(before)
   })
@@ -525,10 +526,11 @@ describe('fix round 1', () => {
       JSON.stringify({ lastSyncedVersion: null, installs })
     )
 
-  it('shouldAutoSync skips doctor and uninstall only', () => {
+  it('shouldAutoSync skips doctor, uninstall and skill only', () => {
     const argv = (c?: string) => ['node', 'lumo', ...(c ? [c] : [])]
     expect(shouldAutoSync(argv('doctor'))).toBe(false)
     expect(shouldAutoSync(argv('uninstall'))).toBe(false)
+    expect(shouldAutoSync(argv('skill'))).toBe(false)
     expect(shouldAutoSync(argv('hook'))).toBe(true)
     expect(shouldAutoSync(argv('task'))).toBe(true)
     expect(shouldAutoSync(argv())).toBe(true)
@@ -562,6 +564,32 @@ describe('fix round 1', () => {
     })
     await doctor({}, f.deps)
     expect(stdout).toContain('Other repos')
+  })
+
+  it('a behind install in another repo is refreshed from inside that repo', () => {
+    const f = fixture()
+    const other = tmp()
+    const hook = join(other, '.git', 'hooks', 'prepare-commit-msg')
+    mkdirSync(join(hook, '..'), { recursive: true })
+    writeFileSync(
+      hook,
+      '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
+    )
+    writeRegistry([
+      {
+        kind: 'git-hook',
+        path: hook,
+        scope: 'project',
+        agent: 'git',
+        version: '1.0.0',
+        installedAt: 'x',
+      },
+    ])
+    expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
+      group: 'other-repos',
+      suggestion: 'lumo init --project',
+      detail: 'run the command in that repo',
+    })
   })
 
   it('warns about stale registry paths of every kind', () => {
@@ -658,7 +686,7 @@ describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
     expect(warn(r, 'missing-hook-events')).toHaveLength(0)
   })
 
-  it('flags missing Codex events with the upgrade command', () => {
+  it('flags missing Codex events with the init command for its scope', () => {
     const f = fixture()
     const p = join(f.home, '.codex', 'hooks.json')
     writeCodex(
@@ -667,7 +695,7 @@ describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
     )
     const r = collectDoctor(f.deps)
     const row = rowFor(r, p)!
-    expect(row.suggestion).toBe('lumo init --upgrade')
+    expect(row.suggestion).toBe('lumo init --user --agent codex')
     expect(row.detail).toContain('missing 1 hook event(s)')
     expect(
       warn(r, 'missing-hook-events').some(w => w.message.includes('Interrupt'))

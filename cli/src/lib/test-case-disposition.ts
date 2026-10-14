@@ -1,3 +1,4 @@
+import { fmtDay } from './format'
 /**
  * LUM-812: `lumo task testcase disposition` 的纯函数。
  *
@@ -173,9 +174,7 @@ export function formatDispositionLine(disposition: unknown): string | null {
   const channel =
     d.channel === 'CLI' || d.channel === 'WEB' ? ` via ${d.channel}` : ''
   const at =
-    typeof d.dispositionedAt === 'string'
-      ? ` ${d.dispositionedAt.slice(0, 10)}`
-      : ''
+    typeof d.dispositionedAt === 'string' ? ` ${fmtDay(d.dispositionedAt)}` : ''
   const note =
     typeof d.note === 'string' && d.note.trim()
       ? `  — ${sanitizeField(d.note.trim())}`

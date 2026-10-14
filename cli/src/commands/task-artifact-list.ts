@@ -1,9 +1,12 @@
+import { emptyState } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
-interface ArtifactRow {
+export interface ArtifactRow {
   id: string
   kind: string
   title: string
@@ -23,7 +26,7 @@ export async function taskArtifactList(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -41,7 +44,7 @@ export async function taskArtifactList(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (res.status === 404) {
@@ -51,19 +54,34 @@ export async function taskArtifactList(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: artifact list failed (HTTP ${res.status})`)
+    console.error(errHttp('artifact list', res.status))
     return 1
   }
 
   const { artifacts } = (await res.json()) as { artifacts: ArtifactRow[] }
   if (artifacts.length === 0) {
-    process.stdout.write(`No artifacts on ${identifier}\n`)
+    process.stdout.write(emptyState('artifacts', identifier) + '\n')
     return
   }
-  for (const a of artifacts) {
-    const agentLabel = AGENT_LABELS[a.agent] ?? sanitizeField(a.agent)
-    process.stdout.write(
-      `${a.id}  ${sanitizeField(a.kind).padEnd(10)}  ${agentLabel.padEnd(15)}  ${sanitizeField(a.source).padEnd(12)}  ${sanitizeField(a.title)}\n`
-    )
-  }
+  process.stdout.write(formatArtifactList(artifacts) + '\n')
+}
+
+/**
+ * LUM-1089: `<id>  <kind>  <agent>  <source>  <title>` as a table (header on
+ * a TTY only; the title is cut to the terminal width there).
+ */
+export function formatArtifactList(
+  artifacts: ArtifactRow[],
+  opts: ListRenderOptions = {}
+): string {
+  return renderListTable(
+    artifacts.map(a => [
+      a.id,
+      sanitizeField(a.kind),
+      AGENT_LABELS[a.agent] ?? sanitizeField(a.agent),
+      sanitizeField(a.source),
+      sanitizeField(a.title),
+    ]),
+    { header: ['ID', 'KIND', 'AGENT', 'SOURCE', 'TITLE'], flex: 4, ...opts }
+  )
 }

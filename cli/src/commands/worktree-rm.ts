@@ -13,6 +13,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { warn } from '../lib/errors'
 
 export interface WorktreeRmOptions extends ConfirmFlags {
   force?: boolean | undefined
@@ -135,7 +136,9 @@ export async function worktreeRm(
     const del = runGit(['branch', '-d', target.branch], root)
     if (del.status !== 0) {
       console.error(
-        `Warning: could not delete branch ${target.branch}: ${(del.stderr || '').trim()}`
+        warn(
+          `could not delete branch ${target.branch}: ${(del.stderr || '').trim()}`
+        )
       )
     } else {
       console.log(`✓ Deleted branch ${target.branch}`)

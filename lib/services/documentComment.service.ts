@@ -12,7 +12,6 @@ import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
 import { sanitizeCommentHtml } from '@/lib/html/sanitize-comment-html'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 
 type WaitUntil = (p: Promise<unknown>) => void
 
@@ -73,9 +72,11 @@ export const documentCommentService = {
 
     const docUrl = buildDocumentUrl(workspaceSlug, docSlug)
     const mentionPayload = {
-      taskTitle: docTitle,
-      taskUrl: docUrl,
-      commentBody: htmlToPreview(body),
+      entityKind: 'document' as const,
+      entityId: documentId,
+      entityTitle: docTitle,
+      entityUrl: docUrl,
+      mentionSurface: 'comment' as const,
     }
 
     // DM + inbox + realtime via the shared core (comment create ⇒ oldHtml = '').

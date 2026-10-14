@@ -5,8 +5,11 @@
  * agent no longer follows each of them with `lumo task status`.
  */
 import {
+  assessDigest,
+  digestClearsDone,
   fetchStatusDigest,
   formatStatusDigest,
+  readStatusDigest,
   type StatusRead,
 } from '../../src/lib/status-digest'
 import type { OpenCrossingsResult } from '../../src/lib/open-crossings'
@@ -185,5 +188,92 @@ describe('status digest', () => {
     } finally {
       global.fetch = saved
     }
+  })
+
+  // LUM-1106: the verdict `task update --status done` acts on for one step.
+  it('digest verdict clears DONE only when every read succeeded and nothing blocks', () => {
+    const clear = (input: Parameters<typeof assessDigest>[0]) =>
+      digestClearsDone(assessDigest(input))
+    const id = 'LUM-9'
+    expect(
+      clear({ identifier: id, status: status(), crossings: NO_CROSSINGS })
+    ).toBe(true)
+    // an advisory (non-blocking) crossing does not hold DONE
+    expect(
+      clear({
+        identifier: id,
+        status: status(),
+        crossings: {
+          status: 'ok',
+          gateEnabled: true,
+          crossings: [crossing('a', false)],
+        },
+      })
+    ).toBe(true)
+    expect(
+      clear({
+        identifier: id,
+        status: status(),
+        crossings: {
+          status: 'ok',
+          gateEnabled: true,
+          crossings: [crossing('b', true)],
+        },
+      })
+    ).toBe(false)
+    expect(
+      clear({
+        identifier: id,
+        status: { ok: false, reason: 'HTTP 500' },
+        crossings: NO_CROSSINGS,
+      })
+    ).toBe(false)
+    expect(
+      clear({
+        identifier: id,
+        status: status(),
+        crossings: { status: 'error', reason: 'x' },
+      })
+    ).toBe(false)
+    expect(
+      clear({
+        identifier: id,
+        status: status({ securityFindings: null }),
+        crossings: NO_CROSSINGS,
+      })
+    ).toBe(false)
+    expect(
+      clear({
+        identifier: id,
+        status: status({
+          nextActions: [
+            {
+              kind: 'TEST_CASE_VERDICT',
+              signal: 'PROVEN_DEFECT',
+              number: 1,
+              title: 't',
+              advisory: true,
+            },
+          ],
+        }),
+        crossings: NO_CROSSINGS,
+      })
+    ).toBe(false)
+  })
+
+  it('readStatusDigest returns the printed lines and the same verdict', async () => {
+    const fetchMock = jest.fn(async (url: string) =>
+      url.endsWith('/status')
+        ? {
+            ok: true,
+            status: 200,
+            json: async () => (status() as { value: unknown }).value,
+          }
+        : { ok: true, status: 200, json: async () => ({ crossings: [] }) }
+    )
+    global.fetch = fetchMock as unknown as typeof fetch
+    const r = await readStatusDigest('https://x', 'tok', 'LUM-9')
+    expect(r.clearsDone).toBe(true)
+    expect(r.lines).toContain('  Blocks DONE: nothing on record')
   })
 })

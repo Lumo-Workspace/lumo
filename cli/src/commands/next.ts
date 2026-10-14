@@ -1,12 +1,15 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { renderTaskTable } from '../lib/format'
+import type { ListRenderOptions } from '../lib/list-table'
 import { rankTasks, type NextTask, type RankedTask } from '../lib/rank-tasks'
 import { formatNextSteps } from '../lib/next-steps'
 import {
   filterClaimable,
   formatClaimableExclusions,
 } from '../lib/claimable-filter'
+import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
 
 export interface NextOptions {
   count?: string
@@ -43,7 +46,7 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
 
@@ -62,13 +65,17 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
       activeSprintIds = new Set(data.sprintIds)
     } else {
       console.error(
-        `Warning: could not load active sprints (HTTP ${res.status}); ranking without sprint boost.`
+        warn(
+          `could not load active sprints (HTTP ${res.status}); ranking without sprint boost.`
+        )
       )
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(
-      `Warning: could not load active sprints (${msg}); ranking without sprint boost.`
+      warn(
+        `could not load active sprints (${msg}); ranking without sprint boost.`
+      )
     )
   }
 
@@ -87,11 +94,11 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
   }
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: task fetch failed (HTTP ${res.status})`)
+    console.error(errHttp('task fetch', res.status))
     return 1
   }
 
@@ -106,7 +113,9 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
       // Older server predating F4 — degrade to the standard ranking with a
       // one-line notice rather than silently returning nothing.
       console.error(
-        'Note: `--claimable` needs an updated Lumo server; showing the standard ranking instead.'
+        warn(
+          '`--claimable` needs an updated Lumo server; showing the standard ranking instead.'
+        )
       )
     } else {
       const ranked = rankTasks(gate.kept, activeSprintIds, new Date()).slice(
@@ -153,16 +162,11 @@ export function formatNextOutput(
   ranked: RankedTask[],
   totalOpen: number,
   /** Noun for the "(of N <noun>)" header — 'claimable' for the gated view. */
-  poolNoun = 'open'
+  poolNoun = 'open',
+  opts: ListRenderOptions = {}
 ): string {
   const first = ranked[0]
-  if (!first) return 'No open tasks assigned to you. 🎉'
-
-  const widths = {
-    identifier: Math.max(...ranked.map(r => r.identifier.length)),
-    status: Math.max(...ranked.map(r => r.task.status.length)),
-    priority: Math.max(...ranked.map(r => r.task.priority.length)),
-  }
+  if (!first) return 'No open tasks assigned to you.'
 
   const plural = ranked.length === 1 ? '' : 's'
   const lines: string[] = [
@@ -170,13 +174,23 @@ export function formatNextOutput(
     '',
   ]
 
+  // LUM-1089: the shared task table; the rank rides in the id cell so the
+  // non-TTY rows keep their `1. LUM-42  …` shape. Each table row is followed
+  // by its reasons line; a TTY header (when present) comes first.
+  const table = renderTaskTable(
+    ranked.map((r, i) => ({
+      id: `${i + 1}. ${r.identifier}`,
+      status: r.task.status,
+      priority: r.task.priority,
+      title: sanitizeField(r.task.title),
+    })),
+    [],
+    { idHeader: 'TASK', ...opts }
+  ).split('\n')
+  const offset = table.length - ranked.length
+  lines.push(...table.slice(0, offset))
   ranked.forEach((r, i) => {
-    lines.push(
-      `${i + 1}. ${r.identifier.padEnd(widths.identifier)}  ` +
-        `${r.task.status.padEnd(widths.status)}  ` +
-        `${r.task.priority.padEnd(widths.priority)}  ` +
-        sanitizeField(r.task.title)
-    )
+    lines.push(table[offset + i] ?? '')
     lines.push(`     ↳ ${r.reasons.join(' · ')}`)
   })
 
@@ -192,7 +206,7 @@ export function formatNextOutput(
     ])
   )
   if (ranked.length > 1) {
-    lines.push('(or pick any other LUM-N from the list)')
+    lines.push('(or pick any other task from the list)')
   }
 
   return lines.join('\n')

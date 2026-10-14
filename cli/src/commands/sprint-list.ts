@@ -1,7 +1,10 @@
+import { emptyState, fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface SprintRow {
   id: string
@@ -24,29 +27,25 @@ export interface SprintListOptions {
 
 const VALID_STATUSES = ['DRAFT', 'ACTIVE', 'CLOSED'] as const
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '-'
-  return iso.slice(0, 10)
-}
-
 /**
- * Render sprints as fixed-width rows (server already sorts by number desc):
+ * Render sprints as a table (server already sorts by number desc; LUM-1089
+ * header on a TTY only):
  *   <STATUS>  #<number>  <start>..<end>  <name>
  */
-export function formatSprintList(rows: SprintRow[]): string {
-  if (rows.length === 0) return 'No sprints.'
-
-  const statusW = Math.max(...rows.map(r => r.status.length))
-  const numW = Math.max(...rows.map(r => String(r.number).length))
-
-  return rows
-    .map(r => {
-      const statusCol = r.status.padEnd(statusW)
-      const numCol = `#${r.number}`.padEnd(numW + 1) // +1 for the '#'
-      const dateRange = `${formatDate(r.startDate)}..${formatDate(r.endDate)}`
-      return `${statusCol}  ${numCol}  ${dateRange}  ${sanitizeField(r.name)}`
-    })
-    .join('\n')
+export function formatSprintList(
+  rows: SprintRow[],
+  opts: ListRenderOptions = {}
+): string {
+  if (rows.length === 0) return emptyState('sprints')
+  return renderListTable(
+    rows.map(r => [
+      r.status,
+      `#${r.number}`,
+      `${fmtCalendarDay(r.startDate)}..${fmtCalendarDay(r.endDate)}`,
+      sanitizeField(r.name),
+    ]),
+    { header: ['STATUS', 'SPRINT', 'DATES', 'NAME'], flex: 3, ...opts }
+  )
 }
 
 export async function sprintList(
@@ -64,7 +63,8 @@ export async function sprintList(
     }
   }
 
-  const limit = options.limit !== undefined ? parseInt(options.limit, 10) : undefined
+  const limit =
+    options.limit !== undefined ? parseInt(options.limit, 10) : undefined
   if (limit !== undefined && (Number.isNaN(limit) || limit < 1)) {
     console.error(
       `Error: invalid --limit "${options.limit}" (expected a positive integer)`
@@ -74,7 +74,7 @@ export async function sprintList(
 
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -102,11 +102,11 @@ export async function sprintList(
   })
 
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: sprint list failed (HTTP ${res.status})`)
+    console.error(errHttp('sprint list', res.status))
     return 1
   }
 

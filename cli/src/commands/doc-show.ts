@@ -1,3 +1,4 @@
+import { NONE, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { tiptapToMarkdown } from '../lib/markdown-tiptap'
@@ -5,6 +6,7 @@ import { extractSection, findSection } from '../lib/markdown-sections'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
 
 export interface ShowDocViewModel {
   id: string
@@ -30,9 +32,9 @@ export function formatShowOutput(vm: ShowDocViewModel): string {
     `ID: ${vm.id}`,
     `Title: ${sanitizeField(vm.title)}`,
     `Scope: ${scopeLabel(vm.scope)}`,
-    `Project: ${vm.projectName ? sanitizeField(vm.projectName) : '-'}`,
-    `Created: ${vm.createdAt}`,
-    `Updated: ${vm.updatedAt}`,
+    `Project: ${vm.projectName ? sanitizeField(vm.projectName) : NONE}`,
+    `Created: ${fmtTimestamp(vm.createdAt)}`,
+    `Updated: ${fmtTimestamp(vm.updatedAt)}`,
     `Revision: ${vm.revision ?? '-'}`,
     `Mentioned tasks: ${vm.mentionedTasks.length ? vm.mentionedTasks.join(', ') : '-'}`,
   ]
@@ -219,7 +221,7 @@ export async function docShow(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -235,9 +237,7 @@ export async function docShow(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(
-      `Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`
-    )
+    console.error(errHttp('doc show', res.status, text))
     return 1
   }
   // The exact shape of the GET response is not guaranteed; defensively unwrap.

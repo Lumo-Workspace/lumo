@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { getUserDirectory } from '@/lib/auth/users'
 import { documentRevisionRepository } from '@/lib/repositories/documentRevision.repository'
 import { documentRepository } from '@/lib/repositories/document.repository'
@@ -140,11 +141,7 @@ export const documentRevisionService = {
     >()
     if (clerkIds.length > 0) {
       const client = await getUserDirectory()
-      const users = await client.getUserList({
-        userId: clerkIds,
-        limit: clerkIds.length,
-      })
-      for (const u of users.data) {
+      for (const u of await listUsersByIds(client, clerkIds)) {
         const name =
           `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
           u.emailAddresses[0]?.emailAddress ||

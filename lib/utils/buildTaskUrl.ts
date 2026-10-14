@@ -27,3 +27,18 @@ export function buildTaskIdentifier(
 ): string {
   return `${teamIdentifier}-${taskNumber}`
 }
+
+/**
+ * URL of the My Tasks page, or of one task under it when `identifier` is
+ * given. `/my-tasks/{IDENTIFIER}` needs no project slug — the page redirects
+ * to the canonical project URL when the task is not the viewer's — so it is
+ * the link for a task whose project name is unknown (never `/projects//`).
+ */
+export function buildMyTasksUrl(
+  workspaceSlug: string,
+  identifier?: string
+): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const base = `${appUrl}/workspace/${workspaceSlug}/my-tasks`
+  return identifier ? `${base}/${identifier}` : base
+}

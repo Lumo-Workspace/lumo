@@ -354,9 +354,7 @@ describe('crossing disposition', () => {
     expect(
       fetchMock.mock.calls.some(([u]) => String(u).includes('/api/sessions/'))
     ).toBe(false)
-    expect(stderr.join('\n')).toContain(
-      'disposition rejected (HTTP 403) — nope'
-    )
+    expect(stderr.join('\n')).toContain('disposition failed (HTTP 403): nope')
   })
 
   it('fails closed when the crossing read errors: no envelope, no write, exit 1', async () => {
@@ -491,7 +489,7 @@ describe('crossing disposition', () => {
     })
     expect(code).toBe(1)
     expect(stderr.join('\n')).toMatch(
-      /disposition rejected \(HTTP 409\) — Refused: read not yet acknowledged.*--confirm-read/
+      /disposition failed \(HTTP 409\): Refused: read not yet acknowledged.*--confirm-read/
     )
   })
 
@@ -564,7 +562,7 @@ describe('crossing disposition', () => {
     })
     expect(code).toBe(1)
     expect(stderr.join('\n')).toMatch(
-      /disposition rejected \(HTTP 409\) — Refused: the read receipt has expired\. Re-run the command without --confirm/
+      /disposition failed \(HTTP 409\): Refused: the read receipt has expired\. Re-run the command without --confirm/
     )
   })
 })

@@ -4,6 +4,7 @@ import { taskQueryService } from '@/lib/services/task-query.service'
 import { workspaceTaskFiltersSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
 import { WORKSPACE_TASK_QUERY_LIMIT } from '@/lib/repositories/task.repository'
+import { readPageParams } from '@/lib/validation/pagination'
 
 function parseList(
   searchParams: URLSearchParams,
@@ -37,10 +38,26 @@ export async function GET(request: NextRequest) {
     })
     if (!parsed.success) return zodError(parsed)
 
+    const paging = readPageParams(searchParams)
+    if (!paging.ok) return zodError(paging)
+
     const { match, ...filters } = parsed.data
+    const query = { ...filters, ...(match === 'fuzzy' ? { fuzzy: true } : {}) }
+
+    // LUM-1093: `limit` / `cursor` switch to the paged shape (CLI task
+    // search); without them the web board keeps the capped full list.
+    if (paging.page) {
+      const result = await taskQueryService.findForWorkspacePage(
+        identity.workspaceId,
+        query,
+        paging.page
+      )
+      return NextResponse.json(result)
+    }
+
     const tasks = await taskQueryService.findForWorkspace(
       identity.workspaceId,
-      { ...filters, ...(match === 'fuzzy' ? { fuzzy: true } : {}) }
+      query
     )
 
     return NextResponse.json({

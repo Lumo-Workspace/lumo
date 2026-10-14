@@ -7,6 +7,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
 
 export interface DeleteSprintOptions extends ConfirmFlags {
   team?: string
@@ -32,7 +33,7 @@ export async function sprintDelete(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -65,11 +66,11 @@ export async function sprintDelete(
     return 1
   }
   if (showRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!showRes.ok) {
-    console.error(`Error: sprint fetch failed (HTTP ${showRes.status})`)
+    console.error(errHttp('sprint fetch', showRes.status))
     return 1
   }
   const { sprint, progress } = (await showRes.json()) as {
@@ -96,11 +97,11 @@ export async function sprintDelete(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
-    let errMsg = `sprint delete failed (HTTP ${res.status})`
+    let errMsg = httpFailed('sprint delete', res.status)
     try {
       const errBody = (await res.json()) as { error?: string }
       if (errBody.error) errMsg = errBody.error

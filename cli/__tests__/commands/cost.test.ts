@@ -1,7 +1,14 @@
 import {
   formatOperationCost,
+  resolveCostSince,
   type OperationCostResponse,
 } from '../../src/commands/cost'
+import { localDayStart } from '../../src/lib/local-day'
+
+jest.mock('../../src/lib/local-day', () => {
+  const actual = jest.requireActual('../../src/lib/local-day')
+  return { ...actual, localDayStart: jest.fn(actual.localDayStart) }
+})
 
 const data: OperationCostResponse = {
   version: 1,
@@ -69,6 +76,13 @@ describe('formatOperationCost', () => {
     expect(out.toLowerCase()).toContain('heuristic')
   })
 
+  it('prints the attribution caveat as a Note:, not a Hint: (LUM-1088)', () => {
+    const out = formatOperationCost(data, 'tool')
+    const line = out.split('\n').find(l => l.includes('heuristic'))
+    expect(line).toMatch(/^Note: token→tool attribution is heuristic/)
+    expect(out).not.toMatch(/^Hint:/m)
+  })
+
   it('prints the top commands under a Bash row', () => {
     const out = formatOperationCost(
       {
@@ -98,5 +112,72 @@ describe('formatOperationCost', () => {
     expect(parent).toBeGreaterThan(-1)
     expect(lines[parent + 1]).toMatch(/↳ tsc\s+.*60/)
     expect(lines[parent + 2]).toMatch(/↳ npm lint\s+.*30/)
+  })
+})
+
+describe('resolveCostSince (LUM-1124)', () => {
+  it('sends a bare day as the local midnight, not UTC midnight', () => {
+    const iso = resolveCostSince('2026-10-12')!.iso
+    // Whatever the shell's zone, the instant is the LOCAL start of the day.
+    expect(iso).toBe(new Date(2026, 9, 12).toISOString())
+    const d = new Date(iso)
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([
+      2026, 9, 12, 0,
+    ])
+  })
+
+  it('uses the shell-local day boundary, not UTC midnight (UTC+11)', () => {
+    // Pin the zone: what local-day returns for a UTC+11 shell. A UTC parse of
+    // the raw day would give 2026-10-12T00:00:00.000Z instead.
+    ;(localDayStart as jest.Mock).mockReturnValueOnce(
+      '2026-10-11T13:00:00.000Z'
+    )
+    expect(resolveCostSince('2026-10-12')).toEqual({
+      iso: '2026-10-11T13:00:00.000Z',
+      day: '2026-10-12',
+    })
+    expect(localDayStart).toHaveBeenLastCalledWith('2026-10-12')
+  })
+
+  it('passes a full ISO instant through untouched', () => {
+    expect(resolveCostSince('2026-10-11T13:00:00.000Z')).toEqual({
+      iso: '2026-10-11T13:00:00.000Z',
+      day: null,
+    })
+  })
+
+  it('rejects an impossible calendar day', () => {
+    expect(resolveCostSince('2026-02-31')).toBeNull()
+  })
+
+  it('rejects values that are neither a day nor a timestamp', () => {
+    expect(resolveCostSince('7d')).toBeNull()
+    expect(resolveCostSince('last week')).toBeNull()
+  })
+
+  it('normalizes a zone-less timestamp in the shell zone', () => {
+    expect(resolveCostSince('2026-10-12T09:30')).toEqual({
+      iso: new Date(2026, 9, 12, 9, 30).toISOString(),
+      day: null,
+    })
+  })
+})
+
+describe('formatOperationCost window title (LUM-1124)', () => {
+  const ws: OperationCostResponse = {
+    ...data,
+    scope: { kind: 'workspace', label: 'since 2026-10-11T13:00:00.000Z' },
+  }
+
+  it('titles the window with the local day the user asked for', () => {
+    const first = formatOperationCost(ws, 'tool', '2026-10-12').split('\n')[0]
+    expect(first).toBe('Per-operation cost — workspace since 2026-10-12')
+  })
+
+  it('falls back to the server label without a local day', () => {
+    const first = formatOperationCost(ws, 'tool').split('\n')[0]
+    expect(first).toBe(
+      'Per-operation cost — workspace since 2026-10-11T13:00:00.000Z'
+    )
   })
 })

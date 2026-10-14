@@ -1,71 +1,73 @@
 import { prisma } from '@/lib/db/prisma'
 import { decrypt } from '@/lib/crypto'
 import { getSlackIntegrationToken } from './token'
-import { escapeMrkdwn, mrkdwnLink } from './mrkdwn'
+import { SlackMessage } from './blocks'
+import { buildNotificationMessage } from './notification-message'
+import { slackLocaleService } from '@/lib/services/slack-locale.service'
+import type { SlackLocale } from './i18n'
 import {
   SlackEventType,
+  NotificationAudience,
   NotificationPayload,
-  SLACK_EVENT_LABELS,
 } from './types'
 
-const EMOJI: Record<SlackEventType, string> = {
-  task_created: '🆕',
-  task_assigned: '👤',
-  task_in_review: '🔍',
-  task_done: '✅',
-  task_sent_back: '↩️',
-  pr_opened: '🔀',
-  pr_merged: '🎉',
-  comment_mention: '💬',
+/** Display name for a Clerk ID, or null when the directory cannot say. */
+async function lookupDisplayName(clerkId: string): Promise<string | null> {
+  try {
+    const { getClerkUser } = await import('@/lib/utils/clerk-helpers')
+    const { name } = await getClerkUser(clerkId)
+    return name && name !== 'Unknown' ? name : null
+  } catch {
+    return null
+  }
 }
 
-function buildBlocks(
+/** Most mentioned people looked up (and listed) for one channel post. */
+export const MAX_MENTIONED_NAMES = 10
+
+/**
+ * Fill in display names the caller only knew by Clerk ID (the actor, and the
+ * people a mention named). A failed lookup just leaves the name out.
+ */
+async function resolveNames(
   event: SlackEventType,
-  payload: NotificationPayload
-): object[] {
-  const emoji = EMOJI[event]
-  const label = SLACK_EVENT_LABELS[event]
-  const url = payload.taskUrl
+  payload: NotificationPayload,
+  audience: NotificationAudience
+): Promise<NotificationPayload> {
+  const needActor = !payload.actorName?.trim() && !!payload.actorClerkId
+  // Only channel mention posts list who was mentioned; a DM's recipient is
+  // the one, and other events never show the list.
+  const mentionedIds =
+    event !== 'comment_mention' ||
+    audience === 'dm' ||
+    (payload.mentionedNames?.length ?? 0) > 0
+      ? []
+      : (payload.mentionedClerkIds ?? []).slice(0, MAX_MENTIONED_NAMES)
+  if (!needActor && mentionedIds.length === 0) return payload
 
-  // LUM-928: every interpolated value is user- or GitHub-controlled — escape
-  // it so it cannot inject <!channel>/<!here> pings or disguised links.
-  const lines: string[] = [`${emoji} *${label}*`]
-  if (payload.taskIdentifier && payload.taskTitle) {
-    lines.push(
-      `${escapeMrkdwn(payload.taskIdentifier)} · ${escapeMrkdwn(payload.taskTitle)}`
-    )
-  }
-  if (payload.actorName) lines.push(`_by ${escapeMrkdwn(payload.actorName)}_`)
-  if (payload.prTitle) {
-    const prLabel = `#${payload.prNumber} ${payload.prTitle}`
-    lines.push(
-      payload.prUrl
-        ? `PR: ${mrkdwnLink(payload.prUrl, prLabel)}`
-        : `PR: ${escapeMrkdwn(prLabel)}`
-    )
-  }
-  if (payload.commentBody) {
-    lines.push(`> ${escapeMrkdwn(payload.commentBody.slice(0, 120))}`)
-  }
+  const [actorName, mentionedNames] = await Promise.all([
+    needActor ? lookupDisplayName(payload.actorClerkId!) : null,
+    Promise.all(mentionedIds.map(lookupDisplayName)),
+  ])
+  const resolved: NotificationPayload = { ...payload }
+  if (actorName) resolved.actorName = actorName
+  const names = mentionedNames.filter((n): n is string => !!n)
+  if (names.length > 0) resolved.mentionedNames = names
+  return resolved
+}
 
-  const blocks: object[] = [
-    { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
-  ]
-
-  if (url) {
-    blocks.push({
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: 'Open in Lumo ↗' },
-          url,
-        },
-      ],
-    })
-  }
-
-  return blocks
+async function buildMessage(
+  event: SlackEventType,
+  payload: NotificationPayload,
+  audience: NotificationAudience,
+  locale: SlackLocale
+): Promise<SlackMessage> {
+  return buildNotificationMessage(
+    event,
+    await resolveNames(event, payload, audience),
+    audience,
+    locale
+  )
 }
 
 async function getIntegrationToken(
@@ -78,7 +80,7 @@ async function getIntegrationToken(
 async function postToChannel(
   token: string,
   channelId: string,
-  blocks: object[]
+  message: SlackMessage
 ): Promise<void> {
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
@@ -86,7 +88,7 @@ async function postToChannel(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ channel: channelId, blocks }),
+    body: JSON.stringify({ channel: channelId, ...message }),
   })
   const data = await res.json().catch(() => ({}))
   if (!(data as { ok?: boolean }).ok) {
@@ -126,7 +128,8 @@ async function lookupSlackUserByClerkId(
 
 /**
  * Send a notification to all configured SlackChannel rows that have this
- * event enabled. Fire-and-forget safe — never throws.
+ * event enabled, in the workspace's default language (LUM-1097).
+ * Fire-and-forget safe — never throws.
  */
 export async function sendChannelNotification(
   workspaceId: string,
@@ -150,10 +153,11 @@ export async function sendChannelNotification(
     if (!integration || integration.channels.length === 0) return
 
     const token = decrypt(integration.accessToken)
-    const blocks = buildBlocks(event, payload)
+    const locale = await slackLocaleService.forWorkspace(workspaceId)
+    const message = await buildMessage(event, payload, 'channel', locale)
 
     await Promise.allSettled(
-      integration.channels.map(c => postToChannel(token, c.channelId, blocks))
+      integration.channels.map(c => postToChannel(token, c.channelId, message))
     )
   } catch (error) {
     console.error(
@@ -164,7 +168,8 @@ export async function sendChannelNotification(
 }
 
 /**
- * Send a DM to a Lumo workspace member identified by Clerk ID.
+ * Send a DM to a Lumo workspace member identified by Clerk ID, in their own
+ * language — the workspace default when they have none (LUM-1097).
  * Resolves their Slack user via primary email. Gracefully no-ops if not found.
  * Fire-and-forget safe — never throws.
  */
@@ -193,8 +198,12 @@ export async function sendDMNotification(
     const openData = await openRes.json()
     if (!openData.ok) return
 
-    const blocks = buildBlocks(event, payload)
-    await postToChannel(token, openData.channel.id, blocks)
+    const locale = await slackLocaleService.forRecipient(
+      workspaceId,
+      recipientClerkId
+    )
+    const message = await buildMessage(event, payload, 'dm', locale)
+    await postToChannel(token, openData.channel.id, message)
   } catch (error) {
     console.error(`[slack notify] sendDMNotification error (${event}):`, error)
   }

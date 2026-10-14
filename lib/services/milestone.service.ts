@@ -40,7 +40,6 @@ import {
 import { buildMilestoneUrl } from '@/lib/utils/buildMilestoneUrl'
 import { getActorClerkId } from '@/lib/actor'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
-import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { waitUntil } from '@/lib/runtime/wait-until'
 
 interface CreateInput {
@@ -590,9 +589,11 @@ export const milestoneService = {
               ref: { milestoneId: updated.id },
               slackEvent: 'comment_mention',
               slackPayload: {
-                taskTitle: updated.name,
-                taskUrl: milestoneUrl,
-                commentBody: htmlToPreview(newHtml),
+                entityKind: 'milestone',
+                entityId: updated.id,
+                entityTitle: updated.name,
+                entityUrl: milestoneUrl,
+                mentionSurface: 'content',
               },
               waitUntil,
             })

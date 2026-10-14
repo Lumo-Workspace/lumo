@@ -18,6 +18,7 @@ import {
 } from '../lib/crossing-handshake'
 import { crossingDispositionBatch } from './crossing-disposition-batch'
 import { resolveSessionId } from '../lib/session-id'
+import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 export type { CrossingDispositionTarget, CrossingForDisposition }
 
@@ -219,7 +220,7 @@ export async function crossingDisposition(
   }
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -350,7 +351,7 @@ export async function crossingDisposition(
     return 1
   }
   if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    console.error(errAuth())
     return 1
   }
   if (!res.ok) {
@@ -358,12 +359,8 @@ export async function crossingDisposition(
       error?: unknown
     } | null
     const detail =
-      errBody && typeof errBody.error === 'string'
-        ? sanitizeField(errBody.error)
-        : ''
-    console.error(
-      `Error: disposition rejected (HTTP ${res.status})${detail ? ` — ${detail}` : ''}`
-    )
+      errBody && typeof errBody.error === 'string' ? errBody.error : null
+    console.error(errHttp('disposition', res.status, detail))
     return 1
   }
 

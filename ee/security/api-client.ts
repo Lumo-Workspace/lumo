@@ -9,9 +9,11 @@ import type {
   SecurityScanSettings,
   SecurityScanSettingsUpdate,
 } from '@/ee/security/services/security-scan-settings.service'
+import type { PolicyCoverage } from '@/ee/security/services/policy-coverage.service'
 
 export const SECURITY_API = {
   workspaceSecurityScan: '/api/workspaces/me/security-scan',
+  workspacePolicyCoverage: '/api/workspaces/me/policy-coverage',
   taskSecurityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,
   securityFindingDisposition: (taskId: string, findingId: string) =>
     `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,
@@ -26,6 +28,11 @@ export const securityScanClient = {
       method: 'PATCH',
       body: data,
     })
+  },
+
+  /** LUM-1114: per project, the rules no detector checks automatically. */
+  policyCoverage() {
+    return apiFetch<PolicyCoverage>(SECURITY_API.workspacePolicyCoverage)
   },
 
   /** LUM-732: latest security scan per linked PR + DONE-blocking count. */

@@ -14,6 +14,7 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
+import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   auditList,
   auditQuery,
@@ -114,14 +115,24 @@ describe('lumo audit list', () => {
       (calls[0]?.init?.headers as Record<string, string>).Authorization
     ).toBe('Bearer tok')
     expect(out).toContain(
-      '2026-10-04 15:54Z  member.role_changed     Alice Chen <alice@example.com>  member m_2   WEB     203.0.113.9'
+      `${fmtTimestamp('2026-10-04T15:54:00.000Z')}  member.role_changed     Alice Chen <alice@example.com>  member m_2   WEB     203.0.113.9`
     )
     expect(out).toContain(
-      '2026-10-03 01:02Z  github_app.uninstalled  system                          integration  SYSTEM  -'
+      `${fmtTimestamp('2026-10-03T01:02:00.000Z')}  github_app.uninstalled  system                          integration  SYSTEM  -`
     )
     expect(out).toContain(
-      'More events: lumo audit list --action "member" --since "7d" --cursor CUR123'
+      'Hint: more events with `lumo audit list --action member --since 7d --cursor CUR123`'
     )
+  })
+
+  // LUM-1116: values are shell-quoted only when they need it.
+  it('lumo audit list: next-page hint carries bare values, quoting only unsafe ones', async () => {
+    serve(page)
+    await auditList({ limit: '2', actor: 'Alice Chen' })
+    expect(out).toContain(
+      "Hint: more events with `lumo audit list --actor 'Alice Chen' --limit 2 --cursor CUR123`"
+    )
+    expect(out).not.toContain('"2"')
   })
 
   it('lumo audit list: --json prints the page as returned', async () => {

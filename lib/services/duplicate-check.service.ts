@@ -1,3 +1,4 @@
+import { listUsersByIds } from '@/lib/auth/user-batch'
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -71,12 +72,9 @@ A score of 1.0 means exact duplicate, 0.8+ means very similar, 0.5-0.8 means rel
     try {
       const { getUserDirectory } = await import('@/lib/auth/users')
       const client = await getUserDirectory()
-      const users = await client.getUserList({
-        userId: uniqueClerkIds,
-        limit: uniqueClerkIds.length,
-      })
+      const users = await listUsersByIds(client, uniqueClerkIds)
       clerkNameMap = new Map(
-        users.data.map(u => [
+        users.map(u => [
           u.id,
           [u.firstName, u.lastName].filter(Boolean).join(' ') ||
             u.username ||

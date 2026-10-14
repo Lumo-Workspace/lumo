@@ -1,9 +1,21 @@
+import { emptyState, fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
-
-type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
+import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import {
+  buildCommand,
+  pageFooter,
+  paginate,
+  parsePageArgs,
+} from '../lib/pagination'
+import {
+  formatHealth,
+  milestoneState,
+  type MilestoneHealth,
+} from '../lib/milestone-labels'
 
 interface MilestoneRow {
   id: string
@@ -21,36 +33,17 @@ interface MilestonesResponse {
   milestones: MilestoneRow[]
 }
 
-const HEALTH_LABEL: Record<MilestoneHealth, string> = {
-  'on-track': 'ON-TRACK',
-  'at-risk': 'AT-RISK',
-  overdue: 'OVERDUE',
-}
-
-function formatHealth(health: MilestoneHealth | null | undefined): string {
-  return health ? HEALTH_LABEL[health] : '-'
-}
-
 export interface MilestoneListOptions {
   project?: string | undefined
   archived?: boolean | undefined
   all?: boolean | undefined
   search?: string | undefined
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '-'
-  return iso.slice(0, 10)
-}
-
-/** LUM-714: the milestone's state, folded from its two timestamps. */
-function rowState(r: MilestoneRow): string {
-  if (r.archivedAt) return 'ARCHIVED'
-  return r.completedAt ? 'COMPLETED' : 'ACTIVE'
+  limit?: string | undefined
+  cursor?: string | undefined
 }
 
 /**
- * Render milestones as fixed-width rows:
+ * Render milestones as a table (LUM-1089, header on a TTY only):
  *   <STATE>  <HEALTH>  <target-date or ->  <name>
  *
  * STATE is ACTIVE / COMPLETED / ARCHIVED (LUM-714) — derived, never stored.
@@ -59,17 +52,20 @@ function rowState(r: MilestoneRow): string {
  *
  * Sorted server-side by targetDate asc nulls last, createdAt asc.
  */
-export function formatMilestoneList(rows: MilestoneRow[]): string {
-  if (rows.length === 0) return 'No milestones.'
-  const stateW = Math.max(...rows.map(r => rowState(r).length))
-  const healthW = Math.max(...rows.map(r => formatHealth(r.health).length))
-  const dateW = Math.max(...rows.map(r => formatDate(r.targetDate).length))
-  return rows
-    .map(
-      r =>
-        `${rowState(r).padEnd(stateW)}  ${formatHealth(r.health).padEnd(healthW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${sanitizeField(r.name)}`
-    )
-    .join('\n')
+export function formatMilestoneList(
+  rows: MilestoneRow[],
+  opts: ListRenderOptions = {}
+): string {
+  if (rows.length === 0) return emptyState('milestones')
+  return renderListTable(
+    rows.map(r => [
+      milestoneState(r),
+      formatHealth(r.health),
+      fmtCalendarDay(r.targetDate),
+      sanitizeField(r.name),
+    ]),
+    { header: ['STATE', 'HEALTH', 'TARGET', 'NAME'], flex: 3, ...opts }
+  )
 }
 
 export async function milestoneList(
@@ -77,7 +73,7 @@ export async function milestoneList(
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
-    console.error('Error: not logged in. Run `lumo auth login` first.')
+    console.error(errNotLoggedIn())
     return 1
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -97,6 +93,11 @@ export async function milestoneList(
     return 1
   }
   const filter = options.all ? 'all' : options.archived ? 'archived' : 'active'
+  const pageArgs = parsePageArgs(options.limit, options.cursor)
+  if (!pageArgs.ok) {
+    console.error(`Error: ${pageArgs.error}`)
+    return 1
+  }
 
   const query = new URLSearchParams({ filter })
   const term = options.search?.trim()
@@ -107,9 +108,27 @@ export async function milestoneList(
     { headers: { Authorization: `Bearer ${creds.token}` } }
   )
   if (!res.ok) {
-    console.error(`Error: milestone list failed (HTTP ${res.status})`)
+    console.error(errHttp('milestone list', res.status))
     return 1
   }
   const data = (await res.json()) as MilestonesResponse
-  process.stdout.write(formatMilestoneList(data.milestones) + '\n')
+  // LUM-1093: the route returns the project's whole (filtered) list, so the
+  // page is cut here.
+  const page = paginate(data.milestones, pageArgs)
+  const lines = [
+    page.items.length === 0 && page.total > 0
+      ? 'No milestones on this page.'
+      : formatMilestoneList(page.items),
+    ...pageFooter(
+      { ...page, shown: page.items.length },
+      buildCommand('milestone list', [
+        ['--project', options.project],
+        ['--archived', options.archived],
+        ['--all', options.all],
+        ['--search', options.search],
+        ['--limit', options.limit],
+      ])
+    ),
+  ]
+  process.stdout.write(lines.join('\n') + '\n')
 }
