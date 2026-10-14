@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "자동(공개는 로컬, 비공개는 전역)",
   "workspaceSettings.securityScan.learningsScope.local": "로컬 — 이 저장소만",
   "workspaceSettings.securityScan.learningsScope.global": "전역 — 이 워크스페이스의 모든 저장소",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "공개 저장소도 포함됩니다. GitHub에 공개로 게시되는 리뷰가 비공개 저장소의 학습 내용을 활용할 수 있습니다.",
   "workspaceSettings.securityScan.platformOff": "현재 Lumo가 모든 워크스페이스에서 이 기능을 꺼 두었습니다.",
   "workspaceSettings.securityScan.updated": "보안 스캔 설정을 저장했습니다",
   "workspaceSettings.securityScan.updateFailed": "보안 스캔 설정을 저장하지 못했습니다",

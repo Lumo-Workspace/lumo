@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "Otomatis (lokal untuk publik, global untuk privat)",
   "workspaceSettings.securityScan.learningsScope.local": "Lokal — hanya repositori ini",
   "workspaceSettings.securityScan.learningsScope.global": "Global — semua repositori di ruang kerja ini",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "Repositori publik juga: tinjauannya, yang diposting secara publik di GitHub, dapat memanfaatkan pembelajaran dari repositori privat Anda.",
   "workspaceSettings.securityScan.platformOff": "Saat ini dimatikan oleh Lumo untuk semua workspace.",
   "workspaceSettings.securityScan.updated": "Pengaturan pemindaian keamanan disimpan",
   "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan pengaturan pemindaian keamanan",

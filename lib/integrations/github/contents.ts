@@ -483,8 +483,11 @@ export async function fetchDefaultBranchHead(opts: {
  * `public` only on GitHub's explicit `private` flag (an internal repository
  * reports `private: true`), `unknown` on anything else — a refused mint
  * (unconfirmed repository, LUM-883), a non-2xx, a network error or a missing
- * field. One metadata-only token, revoked after. Never throws.
+ * field or a timeout (5s). One metadata-only token, revoked after. Never
+ * throws.
  */
+const REPO_VISIBILITY_TIMEOUT_MS = 5_000
+
 export async function fetchRepoVisibility(opts: {
   workspaceId: string
   fullName: string
@@ -503,6 +506,8 @@ export async function fetchRepoVisibility(opts: {
     const [owner, repo] = splitFullName(opts.fullName)
     const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` },
+      // On the review's critical path: a slow GitHub costs at most this.
+      signal: AbortSignal.timeout(REPO_VISIBILITY_TIMEOUT_MS),
     })
     if (!res.ok) return 'unknown'
     const body = (await res.json()) as { private?: unknown }

@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "Auto (local for public, global for private)",
   "workspaceSettings.securityScan.learningsScope.local": "Local — this repository only",
   "workspaceSettings.securityScan.learningsScope.global": "Global — every repository in this workspace",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "Public repositories too: their reviews, posted publicly on GitHub, may draw on learnings from your private repositories.",
   "workspaceSettings.securityScan.platformOff": "Currently turned off for all workspaces by Lumo.",
   "workspaceSettings.securityScan.updated": "Security scan settings saved",
   "workspaceSettings.securityScan.updateFailed": "Failed to save security scan settings",

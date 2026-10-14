@@ -240,3 +240,14 @@ describe('LUM-1134 learnings scope', () => {
     expect(scope()).toBeDisabled()
   })
 })
+
+it('LUM-1134 choosing global warns that public repositories may draw on private ones', () => {
+  renderCard()
+  expect(screen.queryByTestId('learnings-scope-global-warning')).toBeNull()
+  fireEvent.change(screen.getByRole('combobox', { name: 'Learnings scope' }), {
+    target: { value: 'global' },
+  })
+  expect(
+    screen.getByTestId('learnings-scope-global-warning').textContent
+  ).toMatch(/public repositories/i)
+})

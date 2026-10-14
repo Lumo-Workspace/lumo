@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "自動（公開儲存庫為本地，私有儲存庫為全域）",
   "workspaceSettings.securityScan.learningsScope.local": "本地 — 僅本儲存庫",
   "workspaceSettings.securityScan.learningsScope.global": "全域 — 本工作區所有儲存庫",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "公開儲存庫也一樣：它們在 GitHub 上公開發布的審查可能會用到你的私有儲存庫中的經驗。",
   "workspaceSettings.securityScan.platformOff": "Lumo 目前已對所有工作區關閉此項。",
   "workspaceSettings.securityScan.updated": "安全掃描設定已儲存",
   "workspaceSettings.securityScan.updateFailed": "儲存安全掃描設定失敗",

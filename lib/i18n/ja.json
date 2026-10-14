@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "自動（公開はローカル、非公開はグローバル）",
   "workspaceSettings.securityScan.learningsScope.local": "ローカル — このリポジトリのみ",
   "workspaceSettings.securityScan.learningsScope.global": "グローバル — このワークスペースのすべてのリポジトリ",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "公開リポジトリも対象です。GitHub に公開で投稿されるそのレビューが、非公開リポジトリの学習内容を利用する可能性があります。",
   "workspaceSettings.securityScan.platformOff": "現在、Lumo によりすべてのワークスペースでオフになっています。",
   "workspaceSettings.securityScan.updated": "セキュリティスキャンの設定を保存しました",
   "workspaceSettings.securityScan.updateFailed": "セキュリティスキャンの設定を保存できませんでした",

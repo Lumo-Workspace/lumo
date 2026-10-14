@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "Tự động (cục bộ cho kho công khai, toàn cục cho kho riêng tư)",
   "workspaceSettings.securityScan.learningsScope.local": "Cục bộ — chỉ kho mã này",
   "workspaceSettings.securityScan.learningsScope.global": "Toàn cục — mọi kho mã trong không gian làm việc này",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "Cả kho mã công khai: các đánh giá của chúng, được đăng công khai trên GitHub, có thể dựa vào bài học từ các kho mã riêng tư của bạn.",
   "workspaceSettings.securityScan.platformOff": "Hiện Lumo đang tắt tính năng này cho mọi không gian làm việc.",
   "workspaceSettings.securityScan.updated": "Đã lưu cài đặt quét bảo mật",
   "workspaceSettings.securityScan.updateFailed": "Không lưu được cài đặt quét bảo mật",

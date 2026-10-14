@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "Automatique (local si public, global si privé)",
   "workspaceSettings.securityScan.learningsScope.local": "Local — ce dépôt uniquement",
   "workspaceSettings.securityScan.learningsScope.global": "Global — tous les dépôts de cet espace de travail",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "Les dépôts publics aussi : leurs revues, publiées publiquement sur GitHub, peuvent s'appuyer sur les apprentissages de vos dépôts privés.",
   "workspaceSettings.securityScan.platformOff": "Actuellement désactivé par Lumo pour tous les espaces de travail.",
   "workspaceSettings.securityScan.updated": "Paramètres d'analyse de sécurité enregistrés",
   "workspaceSettings.securityScan.updateFailed": "Échec de l'enregistrement des paramètres d'analyse de sécurité",

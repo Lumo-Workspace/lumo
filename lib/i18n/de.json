@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "Automatisch (lokal bei öffentlichen, global bei privaten)",
   "workspaceSettings.securityScan.learningsScope.local": "Lokal – nur dieses Repository",
   "workspaceSettings.securityScan.learningsScope.global": "Global – alle Repositorys dieses Workspaces",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "Auch öffentliche Repositorys: Ihre öffentlich auf GitHub veröffentlichten Reviews können Learnings aus Ihren privaten Repositorys nutzen.",
   "workspaceSettings.securityScan.platformOff": "Derzeit von Lumo für alle Workspaces deaktiviert.",
   "workspaceSettings.securityScan.updated": "Einstellungen für den Sicherheitsscan gespeichert",
   "workspaceSettings.securityScan.updateFailed": "Einstellungen für den Sicherheitsscan konnten nicht gespeichert werden",

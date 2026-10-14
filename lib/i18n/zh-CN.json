@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "自动（公开仓库为本地，私有仓库为全局）",
   "workspaceSettings.securityScan.learningsScope.local": "本地 — 仅本仓库",
   "workspaceSettings.securityScan.learningsScope.global": "全局 — 本工作区所有仓库",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "公开仓库也一样：它们在 GitHub 上公开发布的评审可能会用到你的私有仓库中的经验。",
   "workspaceSettings.securityScan.platformOff": "Lumo 目前已对所有工作区关闭此项。",
   "workspaceSettings.securityScan.updated": "安全扫描设置已保存",
   "workspaceSettings.securityScan.updateFailed": "保存安全扫描设置失败",

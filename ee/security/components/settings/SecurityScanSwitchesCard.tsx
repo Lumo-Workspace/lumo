@@ -73,6 +73,8 @@ interface ScopeRowProps {
   value: LearningsScope
   disabled: boolean
   optionLabel: (scope: LearningsScope) => string
+  /** Shown while `global` is chosen (the CLI's confirmation, in words). */
+  globalWarning: string
   onChange: (next: LearningsScope) => void
 }
 
@@ -83,6 +85,7 @@ function ScopeRow({
   value,
   disabled,
   optionLabel,
+  globalWarning,
   onChange,
 }: ScopeRowProps) {
   return (
@@ -95,6 +98,15 @@ function ScopeRow({
           {label}
         </label>
         <p className='text-xs text-muted-foreground mt-0.5'>{description}</p>
+        {value === 'global' && (
+          <p
+            role='alert'
+            data-testid='learnings-scope-global-warning'
+            className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-xs text-warning-text'
+          >
+            {globalWarning}
+          </p>
+        )}
       </div>
       <select
         id='security-learnings-scope'
@@ -234,6 +246,7 @@ export function SecurityScanSwitchesCard({
         value={switches.securityLearningsScope}
         disabled={saving || !scanOn || !switches.securityAiReviewEnabled}
         optionLabel={scope => t(`learningsScope.${scope}`)}
+        globalWarning={t('learningsScope.globalWarning')}
         onChange={next =>
           setSwitches(prev => ({ ...prev, securityLearningsScope: next }))
         }

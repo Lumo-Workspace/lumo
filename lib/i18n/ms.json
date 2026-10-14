@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "Automatik (setempat untuk awam, global untuk peribadi)",
   "workspaceSettings.securityScan.learningsScope.local": "Setempat — repositori ini sahaja",
   "workspaceSettings.securityScan.learningsScope.global": "Global — semua repositori dalam ruang kerja ini",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "Repositori awam juga: semakannya, yang disiarkan secara terbuka di GitHub, mungkin menggunakan pembelajaran daripada repositori peribadi anda.",
   "workspaceSettings.securityScan.platformOff": "Kini dimatikan oleh Lumo untuk semua ruang kerja.",
   "workspaceSettings.securityScan.updated": "Tetapan imbasan keselamatan disimpan",
   "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan tetapan imbasan keselamatan",

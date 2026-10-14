@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "Автоматически (локально для публичных, глобально для приватных)",
   "workspaceSettings.securityScan.learningsScope.local": "Локально — только этот репозиторий",
   "workspaceSettings.securityScan.learningsScope.global": "Глобально — все репозитории этого рабочего пространства",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "Включая публичные репозитории: их ревью, публикуемые открыто на GitHub, могут опираться на усвоенные правила из ваших приватных репозиториев.",
   "workspaceSettings.securityScan.platformOff": "Сейчас отключено Lumo для всех рабочих пространств.",
   "workspaceSettings.securityScan.updated": "Настройки проверки безопасности сохранены",
   "workspaceSettings.securityScan.updateFailed": "Не удалось сохранить настройки проверки безопасности",

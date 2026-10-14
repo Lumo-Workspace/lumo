@@ -51,6 +51,8 @@ it('reads `private` from the repository record with a metadata-only token, then 
     })
   )
   expect(mockRevoke).toHaveBeenCalledWith('ghs_meta')
+  // On the review's critical path: bounded by a timeout.
+  expect(fetchMock.mock.calls[0]![1].signal).toBeInstanceOf(AbortSignal)
 })
 
 it('public only on an explicit `private: false`', async () => {
@@ -70,4 +72,14 @@ it('unknown on a missing field, a non-2xx, a network error or a refused mint', a
   )
   await expect(fetchRepoVisibility(repo)).resolves.toBe('unknown')
   expect(fetchMock).toHaveBeenCalledTimes(3)
+})
+
+it('a request that times out (aborted) is unknown, and the token is still revoked', async () => {
+  fetchMock.mockRejectedValueOnce(
+    Object.assign(new Error('The operation was aborted'), {
+      name: 'TimeoutError',
+    })
+  )
+  await expect(fetchRepoVisibility(repo)).resolves.toBe('unknown')
+  expect(mockRevoke).toHaveBeenCalledWith('ghs_meta')
 })

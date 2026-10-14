@@ -2431,6 +2431,7 @@
   "workspaceSettings.securityScan.learningsScope.auto": "स्वचालित (सार्वजनिक के लिए स्थानीय, निजी के लिए वैश्विक)",
   "workspaceSettings.securityScan.learningsScope.local": "स्थानीय — केवल यह रिपॉज़िटरी",
   "workspaceSettings.securityScan.learningsScope.global": "वैश्विक — इस वर्कस्पेस की सभी रिपॉज़िटरी",
+  "workspaceSettings.securityScan.learningsScope.globalWarning": "सार्वजनिक रिपॉज़िटरी भी: GitHub पर सार्वजनिक रूप से पोस्ट होने वाली उनकी समीक्षाएँ आपकी निजी रिपॉज़िटरी की सीख का उपयोग कर सकती हैं।",
   "workspaceSettings.securityScan.platformOff": "फ़िलहाल Lumo ने इसे सभी वर्कस्पेस के लिए बंद किया हुआ है।",
   "workspaceSettings.securityScan.updated": "सुरक्षा स्कैन सेटिंग्स सहेजी गईं",
   "workspaceSettings.securityScan.updateFailed": "सुरक्षा स्कैन सेटिंग्स सहेजी नहीं जा सकीं",
