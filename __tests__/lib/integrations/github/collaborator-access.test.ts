@@ -7,6 +7,7 @@
  */
 import {
   checkRepositoryReadAccess,
+  checkRepositoryWriteAccess,
   lookupGitHubUser,
 } from '@/lib/integrations/github/collaborator-access'
 
@@ -115,6 +116,50 @@ describe('lookupGitHubUser', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.github.com/user/7')
     expect(fetchMock.mock.calls[1][0]).toBe(
       'https://api.github.com/users/o%2Fcto'
+    )
+  })
+})
+
+describe('checkRepositoryWriteAccess (LUM-1129)', () => {
+  it('asks the permission endpoint for the login', async () => {
+    reply(200, { permission: 'write' })
+    await checkRepositoryWriteAccess('tok', 'acme/web', 'octo cat')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe(
+      'https://api.github.com/repos/acme/web/collaborators/octo%20cat/permission'
+    )
+    expect(init.headers.Authorization).toBe('Bearer tok')
+  })
+
+  it.each(['write', 'maintain', 'admin'])('%s may push', async permission => {
+    reply(200, { permission })
+    expect(await checkRepositoryWriteAccess('t', 'acme/web', 'octo')).toBe(
+      'write'
+    )
+  })
+
+  it.each(['read', 'triage', 'none', 'mystery'])(
+    '%s may not push',
+    async permission => {
+      reply(200, { permission })
+      expect(await checkRepositoryWriteAccess('t', 'acme/web', 'octo')).toBe(
+        'no_write'
+      )
+    }
+  )
+
+  it('404 is no access; other failures are unknown', async () => {
+    reply(404, {})
+    expect(await checkRepositoryWriteAccess('t', 'acme/web', 'octo')).toBe(
+      'no_write'
+    )
+    reply(500, {})
+    expect(await checkRepositoryWriteAccess('t', 'acme/web', 'octo')).toBe(
+      'unknown'
+    )
+    fetchMock.mockRejectedValueOnce(new Error('network'))
+    expect(await checkRepositoryWriteAccess('t', 'acme/web', 'octo')).toBe(
+      'unknown'
     )
   })
 })

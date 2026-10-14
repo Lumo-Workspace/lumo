@@ -757,3 +757,89 @@ export async function applyReviewThreadEvent(
   }
   return changed ? 'recorded' : 'unchanged'
 }
+
+// ── Command side (LUM-1129 `@<app> resolve`) ────────────────────────────────
+
+export interface ResolveByCommandInput {
+  pullRequestId: string
+  repo: { owner: string; name: string }
+  prNumber: number
+  /** Installation token with `pull_requests: write`. */
+  token: string
+  /** The GitHub login that asked — recorded as the thread's resolver. */
+  login: string
+  /** Fingerprints whose thread must stay open: their finding blocks DONE. */
+  keep: ReadonlySet<string>
+}
+
+export interface ResolveByCommandResult {
+  resolved: number
+  /** Left open because the finding blocks DONE. */
+  kept: number
+  failed: number
+}
+
+/**
+ * `@<app> resolve`: resolve every open Lumo thread on the PR on the asker's
+ * behalf — recorded as their resolve (`RESOLVED_BY_USER`), so the next sync
+ * never re-posts it. Conversation only: no finding's disposition is touched,
+ * and a thread whose finding blocks DONE (`keep`) is left open, because
+ * resolving it would hide a finding that still gates the task — those are
+ * cleared by `lumo finding disposition` or the web panel. A GitHub failure
+ * on one thread is counted, not thrown; only a failed row read throws.
+ */
+export async function resolveThreadsByCommand(
+  input: ResolveByCommandInput
+): Promise<ResolveByCommandResult> {
+  const result: ResolveByCommandResult = { resolved: 0, kept: 0, failed: 0 }
+  const open = (
+    await prFindingThreadRepository.findByPullRequest(input.pullRequestId)
+  ).filter(r => r.state === 'OPEN')
+  const targets = open.filter(r => !input.keep.has(r.fingerprint))
+  result.kept = open.length - targets.length
+  if (targets.length === 0) return result
+
+  let remote: Map<string, ReviewThreadState> | null = null
+  try {
+    const threads = await reviewThreadClient.listReviewThreads({
+      repo: input.repo,
+      prNumber: input.prNumber,
+      token: input.token,
+    })
+    remote = new Map(
+      threads
+        .filter(t => t.firstCommentId !== null)
+        .map(t => [String(t.firstCommentId), t])
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-finding-thread] command thread read failed pr=#${input.prNumber}: ${describe(error)}`
+    )
+  }
+
+  for (const row of targets) {
+    const r = remote?.get(row.commentId) ?? null
+    const threadId = r?.id ?? row.threadNodeId
+    if (!threadId) {
+      result.failed += 1
+      continue
+    }
+    try {
+      if (!r?.isResolved)
+        await reviewThreadClient.resolveThread({ threadId, token: input.token })
+      await prFindingThreadRepository.update(row.id, {
+        state: 'RESOLVED_BY_USER',
+        resolvedByLogin: input.login,
+        resolvedAt: new Date(),
+        threadNodeId: threadId,
+      })
+      result.resolved += 1
+    } catch (error) {
+      result.failed += 1
+      logger.warn(
+        `[pr-finding-thread] command resolve failed fp=${row.fingerprint}: ${describe(error)}`
+      )
+    }
+  }
+  return result
+}

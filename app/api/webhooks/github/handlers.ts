@@ -433,7 +433,11 @@ export async function handleIssueComment(
   _integrationId: string | null
 ): Promise<void> {
   const issue = payload.issue as
-    | { number: number; pull_request?: unknown }
+    | {
+        number: number
+        pull_request?: unknown
+        user?: { login?: string } | null
+      }
     | undefined
   if (!issue?.pull_request) return // real issue, not a PR
   const repo = (payload.repository as { full_name?: string } | undefined)
@@ -444,7 +448,40 @@ export async function handleIssueComment(
     repo,
     issue.number
   )
-  if (!pr?.taskId) return
+  // A PR Lumo holds no row for: nothing to mirror, nothing to command.
+  if (!pr) return
+  // LUM-1129: any PR row — `@<app> review` must work on a PR with no task.
+  const comment = (payload.comment ?? {}) as {
+    id?: number
+    body?: string
+    created_at?: string
+    user?: { login?: string; type?: string } | null
+  }
+  if (typeof comment.id === 'number') {
+    const user = comment.user ?? null
+    emitCoreEvent('github.issueComment', {
+      workspaceId,
+      pullRequestId: pr.id,
+      repo,
+      prNumber: issue.number,
+      action: typeof payload.action === 'string' ? payload.action : 'created',
+      comment: {
+        id: comment.id,
+        body: typeof comment.body === 'string' ? comment.body : '',
+        createdAt:
+          typeof comment.created_at === 'string' ? comment.created_at : null,
+        user: user
+          ? {
+              ...(typeof user.login === 'string' ? { login: user.login } : {}),
+              ...(typeof user.type === 'string' ? { type: user.type } : {}),
+            }
+          : null,
+      },
+      prAuthorLogin:
+        typeof issue.user?.login === 'string' ? issue.user.login : null,
+    })
+  }
+  if (!pr.taskId) return
   await prCommentMirrorService.runInbound({
     event: 'issue_comment',
     action: (payload.action as InboundAction) ?? 'created',

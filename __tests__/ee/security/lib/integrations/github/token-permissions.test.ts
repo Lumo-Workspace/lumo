@@ -16,6 +16,11 @@ const SERVICE_SETS: Record<string, string[]> = {
     'pullRequestWrite',
     'pullRequestWrite',
   ],
+  // LUM-1129: the commenter's write-access check, then the reply.
+  'ee/security/services/pr-command.service.ts': [
+    'collaboratorPermission',
+    'pullRequestWrite',
+  ],
 }
 
 it('mints with the narrowed permission set: security plugin services (source table)', () => {

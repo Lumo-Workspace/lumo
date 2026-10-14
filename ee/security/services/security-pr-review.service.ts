@@ -48,6 +48,7 @@ import type {
 import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
 import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/ee/security/services/security-suggest.config'
+import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
 import {
   isVerifierRejected,
   verifierAppliesTo,
@@ -432,6 +433,11 @@ export interface SummaryInput {
    * Lumo as addressed, resolved by a human on GitHub. Absent = no line.
    */
   threads?: ThreadCounts
+  /**
+   * LUM-1129 — the App's mention handle (`@uselumo`) when PR comment
+   * commands are on; absent/null = the summary mentions the CLI only.
+   */
+  commandHandle?: string | null
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -449,6 +455,21 @@ export function threadsLine(threads: ThreadCounts | undefined): string | null {
   // open says nothing the open-findings verdict above does not.
   if (!threads || threads.addressed + threads.resolved === 0) return null
   return `**Review threads:** ${threads.open} open · ${threads.addressed} addressed · ${threads.resolved} resolved on GitHub`
+}
+
+/** LUM-1129 — the reviewer commands a PR comment takes, folded. */
+export function commandsBlock(handle: string): string {
+  const rows = [
+    ['review', 'incremental review of the changes since the last complete one'],
+    ['full review', 'review the whole PR again'],
+    ['pause', 'stop automatic AI reviews on new pushes'],
+    ['resume', 'resume them and reset the round budget'],
+    [
+      'resolve',
+      "resolve Lumo's open threads (findings that block DONE stay open)",
+    ],
+  ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
+  return `<details>\n<summary>Lumo commands</summary>\n\nComment on this PR (write access required):\n\n${rows.join('\n')}\n\n</details>`
 }
 
 /** LUM-740 — the suggested-false-positive line. */
@@ -656,8 +677,11 @@ export function buildSummary(input: SummaryInput): string {
       input.prNumber && input.repo
         ? `lumo pr scan ${input.prNumber} --repo ${sanitizeField(input.repo)} --review incremental`
         : 'lumo pr scan <number> --repo <owner/repo> --review incremental'
+    const h = input.commandHandle
     notices.push(
-      `- Automatic AI checks are paused or their round budget is exhausted. This commit has not been fully reviewed. Request an incremental review with \`${command}\`, or use \`--review full\`. Use \`--resume\` to reset the automatic round budget.`
+      h
+        ? `- Automatic AI checks are paused or their round budget is exhausted. This commit has not been fully reviewed. Comment \`${h} review\` for an incremental review or \`${h} full review\`, and \`${h} resume\` to reset the automatic round budget (CLI: \`${command}\`).`
+        : `- Automatic AI checks are paused or their round budget is exhausted. This commit has not been fully reviewed. Request an incremental review with \`${command}\`, or use \`--review full\`. Use \`--resume\` to reset the automatic round budget.`
     )
   }
   // With findings open, the owned note still has to be said once.
@@ -692,6 +716,9 @@ export function buildSummary(input: SummaryInput): string {
       `<details>\n<summary>What was checked</summary>\n\n${layers.join('\n')}\n\n</details>`
     )
   }
+
+  // LUM-1129: the PR comment commands, folded like the layer detail.
+  if (input.commandHandle) blocks.push(commandsBlock(input.commandHandle))
 
   const sha = input.headSha.slice(0, 7)
   const footer = [
@@ -1097,6 +1124,7 @@ export const securityPrReviewService = {
         verifierRejected,
         error: scan.error,
         taskUrl: taskUrlOf(pr),
+        commandHandle: prCommandHandle(),
         prSummary: scan.prSummary,
         // LUM-849: the rows a reader acts on — LOW and suggested false
         // positives stay off the diff, so they stay off this line too.

@@ -34,6 +34,9 @@ jest.mock('@/ee/security/services/security-baseline.service', () => ({
 jest.mock('@/ee/security/services/pr-finding-thread.service', () => ({
   applyReviewThreadEvent: jest.fn().mockResolvedValue('recorded'),
 }))
+jest.mock('@/ee/security/services/pr-command.service', () => ({
+  applyPrCommentCommand: jest.fn().mockResolvedValue('done'),
+}))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
 }))
@@ -57,6 +60,7 @@ import { securityBaselineService } from '@/ee/security/services/security-baselin
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
 import { applyReviewThreadEvent } from '@/ee/security/services/pr-finding-thread.service'
+import { applyPrCommentCommand } from '@/ee/security/services/pr-command.service'
 
 const reminder = prSecurityReminderService as unknown as Record<
   string,
@@ -78,6 +82,7 @@ it('is the one installed plugin and registers every server extension point', () 
   expect(registry.handlersFor('github.pullRequest')).toHaveLength(1)
   expect(registry.handlersFor('github.push')).toHaveLength(1)
   expect(registry.handlersFor('github.reviewThread')).toHaveLength(1)
+  expect(registry.handlersFor('github.issueComment')).toHaveLength(1)
   expect(registry.handlersFor('task.prLinked')).toHaveLength(1)
 })
 
@@ -219,6 +224,47 @@ describe('events', () => {
     expect(mockWaitUntil).toHaveBeenCalledTimes(1)
     await mockWaitUntil.mock.results[0]!.value
     expect(applyReviewThreadEvent).toHaveBeenCalledWith(event)
+  })
+
+  describe('LUM-1129: PR comment commands', () => {
+    const OLD_SLUG = process.env.GITHUB_APP_SLUG
+    afterEach(() => {
+      if (OLD_SLUG === undefined) delete process.env.GITHUB_APP_SLUG
+      else process.env.GITHUB_APP_SLUG = OLD_SLUG
+    })
+    const comment = (body: string, action = 'created') => ({
+      workspaceId: 'w-1',
+      pullRequestId: 'pr-1',
+      repo: 'o/r',
+      prNumber: 7,
+      action,
+      comment: {
+        id: 1,
+        body,
+        createdAt: null,
+        user: { login: 'alice', type: 'User' },
+      },
+      prAuthorLogin: 'bob',
+    })
+
+    it('a command comment is applied by the command service, with waitUntil', async () => {
+      process.env.GITHUB_APP_SLUG = 'uselumo'
+      const event = comment('@uselumo pause')
+      emitCoreEvent('github.issueComment', event)
+      expect(mockWaitUntil).toHaveBeenCalledTimes(1)
+      await mockWaitUntil.mock.results[0]!.value
+      expect(applyPrCommentCommand).toHaveBeenCalledWith(event)
+    })
+
+    it('an ordinary comment, an edit, or no configured slug loads nothing', () => {
+      process.env.GITHUB_APP_SLUG = 'uselumo'
+      emitCoreEvent('github.issueComment', comment('LGTM, thanks'))
+      emitCoreEvent('github.issueComment', comment('@uselumo pause', 'edited'))
+      delete process.env.GITHUB_APP_SLUG
+      emitCoreEvent('github.issueComment', comment('@uselumo pause'))
+      expect(mockWaitUntil).not.toHaveBeenCalled()
+      expect(applyPrCommentCommand).not.toHaveBeenCalled()
+    })
   })
 
   it('a failing baseline request is logged, never thrown', async () => {
