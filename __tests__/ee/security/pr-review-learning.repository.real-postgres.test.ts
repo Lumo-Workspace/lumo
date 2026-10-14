@@ -6,6 +6,18 @@
  * reads never cross workspaces, a reply makes at most one learning, and a
  * thread answers each reply once.
  */
+// The poison gate's policy read fans out concurrently, which the single-
+// connection PGlite harness cannot serve; the gate has its own tests.
+jest.mock('@/lib/services/memory/write-gate', () => ({
+  loadMemoryWriteGate: async () => ({
+    screen: () => ({ ok: true, signals: null }),
+  }),
+}))
+jest.mock('@/lib/ai/embedding', () => ({
+  embedTexts: async () => {
+    throw new Error('no gateway in tests')
+  },
+}))
 import { createPgliteHarness } from '../../../scripts/test-support/pglite-harness'
 const { PrismaClient } =
   jest.requireActual<typeof import('@prisma/client')>('@prisma/client')
@@ -21,7 +33,11 @@ import {
 } from '@/ee/security/repositories/pr-review-learning.repository'
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
-import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
+import {
+  loadReviewLearnings,
+  promoteLearningsOnMerge,
+} from '@/ee/security/services/review-learnings.service'
+import { memoryManagementService } from '@/lib/services/memory-management.service'
 
 jest.setTimeout(180_000)
 
@@ -156,6 +172,7 @@ test('an edit in the memory is what the review reads; only relevant globs are ke
   const block = await loadReviewLearnings({
     workspaceId: 'ws',
     repo: 'o/r',
+    pullRequestId: 'pr',
     reviewedPaths: ['scripts/admin/run.ts'],
   })
   expect(block).toContain(
@@ -214,4 +231,155 @@ test('claimReply answers each reply once', async () => {
   await expect(
     prFindingThreadRepository.claimReply(row!.id, '556')
   ).resolves.toBe(true)
+})
+
+const NEW_CONTENT = {
+  summary: 'PR review learning: atomic',
+  rule: 'Atomic learning text for the transaction test.',
+  scope: 'Lumo AI review of o/r',
+}
+const countMemories = async (rule: string) =>
+  (await harness.prisma!.memory.findMany({ select: { content: true } })).filter(
+    m => (m.content as { rule?: string }).rule === rule
+  ).length
+
+test('memory and learning scope land in one transaction: a failing scope write leaves no orphan memory', async () => {
+  await expect(
+    memoryManagementService.createReviewLearning(
+      {
+        projectId: 'p1',
+        workspaceId: 'ws',
+        content: NEW_CONTENT,
+        actorMemberId: null,
+      },
+      async (memoryId, tx) => {
+        // The scope row is written, then the write fails: both roll back.
+        // (A thrown error, not a constraint violation: the single-connection
+        // PGlite harness cannot recover from a server-side aborted tx.)
+        await repo.create(learning({ memoryId, sourceReplyId: 'atomic-0' }), tx)
+        throw new Error('scope write failed')
+      }
+    )
+  ).rejects.toThrow('scope write failed')
+  expect(await countMemories(NEW_CONTENT.rule)).toBe(0)
+  await expect(repo.findBySourceReply('ws', 'atomic-0')).resolves.toBeNull()
+
+  const { id } = await memoryManagementService.createReviewLearning(
+    {
+      projectId: 'p1',
+      workspaceId: 'ws',
+      content: NEW_CONTENT,
+      actorMemberId: null,
+    },
+    async (memoryId, tx) => {
+      await repo.create(learning({ memoryId, sourceReplyId: 'atomic-1' }), tx)
+    }
+  )
+  expect(await countMemories(NEW_CONTENT.rule)).toBe(1)
+  await expect(repo.findBySourceReply('ws', 'atomic-1')).resolves.toEqual({
+    id: expect.any(String),
+    memoryId: id,
+  })
+})
+
+test('releaseReply gives a failed reply back, only while it holds the claim', async () => {
+  const [row] = await prFindingThreadRepository.findByPullRequest('pr')
+  await prFindingThreadRepository.claimReply(row!.id, '700')
+  await prFindingThreadRepository.releaseReply(row!.id, '700')
+  await expect(
+    prFindingThreadRepository.claimReply(row!.id, '700')
+  ).resolves.toBe(true)
+  // A newer reply's claim is not released by an older reply's failure.
+  await prFindingThreadRepository.claimReply(row!.id, '701')
+  await prFindingThreadRepository.releaseReply(row!.id, '700')
+  await expect(
+    prFindingThreadRepository.claimReply(row!.id, '701')
+  ).resolves.toBe(false)
+})
+
+describe('LUM-1131 scope: CodeRabbit learnings rules', () => {
+  const RULE = 'Scope rule learning from PR 20.'
+  const review = (pullRequestId: string) =>
+    loadReviewLearnings({
+      workspaceId: 'ws',
+      repo: 'o/scope',
+      pullRequestId,
+      reviewedPaths: ['src/a.ts'],
+    })
+
+  beforeAll(async () => {
+    for (const [id, number, state] of [
+      ['pr-src', 20, 'open'],
+      ['pr-other', 21, 'open'],
+      ['pr-closed', 22, 'closed'],
+    ] as const)
+      await harness.insert('pull_requests', {
+        id,
+        workspaceId: 'ws',
+        repo: 'o/scope',
+        number,
+        state,
+      })
+    for (const [memoryId, src, reply, rule] of [
+      ['m-scope', 'pr-src', 'scope-1', RULE],
+      ['m-closed', 'pr-closed', 'scope-2', 'Closed PR learning stays with it.'],
+    ] as const) {
+      await harness.insert('memories', {
+        id: memoryId,
+        workspaceId: 'ws',
+        projectId: 'p1',
+        scope: 'PROJECT',
+        category: 'CONVENTION',
+        content: content(rule),
+        status: 'ACTIVE',
+      })
+      await repo.create(
+        learning({
+          memoryId,
+          repo: 'o/scope',
+          sourcePullRequestId: src,
+          sourceReplyId: reply,
+        })
+      )
+    }
+  })
+
+  it('open source PR: applies to that PR only', async () => {
+    expect(await review('pr-src')).toContain(RULE)
+    expect(await review('pr-other')).not.toContain(RULE)
+  })
+
+  it('closed without merging: stays with that PR', async () => {
+    expect(await review('pr-closed')).toContain('Closed PR learning')
+    expect(await review('pr-other')).not.toContain('Closed PR learning')
+  })
+
+  it('merged source PR: repository-wide even with no promotion recorded (missed merge event)', async () => {
+    await harness.prisma!.pullRequest.update({
+      where: { id: 'pr-src' },
+      data: { state: 'merged' },
+    })
+    expect(await review('pr-other')).toContain(RULE)
+    await harness.prisma!.pullRequest.update({
+      where: { id: 'pr-src' },
+      data: { state: 'open' },
+    })
+  })
+
+  it('the merge hook promotes once (idempotent) and the promotion alone makes it repository-wide', async () => {
+    const at = new Date('2026-10-14T00:00:00Z')
+    await expect(promoteLearningsOnMerge('ws', 'pr-src', at)).resolves.toBe(1)
+    await expect(
+      promoteLearningsOnMerge('ws', 'pr-src', new Date())
+    ).resolves.toBe(0)
+    // Another workspace cannot promote this workspace's learning.
+    await expect(promoteLearningsOnMerge('ws2', 'pr-src')).resolves.toBe(0)
+    const rows = await harness.prisma!.prReviewLearning.findMany({
+      where: { sourceReplyId: 'scope-1' },
+      select: { repoWideAt: true },
+    })
+    expect(rows[0]!.repoWideAt).toEqual(at)
+    // Source PR still reads 'open' here: the stored promotion decides.
+    expect(await review('pr-other')).toContain(RULE)
+  })
 })

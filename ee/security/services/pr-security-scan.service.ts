@@ -1200,13 +1200,14 @@ export const prSecurityScanService = {
         // the prompt budget with the diff (`reviewContextBudget`), so a
         // top-tier diff gets little or none. Any failure is logged and the
         // review runs on the diff alone. Never throws.
-        // LUM-1131 — what this repository's reviewers ruled intentional /
-        // not applicable in earlier threads, for the files this review
+        // LUM-1131 — what reviewers ruled intentional / not applicable in
+        // this PR's threads and merged PRs' threads, for the files this review
         // reads. Bounded (≤ 4k chars) and paid for out of the context
         // budget, so the prompt ceiling holds. Never throws.
         const learnings = await loadReviewLearnings({
           workspaceId: pr.workspaceId,
           repo: pr.repo,
+          pullRequestId: pr.id,
           reviewedPaths: capped.covered,
         })
         const context = await reviewContextService.load({

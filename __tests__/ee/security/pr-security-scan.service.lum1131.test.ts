@@ -250,6 +250,7 @@ describe('LUM-1131 learnings reach the AI review', () => {
     expect(loadLearnings).toHaveBeenCalledWith({
       workspaceId: 'w1',
       repo: 'o/r',
+      pullRequestId: 'pr1',
       reviewedPaths: ['lib/search.ts'],
     })
     const input = (judge.judgeSecurity as jest.Mock).mock.calls[0]![0]

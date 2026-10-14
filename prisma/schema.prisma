@@ -1618,12 +1618,17 @@ model PrReviewLearning {
   // GitHub REST id of the human reply the learning came from.
   sourceReplyId       String
   authorLogin         String
+  // CodeRabbit parity: a learning applies only to its source PR until that
+  // PR merges; set when the merge is seen. Readers also treat a merged
+  // source PR as repository-wide (a missed merge event changes nothing).
+  repoWideAt          DateTime?
   createdAt           DateTime @default(now())
 
   memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, sourceReplyId])
   @@index([workspaceId, repo])
+  @@index([sourcePullRequestId])
   @@map("pr_review_learnings")
 }
 

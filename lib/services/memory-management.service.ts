@@ -244,28 +244,45 @@ export const memoryManagementService = {
    * repository scope points at it), and folding it into another memory would
    * put unrelated text into later reviews. The poison gate still runs —
    * a rejected learning throws 422 before anything is written.
+   *
+   * `link` writes the caller's row that points at the new memory (the
+   * learning's repository scope) in the SAME transaction: either both rows
+   * land or neither does — never an orphan memory.
    */
-  async createReviewLearning(input: {
-    projectId: string
-    workspaceId: string
-    content: { summary: string; rule: string; scope: string }
-    actorMemberId: string | null
-  }): Promise<{ id: string }> {
+  async createReviewLearning(
+    input: {
+      projectId: string
+      workspaceId: string
+      content: { summary: string; rule: string; scope: string }
+      actorMemberId: string | null
+    },
+    link: (memoryId: string, tx: Prisma.TransactionClient) => Promise<void>
+  ): Promise<{ id: string }> {
     const gate = await loadMemoryWriteGate(input.projectId)
     const signals = screenWith(gate, 'CONVENTION', input.content)
-    const created = await memoryRepository.create({
-      workspaceId: input.workspaceId,
-      projectId: input.projectId,
-      taskId: null,
-      scope: 'PROJECT',
-      category: 'CONVENTION',
-      content: input.content as Prisma.InputJsonValue,
-      sourceSessionId: null,
-      createdByMemberId: input.actorMemberId,
-      contentSignals: signals,
-    })
-    await stampEmbeddingBestEffort(created.id, 'CONVENTION', input.content)
-    return { id: created.id }
+    let id = ''
+    await memoryRepository.applyPlansAtomically([
+      async tx => {
+        const created = await memoryRepository.create(
+          {
+            workspaceId: input.workspaceId,
+            projectId: input.projectId,
+            taskId: null,
+            scope: 'PROJECT',
+            category: 'CONVENTION',
+            content: input.content as Prisma.InputJsonValue,
+            sourceSessionId: null,
+            createdByMemberId: input.actorMemberId,
+            contentSignals: signals,
+          },
+          tx
+        )
+        await link(created.id, tx)
+        id = created.id
+      },
+    ])
+    await stampEmbeddingBestEffort(id, 'CONVENTION', input.content)
+    return { id }
   },
 
   async createForTask(input: CreateForTaskInput): Promise<CreateMemoryResult> {

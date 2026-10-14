@@ -153,9 +153,13 @@ export function cleanLearningText(raw: string): string | null {
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\bhttps?:\/\/\S+/gi, '')
     .replace(/@(?=[A-Za-z0-9-])/g, '')
-    .replace(/[`*_~#>|]/g, '')
+    // Backticks only: `_` / `*` are part of identifiers and globs
+    // (user_id, scripts/**) and must survive.
+    .replace(/`/g, '')
     .replace(/\s+/g, ' ')
     .trim()
+    // A leading heading / quote marker would restyle the echoed line.
+    .replace(/^[#>\s]+/, '')
   if (t.length > LEARNING_MAX_CHARS)
     t = `${t.slice(0, LEARNING_MAX_CHARS - 1).trimEnd()}…`
   if (t.length < MIN_LEARNING_CHARS) return null
@@ -166,31 +170,33 @@ export function cleanLearningText(raw: string): string | null {
 
 /**
  * The learning's path scope. The model may propose a glob; it is kept only
- * when it is a plain relative glob that still covers the finding's own file
- * (a learning never reaches beyond what the human was looking at). Else the
- * finding's directory, or the whole repository for a top-level file.
+ * when it is a plain relative glob anchored in a literal top-level directory
+ * (`scripts/**`, never `**\/*.ts` / `*.ts`, which reach the whole
+ * repository) that still covers the finding's own file — a learning never
+ * reaches beyond what the human was looking at. Else the finding's
+ * directory, or the file itself for a top-level file. Never repo-wide.
  */
 export function normalizePathGlob(
   proposed: string | null | undefined,
   filePath: string
-): string | null {
+): string {
   const p = (proposed ?? '').trim()
+  const segments = p.split('/')
   if (
     p &&
     p.length <= 200 &&
     /^[A-Za-z0-9_.\-/*]+$/.test(p) &&
     !p.startsWith('/') &&
-    !p.split('/').includes('..') &&
-    p !== '**' &&
-    p !== '*' &&
-    p !== '**/*' &&
+    !segments.includes('..') &&
+    !segments.includes('.') &&
+    segments.length >= 2 &&
+    !segments[0]!.includes('*') &&
     matchPathGlob(p, [filePath])
   )
     return p
-  const dir = filePath.includes('/')
-    ? filePath.slice(0, filePath.lastIndexOf('/'))
-    : ''
-  return dir ? `${dir}/**` : null
+  return filePath.includes('/')
+    ? `${filePath.slice(0, filePath.lastIndexOf('/'))}/**`
+    : filePath
 }
 
 /**
@@ -234,7 +240,7 @@ export function buildLearningReply(input: LearningReplyInput): string {
     : `\`${input.repo}\``
   const head = `Thanks @${input.login} — noted, and this thread is closed for this PR.`
   const body = input.stored
-    ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to future pull requests here. To change or undo it, edit or delete this learning in the project's memory in Lumo._`
+    ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, edit or delete this learning in the project's memory in Lumo._`
     : `\n\nLumo could not store a learning from it: this repository is not linked to a Lumo project.`
   return `${head}${body}${input.blockingFindingId ? blockingNote(input.blockingFindingId) : ''}\n\n${REPLY_NOTE_MARKER}`
 }
@@ -264,6 +270,26 @@ export function buildAckReply(label: ReplyLabel, login: string): string {
 export const REVIEW_LEARNINGS_MAX_ITEMS = 12
 /** …and at most this many characters (≈ 1k tokens) — out of a 180k prompt. */
 export const REVIEW_LEARNINGS_MAX_CHARS = 4_000
+
+/**
+ * CodeRabbit parity (LUM-1131 decision): a learning from a reply on an open
+ * PR applies only to that PR's reviews; once the source PR merges (into any
+ * branch) it applies to the whole repository. Closed without merging, it
+ * stays with that PR. "Merged" is read from the stored promotion OR the
+ * source PR's current state, so a missed merge event changes nothing.
+ */
+export function learningInScope(
+  l: { sourcePullRequestId: string | null; repoWideAt: Date | null },
+  reviewedPullRequestId: string,
+  sourceState: string | undefined
+): boolean {
+  if (l.repoWideAt) return true
+  if (sourceState === 'merged') return true
+  return (
+    l.sourcePullRequestId !== null &&
+    l.sourcePullRequestId === reviewedPullRequestId
+  )
+}
 
 export interface StoredLearning {
   text: string

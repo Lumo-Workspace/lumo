@@ -197,7 +197,7 @@ async function projectIdFor(event: ThreadReplyEvent): Promise<string | null> {
   )
 }
 
-/** Store the learning: memory first, then its repository scope. null = not stored. */
+/** Store the learning: the memory and its repository scope, in one transaction. false = not stored. */
 async function storeLearning(input: {
   event: ThreadReplyEvent
   row: FindingThreadRow
@@ -219,33 +219,55 @@ async function storeLearning(input: {
   if (!projectId) return false
   const scope = `Lumo AI review of ${event.repo}${pathGlob ? `, files matching ${pathGlob}` : ''} — from @${login}'s reply on ${event.repo}#${event.prNumber} (finding ${row.ruleId})`
   try {
-    const memory = await memoryManagementService.createReviewLearning({
-      projectId,
-      workspaceId: event.workspaceId,
-      content: {
-        summary: `PR review learning: ${learning.length > 90 ? `${learning.slice(0, 89).trimEnd()}…` : learning}`,
-        rule: learning,
-        scope,
+    await memoryManagementService.createReviewLearning(
+      {
+        projectId,
+        workspaceId: event.workspaceId,
+        content: {
+          summary: `PR review learning: ${learning.length > 90 ? `${learning.slice(0, 89).trimEnd()}…` : learning}`,
+          rule: learning,
+          scope,
+        },
+        actorMemberId: input.memberId,
       },
-      actorMemberId: input.memberId,
-    })
-    await prReviewLearningRepository.create({
-      workspaceId: event.workspaceId,
-      memoryId: memory.id,
-      repo: event.repo,
-      pathGlob,
-      ruleId: row.ruleId,
-      fingerprint: row.fingerprint,
-      sourcePullRequestId: event.pullRequestId,
-      sourceReplyId: replyId,
-      authorLogin: login,
-    })
+      // Same transaction as the memory: no orphan memory if this fails.
+      async (memoryId, tx) => {
+        await prReviewLearningRepository.create(
+          {
+            workspaceId: event.workspaceId,
+            memoryId,
+            repo: event.repo,
+            pathGlob,
+            ruleId: row.ruleId,
+            fingerprint: row.fingerprint,
+            sourcePullRequestId: event.pullRequestId,
+            sourceReplyId: replyId,
+            authorLogin: login,
+          },
+          tx
+        )
+      }
+    )
     return true
   } catch (error) {
     logger.warn(
       `[pr-thread-reply] learning not stored pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
     )
     return false
+  }
+}
+
+/** Give the reply back after a failure, so a redelivery is answered. Never throws. */
+async function releaseClaim(
+  row: FindingThreadRow,
+  replyId: string
+): Promise<void> {
+  try {
+    await prFindingThreadRepository.releaseReply(row.id, replyId)
+  } catch (error) {
+    logger.warn(
+      `[pr-thread-reply] claim release failed fp=${row.fingerprint}: ${error instanceof Error ? error.message : String(error)}`
+    )
   }
 }
 
@@ -299,6 +321,7 @@ export async function applyThreadReply(
     logger.warn(
       `[pr-thread-reply] no token for ${event.repo}: ${error instanceof Error ? error.message : String(error)}`
     )
+    await releaseClaim(row, String(comment.id))
     return 'failed'
   }
   const [owner = '', name = ''] = event.repo.split('/')
@@ -370,6 +393,9 @@ export async function applyThreadReply(
     logger.warn(
       `[pr-thread-reply] reply failed pr=${event.pullRequestId} comment=${comment.id}: ${error instanceof Error ? error.message : String(error)}`
     )
+    // Not answered: a redelivery may try again. Safe to repeat — a stored
+    // learning is found by its reply id, a resolved thread stays resolved.
+    await releaseClaim(row, String(comment.id))
     return 'failed'
   }
 }

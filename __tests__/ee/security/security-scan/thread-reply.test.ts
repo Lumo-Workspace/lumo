@@ -17,6 +17,7 @@ import {
   cleanLearningText,
   decideLearning,
   LEARNING_ADDED,
+  learningInScope,
   normalizePathGlob,
   renderReviewLearnings,
   REVIEW_LEARNINGS_MAX_CHARS,
@@ -128,9 +129,9 @@ describe('canTeach — collaborators only, never bots', () => {
 })
 
 describe('cleanLearningText', () => {
-  it('strips links, mentions, markup and newlines; caps the length', () => {
+  it('strips links, mentions, html, backticks and newlines; caps the length', () => {
     const t = cleanLearningText(
-      'See [docs](https://evil.example/x) @bob\n`eval` is **fine** here <b>ok</b> https://x.y/z'
+      'See [docs](https://evil.example/x) @bob\n`eval` is fine here <b>ok</b> https://x.y/z'
     )
     expect(t).toBe('See docs bob eval is fine here ok')
     const long = cleanLearningText('a'.repeat(1000))!
@@ -138,6 +139,20 @@ describe('cleanLearningText', () => {
   })
   it('too short → null', () => {
     expect(cleanLearningText('ok')).toBeNull()
+  })
+  it('keeps identifiers and globs intact (_ and * survive)', () => {
+    expect(
+      cleanLearningText(
+        'Raw SQL on user_id in scripts/admin/** is intentional: __init__ helpers only.'
+      )
+    ).toBe(
+      'Raw SQL on user_id in scripts/admin/** is intentional: __init__ helpers only.'
+    )
+  })
+  it('drops a leading heading / quote marker', () => {
+    expect(cleanLearningText('## > Fixture tokens are fake by design.')).toBe(
+      'Fixture tokens are fake by design.'
+    )
   })
 })
 
@@ -153,8 +168,22 @@ describe('normalizePathGlob', () => {
         'scripts/admin/**'
       )
   })
-  it('a top-level file scopes to the whole repository', () => {
-    expect(normalizePathGlob(null, 'server.ts')).toBeNull()
+  it('never accepts a glob that reaches the whole repository', () => {
+    for (const g of [
+      '**/*.ts',
+      '**/admin/*.ts',
+      '*/admin/**',
+      '*.ts',
+      'run.ts',
+      './scripts/**',
+    ])
+      expect(normalizePathGlob(g, 'scripts/admin/run.ts')).toBe(
+        'scripts/admin/**'
+      )
+  })
+  it('a top-level file scopes to that file, never the whole repository', () => {
+    expect(normalizePathGlob(null, 'server.ts')).toBe('server.ts')
+    expect(normalizePathGlob('**/*.ts', 'server.ts')).toBe('server.ts')
   })
 })
 
@@ -173,6 +202,7 @@ describe('replies', () => {
     )
     expect(body).toContain('`scripts/admin/**`')
     expect(body).toMatch(/edit or delete this learning/)
+    expect(body).toMatch(/this pull request until it merges/)
     expect(body).not.toMatch(/blocks moving the task to DONE/)
   })
   it('a blocking finding: the reply says it still blocks and names the disposition command', () => {
@@ -242,5 +272,35 @@ describe('applying learnings to a review', () => {
 
   it('nothing to render → empty string', () => {
     expect(renderReviewLearnings([], s => s)).toBe('')
+  })
+})
+
+describe('learningInScope — CodeRabbit scope rules', () => {
+  const open = { sourcePullRequestId: 'pr-a', repoWideAt: null }
+  it('open source PR: only that PR', () => {
+    expect(learningInScope(open, 'pr-a', 'open')).toBe(true)
+    expect(learningInScope(open, 'pr-b', 'open')).toBe(false)
+  })
+  it('merged source PR: every PR of the repository (read-time, no promotion needed)', () => {
+    expect(learningInScope(open, 'pr-b', 'merged')).toBe(true)
+  })
+  it('promoted on merge: every PR, whatever the source row says now', () => {
+    expect(
+      learningInScope({ ...open, repoWideAt: new Date(0) }, 'pr-b', undefined)
+    ).toBe(true)
+  })
+  it('closed without merging: stays with that PR', () => {
+    expect(learningInScope(open, 'pr-a', 'closed')).toBe(true)
+    expect(learningInScope(open, 'pr-b', 'closed')).toBe(false)
+  })
+  it('unknown source PR (row gone, never promoted): applies nowhere else', () => {
+    expect(learningInScope(open, 'pr-b', undefined)).toBe(false)
+    expect(
+      learningInScope(
+        { sourcePullRequestId: null, repoWideAt: null },
+        'pr-b',
+        undefined
+      )
+    ).toBe(false)
   })
 })

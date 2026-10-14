@@ -35,6 +35,7 @@ jest.mock('@/ee/security/repositories/pr-finding-thread.repository', () => ({
   prFindingThreadRepository: {
     findByThreadRef: jest.fn(),
     claimReply: jest.fn(),
+    releaseReply: jest.fn().mockResolvedValue(undefined),
     update: jest.fn().mockResolvedValue(undefined),
   },
 }))
@@ -84,6 +85,7 @@ const createMemory = memoryManagementService.createReviewLearning as jest.Mock
 const createLearning = prReviewLearningRepository.create as jest.Mock
 const latest = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const classify = classifyThreadReply as jest.Mock
+const release = prFindingThreadRepository.releaseReply as jest.Mock
 
 const judgeRow = {
   id: 'row-1',
@@ -203,7 +205,16 @@ beforeEach(() => {
   ;(
     projectRepository.findProjectIdByRepoFullName as jest.Mock
   ).mockResolvedValue(null)
-  createMemory.mockResolvedValue({ id: 'mem-1' })
+  // The real service runs `link` inside the memory's transaction.
+  createMemory.mockImplementation(
+    async (
+      _input: unknown,
+      link: (id: string, tx: unknown) => Promise<void>
+    ) => {
+      await link('mem-1', { tx: true })
+      return { id: 'mem-1' }
+    }
+  )
   classify.mockResolvedValue({
     isLearning: true,
     learning:
@@ -244,7 +255,8 @@ describe('an intentional reply on an AI-review finding', () => {
         content: expect.objectContaining({
           rule: expect.stringContaining('Raw SQL in scripts/admin'),
         }),
-      })
+      }),
+      expect.any(Function)
     )
     expect(createLearning).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -255,7 +267,8 @@ describe('an intentional reply on an AI-review finding', () => {
         ruleId: 'vuln:sql_injection',
         sourceReplyId: '555',
         authorLogin: 'alice',
-      })
+      }),
+      { tx: true }
     )
   })
 
@@ -314,7 +327,8 @@ describe('an intentional reply on an AI-review finding', () => {
       'o/r'
     )
     expect(createMemory).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: 'proj-2' })
+      expect.objectContaining({ projectId: 'proj-2' }),
+      expect.any(Function)
     )
   })
 
@@ -378,7 +392,8 @@ describe('who is heard', () => {
       applyThreadReply(event(INTENTIONAL, { authorAssociation: 'NONE' }))
     ).resolves.toBe('learning_added')
     expect(createMemory).toHaveBeenCalledWith(
-      expect.objectContaining({ actorMemberId: 'mem-alice' })
+      expect.objectContaining({ actorMemberId: 'mem-alice' }),
+      expect.any(Function)
     )
   })
 
@@ -475,5 +490,52 @@ describe('a blocking finding replied to as "intentional"', () => {
       })
     )
     expect(reply.mock.calls[0][0].body).not.toMatch(/still blocks/)
+  })
+})
+
+describe('LUM-1131 review fixes', () => {
+  it('the learning scope row is written with the memory transaction', async () => {
+    await applyThreadReply(event(INTENTIONAL))
+    expect(createLearning).toHaveBeenCalledWith(
+      expect.objectContaining({ memoryId: 'mem-1' }),
+      { tx: true }
+    )
+  })
+
+  it('a failed learning write (rolled back) is reported as not stored', async () => {
+    createMemory.mockRejectedValue(new Error('unique violation'))
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'closed_no_learning'
+    )
+    expect(reply.mock.calls[0][0].body).not.toContain('Learning added')
+  })
+
+  it('a failed GitHub reply releases the claim, so a redelivery is answered', async () => {
+    reply.mockRejectedValueOnce(new Error('502'))
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe('failed')
+    expect(release).toHaveBeenCalledWith('row-1', '555')
+    // Redelivery: claimed again, the stored learning is found, answered once.
+    ;(
+      prReviewLearningRepository.findBySourceReply as jest.Mock
+    ).mockResolvedValue({ id: 'l1', memoryId: 'mem-1' })
+    createMemory.mockClear()
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'learning_added'
+    )
+    expect(createMemory).not.toHaveBeenCalled()
+    expect(reply).toHaveBeenCalledTimes(2)
+  })
+
+  it('a token failure releases the claim too', async () => {
+    const { getRepoToken } = jest.requireMock('@/lib/integrations/github/auth')
+    ;(getRepoToken as jest.Mock).mockRejectedValueOnce(new Error('no install'))
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe('failed')
+    expect(release).toHaveBeenCalledWith('row-1', '555')
+    expect(reply).not.toHaveBeenCalled()
+  })
+
+  it('a successful answer keeps the claim', async () => {
+    await applyThreadReply(event(INTENTIONAL))
+    expect(release).not.toHaveBeenCalled()
   })
 })

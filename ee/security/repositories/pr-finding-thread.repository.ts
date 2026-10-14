@@ -145,6 +145,17 @@ export const prFindingThreadRepository = {
   },
 
   /**
+   * LUM-1131: undo `claimReply` after the answer failed, so a redelivery of
+   * the same reply is answered. Only while this reply still holds the claim.
+   */
+  async releaseReply(id: string, replyId: string): Promise<void> {
+    await prisma.prFindingThread.updateMany({
+      where: { id, lastReplyId: replyId },
+      data: { lastReplyId: null },
+    })
+  },
+
+  /**
    * Fingerprints a human resolved on GitHub, per PR — the read models drop
    * the non-blocking ones from "open" (the gate never reads this).
    */

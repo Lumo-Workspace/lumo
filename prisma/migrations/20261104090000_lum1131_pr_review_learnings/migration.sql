@@ -19,6 +19,7 @@ CREATE TABLE "pr_review_learnings" (
     "sourcePullRequestId" TEXT,
     "sourceReplyId" TEXT NOT NULL,
     "authorLogin" TEXT NOT NULL,
+    "repoWideAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "pr_review_learnings_pkey" PRIMARY KEY ("id")
@@ -29,6 +30,9 @@ CREATE UNIQUE INDEX "pr_review_learnings_memoryId_key" ON "pr_review_learnings"(
 
 -- CreateIndex
 CREATE INDEX "pr_review_learnings_workspaceId_repo_idx" ON "pr_review_learnings"("workspaceId", "repo");
+
+-- CreateIndex
+CREATE INDEX "pr_review_learnings_sourcePullRequestId_idx" ON "pr_review_learnings"("sourcePullRequestId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "pr_review_learnings_workspaceId_sourceReplyId_key" ON "pr_review_learnings"("workspaceId", "sourceReplyId");

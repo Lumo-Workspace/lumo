@@ -22,13 +22,20 @@ export interface NewReviewLearning {
 
 export interface ActiveReviewLearning {
   pathGlob: string | null
+  sourcePullRequestId: string | null
+  /** Set once the source PR's merge was seen; null = not (yet) known. */
+  repoWideAt: Date | null
   category: MemoryCategory
   content: Prisma.JsonValue
 }
 
 export const prReviewLearningRepository = {
-  async create(input: NewReviewLearning): Promise<{ id: string }> {
-    return prisma.prReviewLearning.create({
+  /** `tx`: the memory's transaction, so the two rows land together. */
+  async create(
+    input: NewReviewLearning,
+    tx?: Prisma.TransactionClient
+  ): Promise<{ id: string }> {
+    return (tx ?? prisma).prReviewLearning.create({
       data: input,
       select: { id: true },
     })
@@ -64,13 +71,37 @@ export const prReviewLearningRepository = {
       take: limit,
       select: {
         pathGlob: true,
+        sourcePullRequestId: true,
+        repoWideAt: true,
         memory: { select: { category: true, content: true } },
       },
     })
     return rows.map(r => ({
       pathGlob: r.pathGlob,
+      sourcePullRequestId: r.sourcePullRequestId,
+      repoWideAt: r.repoWideAt,
       category: r.memory.category,
       content: r.memory.content,
     }))
+  },
+
+  /**
+   * The source PR merged: its learnings now apply to the whole repository.
+   * Idempotent — an already-promoted row keeps its first timestamp.
+   */
+  async markRepoWideForPullRequest(
+    workspaceId: string,
+    pullRequestId: string,
+    at: Date
+  ): Promise<number> {
+    const res = await prisma.prReviewLearning.updateMany({
+      where: {
+        workspaceId,
+        sourcePullRequestId: pullRequestId,
+        repoWideAt: null,
+      },
+      data: { repoWideAt: at },
+    })
+    return res.count
   },
 }
