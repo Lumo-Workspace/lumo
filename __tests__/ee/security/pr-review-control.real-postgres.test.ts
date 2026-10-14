@@ -22,6 +22,12 @@ const push = (n: number, workspaceLimit = 2) => ({
   commitsAtHead: n,
   workspaceLimit,
 })
+/** Whether `reserve` admitted the head. */
+const admits = async (
+  id: string,
+  head: string,
+  opts: ReturnType<typeof push>
+) => (await prReviewControlRepository.reserve(id, head, opts)).allowed
 
 jest.setTimeout(180_000)
 beforeAll(async () => {
@@ -76,21 +82,17 @@ test('migration preserves an existing PR and initializes its review budget', asy
 
 test('real reservations, duplicate head retries, pause and resume enforce the persisted budget', async () => {
   const admitted = await Promise.all(
-    ['a', 'b', 'c', 'd'].map((head, i) =>
-      prReviewControlRepository.reserve('pr', head, push(i + 1))
-    )
+    ['a', 'b', 'c', 'd'].map((head, i) => admits('pr', head, push(i + 1)))
   )
   expect(admitted.filter(Boolean)).toHaveLength(2)
   expect((await prReviewControlRepository.get('pr')).reviewHeads).toHaveLength(
     2
   )
-  expect(await prReviewControlRepository.reserve('pr', 'a', push(1))).toBe(true)
+  expect(await admits('pr', 'a', push(1))).toBe(true)
   await prReviewControlRepository.update('pr', 'pause')
-  expect(await prReviewControlRepository.reserve('pr', 'a', push(1))).toBe(
-    false
-  )
+  expect(await admits('pr', 'a', push(1))).toBe(false)
   await prReviewControlRepository.update('pr', 'resume', 3)
-  expect(await prReviewControlRepository.reserve('pr', 'c', push(3))).toBe(true)
+  expect(await admits('pr', 'c', push(3))).toBe(true)
   expect(await prReviewControlRepository.get('pr')).toEqual({
     reviewPaused: false,
     reviewHeads: ['c'],
@@ -154,29 +156,26 @@ test('same-head manual restarts have only one claimant and cannot collide with a
 
 test('releasing a superseded head returns its round to the budget', async () => {
   await prReviewControlRepository.update('pr', 'resume', 2)
-  expect(await prReviewControlRepository.reserve('pr', 'x', push(1))).toBe(true)
-  expect(await prReviewControlRepository.reserve('pr', 'y', push(2))).toBe(true)
-  expect(await prReviewControlRepository.reserve('pr', 'z', push(3))).toBe(
-    false
-  )
+  expect(await admits('pr', 'x', push(1))).toBe(true)
+  expect(await admits('pr', 'y', push(2))).toBe(true)
+  expect(await admits('pr', 'z', push(3))).toBe(false)
   await prReviewControlRepository.release('pr', 'x')
   await prReviewControlRepository.release('pr', 'absent')
   expect(await prReviewControlRepository.get('pr')).toMatchObject({
     reviewHeads: ['y'],
     reviewHeadCommits: [2],
   })
-  // y now counts both commits (x's and its own): z is still over the limit
-  // of 2 — a superseded head's commits are reviewed by the next head.
-  expect(await prReviewControlRepository.reserve('pr', 'z', push(3))).toBe(
-    false
-  )
-  // Releasing the only reviewed head returns its commits to the budget.
+  // y is now the first automatic review (one commit): z fits the limit of 2.
+  expect(await admits('pr', 'z', push(3))).toBe(true)
+  await prReviewControlRepository.release('pr', 'z')
+
+  // Releasing the only reviewed head returns its commit to the budget.
   await prReviewControlRepository.release('pr', 'y')
   expect(await prReviewControlRepository.get('pr')).toMatchObject({
     reviewHeads: [],
     reviewHeadCommits: [],
   })
-  expect(await prReviewControlRepository.reserve('pr', 'z', push(1))).toBe(true)
+  expect(await admits('pr', 'z', push(1))).toBe(true)
 })
 
 test('LUM-1137: with the default workspace setting, the 3rd (and 5th) single-commit push is reviewed and the 6th pauses', async () => {
@@ -192,10 +191,7 @@ test('LUM-1137: with the default workspace setting, the 3rd (and 5th) single-com
   const admitted: boolean[] = []
   for (let i = 1; i <= 6; i++)
     admitted.push(
-      await prReviewControlRepository.reserve('fresh', `p${i}`, {
-        commitsAtHead: i,
-        workspaceLimit,
-      })
+      await admits('fresh', `p${i}`, { commitsAtHead: i, workspaceLimit })
     )
   expect(admitted).toEqual([true, true, true, true, true, false])
 })
@@ -220,9 +216,51 @@ test('LUM-1137: the workspace pause-after is constrained to 0-100; 0 never pause
   })
   for (let i = 1; i <= 12; i++)
     expect(
-      await prReviewControlRepository.reserve('never', `n${i}`, {
-        commitsAtHead: i,
-        workspaceLimit,
-      })
+      await admits('never', `n${i}`, { commitsAtHead: i, workspaceLimit })
     ).toBe(true)
+})
+
+test('LUM-1137 fix: a PR opened with 10 commits gets pushes 2-5 reviewed under the default N=5', async () => {
+  await harness.insert('pull_requests', {
+    id: 'opened10',
+    workspaceId: 'ws',
+    repo: 'o/r',
+    number: 11,
+  })
+  const admitted: boolean[] = []
+  for (let i = 0; i < 6; i++)
+    admitted.push(
+      await admits('opened10', `t${i}`, {
+        commitsAtHead: 10 + i,
+        workspaceLimit: 5,
+      })
+    )
+  expect(admitted).toEqual([true, true, true, true, true, false])
+})
+
+test('LUM-1137 fix: resume on a 25-commit PR with --limit 20 baselines the budget; later pushes are reviewed', async () => {
+  await harness.insert('pull_requests', {
+    id: 'resume25',
+    workspaceId: 'ws',
+    repo: 'o/r',
+    number: 12,
+  })
+  for (let i = 1; i <= 2; i++)
+    await admits('resume25', `r${i}`, {
+      commitsAtHead: 23 + i,
+      workspaceLimit: 1,
+    })
+  expect(await admits('resume25', 'r3', push(25, 1))).toBe(false)
+  await prReviewControlRepository.update('resume25', 'resume', 20, 25)
+  expect(await prReviewControlRepository.get('resume25')).toEqual({
+    reviewPaused: false,
+    reviewHeads: ['resume-baseline'],
+    reviewHeadCommits: [25],
+    reviewCommitLimit: 20,
+  })
+  const admitted: boolean[] = []
+  for (let i = 1; i <= 21; i++)
+    admitted.push(await admits('resume25', `s${i}`, push(25 + i, 5)))
+  expect(admitted.slice(0, 20).every(Boolean)).toBe(true)
+  expect(admitted[20]).toBe(false)
 })

@@ -274,6 +274,23 @@ describe('LUM-1137 pause automatic review after N reviewed commits', () => {
     )
   })
 
+  it('LUM-1137 fix: can be cleared and retyped; leaving it empty shows the saved value again', async () => {
+    renderCard()
+    fireEvent.change(pauseAfter(), { target: { value: '' } })
+    expect(pauseAfter().value).toBe('')
+    fireEvent.change(pauseAfter(), { target: { value: '12' } })
+    expect(pauseAfter().value).toBe('12')
+    fireEvent.change(pauseAfter(), { target: { value: '' } })
+    fireEvent.blur(pauseAfter())
+    expect(pauseAfter().value).toBe('12')
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityReviewAutoPauseAfter: 12 })
+      )
+    )
+  })
+
   it('clamps to 0–100 and is locked while the scan is off', () => {
     renderCard()
     fireEvent.change(pauseAfter(), { target: { value: '250' } })

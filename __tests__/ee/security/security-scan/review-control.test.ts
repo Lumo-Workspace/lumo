@@ -3,8 +3,10 @@ import {
   DEFAULT_AUTO_PAUSE_AFTER,
   admitAutomaticReview,
   affectedReviewDiff,
+  RESUME_BASELINE_HEAD,
   commitsAfterReserve,
   parseAutoPauseAfter,
+  resumedHeads,
   reviewBudgetView,
   reviewedCommits,
   withoutHead,
@@ -21,13 +23,16 @@ const fresh = {
   reviewCommitLimit: null as number | null,
 }
 
-/** Push one single-commit head after another; the admitted ones. */
+/** Push one single-commit head after another onto a PR that already has
+ *  `startCommits` commits; the admitted pushes (1-based). */
 function pushSingleCommits(
   limit: number,
   pushes: number,
-  commitLimit = null as number | null
+  commitLimit = null as number | null,
+  start = { ...fresh, reviewCommitLimit: commitLimit },
+  startCommits = 0
 ) {
-  let control = { ...fresh, reviewCommitLimit: commitLimit }
+  let control = start
   const admitted: number[] = []
   for (let i = 1; i <= pushes; i++) {
     const decision = admitAutomaticReview(control, `h${i}`, limit)
@@ -35,7 +40,7 @@ function pushSingleCommits(
       control = {
         ...control,
         reviewHeads: [...control.reviewHeads, `h${i}`],
-        reviewHeadCommits: commitsAfterReserve(control, i),
+        reviewHeadCommits: commitsAfterReserve(control, startCommits + i),
       }
     if (decision.allowed) admitted.push(i)
   }
@@ -66,14 +71,15 @@ test('LUM-1137: a PR limit set by --resume --limit overrides the workspace setti
 })
 
 test('LUM-1137: reviewed commits count the commits each head added (CodeRabbit semantics)', () => {
-  // Opened with 3 commits, then a push of 2: 5 reviewed — the next pauses.
+  // Opened with 3 commits (the first review counts one), then pushes of 2
+  // and 2: 5 reviewed — the next pauses.
   const control = {
     ...fresh,
-    reviewHeads: ['a', 'b'],
-    reviewHeadCommits: [3, 5],
+    reviewHeads: ['a', 'b', 'c'],
+    reviewHeadCommits: [3, 5, 7],
   }
   expect(reviewedCommits(control)).toBe(5)
-  expect(admitAutomaticReview(control, 'c', 5).allowed).toBe(false)
+  expect(admitAutomaticReview(control, 'd', 5).allowed).toBe(false)
   // Unknown counts (0, or heads admitted before LUM-1137) count as one each;
   // a force-push that shrank the PR still counts one.
   expect(
@@ -81,10 +87,50 @@ test('LUM-1137: reviewed commits count the commits each head added (CodeRabbit s
   ).toBe(3)
   expect(
     reviewedCommits({ reviewHeads: ['a', 'b'], reviewHeadCommits: [4, 1] })
-  ).toBe(5)
+  ).toBe(2)
   expect(
     commitsAfterReserve({ reviewHeads: ['a', 'b'], reviewHeadCommits: [] }, 7)
   ).toEqual([0, 0, 7])
+})
+
+test('LUM-1137 fix: a PR opened with 10 commits (N=5) still gets pushes 2-5 reviewed automatically', () => {
+  // The first automatic review counts one commit, not the 10 already there.
+  const { admitted, control } = pushSingleCommits(5, 6, null, fresh, 9)
+  expect(admitted).toEqual([1, 2, 3, 4, 5])
+  expect(control.reviewHeadCommits).toEqual([10, 11, 12, 13, 14])
+  expect(reviewBudgetView(control, 5)).toMatchObject({
+    paused: true,
+    rounds: 5,
+  })
+})
+
+test('LUM-1137 fix: resume on a 25-commit PR with --limit 20 baselines the budget, so later pushes are reviewed', () => {
+  // Paused at the limit: 20 single-commit pushes after the first 5 commits.
+  const before = pushSingleCommits(20, 21, 20, { ...fresh }, 5)
+  expect(before.admitted).toHaveLength(20)
+  // Resume at 25 commits with --limit 20.
+  const resumed = {
+    ...fresh,
+    reviewCommitLimit: 20,
+    ...resumedHeads(25),
+  }
+  expect(resumed.reviewHeads).toEqual([RESUME_BASELINE_HEAD])
+  expect(reviewBudgetView(resumed, 5)).toMatchObject({
+    paused: false,
+    rounds: 0,
+    limit: 20,
+  })
+  const after = pushSingleCommits(5, 21, 20, resumed, 25)
+  expect(after.admitted).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
+  // A push of 3 commits right after resume is charged 3, not the 28 on the PR.
+  expect(
+    reviewedCommits({
+      reviewHeads: [RESUME_BASELINE_HEAD, 'x'],
+      reviewHeadCommits: [25, 28],
+    })
+  ).toBe(3)
+  // An unknown count at resume leaves no baseline: the next head counts one.
+  expect(resumedHeads(null)).toEqual({ reviewHeads: [], reviewHeadCommits: [] })
 })
 
 test('LUM-1137: a released (superseded) head consumes nothing and keeps the arrays aligned', () => {

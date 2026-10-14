@@ -7,7 +7,11 @@
  * window is reviewed.
  */
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
-  prReviewControlRepository: { get: jest.fn(), reserve: jest.fn() },
+  prReviewControlRepository: {
+    get: jest.fn(),
+    reserve: jest.fn(),
+    release: jest.fn(),
+  },
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: { findReviewAutoPauseAfter: jest.fn() },
@@ -30,6 +34,7 @@ import { fetchPrCommitCount } from '@/lib/integrations/github/contents'
 
 const get = prReviewControlRepository.get as jest.Mock
 const reserve = prReviewControlRepository.reserve as jest.Mock
+const release = prReviewControlRepository.release as jest.Mock
 const workspaceLimit =
   securityColumnsRepository.findReviewAutoPauseAfter as jest.Mock
 const commitCount = fetchPrCommitCount as jest.Mock
@@ -55,7 +60,7 @@ beforeEach(() => {
   __resetAutoReviewRateLimitForTests()
   get.mockResolvedValue(fresh)
   workspaceLimit.mockResolvedValue(5)
-  reserve.mockResolvedValue(true)
+  reserve.mockResolvedValue({ allowed: true, reserved: true })
   commitCount.mockResolvedValue(3)
 })
 afterEach(() => jest.useRealTimers())
@@ -89,10 +94,10 @@ test('an unreadable commit count still admits the head (counts as one commit)', 
 test('a PR at its reviewed-commit limit is paused — not rate-limited, and the cap is not spent', async () => {
   get.mockResolvedValue({
     ...fresh,
-    reviewHeads: ['a', 'b'],
-    reviewHeadCommits: [3, 5],
+    reviewHeads: ['a', 'b', 'c'],
+    reviewHeadCommits: [3, 5, 7],
   })
-  expect(await autoReviewAdmissionService.admit(pr, 'c')).toEqual({
+  expect(await autoReviewAdmissionService.admit(pr, 'd')).toEqual({
     allowed: false,
     rateLimited: false,
   })
@@ -105,15 +110,15 @@ test('rate cap reached ⇒ rate-limited and not reserved; the next push after th
       (await autoReviewAdmissionService.admit({ ...pr, id: `p${i}` }, `h${i}`))
         .allowed
     ).toBe(true)
-  reserve.mockClear()
-  // Same author (case-insensitive), another PR in the workspace.
+  // Same author (case-insensitive), another PR in the workspace: over the
+  // cap, the reservation is returned so the budget is not spent either.
   expect(
     await autoReviewAdmissionService.admit(
       { ...pr, id: 'next', authorLogin: 'dev' },
       'over'
     )
   ).toEqual({ allowed: false, rateLimited: true })
-  expect(reserve).not.toHaveBeenCalled()
+  expect(release).toHaveBeenCalledWith('next', 'over')
   // Another author is not limited by Dev's pushes.
   expect(
     (
@@ -130,12 +135,29 @@ test('rate cap reached ⇒ rate-limited and not reserved; the next push after th
   ).toEqual({ allowed: true, rateLimited: false })
 })
 
+test('LUM-1137 fix: a reservation the budget refuses does not consume an hourly-cap slot', async () => {
+  // Another worker filled the budget between the read and the reservation.
+  reserve.mockResolvedValue({ allowed: false, reserved: false })
+  for (let i = 0; i < AUTO_REVIEW_HOURLY_CAP.max + 5; i++)
+    expect(
+      await autoReviewAdmissionService.admit({ ...pr, id: `r${i}` }, `h${i}`)
+    ).toEqual({ allowed: false, rateLimited: false })
+  // The author's full hourly cap is still available.
+  reserve.mockResolvedValue({ allowed: true, reserved: true })
+  for (let i = 0; i < AUTO_REVIEW_HOURLY_CAP.max; i++)
+    expect(
+      await autoReviewAdmissionService.admit({ ...pr, id: `a${i}` }, `k${i}`)
+    ).toEqual({ allowed: true, rateLimited: false })
+  expect(release).not.toHaveBeenCalled()
+})
+
 test('retrying an admitted head never counts against the hourly cap', async () => {
   get.mockResolvedValue({
     ...fresh,
     reviewHeads: ['h1'],
     reviewHeadCommits: [1],
   })
+  reserve.mockResolvedValue({ allowed: true, reserved: false })
   for (let i = 0; i < AUTO_REVIEW_HOURLY_CAP.max + 5; i++)
     expect((await autoReviewAdmissionService.admit(pr, 'h1')).allowed).toBe(
       true
