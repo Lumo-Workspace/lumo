@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { useTestCases } from '../../hooks/useTestCases'
 import { summarizeTestCases } from '@/lib/test-cases/case-summary'
+import type { TestCaseOwnerRef } from '@/lib/api-client/test-cases'
 import { DisposeControl } from './RunHistoryList'
 import { runAnchorId } from './taskTabs'
 
@@ -22,11 +23,46 @@ export function BlockingTestDefects({
   taskIdentifier: string
   enabled: boolean
 }) {
-  const intl = useIntl()
-  const { testCases, disposeDefect } = useTestCases(
-    { kind: 'task', id: taskId },
-    enabled
+  return (
+    <TestDefectRulings
+      owner={{ kind: 'task', id: taskId }}
+      handlePrefix={taskIdentifier}
+      enabled={enabled}
+    />
   )
+}
+
+/**
+ * LUM-1135: 里程碑上同一份裁定入口——未裁定的已证缺陷拦着关闭闸。文案按
+ * owner 区分（DisposeControl 的 ownerKind），请求走同一个 useTestCases。
+ */
+export function MilestoneTestDefects({
+  milestoneId,
+  milestoneName,
+}: {
+  milestoneId: string
+  milestoneName: string
+}) {
+  return (
+    <TestDefectRulings
+      owner={{ kind: 'milestone', id: milestoneId }}
+      handlePrefix={milestoneName}
+      enabled
+    />
+  )
+}
+
+function TestDefectRulings({
+  owner,
+  handlePrefix,
+  enabled,
+}: {
+  owner: TestCaseOwnerRef
+  handlePrefix: string
+  enabled: boolean
+}) {
+  const intl = useIntl()
+  const { testCases, disposeDefect } = useTestCases(owner, enabled)
   const { blocking } = summarizeTestCases(testCases)
   if (blocking.length === 0) return null
 
@@ -43,7 +79,7 @@ export function BlockingTestDefects({
           <a
             href={`#${runAnchorId(d.runId)}`}
             className='text-body-strong text-foreground hover:underline'
-            title={`${taskIdentifier}/TC${d.caseNumber}`}
+            title={`${handlePrefix}/TC${d.caseNumber}`}
           >
             {intl.formatMessage(
               { id: 'testCases.caseLabel' },
@@ -60,6 +96,7 @@ export function BlockingTestDefects({
             <DisposeControl
               runId={d.runId}
               onDispose={(runId, ruling) => void disposeDefect(runId, ruling)}
+              ownerKind={owner.kind}
             />
           </span>
         </li>

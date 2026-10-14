@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "Menyekat DONE — seseorang perlu memutuskan:",
   "testCases.disposition.action.KNOWN_DEFECT": "Terima dan hantar",
   "testCases.disposition.action.NOT_A_DEFECT": "Bukan kecacatan",
+  "testCases.disposition.blockingMilestone": "Menahan penutupan pencapaian — seseorang perlu memutuskan:",
+  "testCases.disposition.milestoneConsequence": "“Kecacatan diketahui” membolehkan pencapaian ditutup. “Bukan kecacatan” menyebabkan kes ini terus menahan pencapaian sehingga ia lulus apabila dijalankan semula.",
   "boundary.editChange.notRetained": "Lumo tidak menyimpan kandungan fail bukan ujian. Lihat perubahan dalam PR.",
   "sessionTimeline.contentNotRetained": "Kandungan tidak disimpan ({lines, plural, other {# baris}}, {bytes, number} bait). Lumo hanya menyimpan laluan dan saiz, bukan kod anda.",
   "security.meta.title": "Keselamatan — Lumo",

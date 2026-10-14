@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "正在拦截 DONE —— 需要人来裁定：",
   "testCases.disposition.action.KNOWN_DEFECT": "认了，照发",
   "testCases.disposition.action.NOT_A_DEFECT": "不是缺陷",
+  "testCases.disposition.blockingMilestone": "正在拦住里程碑关闭 —— 需要人来裁定：",
+  "testCases.disposition.milestoneConsequence": "选「已知缺陷」，里程碑即可关闭；选「不是缺陷」，这条用例会继续拦住里程碑，直到重跑通过。",
   "boundary.editChange.notRetained": "Lumo 不保留非测试文件的内容，请在 PR 中查看这次改动。",
   "sessionTimeline.contentNotRetained": "内容未保留（{lines, plural, other {# 行}}，{bytes, number} 字节）。Lumo 只保留路径和大小，不保留你的代码。",
   "security.meta.title": "安全 — Lumo",

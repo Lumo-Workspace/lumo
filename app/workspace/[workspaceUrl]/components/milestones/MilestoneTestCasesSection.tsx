@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { milestonesClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { TestCasesSection } from '../TaskDetailTimeline/TestCasesSection'
+import { MilestoneTestDefects } from '../TaskDetailTimeline/BlockingTestDefects'
 import { MilestoneCloseGateBanner } from './MilestoneCloseGateBanner'
 import { useTestCases } from '../../hooks/useTestCases'
 import type { WorkspaceMemberInfo } from '../../types'
@@ -67,6 +68,11 @@ export function MilestoneTestCasesSection({
             }}
           />
         )}
+        {/* Undispositioned proven defects hold the gate — rule on them in place. */}
+        <MilestoneTestDefects
+          milestoneId={milestoneId}
+          milestoneName={milestoneName}
+        />
         <TestCasesSection
           owner={owner}
           handlePrefix={milestoneName}

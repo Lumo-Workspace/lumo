@@ -13,6 +13,12 @@ import { sanitizeField } from './sanitize'
 
 export type DefectRuling = 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
 
+/**
+ * LUM-1135: 用例属于任务还是里程碑。任务上两个裁定都清 DONE 闸；里程碑上只有
+ * KNOWN_DEFECT 放行关闭闸，NOT_A_DEFECT 让这条用例继续拦着、直到重跑通过。
+ */
+export type DefectOwnerKind = 'task' | 'milestone'
+
 export interface DispositionFlags {
   knownDefect?: boolean
   notADefect?: boolean
@@ -26,7 +32,10 @@ export type RulingPick =
   | { ok: false; error: string }
 
 /** 恰好一个裁定值。两个都给或都不给都是错——这不是可以默认的东西。 */
-export function pickRuling(flags: DispositionFlags): RulingPick {
+export function pickRuling(
+  flags: DispositionFlags,
+  ownerKind: DefectOwnerKind = 'task'
+): RulingPick {
   const picked = [
     flags.knownDefect ? ('KNOWN_DEFECT' as const) : null,
     flags.notADefect ? ('NOT_A_DEFECT' as const) : null,
@@ -37,7 +46,9 @@ export function pickRuling(flags: DispositionFlags): RulingPick {
       ok: false,
       error:
         'pass exactly one of --known-defect or --not-a-defect (the ruling to record). ' +
-        'Both clear the gate — the gate asks whether a human has looked, not whether the defect is fixed.',
+        (ownerKind === 'task'
+          ? 'Both clear the gate — the gate asks whether a human has looked, not whether the defect is fixed.'
+          : 'Only --known-defect lets the milestone close; --not-a-defect keeps the case holding the milestone until it passes on a re-run.'),
     }
   }
   return { ok: true, target: picked[0]! }
@@ -112,29 +123,60 @@ export interface DefectSubject {
   evidenceCount: number
 }
 
-const RULING_WORD: Record<DefectRuling, string> = {
-  KNOWN_DEFECT: 'KNOWN_DEFECT (we accept this defect and ship anyway)',
-  NOT_A_DEFECT:
-    'NOT_A_DEFECT (the failure was mis-attributed to the implementation)',
+const RULING_WORD: Record<DefectOwnerKind, Record<DefectRuling, string>> = {
+  task: {
+    KNOWN_DEFECT: 'KNOWN_DEFECT (we accept this defect and ship anyway)',
+    NOT_A_DEFECT:
+      'NOT_A_DEFECT (the failure was mis-attributed to the implementation)',
+  },
+  milestone: {
+    KNOWN_DEFECT:
+      'KNOWN_DEFECT (we accept this defect and let the milestone close anyway)',
+    NOT_A_DEFECT:
+      'NOT_A_DEFECT (the failure was mis-attributed to the implementation — the case stays held until it passes on a re-run)',
+  },
+}
+
+/** 第 1 步信封的后果行。任务措辞保持原样（逐字节）。 */
+function readConsequence(
+  target: DefectRuling,
+  ownerKind: DefectOwnerKind
+): string {
+  if (ownerKind === 'task')
+    return "⚠ Approving this clears that run's block on DONE. It does NOT mean the defect is fixed — it means a human looked and decided."
+  return target === 'KNOWN_DEFECT'
+    ? '⚠ Approving this stops that run holding the milestone close gate. It does NOT mean the defect is fixed — it means a human looked and decided.'
+    : '⚠ Approving this does NOT open the milestone close gate — the case stays held until it passes on a re-run. It records that a human looked and decided the failure is not an implementation defect.'
+}
+
+/** 第 2 步信封的后果行。 */
+function rulingConsequence(
+  target: DefectRuling,
+  ownerKind: DefectOwnerKind
+): string {
+  if (ownerKind === 'task')
+    return '⚠ This clears the DONE block for that run. A later run that proves the defect again will block afresh.'
+  return target === 'KNOWN_DEFECT'
+    ? '⚠ This stops that run holding the milestone close gate. A later run that proves the defect again will hold it afresh.'
+    : '⚠ The case still holds the milestone close gate until it passes on a re-run.'
 }
 
 /** 第 1 步信封的 changes 行：先说清在裁什么，再说裁定的后果。 */
 export function describeDefectRead(
   subject: DefectSubject,
   target: DefectRuling,
-  note?: string
+  note?: string,
+  ownerKind: DefectOwnerKind = 'task'
 ): string[] {
   const lines = [
     `Will rule on ${subject.caseHandle} "${subject.caseTitle}" — its latest run proved an implementation defect`,
     `Run ${subject.runId} recorded ${subject.recordedAt} with ${subject.evidenceCount} evidence entr${
       subject.evidenceCount === 1 ? 'y' : 'ies'
     }`,
-    `Ruling to record: ${RULING_WORD[target]}`,
+    `Ruling to record: ${RULING_WORD[ownerKind][target]}`,
   ]
   if (note) lines.push(`Note: ${note}`)
-  lines.push(
-    "⚠ Approving this clears that run's block on DONE. It does NOT mean the defect is fixed — it means a human looked and decided."
-  )
+  lines.push(readConsequence(target, ownerKind))
   return lines
 }
 
@@ -146,16 +188,15 @@ export function describeDefectRuling(
     readAt: string
     readAcknowledgedAt: string
     note?: string | undefined
-  }
+  },
+  ownerKind: DefectOwnerKind = 'task'
 ): string[] {
   const lines = [
     `Read acknowledged for ${subject.caseHandle} "${subject.caseTitle}" (shown ${args.readAt}, acknowledged ${args.readAcknowledgedAt})`,
-    `Step 2 of 2 — record the ruling: ${RULING_WORD[target]}`,
+    `Step 2 of 2 — record the ruling: ${RULING_WORD[ownerKind][target]}`,
   ]
   if (args.note) lines.push(`Note: ${args.note}`)
-  lines.push(
-    '⚠ This clears the DONE block for that run. A later run that proves the defect again will block afresh.'
-  )
+  lines.push(rulingConsequence(target, ownerKind))
   return lines
 }
 

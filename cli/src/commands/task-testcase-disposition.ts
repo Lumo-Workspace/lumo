@@ -91,9 +91,8 @@ export async function testCaseDispositionInScope(
   options: TestCaseDispositionOptions = {}
 ): Promise<number | void> {
   const handle = `${scope.label}/${caseRef}`
-  const blocks = scope.kind === 'task' ? 'DONE' : 'the milestone close gate'
 
-  const ruling = pickRuling(options)
+  const ruling = pickRuling(options, scope.kind)
   if (!ruling.ok) {
     console.error(`Error: ${ruling.error}`)
     return 1
@@ -127,7 +126,9 @@ export async function testCaseDispositionInScope(
     latest.failureAttribution !== 'IMPLEMENTATION_DEFECT'
   ) {
     console.error(
-      `Error: the latest run of ${handle} is not a proven implementation defect, so it never blocked ${blocks}. Nothing to disposition.`
+      scope.kind === 'task'
+        ? `Error: the latest run of ${handle} is not a proven implementation defect, so it never blocked DONE. Nothing to disposition.`
+        : `Error: the latest run of ${handle} is not a proven implementation defect. Only proven defects can be dispositioned — every other failure holds the milestone until the case passes on a re-run. Nothing to disposition.`
     )
     return 1
   }
@@ -164,7 +165,7 @@ export async function testCaseDispositionInScope(
     return emitConfirmation({
       command: `${scope.kind} testcase disposition`,
       changes: [
-        ...describeDefectRead(subject, ruling.target, note),
+        ...describeDefectRead(subject, ruling.target, note, scope.kind),
         `Step 1 of 2 — read receipt issued for this run as read above (valid until ${issued.data.expiresAt}; void if a newer run is recorded or someone rules on it first). Next: the user confirms they have READ it, then run the command below; the ruling itself is confirmed in a second envelope`,
       ],
       confirmFlag: '--confirm-read',
@@ -194,12 +195,17 @@ export async function testCaseDispositionInScope(
     }
     return emitConfirmation({
       command: `${scope.kind} testcase disposition`,
-      changes: describeDefectRuling(subject, ruling.target, {
-        readAt: issued.data.readAt,
-        readAcknowledgedAt:
-          issued.data.readAcknowledgedAt ?? issued.data.readAt,
-        note,
-      }),
+      changes: describeDefectRuling(
+        subject,
+        ruling.target,
+        {
+          readAt: issued.data.readAt,
+          readAcknowledgedAt:
+            issued.data.readAcknowledgedAt ?? issued.data.readAt,
+          note,
+        },
+        scope.kind
+      ),
       receipt: {
         token: issued.data.receipt,
         expiresAt: issued.data.expiresAt,
@@ -220,7 +226,13 @@ export async function testCaseDispositionInScope(
   if (!wrote.ok) return 1
 
   process.stdout.write(
-    `Dispositioned ${subject.caseHandle} run ${latest.id}: ${ruling.target}. That run no longer blocks ${blocks}.\n`
+    `Dispositioned ${subject.caseHandle} run ${latest.id}: ${ruling.target}. ${
+      scope.kind === 'task'
+        ? 'That run no longer blocks DONE.'
+        : ruling.target === 'KNOWN_DEFECT'
+          ? 'That run no longer holds the milestone close gate.'
+          : 'The case still holds the milestone close gate until it passes on a re-run.'
+    }\n`
   )
   // LUM-842: show what (if anything) still blocks DONE after this ruling.
   if (scope.kind === 'task') {

@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "DONE 차단 중 — 담당자의 판단이 필요합니다:",
   "testCases.disposition.action.KNOWN_DEFECT": "감수하고 배포",
   "testCases.disposition.action.NOT_A_DEFECT": "결함 아님",
+  "testCases.disposition.blockingMilestone": "마일스톤 종료를 막고 있음 — 담당자의 판단이 필요합니다:",
+  "testCases.disposition.milestoneConsequence": "‘알려진 결함’을 선택하면 마일스톤을 종료할 수 있습니다. ‘결함 아님’을 선택하면 재실행에서 통과할 때까지 이 케이스가 마일스톤을 계속 막습니다.",
   "boundary.editChange.notRetained": "Lumo는 테스트가 아닌 파일의 내용을 보관하지 않습니다. 변경 사항은 PR에서 확인하세요.",
   "sessionTimeline.contentNotRetained": "내용이 보관되지 않았습니다({lines, plural, other {#줄}}, {bytes, number}바이트). Lumo는 경로와 크기만 보관하며 코드는 보관하지 않습니다.",
   "security.meta.title": "보안 — Lumo",

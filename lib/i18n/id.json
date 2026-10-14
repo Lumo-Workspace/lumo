@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "Memblokir DONE — seseorang harus memutuskan:",
   "testCases.disposition.action.KNOWN_DEFECT": "Terima dan rilis",
   "testCases.disposition.action.NOT_A_DEFECT": "Bukan cacat",
+  "testCases.disposition.blockingMilestone": "Menahan penutupan milestone — seseorang harus memutuskan:",
+  "testCases.disposition.milestoneConsequence": "“Cacat yang diketahui” membuat milestone bisa ditutup. “Bukan cacat” membuat kasus ini tetap menahan milestone sampai lulus saat dijalankan ulang.",
   "boundary.editChange.notRetained": "Lumo tidak menyimpan isi file non-tes. Lihat perubahannya di PR.",
   "sessionTimeline.contentNotRetained": "Isi tidak disimpan ({lines, plural, other {# baris}}, {bytes, number} byte). Lumo hanya menyimpan path dan ukuran, bukan kode Anda.",
   "security.meta.title": "Keamanan — Lumo",

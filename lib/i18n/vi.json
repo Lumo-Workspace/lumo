@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "Đang chặn DONE — cần người quyết định:",
   "testCases.disposition.action.KNOWN_DEFECT": "Chấp nhận và phát hành",
   "testCases.disposition.action.NOT_A_DEFECT": "Không phải lỗi",
+  "testCases.disposition.blockingMilestone": "Đang chặn đóng cột mốc — cần người quyết định:",
+  "testCases.disposition.milestoneConsequence": "“Lỗi đã biết” cho phép đóng cột mốc. “Không phải lỗi” khiến ca này tiếp tục giữ cột mốc cho đến khi chạy lại và đạt.",
   "boundary.editChange.notRetained": "Lumo không lưu nội dung của các tệp không phải tệp kiểm thử. Xem thay đổi trong PR.",
   "sessionTimeline.contentNotRetained": "Không lưu nội dung ({lines, plural, other {# dòng}}, {bytes, number} byte). Lumo chỉ lưu đường dẫn và kích thước, không lưu mã của bạn.",
   "security.meta.title": "Bảo mật — Lumo",

@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "DONE をブロック中 — 人による判断が必要です:",
   "testCases.disposition.action.KNOWN_DEFECT": "承知のうえでリリース",
   "testCases.disposition.action.NOT_A_DEFECT": "不具合ではない",
+  "testCases.disposition.blockingMilestone": "マイルストーンのクローズを止めています — 人による判断が必要です:",
+  "testCases.disposition.milestoneConsequence": "「既知の不具合」を選ぶとマイルストーンをクローズできます。「不具合ではない」を選ぶと、再実行で合格するまでこのケースがマイルストーンを止め続けます。",
   "boundary.editChange.notRetained": "Lumo はテスト以外のファイルの内容を保持しません。変更は PR で確認してください。",
   "sessionTimeline.contentNotRetained": "内容は保持されていません（{lines, plural, other {# 行}}、{bytes, number} バイト）。Lumo が保持するのはパスとサイズのみで、コードは保持しません。",
   "security.meta.title": "セキュリティ — Lumo",

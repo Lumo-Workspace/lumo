@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "Blocking DONE — a human must rule:",
   "testCases.disposition.action.KNOWN_DEFECT": "Accept and ship",
   "testCases.disposition.action.NOT_A_DEFECT": "Not a defect",
+  "testCases.disposition.blockingMilestone": "Holding the milestone close gate — a human must rule:",
+  "testCases.disposition.milestoneConsequence": "Known defect lets the milestone close. Not a defect keeps this case holding the milestone until it passes on a re-run.",
   "boundary.editChange.notRetained": "Lumo doesn't keep the content of non-test files. See the change in the PR.",
   "sessionTimeline.contentNotRetained": "Content not retained ({lines, plural, one {# line} other {# lines}}, {bytes, number} bytes). Lumo keeps paths and sizes, not your code.",
   "security.meta.title": "Security — Lumo",

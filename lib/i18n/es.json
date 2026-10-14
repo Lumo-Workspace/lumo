@@ -2332,6 +2332,8 @@
   "testCases.disposition.blocking": "Bloquea DONE — una persona debe decidir:",
   "testCases.disposition.action.KNOWN_DEFECT": "Aceptar y publicar",
   "testCases.disposition.action.NOT_A_DEFECT": "No es un defecto",
+  "testCases.disposition.blockingMilestone": "Retiene el cierre del hito — una persona debe decidir:",
+  "testCases.disposition.milestoneConsequence": "«Defecto conocido» permite cerrar el hito. «No es un defecto» hace que este caso siga reteniendo el hito hasta que pase en una nueva ejecución.",
   "boundary.editChange.notRetained": "Lumo no conserva el contenido de los archivos que no son de prueba. Consulta el cambio en la PR.",
   "sessionTimeline.contentNotRetained": "Contenido no conservado ({lines, plural, one {# línea} other {# líneas}}, {bytes, number} bytes). Lumo conserva rutas y tamaños, no tu código.",
   "security.meta.title": "Seguridad — Lumo",

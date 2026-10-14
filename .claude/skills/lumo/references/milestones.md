@@ -154,16 +154,16 @@ Milestone test cases are cross-task, end-to-end cases that replace exit criteria
 
 - The first positional is the **milestone** (name, or id), then the case ref (`TC3`) where one applies. Pass `--project <ref>` when the milestone name is ambiguous. Printed handles read `<milestone name>/TC3`.
 - `run` has **no `--pr`** (a milestone spans many PRs; the commit is recorded instead) and prints no task status digest.
-- `disposition <milestone> TC3 --known-defect | --not-a-defect` is the same three-step handshake as `task testcase disposition`; the ruling clears the case's hold on the close gate instead of DONE. Never add `--confirm-read` / `--confirm` yourself.
+- `disposition <milestone> TC3 --known-defect | --not-a-defect` is the same three-step handshake as `task testcase disposition`, but the two rulings differ here: KNOWN_DEFECT lets the milestone close, NOT_A_DEFECT keeps the case holding the milestone until it passes on a re-run. Only a proven defect can be dispositioned. Never add `--confirm-read` / `--confirm` yourself.
 
-| Latest run of the case                                               | Gate state | Reason        |
-| -------------------------------------------------------------------- | ---------- | ------------- |
-| none                                                                 | held       | NOT_RUN       |
-| PASS (including UNPROVEN)                                            | open       |               |
-| FAIL, proven implementation defect, dispositioned KNOWN_DEFECT       | open       |               |
-| FAIL, proven implementation defect, not yet ruled on or NOT_A_DEFECT | held       | PROVEN_DEFECT |
-| any other FAIL                                                       | held       | FAILING       |
-| BLOCKED                                                              | held       | BLOCKED       |
+| Latest run of the case                                         | Gate state | Reason        |
+| -------------------------------------------------------------- | ---------- | ------------- |
+| none                                                           | held       | NOT_RUN       |
+| PASS (including UNPROVEN)                                      | open       |               |
+| FAIL, proven implementation defect, dispositioned KNOWN_DEFECT | open       |               |
+| FAIL, proven implementation defect, not yet ruled on           | held       | PROVEN_DEFECT |
+| any other FAIL (including one ruled NOT_A_DEFECT)              | held       | FAILING       |
+| BLOCKED                                                        | held       | BLOCKED       |
 
 ```bash
 lumo milestone testcase add "Review v2" --title "PR review round-trip" --step "open a PR in a connected repo" --step "wait for the review" --verify "the review comment is on the PR" --expected "one review comment per finding" --requires-env production

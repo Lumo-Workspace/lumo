@@ -89,3 +89,47 @@ it('renders milestone-prefixed handles and the gate banner for a milestone owner
   expect(screen.getByRole('status')).toBeInTheDocument()
   expect(useTestCases).toHaveBeenCalledWith({ kind: 'milestone', id: 'm-1' })
 })
+
+it('offers the ruling for an undispositioned proven defect on the milestone', () => {
+  ;(useTestCases as jest.Mock).mockReturnValue({
+    testCases: [
+      {
+        ...mkCase(1, 'Round trip'),
+        verification: [],
+        requiredEnvironment: null,
+        runs: [
+          {
+            id: 'r-1',
+            result: 'FAIL',
+            environment: 'PRODUCTION',
+            failureAttribution: 'IMPLEMENTATION_DEFECT',
+            unprovenVerification: [],
+            evidence: [{ type: 'link', url: 'https://x' }],
+            disposition: null,
+            createdAt: '2026-10-14T00:00:00.000Z',
+          },
+        ],
+      },
+    ],
+    pullRequests: [],
+    gate: null,
+    loading: false,
+    error: null,
+    add: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    recordRun: jest.fn(),
+    disposeDefect: jest.fn(),
+  })
+  render(
+    <MilestoneTestCasesSection
+      milestoneId='m-1'
+      milestoneName='Beta'
+      allTasksDone
+      completed={false}
+      members={[]}
+    />
+  )
+  expect(screen.getByTestId('blocking-test-defects')).toBeInTheDocument()
+  expect(screen.getByTestId('dispose-consequence')).toBeInTheDocument()
+})

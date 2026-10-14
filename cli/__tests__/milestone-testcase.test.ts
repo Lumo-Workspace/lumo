@@ -241,3 +241,97 @@ it('rejects --pr on a milestone run before any request', async () => {
   expect(code).toBe(1)
   expect(fetchMock).not.toHaveBeenCalled()
 })
+
+describe('milestone disposition wording (LUM-1135)', () => {
+  let outSpy: jest.SpyInstance
+  const written = () => outSpy.mock.calls.map(c => String(c[0])).join('')
+  beforeEach(() => {
+    outSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  })
+  afterEach(() => outSpy.mockRestore())
+
+  it('a NOT_A_DEFECT ruling says the case still holds the milestone', async () => {
+    queueResolve()
+    await milestoneTestCaseDisposition('Review v2', 'TC1', {
+      notADefect: true,
+      confirm: true,
+      receipt: 'r2.1.2.3.sig',
+      project: 'lumo',
+    })
+    expect(written()).toContain(
+      'The case still holds the milestone close gate until it passes on a re-run.'
+    )
+    expect(written()).not.toContain('no longer')
+  })
+
+  it('a KNOWN_DEFECT ruling says the run no longer holds the gate', async () => {
+    queueResolve()
+    await milestoneTestCaseDisposition('Review v2', 'TC1', {
+      knownDefect: true,
+      confirm: true,
+      receipt: 'r2.1.2.3.sig',
+      project: 'lumo',
+    })
+    expect(written()).toContain(
+      'That run no longer holds the milestone close gate.'
+    )
+  })
+
+  it('a non-defect latest run explains that every other failure holds the milestone', async () => {
+    queueResolve()
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (url: string) => {
+      if (/\/test-cases\/TC1$/.test(url)) {
+        return reply({
+          testCase: { number: 1, title: 'E2E' },
+          runs: [
+            {
+              id: 'run-9',
+              result: 'FAIL',
+              failureAttribution: 'TEST_DEFECT',
+              evidence: [],
+              createdAt: '2026-10-14T00:00:00Z',
+              disposition: null,
+            },
+          ],
+        })
+      }
+      return base(url)
+    })
+    const code = await milestoneTestCaseDisposition('Review v2', 'TC1', {
+      knownDefect: true,
+      project: 'lumo',
+    })
+    expect(code).toBe(1)
+    const err = errorSpy.mock.calls.map(c => String(c[0])).join('\n')
+    expect(err).toContain(
+      'Only proven defects can be dispositioned — every other failure holds the milestone until the case passes on a re-run.'
+    )
+    expect(err).not.toContain('never blocked')
+  })
+
+  it('the step-1 envelope for NOT_A_DEFECT says the case stays held', async () => {
+    queueResolve()
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (url: string) => {
+      if (/\/disposition\/receipt$/.test(url)) {
+        return reply({
+          receipt: 'r1.1.2.3.sig',
+          expiresAt: '2026-10-14T00:10:00Z',
+          readAt: '2026-10-14T00:00:00Z',
+          readAcknowledgedAt: null,
+        })
+      }
+      return base(url)
+    })
+    const code = await milestoneTestCaseDisposition('Review v2', 'TC1', {
+      notADefect: true,
+      project: 'lumo',
+    })
+    expect(code).toBe(4)
+    expect(written()).toContain(
+      'the case stays held until it passes on a re-run'
+    )
+    expect(written()).not.toContain('block on DONE')
+  })
+})
