@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "Kesemua {total} peraturan disemak secara automatik.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} daripada {total} peraturan tidak disemak secara automatik.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Memerlukan pertimbangan tentang arahan atau proses. Belum ada semakan automatik untuk jenis peraturan ini.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya semakan AI yang menyemak peraturan ini, dan semakan AI dimatikan di atas."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya semakan AI yang menyemak peraturan ini, dan semakan AI dimatikan di atas.",
+  "milestoneTestCases.title": "Kes ujian",
+  "milestoneGate.open": "Get penutupan terbuka — semua kes ujian telah lulus.",
+  "milestoneGate.held": "{count, plural, other {# item menyebabkan pencapaian ini kekal terbuka}}",
+  "milestoneGate.criteria": "{count, plural, other {# kriteria keluar yang telah ditamatkan belum dipenuhi}}",
+  "milestoneGate.reason.notRun": "Belum dijalankan",
+  "milestoneGate.reason.provenDefect": "Kecacatan terbukti — putuskan atau baiki",
+  "milestoneGate.reason.failing": "Larian terakhir gagal",
+  "milestoneGate.reason.blocked": "Larian terakhir disekat",
+  "milestoneGate.override.open": "Tutup juga",
+  "milestoneGate.override.notePlaceholder": "Mengapa boleh ditutup tanpa kes ini lulus?",
+  "milestoneGate.override.confirm": "Tutup pencapaian"
 }

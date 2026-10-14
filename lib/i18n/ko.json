@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "{total}개 규칙이 모두 자동으로 검사됩니다.",
   "workspaceSettings.policyCoverage.someUnchecked": "{total}개 규칙 중 {unchecked}개는 자동으로 검사되지 않습니다.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "명령이나 프로세스에 대한 판단이 필요합니다. 이런 종류의 규칙에 대한 자동 검사는 아직 없습니다.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "이 규칙은 AI 리뷰로만 검사되는데, 위에서 AI 리뷰가 꺼져 있습니다."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "이 규칙은 AI 리뷰로만 검사되는데, 위에서 AI 리뷰가 꺼져 있습니다.",
+  "milestoneTestCases.title": "테스트 케이스",
+  "milestoneGate.open": "닫기 게이트 열림 — 모든 테스트 케이스가 통과했습니다.",
+  "milestoneGate.held": "{count, plural, other {#개 항목이 이 마일스톤을 열어 두고 있습니다}}",
+  "milestoneGate.criteria": "{count, plural, other {더 이상 쓰지 않는 종료 기준 #개가 충족되지 않았습니다}}",
+  "milestoneGate.reason.notRun": "아직 실행되지 않음",
+  "milestoneGate.reason.provenDefect": "결함이 입증됨 — 판정하거나 수정하세요",
+  "milestoneGate.reason.failing": "마지막 실행 실패",
+  "milestoneGate.reason.blocked": "마지막 실행이 차단됨",
+  "milestoneGate.override.open": "그래도 닫기",
+  "milestoneGate.override.notePlaceholder": "이 항목들이 통과하지 않아도 닫아도 되는 이유는 무엇인가요?",
+  "milestoneGate.override.confirm": "마일스톤 닫기"
 }

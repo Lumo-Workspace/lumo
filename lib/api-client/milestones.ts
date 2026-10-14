@@ -408,6 +408,14 @@ export interface MilestoneUpdateInput {
 export type MilestoneListFilter = 'active' | 'archived' | 'all'
 
 export const milestonesClient = {
+  /** LUM-1135: human override of the test-case close gate (Clerk-only). */
+  overrideClose(milestoneId: string, overrideNote: string) {
+    return apiFetch<unknown>(`/api/milestones/${milestoneId}/close-override`, {
+      method: 'POST',
+      body: { overrideNote },
+    })
+  },
+
   listByWorkspace(filter: MilestoneListFilter = 'active') {
     const base = API.milestones.workspace
     const url = filter === 'active' ? base : `${base}?filter=${filter}`

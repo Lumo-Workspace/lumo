@@ -56,6 +56,12 @@ jest.mock(
     ),
   })
 )
+// LUM-1135: the test-cases section owns its own react-query data; it has its
+// own suite, so this page-structure test stubs it out.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneTestCasesSection',
+  () => ({ MilestoneTestCasesSection: () => null })
+)
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMentionSources', () => ({
   useMentionSources: () => ({ members: [], searchEntities: async () => [] }),
 }))

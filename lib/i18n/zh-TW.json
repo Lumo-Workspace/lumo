@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "全部 {total} 條規則皆會自動檢查。",
   "workspaceSettings.policyCoverage.someUnchecked": "{total} 條規則中有 {unchecked} 條不會自動檢查。",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "需要對指令或流程做判斷，目前還沒有針對這類規則的自動檢查。",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "這條規則只由 AI 審查檢查，而上方已關閉 AI 審查。"
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "這條規則只由 AI 審查檢查，而上方已關閉 AI 審查。",
+  "milestoneTestCases.title": "測試案例",
+  "milestoneGate.open": "關閉閘門已開啟——所有測試案例均已通過。",
+  "milestoneGate.held": "{count, plural, other {有 # 項使此里程碑保持開啟}}",
+  "milestoneGate.criteria": "{count, plural, other {有 # 項已棄用的退出標準未滿足}}",
+  "milestoneGate.reason.notRun": "尚未執行",
+  "milestoneGate.reason.provenDefect": "已證實的缺陷——請裁定或修復",
+  "milestoneGate.reason.failing": "最近一次執行失敗",
+  "milestoneGate.reason.blocked": "最近一次執行被阻擋",
+  "milestoneGate.override.open": "仍然關閉",
+  "milestoneGate.override.notePlaceholder": "為什麼可以在這些案例未通過時關閉?",
+  "milestoneGate.override.confirm": "關閉里程碑"
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTestCases } from '../../hooks/useTestCases'
+import type { TestCaseOwnerRef } from '@/lib/api-client/test-cases'
 import { TestCaseCard } from './TestCaseCard'
 import { TestCaseForm } from './TestCaseForm'
 import { RecordRunDialog } from './RecordRunDialog'
@@ -14,8 +15,9 @@ import type {
 import type { WorkspaceMemberInfo } from '../../types'
 
 interface TestCasesSectionProps {
-  taskId: string
-  taskIdentifier: string
+  owner: TestCaseOwnerRef
+  /** 句柄前缀：任务标识（LUM-12）或里程碑名。 */
+  handlePrefix: string
   enabled: boolean
   /** 运行记录里执行人的头像 / 名片。 */
   members?: WorkspaceMemberInfo[]
@@ -36,8 +38,8 @@ type Mode =
  * 当下的 head 冻下来，这样 PR 后续 push 时这条 run 会被正确判为陈旧。
  */
 export function TestCasesSection({
-  taskId,
-  taskIdentifier,
+  owner,
+  handlePrefix,
   enabled,
   members = [],
 }: TestCasesSectionProps) {
@@ -51,7 +53,7 @@ export function TestCasesSection({
     update,
     remove,
     recordRun,
-  } = useTestCases(taskId, enabled)
+  } = useTestCases(owner, enabled)
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [linkedRunId, setLinkedRunId] = useState<string | null>(null)
@@ -178,7 +180,7 @@ export function TestCasesSection({
           ) : (
             <TestCaseCard
               testCase={c}
-              taskIdentifier={taskIdentifier}
+              taskIdentifier={handlePrefix}
               runs={c.runs}
               pullRequests={pullRequests}
               expanded={expanded.has(c.id)}
@@ -194,6 +196,7 @@ export function TestCasesSection({
             <RecordRunDialog
               testCase={active}
               pullRequests={pullRequests}
+              showPullRequests={owner.kind === 'task'}
               onSubmit={handleRecordRun}
               onClose={() => setMode({ kind: 'idle' })}
             />

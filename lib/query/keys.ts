@@ -141,6 +141,9 @@ export const queryKeys = {
 
   taskTestCases: (taskId: string) => ['task-test-cases', taskId] as const,
 
+  milestoneTestCases: (milestoneId: string) =>
+    ['milestone-test-cases', milestoneId] as const,
+
   integrations: {
     slack: (workspaceUrl: string) =>
       ['integrations', 'slack', workspaceUrl] as const,

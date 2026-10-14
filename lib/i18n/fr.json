@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "Les {total} règles sont toutes vérifiées automatiquement.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} règles sur {total} ne sont pas vérifiées automatiquement.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Demande un jugement sur des commandes ou un processus. Aucune vérification automatique n'existe encore pour ce type de règle.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Seule la revue IA vérifie cette règle, et la revue IA est désactivée ci-dessus."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Seule la revue IA vérifie cette règle, et la revue IA est désactivée ci-dessus.",
+  "milestoneTestCases.title": "Cas de test",
+  "milestoneGate.open": "Porte de clôture ouverte : tous les cas de test ont réussi.",
+  "milestoneGate.held": "{count, plural, one {# élément maintient ce jalon ouvert} other {# éléments maintiennent ce jalon ouvert}}",
+  "milestoneGate.criteria": "{count, plural, one {# critère de sortie obsolète non satisfait} other {# critères de sortie obsolètes non satisfaits}}",
+  "milestoneGate.reason.notRun": "Pas encore exécuté",
+  "milestoneGate.reason.provenDefect": "Défaut avéré : statuez dessus ou corrigez-le",
+  "milestoneGate.reason.failing": "La dernière exécution a échoué",
+  "milestoneGate.reason.blocked": "La dernière exécution a été bloquée",
+  "milestoneGate.override.open": "Clôturer quand même",
+  "milestoneGate.override.notePlaceholder": "Pourquoi peut-on clôturer sans que ceux-ci réussissent ?",
+  "milestoneGate.override.confirm": "Clôturer le jalon"
 }

@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "Semua {total} aturan diperiksa otomatis.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} dari {total} aturan tidak diperiksa otomatis.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Perlu penilaian atas perintah atau proses. Belum ada pemeriksaan otomatis untuk jenis aturan ini.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya tinjauan AI yang memeriksa aturan ini, dan tinjauan AI dinonaktifkan di atas."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Hanya tinjauan AI yang memeriksa aturan ini, dan tinjauan AI dinonaktifkan di atas.",
+  "milestoneTestCases.title": "Kasus uji",
+  "milestoneGate.open": "Gerbang penutupan terbuka — semua kasus uji telah lulus.",
+  "milestoneGate.held": "{count, plural, other {# item menahan milestone ini tetap terbuka}}",
+  "milestoneGate.criteria": "{count, plural, other {# kriteria keluar usang belum terpenuhi}}",
+  "milestoneGate.reason.notRun": "Belum dijalankan",
+  "milestoneGate.reason.provenDefect": "Cacat terbukti — putuskan atau perbaiki",
+  "milestoneGate.reason.failing": "Eksekusi terakhir gagal",
+  "milestoneGate.reason.blocked": "Eksekusi terakhir terblokir",
+  "milestoneGate.override.open": "Tutup saja",
+  "milestoneGate.override.notePlaceholder": "Mengapa boleh ditutup tanpa lulusnya kasus-kasus ini?",
+  "milestoneGate.override.confirm": "Tutup milestone"
 }

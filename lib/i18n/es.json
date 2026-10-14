@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "Las {total} reglas se comprueban automáticamente.",
   "workspaceSettings.policyCoverage.someUnchecked": "{unchecked} de {total} reglas no se comprueban automáticamente.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Requiere valorar comandos o procesos. Todavía no existe una comprobación automática para este tipo de regla.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Solo la revisión con IA comprueba esta regla, y la revisión con IA está desactivada arriba."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Solo la revisión con IA comprueba esta regla, y la revisión con IA está desactivada arriba.",
+  "milestoneTestCases.title": "Casos de prueba",
+  "milestoneGate.open": "Puerta de cierre abierta: todos los casos de prueba han pasado.",
+  "milestoneGate.held": "{count, plural, one {# elemento mantiene abierto este hito} other {# elementos mantienen abierto este hito}}",
+  "milestoneGate.criteria": "{count, plural, one {# criterio de salida obsoleto sin cumplir} other {# criterios de salida obsoletos sin cumplir}}",
+  "milestoneGate.reason.notRun": "Aún sin ejecutar",
+  "milestoneGate.reason.provenDefect": "Defecto demostrado: resuélvelo o corrígelo",
+  "milestoneGate.reason.failing": "La última ejecución falló",
+  "milestoneGate.reason.blocked": "La última ejecución quedó bloqueada",
+  "milestoneGate.override.open": "Cerrar de todos modos",
+  "milestoneGate.override.notePlaceholder": "¿Por qué es aceptable cerrar sin que estos pasen?",
+  "milestoneGate.override.confirm": "Cerrar hito"
 }

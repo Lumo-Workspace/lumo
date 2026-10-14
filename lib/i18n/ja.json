@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "{total} 件すべてのルールが自動でチェックされます。",
   "workspaceSettings.policyCoverage.someUnchecked": "{total} 件中 {unchecked} 件のルールは自動でチェックされません。",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "コマンドやプロセスについての判断が必要です。この種類のルールの自動チェックはまだありません。",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "このルールは AI レビューでのみチェックされますが、上で AI レビューがオフになっています。"
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "このルールは AI レビューでのみチェックされますが、上で AI レビューがオフになっています。",
+  "milestoneTestCases.title": "テストケース",
+  "milestoneGate.open": "クローズゲートは開いています — すべてのテストケースが合格しました。",
+  "milestoneGate.held": "{count, plural, other {#件がこのマイルストーンを開いたままにしています}}",
+  "milestoneGate.criteria": "{count, plural, other {非推奨の終了基準が#件未達成です}}",
+  "milestoneGate.reason.notRun": "未実行",
+  "milestoneGate.reason.provenDefect": "欠陥が実証済み — 判定するか修正してください",
+  "milestoneGate.reason.failing": "直近の実行は失敗",
+  "milestoneGate.reason.blocked": "直近の実行はブロックされました",
+  "milestoneGate.override.open": "それでもクローズ",
+  "milestoneGate.override.notePlaceholder": "これらが合格していなくてもクローズしてよい理由は?",
+  "milestoneGate.override.confirm": "マイルストーンをクローズ"
 }

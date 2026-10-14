@@ -2825,5 +2825,16 @@
   "workspaceSettings.policyCoverage.allChecked": "Все правила ({total}) проверяются автоматически.",
   "workspaceSettings.policyCoverage.someUnchecked": "Не проверяются автоматически: {unchecked} из {total} правил.",
   "workspaceSettings.policyCoverage.reason.NO_CHECKER": "Требует оценки команд или процесса. Автоматической проверки для правил такого типа пока нет.",
-  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Это правило проверяет только ИИ-ревью, а ИИ-ревью выключено выше."
+  "workspaceSettings.policyCoverage.reason.AI_REVIEW_OFF": "Это правило проверяет только ИИ-ревью, а ИИ-ревью выключено выше.",
+  "milestoneTestCases.title": "Тест-кейсы",
+  "milestoneGate.open": "Шлюз закрытия открыт — все тест-кейсы пройдены.",
+  "milestoneGate.held": "{count, plural, one {# пункт удерживает этот этап открытым} few {# пункта удерживают этот этап открытым} many {# пунктов удерживают этот этап открытым} other {# пункта удерживают этот этап открытым}}",
+  "milestoneGate.criteria": "{count, plural, one {# устаревший критерий выхода не выполнен} few {# устаревших критерия выхода не выполнено} many {# устаревших критериев выхода не выполнено} other {# устаревшего критерия выхода не выполнено}}",
+  "milestoneGate.reason.notRun": "Ещё не запускался",
+  "milestoneGate.reason.provenDefect": "Дефект доказан — вынесите решение или исправьте",
+  "milestoneGate.reason.failing": "Последний запуск завершился неудачей",
+  "milestoneGate.reason.blocked": "Последний запуск заблокирован",
+  "milestoneGate.override.open": "Всё равно закрыть",
+  "milestoneGate.override.notePlaceholder": "Почему можно закрыть этап, если они не пройдены?",
+  "milestoneGate.override.confirm": "Закрыть этап"
 }

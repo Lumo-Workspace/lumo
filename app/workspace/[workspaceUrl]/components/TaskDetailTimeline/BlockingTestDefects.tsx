@@ -23,7 +23,10 @@ export function BlockingTestDefects({
   enabled: boolean
 }) {
   const intl = useIntl()
-  const { testCases, disposeDefect } = useTestCases(taskId, enabled)
+  const { testCases, disposeDefect } = useTestCases(
+    { kind: 'task', id: taskId },
+    enabled
+  )
   const { blocking } = summarizeTestCases(testCases)
   if (blocking.length === 0) return null
 

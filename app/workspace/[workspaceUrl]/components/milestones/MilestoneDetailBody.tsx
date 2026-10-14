@@ -8,6 +8,7 @@ import { useMentionSources } from '../../hooks/useMentionSources'
 import { MilestoneHero } from './MilestoneHero'
 import { MilestoneMetricStrip } from './MilestoneMetricStrip'
 import { MilestoneTasksWorkspace } from './MilestoneTasksWorkspace'
+import { MilestoneTestCasesSection } from './MilestoneTestCasesSection'
 
 const SECTION_LABEL =
   'text-caption font-bold uppercase tracking-[0.07em] text-muted-foreground'
@@ -37,6 +38,12 @@ export function MilestoneDetailBody({
   const intl = useIntl()
   const mentionSources = useMentionSources(members)
   const archived = !!milestone.archivedAt
+  const counts = milestone.taskCounts
+  const totalTasks = counts
+    ? Object.values(counts).reduce((a, n) => a + n, 0)
+    : 0
+  const allTasksDone =
+    counts !== undefined && totalTasks > 0 && counts.DONE === totalTasks
 
   return (
     <div className='min-h-0 flex-1 overflow-y-auto'>
@@ -90,6 +97,14 @@ export function MilestoneDetailBody({
           onOpenTask={onOpenTask}
         />
       </section>
+
+      <MilestoneTestCasesSection
+        milestoneId={milestone.id}
+        milestoneName={milestone.name}
+        allTasksDone={allTasksDone}
+        completed={milestone.completedAt !== null}
+        members={members}
+      />
     </div>
   )
 }

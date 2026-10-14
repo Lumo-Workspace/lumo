@@ -59,12 +59,37 @@ export interface UploadedEvidenceFile {
   size: number
 }
 
+/** LUM-1135: whose test cases — a task's or a milestone's. */
+export type TestCaseOwnerRef =
+  | { kind: 'task'; id: string }
+  | { kind: 'milestone'; id: string }
+
+export function testCaseOwnerPath(owner: TestCaseOwnerRef): string {
+  return owner.kind === 'task'
+    ? `/api/tasks/${owner.id}`
+    : `/api/milestones/${owner.id}`
+}
+
+/** LUM-1135: the milestone close gate as the list endpoint returns it. */
+export interface MilestoneCloseGateView {
+  held: number
+  unresolvedCriteria: number
+  cases: Array<{
+    number: number
+    title: string
+    state: 'open' | 'held'
+    reason: 'NOT_RUN' | 'PROVEN_DEFECT' | 'FAILING' | 'BLOCKED' | null
+    unprovenPass: boolean
+  }>
+}
+
 export const testCasesClient = {
-  list(taskId: string): Promise<{
+  list(owner: TestCaseOwnerRef): Promise<{
     testCases: TestCaseWithRuns[]
-    pullRequests: TaskPullRequestSnapshot[]
+    pullRequests?: TaskPullRequestSnapshot[]
+    gate?: MilestoneCloseGateView
   }> {
-    return apiFetch(`/api/tasks/${taskId}/test-cases`)
+    return apiFetch(`${testCaseOwnerPath(owner)}/test-cases`)
   },
 
   /**
@@ -74,12 +99,12 @@ export const testCasesClient = {
    * 服务端按身份来源打 `channel: 'WEB'`。
    */
   disposeDefect(
-    taskId: string,
+    owner: TestCaseOwnerRef,
     runId: string,
     payload: { disposition: TestCaseDefectDisposition; note?: string | null }
   ): Promise<RunDisposition> {
     return apiFetch(
-      `/api/tasks/${taskId}/test-case-runs/${runId}/disposition`,
+      `${testCaseOwnerPath(owner)}/test-case-runs/${runId}/disposition`,
       {
         method: 'POST',
         body: payload,
@@ -88,49 +113,49 @@ export const testCasesClient = {
   },
 
   add(
-    taskId: string,
+    owner: TestCaseOwnerRef,
     payload: CreateTestCaseBody
   ): Promise<{ testCase: TestCase }> {
-    return apiFetch(`/api/tasks/${taskId}/test-cases`, {
+    return apiFetch(`${testCaseOwnerPath(owner)}/test-cases`, {
       method: 'POST',
       body: payload,
     })
   },
 
   get(
-    taskId: string,
+    owner: TestCaseOwnerRef,
     caseRef: string
   ): Promise<{
     testCase: TestCase
     runs: Array<TestCaseRun & { executedBy: string | null }>
     pullRequests: TaskPullRequestSnapshot[]
   }> {
-    return apiFetch(`/api/tasks/${taskId}/test-cases/${caseRef}`)
+    return apiFetch(`${testCaseOwnerPath(owner)}/test-cases/${caseRef}`)
   },
 
   update(
-    taskId: string,
+    owner: TestCaseOwnerRef,
     caseRef: string,
     payload: UpdateTestCaseBody
   ): Promise<{ testCase: TestCase }> {
-    return apiFetch(`/api/tasks/${taskId}/test-cases/${caseRef}`, {
+    return apiFetch(`${testCaseOwnerPath(owner)}/test-cases/${caseRef}`, {
       method: 'PATCH',
       body: payload,
     })
   },
 
-  remove(taskId: string, caseRef: string): Promise<{ ok: true }> {
-    return apiFetch(`/api/tasks/${taskId}/test-cases/${caseRef}`, {
+  remove(owner: TestCaseOwnerRef, caseRef: string): Promise<{ ok: true }> {
+    return apiFetch(`${testCaseOwnerPath(owner)}/test-cases/${caseRef}`, {
       method: 'DELETE',
     })
   },
 
   recordRun(
-    taskId: string,
+    owner: TestCaseOwnerRef,
     caseRef: string,
     payload: RecordRunBody
   ): Promise<{ run: TestCaseRun }> {
-    return apiFetch(`/api/tasks/${taskId}/test-cases/${caseRef}/runs`, {
+    return apiFetch(`${testCaseOwnerPath(owner)}/test-cases/${caseRef}/runs`, {
       method: 'POST',
       body: payload,
     })
@@ -138,14 +163,14 @@ export const testCasesClient = {
 
   /** multipart —— 绕过 apiFetch 的 JSON body 约定，直接 fetch。 */
   async uploadEvidence(
-    taskId: string,
+    owner: TestCaseOwnerRef,
     caseRef: string,
     files: File[]
   ): Promise<{ files: UploadedEvidenceFile[] }> {
     const fd = new FormData()
     for (const f of files) fd.append('file', f)
     const res = await fetch(
-      `/api/tasks/${taskId}/test-cases/${caseRef}/evidence`,
+      `${testCaseOwnerPath(owner)}/test-cases/${caseRef}/evidence`,
       { method: 'POST', body: fd }
     )
     if (!res.ok) {
