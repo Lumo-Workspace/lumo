@@ -29,6 +29,10 @@ type Params = { params: Promise<{ id: string; findingId: string }> }
  * relay. The protection is the confirmation protocol plus the channel trail.
  * Either surface may change an existing ruling, so the web panel can correct
  * a CLI ruling.
+ *
+ * `disposition: 'OPEN'` reverts a ruling (LUM-1128 follow-up) and is web
+ * only, like a crossing's OPEN revert: a bearer caller gets 403. Reopening
+ * restores the finding's DONE block.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   const identity = await requireIdentity(request)
@@ -44,26 +48,47 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   const viaCli = identity.source === 'bearer'
-  try {
-    const view = await prSecurityScanService.disposition(
-      task.id,
-      findingId,
-      parsed.data.disposition,
-      parsed.data.note ?? null,
-      identity.memberId,
+  const { disposition, note } = parsed.data
+  if (disposition === 'OPEN' && viaCli) {
+    return NextResponse.json(
       {
-        workspaceId: identity.workspaceId,
-        context: memberAuditContext(
-          request.headers,
-          { clerkId: identity.clerkId, memberId: identity.memberId },
-          identity.source
-        ),
+        error:
+          "Reopening a security finding is web-only — use Reopen in the task's security panel",
       },
-      {
-        channel: viaCli ? 'CLI' : 'WEB',
-        sessionId: viaCli ? request.headers.get('X-Lumo-Session-Id') : null,
-      }
+      { status: 403 }
     )
+  }
+  const audit = {
+    workspaceId: identity.workspaceId,
+    context: memberAuditContext(
+      request.headers,
+      { clerkId: identity.clerkId, memberId: identity.memberId },
+      identity.source
+    ),
+  }
+  try {
+    const view =
+      disposition === 'OPEN'
+        ? await prSecurityScanService.reopen(
+            task.id,
+            findingId,
+            identity.memberId,
+            audit
+          )
+        : await prSecurityScanService.disposition(
+            task.id,
+            findingId,
+            disposition,
+            note ?? null,
+            identity.memberId,
+            audit,
+            {
+              channel: viaCli ? 'CLI' : 'WEB',
+              sessionId: viaCli
+                ? request.headers.get('X-Lumo-Session-Id')
+                : null,
+            }
+          )
     return NextResponse.json({ ...view, channel: viaCli ? 'CLI' : 'WEB' })
   } catch (error) {
     const maybeStatus = (error as { status?: unknown } | null)?.status

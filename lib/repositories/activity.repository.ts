@@ -5,7 +5,7 @@ import {
   STORAGE_REDACTED_FIELDS,
 } from '@/lib/security-scan/storage-redaction'
 
-interface CreateActivityData {
+export interface CreateActivityData {
   taskId: string
   actorId: string | null
   type: TaskActivityType

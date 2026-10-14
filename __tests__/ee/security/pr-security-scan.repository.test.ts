@@ -201,8 +201,11 @@ test('findDispositionedByPullRequest only returns dispositioned findings on that
         OR: [
           { disposition: { not: null } },
           { suggestedDisposition: { not: null } },
+          // LUM-1128 follow-up: the reopen marker is a verdict too.
+          { dispositionedAt: { not: null } },
         ],
       },
+      orderBy: { dispositionedAt: { sort: 'desc', nulls: 'last' } },
     })
   )
 })

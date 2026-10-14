@@ -64,7 +64,11 @@ export const securityScanClient = {
   dispositionSecurityFinding<T>(
     taskId: string,
     findingId: string,
-    body: { disposition: 'FALSE_POSITIVE' | 'ACCEPTED_RISK'; note?: string }
+    body: {
+      /** `OPEN` reverts a ruling (web only, LUM-1128 follow-up). */
+      disposition: 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
+      note?: string
+    }
   ) {
     return apiFetch<T>(
       SECURITY_API.securityFindingDisposition(taskId, findingId),

@@ -155,12 +155,13 @@ export async function findingDisposition(
   const selected = ids.map(id => read.findings.find(f => f.id === id)!)
   const already = selected.filter(f => f.disposition === ruling)
   const todo = selected.filter(f => f.disposition !== ruling)
-  for (const f of already) {
-    process.stdout.write(
-      `Finding ${sanitizeField(f.id)} is already ${ruling} — skipped.\n`
-    )
+  const skipped = already.map(
+    f => `Finding ${sanitizeField(f.id)} is already ${ruling} — skipped.`
+  )
+  if (todo.length === 0) {
+    for (const line of skipped) process.stdout.write(`${line}\n`)
+    return
   }
-  if (todo.length === 0) return
 
   const webUrl = dispositionUrl(
     apiUrl,
@@ -169,15 +170,21 @@ export async function findingDisposition(
   ).replace(/#.*$/, '')
 
   if (!options.confirm) {
+    // The skip notes ride inside the envelope: in non-TTY mode stdout must
+    // be exactly one JSON document (LUM-1128 follow-up).
     return emitConfirmation({
       command: 'finding disposition',
-      changes: describeFindingRulings(todo, ruling, {
-        taskIdentifier: taskId,
-        note,
-        webUrl,
-      }),
+      changes: [
+        ...describeFindingRulings(todo, ruling, {
+          taskIdentifier: taskId,
+          note,
+          webUrl,
+        }),
+        ...skipped,
+      ],
     })
   }
+  for (const line of skipped) process.stdout.write(`${line}\n`)
 
   let failed = 0
   for (const f of todo) {

@@ -58,7 +58,8 @@ import { buildAgentContext } from './security-agent-context'
 import { Button } from '@/components/ui/button'
 import { securityScanClient } from '@/ee/security/api-client'
 
-type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
+/** `OPEN` = Reopen: revert a ruling (web only, LUM-1128 follow-up). */
+type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
 
 /**
  * LUM-732 — per-PR security findings with human disposition controls.
@@ -1052,7 +1053,7 @@ function FindingRow({
     try {
       await securityScanClient.dispositionSecurityFinding(taskId, finding.id, {
         disposition: pending,
-        ...(note.trim() ? { note: note.trim() } : {}),
+        ...(pending !== 'OPEN' && note.trim() ? { note: note.trim() } : {}),
       })
       await queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.securityScans(taskId),
@@ -1341,20 +1342,43 @@ function FindingRow({
                       })}
                     </button>
                   )}
+                  {finding.disposition && (
+                    // LUM-1128 follow-up: revert a mistaken ruling (e.g. a
+                    // CLI one) — the finding is open again and, if policy
+                    // says so, blocks DONE again. Web only.
+                    <button
+                      type='button'
+                      data-testid='finding-reopen'
+                      onClick={() => setPending('OPEN')}
+                      className={ACTION_BUTTON}
+                    >
+                      {intl.formatMessage({
+                        id: 'securityScan.action.reopen',
+                      })}
+                    </button>
+                  )}
                 </>
               ) : (
                 <>
-                  <input
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    placeholder={intl.formatMessage({
-                      id: 'securityScan.action.notePlaceholder',
-                    })}
-                    aria-label={intl.formatMessage({
-                      id: 'securityScan.action.notePlaceholder',
-                    })}
-                    className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
-                  />
+                  {pending === 'OPEN' ? (
+                    <span className='text-caption text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'securityScan.action.reopenConfirm',
+                      })}
+                    </span>
+                  ) : (
+                    <input
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      placeholder={intl.formatMessage({
+                        id: 'securityScan.action.notePlaceholder',
+                      })}
+                      aria-label={intl.formatMessage({
+                        id: 'securityScan.action.notePlaceholder',
+                      })}
+                      className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
+                    />
+                  )}
                   <button
                     type='button'
                     disabled={submitting}

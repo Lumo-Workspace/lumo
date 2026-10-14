@@ -9,10 +9,14 @@ export const reviewActionSchema = z
 /**
  * Body for POST /api/tasks/[id]/security-findings/[findingId]/disposition
  * (LUM-732). Strict — an extra field is a 400. The note is optional.
+ *
+ * LUM-1128 follow-up: `OPEN` reverts a ruling (the panel's "Reopen") — the
+ * route accepts it from a web (Clerk) session only, like a crossing's OPEN
+ * revert; the note is ignored for it.
  */
 export const dispositionSecurityFindingSchema = z
   .object({
-    disposition: z.enum(['FALSE_POSITIVE', 'ACCEPTED_RISK']),
+    disposition: z.enum(['FALSE_POSITIVE', 'ACCEPTED_RISK', 'OPEN']),
     note: z.string().trim().min(1).max(2000).optional(),
   })
   .strict()

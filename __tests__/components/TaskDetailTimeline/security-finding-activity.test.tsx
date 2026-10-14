@@ -74,4 +74,24 @@ describe('SECURITY_FINDING_DISPOSITIONED on the timeline', () => {
     expect(text).toContain('activity.securityFindingChannel.WEB')
     expect(text).toContain('securityScan.disposition.ACCEPTED_RISK')
   })
+
+  it('renders a web-panel reopen (to OPEN) as a reopen, not a ruling', () => {
+    renderTimeline([
+      entry('a3', {
+        ruleId: 'secret:aws',
+        from: 'FALSE_POSITIVE',
+        to: 'OPEN',
+        channel: 'WEB',
+      }),
+    ])
+    expect(
+      screen.queryByTestId('activity-security-finding-dispositioned')
+    ).toBeNull()
+    const text = screen.getByTestId(
+      'activity-security-finding-reopened'
+    ).textContent
+    expect(text).toContain('activity.securityFindingReopened')
+    expect(text).toContain('securityScan.disposition.FALSE_POSITIVE')
+    expect(text).toContain('activity.securityFindingChannel.WEB')
+  })
 })

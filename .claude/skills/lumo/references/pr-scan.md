@@ -314,12 +314,17 @@ A gated mutation on the [confirmation protocol](confirmation.md) — no read rec
   **Never add `--confirm` yourself.**
 - Ids come from `lumo task status` (`Id:` under each `[SECURITY]` / `[BUG]` item) or `DONE_BLOCKED`
   `blockers[].findingId`. Several ids = one envelope; one ruling per call. An id not on the task fails
-  closed (exit 1, nothing written); a finding already carrying the ruling is skipped.
+  closed (exit 1, nothing written); a finding already carrying the ruling is skipped — its
+  `Finding <id> is already <RULING> — skipped.` note is a line in the envelope's `changes` (stdout stays one
+  JSON document off a TTY), and is printed as plain text when every id was skipped (exit 0, no envelope).
 - `--accepted-risk` means the risk is real and knowingly carried — ask the user for the why and pass it
   as `--note`.
 - The server records each ruling with channel `CLI`, the member, the session and the time (task
   timeline + audit log). There is no agent-session guard: the protection is the user's approval of the
-  envelope. Reverting a ruling to OPEN is not available.
+  envelope. Reverting a ruling to OPEN is **web-only** (the panel's Reopen, under Change ruling; the CLI
+  and any bearer call get 403): the finding blocks DONE again exactly as before it was ruled, the timeline
+  shows `WEB <ruling> → OPEN`, and later pushes do not carry the old ruling back. If the user says a CLI
+  ruling was a mistake, send them to the web panel.
 
 **When to suggest:** `lumo task status` / `task wrapup` lists a blocking `[SECURITY]` / `[BUG]` finding
 the user says is a false positive or an accepted risk; `task update --status done` exits 5 with a
