@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   testCasesClient,
+  type MilestoneCloseGateView,
+  type TestCaseOwnerRef,
   type TestCaseWithRuns,
 } from '@/lib/api-client/test-cases'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
@@ -16,12 +18,15 @@ import { queryKeys } from '@/lib/query/keys'
 
 interface TestCasesData {
   testCases: TestCaseWithRuns[]
-  pullRequests: TaskPullRequestSnapshot[]
+  pullRequests?: TaskPullRequestSnapshot[]
+  gate?: MilestoneCloseGateView
 }
 
 export interface UseTestCasesResult {
   testCases: TestCaseWithRuns[]
   pullRequests: TaskPullRequestSnapshot[]
+  /** LUM-1135: 里程碑的关闭闸门；任务 owner 恒为 null。 */
+  gate: MilestoneCloseGateView | null
   loading: boolean
   error: string | null
   add: (payload: CreateTestCaseBody) => Promise<void>
@@ -47,45 +52,60 @@ export interface UseTestCasesResult {
  * 写 activity——本地拼一个假行容易和真实结果对不上。写完 invalidate 重取。
  */
 export function useTestCases(
-  taskId: string,
+  ownerRef: TestCaseOwnerRef,
   enabled = true
 ): UseTestCasesResult {
   const queryClient = useQueryClient()
-  const queryKey = queryKeys.taskTestCases(taskId)
+  // 依赖 kind/id 原语而非对象身份：调用方常在 render 里内联构造 owner。
+  const { kind, id } = ownerRef
+  const owner = useMemo<TestCaseOwnerRef>(() => ({ kind, id }), [kind, id])
+  const queryKey = useMemo(
+    () =>
+      kind === 'task'
+        ? queryKeys.taskTestCases(id)
+        : queryKeys.milestoneTestCases(id),
+    [kind, id]
+  )
 
   const query = useQuery<TestCasesData, Error>({
     queryKey,
-    queryFn: () => testCasesClient.list(taskId),
+    queryFn: () => testCasesClient.list(owner),
     enabled,
   })
 
-  const refresh = useCallback(
-    () => queryClient.invalidateQueries({ queryKey }),
-    [queryClient, queryKey]
-  )
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey })
+    // 里程碑的 run 可能开/关闭合闸门，页头的完成态要跟着刷新。详情页按 URL 段
+    // 走 detail(id) 或 byProjectAndSlug 两个 key，所以按 milestones 前缀整体失效。
+    if (kind === 'milestone') {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.milestones.all(),
+      })
+    }
+  }, [queryClient, queryKey, kind])
 
   const add = useCallback(
     async (payload: CreateTestCaseBody) => {
-      await testCasesClient.add(taskId, payload)
+      await testCasesClient.add(owner, payload)
       await refresh()
     },
-    [taskId, refresh]
+    [owner, refresh]
   )
 
   const update = useCallback(
     async (caseRef: string, payload: UpdateTestCaseBody) => {
-      await testCasesClient.update(taskId, caseRef, payload)
+      await testCasesClient.update(owner, caseRef, payload)
       await refresh()
     },
-    [taskId, refresh]
+    [owner, refresh]
   )
 
   const remove = useCallback(
     async (caseRef: string) => {
-      await testCasesClient.remove(taskId, caseRef)
+      await testCasesClient.remove(owner, caseRef)
       await refresh()
     },
-    [taskId, refresh]
+    [owner, refresh]
   )
 
   const recordRun = useCallback(
@@ -94,9 +114,9 @@ export function useTestCases(
       // 同性质，v1 接受，不做补偿事务。
       const uploaded =
         files.length > 0
-          ? await testCasesClient.uploadEvidence(taskId, caseRef, files)
+          ? await testCasesClient.uploadEvidence(owner, caseRef, files)
           : { files: [] }
-      await testCasesClient.recordRun(taskId, caseRef, {
+      await testCasesClient.recordRun(owner, caseRef, {
         ...payload,
         evidence: [
           ...(payload.evidence ?? []),
@@ -105,7 +125,7 @@ export function useTestCases(
       })
       await refresh()
     },
-    [taskId, refresh]
+    [owner, refresh]
   )
 
   /**
@@ -120,18 +140,19 @@ export function useTestCases(
       ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT',
       note?: string | null
     ) => {
-      await testCasesClient.disposeDefect(taskId, runId, {
+      await testCasesClient.disposeDefect(owner, runId, {
         disposition: ruling,
         note: note ?? null,
       })
       await refresh()
     },
-    [taskId, refresh]
+    [owner, refresh]
   )
 
   return {
     testCases: query.data?.testCases ?? [],
     pullRequests: query.data?.pullRequests ?? [],
+    gate: query.data?.gate ?? null,
     loading: query.isLoading,
     error: query.error?.message ?? null,
     add,

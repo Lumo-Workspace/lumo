@@ -349,15 +349,26 @@ export const referenceSources: ReferenceSource[] = [
                 task: {
                   select: { project: { select: { workspaceId: true } } },
                 },
+                // LUM-1135: milestone-owned cases have no task.
+                milestone: {
+                  select: { project: { select: { workspaceId: true } } },
+                },
               },
             },
           },
         })
-      ).map(r => ({
-        id: r.id,
-        value: r.evidence,
-        workspaceId: r.testCase.task.project.workspaceId,
-      })),
+      ).flatMap(r => {
+        const owner = r.testCase.task ?? r.testCase.milestone
+        return owner
+          ? [
+              {
+                id: r.id,
+                value: r.evidence,
+                workspaceId: owner.project.workspaceId,
+              },
+            ]
+          : []
+      }),
     (row, evidence) =>
       prisma.testCaseRun.update({ where: { id: row.id }, data: { evidence } })
   ),

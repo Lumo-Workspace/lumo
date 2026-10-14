@@ -2,11 +2,7 @@ import {
   testCaseRepository,
   type TestCaseRow,
 } from '@/lib/repositories/test-case.repository'
-
-/** Returns true when the segment looks like a Prisma cuid (c + 24 alphanum chars). */
-function isLikelyCuid(segment: string): boolean {
-  return /^c[a-z0-9]{24}$/.test(segment)
-}
+import { parseCaseRef } from '@/lib/test-cases/case-ref'
 
 /**
  * 解析 `[caseRef]` 路由段。接受 cuid、`TC3`、`3`。
@@ -23,17 +19,11 @@ export async function resolveTestCaseParam(
   taskId: string,
   caseRef: string
 ): Promise<TestCaseRow | null> {
-  const raw = decodeURIComponent(caseRef).trim()
-
-  if (isLikelyCuid(raw)) {
-    const row = await testCaseRepository.findById(raw)
+  const ref = parseCaseRef(decodeURIComponent(caseRef))
+  if (!ref) return null
+  if (ref.kind === 'id') {
+    const row = await testCaseRepository.findById(ref.id)
     return row && row.taskId === taskId ? row : null
   }
-
-  const m = /^(?:TC)?(\d+)$/i.exec(raw)
-  if (!m) return null
-  const number = parseInt(m[1]!, 10)
-  if (!Number.isSafeInteger(number) || number < 1) return null
-
-  return testCaseRepository.findByTaskAndNumber(taskId, number)
+  return testCaseRepository.findByTaskAndNumber(taskId, ref.number)
 }

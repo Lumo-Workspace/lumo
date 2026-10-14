@@ -30,7 +30,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTestCases', () => ({
   useTestCases: jest.fn(),
 }))
 
-import { BlockingTestDefects } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/BlockingTestDefects'
+import {
+  BlockingTestDefects,
+  MilestoneTestDefects,
+} from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/BlockingTestDefects'
 import { useTestCases } from '@/app/workspace/[workspaceUrl]/hooks/useTestCases'
 
 const disposeDefect = jest.fn().mockResolvedValue(undefined)
@@ -95,5 +98,51 @@ describe('BlockingTestDefects', () => {
     ])
     const { container } = renderIt()
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('MilestoneTestDefects (LUM-1135)', () => {
+  it('rules on a milestone defect with milestone wording and consequence', () => {
+    useCases([
+      {
+        id: 'c3',
+        number: 3,
+        title: 'Release round trip',
+        requiredEnvironment: null,
+        runs: [run({ id: 'r-3' })],
+      },
+    ])
+    render(<MilestoneTestDefects milestoneId='m-1' milestoneName='Beta' />)
+    expect(useTestCases).toHaveBeenCalledWith(
+      { kind: 'milestone', id: 'm-1' },
+      true
+    )
+    expect(screen.getByText('Test case 3')).toHaveAttribute('title', 'Beta/TC3')
+    expect(
+      screen.getByText('Holding the milestone close gate — a human must rule:')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Blocking DONE/)).toBeNull()
+    expect(screen.getByTestId('dispose-consequence')).toHaveTextContent(
+      'Known defect lets the milestone close. Not a defect keeps this case holding the milestone until it passes on a re-run.'
+    )
+    fireEvent.click(screen.getByText('Not a defect'))
+    expect(disposeDefect).toHaveBeenCalledWith('r-3', 'NOT_A_DEFECT')
+  })
+
+  it('keeps the task wording for a task owner', () => {
+    useCases([
+      {
+        id: 'c2',
+        number: 2,
+        title: 'x',
+        requiredEnvironment: null,
+        runs: [run({ id: 'r-2' })],
+      },
+    ])
+    renderIt()
+    expect(
+      screen.getByText('Blocking DONE — a human must rule:')
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('dispose-consequence')).toBeNull()
   })
 })

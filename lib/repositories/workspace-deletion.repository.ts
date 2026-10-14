@@ -166,6 +166,16 @@ async function purgeFkLessRows(
 }
 
 export const workspaceDeletionRepository = {
+  /** LUM-1135: milestones of the workspace that own (or owned) test cases —
+   *  their evidence blobs go with the workspace. */
+  async findMilestoneIdsWithTestCases(workspaceId: string): Promise<string[]> {
+    const rows = await prisma.milestone.findMany({
+      where: { project: { workspaceId }, testCases: { some: {} } },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
   /**
    * Ids of the workspace's tasks that own at least one test case — trashed
    * ones included (LUM-923): their evidence blobs go with the workspace.

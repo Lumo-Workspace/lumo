@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   try {
     const row = await testCaseDefectDispositionService.rule({
-      taskId: task.id,
+      owner: { kind: 'task', taskId: task.id },
       runId,
       ruling: parsed.data.disposition,
       note: parsed.data.note ?? null,

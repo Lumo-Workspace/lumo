@@ -41,6 +41,7 @@ jest.mock('@/lib/repositories/member.repository', () => ({
 jest.mock('@/lib/repositories/private-file.repository', () => ({
   privateFileRepository: {
     findTaskIdsWithTestCasesInProject: jest.fn(),
+    findMilestoneIdsWithTestCasesInProject: jest.fn(),
   },
 }))
 jest.mock('@/lib/services/trash.service', () => ({
@@ -70,8 +71,12 @@ import { projectService } from '@/lib/services/project.service'
 const projectTaskIds =
   privateFileRepository.findTaskIdsWithTestCasesInProject as jest.Mock
 
+const projectMilestoneIds =
+  privateFileRepository.findMilestoneIdsWithTestCasesInProject as jest.Mock
+
 beforeEach(() => {
   jest.clearAllMocks()
+  projectMilestoneIds.mockResolvedValue([])
   order.length = 0
   ;(taskRepository.findWithProject as jest.Mock).mockResolvedValue({
     id: 't-1',
@@ -109,5 +114,12 @@ describe('deleting a project removes its evidence blobs', () => {
       'sweep test-evidence/t-1/',
       'sweep test-evidence/t-2/',
     ])
+  })
+
+  it('LUM-1135: also sweeps the evidence of milestones with test cases, after the row delete', async () => {
+    projectTaskIds.mockResolvedValue([])
+    projectMilestoneIds.mockResolvedValue(['ms-1'])
+    await projectService.deleteProject('p-1', 'acme', 'm-1')
+    expect(order).toEqual(['delete-row', 'sweep milestone-evidence/ms-1/'])
   })
 })

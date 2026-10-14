@@ -2,6 +2,7 @@ import { apiContext, apiCall } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
 import { sanitizeField } from '../lib/sanitize'
+import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 
 export interface TestCaseUpdateOptions {
   title?: string
@@ -29,7 +30,14 @@ export async function taskTestCaseUpdate(
     )
     return 1
   }
+  return testCaseUpdateInScope(taskScope(split.task), split.caseRef, options)
+}
 
+export async function testCaseUpdateInScope(
+  scope: TestCaseScope,
+  caseRef: string,
+  options: TestCaseUpdateOptions
+): Promise<number | void> {
   // --step / --verify 是**整段替换**，不是追加（与 add 的语义一致）。
   const patch: Record<string, unknown> = {}
   if (options.title !== undefined) patch.title = options.title.trim()
@@ -64,14 +72,14 @@ export async function taskTestCaseUpdate(
 
   const r = await apiCall<{ testCase: { number: number; title: string } }>(
     ctx,
-    `/api/tasks/${encodeURIComponent(split.task)}/test-cases/${encodeURIComponent(split.caseRef)}`,
+    `${scope.basePath}/test-cases/${encodeURIComponent(caseRef)}`,
     { method: 'PATCH', json: patch },
     'test case update'
   )
   if (!r.ok || !r.data) return 1
 
   console.log(
-    `Updated ${split.task}/TC${r.data.testCase.number} "${sanitizeField(r.data.testCase.title)}" ` +
+    `Updated ${scope.label}/TC${r.data.testCase.number} "${sanitizeField(r.data.testCase.title)}" ` +
       `(${Object.keys(patch).join(', ')})`
   )
 }

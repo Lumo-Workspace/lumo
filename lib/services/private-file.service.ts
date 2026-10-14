@@ -4,6 +4,7 @@ import {
   evidencePathname,
   fileRouteUrl,
   imagePathname,
+  milestoneEvidencePathname,
   pathnameOf,
   referencedImagePathnames,
   type PrivateFile,
@@ -44,6 +45,20 @@ export const privateFileService = {
     return store(evidencePathname(taskId, caseId, randomUUID()), file, origin)
   },
 
+  /** LUM-1135: store one milestone test-case evidence file. */
+  async storeMilestoneEvidence(
+    milestoneId: string,
+    caseId: string,
+    file: File,
+    origin: string
+  ): Promise<string> {
+    return store(
+      milestoneEvidencePathname(milestoneId, caseId, randomUUID()),
+      file,
+      origin
+    )
+  },
+
   /** Store one editor image under the workspace's prefix (never a
    *  client-chosen folder); returns the file-route URL to embed. */
   async storeImage(
@@ -71,7 +86,11 @@ export const privateFileService = {
     const owner =
       file.kind === 'image'
         ? file.workspaceId
-        : await privateFileRepository.findTaskWorkspaceId(file.taskId)
+        : file.kind === 'milestone-evidence'
+          ? await privateFileRepository.findMilestoneWorkspaceId(
+              file.milestoneId
+            )
+          : await privateFileRepository.findTaskWorkspaceId(file.taskId)
     if (!owner) return false
     if (access.viewerWorkspaceId === owner) return true
     if (file.kind !== 'image' || !access.shareToken) return false
@@ -108,6 +127,23 @@ export const privateFileService = {
     } catch (error) {
       logger.warn('[private-file] task evidence cleanup failed', {
         taskIds,
+        error: (error as Error).message,
+      })
+    }
+  },
+  /** LUM-1135: best-effort sweep of deleted milestones' evidence (mirrors deleteTaskEvidence). */
+  async deleteMilestoneEvidence(
+    milestoneIds: readonly string[]
+  ): Promise<void> {
+    if (milestoneIds.length === 0) return
+    try {
+      const { deleteBlobsByPrefixInBothStores } =
+        await import('@/lib/services/workspace-deletion-blob')
+      for (const id of milestoneIds)
+        await deleteBlobsByPrefixInBothStores(`milestone-evidence/${id}/`)
+    } catch (error) {
+      logger.warn('[private-file] milestone evidence cleanup failed', {
+        milestoneIds,
         error: (error as Error).message,
       })
     }

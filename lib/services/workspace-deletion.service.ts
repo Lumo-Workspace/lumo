@@ -69,11 +69,13 @@ async function notifyOwners(
  *  and each task's evidence — swept in both stores (LUM-916). */
 export function workspaceBlobPrefixes(
   workspaceId: string,
-  taskIdsWithTestCases: readonly string[]
+  taskIdsWithTestCases: readonly string[],
+  milestoneIdsWithTestCases: readonly string[] = []
 ): string[] {
   return [
     `workspaces/${workspaceId}/`,
     ...taskIdsWithTestCases.map(id => `test-evidence/${id}/`),
+    ...milestoneIdsWithTestCases.map(id => `milestone-evidence/${id}/`),
   ]
 }
 
@@ -135,6 +137,10 @@ export const workspaceDeletionService = {
     )
     const taskIds =
       await workspaceDeletionRepository.findTaskIdsWithTestCases(workspaceId)
+    const milestoneIds =
+      await workspaceDeletionRepository.findMilestoneIdsWithTestCases(
+        workspaceId
+      )
     const purged = await workspaceDeletionRepository.purge(
       workspaceId,
       requestedByClerkId,
@@ -145,7 +151,7 @@ export const workspaceDeletionService = {
     const { receiptId, rowCounts } = purged
 
     const blobCleanup = await cleanupBlobs(
-      workspaceBlobPrefixes(workspaceId, taskIds)
+      workspaceBlobPrefixes(workspaceId, taskIds, milestoneIds)
     )
     if (blobCleanup.status === 'FAILED') {
       logger.warn('[workspace-deletion] blob cleanup failed', {
