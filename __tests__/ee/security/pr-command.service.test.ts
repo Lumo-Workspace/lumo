@@ -57,6 +57,7 @@ import {
   ackMarker,
   buildHelpReply,
   buildResolveReply,
+  THREAD_TOKEN_REFUSED,
   type PrCommentEvent,
 } from '@/ee/security/services/pr-command.service'
 import {
@@ -402,6 +403,23 @@ describe('resolve', () => {
       pull_requests: 'write',
       contents: 'write',
     })
+  })
+
+  it('a refused thread-token mint replies with the missing permission instead of going silent', async () => {
+    ;(getRepoToken as jest.Mock).mockImplementation(
+      async (_w: string, _r: string, perms: Record<string, string>) => {
+        if (perms.contents) throw new Error('422 permissions not granted')
+        return perms === REPO_TOKEN_PERMISSIONS.collaboratorPermission
+          ? 'meta'
+          : 'write'
+      }
+    )
+    await expect(
+      applyPrCommentCommand(event('@uselumo resolve'))
+    ).resolves.toBe('failed')
+    expect(resolveThread).not.toHaveBeenCalled()
+    expect(updateRow).not.toHaveBeenCalled()
+    expect(replyBody()).toContain(THREAD_TOKEN_REFUSED)
   })
 
   it('an already-resolved thread on GitHub is only recorded', async () => {

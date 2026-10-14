@@ -183,6 +183,10 @@ async function blockingFingerprints(
   )
 }
 
+/** LUM-1127 — the reply when the thread token cannot be minted. */
+export const THREAD_TOKEN_REFUSED =
+  "⚠️ Lumo couldn't resolve its review threads: GitHub needs the Lumo App to hold the **Contents: Read & write** permission to resolve threads, and this installation doesn't grant it. Resolve the threads on GitHub, or ask an org owner to accept the App's updated permissions."
+
 /** Runs one command; returns the reply body (without its marker). */
 async function run(
   event: PrCommentEvent,
@@ -203,17 +207,27 @@ async function run(
       event.pullRequestId,
       event.workspaceId
     )
+    // LUM-1127: GitHub refuses resolveReviewThread to a pull-request-only
+    // token — the thread mutations need `contents: write` as well. An
+    // installation without it gets a reply saying so, not silence.
+    let threadToken: string
+    try {
+      threadToken = await getRepoToken(
+        event.workspaceId,
+        event.repo,
+        REPO_TOKEN_PERMISSIONS.reviewThreadWrite
+      )
+    } catch (error) {
+      logger.warn(
+        `[pr-command] thread token mint failed pr=#${event.prNumber}: ${describe(error)}`
+      )
+      return { outcome: 'failed', body: THREAD_TOKEN_REFUSED }
+    }
     const result = await resolveThreadsByCommand({
       pullRequestId: event.pullRequestId,
       repo: parseRepo(event.repo),
       prNumber: event.prNumber,
-      // LUM-1127: GitHub refuses resolveReviewThread to a pull-request-only
-      // token — the thread mutations need `contents: write` as well.
-      token: await getRepoToken(
-        event.workspaceId,
-        event.repo,
-        REPO_TOKEN_PERMISSIONS.reviewThreadWrite
-      ),
+      token: threadToken,
       login,
       keep,
     })
