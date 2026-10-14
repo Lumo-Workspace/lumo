@@ -83,6 +83,12 @@ function fail(message: string, status: number): never {
   throw Object.assign(new Error(message), { status })
 }
 
+/** LUM-1135: task routes only ever resolve task-owned cases; a milestone case here is a 404. */
+export function taskIdOf(row: { taskId: string | null }): string {
+  if (row.taskId === null) fail('Test case not found', 404)
+  return row.taskId
+}
+
 const VALID_ENVIRONMENTS = ['LOCAL', 'PREVIEW', 'PRODUCTION'] as const
 
 /**
@@ -376,7 +382,7 @@ export const taskTestCaseService = {
     if (!testCase) fail('Test case not found', 404)
     const [runs, pullRequests] = await Promise.all([
       testCaseRepository.listRuns(testCaseId),
-      testCaseRepository.listTaskPullRequests(testCase.taskId),
+      testCaseRepository.listTaskPullRequests(taskIdOf(testCase)),
     ])
     // 陈旧性在**读端**推导（deriveRunFreshness），不落列。
     const executedBy = await executorResolver(runs)
@@ -452,7 +458,7 @@ export const taskTestCaseService = {
       )
       await activityRepository.create(
         {
-          taskId: existing.taskId,
+          taskId: taskIdOf(existing),
           actorId,
           type: 'TEST_CASE_UPDATED',
           payload: {
@@ -489,7 +495,7 @@ export const taskTestCaseService = {
       await testCaseRepository.softDelete(testCaseId, tx)
       await activityRepository.create(
         {
-          taskId: existing.taskId,
+          taskId: taskIdOf(existing),
           actorId,
           type: 'TEST_CASE_REMOVED',
           payload: {
@@ -537,7 +543,9 @@ export const taskTestCaseService = {
     // 不做跨任务引用，否则陈旧性比较会拿错 head。
     let pullRequestId: string | null = null
     if (body.pullRequestNumber != null) {
-      const prs = await testCaseRepository.listTaskPullRequests(testCase.taskId)
+      const prs = await testCaseRepository.listTaskPullRequests(
+        taskIdOf(testCase)
+      )
       const match = prs.find(pr => pr.number === body.pullRequestNumber)
       if (!match) {
         fail(
@@ -554,7 +562,7 @@ export const taskTestCaseService = {
       const created = await testCaseRepository.createRun(
         {
           testCaseId: testCase.id,
-          taskId: testCase.taskId,
+          taskId: taskIdOf(testCase),
           result: body.result,
           environment: body.environment,
           failedPhase: locator.failedPhase ?? null,
@@ -578,7 +586,7 @@ export const taskTestCaseService = {
       )
       await activityRepository.create(
         {
-          taskId: testCase.taskId,
+          taskId: taskIdOf(testCase),
           actorId,
           type: 'TEST_CASE_RUN_RECORDED',
           payload: {
