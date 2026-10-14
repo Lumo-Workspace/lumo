@@ -223,7 +223,7 @@ export function renderDoneBlockMessage(blocker: Blocker): string {
       .join(', ')
     return `Cannot move this task to DONE — ${n} undispositioned blocking security finding${
       n === 1 ? '' : 's'
-    } (${summary}). A human must mark each as false positive or accepted risk.`
+    } (${summary}). The user rules on each as false positive or accepted risk — \`lumo finding disposition\` (exit-4 envelope) or the web panel.`
   }
 
   // LUM-812. 末句刻意点明「不必先修好」：这一面拦的是「没人拍过板」，不是

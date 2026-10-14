@@ -544,7 +544,7 @@ export function formatPrScan(
  *
  * The security scans of one PR in the workspace, by PR number — linked to a
  * task or not. Reads `GET /api/pull-requests/:number/scans`; read-only.
- * Disposition stays web-only (LUM-750's CLI path was rolled back).
+ * Read-only: rule on a finding with `lumo finding disposition` (LUM-1128).
  */
 export async function prScan(
   numberArg: string | undefined,

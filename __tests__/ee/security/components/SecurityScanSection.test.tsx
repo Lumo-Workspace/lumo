@@ -20,6 +20,7 @@ const messages: Record<string, string> = {
   'securityScan.action.notePlaceholder': 'Why?',
   'securityScan.action.confirm': 'Confirm',
   'securityScan.action.cancel': 'Cancel',
+  'securityScan.action.changeRuling': 'Change ruling',
   'securityScan.meta': 'Scanned {sha}',
   'securityScan.section.loadError': 'Could not load security scans.',
   'securityScan.provenance.EXTERNAL_TOOL': 'External tool',
@@ -281,6 +282,43 @@ test('a dispositioned finding shows its disposition and no action buttons', () =
   )
   expect(screen.queryByText('Mark false positive')).toBeNull()
   expect(screen.queryByTestId('security-blocking-banner')).toBeNull()
+})
+
+test('LUM-1128: the web panel can correct an existing (e.g. CLI) ruling', async () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            findings: [
+              finding({ disposition: 'FALSE_POSITIVE', blocking: false }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  if (!screen.queryByTestId('finding-change-ruling'))
+    fireEvent.click(screen.getByText('AWS access key ID'))
+  fireEvent.click(screen.getByTestId('finding-change-ruling'))
+  // Only the other ruling is offered; there is no revert-to-open here.
+  expect(screen.queryByText('Mark false positive')).toBeNull()
+  fireEvent.click(screen.getByText('Accept risk'))
+  fireEvent.change(screen.getByPlaceholderText('Why?'), {
+    target: { value: 'real, carried' },
+  })
+  fireEvent.click(screen.getByText('Confirm'))
+  await waitFor(() =>
+    expect(dispositionSecurityFinding).toHaveBeenCalledWith('t1', 'f1', {
+      disposition: 'ACCEPTED_RISK',
+      note: 'real, carried',
+    })
+  )
 })
 
 test('shows an error and keeps the form when the disposition call fails', async () => {
