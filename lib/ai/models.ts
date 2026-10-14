@@ -50,31 +50,6 @@ export const REASONING_MODEL = 'openai/gpt-5.5'
 export const CODE_REVIEW_MODEL = 'anthropic/claude-sonnet-5.5'
 
 /**
- * LUM-988 — models whose gateway routing is pinned to the listed hosts.
- * `lib/ai/zdr-fetch.ts` forces `providerOptions.gateway.only` to this list on
- * every request for the model, at the wire, like ZDR. The gateway's default
- * ZDR failover for an Anthropic model also reaches bedrock, vertexAnthropic
- * and claudeaws, none of which is on the published subprocessor list; the
- * user chose to pin to Anthropic only rather than announce four new hosts.
- * Adding a host here is a subprocessor change: update `lib/legal/subprocessors.ts`,
- * the ZDR manifest and the legal doc, and give the notice first.
- */
-export const MODEL_PROVIDER_PINS: Readonly<Record<string, readonly string[]>> =
-  {
-    [CODE_REVIEW_MODEL]: ['anthropic'],
-  }
-
-/**
- * 桶2 GENERATION tier — lower-stakes structured generation where the quality
- * floor is the lowest: run/sprint/milestone summaries, summaries/report,
- * description & quick-dispatch & duplicate-check services, task
- * suggest-priority route. Migrated off Sonnet to DeepSeek V4-Pro
- * (LUM-588) — catalog-confirmed 2026-06-24. Kept distinct from REASONING_MODEL
- * so the verifier tier (桶1) can never be cheapened by editing one shared
- * constant. Gateway format.
- */
-export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
-/**
  * 桶 HUNT — the L3 security hunt's tool-calling search (`huntTask`: the
  * search steps and the forced wrap-up replay; the planner stays on
  * FAST_MODEL, the falsifier on its own tier). Split off GENERATION_MODEL by
@@ -92,10 +67,51 @@ export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
  * explicitly WAIVED by the user for this swap; it ships on that replay
  * comparison (n = 1 per model), NOT an accuracy eval, and the hunt audit
  * row now records `model` so the swap can be read back. ~$0.05 per scan at
- * list price vs ~$0.03. Gateway format; catalog-resolved 2026-09-15 by the
- * replay itself.
+ * list price vs ~$0.03; catalog-resolved 2026-09-15 by the replay itself.
+ *
+ * Qwen3-Coder-Plus → Claude Haiku 4.5 (LUM-1084): `alibaba/qwen3-coder-plus`
+ * left the gateway catalog (2026-10, `model_not_found`; production hunts
+ * failed every task with "Model not exist." and covered 0/N). Nine
+ * replacements were replayed on PR 1008 through the shipped loop at today's
+ * allocation (800k tokens / 280 s per task), one run each (internal LUM-1084
+ * replay table). Haiku 4.5 was the only one to meet the LUM-787 bar: 2/3
+ * tasks `done` and the third answered at its wrap-up, 0 gate refusals, prose
+ * in 71/71 steps, 187 s, ~$0.44 at list price. Chosen by the user
+ * (LUM-1084 Decisions). No extended thinking: none is requested, and the
+ * forced wrap-up's `toolChoice` would be refused with it. Pinned to
+ * Anthropic's own API in MODEL_PROVIDER_PINS below. Gateway format; keep the
+ * version dot (`anthropic/claude-haiku-4.5`), do NOT dash-normalise.
  */
-export const HUNT_MODEL = 'alibaba/qwen3-coder-plus'
+export const HUNT_MODEL = 'anthropic/claude-haiku-4.5'
+
+/**
+ * LUM-988 — models whose gateway routing is pinned to the listed hosts.
+ * `lib/ai/zdr-fetch.ts` forces `providerOptions.gateway.only` to this list on
+ * every request for the model, at the wire, like ZDR. The gateway's default
+ * ZDR failover for an Anthropic model also reaches bedrock, vertexAnthropic
+ * and claudeaws, none of which is on the published subprocessor list; the
+ * user chose to pin to Anthropic only rather than announce four new hosts.
+ * Adding a host here is a subprocessor change: update `lib/legal/subprocessors.ts`,
+ * the ZDR manifest and the legal doc, and give the notice first.
+ */
+export const MODEL_PROVIDER_PINS: Readonly<Record<string, readonly string[]>> =
+  {
+    [CODE_REVIEW_MODEL]: ['anthropic'],
+    // LUM-1084 — same reason: the hunt sends customer code, and Haiku's other
+    // gateway hosts (bedrock, claudeaws, vertexAnthropic) are not announced.
+    [HUNT_MODEL]: ['anthropic'],
+  }
+
+/**
+ * 桶2 GENERATION tier — lower-stakes structured generation where the quality
+ * floor is the lowest: run/sprint/milestone summaries, summaries/report,
+ * description & quick-dispatch & duplicate-check services, task
+ * suggest-priority route. Migrated off Sonnet to DeepSeek V4-Pro
+ * (LUM-588) — catalog-confirmed 2026-06-24. Kept distinct from REASONING_MODEL
+ * so the verifier tier (桶1) can never be cheapened by editing one shared
+ * constant. Gateway format.
+ */
+export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
  * 桶3 CONTENT tier — session-summary structured content generation (6 forced-
