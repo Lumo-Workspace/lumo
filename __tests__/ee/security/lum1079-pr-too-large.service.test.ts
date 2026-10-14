@@ -66,6 +66,8 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
+    // LUM-1137: the workspace's pause-after (default 5).
+    findReviewAutoPauseAfter: jest.fn().mockResolvedValue(5),
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
     findLastSarifIngestAt: jest.fn(),
     findSecurityBaseline: jest.fn(),
@@ -104,6 +106,9 @@ jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
   scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
 
+jest.mock('@/ee/security/services/auto-review-admission.service', () =>
+  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
+)
 jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
   prReviewControlRepository: {
     reserve: jest.fn().mockResolvedValue(true),

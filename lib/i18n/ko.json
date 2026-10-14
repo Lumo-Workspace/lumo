@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "자동 AI 검토 횟수: {rounds}/{limit}",
+  "securityScan.review.rounds": "자동 AI 검토: {rounds}/{limit}개 커밋 검토됨",
   "securityScan.stageState.PAUSED": "일시 중지됨 — 수동 검토 필요",
-  "securityScan.stageReason.PAUSED": "자동 AI 검사가 일시 중지되었거나 검토 횟수 한도에 도달했습니다. 이 커밋의 검토가 완료되지 않았습니다. 검토를 요청하거나 자동 검토를 재개하세요.",
+  "securityScan.stageReason.PAUSED": "이 PR의 자동 AI 검사가 일시 중지되었습니다(검토자가 중지했거나 검토된 커밋 한도에 도달). 이 커밋의 검토가 완료되지 않았습니다. 검토를 요청하거나 자동 검토를 재개하세요.",
   "securityScan.review.incremental": "변경 사항 검토",
   "securityScan.review.full": "전체 PR 검토",
   "securityScan.review.pause": "자동 검토 중지",
@@ -2872,5 +2872,10 @@
   "members.banner.title": "에이전트 연결 {count}개에 업데이트가 필요합니다.",
   "members.banner.body": "이전 버전의 에이전트는 새 작업 및 훅 명령을 사용하지 못할 수 있습니다.",
   "members.banner.showWho": "대상 보기",
-  "members.banner.dismiss": "닫기"
+  "members.banner.dismiss": "닫기",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "자동 리뷰 일시 중지 기준",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "열린 풀 리퀘스트에 push할 때마다 변경 사항에 대한 자동 AI 리뷰가 실행됩니다. 한 풀 리퀘스트에서 이 수만큼 커밋이 리뷰되면 누군가 리뷰를 요청하거나 재개할 때까지 자동 리뷰가 일시 중지됩니다. 0 = 일시 중지 안 함. 기본값 5.",
+  "securityScan.stageState.RATE_LIMITED": "속도 제한 — 자동 리뷰가 1시간 내에 재개됩니다",
+  "securityScan.stageReason.RATE_LIMITED": "PR 작성자가 시간당 자동 AI 리뷰 한도에 도달하여 이 커밋은 완전히 리뷰되지 않았습니다. 한도가 초기화된 뒤의 다음 push는 자동으로 리뷰됩니다. 이 커밋을 지금 확인하려면 리뷰를 요청하세요.",
+  "securityScan.review.roundsNoLimit": "자동 AI 검토: {rounds}개 커밋 검토됨 · 일시 중지 안 함"
 }

@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Revues IA automatiques : {rounds}/{limit}",
+  "securityScan.review.rounds": "Revue IA automatique : {rounds}/{limit} commits revus",
   "securityScan.stageState.PAUSED": "en pause — demander une revue manuelle",
-  "securityScan.stageReason.PAUSED": "Les vérifications IA automatiques sont en pause ou ont atteint leur limite. Ce commit n’a pas été entièrement examiné. Demandez une revue ou reprenez les revues automatiques.",
+  "securityScan.stageReason.PAUSED": "Les vérifications IA automatiques sont en pause sur cette PR (par un relecteur, ou après sa limite de commits revus). Ce commit n’a pas été entièrement examiné. Demandez une revue ou reprenez les revues automatiques.",
   "securityScan.review.incremental": "Examiner les modifications",
   "securityScan.review.full": "Examiner toute la PR",
   "securityScan.review.pause": "Suspendre les revues automatiques",
@@ -2872,5 +2872,10 @@
   "members.banner.title": "{count, plural, one {# connexion d’agent doit} other {# connexions d’agent doivent}} être mises à jour.",
   "members.banner.body": "Les agents sur d’anciennes versions peuvent ne pas avoir les nouvelles commandes de tâches et de hooks.",
   "members.banner.showWho": "Voir qui",
-  "members.banner.dismiss": "Fermer"
+  "members.banner.dismiss": "Fermer",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Mettre en pause la revue automatique après",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Chaque push sur une pull request ouverte reçoit une revue IA automatique des changements. Après ce nombre de commits revus sur une pull request, les revues automatiques sont mises en pause jusqu'à ce que quelqu'un demande une revue ou les reprenne. 0 = jamais de pause. Par défaut 5.",
+  "securityScan.stageState.RATE_LIMITED": "limite atteinte — la revue automatique reprend dans l’heure",
+  "securityScan.stageReason.RATE_LIMITED": "L'auteur de la PR a atteint la limite horaire de revues IA automatiques : ce commit n'a pas été entièrement revu. Le prochain push après la réinitialisation de la limite est revu automatiquement ; demandez une revue pour vérifier ce commit maintenant.",
+  "securityScan.review.roundsNoLimit": "Revue IA automatique : {rounds} commits revus · jamais en pause"
 }

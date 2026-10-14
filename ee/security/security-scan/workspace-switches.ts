@@ -17,6 +17,7 @@ import {
   DEFAULT_LEARNINGS_SCOPE,
   type LearningsScope,
 } from '@/ee/security/security-scan/learnings-scope'
+import { DEFAULT_AUTO_PAUSE_AFTER } from '@/ee/security/security-scan/review-control'
 
 /**
  * The stored workspace switches: the three layer switches (default on) and
@@ -30,6 +31,9 @@ export interface WorkspaceSecuritySwitches {
   securityRequestChangesEnabled: boolean
   /** LUM-1134: which repositories' learnings the AI review reads. */
   securityLearningsScope: LearningsScope
+  /** LUM-1137: pause automatic review of a PR after this many reviewed
+   *  commits (0 = never pause). */
+  securityReviewAutoPauseAfter: number
 }
 
 export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
@@ -38,6 +42,7 @@ export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
   securityLearningsScope: DEFAULT_LEARNINGS_SCOPE,
+  securityReviewAutoPauseAfter: DEFAULT_AUTO_PAUSE_AFTER,
 }
 
 /** Which layers may run for one workspace, after the platform ceiling. */

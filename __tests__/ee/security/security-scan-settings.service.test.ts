@@ -209,3 +209,35 @@ describe('LUM-1134 learnings scope setting', () => {
     expect(workspaceRepository.update).not.toHaveBeenCalled()
   })
 })
+
+describe('LUM-1137 review pause-after setting', () => {
+  it('passes the value through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityReviewAutoPauseAfter: 0 })
+    ).toMatchObject({ securityReviewAutoPauseAfter: 0 })
+    expect(switchesForUpdate({ all: true })).not.toHaveProperty(
+      'securityReviewAutoPauseAfter'
+    )
+  })
+  it('reads 5 by default', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityReviewAutoPauseAfter
+    ).toBe(5)
+  })
+  it('a MEMBER cannot change it (403 from the shipped OWNER gate)', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        securityReviewAutoPauseAfter: 0,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
+  })
+})

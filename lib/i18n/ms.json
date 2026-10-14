@@ -1,7 +1,7 @@
 {
-  "securityScan.review.rounds": "Pusingan semakan AI automatik: {rounds}/{limit}",
+  "securityScan.review.rounds": "Semakan AI automatik: {rounds}/{limit} komit disemak",
   "securityScan.stageState.PAUSED": "dijeda — minta semakan manual",
-  "securityScan.stageReason.PAUSED": "Pemeriksaan AI automatik dijeda atau mencapai had pusingan. Komit ini belum disemak sepenuhnya. Minta semakan atau sambung semakan automatik.",
+  "securityScan.stageReason.PAUSED": "Pemeriksaan AI automatik dijeda pada PR ini (oleh penyemak, atau selepas had komit yang disemak). Komit ini belum disemak sepenuhnya. Minta semakan atau sambung semakan automatik.",
   "securityScan.review.incremental": "Semak perubahan",
   "securityScan.review.full": "Semak seluruh PR",
   "securityScan.review.pause": "Jeda semakan automatik",
@@ -2872,5 +2872,10 @@
   "members.banner.title": "{count} sambungan ejen perlu dikemas kini.",
   "members.banner.body": "Ejen versi lama mungkin tiada arahan tugasan dan hook yang baharu.",
   "members.banner.showWho": "Lihat siapa",
-  "members.banner.dismiss": "Tutup"
+  "members.banner.dismiss": "Tutup",
+  "workspaceSettings.securityScan.autoPauseAfter.label": "Jeda semakan automatik selepas",
+  "workspaceSettings.securityScan.autoPauseAfter.description": "Setiap push ke pull request yang terbuka mendapat semakan AI automatik atas perubahannya. Selepas sebanyak ini commit disemak pada satu pull request, semakan automatik dijeda sehingga seseorang meminta semakan atau menyambungnya. 0 = tidak pernah dijeda. Lalai 5.",
+  "securityScan.stageState.RATE_LIMITED": "had kadar dicapai — semakan automatik bersambung dalam sejam",
+  "securityScan.stageReason.RATE_LIMITED": "Pengarang PR mencapai had sejam semakan AI automatik, jadi commit ini belum disemak sepenuhnya. Push seterusnya selepas had ditetapkan semula disemak secara automatik; minta semakan untuk menyemak commit ini sekarang.",
+  "securityScan.review.roundsNoLimit": "Semakan AI automatik: {rounds} komit disemak · tidak pernah dijeda"
 }

@@ -137,3 +137,18 @@ test('LUM-1134 findLearningsScope — the stored scope; auto when missing or unr
   })
   expect(await securityColumnsRepository.findLearningsScope('w1')).toBe('auto')
 })
+
+// ── LUM-1137 review pause-after ─────────────────────────────────────────────
+
+test('LUM-1137 findReviewAutoPauseAfter — the stored value; 5 when missing or out of range', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityReviewAutoPauseAfter: 0,
+  })
+  expect(await securityColumnsRepository.findReviewAutoPauseAfter('w1')).toBe(0)
+  expect(mockWorkspace.findUnique).toHaveBeenLastCalledWith({
+    where: { id: 'w1' },
+    select: { securityReviewAutoPauseAfter: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findReviewAutoPauseAfter('w1')).toBe(5)
+})

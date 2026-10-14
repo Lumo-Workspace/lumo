@@ -336,3 +336,42 @@ describe('LUM-1134 --learnings-scope', () => {
     expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Learnings scope/)
   })
 })
+
+describe('LUM-1137 --auto-pause-after', () => {
+  const withPauseAfter = (n: number): SecurityScanSettingsView => ({
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityReviewAutoPauseAfter: n },
+  })
+
+  it('maps a whole number 0–100 and refuses anything else or --enable-all', () => {
+    expect(buildSecurityScanUpdate({ autoPauseAfter: '0' })).toEqual({
+      securityReviewAutoPauseAfter: 0,
+    })
+    expect(buildSecurityScanUpdate({ autoPauseAfter: ' 12 ' })).toEqual({
+      securityReviewAutoPauseAfter: 12,
+    })
+    for (const bad of ['-1', '101', '2.5', 'five', ''])
+      expect(() => buildSecurityScanUpdate({ autoPauseAfter: bad })).toThrow(
+        /--auto-pause-after takes a whole number from 0 to 100/
+      )
+    expect(() =>
+      buildSecurityScanUpdate({ enableAll: true, autoPauseAfter: '5' })
+    ).toThrow(/--auto-pause-after/)
+  })
+
+  it('PATCHes the value (no confirmation) and prints it', async () => {
+    serve([{ body: withPauseAfter(5) }, { body: withPauseAfter(0) }])
+    expect(await workspaceSecurityScan({ autoPauseAfter: '0' })).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityReviewAutoPauseAfter: 0,
+    })
+    expect(out).toMatch(/Automatic review: every push · never pauses/)
+  })
+
+  it('prints the limit, and nothing for an older server', () => {
+    expect(formatSecurityScanSettings(withPauseAfter(5))).toMatch(
+      /Automatic review: every push · pauses after 5 reviewed commits/
+    )
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Automatic review/)
+  })
+})

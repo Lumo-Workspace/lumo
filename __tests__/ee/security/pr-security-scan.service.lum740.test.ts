@@ -61,6 +61,8 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
+    // LUM-1137: the workspace's pause-after (default 5).
+    findReviewAutoPauseAfter: jest.fn().mockResolvedValue(5),
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
   },
 }))

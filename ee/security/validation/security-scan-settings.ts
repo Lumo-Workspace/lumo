@@ -1,5 +1,13 @@
 import { z } from 'zod'
 import { LEARNINGS_SCOPES } from '@/ee/security/security-scan/learnings-scope'
+import { AUTO_PAUSE_AFTER_MAX } from '@/ee/security/security-scan/review-control'
+
+/** LUM-1137: reviewed commits before automatic review pauses; 0 = never. */
+export const autoPauseAfterSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(AUTO_PAUSE_AFTER_MAX)
 
 /**
  * LUM-1002: the security-scan switches alone (CLI + settings card). Either
@@ -17,6 +25,8 @@ export const updateSecurityScanSettingsSchema = z
     securityRequestChangesEnabled: z.boolean().optional(),
     // LUM-1134: which repositories' learnings the AI review reads.
     securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
+    // LUM-1137: pause automatic review after N reviewed commits (0 = never).
+    securityReviewAutoPauseAfter: autoPauseAfterSchema.optional(),
   })
   .strict()
   .refine(v => Object.keys(v).length > 0, {

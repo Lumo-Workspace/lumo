@@ -231,8 +231,14 @@ export function formatQueueExits(
  * not know (a newer server) is read as unattributed, never dropped.
  */
 export const PARTIAL_CAUSES = [
-  /** Automatic AI review was paused or exhausted its per-PR round budget. */
+  /** Automatic AI review was paused, or the PR reached its reviewed-commit limit. */
   'AI_REVIEW_PAUSED',
+  /**
+   * LUM-1137 — automatic AI review was over the hourly cap for the PR's
+   * author (CodeRabbit-style rate limit). The next push after the window is
+   * reviewed; a manual review is not limited.
+   */
+  'AI_REVIEW_RATE_LIMITED',
   /** A planned hunt task never terminated: sandbox, gateway, timeout, step failure. */
   'HUNT_INCOMPLETE',
   /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
@@ -293,6 +299,7 @@ export type PartialCauseClass =
 
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   AI_REVIEW_PAUSED: 'USER_CONTROLLED',
+  AI_REVIEW_RATE_LIMITED: 'USER_CONTROLLED',
   HUNT_INCOMPLETE: 'OUR_FAULT',
   HUNT_BUDGET_SHORT: 'COVERAGE_OWED',
   HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
@@ -498,6 +505,27 @@ export function isUnfinishedOnlyBySize(s: {
 }
 
 /**
+ * LUM-1137 — the causes that hold automatic AI review back without anything
+ * failing: paused (by the user, or after N reviewed commits) and
+ * rate-limited. Neither is told as "not finished on our side".
+ */
+const REVIEW_HOLD_CAUSES: ReadonlySet<string> = new Set([
+  'AI_REVIEW_PAUSED',
+  'AI_REVIEW_RATE_LIMITED',
+])
+
+/** LUM-1137 — the paused layers of this scan were rate-limited. */
+export function isReviewRateLimited(
+  partialCauses: ReadonlyArray<string> | null | undefined
+): boolean {
+  return (partialCauses ?? []).includes('AI_REVIEW_RATE_LIMITED')
+}
+
+/** LUM-1137 — a PAUSED layer of a rate-limited scan, in words. */
+export const RATE_LIMITED_STAGE_LABEL =
+  'rate-limited — automatic review resumes within the hour'
+
+/**
  * LUM-832 — should the customer get the owned "not finished on our side"
  * line? Yes when the scan is unfinished for a reason of ours; no when a size
  * cap is the only gap and its notice is on screen (a limit on the change's
@@ -520,7 +548,7 @@ export function isOwnedUnfinished(
     s.status !== 'FAILED' &&
     (!s.partial ||
       (s.partialCauses?.length &&
-        s.partialCauses.every(c => c === 'AI_REVIEW_PAUSED'))) &&
+        s.partialCauses.every(c => REVIEW_HOLD_CAUSES.has(c)))) &&
     !Object.values(s.stages).some(
       state => state !== 'PAUSED' && state && UNFINISHED_STAGE_STATES.has(state)
     )

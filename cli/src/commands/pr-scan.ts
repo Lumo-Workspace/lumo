@@ -160,11 +160,29 @@ export interface PrScanEntry {
   hunt: PrScanHunt | null
 }
 
+/**
+ * LUM-1137 — `3/5 commits reviewed`, `12 commits reviewed · never pauses`;
+ * an older server counted review rounds (`1/2 rounds`).
+ */
+export function formatReviewBudget(c: {
+  rounds: number
+  limit: number
+  unit?: 'commits'
+}): string {
+  if (c.unit !== 'commits') return `${c.rounds}/${c.limit} rounds`
+  if (c.limit === 0) return `${c.rounds} commits reviewed · never pauses`
+  return `${c.rounds}/${c.limit} commits reviewed`
+}
+
 export interface PrScanPayload {
   reviewControl?: {
     paused: boolean
+    /** Reviewed commits (LUM-1137); review rounds on an older server. */
     rounds: number
+    /** 0 = never pauses (LUM-1137). */
     limit: number
+    /** LUM-1137 — absent on an older server, which counted rounds. */
+    unit?: 'commits'
     currentHead: string | null
   }
   version: number
@@ -494,7 +512,7 @@ export function formatPrScan(
         [
           {
             label: 'Automatic',
-            value: `${c.paused ? 'paused' : 'enabled'} · ${c.rounds}/${c.limit} rounds`,
+            value: `${c.paused ? 'paused' : 'enabled'} · ${formatReviewBudget(c)}`,
           },
         ],
         2,
@@ -625,7 +643,7 @@ export async function prScan(
     process.stdout.write(
       (opts.review
         ? `Queued ${opts.review} review for PR #${numberArg}.`
-        : `Automatic AI review ${opts.pause ? 'paused' : 'resumed with a fresh round budget'} for PR #${numberArg}.`) +
+        : `Automatic AI review ${opts.pause ? 'paused' : 'resumed (every push is reviewed again; reviewed-commit count reset)'} for PR #${numberArg}.`) +
         '\n'
     )
     return
