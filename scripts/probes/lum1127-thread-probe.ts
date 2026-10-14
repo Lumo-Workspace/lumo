@@ -13,3 +13,6 @@ export function evaluateFormula(req: NextRequest): unknown {
   const n = Number(formula)
   return Number.isFinite(n) ? n : null
 }
+
+// probe: unrelated touch to trigger another review round
+export const PROBE_ROUND = 3
