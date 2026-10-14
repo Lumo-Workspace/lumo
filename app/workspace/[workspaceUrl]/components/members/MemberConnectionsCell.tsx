@@ -109,15 +109,16 @@ function ConnectionLine({
  */
 export function MemberConnectionsCell({
   connections,
-  loading,
+  unknown,
   now,
 }: {
   connections: MemberConnectionView[] | undefined
-  loading: boolean
+  /** Still loading, or the request failed: show a dash, not "Not connected". */
+  unknown: boolean
   now: number | null
 }) {
   const intl = useIntl()
-  if (loading) return <span className='text-xs text-muted-foreground'>—</span>
+  if (unknown) return <span className='text-xs text-muted-foreground'>—</span>
   if (!connections || connections.length === 0)
     return (
       <span className='text-xs text-muted-foreground'>

@@ -39,11 +39,17 @@ const conn = (p: Partial<MemberConnectionView> = {}): MemberConnectionView => ({
 })
 
 describe('MemberConnectionsCell', () => {
+  it('shows a dash, not "Not connected", while loading or after a failed request', () => {
+    render(<MemberConnectionsCell connections={undefined} unknown now={NOW} />)
+    expect(screen.queryByText('Not connected')).toBeNull()
+    expect(screen.getByText('—')).toBeTruthy()
+  })
+
   it('shows "Not connected" for a member with no connections', () => {
     render(
       <MemberConnectionsCell
         connections={undefined}
-        loading={false}
+        unknown={false}
         now={NOW}
       />
     )
@@ -54,7 +60,7 @@ describe('MemberConnectionsCell', () => {
     const { container } = render(
       <MemberConnectionsCell
         connections={[conn(), conn({ agent: 'CODEX', skillVersion: 'source' })]}
-        loading={false}
+        unknown={false}
         now={NOW}
       />
     )
@@ -69,7 +75,7 @@ describe('MemberConnectionsCell', () => {
     const { container } = render(
       <MemberConnectionsCell
         connections={[conn({ agent: 'CODEX' })]}
-        loading={false}
+        unknown={false}
         now={NOW}
       />
     )
@@ -88,7 +94,7 @@ describe('MemberConnectionsCell', () => {
             skillBehind: true,
           }),
         ]}
-        loading={false}
+        unknown={false}
         now={NOW}
       />
     )
@@ -102,7 +108,7 @@ describe('MemberConnectionsCell', () => {
     render(
       <MemberConnectionsCell
         connections={[conn({ cliVersion: null, skillVersion: null })]}
-        loading={false}
+        unknown={false}
         now={NOW}
       />
     )

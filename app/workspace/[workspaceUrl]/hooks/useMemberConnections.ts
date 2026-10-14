@@ -15,5 +15,7 @@ export function useMemberConnections() {
     connections: query.data?.connections ?? {},
     latestCliVersion: query.data?.latestCliVersion ?? null,
     loading: query.isPending,
+    /** The request failed — versions are unknown, not "not connected". */
+    unavailable: query.isError,
   }
 }

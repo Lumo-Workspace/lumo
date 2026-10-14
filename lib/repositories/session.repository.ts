@@ -283,21 +283,51 @@ export const sessionRepository = {
    * the version headers are skipped, so they don't hide a known version).
    */
   async latestClientVersionsByMemberAgent(workspaceId: string, since: Date) {
-    return prisma.session.findMany({
-      where: {
-        workspaceId,
-        parentSessionId: null,
-        lastActivityAt: { gte: since },
-        OR: [{ cliVersion: { not: null } }, { skillVersion: { not: null } }],
-      },
+    const inWindow = {
+      workspaceId,
+      parentSessionId: null,
+      lastActivityAt: { gte: since },
+    } satisfies Prisma.SessionWhereInput
+    const reportedVersions = {
+      OR: [{ cliVersion: { not: null } }, { skillVersion: { not: null } }],
+    } satisfies Prisma.SessionWhereInput
+    // Two bounded queries instead of an in-memory `distinct` over every
+    // session in the window: the newest reporting session per member × agent,
+    // then just those rows.
+    const newest = await prisma.session.groupBy({
+      by: ['workspaceMemberId', 'agent'],
+      where: { ...inWindow, ...reportedVersions },
+      _max: { lastActivityAt: true },
+    })
+    const keys = newest.flatMap(g =>
+      g._max.lastActivityAt
+        ? [
+            {
+              workspaceMemberId: g.workspaceMemberId,
+              agent: g.agent,
+              lastActivityAt: g._max.lastActivityAt,
+            },
+          ]
+        : []
+    )
+    if (keys.length === 0) return []
+    const rows = await prisma.session.findMany({
+      where: { ...inWindow, AND: [reportedVersions, { OR: keys }] },
       orderBy: { lastActivityAt: 'desc' },
-      distinct: ['workspaceMemberId', 'agent'],
       select: {
         workspaceMemberId: true,
         agent: true,
         cliVersion: true,
         skillVersion: true,
       },
+    })
+    // Two sessions can share the max timestamp; keep the first per key.
+    const seen = new Set<string>()
+    return rows.filter(r => {
+      const k = `${r.workspaceMemberId}\u0000${r.agent}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
     })
   },
 

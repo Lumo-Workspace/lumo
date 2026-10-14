@@ -66,6 +66,7 @@ export function MembersPage() {
     connections,
     latestCliVersion,
     loading: loadingConnections,
+    unavailable: connectionsUnavailable,
   } = useMemberConnections()
   const now = useNow()
 
@@ -280,7 +281,7 @@ export function MembersPage() {
                   {/* Connection — agents + CLI / skill versions (LUM-1136) */}
                   <MemberConnectionsCell
                     connections={connections[m.id]}
-                    loading={loadingConnections}
+                    unknown={loadingConnections || connectionsUnavailable}
                     now={now}
                   />
 
