@@ -53,14 +53,13 @@ describe('LUM-1138 PullRequest.reviewRoundLimit removal', () => {
     expect(hits).toEqual([])
   })
 
-  it('schema.prisma no longer maps the column for queries (ignored or removed)', () => {
+  it('schema.prisma no longer has the field (contract phase)', () => {
     const schema = parsePrismaSchema(
       readFileSync(join(REPO_ROOT, 'prisma/schema.prisma'), 'utf8')
     )
     const table = schema.tables.get('pull_requests')
     expect(table?.model).toBe('PullRequest')
-    const column = table?.columns.get(COLUMN)
-    if (column) expect(column.ignored).toBe(true)
+    expect(table?.columns.has(COLUMN)).toBe(false)
     // The destructive guard accepts the contract-phase drop against this schema.
     expect(
       stillReferenced(
