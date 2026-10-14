@@ -9,8 +9,8 @@ and none of the L3 hunt's stored audit (per-task commands, step trace, stop
 arithmetic, sites, model, diff sizing) had any entry point outside a
 prod-database script.
 
-Without control flags this is read-only, no LLM. **Disposition stays web-only** (the LUM-750 CLI path was
-rolled back) — this command reports dispositions, it never records one.
+Without control flags this is read-only, no LLM. This command reports dispositions, it never records
+one — the user's ruling goes through [`lumo finding disposition`](#finding-disposition) (or the web panel).
 
 ## Usage
 
@@ -275,4 +275,38 @@ by construction — the server never loads the column for this read.
 - The user asks what the security scan found on a PR ("what did the scan say on #1013", "why is PR 1013 blocked", "show me the scan") — especially a PR **without** a linked task, which `lumo task status` cannot see.
 - `lumo task status` shows a `PR #N · scan …` line and the user wants the findings behind it, the dispositioned history, or why the hunt layer read `⚠ partly checked` / `N/M done` — `lumo pr scan N` then `--full` for the per-task trace.
 - Auditing the L3 hunt on a real scan (which commands the gate refused, how many steps a task got, which model ran) without a prod-database script.
-- **Not** for changing a finding's standing: disposition is human-only in the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.
+- **Not** for changing a finding's standing: that is `lumo finding disposition` (the user's ruling, exit-4 gated) or the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.
+
+## Finding disposition
+
+`lumo finding disposition <id...> --false-positive | --accepted-risk [--note "<text>"] [--task <LUM-N>] [--confirm]`
+(LUM-1128) records the **user's** ruling on one or more PR security findings. It is how a blocking
+finding is cleared for DONE; the web delivery panel stays a second surface (and can correct a CLI
+ruling). Resolving the GitHub review thread does **not** clear the gate.
+
+```bash
+lumo finding disposition cmabc123 --false-positive --note "test fixture, not a real key"
+lumo finding disposition cmabc123 cmdef456 --accepted-risk --note "internal-only endpoint"
+```
+
+A gated mutation on the [confirmation protocol](confirmation.md) — no read receipts, no extra steps:
+
+- **Without `--confirm`** it reads the findings from the server and prints ONE `confirmation_required`
+  envelope (exit 4, nothing written): one line per finding — id, `[SEVERITY]`, title, rule and location,
+  PR, `blocks DONE` / `advisory`, `OPEN → <ruling>`, the note — then the ⚠ DONE consequence. Relay every
+  line to the user.
+- **Only after the user approves in chat**, run the envelope's `confirmCommand` (your command plus
+  `--confirm`). Each finding is reported `✓` / `✗` (exit 1 if any failed), then the status digest.
+  **Never add `--confirm` yourself.**
+- Ids come from `lumo task status` (`Id:` under each `[SECURITY]` / `[BUG]` item) or `DONE_BLOCKED`
+  `blockers[].findingId`. Several ids = one envelope; one ruling per call. An id not on the task fails
+  closed (exit 1, nothing written); a finding already carrying the ruling is skipped.
+- `--accepted-risk` means the risk is real and knowingly carried — ask the user for the why and pass it
+  as `--note`.
+- The server records each ruling with channel `CLI`, the member, the session and the time (task
+  timeline + audit log). There is no agent-session guard: the protection is the user's approval of the
+  envelope. Reverting a ruling to OPEN is not available.
+
+**When to suggest:** `lumo task status` / `task wrapup` lists a blocking `[SECURITY]` / `[BUG]` finding
+the user says is a false positive or an accepted risk; `task update --status done` exits 5 with a
+`SECURITY_FINDING` blocker; the user asks to clear, dismiss or accept a scan finding.

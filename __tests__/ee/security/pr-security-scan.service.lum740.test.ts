@@ -39,6 +39,17 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findManyForSecurityByTaskId: jest.fn() },
 }))
+const mockActivityCreate = jest.fn()
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: { create: (...a: unknown[]) => mockActivityCreate(...a) },
+}))
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findActorByMemberId: async (memberId: string) => ({
+      id: `actor-${memberId}`,
+    }),
+  },
+}))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {},
 }))
@@ -80,6 +91,7 @@ jest.mock('@/ee/security/services/security-pr-review.service', () => ({
 import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { isBlockingFinding } from '@/ee/security/services/pr-security-scan-gate'
 
 const findFinding = prSecurityScanRepository.findFindingWithScope as jest.Mock
 const update = prSecurityScanRepository.updateDisposition as jest.Mock
@@ -495,3 +507,168 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     }),
   },
 }))
+
+describe('LUM-1128 the ruling channel is recorded on the task timeline', () => {
+  const audit = {
+    workspaceId: 'w1',
+    context: {
+      actor: { type: 'MEMBER' as const, memberId: 'm1' },
+      source: 'CLI' as const,
+    },
+  }
+  beforeEach(() => {
+    jest.clearAllMocks()
+    update.mockImplementation(async (_id: string, data: object) => ({
+      ...row({}),
+      ...data,
+    }))
+  })
+
+  it('a CLI ruling writes a SECURITY_FINDING_DISPOSITIONED activity with channel CLI, session and confirmedAt', async () => {
+    // A blocking row (DETERMINISTIC HIGH, open) before the ruling …
+    const blocker = row({
+      severity: 'HIGH',
+      provenance: 'DETERMINISTIC',
+      suggestedDisposition: null,
+    })
+    expect(isBlockingFinding(blocker as never)).toBe(true)
+    findFinding.mockResolvedValue(blocker)
+    update.mockImplementation(async (_id: string, data: object) => ({
+      ...blocker,
+      ...data,
+    }))
+    const view = await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'FALSE_POSITIVE',
+      'user approved',
+      'm1',
+      audit,
+      { channel: 'CLI', sessionId: 'sess-1' }
+    )
+    // … no longer blocks DONE after it.
+    expect(view.disposition).toBe('FALSE_POSITIVE')
+    expect(view.blocking).toBe(false)
+    expect(isBlockingFinding(view)).toBe(false)
+    expect(mockActivityCreate).toHaveBeenCalledTimes(1)
+    const call = mockActivityCreate.mock.calls[0]![0]
+    expect(call).toMatchObject({
+      taskId: 't1',
+      actorId: 'actor-m1',
+      type: 'SECURITY_FINDING_DISPOSITIONED',
+      payload: {
+        findingId: 'f1',
+        from: null,
+        to: 'FALSE_POSITIVE',
+        channel: 'CLI',
+        sessionId: 'sess-1',
+      },
+    })
+    expect(Number.isNaN(Date.parse(call.payload.confirmedAt))).toBe(false)
+    expect(mockAudit).toHaveBeenCalledTimes(1)
+  })
+
+  it('the web panel can correct a CLI ruling — recorded as channel WEB with the transition', async () => {
+    findFinding.mockResolvedValue(row({ disposition: 'FALSE_POSITIVE' }))
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'ACCEPTED_RISK',
+      null,
+      'm2',
+      { ...audit, context: { ...audit.context, source: 'WEB' as const } }
+    )
+    expect(update).toHaveBeenCalledWith(
+      'f1',
+      expect.objectContaining({ disposition: 'ACCEPTED_RISK' })
+    )
+    expect(mockActivityCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          from: 'FALSE_POSITIVE',
+          to: 'ACCEPTED_RISK',
+          channel: 'WEB',
+          sessionId: null,
+        }),
+      })
+    )
+  })
+
+  it('re-ruling the same value writes no activity', async () => {
+    findFinding.mockResolvedValue(row({ disposition: 'ACCEPTED_RISK' }))
+    await prSecurityScanService.disposition(
+      't1',
+      'f1',
+      'ACCEPTED_RISK',
+      'edited',
+      'm1',
+      audit,
+      { channel: 'CLI', sessionId: null }
+    )
+    expect(mockActivityCreate).not.toHaveBeenCalled()
+  })
+
+  it('a finding on another task is a 404 and nothing is written', async () => {
+    findFinding.mockResolvedValue(
+      row({
+        scan: { pullRequest: { taskId: 't-other', workspaceId: 'w1' } },
+      })
+    )
+    await expect(
+      prSecurityScanService.disposition(
+        't1',
+        'f1',
+        'FALSE_POSITIVE',
+        null,
+        'm1',
+        audit,
+        { channel: 'CLI', sessionId: null }
+      )
+    ).rejects.toMatchObject({ status: 404 })
+    expect(update).not.toHaveBeenCalled()
+    expect(mockActivityCreate).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-1128 listFindingsForTask — the CLI envelope read', () => {
+  it('flattens the latest scan per PR with the PR number, blocking flag and a sanitized title', async () => {
+    const spy = jest
+      .spyOn(prSecurityScanService, 'getForTask')
+      .mockResolvedValue({
+        prs: [
+          {
+            pr: { number: 12 },
+            latest: {
+              findings: [
+                {
+                  id: 'f1',
+                  severity: 'HIGH',
+                  provenance: 'DETERMINISTIC',
+                  ruleId: 'secret:aws',
+                  filePath: 'lib/a.ts',
+                  line: 3,
+                  title: 'Key\u001b[31m in source',
+                  disposition: null,
+                  blocking: true,
+                },
+              ],
+            },
+          },
+          { pr: { number: 13 }, latest: null },
+        ],
+      } as never)
+    const rows = await prSecurityScanService.listFindingsForTask('t1')
+    expect(spy).toHaveBeenCalledWith('t1')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      id: 'f1',
+      severity: 'HIGH',
+      prNumber: 12,
+      blocking: true,
+      disposition: null,
+    })
+    expect(rows[0]!.title).not.toContain('\u001b')
+    expect(rows[0]!.statement).toContain('secret:aws at lib/a.ts:3')
+    spy.mockRestore()
+  })
+})

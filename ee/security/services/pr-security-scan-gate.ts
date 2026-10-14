@@ -192,7 +192,7 @@ export async function assertNoOpenBlockingSecurityFindings(
     new Error(
       `Cannot move this task to DONE — ${open.length} undispositioned blocking security finding${
         open.length === 1 ? '' : 's'
-      } (${summary}). A human must mark each as false positive or accepted risk.`
+      } (${summary}). The user rules on each as false positive or accepted risk — \`lumo finding disposition\` (exit-4 envelope) or the web panel.`
     ),
     { status: 409 }
   )

@@ -380,6 +380,8 @@ function securityActionLines(a: SecurityAction, opts: LayoutOptions): string[] {
           value: `${sanitizeField(where)} · PR #${a.prNumber}`,
         },
         { label: 'Gate', value: `${gate}${note}` },
+        // LUM-1128: the id `lumo finding disposition` takes.
+        { label: 'Id', value: sanitizeField(a.findingId) },
       ],
       4,
       opts
@@ -388,7 +390,19 @@ function securityActionLines(a: SecurityAction, opts: LayoutOptions): string[] {
 }
 
 export const SECURITY_HINT =
-  'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
+  'Fix the findings and push (a fixed finding disappears on the next scan), or relay them to the user — the ruling is theirs. The command below prints an exit-4 envelope; add --confirm only after the user approves it (the web delivery panel also works). Never self-approve; a blocking finding refuses DONE with 409:'
+
+/** LUM-1128: the user's terminal path for a finding, on a line of its own. */
+export const SECURITY_DISPOSITION_COMMAND =
+  'lumo finding disposition <id...> --false-positive | --accepted-risk'
+
+/** The hint under the `[SECURITY]` items: prose, then the command line. */
+export function securityHintLines(opts: LayoutOptions = {}): string[] {
+  return [
+    ...wrapLines(SECURITY_HINT, 2, opts),
+    commandLine(SECURITY_DISPOSITION_COMMAND, 4),
+  ]
+}
 
 /** Render the `[SECURITY]` / `[BUG]` next-action items (LUM-737, LUM-988). */
 export function pushSecurityActions(
@@ -541,7 +555,7 @@ export function formatTaskStatus(
   if (securityActions.length > 0) {
     lines.push(...sectionHeading(securityActionsHeading(securityActions), opts))
     pushSecurityActions(lines, securityActions, opts)
-    lines.push(...wrapLines(SECURITY_HINT, 2, opts))
+    lines.push(...securityHintLines(opts))
   } else if (
     testCaseActions.length === 0 &&
     testCaseVerdictActions.length === 0
