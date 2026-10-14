@@ -170,3 +170,15 @@ describe('withCommandBreakdown after rounding (LUM-1124)', () => {
     expect(bash.output).toBe(3)
   })
 })
+
+describe('sessionLabels at scale (LUM-1124)', () => {
+  it('handles far more sessions than a spread call could take', () => {
+    const keys = Array.from(
+      { length: 200_000 },
+      (_, i) => `${String(i).padStart(8, '0')}-rest`
+    )
+    const labels = sessionLabels(keys)
+    expect(labels.size).toBe(keys.length)
+    expect(new Set(labels.values()).size).toBe(keys.length)
+  })
+})

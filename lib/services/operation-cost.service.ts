@@ -85,9 +85,9 @@ export function sessionLabels(keys: string[]): Map<string, string> {
       ? { key: k, root: child.parentSessionId, agent: child.agentId }
       : { key: k, root: k, agent: null }
   })
-  const longest = Math.max(
-    SESSION_PREFIX_MIN,
-    ...parts.map(p => Math.max(p.root.length, p.agent?.length ?? 0))
+  const longest = parts.reduce(
+    (m, p) => Math.max(m, p.root.length, p.agent?.length ?? 0),
+    SESSION_PREFIX_MIN
   )
   for (let n = SESSION_PREFIX_MIN; ; n++) {
     const labels = new Map(
