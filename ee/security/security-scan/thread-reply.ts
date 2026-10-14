@@ -76,7 +76,13 @@ const NEGATED = [
     `${NEGATOR}${FILLER}\\s+(?:by design|on purpose|deliberate(?:ly)?|expected|as intended|intended)\\b`,
     'i'
   ),
-  /不是故意|并非故意|非故意|不是有意|并非有意|不是设计如此/,
+  // "This isn't a false positive", "not really a false positive" — the
+  // positive phrase itself, negated (LUM-1139 review).
+  new RegExp(
+    `${NEGATOR}\\s+(?:(?:a|an|really a|actually a)\\s+)?false positive`,
+    'i'
+  ),
+  /不是故意|并非故意|非故意|不是有意|并非有意|不是设计如此|不是误报|并非误报|不算误报/,
 ]
 
 /** Curly / modifier apostrophes → `'`, so "isn’t" reads like "isn't". */

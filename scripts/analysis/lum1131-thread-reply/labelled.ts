@@ -185,4 +185,10 @@ export const LABELLED_REPLIES: LabelledReply[] = [
   { learning: false, modelVeto: true, reply: 'This is intentional.' },
   { learning: false, modelVeto: true, reply: 'False positive.' },
   { learning: false, modelVeto: true, reply: 'Not applicable here.' },
+  // LUM-1139 review: the positive phrase "false positive" itself negated
+  // (appended after the model-veto items so results.json indexes hold).
+  {
+    learning: false,
+    reply: "This isn't a false positive, the input is user-controlled.",
+  },
 ]

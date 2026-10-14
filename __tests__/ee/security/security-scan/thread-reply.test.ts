@@ -81,6 +81,10 @@ describe('LUM-1139 — negated contractions never pass the gate', () => {
     'This isn\u2019t intentional, we missed it.',
     'That wasn\u2019t by design.',
     "This isn't really by design.",
+    "This isn't a false positive, the input is user-controlled.",
+    'This is not a false positive.',
+    'It is not really a false positive, the query takes the raw id.',
+    '这不是误报，输入来自用户。',
   ])('%j → negated', reply => {
     expect(screenReplyDetailed(reply).reason).toBe('negated')
     expect(screenReply(reply)).not.toBe('LEARNING')
