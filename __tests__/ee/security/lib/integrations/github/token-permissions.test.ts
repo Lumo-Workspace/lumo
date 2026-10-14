@@ -12,12 +12,17 @@ import fs from 'fs'
 import path from 'path'
 
 const SERVICE_SETS: Record<string, string[]> = {
+  // LUM-1127: the thread lifecycle mints its own set — GitHub refuses
+  // resolveReviewThread to a pull-request-only token.
   'ee/security/services/security-pr-review.service.ts': [
+    'reviewThreadWrite',
     'pullRequestWrite',
     'pullRequestWrite',
   ],
-  // LUM-1129: the commenter's write-access check, then the reply.
+  // LUM-1129: the `resolve` command's thread mutations, the commenter's
+  // write-access check, then the reply.
   'ee/security/services/pr-command.service.ts': [
+    'reviewThreadWrite',
     'collaboratorPermission',
     'pullRequestWrite',
   ],

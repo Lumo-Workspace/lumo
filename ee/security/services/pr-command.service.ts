@@ -183,13 +183,16 @@ async function blockingFingerprints(
   )
 }
 
+/** LUM-1127 — the reply when the thread token cannot be minted. */
+export const THREAD_TOKEN_REFUSED =
+  "⚠️ Lumo couldn't resolve its review threads: GitHub needs the Lumo App to hold the **Contents: Read & write** permission to resolve threads, and this installation doesn't grant it. Resolve the threads on GitHub, or ask an org owner to accept the App's updated permissions."
+
 /** Runs one command; returns the reply body (without its marker). */
 async function run(
   event: PrCommentEvent,
   command: PrCommand,
   login: string,
-  handle: string,
-  writeToken: string
+  handle: string
 ): Promise<{ outcome: PrCommandOutcome; body: string }> {
   if (command === 'resolve') {
     if (
@@ -204,11 +207,35 @@ async function run(
       event.pullRequestId,
       event.workspaceId
     )
+    // LUM-1127: GitHub refuses resolveReviewThread to a pull-request-only
+    // token — the thread mutations need `contents: write` as well. An
+    // installation without it gets a reply saying so, not silence.
+    let threadToken: string
+    try {
+      threadToken = await getRepoToken(
+        event.workspaceId,
+        event.repo,
+        REPO_TOKEN_PERMISSIONS.reviewThreadWrite
+      )
+    } catch (error) {
+      logger.warn(
+        `[pr-command] thread token mint failed pr=#${event.prNumber}: ${describe(error)}`
+      )
+      // GitHub refuses a mint asking for an ungranted permission with 422;
+      // anything else (network, 5xx) is transient — say so instead.
+      const refused = (error as { status?: unknown } | null)?.status === 422
+      return {
+        outcome: 'failed',
+        body: refused
+          ? THREAD_TOKEN_REFUSED
+          : `⚠️ Lumo couldn't reach GitHub to resolve its review threads — try \`${handle} resolve\` again later.`,
+      }
+    }
     const result = await resolveThreadsByCommand({
       pullRequestId: event.pullRequestId,
       repo: parseRepo(event.repo),
       prNumber: event.prNumber,
-      token: writeToken,
+      token: threadToken,
       login,
       keep,
     })
@@ -304,7 +331,7 @@ export async function applyPrCommentCommand(
     }
 
     const { outcome, body } = parsed.command
-      ? await run(event, parsed.command, login, handle, writeToken)
+      ? await run(event, parsed.command, login, handle)
       : { outcome: 'help' as const, body: buildHelpReply(handle, parsed.text) }
     await prCommentClient.createIssueComment({
       repo: parseRepo(event.repo),
