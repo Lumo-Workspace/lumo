@@ -160,11 +160,28 @@ lumo report --project Lumo --limit 100 --json
 - `--member <ref>` — only one person: `me`, an email or a display name (same matching as `doc share`). Without it the whole workspace is reported.
 - `--project <name>` — only tasks in that project; tokens narrow to session activity attached to those tasks (work not attached to a task drops out).
 - `--limit <N>` — completed tasks listed (default 50, max 500). Totals and per-member counts always cover all of them; the header says `showing X of Y` when truncated.
-- `--json` — versioned payload: `version: 1`, `window {since, until}`, `filter {memberId, projectId}`, `team {tokens, sessions, unmeteredSessions, completedCount, byModel[]}`, `byMember[] {memberId, label, tokens, sessions, unmeteredSessions, completedCount}`, `completedTasks {total, items[] {identifier, title, completedAt, memberId, assignee}}`.
+- `--json` — versioned payload: `version: 1`, `window {since, until}`, `filter {memberId, projectId}`, `team {tokens, sessions, unmeteredSessions, completedCount, byModel[]}`, `byMember[] {memberId, label, tokens, byModel[], sessions, unmeteredSessions, completedCount}`, `completedTasks {total, items[] {identifier, title, completedAt, memberId, assignee}}`.
 
 **Completed = last DONE.** Task has no completion column, so the completion time is the task's **last** `STATUS_CHANGED → DONE` activity. A task counts in the window only if it is DONE now and that last DONE falls inside the window — DONE → reopened → DONE counts once, at the final DONE (so it never appears in two windows). Trashed tasks are excluded. A task is credited to its assignee's member, or to the owner of an assigned personal agent; tasks with no human owner sit under `(unassigned)`.
 
 **Unmetered ≠ 0.** A session with activity in the window but no recorded token usage is counted as `unmetered` (team and per member) and adds nothing to the token total — read the total as a lower bound when unmetered > 0. Token figures are whole numbers (`total` = the sum of the four parts). Usage recorded without a session id still counts toward tokens (not toward sessions), so `Tokens: none recorded in this window` means no tokens **and** no sessions.
+
+**Token tables (LUM-1123).** `By model` has one row per model with `INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL` (same kinds as `lumo cost`: `CACHE WRITE` = cache_create). `By member` prints each member's summary row (`TOTAL`, `SESSIONS`, `DONE`), then one `↳ <model>` row per model with the four kinds and its subtotal; with `--member` only that member's split is shown. In `--json`, `byMember[].byModel[]` items are `{model, input, output, cacheRead, cacheCreation, total}`. Each member × model cell is rounded once and every coarser figure is a sum of cells, so a member's models add up exactly to the member, members to the team, and `team.byModel[]` to the team total. Figures are exact (`1,234,567`) when piped; only on a TTY whose width the tables would overflow do they switch to compact units (`1.1B`) with a note `exact values: lumo report --json`.
+
+```text
+By model
+MODEL               INPUT   OUTPUT  CACHE WRITE   CACHE READ        TOTAL
+claude-opus-4-5    13,344  322,567    1,634,567  153,456,789  155,427,267
+claude-sonnet-4-5   2,001   45,000      321,000    9,876,543   10,244,544
+
+By member
+MEMBER                  INPUT   OUTPUT  CACHE WRITE   CACHE READ        TOTAL  SESSIONS  DONE
+alice@example.com                                                 135,182,812         2     0
+  ↳ claude-opus-4-5    12,345  234,567    1,234,567  123,456,789  124,938,268
+  ↳ claude-sonnet-4-5   2,001   45,000      321,000    9,876,543   10,244,544
+bob@example.com                                                    30,488,999         1     0
+  ↳ claude-opus-4-5       999   88,000      400,000   30,000,000   30,488,999
+```
 
 ### When to suggest
 

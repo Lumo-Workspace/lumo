@@ -91,6 +91,19 @@ function addRow(t: ReportTokenTotals, r: OperationCostRow): void {
   t.total += r.input + r.output + r.cacheRead + r.cacheCreation
 }
 
+/** Add whole-number totals (whole numbers stay whole). */
+function addTotals(t: ReportTokenTotals, c: ReportTokenTotals): void {
+  t.input += c.input
+  t.output += c.output
+  t.cacheRead += c.cacheRead
+  t.cacheCreation += c.cacheCreation
+  t.total += c.total
+}
+
+function byTotalThenModel(a: ReportModelRow, b: ReportModelRow): number {
+  return b.total - a.total || a.model.localeCompare(b.model)
+}
+
 /**
  * LUM-1116: attributed cost rows can carry fractional shares, so a fold can
  * end in float noise (341758.00000000023). Round once, after every row is
@@ -150,8 +163,6 @@ export interface BuildReportInput {
 
 /** Assemble the versioned payload. Pure: no clock, no I/O. */
 export function buildReport(input: BuildReportInput): ReportResponse {
-  const teamTokens = zeroTotals()
-  const byModel = new Map<string, ReportModelRow>()
   const members = new Map<string | null, ReportMemberRow>()
   const labelOf = (id: string | null) =>
     id === null ? UNASSIGNED_LABEL : (input.memberLabels.get(id) ?? id)
@@ -162,6 +173,7 @@ export function buildReport(input: BuildReportInput): ReportResponse {
         memberId: id,
         label: labelOf(id),
         tokens: zeroTotals(),
+        byModel: [],
         sessions: 0,
         unmeteredSessions: 0,
         completedCount: 0,
@@ -171,16 +183,34 @@ export function buildReport(input: BuildReportInput): ReportResponse {
     return row
   }
 
+  // LUM-1123: fold into member × model cells, round each cell ONCE, then
+  // build every coarser figure (member, team per-model, team) by summing
+  // the whole-number cells — so the cells always add up to the member, the
+  // members to the team, and the per-model rows to the team (no ±1 drift).
+  const cells = new Map<string | null, Map<string, ReportModelRow>>()
   for (const r of input.costRows) {
-    addRow(teamTokens, r)
-    const m = byModel.get(r.model) ?? { model: r.model, ...zeroTotals() }
-    addRow(m, r)
-    byModel.set(r.model, m)
-    addRow(member(r.workspaceMemberId).tokens, r)
+    const key = r.workspaceMemberId
+    const byM = cells.get(key) ?? new Map<string, ReportModelRow>()
+    cells.set(key, byM)
+    const c = byM.get(r.model) ?? { model: r.model, ...zeroTotals() }
+    addRow(c, r)
+    byM.set(r.model, c)
   }
 
-  roundTotals(teamTokens)
-  for (const m of byModel.values()) roundTotals(m)
+  const teamTokens = zeroTotals()
+  const byModel = new Map<string, ReportModelRow>()
+  for (const [key, byM] of cells) {
+    const row = member(key)
+    for (const c of byM.values()) {
+      roundTotals(c)
+      addTotals(row.tokens, c)
+      addTotals(teamTokens, c)
+      const m = byModel.get(c.model) ?? { model: c.model, ...zeroTotals() }
+      addTotals(m, c)
+      byModel.set(c.model, m)
+    }
+    row.byModel = [...byM.values()].sort(byTotalThenModel)
+  }
 
   let sessions = 0
   let unmetered = 0
@@ -217,7 +247,6 @@ export function buildReport(input: BuildReportInput): ReportResponse {
 
   // --member: the member's own row always shows, even with no activity.
   if (input.memberId) member(input.memberId)
-  for (const m of members.values()) roundTotals(m.tokens)
 
   const byMember = [...members.values()]
     .filter(m => !input.memberId || m.memberId === input.memberId)
@@ -240,7 +269,7 @@ export function buildReport(input: BuildReportInput): ReportResponse {
       sessions,
       unmeteredSessions: unmetered,
       completedCount: completed.length,
-      byModel: [...byModel.values()].sort((a, b) => b.total - a.total),
+      byModel: [...byModel.values()].sort(byTotalThenModel),
     },
     byMember,
     completedTasks: {

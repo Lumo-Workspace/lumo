@@ -1,11 +1,18 @@
-import { NONE, fmtCount } from '../lib/format'
+import { NONE, fmtCount, fmtTokens } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { localDayLabel, localDayStart } from '../lib/local-day'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
-import { colorEnabled, heading, kvBlock, renderTable } from '../lib/ui'
+import {
+  colorEnabled,
+  heading,
+  kvBlock,
+  renderTable,
+  stringWidth,
+  terminalWidth,
+} from '../lib/ui'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 /**
@@ -35,6 +42,11 @@ export interface ReportResponseDto {
     memberId: string | null
     label: string
     tokens: ReportTokenTotalsDto
+    /**
+     * LUM-1123: per-model split of `tokens`. Optional — a server deployed
+     * before LUM-1123 omits it, and the table then shows summary rows only.
+     */
+    byModel?: Array<ReportTokenTotalsDto & { model: string }>
     sessions: number
     unmeteredSessions: number
     completedCount: number
@@ -155,6 +167,110 @@ export interface FormatReportOptions extends ListRenderOptions {
   color?: boolean
 }
 
+const TOKEN_HEADERS = ['INPUT', 'OUTPUT', 'CACHE WRITE', 'CACHE READ', 'TOTAL']
+const MODEL_WIDTH = 40
+
+/** INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL cells — `lumo cost` kinds. */
+function kindCells(
+  t: ReportTokenTotalsDto,
+  fmt: (n: number) => string
+): string[] {
+  return [
+    fmt(t.input),
+    fmt(t.output),
+    fmt(t.cacheCreation),
+    fmt(t.cacheRead),
+    fmt(t.total),
+  ]
+}
+
+/**
+ * LUM-1123 — the "By model" and "By member" tables. Exact thousands-separated
+ * figures by default (ledger rule, LUM-1088). Only on a TTY where a row would
+ * overflow the terminal (and wrap onto two lines) do both tables switch to
+ * compact units, with a note pointing at `--json` for exact values. Piped /
+ * agent output is never abbreviated or truncated.
+ */
+function tokenTables(
+  data: ReportResponseDto,
+  opts: FormatReportOptions,
+  color: boolean
+): string[] {
+  const render = (fmt: (n: number) => string): string[] => {
+    const out: string[] = []
+    if (data.team.byModel.length > 0) {
+      out.push('')
+      out.push(heading('By model', { color }))
+      out.push(
+        renderTable(
+          data.team.byModel.map(m => [
+            sanitizeField(m.model),
+            ...kindCells(m, fmt),
+          ]),
+          {
+            header: ['MODEL', ...TOKEN_HEADERS],
+            align: [undefined, 'right', 'right', 'right', 'right', 'right'],
+            maxWidths: [MODEL_WIDTH],
+            color,
+          }
+        )
+      )
+    }
+    if (data.byMember.length > 0) {
+      const rows: string[][] = []
+      for (const m of data.byMember) {
+        rows.push([
+          sanitizeField(m.label),
+          '',
+          '',
+          '',
+          '',
+          m.sessions === 0 && m.tokens.total === 0 ? NONE : fmt(m.tokens.total),
+          m.unmeteredSessions > 0
+            ? `${m.sessions} (${m.unmeteredSessions} unmetered)`
+            : String(m.sessions),
+          String(m.completedCount),
+        ])
+        for (const c of m.byModel ?? [])
+          rows.push([`  ↳ ${sanitizeField(c.model)}`, ...kindCells(c, fmt)])
+      }
+      out.push('')
+      out.push(heading('By member', { color }))
+      out.push(
+        renderTable(rows, {
+          header: ['MEMBER', ...TOKEN_HEADERS, 'SESSIONS', 'DONE'],
+          align: [
+            undefined,
+            'right',
+            'right',
+            'right',
+            'right',
+            'right',
+            'right',
+            'right',
+          ],
+          maxWidths: [MODEL_WIDTH],
+          color,
+        })
+      )
+    }
+    return out
+  }
+
+  const exact = render(fmtCount)
+  const tty = opts.tty ?? Boolean(process.stdout.isTTY)
+  if (!tty) return exact
+  const width = opts.width ?? terminalWidth()
+  const overflows = exact.some(block =>
+    block.split('\n').some(l => stringWidth(l) > width)
+  )
+  if (!overflows) return exact
+  return [
+    ...render(fmtTokens),
+    'Token counts abbreviated to fit the terminal — exact values: lumo report --json',
+  ]
+}
+
 /** Render the report. Pure (no clock / env / network). */
 export function formatReport(
   data: ReportResponseDto,
@@ -207,50 +323,7 @@ export function formatReport(
     )
   )
 
-  if (data.team.byModel.length > 0) {
-    out.push('')
-    out.push(heading('By model', { color }))
-    out.push(
-      renderTable(
-        data.team.byModel.map(m => [
-          sanitizeField(m.model),
-          fmtCount(m.total),
-          fmtCount(m.output),
-        ]),
-        {
-          header: ['MODEL', 'TOKENS', 'OUTPUT'],
-          align: [undefined, 'right', 'right'],
-          maxWidths: [40],
-          color,
-        }
-      )
-    )
-  }
-
-  if (data.byMember.length > 0) {
-    out.push('')
-    out.push(heading('By member', { color }))
-    out.push(
-      renderTable(
-        data.byMember.map(m => [
-          sanitizeField(m.label),
-          m.sessions === 0 && m.tokens.total === 0
-            ? NONE
-            : fmtCount(m.tokens.total),
-          m.unmeteredSessions > 0
-            ? `${m.sessions} (${m.unmeteredSessions} unmetered)`
-            : String(m.sessions),
-          String(m.completedCount),
-        ]),
-        {
-          header: ['MEMBER', 'TOKENS', 'SESSIONS', 'DONE'],
-          align: [undefined, 'right', 'right', 'right'],
-          maxWidths: [32],
-          color,
-        }
-      )
-    )
-  }
+  out.push(...tokenTables(data, opts, color))
 
   out.push('')
   const ct = data.completedTasks
