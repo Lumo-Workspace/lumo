@@ -130,6 +130,12 @@ export interface FinalizeScanInput {
    * column alone, like `judgeBudget` (`restart` is what clears it).
    */
   prSummary?: PrSummary | null
+  /**
+   * LUM-1127 — the paths an incremental AI review read on this head; null =
+   * the whole PR diff. Absent = leave the column alone. The PR write-back
+   * only resolves a judge finding's thread for a file inside this scope.
+   */
+  judgeReviewScope?: string[] | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -345,6 +351,11 @@ export interface ScanForReview {
   /** LUM-988: the verifier started / finished — LLM_JUDGE inline comments wait between. */
   verifierStartedAt: Date | null
   verifiedAt: Date | null
+  /**
+   * LUM-1127 — raw Json: the incremental judge's paths, or null for the
+   * whole diff. Optional so older fixtures still type-check (absent = null).
+   */
+  judgeReviewScope?: unknown
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -1123,6 +1134,14 @@ export const prSecurityScanRepository = {
                 prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
               }
             : {}),
+          ...(final.judgeReviewScope !== undefined
+            ? {
+                judgeReviewScope:
+                  final.judgeReviewScope === null
+                    ? Prisma.DbNull
+                    : (final.judgeReviewScope as Prisma.InputJsonValue),
+              }
+            : {}),
           stages,
           partial,
           partialCauses,
@@ -1615,6 +1634,7 @@ export const prSecurityScanRepository = {
         suggestedAt: true,
         verifierStartedAt: true,
         verifiedAt: true,
+        judgeReviewScope: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {

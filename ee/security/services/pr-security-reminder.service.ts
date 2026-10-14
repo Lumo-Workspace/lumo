@@ -48,6 +48,12 @@ import {
 } from '@/ee/security/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
 import { loadSecurityLayers } from './security-workspace-switches.service'
+import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
+import type {
+  FindingDisposition,
+  FindingProvenance,
+  FindingSeverity,
+} from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   prTooLargeOf,
   type HuntOverCapInput,
@@ -175,6 +181,11 @@ export const prSecurityReminderService = {
     // commits — an earlier CLEAN must not keep standing as its answer. Old
     // findings still count (and still block DONE); only the vouching stops.
     const scanningOff = !(await loadSecurityLayers(prs[0]!.workspaceId)).scan
+    // LUM-1127: threads a human resolved on GitHub. Fail-open to "none": a
+    // failed read shows those findings as open, never hides one.
+    const resolvedOnGithub = await prFindingThreadRepository
+      .findResolvedByUserFingerprints(prs.map(p => p.id))
+      .catch(() => new Map<string, Set<string>>())
     const findings: OpenSecurityFinding[] = []
     const unconfirmedPrs: UnconfirmedPr[] = []
     const latestScans: TaskSecurityOpenState['latestScans'] = []
@@ -185,6 +196,18 @@ export const prSecurityReminderService = {
       // queue (merged / closed PR), and why — computed once per row here and
       // shared by the summary counters and the reminder list below.
       const exits = new Map<string, QueueExitReason>()
+      // LUM-1127: a resolved conversation closes a NON-blocking finding; a
+      // blocking one stays (and keeps blocking DONE) until dispositioned.
+      const resolvedFps = resolvedOnGithub.get(pr.id)
+      const closedOnGithub = (f: {
+        fingerprint: string
+        provenance: FindingProvenance
+        severity: FindingSeverity
+        disposition: FindingDisposition | null
+        persisting?: boolean
+      }) =>
+        resolvedFps?.has(f.fingerprint) === true &&
+        !isBlockingFinding(f, policy)
       if (scan) {
         for (const f of scan.findings) {
           if (f.disposition !== null || f.persisting) continue
@@ -215,7 +238,8 @@ export const prSecurityReminderService = {
               f.disposition === null &&
               !f.persisting &&
               !exits.has(f.id) &&
-              !isVerifierRejected(f)
+              !isVerifierRejected(f) &&
+              !closedOnGithub(f)
           ).length,
           dependencyFindings: scan.findings.filter(f => f.kind === 'DEPENDENCY')
             .length,
@@ -252,6 +276,8 @@ export const prSecurityReminderService = {
         // LUM-988: the agentic verifier rejected it after reading the code —
         // shown in the panel and `pr scan`, never asked of the agent.
         if (isVerifierRejected(f)) continue
+        // LUM-1127: a human resolved its thread on GitHub (non-blocking only).
+        if (closedOnGithub(f)) continue
         findings.push({
           id: f.id,
           kind: f.kind,

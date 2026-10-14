@@ -63,6 +63,7 @@ export function createPluginRegistry(
   const handlers: EventHandlers = {
     'github.pullRequest': [],
     'github.push': [],
+    'github.reviewThread': [],
     'task.prLinked': [],
     'task.statusChanged': [],
   }

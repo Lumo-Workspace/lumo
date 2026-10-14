@@ -31,6 +31,9 @@ jest.mock('@/ee/security/services/pr-security-scan-dispatch', () => ({
 jest.mock('@/ee/security/services/security-baseline.service', () => ({
   securityBaselineService: { requestFromPush: jest.fn() },
 }))
+jest.mock('@/ee/security/services/pr-finding-thread.service', () => ({
+  applyReviewThreadEvent: jest.fn().mockResolvedValue('recorded'),
+}))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
 }))
@@ -53,6 +56,7 @@ import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-
 import { securityBaselineService } from '@/ee/security/services/security-baseline.service'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
+import { applyReviewThreadEvent } from '@/ee/security/services/pr-finding-thread.service'
 
 const reminder = prSecurityReminderService as unknown as Record<
   string,
@@ -73,6 +77,7 @@ it('is the one installed plugin and registers every server extension point', () 
   expect(registry.retention.map(r => r.key)).toEqual(['scanEvidence'])
   expect(registry.handlersFor('github.pullRequest')).toHaveLength(1)
   expect(registry.handlersFor('github.push')).toHaveLength(1)
+  expect(registry.handlersFor('github.reviewThread')).toHaveLength(1)
   expect(registry.handlersFor('task.prLinked')).toHaveLength(1)
 })
 
@@ -199,6 +204,21 @@ describe('events', () => {
       repo: 'o/r',
       sha: 'abc',
     })
+  })
+
+  it('LUM-1127: a review-thread event is applied by the thread service, with waitUntil', async () => {
+    const event = {
+      workspaceId: 'w-1',
+      pullRequestId: 'pr-1',
+      action: 'resolved',
+      threadNodeId: 'PRRT_1',
+      comments: [],
+      sender: { login: 'alice', type: 'User' },
+    }
+    emitCoreEvent('github.reviewThread', event)
+    expect(mockWaitUntil).toHaveBeenCalledTimes(1)
+    await mockWaitUntil.mock.results[0]!.value
+    expect(applyReviewThreadEvent).toHaveBeenCalledWith(event)
   })
 
   it('a failing baseline request is logged, never thrown', async () => {

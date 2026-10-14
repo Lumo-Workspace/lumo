@@ -64,6 +64,7 @@ shape changes bump it; additive fields don't. Pin on `version` when scripting.
 - `task { id, identifier, title, status }`, `cost { tokenCost, activeTimeSec }` (`tokenCost: null` = not measured), `struggleTrail { pullRequests[], reopens[] }`, `trend { cost[], rework { reopens, extraPrCycles, total } }`, `claim`, `faithfulness`;
 - `nextActions` entries carry a `kind` discriminator: `SECURITY_FINDING` (`findingId`, `statement`, `severity`, `provenance`, `blocking`, `prNumber`, `ruleId`, `filePath`, `line`), `TEST_CASE` (`statement`, `command`, `advisory: true`) or `TEST_CASE_VERDICT` (`signal`, `number`, `title`, `ceilingReason?`, `advisory: true`). Advisory rows carry no `blocking` field and the DONE gate never reads them;
 - `securityFindings { open, blocking, unconfirmedPrs[], scans?[] }` — **`null` means the scan read failed**: treat as "could not confirm", not "safe";
+- a finding whose Lumo review thread a human **resolved on GitHub** (LUM-1127) leaves `SECURITY_FINDING` and `open` only when it is **not** blocking; a blocking one stays (`blocking: true`) and still holds DONE until it is dispositioned in Lumo — resolving a conversation is not a disposition;
 - open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, ref, category, severity, detail, attribution }` — `ref` is the `<TEAM>-X<n>` to show and type, `id` the cuid); **`null` when the crossings check failed**, distinct from `[]`.
 
 ## Responding to an open crossing — `lumo crossing explain`

@@ -1547,6 +1547,54 @@ enum PrSecurityFindingProvenance {
   EXTERNAL_TOOL
 }
 
+// LUM-1127: where a Lumo inline comment's GitHub thread stands.
+enum PrFindingThreadState {
+  // Posted, unresolved on GitHub.
+  OPEN
+  // Lumo resolved it: a complete pass of the producing layer no longer
+  // reports the fingerprint (`addressedInSha` says on which head).
+  ADDRESSED
+  // A human resolved it on GitHub. Not re-posted; a gate-blocking finding
+  // still blocks DONE until it is dispositioned in Lumo.
+  RESOLVED_BY_USER
+  // The verifier rejected the finding; the comment was retracted.
+  DISMISSED
+}
+
+// LUM-1127: one row per (PR, finding fingerprint) Lumo commented on inline —
+// the durable identity of the GitHub review thread across head commits, so a
+// later scan can resolve it as addressed, honour a human resolve, and reopen
+// it on regression (CodeRabbit's thread lifecycle). Findings themselves stay
+// per scan (`PrSecurityFinding`); the thread is per PR.
+model PrFindingThread {
+  id              String                      @id @default(cuid())
+  pullRequestId   String
+  workspaceId     String
+  fingerprint     String
+  // GitHub REST id of Lumo's inline comment (the thread's first comment).
+  commentId       String
+  // GraphQL node id of the review thread; null until first read back.
+  threadNodeId    String?
+  state           PrFindingThreadState        @default(OPEN)
+  // The finding's layer, kept so an absent fingerprint can still be judged
+  // against the layer that produced it.
+  ruleId          String
+  provenance      PrSecurityFindingProvenance
+  kind            PrSecurityFindingKind
+  filePath        String
+  resolvedByLogin String?
+  resolvedAt      DateTime?
+  addressedInSha  String?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, fingerprint])
+  @@index([pullRequestId, state])
+  @@map("pr_finding_threads")
+}
+
 enum PrSecurityFindingDisposition {
   FALSE_POSITIVE
   ACCEPTED_RISK
@@ -1683,6 +1731,11 @@ model PrSecurityScan {
   // LUM-911: does the retention sweep look at this scan? Rows from before
   // LUM-911 are false (the backlog is a separate task); new rows are true.
   retentionTracked  Boolean                @default(true)
+  // LUM-1127: the paths the AI review (judge) read on this head when the
+  // round was incremental — `["a.ts", …]`; null = the whole PR diff (or a row
+  // from before this column). The PR write-back resolves a judge finding's
+  // thread as addressed only when its file was in this scope.
+  judgeReviewScope  Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1966,6 +2019,7 @@ model PullRequest {
   integration      GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   mirroredComments PrCommentMirror[]
   securityScans    PrSecurityScan[]
+  findingThreads   PrFindingThread[]
   testCaseRuns     TestCaseRun[]
 
   // LUM-924: one row per workspace — workspaces sharing a GitHub App

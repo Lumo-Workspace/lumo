@@ -481,6 +481,62 @@ export async function handlePullRequestReview(
   })
 }
 
+/**
+ * LUM-1127 — `pull_request_review_thread` (resolved / unresolved): handed to
+ * the plugins as `github.reviewThread`, which records a human resolving one
+ * of Lumo's finding threads. Any PR row Lumo holds — not only task-linked
+ * ones: a scan's threads exist wherever the scan commented.
+ */
+export async function handlePullRequestReviewThread(
+  payload: Record<string, unknown>,
+  workspaceId: string
+): Promise<void> {
+  const prRef = payload.pull_request as { number?: number } | undefined
+  const repo = (payload.repository as { full_name?: string } | undefined)
+    ?.full_name
+  const action = payload.action
+  if (!prRef?.number || !repo || typeof action !== 'string') return
+  const pr = await pullRequestRepository.findByRepoAndNumber(
+    workspaceId,
+    repo,
+    prRef.number
+  )
+  if (!pr) return
+  const thread = (payload.thread ?? {}) as {
+    node_id?: string
+    comments?: Array<{
+      id?: number
+      body?: string
+      user?: { type?: string; login?: string } | null
+      in_reply_to_id?: number | null
+    }>
+  }
+  const sender = (payload.sender ?? null) as {
+    login?: string
+    type?: string
+  } | null
+  emitCoreEvent('github.reviewThread', {
+    workspaceId,
+    pullRequestId: pr.id,
+    action,
+    threadNodeId: typeof thread.node_id === 'string' ? thread.node_id : null,
+    comments: (thread.comments ?? [])
+      .filter(c => typeof c.id === 'number')
+      .map(c => ({
+        id: c.id as number,
+        body: typeof c.body === 'string' ? c.body : '',
+        user: c.user ?? null,
+        in_reply_to_id: c.in_reply_to_id ?? null,
+      })),
+    sender: sender
+      ? {
+          ...(typeof sender.login === 'string' ? { login: sender.login } : {}),
+          ...(typeof sender.type === 'string' ? { type: sender.type } : {}),
+        }
+      : null,
+  })
+}
+
 export async function handlePullRequestReviewComment(
   payload: Record<string, unknown>,
   workspaceId: string,

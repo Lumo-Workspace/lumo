@@ -483,6 +483,8 @@ export const PLUGIN_MODELS = [
   'PrSecurityScan',
   'PrSecurityFinding',
   'ProjectPolicy',
+  // LUM-1127: the PR write-back's per-PR finding threads.
+  'PrFindingThread',
 ] as const
 
 /**
