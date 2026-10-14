@@ -5,6 +5,7 @@ import {
   type OperationCostRow,
 } from '@/lib/agent-run/operation-cost'
 import type { ModelUsage } from '@/lib/services/model-cost'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 import type {
   OperationCostResponse,
   OperationCostRowDto,
@@ -39,10 +40,67 @@ export function foldRows(
   }
   const out = [...acc.values()]
   for (const r of out) {
+    roundRow(r)
     const label = labelOf(r.key)
     if (label) r.label = label
   }
   return out.sort((a, b) => b.total - a.total)
+}
+
+/**
+ * LUM-1124: attributed rows carry fractional shares (a parallel-tool step is
+ * split evenly), so a fold ends in float noise (10227.999999999998). Round
+ * each part once and rebuild the total from the whole parts so it adds up.
+ */
+export function roundRow<
+  T extends {
+    input: number
+    output: number
+    cacheRead: number
+    cacheCreation: number
+    total: number
+  },
+>(t: T): T {
+  t.input = Math.round(t.input)
+  t.output = Math.round(t.output)
+  t.cacheRead = Math.round(t.cacheRead)
+  t.cacheCreation = Math.round(t.cacheCreation)
+  t.total = t.input + t.output + t.cacheRead + t.cacheCreation
+  return t
+}
+
+const SESSION_PREFIX_MIN = 8
+
+/**
+ * LUM-1124: short, distinct labels for the By-session table. A subagent's
+ * session is `<parent>:<agentId>`, so cutting the whole id to 8 chars turned
+ * every child into its parent's prefix. Label a child `<parent>:<agent>`,
+ * each cut to the same prefix length, and grow that length until no two
+ * labels collide. The full id stays in the row's `key`.
+ */
+export function sessionLabels(keys: string[]): Map<string, string> {
+  const parts = keys.map(k => {
+    const child = parseChildSessionId(k)
+    return child
+      ? { key: k, root: child.parentSessionId, agent: child.agentId }
+      : { key: k, root: k, agent: null }
+  })
+  const longest = parts.reduce(
+    (m, p) => Math.max(m, p.root.length, p.agent?.length ?? 0),
+    SESSION_PREFIX_MIN
+  )
+  for (let n = SESSION_PREFIX_MIN; ; n++) {
+    const labels = new Map(
+      parts.map(p => [
+        p.key,
+        p.agent === null
+          ? p.root.slice(0, n)
+          : `${p.root.slice(0, n)}:${p.agent.slice(0, n)}`,
+      ])
+    )
+    if (new Set(labels.values()).size === labels.size || n >= longest)
+      return labels
+  }
 }
 
 /** Label for Bash tokens recorded before `toolVerb` existed (not yet backfilled). */
@@ -65,14 +123,22 @@ export function withCommandBreakdown(
   return byTool.map(row => {
     const children = byParent.get(row.key) ?? []
     if (!children.some(r => r.verb !== null)) return row
-    return {
-      ...row,
-      breakdown: foldRows(
-        children,
-        r => r.verb ?? UNLABELLED_COMMAND,
-        () => undefined
-      ),
+    const breakdown = foldRows(
+      children,
+      r => r.verb ?? UNLABELLED_COMMAND,
+      () => undefined
+    )
+    // Each child is whole tokens on its own, so rebuild the parent from them —
+    // rounding the two independently could leave them a token apart.
+    const sum = { ...row, input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
+    for (const c of breakdown) {
+      sum.input += c.input
+      sum.output += c.output
+      sum.cacheRead += c.cacheRead
+      sum.cacheCreation += c.cacheCreation
     }
+    sum.total = sum.input + sum.output + sum.cacheRead + sum.cacheCreation
+    return { ...sum, breakdown }
   })
 }
 
@@ -115,7 +181,9 @@ export const operationCostService = {
         workspaceId,
         since,
       })
-      scopeLabel = `last ${DEFAULT_WINDOW_DAYS}d`
+      scopeLabel = scope.since
+        ? `since ${scope.since.toISOString()}`
+        : `last ${DEFAULT_WINDOW_DAYS}d`
     }
 
     const { rows, coverage } = attributeOperationCost(
@@ -137,26 +205,31 @@ export const operationCostService = {
       ),
     ]
     const memberLabels = await memberRepository.labelsByIds(memberIds)
+    const sessionKey = (r: OperationCostRow) => r.sessionId ?? '(none)'
+    const sessionLabel = sessionLabels([...new Set(rows.map(sessionKey))])
 
-    const grand = rows.reduce(
-      (t, r) => {
-        t.input += r.input
-        t.output += r.output
-        t.cacheRead += r.cacheRead
-        t.cacheCreation += r.cacheCreation
+    // Same rounding grain as `lumo report` (LUM-1123): whole tokens per
+    // member × model cell, summed — so the two agree to the token.
+    const grand = foldRows(
+      rows,
+      r => `${r.workspaceMemberId ?? ''}\u0000${r.model}`,
+      () => undefined
+    ).reduce(
+      (t, c) => {
+        t.input += c.input
+        t.output += c.output
+        t.cacheRead += c.cacheRead
+        t.cacheCreation += c.cacheCreation
+        t.total += c.total
         return t
       },
-      { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
+      { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, total: 0 }
     )
 
     return {
       version: 1,
       scope: { kind: scopeKind, label: scopeLabel },
-      grandTotal: {
-        ...grand,
-        total:
-          grand.input + grand.output + grand.cacheRead + grand.cacheCreation,
-      },
+      grandTotal: grand,
       coverage: {
         toolTurns: coverage.toolTurns,
         perStepTurns: coverage.perStepTurns,
@@ -183,11 +256,7 @@ export const operationCostService = {
         r => r.workspaceMemberId ?? '(unknown)',
         k => memberLabels.get(k)
       ),
-      bySession: foldRows(
-        rows,
-        r => r.sessionId ?? '(none)',
-        k => (k.length > 8 ? k.slice(0, 8) : k)
-      ),
+      bySession: foldRows(rows, sessionKey, k => sessionLabel.get(k)),
     }
   },
 }
