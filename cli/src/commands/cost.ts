@@ -97,14 +97,22 @@ function rankTable(title: string, rows: OperationCostRowDto[]): string {
 /**
  * LUM-1124: `--since` as the server should see it. A bare YYYY-MM-DD is the
  * shell's LOCAL midnight (the same day boundary `lumo report` uses) — sent
- * raw, the server would parse it as UTC midnight. Anything else (a full ISO
- * instant) passes through untouched. Null = an invalid calendar day.
+ * raw, the server would parse it as UTC midnight. A timestamp is read here,
+ * in the shell's zone, and sent as an ISO instant. Null = not a valid day or
+ * timestamp.
  */
 export function resolveCostSince(
   since: string
 ): { iso: string; day: string | null } | null {
   const raw = since.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { iso: raw, day: null }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    // Date-shaped only: `new Date('7d')` is invalid, but bare numbers parse.
+    if (!/^\d{4}-\d{2}-\d{2}T/.test(raw)) return null
+    const t = new Date(raw)
+    return Number.isNaN(t.getTime())
+      ? null
+      : { iso: t.toISOString(), day: null }
+  }
   const iso = localDayStart(raw)
   return iso ? { iso, day: raw } : null
 }
@@ -190,7 +198,7 @@ export async function cost(opts: {
     const since = resolveCostSince(opts.since)
     if (!since) {
       console.error(
-        `Error: invalid --since "${opts.since}" (expected YYYY-MM-DD or an ISO timestamp)`
+        `Error: invalid --since "${opts.since}" (expected YYYY-MM-DD or a timestamp such as 2026-10-12T09:30)`
       )
       return 1
     }

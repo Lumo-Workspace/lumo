@@ -12,9 +12,11 @@ jest.mock('@/lib/agent-run/operation-cost', () => ({
 
 import { attributeOperationCost } from '@/lib/agent-run/operation-cost'
 import {
+  foldRows,
   operationCostService,
   roundRow,
   sessionLabels,
+  withCommandBreakdown,
 } from '@/lib/services/operation-cost.service'
 
 const PARENT = 'a6be42a4-1111-2222-3333-444455556666'
@@ -144,5 +146,27 @@ describe('getOperationCost rounding (LUM-1124)', () => {
       cacheCreation: 0,
       total: 3,
     })
+  })
+})
+
+describe('withCommandBreakdown after rounding (LUM-1124)', () => {
+  it('keeps the per-command rows summing exactly to their parent', () => {
+    // Three commands each holding 1.4 tokens: rounded one by one they are
+    // 1 + 1 + 1, while the raw parent (4.2) would round to 4.
+    const rows = ['grep', 'sed', 'cat'].map(verb =>
+      row({ tool: 'Bash · read/search', verb, output: 1.4 })
+    )
+    const byTool = withCommandBreakdown(
+      rows,
+      foldRows(
+        rows,
+        r => r.tool,
+        () => undefined
+      )
+    )
+    const bash = byTool[0]!
+    expect(bash.breakdown!.reduce((t, c) => t + c.output, 0)).toBe(bash.output)
+    expect(bash.breakdown!.reduce((t, c) => t + c.total, 0)).toBe(bash.total)
+    expect(bash.output).toBe(3)
   })
 })

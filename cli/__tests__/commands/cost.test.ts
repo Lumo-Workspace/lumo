@@ -3,6 +3,12 @@ import {
   resolveCostSince,
   type OperationCostResponse,
 } from '../../src/commands/cost'
+import { localDayStart } from '../../src/lib/local-day'
+
+jest.mock('../../src/lib/local-day', () => {
+  const actual = jest.requireActual('../../src/lib/local-day')
+  return { ...actual, localDayStart: jest.fn(actual.localDayStart) }
+})
 
 const data: OperationCostResponse = {
   version: 1,
@@ -120,16 +126,17 @@ describe('resolveCostSince (LUM-1124)', () => {
     ])
   })
 
-  it('differs from UTC midnight in a non-UTC zone', () => {
-    if (new Date(2026, 9, 12).getTimezoneOffset() === 0) {
-      // Under a UTC shell local == UTC; the zone-specific case is covered by
-      // the equality above. Still assert the day label passes through.
-      expect(resolveCostSince('2026-10-12')!.day).toBe('2026-10-12')
-      return
-    }
-    expect(resolveCostSince('2026-10-12')!.iso).not.toBe(
-      '2026-10-12T00:00:00.000Z'
+  it('uses the shell-local day boundary, not UTC midnight (UTC+11)', () => {
+    // Pin the zone: what local-day returns for a UTC+11 shell. A UTC parse of
+    // the raw day would give 2026-10-12T00:00:00.000Z instead.
+    ;(localDayStart as jest.Mock).mockReturnValueOnce(
+      '2026-10-11T13:00:00.000Z'
     )
+    expect(resolveCostSince('2026-10-12')).toEqual({
+      iso: '2026-10-11T13:00:00.000Z',
+      day: '2026-10-12',
+    })
+    expect(localDayStart).toHaveBeenLastCalledWith('2026-10-12')
   })
 
   it('passes a full ISO instant through untouched', () => {
@@ -141,6 +148,18 @@ describe('resolveCostSince (LUM-1124)', () => {
 
   it('rejects an impossible calendar day', () => {
     expect(resolveCostSince('2026-02-31')).toBeNull()
+  })
+
+  it('rejects values that are neither a day nor a timestamp', () => {
+    expect(resolveCostSince('7d')).toBeNull()
+    expect(resolveCostSince('last week')).toBeNull()
+  })
+
+  it('normalizes a zone-less timestamp in the shell zone', () => {
+    expect(resolveCostSince('2026-10-12T09:30')).toEqual({
+      iso: new Date(2026, 9, 12, 9, 30).toISOString(),
+      day: null,
+    })
   })
 })
 

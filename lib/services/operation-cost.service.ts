@@ -123,14 +123,22 @@ export function withCommandBreakdown(
   return byTool.map(row => {
     const children = byParent.get(row.key) ?? []
     if (!children.some(r => r.verb !== null)) return row
-    return {
-      ...row,
-      breakdown: foldRows(
-        children,
-        r => r.verb ?? UNLABELLED_COMMAND,
-        () => undefined
-      ),
+    const breakdown = foldRows(
+      children,
+      r => r.verb ?? UNLABELLED_COMMAND,
+      () => undefined
+    )
+    // Each child is whole tokens on its own, so rebuild the parent from them —
+    // rounding the two independently could leave them a token apart.
+    const sum = { ...row, input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
+    for (const c of breakdown) {
+      sum.input += c.input
+      sum.output += c.output
+      sum.cacheRead += c.cacheRead
+      sum.cacheCreation += c.cacheCreation
     }
+    sum.total = sum.input + sum.output + sum.cacheRead + sum.cacheCreation
+    return { ...sum, breakdown }
   })
 }
 
