@@ -29,9 +29,9 @@ Which provider serves a given request is chosen by the gateway from the ZDR-elig
 | Subprocessor | Models served for Lumo | Purpose | Retention terms | Data location |
 | --- | --- | --- | --- | --- |
 | OpenAI, L.L.C. | GPT reasoning model | Security judgement, verification and review checks | Zero data retention with safety retention (limited retention for abuse monitoring); no training | Routed globally; no location commitment |
-| Anthropic, PBC | Claude Sonnet model | AI code review of pull requests | Zero data retention; no training | Routed globally; no location commitment |
+| Anthropic, PBC | Claude Sonnet and Haiku models | AI code review and security hunt of pull requests | Zero data retention; no training | Routed globally; no location commitment |
 | Microsoft Corporation (Azure) | GPT reasoning model; open-weight models | Fallback host for the above | Zero data retention; no training | Routed globally; no location commitment |
-| Alibaba Cloud | Qwen coder and embedding models; open-weight models | Security hunt, summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Routed globally; no location commitment |
+| Alibaba Cloud | Qwen embedding model; open-weight models | Summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Routed globally; no location commitment |
 | Baseten, Inc. | Open-weight models | Summaries, content and policy compilation | Zero data retention; no training | Routed globally; no location commitment |
 | DeepInfra, Inc. | Open-weight and embedding models | Summaries, memory, embeddings | Zero data retention; no training | Routed globally; no location commitment |
 | DigitalOcean, LLC | Open-weight models; TypeSafe Jev evaluation model | Fallback host; boundary-crossing triage (Jev) | Zero data retention; no training — except TypeSafe Jev: no zero data retention, no training | Routed globally; no location commitment |

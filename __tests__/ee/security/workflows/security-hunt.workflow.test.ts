@@ -34,6 +34,7 @@ import {
   falsifierStep,
   persistHuntFindingsStep,
   markHuntFailedStep,
+  requeueHuntStep,
 } from '@/lib/workflows/security-hunt.steps'
 import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
 import {
@@ -376,6 +377,43 @@ describe('LUM-739 hunt workflow', () => {
       category: 'idor',
       stopped: 'error',
     })
+  })
+
+  it('LUM-1084: a missing hunt model skips the remaining tasks, the retry pass and the re-queue, and fails the layer with the reason', async () => {
+    const requeue = requeueHuntStep as jest.Mock
+    requeue.mockResolvedValue({ requeued: true, attempt: 2 })
+    hunt.mockImplementation(async () =>
+      batch({
+        stopped: 'error',
+        error: 'Model not exist.',
+        model: 'alibaba/qwen3-coder-plus',
+        modelUnavailable: true,
+        tokens: 0,
+      } as never)
+    )
+    const out = await securityHuntWorkflow(JOB)
+    // One batch: no VM is booted for t2, and t1 is not retried.
+    expect(hunt).toHaveBeenCalledTimes(1)
+    expect(requeue).not.toHaveBeenCalled()
+    const reason =
+      'hunt model unavailable: alibaba/qwen3-coder-plus — Model not exist.'
+    expect(out).toEqual({ outcome: 'FAILED', scanId: 's1', reason })
+    expect(markFailed).toHaveBeenCalledWith('s1', reason, 0)
+  })
+
+  it('LUM-1084: an ordinary error is still retried and re-queued', async () => {
+    const requeue = requeueHuntStep as jest.Mock
+    requeue.mockResolvedValue({ requeued: true, attempt: 2 })
+    hunt.mockImplementation(async () =>
+      batch({ stopped: 'error', error: 'gateway 500', tokens: 0 })
+    )
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'REQUEUED',
+      attempt: 2,
+    })
+    // 2 planned + one retry each.
+    expect(hunt).toHaveBeenCalledTimes(4)
+    expect(requeue).toHaveBeenCalledTimes(1)
   })
 
   it('LUM-762 retries a failed task once and ends RAN when the retry succeeds', async () => {
