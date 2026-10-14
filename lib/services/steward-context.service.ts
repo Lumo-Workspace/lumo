@@ -7,6 +7,13 @@ import {
   type RenderableMemory,
 } from '@/lib/memory/render'
 
+const REASON_TEXT: Record<string, string> = {
+  NOT_RUN: 'not run',
+  PROVEN_DEFECT: 'proven defect (needs a disposition or a fix)',
+  FAILING: 'latest run failed',
+  BLOCKED: 'latest run blocked',
+}
+
 /** Token budget for the prior-milestone learnings injected at steward start. */
 const MILESTONE_MEMORY_BUDGET_TOKENS = 1000
 
@@ -37,6 +44,55 @@ export interface MilestoneMemorySection {
 }
 
 export const stewardContextService = {
+  /**
+   * LUM-1135: the milestone's close contract for its steward — which test cases
+   * still hold the gate and how to run them. Case titles are member-written, so
+   * they go through wrapUntrustedMemory (sanitize + guardInjectedText + the
+   * untrusted-boundary framing). Best-effort: '' on any failure.
+   */
+  async buildTestCaseSection(milestoneId: string): Promise<string> {
+    try {
+      const { milestoneCloseGateService } =
+        await import('@/lib/services/milestone-close-gate.service')
+      const gate = await milestoneCloseGateService.read(milestoneId)
+      if (gate.cases.length === 0) return ''
+      const lines = gate.cases.map(c => {
+        const state =
+          c.state === 'open'
+            ? 'passing'
+            : (REASON_TEXT[c.reason ?? ''] ?? 'held')
+        return `- TC${c.number} ${c.title} — ${state}`
+      })
+      const wrapped = wrapUntrustedMemory(lines.join('\n'))
+      if (!wrapped) return ''
+      return [
+        '## Milestone test cases (close contract)',
+        '',
+        gate.held === 0
+          ? 'Every case has passed — the close gate is open.'
+          : `${gate.held} item(s) hold this milestone open. Once all its tasks are DONE, run the end-to-end cases: \`lumo milestone testcase run <milestone> TC<n> --result … --env …\`.`,
+        '',
+        wrapped,
+      ].join('\n')
+    } catch {
+      return ''
+    }
+  },
+
+  /** Memory section + test-case section for a steward session, blank-line joined. */
+  async buildStewardSections(
+    milestoneId: string
+  ): Promise<{ section: string; memories: InjectedMilestoneMemory[] }> {
+    const [memory, testCases] = await Promise.all([
+      this.buildMilestoneMemorySection(milestoneId),
+      this.buildTestCaseSection(milestoneId),
+    ])
+    return {
+      section: [memory.section, testCases].filter(Boolean).join('\n\n'),
+      memories: memory.memories,
+    }
+  },
+
   async buildMilestoneMemorySection(
     milestoneId: string
   ): Promise<MilestoneMemorySection> {
