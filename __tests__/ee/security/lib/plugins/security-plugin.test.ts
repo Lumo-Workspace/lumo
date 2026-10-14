@@ -247,6 +247,9 @@ describe('events', () => {
       pullRequestId: 'pr-1',
       action: 'closed',
       state: 'merged',
+      repo: 'acme/app',
+      prNumber: 1,
+      isDraft: false,
     })
     await Promise.all(mockWaitUntil.mock.results.map(r => r.value))
     expect(promoteLearningsOnMerge).toHaveBeenCalledWith('w-1', 'pr-1')
@@ -257,6 +260,9 @@ describe('events', () => {
       pullRequestId: 'pr-1',
       action: 'closed',
       state: 'closed',
+      repo: 'acme/app',
+      prNumber: 1,
+      isDraft: false,
     })
     await Promise.all(mockWaitUntil.mock.results.map(r => r.value))
     expect(promoteLearningsOnMerge).not.toHaveBeenCalled()
