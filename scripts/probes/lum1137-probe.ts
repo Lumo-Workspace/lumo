@@ -4,3 +4,5 @@ export function round(): number {
 }
 
 export const PUSH_2 = 2
+
+export const PUSH_3 = 3
