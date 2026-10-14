@@ -2424,6 +2424,8 @@
   "workspaceSettings.securityScan.aiReview.description": "सुरक्षा समीक्षा, बदलाव का सारांश, स्कैनर निष्कर्षों पर फ़ॉल्स-पॉज़िटिव सुझाव, आपके सिमेंटिक कोड नियम, और पूर्ण कार्य के दावे को उसके मर्ज किए गए कोड से मिलाने के लिए पुल रिक्वेस्ट का diff AI मॉडल (शून्य डेटा प्रतिधारण) को भेजें। इसमें सीमा उल्लंघन का AI ट्राइएज भी शामिल है, जो चिह्नित एजेंट कार्रवाई और कार्य का टेक्स्ट TypeSafe Jev को भेजता है (शून्य डेटा प्रतिधारण नहीं)। बंद होने पर इनमें से कोई भी सुविधा AI मॉडल को कुछ नहीं भेजती।",
   "workspaceSettings.securityScan.hunt.label": "एक्सप्लॉइट-पाथ खोज",
   "workspaceSettings.securityScan.hunt.description": "जोखिम भरे बदलावों के लिए एक AI एजेंट अलग-थलग सैंडबॉक्स में कोड की जाँच करता है ताकि पुष्टि हो सके कि कोई निष्कर्ष वास्तव में एक्सप्लॉइट किया जा सकता है या नहीं।",
+  "workspaceSettings.securityScan.requestChanges.label": "हल होने तक बदलाव माँगें",
+  "workspaceSettings.securityScan.requestChanges.description": "जब तक Lumo का कोई रिव्यू थ्रेड या Done को रोकने वाली कोई फ़ाइंडिंग खुली है, Lumo का रिव्यू “बदलाव माँगे गए” दिखाता है; नवीनतम कमिट की पूरी समीक्षा में कुछ भी खुला न रहने पर Lumo PR को मंज़ूरी देता है। डिफ़ॉल्ट रूप से बंद।",
   "workspaceSettings.securityScan.platformOff": "फ़िलहाल Lumo ने इसे सभी वर्कस्पेस के लिए बंद किया हुआ है।",
   "workspaceSettings.securityScan.updated": "सुरक्षा स्कैन सेटिंग्स सहेजी गईं",
   "workspaceSettings.securityScan.updateFailed": "सुरक्षा स्कैन सेटिंग्स सहेजी नहीं जा सकीं",

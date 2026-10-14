@@ -1,8 +1,12 @@
 /** @jest-environment node */
 // LUM-1065: moved with the queries from projectRepository (RFC §4 option A).
 const mockRepo = { findFirst: jest.fn(), updateMany: jest.fn() }
+const mockWorkspace = { findUnique: jest.fn() }
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
+    workspace: {
+      findUnique: (...args: unknown[]) => mockWorkspace.findUnique(...args),
+    },
     projectRepository: {
       findFirst: (...args: unknown[]) => mockRepo.findFirst(...args),
       updateMany: (...args: unknown[]) => mockRepo.updateMany(...args),
@@ -86,4 +90,29 @@ test('LUM-738 baseline — setSecurityBaseline replaces the JSON on every linked
     where: { fullName: 'o/r', project: { workspaceId: 'w1' } },
     data: { securityBaseline: BASELINE },
   })
+})
+
+// ── LUM-1130 request-changes workflow ───────────────────────────────────────
+
+test('LUM-1130 findRequestChangesEnabled — true only when the workspace turned it on', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityRequestChangesEnabled: true,
+  })
+  expect(await securityColumnsRepository.findRequestChangesEnabled('w1')).toBe(
+    true
+  )
+  expect(mockWorkspace.findUnique).toHaveBeenCalledWith({
+    where: { id: 'w1' },
+    select: { securityRequestChangesEnabled: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityRequestChangesEnabled: false,
+  })
+  expect(await securityColumnsRepository.findRequestChangesEnabled('w1')).toBe(
+    false
+  )
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findRequestChangesEnabled('w1')).toBe(
+    false
+  )
 })

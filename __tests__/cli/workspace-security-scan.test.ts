@@ -16,6 +16,7 @@ jest.mock('@/cli/src/lib/config', () => ({
 
 import {
   buildSecurityScanUpdate,
+  describeGatedChanges,
   describeTurnOffs,
   formatSecurityScanSettings,
   workspaceSecurityScan,
@@ -207,5 +208,67 @@ describe('workspaceSecurityScan', () => {
     serve([{ body: ALL_ON }])
     await workspaceSecurityScan({ json: true })
     expect(JSON.parse(out)).toEqual(ALL_ON)
+  })
+})
+
+describe('LUM-1130 --request-changes', () => {
+  const RC_ON: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityRequestChangesEnabled: true },
+  }
+  const RC_OFF: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityRequestChangesEnabled: false },
+  }
+
+  it('maps the flag and refuses it with --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ requestChanges: 'on' })).toEqual({
+      securityRequestChangesEnabled: true,
+    })
+    expect(() =>
+      buildSecurityScanUpdate({ enableAll: true, requestChanges: 'on' })
+    ).toThrow(/--request-changes/)
+    expect(() => buildSecurityScanUpdate({ requestChanges: 'x' })).toThrow(
+      /--request-changes takes on or off/
+    )
+  })
+
+  it('turning it on or off is gated; leaving it alone is not', () => {
+    const on = describeGatedChanges(RC_OFF.switches, {
+      securityRequestChangesEnabled: true,
+    })
+    expect(on.join('\n')).toMatch(/Will turn ON: Request-changes workflow/)
+    const off = describeGatedChanges(RC_ON.switches, {
+      securityRequestChangesEnabled: false,
+    })
+    expect(off.join('\n')).toMatch(/Will turn OFF: Request-changes workflow/)
+    expect(
+      describeGatedChanges(RC_ON.switches, {
+        securityRequestChangesEnabled: true,
+      })
+    ).toEqual([])
+    expect(describeGatedChanges(RC_OFF.switches, { all: true })).toEqual([])
+  })
+
+  it('--request-changes on without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: RC_OFF }])
+    expect(await workspaceSecurityScan({ requestChanges: 'on' })).toBe(4)
+    expect(calls).toHaveLength(1)
+    expect(out).toMatch(/confirmation_required/)
+  })
+
+  it('--request-changes on --confirm PATCHes the switch and prints it', async () => {
+    serve([{ body: RC_OFF }, { body: RC_ON }])
+    expect(
+      await workspaceSecurityScan({ requestChanges: 'on', confirm: true })
+    ).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityRequestChangesEnabled: true,
+    })
+    expect(out).toMatch(/Request-changes workflow: on/)
+  })
+
+  it('an older server without the field prints no request-changes line', () => {
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Request-changes/)
   })
 })

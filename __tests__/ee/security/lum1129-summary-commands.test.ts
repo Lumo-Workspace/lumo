@@ -57,3 +57,11 @@ describe('summary: PR comment commands', () => {
       expect(block).toContain(`\`@uselumo ${c}\``)
   })
 })
+
+test('LUM-1130: `approve` is listed only where the request-changes workflow is on', () => {
+  expect(commandsBlock('@uselumo')).not.toContain('`@uselumo approve`')
+  expect(commandsBlock('@uselumo', true)).toContain('`@uselumo approve`')
+  expect(
+    buildSummary({ ...base, commandHandle: '@uselumo', approveCommand: true })
+  ).toContain('`@uselumo approve`')
+})
