@@ -46,7 +46,10 @@ describe('recordClientVersions', () => {
 })
 
 describe('latestClientVersionsByMemberAgent', () => {
-  it('skips the row query when no session reported versions', async () => {
+  const byField = (where: Record<string, unknown>) =>
+    'cliVersion' in where ? 'cliVersion' : 'skillVersion'
+
+  it('skips the row queries when no session reported versions', async () => {
     session.groupBy.mockResolvedValue([])
     expect(
       await sessionRepository.latestClientVersionsByMemberAgent('ws', since)
@@ -54,31 +57,60 @@ describe('latestClientVersionsByMemberAgent', () => {
     expect(session.findMany).not.toHaveBeenCalled()
   })
 
-  it('fetches only the newest reporting session per member × agent, one row each', async () => {
-    session.groupBy.mockResolvedValue([
-      { workspaceMemberId: 'm1', agent: 'CODEX', _max: { lastActivityAt: t } },
+  it('takes each field from the newest session that reported it', async () => {
+    const older = new Date('2026-10-10T00:00:00Z')
+    // Newest session reported only the CLI; the skill came from an older one.
+    session.groupBy.mockImplementation(async ({ where }) => [
+      {
+        workspaceMemberId: 'm1',
+        agent: 'CODEX',
+        _max: { lastActivityAt: byField(where) === 'cliVersion' ? t : older },
+      },
     ])
-    const row = {
-      workspaceMemberId: 'm1',
-      agent: 'CODEX',
-      cliVersion: '1.121.0',
-      skillVersion: 'none',
-    }
-    // Two sessions tied on the max timestamp.
-    session.findMany.mockResolvedValue([row, { ...row, cliVersion: '1.120.0' }])
-    const out = await sessionRepository.latestClientVersionsByMemberAgent(
-      'ws',
-      since
+    session.findMany.mockImplementation(async ({ where }) =>
+      byField(where) === 'cliVersion'
+        ? [
+            { workspaceMemberId: 'm1', agent: 'CODEX', cliVersion: '1.121.0' },
+            // tie on the max timestamp: first wins
+            { workspaceMemberId: 'm1', agent: 'CODEX', cliVersion: '1.120.0' },
+          ]
+        : [{ workspaceMemberId: 'm1', agent: 'CODEX', skillVersion: '1.119.0' }]
     )
-    expect(out).toEqual([row])
-    const where = session.findMany.mock.calls[0][0].where
-    expect(where).toMatchObject({
+    expect(
+      await sessionRepository.latestClientVersionsByMemberAgent('ws', since)
+    ).toEqual([
+      {
+        workspaceMemberId: 'm1',
+        agent: 'CODEX',
+        cliVersion: '1.121.0',
+        skillVersion: '1.119.0',
+      },
+    ])
+    const cliCall = session.findMany.mock.calls.find(
+      c => byField(c[0].where) === 'cliVersion'
+    )![0]
+    expect(cliCall.where).toMatchObject({
       workspaceId: 'ws',
       parentSessionId: null,
       lastActivityAt: { gte: since },
-    })
-    expect(where.AND[1]).toEqual({
+      cliVersion: { not: null },
       OR: [{ workspaceMemberId: 'm1', agent: 'CODEX', lastActivityAt: t }],
     })
+  })
+
+  it('reads the rows in chunks of 100 member × agent pairs', async () => {
+    const groups = Array.from({ length: 250 }, (_, i) => ({
+      workspaceMemberId: `m${i}`,
+      agent: 'CLAUDE_CODE',
+      _max: { lastActivityAt: t },
+    }))
+    session.groupBy.mockResolvedValue(groups)
+    session.findMany.mockResolvedValue([])
+    await sessionRepository.latestClientVersionsByMemberAgent('ws', since)
+    // 3 chunks per field × 2 fields
+    expect(session.findMany).toHaveBeenCalledTimes(6)
+    expect(
+      Math.max(...session.findMany.mock.calls.map(c => c[0].where.OR.length))
+    ).toBe(100)
   })
 })

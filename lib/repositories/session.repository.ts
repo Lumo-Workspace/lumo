@@ -234,6 +234,82 @@ const TIMELINE_SESSION_SELECT = {
   usageResyncedAt: true,
 } satisfies Prisma.SessionSelect
 
+/** LUM-1136: map key for a member × agent pair. */
+function memberAgentKey(workspaceMemberId: string, agent: string): string {
+  return `${workspaceMemberId}\u0000${agent}`
+}
+
+/** Keys per follow-up query, so the OR list stays bounded on big workspaces. */
+const MEMBER_AGENT_CHUNK = 100
+
+/**
+ * LUM-1136: per member × agent, the value of `field` from the newest top-level
+ * session since `since` that reported it. Two bounded steps instead of an
+ * in-memory `distinct` over every session in the window: groupBy finds each
+ * pair's newest reporting timestamp, then only those rows are read (in chunks).
+ */
+async function latestReportedField(
+  workspaceId: string,
+  since: Date,
+  field: 'cliVersion' | 'skillVersion'
+): Promise<
+  { workspaceMemberId: string; agent: TaskArtifactAgent; value: string }[]
+> {
+  const reported = {
+    workspaceId,
+    parentSessionId: null,
+    lastActivityAt: { gte: since },
+    [field]: { not: null },
+  } satisfies Prisma.SessionWhereInput
+  const newest = await prisma.session.groupBy({
+    by: ['workspaceMemberId', 'agent'],
+    where: reported,
+    _max: { lastActivityAt: true },
+  })
+  const keys = newest.flatMap(g =>
+    g._max.lastActivityAt
+      ? [
+          {
+            workspaceMemberId: g.workspaceMemberId,
+            agent: g.agent,
+            lastActivityAt: g._max.lastActivityAt,
+          },
+        ]
+      : []
+  )
+  const seen = new Set<string>()
+  const out: {
+    workspaceMemberId: string
+    agent: TaskArtifactAgent
+    value: string
+  }[] = []
+  for (let i = 0; i < keys.length; i += MEMBER_AGENT_CHUNK) {
+    const rows = await prisma.session.findMany({
+      where: { ...reported, OR: keys.slice(i, i + MEMBER_AGENT_CHUNK) },
+      orderBy: { lastActivityAt: 'desc' },
+      select: { workspaceMemberId: true, agent: true, [field]: true },
+    })
+    for (const r of rows as unknown as Array<
+      { workspaceMemberId: string; agent: TaskArtifactAgent } & Record<
+        typeof field,
+        string | null
+      >
+    >) {
+      // Two sessions can share the max timestamp; keep the first per pair.
+      const k = memberAgentKey(r.workspaceMemberId, r.agent)
+      const value = r[field]
+      if (value === null || seen.has(k)) continue
+      seen.add(k)
+      out.push({
+        workspaceMemberId: r.workspaceMemberId,
+        agent: r.agent,
+        value,
+      })
+    }
+  }
+  return out
+}
+
 export const sessionRepository = {
   /**
    * LUM-1136: store the CLI / skill versions a SessionStart hook reported.
@@ -278,57 +354,42 @@ export const sessionRepository = {
   },
 
   /**
-   * LUM-1136: per member × agent, the versions from the most recent top-level
-   * session since `since` that reported any (sessions from CLIs that predate
-   * the version headers are skipped, so they don't hide a known version).
+   * LUM-1136: per member × agent, the latest CLI version and the latest skill
+   * version reported since `since` — each field from the newest top-level
+   * session that reported it, so a session that reported only one of them
+   * (or a CLI that predates the headers) never hides the other.
    */
   async latestClientVersionsByMemberAgent(workspaceId: string, since: Date) {
-    const inWindow = {
-      workspaceId,
-      parentSessionId: null,
-      lastActivityAt: { gte: since },
-    } satisfies Prisma.SessionWhereInput
-    const reportedVersions = {
-      OR: [{ cliVersion: { not: null } }, { skillVersion: { not: null } }],
-    } satisfies Prisma.SessionWhereInput
-    // Two bounded queries instead of an in-memory `distinct` over every
-    // session in the window: the newest reporting session per member × agent,
-    // then just those rows.
-    const newest = await prisma.session.groupBy({
-      by: ['workspaceMemberId', 'agent'],
-      where: { ...inWindow, ...reportedVersions },
-      _max: { lastActivityAt: true },
-    })
-    const keys = newest.flatMap(g =>
-      g._max.lastActivityAt
-        ? [
-            {
-              workspaceMemberId: g.workspaceMemberId,
-              agent: g.agent,
-              lastActivityAt: g._max.lastActivityAt,
-            },
-          ]
-        : []
-    )
-    if (keys.length === 0) return []
-    const rows = await prisma.session.findMany({
-      where: { ...inWindow, AND: [reportedVersions, { OR: keys }] },
-      orderBy: { lastActivityAt: 'desc' },
-      select: {
-        workspaceMemberId: true,
-        agent: true,
-        cliVersion: true,
-        skillVersion: true,
-      },
-    })
-    // Two sessions can share the max timestamp; keep the first per key.
-    const seen = new Set<string>()
-    return rows.filter(r => {
-      const k = `${r.workspaceMemberId}\u0000${r.agent}`
-      if (seen.has(k)) return false
-      seen.add(k)
-      return true
-    })
+    const [cli, skill] = await Promise.all([
+      latestReportedField(workspaceId, since, 'cliVersion'),
+      latestReportedField(workspaceId, since, 'skillVersion'),
+    ])
+    const out = new Map<
+      string,
+      {
+        workspaceMemberId: string
+        agent: TaskArtifactAgent
+        cliVersion: string | null
+        skillVersion: string | null
+      }
+    >()
+    for (const [field, rows] of [
+      ['cliVersion', cli],
+      ['skillVersion', skill],
+    ] as const) {
+      for (const r of rows) {
+        const k = memberAgentKey(r.workspaceMemberId, r.agent)
+        const row = out.get(k) ?? {
+          workspaceMemberId: r.workspaceMemberId,
+          agent: r.agent,
+          cliVersion: null,
+          skillVersion: null,
+        }
+        row[field] = r.value
+        out.set(k, row)
+      }
+    }
+    return [...out.values()]
   },
 
   /** LUM-932: ids of a session's subagent child sessions. */
