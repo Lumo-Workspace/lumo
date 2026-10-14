@@ -194,6 +194,62 @@ describe('manual memory write paths', () => {
     expect(mockCreate.mock.calls[0]![0].contentSignals).toBeNull()
   })
 
+  it('LUM-1131: rejects a poisoned PR-review learning with a 422 and writes nothing', async () => {
+    const link = jest.fn()
+    await expect(
+      memoryManagementService.createReviewLearning(
+        {
+          projectId: 'p1',
+          workspaceId: 'w1',
+          actorMemberId: null,
+          content: {
+            summary: POISON.summary,
+            rule: POISON.summary,
+            scope: 'Lumo AI review of o/r',
+          },
+        },
+        link
+      )
+    ).rejects.toMatchObject({ status: 422 })
+    noWrites()
+    expect(link).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1131: a clean PR-review learning is its own PROJECT CONVENTION row (no dedup merge)', async () => {
+    const link = jest.fn().mockResolvedValue(undefined)
+    const out = await memoryManagementService.createReviewLearning(
+      {
+        projectId: 'p1',
+        workspaceId: 'w1',
+        actorMemberId: 'mem1',
+        content: {
+          summary: 'PR review learning: raw SQL in scripts/admin',
+          rule: 'Raw SQL in scripts/admin is intentional: local-only scripts.',
+          scope: 'Lumo AI review of o/r',
+        },
+      },
+      link
+    )
+    expect(out).toEqual({ id: 'new' })
+    // The scope row is written inside the memory's transaction.
+    expect(mockApplyPlans).toHaveBeenCalledTimes(1)
+    expect(link).toHaveBeenCalledWith('new', expect.anything())
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'w1',
+        projectId: 'p1',
+        taskId: null,
+        scope: 'PROJECT',
+        category: 'CONVENTION',
+        createdByMemberId: 'mem1',
+        contentSignals: null,
+      }),
+      expect.anything()
+    )
+    expect(mockUpdateContent).not.toHaveBeenCalled()
+    expect(mockSupersede).not.toHaveBeenCalled()
+  })
+
   it('names the conflicting rule id when the project policy forbids it', async () => {
     mockLatestPolicy.mockResolvedValue({
       rules: [

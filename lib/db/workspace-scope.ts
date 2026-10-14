@@ -60,6 +60,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'OutcomeSignal',
   'PrCommentSyncJob',
   'PrFindingThread',
+  'PrReviewLearning',
   'PrSecurityScan',
   'Priority',
   'Project',

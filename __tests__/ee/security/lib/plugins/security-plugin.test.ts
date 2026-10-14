@@ -34,6 +34,12 @@ jest.mock('@/ee/security/services/security-baseline.service', () => ({
 jest.mock('@/ee/security/services/pr-finding-thread.service', () => ({
   applyReviewThreadEvent: jest.fn().mockResolvedValue('recorded'),
 }))
+jest.mock('@/ee/security/services/review-learnings.service', () => ({
+  promoteLearningsOnMerge: jest.fn().mockResolvedValue(1),
+}))
+jest.mock('@/ee/security/services/pr-thread-reply.service', () => ({
+  applyThreadReply: jest.fn().mockResolvedValue('acknowledged'),
+}))
 jest.mock('@/ee/security/services/pr-command.service', () => ({
   applyPrCommentCommand: jest.fn().mockResolvedValue('done'),
 }))
@@ -60,6 +66,8 @@ import { securityBaselineService } from '@/ee/security/services/security-baselin
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
 import { applyReviewThreadEvent } from '@/ee/security/services/pr-finding-thread.service'
+import { applyThreadReply } from '@/ee/security/services/pr-thread-reply.service'
+import { promoteLearningsOnMerge } from '@/ee/security/services/review-learnings.service'
 import { applyPrCommentCommand } from '@/ee/security/services/pr-command.service'
 
 const reminder = prSecurityReminderService as unknown as Record<
@@ -82,6 +90,7 @@ it('is the one installed plugin and registers every server extension point', () 
   expect(registry.handlersFor('github.pullRequest')).toHaveLength(1)
   expect(registry.handlersFor('github.push')).toHaveLength(1)
   expect(registry.handlersFor('github.reviewThread')).toHaveLength(1)
+  expect(registry.handlersFor('github.reviewComment')).toHaveLength(1)
   expect(registry.handlersFor('github.issueComment')).toHaveLength(1)
   expect(registry.handlersFor('task.prLinked')).toHaveLength(1)
 })
@@ -180,7 +189,9 @@ describe('events', () => {
       state: 'merged',
     })
     expect(dispatch).not.toHaveBeenCalled()
-    expect(mockWaitUntil).not.toHaveBeenCalled()
+    // LUM-1131: the merged event's only background work is the learning
+    // promotion, not a scan.
+    expect(mockWaitUntil).toHaveBeenCalledTimes(1)
   })
 
   it('scans a manually linked PR once', () => {
@@ -227,6 +238,58 @@ describe('events', () => {
     expect(mockWaitUntil).toHaveBeenCalledTimes(1)
     await mockWaitUntil.mock.results[0]!.value
     expect(applyReviewThreadEvent).toHaveBeenCalledWith(event)
+  })
+
+  it('LUM-1131: a merged PR promotes its learnings, with waitUntil; other states do not', async () => {
+    emitCoreEvent('github.pullRequest', {
+      workspaceId: 'w-1',
+      taskId: 't-1',
+      pullRequestId: 'pr-1',
+      action: 'closed',
+      state: 'merged',
+    })
+    await Promise.all(mockWaitUntil.mock.results.map(r => r.value))
+    expect(promoteLearningsOnMerge).toHaveBeenCalledWith('w-1', 'pr-1')
+    ;(promoteLearningsOnMerge as jest.Mock).mockClear()
+    emitCoreEvent('github.pullRequest', {
+      workspaceId: 'w-1',
+      taskId: 't-1',
+      pullRequestId: 'pr-1',
+      action: 'closed',
+      state: 'closed',
+    })
+    await Promise.all(mockWaitUntil.mock.results.map(r => r.value))
+    expect(promoteLearningsOnMerge).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1131: a created reply is handed to the thread-reply service, with waitUntil; anything else is not', async () => {
+    const event = {
+      workspaceId: 'w-1',
+      pullRequestId: 'pr-1',
+      taskId: null,
+      repo: 'o/r',
+      prNumber: 3,
+      action: 'created',
+      comment: {
+        id: 7,
+        body: 'This is intentional because …',
+        inReplyToId: 5,
+        user: { login: 'alice', type: 'User' },
+        authorAssociation: 'COLLABORATOR',
+      },
+    }
+    emitCoreEvent('github.reviewComment', event)
+    expect(mockWaitUntil).toHaveBeenCalledTimes(1)
+    await mockWaitUntil.mock.results[0]!.value
+    expect(applyThreadReply).toHaveBeenCalledWith(event)
+
+    mockWaitUntil.mockClear()
+    emitCoreEvent('github.reviewComment', { ...event, action: 'edited' })
+    emitCoreEvent('github.reviewComment', {
+      ...event,
+      comment: { ...event.comment, inReplyToId: null },
+    })
+    expect(mockWaitUntil).not.toHaveBeenCalled()
   })
 
   describe('LUM-1129: PR comment commands', () => {

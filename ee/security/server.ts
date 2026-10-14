@@ -89,7 +89,24 @@ export const securityPlugin: LumoServerPlugin = {
     // allow it (default: on, drafts wait for ready_for_review). The decision
     // reads the database, so it loads lazily, off the webhook's static graph.
     api.on('github.pullRequest', event => {
-      const { action, state, pullRequestId, taskId } = event
+      const { action, state, pullRequestId, taskId, workspaceId } = event
+      // LUM-1131: a merged PR's thread learnings become repository-wide.
+      // Idempotent; a missed event is covered at read time (the review
+      // also treats a merged source PR as repository-wide).
+      if (state === 'merged')
+        waitUntil(
+          (async () => {
+            try {
+              const { promoteLearningsOnMerge } =
+                await import('@/ee/security/services/review-learnings.service')
+              await promoteLearningsOnMerge(workspaceId, pullRequestId)
+            } catch (error) {
+              logger.warn(
+                `[security] learning promotion failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+              )
+            }
+          })()
+        )
       if (!shouldScanOnPrEvent(action, state)) return
       if (taskId !== null) {
         waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
@@ -152,6 +169,28 @@ export const securityPlugin: LumoServerPlugin = {
           } catch (error) {
             logger.warn(
               `[security] PR command failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        })()
+      )
+    })
+
+    // LUM-1131: a human reply in one of Lumo's finding threads — answered,
+    // and when it says the finding is intentional / not applicable, the
+    // thread is closed for this PR and a learning stored for later reviews.
+    // Dynamic import: the reply service reaches the model client.
+    api.on('github.reviewComment', event => {
+      if (event.action !== 'created' || event.comment.inReplyToId === null)
+        return
+      waitUntil(
+        (async () => {
+          try {
+            const { applyThreadReply } =
+              await import('@/ee/security/services/pr-thread-reply.service')
+            await applyThreadReply(event)
+          } catch (error) {
+            logger.warn(
+              `[security] thread reply failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
             )
           }
         })()
