@@ -12,6 +12,8 @@ export const updateSecurityScanSettingsSchema = z
     securityScanEnabled: z.boolean().optional(),
     securityAiReviewEnabled: z.boolean().optional(),
     securityHuntEnabled: z.boolean().optional(),
+    // LUM-1130: the request-changes / approve workflow (default off).
+    securityRequestChangesEnabled: z.boolean().optional(),
   })
   .strict()
   .refine(v => Object.keys(v).length > 0, {

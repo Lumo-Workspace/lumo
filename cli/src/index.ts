@@ -1700,7 +1700,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs. LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1708,8 +1708,12 @@ workspaceCmd
   )
   .option('--ai-review <on|off>', 'AI review (LLM security review and triage)')
   .option('--hunt <on|off>', 'Exploit-path hunt in the sandbox')
-  .option('--disable-all', 'Turn every switch off at once')
-  .option('--enable-all', 'Turn every switch on at once')
+  .option(
+    '--request-changes <on|off>',
+    'Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean'
+  )
+  .option('--disable-all', 'Turn every layer switch off at once')
+  .option('--enable-all', 'Turn every layer switch on at once')
   .option(
     '--repos',
     'List each connected repository with its automatic review settings'
@@ -1726,7 +1730,7 @@ workspaceCmd
     '--drafts <on|off>',
     'With --repo: review draft PRs too (off = wait for ready for review)'
   )
-  .option('--confirm', 'The user approved turning the listed switches off')
+  .option('--confirm', 'The user approved the listed changes')
   .option('--json', 'Emit { switches, platform, effective } as JSON')
   .action(
     wrap(options =>

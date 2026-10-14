@@ -152,9 +152,9 @@ describe('parsePrCommand / prCommandHandle', () => {
   })
 
   it('an unknown word is addressed but unknown', () => {
-    expect(parsePrCommand('@uselumo approve', '@uselumo')).toEqual({
+    expect(parsePrCommand('@uselumo merge', '@uselumo')).toEqual({
       command: null,
-      text: 'approve',
+      text: 'merge',
     })
   })
 
@@ -295,11 +295,11 @@ describe('no-ops', () => {
 
 describe('help', () => {
   it('an unknown @uselumo command gets the help reply', async () => {
-    await expect(
-      applyPrCommentCommand(event('@uselumo approve'))
-    ).resolves.toBe('help')
+    await expect(applyPrCommentCommand(event('@uselumo merge'))).resolves.toBe(
+      'help'
+    )
     expect(act).not.toHaveBeenCalled()
-    expect(replyBody()).toContain("doesn't know `approve`")
+    expect(replyBody()).toContain("doesn't know `merge`")
     expect(replyBody()).toContain('`@uselumo full review`')
   })
 

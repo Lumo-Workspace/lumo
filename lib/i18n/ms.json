@@ -2424,6 +2424,8 @@
   "workspaceSettings.securityScan.aiReview.description": "Hantar diff pull request kepada model AI (pengekalan data sifar) untuk semakan keselamatan, ringkasan perubahan, cadangan positif palsu bagi dapatan pengimbas, peraturan kod semantik anda, dan semakan dakwaan tugas yang selesai berbanding kod yang telah digabungkan. Turut merangkumi triaj AI pelanggaran sempadan, yang menghantar tindakan ejen yang ditandakan dan teks tugas kepada TypeSafe Jev (tanpa pengekalan data sifar). Apabila dimatikan, tiada satu pun ciri ini menghantar apa-apa kepada model AI.",
   "workspaceSettings.securityScan.hunt.label": "Pemburuan laluan eksploitasi",
   "workspaceSettings.securityScan.hunt.description": "Bagi perubahan berisiko, ejen AI meneroka kod dalam kotak pasir terasing untuk mengesahkan sama ada sesuatu penemuan benar-benar boleh dieksploitasi.",
+  "workspaceSettings.securityScan.requestChanges.label": "Minta perubahan sehingga diselesaikan",
+  "workspaceSettings.securityScan.requestChanges.description": "Semakan Lumo menunjukkan “Perubahan diminta” selagi ada urutan semakan Lumo atau dapatan yang menyekat Done masih terbuka, dan Lumo meluluskan PR sebaik sahaja semakan penuhnya atas commit terkini tidak meninggalkan apa-apa yang terbuka. Dimatikan secara lalai.",
   "workspaceSettings.securityScan.platformOff": "Kini dimatikan oleh Lumo untuk semua ruang kerja.",
   "workspaceSettings.securityScan.updated": "Tetapan imbasan keselamatan disimpan",
   "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan tetapan imbasan keselamatan",

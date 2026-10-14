@@ -160,6 +160,16 @@ export function SecurityScanSwitchesCard({
         note={huntAvailable ? undefined : platformNote}
         onChange={set('securityHuntEnabled')}
       />
+      {/* LUM-1130: not a layer — how Lumo's review reads on the PR. Off by
+          default; "enable all" / "disable all" leave it as it is. */}
+      <SwitchRow
+        id='security-request-changes-enabled'
+        label={t('requestChanges.label')}
+        description={t('requestChanges.description')}
+        checked={scanOn && switches.securityRequestChangesEnabled}
+        disabled={saving || !scanOn}
+        onChange={set('securityRequestChangesEnabled')}
+      />
 
       <div className='flex justify-end px-5 py-4'>
         <Button size='sm' onClick={handleSave} disabled={saving}>

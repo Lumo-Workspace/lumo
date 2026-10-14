@@ -22,6 +22,7 @@ export interface RepoReviewOptions extends ConfirmFlags {
   scan?: string
   aiReview?: string
   hunt?: string
+  requestChanges?: string
   disableAll?: boolean
   enableAll?: boolean
 }
@@ -72,11 +73,12 @@ export function buildRepoReviewUpdate(
     opts.scan !== undefined ||
     opts.aiReview !== undefined ||
     opts.hunt !== undefined ||
+    opts.requestChanges !== undefined ||
     opts.disableAll ||
     opts.enableAll
   if (switches) {
     throw new Error(
-      '--repo / --repos / --review / --drafts cannot be combined with --scan / --ai-review / --hunt / --disable-all / --enable-all'
+      '--repo / --repos / --review / --drafts cannot be combined with --scan / --ai-review / --hunt / --request-changes / --disable-all / --enable-all'
     )
   }
   const change = opts.review !== undefined || opts.drafts !== undefined

@@ -2424,6 +2424,8 @@
   "workspaceSettings.securityScan.aiReview.description": "將拉取請求的 diff 傳送給 AI 模型（零資料保留），用於安全審查、變更摘要、掃描器發現的誤報建議、你的語意程式碼規則，以及核對已完成任務的聲明與其已合併程式碼是否一致。同時涵蓋越界 AI 複核：它會把被標記的 agent 操作和任務文字傳送給 TypeSafe Jev（不提供零資料保留）。關閉後，以上任何用途都不會向 AI 模型傳送內容。",
   "workspaceSettings.securityScan.hunt.label": "漏洞利用路徑探查",
   "workspaceSettings.securityScan.hunt.description": "對有風險的變更，由 AI 代理在隔離沙箱中探查程式碼，確認某個發現是否真的可被利用。",
+  "workspaceSettings.securityScan.requestChanges.label": "未解決前要求修改",
+  "workspaceSettings.securityScan.requestChanges.description": "只要還有未解決的 Lumo 審查討論串或阻擋 Done 的發現，Lumo 的審查就會顯示「要求修改」；當對最新提交的完整審查不再留下任何未解決項目時，Lumo 會核准該 PR。預設關閉。",
   "workspaceSettings.securityScan.platformOff": "Lumo 目前已對所有工作區關閉此項。",
   "workspaceSettings.securityScan.updated": "安全掃描設定已儲存",
   "workspaceSettings.securityScan.updateFailed": "儲存安全掃描設定失敗",

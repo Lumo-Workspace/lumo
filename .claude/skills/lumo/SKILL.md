@@ -98,7 +98,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Workspace settings — see [workspace-settings.md](references/workspace-settings.md)
 
-- `lumo workspace security-scan` — show / set the PR security-scan switches; `--disable-all` / `--enable-all`; `--repos` / `--repo` per-repo review (OWNER; turning off exits 4)
+- `lumo workspace security-scan` — show / set the PR security-scan switches; `--disable-all` / `--enable-all`; `--request-changes on|off`; `--repos` / `--repo` per-repo review (OWNER; turning off, or request-changes on, exits 4)
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 

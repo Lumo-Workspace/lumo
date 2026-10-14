@@ -2424,6 +2424,8 @@
   "workspaceSettings.securityScan.aiReview.description": "Gửi diff của pull request tới mô hình AI (không lưu giữ dữ liệu) để rà soát bảo mật, tóm tắt thay đổi, gợi ý dương tính giả cho kết quả của trình quét, kiểm tra các quy tắc mã ngữ nghĩa của bạn, và đối chiếu tuyên bố của nhiệm vụ đã hoàn thành với mã đã hợp nhất. Bao gồm cả việc phân loại vi phạm ranh giới bằng AI, vốn gửi hành động bị gắn cờ của agent và nội dung nhiệm vụ tới TypeSafe Jev (không áp dụng không lưu giữ dữ liệu). Khi tắt, không tính năng nào trong số này gửi gì tới mô hình AI.",
   "workspaceSettings.securityScan.hunt.label": "Truy tìm đường khai thác",
   "workspaceSettings.securityScan.hunt.description": "Với các thay đổi rủi ro, một tác tử AI khám phá mã trong sandbox biệt lập để xác nhận liệu một phát hiện có thực sự khai thác được hay không.",
+  "workspaceSettings.securityScan.requestChanges.label": "Yêu cầu thay đổi cho đến khi xử lý xong",
+  "workspaceSettings.securityScan.requestChanges.description": "Bài review của Lumo hiển thị “Yêu cầu thay đổi” khi còn luồng review của Lumo hoặc phát hiện chặn Done đang mở, và Lumo phê duyệt PR khi bài review đầy đủ cho commit mới nhất không còn gì mở. Mặc định tắt.",
   "workspaceSettings.securityScan.platformOff": "Hiện Lumo đang tắt tính năng này cho mọi không gian làm việc.",
   "workspaceSettings.securityScan.updated": "Đã lưu cài đặt quét bảo mật",
   "workspaceSettings.securityScan.updateFailed": "Không lưu được cài đặt quét bảo mật",

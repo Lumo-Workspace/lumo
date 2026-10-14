@@ -134,3 +134,36 @@ describe('securityScanSettingsService.update', () => {
     expect(workspaceRepository.update).not.toHaveBeenCalled()
   })
 })
+
+describe('LUM-1130 request-changes workflow setting', () => {
+  it('passes the switch through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityRequestChangesEnabled: true })
+    ).toMatchObject({ securityRequestChangesEnabled: true })
+    expect(switchesForUpdate({ all: true })).not.toHaveProperty(
+      'securityRequestChangesEnabled'
+    )
+  })
+  it('reads off by default and as stored', async () => {
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityRequestChangesEnabled
+    ).toBe(false)
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+      securityRequestChangesEnabled: true,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityRequestChangesEnabled
+    ).toBe(true)
+  })
+})

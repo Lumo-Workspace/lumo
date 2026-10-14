@@ -4807,7 +4807,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "The user approved turning the listed switches off"
+          "description": "The user approved the listed changes"
         },
         "--disable-all": {
           "long": "--disable-all",
@@ -4815,7 +4815,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Turn every switch off at once"
+          "description": "Turn every layer switch off at once"
         },
         "--drafts": {
           "long": "--drafts",
@@ -4831,7 +4831,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Turn every switch on at once"
+          "description": "Turn every layer switch on at once"
         },
         "--hunt": {
           "long": "--hunt",
@@ -4865,6 +4865,14 @@
           "enumCaseInsensitive": false,
           "description": "List each connected repository with its automatic review settings"
         },
+        "--request-changes": {
+          "long": "--request-changes",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean"
+        },
         "--review": {
           "long": "--review",
           "short": null,
@@ -4884,7 +4892,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs. LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off exits 4 with a confirmation envelope until --confirm."
+      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on) exits 4 with a confirmation envelope until --confirm."
     },
     "worktree": {
       "arguments": [],
