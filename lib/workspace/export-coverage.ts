@@ -56,6 +56,8 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   // LUM-1131: the learning's text is its Memory row, which is exported.
   PrReviewLearning:
     'repository scope of a PR-review learning; its text is the exported Memory',
+  // LUM-1133
+  RepositoryReviewSetting: 'per-repository PR review configuration',
   PrCommentSyncJob: 'background job queue',
   TaskSlackContext: MIRROR,
   TaskWebLink: MIRROR,

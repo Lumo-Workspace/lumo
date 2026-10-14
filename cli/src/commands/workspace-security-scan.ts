@@ -5,6 +5,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { wantsRepoReview, workspaceRepoReview } from './workspace-repo-review'
 
 export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   scan?: string
@@ -15,6 +16,11 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   disableAll?: boolean
   enableAll?: boolean
   json?: boolean
+  /** LUM-1133: per-repository automatic review (workspace-repo-review.ts). */
+  repo?: string
+  repos?: boolean
+  review?: string
+  drafts?: string
 }
 
 /** The stored switches, as GET/PATCH /api/workspaces/me/security-scan return them. */
@@ -219,6 +225,9 @@ const NO_PLUGIN = missingPluginMessage('workspace security-scan', 'security')
 export async function workspaceSecurityScan(
   opts: WorkspaceSecurityScanOptions = {}
 ): Promise<number | void> {
+  // LUM-1133: --repos / --repo … is the per-repository review mode.
+  if (wantsRepoReview(opts)) return workspaceRepoReview(opts)
+
   let update: SecurityScanUpdate | null
   try {
     update = buildSecurityScanUpdate(opts)

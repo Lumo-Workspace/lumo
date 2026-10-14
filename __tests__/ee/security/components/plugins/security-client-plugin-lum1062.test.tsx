@@ -65,6 +65,9 @@ jest.mock('@/ee/security/components/settings/SecurityScanSwitchesCard', () => ({
 jest.mock('@/ee/security/components/settings/PolicyCoverageCard', () => ({
   PolicyCoverageCard: () => <div data-testid='policy-coverage-card' />,
 }))
+jest.mock('@/ee/security/components/settings/RepoReviewSettingsCard', () => ({
+  RepoReviewSettingsCard: () => <div data-testid='repo-review-card' />,
+}))
 jest.mock('@/ee/security/components/settings/ScanEvidenceRetentionRow', () => ({
   ScanEvidenceRetentionRow: ({
     initialDays,
@@ -218,6 +221,8 @@ describe('settings slots', () => {
     })
     // LUM-1114: the rule-coverage card sits under the switches.
     expect(screen.getByTestId('policy-coverage-card')).toBeTruthy()
+    // LUM-1133: the per-repository automatic review card.
+    expect(screen.getByTestId('repo-review-card')).toBeTruthy()
   })
 
   it('the evidence row reads scanEvidenceRetentionDays (null when absent)', () => {

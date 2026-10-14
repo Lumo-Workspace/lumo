@@ -38,8 +38,31 @@ Flags:
 - `--json` prints `{ switches: { securityScanEnabled, securityAiReviewEnabled, securityHuntEnabled, securityRequestChangesEnabled }, platform: { managedScan, hunt }, effective: { scan, managedScan, aiReview, hunt, aiReviewTurnedOff, huntTurnedOff }, canEdit }` (`canEdit` = the caller is an OWNER).
 - On a server without the security plugin (e.g. a self-hosted open-source build) the command prints ``Error: `lumo workspace security-scan` is not available on this Lumo server — the security plugin is not installed there.`` and exits 1 (CLI ≥ 1.106.0); there are no switches to show or change.
 
+### Per-repository automatic review — `--repos` / `--repo` (LUM-1133)
+
+Lumo reviews every PR of each repository the workspace confirmed, including PRs **without a Lumo task**. Per repository (Settings → Workspace → **Automatic review by repository**): `Review` (default on) — whether task-less PRs are reviewed automatically; `Drafts` (default off) — whether drafts are reviewed before they are marked ready. Task-linked PRs are always scanned (Done checks their findings).
+
+```bash
+lumo workspace security-scan --repos                                  # list every connected repository
+lumo workspace security-scan --repo acme/app                          # one repository
+lumo workspace security-scan --repo acme/app --review off             # exit 4 envelope until --confirm
+lumo workspace security-scan --repo acme/app --drafts on              # turning on needs no confirmation
+lumo workspace security-scan --repos --json                           # { repositories: [{ repo, autoReview, reviewDrafts }], canEdit }
+```
+
+```
+Repository  Review  Drafts
+acme/app    on      off
+acme/web    off     off
+```
+
+- `--review <on|off>` / `--drafts <on|off>` need `--repo`; neither combines with the switch flags (`--scan`, `--ai-review`, `--hunt`, `--request-changes`, `--disable-all`, `--enable-all`).
+- A repository the workspace has not connected → `Error: repository … is not connected to this workspace` (exit 1).
+- Turning `--review` or `--drafts` **off** is gated by the confirmation protocol (exit 4, nothing sent); OWNER only, refused before any envelope for anyone else. Each change writes a `repository.review_settings_updated` audit event (target `repository`, `{ repo, from, to }`).
+
 ### When to suggest `workspace security-scan`
 
 - "Turn off / pause code scanning", "stop the AI review on our PRs", "why didn't the hunt run" — and the user is a workspace owner (reading is open to anyone).
+- "Don't review PRs in repo X", "review drafts too", "why was my PR without a task (not) reviewed" → `--repos` / `--repo`.
 - "Make Lumo request changes / approve PRs", "CodeRabbit-style request changes" → `--request-changes on` (exits 4 first; relay the envelope).
 - **Never** turn a switch off on your own initiative (e.g. to make findings go away): relay the exit-4 envelope and let the user decide. Earlier blocking findings still block Done either way.

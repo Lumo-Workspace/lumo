@@ -19,6 +19,10 @@ export const SECURITY_AUDIT_INSTRUMENTED: Readonly<
   'ee/security/services/pr-security-scan.service.ts#dispositionSuggested': [
     'security_finding.suggestions_confirmed',
   ],
+  // LUM-1133: per-repository automatic PR review (OWNER).
+  'ee/security/services/repo-review-settings.service.ts#update': [
+    'repository.review_settings_updated',
+  ],
 }
 
 /** OWNER-gated plugin units that are not sensitive mutations, with the reason. */
@@ -26,4 +30,6 @@ export const SECURITY_AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   // LUM-1002: `get` only reports whether the caller is an OWNER (`canEdit`);
   // the write goes through workspaceService.updateWorkspace, which is audited.
   'ee/security/services/security-scan-settings.service.ts#get': 'read-only',
+  // LUM-1133: `list` only reports whether the caller is an OWNER (`canEdit`).
+  'ee/security/services/repo-review-settings.service.ts#list': 'read-only',
 }

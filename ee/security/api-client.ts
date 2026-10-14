@@ -10,10 +10,15 @@ import type {
   SecurityScanSettingsUpdate,
 } from '@/ee/security/services/security-scan-settings.service'
 import type { PolicyCoverage } from '@/ee/security/services/policy-coverage.service'
+import type {
+  RepoReviewSettings,
+  RepoReviewSettingsUpdate,
+} from '@/ee/security/services/repo-review-settings.service'
 
 export const SECURITY_API = {
   workspaceSecurityScan: '/api/workspaces/me/security-scan',
   workspacePolicyCoverage: '/api/workspaces/me/policy-coverage',
+  workspaceRepoReviewSettings: '/api/workspaces/me/security-scan/repositories',
   taskSecurityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,
   securityFindingDisposition: (taskId: string, findingId: string) =>
     `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,
@@ -28,6 +33,21 @@ export const securityScanClient = {
       method: 'PATCH',
       body: data,
     })
+  },
+
+  /** LUM-1133: per-repository automatic PR review settings. */
+  repoReviewSettings() {
+    return apiFetch<RepoReviewSettings>(
+      SECURITY_API.workspaceRepoReviewSettings
+    )
+  },
+
+  /** LUM-1133: change one repository's review settings (OWNER). */
+  updateRepoReviewSettings(data: RepoReviewSettingsUpdate) {
+    return apiFetch<RepoReviewSettings>(
+      SECURITY_API.workspaceRepoReviewSettings,
+      { method: 'PATCH', body: data }
+    )
   },
 
   /** LUM-1114: per project, the rules no detector checks automatically. */

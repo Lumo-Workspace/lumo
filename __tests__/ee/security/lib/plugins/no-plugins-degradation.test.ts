@@ -238,6 +238,9 @@ describe('events', () => {
       pullRequestId: 'pr-1',
       action: 'synchronize',
       state: 'open',
+      repo: 'acme/app',
+      prNumber: 1,
+      isDraft: false,
     })
     emitCoreEvent('github.push', {
       workspaceId: 'w-1',
