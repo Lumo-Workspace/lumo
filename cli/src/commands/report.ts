@@ -338,8 +338,8 @@ export function formatReport(
           t.total === 0 && data.team.sessions === 0
             ? 'none recorded in this window'
             : // Summary line: compact on a TTY and when piped; exact
-              // figures live in the By model table and --json. Kind names
-              // and order match the table columns.
+              // figures are in --json (and in the By model table unless a
+              // narrow TTY compacts it). Kind names and order match its columns.
               `${fmtTokens(t.total)} (input ${fmtTokens(t.input)} · output ${fmtTokens(t.output)} · cache write ${fmtTokens(t.cacheCreation)} · cache read ${fmtTokens(t.cacheRead)})`,
         ],
         ['Sessions', sessionsLine],
