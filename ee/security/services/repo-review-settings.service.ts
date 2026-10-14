@@ -108,10 +108,15 @@ export const repoReviewSettingsService = {
       to.autoReview !== from.autoReview ||
       to.reviewDrafts !== from.reviewDrafts
     ) {
+      const changed: Partial<RepoReviewSettingValues> = {}
+      if (to.autoReview !== from.autoReview) changed.autoReview = to.autoReview
+      if (to.reviewDrafts !== from.reviewDrafts)
+        changed.reviewDrafts = to.reviewDrafts
       await repoReviewSettingRepository.upsert(
         caller.workspaceId,
         repoLower,
-        to
+        to,
+        changed
       )
       await recordAuditEvent({
         workspaceId: caller.workspaceId,

@@ -31,8 +31,14 @@ it('findConfirmingWorkspaces matches the repository case-insensitively', async (
     { workspaceId: 'b', repositories: ['acme/other'], createdAt: t },
   ])
   await expect(
-    repoReviewSettingRepository.findConfirmingWorkspaces('acme/app')
+    repoReviewSettingRepository.findConfirmingWorkspaces('Acme/App')
   ).resolves.toEqual([{ workspaceId: 'a', confirmedAt: t }])
+  // Filtered in the database, never a scan of every installation.
+  expect(db.gitHubAppInstallation.findMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: { repositories: { hasSome: ['Acme/App', 'acme/app'] } },
+    })
+  )
 })
 
 it('findSettings reads only the given workspaces, and none for an empty list', async () => {
@@ -49,12 +55,14 @@ it('findSettings reads only the given workspaces, and none for an empty list', a
   )
 })
 
-it('upsert keys on (workspaceId, repo)', async () => {
+it('upsert keys on (workspaceId, repo) and updates only the changed field', async () => {
   db.repositoryReviewSetting.upsert.mockResolvedValue({})
-  await repoReviewSettingRepository.upsert('a', 'acme/app', {
-    autoReview: false,
-    reviewDrafts: true,
-  })
+  await repoReviewSettingRepository.upsert(
+    'a',
+    'acme/app',
+    { autoReview: false, reviewDrafts: true },
+    { reviewDrafts: true }
+  )
   expect(db.repositoryReviewSetting.upsert).toHaveBeenCalledWith(
     expect.objectContaining({
       where: { workspaceId_repo: { workspaceId: 'a', repo: 'acme/app' } },
@@ -64,6 +72,7 @@ it('upsert keys on (workspaceId, repo)', async () => {
         autoReview: false,
         reviewDrafts: true,
       },
+      update: { reviewDrafts: true },
     })
   )
 })

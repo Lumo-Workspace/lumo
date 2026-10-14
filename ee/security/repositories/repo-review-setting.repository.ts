@@ -20,14 +20,18 @@ export interface RepoReviewSettingRow {
 export const repoReviewSettingRepository = {
   /**
    * Every workspace whose confirmed GitHub App list holds the repository,
-   * with when its App row was created. One row per workspace with the App
-   * (cross-tenant on purpose: deciding which ONE workspace reviews a shared
-   * repository needs all of them).
+   * with when its App row was created (cross-tenant on purpose: deciding
+   * which ONE workspace reviews a shared repository needs all of them).
+   * Filtered in the database on the name as GitHub sends it (its canonical
+   * casing, which is also how confirmations are stored) or lower-cased, then
+   * matched case-insensitively — never a scan of every installation.
    */
   async findConfirmingWorkspaces(
-    repoLower: string
+    repo: string
   ): Promise<ConfirmingWorkspaceRow[]> {
+    const repoLower = repo.toLowerCase()
     const rows = await prisma.gitHubAppInstallation.findMany({
+      where: { repositories: { hasSome: [...new Set([repo, repoLower])] } },
       select: { workspaceId: true, repositories: true, createdAt: true },
     })
     return rows
@@ -54,15 +58,20 @@ export const repoReviewSettingRepository = {
     })
   },
 
+  /**
+   * `values` creates a missing row; an existing row gets only `changed`, so
+   * two owners changing different switches at once do not undo each other.
+   */
   async upsert(
     workspaceId: string,
     repoLower: string,
-    values: { autoReview: boolean; reviewDrafts: boolean }
+    values: { autoReview: boolean; reviewDrafts: boolean },
+    changed: { autoReview?: boolean; reviewDrafts?: boolean } = values
   ) {
     return prisma.repositoryReviewSetting.upsert({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
       create: { workspaceId, repo: repoLower, ...values },
-      update: values,
+      update: changed,
       select: { repo: true, autoReview: true, reviewDrafts: true },
     })
   },

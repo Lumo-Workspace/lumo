@@ -77,7 +77,9 @@ describe('update', () => {
     expect(repoReviewSettingRepository.upsert).toHaveBeenCalledWith(
       'ws_1',
       'acme/app',
-      { autoReview: false, reviewDrafts: false }
+      { autoReview: false, reviewDrafts: false },
+      // An existing row gets only the field that changed.
+      { autoReview: false }
     )
     expect(recordAuditEvent).toHaveBeenCalledWith({
       workspaceId: 'ws_1',

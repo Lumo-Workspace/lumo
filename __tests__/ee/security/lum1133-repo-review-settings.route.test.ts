@@ -79,7 +79,8 @@ it('PATCH by an OWNER changes the repository and writes a CLI audit event', asyn
   expect(repoReviewSettingRepository.upsert).toHaveBeenCalledWith(
     'ws_1',
     'acme/app',
-    { autoReview: false, reviewDrafts: false }
+    { autoReview: false, reviewDrafts: false },
+    { autoReview: false }
   )
   const [event] = m(recordAuditEvent).mock.calls[0]
   expect(event.action).toBe('repository.review_settings_updated')

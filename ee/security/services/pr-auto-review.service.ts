@@ -34,8 +34,9 @@ export async function decideTasklessReview(
   if (!shouldScanOnPrEvent(event.action, event.state))
     return { review: false, reason: 'not_a_review_event' }
   const repoLower = event.repo.toLowerCase()
-  const workspaces =
-    await repoReviewSettingRepository.findConfirmingWorkspaces(repoLower)
+  const workspaces = await repoReviewSettingRepository.findConfirmingWorkspaces(
+    event.repo
+  )
   const [settings, linkedElsewhere] = await Promise.all([
     repoReviewSettingRepository.findSettings(
       workspaces.map(w => w.workspaceId),

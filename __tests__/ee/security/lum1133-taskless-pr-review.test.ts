@@ -127,7 +127,7 @@ describe('a PR without a task (default settings)', () => {
       expect(dispatch).toHaveBeenCalledTimes(1)
       expect(dispatch).toHaveBeenCalledWith('pr-row', 'PR_EVENT')
       // Looked up case-insensitively.
-      expect(repo.findConfirmingWorkspaces).toHaveBeenCalledWith('acme/app')
+      expect(repo.findConfirmingWorkspaces).toHaveBeenCalledWith('Acme/App')
       expect(repo.findSettings).toHaveBeenCalledWith(['ws'], 'acme/app')
     }
   )
