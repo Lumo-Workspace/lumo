@@ -827,9 +827,14 @@ export async function resolveThreadsByCommand(
     try {
       if (!r?.isResolved)
         await reviewThreadClient.resolveThread({ threadId, token: input.token })
+      // Already resolved on GitHub by someone else: credit them, not the asker.
+      const by =
+        r?.isResolved && r.resolvedBy && !isLumoActor(r.resolvedBy)
+          ? r.resolvedBy.login
+          : input.login
       await prFindingThreadRepository.update(row.id, {
         state: 'RESOLVED_BY_USER',
-        resolvedByLogin: input.login,
+        resolvedByLogin: by,
         resolvedAt: new Date(),
         threadNodeId: threadId,
       })

@@ -398,9 +398,13 @@ describe('resolve', () => {
     ])
     await applyPrCommentCommand(event('@uselumo resolve'))
     expect(resolveThread).not.toHaveBeenCalled()
+    // Credited to whoever resolved it on GitHub, not to the asker.
     expect(updateRow).toHaveBeenCalledWith(
       'row-fpLow',
-      expect.objectContaining({ state: 'RESOLVED_BY_USER' })
+      expect.objectContaining({
+        state: 'RESOLVED_BY_USER',
+        resolvedByLogin: 'carol',
+      })
     )
   })
 

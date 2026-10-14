@@ -16,6 +16,10 @@
  *     author may not `resolve` by command;
  *   · a redelivered webhook is answered once: the reply carries a marker
  *     naming the command comment, and a marker already on the PR stops it.
+ *     Best effort (check, then act): if the reply itself fails, a later
+ *     redelivery runs the command again — pause/resume/resolve are
+ *     idempotent, and a repeated review request deduplicates while the first
+ *     is still running (after it, it is one more manual review).
  *
  * Layering: service — GitHub through `@/lib/integrations/github/*`, the
  * database through repositories and the existing services.
@@ -253,8 +257,9 @@ async function run(
 
 /**
  * One `github.issueComment` event. Silent outcomes (not a command, not
- * allowed, an edit, a bot) post nothing; everything else gets one reply.
- * Never throws — a failure is logged.
+ * allowed, an edit, a bot) post nothing; a command, a refusal and a 4xx
+ * from the control service get one reply. Never throws — an unexpected
+ * failure (GitHub, database, a 5xx) is logged and gets no reply.
  */
 export async function applyPrCommentCommand(
   event: PrCommentEvent
