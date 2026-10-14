@@ -45,6 +45,7 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
     hasNewerScanThan: jest.fn().mockResolvedValue(false),
     findSummaryCommentIdByPullRequest: jest.fn().mockResolvedValue(null),
     isPullRequestHeldElsewhere: jest.fn().mockResolvedValue(false),
+    isRequestChangesOnElsewhere: jest.fn().mockResolvedValue(false),
     setSummaryCommentId: jest.fn(),
   },
 }))
@@ -360,5 +361,57 @@ describe('LUM-1130 mode on', () => {
     findById.mockResolvedValue(scanRow([]))
     const out = await securityPrReviewService.syncReview('s1')
     expect(out.posted).toBe(true)
+  })
+})
+
+describe('LUM-1140 next sync while the mode is off', () => {
+  const withState = (state: string) => {
+    const row = scanRow([], false)
+    return { ...row, pullRequest: { ...row.pullRequest, state } }
+  }
+  const humanCr = {
+    id: 42,
+    state: 'CHANGES_REQUESTED',
+    commit_id: OLD,
+    user: { login: 'alice', type: 'User' },
+  }
+
+  it("dismisses a standing Lumo change request the bulk pass missed (never approves, human's kept)", async () => {
+    listReviews.mockResolvedValue([changesRequested, humanCr])
+    findById.mockResolvedValue(withState('open'))
+    await securityPrReviewService.syncReview('s1')
+    expect(dismissReview).toHaveBeenCalledTimes(1)
+    expect(dismissReview).toHaveBeenCalledWith(
+      expect.objectContaining({ reviewId: 41, prNumber: 9, token: 'tok' })
+    )
+    expect(submitReview).not.toHaveBeenCalled()
+  })
+
+  it('a closed PR is skipped', async () => {
+    listReviews.mockResolvedValue([changesRequested])
+    findById.mockResolvedValue(withState('closed'))
+    await securityPrReviewService.syncReview('s1')
+    expect(listReviews).not.toHaveBeenCalled()
+    expect(dismissReview).not.toHaveBeenCalled()
+  })
+
+  it('a PR another workspace holds with the mode on is skipped', async () => {
+    const elsewhere = jest.fn().mockResolvedValue(true)
+    ;(
+      prSecurityScanRepository as unknown as Record<string, unknown>
+    ).isRequestChangesOnElsewhere = elsewhere
+    try {
+      listReviews.mockResolvedValue([changesRequested])
+      findById.mockResolvedValue(withState('open'))
+      await securityPrReviewService.syncReview('s1')
+      expect(elsewhere).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'pr1', repo: 'acme/app', number: 9 })
+      )
+      expect(dismissReview).not.toHaveBeenCalled()
+    } finally {
+      ;(
+        prSecurityScanRepository as unknown as Record<string, unknown>
+      ).isRequestChangesOnElsewhere = jest.fn().mockResolvedValue(false)
+    }
   })
 })
