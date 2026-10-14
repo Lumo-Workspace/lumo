@@ -3,7 +3,7 @@
  * Q4 option A) — the security plugin's columns on core models.
  *
  * `Workspace.{securityPolicy, securityScanEnabled, securityAiReviewEnabled,
- * securityHuntEnabled, securityRequestChangesEnabled,
+ * securityHuntEnabled, securityRequestChangesEnabled, securityLearningsScope,
  * scanEvidenceRetentionDays}` and
  * `ProjectRepository.{lastSarifIngestAt, securityBaseline}` stay in the one
  * core schema (migrations are never deleted), but only the plugin reads or
@@ -16,6 +16,10 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { scopedPrisma } from '@/lib/db/workspace-scope'
 import type { SecurityBaseline } from '@/ee/security/security-scan/types'
+import {
+  parseLearningsScope,
+  type LearningsScope,
+} from '@/ee/security/security-scan/learnings-scope'
 
 export const securityColumnsRepository = {
   // ── Workspace ──────────────────────────────────────────────────────────────
@@ -61,19 +65,35 @@ export const securityColumnsRepository = {
     return row?.securityRequestChangesEnabled === true
   },
 
+  /** LUM-1134: the learnings scope (local | global | auto); the default
+   *  (auto) when the workspace is missing or the value is unrecognised. */
+  async findLearningsScope(id: string): Promise<LearningsScope> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityLearningsScope: true },
+    })
+    return parseLearningsScope(row?.securityLearningsScope)
+  },
+
   /** LUM-866: the three security-scan switches (+ LUM-1130's request-changes
-   *  workflow); null when the workspace is missing — resolve with
-   *  `resolveSecurityLayers`. */
+   *  workflow and LUM-1134's learnings scope); null when the workspace is
+   *  missing — resolve with `resolveSecurityLayers`. */
   async findSecuritySwitches(id: string) {
-    return prisma.workspace.findUnique({
+    const row = await prisma.workspace.findUnique({
       where: { id },
       select: {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: true,
         securityRequestChangesEnabled: true,
+        securityLearningsScope: true,
       },
     })
+    if (!row) return null
+    return {
+      ...row,
+      securityLearningsScope: parseLearningsScope(row.securityLearningsScope),
+    }
   },
 
   // ── ProjectRepository (tenant-scoped client, as in projectRepository) ────

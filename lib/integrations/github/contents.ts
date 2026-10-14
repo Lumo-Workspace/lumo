@@ -478,6 +478,50 @@ export async function fetchDefaultBranchHead(opts: {
 }
 
 /**
+ * LUM-1134 — the repository's visibility, read live from GitHub (Lumo stores
+ * none, and a repository can change visibility at any time): `private` /
+ * `public` only on GitHub's explicit `private` flag (an internal repository
+ * reports `private: true`), `unknown` on anything else — a refused mint
+ * (unconfirmed repository, LUM-883), a non-2xx, a network error or a missing
+ * field or a timeout (5s). One metadata-only token, revoked after. Never
+ * throws.
+ */
+const REPO_VISIBILITY_TIMEOUT_MS = 5_000
+
+export async function fetchRepoVisibility(opts: {
+  workspaceId: string
+  fullName: string
+}): Promise<'public' | 'private' | 'unknown'> {
+  let token: string
+  try {
+    token = await getRepoToken(
+      opts.workspaceId,
+      opts.fullName,
+      REPO_TOKEN_PERMISSIONS.repositoryMetadata
+    )
+  } catch {
+    return 'unknown'
+  }
+  try {
+    const [owner, repo] = splitFullName(opts.fullName)
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` },
+      // On the review's critical path: a slow GitHub costs at most this.
+      signal: AbortSignal.timeout(REPO_VISIBILITY_TIMEOUT_MS),
+    })
+    if (!res.ok) return 'unknown'
+    const body = (await res.json()) as { private?: unknown }
+    if (body.private === true) return 'private'
+    if (body.private === false) return 'public'
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  } finally {
+    await revokeInstallationToken(token).catch(() => false)
+  }
+}
+
+/**
  * PURE — parses a unified diff and returns added lines per file.
  *
  * - New-file path is extracted from `+++ b/<path>` headers.

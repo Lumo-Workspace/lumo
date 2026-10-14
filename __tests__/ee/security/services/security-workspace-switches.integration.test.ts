@@ -167,6 +167,7 @@ const ALL_ON = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
+  securityLearningsScope: 'auto' as const,
 }
 const switches = (patch: Partial<typeof ALL_ON>) =>
   colRepo.findSecuritySwitches.mockResolvedValue({ ...ALL_ON, ...patch })

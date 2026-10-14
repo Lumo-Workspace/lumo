@@ -13,6 +13,10 @@
 import { isManagedScanEnabled } from '@/ee/security/services/security-managed-scan.config'
 import { isHuntEnabled } from '@/ee/security/services/security-hunt.config'
 import { isIntegrationConfigured } from '@/lib/integrations/configured'
+import {
+  DEFAULT_LEARNINGS_SCOPE,
+  type LearningsScope,
+} from '@/ee/security/security-scan/learnings-scope'
 
 /**
  * The stored workspace switches: the three layer switches (default on) and
@@ -24,6 +28,8 @@ export interface WorkspaceSecuritySwitches {
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
   securityRequestChangesEnabled: boolean
+  /** LUM-1134: which repositories' learnings the AI review reads. */
+  securityLearningsScope: LearningsScope
 }
 
 export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
@@ -31,6 +37,7 @@ export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
+  securityLearningsScope: DEFAULT_LEARNINGS_SCOPE,
 }
 
 /** Which layers may run for one workspace, after the platform ceiling. */

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { LEARNINGS_SCOPES } from '@/ee/security/security-scan/learnings-scope'
 
 /**
  * LUM-1002: the security-scan switches alone (CLI + settings card). Either
@@ -14,6 +15,8 @@ export const updateSecurityScanSettingsSchema = z
     securityHuntEnabled: z.boolean().optional(),
     // LUM-1130: the request-changes / approve workflow (default off).
     securityRequestChangesEnabled: z.boolean().optional(),
+    // LUM-1134: which repositories' learnings the AI review reads.
+    securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
   })
   .strict()
   .refine(v => Object.keys(v).length > 0, {

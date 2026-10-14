@@ -215,6 +215,8 @@ describe('settings slots', () => {
         securityHuntEnabled: false,
         // LUM-1130: absent on the row ⇒ off (the column default).
         securityRequestChangesEnabled: false,
+        // LUM-1134: absent on the row ⇒ auto (the column default).
+        securityLearningsScope: 'auto',
       },
       huntAvailable: true,
       sandboxAvailable: false,

@@ -28,6 +28,7 @@ jest.mock('@/ee/security/api-client', () => ({
 
 import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { securityScanClient } from '@/ee/security/api-client'
+import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
 
 const updateSecurityScan = securityScanClient.updateSecurityScan as jest.Mock
 
@@ -36,10 +37,11 @@ const ALL_ON = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
+  securityLearningsScope: 'auto' as const,
 }
 
 function renderCard(
-  initial = ALL_ON,
+  initial: WorkspaceSecuritySwitches = ALL_ON,
   huntAvailable = true,
   sandboxAvailable = true
 ) {
@@ -64,6 +66,7 @@ beforeEach(() => {
             securityAiReviewEnabled: u.all,
             securityHuntEnabled: u.all,
             securityRequestChangesEnabled: false,
+            securityLearningsScope: 'auto' as const,
           }
         : { ...ALL_ON, ...u },
   }))
@@ -105,6 +108,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
         securityRequestChangesEnabled: false,
+        securityLearningsScope: 'auto',
       })
     )
   })
@@ -129,6 +133,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
       securityAiReviewEnabled: false,
       securityHuntEnabled: false,
       securityRequestChangesEnabled: false,
+      securityLearningsScope: 'auto',
     })
     fireEvent.click(screen.getByRole('button', { name: 'Enable all' }))
     await waitFor(() =>
@@ -198,4 +203,51 @@ describe('LUM-1130 request-changes workflow switch', () => {
       expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
     )
   })
+})
+
+describe('LUM-1134 learnings scope', () => {
+  const scope = () =>
+    screen.getByRole('combobox', {
+      name: 'Learnings scope',
+    }) as HTMLSelectElement
+
+  it('shows the stored scope with all three choices, auto by default', () => {
+    renderCard()
+    expect(scope().value).toBe('auto')
+    expect([...scope().options].map(o => o.value)).toEqual([
+      'auto',
+      'local',
+      'global',
+    ])
+  })
+
+  it('is saved with the other switches', async () => {
+    renderCard()
+    fireEvent.change(scope(), { target: { value: 'global' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityLearningsScope: 'global' })
+      )
+    )
+  })
+
+  it('reads the stored value and stays editable with the scan on only', () => {
+    renderCard({ ...ALL_ON, securityLearningsScope: 'local' })
+    expect(scope().value).toBe('local')
+    expect(scope()).not.toBeDisabled()
+    fireEvent.click(toggle('Security scan'))
+    expect(scope()).toBeDisabled()
+  })
+})
+
+it('LUM-1134 choosing global warns that public repositories may draw on private ones', () => {
+  renderCard()
+  expect(screen.queryByTestId('learnings-scope-global-warning')).toBeNull()
+  fireEvent.change(screen.getByRole('combobox', { name: 'Learnings scope' }), {
+    target: { value: 'global' },
+  })
+  expect(
+    screen.getByTestId('learnings-scope-global-warning').textContent
+  ).toMatch(/public repositories/i)
 })
