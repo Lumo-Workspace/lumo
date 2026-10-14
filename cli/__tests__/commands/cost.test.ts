@@ -1,5 +1,6 @@
 import {
   formatOperationCost,
+  resolveCostSince,
   type OperationCostResponse,
 } from '../../src/commands/cost'
 
@@ -105,5 +106,59 @@ describe('formatOperationCost', () => {
     expect(parent).toBeGreaterThan(-1)
     expect(lines[parent + 1]).toMatch(/↳ tsc\s+.*60/)
     expect(lines[parent + 2]).toMatch(/↳ npm lint\s+.*30/)
+  })
+})
+
+describe('resolveCostSince (LUM-1124)', () => {
+  it('sends a bare day as the local midnight, not UTC midnight', () => {
+    const iso = resolveCostSince('2026-10-12')!.iso
+    // Whatever the shell's zone, the instant is the LOCAL start of the day.
+    expect(iso).toBe(new Date(2026, 9, 12).toISOString())
+    const d = new Date(iso)
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([
+      2026, 9, 12, 0,
+    ])
+  })
+
+  it('differs from UTC midnight in a non-UTC zone', () => {
+    if (new Date(2026, 9, 12).getTimezoneOffset() === 0) {
+      // Under a UTC shell local == UTC; the zone-specific case is covered by
+      // the equality above. Still assert the day label passes through.
+      expect(resolveCostSince('2026-10-12')!.day).toBe('2026-10-12')
+      return
+    }
+    expect(resolveCostSince('2026-10-12')!.iso).not.toBe(
+      '2026-10-12T00:00:00.000Z'
+    )
+  })
+
+  it('passes a full ISO instant through untouched', () => {
+    expect(resolveCostSince('2026-10-11T13:00:00.000Z')).toEqual({
+      iso: '2026-10-11T13:00:00.000Z',
+      day: null,
+    })
+  })
+
+  it('rejects an impossible calendar day', () => {
+    expect(resolveCostSince('2026-02-31')).toBeNull()
+  })
+})
+
+describe('formatOperationCost window title (LUM-1124)', () => {
+  const ws: OperationCostResponse = {
+    ...data,
+    scope: { kind: 'workspace', label: 'since 2026-10-11T13:00:00.000Z' },
+  }
+
+  it('titles the window with the local day the user asked for', () => {
+    const first = formatOperationCost(ws, 'tool', '2026-10-12').split('\n')[0]
+    expect(first).toBe('Per-operation cost — workspace since 2026-10-12')
+  })
+
+  it('falls back to the server label without a local day', () => {
+    const first = formatOperationCost(ws, 'tool').split('\n')[0]
+    expect(first).toBe(
+      'Per-operation cost — workspace since 2026-10-11T13:00:00.000Z'
+    )
   })
 })

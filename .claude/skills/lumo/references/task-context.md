@@ -135,7 +135,9 @@ lumo cost --session <session-id> --by model
 lumo cost --since 2026-06-01 --by member --json
 ```
 
-- `--task <id>` / `--session <id>` / `--since <ISO-date>` — **mutually-exclusive** scope: one task / one Claude Code session / a workspace window from that date. None given = default **workspace last-30-days**. If more than one is passed, the CLI picks task > session > since.
+- `--task <id>` / `--session <id>` / `--since <day>` — **mutually-exclusive** scope: one task / one Claude Code session / a workspace window from that date to now. `--since YYYY-MM-DD` is the shell's **local** midnight (the same day boundary as `lumo report`, so the two agree to the token over the same window — LUM-1124); a full ISO timestamp passes through as-is. The title reads `workspace since <day>`. None given = default **workspace last-30-days** (`workspace last 30d`). If more than one is passed, the CLI picks task > session > since.
+- **By session** labels are the shortest prefixes that keep rows distinct: a subagent session (`<parent>:<agentId>`) shows as `<parent>:<agent>`, both cut to the same length. The full id is the row's `key` in `--json` — pass that to `--session` (it matches exactly, not by prefix).
+- All `--json` figures are whole tokens; `grandTotal` is rounded per member × model like `lumo report`, so a row sum can differ from it by a token or two.
 - `--by tool|model|member|session` (default `tool`, case-insensitive) — only changes which grouping is the **headline** table; other groupings still print below when non-trivial (member/session tables appear only when >1).
 - `--json` — emit the versioned payload (`version: 1`, scope, grandTotal, coverage, and `byTool` / `byModel` / `byMember` / `bySession` row arrays) instead of rendered tables.
 - **Coverage line** `Per-step attribution: X% of N tool-using turns` — how much of the report is precise per-step attribution vs per-turn fallback. `n/a` when there were no tool-using turns.
