@@ -56,6 +56,7 @@ jest.mock('@/lib/logger', () => ({
 
 import {
   applyReviewThreadEvent,
+  planAliasCarries,
   planDuplicateMerges,
   prFindingThreadService,
   resolveThreadsByCommand,
@@ -278,7 +279,8 @@ const markerFp = (body: string) =>
 async function writeBack(
   scan: ThreadSyncContext['scan'],
   findings: ReviewFindingRow[],
-  headSha = HEAD
+  headSha = HEAD,
+  isBlocking?: (f: ReviewFindingRow) => boolean
 ): Promise<string[]> {
   repo.findIdentitiesByFingerprints.mockImplementation(async (_pr, fps) =>
     identitiesOf(findings).filter(i => fps.includes(i.fingerprint))
@@ -294,6 +296,7 @@ async function writeBack(
     findings,
     open: findings,
     comments: ghComments.map(c => ({ ...c })) as never,
+    ...(isBlocking ? { isBlocking } : {}),
   }
   const threads = await prFindingThreadService.reconcile(ctx)
   const existing = new Set(
@@ -452,13 +455,46 @@ describe('a duplicate already in production is merged on the next sync', () => {
     ])
   })
 
-  it('a GitHub failure merges nothing and addresses nothing (retried next sync)', async () => {
-    await seedDuplicate()
+  it('a GitHub failure addresses nothing; the merge is kept pending and finished on the next sync', async () => {
+    const { a, b } = await seedDuplicate()
     gh.resolveThread.mockRejectedValueOnce(new Error('502'))
     expect(await writeBack(COMPLETE, [LOGIC])).toEqual([])
     expect(replies).toEqual([])
-    expect(rows).toHaveLength(2)
     expect(repo.delete).not.toHaveBeenCalled()
+    // The decision is kept: A already owns B's fingerprint.
+    expect(
+      rows.find(r => r.commentId === String(a))!.aliasFingerprints
+    ).toEqual([API.fingerprint])
+    // Next sync — even with B's finding reported now — finishes the merge.
+    expect(await writeBack(COMPLETE, [API])).toEqual([])
+    expect(replies.map(r => r.inReplyTo)).toEqual([b])
+    expect(replies[0]!.body).toMatch(/^🔗 Duplicate/)
+    expect(rows).toEqual([
+      expect.objectContaining({ commentId: String(a), state: 'OPEN' }),
+    ])
+  })
+
+  it('a merge interrupted after the thread was closed (row delete failed) is retried until the row is gone — one owner meanwhile', async () => {
+    const { a, b } = await seedDuplicate()
+    repo.delete.mockRejectedValueOnce(new Error('db down'))
+    expect(await writeBack(COMPLETE, [LOGIC])).toEqual([])
+    expect(rows).toHaveLength(2)
+    // Both rows now name e55e…: the next sync, with e55e… reported (so
+    // neither thread looks gone), finishes the merge.
+    expect(await writeBack(COMPLETE, [API])).toEqual([])
+    expect(rows).toHaveLength(1)
+    for (const findings of [[API], [LOGIC]]) {
+      expect(await writeBack(COMPLETE, findings)).toEqual([])
+    }
+    expect(rows).toEqual([
+      expect.objectContaining({
+        commentId: String(a),
+        state: 'OPEN',
+        aliasFingerprints: [API.fingerprint],
+      }),
+    ])
+    // One duplicate note on B, nothing else anywhere.
+    expect(replies.map(r => r.inReplyTo)).toEqual([b])
   })
 
   it('a merged duplicate a human unresolves is not adopted back by the webhook', async () => {
@@ -476,6 +512,100 @@ describe('a duplicate already in production is merged on the next sync', () => {
       })
     ).resolves.toBe('unchanged')
     expect(repo.upsert).toHaveBeenCalledTimes(1) // r1's post only
+  })
+})
+
+describe('webhook adoption guard', () => {
+  it("a marker comment of a fingerprint that is a thread's OWN (not an alias) is still adopted", async () => {
+    await writeBack(COMPLETE, [LOGIC])
+    repo.findByThreadRef.mockResolvedValue([])
+    repo.findLayerMetaByFingerprints.mockResolvedValueOnce([
+      {
+        fingerprint: LOGIC.fingerprint,
+        ruleId: LOGIC.ruleId,
+        provenance: LOGIC.provenance,
+        kind: LOGIC.kind,
+        filePath: LOGIC.filePath,
+      },
+    ])
+    await expect(
+      applyReviewThreadEvent({
+        workspaceId: 'w1',
+        pullRequestId: 'pr64',
+        action: 'resolved',
+        threadNodeId: 'PRRT_older',
+        comments: [{ id: 17, body: marker(LOGIC.fingerprint), user: BOT }],
+        sender: { login: 'alice', type: 'User' },
+      })
+    ).resolves.toBe('recorded')
+  })
+})
+
+describe('a carried fingerprint follows the carry rules of its thread state', () => {
+  // r1 posts LOGIC; a human resolves the thread on GitHub.
+  async function resolvedByHuman(): Promise<number> {
+    await writeBack(COMPLETE, [LOGIC])
+    const id = ghComments[0]!.id
+    Object.assign(ghThreads.get(String(id))!, {
+      isResolved: true,
+      resolvedBy: { login: 'alice', type: 'User' },
+    })
+    return id
+  }
+
+  it('resolved by a human, relabelled at the same severity: stays on the resolved thread (no comment, no reply)', async () => {
+    await resolvedByHuman()
+    expect(await writeBack(COMPLETE, [API])).toEqual([])
+    expect(await writeBack(COMPLETE, [API])).toEqual([])
+    expect(replies).toEqual([])
+    expect(rows).toEqual([
+      expect.objectContaining({
+        state: 'RESOLVED_BY_USER',
+        aliasFingerprints: [API.fingerprint],
+      }),
+    ])
+  })
+
+  it('resolved by a human, the carried finding later reported MORE severe: posted afresh', async () => {
+    await resolvedByHuman()
+    expect(await writeBack(COMPLETE, [API])).toEqual([])
+    const worse = { ...API, severity: 'HIGH' as const }
+    expect(await writeBack(COMPLETE, [worse])).toEqual([API.fingerprint])
+    // The new comment owns its own thread; the resolved one lets go of it.
+    expect(rows).toEqual([
+      expect.objectContaining({
+        state: 'RESOLVED_BY_USER',
+        aliasFingerprints: [],
+      }),
+      expect.objectContaining({ fingerprint: API.fingerprint, state: 'OPEN' }),
+    ])
+    // …and stays a single thread on the next sync.
+    expect(await writeBack(COMPLETE, [worse])).toEqual([])
+    expect(rows).toHaveLength(2)
+  })
+
+  it('resolved by a human, the carried finding now blocks DONE: posted afresh', async () => {
+    await resolvedByHuman()
+    expect(await writeBack(COMPLETE, [API])).toEqual([])
+    const blocks = (f: ReviewFindingRow) => f.fingerprint === API.fingerprint
+    expect(await writeBack(COMPLETE, [API], HEAD, blocks)).toEqual([
+      API.fingerprint,
+    ])
+  })
+
+  it('addressed, then reported again under the carried fingerprint: a regression on the same thread', async () => {
+    await writeBack(COMPLETE, [LOGIC])
+    const id = ghComments[0]!.id
+    await writeBack(COMPLETE, [API])
+    await writeBack(COMPLETE, [], FIX)
+    expect(rows[0]!.state).toBe('ADDRESSED')
+    expect(await writeBack(COMPLETE, [API], 'd00d' + FIX.slice(4))).toEqual([])
+    expect(notes()).toEqual([
+      `${id}:✅ Addressed in \`2576299\``,
+      `${id}:⚠️ Reappeared in \`d00d299\``,
+    ])
+    expect(ghThreads.get(String(id))!.isResolved).toBe(false)
+    expect(rows[0]!.state).toBe('OPEN')
   })
 })
 
@@ -512,12 +642,75 @@ describe('pure helpers', () => {
     addressedInSha: null,
   }
 
+  it('planAliasCarries: open / addressed carry; resolved carries only under the carry rule; reposted and unreported skipped', () => {
+    const r = (id: string, fp: string, state: FindingThreadRow['state']) => ({
+      ...base,
+      id,
+      fingerprint: fp,
+      state,
+      identitySeverity: 'MEDIUM' as const,
+      aliasFingerprints: [`${fp}-x`, `${fp}-y`],
+    })
+    const rowsIn = [
+      r('o', 'open', 'OPEN'),
+      r('a', 'addr', 'ADDRESSED'),
+      r('h', 'human', 'RESOLVED_BY_USER'),
+      r('b', 'block', 'RESOLVED_BY_USER'),
+    ]
+    const f = (fp: string, severity: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM') =>
+      finding({ fingerprint: fp, severity })
+    const out = planAliasCarries({
+      rows: rowsIn,
+      findings: [
+        f('open-x'),
+        f('open-y'),
+        f('addr-x'),
+        f('human-x', 'LOW'),
+        f('human-y', 'HIGH'),
+        f('block-x'),
+      ],
+      state: new Map(rowsIn.map(x => [x.fingerprint, x.state])),
+      reposted: new Set(['open-y']),
+      identities: null,
+      isBlocking: x => x.fingerprint === 'block-x',
+    })
+    expect(Object.fromEntries(out.carried)).toEqual({
+      'open-x': 'open',
+      'addr-x': 'addr',
+      'human-x': 'human',
+    })
+    expect(out.detach.map(d => [d.row.id, d.aliases])).toEqual([
+      ['h', ['human-x']],
+      ['b', ['block-y']],
+    ])
+  })
+
   it('withAlias appends once and never the own fingerprint', () => {
     expect(withAlias(base, 'fp-b')).toEqual(['fp-b'])
     expect(withAlias({ ...base, aliasFingerprints: ['fp-b'] }, 'fp-b')).toEqual(
       ['fp-b']
     )
     expect(withAlias(base, 'fp-a')).toEqual([])
+  })
+
+  it("planDuplicateMerges: a row whose fingerprint is another thread's alias is a pending merge into it — whatever is reported", () => {
+    const keep = { ...base, aliasFingerprints: ['fp-b'] }
+    const drop = { ...base, id: 't2', commentId: '5', fingerprint: 'fp-b' }
+    const input = {
+      rows: [drop, keep],
+      findings: [],
+      open: [],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: null,
+    }
+    for (const identities of [null, new Map()])
+      expect(
+        planDuplicateMerges({ ...input, identities }).map(m => [
+          m.keep.id,
+          m.drop.id,
+        ])
+      ).toEqual([['t1', 't2']])
   })
 
   it('planDuplicateMerges: nothing without identities, nothing for two distinct issues', () => {
