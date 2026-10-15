@@ -152,3 +152,26 @@ export function standingLumoReview(
       .map(r => r.id),
   }
 }
+
+/**
+ * LUM-1130 follow-up — the Lumo "changes requested" reviews that Lumo's
+ * latest approval of `sha` supersedes: every one listed before that
+ * approval (a change request filed after it, by a newer sync, still
+ * stands). Null when the listing holds no Lumo approval of `sha` — the
+ * approval did not land, so nothing is superseded. `reviews` oldest first.
+ */
+export function changeRequestsSupersededBy(
+  reviews: ListedReview[],
+  sha: string
+): number[] | null {
+  let approvalAt = -1
+  reviews.forEach((r, i) => {
+    if (isLumoActor(r.user) && r.state === 'APPROVED' && r.commit_id === sha)
+      approvalAt = i
+  })
+  if (approvalAt < 0) return null
+  return reviews
+    .slice(0, approvalAt)
+    .filter(r => isLumoActor(r.user) && r.state === 'CHANGES_REQUESTED')
+    .map(r => r.id)
+}
