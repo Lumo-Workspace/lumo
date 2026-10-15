@@ -376,6 +376,8 @@ export interface ScanForReview {
    * Optional so older fixtures still type-check (absent = not read).
    */
   repoConfig?: unknown
+  /** LUM-1147 — the review profile the scan ran with (null/absent = chill). */
+  reviewProfile?: string | null
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -1673,6 +1675,7 @@ export const prSecurityScanRepository = {
         verifiedAt: true,
         judgeReviewScope: true,
         repoConfig: true,
+        reviewProfile: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -2271,6 +2274,14 @@ export const prSecurityScanRepository = {
     })
   },
 
+  /** LUM-1147 — the review profile in force for this scan (for the write-back). */
+  async setReviewProfile(scanId: string, reviewProfile: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { reviewProfile },
+    })
+  },
+
   async setSummaryCommentId(
     scanId: string,
     summaryCommentId: string
@@ -2278,6 +2289,43 @@ export const prSecurityScanRepository = {
     await prisma.prSecurityScan.update({
       where: { id: scanId },
       data: { summaryCommentId },
+    })
+  },
+
+  /**
+   * LUM-1150 — claim the right to post these finding rows' inline comments;
+   * returns the ids this caller won. Each row is one conditional update, so
+   * of two concurrent write-backs exactly one sees count 1 (Postgres
+   * re-checks the WHERE once the other's row lock is released). A claim
+   * taken before `staleBefore` is treated as abandoned and can be won again.
+   */
+  async claimInlineComments(
+    findingIds: string[],
+    staleBefore: Date
+  ): Promise<Set<string>> {
+    const won = new Set<string>()
+    for (const id of findingIds) {
+      const { count } = await prisma.prSecurityFinding.updateMany({
+        where: {
+          id,
+          OR: [
+            { inlineCommentClaimedAt: null },
+            { inlineCommentClaimedAt: { lt: staleBefore } },
+          ],
+        },
+        data: { inlineCommentClaimedAt: new Date() },
+      })
+      if (count === 1) won.add(id)
+    }
+    return won
+  },
+
+  /** LUM-1150 — give claims back after a post that did not land. */
+  async releaseInlineCommentClaims(findingIds: string[]): Promise<void> {
+    if (findingIds.length === 0) return
+    await prisma.prSecurityFinding.updateMany({
+      where: { id: { in: findingIds } },
+      data: { inlineCommentClaimedAt: null },
     })
   },
 

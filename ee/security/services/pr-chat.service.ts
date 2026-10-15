@@ -34,6 +34,7 @@ import {
   readRepoFile,
 } from '@/lib/integrations/github/contents'
 import type { CoreEvents } from '@/lib/plugins/types'
+import { renderToneInstructions } from '@/ee/security/security-scan/path-instructions'
 import {
   guardInjectedText,
   guardPromptLineText,
@@ -169,6 +170,26 @@ async function loadContext(q: ChatQuestion): Promise<{
   return { headSha, diff, file }
 }
 
+/** LUM-1147 — the repository's tone, guarded; '' = none. Never throws. */
+async function chatTone(q: ChatQuestion): Promise<string> {
+  try {
+    const { repoConfigService } = await import('./repo-config.service')
+    return renderToneInstructions(
+      await repoConfigService.toneForPullRequest({
+        workspaceId: q.workspaceId,
+        repo: q.repo,
+        prNumber: q.prNumber,
+      }),
+      guardPromptLineText
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-chat] tone unavailable pr=${q.repo}#${q.prNumber}: ${describe(error)}`
+    )
+    return ''
+  }
+}
+
 /** The model's answer, or null (never thrown). */
 async function askModel(
   q: ChatQuestion,
@@ -183,6 +204,8 @@ async function askModel(
       ctx.file ? windowLines(ctx.file, focusLine) : ''
     )
     const guardedQuestion = guardInjectedText(question)
+    // LUM-1147: the repository's tone (base-commit `.lumo.yaml` > stored).
+    const tone = await chatTone(q)
     const { answerPrQuestion } =
       await import('@/ee/security/llm/pr-chat-client')
     const raw = await answerPrQuestion({
@@ -218,6 +241,7 @@ async function askModel(
             return { text: h.text, notices: h.notices }
           })()
         : null,
+      ...(tone ? { tone } : {}),
     })
     return cleanChatAnswer(raw)
   } catch (error) {

@@ -86,6 +86,12 @@ export interface PackedReviewContext {
   text: string
   /** Paths packed, in prompt order. */
   included: string[]
+  /**
+   * LUM-1150 — each packed file's content by path (the suggestion scope
+   * check). Kept apart from `text`: a body may contain a line shaped like
+   * another file's `=== path ===` header, so `text` cannot be split back.
+   */
+  bodies?: Readonly<Record<string, string>>
 }
 
 function looksBinary(body: string): boolean {
@@ -122,13 +128,30 @@ export function packReviewContext(
     .sort(contextOrder)
   let text = ''
   const included: string[] = []
+  const bodies: Record<string, string> = {}
   for (const f of eligible) {
     const block = `=== ${f.path} ===\n${f.body}\n`
     if (text.length + block.length > maxChars) continue
     text += block
     included.push(f.path)
+    bodies[f.path] = f.body
   }
-  return { text, included }
+  return { text, included, bodies }
+}
+
+/**
+ * PURE — LUM-1150: one packed file's content, as read at the PR head, or null
+ * when it was not packed (or the context predates `bodies`).
+ */
+export function packedFileBody(
+  packed: PackedReviewContext,
+  path: string
+): string | null {
+  const bodies = packed.bodies
+  // Own keys only: a path named `constructor` must not read Object's member.
+  if (!bodies || !Object.prototype.hasOwnProperty.call(bodies, path))
+    return null
+  return bodies[path] ?? null
 }
 
 export interface LoadedReviewContext extends PackedReviewContext {

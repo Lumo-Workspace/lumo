@@ -1715,7 +1715,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1147 the review style (--profile, --tone, --path-instruction). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1784,6 +1784,19 @@ workspaceCmd
   .option(
     '--path-filter <glob>',
     'With --repo (repeatable; replaces the list, "" clears): what the AI review and hunt read; !glob excludes, glob restricts to matches; lockfiles and generated files are excluded by default',
+    collectList
+  )
+  .option(
+    '--profile <quiet|chill|assertive>',
+    'With --repo: which findings get inline comments — quiet = only HIGH and Done-blocking (MEDIUM listed in the summary), chill (default) = HIGH and MEDIUM, assertive = LOW too. Never changes detection or what blocks Done'
+  )
+  .option(
+    '--tone <text>',
+    'With --repo ("" clears; ≤250 chars): how the AI review words its findings and PR description, and Lumo its answers on the PR — wording only'
+  )
+  .option(
+    '--path-instruction <glob=instructions>',
+    'With --repo (repeatable; replaces the list, "" clears; ≤20): extra AI review instructions for files matching the glob, e.g. "scripts/**=Flag any console.log". They add checks, never remove one',
     collectList
   )
   .option('--confirm', 'The user approved the listed changes')

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { RepoReviewFiltersEditor } from './RepoReviewFiltersEditor'
+import { RepoReviewStyleEditor } from './RepoReviewStyleEditor'
 import {
   useRepoReviewSettings,
   useUpdateRepoReviewSettings,
@@ -32,6 +33,8 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
   const id = `repo-review-${setting.repo.replace(/[^\w-]/g, '-')}`
   // LUM-1143: the auto-review filters fold out under the row.
   const [showFilters, setShowFilters] = useState(false)
+  // LUM-1147: the review style (profile, tone, path instructions) too.
+  const [showStyle, setShowStyle] = useState(false)
   return (
     <div className='px-5 py-3 border-b border-border last:border-b-0'>
       <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
@@ -48,6 +51,16 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
             onClick={() => setShowFilters(v => !v)}
           >
             {t('filters.toggle')}
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            aria-expanded={showStyle}
+            aria-controls={`${id}-style`}
+            aria-label={t('style.toggleAria')}
+            onClick={() => setShowStyle(v => !v)}
+          >
+            {t('style.toggle')}
           </Button>
           <label
             htmlFor={`${id}-auto`}
@@ -84,6 +97,16 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
       {showFilters && (
         <div id={`${id}-filters`}>
           <RepoReviewFiltersEditor
+            setting={setting}
+            canEdit={canEdit}
+            saving={saving}
+            onSave={onChange}
+          />
+        </div>
+      )}
+      {showStyle && (
+        <div id={`${id}-style`}>
+          <RepoReviewStyleEditor
             setting={setting}
             canEdit={canEdit}
             saving={saving}
