@@ -73,6 +73,7 @@ const payload = {
     author_association: 'COLLABORATOR',
     // LUM-1154: where a question on a code line points.
     path: 'scripts/run.ts',
+    // An outdated comment: `original_line` is not a head line.
     original_line: 12,
     line: null,
     diff_hunk: '@@ -1,3 +1,4 @@',
@@ -108,7 +109,7 @@ describe('pull_request_review_comment', () => {
         user: { login: 'alice', type: 'User' },
         authorAssociation: 'COLLABORATOR',
         path: 'scripts/run.ts',
-        line: 12,
+        line: null,
         diffHunk: '@@ -1,3 +1,4 @@',
       },
     })

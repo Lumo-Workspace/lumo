@@ -227,7 +227,7 @@ export interface CoreEvents {
       authorAssociation: string | null
       /** LUM-1154: the file the comment sits on (absent on older emitters). */
       path?: string | null
-      /** LUM-1154: its line in the PR head (`line`, else `original_line`). */
+      /** LUM-1154: its line in the PR head; null when outdated. */
       line?: number | null
       /** LUM-1154: the diff hunk GitHub shows above the comment, untrusted. */
       diffHunk?: string | null

@@ -269,12 +269,6 @@ export async function answerQuestion(q: ChatQuestion): Promise<ChatOutcome> {
       REPO_TOKEN_PERMISSIONS.pullRequestWrite
     )
 
-    if (asksToAct(question)) {
-      await q.post(buildActionRefusalReply(q.login, handle, q.marker), token)
-      await prChatRequestRepository.setStatus(claimId, 'ANSWERED')
-      return 'refused_action'
-    }
-
     const since = new Date(Date.now() - PR_CHAT_WINDOW_MS)
     const answering = await prChatRequestRepository.countSince(
       q.pullRequestId,
@@ -293,6 +287,12 @@ export async function answerQuestion(q: ChatQuestion): Promise<ChatOutcome> {
         await q.post(buildRateLimitedReply(q.login, q.marker), token)
       logger.info(`[pr-chat] rate limited ${where}`)
       return 'rate_limited'
+    }
+
+    if (asksToAct(question)) {
+      await q.post(buildActionRefusalReply(q.login, handle, q.marker), token)
+      await prChatRequestRepository.setStatus(claimId, 'ANSWERED')
+      return 'refused_action'
     }
 
     const answer = await askModel(q, question)

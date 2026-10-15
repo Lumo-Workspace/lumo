@@ -82,6 +82,10 @@ describe('wantsThreadAnswer', () => {
     ['Explain the attack path please', true],
     ['@uselumo this does not look reachable to me', true],
     ['为什么这里不安全', true],
+    ['Is this reachable from user input', true],
+    ['Does not matter here, the value is constant', false],
+    ["Can't happen: the caller validates it", false],
+    ['Is never null at this point', false],
     ['Thanks.', false],
     ['', false],
   ])('OTHER %j → %s', (body, expected) => {
@@ -166,12 +170,20 @@ describe('context', () => {
 })
 
 describe('cleanChatAnswer', () => {
-  it('strips HTML comments (no forged marker), tags and control characters', () => {
+  it('strips HTML comments (no forged marker) and control characters', () => {
     expect(
-      cleanChatAnswer(
-        'Safe.<!-- lumo-security:thread-note --> <b>bold</b>\u0007 <!-- open'
-      )
-    ).toBe('Safe. bold')
+      cleanChatAnswer('Safe.<!-- lumo-security:thread-note -->\u0007 <!-- open')
+    ).toBe('Safe.')
+    expect(
+      cleanChatAnswer('```\nx <!-- lumo-security:chat-answer --> y\n```')
+    ).not.toContain('lumo-security')
+  })
+  it('keeps generics and other angle brackets in code and prose', () => {
+    const out = cleanChatAnswer(
+      'Return `Map<string, number>`:\n```ts\nconst xs: Array<string> = []\n```'
+    )!
+    expect(out).toContain('`Map<string, number>`')
+    expect(out).toContain('const xs: Array<string> = []')
   })
   it('defuses mentions outside code, keeps them inside', () => {
     const out = cleanChatAnswer(

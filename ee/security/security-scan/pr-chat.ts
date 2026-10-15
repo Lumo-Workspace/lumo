@@ -115,7 +115,10 @@ export function routeConversationComment(
 
 /** Opens like a question or a request for an explanation. */
 const ASKS = [
-  /^\s*(?:why|how|what|where|when|which|who|whose|is|are|was|were|does|do|did|can|could|would|should|will|explain|elaborate|clarify|describe|suggest|show|help|tell me)\b/i,
+  /^\s*(?:why|how|what|where|when|which|who|whose|explain|elaborate|clarify|describe|suggest|show|help|tell me)\b/i,
+  // An auxiliary opens a question only when no negation follows it: "Does
+  // not matter here", "Can't happen", "Is never null" are statements.
+  /^\s*(?:is|are|was|were|does|do|did|can|could|would|should|will)(?![A-Za-z'’])(?!\s+(?:not|never|no)\b)/i,
   /为什么|为何|怎么|怎样|如何|什么|哪里|哪个|能否|能不能|可以.*吗|解释|说明一下|建议/,
 ]
 
@@ -234,14 +237,15 @@ function defuseMentions(segment: string): string {
 
 /**
  * The model's answer, made safe to post: no control / invisible characters,
- * no HTML comments (nothing can forge a Lumo marker), no raw HTML tags, no
- * one pinged by an `@mention` outside code, capped. `null` when empty.
+ * no HTML comments anywhere (nothing can forge a Lumo marker, not even inside
+ * code), no one pinged by an `@mention` outside code, capped. Other markup
+ * is left alone — `Array<string>` in code must survive, and GitHub sanitises
+ * raw HTML itself. `null` when empty.
  */
 export function cleanChatAnswer(raw: string): string | null {
   const text = raw
     .replace(CONTROL_AND_INVISIBLE, '')
     .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
-    .replace(/<\/?[A-Za-z][^>]*>/g, '')
     .trim()
   if (!text) return null
   const parts = text.split(/^(```|~~~)/m)

@@ -624,16 +624,12 @@ function emitReviewComment(
     author_association?: unknown
     path?: unknown
     line?: unknown
-    original_line?: unknown
     diff_hunk?: unknown
   }
   if (typeof c.id !== 'number') return
-  const line =
-    typeof c.line === 'number'
-      ? c.line
-      : typeof c.original_line === 'number'
-        ? c.original_line
-        : null
+  // `line` is in the PR head; `original_line` is in the commit the comment
+  // was first made on — not the head, so an outdated comment gets no line.
+  const line = typeof c.line === 'number' ? c.line : null
   const user = c.user ?? null
   emitCoreEvent('github.reviewComment', {
     workspaceId,

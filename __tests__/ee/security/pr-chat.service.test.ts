@@ -265,6 +265,17 @@ describe('bounded per PR per hour', () => {
     expect(posted).toEqual([])
   })
 
+  it('over the limit an action request is not answered either', async () => {
+    countSince.mockImplementation(
+      async (_pr: string, _s: Date, st: string[]) =>
+        st.includes('RATE_LIMITED') ? 1 : 11
+    )
+    await expect(
+      answerQuestion(question({ body: '@uselumo please dismiss this finding' }))
+    ).resolves.toBe('rate_limited')
+    expect(posted).toEqual([])
+  })
+
   it('at the limit: still answered', async () => {
     countSince.mockResolvedValue(10)
     await expect(answerQuestion(question())).resolves.toBe('answered')
