@@ -4,7 +4,9 @@
  * head commits. Queries only — the lifecycle rules live in
  * `pr-finding-thread.service.ts`.
  */
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import type { IdentityVariant } from '@/ee/security/security-scan/finding-successor'
 import { threadFingerprints } from '@/ee/security/security-scan/thread-fingerprints'
 import type {
   FindingKind,
@@ -32,6 +34,11 @@ export interface StoredThreadIdentity {
   identitySeverity?: FindingSeverity | null
   identityEvidenceHash?: string | null
   identityTitleTokens?: string[]
+  /**
+   * LUM-1127 follow-up #4 — every identity the thread has carried (hashes
+   * only, oldest first, capped): the union, never overwritten.
+   */
+  identityHistory?: IdentityVariant[]
 }
 
 export interface FindingThreadRow extends StoredThreadIdentity {
@@ -123,15 +130,61 @@ const THREAD_SELECT = {
   identityEvidenceHash: true,
   identityTitleTokens: true,
   aliasFingerprints: true,
+  identityHistory: true,
 } as const
+
+/**
+ * The stored history as variants: entries of another shape (a hand edit, a
+ * future format) are skipped, never trusted.
+ */
+export function parseIdentityHistory(raw: unknown): IdentityVariant[] {
+  if (!Array.isArray(raw)) return []
+  const out: IdentityVariant[] = []
+  for (const e of raw as unknown[]) {
+    if (typeof e !== 'object' || e === null) continue
+    const v = e as Record<string, unknown>
+    if (typeof v.ruleId !== 'string') continue
+    if (v.line !== null && typeof v.line !== 'number') continue
+    if (v.evidenceHash !== null && typeof v.evidenceHash !== 'string') continue
+    if (
+      !Array.isArray(v.titleTokens) ||
+      !v.titleTokens.every(t => typeof t === 'string')
+    )
+      continue
+    out.push({
+      ruleId: v.ruleId,
+      line: v.line,
+      evidenceHash: v.evidenceHash,
+      titleTokens: v.titleTokens as string[],
+      ...(v.crowded === true ? { crowded: true } : {}),
+    })
+  }
+  return out
+}
+
+type SelectedThread = Omit<FindingThreadRow, 'identityHistory'> & {
+  identityHistory: Prisma.JsonValue
+}
+
+function toRow(r: SelectedThread): FindingThreadRow {
+  return { ...r, identityHistory: parseIdentityHistory(r.identityHistory) }
+}
+
+/** The history as Prisma writes it (a JSON array). */
+function historyInput(
+  h: readonly IdentityVariant[] | undefined
+): Prisma.InputJsonValue | undefined {
+  return h === undefined ? undefined : (h as unknown as Prisma.InputJsonValue)
+}
 
 export const prFindingThreadRepository = {
   async findByPullRequest(pullRequestId: string): Promise<FindingThreadRow[]> {
-    return prisma.prFindingThread.findMany({
+    const rows = await prisma.prFindingThread.findMany({
       where: { pullRequestId },
       select: THREAD_SELECT,
       orderBy: { createdAt: 'asc' },
     })
+    return rows.map(toRow)
   },
 
   /** The rows a `pull_request_review_thread` delivery can refer to. */
@@ -146,18 +199,25 @@ export const prFindingThreadRepository = {
         : []),
     ]
     if (or.length === 0) return []
-    return prisma.prFindingThread.findMany({
+    const rows = await prisma.prFindingThread.findMany({
       where: { pullRequestId, OR: or },
       select: THREAD_SELECT,
     })
+    return rows.map(toRow)
   },
 
   /** Create the row, or point an existing one at a new comment. */
   async upsert(input: FindingThreadUpsert): Promise<void> {
-    const { pullRequestId, fingerprint, ...rest } = input
+    const { pullRequestId, fingerprint, identityHistory, ...rest } = input
+    const history = historyInput(identityHistory)
     await prisma.prFindingThread.upsert({
       where: { pullRequestId_fingerprint: { pullRequestId, fingerprint } },
-      create: { pullRequestId, fingerprint, ...rest },
+      create: {
+        pullRequestId,
+        fingerprint,
+        ...rest,
+        ...(history !== undefined ? { identityHistory: history } : {}),
+      },
       update: {
         commentId: rest.commentId,
         threadNodeId: rest.threadNodeId ?? null,
@@ -175,6 +235,7 @@ export const prFindingThreadRepository = {
               identitySeverity: rest.identitySeverity ?? null,
               identityEvidenceHash: rest.identityEvidenceHash ?? null,
               identityTitleTokens: rest.identityTitleTokens ?? [],
+              identityHistory: history ?? [],
             }
           : {}),
       },
@@ -182,7 +243,15 @@ export const prFindingThreadRepository = {
   },
 
   async update(id: string, patch: FindingThreadPatch): Promise<void> {
-    await prisma.prFindingThread.update({ where: { id }, data: patch })
+    const { identityHistory, ...rest } = patch
+    const history = historyInput(identityHistory)
+    await prisma.prFindingThread.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(history !== undefined ? { identityHistory: history } : {}),
+      },
+    })
   },
 
   /**

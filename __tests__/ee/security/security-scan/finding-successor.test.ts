@@ -5,6 +5,7 @@
  */
 import { createHash } from 'node:crypto'
 import {
+  crowdedFingerprints,
   evidenceHash,
   hashIdentity,
   identityKeyId,
@@ -465,5 +466,147 @@ describe('hashed identity (stored on the thread row)', () => {
     expect(matchSuccessors([prev], [next])).toEqual(
       new Map([['fp-data', 'fp-logic']])
     )
+  })
+})
+
+describe('LUM-1127 follow-up #4 — identity history and the same line across rounds', () => {
+  const KEY = 'k4'
+  // Production, probe PR 67 `src/server.ts:31`.
+  const r1 = id({
+    ruleId: 'review:logic_error',
+    filePath: 'src/server.ts',
+    line: 31,
+    title:
+      'Session check route does not restrict method and prefix matching is loose',
+    evidence: "if (req.url?.startsWith('/session/check')) {",
+  })
+  const r2 = {
+    ...r1,
+    title: 'Token in query string and route matching by prefix',
+  }
+  const r3 = id({
+    ...r1,
+    fingerprint: 'new',
+    ruleId: 'review:api_misuse',
+    title: 'Session check route ignores method and uses prefix match',
+  })
+  const variant = (f: FindingIdentity) => {
+    const h = hashIdentity(f, KEY)
+    return {
+      ruleId: h.ruleId,
+      line: h.line,
+      evidenceHash: h.evidenceHash ?? null,
+      titleTokens: h.titleTokens ?? [],
+    }
+  }
+
+  it('r3 against r2 alone is not the same issue (different class, two shared words)', () => {
+    expect(
+      sameIssueScore(hashIdentity(r2, KEY), hashIdentity(r3, KEY))
+    ).toBeNull()
+  })
+
+  it('…but the history holds r1, whose wording r3 shares: matched by the best score', () => {
+    const thread = {
+      ...hashIdentity(r2, KEY),
+      history: [variant(r1), variant(r2)],
+    }
+    expect(sameIssueScore(thread, hashIdentity(r3, KEY))).not.toBeNull()
+  })
+
+  it('across rounds, the same layer on the same line is one issue whatever the class or title', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    expect(sameIssueScore(r2, next)).toBeNull()
+    expect(sameIssueScore(r2, next, { acrossRounds: true })).not.toBeNull()
+    // Same quoted line, moved by an edit elsewhere.
+    expect(
+      sameIssueScore(r2, { ...next, line: 50 }, { acrossRounds: true })
+    ).not.toBeNull()
+  })
+
+  it('…not when either side is crowded (two issues on that line in one round)', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    expect(
+      sameIssueScore({ ...r2, crowded: true }, next, { acrossRounds: true })
+    ).toBeNull()
+    expect(
+      sameIssueScore(r2, { ...next, crowded: true }, { acrossRounds: true })
+    ).toBeNull()
+    // The title / class rules still apply when crowded.
+    expect(
+      sameIssueScore(
+        { ...r1, crowded: true },
+        { ...r3, crowded: true },
+        { acrossRounds: true }
+      )
+    ).not.toBeNull()
+  })
+
+  it('…never across layers on the line alone, nor within ±3 lines without a title or class', () => {
+    const hunt = id({
+      ...r1,
+      fingerprint: 'h',
+      ruleId: 'hunt:injection',
+      title: 'x',
+    })
+    expect(sameIssueScore(r2, hunt, { acrossRounds: true })).toBeNull()
+    const near = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      line: 33,
+      title: 'Inefficient lookup',
+      evidence: 'res.end(body)',
+    })
+    expect(sameIssueScore(r2, near, { acrossRounds: true })).toBeNull()
+  })
+
+  it('matchSuccessors passes the option through', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    expect(matchSuccessors([r2], [next]).size).toBe(0)
+    expect(matchSuccessors([r2], [next], { acrossRounds: true })).toEqual(
+      new Map([['old', 'n']])
+    )
+  })
+
+  it('crowdedFingerprints: same layer, file and line only', () => {
+    const f = (
+      fingerprint: string,
+      ruleId: string,
+      line: number | null,
+      filePath = 'a.ts'
+    ) => ({
+      fingerprint,
+      ruleId,
+      provenance: 'LLM_JUDGE' as const,
+      filePath,
+      line,
+    })
+    expect(
+      crowdedFingerprints([
+        f('a', 'review:logic_error', 3),
+        f('b', 'review:api_misuse', 3),
+        f('c', 'hunt:logic', 3),
+        f('d', 'review:logic_error', 3, 'b.ts'),
+        f('e', 'review:logic_error', null),
+        f('g', 'review:logic_error', null),
+        { ...f('s', 'secret:aws', 3), provenance: 'DETERMINISTIC' as const },
+      ])
+    ).toEqual(new Set(['a', 'b']))
   })
 })

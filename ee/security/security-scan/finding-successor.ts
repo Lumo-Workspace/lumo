@@ -26,6 +26,18 @@
  *     related classes and sit within `SUCCESSOR_LINE_WINDOW` lines of each
  *     other — no title needed (LUM-1200 follow-up #3).
  *
+ *   · (LUM-1127 follow-up #4, across rounds only — `acrossRounds`) they come
+ *     from the same layer and sit on the same code: one issue whatever the
+ *     rule id or class — unless a distinct finding of that layer was reported
+ *     on that line in the same round (`crowded`, on either side), when the
+ *     rules above decide. Production (probe PR 67, `src/server.ts:31`): one
+ *     route issue reported as `review:logic_error` and `review:api_misuse`
+ *     on an unchanged head, worded four ways.
+ *
+ * A thread keeps every identity it has carried (`history`, LUM-1127
+ * follow-up #4): an earlier finding is matched by the best score over all of
+ * them, so one rewording that shares little with the next never decides.
+ *
  * Comparable layers: the same layer (AI review / exploit-path hunt), or the
  * other layer with related classes (`classMatch`: overlapping, or a broad
  * hunt category such as `hunt:logic`). Across layers the title is not
@@ -63,6 +75,115 @@ export interface FindingIdentity {
    */
   evidenceHash?: string | null
   titleTokens?: readonly string[]
+  /**
+   * LUM-1127 follow-up #4 — the other identities the thread has carried
+   * (hashed, oldest first); matched too, the best score wins. Absent = none.
+   */
+  history?: readonly IdentityVariant[]
+  /**
+   * LUM-1127 follow-up #4 — a distinct finding of the same layer was reported
+   * on this identity's line in one round (a thread's history, or another
+   * current finding): the same line alone no longer makes it the same issue.
+   */
+  crowded?: boolean
+}
+
+/**
+ * LUM-1127 follow-up #4 — one identity a thread has carried, as stored:
+ * hashes only (`evidenceHash` / `titleTokens`), never code or wording.
+ */
+export interface IdentityVariant {
+  ruleId: string
+  line: number | null
+  evidenceHash: string | null
+  titleTokens: readonly string[]
+  /** Another finding of its layer sat on its line in that round. */
+  crowded?: boolean
+}
+
+/**
+ * How many identities a thread keeps: the first (what was posted) and the
+ * most recent ones. A model rewords one issue a handful of ways; the cap
+ * only bounds the row.
+ */
+export const IDENTITY_HISTORY_CAP = 12
+
+const sameList = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((t, i) => t === b[i])
+
+/**
+ * The history with `v` added: the union, oldest first. A variant already
+ * held (same rule, line and title words, and no conflicting evidence hash)
+ * is not added again — it only gains `crowded` and a missing evidence hash.
+ * Over `IDENTITY_HISTORY_CAP` the oldest after the first are dropped. Pure.
+ */
+export function addIdentityVariant(
+  history: readonly IdentityVariant[],
+  v: IdentityVariant
+): IdentityVariant[] {
+  const out = history.map(h => ({ ...h }))
+  const same = out.find(
+    h =>
+      h.ruleId === v.ruleId &&
+      h.line === v.line &&
+      sameList([...h.titleTokens].sort(), [...v.titleTokens].sort()) &&
+      (h.evidenceHash === null ||
+        v.evidenceHash === null ||
+        h.evidenceHash === v.evidenceHash)
+  )
+  if (same) {
+    if (same.evidenceHash === null && v.evidenceHash !== null)
+      same.evidenceHash = v.evidenceHash
+    if (v.crowded) same.crowded = true
+    return out
+  }
+  out.push({
+    ruleId: v.ruleId,
+    line: v.line,
+    evidenceHash: v.evidenceHash,
+    titleTokens: [...v.titleTokens],
+    ...(v.crowded ? { crowded: true } : {}),
+  })
+  return out.length > IDENTITY_HISTORY_CAP
+    ? [out[0]!, ...out.slice(out.length - (IDENTITY_HISTORY_CAP - 1))]
+    : out
+}
+
+/**
+ * Fingerprints of the LLM-layer findings that share their layer, file and
+ * line with another one: reported together in one round, the same line does
+ * not make them one issue (`crowded`). Pure.
+ */
+export function crowdedFingerprints(
+  findings: ReadonlyArray<
+    Pick<
+      FindingIdentity,
+      'fingerprint' | 'ruleId' | 'provenance' | 'filePath' | 'line'
+    >
+  >
+): Set<string> {
+  const at = new Map<string, string[]>()
+  for (const f of findings) {
+    if (f.provenance !== 'LLM_JUDGE' || f.line === null) continue
+    const k = JSON.stringify([layer(f.ruleId), f.filePath, f.line])
+    const list = at.get(k)
+    if (list) list.push(f.fingerprint)
+    else at.set(k, [f.fingerprint])
+  }
+  const out = new Set<string>()
+  for (const fps of at.values())
+    if (new Set(fps).size > 1) for (const fp of fps) out.add(fp)
+  return out
+}
+
+/** Options of the same-issue match. */
+export interface SameIssueOptions {
+  /**
+   * `prev` is a thread's identity from an earlier round and `next` a finding
+   * of this one: the same layer on the same code is one issue
+   * (LUM-1127 follow-up #4). Off for findings of one round (grouping).
+   */
+  acrossRounds?: boolean
 }
 
 /**
@@ -231,13 +352,47 @@ function layer(ruleId: string): 'hunt' | 'judge' {
   return ruleId.startsWith('hunt:') ? 'hunt' : 'judge'
 }
 
+/** One stored variant read as an identity of the same thread. */
+function variantIdentity(
+  prev: FindingIdentity,
+  v: IdentityVariant
+): FindingIdentity {
+  return {
+    fingerprint: prev.fingerprint,
+    ruleId: v.ruleId,
+    provenance: prev.provenance,
+    filePath: prev.filePath,
+    line: v.line,
+    title: '',
+    evidence: null,
+    evidenceHash: v.evidenceHash,
+    titleTokens: v.titleTokens,
+    ...(prev.crowded ? { crowded: true } : {}),
+  }
+}
+
 /**
  * How strongly `next` continues `prev` as the same issue; null = it does not.
- * Higher is a better match (used to pick one successor per finding).
+ * Higher is a better match (used to pick one successor per finding). The
+ * best over `prev` and every identity in its `history`.
  */
 export function sameIssueScore(
   prev: FindingIdentity,
-  next: FindingIdentity
+  next: FindingIdentity,
+  opts: SameIssueOptions = {}
+): number | null {
+  let best = scoreOne(prev, next, opts)
+  for (const v of prev.history ?? []) {
+    const score = scoreOne(variantIdentity(prev, v), next, opts)
+    if (score !== null && (best === null || score > best)) best = score
+  }
+  return best
+}
+
+function scoreOne(
+  prev: FindingIdentity,
+  next: FindingIdentity,
+  opts: SameIssueOptions
 ): number | null {
   if (prev.provenance !== 'LLM_JUDGE' || next.provenance !== 'LLM_JUDGE')
     return null
@@ -261,9 +416,19 @@ export function sameIssueScore(
 
   // Different layers and related classes (checked above) on near lines.
   const crossLayerNear = layer(prev.ruleId) !== layer(next.ruleId) && near
+  // LUM-1127 follow-up #4: a later round of the same layer on the same code.
+  const sameLine =
+    opts.acrossRounds === true &&
+    layer(prev.ruleId) === layer(next.ruleId) &&
+    sameCode &&
+    !prev.crowded &&
+    !next.crowded
 
   const match =
-    (sameCode && (sameKind || similar)) || (near && similar) || crossLayerNear
+    sameLine ||
+    (sameCode && (sameKind || similar)) ||
+    (near && similar) ||
+    crossLayerNear
   if (!match) return null
   return (
     (sameEvidence ? 4 : 0) +
@@ -281,13 +446,14 @@ export function sameIssueScore(
  */
 export function matchSuccessors(
   previous: readonly FindingIdentity[],
-  current: readonly FindingIdentity[]
+  current: readonly FindingIdentity[],
+  opts: SameIssueOptions = {}
 ): Map<string, string> {
   const pairs: Array<{ prev: string; next: string; score: number }> = []
   for (const p of previous)
     for (const n of current) {
       if (p.fingerprint === n.fingerprint) continue
-      const score = sameIssueScore(p, n)
+      const score = sameIssueScore(p, n, opts)
       if (score !== null)
         pairs.push({ prev: p.fingerprint, next: n.fingerprint, score })
     }
