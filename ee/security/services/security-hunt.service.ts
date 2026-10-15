@@ -25,7 +25,7 @@ import { readRepoFile } from '@/lib/integrations/github/contents'
 import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import {
   redactKnownSecrets,
-  redactFindingText,
+  redactShellCommand,
   redactSummaryText,
   inheritDispositions,
   mechanicalVerify,
@@ -719,10 +719,12 @@ export const securityHuntService = {
     //     credential-keyed quoted values masked). The blanket pass masked
     //     plain prose from an apostrophe on (`I'll a…(len 156)`).
     //   · shell `cmd` — model-authored, but its quoted arguments are often
-    //     literals copied from what it read: the finding-prose pass
-    //     (`redactFindingText`) — `rg -n 'parseQuantity'` stays readable, a
-    //     credential-shaped literal is masked, and every quoted argument is
-    //     masked in a command that names a credential (`rg 'token=…'`).
+    //     literals copied from what it read: the command pass
+    //     (`redactShellCommand`, LUM-1200 follow-up #3) — `rg -n
+    //     'parseQuantity'` and `rg "export function checkSessionToken"` stay
+    //     readable; a credential-shaped literal, a credential key's value
+    //     (`rg 'token=…'`) and every quoted argument of a command that says a
+    //     credential word outside its quotes (`# the token`) are masked.
     //   · a refused command's `reason` — sandbox / tool output: the strict
     //     pass (`redactKnownSecrets`), unchanged.
     const trace: HuntStepTrace[] = []
@@ -845,7 +847,7 @@ export const securityHuntService = {
           const entryIndex = shell.commands.length
           if (entryIndex < HUNT_SHELL_LOG_MAX) {
             shell.commands.push({
-              cmd: redactFindingText(command).slice(0, HUNT_SHELL_LOG_CHARS),
+              cmd: redactShellCommand(command).slice(0, HUNT_SHELL_LOG_CHARS),
             })
           }
           const out = await runHuntShell({ handle, task: input.task, command })

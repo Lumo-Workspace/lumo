@@ -121,7 +121,10 @@ import {
   type ThreadCounts,
   type ThreadSyncContext,
 } from '@/ee/security/services/pr-finding-thread.service'
-import { groupSameIssue } from '@/ee/security/security-scan/issue-groups'
+import {
+  crossLayerNearMisses,
+  groupSameIssue,
+} from '@/ee/security/security-scan/issue-groups'
 import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
 import { issueAssessmentReviewService } from '@/ee/security/services/issue-assessment-review.service'
 import { requestChangesOffService } from '@/ee/security/services/request-changes-off.service'
@@ -1849,6 +1852,18 @@ export const securityPrReviewService = {
         isBlocking: f => isBlockingFinding(f, policy),
         resolvedByUser: threads.resolvedByUser,
       })
+      // LUM-1200 follow-up #3: a cross-layer pair just outside the line
+      // window keeps two threads; logged (rule ids and distance only) so the
+      // window can be tuned on real pairs.
+      const nearMisses = crossLayerNearMisses(
+        unrejected.filter(isInline),
+        issueGroups.mergedInto
+      )
+      if (nearMisses.length > 0)
+        logger.info(
+          'security-pr-review: cross-layer reports outside the same-issue window',
+          { scanId: scan.id, nearMisses }
+        )
       // LUM-1127: a thread a human resolved on GitHub closes a non-blocking
       // finding. A gate-blocking one stays open (and blocking) until it is
       // dispositioned in Lumo — resolving a conversation is not a decision.

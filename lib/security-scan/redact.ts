@@ -181,6 +181,7 @@ export function maskQuotedKeyedValues(text: string): string {
       (CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) &&
         !isPlaceholderValue(content)) ||
       assignsCredentialValue(content),
+    true,
     true
   )
 }
@@ -300,11 +301,181 @@ function assignsCredentialValue(content: string): boolean {
   if (values.length !== keyed) return true
   return values.some(v => !isPlaceholderValue(v))
 }
+/** A Markdown code fence (`maskQuotedKeyedValues` reads the block inside it as code). */
+const FENCE = '```'
+
+/**
+ * LUM-1200 follow-up #3 — the pass for a shell command the hunt model ran
+ * (`rg -A 10 "export function checkSessionToken" src`). `maskQuotedCredentials`
+ * masked every quoted argument once the command named a credential anywhere
+ * — and it reads identifiers word by word, so `checkSessionToken` named one:
+ * production (probe PR 65) recorded 12 search commands as `rg -A 10
+ * "expo…(len 33)"`. A command's quoted argument is a search pattern or a
+ * literal; it is masked only when:
+ * - it holds a redaction marker, or a piece of it is credential-shaped
+ *   (`isCredentialShapedToken`) or a long mixed-case random run
+ *   (`isRandomLettersToken`);
+ * - it is assigned to a credential key (`TOKEN="…"`, `password: '…'`,
+ *   `--api-key="…"`, `--password '…'`), or assigns one inside itself
+ *   (`'password=…'`, `"Authorization: Bearer …"`) with a real value; or
+ * - the command's UNQUOTED text says a credential word as a word of its own
+ *   (`# the token`, `--password`) — then every quoted argument is masked, as
+ *   before. Identifiers (`checkSessionToken`, `SESSION_TOKEN`), paths
+ *   (`src/token.ts`) and quoted search patterns (`"token"`) never count.
+ * Registry shapes are redacted before this pass runs, as for the others.
+ */
+export function maskQuotedCommandArgs(command: string): string {
+  if (CREDENTIAL_VOCAB_RE.test(standaloneWords(command))) {
+    return maskQuotedSpans(command, MASK_EVERY_SPAN, false)
+  }
+  return maskQuotedSpans(
+    command,
+    (content, before) =>
+      REDACTION_TOKEN_TEST_RE.test(content) ||
+      content
+        .split(/\s+/)
+        .some(t => isCredentialShapedToken(t) || isRandomLettersToken(t)) ||
+      ((CREDENTIAL_KEY_ASSIGN_BEFORE_RE.test(normalizeVocab(before)) ||
+        isCredentialFlagBefore(before)) &&
+        !isPlaceholderValue(content)) ||
+      assignsCredentialValue(content) ||
+      CREDENTIAL_KEY_STATED_RE.test(content.toLowerCase()),
+    false
+  )
+}
+
+/**
+ * Letters and digits both, and — when it holds a `/` (a path such as
+ * `src/v2/handlers` looks alike) — a letters+digits run of `MIN_MIXED_RUN`+.
+ */
+function isUnquotedKeyRun(run: string): boolean {
+  if (!/[A-Za-z]/.test(run) || !/\d/.test(run)) return false
+  if (!run.includes('/')) return true
+  return run
+    .split(/[^A-Za-z0-9]+/)
+    .some(r => r.length >= MIN_MIXED_RUN && /[A-Za-z]/.test(r) && /\d/.test(r))
+}
+
+/**
+ * A credential word stated as having a value inside a quoted argument
+ * (`echo "the password is hunter"`). Read on the raw lower-cased text, so a
+ * key inside an identifier (`checkSessionToken is called`) is no key.
+ */
+const CREDENTIAL_KEY_STATED_RE = new RegExp(
+  `\\b${CREDENTIAL_KEY_SOURCE}\\s+(?:is|was|equals)\\s+\\S`
+)
+
+/**
+ * The inside of a fenced code block (`maskQuotedKeyedValues`): its quoted
+ * values judged one by one as the pass judges any span, then every unquoted
+ * run that reads as a generated value masked too — a key / digest of
+ * `MIN_KEY_LEN`+ key-alphabet chars mixing letters and digits, or a long
+ * mixed-case random run. Code (`Math.random().toString(36)`,
+ * `new Uint8Array(32)`) stays readable.
+ */
+function maskFencedCode(
+  code: string,
+  shouldMask: (content: string, before: string) => boolean,
+  skipContractions: boolean
+): string {
+  return maskQuotedSpans(code, shouldMask, skipContractions, false).replace(
+    UNQUOTED_KEY_RUN_RE,
+    run =>
+      isUnquotedKeyRun(run) || isRandomLettersToken(run)
+        ? redactSecret(run)
+        : run
+  )
+}
+
+/**
+ * The words a command says outside its quoted arguments, lower-cased and
+ * space-joined — leaving out every argument that is a path or expression
+ * (holds `/` or `.`) or a code identifier (camelCase, `snake_case`, letters
+ * mixed with digits). `--api-key` reads as `api key`.
+ */
+function standaloneWords(command: string): string {
+  const words: string[] = []
+  for (const arg of unquotedText(command).split(/\s+/)) {
+    if (arg.length === 0 || /[/.]/.test(arg) || isIdentifierLike(arg)) continue
+    for (const w of arg.toLowerCase().split(/[^a-z0-9]+/))
+      if (w.length > 0) words.push(w)
+  }
+  return words.join(' ')
+}
+
+function isIdentifierLike(arg: string): boolean {
+  const word = arg.replace(/^[^A-Za-z0-9_$]+|[^A-Za-z0-9_$]+$/g, '')
+  return (
+    /[a-z][A-Z]/.test(word) ||
+    /[A-Za-z0-9]_[A-Za-z0-9]/.test(word) ||
+    (/[A-Za-z]/.test(word) && /\d/.test(word))
+  )
+}
+
+/** `command` with every quoted span (and an unterminated quote's tail) left out. */
+function unquotedText(command: string): string {
+  let out = ''
+  let i = 0
+  while (i < command.length) {
+    const ch = command[i]!
+    if (!isQuoteChar(ch)) {
+      out += ch
+      i += 1
+      continue
+    }
+    const close = findClosingQuote(command, i, ch)
+    if (close === -1) return out
+    out += ' '
+    i = close + 1
+  }
+  return out
+}
+
+/**
+ * A credential key, then an explicit assignment, ending the text before an
+ * opening quote: `TOKEN=`, `apiKey: `, `"password": `. Unlike
+ * `CREDENTIAL_KEY_BEFORE_RE`, a key with no operator (`checkSessionToken "…"`)
+ * is not an assignment.
+ */
+const CREDENTIAL_KEY_ASSIGN_BEFORE_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)["'\`]?\\s*(?:=>|=|:)\\s*$`
+)
+
+/** A credential-named flag right before the quote: `--password '…'`, `--api-key="…"`. */
+function isCredentialFlagBefore(before: string): boolean {
+  const m = /(?:^|\s)--?([A-Za-z][A-Za-z0-9_-]*)(?:=|\s+)$/.exec(before)
+  if (!m) return false
+  return new RegExp(`(?:^| )(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)$`).test(
+    normalizeVocab(m[1]!)
+  )
+}
+
+/** Shortest letters-only run read as a random value (`isRandomLettersToken`). */
+const MIN_RANDOM_LETTERS = 16
+
+/**
+ * A letters-only value of `MIN_RANDOM_LETTERS`+ chars whose case is mixed
+ * the way a random string's is — at least a quarter of it upper case and a
+ * quarter lower case (`QwErTyUiOpAsDfGhJk`) — where an identifier has one
+ * capital per word (`checkSessionToken`: 2 of 17).
+ */
+function isRandomLettersToken(raw: string): boolean {
+  const token = raw.replace(WRAPPING_PUNCT_RE, '')
+  if (token.length < MIN_RANDOM_LETTERS || !/^[A-Za-z]+$/.test(token))
+    return false
+  const upper = token.replace(/[^A-Z]/g, '').length
+  const lower = token.length - upper
+  return upper >= token.length / 4 && lower >= token.length / 4
+}
+
 /** Shortest mixed letters+digits run read as credential-shaped (`hunter2`-length passwords). */
 const MIN_MIXED_RUN = 6
 
 /** Shortest base64 / dashed key read as credential-shaped as a whole. */
 const MIN_KEY_LEN = 16
+
+/** An unquoted run of the key alphabet long enough to be a key (`maskFencedCode`). */
+const UNQUOTED_KEY_RUN_RE = new RegExp(`[A-Za-z0-9+/=_-]{${MIN_KEY_LEN},}`, 'g')
 
 /** The base64 / base64url / dashed-key alphabet, and nothing else. */
 const KEY_ALPHABET_RE = /^[A-Za-z0-9+/=_-]+$/
@@ -352,12 +523,28 @@ function isCredentialShapedToken(raw: string): boolean {
 function maskQuotedSpans(
   line: string,
   shouldMask: (content: string, before: string) => boolean,
-  skipContractions: boolean
+  skipContractions: boolean,
+  fences = false
 ): string {
   let out = ''
   let i = 0
   while (i < line.length) {
     const ch = line[i]!
+    if (fences && line.startsWith(FENCE, i)) {
+      // LUM-1200 follow-up #3 — a fenced code block is code, not one quoted
+      // span: its own quoted values are judged one by one. Unterminated, the
+      // rest of the text is the block (judged the same way).
+      const close = line.indexOf(FENCE, i + FENCE.length)
+      const inner = line.slice(
+        i + FENCE.length,
+        close === -1 ? undefined : close
+      )
+      out += `${FENCE}${maskFencedCode(inner, shouldMask, skipContractions)}`
+      if (close === -1) return out
+      out += FENCE
+      i = close + FENCE.length
+      continue
+    }
     if (
       !isQuoteChar(ch) ||
       (skipContractions && isContractionApostrophe(line, i))
@@ -373,7 +560,7 @@ function maskQuotedSpans(
       const firstIdx = line.indexOf(ch)
       // Ambiguous pairing: fall back to masking the whole region.
       if (firstIdx < i) {
-        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
+        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions, fences)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
       }
       return `${out}${maskOpenTail(ch, line.slice(i + 1))}`
     }

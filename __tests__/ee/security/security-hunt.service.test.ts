@@ -843,6 +843,45 @@ describe('LUM-739 hunt service', () => {
     ])
   })
 
+  // LUM-1200 follow-up #3 — production TC9 (lumo-agent-test#65 / #66): 12
+  // search commands were recorded as `rg -A 10 "expo…(len 33)"` (an
+  // identifier holding a credential word masked every quoted argument), and
+  // a fenced code block in the narration as one masked span.
+  it('huntBatch records identifier search patterns and fenced code readable, secrets masked', async () => {
+    shellMock.mockResolvedValue({ output: '', compressTokens: 0 })
+    const fenced =
+      'Looking at the code analysis:\n\n```typescript\nexport function createSession(user: string, now: number) {\n  const token = Math.random().toString(36).slice(2);\n  return token;\n}\n```\n\nThe vulnerability is clear.'
+    huntMock.mockImplementation(
+      async (input: {
+        runShell: (c: string) => Promise<unknown>
+        onStep: (s: HuntStepTrace) => void
+      }) => {
+        input.onStep({ i: 1, tool: 'run_shell', text: fenced })
+        await input.runShell(
+          'rg -A 10 "export function checkSessionToken" src/services/session-store.ts'
+        )
+        await input.runShell('grep -n "session/check|token" src/server.ts')
+        await input.runShell('TOKEN="correcthorsebattery" node check.js')
+        return {
+          candidates: [],
+          tokens: 10,
+          stopped: 'budget',
+          wrapUp: { ran: true, submitted: 0, text: fenced, tokens: 1 },
+        }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.trace[0]!.text).toBe(fenced)
+    expect(out.wrapUp!.text).toBe(fenced)
+    expect(out.shell.commands.map(c => c.cmd)).toEqual([
+      'rg -A 10 "export function checkSessionToken" src/services/session-store.ts',
+      'grep -n "session/check|token" src/server.ts',
+      'TOKEN="corr…(len 19)" node check.js',
+    ])
+  })
+
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
     // Three commands: one compressed, one under the threshold, one whose
     // compression was billed and then failed.
