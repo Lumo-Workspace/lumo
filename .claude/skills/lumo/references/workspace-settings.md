@@ -105,7 +105,7 @@ lumo workspace security-scan --repo acme/app --description-check off --confirm
 lumo workspace security-scan --repo acme/app --override-reviewers-only on
 ```
 
-- Override, per PR: a top-level PR comment `@uselumo ignore pre-merge checks` (write access) — recorded (who, when, head), shown as Ignored in the summary; it covers **every later push** to the PR (the recorded head is for the audit trail, it does not scope the override); it **never** clears a finding that blocks DONE. `--override-reviewers-only on` (`override_requested_reviewers_only` in `.lumo.yaml`): only a requested reviewer (named, not via a team; one who already reviewed counts) may, never the author. Off: the author may unless author approval is off.
+- Override, per PR: a top-level PR comment `@uselumo ignore pre-merge checks` (write access) — recorded (who, when, head), shown as Ignored in the summary; it covers **every later push** to the PR (the recorded head is for the audit trail, it does not scope the override); it **never** clears a finding that blocks DONE. `--override-reviewers-only on` (`override_requested_reviewers_only` in `.lumo.yaml`): only the PR's reviewers may — requested by name (not via a team), or who already submitted a review — never the author. Off: the author may unless author approval is off.
 - Switching a check off, or `--override-reviewers-only off`, exits 4 with an envelope until `--confirm`. `--repo X` lists the checks under the repository; `--json` adds `preMergeChecks`.
 - `.lumo.yaml` (`reviews.pre_merge_checks.{title,description,custom_checks,override_requested_reviewers_only}`) on the base commit overrides these per key; `custom_checks` replaces the whole list. Details: `docs/repo-config.md`.
 

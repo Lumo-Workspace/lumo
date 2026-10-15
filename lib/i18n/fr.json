@@ -2485,7 +2485,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Mode de la vérification",
   "workspaceSettings.repoReview.checks.addCustom": "Ajouter une vérification",
   "workspaceSettings.repoReview.checks.removeCustom": "Supprimer",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Seuls les relecteurs sollicités peuvent passer outre les vérifications (jamais l’auteur)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Seuls les relecteurs de la PR peuvent passer outre les vérifications : relecteurs sollicités ou personnes l’ayant déjà relue (jamais l’auteur)",
   "workspaceSettings.repoReview.checks.save": "Enregistrer les vérifications",
   "workspaceSettings.repoReview.style.toggle": "Style de revue",
   "workspaceSettings.repoReview.style.toggleAria": "Afficher le style de revue de {repo}",
