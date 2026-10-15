@@ -223,6 +223,22 @@ describe('every requirement gets an answer', () => {
     expect(title).toMatchObject({ verdict: 'passed', explanation: 'ok' })
   })
 
+  it('a second ask that re-answers an already-judged requirement never overrides it', () => {
+    const a = assessRequirements(REQS, [
+      { id: 'task:done:1', outcome: 'addressed', explanation: 'Yes.' },
+      { id: 'task:done:2', outcome: 'banana', explanation: '?' },
+      // Appended from the second ask:
+      { id: 'task:goal', outcome: 'unclear', explanation: 'A probe.' },
+      { id: 'task:done:1', outcome: 'not_addressed', explanation: 'Flip.' },
+      { id: 'task:done:2', outcome: 'not_addressed', explanation: 'No.' },
+    ])
+    expect(a.map(r => [r.id, r.outcome, r.explanation])).toEqual([
+      ['task:goal', 'unclear', 'A probe.'],
+      ['task:done:1', 'addressed', 'Yes.'],
+      ['task:done:2', 'not_addressed', 'No.'],
+    ])
+  })
+
   it('still missing after the second ask: reported as no outcome from the model', () => {
     const [goal] = assessRequirements(REQS, [])
     expect(goal!.explanation).toBe(NO_OUTCOME_EXPLANATION)

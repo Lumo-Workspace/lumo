@@ -335,14 +335,14 @@ export const preMergeChecksService = {
                 .map(p => ({ p, reqs: missing.get(p.id) }))
             )
             answers = withRequirementAnswers(answers, again.results)
+            logger.info(
+              `[pre-merge-checks] asked again ${where} ${[...missing.entries()].map(([id, rs]) => `${id}=${rs.map(r => r.id).join(',')}`).join(' ')}`
+            )
           } catch (error) {
             logger.info(
               `[pre-merge-checks] second ask failed ${where}: ${describe(error)}`
             )
           }
-          logger.info(
-            `[pre-merge-checks] asked again ${where} ${[...missing.entries()].map(([id, rs]) => `${id}=${rs.map(r => r.id).join(',')}`).join(' ')}`
-          )
         }
         return resultsFromAnswers(judged, answers, linked)
       }

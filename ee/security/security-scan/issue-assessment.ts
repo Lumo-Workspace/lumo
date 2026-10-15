@@ -324,15 +324,18 @@ export function assessRequirements(
     explanation?: string
   }>
 ): RequirementAssessment[] {
-  // A known outcome wins over an earlier unknown one for the same id (the
-  // service appends the answers to its second ask after the first's).
+  // The first known outcome for an id wins; a later answer replaces only an
+  // unknown one. The service appends its second ask's answers after the
+  // first's, so a second ask that re-answers an already-judged requirement
+  // never overrides it.
+  const isKnown = (o: string) =>
+    (REQUIREMENT_OUTCOMES as readonly string[]).includes(o)
   const byId = new Map<string, (typeof answers)[number]>()
   for (const a of answers) {
     const key = answerKey(a.id)
-    const known = (REQUIREMENT_OUTCOMES as readonly string[]).includes(
-      a.outcome
-    )
-    if (known || !byId.has(key)) byId.set(key, a)
+    const prior = byId.get(key)
+    if (!prior || (!isKnown(prior.outcome) && isKnown(a.outcome)))
+      byId.set(key, a)
   }
   return requirements.map(r => {
     const a = byId.get(answerKey(r.id))
