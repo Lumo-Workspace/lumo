@@ -105,6 +105,7 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
     `- \`${handle} configuration\` — show the effective review settings for this PR and where each comes from`,
     `- \`${handle} help\` — this list`,
+    `- \`${handle} <question>\` — ask about this PR's code; Lumo answers from the diff and the files (here, on a code line, or in reply to a Lumo finding)`,
     '',
     'Only accounts with write access to the repository can run commands. The PR’s author can run `resolve` and `approve` too, unless the workspace turned author approval off.',
   ].join('\n')

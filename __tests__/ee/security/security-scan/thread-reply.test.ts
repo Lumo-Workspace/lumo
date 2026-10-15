@@ -393,7 +393,8 @@ describe('replies', () => {
     expect(body).toMatch(/could not store a learning/)
   })
   it('acks are templates — the reply text never reaches them', () => {
-    expect(buildAckReply('QUESTION', 'a')).toMatch(/does not discuss findings/)
+    expect(buildAckReply('QUESTION', 'a')).toMatch(/reply with a question/)
+    expect(buildAckReply('QUESTION', 'a')).not.toMatch(/does not discuss/)
     expect(buildAckReply('DEFER', 'a')).toMatch(
       /resolves this thread on its own/
     )

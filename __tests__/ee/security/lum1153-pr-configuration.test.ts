@@ -62,6 +62,7 @@ import {
   type PrCommentEvent,
 } from '@/ee/security/services/pr-command.service'
 import { parsePrCommand } from '@/ee/security/services/pr-command-parse'
+import { routeConversationComment } from '@/ee/security/security-scan/pr-chat'
 import { prConfigurationService } from '@/ee/security/services/pr-configuration.service'
 import { clearRepoConfigCache } from '@/ee/security/services/repo-config.service'
 import {
@@ -158,6 +159,14 @@ describe('parse + help', () => {
       '`@uselumo configuration`'
     )
     expect(commandsBlock('@uselumo')).toContain('`@uselumo configuration`')
+    // LUM-1154: a known command is never routed to the question answerer.
+    expect(
+      routeConversationComment(
+        '@uselumo configuration',
+        '@uselumo',
+        parsePrCommand('@uselumo configuration', '@uselumo')
+      )
+    ).toBe('command')
   })
 })
 
