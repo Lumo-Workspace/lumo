@@ -229,3 +229,45 @@ test('LUM-1127 follow-up #2: the thread row keeps its finding identity (hashes) 
     })
   )
 })
+
+test('LUM-1127 follow-up #3: a carry is kept on the row (aliases), a resolved thread covers its aliases, and a merged duplicate row is deleted', async () => {
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-orig',
+    commentId: '800',
+  })
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-dup',
+    commentId: '801',
+  })
+  const byFp = async (fp: string) =>
+    (await repo.findByPullRequest('pr')).find(r => r.fingerprint === fp)
+  const orig = (await byFp('fp-orig'))!
+  // A row recorded before the column existed reads as "no aliases".
+  expect(orig.aliasFingerprints).toEqual([])
+  await repo.update(orig.id, {
+    aliasFingerprints: ['fp-relabelled', 'fp-dup'],
+    state: 'RESOLVED_BY_USER',
+    resolvedByLogin: 'alice',
+  })
+  expect((await byFp('fp-orig'))!.aliasFingerprints).toEqual([
+    'fp-relabelled',
+    'fp-dup',
+  ])
+  const resolved = await repo.findResolvedByUserFingerprints(['pr'])
+  expect(
+    ['fp-orig', 'fp-relabelled', 'fp-dup'].every(fp =>
+      resolved.get('pr')!.has(fp)
+    )
+  ).toBe(true)
+
+  await repo.delete((await byFp('fp-dup'))!.id)
+  expect(await byFp('fp-dup')).toBeUndefined()
+  // Deleting a row that is already gone is a no-op.
+  await expect(repo.delete('missing')).resolves.toBeUndefined()
+})

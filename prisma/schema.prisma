@@ -1638,6 +1638,11 @@ model PrFindingThread {
   identitySeverity     PrSecurityFindingSeverity?
   identityEvidenceHash String?
   identityTitleTokens  String[]                    @default([])
+  // LUM-1127 follow-up #3: the fingerprints this thread was carried to (the
+  // same issue relabelled by a later review), oldest first. `fingerprint`
+  // stays the thread's original (dispositions / learnings look it up); a
+  // finding under any of these already has this thread — never a new comment.
+  aliasFingerprints    String[]                    @default([])
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 
