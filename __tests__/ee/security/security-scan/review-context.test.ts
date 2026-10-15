@@ -89,6 +89,7 @@ describe('LUM-988 review context — packing rules', () => {
     expect(packReviewContext([file('yarn.lock', 10)])).toEqual({
       text: '',
       included: [],
+      bodies: {},
     })
   })
 })
@@ -202,13 +203,18 @@ describe('LUM-988 review context — in-flight reads on timeout', () => {
 
 describe('LUM-1150 packedFileBody', () => {
   it('returns each packed file exactly as read, null for one left out', () => {
+    // a.ts is packed first (smaller) and carries a line shaped like b.ts's
+    // block header — the text alone could not be split back reliably.
     const packed = packReviewContext([
-      { path: 'a.ts', body: 'const a = 1\n=== b.ts ===' },
-      { path: 'b.ts', body: 'export const b = 2\n' },
+      { path: 'a.ts', body: 'x\n=== b.ts ===\ny' },
+      { path: 'b.ts', body: 'export const b = 2 // the larger file\n' },
       { path: 'yarn.lock', body: 'x' },
     ])
-    expect(packedFileBody(packed, 'a.ts')).toBe('const a = 1\n=== b.ts ===')
-    expect(packedFileBody(packed, 'b.ts')).toBe('export const b = 2\n')
+    expect(packed.included).toEqual(['a.ts', 'b.ts'])
+    expect(packedFileBody(packed, 'a.ts')).toBe('x\n=== b.ts ===\ny')
+    expect(packedFileBody(packed, 'b.ts')).toBe(
+      'export const b = 2 // the larger file\n'
+    )
     expect(packedFileBody(packed, 'yarn.lock')).toBeNull()
     expect(packedFileBody({ text: '', included: [] }, 'a.ts')).toBeNull()
   })

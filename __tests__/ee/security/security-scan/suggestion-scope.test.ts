@@ -80,3 +80,53 @@ describe('LUM-1150 unknownSuggestionNames', () => {
     ).toEqual([])
   })
 })
+
+describe('LUM-1150 unknownSuggestionNames — what does not vouch for a name', () => {
+  it('a member name or object key elsewhere in the file is not a binding', () => {
+    const file = [
+      "import * as cp from 'child_process'",
+      'const run = (d: string) => cp.execFile("ls", [d])',
+    ].join('\n')
+    expect(
+      unknownSuggestionNames({
+        code: 'execFile("ls", [d])',
+        fileText: file,
+        filePath: 'a.ts',
+      })
+    ).toEqual(['execFile'])
+    expect(
+      unknownSuggestionNames({
+        code: 'cp.execFile("ls", [d])',
+        fileText: file,
+        filePath: 'a.ts',
+      })
+    ).toEqual([])
+  })
+
+  it('crypto is not a built-in: Node needs it imported for createHash', () => {
+    expect(
+      unknownSuggestionNames({
+        code: "crypto.createHash('sha256')",
+        fileText: 'export const x = 1',
+        filePath: 'a.ts',
+      })
+    ).toEqual(['crypto'])
+  })
+
+  it("another language's built-ins never vouch for a name", () => {
+    expect(
+      unknownSuggestionNames({
+        code: 'len(items)',
+        fileText: 'const items = []',
+        filePath: 'a.ts',
+      })
+    ).toEqual(['len'])
+    expect(
+      unknownSuggestionNames({
+        code: 'len(items)',
+        fileText: 'items = []',
+        filePath: 'a.py',
+      })
+    ).toEqual([])
+  })
+})

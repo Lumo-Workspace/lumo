@@ -86,6 +86,12 @@ export interface PackedReviewContext {
   text: string
   /** Paths packed, in prompt order. */
   included: string[]
+  /**
+   * LUM-1150 — each packed file's content by path (the suggestion scope
+   * check). Kept apart from `text`: a body may contain a line shaped like
+   * another file's `=== path ===` header, so `text` cannot be split back.
+   */
+  bodies?: Readonly<Record<string, string>>
 }
 
 function looksBinary(body: string): boolean {
@@ -122,43 +128,26 @@ export function packReviewContext(
     .sort(contextOrder)
   let text = ''
   const included: string[] = []
+  const bodies: Record<string, string> = {}
   for (const f of eligible) {
     const block = `=== ${f.path} ===\n${f.body}\n`
     if (text.length + block.length > maxChars) continue
     text += block
     included.push(f.path)
+    bodies[f.path] = f.body
   }
-  return { text, included }
+  return { text, included, bodies }
 }
 
 /**
  * PURE — LUM-1150: one packed file's content, as read at the PR head, or null
- * when it was not packed. Walks the blocks in `included` order, the order
- * `packReviewContext` wrote them.
+ * when it was not packed (or the context predates `bodies`).
  */
 export function packedFileBody(
   packed: PackedReviewContext,
   path: string
 ): string | null {
-  const index = packed.included.indexOf(path)
-  if (index === -1) return null
-  let at = 0
-  for (let k = 0; k < packed.included.length; k++) {
-    const header = `=== ${packed.included[k]} ===\n`
-    if (!packed.text.startsWith(header, at)) return null
-    const start = at + header.length
-    const nextHeader =
-      k + 1 < packed.included.length
-        ? `\n=== ${packed.included[k + 1]} ===\n`
-        : null
-    const end = nextHeader
-      ? packed.text.indexOf(nextHeader, start)
-      : packed.text.length - 1
-    if (end < start) return null
-    if (k === index) return packed.text.slice(start, end)
-    at = end + 1
-  }
-  return null
+  return packed.bodies?.[path] ?? null
 }
 
 export interface LoadedReviewContext extends PackedReviewContext {

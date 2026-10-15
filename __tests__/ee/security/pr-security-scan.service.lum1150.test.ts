@@ -388,6 +388,7 @@ describe('LUM-1150 stage A drops a suggestion that would not compile', () => {
     ;(reviewContextService.load as jest.Mock).mockResolvedValue({
       text: `=== src/run.ts ===\n${RUN_FILE.join('\n')}\n`,
       included: ['src/run.ts'],
+      bodies: { 'src/run.ts': RUN_FILE.join('\n') },
       error: null,
     })
     ;(judge.judgeSecurity as jest.Mock).mockResolvedValue(

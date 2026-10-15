@@ -7,9 +7,10 @@
  * suggested in a file importing only `exec`). This is a cheap lexical check,
  * not a compiler: it lists the names the suggestion CALLS (`foo(`) or uses as
  * a member-access root (`foo.bar`) that are neither
- *   · anywhere in the file's code (comments and strings stripped),
+ *   · bound anywhere in the file's code (comments and strings stripped; a
+ *     member name after `.` is not a binding),
  *   · declared by the suggestion itself (an import, a const, a parameter…),
- *   · nor a language keyword or built-in.
+ *   · nor a keyword or a built-in of the file's language.
  * Any name listed ⇒ the caller drops the suggestion (the comment stays). It
  * errs towards dropping: when only the PR's added lines of the file are
  * known, an import outside them reads as unknown.
@@ -20,269 +21,59 @@ const IDENT = '[A-Za-z_$][\\w$]*'
 /** Languages whose line comments start with `#` (and have no `//`). */
 const HASH_COMMENT_FILE = /\.(py|pyi|rb|sh|bash|zsh|ya?ml|toml|r|pl|ex|exs)$/i
 
-const KEYWORDS = new Set([
-  // JS / TS
-  'if',
-  'else',
-  'for',
-  'while',
-  'do',
-  'switch',
-  'case',
-  'catch',
-  'try',
-  'finally',
-  'return',
-  'throw',
-  'typeof',
-  'instanceof',
-  'in',
-  'of',
-  'new',
-  'delete',
-  'void',
-  'function',
-  'class',
-  'extends',
-  'super',
-  'this',
-  'await',
-  'async',
-  'yield',
-  'import',
-  'export',
-  'from',
-  'as',
-  'const',
-  'let',
-  'var',
-  'type',
-  'interface',
-  'enum',
-  'satisfies',
-  'keyof',
-  'readonly',
-  'declare',
-  'with',
-  'true',
-  'false',
-  'null',
-  'undefined',
-  'NaN',
-  'Infinity',
-  // Python
-  'def',
-  'elif',
-  'lambda',
-  'and',
-  'or',
-  'not',
-  'is',
-  'assert',
-  'pass',
-  'raise',
-  'except',
-  'global',
-  'nonlocal',
-  'None',
-  'True',
-  'False',
-  'self',
-  'cls',
-  'print',
-  // Go / Rust / Java / C-family
-  'func',
-  'fn',
-  'go',
-  'defer',
-  'chan',
-  'select',
-  'range',
-  'match',
-  'impl',
-  'sizeof',
-  'struct',
-  'package',
-  'public',
-  'private',
-  'protected',
-  'static',
-])
+const words = (list: string): Set<string> => new Set(list.split(/\s+/))
 
-const BUILTINS = new Set([
-  // JS / TS / Node / web
-  'Array',
-  'Object',
-  'String',
-  'Number',
-  'Boolean',
-  'Symbol',
-  'BigInt',
-  'Map',
-  'Set',
-  'WeakMap',
-  'WeakSet',
-  'WeakRef',
-  'Promise',
-  'Error',
-  'TypeError',
-  'RangeError',
-  'SyntaxError',
-  'ReferenceError',
-  'AggregateError',
-  'Date',
-  'RegExp',
-  'JSON',
-  'Math',
-  'Reflect',
-  'Proxy',
-  'Intl',
-  'URL',
-  'URLSearchParams',
-  'fetch',
-  'setTimeout',
-  'clearTimeout',
-  'setInterval',
-  'clearInterval',
-  'setImmediate',
-  'queueMicrotask',
-  'structuredClone',
-  'parseInt',
-  'parseFloat',
-  'isNaN',
-  'isFinite',
-  'encodeURIComponent',
-  'decodeURIComponent',
-  'encodeURI',
-  'decodeURI',
-  'require',
-  'module',
-  'exports',
-  'Buffer',
-  'console',
-  'process',
-  'globalThis',
-  'window',
-  'document',
-  'atob',
-  'btoa',
-  'AbortController',
-  'AbortSignal',
-  'TextEncoder',
-  'TextDecoder',
-  'Headers',
-  'Request',
-  'Response',
-  'FormData',
-  'Blob',
-  'ArrayBuffer',
-  'Uint8Array',
-  'Int32Array',
-  'Float64Array',
-  'DataView',
-  'crypto',
-  'performance',
-  'Event',
-  'EventTarget',
-  'Iterator',
-  'Record',
-  'Partial',
-  'Pick',
-  'Omit',
-  'Readonly',
-  'ReturnType',
-  // Python
-  'len',
-  'range',
-  'str',
-  'int',
-  'float',
-  'bool',
-  'list',
-  'dict',
-  'set',
-  'tuple',
-  'bytes',
-  'open',
-  'isinstance',
-  'issubclass',
-  'getattr',
-  'setattr',
-  'hasattr',
-  'enumerate',
-  'zip',
-  'map',
-  'filter',
-  'sorted',
-  'reversed',
-  'min',
-  'max',
-  'sum',
-  'abs',
-  'any',
-  'all',
-  'repr',
-  'iter',
-  'next',
-  'round',
-  'format',
-  'id',
-  'hash',
-  'input',
-  'object',
-  'vars',
-  'dir',
-  'callable',
-  'divmod',
-  'pow',
-  'ord',
-  'chr',
-  'hex',
-  'bin',
-  'frozenset',
-  'slice',
-  'staticmethod',
-  'classmethod',
-  'property',
-  'ValueError',
-  'KeyError',
-  'IndexError',
-  'Exception',
-  'RuntimeError',
-  'AttributeError',
-  'OSError',
-  'NotImplementedError',
-  'StopIteration',
-  // Go
-  'make',
-  'cap',
-  'append',
-  'copy',
-  'panic',
-  'recover',
-  'close',
-  'println',
-  'complex',
-  'real',
-  'imag',
-  'clear',
-  'string',
-  'byte',
-  'rune',
-  'error',
-  'int8',
-  'int16',
-  'int32',
-  'int64',
-  'uint',
-  'uint8',
-  'uint16',
-  'uint32',
-  'uint64',
-  'uintptr',
-  'float32',
-  'float64',
-])
+/** Never a name to look up, in any language checked here. */
+const KEYWORDS = words(`
+  if else for while do switch case catch try finally return throw typeof
+  instanceof in of new delete void function class extends super this await
+  async yield import export from as const let var type interface enum
+  satisfies keyof readonly declare with true false null undefined NaN
+  Infinity def elif lambda and or not is assert pass raise except global
+  nonlocal None True False self cls func fn go defer chan select range match
+  impl sizeof struct package public private protected static
+`)
+
+const JS_BUILTINS = `
+  Array Object String Number Boolean Symbol BigInt Map Set WeakMap WeakSet
+  WeakRef Promise Error TypeError RangeError SyntaxError ReferenceError
+  AggregateError Date RegExp JSON Math Reflect Proxy Intl URL URLSearchParams
+  fetch setTimeout clearTimeout setInterval clearInterval setImmediate
+  queueMicrotask structuredClone parseInt parseFloat isNaN isFinite
+  encodeURIComponent decodeURIComponent encodeURI decodeURI require module
+  exports Buffer console process globalThis window document atob btoa
+  AbortController AbortSignal TextEncoder TextDecoder Headers Request
+  Response FormData Blob ArrayBuffer Uint8Array Int32Array Float64Array
+  DataView performance Event EventTarget Record Partial Pick Omit Readonly
+  ReturnType
+`
+const PY_BUILTINS = `
+  print len range str int float bool list dict set tuple bytes open
+  isinstance issubclass getattr setattr hasattr enumerate zip map filter
+  sorted reversed min max sum abs any all repr iter next round format id
+  hash input object vars dir callable divmod pow ord chr hex bin frozenset
+  slice staticmethod classmethod property ValueError KeyError IndexError
+  Exception RuntimeError AttributeError OSError NotImplementedError
+  StopIteration TypeError
+`
+const GO_BUILTINS = `
+  make len cap append copy delete new panic recover close print println
+  complex real imag min max clear string byte rune error int int8 int16
+  int32 int64 uint uint8 uint16 uint32 uint64 uintptr float32 float64 bool
+`
+
+const JS_FILE = /\.(m|c)?(j|t)sx?$|\.(vue|svelte|astro)$/i
+
+/**
+ * The built-ins of the file's language, so a Python `len` never vouches for
+ * a TypeScript call. An unrecognised language gets the union (lenient).
+ */
+function builtinsFor(filePath: string): Set<string> {
+  if (JS_FILE.test(filePath)) return words(JS_BUILTINS)
+  if (/\.pyi?$/i.test(filePath)) return words(PY_BUILTINS)
+  if (/\.go$/i.test(filePath)) return words(GO_BUILTINS)
+  return words(`${JS_BUILTINS} ${PY_BUILTINS} ${GO_BUILTINS}`)
+}
 
 /**
  * The code with comments and string / template contents blanked (same
@@ -403,9 +194,14 @@ export function unknownSuggestionNames(input: {
   filePath: string
 }): string[] {
   const code = stripCommentsAndStrings(input.code, input.filePath)
+  // A name after `.` is a member (`child.execFile`), not a binding the
+  // suggestion could call bare.
   const known = new Set(
-    identifiersIn(stripCommentsAndStrings(input.fileText, input.filePath))
+    stripCommentsAndStrings(input.fileText, input.filePath).match(
+      new RegExp(`(?<![\\w$.])${IDENT}`, 'g')
+    ) ?? []
   )
+  const builtins = builtinsFor(input.filePath)
   const declared = declaredBy(code)
   const used = new Set<string>()
   // Not after `.` (a member), `#` (a private field), `@` (a decorator is a
@@ -422,7 +218,7 @@ export function unknownSuggestionNames(input: {
     .filter(
       name =>
         !KEYWORDS.has(name) &&
-        !BUILTINS.has(name) &&
+        !builtins.has(name) &&
         !known.has(name) &&
         !declared.has(name)
     )
