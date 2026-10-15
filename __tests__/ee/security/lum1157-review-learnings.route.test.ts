@@ -3,7 +3,8 @@
  *
  * LUM-1157: GET /api/workspaces/me/security-scan/learnings through the real
  * service — pinned to the caller's workspace, optional `repo`, a malformed
- * `repo` is 400, a learning with no project is listed (inProject false).
+ * `repo` is 400, a learning with no project is listed (inProject false), and one
+ * whose content is unreadable is listed rather than dropped.
  */
 jest.mock('@/lib/auth/identity', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/ee/security/repositories/pr-review-learning.repository', () => ({
@@ -55,7 +56,7 @@ beforeEach(() => {
   ])
 })
 
-it('lists the workspace learnings, a project-less one included', async () => {
+it('lists the workspace learnings, a project-less and an unreadable one included', async () => {
   const res = await GET(new NextRequest(URL))
   expect(res.status).toBe(200)
   expect(list).toHaveBeenCalledWith('ws_1', null, 200)
@@ -71,6 +72,18 @@ it('lists the workspace learnings, a project-less one included', async () => {
         repositoryWide: false,
         inProject: false,
         createdAt: '2026-10-16T08:00:00.000Z',
+      },
+      // Unreadable content is still listed (deletable), not dropped.
+      {
+        id: 'mem-bad',
+        repo: 'acme/app',
+        pathGlob: null,
+        learning: '(content not readable as a learning)',
+        ruleId: 'judge:y',
+        authorLogin: 'bob',
+        repositoryWide: false,
+        inProject: true,
+        createdAt: '2026-10-15T08:00:00.000Z',
       },
     ],
   })

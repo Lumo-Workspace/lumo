@@ -162,6 +162,9 @@ export async function promoteLearningsOnMerge(
 /** LUM-1157 — at most this many learnings are listed. */
 export const REVIEW_LEARNINGS_LIST_LIMIT = 200
 
+/** Listed in place of a learning whose memory no longer has learning content. */
+export const UNREADABLE_LEARNING = '(content not readable as a learning)'
+
 export interface ReviewLearningView {
   /** The learning's memory id — `lumo memory rm <id>` deletes it. */
   id: string
@@ -192,21 +195,22 @@ export async function listReviewLearnings(
     repo,
     REVIEW_LEARNINGS_LIST_LIMIT
   )
-  const learnings: ReviewLearningView[] = []
-  for (const r of rows) {
+  // A row whose content no longer reads as a learning is still listed (the
+  // review skips it, but it can be found and deleted) — never dropped after
+  // the cap, which would hide newer learnings behind it.
+  const learnings: ReviewLearningView[] = rows.map(r => {
     const parsed = conventionContentSchema.safeParse(r.content)
-    if (!parsed.success) continue
-    learnings.push({
+    return {
       id: r.memoryId,
       repo: r.repo,
       pathGlob: r.pathGlob,
-      learning: parsed.data.rule,
+      learning: parsed.success ? parsed.data.rule : UNREADABLE_LEARNING,
       ruleId: r.ruleId,
       authorLogin: r.authorLogin,
       repositoryWide: r.repoWideAt !== null,
       inProject: r.projectId !== null,
       createdAt: r.createdAt.toISOString(),
-    })
-  }
+    }
+  })
   return { learnings }
 }
