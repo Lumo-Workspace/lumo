@@ -169,3 +169,63 @@ test('the scan row keeps judgeReviewScope as JSON', async () => {
   )
   expect(rows[0]!.judgeReviewScope).toEqual(['a.ts'])
 })
+
+test('LUM-1127 follow-up #2: the thread row keeps its finding identity (hashes) across re-points and updates', async () => {
+  await repo.upsert({ ...base, fingerprint: 'fp-legacy', commentId: '700' })
+  const identity = {
+    identityRuleId: 'review:data_integrity',
+    identityLine: 30,
+    identitySeverity: 'MEDIUM' as const,
+    identityEvidenceHash: '0123456789abcdef0123456789abcdef',
+    identityTitleTokens: ['aaa111', 'bbb222'],
+  }
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-ident',
+    commentId: '701',
+    ...identity,
+  })
+  const byFp = async (fp: string) =>
+    (await repo.findByPullRequest('pr')).find(r => r.fingerprint === fp)!
+  // A row recorded without an identity reads as "not recorded".
+  expect(await byFp('fp-legacy')).toEqual(
+    expect.objectContaining({
+      identityRuleId: null,
+      identityLine: null,
+      identitySeverity: null,
+      identityEvidenceHash: null,
+      identityTitleTokens: [],
+    })
+  )
+  expect(await byFp('fp-ident')).toEqual(expect.objectContaining(identity))
+
+  // Re-pointed without an identity: the recorded one stays.
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-ident',
+    commentId: '702',
+  })
+  expect(await byFp('fp-ident')).toEqual(
+    expect.objectContaining({ commentId: '702', ...identity })
+  )
+
+  // Carried to a relabelled finding: the identity moves on.
+  const row = await byFp('fp-ident')
+  await repo.update(row.id, {
+    identityRuleId: 'review:logic_error',
+    identityLine: 31,
+    identityTitleTokens: ['ccc333'],
+  })
+  expect(await byFp('fp-ident')).toEqual(
+    expect.objectContaining({
+      identityRuleId: 'review:logic_error',
+      identityLine: 31,
+      identitySeverity: 'MEDIUM',
+      identityTitleTokens: ['ccc333'],
+    })
+  )
+})

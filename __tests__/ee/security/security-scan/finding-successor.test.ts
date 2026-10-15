@@ -3,10 +3,16 @@
  * thread open when the AI review reports the same issue under a new
  * fingerprint (prod probe PR 52: `review:doc_mismatch` → `review:api_misuse`).
  */
+import { createHash } from 'node:crypto'
 import {
+  evidenceHash,
+  hashIdentity,
+  identityKeyId,
+  isKeyedWith,
   matchSuccessors,
   sameIssueScore,
   titleSimilarity,
+  titleTokens,
   type FindingIdentity,
 } from '@/ee/security/security-scan/finding-successor'
 
@@ -248,5 +254,111 @@ describe('matchSuccessors', () => {
 
   it('never pairs a fingerprint with itself', () => {
     expect(matchSuccessors([id()], [id()])).toEqual(new Map())
+  })
+})
+
+/**
+ * LUM-1127 follow-up #2 — a thread row keeps its finding's identity as
+ * keyed hashes (no code, no title); matching the hashed forms scores exactly
+ * as matching the text.
+ */
+describe('hashed identity (stored on the thread row)', () => {
+  const KEY = 'test-identity-key'
+  const hashed = (f: FindingIdentity) => hashIdentity(f, KEY)
+
+  it('evidenceHash normalises whitespace like the fingerprint; empty → null', () => {
+    expect(evidenceHash('  return  JSON.parse(raw) ', KEY)).toBe(
+      evidenceHash('return JSON.parse(raw)', KEY)
+    )
+    expect(evidenceHash('', KEY)).toBeNull()
+    expect(evidenceHash(null, KEY)).toBeNull()
+  })
+
+  it('titleTokens: order-free, plural-folded, no plain words', () => {
+    expect(titleTokens('errors swallowed', KEY)).toEqual(
+      titleTokens('swallowed error', KEY)
+    )
+    expect(titleTokens('parseQuantity result', KEY).join(' ')).not.toMatch(
+      /parse|result/
+    )
+    expect(titleTokens('the of', KEY)).toEqual([])
+  })
+
+  it('keyed: another key gives other hashes, and the key id tells them apart', () => {
+    const a = titleTokens('session token', KEY)
+    const b = titleTokens('session token', 'other-key')
+    expect(a).not.toEqual(b)
+    // A plain (unkeyed) hash of one word is not what is stored.
+    expect(a.join(' ')).not.toContain(
+      createHash('sha256').update('w:session').digest('hex').slice(0, 16)
+    )
+    const e = evidenceHash('return x', KEY)
+    expect(isKeyedWith({ evidenceHash: e, titleTokens: a }, KEY)).toBe(true)
+    expect(isKeyedWith({ evidenceHash: e, titleTokens: b }, KEY)).toBe(false)
+    expect(isKeyedWith({ evidenceHash: null, titleTokens: [] }, KEY)).toBe(true)
+    expect(identityKeyId(KEY)).not.toBe(identityKeyId('other-key'))
+  })
+
+  it.each([
+    [
+      'same evidence, new rule',
+      id({ fingerprint: 'new', ruleId: 'review:api_misuse' }),
+    ],
+    [
+      'one line apart, similar title',
+      id({
+        fingerprint: 'new',
+        ruleId: 'review:logic_error',
+        line: 4,
+        evidence: 'other',
+        title: 'console.log used in scripts folder',
+      }),
+    ],
+    [
+      'different issue',
+      id({
+        fingerprint: 'new',
+        ruleId: 'review:error_handling',
+        line: 9,
+        evidence: 'await run(dir)',
+        title: 'Rejected promise from run is never handled',
+      }),
+    ],
+  ])('%s: hashed identities score as the plain ones', (_label, next) => {
+    expect(sameIssueScore(hashed(id()), hashed(next))).toBe(
+      sameIssueScore(id(), next)
+    )
+  })
+
+  it('hashIdentity leaves an already-hashed identity as it is', () => {
+    const h = hashed(id())
+    expect(hashIdentity(h, KEY)).toBe(h)
+  })
+
+  it('PR 60: the relabelled parseQuantity finding continues the stored identity', () => {
+    const prev = hashed(
+      id({
+        fingerprint: 'fp-data',
+        ruleId: 'review:data_integrity',
+        filePath: 'src/probe/session.ts',
+        line: 30,
+        title:
+          'parseQuantity returns unvalidated JSON.parse result typed as number',
+        evidence: 'return JSON.parse(raw)',
+      })
+    )
+    const next = hashed(
+      id({
+        fingerprint: 'fp-logic',
+        ruleId: 'review:logic_error',
+        filePath: 'src/probe/session.ts',
+        line: 31,
+        title: 'parseQuantity returns unvalidated JSON.parse result',
+        evidence: '  return JSON.parse(raw) as number',
+      })
+    )
+    expect(matchSuccessors([prev], [next])).toEqual(
+      new Map([['fp-data', 'fp-logic']])
+    )
   })
 })

@@ -31,6 +31,7 @@
  * Each earlier finding is matched to at most one current finding and vice
  * versa, best match first.
  */
+import { createHash, createHmac } from 'node:crypto'
 import { classMatch } from '@/ee/security/security-scan/issue-classes'
 
 export interface FindingIdentity {
@@ -44,6 +45,14 @@ export interface FindingIdentity {
   severity?: 'LOW' | 'MEDIUM' | 'HIGH'
   /** The quoted (redacted) evidence line; null = not known. */
   evidence: string | null
+  /**
+   * LUM-1127 follow-up #2 — a stored identity keeps no code: the quoted line
+   * as `evidenceHash` and the title as `titleTokens` (`hashIdentity`, keyed).
+   * When present they stand in for `evidence` / `title`; both sides of a
+   * comparison must then be hashed with the same key.
+   */
+  evidenceHash?: string | null
+  titleTokens?: readonly string[]
 }
 
 /** Lines apart two findings may sit and still be one issue (with a similar title). */
@@ -92,17 +101,13 @@ function titleWords(title: string): Set<string> {
 const MIN_SHARED_WORDS = 3
 
 /**
- * How alike two titles are, 0…1: the Jaccard overlap of their content
- * words, or — once they share `MIN_SHARED_WORDS` — the share of the shorter
- * title's words the other holds, whichever is higher. The hunt states its
- * claim as a long sentence while the AI review names the issue in a few
- * words (probe PR 60: "Session token generated with Math.random despite
- * comment claiming CSPRNG" vs a 16-word hunt claim sharing five of its nine
- * words — Jaccard 0.25), so Jaccard alone never matched the two layers.
+ * `titleSimilarity` over two word sets — plain words, or their hashes
+ * (`titleTokens`): hashing keeps the counts, so the score is the same.
  */
-export function titleSimilarity(a: string, b: string): number {
-  const wa = titleWords(a)
-  const wb = titleWords(b)
+function wordSimilarity(
+  wa: ReadonlySet<string>,
+  wb: ReadonlySet<string>
+): number {
   if (wa.size === 0 || wb.size === 0) return 0
   let shared = 0
   for (const w of wa) if (wb.has(w)) shared += 1
@@ -112,9 +117,102 @@ export function titleSimilarity(a: string, b: string): number {
   return Math.max(jaccard, coverage)
 }
 
-function normEvidence(e: string | null): string {
-  return (e ?? '').replace(/\s+/g, ' ').trim()
+/**
+ * How alike two titles are, 0…1: the Jaccard overlap of their content
+ * words, or — once they share `MIN_SHARED_WORDS` — the share of the shorter
+ * title's words the other holds, whichever is higher. The hunt states its
+ * claim as a long sentence while the AI review names the issue in a few
+ * words (probe PR 60: "Session token generated with Math.random despite
+ * comment claiming CSPRNG" vs a 16-word hunt claim sharing five of its nine
+ * words — Jaccard 0.25), so Jaccard alone never matched the two layers.
+ */
+export function titleSimilarity(a: string, b: string): number {
+  return wordSimilarity(titleWords(a), titleWords(b))
 }
+
+/**
+ * The id of an identity key: tags every keyed hash, so a hash made with
+ * another key (a rotated secret) is recognised instead of silently failing
+ * to match.
+ */
+export function identityKeyId(key: string): string {
+  return createHash('sha256')
+    .update(`lumo-finding-identity-key:${key}`)
+    .digest('hex')
+    .slice(0, 8)
+}
+
+const keyed = (key: string, text: string, length: number): string =>
+  `${identityKeyId(key)}.${createHmac('sha256', `lumo-finding-identity:${key}`)
+    .update(text)
+    .digest('hex')
+    .slice(0, length)}`
+
+/**
+ * A title's content words, each keyed-hashed (sorted, deduplicated): what a
+ * thread row stores so the title can be compared (`titleSimilarity` gives
+ * the same overlap on these — hashing keeps the counts) without keeping the
+ * model's wording of customer code. Keyed (HMAC with a server secret): one
+ * word alone is too guessable for a plain hash.
+ */
+export function titleTokens(title: string, key: string): string[] {
+  return [
+    ...new Set([...titleWords(title)].map(w => keyed(key, `w:${w}`, 16))),
+  ].sort()
+}
+
+function normEvidence(evidence: string | null): string {
+  return (evidence ?? '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * The quoted evidence line, whitespace-normalised (as the AI review's
+ * fingerprint normalises it) and keyed-hashed. Null when nothing was quoted.
+ */
+export function evidenceHash(
+  evidence: string | null,
+  key: string
+): string | null {
+  const line = normEvidence(evidence)
+  return line.length === 0 ? null : keyed(key, `e:${line}`, 32)
+}
+
+/** Was every hash of this stored identity made with `key`? */
+export function isKeyedWith(
+  hashes: { evidenceHash: string | null; titleTokens: readonly string[] },
+  key: string
+): boolean {
+  const prefix = `${identityKeyId(key)}.`
+  return (
+    (hashes.evidenceHash === null || hashes.evidenceHash.startsWith(prefix)) &&
+    hashes.titleTokens.every(t => t.startsWith(prefix))
+  )
+}
+
+/**
+ * The identity in its stored (hashed) form, for comparing with stored ones.
+ * Hashes once per identity — not once per compared pair.
+ */
+export function hashIdentity(f: FindingIdentity, key: string): FindingIdentity {
+  if (f.titleTokens !== undefined && f.evidenceHash !== undefined) return f
+  return {
+    ...f,
+    title: '',
+    evidence: null,
+    evidenceHash: f.evidenceHash ?? evidenceHash(f.evidence, key),
+    titleTokens: f.titleTokens ?? titleTokens(f.title, key),
+  }
+}
+
+/** Plain identities compare their text; hashed ones their hashes. */
+const evidenceKeyOf = (f: FindingIdentity): string | null => {
+  if (f.evidenceHash !== undefined) return f.evidenceHash
+  const line = normEvidence(f.evidence)
+  return line.length === 0 ? null : line
+}
+
+const titleKeyOf = (f: FindingIdentity): ReadonlySet<string> =>
+  f.titleTokens !== undefined ? new Set(f.titleTokens) : titleWords(f.title)
 
 function layer(ruleId: string): 'hunt' | 'judge' {
   return ruleId.startsWith('hunt:') ? 'hunt' : 'judge'
@@ -135,8 +233,8 @@ export function sameIssueScore(
   const classes = classMatch(prev.ruleId, next.ruleId)
   if (layer(prev.ruleId) !== layer(next.ruleId) && classes === null) return null
 
-  const ev = normEvidence(prev.evidence)
-  const sameEvidence = ev.length > 0 && ev === normEvidence(next.evidence)
+  const ev = evidenceKeyOf(prev)
+  const sameEvidence = ev !== null && ev === evidenceKeyOf(next)
   const distance =
     prev.line !== null && next.line !== null
       ? Math.abs(prev.line - next.line)
@@ -144,7 +242,7 @@ export function sameIssueScore(
   const sameCode = sameEvidence || distance === 0
   const near =
     sameCode || (distance !== null && distance <= SUCCESSOR_LINE_WINDOW)
-  const similarity = titleSimilarity(prev.title, next.title)
+  const similarity = wordSimilarity(titleKeyOf(prev), titleKeyOf(next))
   const similar = similarity >= SUCCESSOR_TITLE_SIMILARITY
   const sameKind = sameRule || classes === 'exact'
 

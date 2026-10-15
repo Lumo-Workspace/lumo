@@ -51,11 +51,20 @@ import {
   isLumoActor,
   layerCoveredFile,
   layerOf,
+  findingIdentityKey,
+  planIdentityWrites,
   planThreadActions,
   prFindingThreadService,
+  storedIdentityOf,
+  threadIdentityOf,
   type ThreadSyncContext,
 } from '@/ee/security/services/pr-finding-thread.service'
 import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
+import { logger } from '@/lib/logger'
+import {
+  evidenceHash,
+  titleTokens,
+} from '@/ee/security/security-scan/finding-successor'
 import { reviewThreadClient } from '@/lib/integrations/github/review-threads'
 import type { ReviewThreadState } from '@/lib/integrations/github/review-threads'
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
@@ -69,6 +78,13 @@ const threads = reviewThreadClient as jest.Mocked<typeof reviewThreadClient>
 const reply = prCommentClient.createReviewLineReply as jest.Mock
 
 const HEAD = 'c0ffee1234567890c0ffee1234567890c0ffee12'
+const KEY = 'test-identity-key'
+const OLD_IDENTITY_KEY = process.env.LUMO_FINDING_IDENTITY_KEY
+afterAll(() => {
+  if (OLD_IDENTITY_KEY === undefined)
+    delete process.env.LUMO_FINDING_IDENTITY_KEY
+  else process.env.LUMO_FINDING_IDENTITY_KEY = OLD_IDENTITY_KEY
+})
 
 function row(over: Partial<FindingThreadRow> = {}): FindingThreadRow {
   return {
@@ -151,9 +167,23 @@ function ctx(over: Partial<ThreadSyncContext> = {}): ThreadSyncContext {
 beforeEach(() => {
   jest.clearAllMocks()
   delete process.env.GITHUB_APP_SLUG
+  process.env.LUMO_FINDING_IDENTITY_KEY = KEY
   threads.listReviewThreads.mockResolvedValue([remote()])
   repoMock.findByPullRequest.mockResolvedValue([row()])
-  repoMock.findIdentitiesByFingerprints.mockResolvedValue([])
+  // The thread's finding, as its newest finding row reads (a row recorded
+  // before LUM-1127 follow-up #2 keeps no identity of its own).
+  repoMock.findIdentitiesByFingerprints.mockResolvedValue([
+    {
+      fingerprint: 'fp1',
+      ruleId: 'vuln:sql_injection',
+      provenance: 'LLM_JUDGE',
+      filePath: 'lib/db.ts',
+      line: 12,
+      title: 'SQL injection',
+      severity: 'HIGH',
+      evidence: 'db.query(sql)',
+    },
+  ])
 })
 
 describe('layer coverage — "fixed" only after a complete pass over the file', () => {
@@ -821,7 +851,15 @@ describe('LUM-1127 follow-up — same issue under a new fingerprint', () => {
     ])
     expect(threads.resolveThread).not.toHaveBeenCalled()
     expect(reply).not.toHaveBeenCalled()
-    expect(repoMock.update).not.toHaveBeenCalled()
+    // Only the thread's identity moves on to the relabelled finding.
+    expect(repoMock.update).toHaveBeenCalledTimes(1)
+    expect(repoMock.update).toHaveBeenCalledWith('t1', {
+      identityRuleId: 'review:api_misuse',
+      identityLine: 3,
+      identitySeverity: 'LOW',
+      identityEvidenceHash: evidenceHash("console.log('probe')", KEY),
+      identityTitleTokens: titleTokens('console.log used in scripts', KEY),
+    })
     expect(out.carried).toEqual(new Map([['fp-api', 'fp-doc']]))
     expect(out.counts).toEqual({ open: 1, addressed: 0, resolved: 0 })
   })
@@ -999,7 +1037,357 @@ describe('LUM-1127 follow-up — human-resolved thread, same issue relabelled', 
     expect(out.carried).toEqual(new Map([['fp-api', 'fp-doc']]))
     expect(threads.unresolveThread).not.toHaveBeenCalled()
     expect(reply).not.toHaveBeenCalled()
-    expect(repoMock.update).not.toHaveBeenCalled()
+    // No state write — only the identity, keeping the resolved severity.
+    expect(repoMock.update).toHaveBeenCalledTimes(1)
+    expect(repoMock.update).toHaveBeenCalledWith(
+      't1',
+      expect.not.objectContaining({ state: expect.anything() })
+    )
+    expect(repoMock.update).toHaveBeenCalledWith(
+      't1',
+      expect.objectContaining({ identitySeverity: docIdentity.severity })
+    )
     expect(out.counts).toEqual({ open: 0, addressed: 0, resolved: 1 })
+  })
+})
+
+/**
+ * LUM-1127 follow-up #2 — prod probe PR 60: repeated full reviews of the SAME
+ * head reuse the scan row and replace its AI-review findings, so the thread's
+ * original finding row is gone. The thread keeps its finding's identity on
+ * its own row (hashes only); with no identity at all it is never addressed.
+ */
+describe('LUM-1127 follow-up #2 — thread identity kept on the row', () => {
+  const FILE = 'src/probe/session.ts'
+  const dataRow = (over: Partial<FindingThreadRow> = {}) =>
+    row({
+      fingerprint: 'fp-data',
+      ruleId: 'review:data_integrity',
+      kind: 'CORRECTNESS',
+      filePath: FILE,
+      ...threadIdentityOf(
+        {
+          ruleId: 'review:data_integrity',
+          line: 30,
+          severity: 'MEDIUM',
+          title:
+            'parseQuantity returns unvalidated JSON.parse result typed as number',
+        },
+        'return JSON.parse(raw)',
+        KEY
+      ),
+      ...over,
+    })
+  const logicFinding = (over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      fingerprint: 'fp-logic',
+      ruleId: 'review:logic_error',
+      kind: 'CORRECTNESS',
+      severity: 'MEDIUM',
+      filePath: FILE,
+      line: 31,
+      title: 'parseQuantity returns unvalidated JSON.parse result',
+      ...over,
+    })
+  const logicIdentity = {
+    fingerprint: 'fp-logic',
+    ruleId: 'review:logic_error',
+    provenance: 'LLM_JUDGE' as const,
+    filePath: FILE,
+    line: 31,
+    title: 'parseQuantity returns unvalidated JSON.parse result',
+    severity: 'MEDIUM' as const,
+    evidence: '  return JSON.parse(raw) as number',
+  }
+
+  it('threadIdentityOf keeps hashes only — no title or code text', () => {
+    const id = threadIdentityOf(
+      {
+        ruleId: 'review:logic_error',
+        line: 31,
+        severity: 'MEDIUM',
+        title: 'parseQuantity returns unvalidated JSON.parse result',
+      },
+      'return JSON.parse(raw)',
+      KEY
+    )
+    const text = JSON.stringify(id)
+    expect(text).not.toMatch(/parseQuantity|JSON\.parse|raw/)
+    expect(id.identityEvidenceHash).toMatch(/^[0-9a-f]{8}\.[0-9a-f]{32}$/)
+    expect(id.identityTitleTokens.length).toBeGreaterThan(0)
+  })
+
+  it('storedIdentityOf: null until recorded', () => {
+    expect(storedIdentityOf(row(), KEY)).toBeNull()
+    expect(storedIdentityOf(dataRow(), KEY)).toEqual(
+      expect.objectContaining({
+        fingerprint: 'fp-data',
+        ruleId: 'review:data_integrity',
+        line: 30,
+        severity: 'MEDIUM',
+      })
+    )
+  })
+
+  it("reconcile: the finding row is gone (same-head re-review) — the row's own identity carries the thread", async () => {
+    repoMock.findByPullRequest.mockResolvedValue([dataRow()])
+    // The scan's earlier rows were replaced: only the current finding reads back.
+    repoMock.findIdentitiesByFingerprints.mockResolvedValue([logicIdentity])
+    const f = logicFinding()
+    const out = await prFindingThreadService.reconcile(
+      ctx({ findings: [f], open: [f] })
+    )
+    expect(repoMock.findIdentitiesByFingerprints).toHaveBeenCalledWith('pr1', [
+      'fp-logic',
+    ])
+    expect(threads.resolveThread).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
+    expect(out.carried).toEqual(new Map([['fp-logic', 'fp-data']]))
+    // The row now stands for the relabelled finding (severity kept).
+    expect(repoMock.update).toHaveBeenCalledWith('t1', {
+      ...threadIdentityOf(f, logicIdentity.evidence, KEY),
+      identitySeverity: 'MEDIUM',
+    })
+  })
+
+  it('reconcile: no identity anywhere ⇒ NOT addressed, logged (fail safe)', async () => {
+    repoMock.findByPullRequest.mockResolvedValue([
+      row({ fingerprint: 'fp-gone', filePath: FILE }),
+    ])
+    repoMock.findIdentitiesByFingerprints.mockResolvedValue([logicIdentity])
+    const f = logicFinding({ line: 90, title: 'Unrelated', ruleId: 'x:y' })
+    const out = await prFindingThreadService.reconcile(
+      ctx({ findings: [f], open: [f] })
+    )
+    expect(threads.resolveThread).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
+    expect(out.counts).toEqual({ open: 1, addressed: 0, resolved: 0 })
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringMatching(/identity unknown fp=fp-gone/)
+    )
+  })
+
+  it('unknown identity but no AI-layer finding left in its file ⇒ addressed (no successor possible)', () => {
+    const elsewhere = logicFinding({ filePath: 'lib/other.ts' })
+    const plan = planThreadActions({
+      rows: [row({ fingerprint: 'fp-gone', filePath: FILE })],
+      findings: [elsewhere],
+      open: [elsewhere],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: null,
+      identities: new Map(),
+    })
+    expect(plan.unknownIdentity).toEqual([])
+    expect(plan.actions).toEqual([expect.objectContaining({ kind: 'ADDRESS' })])
+  })
+
+  it('planThreadActions: an unknown identity is reported, not addressed; a known one with no successor is', () => {
+    const plan = planThreadActions({
+      rows: [
+        row({ fingerprint: 'fp-gone', filePath: FILE }),
+        dataRow({ id: 't2' }),
+      ],
+      // A different issue in the same file: no match for fp-data, but it
+      // could be fp-gone's relabel — unknown, so held.
+      findings: [logicFinding({ line: 90, title: 'Unrelated', ruleId: 'x:y' })],
+      open: [],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: null,
+      identities: new Map([['fp-data', storedIdentityOf(dataRow(), KEY)!]]),
+    })
+    expect(plan.unknownIdentity.map(r => r.fingerprint)).toEqual(['fp-gone'])
+    expect(plan.actions).toEqual([
+      expect.objectContaining({
+        kind: 'ADDRESS',
+        row: expect.objectContaining({ fingerprint: 'fp-data' }),
+      }),
+    ])
+  })
+
+  it('planIdentityWrites: records a reported row with no identity yet; skips it when the evidence read failed', () => {
+    const f = finding()
+    const ids = new Map([
+      [
+        'fp1',
+        {
+          fingerprint: 'fp1',
+          ruleId: f.ruleId,
+          provenance: 'LLM_JUDGE' as const,
+          filePath: f.filePath,
+          line: 12,
+          title: f.title,
+          evidence: 'db.query(sql)',
+        },
+      ],
+    ])
+    expect(
+      planIdentityWrites({
+        rows: [row()],
+        findings: [f],
+        identities: ids,
+        carried: [],
+        key: KEY,
+      })
+    ).toEqual([
+      { row: row(), patch: threadIdentityOf(f, 'db.query(sql)', KEY) },
+    ])
+    expect(
+      planIdentityWrites({
+        rows: [row()],
+        findings: [f],
+        identities: null,
+        carried: [],
+        key: KEY,
+      })
+    ).toEqual([])
+  })
+
+  it('planIdentityWrites: refreshes a moved line, keeps the evidence hash; nothing when unchanged', () => {
+    const recorded = dataRow()
+    const same = finding({
+      fingerprint: 'fp-data',
+      ruleId: 'review:data_integrity',
+      severity: 'MEDIUM',
+      filePath: FILE,
+      line: 30,
+      title:
+        'parseQuantity returns unvalidated JSON.parse result typed as number',
+    })
+    expect(
+      planIdentityWrites({
+        rows: [recorded],
+        findings: [same],
+        identities: new Map(),
+        carried: [],
+        key: KEY,
+      })
+    ).toEqual([])
+    const writes = planIdentityWrites({
+      rows: [recorded],
+      findings: [{ ...same, line: 34 }],
+      identities: new Map(),
+      carried: [],
+      key: KEY,
+    })
+    expect(writes).toHaveLength(1)
+    expect(writes[0]!.patch).toEqual(
+      expect.objectContaining({ identityLine: 34 })
+    )
+    expect(writes[0]!.patch).not.toHaveProperty('identityEvidenceHash')
+  })
+
+  it("recordPosted stores the posted AI-layer finding's identity (hashes)", async () => {
+    const f = logicFinding()
+    repoMock.findIdentitiesByFingerprints.mockResolvedValue([logicIdentity])
+    ;(
+      prCommentClient.listReviewCommentsOfReview as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 303,
+        body: 'x\n\n<!-- lumo-security:fp:fp-logic -->',
+        user: { type: 'Bot' },
+      },
+    ])
+    await prFindingThreadService.recordPosted(ctx(), 9, [f], new Map())
+    expect(repoMock.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fingerprint: 'fp-logic',
+        commentId: '303',
+        ...threadIdentityOf(f, logicIdentity.evidence, KEY),
+      })
+    )
+  })
+
+  it('recordPosted: evidence read failed ⇒ the row is still recorded, identity left for a later sync', async () => {
+    const f = logicFinding()
+    repoMock.findIdentitiesByFingerprints.mockRejectedValue(new Error('db'))
+    ;(
+      prCommentClient.listReviewCommentsOfReview as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 303,
+        body: 'x\n\n<!-- lumo-security:fp:fp-logic -->',
+        user: { type: 'Bot' },
+      },
+    ])
+    await prFindingThreadService.recordPosted(ctx(), 9, [f], new Map())
+    expect(repoMock.upsert).toHaveBeenCalledWith(
+      expect.not.objectContaining({ identityRuleId: expect.anything() })
+    )
+    expect(repoMock.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ fingerprint: 'fp-logic', commentId: '303' })
+    )
+  })
+})
+
+describe('LUM-1127 follow-up #2 — the identity key', () => {
+  it('findingIdentityKey: dedicated key, else CRON_SECRET, else null', () => {
+    expect(
+      findingIdentityKey({ LUMO_FINDING_IDENTITY_KEY: 'a', CRON_SECRET: 'b' })
+    ).toBe('a')
+    expect(findingIdentityKey({ CRON_SECRET: 'b' })).toBe('b')
+    expect(findingIdentityKey({})).toBeNull()
+  })
+
+  it('a row hashed with another key reads as unknown (never as a mismatch) and is re-recorded', () => {
+    const f = finding()
+    const old = row({
+      ...threadIdentityOf(f, 'db.query(sql)', 'rotated-away'),
+    })
+    expect(storedIdentityOf(old, KEY)).toBeNull()
+    const writes = planIdentityWrites({
+      rows: [old],
+      findings: [f],
+      identities: new Map([
+        [
+          'fp1',
+          {
+            fingerprint: 'fp1',
+            ruleId: f.ruleId,
+            provenance: 'LLM_JUDGE' as const,
+            filePath: f.filePath,
+            line: f.line,
+            title: f.title,
+            evidence: 'db.query(sql)',
+          },
+        ],
+      ]),
+      carried: [],
+      key: KEY,
+    })
+    expect(writes).toEqual([
+      { row: old, patch: threadIdentityOf(f, 'db.query(sql)', KEY) },
+    ])
+  })
+
+  it('no key configured ⇒ nothing recorded at post time', async () => {
+    delete process.env.LUMO_FINDING_IDENTITY_KEY
+    const OLD_CRON = process.env.CRON_SECRET
+    delete process.env.CRON_SECRET
+    try {
+      ;(
+        prCommentClient.listReviewCommentsOfReview as jest.Mock
+      ).mockResolvedValue([
+        {
+          id: 404,
+          body: 'x\n\n<!-- lumo-security:fp:fp1 -->',
+          user: { type: 'Bot' },
+        },
+      ])
+      await prFindingThreadService.recordPosted(
+        ctx(),
+        9,
+        [finding()],
+        new Map()
+      )
+      expect(repoMock.upsert).toHaveBeenCalledWith(
+        expect.not.objectContaining({ identityRuleId: expect.anything() })
+      )
+      expect(repoMock.findIdentitiesByFingerprints).not.toHaveBeenCalled()
+    } finally {
+      if (OLD_CRON !== undefined) process.env.CRON_SECRET = OLD_CRON
+    }
   })
 })
