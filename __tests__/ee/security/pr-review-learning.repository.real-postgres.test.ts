@@ -34,9 +34,11 @@ import {
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import {
+  listReviewLearnings,
   loadReviewLearnings,
   promoteLearningsOnMerge,
 } from '@/ee/security/services/review-learnings.service'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { memoryManagementService } from '@/lib/services/memory-management.service'
 
 jest.setTimeout(180_000)
@@ -383,5 +385,84 @@ describe('LUM-1131 scope: learnings scope rules', () => {
     expect(rows[0]!.repoWideAt).toEqual(at)
     // Source PR still reads 'open' here: the stored promotion decides.
     expect(await review('pr-other')).toContain(RULE)
+  })
+})
+
+describe('LUM-1157 — a repository linked to no Lumo project still gets learnings', () => {
+  const RULE = 'Fixture tokens in test/ are fake by design.'
+  let id = ''
+
+  test('the learning is stored without a project, scoped to the workspace and repository (the migration relaxes memories.projectId)', async () => {
+    const created = await memoryManagementService.createReviewLearning(
+      {
+        projectId: null,
+        workspaceId: 'ws',
+        content: {
+          summary: 'PR review learning',
+          rule: RULE,
+          scope: 'o/unlinked',
+        },
+        actorMemberId: null,
+      },
+      async (memoryId, tx) => {
+        await repo.create(
+          learning({
+            memoryId,
+            repo: 'o/unlinked',
+            sourceReplyId: 'unlinked-1',
+            sourcePullRequestId: 'pr-unlinked',
+          }),
+          tx
+        )
+      }
+    )
+    id = created.id
+    const rows = await harness.query<{ projectId: string | null }>(
+      `select "projectId" from memories where id = '${id}'`
+    )
+    expect(rows[0]!.projectId).toBeNull()
+    await expect(
+      repo.findBySourceReply('ws', 'unlinked-1')
+    ).resolves.toMatchObject({ memoryId: id, projectId: null })
+  })
+
+  test("the repository's AI review reads it; no project's memory and no other workspace sees it", async () => {
+    const block = await loadReviewLearnings({
+      workspaceId: 'ws',
+      repo: 'O/Unlinked',
+      // Its own (open) source PR: a learning applies there before it merges.
+      pullRequestId: 'pr-unlinked',
+      reviewedPaths: ['test/a.test.ts'],
+    })
+    expect(block).toContain(RULE)
+    const p1 = await memoryRepository.listForProject('p1')
+    expect(p1.map(m => m.id)).not.toContain(id)
+    const ws2 = await listReviewLearnings('ws2', null)
+    expect(ws2.learnings.map(l => l.id)).not.toContain(id)
+    // Project-less rows never reach the per-project sweeps.
+    expect(
+      await memoryRepository.findProjectIdsWithActiveProjectMemory()
+    ).not.toContain(null)
+  })
+
+  test('the workspace listing finds it (and project-linked learnings), and deleting the memory removes it', async () => {
+    const all = await listReviewLearnings('ws', null)
+    expect(all.learnings.find(l => l.id === id)).toMatchObject({
+      repo: 'o/unlinked',
+      learning: RULE,
+      inProject: false,
+      repositoryWide: false,
+    })
+    expect(all.learnings.find(l => l.id === 'm-docs')).toMatchObject({
+      inProject: true,
+    })
+    const one = await listReviewLearnings('ws', 'O/UNLINKED')
+    expect(one.learnings.map(l => l.id)).toEqual([id])
+
+    await memoryManagementService.delete(id)
+    expect((await listReviewLearnings('ws', 'o/unlinked')).learnings).toEqual(
+      []
+    )
+    await expect(repo.findBySourceReply('ws', 'unlinked-1')).resolves.toBeNull()
   })
 })

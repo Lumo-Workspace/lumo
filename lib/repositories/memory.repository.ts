@@ -41,7 +41,8 @@ const MEMORY_ROW_SELECT = {
 
 interface CreateMemoryInput {
   workspaceId: string
-  projectId: string
+  /** null only for a PR-review learning of a repository with no project (LUM-1157). */
+  projectId: string | null
   taskId: string | null
   scope: MemoryScope
   category: MemoryCategory
@@ -166,14 +167,17 @@ export const memoryRepository = {
   async findProjectsOverActiveMemoryThreshold(threshold: number) {
     const rows = await prisma.memory.groupBy({
       by: ['projectId'],
-      where: { scope: 'PROJECT', status: 'ACTIVE' },
+      // LUM-1157: a project-less memory (PR-review learning) has no project
+      // to compact.
+      where: { scope: 'PROJECT', status: 'ACTIVE', projectId: { not: null } },
       _count: { _all: true },
       having: { projectId: { _count: { gt: threshold } } },
     })
-    return rows.map(r => ({
-      projectId: r.projectId,
-      activeCount: r._count._all,
-    }))
+    return rows.flatMap(r =>
+      r.projectId
+        ? [{ projectId: r.projectId, activeCount: r._count._all }]
+        : []
+    )
   },
 
   /**
@@ -693,7 +697,7 @@ export const memoryRepository = {
    */
   async findProjectIdsWithActiveProjectMemory(): Promise<string[]> {
     const rows = await prisma.memory.findMany({
-      where: { scope: 'PROJECT', status: 'ACTIVE' },
+      where: { scope: 'PROJECT', status: 'ACTIVE', projectId: { not: null } },
       distinct: ['projectId'],
       select: { projectId: true },
     })

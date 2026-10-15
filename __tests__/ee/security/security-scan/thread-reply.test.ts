@@ -357,6 +357,7 @@ describe('replies', () => {
       repo: 'o/r',
       pathGlob: 'scripts/admin/**',
       stored: 'stored',
+      inProject: true,
       closed: true,
       blockingFindingId: null,
     })
@@ -375,6 +376,7 @@ describe('replies', () => {
       repo: 'o/r',
       pathGlob: null,
       stored: 'stored',
+      inProject: true,
       closed: true,
       blockingFindingId: 'f-1',
     })
@@ -384,18 +386,22 @@ describe('replies', () => {
       buildScannerReply({ login: 'a', closed: true, blockingFindingId: 'f-2' })
     ).toContain('lumo finding disposition f-2')
   })
-  it('no project → says nothing was stored', () => {
+  it('LUM-1157: a learning with no project is still added, and the answer says where to list and delete it', () => {
     const body = buildLearningReply({
       login: 'a',
       learning: 'x'.repeat(20),
       repo: 'o/r',
       pathGlob: null,
-      stored: 'no_project',
+      stored: 'stored',
+      inProject: false,
       closed: true,
       blockingFindingId: null,
     })
-    expect(body).not.toContain(LEARNING_ADDED)
-    expect(body).toMatch(/could not store a learning/)
+    expect(body).toContain(LEARNING_ADDED)
+    expect(body).not.toMatch(/not linked to a Lumo project/)
+    expect(body).not.toMatch(/project's memory/)
+    expect(body).toContain('`lumo workspace learnings --repo o/r`')
+    expect(body).toContain('`lumo memory rm <id>`')
   })
   it('acks are templates — the reply text never reaches them', () => {
     expect(buildAckReply('QUESTION', 'a')).toMatch(/reply with a question/)
@@ -517,6 +523,7 @@ describe('LUM-1131 review round 3 — replies never overclaim', () => {
     repo: 'o/r',
     pathGlob: null,
     blockingFindingId: null,
+    inProject: true,
   }
   it('a thread that could not be resolved is not called closed', () => {
     const body = buildLearningReply({

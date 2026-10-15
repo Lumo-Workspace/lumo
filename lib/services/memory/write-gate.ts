@@ -73,9 +73,14 @@ export interface MemoryWriteGate {
 }
 
 export async function loadMemoryWriteGate(
-  projectId: string
+  projectId: string | null
 ): Promise<MemoryWriteGate> {
-  const policyRules = await loadPolicyRulesForProject(projectId)
+  // LUM-1157: a memory with no project (a PR-review learning on a
+  // repository linked to no project) has no compiled project policy — the
+  // injection and directive checks still run.
+  const policyRules = projectId
+    ? await loadPolicyRulesForProject(projectId)
+    : []
   return {
     screen(category, content) {
       const verdict = screenMemoryWrite({ category, content, policyRules })

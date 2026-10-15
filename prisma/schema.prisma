@@ -3120,7 +3120,7 @@ enum MemoryStatus {
 model Memory {
   id                String                       @id @default(cuid())
   workspaceId       String
-  projectId         String
+  projectId         String?
   taskId            String?
   scope             MemoryScope
   category          MemoryCategory
@@ -3165,7 +3165,7 @@ model Memory {
   contentSignals Json?
 
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task            Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
   milestone       Milestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   session         Session?         @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)

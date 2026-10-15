@@ -146,6 +146,7 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'task web show',
   // assesses local worktrees read-only (never removes them)
   'task wrapup',
+  'workspace learnings',
   'workspace security-scan',
 ]
 
