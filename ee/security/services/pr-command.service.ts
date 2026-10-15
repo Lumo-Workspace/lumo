@@ -31,6 +31,8 @@
  *     only; nothing is changed by command;
  *   · LUM-1151 `summary` writes the latest review's high-level summary into
  *     the PR description again (Lumo's own section / the placeholder only);
+ *   · LUM-1155 `diagram` draws the sequence diagram of the PR's call flow
+ *     again (one model call) into the summary comment's walkthrough;
  *   · a redelivered webhook is answered once: the reply carries a marker
  *     naming the command comment, and a marker already on the PR stops it.
  *     Best effort (check, then act): if the reply itself fails, a later
@@ -111,6 +113,26 @@ export function ackMarker(commentId: number, workspaceId: string): string {
   return `${ACK_MARKER_PREFIX}${commentId}:${ws} -->`
 }
 
+/**
+ * LUM-1155 — PURE: the recorded outcome of `@<app> diagram` (the reply is
+ * worded by the diagram service).
+ */
+export function diagramCommandOutcome(
+  kind: 'off' | 'no_review' | 'stale' | 'trivial' | 'none' | 'failed' | 'drawn'
+): PrCommandOutcome {
+  switch (kind) {
+    case 'off':
+      return 'refused_mode_off'
+    case 'no_review':
+    case 'stale':
+      return 'refused_unreviewed'
+    case 'failed':
+      return 'failed'
+    default:
+      return 'done'
+  }
+}
+
 export function buildHelpReply(handle: string, text: string | null): string {
   const lead = text
     ? `🤔 Lumo doesn't know \`${text.replace(/`/g, "'").slice(0, 60)}\`. Commands it takes:`
@@ -127,6 +149,7 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} ignore pre-merge checks\` — ignore failed pre-merge checks on this PR (recorded; findings that block DONE stay)`,
     `- \`${handle} configuration\` — show the effective review settings for this PR and where each comes from`,
     `- \`${handle} summary\` — write Lumo's summary of the PR into its description again (put \`${handle} summary\` on its own line in the description to choose where it goes)`,
+    `- \`${handle} diagram\` — draw the sequence diagram of the PR's call flow again, in Lumo's summary comment`,
     `- \`${handle} help\` — this list`,
     `- \`${handle} <question>\` — ask about this PR's code; Lumo answers from the diff and the files (here, on a code line, or in reply to a Lumo finding)`,
     '',
@@ -205,6 +228,7 @@ const ACKS: Record<
     | 'approve'
     | 'configuration'
     | 'summary'
+    | 'diagram'
     | 'help'
     | 'ignore pre-merge checks'
   >,
@@ -635,6 +659,21 @@ async function run(
             ? 'refused_unreviewed'
             : 'failed'
     return { outcome, body: buildSummaryCommandReply(result, handle) }
+  }
+  if (command === 'diagram') {
+    // Loaded lazily: only this command draws a diagram on demand.
+    const { prSequenceDiagramService, buildDiagramCommandReply } =
+      await import('@/ee/security/services/pr-sequence-diagram.service')
+    const result = await prSequenceDiagramService.regenerate({
+      workspaceId: event.workspaceId,
+      pullRequestId: event.pullRequestId,
+      repo: event.repo,
+      prNumber: event.prNumber,
+    })
+    return {
+      outcome: diagramCommandOutcome(result.kind),
+      body: buildDiagramCommandReply(result, handle),
+    }
   }
   if (command === 'ignore pre-merge checks')
     return overrideChecks(event, login, handle, writeToken)

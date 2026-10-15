@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo は変更の概要を PR の説明文に書き込みます（作成者が「@uselumo summary」と書いた位置、なければ末尾）。レビューのたびに最新に保ちます。作成者自身の文章は変更しません。",
   "workspaceSettings.repoReview.style.summaryHint.comment": "概要は Lumo のサマリーコメントにのみ記載し、PR の説明文は編集しません。",
   "workspaceSettings.repoReview.style.summaryHint.off": "概要サマリーは書き込みません。",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "呼び出しフローのシーケンス図",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "プルリクエストが呼び出しフローを変更すると、Lumo のサマリーコメントのウォークスルーに主要フローのシーケンス図が追加されます。小さなプルリクエストには追加されません。「@uselumo diagram」とコメントすると描き直します。",
   "workspaceSettings.repoReview.style.pathInstructions": "パスごとの指示",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "glob に一致するファイルの AI レビューに追加するチェック。例: scripts/** —「console.log を指摘する」。レビューに追加されるだけで、チェックを無効にはできません。",
   "workspaceSettings.repoReview.style.pathAria": "パス glob",

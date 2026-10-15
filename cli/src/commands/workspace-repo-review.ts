@@ -40,6 +40,8 @@ export interface RepoReviewOptions extends ConfirmFlags {
   pathInstruction?: string[]
   /** LUM-1151: description | comment | off. */
   summary?: string
+  /** LUM-1155: on | off — the call-flow diagram in the walkthrough. */
+  sequenceDiagrams?: string
   json?: boolean
   /** The switch flags of the same command — not combinable with --repo. */
   scan?: string
@@ -69,6 +71,8 @@ export interface RepoReviewSettingView {
   toneInstructions?: string | null
   /** LUM-1151 (absent from an older server). */
   highLevelSummary?: HighLevelSummaryMode
+  /** LUM-1155 (absent from an older server). */
+  sequenceDiagrams?: boolean
   /** What an empty `baseBranches` reviews. */
   emptyBaseBranchesMeans?: 'all_branches' | 'default_branch_only'
   /** LUM-1148 (absent from an older server). */
@@ -116,6 +120,7 @@ export interface RepoReviewUpdate {
   reviewProfile?: ReviewProfile
   toneInstructions?: string | null
   highLevelSummary?: HighLevelSummaryMode
+  sequenceDiagrams?: boolean
 }
 
 /** LUM-1151: where the high-level PR summary goes (mirrors the server). */
@@ -196,7 +201,9 @@ function hasFilterFlag(opts: RepoReviewOptions): boolean {
     opts.tone !== undefined ||
     opts.pathInstruction !== undefined ||
     // LUM-1151
-    opts.summary !== undefined
+    opts.summary !== undefined ||
+    // LUM-1155
+    opts.sequenceDiagrams !== undefined
   )
 }
 
@@ -308,7 +315,7 @@ export function buildRepoReviewUpdate(
     hasFilterFlag(opts)
   if (change && !opts.repo) {
     throw new Error(
-      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --issue-assessment / --task-details-on-public-repos / --profile / --tone / --path-instruction / --summary need --repo <owner/name>'
+      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --issue-assessment / --task-details-on-public-repos / --profile / --tone / --path-instruction / --summary / --sequence-diagrams need --repo <owner/name>'
     )
   }
   if (!change) return null
@@ -349,6 +356,11 @@ export function buildRepoReviewUpdate(
       )
     update.highLevelSummary = m as HighLevelSummaryMode
   }
+  if (opts.sequenceDiagrams !== undefined)
+    update.sequenceDiagrams = parseOnOff(
+      '--sequence-diagrams',
+      opts.sequenceDiagrams
+    )
   return update
 }
 
@@ -476,6 +488,11 @@ export function formatRepoReviewFilters(r: RepoReviewSettingView): string[] {
   if (r.highLevelSummary)
     lines.push(
       `  high-level summary: ${r.highLevelSummary} (${SUMMARY_HELP[r.highLevelSummary] ?? ''})`
+    )
+  // LUM-1155 (absent from an older server).
+  if (r.sequenceDiagrams !== undefined)
+    lines.push(
+      `  sequence diagrams: ${onOff(r.sequenceDiagrams)} (call-flow diagram in the summary comment's walkthrough)`
     )
   for (const p of r.pathInstructions ?? [])
     lines.push(

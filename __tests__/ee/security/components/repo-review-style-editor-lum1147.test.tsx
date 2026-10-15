@@ -91,6 +91,7 @@ it('styleUpdate: unchanged is null; profile change and cleared rows are sent', (
     reviewProfile: 'chill' as const,
     toneInstructions: '',
     pathInstructions: [{ path: 'lib/**', instructions: 'Check limits.' }],
+    sequenceDiagrams: true,
   }
   expect(styleUpdate(REPO, draft)).toBeNull()
   expect(

@@ -17,6 +17,7 @@ export type PrCommand =
   | 'ignore pre-merge checks'
   | 'configuration'
   | 'summary'
+  | 'diagram'
   | 'help'
 
 export interface ParsedPrCommand {
@@ -37,6 +38,8 @@ export const PR_COMMANDS: readonly PrCommand[] = [
   'ignore pre-merge checks',
   'configuration',
   'summary',
+  // LUM-1155: draw the call-flow diagram again.
+  'diagram',
   'help',
 ]
 
