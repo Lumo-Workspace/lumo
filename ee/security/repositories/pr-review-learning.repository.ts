@@ -29,6 +29,20 @@ export interface ActiveReviewLearning {
   content: Prisma.JsonValue
 }
 
+/** LUM-1157 — one row of the workspace's learnings listing. */
+export interface ListedReviewLearning {
+  memoryId: string
+  repo: string
+  pathGlob: string | null
+  ruleId: string
+  authorLogin: string
+  repoWideAt: Date | null
+  createdAt: Date
+  /** null = scoped to the workspace + repository only (no Lumo project). */
+  projectId: string | null
+  content: Prisma.JsonValue
+}
+
 export const prReviewLearningRepository = {
   /** `tx`: the memory's transaction, so the two rows land together. */
   async create(
@@ -49,6 +63,8 @@ export const prReviewLearningRepository = {
     id: string
     memoryId: string
     pathGlob: string | null
+    /** LUM-1157: null = a learning scoped to the workspace + repo only. */
+    projectId: string | null
     content: Prisma.JsonValue
   } | null> {
     const row = await prisma.prReviewLearning.findUnique({
@@ -57,7 +73,7 @@ export const prReviewLearningRepository = {
         id: true,
         memoryId: true,
         pathGlob: true,
-        memory: { select: { content: true } },
+        memory: { select: { content: true, projectId: true } },
       },
     })
     return row
@@ -65,6 +81,7 @@ export const prReviewLearningRepository = {
           id: row.id,
           memoryId: row.memoryId,
           pathGlob: row.pathGlob,
+          projectId: row.memory.projectId,
           content: row.memory.content,
         }
       : null
@@ -133,6 +150,50 @@ export const prReviewLearningRepository = {
       sourcePullRequestId: r.sourcePullRequestId,
       repoWideAt: r.repoWideAt,
       category: r.memory.category,
+      content: r.memory.content,
+    }))
+  },
+
+  /**
+   * LUM-1157 — the workspace's learnings whose memory is still ACTIVE,
+   * newest first, optionally one repository's (case-insensitive): with or
+   * without a Lumo project, so a learning of a repository linked to no
+   * project can be found (and deleted by its memory id). Pinned to the
+   * workspace on both rows.
+   */
+  async listActiveForWorkspace(
+    workspaceId: string,
+    repo: string | null,
+    limit: number
+  ): Promise<ListedReviewLearning[]> {
+    const rows = await prisma.prReviewLearning.findMany({
+      where: {
+        workspaceId,
+        ...(repo ? { repo: { equals: repo, mode: 'insensitive' } } : {}),
+        memory: { workspaceId, status: 'ACTIVE' },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        memoryId: true,
+        repo: true,
+        pathGlob: true,
+        ruleId: true,
+        authorLogin: true,
+        repoWideAt: true,
+        createdAt: true,
+        memory: { select: { projectId: true, content: true } },
+      },
+    })
+    return rows.map(r => ({
+      memoryId: r.memoryId,
+      repo: r.repo,
+      pathGlob: r.pathGlob,
+      ruleId: r.ruleId,
+      authorLogin: r.authorLogin,
+      repoWideAt: r.repoWideAt,
+      createdAt: r.createdAt,
+      projectId: r.memory.projectId,
       content: r.memory.content,
     }))
   },

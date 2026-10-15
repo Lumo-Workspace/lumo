@@ -192,3 +192,14 @@ export const updateRepoReviewSettingsSchema = z
   .refine(v => Object.keys(v).some(k => k !== 'repo'), {
     message: 'Nothing to change',
   })
+
+/** LUM-1157 — `GET …/security-scan/learnings?repo=owner/name` (optional). */
+export const listReviewLearningsQuerySchema = z.object({
+  repo: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .regex(/^[^/\s]+\/[^/\s]+$/, 'must be owner/name')
+    .optional(),
+})

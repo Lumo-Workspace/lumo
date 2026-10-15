@@ -99,6 +99,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Workspace settings — see [workspace-settings.md](references/workspace-settings.md)
 
 - `lumo workspace security-scan` — show / set the PR security-scan switches; `--disable-all` / `--enable-all`; `--request-changes on|off`; `--allow-author-approval on|off`; `--learnings-scope local|global|auto`; `--auto-pause-after <0..100>`; `--repos` / `--repo` per-repo review + filters + pre-merge checks (OWNER; turning off, request-changes or author approval on, or learnings scope global exits 4)
+- `lumo workspace learnings [--repo] [--json]` — list PR-review learnings with memory ids (incl. repos with no project); delete with `lumo memory rm <id>`
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 

@@ -29,7 +29,8 @@ describe('memoryRepository.findProjectsOverActiveMemoryThreshold', () => {
 
     expect(groupBy).toHaveBeenCalledWith({
       by: ['projectId'],
-      where: { scope: 'PROJECT', status: 'ACTIVE' },
+      // LUM-1157: a project-less PR-review learning is never compacted.
+      where: { scope: 'PROJECT', status: 'ACTIVE', projectId: { not: null } },
       _count: { _all: true },
       having: { projectId: { _count: { gt: 100 } } },
     })

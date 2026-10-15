@@ -319,14 +319,50 @@ describe('an intentional reply on an AI-review finding', () => {
     expect(createMemory).not.toHaveBeenCalled()
   })
 
-  it('no Lumo project for the repository → thread closed, nothing stored, and the answer says so', async () => {
+  it('LUM-1157 prod TC3: a repository linked to no Lumo project still gets the learning — scoped to the workspace and repository', async () => {
     ;(taskRepository.findProjectId as jest.Mock).mockResolvedValue(null)
-    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
-      'closed_no_learning'
+    await expect(
+      applyThreadReply({ ...event(INTENTIONAL), taskId: null })
+    ).resolves.toBe('learning_added')
+    expect(createMemory).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: null, workspaceId: 'ws' }),
+      expect.any(Function)
     )
-    expect(createMemory).not.toHaveBeenCalled()
-    expect(reply.mock.calls[0][0].body).toMatch(/could not store a learning/)
+    expect(createLearning).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: 'ws', repo: 'o/r' }),
+      { tx: true }
+    )
+    const body = reply.mock.calls[0][0].body as string
+    expect(body).toContain('Learning added')
+    expect(body).not.toMatch(/not linked to a Lumo project/)
+    // Where to find and undo it without a project's memory page.
+    expect(body).toContain('lumo workspace learnings --repo o/r')
+    expect(body).toContain('lumo memory rm')
     expect(resolve).toHaveBeenCalled()
+  })
+
+  it('LUM-1157: a redelivered reply on a project-less repository reuses the stored learning and words the undo the same way', async () => {
+    ;(
+      prReviewLearningRepository.findBySourceReply as jest.Mock
+    ).mockResolvedValue({
+      id: 'l1',
+      memoryId: 'mem-1',
+      pathGlob: null,
+      projectId: null,
+      content: {
+        summary: 'PR review learning: x',
+        rule: 'Raw SQL in scripts/admin is intentional: local dev only.',
+        scope: 's',
+      },
+    })
+    await expect(applyThreadReply(event(INTENTIONAL))).resolves.toBe(
+      'learning_added'
+    )
+    expect(classify).not.toHaveBeenCalled()
+    expect(createMemory).not.toHaveBeenCalled()
+    expect(reply.mock.calls[0][0].body).toContain(
+      'lumo workspace learnings --repo o/r'
+    )
   })
 
   it('an unlinked PR finds the project through the repository link', async () => {

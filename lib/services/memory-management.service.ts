@@ -251,7 +251,13 @@ export const memoryManagementService = {
    */
   async createReviewLearning(
     input: {
-      projectId: string
+      /**
+       * LUM-1157: null when the reviewed repository is linked to no Lumo
+       * project — the learning is then scoped to the workspace and the
+       * repository by the caller's `link` row (every reviewed repository
+       * gets learnings, not only project-linked ones).
+       */
+      projectId: string | null
       workspaceId: string
       content: { summary: string; rule: string; scope: string }
       actorMemberId: string | null

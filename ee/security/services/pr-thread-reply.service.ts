@@ -273,7 +273,13 @@ async function projectIdFor(event: ThreadReplyEvent): Promise<string | null> {
   )
 }
 
-/** Store the learning: the memory and its repository scope, in one transaction. */
+/**
+ * Store the learning: the memory and its repository scope, in one
+ * transaction. LUM-1157: every reviewed repository of the workspace gets
+ * learnings — when neither the PR's task nor a project link names a Lumo
+ * project, the memory has no project and is scoped to the workspace and the
+ * repository by its `PrReviewLearning` row alone.
+ */
 async function storeLearning(input: {
   event: ThreadReplyEvent
   row: FindingThreadRow
@@ -281,11 +287,11 @@ async function storeLearning(input: {
   memberId: string | null
   learning: string
   pathGlob: string | null
-}): Promise<'stored' | 'no_project' | 'failed'> {
+}): Promise<{ stored: 'stored' | 'failed'; inProject: boolean }> {
   const { event, row, login, learning, pathGlob } = input
   const replyId = String(event.comment.id)
   const projectId = await projectIdFor(event)
-  if (!projectId) return 'no_project'
+  const inProject = projectId !== null
   const scope = `Lumo AI review of ${event.repo}${pathGlob ? `, files matching ${pathGlob}` : ''} — from @${login}'s reply on ${event.repo}#${event.prNumber} (finding ${row.ruleId})`
   try {
     await memoryManagementService.createReviewLearning(
@@ -317,12 +323,12 @@ async function storeLearning(input: {
         )
       }
     )
-    return 'stored'
+    return { stored: 'stored', inProject }
   } catch (error) {
     logger.warn(
       `[pr-thread-reply] learning not stored pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
     )
-    return 'failed'
+    return { stored: 'failed', inProject }
   }
 }
 
@@ -488,12 +494,14 @@ export async function applyThreadReply(
     )
     let learning: string | null
     let pathGlob: string | null
-    let stored: 'stored' | 'no_project' | 'failed'
+    let stored: 'stored' | 'failed'
+    let inProject: boolean
     if (prior) {
       const parsed = conventionContentSchema.safeParse(prior.content)
       learning = parsed.success ? parsed.data.rule : null
       pathGlob = prior.pathGlob
       stored = 'stored'
+      inProject = prior.projectId !== null
     } else {
       const verdict = await askModel(
         {
@@ -509,7 +517,7 @@ export async function applyThreadReply(
       pathGlob = learning
         ? normalizePathGlob(verdict?.pathGlob, row.filePath)
         : null
-      stored = learning
+      const result = learning
         ? await storeLearning({
             event,
             row,
@@ -518,7 +526,9 @@ export async function applyThreadReply(
             learning,
             pathGlob,
           })
-        : 'failed'
+        : { stored: 'failed' as const, inProject: false }
+      stored = result.stored
+      inProject = result.inProject
     }
     if (!learning) {
       await postReply(gh, row, buildAckReply('OTHER', login))
@@ -534,6 +544,7 @@ export async function applyThreadReply(
         repo: event.repo,
         pathGlob,
         stored,
+        inProject,
         closed,
         blockingFindingId: blockingId,
       })

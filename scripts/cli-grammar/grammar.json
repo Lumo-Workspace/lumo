@@ -5082,6 +5082,30 @@
       "isInvokable": false,
       "description": "Workspace settings from the terminal"
     },
+    "workspace learnings": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { learnings } as JSON"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only this repository's learnings"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory id, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <id>`."
+    },
     "workspace security-scan": {
       "arguments": [],
       "flags": {
