@@ -82,7 +82,8 @@ import {
   isCodeReviewFinding,
   isOwnedUnfinished,
   isReviewRateLimited,
-  RATE_LIMITED_STAGE_LABEL,
+  isReviewIgnored,
+  heldStageLabel,
   scanCoverageState,
   turnedOffLayers,
   type HuntOverCapInput,
@@ -638,7 +639,9 @@ export function commandsBlock(handle: string, approve = false): string {
   rows.push(
     `- \`${handle} <question>\` — ask about this PR's code, here, on a line, or in reply to a Lumo finding`
   )
-  return `<details>\n<summary>Lumo commands</summary>\n\nComment on this PR (write access required):\n\n${rows.join('\n')}\n\n</details>`
+  // LUM-1152: the one directive that lives in the description, not a comment.
+  const ignore = `In the PR description, \`${handle} ignore\` skips automatic AI reviews until it is removed.`
+  return `<details>\n<summary>Lumo commands</summary>\n\nComment on this PR (write access required):\n\n${rows.join('\n')}\n\n${ignore}\n\n</details>`
 }
 
 /** LUM-740 — the suggested-false-positive line. */
@@ -721,11 +724,11 @@ function layerLines(input: SummaryInput): string[] {
           : key === 'supplyChain'
             ? dependencyResult(input)
             : null
-    // LUM-1137: a paused layer of a rate-limited scan says so.
+    // LUM-1137 / LUM-1152: a paused layer of a rate-limited or ignored
+    // scan says so.
     const label =
-      state === 'PAUSED' && isReviewRateLimited(input.partialCauses)
-        ? RATE_LIMITED_STAGE_LABEL
-        : scanStageStateLabel(state)
+      (state === 'PAUSED' ? heldStageLabel(input.partialCauses) : null) ??
+      scanStageStateLabel(state)
     const status = [label, extra].filter(Boolean).join(' · ')
     lines.push(
       `- **${scanStageLabel(key)}** (${status}): ${SCAN_STAGE_DESCRIPTIONS[key]}`
@@ -860,8 +863,15 @@ export function buildSummary(input: SummaryInput): string {
         ? `lumo pr scan ${input.prNumber} --repo ${sanitizeField(input.repo)} --review incremental`
         : 'lumo pr scan <number> --repo <owner/repo> --review incremental'
     const h = input.commandHandle
+    // LUM-1152: the description opted this PR out of automatic review.
+    if (isReviewIgnored(input.partialCauses))
+      notices.push(
+        h
+          ? `- Automatic AI review is skipped: this PR's description contains \`${h} ignore\`. Secret, scanner and dependency checks are not affected. Remove it from the description to have the next push reviewed, or comment \`${h} review\` for a review now (CLI: \`${command}\`).`
+          : `- Automatic AI review is skipped: this PR's description asks Lumo to ignore it. Secret, scanner and dependency checks are not affected. Remove that line from the description to have the next push reviewed, or request a review now with \`${command}\`.`
+      )
     // LUM-1137: over the hourly cap — the next push is reviewed anyway.
-    if (isReviewRateLimited(input.partialCauses))
+    else if (isReviewRateLimited(input.partialCauses))
       notices.push(
         h
           ? `- Automatic AI review is rate-limited: this PR's author reached the hourly limit of automatic reviews. This commit has not been fully reviewed. The next push after the limit resets is reviewed automatically, or comment \`${h} review\` for a review now (CLI: \`${command}\`).`

@@ -48,6 +48,7 @@ import {
   fetchReviewChangedPaths,
 } from '@/lib/integrations/github/contents'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
+import { isPrReviewIgnored } from './pr-ignore-directive'
 import { autoReviewAdmissionService } from '@/ee/security/services/auto-review-admission.service'
 import {
   DEFAULT_AUTO_PAUSE_AFTER,
@@ -145,6 +146,7 @@ import {
   SCAN_STAGE_KEYS,
   isOwnedUnfinished,
   isReviewRateLimited,
+  isReviewIgnored,
   scanCoverageState,
   type HuntOverCapInput,
   type JudgeOverCapInput,
@@ -272,6 +274,11 @@ export interface SecurityScanView {
    * cap), not paused: the next push is reviewed. Present only when true.
    */
   reviewRateLimited?: true
+  /**
+   * LUM-1152 — the paused AI layers were skipped because the PR description
+   * carries `@<app> ignore`. Present only when true.
+   */
+  reviewIgnored?: true
   /**
    * LUM-832 — unfinished for a reason of OURS (a fault, a budget shortfall),
    * which gets the owned line. False when a size cap is the only gap: that
@@ -551,6 +558,9 @@ function toScanView(
     ...sizeCaps,
     ...(isReviewRateLimited(s.partialCauses)
       ? { reviewRateLimited: true as const }
+      : {}),
+    ...(isReviewIgnored(s.partialCauses)
+      ? { reviewIgnored: true as const }
       : {}),
     ownedUnfinished: isOwnedUnfinished({
       status: s.status,
@@ -1104,8 +1114,13 @@ export const prSecurityScanService = {
       // Reserved only once the diff is proven to be this head's: a push that
       // raced the read must not spend a round on a head nobody reviewed.
       // LUM-1137: every push, until N reviewed commits, under an hourly cap.
-      const admission =
+      // LUM-1152: `@<app> ignore` in the description skips the automatic AI
+      // layers before the budget is touched; the deterministic layers run.
+      const automaticAi =
         (layers.aiReview || layers.hunt) && input.reviewMode === undefined
+      const ignored = automaticAi && (await isPrReviewIgnored(pr))
+      const admission =
+        automaticAi && !ignored
           ? await autoReviewAdmissionService.admit(pr, headSha)
           : null
       const aiAllowed =
@@ -1116,7 +1131,11 @@ export const prSecurityScanService = {
       const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
       if (reviewPaused)
         partialCauses.push(
-          admission?.rateLimited ? 'AI_REVIEW_RATE_LIMITED' : 'AI_REVIEW_PAUSED'
+          ignored
+            ? 'AI_REVIEW_IGNORED'
+            : admission?.rateLimited
+              ? 'AI_REVIEW_RATE_LIMITED'
+              : 'AI_REVIEW_PAUSED'
         )
       let reviewDiff = diff
       // Paths whose PR-diff sections the judge reviews; null = the whole diff.

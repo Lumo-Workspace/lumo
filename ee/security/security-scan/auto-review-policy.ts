@@ -32,6 +32,19 @@
  *    review on GitHub, not two.
  *
  * Manual `@<app> review` and `lumo pr scan --review` bypass all of this.
+ *
+ * LUM-1152 — `@<app> ignore` in the PR description (`hasIgnoreDirective`)
+ * sits on top of every rule above, for task-linked and task-less PRs alike:
+ * an automatic scan still runs (and is dispatched by the rules above exactly
+ * as without it), but its AI review and exploit-path hunt are skipped
+ * (`AI_REVIEW_IGNORED`) and the summary says why. It beats every opt-in —
+ * positive labels, `descriptionKeyword`, `ignoreUsernames` cannot re-enable
+ * it — and only the description's CURRENT text counts: it is read when the
+ * scan runs, so adding or removing it with a `pull_request.edited` event
+ * starts nothing by itself (an edit only reviews when the filters above
+ * newly let the PR through); the next push after removing it is reviewed.
+ * The deterministic layers (secrets, scanners, dependencies) keep running —
+ * a task-linked PR keeps its DONE-gate scan. Manual reviews ignore it.
  */
 import { shouldScanOnPrEvent } from '@/ee/security/services/pr-security-scan-dispatch'
 import type { PathInstruction } from './path-instructions'
@@ -311,4 +324,38 @@ export function decideTasklessAutoReview(
   if (reviewer?.workspaceId !== input.workspaceId)
     return skip('other_workspace_reviews')
   return { review: true }
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * LUM-1152 — does this PR description carry `<handle> ignore` (`@slug` or
+ * `@slug[bot]`, any case, anywhere in the text — HTML comments included, so
+ * it can be hidden)? Text inside fenced code blocks, inline code spans and
+ * `>` quotes does not count: a description that documents the directive is
+ * not using it. `handle` null (the App's slug is not configured) = never.
+ * PURE.
+ */
+export function hasIgnoreDirective(
+  body: string | null | undefined,
+  handle: string | null
+): boolean {
+  if (!body || !handle) return false
+  const directive = new RegExp(
+    `(?:^|[^\\w@/-])${escapeRegExp(handle)}(?:\\[bot\\])?[\\s,:]+ignore(?![\\w-])`,
+    'i'
+  )
+  let fenced = false
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (/^(```|~~~)/.test(line)) {
+      fenced = !fenced
+      continue
+    }
+    if (fenced || line.startsWith('>')) continue
+    if (directive.test(line.replace(/`[^`]*`/g, ' '))) return true
+  }
+  return false
 }

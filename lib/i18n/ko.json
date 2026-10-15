@@ -2938,6 +2938,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "열린 풀 리퀘스트에 push할 때마다 변경 사항에 대한 자동 AI 리뷰가 실행됩니다. 한 풀 리퀘스트에서 이 수만큼 커밋이 리뷰되면 누군가 리뷰를 요청하거나 재개할 때까지 자동 리뷰가 일시 중지됩니다. 0 = 일시 중지 안 함. 기본값 5.",
   "securityScan.stageState.RATE_LIMITED": "속도 제한 — 자동 리뷰가 1시간 내에 재개됩니다",
   "securityScan.stageReason.RATE_LIMITED": "PR 작성자가 시간당 자동 AI 리뷰 한도에 도달하여 이 커밋은 완전히 리뷰되지 않았습니다. 한도가 초기화된 뒤의 다음 push는 자동으로 리뷰됩니다. 이 커밋을 지금 확인하려면 리뷰를 요청하세요.",
+  "securityScan.stageState.IGNORED": "건너뜀 — PR 설명에서 Lumo에 이 PR을 무시하도록 요청했습니다",
+  "securityScan.stageReason.IGNORED": "PR 설명에 무시 지시어가 있어 이 커밋에서는 자동 AI 검사를 건너뛰었습니다. 시크릿, 스캐너, 의존성 검사에는 영향이 없습니다. 설명에서 지시어를 제거하면 다음 push가 리뷰되며, 지금 리뷰를 요청할 수도 있습니다.",
   "securityScan.review.roundsNoLimit": "자동 AI 검토: {rounds}개 커밋 검토됨 · 일시 중지 안 함",
   "language.switcher.label": "언어"
 }
