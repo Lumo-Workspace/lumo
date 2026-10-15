@@ -219,6 +219,7 @@ async function supersededChangeRequests(
     token: string
     sha: string
     changesRequestedIds: number[]
+    seenReviewIds: number[]
   },
   submitError: unknown
 ): Promise<number[]> {
@@ -232,7 +233,11 @@ async function supersededChangeRequests(
     )
     return input.changesRequestedIds
   }
-  const ids = changeRequestsSupersededBy(reviews, input.sha)
+  const ids = changeRequestsSupersededBy(
+    reviews,
+    input.sha,
+    input.seenReviewIds
+  )
   if (ids === null) {
     if (submitError !== null) throw submitError
     // Approved, but the listing does not show it yet: dismiss what stood.
@@ -257,6 +262,8 @@ async function approveAndDismiss(input: {
   sha: string
   body: string
   changesRequestedIds: number[]
+  /** Every review listed before the submit (an earlier approval is not this one). */
+  seenReviewIds: number[]
 }): Promise<void> {
   let submitError: unknown = null
   try {
@@ -294,13 +301,12 @@ export const prReviewVerdictService = {
   async apply(input: VerdictSyncInput): Promise<VerdictOutcome> {
     const where = `pr=#${input.prNumber} head=${short(input.headSha)}`
     try {
-      const standing = standingLumoReview(
-        await prCommentClient.listReviews({
-          repo: input.repo,
-          prNumber: input.prNumber,
-          token: input.token,
-        })
-      )
+      const listed = await prCommentClient.listReviews({
+        repo: input.repo,
+        prNumber: input.prNumber,
+        token: input.token,
+      })
+      const standing = standingLumoReview(listed)
       const verdict = decideReviewVerdict({
         enabled: true,
         headSha: input.headSha,
@@ -343,6 +349,7 @@ export const prReviewVerdictService = {
         sha: input.headSha,
         body: buildApproveBody(input.headSha),
         changesRequestedIds: standing.changesRequestedIds,
+        seenReviewIds: listed.map(r => r.id),
       })
       logger.info(`[pr-review-verdict] approved ${where}`)
       return 'approved'
@@ -367,9 +374,8 @@ export const prReviewVerdictService = {
     login: string
     sha: string
   }): Promise<ApproveByCommandResult> {
-    const standing = standingLumoReview(
-      await prCommentClient.listReviews(input)
-    )
+    const listed = await prCommentClient.listReviews(input)
+    const standing = standingLumoReview(listed)
     const live = await prCommentClient.getPullRequestHead(input)
     if (!canSubmitApproval(input.sha, live))
       return { ok: false, reason: 'head_moved' }
@@ -380,6 +386,7 @@ export const prReviewVerdictService = {
       sha: input.sha,
       body: buildApproveBody(input.sha, input.login),
       changesRequestedIds: standing.changesRequestedIds,
+      seenReviewIds: listed.map(r => r.id),
     })
     return { ok: true, sha: input.sha }
   },

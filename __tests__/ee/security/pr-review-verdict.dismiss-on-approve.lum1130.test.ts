@@ -161,6 +161,25 @@ describe.each([
     expect(out === 'failed' || out instanceof GithubApiError).toBe(true)
   })
 
+  it('an earlier approval of the same sha is not this one: a failed submit dismisses nothing', async () => {
+    // Lumo approved this sha before, a newer sync then requested changes on
+    // it, and this approval's submit failed without landing.
+    const earlier = review(150, 'APPROVED')
+    const later = review(160, 'CHANGES_REQUESTED')
+    listReviews.mockResolvedValue([earlier, later])
+    submitReview.mockRejectedValue(unprocessable())
+
+    let out: unknown
+    try {
+      out = await approve()
+    } catch (error) {
+      out = error
+    }
+
+    expect(dismissReview).not.toHaveBeenCalled()
+    expect(out === 'failed' || out instanceof GithubApiError).toBe(true)
+  })
+
   it('a change request Lumo filed after this approval (a newer sync) is left standing', async () => {
     const later = review(300, 'CHANGES_REQUESTED')
     listReviews
@@ -194,6 +213,16 @@ describe('changeRequestsSupersededBy', () => {
         SHA
       )
     ).toEqual([90, 101])
+  })
+
+  it('an approval already listed before the submit is not the new one', () => {
+    expect(
+      changeRequestsSupersededBy(
+        [approval, review(160, 'CHANGES_REQUESTED')],
+        SHA,
+        [200]
+      )
+    ).toBeNull()
   })
 
   it('null when Lumo has not approved this sha', () => {
