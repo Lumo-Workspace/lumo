@@ -144,6 +144,9 @@ interface CreateReviewInput {
   comments: Array<{
     path: string
     line: number
+    /** LUM-1150 — a multi-line comment (a suggestion's range) starts here. */
+    start_line?: number
+    start_side?: 'RIGHT'
     side: 'RIGHT'
     body: string
   }>

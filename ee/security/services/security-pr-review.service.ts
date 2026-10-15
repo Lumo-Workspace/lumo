@@ -99,6 +99,12 @@ import {
 } from '@/ee/security/services/pr-finding-thread.service'
 import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
 import { requestChangesOffService } from '@/ee/security/services/request-changes-off.service'
+import {
+  parseCodeSuggestion,
+  suggestionAnchor,
+  suggestionBlock,
+  type CodeSuggestion,
+} from '@/ee/security/security-scan/code-suggestion'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -347,10 +353,56 @@ export function ruleDocsHref(ref: string | null): string | null {
   }
 }
 
-/** P8: `evidence` is not a parameter here, so it cannot leak by accident. */
+/**
+ * LUM-1150 — the fix a new inline comment for `f` carries, or null. Only an
+ * actionable LLM_JUDGE row; the stored range must contain the row's line.
+ */
+export function inlineSuggestion(
+  f: Pick<ReviewFindingRow, 'provenance' | 'severity' | 'line'> & {
+    codeSuggestion?: unknown
+  }
+): CodeSuggestion | null {
+  if (f.provenance !== 'LLM_JUDGE' || f.severity === 'LOW' || f.line === null)
+    return null
+  const s = parseCodeSuggestion(f.codeSuggestion)
+  if (!s || f.line < s.startLine || f.line > s.endLine) return null
+  return s
+}
+
+/**
+ * LUM-1150 — one inline comment of the review: anchored on exactly the
+ * suggestion's lines when it carries one, else on the finding's line.
+ */
+export function inlineReviewComment(
+  f: ReviewFindingRow,
+  policy: SecurityPolicy,
+  withSuggestion: boolean
+): {
+  path: string
+  line: number
+  start_line?: number
+  start_side?: 'RIGHT'
+  side: 'RIGHT'
+  body: string
+} {
+  const suggestion = withSuggestion ? inlineSuggestion(f) : null
+  return {
+    path: f.filePath,
+    ...(suggestion ? suggestionAnchor(suggestion) : { line: f.line as number }),
+    side: 'RIGHT',
+    body: buildInlineComment(f, policy, suggestion),
+  }
+}
+
+/**
+ * P8: `evidence` is not a parameter here, so it cannot leak by accident.
+ * LUM-1150: `suggestion` (already validated) becomes a GitHub suggestion
+ * block — only for a comment anchored on exactly its lines.
+ */
 export function buildInlineComment(
   f: InlineFinding,
-  policy: SecurityPolicy = DEFAULT_SECURITY_POLICY
+  policy: SecurityPolicy = DEFAULT_SECURITY_POLICY,
+  suggestion: CodeSuggestion | null = null
 ): string {
   const kindLabel = findingKindLabel(f.kind)
   // Model / scanner text (title, detail, rule-docs link): no HTML comments,
@@ -361,6 +413,7 @@ export function buildInlineComment(
   ]
   const detail = stripHtmlComments(f.detail).trim()
   if (detail.length > 0) blocks.push(detail)
+  if (suggestion) blocks.push(suggestionBlock(suggestion))
   const footer: string[] = []
   const href = ruleDocsHref(f.externalRef)
   if (href) footer.push(`[Rule docs](${href})`)
@@ -1241,8 +1294,8 @@ export const securityPrReviewService = {
       }
 
       if (selected.length > 0) {
-        try {
-          const review = await prCommentClient.createReview({
+        const postReview = (withSuggestions: boolean) =>
+          prCommentClient.createReview({
             repo,
             prNumber: pr.number,
             token,
@@ -1251,13 +1304,28 @@ export const securityPrReviewService = {
             // LUM-1130: actionable inline comments request changes when the
             // workspace turned the workflow on; otherwise only annotate.
             event: requestChanges ? 'REQUEST_CHANGES' : 'COMMENT',
-            comments: selected.map(f => ({
-              path: f.filePath,
-              line: f.line as number,
-              side: 'RIGHT' as const,
-              body: buildInlineComment(f, policy),
-            })),
+            comments: selected.map(f =>
+              inlineReviewComment(f, policy, withSuggestions)
+            ),
           })
+        try {
+          let review
+          try {
+            review = await postReview(true)
+          } catch (error) {
+            // LUM-1150: a suggestion's range GitHub will not take must not
+            // cost the comments — retry once with every comment back on its
+            // own line and no suggestion. Anything else goes to the handler.
+            if (
+              !(error instanceof GithubApiError && error.status === 422) ||
+              !selected.some(f => inlineSuggestion(f) !== null)
+            )
+              throw error
+            logger.warn(
+              `[security-pr-review] suggestions rejected ${where}: ${describe(error)} — posting without them`
+            )
+            review = await postReview(false)
+          }
           inline = selected.length
           // LUM-1127: give each new comment its thread row.
           if (review?.id)

@@ -22,6 +22,10 @@ import {
   REVIEW_KINDS,
   type ReviewKind,
 } from '@/ee/security/security-scan/review-kinds'
+import {
+  CODE_SUGGESTION_MAX_LINES,
+  type RawCodeSuggestion,
+} from '@/ee/security/security-scan/code-suggestion'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -57,6 +61,31 @@ export const SecurityJudgeSchema = z.object({
         evidence: z
           .string()
           .describe('ONE added line quoted verbatim (without the leading +)'),
+        // LUM-1150 — the one-click fix. Said only in this field's description
+        // so the measured system prompt stays byte-identical; the scan
+        // service validates it against the diff and drops it when unsure.
+        suggestion: z
+          .object({
+            startLine: z
+              .number()
+              .int()
+              .describe('First new-file line number the fix replaces'),
+            endLine: z
+              .number()
+              .int()
+              .describe('Last new-file line number the fix replaces'),
+            code: z
+              .string()
+              .describe(
+                'The exact replacement for lines startLine..endLine, original indentation kept, no markdown fences, no leading +'
+              ),
+          })
+          // Optional too: a model that leaves it out must not fail the
+          // whole review's parse (that would make the judge UNAVAILABLE).
+          .nullish()
+          .describe(
+            `Only when a small fix confined to ADDED lines of this one file is certain: the range must contain line and the evidence line, cover only added lines, at most ${CODE_SUGGESTION_MAX_LINES} lines. Never put a secret in it. Otherwise null.`
+          ),
       })
     )
     .describe('Security defects in ADDED code only. Empty if none.'),
@@ -184,6 +213,8 @@ export interface SecurityJudgeFinding {
   title: string
   detail: string
   evidence: string
+  /** LUM-1150 — the model's proposed fix; absent on a pre-1150 fixture. */
+  suggestion?: RawCodeSuggestion | null | undefined
 }
 
 /*

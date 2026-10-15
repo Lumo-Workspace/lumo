@@ -1863,6 +1863,11 @@ model PrSecurityFinding {
   // credential. Null on every non-secret row and on a hit that was not
   // downgraded — never inferred from `detail` (see SecretDowngradeReason).
   secretDowngrade        PrSecuritySecretDowngrade?
+  // LUM-1150 (LLM_JUDGE rows only): the one-click fix the inline comment
+  // carries as a GitHub suggestion block — { startLine, endLine, code },
+  // validated against this head's added lines before it is stored. Model
+  // output about customer code: scrubbed with the other code fields.
+  codeSuggestion         Json?
   createdAt              DateTime                      @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)

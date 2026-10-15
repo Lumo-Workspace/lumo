@@ -16,6 +16,7 @@ import type {
 import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
 import type { JudgeBudget } from '@/ee/security/security-scan/judge-budget'
 import type { PrSummary } from '@/ee/security/security-scan/pr-summary'
+import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
   mergePartialCauses,
   type PartialCause,
@@ -92,6 +93,12 @@ export interface NewFindingInput {
   suggestedDisposition?: FindingDisposition | null
   suggestedReason?: string | null
   suggestionOutcome?: SuggestionOutcome | null
+  /**
+   * LUM-1150 (LLM_JUDGE rows only) — the validated one-click fix. Omitted
+   * rather than null (Prisma Json columns take `Prisma.JsonNull`). Never
+   * carried to a later scan: its line range belongs to this head.
+   */
+  codeSuggestion?: CodeSuggestion
 }
 
 /** LUM-739 — what the hunt workflow writes back onto the scan row. */
@@ -324,7 +331,10 @@ export type ReviewFindingRow = Pick<
   | 'suggestedDisposition'
   | 'verifierVerdict'
   | 'verifierReason'
->
+> & {
+  /** LUM-1150 — the stored suggestion Json, raw; read with `parseCodeSuggestion`. */
+  codeSuggestion?: unknown
+}
 
 /**
  * LUM-735 Task 2 — one scan with everything the PR write-back renders: its
@@ -649,6 +659,7 @@ async function scrubScans(scanIds: string[], huntAudit: HuntAuditScrub) {
         callChain: Prisma.DbNull,
         detail: '',
         suggestedReason: null,
+        codeSuggestion: Prisma.DbNull,
       },
     })
     // Read before the clear below: the counts are kept from this copy.
@@ -1670,6 +1681,7 @@ export const prSecurityScanRepository = {
             suggestedDisposition: true,
             verifierVerdict: true,
             verifierReason: true,
+            codeSuggestion: true,
           },
         },
         pullRequest: {
