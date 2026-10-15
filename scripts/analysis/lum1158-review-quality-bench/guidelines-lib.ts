@@ -103,8 +103,13 @@ const KEEP_HEADING =
   /(convention|guideline|rule|standard|style|practice|pattern|principle|review|quality|test|security|error|naming|architecture|gotcha|pitfall|invariant|constraint|do'?s|don'?t)/i
 const DIRECTIVE =
   /\b(must|never|always|should|shall|do not|don't|avoid|prefer|ensure|required|requires?|only|instead|forbidden|mandatory|important)\b/i
+/**
+ * A line that is a command: one opening with a quoted tool invocation, or
+ * "run <tool> …". A bare leading word is not enough — "Make sure …" and
+ * "Go code must …" are rules.
+ */
 const COMMAND_LINE =
-  /^(run |use |execute )?`?(npm|pnpm|yarn|bun|bunx|npx|cargo|go|make|mise|pip|uv|python3?|docker|git|just|nx|turbo|deno|node|gh)\b/i
+  /^(?:(?:run|execute)\s+`?|`)(npm|pnpm|yarn|bun|bunx|npx|cargo|go|make|mise|pip|uv|python3?|docker|git|just|nx|turbo|deno|node|gh)\b/i
 const MIN_RULE_CHARS = 20
 const MAX_RULE_CHARS = 400
 

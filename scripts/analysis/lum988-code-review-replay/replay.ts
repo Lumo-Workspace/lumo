@@ -124,7 +124,10 @@ async function reviewOnce(url: string): Promise<RunResult> {
       changedPaths: capped.covered,
       maxChars: Math.min(
         RELATED_MAX_CHARS,
-        REVIEW_PROMPT_MAX_CHARS - diffText.length - contextText.length
+        REVIEW_PROMPT_MAX_CHARS -
+          diffText.length -
+          contextText.length -
+          instructions.text.length
       ),
       search: gitGrepSearch(cwd),
     })

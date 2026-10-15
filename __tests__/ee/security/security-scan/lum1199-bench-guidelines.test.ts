@@ -96,6 +96,23 @@ describe('ruleLines / packRules', () => {
     expect(lines[1]!.score).toBeGreaterThan(lines[0]!.score)
   })
 
+  it('drops command lines but keeps rules that start with a tool-like word', () => {
+    const text = ruleLines(
+      [
+        '- Make sure every handler returns a typed error.',
+        '- Go code must wrap errors with context.',
+        '- `npm test` runs the whole suite before you push.',
+        '- Run npm install whenever the lockfile changes.',
+        '- Use `pnpm` for all workspace installs, never npm.',
+      ].join('\n')
+    ).map(l => l.text)
+    expect(text).toEqual([
+      'Make sure every handler returns a typed error.',
+      'Go code must wrap errors with context.',
+      'Use `pnpm` for all workspace installs, never npm.',
+    ])
+  })
+
   it('packs the best lines within the cap, in document order', () => {
     const lines = ruleLines(md)
     const all = packRules(lines)
