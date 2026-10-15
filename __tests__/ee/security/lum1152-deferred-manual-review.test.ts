@@ -99,6 +99,17 @@ describe('deferredReviewDecision', () => {
       deferredReviewDecision(row({ stages: { judge: 'RAN', hunt: 'RAN' } }))
     ).toBe('covered')
   })
+  test('an AI review that failed or was skipped does not cover the request', () => {
+    expect(deferredReviewDecision(row({ stages: { judge: 'FAILED' } }))).toBe(
+      'dispatch'
+    )
+    expect(deferredReviewDecision(row({ stages: { judge: 'SKIPPED' } }))).toBe(
+      'dispatch'
+    )
+    expect(deferredReviewDecision(row({ stages: { judge: 'PARTIAL' } }))).toBe(
+      'covered'
+    )
+  })
   test('a missing or FAILED scan = dispatch', () => {
     expect(deferredReviewDecision(null)).toBe('dispatch')
     expect(

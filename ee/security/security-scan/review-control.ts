@@ -210,10 +210,10 @@ export function isSettledForManualReview(
 
 /**
  * LUM-1152 follow-up — what a deferred manual review does with the scan it
- * waited on: keep waiting, dispatch (the scan's AI review was held — ignore,
- * pause, hourly cap — or the scan is gone / FAILED), or nothing (the scan's
- * own AI review ran, which is the review asked for: a repeated request while
- * one is running deduplicates). PURE.
+ * waited on: keep waiting, dispatch (the scan's AI review did not run — held
+ * by ignore / pause / hourly cap, failed, skipped — or the scan is gone /
+ * FAILED), or nothing (the scan's own AI review ran, RAN or PARTIAL, which is
+ * the review asked for: a repeated request while one runs deduplicates). PURE.
  */
 export type DeferredReviewDecision = 'wait' | 'dispatch' | 'covered'
 
@@ -227,5 +227,7 @@ export function deferredReviewDecision(
     row.stages && typeof row.stages === 'object'
       ? (row.stages as Record<string, unknown>).judge
       : undefined
-  return judge === undefined || judge === 'PAUSED' ? 'dispatch' : 'covered'
+  // Only an AI review that ran covers the request; held, failed or skipped
+  // ones do not.
+  return judge === 'RAN' || judge === 'PARTIAL' ? 'covered' : 'dispatch'
 }
