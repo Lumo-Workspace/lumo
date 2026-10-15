@@ -116,3 +116,11 @@ collect → replay → verify → rank → label → judge (bot-a, shipped, raw)
 score. ~2 minutes; label + judge 17.6k in / 6.3k out tokens, review +
 verifier + ranker ~0.2M in. Too small to read anything into the numbers; it
 checks the plumbing. The full run's numbers go in the Lumo doc, not here.
+
+## Full run (2026-10-15)
+
+All 50 PRs, Lumo replayed twice (shipped and raw), about $19. Pooled over the
+40 `oss` PRs: bot-a F1 63.6; Lumo shipped F1 43.0 / 35.5; Lumo raw F1 39.9 /
+32.4. Of the fixes bot-a pointed at, Lumo found 42–47% on its own. The full
+write-up, gaps and named comparison are in the internal Lumo doc bound to
+LUM-1158.
