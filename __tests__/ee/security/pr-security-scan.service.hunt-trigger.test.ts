@@ -160,6 +160,7 @@ beforeEach(() => {
   repo.countExternalFindings.mockResolvedValue(0)
   repo.persistResult.mockImplementation(async () => {
     order.push('persist')
+    return { managedLayerLanded: false }
   })
   repo.mergeStages.mockResolvedValue(undefined)
   repo.setManagedRunId = jest.fn().mockResolvedValue(undefined) as never
@@ -288,7 +289,7 @@ describe('LUM-739 hunt trigger', () => {
     expect(crossings.findUndispositionedByTask).toHaveBeenCalledWith('t1')
 
     jest.clearAllMocks()
-    repo.persistResult.mockResolvedValue(undefined)
+    repo.persistResult.mockResolvedValue({ managedLayerLanded: false })
     prRepo.findById.mockResolvedValue(PR as never)
     fetchPrHeadSha.mockResolvedValue('sha-2')
     repo.findByPrAndSha.mockResolvedValue(null)
