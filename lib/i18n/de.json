@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "Entschieden",
   "securityScan.stageReason.judgeOverCap": "Nicht gelaufen: Der Diff dieses PRs hat {size, number} Zeichen, das AI-Review läuft auf bis zu {cap, number}. Grenze den Umfang ein oder teile den PR, um es zu bekommen.",
   "securityScan.stageReason.judgeOverCapFiles": "Nicht ausgeführt: Dieser PR ändert {files, number} prüfbare Dateien, und das KI-Review läuft auf höchstens {cap, number}. Grenzen Sie den Umfang ein oder teilen Sie den PR auf, um es zu erhalten.",
-  "securityScan.stageReason.judgePartial": "Teilweise geprüft: {reviewed, number} von {total, number} Dateien passen in die Größengrenze des KI-Reviews. Die nicht geprüften Dateien stehen unten.",
+  "securityScan.stageReason.judgePartialOverCap": "Teilweise geprüft: {reviewed, number} von {total, number} Dateien passen in die Größengrenze des KI-Reviews. Die nicht geprüften Dateien stehen unten.",
   "securityScan.stageReason.huntOverCap": "Nicht gelaufen: Dieser PR berührt {files} Quelldateien, die Exploit-Pfad-Prüfung läuft auf bis zu {cap}. Grenze den Umfang ein oder teile den PR, um sie zu bekommen.",
   "securityScan.stageReason.huntInProgress": "Läuft noch: bisher {covered} von {total} Quelldateien geprüft.",
   "securityScan.stageReason.huntSkipped": "Nicht nötig: Die Änderung fügt keine Einstiegspunkte, riskanten Aufrufe oder Sicherheitskontrollen hinzu, und es wurde nichts mit hohem Schweregrad gefunden – es gab keinen Pfad zu verfolgen.",

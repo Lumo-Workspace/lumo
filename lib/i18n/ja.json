@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "判断済み",
   "securityScan.stageReason.judgeOverCap": "未実行：この PR の diff は {size, number} 文字で、AI レビューの上限は {cap, number} 文字です。範囲を絞るか PR を分割すると実行されます。",
   "securityScan.stageReason.judgeOverCapFiles": "未実行：この PR はレビュー対象ファイルを {files, number} 件変更しており、AI レビューの対象は最大 {cap, number} 件です。範囲を絞るか PR を分割するとレビューを受けられます。",
-  "securityScan.stageReason.judgePartial": "一部レビュー済み：{total, number} ファイルのうち {reviewed, number} ファイルが AI レビューのサイズ上限内です。レビューされていないファイルは下記のとおりです。",
+  "securityScan.stageReason.judgePartialOverCap": "一部レビュー済み：{total, number} ファイルのうち {reviewed, number} ファイルが AI レビューのサイズ上限内です。レビューされていないファイルは下記のとおりです。",
   "securityScan.stageReason.huntOverCap": "未実行：この PR は {files} 個のソースファイルに触れており、悪用経路チェックの上限は {cap} 個です。範囲を絞るか PR を分割すると実行されます。",
   "securityScan.stageReason.huntInProgress": "実行中：これまでに {total} 個中 {covered} 個のソースファイルを確認しました。",
   "securityScan.stageReason.huntSkipped": "不要：変更に新しい入口、危険な呼び出し、セキュリティ制御の追加がなく、重大度の高い指摘もないため、たどる経路がありませんでした。",

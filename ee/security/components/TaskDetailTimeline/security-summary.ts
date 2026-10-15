@@ -252,7 +252,7 @@ export function stageReason(
     }
   if (stageKey === 'judge' && scan.judgePartial)
     return {
-      id: id('judgePartial'),
+      id: id('judgePartialOverCap'),
       values: {
         reviewed: scan.judgePartial.reviewedFiles,
         total: scan.judgePartial.totalFiles,

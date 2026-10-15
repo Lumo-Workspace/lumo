@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "결정됨",
   "securityScan.stageReason.judgeOverCap": "실행 안 됨: 이 PR의 diff는 {size, number}자이고 AI 리뷰는 최대 {cap, number}자까지 실행됩니다. 범위를 좁히거나 PR을 나누면 실행됩니다.",
   "securityScan.stageReason.judgeOverCapFiles": "실행 안 됨: 이 PR은 리뷰 대상 파일 {files, number}개를 변경하며 AI 리뷰는 최대 {cap, number}개까지 실행됩니다. 범위를 좁히거나 PR을 나누면 받을 수 있습니다.",
-  "securityScan.stageReason.judgePartial": "일부 리뷰됨: 파일 {total, number}개 중 {reviewed, number}개가 AI 리뷰의 크기 한도 안에 들어갑니다. 리뷰되지 않은 파일은 아래에 있습니다.",
+  "securityScan.stageReason.judgePartialOverCap": "일부 리뷰됨: 파일 {total, number}개 중 {reviewed, number}개가 AI 리뷰의 크기 한도 안에 들어갑니다. 리뷰되지 않은 파일은 아래에 있습니다.",
   "securityScan.stageReason.huntOverCap": "실행 안 됨: 이 PR은 소스 파일 {files}개를 건드리며 익스플로잇 경로 검사는 최대 {cap}개까지 실행됩니다. 범위를 좁히거나 PR을 나누면 실행됩니다.",
   "securityScan.stageReason.huntInProgress": "실행 중: 지금까지 소스 파일 {total}개 중 {covered}개를 확인했습니다.",
   "securityScan.stageReason.huntSkipped": "필요 없음: 변경에 새 진입점, 위험한 호출, 보안 제어가 추가되지 않았고 심각도 높은 발견도 없어 추적할 경로가 없었습니다.",

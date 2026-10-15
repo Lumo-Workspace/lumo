@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "Đã quyết định",
   "securityScan.stageReason.judgeOverCap": "Không chạy: diff của PR này có {size, number} ký tự, còn đánh giá AI chỉ chạy tối đa {cap, number}. Thu hẹp phạm vi hoặc tách PR để được đánh giá.",
   "securityScan.stageReason.judgeOverCapFiles": "Không chạy: PR này thay đổi {files, number} tệp có thể đánh giá và đánh giá AI chạy trên tối đa {cap, number} tệp. Thu hẹp phạm vi hoặc tách PR để được đánh giá.",
-  "securityScan.stageReason.judgePartial": "Đánh giá một phần: {reviewed, number} trên {total, number} tệp nằm trong giới hạn kích thước của đánh giá AI. Các tệp chưa được đánh giá được liệt kê bên dưới.",
+  "securityScan.stageReason.judgePartialOverCap": "Đánh giá một phần: {reviewed, number} trên {total, number} tệp nằm trong giới hạn kích thước của đánh giá AI. Các tệp chưa được đánh giá được liệt kê bên dưới.",
   "securityScan.stageReason.huntOverCap": "Không chạy: PR này đụng đến {files} tệp mã nguồn, còn kiểm tra đường khai thác chỉ chạy tối đa {cap}. Thu hẹp phạm vi hoặc tách PR để được kiểm tra.",
   "securityScan.stageReason.huntInProgress": "Đang chạy: đã kiểm tra {covered}/{total} tệp mã nguồn.",
   "securityScan.stageReason.huntSkipped": "Không cần: thay đổi không thêm điểm vào, lời gọi rủi ro hay cơ chế bảo mật nào, và không có phát hiện mức cao, nên không có đường nào để lần theo.",

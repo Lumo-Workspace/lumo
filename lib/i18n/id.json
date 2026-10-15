@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "Sudah diputuskan",
   "securityScan.stageReason.judgeOverCap": "Tidak dijalankan: diff PR ini {size, number} karakter dan tinjauan AI berjalan hingga {cap, number}. Persempit cakupan atau pecah PR untuk mendapatkannya.",
   "securityScan.stageReason.judgeOverCapFiles": "Tidak dijalankan: PR ini mengubah {files, number} file yang dapat ditinjau dan tinjauan AI berjalan pada maksimal {cap, number}. Persempit cakupan atau pecah PR untuk mendapatkannya.",
-  "securityScan.stageReason.judgePartial": "Ditinjau sebagian: {reviewed, number} dari {total, number} file muat dalam batas ukuran tinjauan AI. File yang tidak ditinjau tercantum di bawah.",
+  "securityScan.stageReason.judgePartialOverCap": "Ditinjau sebagian: {reviewed, number} dari {total, number} file muat dalam batas ukuran tinjauan AI. File yang tidak ditinjau tercantum di bawah.",
   "securityScan.stageReason.huntOverCap": "Tidak dijalankan: PR ini menyentuh {files} file sumber dan pemeriksaan jalur eksploit berjalan hingga {cap}. Persempit cakupan atau pecah PR untuk mendapatkannya.",
   "securityScan.stageReason.huntInProgress": "Masih berjalan: {covered} dari {total} file sumber sudah diperiksa.",
   "securityScan.stageReason.huntSkipped": "Tidak perlu: perubahan ini tidak menambah titik masuk, panggilan berisiko, atau kontrol keamanan, dan tidak ada temuan tingkat tinggi, jadi tidak ada jalur untuk ditelusuri.",

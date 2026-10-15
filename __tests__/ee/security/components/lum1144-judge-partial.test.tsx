@@ -154,7 +154,7 @@ test('summary + stage reason: over the size limit, partly reviewed', () => {
   const scan = partial()
   expect(isOverSizeLimitOnly(scan)).toBe(true)
   expect(stageReason('judge', scan)).toEqual({
-    id: 'securityScan.stageReason.judgePartial',
+    id: 'securityScan.stageReason.judgePartialOverCap',
     values: { reviewed: 60, total: 72 },
   })
 })
@@ -185,4 +185,25 @@ test('over the cap by file count alone: the notice says files, not characters', 
     id: 'securityScan.stageReason.judgeOverCapFiles',
     values: { files: 240, cap: 150 },
   })
+})
+
+test('every locale declares each new key exactly once (no shadowed duplicate)', () => {
+  const fs = require('node:fs') as typeof import('node:fs')
+  const path = require('node:path') as typeof import('node:path')
+  const dir = path.join(process.cwd(), 'lib/i18n')
+  const keys = [
+    'securityScan.judgePartial',
+    'securityScan.judgePartialMore',
+    'securityScan.judgeOverCapFiles',
+    'securityScan.stageReason.judgePartialOverCap',
+    'securityScan.stageReason.judgeOverCapFiles',
+    'securityScan.stageReason.judgePartial',
+  ]
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.json'))) {
+    const raw = fs.readFileSync(path.join(dir, file), 'utf8')
+    for (const key of keys)
+      expect([file, raw.split(`"${key}":`).length - 1]).toEqual([file, 1])
+  }
+  // The generic PARTIAL reason keeps its own wording (no placeholders).
+  expect(en['securityScan.stageReason.judgePartial']).not.toMatch(/\{/)
 })

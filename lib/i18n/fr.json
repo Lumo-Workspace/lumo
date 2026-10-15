@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "Tranché",
   "securityScan.stageReason.judgeOverCap": "Non exécutée : le diff de cette PR fait {size, number} caractères et la revue IA couvre jusqu'à {cap, number}. Réduisez le périmètre ou scindez la PR pour l'obtenir.",
   "securityScan.stageReason.judgeOverCapFiles": "Non lancée : cette PR modifie {files, number} fichiers révisables et la revue IA en traite au plus {cap, number}. Réduisez le périmètre ou scindez la PR pour l'obtenir.",
-  "securityScan.stageReason.judgePartial": "Revue partielle : {reviewed, number} des {total, number} fichiers tiennent dans la limite de taille de la revue IA. Les fichiers non révisés sont listés ci-dessous.",
+  "securityScan.stageReason.judgePartialOverCap": "Revue partielle : {reviewed, number} des {total, number} fichiers tiennent dans la limite de taille de la revue IA. Les fichiers non révisés sont listés ci-dessous.",
   "securityScan.stageReason.huntOverCap": "Non exécutée : cette PR touche {files} fichiers source et la vérification des chemins d'exploitation couvre jusqu'à {cap}. Réduisez le périmètre ou scindez la PR pour l'obtenir.",
   "securityScan.stageReason.huntInProgress": "En cours : {covered} fichiers source sur {total} vérifiés pour l'instant.",
   "securityScan.stageReason.huntSkipped": "Inutile : le changement n'ajoute ni point d'entrée, ni appel à risque, ni contrôle de sécurité, et rien de grave n'a été trouvé — aucun chemin à suivre.",

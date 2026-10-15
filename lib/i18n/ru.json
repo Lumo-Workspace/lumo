@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "Решено",
   "securityScan.stageReason.judgeOverCap": "Не запускалось: diff этого PR — {size, number} символов, а ИИ-ревью работает до {cap, number}. Сузьте охват или разбейте PR, чтобы его получить.",
   "securityScan.stageReason.judgeOverCapFiles": "Не запускалось: этот PR изменяет {files, number} проверяемых файлов, а ИИ-ревью работает максимум с {cap, number}. Сузьте область или разделите PR, чтобы его получить.",
-  "securityScan.stageReason.judgePartial": "Проверено частично: {reviewed, number} из {total, number} файлов укладываются в лимит размера ИИ-ревью. Непроверенные файлы перечислены ниже.",
+  "securityScan.stageReason.judgePartialOverCap": "Проверено частично: {reviewed, number} из {total, number} файлов укладываются в лимит размера ИИ-ревью. Непроверенные файлы перечислены ниже.",
   "securityScan.stageReason.huntOverCap": "Не запускалось: этот PR затрагивает {files} исходных файлов, а проверка путей эксплуатации работает до {cap}. Сузьте охват или разбейте PR, чтобы её получить.",
   "securityScan.stageReason.huntInProgress": "Ещё идёт: проверено {covered} из {total} исходных файлов.",
   "securityScan.stageReason.huntSkipped": "Не требовалось: изменение не добавляет точек входа, рискованных вызовов или средств защиты, и ничего высокой серьёзности не найдено — прослеживать было нечего.",

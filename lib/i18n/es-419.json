@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "Decidido",
   "securityScan.stageReason.judgeOverCap": "No se ejecutó: el diff de este PR tiene {size, number} caracteres y la revisión con IA cubre hasta {cap, number}. Acota el alcance o divide el PR para obtenerla.",
   "securityScan.stageReason.judgeOverCapFiles": "No se ejecutó: este PR cambia {files, number} archivos revisables y la revisión con IA cubre como máximo {cap, number}. Acota el alcance o divide el PR para obtenerla.",
-  "securityScan.stageReason.judgePartial": "Revisión parcial: {reviewed, number} de {total, number} archivos caben en el límite de tamaño de la revisión con IA. Los archivos no revisados aparecen abajo.",
+  "securityScan.stageReason.judgePartialOverCap": "Revisión parcial: {reviewed, number} de {total, number} archivos caben en el límite de tamaño de la revisión con IA. Los archivos no revisados aparecen abajo.",
   "securityScan.stageReason.huntOverCap": "No se ejecutó: este PR toca {files} archivos de código y la comprobación de rutas de explotación cubre hasta {cap}. Acota el alcance o divide el PR para obtenerla.",
   "securityScan.stageReason.huntInProgress": "Aún en curso: {covered} de {total} archivos de código revisados por ahora.",
   "securityScan.stageReason.huntSkipped": "No hacía falta: el cambio no añade puntos de entrada, llamadas arriesgadas ni controles de seguridad, y no se encontró nada de severidad alta, así que no había ruta que seguir.",

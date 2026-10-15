@@ -907,12 +907,6 @@ function groupHeading(
   return intl.formatMessage({ id: `securityScan.group.${group.key}` })
 }
 
-/**
- * LUM-1079 — the PR was too large to scan at all. Only when the PR is over
- * the file cap is it drawn like the per-layer notices (the change against
- * the cap); a diff GitHub refused under the cap (e.g. over its line limit)
- * has no "how far over" in files, so it gets the message alone.
- */
 /** LUM-832 / LUM-1144 — the AI review did not run: over its size cap. */
 function JudgeOverCapNotice({
   overCap,
@@ -995,6 +989,12 @@ function JudgePartialNotice({
   )
 }
 
+/**
+ * LUM-1079 — the PR was too large to scan at all. Only when the PR is over
+ * the file cap is it drawn like the per-layer notices (the change against
+ * the cap); a diff GitHub refused under the cap (e.g. over its line limit)
+ * has no "how far over" in files, so it gets the message alone.
+ */
 function PrTooLargeNotice({
   tooLarge,
 }: {

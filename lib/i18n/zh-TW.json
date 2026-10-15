@@ -2736,7 +2736,7 @@
   "securityScan.group.ruled": "已裁定",
   "securityScan.stageReason.judgeOverCap": "未執行：本 PR 的 diff 有 {size, number} 個字元，AI 審查上限為 {cap, number}。縮小範圍或拆分 PR 即可執行。",
   "securityScan.stageReason.judgeOverCapFiles": "未執行：此 PR 變更了 {files, number} 個可審查檔案，AI 審查最多支援 {cap, number} 個。縮小範圍或拆分 PR 即可取得審查。",
-  "securityScan.stageReason.judgePartial": "部分審查：{total, number} 個檔案中有 {reviewed, number} 個在 AI 審查的規模上限內。未審查的檔案列於下方。",
+  "securityScan.stageReason.judgePartialOverCap": "部分審查：{total, number} 個檔案中有 {reviewed, number} 個在 AI 審查的規模上限內。未審查的檔案列於下方。",
   "securityScan.stageReason.huntOverCap": "未執行：本 PR 涉及 {files} 個原始檔，攻擊路徑檢查上限為 {cap} 個。縮小範圍或拆分 PR 即可執行。",
   "securityScan.stageReason.huntInProgress": "執行中：已檢查 {total} 個原始檔中的 {covered} 個。",
   "securityScan.stageReason.huntSkipped": "無需執行：變更沒有新增入口、高風險呼叫或安全控制，也沒有高風險發現，所以沒有需要追蹤的路徑。",
