@@ -101,6 +101,14 @@ import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
 import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
 import { repoConfigService } from './repo-config.service'
 import { REPO_CONFIG_FIELDS } from '@/ee/security/security-scan/repo-config'
+import type { RepoConfigFile } from '@/ee/security/validation/repo-config'
+import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
+import { DEFAULT_REVIEW_PROFILE } from '@/ee/security/security-scan/review-profile'
+import {
+  renderPathInstructions,
+  renderToneInstructions,
+} from '@/ee/security/security-scan/path-instructions'
+import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
 import {
   filterReviewableDiff,
   reviewablePathPredicate,
@@ -785,19 +793,73 @@ async function repoPathFiltersBestEffort(
 }
 
 /**
+ * LUM-1147 — the repository's stored review style; a failed read (or no
+ * row) is the defaults — never a failed scan over a settings read.
+ */
+async function repoReviewStyleBestEffort(
+  workspaceId: string,
+  repo: string
+): Promise<ReviewStyle> {
+  try {
+    const row = await repoReviewSettingRepository.findReviewStyle(
+      workspaceId,
+      repo.toLowerCase()
+    )
+    if (row) return row
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] review style unavailable repo=${repo}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+  return {
+    pathInstructions: [],
+    reviewProfile: DEFAULT_REVIEW_PROFILE,
+    toneInstructions: null,
+  }
+}
+
+type ReviewStyle = Pick<
+  RepoReviewSettingValues,
+  'pathInstructions' | 'reviewProfile' | 'toneInstructions'
+>
+
+/** What one scan's review reads from the repository's settings. */
+export interface ScanReviewSettings extends ReviewStyle {
+  pathFilters: string[]
+}
+
+/** PURE — a field's file value over the stored one (file > stored). */
+function fileOver<K extends 'pathFilters' | keyof ReviewStyle>(
+  file: RepoConfigFile | null,
+  key: K,
+  stored: ScanReviewSettings[K]
+): ScanReviewSettings[K] {
+  const fromFile = file
+    ? (REPO_CONFIG_FIELDS[key].read(file) as ScanReviewSettings[K] | undefined)
+    : undefined
+  return fromFile ?? stored
+}
+
+/**
  * LUM-1146 — the path filters the review reads: `.lumo.yaml` on the PR's
  * BASE commit wins over the repository's stored filters (the PR's own copy
  * is only checked). How the file was read goes on the row for the PR
- * summary. Never fails the scan — any failure falls back to the stored
- * filters.
+ * summary. LUM-1147: the review style (path instructions, profile, tone)
+ * resolves the same way, and the profile in force goes on the row for the
+ * write-back. Never fails the scan — any failure falls back to the stored
+ * settings.
  */
-async function reviewPathFiltersBestEffort(
+async function reviewSettingsBestEffort(
   pr: { workspaceId: string; repo: string; number: number },
   scanId: string,
   headSha: string,
   diff: string
-): Promise<string[]> {
-  const stored = await repoPathFiltersBestEffort(pr.workspaceId, pr.repo)
+): Promise<ScanReviewSettings> {
+  const [pathFilters, style] = await Promise.all([
+    repoPathFiltersBestEffort(pr.workspaceId, pr.repo),
+    repoReviewStyleBestEffort(pr.workspaceId, pr.repo),
+  ])
+  let settings: ScanReviewSettings = { pathFilters, ...style }
   try {
     const { file, notice } = await repoConfigService.forPullRequest({
       workspaceId: pr.workspaceId,
@@ -813,15 +875,36 @@ async function reviewPathFiltersBestEffort(
         `[pr-security-scan] repo config notice not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
       )
     }
-    return (
-      (file ? REPO_CONFIG_FIELDS.pathFilters.read(file) : undefined) ?? stored
-    )
+    settings = {
+      pathFilters: fileOver(file, 'pathFilters', settings.pathFilters),
+      pathInstructions: fileOver(
+        file,
+        'pathInstructions',
+        settings.pathInstructions
+      ),
+      reviewProfile: fileOver(file, 'reviewProfile', settings.reviewProfile),
+      toneInstructions: fileOver(
+        file,
+        'toneInstructions',
+        settings.toneInstructions
+      ),
+    }
   } catch (error) {
     logger.warn(
       `[pr-security-scan] repo config unavailable repo=${pr.repo}: ${error instanceof Error ? error.message : String(error)}`
     )
-    return stored
   }
+  try {
+    await prSecurityScanRepository.setReviewProfile(
+      scanId,
+      settings.reviewProfile
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] review profile not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+  return settings
 }
 
 /**
@@ -1061,9 +1144,14 @@ export const prSecurityScanService = {
       // the base commit first; built-in: lockfiles, generated code, build
       // output) decide what the AI review and the hunt read. The secret scan
       // and graph rules still see every file.
-      const isReviewable = reviewablePathPredicate(
-        await reviewPathFiltersBestEffort(pr, scanId, headSha, diff)
+      // LUM-1147: and the review style the AI review reads.
+      const reviewSettings = await reviewSettingsBestEffort(
+        pr,
+        scanId,
+        headSha,
+        diff
       )
+      const isReviewable = reviewablePathPredicate(reviewSettings.pathFilters)
       const reviewable = filterReviewableDiff(reviewDiff, isReviewable)
       if (reviewable.excluded.length > 0) {
         reviewDiff = reviewable.diff
@@ -1416,12 +1504,29 @@ export const prSecurityScanService = {
           pullRequestId: pr.id,
           reviewedPaths: capped.covered,
         })
+        // LUM-1147 — the owners' instructions for the files this review
+        // reads, and the tone: guarded, bounded, and paid for out of the
+        // same context budget as the learnings.
+        const pathInstructions = renderPathInstructions(
+          reviewSettings.pathInstructions,
+          capped.covered,
+          guardPromptLineText
+        )
+        const tone = renderToneInstructions(
+          reviewSettings.toneInstructions,
+          guardPromptLineText
+        )
         const context = await reviewContextService.load({
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           headSha,
           paths: capped.covered,
-          maxChars: reviewContextBudget(capped.text.length + learnings.length),
+          maxChars: reviewContextBudget(
+            capped.text.length +
+              learnings.length +
+              pathInstructions.length +
+              tone.length
+          ),
         })
         if (context.error) {
           logger.warn(
@@ -1443,6 +1548,8 @@ export const prSecurityScanService = {
             // Customer files entering a prompt: same mask as the diff.
             context: redactForInjection(context.text).text,
             ...(learnings ? { learnings } : {}),
+            ...(pathInstructions ? { pathInstructions } : {}),
+            ...(tone ? { tone } : {}),
           })
           judgeStatus = 'RAN'
           // Model text headed for a public PR: redacted and neutralised here,

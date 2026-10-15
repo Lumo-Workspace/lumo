@@ -31,6 +31,12 @@ import {
   DEFAULT_REPO_REVIEW_SETTING,
   type RepoReviewSettingValues,
 } from './auto-review-policy'
+import {
+  normalizePathInstructions,
+  normalizeToneInstructions,
+  type PathInstruction,
+} from './path-instructions'
+import type { ReviewProfile } from './review-profile'
 
 /** Problems / unknown keys kept per file (the rest are counted). */
 export const REPO_CONFIG_MAX_PROBLEMS = 10
@@ -267,6 +273,36 @@ export const REPO_CONFIG_FIELDS = {
     fallback: [...D.pathFilters],
     prBranch: 'ignored',
   }),
+  // LUM-1147 — the review style. A PR-branch copy is ignored here too:
+  // instructions are prompt text a PR could use to talk its own review
+  // down, and the profile decides what is commented on it.
+  reviewProfile: field<ReviewProfile>({
+    key: 'reviews.profile',
+    read: f => f.reviews?.profile,
+    lumo: s => s.reviewProfile,
+    fallback: D.reviewProfile,
+    prBranch: 'ignored',
+  }),
+  pathInstructions: field<PathInstruction[]>({
+    key: 'reviews.path_instructions',
+    read: f =>
+      f.reviews?.path_instructions === undefined
+        ? undefined
+        : normalizePathInstructions(f.reviews.path_instructions),
+    lumo: s => s.pathInstructions,
+    fallback: [...D.pathInstructions],
+    prBranch: 'ignored',
+  }),
+  toneInstructions: field<string | null>({
+    key: 'tone_instructions',
+    read: f =>
+      f.tone_instructions === undefined
+        ? undefined
+        : normalizeToneInstructions(f.tone_instructions),
+    lumo: s => s.toneInstructions,
+    fallback: D.toneInstructions,
+    prBranch: 'ignored',
+  }),
 } as const
 
 export type RepoConfigFields = typeof REPO_CONFIG_FIELDS
@@ -342,6 +378,9 @@ export function reviewSettingsWithFile(
     ignoreUsernames: e.ignoreUsernames.value,
     descriptionKeyword: e.descriptionKeyword.value,
     pathFilters: e.pathFilters.value,
+    reviewProfile: e.reviewProfile.value,
+    pathInstructions: e.pathInstructions.value,
+    toneInstructions: e.toneInstructions.value,
   }
 }
 

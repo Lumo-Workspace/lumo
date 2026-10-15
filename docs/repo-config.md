@@ -17,11 +17,41 @@ reviews:
     ignore_usernames: ['renovate[bot]'] # exact login
     description_keyword: '@review' # with enabled: false, opts a PR in
   path_filters: ['!docs/**', '!**/*.snap'] # what the AI review reads
+  profile: chill # quiet | chill | assertive — which findings get inline comments
+  path_instructions: # extra AI review checks for matching files
+    - path: 'scripts/**'
+      instructions: Flag any console.log.
+tone_instructions: Be concise and friendly. # wording of the AI review, ≤250 chars
 ```
 
 Every key is optional. The keys mean exactly what the same per-repository review
 settings mean in Lumo (the settings card and `lumo workspace security-scan
 --repo`).
+
+## Review style (`profile`, `path_instructions`, `tone_instructions`)
+
+- `reviews.profile` changes **posting only** — detection, severities, the
+  summary's counts and what blocks DONE are the same in every profile:
+  - `chill` (default): HIGH and MEDIUM findings get an inline comment; LOW
+    ones are one summary line.
+  - `quiet`: only HIGH findings get an inline comment; MEDIUM ones are listed
+    in a folded block of the summary.
+  - `assertive`: LOW findings get an inline comment too.
+
+  In every profile a HIGH finding and a finding that blocks DONE are commented
+  inline. The profile in force is stored on the scan, so the comments follow
+  the settings the review ran with.
+
+- `reviews.path_instructions` — up to 20 `{ path, instructions }` entries (glob
+  ≤200 characters, same syntax as `path_filters`; instructions ≤1,000). Only
+  entries whose glob matches a file the AI review reads go into its prompt,
+  at most 4,000 characters per review, paid for out of the review's context
+  budget (like learnings). They are fenced, guarded prompt text: they add
+  checks to the AI review and cannot switch a layer off, approve, clear a
+  finding or change what blocks DONE.
+- `tone_instructions` (top level, ≤250 characters): how the AI review words its
+  finding titles, details and PR description. Wording only. Lumo's replies in
+  review threads and to PR commands are fixed text and do not change.
 
 ## Precedence
 

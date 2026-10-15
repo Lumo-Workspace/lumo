@@ -80,9 +80,43 @@
             "type": "string",
             "maxLength": 200
           }
+        },
+        "profile": {
+          "description": "Which findings get inline comments: `quiet` = only HIGH and Done-blocking ones (MEDIUM listed in the summary), `chill` (default) = HIGH and MEDIUM, `assertive` = LOW too. Detection and what blocks DONE are the same in every profile.",
+          "type": "string",
+          "enum": ["quiet", "chill", "assertive"]
+        },
+        "path_instructions": {
+          "description": "Review instructions per path glob, added to the AI review of matching files (on top of its built-in review; they cannot turn a check off).",
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Glob over repository paths, e.g. `scripts/**` or `*.sql`."
+              },
+              "instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "description": "What the AI review should also check in matching files."
+              }
+            },
+            "required": ["path", "instructions"],
+            "description": "Extra instructions for the AI review of files matching `path`."
+          }
         }
       },
       "description": "Code review settings."
+    },
+    "tone_instructions": {
+      "description": "How the AI review words its findings and PR description (at most 250 characters), e.g. \"Be concise and friendly\". Changes wording only, never what is reported.",
+      "type": "string",
+      "maxLength": 250
     }
   },
   "description": "Lumo repository configuration (.lumo.yaml). Read from the base branch of each pull request.",

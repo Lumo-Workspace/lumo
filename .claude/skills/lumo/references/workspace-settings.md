@@ -95,11 +95,29 @@ lumo workspace security-scan --repo acme/app --labels ""                       #
 - `--repo X` (no change) prints the repository's filters under its row; `--json` adds `baseBranches`, `labels`, `ignoreTitleKeywords`, `ignoreUsernames`, `descriptionKeyword`, `pathFilters`, `emptyBaseBranchesMeans`.
 - A `.lumo.yaml` at the repository root (`reviews.auto_review.*`, `reviews.path_filters`) overrides these per key, read from the PR's **base** commit — a PR's own copy applies only after it merges; an invalid file falls back to these settings and the PR summary says why. These commands show the stored settings, not the file. Details: `docs/repo-config.md`.
 
+#### Review style: path instructions, profile, tone (LUM-1147)
+
+Per repository, for every AI review of its PRs (task-linked too). OWNER only, no confirmation, audited like the filters. The web card has the same fields under **Review style**.
+
+```bash
+lumo workspace security-scan --repo acme/app --profile quiet                 # fewer inline comments
+lumo workspace security-scan --repo acme/app --tone "Be concise and friendly"
+lumo workspace security-scan --repo acme/app --path-instruction 'scripts/**=Flag any console.log' --path-instruction '*.sql=Check every query has a LIMIT'
+lumo workspace security-scan --repo acme/app --path-instruction ""          # clear the list
+```
+
+- `--profile <quiet|chill|assertive>` changes **posting only** (detection, severities, counts and what blocks Done are identical): `chill` (default) = HIGH + MEDIUM findings get inline comments, LOW is one summary line; `quiet` = only HIGH findings inline, MEDIUM ones are listed in a folded block of the summary; `assertive` = LOW findings inline too. In **every** profile HIGH findings and Done-blocking findings are commented inline. The summary footer names a non-default profile.
+- `--tone <text>` (≤250 chars, one line; `""` clears): how the AI review words its titles, details and the PR description — wording only, never what is reported. Lumo's thread / command replies are fixed text and do not change.
+- `--path-instruction <glob=instructions>` (repeatable, replaces the list, `""` clears; ≤20 entries, glob ≤200 and instructions ≤1000 chars; the glob is everything before the first `=`, same syntax as `--path-filter`, no `!`): extra checks added to the AI review prompt for files matching the glob — only instructions whose glob matches a reviewed file are sent (≤4,000 chars per review, paid out of the review's context budget like learnings). They are fenced, guarded prompt text: they cannot turn a layer off, clear or approve a finding, or change what blocks Done.
+- `--repo X` prints `review profile:`, `tone:` and each `path instruction:` under the row; `--json` adds `reviewProfile`, `toneInstructions`, `pathInstructions`.
+- `.lumo.yaml` keys `reviews.profile`, `reviews.path_instructions` (`- path: … instructions: …`) and top-level `tone_instructions` override these per key (base commit only, as above).
+
 ### When to suggest `workspace security-scan`
 
 - "Turn off / pause code scanning", "stop the AI review on our PRs", "why didn't the hunt run" — and the user is a workspace owner (reading is open to anyone).
 - "Don't review PRs in repo X", "review drafts too", "why was my PR without a task (not) reviewed" → `--repos` / `--repo`.
 - "Skip WIP PRs", "don't review dependabot", "only review PRs labelled X", "review PRs into release branches", "ignore lockfiles / generated files", "auto-review filters / path filters" → the LUM-1143 filter flags with `--repo`.
+- "Too many review comments", "only comment on serious issues", "show nitpicks too", "review in a friendlier / terser tone", "tell the review to check X in folder Y" → `--profile` / `--tone` / `--path-instruction` with `--repo`.
 - "Make Lumo request changes / approve PRs", "request changes on open findings" → `--request-changes on` (exits 4 first; relay the envelope).
 - "Stop PR authors approving their own PRs via @uselumo", "allow_author_approval" → `--allow-author-approval off` (exits 4 first; relay the envelope); turning it back on is gated too.
 - "Use learnings from our other repos", "keep each repo's learnings separate", "share learnings across repositories" → `--learnings-scope global|local|auto` (`global` exits 4 first; relay the envelope).
