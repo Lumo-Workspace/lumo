@@ -30,6 +30,8 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     securityHuntEnabled: z.boolean().optional(),
     // LUM-1130: the PR reviewer's request-changes workflow (default off).
     securityRequestChangesEnabled: z.boolean().optional(),
+    // LUM-1142: the PR's author may resolve / approve by command (default on).
+    securityAllowAuthorApproval: z.boolean().optional(),
     // LUM-1134: the learnings scope — local | global | auto (default auto).
     securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
     // LUM-1137: pause automatic review after N reviewed commits (0 = never).
@@ -44,6 +46,7 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
       'securityAiReviewEnabled',
       'securityHuntEnabled',
       'securityRequestChangesEnabled',
+      'securityAllowAuthorApproval',
       'securityLearningsScope',
       'securityReviewAutoPauseAfter',
     ],

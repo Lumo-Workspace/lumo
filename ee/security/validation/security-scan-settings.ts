@@ -23,6 +23,8 @@ export const updateSecurityScanSettingsSchema = z
     securityHuntEnabled: z.boolean().optional(),
     // LUM-1130: the request-changes / approve workflow (default off).
     securityRequestChangesEnabled: z.boolean().optional(),
+    // LUM-1142: the PR's author may resolve / approve by command (default on).
+    securityAllowAuthorApproval: z.boolean().optional(),
     // LUM-1134: which repositories' learnings the AI review reads.
     securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
     // LUM-1137: pause automatic review after N reviewed commits (0 = never).

@@ -21,6 +21,8 @@ const SECURITY_COLUMNS = [
   'securityHuntEnabled',
   // LUM-1130: the request-changes workflow.
   'securityRequestChangesEnabled',
+  // LUM-1142: the PR's author may resolve / approve by command.
+  'securityAllowAuthorApproval',
   // LUM-1134: the learnings scope.
   'securityLearningsScope',
   // LUM-1137: pause automatic review after N reviewed commits.
@@ -116,6 +118,7 @@ describe('installed (the security plugin)', () => {
         'securityAiReviewEnabled',
         'securityHuntEnabled',
         'securityRequestChangesEnabled',
+        'securityAllowAuthorApproval',
         'securityLearningsScope',
         'securityReviewAutoPauseAfter',
       ].sort()

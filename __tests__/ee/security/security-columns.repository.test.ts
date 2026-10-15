@@ -117,6 +117,31 @@ test('LUM-1130 findRequestChangesEnabled — true only when the workspace turned
   )
 })
 
+// ── LUM-1142 author approval ────────────────────────────────────────────────
+
+test('LUM-1142 findAllowAuthorApproval — as stored; fails closed when the workspace is missing', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityAllowAuthorApproval: true,
+  })
+  expect(await securityColumnsRepository.findAllowAuthorApproval('w1')).toBe(
+    true
+  )
+  expect(mockWorkspace.findUnique).toHaveBeenCalledWith({
+    where: { id: 'w1' },
+    select: { securityAllowAuthorApproval: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityAllowAuthorApproval: false,
+  })
+  expect(await securityColumnsRepository.findAllowAuthorApproval('w1')).toBe(
+    false
+  )
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findAllowAuthorApproval('w1')).toBe(
+    false
+  )
+})
+
 // ── LUM-1134 learnings scope ────────────────────────────────────────────────
 
 test('LUM-1134 findLearningsScope — the stored scope; auto when missing or unrecognised', async () => {

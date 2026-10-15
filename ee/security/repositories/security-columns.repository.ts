@@ -3,7 +3,8 @@
  * Q4 option A) — the security plugin's columns on core models.
  *
  * `Workspace.{securityPolicy, securityScanEnabled, securityAiReviewEnabled,
- * securityHuntEnabled, securityRequestChangesEnabled, securityLearningsScope,
+ * securityHuntEnabled, securityRequestChangesEnabled,
+ * securityAllowAuthorApproval, securityLearningsScope,
  * securityReviewAutoPauseAfter,
  * scanEvidenceRetentionDays}` and
  * `ProjectRepository.{lastSarifIngestAt, securityBaseline}` stay in the one
@@ -67,6 +68,16 @@ export const securityColumnsRepository = {
     return row?.securityRequestChangesEnabled === true
   },
 
+  /** LUM-1142: may the PR's author resolve / approve by command? Fails
+   *  closed (false) when the workspace is missing. */
+  async findAllowAuthorApproval(id: string): Promise<boolean> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityAllowAuthorApproval: true },
+    })
+    return row?.securityAllowAuthorApproval === true
+  },
+
   /** LUM-1134: the learnings scope (local | global | auto); the default
    *  (auto) when the workspace is missing or the value is unrecognised. */
   async findLearningsScope(id: string): Promise<LearningsScope> {
@@ -98,6 +109,7 @@ export const securityColumnsRepository = {
         securityAiReviewEnabled: true,
         securityHuntEnabled: true,
         securityRequestChangesEnabled: true,
+        securityAllowAuthorApproval: true,
         securityLearningsScope: true,
         securityReviewAutoPauseAfter: true,
       },

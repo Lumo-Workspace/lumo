@@ -42,6 +42,7 @@ jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
     findRequestChangesEnabled: jest.fn(),
+    findAllowAuthorApproval: jest.fn(),
   },
 }))
 jest.mock('@/ee/security/repositories/pr-finding-thread.repository', () => ({
@@ -83,6 +84,8 @@ const resolveThread = reviewThreadClient.resolveThread as jest.Mock
 const findRows = prFindingThreadRepository.findByPullRequest as jest.Mock
 const latest = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const modeOn = securityColumnsRepository.findRequestChangesEnabled as jest.Mock
+const allowAuthor =
+  securityColumnsRepository.findAllowAuthorApproval as jest.Mock
 
 const HEAD = 'abcdef1234567890abcdef1234567890abcdef12'
 const OLD_SLUG = process.env.GITHUB_APP_SLUG
@@ -133,6 +136,7 @@ beforeEach(() => {
   )
   access.mockResolvedValue('write')
   modeOn.mockResolvedValue(true)
+  allowAuthor.mockResolvedValue(true)
   latest.mockResolvedValue([{ id: 's1', headSha: HEAD, findings: [] }])
   findRows.mockResolvedValue([row('fpLow')])
   liveHead.mockResolvedValue({ sha: HEAD, state: 'open' })
@@ -210,10 +214,50 @@ it('a blocking finding (its thread resolved on GitHub) ⇒ refused, nothing reso
   expect(replyBody()).toMatch(/1 finding blocks DONE/)
 })
 
-it('the PR’s author ⇒ refused (same rule as resolve)', async () => {
+// LUM-1142: CodeRabbit's allow_author_approval — on by default.
+it('the PR’s author may approve by default when the preconditions hold', async () => {
+  await expect(
+    applyPrCommentCommand(event('@uselumo approve', 'bob'))
+  ).resolves.toBe('done')
+  expect(resolveThread).toHaveBeenCalledWith({
+    threadId: 'T-fpLow',
+    token: 'thread-tok',
+  })
+  expect(submitReview).toHaveBeenCalledWith(
+    expect.objectContaining({ event: 'APPROVE', commitId: HEAD })
+  )
+  expect(submitReview.mock.calls[0][0].body).toContain('@bob')
+})
+
+it('the PR’s author with author approval off ⇒ refused (same rule as resolve)', async () => {
+  allowAuthor.mockResolvedValue(false)
   await expect(
     applyPrCommentCommand(event('@uselumo approve', 'bob'))
   ).resolves.toBe('refused_author')
+  expect(resolveThread).not.toHaveBeenCalled()
+  expect(submitReview).not.toHaveBeenCalled()
+})
+
+it('the PR’s author is still refused while a finding blocks DONE', async () => {
+  latest.mockResolvedValue([
+    {
+      id: 's1',
+      headSha: HEAD,
+      findings: [
+        {
+          fingerprint: 'fpBlock',
+          provenance: 'DETERMINISTIC',
+          severity: 'HIGH',
+          disposition: null,
+          persisting: false,
+        },
+      ],
+    },
+  ])
+  await expect(
+    applyPrCommentCommand(event('@uselumo approve', 'bob'))
+  ).resolves.toBe('refused_blocking')
+  expect(resolveThread).not.toHaveBeenCalled()
   expect(submitReview).not.toHaveBeenCalled()
 })
 
@@ -273,7 +317,18 @@ it('a push between the resolve and the submit ⇒ no approval', async () => {
   expect(replyBody()).toContain('new commit was pushed')
 })
 
-it('an unknown PR author ⇒ refused (fails closed)', async () => {
+it('an unknown PR author with author approval on ⇒ treated like any write-access commenter', async () => {
+  await expect(
+    applyPrCommentCommand({
+      ...event('@uselumo approve'),
+      prAuthorLogin: null,
+    })
+  ).resolves.toBe('done')
+  expect(submitReview).toHaveBeenCalled()
+})
+
+it('an unknown PR author with author approval off ⇒ refused (fails closed)', async () => {
+  allowAuthor.mockResolvedValue(false)
   await expect(
     applyPrCommentCommand({
       ...event('@uselumo approve'),

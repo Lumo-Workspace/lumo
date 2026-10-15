@@ -13,6 +13,8 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   hunt?: string
   /** LUM-1130 — the request-changes / approve workflow. */
   requestChanges?: string
+  /** LUM-1142 — the PR's author may resolve / approve by command. */
+  allowAuthorApproval?: string
   /** LUM-1134 — local | global | auto (which repositories' learnings). */
   learningsScope?: string
   /** LUM-1137 — pause automatic review after N reviewed commits (0 = never). */
@@ -34,6 +36,8 @@ export interface SecurityScanSwitches {
   securityHuntEnabled: boolean
   /** LUM-1130 — absent on a server older than the workflow (reads as off). */
   securityRequestChangesEnabled?: boolean
+  /** LUM-1142 — absent on a server older than the setting (reads as on). */
+  securityAllowAuthorApproval?: boolean
   /** LUM-1134 — absent on a server older than the setting (reads as auto). */
   securityLearningsScope?: LearningsScope
   /** LUM-1137 — absent on a server older than the setting (reads as 5). */
@@ -72,6 +76,7 @@ const SWITCH_LABELS: Record<OnOffSwitch, string> = {
   securityAiReviewEnabled: 'AI review',
   securityHuntEnabled: 'Exploit-path hunt',
   securityRequestChangesEnabled: 'Request-changes workflow',
+  securityAllowAuthorApproval: 'PR authors may resolve / approve by command',
 }
 
 function parseOnOff(flag: string, value: string): boolean {
@@ -121,6 +126,11 @@ export function buildSecurityScanUpdate(
       '--request-changes',
       opts.requestChanges
     )
+  if (opts.allowAuthorApproval !== undefined)
+    singles.securityAllowAuthorApproval = parseOnOff(
+      '--allow-author-approval',
+      opts.allowAuthorApproval
+    )
   if (opts.learningsScope !== undefined)
     singles.securityLearningsScope = parseLearningsScope(opts.learningsScope)
   if (opts.autoPauseAfter !== undefined)
@@ -135,7 +145,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes / --learnings-scope / --auto-pause-after'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after'
       )
     }
     return { all }
@@ -212,6 +222,18 @@ export function describeGatedChanges(
       'Lumo dismisses its standing “Changes requested” reviews on this workspace’s open PRs (in the background; a PR it misses is dismissed at its next review) and posts comment-only reviews from then on — it does not approve, and reviews by people are untouched'
     )
   }
+  // LUM-1142: turning author approval ON widens who may resolve Lumo's
+  // threads and approve by command — the PR's own author (turning it off is
+  // gated like every turn-off above).
+  if (
+    target.securityAllowAuthorApproval === true &&
+    current.securityAllowAuthorApproval !== true
+  ) {
+    lines.push(
+      'Will turn ON: PR authors may resolve / approve by command — the PR’s author (with write access) can run `@uselumo resolve` and `@uselumo approve` on their own PR; approve still needs the request-changes workflow on and no finding that blocks Done',
+      'Workspace-wide (every member’s PRs); branch protection that requires approvals may count Lumo’s approval'
+    )
+  }
   // LUM-1134: `global` lets a PUBLIC repository's review read learnings from
   // the workspace's private repositories — confirmed like any widening.
   const scopeNow = current.securityLearningsScope ?? 'auto'
@@ -268,6 +290,11 @@ export function formatSecurityScanSettings(
     lines.push(
       '',
       `Request-changes workflow: ${onOff(s.switches.securityRequestChangesEnabled)}`
+    )
+  }
+  if (s.switches.securityAllowAuthorApproval !== undefined) {
+    lines.push(
+      `PR authors may resolve / approve by command: ${onOff(s.switches.securityAllowAuthorApproval)}`
     )
   }
   if (s.switches.securityLearningsScope !== undefined) {

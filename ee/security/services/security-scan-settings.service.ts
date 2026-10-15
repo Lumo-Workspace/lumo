@@ -45,6 +45,7 @@ export type SecurityScanSettingsUpdate =
 /**
  * `all: false` = disable all, `all: true` = enable all (the three layer
  * switches — `all` never touches the request-changes workflow, LUM-1130,
+ * author approval, LUM-1142,
  * the learnings scope, LUM-1134, or the review pause-after, LUM-1137);
  * else as given.
  */
@@ -65,6 +66,8 @@ export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
     securityAiReviewEnabled: update.securityAiReviewEnabled,
     securityHuntEnabled: update.securityHuntEnabled,
     securityRequestChangesEnabled: update.securityRequestChangesEnabled,
+    // LUM-1142: the PR's author may resolve / approve by command.
+    securityAllowAuthorApproval: update.securityAllowAuthorApproval,
     // LUM-1134: the learnings scope (local | global | auto).
     securityLearningsScope: update.securityLearningsScope,
     // LUM-1137: pause automatic review after N reviewed commits (0 = never).

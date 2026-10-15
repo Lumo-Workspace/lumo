@@ -2431,6 +2431,8 @@
   "workspaceSettings.securityScan.hunt.description": "Для рискованных изменений ИИ-агент исследует код в изолированной песочнице, чтобы подтвердить, можно ли действительно эксплуатировать находку.",
   "workspaceSettings.securityScan.requestChanges.label": "Запрашивать изменения до устранения",
   "workspaceSettings.securityScan.requestChanges.description": "Ревью Lumo показывает «Запрошены изменения», пока открыт тред ревью Lumo или находка, блокирующая Done, а когда полное ревью последнего коммита не оставляет ничего открытого, Lumo одобряет PR. По умолчанию выключено.",
+  "workspaceSettings.securityScan.allowAuthorApproval.label": "Авторы PR могут закрывать и одобрять командой",
+  "workspaceSettings.securityScan.allowAuthorApproval.description": "Автор PR может запускать `@uselumo resolve` и `@uselumo approve` в своём PR, как любой ревьюер с правом записи. Если выключено — только другие аккаунты с правом записи. По умолчанию включено.",
   "workspaceSettings.securityScan.platformOff": "Сейчас отключено Lumo для всех рабочих пространств.",
   "workspaceSettings.securityScan.updated": "Настройки проверки безопасности сохранены",
   "workspaceSettings.securityScan.updateFailed": "Не удалось сохранить настройки проверки безопасности",

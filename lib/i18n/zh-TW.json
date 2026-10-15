@@ -2431,6 +2431,8 @@
   "workspaceSettings.securityScan.hunt.description": "對有風險的變更，由 AI 代理在隔離沙箱中探查程式碼，確認某個發現是否真的可被利用。",
   "workspaceSettings.securityScan.requestChanges.label": "未解決前要求修改",
   "workspaceSettings.securityScan.requestChanges.description": "只要還有未解決的 Lumo 審查討論串或阻擋 Done 的發現，Lumo 的審查就會顯示「要求修改」；當對最新提交的完整審查不再留下任何未解決項目時，Lumo 會核准該 PR。預設關閉。",
+  "workspaceSettings.securityScan.allowAuthorApproval.label": "允許 PR 作者以指令解決與核准",
+  "workspaceSettings.securityScan.allowAuthorApproval.description": "PR 作者可以在自己的 PR 上執行 `@uselumo resolve` 與 `@uselumo approve`，與任何具寫入權限的審查者相同。關閉後，只有其他具寫入權限的帳號可以執行。預設開啟。",
   "workspaceSettings.securityScan.platformOff": "Lumo 目前已對所有工作區關閉此項。",
   "workspaceSettings.securityScan.updated": "安全掃描設定已儲存",
   "workspaceSettings.securityScan.updateFailed": "儲存安全掃描設定失敗",
