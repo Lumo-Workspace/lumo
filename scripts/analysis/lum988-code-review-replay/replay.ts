@@ -17,6 +17,12 @@
  *     scripts/analysis/lum988-code-review-replay/replay.ts \
  *     --data <data dir> --out results.json [--runs 1] [--concurrency 8] [--limit N]
  *     [--ids <url,url>] [--server-config <checkouts root>]
+ *     [--instructions <file>]
+ *
+ * LUM-1199: `--instructions` = `{ [prUrl]: PathInstruction[] }` (the
+ * benchmark's `guidelines.ts`), rendered for the covered files exactly as
+ * production does (`planPathInstructions` + `guardPromptLineText`) and paid
+ * for out of the same context budget. Absent = no path instructions.
  *
  * Needs AI_GATEWAY_API_KEY (the real ZDR gateway, pinned to Anthropic).
  */
@@ -51,6 +57,11 @@ import {
   packSecurityDiff,
 } from '@/ee/security/security-scan/truncate'
 import { prKey } from './pr-key'
+import {
+  instructionsForPr,
+  parseInstructionsFile,
+  replayPathInstructions,
+} from '../lum1158-review-quality-bench/path-instructions-input'
 
 function opt(name: string, fallback?: string): string {
   const i = process.argv.indexOf(`--${name}`)
@@ -109,6 +120,10 @@ function checkoutReaders(root: string) {
     },
   }
 }
+const instructionsFile = opt('instructions', '')
+const instructionsByPr: Record<string, unknown> = instructionsFile
+  ? parseInstructionsFile(readFileSync(instructionsFile, 'utf8'))
+  : {}
 
 const capChars =
   JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
@@ -124,6 +139,9 @@ export interface ReplayRun {
   /** LUM-1208 — config files sent (path list) and their chars. */
   serverConfigFiles?: string[]
   serverConfigChars?: number
+  /** LUM-1199 — rendered path-instruction chars and entries sent. */
+  instructionChars?: number
+  instructionsSent?: number
 }
 type RunResult = ReplayRun | { skipped: 'JUDGE_OVER_CAP' } | { error: string }
 
@@ -136,6 +154,10 @@ async function reviewOnce(url: string): Promise<RunResult> {
     priorityPaths: [],
     maxChars: tier.chars,
   })
+  const instructions = replayPathInstructions(
+    instructionsForPr(instructionsByPr, url),
+    capped.covered
+  )
   let serverConfigText = ''
   let serverConfigFiles: string[] = []
   if (serverConfigRoot) {
@@ -148,7 +170,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
       ...readers,
       maxChars: Math.min(
         SERVER_CONFIG_MAX_CHARS,
-        reviewContextBudget(capped.text.length)
+        reviewContextBudget(capped.text.length + instructions.text.length)
       ),
     })
     serverConfigText = loaded.text
@@ -156,7 +178,11 @@ async function reviewOnce(url: string): Promise<RunResult> {
   }
   const context = await loadReviewContext({
     paths: capped.covered,
-    maxChars: reviewContextBudget(capped.text.length + serverConfigText.length),
+    // Production: the instructions and the server config share the context
+    // budget with the diff.
+    maxChars: reviewContextBudget(
+      capped.text.length + instructions.text.length + serverConfigText.length
+    ),
     readFile: async p => {
       const f = path.join(dir, 'files', p)
       return existsSync(f) ? readFileSync(f, 'utf8') : null
@@ -172,7 +198,10 @@ async function reviewOnce(url: string): Promise<RunResult> {
       changedPaths: capped.covered,
       maxChars: Math.min(
         RELATED_MAX_CHARS,
-        REVIEW_PROMPT_MAX_CHARS - diffText.length - contextText.length
+        REVIEW_PROMPT_MAX_CHARS -
+          diffText.length -
+          contextText.length -
+          instructions.text.length
       ),
       search: gitGrepSearch(cwd),
     })
@@ -186,6 +215,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
       context: contextText,
       ...(relatedText ? { related: relatedText } : {}),
       ...(serverConfigText ? { serverConfig: serverConfigText } : {}),
+      ...(instructions.text ? { pathInstructions: instructions.text } : {}),
     })
     return {
       findings,
@@ -198,6 +228,8 @@ async function reviewOnce(url: string): Promise<RunResult> {
       ...(serverConfigRoot
         ? { serverConfigFiles, serverConfigChars: serverConfigText.length }
         : {}),
+      instructionChars: instructions.text.length,
+      instructionsSent: instructions.sent.length,
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) }
@@ -220,7 +252,7 @@ async function main(): Promise<void> {
       const tag = results
         .map(x =>
           'findings' in x
-            ? `${x.findings.length}f/${x.contextFiles}ctx/${x.relatedChars ?? 0}rel/${x.serverConfigFiles?.length ?? 0}cfg/${Math.round(x.ms / 1000)}s`
+            ? `${x.findings.length}f/${x.contextFiles}ctx/${x.relatedChars ?? 0}rel/${x.instructionsSent ?? 0}pi/${x.serverConfigFiles?.length ?? 0}cfg/${Math.round(x.ms / 1000)}s`
             : 'skipped' in x
               ? 'over-cap'
               : `ERR ${x.error.slice(0, 60)}`

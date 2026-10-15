@@ -86,6 +86,31 @@ env $ENV npx tsx -r dotenv/config $B/judge.ts --data $S/data --tag lumo-raw-run0
 
 # 4. report
 npx tsx $B/score.ts --data $S/data --tags lumo-run0,lumo-run1 --out $S/report.md
+
+# 5. two arms, several runs each: is the difference bigger than run noise? (free)
+npx tsx $B/compare.ts --data $S/data --base lumo-run0,lumo-run1,lumo-run2 \
+  --variant v-run0,v-run1,v-run2 [--fixes oss-03:A4,own-05:A2] --out $S/compare.md
+```
+
+### Variant: each repository's own guidelines as path instructions (LUM-1199)
+
+`guidelines.ts` (free) reads each `oss` checkout at hash X and turns the
+repository's own guideline files into LUM-1147 path instructions with a
+deterministic mapping (`guidelines-lib.ts`: a root review config's
+`reviews.path_instructions` as written; review/agent docs and CONTRIBUTING
+pooled into one `**` entry; glob-scoped rule files per glob; nested agent docs
+as `<dir>/**`; then the production caps). It never invents instructions: a
+repository without such files gets none. `own` rows get Lumo's real settings
+for its repository (`--own <file>`; none configured as of 2026-10-16).
+`replay.ts --instructions` renders them through `planPathInstructions` +
+`guardPromptLineText` and pays for them out of the context budget, as
+production does. The output is third-party text: scratch dir only.
+
+```bash
+npx tsx $B/guidelines.ts --checkouts $S/co --data $S/data --out $S/instructions.json
+env $ENV npx tsx -r dotenv/config $L/replay.ts --data $S/data --out $S/review-pi.json \
+  --runs 2 --instructions $S/instructions.json
+# then verify / rank / judge (new tags) / score as above
 ```
 
 Every step caches and re-running fills in only what is missing; `judge.ts`
@@ -93,8 +118,8 @@ refuses to re-use a tag with different inputs. To re-score a removal-policy
 change from the same review/verify/rank files, judge it under a new tag with
 `--reuse <old tag>`: PRs whose kept findings did not change copy the old
 row (no model call, no double-counted tokens) and only the rest are judged.
-The report's last column counts the PRs a reviewer left without any finding. Typecheck the scripts (the root
-tsconfig excludes `scripts/`): `npx tsc --noEmit -p $B/tsconfig.check.json`.
+The report's last column counts the PRs a reviewer left without any finding. Typecheck the scripts and
+`replay.ts` (the root tsconfig excludes `scripts/`): `npx tsc --noEmit -p $B/tsconfig.check.json`.
 
 Traps:
 
@@ -128,3 +153,68 @@ All 50 PRs, Lumo replayed twice (shipped and raw), about $19. Pooled over the
 32.4. Of the fixes bot-a pointed at, Lumo found 42–47% on its own. The full
 write-up, gaps and named comparison are in the internal Lumo doc bound to
 LUM-1158.
+
+## Measuring a change (LUM-1197)
+
+Lumo's review is sampled, and the noise cannot be switched off: the review
+model (`anthropic/claude-sonnet-5.5`, through the gateway) ignores
+`temperature`, `topK` and `topP` — the request carries them, no warning comes
+back, and three calls at temperature 0 still answer differently (checked
+2026-10-16, with and without thinking; the same probe on Sonnet 4.5
+answered identically twice). There is no seed. So every comparison has to average the
+noise out, and has to say how much is left.
+
+What the noise is (shipped pipeline; 40 `oss` PRs × 2 runs plus a seeded
+20-PR subset × 4 runs, `--seed 1197`: `oss-06,10,12,13,14,15,16,24,26,27,28,32,34,35`,
+`own-01,02,03,06,07,10`):
+
+- one run's pooled F1 has an SD of about **3.7** on the 40 `oss` PRs and
+  **4.8** on the 10 `own` PRs; on a random 20-PR `oss` subset 5.2, on 10 PRs
+  7.1. Precision moves more than recall (SD 5.2 vs 3.3 on `oss`): how many
+  unmatched findings a sample produces is the bigger half;
+- it comes from the review sample: the raw review (no verifier/ranker) is
+  about as noisy as the shipped pipeline (run SD 3.1 vs 3.8 on `oss`);
+- the judge adds none worth measuring: re-judging one run's 20 PRs gave the
+  same matches, so judge each run once;
+- most fixes are found always or never — over 4 runs on the subset, 18 of 35
+  `oss` fixes were never found and 8 always; only 9 moved.
+
+The smallest arm-mean F1 difference a comparison detects reliably
+(95% two-sided, 80% power; `detectableDelta`):
+
+| runs per arm | 40 `oss` PRs | 10 `own` PRs |
+| ------------ | ------------ | ------------ |
+| 2            | 10.3         | 13.4         |
+| 3            | 8.4          | 10.9         |
+| 4            | 7.3          | 9.5          |
+| 8            | 5.1          | 6.7          |
+| 12           | 4.2          | 5.5          |
+
+A +2 F1 effect would need about 50 runs per arm on these PRs. So pooled F1
+is a guard, not the test, for a small prompt change:
+
+1. **Pre-register the target fixes** — the `prId:fixId`s the change is meant
+   to catch (from the gaps list), before running. The test is each fix's hit
+   count over runs, `compare.ts --fixes`: one one-sided Fisher test per fix
+   (its runs are independent samples), Holm-adjusted across the fixes. Never
+   pool fix × run trials into one test — the fixes of one run share that
+   run's sample and are not independent. One fix going from 0/4 to 3/3 is
+   p = 0.029 on its own (0.057 after Holm with two targets). Fixes that never
+   move cannot make noise.
+2. **Guard on everything else**: at least 3 runs per arm on both slices
+   (`compare.ts` gives no verdict below 2 runs in either arm);
+   reject a change whose F1 interval (`compare.ts`) lies wholly below 0, and
+   look at noise/PR per run next to it. Read "inside run noise" as no
+   evidence either way, never as a gain.
+3. **Reuse the baseline runs** while the shipped review prompt, model and
+   pipeline are unchanged (`git log` the prompt files): 4 shipped runs exist
+   on the subset and 2 on every PR. Otherwise run a fresh same-day baseline.
+4. **Verifier, ranker or removal-policy changes** reuse the same review
+   samples in both arms (re-run only `verify.ts` / `rank.ts`): the review
+   noise then cancels exactly.
+5. **Compare like with like**: "found by every run" falls as runs are added,
+   so compare it only between arms with the same number of runs.
+
+Cost per PR per run (subset, 2026-10-16 list prices): review ≈ $0.10,
+verifier ≈ $0.07, ranker ≈ $0.01, judge ≈ $0.01 — a shipped run of all 50 PRs
+is about $9.5; a raw-only run (review + judge) about $5.5.
