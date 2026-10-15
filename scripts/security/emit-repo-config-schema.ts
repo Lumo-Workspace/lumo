@@ -2,10 +2,10 @@
  * LUM-1146: regenerate the JSON schema editors validate `.lumo.yaml` against,
  * from the one Zod schema (ee/security/validation/repo-config.ts).
  *
- * Run:  npx tsx scripts/repo-config/emit-json-schema.ts
+ * Run:  npx tsx scripts/security/emit-repo-config-schema.ts
  *
  * The committed file is served at `/schemas/lumo-yaml.schema.json`; the test
- * __tests__/ee/security/lum1146-repo-config-schema.test.ts fails when it
+ * __tests__/ee/security/lum1146-repo-config.test.ts fails when it
  * drifts from the Zod schema.
  */
 import { writeFileSync } from 'fs'

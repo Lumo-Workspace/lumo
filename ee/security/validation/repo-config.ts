@@ -10,7 +10,7 @@ import {
  * LUM-1146 — the repository config file (`.lumo.yaml` at the repository
  * root): ONE Zod schema for every key the file may hold. The JSON schema
  * editors read (`public/schemas/lumo-yaml.schema.json`) is generated from
- * it (`npx tsx scripts/repo-config/emit-json-schema.ts`; a test keeps the
+ * it (`npx tsx scripts/security/emit-repo-config-schema.ts`; a test keeps the
  * two equal).
  *
  * Extension point — adding a key or a whole section:

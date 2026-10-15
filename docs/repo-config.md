@@ -92,7 +92,7 @@ failed read is not cached.
    how to read it from the file, the Lumo setting it overrides (if any), its
    default, and its `prBranch` policy. The effective config and its sources pick
    it up from there.
-3. Run `npx tsx scripts/repo-config/emit-json-schema.ts` and commit
+3. Run `npx tsx scripts/security/emit-repo-config-schema.ts` and commit
    `public/schemas/lumo-yaml.schema.json` (a test fails when it drifts).
 4. Read the resolved value where the feature runs: the scan gets the base
    commit's file from `repoConfigService.forPullRequest`, the auto-review

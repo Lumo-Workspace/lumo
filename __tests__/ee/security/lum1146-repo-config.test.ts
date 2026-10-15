@@ -418,7 +418,7 @@ describe('formatRepoConfigNotice', () => {
 })
 
 describe('JSON schema for editors', () => {
-  it('the committed schema matches the Zod schema (regenerate with scripts/repo-config/emit-json-schema.ts)', () => {
+  it('the committed schema matches the Zod schema (regenerate with scripts/security/emit-repo-config-schema.ts)', () => {
     const committed = JSON.parse(
       readFileSync(join(process.cwd(), REPO_CONFIG_JSON_SCHEMA_PATH), 'utf8')
     )
