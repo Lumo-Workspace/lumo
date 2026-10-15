@@ -115,6 +115,13 @@ import {
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
 
+/**
+ * LUM-1150 — how long a write-back's claim on a finding's inline comment
+ * holds. A sync posts within seconds; a claim older than this belongs to a
+ * writer that died between claiming and posting, and is taken over.
+ */
+export const INLINE_CLAIM_TTL_MS = 5 * 60_000
+
 export const SUMMARY_MARKER = '<!-- lumo-security:summary -->'
 
 export const fingerprintMarker = (fp: string): string =>
@@ -144,7 +151,7 @@ export interface SyncResult {
   posted: boolean
   /** Inline comments posted by THIS sync. */
   inline: number
-  /** Open findings on added lines this sync did not post: already on the PR, over the cap, or lost to a 422. */
+  /** Open findings on added lines this sync did not post: already on the PR (or being posted by a concurrent sync), over the cap, or lost to a 422. */
   skipped: number
 }
 
@@ -928,6 +935,53 @@ function describe(error: unknown): string {
 }
 
 /**
+ * LUM-1150 — every writer of a scan syncs it (stage A, the hunt, the managed
+ * run, the verifier), and two of them finishing together both listed the PR's
+ * comments before either posted: the same finding went up twice. The marker
+ * check cannot see a comment that is still in flight, so each sync claims
+ * the rows it is about to post and posts only the ones it won.
+ *
+ * Fail-open: a claim store that cannot be reached posts them all, as before
+ * the claim existed — a missing comment is worse than a rare duplicate.
+ */
+async function claimForPosting(
+  rows: ReviewFindingRow[],
+  where: string
+): Promise<{ won: ReviewFindingRow[]; claimedIds: string[] }> {
+  if (rows.length === 0) return { won: [], claimedIds: [] }
+  try {
+    const won = await prSecurityScanRepository.claimInlineComments(
+      rows.map(f => f.id),
+      new Date(Date.now() - INLINE_CLAIM_TTL_MS)
+    )
+    const kept = rows.filter(f => won.has(f.id))
+    if (kept.length < rows.length)
+      logger.info(
+        `[security-pr-review] ${rows.length - kept.length} inline comment(s) claimed by a concurrent sync ${where}`
+      )
+    return { won: kept, claimedIds: kept.map(f => f.id) }
+  } catch (error) {
+    logger.warn(
+      `[security-pr-review] inline claim failed ${where}: ${describe(error)} — posting unclaimed`
+    )
+    return { won: rows, claimedIds: [] }
+  }
+}
+
+/** LUM-1150 — a post that did not land gives its claims back. Never throws. */
+async function releaseClaims(ids: string[], where: string): Promise<void> {
+  if (ids.length === 0) return
+  try {
+    await prSecurityScanRepository.releaseInlineCommentClaims(ids)
+  } catch (error) {
+    // The claims expire after INLINE_CLAIM_TTL_MS; a later sync posts then.
+    logger.warn(
+      `[security-pr-review] inline claim release failed ${where}: ${describe(error)}`
+    )
+  }
+}
+
+/**
  * LUM-1127 — the token the thread lifecycle runs with. GitHub refuses
  * `resolveReviewThread` / `unresolveReviewThread` to a pull-request-only
  * token, so threads get their own mint (`reviewThreadWrite`). A refused mint
@@ -1141,6 +1195,8 @@ export const securityPrReviewService = {
     let posted = false
     let inline = 0
     let skipped = 0
+    // LUM-1150: claims this sync holds on comments it has not posted yet.
+    let pendingClaims: string[] = []
     try {
       const token = await getRepoToken(
         pr.workspaceId,
@@ -1272,7 +1328,7 @@ export const securityPrReviewService = {
           // Only rows the verifier may reject wait for it.
           !(holdJudge && f.provenance === 'LLM_JUDGE' && verifierAppliesTo(f))
       )
-      const selected = candidates
+      const unposted = candidates
         .filter(f => !existing.has(f.fingerprint))
         .sort(
           (a, b) =>
@@ -1280,7 +1336,12 @@ export const securityPrReviewService = {
             PROVENANCE_RANK[a.provenance] - PROVENANCE_RANK[b.provenance]
         )
         .slice(0, REVIEW_MAX_INLINE)
-      // Already on the PR, or over the cap and waiting for the next sync.
+      // LUM-1150: a concurrent sync of this scan may be posting some of them.
+      const claim = await claimForPosting(unposted, where)
+      const selected = claim.won
+      pendingClaims = claim.claimedIds
+      // Already on the PR (or being posted by a concurrent sync), or over the
+      // cap and waiting for the next sync.
       skipped = candidates.length - selected.length
 
       const summary = buildSummary({
@@ -1392,6 +1453,8 @@ export const securityPrReviewService = {
             review = await postReview(false)
           }
           inline = selected.length
+          // On the PR now: the markers guard it from here on.
+          pendingClaims = []
           // LUM-1127: give each new comment its thread row.
           if (review?.id)
             await prFindingThreadService.recordPosted(
@@ -1408,6 +1471,10 @@ export const securityPrReviewService = {
           // already out, so warn and let the next sync try again. Any other
           // error is unexpected and rethrown to the outer catch below.
           skipped += selected.length
+          // LUM-1150: none of them landed — the next sync must be able to
+          // claim them again.
+          await releaseClaims(pendingClaims, where)
+          pendingClaims = []
           if (error instanceof GithubApiError && error.status === 422) {
             logger.warn(
               `[security-pr-review] review rejected ${where}: ${describe(error)}`
@@ -1465,6 +1532,8 @@ export const securityPrReviewService = {
       }
     } catch (error) {
       logger.warn(`[security-pr-review] ${where}: ${describe(error)}`)
+      // LUM-1150: failed between claiming and posting (e.g. the summary).
+      await releaseClaims(pendingClaims, where)
       return { posted, inline, skipped: posted ? skipped : 0 }
     }
     return { posted, inline, skipped }

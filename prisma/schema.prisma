@@ -1874,6 +1874,12 @@ model PrSecurityFinding {
   // validated against this head's added lines before it is stored. Model
   // output about customer code: scrubbed with the other code fields.
   codeSuggestion         Json?
+  // LUM-1150: when a PR write-back claimed this row's inline comment. Every
+  // writer of a scan (stage A, hunt, managed run, verifier) syncs it, often
+  // at the same moment; each claims a row before posting it, so only one of
+  // them posts. A claim older than the sync's TTL can be taken over (a
+  // writer that died between claiming and posting).
+  inlineCommentClaimedAt DateTime?
   createdAt              DateTime                      @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
