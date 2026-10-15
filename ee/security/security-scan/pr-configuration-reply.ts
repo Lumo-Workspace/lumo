@@ -36,6 +36,11 @@ export interface PrConfigurationView {
     file: ConfigurationFileState
     /** The branch the file was read from (the PR's base). */
     ref: string | null
+    /**
+     * The PR's base could not be read, so this is the default branch's
+     * config — what the next review applies only if the base matches it.
+     */
+    fromDefaultBranch?: boolean
   } | null
   /** The workspace's stored switches (name → value). */
   switches: Readonly<Record<string, unknown>>
@@ -153,6 +158,10 @@ export function buildConfigurationReply(view: PrConfigurationView): string {
 
   parts.push('**Repository**')
   if (view.repo) {
+    if (view.repo.fromDefaultBranch)
+      parts.push(
+        "⚠️ Lumo couldn't read this PR's base branch, so this is the repository's **default branch** config; a review applies the file on the PR's base."
+      )
     parts.push(fileLine(view.repo.file, view.repo.ref).join('\n'))
     const rows = Object.values(view.repo.config).map(e => [
       code(e.key),

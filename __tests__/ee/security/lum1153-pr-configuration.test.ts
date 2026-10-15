@@ -250,6 +250,11 @@ describe('prConfigurationService.forPullRequest', () => {
       prNumber: 9,
     })
     expect(view.repo?.ref).toBe('trunk')
+    expect(view.repo?.fromDefaultBranch).toBe(true)
+    // The reply says it is the default branch's config, not the PR base's.
+    expect(buildConfigurationReply(view)).toContain(
+      "couldn't read this PR's base branch, so this is the repository's **default branch** config"
+    )
     expect(view.repo?.config.reviewDrafts).toEqual({
       key: 'reviews.auto_review.drafts',
       value: true,

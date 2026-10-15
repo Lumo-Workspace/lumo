@@ -51,10 +51,11 @@ async function repoPart(input: {
   }
   try {
     // The PR's base could not be read: the default branch is the next best.
-    return await repoConfigService.effective({
+    const effective = await repoConfigService.effective({
       workspaceId: input.workspaceId,
       repo: input.repo,
     })
+    return { ...effective, fromDefaultBranch: true }
   } catch (error) {
     logger.warn(
       `[pr-configuration] repository config unavailable ${input.repo}: ${describe(error)}`
