@@ -123,6 +123,7 @@ import {
 } from '@/ee/security/services/pr-finding-thread.service'
 import { groupSameIssue } from '@/ee/security/security-scan/issue-groups'
 import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
+import { issueAssessmentReviewService } from '@/ee/security/services/issue-assessment-review.service'
 import { requestChangesOffService } from '@/ee/security/services/request-changes-off.service'
 import {
   parseCodeSuggestion,
@@ -1658,6 +1659,16 @@ export const securityPrReviewService = {
           )
         }
       }
+
+      // LUM-1149: requirements of the linked task / issue this head does not
+      // address — one review comment per distinct set. Never throws.
+      await issueAssessmentReviewService.flagUnmet({
+        repo,
+        prNumber: pr.number,
+        token,
+        headSha: scan.headSha,
+        record: checksRecord,
+      })
 
       // LUM-1200: a finding merged into a thread already on the PR (the
       // hunt lands minutes after the AI review) is listed in that comment.

@@ -5189,6 +5189,14 @@
           "enumCaseInsensitive": false,
           "description": "With --repo (repeatable; replaces the list, \"\" clears): never auto-review PRs by this author (exact, case-sensitive; beats every other rule)"
         },
+        "--issue-assessment": {
+          "long": "--issue-assessment",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo: the pre-merge check that judges each requirement of the linked Lumo task (Goal, Done when items) and of the issues the PR description closes or links as Addressed / Not addressed / Unclear (default warning; not applicable without a linked task or issue; unmet ones are flagged in a review comment)"
+        },
         "--json": {
           "long": "--json",
           "short": null,
@@ -5285,6 +5293,14 @@
           "enumCaseInsensitive": false,
           "description": "Master switch: off = no layer runs, no PR comment"
         },
+        "--task-details-on-public-repos": {
+          "long": "--task-details-on-public-repos",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo: quote the linked Lumo task's requirements on a PUBLIC repository's PRs too (default off: only the item and its outcome are shown there; private repositories always show them)"
+        },
         "--title-check": {
           "long": "--title-check",
           "short": null,
@@ -5312,7 +5328,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1148 the pre-merge checks (--title-check, --title-requirements, --description-check, --override-reviewers-only; custom checks in the web settings or .lumo.yaml); LUM-1147 the review style (--profile, --tone, --path-instruction). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
+      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1148 the pre-merge checks (--title-check, --title-requirements, --description-check, --override-reviewers-only; custom checks in the web settings or .lumo.yaml) and LUM-1149 the linked task / issue assessment (--issue-assessment, --task-details-on-public-repos); LUM-1147 the review style (--profile, --tone, --path-instruction). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
     },
     "worktree": {
       "arguments": [],

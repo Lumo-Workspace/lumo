@@ -604,6 +604,23 @@ export const taskRepository = {
   },
 
   /**
+   * LUM-1149: what the linked task / issue assessment reads off a PR's task —
+   * its identifier, title and stored (HTML) description — within
+   * `workspaceId`. A trashed task reads as missing.
+   */
+  async findForRequirements(id: string, workspaceId: string) {
+    return prisma.task.findFirst({
+      where: { id, workspaceId, deletedAt: null },
+      select: {
+        number: true,
+        title: true,
+        description: true,
+        team: { select: { identifier: true } },
+      },
+    })
+  },
+
+  /**
    * Find a task by ID with update-related relations (project + team), within
    * `workspaceId`: another workspace's task reads as missing (LUM-992).
    */
