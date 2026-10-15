@@ -21,6 +21,7 @@ reviews:
   path_instructions: # extra AI review checks for matching files
     - path: 'scripts/**'
       instructions: Flag any console.log.
+  high_level_summary: description # description | comment | off — where the PR summary goes
 tone_instructions: Be concise and friendly. # wording of the AI review and PR answers, ≤250 chars
 ```
 
@@ -53,6 +54,18 @@ settings mean in Lumo (the settings card and `lumo workspace security-scan
   finding titles, details and PR description, and how Lumo words its answers to
   questions on the PR. Wording only. Lumo's fixed notes (learning
   acknowledgements, command replies) do not change.
+
+## High-level summary (`high_level_summary`)
+
+- `description` (default; `true` means the same): Lumo writes the AI review's
+  summary of the PR into the PR description, between
+  `<!-- lumo:summary:start -->` and `<!-- lumo:summary:end -->`. It goes where
+  the author put a line holding only `@uselumo summary`, or at the end of the
+  description. Each review rewrites that section only; the author's own text is
+  never changed. `@uselumo summary` on the PR rewrites it on request.
+- `comment`: the summary stays in Lumo's summary comment; the description is
+  never edited.
+- `off` (or `false`): no summary anywhere.
 
 ## Precedence
 

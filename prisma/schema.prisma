@@ -1586,6 +1586,9 @@ model RepositoryReviewSetting {
   reviewProfile       String   @default("chill")
   /// ≤250 chars: how the AI review words its findings. null = none.
   toneInstructions    String?
+  /// LUM-1151 — where the high-level summary goes: description | comment
+  /// | off (ee/security/security-scan/pr-description-summary.ts).
+  highLevelSummary    String   @default("description")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1839,6 +1842,10 @@ model PrSecurityScan {
   // | assertive) — which findings the write-back comments inline. null =
   // chill (rows from before this column).
   reviewProfile     String?
+  // LUM-1151: where the high-level summary goes for this scan's review
+  // (description | comment | off). null = description (rows from before
+  // this column).
+  highLevelSummary  String?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

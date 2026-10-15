@@ -6,12 +6,14 @@ import {
 } from '@/ee/security/security-scan/auto-review-policy'
 import { normalizePathInstructions } from '@/ee/security/security-scan/path-instructions'
 import { parseReviewProfile } from '@/ee/security/security-scan/review-profile'
+import { parseHighLevelSummary } from '@/ee/security/security-scan/pr-description-summary'
 
 type StoredColumns =
   | 'emptyBaseBranchesMeans'
   | 'pathInstructions'
   | 'reviewProfile'
   | 'toneInstructions'
+  | 'highLevelSummary'
 
 /** The stored text / Json columns as the domain types. */
 function toDomain<
@@ -20,6 +22,7 @@ function toDomain<
     pathInstructions: unknown
     reviewProfile: string
     toneInstructions: string | null
+    highLevelSummary: string
   },
 >(
   row: T
@@ -33,6 +36,7 @@ function toDomain<
     pathInstructions: normalizePathInstructions(row.pathInstructions),
     reviewProfile: parseReviewProfile(row.reviewProfile),
     toneInstructions: row.toneInstructions,
+    highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
   }
 }
 
@@ -65,6 +69,7 @@ const SETTING_SELECT = {
   pathInstructions: true,
   reviewProfile: true,
   toneInstructions: true,
+  highLevelSummary: true,
 } as const
 
 /**
@@ -140,7 +145,10 @@ export const repoReviewSettingRepository = {
     repoLower: string
   ): Promise<Pick<
     RepoReviewSettingValues,
-    'pathInstructions' | 'reviewProfile' | 'toneInstructions'
+    | 'pathInstructions'
+    | 'reviewProfile'
+    | 'toneInstructions'
+    | 'highLevelSummary'
   > | null> {
     const row = await prisma.repositoryReviewSetting.findUnique({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
@@ -148,6 +156,7 @@ export const repoReviewSettingRepository = {
         pathInstructions: true,
         reviewProfile: true,
         toneInstructions: true,
+        highLevelSummary: true,
       },
     })
     if (!row) return null
@@ -155,6 +164,8 @@ export const repoReviewSettingRepository = {
       pathInstructions: normalizePathInstructions(row.pathInstructions),
       reviewProfile: parseReviewProfile(row.reviewProfile),
       toneInstructions: row.toneInstructions,
+      // LUM-1151: where the high-level summary goes.
+      highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
     }
   },
 

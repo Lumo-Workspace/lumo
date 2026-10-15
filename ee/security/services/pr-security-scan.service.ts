@@ -109,6 +109,10 @@ import type { RepoConfigFile } from '@/ee/security/validation/repo-config'
 import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
 import { DEFAULT_REVIEW_PROFILE } from '@/ee/security/security-scan/review-profile'
 import {
+  DEFAULT_HIGH_LEVEL_SUMMARY,
+  parseHighLevelSummary,
+} from '@/ee/security/security-scan/pr-description-summary'
+import {
   renderPathInstructions,
   renderToneInstructions,
 } from '@/ee/security/security-scan/path-instructions'
@@ -818,7 +822,12 @@ async function repoReviewStyleBestEffort(
       workspaceId,
       repo.toLowerCase()
     )
-    if (row) return row
+    // LUM-1151: a row read without the column (older fixtures) = default.
+    if (row)
+      return {
+        ...row,
+        highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
+      }
   } catch (error) {
     logger.warn(
       `[pr-security-scan] review style unavailable repo=${repo}: ${error instanceof Error ? error.message : String(error)}`
@@ -828,12 +837,13 @@ async function repoReviewStyleBestEffort(
     pathInstructions: [],
     reviewProfile: DEFAULT_REVIEW_PROFILE,
     toneInstructions: null,
+    highLevelSummary: DEFAULT_HIGH_LEVEL_SUMMARY,
   }
 }
 
 type ReviewStyle = Pick<
   RepoReviewSettingValues,
-  'pathInstructions' | 'reviewProfile' | 'toneInstructions'
+  'pathInstructions' | 'reviewProfile' | 'toneInstructions' | 'highLevelSummary'
 >
 
 /** What one scan's review reads from the repository's settings. */
@@ -902,6 +912,11 @@ async function reviewSettingsBestEffort(
         'toneInstructions',
         settings.toneInstructions
       ),
+      highLevelSummary: fileOver(
+        file,
+        'highLevelSummary',
+        settings.highLevelSummary
+      ),
     }
   } catch (error) {
     logger.warn(
@@ -916,6 +931,18 @@ async function reviewSettingsBestEffort(
   } catch (error) {
     logger.warn(
       `[pr-security-scan] review profile not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+  // LUM-1151: where this review's high-level summary goes (the write-back
+  // reads it; a missed write reads as the default).
+  try {
+    await prSecurityScanRepository.setHighLevelSummary(
+      scanId,
+      settings.highLevelSummary
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] high-level summary setting not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
     )
   }
   return settings

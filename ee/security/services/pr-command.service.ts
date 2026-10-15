@@ -22,6 +22,8 @@
  *   · LUM-1153 `configuration` replies with the effective review settings
  *     for the PR (repository config + sources, workspace switches) — read
  *     only; nothing is changed by command;
+ *   · LUM-1151 `summary` writes the latest review's high-level summary into
+ *     the PR description again (Lumo's own section / the placeholder only);
  *   · a redelivered webhook is answered once: the reply carries a marker
  *     naming the command comment, and a marker already on the PR stops it.
  *     Best effort (check, then act): if the reply itself fails, a later
@@ -104,6 +106,7 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} resolve\` — resolve Lumo's open review threads (findings that block DONE stay open)`,
     `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
     `- \`${handle} configuration\` — show the effective review settings for this PR and where each comes from`,
+    `- \`${handle} summary\` — write Lumo's summary of the PR into its description again (put \`${handle} summary\` on its own line in the description to choose where it goes)`,
     `- \`${handle} help\` — this list`,
     `- \`${handle} <question>\` — ask about this PR's code; Lumo answers from the diff and the files (here, on a code line, or in reply to a Lumo finding)`,
     '',
@@ -173,7 +176,10 @@ export function buildApproveReply(
 }
 
 const ACKS: Record<
-  Exclude<PrCommand, 'resolve' | 'approve' | 'configuration' | 'help'>,
+  Exclude<
+    PrCommand,
+    'resolve' | 'approve' | 'configuration' | 'summary' | 'help'
+  >,
   string
 > = {
   review:
@@ -434,6 +440,26 @@ async function run(
   }
   if (command === 'help')
     return { outcome: 'help', body: buildHelpReply(handle, null) }
+  if (command === 'summary') {
+    // Loaded lazily: only this command edits the description.
+    const { prDescriptionSummaryService, buildSummaryCommandReply } =
+      await import('@/ee/security/services/pr-description-summary.service')
+    const result = await prDescriptionSummaryService.regenerate({
+      pullRequestId: event.pullRequestId,
+      repo: parseRepo(event.repo),
+      prNumber: event.prNumber,
+      token: writeToken,
+    })
+    const outcome: PrCommandOutcome =
+      result.kind === 'written' || result.kind === 'comment'
+        ? 'done'
+        : result.kind === 'off'
+          ? 'refused_mode_off'
+          : result.kind === 'no_review' || result.kind === 'no_summary'
+            ? 'refused_unreviewed'
+            : 'failed'
+    return { outcome, body: buildSummaryCommandReply(result, handle) }
+  }
   if (command === 'configuration') {
     // Loaded lazily: only this command reads the repository config.
     const { prConfigurationService } =

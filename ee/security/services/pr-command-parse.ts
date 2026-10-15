@@ -15,6 +15,7 @@ export type PrCommand =
   | 'resolve'
   | 'approve'
   | 'configuration'
+  | 'summary'
   | 'help'
 
 export interface ParsedPrCommand {
@@ -32,6 +33,7 @@ export const PR_COMMANDS: readonly PrCommand[] = [
   'resolve',
   'approve',
   'configuration',
+  'summary',
   'help',
 ]
 

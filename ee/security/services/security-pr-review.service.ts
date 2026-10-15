@@ -119,6 +119,13 @@ import {
   suggestionBlock,
   type CodeSuggestion,
 } from '@/ee/security/security-scan/code-suggestion'
+import {
+  buildWalkthrough,
+  changedFilesSection,
+  type ChangedFile,
+} from '@/ee/security/security-scan/pr-walkthrough'
+import { parseHighLevelSummary } from '@/ee/security/security-scan/pr-description-summary'
+import { prDescriptionSummaryService } from '@/ee/security/services/pr-description-summary.service'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -579,6 +586,14 @@ export interface SummaryInput {
     Pick<ReviewFindingRow, 'severity' | 'title' | 'filePath' | 'line'> &
       Partial<Pick<ReviewFindingRow, 'kind'>>
   >
+  /**
+   * LUM-1151 — where the high-level summary (`prSummary`) is shown:
+   * `comment` (absent = here, as before), `description` (the PR
+   * description holds it; this comment points there) or `off` (nowhere).
+   */
+  highLevelSummary?: 'comment' | 'description' | 'off'
+  /** LUM-1151 — the PR's changed files, for the walkthrough; absent = none. */
+  changedFiles?: ChangedFile[] | null
 }
 
 /** LUM-1147 — how many held findings the summary lists by name. */
@@ -643,6 +658,8 @@ export function commandsBlock(handle: string, approve = false): string {
       : []),
     // LUM-1153
     ['configuration', 'show the effective review settings for this PR'],
+    // LUM-1151
+    ['summary', "write Lumo's summary of the PR into its description again"],
   ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
   // LUM-1154: anything else addressed to Lumo is a question it answers.
   rows.push(
@@ -792,6 +809,21 @@ function intentBlocks(raw: unknown): string[] {
 }
 
 /**
+ * LUM-1151 — the high-level summary where the repository wants it: here
+ * (the default for a caller that does not say), a pointer when the PR
+ * description holds it, nothing when it is off.
+ */
+function summaryBlocks(input: SummaryInput): string[] {
+  const where = input.highLevelSummary ?? 'comment'
+  if (where === 'off') return []
+  if (where === 'description')
+    return parsePrSummary(input.prSummary)
+      ? ['_Summary of the changes: in the PR description._']
+      : []
+  return intentBlocks(input.prSummary)
+}
+
+/**
  * LUM-849 — the bounded verdict, first. It never grades the PR or calls it
  * safe to merge: it says what the checks that ran found, the way the outcome
  * well only ever rejects.
@@ -858,7 +890,7 @@ export function buildSummary(input: SummaryInput): string {
   const blocks: string[] = [
     '### 🛡️ Lumo security scan',
     verdictLine(input, coverage, owned),
-    ...intentBlocks(input.prSummary),
+    ...summaryBlocks(input),
   ]
   const attention = attentionLine(input.attentionFiles)
   if (attention) blocks.push(attention)
@@ -931,6 +963,12 @@ export function buildSummary(input: SummaryInput): string {
   if (held) blocks.push(held)
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
+
+  // LUM-1151: what the PR changes, file by file — folded.
+  const walkthrough = buildWalkthrough([
+    changedFilesSection(input.changedFiles),
+  ])
+  if (walkthrough) blocks.push(walkthrough)
 
   // The per-layer lines stay, folded: detail for whoever wants it, not the
   // first thing a reader has to decode — and each says what it looks for.
@@ -1073,6 +1111,37 @@ async function threadToken(
       `[security-pr-review] thread token mint failed ${where}: ${describe(error)}`
     )
     return fallback
+  }
+}
+
+/**
+ * LUM-1151 — the PR's changed files for the walkthrough; null (no table)
+ * when GitHub does not answer. Never throws.
+ */
+async function changedFilesBestEffort(
+  repo: { owner: string; name: string },
+  prNumber: number,
+  token: string,
+  where: string
+): Promise<ChangedFile[] | null> {
+  try {
+    const files = await prCommentClient.listPullRequestFiles({
+      repo,
+      prNumber,
+      token,
+    })
+    return (files ?? []).map(f => ({
+      filename: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      previousFilename: f.previous_filename ?? null,
+    }))
+  } catch (error) {
+    logger.warn(
+      `[security-pr-review] changed files unavailable ${where}: ${describe(error)}`
+    )
+    return null
   }
 }
 
@@ -1418,6 +1487,34 @@ export const securityPrReviewService = {
       // cap and waiting for the next sync.
       skipped = candidates.length - selected.length
 
+      // LUM-1151: the high-level summary goes into the PR description when
+      // the repository wants it there — before the comment, which then only
+      // points to it. Not written (a failed edit, a closed PR): the comment
+      // keeps it, as before.
+      const summaryMode = parseHighLevelSummary(scan.highLevelSummary)
+      let summaryWhere: 'comment' | 'description' | 'off' = summaryMode
+      if (summaryMode === 'description') {
+        const outcome =
+          pr.state === undefined || pr.state === 'open'
+            ? await prDescriptionSummaryService.sync({
+                repo,
+                prNumber: pr.number,
+                token,
+                prSummary: scan.prSummary,
+                headSha: scan.headSha,
+                commitUrl: commitUrlOf(pr.repo, scan.headSha),
+              })
+            : 'not_open'
+        if (outcome !== 'written' && outcome !== 'unchanged')
+          summaryWhere = 'comment'
+      }
+      const changedFiles = await changedFilesBestEffort(
+        repo,
+        pr.number,
+        token,
+        where
+      )
+
       const summary = buildSummary({
         repo: pr.repo,
         prNumber: pr.number,
@@ -1454,6 +1551,8 @@ export const securityPrReviewService = {
         reviewProfile: profile,
         profileHeld: open.filter(f => heldByProfile(profile, f, policy)),
         prSummary: scan.prSummary,
+        highLevelSummary: summaryWhere,
+        changedFiles,
         // LUM-849: the rows a reader acts on — LOW and suggested false
         // positives stay off the diff, so they stay off this line too.
         attentionFiles: open

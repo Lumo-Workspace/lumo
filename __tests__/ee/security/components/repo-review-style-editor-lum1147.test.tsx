@@ -87,6 +87,7 @@ it('a non-owner sees the style read-only, without add / remove / save', () => {
 
 it('styleUpdate: unchanged is null; profile change and cleared rows are sent', () => {
   const draft = {
+    highLevelSummary: 'description' as const,
     reviewProfile: 'chill' as const,
     toneInstructions: '',
     pathInstructions: [{ path: 'lib/**', instructions: 'Check limits.' }],

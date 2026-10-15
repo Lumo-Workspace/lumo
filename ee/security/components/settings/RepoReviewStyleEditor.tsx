@@ -27,15 +27,21 @@ import {
   REVIEW_PROFILES,
   type ReviewProfile,
 } from '@/ee/security/security-scan/review-profile'
+import {
+  HIGH_LEVEL_SUMMARY_MODES,
+  type HighLevelSummaryMode,
+} from '@/ee/security/security-scan/pr-description-summary'
 
 interface StyleDraft {
   reviewProfile: ReviewProfile
   toneInstructions: string
   pathInstructions: PathInstruction[]
+  highLevelSummary: HighLevelSummaryMode
 }
 
 function draftOf(setting: RepoReviewSettingView): StyleDraft {
   return {
+    highLevelSummary: setting.highLevelSummary,
     reviewProfile: setting.reviewProfile,
     toneInstructions: setting.toneInstructions ?? '',
     pathInstructions: setting.pathInstructions.map(p => ({ ...p })),
@@ -58,6 +64,11 @@ export function styleUpdate(
   let changed = false
   if (draft.reviewProfile !== setting.reviewProfile) {
     update.reviewProfile = draft.reviewProfile
+    changed = true
+  }
+  // LUM-1151: where the high-level summary goes.
+  if (draft.highLevelSummary !== setting.highLevelSummary) {
+    update.highLevelSummary = draft.highLevelSummary
     changed = true
   }
   const tone = draft.toneInstructions.trim()
@@ -159,6 +170,38 @@ export function RepoReviewStyleEditor({
             }
           />
           <p className='text-xs text-muted-foreground'>{t('toneHint')}</p>
+        </div>
+        <div className='flex flex-col gap-1'>
+          <label
+            htmlFor={`${idBase}-summary`}
+            className='text-xs font-medium text-foreground'
+          >
+            {t('summary')}
+          </label>
+          <Select
+            value={draft.highLevelSummary}
+            disabled={disabled}
+            onValueChange={v =>
+              setDraft(d => ({
+                ...d,
+                highLevelSummary: v as HighLevelSummaryMode,
+              }))
+            }
+          >
+            <SelectTrigger id={`${idBase}-summary`} className='text-xs'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {HIGH_LEVEL_SUMMARY_MODES.map(m => (
+                <SelectItem key={m} value={m} className='text-xs'>
+                  {t(`summary.${m}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className='text-xs text-muted-foreground'>
+            {t(`summaryHint.${draft.highLevelSummary}`)}
+          </p>
         </div>
       </div>
       <div className='flex flex-col gap-2'>

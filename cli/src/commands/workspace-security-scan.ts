@@ -38,6 +38,8 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   profile?: string
   tone?: string
   pathInstruction?: string[]
+  /** LUM-1151: where the high-level PR summary goes. */
+  summary?: string
 }
 
 /** The stored switches, as GET/PATCH /api/workspaces/me/security-scan return them. */
