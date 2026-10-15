@@ -40,6 +40,7 @@ import {
   prFindingThreadRepository,
   type FindingThreadRow,
 } from '@/ee/security/repositories/pr-finding-thread.repository'
+import { threadFingerprints } from '@/ee/security/security-scan/thread-fingerprints'
 import { prReviewLearningRepository } from '@/ee/security/repositories/pr-review-learning.repository'
 import {
   prSecurityScanRepository,
@@ -157,15 +158,24 @@ async function askModel(
   }
 }
 
-/** The finding behind the thread on the PR's latest scan, if still there. */
+/**
+ * The finding behind the thread on the PR's latest scan, if still there —
+ * under the thread's own fingerprint or one it was carried to (LUM-1127
+ * follow-up #3), the newest first.
+ */
 async function latestFinding(
   pullRequestId: string,
-  fingerprint: string
+  row: FindingThreadRow
 ): Promise<FindingRow | null> {
   const [scan] = await prSecurityScanRepository.findLatestByPullRequestIds([
     pullRequestId,
   ])
-  return scan?.findings.find(f => f.fingerprint === fingerprint) ?? null
+  if (!scan) return null
+  for (const fp of threadFingerprints(row).reverse()) {
+    const f = scan.findings.find(x => x.fingerprint === fp)
+    if (f) return f
+  }
+  return null
 }
 
 async function blockingFindingId(
@@ -358,7 +368,7 @@ async function answerInThread(
   row: FindingThreadRow,
   login: string
 ): Promise<ThreadReplyOutcome | null> {
-  const finding = await latestFinding(event.pullRequestId, row.fingerprint)
+  const finding = await latestFinding(event.pullRequestId, row)
   const blockingId = await blockingFindingId(event.workspaceId, finding)
   const outcome = await answerQuestion({
     workspaceId: event.workspaceId,
@@ -468,7 +478,7 @@ export async function applyThreadReply(
       return 'acknowledged'
     }
 
-    const finding = await latestFinding(event.pullRequestId, row.fingerprint)
+    const finding = await latestFinding(event.pullRequestId, row)
     const blockingId = await blockingFindingId(event.workspaceId, finding)
 
     // Learnings shape the AI review only: a scanner / hunt finding gets the
