@@ -18,17 +18,20 @@
  *
  *   · they sit on the same code — the same quoted evidence line (code moved
  *     by other edits keeps it) or the same line number — and are of the same
- *     kind (same rule, or overlapping vulnerability classes as LUM-1200's
- *     `issueClasses` groups them) or carry a similar title; or
+ *     kind (same rule, or overlapping issue classes — `classMatch` `exact`)
+ *     or carry a similar title; or
  *   · they sit within `SUCCESSOR_LINE_WINDOW` lines of each other and carry a
  *     similar title.
  *
  * Comparable layers: the same layer (AI review / exploit-path hunt), or the
- * other layer with an overlapping class (the LUM-1200 cross-layer notion).
+ * other layer with related classes (`classMatch`: overlapping, or a broad
+ * hunt category such as `hunt:logic`, which never counts as the same kind
+ * and so always needs a similar title). LUM-1200 groups the two layers'
+ * reports of one issue with this same score (`groupSameIssue`).
  * Each earlier finding is matched to at most one current finding and vice
  * versa, best match first.
  */
-import { issueClasses } from '@/ee/security/security-scan/issue-groups'
+import { classMatch } from '@/ee/security/security-scan/issue-classes'
 
 export interface FindingIdentity {
   fingerprint: string
@@ -85,14 +88,28 @@ function titleWords(title: string): Set<string> {
   return out
 }
 
-/** Jaccard overlap of the two titles' content words, 0…1. */
+/** Shared content words from which the shorter title's coverage counts. */
+const MIN_SHARED_WORDS = 3
+
+/**
+ * How alike two titles are, 0…1: the Jaccard overlap of their content
+ * words, or — once they share `MIN_SHARED_WORDS` — the share of the shorter
+ * title's words the other holds, whichever is higher. The hunt states its
+ * claim as a long sentence while the AI review names the issue in a few
+ * words (probe PR 60: "Session token generated with Math.random despite
+ * comment claiming CSPRNG" vs a 16-word hunt claim sharing five of its nine
+ * words — Jaccard 0.25), so Jaccard alone never matched the two layers.
+ */
 export function titleSimilarity(a: string, b: string): number {
   const wa = titleWords(a)
   const wb = titleWords(b)
   if (wa.size === 0 || wb.size === 0) return 0
   let shared = 0
   for (const w of wa) if (wb.has(w)) shared += 1
-  return shared / (wa.size + wb.size - shared)
+  const jaccard = shared / (wa.size + wb.size - shared)
+  const coverage =
+    shared >= MIN_SHARED_WORDS ? shared / Math.min(wa.size, wb.size) : 0
+  return Math.max(jaccard, coverage)
 }
 
 function normEvidence(e: string | null): string {
@@ -101,12 +118,6 @@ function normEvidence(e: string | null): string {
 
 function layer(ruleId: string): 'hunt' | 'judge' {
   return ruleId.startsWith('hunt:') ? 'hunt' : 'judge'
-}
-
-function classesOverlap(a: string, b: string): boolean {
-  const cb = issueClasses(b)
-  for (const c of issueClasses(a)) if (cb.has(c)) return true
-  return false
 }
 
 /**
@@ -121,8 +132,8 @@ export function sameIssueScore(
     return null
   if (prev.filePath !== next.filePath) return null
   const sameRule = prev.ruleId === next.ruleId
-  const overlap = classesOverlap(prev.ruleId, next.ruleId)
-  if (layer(prev.ruleId) !== layer(next.ruleId) && !overlap) return null
+  const classes = classMatch(prev.ruleId, next.ruleId)
+  if (layer(prev.ruleId) !== layer(next.ruleId) && classes === null) return null
 
   const ev = normEvidence(prev.evidence)
   const sameEvidence = ev.length > 0 && ev === normEvidence(next.evidence)
@@ -135,7 +146,7 @@ export function sameIssueScore(
     sameCode || (distance !== null && distance <= SUCCESSOR_LINE_WINDOW)
   const similarity = titleSimilarity(prev.title, next.title)
   const similar = similarity >= SUCCESSOR_TITLE_SIMILARITY
-  const sameKind = sameRule || overlap
+  const sameKind = sameRule || classes === 'exact'
 
   const match = (sameCode && (sameKind || similar)) || (near && similar)
   if (!match) return null

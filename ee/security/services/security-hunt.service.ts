@@ -22,9 +22,9 @@ import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-co
 import { HUNT_MODEL } from '@/lib/ai/models'
 import { isModelUnavailableError } from '@/ee/security/security-scan/hunt/model-unavailable'
 import { readRepoFile } from '@/lib/integrations/github/contents'
+import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import {
   redactKnownSecrets,
-  redactFindingText,
   inheritDispositions,
   mechanicalVerify,
 } from '@/ee/security/security-scan'
@@ -147,13 +147,15 @@ function clean(text: string, max: number): string {
 
 /**
  * LUM-1200 — `clean` for the model's prose about the finding (its claim and
- * the precondition / falsifier text): the free-text quoted-span pass, so an
- * ordinary quoted phrase is not masked as a credential, as for the AI
- * review's title and detail (LUM-1013). Paths and the call chain stay on
- * `clean`. The fingerprint is computed before this, from the candidate.
+ * the precondition / falsifier text): the prose quoted-span pass, so an
+ * ordinary quoted phrase or inline code (`expiresAt > now || token.length >
+ * 0`) is not masked as a credential, as for the AI review's title and detail
+ * (`redactFindingProse`; registry secrets, credential-shaped and
+ * credential-keyed values are still masked). Paths and the call chain stay
+ * on `clean`. The fingerprint is computed before this, from the candidate.
  */
 function cleanProse(text: string, max: number): string {
-  return redactFindingText(text).replace(CONTROL_CHARS, '').slice(0, max)
+  return redactFindingProse(text).replace(CONTROL_CHARS, '').slice(0, max)
 }
 
 /** Pure; exported for tests. Spec §8 "Verify → finding". */

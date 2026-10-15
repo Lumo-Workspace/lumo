@@ -1775,17 +1775,22 @@ export const securityPrReviewService = {
       // LUM-1127 follow-up: a finding that continues an open thread under a
       // new fingerprint (relabelled rule id) already has that thread.
       for (const fp of threads.carried.keys()) existing.add(fp)
-      // LUM-1200: one issue on one line, one thread. The AI review and the
-      // hunt reporting the same class on the same line are grouped: the kept
-      // finding owns the thread, the merged one is listed in it (both stay
-      // recorded, each keeps its fingerprint). Grouped over every undecided
-      // inline row — a thread a human resolved included — so a merged row
-      // follows its kept thread rather than surfacing on its own. A
-      // disposition never cascades: once the kept row is dispositioned it
-      // leaves this set, and a merged row still open gets its own thread.
+      // LUM-1200: one issue, one thread. The AI review and the hunt
+      // reporting the same issue — the same line with a compatible class, or
+      // a nearby line with a similar title (`sameIssueScore`) — are grouped:
+      // the kept finding owns the thread, the merged one is listed in it
+      // (both stay recorded, each keeps its fingerprint). Grouped over every
+      // undecided inline row — a thread a human resolved included — so a
+      // merged row follows its kept thread rather than surfacing on its own;
+      // a resolved thread takes in only a row that neither blocks DONE nor is
+      // more severe (the LUM-1127 carry rule), so the other layer never
+      // re-raises an issue the developer resolved. A disposition never
+      // cascades: once the kept row is dispositioned it leaves this set, and
+      // a merged row still open gets its own thread.
       const issueGroups = groupSameIssue(unrejected.filter(isInline), {
         posted: existing,
         isBlocking: f => isBlockingFinding(f, policy),
+        resolvedByUser: threads.resolvedByUser,
       })
       // LUM-1127: a thread a human resolved on GitHub closes a non-blocking
       // finding. A gate-blocking one stays open (and blocking) until it is
