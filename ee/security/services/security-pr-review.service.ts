@@ -370,6 +370,43 @@ export function inlineSuggestion(
 }
 
 /**
+ * LUM-1150 — the rows of one review allowed to carry their suggestion. Two
+ * suggestions over overlapping lines of the same file cannot both be
+ * committed (the second goes stale once the first lands), so at most one per
+ * overlapping range is kept: higher severity first, then the earlier range,
+ * then the fingerprint so the choice is deterministic. The others keep their
+ * comment, without the suggestion and on their own line.
+ */
+export function suggestionWinners(rows: ReviewFindingRow[]): Set<string> {
+  const ranked = rows
+    .map(f => ({ f, s: inlineSuggestion(f) }))
+    .filter(
+      (x): x is { f: ReviewFindingRow; s: CodeSuggestion } => x.s !== null
+    )
+    .sort(
+      (a, b) =>
+        SEVERITY_RANK[b.f.severity] - SEVERITY_RANK[a.f.severity] ||
+        a.s.startLine - b.s.startLine ||
+        a.s.endLine - b.s.endLine ||
+        (a.f.fingerprint < b.f.fingerprint ? -1 : 1)
+    )
+  const kept: Array<{ path: string; s: CodeSuggestion }> = []
+  const winners = new Set<string>()
+  for (const { f, s } of ranked) {
+    const overlaps = kept.some(
+      k =>
+        k.path === f.filePath &&
+        s.startLine <= k.s.endLine &&
+        k.s.startLine <= s.endLine
+    )
+    if (overlaps) continue
+    kept.push({ path: f.filePath, s })
+    winners.add(f.fingerprint)
+  }
+  return winners
+}
+
+/**
  * LUM-1150 — one inline comment of the review: anchored on exactly the
  * suggestion's lines when it carries one, else on the finding's line.
  */
@@ -1294,6 +1331,7 @@ export const securityPrReviewService = {
       }
 
       if (selected.length > 0) {
+        const winners = suggestionWinners(selected)
         const postReview = (withSuggestions: boolean) =>
           prCommentClient.createReview({
             repo,
@@ -1305,7 +1343,11 @@ export const securityPrReviewService = {
             // workspace turned the workflow on; otherwise only annotate.
             event: requestChanges ? 'REQUEST_CHANGES' : 'COMMENT',
             comments: selected.map(f =>
-              inlineReviewComment(f, policy, withSuggestions)
+              inlineReviewComment(
+                f,
+                policy,
+                withSuggestions && winners.has(f.fingerprint)
+              )
             ),
           })
         try {
@@ -1318,7 +1360,7 @@ export const securityPrReviewService = {
             // own line and no suggestion. Anything else goes to the handler.
             if (
               !(error instanceof GithubApiError && error.status === 422) ||
-              !selected.some(f => inlineSuggestion(f) !== null)
+              winners.size === 0
             )
               throw error
             logger.warn(

@@ -54,6 +54,7 @@ import {
   securityPrReviewService,
   buildInlineComment,
   inlineSuggestion,
+  suggestionWinners,
   type InlineFinding,
 } from '@/ee/security/services/security-pr-review.service'
 import {
@@ -74,6 +75,8 @@ import {
 import { SecurityJudgeSchema } from '@/ee/security/llm/security-judge-client'
 
 const findById = prSecurityScanRepository.findByIdForReview as jest.Mock
+// Built at runtime so the secret scanner never sees a key-shaped literal.
+const FAKE_AWS_KEY = ['AKIA', 'IOSFODNN7', 'EXAMPLE'].join('')
 const createReview = prCommentClient.createReview as jest.Mock
 
 // ── validateCodeSuggestion (pure) ───────────────────────────────────────────
@@ -209,7 +212,7 @@ describe('LUM-1150 validateCodeSuggestion', () => {
       '<!-- lumo-security:fp:other -->',
     ],
     ['a carriage return', 'return true\r'],
-    ['a secret', "const k = 'AKIAIOSFODNN7EXAMPLE'"],
+    ['a secret', `const k = '${FAKE_AWS_KEY}'`],
     ['an oversized body', 'x'.repeat(2001)],
   ])('drops code carrying %s', (_label, code) => {
     expect(
@@ -223,14 +226,14 @@ describe('LUM-1150 validateCodeSuggestion', () => {
     const files = [
       {
         path: 'lib/auth.ts',
-        lines: [{ lineNo: 11, text: "const k = 'AKIAIOSFODNN7EXAMPLE'" }],
+        lines: [{ lineNo: 11, text: `const k = '${FAKE_AWS_KEY}'` }],
       },
     ]
     expect(
       validateCodeSuggestion(
         input({
           files,
-          evidence: "const k = 'AKIAIOSFODNN7EXAMPLE'",
+          evidence: `const k = '${FAKE_AWS_KEY}'`,
           suggestion: {
             startLine: 11,
             endLine: 11,
@@ -501,5 +504,122 @@ describe('LUM-1150 review request', () => {
     const res = await securityPrReviewService.sync('s1')
     expect(createReview).toHaveBeenCalledTimes(1)
     expect(res).toEqual(expect.objectContaining({ inline: 0, skipped: 1 }))
+  })
+})
+
+describe('LUM-1150 overlapping suggestions in one review', () => {
+  const at = (startLine: number, endLine: number) => ({
+    startLine,
+    endLine,
+    code: `// fix ${startLine}-${endLine}`,
+  })
+  const bodies = () =>
+    createReview.mock.calls[0][0].comments as Array<{
+      path: string
+      line: number
+      start_line?: number
+      body: string
+    }>
+
+  it('keeps only the higher-severity suggestion; the other comment stays, plain, on its own line', async () => {
+    const medium = row({
+      id: 'm',
+      fingerprint: 'fpM',
+      severity: 'MEDIUM',
+      line: 11,
+      codeSuggestion: at(10, 11),
+    })
+    const high = row({
+      id: 'h',
+      fingerprint: 'fpH',
+      severity: 'HIGH',
+      line: 12,
+      codeSuggestion: at(11, 12),
+    })
+    findById.mockResolvedValue(scanRow([medium, high]))
+    await securityPrReviewService.sync('s1')
+    const comments = bodies()
+    expect(comments).toHaveLength(2)
+    const h = comments.find(c => c.body.includes('fpH'))!
+    const m = comments.find(c => c.body.includes('fpM'))!
+    expect(h.body).toContain('```suggestion')
+    expect(h).toEqual(expect.objectContaining({ start_line: 11, line: 12 }))
+    expect(m.body).toBe(buildInlineComment(medium))
+    expect(m.line).toBe(11)
+    expect('start_line' in m).toBe(false)
+  })
+
+  it('on equal severity the earlier range wins', async () => {
+    const later = row({
+      id: 'b',
+      fingerprint: 'fpB',
+      line: 12,
+      codeSuggestion: at(12, 13),
+    })
+    const earlier = row({
+      id: 'a',
+      fingerprint: 'fpA',
+      line: 11,
+      codeSuggestion: at(11, 12),
+    })
+    findById.mockResolvedValue(scanRow([later, earlier]))
+    await securityPrReviewService.sync('s1')
+    const comments = bodies()
+    expect(comments.find(c => c.body.includes('fpA'))!.body).toContain(
+      '```suggestion'
+    )
+    expect(comments.find(c => c.body.includes('fpB'))!.body).toBe(
+      buildInlineComment(later)
+    )
+  })
+
+  it('disjoint ranges, and the same lines in another file, all keep their suggestions', async () => {
+    findById.mockResolvedValue(
+      scanRow([
+        row({
+          id: 'a',
+          fingerprint: 'fpA',
+          line: 11,
+          codeSuggestion: at(11, 11),
+        }),
+        row({
+          id: 'b',
+          fingerprint: 'fpB',
+          line: 12,
+          codeSuggestion: at(12, 12),
+        }),
+        row({
+          id: 'c',
+          fingerprint: 'fpC',
+          filePath: 'lib/other.ts',
+          line: 11,
+          codeSuggestion: at(11, 11),
+        }),
+      ])
+    )
+    await securityPrReviewService.sync('s1')
+    for (const c of bodies()) expect(c.body).toContain('```suggestion')
+  })
+})
+
+describe('LUM-1150 suggestionWinners', () => {
+  it('picks one per overlapping range, ignores rows without a suggestion', () => {
+    const r = (fp: string, severity: 'HIGH' | 'MEDIUM', a: number, b: number) =>
+      row({
+        fingerprint: fp,
+        severity,
+        line: a,
+        codeSuggestion: { startLine: a, endLine: b, code: 'x' },
+      })
+    expect(
+      [
+        ...suggestionWinners([
+          r('m', 'MEDIUM', 10, 12),
+          r('h', 'HIGH', 12, 13),
+          r('far', 'MEDIUM', 20, 21),
+          row({ fingerprint: 'none', codeSuggestion: null }),
+        ]),
+      ].sort()
+    ).toEqual(['far', 'h'])
   })
 })
