@@ -7,6 +7,11 @@
  * review of Lumo's own with that marker means nothing new is posted (a push that leaves
  * the same items unmet stays quiet).
  *
+ * Not atomic: two syncs of the same head racing between the listing and the
+ * post can both post (a duplicate comment, never a lost one) — accepted, as
+ * the pre-merge checks run once per head and the syncs that follow see the
+ * first one's marker.
+ *
  * The body follows the assessment's privacy rule (issue-assessment.ts): a
  * private task's text is quoted only where the result says it may be.
  * Never throws.

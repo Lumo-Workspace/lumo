@@ -389,6 +389,16 @@ describe('the review comment for unmet requirements', () => {
     token: 'tok',
     headSha: HEAD,
   }
+  const slug = process.env.GITHUB_APP_SLUG
+  beforeEach(() => {
+    // Lumo's App posts as `<slug>[bot]`; pinned so the test never depends
+    // on the ambient environment.
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+  })
+  afterAll(() => {
+    if (slug === undefined) delete process.env.GITHUB_APP_SLUG
+    else process.env.GITHUB_APP_SLUG = slug
+  })
 
   it('is posted once as a COMMENT review, without the private task text on a public repository', async () => {
     const record = await failedRecord()
@@ -419,6 +429,19 @@ describe('the review comment for unmet requirements', () => {
     await expect(
       issueAssessmentReviewService.flagUnmet({ ...base, record })
     ).resolves.toBe('posted')
+    // …nor another App's bot…
+    listReviews.mockResolvedValue([
+      {
+        id: 3,
+        state: 'COMMENTED',
+        user: { login: 'other-app[bot]', type: 'Bot' },
+        body: `x ${unmetMarker(key)}`,
+      },
+    ])
+    createReview.mockClear()
+    await expect(
+      issueAssessmentReviewService.flagUnmet({ ...base, record })
+    ).resolves.toBe('posted')
     // …Lumo's own review does.
     listReviews.mockResolvedValue([
       {
@@ -439,6 +462,41 @@ describe('the review comment for unmet requirements', () => {
     await expect(
       issueAssessmentReviewService.flagUnmet({ ...base, record: null })
     ).resolves.toBe('nothing')
+    // Every requirement addressed ⇒ the check passed ⇒ nothing to flag.
+    model.mockImplementation(
+      async (input: { checks: Array<{ id: string }> }) => ({
+        results: input.checks.map(c => ({
+          id: c.id,
+          verdict: 'passed',
+          explanation: '',
+          resolution: '',
+          requirements: [
+            { id: 'task:done:1', outcome: 'addressed', explanation: 'ok' },
+            { id: 'task:done:2', outcome: 'addressed', explanation: 'ok' },
+          ],
+        })),
+      })
+    )
+    const passed = (await preMergeChecksService.run(target, DIFF))!
+    expect(passed.results[0]!.verdict).toBe('passed')
+    await expect(
+      issueAssessmentReviewService.flagUnmet({ ...base, record: passed })
+    ).resolves.toBe('nothing')
+    expect(listReviews).not.toHaveBeenCalled()
+    model.mockReset()
+    model.mockResolvedValue({
+      results: [
+        {
+          id: ISSUE_ASSESSMENT_CHECK_ID,
+          verdict: 'failed',
+          explanation: '',
+          resolution: '',
+          requirements: [
+            { id: 'task:done:2', outcome: 'not_addressed', explanation: 'x' },
+          ],
+        },
+      ],
+    })
     const record = await failedRecord()
     listReviews.mockRejectedValue(new Error('502'))
     await expect(
