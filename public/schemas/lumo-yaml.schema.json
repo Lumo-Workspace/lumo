@@ -80,6 +80,69 @@
             "type": "string",
             "maxLength": 200
           }
+        },
+        "pre_merge_checks": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "description": "Built-in check: the PR title is concise and describes the change.",
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["off", "warning", "error"],
+                  "description": "`off` = not run; `warning` = a failure is reported; `error` = a failure also keeps Lumo at \"Changes requested\" (request-changes workflow on) until fixed or overridden on the PR."
+                },
+                "requirements": {
+                  "description": "Extra rules the PR title must meet, in plain language (e.g. \"start with feat:, fix: or chore:\").",
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              }
+            },
+            "description": {
+              "description": "Built-in check: the PR description is filled in (and follows the repository's pull request template, if any).",
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["off", "warning", "error"],
+                  "description": "`off` = not run; `warning` = a failure is reported; `error` = a failure also keeps Lumo at \"Changes requested\" (request-changes workflow on) until fixed or overridden on the PR."
+                }
+              }
+            },
+            "custom_checks": {
+              "description": "The repository's own checks, in natural language. Replaces the checks set in Lumo.",
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "description": "Shown in the PR summary; unique per repository."
+                  },
+                  "mode": {
+                    "description": "Default `warning`.",
+                    "type": "string",
+                    "enum": ["off", "warning", "error"]
+                  },
+                  "instructions": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "The rule, in plain language."
+                  }
+                },
+                "required": ["name", "instructions"]
+              }
+            },
+            "override_requested_reviewers_only": {
+              "description": "Only the PR's requested reviewers (never its author) may run `ignore pre-merge checks`.",
+              "type": "boolean"
+            }
+          },
+          "description": "Pre-merge checks, reported in the PR summary. Overriding them never clears a finding that blocks DONE."
         }
       },
       "description": "Code review settings."

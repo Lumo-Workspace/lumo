@@ -9,6 +9,10 @@ import {
   DEFAULT_REPO_REVIEW_SETTING,
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
+import {
+  applyPreMergeChecksUpdate,
+  type PreMergeChecksUpdate,
+} from '@/ee/security/security-scan/pre-merge-checks'
 
 /**
  * LUM-1133 — per-repository automatic review settings
@@ -45,6 +49,8 @@ export interface RepoReviewSettingsUpdate {
   /** '' or null clears. */
   descriptionKeyword?: string | null | undefined
   pathFilters?: string[] | undefined
+  /** LUM-1148: the pre-merge checks (a partial change). */
+  preMergeChecks?: PreMergeChecksUpdate | undefined
 }
 
 type SettingKey = keyof RepoReviewSettingValues
@@ -64,7 +70,15 @@ export function normalizeFilterList(list: readonly string[]): string[] {
 
 function sameValue(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b))
-    return a.length === b.length && a.every((v, i) => v === b[i])
+    return a.length === b.length && a.every((v, i) => sameValue(v, b[i]))
+  // LUM-1148: the pre-merge checks are one structured value.
+  if (
+    a !== null &&
+    b !== null &&
+    typeof a === 'object' &&
+    typeof b === 'object'
+  )
+    return JSON.stringify(a) === JSON.stringify(b)
   return a === b
 }
 
@@ -86,6 +100,11 @@ export function applyRepoReviewUpdate(
     const k = update.descriptionKeyword?.trim() ?? ''
     to.descriptionKeyword = k.length > 0 ? k : null
   }
+  if (update.preMergeChecks !== undefined)
+    to.preMergeChecks = applyPreMergeChecksUpdate(
+      from.preMergeChecks,
+      update.preMergeChecks
+    )
   return to
 }
 

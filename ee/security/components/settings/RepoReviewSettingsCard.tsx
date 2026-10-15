@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { RepoReviewFiltersEditor } from './RepoReviewFiltersEditor'
+import { RepoPreMergeChecksEditor } from './RepoPreMergeChecksEditor'
 import {
   useRepoReviewSettings,
   useUpdateRepoReviewSettings,
@@ -32,6 +33,8 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
   const id = `repo-review-${setting.repo.replace(/[^\w-]/g, '-')}`
   // LUM-1143: the auto-review filters fold out under the row.
   const [showFilters, setShowFilters] = useState(false)
+  // LUM-1148: the pre-merge checks fold out the same way.
+  const [showChecks, setShowChecks] = useState(false)
   return (
     <div className='px-5 py-3 border-b border-border last:border-b-0'>
       <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
@@ -48,6 +51,16 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
             onClick={() => setShowFilters(v => !v)}
           >
             {t('filters.toggle')}
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            aria-expanded={showChecks}
+            aria-controls={`${id}-checks`}
+            aria-label={t('checks.toggleAria')}
+            onClick={() => setShowChecks(v => !v)}
+          >
+            {t('checks.toggle')}
           </Button>
           <label
             htmlFor={`${id}-auto`}
@@ -85,6 +98,17 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
         <div id={`${id}-filters`}>
           <RepoReviewFiltersEditor
             setting={setting}
+            canEdit={canEdit}
+            saving={saving}
+            onSave={onChange}
+          />
+        </div>
+      )}
+      {showChecks && (
+        <div id={`${id}-checks`}>
+          <RepoPreMergeChecksEditor
+            repo={setting.repo}
+            setting={setting.preMergeChecks}
             canEdit={canEdit}
             saving={saving}
             onSave={onChange}

@@ -161,6 +161,18 @@ export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
 export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
+ * PRE_MERGE_CHECK tier — LUM-1148: the PR reviewer's pre-merge checks (the
+ * built-in title / description checks and the repository's natural-language
+ * checks), one structured call per reviewed head that returns
+ * passed / failed / inconclusive per check. Same model id as MEMORY_JUDGE
+ * (DeepSeek V4-Pro, already in the catalog behind the same ZDR-forced
+ * gateway — no new provider): rubric judging over a bounded diff, where a
+ * wrong `failed` is visible on the PR and can be overridden there. Its own
+ * constant so the checks can move without touching the memory judges.
+ */
+export const PRE_MERGE_CHECK_MODEL = 'deepseek/deepseek-v4-pro'
+
+/**
  * 桶5 POLICY_COMPILER tier — compiling a project's CLAUDE.md/AGENTS.md into
  * classified PolicyRule records (LUM-590). This single run-at-rest, hash-cached
  * call drives the whole per-project detector — the quality of its action/code +

@@ -34,6 +34,10 @@
  * Manual `@<app> review` and `lumo pr scan --review` bypass all of this.
  */
 import { shouldScanOnPrEvent } from '@/ee/security/services/pr-security-scan-dispatch'
+import {
+  DEFAULT_PRE_MERGE_CHECKS,
+  type PreMergeChecksSetting,
+} from './pre-merge-checks'
 
 /**
  * What an EMPTY `baseBranches` list reviews (user decision, 2026-10-15):
@@ -78,6 +82,8 @@ export interface RepoReviewSettingValues {
   descriptionKeyword: string | null
   /** Globs for what the review reads (reviewable-path.ts). */
   pathFilters: string[]
+  /** LUM-1148: the pre-merge checks (pre-merge-checks.ts). */
+  preMergeChecks: PreMergeChecksSetting
 }
 
 /** No stored row = these. */
@@ -92,6 +98,7 @@ export const DEFAULT_REPO_REVIEW_SETTING: Readonly<RepoReviewSettingValues> =
     ignoreUsernames: [],
     descriptionKeyword: null,
     pathFilters: [],
+    preMergeChecks: DEFAULT_PRE_MERGE_CHECKS,
   })
 
 /**

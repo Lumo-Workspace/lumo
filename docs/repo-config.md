@@ -17,6 +17,17 @@ reviews:
     ignore_usernames: ['renovate[bot]'] # exact login
     description_keyword: '@review' # with enabled: false, opts a PR in
   path_filters: ['!docs/**', '!**/*.snap'] # what the AI review reads
+  pre_merge_checks: # off | warning (default) | error
+    title:
+      mode: error
+      requirements: 'Start with feat:, fix: or chore:'
+    description:
+      mode: warning # follows the repository's PR template, if any
+    custom_checks: # up to 5; replaces the checks set in Lumo
+      - name: Changelog # ≤ 50 characters
+        mode: warning
+        instructions: User-facing changes update CHANGELOG.md. # ≤ 1000
+    override_requested_reviewers_only: true # never the PR author
 ```
 
 Every key is optional. The keys mean exactly what the same per-repository review
@@ -41,12 +52,41 @@ not read from the file. PRs linked to a Lumo task are always scanned whatever
 the file says (they are the DONE gate's evidence), and blocking security
 findings are only cleared by a disposition in Lumo — never by a config file.
 
+## Pre-merge checks
+
+`reviews.pre_merge_checks` sets the rules each reviewed PR is held to; the
+results are a section of the PR's security summary (failures in a table with
+the reason and the fix, passes folded). Built-in checks: `title` (concise and
+describes the change, plus optional `requirements`) and `description` (filled
+in; follows the repository's pull request template when it has one). Up to five
+`custom_checks` in plain language.
+
+- `warning` reports a failure. `error` also keeps Lumo's review at "Changes
+  requested" while the workspace's request-changes workflow is on (and refuses
+  `@uselumo approve`) until the check passes — on a later push, or after the
+  title / description is edited — or the PR overrides the checks.
+- A check the model cannot decide is **inconclusive**: reported, never
+  blocking. A failed model call makes every check inconclusive.
+- Override, per PR: comment `@uselumo ignore pre-merge checks` (write access).
+  It is recorded (who, when, head) and shown in the summary; with
+  `override_requested_reviewers_only`, only a reviewer requested by name (or
+  who already reviewed) may, never the author. An override never clears a
+  finding that blocks DONE.
+- The checks run with the AI review: one model call per reviewed head, over the
+  PR's title, description, template and diff (path filters applied, secrets
+  masked, at most 40,000 characters). The PR's text is treated as untrusted
+  data; the rules come only from Lumo's settings or this file on the base
+  commit.
+- Extension point for a new built-in check: `BUILTIN_PRE_MERGE_CHECKS` in
+  `ee/security/security-scan/pre-merge-checks.ts` (its `gather` reads what the
+  rule needs beyond the PR).
+
 ## Why the base branch
 
 The file is read from the commit the PR's base branch points at, never from the
 PR's own branch. Otherwise a PR could weaken its own review: add its title
-keyword to `ignore_title_keywords`, exclude its files with `path_filters`, or
-turn review off.
+keyword to `ignore_title_keywords`, exclude its files with `path_filters`, turn
+review off, or switch off the pre-merge checks it fails.
 
 A PR that changes `.lumo.yaml` is reviewed with the **current** settings; its
 summary says the change applies to reviews after it merges, and reports any

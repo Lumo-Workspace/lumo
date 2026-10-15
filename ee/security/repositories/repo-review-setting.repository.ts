@@ -1,20 +1,40 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import {
   parseEmptyBaseBranchesMeans,
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
+import { parsePreMergeChecksSetting } from '@/ee/security/security-scan/pre-merge-checks'
 
-/** The stored text column as the domain type. */
-function toDomain<T extends { emptyBaseBranchesMeans: string }>(
+/** The stored text / Json columns as the domain types. */
+function toDomain<
+  T extends { emptyBaseBranchesMeans: string; preMergeChecks: unknown },
+>(
   row: T
-): Omit<T, 'emptyBaseBranchesMeans'> & {
+): Omit<T, 'emptyBaseBranchesMeans' | 'preMergeChecks'> & {
   emptyBaseBranchesMeans: RepoReviewSettingValues['emptyBaseBranchesMeans']
+  preMergeChecks: RepoReviewSettingValues['preMergeChecks']
 } {
   return {
     ...row,
     emptyBaseBranchesMeans: parseEmptyBaseBranchesMeans(
       row.emptyBaseBranchesMeans
     ),
+    // LUM-1148: null (never set) or malformed reads as the defaults.
+    preMergeChecks: parsePreMergeChecksSetting(row.preMergeChecks),
+  }
+}
+
+/** LUM-1148: the domain values as column data (the checks are Json). */
+function toColumns<T extends Partial<RepoReviewSettingValues>>(
+  values: T
+): Omit<T, 'preMergeChecks'> & { preMergeChecks?: Prisma.InputJsonValue } {
+  const { preMergeChecks, ...rest } = values
+  return {
+    ...rest,
+    ...(preMergeChecks !== undefined
+      ? { preMergeChecks: preMergeChecks as unknown as Prisma.InputJsonValue }
+      : {}),
   }
 }
 
@@ -29,6 +49,7 @@ const SETTING_SELECT = {
   ignoreUsernames: true,
   descriptionKeyword: true,
   pathFilters: true,
+  preMergeChecks: true,
 } as const
 
 /**
@@ -116,8 +137,8 @@ export const repoReviewSettingRepository = {
   ) {
     return prisma.repositoryReviewSetting.upsert({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
-      create: { workspaceId, repo: repoLower, ...values },
-      update: changed,
+      create: { workspaceId, repo: repoLower, ...toColumns(values) },
+      update: toColumns(changed),
       select: { repo: true, ...SETTING_SELECT },
     })
   },

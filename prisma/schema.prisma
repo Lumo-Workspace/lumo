@@ -1578,6 +1578,11 @@ model RepositoryReviewSetting {
   /// Globs over changed paths for the AI review and hunt (`!glob`
   /// excludes), on top of the built-in lockfile / generated exclusions.
   pathFilters         String[] @default([])
+  /// LUM-1148 — the pre-merge checks: { title: { mode, requirements },
+  /// description: { mode }, customChecks: [{ name, mode, instructions }],
+  /// overrideRequestedReviewersOnly } (ee/security/security-scan/
+  /// pre-merge-checks.ts). null = the defaults.
+  preMergeChecks      Json?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1800,6 +1805,10 @@ model PrSecurityScan {
   // reports an invalid / unreadable file and ignored keys from it. null =
   // not read (a row from before this column, or the scan stopped earlier).
   repoConfig        Json?
+  // LUM-1148: the pre-merge checks' results on this head — { headSha, ranAt,
+  // results: [{ id, name, kind, mode, verdict, explanation, resolution }] }
+  // (ee/security/security-scan/pre-merge-checks.ts). null = no check ran.
+  preMergeChecks    Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -2051,6 +2060,12 @@ model PullRequest {
   // LUM-1137: this PR's own pause-after-N-reviewed-commits, set only by
   // `--resume --limit` / `@uselumo resume`; null = the workspace setting.
   reviewCommitLimit Int?
+  // LUM-1148: `@uselumo ignore pre-merge checks` — who overrode this PR's
+  // pre-merge checks, when, and at which head. null = not overridden. Per
+  // PR; never clears a finding that blocks DONE.
+  preMergeOverrideBy   String?
+  preMergeOverrideAt   DateTime?
+  preMergeOverrideSha  String?
   workspaceId    String
   taskId         String?
   integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)

@@ -46,6 +46,7 @@ function plural(n: number, one: string, many: string): string {
 export function buildRequestChangesBody(input: {
   openThreads: number
   blocking: number
+  failingChecks?: number
 }): string {
   const parts: string[] = []
   if (input.openThreads > 0)
@@ -60,10 +61,22 @@ export function buildRequestChangesBody(input: {
         'findings that block DONE'
       )
     )
+  const checks = input.failingChecks ?? 0
+  // LUM-1148: failed `error` pre-merge checks.
+  if (checks > 0)
+    parts.push(
+      plural(checks, 'failed pre-merge check', 'failed pre-merge checks')
+    )
   return [
     `🛡️ Lumo requests changes — ${parts.join(' · ')}.`,
     '',
     "Lumo approves once its latest complete review leaves nothing open: push a fix or resolve the threads; findings that block DONE are cleared only by a disposition in Lumo (`lumo finding disposition` or the PR's security panel).",
+    ...(checks > 0
+      ? [
+          '',
+          'Failed `error` pre-merge checks clear when they pass on a later push or edit, or when a reviewer overrides them on this PR — an override never clears a finding.',
+        ]
+      : []),
     '',
     VERDICT_MARKER,
   ].join('\n')
@@ -94,6 +107,8 @@ export interface VerdictSyncInput {
   openThreads: number
   blocking: number
   unpostedActionable: number
+  /** LUM-1148: failed `error` pre-merge checks not overridden (absent = 0). */
+  failingChecks?: number
 }
 
 export type VerdictOutcome =
@@ -224,6 +239,7 @@ export const prReviewVerdictService = {
         openThreads: input.openThreads,
         blocking: input.blocking,
         unpostedActionable: input.unpostedActionable,
+        failingChecks: input.failingChecks ?? 0,
         standing,
       })
       if (verdict.kind === 'NONE') return 'none'

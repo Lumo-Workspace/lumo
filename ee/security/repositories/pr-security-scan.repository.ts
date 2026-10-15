@@ -263,6 +263,8 @@ export interface ScanWithFindings {
   judgeBudget?: unknown
   /** LUM-911 — when the code fields were scrubbed; null/absent = still held. */
   codeScrubbedAt?: Date | null
+  /** LUM-1148 — the pre-merge checks' results Json, raw (absent on an old mock). */
+  preMergeChecks?: unknown
   findings: FindingRow[]
 }
 
@@ -375,6 +377,12 @@ export interface ScanForReview {
    * Optional so older fixtures still type-check (absent = not read).
    */
   repoConfig?: unknown
+  /**
+   * LUM-1148 — raw Json: the pre-merge checks' results
+   * (`parsePreMergeChecksRecord`). Optional so older fixtures still
+   * type-check (absent = no check ran).
+   */
+  preMergeChecks?: unknown
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -384,6 +392,10 @@ export interface ScanForReview {
     /** "open" | "closed" | "merged" (optional: older fixtures omit it). */
     state?: string
     workspaceId: string
+    /** LUM-1148 — the per-PR override (absent / null = not overridden). */
+    preMergeOverrideBy?: string | null
+    preMergeOverrideAt?: Date | null
+    preMergeOverrideSha?: string | null
     task: { number: number; team: { identifier: string } } | null
     /** `securityPolicy` is the raw Json column — parse with `parseSecurityPolicy`. */
     workspace: {
@@ -1668,6 +1680,7 @@ export const prSecurityScanRepository = {
         verifiedAt: true,
         judgeReviewScope: true,
         repoConfig: true,
+        preMergeChecks: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -1699,6 +1712,10 @@ export const prSecurityScanRepository = {
             // LUM-1140: the off-mode withdrawal only touches an open PR.
             state: true,
             workspaceId: true,
+            // LUM-1148: the per-PR override of the pre-merge checks.
+            preMergeOverrideBy: true,
+            preMergeOverrideAt: true,
+            preMergeOverrideSha: true,
             task: {
               select: { number: true, team: { select: { identifier: true } } },
             },
@@ -2259,6 +2276,36 @@ export const prSecurityScanRepository = {
   },
 
   /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */
+  /** LUM-1148: the pre-merge checks' results on this scan's head (null clears). */
+  async setPreMergeChecks(
+    scanId: string,
+    record: object | null
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: {
+        preMergeChecks:
+          record === null ? Prisma.DbNull : (record as Prisma.InputJsonValue),
+      },
+    })
+  },
+
+  /**
+   * LUM-1148: the PR's newest scan — its head and whether pre-merge checks
+   * ran on it — for a re-check after the title / description changed.
+   */
+  async findLatestChecksTarget(pullRequestId: string): Promise<{
+    id: string
+    headSha: string
+    preMergeChecks: unknown
+  } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: { pullRequestId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, headSha: true, preMergeChecks: true },
+    })
+  },
+
   async setRepoConfig(scanId: string, repoConfig: object): Promise<void> {
     await prisma.prSecurityScan.update({
       where: { id: scanId },

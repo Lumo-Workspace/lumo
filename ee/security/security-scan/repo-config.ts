@@ -31,6 +31,12 @@ import {
   DEFAULT_REPO_REVIEW_SETTING,
   type RepoReviewSettingValues,
 } from './auto-review-policy'
+import {
+  normalizeCustomChecks,
+  type CustomPreMergeCheck,
+  type PreMergeCheckMode,
+  type PreMergeChecksSetting,
+} from './pre-merge-checks'
 
 /** Problems / unknown keys kept per file (the rest are counted). */
 export const REPO_CONFIG_MAX_PROBLEMS = 10
@@ -267,6 +273,51 @@ export const REPO_CONFIG_FIELDS = {
     fallback: [...D.pathFilters],
     prBranch: 'ignored',
   }),
+  // LUM-1148 — the pre-merge checks, key by key (a file may set only the
+  // title's mode and keep the rest from Lumo). A PR-branch copy is ignored
+  // like every other key: a PR must not relax the checks it is held to.
+  preMergeTitleMode: field<PreMergeCheckMode>({
+    key: 'reviews.pre_merge_checks.title.mode',
+    read: f => f.reviews?.pre_merge_checks?.title?.mode,
+    lumo: s => s.preMergeChecks.title.mode,
+    fallback: D.preMergeChecks.title.mode,
+    prBranch: 'ignored',
+  }),
+  preMergeTitleRequirements: field<string | null>({
+    key: 'reviews.pre_merge_checks.title.requirements',
+    read: f => {
+      const r = f.reviews?.pre_merge_checks?.title?.requirements
+      if (r === undefined) return undefined
+      return r.trim().length > 0 ? r.trim() : null
+    },
+    lumo: s => s.preMergeChecks.title.requirements,
+    fallback: D.preMergeChecks.title.requirements,
+    prBranch: 'ignored',
+  }),
+  preMergeDescriptionMode: field<PreMergeCheckMode>({
+    key: 'reviews.pre_merge_checks.description.mode',
+    read: f => f.reviews?.pre_merge_checks?.description?.mode,
+    lumo: s => s.preMergeChecks.description.mode,
+    fallback: D.preMergeChecks.description.mode,
+    prBranch: 'ignored',
+  }),
+  preMergeCustomChecks: field<CustomPreMergeCheck[]>({
+    key: 'reviews.pre_merge_checks.custom_checks',
+    read: f => {
+      const list = f.reviews?.pre_merge_checks?.custom_checks
+      return list === undefined ? undefined : normalizeCustomChecks(list)
+    },
+    lumo: s => s.preMergeChecks.customChecks,
+    fallback: [],
+    prBranch: 'ignored',
+  }),
+  preMergeOverrideReviewersOnly: field<boolean>({
+    key: 'reviews.pre_merge_checks.override_requested_reviewers_only',
+    read: f => f.reviews?.pre_merge_checks?.override_requested_reviewers_only,
+    lumo: s => s.preMergeChecks.overrideRequestedReviewersOnly,
+    fallback: D.preMergeChecks.overrideRequestedReviewersOnly,
+    prBranch: 'ignored',
+  }),
 } as const
 
 export type RepoConfigFields = typeof REPO_CONFIG_FIELDS
@@ -342,6 +393,22 @@ export function reviewSettingsWithFile(
     ignoreUsernames: e.ignoreUsernames.value,
     descriptionKeyword: e.descriptionKeyword.value,
     pathFilters: e.pathFilters.value,
+    preMergeChecks: preMergeChecksOf(e),
+  }
+}
+
+/** PURE — LUM-1148: the resolved pre-merge check keys as one setting. */
+export function preMergeChecksOf(
+  e: EffectiveReviewConfig
+): PreMergeChecksSetting {
+  return {
+    title: {
+      mode: e.preMergeTitleMode.value,
+      requirements: e.preMergeTitleRequirements.value,
+    },
+    description: { mode: e.preMergeDescriptionMode.value },
+    customChecks: e.preMergeCustomChecks.value,
+    overrideRequestedReviewersOnly: e.preMergeOverrideReviewersOnly.value,
   }
 }
 
