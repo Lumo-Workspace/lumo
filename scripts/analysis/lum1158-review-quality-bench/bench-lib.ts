@@ -273,8 +273,10 @@ export interface ReplayRunResult {
  * The findings production would post for one replay run: the verifier's
  * rejections, then the ranker's p < RANKER_KEEP_THRESHOLD, both only on
  * non-HIGH non-security rows (the replay-space form of
- * `applyVerifierPolicy` + `applyRankerPolicy`, as LUM-1010 applied it).
- * Null when the run produced no findings list (over cap / error).
+ * `applyVerifierPolicy` + `applyRankerPolicy`, as LUM-1010 applied it). A
+ * finding ranked twice is decided at its first entry, as production's
+ * `applyRankerPolicy` does (LUM-1198). Null when the run produced no findings
+ * list (over cap / error).
  */
 export function keptLumoFindings(
   run: ReplayRunResult | undefined,
@@ -287,14 +289,19 @@ export function keptLumoFindings(
   const applicable = (f: ReplayFinding) =>
     f.severity !== 'HIGH' && !SECURITY_REVIEW_KINDS.has(f.kind)
   const byId = new Map(findings.map(f => [f.id, f]))
-  const rejected = new Set<string>()
+  const verifierRejected = new Set<string>()
   for (const r of verify?.results ?? []) {
     const f = byId.get(r.id)
-    if (f && r.verdict === 'REJECTED' && applicable(f)) rejected.add(f.id)
+    if (f && r.verdict === 'REJECTED' && applicable(f))
+      verifierRejected.add(f.id)
   }
+  const rejected = new Set(verifierRejected)
+  const seen = new Set<string>()
   for (const r of rank?.ranking ?? []) {
     const f = byId.get(r.id)
-    if (f && applicable(f) && r.p < threshold) rejected.add(f.id)
+    if (!f || seen.has(r.id) || verifierRejected.has(r.id)) continue
+    seen.add(r.id)
+    if (applicable(f) && r.p < threshold) rejected.add(f.id)
   }
   return findings.filter(f => !rejected.has(f.id))
 }
@@ -389,6 +396,33 @@ export interface JudgedPr {
   /** Lumo posted nothing (over cap / error), or bot-a's labels are missing. */
   skipped?: string
   usage?: Usage
+  /** Copied from this tag's row (same findings and fixes), not re-judged. */
+  reusedFrom?: string
+}
+
+/**
+ * LUM-1198 — a re-score of a policy change re-judges only the PRs whose
+ * findings changed: `prev` (another tag's row for the PR) is reused when its
+ * findings and fixes are identical. Usage is dropped so the copy is not
+ * counted as spend twice. Null when it must be judged afresh.
+ */
+export function reusableJudgement(
+  prev: JudgedPr | undefined,
+  findings: readonly BenchFinding[],
+  fixes: readonly { id: string }[],
+  fromTag: string
+): JudgedPr | null {
+  if (!prev || prev.skipped) return null
+  if (JSON.stringify(prev.findings) !== JSON.stringify(findings)) return null
+  if (prev.score.fixes !== fixes.length) return null
+  const fixIds = new Set(fixes.map(x => x.id))
+  if (prev.matches.some(m => !fixIds.has(m.fixId))) return null
+  return {
+    score: prev.score,
+    findings: prev.findings,
+    matches: prev.matches,
+    reusedFrom: fromTag,
+  }
 }
 
 export function fBeta(p: number, r: number, beta: number): number {
@@ -410,6 +444,8 @@ export interface Pooled {
   noisePerPr: number
   /** Mean findings per PR. */
   findingsPerPr: number
+  /** PRs the reviewer left without a single finding (LUM-1198). */
+  emptyPrs: number
 }
 
 /** Micro-pooled over PRs: P = matched findings / findings, R = matched fixes / fixes. */
@@ -435,6 +471,7 @@ export function pooled(rows: readonly PrScore[]): Pooled {
     matchedFixes,
     noisePerPr: n ? sum('noise') / n : 0,
     findingsPerPr: n ? findings / n : 0,
+    emptyPrs: rows.filter(r => r.findings === 0).length,
   }
 }
 
@@ -473,12 +510,12 @@ const num = (x: number) => (100 * x).toFixed(1)
 
 /** One markdown table row for a pooled score. */
 export function pooledRow(label: string, p: Pooled): string {
-  return `| ${label} | ${p.prs} | ${pct(p.precision)} | ${pct(p.recall)} | ${num(p.f1)} | ${num(p.f2)} | ${p.findingsPerPr.toFixed(1)} | ${p.noisePerPr.toFixed(1)} | ${p.matchedFindings}/${p.findings} | ${p.matchedFixes}/${p.fixes} |`
+  return `| ${label} | ${p.prs} | ${pct(p.precision)} | ${pct(p.recall)} | ${num(p.f1)} | ${num(p.f2)} | ${p.findingsPerPr.toFixed(1)} | ${p.noisePerPr.toFixed(1)} | ${p.matchedFindings}/${p.findings} | ${p.matchedFixes}/${p.fixes} | ${p.emptyPrs} |`
 }
 
 export const POOLED_HEADER = [
-  '| Reviewer | PRs | P | R | F1 | F2 | findings/PR | noise/PR | matched findings | matched fixes |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  '| Reviewer | PRs | P | R | F1 | F2 | findings/PR | noise/PR | matched findings | matched fixes | PRs without findings |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
 ].join('\n')
 
 // ---------------------------------------------------------------- utilities

@@ -9,10 +9,15 @@
  *
  * Two things the caller guarantees, and neither is checkable from here:
  *   - **The input is already redacted.** A compressor is a model like any
- *     other, so `runHuntShell` scrubs the installation token and runs
- *     `redactKnownSecrets` BEFORE this module sees a character (locked
- *     acceptance criterion; asserted in
- *     `__tests__/ee/security/security-scan/hunt/compress.test.ts`).
+ *     other, so `runHuntShell` scrubs the installation token and redacts
+ *     secrets BEFORE this module sees a character (locked acceptance
+ *     criterion; asserted in
+ *     `__tests__/ee/security/security-scan/hunt/compress.test.ts`). Since
+ *     LUM-1200 follow-up #6 (user ruling 2026-10-16) that redaction is the
+ *     code-aware `redactToolOutputLine`, not the strict mask-every-quoted-
+ *     string `redactKnownSecrets`: registry secrets, credential-shaped
+ *     values and credential keys' values are masked, string literals such as
+ *     route paths stay readable.
  *   - **The input is already truncated** to HUNT_SHELL_OUTPUT_MAX. Handing a
  *     500 kB `rg` dump to a FAST model to save 8 kB of GENERATION context
  *     would cost more than the whole hunt.

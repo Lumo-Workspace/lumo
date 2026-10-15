@@ -1039,8 +1039,10 @@ export interface HuntShellStats {
    * The commands themselves, capped and secret-redacted — the only field that
    * lets a reader tell mapping from reading, or a loop from progress. A model
    * can echo a literal it saw in the repo into its next query, so this goes
-   * through `redactKnownSecrets` like every other model-authored string that
-   * gets persisted.
+   * through secret redaction like every other model-authored string that
+   * gets persisted (`redactShellCommand`, LUM-1200 follow-up #3). Not to be
+   * confused with the command's OUTPUT, which the model reads through the
+   * code-aware `redactToolOutputLine` (follow-up #6).
    *
    * Each carries its own verdict. A flat list beside `refused: 7` says seven
    * were rejected without saying WHICH seven or why, which is the half of the

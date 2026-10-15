@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import {
+  POOLED_HEADER,
   REFERENCE_LABEL,
   changedPaths,
   cleanMatches,
@@ -20,6 +21,7 @@ import {
   lumoCategory,
   plainReviewText,
   pooled,
+  reusableJudgement,
   pooledRow,
   referenceReviewAt,
   scorePr,
@@ -285,6 +287,20 @@ describe('LUM-1158 Lumo removal policy', () => {
     expect(kept!.map(f => f.id)).toEqual(['f1', 'f2'])
   })
 
+  it('LUM-1198: a finding ranked twice is decided at its first entry, like production', () => {
+    const two = {
+      findings: [run.findings[0]!, { ...run.findings[0]!, title: 'A2' }],
+    }
+    const kept = keptLumoFindings(two, undefined, {
+      ranking: [
+        { id: 'f0', p: 90 },
+        { id: 'f1', p: 9 },
+        { id: 'f0', p: 1 },
+      ],
+    })
+    expect(kept!.map(f => f.id)).toEqual(['f0'])
+  })
+
   it('keeps everything without verifier/ranker input, null without a findings list', () => {
     expect(keptLumoFindings(run, undefined, undefined)).toHaveLength(4)
     expect(
@@ -362,6 +378,42 @@ describe('LUM-1158 scoring', () => {
     expect(fBeta(0.2, 0.8, 2)).toBeGreaterThan(fBeta(0.2, 0.8, 1))
     expect(pooled([]).precision).toBe(0)
     expect(pooledRow('x', p)).toMatch(/^\| x \| 2 \| 50\.0% \| 66\.7% \|/)
+  })
+
+  it('LUM-1198: counts and prints the PRs left without any finding', () => {
+    const p = pooled([
+      scorePr([], fixes, []),
+      scorePr(findings, fixes, []),
+      scorePr([], [], []),
+    ])
+    expect(p.emptyPrs).toBe(2)
+    expect(pooledRow('x', p)).toMatch(/ \| 2 \|$/)
+    expect(POOLED_HEADER).toContain('| PRs without findings |')
+  })
+
+  it('LUM-1198: a judgement is reused only for the identical findings and fixes', () => {
+    const prev: JudgedPr = {
+      score: scorePr([], fixes, []),
+      findings: [],
+      matches: [],
+      usage: { inputTokens: 5, outputTokens: 5 },
+    }
+    const reused = reusableJudgement(prev, [], fixes, 'lumo-run0')
+    expect(reused).toEqual({
+      score: prev.score,
+      findings: [],
+      matches: [],
+      reusedFrom: 'lumo-run0',
+    })
+    const one = [
+      { id: 'f0', filePath: 'a.ts', line: 1, category: 'bug', text: 't' },
+    ]
+    expect(reusableJudgement(prev, one, fixes, 'lumo-run0')).toBeNull()
+    expect(reusableJudgement(prev, [], [...fixes, { id: 'Z' }], 'x')).toBeNull()
+    expect(reusableJudgement(undefined, [], fixes, 'x')).toBeNull()
+    expect(
+      reusableJudgement({ ...prev, skipped: 'over cap' }, [], fixes, 'x')
+    ).toBeNull()
   })
 
   it('splitRecall separates fixes bot-a pointed at from the rest', () => {

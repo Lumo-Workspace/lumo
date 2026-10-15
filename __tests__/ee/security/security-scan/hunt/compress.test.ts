@@ -5,8 +5,9 @@
  *
  * Three properties are load-bearing and each has an assertion here:
  *   1. REDACTION COMES FIRST. The compressor is a model too, so the
- *      installation-token scrub and `redactKnownSecrets` run before a single
- *      character reaches it (locked acceptance criterion).
+ *      installation-token scrub and the secret redaction (code-aware
+ *      `redactToolOutputLine` since LUM-1200 follow-up #6) run before a
+ *      single character reaches it (locked acceptance criterion).
  *   2. ITS TOKENS ARE COUNTED. A compression call is spend like any other;
  *      `compressTokens` carries it out of the shell and `huntBatch` folds it
  *      into the batch's `tokens` and into `huntAudit.compress` — followed end
