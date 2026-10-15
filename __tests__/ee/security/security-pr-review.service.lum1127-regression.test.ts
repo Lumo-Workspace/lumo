@@ -385,10 +385,13 @@ const notes = (re: RegExp) =>
   comments.filter(c => c.in_reply_to_id !== null && re.test(c.body))
 
 const OLD_SLUG = process.env.GITHUB_APP_SLUG
+const OLD_IDENTITY_KEY = process.env.LUMO_FINDING_IDENTITY_KEY
 
 beforeEach(() => {
   jest.clearAllMocks()
   process.env.GITHUB_APP_SLUG = 'uselumo'
+  // Production keys the thread-identity hashes with a server secret.
+  process.env.LUMO_FINDING_IDENTITY_KEY = 'regression-identity-key'
   ;(prSecurityScanRepository.findByIdForReview as jest.Mock).mockImplementation(
     async (id: string) => scanRow(id)
   )
@@ -399,6 +402,9 @@ beforeEach(() => {
 afterAll(() => {
   if (OLD_SLUG === undefined) delete process.env.GITHUB_APP_SLUG
   else process.env.GITHUB_APP_SLUG = OLD_SLUG
+  if (OLD_IDENTITY_KEY === undefined)
+    delete process.env.LUMO_FINDING_IDENTITY_KEY
+  else process.env.LUMO_FINDING_IDENTITY_KEY = OLD_IDENTITY_KEY
 })
 
 /** c1 → c2 with two syncs of the c2 scan racing, exactly as in production. */

@@ -1631,8 +1631,8 @@ model PrFindingThread {
   // LUM-1127 follow-up #2: the identity of the finding the thread stands for
   // (its own, or the relabelled one it was carried to), kept here because a
   // full re-review of the same head replaces the scan's finding rows. No code
-  // is stored: the quoted line and the title words are hashed, as the
-  // fingerprint hashes the quoted line. identityRuleId null = not recorded.
+  // is stored: the quoted line and the title words are HMAC-hashed with a
+  // server key (tagged with its key id). identityRuleId null = not recorded.
   identityRuleId       String?
   identityLine         Int?
   identitySeverity     PrSecurityFindingSeverity?

@@ -57,6 +57,8 @@ import type {
 import { isVerifierRejected } from '@/ee/security/security-scan/verifier'
 import {
   evidenceHash,
+  hashIdentity,
+  isKeyedWith,
   matchSuccessors,
   titleTokens,
   type FindingIdentity,
@@ -225,6 +227,12 @@ export interface ThreadPlanInput {
   identities?: Map<string, FindingIdentity> | null | undefined
   /** Does this finding block DONE (the workspace policy)? Absent = never. */
   isBlocking?: ((f: ReviewFindingRow) => boolean) | undefined
+  /**
+   * LUM-1127 follow-up #2 — the key the stored identities are hashed with
+   * (`findingIdentityKey`); every identity is compared in that hashed form.
+   * Absent / null = no stored identity is in play (plain comparison).
+   */
+  identityKey?: string | null | undefined
 }
 
 export interface ThreadPlan {
@@ -466,8 +474,11 @@ function successorsOf(
     }
     return out
   }
-  const open = byState('OPEN')
-  const resolved = byState('RESOLVED_BY_USER')
+  const key = input.identityKey ?? null
+  const comparable = (f: FindingIdentity): FindingIdentity =>
+    key ? hashIdentity(f, key) : f
+  const open = byState('OPEN').map(comparable)
+  const resolved = byState('RESOLVED_BY_USER').map(comparable)
   if (open.length === 0 && resolved.length === 0) return new Map()
   const current: FindingIdentity[] = input.findings
     .filter(
@@ -486,6 +497,7 @@ function successorsOf(
       severity: f.severity,
       evidence: ids.get(f.fingerprint)?.evidence ?? null,
     }))
+    .map(comparable)
   const out = matchSuccessors(open, current)
   const taken = new Set(out.values())
   for (const [prev, next] of matchSuccessors(
@@ -541,27 +553,52 @@ function resolvedCarry(
 }
 
 /**
- * LUM-1127 follow-up #2 — what a thread row records about the finding it
- * stands for: hashes of the quoted line and the title words, never the code.
+ * LUM-1127 follow-up #2 — the key the thread rows' identity hashes are made
+ * with: a dedicated `LUMO_FINDING_IDENTITY_KEY`, else the deployment's
+ * `CRON_SECRET` (mandatory for the cron routes; hashed under a domain prefix).
+ * Null = not configured: no identity is recorded (the matching falls back to
+ * the finding rows), never an unkeyed hash.
+ */
+export function findingIdentityKey(
+  env: Record<string, string | undefined> = process.env
+): string | null {
+  const k = env.LUMO_FINDING_IDENTITY_KEY || env.CRON_SECRET
+  return k && k.length > 0 ? k : null
+}
+
+/**
+ * What a thread row records about the finding it stands for: keyed hashes of
+ * the quoted line and the title words, never the code or the title.
  */
 export function threadIdentityOf(
   f: Pick<ReviewFindingRow, 'ruleId' | 'line' | 'severity' | 'title'>,
-  evidence: string | null
+  evidence: string | null,
+  key: string
 ): Required<StoredThreadIdentity> {
   return {
     identityRuleId: f.ruleId,
     identityLine: f.line,
     identitySeverity: f.severity,
-    identityEvidenceHash: evidenceHash(evidence),
-    identityTitleTokens: titleTokens(f.title),
+    identityEvidenceHash: evidenceHash(evidence, key),
+    identityTitleTokens: titleTokens(f.title, key),
   }
 }
 
-/** A row's recorded identity, as the same-issue match reads it; null = none. */
+/**
+ * A row's recorded identity, as the same-issue match reads it; null = none
+ * recorded, or recorded with another key (a rotated secret — then it is
+ * re-recorded, and meanwhile treated as unknown, never as a mismatch).
+ */
 export function storedIdentityOf(
-  row: FindingThreadRow
+  row: FindingThreadRow,
+  key: string | null
 ): FindingIdentity | null {
-  if (!row.identityRuleId) return null
+  if (!row.identityRuleId || !key) return null
+  const hashes = {
+    evidenceHash: row.identityEvidenceHash ?? null,
+    titleTokens: row.identityTitleTokens ?? [],
+  }
+  if (!isKeyedWith(hashes, key)) return null
   return {
     fingerprint: row.fingerprint,
     ruleId: row.identityRuleId,
@@ -571,8 +608,7 @@ export function storedIdentityOf(
     title: '',
     ...(row.identitySeverity ? { severity: row.identitySeverity } : {}),
     evidence: null,
-    evidenceHash: row.identityEvidenceHash ?? null,
-    titleTokens: row.identityTitleTokens ?? [],
+    ...hashes,
   }
 }
 
@@ -584,7 +620,8 @@ const sameTokens = (a: readonly string[], b: readonly string[]): boolean =>
  * reported gets its identity recorded (or its line / title / severity
  * refreshed — the quoted line is the fingerprint's own and does not change),
  * and a carried row takes over its successor's identity (its severity kept:
- * a human's resolve is weighed against what they resolved). Pure.
+ * a human's resolve is weighed against what they resolved). No key → none.
+ * Pure.
  */
 export function planIdentityWrites(input: {
   rows: FindingThreadRow[]
@@ -592,7 +629,10 @@ export function planIdentityWrites(input: {
   /** `loadIdentities`; null = the read failed (nothing new is recorded). */
   identities: Map<string, FindingIdentity> | null
   carried: ReadonlyArray<{ row: FindingThreadRow; successor: string }>
+  key: string | null
 }): Array<{ row: FindingThreadRow; patch: StoredThreadIdentity }> {
+  const { key } = input
+  if (!key) return []
   const byFp = new Map(input.findings.map(f => [f.fingerprint, f]))
   const out: Array<{ row: FindingThreadRow; patch: StoredThreadIdentity }> = []
   const carriedRows = new Set(input.carried.map(c => c.row.id))
@@ -600,12 +640,13 @@ export function planIdentityWrites(input: {
     if (row.provenance !== 'LLM_JUDGE' || carriedRows.has(row.id)) continue
     const f = byFp.get(row.fingerprint)
     if (!f) continue
-    if (!row.identityRuleId) {
+    if (!storedIdentityOf(row, key)) {
       const known = input.identities?.get(row.fingerprint)
-      if (known) out.push({ row, patch: threadIdentityOf(f, known.evidence) })
+      if (known)
+        out.push({ row, patch: threadIdentityOf(f, known.evidence, key) })
       continue
     }
-    const tokens = titleTokens(f.title)
+    const tokens = titleTokens(f.title, key)
     if (
       row.identityRuleId !== f.ruleId ||
       (row.identityLine ?? null) !== f.line ||
@@ -633,7 +674,10 @@ export function planIdentityWrites(input: {
       f.severity
     out.push({
       row,
-      patch: { ...threadIdentityOf(f, known.evidence), identitySeverity: was },
+      patch: {
+        ...threadIdentityOf(f, known.evidence, key),
+        identitySeverity: was,
+      },
     })
   }
   return out
@@ -801,7 +845,8 @@ async function adoptUnknownComments(
 async function loadIdentities(
   ctx: ThreadSyncContext,
   rows: FindingThreadRow[],
-  remote: Map<string, ReviewThreadState> | null
+  remote: Map<string, ReviewThreadState> | null,
+  key: string | null
 ): Promise<Map<string, FindingIdentity> | null> {
   const present = new Set(ctx.findings.map(f => f.fingerprint))
   const gone = rows.filter(r => {
@@ -813,12 +858,12 @@ async function loadIdentities(
     r =>
       r.provenance === 'LLM_JUDGE' &&
       present.has(r.fingerprint) &&
-      !r.identityRuleId
+      !storedIdentityOf(r, key)
   )
   if (gone.length === 0 && unrecorded.length === 0) return new Map()
   const out = new Map<string, FindingIdentity>()
   for (const r of gone) {
-    const stored = storedIdentityOf(r)
+    const stored = storedIdentityOf(r, key)
     if (stored) out.set(r.fingerprint, stored)
   }
   const files = new Set(gone.map(r => r.filePath))
@@ -1009,7 +1054,8 @@ export const prFindingThreadService = {
       }
     }
 
-    const identities = await loadIdentities(ctx, rows, remote)
+    const identityKey = findingIdentityKey()
+    const identities = await loadIdentities(ctx, rows, remote, identityKey)
     const plan = planThreadActions({
       rows,
       findings: ctx.findings,
@@ -1020,6 +1066,7 @@ export const prFindingThreadService = {
       isInline: ctx.isInline,
       identities,
       isBlocking: ctx.isBlocking,
+      identityKey,
     })
     for (const row of plan.unknownIdentity)
       logger.warn(
@@ -1033,6 +1080,7 @@ export const prFindingThreadService = {
       findings: ctx.findings,
       identities,
       carried: carriedActions,
+      key: identityKey,
     })) {
       try {
         await prFindingThreadRepository.update(row.id, patch)
@@ -1119,7 +1167,8 @@ export const prFindingThreadService = {
         token: ctx.token,
       })
       const byFp = new Map(posted.map(f => [f.fingerprint, f]))
-      const evidence = await postedEvidence(ctx, posted)
+      const key = findingIdentityKey()
+      const evidence = key ? await postedEvidence(ctx, posted) : null
       for (const c of comments) {
         const fp = FP_MARKER_RE.exec(c.body)?.[1]
         const f = fp ? byFp.get(fp) : undefined
@@ -1153,8 +1202,8 @@ export const prFindingThreadService = {
           filePath: f.filePath,
           // An AI-layer thread records what its finding was (LUM-1127
           // follow-up #2); evidence unknown → recorded on a later sync.
-          ...(f.provenance === 'LLM_JUDGE' && evidence?.has(fp)
-            ? threadIdentityOf(f, evidence.get(fp) ?? null)
+          ...(key && f.provenance === 'LLM_JUDGE' && evidence?.has(fp)
+            ? threadIdentityOf(f, evidence.get(fp) ?? null, key)
             : {}),
         })
       }
