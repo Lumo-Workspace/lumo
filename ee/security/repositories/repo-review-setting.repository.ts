@@ -1,21 +1,54 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import {
   parseEmptyBaseBranchesMeans,
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
+import { normalizePathInstructions } from '@/ee/security/security-scan/path-instructions'
+import { parseReviewProfile } from '@/ee/security/security-scan/review-profile'
 
-/** The stored text column as the domain type. */
-function toDomain<T extends { emptyBaseBranchesMeans: string }>(
+type StoredColumns =
+  | 'emptyBaseBranchesMeans'
+  | 'pathInstructions'
+  | 'reviewProfile'
+  | 'toneInstructions'
+
+/** The stored text / Json columns as the domain types. */
+function toDomain<
+  T extends {
+    emptyBaseBranchesMeans: string
+    pathInstructions: unknown
+    reviewProfile: string
+    toneInstructions: string | null
+  },
+>(
   row: T
-): Omit<T, 'emptyBaseBranchesMeans'> & {
-  emptyBaseBranchesMeans: RepoReviewSettingValues['emptyBaseBranchesMeans']
-} {
+): Omit<T, StoredColumns> & Pick<RepoReviewSettingValues, StoredColumns> {
   return {
     ...row,
     emptyBaseBranchesMeans: parseEmptyBaseBranchesMeans(
       row.emptyBaseBranchesMeans
     ),
+    // LUM-1147: a Json column — anything malformed reads as no entry.
+    pathInstructions: normalizePathInstructions(row.pathInstructions),
+    reviewProfile: parseReviewProfile(row.reviewProfile),
+    toneInstructions: row.toneInstructions,
   }
+}
+
+/** The domain values as columns (the Json list as Prisma input). */
+function toColumns<V extends Partial<RepoReviewSettingValues>>(
+  values: V
+): Omit<V, 'pathInstructions'> & {
+  pathInstructions?: Prisma.InputJsonValue
+} {
+  const { pathInstructions, ...rest } = values
+  return pathInstructions === undefined
+    ? rest
+    : {
+        ...rest,
+        pathInstructions: pathInstructions as unknown as Prisma.InputJsonValue,
+      }
 }
 
 /** LUM-1143: every stored setting column (filters included). */
@@ -29,6 +62,9 @@ const SETTING_SELECT = {
   ignoreUsernames: true,
   descriptionKeyword: true,
   pathFilters: true,
+  pathInstructions: true,
+  reviewProfile: true,
+  toneInstructions: true,
 } as const
 
 /**
@@ -95,6 +131,33 @@ export const repoReviewSettingRepository = {
     return row?.pathFilters ?? []
   },
 
+  /**
+   * LUM-1147: one workspace's review style for a repository (null = no
+   * stored row), for the scan worker's review input.
+   */
+  async findReviewStyle(
+    workspaceId: string,
+    repoLower: string
+  ): Promise<Pick<
+    RepoReviewSettingValues,
+    'pathInstructions' | 'reviewProfile' | 'toneInstructions'
+  > | null> {
+    const row = await prisma.repositoryReviewSetting.findUnique({
+      where: { workspaceId_repo: { workspaceId, repo: repoLower } },
+      select: {
+        pathInstructions: true,
+        reviewProfile: true,
+        toneInstructions: true,
+      },
+    })
+    if (!row) return null
+    return {
+      pathInstructions: normalizePathInstructions(row.pathInstructions),
+      reviewProfile: parseReviewProfile(row.reviewProfile),
+      toneInstructions: row.toneInstructions,
+    }
+  },
+
   /** Every stored setting of one workspace. */
   async findForWorkspace(workspaceId: string) {
     const rows = await prisma.repositoryReviewSetting.findMany({
@@ -116,8 +179,8 @@ export const repoReviewSettingRepository = {
   ) {
     return prisma.repositoryReviewSetting.upsert({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
-      create: { workspaceId, repo: repoLower, ...values },
-      update: changed,
+      create: { workspaceId, repo: repoLower, ...toColumns(values) },
+      update: toColumns(changed),
       select: { repo: true, ...SETTING_SELECT },
     })
   },

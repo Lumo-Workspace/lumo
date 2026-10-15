@@ -19,6 +19,9 @@
  *     threads and approves the PR's current head, dismissing Lumo's earlier
  *     change requests — refused while any finding blocks DONE (a thread
  *     resolved on GitHub does not clear it);
+ *   · LUM-1153 `configuration` replies with the effective review settings
+ *     for the PR (repository config + sources, workspace switches) — read
+ *     only; nothing is changed by command;
  *   · a redelivered webhook is answered once: the reply carries a marker
  *     naming the command comment, and a marker already on the PR stops it.
  *     Best effort (check, then act): if the reply itself fails, a later
@@ -49,6 +52,7 @@ import {
   resolveThreadsByCommand,
   type ResolveByCommandResult,
 } from '@/ee/security/services/pr-finding-thread.service'
+import { buildConfigurationReply } from '@/ee/security/security-scan/pr-configuration-reply'
 import {
   parsePrCommand,
   prCommandHandle,
@@ -99,6 +103,7 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} resume\` — resume automatic AI reviews on every push and reset the reviewed-commit count`,
     `- \`${handle} resolve\` — resolve Lumo's open review threads (findings that block DONE stay open)`,
     `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
+    `- \`${handle} configuration\` — show the effective review settings for this PR and where each comes from`,
     `- \`${handle} help\` — this list`,
     `- \`${handle} <question>\` — ask about this PR's code; Lumo answers from the diff and the files (here, on a code line, or in reply to a Lumo finding)`,
     '',
@@ -168,7 +173,7 @@ export function buildApproveReply(
 }
 
 const ACKS: Record<
-  Exclude<PrCommand, 'resolve' | 'approve' | 'help'>,
+  Exclude<PrCommand, 'resolve' | 'approve' | 'configuration' | 'help'>,
   string
 > = {
   review:
@@ -429,6 +434,21 @@ async function run(
   }
   if (command === 'help')
     return { outcome: 'help', body: buildHelpReply(handle, null) }
+  if (command === 'configuration') {
+    // Loaded lazily: only this command reads the repository config.
+    const { prConfigurationService } =
+      await import('@/ee/security/services/pr-configuration.service')
+    return {
+      outcome: 'done',
+      body: buildConfigurationReply(
+        await prConfigurationService.forPullRequest({
+          workspaceId: event.workspaceId,
+          repo: event.repo,
+          prNumber: event.prNumber,
+        })
+      ),
+    }
+  }
 
   const action =
     command === 'review'

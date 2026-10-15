@@ -34,6 +34,10 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   ignoreUsers?: string[]
   descriptionKeyword?: string
   pathFilter?: string[]
+  /** LUM-1147: the per-repository review style. */
+  profile?: string
+  tone?: string
+  pathInstruction?: string[]
 }
 
 /** The stored switches, as GET/PATCH /api/workspaces/me/security-scan return them. */

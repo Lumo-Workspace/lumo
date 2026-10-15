@@ -3,6 +3,13 @@ import { LEARNINGS_SCOPES } from '@/ee/security/security-scan/learnings-scope'
 import { AUTO_PAUSE_AFTER_MAX } from '@/ee/security/security-scan/review-control'
 import { baseBranchRegExp } from '@/ee/security/security-scan/auto-review-policy'
 import { invalidPathFilter } from '@/ee/security/security-scan/reviewable-path'
+import {
+  PATH_INSTRUCTIONS_MAX_ENTRIES,
+  PATH_INSTRUCTION_MAX_CHARS,
+  PATH_INSTRUCTION_PATH_MAX_CHARS,
+  TONE_INSTRUCTIONS_MAX_CHARS,
+} from '@/ee/security/security-scan/path-instructions'
+import { REVIEW_PROFILES } from '@/ee/security/security-scan/review-profile'
 
 /** LUM-1143: entries per filter list, and characters per entry. */
 export const REVIEW_FILTER_MAX_ENTRIES = 50
@@ -14,6 +21,40 @@ const filterEntry = z
   .refine(v => !/[\n\r]/.test(v), 'must be a single line')
 const filterList = (entry: z.ZodType<string> = filterEntry) =>
   z.array(entry).max(REVIEW_FILTER_MAX_ENTRIES)
+
+/**
+ * LUM-1147 — one path instruction: a glob (same syntax as the path
+ * filters, no `!`) and the review instructions for matching files.
+ */
+export const pathInstructionEntrySchema = z.object({
+  path: z
+    .string()
+    .trim()
+    .min(1)
+    .max(PATH_INSTRUCTION_PATH_MAX_CHARS)
+    .refine(v => !/[\n\r]/.test(v), 'must be a single line')
+    .refine(v => !v.startsWith('!'), 'must be a glob (no `!`)')
+    .describe('Glob over repository paths, e.g. `scripts/**` or `*.sql`.'),
+  instructions: z
+    .string()
+    .trim()
+    .min(1)
+    .max(PATH_INSTRUCTION_MAX_CHARS)
+    .describe('What the AI review should also check in matching files.'),
+})
+
+/** The API's form: an unknown key is an error (the file only warns). */
+export const pathInstructionSchema = pathInstructionEntrySchema.strict()
+
+export const pathInstructionsSchema = z
+  .array(pathInstructionSchema)
+  .max(PATH_INSTRUCTIONS_MAX_ENTRIES)
+
+export const reviewProfileSchema = z.enum(REVIEW_PROFILES)
+
+export const toneInstructionsSchema = z
+  .string()
+  .max(TONE_INSTRUCTIONS_MAX_CHARS)
 
 /** LUM-1137: reviewed commits before automatic review pauses; 0 = never. */
 export const autoPauseAfterSchema = z
@@ -82,6 +123,11 @@ export const updateRepoReviewSettingsSchema = z
         'must be a glob (`!glob` excludes)'
       )
     ).optional(),
+    // LUM-1147: the review style. The list replaces the stored one ([]
+    // clears); '' or null clears the tone.
+    pathInstructions: pathInstructionsSchema.optional(),
+    reviewProfile: reviewProfileSchema.optional(),
+    toneInstructions: toneInstructionsSchema.nullable().optional(),
   })
   .strict()
   .refine(v => Object.keys(v).some(k => k !== 'repo'), {

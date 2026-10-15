@@ -15,11 +15,15 @@
  *     range is the code the finding is about;
  *   · the code changes something, carries no secret (and replaces no line the
  *     model only saw masked), and cannot break out of the fence or forge one
- *     of Lumo's HTML-comment markers.
+ *     of Lumo's HTML-comment markers;
+ *   · it introduces no name its file does not have in scope (an `execFile`
+ *     call in a file importing only `exec` breaks the build once committed —
+ *     see suggestion-scope.ts).
  */
 import { z } from 'zod'
 import type { AddedFile } from '@/lib/diff/diff-lines'
 import { redactForInjection } from '@/lib/security-scan/scan-secrets'
+import { unknownSuggestionNames } from './suggestion-scope'
 
 /** Lines one suggestion may replace. Longer rewrites are not "local". */
 export const CODE_SUGGESTION_MAX_LINES = 12
@@ -59,6 +63,12 @@ export interface ValidateCodeSuggestionInput {
   evidence: string
   /** The PR diff's added lines on this head (`addedLinesWithNumbers`). */
   files: AddedFile[]
+  /**
+   * The file's whole content at this head, when the review read it (its
+   * context); else the scope check knows only the file's added lines and
+   * drops a suggestion relying on an import outside them.
+   */
+  fileText?: string | null
 }
 
 function unsafeCode(code: string): boolean {
@@ -109,6 +119,12 @@ export function validateCodeSuggestion(
   const code = s.code.replace(/\n+$/, '')
   if (unsafeCode(code)) return null
   if (code === original.join('\n')) return null
+  const fileText = input.fileText ?? file.lines.map(l => l.text).join('\n')
+  if (
+    unknownSuggestionNames({ code, fileText, filePath: input.filePath })
+      .length > 0
+  )
+    return null
   return { startLine, endLine, code }
 }
 
