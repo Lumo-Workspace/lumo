@@ -512,6 +512,36 @@ async function withSerializableRetry<T>(
 }
 
 /**
+ * LUM-1150 — what `persistResult` saw of the other writer. The managed run
+ * writes its layers (external / supplyChain) BEFORE its one PR sync, so a
+ * layer already settled when stage A persists means that sync may have run
+ * on a row without stage A's result (the "still running" summary of probe
+ * PR #59): stage A must sync itself. Still PENDING inside this SERIALIZABLE
+ * transaction means the run's write — and so its sync — comes after this
+ * commit and reads stage A's result.
+ */
+export interface PersistResultOutcome {
+  managedLayerLanded: boolean
+}
+
+/** LUM-1150 — has the managed run (or a sweep / supersede) settled a layer it owns? */
+export function managedLayerLanded(stages: ScanStages | null): boolean {
+  // The states only the managed side writes — the same ones
+  // `mergeIngestOwnedStages` keeps over stage A's PENDING.
+  const external = stages?.external
+  const supplyChain = stages?.supplyChain
+  return (
+    external === 'RAN' ||
+    external === 'FAILED' ||
+    external === 'SUPERSEDED' ||
+    supplyChain === 'RAN' ||
+    supplyChain === 'FAILED' ||
+    supplyChain === 'SKIPPED' ||
+    supplyChain === 'SUPERSEDED'
+  )
+}
+
+/**
  * LUM-735 — the row is shared by stage A and the SARIF ingest worker: an
  * ingest-owned `stages.external` (RAN or FAILED, i.e. a report has actually
  * landed or the ingest itself blew up) must survive whatever stage A writes
@@ -1183,8 +1213,8 @@ export const prSecurityScanRepository = {
     scanId: string,
     findings: NewFindingInput[],
     final: FinalizeScanInput
-  ): Promise<void> {
-    await withSerializableRetry(async tx => {
+  ): Promise<PersistResultOutcome> {
+    return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
         select: {
@@ -1263,6 +1293,11 @@ export const prSecurityScanRepository = {
           where: { id: scanId },
           data: { status: 'FINDINGS' },
         })
+      }
+      return {
+        managedLayerLanded: managedLayerLanded(
+          (current?.stages as ScanStages | null) ?? null
+        ),
       }
     })
   },
@@ -2596,6 +2631,15 @@ export const prSecurityScanRepository = {
         data: { managedRunId, stages },
       })
     })
+  },
+
+  /** LUM-1150 — the scan's status alone (null when the row is gone). */
+  async findStatusById(id: string): Promise<ScanStatus | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: { status: true },
+    })
+    return row ? (row.status as ScanStatus) : null
   },
 
   /** The per-layer JSON alone — the sandbox step's entry guard. */

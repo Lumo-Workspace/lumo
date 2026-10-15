@@ -40,6 +40,7 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
     releaseInlineCommentClaims: jest.fn(),
     claimSummaryComment: jest.fn(),
     releaseSummaryCommentClaim: jest.fn(),
+    findStatusById: jest.fn(),
   },
 }))
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
@@ -56,8 +57,10 @@ jest.mock('@/lib/logger', () => ({
 
 import {
   securityPrReviewService,
+  SUMMARY_CLAIM_TTL_MS,
   SUMMARY_MARKER,
 } from '@/ee/security/services/security-pr-review.service'
+import { logger } from '@/lib/logger'
 import {
   prCommentClient,
   GithubApiError,
@@ -274,19 +277,108 @@ describe('LUM-1150 one summary comment per PR', () => {
     expect(gh.createIssueComment).toHaveBeenCalledTimes(1)
   })
 
-  it('a writer that holds a live claim but never finishes: the other waits, then creates nothing', async () => {
+  it('a writer that holds a live claim but never finishes: the other waits for the claim to expire, then posts its summary', async () => {
+    // LUM-1150 follow-up #3: giving up left a finished scan's summary
+    // unwritten (probe PR #59 stayed at "still running").
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] })
     try {
       claims.set('pr1', Date.now())
       repo.findByIdForReview!.mockResolvedValue(scanRow())
       const pending = securityPrReviewService.sync('s1')
-      await jest.advanceTimersByTimeAsync(60_000)
+      await jest.advanceTimersByTimeAsync(SUMMARY_CLAIM_TTL_MS + 30_000)
       const res = await pending
-      expect(gh.createIssueComment).not.toHaveBeenCalled()
-      expect(res.posted).toBe(false)
+      expect(res.posted).toBe(true)
+      expect(lumoSummaries()).toHaveLength(1)
+      expect(storedIds.get('s1')).toBe(String(lumoSummaries()[0]!.id))
     } finally {
       jest.useRealTimers()
     }
+  })
+
+  it('a writer whose create failed releases the claim with no comment: the waiting sync takes it and posts', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] })
+    try {
+      claims.set('pr1', Date.now())
+      repo.findByIdForReview!.mockResolvedValue(scanRow())
+      const pending = securityPrReviewService.sync('s1')
+      await jest.advanceTimersByTimeAsync(1_000)
+      // The holder's create failed (GitHub 5xx); its finally released.
+      claims.delete('pr1')
+      await jest.advanceTimersByTimeAsync(10_000)
+      const res = await pending
+      expect(res.posted).toBe(true)
+      expect(lumoSummaries()).toHaveLength(1)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('never waits past the claim lifetime: a claim store that keeps refusing ends in a warning, not a hang', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] })
+    try {
+      repo.claimSummaryComment!.mockResolvedValue(null)
+      repo.findByIdForReview!.mockResolvedValue(scanRow())
+      let settled = false
+      const pending = securityPrReviewService.sync('s1').then(r => {
+        settled = true
+        return r
+      })
+      await jest.advanceTimersByTimeAsync(SUMMARY_CLAIM_TTL_MS + 30_000)
+      expect(settled).toBe(true)
+      expect((await pending).posted).toBe(false)
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('summary not written')
+      )
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('a sync that wrote "still running" while stage A finished under it writes the final summary before it returns', async () => {
+    // Probe PR #59: an interim body must never be the last word once the
+    // scan has finished — whichever write-back raced which.
+    comments = [{ id: 77, body: `x\n\n${SUMMARY_MARKER}`, user: BOT }]
+    const running = scanRow({
+      summaryCommentId: '77',
+      status: 'RUNNING',
+      stages: { secrets: 'RAN', external: 'RAN', judge: 'PENDING' },
+    })
+    const finished = scanRow({
+      summaryCommentId: '77',
+      status: 'CLEAN',
+      stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+    })
+    repo.findByIdForReview!.mockResolvedValueOnce(running)
+    repo.findByIdForReview!.mockResolvedValue(finished)
+    repo.findStatusById!.mockResolvedValue('CLEAN')
+    const res = await securityPrReviewService.sync('s1')
+    expect(res.posted).toBe(true)
+    expect(repo.findByIdForReview).toHaveBeenCalledTimes(2)
+    expect(comments[0]!.body).not.toContain('still running')
+  })
+
+  it('a sync that wrote "still running" while stage A is still running does not sync again', async () => {
+    comments = [{ id: 77, body: `x\n\n${SUMMARY_MARKER}`, user: BOT }]
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow({
+        summaryCommentId: '77',
+        status: 'RUNNING',
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'PENDING' },
+      })
+    )
+    repo.findStatusById!.mockResolvedValue('RUNNING')
+    await securityPrReviewService.sync('s1')
+    expect(repo.findByIdForReview).toHaveBeenCalledTimes(1)
+    expect(comments[0]!.body).toContain('still running')
+  })
+
+  it('a finished scan is not re-read after its write', async () => {
+    comments = [{ id: 77, body: `x\n\n${SUMMARY_MARKER}`, user: BOT }]
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow({ summaryCommentId: '77', status: 'CLEAN' })
+    )
+    await securityPrReviewService.sync('s1')
+    expect(repo.findStatusById).not.toHaveBeenCalled()
   })
 
   it('a sync whose scan already carries the id does not list comments (no extra GitHub call per sync)', async () => {

@@ -1422,6 +1422,9 @@ export const prSecurityScanService = {
       // external findings on it — posting one here as well would put a second,
       // already-stale summary on the PR (the marker upsert only dedupes across
       // syncs, not against a sync that has not happened yet).
+      // LUM-1150: "a minute from now" is not a promise — a run that lands
+      // before this stage A persists has already synced; see the write-back
+      // below.
       let managedRunStarted = false
       // LUM-745: a prefixed reason for an external layer stage A itself
       // decided (the hourly cap) — carried into persistResult so the panel,
@@ -1967,42 +1970,46 @@ export const prSecurityScanService = {
       // Spec §6.1: findings and the status describing them are ONE write, so a
       // crash between them can never leave a FINDINGS scan with no rows (or
       // rows nobody can see under a scan still RUNNING).
-      await prSecurityScanRepository.persistResult(scanId, rows, {
-        ...(manualFindings !== undefined
-          ? { replaceStageAFindings: true }
-          : {}),
-        status,
-        judgeStatus,
-        truncated,
-        judgeBudget,
-        prSummary,
-        // LUM-1155: like prSummary — null leaves the column alone.
-        sequenceDiagram,
-        // LUM-1127: which files this head's AI review read — the PR
-        // write-back only resolves a judge thread for a file it covered.
-        judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
-        // LUM-1152 follow-up: a deferred full review is satisfied only by a
-        // full one (user ruling).
-        judgeReviewMode:
-          judgeStatus === 'RAN'
-            ? input.reviewMode === 'full'
-              ? 'full'
-              : 'incremental'
-            : null,
-        stages,
-        partialCauses,
-        ...(huntSkippedForCap
-          ? {
-              huntAudit: {
-                overCap: {
-                  sourceFiles: huntSourcePaths.length,
-                  capFiles: HUNT_MAX_HUNTED_FILES,
+      const persisted = await prSecurityScanRepository.persistResult(
+        scanId,
+        rows,
+        {
+          ...(manualFindings !== undefined
+            ? { replaceStageAFindings: true }
+            : {}),
+          status,
+          judgeStatus,
+          truncated,
+          judgeBudget,
+          prSummary,
+          // LUM-1155: like prSummary — null leaves the column alone.
+          sequenceDiagram,
+          // LUM-1127: which files this head's AI review read — the PR
+          // write-back only resolves a judge thread for a file it covered.
+          judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
+          // LUM-1152 follow-up: a deferred full review is satisfied only by a
+          // full one (user ruling).
+          judgeReviewMode:
+            judgeStatus === 'RAN'
+              ? input.reviewMode === 'full'
+                ? 'full'
+                : 'incremental'
+              : null,
+          stages,
+          partialCauses,
+          ...(huntSkippedForCap
+            ? {
+                huntAudit: {
+                  overCap: {
+                    sourceFiles: huntSourcePaths.length,
+                    capFiles: HUNT_MAX_HUNTED_FILES,
+                  },
                 },
-              },
-            }
-          : {}),
-        ...(externalError ? { error: externalError } : {}),
-      })
+              }
+            : {}),
+          ...(externalError ? { error: externalError } : {}),
+        }
+      )
       // LUM-896: the token was checked against the confirmed list when it
       // was minted; the list may have narrowed since.
       await scrubScanIfRepositoryUnconfirmed(scanId)
@@ -2105,7 +2112,16 @@ export const prSecurityScanService = {
         )
       )
       // LUM-739: same rule for a started hunt run — it syncs when it lands.
-      if ((!managedRunStarted && !huntRunStarted) || blocksDone) {
+      // LUM-1150: unless the managed run already landed — its one sync may
+      // have read the row before this result was on it (probe PR #59: the
+      // summary stayed "still running"). The hunt starts only after the
+      // persist above, so its sync always reads the result.
+      // `?.`: a caller's mock may resolve nothing.
+      const managedAlreadyLanded = persisted?.managedLayerLanded === true
+      if (
+        (!huntRunStarted && (!managedRunStarted || managedAlreadyLanded)) ||
+        blocksDone
+      ) {
         waitUntil(securityPrReviewService.sync(scanId))
       }
       return { deduped: false, scanId, status, findings: rows.length }

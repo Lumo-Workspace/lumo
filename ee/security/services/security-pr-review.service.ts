@@ -1231,15 +1231,21 @@ async function threadToken(
   }
 }
 
-/** LUM-1150 — how long the claim on creating a PR's summary holds. */
-export const SUMMARY_CLAIM_TTL_MS = INLINE_CLAIM_TTL_MS
 /**
- * LUM-1150 — a sync that lost the summary claim waits this long (in steps)
- * for the winner's comment id to show up, then writes its own body into it.
- * Past that the winner is still working (or died — its claim then expires).
+ * LUM-1150 — how long the claim on creating a PR's summary holds. The
+ * holder does one id re-check and one create (seconds); past this it died
+ * and its claim is taken over. Short, because a sync that lost the claim
+ * waits it out rather than leave its summary unwritten (follow-up #3).
+ */
+export const SUMMARY_CLAIM_TTL_MS = 60_000
+/**
+ * LUM-1150 — a sync that lost the summary claim polls in these steps for the
+ * winner's comment id (then writes its own body into it) and asks for the
+ * claim again (a holder that released without an id, or died). It never
+ * gives up before the claim could have expired.
  */
 const SUMMARY_WAIT_STEP_MS = 250
-const SUMMARY_WAIT_STEPS = 24
+const SUMMARY_WAIT_MAX_MS = SUMMARY_CLAIM_TTL_MS + 10_000
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
@@ -1314,60 +1320,23 @@ async function createSummaryComment(t: SummaryTarget): Promise<string> {
   return id
 }
 
-/**
- * LUM-1150 — the claim was lost: another sync of this PR is creating the
- * summary right now. Wait for its id, then write this sync's body into that
- * comment. Null = it did not show up in time (nothing written; the claim's
- * holder posts its own, or a later sync takes the expired claim over).
- */
-async function adoptConcurrentSummary(
-  t: SummaryTarget,
-  gone: string | null
-): Promise<string | null> {
-  for (let step = 0; step < SUMMARY_WAIT_STEPS; step++) {
-    await sleep(SUMMARY_WAIT_STEP_MS)
-    const id = await findPrSummaryId(t.pullRequestId)
-    if (id && id !== gone) {
-      if (!(await updateSummaryIfPresent(t, id))) return null
-      await rememberSummaryId(t, id)
-      return id
-    }
-  }
-  logger.info(
-    `[security-pr-review] summary being created by a concurrent sync — left to it ${t.where}`
+/** LUM-1150 — try to take the PR's summary claim; throws when the store is down. */
+function claimSummary(t: SummaryTarget): Promise<Date | null> {
+  return prSecurityScanRepository.claimSummaryComment(
+    t.pullRequestId,
+    new Date(Date.now() - SUMMARY_CLAIM_TTL_MS)
   )
-  return null
 }
 
 /**
- * LUM-1150 — create the PR's summary, single-writer per PR. Two write-backs
- * (e.g. the hunt and the verifier finishing together) both found no summary
- * and both created one; the second was never updated again. Now each claims
- * the PR first: the winner re-checks for an id (a writer that finished just
- * before) and creates; the loser waits for the winner's id and updates it.
- * `gone` is an id known to be deleted on GitHub (never adopted again).
- *
- * Fail-open: a claim store that cannot be reached creates, as before the
- * claim existed — a missing summary is worse than a rare duplicate (which
- * the next scan's heal removes).
+ * LUM-1150 — this sync holds the claim: re-check for an id (a writer that
+ * finished just before), else create. The claim is always given back.
  */
-async function createSummaryOnce(
+async function writeSummaryUnderClaim(
   t: SummaryTarget,
-  gone: string | null
-): Promise<string | null> {
-  let claimedAt: Date | null
-  try {
-    claimedAt = await prSecurityScanRepository.claimSummaryComment(
-      t.pullRequestId,
-      new Date(Date.now() - SUMMARY_CLAIM_TTL_MS)
-    )
-  } catch (error) {
-    logger.warn(
-      `[security-pr-review] summary claim failed ${t.where}: ${describe(error)} — creating unclaimed`
-    )
-    return createSummaryComment(t)
-  }
-  if (!claimedAt) return adoptConcurrentSummary(t, gone)
+  gone: string | null,
+  claimedAt: Date
+): Promise<string> {
   try {
     const existing = await findPrSummaryId(t.pullRequestId)
     if (
@@ -1392,6 +1361,63 @@ async function createSummaryOnce(
       logger.warn(
         `[security-pr-review] summary claim release failed ${t.where}: ${describe(error)}`
       )
+    }
+  }
+}
+
+/**
+ * LUM-1150 — create the PR's summary, single-writer per PR. Two write-backs
+ * (e.g. the hunt and the verifier finishing together) both found no summary
+ * and both created one; the second was never updated again. Now each claims
+ * the PR first: the winner re-checks for an id and creates; the loser waits
+ * for the winner's id and writes its own body into that comment.
+ * `gone` is an id known to be deleted on GitHub (never adopted again).
+ *
+ * Follow-up #3: the loser never leaves its summary unwritten while the
+ * claim could still free up. It used to give up after ~6 s — a holder whose
+ * create failed (claim released, no id) or that died (claim live for 5 min)
+ * left the PR on an older body, possibly "the scan is still running". It
+ * now keeps asking for the claim too, and takes it over once released or
+ * expired. Null only past SUMMARY_WAIT_MAX_MS (logged as a warning).
+ *
+ * Fail-open: a claim store that cannot be reached creates, as before the
+ * claim existed — a missing summary is worse than a rare duplicate (which
+ * the next scan's heal removes).
+ */
+async function createSummaryOnce(
+  t: SummaryTarget,
+  firstGone: string | null
+): Promise<string | null> {
+  let gone = firstGone
+  const deadline = Date.now() + SUMMARY_WAIT_MAX_MS
+  for (let first = true; ; first = false) {
+    if (!first) {
+      await sleep(SUMMARY_WAIT_STEP_MS)
+      const id = await findPrSummaryId(t.pullRequestId)
+      if (id && id !== gone) {
+        if (await updateSummaryIfPresent(t, id)) {
+          await rememberSummaryId(t, id)
+          return id
+        }
+        // Deleted on GitHub meanwhile: never adopted again.
+        gone = id
+      }
+    }
+    let claimedAt: Date | null
+    try {
+      claimedAt = await claimSummary(t)
+    } catch (error) {
+      logger.warn(
+        `[security-pr-review] summary claim failed ${t.where}: ${describe(error)} — creating unclaimed`
+      )
+      return createSummaryComment(t)
+    }
+    if (claimedAt) return writeSummaryUnderClaim(t, gone, claimedAt)
+    if (Date.now() >= deadline) {
+      logger.warn(
+        `[security-pr-review] summary not written — the claim stayed held for ${SUMMARY_WAIT_MAX_MS / 1000}s ${t.where}`
+      )
+      return null
     }
   }
 }
@@ -1616,6 +1642,31 @@ async function listMergedInPostedThreads(input: {
   }
 }
 
+/** LUM-1150 — stage A has not persisted its result yet (the body says so). */
+function isStageAUnfinished(status: string): boolean {
+  return status === 'RUNNING' || status === 'PENDING'
+}
+
+/**
+ * LUM-1150 follow-up #3 — did stage A finish after this sync read the row?
+ * A check that cannot be made answers no (the final write-back still comes
+ * from stage A itself).
+ */
+async function stageAFinishedSince(
+  scanId: string,
+  where: string
+): Promise<boolean> {
+  try {
+    const status = await prSecurityScanRepository.findStatusById(scanId)
+    return status !== null && !isStageAUnfinished(status)
+  } catch (error) {
+    logger.warn(
+      `[security-pr-review] status re-check failed ${where}: ${describe(error)}`
+    )
+    return false
+  }
+}
+
 export const securityPrReviewService = {
   /**
    * LUM-892 — the workspace turned scanning off: rewrite the summary comment
@@ -1709,6 +1760,7 @@ export const securityPrReviewService = {
     let posted = false
     let inline = 0
     let skipped = 0
+    let finishedMeanwhile = false
     // LUM-1150: claims this sync holds on comments it has not posted yet.
     let pendingClaims: string[] = []
     try {
@@ -2000,6 +2052,11 @@ export const securityPrReviewService = {
         pullRequestId: pr.id,
         where,
       })
+      // LUM-1150 follow-up #3: this body was built while stage A was still
+      // running; if it finished meanwhile, a slower interim write may have
+      // landed over (or instead of) its final one — write again below.
+      if (posted && isStageAUnfinished(scan.status))
+        finishedMeanwhile = await stageAFinishedSince(scanId, where)
 
       // LUM-1149: requirements of the linked task / issue this head does not
       // address — one review comment per distinct set. Never throws.
@@ -2147,6 +2204,14 @@ export const securityPrReviewService = {
       // LUM-1150: failed between claiming and posting (e.g. the summary).
       await releaseClaims(pendingClaims, where)
       return { posted, inline, skipped: posted ? skipped : 0 }
+    }
+    if (finishedMeanwhile) {
+      logger.info(
+        `[security-pr-review] stage A finished during this sync — writing the final summary ${where}`
+      )
+      // Reads the finished row, so it does not come back here.
+      const final = await securityPrReviewService.syncReview(scanId)
+      return { ...final, inline: inline + final.inline }
     }
     return { posted, inline, skipped }
   },
