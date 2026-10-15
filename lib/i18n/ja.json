@@ -2488,7 +2488,7 @@
   "workspaceSettings.repoReview.checks.customMode": "チェックのモード",
   "workspaceSettings.repoReview.checks.addCustom": "チェックを追加",
   "workspaceSettings.repoReview.checks.removeCustom": "削除",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "チェックを無効化できるのはリクエストされたレビュアーのみ（作成者は不可）",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "チェックを無効化できるのは PR のレビュアーのみ — リクエストされたレビュアー、またはすでにレビューした人（作成者は不可）",
   "workspaceSettings.repoReview.checks.save": "チェックを保存",
   "workspaceSettings.repoReview.style.toggle": "レビュースタイル",
   "workspaceSettings.repoReview.style.toggleAria": "{repo} のレビュースタイルを表示",

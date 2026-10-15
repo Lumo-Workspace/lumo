@@ -82,8 +82,8 @@ export interface PreMergeChecksSetting {
   }
   customChecks: CustomPreMergeCheck[]
   /**
-   * Only the PR's requested reviewers may override the checks — never its
-   * author. Off: anyone with write access (the author unless the workspace
+   * Only the PR's reviewers (requested by name, or who have already
+   * submitted a review) may override the checks — never its author. Off: anyone with write access (the author unless the workspace
    * turned author approval off, as for `approve`).
    */
   overrideRequestedReviewersOnly: boolean

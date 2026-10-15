@@ -149,7 +149,7 @@
               }
             },
             "override_requested_reviewers_only": {
-              "description": "Only the PR's requested reviewers (never its author) may run `ignore pre-merge checks`.",
+              "description": "Only the PR's reviewers — requested by name, or who have already submitted a review — may run `ignore pre-merge checks`; never its author.",
               "type": "boolean"
             }
           },

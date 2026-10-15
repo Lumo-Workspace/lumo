@@ -22,8 +22,9 @@
  *   · LUM-1148 `ignore pre-merge checks`: records a per-PR override of the
  *     pre-merge checks (who, when, at which head) and refreshes the review —
  *     failed `error` checks then no longer hold approval back. With the
- *     repository's `override_requested_reviewers_only`, only a requested
- *     reviewer may, never the author. It never clears a finding that blocks
+ *     repository's `override_requested_reviewers_only`, only a reviewer may
+ *     (requested by name, or one who has already submitted a review), never
+ *     the author. It never clears a finding that blocks
  *     DONE, and `approve` is refused while an `error` check fails;
  *   · LUM-1153 `configuration` replies with the effective review settings
  *     for the PR (repository config + sources, workspace switches) — read
@@ -33,7 +34,9 @@
  *     Best effort (check, then act): if the reply itself fails, a later
  *     redelivery runs the command again — pause/resume/resolve are
  *     idempotent, and a repeated review request deduplicates while the first
- *     is still running (after it, it is one more manual review).
+ *     is still running (after it, it is one more manual review). A review
+ *     asked for while the head's scan is still in flight waits for that scan
+ *     to settle and then runs (LUM-1152 follow-up, security-deferred-review).
  *
  * Layering: service — GitHub through `@/lib/integrations/github/*`, the
  * database through repositories and the existing services.
@@ -391,10 +394,10 @@ export function buildOverrideReply(
       return "⚠️ Lumo didn't record an override: the PR is not open."
     case 'author':
       return r.reviewersOnly
-        ? `🚫 The PR's author can't override its pre-merge checks in this repository — a requested reviewer can run \`${handle} ignore pre-merge checks\`.`
+        ? `🚫 The PR's author can't override its pre-merge checks in this repository — a reviewer (requested, or who has already reviewed the PR) can run \`${handle} ignore pre-merge checks\`.`
         : `🚫 The PR's author can't override its pre-merge checks in this workspace — a reviewer with write access can run \`${handle} ignore pre-merge checks\`.`
     case 'not_requested_reviewer':
-      return `🚫 Only the PR's requested reviewers can override its pre-merge checks in this repository — ask to be requested as a reviewer, then run \`${handle} ignore pre-merge checks\` again.`
+      return `🚫 Only the PR's reviewers — requested by name, or who have already submitted a review — can override its pre-merge checks in this repository. Ask to be requested as a reviewer (or review the PR), then run \`${handle} ignore pre-merge checks\` again.`
   }
 }
 

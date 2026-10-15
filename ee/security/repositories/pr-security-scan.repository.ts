@@ -14,6 +14,7 @@ import type {
   SecretDowngradeReason,
 } from '@/ee/security/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
+import { isSettledForManualReview } from '@/ee/security/security-scan/review-control'
 import type { JudgeBudget } from '@/ee/security/security-scan/judge-budget'
 import type { PrSummary } from '@/ee/security/security-scan/pr-summary'
 import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
@@ -147,6 +148,11 @@ export interface FinalizeScanInput {
    * only resolves a judge finding's thread for a file inside this scope.
    */
   judgeReviewScope?: string[] | null
+  /**
+   * LUM-1152 follow-up — 'full' (a requested full review) or 'incremental';
+   * null = the AI review did not run. Absent = leave the column alone.
+   */
+  judgeReviewMode?: 'full' | 'incremental' | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -1025,16 +1031,7 @@ export const prSecurityScanRepository = {
         current.startedAt.getTime() !== expectedStartedAt.getTime()
       )
         return false
-      if (
-        manual &&
-        (!current ||
-          !['CLEAN', 'FINDINGS', 'FAILED'].includes(current.status) ||
-          Object.values((current.stages as ScanStages | null) ?? {}).includes(
-            'PENDING'
-          ) ||
-          (current.verifierStartedAt && !current.verifiedAt))
-      )
-        return false
+      if (manual && !isSettledForManualReview(current)) return false
       const external = (current?.stages as ScanStages | null)?.external
       // Snapshot human rulings under the same serializable lock as the
       // restart. A concurrent disposition forces a retry with fresh data.
@@ -1068,6 +1065,7 @@ export const prSecurityScanRepository = {
           finishedAt: null,
           verifierStartedAt: null,
           verifiedAt: null,
+          judgeReviewMode: null,
           huntJob: Prisma.DbNull,
           huntAudit: Prisma.DbNull,
           huntRunId: null,
@@ -1075,6 +1073,20 @@ export const prSecurityScanRepository = {
         },
       })
       return snapshot ?? true
+    })
+  },
+
+  /** LUM-1152 follow-up — what a deferred manual review waits on. */
+  async findManualRestartState(id: string) {
+    return prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        stages: true,
+        verifierStartedAt: true,
+        verifiedAt: true,
+        judgeReviewMode: true,
+      },
     })
   },
 
@@ -1179,6 +1191,9 @@ export const prSecurityScanRepository = {
             ? {
                 prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
               }
+            : {}),
+          ...(final.judgeReviewMode !== undefined
+            ? { judgeReviewMode: final.judgeReviewMode }
             : {}),
           ...(final.judgeReviewScope !== undefined
             ? {

@@ -2488,7 +2488,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Режим проверки",
   "workspaceSettings.repoReview.checks.addCustom": "Добавить проверку",
   "workspaceSettings.repoReview.checks.removeCustom": "Удалить",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Отменять проверки могут только запрошенные ревьюеры (но не автор)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Отменять проверки могут только ревьюеры PR — запрошенные ревьюеры или те, кто уже оставил ревью (но не автор)",
   "workspaceSettings.repoReview.checks.save": "Сохранить проверки",
   "workspaceSettings.repoReview.style.toggle": "Стиль ревью",
   "workspaceSettings.repoReview.style.toggleAria": "Показать стиль ревью для {repo}",

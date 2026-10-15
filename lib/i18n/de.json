@@ -2488,7 +2488,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Modus der Prüfung",
   "workspaceSettings.repoReview.checks.addCustom": "Prüfung hinzufügen",
   "workspaceSettings.repoReview.checks.removeCustom": "Entfernen",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Nur angefragte Reviewer dürfen die Prüfungen übergehen (nie der Autor)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Nur Reviewer des PR dürfen die Prüfungen übergehen – angefragte Reviewer oder wer bereits ein Review abgegeben hat (nie der Autor)",
   "workspaceSettings.repoReview.checks.save": "Prüfungen speichern",
   "workspaceSettings.repoReview.style.toggle": "Prüfstil",
   "workspaceSettings.repoReview.style.toggleAria": "Prüfstil für {repo} anzeigen",

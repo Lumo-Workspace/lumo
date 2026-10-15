@@ -237,6 +237,10 @@ describe('reviewers-only override', () => {
     )
     expect(record).not.toHaveBeenCalled()
     expect(replyBody()).toMatch(/author can't override/)
+    // The reply names who may: requested reviewers AND past reviewers.
+    expect(replyBody()).toContain(
+      'a reviewer (requested, or who has already reviewed the PR) can run'
+    )
   })
 
   it('refuses a writer who is not a requested reviewer', async () => {
@@ -244,6 +248,11 @@ describe('reviewers-only override', () => {
       'refused_not_reviewer'
     )
     expect(record).not.toHaveBeenCalled()
+    // Wording matches the rule: a past reviewer counts, not only a requested one.
+    expect(replyBody()).toContain(
+      "Only the PR's reviewers — requested by name, or who have already submitted a review — can override"
+    )
+    expect(replyBody()).not.toMatch(/Only the PR's requested reviewers/)
   })
 
   it('a requested reviewer may', async () => {

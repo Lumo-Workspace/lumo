@@ -32,7 +32,9 @@ export function shouldScanOnPrEvent(action: string, state: string): boolean {
 export async function dispatchPrSecurityScan(
   pullRequestId: string,
   trigger: ScanDispatchTrigger,
-  reviewMode?: 'incremental' | 'full'
+  reviewMode?: 'incremental' | 'full',
+  /** LUM-1152 follow-up: a deferred manual review is never deferred again. */
+  options?: { deferred?: boolean }
 ): Promise<void> {
   const base = process.env.NEXT_PUBLIC_APP_URL
   if (!base) {
@@ -48,7 +50,12 @@ export async function dispatchPrSecurityScan(
         'content-type': 'application/json',
         authorization: `Bearer ${process.env.CRON_SECRET}`,
       },
-      body: JSON.stringify({ pullRequestId, trigger, reviewMode }),
+      body: JSON.stringify({
+        pullRequestId,
+        trigger,
+        reviewMode,
+        ...(options?.deferred ? { deferred: true } : {}),
+      }),
     })
     if (!res.ok) {
       logger.warn(

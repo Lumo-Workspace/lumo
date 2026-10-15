@@ -5227,7 +5227,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "With --repo: only requested reviewers (never the PR author) may `@uselumo ignore pre-merge checks` (default off)"
+          "description": "With --repo: only the PR's reviewers (requested by name, or who already submitted a review; never the PR author) may `@uselumo ignore pre-merge checks` (default off)"
         },
         "--path-filter": {
           "long": "--path-filter",

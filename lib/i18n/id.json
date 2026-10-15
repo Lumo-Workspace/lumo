@@ -2488,7 +2488,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Mode pemeriksaan",
   "workspaceSettings.repoReview.checks.addCustom": "Tambah pemeriksaan",
   "workspaceSettings.repoReview.checks.removeCustom": "Hapus",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Hanya peninjau yang diminta yang dapat mengabaikan pemeriksaan (tidak pernah penulisnya)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Hanya peninjau PR yang dapat mengabaikan pemeriksaan — peninjau yang diminta atau siapa pun yang sudah meninjaunya (tidak pernah penulisnya)",
   "workspaceSettings.repoReview.checks.save": "Simpan pemeriksaan",
   "workspaceSettings.repoReview.style.toggle": "Gaya tinjauan",
   "workspaceSettings.repoReview.style.toggleAria": "Tampilkan gaya tinjauan untuk {repo}",
