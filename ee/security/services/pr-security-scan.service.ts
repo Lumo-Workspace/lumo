@@ -7,7 +7,7 @@
  * Runs inside the /api/internal/pr-security-scan worker (300s), never inline.
  *
  * Secrets never reach a row: scanSecrets redacts before returning, and every
- * free-text field the LLM judge authors goes through redactFindingText.
+ * free-text field the LLM judge authors is redacted (`redactFindingProse`).
  */
 import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
@@ -68,6 +68,7 @@ import { isReviewVerifierEnabled } from './review-verifier.config'
 import { verifierAppliesTo } from '@/ee/security/security-scan/verifier'
 import type { ReviewVerifierJob } from './review-verifier.service'
 import { isBugKind } from '@/ee/security/security-scan/review-kinds'
+import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import { validateCodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
   addedLinesWithNumbers,
@@ -1729,18 +1730,23 @@ export const prSecurityScanService = {
             // line wherever it likes — a title quoting the key, a detail
             // spelling it out, a hallucinated path with a token in it — so
             // redacting one field left the raw secret in the other three.
-            // `redactFindingText` runs every pattern over the text and ends
-            // with the quoted-span pass; LUM-1013: the free-text variant, so
-            // quoted prose stays readable while credential talk and
-            // credential-shaped quoted values are still masked.
+            // Every pass runs every pattern over the text and ends with a
+            // quoted-span pass; LUM-1013 / LUM-1200: the prose variants, so
+            // quoted prose and inline code stay readable while
+            // credential-shaped and credential-keyed values are still masked.
             const filePath = redactKnownSecrets(j.filePath)
-            const title = redactFindingText(j.title)
+            // LUM-1200 follow-up: the title and detail are prose about the
+            // code (`redactFindingProse`); the evidence is the code line itself and
+            // keeps the stricter pass.
+            const title = redactFindingProse(j.title, isCredential)
             const evidence = redactFindingText(j.evidence)
             // The fingerprint keeps the blanket-masked evidence it has always
             // been keyed on (still redacted, never raw), so findings from
             // scans before LUM-1013 keep their key and a human's
-            // FALSE_POSITIVE is still inherited.
+            // FALSE_POSITIVE is still inherited — and, with no evidence, the
+            // title it has always fallen back to.
             const fingerprintEvidence = redactKnownSecrets(j.evidence)
+            const fingerprintTitle = redactFindingText(j.title)
             // LUM-1150: the one-click fix, only when its range is exactly
             // this head's added lines around the finding; else none.
             const codeSuggestion = validateCodeSuggestion({
@@ -1775,7 +1781,7 @@ export const prSecurityScanService = {
               filePath,
               line: j.line,
               title,
-              detail: redactFindingText(j.detail),
+              detail: redactFindingProse(j.detail, isCredential),
               evidence,
               // LUM-988: keyed on the quoted line, not the re-worded title;
               // repeats are made positional below.
@@ -1783,7 +1789,7 @@ export const prSecurityScanService = {
                 ruleId,
                 filePath,
                 fingerprintEvidence,
-                title
+                fingerprintTitle
               ),
               externalRef: null,
               disposition: null,

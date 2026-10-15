@@ -254,4 +254,100 @@ describe('LUM-1200 one thread per issue across AI review and hunt', () => {
     await securityPrReviewService.sync('s1')
     expect(postedComments()).toHaveLength(2)
   })
+
+  // Follow-up — production probe PR 60 (src/probe/session.ts @3202de1): the
+  // hunt's `hunt:logic` reports one line from the AI review's threads got
+  // threads of their own, the L13 one re-raising the Math.random issue the
+  // developer had resolved on L14.
+  describe('probe PR 60: hunt:logic on nearby lines', () => {
+    const CRYPTO_FP = 'e319f42d5996a43c'
+    const EXPIRY_FP = '12c23ea2a53e7f19'
+    const base = { ...judge, filePath: 'src/probe/session.ts' }
+    const judgeCrypto: ReviewFindingRow = {
+      ...base,
+      id: 'j-crypto',
+      ruleId: 'vuln:weak_crypto',
+      line: 14,
+      title:
+        'Session token generated with Math.random despite comment claiming CSPRNG',
+      fingerprint: CRYPTO_FP,
+    }
+    const judgeExpiry: ReviewFindingRow = {
+      ...base,
+      id: 'j-expiry',
+      ruleId: 'vuln:auth_bypass',
+      line: 19,
+      title: 'Session validity uses || so expired sessions remain valid',
+      fingerprint: EXPIRY_FP,
+    }
+    const huntCrypto: ReviewFindingRow = {
+      ...base,
+      id: 'h-crypto',
+      ruleId: 'hunt:logic',
+      line: 13,
+      title:
+        'Session tokens use Math.random() instead of CSPRNG, allowing attackers to predict or enumerate valid session tokens with low entropy (~53 bits)',
+      fingerprint: 'hunt-crypto-fp',
+    }
+    const huntExpiry: ReviewFindingRow = {
+      ...base,
+      id: 'h-expiry',
+      ruleId: 'hunt:logic',
+      line: 20,
+      title:
+        'Session validation uses OR logic (expiresAt > now || token.length > 0) allowing expired sessions to remain valid indefinitely, bypassing authentication expiry controls',
+      fingerprint: 'hunt-expiry-fp',
+    }
+    const comment = (id: number, f: ReviewFindingRow) => ({
+      id,
+      node_id: `n${id}`,
+      html_url: '',
+      body: `**Lumo · LLM review · HIGH** — ${f.title}\n\n${fingerprintMarker(f.fingerprint)}`,
+      updated_at: '',
+      user: bot,
+    })
+
+    beforeEach(() => {
+      repo.findByIdForReview!.mockResolvedValue(
+        scanRow([judgeCrypto, judgeExpiry, huntCrypto, huntExpiry])
+      )
+      listReviewComments.mockResolvedValue([
+        comment(4285358212, judgeExpiry),
+        comment(4285358219, judgeCrypto),
+      ])
+      reconcile.mockResolvedValue({
+        ...NO_THREADS,
+        resolvedByUser: new Set([CRYPTO_FP]),
+        counts: { open: 1, addressed: 0, resolved: 1 },
+      })
+    })
+
+    it('posts no second thread: each hunt report joins the AI review thread for its issue', async () => {
+      await securityPrReviewService.sync('s1')
+      expect(postedComments()).toHaveLength(0)
+      // The open L19 thread lists the L20 hunt report…
+      expect(updateReviewLineComment).toHaveBeenCalledTimes(1)
+      const [edit] = updateReviewLineComment.mock.calls[0]!
+      expect(edit.externalId).toBe('4285358212')
+      expect(edit.body).toContain('lumo-security:also:hunt-expiry-fp')
+      // …and the L14 thread the developer resolved is left alone: the L13
+      // report of the same issue is not raised again.
+      expect(edit.body).not.toContain('hunt-crypto-fp')
+    })
+
+    it('a more severe hunt report of a resolved issue still gets its own thread', async () => {
+      repo.findByIdForReview!.mockResolvedValue(
+        scanRow([
+          { ...judgeCrypto, severity: 'MEDIUM' },
+          judgeExpiry,
+          huntCrypto,
+          huntExpiry,
+        ])
+      )
+      await securityPrReviewService.sync('s1')
+      const comments = postedComments()
+      expect(comments).toHaveLength(1)
+      expect(comments[0]!.body).toContain(fingerprintMarker('hunt-crypto-fp'))
+    })
+  })
 })
