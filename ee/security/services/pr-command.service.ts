@@ -19,6 +19,12 @@
  *     threads and approves the PR's current head, dismissing Lumo's earlier
  *     change requests — refused while any finding blocks DONE (a thread
  *     resolved on GitHub does not clear it);
+ *   · LUM-1148 `ignore pre-merge checks`: records a per-PR override of the
+ *     pre-merge checks (who, when, at which head) and refreshes the review —
+ *     failed `error` checks then no longer hold approval back. With the
+ *     repository's `override_requested_reviewers_only`, only a requested
+ *     reviewer may, never the author. It never clears a finding that blocks
+ *     DONE, and `approve` is refused while an `error` check fails;
  *   · LUM-1153 `configuration` replies with the effective review settings
  *     for the PR (repository config + sources, workspace switches) — read
  *     only; nothing is changed by command;
@@ -60,6 +66,14 @@ import {
   prCommandHandle,
   type PrCommand,
 } from '@/ee/security/services/pr-command-parse'
+import { preMergeOverrideRepository } from '@/ee/security/repositories/pre-merge-override.repository'
+import { preMergeChecksService } from '@/ee/security/services/pre-merge-checks.service'
+import {
+  blockingCheckCount,
+  checksForHead,
+  overrideEligibility,
+  type PreMergeChecksOverride,
+} from '@/ee/security/security-scan/pre-merge-checks'
 
 export type PrCommentEvent = CoreEvents['github.issueComment']
 
@@ -75,6 +89,8 @@ export type PrCommandOutcome =
   | 'refused_mode_off'
   | 'refused_blocking'
   | 'refused_unreviewed'
+  | 'refused_checks'
+  | 'refused_not_reviewer'
   | 'done'
   | 'failed'
 
@@ -104,7 +120,8 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} pause\` — stop automatic AI reviews on new pushes`,
     `- \`${handle} resume\` — resume automatic AI reviews on every push and reset the reviewed-commit count`,
     `- \`${handle} resolve\` — resolve Lumo's open review threads (findings that block DONE stay open)`,
-    `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
+    `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE or an \`error\` pre-merge check fails)`,
+    `- \`${handle} ignore pre-merge checks\` — ignore failed pre-merge checks on this PR (recorded; findings that block DONE stay)`,
     `- \`${handle} configuration\` — show the effective review settings for this PR and where each comes from`,
     `- \`${handle} help\` — this list`,
     `- \`${handle} <question>\` — ask about this PR's code; Lumo answers from the diff and the files (here, on a code line, or in reply to a Lumo finding)`,
@@ -144,6 +161,7 @@ export function buildApproveReply(
   r:
     | { kind: 'mode_off' }
     | { kind: 'blocked'; blocking: number }
+    | { kind: 'checks'; failing: number }
     | { kind: 'unresolved'; result: ResolveByCommandResult }
     | { kind: 'not_open' }
     | { kind: 'unreviewed'; sha: string }
@@ -156,6 +174,8 @@ export function buildApproveReply(
       return "ℹ️ Lumo doesn't approve PRs in this workspace — the request-changes workflow is off. A workspace owner can turn it on in Settings → Workspace → PR security scanning (or `lumo workspace security-scan --request-changes on`)."
     case 'blocked':
       return `🔒 Lumo can't approve: ${r.blocking === 1 ? '1 finding blocks' : `${r.blocking} findings block`} DONE until dispositioned in Lumo (\`lumo finding disposition\` or the PR's security panel) — resolving its thread is not a disposition.`
+    case 'checks':
+      return `🔒 Lumo can't approve: ${r.failing === 1 ? '1 `error` pre-merge check fails' : `${r.failing} \`error\` pre-merge checks fail`} (see the security summary). Fix the PR, or comment \`${handle} ignore pre-merge checks\` to override them on this PR.`
     case 'unresolved':
       return `⚠️ Lumo didn't approve: it could not resolve ${r.result.failed === 1 ? '1 thread' : `${r.result.failed} threads`} — try \`${handle} approve\` again later.`
     case 'not_open':
@@ -175,7 +195,10 @@ export function buildApproveReply(
 }
 
 const ACKS: Record<
-  Exclude<PrCommand, 'resolve' | 'approve' | 'configuration' | 'help'>,
+  Exclude<
+    PrCommand,
+    'resolve' | 'approve' | 'configuration' | 'help' | 'ignore pre-merge checks'
+  >,
   string
 > = {
   review:
@@ -282,6 +305,21 @@ async function approve(
         handle
       ),
     }
+  // LUM-1148: a failed `error` pre-merge check holds approval too.
+  // The override is read only when a check fails.
+  const checks = scan ? checksForHead(scan.preMergeChecks, scan.headSha) : null
+  const failing =
+    blockingCheckCount(checks, null) > 0
+      ? blockingCheckCount(
+          checks,
+          await preMergeOverrideRepository.find(event.pullRequestId)
+        )
+      : 0
+  if (failing > 0)
+    return {
+      outcome: 'refused_checks',
+      body: buildApproveReply({ kind: 'checks', failing }, handle),
+    }
   const repo = parseRepo(event.repo)
   const live = await prCommentClient.getPullRequestHead({
     repo,
@@ -334,6 +372,138 @@ async function approve(
     ),
   }
 }
+/** LUM-1148 — the reply to `@<app> ignore pre-merge checks` (pure). */
+export function buildOverrideReply(
+  r:
+    | { kind: 'recorded'; override: PreMergeChecksOverride }
+    | { kind: 'already'; override: PreMergeChecksOverride }
+    | { kind: 'not_open' }
+    | { kind: 'author'; reviewersOnly: boolean }
+    | { kind: 'not_requested_reviewer' },
+  handle: string
+): string {
+  const who = (o: PreMergeChecksOverride) =>
+    `${o.login.replace(/[^\w-]/g, '')}${o.headSha ? ` at \`${o.headSha.slice(0, 7)}\`` : ''}`
+  switch (r.kind) {
+    case 'recorded':
+      return `⏭️ Pre-merge checks are now ignored on this PR — override by ${who(r.override)} recorded. It covers every later push to this PR. Failed \`error\` checks no longer hold Lumo's approval back; findings that block DONE still need a disposition in Lumo (\`lumo finding disposition\` or the PR's security panel).`
+    case 'already':
+      return `ℹ️ Pre-merge checks on this PR were already overridden by ${who(r.override)}.`
+    case 'not_open':
+      return "⚠️ Lumo didn't record an override: the PR is not open."
+    case 'author':
+      return r.reviewersOnly
+        ? `🚫 The PR's author can't override its pre-merge checks in this repository — a requested reviewer can run \`${handle} ignore pre-merge checks\`.`
+        : `🚫 The PR's author can't override its pre-merge checks in this workspace — a reviewer with write access can run \`${handle} ignore pre-merge checks\`.`
+    case 'not_requested_reviewer':
+      return `🚫 Only the PR's requested reviewers can override its pre-merge checks in this repository — ask to be requested as a reviewer, then run \`${handle} ignore pre-merge checks\` again.`
+  }
+}
+
+/** Logins (not bots) that have submitted a review on the PR. */
+async function reviewedBy(
+  event: PrCommentEvent,
+  token: string
+): Promise<string[]> {
+  const reviews = await prCommentClient.listReviews({
+    repo: parseRepo(event.repo),
+    prNumber: event.prNumber,
+    token,
+  })
+  return reviews
+    .filter(r => r.user && !isBot(r.user) && !isLumoActor(r.user))
+    .map(r => r.user?.login ?? '')
+    .filter(l => l.length > 0)
+}
+
+/**
+ * LUM-1148 `ignore pre-merge checks`. Checks who may (the repository's
+ * reviewers-only switch; else the workspace's author-approval switch), then
+ * records the override once and refreshes the review so the summary and the
+ * verdict take it in. Never touches findings.
+ */
+async function overrideChecks(
+  event: PrCommentEvent,
+  login: string,
+  handle: string,
+  writeToken: string
+): Promise<{ outcome: PrCommandOutcome; body: string }> {
+  const { fetchPrDetails } = await import('@/lib/integrations/github/contents')
+  const pr = await fetchPrDetails({
+    workspaceId: event.workspaceId,
+    fullName: event.repo,
+    prNumber: event.prNumber,
+  })
+  if (pr.state !== 'open')
+    return {
+      outcome: 'failed',
+      body: buildOverrideReply({ kind: 'not_open' }, handle),
+    }
+  const existing = await preMergeOverrideRepository.find(event.pullRequestId)
+  if (existing)
+    return {
+      outcome: 'done',
+      body: buildOverrideReply({ kind: 'already', override: existing }, handle),
+    }
+  const { setting } = await preMergeChecksService.resolveSetting({
+    workspaceId: event.workspaceId,
+    repo: event.repo,
+    baseSha: pr.baseSha,
+  })
+  const reviewersOnly = setting.overrideRequestedReviewersOnly
+  const authorLogin = pr.authorLogin ?? event.prAuthorLogin
+  const asAuthor =
+    !authorLogin || authorLogin.toLowerCase() === login.toLowerCase()
+  const eligibility = overrideEligibility({
+    login,
+    authorLogin,
+    reviewersOnly,
+    // Read only when it can matter (the asker is, or may be, the author).
+    authorAllowed:
+      reviewersOnly || !asAuthor
+        ? true
+        : await securityColumnsRepository.findAllowAuthorApproval(
+            event.workspaceId
+          ),
+    requestedReviewers: pr.requestedReviewers,
+    reviewedBy:
+      reviewersOnly && !asAuthor ? await reviewedBy(event, writeToken) : [],
+  })
+  if (!eligibility.ok)
+    return eligibility.reason === 'author'
+      ? {
+          outcome: 'refused_author',
+          body: buildOverrideReply({ kind: 'author', reviewersOnly }, handle),
+        }
+      : {
+          outcome: 'refused_not_reviewer',
+          body: buildOverrideReply({ kind: 'not_requested_reviewer' }, handle),
+        }
+  const { override, recorded } = await preMergeOverrideRepository.record(
+    event.pullRequestId,
+    { login, headSha: pr.headSha }
+  )
+  logger.info(
+    `[pr-command] pre-merge checks overridden pr=${event.repo}#${event.prNumber} by=${login} head=${pr.headSha.slice(0, 7)} recorded=${recorded}`
+  )
+  // The summary and the verdict take the override in now, not on the next push.
+  const [scan] = await prSecurityScanRepository.findLatestByPullRequestIds([
+    event.pullRequestId,
+  ])
+  if (scan) {
+    const { securityPrReviewService } =
+      await import('@/ee/security/services/security-pr-review.service')
+    await securityPrReviewService.sync(scan.id)
+  }
+  return {
+    outcome: 'done',
+    body: buildOverrideReply(
+      recorded ? { kind: 'recorded', override } : { kind: 'already', override },
+      handle
+    ),
+  }
+}
+
 /** LUM-1127 — the reply when the thread token cannot be minted. */
 export const THREAD_TOKEN_REFUSED =
   "⚠️ Lumo couldn't resolve its review threads: GitHub needs the Lumo App to hold the **Contents: Read & write** permission to resolve threads, and this installation doesn't grant it. Resolve the threads on GitHub, or ask an org owner to accept the App's updated permissions."
@@ -436,6 +606,8 @@ async function run(
   }
   if (command === 'help')
     return { outcome: 'help', body: buildHelpReply(handle, null) }
+  if (command === 'ignore pre-merge checks')
+    return overrideChecks(event, login, handle, writeToken)
   if (command === 'configuration') {
     // Loaded lazily: only this command reads the repository config.
     const { prConfigurationService } =

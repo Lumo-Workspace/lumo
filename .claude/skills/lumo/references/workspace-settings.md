@@ -95,6 +95,20 @@ lumo workspace security-scan --repo acme/app --labels ""                       #
 - `--repo X` (no change) prints the repository's filters under its row; `--json` adds `baseBranches`, `labels`, `ignoreTitleKeywords`, `ignoreUsernames`, `descriptionKeyword`, `pathFilters`, `emptyBaseBranchesMeans`.
 - A `.lumo.yaml` at the repository root (`reviews.auto_review.*`, `reviews.path_filters`) overrides these per key, read from the PR's **base** commit — a PR's own copy applies only after it merges; an invalid file falls back to these settings and the PR summary says why. These commands show the stored settings, not the file. Details: `docs/repo-config.md`.
 
+#### Pre-merge checks (LUM-1148)
+
+Per repository, rules every reviewed PR is held to, reported in the PR's security summary (failures in a table, passes folded). Built-ins: **title** (concise, describes the change, plus optional `--title-requirements`) and **description** (filled in; follows the repository's PR template when it has one). Each is `off`, `warning` (default — reported, never blocks) or `error` (a failure keeps Lumo at "Changes requested" while the request-changes workflow is on, and `@uselumo approve` is refused, until the check passes on a later push or title/description edit, or the PR overrides the checks). An **inconclusive** check never blocks (a failed model call never lifts a failure already recorded for the same head). Up to 5 **custom checks** (name ≤ 50 chars, plain-language instructions ≤ 1000) are set in the web card (**Pre-merge checks**) or `.lumo.yaml` (`reviews.pre_merge_checks.custom_checks`), not by flag. The checks run with the AI review (one model call per reviewed head; not on a paused head).
+
+```bash
+lumo workspace security-scan --repo acme/app --title-check error --title-requirements 'start with feat:, fix: or chore:'
+lumo workspace security-scan --repo acme/app --description-check off --confirm
+lumo workspace security-scan --repo acme/app --override-reviewers-only on
+```
+
+- Override, per PR: a top-level PR comment `@uselumo ignore pre-merge checks` (write access) — recorded (who, when, head), shown as Ignored in the summary; it covers **every later push** to the PR (the recorded head is for the audit trail, it does not scope the override); it **never** clears a finding that blocks DONE. `--override-reviewers-only on` (`override_requested_reviewers_only` in `.lumo.yaml`): only a requested reviewer (named, not via a team; one who already reviewed counts) may, never the author. Off: the author may unless author approval is off.
+- Switching a check off, or `--override-reviewers-only off`, exits 4 with an envelope until `--confirm`. `--repo X` lists the checks under the repository; `--json` adds `preMergeChecks`.
+- `.lumo.yaml` (`reviews.pre_merge_checks.{title,description,custom_checks,override_requested_reviewers_only}`) on the base commit overrides these per key; `custom_checks` replaces the whole list. Details: `docs/repo-config.md`.
+
 #### Review style: path instructions, profile, tone (LUM-1147)
 
 Per repository, for every AI review of its PRs (task-linked too). OWNER only, no confirmation, audited like the filters. The web card has the same fields under **Review style**.

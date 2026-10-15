@@ -24,6 +24,11 @@ export interface RepoReviewOptions extends ConfirmFlags {
   ignoreUsers?: string[]
   descriptionKeyword?: string
   pathFilter?: string[]
+  /** LUM-1148 — the pre-merge checks (custom checks: web or .lumo.yaml). */
+  titleCheck?: string
+  titleRequirements?: string
+  descriptionCheck?: string
+  overrideReviewersOnly?: string
   /** LUM-1147 review style. */
   profile?: string
   /** "" clears. */
@@ -59,6 +64,25 @@ export interface RepoReviewSettingView {
   toneInstructions?: string | null
   /** What an empty `baseBranches` reviews. */
   emptyBaseBranchesMeans?: 'all_branches' | 'default_branch_only'
+  /** LUM-1148 (absent from an older server). */
+  preMergeChecks?: PreMergeChecksView
+}
+
+export type CheckMode = 'off' | 'warning' | 'error'
+const CHECK_MODES: readonly CheckMode[] = ['off', 'warning', 'error']
+
+/** LUM-1148 — a repository's pre-merge checks, as the server returns them. */
+export interface PreMergeChecksView {
+  title: { mode: CheckMode; requirements: string | null }
+  description: { mode: CheckMode }
+  customChecks: Array<{ name: string; mode: CheckMode; instructions: string }>
+  overrideRequestedReviewersOnly: boolean
+}
+
+export interface PreMergeChecksChange {
+  title?: { mode?: CheckMode; requirements?: string | null }
+  description?: { mode?: CheckMode }
+  overrideRequestedReviewersOnly?: boolean
 }
 
 /** GET/PATCH /api/workspaces/me/security-scan/repositories. */
@@ -77,6 +101,7 @@ export interface RepoReviewUpdate {
   ignoreUsernames?: string[]
   descriptionKeyword?: string | null
   pathFilters?: string[]
+  preMergeChecks?: PreMergeChecksChange
   pathInstructions?: PathInstruction[]
   reviewProfile?: ReviewProfile
   toneInstructions?: string | null
@@ -138,11 +163,57 @@ function hasFilterFlag(opts: RepoReviewOptions): boolean {
   return (
     LIST_FLAGS.some(([key]) => opts[key] !== undefined) ||
     opts.descriptionKeyword !== undefined ||
+    hasChecksFlag(opts) ||
     // LUM-1147: the review style flags change the repository too.
     opts.profile !== undefined ||
     opts.tone !== undefined ||
     opts.pathInstruction !== undefined
   )
+}
+
+/** LUM-1148: any pre-merge check flag. */
+function hasChecksFlag(opts: RepoReviewOptions): boolean {
+  return (
+    opts.titleCheck !== undefined ||
+    opts.titleRequirements !== undefined ||
+    opts.descriptionCheck !== undefined ||
+    opts.overrideReviewersOnly !== undefined
+  )
+}
+
+function parseCheckMode(flag: string, value: string): CheckMode {
+  const v = value.trim().toLowerCase() as CheckMode
+  if (CHECK_MODES.includes(v)) return v
+  throw new Error(`${flag} takes off, warning or error (got "${value}")`)
+}
+
+/** LUM-1148 — the pre-merge check flags as a partial change (null = none). */
+export function buildPreMergeChecksChange(
+  opts: RepoReviewOptions
+): PreMergeChecksChange | null {
+  if (!hasChecksFlag(opts)) return null
+  const change: PreMergeChecksChange = {}
+  if (opts.titleCheck !== undefined || opts.titleRequirements !== undefined) {
+    change.title = {}
+    if (opts.titleCheck !== undefined)
+      change.title.mode = parseCheckMode('--title-check', opts.titleCheck)
+    if (opts.titleRequirements !== undefined) {
+      const r = opts.titleRequirements.trim()
+      if (r.length > 1000)
+        throw new Error('--title-requirements takes at most 1000 characters')
+      change.title.requirements = r.length > 0 ? r : null
+    }
+  }
+  if (opts.descriptionCheck !== undefined)
+    change.description = {
+      mode: parseCheckMode('--description-check', opts.descriptionCheck),
+    }
+  if (opts.overrideReviewersOnly !== undefined)
+    change.overrideRequestedReviewersOnly = parseOnOff(
+      '--override-reviewers-only',
+      opts.overrideReviewersOnly
+    )
+  return change
 }
 
 function parseOnOff(flag: string, value: string): boolean {
@@ -190,7 +261,7 @@ export function buildRepoReviewUpdate(
     hasFilterFlag(opts)
   if (change && !opts.repo) {
     throw new Error(
-      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --profile / --tone / --path-instruction need --repo <owner/name>'
+      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --profile / --tone / --path-instruction need --repo <owner/name>'
     )
   }
   if (!change) return null
@@ -207,6 +278,8 @@ export function buildRepoReviewUpdate(
     const k = opts.descriptionKeyword.trim()
     update.descriptionKeyword = k.length > 0 ? k : null
   }
+  const checks = buildPreMergeChecksChange(opts)
+  if (checks) update.preMergeChecks = checks
   if (opts.profile !== undefined) {
     const p = opts.profile.trim().toLowerCase()
     if (!(REVIEW_PROFILES as readonly string[]).includes(p))
@@ -247,6 +320,45 @@ export function describeRepoReviewTurnOffs(
       `Will turn OFF draft review for ${current.repo}: drafts wait until they are marked ready`
     )
   }
+  // LUM-1148: switching a pre-merge check off, or opening its override up.
+  const checks = update.preMergeChecks
+  const now = current.preMergeChecks
+  if (checks && now) {
+    if (checks.title?.mode === 'off' && now.title.mode !== 'off')
+      lines.push(`Will turn OFF the pre-merge title check for ${current.repo}`)
+    if (checks.description?.mode === 'off' && now.description.mode !== 'off')
+      lines.push(
+        `Will turn OFF the pre-merge description check for ${current.repo}`
+      )
+    if (
+      checks.overrideRequestedReviewersOnly === false &&
+      now.overrideRequestedReviewersOnly
+    )
+      lines.push(
+        `Will let anyone with write access (the PR author included, unless author approval is off) override the pre-merge checks of ${current.repo}, not only requested reviewers`
+      )
+  }
+  return lines
+}
+
+/** LUM-1148: the pre-merge checks of a repository, one line each. */
+export function formatPreMergeChecks(r: RepoReviewSettingView): string[] {
+  const c = r.preMergeChecks
+  if (!c) return []
+  const lines = [
+    `  pre-merge checks: title ${c.title.mode} · description ${c.description.mode}`,
+  ]
+  if (c.title.requirements)
+    lines.push(`  title requirements: ${sanitizeField(c.title.requirements)}`)
+  for (const k of c.customChecks)
+    lines.push(`  custom check: ${sanitizeField(k.name)} (${k.mode})`)
+  lines.push(
+    `  override: ${
+      c.overrideRequestedReviewersOnly
+        ? 'requested reviewers only (never the author)'
+        : 'anyone with write access'
+    } — \`@uselumo ignore pre-merge checks\` on the PR`
+  )
   return lines
 }
 
@@ -303,7 +415,9 @@ export function formatRepoReviewSettings(
     `${'Repository'.padEnd(w)}  Review  Drafts`,
     ...view.repositories.flatMap((r, i) => [
       `${names[i]!.padEnd(w)}  ${onOff(r.autoReview).padEnd(6)}  ${onOff(r.autoReview && r.reviewDrafts)}`,
-      ...(withFilters ? formatRepoReviewFilters(r) : []),
+      ...(withFilters
+        ? [...formatRepoReviewFilters(r), ...formatPreMergeChecks(r)]
+        : []),
     ]),
     '',
     'Review: every pull request without a Lumo task is reviewed automatically (off = only PRs opted in by a label or the description keyword). Task-linked pull requests are always scanned.',
