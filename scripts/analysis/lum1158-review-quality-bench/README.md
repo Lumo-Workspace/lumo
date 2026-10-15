@@ -173,10 +173,15 @@ A +2 F1 effect would need about 50 runs per arm on these PRs. So pooled F1
 is a guard, not the test, for a small prompt change:
 
 1. **Pre-register the target fixes** — the `prId:fixId`s the change is meant
-   to catch (from the gaps list), before running. The test is their hit count
-   over runs, `compare.ts --fixes`: one fix going from 0/4 to 3/3 is
-   p = 0.029. Fixes that never move cannot make noise.
-2. **Guard on everything else**: at least 3 runs per arm on both slices;
+   to catch (from the gaps list), before running. The test is each fix's hit
+   count over runs, `compare.ts --fixes`: one one-sided Fisher test per fix
+   (its runs are independent samples), Holm-adjusted across the fixes. Never
+   pool fix × run trials into one test — the fixes of one run share that
+   run's sample and are not independent. One fix going from 0/4 to 3/3 is
+   p = 0.029 on its own (0.057 after Holm with two targets). Fixes that never
+   move cannot make noise.
+2. **Guard on everything else**: at least 3 runs per arm on both slices
+   (`compare.ts` gives no verdict below 2 runs in either arm);
    reject a change whose F1 interval (`compare.ts`) lies wholly below 0, and
    look at noise/PR per run next to it. Read "inside run noise" as no
    evidence either way, never as a gain.

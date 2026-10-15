@@ -9,8 +9,12 @@ import {
   bootstrapF1Delta,
   detectableDelta,
   fisherOneSidedGreater,
+  deltaVerdict,
   foundByEveryRun,
+  holmAdjust,
+  parseCount,
   targetFixHits,
+  targetFixTests,
 } from '../variance-lib'
 
 const s = (
@@ -150,5 +154,78 @@ describe('LUM-1197 detectableDelta', () => {
   it('is 2.8 × run SD × √(2/n): 95% two-sided, 80% power, n runs per arm', () => {
     expect(detectableDelta(3.67, 2)).toBeCloseTo(10.276, 3)
     expect(detectableDelta(3.67, 8)).toBeCloseTo(5.138, 3)
+  })
+})
+
+describe('LUM-1197 deltaVerdict', () => {
+  const above = { delta: 5, lo: 1, hi: 9, pBetter: 0.99 }
+  const below = { delta: -5, lo: -9, hi: -1, pBetter: 0.01 }
+  const across = { delta: 1, lo: -3, hi: 5, pBetter: 0.6 }
+
+  it('gives no verdict when either arm has fewer than 2 runs', () => {
+    expect(deltaVerdict(above, 1, 3)).toBe(
+      'insufficient runs (need ≥ 2 per arm, 3 recommended)'
+    )
+    expect(deltaVerdict(below, 3, 1)).toBe(
+      'insufficient runs (need ≥ 2 per arm, 3 recommended)'
+    )
+  })
+
+  it('reads the interval only with ≥ 2 runs per arm', () => {
+    expect(deltaVerdict(above, 2, 2)).toBe('better beyond run noise')
+    expect(deltaVerdict(below, 3, 3)).toBe('worse beyond run noise')
+    expect(deltaVerdict(across, 4, 3)).toBe('inside run noise')
+  })
+})
+
+describe('LUM-1197 holmAdjust', () => {
+  it('multiplies the k-th smallest p by (m − k + 1), keeps order monotone, caps at 1', () => {
+    const adj = holmAdjust([0.01, 0.04, 0.03])
+    ;[0.03, 0.06, 0.06].forEach((x, i) => expect(adj[i]).toBeCloseTo(x, 12))
+    expect(holmAdjust([0.5, 0.6])).toEqual([1, 1])
+    expect(holmAdjust([])).toEqual([])
+  })
+})
+
+describe('LUM-1197 targetFixTests', () => {
+  it('tests each target fix on its own runs, Holm-adjusted across fixes', () => {
+    // fix A1 on oss-01: base 0/4 runs, variant 3/3; fix A1 on oss-02: 1/4 vs 1/3.
+    const hit = (ids: string[]) => s(1, ids.length ? 1 : 0, 1, ids)
+    const base = [0, 1, 2, 3].map(r => [hit([]), hit(r === 0 ? ['A1'] : [])])
+    const variant = [0, 1, 2].map(r => [
+      hit(['A1']),
+      hit(r === 0 ? ['A1'] : []),
+    ])
+    const out = targetFixTests(
+      base,
+      variant,
+      ['oss-01', 'oss-02'],
+      [
+        { prId: 'oss-01', fixId: 'A1' },
+        { prId: 'oss-02', fixId: 'A1' },
+      ]
+    )
+    expect(out.perFix.map(f => [f.baseHits, f.variantHits])).toEqual([
+      [0, 3],
+      [1, 1],
+    ])
+    expect(out.perFix[0]!.p).toBeCloseTo(1 / 35, 10)
+    expect(out.perFix[0]!.pHolm).toBeCloseTo(2 / 35, 10)
+    expect(out.perFix[1]!.pHolm).toBeGreaterThan(0.5)
+    expect(out.missing).toEqual([])
+  })
+})
+
+describe('LUM-1197 parseCount', () => {
+  it('accepts whole numbers at or above the minimum', () => {
+    expect(parseCount('iterations', '4000', 1)).toBe(4000)
+    expect(parseCount('seed', '0', 0)).toBe(0)
+  })
+
+  it('rejects non-numbers, fractions and values below the minimum', () => {
+    expect(() => parseCount('iterations', 'abc', 1)).toThrow(/--iterations/)
+    expect(() => parseCount('iterations', '2.5', 1)).toThrow(/whole number/)
+    expect(() => parseCount('iterations', '0', 1)).toThrow(/≥ 1/)
+    expect(() => parseCount('seed', '', 0)).toThrow(/--seed/)
   })
 })

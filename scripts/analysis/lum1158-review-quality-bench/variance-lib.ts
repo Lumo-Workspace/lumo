@@ -201,3 +201,93 @@ export function targetFixHits(
 export function detectableDelta(sdRun: number, runsPerArm: number): number {
   return 2.8 * sdRun * Math.sqrt(2 / runsPerArm)
 }
+
+/** Runs per arm below which `compare.ts` gives no verdict at all. */
+export const MIN_RUNS_FOR_VERDICT = 2
+
+/**
+ * The verdict on an F1 difference. With a single run in either arm the
+ * interval says nothing about run noise (a one-run arm resamples one sample),
+ * so no verdict is given.
+ */
+export function deltaVerdict(
+  d: Pick<F1Delta, 'lo' | 'hi'>,
+  baseRuns: number,
+  variantRuns: number
+): string {
+  if (Math.min(baseRuns, variantRuns) < MIN_RUNS_FOR_VERDICT)
+    return 'insufficient runs (need ≥ 2 per arm, 3 recommended)'
+  if (d.lo > 0) return 'better beyond run noise'
+  if (d.hi < 0) return 'worse beyond run noise'
+  return 'inside run noise'
+}
+
+/** Holm step-down adjustment of p-values, returned in the input order. */
+export function holmAdjust(ps: readonly number[]): number[] {
+  const m = ps.length
+  const order = ps.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p)
+  const out = new Array<number>(m)
+  let running = 0
+  order.forEach(({ p, i }, k) => {
+    running = Math.max(running, Math.min(1, (m - k) * p))
+    out[i] = running
+  })
+  return out
+}
+
+/**
+ * One test per target fix: its hits over the base's runs vs over the
+ * variant's runs (one-sided Fisher — runs of one fix are independent
+ * samples), Holm-adjusted across the fixes. Pooling fix × run trials would
+ * treat the fixes of one run as independent, which they are not.
+ */
+export function targetFixTests(
+  base: ArmRuns,
+  variant: ArmRuns,
+  prIds: readonly string[],
+  targets: readonly TargetFix[]
+): {
+  perFix: Array<
+    TargetFix & {
+      baseHits: number
+      variantHits: number
+      p: number
+      pHolm: number
+    }
+  >
+  missing: string[]
+} {
+  const b = targetFixHits(base, prIds, targets)
+  const v = targetFixHits(variant, prIds, targets)
+  const raw = v.perFix.map((x, i) => {
+    const baseHits = b.perFix[i]!.hits
+    return {
+      prId: x.prId,
+      fixId: x.fixId,
+      baseHits,
+      variantHits: x.hits,
+      p: fisherOneSidedGreater(
+        x.hits,
+        variant.length - x.hits,
+        baseHits,
+        base.length - baseHits
+      ),
+    }
+  })
+  const adj = holmAdjust(raw.map(r => r.p))
+  return {
+    perFix: raw.map((r, i) => ({ ...r, pHolm: adj[i]! })),
+    missing: v.missing,
+  }
+}
+
+/** A whole-number CLI option ≥ `min`; throws naming the flag otherwise. */
+export function parseCount(name: string, value: string, min: number): number {
+  const n = value.trim() === '' ? NaN : Number(value)
+  if (!Number.isFinite(n))
+    throw new Error(`--${name} must be a number, got "${value}"`)
+  if (!Number.isInteger(n))
+    throw new Error(`--${name} must be a whole number, got ${value}`)
+  if (n < min) throw new Error(`--${name} must be ≥ ${min}, got ${value}`)
+  return n
+}

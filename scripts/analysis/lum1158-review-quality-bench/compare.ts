@@ -10,7 +10,9 @@
  * F1, SD, spread and the share of found fixes every run found, then the F1
  * difference with a paired PR × run bootstrap interval. `--fixes` lists the
  * fixes the change is meant to catch (pre-register them before the run) and
- * adds their hit counts with a one-sided Fisher test. Free: reads judged.json.
+ * tests each one on its own (hits over runs, one-sided Fisher), Holm-adjusted
+ * across the fixes. No verdict is printed unless both arms have ≥ 2 runs
+ * (3 recommended). Free: reads judged.json.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -18,10 +20,11 @@ import { seededRandom, type JudgedPr, type PrScore } from './bench-lib'
 import {
   armStats,
   bootstrapF1Delta,
+  deltaVerdict,
   detectableDelta,
-  fisherOneSidedGreater,
   foundByEveryRun,
-  targetFixHits,
+  parseCount,
+  targetFixTests,
   type TargetFix,
 } from './variance-lib'
 
@@ -47,8 +50,8 @@ const targets: TargetFix[] = list(opt('fixes', '')).map(x => {
     throw new Error(`--fixes entry ${x} is not <pr id>:<fix id>`)
   return { prId, fixId }
 })
-const iterations = Number(opt('iterations', '4000'))
-const seed = Number(opt('seed', '1197'))
+const iterations = parseCount('iterations', opt('iterations', '4000'), 100)
+const seed = parseCount('seed', opt('seed', '1197'), 0)
 const outFile = opt('out', '')
 
 const meta = readJson<Record<string, { id: string; source: string }>>(
@@ -125,34 +128,29 @@ for (const slice of ['oss', 'own'] as const) {
     : NaN
   const n = Math.min(base.length, variant.length)
   out(
-    `\nF1 variant − base: ${d.delta >= 0 ? '+' : ''}${f(d.delta)} (95% interval ${f(d.lo)} … ${f(d.hi)}; variant ahead in ${f(100 * d.pBetter, 0)}% of draws) — ${d.lo > 0 ? 'better beyond run noise' : d.hi < 0 ? 'worse beyond run noise' : 'inside run noise'}.`
+    `\nF1 variant − base: ${d.delta >= 0 ? '+' : ''}${f(d.delta)} (95% interval ${f(d.lo)} … ${f(d.hi)}; variant ahead in ${f(100 * d.pBetter, 0)}% of draws) — ${deltaVerdict(d, base.length, variant.length)}.`
   )
-  if (Number.isFinite(sdRun))
+  if (Number.isFinite(sdRun) && n >= 2)
     out(
       `Run SD here ≈ ${f(sdRun)} F1; with ${n} runs per arm only a difference of about ${f(detectableDelta(sdRun, n))} F1 is reliably detectable.`
     )
 
   const inSlice = targets.filter(t => t.prId.startsWith(`${slice}-`))
   if (inSlice.length) {
-    const b = targetFixHits(base, ids, inSlice)
-    const v = targetFixHits(variant, ids, inSlice)
-    out('\n| target fix | base hits | variant hits |')
-    out('| --- | --- | --- |')
-    v.perFix.forEach((x, i) =>
-      out(
-        `| ${x.prId}:${x.fixId} | ${b.perFix[i]!.hits}/${base.length} | ${x.hits}/${variant.length} |`
-      )
-    )
-    const p = fisherOneSidedGreater(
-      v.hits,
-      v.trials - v.hits,
-      b.hits,
-      b.trials - b.hits
-    )
+    const t = targetFixTests(base, variant, ids, inSlice)
     out(
-      `\nTarget fixes: base ${b.hits}/${b.trials}, variant ${v.hits}/${v.trials} (one-sided Fisher p = ${p.toFixed(3)}).`
+      '\n| target fix | base hits | variant hits | p (one-sided Fisher) | p (Holm) |'
     )
-    if (v.missing.length) out(`Not in this PR set: ${v.missing.join(', ')}.`)
+    out('| --- | --- | --- | --- | --- |')
+    for (const x of t.perFix)
+      out(
+        `| ${x.prId}:${x.fixId} | ${x.baseHits}/${base.length} | ${x.variantHits}/${variant.length} | ${x.p.toFixed(3)} | ${x.pHolm.toFixed(3)} |`
+      )
+    const caught = t.perFix.filter(x => x.pHolm < 0.05)
+    out(
+      `\nTarget fixes caught beyond run noise (Holm p < 0.05): ${caught.length}/${t.perFix.length}${caught.length ? ` (${caught.map(x => `${x.prId}:${x.fixId}`).join(', ')})` : ''}. Each fix is tested on its own runs; fixes of one run are not independent, so they are never pooled.`
+    )
+    if (t.missing.length) out(`Not in this PR set: ${t.missing.join(', ')}.`)
   }
   out()
 }
