@@ -150,14 +150,57 @@ export function maskQuotedCredentials(text: string): string {
 }
 
 /**
+ * LUM-1200 — the narrowest quoted-span pass, for prose a model wrote about a
+ * whole PR (the PR summary's intent and change bullets). `maskQuotedValues`
+ * masked every quoted phrase of 8+ chars there — production rendered
+ * `marked 'do not merge'` as `marked 'do n…(len 12)'` — and
+ * `maskQuotedCredentials` would still mask every quoted phrase in any summary
+ * that so much as mentions a token, which a summary of an auth change always
+ * does. Same tokenizer and fail-closed rules (unpaired opener, marker spans,
+ * contraction apostrophes); a CLOSED span of 8+ chars is masked only when:
+ * - it holds a redaction marker (a registry hit) — see `maskQuotedCredentials`;
+ * - any whitespace-separated piece of it is credential-shaped
+ *   (`isCredentialShapedToken`); or
+ * - it FOLLOWS a credential key: the text right before the opening quote ends
+ *   in credential vocabulary plus at most two connectors (`password is "…"`,
+ *   `token: '…'`, `API_KEY="…"`, `the secret "…"`).
+ * Residual, honestly named: a shapeless passphrase quoted further away from
+ * its key (`the password, as before, is "…"`) is kept. Registry shapes are
+ * redacted before this pass runs, as for the other two.
+ */
+export function maskQuotedKeyedValues(text: string): string {
+  return maskQuotedSpans(
+    text,
+    (content, before) =>
+      REDACTION_TOKEN_TEST_RE.test(content) ||
+      content.split(/\s+/).some(isCredentialShapedToken) ||
+      CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before.slice(-KEY_WINDOW))),
+    true
+  )
+}
+
+/** How far back from an opening quote `maskQuotedKeyedValues` looks for its key. */
+const KEY_WINDOW = 48
+
+/**
  * Credential words, matched on `normalizeVocab` output so `apiKey`,
  * `API_KEY` and `api-key` all read as `api key`. Plain `key` is deliberately
  * absent — React reviews say "key" constantly — so only the compounds that
  * name a credential count (`signing key`, `ssh key`, `license key` …); a
  * credential-shaped value next to a bare "key" is still masked by shape.
  */
-const CREDENTIAL_VOCAB_RE =
-  /\b(?:pass(?:words?|wd|phrases?|codes?)?|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|auth|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)\b/
+const CREDENTIAL_VOCAB_SOURCE =
+  '(?:pass(?:words?|wd|phrases?|codes?)?|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|auth|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)'
+const CREDENTIAL_VOCAB_RE = new RegExp(`\\b${CREDENTIAL_VOCAB_SOURCE}\\b`)
+
+/**
+ * LUM-1200 — credential vocabulary ending the text before an opening quote,
+ * followed by at most two connectors (`is`, `=`, `:`, `to` …) — the quote
+ * then holds that credential's value. Matched on `normalizeVocab` output.
+ */
+const CREDENTIAL_KEY_BEFORE_RE = new RegExp(
+  `\\b${CREDENTIAL_VOCAB_SOURCE}\\s*(?:(?:is|was|equals|of|to|as|=>|[=:,])\\s*){0,2}$`
+)
 
 function normalizeVocab(text: string): string {
   return text
@@ -209,14 +252,15 @@ function isCredentialShapedToken(raw: string): boolean {
 }
 
 /**
- * The tokenizer behind both passes; `shouldMask` decides only for a closed
- * span of `MIN_QUOTED_LEN`+ chars that is not redaction-only. Unpaired
+ * The tokenizer behind every pass; `shouldMask` decides only for a closed
+ * span of `MIN_QUOTED_LEN`+ chars that is not redaction-only, given the
+ * span's content and the text before its opening quote. Unpaired
  * openers are masked regardless of `shouldMask` (fail closed).
  * `skipContractions` is the free-text pass's `isContractionApostrophe` rule.
  */
 function maskQuotedSpans(
   line: string,
-  shouldMask: (content: string) => boolean,
+  shouldMask: (content: string, before: string) => boolean,
   skipContractions: boolean
 ): string {
   let out = ''
@@ -246,7 +290,7 @@ function maskQuotedSpans(
     out +=
       content.length >= MIN_QUOTED_LEN &&
       !isRedactionOnlyContent(content) &&
-      shouldMask(content)
+      shouldMask(content, line.slice(0, i))
         ? `${ch}${redactSecret(content)}${ch}`
         : line.slice(i, close + 1)
     i = close + 1
