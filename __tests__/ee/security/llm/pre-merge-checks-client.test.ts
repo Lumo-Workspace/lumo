@@ -3,7 +3,7 @@ jest.mock('ai', () => ({ generateObject: jest.fn() }))
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateObject } from 'ai'
-import { PRE_MERGE_CHECK_MODEL } from '@/lib/ai/models'
+import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import {
   PRE_MERGE_CHECKS_SYSTEM_PROMPT,
   buildPreMergeChecksPrompt,
@@ -51,11 +51,11 @@ describe('LUM-1148 pre-merge checks client', () => {
     expect(p).toMatch(/diff above was cut/)
   })
 
-  it('one structured call on the PRE_MERGE_CHECK tier', async () => {
+  it('one structured call on the MEMORY_JUDGE tier', async () => {
     gen.mockResolvedValue({ object: { results: [] } })
     await expect(runPreMergeChecksModel(INPUT)).resolves.toEqual({
       results: [],
     })
-    expect(gen.mock.calls[0][0].model).toEqual({ id: PRE_MERGE_CHECK_MODEL })
+    expect(gen.mock.calls[0][0].model).toEqual({ id: MEMORY_JUDGE_MODEL })
   })
 })

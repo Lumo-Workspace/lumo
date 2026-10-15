@@ -4,7 +4,7 @@
  * template, bounded diff) and answers passed / failed / inconclusive per
  * check, with a one-line explanation and resolution.
  *
- * PRE_MERGE_CHECK tier (`lib/ai/models.ts`). Static imports of `ai` and the
+ * MEMORY_JUDGE tier (`lib/ai/models.ts`; no tier of its own, so no new model id). Static imports of `ai` and the
  * gateway, so this module MUST only be reached via `await import()` from
  * service code (jest TransformStream trap).
  *
@@ -16,7 +16,7 @@
  * maps onto the planned checks (`resultsFromAnswers`) and neutralises
  * before anything reaches the PR.
  */
-import { PRE_MERGE_CHECK_MODEL } from '@/lib/ai/models'
+import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -120,7 +120,7 @@ export async function runPreMergeChecksModel(
   input: PreMergeChecksPromptInput & { timeoutMs?: number }
 ): Promise<PreMergeChecksAnswer> {
   const { object } = await generateObject({
-    model: gateway(PRE_MERGE_CHECK_MODEL),
+    model: gateway(MEMORY_JUDGE_MODEL),
     schema: PreMergeChecksAnswerSchema,
     system: PRE_MERGE_CHECKS_SYSTEM_PROMPT,
     prompt: buildPreMergeChecksPrompt(input),
