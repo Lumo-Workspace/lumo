@@ -379,7 +379,7 @@ export function buildOverrideReply(
     `${o.login.replace(/[^\w-]/g, '')}${o.headSha ? ` at \`${o.headSha.slice(0, 7)}\`` : ''}`
   switch (r.kind) {
     case 'recorded':
-      return `⏭️ Pre-merge checks are now ignored on this PR — override by ${who(r.override)} recorded. Failed \`error\` checks no longer hold Lumo's approval back; findings that block DONE still need a disposition in Lumo (\`lumo finding disposition\` or the PR's security panel).`
+      return `⏭️ Pre-merge checks are now ignored on this PR — override by ${who(r.override)} recorded. It covers every later push to this PR. Failed \`error\` checks no longer hold Lumo's approval back; findings that block DONE still need a disposition in Lumo (\`lumo finding disposition\` or the PR's security panel).`
     case 'already':
       return `ℹ️ Pre-merge checks on this PR were already overridden by ${who(r.override)}.`
     case 'not_open':

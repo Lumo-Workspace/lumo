@@ -66,15 +66,18 @@ in; follows the repository's pull request template when it has one). Up to five
   `@uselumo approve`) until the check passes — on a later push, or after the
   title / description is edited — or the PR overrides the checks.
 - A check the model cannot decide is **inconclusive**: reported, never
-  blocking. A failed model call makes every check inconclusive.
+  blocking. A failed model call makes every check inconclusive, except that a
+  check that already failed on the same commit stays failed — a transient
+  failure never lifts a block.
 - Override, per PR: comment `@uselumo ignore pre-merge checks` (write access).
-  It is recorded (who, when, head) and shown in the summary; with
+  It is recorded (who, when, head) and shown in the summary, and it covers
+  every later push to the PR (the recorded head is for the audit trail); with
   `override_requested_reviewers_only`, only a reviewer requested by name (or
   who already reviewed) may, never the author. An override never clears a
   finding that blocks DONE.
 - The checks run with the AI review: one model call per reviewed head, over the
   PR's title, description, template and diff (path filters applied, secrets
-  masked, at most 40,000 characters). The PR's text is treated as untrusted
+  masked before the diff is cut to at most 40,000 characters). The PR's text is treated as untrusted
   data; the rules come only from Lumo's settings or this file on the base
   commit.
 - Extension point for a new built-in check: `BUILTIN_PRE_MERGE_CHECKS` in

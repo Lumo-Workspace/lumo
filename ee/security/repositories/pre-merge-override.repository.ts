@@ -8,6 +8,11 @@ import {
  * LUM-1148 — the per-PR override of the pre-merge checks
  * (`@<app> ignore pre-merge checks`), recorded on the PR row: who, when,
  * at which head. Set once — the first override stands (a repeat is a no-op).
+ *
+ * Per PR, not per head: the override covers every later push to the PR.
+ * `preMergeOverrideSha` is the head it was given at, kept for the audit
+ * trail and the summary line — it never scopes the override (see
+ * `PreMergeChecksOverride`).
  */
 export const preMergeOverrideRepository = {
   async find(pullRequestId: string): Promise<PreMergeChecksOverride | null> {

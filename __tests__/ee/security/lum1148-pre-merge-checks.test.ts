@@ -14,6 +14,7 @@ import {
   customCheckId,
   formatPreMergeChecks,
   inconclusiveResults,
+  keepEarlierFailures,
   normalizeCustomChecks,
   overrideEligibility,
   parsePreMergeChecksRecord,
@@ -218,6 +219,41 @@ describe('answers → results', () => {
     }
     expect(parsePreMergeChecksRecord(raw)!.results).toEqual([result()])
     expect(parsePreMergeChecksRecord('x')).toBeNull()
+  })
+})
+
+describe('keepEarlierFailures — a failed run never clears a failure', () => {
+  const now = [
+    result({ verdict: 'inconclusive', resolution: null, explanation: 'n/a' }),
+    result({
+      id: 'description',
+      name: 'Description',
+      mode: 'warning',
+      verdict: 'inconclusive',
+      resolution: null,
+    }),
+  ]
+
+  it('an earlier failure of the same check stands, in its current mode', () => {
+    const earlier = rec([
+      result({ mode: 'warning', explanation: 'vague', resolution: 'fix' }),
+      result({ id: 'description', verdict: 'passed', resolution: null }),
+    ])
+    const kept = keepEarlierFailures(now, earlier)
+    expect(kept[0]).toMatchObject({
+      id: 'title',
+      mode: 'error',
+      verdict: 'failed',
+      explanation: 'vague',
+      resolution: 'fix',
+    })
+    // An earlier pass is not carried over: this run could not confirm it.
+    expect(kept[1]!.verdict).toBe('inconclusive')
+    expect(blockingCheckCount(rec(kept), null)).toBe(1)
+  })
+
+  it('no earlier record ⇒ unchanged', () => {
+    expect(keepEarlierFailures(now, null)).toEqual(now)
   })
 })
 

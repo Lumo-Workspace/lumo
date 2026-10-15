@@ -21,6 +21,7 @@ jest.mock('@/ee/security/repositories/repo-review-setting.repository', () => ({
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     setPreMergeChecks: jest.fn(),
+    findPreMergeChecks: jest.fn(),
     findLatestChecksTarget: jest.fn(),
   },
 }))
@@ -53,7 +54,10 @@ import { repoConfigService } from '@/ee/security/services/repo-config.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import { DEFAULT_REPO_REVIEW_SETTING } from '@/ee/security/security-scan/auto-review-policy'
-import { parsePreMergeChecksSetting } from '@/ee/security/security-scan/pre-merge-checks'
+import {
+  blockingCheckCount,
+  parsePreMergeChecksSetting,
+} from '@/ee/security/security-scan/pre-merge-checks'
 
 const HEAD = 'abcdef1234567890abcdef1234567890abcdef12'
 const BASE = 'b'.repeat(40)
@@ -63,6 +67,7 @@ const prDiff = fetchPrDiff as jest.Mock
 const model = runPreMergeChecksModel as jest.Mock
 const settings = repoReviewSettingRepository.findSettings as jest.Mock
 const store = prSecurityScanRepository.setPreMergeChecks as jest.Mock
+const priorChecks = prSecurityScanRepository.findPreMergeChecks as jest.Mock
 const latestTarget =
   prSecurityScanRepository.findLatestChecksTarget as jest.Mock
 const fileAt = repoConfigService.fileForDecision as jest.Mock
@@ -114,6 +119,7 @@ beforeEach(() => {
     requestedReviewers: [],
   })
   template.mockResolvedValue(null)
+  priorChecks.mockResolvedValue(null)
   settings.mockResolvedValue([])
   fileAt.mockResolvedValue(null)
   model.mockImplementation(
@@ -211,6 +217,106 @@ it('a failed model call ⇒ every check inconclusive (stored), never throws', as
   const record = await preMergeChecksService.run(target, DIFF)
   expect(record!.results.every(r => r.verdict === 'inconclusive')).toBe(true)
   expect(store).toHaveBeenCalled()
+})
+
+it('a secret straddling the diff budget is masked before the cut, never half-sent', async () => {
+  // Built at runtime: the token shape the registry masks (ghp_ + 36).
+  const token = 'ghp' + '_' + 'a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8'
+  const header =
+    'diff --git a/src/k.ts b/src/k.ts\n--- a/src/k.ts\n+++ b/src/k.ts\n@@ -0,0 +1 @@\n'
+  const line = `+${'p'.repeat(98)}\n` // 100 chars, well under the line cap
+  const lines = Math.floor((PRE_MERGE_DIFF_MAX_CHARS - header.length) / 100) - 1
+  let body = header + line.repeat(lines)
+  // Pad so the cut lands 24 chars into the token (ghp_ + 20 of its body).
+  const room = PRE_MERGE_DIFF_MAX_CHARS - 24 - body.length - 2
+  body += `+${'q'.repeat(room)} ${token}\n`
+  expect(body.indexOf(token)).toBe(PRE_MERGE_DIFF_MAX_CHARS - 24)
+  await preMergeChecksService.run(target, body)
+  const input = model.mock.calls[0]![0]
+  expect(input.diff.text).not.toContain(token.slice(0, 24))
+  expect(input.diff.text).not.toContain(token.slice(4, 14))
+  expect(input.diff.notices.join('\n')).toMatch(/1 suspected credential/)
+})
+
+describe('a failed model call never replaces a failure of the same head', () => {
+  const failedError = {
+    id: 'title',
+    name: 'Title',
+    kind: 'builtin',
+    mode: 'error',
+    verdict: 'failed',
+    explanation: 'too vague',
+    resolution: 'say what changed',
+  }
+  beforeEach(() => {
+    settings.mockResolvedValue([
+      storedRow({ title: { mode: 'error', requirements: null } }),
+    ])
+    model.mockRejectedValue(new Error('gateway 503'))
+  })
+
+  it('keeps the earlier failed result (approval stays blocked); the rest inconclusive', async () => {
+    priorChecks.mockResolvedValue({
+      headSha: HEAD,
+      ranAt: '2026-10-15T00:00:00.000Z',
+      results: [failedError],
+    })
+    const record = await preMergeChecksService.run(target, DIFF)
+    expect(priorChecks).toHaveBeenCalledWith('s1')
+    expect(record!.results.map(r => [r.id, r.verdict])).toEqual([
+      ['title', 'failed'],
+      ['description', 'inconclusive'],
+    ])
+    expect(record!.results[0]!.explanation).toBe('too vague')
+    expect(blockingCheckCount(record, null)).toBe(1)
+    expect(store).toHaveBeenCalledWith('s1', record)
+  })
+
+  it('a kept failure takes the check’s current mode', async () => {
+    settings.mockResolvedValue([
+      storedRow({ title: { mode: 'warning', requirements: null } }),
+    ])
+    priorChecks.mockResolvedValue({
+      headSha: HEAD,
+      ranAt: 'x',
+      results: [failedError],
+    })
+    const record = await preMergeChecksService.run(target, DIFF)
+    expect(record!.results[0]).toMatchObject({
+      id: 'title',
+      verdict: 'failed',
+      mode: 'warning',
+    })
+  })
+
+  it('a failure of another head is not carried over', async () => {
+    priorChecks.mockResolvedValue({
+      headSha: '0'.repeat(40),
+      ranAt: 'x',
+      results: [failedError],
+    })
+    const record = await preMergeChecksService.run(target, DIFF)
+    expect(record!.results.every(r => r.verdict === 'inconclusive')).toBe(true)
+  })
+
+  it('the earlier results unreadable ⇒ nothing is overwritten', async () => {
+    priorChecks.mockRejectedValue(new Error('db down'))
+    await expect(preMergeChecksService.run(target, DIFF)).resolves.toBeNull()
+    expect(store).not.toHaveBeenCalled()
+  })
+
+  it('a failed diff read is treated the same way', async () => {
+    model.mockReset()
+    prDiff.mockRejectedValue(new Error('502'))
+    priorChecks.mockResolvedValue({
+      headSha: HEAD,
+      ranAt: 'x',
+      results: [failedError],
+    })
+    const record = await preMergeChecksService.run(target, null)
+    expect(record!.results[0]!.verdict).toBe('failed')
+    expect(blockingCheckCount(record, null)).toBe(1)
+  })
 })
 
 it('a failed PR read ⇒ nothing stored, never throws', async () => {

@@ -2290,6 +2290,19 @@ export const prSecurityScanRepository = {
   },
 
   /**
+   * LUM-1148: this scan's stored pre-merge check results, raw (null = none
+   * or no such scan). Read back by the runner when a model call fails, so an
+   * earlier failure of the same head is kept rather than overwritten.
+   */
+  async findPreMergeChecks(scanId: string): Promise<unknown> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: { preMergeChecks: true },
+    })
+    return row?.preMergeChecks ?? null
+  },
+
+  /**
    * LUM-1148: the PR's newest scan — its head and whether pre-merge checks
    * ran on it — for a re-check after the title / description changed.
    */

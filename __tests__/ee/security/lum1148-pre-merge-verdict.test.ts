@@ -215,6 +215,21 @@ describe('LUM-1148 pre-merge checks ⇒ verdict (request-changes workflow on)', 
     expect(summaryBody()).toMatch(/overridden by reviewer-1 at `abcdef1`/)
   })
 
+  it('an override is per PR: given at an earlier head, it still covers this one', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        checks: record([result()]),
+        override: { by: 'reviewer-1', sha: '1'.repeat(40) },
+      })
+    )
+    await securityPrReviewService.syncReview('s1')
+    expect(events()).toEqual(['APPROVE'])
+    expect(summaryBody()).toMatch(/⏭️ Ignored/)
+    expect(summaryBody()).toMatch(
+      /overridden by reviewer-1 at `1111111`; it covers every later push to this PR/
+    )
+  })
+
   it('a passed `error` check ⇒ folded under "Passed checks", approved', async () => {
     findById.mockResolvedValue(
       scanRow({

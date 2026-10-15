@@ -6,13 +6,17 @@
  * Per reviewed head, from the scan worker (`runForScan`), and again when the
  * PR's title or description changes (`recheckAfterEdit` — a title is fixed
  * by an edit, not a push). Never throws: a failed read or model call makes
- * the checks inconclusive, and an inconclusive check never blocks.
+ * the checks inconclusive, and an inconclusive check never blocks — but it
+ * never replaces an earlier failure of the same head either
+ * (`keepEarlierFailures`), so a transient failure never unblocks approval.
  *
  * What the checks are: the repository's Lumo setting with `.lumo.yaml` on
  * the PR's BASE commit applied over it, key by key (repo-config.ts). Cost is
- * bounded: one model call per head (all checks together), the diff cut to
- * `PRE_MERGE_DIFF_MAX_CHARS` after the path filters and the secret mask,
- * and nothing at all when every check is off.
+ * bounded: one model call per head (all checks together), the diff
+ * path-filtered, secret-masked (`guardInjectedText`), then cut to
+ * `PRE_MERGE_DIFF_MAX_CHARS` (masked before the cut, so a credential the
+ * cut runs through is never sent half-unmasked), and nothing at all when
+ * every check is off.
  *
  * Layering: service — GitHub through `@/lib/integrations/github/*` (loaded
  * lazily), the database through repositories, the model client by dynamic
@@ -35,7 +39,9 @@ import {
 } from '@/ee/security/security-scan/reviewable-path'
 import {
   BUILTIN_PRE_MERGE_CHECKS,
+  checksForHead,
   inconclusiveResults,
+  keepEarlierFailures,
   planPreMergeChecks,
   resultsFromAnswers,
   type BuiltinPreMergeCheck,
@@ -177,7 +183,10 @@ export const preMergeChecksService = {
           rawDiff,
           reviewablePathPredicate(pathFilters)
         ).diff
-        const cutDiff = cap(reviewable, PRE_MERGE_DIFF_MAX_CHARS)
+        // Mask first, then cut: a cut through a credential would leave a
+        // prefix too short for its pattern, and that prefix unmasked.
+        const guardedDiff = guardInjectedText(reviewable)
+        const cutDiff = cap(guardedDiff.text, PRE_MERGE_DIFF_MAX_CHARS)
         const material = await Promise.all(
           planned.map(async p => {
             if (!p.gather) return null
@@ -213,8 +222,9 @@ export const preMergeChecksService = {
           template: template
             ? guardInjectedText(cap(template, PRE_MERGE_TEXT_MAX_CHARS).text)
             : null,
-          diff: guardInjectedText(cutDiff.text),
-          diffTruncated: cutDiff.cut,
+          diff: { text: cutDiff.text, notices: guardedDiff.notices },
+          // Cut to the budget, or an over-long line cut by the mask.
+          diffTruncated: cutDiff.cut || guardedDiff.truncatedLines > 0,
           timeoutMs: PRE_MERGE_TIMEOUT_MS,
         })
         results = resultsFromAnswers(planned, answer.results)
@@ -222,9 +232,27 @@ export const preMergeChecksService = {
         logger.warn(
           `[pre-merge-checks] model unavailable ${where}: ${describe(error)}`
         )
-        results = inconclusiveResults(
-          planned,
-          'Lumo could not run this check this time.'
+        // Inconclusive — but an earlier failure of this head stands, so a
+        // transient failure never unblocks approval. Unreadable ⇒ store
+        // nothing (the row keeps whatever it had).
+        let earlier: PreMergeChecksRecord | null
+        try {
+          earlier = checksForHead(
+            await prSecurityScanRepository.findPreMergeChecks(target.scanId),
+            target.headSha
+          )
+        } catch (readError) {
+          logger.warn(
+            `[pre-merge-checks] earlier results unreadable ${where}: ${describe(readError)} — left as stored`
+          )
+          return null
+        }
+        results = keepEarlierFailures(
+          inconclusiveResults(
+            planned,
+            'Lumo could not run this check this time.'
+          ),
+          earlier
         )
       }
       record = { headSha: target.headSha, ranAt, results }

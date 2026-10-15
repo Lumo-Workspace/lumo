@@ -14,7 +14,8 @@
  *     (request-changes workflow on) until it passes or someone overrides the
  *     checks on that PR (`@<app> ignore pre-merge checks`, recorded).
  *   · `inconclusive` (the model could not decide, or did not answer) is
- *     reported and NEVER blocks.
+ *     reported and NEVER blocks — and a run that failed outright never
+ *     replaces an earlier failure of the same head (`keepEarlierFailures`).
  * An override only ever concerns these checks: findings that block DONE are
  * cleared by a disposition in Lumo, never here.
  *
@@ -385,6 +386,34 @@ export function inconclusiveResults(
   }))
 }
 
+/**
+ * PURE — a run that could not decide (the model or a read failed) never
+ * clears a failure: each check the earlier record of the SAME head (the
+ * caller passes it through `checksForHead`) had failed keeps that failure,
+ * in the check's current mode. Everything else stays as `results` has it —
+ * an earlier pass is not carried over, this run did not confirm it.
+ */
+export function keepEarlierFailures(
+  results: readonly PreMergeCheckResult[],
+  earlier: PreMergeChecksRecord | null
+): PreMergeCheckResult[] {
+  if (!earlier) return [...results]
+  const failed = new Map(
+    earlier.results.filter(r => r.verdict === 'failed').map(r => [r.id, r])
+  )
+  return results.map(r => {
+    const f = r.verdict === 'inconclusive' ? failed.get(r.id) : undefined
+    return f
+      ? {
+          ...r,
+          verdict: 'failed',
+          explanation: f.explanation,
+          resolution: f.resolution,
+        }
+      : r
+  })
+}
+
 const VERDICTS = new Set<PreMergeCheckVerdict>([
   'passed',
   'failed',
@@ -434,11 +463,17 @@ export function checksForHead(
   return record.headSha === headSha ? record : null
 }
 
-/** A per-PR override of the checks (`@<app> ignore pre-merge checks`). */
+/**
+ * A per-PR override of the checks (`@<app> ignore pre-merge checks`). Per
+ * PR by design, not per head: once given it covers every later push to the
+ * PR (a reviewer waives the checks for the PR, as `@<app> approve` is the
+ * reviewer's call). `headSha` is an audit record of when it was given — it
+ * never scopes the override.
+ */
 export interface PreMergeChecksOverride {
   login: string
   at: Date
-  /** The head when it was given (null = unknown). */
+  /** The head when it was given (audit only; null = unknown). */
   headSha: string | null
 }
 
@@ -603,7 +638,7 @@ export function formatPreMergeChecks(
     const login = cell(override.login.replace(/[^\w-]/g, ''))
     const at = override.headSha ? ` at \`${override.headSha.slice(0, 7)}\`` : ''
     blocks.push(
-      `Pre-merge checks are ignored on this PR — overridden by ${login}${at}. Findings that block DONE are not affected.`
+      `Pre-merge checks are ignored on this PR — overridden by ${login}${at}; it covers every later push to this PR. Findings that block DONE are not affected.`
     )
   } else if (tally('error') > 0) {
     const how = opts.handle

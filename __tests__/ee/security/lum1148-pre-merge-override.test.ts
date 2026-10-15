@@ -198,6 +198,7 @@ it('records the override for this PR (who, head) and refreshes the review', asyn
   expect(record).toHaveBeenCalledWith('pr1', { login: 'carol', headSha: HEAD })
   expect(sync).toHaveBeenCalledWith('s1')
   expect(replyBody()).toMatch(/override by carol at `abcdef1` recorded/)
+  expect(replyBody()).toMatch(/covers every later push to this PR/)
   expect(replyBody()).toMatch(
     /findings that block DONE still need a disposition/
   )
