@@ -38,9 +38,25 @@ export interface JudgeBudget {
   coveredFiles: number
   /** Whole file sections it did not. `0` on an untruncated scan. */
   droppedFiles: number
+  /**
+   * LUM-1144 — present when the reviewable diff was over the AI review's
+   * cap: the review then ran on part of it (PARTIAL) or not at all.
+   * Not read by `parseJudgeBudget` (the budget line); `size-caps` reads it.
+   */
+  overCap?: JudgeOverCapRecord
 }
 
-const KEYS: ReadonlyArray<keyof JudgeBudget> = [
+/** LUM-1144 — the over-cap facts on `judgeBudget.overCap`. */
+export interface JudgeOverCapRecord {
+  /** Reviewable files in the diff (after path filters). */
+  files: number
+  capFiles: number
+  capChars: number
+  /** Reviewable files the AI review did not read, in diff order. */
+  skippedPaths: string[]
+}
+
+const KEYS: ReadonlyArray<Exclude<keyof JudgeBudget, 'overCap'>> = [
   'diffChars',
   'tierChars',
   'reviewedChars',
@@ -59,7 +75,7 @@ const KEYS: ReadonlyArray<keyof JudgeBudget> = [
 export function parseJudgeBudget(raw: unknown): JudgeBudget | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
   const row = raw as Record<string, unknown>
-  const out: Partial<JudgeBudget> = {}
+  const out: Partial<Record<(typeof KEYS)[number], number>> = {}
   for (const key of KEYS) {
     const value = row[key]
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)

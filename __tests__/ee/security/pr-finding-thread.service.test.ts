@@ -592,3 +592,73 @@ describe('applyReviewThreadEvent — the pull_request_review_thread webhook', ()
     expect(isLumoActor({ type: 'User', login: 'other[bot]' })).toBe(false)
   })
 })
+
+describe('LUM-1144 — a partial review over the size cap', () => {
+  const PARTIAL = {
+    ...COMPLETE,
+    stages: { ...COMPLETE.stages, judge: 'PARTIAL' as const },
+    partialCauses: ['JUDGE_PARTIAL_OVER_CAP'],
+  }
+
+  it('a skipped file is never covered: its open thread is not auto-resolved', () => {
+    expect(
+      layerCoveredFile(
+        { ...PARTIAL, judgeReviewScope: ['lib/other.ts'] } as never,
+        row()
+      )
+    ).toBe(false)
+  })
+
+  it('a file the partial review read is covered', () => {
+    expect(
+      layerCoveredFile(
+        { ...PARTIAL, judgeReviewScope: ['lib/db.ts'] } as never,
+        row()
+      )
+    ).toBe(true)
+  })
+
+  it('without a recorded scope, or with a budget cut too, nothing is covered', () => {
+    expect(
+      layerCoveredFile({ ...PARTIAL, judgeReviewScope: null } as never, row())
+    ).toBe(false)
+    expect(
+      layerCoveredFile(
+        {
+          ...PARTIAL,
+          partialCauses: ['JUDGE_PARTIAL_OVER_CAP', 'JUDGE_TRUNCATED'],
+          judgeReviewScope: ['lib/db.ts'],
+        } as never,
+        row()
+      )
+    ).toBe(false)
+  })
+})
+
+describe('LUM-1144 — reconcile after a partial review over the size cap', () => {
+  const partialScan = (scope: string[]) =>
+    ({
+      ...COMPLETE,
+      status: 'FINDINGS' as const,
+      stages: { ...COMPLETE.stages, judge: 'PARTIAL' as const },
+      partialCauses: ['JUDGE_PARTIAL_OVER_CAP'],
+      judgeReviewScope: scope,
+    }) as never
+
+  it("a skipped file's open thread is NOT resolved", async () => {
+    const out = await prFindingThreadService.reconcile(
+      ctx({ scan: partialScan(['lib/other.ts']) })
+    )
+    expect(threads.resolveThread).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
+    expect(out.counts.open).toBe(1)
+  })
+
+  it('a reviewed file whose finding is gone is resolved as addressed', async () => {
+    const out = await prFindingThreadService.reconcile(
+      ctx({ scan: partialScan(['lib/db.ts']) })
+    )
+    expect(threads.resolveThread).toHaveBeenCalled()
+    expect(out.counts.addressed).toBe(1)
+  })
+})

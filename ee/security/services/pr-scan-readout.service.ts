@@ -21,6 +21,7 @@ import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
 import type {
   HuntOverCapInput,
   JudgeOverCapInput,
+  JudgePartialInput,
   PrTooLargeInput,
 } from '@/shared/src/security-scan'
 import {
@@ -173,6 +174,8 @@ export interface ScanReadoutView {
   huntOverCap: HuntOverCapInput | null
   /** LUM-832 — the AI review did not run: over its size cap. null otherwise. */
   judgeOverCap: JudgeOverCapInput | null
+  /** LUM-1144 — the AI review ran on part of an over-cap diff (skipped files named). null otherwise. */
+  judgePartial: JudgePartialInput | null
   /** LUM-1079 — the whole PR was too large to scan. null otherwise. */
   prTooLarge: PrTooLargeInput | null
   /** P8 — the scrubbed external-scanner reason, or null (raw crash text is never published). */

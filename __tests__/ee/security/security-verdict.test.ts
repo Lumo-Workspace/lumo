@@ -42,6 +42,7 @@ const scan = (over: object = {}) => ({
   ownedUnfinished: false,
   huntOverCap: null,
   judgeOverCap: null,
+  judgePartial: null,
   stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
   findings: [],
   ...over,

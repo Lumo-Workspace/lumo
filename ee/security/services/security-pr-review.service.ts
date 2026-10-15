@@ -63,6 +63,7 @@ import {
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
+  formatJudgePartial,
   formatPrTooLarge,
   formatTurnedOffNote,
   isCodeReviewFinding,
@@ -73,6 +74,7 @@ import {
   turnedOffLayers,
   type HuntOverCapInput,
   type JudgeOverCapInput,
+  type JudgePartialInput,
   type HuntProgressInput,
   type PrTooLargeInput,
   scanStageLabel,
@@ -390,6 +392,8 @@ export interface SummaryInput {
   huntOverCap?: HuntOverCapInput | null
   /** LUM-832 — the AI review did not run: the diff was over its size cap. */
   judgeOverCap?: JudgeOverCapInput | null
+  /** LUM-1144 — the AI review ran on part of an over-cap diff. */
+  judgePartial?: JudgePartialInput | null
   /** LUM-1079 — the whole PR was too large to scan: nothing ran. */
   prTooLarge?: PrTooLargeInput | null
   /** LUM-832 — the causes on the row; absent/empty reads as unattributed. */
@@ -676,7 +680,10 @@ export function buildSummary(input: SummaryInput): string {
     partial: input.partial,
     partialCauses: input.partialCauses ?? [],
     hasSizeNotice: Boolean(
-      input.huntOverCap || input.judgeOverCap || input.prTooLarge
+      input.huntOverCap ||
+      input.judgeOverCap ||
+      input.judgePartial ||
+      input.prTooLarge
     ),
   })
   const blocks: string[] = [
@@ -715,10 +722,21 @@ export function buildSummary(input: SummaryInput): string {
     notices.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
   // LUM-1079: the whole PR was too large — why, and what to do.
   if (input.prTooLarge) notices.push(`- ${formatPrTooLarge(input.prTooLarge)}`)
-  // LUM-832: a layer over its size cap did not run — stated plainly
-  // as a limit on the change.
+  // LUM-832: a layer over its size cap did not run — stated as a limit on
+  // the change, with how to get the layer.
   if (input.judgeOverCap)
     notices.push(`- ${formatJudgeOverCap(input.judgeOverCap)}`)
+  // LUM-1144: the AI review read part of an over-cap diff — which files it
+  // skipped, and how to get them reviewed.
+  if (input.judgePartial)
+    notices.push(
+      `- ${formatJudgePartial(input.judgePartial, {
+        renderPath: codePath,
+        howTo: input.commandHandle
+          ? `split the PR, or narrow it and comment \`${input.commandHandle} full review\``
+          : 'split the PR, or narrow it and request a full review',
+      })}`
+    )
   if (input.huntOverCap)
     notices.push(`- ${formatHuntOverCap(input.huntOverCap)}`)
   // LUM-892: the customer's own choice, said as such — never "didn't finish".
@@ -1051,6 +1069,7 @@ export const securityPrReviewService = {
           status: scan.status,
           stages: scan.stages,
           judgeReviewScope: scan.judgeReviewScope ?? null,
+          partialCauses: scan.partialCauses ?? [],
         },
         findings: scan.findings,
         open: unrejected,

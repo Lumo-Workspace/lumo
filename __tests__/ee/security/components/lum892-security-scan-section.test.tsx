@@ -123,6 +123,7 @@ const scan = (over: {
     huntProgress: null,
     huntOverCap: null,
     judgeOverCap: null,
+    judgePartial: null,
     findings: [],
     ...over,
   }

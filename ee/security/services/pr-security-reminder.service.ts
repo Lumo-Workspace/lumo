@@ -58,6 +58,7 @@ import {
   prTooLargeOf,
   type HuntOverCapInput,
   type JudgeOverCapInput,
+  type JudgePartialInput,
   type PrTooLargeInput,
 } from '@/shared/src/security-scan'
 
@@ -104,6 +105,8 @@ export interface TaskSecurityScanSummary {
   huntOverCap: HuntOverCapInput | null
   /** LUM-832 — the AI review did not run: over its size cap. null otherwise. */
   judgeOverCap: JudgeOverCapInput | null
+  /** LUM-1144 — the AI review ran on part of an over-cap diff (skipped files named). null otherwise. */
+  judgePartial: JudgePartialInput | null
   /**
    * LUM-1079 — the whole PR was too large to scan. null otherwise. Additive:
    * an older CLI ignores it.

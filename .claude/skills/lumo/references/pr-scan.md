@@ -181,17 +181,29 @@ first, one run per batch, each batch's findings landing while the layer stays
 an industry-standard file cap). The per-run `diff` line then describes that
 run's batch.
 
-**Size caps (LUM-832, industry-standard shape).** A layer whose input is over its
-cap does not run at all — no tokens are spent — and the scan says so under
-the layer rows: past 150 touched source files the hunt is `skipped` (cause
-`HUNT_OVERSIZED`) with `This PR touches N source files; exploit-path checks
-run on up to 150, so they did not run. To get them, narrow the review scope or
-split the PR.`; past the AI review's 180,000-character cap the AI review is
-`skipped` (cause `JUDGE_OVER_CAP`) with `This PR's diff is N characters; AI
-review runs on up to 180,000, so it did not run. To get it, narrow the review
-scope or split the PR.` These are the only lines that ask something of the
-customer; when a size cap is the only gap they replace the owned "not finished
-on our side" note.
+**Size caps (LUM-832, LUM-1144).** The scan says so under the layer rows
+when a layer's input is over its cap: past 150 touched source files the hunt is
+`skipped` (cause `HUNT_OVERSIZED`) with `This PR touches N source files;
+exploit-path checks run on up to 150, so they did not run. To get them, narrow
+the review scope or split the PR.` The AI review's cap is **150 files and
+180,000 characters** of the reviewable diff (path filters apply first, so
+lockfiles / generated files never count; `AI review budget: diff N chars` is
+that reviewable size). Over it, the AI review reads the files that fit —
+security-signal files first, then source, tests, docs; smaller files first
+within each — and skips the rest: the AI review row reads `⚠ partly checked`
+(cause `JUDGE_PARTIAL_OVER_CAP`) with `This PR is over the AI review's size
+limit (150 files, 180,000 characters), so AI review covered R of N reviewable
+files. Not reviewed: <up to 10 paths> and K more. To get them reviewed, split
+the PR, or narrow it and request a full review (--review full).` Only when
+more than a quarter of the reviewable files would be skipped is the AI review
+`skipped` whole (cause `JUDGE_OVER_CAP`): `This PR's diff is N characters; AI
+review runs on up to 180,000, so it did not run. …` (or `This PR changes N
+reviewable files; AI review runs on up to 150, …` when only the file count is
+over). A partly reviewed head is never `checked`; a finding is closed (thread
+resolved) only on a file the review actually read — a skipped file's thread
+stays open. These are the only lines that ask something of the customer; when
+a size cap is the only gap they replace the owned "not finished on our side"
+note.
 
 **PR too large to scan (LUM-1079).** A PR that changes more than **300 files**
 (`GITHUB_DIFF_MAX_FILES` — the most GitHub returns a diff for, checked before

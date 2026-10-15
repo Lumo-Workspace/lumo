@@ -336,6 +336,7 @@ describe('LUM-901 hunt turned off mid-run reads as turned off not unfinished', (
       findings: [],
       huntOverCap: null,
       judgeOverCap: null,
+      judgePartial: null,
     } as unknown as SecurityScanView
     expect(summarizeSecurityScans([{ latest }])).toMatchObject({
       turnedOff: 1,

@@ -257,6 +257,7 @@ describe('LUM-735 scans array', () => {
         prTooLarge: null,
         huntOverCap: null,
         judgeOverCap: null,
+        judgePartial: null,
       },
       {
         prNumber: 13,
@@ -276,6 +277,7 @@ describe('LUM-735 scans array', () => {
         prTooLarge: null,
         huntOverCap: null,
         judgeOverCap: null,
+        judgePartial: null,
       },
     ])
   })
@@ -313,6 +315,7 @@ describe('LUM-735 scans array', () => {
         prTooLarge: null,
         huntOverCap: null,
         judgeOverCap: null,
+        judgePartial: null,
       },
     ])
   })

@@ -42,7 +42,12 @@ import type {
   SecurityScanView,
   TaskSecurityScans,
 } from '@/ee/security/services/pr-security-scan.service'
-import { SCAN_STAGE_KEYS, turnedOffLayers } from '@/shared/src/security-scan'
+import {
+  JUDGE_PARTIAL_MAX_NAMED,
+  SCAN_STAGE_KEYS,
+  isJudgeOverCapByFiles,
+  turnedOffLayers,
+} from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
 import {
@@ -839,21 +844,8 @@ function ScanDetails({
           )}
         </OverCapNotice>
       )}
-      {scan.judgeOverCap && (
-        <OverCapNotice
-          testId='scan-judge-over-cap'
-          size={scan.judgeOverCap.diffChars}
-          cap={scan.judgeOverCap.capChars}
-        >
-          {intl.formatMessage(
-            { id: 'securityScan.judgeOverCap' },
-            {
-              size: scan.judgeOverCap.diffChars,
-              cap: scan.judgeOverCap.capChars,
-            }
-          )}
-        </OverCapNotice>
-      )}
+      {scan.judgeOverCap && <JudgeOverCapNotice overCap={scan.judgeOverCap} />}
+      {scan.judgePartial && <JudgePartialNotice partial={scan.judgePartial} />}
       {externalReason && (
         <p
           data-testid='external-failed-reason'
@@ -913,6 +905,88 @@ function groupHeading(
   if (group.key === 'persisting')
     return intl.formatMessage({ id: 'securityScan.finding.persisting' })
   return intl.formatMessage({ id: `securityScan.group.${group.key}` })
+}
+
+/** LUM-832 / LUM-1144 — the AI review did not run: over its size cap. */
+function JudgeOverCapNotice({
+  overCap,
+}: {
+  overCap: NonNullable<SecurityScanView['judgeOverCap']>
+}) {
+  const intl = useIntl()
+  // LUM-1144: over by file count alone — the characters fit.
+  if (isJudgeOverCapByFiles(overCap))
+    return (
+      <OverCapNotice
+        testId='scan-judge-over-cap'
+        size={overCap.files!}
+        cap={overCap.capFiles!}
+      >
+        {intl.formatMessage(
+          { id: 'securityScan.judgeOverCapFiles' },
+          { files: overCap.files!, cap: overCap.capFiles! }
+        )}
+      </OverCapNotice>
+    )
+  return (
+    <OverCapNotice
+      testId='scan-judge-over-cap'
+      size={overCap.diffChars}
+      cap={overCap.capChars}
+    >
+      {intl.formatMessage(
+        { id: 'securityScan.judgeOverCap' },
+        { size: overCap.diffChars, cap: overCap.capChars }
+      )}
+    </OverCapNotice>
+  )
+}
+
+/**
+ * LUM-1144 — the AI review read the files within its size cap and skipped
+ * the rest: which ones, and how to get them reviewed.
+ */
+function JudgePartialNotice({
+  partial,
+}: {
+  partial: NonNullable<SecurityScanView['judgePartial']>
+}) {
+  const intl = useIntl()
+  const named = partial.skippedPaths.slice(0, JUDGE_PARTIAL_MAX_NAMED)
+  const rest = partial.skippedPaths.length - named.length
+  return (
+    <div
+      data-testid='scan-judge-partial'
+      className='space-y-1 rounded-md border border-warning-border bg-warning-subtle px-3 py-2'
+    >
+      <p className='text-caption text-foreground/80'>
+        {intl.formatMessage(
+          { id: 'securityScan.judgePartial' },
+          {
+            reviewed: partial.reviewedFiles,
+            total: partial.totalFiles,
+            capFiles: partial.capFiles,
+            capChars: partial.capChars,
+          }
+        )}
+      </p>
+      <ul className='font-mono text-caption text-muted-foreground'>
+        {named.map(path => (
+          <li key={path} className='truncate'>
+            {path}
+          </li>
+        ))}
+        {rest > 0 && (
+          <li>
+            {intl.formatMessage(
+              { id: 'securityScan.judgePartialMore' },
+              { count: rest }
+            )}
+          </li>
+        )}
+      </ul>
+    </div>
+  )
 }
 
 /**

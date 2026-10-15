@@ -5,7 +5,10 @@
  * rows default open.
  * No intl, no React — unit-testable on their own.
  */
-import type { ScanStageKeyName } from '@/shared/src/security-scan'
+import {
+  isJudgeOverCapByFiles,
+  type ScanStageKeyName,
+} from '@/shared/src/security-scan'
 import type {
   SecurityFindingView,
   SecurityScanView,
@@ -58,13 +61,17 @@ export function isOverSizeLimitOnly(
   scan: Pick<
     SecurityScanView,
     'coverage' | 'ownedUnfinished' | 'huntOverCap' | 'judgeOverCap'
-  > & { prTooLarge?: SecurityScanView['prTooLarge'] }
+  > & {
+    prTooLarge?: SecurityScanView['prTooLarge']
+    judgePartial?: SecurityScanView['judgePartial']
+  }
 ): boolean {
   return (
     scan.coverage === 'UNFINISHED' &&
     !scan.ownedUnfinished &&
     (scan.huntOverCap != null ||
       scan.judgeOverCap != null ||
+      scan.judgePartial != null ||
       scan.prTooLarge != null)
   )
 }
@@ -221,6 +228,7 @@ export function stageReason(
     'stages' | 'huntOverCap' | 'judgeOverCap' | 'huntProgress'
   > & {
     prTooLarge?: SecurityScanView['prTooLarge']
+    judgePartial?: SecurityScanView['judgePartial']
     reviewRateLimited?: SecurityScanView['reviewRateLimited']
   }
 ): { id: string; values?: Record<string, number> } | null {
@@ -229,6 +237,27 @@ export function stageReason(
   const id = (suffix: string) => `securityScan.stageReason.${suffix}`
   // LUM-1079: no layer ran because the whole PR was too large.
   if (scan.prTooLarge) return { id: id('prTooLarge') }
+  // LUM-1144: over the cap by file count alone — the characters fit.
+  if (
+    stageKey === 'judge' &&
+    scan.judgeOverCap &&
+    isJudgeOverCapByFiles(scan.judgeOverCap)
+  )
+    return {
+      id: id('judgeOverCapFiles'),
+      values: {
+        files: scan.judgeOverCap.files!,
+        cap: scan.judgeOverCap.capFiles!,
+      },
+    }
+  if (stageKey === 'judge' && scan.judgePartial)
+    return {
+      id: id('judgePartialOverCap'),
+      values: {
+        reviewed: scan.judgePartial.reviewedFiles,
+        total: scan.judgePartial.totalFiles,
+      },
+    }
   if (stageKey === 'judge' && scan.judgeOverCap)
     return {
       id: id('judgeOverCap'),

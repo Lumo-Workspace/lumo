@@ -9,6 +9,7 @@ import {
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
+  formatJudgePartial,
   formatPrTooLarge,
   formatTurnedOffNote,
   isOwnedUnfinished,
@@ -17,8 +18,15 @@ import {
   scanStageLabel,
   scanStageStateLabel,
   turnedOffLayers,
+  type JudgeOverCapInput,
+  type JudgePartialInput,
 } from '../../../shared/src/security-scan'
 import type { Field } from './report-layout'
+
+/** LUM-832 / LUM-1144 — the AI review did not run: over its size cap. */
+export type JudgeOverCapLine = JudgeOverCapInput
+/** LUM-1144 — the AI review read part of an over-cap diff. */
+export type JudgePartialLine = JudgePartialInput
 import { renderTable } from './ui'
 
 /**
@@ -46,7 +54,9 @@ export interface ScanLayerLineInput {
   /** LUM-832 — the hunt did not run: over its file cap. Absent on an older server. */
   huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
   /** LUM-832 — the AI review did not run: over its size cap. Absent on an older server. */
-  judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
+  judgeOverCap?: JudgeOverCapLine | null | undefined
+  /** LUM-1144 — the AI review read part of an over-cap diff. Absent on an older server. */
+  judgePartial?: JudgePartialLine | null | undefined
   /** LUM-1079 — the whole PR was too large to scan. Absent on an older server. */
   prTooLarge?: PrTooLargeLine | null | undefined
   /** Raw external-tool hits that are not dependencies (decorates Code scan). */
@@ -157,7 +167,9 @@ export function scanLayerNotes(s: ScanLayerLineInput): string[] {
   if (
     isOwnedUnfinished({
       ...s,
-      hasSizeNotice: Boolean(s.huntOverCap || s.judgeOverCap || s.prTooLarge),
+      hasSizeNotice: Boolean(
+        s.huntOverCap || s.judgeOverCap || s.judgePartial || s.prTooLarge
+      ),
     })
   )
     notes.push(SCAN_UNFINISHED_NOTE)
@@ -236,17 +248,26 @@ export function scanFields(
 /**
  * LUM-832 — the size-cap notices, one line each under the scan line, in the
  * same words as the PR summary: a layer over its cap did not run, and how to
- * get it (industry-standard shape). Empty when no layer was skipped for size.
+ * get it. Empty when no layer was skipped for size.
  */
 export function formatSizeCapLines(s: {
   huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
-  judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
+  judgeOverCap?: JudgeOverCapLine | null | undefined
+  /** LUM-1144 — the AI review read part of an over-cap diff. Absent on an older server. */
+  judgePartial?: JudgePartialLine | null | undefined
   prTooLarge?: PrTooLargeLine | null | undefined
 }): string[] {
   const lines: string[] = []
   // LUM-1079: the whole PR was too large — why, and what to do.
   if (s.prTooLarge) lines.push(formatPrTooLarge(s.prTooLarge))
   if (s.judgeOverCap) lines.push(formatJudgeOverCap(s.judgeOverCap))
+  // LUM-1144: file names are repository text — terminal-sanitised.
+  if (s.judgePartial)
+    lines.push(
+      formatJudgePartial(s.judgePartial, {
+        renderPath: p => sanitizeField(p).slice(0, 200),
+      })
+    )
   if (s.huntOverCap) lines.push(formatHuntOverCap(s.huntOverCap))
   return lines
 }
