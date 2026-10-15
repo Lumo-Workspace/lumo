@@ -170,6 +170,15 @@ describe('a question gets a grounded answer', () => {
     expect(model.mock.calls[0][0].diff.text).toBe('')
   })
 
+  it('without the PR head sha the file is never read from another ref', async () => {
+    ;(fetchPrHeadSha as jest.Mock).mockRejectedValue(new Error('502'))
+    await expect(answerQuestion(question())).resolves.toBe('answered')
+    expect(readRepoFile).not.toHaveBeenCalled()
+    const input = model.mock.calls[0][0]
+    expect(input.file.text).toBe('')
+    expect(input.diff.text).toContain('+const q')
+  })
+
   it('a model failure posts a short "could not answer" note', async () => {
     model.mockRejectedValue(new Error('timeout'))
     await expect(answerQuestion(question())).resolves.toBe('unavailable')

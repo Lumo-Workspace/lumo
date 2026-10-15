@@ -232,36 +232,147 @@ const CONTROL_AND_INVISIBLE = new RegExp(
   'g'
 )
 
+/** Hosts a link in an answer may point at; any other URL stays plain text. */
+const ALLOWED_LINK =
+  /^\s*<?https:\/\/(?:[a-z0-9-]+\.)*(?:github\.com|uselumo\.ai)(?=[/?#)>\s]|$)/i
+
+/** Fence languages GitHub renders (diagrams, maps, models) instead of showing. */
+const RENDERED_FENCES = new Set([
+  'mermaid',
+  'geojson',
+  'topojson',
+  'stl',
+  'math',
+])
+
 /**
- * Prose outside code: `@name` → not a mention (a word joiner after the `@`),
- * and nothing GitHub would fetch on render — a markdown image or an
- * `<img>` / media tag could carry data out in its URL. Links stay (they are
- * only followed by a click).
+ * Prose (never code): nothing in it may render as an image, a raw HTML tag,
+ * a reference definition, or a link to a host outside the allowlist — any
+ * of those could make GitHub fetch, or a reader follow, a URL carrying data
+ * out. Each is broken with a character entity, which markdown shows as the
+ * literal character but never reads as syntax (a backslash would not do: a
+ * preceding backslash could escape it). The URL itself stays as plain text.
  */
-function cleanProse(segment: string): string {
-  return segment
-    .split(/(`[^`\n]*`)/)
-    .map((part, i) =>
-      i % 2 === 1
-        ? part
-        : part
-            .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-            .replace(
-              /<\/?(?:img|picture|source|video|audio|iframe|object|embed)\b[^>]*>/gi,
-              ''
-            )
-            .replace(/@(?=[A-Za-z0-9-])/g, '@\u2060')
-    )
-    .join('')
+function neutralizeProse(text: string): string {
+  return (
+    text
+      // `![` — every image form (inline, reference, collapsed, shortcut).
+      .replace(/!\[/g, '&#33;[')
+      // `]:` — every reference definition, in any container.
+      .replace(/\]:/g, ']&#58;')
+      // `](` — an inline link, unless it points at an allowlisted host.
+      .replace(/\]\(/g, (m, offset: number, whole: string) =>
+        ALLOWED_LINK.test(whole.slice(offset + 2, offset + 2 + 300))
+          ? m
+          : ']&#40;'
+      )
+      // `<` — every raw HTML tag (img, picture/source srcset, video, …) and
+      // autolink; `Map<K, V>` still reads as written.
+      .replace(/</g, '&lt;')
+      .replace(/@(?=[A-Za-z0-9-])/g, '@⁠')
+  )
+}
+
+/**
+ * Prose with its code spans kept as code: a span opens with a run of N
+ * backticks and closes at the next run of exactly N (CommonMark); a run with
+ * no partner is literal text. A backslash escapes the next character.
+ */
+function sanitizeInline(text: string): string {
+  let out = ''
+  let plain = ''
+  let i = 0
+  while (i < text.length) {
+    const ch = text[i]!
+    if (ch === '\\') {
+      plain += text.slice(i, i + 2)
+      i += 2
+      continue
+    }
+    if (ch !== '`') {
+      plain += ch
+      i++
+      continue
+    }
+    let j = i
+    while (text[j] === '`') j++
+    const n = j - i
+    let k = j
+    let close = -1
+    while (k < text.length) {
+      if (text[k] !== '`') {
+        k++
+        continue
+      }
+      let e = k
+      while (text[e] === '`') e++
+      if (e - k === n) {
+        close = k
+        break
+      }
+      k = e
+    }
+    if (close < 0) {
+      plain += text.slice(i, j)
+      i = j
+      continue
+    }
+    out += neutralizeProse(plain) + text.slice(i, close + n)
+    plain = ''
+    i = close + n
+  }
+  return out + neutralizeProse(plain)
+}
+
+/**
+ * The answer's markdown, made inert outside code. A fenced block counts as
+ * code only when markdown is sure to read it so — an unindented fence line
+ * (a backtick fence's info string has no backtick), closed by a fence of
+ * the same character at least as long; anything else is prose and is
+ * neutralised. A fence left open at the end is closed, so it can never
+ * swallow the footnote and marker posted after the answer.
+ */
+export function sanitizeAnswerMarkdown(text: string): string {
+  const out: string[] = []
+  let prose: string[] = []
+  let fence: { ch: string; len: number } | null = null
+  const flush = () => {
+    if (prose.length) out.push(sanitizeInline(prose.join('\n')))
+    prose = []
+  }
+  for (const line of text.split('\n')) {
+    if (fence) {
+      out.push(line)
+      if (
+        new RegExp(`^${fence.ch === '`' ? '`' : '~'}{${fence.len},}\\s*$`).test(
+          line
+        )
+      )
+        fence = null
+      continue
+    }
+    const m = /^(`{3,}|~{3,})(.*)$/.exec(line)
+    if (m && !(m[1]![0] === '`' && m[2]!.includes('`'))) {
+      flush()
+      fence = { ch: m[1]![0]!, len: m[1]!.length }
+      const lang = (m[2] ?? '').trim().split(/\s+/)[0]!.toLowerCase()
+      out.push(RENDERED_FENCES.has(lang) ? `${m[1]}text` : line)
+      continue
+    }
+    prose.push(line)
+  }
+  flush()
+  if (fence) out.push(fence.ch.repeat(fence.len))
+  return out.join('\n')
 }
 
 /**
  * The model's answer, made safe to post: no control / invisible characters,
  * no HTML comments anywhere (nothing can forge a Lumo marker, not even inside
- * code), no one pinged by an `@mention` and no image fetched outside code
- * (`cleanProse`), capped. Other markup
- * is left alone — `Array<string>` in code must survive, and GitHub sanitises
- * raw HTML itself. `null` when empty.
+ * code), and outside code nothing that renders as an image, an HTML tag, a
+ * reference definition or a link off the allowlist, and no one pinged by an
+ * `@mention` (`sanitizeAnswerMarkdown`). Every code fence is closed. Capped.
+ * `null` when empty.
  */
 export function cleanChatAnswer(raw: string): string | null {
   const text = raw
@@ -269,24 +380,13 @@ export function cleanChatAnswer(raw: string): string | null {
     .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
     .trim()
   if (!text) return null
-  const parts = text.split(/^(```|~~~)/m)
-  let fenced = false
-  const out: string[] = []
-  for (const part of parts) {
-    if (part === '```' || part === '~~~') {
-      fenced = !fenced
-      out.push(part)
-      continue
-    }
-    out.push(fenced ? part : cleanProse(part))
-  }
-  let answer = out.join('')
+  let answer = sanitizeAnswerMarkdown(text)
   if (answer.length > CHAT_ANSWER_MAX_CHARS) {
-    // Room for a closing fence: a cut inside a code block would swallow the
-    // footnote and the marker.
-    answer = `${answer.slice(0, CHAT_ANSWER_MAX_CHARS - 5).trimEnd()}…`
-    const fences = answer.match(/^(?:```|~~~)/gm)?.length ?? 0
-    if (fences % 2 === 1) answer = `${answer}\n\`\`\``
+    // Leave room for a closing fence; re-run so a cut inside a block is closed
+    // (already-neutralised text passes through unchanged).
+    answer = sanitizeAnswerMarkdown(
+      `${answer.slice(0, CHAT_ANSWER_MAX_CHARS - 12).trimEnd()}…`
+    )
   }
   return answer
 }

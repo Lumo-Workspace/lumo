@@ -148,14 +148,17 @@ async function loadContext(q: ChatQuestion): Promise<{
     }),
   ])
   let file = ''
-  if (q.focus) {
+  // Only ever the PR head: without its sha the file is not read at all (the
+  // default branch is not what the question is about) — the answer comes
+  // from the diff, and the prompt says so.
+  if (q.focus && headSha) {
     try {
       file =
         (await readRepoFile({
           workspaceId: q.workspaceId,
           fullName: q.repo,
           path: q.focus.path,
-          ...(headSha ? { ref: headSha } : {}),
+          ref: headSha,
         })) ?? ''
     } catch (error) {
       logger.warn(

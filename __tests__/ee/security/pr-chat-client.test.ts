@@ -58,6 +58,15 @@ describe('pr-chat-client', () => {
     expect(prompt).toContain('The diff was cut to fit')
   })
 
+  it('a focused file that could not be read: answer from the diff only, and say so', () => {
+    const prompt = client.buildPrChatPrompt({
+      ...input,
+      file: { text: '', notices: [] },
+    })
+    expect(prompt).toContain('Answer from the diff only')
+    expect(prompt).not.toContain('<untrusted-file')
+  })
+
   it('says so when the diff is missing', () => {
     const prompt = client.buildPrChatPrompt({
       ...input,

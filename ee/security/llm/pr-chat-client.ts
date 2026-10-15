@@ -77,6 +77,11 @@ export function buildPrChatPrompt(input: PrChatPromptInput): string {
     )
   if (input.hunk?.text)
     lines.push('', ...block('untrusted-diff-hunk', input.hunk))
+  if (input.focus && !input.file.text)
+    lines.push(
+      '',
+      "(The asked-about file at the pull request's head could not be read. Answer from the diff only, and say that the file itself was not available.)"
+    )
   if (input.file.text)
     lines.push(
       '',
