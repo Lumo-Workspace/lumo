@@ -4,7 +4,10 @@
  *
  *   · Lumo answers a trusted human's reply once, with a short templated
  *     comment — the reply's text never reaches what Lumo posts, except as
- *     the cleaned learning sentence it echoes back.
+ *     the cleaned learning sentence it echoes back. LUM-1154: a reply that
+ *     asks a question (and is not a learning — the gate keeps precedence)
+ *     gets a grounded answer from the chat service instead
+ *     (`pr-chat.service`), when its author has write access.
  *   · A reply that says the finding is intentional / not applicable (the
  *     deterministic gate AND the model agree) closes that thread for this
  *     PR and, for an AI-review finding, stores a learning: a PROJECT
@@ -59,11 +62,15 @@ import {
   buildLearningReply,
   buildScannerReply,
   canTeach,
+  REPLY_NOTE_MARKER,
   decideLearningDetailed,
   normalizePathGlob,
   screenReplyDetailed,
 } from '@/ee/security/security-scan/thread-reply'
 import { classifyWithRetry } from '@/ee/security/security-scan/thread-reply-retry'
+import { wantsThreadAnswer } from '@/ee/security/security-scan/pr-chat'
+import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
+import { answerQuestion } from '@/ee/security/services/pr-chat.service'
 import type { ThreadReplyVerdict } from '@/ee/security/llm/thread-reply-client'
 
 export interface ThreadReplyEvent {
@@ -89,6 +96,7 @@ export type ThreadReplyOutcome =
   | 'ignored_untrusted'
   | 'duplicate'
   | 'acknowledged'
+  | 'answered'
   | 'closed_scanner'
   | 'learning_added'
   | 'closed_no_learning'
@@ -343,6 +351,53 @@ async function releaseClaim(
   }
 }
 
+/**
+ * LUM-1154 — answer a question asked in a Lumo finding thread. `null` when
+ * the chat did not take it (no write access, an injection signal, nothing
+ * asked): the caller then posts the usual acknowledgement. Throws when the
+ * answer could not be posted, like the other replies here.
+ */
+async function answerInThread(
+  event: ThreadReplyEvent,
+  gh: GithubCtx,
+  row: FindingThreadRow,
+  login: string
+): Promise<ThreadReplyOutcome | null> {
+  const finding = await latestFinding(event.pullRequestId, row.fingerprint)
+  const blockingId = await blockingFindingId(event.workspaceId, finding)
+  const outcome = await answerQuestion({
+    workspaceId: event.workspaceId,
+    pullRequestId: event.pullRequestId,
+    repo: event.repo,
+    prNumber: event.prNumber,
+    source: 'review',
+    commentId: event.comment.id,
+    login,
+    body: event.comment.body,
+    focus: {
+      path: row.filePath,
+      line: finding?.line ?? null,
+      diffHunk: null,
+    },
+    finding,
+    blockingFindingId: blockingId,
+    marker: REPLY_NOTE_MARKER,
+    post: body => postReply(gh, row, body),
+  })
+  switch (outcome) {
+    case 'empty':
+    case 'ignored_injection':
+    case 'unauthorized':
+      return null
+    case 'duplicate':
+      return 'duplicate'
+    case 'failed':
+      throw new Error('chat answer failed')
+    default:
+      return 'answered'
+  }
+}
+
 export async function applyThreadReply(
   event: ThreadReplyEvent
 ): Promise<ThreadReplyOutcome> {
@@ -408,6 +463,12 @@ export async function applyThreadReply(
     const label = screened.label
     if (label !== 'LEARNING') {
       logNoLearning(event, 'gate', label, screened.reason)
+      // LUM-1154: a question gets a grounded answer instead of the template.
+      // The learning gate ran first and keeps its precedence.
+      if (wantsThreadAnswer(comment.body, label, prCommandHandle())) {
+        const answered = await answerInThread(event, gh, row, login)
+        if (answered !== null) return answered
+      }
       await postReply(gh, row, buildAckReply(label, login))
       return 'acknowledged'
     }
