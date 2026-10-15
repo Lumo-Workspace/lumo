@@ -131,6 +131,38 @@ test('findLayerMetaByFingerprints reads the layer facts from the PR findings', a
   ])
 })
 
+test('findIdentitiesByFingerprints reads line, title and evidence of the newest row', async () => {
+  await harness.insert('pr_security_findings', {
+    id: 'f-id-1',
+    scanId: 'scan1',
+    kind: 'CORRECTNESS',
+    ruleId: 'review:doc_mismatch',
+    severity: 'LOW',
+    provenance: 'LLM_JUDGE',
+    filePath: 'scripts/probe.ts',
+    line: 3,
+    title: 'console.log used in scripts',
+    detail: 'd',
+    evidence: "console.log('probe')",
+    fingerprint: 'fp-id',
+  })
+  await expect(
+    repo.findIdentitiesByFingerprints('pr', ['fp-id', 'nope'])
+  ).resolves.toEqual([
+    {
+      fingerprint: 'fp-id',
+      ruleId: 'review:doc_mismatch',
+      provenance: 'LLM_JUDGE',
+      filePath: 'scripts/probe.ts',
+      line: 3,
+      title: 'console.log used in scripts',
+      severity: 'LOW',
+      evidence: "console.log('probe')",
+    },
+  ])
+  await expect(repo.findIdentitiesByFingerprints('pr', [])).resolves.toEqual([])
+})
+
 test('the scan row keeps judgeReviewScope as JSON', async () => {
   const rows = await harness.query<{ judgeReviewScope: unknown }>(
     `select "judgeReviewScope" from pr_security_scans where id = 'scan1'`

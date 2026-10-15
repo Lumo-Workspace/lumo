@@ -1761,6 +1761,7 @@ export const securityPrReviewService = {
         open: unrejected,
         comments: reviewComments,
         isInline,
+        isBlocking: f => isBlockingFinding(f, policy),
       }
       const threads = await prFindingThreadService
         .reconcile(threadCtx)
@@ -1771,6 +1772,9 @@ export const securityPrReviewService = {
       // fresh comment although its old one still carries the marker.
       for (const fp of threads.resolvedByUser) existing.add(fp)
       for (const fp of threads.repost.keys()) existing.delete(fp)
+      // LUM-1127 follow-up: a finding that continues an open thread under a
+      // new fingerprint (relabelled rule id) already has that thread.
+      for (const fp of threads.carried.keys()) existing.add(fp)
       // LUM-1200: one issue on one line, one thread. The AI review and the
       // hunt reporting the same class on the same line are grouped: the kept
       // finding owns the thread, the merged one is listed in it (both stay

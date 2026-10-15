@@ -66,6 +66,7 @@ jest.mock('@/ee/security/repositories/pr-finding-thread.repository', () => ({
     upsert: jest.fn(),
     update: jest.fn(),
     findLayerMetaByFingerprints: jest.fn().mockResolvedValue([]),
+    findIdentitiesByFingerprints: jest.fn(),
   },
 }))
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
@@ -246,6 +247,26 @@ function installFakes(): void {
       })
     }
   )
+  // The newest finding row of each fingerprint across the PR's scans.
+  ;(
+    prFindingThreadRepository.findIdentitiesByFingerprints as jest.Mock
+  ).mockImplementation(async (_pr: string, fps: string[]) => {
+    const out = new Map<string, Record<string, unknown>>()
+    for (const s of [...scans.values()].reverse())
+      for (const f of s.findings)
+        if (fps.includes(f.fingerprint) && !out.has(f.fingerprint))
+          out.set(f.fingerprint, {
+            fingerprint: f.fingerprint,
+            ruleId: f.ruleId,
+            provenance: f.provenance,
+            filePath: f.filePath,
+            line: f.line,
+            title: f.title,
+            severity: f.severity,
+            evidence: evidenceOf.get(f.fingerprint) ?? '',
+          })
+    return [...out.values()]
+  })
   ;(prFindingThreadRepository.update as jest.Mock).mockImplementation(
     async (id: string, patch: FindingThreadPatch) => {
       const row = [...rows.values()].find(r => r.id === id)!
@@ -288,6 +309,9 @@ const execFinding = () =>
     line: 9,
     title: 'Shell command built by concatenating unsanitized input',
   })
+
+/** The quoted evidence line of a finding, by fingerprint (default: none). */
+const evidenceOf = new Map<string, string>()
 
 const scans = new Map<
   string,
@@ -351,6 +375,8 @@ beforeEach(() => {
   ;(prSecurityScanRepository.findByIdForReview as jest.Mock).mockImplementation(
     async (id: string) => scanRow(id)
   )
+  scans.clear()
+  evidenceOf.clear()
   installFakes()
 })
 afterAll(() => {
@@ -447,8 +473,9 @@ describe('LUM-1127 regression: a regressed finding is visible again', () => {
    * different evidence line, or none, so the key fell back to the title) is
    * a new finding to the thread table — it is posted as a new inline
    * comment, and the old addressed thread stays resolved. Visible either way;
-   * no rule+file+line matching (a re-keyed finding on the same line can be a
-   * different problem).
+   * no rule+file+line matching for an ADDRESSED thread (a re-keyed finding on
+   * the same line can be a different problem). The same-issue match of the
+   * LUM-1127 follow-up below only keeps an OPEN thread from being resolved.
    */
   it('fingerprint changed ⇒ posted as a new inline comment (old thread stays addressed)', async () => {
     await c1ThenRacingC2()
@@ -488,5 +515,178 @@ describe('LUM-1127 regression: a regressed finding is visible again', () => {
     )
     expect(evalThreadOpeners()).toHaveLength(1)
     expect(reviewThreadClient.unresolveThread).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * LUM-1127 follow-up — prod probe PR 52 (heads 798ead5 → 5bb911d): a full
+ * re-review reported the same issue, `console.log` in `scripts/probe.ts:3`,
+ * but labelled it `review:api_misuse` instead of `review:doc_mismatch`. The
+ * fingerprint carries the rule id, so the old one looked fixed: Lumo posted
+ * "✅ Addressed" and resolved the thread while the finding was still listed.
+ */
+describe('LUM-1127 follow-up: a relabelled rule id is not a fix (prod PR 52)', () => {
+  const P1 = '798ead5' + '0'.repeat(33)
+  const P2 = '5bb911d' + '0'.repeat(33)
+  const PROBE = 'scripts/probe.ts'
+  const DOC_FP = '6911e1a7243ed238'
+  const API_FP = '0f3c9a1b2d4e5f60'
+  const consoleLog = (fingerprint: string, ruleId: string) =>
+    judgeFinding({
+      fingerprint,
+      ruleId,
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      filePath: PROBE,
+      line: 3,
+      title: 'console.log used in scripts',
+      detail:
+        'The repository instruction for scripts/** requires flagging any console.log.',
+      pathInstruction: 'scripts/**',
+    })
+  const openersOf = (fp: string) =>
+    comments.filter(
+      c =>
+        c.in_reply_to_id === null && c.body.includes(`lumo-security:fp:${fp}`)
+    )
+
+  beforeEach(() => {
+    evidenceOf.set(DOC_FP, "console.log('probe start')")
+    evidenceOf.set(API_FP, "console.log('probe start')")
+  })
+
+  it('the thread stays open, no "Addressed" note and no second comment', async () => {
+    push('p1', P1, [consoleLog(DOC_FP, 'review:doc_mismatch'), execFinding()])
+    await sync('p1')
+    const opener = openersOf(DOC_FP)
+    expect(opener).toHaveLength(1)
+
+    push('p2', P2, [consoleLog(API_FP, 'review:api_misuse'), execFinding()])
+    await sync('p2')
+
+    expect(notes(/Addressed in/)).toHaveLength(0)
+    expect(reviewThreadClient.resolveThread).not.toHaveBeenCalled()
+    expect(
+      threads.find(t => t.firstCommentId === opener[0]!.id)?.isResolved
+    ).toBe(false)
+    expect(rows.get(DOC_FP)?.state).toBe('OPEN')
+    // The relabelled finding is the old thread's — no duplicate comment.
+    expect(openersOf(API_FP)).toHaveLength(0)
+    const created = (prCommentClient.createIssueComment as jest.Mock).mock.calls
+    const summary = String(created[created.length - 1]?.[0]?.body)
+    expect(summary).toMatch(/2 open findings/)
+    expect(summary).not.toMatch(/[1-9] addressed/)
+  })
+
+  it('stays open across a further relabel, and is addressed once the issue is gone', async () => {
+    push('p1', P1, [consoleLog(DOC_FP, 'review:doc_mismatch'), execFinding()])
+    await sync('p1')
+    push('p2', P2, [consoleLog(API_FP, 'review:api_misuse'), execFinding()])
+    await sync('p2')
+    expect(rows.get(DOC_FP)?.state).toBe('OPEN')
+
+    // The console.log is removed: nothing on the file continues it.
+    push('p3', C3, [execFinding()])
+    await sync('p3')
+    expect(notes(/Addressed in `23d7af5`/)).toHaveLength(1)
+    expect(rows.get(DOC_FP)?.state).toBe('ADDRESSED')
+  })
+
+  it('control: a different issue on the same file does not keep the thread open', async () => {
+    push('p1', P1, [consoleLog(DOC_FP, 'review:doc_mismatch'), execFinding()])
+    await sync('p1')
+    evidenceOf.set('aa11bb22cc33dd44', 'await run(dir)')
+    push('p2', P2, [
+      judgeFinding({
+        fingerprint: 'aa11bb22cc33dd44',
+        ruleId: 'review:error_handling',
+        kind: 'CORRECTNESS',
+        severity: 'MEDIUM',
+        filePath: PROBE,
+        line: 5,
+        title: 'Rejected promise from run is never handled',
+      }),
+      execFinding(),
+    ])
+    await sync('p2')
+    expect(notes(/Addressed in `5bb911d`/)).toHaveLength(1)
+    expect(rows.get(DOC_FP)?.state).toBe('ADDRESSED')
+  })
+})
+
+/**
+ * LUM-1127 follow-up — a thread the developer resolved is not re-raised for
+ * the same issue under a new fingerprint: the relabelled finding is carried
+ * onto the resolved thread (stays resolved, no reply, no new comment) —
+ * unless it blocks DONE or is more severe than the resolved one. A thread
+ * Lumo itself addressed is a regression when the issue reappears (above).
+ */
+describe('LUM-1127 follow-up: a human-resolved thread is not re-raised for a relabelled issue', () => {
+  const P1 = '798ead5' + '0'.repeat(33)
+  const P2 = '5bb911d' + '0'.repeat(33)
+  const PROBE = 'scripts/probe.ts'
+  const DOC_FP = '6911e1a7243ed238'
+  const API_FP = '0f3c9a1b2d4e5f60'
+  const consoleLog = (
+    fingerprint: string,
+    ruleId: string,
+    severity: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM'
+  ) =>
+    judgeFinding({
+      fingerprint,
+      ruleId,
+      kind: 'CORRECTNESS',
+      severity,
+      filePath: PROBE,
+      line: 3,
+      title: 'console.log used in scripts',
+    })
+  const openersOf = (fp: string) =>
+    comments.filter(
+      c =>
+        c.in_reply_to_id === null && c.body.includes(`lumo-security:fp:${fp}`)
+    )
+
+  async function resolvedByAlice(): Promise<void> {
+    evidenceOf.set(DOC_FP, "console.log('probe start')")
+    evidenceOf.set(API_FP, "console.log('probe start')")
+    push('p1', P1, [consoleLog(DOC_FP, 'review:doc_mismatch'), execFinding()])
+    await sync('p1')
+    const opener = openersOf(DOC_FP)[0]!
+    Object.assign(threads.find(t => t.firstCommentId === opener.id)!, {
+      isResolved: true,
+      resolvedBy: { login: 'alice', __typename: 'User' },
+    })
+  }
+
+  it('same severity ⇒ no new comment, the thread stays resolved, no reply', async () => {
+    await resolvedByAlice()
+    push('p2', P2, [consoleLog(API_FP, 'review:api_misuse'), execFinding()])
+    await sync('p2')
+
+    expect(openersOf(API_FP)).toHaveLength(0)
+    expect(comments.filter(c => c.in_reply_to_id !== null)).toHaveLength(0)
+    expect(reviewThreadClient.unresolveThread).not.toHaveBeenCalled()
+    expect(rows.get(DOC_FP)).toEqual(
+      expect.objectContaining({
+        state: 'RESOLVED_BY_USER',
+        resolvedByLogin: 'alice',
+      })
+    )
+    // Closed with its thread: only the exec finding is open.
+    const created = (prCommentClient.createIssueComment as jest.Mock).mock.calls
+    const summary = String(created[created.length - 1]?.[0]?.body)
+    expect(summary).toMatch(/1 open finding\b/)
+  })
+
+  it('more severe than the resolved one ⇒ posted as a new comment', async () => {
+    await resolvedByAlice()
+    push('p2', P2, [
+      consoleLog(API_FP, 'review:api_misuse', 'HIGH'),
+      execFinding(),
+    ])
+    await sync('p2')
+    expect(openersOf(API_FP)).toHaveLength(1)
+    expect(rows.get(DOC_FP)?.state).toBe('RESOLVED_BY_USER')
   })
 })
