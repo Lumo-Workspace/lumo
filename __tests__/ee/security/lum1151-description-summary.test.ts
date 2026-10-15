@@ -147,6 +147,18 @@ describe('applyDescriptionSummary', () => {
     expect(applyDescriptionSummary(once, block(), H)).toBe(once)
   })
 
+  it('an orphaned start marker never pulls author text into the block', () => {
+    // The author deleted Lumo's end marker; the next sync appends a fresh
+    // block, and the one after must replace only that fresh block.
+    const orphaned = `Intro\n${DESCRIPTION_SUMMARY_START}\nold text\n\nAuthor notes.`
+    const once = applyDescriptionSummary(orphaned, block('One.'), H)
+    expect(once).toBe(`${orphaned}\n\n${block('One.')}`)
+    const twice = applyDescriptionSummary(once, block('Two.'), H)
+    expect(twice).toBe(`${orphaned}\n\n${block('Two.')}`)
+    expect(twice).toContain('Author notes.')
+    expect(stripDescriptionSummary(twice)).toContain('Author notes.')
+  })
+
   it('ignores a lone start marker (no end) and appends instead', () => {
     const body = `Quoted ${DESCRIPTION_SUMMARY_START} only`
     expect(applyDescriptionSummary(body, block(), H)).toBe(

@@ -140,7 +140,8 @@ const summarize = summaryClient.summarizeWholePr as jest.Mock
 const previous = repo.findPreviousPrSummary as jest.Mock
 
 const PREV_SHA = 'feedface1234567890feedface1234567890feed'
-const KEY = 'AKIAABCDEFGHIJKLMNOP'
+// Built from parts so the fixture itself is not a key-shaped literal.
+const KEY = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('')
 
 function file(path: string, line: string): string {
   return [

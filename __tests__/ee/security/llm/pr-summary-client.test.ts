@@ -32,6 +32,9 @@ it('fences the diff, the files and the earlier summary', () => {
   expect(p).toContain('<earlier-summary>\nAdds a.\n- One\n</earlier-summary>')
   expect(p).toContain('<diff>\n[notice]\n+const a = 1\n</diff>')
   expect(p).not.toContain('too large')
+  expect(
+    buildWholePrSummaryPrompt({ ...BASE, diff: null, moreFiles: 4 })
+  ).toContain('- … and 4 more files not listed')
 })
 
 it('without the diff says so; a tone goes after the fence', () => {

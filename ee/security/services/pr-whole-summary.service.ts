@@ -122,6 +122,7 @@ export const prWholeSummaryService = {
         diff: fits ? { text: guarded.text, notices: guarded.notices } : null,
         diffTruncated: fits && guarded.truncatedLines > 0,
         files: files.slice(0, WHOLE_PR_SUMMARY_MAX_FILES),
+        moreFiles: Math.max(0, files.length - WHOLE_PR_SUMMARY_MAX_FILES),
         previous: kept(previous),
         tone: input.tone,
         timeoutMs: WHOLE_PR_SUMMARY_TIMEOUT_MS,

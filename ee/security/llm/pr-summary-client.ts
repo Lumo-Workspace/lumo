@@ -39,8 +39,10 @@ export interface WholePrSummaryInput {
   diff: { text: string; notices: string[] } | null
   /** The diff above was cut (or an over-long line was). */
   diffTruncated: boolean
-  /** Every changed file with its line counts (always sent). */
+  /** The changed files with their line counts (always sent, capped). */
   files: Array<{ path: string; additions: number; deletions: number }>
+  /** Changed files beyond the cap, counted but not listed. */
+  moreFiles?: number
   /** The earlier whole-PR summary, if any (context when the diff is not sent). */
   previous: { intent: string; changes: string[] } | null
   /** Guarded tone line from the repository settings ('' = none). */
@@ -56,6 +58,9 @@ export function buildWholePrSummaryPrompt(input: WholePrSummaryInput): string {
     '<untrusted-pull-request>',
     '<changed-files>',
     ...files,
+    ...(input.moreFiles
+      ? [`- … and ${input.moreFiles} more files not listed`]
+      : []),
     '</changed-files>',
     ...(input.previous
       ? [

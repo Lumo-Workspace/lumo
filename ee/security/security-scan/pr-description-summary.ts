@@ -112,8 +112,11 @@ function linesOf(body: string): Line[] {
 }
 
 /**
- * Where Lumo's block sits: the first start marker and the first end marker
- * after it, outside code fences. Null when there is no complete block.
+ * Where Lumo's block sits: the first end marker and the NEAREST start
+ * marker before it, outside code fences. Null when there is no complete
+ * block. Nearest, not first: a start marker orphaned by an author edit
+ * (its end deleted) must never pull the author's text after it into the
+ * block that the next sync replaces.
  */
 function findBlock(body: string): { start: number; end: number } | null {
   let fenced = false
@@ -125,11 +128,9 @@ function findBlock(body: string): { start: number; end: number } | null {
       continue
     }
     if (fenced) continue
-    if (start === null) {
-      if (t === DESCRIPTION_SUMMARY_START) start = line.start
-    } else if (t === DESCRIPTION_SUMMARY_END) {
+    if (t === DESCRIPTION_SUMMARY_START) start = line.start
+    else if (t === DESCRIPTION_SUMMARY_END && start !== null)
       return { start, end: line.end }
-    }
   }
   return null
 }
