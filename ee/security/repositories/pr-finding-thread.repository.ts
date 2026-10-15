@@ -64,6 +64,20 @@ export interface FindingLayerMeta {
   filePath: string
 }
 
+/**
+ * LUM-1127 follow-up — what the rule-id-tolerant same-issue match reads of a
+ * finding (the newest row of its fingerprint on the PR).
+ */
+export interface FindingIdentityRow {
+  fingerprint: string
+  ruleId: string
+  provenance: FindingProvenance
+  filePath: string
+  line: number | null
+  title: string
+  evidence: string
+}
+
 const THREAD_SELECT = {
   id: true,
   pullRequestId: true,
@@ -205,5 +219,35 @@ export const prFindingThreadRepository = {
       },
     })
     return rows
+  },
+
+  /**
+   * LUM-1127 follow-up — the newest finding row of each fingerprint on any
+   * scan of the PR, with what the same-issue match compares (line, title,
+   * quoted evidence): a thread's finding the latest review no longer reports
+   * by fingerprint is checked against the findings it does report.
+   */
+  async findIdentitiesByFingerprints(
+    pullRequestId: string,
+    fingerprints: string[]
+  ): Promise<FindingIdentityRow[]> {
+    if (fingerprints.length === 0) return []
+    return prisma.prSecurityFinding.findMany({
+      where: {
+        fingerprint: { in: fingerprints },
+        scan: { pullRequestId },
+      },
+      orderBy: { createdAt: 'desc' },
+      distinct: ['fingerprint'],
+      select: {
+        fingerprint: true,
+        ruleId: true,
+        provenance: true,
+        filePath: true,
+        line: true,
+        title: true,
+        evidence: true,
+      },
+    })
   },
 }

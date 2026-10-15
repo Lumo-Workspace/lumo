@@ -33,6 +33,7 @@ jest.mock('@/ee/security/repositories/pr-finding-thread.repository', () => ({
     upsert: jest.fn().mockResolvedValue(undefined),
     update: jest.fn().mockResolvedValue(undefined),
     findLayerMetaByFingerprints: jest.fn().mockResolvedValue([]),
+    findIdentitiesByFingerprints: jest.fn().mockResolvedValue([]),
   },
 }))
 jest.mock('@/lib/logger', () => ({
@@ -152,6 +153,7 @@ beforeEach(() => {
   delete process.env.GITHUB_APP_SLUG
   threads.listReviewThreads.mockResolvedValue([remote()])
   repoMock.findByPullRequest.mockResolvedValue([row()])
+  repoMock.findIdentitiesByFingerprints.mockResolvedValue([])
 })
 
 describe('layer coverage — "fixed" only after a complete pass over the file', () => {
@@ -660,5 +662,180 @@ describe('LUM-1144 — reconcile after a partial review over the size cap', () =
     )
     expect(threads.resolveThread).toHaveBeenCalled()
     expect(out.counts.addressed).toBe(1)
+  })
+})
+
+/**
+ * LUM-1127 follow-up — prod probe PR 52: a full re-review relabelled the
+ * same issue's rule id (`review:doc_mismatch` → `review:api_misuse`); the AI
+ * review's fingerprint carries the rule id, so the old one looked fixed and
+ * its thread was resolved "✅ Addressed" while the finding was still reported.
+ */
+describe('LUM-1127 follow-up — same issue under a new fingerprint', () => {
+  const docRow = () =>
+    row({
+      fingerprint: 'fp-doc',
+      ruleId: 'review:doc_mismatch',
+      kind: 'CORRECTNESS',
+      filePath: 'scripts/probe.ts',
+    })
+  const docIdentity = {
+    fingerprint: 'fp-doc',
+    ruleId: 'review:doc_mismatch',
+    provenance: 'LLM_JUDGE' as const,
+    filePath: 'scripts/probe.ts',
+    line: 3,
+    title: 'console.log used in scripts',
+    evidence: "console.log('probe')",
+  }
+  const apiFinding = (over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      fingerprint: 'fp-api',
+      ruleId: 'review:api_misuse',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      filePath: 'scripts/probe.ts',
+      line: 3,
+      title: 'console.log used in scripts',
+      ...over,
+    })
+  const plan = (
+    over: Partial<Parameters<typeof planThreadActions>[0]> = {}
+  ) => {
+    const f = apiFinding()
+    return planThreadActions({
+      rows: [docRow()],
+      findings: [f],
+      open: [f],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: new Map([['101', remote()]]),
+      identities: new Map([
+        ['fp-doc', docIdentity],
+        ['fp-api', { ...docIdentity, fingerprint: 'fp-api' }],
+      ]),
+      ...over,
+    })
+  }
+
+  it('relabelled rule id ⇒ CARRY to the new fingerprint, never ADDRESS', () => {
+    expect(plan().actions).toEqual([
+      expect.objectContaining({ kind: 'CARRY', successor: 'fp-api' }),
+    ])
+  })
+
+  it('without identities (matching off) the old rule applies: ADDRESS', () => {
+    expect(plan({ identities: undefined }).actions).toEqual([
+      expect.objectContaining({ kind: 'ADDRESS' }),
+    ])
+  })
+
+  it('identity lookup failed (null) ⇒ no action on an AI-layer thread this sync', () => {
+    expect(plan({ identities: null }).actions).toEqual([])
+  })
+
+  it('identity lookup failed does not hold a deterministic thread', () => {
+    expect(
+      plan({
+        identities: null,
+        rows: [
+          row({
+            fingerprint: 'fp-secret',
+            provenance: 'DETERMINISTIC',
+            ruleId: 'secret:aws',
+            kind: 'SECRET',
+          }),
+        ],
+      }).actions
+    ).toEqual([expect.objectContaining({ kind: 'ADDRESS' })])
+  })
+
+  it('the successor already owns a thread ⇒ the old one is addressed', () => {
+    expect(
+      plan({
+        rows: [
+          docRow(),
+          row({ id: 't2', fingerprint: 'fp-api', commentId: '202' }),
+        ],
+      }).actions
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'ADDRESS',
+        row: expect.objectContaining({ fingerprint: 'fp-doc' }),
+      }),
+    ])
+  })
+
+  it('a verifier-rejected successor continues nothing', () => {
+    const f = apiFinding({ verifierVerdict: 'REJECTED' as never })
+    const out = plan({ findings: [f], open: [] })
+    expect(out.actions).toEqual([expect.objectContaining({ kind: 'ADDRESS' })])
+  })
+
+  it('a different issue on the same file ⇒ ADDRESS', () => {
+    const f = apiFinding({
+      ruleId: 'review:error_handling',
+      line: 9,
+      title: 'Rejected promise from run is never handled',
+    })
+    expect(
+      plan({
+        findings: [f],
+        open: [f],
+        identities: new Map([['fp-doc', docIdentity]]),
+      }).actions
+    ).toEqual([expect.objectContaining({ kind: 'ADDRESS' })])
+  })
+
+  it('outdated thread and an inline successor ⇒ REPOST for the new fingerprint', () => {
+    const f = apiFinding({ severity: 'MEDIUM', line: 5 })
+    expect(
+      plan({
+        findings: [f],
+        open: [f],
+        remote: new Map([['101', remote({ isOutdated: true })]]),
+      }).actions
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'REPOST',
+        fingerprint: 'fp-api',
+        threadId: 'PRRT_1',
+      }),
+    ])
+  })
+
+  it('reconcile: the thread stays open, no note, and the new fingerprint is reported as carried', async () => {
+    repoMock.findByPullRequest.mockResolvedValue([docRow()])
+    repoMock.findIdentitiesByFingerprints.mockResolvedValue([
+      docIdentity,
+      { ...docIdentity, fingerprint: 'fp-api', ruleId: 'review:api_misuse' },
+    ])
+    const f = apiFinding()
+    const out = await prFindingThreadService.reconcile(
+      ctx({ findings: [f], open: [f] })
+    )
+    expect(repoMock.findIdentitiesByFingerprints).toHaveBeenCalledWith('pr1', [
+      'fp-doc',
+      'fp-api',
+    ])
+    expect(threads.resolveThread).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
+    expect(repoMock.update).not.toHaveBeenCalled()
+    expect(out.carried).toEqual(new Map([['fp-api', 'fp-doc']]))
+    expect(out.counts).toEqual({ open: 1, addressed: 0, resolved: 0 })
+  })
+
+  it('reconcile: a failed identity read resolves nothing (retried next sync)', async () => {
+    repoMock.findByPullRequest.mockResolvedValue([docRow()])
+    repoMock.findIdentitiesByFingerprints.mockRejectedValue(
+      new Error('db down')
+    )
+    const f = apiFinding()
+    const out = await prFindingThreadService.reconcile(
+      ctx({ findings: [f], open: [f] })
+    )
+    expect(threads.resolveThread).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
+    expect(out.counts.open).toBe(1)
   })
 })

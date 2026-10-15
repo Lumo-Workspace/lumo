@@ -8,7 +8,11 @@
  *   · an addressed fingerprint reported again → the thread is unresolved with
  *     a regression note;
  *   · the comment went outdated but the finding is still reported → a fresh
- *     comment on the new line, the old thread resolved with a "moved" note.
+ *     comment on the new line, the old thread resolved with a "moved" note;
+ *   · an AI-layer fingerprint is gone but the same issue is reported under a
+ *     new one (the model relabelled its rule id, or quoted another line —
+ *     `matchSuccessors`) → the thread is carried over to the new finding:
+ *     it stays open, with no "Addressed" note and no second comment.
  *
  * "Fixed" is strict: absence only counts when the layer that produced the
  * finding ran whole (`RAN` — never PARTIAL / PAUSED / PENDING / FAILED) on
@@ -47,6 +51,10 @@ import type {
   ScanStages,
 } from '@/ee/security/security-scan/types'
 import { isVerifierRejected } from '@/ee/security/security-scan/verifier'
+import {
+  matchSuccessors,
+  type FindingIdentity,
+} from '@/ee/security/security-scan/finding-successor'
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
@@ -164,8 +172,22 @@ export type ThreadAction =
   | { kind: 'ADDRESS'; row: FindingThreadRow; threadId: string | null }
   /** Addressed, then reported again: unresolve with the regression note. */
   | { kind: 'REOPEN'; row: FindingThreadRow; threadId: string | null }
-  /** Still reported but the comment is outdated: post afresh, resolve the old one as moved. */
-  | { kind: 'REPOST'; row: FindingThreadRow; threadId: string | null }
+  /**
+   * Still reported but the comment is outdated: post afresh, resolve the old
+   * one as moved. `fingerprint` = the finding the fresh comment is for when
+   * it continues the row's under a new fingerprint; absent = the row's own.
+   */
+  | {
+      kind: 'REPOST'
+      row: FindingThreadRow
+      threadId: string | null
+      fingerprint?: string
+    }
+  /**
+   * The row's fingerprint is gone but `successor` reports the same issue:
+   * the thread stays open and stands for `successor` (no note, no comment).
+   */
+  | { kind: 'CARRY'; row: FindingThreadRow; successor: string }
   /** State-only change (GitHub already says so, or the verifier decided). */
   | {
       kind: 'SET_STATE'
@@ -186,6 +208,14 @@ export interface ThreadPlanInput {
   remote: Map<string, ReviewThreadState> | null
   /** LUM-1147 — the review profile's inline rule; absent = chill. */
   isInline?: ((f: ReviewFindingRow) => boolean) | undefined
+  /**
+   * LUM-1127 follow-up — line / title / evidence by fingerprint, for the
+   * threads' findings this scan no longer reports and this scan's AI-layer
+   * findings (`loadIdentities`). `null` = the lookup failed: no AI-layer
+   * thread is addressed on this sync (the next one retries). Absent = no
+   * same-issue matching (absence alone decides).
+   */
+  identities?: Map<string, FindingIdentity> | null | undefined
 }
 
 export interface ThreadPlan {
@@ -206,6 +236,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
   )
   const openByFp = new Map(input.open.map(f => [f.fingerprint, f]))
   const isInline = input.isInline ?? inlineEligible
+  const successors = successorsOf(input, present, rejected)
   const actions: ThreadAction[] = []
   const nodeIds: ThreadPlan['nodeIds'] = []
 
@@ -301,6 +332,23 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
         row.addressedInSha !== input.headSha &&
         layerCoveredFile(input.scan, row)
       ) {
+        // The same issue may still be reported under a new fingerprint:
+        // unknown (lookup failed) → wait for the next sync; found → carry.
+        if (row.provenance === 'LLM_JUDGE' && input.identities === null)
+          continue
+        const successor = successors.get(fp)
+        if (successor) {
+          const next = openByFp.get(successor)
+          if (next && remote?.isOutdated && isInline(next))
+            actions.push({
+              kind: 'REPOST',
+              row,
+              threadId,
+              fingerprint: successor,
+            })
+          else actions.push({ kind: 'CARRY', row, successor })
+          continue
+        }
         actions.push({ kind: 'ADDRESS', row, threadId })
       } else if (openNow && remote?.isOutdated && isInline(openNow)) {
         actions.push({ kind: 'REPOST', row, threadId })
@@ -318,6 +366,49 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
     }
   }
   return { actions, nodeIds }
+}
+
+/**
+ * Rows whose fingerprint this scan no longer reports → the current finding
+ * that reports the same issue under a new fingerprint (`matchSuccessors`).
+ * Only AI-layer (LLM_JUDGE) fingerprints drift; a current finding that owns
+ * a thread of its own, or that the verifier rejected, continues nothing.
+ */
+function successorsOf(
+  input: ThreadPlanInput,
+  present: ReadonlySet<string>,
+  rejected: ReadonlySet<string>
+): Map<string, string> {
+  const ids = input.identities
+  if (!ids) return new Map()
+  const owned = new Set(input.rows.map(r => r.fingerprint))
+  const previous: FindingIdentity[] = []
+  for (const r of input.rows) {
+    if (r.provenance !== 'LLM_JUDGE' || present.has(r.fingerprint)) continue
+    // Rows that can be OPEN on this sync (GitHub may have unresolved one).
+    const remote = input.remote?.get(r.commentId)
+    if (r.state !== 'OPEN' && !(remote && !remote.isResolved)) continue
+    const id = ids.get(r.fingerprint)
+    if (id) previous.push(id)
+  }
+  if (previous.length === 0) return new Map()
+  const current: FindingIdentity[] = input.findings
+    .filter(
+      f =>
+        f.provenance === 'LLM_JUDGE' &&
+        !owned.has(f.fingerprint) &&
+        !rejected.has(f.fingerprint)
+    )
+    .map(f => ({
+      fingerprint: f.fingerprint,
+      ruleId: f.ruleId,
+      provenance: f.provenance,
+      filePath: f.filePath,
+      line: f.line,
+      title: f.title,
+      evidence: ids.get(f.fingerprint)?.evidence ?? null,
+    }))
+  return matchSuccessors(previous, current)
 }
 
 /** The fingerprint of a Lumo-authored thread-opening comment, else null. */
@@ -371,6 +462,11 @@ export interface ThreadReconcileResult {
   resolvedByUser: Set<string>
   /** Fingerprints whose existing comment must not stop a fresh post (moved / outdated regression). */
   repost: Map<string, { row: FindingThreadRow; oldThreadId: string | null }>
+  /**
+   * LUM-1127 follow-up — new fingerprint → the thread row it continues: the
+   * finding already has its thread (that row's), so it gets no comment.
+   */
+  carried: Map<string, string>
   /** Thread states after this sync, for the summary. */
   counts: ThreadCounts
 }
@@ -378,6 +474,7 @@ export interface ThreadReconcileResult {
 export const NO_THREADS: ThreadReconcileResult = {
   resolvedByUser: new Set(),
   repost: new Map(),
+  carried: new Map(),
   counts: { open: 0, addressed: 0, resolved: 0 },
 }
 
@@ -459,6 +556,47 @@ async function adoptUnknownComments(
   return adopted
 }
 
+/**
+ * LUM-1127 follow-up — the identities `planThreadActions` matches with: the
+ * AI-layer threads' findings this scan no longer reports, plus this scan's
+ * AI-layer findings in the same files (for their quoted evidence). Nothing
+ * to match → an empty map; a failed read → null (no AI-layer thread is
+ * addressed on this sync — a still-reported issue is never resolved on a
+ * guess).
+ */
+async function loadIdentities(
+  ctx: ThreadSyncContext,
+  rows: FindingThreadRow[]
+): Promise<Map<string, FindingIdentity> | null> {
+  const present = new Set(ctx.findings.map(f => f.fingerprint))
+  const gone = rows.filter(
+    r =>
+      r.provenance === 'LLM_JUDGE' &&
+      r.state !== 'DISMISSED' &&
+      !present.has(r.fingerprint)
+  )
+  if (gone.length === 0) return new Map()
+  const files = new Set(gone.map(r => r.filePath))
+  const fingerprints = [
+    ...gone.map(r => r.fingerprint),
+    ...ctx.findings
+      .filter(f => f.provenance === 'LLM_JUDGE' && files.has(f.filePath))
+      .map(f => f.fingerprint),
+  ]
+  try {
+    const found = await prFindingThreadRepository.findIdentitiesByFingerprints(
+      ctx.pullRequestId,
+      [...new Set(fingerprints)]
+    )
+    return new Map(found.map(f => [f.fingerprint, f]))
+  } catch (error) {
+    logger.warn(
+      `[pr-finding-thread] identity read failed pr=#${ctx.prNumber}: ${describe(error)}`
+    )
+    return null
+  }
+}
+
 async function readRemote(
   ctx: ThreadSyncContext
 ): Promise<Map<string, ReviewThreadState> | null> {
@@ -518,6 +656,12 @@ async function execute(
     return action.state
   }
   if (action.kind === 'REPOST') return row.state
+  if (action.kind === 'CARRY') {
+    logger.info(
+      `[pr-finding-thread] carried fp=${row.fingerprint} → ${action.successor} (same issue, new fingerprint)`
+    )
+    return row.state
+  }
   if (!action.threadId) {
     logger.info(
       `[pr-finding-thread] no thread id yet fp=${row.fingerprint} — retried next sync`
@@ -607,6 +751,7 @@ export const prFindingThreadService = {
       headSha: ctx.headSha,
       remote,
       isInline: ctx.isInline,
+      identities: await loadIdentities(ctx, rows),
     })
     const finalState = new Map(rows.map(r => [r.fingerprint, r.state]))
     for (const { row, threadNodeId } of plan.nodeIds) {
@@ -619,9 +764,12 @@ export const prFindingThreadService = {
       }
     }
     const repost: ThreadReconcileResult['repost'] = new Map()
+    const carried: ThreadReconcileResult['carried'] = new Map()
     for (const action of plan.actions) {
+      if (action.kind === 'CARRY')
+        carried.set(action.successor, action.row.fingerprint)
       if (action.kind === 'REPOST') {
-        repost.set(action.row.fingerprint, {
+        repost.set(action.fingerprint ?? action.row.fingerprint, {
           row: action.row,
           oldThreadId: action.threadId,
         })
@@ -648,6 +796,7 @@ export const prFindingThreadService = {
     return {
       resolvedByUser,
       repost,
+      carried,
       counts: countStates([...finalState.values()]),
     }
   },
