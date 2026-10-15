@@ -223,6 +223,25 @@ export function groupSameIssue<F extends GroupableFinding>(
 }
 
 /**
+ * LUM-1200 follow-up #5 — the findings `groupSameIssue` groups: every one
+ * the write-back would comment inline, and every one that already has a
+ * thread (`threaded`: its own marker, a carried / alias fingerprint, a
+ * thread a human resolved), whatever its severity. Production (probe PR 69
+ * r6, `src/server.ts:31`): a re-review relabelled the finding that owns an
+ * open thread to LOW — not inline-eligible, so it left the grouping set —
+ * and the hunt's MEDIUM report of the same issue on the same line, with no
+ * partner left, was posted as a second thread. Grouping it keeps the issue
+ * on its thread; posting stays limited to inline-eligible findings.
+ */
+export function groupingCandidates<F extends GroupableFinding>(
+  findings: readonly F[],
+  isInline: (f: F) => boolean,
+  threaded: ReadonlySet<string>
+): F[] {
+  return findings.filter(f => isInline(f) || threaded.has(f.fingerprint))
+}
+
+/**
  * LUM-1200 follow-up #2 — is the issue an open thread stands for still
  * reported, although its own fingerprint is gone? Production (probe PR 64
  * @4cb6b57): a full re-review on the same head reworded the hunt's

@@ -7,6 +7,7 @@ import {
   classMatch,
   crossLayerNearMisses,
   groupSameIssue,
+  groupingCandidates,
   stillReportedElsewhere,
   issueClasses,
   type GroupableFinding,
@@ -604,5 +605,50 @@ describe('crossLayerNearMisses (LUM-1200 follow-up #3)', () => {
     const h = { ...huntTotal, ...over }
     const g = groupSameIssue([judgeParse, h], none)
     expect(crossLayerNearMisses([judgeParse, h], g.mergedInto)).toEqual([])
+  })
+})
+
+describe('LUM-1200 follow-up #5 groupingCandidates', () => {
+  const base = {
+    provenance: 'LLM_JUDGE' as const,
+    filePath: 'src/server.ts',
+    line: 31,
+    title: 't',
+  }
+  const low = {
+    ...base,
+    fingerprint: 'low',
+    ruleId: 'review:logic_error',
+    severity: 'LOW' as const,
+  }
+  const lowThreaded = { ...low, fingerprint: 'low-threaded' }
+  const med = {
+    ...base,
+    fingerprint: 'med',
+    ruleId: 'hunt:logic',
+    severity: 'MEDIUM' as const,
+  }
+  const isInline = (f: { severity: string }) => f.severity !== 'LOW'
+
+  it('keeps inline-eligible findings and any finding that has a thread, whatever its severity', () => {
+    expect(
+      groupingCandidates(
+        [low, lowThreaded, med],
+        isInline,
+        new Set(['low-threaded'])
+      ).map(f => f.fingerprint)
+    ).toEqual(['low-threaded', 'med'])
+  })
+
+  it('a LOW thread owner and the same-line hunt report form one group, the owner keeping the thread', () => {
+    const groups = groupSameIssue(
+      groupingCandidates(
+        [lowThreaded, med],
+        isInline,
+        new Set(['low-threaded'])
+      ),
+      { posted: new Set(['low-threaded']), isBlocking: () => false }
+    )
+    expect(groups.mergedInto.get('med')).toBe('low-threaded')
   })
 })

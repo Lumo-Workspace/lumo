@@ -175,17 +175,238 @@ export function maskQuotedCredentials(text: string): string {
 export function maskQuotedKeyedValues(text: string, source?: string): string {
   return maskQuotedSpans(
     text,
-    (content, before) =>
-      (REDACTION_TOKEN_TEST_RE.test(content) &&
-        !isEchoedMarkerSpan(content, source)) ||
-      content.split(/\s+/).some(isCredentialShapedToken) ||
-      (CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) &&
-        !isPlaceholderValue(content)) ||
-      assignsCredentialValue(content),
+    (content, before) => {
+      if (
+        (REDACTION_TOKEN_TEST_RE.test(content) &&
+          !isEchoedMarkerSpan(content, source)) ||
+        content.split(/\s+/).some(isCredentialShapedToken)
+      )
+        return true
+      // LUM-1200 follow-up #5 — a code expression (`Math.random()…`,
+      // `process.env.X`) after or assigned to a credential key is no
+      // credential literal: kept, its own string literals judged instead.
+      const assigned = credentialAssignment(content, true)
+      if (assigned === 'value') return true
+      const keyBefore =
+        CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) &&
+        !isPlaceholderValue(content)
+      if (keyBefore && !isCodeExpression(content)) return true
+      if (keyBefore || assigned === 'code') return maskCodeLiterals(content)
+      return false
+    },
     true,
     true,
     true
   )
+}
+
+/**
+ * LUM-1200 follow-up #5 — production TC15 (probe PR 69): the hunt model's own
+ * code in trace prose was masked — `` tokens: `Math…(len 39)` `` (the span
+ * `Math.random().toString(36).substring(2)` followed "tokens:") and
+ * `` `cons…(len 50)` `` (`const token = Math.random().toString(36).slice(2);`
+ * assigns a credential key). A value that is a code expression names how a
+ * credential is obtained, not the credential.
+ *
+ * True only when the whole text reads as ONE JavaScript-style expression —
+ * identifiers, numbers, string literals, member access, calls, indexing,
+ * operators, `new` / `await` — with no two operands side by side (prose:
+ * `correct horse battery`), balanced brackets, and a code mark no literal
+ * has: a call or index (`f(…)`, `a[…]`), `new` / `await`, a logical,
+ * comparison or ternary operator, or a member chain off a runtime root
+ * (`process.env.X`, `req.query.token`, `crypto.…`). Fail closed — not code:
+ * a dotted or dashed word run with no such mark (`correct.horse.battery`,
+ * `correct-horse-battery`), an identifier that is credential-shaped, random
+ * or mixes letters and digits in a run of 6+ (`hunter2x`), a number of 8+
+ * digits, any character outside the grammar. String literals inside are
+ * allowed here and masked by `maskCodeLiterals`. Residual, honestly named: a
+ * secret that is itself a well-formed call of plain words (`hunter(two)`)
+ * after a credential key reads as code.
+ */
+export function isCodeExpression(raw: string): boolean {
+  const text = raw.trim().replace(/;$/, '').trim()
+  if (text.length === 0) return false
+  const tokens = tokenizeCode(text)
+  if (!tokens) return false
+  let hasMark = false
+  const depth: string[] = []
+  let ternary = 0
+  let prev: CodeToken | null = null
+  for (let i = 0; i < tokens.length; i += 1) {
+    const t = tokens[i]!
+    const prevIsOperand =
+      prev !== null &&
+      (prev.kind === 'id' ||
+        prev.kind === 'num' ||
+        prev.kind === 'str' ||
+        prev.text === ')' ||
+        prev.text === ']')
+    if (t.kind === 'id' || t.kind === 'num' || t.kind === 'str') {
+      if (prevIsOperand) return false
+      if (t.kind === 'id') {
+        if (CODE_PREFIX_KEYWORDS.has(t.text)) {
+          hasMark = true
+          prev = { kind: 'op', text: t.text }
+          continue
+        }
+        if (!isCodeIdentifier(t.text)) return false
+        if (
+          i === 0 &&
+          tokens[1]?.text === '.' &&
+          CODE_RUNTIME_ROOTS.has(t.text)
+        )
+          hasMark = true
+      }
+      if (t.kind === 'num' && t.text.replace(/\D/g, '').length >= 8)
+        return false
+      prev = t
+      continue
+    }
+    switch (t.text) {
+      case '.':
+      case '?.': {
+        const next = tokens[i + 1]
+        if (!next || next.kind !== 'id' || (t.text === '.' && !prevIsOperand))
+          return false
+        break
+      }
+      case '(':
+      case '[':
+        if (prevIsOperand) hasMark = true
+        else if (t.text === '[') return false
+        depth.push(t.text)
+        break
+      case ')':
+      case ']':
+        if (depth.pop() !== (t.text === ')' ? '(' : '[')) return false
+        break
+      case ',':
+        if (depth.length === 0 || !prevIsOperand) return false
+        break
+      case '?':
+        ternary += 1
+        hasMark = true
+        if (!prevIsOperand) return false
+        break
+      case ':':
+        if (ternary === 0 || !prevIsOperand) return false
+        ternary -= 1
+        break
+      case '!':
+      case '~':
+        if (prevIsOperand) return false
+        break
+      default:
+        if (CODE_MARK_OPERATORS.has(t.text)) hasMark = true
+        // A binary operator needs an operand before it; `+` / `-` may also
+        // be unary.
+        if (!prevIsOperand && t.text !== '-' && t.text !== '+') return false
+    }
+    prev = t
+  }
+  if (depth.length > 0 || ternary !== 0) return false
+  const last = tokens[tokens.length - 1]!
+  const endsOperand =
+    last.kind === 'id' ||
+    last.kind === 'num' ||
+    last.kind === 'str' ||
+    last.text === ')' ||
+    last.text === ']'
+  return endsOperand && hasMark
+}
+
+interface CodeToken {
+  kind: 'id' | 'num' | 'str' | 'op'
+  text: string
+}
+
+const CODE_TOKEN_RE =
+  /\s+|([A-Za-z_$][\w$]*)|(\d+(?:\.\d+)?)|('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")|(\?\.|===|!==|==|!=|<=|>=|&&|\|\||\?\?|[-+*/%<>!?:~,.()[\]])/y
+
+/** `text` as code tokens; null when any character is outside the grammar. */
+function tokenizeCode(text: string): CodeToken[] | null {
+  const tokens: CodeToken[] = []
+  CODE_TOKEN_RE.lastIndex = 0
+  while (CODE_TOKEN_RE.lastIndex < text.length) {
+    const m = CODE_TOKEN_RE.exec(text)
+    if (!m) return null
+    if (m[1] !== undefined) tokens.push({ kind: 'id', text: m[1] })
+    else if (m[2] !== undefined) tokens.push({ kind: 'num', text: m[2] })
+    else if (m[3] !== undefined) tokens.push({ kind: 'str', text: m[3] })
+    else if (m[4] !== undefined) tokens.push({ kind: 'op', text: m[4] })
+  }
+  return tokens.length > 0 ? tokens : null
+}
+
+/** Keywords that start an operand: `new X()`, `await f()`. */
+const CODE_PREFIX_KEYWORDS = new Set(['new', 'await', 'typeof'])
+
+/** Operators a literal never holds: logical and comparison. */
+const CODE_MARK_OPERATORS = new Set([
+  '&&',
+  '||',
+  '??',
+  '===',
+  '!==',
+  '==',
+  '!=',
+  '<=',
+  '>=',
+  '<',
+  '>',
+])
+
+/** Objects a bare member chain reads from at runtime (`process.env.X`). */
+const CODE_RUNTIME_ROOTS = new Set([
+  'process',
+  'req',
+  'request',
+  'res',
+  'response',
+  'ctx',
+  'context',
+  'this',
+  'crypto',
+  'Math',
+  'Date',
+  'JSON',
+  'Buffer',
+  'Number',
+  'String',
+  'Object',
+  'Array',
+  'window',
+  'document',
+  'globalThis',
+  'self',
+  'os',
+  'env',
+  'event',
+  'props',
+  'params',
+  'headers',
+])
+
+/** An identifier, not a value: no credential shape, randomness or 6+ letters-and-digits run. */
+function isCodeIdentifier(id: string): boolean {
+  if (isCredentialShapedToken(id) || isRandomLettersToken(id)) return false
+  return !id
+    .split(/[^A-Za-z0-9]+/)
+    .some(
+      run =>
+        run.length >= MIN_MIXED_RUN && /[A-Za-z]/.test(run) && /\d/.test(run)
+    )
+}
+
+/**
+ * The string literals inside a code expression, each of `MIN_QUOTED_LEN`+
+ * chars masked (fail closed — a key's value may be built from one:
+ * `Buffer.from('…')`, `getToken() || '…'`); an unpaired quote masks the rest.
+ * False when nothing changed (the span is kept as it is).
+ */
+function maskCodeLiterals(content: string): string | false {
+  const masked = maskQuotedSpans(content, MASK_EVERY_SPAN, false)
+  return masked === content ? false : masked
 }
 
 /**
@@ -351,15 +572,73 @@ const CREDENTIAL_KEY_ASSIGNED_ALL_RE = new RegExp(
  * key pass sees, the span counts as assigning one.
  */
 function assignsCredentialValue(content: string): boolean {
+  return credentialAssignment(content, false) === 'value'
+}
+
+/**
+ * What the span assigns its credential keys: `none` (no key, or only
+ * placeholders), `value` (a real value — or an assignment the raw read
+ * cannot account for: fail closed), or `code` (LUM-1200 follow-up #5, only
+ * with `allowCode`: every non-placeholder value is a code expression running
+ * to the end of its statement — `token = Math.random().toString(36)` — and
+ * none starts with a string literal).
+ */
+function credentialAssignment(
+  content: string,
+  allowCode: boolean
+): 'none' | 'value' | 'code' {
   const keyed = [
     ...normalizeVocab(content).matchAll(CREDENTIAL_KEY_ASSIGNED_ALL_RE),
   ].length
-  if (keyed === 0) return false
-  const values: string[] = []
+  if (keyed === 0) return 'none'
+  const values: Array<{ value: string; start: number }> = []
   for (const m of content.matchAll(RAW_ASSIGNMENT_RE))
-    if (CREDENTIAL_KEY_END_RE.test(normalizeVocab(m[1]!))) values.push(m[2]!)
-  if (values.length !== keyed) return true
-  return values.some(v => !isPlaceholderValue(v))
+    if (CREDENTIAL_KEY_END_RE.test(normalizeVocab(m[1]!)))
+      values.push({
+        value: m[2]!,
+        start: m.index! + m[0].length - m[2]!.length,
+      })
+  if (values.length !== keyed) return 'value'
+  let code = false
+  for (const { value, start } of values) {
+    if (isPlaceholderValue(value)) continue
+    if (
+      allowCode &&
+      !/^["'`]/.test(value) &&
+      isCodeExpression(statementValue(content, start))
+    ) {
+      code = true
+      continue
+    }
+    return 'value'
+  }
+  return code ? 'code' : 'none'
+}
+
+/**
+ * The value starting at `start`, up to the end of its statement: a `;`, `,`
+ * or line break outside brackets and quotes, a closing bracket it did not
+ * open, or the end of the span.
+ */
+function statementValue(content: string, start: number): string {
+  let depth = 0
+  let quote: string | null = null
+  for (let i = start; i < content.length; i += 1) {
+    const ch = content[i]!
+    if (quote) {
+      if (ch === '\\') i += 1
+      else if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') quote = ch
+    else if (ch === '(' || ch === '[' || ch === '{') depth += 1
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      if (depth === 0) return content.slice(start, i)
+      depth -= 1
+    } else if (depth === 0 && (ch === ';' || ch === ',' || ch === '\n'))
+      return content.slice(start, i)
+  }
+  return content.slice(start)
 }
 /** A Markdown code fence (`maskQuotedKeyedValues` reads the block inside it as code). */
 const FENCE = '```'
@@ -441,7 +720,7 @@ const CREDENTIAL_KEY_STATED_RE = new RegExp(
  */
 function maskFencedCode(
   code: string,
-  shouldMask: (content: string, before: string) => boolean,
+  shouldMask: (content: string, before: string) => boolean | string,
   skipContractions: boolean
 ): string {
   return maskQuotedSpans(code, shouldMask, skipContractions, false).replace(
@@ -588,7 +867,7 @@ function isCredentialShapedToken(raw: string): boolean {
  */
 function maskQuotedSpans(
   line: string,
-  shouldMask: (content: string, before: string) => boolean,
+  shouldMask: (content: string, before: string) => boolean | string,
   skipContractions: boolean,
   fences = false,
   looseBackticks = false
@@ -645,12 +924,17 @@ function maskQuotedSpans(
       return `${out}${maskOpenTail(ch, line.slice(i + 1))}`
     }
     const content = line.slice(i + 1, close)
-    out +=
+    // A string verdict is the span's content with only part of it masked.
+    const verdict =
       content.length >= MIN_QUOTED_LEN &&
       !isRedactionOnlyContent(content) &&
       shouldMask(content, line.slice(Math.max(0, i - KEY_WINDOW), i))
-        ? `${ch}${redactSecret(content)}${ch}`
-        : line.slice(i, close + 1)
+    out +=
+      typeof verdict === 'string'
+        ? `${ch}${verdict}${ch}`
+        : verdict
+          ? `${ch}${redactSecret(content)}${ch}`
+          : line.slice(i, close + 1)
     i = close + 1
   }
   return maskShapedAfter ? maskShapedWords(out) : out
@@ -669,7 +953,7 @@ function maskQuotedSpans(
 function looseBacktick(
   line: string,
   idx: number,
-  shouldMask: (content: string, before: string) => boolean
+  shouldMask: (content: string, before: string) => boolean | string
 ): { text: string; next: number } {
   const rest = line.slice(idx + 1)
   const end = SENTENCE_END_RE.exec(rest)
