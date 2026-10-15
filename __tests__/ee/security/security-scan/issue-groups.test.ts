@@ -302,4 +302,113 @@ describe('groupSameIssue', () => {
       expect(g.mergedInto.size).toBe(0)
     })
   })
+
+  // LUM-1200 follow-up #2 — production (probe PR 64, src/probe/order.ts
+  // @4cb6b57): two hunt tasks reported the parseQuantity issue; one joined
+  // the AI review's thread, the other got a thread of its own, because a
+  // group held at most one finding per layer.
+  describe('probe PR 64 replay: several hunt reports of one issue', () => {
+    const judgeParse = f({
+      fingerprint: 'judge-parse',
+      ruleId: 'review:logic_error',
+      severity: 'MEDIUM',
+      filePath: 'src/probe/order.ts',
+      line: 13,
+      title:
+        'parseQuantity returns unvalidated JSON.parse result typed as number',
+    })
+    const huntHigh = f({
+      fingerprint: 'hunt-parse-high',
+      ruleId: 'hunt:logic',
+      severity: 'HIGH',
+      filePath: 'src/probe/order.ts',
+      line: 11,
+      title:
+        'JSON.parse in parseQuantity returns non-numeric values (null, Infinity, NaN, objects) that bypass numeric validation and propagate through orderTotal arithmetic, producing invalid discount calculation',
+    })
+    const huntMedium = f({
+      fingerprint: 'hunt-parse-medium',
+      ruleId: 'hunt:logic',
+      severity: 'MEDIUM',
+      filePath: 'src/probe/order.ts',
+      line: 11,
+      title:
+        'JSON.parse succeeds on non-numeric JSON values without throwing, allowing them to be returned and bypass the numeric validation that the catch block would catch for actual parse errors',
+    })
+
+    it('r1: both hunt reports (2 lines away) share the one thread', () => {
+      for (const posted of [new Set<string>(), new Set(['judge-parse'])]) {
+        const g = groupSameIssue([judgeParse, huntHigh, huntMedium], {
+          ...none,
+          posted,
+        })
+        const kept = posted.size > 0 ? 'judge-parse' : 'hunt-parse-high'
+        const merged = ['judge-parse', 'hunt-parse-high', 'hunt-parse-medium']
+          .filter(x => x !== kept)
+          .sort()
+        expect([...g.mergedInto.keys()].sort()).toEqual(merged)
+        for (const m of merged) expect(g.mergedInto.get(m)).toBe(kept)
+        expect(
+          (g.mergedOf.get(kept) ?? []).map(x => x.fingerprint).sort()
+        ).toEqual(merged)
+      }
+    })
+
+    it('r3: two hunt reports on the AI review line share its thread', () => {
+      const a = f({
+        ...huntHigh,
+        fingerprint: 'hunt-r3-a',
+        line: 13,
+        title:
+          'Crafted JSON values like null, floats, or objects through parseQuantity produce NaN or zero quantities, bypassing zod schema and enabling zero/free line items or negative totals',
+      })
+      const b = f({
+        ...huntHigh,
+        fingerprint: 'hunt-r3-b',
+        line: 13,
+        title:
+          'parseQuantity returns JSON.parse output without runtime type validation, allowing any JSON value (null, float, object, string) to bypass number type checking and reach price calculations',
+      })
+      const g = groupSameIssue([judgeParse, a, b], {
+        ...none,
+        posted: new Set(['judge-parse']),
+      })
+      expect(g.mergedInto.get('hunt-r3-a')).toBe('judge-parse')
+      expect(g.mergedInto.get('hunt-r3-b')).toBe('judge-parse')
+    })
+
+    it('a chain of nearby hunt reports does not walk the group across issues', () => {
+      // C resembles B (L11) but not the kept AI review finding (L13), and
+      // sits on another line than B: not joined through B.
+      const c = f({
+        ...huntHigh,
+        fingerprint: 'hunt-chain',
+        severity: 'MEDIUM',
+        line: 9,
+        title:
+          'JSON.parse in quantity parsing returns non-numeric values that bypass validation in the cart reducer',
+      })
+      const g = groupSameIssue([judgeParse, huntHigh, c], {
+        ...none,
+        posted: new Set(['judge-parse']),
+      })
+      expect(g.mergedInto.get('hunt-parse-high')).toBe('judge-parse')
+      expect(g.mergedInto.has('hunt-chain')).toBe(false)
+    })
+
+    it('a hunt report of another issue nearby still gets its own thread', () => {
+      const other = f({
+        ...huntHigh,
+        fingerprint: 'hunt-proto',
+        line: 7,
+        title:
+          'Prototype property lookup in DISCOUNTS object allows attacker to bypass discount allowlist',
+      })
+      const g = groupSameIssue([judgeParse, huntHigh, huntMedium, other], {
+        ...none,
+        posted: new Set(['judge-parse']),
+      })
+      expect(g.mergedInto.has('hunt-proto')).toBe(false)
+    })
+  })
 })

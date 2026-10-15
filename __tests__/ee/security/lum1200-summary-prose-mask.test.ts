@@ -12,6 +12,7 @@ import {
   parsePrSummary,
 } from '@/ee/security/security-scan/pr-summary'
 import { maskQuotedKeyedValues } from '@/lib/security-scan/redact'
+import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 
 describe('LUM-1200 PR summary keeps quoted prose intact', () => {
   it('renders an ordinary quoted phrase unchanged (production: do not merge)', () => {
@@ -107,5 +108,87 @@ describe('maskQuotedKeyedValues', () => {
     expect(maskQuotedKeyedValues("note: 'unterminated tail here")).toBe(
       "note: 'unte…(len 22)"
     )
+  })
+})
+
+// LUM-1200 follow-up #2 — production (probe PR 63): the linked requirement
+// `GET /session/check?token=...` rendered as `GET …(len 28)` in the PR
+// summary: `token=` read as a credential assignment although its value is a
+// placeholder.
+describe('a placeholder credential value renders; a real one is masked', () => {
+  it.each([
+    '`GET /session/check?token=...`',
+    '`GET /session/check?token=…`',
+    '`GET /session/check?token=<token>`',
+    '`curl -H "x" /check?token={token}`',
+    '`export API_KEY=${API_KEY}`',
+    '`password = "<your password>"`',
+    "the token is '<your token here>'",
+  ])('keeps %s', input => {
+    expect(redactSummaryText(input)).toBe(input)
+    expect(maskQuotedKeyedValues(input)).toBe(input)
+  })
+
+  it.each([
+    ['`GET /session/check?token=correcthorse`', '`GET …(len 37)`'],
+    ['`GET /check?token=...&secret=letmeinplease`', '`GET …(len 41)`'],
+    ["`const pw = 'correcthorse'`", '`cons…(len 25)`'],
+    ['the token is "letmeinplease"', 'the token is "letm…(len 13)"'],
+    // A bracket or `$` does not make a value a placeholder unless it names one.
+    [
+      'the password is "$correct horse battery"',
+      'the password is "$cor…(len 22)"',
+    ],
+    ['`token = "<a> realsecret"`', '`toke…(len 24)`'],
+    ['`GET /check?token=<correcthorse>`', '`GET …(len 31)`'],
+    ['`export TOKEN=$hunter`', '`expo…(len 20)`'],
+  ])('masks %s', (input, expected) => {
+    expect(redactSummaryText(input)).toBe(expected)
+  })
+})
+
+// LUM-1200 follow-up #2 review — the placeholder exemption is read on the
+// RAW value and only in its exact shapes; a real-looking value in a
+// placeholder-like shape stays masked (fail closed).
+describe('adversarial values in placeholder-like shapes stay masked', () => {
+  it.each([
+    // Split by `-` / `_` / camelCase: never read as the filler `xxx`.
+    '`GET /check?token=xxx-realsecretvalue`',
+    '`token=xxx_realsecretvalue`',
+    '`token=xxxRealSecretValue`',
+    '`token=...realsecretvalue`',
+    '`token=***realsecretvalue`',
+    // Bracketed passphrases that merely contain a credential / filler word.
+    '`password = "<correct horse battery token>"`',
+    '`password = "<your password is hunter>"`',
+    '`token={correct-horse-token}`',
+    '`token=<my token value here please>`',
+    '`apiKey: ${API_KEY2}`',
+    '`token=$correcthorse`',
+    // Text glued after a closing bracket / quote is part of the value.
+    '`GET /check?token=<token>realsecretvalue`',
+    '`token={token}realsecretvalue`',
+    '`token="<token>"realsecretvalue`',
+    // One real value beside a placeholder.
+    '`GET /check?token=<token>&secret=letmeinplease`',
+  ])('masks %s', input => {
+    const out = redactSummaryText(input)
+    expect(out).not.toBe(input)
+    expect(out).toMatch(/…\(len \d+\)/)
+  })
+
+  it('masks a bracketed passphrase after a credential key in prose', () => {
+    expect(
+      redactSummaryText('the password is "<my correct horse token>"')
+    ).toBe('the password is "<my …(len 24)"')
+  })
+
+  it.each([
+    '`GET /check?token=<your token here>`',
+    '`export TOKEN=$SESSION_KEY`',
+    '`curl /check?token={{token}}`',
+    '`token=xxxx`',
+  ])('keeps the exact placeholder shape %s', input => {
+    expect(redactSummaryText(input)).toBe(input)
   })
 })

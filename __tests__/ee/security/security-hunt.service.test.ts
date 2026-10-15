@@ -799,6 +799,50 @@ describe('LUM-739 hunt service', () => {
     expect(out.shell.calls).toBe(HUNT_SHELL_LOG_MAX + 6)
   })
 
+  // LUM-1200 follow-up #2 — production (probe PR 63): plain prose in the
+  // trace read `I'll a…(len 156)` and quoted shell arguments were masked in
+  // the scan JSON. The narration gets the prose pass, commands the
+  // finding-prose pass; secrets are still masked in both.
+  it('huntBatch keeps prose and ordinary quoted arguments readable in the trace and commands', async () => {
+    shellMock.mockResolvedValue({ output: '', compressTokens: 0 })
+    const narration =
+      "I'll read src/probe/order.ts to see how 'parseQuantity' is used by orderTotal."
+    huntMock.mockImplementation(
+      async (input: {
+        runShell: (c: string) => Promise<unknown>
+        onStep: (s: HuntStepTrace) => void
+      }) => {
+        input.onStep({ i: 1, tool: 'run_shell', text: narration })
+        input.onStep({
+          i: 2,
+          tool: 'run_shell',
+          text: `The store sets password = "hunter2hunter2" and ${FAKE_AWS_KEY}.`,
+        })
+        await input.runShell("rg -n 'parseQuantity' src/probe")
+        await input.runShell(`rg -n 'Zx9Qw3Lp7Vb2Nm5Rt8Ky' src`)
+        await input.runShell(`rg -n 'correcthorsebattery' src # the token`)
+        return {
+          candidates: [],
+          tokens: 10,
+          stopped: 'budget',
+          wrapUp: { ran: true, submitted: 0, text: narration, tokens: 1 },
+        }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.trace[0]!.text).toBe(narration)
+    expect(out.wrapUp!.text).toBe(narration)
+    expect(out.trace[1]!.text).not.toContain('hunter2hunter2')
+    expect(out.trace[1]!.text).not.toContain(FAKE_AWS_KEY)
+    expect(out.shell.commands.map(c => c.cmd)).toEqual([
+      "rg -n 'parseQuantity' src/probe",
+      "rg -n 'Zx9Q…(len 20)' src",
+      "rg -n 'corr…(len 19)' src # the token",
+    ])
+  })
+
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
     // Three commands: one compressed, one under the threshold, one whose
     // compression was billed and then failed.

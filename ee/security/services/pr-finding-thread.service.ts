@@ -64,6 +64,7 @@ import type {
   ScanStages,
 } from '@/ee/security/security-scan/types'
 import { isVerifierRejected } from '@/ee/security/security-scan/verifier'
+import { stillReportedElsewhere } from '@/ee/security/security-scan/issue-groups'
 import {
   evidenceHash,
   hashIdentity,
@@ -277,6 +278,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
   const openByFp = new Map(input.open.map(f => [f.fingerprint, f]))
   const isInline = input.isInline ?? inlineEligible
   const successors = successorsOf(input, present, rejected)
+  const stillReported = stillReportedOf(input, present, rejected)
   const candidateFiles = successorCandidateFiles(input, rejected)
   const actions: ThreadAction[] = []
   const nodeIds: ThreadPlan['nodeIds'] = []
@@ -423,6 +425,9 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
           else actions.push({ kind: 'CARRY', row, successor })
           continue
         }
+        // LUM-1200 follow-up #2: its issue is still reported (another
+        // finding of its group, or the hunt's rewording) — left open.
+        if (stillReported.has(fp)) continue
         actions.push({ kind: 'ADDRESS', row, threadId })
       } else if (openNow && remote?.isOutdated && isInline(openNow)) {
         actions.push({
@@ -662,6 +667,65 @@ export function planDuplicateMerges(input: ThreadPlanInput): DuplicateMerge[] {
         : { keep: best.row, drop: gone }
     )
   }
+  return out
+}
+
+/**
+ * LUM-1200 follow-up #2 — open AI-layer threads whose fingerprint is gone but
+ * whose issue an open finding of this scan still reports
+ * (`stillReportedElsewhere`): never addressed. Unlike `successorsOf`, a
+ * finding that owns a thread or continues another one counts — the question
+ * is only whether the issue is still reported. Composes with the LUM-1127
+ * duplicate merge, which runs first in `reconcile`: once the other thread
+ * owns that finding (its own fingerprint or an alias), the two threads are
+ * merged (the newer closed with a duplicate note); until then — the sync
+ * that carries the relabel — this keeps the gone thread open.
+ */
+function stillReportedOf(
+  input: ThreadPlanInput,
+  present: ReadonlySet<string>,
+  rejected: ReadonlySet<string>
+): Set<string> {
+  const out = new Set<string>()
+  const ids = input.identities
+  if (!ids) return out
+  const key = input.identityKey ?? null
+  const comparable = (f: FindingIdentity): FindingIdentity =>
+    key ? hashIdentity(f, key) : f
+  const gone: FindingIdentity[] = []
+  for (const r of input.rows) {
+    // Gone under every fingerprint the thread stands for (its aliases too).
+    if (r.provenance !== 'LLM_JUDGE' || isReported(r, present)) continue
+    const remote = input.remote?.get(r.commentId) ?? null
+    if (effectiveState(r, remote) !== 'OPEN') continue
+    const id = ids.get(r.fingerprint)
+    if (id) gone.push(comparable(id))
+  }
+  if (gone.length === 0) return out
+  const files = new Set(gone.map(g => g.filePath))
+  // Open findings only: one a human dispositioned (or the verifier
+  // rejected, or the baseline already had) keeps no other thread open.
+  const current = input.open
+    .filter(
+      f =>
+        f.provenance === 'LLM_JUDGE' &&
+        files.has(f.filePath) &&
+        !rejected.has(f.fingerprint)
+    )
+    .map(f =>
+      comparable({
+        fingerprint: f.fingerprint,
+        ruleId: f.ruleId,
+        provenance: f.provenance,
+        filePath: f.filePath,
+        line: f.line,
+        title: f.title,
+        severity: f.severity,
+        evidence: ids.get(f.fingerprint)?.evidence ?? null,
+      })
+    )
+  for (const g of gone)
+    if (stillReportedElsewhere(g, current)) out.add(g.fingerprint)
   return out
 }
 
