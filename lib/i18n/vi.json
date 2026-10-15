@@ -2935,6 +2935,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "Mỗi lần push vào pull request đang mở đều được AI tự động đánh giá phần thay đổi. Sau từng này commit đã được đánh giá trên một pull request, đánh giá tự động tạm dừng cho đến khi có người yêu cầu đánh giá hoặc tiếp tục lại. 0 = không bao giờ tạm dừng. Mặc định 5.",
   "securityScan.stageState.RATE_LIMITED": "bị giới hạn tần suất — đánh giá tự động tiếp tục trong vòng một giờ",
   "securityScan.stageReason.RATE_LIMITED": "Tác giả PR đã chạm giới hạn số lần AI tự động đánh giá mỗi giờ, nên commit này chưa được đánh giá đầy đủ. Lần push tiếp theo sau khi giới hạn được đặt lại sẽ được đánh giá tự động; hãy yêu cầu đánh giá để kiểm tra commit này ngay.",
+  "securityScan.stageState.IGNORED": "đã bỏ qua — mô tả PR yêu cầu Lumo bỏ qua PR này",
+  "securityScan.stageReason.IGNORED": "Mô tả PR có chỉ thị bỏ qua, nên các kiểm tra AI tự động đã được bỏ qua ở commit này. Các kiểm tra bí mật, trình quét và phụ thuộc không bị ảnh hưởng. Xóa chỉ thị khỏi mô tả để lần push tiếp theo được đánh giá, hoặc yêu cầu đánh giá ngay.",
   "securityScan.review.roundsNoLimit": "Đánh giá AI tự động: đã đánh giá {rounds} commit · không bao giờ tạm dừng",
   "language.switcher.label": "Ngôn ngữ"
 }

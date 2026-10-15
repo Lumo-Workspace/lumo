@@ -13,8 +13,7 @@ import {
   formatPrTooLarge,
   formatTurnedOffNote,
   isOwnedUnfinished,
-  isReviewRateLimited,
-  RATE_LIMITED_STAGE_LABEL,
+  heldStageLabel,
   scanStageLabel,
   scanStageStateLabel,
   turnedOffLayers,
@@ -133,11 +132,11 @@ export function scanLayerRows(s: ScanLayerLineInput): ScanLayerRow[] {
   for (const key of SCAN_STAGE_KEYS) {
     const state = s.stages[key]
     if (!state) continue
-    // LUM-1137: a paused layer of a rate-limited scan says so.
+    // LUM-1137 / LUM-1152: a paused layer of a rate-limited or ignored
+    // scan says so.
     const head =
-      state === 'PAUSED' && isReviewRateLimited(s.partialCauses)
-        ? RATE_LIMITED_STAGE_LABEL
-        : scanStageStateLabel(state)
+      (state === 'PAUSED' ? heldStageLabel(s.partialCauses) : null) ??
+      scanStageStateLabel(state)
     let value = head
     if (key === 'external' && s.externalFindings > 0) {
       const noun = s.externalFindings === 1 ? 'finding' : 'findings'

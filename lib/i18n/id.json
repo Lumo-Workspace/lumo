@@ -2935,6 +2935,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "Setiap push ke pull request yang terbuka mendapat tinjauan AI otomatis atas perubahannya. Setelah sebanyak ini commit ditinjau pada satu pull request, tinjauan otomatis dijeda sampai seseorang meminta tinjauan atau melanjutkannya. 0 = tidak pernah dijeda. Bawaan 5.",
   "securityScan.stageState.RATE_LIMITED": "kena batas laju — tinjauan otomatis berlanjut dalam satu jam",
   "securityScan.stageReason.RATE_LIMITED": "Penulis PR mencapai batas per jam tinjauan AI otomatis, jadi commit ini belum ditinjau sepenuhnya. Push berikutnya setelah batas direset ditinjau otomatis; minta tinjauan untuk memeriksa commit ini sekarang.",
+  "securityScan.stageState.IGNORED": "dilewati — deskripsi PR meminta Lumo mengabaikan PR ini",
+  "securityScan.stageReason.IGNORED": "Deskripsi PR berisi direktif abaikan, jadi pemeriksaan AI otomatis dilewati pada commit ini. Pemeriksaan rahasia, pemindai, dan dependensi tidak terpengaruh. Hapus direktif dari deskripsi agar push berikutnya ditinjau, atau minta tinjauan sekarang.",
   "securityScan.review.roundsNoLimit": "Tinjauan AI otomatis: {rounds} commit ditinjau · tidak pernah dijeda",
   "language.switcher.label": "Bahasa"
 }
