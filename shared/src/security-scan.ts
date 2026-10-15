@@ -239,6 +239,12 @@ export const PARTIAL_CAUSES = [
    * reviewed; a manual review is not limited.
    */
   'AI_REVIEW_RATE_LIMITED',
+  /**
+   * LUM-1152 — the PR description carries `@<app> ignore`, so the automatic
+   * AI review and hunt were skipped (the deterministic layers ran). Removing
+   * it reviews the next push; a manual review is not affected.
+   */
+  'AI_REVIEW_IGNORED',
   /** A planned hunt task never terminated: sandbox, gateway, timeout, step failure. */
   'HUNT_INCOMPLETE',
   /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
@@ -308,6 +314,7 @@ export type PartialCauseClass =
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   AI_REVIEW_PAUSED: 'USER_CONTROLLED',
   AI_REVIEW_RATE_LIMITED: 'USER_CONTROLLED',
+  AI_REVIEW_IGNORED: 'USER_CONTROLLED',
   HUNT_INCOMPLETE: 'OUR_FAULT',
   HUNT_BUDGET_SHORT: 'COVERAGE_OWED',
   HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
@@ -585,6 +592,7 @@ export function isUnfinishedOnlyBySize(s: {
 const REVIEW_HOLD_CAUSES: ReadonlySet<string> = new Set([
   'AI_REVIEW_PAUSED',
   'AI_REVIEW_RATE_LIMITED',
+  'AI_REVIEW_IGNORED',
 ])
 
 /** LUM-1137 — the paused layers of this scan were rate-limited. */
@@ -597,6 +605,30 @@ export function isReviewRateLimited(
 /** LUM-1137 — a PAUSED layer of a rate-limited scan, in words. */
 export const RATE_LIMITED_STAGE_LABEL =
   'rate-limited — automatic review resumes within the hour'
+
+/** LUM-1152 — the paused AI layers were skipped by `@<app> ignore`. */
+export function isReviewIgnored(
+  partialCauses: ReadonlyArray<string> | null | undefined
+): boolean {
+  return (partialCauses ?? []).includes('AI_REVIEW_IGNORED')
+}
+
+/** LUM-1152 — a PAUSED layer of a scan the PR description ignores, in words. */
+export const IGNORED_STAGE_LABEL =
+  'skipped — the PR description asks Lumo to ignore this PR'
+
+/**
+ * The words for a PAUSED layer whose hold has its own reason (ignored,
+ * rate-limited); null = the plain paused label. One rule for the PR
+ * summary and the CLI.
+ */
+export function heldStageLabel(
+  partialCauses: ReadonlyArray<string> | null | undefined
+): string | null {
+  if (isReviewIgnored(partialCauses)) return IGNORED_STAGE_LABEL
+  if (isReviewRateLimited(partialCauses)) return RATE_LIMITED_STAGE_LABEL
+  return null
+}
 
 /**
  * LUM-832 — should the customer get the owned "not finished on our side"

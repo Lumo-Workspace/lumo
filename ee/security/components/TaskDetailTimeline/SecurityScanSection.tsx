@@ -473,9 +473,11 @@ function StageItem({
     id: `securityScan.stageState.${
       overCap
         ? 'SKIPPED'
-        : state === 'PAUSED' && scan.reviewRateLimited
-          ? 'RATE_LIMITED'
-          : state
+        : state === 'PAUSED' && scan.reviewIgnored
+          ? 'IGNORED'
+          : state === 'PAUSED' && scan.reviewRateLimited
+            ? 'RATE_LIMITED'
+            : state
     }`,
   })
   const progress =
