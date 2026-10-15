@@ -33,6 +33,7 @@
  * verdict follows from the per-requirement outcomes.
  */
 import { sanitizeField } from '@/shared/src/sanitize'
+import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 import { neutralizeSummaryText } from './pr-summary'
 import {
   ISSUE_ASSESSMENT_CHECK_ID,
@@ -42,6 +43,7 @@ import {
   assessmentVerdict,
   formatRequirementsBlock,
   parseRequirementAssessments,
+  unansweredRequirements,
   unclearRequirements,
   type LinkedRequirement,
   type RequirementAssessment,
@@ -415,7 +417,9 @@ export const PRE_MERGE_TEXT_MAX = 300
 
 export function cleanCheckText(raw: unknown, max = PRE_MERGE_TEXT_MAX): string {
   if (typeof raw !== 'string') return ''
-  return neutralizeSummaryText(raw, max)
+  // LUM-1149: the PR-summary prose pass — a secret the model echoed from the
+  // title, description or diff is masked; a quoted path or name is kept.
+  return neutralizeSummaryText(redactSummaryText(raw), max)
 }
 
 /**
@@ -472,6 +476,61 @@ export function resultsFromAnswers(
       resolution,
     }
   })
+}
+
+/** One check as the model answered it (the shape `resultsFromAnswers` reads). */
+export type ChecksAnswer = Parameters<typeof resultsFromAnswers>[1][number]
+
+/**
+ * PURE — LUM-1149: per requirements check, the linked requirements the
+ * model gave no outcome for. The service asks about exactly these once more
+ * before any of them is reported without an outcome.
+ */
+export function unansweredRequirementsByCheck(
+  planned: readonly PlannedPreMergeCheck[],
+  answers: readonly ChecksAnswer[],
+  linked: ReadonlyMap<string, readonly LinkedRequirement[]>
+): Map<string, LinkedRequirement[]> {
+  const byId = new Map(answers.map(a => [a.id, a]))
+  const out = new Map<string, LinkedRequirement[]>()
+  for (const p of planned) {
+    const reqs = linked.get(p.id)
+    if (!p.assessesRequirements || !reqs) continue
+    const missing = unansweredRequirements(
+      reqs,
+      byId.get(p.id)?.requirements ?? []
+    )
+    if (missing.length > 0) out.set(p.id, missing)
+  }
+  return out
+}
+
+/**
+ * PURE — LUM-1149: the second ask's per-requirement answers appended to the
+ * first's, check by check (a check the first answer left out entirely is
+ * added). Check-level verdicts stay the first answer's.
+ */
+export function withRequirementAnswers(
+  answers: readonly ChecksAnswer[],
+  more: readonly ChecksAnswer[]
+): ChecksAnswer[] {
+  const extra = new Map(more.map(a => [a.id, a.requirements ?? []]))
+  const merged = answers.map(a =>
+    extra.has(a.id)
+      ? {
+          ...a,
+          requirements: [...(a.requirements ?? []), ...extra.get(a.id)!],
+        }
+      : a
+  )
+  for (const a of more)
+    if (!answers.some(x => x.id === a.id))
+      merged.push({
+        id: a.id,
+        verdict: 'inconclusive',
+        requirements: a.requirements ?? [],
+      })
+  return merged
 }
 
 /** PURE — LUM-1149: a requirements check's result from its assessments. */

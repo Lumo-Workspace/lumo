@@ -54,7 +54,10 @@ import {
   notApplicableResult,
   planPreMergeChecks,
   resultsFromAnswers,
+  unansweredRequirementsByCheck,
+  withRequirementAnswers,
   type BuiltinPreMergeCheck,
+  type ChecksAnswer,
   type PreMergeCheckGatherInput,
   type PreMergeCheckResult,
   type PreMergeChecksRecord,
@@ -271,44 +274,77 @@ export const preMergeChecksService = {
         // prefix too short for its pattern, and that prefix unmasked.
         const guardedDiff = guardInjectedText(reviewable)
         const cutDiff = cap(guardedDiff.text, PRE_MERGE_DIFF_MAX_CHARS)
-        const material = await Promise.all(
-          judged.map(async p => {
-            const reqs = linked.get(p.id)
-            const text = reqs
-              ? requirementsMaterial(reqs)
-              : p.gather
-                ? await p.gather(gatherInput).catch(() => null)
-                : null
-            if (!text) return null
-            const g = guardInjectedText(
-              cap(text, PRE_MERGE_TEXT_MAX_CHARS).text
-            )
-            return [...g.notices, g.text].join('\n')
-          })
-        )
+        const materialOf = async (
+          p: (typeof judged)[number],
+          reqs: readonly LinkedRequirement[] | undefined
+        ): Promise<string | null> => {
+          const text = reqs
+            ? requirementsMaterial(reqs)
+            : p.gather
+              ? await p.gather(gatherInput).catch(() => null)
+              : null
+          if (!text) return null
+          const g = guardInjectedText(cap(text, PRE_MERGE_TEXT_MAX_CHARS).text)
+          return [...g.notices, g.text].join('\n')
+        }
         const { runPreMergeChecksModel } =
           await import('@/ee/security/llm/pre-merge-checks-client')
-        const answer = await runPreMergeChecksModel({
-          checks: judged.map((p, i) => ({
-            id: p.id,
-            name: p.name,
-            rule: p.rule,
-            material: material[i] ?? null,
-          })),
-          title: guardInjectedText(cap(pr.title, 500).text),
-          // LUM-1151: the author's text — never Lumo's own summary section.
-          body: guardInjectedText(
-            cap(input.body, PRE_MERGE_TEXT_MAX_CHARS).text
-          ),
-          template: template
-            ? guardInjectedText(cap(template, PRE_MERGE_TEXT_MAX_CHARS).text)
-            : null,
-          diff: { text: cutDiff.text, notices: guardedDiff.notices },
-          // Cut to the budget, or an over-long line cut by the mask.
-          diffTruncated: cutDiff.cut || guardedDiff.truncatedLines > 0,
-          timeoutMs: PRE_MERGE_TIMEOUT_MS,
-        })
-        return resultsFromAnswers(judged, answer.results, linked)
+        const ask = async (
+          checks: ReadonlyArray<{
+            p: (typeof judged)[number]
+            reqs: readonly LinkedRequirement[] | undefined
+          }>
+        ) => {
+          const material = await Promise.all(
+            checks.map(c => materialOf(c.p, c.reqs))
+          )
+          return runPreMergeChecksModel({
+            checks: checks.map(({ p }, i) => ({
+              id: p.id,
+              name: p.name,
+              rule: p.rule,
+              material: material[i] ?? null,
+            })),
+            title: guardInjectedText(cap(pr.title, 500).text),
+            // LUM-1151: the author's text — never Lumo's own summary section.
+            body: guardInjectedText(
+              cap(input.body, PRE_MERGE_TEXT_MAX_CHARS).text
+            ),
+            template: template
+              ? guardInjectedText(cap(template, PRE_MERGE_TEXT_MAX_CHARS).text)
+              : null,
+            diff: { text: cutDiff.text, notices: guardedDiff.notices },
+            // Cut to the budget, or an over-long line cut by the mask.
+            diffTruncated: cutDiff.cut || guardedDiff.truncatedLines > 0,
+            timeoutMs: PRE_MERGE_TIMEOUT_MS,
+          })
+        }
+        const answer = await ask(
+          judged.map(p => ({ p, reqs: linked.get(p.id) }))
+        )
+        let answers: readonly ChecksAnswer[] = answer.results
+        // LUM-1149: a requirement the model gave no outcome for is asked
+        // about once more, on its own, before it is reported as such. A
+        // failed second ask keeps the first answer.
+        const missing = unansweredRequirementsByCheck(judged, answers, linked)
+        if (missing.size > 0) {
+          try {
+            const again = await ask(
+              judged
+                .filter(p => missing.has(p.id))
+                .map(p => ({ p, reqs: missing.get(p.id) }))
+            )
+            answers = withRequirementAnswers(answers, again.results)
+            logger.info(
+              `[pre-merge-checks] asked again ${where} ${[...missing.entries()].map(([id, rs]) => `${id}=${rs.map(r => r.id).join(',')}`).join(' ')}`
+            )
+          } catch (error) {
+            logger.info(
+              `[pre-merge-checks] second ask failed ${where}: ${describe(error)}`
+            )
+          }
+        }
+        return resultsFromAnswers(judged, answers, linked)
       }
       let results: PreMergeCheckResult[]
       // Undecided by a failure (a read or the model): earlier failures stand.
