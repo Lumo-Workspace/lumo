@@ -1794,6 +1794,12 @@ model PrSecurityScan {
   // from before this column). The PR write-back resolves a judge finding's
   // thread as addressed only when its file was in this scope.
   judgeReviewScope  Json?
+  // LUM-1146: how the repository config file (`.lumo.yaml`) was read for
+  // this scan — { baseRef, base: { status, sha, problems, unknownKeys },
+  // prBranch } (ee/security/security-scan/repo-config.ts). The PR summary
+  // reports an invalid / unreadable file and ignored keys from it. null =
+  // not read (a row from before this column, or the scan stopped earlier).
+  repoConfig        Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

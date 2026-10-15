@@ -461,6 +461,46 @@ export async function fetchPrHeadSha(opts: {
 }
 
 /**
+ * LUM-1146 — the PR's base branch and the commit it currently points at, from
+ * the pulls API (the repository config file is read there). Throws on non-2xx
+ * or a missing field.
+ */
+export async function fetchPrBase(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<{ ref: string; sha: string }> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as {
+    base?: { ref?: unknown; sha?: unknown }
+  }
+  const { ref, sha } = body.base ?? {}
+  if (typeof ref !== 'string' || typeof sha !== 'string' || sha.length === 0) {
+    throw new Error(
+      `GitHub pulls payload missing base ref/sha for ${opts.fullName}#${opts.prNumber}`
+    )
+  }
+  return { ref, sha }
+}
+
+/**
  * LUM-738 — the default branch and its current head sha, for the repository
  * security baseline. Two calls (repo → default_branch, then the branch ref).
  * Throws on non-2xx or a missing field.
