@@ -150,6 +150,15 @@ const SCOPE_DIFF_ONLY =
 const SCOPE_WITH_CONTEXT =
   'After the diff you also get the full PR-head content of the changed files: use it and the removed and context lines to understand what the added code must do, but only report problems located in added lines.'
 
+/**
+ * LUM-1208 — said only when server config files the PR does not change are
+ * attached (`loadServerConfigContext`): the PR starts or configures a server
+ * whose config lives next to it. Findings stay on the added line that puts
+ * the setting into effect, so they post inline like any other finding.
+ */
+const SCOPE_SERVER_CONFIG =
+  ' Next come server configuration files, from the directories whose server the added lines start or configure, that this pull request does not change: when an added line starts or configures that server, report a risky setting in them that it puts into effect (such as listening on every interface like 0.0.0.0, debug mode, permissive CORS, or disabled TLS or authentication) on that added line, naming the file and the setting in the detail; report nothing else located in them.'
+
 /** LUM-988 — said only when related code from other files is attached. */
 const SCOPE_RELATED =
   ' Last comes related code from other files of the repository: callers of the functions this pull request changes, and definitions of what the added code calls. Use it to check how the changed code is really called and what its callees really do; do not report problems located in it.'
@@ -180,6 +189,8 @@ const SCOPE_TONE =
 /** LUM-1147 — which optional blocks the review prompt carries. */
 export interface ReviewPromptParts {
   withContext: boolean
+  /** LUM-1208 — unchanged server config files follow the file context. */
+  withServerConfig?: boolean
   withRelated?: boolean
   withLearnings?: boolean
   withPathInstructions?: boolean
@@ -203,7 +214,7 @@ export function buildReviewSystemPrompt(
       : withContextOrParts
   return `You are a senior code reviewer examining a unified diff.
 
-Only ADDED lines (starting with '+') are in scope; ignore removed ('-') and context lines. ${p.withContext ? SCOPE_WITH_CONTEXT : SCOPE_DIFF_ONLY}${p.withRelated ? SCOPE_RELATED : ''}${p.withLearnings ? SCOPE_LEARNINGS : ''}${p.withPathInstructions ? SCOPE_PATH_INSTRUCTIONS : ''}${p.withTone ? SCOPE_TONE : ''}
+Only ADDED lines (starting with '+') are in scope; ignore removed ('-') and context lines. ${p.withContext ? SCOPE_WITH_CONTEXT : SCOPE_DIFF_ONLY}${p.withServerConfig ? SCOPE_SERVER_CONFIG : ''}${p.withRelated ? SCOPE_RELATED : ''}${p.withLearnings ? SCOPE_LEARNINGS : ''}${p.withPathInstructions ? SCOPE_PATH_INSTRUCTIONS : ''}${p.withTone ? SCOPE_TONE : ''}
 Review thoroughly: a change of this size typically contains 3 to 6 real problems, and missing a real problem is worse than reporting a plausible one. Go file by file and report every issue you are reasonably confident is real, at any severity (LOW, MEDIUM, HIGH):
 (1) security defects — ${SECURITY_TAXONOMY}
 (2) correctness bugs — wrong conditions, off-by-one, inverted or missing checks, wrong variable or field used, null/undefined or missing-field crashes, wrong types or units, race conditions and unsafe shared state, swallowed or wrong error handling, misuse of an API or framework (wrong arguments, lifecycle, return type, deprecated or nonexistent method), data loss or corruption, inconsistent behaviour between similar code paths, and clear performance regressions (N+1 queries, unbounded work, missing pagination);
@@ -221,13 +232,23 @@ export function buildReviewPrompt(
   context: string,
   related = '',
   learnings = '',
-  style: { pathInstructions?: string; tone?: string } = {}
+  style: {
+    pathInstructions?: string
+    tone?: string
+    serverConfig?: string
+  } = {}
 ): string {
   const body = diff.trim().length > 0 ? diff : '(empty diff)'
-  const base =
+  const withContext =
     context.trim().length > 0
       ? `Unified diff:\n${body}\n\nFull PR-head content of the changed files (context only):\n${context}`
       : `Unified diff:\n${body}`
+  // LUM-1208: masked by the loader; read-only, right after the changed files.
+  const serverConfig = style.serverConfig ?? ''
+  const base =
+    serverConfig.trim().length > 0
+      ? `${withContext}\n\nServer configuration files at the PR head that this pull request does not change (read-only context):\n${serverConfig}`
+      : withContext
   const withRelated =
     related.trim().length > 0
       ? `${base}\n\nRelated code from other files at the PR head (context only):\n${related}`
@@ -282,6 +303,12 @@ export interface SecurityJudgeInput {
   /** LUM-1147 — the repository's tone (guarded, ≤ 250 chars). */
   tone?: string
   /**
+   * LUM-1208 — server config files the PR does not change, from where its
+   * added lines start a server (`loadServerConfigContext`: selected, capped
+   * at 8k, already masked). Absent or empty = the prompt without them.
+   */
+  serverConfig?: string
+  /**
    * LUM-1155 — also ask for the PR's call-flow diagram (the repository
    * wants diagrams and the PR is not trivial). Absent = the schema without
    * the field.
@@ -335,6 +362,7 @@ export async function judgeSecurity(input: SecurityJudgeInput): Promise<{
   const learnings = input.learnings ?? ''
   const pathInstructions = input.pathInstructions ?? ''
   const tone = input.tone ?? ''
+  const serverConfig = input.serverConfig ?? ''
   const { object } = await generateObject({
     model: gateway(CODE_REVIEW_MODEL),
     schema: input.withSequenceDiagram
@@ -342,6 +370,7 @@ export async function judgeSecurity(input: SecurityJudgeInput): Promise<{
       : SecurityJudgeSchema,
     system: buildReviewSystemPrompt({
       withContext,
+      withServerConfig: serverConfig.trim().length > 0,
       withRelated: (input.related ?? '').trim().length > 0,
       withLearnings: learnings.trim().length > 0,
       withPathInstructions: pathInstructions.trim().length > 0,
@@ -352,7 +381,7 @@ export async function judgeSecurity(input: SecurityJudgeInput): Promise<{
       input.context,
       input.related,
       learnings,
-      { pathInstructions, tone }
+      { pathInstructions, tone, serverConfig }
     ),
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
