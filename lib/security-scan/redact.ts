@@ -233,27 +233,41 @@ function normalizeVocab(text: string): string {
 
 /**
  * LUM-1200 follow-up #2 — a value that stands for one rather than being one:
- * an ellipsis (`token=...`), an angle / brace placeholder (`<your token>`,
- * `{token}`, `${API_KEY}`), an environment reference (`$TOKEN`), a run of
- * `x` / `*`, or nothing at all. Production (probe PR 63): the linked
- * requirement `` `GET /session/check?token=...` `` rendered as
- * `` `GET …(len 28)` `` in the PR summary. Read on `normalizeVocab` output.
+ * an ellipsis (`token=...`), a run of `x` / `*`, nothing at all, or a
+ * NAMED placeholder — `<your token>`, `{token}`, `${API_KEY}`, `$TOKEN` —
+ * whose name is short words only (no digits) and says what it stands for
+ * (credential vocabulary, or `your` / `value` / `here` …). Production (probe
+ * PR 63): the linked requirement `` `GET /session/check?token=...` ``
+ * rendered as `` `GET …(len 28)` `` in the PR summary. A bracketed or
+ * `$`-prefixed value that does not name itself (`<correcthorse>`,
+ * `$hunter two`) is not a placeholder.
  */
-const PLACEHOLDER_VALUE_RE =
-  /^(?:\.{2,}|…+|<[^<>]*>|\$?\{\{?[^{}]*\}?\}|\$[a-z_][a-z0-9_ ]*|x{3,}|\*{3,}|)$/i
+const PLACEHOLDER_FILLER_RE = /^(?:\.{2,}|…+|x{3,}|\*{3,}|)$/i
+const NAMED_PLACEHOLDER_RE =
+  /^(?:<([^<>]*)>|\$?\{\{?([^{}]*?)\}?\}|\$([A-Za-z_][A-Za-z0-9_]*))$/
+const PLACEHOLDER_NAME_RE = /^[A-Za-z _.-]{1,40}$/
+const PLACEHOLDER_WORD_RE =
+  /\b(?:your|my|value|here|placeholder|redacted|example|insert|name)\b/
 
 function isPlaceholderValue(value: string): boolean {
-  return PLACEHOLDER_VALUE_RE.test(value.trim().replace(/^["'`]+|["'`]+$/g, ''))
+  const v = value.trim().replace(/^["'`]|["'`]$/g, '')
+  if (PLACEHOLDER_FILLER_RE.test(v)) return true
+  const m = NAMED_PLACEHOLDER_RE.exec(v)
+  const name = m?.[1] ?? m?.[2] ?? m?.[3]
+  if (name === undefined || !PLACEHOLDER_NAME_RE.test(name.trim())) return false
+  const words = normalizeVocab(name)
+  return CREDENTIAL_VOCAB_RE.test(words) || PLACEHOLDER_WORD_RE.test(words)
 }
 
 /**
- * `CREDENTIAL_KEY_ASSIGNED_RE` with the assigned value captured: a span
- * assigning a credential key masks unless every value it assigns is a
- * placeholder (`isPlaceholderValue`) — `?token=...` renders, `?token=abc`
- * and `pw = 'correcthorse'` are masked.
+ * `CREDENTIAL_KEY_ASSIGNED_RE` with the assigned value captured — a quoted
+ * value whole (so `"<a> realsecret"` is read as one value, not as `"<a>`),
+ * else up to the next separator: a span assigning a credential key masks
+ * unless every value it assigns is a placeholder (`isPlaceholderValue`) —
+ * `?token=...` renders, `?token=abc` and `pw = 'correcthorse'` are masked.
  */
 const CREDENTIAL_KEY_ASSIGNED_VALUE_RE = new RegExp(
-  `${CREDENTIAL_KEY_ASSIGNED_RE.source}\\s*(["'\`]?(?:<[^>]*>|\\$?\\{[^}]*\\})["'\`]?|[^\\s&,;)\\]}]*)`,
+  `${CREDENTIAL_KEY_ASSIGNED_RE.source}\\s*("[^"]*"|'[^']*'|<[^>]*>|\\$?\\{[^}]*\\}|[^\\s&,;)\\]}]*)`,
   'g'
 )
 

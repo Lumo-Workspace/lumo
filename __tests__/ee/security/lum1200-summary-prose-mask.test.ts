@@ -134,6 +134,14 @@ describe('a placeholder credential value renders; a real one is masked', () => {
     ['`GET /check?token=...&secret=letmeinplease`', '`GET …(len 41)`'],
     ["`const pw = 'correcthorse'`", '`cons…(len 25)`'],
     ['the token is "letmeinplease"', 'the token is "letm…(len 13)"'],
+    // A bracket or `$` does not make a value a placeholder unless it names one.
+    [
+      'the password is "$correct horse battery"',
+      'the password is "$cor…(len 22)"',
+    ],
+    ['`token = "<a> realsecret"`', '`toke…(len 24)`'],
+    ['`GET /check?token=<correcthorse>`', '`GET …(len 31)`'],
+    ['`export TOKEN=$hunter`', '`expo…(len 20)`'],
   ])('masks %s', (input, expected) => {
     expect(redactSummaryText(input)).toBe(expected)
   })

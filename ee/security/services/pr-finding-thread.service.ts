@@ -515,8 +515,8 @@ function successorsOf(
 
 /**
  * LUM-1200 follow-up #2 — open AI-layer threads whose fingerprint is gone but
- * whose issue a current finding still reports (`stillReportedElsewhere`):
- * never addressed. Unlike `successorsOf`, a finding that owns a thread or
+ * whose issue an open finding of this scan still reports
+ * (`stillReportedElsewhere`): never addressed. Unlike `successorsOf`, a finding that owns a thread or
  * continues another one counts — the question is only whether the issue is
  * still reported.
  */
@@ -541,7 +541,9 @@ function stillReportedOf(
   }
   if (gone.length === 0) return out
   const files = new Set(gone.map(g => g.filePath))
-  const current = input.findings
+  // Open findings only: one a human dispositioned (or the verifier
+  // rejected, or the baseline already had) keeps no other thread open.
+  const current = input.open
     .filter(
       f =>
         f.provenance === 'LLM_JUDGE' &&

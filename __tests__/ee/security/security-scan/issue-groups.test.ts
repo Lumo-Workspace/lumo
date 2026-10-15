@@ -377,6 +377,25 @@ describe('groupSameIssue', () => {
       expect(g.mergedInto.get('hunt-r3-b')).toBe('judge-parse')
     })
 
+    it('a chain of nearby hunt reports does not walk the group across issues', () => {
+      // C resembles B (L11) but not the kept AI review finding (L13), and
+      // sits on another line than B: not joined through B.
+      const c = f({
+        ...huntHigh,
+        fingerprint: 'hunt-chain',
+        severity: 'MEDIUM',
+        line: 9,
+        title:
+          'JSON.parse in quantity parsing returns non-numeric values that bypass validation in the cart reducer',
+      })
+      const g = groupSameIssue([judgeParse, huntHigh, c], {
+        ...none,
+        posted: new Set(['judge-parse']),
+      })
+      expect(g.mergedInto.get('hunt-parse-high')).toBe('judge-parse')
+      expect(g.mergedInto.has('hunt-chain')).toBe(false)
+    })
+
     it('a hunt report of another issue nearby still gets its own thread', () => {
       const other = f({
         ...huntHigh,

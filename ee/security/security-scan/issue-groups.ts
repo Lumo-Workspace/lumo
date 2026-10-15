@@ -98,24 +98,33 @@ function identity(f: GroupableFinding) {
 }
 
 /**
- * The best `sameIssueScore` of `f` against any member of a group; null when
- * it is the same issue as none of them. LUM-1200 follow-up #2: the hunt runs
- * several tasks over one diff and two of them can report the same issue
- * (production: probe PR 64, `parseQuantity` reported twice by `hunt:logic`
- * at L11 beside the AI review's L13) — the second hunt report must find the
- * thread through the first, whose wording or line may sit closer to it than
- * the kept finding's.
+ * The best `sameIssueScore` of `f` against a group; null when it is the same
+ * issue as none of it. LUM-1200 follow-up #2: the hunt runs several tasks
+ * over one diff and two of them can report the same issue (production: probe
+ * PR 64, `parseQuantity` reported twice by `hunt:logic` at L11 beside the AI
+ * review's L13, the second worded unlike the AI review) — the second report
+ * finds the thread through the first. Against the kept finding the full
+ * rule applies; against another member only on the same code (same line or
+ * quoted evidence), so a chain of nearby reports never walks a group across
+ * distinct issues (L13 → L11 → L9).
  */
 function bestScoreAgainst<F extends GroupableFinding>(
-  members: readonly F[],
+  g: { kept: F; members: readonly F[] },
   f: F
 ): number | null {
   let best: number | null = null
-  for (const m of members) {
+  for (const m of g.members) {
+    if (m !== g.kept && !sameCode(m, f)) continue
     const score = sameIssueScore(identity(m), identity(f))
     if (score !== null && (best === null || score > best)) best = score
   }
   return best
+}
+
+function sameCode(a: GroupableFinding, b: GroupableFinding): boolean {
+  if (a.line !== null && a.line === b.line) return true
+  const ea = (a.evidence ?? '').replace(/\s+/g, ' ').trim()
+  return ea.length > 0 && ea === (b.evidence ?? '').replace(/\s+/g, ' ').trim()
 }
 
 /**
@@ -124,7 +133,8 @@ function bestScoreAgainst<F extends GroupableFinding>(
  * already on the PR (the thread people are reading stays), then severity,
  * then the AI review before the hunt, then line, then fingerprint — and each
  * joins the better-ranked group holding a finding that is the same issue
- * (`sameIssueScore` against any member, best score first). A group holds at
+ * (`sameIssueScore` against the kept finding, or against another member on
+ * the same code — `bestScoreAgainst` — best score first). A group holds at
  * most one AI-review finding (so two different AI-review issues are never
  * joined through one broad hunt finding) but any number of hunt reports of
  * its issue — all listed in the one thread (LUM-1200 follow-up #2: two hunt
@@ -186,7 +196,7 @@ export function groupSameIssue<F extends GroupableFinding>(
               SEVERITY_RANK[f.severity] > SEVERITY_RANK[g.kept.severity])
           )
             continue
-          const score = bestScoreAgainst(g.members, f)
+          const score = bestScoreAgainst(g, f)
           if (score !== null && score > bestScore) {
             best = g
             bestScore = score

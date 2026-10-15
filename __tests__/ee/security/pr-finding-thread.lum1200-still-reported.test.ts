@@ -193,7 +193,7 @@ describe('LUM-1200 follow-up #2 — a thread whose issue is still reported is no
     }
   )
 
-  it('the AI review alone still reports it (a LOW row with no thread): the hunt thread is not addressed', () => {
+  it('the AI review alone still reports it (a LOW row with no thread): the hunt thread is carried, not addressed', () => {
     const huntR3 = row({
       id: 't-hunt-14',
       fingerprint: 'fp-hunt-parse-zero',
@@ -228,7 +228,9 @@ describe('LUM-1200 follow-up #2 — a thread whose issue is still reported is no
       ]),
     })
     // Carried onto the AI review's report when nothing else holds it.
-    expect(out.actions.map(a => a.kind)).not.toContain('ADDRESS')
+    expect(out.actions).toEqual([
+      expect.objectContaining({ kind: 'CARRY', successor: 'fp-judge-error' }),
+    ])
   })
 
   it("the hunt's own rewording, already owning a thread, keeps the old hunt thread open", () => {
@@ -262,6 +264,32 @@ describe('LUM-1200 follow-up #2 — a thread whose issue is still reported is no
         row: expect.objectContaining({ fingerprint: huntOld.fingerprint }),
       }),
     ])
+  })
+
+  it('a report a human dispositioned does not keep the thread open', () => {
+    const dismissed = finding({
+      ...judgeNow,
+      disposition: 'FALSE_POSITIVE' as never,
+    })
+    const out = planThreadActions({
+      rows: [huntRow, judgeRow],
+      findings: [dismissed],
+      open: [],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: new Map([
+        ['20', remote('PRRT_h6n', 20)],
+        ['10', remote('PRRT_fI5', 10)],
+      ]),
+      identities: new Map([
+        [huntOld.fingerprint, identity(huntOld)],
+        [judgeOld.fingerprint, identity(judgeOld)],
+        [dismissed.fingerprint, identity(dismissed)],
+      ]),
+    })
+    expect(
+      out.actions.find(a => a.row.fingerprint === huntOld.fingerprint)
+    ).toEqual(expect.objectContaining({ kind: 'ADDRESS' }))
   })
 
   it('a verifier-rejected report does not keep the thread open', () => {
