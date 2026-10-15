@@ -4,7 +4,8 @@
  * answers with.
  *
  * The reply is untrusted text from a public PR. Nothing here acts on it: the
- * only effects a reply can ever have are a short templated answer, closing
+ * only effects a reply can ever have are a short answer (templated, or —
+ * LUM-1154, for a question — the chat service's grounded answer), closing
  * that one thread on this PR, and (when this gate AND the model agree) a
  * learning the AI review reads as data later. It never touches a finding's
  * disposition — a gate-blocking finding stays blocking until the user rules
@@ -405,7 +406,7 @@ export function buildAckReply(label: ReplyLabel, login: string): string {
   const body =
     label === 'DEFER'
       ? `Thanks @${login} — Lumo resolves this thread on its own once a push no longer has the finding.`
-      : `Thanks @${login}. Lumo does not discuss findings in threads. If this finding does not apply here, reply with the reason (for example "this is intentional because …") and Lumo will apply it to this pull request's reviews until it merges, then to every pull request in this repository; if it is a real problem, the thread resolves on its own once a push fixes it.`
+      : `Thanks @${login}. If this finding does not apply here, reply with the reason (for example "this is intentional because …") and Lumo will apply it to this pull request's reviews until it merges, then to every pull request in this repository; if it is a real problem, the thread resolves on its own once a push fixes it. To ask Lumo about it, reply with a question.`
   return `${body}\n\n${REPLY_NOTE_MARKER}`
 }
 
