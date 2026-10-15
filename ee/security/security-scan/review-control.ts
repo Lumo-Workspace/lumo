@@ -186,6 +186,8 @@ export interface ManualReviewRestartRow {
   stages: unknown
   verifierStartedAt: Date | null
   verifiedAt: Date | null
+  /** LUM-1152 follow-up: 'full' | 'incremental' | null (absent = unknown). */
+  judgeReviewMode?: string | null
 }
 
 /**
@@ -212,13 +214,15 @@ export function isSettledForManualReview(
  * LUM-1152 follow-up — what a deferred manual review does with the scan it
  * waited on: keep waiting, dispatch (the scan's AI review did not run — held
  * by ignore / pause / hourly cap, failed, skipped — or the scan is gone /
- * FAILED), or nothing (the scan's own AI review ran, RAN or PARTIAL, which is
- * the review asked for: a repeated request while one runs deduplicates). PURE.
+ * FAILED), or nothing (the scan's own AI review ran, RAN or PARTIAL, and is
+ * the review asked for — for a FULL request only a full review counts; a
+ * repeated request while one runs deduplicates). PURE.
  */
 export type DeferredReviewDecision = 'wait' | 'dispatch' | 'covered'
 
 export function deferredReviewDecision(
-  row: ManualReviewRestartRow | null
+  row: ManualReviewRestartRow | null,
+  reviewMode: 'incremental' | 'full'
 ): DeferredReviewDecision {
   if (!row) return 'dispatch'
   if (!isSettledForManualReview(row)) return 'wait'
@@ -229,5 +233,9 @@ export function deferredReviewDecision(
       : undefined
   // Only an AI review that ran covers the request; held, failed or skipped
   // ones do not.
-  return judge === 'RAN' || judge === 'PARTIAL' ? 'covered' : 'dispatch'
+  if (judge !== 'RAN' && judge !== 'PARTIAL') return 'dispatch'
+  // User ruling: a requested full review is satisfied only by a full one —
+  // an automatic (incremental) review on the same head is not enough.
+  if (reviewMode === 'full' && row.judgeReviewMode !== 'full') return 'dispatch'
+  return 'covered'
 }

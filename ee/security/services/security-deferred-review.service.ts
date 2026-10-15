@@ -12,9 +12,12 @@ import { dispatchPrSecurityScan } from './pr-security-scan-dispatch'
 
 export const deferredReviewService = {
   /** What to do with the scan the review waited on (review-control.ts). */
-  async decide(scanId: string): Promise<DeferredReviewDecision> {
+  async decide(
+    scanId: string,
+    reviewMode: 'incremental' | 'full'
+  ): Promise<DeferredReviewDecision> {
     const row = await prSecurityScanRepository.findManualRestartState(scanId)
-    return deferredReviewDecision(row)
+    return deferredReviewDecision(row, reviewMode)
   },
 
   /** The wait ran out: said in the log, the user can ask again. */

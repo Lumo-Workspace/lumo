@@ -2069,6 +2069,7 @@ jest.mock('@/ee/security/services/security-deferred-review-start', () => ({
   startDeferredManualReview: jest.fn().mockResolvedValue(true),
 }))
 import { startDeferredManualReview } from '@/ee/security/services/security-deferred-review-start'
+import { logger as lumoLogger } from '@/lib/logger'
 
 describe('LUM-1152 follow-up: manual review on an in-flight ignored head', () => {
   const defer = startDeferredManualReview as jest.Mock
@@ -2105,7 +2106,32 @@ describe('LUM-1152 follow-up: manual review on an in-flight ignored head', () =>
     expect(judgeSecurity).not.toHaveBeenCalled()
   })
 
-  test('the deferred dispatch is never deferred again', async () => {
+  test('a full review records its mode, so a deferred full request can tell', async () => {
+    repo.restart.mockResolvedValueOnce([] as never)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+    })
+    const [, , result] = repo.persistResult.mock.calls[0]!
+    expect(result.judgeReviewMode).toBe('full')
+  })
+
+  test('an automatic review records incremental; a held one records none', async () => {
+    repo.findByPrAndSha.mockReset().mockResolvedValue(null)
+    fetchPrBody.mockResolvedValue('no directive')
+    await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+    expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBe(
+      'incremental'
+    )
+    repo.persistResult.mockClear()
+    fetchPrBody.mockResolvedValue('@uselumo ignore')
+    await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+    expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBeNull()
+  })
+
+  test('the deferred dispatch is never deferred again, and its dedupe is logged', async () => {
+    const info = jest.spyOn(lumoLogger, 'info').mockImplementation(() => {})
     repo.restart.mockResolvedValueOnce(false as never)
     await prSecurityScanService.run({
       pullRequestId: 'pr1',
@@ -2114,6 +2140,11 @@ describe('LUM-1152 follow-up: manual review on an in-flight ignored head', () =>
       deferred: true,
     })
     expect(defer).not.toHaveBeenCalled()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'deferred manual incremental review deduplicated pr=pr1 scan=s1'
+      )
+    )
   })
 
   test('once settled, the manual full review runs the judge on the ignored head', async () => {

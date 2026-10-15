@@ -85,35 +85,73 @@ describe('deferredReviewDecision', () => {
     ...over,
   })
   test('held AI review (ignore / pause / cap) once settled = dispatch', () => {
-    expect(deferredReviewDecision(row({}))).toBe('dispatch')
+    expect(deferredReviewDecision(row({}), 'incremental')).toBe('dispatch')
   })
   test('still in flight = wait', () => {
     expect(
       deferredReviewDecision(
-        row({ stages: { external: 'PENDING', judge: 'PAUSED' } })
+        row({ stages: { external: 'PENDING', judge: 'PAUSED' } }),
+        'incremental'
       )
     ).toBe('wait')
   })
   test("the scan's own AI review ran = covered (no second review)", () => {
     expect(
-      deferredReviewDecision(row({ stages: { judge: 'RAN', hunt: 'RAN' } }))
+      deferredReviewDecision(
+        row({ stages: { judge: 'RAN', hunt: 'RAN' } }),
+        'incremental'
+      )
     ).toBe('covered')
   })
   test('an AI review that failed or was skipped does not cover the request', () => {
-    expect(deferredReviewDecision(row({ stages: { judge: 'FAILED' } }))).toBe(
-      'dispatch'
-    )
-    expect(deferredReviewDecision(row({ stages: { judge: 'SKIPPED' } }))).toBe(
-      'dispatch'
-    )
-    expect(deferredReviewDecision(row({ stages: { judge: 'PARTIAL' } }))).toBe(
-      'covered'
-    )
+    expect(
+      deferredReviewDecision(
+        row({ stages: { judge: 'FAILED' } }),
+        'incremental'
+      )
+    ).toBe('dispatch')
+    expect(
+      deferredReviewDecision(
+        row({ stages: { judge: 'SKIPPED' } }),
+        'incremental'
+      )
+    ).toBe('dispatch')
+    expect(
+      deferredReviewDecision(
+        row({ stages: { judge: 'PARTIAL' } }),
+        'incremental'
+      )
+    ).toBe('covered')
+  })
+  test('user ruling: a deferred FULL review runs unless the waited-on review was itself full', () => {
+    const ran = { stages: { judge: 'RAN', hunt: 'RAN' } }
+    expect(
+      deferredReviewDecision(
+        row({ ...ran, judgeReviewMode: 'incremental' }),
+        'full'
+      )
+    ).toBe('dispatch')
+    expect(
+      deferredReviewDecision(row({ ...ran, judgeReviewMode: null }), 'full')
+    ).toBe('dispatch')
+    expect(
+      deferredReviewDecision(row({ ...ran, judgeReviewMode: 'full' }), 'full')
+    ).toBe('covered')
+    // An incremental request is satisfied by any review that ran.
+    expect(
+      deferredReviewDecision(
+        row({ ...ran, judgeReviewMode: 'incremental' }),
+        'incremental'
+      )
+    ).toBe('covered')
   })
   test('a missing or FAILED scan = dispatch', () => {
-    expect(deferredReviewDecision(null)).toBe('dispatch')
+    expect(deferredReviewDecision(null, 'incremental')).toBe('dispatch')
     expect(
-      deferredReviewDecision(row({ status: 'FAILED', stages: { judge: 'RAN' } }))
+      deferredReviewDecision(
+        row({ status: 'FAILED', stages: { judge: 'RAN' } }),
+        'incremental'
+      )
     ).toBe('dispatch')
   })
 })
@@ -158,11 +196,15 @@ describe('deferredReviewService', () => {
       verifierStartedAt: null,
       verifiedAt: null,
     })
-    await expect(deferredReviewService.decide('s1')).resolves.toBe('wait')
+    await expect(deferredReviewService.decide('s1', 'full')).resolves.toBe(
+      'wait'
+    )
     m(prSecurityScanRepository.findManualRestartState).mockResolvedValueOnce(
       null
     )
-    await expect(deferredReviewService.decide('s1')).resolves.toBe('dispatch')
+    await expect(deferredReviewService.decide('s1', 'full')).resolves.toBe(
+      'dispatch'
+    )
   })
 
   test('dispatches the review marked deferred', async () => {

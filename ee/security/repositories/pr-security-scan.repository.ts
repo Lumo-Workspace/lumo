@@ -148,6 +148,11 @@ export interface FinalizeScanInput {
    * only resolves a judge finding's thread for a file inside this scope.
    */
   judgeReviewScope?: string[] | null
+  /**
+   * LUM-1152 follow-up — 'full' (a requested full review) or 'incremental';
+   * null = the AI review did not run. Absent = leave the column alone.
+   */
+  judgeReviewMode?: 'full' | 'incremental' | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -1060,6 +1065,7 @@ export const prSecurityScanRepository = {
           finishedAt: null,
           verifierStartedAt: null,
           verifiedAt: null,
+          judgeReviewMode: null,
           huntJob: Prisma.DbNull,
           huntAudit: Prisma.DbNull,
           huntRunId: null,
@@ -1079,6 +1085,7 @@ export const prSecurityScanRepository = {
         stages: true,
         verifierStartedAt: true,
         verifiedAt: true,
+        judgeReviewMode: true,
       },
     })
   },
@@ -1184,6 +1191,9 @@ export const prSecurityScanRepository = {
             ? {
                 prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
               }
+            : {}),
+          ...(final.judgeReviewMode !== undefined
+            ? { judgeReviewMode: final.judgeReviewMode }
             : {}),
           ...(final.judgeReviewScope !== undefined
             ? {

@@ -6,10 +6,11 @@ import { deferredReviewService } from '@/ee/security/services/security-deferred-
 import type { DeferredReviewDecision } from '@/ee/security/security-scan/review-control'
 
 export async function decideDeferredReviewStep(
-  scanId: string
+  scanId: string,
+  reviewMode: 'incremental' | 'full'
 ): Promise<DeferredReviewDecision> {
   'use step'
-  return deferredReviewService.decide(scanId)
+  return deferredReviewService.decide(scanId, reviewMode)
 }
 
 export async function dispatchDeferredReviewStep(

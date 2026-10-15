@@ -1038,6 +1038,10 @@ export const prSecurityScanService = {
               scanId: existing.id,
               reviewMode: input.reviewMode,
             })
+          else
+            logger.info(
+              `[pr-security-scan] deferred manual ${input.reviewMode} review deduplicated pr=${pr.id} scan=${existing.id}: the head's scan is in flight again`
+            )
           return { deduped: true, scanId: existing.id }
         }
         manualFindings = claimed
@@ -1851,6 +1855,14 @@ export const prSecurityScanService = {
         // LUM-1127: which files this head's AI review read — the PR
         // write-back only resolves a judge thread for a file it covered.
         judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
+        // LUM-1152 follow-up: a deferred full review is satisfied only by a
+        // full one (user ruling).
+        judgeReviewMode:
+          judgeStatus === 'RAN'
+            ? input.reviewMode === 'full'
+              ? 'full'
+              : 'incremental'
+            : null,
         stages,
         partialCauses,
         ...(huntSkippedForCap
