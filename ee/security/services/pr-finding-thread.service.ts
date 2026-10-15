@@ -234,8 +234,9 @@ export interface ThreadPlan {
   /**
    * LUM-1127 follow-up #2 — open AI-layer threads whose finding is gone but
    * whose identity is unknown (nothing recorded on the row, no finding row
-   * left to read it from): not addressed on this sync — the same issue may
-   * still be reported under a new fingerprint.
+   * left to read it from) while their file still has a finding that could
+   * continue them: not addressed on this sync — the same issue may still be
+   * reported under a new fingerprint.
    */
   unknownIdentity: FindingThreadRow[]
 }
@@ -253,6 +254,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
   const openByFp = new Map(input.open.map(f => [f.fingerprint, f]))
   const isInline = input.isInline ?? inlineEligible
   const successors = successorsOf(input, present, rejected)
+  const candidateFiles = successorCandidateFiles(input, rejected)
   const actions: ThreadAction[] = []
   const nodeIds: ThreadPlan['nodeIds'] = []
   const unknownIdentity: FindingThreadRow[] = []
@@ -361,12 +363,15 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
           continue
         const successor = successors.get(fp)
         // …and when nothing says what the thread's finding was, it cannot be
-        // told apart from a relabel: never resolved on that (fail safe).
+        // told apart from a relabel while the file still has a finding that
+        // could continue it: never resolved on that (fail safe). With none
+        // left in the file, no successor is possible — absence decides.
         if (
           !successor &&
           row.provenance === 'LLM_JUDGE' &&
           input.identities &&
-          !input.identities.has(fp)
+          !input.identities.has(fp) &&
+          candidateFiles.has(row.filePath)
         ) {
           unknownIdentity.push(row)
           continue
@@ -489,6 +494,28 @@ function successorsOf(
   ))
     out.set(prev, next)
   return out
+}
+
+/**
+ * Files holding a current AI-layer finding that could continue a thread
+ * (the `successorsOf` candidates: not owning a thread, not verifier-rejected).
+ * A same-issue match never crosses files.
+ */
+function successorCandidateFiles(
+  input: ThreadPlanInput,
+  rejected: ReadonlySet<string>
+): Set<string> {
+  const owned = new Set(input.rows.map(r => r.fingerprint))
+  return new Set(
+    input.findings
+      .filter(
+        f =>
+          f.provenance === 'LLM_JUDGE' &&
+          !owned.has(f.fingerprint) &&
+          !rejected.has(f.fingerprint)
+      )
+      .map(f => f.filePath)
+  )
 }
 
 const SEVERITY_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const

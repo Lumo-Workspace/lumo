@@ -1156,10 +1156,30 @@ describe('LUM-1127 follow-up #2 — thread identity kept on the row', () => {
     )
   })
 
+  it('unknown identity but no AI-layer finding left in its file ⇒ addressed (no successor possible)', () => {
+    const elsewhere = logicFinding({ filePath: 'lib/other.ts' })
+    const plan = planThreadActions({
+      rows: [row({ fingerprint: 'fp-gone', filePath: FILE })],
+      findings: [elsewhere],
+      open: [elsewhere],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: null,
+      identities: new Map(),
+    })
+    expect(plan.unknownIdentity).toEqual([])
+    expect(plan.actions).toEqual([expect.objectContaining({ kind: 'ADDRESS' })])
+  })
+
   it('planThreadActions: an unknown identity is reported, not addressed; a known one with no successor is', () => {
     const plan = planThreadActions({
-      rows: [row({ fingerprint: 'fp-gone' }), dataRow({ id: 't2' })],
-      findings: [],
+      rows: [
+        row({ fingerprint: 'fp-gone', filePath: FILE }),
+        dataRow({ id: 't2' }),
+      ],
+      // A different issue in the same file: no match for fp-data, but it
+      // could be fp-gone's relabel — unknown, so held.
+      findings: [logicFinding({ line: 90, title: 'Unrelated', ruleId: 'x:y' })],
       open: [],
       scan: COMPLETE,
       headSha: HEAD,
