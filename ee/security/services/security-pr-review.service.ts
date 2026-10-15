@@ -1106,97 +1106,288 @@ async function threadToken(
   }
 }
 
+/** LUM-1150 — how long the claim on creating a PR's summary holds. */
+export const SUMMARY_CLAIM_TTL_MS = INLINE_CLAIM_TTL_MS
+/**
+ * LUM-1150 — a sync that lost the summary claim waits this long (in steps)
+ * for the winner's comment id to show up, then writes its own body into it.
+ * Past that the winner is still working (or died — its claim then expires).
+ */
+const SUMMARY_WAIT_STEP_MS = 250
+const SUMMARY_WAIT_STEPS = 24
+
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
+interface SummaryTarget {
+  repo: { owner: string; name: string }
+  prNumber: number
+  token: string
+  body: string
+  scanId: string
+  pullRequestId: string
+  where: string
+}
+
+/** Lumo's own summary comment: carries the marker AND is the App's bot's. */
+function isLumoSummaryComment(c: {
+  body: string
+  user: { type?: string; login?: string } | null
+}): boolean {
+  return c.body.includes(SUMMARY_MARKER) && isLumoBotComment(c)
+}
+
+/** LUM-740 — remember the id on the scan row. Best effort, never throws. */
+async function rememberSummaryId(t: SummaryTarget, id: string): Promise<void> {
+  try {
+    await prSecurityScanRepository.setSummaryCommentId(t.scanId, id)
+  } catch (error) {
+    // A missed write only costs one listing next time.
+    logger.warn(
+      `[security-pr-review] summary id write failed ${t.where}: ${describe(error)}`
+    )
+  }
+}
+
+async function findPrSummaryId(pullRequestId: string): Promise<string | null> {
+  try {
+    return await prSecurityScanRepository.findSummaryCommentIdByPullRequest(
+      pullRequestId
+    )
+  } catch {
+    return null
+  }
+}
+
+/** Update `id` in place; false when it is gone on GitHub (404). */
+async function updateSummaryIfPresent(
+  t: SummaryTarget,
+  id: string
+): Promise<boolean> {
+  try {
+    await prCommentClient.updateIssueComment({
+      repo: t.repo,
+      externalId: id,
+      body: t.body,
+      token: t.token,
+    })
+    return true
+  } catch (error) {
+    if (error instanceof GithubApiError && error.status === 404) return false
+    throw error
+  }
+}
+
+async function createSummaryComment(t: SummaryTarget): Promise<string> {
+  const created = await prCommentClient.createIssueComment({
+    repo: t.repo,
+    prNumber: t.prNumber,
+    body: t.body,
+    token: t.token,
+  })
+  const id = String(created.id)
+  await rememberSummaryId(t, id)
+  return id
+}
+
+/**
+ * LUM-1150 — the claim was lost: another sync of this PR is creating the
+ * summary right now. Wait for its id, then write this sync's body into that
+ * comment. Null = it did not show up in time (nothing written; the claim's
+ * holder posts its own, or a later sync takes the expired claim over).
+ */
+async function adoptConcurrentSummary(
+  t: SummaryTarget,
+  gone: string | null
+): Promise<string | null> {
+  for (let step = 0; step < SUMMARY_WAIT_STEPS; step++) {
+    await sleep(SUMMARY_WAIT_STEP_MS)
+    const id = await findPrSummaryId(t.pullRequestId)
+    if (id && id !== gone) {
+      if (!(await updateSummaryIfPresent(t, id))) return null
+      await rememberSummaryId(t, id)
+      return id
+    }
+  }
+  logger.info(
+    `[security-pr-review] summary being created by a concurrent sync — left to it ${t.where}`
+  )
+  return null
+}
+
+/**
+ * LUM-1150 — create the PR's summary, single-writer per PR. Two write-backs
+ * (e.g. the hunt and the verifier finishing together) both found no summary
+ * and both created one; the second was never updated again. Now each claims
+ * the PR first: the winner re-checks for an id (a writer that finished just
+ * before) and creates; the loser waits for the winner's id and updates it.
+ * `gone` is an id known to be deleted on GitHub (never adopted again).
+ *
+ * Fail-open: a claim store that cannot be reached creates, as before the
+ * claim existed — a missing summary is worse than a rare duplicate (which
+ * the next scan's heal removes).
+ */
+async function createSummaryOnce(
+  t: SummaryTarget,
+  gone: string | null
+): Promise<string | null> {
+  let claimedAt: Date | null
+  try {
+    claimedAt = await prSecurityScanRepository.claimSummaryComment(
+      t.pullRequestId,
+      new Date(Date.now() - SUMMARY_CLAIM_TTL_MS)
+    )
+  } catch (error) {
+    logger.warn(
+      `[security-pr-review] summary claim failed ${t.where}: ${describe(error)} — creating unclaimed`
+    )
+    return createSummaryComment(t)
+  }
+  if (!claimedAt) return adoptConcurrentSummary(t, gone)
+  try {
+    const existing = await findPrSummaryId(t.pullRequestId)
+    if (
+      existing &&
+      existing !== gone &&
+      (await updateSummaryIfPresent(t, existing))
+    ) {
+      await rememberSummaryId(t, existing)
+      return existing
+    }
+    // The id is on the row before the claim goes: a sync that claims next
+    // finds it in its re-check.
+    return await createSummaryComment(t)
+  } finally {
+    try {
+      await prSecurityScanRepository.releaseSummaryCommentClaim(
+        t.pullRequestId,
+        claimedAt
+      )
+    } catch (error) {
+      // The claim expires after SUMMARY_CLAIM_TTL_MS.
+      logger.warn(
+        `[security-pr-review] summary claim release failed ${t.where}: ${describe(error)}`
+      )
+    }
+  }
+}
+
+/**
+ * LUM-1150 — a PR that carries more than one Lumo summary (written before
+ * the claim existed, or by a fail-open create): keep the OLDEST — update it
+ * with this body and remember its id — and delete the other Lumo-authored
+ * summaries. Only bot comments carrying the marker are touched, and never on
+ * a PR another workspace also holds (its summary looks the same, LUM-924).
+ * Best effort, never throws; a failed update deletes nothing.
+ */
+async function healDuplicateSummaries(
+  t: SummaryTarget,
+  written: string
+): Promise<void> {
+  try {
+    if (
+      await prSecurityScanRepository.isPullRequestHeldElsewhere(t.pullRequestId)
+    )
+      return
+    const listing = await prCommentClient.listIssueComments({
+      repo: t.repo,
+      prNumber: t.prNumber,
+      token: t.token,
+    })
+    const mine = listing
+      .filter(isLumoSummaryComment)
+      .sort((a, b) => a.id - b.id)
+    if (mine.length < 2) return
+    const keep = String(mine[0]!.id)
+    if (keep !== written) {
+      if (!(await updateSummaryIfPresent(t, keep))) return
+      await rememberSummaryId(t, keep)
+    }
+    for (const extra of mine.slice(1)) {
+      try {
+        await prCommentClient.deleteIssueComment({
+          repo: t.repo,
+          externalId: String(extra.id),
+          token: t.token,
+        })
+      } catch (error) {
+        if (!(error instanceof GithubApiError && error.status === 404))
+          logger.warn(
+            `[security-pr-review] duplicate summary ${extra.id} not deleted ${t.where}: ${describe(error)}`
+          )
+      }
+    }
+    logger.info(
+      `[security-pr-review] kept summary ${keep}, removed ${mine.length - 1} duplicate(s) ${t.where}`
+    )
+  } catch (error) {
+    logger.warn(
+      `[security-pr-review] duplicate summary check failed ${t.where}: ${describe(error)}`
+    )
+  }
+}
+
 /**
  * LUM-740 — one summary per PR, keyed by a comment id that lives on the scan
  * row (§6 L5 item 6). Order of preference: the id on this scan; the id an
  * earlier scan of the same PR stored; the legacy marker search over the PR's
  * bot comments (skipped when another workspace holds the PR, LUM-924); a
- * fresh create. A stored id whose comment is gone (404)
- * falls through to a create. Returns the id the caller should persist on the
- * row (null when the row already had it).
+ * fresh create (single-writer per PR, LUM-1150). A stored id whose comment is
+ * gone (404) falls through to a create. The id written is remembered on the
+ * scan row. The first write of each scan also heals duplicates (LUM-1150);
+ * later writes of the same scan update by id without listing. Returns
+ * whether the summary was written.
  */
-async function upsertSummary(input: {
-  repo: { owner: string; name: string }
-  prNumber: number
-  token: string
-  body: string
-  scanCommentId: string | null
-  pullRequestId: string
-}): Promise<string | null> {
-  const { repo, prNumber, token, body } = input
-  const create = async (): Promise<string> => {
-    const created = await prCommentClient.createIssueComment({
-      repo,
-      prNumber,
-      body,
-      token,
-    })
-    return String(created.id)
-  }
-
-  let known = input.scanCommentId
+async function upsertSummary(
+  t: SummaryTarget & { scanCommentId: string | null }
+): Promise<boolean> {
+  let known = t.scanCommentId
   let fromEarlierScan = false
   if (!known) {
-    try {
-      known = await prSecurityScanRepository.findSummaryCommentIdByPullRequest(
-        input.pullRequestId
-      )
-    } catch {
-      known = null
-    }
+    known = await findPrSummaryId(t.pullRequestId)
     fromEarlierScan = known !== null
   }
+
+  let written: string | null
   if (known) {
-    try {
-      await prCommentClient.updateIssueComment({
-        repo,
-        externalId: known,
-        body,
-        token,
-      })
-      return fromEarlierScan ? known : null
-    } catch (error) {
-      if (!(error instanceof GithubApiError && error.status === 404))
-        throw error
+    if (await updateSummaryIfPresent(t, known)) {
+      written = known
+      if (fromEarlierScan) await rememberSummaryId(t, known)
+    } else {
       // The comment was deleted on GitHub: start a new one.
-      return create()
+      written = await createSummaryOnce(t, known)
+    }
+  } else if (
+    // LUM-924: when another workspace holds this PR too, its summary carries
+    // the same marker under the same App bot — a marker match cannot tell
+    // whose it is, so each workspace keeps to the comment id it recorded.
+    await prSecurityScanRepository.isPullRequestHeldElsewhere(t.pullRequestId)
+  ) {
+    written = await createSummaryOnce(t, null)
+  } else {
+    // Legacy path (rows written before the id column existed): find Lumo's
+    // own summary by marker. A human quoting the marker must never be
+    // mistaken for it — only a bot-authored comment is eligible. `user` is
+    // null on comments whose account has since been deleted; such a comment
+    // is simply not ours.
+    const issueComments = await prCommentClient.listIssueComments({
+      repo: t.repo,
+      prNumber: t.prNumber,
+      token: t.token,
+    })
+    const mine = issueComments
+      .filter(isLumoSummaryComment)
+      .sort((a, b) => a.id - b.id)[0]
+    if (mine && (await updateSummaryIfPresent(t, String(mine.id)))) {
+      written = String(mine.id)
+      await rememberSummaryId(t, written)
+    } else {
+      written = await createSummaryOnce(t, null)
     }
   }
 
-  // LUM-924: when another workspace holds this PR too, its summary carries
-  // the same marker under the same App bot — a marker match cannot tell whose
-  // it is, so each workspace keeps to the comment id it recorded itself.
-  if (
-    await prSecurityScanRepository.isPullRequestHeldElsewhere(
-      input.pullRequestId
-    )
-  ) {
-    return create()
-  }
-
-  // Legacy path (rows written before the id column existed): find Lumo's
-  // own summary by marker. A human quoting the marker must never be
-  // mistaken for it — only a bot-authored comment is eligible. `user` is
-  // null on comments whose account has since been deleted; such a comment
-  // is simply not ours.
-  const issueComments = await prCommentClient.listIssueComments({
-    repo,
-    prNumber,
-    token,
-  })
-  const mine = issueComments.find(
-    c => c.body.includes(SUMMARY_MARKER) && isLumoBotComment(c)
-  )
-  if (mine) {
-    await prCommentClient.updateIssueComment({
-      repo,
-      externalId: String(mine.id),
-      body,
-      token,
-    })
-    return String(mine.id)
-  }
-  return create()
+  if (written === null) return false
+  if (!t.scanCommentId) await healDuplicateSummaries(t, written)
+  return true
 }
 
 export const securityPrReviewService = {
@@ -1504,27 +1695,19 @@ export const securityPrReviewService = {
             selected.filter(f => !threads.repost.has(f.fingerprint)).length,
         },
       })
-      const idToStore = await upsertSummary({
+      // LUM-740: the id goes on the scan row so the next writer (this scan's
+      // own hunt run, or the next push's scan) updates it instead of listing.
+      // LUM-1150: false = a concurrent sync of this PR is creating it.
+      posted = await upsertSummary({
         repo,
         prNumber: pr.number,
         token,
         body: summary,
+        scanId: scan.id,
         scanCommentId: scan.summaryCommentId,
         pullRequestId: pr.id,
+        where,
       })
-      posted = true
-      // LUM-740: remember the comment so the next writer (this scan's own
-      // hunt run, or the next push's scan) updates it instead of listing —
-      // best effort, a missed write only costs one listing next time.
-      if (idToStore) {
-        try {
-          await prSecurityScanRepository.setSummaryCommentId(scan.id, idToStore)
-        } catch (error) {
-          logger.warn(
-            `[security-pr-review] summary id write failed ${where}: ${describe(error)}`
-          )
-        }
-      }
 
       // LUM-1149: requirements of the linked task / issue this head does not
       // address — one review comment per distinct set. Never throws.
