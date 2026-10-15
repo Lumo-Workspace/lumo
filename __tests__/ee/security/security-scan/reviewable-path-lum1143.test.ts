@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-1143 — the shared reviewable-path helper (CodeRabbit
- * `reviews.path_filters`): built-in lockfile / generated exclusions, a
+ * LUM-1143 — the shared reviewable-path helper (repository path
+ * filters): built-in lockfile / generated exclusions, a
  * repository's include / `!exclude` globs, and the diff filter.
  */
 import {

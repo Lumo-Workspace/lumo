@@ -1,4 +1,4 @@
--- LUM-1143: CodeRabbit-style auto-review filters per repository. Additive:
+-- LUM-1143: auto-review filters per repository. Additive:
 -- every column has a default, existing rows keep today's behaviour.
 ALTER TABLE "repository_review_settings"
   ADD COLUMN "baseBranches" TEXT[] DEFAULT ARRAY[]::TEXT[],

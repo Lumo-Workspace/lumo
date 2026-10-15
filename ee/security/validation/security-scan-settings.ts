@@ -63,7 +63,7 @@ export const updateRepoReviewSettingsSchema = z
       .regex(/^[\w.-]+\/[\w.-]+$/, 'repo must be owner/name'),
     autoReview: z.boolean().optional(),
     reviewDrafts: z.boolean().optional(),
-    // LUM-1143: CodeRabbit `auto_review` filters; each list replaces the
+    // LUM-1143: the auto-review filters; each list replaces the
     // stored one ([] clears it).
     baseBranches: filterList(
       filterEntry.refine(

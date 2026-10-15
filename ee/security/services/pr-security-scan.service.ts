@@ -1006,8 +1006,7 @@ export const prSecurityScanService = {
           }
         }
       }
-      // LUM-1143 — the repository's path filters (CodeRabbit
-      // `reviews.path_filters`; built-in: lockfiles, generated code, build
+      // LUM-1143 — the repository's path filters (built-in: lockfiles, generated code, build
       // output) decide what the AI review and the hunt read. The secret scan
       // and graph rules still see every file.
       const isReviewable = reviewablePathPredicate(

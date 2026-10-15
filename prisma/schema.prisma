@@ -1558,7 +1558,7 @@ model RepositoryReviewSetting {
   repo         String
   autoReview          Boolean  @default(true)
   reviewDrafts        Boolean  @default(false)
-  /// LUM-1143 — CodeRabbit `reviews.auto_review` filters (precedence in
+  /// LUM-1143 — per-repository auto-review filters (precedence in
   /// ee/security/security-scan/auto-review-policy.ts). Regexes on the PR's
   /// base branch; the default branch is always included.
   baseBranches        String[] @default([])

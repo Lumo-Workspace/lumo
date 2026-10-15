@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1143 — CodeRabbit `reviews.auto_review` filters on the automatic review
+ * LUM-1143 — the per-repository auto-review filters on the automatic review
  * of PRs without a task: each key, the precedence order, the enabled=false
  * opt-in path and the labeled / edited events that newly let a PR through.
  */

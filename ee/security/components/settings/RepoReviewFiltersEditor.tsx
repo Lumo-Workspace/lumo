@@ -71,7 +71,7 @@ interface RepoReviewFiltersEditorProps {
 }
 
 /**
- * LUM-1143 — one repository's CodeRabbit-style auto-review filters (base
+ * LUM-1143 — one repository's auto-review filters (base
  * branches, labels, skipped titles / authors, description keyword, path
  * filters). Saved together with one button; OWNER only.
  */

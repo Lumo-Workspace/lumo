@@ -1,6 +1,6 @@
 /**
  * LUM-1143 — which changed paths the AI review and the hunt read
- * (CodeRabbit `reviews.path_filters` parity). PURE, shared: the review's
+ * (repository path filters). PURE, shared: the review's
  * input (pr-security-scan.service), its file context (review-context.ts)
  * and the size cap's file count (LUM-1144) all ask `isReviewablePath`.
  *

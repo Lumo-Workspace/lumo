@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1143 — path filters (CodeRabbit `reviews.path_filters`) decide what the
+ * LUM-1143 — the repository's path filters decide what the
  * AI review reads: lockfiles / generated files are left out by default, a
  * repository's `!glob` excludes more, and the deterministic secret scan
  * still reads every file.

@@ -10,7 +10,7 @@
  *    not with its previous labels / title / description / base);
  *  - this workspace confirmed the repository (never just because a webhook
  *    arrived — tenant isolation);
- *  - the repository's filters let it through (LUM-1143), in CodeRabbit's
+ *  - the repository's filters let it through (LUM-1143), in this
  *    precedence — the first rule that decides wins:
  *      1. `ignoreUsernames` — exact, case-sensitive author login ⇒ skip;
  *      2. `ignoreTitleKeywords` (case-insensitive substring of the title)
@@ -38,7 +38,7 @@ import { shouldScanOnPrEvent } from '@/ee/security/services/pr-security-scan-dis
 /**
  * PENDING DECISION (LUM-1143 brief, "Watch out: default change"): what an
  * EMPTY `baseBranches` list means. `'all_branches'` keeps Lumo's behaviour
- * before LUM-1143 (every base is reviewed); CodeRabbit's default is
+ * before LUM-1143 (every base is reviewed); the common industry default is
  * `'default_branch_only'`. Flipping this one line changes the default for
  * every repository without an explicit list.
  */
@@ -197,7 +197,7 @@ function baseBranchAllowed(
   return patterns.some(p => baseBranchRegExp(p)?.test(pr.baseBranch!) ?? false)
 }
 
-/** PURE — one repository's filters on one PR, in CodeRabbit's precedence. */
+/** PURE — one repository's filters on one PR, in the documented precedence. */
 export function evaluateReviewFilters(
   setting: RepoReviewSettingValues,
   pr: PrReviewFacts

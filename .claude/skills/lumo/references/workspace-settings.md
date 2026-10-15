@@ -71,7 +71,7 @@ acme/web    off     off
 - A repository the workspace has not connected → `Error: repository … is not connected to this workspace` (exit 1).
 - Turning `--review` or `--drafts` **off** is gated by the confirmation protocol (exit 4, nothing sent); OWNER only, refused before any envelope for anyone else. Each change writes a `repository.review_settings_updated` audit event (target `repository`, `{ repo, from, to }`).
 
-#### Auto-review filters (LUM-1143, CodeRabbit `reviews.auto_review` + `path_filters`)
+#### Auto-review filters and path filters (LUM-1143)
 
 Per repository, for **task-less** PRs (task-linked PRs are always scanned; `@<app> review` / `lumo pr scan --review` always work). Each repeatable flag **replaces** its list; `""` clears it. OWNER only, no confirmation, audited like the switches. The web card has the same fields under **Filters**.
 
@@ -85,7 +85,7 @@ lumo workspace security-scan --repo acme/app --path-filter '!docs/**'         # 
 lumo workspace security-scan --repo acme/app --labels ""                       # clear a list
 ```
 
-- `--base-branches <regex>`: full-match regexes on the base branch; the repository's default branch is always reviewed. An **empty list** reviews every base today (`emptyBaseBranchesMeans` in `--json`: `all_branches`; CodeRabbit's default is `default_branch_only` — pending decision).
+- `--base-branches <regex>`: full-match regexes on the base branch; the repository's default branch is always reviewed. An **empty list** reviews every base today (`emptyBaseBranchesMeans` in `--json`: `all_branches`; the common industry default is `default_branch_only` — pending decision).
 - `--labels <label>`: `label` = review only PRs carrying one of them; with `--review off` it **opts a PR in**. `!label` = skip PRs carrying it. Negative-only lists never opt in. Case-insensitive.
 - `--ignore-title <keyword>`: case-insensitive substring of the title ⇒ skip. `--ignore-users <login>`: exact, case-sensitive author login ⇒ skip (beats everything).
 - `--description-keyword <text>`: with `--review off`, a PR whose description contains it (exact substring) is reviewed.
@@ -98,7 +98,7 @@ lumo workspace security-scan --repo acme/app --labels ""                       #
 
 - "Turn off / pause code scanning", "stop the AI review on our PRs", "why didn't the hunt run" — and the user is a workspace owner (reading is open to anyone).
 - "Don't review PRs in repo X", "review drafts too", "why was my PR without a task (not) reviewed" → `--repos` / `--repo`.
-- "Skip WIP PRs", "don't review dependabot", "only review PRs labelled X", "review PRs into release branches", "ignore lockfiles / generated files", "CodeRabbit auto_review / path_filters" → the LUM-1143 filter flags with `--repo`.
+- "Skip WIP PRs", "don't review dependabot", "only review PRs labelled X", "review PRs into release branches", "ignore lockfiles / generated files", "auto-review filters / path filters" → the LUM-1143 filter flags with `--repo`.
 - "Make Lumo request changes / approve PRs", "CodeRabbit-style request changes" → `--request-changes on` (exits 4 first; relay the envelope).
 - "Stop PR authors approving their own PRs via @uselumo", "allow_author_approval" → `--allow-author-approval off` (exits 4 first; relay the envelope); turning it back on is gated too.
 - "Use learnings from our other repos", "keep each repo's learnings separate", "CodeRabbit learnings scope" → `--learnings-scope global|local|auto` (`global` exits 4 first; relay the envelope).
