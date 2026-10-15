@@ -27,7 +27,7 @@ reviews:
       - name: Changelog # ≤ 50 characters
         mode: warning
         instructions: User-facing changes update CHANGELOG.md. # ≤ 1000
-    override_requested_reviewers_only: true # never the PR author
+    override_requested_reviewers_only: true # requested or past reviewers; never the PR author
   profile: chill # quiet | chill | assertive — which findings get inline comments
   path_instructions: # extra AI review checks for matching files
     - path: 'scripts/**'
@@ -118,8 +118,9 @@ in; follows the repository's pull request template when it has one). Up to five
 - Override, per PR: comment `@uselumo ignore pre-merge checks` (write access).
   It is recorded (who, when, head) and shown in the summary, and it covers
   every later push to the PR (the recorded head is for the audit trail); with
-  `override_requested_reviewers_only`, only a reviewer requested by name (or
-  who already reviewed) may, never the author. An override never clears a
+  `override_requested_reviewers_only`, only the PR's reviewers may — an
+  account requested by name (team requests are not expanded) or one that has
+  already submitted a review — never the author. An override never clears a
   finding that blocks DONE.
 - The checks run with the AI review: one model call per reviewed head, over the
   PR's title, description, template and diff (path filters applied, secrets

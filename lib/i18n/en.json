@@ -2352,7 +2352,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Check mode",
   "workspaceSettings.repoReview.checks.addCustom": "Add check",
   "workspaceSettings.repoReview.checks.removeCustom": "Remove",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Only requested reviewers can override the checks (never the author)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Only the PR's reviewers can override the checks — requested reviewers or anyone who has already reviewed it (never the author)",
   "workspaceSettings.repoReview.checks.save": "Save checks",
   "workspaceSettings.repoReview.style.toggle": "Review style",
   "workspaceSettings.repoReview.style.toggleAria": "Show the review style for {repo}",

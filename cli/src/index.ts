@@ -1800,7 +1800,7 @@ workspaceCmd
   )
   .option(
     '--override-reviewers-only <on|off>',
-    'With --repo: only requested reviewers (never the PR author) may `@uselumo ignore pre-merge checks` (default off)'
+    "With --repo: only the PR's reviewers (requested by name, or who already submitted a review; never the PR author) may `@uselumo ignore pre-merge checks` (default off)"
   )
   .option(
     '--profile <quiet|chill|assertive>',

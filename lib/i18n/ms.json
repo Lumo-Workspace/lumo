@@ -2485,7 +2485,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Mod semakan",
   "workspaceSettings.repoReview.checks.addCustom": "Tambah semakan",
   "workspaceSettings.repoReview.checks.removeCustom": "Buang",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Hanya penyemak yang diminta boleh mengatasi semakan (bukan pengarang)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Hanya penyemak PR boleh mengatasi semakan — penyemak yang diminta atau sesiapa yang telah menyemaknya (bukan pengarang)",
   "workspaceSettings.repoReview.checks.save": "Simpan semakan",
   "workspaceSettings.repoReview.style.toggle": "Gaya semakan",
   "workspaceSettings.repoReview.style.toggleAria": "Tunjukkan gaya semakan untuk {repo}",

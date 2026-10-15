@@ -2485,7 +2485,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Chế độ kiểm tra",
   "workspaceSettings.repoReview.checks.addCustom": "Thêm kiểm tra",
   "workspaceSettings.repoReview.checks.removeCustom": "Xóa",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Chỉ người review được yêu cầu mới có thể bỏ qua các kiểm tra (không bao giờ là tác giả)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Chỉ người review của PR mới có thể bỏ qua các kiểm tra — người review được yêu cầu hoặc người đã review PR (không bao giờ là tác giả)",
   "workspaceSettings.repoReview.checks.save": "Lưu kiểm tra",
   "workspaceSettings.repoReview.style.toggle": "Phong cách review",
   "workspaceSettings.repoReview.style.toggleAria": "Hiện phong cách review của {repo}",

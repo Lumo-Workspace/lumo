@@ -90,7 +90,7 @@ it('lists the checks of a repository', () => {
     '  pre-merge checks: title error · description warning',
     '  title requirements: feat:/fix: prefix',
     '  custom check: Changelog (warning)',
-    '  override: requested reviewers only (never the author) — `@uselumo ignore pre-merge checks` on the PR',
+    '  override: reviewers only — requested, or already reviewed (never the author) — `@uselumo ignore pre-merge checks` on the PR',
   ])
   expect(
     formatPreMergeChecks({ repo: 'a/b', autoReview: true, reviewDrafts: false })
