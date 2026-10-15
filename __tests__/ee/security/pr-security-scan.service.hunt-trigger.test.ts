@@ -534,6 +534,9 @@ describe('a layer over its size cap does not run and the scan says why', () => {
     expect(caps.judgeOverCap).toEqual({
       diffChars: huge.length,
       capChars: 180_000,
+      // LUM-1144: one file larger than the cap — nothing fits.
+      files: 1,
+      capFiles: 150,
     })
     expect(formatJudgeOverCap(caps.judgeOverCap!)).toMatch(
       /so it did not run\. To get it, narrow the review scope or split the PR\.$/
