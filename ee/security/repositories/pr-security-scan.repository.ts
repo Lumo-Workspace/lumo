@@ -360,6 +360,11 @@ export interface ScanForReview {
    * whole diff. Optional so older fixtures still type-check (absent = null).
    */
   judgeReviewScope?: unknown
+  /**
+   * LUM-1146 — raw Json: how `.lumo.yaml` was read (`parseRepoConfigNotice`).
+   * Optional so older fixtures still type-check (absent = not read).
+   */
+  repoConfig?: unknown
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -1651,6 +1656,7 @@ export const prSecurityScanRepository = {
         verifierStartedAt: true,
         verifiedAt: true,
         judgeReviewScope: true,
+        repoConfig: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -2238,6 +2244,14 @@ export const prSecurityScanRepository = {
       },
     })
     return others > 0
+  },
+
+  /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */
+  async setRepoConfig(scanId: string, repoConfig: object): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { repoConfig: repoConfig as Prisma.InputJsonValue },
+    })
   },
 
   async setSummaryCommentId(

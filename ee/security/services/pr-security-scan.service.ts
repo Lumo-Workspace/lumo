@@ -98,6 +98,8 @@ import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
 import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
 import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
+import { repoConfigService } from './repo-config.service'
+import { REPO_CONFIG_FIELDS } from '@/ee/security/security-scan/repo-config'
 import {
   filterReviewableDiff,
   reviewablePathPredicate,
@@ -782,6 +784,46 @@ async function repoPathFiltersBestEffort(
 }
 
 /**
+ * LUM-1146 — the path filters the review reads: `.lumo.yaml` on the PR's
+ * BASE commit wins over the repository's stored filters (the PR's own copy
+ * is only checked). How the file was read goes on the row for the PR
+ * summary. Never fails the scan — any failure falls back to the stored
+ * filters.
+ */
+async function reviewPathFiltersBestEffort(
+  pr: { workspaceId: string; repo: string; number: number },
+  scanId: string,
+  headSha: string,
+  diff: string
+): Promise<string[]> {
+  const stored = await repoPathFiltersBestEffort(pr.workspaceId, pr.repo)
+  try {
+    const { file, notice } = await repoConfigService.forPullRequest({
+      workspaceId: pr.workspaceId,
+      repo: pr.repo,
+      prNumber: pr.number,
+      headSha,
+      diff,
+    })
+    try {
+      await prSecurityScanRepository.setRepoConfig(scanId, notice)
+    } catch (error) {
+      logger.warn(
+        `[pr-security-scan] repo config notice not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+    return (
+      (file ? REPO_CONFIG_FIELDS.pathFilters.read(file) : undefined) ?? stored
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] repo config unavailable repo=${pr.repo}: ${error instanceof Error ? error.message : String(error)}`
+    )
+    return stored
+  }
+}
+
+/**
  * LUM-1079 — `fetchPrDiff` flags GitHub's "diff too large" refusal (406)
  * with `diffTooLarge: true` on the error it throws.
  */
@@ -1014,11 +1056,12 @@ export const prSecurityScanService = {
           }
         }
       }
-      // LUM-1143 — the repository's path filters (built-in: lockfiles, generated code, build
+      // LUM-1143 — the repository's path filters (LUM-1146: `.lumo.yaml` on
+      // the base commit first; built-in: lockfiles, generated code, build
       // output) decide what the AI review and the hunt read. The secret scan
       // and graph rules still see every file.
       const isReviewable = reviewablePathPredicate(
-        await repoPathFiltersBestEffort(pr.workspaceId, pr.repo)
+        await reviewPathFiltersBestEffort(pr, scanId, headSha, diff)
       )
       const reviewable = filterReviewableDiff(reviewDiff, isReviewable)
       if (reviewable.excluded.length > 0) {

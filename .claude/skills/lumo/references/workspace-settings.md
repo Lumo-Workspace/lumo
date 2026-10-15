@@ -93,6 +93,7 @@ lumo workspace security-scan --repo acme/app --labels ""                       #
 - `labeled` / `unlabeled` / `edited` (title, description, base) events review a PR that the change **newly** lets through (e.g. adding the opt-in label, dropping `WIP` from the title); a PR that already passed is not re-reviewed.
 - `--path-filter <glob>`: globs over changed paths for the AI review and the hunt (`**` any depth, `*` within a segment; a pattern without `/` matches the file name anywhere). `!glob` excludes; a plain glob restricts the review to matches and re-admits a built-in exclusion. Built-in exclusions: lockfiles (`package-lock.json`, `yarn.lock`, `go.sum`, `Cargo.lock`, …), `*.min.js` / `*.map` / `*.snap`, generated code (`*.pb.go`, `*.generated.*`, `__generated__/`), `dist/`, `build/`, `vendor/`, `node_modules/`, `coverage/`. The secret scan and graph rules still read every file.
 - `--repo X` (no change) prints the repository's filters under its row; `--json` adds `baseBranches`, `labels`, `ignoreTitleKeywords`, `ignoreUsernames`, `descriptionKeyword`, `pathFilters`, `emptyBaseBranchesMeans`.
+- A `.lumo.yaml` at the repository root (`reviews.auto_review.*`, `reviews.path_filters`) overrides these per key, read from the PR's **base** commit — a PR's own copy applies only after it merges; an invalid file falls back to these settings and the PR summary says why. These commands show the stored settings, not the file. Details: `docs/repo-config.md`.
 
 ### When to suggest `workspace security-scan`
 

@@ -1,0 +1,129 @@
+import { z } from 'zod'
+import { baseBranchRegExp } from '@/ee/security/security-scan/auto-review-policy'
+import { invalidPathFilter } from '@/ee/security/security-scan/reviewable-path'
+import {
+  REVIEW_FILTER_MAX_ENTRIES,
+  REVIEW_FILTER_MAX_ENTRY_CHARS,
+} from './security-scan-settings'
+
+/**
+ * LUM-1146 — the repository config file (`.lumo.yaml` at the repository
+ * root): ONE Zod schema for every key the file may hold. The JSON schema
+ * editors read (`public/schemas/lumo-yaml.schema.json`) is generated from
+ * it (`npx tsx scripts/repo-config/emit-json-schema.ts`; a test keeps the
+ * two equal).
+ *
+ * Extension point — adding a key or a whole section:
+ *  1. add it to the schema below (snake_case, `.optional()`, a
+ *     `.describe()` — the description is what editors show);
+ *  2. register how it resolves in `REPO_CONFIG_FIELDS`
+ *     (ee/security/security-scan/repo-config.ts): the file value, the Lumo
+ *     setting it overrides (if any), its default, and what a PR-branch copy
+ *     may do with it;
+ *  3. regenerate the JSON schema.
+ * Unknown keys never fail the file — they are reported as warnings — so an
+ * older Lumo reading a newer file degrades to "ignored key", not "invalid".
+ */
+
+export const REPO_CONFIG_PATH = '.lumo.yaml'
+
+/** A larger file is refused unparsed (a config file is a few hundred bytes). */
+export const REPO_CONFIG_MAX_BYTES = 64 * 1024
+
+const entry = z
+  .string()
+  .max(REVIEW_FILTER_MAX_ENTRY_CHARS)
+  .refine(v => !/[\n\r]/.test(v), 'must be a single line')
+
+const list = (item: z.ZodType<string> = entry) =>
+  z.array(item).max(REVIEW_FILTER_MAX_ENTRIES)
+
+export const autoReviewConfigSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .optional()
+      .describe(
+        'Review every PR of the repository automatically. When false, only a PR carrying one of `labels` or whose description contains `description_keyword` is reviewed.'
+      ),
+    drafts: z
+      .boolean()
+      .optional()
+      .describe('Review draft PRs too (otherwise they wait until ready).'),
+    base_branches: list(
+      entry.refine(
+        v => baseBranchRegExp(v.trim()) !== null,
+        'must be a valid regular expression'
+      )
+    )
+      .optional()
+      .describe(
+        'Regular expressions (full match) for base branches besides the default branch whose PRs are reviewed; `.*` = every branch.'
+      ),
+    labels: list()
+      .optional()
+      .describe(
+        '`label` reviews only PRs carrying one of the listed labels; `!label` never reviews a PR carrying it.'
+      ),
+    ignore_title_keywords: list()
+      .optional()
+      .describe(
+        'A PR whose title contains one of these (case-insensitive) is not reviewed automatically.'
+      ),
+    ignore_usernames: list()
+      .optional()
+      .describe(
+        'PRs by these GitHub logins (exact, case-sensitive) are never reviewed automatically.'
+      ),
+    description_keyword: entry
+      .nullable()
+      .optional()
+      .describe(
+        'With `enabled: false`, a PR whose description contains this is reviewed. Empty or null clears it.'
+      ),
+  })
+  .describe(
+    'Which PRs without a Lumo task are reviewed automatically. PRs linked to a Lumo task are always scanned.'
+  )
+
+export const reviewsConfigSchema = z
+  .object({
+    auto_review: autoReviewConfigSchema.optional(),
+    path_filters: list(
+      entry.refine(
+        v => v.trim() === '' || invalidPathFilter(v.trim()) === null,
+        'must be a glob (`!glob` excludes)'
+      )
+    )
+      .optional()
+      .describe(
+        'Globs for the files the AI review reads: `!glob` excludes; once any `glob` is listed, only matching files are reviewed.'
+      ),
+  })
+  .describe('Code review settings.')
+
+export const repoConfigSchema = z
+  .object({
+    version: z
+      .literal(1)
+      .optional()
+      .describe('Schema version of this file. Currently 1.'),
+    reviews: reviewsConfigSchema.optional(),
+  })
+  .describe(
+    'Lumo repository configuration (.lumo.yaml). Read from the base branch of each pull request.'
+  )
+
+export type RepoConfigFile = z.infer<typeof repoConfigSchema>
+
+/** Where the generated JSON schema is committed (served at `/schemas/…`). */
+export const REPO_CONFIG_JSON_SCHEMA_PATH =
+  'public/schemas/lumo-yaml.schema.json'
+
+/** The JSON schema editors validate `.lumo.yaml` against (generated, never hand-edited). */
+export function repoConfigJsonSchema(): Record<string, unknown> {
+  return {
+    ...z.toJSONSchema(repoConfigSchema, { io: 'input' }),
+    title: '.lumo.yaml',
+  }
+}
