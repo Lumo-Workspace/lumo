@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo 把變更摘要寫進 PR 描述——作者寫了「@uselumo summary」的位置，否則附加到結尾——並在每次審查時保持更新。作者自己的文字絕不改動。",
   "workspaceSettings.repoReview.style.summaryHint.comment": "摘要只放在 Lumo 的摘要留言裡，PR 描述永不編輯。",
   "workspaceSettings.repoReview.style.summaryHint.off": "不寫高層摘要。",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "呼叫流程時序圖",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "當 PR 變更了呼叫流程時，Lumo 摘要留言的變更說明裡會附上主流程的時序圖。小型 PR 不會產生；留言「@uselumo diagram」可重新繪製。",
   "workspaceSettings.repoReview.style.pathInstructions": "路徑指令",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "對符合某個 glob 的檔案追加的 AI 審查檢查，例如 scripts/** ——「標出所有 console.log」。它們只會追加檢查，不能關閉任何檢查。",
   "workspaceSettings.repoReview.style.pathAria": "路徑 glob",

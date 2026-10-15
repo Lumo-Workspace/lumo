@@ -152,6 +152,16 @@ lumo workspace security-scan --repo acme/app --summary off
 - `@uselumo summary` on the PR rewrites the section from the latest review's summary (no new AI review), following the repository's current setting. The summary comment's folded **Walkthrough** lists the PR's changed files (status, +/− lines; first 50 named).
 - `--repo X` prints `high-level summary:`; `--json` adds `highLevelSummary`.
 
+#### Sequence diagram of the call flow (LUM-1155)
+
+```bash
+lumo workspace security-scan --repo acme/app --sequence-diagrams off
+```
+
+- `--sequence-diagrams <on|off>` (OWNER, no confirmation, audited; web card: **Review style → Sequence diagram of the call flow**; default on): when a PR changes a call flow, the folded **Walkthrough** of Lumo's summary comment gets a Mermaid sequence diagram of its main flow (≤8 participants, ≤16 calls). No extra pass: the AI review's own call draws it (an incremental review: the whole-PR summary call, only when the whole diff fits its 40k budget). Trivial PRs never get one — fewer than 2 changed source files or fewer than 20 changed lines in them (tests, docs, migrations, config don't count). The model only names participants and calls; Lumo writes the Mermaid itself and validates it before posting (a diagram that fails is left out).
+- `.lumo.yaml` key `reviews.sequence_diagrams` (`true` / `false`) overrides it (base commit only). `@uselumo diagram` on the PR draws it again on request (current setting; refused when off).
+- `--repo X` prints `sequence diagrams:`; `--json` adds `sequenceDiagrams`.
+
 ### `lumo workspace learnings` — PR-review learnings (LUM-1157)
 
 Lists the workspace's PR-review learnings — what reviewers told Lumo in its review threads ("this is intentional because …", LUM-1131) — newest first, ACTIVE only, at most 200. Every reviewed repository of the workspace gets learnings, whether or not it is linked to a Lumo project; a learning of a repository linked to no project belongs to no project's memory (it is scoped to the workspace + repository), so this command is where it is found. Any member may read.
@@ -172,6 +182,7 @@ Each learning prints `<id>  <repo>  [<path glob>]  @<author>  <date>  <scope>[  
 - "Skip WIP PRs", "don't review dependabot", "only review PRs labelled X", "review PRs into release branches", "ignore lockfiles / generated files", "auto-review filters / path filters" → the LUM-1143 filter flags with `--repo`.
 - "Too many review comments", "only comment on serious issues", "show nitpicks too", "review in a friendlier / terser tone", "tell the review to check X in folder Y" → `--profile` / `--tone` / `--path-instruction` with `--repo`.
 - "Don't edit our PR descriptions", "put the PR summary in the description", "turn the PR summary off" → `--summary description|comment|off` with `--repo`.
+- "No diagrams in PR comments", "turn sequence diagrams on/off" → `--sequence-diagrams on|off` with `--repo`.
 - "Make Lumo request changes / approve PRs", "request changes on open findings" → `--request-changes on` (exits 4 first; relay the envelope).
 - "Stop PR authors approving their own PRs via @uselumo", "allow_author_approval" → `--allow-author-approval off` (exits 4 first; relay the envelope); turning it back on is gated too.
 - "What has Lumo learned from our review replies", "delete that learning", "undo a learning on a repo without a project" → `lumo workspace learnings [--repo]`, then `lumo memory rm <id>` (exits 4 first; relay the envelope).

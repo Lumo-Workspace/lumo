@@ -201,6 +201,8 @@ export const updateRepoReviewSettingsSchema = z
     toneInstructions: toneInstructionsSchema.nullable().optional(),
     // LUM-1151: description | comment | off.
     highLevelSummary: highLevelSummarySchema.optional(),
+    // LUM-1155: the call-flow diagram in the walkthrough.
+    sequenceDiagrams: z.boolean().optional(),
   })
   .strict()
   .refine(v => Object.keys(v).some(k => k !== 'repo'), {

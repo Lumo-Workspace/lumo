@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo बदलावों का सारांश PR विवरण में लिखता है — जहाँ लेखक ने \"@uselumo summary\" रखा हो, वरना अंत में — और हर समीक्षा पर उसे अद्यतन रखता है। लेखक का अपना पाठ कभी नहीं बदला जाता।",
   "workspaceSettings.repoReview.style.summaryHint.comment": "सारांश Lumo की सारांश टिप्पणी में ही रहता है; PR विवरण कभी संपादित नहीं होता।",
   "workspaceSettings.repoReview.style.summaryHint.off": "कोई उच्च-स्तरीय सारांश नहीं लिखा जाता।",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "कॉल फ़्लो का सीक्वेंस डायग्राम",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "जब कोई पुल रिक्वेस्ट कॉल फ़्लो बदलता है, तो Lumo की सारांश टिप्पणी के वॉकथ्रू में उसके मुख्य फ़्लो का सीक्वेंस डायग्राम जुड़ता है। छोटे पुल रिक्वेस्ट को यह कभी नहीं मिलता; दोबारा बनाने के लिए \"@uselumo diagram\" टिप्पणी करें।",
   "workspaceSettings.repoReview.style.pathInstructions": "पथ निर्देश",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "किसी glob से मेल खाने वाली फ़ाइलों के लिए अतिरिक्त जाँच, जैसे scripts/** — \"हर console.log को चिह्नित करें\"। ये समीक्षा में जुड़ते हैं और कोई जाँच बंद नहीं कर सकते।",
   "workspaceSettings.repoReview.style.pathAria": "पथ glob",

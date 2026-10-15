@@ -21,6 +21,7 @@ import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
+import { SEQUENCE_DIAGRAM_FIELD_DESCRIPTION } from '@/ee/security/security-scan/sequence-diagram'
 
 export const WholePrSummarySchema = z.object({
   intent: z
@@ -32,7 +33,32 @@ export const WholePrSummarySchema = z.object({
     .describe('Up to three short bullets (≤ 160 chars each): the main changes'),
 })
 
-export type WholePrSummaryAnswer = z.infer<typeof WholePrSummarySchema>
+/**
+ * LUM-1155 — the same call also draws the PR's call-flow diagram when the
+ * repository wants diagrams, the PR is not trivial and the diff is sent
+ * (an incremental review's own call only saw a slice).
+ */
+export const WholePrSummaryWithDiagramSchema = WholePrSummarySchema.extend({
+  sequenceDiagram: z
+    .object({
+      participants: z.array(z.string()),
+      steps: z.array(
+        z.object({
+          from: z.string(),
+          to: z.string(),
+          message: z.string(),
+          reply: z.boolean().nullish(),
+        })
+      ),
+    })
+    .nullish()
+    .describe(SEQUENCE_DIAGRAM_FIELD_DESCRIPTION),
+})
+
+export type WholePrSummaryAnswer = z.infer<typeof WholePrSummarySchema> & {
+  /** LUM-1155 — raw; `cleanSequenceDiagram` makes it publishable. */
+  sequenceDiagram?: unknown
+}
 
 export const WHOLE_PR_SUMMARY_SYSTEM_PROMPT = `You describe a GitHub pull request for a reviewer: intent is one plain sentence saying what the whole pull request does, changes are up to three short bullets with its main changes. Describe the pull request as a whole, from its base to its head — not only the most recent commit. Describe, do not judge: no statement about safety, quality or readiness to merge, no links, no @mentions, no markdown.
 
@@ -52,6 +78,8 @@ export interface WholePrSummaryInput {
   /** Guarded tone line from the repository settings ('' = none). */
   tone: string
   timeoutMs?: number
+  /** LUM-1155 — also ask for the call-flow diagram (needs `diff`). */
+  withSequenceDiagram?: boolean
 }
 
 export function buildWholePrSummaryPrompt(input: WholePrSummaryInput): string {
@@ -107,7 +135,10 @@ export async function summarizeWholePr(
 ): Promise<WholePrSummaryAnswer> {
   const { object } = await generateObject({
     model: gateway(MEMORY_JUDGE_MODEL),
-    schema: WholePrSummarySchema,
+    schema:
+      input.withSequenceDiagram && input.diff
+        ? WholePrSummaryWithDiagramSchema
+        : WholePrSummarySchema,
     system: WHOLE_PR_SUMMARY_SYSTEM_PROMPT,
     prompt: buildWholePrSummaryPrompt(input),
     abortSignal: AbortSignal.timeout(input.timeoutMs ?? 60_000),

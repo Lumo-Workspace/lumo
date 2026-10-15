@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo writes a summary of the changes into the PR description — where the author put \"@uselumo summary\", or at the end — and keeps it up to date on every review. The author's own text is never changed.",
   "workspaceSettings.repoReview.style.summaryHint.comment": "The summary stays in Lumo's summary comment; the PR description is never edited.",
   "workspaceSettings.repoReview.style.summaryHint.off": "No high-level summary is written.",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "Sequence diagram of the call flow",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "When a pull request changes a call flow, the walkthrough in Lumo's summary comment gets a sequence diagram of its main flow. Small pull requests never get one; comment \"@uselumo diagram\" to draw it again.",
   "workspaceSettings.repoReview.style.pathInstructions": "Path instructions",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Extra checks for the AI review of files matching a glob, for example scripts/** — \"Flag any console.log\". They add to the review and cannot turn a check off.",
   "workspaceSettings.repoReview.style.pathAria": "Path glob",

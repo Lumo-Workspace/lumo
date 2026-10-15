@@ -35,6 +35,7 @@ reviews:
     - path: 'scripts/**'
       instructions: Flag any console.log.
   high_level_summary: description # description | comment | off — where the PR summary goes
+  sequence_diagrams: true # call-flow diagram in the summary comment's walkthrough
 tone_instructions: Be concise and friendly. # wording of the AI review and PR answers, ≤250 chars
 ```
 
@@ -88,6 +89,20 @@ settings mean in Lumo (the settings card and `lumo workspace security-scan
 - `comment`: the summary stays in Lumo's summary comment; the description is
   never edited.
 - `off` (or `false`): no summary anywhere.
+
+## Sequence diagram (`sequence_diagrams`)
+
+- `true` (default): when a PR changes a call flow, the walkthrough in Lumo's
+  summary comment gets a Mermaid sequence diagram of its main flow (at most 8
+  participants and 16 calls). It comes from the call the review already
+  makes — the AI review, or on an incremental review the whole-PR summary
+  call — so there is no extra pass. Trivial PRs never get one: fewer than two
+  changed source files, or fewer than 20 changed lines in them (tests, docs,
+  migrations and config do not count). The model only names participants
+  and calls; Lumo writes the Mermaid itself and checks it before posting, so
+  a diagram that would not render is left out. `@uselumo diagram` on the PR
+  draws it again on request.
+- `false`: no diagram, and `@uselumo diagram` says it is turned off.
 
 ## Precedence
 

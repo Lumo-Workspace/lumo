@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo menulis ringkasan perubahan ke deskripsi PR — di tempat penulis menaruh \"@uselumo summary\", atau di akhir — dan memperbaruinya di setiap review. Teks penulis sendiri tidak pernah diubah.",
   "workspaceSettings.repoReview.style.summaryHint.comment": "Ringkasan tetap di komentar ringkasan Lumo; deskripsi PR tidak pernah diedit.",
   "workspaceSettings.repoReview.style.summaryHint.off": "Tidak ada ringkasan tingkat tinggi yang ditulis.",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "Diagram urutan alur panggilan",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "Saat pull request mengubah alur panggilan, ringkasan perubahan di komentar ringkasan Lumo menyertakan diagram urutan alur utamanya. Pull request kecil tidak pernah mendapatkannya; komentari \"@uselumo diagram\" untuk menggambarnya lagi.",
   "workspaceSettings.repoReview.style.pathInstructions": "Instruksi jalur",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Pemeriksaan tambahan untuk file yang cocok dengan glob, misalnya scripts/** — \"Tandai setiap console.log\". Instruksi ini menambah tinjauan dan tidak dapat mematikan pemeriksaan apa pun.",
   "workspaceSettings.repoReview.style.pathAria": "Glob jalur",

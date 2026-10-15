@@ -65,6 +65,8 @@ export interface RepoReviewSettingsUpdate {
   toneInstructions?: string | null | undefined
   /** LUM-1151: where the high-level summary goes. */
   highLevelSummary?: HighLevelSummaryMode | undefined
+  /** LUM-1155: the call-flow diagram in the walkthrough. */
+  sequenceDiagrams?: boolean | undefined
 }
 
 type SettingKey = keyof RepoReviewSettingValues
@@ -114,6 +116,7 @@ export function applyRepoReviewUpdate(
     reviewDrafts: update.reviewDrafts ?? from.reviewDrafts,
     reviewProfile: update.reviewProfile ?? from.reviewProfile,
     highLevelSummary: update.highLevelSummary ?? from.highLevelSummary,
+    sequenceDiagrams: update.sequenceDiagrams ?? from.sequenceDiagrams,
   }
   for (const key of LIST_KEYS) {
     const next = update[key]

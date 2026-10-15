@@ -195,6 +195,10 @@
               "enum": ["description", "comment", "off"]
             }
           ]
+        },
+        "sequence_diagrams": {
+          "description": "Add a sequence diagram of the PR's main call flow to the walkthrough in Lumo's summary comment (default true). Trivial PRs never get one; `@uselumo diagram` draws it again on demand.",
+          "type": "boolean"
         }
       },
       "description": "Code review settings."
