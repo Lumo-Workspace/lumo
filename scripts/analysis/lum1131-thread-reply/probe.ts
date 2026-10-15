@@ -36,8 +36,12 @@ import { findingOf, LABELLED_REPLIES } from './labelled'
 async function main(): Promise<void> {
   const i = process.argv.indexOf('--runs')
   const runs = i > 0 ? Number(process.argv[i + 1]) : 3
+  // `--out <name>.json`, written next to this file; anything else (missing
+  // value, a path, another flag) falls back to results.json.
   const o = process.argv.indexOf('--out')
-  const outFile = o > 0 ? String(process.argv[o + 1]) : 'results.json'
+  const outArg = o > 0 ? process.argv[o + 1] : undefined
+  const outFile =
+    outArg && /^[\w.-]+\.json$/.test(outArg) ? outArg : 'results.json'
   const out: unknown[] = []
   let tp = 0
   let fp = 0
