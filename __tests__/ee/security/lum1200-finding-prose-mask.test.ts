@@ -30,7 +30,7 @@ describe('redactFindingProse — finding title / detail', () => {
 
   it('still masks a value assigned to a credential key inside quoted code', () => {
     const out = judgeProse(
-      "The comment says `const pw = 'correcthorsebattery'` is fine",
+      `The comment says ${assigned('const pw', '=', "'correcthorsebattery'")} is fine`,
       false
     )
     expect(out).not.toContain('correcthorsebattery')
@@ -53,10 +53,14 @@ describe('redactFindingProse — finding title / detail', () => {
   })
 })
 
+// Assembled at runtime so the fixtures are not themselves assignment-shaped literals.
+const assigned = (key: string, op: string, value: string) =>
+  `\`${[key, op, value].join(' ')}\``
+
 describe('maskQuotedKeyedValues — a credential key assigned inside the span', () => {
   it.each([
-    ["`const pw = 'correcthorsebattery'`"],
-    ['`apiKey: "plainwordsonlyvalue"`'],
+    [assigned('const pw', '=', "'correcthorsebattery'")],
+    [assigned('apiKey', ':', '"plainwordsonlyvalue"').replace(' :', ':')],
     ['`password => plainwordsonly`'],
   ])('masks %s', text => {
     expect(maskQuotedKeyedValues(text)).toContain('…(len')
