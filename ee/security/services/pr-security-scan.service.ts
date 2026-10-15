@@ -110,7 +110,17 @@ import { REPO_CONFIG_FIELDS } from '@/ee/security/security-scan/repo-config'
 import type { RepoConfigFile } from '@/ee/security/validation/repo-config'
 import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
 import { DEFAULT_REVIEW_PROFILE } from '@/ee/security/security-scan/review-profile'
-import { prWholeSummaryService } from './pr-whole-summary.service'
+import {
+  diffFileStats,
+  prWholeSummaryService,
+  type WholeSummaryResult,
+} from './pr-whole-summary.service'
+import {
+  cleanSequenceDiagram,
+  DEFAULT_SEQUENCE_DIAGRAMS,
+  sequenceDiagramEligible,
+  type SequenceDiagram,
+} from '@/ee/security/security-scan/sequence-diagram'
 import {
   DEFAULT_HIGH_LEVEL_SUMMARY,
   parseHighLevelSummary,
@@ -831,6 +841,11 @@ async function repoReviewStyleBestEffort(
       return {
         ...row,
         highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
+        // LUM-1155: likewise — a row without the column = default (on).
+        sequenceDiagrams:
+          typeof row.sequenceDiagrams === 'boolean'
+            ? row.sequenceDiagrams
+            : DEFAULT_SEQUENCE_DIAGRAMS,
       }
   } catch (error) {
     logger.warn(
@@ -842,12 +857,17 @@ async function repoReviewStyleBestEffort(
     reviewProfile: DEFAULT_REVIEW_PROFILE,
     toneInstructions: null,
     highLevelSummary: DEFAULT_HIGH_LEVEL_SUMMARY,
+    sequenceDiagrams: DEFAULT_SEQUENCE_DIAGRAMS,
   }
 }
 
 type ReviewStyle = Pick<
   RepoReviewSettingValues,
-  'pathInstructions' | 'reviewProfile' | 'toneInstructions' | 'highLevelSummary'
+  | 'pathInstructions'
+  | 'reviewProfile'
+  | 'toneInstructions'
+  | 'highLevelSummary'
+  | 'sequenceDiagrams'
 >
 
 /** What one scan's review reads from the repository's settings. */
@@ -920,6 +940,11 @@ async function reviewSettingsBestEffort(
         file,
         'highLevelSummary',
         settings.highLevelSummary
+      ),
+      sequenceDiagrams: fileOver(
+        file,
+        'sequenceDiagrams',
+        settings.sequenceDiagrams
       ),
     }
   } catch (error) {
@@ -1239,8 +1264,18 @@ export const prSecurityScanService = {
       // the WHOLE PR: an incremental review gets a separate, budgeted
       // summary-only call over the whole reviewable diff, alongside the
       // review. Never rejects; a full review keeps the AI review's own.
-      const wholeSummary: Promise<PrSummary | null> | null = incrementalSlice
-        ? prWholeSummaryService.summarize({
+      // LUM-1155 — the call-flow diagram rides on the call this review
+      // already makes (the AI review, or the whole-PR summary call of an
+      // incremental review): asked for only when the repository wants
+      // diagrams and the whole reviewable PR is not trivial.
+      const diagramWanted =
+        reviewAllowed &&
+        reviewSettings.sequenceDiagrams &&
+        sequenceDiagramEligible(
+          diffFileStats(filterReviewableDiff(diff, isReviewable).diff)
+        )
+      const wholeSummary: Promise<WholeSummaryResult> | null = incrementalSlice
+        ? prWholeSummaryService.summarizeWithDiagram({
             pullRequestId: pr.id,
             scanId,
             diff,
@@ -1249,6 +1284,7 @@ export const prSecurityScanService = {
               reviewSettings.toneInstructions,
               guardPromptLineText
             ),
+            ...(diagramWanted ? { withSequenceDiagram: true } : {}),
           })
         : null
       // LUM-1148 — the pre-merge checks run alongside the review, on every
@@ -1499,6 +1535,8 @@ export const prSecurityScanService = {
       // LUM-849: the judge's own description of the PR, for the summary
       // comment. Only a judge that answered writes one.
       let prSummary: PrSummary | null = null
+      // LUM-1155: the cleaned call-flow diagram, when one was asked for.
+      let sequenceDiagram: SequenceDiagram | null = null
       const judgeRows: NewFindingInput[] = []
       // LUM-832 / LUM-1144 — the AI review's cap: at most the top tier's
       // characters and `JUDGE_MAX_REVIEWED_FILES` files of the REVIEWABLE
@@ -1651,7 +1689,11 @@ export const prSecurityScanService = {
           // it. Secrets are stage A's job (deterministic, above); the judge
           // still sees the `AKIA…(len 20)` shape if it wants to reason about
           // a hardcoded credential, it just never sees the value.
-          const { findings, prSummary: rawSummary } = await judgeSecurity({
+          const {
+            findings,
+            prSummary: rawSummary,
+            sequenceDiagram: rawDiagram,
+          } = await judgeSecurity({
             diff: redactForInjection(capped.text).text,
             timeoutMs: tier.timeoutMs,
             // Customer files entering a prompt: same mask as the diff.
@@ -1659,11 +1701,18 @@ export const prSecurityScanService = {
             ...(learnings ? { learnings } : {}),
             ...(pathInstructions ? { pathInstructions } : {}),
             ...(tone ? { tone } : {}),
+            // LUM-1155: an incremental slice's diagram would describe the
+            // slice — that review's diagram comes from the whole-PR call.
+            ...(diagramWanted && !incrementalSlice
+              ? { withSequenceDiagram: true }
+              : {}),
           })
           judgeStatus = 'RAN'
           // Model text headed for a public PR: redacted and neutralised here,
           // and again on read (`parsePrSummary`).
           prSummary = cleanPrSummary(rawSummary)
+          if (diagramWanted && !incrementalSlice)
+            sequenceDiagram = cleanSequenceDiagram(rawDiagram)
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
             // LUM-988: a correctness finding is CORRECTNESS / `review:<kind>`,
@@ -1887,7 +1936,11 @@ export const prSecurityScanService = {
       // LUM-1148: the checks' results are on the row before the write-back.
       await preMergeChecks
       // LUM-1151: an incremental slice's summary never reaches the PR.
-      if (wholeSummary) prSummary = await wholeSummary
+      if (wholeSummary) {
+        const whole = await wholeSummary
+        prSummary = whole.summary
+        sequenceDiagram = whole.sequenceDiagram
+      }
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions(
@@ -1923,6 +1976,8 @@ export const prSecurityScanService = {
         truncated,
         judgeBudget,
         prSummary,
+        // LUM-1155: like prSummary — null leaves the column alone.
+        sequenceDiagram,
         // LUM-1127: which files this head's AI review read — the PR
         // write-back only resolves a judge thread for a file it covered.
         judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,

@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo가 변경 사항 요약을 PR 설명에 작성합니다. 작성자가 \"@uselumo summary\"를 넣은 위치에, 없으면 끝에 넣고 리뷰할 때마다 최신 상태로 유지합니다. 작성자가 쓴 글은 절대 바꾸지 않습니다.",
   "workspaceSettings.repoReview.style.summaryHint.comment": "요약은 Lumo 요약 댓글에만 남고 PR 설명은 편집하지 않습니다.",
   "workspaceSettings.repoReview.style.summaryHint.off": "상위 수준 요약을 작성하지 않습니다.",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "호출 흐름 시퀀스 다이어그램",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "풀 리퀘스트가 호출 흐름을 바꾸면 Lumo 요약 댓글의 워크스루에 주요 흐름의 시퀀스 다이어그램이 추가됩니다. 작은 풀 리퀘스트에는 추가되지 않으며, \"@uselumo diagram\"을 댓글로 남기면 다시 그립니다.",
   "workspaceSettings.repoReview.style.pathInstructions": "경로별 지침",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "glob과 일치하는 파일의 AI 리뷰에 추가할 검사입니다. 예: scripts/** — \"console.log를 모두 지적\". 리뷰에 더해질 뿐 어떤 검사도 끌 수 없습니다.",
   "workspaceSettings.repoReview.style.pathAria": "경로 glob",

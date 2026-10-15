@@ -27,6 +27,10 @@ import {
   type PrSummary,
 } from '@/ee/security/security-scan/pr-summary'
 import { filterReviewableDiff } from '@/ee/security/security-scan/reviewable-path'
+import {
+  cleanSequenceDiagram,
+  type SequenceDiagram,
+} from '@/ee/security/security-scan/sequence-diagram'
 
 /** Whole-PR diff characters one summary call may read (≈10k input tokens). */
 export const WHOLE_PR_SUMMARY_DIFF_MAX_CHARS = 40_000
@@ -85,16 +89,36 @@ function kept(
   return { ...summary, describesSha: summary.describesSha ?? previous.headSha }
 }
 
+export interface WholeSummaryInput {
+  pullRequestId: string
+  scanId: string
+  /** The whole PR diff (base...head). */
+  diff: string
+  isReviewable: (path: string) => boolean
+  /** Guarded tone line ('' = none). */
+  tone: string
+  /**
+   * LUM-1155 — also ask for the PR's call-flow diagram in the same call
+   * (only honoured when the whole diff is sent).
+   */
+  withSequenceDiagram?: boolean
+}
+
+export interface WholeSummaryResult {
+  summary: PrSummary | null
+  /** LUM-1155 — the cleaned diagram; null = none asked, none drawn or the call failed. */
+  sequenceDiagram: SequenceDiagram | null
+}
+
 export const prWholeSummaryService = {
-  async summarize(input: {
-    pullRequestId: string
-    scanId: string
-    /** The whole PR diff (base...head). */
-    diff: string
-    isReviewable: (path: string) => boolean
-    /** Guarded tone line ('' = none). */
-    tone: string
-  }): Promise<PrSummary | null> {
+  async summarize(input: WholeSummaryInput): Promise<PrSummary | null> {
+    return (await prWholeSummaryService.summarizeWithDiagram(input)).summary
+  },
+
+  /** `summarize`, plus the diagram the same call drew (LUM-1155). */
+  async summarizeWithDiagram(
+    input: WholeSummaryInput
+  ): Promise<WholeSummaryResult> {
     const where = `scan=${input.scanId}`
     let previous: { headSha: string; prSummary: unknown } | null = null
     try {
@@ -126,19 +150,28 @@ export const prWholeSummaryService = {
         previous: kept(previous),
         tone: input.tone,
         timeoutMs: WHOLE_PR_SUMMARY_TIMEOUT_MS,
+        ...(input.withSequenceDiagram && fits
+          ? { withSequenceDiagram: true }
+          : {}),
       })
       logger.info(
         `[pr-whole-summary] summarised ${where} files=${files.length} diffChars=${guarded.text.length} ${fits ? 'diff' : 'file-list'}`
       )
       // Model text headed for a public PR: redacted and neutralised.
       const summary = cleanPrSummary(answer)
-      if (summary) return summary
+      // LUM-1155: the diagram is validated on its own; a summary-less
+      // answer still fails the call below.
+      const sequenceDiagram =
+        input.withSequenceDiagram && fits
+          ? cleanSequenceDiagram(answer.sequenceDiagram)
+          : null
+      if (summary) return { summary, sequenceDiagram }
       throw new Error('empty summary')
     } catch (error) {
       logger.warn(
         `[pr-whole-summary] not refreshed ${where}: ${describe(error)} — ${previous ? 'keeping the earlier summary' : 'no summary'}`
       )
-      return kept(previous)
+      return { summary: kept(previous), sequenceDiagram: null }
     }
   },
 }

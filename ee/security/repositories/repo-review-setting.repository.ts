@@ -84,6 +84,7 @@ const SETTING_SELECT = {
   reviewProfile: true,
   toneInstructions: true,
   highLevelSummary: true,
+  sequenceDiagrams: true,
 } as const
 
 /**
@@ -163,6 +164,7 @@ export const repoReviewSettingRepository = {
     | 'reviewProfile'
     | 'toneInstructions'
     | 'highLevelSummary'
+    | 'sequenceDiagrams'
   > | null> {
     const row = await prisma.repositoryReviewSetting.findUnique({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
@@ -171,6 +173,7 @@ export const repoReviewSettingRepository = {
         reviewProfile: true,
         toneInstructions: true,
         highLevelSummary: true,
+        sequenceDiagrams: true,
       },
     })
     if (!row) return null
@@ -180,6 +183,8 @@ export const repoReviewSettingRepository = {
       toneInstructions: row.toneInstructions,
       // LUM-1151: where the high-level summary goes.
       highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
+      // LUM-1155: the call-flow diagram switch.
+      sequenceDiagrams: row.sequenceDiagrams,
     }
   },
 

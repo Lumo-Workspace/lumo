@@ -26,6 +26,7 @@ import {
   CODE_SUGGESTION_MAX_LINES,
   type RawCodeSuggestion,
 } from '@/ee/security/security-scan/code-suggestion'
+import { SEQUENCE_DIAGRAM_FIELD_DESCRIPTION } from '@/ee/security/security-scan/sequence-diagram'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -114,6 +115,31 @@ export const SecurityJudgeSchema = z.object({
         'Up to 3 short bullets (≤ 120 chars each) naming the main changes'
       ),
   }),
+})
+
+/**
+ * LUM-1155 — the call-flow diagram, asked for in the same review call (no
+ * extra pass) only when the repository wants diagrams and the PR is not
+ * trivial. Said only in the field's description, so the measured system
+ * prompt stays byte-identical; `cleanSequenceDiagram` validates the answer.
+ */
+export const SequenceDiagramAnswerSchema = z
+  .object({
+    participants: z.array(z.string()),
+    steps: z.array(
+      z.object({
+        from: z.string(),
+        to: z.string(),
+        message: z.string(),
+        reply: z.boolean().nullish(),
+      })
+    ),
+  })
+  .nullish()
+  .describe(SEQUENCE_DIAGRAM_FIELD_DESCRIPTION)
+
+export const SecurityJudgeWithDiagramSchema = SecurityJudgeSchema.extend({
+  sequenceDiagram: SequenceDiagramAnswerSchema,
 })
 
 const SECURITY_TAXONOMY =
@@ -255,6 +281,12 @@ export interface SecurityJudgeInput {
   pathInstructions?: string
   /** LUM-1147 — the repository's tone (guarded, ≤ 250 chars). */
   tone?: string
+  /**
+   * LUM-1155 — also ask for the PR's call-flow diagram (the repository
+   * wants diagrams and the PR is not trivial). Absent = the schema without
+   * the field.
+   */
+  withSequenceDiagram?: boolean
 }
 
 /** LUM-849 — raw model text; `cleanPrSummary` makes it publishable. */
@@ -296,6 +328,8 @@ export interface SecurityJudgeFinding {
 export async function judgeSecurity(input: SecurityJudgeInput): Promise<{
   findings: SecurityJudgeFinding[]
   prSummary: SecurityJudgePrSummary
+  /** LUM-1155 — raw; `cleanSequenceDiagram` makes it publishable. */
+  sequenceDiagram?: unknown
 }> {
   const withContext = input.context.trim().length > 0
   const learnings = input.learnings ?? ''
@@ -303,7 +337,9 @@ export async function judgeSecurity(input: SecurityJudgeInput): Promise<{
   const tone = input.tone ?? ''
   const { object } = await generateObject({
     model: gateway(CODE_REVIEW_MODEL),
-    schema: SecurityJudgeSchema,
+    schema: input.withSequenceDiagram
+      ? SecurityJudgeWithDiagramSchema
+      : SecurityJudgeSchema,
     system: buildReviewSystemPrompt({
       withContext,
       withRelated: (input.related ?? '').trim().length > 0,
@@ -320,8 +356,11 @@ export async function judgeSecurity(input: SecurityJudgeInput): Promise<{
     ),
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
+  const diagram =
+    'sequenceDiagram' in object ? object.sequenceDiagram : undefined
   return {
     findings: object.findings.slice(0, MAX_REVIEW_FINDINGS),
     prSummary: object.prSummary,
+    ...(diagram ? { sequenceDiagram: diagram } : {}),
   }
 }

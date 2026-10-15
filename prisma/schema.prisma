@@ -1594,6 +1594,9 @@ model RepositoryReviewSetting {
   /// LUM-1151 — where the high-level summary goes: description | comment
   /// | off (ee/security/security-scan/pr-description-summary.ts).
   highLevelSummary    String   @default("description")
+  /// LUM-1155 — a sequence diagram of the PR's call flow in the summary
+  /// comment's walkthrough (ee/security/security-scan/sequence-diagram.ts).
+  sequenceDiagrams    Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1876,6 +1879,10 @@ model PrSecurityScan {
   // (description | comment | off). null = description (rows from before
   // this column).
   highLevelSummary  String?
+  // LUM-1155: the cleaned call-flow diagram ({ participants, steps }) the
+  // walkthrough renders as Mermaid. null = none (off, trivial PR, none
+  // drawn). Model-written over the diff: scrubbed with prSummary.
+  sequenceDiagram   Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

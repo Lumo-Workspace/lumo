@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -37,11 +38,13 @@ interface StyleDraft {
   toneInstructions: string
   pathInstructions: PathInstruction[]
   highLevelSummary: HighLevelSummaryMode
+  sequenceDiagrams: boolean
 }
 
 function draftOf(setting: RepoReviewSettingView): StyleDraft {
   return {
     highLevelSummary: setting.highLevelSummary,
+    sequenceDiagrams: setting.sequenceDiagrams,
     reviewProfile: setting.reviewProfile,
     toneInstructions: setting.toneInstructions ?? '',
     pathInstructions: setting.pathInstructions.map(p => ({ ...p })),
@@ -69,6 +72,11 @@ export function styleUpdate(
   // LUM-1151: where the high-level summary goes.
   if (draft.highLevelSummary !== setting.highLevelSummary) {
     update.highLevelSummary = draft.highLevelSummary
+    changed = true
+  }
+  // LUM-1155: the call-flow diagram in the walkthrough.
+  if (draft.sequenceDiagrams !== setting.sequenceDiagrams) {
+    update.sequenceDiagrams = draft.sequenceDiagrams
     changed = true
   }
   const tone = draft.toneInstructions.trim()
@@ -201,6 +209,25 @@ export function RepoReviewStyleEditor({
           </Select>
           <p className='text-xs text-muted-foreground'>
             {t(`summaryHint.${draft.highLevelSummary}`)}
+          </p>
+        </div>
+        <div className='flex flex-col gap-1'>
+          <label
+            htmlFor={`${idBase}-diagrams`}
+            className='flex items-center gap-2 self-start text-xs font-medium text-foreground'
+          >
+            <Switch
+              id={`${idBase}-diagrams`}
+              checked={draft.sequenceDiagrams}
+              disabled={disabled}
+              onCheckedChange={next =>
+                setDraft(d => ({ ...d, sequenceDiagrams: next }))
+              }
+            />
+            {t('sequenceDiagrams')}
+          </label>
+          <p className='text-xs text-muted-foreground'>
+            {t('sequenceDiagramsHint')}
           </p>
         </div>
       </div>

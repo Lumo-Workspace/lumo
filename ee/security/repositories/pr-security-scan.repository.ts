@@ -17,6 +17,7 @@ import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
 import { isSettledForManualReview } from '@/ee/security/security-scan/review-control'
 import type { JudgeBudget } from '@/ee/security/security-scan/judge-budget'
 import type { PrSummary } from '@/ee/security/security-scan/pr-summary'
+import type { SequenceDiagram } from '@/ee/security/security-scan/sequence-diagram'
 import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
   mergePartialCauses,
@@ -148,6 +149,11 @@ export interface FinalizeScanInput {
    * column alone, like `judgeBudget` (`restart` is what clears it).
    */
   prSummary?: PrSummary | null
+  /**
+   * LUM-1155 — the cleaned call-flow diagram. Absent/null leaves the column
+   * alone, like `prSummary` (`restart` is what clears it).
+   */
+  sequenceDiagram?: SequenceDiagram | null
   /**
    * LUM-1127 — the paths an incremental AI review read on this head; null =
    * the whole PR diff. Absent = leave the column alone. The PR write-back
@@ -372,6 +378,8 @@ export interface ScanForReview {
   judgeBudget: unknown
   /** LUM-849: raw Json — read with `parsePrSummary`. */
   prSummary: unknown
+  /** LUM-1155: raw Json — read with `parseSequenceDiagram`; absent on older fixtures. */
+  sequenceDiagram?: unknown
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -714,6 +722,8 @@ async function scrubScans(scanIds: string[], huntAudit: HuntAuditScrub) {
         huntAudit: Prisma.DbNull,
         huntJob: Prisma.DbNull,
         prSummary: Prisma.DbNull,
+        // LUM-1155: model-written over the code, like the summary.
+        sequenceDiagram: Prisma.DbNull,
         codeScrubbedAt: new Date(),
       },
     })
@@ -1065,6 +1075,8 @@ export const prSecurityScanRepository = {
           truncated: false,
           // LUM-849: the re-run's judge writes its own description.
           prSummary: Prisma.DbNull,
+          // LUM-1155: and its own diagram.
+          sequenceDiagram: Prisma.DbNull,
           // LUM-745: a superseded layer carries no result and no rows —
           // preserving it would leave the re-run permanently "superseded".
           stages:
@@ -1203,6 +1215,12 @@ export const prSecurityScanRepository = {
           ...(final.prSummary
             ? {
                 prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
+          ...(final.sequenceDiagram
+            ? {
+                sequenceDiagram:
+                  final.sequenceDiagram as unknown as Prisma.InputJsonValue,
               }
             : {}),
           ...(final.judgeReviewMode !== undefined
@@ -1702,6 +1720,7 @@ export const prSecurityScanRepository = {
         huntAudit: true,
         judgeBudget: true,
         prSummary: true,
+        sequenceDiagram: true,
         partial: true,
         error: true,
         summaryCommentId: true,
@@ -2405,6 +2424,35 @@ export const prSecurityScanRepository = {
       where: { pullRequestId },
       orderBy: { startedAt: 'desc' },
       select,
+    })
+  },
+
+  /**
+   * LUM-1155 — for `@<app> diagram`: the PR's newest scan (the one whose
+   * summary comment the diagram goes into); null when never scanned.
+   */
+  async findLatestForDiagram(
+    pullRequestId: string
+  ): Promise<{ id: string; headSha: string } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: { pullRequestId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, headSha: true },
+    })
+  },
+
+  /** LUM-1155 — store a cleaned diagram on a scan (null clears it). */
+  async setSequenceDiagram(
+    scanId: string,
+    diagram: SequenceDiagram | null
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: {
+        sequenceDiagram: diagram
+          ? (diagram as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      },
     })
   },
 

@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo пишет краткое описание изменений в описание PR — там, где автор поставил «@uselumo summary», иначе в конец — и обновляет его при каждом ревью. Текст автора никогда не меняется.",
   "workspaceSettings.repoReview.style.summaryHint.comment": "Краткое описание остаётся в итоговом комментарии Lumo; описание PR не редактируется.",
   "workspaceSettings.repoReview.style.summaryHint.off": "Краткое описание не пишется.",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "Диаграмма последовательности вызовов",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "Когда пул-реквест меняет поток вызовов, обзор в итоговом комментарии Lumo получает диаграмму последовательности основного потока. Небольшие пул-реквесты её не получают; напишите «@uselumo diagram», чтобы нарисовать её заново.",
   "workspaceSettings.repoReview.style.pathInstructions": "Инструкции по путям",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Дополнительные проверки для файлов, подходящих под glob, например scripts/** — «Отмечай любой console.log». Они дополняют ревью и не могут отключить ни одну проверку.",
   "workspaceSettings.repoReview.style.pathAria": "Glob пути",
