@@ -28,6 +28,7 @@
  * Each earlier finding is matched to at most one current finding and vice
  * versa, best match first.
  */
+import { createHash } from 'node:crypto'
 import { issueClasses } from '@/ee/security/security-scan/issue-groups'
 
 export interface FindingIdentity {
@@ -41,6 +42,13 @@ export interface FindingIdentity {
   severity?: 'LOW' | 'MEDIUM' | 'HIGH'
   /** The quoted (redacted) evidence line; null = not known. */
   evidence: string | null
+  /**
+   * LUM-1127 follow-up #2 — a stored identity keeps no code: the quoted line
+   * as `evidenceHash` and the title as `titleTokens` (both from this module).
+   * When present they stand in for `evidence` / `title`.
+   */
+  evidenceHash?: string | null
+  titleTokens?: readonly string[]
 }
 
 /** Lines apart two findings may sit and still be one issue (with a similar title). */
@@ -85,19 +93,47 @@ function titleWords(title: string): Set<string> {
   return out
 }
 
-/** Jaccard overlap of the two titles' content words, 0…1. */
-export function titleSimilarity(a: string, b: string): number {
-  const wa = titleWords(a)
-  const wb = titleWords(b)
+function jaccard(wa: ReadonlySet<string>, wb: ReadonlySet<string>): number {
   if (wa.size === 0 || wb.size === 0) return 0
   let shared = 0
   for (const w of wa) if (wb.has(w)) shared += 1
   return shared / (wa.size + wb.size - shared)
 }
 
-function normEvidence(e: string | null): string {
-  return (e ?? '').replace(/\s+/g, ' ').trim()
+/** Jaccard overlap of the two titles' content words, 0…1. */
+export function titleSimilarity(a: string, b: string): number {
+  return jaccard(titleWords(a), titleWords(b))
 }
+
+const digest = (text: string, length: number): string =>
+  createHash('sha256').update(text).digest('hex').slice(0, length)
+
+/**
+ * A title's content words, each hashed (sorted, deduplicated): what a thread
+ * row stores so the title can be compared (`titleSimilarity` gives the same
+ * overlap on these) without keeping the model's wording of customer code.
+ */
+export function titleTokens(title: string): string[] {
+  return [
+    ...new Set([...titleWords(title)].map(w => digest(`w:${w}`, 12))),
+  ].sort()
+}
+
+/**
+ * The quoted evidence line, whitespace-normalised and hashed — the same
+ * normalisation the AI review's fingerprint hashes. Null when nothing was
+ * quoted.
+ */
+export function evidenceHash(evidence: string | null): string | null {
+  const line = (evidence ?? '').replace(/\s+/g, ' ').trim()
+  return line.length === 0 ? null : digest(`e:${line}`, 32)
+}
+
+const evidenceKeyOf = (f: FindingIdentity): string | null =>
+  f.evidenceHash !== undefined ? f.evidenceHash : evidenceHash(f.evidence)
+
+const titleKeyOf = (f: FindingIdentity): ReadonlySet<string> =>
+  new Set(f.titleTokens ?? titleTokens(f.title))
 
 function layer(ruleId: string): 'hunt' | 'judge' {
   return ruleId.startsWith('hunt:') ? 'hunt' : 'judge'
@@ -124,8 +160,8 @@ export function sameIssueScore(
   const overlap = classesOverlap(prev.ruleId, next.ruleId)
   if (layer(prev.ruleId) !== layer(next.ruleId) && !overlap) return null
 
-  const ev = normEvidence(prev.evidence)
-  const sameEvidence = ev.length > 0 && ev === normEvidence(next.evidence)
+  const ev = evidenceKeyOf(prev)
+  const sameEvidence = ev !== null && ev === evidenceKeyOf(next)
   const distance =
     prev.line !== null && next.line !== null
       ? Math.abs(prev.line - next.line)
@@ -133,7 +169,7 @@ export function sameIssueScore(
   const sameCode = sameEvidence || distance === 0
   const near =
     sameCode || (distance !== null && distance <= SUCCESSOR_LINE_WINDOW)
-  const similarity = titleSimilarity(prev.title, next.title)
+  const similarity = jaccard(titleKeyOf(prev), titleKeyOf(next))
   const similar = similarity >= SUCCESSOR_TITLE_SIMILARITY
   const sameKind = sameRule || overlap
 

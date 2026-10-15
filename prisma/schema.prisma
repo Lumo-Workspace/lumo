@@ -1628,6 +1628,16 @@ model PrFindingThread {
   // LUM-1131: GitHub REST id of the last human reply Lumo answered in this
   // thread — a redelivered webhook for the same reply is not answered twice.
   lastReplyId     String?
+  // LUM-1127 follow-up #2: the identity of the finding the thread stands for
+  // (its own, or the relabelled one it was carried to), kept here because a
+  // full re-review of the same head replaces the scan's finding rows. No code
+  // is stored: the quoted line and the title words are hashed, as the
+  // fingerprint hashes the quoted line. identityRuleId null = not recorded.
+  identityRuleId       String?
+  identityLine         Int?
+  identitySeverity     PrSecurityFindingSeverity?
+  identityEvidenceHash String?
+  identityTitleTokens  String[]                    @default([])
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 

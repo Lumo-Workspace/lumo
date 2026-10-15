@@ -17,7 +17,23 @@ export type FindingThreadState =
   | 'RESOLVED_BY_USER'
   | 'DISMISSED'
 
-export interface FindingThreadRow {
+/**
+ * LUM-1127 follow-up #2 — the identity of the finding a thread stands for,
+ * kept on the row: a full re-review of the same head replaces the scan's
+ * finding rows, so the thread's original finding may no longer exist. Hashes
+ * only (`evidenceHash` / `titleTokens` of `finding-successor`) — no code.
+ * `identityRuleId` null = not recorded yet. Optional on the row type so
+ * hand-built rows (adoption, tests) need not spell it out.
+ */
+export interface StoredThreadIdentity {
+  identityRuleId?: string | null
+  identityLine?: number | null
+  identitySeverity?: FindingSeverity | null
+  identityEvidenceHash?: string | null
+  identityTitleTokens?: string[]
+}
+
+export interface FindingThreadRow extends StoredThreadIdentity {
   id: string
   pullRequestId: string
   fingerprint: string
@@ -33,7 +49,7 @@ export interface FindingThreadRow {
 }
 
 /** What a new (or re-pointed) thread row records about its finding. */
-export interface FindingThreadUpsert {
+export interface FindingThreadUpsert extends StoredThreadIdentity {
   pullRequestId: string
   workspaceId: string
   fingerprint: string
@@ -47,7 +63,7 @@ export interface FindingThreadUpsert {
   filePath: string
 }
 
-export interface FindingThreadPatch {
+export interface FindingThreadPatch extends StoredThreadIdentity {
   state?: FindingThreadState
   threadNodeId?: string | null
   commentId?: string
@@ -93,6 +109,11 @@ const THREAD_SELECT = {
   filePath: true,
   resolvedByLogin: true,
   addressedInSha: true,
+  identityRuleId: true,
+  identityLine: true,
+  identitySeverity: true,
+  identityEvidenceHash: true,
+  identityTitleTokens: true,
 } as const
 
 export const prFindingThreadRepository = {
@@ -137,6 +158,16 @@ export const prFindingThreadRepository = {
         // A re-pointed thread starts over: no stale "addressed on" head.
         addressedInSha: null,
         filePath: rest.filePath,
+        // A re-pointed thread stands for the finding it was re-posted for.
+        ...(rest.identityRuleId !== undefined
+          ? {
+              identityRuleId: rest.identityRuleId,
+              identityLine: rest.identityLine ?? null,
+              identitySeverity: rest.identitySeverity ?? null,
+              identityEvidenceHash: rest.identityEvidenceHash ?? null,
+              identityTitleTokens: rest.identityTitleTokens ?? [],
+            }
+          : {}),
       },
     })
   },

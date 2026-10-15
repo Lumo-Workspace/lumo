@@ -42,6 +42,7 @@ import {
   prFindingThreadRepository,
   type FindingThreadRow,
   type FindingThreadState,
+  type StoredThreadIdentity,
 } from '@/ee/security/repositories/pr-finding-thread.repository'
 import type {
   FindingKind,
@@ -55,7 +56,9 @@ import type {
 } from '@/ee/security/security-scan/types'
 import { isVerifierRejected } from '@/ee/security/security-scan/verifier'
 import {
+  evidenceHash,
   matchSuccessors,
+  titleTokens,
   type FindingIdentity,
 } from '@/ee/security/security-scan/finding-successor'
 
@@ -228,6 +231,13 @@ export interface ThreadPlan {
   actions: ThreadAction[]
   /** Thread node ids learnt from GitHub, to store. */
   nodeIds: Array<{ row: FindingThreadRow; threadNodeId: string }>
+  /**
+   * LUM-1127 follow-up #2 — open AI-layer threads whose finding is gone but
+   * whose identity is unknown (nothing recorded on the row, no finding row
+   * left to read it from): not addressed on this sync — the same issue may
+   * still be reported under a new fingerprint.
+   */
+  unknownIdentity: FindingThreadRow[]
 }
 
 /**
@@ -245,6 +255,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
   const successors = successorsOf(input, present, rejected)
   const actions: ThreadAction[] = []
   const nodeIds: ThreadPlan['nodeIds'] = []
+  const unknownIdentity: FindingThreadRow[] = []
 
   for (const row of input.rows) {
     const remote = input.remote?.get(row.commentId) ?? null
@@ -349,6 +360,17 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
         if (row.provenance === 'LLM_JUDGE' && input.identities === null)
           continue
         const successor = successors.get(fp)
+        // …and when nothing says what the thread's finding was, it cannot be
+        // told apart from a relabel: never resolved on that (fail safe).
+        if (
+          !successor &&
+          row.provenance === 'LLM_JUDGE' &&
+          input.identities &&
+          !input.identities.has(fp)
+        ) {
+          unknownIdentity.push(row)
+          continue
+        }
         if (successor) {
           const next = openByFp.get(successor)
           if (next && remote?.isOutdated && isInline(next))
@@ -377,7 +399,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
       else actions.push({ kind: 'REOPEN', row, threadId })
     }
   }
-  return { actions, nodeIds }
+  return { actions, nodeIds, unknownIdentity }
 }
 
 /**
@@ -489,6 +511,105 @@ function resolvedCarry(
   if (input.isBlocking?.(next)) return null
   if (SEVERITY_RANK[next.severity] > SEVERITY_RANK[was]) return null
   return { kind: 'CARRY', row, successor }
+}
+
+/**
+ * LUM-1127 follow-up #2 — what a thread row records about the finding it
+ * stands for: hashes of the quoted line and the title words, never the code.
+ */
+export function threadIdentityOf(
+  f: Pick<ReviewFindingRow, 'ruleId' | 'line' | 'severity' | 'title'>,
+  evidence: string | null
+): Required<StoredThreadIdentity> {
+  return {
+    identityRuleId: f.ruleId,
+    identityLine: f.line,
+    identitySeverity: f.severity,
+    identityEvidenceHash: evidenceHash(evidence),
+    identityTitleTokens: titleTokens(f.title),
+  }
+}
+
+/** A row's recorded identity, as the same-issue match reads it; null = none. */
+export function storedIdentityOf(
+  row: FindingThreadRow
+): FindingIdentity | null {
+  if (!row.identityRuleId) return null
+  return {
+    fingerprint: row.fingerprint,
+    ruleId: row.identityRuleId,
+    provenance: row.provenance,
+    filePath: row.filePath,
+    line: row.identityLine ?? null,
+    title: '',
+    ...(row.identitySeverity ? { severity: row.identitySeverity } : {}),
+    evidence: null,
+    evidenceHash: row.identityEvidenceHash ?? null,
+    titleTokens: row.identityTitleTokens ?? [],
+  }
+}
+
+const sameTokens = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((t, i) => t === b[i])
+
+/**
+ * The identity writes this sync owes: an AI-layer row whose own finding is
+ * reported gets its identity recorded (or its line / title / severity
+ * refreshed — the quoted line is the fingerprint's own and does not change),
+ * and a carried row takes over its successor's identity (its severity kept:
+ * a human's resolve is weighed against what they resolved). Pure.
+ */
+export function planIdentityWrites(input: {
+  rows: FindingThreadRow[]
+  findings: ReviewFindingRow[]
+  /** `loadIdentities`; null = the read failed (nothing new is recorded). */
+  identities: Map<string, FindingIdentity> | null
+  carried: ReadonlyArray<{ row: FindingThreadRow; successor: string }>
+}): Array<{ row: FindingThreadRow; patch: StoredThreadIdentity }> {
+  const byFp = new Map(input.findings.map(f => [f.fingerprint, f]))
+  const out: Array<{ row: FindingThreadRow; patch: StoredThreadIdentity }> = []
+  const carriedRows = new Set(input.carried.map(c => c.row.id))
+  for (const row of input.rows) {
+    if (row.provenance !== 'LLM_JUDGE' || carriedRows.has(row.id)) continue
+    const f = byFp.get(row.fingerprint)
+    if (!f) continue
+    if (!row.identityRuleId) {
+      const known = input.identities?.get(row.fingerprint)
+      if (known) out.push({ row, patch: threadIdentityOf(f, known.evidence) })
+      continue
+    }
+    const tokens = titleTokens(f.title)
+    if (
+      row.identityRuleId !== f.ruleId ||
+      (row.identityLine ?? null) !== f.line ||
+      row.identitySeverity !== f.severity ||
+      !sameTokens(row.identityTitleTokens ?? [], tokens)
+    )
+      out.push({
+        row,
+        patch: {
+          identityRuleId: f.ruleId,
+          identityLine: f.line,
+          identitySeverity: f.severity,
+          identityTitleTokens: tokens,
+        },
+      })
+  }
+  for (const { row, successor } of input.carried) {
+    const f = byFp.get(successor)
+    const known = input.identities?.get(successor)
+    if (!f || !known) continue
+    // The severity stays the thread's own (what a human resolved).
+    const was =
+      row.identitySeverity ??
+      input.identities?.get(row.fingerprint)?.severity ??
+      f.severity
+    out.push({
+      row,
+      patch: { ...threadIdentityOf(f, known.evidence), identitySeverity: was },
+    })
+  }
+  return out
 }
 
 /** The fingerprint of a Lumo-authored thread-opening comment, else null. */
@@ -641,10 +762,14 @@ async function adoptUnknownComments(
 /**
  * LUM-1127 follow-up — the identities `planThreadActions` matches with: the
  * AI-layer threads' findings this scan no longer reports, plus this scan's
- * AI-layer findings in the same files (for their quoted evidence). Nothing
- * to match → an empty map; a failed read → null (no AI-layer thread is
- * addressed on this sync — a still-reported issue is never resolved on a
- * guess).
+ * AI-layer findings in the same files (for their quoted evidence). A thread's
+ * own identity is read off its row (LUM-1127 follow-up #2: a full re-review
+ * of the same head deletes the scan's earlier finding rows); a row recorded
+ * before that falls back to the newest finding row of its fingerprint. Also
+ * reads the evidence of reported findings whose row has no identity yet, so
+ * `planIdentityWrites` can record it. Nothing to match → an empty map; a
+ * failed read → null (no AI-layer thread is addressed on this sync — a
+ * still-reported issue is never resolved on a guess).
  */
 async function loadIdentities(
   ctx: ThreadSyncContext,
@@ -657,20 +782,35 @@ async function loadIdentities(
     const s = effectiveState(r, remote?.get(r.commentId) ?? null)
     return s === 'OPEN' || s === 'RESOLVED_BY_USER'
   })
-  if (gone.length === 0) return new Map()
+  const unrecorded = rows.filter(
+    r =>
+      r.provenance === 'LLM_JUDGE' &&
+      present.has(r.fingerprint) &&
+      !r.identityRuleId
+  )
+  if (gone.length === 0 && unrecorded.length === 0) return new Map()
+  const out = new Map<string, FindingIdentity>()
+  for (const r of gone) {
+    const stored = storedIdentityOf(r)
+    if (stored) out.set(r.fingerprint, stored)
+  }
   const files = new Set(gone.map(r => r.filePath))
   const fingerprints = [
-    ...gone.map(r => r.fingerprint),
+    ...gone.filter(r => !out.has(r.fingerprint)).map(r => r.fingerprint),
+    ...unrecorded.map(r => r.fingerprint),
     ...ctx.findings
       .filter(f => f.provenance === 'LLM_JUDGE' && files.has(f.filePath))
       .map(f => f.fingerprint),
   ]
+  if (fingerprints.length === 0) return out
   try {
     const found = await prFindingThreadRepository.findIdentitiesByFingerprints(
       ctx.pullRequestId,
       [...new Set(fingerprints)]
     )
-    return new Map(found.map(f => [f.fingerprint, f]))
+    for (const f of found)
+      if (!out.has(f.fingerprint)) out.set(f.fingerprint, f)
+    return out
   } catch (error) {
     logger.warn(
       `[pr-finding-thread] identity read failed pr=#${ctx.prNumber}: ${describe(error)}`
@@ -717,6 +857,29 @@ async function reply(
     logger.warn(
       `[pr-finding-thread] note failed comment=${commentId}: ${describe(error)}`
     )
+  }
+}
+
+/** The quoted evidence of the posted AI-layer findings; null = the read failed. */
+async function postedEvidence(
+  ctx: ThreadSyncContext,
+  posted: ReviewFindingRow[]
+): Promise<Map<string, string> | null> {
+  const fps = posted
+    .filter(f => f.provenance === 'LLM_JUDGE')
+    .map(f => f.fingerprint)
+  if (fps.length === 0) return new Map()
+  try {
+    const found = await prFindingThreadRepository.findIdentitiesByFingerprints(
+      ctx.pullRequestId,
+      fps
+    )
+    return new Map(found.map(f => [f.fingerprint, f.evidence]))
+  } catch (error) {
+    logger.warn(
+      `[pr-finding-thread] evidence read failed pr=#${ctx.prNumber}: ${describe(error)}`
+    )
+    return null
   }
 }
 
@@ -819,6 +982,7 @@ export const prFindingThreadService = {
       }
     }
 
+    const identities = await loadIdentities(ctx, rows, remote)
     const plan = planThreadActions({
       rows,
       findings: ctx.findings,
@@ -827,9 +991,30 @@ export const prFindingThreadService = {
       headSha: ctx.headSha,
       remote,
       isInline: ctx.isInline,
-      identities: await loadIdentities(ctx, rows, remote),
+      identities,
       isBlocking: ctx.isBlocking,
     })
+    for (const row of plan.unknownIdentity)
+      logger.warn(
+        `[pr-finding-thread] identity unknown fp=${row.fingerprint} pr=#${ctx.prNumber} — not addressed (may be the same issue under a new fingerprint)`
+      )
+    const carriedActions = plan.actions.flatMap(a =>
+      a.kind === 'CARRY' ? [{ row: a.row, successor: a.successor }] : []
+    )
+    for (const { row, patch } of planIdentityWrites({
+      rows,
+      findings: ctx.findings,
+      identities,
+      carried: carriedActions,
+    })) {
+      try {
+        await prFindingThreadRepository.update(row.id, patch)
+      } catch (error) {
+        logger.warn(
+          `[pr-finding-thread] identity write failed fp=${row.fingerprint}: ${describe(error)}`
+        )
+      }
+    }
     const finalState = new Map(rows.map(r => [r.fingerprint, r.state]))
     for (const { row, threadNodeId } of plan.nodeIds) {
       try {
@@ -907,6 +1092,7 @@ export const prFindingThreadService = {
         token: ctx.token,
       })
       const byFp = new Map(posted.map(f => [f.fingerprint, f]))
+      const evidence = await postedEvidence(ctx, posted)
       for (const c of comments) {
         const fp = FP_MARKER_RE.exec(c.body)?.[1]
         const f = fp ? byFp.get(fp) : undefined
@@ -938,6 +1124,11 @@ export const prFindingThreadService = {
           provenance: f.provenance,
           kind: f.kind,
           filePath: f.filePath,
+          // An AI-layer thread records what its finding was (LUM-1127
+          // follow-up #2); evidence unknown → recorded on a later sync.
+          ...(f.provenance === 'LLM_JUDGE' && evidence?.has(fp)
+            ? threadIdentityOf(f, evidence.get(fp) ?? null)
+            : {}),
         })
       }
     } catch (error) {

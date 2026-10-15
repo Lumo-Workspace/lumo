@@ -4,9 +4,11 @@
  * fingerprint (prod probe PR 52: `review:doc_mismatch` → `review:api_misuse`).
  */
 import {
+  evidenceHash,
   matchSuccessors,
   sameIssueScore,
   titleSimilarity,
+  titleTokens,
   type FindingIdentity,
 } from '@/ee/security/security-scan/finding-successor'
 
@@ -191,5 +193,92 @@ describe('matchSuccessors', () => {
 
   it('never pairs a fingerprint with itself', () => {
     expect(matchSuccessors([id()], [id()])).toEqual(new Map())
+  })
+})
+
+/**
+ * LUM-1127 follow-up #2 — a thread row keeps its finding's identity as
+ * hashes (no code); matching against the hashed form scores exactly as
+ * against the text.
+ */
+describe('hashed identity (stored on the thread row)', () => {
+  const hashed = (f: FindingIdentity): FindingIdentity => ({
+    ...f,
+    title: '',
+    evidence: null,
+    evidenceHash: evidenceHash(f.evidence),
+    titleTokens: titleTokens(f.title),
+  })
+
+  it('evidenceHash normalises whitespace like the fingerprint; empty → null', () => {
+    expect(evidenceHash('  return  JSON.parse(raw) ')).toBe(
+      evidenceHash('return JSON.parse(raw)')
+    )
+    expect(evidenceHash('')).toBeNull()
+    expect(evidenceHash(null)).toBeNull()
+  })
+
+  it('titleTokens: order-free, plural-folded, no plain words', () => {
+    expect(titleTokens('errors swallowed')).toEqual(
+      titleTokens('swallowed error')
+    )
+    expect(titleTokens('parseQuantity result').join(' ')).not.toMatch(
+      /parse|result/
+    )
+    expect(titleTokens('the of')).toEqual([])
+  })
+
+  it.each([
+    [
+      'same evidence, new rule',
+      id({ fingerprint: 'new', ruleId: 'review:api_misuse' }),
+    ],
+    [
+      'one line apart, similar title',
+      id({
+        fingerprint: 'new',
+        ruleId: 'review:logic_error',
+        line: 4,
+        evidence: 'other',
+        title: 'console.log used in scripts folder',
+      }),
+    ],
+    [
+      'different issue',
+      id({
+        fingerprint: 'new',
+        ruleId: 'review:error_handling',
+        line: 9,
+        evidence: 'await run(dir)',
+        title: 'Rejected promise from run is never handled',
+      }),
+    ],
+  ])('%s: the hashed previous scores as the plain one', (_label, next) => {
+    expect(sameIssueScore(hashed(id()), next)).toBe(sameIssueScore(id(), next))
+  })
+
+  it('PR 60: the relabelled parseQuantity finding continues the stored identity', () => {
+    const prev = hashed(
+      id({
+        fingerprint: 'fp-data',
+        ruleId: 'review:data_integrity',
+        filePath: 'src/probe/session.ts',
+        line: 30,
+        title:
+          'parseQuantity returns unvalidated JSON.parse result typed as number',
+        evidence: 'return JSON.parse(raw)',
+      })
+    )
+    const next = id({
+      fingerprint: 'fp-logic',
+      ruleId: 'review:logic_error',
+      filePath: 'src/probe/session.ts',
+      line: 31,
+      title: 'parseQuantity returns unvalidated JSON.parse result',
+      evidence: '  return JSON.parse(raw) as number',
+    })
+    expect(matchSuccessors([prev], [next])).toEqual(
+      new Map([['fp-data', 'fp-logic']])
+    )
   })
 })
