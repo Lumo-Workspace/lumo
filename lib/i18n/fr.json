@@ -2836,7 +2836,6 @@
   "milestoneTestCases.title": "Cas de test",
   "milestoneGate.open": "Porte de clôture ouverte : chaque cas de test a réussi ou son défaut avéré a été accepté.",
   "milestoneGate.held": "{count, plural, one {# élément maintient ce jalon ouvert} other {# éléments maintiennent ce jalon ouvert}}",
-  "milestoneGate.criteria": "{count, plural, one {# critère de sortie obsolète non satisfait} other {# critères de sortie obsolètes non satisfaits}}",
   "milestoneGate.reason.notRun": "Pas encore exécuté",
   "milestoneGate.reason.provenDefect": "Défaut avéré : statuez dessus ou corrigez-le",
   "milestoneGate.reason.failing": "La dernière exécution a échoué",

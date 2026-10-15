@@ -2836,7 +2836,6 @@
   "milestoneTestCases.title": "Testfälle",
   "milestoneGate.open": "Abschluss-Gate offen — jeder Testfall hat bestanden oder sein nachgewiesener Defekt wurde akzeptiert.",
   "milestoneGate.held": "{count, plural, one {# Punkt hält diesen Meilenstein offen} other {# Punkte halten diesen Meilenstein offen}}",
-  "milestoneGate.criteria": "{count, plural, one {# veraltetes Abschlusskriterium nicht erfüllt} other {# veraltete Abschlusskriterien nicht erfüllt}}",
   "milestoneGate.reason.notRun": "Noch nicht ausgeführt",
   "milestoneGate.reason.provenDefect": "Nachgewiesener Fehler — bewerten oder beheben",
   "milestoneGate.reason.failing": "Letzter Lauf fehlgeschlagen",

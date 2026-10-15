@@ -2836,7 +2836,6 @@
   "milestoneTestCases.title": "Kes ujian",
   "milestoneGate.open": "Get penutupan terbuka — setiap kes ujian telah lulus atau kecacatannya yang terbukti telah diterima.",
   "milestoneGate.held": "{count, plural, other {# item menyebabkan pencapaian ini kekal terbuka}}",
-  "milestoneGate.criteria": "{count, plural, other {# kriteria keluar yang telah ditamatkan belum dipenuhi}}",
   "milestoneGate.reason.notRun": "Belum dijalankan",
   "milestoneGate.reason.provenDefect": "Kecacatan terbukti — putuskan atau baiki",
   "milestoneGate.reason.failing": "Larian terakhir gagal",

@@ -2836,7 +2836,6 @@
   "milestoneTestCases.title": "टेस्ट केस",
   "milestoneGate.open": "क्लोज़ गेट खुला है — हर टेस्ट केस पास हो चुका है या उसका सिद्ध दोष स्वीकार कर लिया गया है।",
   "milestoneGate.held": "{count, plural, one {# आइटम इस माइलस्टोन को खुला रखे हुए है} other {# आइटम इस माइलस्टोन को खुला रखे हुए हैं}}",
-  "milestoneGate.criteria": "{count, plural, one {# पुराना एग्ज़िट क्राइटेरिया पूरा नहीं हुआ} other {# पुराने एग्ज़िट क्राइटेरिया पूरे नहीं हुए}}",
   "milestoneGate.reason.notRun": "अभी तक नहीं चलाया गया",
   "milestoneGate.reason.provenDefect": "सिद्ध दोष — इस पर निर्णय लें या इसे ठीक करें",
   "milestoneGate.reason.failing": "पिछला रन विफल रहा",

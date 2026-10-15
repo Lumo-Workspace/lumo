@@ -2836,7 +2836,6 @@
   "milestoneTestCases.title": "测试用例",
   "milestoneGate.open": "关闭闸门已打开——每条测试用例都已通过，或其已证实的缺陷已被接受。",
   "milestoneGate.held": "{count, plural, other {有 # 项使此里程碑保持打开}}",
-  "milestoneGate.criteria": "{count, plural, other {有 # 条已弃用的退出标准未满足}}",
   "milestoneGate.reason.notRun": "尚未运行",
   "milestoneGate.reason.provenDefect": "已证实的缺陷——请裁定或修复",
   "milestoneGate.reason.failing": "最近一次运行失败",

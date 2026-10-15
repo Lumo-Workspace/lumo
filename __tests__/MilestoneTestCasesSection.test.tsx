@@ -50,7 +50,6 @@ it('renders milestone-prefixed handles and the gate banner for a milestone owner
     pullRequests: [],
     gate: {
       held: 2,
-      unresolvedCriteria: 0,
       cases: [
         {
           number: 1,

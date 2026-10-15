@@ -1,5 +1,4 @@
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
-import { milestoneExitCriterionRepository } from '@/lib/repositories/milestone-exit-criterion.repository'
 import { countEvidence, deriveRunCeiling } from '@/lib/test-cases/provability'
 import {
   countHeld,
@@ -8,10 +7,8 @@ import {
 } from '@/lib/test-cases/milestone-gate'
 
 export interface MilestoneCloseGate {
-  /** Unresolved exit criteria + held test cases. > 0 holds the derived completion. */
+  /** Held milestone test cases. > 0 holds the derived completion. */
   held: number
-  /** LUM-1135 deprecation release: exit criteria are still read so existing contracts keep holding. */
-  unresolvedCriteria: number
   cases: MilestoneGateCase[]
 }
 
@@ -22,8 +19,7 @@ export interface MilestoneCloseGate {
  */
 export const milestoneCloseGateService = {
   async read(milestoneId: string): Promise<MilestoneCloseGate> {
-    const [unresolvedCriteria, cases, runsByCase] = await Promise.all([
-      milestoneExitCriterionRepository.countUnresolved(milestoneId),
+    const [cases, runsByCase] = await Promise.all([
       testCaseRepository.listForMilestone(milestoneId),
       testCaseRepository.runsPerCaseForMilestone(milestoneId),
     ])
@@ -58,8 +54,7 @@ export const milestoneCloseGateService = {
       })
     )
     return {
-      held: unresolvedCriteria + countHeld(evaluated),
-      unresolvedCriteria,
+      held: countHeld(evaluated),
       cases: evaluated,
     }
   },

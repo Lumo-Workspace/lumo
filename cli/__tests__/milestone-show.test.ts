@@ -126,7 +126,6 @@ describe('formatMilestoneShow — close gate (LUM-1135)', () => {
         ...base,
         closeGate: {
           held: 0,
-          unresolvedCriteria: 0,
           cases: [{ state: 'open', reason: null }],
         },
       },
@@ -140,8 +139,7 @@ describe('formatMilestoneShow — close gate (LUM-1135)', () => {
       {
         ...base,
         closeGate: {
-          held: 3,
-          unresolvedCriteria: 1,
+          held: 2,
           cases: [
             { state: 'held', reason: 'NOT_RUN' },
             { state: 'held', reason: 'FAILING' },
@@ -151,9 +149,7 @@ describe('formatMilestoneShow — close gate (LUM-1135)', () => {
       },
       []
     )
-    expect(out).toMatch(
-      /Close gate:\s+held \(1 not run, 1 failing, 1 exit criterion\)/
-    )
+    expect(out).toMatch(/Close gate:\s+held \(1 not run, 1 failing\)/)
   })
 
   it('omits the row when the server sent no gate', () => {

@@ -74,14 +74,6 @@ export function MilestoneCloseGateBanner({
             {c.reason ? intl.formatMessage({ id: REASON_ID[c.reason] }) : null}
           </li>
         ))}
-        {gate.unresolvedCriteria > 0 && (
-          <li>
-            {intl.formatMessage(
-              { id: 'milestoneGate.criteria' },
-              { count: gate.unresolvedCriteria }
-            )}
-          </li>
-        )}
       </ul>
       {allTasksDone && !completed && !overriding && (
         <Button

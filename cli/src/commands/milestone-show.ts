@@ -86,11 +86,10 @@ export interface MilestoneShowData {
         rate: number | null
       }
     | undefined
-  /** LUM-1135: close gate (exit criteria + milestone test cases). Absent on older servers. */
+  /** LUM-1135: close gate (milestone test cases). Absent on older servers. */
   closeGate?:
     | {
         held: number
-        unresolvedCriteria: number
         cases: Array<{ state: 'open' | 'held'; reason: string | null }>
       }
     | null
@@ -104,7 +103,7 @@ const GATE_REASON_LABEL: Record<string, string> = {
   BLOCKED: 'blocked',
 }
 
-/** LUM-1135: `open` or `held (2 not run, 1 failing, 1 exit criterion)`. */
+/** LUM-1135: `open` or `held (2 not run, 1 failing)`. */
 export function formatCloseGate(
   gate: NonNullable<MilestoneShowData['closeGate']>
 ): string {
@@ -116,11 +115,6 @@ export function formatCloseGate(
     counts.set(label, (counts.get(label) ?? 0) + 1)
   }
   const parts = [...counts].map(([label, n]) => `${n} ${label}`)
-  if (gate.unresolvedCriteria > 0) {
-    parts.push(
-      `${gate.unresolvedCriteria} exit ${gate.unresolvedCriteria === 1 ? 'criterion' : 'criteria'}`
-    )
-  }
   return `held (${parts.join(', ')})`
 }
 

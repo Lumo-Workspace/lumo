@@ -3,8 +3,9 @@
  * (`lumo verdict`), the fidelity read-out (`lumo fidelity`), or the manual
  * outcome-record path (`lumo outcome record`). LUM-942 then removed task
  * acceptance criteria: `lumo verify`, `lumo task criteria set/list/confirm`,
- * `lumo criteria audit` and `lumo outcome rate`. The kept neighbours —
- * `outcome show`, `crossing explain`, `milestone criteria …` — stay. The
+ * `lumo criteria audit` and `lumo outcome rate`; LUM-1141 removed
+ * `milestone criteria …`. The kept neighbours — `outcome show`,
+ * `crossing explain` — stay. The
  * grammar and the skill docs agree with the registered program.
  */
 import fs from 'fs'
@@ -17,8 +18,8 @@ describe('LUM-733 CLI surface reduction', () => {
   it('LUM-733 CLI no longer registers verdict, fidelity, or outcome record', () => {
     // 1. The registered program (source of truth).
     const index = read('cli/src/index.ts')
-    // `milestone criteria verdict` (human/steward, milestone-level) stays —
-    // only the task-level `verdict [task]` AGENT channel is gone.
+    // The task-level `verdict [task]` AGENT channel is gone; LUM-1141 also
+    // dropped `milestone criteria …`.
     expect(index).not.toMatch(/\.command\('verdict \[task\]'\)/)
     expect(index).not.toMatch(/\.command\('fidelity/)
     expect(index).not.toMatch(/\.command\('record <task>'\)/)
@@ -32,6 +33,7 @@ describe('LUM-733 CLI surface reduction', () => {
     // different command, so check the removed handler, not the bare name.
     expect(index).not.toMatch(/commands\/criteria-audit'/)
     expect(index).not.toMatch(/criteriaAudit/)
+    expect(index).not.toMatch(/milestoneCriteria/)
     for (const f of [
       'cli/src/commands/verdict.ts',
       'cli/src/commands/fidelity.ts',
@@ -40,6 +42,10 @@ describe('LUM-733 CLI surface reduction', () => {
       'cli/src/commands/task-criteria-set.ts',
       'cli/src/commands/task-criteria-list.ts',
       'cli/src/commands/task-criteria-confirm.ts',
+      // LUM-1141
+      'cli/src/commands/milestone-criteria-set.ts',
+      'cli/src/commands/milestone-criteria-list.ts',
+      'cli/src/commands/milestone-criteria-verdict.ts',
     ]) {
       expect(fs.existsSync(path.join(ROOT, f))).toBe(false)
     }
