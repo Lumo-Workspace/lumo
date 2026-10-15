@@ -1394,7 +1394,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     })
   })
 
-  // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top tier
+  // LUM-832 — like an industry-standard size cap, a diff over the AI review's top tier
   // is not reviewed at all (it used to be reviewed on a trimmed prefix): no
   // model call, and the scan records the cause the customer notice reads.
   test('a diff over the AI review cap is not reviewed at all and the scan says why', async () => {

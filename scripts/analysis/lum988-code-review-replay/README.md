@@ -66,8 +66,8 @@ with the leaderboard rows in `score-sonnet55.txt`):
 | 3          | 40.4%     | 75.9%     | 52.7%     | 64.6%     | 8/11     |
 | **pooled** | **39.8%** | **73.8%** | **51.7%** | **63.0%** |          |
 
-For reference on the same 50 PRs: Qodo Extended 65.8 / 65.1, CodeRabbit
-42.2 / 51.1 (F1 / F2). Latency median 17 s, max 42 s; prompt median ~91k chars.
+For reference on the same 50 PRs: Qodo Extended 65.8 / 65.1, the
+lowest-precision leaderboard bot 42.2 / 51.1 (F1 / F2). Latency median 17 s, max 42 s; prompt median ~91k chars.
 
 Ablation, not shipped (`results-sonnet55-reworded.json`): with the schema's
 `detail` / `findings` descriptions generalised away from LUM-975's

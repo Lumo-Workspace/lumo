@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * LUM-837 — Lumo runs static analysis only, never the customer's tests or
- * build (the CodeRabbit model): the two PR trigger paths — the real
+ * build (static analysis only): the two PR trigger paths — the real
  * handlePullRequest (webhook) and the real linkPullRequest (manual link) —
  * dispatch the static security scan (gitleaks / semgrep / osv-scanner) and
  * nothing else. Typecheck / test verdicts come from the customer's own CI via

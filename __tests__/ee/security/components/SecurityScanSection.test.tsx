@@ -924,7 +924,7 @@ test('a batched hunt shows its covered share next to its state', () => {
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })
 
-// LUM-832: a layer over its size cap did not run (like CodeRabbit's limit);
+// LUM-832: a layer over its size cap did not run (an industry-standard size cap);
 // the panel says the change is too large and how to get the layer — and does
 // not call that limit a failure of ours.
 test('a scan with layers over their size caps shows both notices instead of the owned unfinished line', () => {

@@ -11,8 +11,8 @@ import {
 } from '@/ee/security/security-scan/auto-review-policy'
 
 /**
- * LUM-1133 — per-repository automatic review settings (CodeRabbit
- * `reviews.auto_review`): whether PRs without a Lumo task are reviewed
+ * LUM-1133 — per-repository automatic review settings
+ * (auto-review filters): whether PRs without a Lumo task are reviewed
  * automatically, and whether drafts are. Shared by the settings card and
  * `lumo workspace security-scan --repo`. Any member reads; OWNER changes.
  */

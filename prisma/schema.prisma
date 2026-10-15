@@ -456,24 +456,24 @@ model Workspace {
   securityScanEnabled     Boolean           @default(true)
   securityAiReviewEnabled Boolean           @default(true)
   securityHuntEnabled     Boolean           @default(true)
-  // LUM-1130: the PR reviewer's request-changes workflow (CodeRabbit's
-  // `reviews.request_changes_workflow`). Off by default: on, Lumo's review is
+  // LUM-1130: the PR reviewer's request-changes workflow.
+  // Off by default: on, Lumo's review is
   // "Changes requested" while a Lumo thread or a DONE-blocking finding is
   // open, and Lumo approves once the latest head's complete review leaves
   // nothing open.
   securityRequestChangesEnabled Boolean @default(false)
-  // LUM-1142: CodeRabbit's `reviews.allow_author_approval`. On by default:
+  // LUM-1142: author approval. On by default:
   // the PR's author may `@uselumo resolve` / `approve` their own PR; off,
   // only other write-access accounts may.
   securityAllowAuthorApproval Boolean @default(true)
   // LUM-1134: which repositories' PR-review learnings (LUM-1131) the AI
-  // review reads — CodeRabbit's `knowledge_base.learnings.scope`. "local" =
+  // review reads. "local" =
   // the reviewed repository only; "global" = every repository of this
   // workspace; "auto" (default) = local for a public repository, global for a
   // private one, local when the visibility is unknown. Never across
   // workspaces. A CHECK constraint keeps it to those three values.
   securityLearningsScope String @default("auto")
-  // LUM-1137: CodeRabbit's `auto_pause_after_reviewed_commits` — automatic
+  // LUM-1137: auto-pause after reviewed commits — automatic
   // AI review (and exploit-path discovery) of every push pauses on a PR once
   // this many commits have been reviewed; 0 = never pause. A PR's own
   // `--resume --limit` (PullRequest.reviewCommitLimit) overrides it. A CHECK
@@ -1544,10 +1544,10 @@ enum PrFindingThreadState {
 // LUM-1127: one row per (PR, finding fingerprint) Lumo commented on inline —
 // the durable identity of the GitHub review thread across head commits, so a
 // later scan can resolve it as addressed, honour a human resolve, and reopen
-// it on regression (CodeRabbit's thread lifecycle). Findings themselves stay
+// it on regression (the usual review-thread lifecycle). Findings themselves stay
 // per scan (`PrSecurityFinding`); the thread is per PR.
 /// LUM-1133 — per-repository automatic PR review settings for a workspace
-/// (CodeRabbit `reviews.auto_review`: enabled, drafts). No row = the defaults:
+/// (auto-review filters: enabled, drafts). No row = the defaults:
 /// every PR of a confirmed repository is reviewed, drafts are skipped until
 /// they are marked ready. Governs PRs without a Lumo task; task-linked PRs keep
 /// their scan (the DONE gate's evidence).
@@ -1639,7 +1639,7 @@ model PrReviewLearning {
   // GitHub REST id of the human reply the learning came from.
   sourceReplyId       String
   authorLogin         String
-  // CodeRabbit parity: a learning applies only to its source PR until that
+  // Learnings scope: a learning applies only to its source PR until that
   // PR merges; set when the merge is seen. Readers also treat a merged
   // source PR as repository-wide (a missed merge event changes nothing).
   repoWideAt          DateTime?

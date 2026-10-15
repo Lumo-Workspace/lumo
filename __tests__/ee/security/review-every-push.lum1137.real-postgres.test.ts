@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1137 — review every push (CodeRabbit `auto_incremental_review` +
+ * LUM-1137 — review every push (incremental review +
  * `auto_pause_after_reviewed_commits`) against a REAL Postgres replayed from
  * every migration (the LUM-1137 migration included):
  *

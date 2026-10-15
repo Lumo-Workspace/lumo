@@ -12,9 +12,9 @@ import { prCommitCountBestEffort } from './pr-commit-count'
  * `securityReviewAutoPauseAfter`, default 5, 0 = never pause).
  *
  * On top of that, an hourly cap per PR author in the workspace — in the
- * spirit of CodeRabbit's per-developer hourly review limits (5–12 per hour by
- * plan) — so a push storm cannot explode cost. Lumo's agents push under one
- * GitHub identity, so the cap sits above CodeRabbit's per-human numbers:
+ * spirit of the industry-standard per-developer hourly review limits (5–12
+ * per hour by plan) — so a push storm cannot explode cost. Lumo's agents push under one
+ * GitHub identity, so the cap sits above those per-human numbers:
  * Lumo-Workspace/lumo peaked at 18 automatic reviews in one hour over the 30
  * days before LUM-1137. A head over the cap keeps no reservation: the scan
  * says "rate-limited", and the next push after the window (or

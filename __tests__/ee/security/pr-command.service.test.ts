@@ -37,7 +37,7 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
-    // LUM-1142: CodeRabbit's allow_author_approval (default on).
+    // LUM-1142: author approval (default on).
     findAllowAuthorApproval: jest.fn().mockResolvedValue(true),
   },
 }))
@@ -485,7 +485,7 @@ describe('resolve', () => {
     )
   })
 
-  // LUM-1142: CodeRabbit parity — the PR's author may resolve by command
+  // LUM-1142: author approval — the PR's author may resolve by command
   // unless the workspace turned `allow_author_approval` off.
   it("the PR's author may resolve by default: non-blocking threads resolve, the blocking one stays open", async () => {
     await expect(

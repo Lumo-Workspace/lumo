@@ -28,7 +28,6 @@ from pathlib import Path
 CORE = {"bug", "security", "concurrency", "data", "api", "perf", "test_gap", "doc_defect"}
 JUDGE_MODEL = "anthropic/claude-opus-4.5"
 OFFICIAL_DIR = "anthropic_claude-opus-4-5-20251101"
-LEADERBOARD = ["qodo-extended-v2", "cubic-v2", "augment", "coderabbit", "greptile-v4-1", "graphite"]
 
 
 def gateway_key() -> str:
@@ -149,8 +148,12 @@ def main() -> None:
     print(f"Core profile, judge {JUDGE_MODEL}, {len(prs)} PRs")
     print(f"{'tool':28s} PRs   TP   FP   FN       P      R     F1     F2")
     official = json.loads((bench / "results" / OFFICIAL_DIR / "evaluations.json").read_text())
-    for t in LEADERBOARD:
-        print(row(t, score(official, t, prs, cat)))
+    # The leaderboard tools are read off the official evaluations (every tool
+    # judged on these PRs), best F1 first, rather than named here.
+    leaderboard = sorted({t for url in prs for t in official.get(url, {})})
+    board = [(t, score(official, t, prs, cat)) for t in leaderboard]
+    for t, m in sorted(board, key=lambda tm: -tm[1]["F1"]):
+        print(row(t, m))
     print()
     for t in names:
         print(row(t, score(json.loads((evals_dir / f"{t}.json").read_text()), t, prs, cat)))

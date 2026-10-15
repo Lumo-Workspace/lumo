@@ -84,7 +84,7 @@ export const securityPlugin: LumoServerPlugin = {
     // harmless. Registered with waitUntil so the runtime keeps the function
     // alive until the dispatch settles.
     //
-    // LUM-1133: a PR without a task is reviewed too, as CodeRabbit does — if
+    // LUM-1133: a PR without a task is reviewed too (auto-review filters) — if
     // the workspace confirmed the repository and its per-repository settings
     // allow it (default: on, drafts wait for ready_for_review). The decision
     // reads the database, so it loads lazily, off the webhook's static graph.

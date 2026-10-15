@@ -305,7 +305,7 @@ export function SecurityScanSwitchesCard({
         disabled={saving || !scanOn}
         onChange={set('securityRequestChangesEnabled')}
       />
-      {/* LUM-1142: CodeRabbit's allow_author_approval — who may run
+      {/* LUM-1142: author approval — who may run
           `@uselumo resolve` / `approve`. On by default; "enable all" /
           "disable all" leave it as it is. */}
       <SwitchRow
@@ -330,7 +330,7 @@ export function SecurityScanSwitchesCard({
           setSwitches(prev => ({ ...prev, securityLearningsScope: next }))
         }
       />
-      {/* LUM-1137: CodeRabbit's auto_pause_after_reviewed_commits — every
+      {/* LUM-1137: auto-pause after reviewed commits — every
           push is reviewed until N reviewed commits; 0 = never pause. Locked
           while neither AI layer runs. */}
       <PauseAfterRow

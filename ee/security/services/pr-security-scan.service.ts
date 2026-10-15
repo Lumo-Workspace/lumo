@@ -233,12 +233,12 @@ export interface SecurityScanView {
   huntProgress: HuntBatchProgress | null
   /**
    * LUM-832 — the hunt did not run: the diff touched more source files than
-   * it runs on (CodeRabbit-style notice). null otherwise.
+   * it runs on (file-cap notice). null otherwise.
    */
   huntOverCap: HuntOverCapInput | null
   /**
    * LUM-832 — the AI review did not run: the diff was over its size cap
-   * (CodeRabbit-style notice). null otherwise.
+   * (size-cap notice). null otherwise.
    */
   judgeOverCap: JudgeOverCapInput | null
   /**
@@ -1249,7 +1249,7 @@ export const prSecurityScanService = {
       // comment. Only a judge that answered writes one.
       let prSummary: PrSummary | null = null
       const judgeRows: NewFindingInput[] = []
-      // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top
+      // LUM-832 — like an industry-standard size cap, a diff over the AI review's top
       // tier is not reviewed at all: no model call, no tokens. The customer is
       // told the change is too large and how to get the review (narrow the
       // scope or split the PR); the numbers are on `judgeBudget`.
@@ -1531,7 +1531,7 @@ export const prSecurityScanService = {
       // so a reader can tell "not checked" from "nothing to check".
       else if (layers.huntTurnedOff) stages.hunt = 'DISABLED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
-      // run (like CodeRabbit's file limit): recorded, with the numbers the
+      // run (an industry-standard file cap): recorded, with the numbers the
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
       const huntSkippedForCap =
         layers.hunt &&

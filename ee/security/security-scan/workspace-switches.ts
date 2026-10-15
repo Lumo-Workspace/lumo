@@ -29,8 +29,8 @@ export interface WorkspaceSecuritySwitches {
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
   securityRequestChangesEnabled: boolean
-  /** LUM-1142: the PR's author may resolve / approve by command (CodeRabbit
-   *  `allow_author_approval`, default on). */
+  /** LUM-1142: the PR's author may resolve / approve by command
+   *  (author approval, default on). */
   securityAllowAuthorApproval: boolean
   /** LUM-1134: which repositories' learnings the AI review reads. */
   securityLearningsScope: LearningsScope

@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * LUM-1133 — which workspace automatically reviews a PR that has no Lumo
- * task: the pure decision (CodeRabbit `reviews.auto_review` parity).
+ * task: the pure decision (auto-review filters).
  */
 import {
   DEFAULT_REPO_REVIEW_SETTING,

@@ -1729,7 +1729,7 @@ workspaceCmd
   )
   .option(
     '--allow-author-approval <on|off>',
-    'PR authors may run `@uselumo resolve` / `approve` on their own PR (default on; CodeRabbit allow_author_approval); off = only other write-access accounts'
+    'PR authors may run `@uselumo resolve` / `approve` on their own PR (default on); off = only other write-access accounts'
   )
   .option(
     '--learnings-scope <local|global|auto>',

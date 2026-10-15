@@ -1,6 +1,6 @@
 /**
- * LUM-1131 — a human reply in one of Lumo's finding threads (CodeRabbit
- * "learnings" parity).
+ * LUM-1131 — a human reply in one of Lumo's finding threads
+ * ("learnings").
  *
  *   · Lumo answers a trusted human's reply once, with a short templated
  *     comment — the reply's text never reaches what Lumo posts, except as
