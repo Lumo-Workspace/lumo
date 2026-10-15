@@ -167,6 +167,8 @@ export interface ListedReview {
   state: string
   commit_id: string | null
   user: { id?: number; login?: string; type?: string } | null
+  /** LUM-1149 — the review's body (a marker dedupes Lumo's own). */
+  body?: string | null
 }
 
 /**

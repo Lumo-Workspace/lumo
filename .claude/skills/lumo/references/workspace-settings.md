@@ -107,7 +107,20 @@ lumo workspace security-scan --repo acme/app --override-reviewers-only on
 
 - Override, per PR: a top-level PR comment `@uselumo ignore pre-merge checks` (write access) — recorded (who, when, head), shown as Ignored in the summary; it covers **every later push** to the PR (the recorded head is for the audit trail, it does not scope the override); it **never** clears a finding that blocks DONE. `--override-reviewers-only on` (`override_requested_reviewers_only` in `.lumo.yaml`): only a requested reviewer (named, not via a team; one who already reviewed counts) may, never the author. Off: the author may unless author approval is off.
 - Switching a check off, or `--override-reviewers-only off`, exits 4 with an envelope until `--confirm`. `--repo X` lists the checks under the repository; `--json` adds `preMergeChecks`.
-- `.lumo.yaml` (`reviews.pre_merge_checks.{title,description,custom_checks,override_requested_reviewers_only}`) on the base commit overrides these per key; `custom_checks` replaces the whole list. Details: `docs/repo-config.md`.
+- `.lumo.yaml` (`reviews.pre_merge_checks.{title,description,issue_assessment,custom_checks,override_requested_reviewers_only}`) on the base commit overrides these per key; `custom_checks` replaces the whole list. Details: `docs/repo-config.md`.
+
+##### Linked task / issue assessment (LUM-1149)
+
+A built-in check (**Issue assessment**, default `warning`): each requirement of the PR's linked Lumo task (its `## Goal` and each `## Done when` item; a description with neither counts as one) and of each same-repository issue its description closes or links (`closes #12`, `fixes owner/repo#12`, an issue URL; at most 3) is judged **Addressed / Not addressed / Unclear** in the same model call. Any Not addressed ⇒ the check fails (in its mode); otherwise any Unclear ⇒ inconclusive (never blocks); no linked task and no linked issue ⇒ **not applicable** (never failed, no model call for it). The summary lists every requirement; unmet ones are also flagged in one review comment (COMMENT, posted once per distinct unmet set). It only reads the task — never changes its status.
+
+```bash
+lumo workspace security-scan --repo acme/app --issue-assessment error
+lumo workspace security-scan --repo acme/app --issue-assessment off --confirm
+lumo workspace security-scan --repo acme/app --task-details-on-public-repos on --confirm
+```
+
+- Privacy: on a **public** repository (or one whose visibility Lumo cannot read) the PR shows only which task item (e.g. `LUM-12 · Done when 2`) and its outcome — never the task's text or Lumo's explanation of it. `--task-details-on-public-repos on` (OWNER; exits 4 until `--confirm`) quotes them there too; it is a Lumo setting only, never read from `.lumo.yaml`. Issue text is always shown (same repository). Private repositories always show the details.
+- Turning the check off exits 4 until `--confirm`. `.lumo.yaml`: `reviews.pre_merge_checks.issue_assessment.mode`. The override (`@uselumo ignore pre-merge checks`) covers it like every pre-merge check and never clears a finding that blocks DONE.
 
 #### Review style: path instructions, profile, tone (LUM-1147)
 

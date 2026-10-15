@@ -23,6 +23,8 @@ reviews:
       requirements: 'Start with feat:, fix: or chore:'
     description:
       mode: warning # follows the repository's PR template, if any
+    issue_assessment:
+      mode: warning # linked Lumo task + issues the description closes or links
     custom_checks: # up to 5; replaces the checks set in Lumo
       - name: Changelog # ≤ 50 characters
         mode: warning
@@ -91,8 +93,8 @@ findings are only cleared by a disposition in Lumo — never by a config file.
 results are a section of the PR's security summary (failures in a table with
 the reason and the fix, passes folded). Built-in checks: `title` (concise and
 describes the change, plus optional `requirements`) and `description` (filled
-in; follows the repository's pull request template when it has one). Up to five
-`custom_checks` in plain language.
+in; follows the repository's pull request template when it has one), and
+`issue_assessment` (below). Up to five `custom_checks` in plain language.
 
 - `warning` reports a failure. `error` also keeps Lumo's review at "Changes
   requested" while the workspace's request-changes workflow is on (and refuses
@@ -113,6 +115,16 @@ in; follows the repository's pull request template when it has one). Up to five
   masked before the diff is cut to at most 40,000 characters). The PR's text is treated as untrusted
   data; the rules come only from Lumo's settings or this file on the base
   commit.
+- `issue_assessment` (LUM-1149) judges each requirement of the PR's linked Lumo
+  task (its Goal and each "Done when" item) and of each issue of the same
+  repository its description closes or links (`closes #12`, an issue URL; up
+  to three) as Addressed / Not addressed / Unclear. Any Not addressed fails
+  the check; otherwise any Unclear makes it inconclusive; with no linked task
+  and no linked issue it is not applicable (never a failure). Unmet
+  requirements are also flagged in one review comment. On a public repository
+  the PR shows only which task item and its outcome — quoting the task there
+  is a Lumo setting (`--task-details-on-public-repos`), never a key of this
+  file.
 - Extension point for a new built-in check: `BUILTIN_PRE_MERGE_CHECKS` in
   `ee/security/security-scan/pre-merge-checks.ts` (its `gather` reads what the
   rule needs beyond the PR).
