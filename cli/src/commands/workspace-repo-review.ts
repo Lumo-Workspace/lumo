@@ -335,7 +335,7 @@ export function describeRepoReviewTurnOffs(
       now.overrideRequestedReviewersOnly
     )
       lines.push(
-        `Will let anyone with write access (the PR author included, unless author approval is off) override the pre-merge checks of ${current.repo}, not only requested reviewers`
+        `Will let anyone with write access (the PR author included, unless author approval is off) override the pre-merge checks of ${current.repo}, not only its reviewers (requested, or who already reviewed the PR)`
       )
   }
   return lines
@@ -355,7 +355,7 @@ export function formatPreMergeChecks(r: RepoReviewSettingView): string[] {
   lines.push(
     `  override: ${
       c.overrideRequestedReviewersOnly
-        ? 'requested reviewers only (never the author)'
+        ? 'reviewers only — requested, or already reviewed (never the author)'
         : 'anyone with write access'
     } — \`@uselumo ignore pre-merge checks\` on the PR`
   )

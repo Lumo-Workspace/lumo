@@ -158,7 +158,7 @@ export const preMergeChecksConfigSchema = z
       .boolean()
       .optional()
       .describe(
-        "Only the PR's requested reviewers (never its author) may run `ignore pre-merge checks`."
+        "Only the PR's reviewers — requested by name, or who have already submitted a review — may run `ignore pre-merge checks`; never its author."
       ),
   })
   .describe(

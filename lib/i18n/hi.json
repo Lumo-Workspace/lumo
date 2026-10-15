@@ -2485,7 +2485,7 @@
   "workspaceSettings.repoReview.checks.customMode": "जाँच का मोड",
   "workspaceSettings.repoReview.checks.addCustom": "जाँच जोड़ें",
   "workspaceSettings.repoReview.checks.removeCustom": "हटाएँ",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "केवल अनुरोधित रिव्यूअर ही जाँचों को ओवरराइड कर सकते हैं (लेखक कभी नहीं)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "केवल PR के रिव्यूअर ही जाँचों को ओवरराइड कर सकते हैं — अनुरोधित रिव्यूअर या जिसने पहले ही रिव्यू कर दिया हो (लेखक कभी नहीं)",
   "workspaceSettings.repoReview.checks.save": "जाँचें सहेजें",
   "workspaceSettings.repoReview.style.toggle": "समीक्षा शैली",
   "workspaceSettings.repoReview.style.toggleAria": "{repo} की समीक्षा शैली दिखाएँ",

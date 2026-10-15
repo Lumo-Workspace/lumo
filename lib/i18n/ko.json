@@ -2485,7 +2485,7 @@
   "workspaceSettings.repoReview.checks.customMode": "검사 모드",
   "workspaceSettings.repoReview.checks.addCustom": "검사 추가",
   "workspaceSettings.repoReview.checks.removeCustom": "삭제",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "요청된 리뷰어만 검사를 무시할 수 있음 (작성자는 불가)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "PR의 리뷰어만 검사를 무시할 수 있음 — 요청된 리뷰어 또는 이미 리뷰를 제출한 사람 (작성자는 불가)",
   "workspaceSettings.repoReview.checks.save": "검사 저장",
   "workspaceSettings.repoReview.style.toggle": "리뷰 스타일",
   "workspaceSettings.repoReview.style.toggleAria": "{repo}의 리뷰 스타일 보기",

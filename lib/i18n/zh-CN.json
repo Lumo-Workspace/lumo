@@ -2485,7 +2485,7 @@
   "workspaceSettings.repoReview.checks.customMode": "检查模式",
   "workspaceSettings.repoReview.checks.addCustom": "添加检查",
   "workspaceSettings.repoReview.checks.removeCustom": "移除",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "仅被请求的审查者可以跳过检查（作者永远不行）",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "仅 PR 的审查者可以跳过检查——被请求的审查者，或已提交过审查的人（作者永远不行）",
   "workspaceSettings.repoReview.checks.save": "保存检查",
   "workspaceSettings.repoReview.style.toggle": "审查风格",
   "workspaceSettings.repoReview.style.toggleAria": "显示 {repo} 的审查风格",

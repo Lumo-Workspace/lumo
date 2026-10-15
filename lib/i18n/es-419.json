@@ -2485,7 +2485,7 @@
   "workspaceSettings.repoReview.checks.customMode": "Modo de la verificación",
   "workspaceSettings.repoReview.checks.addCustom": "Agregar verificación",
   "workspaceSettings.repoReview.checks.removeCustom": "Quitar",
-  "workspaceSettings.repoReview.checks.reviewersOnly": "Solo los revisores solicitados pueden omitir las verificaciones (nunca el autor)",
+  "workspaceSettings.repoReview.checks.reviewersOnly": "Solo los revisores del PR pueden omitir las verificaciones: los revisores solicitados o quien ya lo haya revisado (nunca el autor)",
   "workspaceSettings.repoReview.checks.save": "Guardar verificaciones",
   "workspaceSettings.repoReview.style.toggle": "Estilo de revisión",
   "workspaceSettings.repoReview.style.toggleAria": "Mostrar el estilo de revisión de {repo}",

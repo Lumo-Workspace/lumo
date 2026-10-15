@@ -2120,13 +2120,19 @@ describe('LUM-1152 follow-up: manual review on an in-flight ignored head', () =>
   test('an automatic review records incremental; a held one records none', async () => {
     repo.findByPrAndSha.mockReset().mockResolvedValue(null)
     fetchPrBody.mockResolvedValue('no directive')
-    await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
     expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBe(
       'incremental'
     )
     repo.persistResult.mockClear()
     fetchPrBody.mockResolvedValue('@uselumo ignore')
-    await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
     expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBeNull()
   })
 
