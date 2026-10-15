@@ -59,6 +59,8 @@ export interface GroupableFinding {
   title: string
   /** The quoted evidence line; absent / null = not known. */
   evidence?: string | null
+  /** A human's decision on the finding; absent / null = undecided. */
+  disposition?: string | null
 }
 
 function layer(f: { ruleId: string }): 'judge' | 'hunt' {
@@ -232,13 +234,21 @@ export function groupSameIssue<F extends GroupableFinding>(
  * and the hunt's MEDIUM report of the same issue on the same line, with no
  * partner left, was posted as a second thread. Grouping it keeps the issue
  * on its thread; posting stays limited to inline-eligible findings.
+ *
+ * Never a finding a human dispositioned (false positive, accepted risk …):
+ * it anchors no group, so a different open finding is never listed under —
+ * and hidden by — a decided thread. A thread a human resolved takes in
+ * another finding only under `groupSameIssue`'s carry rule (neither blocking
+ * DONE nor more severe).
  */
 export function groupingCandidates<F extends GroupableFinding>(
   findings: readonly F[],
   isInline: (f: F) => boolean,
   threaded: ReadonlySet<string>
 ): F[] {
-  return findings.filter(f => isInline(f) || threaded.has(f.fingerprint))
+  return findings.filter(
+    f => f.disposition == null && (isInline(f) || threaded.has(f.fingerprint))
+  )
 }
 
 /**

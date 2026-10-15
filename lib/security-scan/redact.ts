@@ -210,7 +210,9 @@ export function maskQuotedKeyedValues(text: string, source?: string): string {
  *
  * True only when the whole text reads as ONE JavaScript-style expression —
  * identifiers, numbers, string literals, member access, calls, indexing,
- * operators, `new` / `await` — with no two operands side by side (prose:
+ * operators, `new` / `await` / `typeof` before a call or member access
+ * (`new Foo(…)`, `await bar(…)`, `await this.x`; before a bare word they make
+ * the text no code) — with no two operands side by side (prose:
  * `correct horse battery`), balanced brackets, and a code mark no literal
  * has: a call or index (`f(…)`, `a[…]`), `new` / `await`, a logical,
  * comparison or ternary operator, or a member chain off a runtime root
@@ -245,6 +247,17 @@ export function isCodeExpression(raw: string): boolean {
       if (prevIsOperand) return false
       if (t.kind === 'id') {
         if (CODE_PREFIX_KEYWORDS.has(t.text)) {
+          // Only before a real call or member access (`new Foo(`,
+          // `await bar(`, `await this.x`): `new <word>` / `await <word>` is
+          // judged as the word it is — possibly a secret.
+          const target = tokens[i + 1]
+          const after = tokens[i + 2]?.text
+          if (
+            target?.kind !== 'id' ||
+            CODE_PREFIX_KEYWORDS.has(target.text) ||
+            (after !== '(' && after !== '.' && after !== '?.')
+          )
+            return false
           hasMark = true
           prev = { kind: 'op', text: t.text }
           continue

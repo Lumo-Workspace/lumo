@@ -516,6 +516,57 @@ describe('LUM-1200 follow-up #5: a thread owner relabelled LOW still takes in th
     expect(updateReviewLineComment).not.toHaveBeenCalled()
   })
 
+  it('a dispositioned thread owner never absorbs a new open finding: it gets its own thread', async () => {
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow([{ ...lowOwner, disposition: 'FALSE_POSITIVE' }, huntLogic])
+    )
+    await securityPrReviewService.sync('s1')
+
+    const comments = postedComments()
+    expect(comments).toHaveLength(1)
+    expect(comments[0]!.body).toContain(fingerprintMarker(HUNT_LOGIC_FP))
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+
+  it('an accepted-risk thread owner never absorbs a new open finding either', async () => {
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow([{ ...lowOwner, disposition: 'ACCEPTED_RISK' }, huntLogic])
+    )
+    await securityPrReviewService.sync('s1')
+    expect(postedComments()).toHaveLength(1)
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+
+  it('a human-resolved LOW thread does not absorb a more severe new report (it is posted, not hidden)', async () => {
+    reconcile.mockResolvedValue({
+      ...NO_THREADS,
+      resolvedByUser: new Set([THREAD_FP, LOW_FP]),
+      carried: new Map([[LOW_FP, THREAD_FP]]),
+      counts: { open: 0, addressed: 0, resolved: 1 },
+    })
+    repo.findByIdForReview!.mockResolvedValue(scanRow([lowOwner, huntLogic]))
+    await securityPrReviewService.sync('s1')
+
+    const comments = postedComments()
+    expect(comments).toHaveLength(1)
+    expect(comments[0]!.body).toContain(fingerprintMarker(HUNT_LOGIC_FP))
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+
+  it('a human-resolved LOW thread takes in only a report the carry rule allows (not blocking, not more severe)', async () => {
+    reconcile.mockResolvedValue({
+      ...NO_THREADS,
+      resolvedByUser: new Set([THREAD_FP, LOW_FP]),
+      carried: new Map([[LOW_FP, THREAD_FP]]),
+      counts: { open: 0, addressed: 0, resolved: 1 },
+    })
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow([lowOwner, { ...huntLogic, severity: 'LOW' }])
+    )
+    await securityPrReviewService.sync('s1')
+    expect(postedComments()).toHaveLength(0)
+  })
+
   it('a LOW finding owning a thread by its own marker is never posted again', async () => {
     reconcile.mockResolvedValue(NO_THREADS)
     listReviewComments.mockResolvedValue([

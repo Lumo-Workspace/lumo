@@ -21,6 +21,7 @@ import {
 const SHAPED = ['Zx9Qw3Lp', '7Vb2Nm5R', 't8Ky'].join('')
 const PASSPHRASE = ['correct', 'horse', 'battery'].join('')
 const RANDOM_LETTERS = ['QwErTyUi', 'OpAsDfGh', 'Jk'].join('')
+const MIXED_ID = ['hunter', '2x'].join('')
 
 const MASK_RE = /…\(len \d+\)/
 
@@ -75,7 +76,15 @@ describe('literal values stay masked (adversarial)', () => {
     // Credential-shaped or random identifiers are no code.
     `token: \`${SHAPED}.toString()\``,
     `token: \`${RANDOM_LETTERS}()\``,
-    'token: `hunter2x.call(1)`',
+    `token: \`${MIXED_ID}.call(1)\``,
+    // A keyword before a bare word is no code shape (review of #1532).
+    `token: \`new ${PASSPHRASE}\``,
+    `token: \`await ${PASSPHRASE}\``,
+    `token: \`typeof ${PASSPHRASE}\``,
+    `token: \`new ${MIXED_ID}pass\``,
+    `\`const token = new ${PASSPHRASE};\``,
+    `\`const token = await ${PASSPHRASE};\``,
+    `the secret is \`await ${PASSPHRASE} || fallback()\``,
   ])('masks %j', text => {
     expect(maskQuotedKeyedValues(text)).toMatch(MASK_RE)
   })
@@ -125,6 +134,9 @@ describe('isCodeExpression', () => {
     'req.query.token',
     'a ? b : c',
     'new URL(input)',
+    'await getToken()',
+    'await this.session.token',
+    'await client.tokens.create(opts)',
   ])('reads %j as code', v => expect(isCodeExpression(v)).toBe(true))
 
   it.each([
@@ -138,6 +150,10 @@ describe('isCodeExpression', () => {
     'f(1',
     'a ? b',
     'p@ss(word)',
-    'hunter2x()',
+    `${MIXED_ID}()`,
+    'new correcthorsebattery',
+    'await correcthorsebattery',
+    'typeof correcthorsebattery',
+    'await new',
   ])('does not read %j as code', v => expect(isCodeExpression(v)).toBe(false))
 })

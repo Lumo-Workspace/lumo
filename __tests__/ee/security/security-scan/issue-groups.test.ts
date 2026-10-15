@@ -640,6 +640,22 @@ describe('LUM-1200 follow-up #5 groupingCandidates', () => {
     ).toEqual(['low-threaded', 'med'])
   })
 
+  it('never takes a dispositioned finding, even one with a thread', () => {
+    const dispositioned = { ...lowThreaded, disposition: 'FALSE_POSITIVE' }
+    const inlineDispositioned = {
+      ...med,
+      fingerprint: 'med-fp',
+      disposition: 'ACCEPTED_RISK',
+    }
+    expect(
+      groupingCandidates(
+        [dispositioned, inlineDispositioned, med],
+        isInline,
+        new Set(['low-threaded', 'med-fp'])
+      ).map(f => f.fingerprint)
+    ).toEqual(['med'])
+  })
+
   it('a LOW thread owner and the same-line hunt report form one group, the owner keeping the thread', () => {
     const groups = groupSameIssue(
       groupingCandidates(
