@@ -20,6 +20,11 @@
 import { detectInjectionSignals } from '@/shared/src/untrusted-content'
 import { classifyReviewer } from '@/lib/context/reviewer-trust'
 import { matchPathGlob } from '@/lib/policy/path-glob'
+import {
+  guardInjectedText,
+  guardPromptLineText,
+} from '@/lib/security-scan/inject-guard'
+import type { ThreadReplyInput } from '@/ee/security/llm/thread-reply-client'
 
 export type ReplyLabel =
   /** States the finding is intentional / not applicable — a learning candidate. */
@@ -211,6 +216,29 @@ export function screenReplyDetailed(raw: string): {
   if (asked) return { label: 'QUESTION', reason }
   if (willChange || anyOf(ACKNOWLEDGE, text)) return { label: 'DEFER', reason }
   return { label: 'OTHER', reason }
+}
+
+// ── What the model is shown ──────────────────────────────────────────────────
+
+/**
+ * LUM-1157 — the classifier's input for one reply: the thread's OWN finding
+ * (each field through the prompt-line guard) and the reply, redacted and
+ * fenced (`guardInjectedText`). Shared by the service and the real-model
+ * probe, so the probe measures exactly what production asks.
+ */
+export function buildClassifierInput(
+  finding: { ruleId: string; title: string; filePath: string },
+  body: string
+): Pick<ThreadReplyInput, 'finding' | 'reply'> {
+  const guarded = guardInjectedText(body)
+  return {
+    finding: {
+      ruleId: guardPromptLineText(finding.ruleId),
+      title: guardPromptLineText(finding.title),
+      filePath: guardPromptLineText(finding.filePath),
+    },
+    reply: { text: guarded.text, notices: guarded.notices },
+  }
 }
 
 // ── Who may teach Lumo ───────────────────────────────────────────────────────
