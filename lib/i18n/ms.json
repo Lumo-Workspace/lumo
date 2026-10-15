@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo menulis ringkasan perubahan ke dalam penerangan PR — di tempat penulis meletakkan \"@uselumo summary\", atau di hujung — dan mengemas kininya pada setiap semakan. Teks penulis sendiri tidak pernah diubah.",
   "workspaceSettings.repoReview.style.summaryHint.comment": "Ringkasan kekal dalam komen ringkasan Lumo; penerangan PR tidak pernah disunting.",
   "workspaceSettings.repoReview.style.summaryHint.off": "Tiada ringkasan peringkat tinggi ditulis.",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "Rajah jujukan aliran panggilan",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "Apabila pull request mengubah aliran panggilan, huraian perubahan dalam komen ringkasan Lumo menyertakan rajah jujukan aliran utamanya. Pull request kecil tidak pernah menerimanya; komen \"@uselumo diagram\" untuk melukisnya semula.",
   "workspaceSettings.repoReview.style.pathInstructions": "Arahan laluan",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Semakan tambahan untuk fail yang sepadan dengan glob, contohnya scripts/** — \"Tandakan setiap console.log\". Ia menambah kepada semakan dan tidak boleh mematikan mana-mana semakan.",
   "workspaceSettings.repoReview.style.pathAria": "Glob laluan",

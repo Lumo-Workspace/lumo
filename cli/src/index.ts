@@ -1719,7 +1719,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1148 the pre-merge checks (--title-check, --title-requirements, --description-check, --override-reviewers-only; custom checks in the web settings or .lumo.yaml) and LUM-1149 the linked task / issue assessment (--issue-assessment, --task-details-on-public-repos); LUM-1147 the review style (--profile, --tone, --path-instruction); LUM-1151 where the high-level PR summary goes (--summary). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1148 the pre-merge checks (--title-check, --title-requirements, --description-check, --override-reviewers-only; custom checks in the web settings or .lumo.yaml) and LUM-1149 the linked task / issue assessment (--issue-assessment, --task-details-on-public-repos); LUM-1147 the review style (--profile, --tone, --path-instruction); LUM-1151 where the high-level PR summary goes (--summary); LUM-1155 the call-flow sequence diagram in the summary comment (--sequence-diagrams). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1830,6 +1830,10 @@ workspaceCmd
   .option(
     '--summary <description|comment|off>',
     "With --repo: where Lumo's high-level summary of each PR goes — description (default) = into the PR description (at an `@uselumo summary` line, else appended) and kept in sync on every review, comment = only in Lumo's summary comment, off = nowhere. Lumo only edits its own section of the description"
+  )
+  .option(
+    '--sequence-diagrams <on|off>',
+    "With --repo: a Mermaid sequence diagram of each PR's main call flow in the walkthrough of Lumo's summary comment (default on; trivial PRs never get one). `@uselumo diagram` on a PR draws it again"
   )
   .option('--confirm', 'The user approved the listed changes')
   .option('--json', 'Emit { switches, platform, effective } as JSON')

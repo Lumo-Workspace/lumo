@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo viết bản tóm tắt thay đổi vào mô tả PR — tại chỗ tác giả đặt \"@uselumo summary\", nếu không thì ở cuối — và cập nhật nó sau mỗi lần review. Văn bản của tác giả không bao giờ bị thay đổi.",
   "workspaceSettings.repoReview.style.summaryHint.comment": "Bản tóm tắt chỉ nằm trong bình luận tóm tắt của Lumo; mô tả PR không bao giờ bị chỉnh sửa.",
   "workspaceSettings.repoReview.style.summaryHint.off": "Không viết bản tóm tắt tổng quan.",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "Sơ đồ tuần tự của luồng gọi",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "Khi một pull request thay đổi luồng gọi, phần tổng quan trong bình luận tóm tắt của Lumo có thêm sơ đồ tuần tự của luồng chính. Pull request nhỏ không bao giờ có; bình luận \"@uselumo diagram\" để vẽ lại.",
   "workspaceSettings.repoReview.style.pathInstructions": "Hướng dẫn theo đường dẫn",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Kiểm tra bổ sung cho các tệp khớp với glob, ví dụ scripts/** — \"Đánh dấu mọi console.log\". Chúng bổ sung cho review và không thể tắt bất kỳ kiểm tra nào.",
   "workspaceSettings.repoReview.style.pathAria": "Glob đường dẫn",

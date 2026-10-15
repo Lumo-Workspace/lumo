@@ -288,6 +288,67 @@ export const repoConfigService = {
   },
 
   /**
+   * LUM-1155 — for `@<app> diagram`: whether the repository wants call-flow
+   * diagrams NOW and the path filters the diagram reads, each from
+   * `.lumo.yaml` on the PR's base commit, else the repository's stored
+   * setting, else the default. Never throws (any failure = the stored
+   * settings, or the defaults).
+   */
+  async sequenceDiagramSettingsForPullRequest(input: {
+    workspaceId: string
+    repo: string
+    prNumber: number
+  }): Promise<{ enabled: boolean; pathFilters: string[] }> {
+    let enabled = DEFAULT_REPO_REVIEW_SETTING.sequenceDiagrams
+    let pathFilters: string[] = [...DEFAULT_REPO_REVIEW_SETTING.pathFilters]
+    try {
+      const [style, filters] = await Promise.all([
+        repoReviewSettingRepository.findReviewStyle(
+          input.workspaceId,
+          input.repo.toLowerCase()
+        ),
+        repoReviewSettingRepository.findPathFilters(
+          input.workspaceId,
+          input.repo.toLowerCase()
+        ),
+      ])
+      if (style && typeof style.sequenceDiagrams === 'boolean')
+        enabled = style.sequenceDiagrams
+      pathFilters = filters
+    } catch (error) {
+      logger.warn(
+        `[repo-config] stored diagram setting unavailable repo=${input.repo}: ${describe(error)}`
+      )
+    }
+    try {
+      const { fetchPrBase } = await github()
+      const base = await fetchPrBase({
+        workspaceId: input.workspaceId,
+        fullName: input.repo,
+        prNumber: input.prNumber,
+      })
+      const load = await repoConfigService.loadAt({
+        workspaceId: input.workspaceId,
+        repo: input.repo,
+        sha: base.sha,
+      })
+      if (load.status === 'loaded') {
+        const fileEnabled = REPO_CONFIG_FIELDS.sequenceDiagrams.read(
+          load.config
+        )
+        if (fileEnabled !== undefined) enabled = fileEnabled
+        const fileFilters = REPO_CONFIG_FIELDS.pathFilters.read(load.config)
+        if (fileFilters !== undefined) pathFilters = fileFilters
+      }
+    } catch (error) {
+      logger.warn(
+        `[repo-config] PR base unavailable for the diagram setting ${input.repo}#${input.prNumber}: ${describe(error)}`
+      )
+    }
+    return { enabled, pathFilters }
+  },
+
+  /**
    * The repository's effective review config — every key with its value and
    * source — as of its default branch (or `sha`). For the configuration
    * views. Throws only when the repository's default branch cannot be read.

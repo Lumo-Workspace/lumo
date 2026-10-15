@@ -381,6 +381,15 @@ export const REPO_CONFIG_FIELDS = {
     fallback: D.highLevelSummary,
     prBranch: 'ignored',
   }),
+  // LUM-1155 — the call-flow diagram in the walkthrough. A PR-branch copy
+  // is ignored like every key.
+  sequenceDiagrams: field<boolean>({
+    key: 'reviews.sequence_diagrams',
+    read: f => f.reviews?.sequence_diagrams,
+    lumo: s => s.sequenceDiagrams,
+    fallback: D.sequenceDiagrams,
+    prBranch: 'ignored',
+  }),
 } as const
 
 export type RepoConfigFields = typeof REPO_CONFIG_FIELDS
@@ -464,6 +473,7 @@ export function reviewSettingsWithFile(
         settings.preMergeChecks.issueAssessment.taskDetailsOnPublicRepos,
     }),
     highLevelSummary: e.highLevelSummary.value,
+    sequenceDiagrams: e.sequenceDiagrams.value,
   }
 }
 

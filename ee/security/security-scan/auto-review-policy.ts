@@ -58,6 +58,7 @@ import {
   stripDescriptionSummary,
   type HighLevelSummaryMode,
 } from './pr-description-summary'
+import { DEFAULT_SEQUENCE_DIAGRAMS } from './sequence-diagram'
 
 /**
  * What an EMPTY `baseBranches` list reviews (user decision, 2026-10-15):
@@ -112,6 +113,8 @@ export interface RepoReviewSettingValues {
   toneInstructions: string | null
   /** LUM-1151: where the high-level summary goes (pr-description-summary.ts). */
   highLevelSummary: HighLevelSummaryMode
+  /** LUM-1155: a call-flow sequence diagram in the walkthrough (sequence-diagram.ts). */
+  sequenceDiagrams: boolean
 }
 
 /** No stored row = these. */
@@ -131,6 +134,7 @@ export const DEFAULT_REPO_REVIEW_SETTING: Readonly<RepoReviewSettingValues> =
     reviewProfile: DEFAULT_REVIEW_PROFILE,
     toneInstructions: null,
     highLevelSummary: DEFAULT_HIGH_LEVEL_SUMMARY,
+    sequenceDiagrams: DEFAULT_SEQUENCE_DIAGRAMS,
   })
 
 /**

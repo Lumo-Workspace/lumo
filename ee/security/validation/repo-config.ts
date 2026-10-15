@@ -208,6 +208,12 @@ export const reviewsConfigSchema = z
       .describe(
         "Where Lumo writes its high-level summary of the PR: `description` (default, or `true`) = into the PR description, at an `@uselumo summary` line or appended, and kept in sync on every review; `comment` = only in Lumo's summary comment; `off` (or `false`) = nowhere."
       ),
+    sequence_diagrams: z
+      .boolean()
+      .optional()
+      .describe(
+        "Add a sequence diagram of the PR's main call flow to the walkthrough in Lumo's summary comment (default true). Trivial PRs never get one; `@uselumo diagram` draws it again on demand."
+      ),
   })
   .describe('Code review settings.')
 

@@ -137,6 +137,7 @@ import {
   type ChangedFile,
 } from '@/ee/security/security-scan/pr-walkthrough'
 import { parseHighLevelSummary } from '@/ee/security/security-scan/pr-description-summary'
+import { sequenceDiagramSection } from '@/ee/security/security-scan/sequence-diagram'
 import { prDescriptionSummaryService } from '@/ee/security/services/pr-description-summary.service'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
@@ -673,6 +674,11 @@ export interface SummaryInput {
   highLevelSummary?: 'comment' | 'description' | 'off'
   /** LUM-1151 — the PR's changed files, for the walkthrough; absent = none. */
   changedFiles?: ChangedFile[] | null
+  /**
+   * LUM-1155 — the scan's raw `sequenceDiagram` Json: a walkthrough section
+   * when it parses and its Mermaid validates; absent = none.
+   */
+  sequenceDiagram?: unknown
 }
 
 /** LUM-1147 — how many held findings the summary lists by name. */
@@ -744,6 +750,8 @@ export function commandsBlock(handle: string, approve = false): string {
     ['configuration', 'show the effective review settings for this PR'],
     // LUM-1151
     ['summary', "write Lumo's summary of the PR into its description again"],
+    // LUM-1155
+    ['diagram', "draw the sequence diagram of the PR's call flow again"],
   ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
   // LUM-1154: anything else addressed to Lumo is a question it answers.
   rows.push(
@@ -1072,8 +1080,10 @@ export function buildSummary(input: SummaryInput): string {
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
 
   // LUM-1151: what the PR changes, file by file — folded.
+  // LUM-1155: and the main call flow, as a sequence diagram.
   const walkthrough = buildWalkthrough([
     changedFilesSection(input.changedFiles),
+    sequenceDiagramSection(input.sequenceDiagram),
   ])
   if (walkthrough) blocks.push(walkthrough)
 
@@ -1958,6 +1968,7 @@ export const securityPrReviewService = {
         prSummary: scan.prSummary,
         highLevelSummary: summaryWhere,
         changedFiles,
+        sequenceDiagram: scan.sequenceDiagram,
         // LUM-849: the rows a reader acts on — LOW and suggested false
         // positives stay off the diff, so they stay off this line too.
         attentionFiles: open

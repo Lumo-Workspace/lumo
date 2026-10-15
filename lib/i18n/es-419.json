@@ -2509,6 +2509,8 @@
   "workspaceSettings.repoReview.style.summaryHint.description": "Lumo escribe un resumen de los cambios en la descripción del PR —donde el autor puso \"@uselumo summary\", o al final— y lo mantiene actualizado en cada revisión. El texto del autor nunca se modifica.",
   "workspaceSettings.repoReview.style.summaryHint.comment": "El resumen queda en el comentario de resumen de Lumo; la descripción del PR nunca se edita.",
   "workspaceSettings.repoReview.style.summaryHint.off": "No se escribe ningún resumen general.",
+  "workspaceSettings.repoReview.style.sequenceDiagrams": "Diagrama de secuencia del flujo de llamadas",
+  "workspaceSettings.repoReview.style.sequenceDiagramsHint": "Cuando un pull request cambia un flujo de llamadas, el recorrido del comentario de resumen de Lumo incluye un diagrama de secuencia de su flujo principal. Los pull requests pequeños nunca lo reciben; comenta \"@uselumo diagram\" para volver a dibujarlo.",
   "workspaceSettings.repoReview.style.pathInstructions": "Instrucciones por ruta",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Verificaciones adicionales para los archivos que coinciden con un glob, por ejemplo scripts/** — \"Marca cualquier console.log\". Se suman a la revisión y no pueden desactivar ninguna verificación.",
   "workspaceSettings.repoReview.style.pathAria": "Glob de ruta",

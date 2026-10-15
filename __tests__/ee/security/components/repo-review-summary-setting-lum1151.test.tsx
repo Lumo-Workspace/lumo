@@ -64,6 +64,7 @@ it('styleUpdate sends only a changed summary mode', () => {
     reviewProfile: REPO.reviewProfile,
     toneInstructions: '',
     pathInstructions: [],
+    sequenceDiagrams: REPO.sequenceDiagrams,
   }
   expect(styleUpdate(REPO, draft)).toBeNull()
   expect(styleUpdate(REPO, { ...draft, highLevelSummary: 'off' })).toEqual({
