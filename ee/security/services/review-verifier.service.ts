@@ -22,7 +22,7 @@ import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { splitDiffByFile } from '@/ee/security/security-scan/diff-lines'
 import { redactForInjection } from '@/lib/security-scan/scan-secrets'
-import { redactFindingText } from '@/ee/security/security-scan'
+import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import {
   RANKER_DIFF_MAX_CHARS,
   RANKER_TIMEOUT_MS,
@@ -149,7 +149,7 @@ async function rankAfterVerifier(input: {
     })
     const added = applyRankerPolicy(left, out.ranking, rejected).map(v => ({
       ...v,
-      reason: redactFindingText(v.reason).slice(0, 400),
+      reason: redactFindingProse(v.reason).slice(0, 400),
     }))
     logger.info(
       `[review-verifier] scan=${input.scanId} ranker findings=${left.length} ranked=${out.ranking.length} rejected=${added.length} in=${out.inputTokens} out=${out.outputTokens}${out.error ? ` error=${out.error.slice(0, 120)}` : ''}`
@@ -237,13 +237,13 @@ export const reviewVerifierService = {
         // The reason is model text headed for the panel and the CLI.
         verdicts = applyVerifierPolicy(findings, out.results).map(v => ({
           ...v,
-          reason: redactFindingText(v.reason).slice(0, 400),
+          reason: redactFindingProse(v.reason).slice(0, 400),
         }))
         verifierClean = out.error === null
         verifierReasons = new Map(
           out.results
             .filter(r => !r.defaulted)
-            .map(r => [r.id, redactFindingText(r.reason).slice(0, 400)])
+            .map(r => [r.id, redactFindingProse(r.reason).slice(0, 400)])
         )
         logger.info(
           `[review-verifier] scan=${job.scanId} findings=${findings.length} applied=${verdicts.length} rejected=${verdicts.filter(v => v.verdict === 'REJECTED').length} steps=${out.steps} commands=${out.commands} in=${out.inputTokens} out=${out.outputTokens}${out.error ? ` error=${out.error.slice(0, 120)}` : ''}`
