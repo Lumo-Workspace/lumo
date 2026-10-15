@@ -6,6 +6,7 @@ import {
   applyRankerPolicy,
   applyVerifierPolicy,
   isVerifierRejected,
+  rankerMayReject,
   verifierAppliesTo,
   verifierHolding,
   verifierKindOf,
@@ -122,12 +123,37 @@ describe('LUM-988 verifier rules', () => {
 
 describe('LUM-988 ranker policy', () => {
   const rows = [
-    { id: 'low', kind: 'CORRECTNESS', severity: 'MEDIUM' },
-    { id: 'keep', kind: 'CORRECTNESS', severity: 'LOW' },
-    { id: 'high', kind: 'CORRECTNESS', severity: 'HIGH' },
-    { id: 'sec', kind: 'VULNERABILITY', severity: 'LOW' },
-    { id: 'gone', kind: 'CORRECTNESS', severity: 'LOW' },
-    { id: 'unranked', kind: 'CORRECTNESS', severity: 'LOW' },
+    {
+      id: 'low',
+      kind: 'CORRECTNESS',
+      severity: 'MEDIUM',
+      ruleId: 'review:logic_error',
+    },
+    {
+      id: 'keep',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+    },
+    {
+      id: 'high',
+      kind: 'CORRECTNESS',
+      severity: 'HIGH',
+      ruleId: 'review:logic_error',
+    },
+    { id: 'sec', kind: 'VULNERABILITY', severity: 'LOW', ruleId: 'vuln:xss' },
+    {
+      id: 'gone',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+    },
+    {
+      id: 'unranked',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+    },
   ]
 
   it('rejects only an applicable row ranked below the threshold, with a marked reason', () => {
@@ -162,6 +188,56 @@ describe('LUM-988 ranker policy', () => {
       new Set()
     )
     expect(out).toEqual([])
+  })
+
+  it('LUM-1194: never removes a test_defect finding, however low it is ranked', () => {
+    const out = applyRankerPolicy(
+      [
+        {
+          id: 't',
+          kind: 'CORRECTNESS',
+          severity: 'LOW',
+          ruleId: 'review:test_defect',
+        },
+        {
+          id: 'd',
+          kind: 'CORRECTNESS',
+          severity: 'LOW',
+          ruleId: 'review:doc_mismatch',
+        },
+      ],
+      [
+        { id: 't', p: 0, reason: 'test tidiness' },
+        { id: 'd', p: 0, reason: 'minor' },
+      ],
+      new Set()
+    )
+    expect(out.map(v => v.findingId)).toEqual(['d'])
+    expect(
+      rankerMayReject({
+        kind: 'CORRECTNESS',
+        severity: 'LOW',
+        ruleId: 'review:test_defect',
+      })
+    ).toBe(false)
+    expect(
+      rankerMayReject({
+        kind: 'CORRECTNESS',
+        severity: 'LOW',
+        ruleId: 'review:logic_error',
+      })
+    ).toBe(true)
+    expect(
+      rankerMayReject({
+        kind: 'CORRECTNESS',
+        severity: 'HIGH',
+        ruleId: 'review:logic_error',
+      })
+    ).toBe(false)
+    // The verifier still judges test findings: only the ranker's prior is off.
+    expect(verifierAppliesTo({ kind: 'CORRECTNESS', severity: 'LOW' })).toBe(
+      true
+    )
   })
 
   it('the threshold is the one measured on the replay', () => {

@@ -31,6 +31,7 @@ import {
   VERIFIER_TIMEOUT_MS,
   applyRankerPolicy,
   applyVerifierPolicy,
+  rankerMayReject,
   verifierAppliesTo,
   verifierKindOf,
   type VerifierVerdict,
@@ -122,7 +123,7 @@ async function rankAfterVerifier(input: {
     input.verdicts.filter(v => v.verdict === 'REJECTED').map(v => v.findingId)
   )
   const left = input.judged.filter(f => !rejected.has(f.id))
-  if (!left.some(verifierAppliesTo)) return []
+  if (!left.some(rankerMayReject)) return []
   try {
     const { rankFindings } =
       await import('@/ee/security/llm/review-ranker-client')

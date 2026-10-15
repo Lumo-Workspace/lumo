@@ -110,13 +110,36 @@ export const RANKER_KEEP_THRESHOLD = 18
 export const RANKER_REASON_PREFIX = 'Ranked low:'
 
 /**
+ * LUM-1194 — review kinds the ranker ranks (as context) but never removes.
+ * Its prior lowers test findings ("test tidiness"), and on developer-confirmed
+ * fixes that prior is inverted: over four LUM-1158 runs it dropped 6 test
+ * findings developers fixed and 3 they did not, against 3 and 29 for bugs
+ * (LUM-1010 saw the same online). The verifier still judges them.
+ */
+export const RANKER_EXEMPT_REVIEW_KINDS: ReadonlySet<string> = new Set([
+  'test_defect',
+])
+
+/** May the ranker remove this finding? The verifier's rows minus the exempt kinds. */
+export function rankerMayReject(f: {
+  kind: string
+  severity: string
+  ruleId: string
+}): boolean {
+  return (
+    verifierAppliesTo(f) &&
+    !RANKER_EXEMPT_REVIEW_KINDS.has(verifierKindOf(f.ruleId))
+  )
+}
+
+/**
  * The rejections the ranker adds: a finding the policy applies to, not
  * already rejected, ranked below the threshold. A finding the ranking does
  * not mention is kept — like a defaulted verdict, the ranker may only remove
  * false positives, never lose a finding by omission.
  */
 export function applyRankerPolicy<
-  F extends { id: string; kind: string; severity: string },
+  F extends { id: string; kind: string; severity: string; ruleId: string },
 >(
   findings: readonly F[],
   ranking: ReadonlyArray<{ id: string; p: number; reason: string }>,
@@ -128,7 +151,7 @@ export function applyRankerPolicy<
     const f = byId.get(r.id)
     if (!f || seen.has(r.id) || alreadyRejected.has(r.id)) return []
     seen.add(r.id)
-    if (!verifierAppliesTo(f) || r.p >= RANKER_KEEP_THRESHOLD) return []
+    if (!rankerMayReject(f) || r.p >= RANKER_KEEP_THRESHOLD) return []
     return [
       {
         findingId: f.id,

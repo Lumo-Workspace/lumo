@@ -15,7 +15,10 @@
  * when the judge matches it to one of those fixes.
  */
 import path from 'node:path'
-import { RANKER_KEEP_THRESHOLD } from '@/ee/security/security-scan/verifier'
+import {
+  RANKER_EXEMPT_REVIEW_KINDS,
+  RANKER_KEEP_THRESHOLD,
+} from '@/ee/security/security-scan/verifier'
 
 /** The anonymised label of the reference reviewer. Never its real name. */
 export const REFERENCE_LABEL = 'bot-a'
@@ -275,7 +278,8 @@ export interface ReplayRunResult {
  * non-HIGH non-security rows (the replay-space form of
  * `applyVerifierPolicy` + `applyRankerPolicy`, as LUM-1010 applied it). A
  * finding ranked twice is decided at its first entry, as production's
- * `applyRankerPolicy` does (LUM-1198). Null when the run produced no findings
+ * `applyRankerPolicy` does (LUM-1198). The ranker never removes the kinds in
+ * RANKER_EXEMPT_REVIEW_KINDS (LUM-1194). Null when the run produced no findings
  * list (over cap / error).
  */
 export function keptLumoFindings(
@@ -301,7 +305,12 @@ export function keptLumoFindings(
     const f = byId.get(r.id)
     if (!f || seen.has(r.id) || verifierRejected.has(r.id)) continue
     seen.add(r.id)
-    if (applicable(f) && r.p < threshold) rejected.add(f.id)
+    if (
+      applicable(f) &&
+      !RANKER_EXEMPT_REVIEW_KINDS.has(f.kind) &&
+      r.p < threshold
+    )
+      rejected.add(f.id)
   }
   return findings.filter(f => !rejected.has(f.id))
 }
