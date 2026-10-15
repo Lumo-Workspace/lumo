@@ -172,19 +172,79 @@ export function maskQuotedCredentials(text: string): string {
  * its key (`the password, as before, is "…"`) is kept. Registry shapes are
  * redacted before this pass runs, as for the other two.
  */
-export function maskQuotedKeyedValues(text: string): string {
+export function maskQuotedKeyedValues(text: string, source?: string): string {
   return maskQuotedSpans(
     text,
     (content, before) =>
-      REDACTION_TOKEN_TEST_RE.test(content) ||
+      (REDACTION_TOKEN_TEST_RE.test(content) &&
+        !isEchoedMarkerSpan(content, source)) ||
       content.split(/\s+/).some(isCredentialShapedToken) ||
       (CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) &&
         !isPlaceholderValue(content)) ||
       assignsCredentialValue(content),
     true,
+    true,
     true
   )
 }
+
+/**
+ * LUM-1200 follow-up #4 — a span whose redaction marker the model ECHOED
+ * rather than one this call planted. The hunt model reads tool output that
+ * was already masked (`'/ses…(len 14)'`) and quotes it back in its narration
+ * (`` `if (url.startsWith('/ses…(len 14)'))` ``); the marker rule then masked
+ * the whole quoted code as `` `if (…(len 36)` ``. A span is an echo when it
+ * stands verbatim in the text as the model wrote it (`source`, before the
+ * registry pass): the registry pass changed nothing inside it, so the marker
+ * hides nothing this text revealed — the model never had that value. The
+ * span is then judged like any other (shape, key, assignment). A marker the
+ * registry pass planted in this call changes the span, so the span is never
+ * in `source` and is still masked whole (it may hide a second value).
+ */
+function isEchoedMarkerSpan(content: string, source?: string): boolean {
+  return (
+    source !== undefined &&
+    source.includes(content) &&
+    !echoedMarkerNeighbourIsValue(content)
+  )
+}
+
+/**
+ * Only the echoed marker itself is exempt: the text glued to it and the
+ * words on either side are still read as possible values beside it (a
+ * second value the registry missed — `postgres://u:hunt…(len 13)@h/d?t=…`).
+ * A neighbour counts as a value when it is credential-shaped or random, holds
+ * an `=` / `:` followed by 8+ value characters, or holds an 8+ character
+ * letters/digits run that is no camelCase identifier (`correcthorsebattery`;
+ * `startsWith` is code).
+ */
+function echoedMarkerNeighbourIsValue(content: string): boolean {
+  const pieces = content
+    .replace(TOKEN_WITH_PREFIX_RE, MARKER_SENTINEL)
+    .split(/\s+/)
+  const neighbours: string[] = []
+  pieces.forEach((piece, i) => {
+    if (!piece.includes(MARKER_SENTINEL)) return
+    neighbours.push(...piece.split(MARKER_SENTINEL))
+    if (i > 0) neighbours.push(pieces[i - 1]!)
+    if (i < pieces.length - 1) neighbours.push(pieces[i + 1]!)
+  })
+  return neighbours.some(
+    n =>
+      !n.includes(MARKER_SENTINEL) &&
+      (isCredentialShapedToken(n) ||
+        isRandomLettersToken(n) ||
+        VALUE_AFTER_OPERATOR_RE.test(n) ||
+        n
+          .split(/[^A-Za-z0-9]+/)
+          .some(r => r.length >= MIN_QUOTED_LEN && !/[a-z][A-Z]/.test(r)))
+  )
+}
+
+const MARKER_SENTINEL = '\u0000'
+
+/** An `=` / `:` (not `://`) followed by a value of 8+ characters. */
+const VALUE_AFTER_OPERATOR_RE = /(?:=|:(?!\/\/))[A-Za-z0-9_+/.~-]{8,}/
 
 /** How far back from an opening quote `maskQuotedKeyedValues` looks for its key. */
 const KEY_WINDOW = 48
@@ -324,8 +384,14 @@ const FENCE = '```'
  *   (`src/token.ts`) and quoted search patterns (`"token"`) never count.
  * Registry shapes are redacted before this pass runs, as for the others.
  */
-export function maskQuotedCommandArgs(command: string): string {
-  if (CREDENTIAL_VOCAB_RE.test(standaloneWords(command))) {
+export function maskQuotedCommandArgs(
+  command: string,
+  wholeCommand: string = command
+): string {
+  // LUM-1200 follow-up #4 — `command` may be a piece of a longer command (a
+  // refused segment quoted in the gate's reason); a credential word said
+  // anywhere in the whole command masks every quoted argument of the piece.
+  if (CREDENTIAL_VOCAB_RE.test(standaloneWords(wholeCommand))) {
     return maskQuotedSpans(command, MASK_EVERY_SPAN, false)
   }
   return maskQuotedSpans(
@@ -524,10 +590,12 @@ function maskQuotedSpans(
   line: string,
   shouldMask: (content: string, before: string) => boolean,
   skipContractions: boolean,
-  fences = false
+  fences = false,
+  looseBackticks = false
 ): string {
   let out = ''
   let i = 0
+  let maskShapedAfter = false
   while (i < line.length) {
     const ch = line[i]!
     if (fences && line.startsWith(FENCE, i)) {
@@ -554,13 +622,25 @@ function maskQuotedSpans(
       continue
     }
     const close = findClosingQuote(line, i, ch)
+    if (close === -1 && looseBackticks && ch === '`') {
+      // LUM-1200 follow-up #4 — prose: an unpaired backtick is a stray mark,
+      // not the start of a value running to the end of the text (production:
+      // a hunt finding's whole falsifier explanation became `toke…(len 447)).
+      // Not the first backtick: the pairing before it was a guess, so a
+      // value may sit outside every span — shaped words are masked anywhere.
+      if (line.indexOf('`') < i) maskShapedAfter = true
+      const loose = looseBacktick(line, i, shouldMask)
+      out += loose.text
+      i = loose.next
+      continue
+    }
     if (close === -1) {
       // `indexOf` also finds a skipped contraction apostrophe, so a skip
       // that leaves the pairing odd still masks from that apostrophe on.
       const firstIdx = line.indexOf(ch)
       // Ambiguous pairing: fall back to masking the whole region.
       if (firstIdx < i) {
-        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions, fences)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
+        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions, fences, looseBackticks)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
       }
       return `${out}${maskOpenTail(ch, line.slice(i + 1))}`
     }
@@ -573,7 +653,52 @@ function maskQuotedSpans(
         : line.slice(i, close + 1)
     i = close + 1
   }
-  return out
+  return maskShapedAfter ? maskShapedWords(out) : out
+}
+
+/**
+ * LUM-1200 follow-up #4 — the prose pass's unpaired backtick at `idx`: kept
+ * as a plain character, and the text after it is read on as prose (its other
+ * quoted spans judged as usual). Fail closed where a value could follow the
+ * stray mark: the run after it up to the end of its sentence or line is
+ * judged as a span's content would be — every word in it for shape and
+ * randomness, the credential key before the mark, an assignment inside it —
+ * and masked whole on that verdict, so a secret a few words on (or a
+ * multi-word passphrase after `password is`) is not let through.
+ */
+function looseBacktick(
+  line: string,
+  idx: number,
+  shouldMask: (content: string, before: string) => boolean
+): { text: string; next: number } {
+  const rest = line.slice(idx + 1)
+  const end = SENTENCE_END_RE.exec(rest)
+  const region = end ? rest.slice(0, end.index) : rest
+  const masked =
+    region.trim().length >= MIN_QUOTED_LEN &&
+    !isRedactionOnlyContent(region) &&
+    (shouldMask(region, line.slice(Math.max(0, idx - KEY_WINDOW), idx)) ||
+      region.split(/\s+/).some(isRandomLettersToken))
+  return masked
+    ? { text: `\`${redactSecret(region)}`, next: idx + 1 + region.length }
+    : { text: '`', next: idx + 1 }
+}
+
+/** Where a stray backtick's region ends: a line break, or `.` / `!` / `?` before whitespace. */
+const SENTENCE_END_RE = /\n|[.!?](?=\s|$)/
+
+/**
+ * Every whitespace-separated word that reads as a generated value
+ * (`isCredentialShapedToken`, `isRandomLettersToken`) masked; redaction
+ * tokens are left as they are.
+ */
+function maskShapedWords(text: string): string {
+  return text.replace(/\S+/g, word =>
+    !REDACTION_TOKEN_TEST_RE.test(word) &&
+    (isCredentialShapedToken(word) || isRandomLettersToken(word))
+      ? redactSecret(word)
+      : word
+  )
 }
 
 /** Python / SQL string-literal prefixes a quote may follow: `b'…'`, `rb'…'`, `X'…'`. */

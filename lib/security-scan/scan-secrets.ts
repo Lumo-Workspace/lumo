@@ -425,7 +425,10 @@ export function redactFindingText(input: string): string {
  * registry hit, or right after a credential key (`password is "…"`).
  */
 export function redactSummaryText(input: string): string {
-  return redactThenMaskQuotes(input, maskQuotedKeyedValues)
+  // The text as written goes along: a quoted span the registry pass left
+  // untouched may quote an already-masked value back without being masked
+  // whole for it (`maskQuotedKeyedValues`, LUM-1200 follow-up #4).
+  return redactThenMaskQuotes(input, text => maskQuotedKeyedValues(text, input))
 }
 
 /**
@@ -437,7 +440,34 @@ export function redactSummaryText(input: string): string {
  * credential-shaped, beside a registry hit, or a credential key's value.
  */
 export function redactShellCommand(input: string): string {
-  return redactThenMaskQuotes(input, maskQuotedCommandArgs)
+  return redactThenMaskQuotes(input, text => maskQuotedCommandArgs(text))
+}
+
+/**
+ * LUM-1200 follow-up #4 — the reason the hunt's command gate gave for
+ * refusing `command`: the gate's own sentence, then (after `: `) the refused
+ * segment, or a sed / awk script, quoted from the command. Read by content:
+ * the longest tail after a `: ` that stands verbatim in the command is that
+ * command's text and gets the command pass (`maskQuotedCommandArgs`, judged
+ * against the whole command), the sentence before it the prose pass
+ * (`redactSummaryText`). A reason that quotes no tail of the command is prose
+ * throughout. Production (probe PR 67): `xargs grep -l "isSe…(len 27)"` in
+ * the reason while the same record's `cmd` read `"isSessionValid|…"`.
+ */
+export function redactShellReason(reason: string, command: string): string {
+  for (
+    let at = reason.indexOf(': ');
+    at !== -1;
+    at = reason.indexOf(': ', at + 1)
+  ) {
+    const tail = reason.slice(at + 2)
+    if (tail.trim().length === 0 || !command.includes(tail)) continue
+    const head = reason.slice(0, at + 2)
+    return `${redactSummaryText(head)}${redactThenMaskQuotes(tail, text =>
+      maskQuotedCommandArgs(text, command)
+    )}`
+  }
+  return redactSummaryText(reason)
 }
 
 function redactThenMaskQuotes(

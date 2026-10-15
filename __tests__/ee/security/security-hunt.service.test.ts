@@ -72,7 +72,10 @@ import {
   HUNT_WRAP_UP_TEXT_CHARS,
   type HuntStepTrace,
 } from '@/ee/security/services/security-hunt.config'
-import { HUNT_SHELL_COMMANDS } from '@/ee/security/security-scan/hunt/shell-allowlist'
+import {
+  HUNT_SHELL_COMMANDS,
+  checkHuntCommand,
+} from '@/ee/security/security-scan/hunt/shell-allowlist'
 import { stepClipNote } from '@/ee/security/security-scan/hunt/step-output'
 import {
   HUNT_MAX_STEPS_PER_CATEGORY,
@@ -882,6 +885,41 @@ describe('LUM-739 hunt service', () => {
       'grep -n "session/check|token" src/server.ts',
       'TOKEN="corr…(len 19)" node check.js',
     ])
+  })
+
+  // LUM-1200 follow-up #4 — production TC12 (lumo-agent-test#67 r4): a
+  // refused command's reason masked the segment it quotes
+  // (`xargs grep -l "isSe…(len 27)"`) while `cmd` kept it.
+  it('huntBatch records a refused command reason as readable as its cmd, secrets masked', async () => {
+    const readable =
+      'rg -l "createSession" src | xargs grep -l "isSessionValid|checkSessionToken"'
+    const secret = `rg -n "${['correct', 'horse', 'battery'].join('')}" src > o.txt`
+    const keyed = `grep -rn password src ; ${secret}`
+    shellMock.mockImplementation(async ({ command }: { command: string }) => {
+      const check = checkHuntCommand(command)
+      return check.ok
+        ? { output: '', compressTokens: 0 }
+        : { output: '', compressTokens: 0, denied: true, error: check.reason }
+    })
+    huntMock.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell(readable)
+        await input.runShell(keyed)
+        return { candidates: [], tokens: 10, stopped: 'budget' }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    const [first, second] = out.shell.commands
+    expect(first!.cmd).toBe(readable)
+    expect(first!.reason).toBe(
+      'segment is not read-only: xargs grep -l "isSessionValid|checkSessionToken"'
+    )
+    expect(first!.reason).not.toContain('…(len')
+    // A credential word elsewhere in the command masks the quoted segment.
+    expect(second!.reason).toContain('"corr…(len 19)"')
+    expect(second!.reason).not.toContain('correcthorse')
   })
 
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
