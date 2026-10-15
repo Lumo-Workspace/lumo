@@ -165,6 +165,10 @@ describe('adversarial values in placeholder-like shapes stay masked', () => {
     '`token=<my token value here please>`',
     '`apiKey: ${API_KEY2}`',
     '`token=$correcthorse`',
+    // Text glued after a closing bracket / quote is part of the value.
+    '`GET /check?token=<token>realsecretvalue`',
+    '`token={token}realsecretvalue`',
+    '`token="<token>"realsecretvalue`',
     // One real value beside a placeholder.
     '`GET /check?token=<token>&secret=letmeinplease`',
   ])('masks %s', input => {

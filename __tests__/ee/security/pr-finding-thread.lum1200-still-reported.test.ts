@@ -26,7 +26,10 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
-import { planThreadActions } from '@/ee/security/services/pr-finding-thread.service'
+import {
+  planDuplicateMerges,
+  planThreadActions,
+} from '@/ee/security/services/pr-finding-thread.service'
 import type { FindingThreadRow } from '@/ee/security/repositories/pr-finding-thread.repository'
 import type { ReviewFindingRow } from '@/ee/security/repositories/pr-security-scan.repository'
 import type { FindingIdentity } from '@/ee/security/security-scan/finding-successor'
@@ -310,5 +313,64 @@ describe('LUM-1200 follow-up #2 — a thread whose issue is still reported is no
       ]),
     })
     expect(out.actions).toEqual([expect.objectContaining({ kind: 'ADDRESS' })])
+  })
+})
+
+// LUM-1200 follow-up #2 × LUM-1127 follow-up #3 (#1528): the still-reported
+// hold and the alias carry / duplicate merge compose — the hunt thread is
+// never "Addressed" while its issue is reported; once the AI review thread
+// owns the relabelled finding (as an alias), the two threads are merged with
+// a duplicate note instead.
+describe('composes with alias carries and the duplicate merge', () => {
+  const input = (rows: FindingThreadRow[]) => ({
+    rows,
+    findings: [judgeNow],
+    open: [judgeNow],
+    scan: COMPLETE,
+    headSha: HEAD,
+    remote: new Map(
+      rows.map(r => [r.commentId, remote(r.threadNodeId!, Number(r.commentId))])
+    ),
+    identities: new Map(
+      [judgeOld, huntOld, judgeNow].map(f => [f.fingerprint, identity(f)])
+    ),
+  })
+
+  it('sync 1 (relabel just seen): AI thread CARRY, hunt thread held open, no merge yet', () => {
+    const i = input([judgeRow, huntRow])
+    expect(planDuplicateMerges(i)).toEqual([])
+    expect(planThreadActions(i).actions).toEqual([
+      expect.objectContaining({ kind: 'CARRY', successor: 'fp-judge-api' }),
+    ])
+  })
+
+  it('sync 2 (carry saved as an alias): merged into the older AI thread, never addressed', () => {
+    const carried = { ...judgeRow, aliasFingerprints: ['fp-judge-api'] }
+    const i = input([carried, huntRow])
+    expect(planDuplicateMerges(i)).toEqual([
+      {
+        keep: expect.objectContaining({ fingerprint: judgeOld.fingerprint }),
+        drop: expect.objectContaining({ fingerprint: huntOld.fingerprint }),
+      },
+    ])
+    // Even planned without the merge, the hunt thread is not addressed and
+    // the AI thread (reported through its alias) needs nothing.
+    expect(planThreadActions(i).actions).toEqual([])
+  })
+
+  it('after the merge: the kept thread stands for the hunt fingerprint too — nothing to do', () => {
+    const merged = {
+      ...judgeRow,
+      aliasFingerprints: ['fp-judge-api', huntOld.fingerprint],
+    }
+    expect(planThreadActions(input([merged])).actions).toEqual([])
+  })
+
+  it("a hunt thread reported through its own alias is not 'gone'", () => {
+    const aliased = {
+      ...huntRow,
+      aliasFingerprints: ['fp-judge-api'],
+    }
+    expect(planThreadActions(input([aliased])).actions).toEqual([])
   })
 })

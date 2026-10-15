@@ -268,10 +268,12 @@ function isPlaceholderValue(raw: string): boolean {
 /**
  * Every `key = value` / `key: value` / `key => value` in the RAW span, the
  * value taken whole: a quoted string or a bracketed placeholder shape, else
- * up to whitespace or `&,;)]}`.
+ * up to whitespace or `&,;)]}` — and always up to one of those (or the end):
+ * text glued after a closing quote or bracket (`<token>realsecret`) is part
+ * of the value, which is then no placeholder.
  */
 const RAW_ASSIGNMENT_RE =
-  /([A-Za-z0-9_$.-]+)["'`]?\s*(?:=>|=(?!=)|:)\s*("[^"]*"|'[^']*'|`[^`]*`|<[^<>]*>|\{\{[^{}]*\}\}|\$?\{[^{}]*\}|[^\s&,;)\]}]*)/g
+  /([A-Za-z0-9_$.-]+)["'`]?\s*(?:=>|=(?!=)|:)\s*("[^"]*"|'[^']*'|`[^`]*`|<[^<>]*>|\{\{[^{}]*\}\}|\$?\{[^{}]*\}|[^\s&,;)\]}]*)(?=$|[\s&,;)\]}])/g
 const CREDENTIAL_KEY_END_RE = new RegExp(
   `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)$`
 )

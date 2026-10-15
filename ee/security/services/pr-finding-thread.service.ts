@@ -673,9 +673,13 @@ export function planDuplicateMerges(input: ThreadPlanInput): DuplicateMerge[] {
 /**
  * LUM-1200 follow-up #2 — open AI-layer threads whose fingerprint is gone but
  * whose issue an open finding of this scan still reports
- * (`stillReportedElsewhere`): never addressed. Unlike `successorsOf`, a finding that owns a thread or
- * continues another one counts — the question is only whether the issue is
- * still reported.
+ * (`stillReportedElsewhere`): never addressed. Unlike `successorsOf`, a
+ * finding that owns a thread or continues another one counts — the question
+ * is only whether the issue is still reported. Composes with the LUM-1127
+ * duplicate merge, which runs first in `reconcile`: once the other thread
+ * owns that finding (its own fingerprint or an alias), the two threads are
+ * merged (the newer closed with a duplicate note); until then — the sync
+ * that carries the relabel — this keeps the gone thread open.
  */
 function stillReportedOf(
   input: ThreadPlanInput,
@@ -690,7 +694,8 @@ function stillReportedOf(
     key ? hashIdentity(f, key) : f
   const gone: FindingIdentity[] = []
   for (const r of input.rows) {
-    if (r.provenance !== 'LLM_JUDGE' || present.has(r.fingerprint)) continue
+    // Gone under every fingerprint the thread stands for (its aliases too).
+    if (r.provenance !== 'LLM_JUDGE' || isReported(r, present)) continue
     const remote = input.remote?.get(r.commentId) ?? null
     if (effectiveState(r, remote) !== 'OPEN') continue
     const id = ids.get(r.fingerprint)
