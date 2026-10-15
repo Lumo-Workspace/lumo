@@ -10,6 +10,9 @@
  *   … judge.ts --data <dir> --tag lumo-run0 --review review.json --run 0 \
  *       --verify verify-run0.json --rank rank-run0.json
  *   # Lumo, raw review (omit --verify/--rank)
+ *   # a removal-policy change: copy another tag's row for every PR whose
+ *   # findings did not change, judge only the rest (LUM-1198)
+ *   … judge.ts … --tag lumo-keeplast-run0 … --reuse lumo-run0
  *
  * Prefix: DOTENV_CONFIG_PATH=<repo>/.env.local npx tsx -r dotenv/config
  * scripts/analysis/lum1158-review-quality-bench/judge.ts. ZDR gateway only.
@@ -25,6 +28,7 @@ import {
   cleanMatches,
   keptLumoFindings,
   lumoBenchFinding,
+  reusableJudgement,
   scorePr,
   type BenchFinding,
   type JudgedPr,
@@ -52,6 +56,7 @@ const verifyFile = opt('verify', '')
 const rankFile = opt('rank', '')
 const model = opt('model', REASONING_MODEL)
 const concurrency = Number(opt('concurrency', '8'))
+const reuseTag = opt('reuse', '')
 const JUDGE_TIMEOUT_MS = 180_000
 
 type Judged = { params: Record<string, unknown> } & Record<
@@ -112,12 +117,30 @@ async function main(): Promise<void> {
     rank: abs(rankFile),
     model,
   }
+  if (reuseTag) {
+    const from = judged.params[reuseTag] as typeof params | undefined
+    // Only a row judged on the same replay run by the same judge may be copied.
+    if (
+      !from ||
+      from.review !== params.review ||
+      from.run !== params.run ||
+      from.model !== params.model
+    )
+      throw new Error(
+        `--reuse ${reuseTag}: not judged on the same review run and model`
+      )
+  }
+  const reuseParams = reuseTag ? { ...params, reuse: reuseTag } : params
   const prev = judged.params[tag]
-  if (prev && JSON.stringify(prev) !== JSON.stringify(params))
+  if (prev && JSON.stringify(prev) !== JSON.stringify(reuseParams))
     throw new Error(
       `tag ${tag} was judged with ${JSON.stringify(prev)}: use a new --tag`
     )
-  judged.params[tag] = params
+  judged.params[tag] = reuseParams
+  const reuseRows = (reuseTag ? judged[reuseTag] : {}) as Record<
+    string,
+    JudgedPr
+  >
   const rows = (judged[tag] ??= {}) as Record<string, JudgedPr>
 
   const urls = Object.keys(meta).filter(
@@ -143,6 +166,13 @@ async function main(): Promise<void> {
           matches: [],
           skipped: found,
         }
+        continue
+      }
+      const copy = reuseTag
+        ? reusableJudgement(reuseRows[url], found, fixes, reuseTag)
+        : null
+      if (copy) {
+        rows[url] = copy
         continue
       }
       try {
