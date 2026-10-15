@@ -51,7 +51,7 @@ export interface SequenceDiagramStep {
   /**
    * A return (dashed arrow) rather than a call (solid). Only a step that
    * answers an earlier, still unanswered call in the other direction
-   * (`isReplyToOpenCall`) keeps it, whatever the model said.
+   * (`answeredCallIndex`) keeps it, whatever the model said.
    */
   reply: boolean
 }
@@ -92,22 +92,20 @@ function trimLabelEdges(label: string): string {
 }
 
 /**
- * PURE — a step the model marked `reply` is drawn as one only when it
- * answers a call: an earlier call from its target to its source that no
- * reply has answered yet (`open` holds those calls as "from>to", latest
- * last; the answered one is removed). Anything else — a call the model
- * flagged because it returns a value (probe lumo-agent-test#58), a self
- * step, a second answer to one call — is a call, drawn solid.
+ * PURE — which open call a step answers: its index in `open` (the calls no
+ * reply has answered yet, as "from>to", latest last), or -1 when the step is
+ * a call. A step the model marked `reply` is one only when it answers an
+ * earlier call from its target to its source — the latest such one. Anything
+ * else (a call the model flagged because it returns a value, probe
+ * lumo-agent-test#58; a self step; a second answer to one call) is a call,
+ * drawn solid. Reads `open`, never changes it.
  */
-export function isReplyToOpenCall(
+export function answeredCallIndex(
   step: { from: number; to: number; reply: boolean },
-  open: string[]
-): boolean {
-  if (!step.reply || step.from === step.to) return false
-  const at = open.lastIndexOf(`${step.to}>${step.from}`)
-  if (at < 0) return false
-  open.splice(at, 1)
-  return true
+  open: readonly string[]
+): number {
+  if (!step.reply || step.from === step.to) return -1
+  return open.lastIndexOf(`${step.to}>${step.from}`)
 }
 
 /**
@@ -116,7 +114,7 @@ export function isReplyToOpenCall(
  * call between different participants (two calls of which one crosses —
  * `A->>B`, `B->>B` — is the smallest flow drawn). Unknown participant names
  * drop their call. Calls are solid, and only a step answering an earlier
- * call is a dashed reply (`isReplyToOpenCall`).
+ * call is a dashed reply (`answeredCallIndex`).
  */
 export function cleanSequenceDiagram(raw: unknown): SequenceDiagram | null {
   if (!raw || typeof raw !== 'object') return null
@@ -157,11 +155,13 @@ export function cleanSequenceDiagram(raw: unknown): SequenceDiagram | null {
       SEQUENCE_DIAGRAM_MESSAGE_MAX_CHARS
     )
     if (from === undefined || to === undefined || !message) continue
-    const reply = isReplyToOpenCall(
+    const answered = answeredCallIndex(
       { from, to, reply: step.reply === true },
       openCalls
     )
-    if (!reply && from !== to) openCalls.push(`${from}>${to}`)
+    const reply = answered >= 0
+    if (reply) openCalls.splice(answered, 1)
+    else if (from !== to) openCalls.push(`${from}>${to}`)
     steps.push({ from, to, message, reply })
   }
   const crossing = steps.filter(s => s.from !== s.to)

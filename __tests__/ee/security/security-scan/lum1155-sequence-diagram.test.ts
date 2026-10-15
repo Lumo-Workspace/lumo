@@ -11,6 +11,7 @@
 import { execFileSync } from 'child_process'
 import { join } from 'path'
 import {
+  answeredCallIndex,
   cleanSequenceDiagram,
   diagramLabel,
   isFlowFile,
@@ -430,6 +431,17 @@ describe('calls are solid, only replies are dashed', () => {
     }
     const d = parseSequenceDiagram(stored)!
     expect(renderSequenceDiagram(d)).not.toContain('-->>')
+  })
+
+  it('answeredCallIndex: the latest open call the other way, else -1; never changes the list', () => {
+    const open = Object.freeze(['0>1', '1>2', '0>1'])
+    expect(answeredCallIndex({ from: 1, to: 0, reply: true }, open)).toBe(2)
+    expect(answeredCallIndex({ from: 2, to: 1, reply: true }, open)).toBe(1)
+    // Not marked reply, a self step, or no call to answer: a call.
+    expect(answeredCallIndex({ from: 1, to: 0, reply: false }, open)).toBe(-1)
+    expect(answeredCallIndex({ from: 1, to: 1, reply: true }, open)).toBe(-1)
+    expect(answeredCallIndex({ from: 0, to: 1, reply: true }, open)).toBe(-1)
+    expect(open).toEqual(['0>1', '1>2', '0>1'])
   })
 
   it('the real Mermaid parser reads every call solid and every reply dotted', () => {
