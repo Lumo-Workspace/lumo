@@ -345,7 +345,9 @@ describe('LUM-740 PR review', () => {
       expect(updateIssue).toHaveBeenCalledWith(
         expect.objectContaining({ externalId: '55' })
       )
-      expect(listIssue).not.toHaveBeenCalled()
+      // LUM-1150: the first write of a scan lists once, for the duplicate
+      // check (a lone summary is left as it is).
+      expect(listIssue).toHaveBeenCalledTimes(1)
       expect(setSummaryId).toHaveBeenCalledWith('s1', '55')
     })
 
