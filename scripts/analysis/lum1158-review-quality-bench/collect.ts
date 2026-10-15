@@ -72,8 +72,13 @@ function main(): void {
   if (rows.some(p => p.source === 'oss') && !referenceLogin)
     throw new Error('BENCH_REFERENCE_LOGIN is required for oss rows')
   mkdirSync(dataDir, { recursive: true })
-  const urls: string[] = []
-  const meta: Record<string, { id: string; source: string }> = {}
+  // A partial run (--ids) adds to what earlier runs collected, never drops it.
+  const metaFile = path.join(dataDir, 'meta.json')
+  const meta: Record<string, { id: string; source: string }> = existsSync(
+    metaFile
+  )
+    ? JSON.parse(readFileSync(metaFile, 'utf8'))
+    : {}
   for (const p of rows) {
     const key = prKey(p.url)
     const dir = path.join(dataDir, key)
@@ -150,13 +155,16 @@ function main(): void {
       )
       continue
     }
-    urls.push(p.url)
     meta[p.url] = { id: p.id, source: p.source }
     log(`${p.id} ${p.repo}#${p.number} ok`)
   }
+  const order = new Map(manifest.prs.map((p, i) => [p.url, i]))
+  const urls = Object.keys(meta).sort(
+    (a, b) => (order.get(a) ?? 1e9) - (order.get(b) ?? 1e9)
+  )
   writeFileSync(path.join(dataDir, 'prs.json'), JSON.stringify(urls, null, 1))
-  writeFileSync(path.join(dataDir, 'meta.json'), JSON.stringify(meta, null, 1))
-  log(`wrote ${urls.length}/${rows.length} PRs to ${dataDir}`)
+  writeFileSync(metaFile, JSON.stringify(meta, null, 1))
+  log(`collected ${urls.length} PRs in ${dataDir} (${rows.length} requested)`)
 }
 
 main()

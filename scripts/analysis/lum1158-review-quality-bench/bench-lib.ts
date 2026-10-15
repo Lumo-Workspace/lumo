@@ -202,7 +202,8 @@ export function referenceReviewAt(
     )
     .map(c => ({
       path: c.path,
-      line: c.line ?? c.original_line,
+      // The line on hash X, not on the PR's latest diff.
+      line: c.original_line ?? c.line,
       body: plainReviewText(c.body),
     }))
     .filter(c => c.body !== '')
@@ -216,7 +217,12 @@ export function referenceReviewAt(
 /** Is `target` (resolved) inside `dir` (resolved)? Pure path arithmetic. */
 export function insideDir(dir: string, target: string): boolean {
   const rel = path.relative(path.resolve(dir), path.resolve(target))
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+  return (
+    rel !== '' &&
+    rel !== '..' &&
+    !rel.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(rel)
+  )
 }
 
 /** Paths a unified diff adds or modifies (deleted files are `+++ /dev/null`). */
@@ -331,11 +337,11 @@ export interface Match {
 }
 
 /** Keep only matches whose ids exist, at most once per (finding, fix). */
-export function cleanMatches(
-  matches: readonly Match[],
+export function cleanMatches<M extends Match>(
+  matches: readonly M[],
   findings: readonly { id: string }[],
   fixes: readonly { id: string }[]
-): Match[] {
+): M[] {
   const f = new Set(findings.map(x => x.id))
   const x = new Set(fixes.map(y => y.id))
   const seen = new Set<string>()

@@ -22,6 +22,7 @@ import { REASONING_MODEL } from '../../../lib/ai/models'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import {
   REFERENCE_LABEL,
+  cleanMatches,
   keptLumoFindings,
   lumoBenchFinding,
   scorePr,
@@ -70,7 +71,12 @@ function findingsFor(
   // Not ready yet (labels missing / PR not replayed): leave unjudged so a
   // re-run fills it in — never cache it as a scored empty row.
   if (isReference) return labels?.reference ?? null
-  if (!review[url]?.runs[runIdx]) return null
+  const run = review[url]?.runs[runIdx]
+  if (!run) return null
+  // Shipped variant: a PR with findings but no verifier/ranker entry is not
+  // ready — scoring it would pass the raw review off as the shipped one.
+  if (run.findings?.length && verifyFile && !verify[url]) return null
+  if (run.findings?.length && rankFile && !rank[url]) return null
   const kept = keptLumoFindings(
     review[url]?.runs[runIdx],
     verifyFile ? verify[url] : undefined,
@@ -159,6 +165,8 @@ async function main(): Promise<void> {
             outputTokens: res.usage.outputTokens ?? 0,
           }
         }
+        // Persist the same cleaned pairs the score counts (report reads them).
+        matches = cleanMatches(matches, found, fixes)
         const score = scorePr(found, fixes, matches)
         rows[url] = {
           score,

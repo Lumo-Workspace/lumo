@@ -166,6 +166,7 @@ describe('LUM-1158 GitHub data shaping', () => {
     expect(insideDir('/co/x', '/co/x/../y/b.ts')).toBe(false)
     expect(insideDir('/co/x', '/etc/passwd')).toBe(false)
     expect(insideDir('/co/x', '/co/x')).toBe(false)
+    expect(insideDir('/co/x', '/co/x/..foo/a.ts')).toBe(true)
   })
 
   it('plainReviewText strips markup and caps length', () => {
@@ -183,7 +184,8 @@ describe('LUM-1158 GitHub data shaping', () => {
         user: { login },
         original_commit_id: sha('1'),
         path: 'a.ts',
-        line: 3,
+        // Moved to line 7 by later commits; the reference saw line 3.
+        line: 7,
         original_line: 3,
         body: 'Null deref',
       },
