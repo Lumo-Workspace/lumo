@@ -202,6 +202,26 @@ describe('prSequenceDiagramService.regenerate', () => {
     expect(sync).toHaveBeenCalledWith('s1')
   })
 
+  it('a redraw whose calls all come back marked reply stores them as calls (probe #58)', async () => {
+    draw.mockResolvedValue({
+      participants: ['API route', 'Service', 'Store'],
+      steps: [
+        {
+          from: 'API route',
+          to: 'Service',
+          message: 'review(pr)',
+          reply: true,
+        },
+        { from: 'Service', to: 'Store', message: 'load(pr)', reply: true },
+      ],
+    })
+    await prSequenceDiagramService.regenerate(input)
+    const saved = store.mock.calls[0]![1] as {
+      steps: Array<{ reply: boolean }>
+    }
+    expect(saved.steps.map(s => s.reply)).toEqual([false, false])
+  })
+
   it('masks secrets in the diff before the model sees it', async () => {
     await prSequenceDiagramService.regenerate(input)
     const sent = draw.mock.calls[0]![0] as { diff: { text: string } }

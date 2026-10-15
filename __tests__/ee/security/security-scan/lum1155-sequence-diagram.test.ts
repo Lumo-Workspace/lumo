@@ -19,6 +19,7 @@ import {
   renderSequenceDiagram,
   sequenceDiagramEligible,
   sequenceDiagramSection,
+  SEQUENCE_DIAGRAM_FIELD_DESCRIPTION,
   SEQUENCE_DIAGRAM_MAX_PARTICIPANTS,
   SEQUENCE_DIAGRAM_MAX_STEPS,
   SEQUENCE_DIAGRAM_MESSAGE_MAX_CHARS,
@@ -29,9 +30,12 @@ import { buildWalkthrough } from '@/ee/security/security-scan/pr-walkthrough'
 const KEY = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('')
 
 /** Parse each source with the real Mermaid parser. */
-function mermaidParse(
-  sources: string[]
-): Array<{ ok: boolean; type?: string | null; error?: string }> {
+function mermaidParse(sources: string[]): Array<{
+  ok: boolean
+  type?: string | null
+  error?: string
+  arrows?: Array<{ from: string; to: string; line: string }>
+}> {
   const out = execFileSync(
     process.execPath,
     [join(process.cwd(), 'test-utils', 'mermaid-parse.mjs')],
@@ -298,6 +302,182 @@ describe('renderSequenceDiagram + isValidSequenceDiagramSource', () => {
     const [bad] = mermaidParse(['sequenceDiagram\n    P1->>: hi'])
     expect(bad!.ok).toBe(false)
   }, 60_000)
+})
+
+/**
+ * LUM-1155 follow-up — Mermaid's convention: `->>` (solid) for a call,
+ * `-->>` (dashed) only for a reply to an earlier call. Production probe
+ * lumo-agent-test#58: the diagram redrawn by `@uselumo diagram` came back
+ * with every call marked `reply`, so every call was drawn dashed.
+ */
+describe('calls are solid, only replies are dashed', () => {
+  /** The redraw's answer on #58: four calls, every one marked reply. */
+  const REDRAW_58 = {
+    participants: [
+      'requestHandler',
+      'buildQuote',
+      'findUnitPrice',
+      'multiply',
+      'sum',
+    ],
+    steps: [
+      {
+        from: 'requestHandler',
+        to: 'buildQuote',
+        message: 'buildQuote(sku, quantity)',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'findUnitPrice',
+        message: 'findUnitPrice(sku)',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'multiply',
+        message: 'multiply(unitPrice, quantity)',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'sum',
+        message: 'sum(subtotal, 5)',
+        reply: true,
+      },
+    ],
+  }
+  /** The automatic review's answer on #58: calls, then the replies. */
+  const REVIEW_58 = {
+    participants: ['Client', 'requestHandler', 'buildQuote', 'findUnitPrice'],
+    steps: [
+      { from: 'Client', to: 'requestHandler', message: 'GET /quote' },
+      {
+        from: 'requestHandler',
+        to: 'requestHandler',
+        message: 'validate quantity',
+      },
+      {
+        from: 'requestHandler',
+        to: 'buildQuote',
+        message: 'buildQuote(sku, quantity)',
+      },
+      { from: 'buildQuote', to: 'findUnitPrice', message: 'look up price' },
+      {
+        from: 'findUnitPrice',
+        to: 'buildQuote',
+        message: 'price or undefined',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'requestHandler',
+        message: 'quote with total',
+        reply: true,
+      },
+      {
+        from: 'requestHandler',
+        to: 'Client',
+        message: '200 JSON or 404/400',
+        reply: true,
+      },
+    ],
+  }
+
+  it('a step marked reply with no call to answer is a call (the #58 redraw)', () => {
+    const d = cleanSequenceDiagram(REDRAW_58)!
+    expect(d.steps.map(s => s.reply)).toEqual([false, false, false, false])
+    const source = renderSequenceDiagram(d)
+    expect(source).not.toContain('-->>')
+    expect(isValidSequenceDiagramSource(source)).toBe(true)
+  })
+
+  it('a reply answering an earlier call stays a reply (the review-time diagram)', () => {
+    const d = cleanSequenceDiagram(REVIEW_58)!
+    expect(d.steps.map(s => s.reply)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+    ])
+  })
+
+  it('a reply answers one call only, the latest open one between the two', () => {
+    const d = cleanSequenceDiagram({
+      participants: ['A', 'B'],
+      steps: [
+        { from: 'A', to: 'B', message: 'one' },
+        { from: 'B', to: 'A', message: 'r1', reply: true },
+        // Nothing left to answer: drawn as a call back.
+        { from: 'B', to: 'A', message: 'r2', reply: true },
+        // A self step is never a reply.
+        { from: 'A', to: 'A', message: 'self', reply: true },
+      ],
+    })!
+    expect(d.steps.map(s => s.reply)).toEqual([false, true, false, false])
+  })
+
+  it('a stored diagram is drawn by the same rule (read back through parse)', () => {
+    const stored = {
+      participants: ['requestHandler', 'buildQuote', 'findUnitPrice'],
+      steps: [
+        { from: 0, to: 1, message: 'buildQuote(sku, quantity)', reply: true },
+        { from: 1, to: 2, message: 'findUnitPrice(sku)', reply: true },
+      ],
+    }
+    const d = parseSequenceDiagram(stored)!
+    expect(renderSequenceDiagram(d)).not.toContain('-->>')
+  })
+
+  it('the real Mermaid parser reads every call solid and every reply dotted', () => {
+    const [redraw, review] = mermaidParse([
+      renderSequenceDiagram(cleanSequenceDiagram(REDRAW_58)!),
+      renderSequenceDiagram(cleanSequenceDiagram(REVIEW_58)!),
+    ])
+    expect(redraw!.ok).toBe(true)
+    expect(redraw!.arrows!.map(a => a.line)).toEqual([
+      'solid',
+      'solid',
+      'solid',
+      'solid',
+    ])
+    expect(review!.ok).toBe(true)
+    expect(review!.arrows).toEqual([
+      { from: 'P1', to: 'P2', line: 'solid' },
+      { from: 'P2', to: 'P2', line: 'solid' },
+      { from: 'P2', to: 'P3', line: 'solid' },
+      { from: 'P3', to: 'P4', line: 'solid' },
+      { from: 'P4', to: 'P3', line: 'dotted' },
+      { from: 'P3', to: 'P2', line: 'dotted' },
+      { from: 'P2', to: 'P1', line: 'dotted' },
+    ])
+  }, 60_000)
+
+  it('the model is told a call is never a reply, even when it returns a value', () => {
+    expect(SEQUENCE_DIAGRAM_FIELD_DESCRIPTION).toMatch(
+      /reply true only for a return/
+    )
+    expect(SEQUENCE_DIAGRAM_FIELD_DESCRIPTION).toMatch(
+      /a call is reply false even when it returns a value/
+    )
+  })
+})
+
+describe('the smallest flow worth drawing', () => {
+  it('two calls, one of them between different participants, is drawn', () => {
+    const d = cleanSequenceDiagram({
+      participants: ['A', 'B'],
+      steps: [
+        { from: 'A', to: 'B', message: 'build' },
+        { from: 'B', to: 'B', message: 'validate' },
+      ],
+    })
+    expect(d).not.toBeNull()
+    expect(isValidSequenceDiagramSource(renderSequenceDiagram(d!))).toBe(true)
+  })
 })
 
 describe('sequenceDiagramSection', () => {
