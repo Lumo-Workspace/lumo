@@ -6,12 +6,18 @@
  * this event (the next push tries again; `lumo pr scan` reviews by hand).
  */
 import { logger } from '@/lib/logger'
-import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
+import {
+  repoReviewSettingRepository,
+  type RepoReviewSettingRow,
+} from '@/ee/security/repositories/repo-review-setting.repository'
 import {
   DEFAULT_REPO_REVIEW_SETTING,
   decideTasklessAutoReview,
+  isFilterChangeEvent,
+  type RepoReviewSettingValues,
   type TasklessReviewDecision,
 } from '@/ee/security/security-scan/auto-review-policy'
+import type { PullRequestReviewFacts } from '@/lib/plugins/types'
 import {
   dispatchPrSecurityScan,
   shouldScanOnPrEvent,
@@ -25,13 +31,31 @@ export interface TasklessPrEvent {
   repo: string
   prNumber: number
   isDraft: boolean
+  /** LUM-1143: what the repository's filters read (absent = filter nothing). */
+  reviewFacts?: PullRequestReviewFacts | undefined
+  /** LUM-1143: labeled / unlabeled / edited — the facts before the change. */
+  reviewFactsBefore?: PullRequestReviewFacts | undefined
+}
+
+/** A stored row over the defaults (a column it lacks keeps its default). */
+function settingOf(row: RepoReviewSettingRow): RepoReviewSettingValues {
+  const setting: RepoReviewSettingValues = { ...DEFAULT_REPO_REVIEW_SETTING }
+  for (const key of Object.keys(setting) as (keyof RepoReviewSettingValues)[])
+    if (row[key] !== undefined)
+      (setting as unknown as Record<string, unknown>)[key] = row[key]
+  return setting
 }
 
 export async function decideTasklessReview(
   event: TasklessPrEvent
 ): Promise<TasklessReviewDecision> {
   // Cheap exit before any read: most PR events are not review events.
-  if (!shouldScanOnPrEvent(event.action, event.state))
+  // LUM-1143: a label / title / description / base change may newly let
+  // the PR through the repository's filters.
+  const filterChange =
+    isFilterChangeEvent(event.action, event.state) &&
+    event.reviewFactsBefore !== undefined
+  if (!shouldScanOnPrEvent(event.action, event.state) && !filterChange)
     return { review: false, reason: 'not_a_review_event' }
   const repoLower = event.repo.toLowerCase()
   const workspaces = await repoReviewSettingRepository.findConfirmingWorkspaces(
@@ -55,6 +79,8 @@ export async function decideTasklessReview(
     action: event.action,
     state: event.state,
     isDraft: event.isDraft,
+    pr: event.reviewFacts,
+    before: event.reviewFactsBefore,
     workspaceId: event.workspaceId,
     linkedElsewhere,
     confirming: workspaces.map(w => {
@@ -62,9 +88,7 @@ export async function decideTasklessReview(
       return {
         workspaceId: w.workspaceId,
         confirmedAt: w.confirmedAt,
-        setting: s
-          ? { autoReview: s.autoReview, reviewDrafts: s.reviewDrafts }
-          : { ...DEFAULT_REPO_REVIEW_SETTING },
+        setting: s ? settingOf(s) : { ...DEFAULT_REPO_REVIEW_SETTING },
       }
     }),
   })

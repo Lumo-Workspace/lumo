@@ -51,8 +51,18 @@ describe('list', () => {
     await expect(repoReviewSettingsService.list(CALLER)).resolves.toEqual({
       canEdit: true,
       repositories: [
-        { repo: 'Acme/App', autoReview: true, reviewDrafts: false },
-        { repo: 'acme/web', autoReview: false, reviewDrafts: false },
+        expect.objectContaining({
+          repo: 'Acme/App',
+          autoReview: true,
+          reviewDrafts: false,
+          labels: [],
+        }),
+        expect.objectContaining({
+          repo: 'acme/web',
+          autoReview: false,
+          reviewDrafts: false,
+          labels: [],
+        }),
       ],
     })
   })
@@ -77,7 +87,7 @@ describe('update', () => {
     expect(repoReviewSettingRepository.upsert).toHaveBeenCalledWith(
       'ws_1',
       'acme/app',
-      { autoReview: false, reviewDrafts: false },
+      expect.objectContaining({ autoReview: false, reviewDrafts: false }),
       // An existing row gets only the field that changed.
       { autoReview: false }
     )
@@ -87,8 +97,11 @@ describe('update', () => {
       target: { type: 'repository', id: 'acme/app' },
       metadata: {
         repo: 'Acme/App',
-        from: { autoReview: true, reviewDrafts: false },
-        to: { autoReview: false, reviewDrafts: false },
+        from: expect.objectContaining({
+          autoReview: true,
+          reviewDrafts: false,
+        }),
+        to: expect.objectContaining({ autoReview: false, reviewDrafts: false }),
       },
       context: AUDIT,
     })

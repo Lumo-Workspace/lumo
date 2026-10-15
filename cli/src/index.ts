@@ -257,6 +257,12 @@ if (!isIntrospect) {
 }
 
 const collect = (val: string, acc: string[]): string[] => [...acc, val]
+// LUM-1143: like `collect`, but an absent flag stays undefined ("leave the
+// list alone") while a given one — even "" — replaces it.
+const collectList = (val: string, acc: string[] | undefined): string[] => [
+  ...(acc ?? []),
+  val,
+]
 
 type CommandFn = (...args: unknown[]) => Promise<number | void>
 
@@ -1709,7 +1715,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1750,6 +1756,35 @@ workspaceCmd
   .option(
     '--drafts <on|off>',
     'With --repo: review draft PRs too (off = wait for ready for review)'
+  )
+  .option(
+    '--base-branches <regex>',
+    'With --repo (repeatable; replaces the list, "" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, ".*" = all. Empty list: every base for repositories connected before LUM-1143, the default branch only for repositories connected later',
+    collectList
+  )
+  .option(
+    '--labels <label>',
+    'With --repo (repeatable; replaces the list, "" clears): label = review only PRs carrying one (opts in when --review off), !label = skip PRs carrying it',
+    collectList
+  )
+  .option(
+    '--ignore-title <keyword>',
+    'With --repo (repeatable; replaces the list, "" clears): skip PRs whose title contains it (case-insensitive)',
+    collectList
+  )
+  .option(
+    '--ignore-users <login>',
+    'With --repo (repeatable; replaces the list, "" clears): never auto-review PRs by this author (exact, case-sensitive; beats every other rule)',
+    collectList
+  )
+  .option(
+    '--description-keyword <text>',
+    'With --repo ("" clears): with --review off, review PRs whose description contains it'
+  )
+  .option(
+    '--path-filter <glob>',
+    'With --repo (repeatable; replaces the list, "" clears): what the AI review and hunt read; !glob excludes, glob restricts to matches; lockfiles and generated files are excluded by default',
+    collectList
   )
   .option('--confirm', 'The user approved the listed changes')
   .option('--json', 'Emit { switches, platform, effective } as JSON')

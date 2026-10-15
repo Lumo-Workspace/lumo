@@ -1,6 +1,19 @@
 import { z } from 'zod'
 import { LEARNINGS_SCOPES } from '@/ee/security/security-scan/learnings-scope'
 import { AUTO_PAUSE_AFTER_MAX } from '@/ee/security/security-scan/review-control'
+import { baseBranchRegExp } from '@/ee/security/security-scan/auto-review-policy'
+import { invalidPathFilter } from '@/ee/security/security-scan/reviewable-path'
+
+/** LUM-1143: entries per filter list, and characters per entry. */
+export const REVIEW_FILTER_MAX_ENTRIES = 50
+export const REVIEW_FILTER_MAX_ENTRY_CHARS = 200
+
+const filterEntry = z
+  .string()
+  .max(REVIEW_FILTER_MAX_ENTRY_CHARS)
+  .refine(v => !/[\n\r]/.test(v), 'must be a single line')
+const filterList = (entry: z.ZodType<string> = filterEntry) =>
+  z.array(entry).max(REVIEW_FILTER_MAX_ENTRIES)
 
 /** LUM-1137: reviewed commits before automatic review pauses; 0 = never. */
 export const autoPauseAfterSchema = z
@@ -40,7 +53,7 @@ export const updateSecurityScanSettingsSchema = z
 
 /**
  * LUM-1133: one repository's automatic review settings — `repo` is
- * `owner/name`; at least one of the two switches.
+ * `owner/name`; at least one setting (switches, or the LUM-1143 filters).
  */
 export const updateRepoReviewSettingsSchema = z
   .object({
@@ -50,8 +63,27 @@ export const updateRepoReviewSettingsSchema = z
       .regex(/^[\w.-]+\/[\w.-]+$/, 'repo must be owner/name'),
     autoReview: z.boolean().optional(),
     reviewDrafts: z.boolean().optional(),
+    // LUM-1143: the auto-review filters; each list replaces the
+    // stored one ([] clears it).
+    baseBranches: filterList(
+      filterEntry.refine(
+        v => baseBranchRegExp(v.trim()) !== null,
+        'must be a valid regular expression'
+      )
+    ).optional(),
+    labels: filterList().optional(),
+    ignoreTitleKeywords: filterList().optional(),
+    ignoreUsernames: filterList().optional(),
+    // '' or null clears it.
+    descriptionKeyword: filterEntry.nullable().optional(),
+    pathFilters: filterList(
+      filterEntry.refine(
+        v => v.trim() === '' || invalidPathFilter(v.trim()) === null,
+        'must be a glob (`!glob` excludes)'
+      )
+    ).optional(),
   })
   .strict()
-  .refine(v => v.autoReview !== undefined || v.reviewDrafts !== undefined, {
+  .refine(v => Object.keys(v).some(k => k !== 'repo'), {
     message: 'Nothing to change',
   })

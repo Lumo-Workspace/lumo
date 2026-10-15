@@ -118,6 +118,19 @@ export interface AgentContextContributor {
 
 // ── core events ──────────────────────────────────────────────────────────────
 
+/** LUM-1143 — a pull_request payload's facts the auto-review filters read. */
+export interface PullRequestReviewFacts {
+  baseBranch: string | null
+  /** The repository's default branch (`repository.default_branch`). */
+  defaultBranch: string | null
+  /** Label names. */
+  labels: string[]
+  title: string | null
+  /** The PR description. */
+  body: string | null
+  authorLogin: string | null
+}
+
 export interface CoreEvents {
   /**
    * A pull_request webhook event, after the PR row is stored. LUM-1133: every
@@ -135,6 +148,17 @@ export interface CoreEvents {
     repo: string
     prNumber: number
     isDraft: boolean
+    /**
+     * LUM-1143: what the per-repository review filters read, off the
+     * payload. Optional: an emitter without it filters nothing (fail-open).
+     */
+    reviewFacts?: PullRequestReviewFacts
+    /**
+     * LUM-1143: for labeled / unlabeled / edited — the facts before the
+     * change (GitHub's `label` / `changes`). Absent when the event changed
+     * nothing a filter reads.
+     */
+    reviewFactsBefore?: PullRequestReviewFacts
   }
   /** A branch push (not a tag, not a deletion). */
   'github.push': {

@@ -107,11 +107,15 @@ export const securityPlugin: LumoServerPlugin = {
             }
           })()
         )
-      if (!shouldScanOnPrEvent(action, state)) return
+      const reviewEvent = shouldScanOnPrEvent(action, state)
       if (taskId !== null) {
-        waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
+        if (reviewEvent)
+          waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
         return
       }
+      // LUM-1143: for a task-less PR, a label / title / description / base
+      // change can newly let it through the repository's review filters.
+      if (!reviewEvent && event.reviewFactsBefore === undefined) return
       waitUntil(
         (async () => {
           try {

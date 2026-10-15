@@ -8,17 +8,18 @@ import {
   DEFAULT_REPO_REVIEW_SETTING,
   decideTasklessAutoReview,
   type ConfirmingWorkspace,
+  type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
 
 const at = (iso: string) => new Date(iso)
 const ws = (
   workspaceId: string,
   confirmedAt: string,
-  setting = DEFAULT_REPO_REVIEW_SETTING
+  setting: Partial<RepoReviewSettingValues> = {}
 ): ConfirmingWorkspace => ({
   workspaceId,
   confirmedAt: at(confirmedAt),
-  setting,
+  setting: { ...DEFAULT_REPO_REVIEW_SETTING, ...setting },
 })
 
 const base = {
@@ -32,7 +33,7 @@ const base = {
 
 describe('decideTasklessAutoReview', () => {
   it('defaults: review on, drafts skipped', () => {
-    expect(DEFAULT_REPO_REVIEW_SETTING).toEqual({
+    expect(DEFAULT_REPO_REVIEW_SETTING).toMatchObject({
       autoReview: true,
       reviewDrafts: false,
     })

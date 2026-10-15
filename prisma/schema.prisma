@@ -1556,10 +1556,30 @@ model RepositoryReviewSetting {
   workspaceId  String
   /// Lower-cased `owner/name`.
   repo         String
-  autoReview   Boolean  @default(true)
-  reviewDrafts Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  autoReview          Boolean  @default(true)
+  reviewDrafts        Boolean  @default(false)
+  /// LUM-1143 — per-repository auto-review filters (precedence in
+  /// ee/security/security-scan/auto-review-policy.ts). Regexes on the PR's
+  /// base branch; the default branch is always included.
+  baseBranches        String[] @default([])
+  /// What an EMPTY `baseBranches` reviews: `all_branches` (repositories
+  /// connected before LUM-1143, backfilled) or `default_branch_only` (newly
+  /// connected repositories).
+  emptyBaseBranchesMeans String  @default("default_branch_only")
+  /// `label` = review only PRs carrying one (opts in when autoReview is
+  /// off); `!label` = skip PRs carrying it.
+  labels              String[] @default([])
+  /// Case-insensitive substrings of the PR title that skip the review.
+  ignoreTitleKeywords String[] @default([])
+  /// Exact, case-sensitive author logins never auto-reviewed.
+  ignoreUsernames     String[] @default([])
+  /// With autoReview off: PRs whose description contains this are reviewed.
+  descriptionKeyword  String?
+  /// Globs over changed paths for the AI review and hunt (`!glob`
+  /// excludes), on top of the built-in lockfile / generated exclusions.
+  pathFilters         String[] @default([])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 

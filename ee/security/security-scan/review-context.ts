@@ -21,6 +21,9 @@
  * both halves of the prompt pass through the same mask at the same place.
  */
 
+// LUM-1143: one lockfile list for the review input and its context.
+import { LOCKFILE_PATH } from './reviewable-path'
+
 /** Total chars of file content the review gets (the replay's number). */
 export const REVIEW_CONTEXT_MAX_CHARS = 100_000
 
@@ -58,8 +61,6 @@ export const REVIEW_CONTEXT_READ_CONCURRENCY = 8
  */
 export const REVIEW_CONTEXT_TIMEOUT_MS = 20_000
 
-const LOCKFILE =
-  /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|Gemfile\.lock|poetry\.lock|Pipfile\.lock|uv\.lock|composer\.lock|go\.sum|Cargo\.lock|mix\.lock|pubspec\.lock|Podfile\.lock|packages\.lock\.json)$/
 const GENERATED_OR_BINARY =
   /\.(min\.js|min\.css|map|snap|lock|svg|png|jpe?g|gif|webp|ico|bmp|tiff?|pdf|zip|gz|tgz|bz2|xz|7z|rar|jar|war|class|so|dylib|dll|exe|bin|wasm|woff2?|ttf|otf|eot|mp3|mp4|mov|avi|webm|wav|ogg|pyc|o|a)$/i
 const TEST_PATH =
@@ -67,7 +68,7 @@ const TEST_PATH =
 
 /** Never context: lockfiles, binaries, minified / generated output. */
 export function isSkippedContextPath(path: string): boolean {
-  return LOCKFILE.test(path) || GENERATED_OR_BINARY.test(path)
+  return LOCKFILE_PATH.test(path) || GENERATED_OR_BINARY.test(path)
 }
 
 /** Test and fixture files go after source: they explain less of the change. */

@@ -37,6 +37,69 @@ export interface RepoReviewSettingsUpdate {
   repo: string
   autoReview?: boolean | undefined
   reviewDrafts?: boolean | undefined
+  /** LUM-1143 filters: a list replaces the stored one ([] clears). */
+  baseBranches?: string[] | undefined
+  labels?: string[] | undefined
+  ignoreTitleKeywords?: string[] | undefined
+  ignoreUsernames?: string[] | undefined
+  /** '' or null clears. */
+  descriptionKeyword?: string | null | undefined
+  pathFilters?: string[] | undefined
+}
+
+type SettingKey = keyof RepoReviewSettingValues
+
+const LIST_KEYS = [
+  'baseBranches',
+  'labels',
+  'ignoreTitleKeywords',
+  'ignoreUsernames',
+  'pathFilters',
+] as const satisfies readonly SettingKey[]
+
+/** Trimmed, without blanks, first occurrence kept. */
+export function normalizeFilterList(list: readonly string[]): string[] {
+  return [...new Set(list.map(v => v.trim()).filter(v => v.length > 0))]
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((v, i) => v === b[i])
+  return a === b
+}
+
+/** PURE — the settings after `update`, from `from`. */
+export function applyRepoReviewUpdate(
+  from: RepoReviewSettingValues,
+  update: RepoReviewSettingsUpdate
+): RepoReviewSettingValues {
+  const to: RepoReviewSettingValues = {
+    ...from,
+    autoReview: update.autoReview ?? from.autoReview,
+    reviewDrafts: update.reviewDrafts ?? from.reviewDrafts,
+  }
+  for (const key of LIST_KEYS) {
+    const next = update[key]
+    if (next !== undefined) to[key] = normalizeFilterList(next)
+  }
+  if (update.descriptionKeyword !== undefined) {
+    const k = update.descriptionKeyword?.trim() ?? ''
+    to.descriptionKeyword = k.length > 0 ? k : null
+  }
+  return to
+}
+
+/** PURE — the keys whose value differs, with their new value. */
+export function changedRepoReviewValues(
+  from: RepoReviewSettingValues,
+  to: RepoReviewSettingValues
+): Partial<RepoReviewSettingValues> {
+  const changed: Partial<RepoReviewSettingValues> = {}
+  for (const key of Object.keys(to) as SettingKey[]) {
+    if (!sameValue(from[key], to[key]))
+      (changed as Record<SettingKey, unknown>)[key] = to[key]
+  }
+  return changed
 }
 
 async function confirmedRepositories(workspaceId: string): Promise<string[]> {
@@ -46,10 +109,10 @@ async function confirmedRepositories(workspaceId: string): Promise<string[]> {
 
 async function settingsByRepo(workspaceId: string) {
   const rows = await repoReviewSettingRepository.findForWorkspace(workspaceId)
-  return new Map(
-    rows.map(r => [
-      r.repo,
-      { autoReview: r.autoReview, reviewDrafts: r.reviewDrafts },
+  return new Map<string, RepoReviewSettingValues>(
+    rows.map(({ repo, ...values }) => [
+      repo,
+      { ...DEFAULT_REPO_REVIEW_SETTING, ...values },
     ])
   )
 }
@@ -100,18 +163,9 @@ export const repoReviewSettingsService = {
     const from =
       (await settingsByRepo(caller.workspaceId)).get(repoLower) ??
       DEFAULT_REPO_REVIEW_SETTING
-    const to: RepoReviewSettingValues = {
-      autoReview: update.autoReview ?? from.autoReview,
-      reviewDrafts: update.reviewDrafts ?? from.reviewDrafts,
-    }
-    if (
-      to.autoReview !== from.autoReview ||
-      to.reviewDrafts !== from.reviewDrafts
-    ) {
-      const changed: Partial<RepoReviewSettingValues> = {}
-      if (to.autoReview !== from.autoReview) changed.autoReview = to.autoReview
-      if (to.reviewDrafts !== from.reviewDrafts)
-        changed.reviewDrafts = to.reviewDrafts
+    const to = applyRepoReviewUpdate(from, update)
+    const changed = changedRepoReviewValues(from, to)
+    if (Object.keys(changed).length > 0) {
       await repoReviewSettingRepository.upsert(
         caller.workspaceId,
         repoLower,
