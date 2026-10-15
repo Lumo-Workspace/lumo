@@ -78,6 +78,11 @@ describe('maskQuotedKeyedValues', () => {
     ["marked 'do not merge' for now", "marked 'do not merge' for now"],
     ['the "Verification" label', 'the "Verification" label'],
     ["the row's placeholder text", "the row's placeholder text"],
+    [
+      "makes CI pass 'lint and typecheck'",
+      "makes CI pass 'lint and typecheck'",
+    ],
+    ["adds auth 'single sign-on' copy", "adds auth 'single sign-on' copy"],
   ])('keeps prose: %s', (input, expected) => {
     expect(maskQuotedKeyedValues(input)).toBe(expected)
   })
@@ -92,6 +97,8 @@ describe('maskQuotedKeyedValues', () => {
     ['{"password": "letmeinplease"}', '{"password": "letm…(len 13)"}'],
     ["{'api_key': 'letmeinplease'}", "{'api_key': 'letm…(len 13)'}"],
     ["const x = 'Zx9Qw3Lp7Vb2Nm5Rt8Ky'", "const x = 'Zx9Q…(len 20)'"],
+    ["auth: 'letmeinplease'", "auth: 'letm…(len 13)'"],
+    ['pass = "letmeinplease"', 'pass = "letm…(len 13)"'],
   ])('masks a keyed or credential-shaped value: %s', (input, expected) => {
     expect(maskQuotedKeyedValues(input)).toBe(expected)
   })

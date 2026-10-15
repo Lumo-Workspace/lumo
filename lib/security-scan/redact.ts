@@ -197,10 +197,14 @@ const CREDENTIAL_VOCAB_RE = new RegExp(`\\b${CREDENTIAL_VOCAB_SOURCE}\\b`)
  * LUM-1200 — credential vocabulary ending the text before an opening quote,
  * optionally closed by its own quote (a JSON / dict key: `"password": "…"`),
  * followed by at most two connectors (`is`, `=`, `:`, `to` …) — the quote
- * then holds that credential's value. Matched on `normalizeVocab` output.
+ * then holds that credential's value. The bare words `pass` and `auth` are
+ * ordinary prose (`make CI pass 'lint'`), so they count only before an
+ * assignment (`pass: '…'`, `auth = "…"`). Matched on `normalizeVocab` output.
  */
+const CREDENTIAL_KEY_SOURCE =
+  '(?:pass(?:words?|wd|phrases?|codes?)|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)'
 const CREDENTIAL_KEY_BEFORE_RE = new RegExp(
-  `\\b${CREDENTIAL_VOCAB_SOURCE}["'\`]?\\s*(?:(?:is|was|equals|of|to|as|=>|[=:,])\\s*){0,2}$`
+  `(?:\\b${CREDENTIAL_KEY_SOURCE}["'\`]?\\s*(?:(?:is|was|equals|of|to|as|=>|[=:,])\\s*){0,2}|\\b(?:pass|auth)["'\`]?\\s*(?:=>|[=:])\\s*)$`
 )
 
 function normalizeVocab(text: string): string {
