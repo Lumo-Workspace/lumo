@@ -417,10 +417,14 @@ function scoreOne(
   // Different layers and related classes (checked above) on near lines.
   const crossLayerNear = layer(prev.ruleId) !== layer(next.ruleId) && near
   // LUM-1127 follow-up #4: a later round of the same layer on the same code.
+  // The same line number with a different quoted line is other code (a push
+  // rewrote the line): not the same code for this rule.
+  const nextEv = evidenceKeyOf(next)
+  const evidenceConflicts = ev !== null && nextEv !== null && ev !== nextEv
   const sameLine =
     opts.acrossRounds === true &&
     layer(prev.ruleId) === layer(next.ruleId) &&
-    sameCode &&
+    (sameEvidence || (distance === 0 && !evidenceConflicts)) &&
     !prev.crowded &&
     !next.crowded
 

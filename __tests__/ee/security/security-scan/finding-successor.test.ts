@@ -552,6 +552,21 @@ describe('LUM-1127 follow-up #4 — identity history and the same line across ro
     ).not.toBeNull()
   })
 
+  it('the same line number quoting other code (the line was rewritten) is not the same code for the rule', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+      evidence: 'const cache = new Map()',
+    })
+    expect(sameIssueScore(r2, next, { acrossRounds: true })).toBeNull()
+    // Quote unknown on one side: the line decides.
+    expect(
+      sameIssueScore(r2, { ...next, evidence: null }, { acrossRounds: true })
+    ).not.toBeNull()
+  })
+
   it('a crowded variant in the history turns the same-line rule off on its own', () => {
     const next = id({
       ...r1,
