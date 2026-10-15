@@ -589,6 +589,8 @@ export function commandsBlock(handle: string, approve = false): string {
           ],
         ]
       : []),
+    // LUM-1153
+    ['configuration', 'show the effective review settings for this PR'],
   ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
   // LUM-1154: anything else addressed to Lumo is a question it answers.
   rows.push(

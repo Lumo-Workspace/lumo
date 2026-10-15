@@ -34,7 +34,9 @@ For each key, the first of these that sets it wins:
 An explicit empty list (`labels: []`) or `null` in the file counts as set: it
 overrides the stored setting. A key the file leaves out falls through.
 `repoConfigService.effective()` returns every key's value together with where it
-came from (`file`, `repository`, `default`).
+came from (`file`, `repository`, `default`). On a PR, comment
+`@uselumo configuration` (write access required) to see them — with the
+workspace switches — as that PR's review applies them.
 
 Workspace-level switches (scanning on/off, request changes, learnings scope) are
 not read from the file. PRs linked to a Lumo task are always scanned whatever
