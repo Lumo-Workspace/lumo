@@ -552,6 +552,29 @@ describe('LUM-1127 follow-up #4 — identity history and the same line across ro
     ).not.toBeNull()
   })
 
+  it('a crowded variant in the history turns the same-line rule off on its own', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    const plain = { ...hashIdentity(r2, KEY), line: 99, evidenceHash: null }
+    const v = { ...variant(r2), crowded: true }
+    expect(
+      sameIssueScore({ ...plain, history: [v] }, hashIdentity(next, KEY), {
+        acrossRounds: true,
+      })
+    ).toBeNull()
+    expect(
+      sameIssueScore(
+        { ...plain, history: [variant(r2)] },
+        hashIdentity(next, KEY),
+        { acrossRounds: true }
+      )
+    ).not.toBeNull()
+  })
+
   it('…never across layers on the line alone, nor within ±3 lines without a title or class', () => {
     const hunt = id({
       ...r1,

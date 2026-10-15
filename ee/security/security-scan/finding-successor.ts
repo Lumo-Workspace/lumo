@@ -367,7 +367,7 @@ function variantIdentity(
     evidence: null,
     evidenceHash: v.evidenceHash,
     titleTokens: v.titleTokens,
-    ...(prev.crowded ? { crowded: true } : {}),
+    ...(prev.crowded || v.crowded ? { crowded: true } : {}),
   }
 }
 
