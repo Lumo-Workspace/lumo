@@ -2276,6 +2276,43 @@ export const prSecurityScanRepository = {
     })
   },
 
+  /**
+   * LUM-1150 — claim the right to post these finding rows' inline comments;
+   * returns the ids this caller won. Each row is one conditional update, so
+   * of two concurrent write-backs exactly one sees count 1 (Postgres
+   * re-checks the WHERE once the other's row lock is released). A claim
+   * taken before `staleBefore` is treated as abandoned and can be won again.
+   */
+  async claimInlineComments(
+    findingIds: string[],
+    staleBefore: Date
+  ): Promise<Set<string>> {
+    const won = new Set<string>()
+    for (const id of findingIds) {
+      const { count } = await prisma.prSecurityFinding.updateMany({
+        where: {
+          id,
+          OR: [
+            { inlineCommentClaimedAt: null },
+            { inlineCommentClaimedAt: { lt: staleBefore } },
+          ],
+        },
+        data: { inlineCommentClaimedAt: new Date() },
+      })
+      if (count === 1) won.add(id)
+    }
+    return won
+  },
+
+  /** LUM-1150 — give claims back after a post that did not land. */
+  async releaseInlineCommentClaims(findingIds: string[]): Promise<void> {
+    if (findingIds.length === 0) return
+    await prisma.prSecurityFinding.updateMany({
+      where: { id: { in: findingIds } },
+      data: { inlineCommentClaimedAt: null },
+    })
+  },
+
   // ── LUM-745: managed-run ops ───────────────────────────────────────────────
 
   /**

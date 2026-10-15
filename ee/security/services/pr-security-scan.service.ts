@@ -57,7 +57,10 @@ import {
   type ReviewBudgetView,
 } from '@/ee/security/security-scan/review-control'
 import type { SecretDowngradeReason } from '@/ee/security/security-scan/types'
-import { reviewContextBudget } from '@/ee/security/security-scan/review-context'
+import {
+  packedFileBody,
+  reviewContextBudget,
+} from '@/ee/security/security-scan/review-context'
 import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
@@ -1504,6 +1507,9 @@ export const prSecurityScanService = {
               filePath,
               evidence: j.evidence,
               files,
+              // The file as read at this head (the review's context), so a
+              // name imported outside the diff is known to be in scope.
+              fileText: packedFileBody(context, filePath),
             })
             judgeRows.push({
               scanId,
