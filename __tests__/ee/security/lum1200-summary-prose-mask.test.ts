@@ -12,6 +12,7 @@ import {
   parsePrSummary,
 } from '@/ee/security/security-scan/pr-summary'
 import { maskQuotedKeyedValues } from '@/lib/security-scan/redact'
+import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 
 describe('LUM-1200 PR summary keeps quoted prose intact', () => {
   it('renders an ordinary quoted phrase unchanged (production: do not merge)', () => {
@@ -107,5 +108,33 @@ describe('maskQuotedKeyedValues', () => {
     expect(maskQuotedKeyedValues("note: 'unterminated tail here")).toBe(
       "note: 'unte…(len 22)"
     )
+  })
+})
+
+// LUM-1200 follow-up #2 — production (probe PR 63): the linked requirement
+// `GET /session/check?token=...` rendered as `GET …(len 28)` in the PR
+// summary: `token=` read as a credential assignment although its value is a
+// placeholder.
+describe('a placeholder credential value renders; a real one is masked', () => {
+  it.each([
+    '`GET /session/check?token=...`',
+    '`GET /session/check?token=…`',
+    '`GET /session/check?token=<token>`',
+    '`curl -H "x" /check?token={token}`',
+    '`export API_KEY=${API_KEY}`',
+    '`password = "<your password>"`',
+    "the token is '<your token here>'",
+  ])('keeps %s', input => {
+    expect(redactSummaryText(input)).toBe(input)
+    expect(maskQuotedKeyedValues(input)).toBe(input)
+  })
+
+  it.each([
+    ['`GET /session/check?token=correcthorse`', '`GET …(len 37)`'],
+    ['`GET /check?token=...&secret=letmeinplease`', '`GET …(len 41)`'],
+    ["`const pw = 'correcthorse'`", '`cons…(len 25)`'],
+    ['the token is "letmeinplease"', 'the token is "letm…(len 13)"'],
+  ])('masks %s', (input, expected) => {
+    expect(redactSummaryText(input)).toBe(expected)
   })
 })

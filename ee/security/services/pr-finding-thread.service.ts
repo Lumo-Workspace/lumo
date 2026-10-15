@@ -55,6 +55,7 @@ import type {
   ScanStages,
 } from '@/ee/security/security-scan/types'
 import { isVerifierRejected } from '@/ee/security/security-scan/verifier'
+import { stillReportedElsewhere } from '@/ee/security/security-scan/issue-groups'
 import {
   evidenceHash,
   hashIdentity,
@@ -262,6 +263,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
   const openByFp = new Map(input.open.map(f => [f.fingerprint, f]))
   const isInline = input.isInline ?? inlineEligible
   const successors = successorsOf(input, present, rejected)
+  const stillReported = stillReportedOf(input, present, rejected)
   const candidateFiles = successorCandidateFiles(input, rejected)
   const actions: ThreadAction[] = []
   const nodeIds: ThreadPlan['nodeIds'] = []
@@ -396,6 +398,9 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
           else actions.push({ kind: 'CARRY', row, successor })
           continue
         }
+        // LUM-1200 follow-up #2: its issue is still reported (another
+        // finding of its group, or the hunt's rewording) — left open.
+        if (stillReported.has(fp)) continue
         actions.push({ kind: 'ADDRESS', row, threadId })
       } else if (openNow && remote?.isOutdated && isInline(openNow)) {
         actions.push({ kind: 'REPOST', row, threadId })
@@ -505,6 +510,58 @@ function successorsOf(
     current.filter(c => !taken.has(c.fingerprint))
   ))
     out.set(prev, next)
+  return out
+}
+
+/**
+ * LUM-1200 follow-up #2 — open AI-layer threads whose fingerprint is gone but
+ * whose issue a current finding still reports (`stillReportedElsewhere`):
+ * never addressed. Unlike `successorsOf`, a finding that owns a thread or
+ * continues another one counts — the question is only whether the issue is
+ * still reported.
+ */
+function stillReportedOf(
+  input: ThreadPlanInput,
+  present: ReadonlySet<string>,
+  rejected: ReadonlySet<string>
+): Set<string> {
+  const out = new Set<string>()
+  const ids = input.identities
+  if (!ids) return out
+  const key = input.identityKey ?? null
+  const comparable = (f: FindingIdentity): FindingIdentity =>
+    key ? hashIdentity(f, key) : f
+  const gone: FindingIdentity[] = []
+  for (const r of input.rows) {
+    if (r.provenance !== 'LLM_JUDGE' || present.has(r.fingerprint)) continue
+    const remote = input.remote?.get(r.commentId) ?? null
+    if (effectiveState(r, remote) !== 'OPEN') continue
+    const id = ids.get(r.fingerprint)
+    if (id) gone.push(comparable(id))
+  }
+  if (gone.length === 0) return out
+  const files = new Set(gone.map(g => g.filePath))
+  const current = input.findings
+    .filter(
+      f =>
+        f.provenance === 'LLM_JUDGE' &&
+        files.has(f.filePath) &&
+        !rejected.has(f.fingerprint)
+    )
+    .map(f =>
+      comparable({
+        fingerprint: f.fingerprint,
+        ruleId: f.ruleId,
+        provenance: f.provenance,
+        filePath: f.filePath,
+        line: f.line,
+        title: f.title,
+        severity: f.severity,
+        evidence: ids.get(f.fingerprint)?.evidence ?? null,
+      })
+    )
+  for (const g of gone)
+    if (stillReportedElsewhere(g, current)) out.add(g.fingerprint)
   return out
 }
 

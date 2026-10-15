@@ -178,8 +178,9 @@ export function maskQuotedKeyedValues(text: string): string {
     (content, before) =>
       REDACTION_TOKEN_TEST_RE.test(content) ||
       content.split(/\s+/).some(isCredentialShapedToken) ||
-      CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) ||
-      CREDENTIAL_KEY_ASSIGNED_RE.test(normalizeVocab(content)),
+      (CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) &&
+        !isPlaceholderValue(content)) ||
+      assignsCredentialValue(normalizeVocab(content)),
     true
   )
 }
@@ -228,6 +229,38 @@ function normalizeVocab(text: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]/g, ' ')
     .toLowerCase()
+}
+
+/**
+ * LUM-1200 follow-up #2 — a value that stands for one rather than being one:
+ * an ellipsis (`token=...`), an angle / brace placeholder (`<your token>`,
+ * `{token}`, `${API_KEY}`), an environment reference (`$TOKEN`), a run of
+ * `x` / `*`, or nothing at all. Production (probe PR 63): the linked
+ * requirement `` `GET /session/check?token=...` `` rendered as
+ * `` `GET …(len 28)` `` in the PR summary. Read on `normalizeVocab` output.
+ */
+const PLACEHOLDER_VALUE_RE =
+  /^(?:\.{2,}|…+|<[^<>]*>|\$?\{\{?[^{}]*\}?\}|\$[a-z_][a-z0-9_ ]*|x{3,}|\*{3,}|)$/i
+
+function isPlaceholderValue(value: string): boolean {
+  return PLACEHOLDER_VALUE_RE.test(value.trim().replace(/^["'`]+|["'`]+$/g, ''))
+}
+
+/**
+ * `CREDENTIAL_KEY_ASSIGNED_RE` with the assigned value captured: a span
+ * assigning a credential key masks unless every value it assigns is a
+ * placeholder (`isPlaceholderValue`) — `?token=...` renders, `?token=abc`
+ * and `pw = 'correcthorse'` are masked.
+ */
+const CREDENTIAL_KEY_ASSIGNED_VALUE_RE = new RegExp(
+  `${CREDENTIAL_KEY_ASSIGNED_RE.source}\\s*(["'\`]?(?:<[^>]*>|\\$?\\{[^}]*\\})["'\`]?|[^\\s&,;)\\]}]*)`,
+  'g'
+)
+
+function assignsCredentialValue(content: string): boolean {
+  for (const m of content.matchAll(CREDENTIAL_KEY_ASSIGNED_VALUE_RE))
+    if (!isPlaceholderValue(m[1] ?? '')) return true
+  return false
 }
 
 /** Shortest mixed letters+digits run read as credential-shaped (`hunter2`-length passwords). */
