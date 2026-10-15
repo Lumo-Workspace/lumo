@@ -220,9 +220,16 @@ export function scanFields(
     }
     if (r.key === 'judge') {
       const sub: string[] = []
-      if (extras.truncated) sub.push('AI review has not covered every file yet')
+      // LUM-1156: a size-capped partial review is a limit on the change,
+      // told as the PR summary tells it — never "not covered … yet".
+      if (s.judgePartial)
+        sub.push(
+          `over the size limit — reviewed ${fmtCount(s.judgePartial.reviewedFiles)} of ${fmtCount(s.judgePartial.totalFiles)} reviewable files`
+        )
+      else if (extras.truncated)
+        sub.push('AI review has not covered every file yet')
       if (extras.judgeBudget !== undefined)
-        sub.push(formatJudgeBudgetLine(extras.judgeBudget))
+        sub.push(formatJudgeBudgetLine(extras.judgeBudget, s.judgePartial))
       if (sub.length > 0) f.sub = sub
     }
     if (r.key === 'hunt' && extras.hunt && extras.hunt.categories.length > 0)
@@ -337,6 +344,9 @@ export interface JudgeBudgetLine {
  *   `AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 ·
  *    12 of 41 files dropped, 30.9% of the diff unreviewed`
  *   `AI review budget: not recorded on this scan`
+ *   `AI review budget: diff 305,874 chars · size limit 180,000 chars, 150 files ·
+ *    over by 125,874 · reviewed 3 of 4 files, 1 left out for size (99.8% of the diff)`
+ *    (LUM-1156 — a size-capped partial review)
  *
  * It is unconditional by design. `truncated` alone cannot tell a PR that
  * spent 2% of its tier from one that spent 98%, and the near-miss is exactly
@@ -358,9 +368,32 @@ export interface JudgeBudgetLine {
  * Headed by the same display label as the layer's own segment (LUM-763), so
  * the two lines cannot name the layer two different ways.
  */
-export function formatJudgeBudgetLine(b: JudgeBudgetLine | null): string {
+export function formatJudgeBudgetLine(
+  b: JudgeBudgetLine | null,
+  partial?: JudgePartialLine | null
+): string {
   const head = `${scanStageLabel('judge')} budget`
   if (b === null) return `${head}: not recorded on this scan`
+  // LUM-1156: a size-capped partial review is measured against the size
+  // limit the customer is told about, not the internal tier the reviewed
+  // part happened to fit in.
+  if (partial) {
+    const left = partial.totalFiles - partial.reviewedFiles
+    const outPct =
+      b.diffChars > 0
+        ? ((b.diffChars - b.reviewedChars) / b.diffChars) * 100
+        : 0
+    const parts = [
+      `diff ${fmtCount(b.diffChars)} chars`,
+      `size limit ${fmtCount(partial.capChars)} chars, ${fmtCount(partial.capFiles)} files`,
+    ]
+    if (b.diffChars > partial.capChars)
+      parts.push(`over by ${fmtCount(b.diffChars - partial.capChars)}`)
+    parts.push(
+      `reviewed ${fmtCount(partial.reviewedFiles)} of ${fmtCount(partial.totalFiles)} files, ${fmtCount(left)} left out for size (${outPct.toFixed(1)}% of the diff)`
+    )
+    return `${head}: ${parts.join(' · ')}`
+  }
   const parts = [
     `diff ${fmtCount(b.diffChars)} chars`,
     `tier ${fmtCount(b.tierChars)}`,
