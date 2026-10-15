@@ -651,6 +651,51 @@ describe('rule 2 — same layer, same line: one issue whatever the class', () =>
   })
 })
 
+describe('a trivial quoted line never joins two issues', () => {
+  it('a thread quoting `}` is addressed when a different issue is reported on another `}` far away', async () => {
+    const gone = finding(
+      {
+        fingerprint: 'eeee000011112222',
+        ruleId: 'review:performance',
+        line: 12,
+        title: 'Session map grows without bound',
+      },
+      '}'
+    )
+    const other = finding(
+      {
+        fingerprint: 'ffff000033334444',
+        ruleId: 'review:error_handling',
+        line: 70,
+        title: 'Write error is swallowed',
+      },
+      '}'
+    )
+    expect(await writeBack([gone])).toEqual([gone.fingerprint])
+    expect(await writeBack([other])).toEqual([other.fingerprint])
+    expect(rowOf(gone.fingerprint)?.state).toBe('ADDRESSED')
+    expect(rowOf(other.fingerprint)?.fingerprint).toBe(other.fingerprint)
+  })
+
+  it('the same non-trivial line moved 15 lines by a push stays on its thread under a new label', async () => {
+    await writeBack(R1())
+    const moved = finding(
+      {
+        fingerprint: '1111000022223333',
+        ruleId: 'review:api_misuse',
+        line: 46,
+        title: 'Handler ignores the HTTP method',
+      },
+      ROUTE
+    )
+    expect(
+      await writeBack([...R1().filter(f => f.line !== 31), moved], FIX)
+    ).toEqual([])
+    expect(replies).toEqual([])
+    expect(rowOf(moved.fingerprint)?.fingerprint).toBe(LOGIC_FP)
+  })
+})
+
 describe('identity history', () => {
   it('is a deduplicated union, capped (the first identity is kept)', () => {
     const v = (n: number) => ({

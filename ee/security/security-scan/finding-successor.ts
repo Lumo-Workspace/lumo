@@ -34,6 +34,10 @@
  *     route issue reported as `review:logic_error` and `review:api_misuse`
  *     on an unchanged head, worded four ways.
  *
+ * "The same quoted line" counts only for a line that identifies code (not
+ * `}`, `return`, `else {` — `isTrivialEvidence`) within
+ * `EVIDENCE_LINE_WINDOW` lines: the same statement far away is other code.
+ *
  * A thread keeps every identity it has carried (`history`, LUM-1127
  * follow-up #4): an earlier finding is matched by the best score over all of
  * them, so one rewording that shares little with the next never decides.
@@ -300,15 +304,67 @@ function normEvidence(evidence: string | null): string {
 }
 
 /**
+ * Words that say nothing about which code a line is when they stand alone
+ * (`return`, `} else {`, `} catch {`, `return null;`).
+ */
+const FILLER_WORDS: ReadonlySet<string> = new Set([
+  'return',
+  'else',
+  'try',
+  'catch',
+  'finally',
+  'break',
+  'continue',
+  'default',
+  'do',
+  'end',
+  'null',
+  'undefined',
+  'true',
+  'false',
+  'nil',
+  'none',
+  'pass',
+])
+
+/** Identifier characters a line needs before its quote identifies code. */
+const MIN_EVIDENCE_CHARS = 8
+
+/**
+ * LUM-1127 follow-up #4 — is a quoted line too generic to identify code?
+ * Empty, punctuation only (`}`, `});`), only filler words (`return`,
+ * `else {`), or fewer than `MIN_EVIDENCE_CHARS` identifier characters
+ * (`x++`). Such a line repeats all over a file: two findings quoting it are
+ * not on the same code. Pure.
+ */
+export function isTrivialEvidence(evidence: string | null): boolean {
+  const words = normEvidence(evidence)
+    .toLowerCase()
+    .split(/[^a-z0-9_$]+/)
+    .filter(w => w.length > 0)
+  if (words.every(w => FILLER_WORDS.has(w))) return true
+  return words.join('').length < MIN_EVIDENCE_CHARS
+}
+
+/**
+ * Lines apart two findings quoting the same line may sit and still be on
+ * the same code (a push moved it). Beyond it, the same statement repeated
+ * elsewhere in the file is other code. Plain distance: nothing maps a line
+ * across pushes.
+ */
+export const EVIDENCE_LINE_WINDOW = 20
+
+/**
  * The quoted evidence line, whitespace-normalised (as the AI review's
- * fingerprint normalises it) and keyed-hashed. Null when nothing was quoted.
+ * fingerprint normalises it) and keyed-hashed. Null when nothing was quoted,
+ * or the line is too generic to identify code (`isTrivialEvidence`).
  */
 export function evidenceHash(
   evidence: string | null,
   key: string
 ): string | null {
   const line = normEvidence(evidence)
-  return line.length === 0 ? null : keyed(key, `e:${line}`, 32)
+  return isTrivialEvidence(line) ? null : keyed(key, `e:${line}`, 32)
 }
 
 /** Was every hash of this stored identity made with `key`? */
@@ -342,7 +398,7 @@ export function hashIdentity(f: FindingIdentity, key: string): FindingIdentity {
 const evidenceKeyOf = (f: FindingIdentity): string | null => {
   if (f.evidenceHash !== undefined) return f.evidenceHash
   const line = normEvidence(f.evidence)
-  return line.length === 0 ? null : line
+  return isTrivialEvidence(line) ? null : line
 }
 
 const titleKeyOf = (f: FindingIdentity): ReadonlySet<string> =>
@@ -402,11 +458,15 @@ function scoreOne(
   if (layer(prev.ruleId) !== layer(next.ruleId) && classes === null) return null
 
   const ev = evidenceKeyOf(prev)
-  const sameEvidence = ev !== null && ev === evidenceKeyOf(next)
   const distance =
     prev.line !== null && next.line !== null
       ? Math.abs(prev.line - next.line)
       : null
+  // The same (non-trivial) quoted line, near enough to be the same code.
+  const sameEvidence =
+    ev !== null &&
+    ev === evidenceKeyOf(next) &&
+    (distance === null || distance <= EVIDENCE_LINE_WINDOW)
   const sameCode = sameEvidence || distance === 0
   const near =
     sameCode || (distance !== null && distance <= SUCCESSOR_LINE_WINDOW)
