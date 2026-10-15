@@ -847,7 +847,8 @@ function fileOver<K extends 'pathFilters' | keyof ReviewStyle>(
   const fromFile = file
     ? (REPO_CONFIG_FIELDS[key].read(file) as ScanReviewSettings[K] | undefined)
     : undefined
-  return fromFile ?? stored
+  // `null` from the file (e.g. a blank tone) is a value: it clears.
+  return fromFile !== undefined ? fromFile : stored
 }
 
 /**

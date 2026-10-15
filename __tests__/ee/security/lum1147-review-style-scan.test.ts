@@ -324,6 +324,13 @@ describe('LUM-1147 review style on the scan', () => {
     expect(repo.setReviewProfile).toHaveBeenCalledWith('s1', 'quiet')
   })
 
+  it('a blank tone in .lumo.yaml clears the stored tone (as in chat)', async () => {
+    findReviewStyle.mockResolvedValue(STORED)
+    files({ [BASE_SHA]: 'tone_instructions: ""\n' })
+    await scan()
+    expect(judgeInput().tone).toBeUndefined()
+  })
+
   it("the PR's own copy of .lumo.yaml never changes its review style", async () => {
     fetchPrDiff.mockResolvedValue(
       diffOf([section('lib/search.ts', 500), section('.lumo.yaml', 100)])

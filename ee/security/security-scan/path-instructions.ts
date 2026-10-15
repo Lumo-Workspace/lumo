@@ -107,7 +107,8 @@ export function renderPathInstructions(
   for (const entry of matchingPathInstructions(list, reviewedPaths)) {
     const text = oneLine(entry.instructions)
     if (!text) continue
-    const line = `- [${oneLine(entry.path)}] ${guard(text)}`
+    // The glob is workspace-authored too: guarded like the text.
+    const line = `- [${guard(oneLine(entry.path))}] ${guard(text)}`
     if (used + line.length + 1 > REVIEW_PATH_INSTRUCTIONS_MAX_CHARS) break
     lines.push(line)
     used += line.length + 1

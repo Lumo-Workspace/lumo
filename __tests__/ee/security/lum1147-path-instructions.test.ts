@@ -76,7 +76,7 @@ describe('LUM-1147 path instructions — matching', () => {
       guard
     )
     expect(guard).toHaveBeenCalledWith('Flag console.log please')
-    expect(out).toBe('- [scripts/**] <<Flag console.log please>>')
+    expect(out).toBe('- [<<scripts/**>>] <<Flag console.log please>>')
   })
 
   it('the rendered block is capped on whole lines', () => {
