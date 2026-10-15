@@ -111,7 +111,8 @@ import type { RepoConfigFile } from '@/ee/security/validation/repo-config'
 import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
 import { DEFAULT_REVIEW_PROFILE } from '@/ee/security/security-scan/review-profile'
 import {
-  renderPathInstructions,
+  planPathInstructions,
+  verifyPathInstructionClaim,
   renderToneInstructions,
 } from '@/ee/security/security-scan/path-instructions'
 import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
@@ -1564,11 +1565,12 @@ export const prSecurityScanService = {
         // LUM-1147 — the owners' instructions for the files this review
         // reads, and the tone: guarded, bounded, and paid for out of the
         // same context budget as the learnings.
-        const pathInstructions = renderPathInstructions(
-          reviewSettings.pathInstructions,
-          capped.covered,
-          guardPromptLineText
-        )
+        const { text: pathInstructions, sent: sentInstructions } =
+          planPathInstructions(
+            reviewSettings.pathInstructions,
+            capped.covered,
+            guardPromptLineText
+          )
         const tone = renderToneInstructions(
           reviewSettings.toneInstructions,
           guardPromptLineText
@@ -1653,6 +1655,14 @@ export const prSecurityScanService = {
               // name imported outside the diff is known to be in scope.
               fileText: packedFileBody(context, filePath),
             })
+            // LUM-1147: the path instruction the model says this finding
+            // applies — kept only when it was sent and matches this file.
+            const pathInstruction = verifyPathInstructionClaim(
+              j.instruction,
+              filePath,
+              sentInstructions,
+              guardPromptLineText
+            )
             judgeRows.push({
               scanId,
               kind: isCredential
@@ -1679,6 +1689,7 @@ export const prSecurityScanService = {
               externalRef: null,
               disposition: null,
               ...(codeSuggestion ? { codeSuggestion } : {}),
+              ...(pathInstruction ? { pathInstruction } : {}),
             })
           }
           // LUM-988: one key per finding, by position (see positionalFingerprints).
@@ -1751,6 +1762,8 @@ export const prSecurityScanService = {
           falsifierVerdict: finding.falsifierVerdict,
           persisting: finding.persisting,
           inheritedFromFindingId: finding.id,
+          // LUM-1147: still the finding a path instruction asked for.
+          pathInstruction: finding.pathInstruction,
           ...(Array.isArray(finding.callChain)
             ? {
                 callChain: finding.callChain as Array<{

@@ -11,7 +11,11 @@
  *    listed in the summary instead (folded), LOW ones stay one line.
  *  - `assertive`: LOW findings (nitpicks) get an inline comment too.
  * In every profile a finding that blocks DONE, and every HIGH finding, is
- * commented inline — a profile can never hide one. A finding without a line
+ * commented inline — a profile can never hide one. A finding the AI review
+ * reported because a repository path instruction asked for it (a verified
+ * `pathInstruction`) is commented inline under chill and assertive whatever
+ * its severity — the owners asked for it on that path; quiet keeps it in the
+ * summary like any other non-HIGH finding. A finding without a line
  * on the diff, or one suggested as a false positive, is never inline (as
  * before).
  */
@@ -39,15 +43,17 @@ export const REVIEW_PROFILE_DESCRIPTIONS: Readonly<
   Record<ReviewProfile, string>
 > = Object.freeze({
   quiet:
-    'only HIGH and Done-blocking findings are commented inline; MEDIUM findings are listed in the summary',
+    'only HIGH and Done-blocking findings are commented inline; MEDIUM findings and path-instruction findings are listed in the summary',
   chill:
-    'HIGH and MEDIUM findings are commented inline; LOW findings are one summary line (default)',
+    'HIGH and MEDIUM findings, and any finding a path instruction asked for, are commented inline; other LOW findings are one summary line (default)',
   assertive: 'every finding on a changed line is commented inline, LOW too',
 })
 
 export interface ProfileFinding extends PolicyFindingInput {
   line: number | null
   suggestedDisposition?: unknown
+  /** LUM-1147 — the verified path instruction glob it applies; null = none. */
+  pathInstruction?: string | null
 }
 
 /** The severities a profile comments inline (before the always-inline rules). */
@@ -71,7 +77,9 @@ export function inlineEligibleUnder(
 ): boolean {
   if (f.line === null || f.suggestedDisposition != null) return false
   return (
-    profileSeverity(profile, f.severity) || isBlockingUnderPolicy(f, policy)
+    profileSeverity(profile, f.severity) ||
+    (profile !== 'quiet' && !!f.pathInstruction) ||
+    isBlockingUnderPolicy(f, policy)
   )
 }
 

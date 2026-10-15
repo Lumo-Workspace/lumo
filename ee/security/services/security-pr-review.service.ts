@@ -1401,8 +1401,14 @@ export const securityPrReviewService = {
       // LUM-740: LOW rows and LLM-suggested false positives stay off the
       // diff — the summary carries one line for each group instead.
       // LUM-1147: a LOW row the profile comments inline (assertive, or one
-      // that blocks DONE) is not "shown in Lumo only".
-      const lowRows = open.filter(f => f.severity === 'LOW' && !isInline(f))
+      // that blocks DONE, or a path instruction asked for) is not "shown in
+      // Lumo only"; one quiet holds back is listed by name instead.
+      const lowRows = open.filter(
+        f =>
+          f.severity === 'LOW' &&
+          !isInline(f) &&
+          !heldByProfile(profile, f, policy)
+      )
       const low = {
         count: lowRows.length,
         allDowngradedPaths: lowRows.every(f => isDowngradedPath(f.filePath)),
