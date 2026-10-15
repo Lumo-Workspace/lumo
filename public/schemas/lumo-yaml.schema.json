@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "Schema version of this file. Currently 1.",
+      "type": "number",
+      "const": 1
+    },
+    "reviews": {
+      "type": "object",
+      "properties": {
+        "auto_review": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Review every PR of the repository automatically. When false, only a PR carrying one of `labels` or whose description contains `description_keyword` is reviewed.",
+              "type": "boolean"
+            },
+            "drafts": {
+              "description": "Review draft PRs too (otherwise they wait until ready).",
+              "type": "boolean"
+            },
+            "base_branches": {
+              "description": "Regular expressions (full match) for base branches besides the default branch whose PRs are reviewed; `.*` = every branch.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "labels": {
+              "description": "`label` reviews only PRs carrying one of the listed labels; `!label` never reviews a PR carrying it.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "ignore_title_keywords": {
+              "description": "A PR whose title contains one of these (case-insensitive) is not reviewed automatically.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "ignore_usernames": {
+              "description": "PRs by these GitHub logins (exact, case-sensitive) are never reviewed automatically.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "description_keyword": {
+              "description": "With `enabled: false`, a PR whose description contains this is reviewed. Empty or null clears it.",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "description": "Which PRs without a Lumo task are reviewed automatically. PRs linked to a Lumo task are always scanned."
+        },
+        "path_filters": {
+          "description": "Globs for the files the AI review reads: `!glob` excludes; once any `glob` is listed, only matching files are reviewed.",
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "description": "Code review settings."
+    }
+  },
+  "description": "Lumo repository configuration (.lumo.yaml). Read from the base branch of each pull request.",
+  "title": ".lumo.yaml"
+}

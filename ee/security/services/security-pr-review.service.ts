@@ -46,6 +46,12 @@ import type {
   ScanStages,
 } from '@/ee/security/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
+import {
+  parseRepoConfigNotice,
+  type RepoConfigNotice,
+} from '@/ee/security/security-scan/repo-config'
+import { formatRepoConfigNotice } from '@/ee/security/security-scan/repo-config-notice'
+import { REPO_CONFIG_PATH } from '@/ee/security/validation/repo-config'
 import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/ee/security/services/security-suggest.config'
 import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
@@ -538,6 +544,11 @@ export interface SummaryInput {
   commandHandle?: string | null
   /** LUM-1130 — the request-changes workflow is on: list `approve` too. */
   approveCommand?: boolean
+  /**
+   * LUM-1146 — how `.lumo.yaml` was read for this scan; absent/null = not
+   * read (nothing to say).
+   */
+  repoConfig?: RepoConfigNotice | null
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -692,6 +703,13 @@ function codePath(path: string): string {
     .slice(0, 200)}\``
 }
 
+/** LUM-1146 — untrusted text (config keys, parser messages) as inline code. */
+function codeText(text: string): string {
+  return `\`${sanitizeField(text)
+    .replace(/[`<>\r\n]/g, '')
+    .slice(0, 200)}\``
+}
+
 /** LUM-849 — "Files needing attention": where the reader should look first. */
 function attentionLine(files: string[] | undefined): string | null {
   const distinct = [...new Set(files ?? [])].filter(f => f.trim().length > 0)
@@ -838,6 +856,8 @@ export function buildSummary(input: SummaryInput): string {
   if (suggested) notices.push(suggested)
   const rejected = verifierRejectedLine(input)
   if (rejected) notices.push(rejected)
+  // LUM-1146: an invalid / unreadable `.lumo.yaml` is never silently ignored.
+  notices.push(...formatRepoConfigNotice(input.repoConfig, { code: codeText }))
   if (notices.length > 0) blocks.push(notices.join('\n'))
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
@@ -859,6 +879,8 @@ export function buildSummary(input: SummaryInput): string {
   const footer = [
     `Reviewed commit: ${input.commitUrl ? `[${sha}](${input.commitUrl})` : sha}`,
   ]
+  if (input.repoConfig?.base.status === 'loaded')
+    footer.push(`Settings: \`${REPO_CONFIG_PATH}\``)
   if (input.taskUrl) footer.push(`[Open in Lumo](${input.taskUrl})`)
   blocks.push(footer.join(' · '))
   blocks.push(SUMMARY_MARKER)
@@ -1293,6 +1315,7 @@ export const securityPrReviewService = {
         taskUrl: taskUrlOf(pr),
         commandHandle: prCommandHandle(),
         approveCommand: requestChanges,
+        repoConfig: parseRepoConfigNotice(scan.repoConfig),
         prSummary: scan.prSummary,
         // LUM-849: the rows a reader acts on — LOW and suggested false
         // positives stay off the diff, so they stay off this line too.

@@ -22,6 +22,8 @@ import {
   dispatchPrSecurityScan,
   shouldScanOnPrEvent,
 } from '@/ee/security/services/pr-security-scan-dispatch'
+import { repoConfigService } from '@/ee/security/services/repo-config.service'
+import { reviewSettingsWithFile } from '@/ee/security/security-scan/repo-config'
 
 export interface TasklessPrEvent {
   workspaceId: string
@@ -35,6 +37,8 @@ export interface TasklessPrEvent {
   reviewFacts?: PullRequestReviewFacts | undefined
   /** LUM-1143: labeled / unlabeled / edited — the facts before the change. */
   reviewFactsBefore?: PullRequestReviewFacts | undefined
+  /** LUM-1146: the base commit, where `.lumo.yaml` is read (absent = not read). */
+  baseSha?: string | null | undefined
 }
 
 /** A stored row over the defaults (a column it lacks keeps its default). */
@@ -61,7 +65,10 @@ export async function decideTasklessReview(
   const workspaces = await repoReviewSettingRepository.findConfirmingWorkspaces(
     event.repo
   )
-  const [settings, linkedElsewhere] = await Promise.all([
+  // LUM-1146: the repository's `.lumo.yaml` on the PR's BASE commit wins
+  // over each workspace's stored settings (never the PR's own copy, so a PR
+  // cannot exempt itself). Absent / invalid / unreadable = settings only.
+  const [settings, linkedElsewhere, file] = await Promise.all([
     repoReviewSettingRepository.findSettings(
       workspaces.map(w => w.workspaceId),
       repoLower
@@ -73,6 +80,13 @@ export async function decideTasklessReview(
           event.prNumber
         )
       : Promise.resolve(false),
+    workspaces.some(w => w.workspaceId === event.workspaceId)
+      ? repoConfigService.fileForDecision({
+          workspaceId: event.workspaceId,
+          repo: event.repo,
+          baseSha: event.baseSha,
+        })
+      : Promise.resolve(null),
   ])
   const byWorkspace = new Map(settings.map(s => [s.workspaceId, s]))
   return decideTasklessAutoReview({
@@ -88,7 +102,10 @@ export async function decideTasklessReview(
       return {
         workspaceId: w.workspaceId,
         confirmedAt: w.confirmedAt,
-        setting: s ? settingOf(s) : { ...DEFAULT_REPO_REVIEW_SETTING },
+        setting: reviewSettingsWithFile(
+          s ? settingOf(s) : { ...DEFAULT_REPO_REVIEW_SETTING },
+          file
+        ),
       }
     }),
   })
