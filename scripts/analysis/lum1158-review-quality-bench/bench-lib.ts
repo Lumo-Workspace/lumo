@@ -16,8 +16,8 @@
  */
 import path from 'node:path'
 import {
-  RANKER_EXEMPT_REVIEW_KINDS,
   RANKER_KEEP_THRESHOLD,
+  isRankerExempt,
 } from '@/ee/security/security-scan/verifier'
 
 /** The anonymised label of the reference reviewer. Never its real name. */
@@ -279,7 +279,7 @@ export interface ReplayRunResult {
  * `applyVerifierPolicy` + `applyRankerPolicy`, as LUM-1010 applied it). A
  * finding ranked twice is decided at its first entry, as production's
  * `applyRankerPolicy` does (LUM-1198). The ranker never removes the kinds in
- * RANKER_EXEMPT_REVIEW_KINDS (LUM-1194). Null when the run produced no findings
+ * test findings (`isRankerExempt`, LUM-1194). Null when the run produced no findings
  * list (over cap / error).
  */
 export function keptLumoFindings(
@@ -305,11 +305,7 @@ export function keptLumoFindings(
     const f = byId.get(r.id)
     if (!f || seen.has(r.id) || verifierRejected.has(r.id)) continue
     seen.add(r.id)
-    if (
-      applicable(f) &&
-      !RANKER_EXEMPT_REVIEW_KINDS.has(f.kind) &&
-      r.p < threshold
-    )
+    if (applicable(f) && !isRankerExempt(f.kind, f.filePath) && r.p < threshold)
       rejected.add(f.id)
   }
   return findings.filter(f => !rejected.has(f.id))

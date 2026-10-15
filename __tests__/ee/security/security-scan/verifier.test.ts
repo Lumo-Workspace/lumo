@@ -5,6 +5,7 @@ import {
   VERIFIER_HOLD_MS,
   applyRankerPolicy,
   applyVerifierPolicy,
+  isRankerExempt,
   isVerifierRejected,
   rankerMayReject,
   verifierAppliesTo,
@@ -128,31 +129,42 @@ describe('LUM-988 ranker policy', () => {
       kind: 'CORRECTNESS',
       severity: 'MEDIUM',
       ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
     },
     {
       id: 'keep',
       kind: 'CORRECTNESS',
       severity: 'LOW',
       ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
     },
     {
       id: 'high',
       kind: 'CORRECTNESS',
       severity: 'HIGH',
       ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
     },
-    { id: 'sec', kind: 'VULNERABILITY', severity: 'LOW', ruleId: 'vuln:xss' },
+    {
+      id: 'sec',
+      kind: 'VULNERABILITY',
+      severity: 'LOW',
+      ruleId: 'vuln:xss',
+      filePath: 'src/a.ts',
+    },
     {
       id: 'gone',
       kind: 'CORRECTNESS',
       severity: 'LOW',
       ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
     },
     {
       id: 'unranked',
       kind: 'CORRECTNESS',
       severity: 'LOW',
       ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
     },
   ]
 
@@ -198,12 +210,14 @@ describe('LUM-988 ranker policy', () => {
           kind: 'CORRECTNESS',
           severity: 'LOW',
           ruleId: 'review:test_defect',
+          filePath: 'src/a.ts',
         },
         {
           id: 'd',
           kind: 'CORRECTNESS',
           severity: 'LOW',
           ruleId: 'review:doc_mismatch',
+          filePath: 'src/a.ts',
         },
       ],
       [
@@ -218,6 +232,7 @@ describe('LUM-988 ranker policy', () => {
         kind: 'CORRECTNESS',
         severity: 'LOW',
         ruleId: 'review:test_defect',
+        filePath: 'src/a.ts',
       })
     ).toBe(false)
     expect(
@@ -225,6 +240,7 @@ describe('LUM-988 ranker policy', () => {
         kind: 'CORRECTNESS',
         severity: 'LOW',
         ruleId: 'review:logic_error',
+        filePath: 'src/a.ts',
       })
     ).toBe(true)
     expect(
@@ -232,12 +248,34 @@ describe('LUM-988 ranker policy', () => {
         kind: 'CORRECTNESS',
         severity: 'HIGH',
         ruleId: 'review:logic_error',
+        filePath: 'src/a.ts',
       })
     ).toBe(false)
     // The verifier still judges test findings: only the ranker's prior is off.
     expect(verifierAppliesTo({ kind: 'CORRECTNESS', severity: 'LOW' })).toBe(
       true
     )
+  })
+
+  it('LUM-1194: a finding that cites a test file is a test finding, whatever its kind', () => {
+    const race = {
+      id: 'r',
+      kind: 'CORRECTNESS',
+      severity: 'MEDIUM',
+      ruleId: 'review:concurrency',
+      filePath: 'pkg/cache/upstream/cache_test.go',
+    }
+    expect(rankerMayReject(race)).toBe(false)
+    expect(
+      applyRankerPolicy(
+        [race],
+        [{ id: 'r', p: 7, reason: 'test only' }],
+        new Set()
+      )
+    ).toEqual([])
+    expect(isRankerExempt('concurrency', 'src/__tests__/a.test.ts')).toBe(true)
+    expect(isRankerExempt('test_defect', 'src/a.rs')).toBe(true)
+    expect(isRankerExempt('logic_error', 'src/latest.ts')).toBe(false)
   })
 
   it('the threshold is the one measured on the replay', () => {

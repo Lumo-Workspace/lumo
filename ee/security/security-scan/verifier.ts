@@ -8,6 +8,8 @@
  * One predicate, so those surfaces cannot disagree about what "rejected" is.
  */
 
+import { isTestPath } from './review-context'
+
 export type VerifierVerdict = 'CONFIRMED' | 'REJECTED'
 
 /**
@@ -120,15 +122,25 @@ export const RANKER_EXEMPT_REVIEW_KINDS: ReadonlySet<string> = new Set([
   'test_defect',
 ])
 
-/** May the ranker remove this finding? The verifier's rows minus the exempt kinds. */
+/**
+ * A test finding, which the ranker never removes: a `test_defect`, or any
+ * finding that cites a test file — a race in a test's handler comes back as
+ * `concurrency` and was ranked away at p 7–12 although developers fixed it.
+ */
+export function isRankerExempt(reviewKind: string, filePath: string): boolean {
+  return RANKER_EXEMPT_REVIEW_KINDS.has(reviewKind) || isTestPath(filePath)
+}
+
+/** May the ranker remove this finding? The verifier's rows minus test findings. */
 export function rankerMayReject(f: {
   kind: string
   severity: string
   ruleId: string
+  filePath: string
 }): boolean {
   return (
     verifierAppliesTo(f) &&
-    !RANKER_EXEMPT_REVIEW_KINDS.has(verifierKindOf(f.ruleId))
+    !isRankerExempt(verifierKindOf(f.ruleId), f.filePath)
   )
 }
 
@@ -139,7 +151,13 @@ export function rankerMayReject(f: {
  * false positives, never lose a finding by omission.
  */
 export function applyRankerPolicy<
-  F extends { id: string; kind: string; severity: string; ruleId: string },
+  F extends {
+    id: string
+    kind: string
+    severity: string
+    ruleId: string
+    filePath: string
+  },
 >(
   findings: readonly F[],
   ranking: ReadonlyArray<{ id: string; p: number; reason: string }>,
