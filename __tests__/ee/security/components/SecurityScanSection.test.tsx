@@ -138,6 +138,7 @@ const scan = (over: object) => {
     ownedUnfinished: coverage === 'UNFINISHED',
     huntOverCap: null,
     judgeOverCap: null,
+    judgePartial: null,
     ...over,
   }
 }

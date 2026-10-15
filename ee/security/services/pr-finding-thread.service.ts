@@ -111,6 +111,22 @@ export interface CoverageScan {
   stages: ScanStages | null
   /** Raw Json — `parseReviewScope`. */
   judgeReviewScope?: unknown
+  /** LUM-1144 — the row's causes; a size-cap partial review is scoped. */
+  partialCauses?: ReadonlyArray<string> | null
+}
+
+/**
+ * LUM-1144 — the AI review ran on part of an over-cap diff and recorded
+ * exactly which files it read: those files were reviewed whole.
+ */
+function isScopedPartialJudge(scan: CoverageScan): boolean {
+  const causes = scan.partialCauses ?? []
+  return (
+    scan.stages?.judge === 'PARTIAL' &&
+    causes.includes('JUDGE_PARTIAL_OVER_CAP') &&
+    !causes.includes('JUDGE_TRUNCATED') &&
+    parseReviewScope(scan.judgeReviewScope) !== null
+  )
 }
 
 /**
@@ -128,7 +144,8 @@ export function layerCoveredFile(
 ): boolean {
   if (scan.status !== 'CLEAN' && scan.status !== 'FINDINGS') return false
   const layer = layerOf(t)
-  if (scan.stages?.[layer] !== 'RAN') return false
+  const scopedPartial = layer === 'judge' && isScopedPartialJudge(scan)
+  if (scan.stages?.[layer] !== 'RAN' && !scopedPartial) return false
   if (layer !== 'judge') return true
   const scope = parseReviewScope(scan.judgeReviewScope)
   return scope === null || scope.includes(t.filePath)

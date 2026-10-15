@@ -14,6 +14,8 @@ import {
   formatTurnedOffLines,
   formatScanningOffLines,
   scanFields,
+  type JudgeOverCapLine,
+  type JudgePartialLine,
   type PrTooLargeLine,
 } from '../lib/scan-format'
 import {
@@ -209,7 +211,9 @@ export interface TaskStatusResponse {
       /** LUM-832 — the file cap left files out; absent on an older server. */
       huntOverCap?: { sourceFiles: number; capFiles: number } | null
       /** LUM-832 — the AI review did not run: over its size cap; absent on an older server. */
-      judgeOverCap?: { diffChars: number; capChars: number } | null
+      judgeOverCap?: JudgeOverCapLine | null
+      /** LUM-1144 — the AI review read part of an over-cap diff; absent on an older server. */
+      judgePartial?: JudgePartialLine | null
       /** LUM-1079 — the whole PR was too large to scan; absent on an older server. */
       prTooLarge?: PrTooLargeLine | null
       /** LUM-901 — the workspace has scanning off; absent on an older server. */
@@ -451,6 +455,7 @@ function scanSummaryLines(s: ScanSummary, opts: LayoutOptions): string[] {
           partialCauses: s.partialCauses,
           huntOverCap: s.huntOverCap,
           judgeOverCap: s.judgeOverCap,
+          judgePartial: s.judgePartial,
           prTooLarge: s.prTooLarge,
           partial: s.partial,
           externalFindings: s.externalFindings,

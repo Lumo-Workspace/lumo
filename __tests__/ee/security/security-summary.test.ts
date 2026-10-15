@@ -57,6 +57,7 @@ function scan(over: Partial<SecurityScanView> = {}): SecurityScanView {
     huntProgress: null,
     huntOverCap: null,
     judgeOverCap: null,
+    judgePartial: null,
     prTooLarge: null,
     ownedUnfinished: false,
     externalLate: false,
@@ -292,6 +293,7 @@ describe('LUM-832 over the size limit', () => {
     complete: false,
     huntOverCap: { sourceFiles: 151, capFiles: 150 },
     judgeOverCap: null,
+    judgePartial: null,
   }
 
   it('isOverSizeLimitOnly: a size notice and no gap of ours', () => {

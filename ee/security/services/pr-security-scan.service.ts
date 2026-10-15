@@ -119,6 +119,11 @@ import {
 } from '@/ee/security/security-scan/hunt/batches'
 import { JUDGE_DIFF_BUDGET_TIERS } from '@/ee/security/security-scan/truncate'
 import {
+  JUDGE_MAX_REVIEWED_FILES,
+  planPartialReview,
+} from '@/ee/security/security-scan/partial-review'
+import type { JudgeOverCapRecord } from '@/ee/security/security-scan/judge-budget'
+import {
   hasSizeNotice,
   scanSizeCaps,
   type ScanSizeCaps,
@@ -132,6 +137,7 @@ import {
   scanCoverageState,
   type HuntOverCapInput,
   type JudgeOverCapInput,
+  type JudgePartialInput,
   type PartialCause,
   type PrTooLargeInput,
   type ScanCoverageState,
@@ -241,6 +247,8 @@ export interface SecurityScanView {
    * (CodeRabbit-style notice). null otherwise.
    */
   judgeOverCap: JudgeOverCapInput | null
+  /** LUM-1144 — the AI review ran on part of an over-cap diff (skipped files named). null otherwise. */
+  judgePartial: JudgePartialInput | null
   /**
    * LUM-1079 — the whole PR was too large to scan (more changed files than
    * GitHub returns a diff for, or GitHub refused the diff): no layer ran.
@@ -1241,6 +1249,9 @@ export const prSecurityScanService = {
       // ── A4: LLM judge (advisory, fail-soft) ─────────────────────────────
       let judgeStatus: JudgeStatus = 'SKIPPED'
       let truncated = false
+      // The judge's own budget cut files (JUDGE_TRUNCATED) — unlike the size
+      // cap's partial review (LUM-1144), its scope is not recorded per file.
+      let packTruncated = false
       // LUM-814: what the budget pass decided, for the scan row. null until
       // the pass actually runs — a scan with no files never had a budget, and
       // "not recorded" is the honest reading of that, not a budget of zero.
@@ -1249,29 +1260,60 @@ export const prSecurityScanService = {
       // comment. Only a judge that answered writes one.
       let prSummary: PrSummary | null = null
       const judgeRows: NewFindingInput[] = []
-      // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top
-      // tier is not reviewed at all: no model call, no tokens. The customer is
-      // told the change is too large and how to get the review (narrow the
-      // scope or split the PR); the numbers are on `judgeBudget`.
+      // LUM-832 / LUM-1144 — the AI review's cap: at most the top tier's
+      // characters and `JUDGE_MAX_REVIEWED_FILES` files of the REVIEWABLE
+      // diff (path filters already applied, so lockfiles and generated files
+      // never count). Over it, the files that fit are reviewed and the rest
+      // skipped by name — unless more than a quarter would be skipped: then
+      // the review does not run at all (no model call, no tokens) and the
+      // customer is told how to get it (narrow the scope or split the PR).
       const judgeCapChars =
         JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
       // LUM-866: AI review off for the workspace = the judge is SKIPPED —
       // no model call, and no over-cap notice for a review nobody asked for.
-      const judgeOverCap =
-        reviewAllowed &&
-        reviewFiles.length > 0 &&
-        reviewDiff.length > judgeCapChars
-      if (judgeOverCap) {
+      const reviewPlan =
+        reviewAllowed && reviewFiles.length > 0
+          ? planPartialReview(reviewDiff, {
+              maxChars: judgeCapChars,
+              maxFiles: JUDGE_MAX_REVIEWED_FILES,
+              priorityPaths:
+                triggerFirstPass?.sites.map(site => site.path) ?? [],
+            })
+          : null
+      const judgeOverCap = reviewPlan?.kind === 'OVER_CAP'
+      const partialOverCap = reviewPlan?.kind === 'PARTIAL'
+      const overCap: JudgeOverCapRecord | null =
+        reviewPlan && reviewPlan.kind !== 'WHOLE'
+          ? {
+              files: reviewPlan.totalFiles,
+              capFiles: JUDGE_MAX_REVIEWED_FILES,
+              capChars: judgeCapChars,
+              skippedPaths: reviewPlan.skipped,
+            }
+          : null
+      if (reviewPlan?.kind === 'OVER_CAP') {
         judgeBudget = {
           diffChars: reviewDiff.length,
           tierChars: judgeCapChars,
           reviewedChars: 0,
           coveredFiles: 0,
-          droppedFiles: reviewFiles.length,
+          droppedFiles: reviewPlan.totalFiles,
+          ...(overCap ? { overCap } : {}),
         }
         partialCauses.push('JUDGE_OVER_CAP')
         logger.info(
-          `[pr-security-scan] judge over cap pr=${pr.id} sha=${headSha} diffChars=${diff.length} cap=${judgeCapChars}: not run`
+          `[pr-security-scan] judge over cap pr=${pr.id} sha=${headSha} diffChars=${reviewDiff.length} cap=${judgeCapChars} files=${reviewPlan.totalFiles} capFiles=${JUDGE_MAX_REVIEWED_FILES} wouldSkip=${reviewPlan.skipped.length}: not run`
+        )
+      }
+      // What the judge reads: the reviewable diff, or its in-cap part.
+      let judgeDiff = reviewDiff
+      if (reviewPlan?.kind === 'PARTIAL') {
+        judgeDiff = reviewPlan.diff
+        // Only the files actually read may close a finding (LUM-1127).
+        reviewScope = new Set(reviewPlan.reviewed)
+        partialCauses.push('JUDGE_PARTIAL_OVER_CAP')
+        logger.info(
+          `[pr-security-scan] judge partial pr=${pr.id} sha=${headSha} diffChars=${reviewDiff.length} files=${reviewPlan.totalFiles} reviewed=${reviewPlan.reviewed.length} skipped=${reviewPlan.skipped.length}`
         )
       }
       if (reviewAllowed && reviewFiles.length > 0 && !judgeOverCap) {
@@ -1282,28 +1324,36 @@ export const prSecurityScanService = {
         // LUM-758 拿改动源文件数选档、发的却是字符预算，于是文件少而胖的 PR
         // 比文件多而瘦的 PR 拿到更少的预算；`judgeDiffTier` 现在只收 diff，
         // 再把别的量喂进来是 tsc 错误。天花板（180k / 180s）不动。
-        const tier = judgeDiffTier(reviewDiff)
-        const capped = packSecurityDiff(reviewDiff, {
+        const tier = judgeDiffTier(judgeDiff)
+        const capped = packSecurityDiff(judgeDiff, {
           priorityPaths: triggerFirstPass?.sites.map(site => site.path) ?? [],
           maxChars: tier.chars,
         })
-        truncated = capped.truncated
+        packTruncated = capped.truncated
+        truncated = capped.truncated || partialOverCap
         // LUM-814: recorded whether or not it truncated — the untruncated
         // case is the one the old `truncated` boolean could say nothing
         // about, and it is where the near-misses live.
+        // LUM-1144: `diffChars` is the REVIEWABLE diff the tier was chosen
+        // from (path filters / incremental scope applied), never the raw PR
+        // diff — a filtered lockfile is not review input. Files the size cap
+        // skipped count as dropped; filtered files are in neither number.
         judgeBudget = {
-          diffChars: diff.length,
+          diffChars: reviewDiff.length,
           tierChars: tier.chars,
           reviewedChars: capped.reviewedChars,
           coveredFiles: capped.covered.length,
-          droppedFiles: capped.dropped.length,
+          droppedFiles:
+            capped.dropped.length +
+            (reviewPlan?.kind === 'PARTIAL' ? reviewPlan.skipped.length : 0),
+          ...(overCap ? { overCap } : {}),
         }
-        if (truncated) {
+        if (capped.truncated) {
           // Coverage owed: the tier is a budget we chose (LUM-811), and the
           // dropped files are ours to review, not the PR's to shrink.
           partialCauses.push('JUDGE_TRUNCATED')
           logger.info(
-            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} diffChars=${diff.length} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
+            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} diffChars=${judgeDiff.length} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
           )
         }
         // LUM-988 — the PR-head content of the files the review covers, as
@@ -1443,7 +1493,9 @@ export const prSecurityScanService = {
       const seen = new Set(judgeRows.map(row => row.fingerprint))
       // A complete judge pass over a finding's file that does not report it
       // again closes it: that file was re-read, not merely left out of scope.
-      const judgeCompleted = judgeStatus === 'RAN' && !truncated
+      // LUM-1144: a partial review over the size cap closes only within its
+      // reviewed files (`reviewScope`); a skipped file is never re-read.
+      const judgeCompleted = judgeStatus === 'RAN' && !packTruncated
       for (const finding of carried) {
         if (finding.verifierVerdict === 'REJECTED') continue
         if (seen.has(finding.fingerprint)) continue

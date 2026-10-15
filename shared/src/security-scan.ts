@@ -264,6 +264,14 @@ export const PARTIAL_CAUSES = [
    * customer is told so, and how to get it (`formatJudgeOverCap`).
    */
   'JUDGE_OVER_CAP',
+  /**
+   * LUM-1144 — the diff was over the AI review's size cap (files or
+   * characters) but at most a quarter of its reviewable files fell outside
+   * it: the AI review ran on the files that fit and skipped the rest, which
+   * are named to the customer (`formatJudgePartial`). `stages.judge` is
+   * PARTIAL: a partly reviewed head is never "checked".
+   */
+  'JUDGE_PARTIAL_OVER_CAP',
   /** The graph rules could not read the subgraph they check. */
   'GRAPH_READ_FAILED',
   /** A managed / pushed scanner report was cut at the finding cap. */
@@ -306,6 +314,7 @@ export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   HUNT_OVERSIZED: 'COVERAGE_OWED',
   JUDGE_TRUNCATED: 'COVERAGE_OWED',
   JUDGE_OVER_CAP: 'COVERAGE_OWED',
+  JUDGE_PARTIAL_OVER_CAP: 'COVERAGE_OWED',
   GRAPH_READ_FAILED: 'OUR_FAULT',
   EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
   PR_TOO_LARGE: 'CHANGE_TOO_LARGE',
@@ -463,24 +472,82 @@ export function formatHuntOverCap(c: HuntOverCapInput): string {
 }
 
 export interface JudgeOverCapInput {
-  /** Characters in the diff. */
+  /** Characters in the reviewable diff. */
   diffChars: number
   /** The most the AI review runs on. */
   capChars: number
+  /**
+   * LUM-1144 — reviewable files in the diff, and the most one review reads.
+   * Absent on rows before the file cap existed.
+   */
+  files?: number
+  capFiles?: number
 }
 
 function thousands(n: number): string {
   return n.toLocaleString('en-US')
 }
 
+/** LUM-1144 — over the cap by file count alone (the characters fit). */
+export function isJudgeOverCapByFiles(c: JudgeOverCapInput): boolean {
+  return (
+    c.files !== undefined &&
+    c.capFiles !== undefined &&
+    c.files > c.capFiles &&
+    c.diffChars <= c.capChars
+  )
+}
+
 export function formatJudgeOverCap(c: JudgeOverCapInput): string {
+  if (isJudgeOverCapByFiles(c))
+    return `This PR changes ${thousands(c.files!)} reviewable files; AI review runs on up to ${thousands(c.capFiles!)}, and more than a quarter of them would be left out, so it did not run. To get it, narrow the review scope or split the PR.`
   return `This PR's diff is ${thousands(c.diffChars)} characters; AI review runs on up to ${thousands(c.capChars)}, so it did not run. To get it, narrow the review scope or split the PR.`
+}
+
+/**
+ * LUM-1144 — the AI review ran on the files within its size cap and skipped
+ * the rest. The skipped paths are repository file names (customer-chosen
+ * text): every caller renders them through its own escaper.
+ */
+export interface JudgePartialInput {
+  /** Reviewable files the AI review read. */
+  reviewedFiles: number
+  /** Reviewable files in the diff (after path filters). */
+  totalFiles: number
+  /** The cap: most files, most characters. */
+  capFiles: number
+  capChars: number
+  /** Files not reviewed, in diff order. */
+  skippedPaths: string[]
+}
+
+/** Skipped paths named in a notice; the rest are counted. */
+export const JUDGE_PARTIAL_MAX_NAMED = 10
+
+export function formatJudgePartial(
+  p: JudgePartialInput,
+  opts: {
+    /** Renders one path (markdown code span, terminal-safe text, …). */
+    renderPath?: (path: string) => string
+    /** How to get the rest reviewed; defaults to the CLI / web wording. */
+    howTo?: string
+  } = {}
+): string {
+  const render = opts.renderPath ?? ((path: string) => path)
+  const named = p.skippedPaths.slice(0, JUDGE_PARTIAL_MAX_NAMED).map(render)
+  const rest = p.skippedPaths.length - named.length
+  const list = `${named.join(', ')}${rest > 0 ? ` and ${rest} more` : ''}`
+  const howTo =
+    opts.howTo ??
+    'split the PR, or narrow it and request a full review (`--review full`)'
+  return `This PR is over the AI review's size limit (${thousands(p.capFiles)} files, ${thousands(p.capChars)} characters), so AI review covered ${thousands(p.reviewedFiles)} of ${thousands(p.totalFiles)} reviewable files. Not reviewed: ${list}. To get them reviewed, ${howTo}.`
 }
 
 /** The causes that mean "the change was over a size cap", not a fault of ours. */
 const SIZE_CAP_CAUSES: ReadonlySet<string> = new Set([
   'HUNT_OVERSIZED',
   'JUDGE_OVER_CAP',
+  'JUDGE_PARTIAL_OVER_CAP',
 ])
 
 /**
@@ -499,8 +566,14 @@ export function isUnfinishedOnlyBySize(s: {
   if (s.status === 'FAILED') return false
   if (s.partialCauses.length === 0) return false
   if (!s.partialCauses.every(c => SIZE_CAP_CAUSES.has(c))) return false
-  return !Object.values(s.stages).some(
-    state => state !== undefined && UNFINISHED_STAGE_STATES.has(state)
+  // LUM-1144: a judge left PARTIAL by the size cap is that cap's gap, told
+  // by its own notice — not a shortfall of ours.
+  const partialBySize = s.partialCauses.includes('JUDGE_PARTIAL_OVER_CAP')
+  return !Object.entries(s.stages).some(
+    ([key, state]) =>
+      state !== undefined &&
+      UNFINISHED_STAGE_STATES.has(state) &&
+      !(key === 'judge' && state === 'PARTIAL' && partialBySize)
   )
 }
 
