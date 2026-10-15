@@ -14,8 +14,8 @@ import { isSuggestEnabled } from './security-suggest.config'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 /**
- * LUM-911 — scan evidence is kept only while it is in use (CodeRabbit keeps
- * no code past a review and its cache at most a week). The sweep scrubs the
+ * LUM-911 — scan evidence is kept only while it is in use (industry
+ * practice: no code kept past a review, its cache at most a week). The sweep scrubs the
  * code fields of every scan that is used up — see
  * `lib/security-scan/evidence-retention.ts` for the rule — and leaves the
  * rows, counts and dispositions. Scans from before LUM-911 are not tracked

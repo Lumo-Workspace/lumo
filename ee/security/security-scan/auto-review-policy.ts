@@ -1,6 +1,6 @@
 /**
- * LUM-1133 — automatic review of PRs that have no Lumo task (CodeRabbit
- * `reviews.auto_review` parity). PURE: the service loads the inputs.
+ * LUM-1133 — automatic review of PRs that have no Lumo task (auto-review
+ * filters). PURE: the service loads the inputs.
  *
  * A task-linked PR keeps its scan regardless of these settings — it is the
  * DONE gate's evidence. A task-less PR is reviewed when:

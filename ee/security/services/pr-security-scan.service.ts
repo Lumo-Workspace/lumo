@@ -239,12 +239,12 @@ export interface SecurityScanView {
   huntProgress: HuntBatchProgress | null
   /**
    * LUM-832 — the hunt did not run: the diff touched more source files than
-   * it runs on (CodeRabbit-style notice). null otherwise.
+   * it runs on (file-cap notice). null otherwise.
    */
   huntOverCap: HuntOverCapInput | null
   /**
    * LUM-832 — the AI review did not run: the diff was over its size cap
-   * (CodeRabbit-style notice). null otherwise.
+   * (size-cap notice). null otherwise.
    */
   judgeOverCap: JudgeOverCapInput | null
   /** LUM-1144 — the AI review ran on part of an over-cap diff (skipped files named). null otherwise. */
@@ -1583,7 +1583,7 @@ export const prSecurityScanService = {
       // so a reader can tell "not checked" from "nothing to check".
       else if (layers.huntTurnedOff) stages.hunt = 'DISABLED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
-      // run (like CodeRabbit's file limit): recorded, with the numbers the
+      // run (an industry-standard file cap): recorded, with the numbers the
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
       const huntSkippedForCap =
         layers.hunt &&

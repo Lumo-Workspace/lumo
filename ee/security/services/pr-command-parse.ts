@@ -1,6 +1,6 @@
 /**
  * LUM-1129 — reading a reviewer command off a PR conversation comment,
- * CodeRabbit-style (`@coderabbitai review`): a line that starts with the
+ * the usual PR-bot form (`@<app> review`): a line that starts with the
  * App's mention handle, followed by the command.
  *
  * Pure (env read aside) and dependency-free, so the plugin's event handler

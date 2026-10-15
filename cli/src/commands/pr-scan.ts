@@ -451,7 +451,7 @@ function formatScan(
   const findingsRow: Field[] = [{ label: 'Findings', value: findingsValue }]
   const w = labelWidth([...meta, ...layers, ...findingsRow])
   lines.push(...fieldLines([...meta, ...layers], 2, opts, w))
-  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  // LUM-832: the file cap, stated plainly as a limit on the change.
   // LUM-892: layers turned off in settings — the customer's choice, said so.
   for (const l of [...formatSizeCapLines(s), ...formatTurnedOffLines(s.stages)])
     lines.push(...wrapLines(l, 2, opts))

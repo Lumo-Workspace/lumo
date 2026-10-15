@@ -82,7 +82,7 @@ export function SecurityScanBadge({
     state = 'scanning'
   } else if (scan.findings.length === 0 && isOverSizeLimitOnly(scan)) {
     // LUM-832: a layer was skipped because the change was over its size cap
-    // (like CodeRabbit's limit) — stated as such, not "not fully checked yet".
+    // (an industry-standard size cap) — stated as such, not "not fully checked yet".
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.overSizeLimit' })
     tone = 'text-warning-text'

@@ -40,7 +40,7 @@ export interface SecurityScanSummary {
   incomplete: number
   /**
    * LUM-832 — PRs whose latest scan skipped a layer ONLY because the change
-   * was over its size cap (like CodeRabbit's limit): told as such, never as
+   * was over its size cap (an industry-standard file cap): told as such, never as
    * "not fully checked yet" (nothing is coming later).
    */
   overSizeLimit: number

@@ -1,6 +1,5 @@
 /**
- * LUM-1130 — the request-changes / approve workflow, CodeRabbit-style
- * (`reviews.request_changes_workflow`): with the workspace's mode on, Lumo's
+ * LUM-1130 — the request-changes / approve workflow: with the workspace's mode on, Lumo's
  * review is "Changes requested" while any open Lumo review thread or
  * DONE-blocking finding remains, and Lumo approves once the latest head has
  * a complete review and nothing is open. Off by default — with the mode off

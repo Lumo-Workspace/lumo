@@ -805,8 +805,8 @@ function ScanDetails({
           {intl.formatMessage({ id: 'securityScan.partial' })}
         </p>
       )}
-      {/* LUM-832: a layer over its size cap did not run — told the way
-          CodeRabbit tells its own limit: the change is too large, and how to
+      {/* LUM-832: a layer over its size cap did not run — told plainly
+          as a limit on the change: the change is too large, and how to
           get the layer (narrow the scope or split the PR). */}
       {turnedOff.length > 0 && (
         <p

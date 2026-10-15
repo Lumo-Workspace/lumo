@@ -6,7 +6,7 @@
  * budget WE set ran out (structural → the same run would hit the same wall).
  * The second is coverage owed, not a fault: it is not retried with the same
  * budget, the layer ends unfinished at once (HUNT_BUDGET_SHORT), and what the
- * finished tasks found is kept. Parity with CodeRabbit, not more (user
+ * finished tasks found is kept. Industry parity, not more (user
  * ruling): no further continuation.
  */
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({

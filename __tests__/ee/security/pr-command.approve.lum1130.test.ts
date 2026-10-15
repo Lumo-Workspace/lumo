@@ -214,7 +214,7 @@ it('a blocking finding (its thread resolved on GitHub) ⇒ refused, nothing reso
   expect(replyBody()).toMatch(/1 finding blocks DONE/)
 })
 
-// LUM-1142: CodeRabbit's allow_author_approval — on by default.
+// LUM-1142: author approval — on by default.
 it('the PR’s author may approve by default when the preconditions hold', async () => {
   await expect(
     applyPrCommentCommand(event('@uselumo approve', 'bob'))

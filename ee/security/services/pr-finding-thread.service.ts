@@ -1,5 +1,5 @@
 /**
- * LUM-1127 — the lifecycle of Lumo's inline review threads, CodeRabbit-style:
+ * LUM-1127 — the lifecycle of Lumo's inline review threads:
  *
  *   · a fingerprint a COMPLETE pass of its own layer no longer reports on the
  *     new head → Lumo resolves the thread with "✅ Addressed in `<sha>`";

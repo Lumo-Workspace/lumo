@@ -235,7 +235,7 @@ export const PARTIAL_CAUSES = [
   'AI_REVIEW_PAUSED',
   /**
    * LUM-1137 — automatic AI review was over the hourly cap for the PR's
-   * author (CodeRabbit-style rate limit). The next push after the window is
+   * author (per-author rate limit). The next push after the window is
    * reviewed; a manual review is not limited.
    */
   'AI_REVIEW_RATE_LIMITED',
@@ -245,7 +245,7 @@ export const PARTIAL_CAUSES = [
   'HUNT_FALSIFIER_OVERFLOW',
   /**
    * The diff touched more source files than the hunt runs on
-   * (`HUNT_MAX_HUNTED_FILES`, like CodeRabbit's file limit), so the hunt did
+   * (`HUNT_MAX_HUNTED_FILES`, an industry-standard file cap), so the hunt did
    * not run. The customer is told so, and how to get it (`formatHuntOverCap`).
    * (Rows before that change: the hunt covered a corner of the diff.)
    */
@@ -260,7 +260,7 @@ export const PARTIAL_CAUSES = [
   'JUDGE_TRUNCATED',
   /**
    * The diff was larger than the AI review runs on (its top tier), so the AI
-   * review did not run — like CodeRabbit skipping an over-limit review. The
+   * review did not run — an over-limit review is skipped. The
    * customer is told so, and how to get it (`formatJudgeOverCap`).
    */
   'JUDGE_OVER_CAP',
@@ -454,7 +454,7 @@ export function formatHuntProgress(p: HuntProgressInput): string {
 /**
  * LUM-832 — a layer over its size cap does not run at all (no tokens spent),
  * and the customer is told the change is too large, with the way to get the
- * layer: narrow the review scope or split the PR. Deliberately CodeRabbit's
+ * layer: narrow the review scope or split the PR. Deliberately the industry-standard
  * shape — a limit on the size of the CHANGE, stated plainly — and the only
  * customer lines that ask something of the customer: our own faults and
  * shortfalls stay owned (`SCAN_UNFINISHED_NOTE`). The web panel says the same

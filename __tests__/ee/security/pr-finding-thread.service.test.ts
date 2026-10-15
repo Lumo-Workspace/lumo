@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1127 — Lumo's inline finding threads across pushes (CodeRabbit parity):
+ * LUM-1127 — Lumo's inline finding threads across pushes:
  * resolved as addressed only after a COMPLETE pass of the producing layer
  * over the finding's file, reopened on regression, a human's GitHub resolve
  * recorded and honoured, Lumo's own resolve echo never taken for a human's.

@@ -1,5 +1,5 @@
 /**
- * LUM-735 Task 2 — post a scan back to its pull request, CodeRabbit-style.
+ * LUM-735 Task 2 — post a scan back to its pull request.
  *
  * One summary comment per PR (upserted by `SUMMARY_MARKER`) plus one inline
  * review comment per open finding that sits on a line this PR added (skipped

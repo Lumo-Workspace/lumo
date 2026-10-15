@@ -761,7 +761,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         // LUM-832 — and sorted by WHY. Our infrastructure → HUNT_INCOMPLETE,
         // retried once below. Our budget → HUNT_BUDGET_SHORT: a retry with
         // the same budget would hit the same wall, so the layer simply ends
-        // unfinished (parity with CodeRabbit, not more).
+        // unfinished (industry parity, not more).
         const shortfall =
           outcome === undefined ? 'infra' : huntShortfall(outcome)
         if (shortfall === 'infra') addCause(partialCauses, 'HUNT_INCOMPLETE')

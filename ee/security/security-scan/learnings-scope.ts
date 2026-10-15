@@ -1,6 +1,6 @@
 /**
- * LUM-1134 — the workspace's learnings scope, CodeRabbit's
- * `knowledge_base.learnings.scope`: which repositories' PR-review learnings
+ * LUM-1134 — the workspace's learnings scope:
+ * which repositories' PR-review learnings
  * (LUM-1131) the AI review of a repository reads.
  *
  * - `local`  — the reviewed repository's learnings only.

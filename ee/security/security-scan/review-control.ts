@@ -1,6 +1,6 @@
 /**
- * LUM-1056 / LUM-1137 — the automatic-review budget of one PR, CodeRabbit's
- * `auto_incremental_review` + `auto_pause_after_reviewed_commits`: every push
+ * LUM-1056 / LUM-1137 — the automatic-review budget of one PR
+ * (incremental review of every push, auto-paused after N reviewed commits): every push
  * is reviewed until N commits have been reviewed (default 5; 0 = never
  * pause). A head is reserved once; its retries cost nothing. Failed attempts
  * keep their reservation; a superseded head is released (a later next head

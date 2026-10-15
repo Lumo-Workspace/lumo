@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * LUM-1142 — the workspace "allow PR authors to resolve/approve by command"
- * setting (CodeRabbit's `reviews.allow_author_approval`) against a REAL
+ * setting (author approval) against a REAL
  * Postgres replayed from every migration (the LUM-1142 migration included):
  *
  * - an existing workspace reads it ON (the migration's default);

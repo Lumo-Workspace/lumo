@@ -28,14 +28,14 @@ bar like the offline F1 ≥ 50 / F2 ≥ 60.
 
 ## Pipeline
 
-| Step | Script                                                                             | What it does                                                                                                                                                                                                                                                                                                                                                                                |
-| ---- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `discover.py`                                                                      | One GitHub Search query per (bot, day): `reviewed-by:<bot>[bot] is:merged merged:<day>`, random sample, ≤ `--per-repo` PRs per repository across all bots, each PR assigned to one bot. Writes into the ETL's SQLite DB. (The ETL's own `discover` bisects each day down to the 1,000-result cap — hundreds of rate-limited queries per day for CodeRabbit — far more than a sample needs.) |
-| 2    | ETL `enrich`, `analyze`                                                            | Commits, reviews, threads, per-commit diffs (skips > 2,000 changed lines); then the 3 LLM steps for the reviewing bot.                                                                                                                                                                                                                                                                      |
-| 3    | `prepare.py`                                                                       | Per analysed PR: the commit the bot reviewed (the ETL's `_find_bot_review_commit`, "hash X"), `base...hashX` diff, changed files at hash X, and a detached checkout at hash X for the verifier. LUM-988 replay layout.                                                                                                                                                                      |
-| 4    | `../lum988-code-review-replay/replay.ts`, `verify.ts --only-applicable`, `rank.ts` | The shipped review, verifier and ranker, unchanged.                                                                                                                                                                                                                                                                                                                                         |
-| 5    | `judge.py`                                                                         | Applies the production removal policy, feeds Lumo's remaining findings to the ETL's step-3 prompt against the same human actions.                                                                                                                                                                                                                                                           |
-| 6    | `score.py`                                                                         | Pooled P / R / F1 / F2, overall and per reviewing bot.                                                                                                                                                                                                                                                                                                                                      |
+| Step | Script                                                                             | What it does                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `discover.py`                                                                      | One GitHub Search query per (bot, day): `reviewed-by:<bot>[bot] is:merged merged:<day>`, random sample, ≤ `--per-repo` PRs per repository across all bots, each PR assigned to one bot. Writes into the ETL's SQLite DB. (The ETL's own `discover` bisects each day down to the 1,000-result cap — hundreds of rate-limited queries per day for the most-installed bots — far more than a sample needs.) |
+| 2    | ETL `enrich`, `analyze`                                                            | Commits, reviews, threads, per-commit diffs (skips > 2,000 changed lines); then the 3 LLM steps for the reviewing bot.                                                                                                                                                                                                                                                                                   |
+| 3    | `prepare.py`                                                                       | Per analysed PR: the commit the bot reviewed (the ETL's `_find_bot_review_commit`, "hash X"), `base...hashX` diff, changed files at hash X, and a detached checkout at hash X for the verifier. LUM-988 replay layout.                                                                                                                                                                                   |
+| 4    | `../lum988-code-review-replay/replay.ts`, `verify.ts --only-applicable`, `rank.ts` | The shipped review, verifier and ranker, unchanged.                                                                                                                                                                                                                                                                                                                                                      |
+| 5    | `judge.py`                                                                         | Applies the production removal policy, feeds Lumo's remaining findings to the ETL's step-3 prompt against the same human actions.                                                                                                                                                                                                                                                                        |
+| 6    | `score.py`                                                                         | Pooled P / R / F1 / F2, overall and per reviewing bot.                                                                                                                                                                                                                                                                                                                                                   |
 
 Reviewing hash X, not the merged head, matters: the post-review commits are
 where the answers are.
@@ -66,7 +66,7 @@ export DATABASE_URL=sqlite:///$S/pr_review.db GITHUB_TOKEN=$(gh auth token)
 export MARTIAN_BASE_URL=https://ai-gateway.vercel.sh/v1 MARTIAN_MODEL_NAME=anthropic/claude-opus-4.5
 export MARTIAN_API_KEY=<AI_GATEWAY_API_KEY>
 uv run python $W/lum1010-online-bench/discover.py \
-  --bots 'coderabbitai[bot],augmentcode[bot],greptile-apps[bot],cursor[bot]' \
+  --bots '<bot-a>[bot],augmentcode[bot],greptile-apps[bot],cursor[bot]' \
   --start 2026-09-22 --end 2026-09-28 --per-day 3
 uv run python main.py enrich --all --one-shot
 uv run python main.py analyze --all --limit 1000
@@ -86,7 +86,7 @@ python3 $W/lum1010-online-bench/score.py $S/judged.json
 
 Traps:
 
-- The Search API needs the full app login, `coderabbitai[bot]`; without the
+- The Search API needs the full app login, `<app>[bot]`; without the
   suffix it returns 0 results. Copilot maps to
   `copilot-pull-request-reviewer[bot]` (`SEARCH_API_USERNAME_MAP`).
 - aiosqlite leaves the last implicit transaction open: commit before
@@ -104,7 +104,7 @@ Traps:
 
 ## Result — pilot (2026-10-06)
 
-76 PRs merged 2026-09-22..28, one per repository: CodeRabbit 21, Greptile 19,
+76 PRs merged 2026-09-22..28, one per repository: Bot A 21, Greptile 19,
 Augment 18, Cursor Bugbot 18 (84 discovered; 7 skipped by the ETL for > 2,000
 changed lines, 1 dropped by step 1/2 at > 200k tokens). 34 PRs had post-review
 fixes, 227 human actions in all. Judge `anthropic/claude-opus-4.5` via the ZDR
@@ -119,7 +119,7 @@ gateway; Lumo = the shipped review, 2 runs; 3 PRs over the review's diff cap
 | Lumo shipped (+verifier +ranker), 1 | 32.7% | 15.4% | 21.0 | 17.2 |
 | Lumo shipped (+verifier +ranker), 2 | 32.8% | 16.7% | 22.2 | 18.6 |
 
-Per bot, shipped Lumo vs the bot (F1): Augment 31–33 vs 53, CodeRabbit 26–28
+Per bot, shipped Lumo vs the bot (F1): Augment 31–33 vs 53, Bot A 26–28
 vs 35, Greptile 17–23 vs 40, Cursor 12 vs 39.
 
 **The headline gap is mostly the causal bias above.** Split by where a fix

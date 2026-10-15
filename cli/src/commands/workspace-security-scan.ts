@@ -51,7 +51,7 @@ export interface SecurityScanSwitches {
   securityReviewAutoPauseAfter?: number
 }
 
-/** LUM-1134 — CodeRabbit's `knowledge_base.learnings.scope` values. */
+/** LUM-1134 — the learnings scope values (which repositories' learnings a review reads). */
 export type LearningsScope = 'local' | 'global' | 'auto'
 const LEARNINGS_SCOPES: readonly LearningsScope[] = ['local', 'global', 'auto']
 

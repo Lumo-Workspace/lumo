@@ -453,7 +453,7 @@ describe('LUM-739 hunt trigger', () => {
 })
 
 /**
- * LUM-832 — like CodeRabbit's limit, a layer whose input is over its size cap
+ * LUM-832 — like an industry-standard size cap, a layer whose input is over its size cap
  * does not run at all (no tokens spent), and the scan records what the
  * customer's notice needs: the change is too large, and how to get the layer.
  */

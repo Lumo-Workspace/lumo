@@ -2,7 +2,7 @@
 Martian online-ETL database, cheaply.
 
 The ETL's own `discover` bisects each day's window until it fits the Search
-API's 1,000-result cap, which for CodeRabbit-sized bots means hundreds of
+API's 1,000-result cap, which for the most-installed bots means hundreds of
 rate-limited queries per day. For a benchmark sample we only need a handful
 per bot per day, so this issues ONE search per (bot, day), takes the first
 page, and samples from it:
@@ -15,7 +15,7 @@ page, and samples from it:
 Run from the ETL directory (it imports the ETL's db layer):
 
   cd <crb>/online/etl && uv run python <this file> \
-    --bots 'coderabbitai[bot],augmentcode[bot]' --start 2026-09-22 --end 2026-09-28 \
+    --bots 'augmentcode[bot],greptile-apps[bot]' --start 2026-09-22 --end 2026-09-28 \
     --per-day 3 [--per-repo 1] [--seed 1010]
 
 Needs DATABASE_URL and GITHUB_TOKEN in the environment.
