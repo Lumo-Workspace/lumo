@@ -47,6 +47,8 @@
  * a task-linked PR keeps its DONE-gate scan. Manual reviews ignore it.
  */
 import { shouldScanOnPrEvent } from '@/ee/security/services/pr-security-scan-dispatch'
+import type { PathInstruction } from './path-instructions'
+import { DEFAULT_REVIEW_PROFILE, type ReviewProfile } from './review-profile'
 
 /**
  * What an EMPTY `baseBranches` list reviews (user decision, 2026-10-15):
@@ -91,6 +93,12 @@ export interface RepoReviewSettingValues {
   descriptionKeyword: string | null
   /** Globs for what the review reads (reviewable-path.ts). */
   pathFilters: string[]
+  /** LUM-1147: extra AI-review instructions per path glob. */
+  pathInstructions: PathInstruction[]
+  /** LUM-1147: which findings get inline comments (review-profile.ts). */
+  reviewProfile: ReviewProfile
+  /** LUM-1147: how the AI review words its findings; null = none. */
+  toneInstructions: string | null
 }
 
 /** No stored row = these. */
@@ -105,6 +113,9 @@ export const DEFAULT_REPO_REVIEW_SETTING: Readonly<RepoReviewSettingValues> =
     ignoreUsernames: [],
     descriptionKeyword: null,
     pathFilters: [],
+    pathInstructions: [],
+    reviewProfile: DEFAULT_REVIEW_PROFILE,
+    toneInstructions: null,
   })
 
 /**

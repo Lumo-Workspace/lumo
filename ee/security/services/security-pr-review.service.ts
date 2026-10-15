@@ -51,6 +51,13 @@ import {
   type RepoConfigNotice,
 } from '@/ee/security/security-scan/repo-config'
 import { formatRepoConfigNotice } from '@/ee/security/security-scan/repo-config-notice'
+import {
+  DEFAULT_REVIEW_PROFILE,
+  heldByProfile,
+  inlineEligibleUnder,
+  parseReviewProfile,
+  type ReviewProfile,
+} from '@/ee/security/security-scan/review-profile'
 import { REPO_CONFIG_PATH } from '@/ee/security/validation/repo-config'
 import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/ee/security/services/security-suggest.config'
@@ -230,13 +237,16 @@ export function buildReopenedNote(
   ].join('\n\n')
 }
 
-/** Would the write-back give this row an inline comment today (ignoring holds)? */
+/**
+ * Would the write-back give this row an inline comment today (ignoring
+ * holds)? LUM-1147: decided by the scan's review profile.
+ */
 function inlineEligible(
-  f: Pick<ReviewFindingRow, 'line' | 'severity' | 'suggestedDisposition'>
+  f: ReviewFindingRow,
+  policy: SecurityPolicy,
+  profile: ReviewProfile = DEFAULT_REVIEW_PROFILE
 ): boolean {
-  return (
-    f.line !== null && f.severity !== 'LOW' && f.suggestedDisposition == null
-  )
+  return inlineEligibleUnder(profile, f, policy)
 }
 
 /**
@@ -296,6 +306,8 @@ async function reconcileVerifierComments(input: {
     user: { type?: string; login?: string } | null
   }>
   policy: SecurityPolicy
+  /** LUM-1147 — the scan's review profile. */
+  profile: ReviewProfile
   repo: { owner: string; name: string }
   token: string
 }): Promise<void> {
@@ -314,7 +326,7 @@ async function reconcileVerifierComments(input: {
       if (c.body.includes(marker) && isRetractedComment(c.body))
         edits.push({
           id: c.id,
-          body: inlineEligible(f)
+          body: inlineEligible(f, input.policy, input.profile)
             ? buildInlineComment(f, input.policy)
             : buildReopenedNote(f),
         })
@@ -557,6 +569,39 @@ export interface SummaryInput {
    * read (nothing to say).
    */
   repoConfig?: RepoConfigNotice | null
+  /** LUM-1147 — the scan's review profile; absent = chill (said nowhere). */
+  reviewProfile?: ReviewProfile
+  /**
+   * LUM-1147 — open findings the profile kept off the diff (quiet's MEDIUM
+   * ones): listed in the summary, folded. Absent/empty = no list.
+   */
+  profileHeld?: Array<
+    Pick<ReviewFindingRow, 'severity' | 'title' | 'filePath' | 'line'> &
+      Partial<Pick<ReviewFindingRow, 'kind'>>
+  >
+}
+
+/** LUM-1147 — how many held findings the summary lists by name. */
+export const PROFILE_HELD_MAX_LISTED = 25
+
+/**
+ * LUM-1147 — the findings the review profile kept off the diff, grouped in
+ * one folded list (title, file and line), so a quiet review still says
+ * what it found.
+ */
+export function profileHeldBlock(input: SummaryInput): string | null {
+  const held = input.profileHeld ?? []
+  if (held.length === 0) return null
+  const profile = input.reviewProfile ?? DEFAULT_REVIEW_PROFILE
+  const rows = held.slice(0, PROFILE_HELD_MAX_LISTED).map(f => {
+    const kind = findingKindLabel(f.kind)
+    const where = f.line !== null ? `${f.filePath}:${f.line}` : f.filePath
+    return `- **${f.severity}**${kind ? ` · ${kind}` : ''} — ${neutralizeSummaryText(f.title, 200)} — ${codePath(where)}`
+  })
+  const rest = held.length - rows.length
+  if (rest > 0) rows.push(`- and ${rest} more — shown in Lumo`)
+  const noun = held.length === 1 ? 'finding' : 'findings'
+  return `<details>\n<summary>${held.length} more ${noun} not commented on the diff (review profile: ${profile})</summary>\n\n${rows.join('\n')}\n\n</details>`
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -882,6 +927,8 @@ export function buildSummary(input: SummaryInput): string {
   // LUM-1146: an invalid / unreadable `.lumo.yaml` is never silently ignored.
   notices.push(...formatRepoConfigNotice(input.repoConfig, { code: codeText }))
   if (notices.length > 0) blocks.push(notices.join('\n'))
+  const held = profileHeldBlock(input)
+  if (held) blocks.push(held)
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
 
@@ -904,6 +951,10 @@ export function buildSummary(input: SummaryInput): string {
   ]
   if (input.repoConfig?.base.status === 'loaded')
     footer.push(`Settings: \`${REPO_CONFIG_PATH}\``)
+  // LUM-1147: a non-default profile is said, so fewer / more comments read
+  // as a choice.
+  if (input.reviewProfile && input.reviewProfile !== DEFAULT_REVIEW_PROFILE)
+    footer.push(`Review profile: ${input.reviewProfile}`)
   if (input.taskUrl) footer.push(`[Open in Lumo](${input.taskUrl})`)
   blocks.push(footer.join(' · '))
   blocks.push(SUMMARY_MARKER)
@@ -1234,6 +1285,10 @@ export const securityPrReviewService = {
       // LUM-1130: the request-changes workflow (off by default).
       const requestChanges =
         pr.workspace?.securityRequestChangesEnabled === true
+      // LUM-1147: which findings this scan comments inline.
+      const profile = parseReviewProfile(scan.reviewProfile)
+      const isInline = (f: ReviewFindingRow) =>
+        inlineEligible(f, policy, profile)
 
       const reviewComments = await prCommentClient.listReviewComments({
         repo,
@@ -1258,6 +1313,7 @@ export const securityPrReviewService = {
         findings: scan.findings,
         open: unrejected,
         comments: reviewComments,
+        isInline,
       }
       const threads = await prFindingThreadService
         .reconcile(threadCtx)
@@ -1305,12 +1361,15 @@ export const securityPrReviewService = {
         open,
         comments: reviewComments,
         policy,
+        profile,
         repo,
         token,
       })
       // LUM-740: LOW rows and LLM-suggested false positives stay off the
       // diff — the summary carries one line for each group instead.
-      const lowRows = open.filter(f => f.severity === 'LOW')
+      // LUM-1147: a LOW row the profile comments inline (assertive, or one
+      // that blocks DONE) is not "shown in Lumo only".
+      const lowRows = open.filter(f => f.severity === 'LOW' && !isInline(f))
       const low = {
         count: lowRows.length,
         allDowngradedPaths: lowRows.every(f => isDowngradedPath(f.filePath)),
@@ -1335,11 +1394,10 @@ export const securityPrReviewService = {
       )
       // Only findings on a line this PR added can carry an inline comment;
       // the rest are still counted by the summary.
+      // LUM-1147: the review profile decides which (HIGH and blocking always).
       const candidates = open.filter(
         f =>
-          f.line !== null &&
-          f.severity !== 'LOW' &&
-          f.suggestedDisposition == null &&
+          isInline(f) &&
           !(holdExternal && f.provenance === 'EXTERNAL_TOOL') &&
           // Only rows the verifier may reject wait for it.
           !(holdJudge && f.provenance === 'LLM_JUDGE' && verifierAppliesTo(f))
@@ -1393,6 +1451,8 @@ export const securityPrReviewService = {
         commandHandle: prCommandHandle(),
         approveCommand: requestChanges,
         repoConfig: parseRepoConfigNotice(scan.repoConfig),
+        reviewProfile: profile,
+        profileHeld: open.filter(f => heldByProfile(profile, f, policy)),
         prSummary: scan.prSummary,
         // LUM-849: the rows a reader acts on — LOW and suggested false
         // positives stay off the diff, so they stay off this line too.
@@ -1525,9 +1585,7 @@ export const securityPrReviewService = {
           blocking,
           unpostedActionable: open.filter(
             f =>
-              f.line !== null &&
-              f.severity !== 'LOW' &&
-              f.suggestedDisposition == null &&
+              isInline(f) &&
               !existing.has(f.fingerprint) &&
               !postedNow.has(f.fingerprint)
           ).length,

@@ -375,6 +375,8 @@ export interface ScanForReview {
    * Optional so older fixtures still type-check (absent = not read).
    */
   repoConfig?: unknown
+  /** LUM-1147 — the review profile the scan ran with (null/absent = chill). */
+  reviewProfile?: string | null
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -1668,6 +1670,7 @@ export const prSecurityScanRepository = {
         verifiedAt: true,
         judgeReviewScope: true,
         repoConfig: true,
+        reviewProfile: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -2263,6 +2266,14 @@ export const prSecurityScanRepository = {
     await prisma.prSecurityScan.update({
       where: { id: scanId },
       data: { repoConfig: repoConfig as Prisma.InputJsonValue },
+    })
+  },
+
+  /** LUM-1147 — the review profile in force for this scan (for the write-back). */
+  async setReviewProfile(scanId: string, reviewProfile: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { reviewProfile },
     })
   },
 

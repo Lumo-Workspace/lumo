@@ -184,6 +184,8 @@ export interface ThreadPlanInput {
   headSha: string
   /** GitHub's view of the threads, by first-comment id; null = not read. */
   remote: Map<string, ReviewThreadState> | null
+  /** LUM-1147 — the review profile's inline rule; absent = chill. */
+  isInline?: ((f: ReviewFindingRow) => boolean) | undefined
 }
 
 export interface ThreadPlan {
@@ -203,6 +205,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
     input.findings.filter(isVerifierRejected).map(f => f.fingerprint)
   )
   const openByFp = new Map(input.open.map(f => [f.fingerprint, f]))
+  const isInline = input.isInline ?? inlineEligible
   const actions: ThreadAction[] = []
   const nodeIds: ThreadPlan['nodeIds'] = []
 
@@ -299,7 +302,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
         layerCoveredFile(input.scan, row)
       ) {
         actions.push({ kind: 'ADDRESS', row, threadId })
-      } else if (openNow && remote?.isOutdated && inlineEligible(openNow)) {
+      } else if (openNow && remote?.isOutdated && isInline(openNow)) {
         actions.push({ kind: 'REPOST', row, threadId })
       }
       continue
@@ -309,7 +312,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
     if (openNow) {
       // An outdated thread points at code that is gone: a fresh comment on
       // the new line reads better than reopening it.
-      if (remote?.isOutdated && inlineEligible(openNow))
+      if (remote?.isOutdated && isInline(openNow))
         actions.push({ kind: 'REPOST', row, threadId: null })
       else actions.push({ kind: 'REOPEN', row, threadId })
     }
@@ -356,6 +359,11 @@ export interface ThreadSyncContext {
   open: ReviewFindingRow[]
   /** The PR's review comments, as the write-back listed them. */
   comments: ListedComment[]
+  /**
+   * LUM-1147 — would the write-back comment this row inline (the scan's
+   * review profile)? Absent = the chill rule.
+   */
+  isInline?: (f: ReviewFindingRow) => boolean
 }
 
 export interface ThreadReconcileResult {
@@ -598,6 +606,7 @@ export const prFindingThreadService = {
       scan: ctx.scan,
       headSha: ctx.headSha,
       remote,
+      isInline: ctx.isInline,
     })
     const finalState = new Map(rows.map(r => [r.fingerprint, r.state]))
     for (const { row, threadNodeId } of plan.nodeIds) {
