@@ -26,7 +26,7 @@
  * Never changes the task: the assessment only reads it.
  */
 import { sanitizeField } from '@/shared/src/sanitize'
-import { redactKnownSecrets } from '@/lib/security-scan/scan-secrets'
+import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 import { neutralizeSummaryText } from './pr-summary'
 
 export const ISSUE_ASSESSMENT_CHECK_ID = 'issue_assessment'
@@ -252,19 +252,63 @@ export function issueRequirement(issue: {
   }
 }
 
-/** PURE — the requirements as the model reads them (one per line, by id). */
+/**
+ * PURE — the requirements as the model reads them (one per line, by id),
+ * under a line naming every id it must answer. Without that line the model
+ * often left out a broad requirement it could not tie to code — a task's
+ * Goal — which then read as "no answer" on the PR.
+ */
 export function requirementsMaterial(
   requirements: readonly LinkedRequirement[]
 ): string {
-  return requirements
-    .map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`)
-    .join('\n')
+  const ids = requirements.map(r => r.id).join(', ')
+  return [
+    `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.`,
+    ...requirements.map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`),
+  ].join('\n')
 }
+
+/** A requirement id as the model wrote it, compared loosely: `[task:goal]` ≡ `task:goal`. */
+function answerKey(id: string): string {
+  return id
+    .trim()
+    .replace(/^\[\s*|\s*\]$/g, '')
+    .toLowerCase()
+}
+
+/**
+ * PURE — the requirements the model gave no outcome for (skipped, or
+ * answered with an unknown outcome): the ones the service asks about again.
+ */
+export function unansweredRequirements(
+  requirements: readonly LinkedRequirement[],
+  answers: ReadonlyArray<{ id: string; outcome: string }>
+): LinkedRequirement[] {
+  const answered = new Set(
+    answers
+      .filter(a =>
+        (REQUIREMENT_OUTCOMES as readonly string[]).includes(a.outcome)
+      )
+      .map(a => answerKey(a.id))
+  )
+  return requirements.filter(r => !answered.has(answerKey(r.id)))
+}
+
+/** Shown for a requirement the model gave no outcome for, even when asked again. */
+export const NO_OUTCOME_EXPLANATION =
+  'The reviewing model gave no outcome for this requirement, even when asked again.'
 
 // ── judging ─────────────────────────────────────────────────────────────────
 
+/**
+ * Requirement text and the model's explanation of it, as GitHub shows them.
+ * The prose pass (LUM-1200): registry secrets and quoted values that look
+ * like, or are keyed as, credentials are masked; an ordinary quoted path or
+ * identifier (`src/probe/clamp.ts`) is kept — the blanket pass rendered it
+ * as `src/…(len 18)`.
+ */
 function cleanShown(raw: string, max: number): string {
-  return neutralizeSummaryText(redactKnownSecrets(raw), max)
+  return neutralizeSummaryText(redactSummaryText(raw), max)
 }
 
 /**
@@ -280,9 +324,18 @@ export function assessRequirements(
     explanation?: string
   }>
 ): RequirementAssessment[] {
-  const byId = new Map(answers.map(a => [a.id, a]))
+  // A known outcome wins over an earlier unknown one for the same id (the
+  // service appends the answers to its second ask after the first's).
+  const byId = new Map<string, (typeof answers)[number]>()
+  for (const a of answers) {
+    const key = answerKey(a.id)
+    const known = (REQUIREMENT_OUTCOMES as readonly string[]).includes(
+      a.outcome
+    )
+    if (known || !byId.has(key)) byId.set(key, a)
+  }
   return requirements.map(r => {
-    const a = byId.get(r.id)
+    const a = byId.get(answerKey(r.id))
     const outcome = (REQUIREMENT_OUTCOMES as readonly string[]).includes(
       a?.outcome ?? ''
     )
@@ -297,7 +350,7 @@ export function assessRequirements(
       outcome,
       explanation: a
         ? cleanShown(a.explanation ?? '', REQUIREMENT_SHOWN_MAX)
-        : 'Lumo did not get an answer for this requirement.',
+        : NO_OUTCOME_EXPLANATION,
     }
   })
 }
@@ -397,10 +450,15 @@ const OUTCOME_LABEL: Record<RequirementOutcome, string> = {
   unclear: '❓ Unclear',
 }
 
+/**
+ * One line of a list item. Paired backticks stay code spans (a requirement's
+ * `src/probe/clamp.ts`); an odd count — a span cut by the length cap — drops
+ * them all, so a stray one cannot open a span over the rest of the line.
+ */
 function inline(text: string): string {
-  return sanitizeField(text)
-    .replace(/[`\r\n]/g, ' ')
-    .trim()
+  const line = sanitizeField(text).replace(/[\r\n]/g, ' ')
+  const ticks = line.split('`').length - 1
+  return (ticks % 2 === 0 ? line : line.replace(/`/g, ' ')).trim()
 }
 
 /** PURE — one requirement as a list line (text and explanation only when quotable). */

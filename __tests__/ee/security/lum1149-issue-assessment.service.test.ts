@@ -73,6 +73,7 @@ import {
 } from '@/ee/security/security-scan/pre-merge-checks'
 import {
   ISSUE_ASSESSMENT_CHECK_ID,
+  NO_OUTCOME_EXPLANATION,
   unmetKey,
   unmetMarker,
 } from '@/ee/security/security-scan/issue-assessment'
@@ -262,6 +263,86 @@ describe('the runner', () => {
     expect(call.checks[0].material).toContain(
       '[task:done:2] (LUM-77 · Done when 2) Amounts have two decimals'
     )
+  })
+
+  it('a requirement the model left out (production: the Goal) is asked about once more, on its own', async () => {
+    findTask.mockResolvedValue({
+      ...TASK,
+      description:
+        '<h2>Goal</h2><p>Ship CSV export.</p><h2>Done when</h2><ul><li><p>A CSV download button</p></li><li><p>Amounts have two decimals</p></li></ul>',
+    })
+    // First call: the two Done-when items only (the beforeEach answer).
+    model.mockImplementationOnce(
+      async (input: { checks: Array<{ id: string }> }) => ({
+        results: input.checks.map(c => ({
+          id: c.id,
+          verdict: 'failed',
+          explanation: '',
+          resolution: '',
+          requirements: [
+            { id: 'task:done:1', outcome: 'addressed', explanation: 'Yes.' },
+            { id: 'task:done:2', outcome: 'not_addressed', explanation: 'No.' },
+          ],
+        })),
+      })
+    )
+    model.mockImplementationOnce(async () => ({
+      results: [
+        {
+          id: ISSUE_ASSESSMENT_CHECK_ID,
+          verdict: 'inconclusive',
+          explanation: '',
+          resolution: '',
+          requirements: [
+            {
+              id: 'task:goal',
+              outcome: 'unclear',
+              explanation: 'The diff alone cannot show the goal.',
+            },
+          ],
+        },
+      ],
+    }))
+    const record = await preMergeChecksService.run(target, DIFF)
+    expect(model).toHaveBeenCalledTimes(2)
+    const again = model.mock.calls[1]![0]
+    expect(again.checks.map((c: { id: string }) => c.id)).toEqual([
+      ISSUE_ASSESSMENT_CHECK_ID,
+    ])
+    expect(again.checks[0].material).toContain('[task:goal] (LUM-77 · Goal)')
+    expect(again.checks[0].material).not.toContain('[task:done:1]')
+    const r = record!.results[0]!
+    expect(r.requirements!.map(x => [x.id, x.outcome, x.explanation])).toEqual([
+      ['task:goal', 'unclear', 'The diff alone cannot show the goal.'],
+      ['task:done:1', 'addressed', 'Yes.'],
+      ['task:done:2', 'not_addressed', 'No.'],
+    ])
+  })
+
+  it('still left out after the second ask (or the second ask fails): reported as no outcome, the first answers kept', async () => {
+    findTask.mockResolvedValue({
+      ...TASK,
+      description:
+        '<h2>Goal</h2><p>Ship CSV export.</p><h2>Done when</h2><ul><li><p>A CSV download button</p></li><li><p>Amounts have two decimals</p></li></ul>',
+    })
+    const first = model.getMockImplementation()!
+    model.mockImplementationOnce(first)
+    model.mockRejectedValueOnce(new Error('gateway down'))
+    const record = await preMergeChecksService.run(target, DIFF)
+    expect(model).toHaveBeenCalledTimes(2)
+    const r = record!.results[0]!
+    expect(r.verdict).toBe('failed')
+    expect(r.requirements!.map(x => [x.id, x.outcome])).toEqual([
+      ['task:goal', 'unclear'],
+      ['task:done:1', 'addressed'],
+      ['task:done:2', 'not_addressed'],
+    ])
+    expect(r.requirements![0]!.explanation).toBe(NO_OUTCOME_EXPLANATION)
+  })
+
+  it('every requirement answered the first time: one call only', async () => {
+    await preMergeChecksService.run(target, DIFF)
+    expect(model).toHaveBeenCalledTimes(1)
   })
 
   it('a requirement told to pass itself cannot pass the check: only per-requirement answers count, its text is fenced material', async () => {
