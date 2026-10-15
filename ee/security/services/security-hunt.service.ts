@@ -26,6 +26,7 @@ import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import {
   redactKnownSecrets,
   redactShellCommand,
+  redactShellReason,
   redactSummaryText,
   inheritDispositions,
   mechanicalVerify,
@@ -725,8 +726,12 @@ export const securityHuntService = {
     //     readable; a credential-shaped literal, a credential key's value
     //     (`rg 'token=…'`) and every quoted argument of a command that says a
     //     credential word outside its quotes (`# the token`) are masked.
-    //   · a refused command's `reason` — sandbox / tool output: the strict
-    //     pass (`redactKnownSecrets`), unchanged.
+    //   · a refused command's `reason` — the gate's sentence, then the
+    //     refused segment quoted from the command (LUM-1200 follow-up #4,
+    //     `redactShellReason`): the quoted command text gets the command pass
+    //     (judged against the whole command, so it reads as `cmd` does), the
+    //     sentence the prose pass. The strict pass masked `grep -l
+    //     "isSessionValid|…"` there while `cmd` kept it.
     const trace: HuntStepTrace[] = []
     // LUM-787 — the per-step output ledger. The SDK runs a step's tool calls
     // and THEN fires the step hook, so the hook is the step boundary: reset
@@ -862,7 +867,7 @@ export const securityHuntService = {
             const entry = shell.commands[entryIndex]!
             entry.denied = true
             if (out.error !== undefined) {
-              entry.reason = redactKnownSecrets(out.error).slice(
+              entry.reason = redactShellReason(out.error, command).slice(
                 0,
                 HUNT_SHELL_LOG_CHARS
               )

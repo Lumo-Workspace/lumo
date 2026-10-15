@@ -351,3 +351,86 @@ describe('LUM-1200 one thread per issue across AI review and hunt', () => {
     })
   })
 })
+
+// LUM-1200 follow-up #4 — production TC12 (lumo-agent-test#68 r2): the AI
+// review relabelled its L13 report (review:logic_error → review:api_misuse,
+// a new fingerprint carried onto the posted thread) and two new hunt reports
+// joined it; the thread's comment, found by the NEW fingerprint's marker,
+// was never found, so they were never listed.
+describe('LUM-1200 follow-up #4: reports merged in a later round join the posted thread', () => {
+  const OLD_FP = 'a1a1a1a1a1a1a1a1'
+  const NEW_FP = 'b2b2b2b2b2b2b2b2'
+  const relabelled: ReviewFindingRow = {
+    ...judge,
+    id: 'f-judge-r2',
+    title: 'Command string concatenation reaches a shell',
+    fingerprint: NEW_FP,
+  }
+  const hunt2: ReviewFindingRow = {
+    ...hunt,
+    id: 'f-hunt-2',
+    title: 'dir flows unsanitized into exec',
+    fingerprint: 'c3c3c3c3c3c3c3c3',
+  }
+  const hunt3: ReviewFindingRow = {
+    ...hunt,
+    id: 'f-hunt-3',
+    line: 6,
+    title: 'exec receives a string built from request input',
+    fingerprint: 'd4d4d4d4d4d4d4d4',
+  }
+  // Posted in round 1 under the old fingerprint, listing round 1's hunt report.
+  const postedBody = `**Lumo · LLM review · HIGH** — ${judge.title}\n\n${judge.detail}\n\nSame issue also reported by **Exploit paths** · HIGH — ${hunt.title}\n<!-- lumo-security:also:${HUNT_FP} -->\n\n${fingerprintMarker(OLD_FP)}`
+  const posted = {
+    id: 77,
+    node_id: 'n',
+    html_url: '',
+    body: postedBody,
+    updated_at: '',
+    user: bot,
+  }
+
+  beforeEach(() => {
+    reconcile.mockResolvedValue({
+      ...NO_THREADS,
+      carried: new Map([[NEW_FP, OLD_FP]]),
+      counts: { open: 1, addressed: 0, resolved: 0 },
+    })
+  })
+
+  it('appends the new reports to the posted comment, keeping its marker and earlier list', async () => {
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow([relabelled, hunt2, hunt3])
+    )
+    listReviewComments.mockResolvedValue([posted])
+    await securityPrReviewService.sync('s1')
+
+    expect(postedComments()).toHaveLength(0)
+    expect(updateReviewLineComment).toHaveBeenCalledTimes(1)
+    const [edit] = updateReviewLineComment.mock.calls[0]!
+    expect(edit.externalId).toBe('77')
+    expect(edit.body).toContain(`lumo-security:also:${HUNT_FP}`)
+    expect(edit.body).toContain(`lumo-security:also:${hunt2.fingerprint}`)
+    expect(edit.body).toContain(`lumo-security:also:${hunt3.fingerprint}`)
+    expect(edit.body).toContain(hunt2.title)
+    expect(edit.body.endsWith(fingerprintMarker(OLD_FP))).toBe(true)
+    expect(edit.body).not.toContain(fingerprintMarker(NEW_FP))
+  })
+
+  it('does not edit the comment when every merged report is listed already', async () => {
+    repo.findByIdForReview!.mockResolvedValue(scanRow([relabelled, hunt]))
+    listReviewComments.mockResolvedValue([posted])
+    await securityPrReviewService.sync('s1')
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+    expect(postedComments()).toHaveLength(0)
+  })
+
+  it('never edits a comment that is not Lumo’s own', async () => {
+    repo.findByIdForReview!.mockResolvedValue(scanRow([relabelled, hunt2]))
+    listReviewComments.mockResolvedValue([
+      { ...posted, user: { id: 5, type: 'User', login: 'someone' } },
+    ])
+    await securityPrReviewService.sync('s1')
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+})

@@ -1615,6 +1615,14 @@ async function listMergedInPostedThreads(input: {
   comments: ListedComment[]
   keptOnPr: string[]
   alsoReportedOf: (fp: string) => ReviewFindingRow[]
+  /**
+   * LUM-1200 follow-up #4 — the fingerprint whose marker a kept finding's
+   * thread carries: its own, or (relabelled since, `threads.carried`) the
+   * one the thread was posted under. Looking the comment up by the kept
+   * finding's new fingerprint found nothing, so reports merged in later
+   * rounds were never listed.
+   */
+  threadFingerprintOf: (fp: string) => string
   repo: { owner: string; name: string }
   token: string
   where: string
@@ -1622,18 +1630,21 @@ async function listMergedInPostedThreads(input: {
   for (const fp of input.keptOnPr) {
     const merged = input.alsoReportedOf(fp)
     if (merged.length === 0) continue
-    const marker = fingerprintMarker(fp)
-    const comment = input.comments
-      .filter(
-        c =>
-          isLumoBotComment(c) &&
-          !c.in_reply_to_id &&
-          c.body.includes(marker) &&
-          !isRetractedComment(c.body)
-      )
-      .sort((a, b) => b.id - a.id)[0]
+    const posted = (markerFp: string) =>
+      input.comments
+        .filter(
+          c =>
+            isLumoBotComment(c) &&
+            !c.in_reply_to_id &&
+            c.body.includes(fingerprintMarker(markerFp)) &&
+            !isRetractedComment(c.body)
+        )
+        .sort((a, b) => b.id - a.id)[0]
+    const threadFp = input.threadFingerprintOf(fp)
+    const markerFp = posted(threadFp) ? threadFp : fp
+    const comment = posted(markerFp)
     if (!comment) continue
-    const body = withAlsoReported(comment.body, fp, merged)
+    const body = withAlsoReported(comment.body, markerFp, merged)
     if (body === null) continue
     try {
       await prCommentClient.updateReviewLineComment({
@@ -2101,6 +2112,7 @@ export const securityPrReviewService = {
           fp => existing.has(fp) && openFps.has(fp)
         ),
         alsoReportedOf,
+        threadFingerprintOf: fp => threads.carried.get(fp) ?? fp,
         repo,
         token,
         where,
