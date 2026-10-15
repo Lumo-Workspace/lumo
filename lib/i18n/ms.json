@@ -2919,7 +2919,7 @@
   "securityScan.stageState.RATE_LIMITED": "had kadar dicapai — semakan automatik bersambung dalam sejam",
   "securityScan.stageReason.RATE_LIMITED": "Pengarang PR mencapai had sejam semakan AI automatik, jadi commit ini belum disemak sepenuhnya. Push seterusnya selepas had ditetapkan semula disemak secara automatik; minta semakan untuk menyemak commit ini sekarang.",
   "securityScan.stageState.IGNORED": "dilangkau — penerangan PR meminta Lumo mengabaikan PR ini",
-  "securityScan.stageReason.IGNORED": "Penerangan PR mengandungi arahan abaikan, jadi semakan AI automatik dilangkau pada commit ini. Semakan rahsia, pengimbas dan kebergantungan tetap dijalankan. Buang arahan itu daripada penerangan supaya push seterusnya disemak, atau minta semakan sekarang.",
+  "securityScan.stageReason.IGNORED": "Penerangan PR mengandungi arahan abaikan, jadi semakan AI automatik dilangkau pada commit ini. Semakan rahsia, pengimbas dan kebergantungan tidak terjejas. Buang arahan itu daripada penerangan supaya push seterusnya disemak, atau minta semakan sekarang.",
   "securityScan.review.roundsNoLimit": "Semakan AI automatik: {rounds} komit disemak · tidak pernah dijeda",
   "language.switcher.label": "Bahasa"
 }

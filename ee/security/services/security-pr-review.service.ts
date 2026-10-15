@@ -818,8 +818,8 @@ export function buildSummary(input: SummaryInput): string {
     if (isReviewIgnored(input.partialCauses))
       notices.push(
         h
-          ? `- Automatic AI review is skipped: this PR's description contains \`${h} ignore\`. Secret, scanner and dependency checks still ran. Remove it from the description to have the next push reviewed, or comment \`${h} review\` for a review now (CLI: \`${command}\`).`
-          : `- Automatic AI review is skipped: this PR's description asks Lumo to ignore it. Secret, scanner and dependency checks still ran. Remove that line from the description to have the next push reviewed, or request a review now with \`${command}\`.`
+          ? `- Automatic AI review is skipped: this PR's description contains \`${h} ignore\`. Secret, scanner and dependency checks are not affected. Remove it from the description to have the next push reviewed, or comment \`${h} review\` for a review now (CLI: \`${command}\`).`
+          : `- Automatic AI review is skipped: this PR's description asks Lumo to ignore it. Secret, scanner and dependency checks are not affected. Remove that line from the description to have the next push reviewed, or request a review now with \`${command}\`.`
       )
     // LUM-1137: over the hourly cap — the next push is reviewed anyway.
     else if (isReviewRateLimited(input.partialCauses))

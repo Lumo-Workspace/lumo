@@ -2919,7 +2919,7 @@
   "securityScan.stageState.RATE_LIMITED": "已限流 — 自動審查一小時內恢復",
   "securityScan.stageReason.RATE_LIMITED": "PR 作者已達到每小時自動 AI 審查的上限，此提交尚未完整審查。上限重置後的下一次推送會自動審查；如需現在檢查此提交，請請求審查。",
   "securityScan.stageState.IGNORED": "已略過 — PR 描述要求 Lumo 忽略此 PR",
-  "securityScan.stageReason.IGNORED": "PR 描述中包含忽略指令，因此此提交略過了自動 AI 檢查。金鑰、掃描器和相依性檢查仍已執行。從描述中移除該指令後，下一次推送會被審查；也可以現在請求審查。",
+  "securityScan.stageReason.IGNORED": "PR 描述中包含忽略指令，因此此提交略過了自動 AI 檢查。金鑰、掃描器和相依性檢查不受影響。從描述中移除該指令後，下一次推送會被審查；也可以現在請求審查。",
   "securityScan.review.roundsNoLimit": "自動 AI 審查：已審查 {rounds} 個提交 · 永不暫停",
   "language.switcher.label": "語言"
 }
