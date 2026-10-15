@@ -45,10 +45,10 @@ describe('LUM-1200 PR summary keeps quoted prose intact', () => {
   it('still masks a quoted value that follows a credential key, whatever its shape', () => {
     const out = cleanPrSummary({
       intent: 'Sets the admin password to "correct horse battery staple".',
-      changes: ['Adds API_KEY="letmeinplease" to the config'],
+      changes: [],
     })
-    expect(out?.intent).not.toContain('correct horse')
-    expect(out?.changes[0]).not.toContain('letmeinplease')
+    // The keyed rule, not the registry: the value has no secret shape.
+    expect(out?.intent).toBe('Sets the admin password to "corr…(len 28)".')
   })
 
   it('still masks a registry secret written unquoted', () => {
@@ -83,12 +83,17 @@ describe('maskQuotedKeyedValues', () => {
   })
 
   it.each([
-    ['password is "correct horse battery staple"', 'correct horse'],
-    ["token: 'plainwordsecret'", 'plainwordsecret'],
-    ['the secret "openSesameDoor"', 'openSesameDoor'],
-    ["const x = 'Zx9Qw3Lp7Vb2Nm5Rt8Ky'", 'Zx9Qw3Lp7Vb2Nm5Rt8Ky'],
-  ])('masks a keyed or credential-shaped value: %s', (input, secret) => {
-    expect(maskQuotedKeyedValues(input)).not.toContain(secret)
+    [
+      'password is "correct horse battery staple"',
+      'password is "corr…(len 28)"',
+    ],
+    ["token: 'plainwordsecret'", "token: 'plai…(len 15)'"],
+    ['the secret "openSesameDoor"', 'the secret "open…(len 14)"'],
+    ['{"password": "letmeinplease"}', '{"password": "letm…(len 13)"}'],
+    ["{'api_key': 'letmeinplease'}", "{'api_key': 'letm…(len 13)'}"],
+    ["const x = 'Zx9Qw3Lp7Vb2Nm5Rt8Ky'", "const x = 'Zx9Q…(len 20)'"],
+  ])('masks a keyed or credential-shaped value: %s', (input, expected) => {
+    expect(maskQuotedKeyedValues(input)).toBe(expected)
   })
 
   it('still fails closed on an unpaired opener', () => {

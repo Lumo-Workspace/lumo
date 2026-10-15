@@ -163,7 +163,7 @@ export function maskQuotedCredentials(text: string): string {
  *   (`isCredentialShapedToken`); or
  * - it FOLLOWS a credential key: the text right before the opening quote ends
  *   in credential vocabulary plus at most two connectors (`password is "…"`,
- *   `token: '…'`, `API_KEY="…"`, `the secret "…"`).
+ *   `token: '…'`, `API_KEY="…"`, `"password": "…"`, `the secret "…"`).
  * Residual, honestly named: a shapeless passphrase quoted further away from
  * its key (`the password, as before, is "…"`) is kept. Registry shapes are
  * redacted before this pass runs, as for the other two.
@@ -195,11 +195,12 @@ const CREDENTIAL_VOCAB_RE = new RegExp(`\\b${CREDENTIAL_VOCAB_SOURCE}\\b`)
 
 /**
  * LUM-1200 — credential vocabulary ending the text before an opening quote,
+ * optionally closed by its own quote (a JSON / dict key: `"password": "…"`),
  * followed by at most two connectors (`is`, `=`, `:`, `to` …) — the quote
  * then holds that credential's value. Matched on `normalizeVocab` output.
  */
 const CREDENTIAL_KEY_BEFORE_RE = new RegExp(
-  `\\b${CREDENTIAL_VOCAB_SOURCE}\\s*(?:(?:is|was|equals|of|to|as|=>|[=:,])\\s*){0,2}$`
+  `\\b${CREDENTIAL_VOCAB_SOURCE}["'\`]?\\s*(?:(?:is|was|equals|of|to|as|=>|[=:,])\\s*){0,2}$`
 )
 
 function normalizeVocab(text: string): string {
