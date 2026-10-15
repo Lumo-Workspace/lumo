@@ -13,12 +13,12 @@
  *   · `resolve` closes conversations only: it never dispositions a finding,
  *     and leaves the thread of a finding that blocks DONE open (those are
  *     cleared by `lumo finding disposition` or the web panel). The PR's own
- *     author may not `resolve` by command;
+ *     author may `resolve` and `approve` unless the workspace turned
+ *     LUM-1142's author approval off (CodeRabbit `allow_author_approval`);
  *   · LUM-1130 `approve` (the request-changes workflow only): resolves Lumo's
  *     threads and approves the PR's current head, dismissing Lumo's earlier
  *     change requests — refused while any finding blocks DONE (a thread
- *     resolved on GitHub does not clear it), and, like `resolve`, never for
- *     the PR's own author;
+ *     resolved on GitHub does not clear it);
  *   · a redelivered webhook is answered once: the reply carries a marker
  *     naming the command comment, and a marker already on the PR stops it.
  *     Best effort (check, then act): if the reply itself fails, a later
@@ -101,7 +101,7 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
     `- \`${handle} help\` — this list`,
     '',
-    'Only accounts with write access to the repository can run commands.',
+    'Only accounts with write access to the repository can run commands. The PR’s author can run `resolve` and `approve` too, unless the workspace turned author approval off.',
   ].join('\n')
 }
 
@@ -363,6 +363,28 @@ async function mintThreadToken(
   }
 }
 
+/**
+ * LUM-1142 — CodeRabbit's `reviews.allow_author_approval`: the PR's author
+ * may `resolve` / `approve` by command unless the workspace turned it off
+ * (default on). Off restores the LUM-1129/1130 rule: the author is refused,
+ * and `approve` fails closed when the author is unknown (it could be the
+ * asker). The setting is read only when the asker is (or may be) the author.
+ */
+async function authorRefused(
+  event: PrCommentEvent,
+  login: string,
+  command: 'resolve' | 'approve'
+): Promise<boolean> {
+  const author = event.prAuthorLogin
+  const asksAsAuthor = author
+    ? author.toLowerCase() === login.toLowerCase()
+    : command === 'approve'
+  if (!asksAsAuthor) return false
+  return !(await securityColumnsRepository.findAllowAuthorApproval(
+    event.workspaceId
+  ))
+}
+
 /** Runs one command; returns the reply body (without its marker). */
 async function run(
   event: PrCommentEvent,
@@ -371,23 +393,19 @@ async function run(
   handle: string,
   writeToken: string
 ): Promise<{ outcome: PrCommandOutcome; body: string }> {
-  const isAuthor =
-    !!event.prAuthorLogin &&
-    event.prAuthorLogin.toLowerCase() === login.toLowerCase()
   if (command === 'approve') {
-    // Fails closed: an unknown author could be the asker.
-    if (isAuthor || !event.prAuthorLogin)
+    if (await authorRefused(event, login, command))
       return {
         outcome: 'refused_author',
-        body: `🚫 The PR's author can't approve by command — a reviewer with write access can run \`${handle} approve\`.`,
+        body: `🚫 The PR's author can't approve by command in this workspace — a reviewer with write access can run \`${handle} approve\`.`,
       }
     return approve(event, login, handle, writeToken)
   }
   if (command === 'resolve') {
-    if (isAuthor)
+    if (await authorRefused(event, login, command))
       return {
         outcome: 'refused_author',
-        body: `🚫 The PR's author can't resolve Lumo's threads by command — a reviewer with write access can run \`${handle} resolve\`, or resolve a thread on GitHub after addressing it.`,
+        body: `🚫 The PR's author can't resolve Lumo's threads by command in this workspace — a reviewer with write access can run \`${handle} resolve\`, or resolve a thread on GitHub after addressing it.`,
       }
     const keep = await blockingFingerprints(
       event.pullRequestId,

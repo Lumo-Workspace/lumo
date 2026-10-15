@@ -1712,7 +1712,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1723,6 +1723,10 @@ workspaceCmd
   .option(
     '--request-changes <on|off>',
     'Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean'
+  )
+  .option(
+    '--allow-author-approval <on|off>',
+    'PR authors may run `@uselumo resolve` / `approve` on their own PR (default on; CodeRabbit allow_author_approval); off = only other write-access accounts'
   )
   .option(
     '--learnings-scope <local|global|auto>',

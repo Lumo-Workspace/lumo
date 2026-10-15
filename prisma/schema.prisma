@@ -462,6 +462,10 @@ model Workspace {
   // open, and Lumo approves once the latest head's complete review leaves
   // nothing open.
   securityRequestChangesEnabled Boolean @default(false)
+  // LUM-1142: CodeRabbit's `reviews.allow_author_approval`. On by default:
+  // the PR's author may `@uselumo resolve` / `approve` their own PR; off,
+  // only other write-access accounts may.
+  securityAllowAuthorApproval Boolean @default(true)
   // LUM-1134: which repositories' PR-review learnings (LUM-1131) the AI
   // review reads — CodeRabbit's `knowledge_base.learnings.scope`. "local" =
   // the reviewed repository only; "global" = every repository of this

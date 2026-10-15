@@ -2431,6 +2431,8 @@
   "workspaceSettings.securityScan.hunt.description": "For risky changes, an AI agent explores the code in an isolated sandbox to confirm whether a finding can actually be exploited.",
   "workspaceSettings.securityScan.requestChanges.label": "Request changes until resolved",
   "workspaceSettings.securityScan.requestChanges.description": "Lumo's review shows “Changes requested” while a Lumo review thread or a finding that blocks Done is open, and Lumo approves the PR once its complete review of the latest commit leaves nothing open. Off by default.",
+  "workspaceSettings.securityScan.allowAuthorApproval.label": "PR authors may resolve and approve by command",
+  "workspaceSettings.securityScan.allowAuthorApproval.description": "The PR's author can run `@uselumo resolve` and `@uselumo approve` on their own PR, like any reviewer with write access. Off: only other accounts with write access can. On by default.",
   "workspaceSettings.securityScan.platformOff": "Currently turned off for all workspaces by Lumo.",
   "workspaceSettings.securityScan.updated": "Security scan settings saved",
   "workspaceSettings.securityScan.updateFailed": "Failed to save security scan settings",

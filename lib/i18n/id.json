@@ -2431,6 +2431,8 @@
   "workspaceSettings.securityScan.hunt.description": "Untuk perubahan berisiko, agen AI menelusuri kode di sandbox terisolasi untuk memastikan apakah sebuah temuan benar-benar dapat dieksploitasi.",
   "workspaceSettings.securityScan.requestChanges.label": "Minta perubahan sampai terselesaikan",
   "workspaceSettings.securityScan.requestChanges.description": "Ulasan Lumo menampilkan “Perubahan diminta” selama masih ada utas ulasan Lumo atau temuan yang memblokir Done yang terbuka, dan Lumo menyetujui PR setelah ulasan lengkapnya atas commit terbaru tidak menyisakan apa pun yang terbuka. Nonaktif secara default.",
+  "workspaceSettings.securityScan.allowAuthorApproval.label": "Penulis PR boleh menyelesaikan dan menyetujui lewat perintah",
+  "workspaceSettings.securityScan.allowAuthorApproval.description": "Penulis PR dapat menjalankan `@uselumo resolve` dan `@uselumo approve` di PR miliknya sendiri, seperti peninjau mana pun dengan akses tulis. Nonaktif: hanya akun lain dengan akses tulis yang bisa. Aktif secara default.",
   "workspaceSettings.securityScan.platformOff": "Saat ini dimatikan oleh Lumo untuk semua workspace.",
   "workspaceSettings.securityScan.updated": "Pengaturan pemindaian keamanan disimpan",
   "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan pengaturan pemindaian keamanan",

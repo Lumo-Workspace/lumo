@@ -168,6 +168,42 @@ describe('LUM-1130 request-changes workflow setting', () => {
   })
 })
 
+describe('LUM-1142 author approval setting', () => {
+  it('passes the switch through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityAllowAuthorApproval: false })
+    ).toMatchObject({ securityAllowAuthorApproval: false })
+    expect(switchesForUpdate({ all: false })).not.toHaveProperty(
+      'securityAllowAuthorApproval'
+    )
+  })
+  it('reads ON by default and as stored', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityAllowAuthorApproval
+    ).toBe(true)
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      ...ALL_OFF,
+      securityAllowAuthorApproval: false,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityAllowAuthorApproval
+    ).toBe(false)
+  })
+  it('a MEMBER cannot change it (403, nothing written)', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        securityAllowAuthorApproval: false,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
+  })
+})
+
 describe('LUM-1134 learnings scope setting', () => {
   it('passes the scope through and `all` never touches it', () => {
     expect(

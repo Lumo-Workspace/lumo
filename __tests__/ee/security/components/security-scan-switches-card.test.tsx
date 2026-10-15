@@ -37,6 +37,7 @@ const ALL_ON = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
+  securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,
   securityReviewAutoPauseAfter: 5,
 }
@@ -67,6 +68,7 @@ beforeEach(() => {
             securityAiReviewEnabled: u.all,
             securityHuntEnabled: u.all,
             securityRequestChangesEnabled: false,
+            securityAllowAuthorApproval: true,
             securityLearningsScope: 'auto' as const,
             securityReviewAutoPauseAfter: 5,
           }
@@ -110,6 +112,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
         securityRequestChangesEnabled: false,
+        securityAllowAuthorApproval: true,
         securityLearningsScope: 'auto',
         securityReviewAutoPauseAfter: 5,
       })
@@ -136,6 +139,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
       securityAiReviewEnabled: false,
       securityHuntEnabled: false,
       securityRequestChangesEnabled: false,
+      securityAllowAuthorApproval: true,
       securityLearningsScope: 'auto',
       securityReviewAutoPauseAfter: 5,
     })
@@ -202,6 +206,30 @@ describe('LUM-1130 request-changes workflow switch', () => {
 
   it('disable all leaves it as it is (it is not a layer)', async () => {
     renderCard({ ...ALL_ON, securityRequestChangesEnabled: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
+    )
+  })
+})
+
+describe('LUM-1142 author approval switch', () => {
+  const aa = () => toggle('PR authors may resolve and approve by command')
+
+  it('is on by default and an OWNER turns it off with Save', async () => {
+    renderCard()
+    expect(aa()).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(aa())
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityAllowAuthorApproval: false })
+      )
+    )
+  })
+
+  it('disable all leaves it as it is', async () => {
+    renderCard()
     fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
     await waitFor(() =>
       expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })

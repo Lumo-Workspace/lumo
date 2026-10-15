@@ -37,6 +37,8 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    // LUM-1142: CodeRabbit's allow_author_approval (default on).
+    findAllowAuthorApproval: jest.fn().mockResolvedValue(true),
   },
 }))
 jest.mock('@/ee/security/repositories/pr-finding-thread.repository', () => ({
@@ -73,6 +75,7 @@ import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
 import { isBlockingFinding } from '@/ee/security/services/pr-security-scan-gate'
 import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
+import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const act = prReviewControlService.act as jest.Mock
 const access = checkRepositoryWriteAccess as jest.Mock
@@ -83,6 +86,8 @@ const listThreads = reviewThreadClient.listReviewThreads as jest.Mock
 const findRows = prFindingThreadRepository.findByPullRequest as jest.Mock
 const updateRow = prFindingThreadRepository.update as jest.Mock
 const latest = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
+const allowAuthor =
+  securityColumnsRepository.findAllowAuthorApproval as jest.Mock
 
 const OLD_SLUG = process.env.GITHUB_APP_SLUG
 
@@ -122,6 +127,7 @@ beforeEach(() => {
       perms === REPO_TOKEN_PERMISSIONS.collaboratorPermission ? 'meta' : 'write'
   )
   access.mockResolvedValue('write')
+  allowAuthor.mockResolvedValue(true)
   act.mockResolvedValue({ queued: true })
   listSince.mockResolvedValue([])
 })
@@ -479,7 +485,33 @@ describe('resolve', () => {
     )
   })
 
-  it("is refused for the PR's author by default", async () => {
+  // LUM-1142: CodeRabbit parity — the PR's author may resolve by command
+  // unless the workspace turned `allow_author_approval` off.
+  it("the PR's author may resolve by default: non-blocking threads resolve, the blocking one stays open", async () => {
+    await expect(
+      applyPrCommentCommand(
+        event('@uselumo resolve', { user: { login: 'Bob', type: 'User' } })
+      )
+    ).resolves.toBe('done')
+    expect(allowAuthor).toHaveBeenCalledWith('w1')
+    expect(resolveThread).toHaveBeenCalledTimes(1)
+    expect(resolveThread).toHaveBeenCalledWith({
+      threadId: 'T-fpLow',
+      token: 'write',
+    })
+    expect(updateRow).toHaveBeenCalledWith(
+      'row-fpLow',
+      expect.objectContaining({
+        state: 'RESOLVED_BY_USER',
+        resolvedByLogin: 'Bob',
+      })
+    )
+    expect(prSecurityScanRepository.updateDisposition).not.toHaveBeenCalled()
+    expect(replyBody()).toContain('Left 1 thread open')
+  })
+
+  it("author approval turned off ⇒ the PR's author is refused, nothing resolved", async () => {
+    allowAuthor.mockResolvedValue(false)
     await expect(
       applyPrCommentCommand(
         event('@uselumo resolve', { user: { login: 'Bob', type: 'User' } })
@@ -488,6 +520,25 @@ describe('resolve', () => {
     expect(resolveThread).not.toHaveBeenCalled()
     expect(updateRow).not.toHaveBeenCalled()
     expect(replyBody()).toContain("PR's author can't resolve")
+  })
+
+  it('a non-author never reads the author setting', async () => {
+    allowAuthor.mockResolvedValue(false)
+    await expect(
+      applyPrCommentCommand(event('@uselumo resolve'))
+    ).resolves.toBe('done')
+    expect(allowAuthor).not.toHaveBeenCalled()
+  })
+
+  it('an author without write access is still ignored silently', async () => {
+    access.mockResolvedValue('read')
+    await expect(
+      applyPrCommentCommand(
+        event('@uselumo resolve', { user: { login: 'bob', type: 'User' } })
+      )
+    ).resolves.toBe('unauthorized')
+    expect(resolveThread).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
   })
 
   it('the PR author may still use the other commands', async () => {
