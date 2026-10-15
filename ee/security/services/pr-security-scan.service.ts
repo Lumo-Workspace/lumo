@@ -110,6 +110,7 @@ import { REPO_CONFIG_FIELDS } from '@/ee/security/security-scan/repo-config'
 import type { RepoConfigFile } from '@/ee/security/validation/repo-config'
 import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
 import { DEFAULT_REVIEW_PROFILE } from '@/ee/security/security-scan/review-profile'
+import { prWholeSummaryService } from './pr-whole-summary.service'
 import {
   DEFAULT_HIGH_LEVEL_SUMMARY,
   parseHighLevelSummary,
@@ -1189,6 +1190,9 @@ export const prSecurityScanService = {
       let reviewDiff = diff
       // Paths whose PR-diff sections the judge reviews; null = the whole diff.
       let reviewScope: Set<string> | null = null
+      // LUM-1151: the AI review reads only the files changed since its last
+      // complete review — its own summary would describe that slice.
+      let incrementalSlice = false
       if (reviewAllowed && input.reviewMode !== 'full') {
         const baseline = await prReviewControlRepository.baseline(pr.id, scanId)
         if (baseline) {
@@ -1200,7 +1204,10 @@ export const prSecurityScanService = {
               head: headSha,
             })
             reviewDiff = affectedReviewDiff(diff, paths)
-            if (reviewDiff !== diff) reviewScope = new Set(paths)
+            if (reviewDiff !== diff) {
+              reviewScope = new Set(paths)
+              incrementalSlice = true
+            }
           } catch {
             logger.info(
               `[pr-security-scan] incremental baseline unavailable pr=${pr.id}: full review`
@@ -1227,6 +1234,22 @@ export const prSecurityScanService = {
       }
       const reviewFiles = addedLinesWithNumbers(reviewDiff)
       const huntFiles = files.filter(f => isReviewable(f.path))
+      // LUM-1151 (user ruling) — the high-level summary always describes
+      // the WHOLE PR: an incremental review gets a separate, budgeted
+      // summary-only call over the whole reviewable diff, alongside the
+      // review. Never rejects; a full review keeps the AI review's own.
+      const wholeSummary: Promise<PrSummary | null> | null = incrementalSlice
+        ? prWholeSummaryService.summarize({
+            pullRequestId: pr.id,
+            scanId,
+            diff,
+            isReviewable,
+            tone: renderToneInstructions(
+              reviewSettings.toneInstructions,
+              guardPromptLineText
+            ),
+          })
+        : null
       // LUM-1148 — the pre-merge checks run alongside the review, on every
       // head the AI review is allowed to read (the whole PR diff, not the
       // incremental scope). Never rejects; awaited before the result lands.
@@ -1844,6 +1867,8 @@ export const prSecurityScanService = {
 
       // LUM-1148: the checks' results are on the row before the write-back.
       await preMergeChecks
+      // LUM-1151: an incremental slice's summary never reaches the PR.
+      if (wholeSummary) prSummary = await wholeSummary
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions(

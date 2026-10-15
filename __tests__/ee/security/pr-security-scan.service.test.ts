@@ -28,6 +28,13 @@ jest.mock('@/lib/integrations/github/contents', () => ({
 jest.mock('@/ee/security/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
 }))
+// LUM-1151: an incremental review's whole-PR summary call (own suite:
+// lum1151-whole-pr-summary.test.ts).
+jest.mock('@/ee/security/llm/pr-summary-client', () => ({
+  summarizeWholePr: jest
+    .fn()
+    .mockResolvedValue({ intent: 'Whole PR.', changes: [] }),
+}))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByPrAndSha: jest.fn(),

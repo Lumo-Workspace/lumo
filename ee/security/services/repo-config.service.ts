@@ -18,6 +18,11 @@
 async function github() {
   return import('@/lib/integrations/github/contents')
 }
+import {
+  DEFAULT_HIGH_LEVEL_SUMMARY,
+  parseHighLevelSummary,
+  type HighLevelSummaryMode,
+} from '@/ee/security/security-scan/pr-description-summary'
 import { logger } from '@/lib/logger'
 import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
 import { REPO_CONFIG_PATH } from '@/ee/security/validation/repo-config'
@@ -230,6 +235,53 @@ export const repoConfigService = {
     } catch (error) {
       logger.warn(
         `[repo-config] PR base unavailable for tone ${input.repo}#${input.prNumber}: ${describe(error)}`
+      )
+    }
+    return stored
+  },
+
+  /**
+   * LUM-1151 — where the high-level summary goes for this PR NOW (for
+   * `@<app> summary`): `reviews.high_level_summary` from `.lumo.yaml` on
+   * the PR's base commit, else the repository's stored setting, else the
+   * default. Never throws (any failure = the stored setting, or default).
+   */
+  async highLevelSummaryForPullRequest(input: {
+    workspaceId: string
+    repo: string
+    prNumber: number
+  }): Promise<HighLevelSummaryMode> {
+    let stored: HighLevelSummaryMode = DEFAULT_HIGH_LEVEL_SUMMARY
+    try {
+      const style = await repoReviewSettingRepository.findReviewStyle(
+        input.workspaceId,
+        input.repo.toLowerCase()
+      )
+      if (style) stored = parseHighLevelSummary(style.highLevelSummary)
+    } catch (error) {
+      logger.warn(
+        `[repo-config] stored summary setting unavailable repo=${input.repo}: ${describe(error)}`
+      )
+    }
+    try {
+      const { fetchPrBase } = await github()
+      const base = await fetchPrBase({
+        workspaceId: input.workspaceId,
+        fullName: input.repo,
+        prNumber: input.prNumber,
+      })
+      const load = await repoConfigService.loadAt({
+        workspaceId: input.workspaceId,
+        repo: input.repo,
+        sha: base.sha,
+      })
+      if (load.status === 'loaded') {
+        const fromFile = REPO_CONFIG_FIELDS.highLevelSummary.read(load.config)
+        if (fromFile !== undefined) return fromFile
+      }
+    } catch (error) {
+      logger.warn(
+        `[repo-config] PR base unavailable for the summary setting ${input.repo}#${input.prNumber}: ${describe(error)}`
       )
     }
     return stored

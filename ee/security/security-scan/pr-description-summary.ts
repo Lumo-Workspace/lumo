@@ -65,13 +65,20 @@ export function buildDescriptionSummaryBlock(input: {
 }): string | null {
   const summary = input.prSummary
   if (!summary) return null
-  const sha = input.headSha.slice(0, 7)
-  const commit = input.commitUrl ? `[${sha}](${input.commitUrl})` : sha
+  const head = input.headSha.slice(0, 7)
   const parts = ['### Summary by Lumo', summary.intent]
   if (summary.changes.length > 0)
     parts.push(summary.changes.map(c => `- ${c}`).join('\n'))
+  // An earlier review's summary, kept because it could not be refreshed
+  // (LUM-1151): said as such, never passed off as this commit's.
+  const stale =
+    summary.describesSha &&
+    !input.headSha.startsWith(summary.describesSha) &&
+    !summary.describesSha.startsWith(input.headSha)
   parts.push(
-    `<sub>Written by Lumo for ${commit} and refreshed on every review — edit outside this section.</sub>`
+    stale
+      ? `<sub>Written by Lumo for ${summary.describesSha!.slice(0, 7)}; Lumo could not refresh it for ${head} and will on the next review — edit outside this section.</sub>`
+      : `<sub>Written by Lumo for ${input.commitUrl ? `[${head}](${input.commitUrl})` : head} and refreshed on every review — edit outside this section.</sub>`
   )
   return [
     DESCRIPTION_SUMMARY_START,

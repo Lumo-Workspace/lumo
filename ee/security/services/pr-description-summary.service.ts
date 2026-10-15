@@ -25,11 +25,11 @@ import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security
 import {
   applyDescriptionSummary,
   buildDescriptionSummaryBlock,
-  parseHighLevelSummary,
   type HighLevelSummaryMode,
 } from '@/ee/security/security-scan/pr-description-summary'
 import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
 import { parsePrSummary } from '@/ee/security/security-scan/pr-summary'
+import { repoConfigService } from '@/ee/security/services/repo-config.service'
 
 export type DescriptionSyncOutcome =
   | 'written'
@@ -115,6 +115,7 @@ export const prDescriptionSummaryService = {
    * summary; no new AI review is run.
    */
   async regenerate(input: {
+    workspaceId: string
     pullRequestId: string
     repo: Repo
     prNumber: number
@@ -124,9 +125,14 @@ export const prDescriptionSummaryService = {
       input.pullRequestId
     )
     if (!scan) return { kind: 'no_review' }
-    const mode: HighLevelSummaryMode = parseHighLevelSummary(
-      scan.highLevelSummary
-    )
+    // The setting as it is NOW (the owner may have changed it since the
+    // scan ran), not the one stored on the scan.
+    const mode: HighLevelSummaryMode =
+      await repoConfigService.highLevelSummaryForPullRequest({
+        workspaceId: input.workspaceId,
+        repo: `${input.repo.owner}/${input.repo.name}`,
+        prNumber: input.prNumber,
+      })
     if (mode === 'off') return { kind: 'off' }
     if (mode === 'comment') return { kind: 'comment' }
     const outcome = await prDescriptionSummaryService.sync({

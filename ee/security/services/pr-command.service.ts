@@ -620,6 +620,7 @@ async function run(
     const { prDescriptionSummaryService, buildSummaryCommandReply } =
       await import('@/ee/security/services/pr-description-summary.service')
     const result = await prDescriptionSummaryService.regenerate({
+      workspaceId: event.workspaceId,
       pullRequestId: event.pullRequestId,
       repo: parseRepo(event.repo),
       prNumber: event.prNumber,

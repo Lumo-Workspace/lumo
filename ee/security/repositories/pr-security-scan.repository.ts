@@ -2399,6 +2399,25 @@ export const prSecurityScanRepository = {
     })
   },
 
+  /**
+   * LUM-1151 — the newest OTHER scan of the PR that carries a summary: what
+   * an incremental review keeps when its whole-PR summary cannot be made.
+   */
+  async findPreviousPrSummary(
+    pullRequestId: string,
+    excludeScanId: string
+  ): Promise<{ headSha: string; prSummary: unknown } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: {
+        pullRequestId,
+        id: { not: excludeScanId },
+        prSummary: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      select: { headSha: true, prSummary: true },
+    })
+  },
+
   async setSummaryCommentId(
     scanId: string,
     summaryCommentId: string

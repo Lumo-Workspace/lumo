@@ -839,7 +839,20 @@ function summaryBlocks(input: SummaryInput): string[] {
     return parsePrSummary(input.prSummary)
       ? ['_Summary of the changes: in the PR description._']
       : []
-  return intentBlocks(input.prSummary)
+  return [...intentBlocks(input.prSummary), ...staleSummaryLine(input)]
+}
+
+/**
+ * LUM-1151 — the summary is an earlier review's, kept because the whole-PR
+ * summary could not be refreshed for this commit: say so.
+ */
+function staleSummaryLine(input: SummaryInput): string[] {
+  const sha = parsePrSummary(input.prSummary)?.describesSha
+  if (!sha || input.headSha.startsWith(sha) || sha.startsWith(input.headSha))
+    return []
+  return [
+    `_Summary of the PR as of \`${sha.slice(0, 7)}\`; Lumo could not refresh it for \`${input.headSha.slice(0, 7)}\` and will on the next review._`,
+  ]
 }
 
 /**

@@ -74,6 +74,11 @@ settings mean in Lumo (the settings card and `lumo workspace security-scan
   the author put a line holding only `@uselumo summary`, or at the end of the
   description. Each review rewrites that section only; the author's own text is
   never changed. `@uselumo summary` on the PR rewrites it on request.
+  The summary always describes the whole PR: on an incremental review Lumo
+  makes a separate summary-only call over the whole PR diff (secrets masked,
+  capped; over the cap, the changed-file list and the previous summary), and
+  if that fails it keeps the previous summary and says which commit it
+  describes.
 - `comment`: the summary stays in Lumo's summary comment; the description is
   never edited.
 - `off` (or `false`): no summary anywhere.

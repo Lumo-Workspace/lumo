@@ -256,6 +256,52 @@ describe('LUM-1151 high-level summary on the write-back', () => {
   })
 })
 
+describe('LUM-1151 ruling — whole-PR summary and walkthrough on an incremental review', () => {
+  it('the walkthrough lists every file of the PR, not the incremental slice', async () => {
+    findById.mockResolvedValue(scanRow({ judgeReviewScope: ['src/sender.ts'] }))
+    await securityPrReviewService.syncReview('s1')
+    expect(listFiles).toHaveBeenCalledWith(
+      expect.objectContaining({ prNumber: 9 })
+    )
+    expect(commentBody()).toContain('`src/new-name.ts`')
+  })
+
+  it('a kept earlier summary says which commit it describes, in the description and the comment', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        highLevelSummary: 'comment',
+        prSummary: {
+          intent: 'Adds a retry to the webhook sender.',
+          changes: [],
+          describesSha: SHA2,
+        },
+      })
+    )
+    await securityPrReviewService.syncReview('s1')
+    expect(commentBody()).toContain('1234567')
+    expect(commentBody()).toMatch(/could not refresh it for `abcdef1`/)
+
+    jest.clearAllMocks()
+    createIssue.mockResolvedValue({ id: 1 })
+    getBody.mockResolvedValue({ body: 'Text', state: 'open' })
+    ;(getRepoToken as jest.Mock).mockResolvedValue('tok')
+    ;(prCommentClient.listIssueComments as jest.Mock).mockResolvedValue([])
+    ;(prCommentClient.listReviewComments as jest.Mock).mockResolvedValue([])
+    findById.mockResolvedValue(
+      scanRow({
+        prSummary: {
+          intent: 'Adds a retry to the webhook sender.',
+          changes: [],
+          describesSha: SHA2,
+        },
+      })
+    )
+    await securityPrReviewService.syncReview('s1')
+    expect(writtenBody()).toContain('1234567')
+    expect(writtenBody()).toMatch(/could not refresh it for abcdef1/)
+  })
+})
+
 describe('buildSummary — callers that do not say keep the summary in the comment', () => {
   it('defaults to the comment (as before LUM-1151)', () => {
     const body = buildSummary({

@@ -31,6 +31,12 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
     findLatestByPullRequestIds: jest.fn().mockResolvedValue([]),
   },
 }))
+// LUM-1151 ruling: the command reads the CURRENT setting, live.
+jest.mock('@/ee/security/services/repo-config.service', () => ({
+  repoConfigService: {
+    highLevelSummaryForPullRequest: jest.fn(),
+  },
+}))
 jest.mock('@/ee/security/services/pr-review-control.service', () => ({
   prReviewControlService: { act: jest.fn() },
 }))
@@ -66,12 +72,15 @@ import {
   prCommentClient,
 } from '@/lib/integrations/github/pr-comment-client'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { repoConfigService } from '@/ee/security/services/repo-config.service'
 
 const getBody = prCommentClient.getPullRequestBody as jest.Mock
 const updateBody = prCommentClient.updatePullRequestBody as jest.Mock
 const reply = prCommentClient.createIssueComment as jest.Mock
 const latest =
   prSecurityScanRepository.findLatestSummaryByPullRequest as jest.Mock
+const currentMode =
+  repoConfigService.highLevelSummaryForPullRequest as jest.Mock
 
 const SHA = 'abcdef1234567890abcdef1234567890abcdef12'
 const SUMMARY = { intent: 'Adds a retry to the webhook sender.', changes: [] }
@@ -110,6 +119,7 @@ beforeEach(() => {
   ;(checkRepositoryWriteAccess as jest.Mock).mockResolvedValue('write')
   getBody.mockResolvedValue({ body: 'Author text.', state: 'open' })
   updateBody.mockResolvedValue(undefined)
+  currentMode.mockResolvedValue('description')
   latest.mockResolvedValue({
     id: 's1',
     headSha: SHA,
@@ -226,29 +236,39 @@ describe('@uselumo summary', () => {
     expect(written()).toContain(SUMMARY.intent)
   })
 
-  it('does not touch the description when the setting is off or comment', async () => {
-    latest.mockResolvedValueOnce({
-      id: 's1',
-      headSha: SHA,
-      prSummary: SUMMARY,
-      highLevelSummary: 'off',
-    })
+  it('does not touch the description when the CURRENT setting is off or comment', async () => {
+    currentMode.mockResolvedValueOnce('off')
     await expect(
       applyPrCommentCommand(event('@uselumo summary'))
     ).resolves.toBe('refused_mode_off')
     expect(replyBody()).toContain('turned off for this repository')
-    latest.mockResolvedValueOnce({
-      id: 's1',
-      headSha: SHA,
-      prSummary: SUMMARY,
-      highLevelSummary: 'comment',
-    })
+    currentMode.mockResolvedValueOnce('comment')
     await applyPrCommentCommand({
       ...event('@uselumo summary'),
       comment: { ...event('').comment, id: 556, body: '@uselumo summary' },
     })
     expect(getBody).not.toHaveBeenCalled()
     expect(updateBody).not.toHaveBeenCalled()
+  })
+
+  it('follows the current setting, not the one stored on the latest scan', async () => {
+    // The scan ran while the summary was off; the owner turned it on since.
+    latest.mockResolvedValue({
+      id: 's1',
+      headSha: SHA,
+      prSummary: SUMMARY,
+      highLevelSummary: 'off',
+    })
+    currentMode.mockResolvedValue('description')
+    await expect(
+      applyPrCommentCommand(event('@uselumo summary'))
+    ).resolves.toBe('done')
+    expect(written()).toContain(SUMMARY.intent)
+    expect(currentMode).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      repo: 'acme/app',
+      prNumber: 9,
+    })
   })
 
   it('answers when there is no review or no summary yet', async () => {

@@ -20,6 +20,12 @@ export interface PrSummary {
   intent: string
   /** At most `PR_SUMMARY_MAX_CHANGES` short bullets. */
   changes: string[]
+  /**
+   * LUM-1151 — set when the summary is an earlier review's, kept because it
+   * could not be refreshed: the commit it describes. Absent = the scan's own
+   * head.
+   */
+  describesSha?: string
 }
 
 export const PR_SUMMARY_MAX_CHANGES = 3
@@ -78,14 +84,24 @@ function cleanText(raw: unknown, maxChars: number): string | null {
 /** Redacted, neutralised and capped, or null when nothing usable is left. */
 export function cleanPrSummary(raw: unknown): PrSummary | null {
   if (!raw || typeof raw !== 'object') return null
-  const r = raw as { intent?: unknown; changes?: unknown }
+  const r = raw as {
+    intent?: unknown
+    changes?: unknown
+    describesSha?: unknown
+  }
   const intent = cleanText(r.intent, PR_SUMMARY_INTENT_MAX_CHARS)
   if (!intent) return null
   const changes = (Array.isArray(r.changes) ? r.changes : [])
     .map(c => cleanText(c, PR_SUMMARY_CHANGE_MAX_CHARS))
     .filter((c): c is string => c !== null)
     .slice(0, PR_SUMMARY_MAX_CHANGES)
-  return { intent, changes }
+  // LUM-1151: only a commit sha — anything else is dropped.
+  const sha =
+    typeof r.describesSha === 'string' &&
+    /^[0-9a-f]{7,40}$/i.test(r.describesSha)
+      ? r.describesSha
+      : null
+  return sha ? { intent, changes, describesSha: sha } : { intent, changes }
 }
 
 /** The stored Json column, read back through the same pass. */

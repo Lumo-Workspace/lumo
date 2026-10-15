@@ -134,8 +134,9 @@ lumo workspace security-scan --repo acme/app --summary off
 ```
 
 - `--summary <description|comment|off>` (OWNER, no confirmation, audited; web card: **Review style → High-level summary**): where the AI review's summary of each PR goes. `description` (default) writes it into the PR **description** inside a Lumo section (`<!-- lumo:summary:start -->` … `<!-- lumo:summary:end -->`): at a line holding only `@uselumo summary` if the author put one there, else appended; every later review rewrites that section only — the author's own text is never changed, and the description is read right before each edit so concurrent edits are kept. The summary comment then points to the description (if the edit fails, the comment shows the summary as before). `comment` = only in Lumo's summary comment, description never edited. `off` = nowhere (an existing section is left as it is).
-- The setting in force is stored on each scan, so a change applies from the next review. `.lumo.yaml` key `reviews.high_level_summary` (`description` / `comment` / `off`, or `true` / `false`) overrides it (base commit only).
-- `@uselumo summary` on the PR rewrites the section from the latest review (no new AI review). The summary comment's folded **Walkthrough** lists the PR's changed files (status, +/− lines; first 50 named).
+- The summary always describes the **whole PR** (base…head). An incremental review (only files changed since Lumo's last complete review) gets one extra summary-only model call over the whole PR diff (MEMORY_JUDGE tier, secrets masked, ≤40k characters; over that, the file list plus the previous summary); if that call fails, the previous summary stays and says which commit it describes.
+- The setting in force is stored on each scan, so a change applies from the next review (`@uselumo summary` reads the current setting). `.lumo.yaml` key `reviews.high_level_summary` (`description` / `comment` / `off`, or `true` / `false`) overrides it (base commit only).
+- `@uselumo summary` on the PR rewrites the section from the latest review's summary (no new AI review), following the repository's current setting. The summary comment's folded **Walkthrough** lists the PR's changed files (status, +/− lines; first 50 named).
 - `--repo X` prints `high-level summary:`; `--json` adds `highLevelSummary`.
 
 ### When to suggest `workspace security-scan`
