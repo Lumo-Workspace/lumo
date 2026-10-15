@@ -222,12 +222,12 @@ export function scanFields(
       const sub: string[] = []
       // LUM-1156: a size-capped partial review is a limit on the change,
       // told as the PR summary tells it — never "not covered … yet".
-      if (extras.truncated)
+      if (s.judgePartial)
         sub.push(
-          s.judgePartial
-            ? `over the size limit — reviewed ${fmtCount(s.judgePartial.reviewedFiles)} of ${fmtCount(s.judgePartial.totalFiles)} reviewable files`
-            : 'AI review has not covered every file yet'
+          `over the size limit — reviewed ${fmtCount(s.judgePartial.reviewedFiles)} of ${fmtCount(s.judgePartial.totalFiles)} reviewable files`
         )
+      else if (extras.truncated)
+        sub.push('AI review has not covered every file yet')
       if (extras.judgeBudget !== undefined)
         sub.push(formatJudgeBudgetLine(extras.judgeBudget, s.judgePartial))
       if (sub.length > 0) f.sub = sub

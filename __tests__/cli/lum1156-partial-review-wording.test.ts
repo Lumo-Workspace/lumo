@@ -57,7 +57,7 @@ describe('LUM-1156 partial review wording', () => {
     )
   })
 
-  it('budget line under the char limit (over by file count) omits "over by"', () => {
+  it('budget line for a diff under the char limit (over on file count) omits "over by"', () => {
     expect(
       formatJudgeBudgetLine(
         {
@@ -72,6 +72,23 @@ describe('LUM-1156 partial review wording', () => {
     ).toBe(
       'AI review budget: diff 90,000 chars · size limit 180,000 chars, 150 files · reviewed 150 of 160 files, 10 left out for size (11.1% of the diff)'
     )
+  })
+
+  it('the size-limit row does not depend on the truncated flag', () => {
+    const fields = scanFields(
+      {
+        stages: { judge: 'PARTIAL' },
+        partial: true,
+        partialCauses: ['JUDGE_PARTIAL_OVER_CAP'],
+        judgePartial: PARTIAL,
+        externalFindings: 0,
+        externalFailureReason: null,
+      },
+      { truncated: false }
+    )
+    expect(fields.find(f => f.label === 'AI review')?.sub).toEqual([
+      'over the size limit — reviewed 3 of 4 reviewable files',
+    ])
   })
 
   it('without a partial record the tier line is unchanged (truncation of ours still says so)', () => {
