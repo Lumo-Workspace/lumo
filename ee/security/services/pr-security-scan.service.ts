@@ -49,6 +49,7 @@ import {
 } from '@/lib/integrations/github/contents'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 import { isPrReviewIgnored } from './pr-ignore-directive'
+import { startDeferredManualReview } from './security-deferred-review-start'
 import { autoReviewAdmissionService } from '@/ee/security/services/auto-review-admission.service'
 import {
   DEFAULT_AUTO_PAUSE_AFTER,
@@ -904,6 +905,8 @@ export const prSecurityScanService = {
     pullRequestId: string
     trigger: ScanTrigger
     reviewMode?: 'incremental' | 'full'
+    /** LUM-1152 follow-up: dispatched by a deferred manual review. */
+    deferred?: boolean
   }): Promise<RunScanResult> {
     const pr = await pullRequestRepository.findById(input.pullRequestId)
     if (!pr) return { skipped: true, reason: 'pr_not_found' }
@@ -937,8 +940,18 @@ export const prSecurityScanService = {
           existing.id,
           true
         )
-        if (!Array.isArray(claimed))
+        if (!Array.isArray(claimed)) {
+          // LUM-1152 follow-up: the head's scan is still in flight. Its AI
+          // layers may be held (ignore / pause / hourly cap), so the review
+          // asked for waits for it to settle instead of being dropped — once.
+          if (!input.deferred)
+            await startDeferredManualReview({
+              pullRequestId: pr.id,
+              scanId: existing.id,
+              reviewMode: input.reviewMode,
+            })
           return { deduped: true, scanId: existing.id }
+        }
         manualFindings = claimed
         scanId = existing.id
       } else {

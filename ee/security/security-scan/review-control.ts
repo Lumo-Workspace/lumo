@@ -179,3 +179,31 @@ export function affectedReviewDiff(
     })
     .join('')
 }
+
+/** What `isSettledForManualReview` reads off a scan row. */
+export interface ManualReviewRestartRow {
+  status: string
+  stages: unknown
+  verifierStartedAt: Date | null
+  verifiedAt: Date | null
+}
+
+/**
+ * LUM-1152 follow-up — may a manual review restart this head's scan in place
+ * now? Only once the scan has settled: a finished status, no layer still
+ * PENDING (the managed scanners, the hunt) and no verifier running. A manual
+ * review asked for earlier is deferred until then, not dropped
+ * (`security-deferred-review`). PURE.
+ */
+export function isSettledForManualReview(
+  row: ManualReviewRestartRow | null
+): boolean {
+  if (!row) return false
+  if (!['CLEAN', 'FINDINGS', 'FAILED'].includes(row.status)) return false
+  const stages =
+    row.stages && typeof row.stages === 'object'
+      ? Object.values(row.stages as Record<string, unknown>)
+      : []
+  if (stages.includes('PENDING')) return false
+  return !(row.verifierStartedAt && !row.verifiedAt)
+}
