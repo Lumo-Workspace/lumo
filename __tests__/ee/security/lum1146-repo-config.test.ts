@@ -168,6 +168,13 @@ describe('unknownConfigKeys', () => {
       })
     ).toEqual(['reviews.extra', 'other'])
     expect(unknownConfigKeys(repoConfigSchema, 'not an object')).toEqual([])
+    // Inherited Object properties are not schema slots.
+    expect(
+      unknownConfigKeys(repoConfigSchema, {
+        constructor: 1,
+        reviews: { toString: 'x', hasOwnProperty: 1 },
+      })
+    ).toEqual(['constructor', 'reviews.toString', 'reviews.hasOwnProperty'])
   })
 })
 

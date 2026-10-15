@@ -88,7 +88,10 @@ export function unknownConfigKeys(
   if (!shape || !isRecord(value)) return []
   const out: string[] = []
   for (const [key, child] of Object.entries(value)) {
-    const slot = shape[key]
+    // Own keys only: `constructor` / `toString` are unknown keys too.
+    const slot = Object.prototype.hasOwnProperty.call(shape, key)
+      ? shape[key]
+      : undefined
     if (slot === undefined) out.push(dotted([...path, key]))
     else
       out.push(...unknownConfigKeys(slot as z.ZodType, child, [...path, key]))
