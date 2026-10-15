@@ -43,6 +43,10 @@ import {
   parsePrCommand,
   prCommandHandle,
 } from '@/ee/security/services/pr-command-parse'
+import {
+  mentionsHandle,
+  routeConversationComment,
+} from '@/ee/security/security-scan/pr-chat'
 
 /**
  * LUM-1148 — PURE: an `edited` event on an open PR that changed its title or
@@ -191,15 +195,29 @@ export const securityPlugin: LumoServerPlugin = {
     })
 
     // LUM-1129: `@<app> review | full review | pause | resume | resolve` in a
-    // PR conversation comment. The ordinary comment is dropped here,
-    // synchronously; a command loads the service (GitHub clients) lazily.
+    // PR conversation comment. LUM-1154: any other mention of the App is a
+    // question, answered by the chat service. The ordinary comment is dropped
+    // here, synchronously; a command or a question loads its service (GitHub
+    // clients, the model) lazily.
     api.on('github.issueComment', event => {
       if (event.action !== 'created') return
       const handle = prCommandHandle()
-      if (!handle || !parsePrCommand(event.comment.body, handle)) return
+      if (!handle) return
+      const route = routeConversationComment(
+        event.comment.body,
+        handle,
+        parsePrCommand(event.comment.body, handle)
+      )
+      if (!route) return
       waitUntil(
         (async () => {
           try {
+            if (route === 'chat') {
+              const { applyConversationQuestion } =
+                await import('@/ee/security/services/pr-chat.service')
+              await applyConversationQuestion(event)
+              return
+            }
             const { applyPrCommentCommand } =
               await import('@/ee/security/services/pr-command.service')
             await applyPrCommentCommand(event)
@@ -215,16 +233,28 @@ export const securityPlugin: LumoServerPlugin = {
     // LUM-1131: a human reply in one of Lumo's finding threads — answered,
     // and when it says the finding is intentional / not applicable, the
     // thread is closed for this PR and a learning stored for later reviews.
-    // Dynamic import: the reply service reaches the model client.
+    // LUM-1154: a question in such a thread gets a grounded answer, and a
+    // review-line comment elsewhere that mentions the App is answered too.
+    // Dynamic import: the reply and chat services reach the model client.
     api.on('github.reviewComment', event => {
-      if (event.action !== 'created' || event.comment.inReplyToId === null)
-        return
+      if (event.action !== 'created') return
+      const handle = prCommandHandle()
+      const mentioned =
+        handle !== null && mentionsHandle(event.comment.body, handle)
+      if (event.comment.inReplyToId === null && !mentioned) return
       waitUntil(
         (async () => {
           try {
-            const { applyThreadReply } =
-              await import('@/ee/security/services/pr-thread-reply.service')
-            await applyThreadReply(event)
+            if (event.comment.inReplyToId !== null) {
+              const { applyThreadReply } =
+                await import('@/ee/security/services/pr-thread-reply.service')
+              const outcome = await applyThreadReply(event)
+              if (outcome !== 'not_lumo_thread') return
+            }
+            if (!mentioned) return
+            const { applyLineMention } =
+              await import('@/ee/security/services/pr-chat.service')
+            await applyLineMention(event)
           } catch (error) {
             logger.warn(
               `[security] thread reply failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`

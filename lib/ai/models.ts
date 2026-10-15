@@ -46,6 +46,10 @@ export const REASONING_MODEL = 'openai/gpt-5.5'
  * code-review replay. Gateway format;
  * catalog-probed 2026-10-04 (`anthropic/claude-sonnet-5.5` resolves — keep
  * the version dot, do NOT dash-normalise).
+ *
+ * Also answers the questions people ask Lumo on a pull request (LUM-1154,
+ * `ee/security/llm/pr-chat-client.ts`): same provider pin, no tools, text
+ * only, bounded per PR per hour.
  */
 export const CODE_REVIEW_MODEL = 'anthropic/claude-sonnet-5.5'
 

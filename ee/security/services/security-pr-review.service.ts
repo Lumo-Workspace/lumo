@@ -608,6 +608,10 @@ export function commandsBlock(handle: string, approve = false): string {
         ]
       : []),
   ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
+  // LUM-1154: anything else addressed to Lumo is a question it answers.
+  rows.push(
+    `- \`${handle} <question>\` — ask about this PR's code, here, on a line, or in reply to a Lumo finding`
+  )
   return `<details>\n<summary>Lumo commands</summary>\n\nComment on this PR (write access required):\n\n${rows.join('\n')}\n\n</details>`
 }
 
