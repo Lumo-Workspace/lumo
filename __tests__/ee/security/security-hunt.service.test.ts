@@ -1353,6 +1353,20 @@ describe('LUM-739 hunt service', () => {
     )
   })
 
+  it('LUM-1200: toHuntFindingRows keeps an ordinary quoted phrase in the claim and detail', () => {
+    const [row] = toHuntFindingRows('s1', [
+      {
+        ...candidate,
+        claim: "Files marked 'do not merge' build a shell command from dir",
+        falsifierReason: "the 'do not merge' label guards nothing",
+      },
+    ])
+    expect(row!.title).toBe(
+      "Files marked 'do not merge' build a shell command from dir"
+    )
+    expect(row!.detail).toContain("the 'do not merge' label guards nothing")
+  })
+
   it('persist inherits dispositions and stamps RAN or PARTIAL with a capped audit', async () => {
     repo.findDispositionedByPullRequest.mockResolvedValue([
       {

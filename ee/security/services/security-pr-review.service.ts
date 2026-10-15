@@ -26,6 +26,7 @@ import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissi
 import {
   prCommentClient,
   GithubApiError,
+  type ListedComment,
 } from '@/lib/integrations/github/pr-comment-client'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import type {
@@ -115,10 +116,12 @@ import { scrubScanIfZeroRetention } from '@/ee/security/services/scan-evidence-r
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
 import {
   NO_THREADS,
+  layerOf,
   prFindingThreadService,
   type ThreadCounts,
   type ThreadSyncContext,
 } from '@/ee/security/services/pr-finding-thread.service'
+import { groupSameIssue } from '@/ee/security/security-scan/issue-groups'
 import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
 import { issueAssessmentReviewService } from '@/ee/security/services/issue-assessment-review.service'
 import { requestChangesOffService } from '@/ee/security/services/request-changes-off.service'
@@ -448,7 +451,8 @@ export function suggestionWinners(rows: ReviewFindingRow[]): Set<string> {
 export function inlineReviewComment(
   f: ReviewFindingRow,
   policy: SecurityPolicy,
-  withSuggestion: boolean
+  withSuggestion: boolean,
+  alsoReported: readonly AlsoReportedFinding[] = []
 ): {
   path: string
   line: number
@@ -462,7 +466,7 @@ export function inlineReviewComment(
     path: f.filePath,
     ...(suggestion ? suggestionAnchor(suggestion) : { line: f.line as number }),
     side: 'RIGHT',
-    body: buildInlineComment(f, policy, suggestion),
+    body: buildInlineComment(f, policy, suggestion, alsoReported),
   }
 }
 
@@ -474,7 +478,8 @@ export function inlineReviewComment(
 export function buildInlineComment(
   f: InlineFinding,
   policy: SecurityPolicy = DEFAULT_SECURITY_POLICY,
-  suggestion: CodeSuggestion | null = null
+  suggestion: CodeSuggestion | null = null,
+  alsoReported: readonly AlsoReportedFinding[] = []
 ): string {
   const kindLabel = findingKindLabel(f.kind)
   // Model / scanner text (title, detail, rule-docs link): no HTML comments,
@@ -489,10 +494,69 @@ export function buildInlineComment(
   const footer: string[] = []
   const href = ruleDocsHref(f.externalRef)
   if (href) footer.push(`[Rule docs](${href})`)
-  if (isBlockingFinding(f, policy)) footer.push('blocks DONE')
+  // LUM-1200: the thread carries the stricter standing of its issue group.
+  if (
+    isBlockingFinding(f, policy) ||
+    alsoReported.some(m => isBlockingFinding(m, policy))
+  )
+    footer.push('blocks DONE')
   if (footer.length > 0) blocks.push(footer.join(' · '))
+  for (const m of alsoReported) blocks.push(alsoReportedLine(m))
   blocks.push(fingerprintMarker(f.fingerprint))
   return blocks.join('\n\n')
+}
+
+/**
+ * LUM-1200 — a finding listed under another finding's thread because both
+ * report the same issue (`groupSameIssue`). Only the columns the line shows.
+ */
+export type AlsoReportedFinding = Pick<
+  ReviewFindingRow,
+  | 'fingerprint'
+  | 'ruleId'
+  | 'provenance'
+  | 'kind'
+  | 'severity'
+  | 'title'
+  | 'disposition'
+  | 'persisting'
+>
+
+/** Hidden marker naming a finding listed in another finding's thread. */
+export const alsoReportedMarker = (fp: string): string =>
+  `<!-- lumo-security:also:${fp} -->`
+
+/**
+ * One line naming the merged finding's layer, severity and title (model
+ * text: no HTML comments, one line), then its hidden marker so a later sync
+ * can tell it is already listed.
+ */
+export function alsoReportedLine(m: AlsoReportedFinding): string {
+  const label = SCAN_STAGE_LABELS[layerOf(m)]
+  const title = stripHtmlComments(m.title).replace(/\s+/g, ' ').trim()
+  return `Same issue also reported by **${label}** · ${m.severity} — ${title}\n${alsoReportedMarker(m.fingerprint)}`
+}
+
+/**
+ * LUM-1200 — an inline comment already on the PR, with the merged findings
+ * it does not list yet added just above its fingerprint marker; null when
+ * every one is listed already (or the marker is missing), so a sync edits a
+ * comment at most once per merged finding.
+ */
+export function withAlsoReported(
+  body: string,
+  keptFingerprint: string,
+  merged: readonly AlsoReportedFinding[]
+): string | null {
+  const missing = merged.filter(
+    m => !body.includes(alsoReportedMarker(m.fingerprint))
+  )
+  if (missing.length === 0) return null
+  const marker = fingerprintMarker(keptFingerprint)
+  const at = body.lastIndexOf(marker)
+  if (at === -1) return null
+  const lines = missing.map(alsoReportedLine).join('\n\n')
+  return `${body.slice(0, at)}${lines}\n\n${body.slice(at)}`
 }
 
 export interface SummaryInput {
@@ -1390,6 +1454,52 @@ async function upsertSummary(
   return true
 }
 
+/**
+ * LUM-1200 — edit each kept finding's comment already on the PR so it lists
+ * the findings merged into it since it was posted. Lumo's own thread-opening
+ * comments only (the newest one per fingerprint — an older one was left
+ * behind by a move); a retracted comment is left alone. Best effort: a failed
+ * edit is logged and retried by the next sync, never thrown.
+ */
+async function listMergedInPostedThreads(input: {
+  comments: ListedComment[]
+  keptOnPr: string[]
+  alsoReportedOf: (fp: string) => ReviewFindingRow[]
+  repo: { owner: string; name: string }
+  token: string
+  where: string
+}): Promise<void> {
+  for (const fp of input.keptOnPr) {
+    const merged = input.alsoReportedOf(fp)
+    if (merged.length === 0) continue
+    const marker = fingerprintMarker(fp)
+    const comment = input.comments
+      .filter(
+        c =>
+          isLumoBotComment(c) &&
+          !c.in_reply_to_id &&
+          c.body.includes(marker) &&
+          !isRetractedComment(c.body)
+      )
+      .sort((a, b) => b.id - a.id)[0]
+    if (!comment) continue
+    const body = withAlsoReported(comment.body, fp, merged)
+    if (body === null) continue
+    try {
+      await prCommentClient.updateReviewLineComment({
+        repo: input.repo,
+        externalId: String(comment.id),
+        body,
+        token: input.token,
+      })
+    } catch (error) {
+      logger.warn(
+        `[security-pr-review] merged-finding edit failed ${input.where} comment=${comment.id}: ${describe(error)}`
+      )
+    }
+  }
+}
+
 export const securityPrReviewService = {
   /**
    * LUM-892 — the workspace turned scanning off: rewrite the summary comment
@@ -1539,13 +1649,34 @@ export const securityPrReviewService = {
       const threads = await prFindingThreadService
         .reconcile(threadCtx)
         .catch(() => NO_THREADS)
+      const existing = parseFingerprintMarkers(reviewComments.map(c => c.body))
+      // LUM-1127: never re-post a thread a human resolved (even once its
+      // comment has fallen out of the listing window); a moved finding gets a
+      // fresh comment although its old one still carries the marker.
+      for (const fp of threads.resolvedByUser) existing.add(fp)
+      for (const fp of threads.repost.keys()) existing.delete(fp)
+      // LUM-1200: one issue on one line, one thread. The AI review and the
+      // hunt reporting the same class on the same line are grouped: the kept
+      // finding owns the thread, the merged one is listed in it (both stay
+      // recorded, each keeps its fingerprint). Grouped over every undecided
+      // inline row — a thread a human resolved included — so a merged row
+      // follows its kept thread rather than surfacing on its own. A
+      // disposition never cascades: once the kept row is dispositioned it
+      // leaves this set, and a merged row still open gets its own thread.
+      const issueGroups = groupSameIssue(unrejected.filter(isInline), {
+        posted: existing,
+        isBlocking: f => isBlockingFinding(f, policy),
+      })
       // LUM-1127: a thread a human resolved on GitHub closes a non-blocking
       // finding. A gate-blocking one stays open (and blocking) until it is
       // dispositioned in Lumo — resolving a conversation is not a decision.
+      // LUM-1200: a merged finding shares its kept finding's thread.
+      const resolvedThread = (f: ReviewFindingRow) =>
+        threads.resolvedByUser.has(
+          issueGroups.mergedInto.get(f.fingerprint) ?? f.fingerprint
+        )
       const open = unrejected.filter(
-        f =>
-          !threads.resolvedByUser.has(f.fingerprint) ||
-          isBlockingFinding(f, policy)
+        f => !resolvedThread(f) || isBlockingFinding(f, policy)
       )
       const blocking = open.filter(f => isBlockingFinding(f, policy)).length
       // LUM-1148: the pre-merge checks of THIS head, and the PR's override.
@@ -1572,12 +1703,6 @@ export const securityPrReviewService = {
           }
         : undefined
 
-      const existing = parseFingerprintMarkers(reviewComments.map(c => c.body))
-      // LUM-1127: never re-post a thread a human resolved (even once its
-      // comment has fallen out of the listing window); a moved finding gets a
-      // fresh comment although its old one still carries the marker.
-      for (const fp of threads.resolvedByUser) existing.add(fp)
-      for (const fp of threads.repost.keys()) existing.delete(fp)
       // LUM-988: a verdict that landed after the hold window finds its
       // comment already on the PR — edit it to say so, rather than leave a
       // comment the summary calls "shown in Lumo only".
@@ -1629,6 +1754,8 @@ export const securityPrReviewService = {
       const candidates = open.filter(
         f =>
           isInline(f) &&
+          // LUM-1200: listed in its kept finding's thread instead.
+          !issueGroups.mergedInto.has(f.fingerprint) &&
           !(holdExternal && f.provenance === 'EXTERNAL_TOOL') &&
           // Only rows the verifier may reject wait for it.
           !(holdJudge && f.provenance === 'LLM_JUDGE' && verifierAppliesTo(f))
@@ -1648,6 +1775,13 @@ export const securityPrReviewService = {
       // Already on the PR (or being posted by a concurrent sync), or over the
       // cap and waiting for the next sync.
       skipped = candidates.length - selected.length
+      // LUM-1200: the merged findings each kept thread lists — only those
+      // still open (a merged row a human closed with its thread is not).
+      const openFps = new Set(open.map(f => f.fingerprint))
+      const alsoReportedOf = (fp: string): ReviewFindingRow[] =>
+        (issueGroups.mergedOf.get(fp) ?? []).filter(m =>
+          openFps.has(m.fingerprint)
+        )
 
       const summary = buildSummary({
         repo: pr.repo,
@@ -1725,6 +1859,19 @@ export const securityPrReviewService = {
         record: checksRecord,
       })
 
+      // LUM-1200: a finding merged into a thread already on the PR (the
+      // hunt lands minutes after the AI review) is listed in that comment.
+      await listMergedInPostedThreads({
+        comments: reviewComments,
+        keptOnPr: [...issueGroups.mergedOf.keys()].filter(
+          fp => existing.has(fp) && openFps.has(fp)
+        ),
+        alsoReportedOf,
+        repo,
+        token,
+        where,
+      })
+
       if (selected.length > 0) {
         const winners = suggestionWinners(selected)
         const postReview = (withSuggestions: boolean) =>
@@ -1741,7 +1888,8 @@ export const securityPrReviewService = {
               inlineReviewComment(
                 f,
                 policy,
-                withSuggestions && winners.has(f.fingerprint)
+                withSuggestions && winners.has(f.fingerprint),
+                alsoReportedOf(f.fingerprint)
               )
             ),
           })
@@ -1822,6 +1970,8 @@ export const securityPrReviewService = {
           unpostedActionable: open.filter(
             f =>
               isInline(f) &&
+              // LUM-1200: rides on its kept finding's thread.
+              !issueGroups.mergedInto.has(f.fingerprint) &&
               !existing.has(f.fingerprint) &&
               !postedNow.has(f.fingerprint)
           ).length,
