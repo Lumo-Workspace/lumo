@@ -76,12 +76,15 @@ export function diagramLabel(raw: unknown, maxChars: number): string {
     // follow a dash, so breaking every dash run keeps the text inert.
     .replace(/-{2,}/g, '-')
     .replace(/\s+/g, ' ')
-    .trim()
-    // A label never starts or ends with an operator character.
-    .replace(/^[-+=*&.,]+|[-+=*&,]+$/g, '')
-    .trim()
-  if (reduced.length <= maxChars) return reduced
-  return reduced.slice(0, maxChars).trimEnd()
+  // Cut first, then trim the edges: a cut can land right after an operator
+  // character, and a label never starts or ends with one (the validator
+  // rejects that, which would drop the whole diagram).
+  return trimLabelEdges(reduced.slice(0, maxChars))
+}
+
+/** A label never starts or ends with an operator character or a space. */
+function trimLabelEdges(label: string): string {
+  return label.trim().replace(/^[-+=*&.,\s]+|[-+=*&,\s]+$/g, '')
 }
 
 /**

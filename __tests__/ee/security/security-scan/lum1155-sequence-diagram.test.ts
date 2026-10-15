@@ -192,6 +192,28 @@ describe('diagramLabel', () => {
     expect(diagramLabel('x-->>y', 60)).toBe('x-y')
     expect(diagramLabel(42, 60)).toBe('')
   })
+  it('a label cut at the limit never ends in an operator character', () => {
+    for (const op of ['-', '+', '=', '*', '&', ',']) {
+      const label = diagramLabel(`${'a'.repeat(59)}${op}b`, 60)
+      expect(label).toBe('a'.repeat(59))
+    }
+    expect(diagramLabel(`${'a'.repeat(58)} -b`, 60)).toBe('a'.repeat(58))
+  })
+
+  it('a diagram whose labels are cut at an operator validates as cleaned and is posted', () => {
+    const long = `${'a'.repeat(59)}-b`
+    const d = cleanSequenceDiagram({
+      participants: [`${'p'.repeat(39)}+q`, 'B'],
+      steps: [
+        { from: `${'p'.repeat(39)}+q`, to: 'B', message: long },
+        { from: 'B', to: `${'p'.repeat(39)}+q`, message: long, reply: true },
+      ],
+    })!
+    // The cleaned (stored) form itself is valid — no re-clean needed.
+    expect(isValidSequenceDiagramSource(renderSequenceDiagram(d))).toBe(true)
+    expect(parseSequenceDiagram(d)).toEqual(d)
+    expect(sequenceDiagramSection(d)).not.toBeNull()
+  })
 })
 
 describe('renderSequenceDiagram + isValidSequenceDiagramSource', () => {
