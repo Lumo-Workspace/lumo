@@ -157,7 +157,7 @@ const SCOPE_WITH_CONTEXT =
  * the setting into effect, so they post inline like any other finding.
  */
 const SCOPE_SERVER_CONFIG =
-  ' Next come server configuration files, from the directories whose server the added lines start or configure, that this pull request does not change: when an added line starts or configures that server, report a risky setting in them that it puts into effect (such as listening on every interface like 0.0.0.0, debug mode, permissive CORS, or disabled TLS or authentication) on that added line, naming the file and the setting in the detail; report nothing else located in them.'
+  " Next come server configuration files, from the directories whose server the added lines start or configure, that this pull request does not change: they hold the settings that server runs with. When one of those settings exposes or weakens the server an added line starts (it listens on every interface such as 0.0.0.0 on the developer's or host machine, turns on debug mode, allows any CORS origin, or turns off TLS or authentication), report it on that added line, naming the file and the setting in the detail. A setting those files already restrict (for example a container port published only to 127.0.0.1) is not a problem; report nothing else located in them."
 
 /** LUM-988 — said only when related code from other files is attached. */
 const SCOPE_RELATED =
