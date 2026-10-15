@@ -60,6 +60,19 @@ describe('dispatchPrSecurityScan (real implementation)', () => {
     })
   })
 
+  it('LUM-1152 follow-up: marks a deferred manual review', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.test'
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 })
+    global.fetch = fetchMock as never
+    await dispatchPrSecurityScan('pr1', 'PR_EVENT', 'full', { deferred: true })
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+      deferred: true,
+    })
+  })
+
   it('skips (no fetch) and warns when NEXT_PUBLIC_APP_URL is unset', async () => {
     delete process.env.NEXT_PUBLIC_APP_URL
     const fetchMock = jest.fn()

@@ -1834,6 +1834,12 @@ model PrSecurityScan {
   // from before this column). The PR write-back resolves a judge finding's
   // thread as addressed only when its file was in this scope.
   judgeReviewScope  Json?
+  // LUM-1152 follow-up: how the AI review on this head was asked for —
+  // "full" (a requested full review) or "incremental" (automatic, or a
+  // requested incremental one); null = the AI review did not run here (or a
+  // row from before this column). A deferred full review is satisfied only
+  // by a "full" one.
+  judgeReviewMode   String?
   // LUM-1146: how the repository config file (`.lumo.yaml`) was read for
   // this scan — { baseRef, base: { status, sha, problems, unknownKeys },
   // prBranch } (ee/security/security-scan/repo-config.ts). The PR summary

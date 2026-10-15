@@ -2061,3 +2061,104 @@ describe('LUM-1152: `@<app> ignore` in the PR description', () => {
     expect(judgeSecurity).toHaveBeenCalledTimes(1)
   })
 })
+
+// LUM-1152 follow-up — production probe: a manual review asked for while
+// the ignored head's scan was still in flight (managed scanners PENDING) was
+// deduplicated and never ran.
+jest.mock('@/ee/security/services/security-deferred-review-start', () => ({
+  startDeferredManualReview: jest.fn().mockResolvedValue(true),
+}))
+import { startDeferredManualReview } from '@/ee/security/services/security-deferred-review-start'
+import { logger as lumoLogger } from '@/lib/logger'
+
+describe('LUM-1152 follow-up: manual review on an in-flight ignored head', () => {
+  const defer = startDeferredManualReview as jest.Mock
+  const fetchPrBody = gh.fetchPrBody as jest.Mock
+  const prevSlug = process.env.GITHUB_APP_SLUG
+  beforeEach(() => {
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+    fetchPrBody.mockResolvedValue('@uselumo ignore')
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    repo.findByPrAndSha.mockResolvedValueOnce({
+      id: 's1',
+      status: 'CLEAN',
+      startedAt: new Date(),
+    })
+  })
+  afterAll(() => {
+    if (prevSlug === undefined) delete process.env.GITHUB_APP_SLUG
+    else process.env.GITHUB_APP_SLUG = prevSlug
+  })
+
+  test('a full review refused because the scan is in flight is deferred, not dropped', async () => {
+    repo.restart.mockResolvedValueOnce(false as never)
+    const r = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+    })
+    expect(r).toEqual({ deduped: true, scanId: 's1' })
+    expect(defer).toHaveBeenCalledWith({
+      pullRequestId: 'pr1',
+      scanId: 's1',
+      reviewMode: 'full',
+    })
+    expect(judgeSecurity).not.toHaveBeenCalled()
+  })
+
+  test('a full review records its mode, so a deferred full request can tell', async () => {
+    repo.restart.mockResolvedValueOnce([] as never)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+    })
+    const [, , result] = repo.persistResult.mock.calls[0]!
+    expect(result.judgeReviewMode).toBe('full')
+  })
+
+  test('an automatic review records incremental; a held one records none', async () => {
+    repo.findByPrAndSha.mockReset().mockResolvedValue(null)
+    fetchPrBody.mockResolvedValue('no directive')
+    await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+    expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBe(
+      'incremental'
+    )
+    repo.persistResult.mockClear()
+    fetchPrBody.mockResolvedValue('@uselumo ignore')
+    await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+    expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBeNull()
+  })
+
+  test('the deferred dispatch is never deferred again, and its dedupe is logged', async () => {
+    const info = jest.spyOn(lumoLogger, 'info').mockImplementation(() => {})
+    repo.restart.mockResolvedValueOnce(false as never)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'incremental',
+      deferred: true,
+    })
+    expect(defer).not.toHaveBeenCalled()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'deferred manual incremental review deduplicated pr=pr1 scan=s1'
+      )
+    )
+  })
+
+  test('once settled, the manual full review runs the judge on the ignored head', async () => {
+    repo.restart.mockResolvedValueOnce([] as never)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+      deferred: true,
+    })
+    expect(judgeSecurity).toHaveBeenCalledTimes(1)
+    expect(fetchPrBody).not.toHaveBeenCalled()
+    const [, , result] = repo.persistResult.mock.calls[0]!
+    expect(result.partialCauses ?? []).not.toContain('AI_REVIEW_IGNORED')
+    expect(result.stages.judge).not.toBe('PAUSED')
+  })
+})

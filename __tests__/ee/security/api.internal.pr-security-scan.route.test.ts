@@ -134,3 +134,31 @@ describe('POST /api/internal/pr-security-scan is auth-gated and runs the posted 
     expect(info).toHaveBeenCalled()
   })
 })
+
+describe('LUM-1152 follow-up: a deferred manual review', () => {
+  it('passes `deferred` through with the review mode', async () => {
+    await POST(
+      makeReq('Bearer secret', {
+        pullRequestId: 'pr1',
+        reviewMode: 'full',
+        deferred: true,
+      })
+    )
+    expect(run).toHaveBeenCalledWith({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+      deferred: true,
+    })
+  })
+
+  it('anything but `true` is not deferred', async () => {
+    await POST(
+      makeReq('Bearer secret', { pullRequestId: 'pr1', deferred: 'yes' })
+    )
+    expect(run).toHaveBeenCalledWith({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+  })
+})
