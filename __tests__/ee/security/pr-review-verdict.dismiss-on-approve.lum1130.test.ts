@@ -85,7 +85,7 @@ const applyInput = {
   scan: {
     status: 'CLEAN' as const,
     partial: false,
-    stages: { secrets: 'CLEAN' as const },
+    stages: { secrets: 'RAN' as const },
   },
   openThreads: 0,
   blocking: 0,
