@@ -31,41 +31,46 @@ async function repoPart(input: {
   repo: string
   prNumber: number
 }): Promise<PrConfigurationView['repo']> {
-  let base: { ref: string; sha: string } | null = null
+  const { fetchPrBase, fetchDefaultBranchHead } = await github()
+  // Only GitHub reads are caught: the PR's base (what a review applies),
+  // else the default branch, said so in the reply; neither → null.
+  let at: { ref: string; sha: string; fromDefaultBranch: boolean } | null = null
   try {
-    const { fetchPrBase } = await github()
-    base = await fetchPrBase({
+    const base = await fetchPrBase({
       workspaceId: input.workspaceId,
       fullName: input.repo,
       prNumber: input.prNumber,
     })
+    at = { ...base, fromDefaultBranch: false }
   } catch (error) {
     logger.warn(
       `[pr-configuration] PR base unavailable ${input.repo}#${input.prNumber}: ${describe(error)}`
     )
+    try {
+      const head = await fetchDefaultBranchHead({
+        workspaceId: input.workspaceId,
+        fullName: input.repo,
+      })
+      at = { ref: head.branch, sha: head.sha, fromDefaultBranch: true }
+    } catch (fallbackError) {
+      logger.warn(
+        `[pr-configuration] default branch unavailable ${input.repo}: ${describe(fallbackError)}`
+      )
+      return null
+    }
   }
-  if (base) {
-    // With a sha, effective() never reads GitHub (loadAt never throws): a
-    // failure here is the database's, and propagates (no reply, logged).
-    const effective = await repoConfigService.effective({
-      workspaceId: input.workspaceId,
-      repo: input.repo,
-      sha: base.sha,
-    })
-    return { ...effective, ref: base.ref }
-  }
-  try {
-    // The PR's base could not be read: the default branch is the next best.
-    const effective = await repoConfigService.effective({
-      workspaceId: input.workspaceId,
-      repo: input.repo,
-    })
-    return { ...effective, fromDefaultBranch: true }
-  } catch (error) {
-    logger.warn(
-      `[pr-configuration] repository config unavailable ${input.repo}: ${describe(error)}`
-    )
-    return null
+  // With a sha, effective() reads GitHub only through loadAt, which never
+  // throws: a failure here is the database's and propagates (logged, no
+  // reply) rather than being reported as a GitHub problem.
+  const effective = await repoConfigService.effective({
+    workspaceId: input.workspaceId,
+    repo: input.repo,
+    sha: at.sha,
+  })
+  return {
+    ...effective,
+    ref: at.ref,
+    ...(at.fromDefaultBranch ? { fromDefaultBranch: true } : {}),
   }
 }
 
