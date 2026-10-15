@@ -901,6 +901,37 @@ describe('LUM-735 SARIF push — stage A side', () => {
     )
   })
 
+  test('LUM-1150: the managed run landed (and synced) before stage A persisted → stage A posts the final summary itself', async () => {
+    // Production probe PR #59: the managed run synced at 15:45:03 while the
+    // AI review was still running ("still running" summary); stage A
+    // persisted at 15:45:12 and, having queued the run, never synced.
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    repo.persistResult.mockResolvedValue({ managedLayerLanded: true })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(startManaged).toHaveBeenCalled()
+    expect(syncReview).toHaveBeenCalledWith('s1')
+    expect(waitUntilMock).toHaveBeenCalledTimes(1)
+    expect(syncReview.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      repo.persistResult.mock.invocationCallOrder[0]!
+    )
+  })
+
+  test('LUM-1150: the managed run still pending when stage A persisted → its own sync is the one summary', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    repo.persistResult.mockResolvedValue({ managedLayerLanded: false })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(startManaged).toHaveBeenCalled()
+    expect(waitUntilMock).not.toHaveBeenCalled()
+  })
+
   test('LUM-738 supplyChain surface — queuing the managed run stamps supplyChain PENDING beside external and requests the baseline lazily', async () => {
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     countExternal.mockResolvedValue(0)
