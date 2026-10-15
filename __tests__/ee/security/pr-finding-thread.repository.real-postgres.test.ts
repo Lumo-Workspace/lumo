@@ -271,3 +271,72 @@ test('LUM-1127 follow-up #3: a carry is kept on the row (aliases), a resolved th
   // Deleting a row that is already gone is a no-op.
   await expect(repo.delete('missing')).resolves.toBeUndefined()
 })
+
+test('LUM-1127 follow-up #4: the thread row keeps the union of identities it carried (JSON), across re-points and updates', async () => {
+  const v1 = {
+    ruleId: 'review:logic_error',
+    line: 31,
+    evidenceHash: 'k1.e1',
+    titleTokens: ['k1.a', 'k1.b'],
+  }
+  const v2 = {
+    ruleId: 'review:api_misuse',
+    line: 31,
+    evidenceHash: null,
+    titleTokens: ['k1.c'],
+    crowded: true,
+  }
+  await repo.upsert({
+    ...base,
+    fingerprint: 'fp-hist-legacy',
+    commentId: '900',
+  })
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-hist',
+    commentId: '901',
+    identityRuleId: 'review:logic_error',
+    identityTitleTokens: ['k1.a', 'k1.b'],
+    identityHistory: [v1],
+  })
+  const byFp = async (fp: string) =>
+    (await repo.findByPullRequest('pr')).find(r => r.fingerprint === fp)!
+  // A row written before the column existed reads as "no history".
+  expect((await byFp('fp-hist-legacy')).identityHistory).toEqual([])
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1])
+
+  const row = await byFp('fp-hist')
+  await repo.update(row.id, { identityHistory: [v1, v2] })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1, v2])
+  // An update that does not name it keeps it.
+  await repo.update(row.id, { state: 'ADDRESSED' })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1, v2])
+  // Re-pointed without an identity: kept; with one: replaced as given.
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-hist',
+    commentId: '902',
+  })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1, v2])
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-hist',
+    commentId: '903',
+    identityRuleId: 'review:api_misuse',
+    identityHistory: [v2],
+  })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v2])
+  // Malformed entries (hand edit) are skipped on read.
+  await harness.query(
+    `update pr_finding_threads set "identityHistory" = '[{"ruleId":1},{"ruleId":"r","line":null,"evidenceHash":null,"titleTokens":["t"]}]'::jsonb where fingerprint = 'fp-hist'`
+  )
+  expect((await byFp('fp-hist')).identityHistory).toEqual([
+    { ruleId: 'r', line: null, evidenceHash: null, titleTokens: ['t'] },
+  ])
+})

@@ -1643,6 +1643,11 @@ model PrFindingThread {
   // stays the thread's original (dispositions / learnings look it up); a
   // finding under any of these already has this thread — never a new comment.
   aliasFingerprints    String[]                    @default([])
+  // LUM-1127 follow-up #4: every identity the thread has carried (the union,
+  // never overwritten; capped) as [{ ruleId, line, evidenceHash, titleTokens,
+  // crowded? }] — hashes only, same key as above. A new finding is matched
+  // against the best of them, so one later rewording never decides alone.
+  identityHistory      Json                        @default("[]")
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 

@@ -5,7 +5,10 @@
  */
 import { createHash } from 'node:crypto'
 import {
+  EVIDENCE_LINE_WINDOW,
+  crowdedFingerprints,
   evidenceHash,
+  isTrivialEvidence,
   hashIdentity,
   identityKeyId,
   isKeyedWith,
@@ -93,14 +96,14 @@ describe('sameIssueScore', () => {
     ).not.toBeNull()
   })
 
-  it('same quoted evidence line after the code moved ⇒ same issue', () => {
+  it('same quoted evidence line after the code moved (within 20 lines) ⇒ same issue', () => {
     expect(
       sameIssueScore(
         id(),
         id({
           fingerprint: 'new',
           ruleId: 'review:api_misuse',
-          line: 40,
+          line: 18,
           title: 'Debug logging left in script',
         })
       )
@@ -108,9 +111,21 @@ describe('sameIssueScore', () => {
     expect(
       sameIssueScore(
         id(),
-        id({ fingerprint: 'new', ruleId: 'review:api_misuse', line: 40 })
+        id({ fingerprint: 'new', ruleId: 'review:api_misuse', line: 18 })
       )
     ).not.toBeNull()
+    expect(
+      sameIssueScore(
+        id(),
+        id({
+          fingerprint: 'new',
+          line: 18,
+          title: 'Debug logging left in script',
+        })
+      )
+    ).not.toBeNull() // same rule on the same code
+    // LUM-1127 follow-up #4: beyond EVIDENCE_LINE_WINDOW the same quote is
+    // the statement repeated elsewhere, not the same code.
     expect(
       sameIssueScore(
         id(),
@@ -120,7 +135,7 @@ describe('sameIssueScore', () => {
           title: 'Debug logging left in script',
         })
       )
-    ).not.toBeNull() // same rule on the same code
+    ).toBeNull()
   })
 
   it('nearby line needs a similar title', () => {
@@ -465,5 +480,282 @@ describe('hashed identity (stored on the thread row)', () => {
     expect(matchSuccessors([prev], [next])).toEqual(
       new Map([['fp-data', 'fp-logic']])
     )
+  })
+})
+
+describe('LUM-1127 follow-up #4 — identity history and the same line across rounds', () => {
+  const KEY = 'k4'
+  // Production, probe PR 67 `src/server.ts:31`.
+  const r1 = id({
+    ruleId: 'review:logic_error',
+    filePath: 'src/server.ts',
+    line: 31,
+    title:
+      'Session check route does not restrict method and prefix matching is loose',
+    evidence: "if (req.url?.startsWith('/session/check')) {",
+  })
+  const r2 = {
+    ...r1,
+    title: 'Token in query string and route matching by prefix',
+  }
+  const r3 = id({
+    ...r1,
+    fingerprint: 'new',
+    ruleId: 'review:api_misuse',
+    title: 'Session check route ignores method and uses prefix match',
+  })
+  const variant = (f: FindingIdentity) => {
+    const h = hashIdentity(f, KEY)
+    return {
+      ruleId: h.ruleId,
+      line: h.line,
+      evidenceHash: h.evidenceHash ?? null,
+      titleTokens: h.titleTokens ?? [],
+    }
+  }
+
+  it('r3 against r2 alone is not the same issue (different class, two shared words)', () => {
+    expect(
+      sameIssueScore(hashIdentity(r2, KEY), hashIdentity(r3, KEY))
+    ).toBeNull()
+  })
+
+  it('…but the history holds r1, whose wording r3 shares: matched by the best score', () => {
+    const thread = {
+      ...hashIdentity(r2, KEY),
+      history: [variant(r1), variant(r2)],
+    }
+    expect(sameIssueScore(thread, hashIdentity(r3, KEY))).not.toBeNull()
+  })
+
+  it('across rounds, the same layer on the same line is one issue whatever the class or title', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    expect(sameIssueScore(r2, next)).toBeNull()
+    expect(sameIssueScore(r2, next, { acrossRounds: true })).not.toBeNull()
+    // Same quoted line, moved by an edit elsewhere.
+    expect(
+      sameIssueScore(r2, { ...next, line: 50 }, { acrossRounds: true })
+    ).not.toBeNull()
+  })
+
+  it('…not when either side is crowded (two issues on that line in one round)', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    expect(
+      sameIssueScore({ ...r2, crowded: true }, next, { acrossRounds: true })
+    ).toBeNull()
+    expect(
+      sameIssueScore(r2, { ...next, crowded: true }, { acrossRounds: true })
+    ).toBeNull()
+    // The title / class rules still apply when crowded.
+    expect(
+      sameIssueScore(
+        { ...r1, crowded: true },
+        { ...r3, crowded: true },
+        { acrossRounds: true }
+      )
+    ).not.toBeNull()
+  })
+
+  it('the same line number quoting other code (the line was rewritten) is not the same code for the rule', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+      evidence: 'const cache = new Map()',
+    })
+    expect(sameIssueScore(r2, next, { acrossRounds: true })).toBeNull()
+    // Quote unknown on one side: the line decides.
+    expect(
+      sameIssueScore(r2, { ...next, evidence: null }, { acrossRounds: true })
+    ).not.toBeNull()
+  })
+
+  it('a crowded variant in the history turns the same-line rule off on its own', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    const plain = { ...hashIdentity(r2, KEY), line: 99, evidenceHash: null }
+    const v = { ...variant(r2), crowded: true }
+    expect(
+      sameIssueScore({ ...plain, history: [v] }, hashIdentity(next, KEY), {
+        acrossRounds: true,
+      })
+    ).toBeNull()
+    expect(
+      sameIssueScore(
+        { ...plain, history: [variant(r2)] },
+        hashIdentity(next, KEY),
+        { acrossRounds: true }
+      )
+    ).not.toBeNull()
+  })
+
+  it('…never across layers on the line alone, nor within ±3 lines without a title or class', () => {
+    const hunt = id({
+      ...r1,
+      fingerprint: 'h',
+      ruleId: 'hunt:injection',
+      title: 'x',
+    })
+    expect(sameIssueScore(r2, hunt, { acrossRounds: true })).toBeNull()
+    const near = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      line: 33,
+      title: 'Inefficient lookup',
+      evidence: 'res.end(body)',
+    })
+    expect(sameIssueScore(r2, near, { acrossRounds: true })).toBeNull()
+  })
+
+  it('matchSuccessors passes the option through', () => {
+    const next = id({
+      ...r1,
+      fingerprint: 'n',
+      ruleId: 'review:performance',
+      title: 'Inefficient lookup',
+    })
+    expect(matchSuccessors([r2], [next]).size).toBe(0)
+    expect(matchSuccessors([r2], [next], { acrossRounds: true })).toEqual(
+      new Map([['old', 'n']])
+    )
+  })
+
+  it('crowdedFingerprints: same layer, file and line only', () => {
+    const f = (
+      fingerprint: string,
+      ruleId: string,
+      line: number | null,
+      filePath = 'a.ts'
+    ) => ({
+      fingerprint,
+      ruleId,
+      provenance: 'LLM_JUDGE' as const,
+      filePath,
+      line,
+    })
+    expect(
+      crowdedFingerprints([
+        f('a', 'review:logic_error', 3),
+        f('b', 'review:api_misuse', 3),
+        f('c', 'hunt:logic', 3),
+        f('d', 'review:logic_error', 3, 'b.ts'),
+        f('e', 'review:logic_error', null),
+        f('g', 'review:logic_error', null),
+        { ...f('s', 'secret:aws', 3), provenance: 'DETERMINISTIC' as const },
+      ])
+    ).toEqual(new Set(['a', 'b']))
+  })
+})
+
+describe('LUM-1127 follow-up #4 — a quoted line is "the same code" only when it says something and sits nearby', () => {
+  const KEY = 'k5'
+  const at = (
+    fingerprint: string,
+    line: number,
+    evidence: string,
+    over: Partial<FindingIdentity> = {}
+  ) =>
+    id({
+      fingerprint,
+      ruleId: 'review:logic_error',
+      filePath: 'src/server.ts',
+      line,
+      evidence,
+      ...over,
+    })
+
+  it('isTrivialEvidence: punctuation, bare keywords and very short lines', () => {
+    for (const l of [
+      '}',
+      '});',
+      'return',
+      'else {',
+      '  ',
+      '} catch {',
+      'return null;',
+      ')',
+      'x++',
+    ])
+      expect(isTrivialEvidence(l)).toBe(true)
+    for (const l of [
+      "if (req.url?.startsWith('/session/check')) {",
+      'return JSON.parse(raw) as number',
+      'const token = Math.random()',
+    ])
+      expect(isTrivialEvidence(l)).toBe(false)
+  })
+
+  it('a trivial quoted line hashes to nothing (no evidence)', () => {
+    expect(evidenceHash('});', KEY)).toBeNull()
+    expect(evidenceHash('return JSON.parse(raw)', KEY)).not.toBeNull()
+  })
+
+  it('two distinct issues on far-apart `}` lines stay separate — plain and hashed, same rule or not', () => {
+    const prev = at('a', 10, '}', { title: 'Session map grows without bound' })
+    const next = at('b', 80, '}', { title: 'Error from write is swallowed' })
+    for (const opts of [{}, { acrossRounds: true }]) {
+      expect(sameIssueScore(prev, next, opts)).toBeNull()
+      expect(
+        sameIssueScore(hashIdentity(prev, KEY), hashIdentity(next, KEY), opts)
+      ).toBeNull()
+      expect(
+        sameIssueScore(prev, { ...next, ruleId: 'review:api_misuse' }, opts)
+      ).toBeNull()
+    }
+  })
+
+  it('the same non-trivial line moved 15 lines (a push) is still carried, whatever the label', () => {
+    const quote = "if (req.url?.startsWith('/session/check')) {"
+    const prev = at('a', 31, quote, {
+      title: 'Prefix match on the route is loose',
+    })
+    const next = at('b', 46, quote, {
+      ruleId: 'review:api_misuse',
+      title: 'Handler ignores the HTTP method',
+    })
+    expect(
+      sameIssueScore(hashIdentity(prev, KEY), hashIdentity(next, KEY), {
+        acrossRounds: true,
+      })
+    ).not.toBeNull()
+    // Same rule: carried even without the across-rounds rule.
+    expect(
+      sameIssueScore(prev, { ...next, ruleId: prev.ruleId })
+    ).not.toBeNull()
+  })
+
+  it(`…but not beyond ${EVIDENCE_LINE_WINDOW} lines: one repeated statement elsewhere in the file is other code`, () => {
+    const quote = 'const body = await readBody(req)'
+    const prev = at('a', 31, quote, { title: 'Body size is not limited' })
+    const next = at('b', 31 + EVIDENCE_LINE_WINDOW + 1, quote, {
+      title: 'Unhandled rejection from readBody',
+    })
+    expect(sameIssueScore(prev, next, { acrossRounds: true })).toBeNull()
+    expect(sameIssueScore(prev, { ...next, ruleId: prev.ruleId })).toBeNull()
+    expect(
+      sameIssueScore(
+        prev,
+        { ...next, line: 31 + EVIDENCE_LINE_WINDOW },
+        {
+          acrossRounds: true,
+        }
+      )
+    ).not.toBeNull()
   })
 })

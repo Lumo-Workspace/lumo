@@ -55,6 +55,7 @@ import {
   planIdentityWrites,
   planThreadActions,
   prFindingThreadService,
+  priorHistoryOf,
   storedIdentityOf,
   threadIdentityOf,
   type ThreadSyncContext,
@@ -861,6 +862,22 @@ describe('LUM-1127 follow-up — same issue under a new fingerprint', () => {
       identitySeverity: 'LOW',
       identityEvidenceHash: evidenceHash("console.log('probe')", KEY),
       identityTitleTokens: titleTokens('console.log used in scripts', KEY),
+      // LUM-1127 follow-up #4: what it stood for before (its finding row's
+      // identity, the row having none recorded) and what it stands for now.
+      identityHistory: [
+        {
+          ruleId: 'review:doc_mismatch',
+          line: 3,
+          evidenceHash: evidenceHash("console.log('probe')", KEY),
+          titleTokens: titleTokens('console.log used in scripts', KEY),
+        },
+        {
+          ruleId: 'review:api_misuse',
+          line: 3,
+          evidenceHash: evidenceHash("console.log('probe')", KEY),
+          titleTokens: titleTokens('console.log used in scripts', KEY),
+        },
+      ],
     })
     expect(out.carried).toEqual(new Map([['fp-api', 'fp-doc']]))
     expect(out.counts).toEqual({ open: 1, addressed: 0, resolved: 0 })
@@ -1146,11 +1163,22 @@ describe('LUM-1127 follow-up #2 — thread identity kept on the row', () => {
     expect(reply).not.toHaveBeenCalled()
     expect(out.carried).toEqual(new Map([['fp-logic', 'fp-data']]))
     // The row now stands for the relabelled finding (severity kept).
+    // LUM-1127 follow-up #4: its history keeps the identity it had.
     expect(repoMock.update).toHaveBeenCalledWith('t1', {
       aliasFingerprints: ['fp-logic'],
-      ...threadIdentityOf(f, logicIdentity.evidence, KEY),
+      ...threadIdentityOf(
+        f,
+        logicIdentity.evidence,
+        KEY,
+        priorHistoryOf(dataRow(), KEY)
+      ),
       identitySeverity: 'MEDIUM',
     })
+    expect(
+      (repoMock.update.mock.calls[0]![1].identityHistory ?? []).map(
+        v => v.ruleId
+      )
+    ).toEqual(['review:data_integrity', 'review:logic_error'])
   })
 
   it('reconcile: no identity anywhere ⇒ NOT addressed, logged (fail safe)', async () => {
