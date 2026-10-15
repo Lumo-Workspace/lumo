@@ -13,6 +13,7 @@ import {
 } from '@/scripts/analysis/lum1158-review-quality-bench/guidelines-lib'
 import {
   instructionsForPr,
+  parseInstructionsFile,
   replayPathInstructions,
 } from '@/scripts/analysis/lum1158-review-quality-bench/path-instructions-input'
 import {
@@ -113,6 +114,28 @@ describe('ruleLines / packRules', () => {
     ])
   })
 
+  it('keeps generics and inline code, strips only real HTML tags', () => {
+    expect(
+      ruleLines(
+        [
+          '- Always return `Array<T>` and never Map<K, V> from <b>public</b> helpers.',
+          '- Never glob with `src/**/__tests__` in **any** config here.',
+        ].join('\n')
+      ).map(l => l.text)
+    ).toEqual([
+      'Always return `Array<T>` and never Map<K, V> from public helpers.',
+      'Never glob with `src/**/__tests__` in any config here.',
+    ])
+  })
+
+  it('clips a long block without sentence punctuation at a word boundary', () => {
+    const [line] = ruleLines(`- You must ${'keep '.repeat(120)}going`)
+    expect(line).toBeDefined()
+    expect(line!.text.length).toBeGreaterThan(300)
+    expect(line!.text.length).toBeLessThanOrEqual(400)
+    expect(line!.text).toMatch(/^You must (keep )*keep$/)
+  })
+
   it('packs the best lines within the cap, in document order', () => {
     const lines = ruleLines(md)
     const all = packRules(lines)
@@ -195,6 +218,25 @@ describe('buildRepoPathInstructions', () => {
     expect(out.dropped).toBe(0)
   })
 
+  it('splits rule-file globs only on top-level commas', () => {
+    const out = buildRepoPathInstructions([
+      {
+        path: '.cursor/rules/ts.mdc',
+        text: '---\nglobs: "**/*.{ts,tsx}, docs/**"\n---\n- You must type every export here.',
+      },
+      {
+        path: '.github/instructions/x.instructions.md',
+        text: '---\napplyTo: "src/{a,b}/**,lib/**"\n---\n- You must type every export here.',
+      },
+    ])
+    expect(out.instructions.map(i => i.path)).toEqual([
+      '**/*.{ts,tsx}',
+      'docs/**',
+      'src/{a,b}/**',
+      'lib/**',
+    ])
+  })
+
   it('collapses identical copies and caps entries and characters', () => {
     const many = Array.from({ length: 30 }, (_, i) => ({
       path: `p${String(i).padStart(2, '0')}/AGENTS.md`,
@@ -232,6 +274,12 @@ describe('replay input (production rendering)', () => {
     ).toEqual([{ path: '**', instructions: 'x' }])
     expect(instructionsForPr({}, url)).toEqual([])
     expect(instructionsForPr({ [url]: 'nope' }, url)).toEqual([])
+  })
+
+  it('accepts only a JSON object as the instructions file', () => {
+    expect(parseInstructionsFile(`{"${url}": []}`)).toEqual({ [url]: [] })
+    for (const bad of ['[]', '"x"', 'null', '3'])
+      expect(() => parseInstructionsFile(bad)).toThrow(/JSON object/)
   })
 
   it('renders only entries matching reviewed files, guarded and capped', () => {

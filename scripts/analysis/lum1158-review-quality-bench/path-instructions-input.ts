@@ -15,6 +15,16 @@ import {
 } from '@/ee/security/security-scan/path-instructions'
 import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
 
+/** PURE — the instructions file's text, refused unless it is a JSON object. */
+export function parseInstructionsFile(text: string): Record<string, unknown> {
+  const v: unknown = JSON.parse(text)
+  if (typeof v !== 'object' || v === null || Array.isArray(v))
+    throw new Error(
+      'the instructions file must be a JSON object { [prUrl]: PathInstruction[] }'
+    )
+  return v as Record<string, unknown>
+}
+
 /** PURE — the raw list for one PR (anything but a list = none). */
 export function instructionsForPr(
   file: Record<string, unknown>,

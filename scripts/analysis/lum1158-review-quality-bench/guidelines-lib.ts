@@ -137,17 +137,29 @@ export function splitFrontmatter(text: string): {
   return { data, body: t.slice(m[0].length) }
 }
 
+/** Real HTML tags only — `Array<T>` / `Map<K, V>` in prose are not tags. */
+const HTML_TAG =
+  /<\/?(a|abbr|b|br|center|code|del|details|div|em|font|h[1-6]|hr|i|img|ins|kbd|li|ol|p|picture|pre|s|small|source|span|strong|sub|summary|sup|table|tbody|td|th|thead|tr|u|ul)(\s[^<>]*)?\/?>/gi
+
+/** Markdown/HTML markup removed from one block; inline code spans kept verbatim. */
 function cleanInline(s: string): string {
-  return oneLine(
-    s
-      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\*\*|__(?=\S)|(?<=\S)__/g, '')
-      .replace(/^>\s?/, '')
-  )
+  const text = s
+    .replace(/^>\s?/, '')
+    .split(/(`[^`]*`)/)
+    .map((part, i) =>
+      i % 2 === 1
+        ? part
+        : part
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(HTML_TAG, '')
+            .replace(/\*\*|__(?=\S)|(?<=\S)__/g, '')
+    )
+    .join('')
+  return oneLine(text)
 }
 
+/** At most MAX_RULE_CHARS: whole sentences, else a cut at a word boundary. */
 function clip(s: string): string {
   if (s.length <= MAX_RULE_CHARS) return s
   const sentences = s.match(/[^.!?]+[.!?]+(\s|$)/g) ?? []
@@ -156,7 +168,10 @@ function clip(s: string): string {
     if (out.length + x.length > MAX_RULE_CHARS) break
     out += x
   }
-  return out.trim()
+  if (out.trim()) return out.trim()
+  const head = s.slice(0, MAX_RULE_CHARS + 1)
+  const cut = head.lastIndexOf(' ')
+  return (cut > 0 ? head.slice(0, cut) : head.slice(0, MAX_RULE_CHARS)).trim()
 }
 
 /**
@@ -327,11 +342,28 @@ const POOL_BONUS: Partial<Record<GuidelineKind, number>> = {
   contributing: 0,
 }
 
+/** A comma-separated glob list split on top-level commas (not inside `{a,b}`). */
+function splitGlobList(list: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let cur = ''
+  for (const ch of list) {
+    if (ch === '{') depth++
+    else if (ch === '}') depth = Math.max(0, depth - 1)
+    if (ch === ',' && depth === 0) {
+      out.push(cur)
+      cur = ''
+    } else cur += ch
+  }
+  out.push(cur)
+  return out
+}
+
 function globsOf(v: unknown): string[] {
   const raw = Array.isArray(v)
     ? v.filter((x): x is string => typeof x === 'string')
     : typeof v === 'string'
-      ? v.split(',')
+      ? splitGlobList(v)
       : []
   return raw.map(g => g.trim()).filter(g => g.length > 0)
 }

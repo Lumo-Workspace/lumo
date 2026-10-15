@@ -47,6 +47,7 @@ import {
 import { prKey } from './pr-key'
 import {
   instructionsForPr,
+  parseInstructionsFile,
   replayPathInstructions,
 } from '../lum1158-review-quality-bench/path-instructions-input'
 
@@ -67,10 +68,7 @@ const limit = Number(opt('limit', '0'))
 const relatedRoot = opt('related', '')
 const instructionsFile = opt('instructions', '')
 const instructionsByPr: Record<string, unknown> = instructionsFile
-  ? (JSON.parse(readFileSync(instructionsFile, 'utf8')) as Record<
-      string,
-      unknown
-    >)
+  ? parseInstructionsFile(readFileSync(instructionsFile, 'utf8'))
   : {}
 
 const capChars =
