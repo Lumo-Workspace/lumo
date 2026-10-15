@@ -167,6 +167,7 @@ const ALL_ON = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
+  securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,
   securityReviewAutoPauseAfter: 5,
 }

@@ -46,6 +46,10 @@ export function SecuritySettingsSection({
             workspace.securityRequestChangesEnabled,
             false
           ),
+          // LUM-1142: on unless the workspace turned it off.
+          securityAllowAuthorApproval: switchOf(
+            workspace.securityAllowAuthorApproval
+          ),
           // LUM-1134: auto unless the workspace chose otherwise.
           securityLearningsScope: parseLearningsScope(
             workspace.securityLearningsScope

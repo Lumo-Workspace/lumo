@@ -29,6 +29,9 @@ export interface WorkspaceSecuritySwitches {
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
   securityRequestChangesEnabled: boolean
+  /** LUM-1142: the PR's author may resolve / approve by command (CodeRabbit
+   *  `allow_author_approval`, default on). */
+  securityAllowAuthorApproval: boolean
   /** LUM-1134: which repositories' learnings the AI review reads. */
   securityLearningsScope: LearningsScope
   /** LUM-1137: pause automatic review of a PR after this many reviewed
@@ -41,6 +44,7 @@ export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
   securityRequestChangesEnabled: false,
+  securityAllowAuthorApproval: true,
   securityLearningsScope: DEFAULT_LEARNINGS_SCOPE,
   securityReviewAutoPauseAfter: DEFAULT_AUTO_PAUSE_AFTER,
 }

@@ -688,7 +688,7 @@ export const updateMilestoneSchema = z.object({
   tokenBudget: z.number().int().min(1).max(2_147_483_647).nullable().optional(),
   // LUM-714: milestone completion is derived from task completion — there is
   // no status to patch, so this schema carries no lifecycle field at all. The
-  // one human lever over completion is the exit-criteria close override, which
+  // one human lever over completion is the close-gate override, which
   // has its own endpoint (POST .../close-override).
 })
 

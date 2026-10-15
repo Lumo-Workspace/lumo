@@ -62,7 +62,7 @@ beforeEach(() => {
 it('lists cases with the gate', async () => {
   mockSvc.list.mockResolvedValue({
     testCases: [],
-    gate: { held: 0, unresolvedCriteria: 0, cases: [] },
+    gate: { held: 0, cases: [] },
   })
   const res = await GET(req(), params({ milestoneId: 'm-1' }))
   expect(res.status).toBe(200)

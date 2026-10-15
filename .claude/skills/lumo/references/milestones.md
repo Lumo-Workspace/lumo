@@ -139,7 +139,7 @@ At least one field required.
 
 The old `PLANNED` / `ACTIVE` split is gone — a milestone whose tasks have not started is simply active — and `CANCELLED` is expressed by archiving (a milestone archived while incomplete reads as dropped, not delivered).
 
-**The close is gated by milestone test cases and exit criteria (LUM-1135, LUM-643):** the LUM-714 derived completion needs the whole gate open. A milestone test case holds the gate until its latest run is a PASS (or a proven defect was dispositioned KNOWN_DEFECT); a legacy exit criterion holds it until adjudicated MET. While held, all tasks DONE leaves the milestone active, `completedAt` unstamped, no retro. `lumo milestone show` prints a `Close gate:` row (`open`, `held (1 not run, 1 failing, ...)`, or `unknown (could not read)` when the server failed to read the gate — treat that as not open). There is **no CLI/agent override**: the only escape hatch is a human using the **Close anyway** button on the milestone page (`POST /api/milestones/<id>/close-override`, Clerk identity only), stamped on the milestone as a persistent trail (`completedOverride*` - who/when/note, never auto-cleared). To open the gate legitimately, record passing runs with `lumo milestone testcase run`.
+**The close is gated by milestone test cases (LUM-1135):** the LUM-714 derived completion needs the gate open. A milestone test case holds the gate until its latest run is a PASS (or a proven defect was dispositioned KNOWN_DEFECT); a milestone with no test cases has an open gate. (Exit criteria were removed in LUM-1141.) While held, all tasks DONE leaves the milestone active, `completedAt` unstamped, no retro. `lumo milestone show` prints a `Close gate:` row (`open`, `held (1 not run, 1 failing, ...)`, or `unknown (could not read)` when the server failed to read the gate — treat that as not open). There is **no CLI/agent override**: the only escape hatch is a human using the **Close anyway** button on the milestone page (`POST /api/milestones/<id>/close-override`, Clerk identity only), stamped on the milestone as a persistent trail (`completedOverride*` - who/when/note, never auto-cleared). To open the gate legitimately, record passing runs with `lumo milestone testcase run`.
 
 ```bash
 lumo milestone update "Q3 Launch" --target 2026-09-15
@@ -150,7 +150,7 @@ lumo milestone update "Q3 Launch" --token-budget ""
 
 ### `lumo milestone testcase add|list|show|update|rm|run|disposition <milestone>` - the milestone close contract (LUM-1135)
 
-Milestone test cases are cross-task, end-to-end cases that replace exit criteria as the close contract. Every command mirrors `lumo task testcase` (same flags, same output shape); the differences:
+Milestone test cases are cross-task, end-to-end cases and the milestone close contract. Every command mirrors `lumo task testcase` (same flags, same output shape); the differences:
 
 - The first positional is the **milestone** (name, or id), then the case ref (`TC3`) where one applies. Pass `--project <ref>` when the milestone name is ambiguous. Printed handles read `<milestone name>/TC3`.
 - `run` has **no `--pr`** (a milestone spans many PRs; the commit is recorded instead) and prints no task status digest.
@@ -180,66 +180,6 @@ lumo milestone testcase disposition "Review v2" TC1 --known-defect --note "shipp
 - A steward session planning a milestone ("what does done mean for this milestone") -> `testcase add` for each cross-task end-to-end scenario.
 - After the last task of a milestone lands -> run each case with `testcase run`, in the environment the case requires.
 - `milestone show` says `Close gate: held` -> `testcase list` to see which case holds it and why.
-
-### `lumo milestone criteria set <identifier> --file <criteria.json> [--human]` - submit the exit contract (Deprecated, LUM-1135)
-
-**Deprecated (LUM-1135):** use `milestone testcase`. Existing exit criteria still hold the gate until adjudicated; do not add new ones.
-
-Milestone-level **exit criteria** (LUM-643) — the close contract. Exit criteria are **adjudicated (裁定)**, not machine-verified — and each item requires only `statement` + `referentKind`. The **steward session (LUM-640) is the intended drafting & adjudicating subject** (drafting is a governance action; session provenance is recorded on every row); `--human` records a transcribed HUMAN_EDIT revision instead.
-
-The file is a JSON array:
-
-```json
-[
-  {
-    "statement": "Every LUM-64x migration is applied on prod (migrate status clean)",
-    "referentKind": "EXTERNAL_FACT"
-  },
-  {
-    "statement": "All milestone read models render the new fields",
-    "referentKind": "AGENT_CONSTRUCTED_STATE"
-  }
-]
-```
-
-Semantics: **full-group replace** — existing rows with a verdict are tombstoned (their adjudication trail survives for audit), verdict-free rows are hard-deleted. The contract **locks with 409 once the milestone is COMPLETED** (reopen to edit). Archived milestones also refuse with 409.
-
-```bash
-lumo milestone criteria set "Q3 Launch" --file exit-criteria.json
-lumo milestone criteria set "Q3 Launch" --file exit-criteria.json --human
-```
-
-### `lumo milestone criteria list <identifier>` — print the exit contract
-
-One line per criterion — `<id>  [MET|NOT_MET|PENDING]  SOURCE ⟨REFERENT⟩  statement` — plus an indented `↳` detail line (date · evidence · note) for adjudicated rows, and a trailing gate-state line: either `All exit criteria MET — the close gate is open.` or `N unresolved (pending or NOT_MET) — the close gate withholds the derived completion until adjudicated (human override only via web).`
-
-```bash
-lumo milestone criteria list "Q3 Launch"
-```
-
-### `lumo milestone criteria verdict <identifier> <criterion> --met|--unmet` — adjudicate one criterion
-
-Records the adjudication (裁定) on one exit criterion — verdict, who, when, and the adjudicating session (LUM-640 steward provenance) are stamped server-side; re-adjudication overwrites in place (latest verdict wins). `<criterion>` accepts the full id or a **≥6-char unique id prefix** from `criteria list` (ambiguous/unknown selectors list candidates and exit 1).
-
-| Flag                   | Type    | Notes                                                                                                 |
-| ---------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `--met` / `--unmet`    | boolean | Exactly one required.                                                                                 |
-| `--note <text>`        | string  | Why this verdict (recommended).                                                                       |
-| `--evidence <pointer>` | string  | **Required for `--met` on an `EXTERNAL_FACT` criterion** (422 otherwise) — the fact it was read from. |
-| `--project <ref>`      | string  | Required when identifier is a name and workspace has >1 project.                                      |
-
-**Grounding gate (LUM-602/605 reuse):** `--met` on `EXTERNAL_FACT` without `--evidence` → **422** (re-ground or honestly re-declare the criterion `AGENT_CONSTRUCTED_STATE`); a `PENDING_OUTCOME` criterion can **never** be adjudicated MET (its truth lands post-delivery — use the outcome well). `--unmet` never needs evidence.
-
-```bash
-lumo milestone criteria verdict "Q3 Launch" cmexit0001 --met --evidence "prisma migrate status @ prod, 2026-07-02" --note "all LUM-64x applied"
-lumo milestone criteria verdict "Q3 Launch" cmexit0002 --unmet --note "read model not wired yet"
-```
-
-### When to suggest `milestone criteria`
-
-- A steward session planning a milestone ("what does done mean for this milestone", "draft exit criteria") → `criteria set`.
-- When a milestone's tasks are all DONE but it has not completed → `criteria list` to see what holds the gate, then `verdict` per criterion.
-- User asks "can we close this milestone / what's blocking the close" → `criteria list` (the gate-state line answers it).
 
 ### `lumo milestone delete <identifier>` — delete a milestone
 
@@ -336,7 +276,7 @@ Agent-Native Milestones: 1 marked claimable, 1 skipped
 
 Prints the AI-generated retrospective summary for a milestone (mirrors `sprint summary`). `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has more than one project. When no summary exists yet the command prints `(no summary generated yet)`.
 
-A summary is generated automatically when a milestone completes (the LUM-714 derived transition: its last open task turns DONE, with the exit-criteria gate open). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. Use `--retry` to queue regeneration (e.g. after a failed generation) before fetching — regeneration is async, so the printed result may still be the previous summary or `(no summary generated yet)`.
+A summary is generated automatically when a milestone completes (the LUM-714 derived transition: its last open task turns DONE, with the test-case close gate open). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. Use `--retry` to queue regeneration (e.g. after a failed generation) before fetching — regeneration is async, so the printed result may still be the previous summary or `(no summary generated yet)`.
 
 | Flag              | Type    | Notes                                                                                                  |
 | ----------------- | ------- | ------------------------------------------------------------------------------------------------------ |

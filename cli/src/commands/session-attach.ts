@@ -66,7 +66,7 @@ interface StewardBoundResponse {
  * a different binding requires a brand-new agent session.
  *
  * A STEWARD session plans and accepts only: task create/update, milestone
- * exit criteria, deps confirm/dismiss, milestone add/remove and all
+ * test cases, deps confirm/dismiss, milestone add/remove and all
  * reads pass; self-dispatch is refused with 409, and
  * implementation artifacts (commits/PRs) are recorded as boundary crossings.
  */
@@ -368,7 +368,7 @@ async function stewardAttach(args: {
   console.log('')
   console.log('Governance role — plan & accept only (lifetime lock):')
   console.log(
-    '  allowed: task create/update · milestone criteria set/verdict · deps confirm/dismiss · milestone add/remove · all reads'
+    '  allowed: task create/update · milestone testcase add/run · deps confirm/dismiss · milestone add/remove · all reads'
   )
   console.log(
     '  blocked: moving a task to in_progress assigned to yourself · attaching a task'

@@ -127,9 +127,6 @@ import {
   milestoneTestCaseRun,
   milestoneTestCaseDisposition,
 } from './commands/milestone-testcase'
-import { milestoneCriteriaSet } from './commands/milestone-criteria-set'
-import { milestoneCriteriaList } from './commands/milestone-criteria-list'
-import { milestoneCriteriaVerdict } from './commands/milestone-criteria-verdict'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
@@ -1718,7 +1715,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds CodeRabbit-style filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds CodeRabbit-style filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1729,6 +1726,10 @@ workspaceCmd
   .option(
     '--request-changes <on|off>',
     'Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean'
+  )
+  .option(
+    '--allow-author-approval <on|off>',
+    'PR authors may run `@uselumo resolve` / `approve` on their own PR (default on; CodeRabbit allow_author_approval); off = only other write-access accounts'
   )
   .option(
     '--learnings-scope <local|global|auto>',
@@ -2237,79 +2238,6 @@ milestoneCmd
       milestoneMove(
         ref as string,
         options as { project?: string; before?: string; after?: string }
-      )
-    )
-  )
-
-const milestoneCriteria = milestoneCmd
-  .command('criteria')
-  .description(
-    'DEPRECATED (LUM-1135) — use `milestone testcase`. Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only).'
-  )
-
-milestoneCriteria
-  .command('set <identifier>')
-  .description(
-    'Submit the whole exit contract from a JSON file (full replace; adjudicated rows are tombstoned, their verdict trail survives). Default = steward/agent draft; --human records a transcribed HUMAN_EDIT revision. Locked with 409 once the milestone is COMPLETED.'
-  )
-  .requiredOption(
-    '--file <path>',
-    'JSON array of criteria: [{"statement","referentKind":"EXTERNAL_FACT"|"AGENT_CONSTRUCTED_STATE"|"PENDING_OUTCOME"}] — no verifierType/checkpointer (exit criteria are adjudicated, not machine-run)'
-  )
-  .option(
-    '--human',
-    'Record a human contract revision (HUMAN_EDIT) transcribed from the conversation'
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .action(
-    wrap((identifier, options) =>
-      milestoneCriteriaSet(
-        identifier as string,
-        options as { project?: string; file?: string; human?: boolean }
-      )
-    )
-  )
-
-milestoneCriteria
-  .command('list <identifier>')
-  .description(
-    'List a milestone’s exit criteria: id, verdict (MET | NOT_MET | PENDING), provenance, referent kind, statement — plus whether the close gate is open.'
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .action(
-    wrap((identifier, options) =>
-      milestoneCriteriaList(
-        identifier as string,
-        options as { project?: string }
-      )
-    )
-  )
-
-milestoneCriteria
-  .command('verdict <identifier> <criterion>')
-  .description(
-    'Adjudicate (裁定) one exit criterion: --met or --unmet, with optional --note. Grounding gate: --met on an EXTERNAL_FACT criterion requires --evidence (422 otherwise), and a PENDING_OUTCOME criterion can never be MET. <criterion> = id or ≥6-char id prefix from `criteria list`.'
-  )
-  .option('--met', 'Adjudicate the criterion MET')
-  .option('--unmet', 'Adjudicate the criterion NOT_MET')
-  .option('--note <text>', 'Adjudication note (why this verdict)')
-  .option(
-    '--evidence <pointer>',
-    'Evidence pointer backing a MET on EXTERNAL_FACT (URL, commit SHA, CI run, DB probe …)'
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .action(
-    wrap((identifier, criterion, options) =>
-      milestoneCriteriaVerdict(
-        identifier as string,
-        criterion as string,
-        options as {
-          project?: string
-          met?: boolean
-          unmet?: boolean
-          note?: string
-          evidence?: string
-        }
       )
     )
   )

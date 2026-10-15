@@ -305,6 +305,17 @@ export function SecurityScanSwitchesCard({
         disabled={saving || !scanOn}
         onChange={set('securityRequestChangesEnabled')}
       />
+      {/* LUM-1142: CodeRabbit's allow_author_approval — who may run
+          `@uselumo resolve` / `approve`. On by default; "enable all" /
+          "disable all" leave it as it is. */}
+      <SwitchRow
+        id='security-allow-author-approval'
+        label={t('allowAuthorApproval.label')}
+        description={t('allowAuthorApproval.description')}
+        checked={scanOn && switches.securityAllowAuthorApproval}
+        disabled={saving || !scanOn}
+        onChange={set('securityAllowAuthorApproval')}
+      />
       {/* LUM-1134: learnings only shape the AI review — locked while it is
           off. Saved with the switches; "enable all" / "disable all" leave
           it as it is. */}

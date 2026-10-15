@@ -135,7 +135,7 @@ export const COMPARE_GROUPS: CompareGroup[] = [
         capability: 'Milestones',
         lumo: {
           verdict: 'yes',
-          note: 'Milestones with exit criteria and a changelog of what shipped.',
+          note: 'Milestones with end-to-end test cases and a changelog of what shipped.',
         },
         linear: {
           verdict: 'yes',
