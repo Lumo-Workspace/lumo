@@ -20,6 +20,7 @@ import {
 } from './secret-patterns'
 import {
   maskQuotedCredentials,
+  maskQuotedKeyedValues,
   maskQuotedValues,
   redactLine,
   redactSecret,
@@ -412,6 +413,18 @@ export function redactKnownSecrets(input: string): string {
  */
 export function redactFindingText(input: string): string {
   return redactThenMaskQuotes(input, maskQuotedCredentials)
+}
+
+/**
+ * LUM-1200 — `redactKnownSecrets` for prose a model wrote about a whole PR
+ * (the PR summary). Identical registry pass and truncation red line; the
+ * final quoted-span pass is `maskQuotedKeyedValues`, which keeps quoted
+ * phrases (`marked 'do not merge'`) even when the summary mentions tokens,
+ * and masks a quoted value only when it is credential-shaped, beside a
+ * registry hit, or right after a credential key (`password is "…"`).
+ */
+export function redactSummaryText(input: string): string {
+  return redactThenMaskQuotes(input, maskQuotedKeyedValues)
 }
 
 function redactThenMaskQuotes(

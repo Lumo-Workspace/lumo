@@ -242,6 +242,18 @@ test('an incremental review stores a whole-PR summary, never the slice', async (
   expect(JSON.stringify(storedSummary())).not.toContain('slice')
 })
 
+test("the whole-PR summary text goes through the same summary redaction as the review's own", async () => {
+  incremental()
+  summarize.mockResolvedValue({
+    intent: `Adds the key ${KEY} and keeps "quoted prose" readable.`,
+    changes: [],
+  })
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  const stored = JSON.stringify(storedSummary())
+  expect(stored).not.toContain(KEY)
+  expect(stored).toContain('quoted prose')
+})
+
 test('over budget: the file list and the previous summary are summarised', async () => {
   incremental()
   const big = 'x'.repeat(200)

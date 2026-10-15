@@ -100,6 +100,12 @@ export interface NewFindingInput {
    * carried to a later scan: its line range belongs to this head.
    */
   codeSuggestion?: CodeSuggestion
+  /**
+   * LUM-1147 (LLM_JUDGE rows only) — the glob of the path instruction this
+   * finding applies, verified against the instructions sent for its file.
+   * Commented inline under chill / assertive whatever the severity.
+   */
+  pathInstruction?: string | null
 }
 
 /** LUM-739 — what the hunt workflow writes back onto the scan row. */
@@ -342,6 +348,8 @@ export type ReviewFindingRow = Pick<
 > & {
   /** LUM-1150 — the stored suggestion Json, raw; read with `parseCodeSuggestion`. */
   codeSuggestion?: unknown
+  /** LUM-1147 — the path instruction glob the finding applies (null = none). */
+  pathInstruction?: string | null
 }
 
 /**
@@ -1725,6 +1733,7 @@ export const prSecurityScanRepository = {
             verifierVerdict: true,
             verifierReason: true,
             codeSuggestion: true,
+            pathInstruction: true,
           },
         },
         pullRequest: {

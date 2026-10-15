@@ -102,6 +102,10 @@ import {
   workspaceSecurityScan,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
+import {
+  workspaceLearnings,
+  type WorkspaceLearningsOptions,
+} from './commands/workspace-learnings'
 import { taskLineage } from './commands/task-lineage'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
@@ -1812,7 +1816,7 @@ workspaceCmd
   )
   .option(
     '--profile <quiet|chill|assertive>',
-    'With --repo: which findings get inline comments — quiet = only HIGH and Done-blocking (MEDIUM listed in the summary), chill (default) = HIGH and MEDIUM, assertive = LOW too. Never changes detection or what blocks Done'
+    'With --repo: which findings get inline comments — quiet = only HIGH and Done-blocking (MEDIUM and path-instruction findings listed in the summary), chill (default) = HIGH, MEDIUM and any finding a path instruction asked for, assertive = LOW too. Never changes detection or what blocks Done'
   )
   .option(
     '--tone <text>',
@@ -1833,6 +1837,17 @@ workspaceCmd
     wrap(options =>
       workspaceSecurityScan(options as WorkspaceSecurityScanOptions)
     )
+  )
+
+workspaceCmd
+  .command('learnings')
+  .description(
+    "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory id, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <id>`."
+  )
+  .option('--repo <owner/name>', "Only this repository's learnings")
+  .option('--json', 'Emit { learnings } as JSON')
+  .action(
+    wrap(options => workspaceLearnings(options as WorkspaceLearningsOptions))
   )
 
 const tagCmd = program

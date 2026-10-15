@@ -91,18 +91,28 @@ export function matchingPathInstructions(
   })
 }
 
+/** LUM-1147 — the prompt block and the entries it actually carries. */
+export interface RenderedPathInstructions {
+  /** One guarded line per entry; `''` when nothing matches. */
+  text: string
+  /** The entries rendered into `text` (after the size cap), in order. */
+  sent: PathInstruction[]
+}
+
 /**
  * PURE — the prompt block: one line per matching entry, `- [glob] text`,
  * each through `guard` (the caller passes `guardPromptLineText`), capped at
- * `REVIEW_PATH_INSTRUCTIONS_MAX_CHARS` on whole lines, in the listed order.
- * `''` when nothing matches.
+ * `REVIEW_PATH_INSTRUCTIONS_MAX_CHARS` on whole lines, in the listed order —
+ * with the entries that made it in, so a finding's claim to apply one can
+ * be checked against what the model was really given.
  */
-export function renderPathInstructions(
+export function planPathInstructions(
   list: readonly PathInstruction[],
   reviewedPaths: readonly string[],
   guard: (line: string) => string
-): string {
+): RenderedPathInstructions {
   const lines: string[] = []
+  const sent: PathInstruction[] = []
   let used = 0
   for (const entry of matchingPathInstructions(list, reviewedPaths)) {
     const text = oneLine(entry.instructions)
@@ -111,9 +121,52 @@ export function renderPathInstructions(
     const line = `- [${guard(oneLine(entry.path))}] ${guard(text)}`
     if (used + line.length + 1 > REVIEW_PATH_INSTRUCTIONS_MAX_CHARS) break
     lines.push(line)
+    sent.push(entry)
     used += line.length + 1
   }
-  return lines.join('\n')
+  return { text: lines.join('\n'), sent }
+}
+
+/** PURE — `planPathInstructions`' prompt block alone. */
+export function renderPathInstructions(
+  list: readonly PathInstruction[],
+  reviewedPaths: readonly string[],
+  guard: (line: string) => string
+): string {
+  return planPathInstructions(list, reviewedPaths, guard).text
+}
+
+/**
+ * PURE — a finding's claim to apply a path instruction, checked: the glob
+ * the model named (as written in the prompt, brackets optional) must be one
+ * of the instructions SENT in this review (`sent`, compared as rendered:
+ * one line, through `guard`), and that glob must match the finding's own
+ * file. Returns the stored glob, or null — an unmatched claim is dropped,
+ * never trusted.
+ */
+export function verifyPathInstructionClaim(
+  claim: unknown,
+  filePath: string,
+  sent: readonly PathInstruction[],
+  guard: (line: string) => string
+): string | null {
+  if (typeof claim !== 'string') return null
+  const named = oneLine(claim)
+    .replace(/^\[(.*)\]$/, '$1')
+    .trim()
+  if (!named) return null
+  for (const entry of sent) {
+    const rendered = guard(oneLine(entry.path))
+    if (named !== rendered && named !== entry.path) continue
+    let re: RegExp
+    try {
+      re = globToRegExp(entry.path)
+    } catch {
+      return null
+    }
+    return re.test(filePath) ? entry.path : null
+  }
+  return null
 }
 
 /** PURE — the tone line for the prompt (guarded, bounded); `''` = none. */

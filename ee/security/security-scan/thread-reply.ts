@@ -385,8 +385,14 @@ export interface LearningReplyInput {
   learning: string
   repo: string
   pathGlob: string | null
-  /** Whether the learning was stored as a memory, and if not why. */
-  stored: 'stored' | 'no_project' | 'failed'
+  /** Whether the learning was stored as a memory. */
+  stored: 'stored' | 'failed'
+  /**
+   * LUM-1157: the learning's memory belongs to a Lumo project (else it is
+   * scoped to the workspace and repository only) — decides where the
+   * answer says to change or undo it.
+   */
+  inProject: boolean
   /** The GitHub thread was really resolved (else the reply says so). */
   closed: boolean
   /** A gate-blocking finding: the reply must say it still blocks. */
@@ -409,12 +415,13 @@ export function buildLearningReply(input: LearningReplyInput): string {
     ? `\`${input.repo}\`, files matching \`${input.pathGlob}\``
     : `\`${input.repo}\``
   const head = headLine(input.login, input.closed)
+  const undo = input.inProject
+    ? "edit or delete this learning in the project's memory in Lumo"
+    : `list this repository's learnings with \`lumo workspace learnings --repo ${input.repo}\` and delete one with \`lumo memory rm <id>\``
   const body =
     input.stored === 'stored'
-      ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, edit or delete this learning in the project's memory in Lumo._`
-      : input.stored === 'no_project'
-        ? `\n\nLumo could not store a learning from it: this repository is not linked to a Lumo project.`
-        : `\n\nLumo could not store a learning from it this time — nothing was saved.`
+      ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, ${undo}._`
+      : `\n\nLumo could not store a learning from it this time — nothing was saved.`
   return `${head}${body}${input.blockingFindingId ? blockingNote(input.blockingFindingId) : ''}\n\n${REPLY_NOTE_MARKER}`
 }
 

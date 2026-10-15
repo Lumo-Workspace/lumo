@@ -64,6 +64,7 @@ jest.mock('@/lib/logger', () => ({
 
 import {
   buildSummary,
+  clearChangedFilesCache,
   securityPrReviewService,
 } from '@/ee/security/services/security-pr-review.service'
 import {
@@ -125,6 +126,7 @@ function writtenBody(i = 0): string {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  clearChangedFilesCache()
   process.env.GITHUB_APP_SLUG = 'uselumo'
   ;(getRepoToken as jest.Mock).mockResolvedValue('tok')
   ;(prCommentClient.listIssueComments as jest.Mock).mockResolvedValue([])
@@ -299,6 +301,35 @@ describe('LUM-1151 ruling — whole-PR summary and walkthrough on an incremental
     await securityPrReviewService.syncReview('s1')
     expect(writtenBody()).toContain('1234567')
     expect(writtenBody()).toMatch(/could not refresh it for abcdef1/)
+  })
+})
+
+describe('LUM-1151 — the PR file list is read once per head', () => {
+  it('later syncs of the same head reuse it; a new head reads it again', async () => {
+    clearChangedFilesCache()
+    findById.mockResolvedValue(scanRow())
+    await securityPrReviewService.syncReview('s1')
+    await securityPrReviewService.syncReview('s1')
+    expect(listFiles).toHaveBeenCalledTimes(1)
+    expect(createIssue.mock.calls[0]![0].body).toContain('`src/sender.ts`')
+    findById.mockResolvedValue(
+      scanRow({
+        id: 's2',
+        headSha: SHA2,
+        pullRequest: { ...scanRow().pullRequest, headSha: SHA2 },
+      })
+    )
+    await securityPrReviewService.syncReview('s2')
+    expect(listFiles).toHaveBeenCalledTimes(2)
+  })
+
+  it('a failed read is not kept: the next sync tries again', async () => {
+    clearChangedFilesCache()
+    findById.mockResolvedValue(scanRow())
+    listFiles.mockRejectedValueOnce(new Error('boom'))
+    await securityPrReviewService.syncReview('s1')
+    await securityPrReviewService.syncReview('s1')
+    expect(listFiles).toHaveBeenCalledTimes(2)
   })
 })
 

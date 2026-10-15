@@ -144,8 +144,9 @@ export interface PathInstruction {
 /** LUM-1147: what each profile comments inline (mirrors the server). */
 const PROFILE_HELP: Record<ReviewProfile, string> = {
   quiet:
-    'only HIGH and Done-blocking findings inline; MEDIUM listed in the summary',
-  chill: 'HIGH and MEDIUM findings inline; LOW one summary line',
+    'only HIGH and Done-blocking findings inline; MEDIUM and path-instruction findings listed in the summary',
+  chill:
+    'HIGH, MEDIUM and path-instruction findings inline; other LOW one summary line',
   assertive: 'every finding on a changed line inline, LOW too',
 }
 

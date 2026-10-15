@@ -5,7 +5,7 @@
  *
  * The text is model-authored over an untrusted diff and is published on a
  * public PR, so it is treated like any other untrusted field: known secrets
- * are redacted, and everything that would make GitHub act on it — @mentions,
+ * (and quoted credential-shaped or keyed values) are redacted, and everything that would make GitHub act on it — @mentions,
  * links, images, HTML (including our own `<!-- lumo-security:… -->` markers,
  * which a forged copy could hijack), headings, line breaks — is neutralised.
  * `cleanPrSummary` runs at write time (stage A) and `parsePrSummary` re-runs
@@ -13,7 +13,7 @@
  * by hand still cannot reach the PR raw. The pass is idempotent.
  */
 import { sanitizeField } from '@/shared/src/sanitize'
-import { redactKnownSecrets } from '@/lib/security-scan/scan-secrets'
+import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 
 export interface PrSummary {
   /** One sentence: what the PR does. */
@@ -77,7 +77,9 @@ export function neutralizeSummaryText(raw: string, maxChars: number): string {
 
 function cleanText(raw: unknown, maxChars: number): string | null {
   if (typeof raw !== 'string') return null
-  const text = neutralizeSummaryText(redactKnownSecrets(raw), maxChars)
+  // LUM-1200: the prose pass — a quoted phrase is masked only when it looks
+  // like (or is keyed as) a credential, never just for being quoted.
+  const text = neutralizeSummaryText(redactSummaryText(raw), maxChars)
   return text.length > 0 ? text : null
 }
 

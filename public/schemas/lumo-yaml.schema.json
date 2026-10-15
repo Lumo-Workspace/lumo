@@ -156,7 +156,7 @@
           "description": "Pre-merge checks, reported in the PR summary. Overriding them never clears a finding that blocks DONE."
         },
         "profile": {
-          "description": "Which findings get inline comments: `quiet` = only HIGH and Done-blocking ones (MEDIUM listed in the summary), `chill` (default) = HIGH and MEDIUM, `assertive` = LOW too. Detection and what blocks DONE are the same in every profile.",
+          "description": "Which findings get inline comments: `quiet` = only HIGH and Done-blocking ones (MEDIUM and path-instruction findings listed in the summary), `chill` (default) = HIGH, MEDIUM and any finding a path instruction asked for, `assertive` = LOW too. Detection and what blocks DONE are the same in every profile.",
           "type": "string",
           "enum": ["quiet", "chill", "assertive"]
         },

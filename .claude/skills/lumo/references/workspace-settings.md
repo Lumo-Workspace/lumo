@@ -133,7 +133,7 @@ lumo workspace security-scan --repo acme/app --path-instruction 'scripts/**=Flag
 lumo workspace security-scan --repo acme/app --path-instruction ""          # clear the list
 ```
 
-- `--profile <quiet|chill|assertive>` changes **posting only** (detection, severities, counts and what blocks Done are identical): `chill` (default) = HIGH + MEDIUM findings get inline comments, LOW is one summary line; `quiet` = only HIGH findings inline, MEDIUM ones are listed in a folded block of the summary; `assertive` = LOW findings inline too. In **every** profile HIGH findings and Done-blocking findings are commented inline. The summary footer names a non-default profile.
+- `--profile <quiet|chill|assertive>` changes **posting only** (detection, severities, counts and what blocks Done are identical): `chill` (default) = HIGH + MEDIUM findings get inline comments, LOW is one summary line; `quiet` = only HIGH findings inline, MEDIUM ones are listed in a folded block of the summary; `assertive` = LOW findings inline too. In **every** profile HIGH findings and Done-blocking findings are commented inline. A finding a path instruction asked for (the AI review names the instruction; Lumo keeps the claim only when that instruction was sent for the finding's file) is commented inline under `chill` and `assertive` whatever its severity, and listed in the summary under `quiet`. The summary footer names a non-default profile.
 - `--tone <text>` (≤250 chars, one line; `""` clears): how the AI review words its titles, details and the PR description, and how Lumo words its answers to questions on the PR (LUM-1154 chat) — wording only, never what is reported. Fixed notes (learning acknowledgements, command replies) do not change.
 - `--path-instruction <glob=instructions>` (repeatable, replaces the list, `""` clears; ≤20 entries, glob ≤200 and instructions ≤1000 chars; the glob is everything before the first `=`, same syntax as `--path-filter`, no `!`): extra checks added to the AI review prompt for files matching the glob — only instructions whose glob matches a reviewed file are sent (≤4,000 chars per review, paid out of the review's context budget like learnings). They are fenced, guarded prompt text: they cannot turn a layer off, clear or approve a finding, or change what blocks Done.
 - `--repo X` prints `review profile:`, `tone:` and each `path instruction:` under the row; `--json` adds `reviewProfile`, `toneInstructions`, `pathInstructions`.
@@ -152,6 +152,19 @@ lumo workspace security-scan --repo acme/app --summary off
 - `@uselumo summary` on the PR rewrites the section from the latest review's summary (no new AI review), following the repository's current setting. The summary comment's folded **Walkthrough** lists the PR's changed files (status, +/− lines; first 50 named).
 - `--repo X` prints `high-level summary:`; `--json` adds `highLevelSummary`.
 
+### `lumo workspace learnings` — PR-review learnings (LUM-1157)
+
+Lists the workspace's PR-review learnings — what reviewers told Lumo in its review threads ("this is intentional because …", LUM-1131) — newest first, ACTIVE only, at most 200. Every reviewed repository of the workspace gets learnings, whether or not it is linked to a Lumo project; a learning of a repository linked to no project belongs to no project's memory (it is scoped to the workspace + repository), so this command is where it is found. Any member may read.
+
+```bash
+lumo workspace learnings                     # every repository
+lumo workspace learnings --repo acme/app     # one repository (case-insensitive)
+lumo workspace learnings --json              # { learnings: [{ id, repo, pathGlob, learning, ruleId, authorLogin, repositoryWide, inProject, createdAt }] }
+lumo memory rm <id>                          # delete one (exits 4 with an envelope until --confirm)
+```
+
+Each learning prints `<id>  <repo>  [<path glob>]  @<author>  <date>  <scope>[  (no project)]` and then its text, indented. Scope is `repository` once its source PR merged, else `source PR until it merges` (a merge Lumo missed still counts at review time). `--repo` must be `owner/name` (exit 1 otherwise). A project-linked learning can also be edited or deleted in that project's memory.
+
 ### When to suggest `workspace security-scan`
 
 - "Turn off / pause code scanning", "stop the AI review on our PRs", "why didn't the hunt run" — and the user is a workspace owner (reading is open to anyone).
@@ -161,6 +174,7 @@ lumo workspace security-scan --repo acme/app --summary off
 - "Don't edit our PR descriptions", "put the PR summary in the description", "turn the PR summary off" → `--summary description|comment|off` with `--repo`.
 - "Make Lumo request changes / approve PRs", "request changes on open findings" → `--request-changes on` (exits 4 first; relay the envelope).
 - "Stop PR authors approving their own PRs via @uselumo", "allow_author_approval" → `--allow-author-approval off` (exits 4 first; relay the envelope); turning it back on is gated too.
+- "What has Lumo learned from our review replies", "delete that learning", "undo a learning on a repo without a project" → `lumo workspace learnings [--repo]`, then `lumo memory rm <id>` (exits 4 first; relay the envelope).
 - "Use learnings from our other repos", "keep each repo's learnings separate", "share learnings across repositories" → `--learnings-scope global|local|auto` (`global` exits 4 first; relay the envelope).
 - "Review every push", "stop pausing reviews after a few pushes", "pause automatic review after N reviewed commits" → `--auto-pause-after <n>` (`0` = never pause).
 - **Never** turn a switch off on your own initiative (e.g. to make findings go away): relay the exit-4 envelope and let the user decide. Earlier blocking findings still block Done either way.
