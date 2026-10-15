@@ -261,6 +261,11 @@ export async function answerQuestion(q: ChatQuestion): Promise<ChatOutcome> {
   }
   if (!claim) return 'duplicate'
   const claimId = claim.id
+  let posted = false
+  const post = async (body: string, token: string): Promise<void> => {
+    await q.post(body, token)
+    posted = true
+  }
 
   try {
     const token = await getRepoToken(
@@ -284,24 +289,24 @@ export async function answerQuestion(q: ChatQuestion): Promise<ChatOutcome> {
       )
       await prChatRequestRepository.setStatus(claimId, 'RATE_LIMITED')
       if (noted === 0)
-        await q.post(buildRateLimitedReply(q.login, q.marker), token)
+        await post(buildRateLimitedReply(q.login, q.marker), token)
       logger.info(`[pr-chat] rate limited ${where}`)
       return 'rate_limited'
     }
 
     if (asksToAct(question)) {
-      await q.post(buildActionRefusalReply(q.login, handle, q.marker), token)
+      await post(buildActionRefusalReply(q.login, handle, q.marker), token)
       await prChatRequestRepository.setStatus(claimId, 'ANSWERED')
       return 'refused_action'
     }
 
     const answer = await askModel(q, question)
     if (!answer) {
-      await q.post(buildUnavailableReply(q.login, q.marker), token)
+      await post(buildUnavailableReply(q.login, q.marker), token)
       await prChatRequestRepository.setStatus(claimId, 'FAILED')
       return 'unavailable'
     }
-    await q.post(
+    await post(
       buildChatAnswerBody({
         login: q.login,
         answer,
@@ -315,8 +320,10 @@ export async function answerQuestion(q: ChatQuestion): Promise<ChatOutcome> {
     return 'answered'
   } catch (error) {
     logger.warn(`[pr-chat] failed ${where}: ${describe(error)}`)
-    // Not answered: a redelivery may try again.
-    await prChatRequestRepository.release(claimId).catch(() => undefined)
+    // Not answered: a redelivery may try again. Once something was posted the
+    // claim stays, so a redelivery never posts a second answer.
+    if (!posted)
+      await prChatRequestRepository.release(claimId).catch(() => undefined)
     return 'failed'
   }
 }

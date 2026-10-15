@@ -177,6 +177,13 @@ describe('a question gets a grounded answer', () => {
     expect(setStatus).toHaveBeenCalledWith('c1', 'FAILED')
   })
 
+  it('a failure after the answer was posted keeps the claim (no second answer)', async () => {
+    setStatus.mockRejectedValueOnce(new Error('db down'))
+    await expect(answerQuestion(question())).resolves.toBe('failed')
+    expect(posted).toHaveLength(1)
+    expect(release).not.toHaveBeenCalled()
+  })
+
   it('a failed post releases the claim for a redelivery', async () => {
     await expect(
       answerQuestion(

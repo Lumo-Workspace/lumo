@@ -106,7 +106,11 @@ export function routeConversationComment(
 ): 'command' | 'chat' | null {
   if (parsed) {
     if (parsed.command !== null || parsed.text === '') return 'command'
-    if (!/[?？]/.test(parsed.text) && parsed.text.split(' ').length <= 2)
+    if (
+      !/[?？]/.test(parsed.text) &&
+      parsed.text.split(' ').length <= 2 &&
+      !ASKS.some(re => re.test(parsed.text))
+    )
       return 'command'
     return 'chat'
   }
@@ -153,7 +157,7 @@ export function wantsThreadAnswer(
 const ACTION_ASKS = [
   /^\s*(?:please\s+|pls\s+)?(?:approve|merge|dismiss|resolve|close|suppress|disposition|accept|whitelist|allowlist|mark\s+(?:this|it|them|as))\b/i,
   /\b(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:approve|merge|dismiss|resolve|close|suppress|disposition|accept|whitelist|allowlist|mark)\b/i,
-  /批准|合并这个|驳回|标记为误报|关闭这个|帮我合并/,
+  /^\s*(?:请|帮我|麻烦)?\s*(?:批准|合并|驳回|关闭|标记为误报)(?![后前时的])/,
 ]
 
 export function asksToAct(question: string): boolean {
@@ -228,12 +232,25 @@ const CONTROL_AND_INVISIBLE = new RegExp(
   'g'
 )
 
-/** `@name` outside code → not a mention (a word joiner after the `@`). */
-function defuseMentions(segment: string): string {
+/**
+ * Prose outside code: `@name` → not a mention (a word joiner after the `@`),
+ * and nothing GitHub would fetch on render — a markdown image or an
+ * `<img>` / media tag could carry data out in its URL. Links stay (they are
+ * only followed by a click).
+ */
+function cleanProse(segment: string): string {
   return segment
     .split(/(`[^`\n]*`)/)
     .map((part, i) =>
-      i % 2 === 1 ? part : part.replace(/@(?=[A-Za-z0-9-])/g, '@⁠')
+      i % 2 === 1
+        ? part
+        : part
+            .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(
+              /<\/?(?:img|picture|source|video|audio|iframe|object|embed)\b[^>]*>/gi,
+              ''
+            )
+            .replace(/@(?=[A-Za-z0-9-])/g, '@\u2060')
     )
     .join('')
 }
@@ -241,7 +258,8 @@ function defuseMentions(segment: string): string {
 /**
  * The model's answer, made safe to post: no control / invisible characters,
  * no HTML comments anywhere (nothing can forge a Lumo marker, not even inside
- * code), no one pinged by an `@mention` outside code, capped. Other markup
+ * code), no one pinged by an `@mention` and no image fetched outside code
+ * (`cleanProse`), capped. Other markup
  * is left alone — `Array<string>` in code must survive, and GitHub sanitises
  * raw HTML itself. `null` when empty.
  */
@@ -260,12 +278,13 @@ export function cleanChatAnswer(raw: string): string | null {
       out.push(part)
       continue
     }
-    out.push(fenced ? part : defuseMentions(part))
+    out.push(fenced ? part : cleanProse(part))
   }
   let answer = out.join('')
   if (answer.length > CHAT_ANSWER_MAX_CHARS) {
-    answer = `${answer.slice(0, CHAT_ANSWER_MAX_CHARS - 1).trimEnd()}…`
-    // A cut inside a code block would swallow the footnote and the marker.
+    // Room for a closing fence: a cut inside a code block would swallow the
+    // footnote and the marker.
+    answer = `${answer.slice(0, CHAT_ANSWER_MAX_CHARS - 5).trimEnd()}…`
     const fences = answer.match(/^(?:```|~~~)/gm)?.length ?? 0
     if (fences % 2 === 1) answer = `${answer}\n\`\`\``
   }
