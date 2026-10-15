@@ -120,6 +120,7 @@ import {
   type ThreadSyncContext,
 } from '@/ee/security/services/pr-finding-thread.service'
 import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
+import { issueAssessmentReviewService } from '@/ee/security/services/issue-assessment-review.service'
 import { requestChangesOffService } from '@/ee/security/services/request-changes-off.service'
 import {
   parseCodeSuggestion,
@@ -1524,6 +1525,16 @@ export const securityPrReviewService = {
           )
         }
       }
+
+      // LUM-1149: requirements of the linked task / issue this head does not
+      // address — one review comment per distinct set. Never throws.
+      await issueAssessmentReviewService.flagUnmet({
+        repo,
+        prNumber: pr.number,
+        token,
+        headSha: scan.headSha,
+        record: checksRecord,
+      })
 
       if (selected.length > 0) {
         const winners = suggestionWinners(selected)

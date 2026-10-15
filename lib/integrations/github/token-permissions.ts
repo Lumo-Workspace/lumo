@@ -53,6 +53,12 @@ export const REPO_TOKEN_PERMISSIONS = {
    * `metadata: read`, the permission every App has.
    */
   repositoryMetadata: { metadata: 'read' },
+  /**
+   * LUM-1149 — `GET /repos/{owner}/{repo}/issues/{n}`: an issue a PR's
+   * description closes or links, read for the linked issue assessment. The
+   * production App holds `issues: write`, which includes this.
+   */
+  issueRead: { issues: 'read' },
 } as const satisfies Record<string, RepoTokenPermissions>
 
 /**
