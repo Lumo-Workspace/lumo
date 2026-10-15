@@ -1,7 +1,8 @@
 /**
  * LUM-1199 — a benchmark repository's own guidelines as LUM-1147 path
  * instructions (deterministic extraction), and the replay's per-PR input
- * through the production rendering.
+ * through the production rendering. Here, not under the bench's own
+ * __tests__: it imports plugin code, so it sits under the plugin test root.
  */
 import {
   buildRepoPathInstructions,
@@ -9,11 +10,11 @@ import {
   packRules,
   reviewConfigInstructions,
   ruleLines,
-} from '../guidelines-lib'
+} from '@/scripts/analysis/lum1158-review-quality-bench/guidelines-lib'
 import {
   instructionsForPr,
   replayPathInstructions,
-} from '../path-instructions-input'
+} from '@/scripts/analysis/lum1158-review-quality-bench/path-instructions-input'
 import {
   PATH_INSTRUCTION_MAX_CHARS,
   PATH_INSTRUCTIONS_MAX_ENTRIES,
