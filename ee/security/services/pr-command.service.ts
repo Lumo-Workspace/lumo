@@ -35,7 +35,9 @@
  *     Best effort (check, then act): if the reply itself fails, a later
  *     redelivery runs the command again — pause/resume/resolve are
  *     idempotent, and a repeated review request deduplicates while the first
- *     is still running (after it, it is one more manual review).
+ *     is still running (after it, it is one more manual review). A review
+ *     asked for while the head's scan is still in flight waits for that scan
+ *     to settle and then runs (LUM-1152 follow-up, security-deferred-review).
  *
  * Layering: service — GitHub through `@/lib/integrations/github/*`, the
  * database through repositories and the existing services.

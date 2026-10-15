@@ -17,7 +17,12 @@ export async function POST(request: NextRequest) {
   const unauthorized = requireCronAuth(request)
   if (unauthorized) return unauthorized
 
-  let body: { pullRequestId?: unknown; trigger?: unknown; reviewMode?: unknown }
+  let body: {
+    pullRequestId?: unknown
+    trigger?: unknown
+    reviewMode?: unknown
+    deferred?: unknown
+  }
   try {
     body = await request.json()
   } catch {
@@ -50,6 +55,7 @@ export async function POST(request: NextRequest) {
       ...(body.reviewMode === 'incremental' || body.reviewMode === 'full'
         ? { reviewMode: body.reviewMode }
         : {}),
+      ...(body.deferred === true ? { deferred: true } : {}),
     })
     if ('skipped' in result) {
       logger.info(
