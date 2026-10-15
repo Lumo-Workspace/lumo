@@ -58,6 +58,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'MilestoneMemoryEdge',
   'Notification',
   'OutcomeSignal',
+  'PrChatRequest',
   'PrCommentSyncJob',
   'PrFindingThread',
   'PrReviewLearning',

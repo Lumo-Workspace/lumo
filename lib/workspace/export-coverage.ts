@@ -53,6 +53,8 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   PullRequest: MIRROR,
   PrSecurityScan: 'scan output derived from repository code',
   PrFindingThread: 'GitHub review-thread bookkeeping for scan findings',
+  // LUM-1154: claim / rate-limit rows only; no question or answer text.
+  PrChatRequest: 'GitHub PR chat claim and rate-limit bookkeeping (no text)',
   // LUM-1131: the learning's text is its Memory row, which is exported.
   PrReviewLearning:
     'repository scope of a PR-review learning; its text is the exported Memory',

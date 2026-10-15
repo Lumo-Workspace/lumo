@@ -71,6 +71,11 @@ const payload = {
     in_reply_to_id: 101,
     user: { login: 'alice', type: 'User' },
     author_association: 'COLLABORATOR',
+    // LUM-1154: where a question on a code line points.
+    path: 'scripts/run.ts',
+    original_line: 12,
+    line: null,
+    diff_hunk: '@@ -1,3 +1,4 @@',
   },
 }
 
@@ -102,6 +107,9 @@ describe('pull_request_review_comment', () => {
         inReplyToId: 101,
         user: { login: 'alice', type: 'User' },
         authorAssociation: 'COLLABORATOR',
+        path: 'scripts/run.ts',
+        line: 12,
+        diffHunk: '@@ -1,3 +1,4 @@',
       },
     })
     expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
