@@ -174,7 +174,7 @@ export function maskQuotedKeyedValues(text: string): string {
     (content, before) =>
       REDACTION_TOKEN_TEST_RE.test(content) ||
       content.split(/\s+/).some(isCredentialShapedToken) ||
-      CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before.slice(-KEY_WINDOW))),
+      CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)),
     true
   )
 }
@@ -259,7 +259,7 @@ function isCredentialShapedToken(raw: string): boolean {
 /**
  * The tokenizer behind every pass; `shouldMask` decides only for a closed
  * span of `MIN_QUOTED_LEN`+ chars that is not redaction-only, given the
- * span's content and the text before its opening quote. Unpaired
+ * span's content and the `KEY_WINDOW` chars before its opening quote. Unpaired
  * openers are masked regardless of `shouldMask` (fail closed).
  * `skipContractions` is the free-text pass's `isContractionApostrophe` rule.
  */
@@ -295,7 +295,7 @@ function maskQuotedSpans(
     out +=
       content.length >= MIN_QUOTED_LEN &&
       !isRedactionOnlyContent(content) &&
-      shouldMask(content, line.slice(0, i))
+      shouldMask(content, line.slice(Math.max(0, i - KEY_WINDOW), i))
         ? `${ch}${redactSecret(content)}${ch}`
         : line.slice(i, close + 1)
     i = close + 1
