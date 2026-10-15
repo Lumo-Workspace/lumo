@@ -241,13 +241,6 @@ beforeEach(() => {
   findReviewStyle.mockResolvedValue(null)
 })
 
-async function judgedDiff(): Promise<string> {
-  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
-  const call = (judge.judgeSecurity as jest.Mock).mock.calls[0]
-  expect(call).toBeDefined()
-  return call![0].diff as string
-}
-
 const BASE_SHA = 'b'.repeat(40)
 const HEAD_SHA = 'c'.repeat(40)
 
@@ -258,12 +251,6 @@ function files(byRef: Record<string, string | null | Error>) {
     if (v instanceof Error) throw v
     return v ?? null
   })
-}
-
-function storedNotice(): Record<string, unknown> {
-  const call = (repo.setRepoConfig as jest.Mock).mock.calls[0]
-  expect(call?.[0]).toBe('s1')
-  return call![1] as Record<string, unknown>
 }
 
 beforeEach(() => {
