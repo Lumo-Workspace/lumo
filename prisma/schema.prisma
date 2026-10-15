@@ -1562,6 +1562,10 @@ model RepositoryReviewSetting {
   /// ee/security/security-scan/auto-review-policy.ts). Regexes on the PR's
   /// base branch; the default branch is always included.
   baseBranches        String[] @default([])
+  /// What an EMPTY `baseBranches` reviews: `all_branches` (repositories
+  /// connected before LUM-1143, backfilled) or `default_branch_only` (newly
+  /// connected repositories).
+  emptyBaseBranchesMeans String  @default("default_branch_only")
   /// `label` = review only PRs carrying one (opts in when autoReview is
   /// off); `!label` = skip PRs carrying it.
   labels              String[] @default([])

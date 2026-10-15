@@ -85,7 +85,7 @@ lumo workspace security-scan --repo acme/app --path-filter '!docs/**'         # 
 lumo workspace security-scan --repo acme/app --labels ""                       # clear a list
 ```
 
-- `--base-branches <regex>`: full-match regexes on the base branch; the repository's default branch is always reviewed. An **empty list** reviews every base today (`emptyBaseBranchesMeans` in `--json`: `all_branches`; the common industry default is `default_branch_only` — pending decision).
+- `--base-branches <regex>`: full-match regexes on the base branch; the repository's default branch is always reviewed. An **empty list** depends on the repository (`emptyBaseBranchesMeans` in `--json`, shown as `base branches:` under `--repo X`): repositories connected before LUM-1143 keep `all_branches` (every base is reviewed); a repository connected later gets `default_branch_only` (only PRs into the default branch). To review only the default branch on an older repository, list it (`--base-branches main`); to review every base on a newer one, `--base-branches '.*'`.
 - `--labels <label>`: `label` = review only PRs carrying one of them; with `--review off` it **opts a PR in**. `!label` = skip PRs carrying it. Negative-only lists never opt in. Case-insensitive.
 - `--ignore-title <keyword>`: case-insensitive substring of the title ⇒ skip. `--ignore-users <login>`: exact, case-sensitive author login ⇒ skip (beats everything).
 - `--description-keyword <text>`: with `--review off`, a PR whose description contains it (exact substring) is reviewed.

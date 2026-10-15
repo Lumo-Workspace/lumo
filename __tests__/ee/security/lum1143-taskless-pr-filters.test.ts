@@ -205,3 +205,19 @@ describe('task-less PR filters through the webhook', () => {
     expect(dispatch).not.toHaveBeenCalled()
   })
 })
+
+describe('empty base-branch list: existing vs newly connected repository', () => {
+  it('an existing (backfilled, all_branches) repository still reviews a PR into a non-default base', async () => {
+    settings({ emptyBaseBranchesMeans: 'all_branches' })
+    await deliver('opened', { base: { ref: 'feature/stacked' } })
+    expect(dispatch).toHaveBeenCalledTimes(1)
+  })
+
+  it('a newly connected repository (no stored row) auto-reviews only PRs into the default branch', async () => {
+    repo.findSettings!.mockResolvedValue([])
+    await deliver('opened', { base: { ref: 'feature/stacked' } })
+    expect(dispatch).not.toHaveBeenCalled()
+    await deliver('opened', { base: { ref: 'main' } })
+    expect(dispatch).toHaveBeenCalledTimes(1)
+  })
+})

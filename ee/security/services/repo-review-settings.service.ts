@@ -7,7 +7,6 @@ import {
 import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
 import {
   DEFAULT_REPO_REVIEW_SETTING,
-  EMPTY_BASE_BRANCHES_MEANS,
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
 
@@ -21,8 +20,6 @@ import {
 export interface RepoReviewSettingView extends RepoReviewSettingValues {
   /** `owner/name` as the workspace confirmed it. */
   repo: string
-  /** LUM-1143: what an empty `baseBranches` reviews. */
-  emptyBaseBranchesMeans: typeof EMPTY_BASE_BRANCHES_MEANS
 }
 
 export interface RepoReviewSettings {
@@ -132,8 +129,6 @@ export const repoReviewSettingsService = {
       repositories: repos.map(repo => ({
         repo,
         ...(stored.get(repo.toLowerCase()) ?? DEFAULT_REPO_REVIEW_SETTING),
-        // LUM-1143: what an empty base-branch list means (pending decision).
-        emptyBaseBranchesMeans: EMPTY_BASE_BRANCHES_MEANS,
       })),
     }
   },

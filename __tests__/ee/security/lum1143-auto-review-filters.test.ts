@@ -7,7 +7,7 @@
  */
 import {
   DEFAULT_REPO_REVIEW_SETTING,
-  EMPTY_BASE_BRANCHES_MEANS,
+  parseEmptyBaseBranchesMeans,
   baseBranchRegExp,
   decideTasklessAutoReview,
   evaluateReviewFilters,
@@ -103,16 +103,42 @@ describe('evaluateReviewFilters — each key', () => {
     ).toEqual({ review: true })
   })
 
-  it('base branches: an empty list follows EMPTY_BASE_BRANCHES_MEANS', () => {
-    const verdict = evaluateReviewFilters(
-      setting(),
-      pr({ baseBranch: 'feature/x' })
+  it('base branches: an empty list — a new repository reviews only the default branch', () => {
+    expect(DEFAULT_REPO_REVIEW_SETTING.emptyBaseBranchesMeans).toBe(
+      'default_branch_only'
     )
-    expect(verdict).toEqual(
-      EMPTY_BASE_BRANCHES_MEANS === 'all_branches'
-        ? { review: true }
-        : { review: false, reason: 'base_branch' }
+    expect(
+      evaluateReviewFilters(setting(), pr({ baseBranch: 'feature/x' }))
+    ).toEqual({ review: false, reason: 'base_branch' })
+    expect(evaluateReviewFilters(setting(), pr())).toEqual({ review: true })
+  })
+
+  it('base branches: an empty list — an existing (backfilled) repository reviews every base', () => {
+    expect(
+      evaluateReviewFilters(
+        setting({ emptyBaseBranchesMeans: 'all_branches' }),
+        pr({ baseBranch: 'feature/x' })
+      )
+    ).toEqual({ review: true })
+  })
+
+  it('a non-empty list replaces the empty-list meaning for either kind of repository', () => {
+    const s = setting({
+      emptyBaseBranchesMeans: 'all_branches',
+      baseBranches: ['main'],
+    })
+    expect(evaluateReviewFilters(s, pr({ baseBranch: 'feature/x' }))).toEqual({
+      review: false,
+      reason: 'base_branch',
+    })
+  })
+
+  it('parseEmptyBaseBranchesMeans: stored text → domain value', () => {
+    expect(parseEmptyBaseBranchesMeans('all_branches')).toBe('all_branches')
+    expect(parseEmptyBaseBranchesMeans('default_branch_only')).toBe(
+      'default_branch_only'
     )
+    expect(parseEmptyBaseBranchesMeans('junk')).toBe('default_branch_only')
   })
 
   it('an unknown base / default branch never skips (fail-open)', () => {

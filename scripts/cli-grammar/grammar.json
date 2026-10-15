@@ -5115,7 +5115,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "With --repo (repeatable; replaces the list, \"\" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, \".*\" = all"
+          "description": "With --repo (repeatable; replaces the list, \"\" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, \".*\" = all. Empty list: every base for repositories connected before LUM-1143, the default branch only for repositories connected later"
         },
         "--confirm": {
           "long": "--confirm",

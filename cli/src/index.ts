@@ -1759,7 +1759,7 @@ workspaceCmd
   )
   .option(
     '--base-branches <regex>',
-    'With --repo (repeatable; replaces the list, "" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, ".*" = all',
+    'With --repo (repeatable; replaces the list, "" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, ".*" = all. Empty list: every base for repositories connected before LUM-1143, the default branch only for repositories connected later',
     collectList
   )
   .option(

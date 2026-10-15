@@ -1,11 +1,29 @@
 import { prisma } from '@/lib/db/prisma'
-import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
+import {
+  parseEmptyBaseBranchesMeans,
+  type RepoReviewSettingValues,
+} from '@/ee/security/security-scan/auto-review-policy'
+
+/** The stored text column as the domain type. */
+function toDomain<T extends { emptyBaseBranchesMeans: string }>(
+  row: T
+): Omit<T, 'emptyBaseBranchesMeans'> & {
+  emptyBaseBranchesMeans: RepoReviewSettingValues['emptyBaseBranchesMeans']
+} {
+  return {
+    ...row,
+    emptyBaseBranchesMeans: parseEmptyBaseBranchesMeans(
+      row.emptyBaseBranchesMeans
+    ),
+  }
+}
 
 /** LUM-1143: every stored setting column (filters included). */
 const SETTING_SELECT = {
   autoReview: true,
   reviewDrafts: true,
   baseBranches: true,
+  emptyBaseBranchesMeans: true,
   labels: true,
   ignoreTitleKeywords: true,
   ignoreUsernames: true,
@@ -55,10 +73,11 @@ export const repoReviewSettingRepository = {
     repoLower: string
   ): Promise<RepoReviewSettingRow[]> {
     if (workspaceIds.length === 0) return []
-    return prisma.repositoryReviewSetting.findMany({
+    const rows = await prisma.repositoryReviewSetting.findMany({
       where: { workspaceId: { in: workspaceIds }, repo: repoLower },
       select: { workspaceId: true, ...SETTING_SELECT },
     })
+    return (rows ?? []).map(toDomain)
   },
 
   /**
@@ -78,10 +97,11 @@ export const repoReviewSettingRepository = {
 
   /** Every stored setting of one workspace. */
   async findForWorkspace(workspaceId: string) {
-    return prisma.repositoryReviewSetting.findMany({
+    const rows = await prisma.repositoryReviewSetting.findMany({
       where: { workspaceId },
       select: { repo: true, ...SETTING_SELECT },
     })
+    return (rows ?? []).map(toDomain)
   },
 
   /**

@@ -22,7 +22,7 @@
  *         in);
  *      4. base branch — the default branch is always reviewed; other bases
  *         must fully match one of `baseBranches` (regexes; `.*` = all). An
- *         EMPTY list means EMPTY_BASE_BRANCHES_MEANS (pending decision);
+ *         EMPTY list means the repository's `emptyBaseBranchesMeans`;
  *      5. drafts — skipped unless the repository opted drafts in. A PR
  *         converted back to draft keeps its earlier findings and threads;
  *         marking it ready reviews the then-current head;
@@ -36,14 +36,28 @@
 import { shouldScanOnPrEvent } from '@/ee/security/services/pr-security-scan-dispatch'
 
 /**
- * PENDING DECISION (LUM-1143 brief, "Watch out: default change"): what an
- * EMPTY `baseBranches` list means. `'all_branches'` keeps Lumo's behaviour
- * before LUM-1143 (every base is reviewed); the common industry default is
- * `'default_branch_only'`. Flipping this one line changes the default for
- * every repository without an explicit list.
+ * What an EMPTY `baseBranches` list reviews (user decision, 2026-10-15):
+ * repositories connected before LUM-1143 were backfilled to
+ * `'all_branches'` (nothing changes for them); a newly connected repository
+ * gets `'default_branch_only'` — only PRs into its default branch.
  */
-export const EMPTY_BASE_BRANCHES_MEANS: 'all_branches' | 'default_branch_only' =
-  'all_branches'
+export type EmptyBaseBranchesMeans = 'all_branches' | 'default_branch_only'
+
+export const EMPTY_BASE_BRANCHES_VALUES: readonly EmptyBaseBranchesMeans[] = [
+  'all_branches',
+  'default_branch_only',
+]
+
+/** A stored value as the domain type (an unknown string = the new-repo default). */
+export function parseEmptyBaseBranchesMeans(
+  raw: string | null | undefined
+): EmptyBaseBranchesMeans {
+  return raw === 'all_branches' ? 'all_branches' : 'default_branch_only'
+}
+
+/** A newly connected repository (no stored row). */
+export const NEW_REPO_EMPTY_BASE_BRANCHES_MEANS: EmptyBaseBranchesMeans =
+  'default_branch_only'
 
 export interface RepoReviewSettingValues {
   /** Review every PR of the repository automatically (`enabled`). */
@@ -52,6 +66,8 @@ export interface RepoReviewSettingValues {
   reviewDrafts: boolean
   /** Regexes on the base branch; the default branch is always included. */
   baseBranches: string[]
+  /** What an empty `baseBranches` reviews (per repository, stored). */
+  emptyBaseBranchesMeans: EmptyBaseBranchesMeans
   /** `label` = positive (opt in / restrict), `!label` = exclude. */
   labels: string[]
   /** Case-insensitive title substrings that skip the review. */
@@ -70,6 +86,7 @@ export const DEFAULT_REPO_REVIEW_SETTING: Readonly<RepoReviewSettingValues> =
     autoReview: true,
     reviewDrafts: false,
     baseBranches: [],
+    emptyBaseBranchesMeans: NEW_REPO_EMPTY_BASE_BRANCHES_MEANS,
     labels: [],
     ignoreTitleKeywords: [],
     ignoreUsernames: [],
@@ -193,7 +210,8 @@ function baseBranchAllowed(
   if (pr.baseBranch === null || pr.defaultBranch === null) return true
   if (pr.baseBranch === pr.defaultBranch) return true
   const patterns = nonEmpty(setting.baseBranches)
-  if (patterns.length === 0) return EMPTY_BASE_BRANCHES_MEANS === 'all_branches'
+  if (patterns.length === 0)
+    return setting.emptyBaseBranchesMeans === 'all_branches'
   return patterns.some(p => baseBranchRegExp(p)?.test(pr.baseBranch!) ?? false)
 }
 
