@@ -733,6 +733,72 @@ export async function fetchRepoVisibility(opts: {
   }
 }
 
+/** LUM-1149 — an issue as the linked issue assessment reads it. */
+export interface RepoIssue {
+  number: number
+  title: string
+  body: string
+}
+
+const ISSUE_TIMEOUT_MS = 10_000
+
+/**
+ * LUM-1149 — issues `numbers` of the repository, for the linked issue
+ * assessment: one issues:read token for every read, revoked after. A number
+ * that is a pull request (GitHub serves both under `/issues`) or that does
+ * not exist (404 / 410) is skipped. Throws on any other failure (the check is
+ * then inconclusive, never not-applicable).
+ */
+export async function fetchRepoIssues(opts: {
+  workspaceId: string
+  fullName: string
+  numbers: readonly number[]
+}): Promise<RepoIssue[]> {
+  if (opts.numbers.length === 0) return []
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.issueRead
+  )
+  try {
+    const [owner, repo] = splitFullName(opts.fullName)
+    const out: RepoIssue[] = []
+    for (const n of opts.numbers) {
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/issues/${n}`,
+        {
+          headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(ISSUE_TIMEOUT_MS),
+        }
+      )
+      if (res.status === 404 || res.status === 410) continue
+      if (!res.ok) {
+        throw Object.assign(
+          new Error(
+            `GitHub API error ${res.status} for issue ${opts.fullName}#${n}`
+          ),
+          { status: res.status }
+        )
+      }
+      const body = (await res.json()) as {
+        number?: unknown
+        title?: unknown
+        body?: unknown
+        pull_request?: unknown
+      }
+      if (body.pull_request) continue
+      out.push({
+        number: typeof body.number === 'number' ? body.number : n,
+        title: typeof body.title === 'string' ? body.title : '',
+        body: typeof body.body === 'string' ? body.body : '',
+      })
+    }
+    return out
+  } finally {
+    await revokeInstallationToken(token).catch(() => false)
+  }
+}
+
 /**
  * PURE — parses a unified diff and returns added lines per file.
  *

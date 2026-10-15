@@ -111,6 +111,17 @@
                 }
               }
             },
+            "issue_assessment": {
+              "description": "Built-in check: the PR implements the Goal and \"Done when\" items of its linked Lumo task and the issues its description closes or links (each Addressed / Not addressed / Unclear; not applicable without either). Quoting a private task on a public repository is a Lumo setting only.",
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["off", "warning", "error"],
+                  "description": "`off` = not run; `warning` = a failure is reported; `error` = a failure also keeps Lumo at \"Changes requested\" (request-changes workflow on) until fixed or overridden on the PR."
+                }
+              }
+            },
             "custom_checks": {
               "description": "The repository's own checks, in natural language. Replaces the checks set in Lumo.",
               "maxItems": 5,

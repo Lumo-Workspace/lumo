@@ -29,6 +29,9 @@ export interface RepoReviewOptions extends ConfirmFlags {
   titleRequirements?: string
   descriptionCheck?: string
   overrideReviewersOnly?: string
+  /** LUM-1149 — the linked task / issue assessment. */
+  issueAssessment?: string
+  taskDetailsOnPublicRepos?: string
   /** LUM-1147 review style. */
   profile?: string
   /** "" clears. */
@@ -75,6 +78,8 @@ const CHECK_MODES: readonly CheckMode[] = ['off', 'warning', 'error']
 export interface PreMergeChecksView {
   title: { mode: CheckMode; requirements: string | null }
   description: { mode: CheckMode }
+  /** LUM-1149 (absent from an older server). */
+  issueAssessment?: { mode: CheckMode; taskDetailsOnPublicRepos: boolean }
   customChecks: Array<{ name: string; mode: CheckMode; instructions: string }>
   overrideRequestedReviewersOnly: boolean
 }
@@ -82,6 +87,7 @@ export interface PreMergeChecksView {
 export interface PreMergeChecksChange {
   title?: { mode?: CheckMode; requirements?: string | null }
   description?: { mode?: CheckMode }
+  issueAssessment?: { mode?: CheckMode; taskDetailsOnPublicRepos?: boolean }
   overrideRequestedReviewersOnly?: boolean
 }
 
@@ -178,7 +184,9 @@ function hasChecksFlag(opts: RepoReviewOptions): boolean {
     opts.titleCheck !== undefined ||
     opts.titleRequirements !== undefined ||
     opts.descriptionCheck !== undefined ||
-    opts.overrideReviewersOnly !== undefined
+    opts.overrideReviewersOnly !== undefined ||
+    opts.issueAssessment !== undefined ||
+    opts.taskDetailsOnPublicRepos !== undefined
   )
 }
 
@@ -209,6 +217,22 @@ export function buildPreMergeChecksChange(
     change.description = {
       mode: parseCheckMode('--description-check', opts.descriptionCheck),
     }
+  if (
+    opts.issueAssessment !== undefined ||
+    opts.taskDetailsOnPublicRepos !== undefined
+  ) {
+    change.issueAssessment = {}
+    if (opts.issueAssessment !== undefined)
+      change.issueAssessment.mode = parseCheckMode(
+        '--issue-assessment',
+        opts.issueAssessment
+      )
+    if (opts.taskDetailsOnPublicRepos !== undefined)
+      change.issueAssessment.taskDetailsOnPublicRepos = parseOnOff(
+        '--task-details-on-public-repos',
+        opts.taskDetailsOnPublicRepos
+      )
+  }
   if (opts.overrideReviewersOnly !== undefined)
     change.overrideRequestedReviewersOnly = parseOnOff(
       '--override-reviewers-only',
@@ -262,7 +286,7 @@ export function buildRepoReviewUpdate(
     hasFilterFlag(opts)
   if (change && !opts.repo) {
     throw new Error(
-      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --profile / --tone / --path-instruction need --repo <owner/name>'
+      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --issue-assessment / --task-details-on-public-repos / --profile / --tone / --path-instruction need --repo <owner/name>'
     )
   }
   if (!change) return null
@@ -331,6 +355,21 @@ export function describeRepoReviewTurnOffs(
       lines.push(
         `Will turn OFF the pre-merge description check for ${current.repo}`
       )
+    // LUM-1149: the assessment off, or a private task quoted in public.
+    if (
+      checks.issueAssessment?.mode === 'off' &&
+      now.issueAssessment?.mode !== 'off'
+    )
+      lines.push(
+        `Will turn OFF the pre-merge linked task / issue assessment for ${current.repo}`
+      )
+    if (
+      checks.issueAssessment?.taskDetailsOnPublicRepos === true &&
+      now.issueAssessment?.taskDetailsOnPublicRepos !== true
+    )
+      lines.push(
+        `Will quote the linked Lumo task's requirements (and Lumo's assessment of them) on pull requests of ${current.repo} even while it is a PUBLIC repository`
+      )
     if (
       checks.overrideRequestedReviewersOnly === false &&
       now.overrideRequestedReviewersOnly
@@ -347,7 +386,15 @@ export function formatPreMergeChecks(r: RepoReviewSettingView): string[] {
   const c = r.preMergeChecks
   if (!c) return []
   const lines = [
-    `  pre-merge checks: title ${c.title.mode} · description ${c.description.mode}`,
+    `  pre-merge checks: title ${c.title.mode} · description ${c.description.mode}${
+      c.issueAssessment
+        ? ` · issue assessment ${c.issueAssessment.mode}${
+            c.issueAssessment.taskDetailsOnPublicRepos
+              ? ' (task details shown on public repos)'
+              : ''
+          }`
+        : ''
+    }`,
   ]
   if (c.title.requirements)
     lines.push(`  title requirements: ${sanitizeField(c.title.requirements)}`)

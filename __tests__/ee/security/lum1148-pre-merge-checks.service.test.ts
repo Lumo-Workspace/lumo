@@ -139,6 +139,8 @@ it('defaults: title and description run as warnings; results stored on the scan'
   expect(record!.results.map(r => [r.id, r.mode, r.verdict])).toEqual([
     ['title', 'warning', 'failed'],
     ['description', 'warning', 'passed'],
+    // LUM-1149: nothing linked to this PR ⇒ not applicable, never failed.
+    ['issue_assessment', 'warning', 'not_applicable'],
   ])
   expect(store).toHaveBeenCalledWith(
     's1',
@@ -179,6 +181,7 @@ it('the stored setting decides: error title, custom check, description off', asy
   const record = await preMergeChecksService.run(target, DIFF)
   expect(record!.results.map(r => [r.id, r.mode])).toEqual([
     ['title', 'error'],
+    ['issue_assessment', 'warning'],
     ['custom:changelog', 'error'],
   ])
   // Description off ⇒ the template is not read.
@@ -197,7 +200,10 @@ it('.lumo.yaml on the base commit wins key by key', async () => {
   expect(fileAt).toHaveBeenCalledWith(
     expect.objectContaining({ baseSha: BASE })
   )
-  expect(record!.results.map(r => r.id)).toEqual(['description'])
+  expect(record!.results.map(r => r.id)).toEqual([
+    'description',
+    'issue_assessment',
+  ])
 })
 
 it('every check off ⇒ no model call, the row is cleared', async () => {
@@ -205,6 +211,7 @@ it('every check off ⇒ no model call, the row is cleared', async () => {
     storedRow({
       title: { mode: 'off', requirements: null },
       description: { mode: 'off' },
+      issueAssessment: { mode: 'off', taskDetailsOnPublicRepos: false },
     }),
   ])
   await expect(preMergeChecksService.run(target, DIFF)).resolves.toBeNull()
@@ -215,7 +222,12 @@ it('every check off ⇒ no model call, the row is cleared', async () => {
 it('a failed model call ⇒ every check inconclusive (stored), never throws', async () => {
   model.mockRejectedValue(new Error('gateway 503'))
   const record = await preMergeChecksService.run(target, DIFF)
-  expect(record!.results.every(r => r.verdict === 'inconclusive')).toBe(true)
+  expect(record!.results.map(r => r.verdict)).toEqual([
+    'inconclusive',
+    'inconclusive',
+    // LUM-1149: nothing linked stays not applicable.
+    'not_applicable',
+  ])
   expect(store).toHaveBeenCalled()
 })
 
@@ -266,6 +278,7 @@ describe('a failed model call never replaces a failure of the same head', () => 
     expect(record!.results.map(r => [r.id, r.verdict])).toEqual([
       ['title', 'failed'],
       ['description', 'inconclusive'],
+      ['issue_assessment', 'not_applicable'],
     ])
     expect(record!.results[0]!.explanation).toBe('too vague')
     expect(blockingCheckCount(record, null)).toBe(1)
@@ -296,7 +309,11 @@ describe('a failed model call never replaces a failure of the same head', () => 
       results: [failedError],
     })
     const record = await preMergeChecksService.run(target, DIFF)
-    expect(record!.results.every(r => r.verdict === 'inconclusive')).toBe(true)
+    expect(
+      record!.results
+        .filter(r => r.id !== 'issue_assessment')
+        .every(r => r.verdict === 'inconclusive')
+    ).toBe(true)
   })
 
   it('the earlier results unreadable ⇒ nothing is overwritten', async () => {

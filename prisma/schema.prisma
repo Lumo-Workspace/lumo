@@ -1737,6 +1737,21 @@ enum PrSecuritySuggestionOutcome {
   OVERRULED
 }
 
+/// LUM-1150 follow-up — at most one write-back at a time may CREATE a PR's
+/// security summary comment. Two syncs that both found no summary (e.g. the
+/// hunt and the verifier finishing together) each created one; the second
+/// stayed stale. A row is a held claim; `claimedAt` doubles as the holder's
+/// token, so a release never drops a claim a later writer took over. A claim
+/// older than the TTL belongs to a writer that died and is taken over. One
+/// row per PullRequest row (= per workspace, LUM-924).
+model PrSecuritySummaryClaim {
+  pullRequestId String      @id
+  claimedAt     DateTime
+  pullRequest   PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@map("pr_security_summary_claims")
+}
+
 model PrSecurityScan {
   id                String                 @id @default(cuid())
   pullRequestId     String
@@ -2169,6 +2184,8 @@ model PullRequest {
   // LUM-1154
   chatRequests     PrChatRequest[]
   testCaseRuns     TestCaseRun[]
+  // LUM-1150: the single-writer claim on creating this PR's summary comment.
+  securitySummaryClaim PrSecuritySummaryClaim?
 
   // LUM-924: one row per workspace — workspaces sharing a GitHub App
   // installation can each confirm the same repository and track its PRs.
