@@ -5275,7 +5275,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "With --repo (\"\" clears; ≤250 chars): how the AI review words its findings and PR description — wording only"
+          "description": "With --repo (\"\" clears; ≤250 chars): how the AI review words its findings and PR description, and Lumo its answers on the PR — wording only"
         }
       },
       "hasSubcommands": false,

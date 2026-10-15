@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "Находки HIGH и MEDIUM комментируются в diff; находки LOW — одна строка в сводке.",
   "workspaceSettings.repoReview.style.profileHint.assertive": "Каждая находка в изменённой строке комментируется в diff, включая LOW.",
   "workspaceSettings.repoReview.style.tone": "Тон (необязательно, до 250 символов)",
-  "workspaceSettings.repoReview.style.toneHint": "Как ИИ-ревью формулирует находки, например «Кратко и дружелюбно». Меняет только формулировки, но не то, о чём сообщается.",
+  "workspaceSettings.repoReview.style.toneHint": "Как ИИ-ревью формулирует находки, а Lumo — ответы в pull request, например «Кратко и дружелюбно». Меняет только формулировки, но не то, о чём сообщается.",
   "workspaceSettings.repoReview.style.pathInstructions": "Инструкции по путям",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Дополнительные проверки для файлов, подходящих под glob, например scripts/** — «Отмечай любой console.log». Они дополняют ревью и не могут отключить ни одну проверку.",
   "workspaceSettings.repoReview.style.pathAria": "Glob пути",

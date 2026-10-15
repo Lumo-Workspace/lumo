@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "Phát hiện HIGH và MEDIUM được bình luận trên diff; phát hiện LOW là một dòng trong phần tóm tắt.",
   "workspaceSettings.repoReview.style.profileHint.assertive": "Mọi phát hiện trên dòng thay đổi đều được bình luận trên diff, kể cả LOW.",
   "workspaceSettings.repoReview.style.tone": "Giọng điệu (tùy chọn, tối đa 250 ký tự)",
-  "workspaceSettings.repoReview.style.toneHint": "Cách review AI diễn đạt các phát hiện, ví dụ \"Ngắn gọn và thân thiện\". Chỉ thay đổi cách diễn đạt, không bao giờ thay đổi nội dung được báo cáo.",
+  "workspaceSettings.repoReview.style.toneHint": "Cách review AI diễn đạt các phát hiện và Lumo diễn đạt câu trả lời trên pull request, ví dụ \"Ngắn gọn và thân thiện\". Chỉ thay đổi cách diễn đạt, không bao giờ thay đổi nội dung được báo cáo.",
   "workspaceSettings.repoReview.style.pathInstructions": "Hướng dẫn theo đường dẫn",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Kiểm tra bổ sung cho các tệp khớp với glob, ví dụ scripts/** — \"Đánh dấu mọi console.log\". Chúng bổ sung cho review và không thể tắt bất kỳ kiểm tra nào.",
   "workspaceSettings.repoReview.style.pathAria": "Glob đường dẫn",

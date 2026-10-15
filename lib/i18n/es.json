@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "Los hallazgos HIGH y MEDIUM se comentan en el diff; los LOW son una línea en el resumen.",
   "workspaceSettings.repoReview.style.profileHint.assertive": "Cada hallazgo en una línea modificada se comenta en el diff, también los LOW.",
   "workspaceSettings.repoReview.style.tone": "Tono (opcional, hasta 250 caracteres)",
-  "workspaceSettings.repoReview.style.toneHint": "Cómo redacta la revisión con IA sus hallazgos, por ejemplo \"Sé breve y amable\". Solo cambia la redacción, nunca lo que se informa.",
+  "workspaceSettings.repoReview.style.toneHint": "Cómo redacta la revisión con IA sus hallazgos y Lumo sus respuestas en las pull requests, por ejemplo \"Sé breve y amable\". Solo cambia la redacción, nunca lo que se informa.",
   "workspaceSettings.repoReview.style.pathInstructions": "Instrucciones por ruta",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Comprobaciones adicionales para los archivos que coinciden con un glob, por ejemplo scripts/** — \"Señala cualquier console.log\". Se suman a la revisión y no pueden desactivar ninguna comprobación.",
   "workspaceSettings.repoReview.style.pathAria": "Glob de ruta",

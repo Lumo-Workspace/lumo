@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "HIGH と MEDIUM の指摘を差分にコメントし、LOW の指摘はサマリーの 1 行にまとめます。",
   "workspaceSettings.repoReview.style.profileHint.assertive": "変更行のすべての指摘を差分にコメントします（LOW も含む）。",
   "workspaceSettings.repoReview.style.tone": "トーン（任意、250 文字以内）",
-  "workspaceSettings.repoReview.style.toneHint": "AI レビューが指摘をどのような言い回しで書くか。例: 「簡潔で丁寧に」。変わるのは言い回しだけで、報告内容は変わりません。",
+  "workspaceSettings.repoReview.style.toneHint": "AI レビューが指摘を、Lumo がプルリクエストでの回答をどのような言い回しで書くか。例: 「簡潔で丁寧に」。変わるのは言い回しだけで、報告内容は変わりません。",
   "workspaceSettings.repoReview.style.pathInstructions": "パスごとの指示",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "glob に一致するファイルの AI レビューに追加するチェック。例: scripts/** —「console.log を指摘する」。レビューに追加されるだけで、チェックを無効にはできません。",
   "workspaceSettings.repoReview.style.pathAria": "パス glob",

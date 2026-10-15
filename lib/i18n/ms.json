@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "Dapatan HIGH dan MEDIUM diulas pada diff; dapatan LOW menjadi satu baris dalam ringkasan.",
   "workspaceSettings.repoReview.style.profileHint.assertive": "Setiap dapatan pada baris yang berubah diulas pada diff, termasuk LOW.",
   "workspaceSettings.repoReview.style.tone": "Nada (pilihan, sehingga 250 aksara)",
-  "workspaceSettings.repoReview.style.toneHint": "Cara semakan AI menulis dapatannya, contohnya \"Ringkas dan mesra\". Ia hanya mengubah kata-kata, tidak sekali-kali apa yang dilaporkan.",
+  "workspaceSettings.repoReview.style.toneHint": "Cara semakan AI menulis dapatannya dan Lumo menulis jawapannya pada pull request, contohnya \"Ringkas dan mesra\". Ia hanya mengubah kata-kata, tidak sekali-kali apa yang dilaporkan.",
   "workspaceSettings.repoReview.style.pathInstructions": "Arahan laluan",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Semakan tambahan untuk fail yang sepadan dengan glob, contohnya scripts/** — \"Tandakan setiap console.log\". Ia menambah kepada semakan dan tidak boleh mematikan mana-mana semakan.",
   "workspaceSettings.repoReview.style.pathAria": "Glob laluan",

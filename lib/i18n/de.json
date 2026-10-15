@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "HIGH- und MEDIUM-Befunde werden im Diff kommentiert; LOW-Befunde sind eine Zeile in der Zusammenfassung.",
   "workspaceSettings.repoReview.style.profileHint.assertive": "Jeder Befund auf einer geänderten Zeile wird im Diff kommentiert, auch LOW.",
   "workspaceSettings.repoReview.style.tone": "Tonfall (optional, bis zu 250 Zeichen)",
-  "workspaceSettings.repoReview.style.toneHint": "Wie die KI-Prüfung ihre Befunde formuliert, z. B. \"Kurz und freundlich\". Ändert nur die Formulierung, nie was gemeldet wird.",
+  "workspaceSettings.repoReview.style.toneHint": "Wie die KI-Prüfung ihre Befunde und Lumo seine Antworten in Pull Requests formuliert, z. B. \"Kurz und freundlich\". Ändert nur die Formulierung, nie was gemeldet wird.",
   "workspaceSettings.repoReview.style.pathInstructions": "Pfadanweisungen",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Zusätzliche Prüfungen für Dateien, die zu einem Glob passen, z. B. scripts/** — \"Jedes console.log melden\". Sie ergänzen die Prüfung und können keine Prüfung abschalten.",
   "workspaceSettings.repoReview.style.pathAria": "Pfad-Glob",

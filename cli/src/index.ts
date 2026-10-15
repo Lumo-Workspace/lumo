@@ -1792,7 +1792,7 @@ workspaceCmd
   )
   .option(
     '--tone <text>',
-    'With --repo ("" clears; ≤250 chars): how the AI review words its findings and PR description — wording only'
+    'With --repo ("" clears; ≤250 chars): how the AI review words its findings and PR description, and Lumo its answers on the PR — wording only'
   )
   .option(
     '--path-instruction <glob=instructions>',

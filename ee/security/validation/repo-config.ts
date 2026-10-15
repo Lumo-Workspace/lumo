@@ -132,7 +132,7 @@ export const repoConfigSchema = z
     tone_instructions: toneInstructionsSchema
       .optional()
       .describe(
-        'How the AI review words its findings and PR description (at most 250 characters), e.g. "Be concise and friendly". Changes wording only, never what is reported.'
+        'How the AI review words its findings and PR description, and how Lumo words its answers on the PR (at most 250 characters), e.g. "Be concise and friendly". Changes wording only, never what is reported.'
       ),
   })
   .describe(

@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "HIGH 和 MEDIUM 問題會在 diff 上留言；LOW 問題在摘要中合為一行。",
   "workspaceSettings.repoReview.style.profileHint.assertive": "變更行上的每個問題都會在 diff 上留言，包括 LOW。",
   "workspaceSettings.repoReview.style.tone": "語氣（選填，最多 250 個字元）",
-  "workspaceSettings.repoReview.style.toneHint": "AI 審查用什麼語氣撰寫問題，例如「簡潔友善」。只改變措辭，不改變回報的內容。",
+  "workspaceSettings.repoReview.style.toneHint": "AI 審查撰寫問題、Lumo 在 PR 中回答時使用的語氣，例如「簡潔友善」。只改變措辭，不改變回報的內容。",
   "workspaceSettings.repoReview.style.pathInstructions": "路徑指令",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "對符合某個 glob 的檔案追加的 AI 審查檢查，例如 scripts/** ——「標出所有 console.log」。它們只會追加檢查，不能關閉任何檢查。",
   "workspaceSettings.repoReview.style.pathAria": "路徑 glob",

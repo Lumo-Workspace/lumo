@@ -2481,7 +2481,7 @@
   "workspaceSettings.repoReview.style.profileHint.chill": "Les résultats HIGH et MEDIUM sont commentés sur le diff ; les résultats LOW tiennent en une ligne du résumé.",
   "workspaceSettings.repoReview.style.profileHint.assertive": "Chaque résultat sur une ligne modifiée est commenté sur le diff, LOW compris.",
   "workspaceSettings.repoReview.style.tone": "Ton (facultatif, 250 caractères max.)",
-  "workspaceSettings.repoReview.style.toneHint": "La façon dont la revue IA formule ses résultats, par exemple « Sois bref et aimable ». Ne change que la formulation, jamais ce qui est signalé.",
+  "workspaceSettings.repoReview.style.toneHint": "La façon dont la revue IA formule ses résultats et Lumo ses réponses sur les pull requests, par exemple « Sois bref et aimable ». Ne change que la formulation, jamais ce qui est signalé.",
   "workspaceSettings.repoReview.style.pathInstructions": "Instructions par chemin",
   "workspaceSettings.repoReview.style.pathInstructionsHint": "Vérifications supplémentaires pour les fichiers correspondant à un glob, par exemple scripts/** — « Signale tout console.log ». Elles s'ajoutent à la revue et ne peuvent désactiver aucune vérification.",
   "workspaceSettings.repoReview.style.pathAria": "Glob de chemin",

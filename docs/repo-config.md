@@ -21,7 +21,7 @@ reviews:
   path_instructions: # extra AI review checks for matching files
     - path: 'scripts/**'
       instructions: Flag any console.log.
-tone_instructions: Be concise and friendly. # wording of the AI review, ≤250 chars
+tone_instructions: Be concise and friendly. # wording of the AI review and PR answers, ≤250 chars
 ```
 
 Every key is optional. The keys mean exactly what the same per-repository review
@@ -50,8 +50,9 @@ settings mean in Lumo (the settings card and `lumo workspace security-scan
   checks to the AI review and cannot switch a layer off, approve, clear a
   finding or change what blocks DONE.
 - `tone_instructions` (top level, ≤250 characters): how the AI review words its
-  finding titles, details and PR description. Wording only. Lumo's replies in
-  review threads and to PR commands are fixed text and do not change.
+  finding titles, details and PR description, and how Lumo words its answers to
+  questions on the PR. Wording only. Lumo's fixed notes (learning
+  acknowledgements, command replies) do not change.
 
 ## Precedence
 
