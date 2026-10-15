@@ -17,6 +17,13 @@ export interface RepoReviewOptions extends ConfirmFlags {
   repos?: boolean
   review?: string
   drafts?: string
+  /** LUM-1143 filters — each repeatable flag replaces the list; "" clears. */
+  baseBranches?: string[]
+  labels?: string[]
+  ignoreTitle?: string[]
+  ignoreUsers?: string[]
+  descriptionKeyword?: string
+  pathFilter?: string[]
   json?: boolean
   /** The switch flags of the same command — not combinable with --repo. */
   scan?: string
@@ -32,6 +39,15 @@ export interface RepoReviewSettingView {
   repo: string
   autoReview: boolean
   reviewDrafts: boolean
+  /** LUM-1143 filters (absent from an older server). */
+  baseBranches?: string[]
+  labels?: string[]
+  ignoreTitleKeywords?: string[]
+  ignoreUsernames?: string[]
+  descriptionKeyword?: string | null
+  pathFilters?: string[]
+  /** What an empty `baseBranches` reviews. */
+  emptyBaseBranchesMeans?: 'all_branches' | 'default_branch_only'
 }
 
 /** GET/PATCH /api/workspaces/me/security-scan/repositories. */
@@ -44,6 +60,33 @@ export interface RepoReviewUpdate {
   repo: string
   autoReview?: boolean
   reviewDrafts?: boolean
+  baseBranches?: string[]
+  labels?: string[]
+  ignoreTitleKeywords?: string[]
+  ignoreUsernames?: string[]
+  descriptionKeyword?: string | null
+  pathFilters?: string[]
+}
+
+/** LUM-1143: the filter flags and the request field each one sets. */
+const LIST_FLAGS = [
+  ['baseBranches', '--base-branches', 'baseBranches'],
+  ['labels', '--labels', 'labels'],
+  ['ignoreTitle', '--ignore-title', 'ignoreTitleKeywords'],
+  ['ignoreUsers', '--ignore-users', 'ignoreUsernames'],
+  ['pathFilter', '--path-filter', 'pathFilters'],
+] as const
+
+/** Repeated values, trimmed; a lone "" (or only blanks) clears the list. */
+export function parseFilterList(values: readonly string[]): string[] {
+  return values.map(v => v.trim()).filter(v => v.length > 0)
+}
+
+function hasFilterFlag(opts: RepoReviewOptions): boolean {
+  return (
+    LIST_FLAGS.some(([key]) => opts[key] !== undefined) ||
+    opts.descriptionKeyword !== undefined
+  )
 }
 
 function parseOnOff(flag: string, value: string): boolean {
@@ -59,7 +102,8 @@ export function wantsRepoReview(opts: RepoReviewOptions): boolean {
     opts.repos === true ||
     opts.repo !== undefined ||
     opts.review !== undefined ||
-    opts.drafts !== undefined
+    opts.drafts !== undefined ||
+    hasFilterFlag(opts)
   )
 }
 
@@ -80,12 +124,17 @@ export function buildRepoReviewUpdate(
     opts.enableAll
   if (switches) {
     throw new Error(
-      '--repo / --repos / --review / --drafts cannot be combined with --scan / --ai-review / --hunt / --request-changes / --learnings-scope / --disable-all / --enable-all'
+      '--repo / --repos / --review / --drafts / the filter flags cannot be combined with --scan / --ai-review / --hunt / --request-changes / --learnings-scope / --disable-all / --enable-all'
     )
   }
-  const change = opts.review !== undefined || opts.drafts !== undefined
+  const change =
+    opts.review !== undefined ||
+    opts.drafts !== undefined ||
+    hasFilterFlag(opts)
   if (change && !opts.repo) {
-    throw new Error('--review / --drafts need --repo <owner/name>')
+    throw new Error(
+      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter need --repo <owner/name>'
+    )
   }
   if (!change) return null
   const update: RepoReviewUpdate = { repo: opts.repo!.trim() }
@@ -93,6 +142,14 @@ export function buildRepoReviewUpdate(
     update.autoReview = parseOnOff('--review', opts.review)
   if (opts.drafts !== undefined)
     update.reviewDrafts = parseOnOff('--drafts', opts.drafts)
+  for (const [key, , field] of LIST_FLAGS) {
+    const values = opts[key]
+    if (values !== undefined) update[field] = parseFilterList(values)
+  }
+  if (opts.descriptionKeyword !== undefined) {
+    const k = opts.descriptionKeyword.trim()
+    update.descriptionKeyword = k.length > 0 ? k : null
+  }
   return update
 }
 
@@ -124,20 +181,50 @@ export function describeRepoReviewTurnOffs(
 
 const onOff = (b: boolean) => (b ? 'on' : 'off')
 
-export function formatRepoReviewSettings(view: RepoReviewSettingsView): string {
+/** LUM-1143: one line per non-default filter of a repository. */
+export function formatRepoReviewFilters(r: RepoReviewSettingView): string[] {
+  const list = (xs: string[] | undefined) =>
+    (xs ?? []).map(x => sanitizeField(x)).join(', ')
+  const lines: string[] = []
+  const base = list(r.baseBranches)
+  lines.push(
+    `  base branches: ${
+      base
+        ? `default branch + ${base}`
+        : r.emptyBaseBranchesMeans === 'default_branch_only'
+          ? 'default branch only'
+          : 'all'
+    }`
+  )
+  if (list(r.labels)) lines.push(`  labels: ${list(r.labels)}`)
+  if (list(r.ignoreTitleKeywords))
+    lines.push(`  ignore title: ${list(r.ignoreTitleKeywords)}`)
+  if (list(r.ignoreUsernames))
+    lines.push(`  ignore users: ${list(r.ignoreUsernames)}`)
+  if (r.descriptionKeyword)
+    lines.push(`  description keyword: ${sanitizeField(r.descriptionKeyword)}`)
+  if (list(r.pathFilters)) lines.push(`  path filters: ${list(r.pathFilters)}`)
+  return lines
+}
+
+export function formatRepoReviewSettings(
+  view: RepoReviewSettingsView,
+  filters?: boolean
+): string {
   if (view.repositories.length === 0) {
     return 'No repositories are connected to this workspace.'
   }
   const names = view.repositories.map(r => sanitizeField(r.repo))
   const w = Math.max('Repository'.length, ...names.map(n => n.length))
+  const withFilters = filters === true
   return [
     `${'Repository'.padEnd(w)}  Review  Drafts`,
-    ...view.repositories.map(
-      (r, i) =>
-        `${names[i]!.padEnd(w)}  ${onOff(r.autoReview).padEnd(6)}  ${onOff(r.autoReview && r.reviewDrafts)}`
-    ),
+    ...view.repositories.flatMap((r, i) => [
+      `${names[i]!.padEnd(w)}  ${onOff(r.autoReview).padEnd(6)}  ${onOff(r.autoReview && r.reviewDrafts)}`,
+      ...(withFilters ? formatRepoReviewFilters(r) : []),
+    ]),
     '',
-    'Review: every pull request without a Lumo task is reviewed automatically. Task-linked pull requests are always scanned.',
+    'Review: every pull request without a Lumo task is reviewed automatically (off = only PRs opted in by a label or the description keyword). Task-linked pull requests are always scanned.',
   ].join('\n')
 }
 
@@ -209,5 +296,8 @@ export async function workspaceRepoReview(
     return
   }
   if (update) process.stdout.write('Repository review settings saved.\n\n')
-  process.stdout.write(formatRepoReviewSettings(shown) + '\n')
+  // `--repo X` shows that repository's filters too.
+  process.stdout.write(
+    formatRepoReviewSettings(shown, opts.repo !== undefined) + '\n'
+  )
 }

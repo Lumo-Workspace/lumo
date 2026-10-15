@@ -5211,6 +5211,14 @@
           "enumCaseInsensitive": false,
           "description": "Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)"
         },
+        "--base-branches": {
+          "long": "--base-branches",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo (repeatable; replaces the list, \"\" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, \".*\" = all"
+        },
         "--confirm": {
           "long": "--confirm",
           "short": null,
@@ -5218,6 +5226,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user approved the listed changes"
+        },
+        "--description-keyword": {
+          "long": "--description-keyword",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo (\"\" clears): with --review off, review PRs whose description contains it"
         },
         "--disable-all": {
           "long": "--disable-all",
@@ -5251,6 +5267,22 @@
           "enumCaseInsensitive": false,
           "description": "Exploit-path hunt in the sandbox"
         },
+        "--ignore-title": {
+          "long": "--ignore-title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo (repeatable; replaces the list, \"\" clears): skip PRs whose title contains it (case-insensitive)"
+        },
+        "--ignore-users": {
+          "long": "--ignore-users",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo (repeatable; replaces the list, \"\" clears): never auto-review PRs by this author (exact, case-sensitive; beats every other rule)"
+        },
         "--json": {
           "long": "--json",
           "short": null,
@@ -5259,6 +5291,14 @@
           "enumCaseInsensitive": false,
           "description": "Emit { switches, platform, effective } as JSON"
         },
+        "--labels": {
+          "long": "--labels",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo (repeatable; replaces the list, \"\" clears): label = review only PRs carrying one (opts in when --review off), !label = skip PRs carrying it"
+        },
         "--learnings-scope": {
           "long": "--learnings-scope",
           "short": null,
@@ -5266,6 +5306,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Which repositories’ learnings the AI review reads (default auto): local = the reviewed repository, global = every repository in this workspace, auto = local for public / global for private repositories"
+        },
+        "--path-filter": {
+          "long": "--path-filter",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo (repeatable; replaces the list, \"\" clears): what the AI review and hunt read; !glob excludes, glob restricts to matches; lockfiles and generated files are excluded by default"
         },
         "--repo": {
           "long": "--repo",
@@ -5310,7 +5358,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
+      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds CodeRabbit-style filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
     },
     "worktree": {
       "arguments": [],

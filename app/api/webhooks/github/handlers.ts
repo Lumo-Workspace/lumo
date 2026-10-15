@@ -23,6 +23,11 @@ import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossin
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { emitCoreEvent } from '@/lib/plugins/events'
 import { shouldNotifySlackEvent } from '@/lib/services/notification.service'
+import {
+  pullRequestReviewFacts,
+  pullRequestReviewFactsBefore,
+  type PullRequestFactsPayload,
+} from '@/lib/integrations/github/pr-review-facts'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,10 +54,10 @@ type GitHubPR = {
   changed_files?: number
 }
 
-type PullRequestPayload = {
+type PullRequestPayload = PullRequestFactsPayload & {
   action: string
   pull_request: GitHubPR
-  repository: { full_name: string }
+  repository: { full_name: string; default_branch?: string | null }
 }
 
 type CheckSuitePayload = {
@@ -105,7 +110,8 @@ export async function handlePullRequest(
   } = payload as unknown as PullRequestPayload
 
   // LUM-1133: ready_for_review / converted_to_draft keep `isDraft` current
-  // (a task-less draft is reviewed once it is marked ready).
+  // (a task-less draft is reviewed once it is marked ready). LUM-1143:
+  // labeled / unlabeled can newly opt a PR into the automatic review.
   const relevantActions = [
     'opened',
     'reopened',
@@ -114,6 +120,8 @@ export async function handlePullRequest(
     'edited',
     'ready_for_review',
     'converted_to_draft',
+    'labeled',
+    'unlabeled',
   ]
   if (!relevantActions.includes(action)) return
 
@@ -162,6 +170,13 @@ export async function handlePullRequest(
     prRow.taskId
   )
 
+  const payloadFacts = payload as unknown as PullRequestFactsPayload
+  const reviewFacts = pullRequestReviewFacts(payloadFacts)
+  const reviewFactsBefore = pullRequestReviewFactsBefore(
+    payloadFacts,
+    reviewFacts
+  )
+
   // The plugin event for this PR. LUM-1133: emitted for a PR without a task
   // too (taskId null) so it can be reviewed; everything below stays
   // task-only (branch list, lineage, notifications).
@@ -173,6 +188,9 @@ export async function handlePullRequest(
     repo: repository.full_name,
     prNumber: pr.number,
     isDraft: pr.draft === true,
+    // LUM-1143: what the per-repository auto-review filters read.
+    reviewFacts,
+    ...(reviewFactsBefore ? { reviewFactsBefore } : {}),
   }
 
   if (!linkedTask) {

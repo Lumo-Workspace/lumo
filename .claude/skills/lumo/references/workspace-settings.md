@@ -69,10 +69,34 @@ acme/web    off     off
 - A repository the workspace has not connected → `Error: repository … is not connected to this workspace` (exit 1).
 - Turning `--review` or `--drafts` **off** is gated by the confirmation protocol (exit 4, nothing sent); OWNER only, refused before any envelope for anyone else. Each change writes a `repository.review_settings_updated` audit event (target `repository`, `{ repo, from, to }`).
 
+#### Auto-review filters (LUM-1143, CodeRabbit `reviews.auto_review` + `path_filters`)
+
+Per repository, for **task-less** PRs (task-linked PRs are always scanned; `@<app> review` / `lumo pr scan --review` always work). Each repeatable flag **replaces** its list; `""` clears it. OWNER only, no confirmation, audited like the switches. The web card has the same fields under **Filters**.
+
+```bash
+lumo workspace security-scan --repo acme/app --ignore-title WIP --ignore-title "do not review"
+lumo workspace security-scan --repo acme/app --ignore-users 'dependabot[bot]'
+lumo workspace security-scan --repo acme/app --labels review-me --labels '!wip'
+lumo workspace security-scan --repo acme/app --review off --description-keyword '@lumo review' --confirm
+lumo workspace security-scan --repo acme/app --base-branches 'release/.*'     # default branch always included; '.*' = all
+lumo workspace security-scan --repo acme/app --path-filter '!docs/**'         # what the AI review / hunt read
+lumo workspace security-scan --repo acme/app --labels ""                       # clear a list
+```
+
+- `--base-branches <regex>`: full-match regexes on the base branch; the repository's default branch is always reviewed. An **empty list** reviews every base today (`emptyBaseBranchesMeans` in `--json`: `all_branches`; CodeRabbit's default is `default_branch_only` — pending decision).
+- `--labels <label>`: `label` = review only PRs carrying one of them; with `--review off` it **opts a PR in**. `!label` = skip PRs carrying it. Negative-only lists never opt in. Case-insensitive.
+- `--ignore-title <keyword>`: case-insensitive substring of the title ⇒ skip. `--ignore-users <login>`: exact, case-sensitive author login ⇒ skip (beats everything).
+- `--description-keyword <text>`: with `--review off`, a PR whose description contains it (exact substring) is reviewed.
+- **Precedence** (first rule that decides wins): ignored users → ignored title / `!label` → enabled/opt-in (positive labels, description keyword) → base branch → drafts.
+- `labeled` / `unlabeled` / `edited` (title, description, base) events review a PR that the change **newly** lets through (e.g. adding the opt-in label, dropping `WIP` from the title); a PR that already passed is not re-reviewed.
+- `--path-filter <glob>`: globs over changed paths for the AI review and the hunt (`**` any depth, `*` within a segment; a pattern without `/` matches the file name anywhere). `!glob` excludes; a plain glob restricts the review to matches and re-admits a built-in exclusion. Built-in exclusions: lockfiles (`package-lock.json`, `yarn.lock`, `go.sum`, `Cargo.lock`, …), `*.min.js` / `*.map` / `*.snap`, generated code (`*.pb.go`, `*.generated.*`, `__generated__/`), `dist/`, `build/`, `vendor/`, `node_modules/`, `coverage/`. The secret scan and graph rules still read every file.
+- `--repo X` (no change) prints the repository's filters under its row; `--json` adds `baseBranches`, `labels`, `ignoreTitleKeywords`, `ignoreUsernames`, `descriptionKeyword`, `pathFilters`, `emptyBaseBranchesMeans`.
+
 ### When to suggest `workspace security-scan`
 
 - "Turn off / pause code scanning", "stop the AI review on our PRs", "why didn't the hunt run" — and the user is a workspace owner (reading is open to anyone).
 - "Don't review PRs in repo X", "review drafts too", "why was my PR without a task (not) reviewed" → `--repos` / `--repo`.
+- "Skip WIP PRs", "don't review dependabot", "only review PRs labelled X", "review PRs into release branches", "ignore lockfiles / generated files", "CodeRabbit auto_review / path_filters" → the LUM-1143 filter flags with `--repo`.
 - "Make Lumo request changes / approve PRs", "CodeRabbit-style request changes" → `--request-changes on` (exits 4 first; relay the envelope).
 - "Use learnings from our other repos", "keep each repo's learnings separate", "CodeRabbit learnings scope" → `--learnings-scope global|local|auto` (`global` exits 4 first; relay the envelope).
 - "Review every push", "stop pausing reviews after a few pushes", "CodeRabbit auto pause after reviewed commits" → `--auto-pause-after <n>` (`0` = never pause).

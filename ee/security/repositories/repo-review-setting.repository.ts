@@ -1,4 +1,17 @@
 import { prisma } from '@/lib/db/prisma'
+import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
+
+/** LUM-1143: every stored setting column (filters included). */
+const SETTING_SELECT = {
+  autoReview: true,
+  reviewDrafts: true,
+  baseBranches: true,
+  labels: true,
+  ignoreTitleKeywords: true,
+  ignoreUsernames: true,
+  descriptionKeyword: true,
+  pathFilters: true,
+} as const
 
 /**
  * LUM-1133 — per-repository automatic review settings and the cross-workspace
@@ -11,10 +24,8 @@ export interface ConfirmingWorkspaceRow {
   confirmedAt: Date
 }
 
-export interface RepoReviewSettingRow {
+export interface RepoReviewSettingRow extends RepoReviewSettingValues {
   workspaceId: string
-  autoReview: boolean
-  reviewDrafts: boolean
 }
 
 export const repoReviewSettingRepository = {
@@ -46,15 +57,30 @@ export const repoReviewSettingRepository = {
     if (workspaceIds.length === 0) return []
     return prisma.repositoryReviewSetting.findMany({
       where: { workspaceId: { in: workspaceIds }, repo: repoLower },
-      select: { workspaceId: true, autoReview: true, reviewDrafts: true },
+      select: { workspaceId: true, ...SETTING_SELECT },
     })
+  },
+
+  /**
+   * LUM-1143: one workspace's path filters for a repository ([] = none
+   * stored), for the scan worker's review input.
+   */
+  async findPathFilters(
+    workspaceId: string,
+    repoLower: string
+  ): Promise<string[]> {
+    const row = await prisma.repositoryReviewSetting.findUnique({
+      where: { workspaceId_repo: { workspaceId, repo: repoLower } },
+      select: { pathFilters: true },
+    })
+    return row?.pathFilters ?? []
   },
 
   /** Every stored setting of one workspace. */
   async findForWorkspace(workspaceId: string) {
     return prisma.repositoryReviewSetting.findMany({
       where: { workspaceId },
-      select: { repo: true, autoReview: true, reviewDrafts: true },
+      select: { repo: true, ...SETTING_SELECT },
     })
   },
 
@@ -65,14 +91,14 @@ export const repoReviewSettingRepository = {
   async upsert(
     workspaceId: string,
     repoLower: string,
-    values: { autoReview: boolean; reviewDrafts: boolean },
-    changed: { autoReview?: boolean; reviewDrafts?: boolean } = values
+    values: RepoReviewSettingValues,
+    changed: Partial<RepoReviewSettingValues> = values
   ) {
     return prisma.repositoryReviewSetting.upsert({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
       create: { workspaceId, repo: repoLower, ...values },
       update: changed,
-      select: { repo: true, autoReview: true, reviewDrafts: true },
+      select: { repo: true, ...SETTING_SELECT },
     })
   },
 

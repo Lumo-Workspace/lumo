@@ -25,6 +25,13 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   repos?: boolean
   review?: string
   drafts?: string
+  /** LUM-1143: the per-repository auto-review filters. */
+  baseBranches?: string[]
+  labels?: string[]
+  ignoreTitle?: string[]
+  ignoreUsers?: string[]
+  descriptionKeyword?: string
+  pathFilter?: string[]
 }
 
 /** The stored switches, as GET/PATCH /api/workspaces/me/security-scan return them. */

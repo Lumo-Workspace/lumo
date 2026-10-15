@@ -97,6 +97,11 @@ import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
 import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
+import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
+import {
+  filterReviewableDiff,
+  reviewablePathPredicate,
+} from '@/ee/security/security-scan/reviewable-path'
 import { loadSecurityLayers } from './security-workspace-switches.service'
 import {
   recordHuntStartBestEffort,
@@ -748,6 +753,27 @@ async function releaseKeptVmBestEffort(job: ReviewVerifierJob): Promise<void> {
 }
 
 /**
+ * LUM-1143 — the repository's path filters; a failed read falls back to the
+ * built-in exclusions only (never a failed scan over a settings read).
+ */
+async function repoPathFiltersBestEffort(
+  workspaceId: string,
+  repo: string
+): Promise<string[]> {
+  try {
+    return await repoReviewSettingRepository.findPathFilters(
+      workspaceId,
+      repo.toLowerCase()
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] path filters unavailable repo=${repo}: ${error instanceof Error ? error.message : String(error)}`
+    )
+    return []
+  }
+}
+
+/**
  * LUM-1079 — `fetchPrDiff` flags GitHub's "diff too large" refusal (406)
  * with `diffTooLarge: true` on the error it throws.
  */
@@ -980,7 +1006,20 @@ export const prSecurityScanService = {
           }
         }
       }
+      // LUM-1143 — the repository's path filters (CodeRabbit
+      // `reviews.path_filters`; built-in: lockfiles, generated code, build
+      // output) decide what the AI review and the hunt read. The secret scan
+      // and graph rules still see every file.
+      const isReviewable = reviewablePathPredicate(
+        await repoPathFiltersBestEffort(pr.workspaceId, pr.repo)
+      )
+      const reviewable = filterReviewableDiff(reviewDiff, isReviewable)
+      if (reviewable.excluded.length > 0) {
+        reviewDiff = reviewable.diff
+        reviewScope = new Set(reviewable.kept)
+      }
       const reviewFiles = addedLinesWithNumbers(reviewDiff)
+      const huntFiles = files.filter(f => isReviewable(f.path))
 
       // ── A1: deterministic secret scan (pure) ────────────────────────────
       const secretHits = scanSecrets(files)
@@ -1061,16 +1100,18 @@ export const prSecurityScanService = {
       // reads `sites` off it to decide which files fit in its budget. Pure and
       // cheap; the hunt flag only decides whether the VM is kept alive.
       const triggerFirstPass =
-        files.length > 0
+        huntFiles.length > 0
           ? evaluateHuntTrigger({
-              files,
+              files: huntFiles,
               hasHighFinding: secretHigh,
               hasOpenL4Crossing: hasOpenCrossing,
             })
           : null
       // LUM-832: over the file cap the hunt will not run, so its VM is not
       // kept alive for it either.
-      const huntOverCap = touchedSourcePaths.length > HUNT_MAX_HUNTED_FILES
+      // LUM-1143: the hunt reads only reviewable source files.
+      const huntSourcePaths = touchedSourcePaths.filter(isReviewable)
+      const huntOverCap = huntSourcePaths.length > HUNT_MAX_HUNTED_FILES
       const huntWantedForVm =
         layers.hunt &&
         aiAllowed &&
@@ -1470,7 +1511,7 @@ export const prSecurityScanService = {
       // judge's rows exist. `hasOpenCrossing` is reused rather than re-read —
       // one query, and a trigger that cannot disagree with itself mid-scan.
       const huntTrigger = evaluateHuntTrigger({
-        files,
+        files: huntFiles,
         hasHighFinding:
           secretHigh || judgeRows.some(r => r.severity === 'HIGH'),
         hasOpenL4Crossing: hasOpenCrossing,
@@ -1478,7 +1519,7 @@ export const prSecurityScanService = {
       const huntWanted =
         layers.hunt &&
         aiAllowed &&
-        files.length > 0 &&
+        huntFiles.length > 0 &&
         huntTrigger.hunt &&
         !huntOverCap
       // Off (LUMO_SECURITY_HUNT=off, or the workspace's hunt switch — LUM-866)
@@ -1496,7 +1537,7 @@ export const prSecurityScanService = {
       const huntSkippedForCap =
         layers.hunt &&
         aiAllowed &&
-        files.length > 0 &&
+        huntFiles.length > 0 &&
         huntTrigger.hunt &&
         huntOverCap
       if (huntSkippedForCap) partialCauses.push('HUNT_OVERSIZED')
@@ -1545,7 +1586,7 @@ export const prSecurityScanService = {
           ? {
               huntAudit: {
                 overCap: {
-                  sourceFiles: touchedSourcePaths.length,
+                  sourceFiles: huntSourcePaths.length,
                   capFiles: HUNT_MAX_HUNTED_FILES,
                 },
               },
@@ -1578,7 +1619,8 @@ export const prSecurityScanService = {
           // source files it could have fired in. Short circuit A needs it to
           // tell a `stage-a:high` PR that touched code from one that touched
           // none, and the planner needs it to place a signal at all.
-          touchedSourcePaths,
+          // LUM-1143: only the reviewable ones (path filters).
+          touchedSourcePaths: huntSourcePaths,
           // LUM-758 follow-up: the SAME walk's located hits — which rule fired,
           // in which file, on which added line. Computed already; discarding it
           // is what made the agent re-derive it with `rg` on its own budget.
@@ -1595,10 +1637,7 @@ export const prSecurityScanService = {
         // in risk-ordered batches across runs. The plan rides on the job from
         // the first run, so the covered share is readable (0 of N) the moment
         // the hunt starts.
-        const huntBatches = planHuntBatches(
-          touchedSourcePaths,
-          huntTrigger.sites
-        )
+        const huntBatches = planHuntBatches(huntSourcePaths, huntTrigger.sites)
         if (huntBatches) {
           huntJob.batches = huntBatches
           huntJob.batchIndex = 0

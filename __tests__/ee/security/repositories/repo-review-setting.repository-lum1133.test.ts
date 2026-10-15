@@ -15,6 +15,7 @@ jest.mock('@/lib/db/prisma', () => ({
 
 import { prisma } from '@/lib/db/prisma'
 import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
+import { DEFAULT_REPO_REVIEW_SETTING } from '@/ee/security/security-scan/auto-review-policy'
 
 const db = prisma as unknown as {
   gitHubAppInstallation: { findMany: jest.Mock }
@@ -60,7 +61,7 @@ it('upsert keys on (workspaceId, repo) and updates only the changed field', asyn
   await repoReviewSettingRepository.upsert(
     'a',
     'acme/app',
-    { autoReview: false, reviewDrafts: true },
+    { ...DEFAULT_REPO_REVIEW_SETTING, autoReview: false, reviewDrafts: true },
     { reviewDrafts: true }
   )
   expect(db.repositoryReviewSetting.upsert).toHaveBeenCalledWith(
@@ -69,6 +70,7 @@ it('upsert keys on (workspaceId, repo) and updates only the changed field', asyn
       create: {
         workspaceId: 'a',
         repo: 'acme/app',
+        ...DEFAULT_REPO_REVIEW_SETTING,
         autoReview: false,
         reviewDrafts: true,
       },
