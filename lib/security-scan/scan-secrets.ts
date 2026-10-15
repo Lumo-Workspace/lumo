@@ -19,6 +19,7 @@ import {
   type SecretPattern,
 } from './secret-patterns'
 import {
+  maskQuotedCodeValues,
   maskQuotedCommandArgs,
   maskQuotedCredentials,
   maskQuotedKeyedValues,
@@ -46,7 +47,8 @@ const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
  *   a bounded evidence excerpt around the reported value
  *   (`EVIDENCE_EXCERPT_CONTEXT_CHARS` each side), cut from the fully
  *   redacted line.
- * - `redactKnownSecrets` / `redactForInjection` are sanitizers over text
+ * - `redactKnownSecrets` (and its variants such as `redactToolOutputLine`) /
+ *   `redactForInjection` are sanitizers over text
  *   that is about to be persisted or injected. They scan and redact the
  *   first `MAX_SCANNED_LINE_CHARS` characters and DROP the remainder behind
  *   `…(truncated)` — never passing unscanned text back to the caller.
@@ -410,7 +412,8 @@ export function redactKnownSecrets(input: string): string {
  * names readable (`labelled 'Verification'`) and still masks every quoted
  * span in text that talks about passwords / tokens / keys, every span beside
  * a registry hit, and every credential-shaped quoted value. Not for raw tool
- * or command output — that stays on `redactKnownSecrets`.
+ * or command output — the hunt / verifier read that through
+ * `redactToolOutputLine` (LUM-1200 follow-up #6).
  */
 export function redactFindingText(input: string): string {
   return redactThenMaskQuotes(input, maskQuotedCredentials)
@@ -441,6 +444,21 @@ export function redactSummaryText(input: string): string {
  */
 export function redactShellCommand(input: string): string {
   return redactThenMaskQuotes(input, text => maskQuotedCommandArgs(text))
+}
+
+/**
+ * LUM-1200 follow-up #6 — `redactKnownSecrets` for one line of shell / tool
+ * output the exploit-path hunt model or the verifier reads. Identical
+ * registry pass and truncation red line; the final quoted-span pass is
+ * `maskQuotedCodeValues`, which keeps string literals such as route paths,
+ * SQL text and log messages readable and masks credential-shaped values and
+ * credential keys' values, quoted or not. User ruling 2026-10-16: this
+ * replaces the strict `maskQuotedValues` pass for hunt / verifier tool
+ * output only — everything else that said "redactKnownSecrets on every model
+ * input" keeps its pass.
+ */
+export function redactToolOutputLine(input: string): string {
+  return redactThenMaskQuotes(input, maskQuotedCodeValues)
 }
 
 /**
