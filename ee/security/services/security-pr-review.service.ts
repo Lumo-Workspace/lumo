@@ -1239,12 +1239,13 @@ async function threadToken(
  */
 export const SUMMARY_CLAIM_TTL_MS = 60_000
 /**
- * LUM-1150 — a sync that lost the summary claim polls in these steps for the
+ * LUM-1150 — a sync that lost the summary claim polls (backing off) for the
  * winner's comment id (then writes its own body into it) and asks for the
  * claim again (a holder that released without an id, or died). It never
  * gives up before the claim could have expired.
  */
-const SUMMARY_WAIT_STEP_MS = 250
+const SUMMARY_WAIT_FIRST_STEP_MS = 250
+const SUMMARY_WAIT_MAX_STEP_MS = 2_000
 const SUMMARY_WAIT_MAX_MS = SUMMARY_CLAIM_TTL_MS + 10_000
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
@@ -1390,9 +1391,13 @@ async function createSummaryOnce(
 ): Promise<string | null> {
   let gone = firstGone
   const deadline = Date.now() + SUMMARY_WAIT_MAX_MS
+  // Quick at first (the holder usually finishes in about a second), then
+  // backing off: a long wait costs a few dozen reads, not hundreds.
+  let step = SUMMARY_WAIT_FIRST_STEP_MS
   for (let first = true; ; first = false) {
     if (!first) {
-      await sleep(SUMMARY_WAIT_STEP_MS)
+      await sleep(step)
+      step = Math.min(step * 2, SUMMARY_WAIT_MAX_STEP_MS)
       const id = await findPrSummaryId(t.pullRequestId)
       if (id && id !== gone) {
         if (await updateSummaryIfPresent(t, id)) {
@@ -2203,15 +2208,22 @@ export const securityPrReviewService = {
       logger.warn(`[security-pr-review] ${where}: ${describe(error)}`)
       // LUM-1150: failed between claiming and posting (e.g. the summary).
       await releaseClaims(pendingClaims, where)
-      return { posted, inline, skipped: posted ? skipped : 0 }
+      if (!posted) skipped = 0
     }
+    // LUM-1150 follow-up #3: also after a later step failed — the interim
+    // body must not stay on the PR either way.
     if (finishedMeanwhile) {
       logger.info(
         `[security-pr-review] stage A finished during this sync — writing the final summary ${where}`
       )
       // Reads the finished row, so it does not come back here.
       const final = await securityPrReviewService.syncReview(scanId)
-      return { ...final, inline: inline + final.inline }
+      return {
+        posted: posted || final.posted,
+        inline: inline + final.inline,
+        // What is still waiting is what the final pass left waiting.
+        skipped: final.skipped,
+      }
     }
     return { posted, inline, skipped }
   },

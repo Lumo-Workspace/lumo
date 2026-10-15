@@ -357,6 +357,46 @@ describe('LUM-1150 one summary comment per PR', () => {
     expect(comments[0]!.body).not.toContain('still running')
   })
 
+  it('the final rewrite still happens when a step after the summary fails (the inline review is refused)', async () => {
+    comments = [{ id: 77, body: `x\n\n${SUMMARY_MARKER}`, user: BOT }]
+    const open = {
+      id: 'f1',
+      kind: 'VULNERABILITY',
+      ruleId: 'ext:semgrep:cmd-injection',
+      severity: 'HIGH',
+      provenance: 'EXTERNAL_TOOL',
+      filePath: 'lib/run.ts',
+      line: 12,
+      title: 'Command injection',
+      detail: 'User input reaches exec.',
+      fingerprint: 'fp1',
+      externalRef: null,
+      disposition: null,
+      persisting: false,
+      suggestedDisposition: null,
+      verifierVerdict: null,
+      verifierReason: null,
+    }
+    repo.claimInlineComments!.mockResolvedValue(new Set(['f1']))
+    gh.createReview!.mockRejectedValue(new GithubApiError(502, 'Bad Gateway'))
+    repo.findByIdForReview!.mockResolvedValueOnce(
+      scanRow({
+        summaryCommentId: '77',
+        status: 'RUNNING',
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'PENDING' },
+        findings: [open],
+      })
+    )
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow({ summaryCommentId: '77', status: 'FINDINGS', findings: [open] })
+    )
+    repo.findStatusById!.mockResolvedValue('FINDINGS')
+    const res = await securityPrReviewService.sync('s1')
+    expect(repo.findByIdForReview).toHaveBeenCalledTimes(2)
+    expect(res.posted).toBe(true)
+    expect(comments[0]!.body).not.toContain('still running')
+  })
+
   it('a sync that wrote "still running" while stage A is still running does not sync again', async () => {
     comments = [{ id: 77, body: `x\n\n${SUMMARY_MARKER}`, user: BOT }]
     repo.findByIdForReview!.mockResolvedValue(
