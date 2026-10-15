@@ -507,6 +507,50 @@ describe('LUM-1147 path-instruction findings are marked (verified claims only)',
     expect(rows).toHaveLength(1)
     expect(rows[0]!.pathInstruction).toBe('lib/**')
   })
+
+  it('a carried marker is dropped once its instruction is no longer configured', async () => {
+    const { prReviewControlRepository } = jest.requireMock(
+      '@/ee/security/repositories/pr-review-control.repository'
+    ) as {
+      prReviewControlRepository: { priorFindings: jest.Mock }
+    }
+    prReviewControlRepository.priorFindings.mockResolvedValueOnce([
+      {
+        id: 'old',
+        kind: 'CORRECTNESS',
+        ruleId: 'review:logic_error',
+        severity: 'LOW',
+        provenance: 'LLM_JUDGE',
+        filePath: 'lib/search.ts',
+        line: 1,
+        title: 'Unbounded query',
+        detail: 'd',
+        evidence: 'e',
+        fingerprint: 'fp-old',
+        externalRef: null,
+        disposition: null,
+        callChain: null,
+        secretDowngrade: null,
+        verifierVerdict: null,
+        pathInstruction: 'lib/**',
+      },
+    ])
+    // The owners removed the lib/** instruction since the earlier scan.
+    findReviewStyle.mockResolvedValue({
+      ...STORED,
+      pathInstructions: [STORED.pathInstructions[1]],
+    })
+    files({ [BASE_SHA]: null })
+    ;(judge.judgeSecurity as jest.Mock).mockRejectedValue(new Error('down'))
+    await scan()
+    const rows = (
+      repo.persistResult.mock.calls[0]![1] as unknown as Array<
+        Record<string, unknown>
+      >
+    ).filter(r => r.fingerprint === 'fp-old')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.pathInstruction).toBeNull()
+  })
 })
 
 jest.mock('@/ee/security/services/auto-review-admission.service', () =>

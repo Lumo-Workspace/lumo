@@ -1762,8 +1762,14 @@ export const prSecurityScanService = {
           falsifierVerdict: finding.falsifierVerdict,
           persisting: finding.persisting,
           inheritedFromFindingId: finding.id,
-          // LUM-1147: still the finding a path instruction asked for.
-          pathInstruction: finding.pathInstruction,
+          // LUM-1147: still the finding a path instruction asked for — only
+          // while that instruction is still configured for its file.
+          pathInstruction: verifyPathInstructionClaim(
+            finding.pathInstruction,
+            finding.filePath,
+            reviewSettings.pathInstructions,
+            guardPromptLineText
+          ),
           ...(Array.isArray(finding.callChain)
             ? {
                 callChain: finding.callChain as Array<{
