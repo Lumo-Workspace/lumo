@@ -217,5 +217,7 @@ describe('LUM-1150 packedFileBody', () => {
     )
     expect(packedFileBody(packed, 'yarn.lock')).toBeNull()
     expect(packedFileBody({ text: '', included: [] }, 'a.ts')).toBeNull()
+    expect(packedFileBody(packed, 'constructor')).toBeNull()
+    expect(packedFileBody(packed, '__proto__')).toBeNull()
   })
 })

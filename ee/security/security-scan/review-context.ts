@@ -147,7 +147,11 @@ export function packedFileBody(
   packed: PackedReviewContext,
   path: string
 ): string | null {
-  return packed.bodies?.[path] ?? null
+  const bodies = packed.bodies
+  // Own keys only: a path named `constructor` must not read Object's member.
+  if (!bodies || !Object.prototype.hasOwnProperty.call(bodies, path))
+    return null
+  return bodies[path] ?? null
 }
 
 export interface LoadedReviewContext extends PackedReviewContext {
