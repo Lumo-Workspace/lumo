@@ -163,7 +163,11 @@ export function maskQuotedCredentials(text: string): string {
  *   (`isCredentialShapedToken`); or
  * - it FOLLOWS a credential key: the text right before the opening quote ends
  *   in credential vocabulary plus at most two connectors (`password is "…"`,
- *   `token: '…'`, `API_KEY="…"`, `"password": "…"`, `the secret "…"`).
+ *   `token: '…'`, `API_KEY="…"`, `"password": "…"`, `the secret "…"`); or
+ * - it ASSIGNS a credential key inside itself — quoted code such as
+ *   `` `const pw = 'correcthorse'` `` (LUM-1200 follow-up: finding prose
+ *   quotes code inline, so the key and its value can share one span). A key
+ *   merely read (`token.length > 0`) is not an assignment and stays.
  * Residual, honestly named: a shapeless passphrase quoted further away from
  * its key (`the password, as before, is "…"`) is kept. Registry shapes are
  * redacted before this pass runs, as for the other two.
@@ -174,7 +178,8 @@ export function maskQuotedKeyedValues(text: string): string {
     (content, before) =>
       REDACTION_TOKEN_TEST_RE.test(content) ||
       content.split(/\s+/).some(isCredentialShapedToken) ||
-      CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)),
+      CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) ||
+      CREDENTIAL_KEY_ASSIGNED_RE.test(normalizeVocab(content)),
     true
   )
 }
@@ -205,6 +210,17 @@ const CREDENTIAL_KEY_SOURCE =
   '(?:pass(?:words?|wd|phrases?|codes?)|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)'
 const CREDENTIAL_KEY_BEFORE_RE = new RegExp(
   `(?:\\b${CREDENTIAL_KEY_SOURCE}["'\`]?\\s*(?:(?:is|was|equals|of|to|as|=>|[=:,])\\s*){0,2}|\\b(?:pass|auth)["'\`]?\\s*(?:=>|[=:])\\s*)$`
+)
+
+/**
+ * LUM-1200 follow-up — a credential key assigned inside a quoted span
+ * (`pw = '…'`, `apiKey: "…"`, `password => …`); the bare `pass` / `auth`
+ * count only here too, as in `CREDENTIAL_KEY_BEFORE_RE`. A comparison
+ * (`token == x`, `token >= 0`) or a property read (`token.length`) is not
+ * an assignment.
+ */
+const CREDENTIAL_KEY_ASSIGNED_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)["'\`]?\\s*(?:=>|=(?!=)|:)`
 )
 
 function normalizeVocab(text: string): string {

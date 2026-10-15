@@ -1367,6 +1367,23 @@ describe('LUM-739 hunt service', () => {
     expect(row!.detail).toContain("the 'do not merge' label guards nothing")
   })
 
+  it('LUM-1200 follow-up (probe PR 60): inline code in a claim about tokens renders intact', () => {
+    const [row] = toHuntFindingRows('s1', [
+      {
+        ...candidate,
+        claim:
+          'Session validation uses `expiresAt > now || token.length > 0`, so expired sessions stay valid',
+        falsifierReason:
+          'isSessionValid returns `session.expiresAt > now || session.token.length > 0` directly',
+      },
+    ])
+    expect(row!.title).toContain('`expiresAt > now || token.length > 0`')
+    expect(row!.detail).toContain(
+      '`session.expiresAt > now || session.token.length > 0`'
+    )
+    expect(row!.title).not.toContain('…(len')
+  })
+
   it('persist inherits dispositions and stamps RAN or PARTIAL with a capped audit', async () => {
     repo.findDispositionedByPullRequest.mockResolvedValue([
       {

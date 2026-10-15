@@ -109,6 +109,8 @@ import {
   prSecurityScanService,
 } from '@/ee/security/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+import { redactFindingText } from '@/lib/security-scan/scan-secrets'
+import { judgeFindingFingerprint } from '@/lib/security-scan/redact'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { securityManagedScanOpsService } from '@/ee/security/services/security-managed-scan-ops.service'
 import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
@@ -727,6 +729,43 @@ describe('LUM-1013 AI review — finding text keeps quoted prose', () => {
       expect(row.fingerprint).toBe(fp)
     }
   )
+
+  // LUM-1200 follow-up — production probe PR 60 (comment 4285358212): the
+  // detail rendered "The condition `expi…(len 35)`" because it mentions a
+  // token, so every quoted span in it was masked.
+  it('stores inline code in a detail that talks about tokens verbatim', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
+    const detail =
+      'The condition `expiresAt > now || token.length > 0` is true for any session with a non-empty token, so expired sessions are always treated as valid.'
+    const title = 'Session `token.length > 0` check keeps expired sessions'
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [{ ...BUG, title, detail }],
+    })
+    await runScan()
+    const row = repo.persistResult.mock.calls[0]![1][0]!
+    expect(row.detail).toBe(detail)
+    expect(row.title).toBe(title)
+  })
+
+  it('keeps the title-keyed fingerprint for a finding with no evidence', async () => {
+    fetchPrDiff.mockResolvedValue(diffOf([section('lib/search.ts', 1_000)]))
+    const title = 'Session `expiresAt > now || token.length > 0` stays valid'
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings: [{ ...BUG, title, evidence: '' }],
+    })
+    await runScan()
+    const row = repo.persistResult.mock.calls[0]![1][0]!
+    // Keyed on the strictly-masked title, as before this change.
+    expect(row.fingerprint).toBe(
+      judgeFindingFingerprint(
+        `review:${BUG.kind}`,
+        row.filePath,
+        '',
+        redactFindingText(title)
+      )
+    )
+    expect(redactFindingText(title)).not.toBe(title)
+  })
 })
 jest.mock('@/ee/security/services/auto-review-admission.service', () =>
   require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()

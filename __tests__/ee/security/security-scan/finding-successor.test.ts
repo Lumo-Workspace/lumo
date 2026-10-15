@@ -57,6 +57,24 @@ describe('titleSimilarity', () => {
   it('an empty title matches nothing', () => {
     expect(titleSimilarity('', 'anything')).toBe(0)
   })
+
+  // LUM-1200 follow-up (probe PR 60): the hunt's long claim vs the AI
+  // review's short title — Jaccard alone scored 0.25 for the same issue.
+  it('a short title mostly contained in a long one is similar', () => {
+    expect(
+      titleSimilarity(
+        'Session token generated with Math.random despite comment claiming CSPRNG',
+        'Session tokens use Math.random() instead of CSPRNG, allowing attackers to predict or enumerate valid session tokens with low entropy (~53 bits)'
+      )
+    ).toBeGreaterThanOrEqual(0.5)
+    // Two shared words are not enough on their own.
+    expect(
+      titleSimilarity(
+        'Session cookie lacks Secure flag',
+        'Session tokens use Math.random() instead of CSPRNG'
+      )
+    ).toBeLessThan(0.5)
+  })
 })
 
 describe('sameIssueScore', () => {
@@ -175,6 +193,45 @@ describe('sameIssueScore', () => {
       sameIssueScore(
         id({ ruleId: 'review:logic_error' }),
         id({ fingerprint: 'new', ruleId: 'hunt:injection' })
+      )
+    ).toBeNull()
+  })
+})
+
+describe('sameIssueScore — broad hunt category (LUM-1200 follow-up)', () => {
+  const judge = id({
+    ruleId: 'vuln:weak_crypto',
+    line: 14,
+    title:
+      'Session token generated with Math.random despite comment claiming CSPRNG',
+    evidence: 'const token = Math.random().toString(36)',
+  })
+  it('hunt:logic one line away with a similar title is the same issue', () => {
+    expect(
+      sameIssueScore(
+        judge,
+        id({
+          fingerprint: 'hunt',
+          ruleId: 'hunt:logic',
+          line: 13,
+          title:
+            'Session tokens use Math.random() instead of CSPRNG, allowing attackers to predict or enumerate valid session tokens with low entropy (~53 bits)',
+          evidence: 'src/probe/session.ts#createSession',
+        })
+      )
+    ).not.toBeNull()
+  })
+  it('hunt:logic on the same line with an unrelated title is not', () => {
+    expect(
+      sameIssueScore(
+        judge,
+        id({
+          fingerprint: 'hunt',
+          ruleId: 'hunt:logic',
+          line: 14,
+          title: 'Refund endpoint skips the order state machine',
+          evidence: null,
+        })
       )
     ).toBeNull()
   })
