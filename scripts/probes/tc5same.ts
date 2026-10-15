@@ -3,3 +3,5 @@ import { exec } from 'child_process'
 export function listProbeDir(dir: string): void {
   exec('ls -la ' + dir)
 }
+
+export const ROUND2 = 2
