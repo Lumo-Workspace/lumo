@@ -102,6 +102,8 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} help\` — this list`,
     `- \`${handle} <question>\` — ask about this PR's code; Lumo answers from the diff and the files (here, on a code line, or in reply to a Lumo finding)`,
     '',
+    `To skip automatic AI reviews of a PR, put \`${handle} ignore\` in its description; remove it to have the next push reviewed (secret, scanner and dependency checks are not affected).`,
+    '',
     'Only accounts with write access to the repository can run commands. The PR’s author can run `resolve` and `approve` too, unless the workspace turned author approval off.',
   ].join('\n')
 }

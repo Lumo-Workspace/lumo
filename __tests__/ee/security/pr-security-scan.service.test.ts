@@ -19,6 +19,8 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
+  // LUM-1152: the description, read for `@<app> ignore` (only with a slug).
+  fetchPrBody: jest.fn(),
   fetchReviewChangedPaths: jest.fn(),
   // LUM-785: stage A's graph rules read touched files; null = not found.
   readRepoFile: jest.fn().mockResolvedValue(null),
@@ -1995,3 +1997,67 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     }),
   },
 }))
+
+describe('LUM-1152: `@<app> ignore` in the PR description', () => {
+  const fetchPrBody = gh.fetchPrBody as jest.Mock
+  const admit = autoReviewAdmissionService.admit as jest.Mock
+  const prevSlug = process.env.GITHUB_APP_SLUG
+  beforeEach(() => {
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+  })
+  afterAll(() => {
+    if (prevSlug === undefined) delete process.env.GITHUB_APP_SLUG
+    else process.env.GITHUB_APP_SLUG = prevSlug
+  })
+
+  test('skips the automatic AI layers, keeps the deterministic ones and spends no budget', async () => {
+    fetchPrBody.mockResolvedValue('Refactor.\n\n@uselumo ignore')
+    fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(judgeSecurity).not.toHaveBeenCalled()
+    expect(admit).not.toHaveBeenCalled()
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      expect.arrayContaining([
+        expect.objectContaining({
+          provenance: 'DETERMINISTIC',
+          kind: 'SECRET',
+        }),
+      ]),
+      expect.objectContaining({
+        stages: expect.objectContaining({ secrets: 'RAN', judge: 'PAUSED' }),
+        partialCauses: expect.arrayContaining(['AI_REVIEW_IGNORED']),
+      })
+    )
+    const [, , result] = repo.persistResult.mock.calls[0]!
+    expect(result.partialCauses).not.toContain('AI_REVIEW_PAUSED')
+    // The task-linked PR still gets its summary (and the DONE-gate scan row).
+    expect(syncReview).toHaveBeenCalledWith('s1')
+  })
+
+  test('removed from the description: the next push is reviewed', async () => {
+    fetchPrBody.mockResolvedValue('Refactor.')
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(admit).toHaveBeenCalled()
+    expect(judgeSecurity).toHaveBeenCalledTimes(1)
+  })
+
+  test('a manual review still runs, without reading the description', async () => {
+    fetchPrBody.mockResolvedValue('@uselumo ignore')
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'incremental',
+    })
+    expect(fetchPrBody).not.toHaveBeenCalled()
+    expect(judgeSecurity).toHaveBeenCalledTimes(1)
+  })
+})
