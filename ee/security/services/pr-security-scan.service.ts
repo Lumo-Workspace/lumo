@@ -63,6 +63,7 @@ import { isReviewVerifierEnabled } from './review-verifier.config'
 import { verifierAppliesTo } from '@/ee/security/security-scan/verifier'
 import type { ReviewVerifierJob } from './review-verifier.service'
 import { isBugKind } from '@/ee/security/security-scan/review-kinds'
+import { validateCodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
   addedLinesWithNumbers,
   scanSecrets,
@@ -1475,6 +1476,16 @@ export const prSecurityScanService = {
             // scans before LUM-1013 keep their key and a human's
             // FALSE_POSITIVE is still inherited.
             const fingerprintEvidence = redactKnownSecrets(j.evidence)
+            // LUM-1150: the one-click fix, only when its range is exactly
+            // this head's added lines around the finding; else none.
+            const codeSuggestion = validateCodeSuggestion({
+              suggestion: j.suggestion,
+              line: j.line,
+              severity: j.severity,
+              filePath,
+              evidence: j.evidence,
+              files,
+            })
             judgeRows.push({
               scanId,
               kind: isCredential
@@ -1500,6 +1511,7 @@ export const prSecurityScanService = {
               ),
               externalRef: null,
               disposition: null,
+              ...(codeSuggestion ? { codeSuggestion } : {}),
             })
           }
           // LUM-988: one key per finding, by position (see positionalFingerprints).

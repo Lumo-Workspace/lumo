@@ -168,6 +168,8 @@ async function seedScan(
       evidence: CODE,
       callChain: [{ from: CODE, to: 'db.exec' }],
       suggestedReason: CODE,
+      // LUM-1150: the one-click fix is model output about customer code.
+      codeSuggestion: { startLine: 12, endLine: 12, code: CODE },
       suggestedDisposition: 'FALSE_POSITIVE',
       disposition: 'ACCEPTED_RISK',
       dispositionNote: 'owner ruled',
@@ -397,6 +399,7 @@ describe('LUM-911 scan evidence retention', () => {
       evidence: '',
       callChain: null,
       suggestedReason: null,
+      codeSuggestion: null,
     })
     // The hunt counts the UI reads survive.
     const coverage = parseHuntCoverage(scan.huntAudit)
