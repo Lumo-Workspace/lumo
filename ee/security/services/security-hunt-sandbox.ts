@@ -5,9 +5,10 @@
  * read-only command in it.
  *
  * Data boundary (spec R6): the installation token only ever appears as an
- * argument to `createRepoSandbox`. Command output is scrubbed of the token and
- * run through `redactKnownSecrets` before it is returned, so a caller handing
- * it to a model does not have to think about it.
+ * argument to `createRepoSandbox`. Command output is scrubbed of the token,
+ * secret-redacted (`redactToolOutputLine`, code-aware since LUM-1200
+ * follow-up #6) and run through the prompt-injection guard before it is
+ * returned, so a caller handing it to a model does not have to think about it.
  *
  * LUM-758 §6 — and one more job since Task 12: long output is COMPRESSED by
  * a cheap model before it is returned. That happens strictly after the
@@ -38,9 +39,10 @@ import {
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
 import {
-  redactKnownSecrets,
   redactPrivateKeyBlocks,
+  redactToolOutputLine,
 } from '@/ee/security/security-scan'
+import { guardUntrustedContent } from '@/shared/src/untrusted-content'
 import {
   readSandboxFile,
   scrubSandboxCredentials,
@@ -607,7 +609,7 @@ export async function runHuntShell(
   }
   const { token } = input.handle
   // REDACTION FIRST, always. `sanitizeHuntOutput` is the boundary the locked
-  // criterion names: the token scrub and `redactKnownSecrets` happen here, so
+  // criterion names: the token scrub and the secret redaction happen here, so
   // by construction there is no path on which raw output reaches the
   // compressor — which is a model, and gets no more trust than the hunt model.
   const compressed = await compressOrTruncate(
@@ -887,24 +889,40 @@ function fence(body: string, notices: readonly string[] = []): string {
 }
 
 /**
- * token scrub → known-secret redaction → truncation. The order is fixed
- * (§6.2): truncating first could cut a secret in half and leave a fragment no
- * pattern matches any more.
+ * token scrub → secret redaction → injection guard → truncation. The order is
+ * fixed (§6.2): truncating first could cut a secret in half and leave a
+ * fragment no pattern matches any more, and the guard reads only redacted
+ * text, so its notices can never quote a secret.
  *
- * Redaction is per LINE, not over the whole blob: `redactKnownSecrets` is a
+ * Redaction is per LINE, not over the whole blob: `redactToolOutputLine` is a
  * line-level sanitizer that drops everything past its own 5 000-character cap,
  * so handing it 8 000 characters of legitimate grep output would silently
  * throw away three eighths of the answer.
+ *
+ * LUM-1200 follow-up #6 (user ruling 2026-10-16) — the line pass is
+ * code-aware, no longer the strict mask-every-quoted-string
+ * `redactKnownSecrets`: this output is source code, and the hunt model must
+ * read its string literals (route paths, SQL, log messages). Registry
+ * secrets, private key blocks, credential-shaped values and credential keys'
+ * values are still masked before any model sees a character. The ruling
+ * covers hunt / verifier tool output only.
+ *
+ * The guard (`guardUntrustedContent`, LUM-783) defangs fence-shaped tags and
+ * counts instruction-shaped text; its notices go at the head of the output,
+ * which is byte-identical when there is nothing to report. The compressed
+ * path guards the compressor's answer again (`compressOrTruncate`).
  */
 export function sanitizeHuntOutput(raw: string, token: string): string {
   // A PEM block spans lines, so it is redacted over the whole output first.
   const redacted = redactPrivateKeyBlocks(scrub(raw, token))
     .text.split('\n')
-    .map(redactKnownSecrets)
+    .map(redactToolOutputLine)
     .join('\n')
-  return redacted.length <= HUNT_SHELL_OUTPUT_MAX
-    ? redacted
-    : `${redacted.slice(0, HUNT_SHELL_OUTPUT_MAX - TRUNCATION_NOTE.length)}${TRUNCATION_NOTE}`
+  const guarded = guardUntrustedContent(redacted)
+  const text = [...guarded.notices, guarded.text].join('\n')
+  return text.length <= HUNT_SHELL_OUTPUT_MAX
+    ? text
+    : `${text.slice(0, HUNT_SHELL_OUTPUT_MAX - TRUNCATION_NOTE.length)}${TRUNCATION_NOTE}`
 }
 
 /**

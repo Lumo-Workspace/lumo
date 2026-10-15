@@ -93,7 +93,11 @@ npx tsx $B/compare.ts --data $S/data --base lumo-run0,lumo-run1,lumo-run2 \
 ```
 
 Every step caches and re-running fills in only what is missing; `judge.ts`
-refuses to re-use a tag with different inputs. Typecheck the scripts (the root
+refuses to re-use a tag with different inputs. To re-score a removal-policy
+change from the same review/verify/rank files, judge it under a new tag with
+`--reuse <old tag>`: PRs whose kept findings did not change copy the old
+row (no model call, no double-counted tokens) and only the rest are judged.
+The report's last column counts the PRs a reviewer left without any finding. Typecheck the scripts (the root
 tsconfig excludes `scripts/`): `npx tsc --noEmit -p $B/tsconfig.check.json`.
 
 Traps:

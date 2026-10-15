@@ -59,6 +59,8 @@ export interface GroupableFinding {
   title: string
   /** The quoted evidence line; absent / null = not known. */
   evidence?: string | null
+  /** A human's decision on the finding; absent / null = undecided. */
+  disposition?: string | null
 }
 
 function layer(f: { ruleId: string }): 'judge' | 'hunt' {
@@ -220,6 +222,33 @@ export function groupSameIssue<F extends GroupableFinding>(
     }
   }
   return out
+}
+
+/**
+ * LUM-1200 follow-up #5 — the findings `groupSameIssue` groups: every one
+ * the write-back would comment inline, and every one that already has a
+ * thread (`threaded`: its own marker, a carried / alias fingerprint, a
+ * thread a human resolved), whatever its severity. Production (probe PR 69
+ * r6, `src/server.ts:31`): a re-review relabelled the finding that owns an
+ * open thread to LOW — not inline-eligible, so it left the grouping set —
+ * and the hunt's MEDIUM report of the same issue on the same line, with no
+ * partner left, was posted as a second thread. Grouping it keeps the issue
+ * on its thread; posting stays limited to inline-eligible findings.
+ *
+ * Never a finding a human dispositioned (false positive, accepted risk …):
+ * it anchors no group, so a different open finding is never listed under —
+ * and hidden by — a decided thread. A thread a human resolved takes in
+ * another finding only under `groupSameIssue`'s carry rule (neither blocking
+ * DONE nor more severe).
+ */
+export function groupingCandidates<F extends GroupableFinding>(
+  findings: readonly F[],
+  isInline: (f: F) => boolean,
+  threaded: ReadonlySet<string>
+): F[] {
+  return findings.filter(
+    f => f.disposition == null && (isInline(f) || threaded.has(f.fingerprint))
+  )
 }
 
 /**
