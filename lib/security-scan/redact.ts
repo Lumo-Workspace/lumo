@@ -202,8 +202,49 @@ export function maskQuotedKeyedValues(text: string, source?: string): string {
  * in `source` and is still masked whole (it may hide a second value).
  */
 function isEchoedMarkerSpan(content: string, source?: string): boolean {
-  return source !== undefined && source.includes(content)
+  return (
+    source !== undefined &&
+    source.includes(content) &&
+    !echoedMarkerNeighbourIsValue(content)
+  )
 }
+
+/**
+ * Only the echoed marker itself is exempt: the text glued to it and the
+ * words on either side are still read as possible values beside it (a
+ * second value the registry missed — `postgres://u:hunt…(len 13)@h/d?t=…`).
+ * A neighbour counts as a value when it is credential-shaped or random, holds
+ * an `=` / `:` followed by 8+ value characters, or holds an 8+ character
+ * letters/digits run that is no camelCase identifier (`correcthorsebattery`;
+ * `startsWith` is code).
+ */
+function echoedMarkerNeighbourIsValue(content: string): boolean {
+  const pieces = content
+    .replace(TOKEN_WITH_PREFIX_RE, MARKER_SENTINEL)
+    .split(/\s+/)
+  const neighbours: string[] = []
+  pieces.forEach((piece, i) => {
+    if (!piece.includes(MARKER_SENTINEL)) return
+    neighbours.push(...piece.split(MARKER_SENTINEL))
+    if (i > 0) neighbours.push(pieces[i - 1]!)
+    if (i < pieces.length - 1) neighbours.push(pieces[i + 1]!)
+  })
+  return neighbours.some(
+    n =>
+      !n.includes(MARKER_SENTINEL) &&
+      (isCredentialShapedToken(n) ||
+        isRandomLettersToken(n) ||
+        VALUE_AFTER_OPERATOR_RE.test(n) ||
+        n
+          .split(/[^A-Za-z0-9]+/)
+          .some(r => r.length >= MIN_QUOTED_LEN && !/[a-z][A-Z]/.test(r)))
+  )
+}
+
+const MARKER_SENTINEL = '\u0000'
+
+/** An `=` / `:` (not `://`) followed by a value of 8+ characters. */
+const VALUE_AFTER_OPERATOR_RE = /(?:=|:(?!\/\/))[A-Za-z0-9_+/.~-]{8,}/
 
 /** How far back from an opening quote `maskQuotedKeyedValues` looks for its key. */
 const KEY_WINDOW = 48
@@ -618,25 +659,33 @@ function maskQuotedSpans(
 /**
  * LUM-1200 follow-up #4 — the prose pass's unpaired backtick at `idx`: kept
  * as a plain character, and the text after it is read on as prose (its other
- * quoted spans judged as usual). Fail closed where a value could straddle
- * the stray mark: the word right after it is judged as the span's content
- * would have been (shape, credential key before it, assignment) and masked
- * on that verdict.
+ * quoted spans judged as usual). Fail closed where a value could follow the
+ * stray mark: the run after it up to the end of its sentence or line is
+ * judged as a span's content would be — every word in it for shape and
+ * randomness, the credential key before the mark, an assignment inside it —
+ * and masked whole on that verdict, so a secret a few words on (or a
+ * multi-word passphrase after `password is`) is not let through.
  */
 function looseBacktick(
   line: string,
   idx: number,
   shouldMask: (content: string, before: string) => boolean
 ): { text: string; next: number } {
-  const word = /^\S+/.exec(line.slice(idx + 1))?.[0] ?? ''
+  const rest = line.slice(idx + 1)
+  const end = SENTENCE_END_RE.exec(rest)
+  const region = end ? rest.slice(0, end.index) : rest
   const masked =
-    word.length >= MIN_QUOTED_LEN &&
-    !isRedactionOnlyContent(word) &&
-    shouldMask(word, line.slice(Math.max(0, idx - KEY_WINDOW), idx))
+    region.trim().length >= MIN_QUOTED_LEN &&
+    !isRedactionOnlyContent(region) &&
+    (shouldMask(region, line.slice(Math.max(0, idx - KEY_WINDOW), idx)) ||
+      region.split(/\s+/).some(isRandomLettersToken))
   return masked
-    ? { text: `\`${redactSecret(word)}`, next: idx + 1 + word.length }
+    ? { text: `\`${redactSecret(region)}`, next: idx + 1 + region.length }
     : { text: '`', next: idx + 1 }
 }
+
+/** Where a stray backtick's region ends: a line break, or `.` / `!` / `?` before whitespace. */
+const SENTENCE_END_RE = /\n|[.!?](?=\s|$)/
 
 /**
  * Every whitespace-separated word that reads as a generated value

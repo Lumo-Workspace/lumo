@@ -148,3 +148,38 @@ describe('H. trace prose quoting masked tool output is not masked again', () => 
     expect(out).not.toContain(FAKE_AWS_KEY)
   })
 })
+
+// Review of #1531 @3f7780f — two fail-open gaps in the fixes above.
+describe('review of #1531: a stray backtick judges its whole sentence', () => {
+  it.each([
+    // A secret two words after the mark.
+    [`the value is \` then ${SHAPED} follows`, SHAPED],
+    [`see \` the run ${RANDOM_LETTERS} here`, RANDOM_LETTERS],
+    // A multi-word passphrase after a credential key.
+    ['the password is `correct horse battery staple', 'correct horse battery'],
+    // An assignment a few words on.
+    [`a stray \` and then pw = ${PASSPHRASE} in code`, PASSPHRASE],
+  ])('masks the secret in %j', (text, secret) => {
+    expect(redactSummaryText(text)).not.toContain(secret)
+    expect(redactFindingProse(text)).not.toContain(secret)
+  })
+
+  it('keeps the next sentence readable', () => {
+    const text = `the value is \` then ${SHAPED} follows.\nThe next line stays readable.`
+    const out = redactSummaryText(text)
+    expect(out).not.toContain(SHAPED)
+    expect(out).toContain('The next line stays readable.')
+  })
+})
+
+describe('review of #1531: an echoed marker exempts only itself', () => {
+  it.each([
+    // A value glued to the echoed marker.
+    [`\`postgres://u:hunt…(len 13)@h/d?t=${PASSPHRASE}\``, PASSPHRASE],
+    // A value in the word beside it.
+    [`\`login('/ses…(len 14)') ${PASSPHRASE}\``, PASSPHRASE],
+    [`\`${PASSPHRASE} '/ses…(len 14)'\``, PASSPHRASE],
+  ])('masks the neighbour in %j', (text, secret) => {
+    expect(redactSummaryText(text)).not.toContain(secret)
+  })
+})
