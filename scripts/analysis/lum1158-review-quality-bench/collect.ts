@@ -23,13 +23,15 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  statSync,
+  realpathSync,
+  lstatSync,
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
 import { prKey } from '../lum988-code-review-replay/pr-key'
 import {
   changedPaths,
+  insideDir,
   commitsAfter,
   referenceReviewAt,
   type GhCommit,
@@ -86,11 +88,16 @@ function main(): void {
       const co = checkoutAt(checkouts, p.repo, p.hashX, key)
       // From the diff, not the compare JSON: that one lists at most 300 files.
       for (const f of changedPaths(readFileSync(diffFile, 'utf8'))) {
-        const src = path.join(co, f)
-        const dest = path.join(dir, 'files', f)
+        const src = path.resolve(co, f)
+        const dest = path.resolve(dir, 'files', f)
+        // Third-party checkout: never follow a symlink or a path out of it.
+        if (!insideDir(co, src) || !insideDir(path.join(dir, 'files'), dest))
+          continue
         if (existsSync(dest) || !existsSync(src)) continue
-        const st = statSync(src)
+        const st = lstatSync(src)
         if (!st.isFile() || st.size > MAX_FILE_BYTES) continue
+        // A symlinked parent directory could still lead outside the checkout.
+        if (!insideDir(realpathSync(co), realpathSync(src))) continue
         mkdirSync(path.dirname(dest), { recursive: true })
         writeFileSync(dest, readFileSync(src))
       }
@@ -102,7 +109,9 @@ function main(): void {
         const commits = ghList<GhCommit & { commit: { message: string } }>(
           `repos/${p.repo}/pulls/${p.number}/commits`
         )
-        const after = commitsAfter(commits, p.hashX) ?? []
+        const after = commitsAfter(commits, p.hashX)
+        // Hash X force-pushed away: no ground truth — skip, never cache empty.
+        if (!after) throw new Error('hash X is no longer in the PR history')
         let budget = POST_DIFF_MAX_CHARS
         const post = after.map(c => {
           const diff = clip(

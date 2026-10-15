@@ -14,6 +14,7 @@
  * hash X (an LLM lists them from those commits). A finding is a true positive
  * when the judge matches it to one of those fixes.
  */
+import path from 'node:path'
 import { RANKER_KEEP_THRESHOLD } from '@/ee/security/security-scan/verifier'
 
 /** The anonymised label of the reference reviewer. Never its real name. */
@@ -158,11 +159,18 @@ export function commitsAfter(
   return commits.slice(i + 1).filter(c => c.parents.length <= 1)
 }
 
+/**
+ * The HTML tags review bots wrap their markdown in. Only these are stripped:
+ * a generic pattern would also eat code such as `Array<string>`.
+ */
+const HTML_TAG =
+  /<\/?(?:details|summary|sub|sup|br|p|b|i|a|img|code|pre|blockquote|div|span|table|thead|tbody|tr|td|th|ul|ol|li|h[1-6]|hr|em|strong)(?:\s[^>]*)?\/?>/gi
+
 /** Strip HTML comments/tags and collapse blank runs; cap at `max` chars. */
 export function plainReviewText(body: string, max = 4000): string {
   const text = body
     .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(HTML_TAG, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
   return text.length > max ? `${text.slice(0, max)}…` : text
@@ -203,6 +211,12 @@ export function referenceReviewAt(
     .map(r => plainReviewText(r.body!, 12000))
     .filter(b => b !== '')
   return { inline, bodies }
+}
+
+/** Is `target` (resolved) inside `dir` (resolved)? Pure path arithmetic. */
+export function insideDir(dir: string, target: string): boolean {
+  const rel = path.relative(path.resolve(dir), path.resolve(target))
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
 /** Paths a unified diff adds or modifies (deleted files are `+++ /dev/null`). */

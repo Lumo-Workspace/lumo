@@ -66,8 +66,11 @@ function findingsFor(
   review: Record<string, { runs: ReplayRunResult[] }>,
   verify: Record<string, { results?: Array<{ id: string; verdict: string }> }>,
   rank: Record<string, { ranking?: Array<{ id: string; p: number }> }>
-): BenchFinding[] | string {
-  if (isReference) return labels?.reference ?? 'no bot-a labels'
+): BenchFinding[] | string | null {
+  // Not ready yet (labels missing / PR not replayed): leave unjudged so a
+  // re-run fills it in — never cache it as a scored empty row.
+  if (isReference) return labels?.reference ?? null
+  if (!review[url]?.runs[runIdx]) return null
   const kept = keptLumoFindings(
     review[url]?.runs[runIdx],
     verifyFile ? verify[url] : undefined,
@@ -117,6 +120,14 @@ async function main(): Promise<void> {
     for (let url = queue.shift(); url; url = queue.shift()) {
       const fixes = labels[url]!.fixes!
       const found = findingsFor(url, labels[url], review, verify, rank)
+      if (found === null) {
+        log(
+          `${meta[url]!.id} ${tag} not ready (no labels / not replayed), left unjudged`
+        )
+        continue
+      }
+      // Production posts nothing for these (over cap / error): scored as an
+      // empty review on purpose — recall 0, like the shipped behaviour.
       if (typeof found === 'string') {
         rows[url] = {
           score: scorePr([], fixes, []),
