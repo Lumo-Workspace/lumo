@@ -2918,6 +2918,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "开放中的 PR 每次推送都会自动对改动做 AI 审查。同一个 PR 上审查过这么多个提交后，自动审查暂停，直到有人请求审查或恢复自动审查。0 = 永不暂停。默认 5。",
   "securityScan.stageState.RATE_LIMITED": "已限流 — 自动审查一小时内恢复",
   "securityScan.stageReason.RATE_LIMITED": "PR 作者已达到每小时自动 AI 审查的上限，此提交尚未完整审查。上限重置后的下一次推送会自动审查；如需现在检查此提交，请请求审查。",
+  "securityScan.stageState.IGNORED": "已跳过 — PR 描述要求 Lumo 忽略此 PR",
+  "securityScan.stageReason.IGNORED": "PR 描述中包含忽略指令，因此此提交跳过了自动 AI 检查。密钥、扫描器和依赖检查仍已运行。从描述中删除该指令后，下一次推送会被审查；也可以现在请求审查。",
   "securityScan.review.roundsNoLimit": "自动 AI 审查：已审查 {rounds} 个提交 · 永不暂停",
   "language.switcher.label": "语言"
 }

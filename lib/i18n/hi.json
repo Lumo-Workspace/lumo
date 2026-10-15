@@ -2918,6 +2918,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "खुले pull request पर हर push में बदलावों की स्वचालित AI समीक्षा होती है। एक pull request पर इतने commits की समीक्षा के बाद स्वचालित समीक्षाएँ तब तक रुक जाती हैं जब तक कोई समीक्षा न माँगे या उन्हें फिर से शुरू न करे। 0 = कभी न रोकें। डिफ़ॉल्ट 5।",
   "securityScan.stageState.RATE_LIMITED": "दर-सीमा पर — स्वचालित समीक्षा एक घंटे के भीतर फिर शुरू होगी",
   "securityScan.stageReason.RATE_LIMITED": "PR लेखक स्वचालित AI समीक्षाओं की प्रति घंटा सीमा तक पहुँच गया, इसलिए इस commit की पूरी समीक्षा नहीं हुई। सीमा रीसेट होने के बाद अगला push स्वचालित रूप से समीक्षित होगा; इस commit को अभी जाँचने के लिए समीक्षा का अनुरोध करें।",
+  "securityScan.stageState.IGNORED": "छोड़ा गया — PR विवरण Lumo से इस PR को अनदेखा करने को कहता है",
+  "securityScan.stageReason.IGNORED": "PR विवरण में अनदेखा करने का निर्देश है, इसलिए इस commit पर स्वचालित AI जाँचें छोड़ दी गईं। सीक्रेट, स्कैनर और निर्भरता जाँचें फिर भी चलीं। अगले push की समीक्षा के लिए विवरण से निर्देश हटाएँ, या अभी समीक्षा का अनुरोध करें।",
   "securityScan.review.roundsNoLimit": "स्वचालित AI समीक्षा: {rounds} कमिट समीक्षित · कभी नहीं रुकती",
   "language.switcher.label": "भाषा"
 }

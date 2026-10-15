@@ -2918,6 +2918,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "オープン中のプルリクエストへの push ごとに、変更内容の AI 自動レビューが行われます。1 つのプルリクエストでこの数のコミットをレビューすると、誰かがレビューを依頼するか再開するまで自動レビューは一時停止します。0 = 一時停止しない。既定値は 5。",
   "securityScan.stageState.RATE_LIMITED": "レート制限中 — 自動レビューは 1 時間以内に再開します",
   "securityScan.stageReason.RATE_LIMITED": "PR の作成者が 1 時間あたりの AI 自動レビュー上限に達したため、このコミットは完全にはレビューされていません。上限のリセット後の次の push は自動でレビューされます。このコミットを今すぐ確認するにはレビューを依頼してください。",
+  "securityScan.stageState.IGNORED": "スキップ — PR の説明で Lumo にこの PR を無視するよう指定されています",
+  "securityScan.stageReason.IGNORED": "PR の説明に無視ディレクティブが含まれているため、このコミットでは AI の自動チェックをスキップしました。シークレット・スキャナー・依存関係のチェックは実行済みです。説明からディレクティブを削除すると次の push がレビューされます。今すぐレビューを依頼することもできます。",
   "securityScan.review.roundsNoLimit": "自動 AI レビュー：{rounds} コミットをレビュー済み・一時停止なし",
   "language.switcher.label": "言語"
 }

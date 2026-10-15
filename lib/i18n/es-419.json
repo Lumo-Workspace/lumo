@@ -2918,6 +2918,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "Cada push a un pull request abierto recibe una revisión automática con IA de lo que cambió. Después de esta cantidad de commits revisados en un pull request, las revisiones automáticas se pausan hasta que alguien pida una revisión o las reanude. 0 = nunca pausar. Predeterminado 5.",
   "securityScan.stageState.RATE_LIMITED": "límite de frecuencia — la revisión automática se reanuda en menos de una hora",
   "securityScan.stageReason.RATE_LIMITED": "El autor del PR alcanzó el límite por hora de revisiones automáticas con IA, así que este commit no se revisó por completo. El siguiente push después de que se reinicie el límite se revisa automáticamente; solicita una revisión para revisar este commit ahora.",
+  "securityScan.stageState.IGNORED": "omitida — la descripción del PR pide a Lumo que ignore este PR",
+  "securityScan.stageReason.IGNORED": "La descripción del PR contiene la directiva de ignorar, así que se omitieron las revisiones automáticas con IA en este commit. Las revisiones de secretos, escáneres y dependencias sí se ejecutaron. Quita la directiva de la descripción para que se revise el siguiente push, o solicita una revisión ahora.",
   "securityScan.review.roundsNoLimit": "Revisión automática de IA: {rounds} commits revisados · nunca se pausa",
   "language.switcher.label": "Idioma"
 }

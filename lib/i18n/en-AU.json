@@ -2918,6 +2918,8 @@
   "workspaceSettings.securityScan.autoPauseAfter.description": "Every push to an open pull request gets an automatic AI review of what changed. After this many reviewed commits on one pull request, automatic reviews pause until someone asks for a review or resumes them. 0 = never pause. Default 5.",
   "securityScan.stageState.RATE_LIMITED": "rate-limited — automatic review resumes within the hour",
   "securityScan.stageReason.RATE_LIMITED": "The PR author reached the hourly limit of automatic AI reviews, so this commit has not been fully reviewed. The next push after the limit resets is reviewed automatically; request a review to check this commit now.",
+  "securityScan.stageState.IGNORED": "skipped — the PR description asks Lumo to ignore this PR",
+  "securityScan.stageReason.IGNORED": "The PR description contains the ignore directive, so automatic AI checks were skipped on this commit. Secret, scanner and dependency checks still ran. Remove the directive from the description to have the next push reviewed, or request a review now.",
   "securityScan.review.roundsNoLimit": "Automatic AI review: {rounds} commits reviewed · never pauses",
   "language.switcher.label": "Language"
 }

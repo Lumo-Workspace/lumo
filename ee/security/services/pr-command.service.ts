@@ -101,6 +101,8 @@ export function buildHelpReply(handle: string, text: string | null): string {
     `- \`${handle} approve\` — resolve Lumo's threads and approve the PR (request-changes workflow only; refused while a finding blocks DONE)`,
     `- \`${handle} help\` — this list`,
     '',
+    `To skip automatic AI reviews of a PR, put \`${handle} ignore\` in its description; remove it to have the next push reviewed (secret, scanner and dependency checks keep running).`,
+    '',
     'Only accounts with write access to the repository can run commands. The PR’s author can run `resolve` and `approve` too, unless the workspace turned author approval off.',
   ].join('\n')
 }

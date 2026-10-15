@@ -230,6 +230,7 @@ export function stageReason(
     prTooLarge?: SecurityScanView['prTooLarge']
     judgePartial?: SecurityScanView['judgePartial']
     reviewRateLimited?: SecurityScanView['reviewRateLimited']
+    reviewIgnored?: SecurityScanView['reviewIgnored']
   }
 ): { id: string; values?: Record<string, number> } | null {
   const state = scan.stages[stageKey]
@@ -291,8 +292,17 @@ export function stageReason(
     }
   switch (state) {
     case 'PAUSED':
+      // LUM-1152: the description asks Lumo to ignore the PR.
       // LUM-1137: over the author's hourly cap, not paused.
-      return { id: id(scan.reviewRateLimited ? 'RATE_LIMITED' : 'PAUSED') }
+      return {
+        id: id(
+          scan.reviewIgnored
+            ? 'IGNORED'
+            : scan.reviewRateLimited
+              ? 'RATE_LIMITED'
+              : 'PAUSED'
+        ),
+      }
     case 'RAN':
       return null
     case 'SKIPPED':
