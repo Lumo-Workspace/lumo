@@ -851,9 +851,11 @@ describe('LUM-1127 follow-up — same issue under a new fingerprint', () => {
     ])
     expect(threads.resolveThread).not.toHaveBeenCalled()
     expect(reply).not.toHaveBeenCalled()
-    // Only the thread's identity moves on to the relabelled finding.
+    // One write: the carry is kept on the row (LUM-1127 follow-up #3) and
+    // the thread's identity moves on to the relabelled finding.
     expect(repoMock.update).toHaveBeenCalledTimes(1)
     expect(repoMock.update).toHaveBeenCalledWith('t1', {
+      aliasFingerprints: ['fp-api'],
       identityRuleId: 'review:api_misuse',
       identityLine: 3,
       identitySeverity: 'LOW',
@@ -1145,6 +1147,7 @@ describe('LUM-1127 follow-up #2 — thread identity kept on the row', () => {
     expect(out.carried).toEqual(new Map([['fp-logic', 'fp-data']]))
     // The row now stands for the relabelled finding (severity kept).
     expect(repoMock.update).toHaveBeenCalledWith('t1', {
+      aliasFingerprints: ['fp-logic'],
       ...threadIdentityOf(f, logicIdentity.evidence, KEY),
       identitySeverity: 'MEDIUM',
     })

@@ -5,6 +5,7 @@
  * `pr-finding-thread.service.ts`.
  */
 import { prisma } from '@/lib/db/prisma'
+import { threadFingerprints } from '@/ee/security/security-scan/thread-fingerprints'
 import type {
   FindingKind,
   FindingProvenance,
@@ -46,6 +47,12 @@ export interface FindingThreadRow extends StoredThreadIdentity {
   filePath: string
   resolvedByLogin: string | null
   addressedInSha: string | null
+  /**
+   * LUM-1127 follow-up #3 — the fingerprints the thread was carried to (the
+   * same issue relabelled), oldest first; `fingerprint` stays its original.
+   * Optional so hand-built rows (adoption, tests) need not spell it out.
+   */
+  aliasFingerprints?: string[]
 }
 
 /** What a new (or re-pointed) thread row records about its finding. */
@@ -70,6 +77,7 @@ export interface FindingThreadPatch extends StoredThreadIdentity {
   resolvedByLogin?: string | null
   resolvedAt?: Date | null
   addressedInSha?: string | null
+  aliasFingerprints?: string[]
 }
 
 /** A finding's layer facts, looked up for a marker comment with no row yet. */
@@ -114,6 +122,7 @@ const THREAD_SELECT = {
   identitySeverity: true,
   identityEvidenceHash: true,
   identityTitleTokens: true,
+  aliasFingerprints: true,
 } as const
 
 export const prFindingThreadRepository = {
@@ -177,6 +186,15 @@ export const prFindingThreadRepository = {
   },
 
   /**
+   * LUM-1127 follow-up #3 — drop a duplicate thread's row once it is merged
+   * into the thread that keeps the issue (its fingerprints become that row's
+   * aliases first, so its marker comment is never adopted again).
+   */
+  async delete(id: string): Promise<void> {
+    await prisma.prFindingThread.deleteMany({ where: { id } })
+  },
+
+  /**
    * LUM-1131: claim a human reply for answering — false when this exact reply
    * was already claimed (a redelivered webhook), so it is answered once.
    */
@@ -216,11 +234,16 @@ export const prFindingThreadRepository = {
         pullRequestId: { in: pullRequestIds },
         state: 'RESOLVED_BY_USER',
       },
-      select: { pullRequestId: true, fingerprint: true },
+      select: {
+        pullRequestId: true,
+        fingerprint: true,
+        aliasFingerprints: true,
+      },
     })
     for (const r of rows) {
       const set = out.get(r.pullRequestId) ?? new Set<string>()
-      set.add(r.fingerprint)
+      // A carried thread stands for its aliases too (LUM-1127 follow-up #3).
+      for (const fp of threadFingerprints(r)) set.add(fp)
       out.set(r.pullRequestId, set)
     }
     return out
