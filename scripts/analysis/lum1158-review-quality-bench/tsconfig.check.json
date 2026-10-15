@@ -1,6 +1,10 @@
 {
   "extends": "../../../tsconfig.json",
   "compilerOptions": { "incremental": false },
-  "include": ["../../../next-env.d.ts", "./**/*.ts"],
+  "include": [
+    "../../../next-env.d.ts",
+    "./**/*.ts",
+    "../lum988-code-review-replay/replay.ts"
+  ],
   "exclude": []
 }
