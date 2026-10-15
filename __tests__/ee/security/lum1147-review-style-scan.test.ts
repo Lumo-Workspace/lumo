@@ -397,6 +397,162 @@ describe('LUM-1147 review style on the scan', () => {
   })
 })
 
+describe('LUM-1147 path-instruction findings are marked (verified claims only)', () => {
+  const judgeFinding = (over: Record<string, unknown>) => ({
+    kind: 'logic_error',
+    severity: 'LOW',
+    filePath: 'lib/search.ts',
+    line: 1,
+    title: 'Unbounded query',
+    detail: 'The query has no limit.',
+    evidence: 'const value_0 = 0',
+    ...over,
+  })
+
+  async function judgeRowsFor(
+    findings: Array<Record<string, unknown>>
+  ): Promise<Array<Record<string, unknown>>> {
+    findReviewStyle.mockResolvedValue(STORED)
+    files({ [BASE_SHA]: null })
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({
+      findings,
+      prSummary: { intent: 'x', changes: [] },
+    })
+    await scan()
+    const call = repo.persistResult.mock.calls[0]
+    expect(call).toBeDefined()
+    return (call![1] as unknown as Array<Record<string, unknown>>).filter(
+      r => r.provenance === 'LLM_JUDGE'
+    )
+  }
+
+  it('a finding naming an instruction that was sent for its file keeps the glob', async () => {
+    const rows = await judgeRowsFor([judgeFinding({ instruction: 'lib/**' })])
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.pathInstruction).toBe('lib/**')
+  })
+
+  it('the bracketed form as written in the prompt is accepted too', async () => {
+    const rows = await judgeRowsFor([judgeFinding({ instruction: '[lib/**]' })])
+    expect(rows[0]!.pathInstruction).toBe('lib/**')
+  })
+
+  it('an unmatched claim is never trusted', async () => {
+    const rows = await judgeRowsFor([
+      // Configured, but not sent: no reviewed file matches scripts/**.
+      judgeFinding({ instruction: 'scripts/**' }),
+      // Sent, but its glob does not match this finding's file.
+      judgeFinding({
+        filePath: 'docs/guide.md',
+        evidence: 'const value_1 = 1',
+        instruction: 'lib/**',
+      }),
+      // Never configured at all.
+      judgeFinding({ evidence: 'const value_2 = 2', instruction: '**' }),
+      // No claim.
+      judgeFinding({ evidence: 'const value_3 = 3', instruction: null }),
+    ])
+    expect(rows).toHaveLength(4)
+    for (const r of rows) expect(r.pathInstruction ?? null).toBeNull()
+  })
+
+  it('a finding carried from an earlier scan keeps its marker', async () => {
+    const { prReviewControlRepository } = jest.requireMock(
+      '@/ee/security/repositories/pr-review-control.repository'
+    ) as {
+      prReviewControlRepository: { priorFindings: jest.Mock }
+    }
+    prReviewControlRepository.priorFindings.mockResolvedValueOnce([
+      {
+        id: 'old',
+        kind: 'CORRECTNESS',
+        ruleId: 'review:logic_error',
+        severity: 'LOW',
+        provenance: 'LLM_JUDGE',
+        filePath: 'lib/search.ts',
+        line: 1,
+        title: 'Unbounded query',
+        detail: 'd',
+        evidence: 'e',
+        fingerprint: 'fp-old',
+        externalRef: null,
+        disposition: null,
+        dispositionNote: null,
+        dispositionedById: null,
+        dispositionedAt: null,
+        suggestedDisposition: null,
+        suggestedReason: null,
+        suggestionOutcome: null,
+        cwe: null,
+        reachability: null,
+        falsifierVerdict: null,
+        persisting: false,
+        callChain: null,
+        secretDowngrade: null,
+        verifierVerdict: null,
+        pathInstruction: 'lib/**',
+      },
+    ])
+    findReviewStyle.mockResolvedValue(STORED)
+    files({ [BASE_SHA]: null })
+    // The AI review is unavailable: nothing re-read the file, so the
+    // earlier finding is carried.
+    ;(judge.judgeSecurity as jest.Mock).mockRejectedValue(new Error('down'))
+    await scan()
+    const rows = (
+      repo.persistResult.mock.calls[0]![1] as unknown as Array<
+        Record<string, unknown>
+      >
+    ).filter(r => r.fingerprint === 'fp-old')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.pathInstruction).toBe('lib/**')
+  })
+
+  it('a carried marker is dropped once its instruction is no longer configured', async () => {
+    const { prReviewControlRepository } = jest.requireMock(
+      '@/ee/security/repositories/pr-review-control.repository'
+    ) as {
+      prReviewControlRepository: { priorFindings: jest.Mock }
+    }
+    prReviewControlRepository.priorFindings.mockResolvedValueOnce([
+      {
+        id: 'old',
+        kind: 'CORRECTNESS',
+        ruleId: 'review:logic_error',
+        severity: 'LOW',
+        provenance: 'LLM_JUDGE',
+        filePath: 'lib/search.ts',
+        line: 1,
+        title: 'Unbounded query',
+        detail: 'd',
+        evidence: 'e',
+        fingerprint: 'fp-old',
+        externalRef: null,
+        disposition: null,
+        callChain: null,
+        secretDowngrade: null,
+        verifierVerdict: null,
+        pathInstruction: 'lib/**',
+      },
+    ])
+    // The owners removed the lib/** instruction since the earlier scan.
+    findReviewStyle.mockResolvedValue({
+      ...STORED,
+      pathInstructions: [STORED.pathInstructions[1]],
+    })
+    files({ [BASE_SHA]: null })
+    ;(judge.judgeSecurity as jest.Mock).mockRejectedValue(new Error('down'))
+    await scan()
+    const rows = (
+      repo.persistResult.mock.calls[0]![1] as unknown as Array<
+        Record<string, unknown>
+      >
+    ).filter(r => r.fingerprint === 'fp-old')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.pathInstruction).toBeNull()
+  })
+})
+
 jest.mock('@/ee/security/services/auto-review-admission.service', () =>
   require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
 )

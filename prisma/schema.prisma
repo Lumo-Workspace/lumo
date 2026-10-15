@@ -1943,6 +1943,11 @@ model PrSecurityFinding {
   // validated against this head's added lines before it is stored. Model
   // output about customer code: scrubbed with the other code fields.
   codeSuggestion         Json?
+  // LUM-1147 (LLM_JUDGE rows only): the glob of the repository path
+  // instruction this finding applies — the model's claim, kept only when that
+  // instruction was sent for this finding's file. Such a finding is commented
+  // inline under chill and assertive whatever its severity (quiet: summary).
+  pathInstruction        String?
   // LUM-1150: when a PR write-back claimed this row's inline comment. Every
   // writer of a scan (stage A, hunt, managed run, verifier) syncs it, often
   // at the same moment; each claims a row before posting it, so only one of

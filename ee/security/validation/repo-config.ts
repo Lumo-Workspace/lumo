@@ -188,7 +188,7 @@ export const reviewsConfigSchema = z
     profile: reviewProfileSchema
       .optional()
       .describe(
-        'Which findings get inline comments: `quiet` = only HIGH and Done-blocking ones (MEDIUM listed in the summary), `chill` (default) = HIGH and MEDIUM, `assertive` = LOW too. Detection and what blocks DONE are the same in every profile.'
+        'Which findings get inline comments: `quiet` = only HIGH and Done-blocking ones (MEDIUM and path-instruction findings listed in the summary), `chill` (default) = HIGH, MEDIUM and any finding a path instruction asked for, `assertive` = LOW too. Detection and what blocks DONE are the same in every profile.'
       ),
     path_instructions: z
       .array(

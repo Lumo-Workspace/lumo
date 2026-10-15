@@ -52,7 +52,11 @@ settings mean in Lumo (the settings card and `lumo workspace security-scan
   - `assertive`: LOW findings get an inline comment too.
 
   In every profile a HIGH finding and a finding that blocks DONE are commented
-  inline. The profile in force is stored on the scan, so the comments follow
+  inline. A finding the AI review reported because a path instruction asked
+  for it is commented inline under `chill` and `assertive` whatever its
+  severity; `quiet` lists it in the summary. The AI review names the
+  instruction a finding applies, and Lumo keeps that only when the instruction
+  was really sent for that finding's file (an unmatched claim is ignored). The profile in force is stored on the scan, so the comments follow
   the settings the review ran with.
 
 - `reviews.path_instructions` — up to 20 `{ path, instructions }` entries (glob

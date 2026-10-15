@@ -1812,7 +1812,7 @@ workspaceCmd
   )
   .option(
     '--profile <quiet|chill|assertive>',
-    'With --repo: which findings get inline comments — quiet = only HIGH and Done-blocking (MEDIUM listed in the summary), chill (default) = HIGH and MEDIUM, assertive = LOW too. Never changes detection or what blocks Done'
+    'With --repo: which findings get inline comments — quiet = only HIGH and Done-blocking (MEDIUM and path-instruction findings listed in the summary), chill (default) = HIGH, MEDIUM and any finding a path instruction asked for, assertive = LOW too. Never changes detection or what blocks Done'
   )
   .option(
     '--tone <text>',
