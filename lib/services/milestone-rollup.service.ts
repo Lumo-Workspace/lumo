@@ -33,7 +33,7 @@ export const milestoneRollupService = {
     if (!milestone) return
 
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
-    // LUM-643/1135: unresolved exit criteria and held milestone test cases hold
+    // LUM-1135: held milestone test cases hold
     // the auto-completion shut (fail-closed — a read failure aborts the reconcile).
     // The gate only matters on the completion path; it never holds a reopen, so
     // it is read only then — a gate read failure must not strand a reopen.
@@ -79,8 +79,8 @@ export const milestoneRollupService = {
    * the staleness hints for the payload and, when the stored completion
    * drifted from the task-derived one, dispatches a background reconcile so
    * stale legacy rows (the 26/26-DONE-but-never-stamped shape) converge on
-   * first view. Async since LUM-643: the exit-criteria gate feeds the drift
-   * computation, so an all-tasks-DONE milestone held by unresolved criteria
+   * first view. Async since LUM-643: the close gate feeds the drift
+   * computation, so an all-tasks-DONE milestone held by milestone test cases
    * neither reports a completion it will refuse to apply nor loops reconcile
    * dispatches.
    */

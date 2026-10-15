@@ -17,9 +17,7 @@ jest.mock('@/lib/services/milestone-rollup.service', () => ({
 }))
 jest.mock('@/lib/services/milestone-close-gate.service', () => ({
   milestoneCloseGateService: {
-    read: jest
-      .fn()
-      .mockResolvedValue({ held: 0, unresolvedCriteria: 0, cases: [] }),
+    read: jest.fn().mockResolvedValue({ held: 0, cases: [] }),
   },
 }))
 jest.mock('@/lib/repositories/test-case.repository', () => ({
@@ -248,7 +246,7 @@ describe('milestoneTestCaseService', () => {
       id: 'r1',
       executedBy: 'mem-1',
     })
-    expect(res.gate).toEqual({ held: 0, unresolvedCriteria: 0, cases: [] })
+    expect(res.gate).toEqual({ held: 0, cases: [] })
   })
 
   it('getDetail returns the case with its runs', async () => {

@@ -31,11 +31,11 @@ export interface MilestoneRollupInput {
   archived: boolean
   taskCounts: Record<TaskStatus, number>
   /**
-   * LUM-643 → LUM-1135: how many items hold the close gate — unresolved exit
-   * criteria plus milestone test cases that have not passed (positive proof).
+   * LUM-643 → LUM-1135: how many milestone test cases hold the close gate
+   * (not yet passed with positive proof).
    * While > 0 the close gate holds: an all-tasks-DONE milestone is
    * NOT auto-completed (and reads report no completion drift) until the
-   * contract is adjudicated or a human overrides explicitly. Omitted → 0
+   * contract passes or a human overrides explicitly. Omitted → 0
    * (no contract = gate open), preserving pre-LUM-643 caller behavior.
    *
    * The gate is one-directional by design — it holds a completion shut, never
@@ -81,7 +81,7 @@ export function allCountedTasksDone(
 /**
  * The completion transition the rollup rules call for, or `null` when none
  * applies (already consistent, archived, no tasks to read a signal from, or
- * held by the exit-criteria close gate).
+ * held by the milestone test-case close gate).
  */
 export function deriveCompletionChange(
   input: MilestoneRollupInput
@@ -98,8 +98,8 @@ export function deriveCompletionChange(
 
   if (allCountedTasksDone(taskCounts)) {
     if (completedAt !== null) return null
-    // LUM-643 close gate: unresolved exit criteria / held test cases hold the auto-completion
-    // shut — fail-closed, no transition (and no drift hint) until adjudicated.
+    // LUM-1135 close gate: held milestone test cases hold the auto-completion
+    // shut — fail-closed, no transition (and no drift hint) until they pass.
     if ((input.closeGateHeld ?? 0) > 0) return null
     return 'complete'
   }

@@ -2834,7 +2834,6 @@
   "milestoneTestCases.title": "테스트 케이스",
   "milestoneGate.open": "닫기 게이트 열림 — 모든 테스트 케이스가 통과했거나 입증된 결함이 수용되었습니다.",
   "milestoneGate.held": "{count, plural, other {#개 항목이 이 마일스톤을 열어 두고 있습니다}}",
-  "milestoneGate.criteria": "{count, plural, other {더 이상 쓰지 않는 종료 기준 #개가 충족되지 않았습니다}}",
   "milestoneGate.reason.notRun": "아직 실행되지 않음",
   "milestoneGate.reason.provenDefect": "결함이 입증됨 — 판정하거나 수정하세요",
   "milestoneGate.reason.failing": "마지막 실행 실패",

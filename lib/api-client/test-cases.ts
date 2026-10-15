@@ -73,7 +73,6 @@ export function testCaseOwnerPath(owner: TestCaseOwnerRef): string {
 /** LUM-1135: the milestone close gate as the list endpoint returns it. */
 export interface MilestoneCloseGateView {
   held: number
-  unresolvedCriteria: number
   cases: Array<{
     number: number
     title: string

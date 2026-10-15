@@ -2834,7 +2834,6 @@
   "milestoneTestCases.title": "テストケース",
   "milestoneGate.open": "クローズゲートは開いています — すべてのテストケースが合格したか、証明された不具合が受け入れられました。",
   "milestoneGate.held": "{count, plural, other {#件がこのマイルストーンを開いたままにしています}}",
-  "milestoneGate.criteria": "{count, plural, other {非推奨の終了基準が#件未達成です}}",
   "milestoneGate.reason.notRun": "未実行",
   "milestoneGate.reason.provenDefect": "欠陥が実証済み — 判定するか修正してください",
   "milestoneGate.reason.failing": "直近の実行は失敗",

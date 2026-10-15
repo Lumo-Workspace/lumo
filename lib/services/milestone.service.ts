@@ -609,11 +609,11 @@ export const milestoneService = {
   /**
    * LUM-714 close override — the successor to the old `--status completed`
    * `?force=1` path. Completion is derived now, so there is no status to set:
-   * this stamps `completedAt` directly, past the LUM-643 exit-criteria gate,
+   * this stamps `completedAt` directly, past the LUM-1135 close gate,
    * and records the override trail. Human-initiated paths only (the route
    * gates it on the Clerk source — the agent/Bearer path has no override).
    *
-   * Without unresolved criteria there is nothing to override, so the call is
+   * Without held milestone test cases there is nothing to override, so the call is
    * refused (409) rather than quietly stamping a completion the rollup would
    * have reached on its own — or, worse, one the tasks don't support.
    */
@@ -634,7 +634,7 @@ export const milestoneService = {
     if (held === 0) {
       throw Object.assign(
         new Error(
-          'Nothing to override: no exit criteria or milestone test cases hold this milestone open. Completion is derived from task completion.'
+          'Nothing to override: no milestone test cases hold this milestone open. Completion is derived from task completion.'
         ),
         { status: 409 }
       )

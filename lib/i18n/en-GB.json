@@ -2834,7 +2834,6 @@
   "milestoneTestCases.title": "Test cases",
   "milestoneGate.open": "Close gate open — every test case has passed or its proven defect was accepted.",
   "milestoneGate.held": "{count, plural, one {# item holds this milestone open} other {# items hold this milestone open}}",
-  "milestoneGate.criteria": "{count, plural, one {# deprecated exit criterion not met} other {# deprecated exit criteria not met}}",
   "milestoneGate.reason.notRun": "Not run yet",
   "milestoneGate.reason.provenDefect": "Proven defect — disposition it or fix it",
   "milestoneGate.reason.failing": "Latest run failed",

@@ -2834,7 +2834,6 @@
   "milestoneTestCases.title": "Ca kiểm thử",
   "milestoneGate.open": "Cổng đóng đã mở — mọi ca kiểm thử đều đã đạt hoặc lỗi đã được chứng minh của nó đã được chấp nhận.",
   "milestoneGate.held": "{count, plural, other {# mục đang giữ cột mốc này ở trạng thái mở}}",
-  "milestoneGate.criteria": "{count, plural, other {# tiêu chí thoát cũ chưa được đáp ứng}}",
   "milestoneGate.reason.notRun": "Chưa chạy",
   "milestoneGate.reason.provenDefect": "Lỗi đã được chứng minh — hãy xử lý hoặc sửa",
   "milestoneGate.reason.failing": "Lần chạy gần nhất thất bại",

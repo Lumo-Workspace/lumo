@@ -2834,7 +2834,6 @@
   "milestoneTestCases.title": "測試案例",
   "milestoneGate.open": "關閉閘門已開啟——每條測試案例都已通過，或其已證實的缺陷已被接受。",
   "milestoneGate.held": "{count, plural, other {有 # 項使此里程碑保持開啟}}",
-  "milestoneGate.criteria": "{count, plural, other {有 # 項已棄用的退出標準未滿足}}",
   "milestoneGate.reason.notRun": "尚未執行",
   "milestoneGate.reason.provenDefect": "已證實的缺陷——請裁定或修復",
   "milestoneGate.reason.failing": "最近一次執行失敗",

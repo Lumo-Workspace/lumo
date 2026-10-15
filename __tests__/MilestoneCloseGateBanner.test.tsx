@@ -29,7 +29,6 @@ import { MilestoneCloseGateBanner } from '@/app/workspace/[workspaceUrl]/compone
 
 const held: MilestoneCloseGateView = {
   held: 2,
-  unresolvedCriteria: 0,
   cases: [
     {
       number: 1,
@@ -109,7 +108,7 @@ it('requires a note before overriding', async () => {
 it('says the gate is open when nothing holds', () => {
   render(
     <MilestoneCloseGateBanner
-      gate={{ held: 0, unresolvedCriteria: 0, cases: [] }}
+      gate={{ held: 0, cases: [] }}
       allTasksDone
       completed={false}
       onOverride={jest.fn()}
@@ -162,7 +161,7 @@ it('clears the previous failure on Cancel and when Close anyway is reopened', as
 it('says nothing holds the gate without claiming every case passed', () => {
   render(
     <MilestoneCloseGateBanner
-      gate={{ held: 0, unresolvedCriteria: 0, cases: [] }}
+      gate={{ held: 0, cases: [] }}
       allTasksDone
       completed={false}
       onOverride={jest.fn()}
