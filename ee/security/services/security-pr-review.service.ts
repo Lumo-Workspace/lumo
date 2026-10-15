@@ -588,6 +588,8 @@ export function commandsBlock(handle: string, approve = false): string {
           ],
         ]
       : []),
+    // LUM-1153
+    ['configuration', 'show the effective review settings for this PR'],
   ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
   return `<details>\n<summary>Lumo commands</summary>\n\nComment on this PR (write access required):\n\n${rows.join('\n')}\n\n</details>`
 }
