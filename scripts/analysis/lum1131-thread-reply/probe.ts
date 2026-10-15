@@ -8,18 +8,21 @@
  * calls it took and the decision; the first run also keeps the learning
  * sentence.
  *
+ * LUM-1157: each reply is judged against its own finding (`findingOf`),
+ * built into the model's input by the service's own `buildClassifierInput`.
+ *
  * LUM-1139: the model is asked exactly as the service asks it — only for a
  * reply the gate labelled LEARNING, through `classifyWithRetry` (one retry
  * on a refusal or a failed call). A gate-rejected reply is never sent.
  *
  * Run (needs AI_GATEWAY_API_KEY):
  *   DOTENV_CONFIG_PATH=/abs/.env.local npx tsx -r dotenv/config \
- *     scripts/analysis/lum1131-thread-reply/probe.ts [--runs 3]
+ *     scripts/analysis/lum1131-thread-reply/probe.ts [--runs 3] [--out results.json]
  */
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 import {
+  buildClassifierInput,
   decideLearning,
   screenReply,
 } from '@/ee/security/security-scan/thread-reply'
@@ -28,11 +31,13 @@ import {
   THREAD_REPLY_MODELS,
 } from '@/ee/security/llm/thread-reply-client'
 import { classifyWithRetry } from '@/ee/security/security-scan/thread-reply-retry'
-import { LABELLED_FINDING, LABELLED_REPLIES } from './labelled'
+import { findingOf, LABELLED_REPLIES } from './labelled'
 
 async function main(): Promise<void> {
   const i = process.argv.indexOf('--runs')
   const runs = i > 0 ? Number(process.argv[i + 1]) : 3
+  const o = process.argv.indexOf('--out')
+  const outFile = o > 0 ? String(process.argv[o + 1]) : 'results.json'
   const out: unknown[] = []
   let tp = 0
   let fp = 0
@@ -45,15 +50,13 @@ async function main(): Promise<void> {
   for (let run = 0; run < runs; run++) {
     for (const item of LABELLED_REPLIES) {
       const gate = screenReply(item.reply)
-      const guarded = guardInjectedText(item.reply)
       let verdict = null
       let attempts = 0
       let retried: string | null = null
       if (gate === 'LEARNING') {
         const result = await classifyWithRetry((timeoutMs, attempt) =>
           classifyThreadReply({
-            finding: LABELLED_FINDING,
-            reply: { text: guarded.text, notices: guarded.notices },
+            ...buildClassifierInput(findingOf(item), item.reply),
             timeoutMs,
             tier: attempt === 1 ? 'primary' : 'fallback',
           })
@@ -81,6 +84,7 @@ async function main(): Promise<void> {
       out.push({
         run,
         i: LABELLED_REPLIES.indexOf(item),
+        ruleId: findingOf(item).ruleId,
         expected: item.learning,
         gate,
         model: verdict ? verdict.isLearning : null,
@@ -109,7 +113,7 @@ async function main(): Promise<void> {
     retries,
   }
   writeFileSync(
-    join(__dirname, 'results.json'),
+    join(__dirname, outFile),
     JSON.stringify({ summary, calls: out }, null, 2) + '\n'
   )
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
