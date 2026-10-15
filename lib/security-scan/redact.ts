@@ -703,6 +703,126 @@ export function maskQuotedCommandArgs(
 }
 
 /**
+ * LUM-1200 follow-up #6 — the pass for one line of shell / tool output the
+ * hunt model or the verifier reads (`rg`, `sed -n`, `cat` over the checkout).
+ * User ruling 2026-10-16: that output is code, and the strict
+ * `maskQuotedValues` pass masked every string literal in it — production
+ * (lumo-agent-test#67 round 3) showed the hunt `if
+ * (url.startsWith('/ses…(len 14)'))` and the model spent ~10 steps trying to
+ * read the route back. Code-aware instead, the same family as the review
+ * context and the finding-prose passes: a string literal of 8+ chars is
+ * masked only when
+ * - it holds a redaction marker (a registry hit — a second value may sit
+ *   beside it), or a piece of it is credential-shaped
+ *   (`isCredentialShapedToken`) or a long mixed-case random run;
+ * - it is a credential key's value: the key, then at most two connectors,
+ *   ends the text before the quote (`password: '…'`, `API_KEY="…"`,
+ *   `"client_secret": "…"`, `--password '…'`), or the key is compared with it
+ *   (`token === '…'`) — unless it is a named placeholder (`'<your token>'`);
+ * - it assigns a credential key a real value inside itself
+ *   (`'password=…'`, `"Authorization: Bearer …"`).
+ * Then `maskUnquotedCredentialValues` covers the unquoted forms (`.env`,
+ * YAML). Unpaired openers still mask the rest of the line (fail closed).
+ * Routes, import paths, SQL text and log messages stay readable — a log
+ * message that merely names a credential (`'Invalid session token'`) too.
+ * Residual, honestly named: a shapeless passphrase inside a sentence-like
+ * literal with no key before it (`log('the password is correcthorse')`) is
+ * kept; registry shapes are redacted before this pass runs.
+ */
+export function maskQuotedCodeValues(line: string): string {
+  const quoted = maskQuotedSpans(
+    line,
+    (content, before) => {
+      if (
+        REDACTION_TOKEN_TEST_RE.test(content) ||
+        content
+          .split(/\s+/)
+          .some(t => isCredentialShapedToken(t) || isRandomLettersToken(t))
+      )
+        return true
+      const key = normalizeVocab(before)
+      if (
+        (CREDENTIAL_KEY_BEFORE_RE.test(key) ||
+          CREDENTIAL_KEY_COMPARED_BEFORE_RE.test(key) ||
+          isCredentialFlagBefore(before)) &&
+        !isPlaceholderValue(content)
+      )
+        return true
+      return assignsCredentialValue(content)
+    },
+    true
+  )
+  return maskUnquotedCredentialValues(quoted)
+}
+
+/**
+ * A credential key compared with the literal that follows: `token === '…'`,
+ * `apiKey != "…"`. Matched on `normalizeVocab` output.
+ */
+const CREDENTIAL_KEY_COMPARED_BEFORE_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)["'\`]?\\s*[!=]==?\\s*$`
+)
+
+/**
+ * An unquoted `key = value` / `key: value` in code or config: the key, the
+ * operator (not `==`, not `://`), and a value of 8+ characters running to
+ * whitespace or a delimiter.
+ */
+const UNQUOTED_ASSIGNMENT_RE =
+  /([A-Za-z0-9_$.-]+)(["'`]?[ \t]*(?:=(?![=>])|:(?!\/\/))[ \t]*)([^\s"'`,;&)\]{}]{8,})/g
+
+/** A shell / env reference standing in for a value: `$TOKEN`, `${API_KEY}`. */
+const ENV_REFERENCE_RE = /^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$/
+
+/**
+ * LUM-1200 follow-up #6 — the unquoted half of `maskQuotedCodeValues`: in a
+ * `.env` line, YAML or an object literal the value has no quotes to judge.
+ * An unquoted value is masked when it is credential-shaped or random after
+ * ANY key (`JWT_SECRET=…`, `seed: …`), and after a credential key whenever it
+ * is not code: a code expression (`z.string().min(8)`,
+ * `req.headers.authorization?.slice(7)`), a member path or identifier that
+ * reads as one (`config.apiKey`, `ApiKeyConfig`), an env reference
+ * (`${API_KEY}`) or a named placeholder is kept. Fail closed: a plain
+ * lower-case word run (`correcthorsebattery`) or a dotted word run
+ * (`correct.horse.battery`) after a credential key is masked.
+ */
+function maskUnquotedCredentialValues(line: string): string {
+  return line.replace(
+    UNQUOTED_ASSIGNMENT_RE,
+    (whole, key: string, op: string, value: string, at: number) => {
+      if (REDACTION_TOKEN_TEST_RE.test(value)) return whole
+      const shaped =
+        isCredentialShapedToken(value) || isRandomLettersToken(value)
+      if (!shaped) {
+        if (!CREDENTIAL_KEY_END_RE.test(normalizeVocab(key))) return whole
+        if (
+          isPlaceholderValue(value) ||
+          ENV_REFERENCE_RE.test(value) ||
+          isCodeIdentifierPath(value) ||
+          isCodeExpression(
+            statementValue(line, at + key.length + op.length).trim()
+          )
+        )
+          return whole
+      }
+      return `${key}${op}${redactSecret(value)}`
+    }
+  )
+}
+
+/**
+ * A member path or identifier that reads as code, not as a value: every
+ * segment a code identifier, and at least one with a camelCase / PascalCase
+ * hump (`config.apiKey`, `ApiKeyConfig`, `this.sessionToken`).
+ */
+function isCodeIdentifierPath(value: string): boolean {
+  const segments = value.split('.')
+  if (!segments.every(s => /^[A-Za-z_$][\w$]*$/.test(s) && isCodeIdentifier(s)))
+    return false
+  return segments.some(s => /[a-z][A-Z]/.test(s) || /^[A-Z][a-z]/.test(s))
+}
+
+/**
  * Letters and digits both, and — when it holds a `/` (a path such as
  * `src/v2/handlers` looks alike) — a letters+digits run of `MIN_MIXED_RUN`+.
  */
