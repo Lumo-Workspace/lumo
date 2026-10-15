@@ -82,6 +82,9 @@ describe('wantsThreadAnswer', () => {
     ['Explain the attack path please', true],
     ['@uselumo this does not look reachable to me', true],
     ['为什么这里不安全', true],
+    ['这里会被注入吗', true],
+    ['什么都没变，只是重命名', false],
+    ['我们建议的写法已经在用了', false],
     ['Is this reachable from user input', true],
     ['Does not matter here, the value is constant', false],
     ["Can't happen: the caller validates it", false],
@@ -192,6 +195,11 @@ describe('cleanChatAnswer', () => {
     expect(out).toContain('@⁠alice')
     expect(out).toContain('`@Injectable`')
     expect(out).toContain('\n@Component()\n')
+  })
+  it('a cut inside a code block closes the fence', () => {
+    const out = cleanChatAnswer(`See:\n\`\`\`ts\n${'x'.repeat(10_000)}`)!
+    expect(out.match(/^\`\`\`/gm)).toHaveLength(2)
+    expect(out.endsWith('\n\`\`\`')).toBe(true)
   })
   it('caps the length; empty is null', () => {
     expect(cleanChatAnswer('x'.repeat(10_000))!.length).toBe(

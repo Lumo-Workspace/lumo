@@ -171,15 +171,15 @@ async function askModel(
   q: ChatQuestion,
   question: string
 ): Promise<string | null> {
-  const ctx = await loadContext(q)
-  const focusLine = q.focus?.line ?? q.finding?.line ?? null
-  const packed = packDiff(ctx.diff, q.focus?.path ?? null)
-  const diff = guardInjectedText(packed.text)
-  const file = guardInjectedText(
-    ctx.file ? windowLines(ctx.file, focusLine) : ''
-  )
-  const guardedQuestion = guardInjectedText(question)
   try {
+    const ctx = await loadContext(q)
+    const focusLine = q.focus?.line ?? q.finding?.line ?? null
+    const packed = packDiff(ctx.diff, q.focus?.path ?? null)
+    const diff = guardInjectedText(packed.text)
+    const file = guardInjectedText(
+      ctx.file ? windowLines(ctx.file, focusLine) : ''
+    )
+    const guardedQuestion = guardInjectedText(question)
     const { answerPrQuestion } =
       await import('@/ee/security/llm/pr-chat-client')
     const raw = await answerPrQuestion({

@@ -119,7 +119,10 @@ const ASKS = [
   // An auxiliary opens a question only when no negation follows it: "Does
   // not matter here", "Can't happen", "Is never null" are statements.
   /^\s*(?:is|are|was|were|does|do|did|can|could|would|should|will)(?![A-Za-z'’])(?!\s+(?:not|never|no)\b)/i,
-  /为什么|为何|怎么|怎样|如何|什么|哪里|哪个|能否|能不能|可以.*吗|解释|说明一下|建议/,
+  // Chinese: an interrogative or a request at the start, or a closing
+  // question particle — not the words anywhere ("什么都没变" is a statement).
+  /^\s*(?:为什么|为何|怎么|怎样|如何|什么(?![都也])|哪里|哪个|能否|能不能|请解释|解释一下|说明一下|建议)/,
+  /[吗呢]\s*[？?。.]?\s*$/,
 ]
 
 /**
@@ -260,8 +263,12 @@ export function cleanChatAnswer(raw: string): string | null {
     out.push(fenced ? part : defuseMentions(part))
   }
   let answer = out.join('')
-  if (answer.length > CHAT_ANSWER_MAX_CHARS)
+  if (answer.length > CHAT_ANSWER_MAX_CHARS) {
     answer = `${answer.slice(0, CHAT_ANSWER_MAX_CHARS - 1).trimEnd()}…`
+    // A cut inside a code block would swallow the footnote and the marker.
+    const fences = answer.match(/^(?:```|~~~)/gm)?.length ?? 0
+    if (fences % 2 === 1) answer = `${answer}\n\`\`\``
+  }
   return answer
 }
 
