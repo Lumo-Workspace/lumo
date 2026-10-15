@@ -9,6 +9,7 @@ import {
   isTestPath,
   loadReviewContext,
   packReviewContext,
+  packedFileBody,
 } from '@/ee/security/security-scan/review-context'
 
 const file = (path: string, chars: number, fill = 'x') => ({
@@ -196,5 +197,19 @@ describe('LUM-988 review context — in-flight reads on timeout', () => {
       },
     })
     expect(seen!.aborted).toBe(false)
+  })
+})
+
+describe('LUM-1150 packedFileBody', () => {
+  it('returns each packed file exactly as read, null for one left out', () => {
+    const packed = packReviewContext([
+      { path: 'a.ts', body: 'const a = 1\n=== b.ts ===' },
+      { path: 'b.ts', body: 'export const b = 2\n' },
+      { path: 'yarn.lock', body: 'x' },
+    ])
+    expect(packedFileBody(packed, 'a.ts')).toBe('const a = 1\n=== b.ts ===')
+    expect(packedFileBody(packed, 'b.ts')).toBe('export const b = 2\n')
+    expect(packedFileBody(packed, 'yarn.lock')).toBeNull()
+    expect(packedFileBody({ text: '', included: [] }, 'a.ts')).toBeNull()
   })
 })

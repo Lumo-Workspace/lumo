@@ -84,7 +84,7 @@ export const SecurityJudgeSchema = z.object({
           // whole review's parse (that would make the judge UNAVAILABLE).
           .nullish()
           .describe(
-            `Only when a small fix confined to ADDED lines of this one file is certain: the range must contain line and the evidence line, cover only added lines, at most ${CODE_SUGGESTION_MAX_LINES} lines. Never put a secret in it. Otherwise null.`
+            `Only when a small fix confined to ADDED lines of this one file is certain: the range must contain line and the evidence line, cover only added lines, at most ${CODE_SUGGESTION_MAX_LINES} lines. It is committed as-is, so it must compile: use only names already imported or defined in this file (or language built-ins). If the fix needs a new import, include it only when the import line is inside this same range; otherwise prefer a fix using what the file already imports, or give null. Never put a secret in it. Otherwise null.`
           ),
       })
     )

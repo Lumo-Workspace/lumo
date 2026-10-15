@@ -300,6 +300,108 @@ describe('LUM-1150 stage A stores only a suggestion anchored on added lines', ()
   })
 })
 
+// LUM-1150 follow-up — production probe PR 41: a fix calling `execFile` in
+// a file that imports only `exec` is dropped; a name imported outside the
+// diff counts as in scope once the review has read the file at this head.
+const RUN_FILE = [
+  "import { exec, execFile } from 'child_process'",
+  '',
+  'export function listDir(dir: string): void {',
+  "  exec('ls -la ' + dir)",
+  '}',
+]
+const RUN_DIFF = [
+  'diff --git a/src/run.ts b/src/run.ts',
+  '--- a/src/run.ts',
+  '+++ b/src/run.ts',
+  '@@ -1,5 +1,5 @@',
+  " import { exec, execFile } from 'child_process'",
+  ' ',
+  ' export function listDir(dir: string): void {',
+  '-  listing(dir)',
+  "+  exec('ls -la ' + dir)",
+  ' }',
+].join('\n')
+const PROBE_DIFF = [
+  'diff --git a/src/probe/suggest.ts b/src/probe/suggest.ts',
+  'new file mode 100644',
+  '--- /dev/null',
+  '+++ b/src/probe/suggest.ts',
+  '@@ -0,0 +1,11 @@',
+  '+// probe (do not merge)',
+  '+export function parseCount(raw: string): number {',
+  '+  const n = parseInt(raw)',
+  '+  return n',
+  '+}',
+  '+',
+  "+import { exec } from 'child_process'",
+  '+',
+  '+export function listDir(dir: string): void {',
+  "+  exec('ls -la ' + dir)",
+  '+}',
+].join('\n')
+
+function injection(filePath: string, line: number) {
+  return {
+    findings: [
+      {
+        kind: 'command_injection',
+        severity: 'HIGH',
+        filePath,
+        line,
+        title: 'Shell command built by concatenating unsanitized input',
+        detail: 'Use execFile with an argument array.',
+        evidence: "exec('ls -la ' + dir)",
+        suggestion: {
+          startLine: line,
+          endLine: line,
+          code: "  execFile('ls', ['-la', '--', dir])",
+        },
+      },
+    ],
+    prSummary: { intent: 'Lists a directory.', changes: [] },
+  }
+}
+
+describe('LUM-1150 stage A drops a suggestion that would not compile', () => {
+  it('drops execFile in a file importing only exec (production probe), keeping the finding', async () => {
+    fetchPrDiff.mockResolvedValue(PROBE_DIFF)
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue(
+      injection('src/probe/suggest.ts', 10)
+    )
+    const [row] = await persistedRows()
+    expect(row!.severity).toBe('HIGH')
+    expect('codeSuggestion' in row!).toBe(false)
+  })
+
+  it('drops it when the import sits outside the diff and the file was not read', async () => {
+    fetchPrDiff.mockResolvedValue(RUN_DIFF)
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue(
+      injection('src/run.ts', 4)
+    )
+    const [row] = await persistedRows()
+    expect('codeSuggestion' in row!).toBe(false)
+  })
+
+  it('keeps it when the review read the file at head and it imports execFile', async () => {
+    fetchPrDiff.mockResolvedValue(RUN_DIFF)
+    ;(reviewContextService.load as jest.Mock).mockResolvedValue({
+      text: `=== src/run.ts ===\n${RUN_FILE.join('\n')}\n`,
+      included: ['src/run.ts'],
+      error: null,
+    })
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue(
+      injection('src/run.ts', 4)
+    )
+    const [row] = await persistedRows()
+    expect(row!.codeSuggestion).toEqual({
+      startLine: 4,
+      endLine: 4,
+      code: "  execFile('ls', ['-la', '--', dir])",
+    })
+  })
+})
+
 jest.mock('@/ee/security/services/auto-review-admission.service', () =>
   require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
 )
