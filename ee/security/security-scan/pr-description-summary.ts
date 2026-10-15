@@ -193,3 +193,36 @@ export function stripDescriptionSummary(
   const slot = findBlock(body)
   return slot ? body.slice(0, slot.start) + body.slice(slot.end) : body
 }
+
+/**
+ * The author's own description: Lumo's block and the `@<app> summary`
+ * placeholder line removed. What a check of the description (LUM-1148
+ * pre-merge checks) reads.
+ */
+export function authoredDescription(
+  body: string | null | undefined,
+  handle: string | null
+): string {
+  let text = stripDescriptionSummary(body) ?? ''
+  for (let slot = findPlaceholder(text, handle); slot; ) {
+    text = text.slice(0, slot.start) + text.slice(slot.end)
+    slot = findPlaceholder(text, handle)
+  }
+  return text
+}
+
+/**
+ * Do two versions of a description differ in the author's text? Lumo's
+ * own edits (its block written, refreshed or put at the placeholder) and
+ * whitespace-only changes do not count — so an edit Lumo made re-runs
+ * nothing.
+ */
+export function authoredDescriptionChanged(
+  before: string | null | undefined,
+  after: string | null | undefined,
+  handle: string | null
+): boolean {
+  const norm = (b: string | null | undefined) =>
+    authoredDescription(b, handle).replace(/\s+/g, ' ').trim()
+  return norm(before) !== norm(after)
+}

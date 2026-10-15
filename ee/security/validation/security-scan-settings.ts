@@ -4,6 +4,12 @@ import { AUTO_PAUSE_AFTER_MAX } from '@/ee/security/security-scan/review-control
 import { baseBranchRegExp } from '@/ee/security/security-scan/auto-review-policy'
 import { invalidPathFilter } from '@/ee/security/security-scan/reviewable-path'
 import {
+  PRE_MERGE_CHECK_INSTRUCTIONS_MAX,
+  PRE_MERGE_CHECK_MODES,
+  PRE_MERGE_CHECK_NAME_MAX,
+  PRE_MERGE_CUSTOM_CHECKS_MAX,
+} from '@/ee/security/security-scan/pre-merge-checks'
+import {
   PATH_INSTRUCTIONS_MAX_ENTRIES,
   PATH_INSTRUCTION_MAX_CHARS,
   PATH_INSTRUCTION_PATH_MAX_CHARS,
@@ -96,6 +102,57 @@ export const updateSecurityScanSettingsSchema = z
     message: '`all` cannot be combined with a single switch',
   })
 
+/** LUM-1148: one natural-language pre-merge check. */
+export const customPreMergeCheckSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(PRE_MERGE_CHECK_NAME_MAX)
+      .refine(v => !/[\n\r]/.test(v), 'must be a single line'),
+    mode: z.enum(PRE_MERGE_CHECK_MODES).default('warning'),
+    instructions: z
+      .string()
+      .trim()
+      .min(1)
+      .max(PRE_MERGE_CHECK_INSTRUCTIONS_MAX),
+  })
+  .strict()
+
+/** LUM-1148: a partial change to a repository's pre-merge checks. */
+export const preMergeChecksUpdateSchema = z
+  .object({
+    title: z
+      .object({
+        mode: z.enum(PRE_MERGE_CHECK_MODES).optional(),
+        // '' or null clears them.
+        requirements: z
+          .string()
+          .max(PRE_MERGE_CHECK_INSTRUCTIONS_MAX)
+          .nullable()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    description: z
+      .object({ mode: z.enum(PRE_MERGE_CHECK_MODES).optional() })
+      .strict()
+      .optional(),
+    // Replaces the list ([] clears it).
+    customChecks: z
+      .array(customPreMergeCheckSchema)
+      .max(PRE_MERGE_CUSTOM_CHECKS_MAX)
+      .refine(
+        list =>
+          new Set(list.map(c => c.name.toLowerCase())).size === list.length,
+        'check names must be unique'
+      )
+      .optional(),
+    overrideRequestedReviewersOnly: z.boolean().optional(),
+  })
+  .strict()
+
 /**
  * LUM-1133: one repository's automatic review settings — `repo` is
  * `owner/name`; at least one setting (switches, or the LUM-1143 filters).
@@ -127,6 +184,8 @@ export const updateRepoReviewSettingsSchema = z
         'must be a glob (`!glob` excludes)'
       )
     ).optional(),
+    // LUM-1148: the pre-merge checks.
+    preMergeChecks: preMergeChecksUpdateSchema.optional(),
     // LUM-1147: the review style. The list replaces the stored one ([]
     // clears); '' or null clears the tone.
     pathInstructions: pathInstructionsSchema.optional(),

@@ -1715,7 +1715,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1147 the review style (--profile, --tone, --path-instruction); LUM-1151 where the high-level PR summary goes (--summary). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1148 the pre-merge checks (--title-check, --title-requirements, --description-check, --override-reviewers-only; custom checks in the web settings or .lumo.yaml); LUM-1147 the review style (--profile, --tone, --path-instruction); LUM-1151 where the high-level PR summary goes (--summary). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1785,6 +1785,22 @@ workspaceCmd
     '--path-filter <glob>',
     'With --repo (repeatable; replaces the list, "" clears): what the AI review and hunt read; !glob excludes, glob restricts to matches; lockfiles and generated files are excluded by default',
     collectList
+  )
+  .option(
+    '--title-check <off|warning|error>',
+    'With --repo: the pre-merge title check (default warning); error = a failed check keeps Lumo at "Changes requested" (request-changes workflow on) until fixed or `@uselumo ignore pre-merge checks`'
+  )
+  .option(
+    '--title-requirements <text>',
+    'With --repo ("" clears): extra rules the PR title must meet, in plain language'
+  )
+  .option(
+    '--description-check <off|warning|error>',
+    "With --repo: the pre-merge description check (default warning; follows the repository's PR template if it has one)"
+  )
+  .option(
+    '--override-reviewers-only <on|off>',
+    'With --repo: only requested reviewers (never the PR author) may `@uselumo ignore pre-merge checks` (default off)'
   )
   .option(
     '--profile <quiet|chill|assertive>',

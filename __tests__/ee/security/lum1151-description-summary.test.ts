@@ -11,6 +11,8 @@ import {
   DESCRIPTION_SUMMARY_END,
   DESCRIPTION_SUMMARY_START,
   applyDescriptionSummary,
+  authoredDescription,
+  authoredDescriptionChanged,
   buildDescriptionSummaryBlock,
   hasSummaryPlaceholder,
   parseHighLevelSummary,
@@ -23,6 +25,7 @@ import {
   hasIgnoreDirective,
   UNKNOWN_PR_FACTS,
 } from '@/ee/security/security-scan/auto-review-policy'
+import { isChecksEdit } from '@/ee/security/server'
 
 const H = '@uselumo'
 const SHA = 'abcdef1234567890abcdef1234567890abcdef12'
@@ -190,5 +193,58 @@ describe("Lumo's block is not the author's text", () => {
       hasIgnoreDirective(`${block()}\n\n@uselumo ignore`, '@uselumo')
     ).toBe(true)
     expect(hasIgnoreDirective(block(), '@uselumo')).toBe(false)
+  })
+})
+
+describe("Lumo's own edit is not an author edit", () => {
+  it('authoredDescription drops the block and the placeholder line', () => {
+    const body = `Why.\n\n@uselumo summary\n\n${block()}\n\nCloses #4`
+    expect(authoredDescription(body, H)).toBe('Why.\n\n\n\n\n\nCloses #4')
+    expect(authoredDescription(null, H)).toBe('')
+  })
+
+  it('writing, refreshing or placing the block changes no authored text', () => {
+    const before = 'Why.\n\n@uselumo summary\n\nCloses #4'
+    const placed = applyDescriptionSummary(before, block('One.'), H)
+    expect(authoredDescriptionChanged(before, placed, H)).toBe(false)
+    const refreshed = applyDescriptionSummary(placed, block('Two.'), H)
+    expect(authoredDescriptionChanged(placed, refreshed, H)).toBe(false)
+    expect(
+      authoredDescriptionChanged(
+        'Plain',
+        applyDescriptionSummary('Plain', block(), H),
+        H
+      )
+    ).toBe(false)
+    expect(
+      authoredDescriptionChanged(placed, placed.replace('Why.', 'Why not.'), H)
+    ).toBe(true)
+  })
+
+  it('a description edit by Lumo does not re-run the pre-merge checks', () => {
+    const before = 'Why.\n\n@uselumo summary'
+    const after = applyDescriptionSummary(before, block(), H)
+    const base = { action: 'edited', state: 'open' }
+    const prev = process.env.GITHUB_APP_SLUG
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+    try {
+      expect(
+        isChecksEdit({
+          ...base,
+          reviewFactsBefore: { title: 'T', body: before },
+          reviewFacts: { title: 'T', body: after },
+        })
+      ).toBe(false)
+      expect(
+        isChecksEdit({
+          ...base,
+          reviewFactsBefore: { title: 'T', body: after },
+          reviewFacts: { title: 'T', body: `${after}\n\nMore context.` },
+        })
+      ).toBe(true)
+    } finally {
+      if (prev === undefined) delete process.env.GITHUB_APP_SLUG
+      else process.env.GITHUB_APP_SLUG = prev
+    }
   })
 })

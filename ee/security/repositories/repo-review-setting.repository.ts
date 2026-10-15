@@ -4,6 +4,7 @@ import {
   parseEmptyBaseBranchesMeans,
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
+import { parsePreMergeChecksSetting } from '@/ee/security/security-scan/pre-merge-checks'
 import { normalizePathInstructions } from '@/ee/security/security-scan/path-instructions'
 import { parseReviewProfile } from '@/ee/security/security-scan/review-profile'
 import { parseHighLevelSummary } from '@/ee/security/security-scan/pr-description-summary'
@@ -13,6 +14,7 @@ type StoredColumns =
   | 'pathInstructions'
   | 'reviewProfile'
   | 'toneInstructions'
+  | 'preMergeChecks'
   | 'highLevelSummary'
 
 /** The stored text / Json columns as the domain types. */
@@ -22,6 +24,7 @@ function toDomain<
     pathInstructions: unknown
     reviewProfile: string
     toneInstructions: string | null
+    preMergeChecks: unknown
     highLevelSummary: string
   },
 >(
@@ -36,23 +39,33 @@ function toDomain<
     pathInstructions: normalizePathInstructions(row.pathInstructions),
     reviewProfile: parseReviewProfile(row.reviewProfile),
     toneInstructions: row.toneInstructions,
+    // LUM-1148: null (never set) or malformed reads as the defaults.
+    preMergeChecks: parsePreMergeChecksSetting(row.preMergeChecks),
     highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
   }
 }
 
-/** The domain values as columns (the Json list as Prisma input). */
+/** The domain values as columns (the Json values as Prisma input). */
 function toColumns<V extends Partial<RepoReviewSettingValues>>(
   values: V
-): Omit<V, 'pathInstructions'> & {
+): Omit<V, 'pathInstructions' | 'preMergeChecks'> & {
   pathInstructions?: Prisma.InputJsonValue
+  preMergeChecks?: Prisma.InputJsonValue
 } {
-  const { pathInstructions, ...rest } = values
-  return pathInstructions === undefined
-    ? rest
-    : {
-        ...rest,
-        pathInstructions: pathInstructions as unknown as Prisma.InputJsonValue,
-      }
+  const { pathInstructions, preMergeChecks, ...rest } = values
+  return {
+    ...rest,
+    ...(pathInstructions !== undefined
+      ? {
+          pathInstructions:
+            pathInstructions as unknown as Prisma.InputJsonValue,
+        }
+      : {}),
+    // LUM-1148: the pre-merge checks are one Json value.
+    ...(preMergeChecks !== undefined
+      ? { preMergeChecks: preMergeChecks as unknown as Prisma.InputJsonValue }
+      : {}),
+  }
 }
 
 /** LUM-1143: every stored setting column (filters included). */
@@ -66,6 +79,7 @@ const SETTING_SELECT = {
   ignoreUsernames: true,
   descriptionKeyword: true,
   pathFilters: true,
+  preMergeChecks: true,
   pathInstructions: true,
   reviewProfile: true,
   toneInstructions: true,

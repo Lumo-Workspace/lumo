@@ -104,6 +104,7 @@ import { securityManagedScanOpsService } from './security-managed-scan-ops.servi
 import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
 import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
 import { repoConfigService } from './repo-config.service'
+import { preMergeChecksService } from './pre-merge-checks.service'
 import { REPO_CONFIG_FIELDS } from '@/ee/security/security-scan/repo-config'
 import type { RepoConfigFile } from '@/ee/security/validation/repo-config'
 import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
@@ -1209,6 +1210,22 @@ export const prSecurityScanService = {
       }
       const reviewFiles = addedLinesWithNumbers(reviewDiff)
       const huntFiles = files.filter(f => isReviewable(f.path))
+      // LUM-1148 — the pre-merge checks run alongside the review, on every
+      // head the AI review is allowed to read (the whole PR diff, not the
+      // incremental scope). Never rejects; awaited before the result lands.
+      const preMergeChecks = reviewAllowed
+        ? preMergeChecksService.run(
+            {
+              scanId,
+              pullRequestId: pr.id,
+              workspaceId: pr.workspaceId,
+              repo: pr.repo,
+              prNumber: pr.number,
+              headSha,
+            },
+            diff
+          )
+        : Promise.resolve(null)
 
       // ── A1: deterministic secret scan (pure) ────────────────────────────
       const secretHits = scanSecrets(files)
@@ -1808,6 +1825,8 @@ export const prSecurityScanService = {
         huntOverCap
       if (huntSkippedForCap) partialCauses.push('HUNT_OVERSIZED')
 
+      // LUM-1148: the checks' results are on the row before the write-back.
+      await preMergeChecks
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions(

@@ -47,6 +47,29 @@ import {
   mentionsHandle,
   routeConversationComment,
 } from '@/ee/security/security-scan/pr-chat'
+import { authoredDescriptionChanged } from '@/ee/security/security-scan/pr-description-summary'
+
+/**
+ * LUM-1148 — PURE: an `edited` event on an open PR that changed its title or
+ * description (what the pre-merge checks read).
+ */
+export function isChecksEdit(event: {
+  action: string
+  state: string
+  reviewFacts?: { title: string | null; body: string | null }
+  reviewFactsBefore?: { title: string | null; body: string | null }
+}): boolean {
+  if (event.action !== 'edited' || event.state !== 'open') return false
+  const before = event.reviewFactsBefore
+  const after = event.reviewFacts
+  if (!before || !after) return false
+  // LUM-1151: Lumo writing its summary into the description is not an
+  // author edit — it must not re-run the checks (a model call per edit).
+  return (
+    before.title !== after.title ||
+    authoredDescriptionChanged(before.body, after.body, prCommandHandle())
+  )
+}
 
 export const securityPlugin: LumoServerPlugin = {
   id: 'security',
@@ -107,6 +130,22 @@ export const securityPlugin: LumoServerPlugin = {
             } catch (error) {
               logger.warn(
                 `[security] learning promotion failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+              )
+            }
+          })()
+        )
+      // LUM-1148: a title / description edit re-runs the pre-merge checks
+      // (a failed title check is fixed by an edit, not a push).
+      if (isChecksEdit(event))
+        waitUntil(
+          (async () => {
+            try {
+              const { preMergeChecksService } =
+                await import('@/ee/security/services/pre-merge-checks.service')
+              await preMergeChecksService.recheckAfterEdit(pullRequestId)
+            } catch (error) {
+              logger.warn(
+                `[security] pre-merge recheck failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
               )
             }
           })()

@@ -10,6 +10,10 @@ import {
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
 import {
+  applyPreMergeChecksUpdate,
+  type PreMergeChecksUpdate,
+} from '@/ee/security/security-scan/pre-merge-checks'
+import {
   normalizePathInstructions,
   normalizeToneInstructions,
   type PathInstruction,
@@ -52,6 +56,8 @@ export interface RepoReviewSettingsUpdate {
   /** '' or null clears. */
   descriptionKeyword?: string | null | undefined
   pathFilters?: string[] | undefined
+  /** LUM-1148: the pre-merge checks (a partial change). */
+  preMergeChecks?: PreMergeChecksUpdate | undefined
   /** LUM-1147 review style: the list replaces the stored one ([] clears). */
   pathInstructions?: PathInstruction[] | undefined
   reviewProfile?: ReviewProfile | undefined
@@ -86,6 +92,14 @@ function sameValue(a: unknown, b: unknown): boolean {
           : v === b[i]
       )
     )
+  // LUM-1148: the pre-merge checks are one structured value.
+  if (
+    a !== null &&
+    b !== null &&
+    typeof a === 'object' &&
+    typeof b === 'object'
+  )
+    return JSON.stringify(a) === JSON.stringify(b)
   return a === b
 }
 
@@ -109,6 +123,11 @@ export function applyRepoReviewUpdate(
     const k = update.descriptionKeyword?.trim() ?? ''
     to.descriptionKeyword = k.length > 0 ? k : null
   }
+  if (update.preMergeChecks !== undefined)
+    to.preMergeChecks = applyPreMergeChecksUpdate(
+      from.preMergeChecks,
+      update.preMergeChecks
+    )
   if (update.pathInstructions !== undefined)
     to.pathInstructions = normalizePathInstructions(update.pathInstructions)
   if (update.toneInstructions !== undefined)
