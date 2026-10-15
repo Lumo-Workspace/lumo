@@ -20,6 +20,20 @@ const conn = (p: Partial<MemberConnectionView> = {}): MemberConnectionView => ({
 })
 
 describe('memberVersionStatus', () => {
+  it('a connection with no version next to one that reported is ignored; all unreported → unknown', () => {
+    expect(
+      memberVersionStatus([
+        conn({ cliVersion: '1.122.0' }),
+        conn({ agent: 'CODEX', cliVersion: null, skillVersion: null }),
+      ])
+    ).toBe('upToDate')
+    expect(
+      memberVersionStatus([
+        conn({ cliVersion: null }),
+        conn({ agent: 'CODEX', cliVersion: null }),
+      ])
+    ).toBe('unknown')
+  })
   it('only stale connections → stale; a stale one never sets the status next to a fresh one', () => {
     expect(memberVersionStatus([conn({ stale: true, cliVersion: null })])).toBe(
       'stale'
@@ -51,10 +65,8 @@ describe('memberVersionStatus', () => {
       ])
     ).toBe('needsUpdate')
   })
-  it('an unreported CLI with nothing behind → unknown', () => {
-    expect(memberVersionStatus([conn(), conn({ cliVersion: null })])).toBe(
-      'unknown'
-    )
+  it('only unreported CLIs with nothing behind → unknown', () => {
+    expect(memberVersionStatus([conn({ cliVersion: null })])).toBe('unknown')
   })
 })
 

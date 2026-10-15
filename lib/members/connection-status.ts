@@ -27,8 +27,10 @@ export function connectionNeedsUpdate(c: MemberConnectionView): boolean {
 /**
  * Judged on recently seen connections only — a stale one's versions are a
  * snapshot that may long since have been updated. Worst state wins: anything
- * behind → needsUpdate; else any connection with no CLI version reported yet
- * → unknown; else upToDate. Only stale connections → stale.
+ * behind → needsUpdate; else no connection has reported a CLI version yet →
+ * unknown; else upToDate. A connection with no version next to one that has
+ * reported is ignored — the CLI is installed per machine, so one report
+ * stands for the member. Only stale connections → stale.
  */
 export function memberVersionStatus(
   connections: MemberConnectionView[] | undefined
@@ -37,7 +39,7 @@ export function memberVersionStatus(
   const fresh = connections.filter(c => !c.stale)
   if (fresh.length === 0) return 'stale'
   if (fresh.some(connectionNeedsUpdate)) return 'needsUpdate'
-  if (fresh.some(c => c.cliVersion === null)) return 'unknown'
+  if (fresh.every(c => c.cliVersion === null)) return 'unknown'
   return 'upToDate'
 }
 
