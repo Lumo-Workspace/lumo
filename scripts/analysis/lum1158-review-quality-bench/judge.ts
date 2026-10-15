@@ -72,7 +72,9 @@ function findingsFor(
   // re-run fills it in — never cache it as a scored empty row.
   if (isReference) return labels?.reference ?? null
   const run = review[url]?.runs[runIdx]
-  if (!run) return null
+  // Missing, or a model/API error in the replay: re-run the replay, do not
+  // score it. Only a real over-cap skip is scored (production posts nothing).
+  if (!run || run.error) return null
   // Shipped variant: a PR with findings but no verifier/ranker entry is not
   // ready — scoring it would pass the raw review off as the shipped one.
   if (run.findings?.length && verifyFile && !verify[url]) return null
