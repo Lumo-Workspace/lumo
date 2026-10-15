@@ -170,17 +170,24 @@ function storedSummary(): unknown {
     .prSummary
 }
 
-const OLD_ENV = process.env.LUMO_REVIEW_VERIFIER
+// Every variable set here is restored to exactly what it was.
+const ENV_KEYS = [
+  'LUMO_REVIEW_VERIFIER',
+  'LUMO_SECURITY_HUNT',
+  'LUMO_PRE_MERGE_CHECKS',
+] as const
+const SAVED_ENV = Object.fromEntries(
+  ENV_KEYS.map(k => [k, process.env[k]])
+) as Record<(typeof ENV_KEYS)[number], string | undefined>
 beforeAll(() => {
-  process.env.LUMO_REVIEW_VERIFIER = 'off'
-  process.env.LUMO_SECURITY_HUNT = 'off'
-  process.env.LUMO_PRE_MERGE_CHECKS = 'off'
+  for (const k of ENV_KEYS) process.env[k] = 'off'
 })
 afterAll(() => {
-  if (OLD_ENV === undefined) delete process.env.LUMO_REVIEW_VERIFIER
-  else process.env.LUMO_REVIEW_VERIFIER = OLD_ENV
-  delete process.env.LUMO_SECURITY_HUNT
-  delete process.env.LUMO_PRE_MERGE_CHECKS
+  for (const k of ENV_KEYS) {
+    const v = SAVED_ENV[k]
+    if (v === undefined) delete process.env[k]
+    else process.env[k] = v
+  }
 })
 
 beforeEach(() => {

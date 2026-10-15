@@ -487,6 +487,8 @@ export const PLUGIN_MODELS = [
   'PrFindingThread',
   // LUM-1131: thread replies' repository-scoped learnings.
   'PrReviewLearning',
+  // LUM-1150: the single-writer claim on creating a PR's summary comment.
+  'PrSecuritySummaryClaim',
 ] as const
 
 /**

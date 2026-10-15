@@ -18,6 +18,12 @@
  * cut runs through is never sent half-unmasked), and nothing at all when
  * every check is off.
  *
+ * LUM-1149 — the linked task / issue assessment is one of these checks: its
+ * requirements are gathered first (`linkedRequirementsService`); none ⇒ it
+ * is not applicable and is left out of the model call (a PR whose only
+ * enabled check has nothing linked makes no call at all). Its requirements
+ * ride in the same call as material, answered one by one.
+ *
  * Layering: service — GitHub through `@/lib/integrations/github/*` (loaded
  * lazily), the database through repositories, the model client by dynamic
  * import.
@@ -28,6 +34,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { repoConfigService } from '@/ee/security/services/repo-config.service'
+import { linkedRequirementsService } from '@/ee/security/services/linked-requirements.service'
 import { DEFAULT_REPO_REVIEW_SETTING } from '@/ee/security/security-scan/auto-review-policy'
 import { authoredDescription } from '@/ee/security/security-scan/pr-description-summary'
 import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
@@ -44,12 +51,30 @@ import {
   checksForHead,
   inconclusiveResults,
   keepEarlierFailures,
+  notApplicableResult,
   planPreMergeChecks,
   resultsFromAnswers,
   type BuiltinPreMergeCheck,
+  type PreMergeCheckGatherInput,
+  type PreMergeCheckResult,
   type PreMergeChecksRecord,
   type PreMergeChecksSetting,
 } from '@/ee/security/security-scan/pre-merge-checks'
+import {
+  requirementsMaterial,
+  type LinkedRequirement,
+} from '@/ee/security/security-scan/issue-assessment'
+
+/**
+ * LUM-1149 — the built-ins as the runner uses them: the pure registry with
+ * the requirements gatherer wired onto every check that assesses them.
+ */
+export const RUNNER_BUILTINS: readonly BuiltinPreMergeCheck[] =
+  BUILTIN_PRE_MERGE_CHECKS.map(b =>
+    b.assessesRequirements
+      ? { ...b, requirements: linkedRequirementsService.gather }
+      : b
+  )
 
 /** The diff the checks read, at most (after path filters and the mask). */
 export const PRE_MERGE_DIFF_MAX_CHARS = 40_000
@@ -122,7 +147,15 @@ export const preMergeChecksService = {
     })
     const values = { ...DEFAULT_REPO_REVIEW_SETTING, ...(row ?? {}) }
     const e = effectiveReviewConfig({ values, stored: row !== undefined }, file)
-    return { setting: preMergeChecksOf(e), pathFilters: e.pathFilters.value }
+    return {
+      // LUM-1149: the privacy switch only ever comes from the stored setting.
+      setting: preMergeChecksOf(e, {
+        taskDetailsOnPublicRepos:
+          row !== undefined &&
+          values.preMergeChecks.issueAssessment.taskDetailsOnPublicRepos,
+      }),
+      pathFilters: e.pathFilters.value,
+    }
   },
 
   /**
@@ -132,7 +165,7 @@ export const preMergeChecksService = {
   async run(
     target: ChecksTarget,
     diff: string | null,
-    builtins: readonly BuiltinPreMergeCheck[] = BUILTIN_PRE_MERGE_CHECKS
+    builtins: readonly BuiltinPreMergeCheck[] = RUNNER_BUILTINS
   ): Promise<PreMergeChecksRecord | null> {
     const where = `scan=${target.scanId} pr=#${target.prNumber}`
     if (!isPreMergeChecksEnabled()) return null
@@ -178,8 +211,51 @@ export const preMergeChecksService = {
         return null
       }
       const ranAt = new Date().toISOString()
-      let results
-      try {
+      const gatherInput: PreMergeCheckGatherInput = {
+        workspaceId: target.workspaceId,
+        repo: target.repo,
+        prNumber: target.prNumber,
+        pullRequestId: target.pullRequestId,
+        baseSha: pr.baseSha,
+        headSha: target.headSha,
+        pr: input,
+        setting,
+      }
+      // LUM-1149: what each requirements check judges. Nothing linked ⇒ not
+      // applicable (left out of the call); a failed read ⇒ inconclusive.
+      const linked = new Map<string, LinkedRequirement[]>()
+      const notApplicable = new Map<string, PreMergeCheckResult>()
+      const unreadable = new Set<string>()
+      for (const p of planned) {
+        if (!p.assessesRequirements) continue
+        try {
+          const reqs = p.requirements ? await p.requirements(gatherInput) : []
+          if (reqs.length > 0) linked.set(p.id, reqs)
+          else notApplicable.set(p.id, notApplicableResult(p))
+        } catch (error) {
+          unreadable.add(p.id)
+          logger.warn(
+            `[pre-merge-checks] requirements unreadable ${where}: ${describe(error)}`
+          )
+        }
+      }
+      const judged = planned.filter(
+        p => !notApplicable.has(p.id) && !unreadable.has(p.id)
+      )
+      const inOrder = (rs: readonly PreMergeCheckResult[]) => {
+        const byId = new Map(rs.map(r => [r.id, r]))
+        return planned.map(
+          p =>
+            notApplicable.get(p.id) ??
+            byId.get(p.id) ??
+            inconclusiveResults(
+              [p],
+              'Lumo could not read the linked task or issue this time.'
+            )[0]!
+        )
+      }
+      // One model call for every check left to judge.
+      const judge = async (): Promise<PreMergeCheckResult[]> => {
         const rawDiff =
           diff ??
           (await gh.fetchPrDiff({
@@ -196,19 +272,13 @@ export const preMergeChecksService = {
         const guardedDiff = guardInjectedText(reviewable)
         const cutDiff = cap(guardedDiff.text, PRE_MERGE_DIFF_MAX_CHARS)
         const material = await Promise.all(
-          planned.map(async p => {
-            if (!p.gather) return null
-            const text = await p
-              .gather({
-                workspaceId: target.workspaceId,
-                repo: target.repo,
-                prNumber: target.prNumber,
-                pullRequestId: target.pullRequestId,
-                baseSha: pr.baseSha,
-                headSha: target.headSha,
-                pr: input,
-              })
-              .catch(() => null)
+          judged.map(async p => {
+            const reqs = linked.get(p.id)
+            const text = reqs
+              ? requirementsMaterial(reqs)
+              : p.gather
+                ? await p.gather(gatherInput).catch(() => null)
+                : null
             if (!text) return null
             const g = guardInjectedText(
               cap(text, PRE_MERGE_TEXT_MAX_CHARS).text
@@ -219,14 +289,17 @@ export const preMergeChecksService = {
         const { runPreMergeChecksModel } =
           await import('@/ee/security/llm/pre-merge-checks-client')
         const answer = await runPreMergeChecksModel({
-          checks: planned.map((p, i) => ({
+          checks: judged.map((p, i) => ({
             id: p.id,
             name: p.name,
             rule: p.rule,
             material: material[i] ?? null,
           })),
           title: guardInjectedText(cap(pr.title, 500).text),
-          body: guardInjectedText(cap(pr.body, PRE_MERGE_TEXT_MAX_CHARS).text),
+          // LUM-1151: the author's text — never Lumo's own summary section.
+          body: guardInjectedText(
+            cap(input.body, PRE_MERGE_TEXT_MAX_CHARS).text
+          ),
           template: template
             ? guardInjectedText(cap(template, PRE_MERGE_TEXT_MAX_CHARS).text)
             : null,
@@ -235,11 +308,27 @@ export const preMergeChecksService = {
           diffTruncated: cutDiff.cut || guardedDiff.truncatedLines > 0,
           timeoutMs: PRE_MERGE_TIMEOUT_MS,
         })
-        results = resultsFromAnswers(planned, answer.results)
+        return resultsFromAnswers(judged, answer.results, linked)
+      }
+      let results: PreMergeCheckResult[]
+      // Undecided by a failure (a read or the model): earlier failures stand.
+      let undecided = unreadable.size > 0
+      try {
+        results = inOrder(judged.length > 0 ? await judge() : [])
       } catch (error) {
         logger.warn(
           `[pre-merge-checks] model unavailable ${where}: ${describe(error)}`
         )
+        results = inOrder(
+          inconclusiveResults(
+            judged,
+            'Lumo could not run this check this time.',
+            linked
+          )
+        )
+        undecided = true
+      }
+      if (undecided) {
         // Inconclusive — but an earlier failure of this head stands, so a
         // transient failure never unblocks approval. Unreadable ⇒ store
         // nothing (the row keeps whatever it had).
@@ -255,13 +344,7 @@ export const preMergeChecksService = {
           )
           return null
         }
-        results = keepEarlierFailures(
-          inconclusiveResults(
-            planned,
-            'Lumo could not run this check this time.'
-          ),
-          earlier
-        )
+        results = keepEarlierFailures(results, earlier)
       }
       record = { headSha: target.headSha, ranAt, results }
       await prSecurityScanRepository.setPreMergeChecks(target.scanId, record)

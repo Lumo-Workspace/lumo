@@ -308,6 +308,16 @@ export const REPO_CONFIG_FIELDS = {
     fallback: D.preMergeChecks.description.mode,
     prBranch: 'ignored',
   }),
+  // LUM-1149 — the linked task / issue assessment's mode. Its privacy
+  // switch (`taskDetailsOnPublicRepos`) is Lumo-only: a file in the
+  // repository must not decide to quote a private task on a public PR.
+  preMergeIssueAssessmentMode: field<PreMergeCheckMode>({
+    key: 'reviews.pre_merge_checks.issue_assessment.mode',
+    read: f => f.reviews?.pre_merge_checks?.issue_assessment?.mode,
+    lumo: s => s.preMergeChecks.issueAssessment.mode,
+    fallback: D.preMergeChecks.issueAssessment.mode,
+    prBranch: 'ignored',
+  }),
   preMergeCustomChecks: field<CustomPreMergeCheck[]>({
     key: 'reviews.pre_merge_checks.custom_checks',
     read: f => {
@@ -449,14 +459,24 @@ export function reviewSettingsWithFile(
     reviewProfile: e.reviewProfile.value,
     pathInstructions: e.pathInstructions.value,
     toneInstructions: e.toneInstructions.value,
-    preMergeChecks: preMergeChecksOf(e),
+    preMergeChecks: preMergeChecksOf(e, {
+      taskDetailsOnPublicRepos:
+        settings.preMergeChecks.issueAssessment.taskDetailsOnPublicRepos,
+    }),
     highLevelSummary: e.highLevelSummary.value,
   }
 }
 
-/** PURE — LUM-1148: the resolved pre-merge check keys as one setting. */
+/**
+ * PURE — LUM-1148: the resolved pre-merge check keys as one setting.
+ * LUM-1149: `lumoOnly` carries what only Lumo's stored setting may set
+ * (never the file) — the assessment's privacy switch, off unless given.
+ */
 export function preMergeChecksOf(
-  e: EffectiveReviewConfig
+  e: EffectiveReviewConfig,
+  lumoOnly: { taskDetailsOnPublicRepos: boolean } = {
+    taskDetailsOnPublicRepos: false,
+  }
 ): PreMergeChecksSetting {
   return {
     title: {
@@ -464,6 +484,10 @@ export function preMergeChecksOf(
       requirements: e.preMergeTitleRequirements.value,
     },
     description: { mode: e.preMergeDescriptionMode.value },
+    issueAssessment: {
+      mode: e.preMergeIssueAssessmentMode.value,
+      taskDetailsOnPublicRepos: lumoOnly.taskDetailsOnPublicRepos,
+    },
     customChecks: e.preMergeCustomChecks.value,
     overrideRequestedReviewersOnly: e.preMergeOverrideReviewersOnly.value,
   }

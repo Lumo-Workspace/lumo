@@ -196,6 +196,7 @@ describe('.lumo.yaml', () => {
         requirements: 'Start with feat:, fix: or chore:',
       },
       description: { mode: 'error' },
+      issueAssessment: { mode: 'warning', taskDetailsOnPublicRepos: false },
       customChecks: [
         {
           name: 'Changelog',

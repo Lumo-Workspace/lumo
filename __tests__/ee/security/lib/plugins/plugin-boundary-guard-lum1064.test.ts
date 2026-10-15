@@ -247,6 +247,7 @@ describe('guard 2: core code does not touch the plugin tables (Q4 option A)', ()
       'projectPolicy',
       'prFindingThread',
       'prReviewLearning',
+      'prSecuritySummaryClaim',
     ])
     expect(tableRules.relationFields).toEqual(
       expect.arrayContaining([

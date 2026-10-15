@@ -139,6 +139,14 @@ export const preMergeChecksUpdateSchema = z
       .object({ mode: z.enum(PRE_MERGE_CHECK_MODES).optional() })
       .strict()
       .optional(),
+    // LUM-1149: the linked task / issue assessment.
+    issueAssessment: z
+      .object({
+        mode: z.enum(PRE_MERGE_CHECK_MODES).optional(),
+        taskDetailsOnPublicRepos: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
     // Replaces the list ([] clears it).
     customChecks: z
       .array(customPreMergeCheckSchema)

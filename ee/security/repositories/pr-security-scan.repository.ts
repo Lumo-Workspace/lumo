@@ -2465,6 +2465,47 @@ export const prSecurityScanRepository = {
     })
   },
 
+  /**
+   * LUM-1150 — claim the right to CREATE this PR's summary comment. Returns
+   * the claim's `claimedAt` (the holder's token for the release) when this
+   * caller won, null when a live claim is held elsewhere. The insert is the
+   * claim (the primary key lets exactly one of two concurrent callers in);
+   * a claim taken before `staleBefore` is abandoned and taken over by one
+   * conditional update.
+   */
+  async claimSummaryComment(
+    pullRequestId: string,
+    staleBefore: Date
+  ): Promise<Date | null> {
+    const claimedAt = new Date()
+    try {
+      await prisma.prSecuritySummaryClaim.create({
+        data: { pullRequestId, claimedAt },
+      })
+      return claimedAt
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'P2002') throw error
+    }
+    const { count } = await prisma.prSecuritySummaryClaim.updateMany({
+      where: { pullRequestId, claimedAt: { lt: staleBefore } },
+      data: { claimedAt },
+    })
+    return count === 1 ? claimedAt : null
+  },
+
+  /**
+   * LUM-1150 — give the summary claim back. Only the holder's own claim
+   * (same `claimedAt`) goes: one a later writer took over stays.
+   */
+  async releaseSummaryCommentClaim(
+    pullRequestId: string,
+    claimedAt: Date
+  ): Promise<void> {
+    await prisma.prSecuritySummaryClaim.deleteMany({
+      where: { pullRequestId, claimedAt },
+    })
+  },
+
   // ── LUM-745: managed-run ops ───────────────────────────────────────────────
 
   /**

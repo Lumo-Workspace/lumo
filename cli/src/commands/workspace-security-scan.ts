@@ -39,6 +39,9 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   titleRequirements?: string
   descriptionCheck?: string
   overrideReviewersOnly?: string
+  /** LUM-1149: the linked task / issue assessment. */
+  issueAssessment?: string
+  taskDetailsOnPublicRepos?: string
   /** LUM-1147: the per-repository review style. */
   profile?: string
   tone?: string
