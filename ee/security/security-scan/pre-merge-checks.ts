@@ -430,7 +430,8 @@ export function checksForHead(
 ): PreMergeChecksRecord | null {
   const record = parsePreMergeChecksRecord(raw)
   if (!record) return null
-  return record.headSha === '' || record.headSha === headSha ? record : null
+  // A record without its head is never read as this head's.
+  return record.headSha === headSha ? record : null
 }
 
 /** A per-PR override of the checks (`@<app> ignore pre-merge checks`). */

@@ -2275,7 +2275,6 @@ export const prSecurityScanRepository = {
     return others > 0
   },
 
-  /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */
   /** LUM-1148: the pre-merge checks' results on this scan's head (null clears). */
   async setPreMergeChecks(
     scanId: string,
@@ -2306,6 +2305,7 @@ export const prSecurityScanRepository = {
     })
   },
 
+  /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */
   async setRepoConfig(scanId: string, repoConfig: object): Promise<void> {
     await prisma.prSecurityScan.update({
       where: { id: scanId },

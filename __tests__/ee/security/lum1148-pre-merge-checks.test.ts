@@ -10,6 +10,7 @@ import {
   applyPreMergeChecksUpdate,
   blockingCheckCount,
   checkStatus,
+  checksForHead,
   customCheckId,
   formatPreMergeChecks,
   inconclusiveResults,
@@ -355,5 +356,14 @@ describe('summary block', () => {
     expect(md).toMatch(/1 ignored/)
     expect(md).toMatch(/overridden by evilx at `bbbbbbb`/)
     expect(md).not.toMatch(/@evil/)
+  })
+})
+
+describe('checksForHead', () => {
+  it('only the results of this head count — a record without a head never does', () => {
+    const r = rec([result()])
+    expect(checksForHead(r, r.headSha)).not.toBeNull()
+    expect(checksForHead(r, 'c'.repeat(40))).toBeNull()
+    expect(checksForHead({ ...r, headSha: undefined }, r.headSha)).toBeNull()
   })
 })
