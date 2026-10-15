@@ -51,6 +51,8 @@ import {
   DEFAULT_PRE_MERGE_CHECKS,
   type PreMergeChecksSetting,
 } from './pre-merge-checks'
+import type { PathInstruction } from './path-instructions'
+import { DEFAULT_REVIEW_PROFILE, type ReviewProfile } from './review-profile'
 
 /**
  * What an EMPTY `baseBranches` list reviews (user decision, 2026-10-15):
@@ -97,6 +99,12 @@ export interface RepoReviewSettingValues {
   pathFilters: string[]
   /** LUM-1148: the pre-merge checks (pre-merge-checks.ts). */
   preMergeChecks: PreMergeChecksSetting
+  /** LUM-1147: extra AI-review instructions per path glob. */
+  pathInstructions: PathInstruction[]
+  /** LUM-1147: which findings get inline comments (review-profile.ts). */
+  reviewProfile: ReviewProfile
+  /** LUM-1147: how the AI review words its findings; null = none. */
+  toneInstructions: string | null
 }
 
 /** No stored row = these. */
@@ -112,6 +120,9 @@ export const DEFAULT_REPO_REVIEW_SETTING: Readonly<RepoReviewSettingValues> =
     descriptionKeyword: null,
     pathFilters: [],
     preMergeChecks: DEFAULT_PRE_MERGE_CHECKS,
+    pathInstructions: [],
+    reviewProfile: DEFAULT_REVIEW_PROFILE,
+    toneInstructions: null,
   })
 
 /**

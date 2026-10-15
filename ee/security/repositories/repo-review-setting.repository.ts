@@ -1,37 +1,63 @@
-import { Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import {
   parseEmptyBaseBranchesMeans,
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
 import { parsePreMergeChecksSetting } from '@/ee/security/security-scan/pre-merge-checks'
+import { normalizePathInstructions } from '@/ee/security/security-scan/path-instructions'
+import { parseReviewProfile } from '@/ee/security/security-scan/review-profile'
+
+type StoredColumns =
+  | 'emptyBaseBranchesMeans'
+  | 'pathInstructions'
+  | 'reviewProfile'
+  | 'toneInstructions'
+  | 'preMergeChecks'
 
 /** The stored text / Json columns as the domain types. */
 function toDomain<
-  T extends { emptyBaseBranchesMeans: string; preMergeChecks: unknown },
+  T extends {
+    emptyBaseBranchesMeans: string
+    pathInstructions: unknown
+    reviewProfile: string
+    toneInstructions: string | null
+    preMergeChecks: unknown
+  },
 >(
   row: T
-): Omit<T, 'emptyBaseBranchesMeans' | 'preMergeChecks'> & {
-  emptyBaseBranchesMeans: RepoReviewSettingValues['emptyBaseBranchesMeans']
-  preMergeChecks: RepoReviewSettingValues['preMergeChecks']
-} {
+): Omit<T, StoredColumns> & Pick<RepoReviewSettingValues, StoredColumns> {
   return {
     ...row,
     emptyBaseBranchesMeans: parseEmptyBaseBranchesMeans(
       row.emptyBaseBranchesMeans
     ),
+    // LUM-1147: a Json column — anything malformed reads as no entry.
+    pathInstructions: normalizePathInstructions(row.pathInstructions),
+    reviewProfile: parseReviewProfile(row.reviewProfile),
+    toneInstructions: row.toneInstructions,
     // LUM-1148: null (never set) or malformed reads as the defaults.
     preMergeChecks: parsePreMergeChecksSetting(row.preMergeChecks),
   }
 }
 
-/** LUM-1148: the domain values as column data (the checks are Json). */
-function toColumns<T extends Partial<RepoReviewSettingValues>>(
-  values: T
-): Omit<T, 'preMergeChecks'> & { preMergeChecks?: Prisma.InputJsonValue } {
-  const { preMergeChecks, ...rest } = values
+/** The domain values as columns (the Json values as Prisma input). */
+function toColumns<V extends Partial<RepoReviewSettingValues>>(
+  values: V
+): Omit<V, 'pathInstructions' | 'preMergeChecks'> & {
+  pathInstructions?: Prisma.InputJsonValue
+  preMergeChecks?: Prisma.InputJsonValue
+} {
+  const { pathInstructions, preMergeChecks, ...rest } = values
   return {
     ...rest,
+    ...(pathInstructions !== undefined
+      ? {
+          pathInstructions:
+            pathInstructions as unknown as Prisma.InputJsonValue,
+        }
+      : {}),
+    // LUM-1148: the pre-merge checks are one Json value.
     ...(preMergeChecks !== undefined
       ? { preMergeChecks: preMergeChecks as unknown as Prisma.InputJsonValue }
       : {}),
@@ -50,6 +76,9 @@ const SETTING_SELECT = {
   descriptionKeyword: true,
   pathFilters: true,
   preMergeChecks: true,
+  pathInstructions: true,
+  reviewProfile: true,
+  toneInstructions: true,
 } as const
 
 /**
@@ -114,6 +143,33 @@ export const repoReviewSettingRepository = {
       select: { pathFilters: true },
     })
     return row?.pathFilters ?? []
+  },
+
+  /**
+   * LUM-1147: one workspace's review style for a repository (null = no
+   * stored row), for the scan worker's review input.
+   */
+  async findReviewStyle(
+    workspaceId: string,
+    repoLower: string
+  ): Promise<Pick<
+    RepoReviewSettingValues,
+    'pathInstructions' | 'reviewProfile' | 'toneInstructions'
+  > | null> {
+    const row = await prisma.repositoryReviewSetting.findUnique({
+      where: { workspaceId_repo: { workspaceId, repo: repoLower } },
+      select: {
+        pathInstructions: true,
+        reviewProfile: true,
+        toneInstructions: true,
+      },
+    })
+    if (!row) return null
+    return {
+      pathInstructions: normalizePathInstructions(row.pathInstructions),
+      reviewProfile: parseReviewProfile(row.reviewProfile),
+      toneInstructions: row.toneInstructions,
+    }
   },
 
   /** Every stored setting of one workspace. */

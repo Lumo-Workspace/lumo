@@ -29,6 +29,12 @@ export interface RepoReviewOptions extends ConfirmFlags {
   titleRequirements?: string
   descriptionCheck?: string
   overrideReviewersOnly?: string
+  /** LUM-1147 review style. */
+  profile?: string
+  /** "" clears. */
+  tone?: string
+  /** Repeatable `glob=instructions`; replaces the list, "" clears. */
+  pathInstruction?: string[]
   json?: boolean
   /** The switch flags of the same command — not combinable with --repo. */
   scan?: string
@@ -52,6 +58,10 @@ export interface RepoReviewSettingView {
   ignoreUsernames?: string[]
   descriptionKeyword?: string | null
   pathFilters?: string[]
+  /** LUM-1147 review style (absent from an older server). */
+  pathInstructions?: PathInstruction[]
+  reviewProfile?: ReviewProfile
+  toneInstructions?: string | null
   /** What an empty `baseBranches` reviews. */
   emptyBaseBranchesMeans?: 'all_branches' | 'default_branch_only'
   /** LUM-1148 (absent from an older server). */
@@ -92,6 +102,47 @@ export interface RepoReviewUpdate {
   descriptionKeyword?: string | null
   pathFilters?: string[]
   preMergeChecks?: PreMergeChecksChange
+  pathInstructions?: PathInstruction[]
+  reviewProfile?: ReviewProfile
+  toneInstructions?: string | null
+}
+
+export const REVIEW_PROFILES = ['quiet', 'chill', 'assertive'] as const
+export type ReviewProfile = (typeof REVIEW_PROFILES)[number]
+
+export interface PathInstruction {
+  path: string
+  instructions: string
+}
+
+/** LUM-1147: what each profile comments inline (mirrors the server). */
+const PROFILE_HELP: Record<ReviewProfile, string> = {
+  quiet:
+    'only HIGH and Done-blocking findings inline; MEDIUM listed in the summary',
+  chill: 'HIGH and MEDIUM findings inline; LOW one summary line',
+  assertive: 'every finding on a changed line inline, LOW too',
+}
+
+/**
+ * LUM-1147: repeated `glob=instructions` values; a lone "" (or only
+ * blanks) clears the list. The glob is everything before the first `=`.
+ */
+export function parsePathInstructions(
+  values: readonly string[]
+): PathInstruction[] {
+  const out: PathInstruction[] = []
+  for (const raw of values) {
+    if (raw.trim().length === 0) continue
+    const at = raw.indexOf('=')
+    const path = at > 0 ? raw.slice(0, at).trim() : ''
+    const instructions = at > 0 ? raw.slice(at + 1).trim() : ''
+    if (!path || !instructions)
+      throw new Error(
+        `--path-instruction takes glob=instructions (got "${raw}")`
+      )
+    out.push({ path, instructions })
+  }
+  return out
 }
 
 /** LUM-1143: the filter flags and the request field each one sets. */
@@ -112,7 +163,11 @@ function hasFilterFlag(opts: RepoReviewOptions): boolean {
   return (
     LIST_FLAGS.some(([key]) => opts[key] !== undefined) ||
     opts.descriptionKeyword !== undefined ||
-    hasChecksFlag(opts)
+    hasChecksFlag(opts) ||
+    // LUM-1147: the review style flags change the repository too.
+    opts.profile !== undefined ||
+    opts.tone !== undefined ||
+    opts.pathInstruction !== undefined
   )
 }
 
@@ -206,7 +261,7 @@ export function buildRepoReviewUpdate(
     hasFilterFlag(opts)
   if (change && !opts.repo) {
     throw new Error(
-      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only need --repo <owner/name>'
+      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --profile / --tone / --path-instruction need --repo <owner/name>'
     )
   }
   if (!change) return null
@@ -225,6 +280,20 @@ export function buildRepoReviewUpdate(
   }
   const checks = buildPreMergeChecksChange(opts)
   if (checks) update.preMergeChecks = checks
+  if (opts.profile !== undefined) {
+    const p = opts.profile.trim().toLowerCase()
+    if (!(REVIEW_PROFILES as readonly string[]).includes(p))
+      throw new Error(
+        `--profile takes ${REVIEW_PROFILES.join(', ')} (got "${opts.profile}")`
+      )
+    update.reviewProfile = p as ReviewProfile
+  }
+  if (opts.tone !== undefined) {
+    const t = opts.tone.trim()
+    update.toneInstructions = t.length > 0 ? t : null
+  }
+  if (opts.pathInstruction !== undefined)
+    update.pathInstructions = parsePathInstructions(opts.pathInstruction)
   return update
 }
 
@@ -318,6 +387,17 @@ export function formatRepoReviewFilters(r: RepoReviewSettingView): string[] {
   if (r.descriptionKeyword)
     lines.push(`  description keyword: ${sanitizeField(r.descriptionKeyword)}`)
   if (list(r.pathFilters)) lines.push(`  path filters: ${list(r.pathFilters)}`)
+  // LUM-1147: the review style (absent from an older server).
+  if (r.reviewProfile)
+    lines.push(
+      `  review profile: ${r.reviewProfile} (${PROFILE_HELP[r.reviewProfile] ?? ''})`
+    )
+  if (r.toneInstructions)
+    lines.push(`  tone: ${sanitizeField(r.toneInstructions)}`)
+  for (const p of r.pathInstructions ?? [])
+    lines.push(
+      `  path instruction: ${sanitizeField(p.path)} = ${sanitizeField(p.instructions).replace(/\s+/g, ' ')}`
+    )
   return lines
 }
 

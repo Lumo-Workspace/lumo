@@ -1583,6 +1583,14 @@ model RepositoryReviewSetting {
   /// overrideRequestedReviewersOnly } (ee/security/security-scan/
   /// pre-merge-checks.ts). null = the defaults.
   preMergeChecks      Json?
+  /// LUM-1147 — review style. `[{ path, instructions }]`: extra review
+  /// instructions for files matching `path` (glob), sent to the AI review.
+  pathInstructions    Json     @default("[]")
+  /// quiet | chill | assertive — which findings get inline comments
+  /// (ee/security/security-scan/review-profile.ts).
+  reviewProfile       String   @default("chill")
+  /// ≤250 chars: how the AI review words its findings. null = none.
+  toneInstructions    String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1836,6 +1844,10 @@ model PrSecurityScan {
   // results: [{ id, name, kind, mode, verdict, explanation, resolution }] }
   // (ee/security/security-scan/pre-merge-checks.ts). null = no check ran.
   preMergeChecks    Json?
+  // LUM-1147: the review profile in force when the scan ran (quiet | chill
+  // | assertive) — which findings the write-back comments inline. null =
+  // chill (rows from before this column).
+  reviewProfile     String?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1910,6 +1922,12 @@ model PrSecurityFinding {
   // validated against this head's added lines before it is stored. Model
   // output about customer code: scrubbed with the other code fields.
   codeSuggestion         Json?
+  // LUM-1150: when a PR write-back claimed this row's inline comment. Every
+  // writer of a scan (stage A, hunt, managed run, verifier) syncs it, often
+  // at the same moment; each claims a row before posting it, so only one of
+  // them posts. A claim older than the sync's TTL can be taken over (a
+  // writer that died between claiming and posting).
+  inlineCommentClaimedAt DateTime?
   createdAt              DateTime                      @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)

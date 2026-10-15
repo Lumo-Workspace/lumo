@@ -15,6 +15,7 @@ export type PrCommand =
   | 'resolve'
   | 'approve'
   | 'ignore pre-merge checks'
+  | 'configuration'
   | 'help'
 
 export interface ParsedPrCommand {
@@ -33,6 +34,7 @@ export const PR_COMMANDS: readonly PrCommand[] = [
   'approve',
   // LUM-1148: the per-PR override of the pre-merge checks.
   'ignore pre-merge checks',
+  'configuration',
   'help',
 ]
 

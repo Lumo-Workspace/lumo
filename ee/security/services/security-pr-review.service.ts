@@ -51,6 +51,13 @@ import {
   type RepoConfigNotice,
 } from '@/ee/security/security-scan/repo-config'
 import { formatRepoConfigNotice } from '@/ee/security/security-scan/repo-config-notice'
+import {
+  DEFAULT_REVIEW_PROFILE,
+  heldByProfile,
+  inlineEligibleUnder,
+  parseReviewProfile,
+  type ReviewProfile,
+} from '@/ee/security/security-scan/review-profile'
 import { REPO_CONFIG_PATH } from '@/ee/security/validation/repo-config'
 import {
   blockingCheckCount,
@@ -124,6 +131,13 @@ import {
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
 
+/**
+ * LUM-1150 — how long a write-back's claim on a finding's inline comment
+ * holds. A sync posts within seconds; a claim older than this belongs to a
+ * writer that died between claiming and posting, and is taken over.
+ */
+export const INLINE_CLAIM_TTL_MS = 5 * 60_000
+
 export const SUMMARY_MARKER = '<!-- lumo-security:summary -->'
 
 export const fingerprintMarker = (fp: string): string =>
@@ -153,7 +167,7 @@ export interface SyncResult {
   posted: boolean
   /** Inline comments posted by THIS sync. */
   inline: number
-  /** Open findings on added lines this sync did not post: already on the PR, over the cap, or lost to a 422. */
+  /** Open findings on added lines this sync did not post: already on the PR (or being posted by a concurrent sync), over the cap, or lost to a 422. */
   skipped: number
 }
 
@@ -231,13 +245,16 @@ export function buildReopenedNote(
   ].join('\n\n')
 }
 
-/** Would the write-back give this row an inline comment today (ignoring holds)? */
+/**
+ * Would the write-back give this row an inline comment today (ignoring
+ * holds)? LUM-1147: decided by the scan's review profile.
+ */
 function inlineEligible(
-  f: Pick<ReviewFindingRow, 'line' | 'severity' | 'suggestedDisposition'>
+  f: ReviewFindingRow,
+  policy: SecurityPolicy,
+  profile: ReviewProfile = DEFAULT_REVIEW_PROFILE
 ): boolean {
-  return (
-    f.line !== null && f.severity !== 'LOW' && f.suggestedDisposition == null
-  )
+  return inlineEligibleUnder(profile, f, policy)
 }
 
 /**
@@ -297,6 +314,8 @@ async function reconcileVerifierComments(input: {
     user: { type?: string; login?: string } | null
   }>
   policy: SecurityPolicy
+  /** LUM-1147 — the scan's review profile. */
+  profile: ReviewProfile
   repo: { owner: string; name: string }
   token: string
 }): Promise<void> {
@@ -315,7 +334,7 @@ async function reconcileVerifierComments(input: {
       if (c.body.includes(marker) && isRetractedComment(c.body))
         edits.push({
           id: c.id,
-          body: inlineEligible(f)
+          body: inlineEligible(f, input.policy, input.profile)
             ? buildInlineComment(f, input.policy)
             : buildReopenedNote(f),
         })
@@ -564,6 +583,39 @@ export interface SummaryInput {
    */
   preMergeChecks?: PreMergeChecksRecord | null
   preMergeOverride?: PreMergeChecksOverride | null
+  /** LUM-1147 — the scan's review profile; absent = chill (said nowhere). */
+  reviewProfile?: ReviewProfile
+  /**
+   * LUM-1147 — open findings the profile kept off the diff (quiet's MEDIUM
+   * ones): listed in the summary, folded. Absent/empty = no list.
+   */
+  profileHeld?: Array<
+    Pick<ReviewFindingRow, 'severity' | 'title' | 'filePath' | 'line'> &
+      Partial<Pick<ReviewFindingRow, 'kind'>>
+  >
+}
+
+/** LUM-1147 — how many held findings the summary lists by name. */
+export const PROFILE_HELD_MAX_LISTED = 25
+
+/**
+ * LUM-1147 — the findings the review profile kept off the diff, grouped in
+ * one folded list (title, file and line), so a quiet review still says
+ * what it found.
+ */
+export function profileHeldBlock(input: SummaryInput): string | null {
+  const held = input.profileHeld ?? []
+  if (held.length === 0) return null
+  const profile = input.reviewProfile ?? DEFAULT_REVIEW_PROFILE
+  const rows = held.slice(0, PROFILE_HELD_MAX_LISTED).map(f => {
+    const kind = findingKindLabel(f.kind)
+    const where = f.line !== null ? `${f.filePath}:${f.line}` : f.filePath
+    return `- **${f.severity}**${kind ? ` · ${kind}` : ''} — ${neutralizeSummaryText(f.title, 200)} — ${codePath(where)}`
+  })
+  const rest = held.length - rows.length
+  if (rest > 0) rows.push(`- and ${rest} more — shown in Lumo`)
+  const noun = held.length === 1 ? 'finding' : 'findings'
+  return `<details>\n<summary>${held.length} more ${noun} not commented on the diff (review profile: ${profile})</summary>\n\n${rows.join('\n')}\n\n</details>`
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -608,6 +660,8 @@ export function commandsBlock(handle: string, approve = false): string {
           ],
         ]
       : []),
+    // LUM-1153
+    ['configuration', 'show the effective review settings for this PR'],
   ].map(([c, what]) => `- \`${handle} ${c}\` — ${what}`)
   // LUM-1154: anything else addressed to Lumo is a question it answers.
   rows.push(
@@ -902,6 +956,8 @@ export function buildSummary(input: SummaryInput): string {
   // LUM-1146: an invalid / unreadable `.lumo.yaml` is never silently ignored.
   notices.push(...formatRepoConfigNotice(input.repoConfig, { code: codeText }))
   if (notices.length > 0) blocks.push(notices.join('\n'))
+  const held = profileHeldBlock(input)
+  if (held) blocks.push(held)
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
 
@@ -924,6 +980,10 @@ export function buildSummary(input: SummaryInput): string {
   ]
   if (input.repoConfig?.base.status === 'loaded')
     footer.push(`Settings: \`${REPO_CONFIG_PATH}\``)
+  // LUM-1147: a non-default profile is said, so fewer / more comments read
+  // as a choice.
+  if (input.reviewProfile && input.reviewProfile !== DEFAULT_REVIEW_PROFILE)
+    footer.push(`Review profile: ${input.reviewProfile}`)
   if (input.taskUrl) footer.push(`[Open in Lumo](${input.taskUrl})`)
   blocks.push(footer.join(' · '))
   blocks.push(SUMMARY_MARKER)
@@ -968,6 +1028,53 @@ export function commitUrlOf(repo: string, sha: string): string | null {
 function describe(error: unknown): string {
   if (error instanceof GithubApiError) return `${error.status} ${error.message}`
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * LUM-1150 — every writer of a scan syncs it (stage A, the hunt, the managed
+ * run, the verifier), and two of them finishing together both listed the PR's
+ * comments before either posted: the same finding went up twice. The marker
+ * check cannot see a comment that is still in flight, so each sync claims
+ * the rows it is about to post and posts only the ones it won.
+ *
+ * Fail-open: a claim store that cannot be reached posts them all, as before
+ * the claim existed — a missing comment is worse than a rare duplicate.
+ */
+async function claimForPosting(
+  rows: ReviewFindingRow[],
+  where: string
+): Promise<{ won: ReviewFindingRow[]; claimedIds: string[] }> {
+  if (rows.length === 0) return { won: [], claimedIds: [] }
+  try {
+    const won = await prSecurityScanRepository.claimInlineComments(
+      rows.map(f => f.id),
+      new Date(Date.now() - INLINE_CLAIM_TTL_MS)
+    )
+    const kept = rows.filter(f => won.has(f.id))
+    if (kept.length < rows.length)
+      logger.info(
+        `[security-pr-review] ${rows.length - kept.length} inline comment(s) claimed by a concurrent sync ${where}`
+      )
+    return { won: kept, claimedIds: kept.map(f => f.id) }
+  } catch (error) {
+    logger.warn(
+      `[security-pr-review] inline claim failed ${where}: ${describe(error)} — posting unclaimed`
+    )
+    return { won: rows, claimedIds: [] }
+  }
+}
+
+/** LUM-1150 — a post that did not land gives its claims back. Never throws. */
+async function releaseClaims(ids: string[], where: string): Promise<void> {
+  if (ids.length === 0) return
+  try {
+    await prSecurityScanRepository.releaseInlineCommentClaims(ids)
+  } catch (error) {
+    // The claims expire after INLINE_CLAIM_TTL_MS; a later sync posts then.
+    logger.warn(
+      `[security-pr-review] inline claim release failed ${where}: ${describe(error)}`
+    )
+  }
 }
 
 /**
@@ -1184,6 +1291,8 @@ export const securityPrReviewService = {
     let posted = false
     let inline = 0
     let skipped = 0
+    // LUM-1150: claims this sync holds on comments it has not posted yet.
+    let pendingClaims: string[] = []
     try {
       const token = await getRepoToken(
         pr.workspaceId,
@@ -1205,6 +1314,10 @@ export const securityPrReviewService = {
       // LUM-1130: the request-changes workflow (off by default).
       const requestChanges =
         pr.workspace?.securityRequestChangesEnabled === true
+      // LUM-1147: which findings this scan comments inline.
+      const profile = parseReviewProfile(scan.reviewProfile)
+      const isInline = (f: ReviewFindingRow) =>
+        inlineEligible(f, policy, profile)
 
       const reviewComments = await prCommentClient.listReviewComments({
         repo,
@@ -1229,6 +1342,7 @@ export const securityPrReviewService = {
         findings: scan.findings,
         open: unrejected,
         comments: reviewComments,
+        isInline,
       }
       const threads = await prFindingThreadService
         .reconcile(threadCtx)
@@ -1280,12 +1394,15 @@ export const securityPrReviewService = {
         open,
         comments: reviewComments,
         policy,
+        profile,
         repo,
         token,
       })
       // LUM-740: LOW rows and LLM-suggested false positives stay off the
       // diff — the summary carries one line for each group instead.
-      const lowRows = open.filter(f => f.severity === 'LOW')
+      // LUM-1147: a LOW row the profile comments inline (assertive, or one
+      // that blocks DONE) is not "shown in Lumo only".
+      const lowRows = open.filter(f => f.severity === 'LOW' && !isInline(f))
       const low = {
         count: lowRows.length,
         allDowngradedPaths: lowRows.every(f => isDowngradedPath(f.filePath)),
@@ -1310,16 +1427,15 @@ export const securityPrReviewService = {
       )
       // Only findings on a line this PR added can carry an inline comment;
       // the rest are still counted by the summary.
+      // LUM-1147: the review profile decides which (HIGH and blocking always).
       const candidates = open.filter(
         f =>
-          f.line !== null &&
-          f.severity !== 'LOW' &&
-          f.suggestedDisposition == null &&
+          isInline(f) &&
           !(holdExternal && f.provenance === 'EXTERNAL_TOOL') &&
           // Only rows the verifier may reject wait for it.
           !(holdJudge && f.provenance === 'LLM_JUDGE' && verifierAppliesTo(f))
       )
-      const selected = candidates
+      const unposted = candidates
         .filter(f => !existing.has(f.fingerprint))
         .sort(
           (a, b) =>
@@ -1327,7 +1443,12 @@ export const securityPrReviewService = {
             PROVENANCE_RANK[a.provenance] - PROVENANCE_RANK[b.provenance]
         )
         .slice(0, REVIEW_MAX_INLINE)
-      // Already on the PR, or over the cap and waiting for the next sync.
+      // LUM-1150: a concurrent sync of this scan may be posting some of them.
+      const claim = await claimForPosting(unposted, where)
+      const selected = claim.won
+      pendingClaims = claim.claimedIds
+      // Already on the PR (or being posted by a concurrent sync), or over the
+      // cap and waiting for the next sync.
       skipped = candidates.length - selected.length
 
       const summary = buildSummary({
@@ -1365,6 +1486,8 @@ export const securityPrReviewService = {
         repoConfig: parseRepoConfigNotice(scan.repoConfig),
         preMergeChecks: checksRecord,
         preMergeOverride: checksOverride,
+        reviewProfile: profile,
+        profileHeld: open.filter(f => heldByProfile(profile, f, policy)),
         prSummary: scan.prSummary,
         // LUM-849: the rows a reader acts on — LOW and suggested false
         // positives stay off the diff, so they stay off this line too.
@@ -1441,6 +1564,8 @@ export const securityPrReviewService = {
             review = await postReview(false)
           }
           inline = selected.length
+          // On the PR now: the markers guard it from here on.
+          pendingClaims = []
           // LUM-1127: give each new comment its thread row.
           if (review?.id)
             await prFindingThreadService.recordPosted(
@@ -1457,6 +1582,10 @@ export const securityPrReviewService = {
           // already out, so warn and let the next sync try again. Any other
           // error is unexpected and rethrown to the outer catch below.
           skipped += selected.length
+          // LUM-1150: none of them landed — the next sync must be able to
+          // claim them again.
+          await releaseClaims(pendingClaims, where)
+          pendingClaims = []
           if (error instanceof GithubApiError && error.status === 422) {
             logger.warn(
               `[security-pr-review] review rejected ${where}: ${describe(error)}`
@@ -1492,9 +1621,7 @@ export const securityPrReviewService = {
           failingChecks,
           unpostedActionable: open.filter(
             f =>
-              f.line !== null &&
-              f.severity !== 'LOW' &&
-              f.suggestedDisposition == null &&
+              isInline(f) &&
               !existing.has(f.fingerprint) &&
               !postedNow.has(f.fingerprint)
           ).length,
@@ -1515,6 +1642,8 @@ export const securityPrReviewService = {
       }
     } catch (error) {
       logger.warn(`[security-pr-review] ${where}: ${describe(error)}`)
+      // LUM-1150: failed between claiming and posting (e.g. the summary).
+      await releaseClaims(pendingClaims, where)
       return { posted, inline, skipped: posted ? skipped : 0 }
     }
     return { posted, inline, skipped }

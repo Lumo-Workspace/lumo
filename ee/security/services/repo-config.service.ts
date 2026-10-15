@@ -27,6 +27,7 @@ import {
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
 import {
+  REPO_CONFIG_FIELDS,
   diffTouchesRepoConfig,
   effectiveReviewConfig,
   fileStateOf,
@@ -184,6 +185,54 @@ export const repoConfigService = {
         prBranch,
       },
     }
+  },
+
+  /**
+   * LUM-1147 — the tone a PR chat answer is written in: `tone_instructions`
+   * from `.lumo.yaml` on the PR's base commit, else the repository's stored
+   * tone, else none. Never throws (any failure = the stored tone, or none).
+   */
+  async toneForPullRequest(input: {
+    workspaceId: string
+    repo: string
+    prNumber: number
+  }): Promise<string | null> {
+    let stored: string | null = null
+    try {
+      stored =
+        (
+          await repoReviewSettingRepository.findReviewStyle(
+            input.workspaceId,
+            input.repo.toLowerCase()
+          )
+        )?.toneInstructions ?? null
+    } catch (error) {
+      logger.warn(
+        `[repo-config] stored tone unavailable repo=${input.repo}: ${describe(error)}`
+      )
+    }
+    try {
+      const { fetchPrBase } = await github()
+      const base = await fetchPrBase({
+        workspaceId: input.workspaceId,
+        fullName: input.repo,
+        prNumber: input.prNumber,
+      })
+      const load = await repoConfigService.loadAt({
+        workspaceId: input.workspaceId,
+        repo: input.repo,
+        sha: base.sha,
+      })
+      if (load.status === 'loaded') {
+        const fromFile = REPO_CONFIG_FIELDS.toneInstructions.read(load.config)
+        if (fromFile !== undefined) return fromFile
+      }
+    } catch (error) {
+      logger.warn(
+        `[repo-config] PR base unavailable for tone ${input.repo}#${input.prNumber}: ${describe(error)}`
+      )
+    }
+    return stored
   },
 
   /**

@@ -13,6 +13,12 @@ import {
   applyPreMergeChecksUpdate,
   type PreMergeChecksUpdate,
 } from '@/ee/security/security-scan/pre-merge-checks'
+import {
+  normalizePathInstructions,
+  normalizeToneInstructions,
+  type PathInstruction,
+} from '@/ee/security/security-scan/path-instructions'
+import type { ReviewProfile } from '@/ee/security/security-scan/review-profile'
 
 /**
  * LUM-1133 — per-repository automatic review settings
@@ -51,6 +57,11 @@ export interface RepoReviewSettingsUpdate {
   pathFilters?: string[] | undefined
   /** LUM-1148: the pre-merge checks (a partial change). */
   preMergeChecks?: PreMergeChecksUpdate | undefined
+  /** LUM-1147 review style: the list replaces the stored one ([] clears). */
+  pathInstructions?: PathInstruction[] | undefined
+  reviewProfile?: ReviewProfile | undefined
+  /** '' or null clears. */
+  toneInstructions?: string | null | undefined
 }
 
 type SettingKey = keyof RepoReviewSettingValues
@@ -70,7 +81,14 @@ export function normalizeFilterList(list: readonly string[]): string[] {
 
 function sameValue(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b))
-    return a.length === b.length && a.every((v, i) => sameValue(v, b[i]))
+    return (
+      a.length === b.length &&
+      a.every((v, i) =>
+        typeof v === 'object' && v !== null
+          ? JSON.stringify(v) === JSON.stringify(b[i])
+          : v === b[i]
+      )
+    )
   // LUM-1148: the pre-merge checks are one structured value.
   if (
     a !== null &&
@@ -91,6 +109,7 @@ export function applyRepoReviewUpdate(
     ...from,
     autoReview: update.autoReview ?? from.autoReview,
     reviewDrafts: update.reviewDrafts ?? from.reviewDrafts,
+    reviewProfile: update.reviewProfile ?? from.reviewProfile,
   }
   for (const key of LIST_KEYS) {
     const next = update[key]
@@ -105,6 +124,10 @@ export function applyRepoReviewUpdate(
       from.preMergeChecks,
       update.preMergeChecks
     )
+  if (update.pathInstructions !== undefined)
+    to.pathInstructions = normalizePathInstructions(update.pathInstructions)
+  if (update.toneInstructions !== undefined)
+    to.toneInstructions = normalizeToneInstructions(update.toneInstructions)
   return to
 }
 

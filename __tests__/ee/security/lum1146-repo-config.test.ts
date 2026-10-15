@@ -87,12 +87,16 @@ describe('parseRepoConfig', () => {
 
   it('unknown keys are warnings, not errors (and are dropped)', () => {
     const r = parseRepoConfig(
-      'reviews:\n  profile: assertive\n  auto_review:\n    enabled: true\n    labelz: [x]\ntone: calm\n'
+      'reviews:\n  not_a_real_key: true\n  auto_review:\n    enabled: true\n    labelz: [x]\ntone: calm\n'
     )
     expect(r).toEqual({
       ok: true,
       config: { reviews: { auto_review: { enabled: true } } },
-      unknownKeys: ['reviews.profile', 'reviews.auto_review.labelz', 'tone'],
+      unknownKeys: [
+        'reviews.not_a_real_key',
+        'reviews.auto_review.labelz',
+        'tone',
+      ],
     })
   })
 

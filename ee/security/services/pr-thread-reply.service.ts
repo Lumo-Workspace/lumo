@@ -37,10 +37,6 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { memoryManagementService } from '@/lib/services/memory-management.service'
 import { conventionContentSchema } from '@/lib/memory/schemas'
 import {
-  guardInjectedText,
-  guardPromptLineText,
-} from '@/lib/security-scan/inject-guard'
-import {
   prFindingThreadRepository,
   type FindingThreadRow,
 } from '@/ee/security/repositories/pr-finding-thread.repository'
@@ -59,6 +55,7 @@ import {
 } from '@/ee/security/services/pr-finding-thread.service'
 import {
   buildAckReply,
+  buildClassifierInput,
   buildLearningReply,
   buildScannerReply,
   canTeach,
@@ -135,15 +132,7 @@ async function askModel(
   try {
     const { classifyThreadReply } =
       await import('@/ee/security/llm/thread-reply-client')
-    const guarded = guardInjectedText(body)
-    const input = {
-      finding: {
-        ruleId: guardPromptLineText(finding.ruleId),
-        title: guardPromptLineText(finding.title),
-        filePath: guardPromptLineText(finding.filePath),
-      },
-      reply: { text: guarded.text, notices: guarded.notices },
-    }
+    const input = buildClassifierInput(finding, body)
     const result = await classifyWithRetry((timeoutMs, attempt) =>
       classifyThreadReply({
         ...input,

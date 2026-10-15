@@ -28,11 +28,42 @@ reviews:
         mode: warning
         instructions: User-facing changes update CHANGELOG.md. # ≤ 1000
     override_requested_reviewers_only: true # never the PR author
+  profile: chill # quiet | chill | assertive — which findings get inline comments
+  path_instructions: # extra AI review checks for matching files
+    - path: 'scripts/**'
+      instructions: Flag any console.log.
+tone_instructions: Be concise and friendly. # wording of the AI review and PR answers, ≤250 chars
 ```
 
 Every key is optional. The keys mean exactly what the same per-repository review
 settings mean in Lumo (the settings card and `lumo workspace security-scan
 --repo`).
+
+## Review style (`profile`, `path_instructions`, `tone_instructions`)
+
+- `reviews.profile` changes **posting only** — detection, severities, the
+  summary's counts and what blocks DONE are the same in every profile:
+  - `chill` (default): HIGH and MEDIUM findings get an inline comment; LOW
+    ones are one summary line.
+  - `quiet`: only HIGH findings get an inline comment; MEDIUM ones are listed
+    in a folded block of the summary.
+  - `assertive`: LOW findings get an inline comment too.
+
+  In every profile a HIGH finding and a finding that blocks DONE are commented
+  inline. The profile in force is stored on the scan, so the comments follow
+  the settings the review ran with.
+
+- `reviews.path_instructions` — up to 20 `{ path, instructions }` entries (glob
+  ≤200 characters, same syntax as `path_filters`; instructions ≤1,000). Only
+  entries whose glob matches a file the AI review reads go into its prompt,
+  at most 4,000 characters per review, paid for out of the review's context
+  budget (like learnings). They are fenced, guarded prompt text: they add
+  checks to the AI review and cannot switch a layer off, approve, clear a
+  finding or change what blocks DONE.
+- `tone_instructions` (top level, ≤250 characters): how the AI review words its
+  finding titles, details and PR description, and how Lumo words its answers to
+  questions on the PR. Wording only. Lumo's fixed notes (learning
+  acknowledgements, command replies) do not change.
 
 ## Precedence
 
@@ -45,7 +76,9 @@ For each key, the first of these that sets it wins:
 An explicit empty list (`labels: []`) or `null` in the file counts as set: it
 overrides the stored setting. A key the file leaves out falls through.
 `repoConfigService.effective()` returns every key's value together with where it
-came from (`file`, `repository`, `default`).
+came from (`file`, `repository`, `default`). On a PR, comment
+`@uselumo configuration` (write access required) to see them — with the
+workspace switches — as that PR's review applies them.
 
 Workspace-level switches (scanning on/off, request changes, learnings scope) are
 not read from the file. PRs linked to a Lumo task are always scanned whatever

@@ -2,8 +2,11 @@ import { z } from 'zod'
 import { baseBranchRegExp } from '@/ee/security/security-scan/auto-review-policy'
 import { invalidPathFilter } from '@/ee/security/security-scan/reviewable-path'
 import {
+  pathInstructionEntrySchema,
   REVIEW_FILTER_MAX_ENTRIES,
   REVIEW_FILTER_MAX_ENTRY_CHARS,
+  reviewProfileSchema,
+  toneInstructionsSchema,
 } from './security-scan-settings'
 import {
   PRE_MERGE_CHECK_INSTRUCTIONS_MAX,
@@ -11,6 +14,7 @@ import {
   PRE_MERGE_CHECK_NAME_MAX,
   PRE_MERGE_CUSTOM_CHECKS_MAX,
 } from '@/ee/security/security-scan/pre-merge-checks'
+import { PATH_INSTRUCTIONS_MAX_ENTRIES } from '@/ee/security/security-scan/path-instructions'
 
 /**
  * LUM-1146 — the repository config file (`.lumo.yaml` at the repository
@@ -175,6 +179,22 @@ export const reviewsConfigSchema = z
         'Globs for the files the AI review reads: `!glob` excludes; once any `glob` is listed, only matching files are reviewed.'
       ),
     pre_merge_checks: preMergeChecksConfigSchema.optional(),
+    profile: reviewProfileSchema
+      .optional()
+      .describe(
+        'Which findings get inline comments: `quiet` = only HIGH and Done-blocking ones (MEDIUM listed in the summary), `chill` (default) = HIGH and MEDIUM, `assertive` = LOW too. Detection and what blocks DONE are the same in every profile.'
+      ),
+    path_instructions: z
+      .array(
+        pathInstructionEntrySchema.describe(
+          'Extra instructions for the AI review of files matching `path`.'
+        )
+      )
+      .max(PATH_INSTRUCTIONS_MAX_ENTRIES)
+      .optional()
+      .describe(
+        'Review instructions per path glob, added to the AI review of matching files (on top of its built-in review; they cannot turn a check off).'
+      ),
   })
   .describe('Code review settings.')
 
@@ -185,6 +205,11 @@ export const repoConfigSchema = z
       .optional()
       .describe('Schema version of this file. Currently 1.'),
     reviews: reviewsConfigSchema.optional(),
+    tone_instructions: toneInstructionsSchema
+      .optional()
+      .describe(
+        'How the AI review words its findings and PR description, and how Lumo words its answers on the PR (at most 250 characters), e.g. "Be concise and friendly". Changes wording only, never what is reported.'
+      ),
   })
   .describe(
     'Lumo repository configuration (.lumo.yaml). Read from the base branch of each pull request.'
