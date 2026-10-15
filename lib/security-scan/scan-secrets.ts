@@ -19,6 +19,7 @@ import {
   type SecretPattern,
 } from './secret-patterns'
 import {
+  maskQuotedCommandArgs,
   maskQuotedCredentials,
   maskQuotedKeyedValues,
   maskQuotedValues,
@@ -425,6 +426,18 @@ export function redactFindingText(input: string): string {
  */
 export function redactSummaryText(input: string): string {
   return redactThenMaskQuotes(input, maskQuotedKeyedValues)
+}
+
+/**
+ * LUM-1200 follow-up #3 — `redactKnownSecrets` for a shell command a model
+ * ran (the hunt's `rg` / `grep` calls). Identical registry pass and
+ * truncation red line; the final quoted-span pass is `maskQuotedCommandArgs`,
+ * which keeps search patterns that merely name an identifier
+ * (`"export function checkSessionToken"`) and masks a quoted argument that is
+ * credential-shaped, beside a registry hit, or a credential key's value.
+ */
+export function redactShellCommand(input: string): string {
+  return redactThenMaskQuotes(input, maskQuotedCommandArgs)
 }
 
 function redactThenMaskQuotes(

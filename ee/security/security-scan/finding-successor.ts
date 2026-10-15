@@ -21,13 +21,23 @@
  *     kind (same rule, or overlapping issue classes — `classMatch` `exact`)
  *     or carry a similar title; or
  *   · they sit within `SUCCESSOR_LINE_WINDOW` lines of each other and carry a
- *     similar title.
+ *     similar title; or
+ *   · they come from different layers (AI review ↔ exploit-path hunt) with
+ *     related classes and sit within `SUCCESSOR_LINE_WINDOW` lines of each
+ *     other — no title needed (LUM-1200 follow-up #3).
  *
  * Comparable layers: the same layer (AI review / exploit-path hunt), or the
  * other layer with related classes (`classMatch`: overlapping, or a broad
- * hunt category such as `hunt:logic`, which never counts as the same kind
- * and so always needs a similar title). LUM-1200 groups the two layers'
- * reports of one issue with this same score (`groupSameIssue`).
+ * hunt category such as `hunt:logic`). Across layers the title is not
+ * compared: the hunt states an exploit as a long sentence and the AI review
+ * names the issue in a few words, so they share two words at best
+ * (production, probe PR 65: "Unauthenticated session creation for any user
+ * name" at `src/server.ts:41` and the hunt's 15-word claim at L42 opened two
+ * threads; probe PR 66: `DISCOUNTS[code]` at L7 / L6). Within one layer the
+ * title still decides — one layer can report two distinct issues on
+ * adjacent lines. LUM-1200 groups the two layers' reports of one issue with
+ * this same score (`groupSameIssue`), and keeps a thread open while the
+ * other layer still reports its issue (`stillReportedElsewhere`).
  * Each earlier finding is matched to at most one current finding and vice
  * versa, best match first.
  */
@@ -55,7 +65,10 @@ export interface FindingIdentity {
   titleTokens?: readonly string[]
 }
 
-/** Lines apart two findings may sit and still be one issue (with a similar title). */
+/**
+ * Lines apart two findings may sit and still be one issue (inclusive): with
+ * a similar title, or — across layers — with related classes.
+ */
 export const SUCCESSOR_LINE_WINDOW = 3
 
 /** Title-word overlap (Jaccard) from which two titles describe one issue. */
@@ -246,7 +259,11 @@ export function sameIssueScore(
   const similar = similarity >= SUCCESSOR_TITLE_SIMILARITY
   const sameKind = sameRule || classes === 'exact'
 
-  const match = (sameCode && (sameKind || similar)) || (near && similar)
+  // Different layers and related classes (checked above) on near lines.
+  const crossLayerNear = layer(prev.ruleId) !== layer(next.ruleId) && near
+
+  const match =
+    (sameCode && (sameKind || similar)) || (near && similar) || crossLayerNear
   if (!match) return null
   return (
     (sameEvidence ? 4 : 0) +

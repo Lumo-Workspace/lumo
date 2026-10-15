@@ -227,7 +227,9 @@ describe('sameIssueScore — broad hunt category (LUM-1200 follow-up)', () => {
       )
     ).not.toBeNull()
   })
-  it('hunt:logic on the same line with an unrelated title is not', () => {
+  // LUM-1200 follow-up #3 — across the two layers a related class within the
+  // line window is enough; the title is no longer compared there.
+  it('hunt:logic on the same line with an unrelated title is the same issue across layers', () => {
     expect(
       sameIssueScore(
         judge,
@@ -239,7 +241,110 @@ describe('sameIssueScore — broad hunt category (LUM-1200 follow-up)', () => {
           evidence: null,
         })
       )
+    ).not.toBeNull()
+  })
+})
+
+// LUM-1200 follow-up #3 — production TC9 (lumo-agent-test#65 / #66): the
+// hunt's long exploit claim one line from the AI review's short title shared
+// about two words, so it opened its own thread and that thread was later
+// marked addressed on the same head while the AI review still reported it.
+describe('sameIssueScore — cross-layer pairs need no similar title (LUM-1200 follow-up #3)', () => {
+  const judgeAuth = id({
+    fingerprint: 'judge-auth',
+    ruleId: 'vuln:auth_bypass',
+    filePath: 'src/server.ts',
+    line: 41,
+    title: 'Unauthenticated session creation for any user name',
+    evidence:
+      "const s = createSession(url.searchParams.get('user') ?? '', now)",
+  })
+  const huntAuth = id({
+    fingerprint: 'hunt-auth',
+    ruleId: 'hunt:logic',
+    filePath: 'src/server.ts',
+    line: 42,
+    title:
+      'Sessions are created for any arbitrary username without authentication, allowing unauthorized access by specifying any username',
+    evidence: null,
+  })
+  const judgeProto = id({
+    fingerprint: 'judge-proto',
+    ruleId: 'vuln:authz_logic',
+    filePath: 'src/probe/order.ts',
+    line: 7,
+    title: 'Discount lookup on plain object reads prototype properties',
+    evidence: 'const percent = DISCOUNTS[code];',
+  })
+  const huntProto = id({
+    fingerprint: 'hunt-proto',
+    ruleId: 'hunt:logic',
+    filePath: 'src/probe/order.ts',
+    line: 6,
+    title:
+      'Inherited property access in DISCOUNTS[code] lookup bypasses discount validation, allowing non-numeric truthy values to corrupt order total arithmetic',
+    evidence: null,
+  })
+
+  it('the titles alone are not similar (the production shape)', () => {
+    expect(titleSimilarity(judgeAuth.title, huntAuth.title)).toBeLessThan(0.5)
+    expect(titleSimilarity(judgeProto.title, huntProto.title)).toBeLessThan(0.5)
+  })
+
+  it.each([
+    ['#65 auth_bypass L41 / hunt L42', judgeAuth, huntAuth],
+    ['#66 authz_logic L7 / hunt L6', judgeProto, huntProto],
+    [
+      'a broad class three lines away (the window edge)',
+      id({ ...judgeAuth, ruleId: 'vuln:weak_crypto' }),
+      { ...huntAuth, line: 44 },
+    ],
+  ])('%s is the same issue, in either direction', (_l, judge, hunt) => {
+    expect(sameIssueScore(judge, hunt)).not.toBeNull()
+    expect(sameIssueScore(hunt, judge)).not.toBeNull()
+  })
+
+  it.each([
+    ['four lines away', { ...huntAuth, line: 45 }],
+    [
+      'another file',
+      { ...huntAuth, filePath: 'src/services/session-store.ts' },
+    ],
+    ['an unrelated hunt class', { ...huntAuth, ruleId: 'hunt:ssrf' }],
+    ['no line', { ...huntAuth, line: null, evidence: null }],
+  ])('is not the same issue across %s', (_l, hunt) => {
+    expect(sameIssueScore(judgeAuth, hunt)).toBeNull()
+  })
+
+  it('within one layer a nearby line still needs a similar title', () => {
+    expect(
+      sameIssueScore(judgeAuth, {
+        ...judgeAuth,
+        fingerprint: 'judge-other',
+        ruleId: 'vuln:auth_bypass',
+        line: 42,
+        title: 'Session check accepts tokens from the query string',
+        evidence: 'other',
+      })
     ).toBeNull()
+    expect(
+      sameIssueScore(huntAuth, {
+        ...huntAuth,
+        fingerprint: 'hunt-other',
+        line: 43,
+        title: 'Refund endpoint skips the order state machine',
+      })
+    ).toBeNull()
+  })
+
+  it('holds on the stored (hashed) identities too', () => {
+    const key = 'k'
+    expect(
+      sameIssueScore(
+        hashIdentity(judgeProto, key),
+        hashIdentity(huntProto, key)
+      )
+    ).not.toBeNull()
   })
 })
 

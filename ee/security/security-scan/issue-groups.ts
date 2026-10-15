@@ -9,8 +9,10 @@
  * PR 60, `hunt:logic` at L13 / L20 beside the AI review's L14 / L19). This
  * module decides which findings are the same issue — the same file, and the
  * same issue as `sameIssueScore` (finding-successor.ts) reads it: the same
- * line with a compatible class, or a line within its
- * window with a similar title — and which one of them keeps the thread.
+ * line with a compatible class, a line within its window with a similar
+ * title, or — across the two layers — a line within its window with a
+ * compatible class (LUM-1200 follow-up #3) — and which one of them keeps the
+ * thread.
  *
  * It is a grouping key computed at write-back time, NOT a fingerprint change:
  * threads, learnings, auto-resolve and reopen stay keyed on each finding's
@@ -31,10 +33,14 @@
  * neither blocks DONE nor is more severe — the LUM-1127 carry rule.
  */
 import {
+  SUCCESSOR_LINE_WINDOW,
   sameIssueScore,
   type FindingIdentity,
 } from '@/ee/security/security-scan/finding-successor'
-import { issueClasses } from '@/ee/security/security-scan/issue-classes'
+import {
+  classMatch,
+  issueClasses,
+} from '@/ee/security/security-scan/issue-classes'
 
 export {
   classMatch,
@@ -230,6 +236,12 @@ export function groupSameIssue<F extends GroupableFinding>(
  * other layer (the issue's group). Two AI-review threads of one issue stay
  * the LUM-1127 rule: the one whose finding is gone is addressed. `current`
  * must hold only findings still reported (not verifier-rejected).
+ *
+ * The other layer's report needs no similar title — a compatible class within
+ * the line window is enough, as for grouping (LUM-1200 follow-up #3:
+ * production, probe PR 65, the hunt's thread at `src/server.ts:42` was marked
+ * addressed on the same head while the AI review still reported the issue
+ * at L41).
  */
 export function stillReportedElsewhere(
   prev: FindingIdentity,
@@ -241,4 +253,52 @@ export function stillReportedElsewhere(
       (layer(prev) === 'hunt' || layer(c) !== layer(prev)) &&
       sameIssueScore(prev, c) !== null
   )
+}
+
+/** How far past `SUCCESSOR_LINE_WINDOW` a cross-layer pair is still reported as a near miss. */
+export const CROSS_LAYER_NEAR_MISS_LINES = 10
+
+export interface CrossLayerNearMiss {
+  judgeRuleId: string
+  huntRuleId: string
+  distance: number
+}
+
+/**
+ * LUM-1200 follow-up #3 — AI-review / hunt pairs in one file with related
+ * classes that sit just outside the same-issue window (more than
+ * `SUCCESSOR_LINE_WINDOW`, at most `CROSS_LAYER_NEAR_MISS_LINES` lines
+ * apart), so they keep two threads. Production (probe PR 66): the hunt's
+ * `orderTotal` report at L20 beside the AI review's `parseQuantity` at L13.
+ * Not grouped — reported only, so the window can be tuned on real pairs.
+ * A hunt finding already grouped with the AI review is left out.
+ */
+export function crossLayerNearMisses(
+  findings: readonly GroupableFinding[],
+  mergedInto: ReadonlyMap<string, string>
+): CrossLayerNearMiss[] {
+  const out: CrossLayerNearMiss[] = []
+  const llm = findings.filter(
+    f => f.provenance === 'LLM_JUDGE' && f.line !== null
+  )
+  for (const h of llm) {
+    if (layer(h) !== 'hunt') continue
+    for (const j of llm) {
+      if (layer(j) !== 'judge' || j.filePath !== h.filePath) continue
+      if (
+        mergedInto.get(h.fingerprint) === j.fingerprint ||
+        mergedInto.get(j.fingerprint) === h.fingerprint
+      )
+        continue
+      const distance = Math.abs(j.line! - h.line!)
+      if (
+        distance <= SUCCESSOR_LINE_WINDOW ||
+        distance > CROSS_LAYER_NEAR_MISS_LINES ||
+        classMatch(j.ruleId, h.ruleId) === null
+      )
+        continue
+      out.push({ judgeRuleId: j.ruleId, huntRuleId: h.ruleId, distance })
+    }
+  }
+  return out
 }

@@ -5,7 +5,9 @@
  */
 import {
   classMatch,
+  crossLayerNearMisses,
   groupSameIssue,
+  stillReportedElsewhere,
   issueClasses,
   type GroupableFinding,
 } from '@/ee/security/security-scan/issue-groups'
@@ -142,11 +144,18 @@ describe('groupSameIssue', () => {
 
   it.each([
     ['another line beyond the window', hunt({ line: 9 })],
-    ['a nearby line with an unrelated title', hunt({ line: 6 })],
     ['another file', hunt({ filePath: 'src/probe/store.ts' })],
     ['no line', hunt({ line: null })],
     ['a different class', hunt({ ruleId: 'hunt:ssrf' })],
     ['the same layer', f({ fingerprint: 'judge-2', ruleId: 'vuln:xss' })],
+    [
+      'the same layer on a nearby line with an unrelated title',
+      f({
+        fingerprint: 'judge-2',
+        line: 6,
+        title: 'Exit code of the spawned process is ignored',
+      }),
+    ],
   ])('does not group across %s', (_label, other) => {
     expect(groupSameIssue([f(), other], none).mergedInto.size).toBe(0)
   })
@@ -286,7 +295,9 @@ describe('groupSameIssue', () => {
       expect(open.mergedInto.get('hunt-crypto')).toBe('judge-crypto')
     })
 
-    it('a broad hunt category needs a similar title, even on the same line', () => {
+    // LUM-1200 follow-up #3 — across the layers a related class (a broad one
+    // included) within the line window is enough; the title is not compared.
+    it('a broad hunt category on a nearby line joins without a similar title', () => {
       const g = groupSameIssue(
         [
           judgeCrypto,
@@ -299,7 +310,7 @@ describe('groupSameIssue', () => {
         ],
         none
       )
-      expect(g.mergedInto.size).toBe(0)
+      expect(g.mergedInto.get('hunt-other')).toBe('judge-crypto')
     })
   })
 
@@ -410,5 +421,188 @@ describe('groupSameIssue', () => {
       })
       expect(g.mergedInto.has('hunt-proto')).toBe(false)
     })
+  })
+})
+
+// LUM-1200 follow-up #3 — production TC9 (lumo-agent-test#65 / #66): a hunt
+// report one line from the AI review's report of the same issue opened a
+// second thread, because the hunt's long claim and the AI review's short
+// title share about two words. Across the layers a related class within
+// the line window is now enough.
+describe('cross-layer pairs need no similar title (LUM-1200 follow-up #3)', () => {
+  const judgeAuth = f({
+    fingerprint: 'judge-auth',
+    ruleId: 'vuln:auth_bypass',
+    filePath: 'src/server.ts',
+    line: 41,
+    title: 'Unauthenticated session creation for any user name',
+  })
+  const huntAuth = f({
+    fingerprint: 'hunt-auth',
+    ruleId: 'hunt:logic',
+    filePath: 'src/server.ts',
+    line: 42,
+    title:
+      'Sessions are created for any arbitrary username without authentication, allowing unauthorized access by specifying any username',
+  })
+  const judgeProto = f({
+    fingerprint: 'judge-proto',
+    ruleId: 'vuln:authz_logic',
+    severity: 'MEDIUM',
+    filePath: 'src/probe/order.ts',
+    line: 7,
+    title: 'Discount lookup on plain object reads prototype properties',
+  })
+  const huntProto = f({
+    fingerprint: 'hunt-proto',
+    ruleId: 'hunt:logic',
+    severity: 'MEDIUM',
+    filePath: 'src/probe/order.ts',
+    line: 6,
+    title:
+      'Inherited property access in DISCOUNTS[code] lookup bypasses discount validation, allowing non-numeric truthy values to corrupt order total arithmetic',
+  })
+
+  it.each([
+    ['#65 r1: auth_bypass L41 / hunt L42', judgeAuth, huntAuth],
+    ['#66 r6: authz_logic L7 / hunt L6', judgeProto, huntProto],
+  ])('%s: the hunt report joins the AI review thread', (_l, judge, h) => {
+    for (const posted of [new Set<string>(), new Set([judge.fingerprint])]) {
+      const g = groupSameIssue([judge, h], { ...none, posted })
+      expect(Object.fromEntries(g.mergedInto)).toEqual({
+        [h.fingerprint]: judge.fingerprint,
+      })
+    }
+  })
+
+  it('applies up to the window edge (3 lines), not past it', () => {
+    expect(
+      groupSameIssue([judgeAuth, { ...huntAuth, line: 44 }], none).mergedInto
+        .size
+    ).toBe(1)
+    expect(
+      groupSameIssue([judgeAuth, { ...huntAuth, line: 45 }], none).mergedInto
+        .size
+    ).toBe(0)
+  })
+
+  it('two hunt reports that both qualify are both listed in the one AI review thread', () => {
+    const second = f({
+      ...huntProto,
+      fingerprint: 'hunt-proto-2',
+      line: 7,
+      title:
+        'Prototype pollution via unvalidated discount code lookup: passing __proto__ resolves Object prototype properties',
+    })
+    const g = groupSameIssue([judgeProto, huntProto, second], {
+      ...none,
+      posted: new Set(['judge-proto']),
+    })
+    expect(g.mergedInto.get('hunt-proto')).toBe('judge-proto')
+    expect(g.mergedInto.get('hunt-proto-2')).toBe('judge-proto')
+    expect(
+      (g.mergedOf.get('judge-proto') ?? []).map(x => x.fingerprint).sort()
+    ).toEqual(['hunt-proto', 'hunt-proto-2'])
+  })
+
+  it('never merges two AI-review findings through a hunt finding between them', () => {
+    const judgeA = f({
+      fingerprint: 'judge-a',
+      ruleId: 'vuln:auth_bypass',
+      filePath: 'src/server.ts',
+      line: 40,
+      title: 'Unauthenticated session creation for any user name',
+    })
+    const judgeB = f({
+      fingerprint: 'judge-b',
+      ruleId: 'review:logic_error',
+      filePath: 'src/server.ts',
+      line: 44,
+      title: 'Session expiry check is bypassed by OR condition',
+    })
+    const bridge = f({
+      fingerprint: 'hunt-bridge',
+      ruleId: 'hunt:logic',
+      filePath: 'src/server.ts',
+      line: 42,
+      title: 'An attacker can obtain a session without credentials',
+    })
+    for (const severityOfHunt of ['HIGH', 'MEDIUM'] as const)
+      for (const posted of [
+        new Set<string>(),
+        new Set(['judge-a', 'judge-b']),
+      ]) {
+        const g = groupSameIssue(
+          [
+            { ...judgeA, severity: 'MEDIUM' as const },
+            { ...judgeB, severity: 'MEDIUM' as const },
+            { ...bridge, severity: severityOfHunt },
+          ],
+          { ...none, posted }
+        )
+        const judgeKept = new Set(
+          ['judge-a', 'judge-b'].map(x => g.mergedInto.get(x) ?? x)
+        )
+        // The two AI-review findings never end up under one thread.
+        expect(judgeKept.size).toBe(2)
+      }
+  })
+
+  it('a hunt thread is still reported while the AI review reports its issue a line away', () => {
+    const id = (x: GroupableFinding) => ({ ...x, evidence: null })
+    expect(stillReportedElsewhere(id(huntAuth), [id(judgeAuth)])).toBe(true)
+    expect(stillReportedElsewhere(id(huntProto), [id(judgeProto)])).toBe(true)
+    // …and the AI review thread while the hunt reports it.
+    expect(stillReportedElsewhere(id(judgeAuth), [id(huntAuth)])).toBe(true)
+    expect(
+      stillReportedElsewhere(id(huntAuth), [id({ ...judgeAuth, line: 46 })])
+    ).toBe(false)
+  })
+})
+
+describe('crossLayerNearMisses (LUM-1200 follow-up #3)', () => {
+  // Production (#66 r4): the hunt's orderTotal report at L20 beside the AI
+  // review's parseQuantity at L13 — outside the window, kept apart, logged.
+  const judgeParse = f({
+    fingerprint: 'judge-parse',
+    ruleId: 'review:logic_error',
+    severity: 'MEDIUM',
+    filePath: 'src/probe/order.ts',
+    line: 13,
+    title:
+      'parseQuantity returns unvalidated JSON.parse result typed as number',
+  })
+  const huntTotal = f({
+    fingerprint: 'hunt-total',
+    ruleId: 'hunt:logic',
+    filePath: 'src/probe/order.ts',
+    line: 20,
+    title:
+      'orderTotal uses the unvalidated result from parseQuantity in arithmetic (quantity * unitPrice), allowing NaN or boolean coercion to skip price calculations and manipulate order totals',
+  })
+
+  it('reports a related pair just outside the window, which is not grouped', () => {
+    const g = groupSameIssue([judgeParse, huntTotal], none)
+    expect(g.mergedInto.size).toBe(0)
+    expect(crossLayerNearMisses([judgeParse, huntTotal], g.mergedInto)).toEqual(
+      [
+        {
+          judgeRuleId: 'review:logic_error',
+          huntRuleId: 'hunt:logic',
+          distance: 7,
+        },
+      ]
+    )
+  })
+
+  it.each([
+    ['inside the window', { line: 15 }],
+    ['far away', { line: 40 }],
+    ['an unrelated class', { ruleId: 'hunt:ssrf' }],
+    ['another file', { filePath: 'src/probe/cart.ts' }],
+  ])('leaves out a pair %s', (_l, over) => {
+    const h = { ...huntTotal, ...over }
+    const g = groupSameIssue([judgeParse, h], none)
+    expect(crossLayerNearMisses([judgeParse, h], g.mergedInto)).toEqual([])
   })
 })

@@ -5,6 +5,7 @@ export {
   redactKnownSecrets,
   redactFindingText,
   redactSummaryText,
+  redactShellCommand,
   redactForInjection,
   redactForStorage,
   redactPrivateKeyBlocks,
