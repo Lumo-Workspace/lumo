@@ -417,7 +417,7 @@ export const REVIEW_LEARNINGS_MAX_ITEMS = 12
 export const REVIEW_LEARNINGS_MAX_CHARS = 4_000
 
 /**
- * CodeRabbit parity (LUM-1131 decision): a learning from a reply on an open
+ * Learnings scope (LUM-1131 decision): a learning from a reply on an open
  * PR applies only to that PR's reviews; once the source PR merges (into any
  * branch) it applies to the whole repository. Closed without merging, it
  * stays with that PR. "Merged" is read from the stored promotion OR the

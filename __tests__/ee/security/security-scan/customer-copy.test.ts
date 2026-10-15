@@ -96,9 +96,9 @@ describe('customer scan copy asks nothing of the customer', () => {
     }
   )
 
-  it('only the size-cap notices ask anything, like CodeRabbit, and only when a layer was skipped for size', () => {
+  it('only the size-cap notices ask anything, and only when a layer was skipped for size', () => {
     // User rulings (LUM-832): a limit on the SIZE of the change is stated
-    // CodeRabbit-style — too large, and how to get the layer. Nothing else
+    // plainly — too large, and how to get the layer. Nothing else
     // may ask; our own faults and shortfalls stay owned.
     const en = locale('en')
     expect(en['securityScan.huntOverCap']).toMatch(ASKS_CUSTOMER)

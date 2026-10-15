@@ -469,7 +469,7 @@ function scanSummaryLines(s: ScanSummary, opts: LayoutOptions): string[] {
       opts
     )
   )
-  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  // LUM-832: the file cap, stated plainly as a limit on the change.
   // LUM-892: layers turned off in settings — the customer's choice.
   // LUM-901: scanning itself is off — this scan is for an earlier commit.
   for (const l of [

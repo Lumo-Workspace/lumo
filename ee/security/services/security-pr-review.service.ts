@@ -1,5 +1,5 @@
 /**
- * LUM-735 Task 2 — post a scan back to its pull request, CodeRabbit-style.
+ * LUM-735 Task 2 — post a scan back to its pull request.
  *
  * One summary comment per PR (upserted by `SUMMARY_MARKER`) plus one inline
  * review comment per open finding that sits on a line this PR added (skipped
@@ -715,8 +715,8 @@ export function buildSummary(input: SummaryInput): string {
     notices.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
   // LUM-1079: the whole PR was too large — why, and what to do.
   if (input.prTooLarge) notices.push(`- ${formatPrTooLarge(input.prTooLarge)}`)
-  // LUM-832: a layer over its size cap did not run — stated the way
-  // CodeRabbit states its own limit.
+  // LUM-832: a layer over its size cap did not run — stated plainly
+  // as a limit on the change.
   if (input.judgeOverCap)
     notices.push(`- ${formatJudgeOverCap(input.judgeOverCap)}`)
   if (input.huntOverCap)

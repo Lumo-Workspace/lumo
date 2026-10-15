@@ -1,7 +1,7 @@
 /**
  * LUM-832 — the size caps a scan's layers run under, read back off the row.
  *
- * Like CodeRabbit's file limit, a layer whose input is over its cap does NOT
+ * Like an industry-standard file cap, a layer whose input is over its cap does NOT
  * run (no tokens spent), and the customer is told the change is too large and
  * how to get the layer: narrow the review scope or split the PR.
  *

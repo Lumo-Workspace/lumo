@@ -299,7 +299,7 @@ test('releaseReply gives a failed reply back, only while it holds the claim', as
   ).resolves.toBe(false)
 })
 
-describe('LUM-1131 scope: CodeRabbit learnings rules', () => {
+describe('LUM-1131 scope: learnings scope rules', () => {
   const RULE = 'Scope rule learning from PR 20.'
   const review = (pullRequestId: string) =>
     loadReviewLearnings({

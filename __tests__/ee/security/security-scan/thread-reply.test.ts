@@ -442,7 +442,7 @@ describe('applying learnings to a review', () => {
   })
 })
 
-describe('learningInScope — CodeRabbit scope rules', () => {
+describe('learningInScope — learnings scope rules', () => {
   const open = { sourcePullRequestId: 'pr-a', repoWideAt: null }
   it('open source PR: only that PR', () => {
     expect(learningInScope(open, 'pr-a', 'open')).toBe(true)

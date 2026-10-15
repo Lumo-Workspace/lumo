@@ -70,7 +70,7 @@ test('LUM-1137: a PR limit set by --resume --limit overrides the workspace setti
   expect(pushSingleCommits(0, 6, 3).admitted).toEqual([1, 2, 3])
 })
 
-test('LUM-1137: reviewed commits count the commits each head added (CodeRabbit semantics)', () => {
+test('LUM-1137: reviewed commits count the commits each head added (reviewed-commit semantics)', () => {
   // Opened with 3 commits (the first review counts one), then pushes of 2
   // and 2: 5 reviewed — the next pauses.
   const control = {

@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-1134 — the workspace learnings scope (CodeRabbit's
- * `knowledge_base.learnings.scope`) against a REAL Postgres replayed from
+ * LUM-1134 — the workspace learnings scope
+ * against a REAL Postgres replayed from
  * every migration (the LUM-1134 migration included):
  *
  * - the setting: OWNER changes it (audited), a MEMBER gets 403, the column

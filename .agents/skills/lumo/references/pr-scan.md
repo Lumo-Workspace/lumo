@@ -164,10 +164,10 @@ source files than one run is sized for (`HUNT_OVERSIZED_SOURCE_FILES`, a cost
 decision) is hunted in **batches** across runs (LUM-832): riskiest files
 first, one run per batch, each batch's findings landing while the layer stays
 `scanning`, for diffs of up to **150 source files** (`HUNT_MAX_HUNTED_FILES`,
-CodeRabbit's Pro file limit). The per-run `diff` line then describes that
+an industry-standard file cap). The per-run `diff` line then describes that
 run's batch.
 
-**Size caps (LUM-832, CodeRabbit's shape).** A layer whose input is over its
+**Size caps (LUM-832, industry-standard shape).** A layer whose input is over its
 cap does not run at all — no tokens are spent — and the scan says so under
 the layer rows: past 150 touched source files the hunt is `skipped` (cause
 `HUNT_OVERSIZED`) with `This PR touches N source files; exploit-path checks

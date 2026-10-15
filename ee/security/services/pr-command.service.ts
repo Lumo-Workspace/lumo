@@ -1,5 +1,5 @@
 /**
- * LUM-1129 — drive the PR reviewer from the PR itself, CodeRabbit-style: a
+ * LUM-1129 — drive the PR reviewer from the PR itself, by command: a
  * top-level conversation comment `@<app> review | full review | pause |
  * resume | resolve` runs the same control path as `lumo pr scan --review /
  * --pause / --resume` (`prReviewControlService`) or the LUM-1127 thread
@@ -14,7 +14,7 @@
  *     and leaves the thread of a finding that blocks DONE open (those are
  *     cleared by `lumo finding disposition` or the web panel). The PR's own
  *     author may `resolve` and `approve` unless the workspace turned
- *     LUM-1142's author approval off (CodeRabbit `allow_author_approval`);
+ *     LUM-1142's author approval off;
  *   · LUM-1130 `approve` (the request-changes workflow only): resolves Lumo's
  *     threads and approves the PR's current head, dismissing Lumo's earlier
  *     change requests — refused while any finding blocks DONE (a thread
@@ -364,7 +364,7 @@ async function mintThreadToken(
 }
 
 /**
- * LUM-1142 — CodeRabbit's `reviews.allow_author_approval`: the PR's author
+ * LUM-1142 — author approval: the PR's author
  * may `resolve` / `approve` by command unless the workspace turned it off
  * (default on). Off restores the LUM-1129/1130 rule: the author is refused,
  * and `approve` fails closed when the author is unknown (it could be the

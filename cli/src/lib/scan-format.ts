@@ -236,7 +236,7 @@ export function scanFields(
 /**
  * LUM-832 — the size-cap notices, one line each under the scan line, in the
  * same words as the PR summary: a layer over its cap did not run, and how to
- * get it (CodeRabbit's shape). Empty when no layer was skipped for size.
+ * get it (industry-standard shape). Empty when no layer was skipped for size.
  */
 export function formatSizeCapLines(s: {
   huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined

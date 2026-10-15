@@ -5099,7 +5099,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "PR authors may run `@uselumo resolve` / `approve` on their own PR (default on; CodeRabbit allow_author_approval); off = only other write-access accounts"
+          "description": "PR authors may run `@uselumo resolve` / `approve` on their own PR (default on); off = only other write-access accounts"
         },
         "--auto-pause-after": {
           "long": "--auto-pause-after",
