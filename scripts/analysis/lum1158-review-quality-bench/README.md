@@ -88,9 +88,30 @@ env $ENV npx tsx -r dotenv/config $B/judge.ts --data $S/data --tag lumo-raw-run0
 npx tsx $B/score.ts --data $S/data --tags lumo-run0,lumo-run1 --out $S/report.md
 ```
 
+### Variant: each repository's own guidelines as path instructions (LUM-1199)
+
+`guidelines.ts` (free) reads each `oss` checkout at hash X and turns the
+repository's own guideline files into LUM-1147 path instructions with a
+deterministic mapping (`guidelines-lib.ts`: a root review config's
+`reviews.path_instructions` as written; review/agent docs and CONTRIBUTING
+pooled into one `**` entry; glob-scoped rule files per glob; nested agent docs
+as `<dir>/**`; then the production caps). It never invents instructions: a
+repository without such files gets none. `own` rows get Lumo's real settings
+for its repository (`--own <file>`; none configured as of 2026-10-16).
+`replay.ts --instructions` renders them through `planPathInstructions` +
+`guardPromptLineText` and pays for them out of the context budget, as
+production does. The output is third-party text: scratch dir only.
+
+```bash
+npx tsx $B/guidelines.ts --checkouts $S/co --data $S/data --out $S/instructions.json
+env $ENV npx tsx -r dotenv/config $L/replay.ts --data $S/data --out $S/review-pi.json \
+  --runs 2 --instructions $S/instructions.json
+# then verify / rank / judge (new tags) / score as above
+```
+
 Every step caches and re-running fills in only what is missing; `judge.ts`
-refuses to re-use a tag with different inputs. Typecheck the scripts (the root
-tsconfig excludes `scripts/`): `npx tsc --noEmit -p $B/tsconfig.check.json`.
+refuses to re-use a tag with different inputs. Typecheck the scripts and
+`replay.ts` (the root tsconfig excludes `scripts/`): `npx tsc --noEmit -p $B/tsconfig.check.json`.
 
 Traps:
 

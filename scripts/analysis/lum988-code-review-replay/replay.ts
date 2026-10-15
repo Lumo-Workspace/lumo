@@ -16,6 +16,12 @@
  *   DOTENV_CONFIG_PATH="$(pwd)/.env.local" npx tsx -r dotenv/config \
  *     scripts/analysis/lum988-code-review-replay/replay.ts \
  *     --data <data dir> --out results.json [--runs 1] [--concurrency 8] [--limit N]
+ *     [--instructions <file>]
+ *
+ * LUM-1199: `--instructions` = `{ [prUrl]: PathInstruction[] }` (the
+ * benchmark's `guidelines.ts`), rendered for the covered files exactly as
+ * production does (`planPathInstructions` + `guardPromptLineText`) and paid
+ * for out of the same context budget. Absent = no path instructions.
  *
  * Needs AI_GATEWAY_API_KEY (the real ZDR gateway, pinned to Anthropic).
  */
@@ -39,6 +45,10 @@ import {
   packSecurityDiff,
 } from '@/ee/security/security-scan/truncate'
 import { prKey } from './pr-key'
+import {
+  instructionsForPr,
+  replayPathInstructions,
+} from '../lum1158-review-quality-bench/path-instructions-input'
 
 function opt(name: string, fallback?: string): string {
   const i = process.argv.indexOf(`--${name}`)
@@ -55,6 +65,13 @@ const limit = Number(opt('limit', '0'))
 // LUM-988 ablation: cross-file context searched in local PR-head checkouts
 // (checkout.ts layout: <root>/co/<prKey>).
 const relatedRoot = opt('related', '')
+const instructionsFile = opt('instructions', '')
+const instructionsByPr: Record<string, unknown> = instructionsFile
+  ? (JSON.parse(readFileSync(instructionsFile, 'utf8')) as Record<
+      string,
+      unknown
+    >)
+  : {}
 
 const capChars =
   JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
@@ -67,6 +84,9 @@ export interface ReplayRun {
   contextFiles: number
   contextError: string | null
   relatedChars?: number
+  /** LUM-1199 — rendered path-instruction chars and entries sent. */
+  instructionChars?: number
+  instructionsSent?: number
 }
 type RunResult = ReplayRun | { skipped: 'JUDGE_OVER_CAP' } | { error: string }
 
@@ -79,9 +99,16 @@ async function reviewOnce(url: string): Promise<RunResult> {
     priorityPaths: [],
     maxChars: tier.chars,
   })
+  const instructions = replayPathInstructions(
+    instructionsForPr(instructionsByPr, url),
+    capped.covered
+  )
   const context = await loadReviewContext({
     paths: capped.covered,
-    maxChars: reviewContextBudget(capped.text.length),
+    // Production: the instructions share the context budget with the diff.
+    maxChars: reviewContextBudget(
+      capped.text.length + instructions.text.length
+    ),
     readFile: async p => {
       const f = path.join(dir, 'files', p)
       return existsSync(f) ? readFileSync(f, 'utf8') : null
@@ -110,6 +137,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
       timeoutMs: tier.timeoutMs,
       context: contextText,
       ...(relatedText ? { related: relatedText } : {}),
+      ...(instructions.text ? { pathInstructions: instructions.text } : {}),
     })
     return {
       findings,
@@ -119,6 +147,8 @@ async function reviewOnce(url: string): Promise<RunResult> {
       contextFiles: context.included.length,
       contextError: context.error,
       relatedChars: relatedText.length,
+      instructionChars: instructions.text.length,
+      instructionsSent: instructions.sent.length,
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) }
@@ -140,7 +170,7 @@ async function main(): Promise<void> {
       const tag = results
         .map(x =>
           'findings' in x
-            ? `${x.findings.length}f/${x.contextFiles}ctx/${x.relatedChars ?? 0}rel/${Math.round(x.ms / 1000)}s`
+            ? `${x.findings.length}f/${x.contextFiles}ctx/${x.relatedChars ?? 0}rel/${x.instructionsSent ?? 0}pi/${Math.round(x.ms / 1000)}s`
             : 'skipped' in x
               ? 'over-cap'
               : `ERR ${x.error.slice(0, 60)}`
