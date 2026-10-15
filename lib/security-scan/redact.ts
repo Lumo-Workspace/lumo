@@ -180,7 +180,7 @@ export function maskQuotedKeyedValues(text: string): string {
       content.split(/\s+/).some(isCredentialShapedToken) ||
       (CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) &&
         !isPlaceholderValue(content)) ||
-      assignsCredentialValue(normalizeVocab(content)),
+      assignsCredentialValue(content),
     true
   )
 }
@@ -232,51 +232,72 @@ function normalizeVocab(text: string): string {
 }
 
 /**
- * LUM-1200 follow-up #2 — a value that stands for one rather than being one:
- * an ellipsis (`token=...`), a run of `x` / `*`, nothing at all, or a
- * NAMED placeholder — `<your token>`, `{token}`, `${API_KEY}`, `$TOKEN` —
- * whose name is short words only (no digits) and says what it stands for
- * (credential vocabulary, or `your` / `value` / `here` …). Production (probe
- * PR 63): the linked requirement `` `GET /session/check?token=...` ``
- * rendered as `` `GET …(len 28)` `` in the PR summary. A bracketed or
- * `$`-prefixed value that does not name itself (`<correcthorse>`,
- * `$hunter two`) is not a placeholder.
+ * LUM-1200 follow-up #2 — a value that stands for one rather than being one,
+ * in exactly these shapes (anything else is a value, and is masked):
+ *   · filler: an ellipsis (`...`, `…`), `xxx` / `***` runs, or nothing;
+ *   · a named placeholder — `<name>`, `{name}`, `{{name}}`, `${NAME}`,
+ *     `$NAME` — whose name is letters joined by `_` / `-` / one space (no
+ *     digits, at most 40 chars) and reads, as a whole, as a credential word
+ *     with at most `your` / `my` / `the` before it and `here` / `value`
+ *     after it: `<your token>`, `{token}`, `${API_KEY}`, `$SESSION_KEY`.
+ * Production (probe PR 63): the linked requirement
+ * `` `GET /session/check?token=...` `` rendered as `` `GET …(len 28)` `` in
+ * the PR summary. Always read on the RAW value (never `normalizeVocab`
+ * output, which splits `xxx-real` into `xxx real`); only the name, once
+ * extracted whole, is normalised to be read.
  */
-const PLACEHOLDER_FILLER_RE = /^(?:\.{2,}|…+|x{3,}|\*{3,}|)$/i
+const PLACEHOLDER_FILLER_RE = /^(?:\.{2,}|…+|x{3,}|X{3,}|\*{3,}|)$/
 const NAMED_PLACEHOLDER_RE =
-  /^(?:<([^<>]*)>|\$?\{\{?([^{}]*?)\}?\}|\$([A-Za-z_][A-Za-z0-9_]*))$/
-const PLACEHOLDER_NAME_RE = /^[A-Za-z _.-]{1,40}$/
-const PLACEHOLDER_WORD_RE =
-  /\b(?:your|my|value|here|placeholder|redacted|example|insert|name)\b/
+  /^(?:<([^<>]*)>|\{\{([^{}]*)\}\}|\$?\{([^{}]*)\}|\$([A-Za-z_][A-Za-z_]*))$/
+const PLACEHOLDER_NAME_RE = /^[A-Za-z]+(?:[ _-][A-Za-z]+)*$/
+const PLACEHOLDER_NAME_WORDS_RE = new RegExp(
+  `^(?:(?:your|my|the) )?${CREDENTIAL_VOCAB_SOURCE}(?: (?:here|value))?$`
+)
 
-function isPlaceholderValue(value: string): boolean {
-  const v = value.trim().replace(/^["'`]|["'`]$/g, '')
+function isPlaceholderValue(raw: string): boolean {
+  const quoted = /^(["'`])([\s\S]*)\1$/.exec(raw)
+  const v = quoted ? quoted[2]! : raw
   if (PLACEHOLDER_FILLER_RE.test(v)) return true
   const m = NAMED_PLACEHOLDER_RE.exec(v)
-  const name = m?.[1] ?? m?.[2] ?? m?.[3]
-  if (name === undefined || !PLACEHOLDER_NAME_RE.test(name.trim())) return false
-  const words = normalizeVocab(name)
-  return CREDENTIAL_VOCAB_RE.test(words) || PLACEHOLDER_WORD_RE.test(words)
+  const name = m?.[1] ?? m?.[2] ?? m?.[3] ?? m?.[4]
+  if (name === undefined || name.length > 40) return false
+  if (!PLACEHOLDER_NAME_RE.test(name)) return false
+  return PLACEHOLDER_NAME_WORDS_RE.test(normalizeVocab(name))
 }
 
 /**
- * `CREDENTIAL_KEY_ASSIGNED_RE` with the assigned value captured — a quoted
- * value whole (so `"<a> realsecret"` is read as one value, not as `"<a>`),
- * else up to the next separator: a span assigning a credential key masks
- * unless every value it assigns is a placeholder (`isPlaceholderValue`) —
- * `?token=...` renders, `?token=abc` and `pw = 'correcthorse'` are masked.
+ * Every `key = value` / `key: value` / `key => value` in the RAW span, the
+ * value taken whole: a quoted string or a bracketed placeholder shape, else
+ * up to whitespace or `&,;)]}`.
  */
-const CREDENTIAL_KEY_ASSIGNED_VALUE_RE = new RegExp(
-  `${CREDENTIAL_KEY_ASSIGNED_RE.source}\\s*("[^"]*"|'[^']*'|<[^>]*>|\\$?\\{[^}]*\\}|[^\\s&,;)\\]}]*)`,
+const RAW_ASSIGNMENT_RE =
+  /([A-Za-z0-9_$.-]+)["'`]?\s*(?:=>|=(?!=)|:)\s*("[^"]*"|'[^']*'|`[^`]*`|<[^<>]*>|\{\{[^{}]*\}\}|\$?\{[^{}]*\}|[^\s&,;)\]}]*)/g
+const CREDENTIAL_KEY_END_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)$`
+)
+const CREDENTIAL_KEY_ASSIGNED_ALL_RE = new RegExp(
+  CREDENTIAL_KEY_ASSIGNED_RE.source,
   'g'
 )
 
+/**
+ * Does the span assign a credential key a real value? Keys are found as
+ * `CREDENTIAL_KEY_ASSIGNED_RE` finds them; each value is read from the raw
+ * span (`RAW_ASSIGNMENT_RE`) and exempt only when it is a placeholder.
+ * Fail closed: when the raw read does not account for every assignment the
+ * key pass sees, the span counts as assigning one.
+ */
 function assignsCredentialValue(content: string): boolean {
-  for (const m of content.matchAll(CREDENTIAL_KEY_ASSIGNED_VALUE_RE))
-    if (!isPlaceholderValue(m[1] ?? '')) return true
-  return false
+  const keyed = [
+    ...normalizeVocab(content).matchAll(CREDENTIAL_KEY_ASSIGNED_ALL_RE),
+  ].length
+  if (keyed === 0) return false
+  const values: string[] = []
+  for (const m of content.matchAll(RAW_ASSIGNMENT_RE))
+    if (CREDENTIAL_KEY_END_RE.test(normalizeVocab(m[1]!))) values.push(m[2]!)
+  if (values.length !== keyed) return true
+  return values.some(v => !isPlaceholderValue(v))
 }
-
 /** Shortest mixed letters+digits run read as credential-shaped (`hunter2`-length passwords). */
 const MIN_MIXED_RUN = 6
 
