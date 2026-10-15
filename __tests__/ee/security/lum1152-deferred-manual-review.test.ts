@@ -10,8 +10,9 @@ jest.mock('@/lib/logger', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }))
 jest.mock('@/lib/workflows/security-deferred-review.steps', () => ({
-  isScanSettledStep: jest.fn(),
+  decideDeferredReviewStep: jest.fn(),
   dispatchDeferredReviewStep: jest.fn(),
+  giveUpDeferredReviewStep: jest.fn(),
 }))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findManualRestartState: jest.fn() },
@@ -28,14 +29,19 @@ import {
   DEFERRED_REVIEW_MAX_WAITS,
 } from '@/lib/workflows/security-deferred-review'
 import {
+  decideDeferredReviewStep,
   dispatchDeferredReviewStep,
-  isScanSettledStep,
+  giveUpDeferredReviewStep,
 } from '@/lib/workflows/security-deferred-review.steps'
 import { deferredReviewService } from '@/ee/security/services/security-deferred-review.service'
 import { startDeferredManualReview } from '@/ee/security/services/security-deferred-review-start'
-import { isSettledForManualReview } from '@/ee/security/security-scan/review-control'
+import {
+  deferredReviewDecision,
+  isSettledForManualReview,
+} from '@/ee/security/security-scan/review-control'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { dispatchPrSecurityScan } from '@/ee/security/services/pr-security-scan-dispatch'
+import { logger } from '@/lib/logger'
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock
 const job = { pullRequestId: 'pr1', scanId: 's1', reviewMode: 'full' as const }
@@ -70,12 +76,43 @@ describe('isSettledForManualReview', () => {
   })
 })
 
+describe('deferredReviewDecision', () => {
+  const row = (over: object) => ({
+    status: 'CLEAN',
+    stages: { secrets: 'RAN', judge: 'PAUSED', hunt: 'PAUSED' },
+    verifierStartedAt: null,
+    verifiedAt: null,
+    ...over,
+  })
+  test('held AI review (ignore / pause / cap) once settled = dispatch', () => {
+    expect(deferredReviewDecision(row({}))).toBe('dispatch')
+  })
+  test('still in flight = wait', () => {
+    expect(
+      deferredReviewDecision(
+        row({ stages: { external: 'PENDING', judge: 'PAUSED' } })
+      )
+    ).toBe('wait')
+  })
+  test("the scan's own AI review ran = covered (no second review)", () => {
+    expect(
+      deferredReviewDecision(row({ stages: { judge: 'RAN', hunt: 'RAN' } }))
+    ).toBe('covered')
+  })
+  test('a missing or FAILED scan = dispatch', () => {
+    expect(deferredReviewDecision(null)).toBe('dispatch')
+    expect(
+      deferredReviewDecision(row({ status: 'FAILED', stages: { judge: 'RAN' } }))
+    ).toBe('dispatch')
+  })
+})
+
 describe('securityDeferredReviewWorkflow', () => {
   test('waits until the scan settles, then dispatches once', async () => {
-    m(isScanSettledStep)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
+    m(decideDeferredReviewStep)
+      .mockResolvedValueOnce('wait')
+      .mockResolvedValueOnce('wait')
+      .mockResolvedValueOnce('dispatch')
     const out = await securityDeferredReviewWorkflow(job)
     expect(out).toEqual({ outcome: 'DISPATCHED', waits: 3 })
     expect(m(sleep)).toHaveBeenCalledWith(DEFERRED_REVIEW_INTERVAL)
@@ -83,30 +120,38 @@ describe('securityDeferredReviewWorkflow', () => {
     expect(m(dispatchDeferredReviewStep)).toHaveBeenCalledWith('pr1', 'full')
   })
 
-  test('gives up on a scan that never settles', async () => {
-    m(isScanSettledStep).mockResolvedValue(false)
+  test("does nothing when the scan's own AI review ran", async () => {
+    m(decideDeferredReviewStep).mockResolvedValueOnce('covered')
+    const out = await securityDeferredReviewWorkflow(job)
+    expect(out).toEqual({ outcome: 'COVERED', waits: 1 })
+    expect(m(dispatchDeferredReviewStep)).not.toHaveBeenCalled()
+  })
+
+  test('gives up (and says so) on a scan that never settles', async () => {
+    m(decideDeferredReviewStep).mockResolvedValue('wait')
     const out = await securityDeferredReviewWorkflow(job)
     expect(out).toEqual({
       outcome: 'GAVE_UP',
       waits: DEFERRED_REVIEW_MAX_WAITS,
     })
     expect(m(dispatchDeferredReviewStep)).not.toHaveBeenCalled()
+    expect(m(giveUpDeferredReviewStep)).toHaveBeenCalledWith('s1', 'full')
   })
 })
 
 describe('deferredReviewService', () => {
-  test('reads the row; a missing row counts as settled', async () => {
+  test('decides from the stored row', async () => {
     m(prSecurityScanRepository.findManualRestartState).mockResolvedValueOnce({
       status: 'CLEAN',
       stages: { external: 'PENDING' },
       verifierStartedAt: null,
       verifiedAt: null,
     })
-    await expect(deferredReviewService.isScanSettled('s1')).resolves.toBe(false)
+    await expect(deferredReviewService.decide('s1')).resolves.toBe('wait')
     m(prSecurityScanRepository.findManualRestartState).mockResolvedValueOnce(
       null
     )
-    await expect(deferredReviewService.isScanSettled('s1')).resolves.toBe(true)
+    await expect(deferredReviewService.decide('s1')).resolves.toBe('dispatch')
   })
 
   test('dispatches the review marked deferred', async () => {
@@ -116,6 +161,13 @@ describe('deferredReviewService', () => {
       'PR_EVENT',
       'incremental',
       { deferred: true }
+    )
+  })
+
+  test('giving up is logged', () => {
+    deferredReviewService.giveUp('s1', 'full')
+    expect(m(logger.warn)).toHaveBeenCalledWith(
+      expect.stringContaining('gave up scan=s1')
     )
   })
 })

@@ -3,14 +3,25 @@
  * still in flight waits for it (lib/workflows/security-deferred-review.ts).
  */
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
-import { isSettledForManualReview } from '@/ee/security/security-scan/review-control'
+import { logger } from '@/lib/logger'
+import {
+  deferredReviewDecision,
+  type DeferredReviewDecision,
+} from '@/ee/security/security-scan/review-control'
 import { dispatchPrSecurityScan } from './pr-security-scan-dispatch'
 
 export const deferredReviewService = {
-  /** A missing row counts as settled: dispatching then makes a fresh scan. */
-  async isScanSettled(scanId: string): Promise<boolean> {
+  /** What to do with the scan the review waited on (review-control.ts). */
+  async decide(scanId: string): Promise<DeferredReviewDecision> {
     const row = await prSecurityScanRepository.findManualRestartState(scanId)
-    return row === null || isSettledForManualReview(row)
+    return deferredReviewDecision(row)
+  },
+
+  /** The wait ran out: said in the log, the user can ask again. */
+  giveUp(scanId: string, reviewMode: 'incremental' | 'full'): void {
+    logger.warn(
+      `[pr-security-scan] deferred manual ${reviewMode} review gave up scan=${scanId}: the scan did not settle in time`
+    )
   },
 
   async dispatch(

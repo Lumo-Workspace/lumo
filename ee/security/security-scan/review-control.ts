@@ -207,3 +207,25 @@ export function isSettledForManualReview(
   if (stages.includes('PENDING')) return false
   return !(row.verifierStartedAt && !row.verifiedAt)
 }
+
+/**
+ * LUM-1152 follow-up — what a deferred manual review does with the scan it
+ * waited on: keep waiting, dispatch (the scan's AI review was held — ignore,
+ * pause, hourly cap — or the scan is gone / FAILED), or nothing (the scan's
+ * own AI review ran, which is the review asked for: a repeated request while
+ * one is running deduplicates). PURE.
+ */
+export type DeferredReviewDecision = 'wait' | 'dispatch' | 'covered'
+
+export function deferredReviewDecision(
+  row: ManualReviewRestartRow | null
+): DeferredReviewDecision {
+  if (!row) return 'dispatch'
+  if (!isSettledForManualReview(row)) return 'wait'
+  if (row.status === 'FAILED') return 'dispatch'
+  const judge =
+    row.stages && typeof row.stages === 'object'
+      ? (row.stages as Record<string, unknown>).judge
+      : undefined
+  return judge === undefined || judge === 'PAUSED' ? 'dispatch' : 'covered'
+}
