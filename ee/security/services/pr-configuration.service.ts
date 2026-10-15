@@ -31,23 +31,28 @@ async function repoPart(input: {
   repo: string
   prNumber: number
 }): Promise<PrConfigurationView['repo']> {
+  let base: { ref: string; sha: string } | null = null
   try {
     const { fetchPrBase } = await github()
-    const base = await fetchPrBase({
+    base = await fetchPrBase({
       workspaceId: input.workspaceId,
       fullName: input.repo,
       prNumber: input.prNumber,
     })
+  } catch (error) {
+    logger.warn(
+      `[pr-configuration] PR base unavailable ${input.repo}#${input.prNumber}: ${describe(error)}`
+    )
+  }
+  if (base) {
+    // With a sha, effective() never reads GitHub (loadAt never throws): a
+    // failure here is the database's, and propagates (no reply, logged).
     const effective = await repoConfigService.effective({
       workspaceId: input.workspaceId,
       repo: input.repo,
       sha: base.sha,
     })
     return { ...effective, ref: base.ref }
-  } catch (error) {
-    logger.warn(
-      `[pr-configuration] PR base unavailable ${input.repo}#${input.prNumber}: ${describe(error)}`
-    )
   }
   try {
     // The PR's base could not be read: the default branch is the next best.

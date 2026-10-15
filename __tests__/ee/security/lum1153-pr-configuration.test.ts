@@ -262,6 +262,18 @@ describe('prConfigurationService.forPullRequest', () => {
     })
   })
 
+  test('a settings read failure at the PR base propagates, not mislabelled as a fallback', async () => {
+    findSettings.mockRejectedValue(new Error('db down'))
+    await expect(
+      prConfigurationService.forPullRequest({
+        workspaceId: 'w1',
+        repo: 'acme/app',
+        prNumber: 9,
+      })
+    ).rejects.toThrow('db down')
+    expect(fetchDefaultBranchHead).not.toHaveBeenCalled()
+  })
+
   test('GitHub unreachable: the repository part is null and the reply says so', async () => {
     fetchPrBase.mockRejectedValue(new Error('down'))
     fetchDefaultBranchHead.mockRejectedValue(new Error('down'))
