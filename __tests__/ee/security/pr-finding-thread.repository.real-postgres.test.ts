@@ -156,6 +156,7 @@ test('findIdentitiesByFingerprints reads line, title and evidence of the newest 
       filePath: 'scripts/probe.ts',
       line: 3,
       title: 'console.log used in scripts',
+      severity: 'LOW',
       evidence: "console.log('probe')",
     },
   ])

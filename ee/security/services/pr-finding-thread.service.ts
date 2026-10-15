@@ -12,7 +12,10 @@
  *   · an AI-layer fingerprint is gone but the same issue is reported under a
  *     new one (the model relabelled its rule id, or quoted another line —
  *     `matchSuccessors`) → the thread is carried over to the new finding:
- *     it stays open, with no "Addressed" note and no second comment.
+ *     it stays open, with no "Addressed" note and no second comment. A
+ *     thread a human resolved takes the new fingerprint over too (stays
+ *     resolved, no reply) unless the new finding blocks DONE or is more
+ *     severe; a thread Lumo addressed is re-raised (a regression).
  *
  * "Fixed" is strict: absence only counts when the layer that produced the
  * finding ran whole (`RAN` — never PARTIAL / PAUSED / PENDING / FAILED) on
@@ -185,7 +188,8 @@ export type ThreadAction =
     }
   /**
    * The row's fingerprint is gone but `successor` reports the same issue:
-   * the thread stays open and stands for `successor` (no note, no comment).
+   * the thread keeps its state (open, or resolved by a human) and stands for
+   * `successor` (no note, no comment).
    */
   | { kind: 'CARRY'; row: FindingThreadRow; successor: string }
   /** State-only change (GitHub already says so, or the verifier decided). */
@@ -216,6 +220,8 @@ export interface ThreadPlanInput {
    * same-issue matching (absence alone decides).
    */
   identities?: Map<string, FindingIdentity> | null | undefined
+  /** Does this finding block DONE (the workspace policy)? Absent = never. */
+  isBlocking?: ((f: ReviewFindingRow) => boolean) | undefined
 }
 
 export interface ThreadPlan {
@@ -262,6 +268,8 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
           state: 'RESOLVED_BY_USER',
           resolvedByLogin: remote.resolvedBy.login,
         })
+        const carry = resolvedCarry(input, row, successors.get(row.fingerprint))
+        if (carry) actions.push(carry)
         continue
       }
       if (
@@ -322,7 +330,11 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
       state = 'ADDRESSED'
     }
     // A human closed the conversation: never re-posted, never reopened by Lumo.
-    if (state === 'RESOLVED_BY_USER') continue
+    if (state === 'RESOLVED_BY_USER') {
+      const carry = resolvedCarry(input, row, successors.get(fp))
+      if (carry) actions.push(carry)
+      continue
+    }
 
     if (state === 'OPEN') {
       if (
@@ -369,10 +381,44 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
 }
 
 /**
+ * The state `planThreadActions` will treat a row as having on this sync,
+ * from the stored state and GitHub's view (the same rules as the plan:
+ * a human resolve recorded, an unresolve reopening, Lumo's own resolve not
+ * taken for a human's).
+ */
+function effectiveState(
+  r: FindingThreadRow,
+  remote: ReviewThreadState | null
+): FindingThreadState {
+  if (r.state === 'DISMISSED') return r.state
+  if (remote) {
+    if (
+      r.state === 'OPEN' &&
+      remote.isResolved &&
+      remote.resolvedBy &&
+      !isLumoActor(remote.resolvedBy)
+    )
+      return 'RESOLVED_BY_USER'
+    if (r.state !== 'OPEN' && !remote.isResolved) return 'OPEN'
+  }
+  if (
+    r.state === 'RESOLVED_BY_USER' &&
+    isLumoActor({ login: r.resolvedByLogin }) &&
+    !(remote?.resolvedBy && !isLumoActor(remote.resolvedBy))
+  )
+    return 'ADDRESSED'
+  return r.state
+}
+
+/**
  * Rows whose fingerprint this scan no longer reports → the current finding
  * that reports the same issue under a new fingerprint (`matchSuccessors`).
- * Only AI-layer (LLM_JUDGE) fingerprints drift; a current finding that owns
- * a thread of its own, or that the verifier rejected, continues nothing.
+ * Open threads are matched first (a still-reported issue must not be
+ * resolved), then threads a human resolved (the same issue is not raised
+ * again). A thread Lumo addressed is never matched: the issue reappearing
+ * there is a regression. Only AI-layer (LLM_JUDGE) fingerprints drift; a
+ * current finding that owns a thread of its own, or that the verifier
+ * rejected, continues nothing.
  */
 function successorsOf(
   input: ThreadPlanInput,
@@ -382,16 +428,20 @@ function successorsOf(
   const ids = input.identities
   if (!ids) return new Map()
   const owned = new Set(input.rows.map(r => r.fingerprint))
-  const previous: FindingIdentity[] = []
-  for (const r of input.rows) {
-    if (r.provenance !== 'LLM_JUDGE' || present.has(r.fingerprint)) continue
-    // Rows that can be OPEN on this sync (GitHub may have unresolved one).
-    const remote = input.remote?.get(r.commentId)
-    if (r.state !== 'OPEN' && !(remote && !remote.isResolved)) continue
-    const id = ids.get(r.fingerprint)
-    if (id) previous.push(id)
+  const byState = (state: FindingThreadState): FindingIdentity[] => {
+    const out: FindingIdentity[] = []
+    for (const r of input.rows) {
+      if (r.provenance !== 'LLM_JUDGE' || present.has(r.fingerprint)) continue
+      const remote = input.remote?.get(r.commentId) ?? null
+      if (effectiveState(r, remote) !== state) continue
+      const id = ids.get(r.fingerprint)
+      if (id) out.push(id)
+    }
+    return out
   }
-  if (previous.length === 0) return new Map()
+  const open = byState('OPEN')
+  const resolved = byState('RESOLVED_BY_USER')
+  if (open.length === 0 && resolved.length === 0) return new Map()
   const current: FindingIdentity[] = input.findings
     .filter(
       f =>
@@ -406,9 +456,39 @@ function successorsOf(
       filePath: f.filePath,
       line: f.line,
       title: f.title,
+      severity: f.severity,
       evidence: ids.get(f.fingerprint)?.evidence ?? null,
     }))
-  return matchSuccessors(previous, current)
+  const out = matchSuccessors(open, current)
+  const taken = new Set(out.values())
+  for (const [prev, next] of matchSuccessors(
+    resolved,
+    current.filter(c => !taken.has(c.fingerprint))
+  ))
+    out.set(prev, next)
+  return out
+}
+
+const SEVERITY_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const
+
+/**
+ * A thread a human resolved takes over the same issue's new fingerprint
+ * (stays resolved, no reply, no new comment) — unless the new finding blocks
+ * DONE or is more severe than the one they resolved (unknown severity → it
+ * is raised).
+ */
+function resolvedCarry(
+  input: ThreadPlanInput,
+  row: FindingThreadRow,
+  successor: string | undefined
+): ThreadAction | null {
+  if (!successor) return null
+  const next = input.findings.find(f => f.fingerprint === successor)
+  const was = input.identities?.get(row.fingerprint)?.severity
+  if (!next || !was) return null
+  if (input.isBlocking?.(next)) return null
+  if (SEVERITY_RANK[next.severity] > SEVERITY_RANK[was]) return null
+  return { kind: 'CARRY', row, successor }
 }
 
 /** The fingerprint of a Lumo-authored thread-opening comment, else null. */
@@ -455,6 +535,8 @@ export interface ThreadSyncContext {
    * review profile)? Absent = the chill rule.
    */
   isInline?: (f: ReviewFindingRow) => boolean
+  /** Does this finding block DONE (the workspace policy)? Absent = never. */
+  isBlocking?: (f: ReviewFindingRow) => boolean
 }
 
 export interface ThreadReconcileResult {
@@ -566,15 +648,15 @@ async function adoptUnknownComments(
  */
 async function loadIdentities(
   ctx: ThreadSyncContext,
-  rows: FindingThreadRow[]
+  rows: FindingThreadRow[],
+  remote: Map<string, ReviewThreadState> | null
 ): Promise<Map<string, FindingIdentity> | null> {
   const present = new Set(ctx.findings.map(f => f.fingerprint))
-  const gone = rows.filter(
-    r =>
-      r.provenance === 'LLM_JUDGE' &&
-      r.state !== 'DISMISSED' &&
-      !present.has(r.fingerprint)
-  )
+  const gone = rows.filter(r => {
+    if (r.provenance !== 'LLM_JUDGE' || present.has(r.fingerprint)) return false
+    const s = effectiveState(r, remote?.get(r.commentId) ?? null)
+    return s === 'OPEN' || s === 'RESOLVED_BY_USER'
+  })
   if (gone.length === 0) return new Map()
   const files = new Set(gone.map(r => r.filePath))
   const fingerprints = [
@@ -655,13 +737,7 @@ async function execute(
     })
     return action.state
   }
-  if (action.kind === 'REPOST') return row.state
-  if (action.kind === 'CARRY') {
-    logger.info(
-      `[pr-finding-thread] carried fp=${row.fingerprint} → ${action.successor} (same issue, new fingerprint)`
-    )
-    return row.state
-  }
+  if (action.kind === 'REPOST' || action.kind === 'CARRY') return row.state
   if (!action.threadId) {
     logger.info(
       `[pr-finding-thread] no thread id yet fp=${row.fingerprint} — retried next sync`
@@ -751,7 +827,8 @@ export const prFindingThreadService = {
       headSha: ctx.headSha,
       remote,
       isInline: ctx.isInline,
-      identities: await loadIdentities(ctx, rows),
+      identities: await loadIdentities(ctx, rows, remote),
+      isBlocking: ctx.isBlocking,
     })
     const finalState = new Map(rows.map(r => [r.fingerprint, r.state]))
     for (const { row, threadNodeId } of plan.nodeIds) {
@@ -766,8 +843,15 @@ export const prFindingThreadService = {
     const repost: ThreadReconcileResult['repost'] = new Map()
     const carried: ThreadReconcileResult['carried'] = new Map()
     for (const action of plan.actions) {
-      if (action.kind === 'CARRY')
+      if (action.kind === 'CARRY') {
+        // No GitHub call and no state change: the thread keeps the state
+        // this sync gave it (an earlier action may have just set it).
         carried.set(action.successor, action.row.fingerprint)
+        logger.info(
+          `[pr-finding-thread] carried fp=${action.row.fingerprint} → ${action.successor} (same issue, new fingerprint)`
+        )
+        continue
+      }
       if (action.kind === 'REPOST') {
         repost.set(action.fingerprint ?? action.row.fingerprint, {
           row: action.row,
@@ -793,6 +877,9 @@ export const prFindingThreadService = {
         .filter(([, s]) => s === 'RESOLVED_BY_USER')
         .map(([f]) => f)
     )
+    // A finding carried onto a thread a human resolved is resolved with it.
+    for (const [next, prev] of carried)
+      if (finalState.get(prev) === 'RESOLVED_BY_USER') resolvedByUser.add(next)
     return {
       resolvedByUser,
       repost,

@@ -1751,6 +1751,7 @@ export const securityPrReviewService = {
         open: unrejected,
         comments: reviewComments,
         isInline,
+        isBlocking: f => isBlockingFinding(f, policy),
       }
       const threads = await prFindingThreadService
         .reconcile(threadCtx)

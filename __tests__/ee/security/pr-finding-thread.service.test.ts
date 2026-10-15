@@ -686,6 +686,7 @@ describe('LUM-1127 follow-up — same issue under a new fingerprint', () => {
     filePath: 'scripts/probe.ts',
     line: 3,
     title: 'console.log used in scripts',
+    severity: 'LOW' as const,
     evidence: "console.log('probe')",
   }
   const apiFinding = (over: Partial<ReviewFindingRow> = {}) =>
@@ -837,5 +838,168 @@ describe('LUM-1127 follow-up — same issue under a new fingerprint', () => {
     expect(threads.resolveThread).not.toHaveBeenCalled()
     expect(reply).not.toHaveBeenCalled()
     expect(out.counts.open).toBe(1)
+  })
+})
+
+/**
+ * LUM-1127 follow-up — a thread the developer resolved is not re-raised for
+ * the same issue under a new fingerprint (unless it blocks DONE or is more
+ * severe); a thread Lumo addressed is (a reappearance is a regression).
+ */
+describe('LUM-1127 follow-up — human-resolved thread, same issue relabelled', () => {
+  const resolvedRow = (over: Partial<FindingThreadRow> = {}) =>
+    row({
+      fingerprint: 'fp-doc',
+      ruleId: 'review:doc_mismatch',
+      kind: 'CORRECTNESS',
+      filePath: 'scripts/probe.ts',
+      state: 'RESOLVED_BY_USER',
+      resolvedByLogin: 'alice',
+      ...over,
+    })
+  const docIdentity = {
+    fingerprint: 'fp-doc',
+    ruleId: 'review:doc_mismatch',
+    provenance: 'LLM_JUDGE' as const,
+    filePath: 'scripts/probe.ts',
+    line: 3,
+    title: 'console.log used in scripts',
+    severity: 'MEDIUM' as const,
+    evidence: "console.log('probe')",
+  }
+  const apiFinding = (over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      fingerprint: 'fp-api',
+      ruleId: 'review:api_misuse',
+      kind: 'CORRECTNESS',
+      severity: 'MEDIUM',
+      filePath: 'scripts/probe.ts',
+      line: 3,
+      title: 'console.log used in scripts',
+      ...over,
+    })
+  const humanResolved = remote({
+    isResolved: true,
+    resolvedBy: { login: 'alice', type: 'User' },
+  })
+  const plan = (
+    f: ReviewFindingRow,
+    over: Partial<Parameters<typeof planThreadActions>[0]> = {}
+  ) =>
+    planThreadActions({
+      rows: [resolvedRow()],
+      findings: [f],
+      open: [f],
+      scan: COMPLETE,
+      headSha: HEAD,
+      remote: new Map([['101', humanResolved]]),
+      identities: new Map([
+        ['fp-doc', docIdentity],
+        ['fp-api', { ...docIdentity, fingerprint: 'fp-api' }],
+      ]),
+      ...over,
+    })
+
+  it('same or lower severity ⇒ CARRY onto the resolved thread', () => {
+    expect(plan(apiFinding()).actions).toEqual([
+      expect.objectContaining({ kind: 'CARRY', successor: 'fp-api' }),
+    ])
+    expect(plan(apiFinding({ severity: 'LOW' })).actions).toEqual([
+      expect.objectContaining({ kind: 'CARRY', successor: 'fp-api' }),
+    ])
+  })
+
+  it('more severe than the resolved finding ⇒ not carried (posted as today)', () => {
+    expect(plan(apiFinding({ severity: 'HIGH' })).actions).toEqual([])
+  })
+
+  it('blocks DONE ⇒ not carried', () => {
+    expect(plan(apiFinding(), { isBlocking: () => true }).actions).toEqual([])
+  })
+
+  it('resolved severity unknown ⇒ not carried', () => {
+    const { severity: _drop, ...noSeverity } = docIdentity
+    expect(
+      plan(apiFinding(), {
+        identities: new Map([
+          ['fp-doc', noSeverity],
+          ['fp-api', { ...noSeverity, fingerprint: 'fp-api' }],
+        ]),
+      }).actions
+    ).toEqual([])
+  })
+
+  it('a thread Lumo addressed is not carried — a reappearance is re-raised', () => {
+    expect(
+      plan(apiFinding(), {
+        rows: [
+          resolvedRow({
+            state: 'ADDRESSED',
+            resolvedByLogin: null,
+            addressedInSha: 'old',
+          }),
+        ],
+        remote: new Map([
+          [
+            '101',
+            remote({
+              isResolved: true,
+              resolvedBy: { login: 'uselumo[bot]', type: 'Bot' },
+            }),
+          ],
+        ]),
+      }).actions
+    ).toEqual([])
+  })
+
+  it('an OPEN thread takes the successor before a resolved one', () => {
+    const out = plan(apiFinding(), {
+      rows: [
+        resolvedRow(),
+        row({
+          id: 't2',
+          fingerprint: 'fp-open',
+          commentId: '202',
+          ruleId: 'review:doc_mismatch',
+          kind: 'CORRECTNESS',
+          filePath: 'scripts/probe.ts',
+        }),
+      ],
+      remote: new Map([
+        ['101', humanResolved],
+        ['202', remote({ id: 'PRRT_2', firstCommentId: 202 })],
+      ]),
+      identities: new Map([
+        ['fp-doc', docIdentity],
+        ['fp-open', { ...docIdentity, fingerprint: 'fp-open' }],
+        ['fp-api', { ...docIdentity, fingerprint: 'fp-api' }],
+      ]),
+    })
+    expect(out.actions).toEqual([
+      expect.objectContaining({
+        kind: 'CARRY',
+        successor: 'fp-api',
+        row: expect.objectContaining({ fingerprint: 'fp-open' }),
+      }),
+    ])
+  })
+
+  it('reconcile: the carried fingerprint is reported resolved — never posted, stays resolved, no reply', async () => {
+    repoMock.findByPullRequest.mockResolvedValue([resolvedRow()])
+    threads.listReviewThreads.mockResolvedValue([humanResolved])
+    repoMock.findIdentitiesByFingerprints.mockResolvedValue([
+      docIdentity,
+      { ...docIdentity, fingerprint: 'fp-api', ruleId: 'review:api_misuse' },
+    ])
+    const f = apiFinding()
+    const out = await prFindingThreadService.reconcile(
+      ctx({ findings: [f], open: [f] })
+    )
+    expect(out.resolvedByUser).toEqual(new Set(['fp-doc', 'fp-api']))
+    expect(out.carried).toEqual(new Map([['fp-api', 'fp-doc']]))
+    expect(threads.unresolveThread).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
+    expect(repoMock.update).not.toHaveBeenCalled()
+    expect(out.counts).toEqual({ open: 0, addressed: 0, resolved: 1 })
   })
 })

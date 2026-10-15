@@ -37,6 +37,8 @@ export interface FindingIdentity {
   filePath: string
   line: number | null
   title: string
+  /** Absent = not known. */
+  severity?: 'LOW' | 'MEDIUM' | 'HIGH'
   /** The quoted (redacted) evidence line; null = not known. */
   evidence: string | null
 }

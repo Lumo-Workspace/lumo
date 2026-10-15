@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db/prisma'
 import type {
   FindingKind,
   FindingProvenance,
+  FindingSeverity,
 } from '@/ee/security/repositories/pr-security-scan.repository'
 
 export type FindingThreadState =
@@ -75,6 +76,7 @@ export interface FindingIdentityRow {
   filePath: string
   line: number | null
   title: string
+  severity: FindingSeverity
   evidence: string
 }
 
@@ -246,6 +248,7 @@ export const prFindingThreadRepository = {
         filePath: true,
         line: true,
         title: true,
+        severity: true,
         evidence: true,
       },
     })
