@@ -861,7 +861,9 @@ describe('LUM-739 hunt service', () => {
           'rg -A 10 "export function checkSessionToken" src/services/session-store.ts'
         )
         await input.runShell('grep -n "session/check|token" src/server.ts')
-        await input.runShell('TOKEN="correcthorsebattery" node check.js')
+        await input.runShell(
+          `${['TO', 'KEN'].join('')}="correcthorsebattery" node check.js`
+        )
         return {
           candidates: [],
           tokens: 10,

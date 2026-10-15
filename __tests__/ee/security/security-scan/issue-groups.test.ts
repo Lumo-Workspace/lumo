@@ -144,7 +144,6 @@ describe('groupSameIssue', () => {
 
   it.each([
     ['another line beyond the window', hunt({ line: 9 })],
-    ['four lines apart (past the window)', hunt({ line: 9 })],
     ['another file', hunt({ filePath: 'src/probe/store.ts' })],
     ['no line', hunt({ line: null })],
     ['a different class', hunt({ ruleId: 'hunt:ssrf' })],

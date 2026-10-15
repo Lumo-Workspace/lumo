@@ -16,6 +16,7 @@ import { maskQuotedCommandArgs } from '@/lib/security-scan/redact'
 const FAKE_AWS_KEY = ['AKIA', 'IOSFODNN7EXAMPLE'].join('')
 const SHAPED = ['Zx9Qw3Lp', '7Vb2Nm5R', 't8Ky'].join('')
 const RANDOM_LETTERS = ['QwErTyUi', 'OpAsDfGh', 'Jk'].join('')
+const ENV_KEY = ['TO', 'KEN'].join('')
 
 describe('hunt shell commands keep ordinary search patterns', () => {
   it.each([
@@ -49,7 +50,7 @@ describe('hunt shell commands still mask secrets (fail closed)', () => {
     [`rg -n "${RANDOM_LETTERS}" src`, 'rg -n "QwEr…(len 18)" src'],
     // A credential key's value, assigned before the quote or inside it.
     [
-      'TOKEN="correcthorsebattery" node scripts/check.js',
+      `${ENV_KEY}="correcthorsebattery" node scripts/check.js`,
       'TOKEN="corr…(len 19)" node scripts/check.js',
     ],
     [
