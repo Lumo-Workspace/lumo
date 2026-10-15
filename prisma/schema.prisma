@@ -1653,6 +1653,33 @@ model PrReviewLearning {
   @@map("pr_review_learnings")
 }
 
+// LUM-1154: a question a human asked Lumo on a pull request — a reply in a
+// Lumo finding thread, an @-mention on a code line, or an @-mention in the PR
+// conversation. One row per GitHub comment: the claim that keeps a
+// redelivered webhook from answering twice, and the count that bounds how
+// many answers one PR gets per hour. Holds no question or answer text.
+model PrChatRequest {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  pullRequestId String
+  // "review" (a review-line comment) or "issue" (a PR conversation comment):
+  // GitHub numbers the two kinds separately.
+  source        String
+  // GitHub REST id of the human's comment.
+  commentId     String
+  authorLogin   String
+  // CLAIMED → ANSWERED | RATE_LIMITED | FAILED.
+  status        String   @default("CLAIMED")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, source, commentId])
+  @@index([pullRequestId, createdAt])
+  @@map("pr_chat_requests")
+}
+
 enum PrSecurityFindingDisposition {
   FALSE_POSITIVE
   ACCEPTED_RISK
@@ -2101,6 +2128,8 @@ model PullRequest {
   mirroredComments PrCommentMirror[]
   securityScans    PrSecurityScan[]
   findingThreads   PrFindingThread[]
+  // LUM-1154
+  chatRequests     PrChatRequest[]
   testCaseRuns     TestCaseRun[]
 
   // LUM-924: one row per workspace — workspaces sharing a GitHub App
