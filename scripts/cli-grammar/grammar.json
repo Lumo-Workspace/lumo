@@ -5125,6 +5125,14 @@
           "enumCaseInsensitive": false,
           "description": "The user approved the listed changes"
         },
+        "--description-check": {
+          "long": "--description-check",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo: the pre-merge description check (default warning; follows the repository's PR template if it has one)"
+        },
         "--description-keyword": {
           "long": "--description-keyword",
           "short": null,
@@ -5205,6 +5213,14 @@
           "enumCaseInsensitive": false,
           "description": "Which repositories’ learnings the AI review reads (default auto): local = the reviewed repository, global = every repository in this workspace, auto = local for public / global for private repositories"
         },
+        "--override-reviewers-only": {
+          "long": "--override-reviewers-only",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo: only requested reviewers (never the PR author) may `@uselumo ignore pre-merge checks` (default off)"
+        },
         "--path-filter": {
           "long": "--path-filter",
           "short": null,
@@ -5269,6 +5285,22 @@
           "enumCaseInsensitive": false,
           "description": "Master switch: off = no layer runs, no PR comment"
         },
+        "--title-check": {
+          "long": "--title-check",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo: the pre-merge title check (default warning); error = a failed check keeps Lumo at \"Changes requested\" (request-changes workflow on) until fixed or `@uselumo ignore pre-merge checks`"
+        },
+        "--title-requirements": {
+          "long": "--title-requirements",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --repo (\"\" clears): extra rules the PR title must meet, in plain language"
+        },
         "--tone": {
           "long": "--tone",
           "short": null,
@@ -5280,7 +5312,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1147 the review style (--profile, --tone, --path-instruction). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
+      "description": "Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1148 the pre-merge checks (--title-check, --title-requirements, --description-check, --override-reviewers-only; custom checks in the web settings or .lumo.yaml); LUM-1147 the review style (--profile, --tone, --path-instruction). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm."
     },
     "worktree": {
       "arguments": [],

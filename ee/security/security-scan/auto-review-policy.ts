@@ -47,6 +47,10 @@
  * a task-linked PR keeps its DONE-gate scan. Manual reviews ignore it.
  */
 import { shouldScanOnPrEvent } from '@/ee/security/services/pr-security-scan-dispatch'
+import {
+  DEFAULT_PRE_MERGE_CHECKS,
+  type PreMergeChecksSetting,
+} from './pre-merge-checks'
 import type { PathInstruction } from './path-instructions'
 import { DEFAULT_REVIEW_PROFILE, type ReviewProfile } from './review-profile'
 
@@ -93,6 +97,8 @@ export interface RepoReviewSettingValues {
   descriptionKeyword: string | null
   /** Globs for what the review reads (reviewable-path.ts). */
   pathFilters: string[]
+  /** LUM-1148: the pre-merge checks (pre-merge-checks.ts). */
+  preMergeChecks: PreMergeChecksSetting
   /** LUM-1147: extra AI-review instructions per path glob. */
   pathInstructions: PathInstruction[]
   /** LUM-1147: which findings get inline comments (review-profile.ts). */
@@ -113,6 +119,7 @@ export const DEFAULT_REPO_REVIEW_SETTING: Readonly<RepoReviewSettingValues> =
     ignoreUsernames: [],
     descriptionKeyword: null,
     pathFilters: [],
+    preMergeChecks: DEFAULT_PRE_MERGE_CHECKS,
     pathInstructions: [],
     reviewProfile: DEFAULT_REVIEW_PROFILE,
     toneInstructions: null,

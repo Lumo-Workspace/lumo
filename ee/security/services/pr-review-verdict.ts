@@ -16,6 +16,8 @@
  *   · zero DONE-blocking findings (`isBlockingFinding`) — a blocking finding
  *     whose thread a human resolved on GitHub still blocks (LUM-1128 ruling:
  *     resolving a conversation is not a disposition);
+ *   · zero failed `error` pre-merge checks (LUM-1148) — unless the checks
+ *     were overridden on the PR; an inconclusive check never counts;
  *   · every actionable finding already on the PR as a thread (none held for
  *     the verifier / the suggestion pass, none over the inline cap);
  *   · the head unchanged when the approval is submitted (`canSubmitApproval`).
@@ -59,6 +61,11 @@ export interface VerdictInput {
   blocking: number
   /** Actionable findings with no thread on the PR yet (held, over the cap, failed post). */
   unpostedActionable: number
+  /**
+   * LUM-1148 — failed `error` pre-merge checks still holding approval back
+   * (`blockingCheckCount`: 0 once overridden). Absent = 0.
+   */
+  failingChecks?: number
   standing: StandingReview
 }
 
@@ -87,7 +94,11 @@ export function isReviewComplete(scan: VerdictScan): boolean {
 export function decideReviewVerdict(input: VerdictInput): Verdict {
   if (!input.enabled) return { kind: 'NONE', reason: 'mode off' }
 
-  if (input.openThreads > 0 || input.blocking > 0) {
+  if (
+    input.openThreads > 0 ||
+    input.blocking > 0 ||
+    (input.failingChecks ?? 0) > 0
+  ) {
     // One "Changes requested" stands until Lumo approves — no repeat review
     // on every sync (new inline comments carry their own).
     if (input.standing.state === 'CHANGES_REQUESTED')

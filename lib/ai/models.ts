@@ -161,6 +161,11 @@ export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
  * FAST-tier call refuses or fails, a different, larger model gives the
  * second opinion — whether a reply becomes a stored learning is itself a
  * memory keep decision. Same ZDR-forced gateway and hosts; no new provider.
+ *
+ * Also the PR reviewer's pre-merge checks (LUM-1148,
+ * `ee/security/llm/pre-merge-checks-client.ts`): one structured
+ * passed / failed / inconclusive judgment per check over a bounded diff —
+ * rubric judging of the same kind, on the same gateway.
  */
 export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 

@@ -531,6 +531,108 @@ export async function fetchPrBase(opts: {
   return { ref, sha }
 }
 
+/** LUM-1148 — what the pre-merge checks and their override read off a PR. */
+export interface PrDetails {
+  title: string
+  body: string
+  authorLogin: string | null
+  state: string
+  headSha: string
+  baseRef: string | null
+  baseSha: string | null
+  /** Users GitHub still lists as requested reviewers (teams are not expanded). */
+  requestedReviewers: string[]
+}
+
+/**
+ * LUM-1148 — the PR's title, description, author, head / base and requested
+ * reviewers, from one pulls API call. Throws on non-2xx or a missing head.
+ */
+export async function fetchPrDetails(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<PrDetails> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as {
+    title?: unknown
+    body?: unknown
+    state?: unknown
+    user?: { login?: unknown } | null
+    head?: { sha?: unknown }
+    base?: { ref?: unknown; sha?: unknown }
+    requested_reviewers?: Array<{ login?: unknown } | null> | null
+  }
+  const headSha = body.head?.sha
+  if (typeof headSha !== 'string' || headSha.length === 0) {
+    throw new Error(
+      `GitHub pulls payload missing head.sha for ${opts.fullName}#${opts.prNumber}`
+    )
+  }
+  const str = (v: unknown): string | null =>
+    typeof v === 'string' && v.length > 0 ? v : null
+  return {
+    title: typeof body.title === 'string' ? body.title : '',
+    body: typeof body.body === 'string' ? body.body : '',
+    authorLogin: str(body.user?.login),
+    state: typeof body.state === 'string' ? body.state : 'open',
+    headSha,
+    baseRef: str(body.base?.ref),
+    baseSha: str(body.base?.sha),
+    requestedReviewers: (body.requested_reviewers ?? [])
+      .map(r => r?.login)
+      .filter((l): l is string => typeof l === 'string' && l.length > 0),
+  }
+}
+
+/** LUM-1148 — where GitHub looks for a pull request template (first wins). */
+export const PR_TEMPLATE_PATHS = [
+  '.github/pull_request_template.md',
+  '.github/PULL_REQUEST_TEMPLATE.md',
+  'pull_request_template.md',
+  'docs/pull_request_template.md',
+] as const
+
+/**
+ * LUM-1148 — the repository's pull request template at `ref`, or null when
+ * it has none. One contents:read token for the reads, revoked after.
+ */
+export async function readPrTemplate(opts: {
+  workspaceId: string
+  fullName: string
+  ref: string
+}): Promise<string | null> {
+  return withRepoReadToken(opts, async token => {
+    for (const path of PR_TEMPLATE_PATHS) {
+      const text = await readRepoFileWithToken({
+        token,
+        fullName: opts.fullName,
+        path,
+        ref: opts.ref,
+      })
+      if (text !== null) return text
+    }
+    return null
+  })
+}
+
 /**
  * LUM-738 — the default branch and its current head sha, for the repository
  * security baseline. Two calls (repo → default_branch, then the branch ref).

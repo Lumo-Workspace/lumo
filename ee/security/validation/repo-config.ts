@@ -8,6 +8,12 @@ import {
   reviewProfileSchema,
   toneInstructionsSchema,
 } from './security-scan-settings'
+import {
+  PRE_MERGE_CHECK_INSTRUCTIONS_MAX,
+  PRE_MERGE_CHECK_MODES,
+  PRE_MERGE_CHECK_NAME_MAX,
+  PRE_MERGE_CUSTOM_CHECKS_MAX,
+} from '@/ee/security/security-scan/pre-merge-checks'
 import { PATH_INSTRUCTIONS_MAX_ENTRIES } from '@/ee/security/security-scan/path-instructions'
 
 /**
@@ -90,6 +96,75 @@ export const autoReviewConfigSchema = z
     'Which PRs without a Lumo task are reviewed automatically. PRs linked to a Lumo task are always scanned.'
   )
 
+const checkMode = z
+  .enum(PRE_MERGE_CHECK_MODES)
+  .describe(
+    '`off` = not run; `warning` = a failure is reported; `error` = a failure also keeps Lumo at "Changes requested" (request-changes workflow on) until fixed or overridden on the PR.'
+  )
+
+/** LUM-1148 — the pre-merge checks. */
+export const preMergeChecksConfigSchema = z
+  .object({
+    title: z
+      .object({
+        mode: checkMode.optional(),
+        requirements: z
+          .string()
+          .max(PRE_MERGE_CHECK_INSTRUCTIONS_MAX)
+          .optional()
+          .describe(
+            'Extra rules the PR title must meet, in plain language (e.g. "start with feat:, fix: or chore:").'
+          ),
+      })
+      .optional()
+      .describe(
+        'Built-in check: the PR title is concise and describes the change.'
+      ),
+    description: z
+      .object({ mode: checkMode.optional() })
+      .optional()
+      .describe(
+        "Built-in check: the PR description is filled in (and follows the repository's pull request template, if any)."
+      ),
+    custom_checks: z
+      .array(
+        z.object({
+          name: z
+            .string()
+            .max(PRE_MERGE_CHECK_NAME_MAX)
+            .refine(v => !/[\n\r]/.test(v), 'must be a single line')
+            .refine(v => v.trim().length > 0, 'must not be empty')
+            .describe('Shown in the PR summary; unique per repository.'),
+          mode: checkMode.optional().describe('Default `warning`.'),
+          instructions: z
+            .string()
+            .max(PRE_MERGE_CHECK_INSTRUCTIONS_MAX)
+            .refine(v => v.trim().length > 0, 'must not be empty')
+            .describe('The rule, in plain language.'),
+        })
+      )
+      .max(PRE_MERGE_CUSTOM_CHECKS_MAX)
+      .refine(
+        list =>
+          new Set(list.map(c => c.name.trim().toLowerCase())).size ===
+          list.length,
+        'check names must be unique'
+      )
+      .optional()
+      .describe(
+        "The repository's own checks, in natural language. Replaces the checks set in Lumo."
+      ),
+    override_requested_reviewers_only: z
+      .boolean()
+      .optional()
+      .describe(
+        "Only the PR's requested reviewers (never its author) may run `ignore pre-merge checks`."
+      ),
+  })
+  .describe(
+    'Pre-merge checks, reported in the PR summary. Overriding them never clears a finding that blocks DONE.'
+  )
+
 export const reviewsConfigSchema = z
   .object({
     auto_review: autoReviewConfigSchema.optional(),
@@ -103,6 +178,7 @@ export const reviewsConfigSchema = z
       .describe(
         'Globs for the files the AI review reads: `!glob` excludes; once any `glob` is listed, only matching files are reviewed.'
       ),
+    pre_merge_checks: preMergeChecksConfigSchema.optional(),
     profile: reviewProfileSchema
       .optional()
       .describe(

@@ -59,6 +59,14 @@ import {
   type ReviewProfile,
 } from '@/ee/security/security-scan/review-profile'
 import { REPO_CONFIG_PATH } from '@/ee/security/validation/repo-config'
+import {
+  blockingCheckCount,
+  checksForHead,
+  formatPreMergeChecks,
+  overrideFromColumns,
+  type PreMergeChecksOverride,
+  type PreMergeChecksRecord,
+} from '@/ee/security/security-scan/pre-merge-checks'
 import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/ee/security/services/security-suggest.config'
 import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
@@ -569,6 +577,12 @@ export interface SummaryInput {
    * read (nothing to say).
    */
   repoConfig?: RepoConfigNotice | null
+  /**
+   * LUM-1148 — the pre-merge checks' results on this head, and the PR's
+   * override of them; absent/null = no check ran (no block).
+   */
+  preMergeChecks?: PreMergeChecksRecord | null
+  preMergeOverride?: PreMergeChecksOverride | null
   /** LUM-1147 — the scan's review profile; absent = chill (said nowhere). */
   reviewProfile?: ReviewProfile
   /**
@@ -631,6 +645,11 @@ export function commandsBlock(handle: string, approve = false): string {
     [
       'resolve',
       "resolve Lumo's open threads (findings that block DONE stay open)",
+    ],
+    // LUM-1148: the per-PR override of the pre-merge checks.
+    [
+      'ignore pre-merge checks',
+      'ignore failed pre-merge checks on this PR (findings that block DONE stay)',
     ],
     // LUM-1130: only where the request-changes workflow is on.
     ...(approve
@@ -864,6 +883,16 @@ export function buildSummary(input: SummaryInput): string {
   if (attention) blocks.push(attention)
   const threads = threadsLine(input.threads)
   if (threads) blocks.push(threads)
+  // LUM-1148: the pre-merge checks — failures in a table, passes folded.
+  const checks = formatPreMergeChecks(
+    input.preMergeChecks ?? null,
+    input.preMergeOverride ?? null,
+    {
+      handle: input.commandHandle ?? null,
+      requestChanges: input.approveCommand === true,
+    }
+  )
+  if (checks) blocks.push(checks)
 
   const notices: string[] = []
   if (Object.values(input.stages).includes('PAUSED')) {
@@ -1327,6 +1356,10 @@ export const securityPrReviewService = {
           isBlockingFinding(f, policy)
       )
       const blocking = open.filter(f => isBlockingFinding(f, policy)).length
+      // LUM-1148: the pre-merge checks of THIS head, and the PR's override.
+      const checksRecord = checksForHead(scan.preMergeChecks, scan.headSha)
+      const checksOverride = overrideFromColumns(pr)
+      const failingChecks = blockingCheckCount(checksRecord, checksOverride)
       const externalCounts: Record<string, number> = {}
       for (const f of open) {
         const tool = externalTool(f.ruleId)
@@ -1451,6 +1484,8 @@ export const securityPrReviewService = {
         commandHandle: prCommandHandle(),
         approveCommand: requestChanges,
         repoConfig: parseRepoConfigNotice(scan.repoConfig),
+        preMergeChecks: checksRecord,
+        preMergeOverride: checksOverride,
         reviewProfile: profile,
         profileHeld: open.filter(f => heldByProfile(profile, f, policy)),
         prSummary: scan.prSummary,
@@ -1583,6 +1618,7 @@ export const securityPrReviewService = {
           },
           openThreads: threads.counts.open + newThreads,
           blocking,
+          failingChecks,
           unpostedActionable: open.filter(
             f =>
               isInline(f) &&

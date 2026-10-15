@@ -34,6 +34,11 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   ignoreUsers?: string[]
   descriptionKeyword?: string
   pathFilter?: string[]
+  /** LUM-1148: the per-repository pre-merge checks. */
+  titleCheck?: string
+  titleRequirements?: string
+  descriptionCheck?: string
+  overrideReviewersOnly?: string
   /** LUM-1147: the per-repository review style. */
   profile?: string
   tone?: string
