@@ -38,6 +38,8 @@ export interface RepoReviewOptions extends ConfirmFlags {
   tone?: string
   /** Repeatable `glob=instructions`; replaces the list, "" clears. */
   pathInstruction?: string[]
+  /** LUM-1151: description | comment | off. */
+  summary?: string
   json?: boolean
   /** The switch flags of the same command — not combinable with --repo. */
   scan?: string
@@ -65,6 +67,8 @@ export interface RepoReviewSettingView {
   pathInstructions?: PathInstruction[]
   reviewProfile?: ReviewProfile
   toneInstructions?: string | null
+  /** LUM-1151 (absent from an older server). */
+  highLevelSummary?: HighLevelSummaryMode
   /** What an empty `baseBranches` reviews. */
   emptyBaseBranchesMeans?: 'all_branches' | 'default_branch_only'
   /** LUM-1148 (absent from an older server). */
@@ -111,6 +115,22 @@ export interface RepoReviewUpdate {
   pathInstructions?: PathInstruction[]
   reviewProfile?: ReviewProfile
   toneInstructions?: string | null
+  highLevelSummary?: HighLevelSummaryMode
+}
+
+/** LUM-1151: where the high-level PR summary goes (mirrors the server). */
+export const HIGH_LEVEL_SUMMARY_MODES = [
+  'description',
+  'comment',
+  'off',
+] as const
+export type HighLevelSummaryMode = (typeof HIGH_LEVEL_SUMMARY_MODES)[number]
+
+const SUMMARY_HELP: Record<HighLevelSummaryMode, string> = {
+  description:
+    'written into the PR description and kept in sync on every review',
+  comment: "in Lumo's summary comment only",
+  off: 'not written',
 }
 
 export const REVIEW_PROFILES = ['quiet', 'chill', 'assertive'] as const
@@ -174,7 +194,9 @@ function hasFilterFlag(opts: RepoReviewOptions): boolean {
     // LUM-1147: the review style flags change the repository too.
     opts.profile !== undefined ||
     opts.tone !== undefined ||
-    opts.pathInstruction !== undefined
+    opts.pathInstruction !== undefined ||
+    // LUM-1151
+    opts.summary !== undefined
   )
 }
 
@@ -286,7 +308,7 @@ export function buildRepoReviewUpdate(
     hasFilterFlag(opts)
   if (change && !opts.repo) {
     throw new Error(
-      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --issue-assessment / --task-details-on-public-repos / --profile / --tone / --path-instruction need --repo <owner/name>'
+      '--review / --drafts / --base-branches / --labels / --ignore-title / --ignore-users / --description-keyword / --path-filter / --title-check / --title-requirements / --description-check / --override-reviewers-only / --issue-assessment / --task-details-on-public-repos / --profile / --tone / --path-instruction / --summary need --repo <owner/name>'
     )
   }
   if (!change) return null
@@ -319,6 +341,14 @@ export function buildRepoReviewUpdate(
   }
   if (opts.pathInstruction !== undefined)
     update.pathInstructions = parsePathInstructions(opts.pathInstruction)
+  if (opts.summary !== undefined) {
+    const m = opts.summary.trim().toLowerCase()
+    if (!(HIGH_LEVEL_SUMMARY_MODES as readonly string[]).includes(m))
+      throw new Error(
+        `--summary takes ${HIGH_LEVEL_SUMMARY_MODES.join(', ')} (got "${opts.summary}")`
+      )
+    update.highLevelSummary = m as HighLevelSummaryMode
+  }
   return update
 }
 
@@ -442,6 +472,11 @@ export function formatRepoReviewFilters(r: RepoReviewSettingView): string[] {
     )
   if (r.toneInstructions)
     lines.push(`  tone: ${sanitizeField(r.toneInstructions)}`)
+  // LUM-1151 (absent from an older server).
+  if (r.highLevelSummary)
+    lines.push(
+      `  high-level summary: ${r.highLevelSummary} (${SUMMARY_HELP[r.highLevelSummary] ?? ''})`
+    )
   for (const p of r.pathInstructions ?? [])
     lines.push(
       `  path instruction: ${sanitizeField(p.path)} = ${sanitizeField(p.instructions).replace(/\s+/g, ' ')}`

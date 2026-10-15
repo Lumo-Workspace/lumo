@@ -53,6 +53,11 @@ import {
 } from './pre-merge-checks'
 import type { PathInstruction } from './path-instructions'
 import { DEFAULT_REVIEW_PROFILE, type ReviewProfile } from './review-profile'
+import {
+  DEFAULT_HIGH_LEVEL_SUMMARY,
+  stripDescriptionSummary,
+  type HighLevelSummaryMode,
+} from './pr-description-summary'
 
 /**
  * What an EMPTY `baseBranches` list reviews (user decision, 2026-10-15):
@@ -105,6 +110,8 @@ export interface RepoReviewSettingValues {
   reviewProfile: ReviewProfile
   /** LUM-1147: how the AI review words its findings; null = none. */
   toneInstructions: string | null
+  /** LUM-1151: where the high-level summary goes (pr-description-summary.ts). */
+  highLevelSummary: HighLevelSummaryMode
 }
 
 /** No stored row = these. */
@@ -123,6 +130,7 @@ export const DEFAULT_REPO_REVIEW_SETTING: Readonly<RepoReviewSettingValues> =
     pathInstructions: [],
     reviewProfile: DEFAULT_REVIEW_PROFILE,
     toneInstructions: null,
+    highLevelSummary: DEFAULT_HIGH_LEVEL_SUMMARY,
   })
 
 /**
@@ -277,8 +285,10 @@ export function evaluateReviewFilters(
     if (positive.length > 0 && !hasPositive) return skip('label_missing')
   } else {
     const keyword = setting.descriptionKeyword?.trim() ?? ''
+    // LUM-1151: Lumo's own summary block is not the author's text.
+    const body = stripDescriptionSummary(pr.body)
     const keywordOptIn =
-      keyword.length > 0 && pr.body !== null && pr.body.includes(keyword)
+      keyword.length > 0 && body !== null && body.includes(keyword)
     if (!hasPositive && !keywordOptIn) return skip('repo_off')
   }
   // 4. Base branch.
@@ -350,12 +360,14 @@ export function hasIgnoreDirective(
   handle: string | null
 ): boolean {
   if (!body || !handle) return false
+  // LUM-1151: Lumo's own summary block is not the author's text.
+  const authored = stripDescriptionSummary(body) ?? ''
   const directive = new RegExp(
     `(?:^|[^\\w@/-])${escapeRegExp(handle)}(?:\\[bot\\])?[\\s,:]+ignore(?![\\w-])`,
     'i'
   )
   let fenced = false
-  for (const raw of body.split(/\r?\n/)) {
+  for (const raw of authored.split(/\r?\n/)) {
     const line = raw.trim()
     if (/^(```|~~~)/.test(line)) {
       fenced = !fenced

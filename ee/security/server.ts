@@ -47,6 +47,7 @@ import {
   mentionsHandle,
   routeConversationComment,
 } from '@/ee/security/security-scan/pr-chat'
+import { authoredDescriptionChanged } from '@/ee/security/security-scan/pr-description-summary'
 
 /**
  * LUM-1148 — PURE: an `edited` event on an open PR that changed its title or
@@ -62,7 +63,12 @@ export function isChecksEdit(event: {
   const before = event.reviewFactsBefore
   const after = event.reviewFacts
   if (!before || !after) return false
-  return before.title !== after.title || before.body !== after.body
+  // LUM-1151: Lumo writing its summary into the description is not an
+  // author edit — it must not re-run the checks (a model call per edit).
+  return (
+    before.title !== after.title ||
+    authoredDescriptionChanged(before.body, after.body, prCommandHandle())
+  )
 }
 
 export const securityPlugin: LumoServerPlugin = {

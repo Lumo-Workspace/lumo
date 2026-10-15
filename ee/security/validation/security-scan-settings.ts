@@ -16,6 +16,7 @@ import {
   TONE_INSTRUCTIONS_MAX_CHARS,
 } from '@/ee/security/security-scan/path-instructions'
 import { REVIEW_PROFILES } from '@/ee/security/security-scan/review-profile'
+import { HIGH_LEVEL_SUMMARY_MODES } from '@/ee/security/security-scan/pr-description-summary'
 
 /** LUM-1143: entries per filter list, and characters per entry. */
 export const REVIEW_FILTER_MAX_ENTRIES = 50
@@ -57,6 +58,9 @@ export const pathInstructionsSchema = z
   .max(PATH_INSTRUCTIONS_MAX_ENTRIES)
 
 export const reviewProfileSchema = z.enum(REVIEW_PROFILES)
+
+/** LUM-1151: where the high-level PR summary goes. */
+export const highLevelSummarySchema = z.enum(HIGH_LEVEL_SUMMARY_MODES)
 
 export const toneInstructionsSchema = z
   .string()
@@ -195,6 +199,8 @@ export const updateRepoReviewSettingsSchema = z
     pathInstructions: pathInstructionsSchema.optional(),
     reviewProfile: reviewProfileSchema.optional(),
     toneInstructions: toneInstructionsSchema.nullable().optional(),
+    // LUM-1151: description | comment | off.
+    highLevelSummary: highLevelSummarySchema.optional(),
   })
   .strict()
   .refine(v => Object.keys(v).some(k => k !== 'repo'), {

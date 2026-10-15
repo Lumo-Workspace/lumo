@@ -19,6 +19,7 @@ import {
   type PathInstruction,
 } from '@/ee/security/security-scan/path-instructions'
 import type { ReviewProfile } from '@/ee/security/security-scan/review-profile'
+import type { HighLevelSummaryMode } from '@/ee/security/security-scan/pr-description-summary'
 
 /**
  * LUM-1133 — per-repository automatic review settings
@@ -62,6 +63,8 @@ export interface RepoReviewSettingsUpdate {
   reviewProfile?: ReviewProfile | undefined
   /** '' or null clears. */
   toneInstructions?: string | null | undefined
+  /** LUM-1151: where the high-level summary goes. */
+  highLevelSummary?: HighLevelSummaryMode | undefined
 }
 
 type SettingKey = keyof RepoReviewSettingValues
@@ -110,6 +113,7 @@ export function applyRepoReviewUpdate(
     autoReview: update.autoReview ?? from.autoReview,
     reviewDrafts: update.reviewDrafts ?? from.reviewDrafts,
     reviewProfile: update.reviewProfile ?? from.reviewProfile,
+    highLevelSummary: update.highLevelSummary ?? from.highLevelSummary,
   }
   for (const key of LIST_KEYS) {
     const next = update[key]

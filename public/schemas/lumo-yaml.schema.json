@@ -183,6 +183,18 @@
             "required": ["path", "instructions"],
             "description": "Extra instructions for the AI review of files matching `path`."
           }
+        },
+        "high_level_summary": {
+          "description": "Where Lumo writes its high-level summary of the PR: `description` (default, or `true`) = into the PR description, at an `@uselumo summary` line or appended, and kept in sync on every review; `comment` = only in Lumo's summary comment; `off` (or `false`) = nowhere.",
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": ["description", "comment", "off"]
+            }
+          ]
         }
       },
       "description": "Code review settings."

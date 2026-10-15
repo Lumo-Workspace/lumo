@@ -7,6 +7,7 @@ import {
 import { parsePreMergeChecksSetting } from '@/ee/security/security-scan/pre-merge-checks'
 import { normalizePathInstructions } from '@/ee/security/security-scan/path-instructions'
 import { parseReviewProfile } from '@/ee/security/security-scan/review-profile'
+import { parseHighLevelSummary } from '@/ee/security/security-scan/pr-description-summary'
 
 type StoredColumns =
   | 'emptyBaseBranchesMeans'
@@ -14,6 +15,7 @@ type StoredColumns =
   | 'reviewProfile'
   | 'toneInstructions'
   | 'preMergeChecks'
+  | 'highLevelSummary'
 
 /** The stored text / Json columns as the domain types. */
 function toDomain<
@@ -23,6 +25,7 @@ function toDomain<
     reviewProfile: string
     toneInstructions: string | null
     preMergeChecks: unknown
+    highLevelSummary: string
   },
 >(
   row: T
@@ -38,6 +41,7 @@ function toDomain<
     toneInstructions: row.toneInstructions,
     // LUM-1148: null (never set) or malformed reads as the defaults.
     preMergeChecks: parsePreMergeChecksSetting(row.preMergeChecks),
+    highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
   }
 }
 
@@ -79,6 +83,7 @@ const SETTING_SELECT = {
   pathInstructions: true,
   reviewProfile: true,
   toneInstructions: true,
+  highLevelSummary: true,
 } as const
 
 /**
@@ -154,7 +159,10 @@ export const repoReviewSettingRepository = {
     repoLower: string
   ): Promise<Pick<
     RepoReviewSettingValues,
-    'pathInstructions' | 'reviewProfile' | 'toneInstructions'
+    | 'pathInstructions'
+    | 'reviewProfile'
+    | 'toneInstructions'
+    | 'highLevelSummary'
   > | null> {
     const row = await prisma.repositoryReviewSetting.findUnique({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
@@ -162,6 +170,7 @@ export const repoReviewSettingRepository = {
         pathInstructions: true,
         reviewProfile: true,
         toneInstructions: true,
+        highLevelSummary: true,
       },
     })
     if (!row) return null
@@ -169,6 +178,8 @@ export const repoReviewSettingRepository = {
       pathInstructions: normalizePathInstructions(row.pathInstructions),
       reviewProfile: parseReviewProfile(row.reviewProfile),
       toneInstructions: row.toneInstructions,
+      // LUM-1151: where the high-level summary goes.
+      highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
     }
   },
 

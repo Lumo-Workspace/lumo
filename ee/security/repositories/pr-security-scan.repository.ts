@@ -399,6 +399,11 @@ export interface ScanForReview {
   preMergeChecks?: unknown
   /** LUM-1147 — the review profile the scan ran with (null/absent = chill). */
   reviewProfile?: string | null
+  /**
+   * LUM-1151 — where the high-level summary goes for this review
+   * (null/absent = the PR description).
+   */
+  highLevelSummary?: string | null
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -1707,6 +1712,7 @@ export const prSecurityScanRepository = {
         repoConfig: true,
         preMergeChecks: true,
         reviewProfile: true,
+        highLevelSummary: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -2358,6 +2364,66 @@ export const prSecurityScanRepository = {
     await prisma.prSecurityScan.update({
       where: { id: scanId },
       data: { reviewProfile },
+    })
+  },
+
+  /** LUM-1151 — where this scan's high-level summary goes (for the write-back). */
+  async setHighLevelSummary(
+    scanId: string,
+    highLevelSummary: string
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { highLevelSummary },
+    })
+  },
+
+  /**
+   * LUM-1151 — for `@<app> summary`: the newest scan of the PR that carries
+   * a summary, else the newest scan at all (so the reply can say which
+   * review had none); null when the PR was never scanned.
+   */
+  async findLatestSummaryByPullRequest(pullRequestId: string): Promise<{
+    id: string
+    headSha: string
+    prSummary: unknown
+    highLevelSummary: string | null
+  } | null> {
+    const select = {
+      id: true,
+      headSha: true,
+      prSummary: true,
+      highLevelSummary: true,
+    } as const
+    const withSummary = await prisma.prSecurityScan.findFirst({
+      where: { pullRequestId, prSummary: { not: Prisma.DbNull } },
+      orderBy: { startedAt: 'desc' },
+      select,
+    })
+    if (withSummary) return withSummary
+    return prisma.prSecurityScan.findFirst({
+      where: { pullRequestId },
+      orderBy: { startedAt: 'desc' },
+      select,
+    })
+  },
+
+  /**
+   * LUM-1151 — the newest OTHER scan of the PR that carries a summary: what
+   * an incremental review keeps when its whole-PR summary cannot be made.
+   */
+  async findPreviousPrSummary(
+    pullRequestId: string,
+    excludeScanId: string
+  ): Promise<{ headSha: string; prSummary: unknown } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: {
+        pullRequestId,
+        id: { not: excludeScanId },
+        prSummary: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      select: { headSha: true, prSummary: true },
     })
   },
 

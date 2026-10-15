@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { baseBranchRegExp } from '@/ee/security/security-scan/auto-review-policy'
 import { invalidPathFilter } from '@/ee/security/security-scan/reviewable-path'
 import {
+  highLevelSummarySchema,
   pathInstructionEntrySchema,
   REVIEW_FILTER_MAX_ENTRIES,
   REVIEW_FILTER_MAX_ENTRY_CHARS,
@@ -200,6 +201,12 @@ export const reviewsConfigSchema = z
       .optional()
       .describe(
         'Review instructions per path glob, added to the AI review of matching files (on top of its built-in review; they cannot turn a check off).'
+      ),
+    high_level_summary: z
+      .union([z.boolean(), highLevelSummarySchema])
+      .optional()
+      .describe(
+        "Where Lumo writes its high-level summary of the PR: `description` (default, or `true`) = into the PR description, at an `@uselumo summary` line or appended, and kept in sync on every review; `comment` = only in Lumo's summary comment; `off` (or `false`) = nowhere."
       ),
   })
   .describe('Code review settings.')

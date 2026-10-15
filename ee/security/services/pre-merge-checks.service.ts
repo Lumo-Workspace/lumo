@@ -36,6 +36,8 @@ import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security
 import { repoConfigService } from '@/ee/security/services/repo-config.service'
 import { linkedRequirementsService } from '@/ee/security/services/linked-requirements.service'
 import { DEFAULT_REPO_REVIEW_SETTING } from '@/ee/security/security-scan/auto-review-policy'
+import { authoredDescription } from '@/ee/security/security-scan/pr-description-summary'
+import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
 import {
   effectiveReviewConfig,
   preMergeChecksOf,
@@ -196,7 +198,13 @@ export const preMergeChecksService = {
           )
         }
       }
-      const input = { title: pr.title, body: pr.body, template }
+      // LUM-1151: the description check reads the author's text, never
+      // Lumo's own summary section.
+      const input = {
+        title: pr.title,
+        body: authoredDescription(pr.body, prCommandHandle()),
+        template,
+      }
       const planned = planPreMergeChecks(setting, input, builtins)
       if (planned.length === 0) {
         await prSecurityScanRepository.setPreMergeChecks(target.scanId, null)
@@ -288,7 +296,10 @@ export const preMergeChecksService = {
             material: material[i] ?? null,
           })),
           title: guardInjectedText(cap(pr.title, 500).text),
-          body: guardInjectedText(cap(pr.body, PRE_MERGE_TEXT_MAX_CHARS).text),
+          // LUM-1151: the author's text — never Lumo's own summary section.
+          body: guardInjectedText(
+            cap(input.body, PRE_MERGE_TEXT_MAX_CHARS).text
+          ),
           template: template
             ? guardInjectedText(cap(template, PRE_MERGE_TEXT_MAX_CHARS).text)
             : null,

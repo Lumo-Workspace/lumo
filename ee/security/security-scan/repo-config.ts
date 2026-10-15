@@ -43,6 +43,7 @@ import {
   type PathInstruction,
 } from './path-instructions'
 import type { ReviewProfile } from './review-profile'
+import type { HighLevelSummaryMode } from './pr-description-summary'
 
 /** Problems / unknown keys kept per file (the rest are counted). */
 export const REPO_CONFIG_MAX_PROBLEMS = 10
@@ -364,6 +365,22 @@ export const REPO_CONFIG_FIELDS = {
     fallback: D.toneInstructions,
     prBranch: 'ignored',
   }),
+  // LUM-1151 — where the high-level summary goes. `true` / `false` are
+  // shorthands for `description` / `off`. A PR-branch copy is ignored like
+  // every key: it would decide whether Lumo edits that PR's description.
+  highLevelSummary: field<HighLevelSummaryMode>({
+    key: 'reviews.high_level_summary',
+    read: f => {
+      const v = f.reviews?.high_level_summary
+      if (v === undefined) return undefined
+      if (v === true) return 'description'
+      if (v === false) return 'off'
+      return v
+    },
+    lumo: s => s.highLevelSummary,
+    fallback: D.highLevelSummary,
+    prBranch: 'ignored',
+  }),
 } as const
 
 export type RepoConfigFields = typeof REPO_CONFIG_FIELDS
@@ -446,6 +463,7 @@ export function reviewSettingsWithFile(
       taskDetailsOnPublicRepos:
         settings.preMergeChecks.issueAssessment.taskDetailsOnPublicRepos,
     }),
+    highLevelSummary: e.highLevelSummary.value,
   }
 }
 
