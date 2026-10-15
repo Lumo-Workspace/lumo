@@ -332,6 +332,24 @@ describe('load results and the stored notice', () => {
       diffTouchesRepoConfig(d('pkg/.lumo.yaml', 'pkg/.lumo.yaml'), '.lumo.yaml')
     ).toBe(false)
     expect(diffTouchesRepoConfig('', '.lumo.yaml')).toBe(false)
+    expect(
+      diffTouchesRepoConfig(
+        'diff --git "a/old name.yaml" b/.lumo.yaml\r\n',
+        '.lumo.yaml'
+      )
+    ).toBe(true)
+    expect(
+      diffTouchesRepoConfig(
+        'diff --git a/.lumo.yaml "b/new name.yaml"\n',
+        '.lumo.yaml'
+      )
+    ).toBe(true)
+    expect(
+      diffTouchesRepoConfig(
+        'diff --git a/x.lumo.yaml b/x.lumo.yaml\n',
+        '.lumo.yaml'
+      )
+    ).toBe(false)
   })
 })
 

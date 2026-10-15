@@ -312,7 +312,7 @@ export function effectiveReviewConfig(
       }
     } else {
       out[name] = {
-        value: f.lumo ? f.lumo(lumo.values) : f.fallback,
+        value: f.fallback,
         source: 'default',
         key: f.key,
       }
@@ -450,7 +450,17 @@ export function parseRepoConfigNotice(raw: unknown): RepoConfigNotice | null {
 
 /** PURE — the PR's diff changes `path` (added, edited, renamed or deleted). */
 export function diffTouchesRepoConfig(diff: string, path: string): boolean {
-  for (const m of diff.matchAll(/^diff --git a\/(\S+) b\/(\S+)$/gm))
-    if (m[1] === path || m[2] === path) return true
+  // Header lines only; a CR (CRLF diff) and a quoted side ("a/x y") are fine.
+  for (const raw of diff.split('\n')) {
+    if (!raw.startsWith('diff --git ')) continue
+    const line = raw.replace(/\r$/, '')
+    if (
+      line.startsWith(`diff --git a/${path} `) ||
+      line.startsWith(`diff --git "a/${path}" `) ||
+      line.endsWith(` b/${path}`) ||
+      line.endsWith(` "b/${path}"`)
+    )
+      return true
+  }
   return false
 }
