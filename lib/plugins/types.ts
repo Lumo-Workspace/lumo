@@ -159,6 +159,11 @@ export interface CoreEvents {
      * nothing a filter reads.
      */
     reviewFactsBefore?: PullRequestReviewFacts
+    /**
+     * LUM-1146: the commit the PR's base branch points at (`base.sha`) —
+     * where the repository config file is read. Absent = not read.
+     */
+    baseSha?: string | null
   }
   /** A branch push (not a tag, not a deletion). */
   'github.push': {

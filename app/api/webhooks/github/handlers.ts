@@ -43,7 +43,7 @@ type GitHubPR = {
   // LUM-746: `sha` is on every pull_request payload; optional so a stripped
   // payload degrades to a head fetch on the request path.
   head: { ref: string; sha?: string }
-  base: { ref: string }
+  base: { ref: string; sha?: string }
   merged_at: string | null
   closed_at: string | null
   merge_commit_sha: string | null
@@ -191,6 +191,8 @@ export async function handlePullRequest(
     // LUM-1143: what the per-repository auto-review filters read.
     reviewFacts,
     ...(reviewFactsBefore ? { reviewFactsBefore } : {}),
+    // LUM-1146: the repository config file is read at the base commit.
+    baseSha: typeof pr.base.sha === 'string' ? pr.base.sha : null,
   }
 
   if (!linkedTask) {
