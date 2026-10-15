@@ -124,6 +124,7 @@ import {
 import {
   crossLayerNearMisses,
   groupSameIssue,
+  groupingCandidates,
 } from '@/ee/security/security-scan/issue-groups'
 import { prReviewVerdictService } from '@/ee/security/services/pr-review-verdict.service'
 import { issueAssessmentReviewService } from '@/ee/security/services/issue-assessment-review.service'
@@ -1858,7 +1859,12 @@ export const securityPrReviewService = {
       // re-raises an issue the developer resolved. A disposition never
       // cascades: once the kept row is dispositioned it leaves this set, and
       // a merged row still open gets its own thread.
-      const issueGroups = groupSameIssue(unrejected.filter(isInline), {
+      // LUM-1200 follow-up #5: a finding that already has a thread is
+      // grouped whatever its severity — a thread owner relabelled LOW still
+      // takes in the other layer's report of its issue (only inline-eligible
+      // findings are ever posted; see `candidates`).
+      const groupable = groupingCandidates(unrejected, isInline, existing)
+      const issueGroups = groupSameIssue(groupable, {
         posted: existing,
         isBlocking: f => isBlockingFinding(f, policy),
         resolvedByUser: threads.resolvedByUser,
@@ -1866,10 +1872,7 @@ export const securityPrReviewService = {
       // LUM-1200 follow-up #3: a cross-layer pair just outside the line
       // window keeps two threads; logged (rule ids and distance only) so the
       // window can be tuned on real pairs.
-      const nearMisses = crossLayerNearMisses(
-        unrejected.filter(isInline),
-        issueGroups.mergedInto
-      )
+      const nearMisses = crossLayerNearMisses(groupable, issueGroups.mergedInto)
       if (nearMisses.length > 0)
         logger.info(
           'security-pr-review: cross-layer reports outside the same-issue window',

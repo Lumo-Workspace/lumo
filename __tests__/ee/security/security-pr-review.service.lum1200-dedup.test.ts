@@ -434,3 +434,151 @@ describe('LUM-1200 follow-up #4: reports merged in a later round join the posted
     expect(updateReviewLineComment).not.toHaveBeenCalled()
   })
 })
+
+// LUM-1200 follow-up #5 — production TC12 (lumo-agent-test#69 r6, head
+// b2b8d69, src/server.ts:31): the AI review's finding that owns the open
+// thread (carried onto it under a new fingerprint) was relabelled LOW — not
+// inline-eligible — while the hunt reported the same issue at MEDIUM on the
+// same line. The LOW owner left the grouping set, so the hunt report had no
+// partner and was posted as a second thread.
+describe('LUM-1200 follow-up #5: a thread owner relabelled LOW still takes in the hunt report', () => {
+  const THREAD_FP = 'f51aeed8a5c37ca3'
+  const LOW_FP = 'f041c2f4d3deddc4'
+  const HUNT_LOGIC_FP = '9bcc37308a7a0e8e'
+  const lowOwner: ReviewFindingRow = {
+    ...judge,
+    id: 'f-r6-review',
+    kind: 'CORRECTNESS',
+    ruleId: 'review:logic_error',
+    severity: 'LOW',
+    filePath: 'src/server.ts',
+    line: 31,
+    title: '/session/check has no method check and prefix matching is loose',
+    detail: 'startsWith matches /session/checkXYZ and any HTTP method.',
+    fingerprint: LOW_FP,
+  }
+  const huntLogic: ReviewFindingRow = {
+    ...hunt,
+    id: 'f-r6-hunt',
+    kind: 'VULNERABILITY',
+    ruleId: 'hunt:logic',
+    severity: 'MEDIUM',
+    filePath: 'src/server.ts',
+    line: 31,
+    title:
+      'The /session/check route uses startsWith prefix matching without enforcing HTTP method, allowing POST/PUT/DELETE requests to reach the session validation logic',
+    detail: 'Any method reaches checkSessionToken.',
+    fingerprint: HUNT_LOGIC_FP,
+  }
+  const threadBody = `**Lumo · LLM review · bug · MEDIUM** — Session check route lacks method check and uses loose prefix matching\n\nThe route matches by prefix.\n\n${fingerprintMarker(THREAD_FP)}`
+  const thread = {
+    id: 4288611632,
+    node_id: 'n',
+    html_url: '',
+    body: threadBody,
+    updated_at: '',
+    user: bot,
+  }
+
+  beforeEach(() => {
+    reconcile.mockResolvedValue({
+      ...NO_THREADS,
+      carried: new Map([[LOW_FP, THREAD_FP]]),
+      counts: { open: 1, addressed: 0, resolved: 0 },
+    })
+    listReviewComments.mockResolvedValue([thread])
+  })
+
+  it('posts no second thread and lists the hunt report in the open thread', async () => {
+    repo.findByIdForReview!.mockResolvedValue(scanRow([lowOwner, huntLogic]))
+    const res = await securityPrReviewService.sync('s1')
+
+    expect(postedComments()).toHaveLength(0)
+    expect(res.inline).toBe(0)
+    expect(updateReviewLineComment).toHaveBeenCalledTimes(1)
+    const [edit] = updateReviewLineComment.mock.calls[0]!
+    expect(edit.externalId).toBe(String(thread.id))
+    expect(edit.body).toContain(`lumo-security:also:${HUNT_LOGIC_FP}`)
+    expect(edit.body).toContain('Exploit paths')
+    expect(edit.body.endsWith(fingerprintMarker(THREAD_FP))).toBe(true)
+  })
+
+  it('a LOW finding with no thread is still neither posted nor a grouping owner', async () => {
+    reconcile.mockResolvedValue(NO_THREADS)
+    listReviewComments.mockResolvedValue([])
+    repo.findByIdForReview!.mockResolvedValue(scanRow([lowOwner, huntLogic]))
+    await securityPrReviewService.sync('s1')
+
+    const comments = postedComments()
+    expect(comments).toHaveLength(1)
+    expect(comments[0]!.body).toContain(fingerprintMarker(HUNT_LOGIC_FP))
+    expect(comments[0]!.body).not.toContain(fingerprintMarker(LOW_FP))
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+
+  it('a dispositioned thread owner never absorbs a new open finding: it gets its own thread', async () => {
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow([{ ...lowOwner, disposition: 'FALSE_POSITIVE' }, huntLogic])
+    )
+    await securityPrReviewService.sync('s1')
+
+    const comments = postedComments()
+    expect(comments).toHaveLength(1)
+    expect(comments[0]!.body).toContain(fingerprintMarker(HUNT_LOGIC_FP))
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+
+  it('an accepted-risk thread owner never absorbs a new open finding either', async () => {
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow([{ ...lowOwner, disposition: 'ACCEPTED_RISK' }, huntLogic])
+    )
+    await securityPrReviewService.sync('s1')
+    expect(postedComments()).toHaveLength(1)
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+
+  it('a human-resolved LOW thread does not absorb a more severe new report (it is posted, not hidden)', async () => {
+    reconcile.mockResolvedValue({
+      ...NO_THREADS,
+      resolvedByUser: new Set([THREAD_FP, LOW_FP]),
+      carried: new Map([[LOW_FP, THREAD_FP]]),
+      counts: { open: 0, addressed: 0, resolved: 1 },
+    })
+    repo.findByIdForReview!.mockResolvedValue(scanRow([lowOwner, huntLogic]))
+    await securityPrReviewService.sync('s1')
+
+    const comments = postedComments()
+    expect(comments).toHaveLength(1)
+    expect(comments[0]!.body).toContain(fingerprintMarker(HUNT_LOGIC_FP))
+    expect(updateReviewLineComment).not.toHaveBeenCalled()
+  })
+
+  it('a human-resolved LOW thread takes in only a report the carry rule allows (not blocking, not more severe)', async () => {
+    reconcile.mockResolvedValue({
+      ...NO_THREADS,
+      resolvedByUser: new Set([THREAD_FP, LOW_FP]),
+      carried: new Map([[LOW_FP, THREAD_FP]]),
+      counts: { open: 0, addressed: 0, resolved: 1 },
+    })
+    repo.findByIdForReview!.mockResolvedValue(
+      scanRow([lowOwner, { ...huntLogic, severity: 'LOW' }])
+    )
+    await securityPrReviewService.sync('s1')
+    expect(postedComments()).toHaveLength(0)
+  })
+
+  it('a LOW finding owning a thread by its own marker is never posted again', async () => {
+    reconcile.mockResolvedValue(NO_THREADS)
+    listReviewComments.mockResolvedValue([
+      { ...thread, body: threadBody.replace(THREAD_FP, LOW_FP) },
+    ])
+    repo.findByIdForReview!.mockResolvedValue(scanRow([lowOwner, huntLogic]))
+    await securityPrReviewService.sync('s1')
+
+    expect(postedComments()).toHaveLength(0)
+    expect(updateReviewLineComment).toHaveBeenCalledTimes(1)
+    expect(updateReviewLineComment.mock.calls[0]![0].body).toContain(
+      `lumo-security:also:${HUNT_LOGIC_FP}`
+    )
+  })
+})
