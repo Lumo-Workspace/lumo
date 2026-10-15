@@ -126,6 +126,12 @@ export const preMergeChecksConfigSchema = z
       .describe(
         "Built-in check: the PR description is filled in (and follows the repository's pull request template, if any)."
       ),
+    issue_assessment: z
+      .object({ mode: checkMode.optional() })
+      .optional()
+      .describe(
+        'Built-in check: the PR implements the Goal and "Done when" items of its linked Lumo task and the issues its description closes or links (each Addressed / Not addressed / Unclear; not applicable without either). Quoting a private task on a public repository is a Lumo setting only.'
+      ),
     custom_checks: z
       .array(
         z.object({

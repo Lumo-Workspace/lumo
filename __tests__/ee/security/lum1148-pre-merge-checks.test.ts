@@ -58,6 +58,8 @@ describe('setting', () => {
     expect(parsePreMergeChecksSetting(null)).toEqual({
       title: { mode: 'warning', requirements: null },
       description: { mode: 'warning' },
+      // LUM-1149: the linked task / issue assessment.
+      issueAssessment: { mode: 'warning', taskDetailsOnPublicRepos: false },
       customChecks: [],
       overrideRequestedReviewersOnly: false,
     })
@@ -75,6 +77,7 @@ describe('setting', () => {
     ).toEqual({
       title: { mode: 'warning', requirements: 'feat: prefix' },
       description: { mode: 'error' },
+      issueAssessment: { mode: 'warning', taskDetailsOnPublicRepos: false },
       customChecks: [],
       overrideRequestedReviewersOnly: false,
     })
@@ -134,6 +137,7 @@ describe('planPreMergeChecks — each mode', () => {
           requirements: 'Start with feat:, fix: or chore:',
         },
         description: { mode: 'off' },
+        issueAssessment: { mode: 'off', taskDetailsOnPublicRepos: false },
         customChecks: [
           { name: 'Changelog', mode: 'warning', instructions: 'Update it.' },
           { name: 'Off one', mode: 'off', instructions: 'never' },

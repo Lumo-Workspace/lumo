@@ -23,6 +23,9 @@ export interface PreMergeDraft {
   titleMode: PreMergeCheckMode
   titleRequirements: string
   descriptionMode: PreMergeCheckMode
+  /** LUM-1149: the linked task / issue assessment. */
+  issueMode: PreMergeCheckMode
+  taskDetailsOnPublicRepos: boolean
   customChecks: CustomPreMergeCheck[]
   overrideRequestedReviewersOnly: boolean
 }
@@ -32,6 +35,8 @@ export function draftOfChecks(s: PreMergeChecksSetting): PreMergeDraft {
     titleMode: s.title.mode,
     titleRequirements: s.title.requirements ?? '',
     descriptionMode: s.description.mode,
+    issueMode: s.issueAssessment.mode,
+    taskDetailsOnPublicRepos: s.issueAssessment.taskDetailsOnPublicRepos,
     customChecks: s.customChecks.map(c => ({ ...c })),
     overrideRequestedReviewersOnly: s.overrideRequestedReviewersOnly,
   }
@@ -59,6 +64,14 @@ export function preMergeChecksUpdate(
   if (Object.keys(title).length > 0) checks.title = title
   if (d.descriptionMode !== s.description.mode)
     checks.description = { mode: d.descriptionMode }
+  const issue: {
+    mode?: PreMergeCheckMode
+    taskDetailsOnPublicRepos?: boolean
+  } = {}
+  if (d.issueMode !== s.issueAssessment.mode) issue.mode = d.issueMode
+  if (d.taskDetailsOnPublicRepos !== s.issueAssessment.taskDetailsOnPublicRepos)
+    issue.taskDetailsOnPublicRepos = d.taskDetailsOnPublicRepos
+  if (Object.keys(issue).length > 0) checks.issueAssessment = issue
   if (JSON.stringify(custom) !== JSON.stringify(s.customChecks))
     checks.customChecks = custom
   if (d.overrideRequestedReviewersOnly !== s.overrideRequestedReviewersOnly)
@@ -116,6 +129,7 @@ interface RepoPreMergeChecksEditorProps {
  * LUM-1148 — one repository's pre-merge checks: the built-in title and
  * description checks, up to five natural-language checks, and who may
  * override them on a PR. Saved together with one button; OWNER only.
+ * LUM-1149 adds the linked task / issue assessment and its privacy switch.
  */
 export function RepoPreMergeChecksEditor({
   repo,
@@ -174,6 +188,37 @@ export function RepoPreMergeChecksEditor({
             onChange={mode => setDraft(d => ({ ...d, descriptionMode: mode }))}
           />
         </div>
+        <div className='flex flex-col gap-1'>
+          <label
+            htmlFor={`${idBase}-issue`}
+            className='text-xs font-medium text-foreground'
+          >
+            {t('issueAssessment')}
+          </label>
+          <ModeSelect
+            id={`${idBase}-issue`}
+            value={draft.issueMode}
+            disabled={disabled}
+            onChange={mode => setDraft(d => ({ ...d, issueMode: mode }))}
+          />
+          <p className='text-xs text-muted-foreground'>
+            {t('issueAssessmentHint')}
+          </p>
+        </div>
+        <label
+          htmlFor={`${idBase}-task-details`}
+          className='flex items-center gap-2 self-start text-xs text-muted-foreground sm:pt-6'
+        >
+          <Switch
+            id={`${idBase}-task-details`}
+            checked={draft.taskDetailsOnPublicRepos}
+            disabled={disabled}
+            onCheckedChange={next =>
+              setDraft(d => ({ ...d, taskDetailsOnPublicRepos: next }))
+            }
+          />
+          {t('taskDetailsOnPublicRepos')}
+        </label>
         <div className='flex flex-col gap-1 sm:col-span-2'>
           <label
             htmlFor={`${idBase}-requirements`}
