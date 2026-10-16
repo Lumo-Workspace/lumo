@@ -130,7 +130,7 @@ With review controls on the payload an `AI review` block follows the header:
   The dropped share is measured in **characters of the diff**, not in files — one dropped lockfile and one dropped route handler are not the same loss. No threshold is flagged (there is no `near cap` marker): the percentage is the signal. The count of changed **source files** is deliberately absent — LUM-811 stopped selecting the tier by it, and printing it here would imply a relationship that no longer exists.
 
 - **Coverage table** — under the `Exploit paths` row: `done/total planned tasks done`, then one `t<n>  <category>  <seconds>  <stop>` row per planned hunt task (LUM-762; the id column only when the audit has task ids). Absent when the scan stored no usable audit.
-- **Findings** — a `Findings:` count row (`N (a open · b block(s) DONE · c dispositioned …)`; `block(s) DONE` is the part of `open` that blocks, and every other row is counted once, under the same label as its `Standing:` line — `already on main`, its queue exit — `merged unreviewed` / `resolved on main` / `PR closed` — `rejected by verifier`, or `other` (a state this CLI does not know), so the buckets besides `block DONE` add up to N, LUM-1116; a long row wraps onto the next line), then every row of the scan, dispositioned ones included: `• [SEVERITY] <title>` with `Rule:  <ruleId> (<PROVENANCE>)`, `Where:` and one `Standing:` value (plus `Falsifier:` / `AI suggests:` rows when present). A row leading with `[BUG]` is a non-security finding from the AI code review (rule id `review:<kind>`, LUM-988): same scan and disposition flow, never blocking:
+- **Findings** — a `Findings:` count row (`N (a open · b block(s) DONE · c dispositioned …)`; `block(s) DONE` is the part of `open` that blocks, and every other row is counted once, under the same label as its `Standing:` line — `already on main`, its queue exit — `merged unreviewed` / `resolved on main` / `PR closed` — `rejected by verifier`, or `other` (a state this CLI does not know), so the buckets besides `block DONE` add up to N, LUM-1116; a long row wraps onto the next line), then every row of the scan, dispositioned ones included: `• [SEVERITY] <title>` with `Rule:  <ruleId> (<PROVENANCE>)`, `Where:` and one `Standing:` value (plus `Falsifier:` / `Verifier:  CONFIRMED — "<reason>"` / `AI suggests:  <DISPOSITION> — "<reason>"` rows when present, and for a hunt row a `Call chain:  N edges` row followed by one numbered `from → to` line per edge — LUM-1189; `N` counts every edge; the server lists at most 20 and the rest is one `… M more edges not shown` line). A row leading with `[BUG]` is a non-security finding from the AI code review (rule id `review:<kind>`, LUM-988): same scan and disposition flow, never blocking:
   - `blocks DONE` / `advisory` — open (undispositioned, not on main, still in the queue); the split follows the workspace policy.
   - `<DISPOSITION> · human` / `· inherited from an earlier scan of this PR` / `· AI-suggested, human-confirmed` — ruled rows, with the human's note when one was left. A disposition is never an AI verdict on its own: an unconfirmed suggestion shows as an `AI suggests:  <DISPOSITION>` row on an open finding.
   - `already on main` — the fingerprint is on the default-branch baseline (LUM-738); not introduced by this PR.
@@ -297,7 +297,8 @@ written before the gate counted anything at all.
              findings: [ { id, kind, ruleId, severity, provenance, filePath, line, title, detail,
                            disposition, dispositionSource, dispositionNote, dispositionedAt,
                            blocking, open, persisting, queueExit, falsifierVerdict,
-                           suggestedDisposition, suggestionOutcome, secretDowngrade, cwe, reachability, externalRef } ],
+                           suggestedDisposition, suggestedReason, suggestionOutcome, secretDowngrade, cwe, reachability,
+                           callChain: [ { from, to } ] | null, callChainOmitted, verifierVerdict, verifierReason, externalRef } ],
              hunt: { coverage: { total, done, terminated, categories[] } | null, plannedBy, plannedReason,
                      diff: { sourceFiles, sites, taskCap, oversized } | null,
                      candidates, falsifierRejects, mechanicallyRejected, error,
@@ -308,6 +309,44 @@ written before the gate counted anything at all.
 
 Finding `evidence` (the redacted triggering line) is **not** in the payload
 by construction — the server never loads the column for this read.
+
+## Across a task — `lumo task scans <task>` (LUM-1189)
+
+```
+lumo task scans LUM-42 [--all] [--full] [--json]
+```
+
+The same read-out for **every PR linked to a task**, newest PR first — what
+the web task Record's security section shows: each PR's layers, partial
+reasons, size caps, findings (call chain, verifier, AI suggestion) and the
+rulings already made. Read-only, no LLM. Accepts `LUM-N` or a task cuid.
+
+- **Header** — `LUM-42 · security scans`, then `PRs:  N linked · M scanned` and
+  `Findings:  a open · b block(s) DONE (latest scan of each PR)`.
+- **Then one block per PR**, printed by exactly the `lumo pr scan` printer
+  (everything under "Reading the output" above applies, including the AI
+  review controls and their commands). `--all` / `--full` mean what they mean
+  for `pr scan`, applied to every PR.
+- **No linked PR** prints `⚠ No PR is linked to LUM-42 — nothing has been
+scanned, so it could not be confirmed clean.` — never an implicit clean.
+- **`--json`** — `{ version: 1, task: { identifier }, totals: { pullRequests,
+scanned, open, blocking }, all, redactedSecrets, scanningOff,
+pullRequests: [ <the pr scan --json payload> ] }`.
+- **Route** — `GET /api/tasks/<id>/security-scans?view=readout[&all=1]`. An
+  API-key caller always gets this read-out (free text sanitized and
+  secret-redacted on the server, no `evidence`); a browser session without
+  `view=readout` gets the web panel's read model. Another workspace's task is
+  a 404.
+- **Errors** — `Error: task LUM-42 not found in workspace <slug>` (unknown or
+  another workspace's); ``Error: `lumo task scans` is not available on this
+Lumo server …`` (no security plugin); `Error: this Lumo server does not
+serve the task scan read-out yet — use `lumo pr scan <number>` per PR.`
+  (an older server answered with the panel model).
+
+**When to suggest:** the user asks what the scans found on a **task**
+("what did security find on LUM-42", "show every PR's scan for this task",
+"what was already ruled") — instead of one `pr scan` per PR. `lumo task
+status` stays the one-line summary; this is the full view behind it.
 
 ## Errors
 

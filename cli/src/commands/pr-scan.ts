@@ -86,6 +86,12 @@ export interface PrScanFinding {
   secretDowngrade: string | null
   cwe: string | null
   reachability: string | null
+  /** LUM-1189 — the hunt's source→sink edges; absent on an older server. */
+  callChain?: Array<{ from: string; to: string }> | null
+  /** LUM-1189 — edges past the server's cap, not listed; absent on an older server. */
+  callChainOmitted?: number
+  /** LUM-1189 — why the falsifier suggested its disposition; absent on an older server. */
+  suggestedReason?: string | null
 }
 
 export interface PrScanHunt {
@@ -313,12 +319,59 @@ function findingLines(f: PrScanFinding, opts: LayoutOptions): string[] {
   ]
   if (f.falsifierVerdict)
     fields.push({ label: 'Falsifier', value: f.falsifierVerdict })
+  // LUM-1189: a rejection is already the row's standing; a confirmation is
+  // said here with its reason, as the web panel does.
+  if (f.verifierVerdict === 'CONFIRMED')
+    fields.push({
+      label: 'Verifier',
+      value: `CONFIRMED${f.verifierReason ? ` — "${sanitizeField(f.verifierReason)}"` : ''}`,
+    })
   if (f.disposition === null && f.suggestedDisposition)
-    fields.push({ label: 'AI suggests', value: f.suggestedDisposition })
+    fields.push({
+      label: 'AI suggests',
+      value: `${sanitizeField(f.suggestedDisposition)}${f.suggestedReason ? ` — "${sanitizeField(f.suggestedReason)}"` : ''}`,
+    })
+  const chain = f.callChain ?? []
+  const omitted = f.callChainOmitted ?? 0
+  if (chain.length > 0)
+    fields.push({
+      label: 'Call chain',
+      value: plural(chain.length + omitted, 'edge', 'edges'),
+    })
   return [
     ...bulletLines(`${bug}[${f.severity}] ${sanitizeField(f.title)}`, 4, opts),
     ...fieldLines(fields, 6, opts),
+    ...callChainLines(chain, opts, omitted),
   ]
+}
+
+/**
+ * LUM-1189 — the call chain one edge per line under its row, numbered, the
+ * same `from → to` edges the web panel lists. Hops are scanner output:
+ * sanitized here as well as on the server.
+ */
+export function callChainLines(
+  chain: ReadonlyArray<{ from: string; to: string }>,
+  opts: LayoutOptions = {},
+  /** Edges past the server's cap — said once after the list, never numbered. */
+  omitted = 0
+): string[] {
+  const lines = chain.flatMap((edge, i) =>
+    wrapLines(
+      `${i + 1}. ${sanitizeField(edge.from)} → ${sanitizeField(edge.to)}`,
+      8,
+      opts
+    )
+  )
+  if (chain.length > 0 && omitted > 0)
+    lines.push(
+      ...wrapLines(
+        `… ${plural(omitted, 'more edge', 'more edges')} not shown`,
+        8,
+        opts
+      )
+    )
+  return lines
 }
 
 function plural(n: number, one: string, many: string): string {

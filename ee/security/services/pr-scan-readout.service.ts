@@ -126,6 +126,15 @@ export interface FindingReadoutView {
   secretDowngrade: SecretDowngradeReason | null
   cwe: string | null
   reachability: FindingReachability | null
+  /**
+   * LUM-1189 — the hunt's source→sink call chain (each hop sanitized and
+   * capped); null on non-hunt rows. The web panel's chain, for the CLI.
+   */
+  callChain: Array<{ from: string; to: string }> | null
+  /** LUM-1189 — well-formed edges past the cap, not in `callChain`; 0 when none. */
+  callChainOmitted: number
+  /** LUM-1189 — why the falsifier suggested `suggestedDisposition` (sanitized). */
+  suggestedReason: string | null
 }
 
 /** The scan-level hunt facts `lumo pr scan --full` prints, read off `huntAudit`. */
@@ -239,9 +248,38 @@ export interface PullRequestScanReadout {
   scanningOff: boolean
 }
 
+/**
+ * LUM-1189 — `GET /api/tasks/[id]/security-scans` for a bearer caller (or
+ * `?view=readout`): every PR linked to the task, each the same read-out
+ * `lumo pr scan` prints, plus totals off each PR's latest scan.
+ */
+export interface TaskScanReadout {
+  version: 1
+  task: { identifier: string }
+  /** Newest PR first. Empty when no PR is linked to the task. */
+  pullRequests: PullRequestScanReadout[]
+  totals: {
+    pullRequests: number
+    /** PRs with at least one scan on record. */
+    scanned: number
+    /** Open findings on the latest scan of each PR. */
+    open: number
+    /** Findings that block DONE on the latest scan of each PR. */
+    blocking: number
+  }
+  all: boolean
+  /** Sum of the per-PR `redactedSecrets`. */
+  redactedSecrets: number
+  scanningOff: boolean
+}
+
 const DETAIL_MAX = 600
 const TRACE_TEXT_MAX = 400
 const CMD_MAX = 400
+/** LUM-1189 — one call-chain hop is a symbol / file:line, never prose. */
+const HOP_MAX = 200
+/** LUM-1189 — hops printed per chain; the rest is elided with a marker. */
+const CHAIN_MAX_HOPS = 20
 
 /**
  * One free-text field on its way to an agent's terminal: control characters
@@ -257,6 +295,37 @@ function cleanText(
   const r = redactPromptLine(sanitizeField(value))
   if (r.marker) tally.redacted += 1
   return r.text.length > max ? `${r.text.slice(0, max)}…` : r.text
+}
+
+/**
+ * LUM-1189 — the stored `callChain` Json as the read-out prints it: edges of
+ * the right shape only, each through `cleanText`, at most CHAIN_MAX_HOPS;
+ * `omitted` counts the well-formed edges past the cap. `edges` is null when
+ * the row carries none.
+ */
+export function readCallChain(
+  raw: unknown,
+  tally: { redacted: number }
+): { edges: Array<{ from: string; to: string }> | null; omitted: number } {
+  if (!Array.isArray(raw)) return { edges: null, omitted: 0 }
+  const edges: Array<{ from: string; to: string }> = []
+  let omitted = 0
+  for (const hop of raw) {
+    if (hop === null || typeof hop !== 'object') continue
+    const h = hop as Record<string, unknown>
+    if (typeof h.from !== 'string' || typeof h.to !== 'string') continue
+    if (h.from.length === 0 || h.to.length === 0) continue
+    // Past the cap only counted — its text is never cleaned or shown.
+    if (edges.length >= CHAIN_MAX_HOPS) {
+      omitted += 1
+      continue
+    }
+    edges.push({
+      from: cleanText(h.from, HOP_MAX, tally) ?? '',
+      to: cleanText(h.to, HOP_MAX, tally) ?? '',
+    })
+  }
+  return { edges: edges.length > 0 ? edges : null, omitted }
 }
 
 function dispositionSourceOf(f: ReadoutFindingRow): DispositionSource | null {
@@ -524,6 +593,176 @@ function readoutPathSkips(raw: unknown): ReviewPathSkipsInput | null {
   }
 }
 
+/** LUM-788 — the PR row the read-out prints (`SCAN_READOUT_PR_SELECT`). */
+type ReadoutPr = Awaited<
+  ReturnType<typeof pullRequestRepository.findByNumberInWorkspace>
+>[number]
+
+/** The workspace-level facts every PR's read-out shares — loaded once. */
+interface ReadoutContext {
+  policy: Awaited<ReturnType<typeof loadSecurityPolicy>>
+  exitContexts: Awaited<ReturnType<typeof loadQueueExitContexts>>
+  scanningOff: boolean
+  workspaceLimit: Awaited<
+    ReturnType<typeof securityColumnsRepository.findReviewAutoPauseAfter>
+  >
+}
+
+async function loadReadoutContext(
+  workspaceId: string,
+  prs: readonly ReadoutPr[]
+): Promise<ReadoutContext> {
+  const [policy, exitContexts, layers, workspaceLimit] = await Promise.all([
+    loadSecurityPolicy(workspaceId),
+    loadQueueExitContexts(prs, workspaceId),
+    loadSecurityLayers(workspaceId),
+    securityColumnsRepository.findReviewAutoPauseAfter(workspaceId),
+  ])
+  return { policy, exitContexts, scanningOff: !layers.scan, workspaceLimit }
+}
+
+/**
+ * One PR's read-out — the exact payload `lumo pr scan` renders. Shared by
+ * the by-number read (LUM-788) and the by-task read (LUM-1189) so the two
+ * can never disagree on a finding's standing or on what text is cleaned.
+ */
+async function buildPullRequestReadout(
+  pr: ReadoutPr,
+  all: boolean,
+  ctx: ReadoutContext
+): Promise<PullRequestScanReadout> {
+  const { policy, exitContexts, workspaceLimit } = ctx
+  const [rows, control] = await Promise.all([
+    prSecurityScanRepository.listByPullRequest(pr.id, all ? null : 1),
+    prReviewControlRepository.get(pr.id),
+  ])
+  const tally = { redacted: 0 }
+  const scans: ScanReadoutView[] = rows.map(scan => {
+    const findings: FindingReadoutView[] = scan.findings.map(f => {
+      const queueExit =
+        f.disposition === null && !f.persisting
+          ? queueExitOf(f, pr, exitContexts, policy)
+          : null
+      const open =
+        f.disposition === null &&
+        !f.persisting &&
+        queueExit === null &&
+        !isVerifierRejected(f)
+      const chain = readCallChain(f.callChain, tally)
+      return {
+        id: f.id,
+        kind: f.kind,
+        ruleId: sanitizeField(f.ruleId),
+        severity: f.severity,
+        provenance: f.provenance,
+        filePath: sanitizeField(f.filePath),
+        line: f.line,
+        title: cleanText(f.title, DETAIL_MAX, tally) ?? '',
+        detail: cleanText(f.detail, DETAIL_MAX, tally) ?? '',
+        externalRef: f.externalRef,
+        disposition: f.disposition,
+        dispositionSource: dispositionSourceOf(f),
+        dispositionNote:
+          cleanText(f.dispositionNote, DETAIL_MAX, tally) ?? null,
+        // A reopened row keeps dispositionedAt as its reopen marker
+        // (LUM-1128 follow-up) — it is not a ruling time to show.
+        dispositionedAt:
+          f.disposition && f.dispositionedAt
+            ? f.dispositionedAt.toISOString()
+            : null,
+        blocking: open && isBlockingFinding(f, policy),
+        open,
+        persisting: f.persisting,
+        queueExit,
+        falsifierVerdict: f.falsifierVerdict ?? null,
+        suggestedDisposition: f.suggestedDisposition ?? null,
+        suggestionOutcome: f.suggestionOutcome ?? null,
+        verifierVerdict: f.verifierVerdict ?? null,
+        verifierReason: cleanText(f.verifierReason, DETAIL_MAX, tally) ?? null,
+        secretDowngrade: f.secretDowngrade ?? null,
+        cwe: f.cwe ?? null,
+        reachability: f.reachability ?? null,
+        callChain: chain.edges,
+        callChainOmitted: chain.omitted,
+        suggestedReason:
+          cleanText(f.suggestedReason, DETAIL_MAX, tally) ?? null,
+      }
+    })
+    const queueExits: Partial<Record<QueueExitReason, number>> = {}
+    for (const f of findings) {
+      if (f.queueExit)
+        queueExits[f.queueExit] = (queueExits[f.queueExit] ?? 0) + 1
+    }
+    const stages = stagesOf(scan)
+    return {
+      id: scan.id,
+      headSha: scan.headSha,
+      status: scan.status,
+      trigger: scan.trigger,
+      judgeStatus: scan.judgeStatus,
+      truncated: scan.truncated,
+      stages,
+      partial: scan.partial,
+      partialCauses: scan.partialCauses ?? [],
+      ...scanSizeCaps({
+        stages,
+        partialCauses: scan.partialCauses ?? [],
+        huntAudit: scan.huntAudit,
+        judgeBudget: scan.judgeBudget,
+        error: scan.error,
+      }),
+      reviewPathSkips: readoutPathSkips(scan.reviewPathSkips),
+      externalFailureReason:
+        stages.external === 'FAILED'
+          ? (cleanText(externalFailureReason(scan.error), DETAIL_MAX, tally) ??
+            null)
+          : null,
+      startedAt: scan.startedAt.toISOString(),
+      finishedAt: scan.finishedAt ? scan.finishedAt.toISOString() : null,
+      tokenSpent: scan.tokenSpent,
+      judgeBudget: parseJudgeBudget(scan.judgeBudget),
+      counts: {
+        findings: findings.length,
+        open: findings.filter(f => f.open).length,
+        blocking: findings.filter(f => f.blocking).length,
+        dispositioned: findings.filter(f => f.disposition !== null).length,
+        persisting: findings.filter(f => f.persisting).length,
+        externalFindings: findings.filter(
+          f => f.provenance === 'EXTERNAL_TOOL' && f.kind !== 'DEPENDENCY'
+        ).length,
+        dependencyFindings: findings.filter(f => f.kind === 'DEPENDENCY')
+          .length,
+      },
+      queueExits,
+      findings,
+      hunt: readHunt(scan, tally),
+    }
+  })
+  return {
+    version: 1,
+    // LUM-1137: reviewed commits against the PR's (else the workspace's)
+    // pause-after; limit 0 = never pauses.
+    reviewControl: {
+      ...reviewBudgetView(control, workspaceLimit),
+      currentHead: pr.headSha,
+    },
+    pullRequest: {
+      repo: pr.repo,
+      number: pr.number,
+      title: sanitizeField(pr.title),
+      url: pr.url,
+      state: pr.state,
+      task: pr.task
+        ? { identifier: `${pr.task.team.identifier}-${pr.task.number}` }
+        : null,
+    },
+    scans,
+    all,
+    redactedSecrets: tally.redacted,
+    scanningOff: ctx.scanningOff,
+  }
+}
+
 export const prScanReadoutService = {
   /**
    * The scans of one PR in the caller's workspace. 404 when the workspace
@@ -558,138 +797,58 @@ export const prScanReadoutService = {
       )
     }
     const pr = prs[0]!
-    const [rows, policy, exitContexts, layers, control, workspaceLimit] =
-      await Promise.all([
-        prSecurityScanRepository.listByPullRequest(pr.id, input.all ? null : 1),
-        loadSecurityPolicy(workspaceId),
-        loadQueueExitContexts([pr], workspaceId),
-        loadSecurityLayers(workspaceId),
-        prReviewControlRepository.get(pr.id),
-        securityColumnsRepository.findReviewAutoPauseAfter(workspaceId),
-      ])
-    const tally = { redacted: 0 }
-    const scans: ScanReadoutView[] = rows.map(scan => {
-      const findings: FindingReadoutView[] = scan.findings.map(f => {
-        const queueExit =
-          f.disposition === null && !f.persisting
-            ? queueExitOf(f, pr, exitContexts, policy)
-            : null
-        const open =
-          f.disposition === null &&
-          !f.persisting &&
-          queueExit === null &&
-          !isVerifierRejected(f)
-        return {
-          id: f.id,
-          kind: f.kind,
-          ruleId: sanitizeField(f.ruleId),
-          severity: f.severity,
-          provenance: f.provenance,
-          filePath: sanitizeField(f.filePath),
-          line: f.line,
-          title: cleanText(f.title, DETAIL_MAX, tally) ?? '',
-          detail: cleanText(f.detail, DETAIL_MAX, tally) ?? '',
-          externalRef: f.externalRef,
-          disposition: f.disposition,
-          dispositionSource: dispositionSourceOf(f),
-          dispositionNote:
-            cleanText(f.dispositionNote, DETAIL_MAX, tally) ?? null,
-          // A reopened row keeps dispositionedAt as its reopen marker
-          // (LUM-1128 follow-up) — it is not a ruling time to show.
-          dispositionedAt:
-            f.disposition && f.dispositionedAt
-              ? f.dispositionedAt.toISOString()
-              : null,
-          blocking: open && isBlockingFinding(f, policy),
-          open,
-          persisting: f.persisting,
-          queueExit,
-          falsifierVerdict: f.falsifierVerdict ?? null,
-          suggestedDisposition: f.suggestedDisposition ?? null,
-          suggestionOutcome: f.suggestionOutcome ?? null,
-          verifierVerdict: f.verifierVerdict ?? null,
-          verifierReason:
-            cleanText(f.verifierReason, DETAIL_MAX, tally) ?? null,
-          secretDowngrade: f.secretDowngrade ?? null,
-          cwe: f.cwe ?? null,
-          reachability: f.reachability ?? null,
-        }
-      })
-      const queueExits: Partial<Record<QueueExitReason, number>> = {}
-      for (const f of findings) {
-        if (f.queueExit)
-          queueExits[f.queueExit] = (queueExits[f.queueExit] ?? 0) + 1
+    return buildPullRequestReadout(
+      pr,
+      input.all,
+      await loadReadoutContext(workspaceId, [pr])
+    )
+  },
+
+  /**
+   * LUM-1189 — the read-out of every PR linked to a task, one
+   * `PullRequestScanReadout` each (newest PR first), behind `lumo task scans`.
+   * The caller resolved `taskId` inside `workspaceId`; the PR read is scoped
+   * to it again. Totals are summed off the per-PR latest scans.
+   */
+  async getForTask(
+    workspaceId: string,
+    task: { id: string; identifier: string },
+    input: { all: boolean }
+  ): Promise<TaskScanReadout> {
+    const prs = await pullRequestRepository.findManyForScanReadoutByTaskId(
+      workspaceId,
+      task.id
+    )
+    const ctx = await loadReadoutContext(workspaceId, prs)
+    // One PR at a time: a task can link many PRs and `--all` reads each
+    // one's whole scan history — never fan that out across the pool.
+    const pullRequests: PullRequestScanReadout[] = []
+    for (const pr of prs)
+      pullRequests.push(await buildPullRequestReadout(pr, input.all, ctx))
+    let blocking = 0
+    let open = 0
+    let redactedSecrets = 0
+    for (const r of pullRequests) {
+      const latest = r.scans[0]
+      if (latest) {
+        blocking += latest.counts.blocking
+        open += latest.counts.open
       }
-      const stages = stagesOf(scan)
-      return {
-        id: scan.id,
-        headSha: scan.headSha,
-        status: scan.status,
-        trigger: scan.trigger,
-        judgeStatus: scan.judgeStatus,
-        truncated: scan.truncated,
-        stages,
-        partial: scan.partial,
-        partialCauses: scan.partialCauses ?? [],
-        ...scanSizeCaps({
-          stages,
-          partialCauses: scan.partialCauses ?? [],
-          huntAudit: scan.huntAudit,
-          judgeBudget: scan.judgeBudget,
-          error: scan.error,
-        }),
-        reviewPathSkips: readoutPathSkips(scan.reviewPathSkips),
-        externalFailureReason:
-          stages.external === 'FAILED'
-            ? (cleanText(
-                externalFailureReason(scan.error),
-                DETAIL_MAX,
-                tally
-              ) ?? null)
-            : null,
-        startedAt: scan.startedAt.toISOString(),
-        finishedAt: scan.finishedAt ? scan.finishedAt.toISOString() : null,
-        tokenSpent: scan.tokenSpent,
-        judgeBudget: parseJudgeBudget(scan.judgeBudget),
-        counts: {
-          findings: findings.length,
-          open: findings.filter(f => f.open).length,
-          blocking: findings.filter(f => f.blocking).length,
-          dispositioned: findings.filter(f => f.disposition !== null).length,
-          persisting: findings.filter(f => f.persisting).length,
-          externalFindings: findings.filter(
-            f => f.provenance === 'EXTERNAL_TOOL' && f.kind !== 'DEPENDENCY'
-          ).length,
-          dependencyFindings: findings.filter(f => f.kind === 'DEPENDENCY')
-            .length,
-        },
-        queueExits,
-        findings,
-        hunt: readHunt(scan, tally),
-      }
-    })
+      redactedSecrets += r.redactedSecrets
+    }
     return {
       version: 1,
-      // LUM-1137: reviewed commits against the PR's (else the workspace's)
-      // pause-after; limit 0 = never pauses.
-      reviewControl: {
-        ...reviewBudgetView(control, workspaceLimit),
-        currentHead: pr.headSha,
+      task: { identifier: task.identifier },
+      pullRequests,
+      totals: {
+        pullRequests: pullRequests.length,
+        scanned: pullRequests.filter(r => r.scans.length > 0).length,
+        open,
+        blocking,
       },
-      pullRequest: {
-        repo: pr.repo,
-        number: pr.number,
-        title: sanitizeField(pr.title),
-        url: pr.url,
-        state: pr.state,
-        task: pr.task
-          ? { identifier: `${pr.task.team.identifier}-${pr.task.number}` }
-          : null,
-      },
-      scans,
       all: input.all,
-      redactedSecrets: tally.redacted,
-      scanningOff: !layers.scan,
+      redactedSecrets,
+      scanningOff: ctx.scanningOff,
     }
   },
 }
