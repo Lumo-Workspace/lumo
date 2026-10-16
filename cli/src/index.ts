@@ -971,7 +971,7 @@ task
 task
   .command('status [task]')
   .description(
-    'Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend).'
+    "Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend) and each test case's latest run."
   )
   .option(
     '--json',
@@ -979,7 +979,7 @@ task
   )
   .option(
     '--full',
-    'Also print the dashboard sections: cost, struggle/rework trail, trend'
+    "Also print the dashboard sections: cost, struggle/rework trail, trend, and a Test cases section (each case's latest run, as in `testcase list`)"
   )
   .action(
     wrap((taskArg, options) =>
