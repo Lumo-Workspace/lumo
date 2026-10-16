@@ -67,6 +67,28 @@ shape changes bump it; additive fields don't. Pin on `version` when scripting.
 - a finding whose Lumo review thread a human **resolved on GitHub** (LUM-1127) leaves `SECURITY_FINDING` and `open` only when it is **not** blocking; a blocking one stays (`blocking: true`) and still holds DONE until it is dispositioned in Lumo — resolving a conversation is not a disposition;
 - open boundary crossings ride along as an additive top-level `openCrossings` (`{ id, ref, category, severity, detail, attribution }` — `ref` is the `<TEAM>-X<n>` to show and type, `id` the cuid); **`null` when the crossings check failed**, distinct from `[]`.
 
+## Every crossing in full — `lumo crossing list` (LUM-1187)
+
+Read-only. `task status` / `task wrapup` show only the open crossings, one
+glance line each; `crossing list` shows the whole record the web Record panel
+shows:
+
+```bash
+lumo crossing list            # session-bound task, open crossings only
+lumo crossing list LUM-12 --all   # + the dispositioned history
+lumo crossing list LUM-12 --all --json
+```
+
+- per crossing: `State` (`OPEN · blocks DONE` / `OPEN · advisory` / the ruling), `Detail`, `Detected`, `Occurrences` (`×N · last seen …`), `Reversible`, `Attribution`, `Rule` (`[ref] verbatim policy rule text`), `Diff` (edit old/new summary, `-`/`+` lines capped at 12 per side, plus the PR file link; only for display-safe categories), `Turn intent`, `System explanation`, `Agent explanations`, `Re-judge`, `AI triage`, `Remediation`;
+- with `--all`, dispositioned rows add `Ruled by` (member/agent name + actor id; the id alone when the member directory can't be read), `Ruled at`, `Channel` (`WEB` / `CLI`), `Note`, `Changed` (last `from → to` correction, by whom, via which channel) and `Suppression rule` (`active` / `revoked …`); without `--all` the header says how many dispositioned rows were hidden;
+- a field the server response does not carry prints `-` — never a guessed value;
+- every free-text field is control-character-sanitized and folded to one line (diff lines are sanitized per line);
+- `--json` prints `{ task, gateEnabled, crossings }` with the server's raw rows (same `--all` filter);
+- it rules nothing — ruling stays `lumo crossing disposition` (the user's call) or the web panel.
+
+When to suggest: the user asks what was flagged on a task and how it was ruled,
+or you need the rule text / diff behind an open crossing before explaining it.
+
 ## Responding to an open crossing — `lumo crossing explain`
 
 When a crossing looks like a false positive — or you want to leave a rationale

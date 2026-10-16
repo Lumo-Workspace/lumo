@@ -19,31 +19,31 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionSt
 
 The command catalog below is a **map**: it lists every command grouped by domain with a one-line summary. **Detailed flags, examples, output formats, and "when to suggest" guidance live in the `references/` files** — when a user request lands in a domain, **Read the matching reference file before composing the command**. Don't run a command from memory if its flags/edge-cases matter; open the reference first.
 
-| Domain                                                                                 | Read this reference                                                  |
-| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `init`, `skill`, `auth login/logout`, `whoami`, `update`                               | [references/onboarding.md](references/onboarding.md)                 |
-| `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
-| `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
-| `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
-| `member list` — workspace directory (the refs `--assignee` accepts)                    | [references/members.md](references/members.md)                       |
-| `tag list/create` — workspace tags                                                     | [references/tags.md](references/tags.md)                             |
-| `audit list` — workspace audit log (OWNER only)                                        | [references/audit.md](references/audit.md)                           |
-| `workspace security-scan` — PR security-scan switches, disable/enable all (OWNER)      | [references/workspace-settings.md](references/workspace-settings.md) |
-| `task deps add/list/confirm/dismiss/rm` (dependency edges)                             | [references/task-deps.md](references/task-deps.md)                   |
-| `task artifact*`, `task figma*`                                                        | [references/artifacts-figma.md](references/artifacts-figma.md)       |
-| `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                   | [references/test-cases.md](references/test-cases.md)                 |
-| `task status/wrapup`, `crossing explain/disposition` — self-check, resume, DONE gate   | [references/task-status.md](references/task-status.md)               |
-| `cost` — per-operation token cost; `report` — tokens + DONE tasks per window           | [references/task-context.md](references/task-context.md)             |
-| `outcome show` — post-hoc outcome well (falsifier oracle, rejection-only)              | [references/outcome.md](references/outcome.md)                       |
-| `priority [text]`, `priority list` — team priority declaration (append-only)           | [references/priority.md](references/priority.md)                     |
-| `project list/create/update`, `milestone*`                                             | [references/milestones.md](references/milestones.md)                 |
-| `doc create/update/list/move/bind/share/import` (CRUD)                                 | [references/docs.md](references/docs.md)                             |
-| `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs) | [references/doc-editing.md](references/doc-editing.md)               |
-| `sprint*`                                                                              | [references/sprints.md](references/sprints.md)                       |
-| `task/project memory`, `memory promote/rm`                                             | [references/memory.md](references/memory.md)                         |
-| `session attach/status`, git-suggest on start, Layer-2 review                          | [references/sessions.md](references/sessions.md)                     |
-| `worktree add/rm/list/prune` (local dev tooling)                                       | [references/worktree.md](references/worktree.md)                     |
-| `--confirm` / exit code 4 — the confirmation envelope every gated mutation speaks      | [references/confirmation.md](references/confirmation.md)             |
+| Domain                                                                                    | Read this reference                                                  |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `init`, `skill`, `auth login/logout`, `whoami`, `update`                                  | [references/onboarding.md](references/onboarding.md)                 |
+| `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)         | [references/task-context.md](references/task-context.md)             |
+| `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail)    | [references/pr-scan.md](references/pr-scan.md)                       |
+| `task create/update/list/search/statuses/show/comment/decide/template *`, `next`          | [references/tasks.md](references/tasks.md)                           |
+| `member list` — workspace directory (the refs `--assignee` accepts)                       | [references/members.md](references/members.md)                       |
+| `tag list/create` — workspace tags                                                        | [references/tags.md](references/tags.md)                             |
+| `audit list` — workspace audit log (OWNER only)                                           | [references/audit.md](references/audit.md)                           |
+| `workspace security-scan` — PR security-scan switches, disable/enable all (OWNER)         | [references/workspace-settings.md](references/workspace-settings.md) |
+| `task deps add/list/confirm/dismiss/rm` (dependency edges)                                | [references/task-deps.md](references/task-deps.md)                   |
+| `task artifact*`, `task figma*`                                                           | [references/artifacts-figma.md](references/artifacts-figma.md)       |
+| `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                      | [references/test-cases.md](references/test-cases.md)                 |
+| `task status/wrapup`, `crossing list/explain/disposition` — self-check, resume, DONE gate | [references/task-status.md](references/task-status.md)               |
+| `cost` — per-operation token cost; `report` — tokens + DONE tasks per window              | [references/task-context.md](references/task-context.md)             |
+| `outcome show` — post-hoc outcome well (falsifier oracle, rejection-only)                 | [references/outcome.md](references/outcome.md)                       |
+| `priority [text]`, `priority list` — team priority declaration (append-only)              | [references/priority.md](references/priority.md)                     |
+| `project list/create/update`, `milestone*`                                                | [references/milestones.md](references/milestones.md)                 |
+| `doc create/update/list/move/bind/share/import` (CRUD)                                    | [references/docs.md](references/docs.md)                             |
+| `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs)    | [references/doc-editing.md](references/doc-editing.md)               |
+| `sprint*`                                                                                 | [references/sprints.md](references/sprints.md)                       |
+| `task/project memory`, `memory promote/rm`                                                | [references/memory.md](references/memory.md)                         |
+| `session attach/status`, git-suggest on start, Layer-2 review                             | [references/sessions.md](references/sessions.md)                     |
+| `worktree add/rm/list/prune` (local dev tooling)                                          | [references/worktree.md](references/worktree.md)                     |
+| `--confirm` / exit code 4 — the confirmation envelope every gated mutation speaks         | [references/confirmation.md](references/confirmation.md)             |
 
 ## Command catalog
 
@@ -119,6 +119,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task status [task] [--full] [--json]` — read-only self-check (no LLM): `nextActions` (security findings `blocks DONE` vs `advisory`, test-case advisories), PR scans, open crossings; `--full` adds cost / rework / trend. Fails closed (`⚠` = could not confirm). **Run it first when resuming a task.** `task update --status`, `crossing disposition/explain`, `testcase run/disposition` already end with its digest (DONE envelopes: `statusSummary`) — **no follow-up `task status`** after them
 - `lumo task wrapup [task]` — **near the end, instead of chaining reads**: one read-only call prints test-case signals, PR scans, open crossings (ready to relay + per-ruling commands) and DONE readiness with the envelope preview (PR merge state, worktree cleanup)
 - Crossing `<id>` = its ref, e.g. `LUM-X12` (cuid also works)
+- `lumo crossing list [task] [--all] [--json]` — read-only: each crossing in full (rule text, diff, recurrence); `--all` adds the ruling history
 - `lumo crossing explain <id> --note "<text>"` (several: `--file <json|->`; unattached: `--task <LUM-N>`) — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done**. A review aid, not a self-clear.
 - `lumo crossing disposition <id...> --false-positive | --confirmed [--note "<text>"] [--task <LUM-N>]` — several ids = one batch, one envelope per step (LUM-845) — record the **user's** ruling on a task crossing through a **three-step** read-then-rule confirmation handshake the server enforces (LUM-769); never supply a step flag (`--confirm-read` / `--confirm`) **on your own initiative** — relay each envelope, then supply it only once the user approves **that step** in chat, and say in the note that the ruling is theirs. Either ruling clears that crossing's block on DONE. Reverting to OPEN, repository suppression and steward crossings stay web-only.
 

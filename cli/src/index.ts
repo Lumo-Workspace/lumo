@@ -29,6 +29,10 @@ import {
   crossingDisposition,
   type CrossingDispositionOptions,
 } from './commands/crossing-disposition'
+import {
+  crossingList,
+  type CrossingListOptions,
+} from './commands/crossing-list'
 import { outcomeShow } from './commands/outcome'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
@@ -506,6 +510,22 @@ const crossing = program
   .command('crossing')
   .description(
     'Inspect, annotate and (with user approval) disposition boundary crossings'
+  )
+
+crossing
+  .command('list [task]')
+  .description(
+    "Read-only: a task's boundary crossings with every detail the web Record panel shows (LUM-1187) — state, detail, recurrence (xN, last seen), reversibility, attribution, policy rule text, edit diff summary + PR file link, turn intent, system/agent explanations, re-judge, AI triage, remediation task; a field the response does not carry prints '-'. Open rows only by default; --all adds the dispositioned history (ruling, who ruled, when, channel, note, last from -> to correction, suppression rule + revoked). Rules nothing. Defaults to the session-bound task."
+  )
+  .option(
+    '--all',
+    'Also list dispositioned crossings (the ruling history), not just open ones'
+  )
+  .option('--json', 'Emit the raw server rows as JSON (same --all filter)')
+  .action(
+    wrap((task: unknown, options: unknown) =>
+      crossingList(task as string | undefined, options as CrossingListOptions)
+    )
   )
 
 crossing
