@@ -5,7 +5,11 @@ import { useIntl } from 'react-intl'
 import type { TestCase } from '@prisma/client'
 import type { RecordRunBody } from '@/lib/validation/test-case'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
-import { priorPassedResults } from '@/lib/test-cases/step-report'
+import {
+  pickerToStepResults,
+  type PickerState,
+} from '@/lib/test-cases/step-picker'
+import { StepResultPicker } from './StepResultPicker'
 
 const RESULTS = ['PASS', 'FAIL', 'BLOCKED'] as const
 const CAUSES = [
@@ -37,8 +41,8 @@ const fieldClass =
  * 三条刻意的行为，别「顺手优化」掉：
  *  1. environment 初始是空字符串，**没有默认选中值**。这个 feature 的目的就是
  *     逼人明说跑在哪；一个默认值会让所有 run 无差别地记成 LOCAL。
- *  2. 失败定位只在 result === 'FAIL' 时出现。BLOCKED 的语义是「用例根本没跑
- *     起来」，没跑起来就没有「挂在第几步」。
+ *  2. 失败点由逐步选择器里标「失败」的那一步决定；BLOCKED 不显示选择器
+ *     （用例根本没跑起来，没有「挂在第几步」）。
  *  3. 本组件**不发请求**：文件上传与落库由父组件编排（SRP）。
  */
 export function RecordRunDialog({
@@ -54,37 +58,16 @@ export function RecordRunDialog({
     '' | (typeof ENVIRONMENTS)[number]
   >('')
   const [prNumber, setPrNumber] = useState('')
-  const [locator, setLocator] = useState('')
   // LUM-808: 没有默认选中值，同 environment —— 归因也是要人明说的东西。
   const [cause, setCause] = useState<'' | (typeof CAUSES)[number]>('')
-  // LUM-808: 本次没能观察到的复验条目（0-based 下标）。
-  const [unproven, setUnproven] = useState<number[]>([])
   const [note, setNote] = useState('')
   // LUM-1011: what the person actually saw at the failing step.
   const [actual, setActual] = useState('')
-  // LUM-1011: an explicit "every step before the failing one passed". Off by
-  // default — an unticked box leaves those steps "reached", never "passed".
-  const [priorPassed, setPriorPassed] = useState(false)
+  // LUM-1211: 每一步的结果；服务端拒收没报全的 run。
+  const [picked, setPicked] = useState<PickerState>({})
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  const locatorOptions = [
-    ...testCase.steps.map((text, i) => ({
-      value: `STEPS:${i}`,
-      label: intl.formatMessage(
-        { id: 'testCases.field.failedAt.step' },
-        { n: i + 1, text }
-      ),
-    })),
-    ...testCase.verification.map((text, i) => ({
-      value: `VERIFICATION:${i}`,
-      label: intl.formatMessage(
-        { id: 'testCases.field.failedAt.verification' },
-        { n: i + 1, text }
-      ),
-    })),
-  ]
 
   /**
    * 两种违规要分开报，并且带上实际数字。
@@ -154,30 +137,43 @@ export function RecordRunDialog({
       )
       return
     }
-    const [phase, index] = locator ? locator.split(':') : [null, null]
-    const failing =
-      result === 'FAIL' && phase && index != null
-        ? { phase: phase as 'STEPS' | 'VERIFICATION', index: Number(index) }
-        : null
+    let stepResults: ReturnType<typeof pickerToStepResults> | null = null
+    if (
+      result !== 'BLOCKED' &&
+      testCase.steps.length + testCase.verification.length > 0
+    ) {
+      stepResults = pickerToStepResults(
+        testCase.steps,
+        testCase.verification,
+        result,
+        picked
+      )
+      if (!stepResults.ok) {
+        setError(
+          stepResults.missing.length > 0
+            ? intl.formatMessage(
+                { id: 'testCases.field.stepResults.missing' },
+                { refs: stepResults.missing.join(', ') }
+              )
+            : intl.formatMessage({
+                id: 'testCases.field.stepResults.noFailure',
+              })
+        )
+        return
+      }
+    }
     setBusy(true)
     try {
       await onSubmit(
         {
           result,
           environment,
-          failedPhase:
-            result === 'FAIL' && phase
-              ? (phase as 'STEPS' | 'VERIFICATION')
-              : null,
-          // 下拉的 value 里已经是 0-based（label 才是 1-based）。
-          failedIndex:
-            result === 'FAIL' && index != null ? Number(index) : null,
+          // 失败点由 stepResults 里的 FAIL 条目给出，服务端补齐定位。
+          failedPhase: null,
+          failedIndex: null,
           failureAttribution: result === 'FAIL' ? cause || null : null,
-          // 报了 PASS 却勾了未观察项 → 服务端把它封顶成 UNPROVEN。
-          unprovenVerification: unproven,
-          ...(failing && priorPassed
-            ? { stepResults: priorPassedResults(testCase, failing) }
-            : {}),
+          unprovenVerification: [],
+          ...(stepResults?.ok ? { stepResults: stepResults.value } : {}),
           actual: result === 'FAIL' ? actual.trim() || null : null,
           note: note.trim() || null,
           pullRequestNumber: prNumber ? Number(prNumber) : null,
@@ -260,24 +256,15 @@ export function RecordRunDialog({
         </label>
       ) : null}
 
-      {result === 'FAIL' ? (
-        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'testCases.field.failedAt' })}
-          <select
-            className={fieldClass}
-            value={locator}
-            onChange={e => setLocator(e.target.value)}
-          >
-            <option value=''>
-              {intl.formatMessage({ id: 'testCases.field.failedAt.none' })}
-            </option>
-            {locatorOptions.map(o => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      {result !== 'BLOCKED' &&
+      testCase.steps.length + testCase.verification.length > 0 ? (
+        <StepResultPicker
+          steps={testCase.steps}
+          verification={testCase.verification}
+          result={result}
+          value={picked}
+          onChange={setPicked}
+        />
       ) : null}
 
       {result === 'FAIL' ? (
@@ -302,19 +289,6 @@ export function RecordRunDialog({
         </label>
       ) : null}
 
-      {result === 'FAIL' && locator ? (
-        <label className='flex items-start gap-2 text-body text-muted-foreground'>
-          <input
-            type='checkbox'
-            checked={priorPassed}
-            onChange={e => setPriorPassed(e.target.checked)}
-          />
-          <span>
-            {intl.formatMessage({ id: 'testCases.field.priorPassed' })}
-          </span>
-        </label>
-      ) : null}
-
       {result === 'FAIL' ? (
         <label className='flex flex-col gap-1 text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'testCases.field.actual' })}
@@ -328,33 +302,6 @@ export function RecordRunDialog({
             rows={2}
           />
         </label>
-      ) : null}
-
-      {testCase.verification.length > 0 ? (
-        <fieldset className='flex flex-col gap-1 text-body text-muted-foreground'>
-          <legend>
-            {intl.formatMessage({ id: 'testCases.field.unproven' })}
-          </legend>
-          <p className='text-[11px]'>
-            {intl.formatMessage({ id: 'testCases.field.unproven.hint' })}
-          </p>
-          {testCase.verification.map((text, i) => (
-            <label key={i} className='flex items-start gap-2'>
-              <input
-                type='checkbox'
-                checked={unproven.includes(i)}
-                onChange={e =>
-                  setUnproven(prev =>
-                    e.target.checked ? [...prev, i] : prev.filter(x => x !== i)
-                  )
-                }
-              />
-              <span>
-                {i + 1}. {text}
-              </span>
-            </label>
-          ))}
-        </fieldset>
       ) : null}
 
       <label className='flex flex-col gap-1 text-body text-muted-foreground'>

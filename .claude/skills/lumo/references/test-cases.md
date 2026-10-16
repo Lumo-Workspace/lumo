@@ -102,25 +102,25 @@ lumo task testcase rm LUM-42/TC3
 
 ## `lumo task testcase run <task/case>` — 记一次执行
 
-| Flag                     | 说明                                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `--result <r>`           | **必填**。`pass` / `fail` / `blocked`                                                                              |
-| `--env <e>`              | **必填，没有默认值**。`local` / `preview` / `production`                                                           |
-| `--pr <number>`          | 这次跑的是哪个 PR 的改动。必须是本任务名下的 PR                                                                    |
-| `--commit <sha>`         | 这次跑的是哪个 commit。**`--env local` 之外必须显式给**，否则不记                                                  |
-| `--failed-step <n>`      | **1-based**，仅 FAIL 可用，与 `--failed-verify` 互斥                                                               |
-| `--failed-verify <n>`    | **1-based**，仅 FAIL 可用，与 `--failed-step` 互斥                                                                 |
-| `--cause <c>`            | **FAIL 必填、非 FAIL 禁带**。`defect` / `outdated` / `external` / `unknown`                                        |
-| `--unproven <n>`         | **1-based**，本次没能观察到的复验条目，可重复。见下方「可证明性上限」                                              |
-| `--note <text>`          | 这次执行的自由文本备注                                                                                             |
-| `--evidence <url>`       | 证据链接，可重复                                                                                                   |
-| `--evidence-file <path>` | 上传本地文件作证据，可重复。png/jpeg/webp/gif/txt/log/json，单个 ≤ 10 MB，最多 5 个                                |
-| `--step <spec>`          | 逐步结果，可重复（LUM-1011）。`s<n>=pass\|fail` / `v<n>=pass\|fail`，范围 `s1-3=pass`，可带耗时 `@1.2s` / `@300ms` |
-| `--step-evidence <spec>` | 把证据挂到某一步下面，可重复。`s3=shot.png` 或 `v1=https://…`；文件与 `--evidence-file` 合计最多 5 个              |
-| `--actual <text>`        | 仅 FAIL：失败那一步**实际**看到了什么，网页上与用例的期望并排显示                                                  |
+| Flag                     | 说明                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--result <r>`           | **必填**。`pass` / `fail` / `blocked`                                                                                                                                                              |
+| `--env <e>`              | **必填，没有默认值**。`local` / `preview` / `production`                                                                                                                                           |
+| `--pr <number>`          | 这次跑的是哪个 PR 的改动。必须是本任务名下的 PR                                                                                                                                                    |
+| `--commit <sha>`         | 这次跑的是哪个 commit。**`--env local` 之外必须显式给**，否则不记                                                                                                                                  |
+| `--failed-step <n>`      | **1-based**，仅 FAIL 可用，与 `--failed-verify` 互斥                                                                                                                                               |
+| `--failed-verify <n>`    | **1-based**，仅 FAIL 可用，与 `--failed-step` 互斥                                                                                                                                                 |
+| `--cause <c>`            | **FAIL 必填、非 FAIL 禁带**。`defect` / `outdated` / `external` / `unknown`                                                                                                                        |
+| `--unproven <n>`         | **1-based**，本次没能观察到的复验条目，可重复。见下方「可证明性上限」                                                                                                                              |
+| `--note <text>`          | 这次执行的自由文本备注                                                                                                                                                                             |
+| `--evidence <url>`       | 证据链接，可重复                                                                                                                                                                                   |
+| `--evidence-file <path>` | 上传本地文件作证据，可重复。png/jpeg/webp/gif/txt/log/json，单个 ≤ 10 MB，最多 5 个                                                                                                                |
+| `--step <spec>`          | **必填（LUM-1211）**：每一步都要报。`s<n>=pass\|fail\|skip:<原因>` / `v<n>=…`，范围 `s1-3=pass`，可带耗时 `@1.2s`。PASS 报全部步骤与复验；FAIL 报到断点为止。`--unproven <n>` 声明的复验条目算已报 |
+| `--step-evidence <spec>` | 把证据挂到某一步下面，可重复。`s3=shot.png` 或 `v1=https://…`；文件与 `--evidence-file` 合计最多 5 个                                                                                              |
+| `--actual <text>`        | 仅 FAIL：失败那一步**实际**看到了什么，网页上与用例的期望并排显示                                                                                                                                  |
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-step 2 --cause defect --note "页脚只剩版权行" --evidence-file ./screenshot.png
+lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-step 2 --cause defect --step s1=pass --step s2=fail --note "页脚只剩版权行" --evidence-file ./screenshot.png
 ```
 
 ### 逐步结果：这次跑到了哪一步（LUM-1011）
@@ -129,9 +129,10 @@ lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-st
 
 ```bash
 lumo task testcase run LUM-42/TC3 --result fail --env production --commit 0d46921 --cause defect --step s1-3=pass --step v1=fail@0.3s --step-evidence v1=./v1.png --actual "横幅显示「已作为店铺余额发放」"
+lumo task testcase run LUM-42/TC3 --result pass --env local --step s1-2=pass --step s3=skip:"no real DB locally" --step v1=pass --evidence-file ./jest.json
 ```
 
-- **没报的步骤绝不推定为通过。** 只给 `--failed-step` 不给 `--step` 时，失败点之前的步骤在网页上读作「已到达 — 未逐步记录」，之后的读作「未到达」。想让前面几步显示 ✓，就用 `--step s1-3=pass` 明说。
+- **每一步都必须上报，漏报整条 run 被拒绝**（服务端 400，错误里列出缺的 s<n>/v<n> 和可照抄的 --step 写法）。没检查的步骤用 `s3=skip:"原因"`，PASS 会被封顶为 UNPROVEN(skipped)。不要用 s1-N=pass 一把带过没真正检查过的步骤。
 - `--step` 里的 fail 步就是失败定位：可以不再写 `--failed-step`；两个都写时必须指同一步，否则服务端 400。
 - 至多一步 fail；失败点之后不能有 pass（断在第 4 步 = 后面没跑到）；BLOCKED 不带 `--step`（根本没跑起来）；PASS 不能带 fail 步。
 - `--step-evidence` 只能挂到同时用 `--step` 报过的那一步上。
@@ -164,7 +165,10 @@ lumo task testcase run LUM-42/TC3 --result fail --env production --commit 0d4692
 - **run 侧**：`--unproven <n>`（1-based，可重复）标出这次没能观察到的复验条目。
 - **证据侧（LUM-819）**：一条**零证据**的 PASS 封顶为 `UNPROVEN(no-evidence)`——不看谁跑的，
   人跑了什么都没留照样证不了。读端推导，所以**历史上的零证据 PASS 也按同一口径显示**
-  （用户裁定，不按时间切线）。优先级：环境 > 未观察 > 无证据。
+  （用户裁定，不按时间切线）。
+- **跳过侧（LUM-1211）**：run 的逐步结果里有任何 SKIP → PASS 封顶为 `UNPROVEN(skipped)`，回显点名
+  被跳过的步骤（`s3` = 第 3 个操作步，`v1` = 第 1 条复验）及原因。
+  优先级：环境 > 未观察 > 跳过 > 无证据。
 
 封顶**只作用于 PASS**。FAIL / BLOCKED 原样保留——「证明了坏」不需要能力上限。
 `UNPROVEN` 只由读端推导，**不落库**：`TestCaseRunResult` 仍然只有
@@ -173,16 +177,16 @@ lumo task testcase run LUM-42/TC3 --result fail --env production --commit 0d4692
 回显会把降级摆在脸上：
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env local
+lumo task testcase run LUM-42/TC3 --result pass --env local --step s1-3=pass --step v1=pass
 # Recorded LUM-42/TC3: PASS on LOCAL → UNPROVEN (this case only proves anything on PRODUCTION)
 ```
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env production
+lumo task testcase run LUM-42/TC3 --result pass --env production --step s1-3=pass --step v1=pass --evidence-file ./jest.json
 ```
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env production
+lumo task testcase run LUM-42/TC3 --result pass --env production --step s1-3=pass --step v1=pass
 # Recorded LUM-42/TC3: PASS on PRODUCTION → UNPROVEN (no evidence attached — nobody else can re-read this PASS)
 ```
 
@@ -197,7 +201,7 @@ lumo task testcase run LUM-42/TC3 --result pass --env production
 `--env preview` / `--env production` **不会**去读本地 git —— 本地检出跑的不是那些环境跑的东西。把操作者的 HEAD 记成「生产验过的 commit」是假话；更糟的是如果本地 HEAD 恰好等于 PR head，陈旧性会把它判成 `fresh`，等于伪造一条「生产已验证」。非 local 要记 commit，**必须显式** `--commit <sha>`：由人断言「线上跑的就是这个」，而不是让工具猜。
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env production --pr 123 --commit 80b62a3
+lumo task testcase run LUM-42/TC3 --result pass --env production --pr 123 --commit 80b62a3 --step s1-3=pass --step v1=pass
 ```
 
 给了 `--commit` 时 `commitDirty` 置 null —— 显式指定 commit 就不再声称知道工作区状态。

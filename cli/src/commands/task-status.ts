@@ -141,7 +141,7 @@ export interface TaskStatusResponse {
         number: number
         title: string
         /** LUM-819: 仅 UNPROVEN_PASS 带。老服务端不回这个字段。 */
-        ceilingReason?: 'environment' | 'unobserved' | 'no-evidence'
+        ceilingReason?: 'environment' | 'unobserved' | 'skipped' | 'no-evidence'
         advisory: true
       }
     | {
@@ -330,6 +330,7 @@ const CEILING_REASON_LABEL: Record<
 > = {
   environment: 'not run where it can prove anything',
   unobserved: 'some verification steps went unobserved',
+  skipped: 'some steps were skipped',
   'no-evidence': 'no evidence attached',
 }
 

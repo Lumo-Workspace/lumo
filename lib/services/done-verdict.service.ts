@@ -75,6 +75,7 @@ async function collectTestCasePlane(
           unprovenVerification: (latest.unprovenVerification ??
             []) as unknown as Array<{ index: number; text: string }>,
           evidenceCount: countEvidence(latest.evidence),
+          stepResults: latest.stepResults,
         },
         { requiredEnvironment: testCase.requiredEnvironment }
       )

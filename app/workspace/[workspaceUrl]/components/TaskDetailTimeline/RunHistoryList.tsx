@@ -161,6 +161,7 @@ export function VerdictBadge({
       unprovenVerification: (run.unprovenVerification ??
         []) as unknown as Array<{ index: number; text: string }>,
       evidenceCount: countEvidence(run.evidence),
+      stepResults: run.stepResults,
     },
     { requiredEnvironment }
   )
@@ -188,7 +189,12 @@ export function VerdictBadge({
             { id: 'testCases.ceiling.unobserved' },
             { count: ceiling.unobserved.length }
           )
-        : intl.formatMessage({ id: 'testCases.ceiling.noEvidence' })
+        : ceiling.reason === 'skipped'
+          ? intl.formatMessage(
+              { id: 'testCases.ceiling.skipped' },
+              { count: ceiling.skipped.length }
+            )
+          : intl.formatMessage({ id: 'testCases.ceiling.noEvidence' })
 
   return (
     <span className='flex flex-wrap items-baseline gap-1'>

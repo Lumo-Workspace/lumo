@@ -88,24 +88,84 @@ describe('environment has no default', () => {
   })
 })
 
-describe('failure locator', () => {
-  it('is hidden unless the result is FAIL', async () => {
-    setup()
-    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'BLOCKED')
-    expect(screen.queryByLabelText(/failed at/i)).not.toBeInTheDocument()
+const markRest = () =>
+  userEvent.click(screen.getByRole('button', { name: 'Mark the rest passed' }))
 
-    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
-    expect(screen.getByLabelText(/failed at/i)).toBeInTheDocument()
+describe('per-step picker', () => {
+  it('is hidden unless the result is PASS or FAIL', async () => {
+    setup()
+    expect(screen.getByText('Result of each step')).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'BLOCKED')
+    expect(screen.queryByText('Result of each step')).not.toBeInTheDocument()
   })
 
   it('lists steps and verification with 1-based labels', async () => {
     setup()
-    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
-    expect(screen.getByRole('option', { name: /step 1:/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /step 2:/i })).toBeInTheDocument()
+    expect(screen.getByText('1. scroll to the bottom')).toBeInTheDocument()
+    expect(screen.getByText('2. assert the footer text')).toBeInTheDocument()
     expect(
-      screen.getByRole('option', { name: /verification 1:/i })
+      screen.getByText('Verification 1: refresh the page')
     ).toBeInTheDocument()
+  })
+
+  it('refuses to submit until every step is marked, naming what is missing', async () => {
+    const onSubmit = setup()
+    await userEvent.selectOptions(
+      screen.getByLabelText(/environment/i),
+      'LOCAL'
+    )
+    await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Mark every step first: s1, s2, v1')
+    ).toBeInTheDocument()
+  })
+
+  it('refuses a skip without a reason', async () => {
+    const onSubmit = setup()
+    await userEvent.selectOptions(
+      screen.getByLabelText(/environment/i),
+      'LOCAL'
+    )
+    await markRest()
+    await userEvent.click(screen.getAllByRole('radio', { name: 'Skipped' })[0]!)
+    await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText('Mark every step first: s1')).toBeInTheDocument()
+  })
+
+  it('submits every step, a skip carrying its reason', async () => {
+    const onSubmit = setup()
+    await userEvent.selectOptions(
+      screen.getByLabelText(/environment/i),
+      'LOCAL'
+    )
+    await markRest()
+    await userEvent.click(screen.getAllByRole('radio', { name: 'Skipped' })[2]!)
+    await userEvent.type(
+      screen.getByPlaceholderText('Why was it skipped?'),
+      'no browser'
+    )
+    await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'PASS',
+        failedPhase: null,
+        failedIndex: null,
+        unprovenVerification: [],
+        stepResults: [
+          { phase: 'STEPS', index: 0, status: 'PASS' },
+          { phase: 'STEPS', index: 1, status: 'PASS' },
+          {
+            phase: 'VERIFICATION',
+            index: 0,
+            status: 'SKIP',
+            reason: 'no browser',
+          },
+        ],
+      }),
+      []
+    )
   })
 
   it('refuses to submit a FAIL with no cause picked', async () => {
@@ -119,7 +179,7 @@ describe('failure locator', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('submits a 0-based index for the step the user picked', async () => {
+  it('a FAIL needs a step marked failed', async () => {
     const onSubmit = setup()
     await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
     await userEvent.selectOptions(
@@ -127,23 +187,43 @@ describe('failure locator', () => {
       'LOCAL'
     )
     await userEvent.selectOptions(
-      screen.getByLabelText(/failed at/i),
-      'STEPS:1'
+      screen.getByLabelText(/whose fault/i),
+      'UNKNOWN'
     )
-    // LUM-808: 一条 FAIL 现在必须说清是谁的锅。这条测的是定位换算，
-    // 选举证责任最轻的那一个。
+    await markRest()
+    await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(
+        'A failed run needs the step it failed at marked as failed.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('submits the steps up to the one marked failed', async () => {
+    const onSubmit = setup()
+    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
+    await userEvent.selectOptions(
+      screen.getByLabelText(/environment/i),
+      'LOCAL'
+    )
+    // LUM-808: 一条 FAIL 必须说清是谁的锅；选举证责任最轻的那个。
     await userEvent.selectOptions(
       screen.getByLabelText(/whose fault/i),
       'UNKNOWN'
     )
+    await userEvent.click(screen.getAllByRole('radio', { name: 'Passed' })[0]!)
+    await userEvent.click(screen.getAllByRole('radio', { name: 'Failed' })[1]!)
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         result: 'FAIL',
         environment: 'LOCAL',
-        failedPhase: 'STEPS',
-        failedIndex: 1,
+        stepResults: [
+          { phase: 'STEPS', index: 0, status: 'PASS' },
+          { phase: 'STEPS', index: 1, status: 'FAIL' },
+        ],
       }),
       []
     )
@@ -220,6 +300,7 @@ describe('evidence file guards', () => {
       screen.getByLabelText(/environment/i),
       'LOCAL'
     )
+    await markRest()
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).toHaveBeenCalledWith(expect.anything(), [])
   })
@@ -248,6 +329,7 @@ describe('pull request', () => {
       'PREVIEW'
     )
     await userEvent.selectOptions(screen.getByLabelText(/pull request/i), '123')
+    await markRest()
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ pullRequestNumber: 123 }),
@@ -261,6 +343,7 @@ describe('pull request', () => {
       screen.getByLabelText(/environment/i),
       'LOCAL'
     )
+    await markRest()
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ commitDirty: null }),

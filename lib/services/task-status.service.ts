@@ -102,7 +102,7 @@ export interface NextActionTestCaseVerdict {
   number: number
   title: string
   /** LUM-819: 仅 `UNPROVEN_PASS` 带——被哪条边界封顶。 */
-  ceilingReason?: 'environment' | 'unobserved' | 'no-evidence'
+  ceilingReason?: 'environment' | 'unobserved' | 'skipped' | 'no-evidence'
   advisory: true
 }
 

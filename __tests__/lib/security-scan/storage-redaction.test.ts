@@ -268,4 +268,27 @@ describe('LUM-898 follow-up: crossing and test-run notes', () => {
     }
     expect(reopened.data.dispositionNote).toBeNull()
   })
+
+  it('LUM-1211 a SKIP reason in stepResults is stored redacted', async () => {
+    mockPrisma.testCaseRun.create.mockClear()
+    await testCaseRepository.createRun({
+      testCaseId: 'tc',
+      taskId: 't',
+      result: 'PASS',
+      environment: 'LOCAL',
+      stepResults: [
+        { phase: 'STEPS', index: 0, status: 'PASS', reason: null },
+        { phase: 'STEPS', index: 1, status: 'SKIP', reason: DIRTY },
+      ],
+    } as never)
+    const data = mockPrisma.testCaseRun.create.mock.calls[0]![0] as {
+      data: { stepResults: Array<{ reason: string | null }> }
+    }
+    const reason = data.data.stepResults[1]!.reason
+    expect(typeof reason).toBe('string')
+    expect(classifyRow([reason]).size).toBe(0)
+    expect(reason).toContain('see ')
+    expect(reason).not.toContain(AWS_KEY)
+    expect(data.data.stepResults[0]!.reason).toBeNull()
+  })
 })

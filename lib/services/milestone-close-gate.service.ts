@@ -37,6 +37,7 @@ export const milestoneCloseGateService = {
               text: string
             }>,
             evidenceCount: countEvidence(latest.evidence),
+            stepResults: latest.stepResults,
           },
           { requiredEnvironment: c.requiredEnvironment }
         )

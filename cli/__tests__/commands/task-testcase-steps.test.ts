@@ -20,9 +20,16 @@ import {
   parseStepSpecs,
   parseStepEvidence,
   formatStepResultLines,
+  missingStepRefsLocal,
+  formatMissingStepsError,
 } from '../../src/lib/test-case-steps'
 import { taskTestCaseRun } from '../../src/commands/task-testcase-run'
 import { taskTestCaseShow } from '../../src/commands/task-testcase-show'
+import { formatRunOutcome } from '../../src/lib/test-case-verdict'
+
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 let logSpy: jest.SpyInstance
 let errorSpy: jest.SpyInstance
@@ -82,10 +89,34 @@ describe('parseStepSpecs', () => {
     expect(r).toEqual({
       ok: true,
       value: [
-        { phase: 'STEPS', index: 0, status: 'PASS', durationMs: null },
-        { phase: 'STEPS', index: 1, status: 'PASS', durationMs: null },
-        { phase: 'VERIFICATION', index: 0, status: 'FAIL', durationMs: 300 },
-        { phase: 'STEPS', index: 2, status: 'PASS', durationMs: 300 },
+        {
+          phase: 'STEPS',
+          index: 0,
+          status: 'PASS',
+          reason: null,
+          durationMs: null,
+        },
+        {
+          phase: 'STEPS',
+          index: 1,
+          status: 'PASS',
+          reason: null,
+          durationMs: null,
+        },
+        {
+          phase: 'VERIFICATION',
+          index: 0,
+          status: 'FAIL',
+          reason: null,
+          durationMs: 300,
+        },
+        {
+          phase: 'STEPS',
+          index: 2,
+          status: 'PASS',
+          reason: null,
+          durationMs: 300,
+        },
       ],
     })
   })
@@ -101,6 +132,95 @@ describe('parseStepSpecs', () => {
     ['two failing steps', ['s1=fail', 's2=fail']],
   ])('rejects %s', (_label, specs) => {
     expect(parseStepSpecs(specs).ok).toBe(false)
+  })
+})
+
+describe('skip (LUM-1211)', () => {
+  it('parses s3=skip:<reason>', () => {
+    expect(parseStepSpecs(['s3=skip:no real DB'])).toEqual({
+      ok: true,
+      value: [
+        {
+          phase: 'STEPS',
+          index: 2,
+          status: 'SKIP',
+          reason: 'no real DB',
+          durationMs: null,
+        },
+      ],
+    })
+  })
+  it('applies one reason to a range', () => {
+    const r = parseStepSpecs(['v1-2=skip:prod only'])
+    expect(r.ok && r.value.map(s => [s.index, s.status, s.reason])).toEqual([
+      [0, 'SKIP', 'prod only'],
+      [1, 'SKIP', 'prod only'],
+    ])
+  })
+  it('refuses a skip without a reason', () => {
+    const r = parseStepSpecs(['s3=skip'])
+    expect(r.ok).toBe(false)
+    expect(!r.ok && r.error).toMatch(/skip needs a reason: s3=skip:"why"/)
+  })
+  it('refuses a reason longer than 200 characters', () => {
+    expect(parseStepSpecs([`s1=skip:${'x'.repeat(201)}`]).ok).toBe(false)
+  })
+  it('refuses the same step as pass and skip', () => {
+    expect(parseStepSpecs(['s1=pass', 's1=skip:x']).ok).toBe(false)
+    expect(parseStepSpecs(['s1=skip:x', 's1=pass']).ok).toBe(false)
+  })
+  it('strips quotes around the reason', () => {
+    const r = parseStepSpecs(['s1=skip:"no DB"'])
+    expect(r.ok && r.value[0]?.reason).toBe('no DB')
+  })
+  it('sanitises the reason when printing', () => {
+    const [line] = formatStepResultLines([
+      { phase: 'STEPS', index: 0, status: 'SKIP', reason: 'a\u001b[31mb' },
+    ])
+    expect(line).toBe('    – step 1 (skipped: a[31mb)')
+  })
+  it('prints a skipped step with its reason', () => {
+    expect(
+      formatStepResultLines([
+        {
+          phase: 'STEPS',
+          index: 2,
+          text: 'call API',
+          status: 'SKIP',
+          reason: 'no DB',
+        },
+      ])
+    ).toEqual(['    – step 3: call API (skipped: no DB)'])
+  })
+  it('sends the reason and summarises per status', async () => {
+    respond({ run: { ...baseRun, result: 'PASS' }, ceiling: null })
+    await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass', 's2=skip:no DB'],
+    })
+    expect(runBody().stepResults[1]).toMatchObject({
+      status: 'SKIP',
+      reason: 'no DB',
+    })
+    expect(runBody().stepResults[0]).not.toHaveProperty('reason')
+    expect(printed()).toContain('Steps: 1 passed, 1 skipped of 2 reported')
+  })
+  it('relays the server rejection of a missing step', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: 'Missing per-step results: s2. Report each.',
+      }),
+    }) as never
+    const code = await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass'],
+    })
+    expect(code).toBe(1)
+    expect(errors()).toContain('Missing per-step results: s2')
   })
 })
 
@@ -169,7 +289,7 @@ describe('testcase run with steps', () => {
       },
     ])
     expect(printed()).toContain('actual: Issued as store credit')
-    expect(printed()).toContain('Steps: 3 passed of 4 reported')
+    expect(printed()).toContain('Steps: 3 passed, 1 failed of 4 reported')
   })
 
   it('sends neither field when no step flags are given (old servers stay happy)', async () => {
@@ -243,5 +363,187 @@ describe('testcase show with steps', () => {
 
   it('prints nothing extra for a run from an older server', () => {
     expect(formatStepResultLines(undefined)).toEqual([])
+  })
+})
+
+describe('formatRunOutcome skipped (LUM-1211)', () => {
+  it('names the skipped steps 1-based with their reasons', () => {
+    expect(
+      formatRunOutcome({
+        handle: 'LUM-1/TC1',
+        reported: 'PASS',
+        environment: 'LOCAL',
+        ceiling: {
+          effective: 'UNPROVEN',
+          reason: 'skipped',
+          skipped: [
+            { phase: 'STEPS', index: 2, text: 'call API', reason: 'no DB' },
+          ],
+        },
+      })
+    ).toBe(
+      'Recorded LUM-1/TC1: PASS on LOCAL → UNPROVEN (skipped: s3 call API — no DB)'
+    )
+  })
+
+  it('strips control characters from the skipped text and reason', () => {
+    const out = formatRunOutcome({
+      handle: 'LUM-1/TC1',
+      reported: 'PASS',
+      environment: 'LOCAL',
+      ceiling: {
+        effective: 'UNPROVEN',
+        reason: 'skipped',
+        skipped: [
+          {
+            phase: 'STEPS',
+            index: 0,
+            text: 'call\u001b[31m API',
+            reason: 'no\u001b[2J DB',
+          },
+        ],
+      },
+    })
+    expect(out).not.toContain('\u001b')
+  })
+})
+
+describe('missingStepRefsLocal (LUM-1211)', () => {
+  const tc = { steps: ['a', 'b'], verification: ['x', 'y'] }
+  const rep = (
+    phase: 'STEPS' | 'VERIFICATION',
+    index: number,
+    status: 'PASS' | 'FAIL' | 'SKIP' = 'PASS'
+  ) => ({ phase, index, status, reason: null, durationMs: null })
+
+  it('PASS needs every step and verification', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'PASS',
+        steps: [rep('STEPS', 0)],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual(['s2', 'v1', 'v2'])
+  })
+
+  it('an unproven verification counts as reported', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'PASS',
+        steps: [rep('STEPS', 0), rep('STEPS', 1), rep('VERIFICATION', 0)],
+        failLocator: null,
+        unprovenVerification: [1],
+      })
+    ).toEqual([])
+  })
+
+  it('FAIL needs everything up to the break, taken from the fail step', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'FAIL',
+        steps: [rep('VERIFICATION', 0, 'FAIL')],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual(['s1', 's2'])
+  })
+
+  it('FAIL prefers the explicit locator and BLOCKED needs nothing', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'FAIL',
+        steps: [],
+        failLocator: { phase: 'STEPS', index: 1 },
+        unprovenVerification: [],
+      })
+    ).toEqual(['s1'])
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'BLOCKED',
+        steps: [],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual([])
+  })
+
+  it('FAIL with no break point is left to the server', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'FAIL',
+        steps: [],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual([])
+  })
+
+  it('formats the error like the server wording', () => {
+    expect(formatMissingStepsError(['s2', 'v1'])).toMatch(
+      /^Missing per-step results: s2, v1\. .*--step s2=pass --step v1=pass/
+    )
+  })
+})
+
+describe('testcase run pre-checks coverage before uploading (LUM-1211)', () => {
+  const file = join(mkdtempSync(join(tmpdir(), 'lumo-tc-')), 'out.log')
+  writeFileSync(file, 'log')
+  const showBody = {
+    testCase: { number: 1, steps: ['a', 'b'], verification: ['x'] },
+  }
+  const urls = () =>
+    (global.fetch as jest.Mock).mock.calls.map(([u]) => String(u))
+
+  it('uploads nothing and exits 1 when steps are missing', async () => {
+    respond(showBody)
+    const code = await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass'],
+      evidenceFile: [file],
+    })
+    expect(code).toBe(1)
+    expect(errors()).toMatch(/Missing per-step results: s2, v1\./)
+    expect(urls().some(u => u.endsWith('/evidence'))).toBe(false)
+    expect(urls().some(u => u.endsWith('/runs'))).toBe(false)
+  })
+
+  it('uploads when coverage is complete', async () => {
+    respond({
+      ...showBody,
+      files: [
+        {
+          url: 'https://b/o.log',
+          filename: 'out.log',
+          contentType: 'text/plain',
+          size: 3,
+        },
+      ],
+      run: { result: 'PASS', environment: 'LOCAL', failedStepText: null },
+      ceiling: { effective: 'PASS' },
+    })
+    await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1-2=pass', 'v1=pass'],
+      evidenceFile: [file],
+    })
+    expect(urls().some(u => u.endsWith('/evidence'))).toBe(true)
+    expect(urls().some(u => u.endsWith('/runs'))).toBe(true)
+  })
+
+  it('makes no extra request when there is no file to upload', async () => {
+    respond({
+      run: { result: 'PASS', environment: 'LOCAL', failedStepText: null },
+      ceiling: { effective: 'PASS' },
+    })
+    await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass'],
+    })
+    expect(urls()).toHaveLength(1)
+    expect(urls()[0]).toMatch(/\/runs$/)
   })
 })

@@ -26,6 +26,8 @@ export interface SummaryRun {
   failureAttribution: string | null
   unprovenVerification: unknown
   evidence: unknown
+  /** LUM-1211: SKIP 步会把 PASS 封顶成 UNPROVEN(skipped)。 */
+  stepResults: unknown
   disposition: unknown | null
 }
 
@@ -51,6 +53,7 @@ export function deriveLatestVerdict(
         ? latest.unprovenVerification
         : []) as Array<{ index: number; text: string }>,
       evidenceCount: countEvidence(latest.evidence),
+      stepResults: latest.stepResults,
     },
     { requiredEnvironment }
   )
