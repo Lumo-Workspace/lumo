@@ -160,8 +160,17 @@ describe('LUM-819 rework: review in context', () => {
     expect(hits.map(h => h.testCase.number)).toEqual([3])
 
     // service: attaches the latest review (with a display name) to each run
+    // LUM-1185: listForTask derives each run's verdict from the case body, so
+    // the fixture carries the columns a real case row always has.
     caseRepo.listForTask!.mockResolvedValue([
-      { id: 'c3', number: 3, title: 'three' },
+      {
+        id: 'c3',
+        number: 3,
+        title: 'three',
+        steps: ['a'],
+        verification: [],
+        requiredEnvironment: null,
+      },
     ])
     caseRepo.runsPerCase!.mockResolvedValue(
       new Map([

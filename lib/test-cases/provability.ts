@@ -146,3 +146,34 @@ export function deriveRunCeiling(
 
   return { effective: 'PASS' }
 }
+
+/** 一条**已落库** run 上与封顶有关的列（Json 列原样）。 */
+export interface StoredCeilingRun {
+  result: 'PASS' | 'FAIL' | 'BLOCKED'
+  environment: CeilingEnvironment
+  unprovenVerification: unknown
+  evidence: unknown
+  stepResults: unknown
+}
+
+/**
+ * LUM-1185: 从一条已落库的 run（Json 列未解析）推导封顶结论。Record 行的
+ * 汇总（`case-summary.ts`）与 API 读端（CLI 渲染用）共用这一处，口径不分叉。
+ */
+export function deriveStoredRunCeiling(
+  run: StoredCeilingRun,
+  requiredEnvironment: CeilingEnvironment | null
+): RunCeiling {
+  return deriveRunCeiling(
+    {
+      result: run.result,
+      environment: run.environment,
+      unprovenVerification: (Array.isArray(run.unprovenVerification)
+        ? run.unprovenVerification
+        : []) as Array<{ index: number; text: string }>,
+      evidenceCount: countEvidence(run.evidence),
+      stepResults: run.stepResults,
+    },
+    { requiredEnvironment }
+  )
+}

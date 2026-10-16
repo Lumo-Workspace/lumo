@@ -32,21 +32,28 @@ lumo task testcase add LUM-42 --title "Dashboard 页脚 FDIC 披露" --setup "Th
 
 ## `lumo task testcase list <task>` — 列表
 
-每行：用例号 · 标题 · 步骤数 · **最近一次执行**（结果 + 环境 + 短 sha + 日期 + 执行人），从没跑过显示 `never run`。
+每行（tab 分列）：用例号 · 标题 · 步骤数（用例声明了 `--requires-env` 时附 `· Only proves on <ENV>`）· **最近一次执行**：结果 + 环境 + **封顶结论**（`→ UNPROVEN (no evidence | only proves on X | N skipped | N unobserved)`）+ 短 sha + 日期 + 执行人，再用 `·` 接归因（`cause: defect|outdated|external|unknown`）、裁定（`ruled KNOWN_DEFECT`）、进度（`failed at step 2` / `3 of 4 steps passed`）。从没跑过显示 `never run`。
+
+列表末尾空一行打汇总，口径与 web Record 页「测试用例」行一致（服务端 `summarizeTestCases`）：`N/M passing`，有则再接 `· x failing · y unproven/blocked · z never run`；任务上还有 `· k proven defect(s) awaiting a ruling (blocks DONE)`（里程碑的关闭闸另有规则，不打这一截）。`passing` 只算封顶后仍是 PASS 的最新 run——一个零证据 PASS 不算。
 
 ```bash
 lumo task testcase list LUM-42
 ```
 
 ```
-TC1	Dashboard 页脚 FDIC 披露	3 steps / 2 verify	FAIL on LOCAL @a1b2c3d (2026-09-21) by Chao Li via session 86dce765
+TC1	Dashboard 页脚 FDIC 披露	3 steps / 2 verify	FAIL on LOCAL @a1b2c3d (2026-09-21) by Chao Li via session 86dce765 · cause: defect · failed at step 2
+TC2	退款落到原卡	2 steps / 1 verify · Only proves on PRODUCTION	PASS on LOCAL → UNPROVEN (only proves on PRODUCTION) (2026-10-06) by Chao Li · 3 of 3 steps passed
+
+0/2 passing · 1 failing · 1 unproven/blocked · 1 proven defect awaiting a ruling (blocks DONE)
 ```
+
+封顶、逐步报告、汇总都由**服务端推导后随 GET 响应返回**（每条 run 上的 `ceiling` / `stepReport`，列表上的 `summary`；任务详情的 run 还带 `review`），CLI 只渲染、不重算——与 web 同一组纯函数。旧服务端不发这些字段时 CLI 退回旧的打印方式，不编结论。
 
 **执行人**（LUM-1008）：`by <成员名>`；run 来自 agent session 时再附 `via session <短 id>`。CLI 跑的 run 记下的成员是 token 主人，所以「人手动」还是「agent 代跑」看有没有 `via session`（`testcase run` 在 Claude Code 里跑时自动带上当前 session；1.96.0 之前的 CLI 不带，那些 run 没有 `via session`）。`runner not recorded` = 这条 run 没记执行人（不是「没人」）；旧服务端不发这个字段时什么都不打。`show` 的每条 run 行同样带它。
 
 ## `lumo task testcase show <task/case>` — 详情 + 执行历史
 
-四段分节打印（步骤带 **1-based** 编号），随后是 run 历史。FAIL 的行显示挂在第几步及**当时的原文快照**，并带上 PR / commit 与陈旧性提示。
+标题下一行是用例的环境约束（`Only proves on PRODUCTION`，没声明不打），然后四段分节打印（步骤带 **1-based** 编号），随后是 run 历史。每条 run 的结论行：`<日期>  <上报结果> on <环境>[ → UNPROVEN (原因)]  [cause: …]  <PR / commit 与陈旧性>  <执行人>  — <note>`。封顶原因与 `testcase run` 回显同一套措辞（环境 / 未观察 / 跳过 / 无证据）。
 
 ```bash
 lumo task testcase show LUM-42/TC3
@@ -68,15 +75,31 @@ lumo task testcase show LUM-42/TC3
       footer.png  https://blob.example.com/test-evidence/…/abc.png
 ```
 
-带逐步结果的 run（LUM-1011），run 行下面逐行打出**显式上报过**的步骤，再打实际观察；没上报的步骤不打——不编一个「pass」出来：
+run 行下面是**完整逐步报告**（LUM-1011 / LUM-1185，与 web `TestCaseRunReport` 同源同数）：先一行进度——`failed at step 2` / `failed at verification 1`，否则 `x of y steps passed`；整条 run 没逐步记录时是 `no per-step results were recorded for this run`（BLOCKED 不打）。然后**每一步一行**，状态靠符号区分：
+
+| 符号 | 状态                             | 含义                               |
+| ---- | -------------------------------- | ---------------------------------- |
+| `✓`  | passed                           | 显式上报 PASS（只有它算通过）      |
+| `✗`  | failed                           | 失败点                             |
+| `•`  | `(reached — no per-step result)` | 失败点之前、执行流经过但没逐步结论 |
+| `○`  | `(not reached)`                  | 失败点之后，或整条 BLOCKED         |
+| `?`  | `(not observed)`                 | `--unproven` 声明没能观察到的复验  |
+| `-`  | `(no per-step result)`           | 没逐步结论、也没有失败点可参照     |
+| `»`  | `(skipped: 原因)`                | 显式 SKIP                          |
+
+有耗时的步骤附 `300ms` / `1.2s`。再往下依次是实际观察、裁定、抽查复核、证据：
 
 ```
-  2026-10-06  FAIL on PRODUCTION  verification 1: banner says Refunded to Visa 4242
-    ✓ step 1: open /billing/invoices/inv_1042 (1200ms)
+  2026-10-06  FAIL on PRODUCTION  [cause: defect]  by Chao Li
+    failed at verification 1
+    ✓ step 1: open /billing/invoices/inv_1042 (1.2s)
     ✓ step 2: click Refund, fill 40.00
     ✗ verification 1: banner says Refunded to Visa 4242 (300ms)
+    ○ verification 2: the card statement shows the refund (not reached)
     actual: Issued as store credit
 ```
+
+被抽查过的 run（LUM-819）多一行复核结论：`spot-checked: the evidence holds · <复核人> · <日期>`，或 `spot-check sent this PASS back — the evidence did not hold it up · <复核人> · <日期>  — "<理由>"`。打回不是失败：补证据或重跑。（里程碑用例没有抽查，不打这一行。）
 
 形状不认识的证据条目会被整条丢掉而不是报错——一条脏证据不该让 `show` 挂掉。web 端同一份数据在任务 **Record** 页的「测试用例」区段里出缩略图（LUM-1011 起 Tests tab 并入 Record；旧的 `/tests` 链接自动落到这里）。
 

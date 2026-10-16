@@ -10,11 +10,7 @@
  * 没人裁定。这里只是把它摆到页面上，闸门本身仍在服务端——两边对不上时以 409
  * 为准，这里绝不放宽。
  */
-import {
-  countEvidence,
-  deriveRunCeiling,
-  type CeilingEnvironment,
-} from './provability'
+import { deriveStoredRunCeiling, type CeilingEnvironment } from './provability'
 
 export type CaseVerdict = 'PASS' | 'FAIL' | 'BLOCKED' | 'UNPROVEN' | 'NEVER_RUN'
 
@@ -45,18 +41,7 @@ export function deriveLatestVerdict(
   requiredEnvironment: CeilingEnvironment | null
 ): CaseVerdict {
   if (!latest) return 'NEVER_RUN'
-  const ceiling = deriveRunCeiling(
-    {
-      result: latest.result,
-      environment: latest.environment,
-      unprovenVerification: (Array.isArray(latest.unprovenVerification)
-        ? latest.unprovenVerification
-        : []) as Array<{ index: number; text: string }>,
-      evidenceCount: countEvidence(latest.evidence),
-      stepResults: latest.stepResults,
-    },
-    { requiredEnvironment }
-  )
+  const ceiling = deriveStoredRunCeiling(latest, requiredEnvironment)
   return ceiling.effective
 }
 

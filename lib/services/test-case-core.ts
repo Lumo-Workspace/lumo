@@ -11,9 +11,14 @@ import {
 import {
   countEvidence,
   deriveRunCeiling,
+  deriveStoredRunCeiling,
   type RunCeiling,
 } from '@/lib/test-cases/provability'
-import type { StoredStepResult } from '@/lib/test-cases/step-report'
+import {
+  deriveStepReport,
+  type StepReport,
+  type StoredStepResult,
+} from '@/lib/test-cases/step-report'
 
 /**
  * LUM-1135: 与归属方（任务 / 里程碑）无关的用例核心——run 的校验规则、执行人
@@ -34,6 +39,29 @@ export interface TestCaseAttribution {
  */
 export type TestCaseRunWithExecutor = TestCaseRunRow & {
   executedBy: string | null
+}
+
+/**
+ * LUM-1185: 读端随每条 run 回传的**推导**判定——封顶后的结论与逐步报告。
+ * 不落列（理由同 `deriveRunCeiling`）；在服务端算一次，CLI 只渲染，不复刻规则。
+ * 与 web 的 VerdictBadge / TestCaseRunReport 调的是同一组纯函数。
+ */
+export interface RunVerdict {
+  ceiling: RunCeiling
+  stepReport: StepReport
+}
+
+export function runVerdictOf(
+  run: TestCaseRunRow,
+  testCase: Pick<TestCaseRow, 'requiredEnvironment' | 'steps' | 'verification'>
+): RunVerdict {
+  return {
+    ceiling: deriveStoredRunCeiling(run, testCase.requiredEnvironment),
+    stepReport: deriveStepReport(
+      { steps: testCase.steps, verification: testCase.verification },
+      run
+    ),
+  }
 }
 
 /**

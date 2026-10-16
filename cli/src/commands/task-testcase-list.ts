@@ -2,13 +2,20 @@ import { emptyState, fmtDay } from '../lib/format'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { formatExecutor } from '../lib/test-case-executor'
 import { sanitizeField } from '../lib/sanitize'
+import { formatCauseTag, formatCeilingShort } from '../lib/test-case-verdict'
+import {
+  formatRequiredEnvironment,
+  formatStepProgress,
+  formatTestCasesSummary,
+} from '../lib/test-case-report'
 import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 
-interface ListRow {
+export interface ListRow {
   number: number
   title: string
   steps: string[]
   verification: string[]
+  requiredEnvironment?: string | null
   runs: Array<{
     result: string
     environment: string
@@ -18,6 +25,11 @@ interface ListRow {
     /** LUM-1008: 执行人显示名（null = 未记录）。Optional —— 旧服务端不发。 */
     executedBy?: string | null
     sourceSessionId?: string | null
+    failureAttribution?: string | null
+    disposition?: unknown
+    /** LUM-1185: 服务端推导，旧服务端不发。 */
+    ceiling?: unknown
+    stepReport?: unknown
   }>
 }
 
@@ -48,7 +60,7 @@ export async function testCaseListInScope(
   const ctx = apiContext()
   if (!ctx) return 1
 
-  const r = await apiCall<{ testCases: ListRow[] }>(
+  const r = await apiCall<{ testCases: ListRow[]; summary?: unknown }>(
     ctx,
     `${scope.basePath}/test-cases`,
     {},
@@ -63,18 +75,49 @@ export async function testCaseListInScope(
   }
 
   for (const c of cases) {
-    // runs 新到旧，第一条就是最近一次
-    const run = c.runs[0]
-    // 「跑在哪个环境」必须出现在摘要行里——这是整个 feature 的目的。
-    let last = 'never run'
-    if (run) {
-      const sha = run.commitSha ? ` @${run.commitSha.slice(0, 7)}` : ''
-      const dirty = run.commitDirty === true ? '+dirty' : ''
-      const executor = formatExecutor(run)
-      last = `${run.result} on ${run.environment}${sha}${dirty} (${fmtDay(run.createdAt)})${executor ? ` ${executor}` : ''}`
-    }
-    console.log(
-      `TC${c.number}\t${oneCell(sanitizeField(c.title))}\t${c.steps.length} steps / ${c.verification.length} verify\t${oneCell(sanitizeField(last))}`
-    )
+    console.log(formatListRow(c))
   }
+  // LUM-1185: 与 web Record 行同一口径的汇总（服务端算）。
+  const summary = formatTestCasesSummary(r.data.summary, scope.kind)
+  if (summary) console.log(`\n${summary}`)
+}
+
+/**
+ * 一条用例一行（tab 分列）：用例号 · 标题 · 步数 ·（环境约束）· 最近一次执行。
+ * 最近一次执行带封顶结论、归因、裁定与进度——判定由服务端算，这里只排版。
+ */
+export function formatListRow(c: ListRow): string {
+  // runs 新到旧，第一条就是最近一次
+  const run = c.runs[0]
+  // 「跑在哪个环境」必须出现在摘要行里——这是整个 feature 的目的。
+  let last = 'never run'
+  if (run) {
+    const sha = run.commitSha ? ` @${run.commitSha.slice(0, 7)}` : ''
+    const dirty = run.commitDirty === true ? '+dirty' : ''
+    const executor = formatExecutor(run)
+    const marks = [
+      formatCauseTag(run.failureAttribution),
+      rulingTag(run.disposition),
+      formatStepProgress(run.stepReport, run.result),
+    ].filter((m): m is string => Boolean(m))
+    last =
+      `${run.result} on ${run.environment}${formatCeilingShort(run.ceiling)}${sha}${dirty} (${fmtDay(run.createdAt)})` +
+      (executor ? ` ${executor}` : '') +
+      marks.map(m => ` · ${m}`).join('')
+  }
+  const requires = formatRequiredEnvironment(c.requiredEnvironment)
+  return [
+    `TC${c.number}`,
+    oneCell(sanitizeField(c.title)),
+    `${c.steps.length} steps / ${c.verification.length} verify` +
+      (requires ? ` · ${requires}` : ''),
+    oneCell(sanitizeField(last)),
+  ].join('\t')
+}
+
+/** LUM-812: 已裁定的缺陷照常列出，旁边注明裁定。 */
+function rulingTag(disposition: unknown): string | null {
+  if (!disposition || typeof disposition !== 'object') return null
+  const d = (disposition as { disposition?: unknown }).disposition
+  return d === 'KNOWN_DEFECT' || d === 'NOT_A_DEFECT' ? `ruled ${d}` : null
 }
