@@ -8,6 +8,8 @@
  * One predicate, so those surfaces cannot disagree about what "rejected" is.
  */
 
+import { isTestPath } from './review-context'
+
 export type VerifierVerdict = 'CONFIRMED' | 'REJECTED'
 
 /**
@@ -123,6 +125,44 @@ export const RANKER_KEEP_THRESHOLD = 18
 export const RANKER_REASON_PREFIX = 'Ranked low:'
 
 /**
+ * LUM-1194 — review kinds the ranker ranks (as context) but never removes.
+ * Its prior lowers test findings ("test tidiness"), and on developer-confirmed
+ * fixes that prior is inverted: over four LUM-1158 runs it dropped 6 test
+ * findings developers fixed and 3 they did not, against 3 and 29 for bugs
+ * (LUM-1010 saw the same online). The verifier still judges them.
+ */
+export const RANKER_EXEMPT_REVIEW_KINDS: ReadonlySet<string> = new Set([
+  'test_defect',
+])
+
+/**
+ * A test finding, which the ranker never removes: a `test_defect`, or any
+ * finding that cites a test file — a race in a test's handler comes back as
+ * `concurrency` and was ranked away at p 7–12 although developers fixed it.
+ */
+export function isRankerExempt(reviewKind: string, filePath: string): boolean {
+  return RANKER_EXEMPT_REVIEW_KINDS.has(reviewKind) || isTestPath(filePath)
+}
+
+/**
+ * May the ranker remove this finding? The rows the verifier may reject (so
+ * never HIGH, security or path-instruction findings, LUM-1210) minus test
+ * findings (LUM-1194).
+ */
+export function rankerMayReject(f: {
+  kind: string
+  severity: string
+  ruleId: string
+  filePath: string
+  pathInstruction?: string | null
+}): boolean {
+  return (
+    verifierAppliesTo(f) &&
+    !isRankerExempt(verifierKindOf(f.ruleId), f.filePath)
+  )
+}
+
+/**
  * The rejections the ranker adds: a finding the policy applies to, not
  * already rejected, ranked below the threshold. A finding the ranking does
  * not mention is kept — like a defaulted verdict, the ranker may only remove
@@ -133,6 +173,8 @@ export function applyRankerPolicy<
     id: string
     kind: string
     severity: string
+    ruleId: string
+    filePath: string
     pathInstruction?: string | null
   },
 >(
@@ -146,7 +188,7 @@ export function applyRankerPolicy<
     const f = byId.get(r.id)
     if (!f || seen.has(r.id) || alreadyRejected.has(r.id)) return []
     seen.add(r.id)
-    if (!verifierAppliesTo(f) || r.p >= RANKER_KEEP_THRESHOLD) return []
+    if (!rankerMayReject(f) || r.p >= RANKER_KEEP_THRESHOLD) return []
     return [
       {
         findingId: f.id,
