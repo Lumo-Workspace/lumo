@@ -133,7 +133,7 @@ beforeEach(() => {
 })
 
 describe('readCallChain', () => {
-  it('keeps well-formed hops, cleans each one, and drops the rest', () => {
+  it('keeps well-formed edges, cleans each one, and drops the rest', () => {
     const tally = { redacted: 0 }
     const chain = readCallChain(
       [
@@ -144,22 +144,27 @@ describe('readCallChain', () => {
       ],
       tally
     )
-    expect(chain).toHaveLength(2)
-    expect(chain![0]!.to).not.toContain('\u001b')
-    expect(chain![1]!.to).not.toContain(SAMPLE_TOKEN)
+    expect(chain.omitted).toBe(0)
+    expect(chain.edges).toHaveLength(2)
+    expect(chain.edges![0]!.to).not.toContain('\u001b')
+    expect(chain.edges![1]!.to).not.toContain(SAMPLE_TOKEN)
     expect(tally.redacted).toBe(1)
   })
 
-  it('is null for a row without a chain and elides a long one', () => {
-    expect(readCallChain(null, { redacted: 0 })).toBeNull()
-    expect(readCallChain([], { redacted: 0 })).toBeNull()
+  it('is empty for a row without a chain and counts edges past the cap', () => {
+    expect(readCallChain(null, { redacted: 0 })).toEqual({
+      edges: null,
+      omitted: 0,
+    })
+    expect(readCallChain([], { redacted: 0 }).edges).toBeNull()
     const long = Array.from({ length: 25 }, (_, i) => ({
       from: `f${i}`,
       to: `f${i + 1}`,
     }))
-    const chain = readCallChain(long, { redacted: 0 })!
-    expect(chain).toHaveLength(21)
-    expect(chain[20]).toEqual({ from: '…', to: '5 more hops' })
+    const chain = readCallChain(long, { redacted: 0 })
+    expect(chain.edges).toHaveLength(20)
+    expect(chain.edges![19]).toEqual({ from: 'f19', to: 'f20' })
+    expect(chain.omitted).toBe(5)
   })
 })
 
@@ -235,6 +240,7 @@ describe('prScanReadoutService.getForTask', () => {
       { from: 'route', to: 'service' },
       { from: 'service', to: 'db.raw' },
     ])
+    expect(f.callChainOmitted).toBe(0)
     expect(f.suggestedReason).toBe('input is a constant')
     expect(f).not.toHaveProperty('evidence')
     expect(out.totals).toEqual({

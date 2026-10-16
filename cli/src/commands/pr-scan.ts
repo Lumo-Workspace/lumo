@@ -88,6 +88,8 @@ export interface PrScanFinding {
   reachability: string | null
   /** LUM-1189 — the hunt's source→sink edges; absent on an older server. */
   callChain?: Array<{ from: string; to: string }> | null
+  /** LUM-1189 — edges past the server's cap, not listed; absent on an older server. */
+  callChainOmitted?: number
   /** LUM-1189 — why the falsifier suggested its disposition; absent on an older server. */
   suggestedReason?: string | null
 }
@@ -330,15 +332,16 @@ function findingLines(f: PrScanFinding, opts: LayoutOptions): string[] {
       value: `${sanitizeField(f.suggestedDisposition)}${f.suggestedReason ? ` — "${sanitizeField(f.suggestedReason)}"` : ''}`,
     })
   const chain = f.callChain ?? []
+  const omitted = f.callChainOmitted ?? 0
   if (chain.length > 0)
     fields.push({
       label: 'Call chain',
-      value: plural(chain.length, 'edge', 'edges'),
+      value: plural(chain.length + omitted, 'edge', 'edges'),
     })
   return [
     ...bulletLines(`${bug}[${f.severity}] ${sanitizeField(f.title)}`, 4, opts),
     ...fieldLines(fields, 6, opts),
-    ...callChainLines(chain, opts),
+    ...callChainLines(chain, opts, omitted),
   ]
 }
 
@@ -349,15 +352,26 @@ function findingLines(f: PrScanFinding, opts: LayoutOptions): string[] {
  */
 export function callChainLines(
   chain: ReadonlyArray<{ from: string; to: string }>,
-  opts: LayoutOptions = {}
+  opts: LayoutOptions = {},
+  /** Edges past the server's cap — said once after the list, never numbered. */
+  omitted = 0
 ): string[] {
-  return chain.flatMap((edge, i) =>
+  const lines = chain.flatMap((edge, i) =>
     wrapLines(
       `${i + 1}. ${sanitizeField(edge.from)} → ${sanitizeField(edge.to)}`,
       8,
       opts
     )
   )
+  if (chain.length > 0 && omitted > 0)
+    lines.push(
+      ...wrapLines(
+        `… ${plural(omitted, 'more edge', 'more edges')} not shown`,
+        8,
+        opts
+      )
+    )
+  return lines
 }
 
 function plural(n: number, one: string, many: string): string {

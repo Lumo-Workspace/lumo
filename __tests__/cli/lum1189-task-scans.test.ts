@@ -208,6 +208,29 @@ describe('callChainLines / isTaskScansPayload', () => {
     expect(callChainLines([])).toEqual([])
   })
 
+  it('counts edges past the server cap in the total and says them once, unnumbered', () => {
+    const out = formatTaskScans(
+      {
+        ...TWO_PRS,
+        pullRequests: [
+          prPayload(1500, 'feat: one', [
+            scan([
+              finding({
+                callChain: [{ from: 'a', to: 'b' }],
+                callChainOmitted: 4,
+              }),
+            ]),
+          ]),
+        ],
+      },
+      { width: 200 }
+    )
+    expect(out).toMatch(/Call chain:\s+5 edges/)
+    expect(out).toContain('1. a → b')
+    expect(out).toContain('… 4 more edges not shown')
+    expect(out).not.toContain('2. ')
+  })
+
   it('tells the task read-out from an older server’s panel model', () => {
     expect(isTaskScansPayload(TWO_PRS)).toBe(true)
     expect(isTaskScansPayload({ prs: [], blocking: { count: 0 } })).toBe(false)

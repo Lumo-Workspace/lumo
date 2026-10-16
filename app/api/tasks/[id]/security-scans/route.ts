@@ -38,11 +38,10 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (!query.success) return zodError(query)
 
   const { id: rawId } = await params
-  const task = await resolveTaskParam(rawId, identity.workspaceId)
-  if (!task)
-    return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-
   try {
+    const task = await resolveTaskParam(rawId, identity.workspaceId)
+    if (!task)
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     if (query.data.view === 'readout' || identity.source !== 'clerk') {
       const readout = await prScanReadoutService.getForTask(
         identity.workspaceId,
@@ -56,7 +55,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   } catch (error) {
     logger.error('taskSecurityScans.read.failed', {
       workspaceId: identity.workspaceId,
-      taskId: task.id,
+      taskId: rawId,
       error: error instanceof Error ? error.message : String(error),
     })
     return NextResponse.json(

@@ -158,6 +158,16 @@ describe('GET /api/tasks/[id]/security-scans', () => {
     })
     expect(boom.status).toBe(500)
   })
+
+  it('a failing task lookup is a JSON 500, not an unhandled throw', async () => {
+    identity.mockResolvedValue(BEARER)
+    byIdentifier.mockRejectedValue(new Error('db down'))
+    const res = await GET(req(), {
+      params: Promise.resolve({ id: 'LUM-732' }),
+    })
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'Internal Server Error' })
+  })
 })
 
 describe('POST /api/tasks/[id]/security-findings/[findingId]/disposition', () => {

@@ -131,6 +131,8 @@ export interface FindingReadoutView {
    * capped); null on non-hunt rows. The web panel's chain, for the CLI.
    */
   callChain: Array<{ from: string; to: string }> | null
+  /** LUM-1189 — well-formed edges past the cap, not in `callChain`; 0 when none. */
+  callChainOmitted: number
   /** LUM-1189 — why the falsifier suggested `suggestedDisposition` (sanitized). */
   suggestedReason: string | null
 }
@@ -296,31 +298,34 @@ function cleanText(
 }
 
 /**
- * LUM-1189 — the stored `callChain` Json as the read-out prints it: hops of
- * the right shape only, each through `cleanText`, at most CHAIN_MAX_HOPS
- * (an elided tail is one `…` hop). null when the row carries none.
+ * LUM-1189 — the stored `callChain` Json as the read-out prints it: edges of
+ * the right shape only, each through `cleanText`, at most CHAIN_MAX_HOPS;
+ * `omitted` counts the well-formed edges past the cap. `edges` is null when
+ * the row carries none.
  */
 export function readCallChain(
   raw: unknown,
   tally: { redacted: number }
-): Array<{ from: string; to: string }> | null {
-  if (!Array.isArray(raw)) return null
-  const hops: Array<{ from: string; to: string }> = []
+): { edges: Array<{ from: string; to: string }> | null; omitted: number } {
+  if (!Array.isArray(raw)) return { edges: null, omitted: 0 }
+  const edges: Array<{ from: string; to: string }> = []
+  let omitted = 0
   for (const hop of raw) {
     if (hop === null || typeof hop !== 'object') continue
     const h = hop as Record<string, unknown>
-    const from = cleanText(h.from, HOP_MAX, tally)
-    const to = cleanText(h.to, HOP_MAX, tally)
-    if (from === undefined || to === undefined) continue
-    hops.push({ from, to })
+    if (typeof h.from !== 'string' || typeof h.to !== 'string') continue
+    if (h.from.length === 0 || h.to.length === 0) continue
+    // Past the cap only counted — its text is never cleaned or shown.
+    if (edges.length >= CHAIN_MAX_HOPS) {
+      omitted += 1
+      continue
+    }
+    edges.push({
+      from: cleanText(h.from, HOP_MAX, tally) ?? '',
+      to: cleanText(h.to, HOP_MAX, tally) ?? '',
+    })
   }
-  if (hops.length === 0) return null
-  if (hops.length > CHAIN_MAX_HOPS) {
-    const kept = hops.slice(0, CHAIN_MAX_HOPS)
-    kept.push({ from: '…', to: `${hops.length - CHAIN_MAX_HOPS} more hops` })
-    return kept
-  }
-  return hops
+  return { edges: edges.length > 0 ? edges : null, omitted }
 }
 
 function dispositionSourceOf(f: ReadoutFindingRow): DispositionSource | null {
@@ -643,6 +648,7 @@ async function buildPullRequestReadout(
         !f.persisting &&
         queueExit === null &&
         !isVerifierRejected(f)
+      const chain = readCallChain(f.callChain, tally)
       return {
         id: f.id,
         kind: f.kind,
@@ -676,7 +682,8 @@ async function buildPullRequestReadout(
         secretDowngrade: f.secretDowngrade ?? null,
         cwe: f.cwe ?? null,
         reachability: f.reachability ?? null,
-        callChain: readCallChain(f.callChain, tally),
+        callChain: chain.edges,
+        callChainOmitted: chain.omitted,
         suggestedReason:
           cleanText(f.suggestedReason, DETAIL_MAX, tally) ?? null,
       }
