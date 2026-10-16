@@ -63,6 +63,10 @@ import {
   reviewContextBudget,
 } from '@/ee/security/security-scan/review-context'
 import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
+import {
+  SERVER_CONFIG_MAX_CHARS,
+  planServerConfigContext,
+} from '@/ee/security/security-scan/server-config-context'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
 import { verifierAppliesTo } from '@/ee/security/security-scan/verifier'
@@ -1667,6 +1671,48 @@ export const prSecurityScanService = {
           reviewSettings.toneInstructions,
           guardPromptLineText
         )
+        // LUM-1208 — when the reviewed lines start or configure a server,
+        // the config files next to it that the PR does not change (a
+        // Trunk.toml binding 0.0.0.0), read-only: ≤ 8k chars, masked, paid
+        // for first out of the same context budget. No trigger, no token.
+        const serverConfigPlan = planServerConfigContext(capped.text)
+        const serverConfig =
+          serverConfigPlan.triggers.length > 0
+            ? await reviewContextService.loadServerConfig({
+                workspaceId: pr.workspaceId,
+                repo: pr.repo,
+                headSha,
+                plan: serverConfigPlan,
+                changedPaths: files.map(f => f.path),
+                maxChars: Math.min(
+                  SERVER_CONFIG_MAX_CHARS,
+                  reviewContextBudget(
+                    capped.text.length +
+                      learnings.length +
+                      pathInstructions.length +
+                      tone.length
+                  )
+                ),
+              })
+            : null
+        if (serverConfig?.error) {
+          logger.warn(
+            `[pr-security-scan] server config context unavailable pr=${pr.id} sha=${headSha}: ${serverConfig.error}`
+          )
+        }
+        const serverConfigText = serverConfig?.text ?? ''
+        if (serverConfig && serverConfig.included.length > 0 && judgeBudget) {
+          judgeBudget = {
+            ...judgeBudget,
+            serverConfig: {
+              paths: serverConfig.included,
+              chars: serverConfigText.length,
+            },
+          }
+          logger.info(
+            `[pr-security-scan] server config context pr=${pr.id} sha=${headSha} chars=${serverConfigText.length} files=${serverConfig.included.join(' ')}`
+          )
+        }
         const context = await reviewContextService.load({
           workspaceId: pr.workspaceId,
           repo: pr.repo,
@@ -1676,7 +1722,8 @@ export const prSecurityScanService = {
             capped.text.length +
               learnings.length +
               pathInstructions.length +
-              tone.length
+              tone.length +
+              serverConfigText.length
           ),
         })
         if (context.error) {
@@ -1705,6 +1752,8 @@ export const prSecurityScanService = {
             ...(learnings ? { learnings } : {}),
             ...(pathInstructions ? { pathInstructions } : {}),
             ...(tone ? { tone } : {}),
+            // LUM-1208: masked by the loader, like the file context here.
+            ...(serverConfigText ? { serverConfig: serverConfigText } : {}),
             // LUM-1155: an incremental slice's diagram would describe the
             // slice — that review's diagram comes from the whole-PR call.
             ...(diagramWanted && !incrementalSlice
