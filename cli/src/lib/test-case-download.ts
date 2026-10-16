@@ -7,7 +7,8 @@ import { indexedEvidence, type IndexedEvidence } from './test-case-evidence'
 import type { ApiContext } from './test-case-api'
 
 /**
- * LUM-1185: `testcase show --download <dir>` —— 把 show 里列出的证据文件存到本地。
+ * LUM-1185: `lumo task|milestone testcase download <case> <dir>` —— 把这条用例
+ * 全部 run 的证据文件存到本地（`show` 只列 url，不写本地文件）。
  *
  * Lumo 托管的证据（`/api/files/...`）要认证才能读（匿名 401）。这里用当前 CLI
  * 的 API key 去取，但有三条硬约束：
@@ -167,9 +168,27 @@ function inside(dir: string, file: string): boolean {
   return target.startsWith(root + path.sep)
 }
 
+/** 写盘用到的两个底层调用；测试注入以模拟短写 / close 失败。 */
+export interface FileIo {
+  writeSync: (
+    fd: number,
+    data: Uint8Array,
+    offset: number,
+    length: number
+  ) => number
+  closeSync: (fd: number) => void
+}
+
+const NODE_IO: FileIo = {
+  writeSync: (fd, data, offset, length) =>
+    fs.writeSync(fd, data, offset, length),
+  closeSync: fd => fs.closeSync(fd),
+}
+
 export interface DownloadDeps {
   fetch?: typeof fetch
   print?: (line: string) => void
+  io?: FileIo
 }
 
 /**
@@ -184,6 +203,7 @@ export async function downloadRunsEvidence(
 ): Promise<boolean> {
   const doFetch = deps.fetch ?? fetch
   const print = deps.print ?? ((line: string) => console.log(line))
+  const io = deps.io ?? NODE_IO
 
   print('')
   print(`Downloading evidence to ${terminalSafe(dir)}:`)
@@ -212,7 +232,15 @@ export async function downloadRunsEvidence(
         print(`  ${shown}  (external link, not downloaded)`)
         continue
       }
-      const ok = await downloadOne(ctx, action, runDir, taken, doFetch, print)
+      const ok = await downloadOne(
+        ctx,
+        action,
+        runDir,
+        taken,
+        doFetch,
+        print,
+        io
+      )
       if (!ok) allOk = false
     }
   }
@@ -226,7 +254,8 @@ async function downloadOne(
   runDir: string,
   taken: Set<string>,
   doFetch: typeof fetch,
-  print: (line: string) => void
+  print: (line: string) => void,
+  io: FileIo
 ): Promise<boolean> {
   const fail = (why: string) => {
     print(`  ✗ ${action.label}: ${terminalSafe(why)}`)
@@ -270,38 +299,105 @@ async function downloadOne(
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
-  try {
-    await writeBody(res, fd)
-    fs.closeSync(fd)
-  } catch (err) {
-    fs.closeSync(fd)
-    // 只删本次刚用 wx 新建的那个文件（写了一半的）。
-    fs.rmSync(target, { force: true })
-    return fail(err instanceof Error ? err.message : String(err))
+  // 每个 fd 只关一次；关闭失败只算这一个文件失败，绝不抛出去打断后面的文件。
+  let closed = false
+  const closeOnce = (): string | null => {
+    if (closed) return null
+    closed = true
+    try {
+      io.closeSync(fd)
+      return null
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err)
+    }
   }
+  // 只删本次刚用 wx 新建的那个文件（写了一半的）；删不掉也不抛。
+  const discard = (why: string) => {
+    closeOnce()
+    try {
+      fs.rmSync(target, { force: true })
+    } catch {
+      // 留下的残件由 ✗ 行提示；不能让它中断后续下载。
+    }
+    return fail(why)
+  }
+
+  let received: number
+  try {
+    received = await writeBody(res, fd, io)
+  } catch (err) {
+    return discard(err instanceof Error ? err.message : String(err))
+  }
+  const closeError = closeOnce()
+  if (closeError) return discard(closeError)
+  // 最后核对：盘上的字节数必须等于收到的字节数，否则当作失败。
+  let onDisk = -1
+  try {
+    onDisk = fs.statSync(target).size
+  } catch {
+    onDisk = -1
+  }
+  if (onDisk !== received)
+    return discard(
+      `wrote ${onDisk < 0 ? 'an unknown number of' : onDisk} of ${received} bytes`
+    )
   print(`  saved ${terminalSafe(target)}`)
   return true
 }
 
-/** 边读边写；超过 {@link MAX_DOWNLOAD_BYTES} 就抛错。没有流式 body 时退回整读。 */
-async function writeBody(res: Response, fd: number): Promise<void> {
+/**
+ * 把一块数据全部写进 fd：`writeSync` 可能短写（返回值小于请求长度），循环写到
+ * 写完为止；一次写出 0 字节视为无法前进，抛错。返回写入的字节数。
+ */
+export function writeAllSync(
+  fd: number,
+  data: Uint8Array,
+  io: Pick<FileIo, 'writeSync'> = NODE_IO
+): number {
+  let offset = 0
+  while (offset < data.byteLength) {
+    const n = io.writeSync(fd, data, offset, data.byteLength - offset)
+    if (!Number.isInteger(n) || n <= 0)
+      throw new Error(
+        `short write: ${offset} of ${data.byteLength} bytes written`
+      )
+    offset += n
+  }
+  return offset
+}
+
+/**
+ * 边读边写；超过 {@link MAX_DOWNLOAD_BYTES} 就抛错。没有流式 body 时退回整读。
+ * 返回收到（= 已写入）的字节数，调用方拿它和盘上大小核对。
+ */
+async function writeBody(
+  res: Response,
+  fd: number,
+  io: FileIo
+): Promise<number> {
   const tooLarge = () =>
     new Error(`larger than ${MAX_DOWNLOAD_BYTES} bytes, stopped`)
+  let received = 0
+  let written = 0
   if (res.body && typeof res.body.getReader === 'function') {
     const reader = res.body.getReader()
-    let written = 0
     for (;;) {
       const { done, value } = await reader.read()
-      if (done) return
-      written += value.byteLength
-      if (written > MAX_DOWNLOAD_BYTES) {
+      if (done) break
+      received += value.byteLength
+      if (received > MAX_DOWNLOAD_BYTES) {
         await reader.cancel().catch(() => undefined)
         throw tooLarge()
       }
-      fs.writeSync(fd, value)
+      written += writeAllSync(fd, value, io)
     }
+  } else {
+    const buf = Buffer.from(await res.arrayBuffer())
+    received = buf.length
+    if (received > MAX_DOWNLOAD_BYTES) throw tooLarge()
+    written = writeAllSync(fd, buf, io)
   }
-  const buf = Buffer.from(await res.arrayBuffer())
-  if (buf.length > MAX_DOWNLOAD_BYTES) throw tooLarge()
-  fs.writeSync(fd, buf)
+  if (written !== received)
+    throw new Error(`wrote ${written} of ${received} bytes`)
+  return received
 }

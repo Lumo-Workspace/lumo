@@ -41,6 +41,7 @@ import {
   classifyEvidence,
   downloadRunsEvidence,
   MAX_DOWNLOAD_BYTES,
+  writeAllSync,
   runDirName,
   sanitizeEvidenceFilename,
   uniqueFilename,
@@ -553,6 +554,113 @@ describe('downloadRunsEvidence', () => {
     expect(fs.readFileSync(path.join(runDir, 'ok.txt'), 'utf8')).toBe(
       'streamed'
     )
+  })
+})
+
+describe('download write safety', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lum1185-ws-'))
+  })
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+  const ctx = { base: BASE, token: TOKEN, workspaceSlug: 'lumo' }
+  const run = (evidence: unknown[]) => [
+    {
+      id: 'r-aaaaaaaa',
+      result: 'PASS',
+      createdAt: '2026-10-17T08:00:00.000Z',
+      evidence,
+    },
+  ]
+  const streamed = (s: string) => ({
+    ok: true,
+    status: 200,
+    body: new Blob([s]).stream(),
+  })
+  const savedFiles = () => {
+    const runDir = path.join(dir, fs.readdirSync(dir)[0]!)
+    return Object.fromEntries(
+      fs
+        .readdirSync(runDir)
+        .map(n => [n, fs.readFileSync(path.join(runDir, n), 'utf8')])
+    )
+  }
+  const realIo = {
+    writeSync: (fd: number, d: Uint8Array, o: number, l: number) =>
+      fs.writeSync(fd, d, o, l),
+    closeSync: (fd: number) => fs.closeSync(fd),
+  }
+
+  it('loops over short writes so the saved file is complete', async () => {
+    // Only ever write one byte per call (a short write).
+    const writeSync = jest.fn((fd: number, d: Uint8Array, o: number) =>
+      fs.writeSync(fd, d, o, 1)
+    )
+    const ok = await downloadRunsEvidence(
+      ctx,
+      run([file('a.txt', 'f1')]),
+      dir,
+      {
+        fetch: jest.fn().mockResolvedValue(streamed('complete-bytes')) as never,
+        print: () => undefined,
+        io: { ...realIo, writeSync },
+      }
+    )
+    expect(ok).toBe(true)
+    expect(writeSync.mock.calls.length).toBe('complete-bytes'.length)
+    expect(savedFiles()).toEqual({ 'a.txt': 'complete-bytes' })
+  })
+
+  it('a write that makes no progress is a failure and leaves no partial file', async () => {
+    const out: string[] = []
+    const ok = await downloadRunsEvidence(
+      ctx,
+      run([file('a.txt', 'f1')]),
+      dir,
+      {
+        fetch: jest.fn().mockResolvedValue(streamed('abc')) as never,
+        print: l => out.push(l),
+        io: { ...realIo, writeSync: () => 0 },
+      }
+    )
+    expect(ok).toBe(false)
+    expect(out.some(l => l.startsWith('  ✗ a.txt: short write'))).toBe(true)
+    expect(savedFiles()).toEqual({})
+    expect(() =>
+      writeAllSync(1, new Uint8Array(2), { writeSync: () => 0 })
+    ).toThrow(/short write/)
+  })
+
+  it('a close that throws fails that file only, closes once, and later files still download', async () => {
+    let first = true
+    const closeSync = jest.fn((fd: number) => {
+      fs.closeSync(fd)
+      if (first) {
+        first = false
+        throw new Error('EIO: close failed')
+      }
+    })
+    const out: string[] = []
+    const ok = await downloadRunsEvidence(
+      ctx,
+      run([file('one.txt', 'f1'), file('two.txt', 'f2')]),
+      dir,
+      {
+        fetch: jest
+          .fn()
+          .mockResolvedValueOnce(streamed('first'))
+          .mockResolvedValueOnce(streamed('second')) as never,
+        print: l => out.push(l),
+        io: { ...realIo, closeSync },
+      }
+    )
+    expect(ok).toBe(false)
+    expect(out).toContain('  ✗ one.txt: EIO: close failed')
+    // Two files → exactly two closes: the failed one is not closed again.
+    expect(closeSync).toHaveBeenCalledTimes(2)
+    expect(savedFiles()).toEqual({ 'two.txt': 'second' })
   })
 })
 
