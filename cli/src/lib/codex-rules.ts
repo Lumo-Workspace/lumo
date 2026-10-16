@@ -77,7 +77,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'milestone testcase add',
   'milestone testcase list',
   'milestone testcase rm',
-  'milestone testcase show',
   'milestone testcase update',
   'milestone triage',
   'milestone unarchive',
@@ -148,7 +147,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'task testcase add',
   'task testcase list',
   'task testcase rm',
-  'task testcase show',
   'task testcase update',
   'task web show',
   // assesses local worktrees read-only (never removes them)
@@ -211,11 +209,15 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
   'memory push': 'deletes local memory files after pushing',
   'milestone testcase disposition':
     'a human-only ruling: keep Codex asking the user first',
+  'milestone testcase show':
+    'writes local files (--download <dir> saves evidence) — Codex asks first',
   'memory sync': 'writes the local memory directory',
   'session attach':
     'can create a git worktree (--worktree / autoWorktree) and sync local memory',
   'task testcase disposition':
     'a human-only ruling: keep Codex asking the user first',
+  'task testcase show':
+    'writes local files (--download <dir> saves evidence) — Codex asks first',
   'task update': 'a confirmed DONE removes local git worktrees',
   uninstall: 'deletes skill, hook and rules files',
   update: 'runs npm install -g',

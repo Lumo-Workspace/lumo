@@ -5,7 +5,10 @@ import {
   type TestCaseAddOptions,
 } from './task-testcase-add'
 import { testCaseListInScope } from './task-testcase-list'
-import { testCaseShowInScope } from './task-testcase-show'
+import {
+  testCaseShowInScope,
+  type TestCaseShowOptions,
+} from './task-testcase-show'
 import {
   testCaseUpdateInScope,
   type TestCaseUpdateOptions,
@@ -76,12 +79,14 @@ export async function milestoneTestCaseList(
 export async function milestoneTestCaseShow(
   milestone: string | undefined,
   caseRef: string | undefined,
-  o: { project?: string | undefined }
+  o: WithProject<TestCaseShowOptions>
 ): Promise<number | void> {
   const usage = 'lumo milestone testcase show "<milestone>" TC3'
   if (!needCase(caseRef, usage)) return 1
   const scope = await scopeFor(milestone, usage, o.project)
-  return scope ? testCaseShowInScope(scope, caseRef) : 1
+  return scope
+    ? testCaseShowInScope(scope, caseRef, { download: o.download })
+    : 1
 }
 
 export async function milestoneTestCaseUpdate(

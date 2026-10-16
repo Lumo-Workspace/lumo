@@ -2284,6 +2284,14 @@
         { "name": "case", "required": true, "variadic": false }
       ],
       "flags": {
+        "--download": {
+          "long": "--download",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Save the Lumo-hosted evidence files of every listed run into <dir>/<run>/ using your API key (external links are listed, not downloaded)"
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -2295,7 +2303,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history. Case: TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Case: TC3"
     },
     "milestone testcase update": {
       "arguments": [
@@ -4893,10 +4901,19 @@
       "arguments": [
         { "name": "task/case", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--download": {
+          "long": "--download",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Save the Lumo-hosted evidence files of every listed run into <dir>/<run>/ using your API key (external links are listed, not downloaded)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history. Handle: LUM-42/TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3"
     },
     "task testcase update": {
       "arguments": [

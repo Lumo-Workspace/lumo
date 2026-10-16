@@ -1574,9 +1574,17 @@ taskTestCase
 taskTestCase
   .command('show <task/case>')
   .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history. Handle: LUM-42/TC3'
+    'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3'
   )
-  .action(wrap((handle: unknown) => taskTestCaseShow(handle as string)))
+  .option(
+    '--download <dir>',
+    'Save the Lumo-hosted evidence files of every listed run into <dir>/<run>/ using your API key (external links are listed, not downloaded)'
+  )
+  .action(
+    wrap((handle: unknown, options: unknown) =>
+      taskTestCaseShow(handle as string, options as { download?: string })
+    )
+  )
 
 taskTestCase
   .command('update <task/case>')
@@ -2486,18 +2494,22 @@ milestoneTestCase
 milestoneTestCase
   .command('show <milestone> <case>')
   .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history. Case: TC3'
+    'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Case: TC3'
   )
   .option(
     '--project <ref>',
     'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .option(
+    '--download <dir>',
+    'Save the Lumo-hosted evidence files of every listed run into <dir>/<run>/ using your API key (external links are listed, not downloaded)'
   )
   .action(
     wrap((ms: unknown, caseRef: unknown, options: unknown) =>
       milestoneTestCaseShow(
         ms as string,
         caseRef as string,
-        options as { project?: string }
+        options as { project?: string; download?: string }
       )
     )
   )

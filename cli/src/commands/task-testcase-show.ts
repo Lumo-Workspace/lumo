@@ -11,7 +11,9 @@ import {
   formatReviewLine,
   formatStepProgress,
   formatStepReportLines,
+  stepEvidenceIndices,
 } from '../lib/test-case-report'
+import { downloadRunsEvidence } from '../lib/test-case-download'
 import { sanitizeField } from '../lib/sanitize'
 import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 
@@ -95,8 +97,14 @@ function freshnessNote(run: RunRow, prs: PrRow[]): string {
     : `  ${head} — PR has since moved to ${current.slice(0, 7)}`
 }
 
+/** LUM-1185: `--download <dir>` 把显示出的证据文件存到本地。 */
+export interface TestCaseShowOptions {
+  download?: string | undefined
+}
+
 export async function taskTestCaseShow(
-  handle: string | undefined
+  handle: string | undefined,
+  options: TestCaseShowOptions = {}
 ): Promise<number | void> {
   if (!handle) {
     console.error(
@@ -111,13 +119,20 @@ export async function taskTestCaseShow(
     )
     return 1
   }
-  return testCaseShowInScope(taskScope(split.task), split.caseRef)
+  return testCaseShowInScope(taskScope(split.task), split.caseRef, options)
 }
 
 export async function testCaseShowInScope(
   scope: TestCaseScope,
-  caseRef: string
+  caseRef: string,
+  options: TestCaseShowOptions = {}
 ): Promise<number | void> {
+  if (options.download !== undefined && !options.download.trim()) {
+    console.error(
+      'Error: --download needs a directory, e.g. --download ./evidence'
+    )
+    return 1
+  }
   const ctx = apiContext()
   if (!ctx) return 1
 
@@ -149,11 +164,19 @@ export async function testCaseShowInScope(
   console.log('\nRun history:')
   if (runs.length === 0) {
     console.log('  never run')
+    if (options.download) console.log('\nNo runs, so no evidence to download.')
     return
   }
   for (const run of runs) {
     for (const line of formatRunLines(run, pullRequests ?? []))
       console.log(line)
+  }
+
+  // LUM-1185: 下载 show 里显示的全部 run 的证据（每条 run 一个子目录）。单个
+  // 文件失败不中断，退出码反映是否全部成功。
+  if (options.download) {
+    const ok = await downloadRunsEvidence(ctx, runs, options.download)
+    if (!ok) return 1
   }
 }
 
@@ -164,7 +187,9 @@ export async function testCaseShowInScope(
  */
 export function formatRunLines(run: RunRow, prs: PrRow[]): string[] {
   const lines: string[] = []
-  const stepLines = formatStepReportLines(run.stepReport)
+  // LUM-1185: 挂在某一步的证据列在那一步下面（服务端 rows[].evidence 的原始
+  // 下标，同 web）；run 末尾只列没挂到任何一步的。
+  const stepLines = formatStepReportLines(run.stepReport, run.evidence)
   // 有逐步报告时，断在哪一步由进度行说；旧服务端退回单点定位。
   // failedIndex 存的是 0-based，打印回 1-based（与上面的步骤编号对齐）。
   const at =
@@ -194,6 +219,11 @@ export function formatRunLines(run: RunRow, prs: PrRow[]): string[] {
   const reviewed = formatReviewLine(run.review)
   if (reviewed) lines.push(reviewed)
   // 证据一条一行：终端里能「打开」一份证据的唯一形式是 url，计数打不开。
-  lines.push(...formatEvidenceLines(run.evidence))
+  // 已在步骤下列过的不再重复。
+  lines.push(
+    ...formatEvidenceLines(run.evidence, undefined, {
+      exclude: stepEvidenceIndices(run.stepReport),
+    })
+  )
   return lines
 }

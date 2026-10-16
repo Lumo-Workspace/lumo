@@ -110,7 +110,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Test cases — see [test-cases.md](references/test-cases.md)
 
-- `lumo task testcase add/list/show/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录（`run --env` 必填、`run --step` 逐步必报）；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手
+- `lumo task testcase add/list/show/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录（`run --env` 必填、`run --step` 逐步必报）；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手；`show --download <dir>` 用 API key 存证据文件
 - `lumo spot-check [--json]` — 只读 workspace 抽检池；复核本身 human-only，只在浏览器
 
 ### Task status, wrap-up & crossings — see [task-status.md](references/task-status.md)
