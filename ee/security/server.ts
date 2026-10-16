@@ -83,6 +83,12 @@ export const securityPlugin: LumoServerPlugin = {
           await import('@/ee/security/services/pr-security-scan-gate')
         return listOpenBlockingFindings(taskId)
       },
+      // LUM-1186: the Done gate's "not scanned" vs "clear".
+      async checked(taskId) {
+        const { prSecurityScanRepository } =
+          await import('@/ee/security/repositories/pr-security-scan.repository')
+        return prSecurityScanRepository.anyScanForTask(taskId)
+      },
     })
 
     // Agent context (LUM-737): session-start / attach section, the

@@ -425,6 +425,17 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * LUM-1186 — every crossing on the task, open and dispositioned, with only
+   * the columns the Done gate row counts on.
+   */
+  async findGateFieldsByTask(taskId: string) {
+    return prisma.boundaryCrossing.findMany({
+      where: { taskId },
+      select: { disposition: true, advisory: true, severity: true },
+    })
+  },
+
+  /**
    * ALL crossings on a task including dispositioned ones (LUM-435 read model) —
    * dispositioned crossings (CONFIRMED especially) stay on record, never hidden.
    */

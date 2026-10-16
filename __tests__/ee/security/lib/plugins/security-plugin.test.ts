@@ -48,13 +48,19 @@ jest.mock('@/ee/security/services/pr-chat.service', () => ({
   applyConversationQuestion: jest.fn().mockResolvedValue('answered'),
 }))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
-  prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
+  prSecurityScanRepository: {
+    scrubCodeForWorkspace: jest.fn(),
+    anyScanForTask: jest.fn(),
+  },
 }))
 
 import { getPluginRegistry } from '@/lib/plugins/registry'
 import { INSTALLED_SERVER_PLUGINS } from '@/lib/plugins/installed'
 import { securityPlugin } from '@/ee/security/server'
-import { collectDoneGateBlockers } from '@/lib/plugins/done-gate'
+import {
+  collectDoneGateBlockers,
+  readDoneGatePluginRow,
+} from '@/lib/plugins/done-gate'
 import {
   collectPreToolUseReminders,
   collectSessionStartSections,
@@ -120,6 +126,22 @@ describe('DONE gate', () => {
       { ruleId: 'secret:aws', filePath: 'a.ts' },
     ])
     expect(listOpenBlockingFindings).toHaveBeenCalledWith('t-1')
+  })
+
+  it('LUM-1186: reports whether the task has a scan (not scanned vs clear)', async () => {
+    ;(listOpenBlockingFindings as jest.Mock).mockResolvedValue([])
+    const anyScan = prSecurityScanRepository.anyScanForTask as jest.Mock
+    anyScan.mockResolvedValue(true)
+    await expect(readDoneGatePluginRow('t-1')).resolves.toEqual({
+      present: true,
+      blocking: 0,
+      checked: true,
+    })
+    expect(anyScan).toHaveBeenCalledWith('t-1')
+    anyScan.mockResolvedValue(false)
+    await expect(readDoneGatePluginRow('t-1')).resolves.toMatchObject({
+      checked: false,
+    })
   })
 
   it('stays fail-closed: a read failure refuses to answer', async () => {

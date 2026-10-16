@@ -67,6 +67,12 @@ export interface DoneBlocker {
 export interface DoneGateContributor {
   id: string
   openBlockers(taskId: string): Promise<DoneBlocker[]>
+  /**
+   * LUM-1186: the plugin has a result for this task (the Done gate row reads
+   * "clear", not "not scanned"). Optional — a contributor without it is never
+   * reported as checked. Read-only display; the gate decision never reads it.
+   */
+  checked?(taskId: string): Promise<boolean>
 }
 
 // ── agent context ────────────────────────────────────────────────────────────
