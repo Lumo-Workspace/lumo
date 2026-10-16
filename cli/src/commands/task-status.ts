@@ -38,12 +38,18 @@ import {
 import { colorEnabled, terminalWidth } from '../lib/ui'
 import { doneGateSection, type DoneGateReadout } from '../lib/done-gate-format'
 import { fmtTokens, formatDurationSec } from '../lib/format'
+import {
+  fetchTaskTestCases,
+  type TaskTestCasesResult,
+} from '../lib/task-test-cases-read'
+import { formatTestCasesSummary } from '../lib/test-case-report'
+import { formatListRow } from './task-testcase-list'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
   json?: boolean
   /** LUM-733: also print the dashboard sections (cost, struggle/rework
-   *  trail, trend). Off by default — the agent self-check is the next actions
+   *  trail, trend, and — LUM-1186 — each test case's latest run). Off by default — the agent self-check is the next actions
    *  (undispositioned security findings, test-case advisories) and any open
    *  crossings. */
   full?: boolean
@@ -60,6 +66,9 @@ export interface TaskStatusExtras {
   full?: boolean
   openCrossings?: OpenCrossingsResult
   dispositionUrl?: string
+  /** LUM-1186: the `--full` Test cases section's read (same payload as
+   *  `lumo task testcase list`). Absent = not read, section skipped. */
+  testCases?: TaskTestCasesResult | undefined
   /** LUM-1091: report width (default 100) and styling (default off — the
    *  command passes `colorEnabled()`, so a pure call stays plain text). */
   width?: number | undefined
@@ -587,6 +596,7 @@ export function formatTaskStatus(
     pushCost(lines, data, opts)
     pushStruggleTrail(lines, data, opts)
     pushTrend(lines, data, opts)
+    pushTestCases(lines, extras.testCases, data.task.identifier, opts)
   }
 
   if (securityActions.length > 0) {
@@ -619,6 +629,37 @@ export function formatTaskStatus(
 
   pushOpenCrossings(lines, extras, opts)
   return lines.join('\n') + '\n'
+}
+
+/**
+ * LUM-1186: the `--full` "Test cases" section — one line per case, the very
+ * row `lumo task testcase list` prints (`formatListRow`: number, sanitized
+ * title, steps, latest result with its ceiling / cause / step progress / date,
+ * or `never run`), then the server-computed `N/M passing · …` summary. Only
+ * renders; every verdict comes from the server. A failed read says so
+ * (fail-closed) instead of looking like "no test cases".
+ */
+export function pushTestCases(
+  lines: string[],
+  read: TaskTestCasesResult | undefined,
+  identifier: string,
+  opts: LayoutOptions = {}
+): void {
+  if (!read) return
+  lines.push(...sectionHeading('Test cases', opts))
+  if (read.status === 'error') {
+    lines.push(
+      `  ⚠ could not read test cases (${sanitizeField(read.reason)}) — retry with: lumo task testcase list ${identifier}`
+    )
+    return
+  }
+  if (read.testCases.length === 0) {
+    lines.push('  None recorded.')
+    return
+  }
+  for (const c of read.testCases) lines.push(`  ${formatListRow(c)}`)
+  const summary = formatTestCasesSummary(read.summary, 'task')
+  if (summary) lines.push(`  ${summary}`)
 }
 
 /**
@@ -977,10 +1018,17 @@ export async function taskStatus(
     )
     return
   }
+  // LUM-1186: the test-case list is a --full section only — the default
+  // report never pays for the extra read. `--json` stays unchanged.
+  const testCases =
+    options.full === true
+      ? await fetchTaskTestCases(base, creds.token, taskId)
+      : undefined
   process.stdout.write(
     formatTaskStatus(data, {
       full: options.full === true,
       openCrossings: crossingsResult,
+      testCases,
       dispositionUrl: dispositionUrl(
         base,
         creds.workspaceSlug ?? 'lumo',
