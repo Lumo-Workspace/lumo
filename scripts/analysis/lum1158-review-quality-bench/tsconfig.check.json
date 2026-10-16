@@ -4,7 +4,7 @@
   "include": [
     "../../../next-env.d.ts",
     "./**/*.ts",
-    "../lum988-code-review-replay/replay.ts"
+    "../lum988-code-review-replay/*.ts"
   ],
   "exclude": []
 }

@@ -27,8 +27,14 @@ import {
 import { checkHuntCommand } from '@/ee/security/security-scan/hunt/shell-allowlist'
 import { redactKnownSecrets } from '@/ee/security/security-scan'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
-import { splitDiffByFile } from '@/ee/security/security-scan/diff-lines'
+import {
+  VERIFIER_DIFF_MAX_CHARS,
+  VERIFIER_MAX_STEPS,
+  VERIFIER_TIMEOUT_MS,
+} from '@/ee/security/security-scan/verifier'
+import { citedDiff } from '@/ee/security/services/review-verifier.service'
 import { prKey } from './pr-key'
+import { replayVerifierAppliesTo } from './replay-policy'
 
 const run = promisify(execFile)
 
@@ -44,7 +50,7 @@ const runIdx = Number(opt('run', '0'))
 const checkouts = opt('checkouts')
 const dataDir = opt('data')
 const outFile = opt('out')
-const maxSteps = Number(opt('max-steps', '16'))
+const maxSteps = Number(opt('max-steps', String(VERIFIER_MAX_STEPS)))
 const concurrency = Number(opt('concurrency', '6'))
 const model = opt('model', '')
 const limit = Number(opt('limit', '0'))
@@ -52,25 +58,8 @@ const limit = Number(opt('limit', '0'))
 const systemFile = opt('system-file', '')
 const system = systemFile ? readFileSync(systemFile, 'utf8').trim() : ''
 // LUM-988 follow-up: send the agent only the rows the production policy can
-// reject (non-HIGH bugs), as production now does.
+// reject (`verifierAppliesTo`), as production does.
 const onlyApplicable = process.argv.includes('--only-applicable')
-const SECURITY_KINDS = new Set([
-  'sql_injection',
-  'command_injection',
-  'xss',
-  'ssrf',
-  'path_traversal',
-  'insecure_deserialization',
-  'auth_bypass',
-  'unsafe_eval',
-  'weak_crypto',
-  'hardcoded_credential',
-  'csrf',
-  'clickjacking_or_insecure_headers',
-  'origin_or_host_validation',
-  'open_redirect',
-  'authz_logic',
-])
 
 /** Per-command output cap, as the hunt's per-command truncation. */
 const OUTPUT_MAX = 6_000
@@ -120,9 +109,7 @@ async function main(): Promise<void> {
           f =>
             !onlyApplicable ||
             // LUM-1210: a verified path-instruction finding is outside too.
-            (f.severity !== 'HIGH' &&
-              !SECURITY_KINDS.has(f.kind) &&
-              !f.pathInstruction)
+            replayVerifierAppliesTo(f)
         )
       const cwd = path.join(checkouts, 'co', prKey(url))
       if (findings.length === 0 || !existsSync(cwd)) {
@@ -132,20 +119,19 @@ async function main(): Promise<void> {
         }
         continue
       }
-      const cited = new Set(findings.map(f => f.filePath))
-      const diff = splitDiffByFile(
-        readFileSync(path.join(dataDir, prKey(url), 'diff.patch'), 'utf8')
+      // Production: the cited files' sections, smallest first, under the cap.
+      const diff = citedDiff(
+        readFileSync(path.join(dataDir, prKey(url), 'diff.patch'), 'utf8'),
+        new Set(findings.map(f => f.filePath)),
+        VERIFIER_DIFF_MAX_CHARS
       )
-        .filter(s => s.path !== null && cited.has(s.path))
-        .map(s => s.text)
-        .join('\n')
       const t0 = Date.now()
       const res = await verifyFindings({
         findings,
         diff: redactForInjection(diff).text,
         runShell: cmd => localShell(cwd, cmd),
         maxSteps,
-        timeoutMs: 240_000,
+        timeoutMs: VERIFIER_TIMEOUT_MS,
         ...(model ? { model } : {}),
         ...(system ? { system } : {}),
       })
