@@ -112,6 +112,8 @@ import * as projectMilestonesReorderRoute from '@/app/api/projects/[id]/mileston
 import * as projectMilestoneBySlugRoute from '@/app/api/projects/[id]/milestones/by-slug/[slug]/route'
 import * as taskWebLinksRoute from '@/app/api/tasks/[id]/web-links/route'
 import * as taskProgressRoute from '@/app/api/tasks/[id]/progress/route'
+import * as taskAgentRunsRoute from '@/app/api/tasks/[id]/agent-runs/route'
+import * as taskAgentRunReportRoute from '@/app/api/tasks/[id]/agent-runs/report/route'
 import * as sessionRawRecordRoute from '@/app/api/sessions/[sessionId]/raw-record/route'
 import * as projectTasksRoute from '@/app/api/projects/[id]/tasks/route'
 import * as draftsRoute from '@/app/api/drafts/route'
@@ -699,6 +701,20 @@ function crossTenantCases(): DeniedCase[] {
         as
       )
   )
+  // LUM-1188: the agent-runs read routes take a browser session or an API
+  // key, addressed by cuid or identifier.
+  for (const [route, handler] of [
+    ['GET /api/tasks/[id]/agent-runs', taskAgentRunsRoute.GET],
+    ['GET /api/tasks/[id]/progress', taskProgressRoute.GET],
+    ['GET /api/tasks/[id]/agent-runs/report', taskAgentRunReportRoute.GET],
+  ] as const) {
+    add('task', 'read', BOTH, route, as =>
+      call(handler, 'GET', '/x', { id: B().taskId }, as)
+    )
+    add('task', 'read', ['bearer'], `${route} (identifier)`, as =>
+      call(handler, 'GET', '/x', { id: B().taskIdentifier }, as)
+    )
+  }
 
   // project — GET/DELETE are Clerk-only; PATCH takes both.
   add('project', 'read', ['clerk'], 'GET /api/projects/[id]', as =>
@@ -1203,6 +1219,32 @@ describe('LUM-978 fixture controls: the owning caller is allowed', () => {
       const res = await run()
       expect(res.status).toBe(200)
       expect(res.text).toContain(BRAVO_MARK)
+    }
+  )
+
+  it.each([
+    ['GET /api/tasks/[id]/agent-runs', () => taskAgentRunsRoute.GET],
+    ['GET /api/tasks/[id]/progress', () => taskProgressRoute.GET],
+    [
+      'GET /api/tasks/[id]/agent-runs/report',
+      () => taskAgentRunReportRoute.GET,
+    ],
+  ] as const)(
+    'BRAVO owner: %s (bearer, cuid and identifier) → 200 (LUM-1188)',
+    async (_n, handler) => {
+      for (const id of [B().taskId, B().taskIdentifier]) {
+        const res = await call(
+          handler(),
+          'GET',
+          '/x',
+          { id },
+          {
+            ...owner,
+            source: 'bearer',
+          }
+        )
+        expect(res.status).toBe(200)
+      }
     }
   )
 

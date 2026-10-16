@@ -4162,6 +4162,30 @@
       "isInvokable": true,
       "description": "Show the synced PR record (diff/review comments when available)"
     },
+    "task runs": {
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
+      "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add attribution signals, subagents, per-model token breakdown and injected memories"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the raw run report as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show the task's agent runs as on the web Record page: per run number, session, summary, turns, tool calls, tokens, attribution; plus the Sessions tile and delivery progress. <task> defaults to the session-bound task."
+    },
     "task search": {
       "arguments": [{ "name": "query", "required": false, "variadic": false }],
       "flags": {

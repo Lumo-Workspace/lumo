@@ -65,7 +65,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task figma context <id> <linkId>` — Figma link metadata (v1)
 - `lumo task comments list <id>` — comment thread, capped to the output budget (`--full` prints every comment; read-only; ≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata (v1)
-- `lumo task lineage <id>` — read-only causal-trail audit: fragments that fed the task + each one's disclosure tag/outcome, the run's token/loop cost, a disclosure-funnel summary, and a Top-5 "operations by token cost"; `--signal` appends workspace-level usage signal-health (see [task-context.md](references/task-context.md))
+- `lumo task lineage <id>` — read-only causal-trail audit: fragments that fed the task (disclosure tag/outcome), run token/loop cost, disclosure funnel, Top-5 operations by cost; `--signal` adds usage signal-health
+- `lumo task runs [id] [--full] [--json]` — the web Record page's Agent runs: per run summary, turns, tool calls, tokens, bound/auto-detected; Sessions tile + delivery progress
 
 ### Pull requests by number — see [pr-scan.md](references/pr-scan.md)
 

@@ -111,6 +111,7 @@ import {
   type WorkspaceLearningsOptions,
 } from './commands/workspace-learnings'
 import { taskLineage } from './commands/task-lineage'
+import { taskRuns } from './commands/task-runs'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -1324,6 +1325,25 @@ task
   .action(
     wrap((id, options) =>
       taskLineage(id as string, options as { signal?: boolean })
+    )
+  )
+
+task
+  .command('runs [task]')
+  .description(
+    "Show the task's agent runs as on the web Record page: per run number, session, summary, turns, tool calls, tokens, attribution; plus the Sessions tile and delivery progress. <task> defaults to the session-bound task."
+  )
+  .option(
+    '--full',
+    'Add attribution signals, subagents, per-model token breakdown and injected memories'
+  )
+  .option('--json', 'Emit the raw run report as JSON')
+  .action(
+    wrap((id, options) =>
+      taskRuns(
+        id as string | undefined,
+        options as { full?: boolean; json?: boolean }
+      )
     )
   )
 
