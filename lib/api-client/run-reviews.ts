@@ -16,6 +16,9 @@ export interface ReviewPoolItem {
   note: string | null
   evidence: unknown
   recordedAt: string
+  /** LUM-1191: 执行人显示名；null = 未记录。 */
+  executedBy: string | null
+  sourceSessionId: string | null
   /** LUM-819 返工：证据要对照的东西。 */
   setup: string | null
   steps: string[]

@@ -2999,6 +2999,22 @@
       "isInvokable": true,
       "description": "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
     },
+    "spot-check": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the pool as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Read-only view of the test-case run spot-check pool (same data as the web run-reviews page): false-report rate, pool size, and a random sample of unreviewed reported passes with task, case, environment, recorded time and who ran it. Reviewing stays human-only in the browser."
+    },
     "sprint": {
       "arguments": [],
       "flags": {},
