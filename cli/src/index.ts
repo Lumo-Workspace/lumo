@@ -101,6 +101,7 @@ import {
   taskDepsRm,
 } from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
+import { taskScans, type TaskScansOptions } from './commands/task-scans'
 import { prScan, type PrScanOptions } from './commands/pr-scan'
 import {
   workspaceSecurityScan,
@@ -1312,6 +1313,27 @@ taskPr
     'Show the synced PR record (diff/review comments when available)'
   )
   .action(wrap((id, num) => taskPrShow(id as string, num as string)))
+
+task
+  .command('scans <identifier>')
+  .description(
+    "Security scans of a task across all its linked PRs: each PR's layers, partial reasons, size caps, findings (call chain, verifier, AI suggestion) and rulings already made — the `lumo pr scan` view, once per PR. Read-only; rule on a finding with `lumo finding disposition`."
+  )
+  .option(
+    '--all',
+    "Every pushed head's scan per PR, newest first, instead of the latest only"
+  )
+  .option(
+    '--full',
+    'Append the per-task hunt detail under each scan (as `lumo pr scan --full`)'
+  )
+  .option(
+    '--json',
+    'Emit the versioned machine-readable payload ({ task, totals, pullRequests[] } — each entry is the `pr scan --json` payload)'
+  )
+  .action(
+    wrap((id, options) => taskScans(id as string, options as TaskScansOptions))
+  )
 
 task
   .command('lineage <identifier>')

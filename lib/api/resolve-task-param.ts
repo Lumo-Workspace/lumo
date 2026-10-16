@@ -33,8 +33,10 @@ export async function resolveTaskParam(
   workspaceId: string
 ): Promise<{
   id: string
+  number: number
   status: TaskStatus
   workStartedAt: Date | null
+  team: { identifier: string }
 } | null> {
   if (isLikelyCuid(rawId)) {
     return taskRepository.findByIdForMention(rawId, workspaceId)

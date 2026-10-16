@@ -2,28 +2,22 @@
 import { GET } from '@/app/api/tasks/[id]/security-scans/route'
 import { POST } from '@/app/api/tasks/[id]/security-findings/[findingId]/disposition/route'
 import { GET as LIST } from '@/app/api/tasks/[id]/security-findings/route'
-import {
-  requireAuth,
-  requireWorkspaceMember,
-  requireIdentity,
-} from '@/lib/auth'
-import { taskService } from '@/lib/services'
+import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { prSecurityScanService } from '@/ee/security/services/pr-security-scan.service'
+import { prScanReadoutService } from '@/ee/security/services/pr-scan-readout.service'
 
 jest.mock('@/lib/auth', () => ({
-  requireAuth: jest.fn(),
-  requireWorkspaceMember: jest.fn(),
   requireIdentity: jest.fn(),
-}))
-jest.mock('@/lib/services', () => ({
-  taskService: { getTaskDetail: jest.fn() },
 }))
 jest.mock('@/lib/repositories', () => ({
   taskRepository: {
     findByIdForMention: jest.fn(),
     findByWorkspaceIdentifier: jest.fn(),
   },
+}))
+jest.mock('@/ee/security/services/pr-scan-readout.service', () => ({
+  prScanReadoutService: { getForTask: jest.fn() },
 }))
 jest.mock('@/ee/security/services/pr-security-scan.service', () => ({
   prSecurityScanService: {
@@ -33,14 +27,13 @@ jest.mock('@/ee/security/services/pr-security-scan.service', () => ({
   },
 }))
 
-const auth = requireAuth as jest.Mock
-const member = requireWorkspaceMember as jest.Mock
 const identity = requireIdentity as jest.Mock
-const detail = taskService.getTaskDetail as jest.Mock
 const byIdentifier = taskRepository.findByWorkspaceIdentifier as jest.Mock
 const getForTask = prSecurityScanService.getForTask as jest.Mock
 const disposition = prSecurityScanService.disposition as jest.Mock
 const listFindings = prSecurityScanService.listFindingsForTask as jest.Mock
+const readoutForTask = prScanReadoutService.getForTask as jest.Mock
+const byCuid = taskRepository.findByIdForMention as jest.Mock
 
 const CLERK = {
   clerkId: 'c1',
@@ -49,8 +42,13 @@ const CLERK = {
   source: 'clerk' as const,
 }
 
-function req(body?: unknown, hdrs: Record<string, string> = {}) {
+function req(
+  body?: unknown,
+  hdrs: Record<string, string> = {},
+  url = 'https://lumo.test/api/tasks/x'
+) {
   return {
+    url,
     json: async () => body,
     headers: { get: (k: string) => hdrs[k] ?? null },
   } as never
@@ -58,27 +56,107 @@ function req(body?: unknown, hdrs: Record<string, string> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  auth.mockResolvedValue({ userId: 'c1' })
-  member.mockResolvedValue({ id: 'm1' })
-  detail.mockResolvedValue({ id: 't1', project: { workspaceId: 'w1' } })
   identity.mockResolvedValue(CLERK)
-  byIdentifier.mockResolvedValue({ id: 't1' })
+  byIdentifier.mockResolvedValue({
+    id: 't1',
+    number: 732,
+    team: { identifier: 'LUM' },
+  })
+  byCuid.mockResolvedValue(null)
+  readoutForTask.mockResolvedValue({ version: 1, pullRequests: [] })
   getForTask.mockResolvedValue({ prs: [], blocking: { count: 0 } })
   disposition.mockResolvedValue({ id: 'f1', disposition: 'FALSE_POSITIVE' })
 })
 
 describe('GET /api/tasks/[id]/security-scans', () => {
-  it('returns the read model for a workspace member and 404 for a missing task', async () => {
-    const res = await GET(req(), { params: Promise.resolve({ id: 't1' }) })
+  const CUID = 'c' + 'a'.repeat(24)
+  const BEARER = { ...CLERK, clerkId: null, source: 'bearer' as const }
+
+  it('a browser session gets the panel read model, resolved in its workspace by cuid (web unchanged)', async () => {
+    byCuid.mockResolvedValue({
+      id: CUID,
+      number: 732,
+      team: { identifier: 'LUM' },
+    })
+    const res = await GET(req(), { params: Promise.resolve({ id: CUID }) })
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ prs: [], blocking: { count: 0 } })
-    expect(getForTask).toHaveBeenCalledWith('t1')
+    expect(byCuid).toHaveBeenCalledWith(CUID, 'w1')
+    expect(getForTask).toHaveBeenCalledWith(CUID)
+    expect(readoutForTask).not.toHaveBeenCalled()
+  })
 
-    detail.mockResolvedValue(null)
-    const missing = await GET(req(), {
-      params: Promise.resolve({ id: 'nope' }),
+  it('LUM-1189: a bearer (CLI) caller gets the sanitized read-out, never the panel model', async () => {
+    identity.mockResolvedValue(BEARER)
+    const res = await GET(req(), {
+      params: Promise.resolve({ id: 'LUM-732' }),
     })
-    expect(missing.status).toBe(404)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ version: 1, pullRequests: [] })
+    expect(byIdentifier).toHaveBeenCalledWith('w1', 'LUM', 732)
+    expect(readoutForTask).toHaveBeenCalledWith(
+      'w1',
+      { id: 't1', identifier: 'LUM-732' },
+      { all: false }
+    )
+    expect(getForTask).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1189: ?view=readout&all=1 serves the read-out with every head', async () => {
+    const res = await GET(
+      req(undefined, {}, 'https://lumo.test/api/tasks/x?view=readout&all=1'),
+      { params: Promise.resolve({ id: 'LUM-732' }) }
+    )
+    expect(res.status).toBe(200)
+    expect(readoutForTask).toHaveBeenCalledWith(
+      'w1',
+      { id: 't1', identifier: 'LUM-732' },
+      { all: true }
+    )
+  })
+
+  it('LUM-1189: a task in another workspace is a 404 for a bearer caller and nothing is read', async () => {
+    identity.mockResolvedValue({ ...BEARER, workspaceId: 'w-other' })
+    byIdentifier.mockResolvedValue(null)
+    const res = await GET(req(), {
+      params: Promise.resolve({ id: 'LUM-732' }),
+    })
+    expect(res.status).toBe(404)
+    expect(byIdentifier).toHaveBeenCalledWith('w-other', 'LUM', 732)
+    expect(readoutForTask).not.toHaveBeenCalled()
+    expect(getForTask).not.toHaveBeenCalled()
+  })
+
+  it("LUM-1189: another workspace's task by raw cuid is a 404 too", async () => {
+    identity.mockResolvedValue({ ...BEARER, workspaceId: 'w-other' })
+    const res = await GET(req(), { params: Promise.resolve({ id: CUID }) })
+    expect(res.status).toBe(404)
+    expect(byCuid).toHaveBeenCalledWith(CUID, 'w-other')
+    expect(readoutForTask).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unknown view, passes the identity failure through, and 500s on a read error', async () => {
+    const bad = await GET(
+      req(undefined, {}, 'https://lumo.test/api/tasks/x?view=raw'),
+      { params: Promise.resolve({ id: 'LUM-732' }) }
+    )
+    expect(bad.status).toBe(400)
+
+    const { NextResponse } = await import('next/server')
+    identity.mockResolvedValue(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    )
+    const unauth = await GET(req(), {
+      params: Promise.resolve({ id: 'LUM-732' }),
+    })
+    expect(unauth.status).toBe(401)
+
+    identity.mockResolvedValue(BEARER)
+    readoutForTask.mockRejectedValue(new Error('db down'))
+    const boom = await GET(req(), {
+      params: Promise.resolve({ id: 'LUM-732' }),
+    })
+    expect(boom.status).toBe(500)
   })
 })
 

@@ -23,7 +23,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `init`, `skill`, `auth login/logout`, `whoami`, `update`                               | [references/onboarding.md](references/onboarding.md)                 |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
-| `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
+| `pr scan <number>` / `task scans <task>` — security scans of one PR, or a task's PRs   | [references/pr-scan.md](references/pr-scan.md)                       |
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
 | `member list` — workspace directory (the refs `--assignee` accepts)                    | [references/members.md](references/members.md)                       |
 | `tag list/create` — workspace tags                                                     | [references/tags.md](references/tags.md)                             |

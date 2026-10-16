@@ -132,6 +132,7 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'task memory list',
   'task pr show',
   'task runs',
+  'task scans',
   'task search',
   'task show',
   'task slack show',
