@@ -129,12 +129,24 @@ describe('B. tool output masks a keyed value exactly once', () => {
     expect(out).toBe(`SECRET_KEY='${redactSecret(DJANGO_LIKE)}'`)
   })
 
-  it('fail closed: a value glued to a redaction token is still masked', () => {
-    const glued = `token=${redactSecret(SHAPED)}`
-    // The marker alone is left as is; nothing new is exposed.
-    expect(redactToolOutputLine(glued)).toBe(glued)
-    const unmasked = `JWT_SECRET=${PASSPHRASE} other=${STRIPE_LIKE}`
-    const out = redactToolOutputLine(unmasked)
+  it('an already-redacted keyed value is left as is', () => {
+    const masked = `token=${redactSecret(SHAPED)}`
+    expect(redactToolOutputLine(masked)).toBe(masked)
+  })
+
+  it('fail closed: a raw value glued in front of a redaction token is still masked', () => {
+    const glued = `JWT_SECRET=${PASSPHRASE}${redactSecret(SHAPED)}`
+    const out = redactToolOutputLine(glued)
+    expect(out).not.toContain(PASSPHRASE)
+    expect(out.startsWith(`JWT_SECRET=${PASSPHRASE.slice(0, 4)}…(len `)).toBe(
+      true
+    )
+  })
+
+  it('fail closed: two keyed values on one line are each masked once', () => {
+    const out = redactToolOutputLine(
+      `JWT_SECRET=${PASSPHRASE} other=${STRIPE_LIKE}`
+    )
     expect(out).not.toContain(PASSPHRASE)
     expect(out).not.toContain(STRIPE_LIKE)
     expect(markers(out)).toHaveLength(2)
