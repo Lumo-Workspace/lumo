@@ -13,6 +13,7 @@
 import { taskTestCaseService } from '@/lib/services/task-test-case.service'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import type { Prisma } from '@prisma/client'
+import { allPass, passUntilFail } from './helpers/step-results'
 
 jest.mock('@/lib/repositories/test-case.repository', () => ({
   testCaseRepository: {
@@ -116,7 +117,11 @@ describe('recordRun — FAIL attribution', () => {
     await expect(
       taskTestCaseService.recordRun(
         testCase,
-        { result: 'FAIL', environment: 'LOCAL' },
+        {
+          result: 'FAIL',
+          environment: 'LOCAL',
+          stepResults: passUntilFail(testCase, { phase: 'STEPS', index: 0 }),
+        },
         attribution
       )
     ).rejects.toMatchObject({ status: 400 })
@@ -131,6 +136,7 @@ describe('recordRun — FAIL attribution', () => {
           result: 'FAIL',
           environment: 'LOCAL',
           failureAttribution: 'IMPLEMENTATION_DEFECT',
+          stepResults: passUntilFail(testCase, { phase: 'STEPS', index: 0 }),
           evidence: [],
         },
         attribution
@@ -146,6 +152,7 @@ describe('recordRun — FAIL attribution', () => {
         result: 'FAIL',
         environment: 'LOCAL',
         failureAttribution: 'IMPLEMENTATION_DEFECT',
+        stepResults: passUntilFail(testCase, { phase: 'STEPS', index: 0 }),
         evidence: linkEvidence,
       },
       attribution
@@ -165,6 +172,7 @@ describe('recordRun — FAIL attribution', () => {
           result: 'FAIL',
           environment: 'LOCAL',
           failureAttribution: cause,
+          stepResults: passUntilFail(testCase, { phase: 'STEPS', index: 0 }),
         },
         attribution
       )
@@ -178,7 +186,7 @@ describe('recordRun — FAIL attribution', () => {
   it('stores null on a PASS run — the column is FAIL-only', async () => {
     await taskTestCaseService.recordRun(
       testCase,
-      { result: 'PASS', environment: 'LOCAL' },
+      { result: 'PASS', environment: 'LOCAL', stepResults: allPass(testCase) },
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -192,7 +200,7 @@ describe('recordRun — returns the capped verdict alongside the row', () => {
   it('hands back UNPROVEN for a PASS recorded outside the required environment', async () => {
     const { ceiling } = await taskTestCaseService.recordRun(
       { ...testCase, requiredEnvironment: 'PRODUCTION' },
-      { result: 'PASS', environment: 'LOCAL' },
+      { result: 'PASS', environment: 'LOCAL', stepResults: allPass(testCase) },
       attribution
     )
     expect(ceiling).toMatchObject({
@@ -208,6 +216,7 @@ describe('recordRun — returns the capped verdict alongside the row', () => {
         result: 'PASS',
         environment: 'LOCAL',
         unprovenVerification: [0],
+        stepResults: allPass({ steps: testCase.steps, verification: [] }),
       },
       attribution
     )

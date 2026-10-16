@@ -4,7 +4,10 @@ import type {
   TestCaseRunRow,
 } from '@/lib/repositories/test-case.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
-import type { RecordRunBody } from '@/lib/validation/test-case'
+import {
+  MAX_SKIP_REASON_LEN,
+  type RecordRunBody,
+} from '@/lib/validation/test-case'
 import {
   countEvidence,
   deriveRunCeiling,
@@ -180,6 +183,40 @@ function resolveUnproven(
   return out
 }
 
+/** CLI 表面的 1-based 引用：s2 / v1。 */
+function stepRef(phase: 'STEPS' | 'VERIFICATION', index: number): string {
+  return `${phase === 'STEPS' ? 's' : 'v'}${index + 1}`
+}
+
+/**
+ * LUM-1211: 本次必须上报却没报的条目（1-based 引用，执行顺序）。
+ * - failPos === null（PASS）：全部步骤 + 全部复验。
+ * - 否则（FAIL）：执行位置 < failPos 的条目（断点本身由 FAIL 步覆盖）。
+ * 声明在 unprovenVerification 里的复验条目算已上报。
+ */
+export function missingStepRefs(
+  testCase: Pick<TestCaseRow, 'steps' | 'verification'>,
+  body: Pick<RecordRunBody, 'unprovenVerification'>,
+  reported: Set<string>,
+  failPos: number | null
+): string[] {
+  const unproven = new Set(body.unprovenVerification ?? [])
+  const stepCount = testCase.steps.length
+  const missing: string[] = []
+  const check = (phase: 'STEPS' | 'VERIFICATION', count: number) => {
+    for (let index = 0; index < count; index++) {
+      const pos = phase === 'STEPS' ? index : stepCount + index
+      if (failPos !== null && pos >= failPos) return
+      if (reported.has(`${phase}:${index}`)) continue
+      if (phase === 'VERIFICATION' && unproven.has(index)) continue
+      missing.push(stepRef(phase, index))
+    }
+  }
+  check('STEPS', stepCount)
+  check('VERIFICATION', testCase.verification.length)
+  return missing
+}
+
 /**
  * LUM-1011: 校验逐步结果并快照原文。
  *
@@ -189,6 +226,8 @@ function resolveUnproven(
  *   FAIL 步在而定位缺省时，定位由它补齐（调用方只说一遍）。
  * - 失败点之后不得有 PASS：「断在第 4 步」意味着后面没跑到。
  * - 同一步不得报两次；下标落在该段范围内；evidence 下标落在本次证据范围内。
+ * - LUM-1211：每一步都必须上报（PASS 全部、FAIL 到断点为止），漏报 400 并列出缺项；
+ *   SKIP 必须带 reason，非 SKIP 不得带。用户 2026-10-16 裁定：拒绝，不是警告。
  */
 function resolveStepResults(
   testCase: TestCaseRow,
@@ -199,12 +238,14 @@ function resolveStepResults(
   locator: ReturnType<typeof resolveLocator>
 } {
   const raw = body.stepResults ?? []
-  if (raw.length === 0) return { stepResults: [], locator }
   if (body.result === 'BLOCKED') {
-    fail(
-      'A BLOCKED run cannot carry step results — the case never ran. Use FAIL with the failing step instead.',
-      400
-    )
+    if (raw.length > 0) {
+      fail(
+        'A BLOCKED run cannot carry step results — the case never ran. Use FAIL with the failing step instead.',
+        400
+      )
+    }
+    return { stepResults: [], locator }
   }
 
   const evidenceCount = (body.evidence ?? []).length
@@ -223,6 +264,18 @@ function resolveStepResults(
       fail(`stepResults reports ${r.phase} ${r.index} more than once.`, 400)
     }
     seen.add(key)
+    if (r.status === 'SKIP' && !r.reason) {
+      fail(
+        `${stepRef(r.phase, r.index)}: a SKIP needs a reason — say why this step was not checked.`,
+        400
+      )
+    }
+    if (r.status !== 'SKIP' && r.reason) {
+      fail(
+        `${stepRef(r.phase, r.index)}: Only a SKIP step carries a reason.`,
+        400
+      )
+    }
     for (const e of r.evidence ?? []) {
       if (e >= evidenceCount) {
         fail(
@@ -236,7 +289,8 @@ function resolveStepResults(
       index: r.index,
       text: list[r.index]!,
       status: r.status,
-      reason: null,
+      reason:
+        r.status === 'SKIP' ? r.reason!.slice(0, MAX_SKIP_REASON_LEN) : null,
       durationMs: r.durationMs ?? null,
       evidence: [...new Set(r.evidence ?? [])],
     })
@@ -270,20 +324,60 @@ function resolveStepResults(
     }
   }
 
+  const stepCount = testCase.steps.length
+  const pos = (phase: string, index: number) =>
+    phase === 'STEPS' ? index : stepCount + index
   if (resolved.failedPhase != null && resolved.failedIndex !== null) {
-    const stepCount = testCase.steps.length
-    const pos = (phase: string, index: number) =>
-      phase === 'STEPS' ? index : stepCount + index
-    const failPos = pos(resolved.failedPhase, resolved.failedIndex)
+    const breakPos = pos(resolved.failedPhase, resolved.failedIndex)
     const late = out.find(
-      r => r.status === 'PASS' && pos(r.phase, r.index) > failPos
+      r => r.status !== 'FAIL' && pos(r.phase, r.index) > breakPos
     )
     if (late) {
       fail(
-        `${late.phase} ${late.index} is reported PASS after the run broke — steps after the failure were not reached.`,
+        `${late.phase} ${late.index} is reported ${late.status} after the run broke — steps after the failure were not reached.`,
         400
       )
     }
+  }
+
+  // LUM-1211: 覆盖检查——每个必须上报的条目都要有结果。
+  if (
+    body.result === 'FAIL' &&
+    (resolved.failedPhase == null || resolved.failedIndex === null)
+  ) {
+    fail(
+      'A FAIL run must report the step it broke at (e.g. --step s3=fail).',
+      400
+    )
+  }
+  const failPos =
+    body.result === 'FAIL'
+      ? pos(resolved.failedPhase!, resolved.failedIndex!)
+      : null
+  const missing = missingStepRefs(testCase, body, seen, failPos)
+  if (
+    failPos !== null &&
+    !seen.has(`${resolved.failedPhase}:${resolved.failedIndex}`)
+  ) {
+    // 只给了 failedPhase/failedIndex、没有对应的 FAIL 条目：补成显式 FAIL。
+    out.push({
+      phase: resolved.failedPhase!,
+      index: resolved.failedIndex!,
+      text: resolved.failedStepText ?? '',
+      status: 'FAIL',
+      reason: null,
+      durationMs: null,
+      evidence: [],
+    })
+  }
+  if (missing.length > 0) {
+    const fix = missing.map(ref => `--step ${ref}=pass`).join(' ')
+    fail(
+      `Missing per-step results: ${missing.join(', ')}. Every step must be reported ` +
+        `pass, fail or skip (with a reason). Add: ${fix} (or =skip:"why" for any you did not check). ` +
+        'If you passed --step and still see this, update the lumo CLI (npm i -g @lumoai/cli).',
+      400
+    )
   }
 
   return { stepResults: out, locator: resolved }

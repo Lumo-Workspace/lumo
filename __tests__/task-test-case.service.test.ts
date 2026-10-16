@@ -15,6 +15,7 @@ import {
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import type { Prisma } from '@prisma/client'
+import { allPass, passUntilFail } from './helpers/step-results'
 
 jest.mock('@/lib/repositories/test-case.repository', () => ({
   testCaseRepository: {
@@ -106,7 +107,11 @@ describe('recordRun — environment', () => {
   it('records the environment verbatim — no default is substituted', async () => {
     await taskTestCaseService.recordRun(
       testCase,
-      { result: 'PASS', environment: 'PRODUCTION' },
+      {
+        result: 'PASS',
+        environment: 'PRODUCTION',
+        stepResults: allPass(testCase),
+      },
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -172,15 +177,19 @@ describe('recordRun — failure locator', () => {
     ).rejects.toMatchObject({ status: 400 })
   })
 
-  it('accepts a FAIL with no locator at all', async () => {
-    const { run } = await taskTestCaseService.recordRun(
-      testCase,
-      // LUM-808: FAIL 现在必须归因；这条测的是定位，用举证责任最轻的 UNKNOWN。
-      { result: 'FAIL', environment: 'LOCAL', failureAttribution: 'UNKNOWN' },
-      attribution
-    )
-    expect(run.failedPhase).toBeNull()
-    expect(run.failedStepText).toBeNull()
+  it('rejects a FAIL with no locator at all — LUM-1211: a FAIL must name the step it broke at', async () => {
+    await expect(
+      taskTestCaseService.recordRun(
+        testCase,
+        // LUM-808: FAIL 现在必须归因；这条测的是定位，用举证责任最轻的 UNKNOWN。
+        { result: 'FAIL', environment: 'LOCAL', failureAttribution: 'UNKNOWN' },
+        attribution
+      )
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/must report the step it broke at/),
+    })
+    expect(repo.createRun).not.toHaveBeenCalled()
   })
 
   it('snapshots the STEPS text at the located index', async () => {
@@ -192,6 +201,7 @@ describe('recordRun — failure locator', () => {
         failedPhase: 'STEPS',
         failedIndex: 1,
         failureAttribution: 'UNKNOWN',
+        stepResults: passUntilFail(testCase, { phase: 'STEPS', index: 1 }),
       },
       attribution
     )
@@ -213,6 +223,10 @@ describe('recordRun — failure locator', () => {
         failedPhase: 'VERIFICATION',
         failedIndex: 0,
         failureAttribution: 'UNKNOWN',
+        stepResults: passUntilFail(testCase, {
+          phase: 'VERIFICATION',
+          index: 0,
+        }),
       },
       attribution
     )
@@ -265,6 +279,7 @@ describe('recordRun — code coordinates', () => {
         pullRequestNumber: 7,
         commitSha: 'a'.repeat(40),
         commitDirty: true,
+        stepResults: allPass(testCase),
       },
       attribution
     )
@@ -281,7 +296,7 @@ describe('recordRun — code coordinates', () => {
   it('leaves the coordinates null when the caller gives none — never defaults dirty to false', async () => {
     await taskTestCaseService.recordRun(
       testCase,
-      { result: 'PASS', environment: 'LOCAL' },
+      { result: 'PASS', environment: 'LOCAL', stepResults: allPass(testCase) },
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -299,7 +314,7 @@ describe('recordRun — provenance', () => {
   it('carries the member and session onto the row', async () => {
     await taskTestCaseService.recordRun(
       testCase,
-      { result: 'PASS', environment: 'LOCAL' },
+      { result: 'PASS', environment: 'LOCAL', stepResults: allPass(testCase) },
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -570,6 +585,7 @@ describe('recordRun — step results', () => {
             index: 0,
             text: 'scroll: to the bottom of the page',
             status: 'PASS',
+            reason: null,
             durationMs: 1200,
             evidence: [],
           },
@@ -588,8 +604,12 @@ describe('recordRun — step results', () => {
     )
   })
 
-  it('stores an empty array when no step results are reported', async () => {
-    await rec(fail())
+  it('stores an empty array for a case that has no steps to report', async () => {
+    await taskTestCaseService.recordRun(
+      { ...testCase, steps: [], verification: [] },
+      { result: 'PASS', environment: 'LOCAL' },
+      attribution
+    )
     expect(repo.createRun).toHaveBeenCalledWith(
       expect.objectContaining({ stepResults: [], actual: null }),
       expect.anything()
