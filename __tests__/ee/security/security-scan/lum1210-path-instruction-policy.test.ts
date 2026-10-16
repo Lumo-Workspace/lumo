@@ -50,9 +50,17 @@ describe('LUM-1210 removal policy and path-instruction findings', () => {
         id: 'asked',
         kind: 'CORRECTNESS',
         severity: 'LOW',
+        ruleId: 'review:api_misuse',
+        filePath: 'scripts/probe.ts',
         pathInstruction: 'scripts/**',
       },
-      { id: 'plain', kind: 'CORRECTNESS', severity: 'LOW' },
+      {
+        id: 'plain',
+        kind: 'CORRECTNESS',
+        severity: 'LOW',
+        ruleId: 'review:api_misuse',
+        filePath: 'scripts/probe.ts',
+      },
     ]
     expect(
       applyVerifierPolicy(rows, [
