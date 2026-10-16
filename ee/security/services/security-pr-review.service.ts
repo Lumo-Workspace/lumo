@@ -671,6 +671,15 @@ export interface SummaryInput {
       Partial<Pick<ReviewFindingRow, 'kind'>>
   >
   /**
+   * LUM-1212 — open findings the profile would comment inline but that have
+   * no line (the model gave none and its evidence anchored nowhere): listed
+   * by name, saying why. Absent/empty = no list.
+   */
+  unanchored?: Array<
+    Pick<ReviewFindingRow, 'severity' | 'title' | 'filePath'> &
+      Partial<Pick<ReviewFindingRow, 'kind'>>
+  >
+  /**
    * LUM-1151 — where the high-level summary (`prSummary`) is shown:
    * `comment` (absent = here, as before), `description` (the PR
    * description holds it; this comment points there) or `off` (nowhere).
@@ -706,6 +715,28 @@ export function profileHeldBlock(input: SummaryInput): string | null {
   if (rest > 0) rows.push(`- and ${rest} more — shown in Lumo`)
   const noun = held.length === 1 ? 'finding' : 'findings'
   return `<details>\n<summary>${held.length} more ${noun} not commented on the diff (review profile: ${profile})</summary>\n\n${rows.join('\n')}\n\n</details>`
+}
+
+/**
+ * LUM-1212 — the findings that would be on the diff but have no line to sit
+ * on, in one folded list (title and file), so they are not only a count.
+ */
+export function unanchoredBlock(
+  rows: SummaryInput['unanchored']
+): string | null {
+  const list = rows ?? []
+  if (list.length === 0) return null
+  const shown = list.slice(0, PROFILE_HELD_MAX_LISTED).map(f => {
+    const kind = findingKindLabel(f.kind)
+    return `- **${f.severity}**${kind ? ` · ${kind}` : ''} — ${neutralizeSummaryText(f.title, 200)} — ${codePath(f.filePath)}`
+  })
+  const rest = list.length - shown.length
+  if (rest > 0) shown.push(`- and ${rest} more — shown in Lumo`)
+  const head =
+    list.length === 1
+      ? '1 finding could not be placed on a line of the diff'
+      : `${list.length} findings could not be placed on a line of the diff`
+  return `<details>\n<summary>${head} (the review gave no line its quoted code matches)</summary>\n\n${shown.join('\n')}\n\n</details>`
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -1080,6 +1111,8 @@ export function buildSummary(input: SummaryInput): string {
   if (notices.length > 0) blocks.push(notices.join('\n'))
   const held = profileHeldBlock(input)
   if (held) blocks.push(held)
+  const unanchored = unanchoredBlock(input.unanchored)
+  if (unanchored) blocks.push(unanchored)
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
 
@@ -1931,11 +1964,19 @@ export const securityPrReviewService = {
       // LUM-1147: a LOW row the profile comments inline (assertive, or one
       // that blocks DONE, or a path instruction asked for) is not "shown in
       // Lumo only"; one quiet holds back is listed by name instead.
+      // LUM-1212: would be inline but has no line — listed by name instead.
+      const unanchored = open.filter(
+        f =>
+          f.line === null &&
+          inlineEligibleUnder(profile, { ...f, line: 0 }, policy) &&
+          !issueGroups.mergedInto.has(f.fingerprint)
+      )
       const lowRows = open.filter(
         f =>
           f.severity === 'LOW' &&
           !isInline(f) &&
-          !heldByProfile(profile, f, policy)
+          !heldByProfile(profile, f, policy) &&
+          !unanchored.includes(f)
       )
       const low = {
         count: lowRows.length,
@@ -2060,6 +2101,7 @@ export const securityPrReviewService = {
         preMergeOverride: checksOverride,
         reviewProfile: profile,
         profileHeld: open.filter(f => heldByProfile(profile, f, policy)),
+        unanchored,
         prSummary: scan.prSummary,
         highLevelSummary: summaryWhere,
         changedFiles,

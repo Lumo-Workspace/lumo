@@ -71,6 +71,11 @@ import { isBugKind } from '@/ee/security/security-scan/review-kinds'
 import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import { validateCodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
+  createFindingAnchor,
+  type FindingAnchorMethod,
+} from '@/ee/security/security-scan/finding-anchor'
+import { rightSideLinesWithNumbers } from '@/lib/diff/diff-lines'
+import {
   addedLinesWithNumbers,
   scanSecrets,
   packSecurityDiff,
@@ -1717,6 +1722,20 @@ export const prSecurityScanService = {
           prSummary = cleanPrSummary(rawSummary)
           if (diagramWanted && !incrementalSlice)
             sequenceDiagram = cleanSequenceDiagram(rawDiagram)
+          // LUM-1212: a finding the model returned without a line gets the
+          // line its quoted evidence sits on (exact, else none — never a
+          // guess). The fingerprint below still keys on the model's own
+          // output, so an existing finding keeps its identity.
+          const anchorLine = createFindingAnchor(
+            rightSideLinesWithNumbers(diff)
+          )
+          const modelLines: Array<number | null> = []
+          const anchored: Record<FindingAnchorMethod, number> = {
+            model: 0,
+            evidence: 0,
+            hunk: 0,
+            none: 0,
+          }
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
             // LUM-988: a correctness finding is CORRECTNESS / `review:<kind>`,
@@ -1750,11 +1769,18 @@ export const prSecurityScanService = {
             // title it has always fallen back to.
             const fingerprintEvidence = redactKnownSecrets(j.evidence)
             const fingerprintTitle = redactFindingText(j.title)
+            const anchor = anchorLine({
+              line: j.line,
+              filePath,
+              evidence: j.evidence,
+            })
+            anchored[anchor.method]++
+            modelLines.push(j.line)
             // LUM-1150: the one-click fix, only when its range is exactly
             // this head's added lines around the finding; else none.
             const codeSuggestion = validateCodeSuggestion({
               suggestion: j.suggestion,
-              line: j.line,
+              line: anchor.line,
               severity: j.severity,
               filePath,
               evidence: j.evidence,
@@ -1782,7 +1808,7 @@ export const prSecurityScanService = {
               severity: j.severity,
               provenance: 'LLM_JUDGE',
               filePath,
-              line: j.line,
+              line: anchor.line,
               title,
               detail: redactFindingProse(j.detail, isCredential),
               evidence,
@@ -1801,9 +1827,16 @@ export const prSecurityScanService = {
             })
           }
           // LUM-988: one key per finding, by position (see positionalFingerprints).
-          positionalFingerprints(judgeRows).forEach((fp, i) => {
+          // LUM-1212: the position is the MODEL's line, as before the anchor.
+          positionalFingerprints(
+            judgeRows.map((r, i) => ({ ...r, line: modelLines[i] ?? null }))
+          ).forEach((fp, i) => {
             judgeRows[i]!.fingerprint = fp
           })
+          if (anchored.evidence + anchored.hunk + anchored.none > 0)
+            logger.info(
+              `[pr-security-scan] anchored line-less findings pr=${pr.id} sha=${headSha} evidence=${anchored.evidence} hunk=${anchored.hunk} none=${anchored.none}`
+            )
         } catch (error) {
           // FAIL-SOFT for the judge only: the deterministic result still lands,
           // and UNAVAILABLE is stamped so the panel never reads as a full pass.
