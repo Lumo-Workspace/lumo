@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "ignorée — la description de la PR demande à Lumo d’ignorer cette PR",
   "securityScan.stageReason.IGNORED": "La description de la PR contient la directive d’exclusion : les vérifications IA automatiques ont été ignorées pour ce commit. Les vérifications de secrets, des scanners et des dépendances ne sont pas concernées. Retirez la directive de la description pour que le prochain push soit revu, ou demandez une revue maintenant.",
   "securityScan.review.roundsNoLimit": "Revue IA automatique : {rounds} commits revus · jamais en pause",
-  "language.switcher.label": "Langue"
+  "language.switcher.label": "Langue",
+  "testCases.ceiling.skipped": "{count, plural, one {# étape a été ignorée} other {# étapes ont été ignorées}}"
 }

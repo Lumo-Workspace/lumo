@@ -456,6 +456,7 @@ export function ceilingOf(
       environment: run.environment,
       unprovenVerification: unproven,
       evidenceCount: countEvidence(run.evidence),
+      stepResults: run.stepResults,
     },
     { requiredEnvironment: testCase.requiredEnvironment }
   )

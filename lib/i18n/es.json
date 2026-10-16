@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "omitida — la descripción del PR pide a Lumo que ignore este PR",
   "securityScan.stageReason.IGNORED": "La descripción del PR contiene la directiva de ignorar, así que se omitieron las comprobaciones automáticas con IA en este commit. Las comprobaciones de secretos, escáneres y dependencias no se ven afectadas. Quita la directiva de la descripción para que se revise el próximo push, o solicita una revisión ahora.",
   "securityScan.review.roundsNoLimit": "Revisión automática de IA: {rounds} commits revisados · nunca se pausa",
-  "language.switcher.label": "Idioma"
+  "language.switcher.label": "Idioma",
+  "testCases.ceiling.skipped": "{count, plural, one {Se omitió # paso} other {Se omitieron # pasos}}"
 }

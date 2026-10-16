@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "übersprungen — die PR-Beschreibung bittet Lumo, diesen PR zu ignorieren",
   "securityScan.stageReason.IGNORED": "Die PR-Beschreibung enthält die Ignorieren-Anweisung, daher wurden die automatischen KI-Prüfungen für diesen Commit übersprungen. Secret-, Scanner- und Abhängigkeitsprüfungen sind davon nicht betroffen. Entferne die Anweisung aus der Beschreibung, damit der nächste Push geprüft wird, oder fordere jetzt eine Prüfung an.",
   "securityScan.review.roundsNoLimit": "Automatische KI-Prüfung: {rounds} Commits geprüft · pausiert nie",
-  "language.switcher.label": "Sprache"
+  "language.switcher.label": "Sprache",
+  "testCases.ceiling.skipped": "{count, plural, one {# Schritt wurde übersprungen} other {# Schritte wurden übersprungen}}"
 }

@@ -118,6 +118,16 @@ export type RunCeiling =
       reason: 'unobserved'
       unobserved: Array<{ index: number; text: string }>
     }
+  | {
+      effective: 'UNPROVEN'
+      reason: 'skipped'
+      skipped: Array<{
+        phase: 'STEPS' | 'VERIFICATION'
+        index: number
+        text: string
+        reason: string
+      }>
+    }
   | { effective: 'UNPROVEN'; reason: 'no-evidence' }
   | { effective: 'FAIL' }
   | { effective: 'BLOCKED' }
@@ -146,6 +156,15 @@ export function formatRunOutcome(outcome: RunOutcome): string {
   }
   if (ceiling.reason === 'no-evidence') {
     return `${head} → UNPROVEN (no evidence attached — nobody else can re-read this PASS)`
+  }
+  if (ceiling.reason === 'skipped') {
+    const skippedItems = ceiling.skipped
+      .map(
+        s =>
+          `${s.phase === 'STEPS' ? 's' : 'v'}${s.index + 1} ${s.text} — ${s.reason}`
+      )
+      .join('; ')
+    return `${head} → UNPROVEN (skipped: ${skippedItems})`
   }
   // 下标回到 1-based 的表面。
   const items = ceiling.unobserved

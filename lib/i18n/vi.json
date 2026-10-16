@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "đã bỏ qua — mô tả PR yêu cầu Lumo bỏ qua PR này",
   "securityScan.stageReason.IGNORED": "Mô tả PR có chỉ thị bỏ qua, nên các kiểm tra AI tự động đã được bỏ qua ở commit này. Các kiểm tra bí mật, trình quét và phụ thuộc không bị ảnh hưởng. Xóa chỉ thị khỏi mô tả để lần push tiếp theo được đánh giá, hoặc yêu cầu đánh giá ngay.",
   "securityScan.review.roundsNoLimit": "Đánh giá AI tự động: đã đánh giá {rounds} commit · không bao giờ tạm dừng",
-  "language.switcher.label": "Ngôn ngữ"
+  "language.switcher.label": "Ngôn ngữ",
+  "testCases.ceiling.skipped": "{count, plural, other {Đã bỏ qua # bước}}"
 }

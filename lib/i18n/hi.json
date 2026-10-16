@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "छोड़ा गया — PR विवरण Lumo से इस PR को अनदेखा करने को कहता है",
   "securityScan.stageReason.IGNORED": "PR विवरण में अनदेखा करने का निर्देश है, इसलिए इस commit पर स्वचालित AI जाँचें छोड़ दी गईं। सीक्रेट, स्कैनर और निर्भरता जाँचों पर इसका असर नहीं पड़ता। अगले push की समीक्षा के लिए विवरण से निर्देश हटाएँ, या अभी समीक्षा का अनुरोध करें।",
   "securityScan.review.roundsNoLimit": "स्वचालित AI समीक्षा: {rounds} कमिट समीक्षित · कभी नहीं रुकती",
-  "language.switcher.label": "भाषा"
+  "language.switcher.label": "भाषा",
+  "testCases.ceiling.skipped": "{count, plural, one {# चरण छोड़ा गया} other {# चरण छोड़े गए}}"
 }

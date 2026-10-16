@@ -22,6 +22,7 @@ function run(over: Partial<CeilingRun> = {}): CeilingRun {
     environment: 'LOCAL',
     unprovenVerification: [],
     evidenceCount: 0,
+    stepResults: [],
     ...over,
   }
 }

@@ -56,7 +56,7 @@ export function latestReviewByRun<T extends ReviewRow>(
 
 /**
  * 这条 run 值不值得抽查：封顶之后仍是 PASS。封顶已经涵盖了「零证据」
- * （UNPROVEN(no-evidence)）与环境 / 未观察两条边界——那些本来就不算一个
+ * （UNPROVEN(no-evidence)）与环境 / 未观察 / 跳过几条边界——那些本来就不算一个
  * 站得住的 PASS，拿去复核是在复核一个已经被降级的结论。
  */
 export function isReviewable(run: ReviewableRun): boolean {

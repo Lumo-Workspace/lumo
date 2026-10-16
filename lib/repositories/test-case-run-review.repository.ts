@@ -17,6 +17,7 @@ const candidateSelect = {
   environment: true,
   unprovenVerification: true,
   evidence: true,
+  stepResults: true,
   note: true,
   commitSha: true,
   commitDirty: true,

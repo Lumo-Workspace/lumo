@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "dilewati — deskripsi PR meminta Lumo mengabaikan PR ini",
   "securityScan.stageReason.IGNORED": "Deskripsi PR berisi direktif abaikan, jadi pemeriksaan AI otomatis dilewati pada commit ini. Pemeriksaan rahasia, pemindai, dan dependensi tidak terpengaruh. Hapus direktif dari deskripsi agar push berikutnya ditinjau, atau minta tinjauan sekarang.",
   "securityScan.review.roundsNoLimit": "Tinjauan AI otomatis: {rounds} commit ditinjau · tidak pernah dijeda",
-  "language.switcher.label": "Bahasa"
+  "language.switcher.label": "Bahasa",
+  "testCases.ceiling.skipped": "{count, plural, other {# langkah dilewati}}"
 }

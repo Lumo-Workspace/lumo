@@ -23,6 +23,7 @@ import {
 } from '../../src/lib/test-case-steps'
 import { taskTestCaseRun } from '../../src/commands/task-testcase-run'
 import { taskTestCaseShow } from '../../src/commands/task-testcase-show'
+import { formatRunOutcome } from '../../src/lib/test-case-verdict'
 
 let logSpy: jest.SpyInstance
 let errorSpy: jest.SpyInstance
@@ -243,5 +244,26 @@ describe('testcase show with steps', () => {
 
   it('prints nothing extra for a run from an older server', () => {
     expect(formatStepResultLines(undefined)).toEqual([])
+  })
+})
+
+describe('formatRunOutcome skipped (LUM-1211)', () => {
+  it('names the skipped steps 1-based with their reasons', () => {
+    expect(
+      formatRunOutcome({
+        handle: 'LUM-1/TC1',
+        reported: 'PASS',
+        environment: 'LOCAL',
+        ceiling: {
+          effective: 'UNPROVEN',
+          reason: 'skipped',
+          skipped: [
+            { phase: 'STEPS', index: 2, text: 'call API', reason: 'no DB' },
+          ],
+        },
+      })
+    ).toBe(
+      'Recorded LUM-1/TC1: PASS on LOCAL → UNPROVEN (skipped: s3 call API — no DB)'
+    )
   })
 })

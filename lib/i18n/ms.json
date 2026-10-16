@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "dilangkau — penerangan PR meminta Lumo mengabaikan PR ini",
   "securityScan.stageReason.IGNORED": "Penerangan PR mengandungi arahan abaikan, jadi semakan AI automatik dilangkau pada commit ini. Semakan rahsia, pengimbas dan kebergantungan tidak terjejas. Buang arahan itu daripada penerangan supaya push seterusnya disemak, atau minta semakan sekarang.",
   "securityScan.review.roundsNoLimit": "Semakan AI automatik: {rounds} komit disemak · tidak pernah dijeda",
-  "language.switcher.label": "Bahasa"
+  "language.switcher.label": "Bahasa",
+  "testCases.ceiling.skipped": "{count, plural, other {# langkah dilangkau}}"
 }

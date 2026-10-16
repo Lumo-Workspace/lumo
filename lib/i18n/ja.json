@@ -2970,5 +2970,6 @@
   "securityScan.stageState.IGNORED": "スキップ — PR の説明で Lumo にこの PR を無視するよう指定されています",
   "securityScan.stageReason.IGNORED": "PR の説明に無視ディレクティブが含まれているため、このコミットでは AI の自動チェックをスキップしました。シークレット・スキャナー・依存関係のチェックには影響しません。説明からディレクティブを削除すると次の push がレビューされます。今すぐレビューを依頼することもできます。",
   "securityScan.review.roundsNoLimit": "自動 AI レビュー：{rounds} コミットをレビュー済み・一時停止なし",
-  "language.switcher.label": "言語"
+  "language.switcher.label": "言語",
+  "testCases.ceiling.skipped": "{count, plural, other {#件のステップをスキップ}}"
 }

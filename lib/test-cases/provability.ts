@@ -19,6 +19,8 @@
  * 证据轴保护——没有复验条目就没有可逐条声明「未观察」的东西。
  */
 
+import { parseStepResults } from './step-report'
+
 export type CeilingEnvironment = 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
 
 /** 一条 run 上与可证明性有关的那几列。 */
@@ -32,6 +34,8 @@ export interface CeilingRun {
    * 证据好坏（那是人抽查的事）。用 `countEvidence` 从 Json 列算。
    */
   evidenceCount: number
+  /** LUM-1211: `TestCaseRun.stepResults` Json 原样传入；SKIP 步会封顶 PASS。 */
+  stepResults: unknown
 }
 
 /**
@@ -60,6 +64,16 @@ export type RunCeiling =
       reason: 'unobserved'
       unobserved: Array<{ index: number; text: string }>
     }
+  | {
+      effective: 'UNPROVEN'
+      reason: 'skipped'
+      skipped: Array<{
+        phase: 'STEPS' | 'VERIFICATION'
+        index: number
+        text: string
+        reason: string
+      }>
+    }
   | { effective: 'UNPROVEN'; reason: 'no-evidence' }
   | { effective: 'FAIL' }
   | { effective: 'BLOCKED' }
@@ -80,9 +94,12 @@ export type RunCeiling =
  *   意味着历史上的零证据 PASS 也按同一口径显示——这是用户裁定接受的后果
  *   （2026-09-23），不按 createdAt 切线：切线等于给旧的空口承诺永久豁免。
  *
- * 多条同时成立时的优先级：**环境 > 未观察 > 无证据**。越靠前越粗、越根本：
+ * 多条同时成立时的优先级：**环境 > 未观察 > 跳过 > 无证据**。越靠前越粗、越根本：
  * 「这次根本不在能证明它的地方跑」比逐条列未观察项更有信息量；而一条自己
  * 声明了哪几条没看到的 run，比「没附证据」说得更具体。
+ * LUM-1211: 有显式 SKIP 的步骤排在未观察之后、无证据之前——跳过是逐步明说的。
+ *
+ * - LUM-1211: 这次有显式 SKIP 的步骤 → `UNPROVEN(skipped)`。
  *
  * `UNPROVEN` 只在这里产生，**永远不落列**：它不是 `TestCaseRunResult` 的值，
  * 上报路径上没有它。存一个封顶后的结论，用例一改复验段它第二天就是谎话
@@ -110,6 +127,18 @@ export function deriveRunCeiling(
       reason: 'unobserved',
       unobserved: run.unprovenVerification,
     }
+  }
+
+  const skipped = parseStepResults(run.stepResults)
+    .filter(r => r.status === 'SKIP')
+    .map(r => ({
+      phase: r.phase,
+      index: r.index,
+      text: r.text,
+      reason: r.reason ?? '',
+    }))
+  if (skipped.length > 0) {
+    return { effective: 'UNPROVEN', reason: 'skipped', skipped }
   }
 
   if (run.evidenceCount === 0) {

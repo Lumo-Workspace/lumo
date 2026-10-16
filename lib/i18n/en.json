@@ -2394,6 +2394,7 @@
   "testCases.cause.UNKNOWN": "Could not tell",
   "testCases.ceiling.environment": "this case only proves anything on {env}",
   "testCases.ceiling.unobserved": "{count, plural, one {# verification step went unobserved} other {# verification steps went unobserved}}",
+  "testCases.ceiling.skipped": "{count, plural, one {# step was skipped} other {# steps were skipped}}",
   "testCases.ceiling.noEvidence": "no evidence attached — nobody else can re-read this pass",
   "testCases.review.accepted": "Spot-checked: the evidence holds · {reviewer} · {date}",
   "testCases.review.rejected": "Spot-check sent this pass back — the evidence did not hold it up · {reviewer} · {date}",
