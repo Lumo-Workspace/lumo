@@ -820,9 +820,11 @@ export const prScanReadoutService = {
       task.id
     )
     const ctx = await loadReadoutContext(workspaceId, prs)
-    const pullRequests = await Promise.all(
-      prs.map(pr => buildPullRequestReadout(pr, input.all, ctx))
-    )
+    // One PR at a time: a task can link many PRs and `--all` reads each
+    // one's whole scan history — never fan that out across the pool.
+    const pullRequests: PullRequestScanReadout[] = []
+    for (const pr of prs)
+      pullRequests.push(await buildPullRequestReadout(pr, input.all, ctx))
     let blocking = 0
     let open = 0
     let redactedSecrets = 0
