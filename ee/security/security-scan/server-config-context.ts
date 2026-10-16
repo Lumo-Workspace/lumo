@@ -77,7 +77,13 @@ const ENTRYPOINT_FILE = /\.(m?[jt]sx?|cjs|py|go|rs|rb|java|kt|php)$/
 const SERVER_COMMAND =
   /\b(serve|runserver|uvicorn|gunicorn|hypercorn|daphne|waitress-serve|flask\s+run|rails\s+s(erver)?|php\s+-S|http\.server|http-server|live-server|nginx|caddy|httpd|next\s+(dev|start)|nuxt\s+(dev|start)|vite|webpack-dev-server|nodemon|pm2\s+start|(npm|yarn|pnpm|bun)\s+(run\s+)?(dev|start|serve|preview)|docker(-|\s+)compose\s+up)\b/
 /** A package.json script whose name says it starts something: `"dev": "…"`. */
-const PACKAGE_SCRIPT = /"[\w:.-]*(dev|start|serve|preview)[\w:.-]*"\s*:\s*"/
+const PACKAGE_SCRIPT =
+  /^\s*"[\w:.-]*(dev|start|serve|preview)[\w:.-]*"\s*:\s*"([^"]*)"/
+/** A key that opens an object: `"scripts": {`. */
+const OBJECT_KEY = /^\s*"([^"]+)"\s*:\s*\{/
+/** A dependency's value: a version range, a tag, or a protocol spec. */
+const VERSION_LIKE =
+  /^\s*((\^|~|>=?|<=?|=)?\s*v?\d|(workspace|npm|file|link|portal|patch|git\+[a-z]+|git|github|https?):|(latest|next|canary|beta|\*|x)\s*$)/
 const DOCKER_START = /^\s*(CMD|ENTRYPOINT|EXPOSE)\b/i
 const COMPOSE_START =
   /^\s*(ports|command|entrypoint|expose)\s*:|^\s*image\s*:\s*\S*(nginx|caddy|httpd|traefik)/
@@ -86,7 +92,6 @@ const ENTRYPOINT_START =
   /\.listen\(|\bapp\.run\(|\buvicorn\.run\(|\bListenAndServe(TLS)?\(|\bTcpListener::bind\(|\bHttpServer::new\(|\bcreateServer\(|\b(Bun|Deno)\.serve\(/
 
 function startsServer(path: string, line: string): boolean {
-  if (PACKAGE_JSON.test(path)) return PACKAGE_SCRIPT.test(line)
   if (DOCKERFILE.test(path)) return DOCKER_START.test(line)
   if (COMPOSE_FILE.test(path)) return COMPOSE_START.test(line)
   if (LAUNCHER_FILE.test(path)) return SERVER_COMMAND.test(line)
@@ -94,10 +99,13 @@ function startsServer(path: string, line: string): boolean {
   return false
 }
 
-/** Added lines per changed file, in diff order. */
-function addedLinesByFile(diff: string): Map<string, string[]> {
-  const out = new Map<string, string[]>()
-  let current: string[] | null = null
+/** One file's hunk lines in the new-file view: added (`+`) or context (` `); `@` starts a hunk. */
+type BodyLine = { kind: '+' | ' ' | '@'; text: string }
+
+/** Hunk lines per changed file, in diff order (removed lines dropped). */
+function bodyLinesByFile(diff: string): Map<string, BodyLine[]> {
+  const out = new Map<string, BodyLine[]>()
+  let current: BodyLine[] | null = null
   for (const line of diff.split('\n')) {
     if (line.startsWith('+++ ')) {
       const target = line.slice(4).trim()
@@ -112,7 +120,49 @@ function addedLinesByFile(diff: string): Map<string, string[]> {
       current = null
       continue
     }
-    if (current && line.startsWith('+')) current.push(line.slice(1))
+    if (!current) continue
+    if (line.startsWith('@@')) current.push({ kind: '@', text: '' })
+    else if (line.startsWith('+'))
+      current.push({ kind: '+', text: line.slice(1) })
+    else if (line.startsWith(' '))
+      current.push({ kind: ' ', text: line.slice(1) })
+  }
+  return out
+}
+
+/**
+ * package.json: added `"dev" / "start" / "serve" / "preview…": "<command>"`
+ * entries of the `scripts` object only. The object an entry sits in is read
+ * from the hunk's lines (`"scripts": {` … `}`); when the hunk starts inside an
+ * object whose key is out of sight, a version-like value (`^5.0.4`,
+ * `workspace:*`, `latest`) is a dependency, anything else a script.
+ */
+function packageScriptStarts(body: readonly BodyLine[]): string[] {
+  const out: string[] = []
+  // null = unknown (the hunk starts mid-object), else the enclosing key.
+  let section: string | null = null
+  for (const line of body) {
+    if (line.kind === '@') {
+      section = null
+      continue
+    }
+    const opened = OBJECT_KEY.exec(line.text)
+    if (opened) {
+      section = opened[1]!
+      continue
+    }
+    if (/^\s*\}/.test(line.text)) {
+      section = ''
+      continue
+    }
+    if (line.kind !== '+') continue
+    const m = PACKAGE_SCRIPT.exec(line.text)
+    if (!m) continue
+    if (
+      section === 'scripts' ||
+      (section === null && !VERSION_LIKE.test(m[2]!))
+    )
+      out.push(line.text)
   }
   return out
 }
@@ -199,8 +249,11 @@ export function planServerConfigContext(diff: string): ServerConfigPlan {
   const push = (into: string[], v: string) => {
     if (!into.includes(v)) into.push(v)
   }
-  for (const [path, added] of addedLinesByFile(diff)) {
-    const starting = added.filter(line => startsServer(path, line))
+  for (const [path, body] of bodyLinesByFile(diff)) {
+    const added = body.filter(l => l.kind === '+').map(l => l.text)
+    const starting = PACKAGE_JSON.test(path)
+      ? packageScriptStarts(body)
+      : added.filter(line => startsServer(path, line))
     if (starting.length === 0) continue
     triggers.push(path)
     const own = dirname(path)
@@ -259,7 +312,7 @@ export function isSecretLikePath(path: string): boolean {
 }
 
 /**
- * PURE — the config files to read: the explicitly named ones first, then each
+ * PURE — the config files to read: the explicitly named ones that exist first, then each
  * planned directory's config files (by path), skipping changed and secret
  * files, at most SERVER_CONFIG_MAX_FILES. `listing` maps a directory to the
  * paths of its entries.
@@ -276,7 +329,10 @@ export function selectServerConfigFiles(
     if (!isServerConfigName(basename(p))) return
     picked.push(p)
   }
-  for (const ref of plan.refs) take(ref)
+  // A named file counts only when its directory listing shows it: a ref to
+  // a file that is not there must not take a slot from one that is.
+  for (const ref of plan.refs)
+    if ((listing[dirname(ref)] ?? []).includes(ref)) take(ref)
   for (const dir of plan.dirs) {
     const entries = [...(listing[dir] ?? [])]
       .filter(p => dirname(p) === dir)
@@ -349,10 +405,13 @@ export async function loadServerConfigContext(opts: {
   if ((opts.maxChars ?? SERVER_CONFIG_MAX_CHARS) <= 0) return NONE(null)
   const abort = new AbortController()
   const work = async (): Promise<LoadedServerConfig> => {
+    // The refs' directories are listed too, to check each ref exists.
+    const dirs = [...new Set([...plan.dirs, ...plan.refs.map(dirname)])].slice(
+      0,
+      SERVER_CONFIG_MAX_DIRS + SERVER_CONFIG_MAX_FILES
+    )
     const listed = await Promise.all(
-      plan.dirs.map(
-        async d => [d, await opts.listDir(d, abort.signal)] as const
-      )
+      dirs.map(async d => [d, await opts.listDir(d, abort.signal)] as const)
     )
     const picked = selectServerConfigFiles(
       plan,

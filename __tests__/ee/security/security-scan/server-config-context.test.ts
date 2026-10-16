@@ -46,6 +46,60 @@ describe('LUM-1208 server config context — trigger detection', () => {
     expect(planServerConfigContext(bump).triggers).toEqual([])
   })
 
+  it('package.json: only an added scripts entry triggers, never a dependency whose name says dev/start/serve/preview', () => {
+    const pkg = (added: string[], context: string[]) =>
+      [
+        'diff --git a/web/package.json b/web/package.json',
+        '--- a/web/package.json',
+        '+++ b/web/package.json',
+        '@@ -10,4 +10,5 @@',
+        ...context.map(l => ` ${l}`),
+        ...added.map(l => `+${l}`),
+      ].join('\n')
+    // Inside "devDependencies" (its key in the hunk's context).
+    expect(
+      planServerConfigContext(
+        pkg(['    "webpack-dev-server": "^5.0.4",'], ['  "devDependencies": {'])
+      ).triggers
+    ).toEqual([])
+    expect(
+      planServerConfigContext(
+        pkg(['    "serve-static": "^1.16.2",'], ['  "dependencies": {'])
+      ).triggers
+    ).toEqual([])
+    // Hunk starts mid-object (no key in sight): a version-like value is a
+    // dependency, a command is a script.
+    expect(
+      planServerConfigContext(
+        pkg(['    "start-server-and-test": "2.0.3",'], [])
+      ).triggers
+    ).toEqual([])
+    expect(
+      planServerConfigContext(pkg(['    "dev:web": "next dev -p 3000",'], []))
+        .triggers
+    ).toEqual(['web/package.json'])
+    // Inside "scripts": a dev script triggers even with a version-like look.
+    expect(
+      planServerConfigContext(
+        pkg(['    "start": "node server.js",'], ['  "scripts": {'])
+      ).triggers
+    ).toEqual(['web/package.json'])
+    // After "scripts" closes, the next object's entries are not scripts.
+    expect(
+      planServerConfigContext(
+        pkg(
+          ['    "preview-email": "^3.0.0",'],
+          [
+            '  "scripts": {',
+            '    "build": "tsc"',
+            '  },',
+            '  "dependencies": {',
+          ]
+        )
+      ).triggers
+    ).toEqual([])
+  })
+
   it('Dockerfile CMD/EXPOSE and compose ports trigger; a plain RUN does not', () => {
     expect(
       planServerConfigContext(
@@ -175,6 +229,7 @@ describe('LUM-1208 server config context — exclusions', () => {
       refs: ['deploy/nginx.conf'],
     }
     const listing: Record<string, string[]> = {
+      deploy: ['deploy/nginx.conf'],
       frontend: [
         'frontend/Trunk.toml',
         'frontend/Cargo.toml',
@@ -203,6 +258,36 @@ describe('LUM-1208 server config context — exclusions', () => {
       'next.config.js',
     ])
     expect(picked.length).toBe(SERVER_CONFIG_MAX_FILES)
+  })
+
+  it('a ref that does not exist never takes a slot from a directory file', () => {
+    const picked = selectServerConfigFiles(
+      {
+        triggers: ['Makefile'],
+        dirs: [''],
+        refs: ['a/nginx.conf', 'b/nginx.conf', 'c/nginx.conf', 'd/nginx.conf'],
+      },
+      { '': ['vite.config.ts'], a: [], b: [] },
+      new Set()
+    )
+    expect(picked).toEqual(['vite.config.ts'])
+  })
+
+  it('the loader lists the directories of explicit refs to check they exist', async () => {
+    const listed: string[] = []
+    const ctx = await loadServerConfigContext({
+      plan: planServerConfigContext(
+        section('Makefile', ['run:', '\tnginx -c deploy/nginx.conf'])
+      ),
+      changedPaths: ['Makefile'],
+      listDir: async dir => {
+        listed.push(dir)
+        return dir === 'deploy' ? ['deploy/nginx.conf'] : []
+      },
+      readFile: async () => 'listen 0.0.0.0:80;\n',
+    })
+    expect(listed.sort()).toEqual(['', 'deploy'])
+    expect(ctx.included).toEqual(['deploy/nginx.conf'])
   })
 
   it('a ref that is a secret file or not a config file is never selected', () => {

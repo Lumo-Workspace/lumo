@@ -242,6 +242,7 @@ beforeEach(() => {
 })
 
 import { reviewContextBudget } from '@/ee/security/security-scan/review-context'
+import { logger } from '@/lib/logger'
 
 const MAKEFILE = [
   'diff --git a/Makefile b/Makefile',
@@ -328,6 +329,11 @@ describe('LUM-1208 server config context on the scan', () => {
     const meta = await runScan()
     expect(judgeInput()).not.toHaveProperty('serverConfig')
     expect(meta.judgeBudget).not.toHaveProperty('serverConfig')
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'server config context unavailable pr=pr1 sha=sha-1: GitHub API error 403'
+      )
+    )
   })
 })
 jest.mock('@/ee/security/services/auto-review-admission.service', () =>
