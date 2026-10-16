@@ -60,6 +60,73 @@ export interface ReadFailure {
   error: string
 }
 
+// ── response-shape guards ──────────────────────────────────────────────────
+// The two payloads come off the wire; a body that does not carry the fields
+// the renderers read takes the same `Could not read` path as an HTTP error
+// instead of crashing the whole `sprint show` on a property access.
+
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+const isNum = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isFinite(v)
+const isStr = (v: unknown): v is string => typeof v === 'string'
+const isNumOrNull = (v: unknown) => v === null || isNum(v)
+const isStrOrNull = (v: unknown) => v === null || isStr(v)
+const everyItem = (v: unknown, ok: (item: unknown) => boolean) =>
+  Array.isArray(v) && v.every(ok)
+
+/** True when `body` has the fields {@link sprintBurnupLines} reads. */
+export function isSprintBurnupData(body: unknown): body is SprintBurnupData {
+  return (
+    isObj(body) &&
+    isStr(body.start) &&
+    isStr(body.end) &&
+    isNum(body.scopeTotal) &&
+    everyItem(
+      body.series,
+      p =>
+        isObj(p) && isStr(p.date) && isNum(p.scope) && isNumOrNull(p.completed)
+    )
+  )
+}
+
+const isModelUsage = (m: unknown) =>
+  isObj(m) && isStr(m.model) && isNum(m.total)
+
+/** True when `body` has the fields {@link sprintTeamPerformanceLines} reads. */
+export function isSprintTeamPerformanceData(
+  body: unknown
+): body is SprintTeamPerformanceData {
+  return (
+    isObj(body) &&
+    isNum(body.measuredTasks) &&
+    isNumOrNull(body.totalTokenCost) &&
+    isNum(body.totalActiveTimeSec) &&
+    isNum(body.totalRuns) &&
+    everyItem(
+      body.rows,
+      r =>
+        isObj(r) &&
+        isStrOrNull(r.label) &&
+        isNum(r.tasksDone) &&
+        isNum(r.tokenCost) &&
+        isNum(r.activeTimeSec) &&
+        isNum(r.runs) &&
+        everyItem(
+          r.perTask,
+          t =>
+            isObj(t) &&
+            isStr(t.identifier) &&
+            isStr(t.title) &&
+            isNum(t.tokenCost) &&
+            isNum(t.activeTimeSec) &&
+            isStr(t.updatedAt) &&
+            everyItem(t.models, isModelUsage)
+        )
+    )
+  )
+}
+
 /** Tasks listed under each member in Team performance (top by tokens). */
 export const TEAM_TASKS_SHOWN = 5
 

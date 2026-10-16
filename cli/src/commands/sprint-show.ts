@@ -14,6 +14,8 @@ import {
 } from '../lib/report-layout'
 import { taskTableSection } from '../lib/detail-layout'
 import {
+  isSprintBurnupData,
+  isSprintTeamPerformanceData,
   sprintBurnupLines,
   sprintTeamPerformanceLines,
   type ReadFailure,
@@ -162,6 +164,23 @@ export async function sprintShow(
     return 1
   }
 
+  // LUM-1190: the two secondary reads start now, in parallel with the main
+  // ones. They are fail-soft — fetchSecondary never rejects, a failed or
+  // malformed one renders `Could not read (…)` in its section — so one going
+  // wrong cannot fail the whole show (and an early return below just drops them).
+  const secondary = Promise.all([
+    fetchSecondary(
+      `${base}/api/sprints/${sprintId}/burnup`,
+      creds.token,
+      isSprintBurnupData
+    ),
+    fetchSecondary(
+      `${base}/api/sprints/${sprintId}/team-performance`,
+      creds.token,
+      isSprintTeamPerformanceData
+    ),
+  ])
+
   // Fetch sprint details and tasks in parallel.
   let sprintRes: Response
   let tasksRes: Response
@@ -200,18 +219,7 @@ export async function sprintShow(
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
-  // LUM-1190: the two secondary reads are fail-soft — a failed one renders
-  // `Could not read (…)` in its section instead of failing the whole show.
-  const [burnup, teamPerformance] = await Promise.all([
-    fetchSecondary<SprintBurnupData>(
-      `${base}/api/sprints/${sprintId}/burnup`,
-      creds.token
-    ),
-    fetchSecondary<SprintTeamPerformanceData>(
-      `${base}/api/sprints/${sprintId}/team-performance`,
-      creds.token
-    ),
-  ])
+  const [burnup, teamPerformance] = await secondary
 
   process.stdout.write(
     formatSprintShow(
@@ -229,17 +237,23 @@ export async function sprintShow(
   )
 }
 
-/** GET a secondary payload; any failure comes back as a {@link ReadFailure}. */
+/**
+ * GET a secondary payload. Never rejects: a network error, a non-2xx status,
+ * an unparsable body or one that fails `isValid` all come back as a
+ * {@link ReadFailure}.
+ */
 export async function fetchSecondary<T>(
   url: string,
-  token: string
+  token: string,
+  isValid: (body: unknown) => body is T
 ): Promise<T | ReadFailure> {
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) return { error: `HTTP ${res.status}` }
-    return (await res.json()) as T
+    const body: unknown = await res.json()
+    return isValid(body) ? body : { error: 'unexpected response shape' }
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) }
   }

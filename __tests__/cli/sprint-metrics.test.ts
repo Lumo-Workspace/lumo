@@ -5,6 +5,8 @@ import {
   burnupPlan,
   burnupSparkline,
   fmtTaskCount,
+  isSprintBurnupData,
+  isSprintTeamPerformanceData,
   sprintBurnupLines,
   sprintTeamPerformanceLines,
   type SprintBurnupData,
@@ -235,39 +237,115 @@ describe('formatSprintShow — metrics sections', () => {
   })
 })
 
+describe('response-shape guards', () => {
+  it('accept the payloads the renderers read', () => {
+    expect(isSprintBurnupData(burnup)).toBe(true)
+    expect(isSprintTeamPerformanceData(perf)).toBe(true)
+    expect(isSprintTeamPerformanceData({ ...perf, totalTokenCost: null })).toBe(
+      true
+    )
+  })
+
+  it.each([
+    ['null', null],
+    ['an array', []],
+    ['an error body', { error: 'Sprint not found' }],
+    ['series not an array', { ...burnup, series: 'x' }],
+    [
+      'a day with a string count',
+      { ...burnup, series: [{ date: '2026-06-01', scope: '3', completed: 0 }] },
+    ],
+    ['missing scopeTotal', { start: 'a', end: 'b', series: [] }],
+  ])('burnup guard rejects %s', (_label, body) => {
+    expect(isSprintBurnupData(body)).toBe(false)
+  })
+
+  it.each([
+    ['null', null],
+    ['rows missing', { ...perf, rows: undefined }],
+    [
+      'a row without perTask',
+      { ...perf, rows: [{ ...perf.rows[0]!, perTask: null }] },
+    ],
+    [
+      'a task with non-array models',
+      {
+        ...perf,
+        rows: [
+          {
+            ...perf.rows[0]!,
+            perTask: [{ ...perf.rows[0]!.perTask[0]!, models: {} }],
+          },
+        ],
+      },
+    ],
+    ['a string total', { ...perf, totalTokenCost: '4M' }],
+  ])('team-performance guard rejects %s', (_label, body) => {
+    expect(isSprintTeamPerformanceData(body)).toBe(false)
+  })
+})
+
 describe('fetchSecondary', () => {
   const realFetch = global.fetch
   afterEach(() => {
     global.fetch = realFetch
   })
-
-  it('returns the JSON body with a bearer header', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+  const ok = (body: unknown) =>
+    jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ a: 1 }),
-    })
-    global.fetch = fetchMock as unknown as typeof fetch
-    await expect(fetchSecondary('http://x/api', 'tok')).resolves.toEqual({
-      a: 1,
-    })
+      json: async () => body,
+    }) as unknown as typeof fetch
+
+  it('returns a valid body, sent with a bearer header', async () => {
+    const fetchMock = ok(burnup)
+    global.fetch = fetchMock
+    await expect(
+      fetchSecondary('http://x/api', 'tok', isSprintBurnupData)
+    ).resolves.toEqual(burnup)
     expect(fetchMock).toHaveBeenCalledWith('http://x/api', {
       headers: { Authorization: 'Bearer tok' },
     })
+  })
+
+  it('turns a malformed body into a ReadFailure', async () => {
+    global.fetch = ok({ series: 'nope' })
+    await expect(
+      fetchSecondary('http://x', 't', isSprintBurnupData)
+    ).resolves.toEqual({ error: 'unexpected response shape' })
+  })
+
+  it('turns an unparsable body into a ReadFailure', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON')
+      },
+    }) as unknown as typeof fetch
+    await expect(
+      fetchSecondary('http://x', 't', isSprintBurnupData)
+    ).resolves.toEqual({ error: 'Unexpected token < in JSON' })
   })
 
   it('turns a non-2xx or a network error into a ReadFailure', async () => {
     global.fetch = jest
       .fn()
       .mockResolvedValue({ ok: false, status: 503 }) as unknown as typeof fetch
-    await expect(fetchSecondary('http://x', 't')).resolves.toEqual({
-      error: 'HTTP 503',
-    })
+    await expect(
+      fetchSecondary('http://x', 't', isSprintBurnupData)
+    ).resolves.toEqual({ error: 'HTTP 503' })
     global.fetch = jest
       .fn()
       .mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof fetch
-    await expect(fetchSecondary('http://x', 't')).resolves.toEqual({
-      error: 'ECONNREFUSED',
-    })
+    await expect(
+      fetchSecondary('http://x', 't', isSprintTeamPerformanceData)
+    ).resolves.toEqual({ error: 'ECONNREFUSED' })
+  })
+
+  it('a malformed section renders the Could-not-read line', () => {
+    expect(
+      sprintBurnupLines({ error: 'unexpected response shape' }).join('\n')
+    ).toContain('Burnup\n  Could not read (unexpected response shape).')
   })
 })

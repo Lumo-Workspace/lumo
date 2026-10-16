@@ -61,7 +61,7 @@ Blockers
 
 **Team performance (LUM-1190)** — the web panel as text (`/api/sprints/<id>/team-performance`): `Total:  tokens · agent time · runs  (measured on N tasks)`, then one line per member (`Alice  75% · 2 tasks done · 3M tokens · 1h agent time · 4 runs`; share = the member's slice of the sprint's tokens; the member-less bucket reads `Unattributed`, last) with that member's top 5 tasks by tokens under it (id, tokens, agent time, last update, title, per-model split; the rest counted as `… N more tasks`). Tokens attribute to the session spender; `tasks done` to the task's biggest spender. When the token side is unmeasured, tokens and share read `-` (not 0 / 0%).
 
-Either section prints `Could not read (HTTP n).` if its read fails — the rest of `sprint show` still renders.
+Both reads run in parallel with the main sprint/task reads. Either section prints `Could not read (…)` if its read fails or returns an unexpected shape (`HTTP 500`, a network error, `unexpected response shape`) — the rest of `sprint show` still renders.
 
 ```
 Burnup
