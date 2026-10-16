@@ -16,6 +16,7 @@
  *   DOTENV_CONFIG_PATH="$(pwd)/.env.local" npx tsx -r dotenv/config \
  *     scripts/analysis/lum988-code-review-replay/replay.ts \
  *     --data <data dir> --out results.json [--runs 1] [--concurrency 8] [--limit N]
+ *     [--ids <url,url>] [--server-config <checkouts root>]
  *     [--instructions <file>]
  *
  * LUM-1199: `--instructions` = `{ [prUrl]: PathInstruction[] }` (the
@@ -25,7 +26,13 @@
  *
  * Needs AI_GATEWAY_API_KEY (the real ZDR gateway, pinned to Anthropic).
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { judgeSecurity } from '@/ee/security/llm/security-judge-client'
 import {
@@ -37,6 +44,11 @@ import {
   RELATED_MAX_CHARS,
   loadRelatedContext,
 } from '@/ee/security/security-scan/related-context'
+import {
+  SERVER_CONFIG_MAX_CHARS,
+  loadServerConfigContext,
+  planServerConfigContext,
+} from '@/ee/security/security-scan/server-config-context'
 import { gitGrepSearch } from './git-grep-search'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import {
@@ -67,6 +79,48 @@ const limit = Number(opt('limit', '0'))
 // LUM-988 ablation: cross-file context searched in local PR-head checkouts
 // (checkout.ts layout: <root>/co/<prKey>).
 const relatedRoot = opt('related', '')
+// LUM-1208: server config files the PR does not change, listed and read from
+// the hashX checkouts (collect.ts layout: <root>/co/<prKey>) — production
+// lists them through the contents API at the head.
+const serverConfigRoot = opt('server-config', '')
+// Only these PR urls (default: every PR in prs.json).
+const onlyIds = opt('ids', '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+
+/**
+ * Directory listing / file read inside one third-party checkout: never a
+ * symlink (it could lead out of the checkout), never `.git`.
+ */
+function checkoutReaders(root: string) {
+  const inside = (rel: string): string | null => {
+    const abs = path.join(root, rel)
+    if (abs !== root && !abs.startsWith(`${root}${path.sep}`)) return null
+    let cur = root
+    for (const seg of rel.split('/').filter(Boolean)) {
+      if (seg === '.git') return null
+      cur = path.join(cur, seg)
+      if (!existsSync(cur) || lstatSync(cur).isSymbolicLink()) return null
+    }
+    return abs
+  }
+  return {
+    listDir: async (dir: string): Promise<string[]> => {
+      const abs = inside(dir)
+      if (abs === null || !lstatSync(abs).isDirectory()) return []
+      return readdirSync(abs, { withFileTypes: true })
+        .filter(e => e.isFile())
+        .map(e => (dir ? `${dir}/${e.name}` : e.name))
+    },
+    readFile: async (rel: string): Promise<string | null> => {
+      const abs = inside(rel)
+      return abs !== null && lstatSync(abs).isFile()
+        ? readFileSync(abs, 'utf8')
+        : null
+    },
+  }
+}
 const instructionsFile = opt('instructions', '')
 const instructionsByPr: Record<string, unknown> = instructionsFile
   ? parseInstructionsFile(readFileSync(instructionsFile, 'utf8'))
@@ -88,6 +142,9 @@ export interface ReplayRun {
   contextFiles: number
   contextError: string | null
   relatedChars?: number
+  /** LUM-1208 — config files sent (path list) and their chars. */
+  serverConfigFiles?: string[]
+  serverConfigChars?: number
   /** LUM-1199 — rendered path-instruction chars and entries sent. */
   instructionChars?: number
   instructionsSent?: number
@@ -107,11 +164,30 @@ async function reviewOnce(url: string): Promise<RunResult> {
     instructionsForPr(instructionsByPr, url),
     capped.covered
   )
+  let serverConfigText = ''
+  let serverConfigFiles: string[] = []
+  if (serverConfigRoot) {
+    const readers = checkoutReaders(
+      path.join(serverConfigRoot, 'co', prKey(url))
+    )
+    const loaded = await loadServerConfigContext({
+      plan: planServerConfigContext(capped.text),
+      changedPaths: capped.covered,
+      ...readers,
+      maxChars: Math.min(
+        SERVER_CONFIG_MAX_CHARS,
+        reviewContextBudget(capped.text.length + instructions.text.length)
+      ),
+    })
+    serverConfigText = loaded.text
+    serverConfigFiles = loaded.included
+  }
   const context = await loadReviewContext({
     paths: capped.covered,
-    // Production: the instructions share the context budget with the diff.
+    // Production: the instructions and the server config share the context
+    // budget with the diff.
     maxChars: reviewContextBudget(
-      capped.text.length + instructions.text.length
+      capped.text.length + instructions.text.length + serverConfigText.length
     ),
     readFile: async p => {
       const f = path.join(dir, 'files', p)
@@ -144,6 +220,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
       timeoutMs: tier.timeoutMs,
       context: contextText,
       ...(relatedText ? { related: relatedText } : {}),
+      ...(serverConfigText ? { serverConfig: serverConfigText } : {}),
       ...(instructions.text ? { pathInstructions: instructions.text } : {}),
     })
     return {
@@ -156,6 +233,9 @@ async function reviewOnce(url: string): Promise<RunResult> {
       contextFiles: context.included.length,
       contextError: context.error,
       relatedChars: relatedText.length,
+      ...(serverConfigRoot
+        ? { serverConfigFiles, serverConfigChars: serverConfigText.length }
+        : {}),
       instructionChars: instructions.text.length,
       instructionsSent: instructions.sent.length,
     }
@@ -168,7 +248,8 @@ async function main(): Promise<void> {
   const all = JSON.parse(
     readFileSync(path.join(dataDir, 'prs.json'), 'utf8')
   ) as string[]
-  const prs = limit > 0 ? all.slice(0, limit) : all
+  const picked = onlyIds.length ? all.filter(u => onlyIds.includes(u)) : all
+  const prs = limit > 0 ? picked.slice(0, limit) : picked
   const out: Record<string, { runs: RunResult[] }> = {}
   const queue = [...prs]
   const worker = async (): Promise<void> => {
@@ -179,7 +260,7 @@ async function main(): Promise<void> {
       const tag = results
         .map(x =>
           'findings' in x
-            ? `${x.findings.length}f/${x.contextFiles}ctx/${x.relatedChars ?? 0}rel/${x.instructionsSent ?? 0}pi/${Math.round(x.ms / 1000)}s`
+            ? `${x.findings.length}f/${x.contextFiles}ctx/${x.relatedChars ?? 0}rel/${x.instructionsSent ?? 0}pi/${x.serverConfigFiles?.length ?? 0}cfg/${Math.round(x.ms / 1000)}s`
             : 'skipped' in x
               ? 'over-cap'
               : `ERR ${x.error.slice(0, 60)}`
