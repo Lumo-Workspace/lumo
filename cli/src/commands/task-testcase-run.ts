@@ -168,7 +168,7 @@ export async function testCaseRunInScope(
     if (!steps.value.some(s => s.phase === e.phase && s.index === e.index)) {
       const ref = `${e.phase === 'STEPS' ? 's' : 'v'}${e.index + 1}`
       console.error(
-        `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail.`
+        `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail|skip:<reason>.`
       )
       return 1
     }
@@ -293,6 +293,7 @@ export async function testCaseRunInScope(
     phase: s.phase,
     index: s.index,
     status: s.status,
+    ...(s.status === 'SKIP' ? { reason: s.reason } : {}),
     durationMs: s.durationMs,
     evidence: stepEvidenceIdx.get(`${s.phase}:${s.index}`) ?? [],
   }))
@@ -317,7 +318,7 @@ export async function testCaseRunInScope(
         failureAttribution: cause.cause,
         unprovenVerification: unproven.indices,
         note: options.note?.trim() || null,
-        // LUM-1011: 旧服务端会静默丢掉这两个字段（非 strict schema）。
+        // LUM-1211: 服务端要求每一步都上报；缺了它会 400 并列出缺项，CLI 原样转述。
         ...(stepResults.length > 0 ? { stepResults } : {}),
         ...(actual !== null ? { actual } : {}),
         pullRequestNumber: prNumber,
@@ -345,8 +346,11 @@ export async function testCaseRunInScope(
   }
   if (actual !== null) console.log(`  actual: ${actual}`)
   if (stepResults.length > 0) {
-    const passed = stepResults.filter(s => s.status === 'PASS').length
-    console.log(`Steps: ${passed} passed of ${stepResults.length} reported`)
+    const n = (st: string) => stepResults.filter(r => r.status === st).length
+    const parts = [`${n('PASS')} passed`]
+    if (n('SKIP') > 0) parts.push(`${n('SKIP')} skipped`)
+    if (n('FAIL') > 0) parts.push(`${n('FAIL')} failed`)
+    console.log(`Steps: ${parts.join(', ')} of ${stepResults.length} reported`)
   }
   if (prNumber !== null) console.log(`PR: #${prNumber}`)
   if (commitSha) {

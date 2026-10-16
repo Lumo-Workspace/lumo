@@ -83,10 +83,34 @@ describe('parseStepSpecs', () => {
     expect(r).toEqual({
       ok: true,
       value: [
-        { phase: 'STEPS', index: 0, status: 'PASS', durationMs: null },
-        { phase: 'STEPS', index: 1, status: 'PASS', durationMs: null },
-        { phase: 'VERIFICATION', index: 0, status: 'FAIL', durationMs: 300 },
-        { phase: 'STEPS', index: 2, status: 'PASS', durationMs: 300 },
+        {
+          phase: 'STEPS',
+          index: 0,
+          status: 'PASS',
+          reason: null,
+          durationMs: null,
+        },
+        {
+          phase: 'STEPS',
+          index: 1,
+          status: 'PASS',
+          reason: null,
+          durationMs: null,
+        },
+        {
+          phase: 'VERIFICATION',
+          index: 0,
+          status: 'FAIL',
+          reason: null,
+          durationMs: 300,
+        },
+        {
+          phase: 'STEPS',
+          index: 2,
+          status: 'PASS',
+          reason: null,
+          durationMs: 300,
+        },
       ],
     })
   })
@@ -102,6 +126,81 @@ describe('parseStepSpecs', () => {
     ['two failing steps', ['s1=fail', 's2=fail']],
   ])('rejects %s', (_label, specs) => {
     expect(parseStepSpecs(specs).ok).toBe(false)
+  })
+})
+
+describe('skip (LUM-1211)', () => {
+  it('parses s3=skip:<reason>', () => {
+    expect(parseStepSpecs(['s3=skip:no real DB'])).toEqual({
+      ok: true,
+      value: [
+        {
+          phase: 'STEPS',
+          index: 2,
+          status: 'SKIP',
+          reason: 'no real DB',
+          durationMs: null,
+        },
+      ],
+    })
+  })
+  it('applies one reason to a range', () => {
+    const r = parseStepSpecs(['v1-2=skip:prod only'])
+    expect(r.ok && r.value.map(s => [s.index, s.status, s.reason])).toEqual([
+      [0, 'SKIP', 'prod only'],
+      [1, 'SKIP', 'prod only'],
+    ])
+  })
+  it('refuses a skip without a reason', () => {
+    const r = parseStepSpecs(['s3=skip'])
+    expect(r.ok).toBe(false)
+    expect(!r.ok && r.error).toMatch(/skip needs a reason: s3=skip:"why"/)
+  })
+  it('refuses a reason longer than 200 characters', () => {
+    expect(parseStepSpecs([`s1=skip:${'x'.repeat(201)}`]).ok).toBe(false)
+  })
+  it('prints a skipped step with its reason', () => {
+    expect(
+      formatStepResultLines([
+        {
+          phase: 'STEPS',
+          index: 2,
+          text: 'call API',
+          status: 'SKIP',
+          reason: 'no DB',
+        },
+      ])
+    ).toEqual(['    – step 3: call API (skipped: no DB)'])
+  })
+  it('sends the reason and summarises per status', async () => {
+    respond({ run: { ...baseRun, result: 'PASS' }, ceiling: null })
+    await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass', 's2=skip:no DB'],
+    })
+    expect(runBody().stepResults[1]).toMatchObject({
+      status: 'SKIP',
+      reason: 'no DB',
+    })
+    expect(runBody().stepResults[0]).not.toHaveProperty('reason')
+    expect(printed()).toContain('Steps: 1 passed, 1 skipped of 2 reported')
+  })
+  it('relays the server rejection of a missing step', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: 'Missing per-step results: s2. Report each.',
+      }),
+    }) as never
+    const code = await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass'],
+    })
+    expect(code).toBe(1)
+    expect(errors()).toContain('Missing per-step results: s2')
   })
 })
 
@@ -170,7 +269,7 @@ describe('testcase run with steps', () => {
       },
     ])
     expect(printed()).toContain('actual: Issued as store credit')
-    expect(printed()).toContain('Steps: 3 passed of 4 reported')
+    expect(printed()).toContain('Steps: 3 passed, 1 failed of 4 reported')
   })
 
   it('sends neither field when no step flags are given (old servers stay happy)', async () => {
