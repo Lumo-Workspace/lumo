@@ -3,10 +3,12 @@
  * through the shipped pieces, in the order stage A runs them
  * (`lib/services/pr-security-scan.service.ts`, "A4: LLM judge"):
  *
- *   over-cap check (JUDGE_DIFF_BUDGET_TIERS) → judgeDiffTier → packSecurityDiff
+ *   default path filters → size-cap plan (planPartialReview: whole, the
+ *   files that fit, or no review) → judgeDiffTier → packSecurityDiff
  *   → loadReviewContext over the covered paths, capped by reviewContextBudget → redactForInjection on diff
  *   and context → judgeSecurity (CODE_REVIEW_MODEL, the production prompt and
- *   schema, the tier timeout)
+ *   schema — with the diagram field when production asks for the diagram,
+ *   LUM-1155 — the tier timeout); `review-input.ts` holds the first steps.
  *
  * Two differences from production, both stated: files are read from the
  * `prepare.ts` snapshot instead of `readRepoFile` (same PR-head content), and
@@ -52,11 +54,11 @@ import {
 import { gitGrepSearch } from './git-grep-search'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import {
-  JUDGE_DIFF_BUDGET_TIERS,
   judgeDiffTier,
   packSecurityDiff,
 } from '@/ee/security/security-scan/truncate'
 import { prKey } from './pr-key'
+import { replayReviewInput } from './review-input'
 import {
   instructionsForPr,
   parseInstructionsFile,
@@ -126,9 +128,6 @@ const instructionsByPr: Record<string, unknown> = instructionsFile
   ? parseInstructionsFile(readFileSync(instructionsFile, 'utf8'))
   : {}
 
-const capChars =
-  JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
-
 export interface ReplayRun {
   /** LUM-1210: with the verified `pathInstruction` production stores. */
   findings: Array<
@@ -148,15 +147,23 @@ export interface ReplayRun {
   /** LUM-1199 — rendered path-instruction chars and entries sent. */
   instructionChars?: number
   instructionsSent?: number
+  /** Production's size-cap plan (LUM-1144) and the files it left out. */
+  plan?: 'WHOLE' | 'PARTIAL'
+  excludedFiles?: string[]
+  skippedFiles?: string[]
+  /** LUM-1155 — the review was asked for the diagram too. */
+  withSequenceDiagram?: boolean
 }
 type RunResult = ReplayRun | { skipped: 'JUDGE_OVER_CAP' } | { error: string }
 
 async function reviewOnce(url: string): Promise<RunResult> {
   const dir = path.join(dataDir, prKey(url))
   const diff = readFileSync(path.join(dir, 'diff.patch'), 'utf8')
-  if (diff.length > capChars) return { skipped: 'JUDGE_OVER_CAP' }
-  const tier = judgeDiffTier(diff)
-  const capped = packSecurityDiff(diff, {
+  // Production's path filters, size-cap plan and diagram decision.
+  const input = replayReviewInput(diff)
+  if (input.kind === 'OVER_CAP') return { skipped: 'JUDGE_OVER_CAP' }
+  const tier = judgeDiffTier(input.judgeDiff)
+  const capped = packSecurityDiff(input.judgeDiff, {
     priorityPaths: [],
     maxChars: tier.chars,
   })
@@ -172,7 +179,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
     )
     const loaded = await loadServerConfigContext({
       plan: planServerConfigContext(capped.text),
-      changedPaths: capped.covered,
+      changedPaths: input.changedPaths,
       ...readers,
       maxChars: Math.min(
         SERVER_CONFIG_MAX_CHARS,
@@ -222,6 +229,7 @@ async function reviewOnce(url: string): Promise<RunResult> {
       ...(relatedText ? { related: relatedText } : {}),
       ...(serverConfigText ? { serverConfig: serverConfigText } : {}),
       ...(instructions.text ? { pathInstructions: instructions.text } : {}),
+      ...(input.withSequenceDiagram ? { withSequenceDiagram: true } : {}),
     })
     return {
       // LUM-1210: the claim production would store, so the removal policy
@@ -238,6 +246,10 @@ async function reviewOnce(url: string): Promise<RunResult> {
         : {}),
       instructionChars: instructions.text.length,
       instructionsSent: instructions.sent.length,
+      plan: input.kind,
+      excludedFiles: input.excluded,
+      skippedFiles: input.skipped,
+      withSequenceDiagram: input.withSequenceDiagram,
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) }
