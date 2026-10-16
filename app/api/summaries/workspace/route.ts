@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { memberRepository } from '@/lib/repositories/member.repository'
+import { requireIdentity } from '@/lib/auth/identity'
 import { summaryService } from '@/lib/services/summary.service'
 import { getSummarySchema } from '@/lib/validation/schemas'
 
+/**
+ * GET /api/summaries/workspace — stored workspace briefings, newest first.
+ * Read-only: generation is `POST /api/summaries/generate/workspace`.
+ *
+ * LUM-1192: browser session or API key (`lumo workspace overview`). Scoped to
+ * the credential's workspace (a Bearer key's own, or the session's active one).
+ */
 export async function GET(request: Request) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
-
-    const member = await memberRepository.findFirstByClerkId(userId)
-
-    if (!member) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
     const { searchParams } = new URL(request.url)
     const parsed = getSummarySchema.safeParse({
@@ -34,7 +33,7 @@ export async function GET(request: Request) {
     const { limit, before } = parsed.data
 
     const summaries = await summaryService.getWorkspaceSummaries(
-      member.workspaceId,
+      identity.workspaceId,
       { limit, before }
     )
 

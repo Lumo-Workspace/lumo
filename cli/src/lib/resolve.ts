@@ -68,6 +68,15 @@ export async function resolveProjectId(
   token: string,
   ref: string | undefined
 ): Promise<string> {
+  return (await resolveProject(base, token, ref)).id
+}
+
+/** {@link resolveProjectId}, keeping the project's name (LUM-1192). */
+export async function resolveProject(
+  base: string,
+  token: string,
+  ref: string | undefined
+): Promise<{ id: string; name: string }> {
   const { projects } = await fetchJson<{ projects: ProjectRow[] }>(
     base,
     token,
@@ -77,7 +86,7 @@ export async function resolveProjectId(
 
   if (!ref) {
     if (visible.length === 0) throw new Error('workspace has no projects yet.')
-    if (visible.length === 1) return visible[0]!.id
+    if (visible.length === 1) return visible[0]!
     throw new Error('workspace has multiple projects; pass --project <slug>.')
   }
 
@@ -88,7 +97,7 @@ export async function resolveProjectId(
   if (!match) {
     throw new Error(`project "${ref}" not found. Try \`lumo project list\`.`)
   }
-  return match.id
+  return match
 }
 
 interface TeamRow {

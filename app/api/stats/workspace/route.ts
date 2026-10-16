@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth/identity'
 import { getWorkspaceStats } from '@/lib/services/stats.service'
 
-export async function GET(_req: NextRequest) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const wsResult = await requireUserWorkspace(userId)
-  if (wsResult instanceof NextResponse) return wsResult
+/**
+ * GET /api/stats/workspace — the Dashboard's live stats.
+ *
+ * LUM-1192: browser session or API key (`lumo workspace overview`). Always
+ * the credential's workspace: a Bearer key's own (the `X-Lumo-Workspace`
+ * header cannot move it), or the session's active one.
+ */
+export async function GET(request: NextRequest) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   try {
-    const stats = await getWorkspaceStats(wsResult.workspace.id)
+    const stats = await getWorkspaceStats(identity.workspaceId)
     return NextResponse.json({ stats })
   } catch (error) {
     console.error('GET /api/stats/workspace error:', error)

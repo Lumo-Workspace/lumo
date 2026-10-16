@@ -1,0 +1,251 @@
+import { fmtCalendarDay, fmtTimestamp, NONE } from './format'
+import {
+  fieldLines,
+  labelWidth,
+  sectionHeading,
+  wrapLines,
+  type Field,
+  type LayoutOptions,
+} from './report-layout'
+import { sanitizeField } from './sanitize'
+import { renderTable, truncate } from './ui'
+
+/**
+ * LUM-1192 — the read-only Dashboard / project overview, rendered from what
+ * `GET /api/stats/*` and `GET /api/summaries/*` return. Every number is the
+ * server's; this module only lays it out (same cuts as the web: the last 7
+ * days of the completion trend, projects by overdue count).
+ */
+
+export interface StalledItem {
+  id: string
+  identifier: string
+  title: string
+  updatedAt?: string
+}
+
+export interface OverviewStats {
+  totalTasks: number
+  statusDistribution: Record<string, number>
+  overdueTasks: { count: number }
+  memberWorkload: Array<{ name: string; assigned: number; completed: number }>
+  completionTrend: Array<{ date: string; completed: number }>
+  avgCompletionTime: number | null
+  topBlockers?: {
+    stalledTaskIds: StalledItem[]
+    highStakesTaskIds: StalledItem[]
+    staleOpenPrs: Array<{ number: number; openedAt: string; url: string }>
+  }
+  projectBreakdown?: Array<{
+    projectName: string
+    totalTasks: number
+    completedTasks: number
+    overdueTasks: number
+  }>
+}
+
+export interface OverviewSummary {
+  tldr: string
+  report: string
+  generatedAt: string
+}
+
+export interface OverviewOptions extends LayoutOptions {
+  /** Print the full stored report under the briefing's TL;DR. */
+  report?: boolean
+}
+
+/** The web's status order (StatusDistributionChart); others follow, A→Z. */
+export const STATUS_ORDER = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
+
+/** How many trailing days of the completion trend the web chart shows. */
+export const TREND_DAYS = 7
+
+/** `BACKLOG 2 · TODO 3 · …` — every status the server counted, web order first. */
+export function statusLine(dist: Record<string, number>): string {
+  const known = STATUS_ORDER as readonly string[]
+  const extra = Object.keys(dist)
+    .filter(k => !known.includes(k))
+    .sort()
+  return [...known, ...extra].map(k => `${k} ${dist[k] ?? 0}`).join(' · ')
+}
+
+/** Average hours to DONE, one decimal (as the web card), or `N/A`. */
+export function avgCompletionLabel(hours: number | null): string {
+  return hours === null ? 'N/A' : `${Math.round(hours * 10) / 10}h`
+}
+
+/** One line: no control characters, whitespace runs collapsed. */
+function oneLine(text: string): string {
+  return sanitizeField(text).replace(/\s+/g, ' ').trim()
+}
+
+function statsLines(s: OverviewStats, opts: LayoutOptions): string[] {
+  const fields: Field[] = [
+    { label: 'Total tasks', value: String(s.totalTasks) },
+    { label: 'Completed', value: String(s.statusDistribution.DONE ?? 0) },
+    { label: 'Overdue', value: String(s.overdueTasks.count) },
+    { label: 'Avg completion', value: avgCompletionLabel(s.avgCompletionTime) },
+    { label: 'Status', value: statusLine(s.statusDistribution) },
+  ]
+  return fieldLines(fields, 0, opts, labelWidth(fields))
+}
+
+function workloadLines(s: OverviewStats, opts: LayoutOptions): string[] {
+  const lines = sectionHeading('Workload', opts)
+  if (s.memberWorkload.length === 0)
+    return [...lines, '  None — no assigned task.']
+  const table = renderTable(
+    s.memberWorkload.map(m => [
+      oneLine(m.name),
+      String(m.assigned),
+      String(m.completed),
+    ]),
+    {
+      header: ['MEMBER', 'ASSIGNED', 'COMPLETED'],
+      align: ['left', 'right', 'right'],
+      color: opts.color === true,
+    }
+  )
+  return [...lines, ...table.split('\n').map(l => `  ${l}`)]
+}
+
+function trendLines(s: OverviewStats, opts: LayoutOptions): string[] {
+  const lines = sectionHeading(
+    `Completed (last ${TREND_DAYS} active days)`,
+    opts
+  )
+  const last = s.completionTrend.slice(-TREND_DAYS)
+  if (last.length === 0)
+    return [...lines, '  None — nothing completed recently.']
+  return [
+    ...lines,
+    ...last.map(t => `  ${fmtCalendarDay(t.date)}  ${t.completed}`),
+  ]
+}
+
+function projectLines(s: OverviewStats, opts: LayoutOptions): string[] {
+  if (!s.projectBreakdown) return []
+  const lines = sectionHeading('Projects', opts)
+  if (s.projectBreakdown.length === 0) return [...lines, '  None.']
+  const sorted = [...s.projectBreakdown].sort(
+    (a, b) => b.overdueTasks - a.overdueTasks
+  )
+  const table = renderTable(
+    sorted.map(p => [
+      oneLine(p.projectName),
+      String(p.totalTasks),
+      String(p.completedTasks),
+      String(p.overdueTasks),
+    ]),
+    {
+      header: ['PROJECT', 'TASKS', 'DONE', 'OVERDUE'],
+      align: ['left', 'right', 'right', 'right'],
+      color: opts.color === true,
+    }
+  )
+  return [...lines, ...table.split('\n').map(l => `  ${l}`)]
+}
+
+/** Whole days since `iso` at `now` (floored at 0) — the web's IDLE column. */
+export function idleDaysSince(iso: string | undefined, now: Date): string {
+  if (!iso) return NONE
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return NONE
+  return `${Math.max(0, Math.floor((now.getTime() - then) / 86_400_000))}d`
+}
+
+/**
+ * The project page's health row: stalled / high-stakes / stale PRs / overdue
+ * counts, then the stalled tasks and stale PRs themselves.
+ */
+function healthLines(
+  s: OverviewStats,
+  now: Date,
+  opts: LayoutOptions
+): string[] {
+  const b = s.topBlockers
+  if (!b) return []
+  const lines = [
+    ...sectionHeading('Health', opts),
+    `  Stalled ${b.stalledTaskIds.length} · High stakes ${b.highStakesTaskIds.length} · Stale PRs ${b.staleOpenPrs.length} · Overdue ${s.overdueTasks.count}`,
+  ]
+  const item = (t: StalledItem) =>
+    `    ${t.identifier}  ${truncate(oneLine(t.title), 60)}  idle ${idleDaysSince(t.updatedAt, now)}`
+  if (b.highStakesTaskIds.length > 0) {
+    lines.push('  High stakes:', ...b.highStakesTaskIds.map(item))
+  }
+  if (b.stalledTaskIds.length > 0) {
+    lines.push('  Stalled:', ...b.stalledTaskIds.map(item))
+  }
+  if (b.staleOpenPrs.length > 0) {
+    lines.push(
+      '  Stale PRs:',
+      ...b.staleOpenPrs.map(
+        p => `    #${p.number}  opened ${fmtCalendarDay(p.openedAt)}  ${p.url}`
+      )
+    )
+  }
+  return lines
+}
+
+function briefingLines(
+  title: string,
+  summary: OverviewSummary | null,
+  opts: OverviewOptions
+): string[] {
+  const lines = sectionHeading(title, opts)
+  if (!summary) return [...lines, '  None generated yet.']
+  lines.push(`  Generated ${fmtTimestamp(summary.generatedAt)}`)
+  lines.push(...wrapLines(oneLine(summary.tldr), 2, opts))
+  if (opts.report && summary.report.trim()) {
+    lines.push('')
+    for (const para of sanitizeField(summary.report).split('\n')) {
+      lines.push(...(para.trim() ? wrapLines(para, 2, opts) : ['']))
+    }
+  }
+  return lines
+}
+
+/** `lumo workspace overview` — the Dashboard as text. */
+export function formatWorkspaceOverview(
+  workspaceName: string,
+  stats: OverviewStats,
+  summary: OverviewSummary | null,
+  opts: OverviewOptions = {}
+): string {
+  return [
+    `Workspace: ${oneLine(workspaceName)}`,
+    '',
+    ...statsLines(stats, opts),
+    ...projectLines(stats, opts),
+    ...workloadLines(stats, opts),
+    ...trendLines(stats, opts),
+    ...briefingLines('Briefing', summary, opts),
+  ].join('\n')
+}
+
+/** `lumo project overview` — the project page's health and stats as text. */
+export function formatProjectOverview(
+  projectName: string,
+  stats: OverviewStats,
+  summary: OverviewSummary | null,
+  now: Date,
+  opts: OverviewOptions = {}
+): string {
+  return [
+    `Project: ${oneLine(projectName)}`,
+    '',
+    ...statsLines(stats, opts),
+    ...healthLines(stats, now, opts),
+    ...workloadLines(stats, opts),
+    ...trendLines(stats, opts),
+    ...briefingLines('Summary', summary, opts),
+  ].join('\n')
+}

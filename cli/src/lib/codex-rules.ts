@@ -56,6 +56,8 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'doc sync',
   'doc unbind',
   'doc unshare',
+  'draft list',
+  'inbox list',
   'member list',
   'memory fold',
   'memory promote',
@@ -88,6 +90,7 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'project list',
   'project memory add',
   'project memory list',
+  'project overview',
   'project update',
   'report',
   'session status',
@@ -149,6 +152,7 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   // assesses local worktrees read-only (never removes them)
   'task wrapup',
   'workspace learnings',
+  'workspace overview',
   'workspace security-scan',
 ]
 
