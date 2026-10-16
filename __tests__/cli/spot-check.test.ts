@@ -15,8 +15,6 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   formatSpotCheck,
@@ -177,12 +175,17 @@ describe('spotCheck', () => {
     expect(out).toBe('')
   })
 
-  it('has no write path — reviewing stays human-only in the browser', () => {
-    const src = readFileSync(
-      join(process.cwd(), 'cli/src/commands/spot-check.ts'),
-      'utf8'
-    )
-    expect(src).not.toMatch(/method:\s*'(POST|PUT|PATCH|DELETE)'/)
-    expect(src).not.toMatch(/test-case-reviews\/\$\{/)
+  it('has no write path — every mode only GETs the read route', async () => {
+    serve(VIEW)
+    await spotCheck()
+    await spotCheck({ json: true })
+    serve({ error: 'Unauthorized' }, 401)
+    await spotCheck()
+    expect(calls).toHaveLength(3)
+    for (const c of calls) {
+      expect(c.url).toBe('https://api.lumo.test/api/test-case-reviews')
+      expect(c.init?.method ?? 'GET').toBe('GET')
+      expect(c.init?.body).toBeUndefined()
+    }
   })
 })
