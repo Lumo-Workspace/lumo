@@ -7,6 +7,7 @@ import {
   Circle,
   CircleDashed,
   Minus,
+  SkipForward,
   X,
 } from 'lucide-react'
 import type { TestCaseRunView } from '@/lib/api-client/test-cases'
@@ -49,6 +50,13 @@ function StepIcon({ state }: { state: StepState }) {
       return (
         <Circle
           className={`${common} fill-muted-foreground/40 text-muted-foreground/40`}
+          aria-label={label}
+        />
+      )
+    case 'skipped':
+      return (
+        <SkipForward
+          className={`${common} text-muted-foreground`}
           aria-label={label}
         />
       )
@@ -108,6 +116,9 @@ function StepRow({
                 id: `testCases.report.state.${row.state}`,
               })}
             </span>
+          ) : null}
+          {row.state === 'skipped' && row.reason ? (
+            <span className='text-muted-foreground'> — {row.reason}</span>
           ) : null}
         </span>
         {row.durationMs !== null ? (

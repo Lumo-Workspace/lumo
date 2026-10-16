@@ -5,7 +5,6 @@
 import {
   deriveStepReport,
   parseStepResults,
-  priorPassedResults,
   type StepReportRun,
 } from '@/lib/test-cases/step-report'
 
@@ -197,27 +196,6 @@ describe('parseStepResults', () => {
       },
     ])
     expect(parseStepResults('nope')).toEqual([])
-  })
-})
-
-describe('priorPassedResults', () => {
-  it('passes every step before a failing verification check, then fails it', () => {
-    expect(
-      priorPassedResults(testCase, { phase: 'VERIFICATION', index: 1 })
-    ).toEqual([
-      { phase: 'STEPS', index: 0, status: 'PASS' },
-      { phase: 'STEPS', index: 1, status: 'PASS' },
-      { phase: 'STEPS', index: 2, status: 'PASS' },
-      { phase: 'VERIFICATION', index: 0, status: 'PASS' },
-      { phase: 'VERIFICATION', index: 1, status: 'FAIL' },
-    ])
-  })
-
-  it('only covers earlier steps when a step fails', () => {
-    expect(priorPassedResults(testCase, { phase: 'STEPS', index: 1 })).toEqual([
-      { phase: 'STEPS', index: 0, status: 'PASS' },
-      { phase: 'STEPS', index: 1, status: 'FAIL' },
-    ])
   })
 })
 

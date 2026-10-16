@@ -236,24 +236,3 @@ export interface ReportedStepResult {
   status: 'PASS' | 'FAIL' | 'SKIP'
   reason?: string | null
 }
-
-/**
- * LUM-1011: 「失败那一步之前全部通过」的显式上报——web 记录表单里人勾了那个
- * 框才调用。返回失败点之前每一步的 PASS，加上失败那一步的 FAIL。
- * 步骤段在前、复验段在后（与执行顺序一致）。
- */
-export function priorPassedResults(
-  testCase: { steps: string[]; verification: string[] },
-  failing: { phase: StepPhase; index: number }
-): ReportedStepResult[] {
-  const out: ReportedStepResult[] = []
-  const stepsBefore =
-    failing.phase === 'STEPS' ? failing.index : testCase.steps.length
-  for (let i = 0; i < stepsBefore; i++)
-    out.push({ phase: 'STEPS', index: i, status: 'PASS' })
-  if (failing.phase === 'VERIFICATION')
-    for (let i = 0; i < failing.index; i++)
-      out.push({ phase: 'VERIFICATION', index: i, status: 'PASS' })
-  out.push({ ...failing, status: 'FAIL' })
-  return out
-}
