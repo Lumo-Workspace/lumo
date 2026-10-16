@@ -469,7 +469,10 @@ export type JudgeFindingForVerify = Pick<
   | 'title'
   | 'detail'
   | 'evidence'
->
+> & {
+  /** LUM-1210 — the verified path instruction it applies; outside the policy. */
+  pathInstruction: string | null
+}
 
 export interface FindingSummary {
   severity: string
@@ -2196,6 +2199,7 @@ export const prSecurityScanRepository = {
         title: true,
         detail: true,
         evidence: true,
+        pathInstruction: true,
       },
     })
     return rows as JudgeFindingForVerify[]

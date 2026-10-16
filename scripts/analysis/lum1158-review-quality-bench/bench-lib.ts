@@ -261,6 +261,12 @@ export interface ReplayFinding {
   line: number | null
   title: string
   detail: string
+  /**
+   * LUM-1210 — the path instruction glob the finding applies, as production
+   * stores it (verified by `withVerifiedInstructionClaims`); outside the
+   * removal policy like HIGH and security rows. Absent on older runs.
+   */
+  pathInstruction?: string | null
 }
 
 export interface ReplayRunResult {
@@ -272,8 +278,9 @@ export interface ReplayRunResult {
 /**
  * The findings production would post for one replay run: the verifier's
  * rejections, then the ranker's p < RANKER_KEEP_THRESHOLD, both only on
- * non-HIGH non-security rows (the replay-space form of
- * `applyVerifierPolicy` + `applyRankerPolicy`, as LUM-1010 applied it). A
+ * non-HIGH non-security rows without a verified path instruction (the
+ * replay-space form of `applyVerifierPolicy` + `applyRankerPolicy`, as
+ * LUM-1010 applied it; LUM-1210 the path-instruction exemption). A
  * finding ranked twice is decided at its first entry, as production's
  * `applyRankerPolicy` does (LUM-1198). Null when the run produced no findings
  * list (over cap / error).
@@ -287,7 +294,9 @@ export function keptLumoFindings(
   if (!run?.findings) return null
   const findings = run.findings.map((f, i) => ({ ...f, id: `f${i}` }))
   const applicable = (f: ReplayFinding) =>
-    f.severity !== 'HIGH' && !SECURITY_REVIEW_KINDS.has(f.kind)
+    f.severity !== 'HIGH' &&
+    !SECURITY_REVIEW_KINDS.has(f.kind) &&
+    !f.pathInstruction
   const byId = new Map(findings.map(f => [f.id, f]))
   const verifierRejected = new Set<string>()
   for (const r of verify?.results ?? []) {
