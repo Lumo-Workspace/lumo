@@ -124,4 +124,75 @@ describe('shared/src/hunt-audit', () => {
       '    stop: submitted · spent 9000/30000 · reserve 0 · last step ? · 4 steps'
     )
   })
+
+  it('LUM-1224 prints a per-task prompt-cache summary after the trace steps', () => {
+    const lines = formatHuntTaskDetail(
+      [
+        {
+          taskId: 't1',
+          stopped: 'done',
+          trace: [
+            {
+              i: 1,
+              tool: 'run_shell',
+              inputTokens: 5_000,
+              cacheWriteTokens: 4_200,
+              outputTokens: 200,
+            },
+            {
+              i: 2,
+              tool: 'submit_candidates',
+              inputTokens: 6_000,
+              cacheReadTokens: 4_200,
+              cacheWriteTokens: 900,
+              outputTokens: 150,
+            },
+          ],
+          stop: { by: 'submitted', spent: 11_350, budget: 30_000, steps: 2 },
+        },
+        // A task whose steps carry no cache counters (an older row, or a
+        // provider that reports none) prints exactly as before.
+        {
+          taskId: 't2',
+          stopped: 'done',
+          trace: [{ i: 1, tool: 'run_shell', inputTokens: 3_000 }],
+        },
+      ],
+      6
+    )
+    expect(lines).toEqual([
+      't1 done · no shell commands',
+      // The per-step lines are unchanged.
+      '    #1 tool=run_shell in=5000 out=200',
+      '    #2 tool=submit_candidates in=6000 out=150',
+      '    cache: read 4200 / write 5100 of 11000 input',
+      '    stop: submitted · spent 11350/30000 · reserve 0 · last step ? · 2 steps',
+      't2 done · no shell commands',
+      '    #1 tool=run_shell in=3000 out=?',
+    ])
+  })
+
+  it('LUM-1224 prints the cache line when the counters were reported as zero', () => {
+    // Zero is a measurement (the prefix was under the cache minimum), not an
+    // absence — the reader needs to see it to tell the two apart.
+    const lines = formatHuntTaskDetail(
+      [
+        {
+          taskId: 't1',
+          stopped: 'done',
+          trace: [
+            {
+              i: 1,
+              inputTokens: 2_900,
+              cacheReadTokens: 0,
+              cacheWriteTokens: 0,
+              outputTokens: 100,
+            },
+          ],
+        },
+      ],
+      6
+    )
+    expect(lines).toContain('    cache: read 0 / write 0 of 2900 input')
+  })
 })
