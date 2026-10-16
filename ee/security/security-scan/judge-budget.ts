@@ -44,6 +44,18 @@ export interface JudgeBudget {
    * Not read by `parseJudgeBudget` (the budget line); `size-caps` reads it.
    */
   overCap?: JudgeOverCapRecord
+  /**
+   * LUM-1208 — server config files the PR does not change, sent read-only
+   * because its added lines start that server; paid for out of the context
+   * budget. Absent when none were sent.
+   */
+  serverConfig?: JudgeServerConfigRecord
+}
+
+/** LUM-1208 — what server config the review read, on `judgeBudget.serverConfig`. */
+export interface JudgeServerConfigRecord {
+  paths: string[]
+  chars: number
 }
 
 /** LUM-1144 — the over-cap facts on `judgeBudget.overCap`. */
@@ -56,13 +68,9 @@ export interface JudgeOverCapRecord {
   skippedPaths: string[]
 }
 
-const KEYS: ReadonlyArray<Exclude<keyof JudgeBudget, 'overCap'>> = [
-  'diffChars',
-  'tierChars',
-  'reviewedChars',
-  'coveredFiles',
-  'droppedFiles',
-]
+const KEYS: ReadonlyArray<
+  Exclude<keyof JudgeBudget, 'overCap' | 'serverConfig'>
+> = ['diffChars', 'tierChars', 'reviewedChars', 'coveredFiles', 'droppedFiles']
 
 /**
  * Read the raw Json column. Defensive in the same way as `parseHuntCoverage`:
@@ -82,5 +90,24 @@ export function parseJudgeBudget(raw: unknown): JudgeBudget | null {
       return null
     out[key] = value
   }
-  return out as JudgeBudget
+  const serverConfig = parseServerConfig(row.serverConfig)
+  return {
+    ...(out as JudgeBudget),
+    ...(serverConfig ? { serverConfig } : {}),
+  }
+}
+
+/** LUM-1208 — a well-formed record, or null (a malformed one is dropped). */
+function parseServerConfig(raw: unknown): JudgeServerConfigRecord | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
+  const r = raw as Record<string, unknown>
+  if (
+    !Array.isArray(r.paths) ||
+    !r.paths.every(p => typeof p === 'string') ||
+    typeof r.chars !== 'number' ||
+    !Number.isFinite(r.chars) ||
+    r.chars < 0
+  )
+    return null
+  return { paths: r.paths as string[], chars: r.chars }
 }

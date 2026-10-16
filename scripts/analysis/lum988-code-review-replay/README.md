@@ -15,6 +15,12 @@ the Core profile with the Opus 4.5 judge.
 | `pr-key.ts`                                   | The one PR-url → directory-name function both TS scripts use.                                                                                                   |
 | `results-sonnet55.json`, `score-sonnet55.txt` | The runs recorded on the LUM-988 PR (raw findings + scores).                                                                                                    |
 
+`replay.ts --ids <url,…>` replays only those PRs; `--server-config <checkouts
+root>` (LUM-1208) adds the server config files the PR does not change, listed
+and read from the `collect.ts` checkouts at hashX (production lists them through
+the contents API at the head), and records `serverConfigFiles` / `serverConfigChars`
+per run.
+
 Two differences from production, both deliberate: files come from the
 `prepare.ts` snapshot instead of `readRepoFile` (same content: PR head), and
 `priorityPaths` is empty (production ranks the hunt trigger's sites first,

@@ -294,3 +294,66 @@ describe('LUM-988 readRepoFileWithToken abort', () => {
     expect(seen[0]).toBe(ctrl.signal)
   })
 })
+
+// ── listRepoDirWithToken (LUM-1208) ──────────────────────────────────────────
+
+import { listRepoDirWithToken } from '@/lib/integrations/github/contents'
+
+describe('LUM-1208 listRepoDirWithToken', () => {
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
+  })
+
+  it('lists the files of a directory at the ref (root and nested); 404 or a file path is []', async () => {
+    const urls: string[] = []
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const u = String(input)
+      urls.push(u)
+      if (u.includes('missing'))
+        return { status: 404, ok: false, json: async () => ({}) }
+      if (u.includes('Makefile'))
+        return { status: 200, ok: true, json: async () => ({ type: 'file' }) }
+      return {
+        status: 200,
+        ok: true,
+        json: async () => [
+          { type: 'file', path: 'frontend/Trunk.toml' },
+          { type: 'dir', path: 'frontend/src' },
+          { type: 'symlink', path: 'frontend/link.toml' },
+        ],
+      }
+    }) as unknown as typeof fetch
+
+    await expect(
+      listRepoDirWithToken({
+        token: 't',
+        fullName: 'o/r',
+        path: 'frontend',
+        ref: 'abc',
+      })
+    ).resolves.toEqual(['frontend/Trunk.toml'])
+    await listRepoDirWithToken({ token: 't', fullName: 'o/r', path: '' })
+    await expect(
+      listRepoDirWithToken({ token: 't', fullName: 'o/r', path: 'missing' })
+    ).resolves.toEqual([])
+    await expect(
+      listRepoDirWithToken({ token: 't', fullName: 'o/r', path: 'Makefile' })
+    ).resolves.toEqual([])
+    expect(urls[0]).toBe(
+      'https://api.github.com/repos/o/r/contents/frontend?ref=abc'
+    )
+    expect(urls[1]).toBe('https://api.github.com/repos/o/r/contents')
+  })
+
+  it('throws with the status on any other failure', async () => {
+    global.fetch = jest.fn(async () => ({
+      status: 403,
+      ok: false,
+      json: async () => ({}),
+    })) as unknown as typeof fetch
+    await expect(
+      listRepoDirWithToken({ token: 't', fullName: 'o/r', path: 'a' })
+    ).rejects.toMatchObject({ status: 403 })
+  })
+})
