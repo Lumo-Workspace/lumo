@@ -550,6 +550,53 @@ export function formatJudgePartial(
   return `This PR is over the AI review's size limit (${thousands(p.capFiles)} files, ${thousands(p.capChars)} characters), so AI review covered ${thousands(p.reviewedFiles)} of ${thousands(p.totalFiles)} reviewable files. Not reviewed: ${list}. To get them reviewed, ${howTo}.`
 }
 
+/**
+ * LUM-1215 — what the path filters left out of the AI review: the built-in
+ * defaults' skips (count + the first paths, in diff order) and the
+ * repository's own filters' (count only — the customer chose those). Paths
+ * are repository file names: every caller renders them through its own
+ * escaper.
+ */
+export interface ReviewPathSkipsInput {
+  builtIn: { count: number; paths: string[] }
+  configured: { count: number }
+}
+
+/** Built-in-skipped paths named in the notice; the rest are counted. */
+export const REVIEW_PATH_SKIPS_MAX_NAMED = 5
+
+function fileCount(n: number): string {
+  return `${thousands(n)} ${n === 1 ? 'file' : 'files'}`
+}
+
+/**
+ * LUM-1215 — the notice lines (0–2): the files the built-in defaults skipped,
+ * named, with how to have them reviewed; then the repository's own filters'
+ * count. Never a warning about the PR — a choice of what to read, said so.
+ */
+export function formatReviewPathSkips(
+  s: ReviewPathSkipsInput,
+  opts: { renderPath?: (path: string) => string } = {}
+): string[] {
+  const render = opts.renderPath ?? ((path: string) => path)
+  const lines: string[] = []
+  if (s.builtIn.count > 0) {
+    const named = s.builtIn.paths
+      .slice(0, REVIEW_PATH_SKIPS_MAX_NAMED)
+      .map(render)
+    const rest = s.builtIn.count - named.length
+    const list = `${named.join(', ')}${rest > 0 ? ` and ${thousands(rest)} more` : ''}`
+    lines.push(
+      `Not AI-reviewed by default (lockfiles, generated code, build output and vendored dependencies): ${fileCount(s.builtIn.count)} — ${list}. To have them reviewed, add include globs for them to \`path_filters\` (in \`.lumo.yaml\` or the repository's review settings); once any include is listed, only matching files are reviewed.`
+    )
+  }
+  if (s.configured.count > 0)
+    lines.push(
+      `Not AI-reviewed by this repository's path filters: ${fileCount(s.configured.count)}.`
+    )
+  return lines
+}
+
 /** The causes that mean "the change was over a size cap", not a fault of ours. */
 const SIZE_CAP_CAUSES: ReadonlySet<string> = new Set([
   'HUNT_OVERSIZED',

@@ -18,6 +18,7 @@ import { isSettledForManualReview } from '@/ee/security/security-scan/review-con
 import type { JudgeBudget } from '@/ee/security/security-scan/judge-budget'
 import type { PrSummary } from '@/ee/security/security-scan/pr-summary'
 import type { SequenceDiagram } from '@/ee/security/security-scan/sequence-diagram'
+import type { ReviewPathSkips } from '@/ee/security/security-scan/reviewable-path'
 import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
   mergePartialCauses,
@@ -165,6 +166,11 @@ export interface FinalizeScanInput {
    * null = the AI review did not run. Absent = leave the column alone.
    */
   judgeReviewMode?: 'full' | 'incremental' | null
+  /**
+   * LUM-1215 — what the path filters left out of the AI review on this head;
+   * null = nothing. Absent = leave the column alone.
+   */
+  reviewPathSkips?: ReviewPathSkips | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -323,6 +329,8 @@ export interface ScanReadoutRow {
   /** LUM-832 — the causes, and the hunt job (its file-cap count). */
   partialCauses: string[]
   huntJob: unknown
+  /** LUM-1215 — raw Json (`parseReviewPathSkips`); absent on older fixtures. */
+  reviewPathSkips?: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -399,6 +407,12 @@ export interface ScanForReview {
    * Optional so older fixtures still type-check (absent = not read).
    */
   repoConfig?: unknown
+  /**
+   * LUM-1215 — raw Json: what the path filters skipped
+   * (`parseReviewPathSkips`). Optional so older fixtures still type-check
+   * (absent = nothing recorded).
+   */
+  reviewPathSkips?: unknown
   /**
    * LUM-1148 — raw Json: the pre-merge checks' results
    * (`parsePreMergeChecksRecord`). Optional so older fixtures still
@@ -1110,6 +1124,8 @@ export const prSecurityScanRepository = {
           prSummary: Prisma.DbNull,
           // LUM-1155: and its own diagram.
           sequenceDiagram: Prisma.DbNull,
+          // LUM-1215: and its own path-filter skips.
+          reviewPathSkips: Prisma.DbNull,
           // LUM-745: a superseded layer carries no result and no rows —
           // preserving it would leave the re-run permanently "superseded".
           stages:
@@ -1258,6 +1274,14 @@ export const prSecurityScanRepository = {
             : {}),
           ...(final.judgeReviewMode !== undefined
             ? { judgeReviewMode: final.judgeReviewMode }
+            : {}),
+          ...(final.reviewPathSkips !== undefined
+            ? {
+                reviewPathSkips:
+                  final.reviewPathSkips === null
+                    ? Prisma.DbNull
+                    : (final.reviewPathSkips as unknown as Prisma.InputJsonValue),
+              }
             : {}),
           ...(final.judgeReviewScope !== undefined
             ? {
@@ -1767,6 +1791,7 @@ export const prSecurityScanRepository = {
         verifiedAt: true,
         judgeReviewScope: true,
         repoConfig: true,
+        reviewPathSkips: true,
         preMergeChecks: true,
         reviewProfile: true,
         highLevelSummary: true,
@@ -1906,6 +1931,7 @@ export const prSecurityScanRepository = {
         judgeBudget: true,
         partialCauses: true,
         huntJob: true,
+        reviewPathSkips: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {

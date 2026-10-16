@@ -18,11 +18,13 @@
  */
 import { isVerifierRejected } from '@/ee/security/security-scan/verifier'
 import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
+import { parseReviewPathSkips } from '@/ee/security/security-scan/reviewable-path'
 import type {
   HuntOverCapInput,
   JudgeOverCapInput,
   JudgePartialInput,
   PrTooLargeInput,
+  ReviewPathSkipsInput,
 } from '@/shared/src/security-scan'
 import {
   prSecurityScanRepository,
@@ -178,6 +180,12 @@ export interface ScanReadoutView {
   judgePartial: JudgePartialInput | null
   /** LUM-1079 — the whole PR was too large to scan. null otherwise. */
   prTooLarge: PrTooLargeInput | null
+  /**
+   * LUM-1215 — what the path filters left out of the AI review (built-in
+   * skips named, terminal-sanitised; the repository's own counted). null =
+   * nothing skipped, or not recorded.
+   */
+  reviewPathSkips: ReviewPathSkipsInput | null
   /** P8 — the scrubbed external-scanner reason, or null (raw crash text is never published). */
   externalFailureReason: string | null
   startedAt: string
@@ -503,6 +511,19 @@ function readHunt(
   }
 }
 
+/** LUM-1215 — the stored skips with each path terminal-sanitised. */
+function readoutPathSkips(raw: unknown): ReviewPathSkipsInput | null {
+  const skips = parseReviewPathSkips(raw)
+  if (!skips) return null
+  return {
+    ...skips,
+    builtIn: {
+      ...skips.builtIn,
+      paths: skips.builtIn.paths.map(p => sanitizeField(p)),
+    },
+  }
+}
+
 export const prScanReadoutService = {
   /**
    * The scans of one PR in the caller's workspace. 404 when the workspace
@@ -617,6 +638,7 @@ export const prScanReadoutService = {
           judgeBudget: scan.judgeBudget,
           error: scan.error,
         }),
+        reviewPathSkips: readoutPathSkips(scan.reviewPathSkips),
         externalFailureReason:
           stages.external === 'FAILED'
             ? (cleanText(

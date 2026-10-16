@@ -86,6 +86,8 @@ import {
   formatHuntProgress,
   formatJudgeOverCap,
   formatJudgePartial,
+  formatReviewPathSkips,
+  type ReviewPathSkipsInput,
   formatPrTooLarge,
   formatTurnedOffNote,
   isCodeReviewFinding,
@@ -103,6 +105,7 @@ import {
   scanStageLabel,
   scanStageStateLabel,
 } from '@/shared/src/security-scan'
+import { parseReviewPathSkips } from '@/ee/security/security-scan/reviewable-path'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
 import { huntBatchProgress } from '@/ee/security/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
@@ -597,6 +600,11 @@ export interface SummaryInput {
   judgePartial?: JudgePartialInput | null
   /** LUM-1079 — the whole PR was too large to scan: nothing ran. */
   prTooLarge?: PrTooLargeInput | null
+  /**
+   * LUM-1215 — what the path filters left out of the AI review (built-in
+   * defaults named, the repository's own counted); absent/null = nothing.
+   */
+  reviewPathSkips?: ReviewPathSkipsInput | null
   /** LUM-832 — the causes on the row; absent/empty reads as unattributed. */
   partialCauses?: string[]
   /** Open (non-dependency) findings per external tool, from the `ext:<tool>:` prefix. */
@@ -1097,6 +1105,13 @@ export function buildSummary(input: SummaryInput): string {
     )
   if (input.huntOverCap)
     notices.push(`- ${formatHuntOverCap(input.huntOverCap)}`)
+  // LUM-1215: files the path filters left out — a built-in default never
+  // hides a file silently; each is named, with how to include it.
+  if (input.reviewPathSkips)
+    for (const line of formatReviewPathSkips(input.reviewPathSkips, {
+      renderPath: codePath,
+    }))
+      notices.push(`- ${line}`)
   // LUM-892: the customer's own choice, said as such — never "didn't finish".
   const turnedOff = turnedOffLayers(input.stages)
   if (turnedOff.length > 0) notices.push(`- ${formatTurnedOffNote(turnedOff)}`)
@@ -2097,6 +2112,7 @@ export const securityPrReviewService = {
         commandHandle: prCommandHandle(),
         approveCommand: requestChanges,
         repoConfig: parseRepoConfigNotice(scan.repoConfig),
+        reviewPathSkips: parseReviewPathSkips(scan.reviewPathSkips),
         preMergeChecks: checksRecord,
         preMergeOverride: checksOverride,
         reviewProfile: profile,

@@ -5,6 +5,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { isMissingPluginRoute, missingPluginMessage } from '../lib/plugin-route'
 import { printRedactionNotice } from '../lib/redaction-notice'
 import {
+  formatPathSkipLines,
   formatSizeCapLines,
   formatScanStatus,
   formatTurnedOffLines,
@@ -14,6 +15,7 @@ import {
   type JudgeOverCapLine,
   type JudgePartialLine,
   type PrTooLargeLine,
+  type ReviewPathSkipsLine,
   type HuntCoverageInput,
 } from '../lib/scan-format'
 import {
@@ -144,6 +146,8 @@ export interface PrScanEntry {
   judgePartial?: JudgePartialLine | null
   /** LUM-1079 — the whole PR was too large to scan; absent on an older server. */
   prTooLarge?: PrTooLargeLine | null
+  /** LUM-1215 — what the path filters left out of the AI review; absent on an older server. */
+  reviewPathSkips?: ReviewPathSkipsLine | null
   externalFailureReason: string | null
   startedAt: string
   finishedAt: string | null
@@ -453,7 +457,12 @@ function formatScan(
   lines.push(...fieldLines([...meta, ...layers], 2, opts, w))
   // LUM-832: the file cap, stated plainly as a limit on the change.
   // LUM-892: layers turned off in settings — the customer's choice, said so.
-  for (const l of [...formatSizeCapLines(s), ...formatTurnedOffLines(s.stages)])
+  // LUM-1215: files the path filters skipped — a default never hides a file.
+  for (const l of [
+    ...formatSizeCapLines(s),
+    ...formatPathSkipLines(s),
+    ...formatTurnedOffLines(s.stages),
+  ])
     lines.push(...wrapLines(l, 2, opts))
   lines.push(...fieldLines(findingsRow, 2, opts, w))
   if (c.findings > 0)

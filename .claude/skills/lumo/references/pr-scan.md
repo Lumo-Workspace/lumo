@@ -213,6 +213,18 @@ stays open. These are the only lines that ask something of the customer; when
 a size cap is the only gap they replace the owned "not finished on our side"
 note.
 
+**Path-filter skips (LUM-1215).** Under the layer rows (and in the PR
+summary's notices), the files the path filters left out of the AI review:
+`Not AI-reviewed by default (lockfiles, generated code, build output and
+vendored dependencies): N files — <up to 5 paths> and K more. To have them
+reviewed, add include globs for them to path_filters …`, then `Not
+AI-reviewed by this repository's path filters: M files.` for the repository's
+own exclusions (count only). Absent when nothing was skipped, when the AI
+review was paused / off, or on a scan from before LUM-1215. `dist/`, `build/`
+and `vendor/` count as build output only outside a source tree: below a
+`src` / `test(s)` / `main` / `internal` / `pkg` / `cmd` / `spec` segment they
+are ordinary source and are reviewed.
+
 **PR too large to scan (LUM-1079).** A PR that changes more than **300 files**
 (`GITHUB_DIFF_MAX_FILES` — the most GitHub returns a diff for, checked before
 the diff is requested), or whose diff GitHub refuses as too large (406), is not

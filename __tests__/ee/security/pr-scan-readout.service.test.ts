@@ -572,6 +572,32 @@ describe('prScanReadoutService.getForPullRequest', () => {
   })
 })
 
+describe('LUM-1215 path-filter skips in the read-out', () => {
+  it('carries the recorded skips, each path terminal-sanitised; null when none', async () => {
+    listScans.mockResolvedValue([
+      scan({
+        reviewPathSkips: {
+          builtIn: { count: 2, paths: ['dist/a.js', 'dist/\u001b[31mb.js'] },
+          configured: { count: 1 },
+        },
+      }),
+      scan({ reviewPathSkips: null }),
+      scan({ reviewPathSkips: { builtIn: 'junk' } }),
+    ])
+    const view = await prScanReadoutService.getForPullRequest('ws-1', {
+      number: 1013,
+      all: true,
+    })
+    const first = view.scans[0]!.reviewPathSkips!
+    expect(first.builtIn.count).toBe(2)
+    expect(first.builtIn.paths[0]).toBe('dist/a.js')
+    expect(first.builtIn.paths[1]).not.toContain('\u001b')
+    expect(first.configured.count).toBe(1)
+    expect(view.scans[1]!.reviewPathSkips).toBeNull()
+    expect(view.scans[2]!.reviewPathSkips).toBeNull()
+  })
+})
+
 describe('LUM-988 verifier verdict in the read-out', () => {
   it('a rejected LLM_JUDGE row is not open and carries the verdict and reason', async () => {
     findPrs.mockResolvedValue([{ ...PR, state: 'open' }])
