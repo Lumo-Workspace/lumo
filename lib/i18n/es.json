@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "Marcar el resto como aprobado",
   "testCases.field.stepResults.missing": "Marca primero todos los pasos: {refs}",
   "testCases.field.stepResults.noFailure": "Una ejecución fallida necesita el paso en el que falló marcado como fallido.",
+  "testCases.field.stepResults.clear": "Borrar",
+  "testCases.field.stepResults.clearLabel": "Borrar el resultado de {label}",
+  "testCases.field.stepEvidence.add": "Adjuntar archivos a este paso",
+  "testCases.field.stepEvidence.addLabel": "Adjuntar archivos al paso {step}",
+  "testCases.field.stepEvidence.remove": "Quitar {filename}",
+  "testCases.field.stepEvidence.hint": "Los archivos adjuntos a los pasos cuentan para el mismo límite.",
+  "testCases.field.evidenceFiles.tooManyTotal": "Con los archivos adjuntos a los pasos, esta ejecución tendría {count} archivos; el máximo es {max}.",
+  "testCases.field.evidenceFiles.badType": "“{filename}” no es de un tipo admitido: usa PNG, JPEG, WebP, GIF, texto o JSON.",
   "testCases.report.state.skipped": "Omitido"
 }

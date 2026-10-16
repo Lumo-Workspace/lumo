@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "나머지를 통과로 표시",
   "testCases.field.stepResults.missing": "먼저 모든 단계를 표시하세요: {refs}",
   "testCases.field.stepResults.noFailure": "실패한 실행에는 실패한 단계를 실패로 표시해야 합니다.",
+  "testCases.field.stepResults.clear": "지우기",
+  "testCases.field.stepResults.clearLabel": "「{label}」의 결과 지우기",
+  "testCases.field.stepEvidence.add": "이 단계에 파일 첨부",
+  "testCases.field.stepEvidence.addLabel": "{step} 단계에 파일 첨부",
+  "testCases.field.stepEvidence.remove": "{filename} 삭제",
+  "testCases.field.stepEvidence.hint": "단계에 첨부한 파일도 같은 한도에 포함됩니다.",
+  "testCases.field.evidenceFiles.tooManyTotal": "단계에 첨부한 파일을 포함하면 이번 실행의 파일은 {count}개입니다. 최대 {max}개까지 가능합니다.",
+  "testCases.field.evidenceFiles.badType": "“{filename}”은(는) 지원되지 않는 형식입니다. PNG, JPEG, WebP, GIF, 텍스트 또는 JSON을 사용하세요.",
   "testCases.report.state.skipped": "건너뜀"
 }

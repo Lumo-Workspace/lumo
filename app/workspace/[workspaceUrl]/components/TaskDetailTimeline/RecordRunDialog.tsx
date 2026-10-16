@@ -9,7 +9,19 @@ import {
   pickerToStepResults,
   type PickerState,
 } from '@/lib/test-cases/step-picker'
+import {
+  assembleStepEvidence,
+  checkEvidenceFiles,
+  countStepFiles,
+  pruneStepFiles,
+  reportableStepKeys,
+  stepRefOfKey,
+  type EvidenceCheck,
+  type StepFiles,
+} from '@/lib/test-cases/step-evidence'
+import { EVIDENCE_ALLOWED_TYPES } from '@/lib/validation/test-case'
 import { StepResultPicker } from './StepResultPicker'
+import { StepEvidenceInput } from './StepEvidenceInput'
 
 const RESULTS = ['PASS', 'FAIL', 'BLOCKED'] as const
 const CAUSES = [
@@ -19,8 +31,6 @@ const CAUSES = [
   'UNKNOWN',
 ] as const
 const ENVIRONMENTS = ['LOCAL', 'PREVIEW', 'PRODUCTION'] as const
-const MAX_FILES = 5
-const MAX_BYTES = 10 * 1024 * 1024
 
 interface RecordRunDialogProps {
   testCase: TestCase
@@ -28,6 +38,10 @@ interface RecordRunDialogProps {
   pullRequests: TaskPullRequestSnapshot[]
   /** LUM-1135: 里程碑的 run 不挂 PR，owner 为里程碑时关掉 PR 下拉。 */
   showPullRequests?: boolean
+  /**
+   * `files` = 整次证据在前、按步骤顺序的步骤证据在后；`body.stepResults[].evidence`
+   * 是上传后这些文件在 run evidence 数组里的下标（`body.evidence` 为空，下标从 0 起）。
+   */
   onSubmit: (body: RecordRunBody, files: File[]) => Promise<void> | void
   onClose: () => void
 }
@@ -66,55 +80,120 @@ export function RecordRunDialog({
   // LUM-1211: 每一步的结果；服务端拒收没报全的 run。
   const [picked, setPicked] = useState<PickerState>({})
   const [files, setFiles] = useState<File[]>([])
+  // LUM-1185: 挂在某一步下的证据，key 同 picker（`STEPS:0`）。
+  const [stepFiles, setStepFiles] = useState<StepFiles<File>>({})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   /**
-   * 两种违规要分开报，并且带上实际数字。
-   *
-   * 早先这里把静态提示那句原样当错误文案用：用户选了 6 个文件，看到的是同一
-   * 句话出现两次（一灰一红），既不知道违的是「太多」还是「太大」，也不知道
-   * 自己的实际值。浏览器补验时抓到的（LUM-801）。
-   *
-   * 被拒时还必须清空原生 input —— 否则它仍显示「已选择 6 个文件」而组件一个
+   * 违规要分开报，并且带上实际数字（LUM-801 浏览器补验）。整次与按步共用一个
+   * 5 个文件的额度（LUM-1185，与 CLI / 上传路由一致）。
+   */
+  function describe(check: Exclude<EvidenceCheck, { ok: true }>): string {
+    switch (check.reason) {
+      case 'tooMany':
+        // 只有这次挑的文件时沿用原句；算上别处已挂的文件才说「合计」。
+        return check.others === 0
+          ? intl.formatMessage(
+              { id: 'testCases.field.evidenceFiles.tooMany' },
+              { count: check.picked, max: check.max }
+            )
+          : intl.formatMessage(
+              { id: 'testCases.field.evidenceFiles.tooManyTotal' },
+              { count: check.count, max: check.max }
+            )
+      case 'badType':
+        return intl.formatMessage(
+          { id: 'testCases.field.evidenceFiles.badType' },
+          { filename: check.filename }
+        )
+      default:
+        return intl.formatMessage(
+          { id: 'testCases.field.evidenceFiles.tooLarge' },
+          { filename: check.filename, size: check.sizeMb, max: check.maxMb }
+        )
+    }
+  }
+
+  /**
+   * 被拒时必须清空原生 input —— 否则它仍显示「已选择 6 个文件」而组件一个
    * 都没收下，用户以为传上去了，实际会记下一条不带任何证据的 run。
    */
   function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = Array.from(e.target.files ?? [])
-    const reject = (message: string) => {
-      setError(message)
+    const chosen = Array.from(e.target.files ?? [])
+    const check = checkEvidenceFiles(chosen, countStepFiles(stepFiles))
+    if (!check.ok) {
+      setError(describe(check))
       setFiles([])
       e.target.value = ''
-    }
-
-    if (picked.length > MAX_FILES) {
-      reject(
-        intl.formatMessage(
-          { id: 'testCases.field.evidenceFiles.tooMany' },
-          { count: picked.length, max: MAX_FILES }
-        )
-      )
       return
     }
-
-    const oversized = picked.find(f => f.size > MAX_BYTES)
-    if (oversized) {
-      reject(
-        intl.formatMessage(
-          { id: 'testCases.field.evidenceFiles.tooLarge' },
-          {
-            filename: oversized.name,
-            size: (oversized.size / 1024 / 1024).toFixed(1),
-            max: MAX_BYTES / 1024 / 1024,
-          }
-        )
-      )
-      return
-    }
-
     setError(null)
-    setFiles(picked)
+    setFiles(chosen)
   }
+
+  function addStepFiles(key: string, chosen: File[]) {
+    const check = checkEvidenceFiles(
+      chosen,
+      files.length + countStepFiles(stepFiles)
+    )
+    if (!check.ok) {
+      setError(describe(check))
+      return
+    }
+    setError(null)
+    setStepFiles({
+      ...stepFiles,
+      [key]: [...(stepFiles[key] ?? []), ...chosen],
+    })
+  }
+
+  function removeStepFile(key: string, index: number) {
+    const rest = (stepFiles[key] ?? []).filter((_, i) => i !== index)
+    const next = { ...stepFiles }
+    if (rest.length > 0) next[key] = rest
+    else delete next[key]
+    setStepFiles(next)
+  }
+
+  /**
+   * LUM-1185 裁定：一步不再上报（结果被清除、整次改成 BLOCKED、改 PASS 后的
+   * 失败步、FAIL 时失败点之后的步）时，挂在它下面的文件当场一并清掉。
+   */
+  function syncSteps(
+    nextResult: (typeof RESULTS)[number],
+    nextPicked: PickerState
+  ) {
+    setStepFiles(
+      pruneStepFiles(
+        stepFiles,
+        reportableStepKeys(
+          testCase.steps,
+          testCase.verification,
+          nextResult,
+          nextPicked
+        )
+      )
+    )
+  }
+
+  function changeResult(next: (typeof RESULTS)[number]) {
+    setResult(next)
+    syncSteps(next, picked)
+  }
+
+  function changePicked(next: PickerState) {
+    setPicked(next)
+    syncSteps(result, next)
+  }
+
+  const reportable = reportableStepKeys(
+    testCase.steps,
+    testCase.verification,
+    result,
+    picked
+  )
+  const totalFiles = files.length + countStepFiles(stepFiles)
 
   async function submit() {
     if (environment === '') {
@@ -130,7 +209,7 @@ export function RecordRunDialog({
     if (
       result === 'FAIL' &&
       cause === 'IMPLEMENTATION_DEFECT' &&
-      files.length === 0
+      totalFiles === 0
     ) {
       setError(
         intl.formatMessage({ id: 'testCases.field.cause.needsEvidence' })
@@ -162,6 +241,11 @@ export function RecordRunDialog({
         return
       }
     }
+    const assembled = assembleStepEvidence(
+      files,
+      stepFiles,
+      stepResults?.ok ? stepResults.value : []
+    )
     setBusy(true)
     try {
       await onSubmit(
@@ -173,7 +257,7 @@ export function RecordRunDialog({
           failedIndex: null,
           failureAttribution: result === 'FAIL' ? cause || null : null,
           unprovenVerification: [],
-          ...(stepResults?.ok ? { stepResults: stepResults.value } : {}),
+          ...(stepResults?.ok ? { stepResults: assembled.stepResults } : {}),
           actual: result === 'FAIL' ? actual.trim() || null : null,
           note: note.trim() || null,
           pullRequestNumber: prNumber ? Number(prNumber) : null,
@@ -183,7 +267,7 @@ export function RecordRunDialog({
           commitDirty: null,
           evidence: [],
         },
-        files
+        assembled.files
       )
       onClose()
     } catch (e) {
@@ -204,7 +288,9 @@ export function RecordRunDialog({
         <select
           className={fieldClass}
           value={result}
-          onChange={e => setResult(e.target.value as (typeof RESULTS)[number])}
+          onChange={e =>
+            changeResult(e.target.value as (typeof RESULTS)[number])
+          }
         >
           {RESULTS.map(r => (
             <option key={r} value={r}>
@@ -263,7 +349,17 @@ export function RecordRunDialog({
           verification={testCase.verification}
           result={result}
           value={picked}
-          onChange={setPicked}
+          onChange={changePicked}
+          renderMarkedStep={key =>
+            reportable.has(key) ? (
+              <StepEvidenceInput
+                stepRef={stepRefOfKey(key)}
+                files={stepFiles[key] ?? []}
+                onPick={chosen => addStepFiles(key, chosen)}
+                onRemove={i => removeStepFile(key, i)}
+              />
+            ) : null
+          }
         />
       ) : null}
 
@@ -319,11 +415,12 @@ export function RecordRunDialog({
         <input
           type='file'
           multiple
-          accept='image/png,image/jpeg,image/webp,image/gif,text/plain,application/json'
+          accept={EVIDENCE_ALLOWED_TYPES.join(',')}
           onChange={handleFiles}
         />
         <span className='text-[11px] text-muted-foreground'>
-          {intl.formatMessage({ id: 'testCases.field.evidenceFiles.hint' })}
+          {intl.formatMessage({ id: 'testCases.field.evidenceFiles.hint' })}{' '}
+          {intl.formatMessage({ id: 'testCases.field.stepEvidence.hint' })}
         </span>
       </label>
 

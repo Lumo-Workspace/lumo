@@ -1,7 +1,8 @@
 'use client'
 
+import { useId, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import type { PickerState } from '@/lib/test-cases/step-picker'
+import type { PickerEntry, PickerState } from '@/lib/test-cases/step-picker'
 
 interface StepResultPickerProps {
   steps: string[]
@@ -9,6 +10,11 @@ interface StepResultPickerProps {
   result: 'PASS' | 'FAIL'
   value: PickerState
   onChange: (next: PickerState) => void
+  /**
+   * LUM-1185: 已标结果的步骤下面额外渲染的内容（记录弹窗用它放按步证据）。
+   * 没标结果的步骤不调用——证据只能挂在上报的步骤上。
+   */
+  renderMarkedStep?: (key: string, entry: PickerEntry) => ReactNode
 }
 
 const fieldClass =
@@ -21,8 +27,12 @@ export function StepResultPicker({
   result,
   value,
   onChange,
+  renderMarkedStep,
 }: StepResultPickerProps) {
   const intl = useIntl()
+  // LUM-1185: radio 的 name 按实例加前缀。裸用 `STEPS:0` 时，同一页面上的两个
+  // 选择器会被浏览器当成同一组单选，后渲染的那个把前一个的选中状态抢走。
+  const groupId = useId()
   const items = [
     ...steps.map((text, index) => ({
       key: `STEPS:${index}`,
@@ -42,6 +52,12 @@ export function StepResultPicker({
       : (['PASS', 'SKIP'] as const)
   const set = (key: string, status: 'PASS' | 'FAIL' | 'SKIP') =>
     onChange({ ...value, [key]: { status, reason: value[key]?.reason ?? '' } })
+  // LUM-1185: 撤回一步的结果，回到「未标」。
+  const clear = (key: string) => {
+    const next = { ...value }
+    delete next[key]
+    onChange(next)
+  }
 
   return (
     <fieldset className='flex flex-col gap-2 text-body text-muted-foreground'>
@@ -52,7 +68,13 @@ export function StepResultPicker({
         {intl.formatMessage({ id: 'testCases.field.stepResults.hint' })}
       </p>
       {items.map(item => {
-        const entry = value[item.key]
+        // LUM-1185: 当前结果下不能选的状态（PASS 模式里遗留的 FAIL）在 UI 上
+        // 没有对应的单选框，按「未标」显示——不出「清除」，也不出上传入口。
+        const raw = value[item.key]
+        const entry =
+          raw && (statuses as readonly string[]).includes(raw.status)
+            ? raw
+            : undefined
         return (
           <div key={item.key} className='flex flex-col gap-1'>
             <span className='text-foreground'>{item.label}</span>
@@ -61,7 +83,7 @@ export function StepResultPicker({
                 <label key={s} className='flex items-center gap-1'>
                   <input
                     type='radio'
-                    name={item.key}
+                    name={`${groupId}-${item.key}`}
                     checked={entry?.status === s}
                     onChange={() => set(item.key, s)}
                   />
@@ -70,6 +92,21 @@ export function StepResultPicker({
                   })}
                 </label>
               ))}
+              {entry ? (
+                <button
+                  type='button'
+                  className='text-muted-foreground hover:text-foreground'
+                  aria-label={intl.formatMessage(
+                    { id: 'testCases.field.stepResults.clearLabel' },
+                    { label: item.label }
+                  )}
+                  onClick={() => clear(item.key)}
+                >
+                  {intl.formatMessage({
+                    id: 'testCases.field.stepResults.clear',
+                  })}
+                </button>
+              ) : null}
             </div>
             {entry?.status === 'SKIP' ? (
               <input
@@ -87,6 +124,9 @@ export function StepResultPicker({
                 }
               />
             ) : null}
+            {entry && renderMarkedStep
+              ? renderMarkedStep(item.key, entry)
+              : null}
           </div>
         )
       })}
