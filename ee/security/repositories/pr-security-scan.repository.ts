@@ -1882,6 +1882,19 @@ export const prSecurityScanRepository = {
   },
 
   /**
+   * LUM-1186 — does any linked PR of the task have a scan at all? The Done
+   * gate's "not scanned" vs "clear" (same set as the web's `latest !== null`).
+   * One indexed id read, no findings hydrated.
+   */
+  async anyScanForTask(taskId: string): Promise<boolean> {
+    const row = await prisma.prSecurityScan.findFirst({
+      where: { pullRequest: { taskId } },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
+  /**
    * The newest scan per PR, findings included — at most one row per id.
    * `distinct` on top of `orderBy: startedAt desc` keeps the first (newest)
    * row of each `pullRequestId` group; without it this read every scan ever

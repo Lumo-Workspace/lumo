@@ -104,7 +104,8 @@ const STATUS: TaskStatusResponse = {
       signal: 'PROVEN_DEFECT',
       number: 4,
       title: 'login redirect',
-      advisory: true,
+      blocking: true,
+      advisory: false,
     },
   ],
   securityFindings: {
@@ -468,6 +469,7 @@ describe('LUM-1091 long-report layout', () => {
       .split('\n')
       .filter((l, i, all) => i > 0 && all[i - 1] === '' && l !== '')
     expect(headings).toEqual([
+      'Done gate: ⚠ CANNOT CONFIRM — this server does not report a Done gate',
       'Cost',
       'Struggle / rework',
       'Trend (2 sessions)',
@@ -526,7 +528,8 @@ describe('LUM-1091 long-report layout', () => {
     expect(out).not.toContain('  |  ')
     expect(out).toContain(
       [
-        '  • [TEST CASE] TC4 login redirect — implementation defect, with evidence (advisory)',
+        '  • [TEST CASE] TC4 login redirect — implementation defect, with evidence (blocks DONE until',
+        '    the user rules on it)',
         '    Blocks DONE until the user rules on that run — one of:',
         '      lumo task testcase disposition LUM-9001/TC4 --known-defect',
         '      lumo task testcase disposition LUM-9001/TC4 --not-a-defect',

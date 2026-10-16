@@ -23,8 +23,10 @@ import {
   pushTestCaseVerdictActions,
   securityHintLines,
   splitNextActions,
+  testCaseVerdictBlocks,
   type TaskStatusResponse,
 } from './task-status'
+import { doneGateHeadline, doneGateRows } from '../lib/done-gate-format'
 import {
   describeDoneTransition,
   qualifiesForOneStepDone,
@@ -121,6 +123,15 @@ export function assessReadiness(input: WrapupInput): Readiness {
     input.status.value.securityFindings === null // the server's own fail-closed marker
   )
     unconfirmed.push('security findings')
+  // LUM-1186: the server's Done gate could not read one of its planes.
+  if (
+    input.status.ok &&
+    input.status.value.doneGate !== undefined &&
+    !input.status.value.doneGate.confirmed
+  )
+    unconfirmed.push(
+      `the Done gate (${input.status.value.doneGate.unconfirmed.join(', ')})`
+    )
 
   const taskStatus = input.task.ok
     ? input.task.value.status
@@ -156,12 +167,18 @@ export function assessReadiness(input: WrapupInput): Readiness {
     blocked.push(
       `${plural(blockingFindings.length, 'blocking security finding')} — fix and push, or the user rules on each (see the security section)`
     )
-  const defects = split.testCaseVerdict.filter(
-    a => a.signal === 'PROVEN_DEFECT'
-  )
+  const defects = split.testCaseVerdict.filter(testCaseVerdictBlocks)
   if (defects.length > 0)
     blocked.push(
-      `${plural(defects.length, 'test case')} with a proven defect — blocks DONE unless a human already dispositioned that run`
+      `${plural(defects.length, 'test case')} with a proven defect nobody has ruled on — the user rules on each run`
+    )
+  // LUM-1186: the server's Done gate is the same verdict as the web Record
+  // tab; if it says blocked, never report less — even when the rows above
+  // found nothing (fail-closed).
+  const gate = status.doneGate
+  if (blocked.length === 0 && gate?.confirmed && gate.headline === 'blocked')
+    blocked.push(
+      `the Done gate reports ${plural(gate.blockingTotal, 'item')} blocking DONE`
     )
   if (blocked.length > 0) return { level: 'BLOCKED', reasons: blocked }
 
@@ -212,7 +229,7 @@ function pushTestCases(
   // one command per line (LUM-1091).
   for (const d of split.testCaseVerdict) {
     pushTestCaseVerdictActions(body, [d], opts)
-    if (d.signal !== 'PROVEN_DEFECT') continue
+    if (!testCaseVerdictBlocks(d)) continue
     body.push(
       '    Blocks DONE until the user rules on that run — one of:',
       commandLine(
@@ -415,6 +432,12 @@ function pushDone(
   )
   for (const reason of r.reasons)
     lines.push(...dashLines(sanitizeField(reason), 4, opts))
+  // LUM-1186: the web Record tab's Done gate, same verdict and rows.
+  if (input.status.ok) {
+    const gate = input.status.value.doneGate
+    lines.push(`  Done gate: ${doneGateHeadline(gate)}`)
+    if (gate?.confirmed) lines.push(...doneGateRows(gate, 4, opts))
+  }
 
   // What moving to DONE would change — the same lines `task update --status
   // done` puts in its envelope, so the user can be shown it from here. They

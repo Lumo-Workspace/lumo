@@ -117,7 +117,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Task status, wrap-up & crossings — see [task-status.md](references/task-status.md)
 
-- `lumo task status [task] [--full] [--json]` — read-only self-check (no LLM): `nextActions` (security findings `blocks DONE` vs `advisory`, test-case advisories), PR scans, open crossings; `--full` adds cost / rework / trend. Fails closed (`⚠` = could not confirm). **Run it first when resuming a task.** `task update --status`, `crossing disposition/explain`, `testcase run/disposition` already end with its digest (DONE envelopes: `statusSummary`) — **no follow-up `task status`** after them
+- `lumo task status [task] [--full] [--json]` — read-only self-check (no LLM): the web Done gate verdict (crossings / security / tests rows), claim + faithfulness, `nextActions` (security findings `blocks DONE` vs `advisory`, test-case advisories), PR scans, open crossings; `--full` adds cost / rework / trend. Fails closed (`⚠` = could not confirm). **Run it first when resuming a task.** `task update --status`, `crossing disposition/explain`, `testcase run/disposition` already end with its digest (DONE envelopes: `statusSummary`) — **no follow-up `task status`** after them
 - `lumo task wrapup [task]` — **near the end, instead of chaining reads**: one read-only call prints test-case signals, PR scans, open crossings (ready to relay + per-ruling commands) and DONE readiness with the envelope preview (PR merge state, worktree cleanup)
 - Crossing `<id>` = its ref, e.g. `LUM-X12` (cuid also works)
 - `lumo crossing list [task] [--all] [--json]` — read-only: each crossing in full (rule text, diff, recurrence); `--all` adds the ruling history

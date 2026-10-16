@@ -1,9 +1,9 @@
-import type { RecordGaps } from './record-gaps'
-
 /**
- * LUM-1009 — the Record tab's Done gate: one headline plus one row per gate
- * (boundary crossings, security scan, test cases), derived from `RecordGaps`. Pure — no
- * intl, no fetching — so `RecordDoneGate` only renders what this returns.
+ * LUM-1009 — the Done gate: one headline plus one row per gate (boundary
+ * crossings, security scan, test cases), derived from the gap counts. Pure —
+ * no intl, no fetching, no prisma — so the web Record tab (`RecordDoneGate`)
+ * and the server's task-status read model (LUM-1186, rendered by
+ * `lumo task status` / `task wrapup`) run the SAME rule and cannot disagree.
  */
 export type DoneGateHeadline = 'accepted' | 'blocked' | 'ready'
 
@@ -44,8 +44,26 @@ export interface DoneGate {
   tests: TestsGateRow
 }
 
+/**
+ * The counts the gate is derived from. The web's `RecordGaps` is a superset;
+ * the server builds the same counts from its own reads (LUM-1186).
+ */
+export interface DoneGateCounts {
+  /** Crossings with no disposition yet, blocking or not. */
+  crossingsOpen: number
+  /** The subset of `crossingsOpen` that blocks Done (not advisory, and the
+   *  workspace gate is on or the crossing is HIGH). */
+  crossingsBlocking: number
+  crossingsTotal: number
+  /** Undispositioned security findings that block DONE. */
+  securityBlocking: number
+  /** Undispositioned proven test defects (latest run per case, LUM-812). */
+  testsBlocking: number
+  taskDone: boolean
+}
+
 export function deriveDoneGate(
-  gaps: RecordGaps,
+  gaps: DoneGateCounts,
   opts: {
     securityScanned: boolean
     /** LUM-1062: false without a plugin — no security row at all. */
@@ -102,5 +120,41 @@ export function deriveDoneGate(
       passing: opts.tests?.passing ?? 0,
       total: testsTotal,
     },
+  }
+}
+
+/**
+ * LUM-1186 — the Done gate as the task-status read model serves it. Fail-
+ * closed: when any plane behind the gate could not be read the server sends
+ * `confirmed: false` with what it could not read — never a guessed headline.
+ */
+export type DoneGateReadout =
+  | ({ confirmed: true } & DoneGate)
+  | { confirmed: false; unconfirmed: string[] }
+
+/**
+ * LUM-1186 — what the server read for the gate, before the task's status is
+ * known (the reads run in parallel with the header read). `doneGateReadout`
+ * finishes it.
+ */
+export type DoneGateInputs =
+  | {
+      confirmed: true
+      counts: Omit<DoneGateCounts, 'taskDone'>
+      opts: Parameters<typeof deriveDoneGate>[1]
+    }
+  | { confirmed: false; unconfirmed: string[] }
+
+export function doneGateReadout(
+  inputs: DoneGateInputs,
+  taskStatus: string
+): DoneGateReadout {
+  if (!inputs.confirmed) return inputs
+  return {
+    confirmed: true,
+    ...deriveDoneGate(
+      { ...inputs.counts, taskDone: taskStatus === 'DONE' },
+      inputs.opts
+    ),
   }
 }

@@ -18,3 +18,26 @@ export async function collectDoneGateBlockers(
   const lists = await Promise.all(gates.map(g => g.openBlockers(taskId)))
   return lists.flat()
 }
+
+/**
+ * LUM-1186 — the Done gate row for the plugin plane: whether any contributor
+ * exists (`present`; without one the gate has no such row), its blocking
+ * count (the same list `readDoneVerdict` refuses DONE on) and whether some
+ * contributor has a result for the task (`checked`). Fail-closed: throws when
+ * a contributor does.
+ */
+export async function readDoneGatePluginRow(
+  taskId: string
+): Promise<{ present: boolean; blocking: number; checked: boolean }> {
+  const gates = getPluginRegistry().doneGates
+  if (gates.length === 0) return { present: false, blocking: 0, checked: false }
+  const [blockers, checked] = await Promise.all([
+    collectDoneGateBlockers(taskId),
+    Promise.all(gates.map(g => (g.checked ? g.checked(taskId) : false))),
+  ])
+  return {
+    present: true,
+    blocking: blockers.length,
+    checked: checked.some(Boolean),
+  }
+}

@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { Check, X } from 'lucide-react'
-import type { DoneGate } from './done-gate'
+import type { DoneGate } from '@/lib/acceptance/done-gate'
 
 export interface RecordDoneGateProps {
   gate: DoneGate

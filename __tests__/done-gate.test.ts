@@ -3,7 +3,7 @@
  * gate: one headline plus a crossings row and a security row. A task with no
  * scanned PR must never read as "no blocking findings".
  */
-import { deriveDoneGate } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/done-gate'
+import { deriveDoneGate } from '@/lib/acceptance/done-gate'
 import type { RecordGaps } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/record-gaps'
 
 function gaps(over: Partial<RecordGaps> = {}): RecordGaps {

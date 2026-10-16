@@ -19,7 +19,14 @@ import {
 } from '@/lib/context/render/test-case-reminder'
 import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
 import { collectTaskStatusSections } from '@/lib/plugins/agent-context'
-import { readTestCaseAdvisories } from '@/lib/services/done-verdict.service'
+import {
+  readDoneGateInputs,
+  readTestCaseAdvisories,
+} from '@/lib/services/done-verdict.service'
+import {
+  doneGateReadout,
+  type DoneGateReadout,
+} from '@/lib/acceptance/done-gate'
 import { testCaseReviewService } from '@/lib/services/test-case-review.service'
 import { reviewSentBackStatement } from '@/lib/test-cases/review'
 import {
@@ -91,9 +98,12 @@ export interface TrendModel {
  * The DONE gate never reads it.
  */
 /**
- * LUM-808: 一条用例最新 run 的**判决**信号。和上面的 TEST_CASE 一样只是建议
- * ——`blocking` 这个字段根本不存在，DONE 闸不读它（用例从不拦 DONE，LUM-801）。
- * 信号本身来自与闸同一个纯函数，所以这里和 409 不会各说各话。
+ * LUM-808: 一条用例最新 run 的**判决**信号，信号本身来自与 DONE 闸同一个纯函数。
+ *
+ * LUM-1186: LUM-812 之后 `PROVEN_DEFECT` 且这条 run 还没人裁定时**拦 DONE**
+ * （`computeDoneVerdict` 的 TEST_CASE_DEFECT blocker，409）。`blocking` 如实
+ * 说出这一点，`advisory` 是它的反面——其余信号（UNPROVEN / 过时 / 已裁定的
+ * defect）从不拦。
  */
 export interface NextActionTestCaseVerdict {
   kind: 'TEST_CASE_VERDICT'
@@ -103,7 +113,10 @@ export interface NextActionTestCaseVerdict {
   title: string
   /** LUM-819: 仅 `UNPROVEN_PASS` 带——被哪条边界封顶。 */
   ceilingReason?: 'environment' | 'unobserved' | 'skipped' | 'no-evidence'
-  advisory: true
+  /** LUM-1186: a proven defect no human has ruled on yet — refuses DONE. */
+  blocking: boolean
+  /** Always `!blocking`. */
+  advisory: boolean
 }
 
 export interface NextActionTestCase {
@@ -158,6 +171,12 @@ export interface TaskStatusReport extends TaskStatusPluginFields {
   faithfulness: ClaimFaithfulness
   /** Plugin rows (security findings) + test-case advisories. */
   nextActions: NextAction[]
+  /**
+   * LUM-1186: the Done gate — the web Record tab's headline and rows, from
+   * the same `deriveDoneGate`. Absent when the caller passed no workspace
+   * (internal roll-ups); `confirmed: false` when a plane could not be read.
+   */
+  doneGate?: DoneGateReadout
 }
 
 /** Defensive reader for untyped activity JSON payloads. */
@@ -174,7 +193,11 @@ export const taskStatusService = {
    * point. Pure read, no LLM: rework, cost, claim, security findings and
    * test-case advisories, all derived on the fly.
    */
-  async statusForTask(taskId: string): Promise<TaskStatusReport> {
+  async statusForTask(
+    taskId: string,
+    /** LUM-1186: the caller's workspace — enables the `doneGate` read-out. */
+    workspaceId?: string
+  ): Promise<TaskStatusReport> {
     const [
       header,
       lifecyclePrs,
@@ -188,6 +211,7 @@ export const taskStatusService = {
       testCaseState,
       testCaseVerdicts,
       reviewSentBacks,
+      doneGateInputs,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       pullRequestRepository.listForLifecycle(taskId),
@@ -217,6 +241,11 @@ export const taskStatusService = {
       readTestCaseAdvisories(taskId),
       // LUM-819: latest runs sent back on spot-check review. Advisory only.
       testCaseReviewService.sentBackForTask(taskId),
+      // LUM-1186: the Done gate's reads (fail-closed inside, never throws);
+      // derived below once the header's status is known.
+      workspaceId === undefined
+        ? Promise.resolve(undefined)
+        : readDoneGateInputs(taskId, workspaceId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -314,16 +343,19 @@ export const taskStatusService = {
             ]
           : []),
         // LUM-808: verdict-layer advisories — never change whether DONE is allowed.
-        ...testCaseVerdicts.map(
-          (v): NextActionTestCaseVerdict => ({
+        ...testCaseVerdicts.map((v): NextActionTestCaseVerdict => {
+          // Same predicate as computeDoneVerdict's TEST_CASE_DEFECT blocker.
+          const blocking = v.signal === 'PROVEN_DEFECT' && !v.dispositioned
+          return {
             kind: 'TEST_CASE_VERDICT',
             signal: v.signal,
             number: v.number,
             title: v.title,
             ...(v.ceilingReason ? { ceilingReason: v.ceilingReason } : {}),
-            advisory: true,
-          })
-        ),
+            blocking,
+            advisory: !blocking,
+          }
+        }),
         // LUM-819: a spot-check sent this PASS back. Reuses `TEST_CASE` so old
         // CLIs render it as advisory.
         ...reviewSentBacks.map(
@@ -335,6 +367,9 @@ export const taskStatusService = {
           })
         ),
       ],
+      ...(doneGateInputs
+        ? { doneGate: doneGateReadout(doneGateInputs, header.status) }
+        : {}),
     }
     // Plugin fields come last and never replace a core field.
     for (const [key, value] of Object.entries(pluginStatus.fields)) {

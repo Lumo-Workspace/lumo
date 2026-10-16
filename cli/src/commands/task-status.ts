@@ -36,6 +36,7 @@ import {
   type LayoutOptions,
 } from '../lib/report-layout'
 import { colorEnabled, terminalWidth } from '../lib/ui'
+import { doneGateSection, type DoneGateReadout } from '../lib/done-gate-format'
 import { fmtTokens, formatDurationSec } from '../lib/format'
 
 export interface TaskStatusOptions {
@@ -110,13 +111,13 @@ export interface TaskStatusResponse {
     }
   }
   /** LUM-564: the agent's CLAIM — what it SAYS it did (an unverified
-   *  self-report). Not rendered in the terminal; --json carries it. */
+   *  self-report). LUM-1186: rendered in the `Claim` section. */
   claim?: {
     text: string | null
     source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
   }
   /** LUM-583: whether the CLAIM faithfully reflects the delivery, read from
-   *  the persisted verdict. Not rendered in the terminal; --json carries it. */
+   *  the persisted verdict. LUM-1186: rendered in the `Claim` section. */
   faithfulness?: {
     state:
       | 'FAITHFUL'
@@ -142,7 +143,10 @@ export interface TaskStatusResponse {
         title: string
         /** LUM-819: 仅 UNPROVEN_PASS 带。老服务端不回这个字段。 */
         ceilingReason?: 'environment' | 'unobserved' | 'skipped' | 'no-evidence'
-        advisory: true
+        /** LUM-1186: a proven defect nobody has ruled on — refuses DONE.
+         *  Absent on an older server. */
+        blocking?: boolean
+        advisory: boolean
       }
     | {
         kind: 'SECURITY_FINDING'
@@ -166,6 +170,10 @@ export interface TaskStatusResponse {
         advisory: true
       }
   >
+  /** LUM-1186: the Done gate, derived server-side by the web Record tab's
+   *  `deriveDoneGate`. Absent on an older server (rendered as "cannot
+   *  confirm"). */
+  doneGate?: DoneGateReadout
   /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
    *  confirm); optional so a new CLI tolerates an older server. */
   securityFindings?: {
@@ -334,13 +342,32 @@ const CEILING_REASON_LABEL: Record<
   'no-evidence': 'no evidence attached',
 }
 
-/** The text of one verdict advisory, without its bullet. */
+/**
+ * LUM-1186: what the DONE gate does with a verdict row. A proven defect whose
+ * latest run nobody has ruled on refuses DONE (409, `computeDoneVerdict`'s
+ * TEST_CASE_DEFECT blocker); once ruled on, or for any other signal, it never
+ * does. An older server sends no `blocking` — a proven defect then may block,
+ * and is never called advisory.
+ */
+export function testCaseVerdictGate(a: TestCaseVerdictAction): string {
+  if (a.signal !== 'PROVEN_DEFECT') return 'advisory'
+  if (a.blocking === true) return 'blocks DONE until the user rules on it'
+  if (a.blocking === false) return 'ruled on — does not block DONE'
+  return 'blocks DONE unless that run was already ruled on'
+}
+
+/** A verdict row that holds DONE back (or may, on an older server). */
+export function testCaseVerdictBlocks(a: TestCaseVerdictAction): boolean {
+  return a.signal === 'PROVEN_DEFECT' && a.blocking !== false
+}
+
+/** The text of one verdict row, without its bullet. */
 export function testCaseVerdictText(a: TestCaseVerdictAction): string {
   const why =
     a.signal === 'UNPROVEN_PASS' && a.ceilingReason
       ? ` (${CEILING_REASON_LABEL[a.ceilingReason]})`
       : ''
-  return `[TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (advisory)`
+  return `[TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (${testCaseVerdictGate(a)})`
 }
 
 /** 一条判决层 advisory 渲染成一行。导出给测试用。 */
@@ -545,6 +572,9 @@ export function formatTaskStatus(
   const t = data.task
   lines.push(`${t.identifier}  ${sanitizeField(t.title)}`)
   lines.push(`Status: ${t.status}`)
+  // LUM-1186: the single verdict first — the web Record tab's Done gate.
+  lines.push(...doneGateSection(data.doneGate, opts))
+  pushClaim(lines, data, opts)
 
   const {
     security: securityActions,
@@ -568,6 +598,9 @@ export function formatTaskStatus(
   ) {
     lines.push(...sectionHeading('Next actions', opts))
     lines.push('  None on record.')
+  } else if (testCaseVerdictActions.some(testCaseVerdictBlocks)) {
+    // LUM-1186: a proven defect holds DONE — never "advisory only".
+    lines.push(...sectionHeading('Next actions', opts))
   } else {
     lines.push(...sectionHeading('Next actions (advisory only)', opts))
   }
@@ -585,6 +618,63 @@ export function formatTaskStatus(
 
   pushOpenCrossings(lines, extras, opts)
   return lines.join('\n') + '\n'
+}
+
+const CLAIM_SOURCE_LABEL: Record<
+  NonNullable<NonNullable<TaskStatusResponse['claim']>['source']>,
+  string
+> = {
+  AGENT: "the agent's own claim",
+  RUN_SUMMARY: 'the latest run summary',
+  DIGEST: 'the turn digest',
+}
+
+const FAITHFULNESS_LABEL: Record<
+  NonNullable<TaskStatusResponse['faithfulness']>['state'],
+  string
+> = {
+  FAITHFUL: 'FAITHFUL — the claim matches the delivery',
+  UNDERREPORT: 'UNDERREPORT — the delivery did more than the claim says',
+  OVERSTATED: 'OVERSTATED — the claim says more than the delivery shows',
+  UNJUDGEABLE: 'UNJUDGEABLE — the judge could not tell from the delivery',
+  PENDING: 'PENDING — not judged yet',
+  STALE: 'STALE — the verdict is for an earlier claim; not re-judged yet',
+}
+
+/**
+ * LUM-1186: the `Claim` section — what the agent SAYS it did (an unverified
+ * self-report) and whether the persisted faithfulness verdict says it holds.
+ * Fail-closed: an older server without the fields prints nothing rather than
+ * "no claim"; PENDING / STALE are stated, never shown as a verdict.
+ */
+export function pushClaim(
+  lines: string[],
+  data: TaskStatusResponse,
+  opts: LayoutOptions = {}
+): void {
+  if (!data.claim && !data.faithfulness) return
+  const fields: Field[] = []
+  if (data.claim) {
+    const text = data.claim.text ? oneLineDetail(data.claim.text) : ''
+    fields.push({
+      label: 'Claim',
+      // One line, capped like a crossing detail; sanitized (agent text).
+      value: text || 'none recorded',
+    })
+    if (data.claim.source)
+      fields.push({
+        label: 'Source',
+        value: `${CLAIM_SOURCE_LABEL[data.claim.source]} (unverified self-report)`,
+      })
+  }
+  if (data.faithfulness) {
+    const label =
+      FAITHFULNESS_LABEL[data.faithfulness.state] ??
+      sanitizeField(String(data.faithfulness.state))
+    fields.push({ label: 'Faithfulness', value: label })
+  }
+  lines.push(...sectionHeading('Claim', opts))
+  lines.push(...fieldLines(fields, 2, opts))
 }
 
 /**

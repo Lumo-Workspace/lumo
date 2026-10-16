@@ -293,8 +293,10 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 
 ## 判决信号进 `task status`（LUM-808）
 
-每条用例**最新一条** run 会产出至多一个 advisory 信号，出现在 `lumo task status`
-的 next actions 末尾：
+每条用例**最新一条** run 会产出至多一个判决信号，出现在 `lumo task status`
+的 next actions 末尾(行尾括注闸门的处理:未裁定的 `PROVEN_DEFECT` 是
+`(blocks DONE until the user rules on it)`,JSON 里 `blocking: true`;裁定后
+`(ruled on — does not block DONE)`;其余 `(advisory)`。LUM-1186):
 
 | 信号            | 触发                                 |
 | --------------- | ------------------------------------ |
