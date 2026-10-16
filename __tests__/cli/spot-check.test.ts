@@ -26,6 +26,7 @@ import {
 let out: string
 let err: string
 let calls: Array<{ url: string; init: RequestInit | undefined }>
+const realFetch = global.fetch
 
 function serve(body: unknown, status = 200) {
   global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
@@ -46,7 +47,10 @@ beforeEach(() => {
     err += String(s)
   })
 })
-afterEach(() => jest.restoreAllMocks())
+afterEach(() => {
+  global.fetch = realFetch
+  jest.restoreAllMocks()
+})
 
 const VIEW: SpotCheckView = {
   poolSize: 7,
