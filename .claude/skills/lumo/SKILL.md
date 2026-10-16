@@ -32,7 +32,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                             | [references/task-deps.md](references/task-deps.md)                   |
 | `task artifact*`, `task figma*`                                                        | [references/artifacts-figma.md](references/artifacts-figma.md)       |
 | `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                   | [references/test-cases.md](references/test-cases.md)                 |
-| `task status/wrapup`, `crossing explain/disposition` — self-check, resume, DONE gate   | [references/task-status.md](references/task-status.md)               |
+| `task status/wrapup`, `crossing list/explain/disposition` — self-check, DONE gate      | [references/task-status.md](references/task-status.md)               |
 | `cost` — per-operation token cost; `report` — tokens + DONE tasks per window           | [references/task-context.md](references/task-context.md)             |
 | `outcome show` — post-hoc outcome well (falsifier oracle, rejection-only)              | [references/outcome.md](references/outcome.md)                       |
 | `priority [text]`, `priority list` — team priority declaration (append-only)           | [references/priority.md](references/priority.md)                     |
@@ -119,6 +119,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task status [task] [--full] [--json]` — read-only self-check (no LLM): `nextActions` (security findings `blocks DONE` vs `advisory`, test-case advisories), PR scans, open crossings; `--full` adds cost / rework / trend. Fails closed (`⚠` = could not confirm). **Run it first when resuming a task.** `task update --status`, `crossing disposition/explain`, `testcase run/disposition` already end with its digest (DONE envelopes: `statusSummary`) — **no follow-up `task status`** after them
 - `lumo task wrapup [task]` — **near the end, instead of chaining reads**: one read-only call prints test-case signals, PR scans, open crossings (ready to relay + per-ruling commands) and DONE readiness with the envelope preview (PR merge state, worktree cleanup)
 - Crossing `<id>` = its ref, e.g. `LUM-X12` (cuid also works)
+- `lumo crossing list [task] [--all] [--json]` — read-only: each crossing in full (rule text, diff, recurrence); `--all` adds the ruling history
 - `lumo crossing explain <id> --note "<text>"` (several: `--file <json|->`; unattached: `--task <LUM-N>`) — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done**. A review aid, not a self-clear.
 - `lumo crossing disposition <id...> --false-positive | --confirmed [--note "<text>"] [--task <LUM-N>]` — several ids = one batch, one envelope per step (LUM-845) — record the **user's** ruling on a task crossing through a **three-step** read-then-rule confirmation handshake the server enforces (LUM-769); never supply a step flag (`--confirm-read` / `--confirm`) **on your own initiative** — relay each envelope, then supply it only once the user approves **that step** in chat, and say in the note that the ruling is theirs. Either ruling clears that crossing's block on DONE. Reverting to OPEN, repository suppression and steward crossings stay web-only.
 

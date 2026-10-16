@@ -285,6 +285,30 @@
       "isInvokable": true,
       "description": "Append an agent self-explanation (\"申辩\") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Several crossings in one call: --file with a JSON array of {\"id\",\"note\"} (LUM-845); each is reported. Targets crossings on the session-bound task."
     },
+    "crossing list": {
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
+      "flags": {
+        "--all": {
+          "long": "--all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also list dispositioned crossings (the ruling history), not just open ones"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the raw server rows as JSON (same --all filter)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Read-only: a task's boundary crossings with every detail the web Record panel shows (LUM-1187) — state, detail, recurrence (xN, last seen), reversibility, attribution, policy rule text, edit diff summary + PR file link, turn intent, system/agent explanations, re-judge, AI triage, remediation task; a field the response does not carry prints '-'. Open rows only by default; --all adds the dispositioned history (ruling, who ruled, when, channel, note, last from -> to correction, suppression rule + revoked). Rules nothing. Defaults to the session-bound task."
+    },
     "doc": {
       "arguments": [],
       "flags": {},

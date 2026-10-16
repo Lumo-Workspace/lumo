@@ -43,6 +43,7 @@ export const CODEX_RULES_MARKER =
 export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'audit list',
   'cost',
+  'crossing list',
   'doc bind',
   'doc delete',
   'doc import-gdoc',
