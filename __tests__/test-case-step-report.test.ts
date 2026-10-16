@@ -320,3 +320,41 @@ describe('SKIP (LUM-1211)', () => {
     ).toEqual([])
   })
 })
+
+describe('LUM-1211 backfill shape', () => {
+  it('reads a backfilled PASS with a backfilled SKIP verification', () => {
+    const report = deriveStepReport(
+      { steps: ['a'], verification: ['v'] },
+      {
+        result: 'PASS',
+        failedPhase: null,
+        failedIndex: null,
+        failedStepText: null,
+        unprovenVerification: [{ index: 0, text: 'v' }],
+        stepResults: [
+          {
+            phase: 'STEPS',
+            index: 0,
+            text: 'a',
+            status: 'PASS',
+            reason: null,
+            durationMs: null,
+            evidence: [],
+            backfilled: true,
+          },
+          {
+            phase: 'VERIFICATION',
+            index: 0,
+            text: 'v',
+            status: 'SKIP',
+            reason: 'Declared unobserved when recorded',
+            durationMs: null,
+            evidence: [],
+            backfilled: true,
+          },
+        ],
+      }
+    )
+    expect(report.rows.map(r => r.state)).toEqual(['passed', 'skipped'])
+  })
+})

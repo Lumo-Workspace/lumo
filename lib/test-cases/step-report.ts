@@ -17,7 +17,7 @@
  * 红线对回填前的旧 run 有意放宽了，新 run 不受影响。
  *
  * LUM-1211：新 run 必须逐步上报（服务端覆盖检查），SKIP 是第三种显式结论。
- * 迁移 20261117090000_lum1211_backfill_pass_step_results 把 LUM-1011 回填漏掉的
+ * 迁移 20261125090000_lum1211_backfill_pass_step_results 把 LUM-1011 回填漏掉的
  * PASS run 也按「全部通过」补齐（用户 2026-10-16 裁定），同样带 backfilled: true。
  */
 
