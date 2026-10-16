@@ -1903,6 +1903,12 @@ model PrSecurityScan {
   // walkthrough renders as Mermaid. null = none (off, trivial PR, none
   // drawn). Model-written over the diff: scrubbed with prSummary.
   sequenceDiagram   Json?
+  // LUM-1215: what the path filters left out of the AI review on this head —
+  // { builtIn: { count, paths[≤20] }, configured: { count } }
+  // (ee/security/security-scan/reviewable-path.ts). The summary names the
+  // built-in skips so a default never hides a file silently. null = nothing
+  // skipped, or a row from before this column. Paths only, never content.
+  reviewPathSkips   Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

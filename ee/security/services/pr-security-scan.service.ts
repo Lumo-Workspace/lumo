@@ -143,6 +143,7 @@ import {
 import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
 import {
   filterReviewableDiff,
+  pathFilterSkips,
   reviewablePathPredicate,
 } from '@/ee/security/security-scan/reviewable-path'
 import { loadSecurityLayers } from './security-workspace-switches.service'
@@ -1263,6 +1264,15 @@ export const prSecurityScanService = {
         diff
       )
       const isReviewable = reviewablePathPredicate(reviewSettings.pathFilters)
+      // LUM-1215: what the filters left out of the whole PR, for the
+      // summary — a built-in default never hides a file silently. Only when
+      // the AI review may run: a paused / turned-off review skipped nothing.
+      const reviewPathSkips = reviewAllowed
+        ? pathFilterSkips(
+            files.map(f => f.path),
+            reviewSettings.pathFilters
+          )
+        : null
       const reviewable = filterReviewableDiff(reviewDiff, isReviewable)
       if (reviewable.excluded.length > 0) {
         reviewDiff = reviewable.diff
@@ -2075,6 +2085,8 @@ export const prSecurityScanService = {
           // LUM-1127: which files this head's AI review read — the PR
           // write-back only resolves a judge thread for a file it covered.
           judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
+          // LUM-1215: the files the path filters skipped (null = none).
+          reviewPathSkips,
           // LUM-1152 follow-up: a deferred full review is satisfied only by a
           // full one (user ruling).
           judgeReviewMode:

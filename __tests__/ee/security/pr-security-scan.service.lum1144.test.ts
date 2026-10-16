@@ -368,6 +368,54 @@ describe('LUM-1144 partial AI review over the size cap', () => {
   })
 })
 
+// LUM-1215 — the built-in defaults skip build output only: a source file in
+// a `build/` directory reaches the AI review, a root bundle does not, and the
+// skips are recorded for the summary.
+describe('LUM-1215 built-in path defaults', () => {
+  it('reviews src/main/java/…/build/Foo.java, skips and records dist/bundle.js', async () => {
+    fetchPrDiff.mockResolvedValue(
+      diffOf([
+        section('src/main/java/com/acme/build/Foo.java', 500),
+        section('dist/bundle.js', 500),
+      ])
+    )
+    const { persisted } = await run()
+    const judged = (judge.judgeSecurity as jest.Mock).mock.calls[0]![0]
+      .diff as string
+    expect(judged).toContain('b/src/main/java/com/acme/build/Foo.java')
+    expect(judged).not.toContain('b/dist/bundle.js')
+    expect(
+      (persisted as unknown as { reviewPathSkips: unknown }).reviewPathSkips
+    ).toEqual({
+      builtIn: { count: 1, paths: ['dist/bundle.js'] },
+      configured: { count: 0 },
+    })
+  })
+
+  it("counts the repository's own exclusions apart; null when nothing skipped", async () => {
+    findPathFilters.mockResolvedValue(['!docs/**'])
+    fetchPrDiff.mockResolvedValue(
+      diffOf([section('lib/a.ts', 500), section('docs/x.md', 500)])
+    )
+    const first = await run()
+    expect(
+      (first.persisted as unknown as { reviewPathSkips: unknown })
+        .reviewPathSkips
+    ).toEqual({ builtIn: { count: 0, paths: [] }, configured: { count: 1 } })
+    jest.clearAllMocks()
+    fetchPrHeadSha.mockResolvedValue('sha-1')
+    repo.create.mockResolvedValue({ id: 's1' } as never)
+    ;(judge.judgeSecurity as jest.Mock).mockResolvedValue({ findings: [] })
+    findPathFilters.mockResolvedValue([])
+    fetchPrDiff.mockResolvedValue(diffOf([section('lib/a.ts', 500)]))
+    const second = await run()
+    expect(
+      (second.persisted as unknown as { reviewPathSkips: unknown })
+        .reviewPathSkips
+    ).toBeNull()
+  })
+})
+
 jest.mock('@/ee/security/services/auto-review-admission.service', () =>
   require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
 )

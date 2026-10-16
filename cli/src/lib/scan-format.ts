@@ -11,6 +11,7 @@ import {
   formatJudgeOverCap,
   formatJudgePartial,
   formatPrTooLarge,
+  formatReviewPathSkips,
   formatTurnedOffNote,
   isOwnedUnfinished,
   heldStageLabel,
@@ -19,6 +20,7 @@ import {
   turnedOffLayers,
   type JudgeOverCapInput,
   type JudgePartialInput,
+  type ReviewPathSkipsInput,
 } from '../../../shared/src/security-scan'
 import type { Field } from './report-layout'
 
@@ -26,6 +28,8 @@ import type { Field } from './report-layout'
 export type JudgeOverCapLine = JudgeOverCapInput
 /** LUM-1144 — the AI review read part of an over-cap diff. */
 export type JudgePartialLine = JudgePartialInput
+/** LUM-1215 — what the path filters left out of the AI review. */
+export type ReviewPathSkipsLine = ReviewPathSkipsInput
 import { renderTable } from './ui'
 
 /**
@@ -276,6 +280,20 @@ export function formatSizeCapLines(s: {
     )
   if (s.huntOverCap) lines.push(formatHuntOverCap(s.huntOverCap))
   return lines
+}
+
+/**
+ * LUM-1215 — the files the path filters left out of the AI review, in the
+ * PR summary's words: the built-in defaults' skips named (terminal-safe),
+ * the repository's own counted. Empty when none (or an older server).
+ */
+export function formatPathSkipLines(s: {
+  reviewPathSkips?: ReviewPathSkipsLine | null | undefined
+}): string[] {
+  if (!s.reviewPathSkips) return []
+  return formatReviewPathSkips(s.reviewPathSkips, {
+    renderPath: p => sanitizeField(p).slice(0, 200),
+  })
 }
 
 /**
