@@ -110,7 +110,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Test cases — see [test-cases.md](references/test-cases.md)
 
-- `lumo task testcase add/list/show/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录（`run --env` 必填、`run --step` 逐步必报）；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手；`show --download <dir>` 用 API key 存证据文件
+- `lumo task testcase add/list/show/download/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录（`run --env` 必填、`run --step` 逐步必报）；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手；`download` 用 API key 存证据
 - `lumo spot-check [--json]` — 只读 workspace 抽检池；复核本身 human-only，只在浏览器
 
 ### Task status, wrap-up & crossings — see [task-status.md](references/task-status.md)
@@ -144,7 +144,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo milestone add/remove <id> <task...>` — batch bind/unbind tasks
 - `lumo milestone triage <id> <task...> --claimable|--not-claimable` — steward batch claimable triage (feeds `lumo next --claimable`)
 - `lumo milestone summary [--retry]` — AI retro · `lumo milestone changelog <id> [--json]` — changelog from DONE tasks + merged PRs (no LLM)
-- `lumo milestone testcase add/list/show/update/rm/run/disposition <milestone>` — milestone test cases, the close contract
+- `lumo milestone testcase add/list/show/download/update/rm/run/disposition <milestone>` — milestone test cases, the close contract
 
 ### Documents — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** → [doc-editing.md](references/doc-editing.md)
 

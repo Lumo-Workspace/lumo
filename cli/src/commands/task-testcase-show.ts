@@ -13,7 +13,6 @@ import {
   formatStepReportLines,
   stepEvidenceIndices,
 } from '../lib/test-case-report'
-import { downloadRunsEvidence } from '../lib/test-case-download'
 import { sanitizeField } from '../lib/sanitize'
 import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 
@@ -97,14 +96,8 @@ function freshnessNote(run: RunRow, prs: PrRow[]): string {
     : `  ${head} — PR has since moved to ${current.slice(0, 7)}`
 }
 
-/** LUM-1185: `--download <dir>` 把显示出的证据文件存到本地。 */
-export interface TestCaseShowOptions {
-  download?: string | undefined
-}
-
 export async function taskTestCaseShow(
-  handle: string | undefined,
-  options: TestCaseShowOptions = {}
+  handle: string | undefined
 ): Promise<number | void> {
   if (!handle) {
     console.error(
@@ -119,20 +112,13 @@ export async function taskTestCaseShow(
     )
     return 1
   }
-  return testCaseShowInScope(taskScope(split.task), split.caseRef, options)
+  return testCaseShowInScope(taskScope(split.task), split.caseRef)
 }
 
 export async function testCaseShowInScope(
   scope: TestCaseScope,
-  caseRef: string,
-  options: TestCaseShowOptions = {}
+  caseRef: string
 ): Promise<number | void> {
-  if (options.download !== undefined && !options.download.trim()) {
-    console.error(
-      'Error: --download needs a directory, e.g. --download ./evidence'
-    )
-    return 1
-  }
   const ctx = apiContext()
   if (!ctx) return 1
 
@@ -164,19 +150,11 @@ export async function testCaseShowInScope(
   console.log('\nRun history:')
   if (runs.length === 0) {
     console.log('  never run')
-    if (options.download) console.log('\nNo runs, so no evidence to download.')
     return
   }
   for (const run of runs) {
     for (const line of formatRunLines(run, pullRequests ?? []))
       console.log(line)
-  }
-
-  // LUM-1185: 下载 show 里显示的全部 run 的证据（每条 run 一个子目录）。单个
-  // 文件失败不中断，退出码反映是否全部成功。
-  if (options.download) {
-    const ok = await downloadRunsEvidence(ctx, runs, options.download)
-    if (!ok) return 1
   }
 }
 

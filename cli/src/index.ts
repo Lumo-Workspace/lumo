@@ -83,6 +83,7 @@ import { taskArtifactUpdate } from './commands/task-artifact-update'
 import { taskTestCaseAdd } from './commands/task-testcase-add'
 import { taskTestCaseList } from './commands/task-testcase-list'
 import { taskTestCaseShow } from './commands/task-testcase-show'
+import { taskTestCaseDownload } from './commands/task-testcase-download'
 import { taskTestCaseUpdate } from './commands/task-testcase-update'
 import { taskTestCaseRm } from './commands/task-testcase-rm'
 import { taskTestCaseRun } from './commands/task-testcase-run'
@@ -136,6 +137,7 @@ import {
   milestoneTestCaseAdd,
   milestoneTestCaseList,
   milestoneTestCaseShow,
+  milestoneTestCaseDownload,
   milestoneTestCaseUpdate,
   milestoneTestCaseRm,
   milestoneTestCaseRun,
@@ -1576,13 +1578,16 @@ taskTestCase
   .description(
     'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3'
   )
-  .option(
-    '--download <dir>',
-    'Save the Lumo-hosted evidence files of every listed run into <dir>/<run>/ using your API key (external links are listed, not downloaded)'
+  .action(wrap((handle: unknown) => taskTestCaseShow(handle as string)))
+
+taskTestCase
+  .command('download <task/case> <dir>')
+  .description(
+    'Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3'
   )
   .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseShow(handle as string, options as { download?: string })
+    wrap((handle: unknown, dir: unknown) =>
+      taskTestCaseDownload(handle as string, dir as string)
     )
   )
 
@@ -2500,16 +2505,32 @@ milestoneTestCase
     '--project <ref>',
     'Project name or slug (needed when the milestone name is ambiguous)'
   )
-  .option(
-    '--download <dir>',
-    'Save the Lumo-hosted evidence files of every listed run into <dir>/<run>/ using your API key (external links are listed, not downloaded)'
-  )
   .action(
     wrap((ms: unknown, caseRef: unknown, options: unknown) =>
       milestoneTestCaseShow(
         ms as string,
         caseRef as string,
-        options as { project?: string; download?: string }
+        options as { project?: string }
+      )
+    )
+  )
+
+milestoneTestCase
+  .command('download <milestone> <case> <dir>')
+  .description(
+    'Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Case: TC3'
+  )
+  .option(
+    '--project <ref>',
+    'Project name or slug (needed when the milestone name is ambiguous)'
+  )
+  .action(
+    wrap((ms: unknown, caseRef: unknown, dir: unknown, options: unknown) =>
+      milestoneTestCaseDownload(
+        ms as string,
+        caseRef as string,
+        dir as string,
+        options as { project?: string }
       )
     )
   )

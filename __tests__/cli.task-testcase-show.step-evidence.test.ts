@@ -3,8 +3,8 @@
  *
  * LUM-1185 follow-up — `testcase show` lists evidence under the step it is
  * attached to (server `stepReport.rows[].evidence`, same as web
- * TestCaseRunReport); the rest stays at the end of the run. `--download <dir>`
- * saves the Lumo-hosted evidence with the CLI's API key.
+ * TestCaseRunReport); the rest stays at the end of the run. `testcase download
+ * <case> <dir>` saves the Lumo-hosted evidence with the CLI's API key.
  */
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(),
@@ -22,7 +22,12 @@ import {
   formatRunLines,
   taskTestCaseShow,
 } from '@/cli/src/commands/task-testcase-show'
-import { milestoneTestCaseShow } from '@/cli/src/commands/milestone-testcase'
+import { milestoneTestCaseDownload } from '@/cli/src/commands/milestone-testcase'
+import { taskTestCaseDownload } from '@/cli/src/commands/task-testcase-download'
+import {
+  CODEX_SANDBOXED_COMMANDS,
+  CODEX_SERVER_ONLY_COMMANDS,
+} from '@/cli/src/lib/codex-rules'
 import {
   formatStepReportLines,
   stepEvidenceIndices,
@@ -35,6 +40,7 @@ import {
 import {
   classifyEvidence,
   downloadRunsEvidence,
+  MAX_DOWNLOAD_BYTES,
   runDirName,
   sanitizeEvidenceFilename,
   uniqueFilename,
@@ -268,8 +274,13 @@ describe('download helpers', () => {
     expect(sanitizeEvidenceFilename('.hidden')).toBe('hidden')
     expect(sanitizeEvidenceFilename('')).toBe('evidence')
     const long = sanitizeEvidenceFilename(`${'a'.repeat(300)}.png`)
-    expect(long.length).toBeLessThanOrEqual(180)
+    expect(Buffer.byteLength(long)).toBeLessThanOrEqual(200)
     expect(long.endsWith('.png')).toBe(true)
+    // Capped in bytes, not characters: 3-byte CJK characters stay under 200
+    // bytes and are never cut in the middle.
+    const cjk = sanitizeEvidenceFilename(`${'证'.repeat(150)}.png`)
+    expect(Buffer.byteLength(cjk)).toBeLessThanOrEqual(200)
+    expect(cjk).toMatch(/^证+\.png$/)
     for (const name of ['../x', '..\\..\\x', '/abs/path', 'a/../../b'])
       expect(sanitizeEvidenceFilename(name)).not.toMatch(/[/\\]|\.\./)
   })
@@ -317,8 +328,10 @@ describe('download helpers', () => {
     expect(c({ type: 'link', url: 'https://ci.example.com/7' }).kind).toBe(
       'external'
     )
-    // Legacy public blob file: not under /api/files → external.
+    // A file entry under /api/files on another origin is still Lumo-hosted
+    // (fetched from the API origin, path only).
     expect(c(file('a.png', 'x', 'https://blob.example')).kind).toBe('download')
+    // Legacy public blob file: not under /api/files → external.
     expect(
       c({ ...file('a.png', 'x'), url: 'https://blob.example/test-evidence/a' })
         .kind
@@ -487,27 +500,106 @@ describe('downloadRunsEvidence', () => {
     expect(empty).toContain('  no evidence to download')
   })
 
-  it('show --download exits 1 when a file fails and 0 when all succeed (task + milestone)', async () => {
-    const showBody = { testCase: tc, runs: [mixed()], pullRequests: [] }
-    const json = { ok: true, status: 200, json: async () => showBody }
+  it('streams to disk and stops a file over the size cap, leaving no partial file', async () => {
+    const chunk = new Uint8Array(1024 * 1024)
+    let sent = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += chunk.byteLength
+        controller.enqueue(chunk)
+        if (sent > MAX_DOWNLOAD_BYTES + chunk.byteLength) controller.close()
+      },
+    })
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, body })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({
+          'content-length': String(MAX_DOWNLOAD_BYTES + 1),
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: new Blob(['streamed']).stream(),
+      })
+    const out: string[] = []
+    const ok = await downloadRunsEvidence(
+      ctx,
+      [
+        {
+          id: 'r-aaaaaaaa',
+          result: 'PASS',
+          createdAt: '2026-10-17T08:00:00.000Z',
+          evidence: [
+            file('huge.bin', 'f1'),
+            file('declared.bin', 'f2'),
+            file('ok.txt', 'f3'),
+          ],
+        },
+      ],
+      dir,
+      { fetch: fetchMock as never, print: l => out.push(l) }
+    )
+    expect(ok).toBe(false)
+    expect(out.some(l => l.startsWith('  ✗ huge.bin: larger than'))).toBe(true)
+    expect(out.some(l => l.startsWith('  ✗ declared.bin: larger than'))).toBe(
+      true
+    )
+    const runDir = path.join(dir, fs.readdirSync(dir)[0]!)
+    expect(fs.readdirSync(runDir)).toEqual(['ok.txt'])
+    expect(fs.readFileSync(path.join(runDir, 'ok.txt'), 'utf8')).toBe(
+      'streamed'
+    )
+  })
+})
 
+describe('testcase download commands', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lum1185-cmd-'))
+  })
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+  const bytes = (s: string) => ({
+    ok: true,
+    status: 200,
+    arrayBuffer: async () => new TextEncoder().encode(s).buffer,
+  })
+  const detail = { testCase: tc, runs: [mixed()], pullRequests: [] }
+  const json = { ok: true, status: 200, json: async () => detail }
+
+  it('task testcase download exits 1 when a file fails, never prints the key', async () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce(json)
       .mockResolvedValueOnce(bytes('1'))
       .mockResolvedValueOnce({ ok: false, status: 500 }) as never
-    expect(await taskTestCaseShow('LUM-42/TC3', { download: dir })).toBe(1)
+    expect(await taskTestCaseDownload('LUM-42/TC3', dir)).toBe(1)
+    expect(printed()).toContain('LUM-42/TC3  Refund to card')
     expect(printed()).toContain('✗ banner.png: HTTP 500')
+    expect(printed()).toContain('(external link, not downloaded)')
     expect(printed()).not.toContain(TOKEN)
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(
+      `${BASE}/api/tasks/LUM-42/test-cases/TC3`
+    )
+  })
 
+  it('milestone testcase download saves every hosted file and exits 0', async () => {
     global.fetch = jest.fn().mockImplementation(async (url: string) => {
       if (url.includes('/api/files/')) return bytes('2')
       expect(url).toBe(`${BASE}/api/milestones/m1/test-cases/TC3`)
       return json
     }) as never
-    const code = await milestoneTestCaseShow('M', 'TC3', {
-      download: path.join(dir, 'ms'),
-    })
+    const code = await milestoneTestCaseDownload(
+      'M',
+      'TC3',
+      path.join(dir, 'ms'),
+      {}
+    )
     expect(code).toBeUndefined()
     const runDir = path.join(
       dir,
@@ -517,7 +609,37 @@ describe('downloadRunsEvidence', () => {
     expect(fs.readdirSync(runDir).sort()).toEqual(['banner.png', 'invoice.png'])
   })
 
-  it('rejects an empty --download directory', async () => {
-    expect(await taskTestCaseShow('LUM-42/TC3', { download: ' ' })).toBe(1)
+  it('rejects a missing directory or handle before any request', async () => {
+    global.fetch = jest.fn() as never
+    expect(await taskTestCaseDownload('LUM-42/TC3', ' ')).toBe(1)
+    expect(await taskTestCaseDownload(undefined, dir)).toBe(1)
+    expect(await milestoneTestCaseDownload('M', 'TC3', undefined, {})).toBe(1)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('says so when the case was never run', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ testCase: tc, runs: [], pullRequests: [] }),
+    }) as never
+    expect(await taskTestCaseDownload('LUM-42/TC3', dir)).toBeUndefined()
+    expect(printed()).toContain('never run, so no evidence to download')
+  })
+})
+
+describe('Codex rules classification', () => {
+  it('keeps show server-only and puts only download in the writes-local-files class', () => {
+    for (const cmd of ['task testcase show', 'milestone testcase show']) {
+      expect(CODEX_SERVER_ONLY_COMMANDS).toContain(cmd)
+      expect(CODEX_SANDBOXED_COMMANDS[cmd]).toBeUndefined()
+    }
+    for (const cmd of [
+      'task testcase download',
+      'milestone testcase download',
+    ]) {
+      expect(CODEX_SERVER_ONLY_COMMANDS).not.toContain(cmd)
+      expect(CODEX_SANDBOXED_COMMANDS[cmd]).toMatch(/writes local files/)
+    }
   })
 })

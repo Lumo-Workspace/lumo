@@ -172,7 +172,7 @@ lumo milestone update "Q3 Launch" --token-budget 50000000
 lumo milestone update "Q3 Launch" --token-budget ""
 ```
 
-### `lumo milestone testcase add|list|show|update|rm|run|disposition <milestone>` - the milestone close contract (LUM-1135)
+### `lumo milestone testcase add|list|show|download|update|rm|run|disposition <milestone>` - the milestone close contract (LUM-1135)
 
 Milestone test cases are cross-task, end-to-end cases and the milestone close contract. Every command mirrors `lumo task testcase` (same flags, same output shape); the differences:
 
@@ -194,7 +194,7 @@ lumo milestone testcase add "Review v2" --title "PR review round-trip" --step "o
 lumo milestone testcase run "Review v2" TC1 --result pass --env production --step s1-2=pass --step v1=pass --evidence https://github.com/o/r/pull/1#issuecomment-1
 lumo milestone testcase list "Review v2"
 lumo milestone testcase show "Review v2" TC1
-lumo milestone testcase show "Review v2" TC1 --download ./evidence
+lumo milestone testcase download "Review v2" TC1 ./evidence
 lumo milestone testcase update "Review v2" TC1 --expected "one review comment per finding, on the right line"
 lumo milestone testcase rm "Review v2" TC1
 lumo milestone testcase disposition "Review v2" TC1 --known-defect --note "shipping with the line-offset bug"

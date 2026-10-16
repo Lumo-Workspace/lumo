@@ -86,7 +86,14 @@ export function classifyEvidence(
   }
 }
 
-const MAX_NAME = 180
+/** 本地文件名的字节上限（留出 `-N` 序号的余量，低于常见的 255 字节）。 */
+const MAX_NAME_BYTES = 200
+
+/**
+ * 单个证据文件的下载上限。上传侧本就有大小限制，这里是防御：响应边读边写盘，
+ * 超过上限就停、删掉写了一半的文件，不把整个响应先读进内存。
+ */
+export const MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024
 
 /**
  * 原文件名 → 安全的本地文件名：去控制符、`/` `\` 换成 `_`、压掉 `..`、去前导点
@@ -107,10 +114,21 @@ export function sanitizeEvidenceFilename(name: string): string {
   s = s.replace(/[<>:"|?*]/g, '_')
   s = s.replace(/\s+/g, ' ')
   s = s.replace(/^[.\s]+/, '').replace(/[.\s]+$/, '')
-  if (s.length > MAX_NAME) {
+  // 文件系统按**字节**限长（常见 255 字节）：按 UTF-8 字节截，保住扩展名，
+  // 不在多字节字符中间切。
+  if (Buffer.byteLength(s, 'utf8') > MAX_NAME_BYTES) {
     const dot = s.lastIndexOf('.')
-    const ext = dot > 0 && s.length - dot <= 16 ? s.slice(dot) : ''
-    s = s.slice(0, MAX_NAME - ext.length) + ext
+    const ext =
+      dot > 0 && Buffer.byteLength(s.slice(dot), 'utf8') <= 16
+        ? s.slice(dot)
+        : ''
+    const budget = MAX_NAME_BYTES - Buffer.byteLength(ext, 'utf8')
+    let base = ''
+    for (const ch of Array.from(ext ? s.slice(0, dot) : s)) {
+      if (Buffer.byteLength(base + ch, 'utf8') > budget) break
+      base += ch
+    }
+    s = base.replace(/[.\s]+$/, '') + ext
   }
   return s || 'evidence'
 }
@@ -229,12 +247,9 @@ async function downloadOne(
   if (res.status === 401) return fail('HTTP 401 — the API key was not accepted')
   if (!res.ok) return fail(`HTTP ${res.status}`)
 
-  let bytes: Buffer
-  try {
-    bytes = Buffer.from(await res.arrayBuffer())
-  } catch (err) {
-    return fail(err instanceof Error ? err.message : String(err))
-  }
+  const declared = Number(res.headers?.get?.('content-length') ?? NaN)
+  if (Number.isFinite(declared) && declared > MAX_DOWNLOAD_BYTES)
+    return fail(`larger than ${MAX_DOWNLOAD_BYTES} bytes, not downloaded`)
 
   try {
     fs.mkdirSync(runDir, { recursive: true })
@@ -248,11 +263,45 @@ async function downloadOne(
   )
   const target = path.join(runDir, name)
   if (!inside(runDir, target)) return fail('unsafe file name')
+
+  let fd: number
   try {
-    fs.writeFileSync(target, bytes, { flag: 'wx' })
+    fd = fs.openSync(target, 'wx')
   } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err))
+  }
+  try {
+    await writeBody(res, fd)
+    fs.closeSync(fd)
+  } catch (err) {
+    fs.closeSync(fd)
+    // 只删本次刚用 wx 新建的那个文件（写了一半的）。
+    fs.rmSync(target, { force: true })
     return fail(err instanceof Error ? err.message : String(err))
   }
   print(`  saved ${terminalSafe(target)}`)
   return true
+}
+
+/** 边读边写；超过 {@link MAX_DOWNLOAD_BYTES} 就抛错。没有流式 body 时退回整读。 */
+async function writeBody(res: Response, fd: number): Promise<void> {
+  const tooLarge = () =>
+    new Error(`larger than ${MAX_DOWNLOAD_BYTES} bytes, stopped`)
+  if (res.body && typeof res.body.getReader === 'function') {
+    const reader = res.body.getReader()
+    let written = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) return
+      written += value.byteLength
+      if (written > MAX_DOWNLOAD_BYTES) {
+        await reader.cancel().catch(() => undefined)
+        throw tooLarge()
+      }
+      fs.writeSync(fd, value)
+    }
+  }
+  const buf = Buffer.from(await res.arrayBuffer())
+  if (buf.length > MAX_DOWNLOAD_BYTES) throw tooLarge()
+  fs.writeSync(fd, buf)
 }
