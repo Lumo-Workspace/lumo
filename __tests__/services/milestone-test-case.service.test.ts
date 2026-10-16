@@ -300,3 +300,46 @@ describe('milestoneTestCaseService', () => {
     expect(mockDispatch).toHaveBeenCalledWith('m-1')
   })
 })
+
+// LUM-1185: milestone 读端与任务读端同形——推导判定 + N/M passing 汇总。
+describe('milestone read-side verdict (LUM-1185)', () => {
+  const run = {
+    id: 'r1',
+    testCaseId: mcase.id,
+    result: 'PASS',
+    environment: 'LOCAL',
+    failedPhase: null,
+    failedIndex: null,
+    failedStepText: null,
+    failureAttribution: null,
+    unprovenVerification: [],
+    evidence: [],
+    stepResults: [],
+    executedByMemberId: null,
+    disposition: null,
+  }
+
+  it('list carries the ceiling per run and the summary', async () => {
+    repo.listForMilestone.mockResolvedValue([mcase] as never)
+    repo.runsPerCaseForMilestone.mockResolvedValue(
+      new Map([[mcase.id, [run]]]) as never
+    )
+    const res = await milestoneTestCaseService.list('m-1', 'mem-1')
+    expect(res.testCases[0]!.runs[0]!.ceiling).toEqual({
+      effective: 'UNPROVEN',
+      reason: 'no-evidence',
+    })
+    expect(res.summary).toMatchObject({ total: 1, passing: 0, inconclusive: 1 })
+  })
+
+  it('getDetail carries the step report', async () => {
+    repo.findByMilestoneAndNumber.mockResolvedValue(mcase as never)
+    repo.listRuns.mockResolvedValue([run] as never)
+    const res = await milestoneTestCaseService.getDetail('m-1', 'TC1', 'mem-1')
+    expect(res.runs[0]!.stepReport).toMatchObject({
+      total: 1,
+      passed: 0,
+      hasStepResults: false,
+    })
+  })
+})

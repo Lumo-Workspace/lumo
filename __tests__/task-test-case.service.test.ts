@@ -771,3 +771,144 @@ describe('LUM-1211 error wording and missingStepRefs', () => {
     expect(missingStepRefs(tc, {}, new Set(), 0)).toEqual([])
   })
 })
+
+// LUM-1185: 读端随每条 run 回传推导判定（封顶 + 逐步报告），列表再带 Record
+// 行同源的汇总；CLI 只渲染，不复刻规则。
+describe('read-side verdict (LUM-1185)', () => {
+  const storedRun = (over: Record<string, unknown>) => ({
+    id: 'r1',
+    testCaseId: 'tc-1',
+    result: 'PASS',
+    environment: 'LOCAL',
+    failedPhase: null,
+    failedIndex: null,
+    failedStepText: null,
+    failureAttribution: null,
+    unprovenVerification: [],
+    evidence: [],
+    stepResults: [],
+    executedByMemberId: null,
+    sourceSessionId: null,
+    disposition: null,
+    ...over,
+  })
+  const reviewRepo = jest.requireMock(
+    '@/lib/repositories/test-case-run-review.repository'
+  ).testCaseRunReviewRepository.listForTask as jest.Mock
+  afterEach(() => reviewRepo.mockResolvedValue([]))
+
+  it('listForTask caps a zero-evidence PASS to UNPROVEN and reports N/M passing', async () => {
+    const proven = { ...testCase, id: 'tc-2', number: 4 }
+    repo.listForTask.mockResolvedValue([testCase, proven])
+    repo.runsPerCase.mockResolvedValue(
+      new Map([
+        ['tc-1', [storedRun({ id: 'r1' })]],
+        [
+          'tc-2',
+          [
+            storedRun({
+              id: 'r2',
+              testCaseId: 'tc-2',
+              evidence: [{ kind: 'url', url: 'https://example.com/log' }],
+              stepResults: allPass(testCase).map(s => ({
+                ...s,
+                text: 'x',
+                reason: null,
+                durationMs: 1200,
+                evidence: [],
+              })),
+            }),
+          ],
+        ],
+      ]) as never
+    )
+
+    const res = await taskTestCaseService.listForTask('t-1')
+
+    expect(res.testCases[0]!.runs[0]!.ceiling).toEqual({
+      effective: 'UNPROVEN',
+      reason: 'no-evidence',
+    })
+    expect(res.testCases[1]!.runs[0]!.ceiling).toEqual({ effective: 'PASS' })
+    expect(res.testCases[1]!.runs[0]!.stepReport).toMatchObject({
+      passed: 3,
+      total: 3,
+      hasStepResults: true,
+    })
+    expect(res.summary).toMatchObject({
+      total: 2,
+      passing: 1,
+      inconclusive: 1,
+      blocking: [],
+    })
+  })
+
+  it('listForTask counts an unruled defect as blocking DONE', async () => {
+    repo.listForTask.mockResolvedValue([testCase])
+    repo.runsPerCase.mockResolvedValue(
+      new Map([
+        [
+          'tc-1',
+          [
+            storedRun({
+              result: 'FAIL',
+              failureAttribution: 'IMPLEMENTATION_DEFECT',
+              failedPhase: 'STEPS',
+              failedIndex: 1,
+            }),
+          ],
+        ],
+      ]) as never
+    )
+
+    const res = await taskTestCaseService.listForTask('t-1')
+
+    expect(res.summary.failing).toBe(1)
+    expect(res.summary.blocking).toEqual([
+      { caseNumber: 3, title: testCase.title, runId: 'r1' },
+    ])
+    // the step report knows where it broke and what was never reached
+    expect(
+      res.testCases[0]!.runs[0]!.stepReport.rows.map(r => r.state)
+    ).toEqual(['reached', 'failed', 'notReached'])
+  })
+
+  it('getDetail carries the ceiling, step report and spot-check review', async () => {
+    repo.findById.mockResolvedValue({
+      ...testCase,
+      requiredEnvironment: 'PRODUCTION',
+    })
+    repo.listRuns.mockResolvedValue([
+      storedRun({ evidence: [{ kind: 'url', url: 'https://example.com/a' }] }),
+    ] as never)
+    reviewRepo.mockResolvedValue([
+      {
+        testCaseRunId: 'r1',
+        accepted: false,
+        note: 'screenshot is of the wrong page',
+        reviewedByMemberId: 'm-9',
+        createdAt: new Date('2026-10-07T00:00:00Z'),
+      },
+    ])
+
+    const { runs } = await taskTestCaseService.getDetail('tc-1')
+
+    expect(runs[0]!.ceiling).toEqual({
+      effective: 'UNPROVEN',
+      reason: 'environment',
+      requiredEnvironment: 'PRODUCTION',
+      ranIn: 'LOCAL',
+    })
+    expect(runs[0]!.stepReport.rows.map(r => r.state)).toEqual([
+      'unrecorded',
+      'unrecorded',
+      'unrecorded',
+    ])
+    expect(runs[0]!.review).toEqual({
+      accepted: false,
+      note: 'screenshot is of the wrong page',
+      reviewer: 'm-9',
+      reviewedAt: '2026-10-07T00:00:00.000Z',
+    })
+  })
+})
