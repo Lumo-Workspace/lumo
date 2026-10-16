@@ -264,6 +264,58 @@ describe('per-step evidence in the record dialog', () => {
   })
 })
 
+describe('a step that shows no selected result', () => {
+  /** 每一行：有没有选中的单选、有没有「清除」、有没有上传入口。 */
+  const rows = () =>
+    screen.getAllByRole('radio', { name: 'Passed' }).map(r => {
+      const row = r.closest('div.flex-col') as HTMLElement
+      return {
+        checked: within(row)
+          .getAllByRole('radio')
+          .some(x => (x as HTMLInputElement).checked),
+        clear: within(row).queryByRole('button', { name: /^Clear the result/ }),
+        upload: within(row).queryByLabelText(/^Attach files to step/),
+      }
+    })
+
+  const expectNoOrphanControls = () => {
+    for (const row of rows()) {
+      if (row.checked) continue
+      expect(row.clear).toBeNull()
+      expect(row.upload).toBeNull()
+    }
+  }
+
+  it('has neither an upload input nor Clear — before and after marking', async () => {
+    setup()
+    expectNoOrphanControls()
+    await userEvent.click(screen.getAllByRole('radio', { name: 'Passed' })[0]!)
+    expectNoOrphanControls()
+    expect(rows()[0]!.upload).not.toBeNull()
+  })
+
+  it('a step marked failed loses its controls and files when the run turns PASS', async () => {
+    setup()
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Result' }),
+      'FAIL'
+    )
+    await userEvent.click(screen.getAllByRole('radio', { name: 'Passed' })[0]!)
+    await userEvent.click(screen.getAllByRole('radio', { name: 'Failed' })[1]!)
+    attach(stepInput('s2')!, [png('fail.png')])
+    expect(screen.getByText('fail.png')).toBeInTheDocument()
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Result' }),
+      'PASS'
+    )
+    // PASS 模式没有「失败」单选：第 2 步显示为未标，不能留着「清除」和入口。
+    expect(rows()[1]!.checked).toBe(false)
+    expectNoOrphanControls()
+    expect(screen.queryByText('fail.png')).not.toBeInTheDocument()
+  })
+})
+
 describe('after recording', () => {
   it('the run report draws the file under its step', async () => {
     const onSubmit = setup()

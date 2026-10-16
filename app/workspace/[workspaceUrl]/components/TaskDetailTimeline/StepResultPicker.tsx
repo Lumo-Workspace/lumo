@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import type { PickerEntry, PickerState } from '@/lib/test-cases/step-picker'
 
@@ -30,6 +30,9 @@ export function StepResultPicker({
   renderMarkedStep,
 }: StepResultPickerProps) {
   const intl = useIntl()
+  // LUM-1185: radio 的 name 按实例加前缀。裸用 `STEPS:0` 时，同一页面上的两个
+  // 选择器会被浏览器当成同一组单选，后渲染的那个把前一个的选中状态抢走。
+  const groupId = useId()
   const items = [
     ...steps.map((text, index) => ({
       key: `STEPS:${index}`,
@@ -65,7 +68,13 @@ export function StepResultPicker({
         {intl.formatMessage({ id: 'testCases.field.stepResults.hint' })}
       </p>
       {items.map(item => {
-        const entry = value[item.key]
+        // LUM-1185: 当前结果下不能选的状态（PASS 模式里遗留的 FAIL）在 UI 上
+        // 没有对应的单选框，按「未标」显示——不出「清除」，也不出上传入口。
+        const raw = value[item.key]
+        const entry =
+          raw && (statuses as readonly string[]).includes(raw.status)
+            ? raw
+            : undefined
         return (
           <div key={item.key} className='flex flex-col gap-1'>
             <span className='text-foreground'>{item.label}</span>
@@ -74,7 +83,7 @@ export function StepResultPicker({
                 <label key={s} className='flex items-center gap-1'>
                   <input
                     type='radio'
-                    name={item.key}
+                    name={`${groupId}-${item.key}`}
                     checked={entry?.status === s}
                     onChange={() => set(item.key, s)}
                   />

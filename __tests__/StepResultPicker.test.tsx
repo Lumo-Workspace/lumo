@@ -78,3 +78,54 @@ it('offers Failed only on a FAIL run', () => {
   )
   expect(screen.getByRole('radio', { name: /Failed/ })).toBeInTheDocument()
 })
+
+// LUM-1185: radio 的 name 曾是裸的 `STEPS:0`。同一页面两个选择器时浏览器把它们
+// 当成一组，后一个抢走前一个的选中——静态截图里英文面板「没选中却能挂文件」的根因。
+it('keeps two pickers on one page from sharing radio groups', () => {
+  const marked = {
+    'STEPS:0': { status: 'PASS' as const, reason: '' },
+  }
+  render(
+    <>
+      <StepResultPicker
+        steps={['a']}
+        verification={[]}
+        result='PASS'
+        value={marked}
+        onChange={jest.fn()}
+      />
+      <StepResultPicker
+        steps={['a']}
+        verification={[]}
+        result='PASS'
+        value={marked}
+        onChange={jest.fn()}
+      />
+    </>
+  )
+  const passed = screen.getAllByRole('radio', {
+    name: 'Passed',
+  }) as HTMLInputElement[]
+  expect(passed).toHaveLength(2)
+  expect(passed[0]!.name).not.toBe(passed[1]!.name)
+  expect(passed.map(r => r.checked)).toEqual([true, true])
+})
+
+it('shows a step whose status this result cannot pick as unmarked', () => {
+  const renderMarkedStep = jest.fn(() => <span>extra</span>)
+  render(
+    <StepResultPicker
+      steps={['a']}
+      verification={[]}
+      result='PASS'
+      value={{ 'STEPS:0': { status: 'FAIL', reason: '' } }}
+      onChange={jest.fn()}
+      renderMarkedStep={renderMarkedStep}
+    />
+  )
+  expect(
+    (screen.getAllByRole('radio') as HTMLInputElement[]).some(r => r.checked)
+  ).toBe(false)
+  expect(screen.queryByRole('button', { name: /Clear the result/ })).toBeNull()
+  expect(renderMarkedStep).not.toHaveBeenCalled()
+})
