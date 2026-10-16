@@ -278,6 +278,46 @@ describe('LUM-988 ranker policy', () => {
     expect(isRankerExempt('logic_error', 'src/latest.ts')).toBe(false)
   })
 
+  it('LUM-1194 + LUM-1210: a test-file finding that also carries a path-instruction claim is removed by neither', () => {
+    const both = {
+      id: 'b',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+      filePath: 'src/__tests__/a.test.ts',
+      pathInstruction: 'src/**/*.test.ts',
+    }
+    const testOnly = { ...both, id: 't', pathInstruction: null }
+    const instructionOnly = { ...both, id: 'i', filePath: 'src/a.ts' }
+    const plain = { ...testOnly, id: 'p', filePath: 'src/a.ts' }
+    expect(rankerMayReject(both)).toBe(false)
+    expect(verifierAppliesTo(both)).toBe(false)
+    // Each exemption on its own: the test finding is still the verifier's.
+    expect(verifierAppliesTo(testOnly)).toBe(true)
+    expect(rankerMayReject(testOnly)).toBe(false)
+    expect(rankerMayReject(instructionOnly)).toBe(false)
+    expect(rankerMayReject(plain)).toBe(true)
+    const rows = [both, testOnly, instructionOnly, plain]
+    expect(
+      applyRankerPolicy(
+        rows,
+        rows.map(r => ({ id: r.id, p: 0, reason: 'low' })),
+        new Set()
+      ).map(v => v.findingId)
+    ).toEqual(['p'])
+    expect(
+      applyVerifierPolicy(
+        rows,
+        rows.map(r => ({
+          id: r.id,
+          verdict: 'REJECTED' as const,
+          reason: 'r',
+          defaulted: false,
+        }))
+      ).map(v => v.findingId)
+    ).toEqual(['t', 'p'])
+  })
+
   it('the threshold is the one measured on the replay', () => {
     expect(RANKER_KEEP_THRESHOLD).toBe(18)
   })

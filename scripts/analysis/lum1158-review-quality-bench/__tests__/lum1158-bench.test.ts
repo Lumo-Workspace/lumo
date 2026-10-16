@@ -298,6 +298,35 @@ describe('LUM-1158 Lumo removal policy', () => {
     ).toHaveLength(1)
   })
 
+  it('LUM-1194 + LUM-1210: a test-file finding with a path instruction survives both, like production', () => {
+    const both = {
+      findings: [
+        {
+          ...run.findings[0]!,
+          filePath: 'src/a.test.ts',
+          pathInstruction: 'src/**',
+        },
+        { ...run.findings[0]!, filePath: 'src/b.test.ts' },
+      ],
+    }
+    const kept = keptLumoFindings(
+      both,
+      {
+        results: [
+          { id: 'f0', verdict: 'REJECTED' },
+          { id: 'f1', verdict: 'CONFIRMED' },
+        ],
+      },
+      {
+        ranking: [
+          { id: 'f0', p: 0 },
+          { id: 'f1', p: 0 },
+        ],
+      }
+    )
+    expect(kept!.map(f => f.id)).toEqual(['f0', 'f1'])
+  })
+
   it('LUM-1194: the ranker never removes a test_defect finding; the verifier still can', () => {
     expect(
       keptLumoFindings(run, undefined, { ranking: [{ id: 'f3', p: 0 }] })!.map(

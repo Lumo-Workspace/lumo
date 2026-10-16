@@ -58,7 +58,9 @@ settings mean in Lumo (the settings card and `lumo workspace security-scan
   for it is commented inline under `chill` and `assertive` whatever its
   severity; `quiet` lists it in the summary. The AI review names the
   instruction a finding applies, and Lumo keeps that only when the instruction
-  was really sent for that finding's file (an unmatched claim is ignored). The profile in force is stored on the scan, so the comments follow
+  was really sent for that finding's file (an unmatched claim is ignored).
+  Such a finding is also never rejected by the verifier or the ranker: the
+  owners asked for that check on that path (LUM-1210). The profile in force is stored on the scan, so the comments follow
   the settings the review ran with.
 
 - `reviews.path_instructions` — up to 20 `{ path, instructions }` entries (glob
