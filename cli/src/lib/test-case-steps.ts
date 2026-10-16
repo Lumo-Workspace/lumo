@@ -214,6 +214,63 @@ export function parseStepEvidence(
   return { ok: true, value: out }
 }
 
+/**
+ * LUM-1211: 本次必须上报却没报的条目（CLI 1-based 引用，执行顺序）——与服务端
+ * `missingStepRefs` 同一条规则，用于**上传证据之前**预检，免得服务端必拒的 run
+ * 留下孤儿 blob。
+ * - PASS：全部步骤 + 全部复验；`--unproven` 声明的复验条目算已上报。
+ * - FAIL：执行位置在断点之前的条目（断点本身由 FAIL 步覆盖）；
+ *   断点 = failLocator，缺省取 --step 里的 fail 步；都没有则无从判断，返回 []
+ *   （交给服务端的 400）。
+ * - BLOCKED：没有要求。
+ */
+export function missingStepRefsLocal(
+  testCase: { steps: string[]; verification: string[] },
+  input: {
+    result: 'PASS' | 'FAIL' | 'BLOCKED'
+    steps: StepSpec[]
+    failLocator: { phase: StepPhase; index: number } | null
+    /** 0-based 复验下标。 */
+    unprovenVerification: number[]
+  }
+): string[] {
+  if (input.result === 'BLOCKED') return []
+  const stepCount = testCase.steps.length
+  const pos = (phase: StepPhase, index: number) =>
+    phase === 'STEPS' ? index : stepCount + index
+  let failPos: number | null = null
+  if (input.result === 'FAIL') {
+    const loc =
+      input.failLocator ?? input.steps.find(s => s.status === 'FAIL') ?? null
+    if (!loc) return []
+    failPos = pos(loc.phase, loc.index)
+  }
+  const reported = new Set(input.steps.map(s => `${s.phase}:${s.index}`))
+  const unproven = new Set(input.unprovenVerification)
+  const missing: string[] = []
+  const check = (phase: StepPhase, count: number) => {
+    for (let index = 0; index < count; index++) {
+      if (failPos !== null && pos(phase, index) >= failPos) return
+      if (reported.has(`${phase}:${index}`)) continue
+      if (phase === 'VERIFICATION' && unproven.has(index)) continue
+      missing.push(`${phase === 'STEPS' ? 's' : 'v'}${index + 1}`)
+    }
+  }
+  check('STEPS', stepCount)
+  check('VERIFICATION', testCase.verification.length)
+  return missing
+}
+
+/** 预检失败时的提示，措辞与服务端 400 对齐。 */
+export function formatMissingStepsError(missing: string[]): string {
+  const fix = missing.map(ref => `--step ${ref}=pass`).join(' ')
+  return (
+    `Missing per-step results: ${missing.join(', ')}. Every step must be reported ` +
+    `pass, fail or skip (with a reason). Add: ${fix} (or =skip:"why" for any you did not check). ` +
+    'Nothing was uploaded.'
+  )
+}
+
 export function isUrl(target: string): boolean {
   return /^https?:\/\//i.test(target)
 }

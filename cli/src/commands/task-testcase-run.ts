@@ -22,6 +22,8 @@ import {
 import {
   parseStepSpecs,
   parseStepEvidence,
+  missingStepRefsLocal,
+  formatMissingStepsError,
   isUrl,
 } from '../lib/test-case-steps'
 
@@ -256,6 +258,26 @@ export async function testCaseRunInScope(
     return 1
   }
   if (paths.length > 0) {
+    // LUM-1211: 服务端会因漏报逐步结果拒绝这条 run；先在本地预检，别为一条
+    // 必拒的 run 上传出孤儿证据。没有文件要传时不多发这一次请求。
+    const pre = await apiCall<{
+      testCase: { steps: string[]; verification: string[] }
+    }>(ctx, base, {}, 'test case show')
+    if (!pre.ok || !pre.data) return 1
+    const missing = missingStepRefsLocal(pre.data.testCase, {
+      result: result as 'PASS' | 'FAIL' | 'BLOCKED',
+      steps: steps.value,
+      failLocator:
+        locator.failedPhase !== null && locator.failedIndex !== null
+          ? { phase: locator.failedPhase, index: locator.failedIndex }
+          : null,
+      unprovenVerification: unproven.indices,
+    })
+    if (missing.length > 0) {
+      console.error(`Error: ${formatMissingStepsError(missing)}`)
+      return 1
+    }
+
     const fd = new FormData()
     for (const p of paths) {
       let bytes: Buffer

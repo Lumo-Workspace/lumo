@@ -20,10 +20,16 @@ import {
   parseStepSpecs,
   parseStepEvidence,
   formatStepResultLines,
+  missingStepRefsLocal,
+  formatMissingStepsError,
 } from '../../src/lib/test-case-steps'
 import { taskTestCaseRun } from '../../src/commands/task-testcase-run'
 import { taskTestCaseShow } from '../../src/commands/task-testcase-show'
 import { formatRunOutcome } from '../../src/lib/test-case-verdict'
+
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 let logSpy: jest.SpyInstance
 let errorSpy: jest.SpyInstance
@@ -399,5 +405,145 @@ describe('formatRunOutcome skipped (LUM-1211)', () => {
       },
     })
     expect(out).not.toContain('\u001b')
+  })
+})
+
+describe('missingStepRefsLocal (LUM-1211)', () => {
+  const tc = { steps: ['a', 'b'], verification: ['x', 'y'] }
+  const rep = (
+    phase: 'STEPS' | 'VERIFICATION',
+    index: number,
+    status: 'PASS' | 'FAIL' | 'SKIP' = 'PASS'
+  ) => ({ phase, index, status, reason: null, durationMs: null })
+
+  it('PASS needs every step and verification', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'PASS',
+        steps: [rep('STEPS', 0)],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual(['s2', 'v1', 'v2'])
+  })
+
+  it('an unproven verification counts as reported', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'PASS',
+        steps: [rep('STEPS', 0), rep('STEPS', 1), rep('VERIFICATION', 0)],
+        failLocator: null,
+        unprovenVerification: [1],
+      })
+    ).toEqual([])
+  })
+
+  it('FAIL needs everything up to the break, taken from the fail step', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'FAIL',
+        steps: [rep('VERIFICATION', 0, 'FAIL')],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual(['s1', 's2'])
+  })
+
+  it('FAIL prefers the explicit locator and BLOCKED needs nothing', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'FAIL',
+        steps: [],
+        failLocator: { phase: 'STEPS', index: 1 },
+        unprovenVerification: [],
+      })
+    ).toEqual(['s1'])
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'BLOCKED',
+        steps: [],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual([])
+  })
+
+  it('FAIL with no break point is left to the server', () => {
+    expect(
+      missingStepRefsLocal(tc, {
+        result: 'FAIL',
+        steps: [],
+        failLocator: null,
+        unprovenVerification: [],
+      })
+    ).toEqual([])
+  })
+
+  it('formats the error like the server wording', () => {
+    expect(formatMissingStepsError(['s2', 'v1'])).toMatch(
+      /^Missing per-step results: s2, v1\. .*--step s2=pass --step v1=pass/
+    )
+  })
+})
+
+describe('testcase run pre-checks coverage before uploading (LUM-1211)', () => {
+  const file = join(mkdtempSync(join(tmpdir(), 'lumo-tc-')), 'out.log')
+  writeFileSync(file, 'log')
+  const showBody = {
+    testCase: { number: 1, steps: ['a', 'b'], verification: ['x'] },
+  }
+  const urls = () =>
+    (global.fetch as jest.Mock).mock.calls.map(([u]) => String(u))
+
+  it('uploads nothing and exits 1 when steps are missing', async () => {
+    respond(showBody)
+    const code = await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass'],
+      evidenceFile: [file],
+    })
+    expect(code).toBe(1)
+    expect(errors()).toMatch(/Missing per-step results: s2, v1\./)
+    expect(urls().some(u => u.endsWith('/evidence'))).toBe(false)
+    expect(urls().some(u => u.endsWith('/runs'))).toBe(false)
+  })
+
+  it('uploads when coverage is complete', async () => {
+    respond({
+      ...showBody,
+      files: [
+        {
+          url: 'https://b/o.log',
+          filename: 'out.log',
+          contentType: 'text/plain',
+          size: 3,
+        },
+      ],
+      run: { result: 'PASS', environment: 'LOCAL', failedStepText: null },
+      ceiling: { effective: 'PASS' },
+    })
+    await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1-2=pass', 'v1=pass'],
+      evidenceFile: [file],
+    })
+    expect(urls().some(u => u.endsWith('/evidence'))).toBe(true)
+    expect(urls().some(u => u.endsWith('/runs'))).toBe(true)
+  })
+
+  it('makes no extra request when there is no file to upload', async () => {
+    respond({
+      run: { result: 'PASS', environment: 'LOCAL', failedStepText: null },
+      ceiling: { effective: 'PASS' },
+    })
+    await taskTestCaseRun('LUM-1/TC1', {
+      result: 'pass',
+      env: 'local',
+      step: ['s1=pass'],
+    })
+    expect(urls()).toHaveLength(1)
+    expect(urls()[0]).toMatch(/\/runs$/)
   })
 })
